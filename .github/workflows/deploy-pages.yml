@@ -24,11 +24,13 @@ jobs:
       - name: Export Godot (Web)
         uses: firebelley/godot-export@v7
         with:
-          # Ajusta la versión si usas una diferente localmente
-          godot-version: '4.3.0'
-          export-debug: false
-          export-preset: 'Web'
-          output-dir: build/web
+          # Godot 4.5.1 estable + plantillas (CI descarga ambas)
+          godot_executable_download_url: https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
+          godot_export_templates_download_url: https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz
+          relative_project_path: ./
+          presets_to_export: Web
+          use_preset_export_path: true
+          export_debug: false
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
