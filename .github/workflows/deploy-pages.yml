@@ -32,6 +32,16 @@ jobs:
           use_preset_export_path: true
           export_debug: false
 
+      - name: Move Web export to root
+        run: |
+          # El action crea un subdirectorio con el nombre del preset
+          # Mover todo al nivel superior para evitar /Web/ en la URL
+          if [ -d "${{ steps.export.outputs.build_directory }}/Web" ]; then
+            mv ${{ steps.export.outputs.build_directory }}/Web/* ${{ steps.export.outputs.build_directory }}/
+            rmdir ${{ steps.export.outputs.build_directory }}/Web
+            echo "Moved Web export to root directory"
+          fi
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
