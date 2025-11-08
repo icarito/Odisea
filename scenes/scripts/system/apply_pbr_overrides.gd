@@ -1,5 +1,6 @@
 ## Aplica overrides PBR con normales a las tablas (piso) y barriles al cargar la escena.
 ## Mantiene el albedo/ajustes existentes cuando es posible y solo añade normal map y filtrado.
+## Ubicación: scenes/scripts/system/ (utilitarios de render)
 
 extends Node
 
@@ -15,6 +16,7 @@ const BARREL_NORMAL := "res://scenes/Textures/barrel_normal.png"
 @export var barrel_normal_scale: float = 1.0
 
 func _ready() -> void:
+	# Script reubicado en scenes/scripts/system/ para organización.
 	_apply_floor_override()
 	_apply_barrels_override()
 

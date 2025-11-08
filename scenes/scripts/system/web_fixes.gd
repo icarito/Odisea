@@ -1,4 +1,5 @@
 ## Ajustes específicos para la exportación Web.
+## Ubicación: scenes/scripts/system/ (utilitarios de plataforma)
 ## Coloca este script en el nodo raíz de tu escena principal (ether.tscn).
 
 extends Node
