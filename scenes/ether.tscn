@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://s8jh8lepju8r"]
+[gd_scene load_steps=21 format=3 uid="uid://s8jh8lepju8r"]
 
 [ext_resource type="Texture2D" uid="uid://nxl0y8bc2g61" path="res://assets/Panorama_Ocean_02-2048x1024.png" id="1_1d02l"]
 [ext_resource type="PackedScene" uid="uid://kicjwmh02uwf" path="res://addons/cogito/PackedScenes/cogito_player.tscn" id="1_cb835"]
@@ -7,6 +7,9 @@
 [ext_resource type="Texture2D" uid="uid://cbe47rnki0uoj" path="res://assets/planks_normal.png" id="4_planksn"]
 [ext_resource type="Script" uid="uid://c43ldeee5wwb4" path="res://scenes/scripts/system/apply_pbr_overrides.gd" id="5_overrides"]
 [ext_resource type="Script" uid="uid://cvgr6b5spxlwf" path="res://scenes/scripts/system/web_fixes.gd" id="6_webfixes"]
+[ext_resource type="PackedScene" uid="uid://cio4x05ipvslu" path="res://addons/cogito/Components/Interactions/CarryableComponent.tscn" id="7_carry"]
+[ext_resource type="PackedScene" uid="uid://cct0itdltyppg" path="res://addons/cogito/Components/Interactions/ReadableComponent.tscn" id="8_readable"]
+[ext_resource type="Script" uid="uid://dmeh01c5ccjqc" path="res://addons/cogito/CogitoObjects/cogito_object.gd" id="9_cogobj"]
 
 [sub_resource type="PanoramaSkyMaterial" id="PanoramaSkyMaterial_skxnn"]
 panorama = ExtResource("1_1d02l")
@@ -38,15 +41,24 @@ normal_scale = -0.91
 normal_texture = ExtResource("4_planksn")
 uv1_scale = Vector3(15, 15, 15)
 
-[sub_resource type="PlaneMesh" id="PlaneMesh_50or8"]
-lightmap_size_hint = Vector2i(102, 102)
+[sub_resource type="BoxMesh" id="BoxMesh_platform"]
 material = SubResource("StandardMaterial3D_fyaxs")
-size = Vector2(20, 20)
+size = Vector3(20, 0.5, 20)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_platform"]
-size = Vector3(20, 1, 20)
+size = Vector3(20, 0.5, 20)
 
 [sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_cb835"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_note"]
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_note"]
+material = SubResource("StandardMaterial3D_note")
+size = Vector3(0.3, 0.01, 0.5)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_note"]
+size = Vector3(0.3, 0.03, 0.5)
 
 [node name="Node3D" type="Node3D" unique_id=1135657613]
 
@@ -69,10 +81,11 @@ transform = Transform3D(-0.8515439, 0, 0.5242832, 0, 1, 0, -0.5242831, 0, -0.851
 [node name="Platform" type="StaticBody3D" parent="." unique_id=1986980301]
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Platform" unique_id=775150919]
-mesh = SubResource("PlaneMesh_50or8")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+mesh = SubResource("BoxMesh_platform")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Platform" unique_id=341053847]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
 shape = SubResource("BoxShape3D_platform")
 
 [node name="WorldBoundary" type="StaticBody3D" parent="." unique_id=464073490]
@@ -83,3 +96,31 @@ shape = SubResource("WorldBoundaryShape3D_cb835")
 
 [node name="barrels2" parent="." unique_id=626887131 instance=ExtResource("2_skxnn")]
 transform = Transform3D(0.43062133, 0, 0.9025327, 0, 1, 0, -0.9025327, 0, 0.43062133, 0, 0, 0)
+
+[node name="Nota" type="RigidBody3D" parent="." unique_id=1054897410]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 0.25, -4)
+mass = 0.2
+continuous_cd = true
+script = ExtResource("9_cogobj")
+cogito_name = ""
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Nota" unique_id=892909947]
+mesh = SubResource("BoxMesh_note")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Nota" unique_id=1749624631]
+shape = SubResource("BoxShape3D_note")
+
+[node name="ReadableComponent" parent="Nota" unique_id=1230169941 instance=ExtResource("8_readable")]
+readable_title = "Nota"
+readable_content = "Hola Marianita!
+
+Aquí podemos construir!
+
+Tu papi que te adora 💕"
+interaction_text = "Leer"
+
+[node name="CarryableComponent" parent="Nota" unique_id=627228725 instance=ExtResource("7_carry")]
+carry_distance_offset = -0.5
+carrying_velocity_multiplier = 14
+drop_distance = 2.0
+interaction_text = "Cargar Nota"

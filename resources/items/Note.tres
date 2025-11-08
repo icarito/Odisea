@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="InventoryItemPD" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://addons/cogito/InventoryPD/CustomResources/InventoryItemPD.gd" id="1_invitem"]
+[ext_resource type="Texture2D" path="res://addons/cogito/Assets/Graphics/ItemIcons/page_combined.png" id="2_icon"]
+[ext_resource type="AudioStream" path="res://addons/cogito/Assets/Audio/Kenney/cardPlace1.ogg" id="3_pickup"]
+[ext_resource type="PackedScene" path="res://scenes/note_pickup.tscn" id="4_drop"]
+
+[resource]
+script = ExtResource("1_invitem")
+name = "Nota"
+description = "Una nota que puedes leer."
+icon = ExtResource("2_icon")
+is_stackable = false
+is_droppable = true
+is_unique = false
+stack_size = 1
+# Al soltar desde inventario, instanciar escena cargable/legible
+drop_scene = ExtResource("4_drop")
+item_drop_size = 0.5
+item_size = Vector2(1, 1)
+sound_pickup = ExtResource("3_pickup")
+can_auto_slot = false
+slot_number = -1

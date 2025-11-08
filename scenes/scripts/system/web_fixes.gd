@@ -39,6 +39,7 @@ func _on_focus_changed(_control) -> void:
 	if OS.has_feature("web") and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
+"""
 func _input(event: InputEvent) -> void:
 	# Capturar cursor en primer clic/interacción
 	if OS.has_feature("web"):
@@ -48,3 +49,4 @@ func _input(event: InputEvent) -> void:
 		elif event is InputEventKey and event.pressed:
 			if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+"""

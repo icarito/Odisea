@@ -1,0 +1,17 @@
+[gd_scene load_steps=4 format=3 base="res://addons/cogito/PackedScenes/document.tscn"]
+
+[ext_resource type="PackedScene" path="res://addons/cogito/Components/Interactions/CarryableComponent.tscn" id="1_carry"]
+
+ 
+
+[node name="CarryableComponent" parent="." instance=ExtResource("1_carry")]
+input_map_action = "interact2"
+interaction_text = "Cargar Nota"
+ignore_open_gui = false
+
+# Optional: set default readable text if dropped from inventory
+[node name="ReadableComponent" parent="."]
+input_map_action = "interact"
+interaction_text = "Leer"
+readable_title = "Nota"
+readable_content = "Una nota recogida."
