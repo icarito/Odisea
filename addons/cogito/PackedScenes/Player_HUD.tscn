@@ -256,7 +256,6 @@ size_flags_vertical = 8
 alignment = 1
 
 [node name="InventoryInterface" type="Control" parent="." unique_id=1217537661 node_paths=PackedStringArray("inventory_ui", "nodes_to_show")]
-visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -266,11 +265,13 @@ grow_vertical = 2
 script = ExtResource("3_lyywb")
 inventory_ui = NodePath("CogitoTabMenu/Inventory/InventoryUI")
 sound_error = ExtResource("8_bxpra")
-is_using_hotbar = false
+is_using_hotbar = true
+show_hotbar_in_hud = false
 nodes_to_show = [NodePath("CogitoTabMenu/Inventory/PlayerCurrencies"), NodePath("CogitoTabMenu")]
 metadata/_edit_lock_ = true
 
 [node name="CogitoTabMenu" type="TabContainer" parent="InventoryInterface" unique_id=1563851352 node_paths=PackedStringArray("nodes_to_focus", "inventory_interface_reference")]
+visible = false
 custom_minimum_size = Vector2(400, 0)
 layout_mode = 1
 offset_left = 25.0

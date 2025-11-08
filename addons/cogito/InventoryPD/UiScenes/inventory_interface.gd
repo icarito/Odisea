@@ -19,6 +19,9 @@ signal inventory_open(is_true: bool)
 ## Sound that plays as a generic error.
 @export var sound_error : AudioStream
 @export var is_using_hotbar: bool = true
+# When true, the hotbar HUD will be shown when the inventory is closed.
+# Set to false to hide the hotbar entirely while keeping quickslots disabled via is_using_hotbar.
+@export var show_hotbar_in_hud: bool = true
 
 @export_group("Inventory Screen")
 @export var nodes_to_show : Array[Node]
@@ -41,6 +44,9 @@ func _ready():
 	
 	is_inventory_open = false
 	info_panel.hide()
+	# Ensure initial visibility respects the flag
+	if not show_hotbar_in_hud:
+		hot_bar_inventory.hide()
 	
 	grabbed_slot_node.set_mouse_filter(2) # Setting mouse filter to ignore.
 	grabbed_slot_node.set_focus_mode(0) # Setting focus mode to none.
@@ -105,7 +111,10 @@ func close_inventory():
 		external_inventory_ui.hide()
 
 		if is_using_hotbar:
-			hot_bar_inventory.show()
+			if show_hotbar_in_hud:
+				hot_bar_inventory.show()
+			else:
+				hot_bar_inventory.hide()
 
 
 func _on_focus_changed(control: Control):
