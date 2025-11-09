@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3 uid="uid://s8jh8lepju8r"]
+[gd_scene load_steps=23 format=3 uid="uid://s8jh8lepju8r"]
 
 [ext_resource type="Texture2D" uid="uid://nxl0y8bc2g61" path="res://assets/Panorama_Ocean_02-2048x1024.png" id="1_1d02l"]
 [ext_resource type="PackedScene" uid="uid://kicjwmh02uwf" path="res://addons/cogito/PackedScenes/cogito_player.tscn" id="1_cb835"]
@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://cio4x05ipvslu" path="res://addons/cogito/Components/Interactions/CarryableComponent.tscn" id="7_carry"]
 [ext_resource type="PackedScene" uid="uid://cct0itdltyppg" path="res://addons/cogito/Components/Interactions/ReadableComponent.tscn" id="8_readable"]
 [ext_resource type="Script" uid="uid://dmeh01c5ccjqc" path="res://addons/cogito/CogitoObjects/cogito_object.gd" id="9_cogobj"]
+[ext_resource type="Script" uid="uid://yy1luaivs5h0" path="res://scenes/scripts/note_shader_controller.gd" id="10_note_fx"]
 
 [sub_resource type="PanoramaSkyMaterial" id="PanoramaSkyMaterial_skxnn"]
 panorama = ExtResource("1_1d02l")
@@ -50,67 +51,80 @@ size = Vector3(20, 0.5, 20)
 
 [sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_cb835"]
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_note"]
-roughness = 0.6
+[sub_resource type="Shader" id="Shader_note"]
+code = "shader_type spatial;\nrender_mode cull_disabled;\n\nuniform float bend_strength = 0.5;\nuniform float width = 0.3;\nuniform float wave_amp = 0.003;\nuniform float wave_freq = 8.0;\nuniform float wave_speed = 1.1;\n\nvoid vertex() {\n\tvec3 p = VERTEX;\n\tif (abs(bend_strength) > 0.01) {\n\t\tfloat half_w = width * 0.5;\n\t\tfloat t = clamp(p.x / half_w, -1.0, 1.0);\n\t\tfloat ang = bend_strength * t;\n\t\tfloat radius = half_w / bend_strength;\n\t\tfloat x_new = sin(ang) * radius;\n\t\tfloat y_curve = (cos(ang) - 1.0) * radius;\n\t\tp.x = x_new;\n\t\tp.y += y_curve;\n\t}\n\tif (abs(wave_amp) > 0.0001) {\n\t\tp.y += sin(TIME * wave_speed + p.x * wave_freq) * wave_amp;\n\t}\n\tVERTEX = p;\n}\n\nvoid fragment() {\n\tALBEDO = vec3(1.0);\n}"
 
-[sub_resource type="BoxMesh" id="BoxMesh_note"]
-material = SubResource("StandardMaterial3D_note")
-size = Vector3(0.3, 0.01, 0.5)
+[sub_resource type="ShaderMaterial" id="ShaderMaterial3D_note_bend"]
+render_priority = 0
+shader = SubResource("Shader_note")
+shader_parameter/bend_strength = 0.5
+shader_parameter/width = 0.3
+shader_parameter/wave_amp = 0.004
+shader_parameter/wave_freq = 9.0
+shader_parameter/wave_speed = 1.2
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_note"]
+material = SubResource("ShaderMaterial3D_note_bend")
+size = Vector2(0.3, 0.5)
+subdivide_width = 16
+subdivide_depth = 24
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_note"]
 size = Vector3(0.3, 0.03, 0.5)
 
-[node name="Node3D" type="Node3D" unique_id=1135657613]
+[node name="Node3D" type="Node3D"]
 
-[node name="WebFixes" type="Node" parent="." unique_id=506068295]
+[node name="WebFixes" type="Node" parent="."]
 script = ExtResource("6_webfixes")
 
-[node name="PBROverrides" type="Node" parent="." unique_id=1954496269]
+[node name="PBROverrides" type="Node" parent="."]
 script = ExtResource("5_overrides")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=298800828]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_6a4tb")
 
-[node name="Sun" type="DirectionalLight3D" parent="." unique_id=1819032000]
+[node name="Sun" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.81915206, 0.24240388, -0.5198368, 0, 0.90630776, 0.42261827, 0.57357645, -0.34618863, 0.74240386, 0, 0, 0)
 shadow_enabled = true
 
-[node name="CogitoPlayer" parent="." unique_id=409955909 instance=ExtResource("1_cb835")]
+[node name="CogitoPlayer" parent="." instance=ExtResource("1_cb835")]
 transform = Transform3D(-0.8515439, 0, 0.5242832, 0, 1, 0, -0.5242831, 0, -0.851544, 2.1364222, 1.6095476, -5.354737)
 
-[node name="Platform" type="StaticBody3D" parent="." unique_id=1986980301]
+[node name="Platform" type="StaticBody3D" parent="."]
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Platform" unique_id=775150919]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Platform"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
 mesh = SubResource("BoxMesh_platform")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Platform" unique_id=341053847]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Platform"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
 shape = SubResource("BoxShape3D_platform")
 
-[node name="WorldBoundary" type="StaticBody3D" parent="." unique_id=464073490]
+[node name="WorldBoundary" type="StaticBody3D" parent="."]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="WorldBoundary" unique_id=265556618]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WorldBoundary"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -20, 0)
 shape = SubResource("WorldBoundaryShape3D_cb835")
 
-[node name="barrels2" parent="." unique_id=626887131 instance=ExtResource("2_skxnn")]
+[node name="barrels2" parent="." instance=ExtResource("2_skxnn")]
 transform = Transform3D(0.43062133, 0, 0.9025327, 0, 1, 0, -0.9025327, 0, 0.43062133, 0, 0, 0)
 
-[node name="Nota" type="RigidBody3D" parent="." unique_id=1054897410]
+[node name="Nota" type="RigidBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 0.25, -4)
 mass = 0.2
 continuous_cd = true
 script = ExtResource("9_cogobj")
-cogito_name = ""
+cogito_name = "Nota"
+display_name = "Nota"
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Nota" unique_id=892909947]
-mesh = SubResource("BoxMesh_note")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Nota"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.01, 0)
+mesh = SubResource("PlaneMesh_note")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Nota" unique_id=1749624631]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Nota"]
 shape = SubResource("BoxShape3D_note")
 
-[node name="ReadableComponent" parent="Nota" unique_id=1230169941 instance=ExtResource("8_readable")]
+[node name="ReadableComponent" parent="Nota" instance=ExtResource("8_readable")]
 readable_title = "Nota"
 readable_content = "Hola Marianita!
 
@@ -119,8 +133,11 @@ Aquí podemos construir!
 Tu papi que te adora 💕"
 interaction_text = "Leer"
 
-[node name="CarryableComponent" parent="Nota" unique_id=627228725 instance=ExtResource("7_carry")]
+[node name="CarryableComponent" parent="Nota" instance=ExtResource("7_carry")]
 carry_distance_offset = -0.5
 carrying_velocity_multiplier = 14
 drop_distance = 2.0
 interaction_text = "Cargar Nota"
+
+[node name="NoteFXController" type="Node" parent="Nota"]
+script = ExtResource("10_note_fx")

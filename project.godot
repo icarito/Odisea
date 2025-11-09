@@ -12,11 +12,11 @@ config_version=5
 
 config/name="Brújula"
 run/main_scene="uid://s8jh8lepju8r"
-config/features=PackedStringArray("4.6", "Forward Plus")
+config/features=PackedStringArray("4.5", "Forward Plus")
 run/max_fps=120
-boot_splash/stretch_mode=0
 boot_splash/image="uid://mlw0ed3wtbt0"
 config/icon="res://addons/cogito/COGITO_icon.png"
+boot_splash/stretch_mode=0
 
 [autoload]
 
