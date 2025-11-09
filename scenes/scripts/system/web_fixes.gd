@@ -21,12 +21,12 @@ func _ready() -> void:
 		
 		print("[Web] Viewport configured: ", window_size)
 		
+		# Capturar el cursor automáticamente al iniciar
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		print("[Web] Mouse captured automatically")
+		
 		# Escuchar cambios de tamaño de ventana para ajustar dinámicamente
 		get_tree().root.size_changed.connect(_on_window_resized)
-		
-		# Conectar señal de clic para intentar captura del cursor
-		if not get_tree().root.gui_focus_changed.is_connected(_on_focus_changed):
-			get_tree().root.gui_focus_changed.connect(_on_focus_changed)
 
 func _on_window_resized() -> void:
 	if OS.has_feature("web"):
@@ -34,19 +34,21 @@ func _on_window_resized() -> void:
 		get_tree().root.size = new_size
 		print("[Web] Window resized to: ", new_size)
 
+"""
 func _on_focus_changed(_control) -> void:
 	# Intentar capturar cursor cuando el juego tiene foco
 	if OS.has_feature("web") and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-
 """
+
 func _input(event: InputEvent) -> void:
 	# Capturar cursor en primer clic/interacción
 	if OS.has_feature("web"):
 		if event is InputEventMouseButton and event.pressed:
 			if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		"""
 		elif event is InputEventKey and event.pressed:
 			if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-"""
+		"""

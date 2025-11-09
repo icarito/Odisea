@@ -254,7 +254,7 @@ func load_options(skip_applying:bool = false):
 	if err != 0:
 		CogitoGlobals.debug_log(true, "OptionsTabMenu.gd","Loading options config failed. Assuming and saving defaults.")
 	
-	var invert_y = config.get_value(OptionsConstants.section_name, OptionsConstants.invert_vertical_axis_key, true)
+	var invert_y = config.get_value(OptionsConstants.section_name, OptionsConstants.invert_vertical_axis_key, false)
 	var toggle_crouching = config.get_value(OptionsConstants.section_name, OptionsConstants.toggle_crouching_key, true)
 	mouse_sens = config.get_value(OptionsConstants.section_name, OptionsConstants.mouse_sens_key, 0.25)
 	gp_looksens = config.get_value(OptionsConstants.section_name, OptionsConstants.gp_looksens_key, 2)
