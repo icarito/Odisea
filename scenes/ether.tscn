@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3 uid="uid://s8jh8lepju8r"]
+[gd_scene load_steps=29 format=3 uid="uid://s8jh8lepju8r"]
 
 [ext_resource type="Texture2D" uid="uid://nxl0y8bc2g61" path="res://assets/Panorama_Ocean_02-2048x1024.png" id="1_1d02l"]
 [ext_resource type="PackedScene" uid="uid://kicjwmh02uwf" path="res://addons/cogito/PackedScenes/cogito_player.tscn" id="1_cb835"]
@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" uid="uid://cct0itdltyppg" path="res://addons/cogito/Components/Interactions/ReadableComponent.tscn" id="8_readable"]
 [ext_resource type="Script" uid="uid://dmeh01c5ccjqc" path="res://addons/cogito/CogitoObjects/cogito_object.gd" id="9_cogobj"]
 [ext_resource type="Script" uid="uid://yy1luaivs5h0" path="res://scenes/scripts/note_shader_controller.gd" id="10_note_fx"]
+[ext_resource type="Script" uid="uid://jqdieiesn8i3" path="res://scenes/scripts/note_glow_follow.gd" id="11_glow_follow"]
 
 [sub_resource type="PanoramaSkyMaterial" id="PanoramaSkyMaterial_skxnn"]
 panorama = ExtResource("1_1d02l")
@@ -52,7 +53,39 @@ size = Vector3(20, 0.5, 20)
 [sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_cb835"]
 
 [sub_resource type="Shader" id="Shader_note"]
-code = "shader_type spatial;\nrender_mode cull_disabled;\n\nuniform float bend_strength = 0.5;\nuniform float width = 0.3;\nuniform float wave_amp = 0.003;\nuniform float wave_freq = 8.0;\nuniform float wave_speed = 1.1;\n\nvoid vertex() {\n\tvec3 p = VERTEX;\n\tif (abs(bend_strength) > 0.01) {\n\t\tfloat half_w = width * 0.5;\n\t\tfloat t = clamp(p.x / half_w, -1.0, 1.0);\n\t\tfloat ang = bend_strength * t;\n\t\tfloat radius = half_w / bend_strength;\n\t\tfloat x_new = sin(ang) * radius;\n\t\tfloat y_curve = (cos(ang) - 1.0) * radius;\n\t\tp.x = x_new;\n\t\tvec3 model_up = (MODEL_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz;\n\t\tfloat orientation = sign(model_up.y);\n\t\tif (orientation == 0.0) { orientation = 1.0; }\n\t\tp.y += y_curve * orientation;\n\t}\n\tif (abs(wave_amp) > 0.0001) {\n\t\tp.y += sin(TIME * wave_speed + p.x * wave_freq) * wave_amp;\n\t}\n\tVERTEX = p;\n}\n\nvoid fragment() {\n\tALBEDO = vec3(1.0);\n}"
+code = "shader_type spatial;
+render_mode cull_disabled;
+
+uniform float bend_strength = 0.5;
+uniform float width = 0.3;
+uniform float wave_amp = 0.003;
+uniform float wave_freq = 8.0;
+uniform float wave_speed = 1.1;
+
+void vertex() {
+	vec3 p = VERTEX;
+	if (abs(bend_strength) > 0.01) {
+		float half_w = width * 0.5;
+		float t = clamp(p.x / half_w, -1.0, 1.0);
+		float ang = bend_strength * t;
+		float radius = half_w / bend_strength;
+		float x_new = sin(ang) * radius;
+		float y_curve = (cos(ang) - 1.0) * radius;
+		p.x = x_new;
+		vec3 model_up = (MODEL_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz;
+		float orientation = sign(model_up.y);
+		if (orientation == 0.0) { orientation = 1.0; }
+		p.y += y_curve * orientation;
+	}
+	if (abs(wave_amp) > 0.0001) {
+		p.y += sin(TIME * wave_speed + p.x * wave_freq) * wave_amp;
+	}
+	VERTEX = p;
+}
+
+void fragment() {
+	ALBEDO = vec3(1.0);
+}"
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial3D_note_bend"]
 render_priority = 0
@@ -71,6 +104,42 @@ subdivide_depth = 24
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_note"]
 size = Vector3(0.3, 0.03, 0.5)
+
+[sub_resource type="Curve" id="Curve_alpha"]
+_data = [Vector2(0, 0), 0.0, 1.0, 0, 0, Vector2(0.3, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), -1.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="CurveTexture_alpha"]
+curve = SubResource("Curve_alpha")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_glow"]
+emission_shape = 1
+emission_sphere_radius = 0.3
+direction = Vector3(0, 1, 0)
+initial_velocity_min = 0.05
+initial_velocity_max = 0.15
+gravity = Vector3(0, 0.1, 0)
+scale_min = 0.02
+scale_max = 0.04
+color = Color(1, 0.9, 0.6, 1)
+alpha_curve = SubResource("CurveTexture_alpha")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_particle"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+albedo_color = Color(1, 0.95, 0.7, 1)
+billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="SphereMesh" id="SphereMesh_particle"]
+material = SubResource("StandardMaterial3D_particle")
+radius = 0.01
+height = 0.02
+radial_segments = 8
+rings = 4
 
 [node name="Node3D" type="Node3D"]
 
@@ -110,7 +179,7 @@ shape = SubResource("WorldBoundaryShape3D_cb835")
 transform = Transform3D(0.43062133, 0, 0.9025327, 0, 1, 0, -0.9025327, 0, 0.43062133, 0, 0, 0)
 
 [node name="Nota" type="RigidBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 0.25, -4)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 0.27, -4)
 mass = 0.2
 continuous_cd = true
 script = ExtResource("9_cogobj")
@@ -118,7 +187,7 @@ cogito_name = "Nota"
 display_name = "Nota"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Nota"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.01, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.015, 0)
 mesh = SubResource("PlaneMesh_note")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Nota"]
@@ -126,11 +195,14 @@ shape = SubResource("BoxShape3D_note")
 
 [node name="ReadableComponent" parent="Nota" instance=ExtResource("8_readable")]
 readable_title = "Nota"
-readable_content = "Hola Marianita!
+readable_content = "Querida hija:
 
-Aquí podemos construir!
+Aquí podemos construir.. ¡hacer magia! 
+Solo la imaginación nos limita. 
+O sea, ¡no tenemos límites!
 
-Tu papi que te adora 💕"
+
+         - Tu papi que te adora  <3"
 interaction_text = "Leer"
 
 [node name="CarryableComponent" parent="Nota" instance=ExtResource("7_carry")]
@@ -141,3 +213,22 @@ interaction_text = "Cargar Nota"
 
 [node name="NoteFXController" type="Node" parent="Nota"]
 script = ExtResource("10_note_fx")
+
+[node name="NotaGlow" type="OmniLight3D" parent="Nota"]
+light_color = Color(1, 0.92, 0.75, 1)
+light_energy = 0.5
+light_size = 0.08
+omni_range = 2.5
+omni_attenuation = 2.2
+script = ExtResource("11_glow_follow")
+target_path = NodePath("..")
+height = 0.35
+
+[node name="GlowParticles" type="GPUParticles3D" parent="Nota"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+amount = 30
+lifetime = 3.0
+randomness = 0.5
+visibility_aabb = AABB(-1, -1, -1, 2, 2, 2)
+process_material = SubResource("ParticleProcessMaterial_glow")
+draw_pass_1 = SubResource("SphereMesh_particle")

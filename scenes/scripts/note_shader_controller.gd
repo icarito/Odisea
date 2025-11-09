@@ -4,6 +4,9 @@ extends Node
 
 @export var mesh_instance_path: NodePath = NodePath("../MeshInstance3D")
 @export var carryable_component_path: NodePath = NodePath("../CarryableComponent")
+@export var readable_component_path: NodePath = NodePath("../ReadableComponent")
+@export var glow_light_path: NodePath = NodePath("../NotaGlow")
+@export var glow_particles_path: NodePath = NodePath("../GlowParticles")
 @export var bend_strength_idle: float = 0.0
 @export var bend_strength_active: float = 0.85
 @export var wave_amp_idle: float = 0.002
@@ -15,13 +18,20 @@ extends Node
 
 var mesh_instance: MeshInstance3D
 var carryable_component
+var readable_component
+var glow_light: OmniLight3D
+var glow_particles: GPUParticles3D
 var rigid_body: RigidBody3D
 var shader_material: ShaderMaterial
 var is_carried: bool = false
+var has_been_read: bool = false
 
 func _ready():
 	mesh_instance = get_node(mesh_instance_path) as MeshInstance3D
 	carryable_component = get_node(carryable_component_path)
+	readable_component = get_node(readable_component_path)
+	glow_light = get_node(glow_light_path) as OmniLight3D
+	glow_particles = get_node(glow_particles_path) as GPUParticles3D
 	rigid_body = get_parent() as RigidBody3D
 	if mesh_instance and mesh_instance.material_override and mesh_instance.material_override is ShaderMaterial:
 		shader_material = mesh_instance.material_override
@@ -44,6 +54,9 @@ func _ready():
 	# Intentar conectar señal de carry si existe
 	if carryable_component and carryable_component.has_signal("carry_state_changed"):
 		carryable_component.carry_state_changed.connect(_on_carry_state_changed)
+	# Conectar señal de lectura
+	if readable_component and readable_component.has_signal("readable_closed"):
+		readable_component.readable_closed.connect(_on_note_read)
 	_update_idle()
 
 func _physics_process(_delta):
@@ -67,6 +80,13 @@ func _on_carry_state_changed(carrying: bool):
 		_update_active()
 	else:
 		_update_idle()
+
+func _on_note_read():
+	has_been_read = true
+	if glow_light:
+		glow_light.visible = false
+	if glow_particles:
+		glow_particles.emitting = false
 
 func _update_idle():
 	_set_shader_param("bend_strength", bend_strength_idle)
