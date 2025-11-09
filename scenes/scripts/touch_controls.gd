@@ -4,6 +4,7 @@ extends CanvasLayer
 
 @onready var left_joystick = %LeftJoystick
 @onready var right_joystick = %RightJoystick
+@onready var action_buttons = $ActionButtons
 
 # Camera sensitivity for the right joystick
 @export var camera_sensitivity: float = 2.0

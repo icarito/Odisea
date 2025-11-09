@@ -39,3 +39,76 @@ grow_vertical = 0
 joystick_mode = 1
 visibility_mode = 1
 use_input_actions = false
+
+[node name="ActionButtons" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="JumpButton" type="TouchScreenButton" parent="ActionButtons"]
+position = Vector2(1720, 820)
+scale = Vector2(2, 2)
+action = "jump"
+visibility_mode = 1
+
+[node name="Label" type="Label" parent="ActionButtons/JumpButton"]
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+theme_type_variation = &"HeaderLarge"
+text = "↑"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="InteractButton" type="TouchScreenButton" parent="ActionButtons"]
+position = Vector2(1820, 720)
+scale = Vector2(2, 2)
+action = "interact"
+visibility_mode = 1
+
+[node name="Label" type="Label" parent="ActionButtons/InteractButton"]
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+theme_type_variation = &"HeaderLarge"
+text = "F"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SprintButton" type="TouchScreenButton" parent="ActionButtons"]
+position = Vector2(1620, 720)
+scale = Vector2(2, 2)
+action = "sprint"
+visibility_mode = 1
+
+[node name="Label" type="Label" parent="ActionButtons/SprintButton"]
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+theme_type_variation = &"HeaderLarge"
+text = "⚡"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CrouchButton" type="TouchScreenButton" parent="ActionButtons"]
+position = Vector2(1520, 820)
+scale = Vector2(2, 2)
+action = "crouch"
+visibility_mode = 1
+
+[node name="Label" type="Label" parent="ActionButtons/CrouchButton"]
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+theme_type_variation = &"HeaderLarge"
+text = "↓"
+horizontal_alignment = 1
+vertical_alignment = 1
