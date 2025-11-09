@@ -10,9 +10,13 @@ Recomendación: evita editar `addons/cogito/` u otros plugins para facilitar fut
 1. Instala Godot 4.x 
 2. Abre este proyecto desde Godot y ejecuta con F5.
 3. Activa los plugins (si no lo están):
-   - Cogito, Quick Audio, Input Helper, Godot Aerodynamic Physics (Proyecto > Plugins).
+   - Cogito, Quick Audio, Input Helper, Godot Aerodynamic Physics, Virtual Joystick (Proyecto > Plugins).
 4. Escena de entrada: definida por UID en `project.godot` (normalmente `addons/cogito/DemoScenes/COGITO_0_MainMenu.tscn`).
 5. Input Map: si faltan acciones, abre `addons/cogito/CogitoSettings.tres` y pulsa “Reset Project Input Map”, luego reinicia Godot.
+
+### Controles táctiles (móvil/tableta)
+
+Este proyecto incluye controles táctiles para dispositivos móviles y tabletas. Los controles se muestran automáticamente en dispositivos con pantalla táctil. Ver `docs/TOUCH_CONTROLS.md` para más detalles.
 
 ## Cómo explorar y hacer cambios
 
