@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=3 uid="uid://s8jh8lepju8r"]
+[gd_scene load_steps=30 format=3 uid="uid://s8jh8lepju8r"]
 
 [ext_resource type="Texture2D" uid="uid://nxl0y8bc2g61" path="res://assets/Panorama_Ocean_02-2048x1024.png" id="1_1d02l"]
 [ext_resource type="PackedScene" uid="uid://kicjwmh02uwf" path="res://addons/cogito/PackedScenes/cogito_player.tscn" id="1_cb835"]
@@ -12,6 +12,7 @@
 [ext_resource type="Script" uid="uid://dmeh01c5ccjqc" path="res://addons/cogito/CogitoObjects/cogito_object.gd" id="9_cogobj"]
 [ext_resource type="Script" uid="uid://yy1luaivs5h0" path="res://scenes/scripts/note_shader_controller.gd" id="10_note_fx"]
 [ext_resource type="Script" uid="uid://jqdieiesn8i3" path="res://scenes/scripts/note_glow_follow.gd" id="11_glow_follow"]
+[ext_resource type="PackedScene" uid="uid://bqwn4s0wv2gfy" path="res://scenes/touch_controls.tscn" id="13_touch"]
 
 [sub_resource type="PanoramaSkyMaterial" id="PanoramaSkyMaterial_skxnn"]
 panorama = ExtResource("1_1d02l")
@@ -158,6 +159,8 @@ shadow_enabled = true
 
 [node name="CogitoPlayer" parent="." instance=ExtResource("1_cb835")]
 transform = Transform3D(-0.8515439, 0, 0.5242832, 0, 1, 0, -0.5242831, 0, -0.851544, 2.1364222, 1.6095476, -5.354737)
+
+[node name="TouchControls" parent="CogitoPlayer" instance=ExtResource("13_touch")]
 
 [node name="Platform" type="StaticBody3D" parent="."]
 
