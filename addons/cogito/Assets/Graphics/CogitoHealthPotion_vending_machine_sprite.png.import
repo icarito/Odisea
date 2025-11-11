@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://s3qcosabxkgd"
 path.bptc="res://.godot/imported/CogitoHealthPotion_vending_machine_sprite.png-7f92801afb8bb7f2ce1d7674dbff7483.bptc.ctex"
+path.astc="res://.godot/imported/CogitoHealthPotion_vending_machine_sprite.png-7f92801afb8bb7f2ce1d7674dbff7483.astc.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://addons/cogito/Assets/Graphics/CogitoHealthPotion_vending_machine_sprite.png"
-dest_files=["res://.godot/imported/CogitoHealthPotion_vending_machine_sprite.png-7f92801afb8bb7f2ce1d7674dbff7483.bptc.ctex"]
+dest_files=["res://.godot/imported/CogitoHealthPotion_vending_machine_sprite.png-7f92801afb8bb7f2ce1d7674dbff7483.bptc.ctex", "res://.godot/imported/CogitoHealthPotion_vending_machine_sprite.png-7f92801afb8bb7f2ce1d7674dbff7483.astc.ctex"]
 
 [params]
 

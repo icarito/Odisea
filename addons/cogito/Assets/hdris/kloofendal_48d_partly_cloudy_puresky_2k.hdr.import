@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://sdcljx8f5dhj"
 path.bptc="res://.godot/imported/kloofendal_48d_partly_cloudy_puresky_2k.hdr-cfcea3143612fb04f0624a184fa54fde.bptc.ctex"
+path.astc="res://.godot/imported/kloofendal_48d_partly_cloudy_puresky_2k.hdr-cfcea3143612fb04f0624a184fa54fde.astc.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://addons/cogito/Assets/hdris/kloofendal_48d_partly_cloudy_puresky_2k.hdr"
-dest_files=["res://.godot/imported/kloofendal_48d_partly_cloudy_puresky_2k.hdr-cfcea3143612fb04f0624a184fa54fde.bptc.ctex"]
+dest_files=["res://.godot/imported/kloofendal_48d_partly_cloudy_puresky_2k.hdr-cfcea3143612fb04f0624a184fa54fde.bptc.ctex", "res://.godot/imported/kloofendal_48d_partly_cloudy_puresky_2k.hdr-cfcea3143612fb04f0624a184fa54fde.astc.ctex"]
 
 [params]
 

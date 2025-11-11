@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dfhr6s2ux8t0i"
 path.s3tc="res://.godot/imported/texture_01.png-4c2f719c970a1ec669e2cf55babc38c3.s3tc.ctex"
+path.etc2="res://.godot/imported/texture_01.png-4c2f719c970a1ec669e2cf55babc38c3.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://addons/cogito/Assets/Textures/Prototype Textures/PNG/Dark/texture_01.png"
-dest_files=["res://.godot/imported/texture_01.png-4c2f719c970a1ec669e2cf55babc38c3.s3tc.ctex"]
+dest_files=["res://.godot/imported/texture_01.png-4c2f719c970a1ec669e2cf55babc38c3.s3tc.ctex", "res://.godot/imported/texture_01.png-4c2f719c970a1ec669e2cf55babc38c3.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://nxl0y8bc2g61"
 path.s3tc="res://.godot/imported/Panorama_Ocean_02-2048x1024.png-8939ee9e85d5d91aff4059f65f8b1eb8.s3tc.ctex"
+path.etc2="res://.godot/imported/Panorama_Ocean_02-2048x1024.png-8939ee9e85d5d91aff4059f65f8b1eb8.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/Panorama_Ocean_02-2048x1024.png"
-dest_files=["res://.godot/imported/Panorama_Ocean_02-2048x1024.png-8939ee9e85d5d91aff4059f65f8b1eb8.s3tc.ctex"]
+dest_files=["res://.godot/imported/Panorama_Ocean_02-2048x1024.png-8939ee9e85d5d91aff4059f65f8b1eb8.s3tc.ctex", "res://.godot/imported/Panorama_Ocean_02-2048x1024.png-8939ee9e85d5d91aff4059f65f8b1eb8.etc2.ctex"]
 
 [params]
 

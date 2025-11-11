@@ -1,7 +1,41 @@
 @icon("res://addons/cogito/Assets/Graphics/Editor/Icon_CogitoPlayer.svg")
-## The player class controls movement from input from the mouse, keyboard, and gamepad, as well as behavior parameters like stair and ladder handling.
-class_name CogitoPlayer
 extends CharacterBody3D
+class_name CogitoPlayer
+# Para ignorar el siguiente InputEventMouseMotion sintético tras warp_mouse
+var ignore_next_mouse_motion := false
+var ignore_timer := 0.0
+var ignore_mouse_motion_frames := 0
+
+func _on_ignore_next_mouse_motion():
+	ignore_next_mouse_motion = true
+	ignore_timer = 0.1
+	ignore_mouse_motion_frames = 2 # Ignorar al menos 2 frames para smoothing
+
+func _process(delta):
+	if ignore_timer > 0:
+		ignore_timer -= delta
+		if ignore_timer <= 0:
+			ignore_next_mouse_motion = false
+	if ignore_mouse_motion_frames > 0:
+		ignore_mouse_motion_frames -= 1
+		if ignore_mouse_motion_frames == 0:
+			ignore_next_mouse_motion = false
+	if is_movement_paused and Input.mouse_mode != Input.MOUSE_MODE_VISIBLE:
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+## The player class controls movement from input from the mouse, keyboard, and gamepad, as well as behavior parameters like stair and ladder handling.
+
+## Permite aplicar input de cámara (yaw, pitch) desde mouse o joystick de forma unificada
+func apply_look_input(yaw_delta: float, pitch_delta: float) -> void:
+	if is_free_looking:
+		neck.rotate_y(deg_to_rad(yaw_delta))
+		neck.rotation.y = clamp(neck.rotation.y, deg_to_rad(-120), deg_to_rad(120))
+	else:
+		body.rotate_y(deg_to_rad(yaw_delta))
+	if INVERT_Y_AXIS:
+		head.rotate_x(-deg_to_rad(pitch_delta))
+	else:
+		head.rotate_x(deg_to_rad(pitch_delta))
+	head.rotation.x = clamp(head.rotation.x, deg_to_rad(-90), deg_to_rad(90))
 
 ## Emits when ESC/Menu input map action is pressed. Can be used to exit out other interfaces, etc.
 signal menu_pressed(player_interaction_component: PlayerInteractionComponent)
@@ -12,10 +46,16 @@ signal toggled_interface(is_showing_ui:bool)
 
 signal mouse_movement(relative_mouse_movement:Vector2)
 
+signal menu_opened
+signal menu_closed
+
+signal movement_paused(is_paused: bool)
+
 
 #region Variables
 ## Reference to Pause menu node
 @export var pause_menu : NodePath
+@export var options_menu_scene : PackedScene = preload("res://addons/cogito/EasyMenus/Scenes/OptionsTabMenu.tscn")
 ## Refereence to Player HUD node
 @export var player_hud : NodePath
 # Used for handling input when UI is open/displayed
@@ -177,6 +217,9 @@ var is_dead : bool = false
 var slide_audio_player : AudioStreamPlayer3D
 var radius : float
 
+var options_menu : Control
+var mouse_release_timer : Timer
+
 # Node caching
 @onready var player_interaction_component: PlayerInteractionComponent = $PlayerInteractionComponent
 @onready var body: Node3D = $Body
@@ -213,6 +256,11 @@ var radius : float
 
 func _ready():
 	#Some Setup steps
+	# Conectar señal para ignorar el primer mouse motion tras warp_mouse/capture
+	var mobile_input_fix = get_node_or_null("../MobileInputFix")
+	if mobile_input_fix and mobile_input_fix.has_signal("ignore_next_mouse_motion"):
+		if not mobile_input_fix.is_connected("ignore_next_mouse_motion", Callable(self, "_on_ignore_next_mouse_motion")):
+			mobile_input_fix.connect("ignore_next_mouse_motion", Callable(self, "_on_ignore_next_mouse_motion"))
 	CogitoSceneManager._current_player_node = self
 	player_interaction_component.interaction_raycast = $Body/Neck/Head/Eyes/Camera/InteractionRaycast
 	player_interaction_component.exclude_player(get_rid())
@@ -266,6 +314,11 @@ func _ready():
 	CogitoGlobals.debug_log(is_logging, "cogito_player.gd", "Player has no reference to pause menu.")
 
 	call_deferred("slide_audio_init")
+
+	mouse_release_timer = Timer.new()
+	add_child(mouse_release_timer)
+	mouse_release_timer.one_shot = true
+	mouse_release_timer.timeout.connect(_release_mouse_for_tab_menu)
 
 
 func slide_audio_init():
@@ -329,15 +382,20 @@ func _on_death():
 func _on_pause_movement():
 	if !is_movement_paused:
 		is_movement_paused = true
-		# Only show mouse cursor if input device is KBM
-		if InputHelper.device_index == -1:
-			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		# Liberar el mouse después de que el menú se abra
+		call_deferred("_release_mouse")
+		emit_signal("movement_paused", true)
 
 
 func _on_resume_movement():
 	if is_movement_paused:
 		is_movement_paused = false
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		emit_signal("movement_paused", false)
+
+
+func _release_mouse():
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
 # reload options user may have changed while paused.
@@ -358,31 +416,41 @@ func _reload_options():
 func _on_pause_menu_resume():
 	_reload_options()
 	_on_resume_movement()
+	emit_signal("menu_closed")
+
+
+func _on_options_updated():
+	_reload_options()
+
+
+func _release_mouse_for_tab_menu():
+	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		# Asegurar que el cursor sea visible
+		Input.set_custom_mouse_cursor(null, Input.CURSOR_ARROW)
 
 
 func _input(event):
+	if is_movement_paused and (event is InputEventMouseMotion or event is InputEventMouseButton):
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseMotion and !is_movement_paused:
+		# Ignorar SIEMPRE el primer mouse motion tras warp_mouse/capture (y smoothing)
+		if ignore_next_mouse_motion or ignore_mouse_motion_frames > 0:
+			return
+		# Si justo se acaba de capturar el mouse y el flag no está activo, forzarlo
+		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and event.relative.length_squared() > 10000 and not ignore_next_mouse_motion:
+			ignore_next_mouse_motion = true
+			ignore_mouse_motion_frames = 2
+			return
 		var look_movement: Vector2 = Vector2(0.0,0.0)
-		
 		#If players sitting & look marker is present, use sittable look handling
 		if is_sitting and CogitoSceneManager._current_sittable_node.look_marker_node:
 			handle_sitting_look(event)
 		else:
-			if is_free_looking:
-				neck.rotate_y(deg_to_rad(-event.relative.x * MOUSE_SENS))
-				neck.rotation.y = clamp(neck.rotation.y, deg_to_rad(-120), deg_to_rad(120))
-			else:
-				body.rotate_y(deg_to_rad(-event.relative.x * MOUSE_SENS))
-				look_movement.x = -event.relative.x
-			
-			if INVERT_Y_AXIS:
-				head.rotate_x(-deg_to_rad(-event.relative.y * MOUSE_SENS))
-				look_movement.y = -event.relative.y
-			else:
-				head.rotate_x(deg_to_rad(-event.relative.y * MOUSE_SENS))
-				look_movement.y = event.relative.y
-			head.rotation.x = clamp(head.rotation.x, deg_to_rad(-90), deg_to_rad(90))
-			
+			apply_look_input(-event.relative.x * MOUSE_SENS, -event.relative.y * MOUSE_SENS)
+			look_movement.x = -event.relative.x
+			look_movement.y = -event.relative.y if INVERT_Y_AXIS else event.relative.y
 		mouse_movement.emit(look_movement)
 
 		
@@ -402,6 +470,7 @@ func _input(event):
 				toggle_inventory_interface.emit()
 		elif !is_movement_paused and !is_dead:
 			if !currently_tweening:
+				emit_signal("menu_opened")
 				_on_pause_movement()
 				get_node(pause_menu).open_pause_menu()
 			else:
@@ -410,9 +479,13 @@ func _input(event):
 	# Open/closes Inventory if Inventory button is pressed
 	if event.is_action_pressed("inventory") and !is_dead:
 		if !is_showing_ui: #Making sure now external UI is open.
+			emit_signal("menu_opened")
 			toggle_inventory_interface.emit()
-		elif is_showing_ui and get_node(player_hud).inventory_interface.is_inventory_open: #Making sure Inventory is open, and if yes, close it.
+			_on_pause_movement()
+		else: # Cerrar si hay UI abierta
+			emit_signal("menu_closed")
 			toggle_inventory_interface.emit()
+			_on_resume_movement()
 
 
 func get_params(transform3d, motion):
@@ -786,6 +859,10 @@ func _physics_process(delta):
 	if is_sitting:
 		_process_on_sittable(delta)
 		return
+		
+	# Asegurar que el mouse esté liberado si el movimiento está pausado
+	if is_movement_paused and Input.mouse_mode != Input.MOUSE_MODE_VISIBLE:
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		
 	# Store current velocity for the next frame
 	last_velocity = main_velocity

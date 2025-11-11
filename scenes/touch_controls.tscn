@@ -1,24 +1,28 @@
 [gd_scene load_steps=3 format=3 uid="uid://bqwn4s0wv2gfy"]
 
 [ext_resource type="PackedScene" uid="uid://dmr0fcamx7t56" path="res://addons/virtual_joystick/virtual_joystick_scene.tscn" id="1_joystick"]
-[ext_resource type="Script" path="res://scenes/scripts/touch_controls.gd" id="2_script"]
+[ext_resource type="Script" uid="uid://puet0jocdxsf" path="res://scenes/scripts/touch_controls.gd" id="2_script"]
 
-[node name="TouchControls" type="CanvasLayer"]
+[node name="TouchControls" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 script = ExtResource("2_script")
 
 [node name="LeftJoystick" parent="." instance=ExtResource("1_joystick")]
 unique_name_in_owner = true
 modulate = Color(1, 1, 1, 0.5)
+layout_mode = 1
 anchors_preset = 2
 anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 50.0
-offset_top = -387.5
-offset_right = 387.5
-offset_bottom = -50.0
-grow_vertical = 0
-scale = Vector2(1.125, 1.125)
-joystick_mode = 1
+anchor_right = 0.0
+offset_top = -320.0
+offset_right = 320.0
+offset_bottom = 0.0
 visibility_mode = 2
 action_left = "left"
 action_right = "right"
@@ -28,25 +32,21 @@ action_down = "back"
 [node name="RightJoystick" parent="." instance=ExtResource("1_joystick")]
 unique_name_in_owner = true
 modulate = Color(1, 1, 1, 0.5)
+layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -387.5
-offset_top = -387.5
-offset_right = -50.0
-offset_bottom = -50.0
+offset_left = -320.0
+offset_top = -320.0
+offset_right = 0.0
+offset_bottom = 0.0
 grow_horizontal = 0
-grow_vertical = 0
-scale = Vector2(1.125, 1.125)
-joystick_mode = 1
 visibility_mode = 2
-use_input_actions = false
 
 [node name="ActionButtons" type="Control" parent="."]
 modulate = Color(1, 1, 1, 0.5)
-layout_mode = 3
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -55,18 +55,8 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="JumpButton" type="TouchScreenButton" parent="ActionButtons"]
-anchors_preset = 3
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -200.0
-offset_top = -260.0
-offset_right = -200.0
-offset_bottom = -260.0
-grow_horizontal = 0
-grow_vertical = 0
-scale = Vector2(2, 2)
+position = Vector2(1695, 110)
+scale = Vector2(3, 3)
 action = "jump"
 visibility_mode = 1
 
@@ -79,20 +69,11 @@ theme_type_variation = &"HeaderLarge"
 text = "↑"
 horizontal_alignment = 1
 vertical_alignment = 1
+metadata/_edit_use_anchors_ = true
 
 [node name="InteractButton" type="TouchScreenButton" parent="ActionButtons"]
-anchors_preset = 3
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -100.0
-offset_top = -360.0
-offset_right = -100.0
-offset_bottom = -360.0
-grow_horizontal = 0
-grow_vertical = 0
-scale = Vector2(2, 2)
+position = Vector2(1795, 210)
+scale = Vector2(3, 3)
 action = "interact"
 visibility_mode = 1
 
@@ -105,20 +86,11 @@ theme_type_variation = &"HeaderLarge"
 text = "F"
 horizontal_alignment = 1
 vertical_alignment = 1
+metadata/_edit_use_anchors_ = true
 
 [node name="SprintButton" type="TouchScreenButton" parent="ActionButtons"]
-anchors_preset = 3
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -300.0
-offset_top = -360.0
-offset_right = -300.0
-offset_bottom = -360.0
-grow_horizontal = 0
-grow_vertical = 0
-scale = Vector2(2, 2)
+position = Vector2(1595, 210)
+scale = Vector2(3, 3)
 action = "sprint"
 visibility_mode = 1
 
@@ -131,20 +103,11 @@ theme_type_variation = &"HeaderLarge"
 text = "⚡"
 horizontal_alignment = 1
 vertical_alignment = 1
+metadata/_edit_use_anchors_ = true
 
 [node name="CrouchButton" type="TouchScreenButton" parent="ActionButtons"]
-anchors_preset = 3
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -400.0
-offset_top = -260.0
-offset_right = -400.0
-offset_bottom = -260.0
-grow_horizontal = 0
-grow_vertical = 0
-scale = Vector2(2, 2)
+position = Vector2(1695, 310)
+scale = Vector2(3, 3)
 action = "crouch"
 visibility_mode = 1
 
@@ -157,3 +120,4 @@ theme_type_variation = &"HeaderLarge"
 text = "↓"
 horizontal_alignment = 1
 vertical_alignment = 1
+metadata/_edit_use_anchors_ = true

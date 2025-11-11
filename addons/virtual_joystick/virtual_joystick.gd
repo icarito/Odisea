@@ -2,6 +2,12 @@ class_name VirtualJoystick
 
 extends Control
 
+# --- Filtro para eventos sintéticos de mouse capturado ---
+func _is_suspect_touch(idx: int, pos: Vector2) -> bool:
+	var screen_size = get_viewport_rect().size
+	var center = screen_size * 0.5
+	return idx == 0 and (pos == Vector2.ZERO or pos.distance_to(center) < 8.0)
+
 ## A simple virtual joystick for touchscreens, with useful options.
 ## Github: https://github.com/MarcoFazioRandom/Virtual-Joystick-Godot
 
@@ -77,30 +83,7 @@ func _ready() -> void:
 		hide()
 
 	_reset()
-
-func _input(event: InputEvent) -> void:
-	if event is InputEventScreenTouch:
-		if event.pressed:
-			if _is_point_inside_joystick_area(event.position) and _touch_index == -1:
-				if joystick_mode == Joystick_mode.DYNAMIC or joystick_mode == Joystick_mode.FOLLOWING or (joystick_mode == Joystick_mode.FIXED and _is_point_inside_base(event.position)):
-					if joystick_mode == Joystick_mode.DYNAMIC or joystick_mode == Joystick_mode.FOLLOWING:
-						_move_base(event.position)
-					if visibility_mode == Visibility_mode.WHEN_TOUCHED:
-						show()
-					_touch_index = event.index
-					_tip.modulate = pressed_color
-					_update_joystick(event.position)
-					get_viewport().set_input_as_handled()
-		elif event.index == _touch_index:
-			_reset()
-			if visibility_mode == Visibility_mode.WHEN_TOUCHED:
-				hide()
-			get_viewport().set_input_as_handled()
-	elif event is InputEventScreenDrag:
-		if event.index == _touch_index:
-			_update_joystick(event.position)
-			get_viewport().set_input_as_handled()
-
+	
 func _move_base(new_position: Vector2) -> void:
 	_base.global_position = new_position - _base.pivot_offset * get_global_transform_with_canvas().get_scale()
 
@@ -169,8 +152,56 @@ func _reset():
 	_tip.modulate = _default_color
 	_base.position = _base_default_position
 	_tip.position = _tip_default_position
+	
 	# Release actions
 	if use_input_actions:
 		for action in [action_left, action_right, action_down, action_up]:
 			if Input.is_action_pressed(action):
 				Input.action_release(action)
+
+func _input(event: InputEvent) -> void:
+	
+	# Ignorar mouse y eventos sintéticos index==0 y posición (0,0) o centro de pantalla
+	if event is InputEventMouse:
+		return
+
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if _is_suspect_touch(touch.index, touch.position):
+			return
+		if touch.pressed:
+			if _touch_index == -1 and _is_point_inside_joystick_area(touch.position):
+				_touch_index = touch.index
+				if joystick_mode == Joystick_mode.DYNAMIC:
+					_move_base(touch.position - _get_base_radius())
+				if visibility_mode == Visibility_mode.WHEN_TOUCHED:
+					show()
+				_tip.modulate = pressed_color
+				_update_joystick(touch.position)
+				accept_event()
+		else:
+			if touch.index == _touch_index:
+				if visibility_mode == Visibility_mode.WHEN_TOUCHED:
+					hide()
+				_reset()
+				accept_event()
+		return
+
+	if event is InputEventScreenDrag:
+		var drag := event as InputEventScreenDrag
+		if _is_suspect_touch(drag.index, drag.position):
+			return
+		if drag.index == _touch_index:
+			_update_joystick(drag.position)
+			accept_event()
+			return
+		if _touch_index == -1 and _is_point_inside_joystick_area(drag.position):
+			_touch_index = drag.index
+			if joystick_mode == Joystick_mode.DYNAMIC:
+				_move_base(drag.position - _get_base_radius())
+			if visibility_mode == Visibility_mode.WHEN_TOUCHED:
+				show()
+			_tip.modulate = pressed_color
+			_update_joystick(drag.position)
+			accept_event()
+			return
