@@ -615,10 +615,10 @@ __meta__ = {
 [node name="UIEnginePower" parent="Interface" instance=ExtResource( 10 )]
 anchor_top = 1.0
 anchor_bottom = 1.0
-margin_left = 10.0
-margin_top = -138.0
-margin_right = 74.0
-margin_bottom = -10.0
+margin_left = 4.0
+margin_top = -130.0
+margin_right = 68.0
+margin_bottom = -2.0
 __meta__ = {
 "_edit_group_": true
 }
@@ -626,10 +626,10 @@ __meta__ = {
 [node name="UIFuelLevel" parent="Interface" instance=ExtResource( 5 )]
 anchor_top = 1.0
 anchor_bottom = 1.0
-margin_left = 81.0
-margin_top = -139.0
-margin_right = 145.0
-margin_bottom = -11.0
+margin_left = 76.0
+margin_top = -130.0
+margin_right = 140.0
+margin_bottom = -2.0
 __meta__ = {
 "_edit_group_": true
 }
@@ -637,93 +637,42 @@ __meta__ = {
 [node name="UILandingGear" parent="Interface" instance=ExtResource( 25 )]
 anchor_top = 1.0
 anchor_bottom = 1.0
-margin_left = 153.0
-margin_top = -138.0
-margin_right = 263.0
-margin_bottom = -10.0
-__meta__ = {
-"_edit_lock_": true
-}
+margin_left = 143.0
+margin_top = -130.0
+margin_right = 253.0
+margin_bottom = -2.0
 
 [node name="UIFlaps" parent="Interface" instance=ExtResource( 23 )]
 anchor_top = 1.0
 anchor_bottom = 1.0
-margin_left = 272.0
-margin_top = -136.0
-margin_right = 382.0
-margin_bottom = -8.0
-__meta__ = {
-"_edit_lock_": true
-}
+margin_left = 260.0
+margin_top = -130.0
+margin_right = 370.0
+margin_bottom = -2.0
 
 [node name="UIAttitude" parent="Interface" instance=ExtResource( 26 )]
 anchor_top = 1.0
 anchor_bottom = 1.0
-margin_left = 395.0
-margin_top = -135.0
-margin_right = 611.0
-margin_bottom = -7.0
-__meta__ = {
-"_edit_lock_": true
-}
+margin_left = 375.0
+margin_top = -130.0
+margin_right = 591.0
+margin_bottom = -2.0
 
 [node name="UIAltSpeed" parent="Interface" instance=ExtResource( 22 )]
-margin_left = 671.0
-margin_top = 465.0
-margin_right = 782.0
-margin_bottom = 593.0
+margin_left = 518.0
+margin_top = 13.0
+margin_right = 629.0
+margin_bottom = 141.0
 AircraftNode = NodePath("../../Aircraft")
-
-[node name="RichTextLabel" type="RichTextLabel" parent="Interface"]
-anchor_left = 1.0
-anchor_right = 1.0
-margin_left = -218.0
-margin_top = 26.0
-margin_bottom = 214.0
-mouse_filter = 2
-bbcode_enabled = true
-bbcode_text = "[color=#ffff00]CONTROLS[/color]
-
-[color=#ff0000]P[/color][color=#999999] - Start engine[/color]
-[color=#ff0000]O[/color][color=#999999] - Cut engine off[/color]
-[color=#ff0000]F, V[/color][color=#999999] - Engine throttle up/down[/color]
-
-[color=#ff0000]A,D[/color][color=#999999] - Ailerons left/right (roll)[/color]
-[color=#ff0000]W,S[/color][color=#999999] - Elevator up/down (pitch)[/color]
-[color=#ff0000]Q,E[/color][color=#999999] - Rudder left/right (yaw)[/color]
-
-[color=#ff0000]G,B[/color][color=#999999] - Flaps up/down[/color]
-[color=#ff0000]J,M[/color][color=#999999] - Landing gear up/down[/color]"
-text = "CONTROLS
-
-P - Start engine
-O - Cut engine off
-F, V - Engine throttle up/down
-
-A,D - Ailerons left/right (roll)
-W,S - Elevator up/down (pitch)
-Q,E - Rudder left/right (yaw)
-
-G,B - Flaps up/down
-J,M - Landing gear up/down"
 
 [node name="Hint" type="Label" parent="Interface"]
 anchor_top = 1.0
 anchor_bottom = 1.0
-margin_left = 32.0
-margin_top = -174.0
-margin_right = 217.0
-margin_bottom = -160.0
+margin_left = 37.0
+margin_top = -166.0
+margin_right = 222.0
+margin_bottom = -152.0
 text = "Park on runway to refuel tank"
-
-[node name="BtnBack" type="Button" parent="Interface"]
-margin_left = 4.0
-margin_top = 4.0
-margin_right = 163.0
-margin_bottom = 24.0
-focus_mode = 0
-enabled_focus_mode = 0
-text = "<- Back to example list"
 
 [connection signal="crashed" from="Aircraft" to="." method="_on_Aircraft_crashed"]
 [connection signal="moved" from="Aircraft" to="." method="_on_Aircraft_moved"]
@@ -732,4 +681,3 @@ text = "<- Back to example list"
 [connection signal="update_interface" from="Aircraft/Steering" to="Aircraft/Model/MovingParts/Steering" method="_on_Steering_update_interface"]
 [connection signal="update_interface" from="Aircraft/Flaps" to="Aircraft/Model/MovingParts/Flaps" method="_on_Flaps_update_interface"]
 [connection signal="update_interface" from="Aircraft/LandingGear" to="Aircraft/Model/MovingParts/LandingGear" method="_on_LandingGear_update_interface"]
-[connection signal="pressed" from="Interface/BtnBack" to="." method="_on_BtnBack_pressed"]

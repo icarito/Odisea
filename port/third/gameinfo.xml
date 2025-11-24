@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<gameList>
+  <game>
+    <path>./Third.sh</path>
+    <name>Third</name>
+    <desc></desc>
+    <releasedate>20250422T000000</releasedate>
+    <developer>icarito</developer>
+    <publisher>icarito</publisher>
+    <genre>action</genre>
+    <image>./third/screenshot.png</image>
+  </game>
+</gameList>

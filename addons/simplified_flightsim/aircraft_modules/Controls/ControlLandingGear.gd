@@ -1,41 +1,45 @@
 extends AircraftModule
 class_name AircraftModule_ControlLandingGear
 
-# Restricting landing gears to a tag can be used to control a group of gears only
-# e.g. you can use RestrictGearToTag=true and SearchTag="wheels" in the 
-# inspector to control only the gear with the "wheels" tag for landing runways,
-# while the ship could also have a "feet" gear to e.g. land upright on mud
-export(bool) var RestrictGearToTag = false
-export(String) var SearchTag = ""
 export(bool) var ControlActive = true
 
 var landing_gear_modules = []
+var is_deployed = true # Asumimos que empieza desplegado, como en el ejemplo
 
 func _ready():
 	ReceiveInput = true
-
+	
 func setup(aircraft_node):
 	aircraft = aircraft_node
-	if RestrictGearToTag:
-		landing_gear_modules = aircraft.find_modules_by_type_and_tag("landing_gear", SearchTag)
+	landing_gear_modules = aircraft.find_modules_by_type("landing_gear")
+	if not landing_gear_modules.empty():
+		print("ControlLandingGear: Landing gear modules found: %s" % str(landing_gear_modules))
+		# Asumimos el estado inicial del primer módulo encontrado
+		is_deployed = landing_gear_modules[0].InitialState == 1 # 1 es Deployed
 	else:
-		landing_gear_modules = aircraft.find_modules_by_type("landing_gear")
-	print("landing_gear found: %s" % str(landing_gear_modules))
-
+		print("ControlLandingGear: WARNING - No landing gear modules found.")
 
 func receive_input(event):
-	if not ControlActive:
+	if landing_gear_modules.empty() or (not ControlActive):
 		return
-	
-	if (event is InputEventKey) and (not event.echo):
-		if event.pressed:
-			match event.scancode:
-				KEY_J:
-					send_to_landing_gears("stow")
-				KEY_M:
-					send_to_landing_gears("deploy")
 
+	# --- Control por Teclado ---
+	if event is InputEventKey and event.pressed and not event.is_echo():
+		if event.scancode == KEY_L: # Tecla L para el tren de aterrizaje
+			print("ControlLandingGear: Matched Key L. Toggling gear.")
+			_toggle_gear()
 
-func send_to_landing_gears(method_name: String, arguments: Array = []):
-	for gear in landing_gear_modules:
-		gear.callv(method_name, arguments)
+	if event is InputEventJoypadButton and event.pressed:
+		print("ControlLandingGear: Joypad button pressed. Index: ", event.button_index)
+		if event.button_index == 6: # Botón Select
+			print("ControlLandingGear: Matched Select (6). Toggling gear.")
+			_toggle_gear()
+
+func _toggle_gear():
+	is_deployed = not is_deployed
+	print("ControlLandingGear: Toggling gear. New state: ", "Deployed" if is_deployed else "Stowed")
+	for gear_module in landing_gear_modules:
+		if is_deployed:
+			gear_module.deploy()
+		else:
+			gear_module.stow()

@@ -34,6 +34,9 @@ func setup(aircraft_node):
 	print("engines found: %s" % str(engine_modules))
 
 func receive_input(event):
+	# DEBUG: Comprobar si el módulo recibe algún evento
+	# print("ControlEngine received event: ", event.as_text())
+
 	if not ControlActive:
 		return
 	
@@ -54,6 +57,20 @@ func receive_input(event):
 					send_to_engines("engine_set_power", [0.5])
 				KeyMax:
 					send_to_engines("engine_set_power", [1.0])
+	
+	if event is InputEventJoypadButton and event.pressed:
+		# DEBUG: Informar qué botón del joypad se ha pulsado
+		print("ControlEngine: Joypad button pressed. Index: ", event.button_index)
+		match event.button_index:
+			12: # D-Pad Arriba
+				print("ControlEngine: Matched D-Pad Up (12). Increasing power.")
+				send_to_engines("engine_increase_power", [0.1])
+			13: # D-Pad Abajo
+				print("ControlEngine: Matched D-Pad Down (13). Decreasing power.")
+				send_to_engines("engine_increase_power", [-0.1])
+			11: # Botón Start
+				print("ControlEngine: Matched Start (11). Starting engine.")
+				send_to_engines("engine_start")
 
 func send_to_engines(method_name: String, arguments: Array = []):
 	for engine in engine_modules:

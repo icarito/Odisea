@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "name": "third.zip",
+  "items": [
+    "Third.sh",
+    "third"
+  ],
+  "items_opt": [],
+  "attr": {
+    "title": "Third",
+    "porter": [
+      "icarito"
+    ],
+    "desc": "",
+    "desc_md": null,
+    "genres": [
+      "puzzle"
+    ],
+    "image": null,
+    "rtr": false,
+    "exp": false,
+    "runtime": [
+      "frt_3.6.squashfs"
+    ],
+    "reqs": [],
+    "arch": [],
+    "min_glibc": ""
+  }
+}

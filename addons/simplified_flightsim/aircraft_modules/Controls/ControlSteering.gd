@@ -8,6 +8,7 @@ var steering_module = null
 
 func _ready():
 	ReceiveInput = true
+	ProcessPhysics = true # Necesario para el sondeo del teclado
 
 
 func setup(aircraft_node):
@@ -15,50 +16,56 @@ func setup(aircraft_node):
 	steering_module = aircraft.find_modules_by_type("steering").pop_front()
 	print("steering found: %s" % str(steering_module))
 
-func receive_input(event):
+func process_physic_frame(_delta):
 	if (not steering_module) or (not ControlActive):
 		return
+	
+	# Unificamos el procesamiento de todos los ejes en una sola función
+	_process_all_steering_inputs()
 
-	# --- Teclado ---
-	if (event is InputEventKey) and (not event.echo):
-		var axis_z = 0.0
-		if Input.is_key_pressed(KEY_A):
-			axis_z -= 1.0
-		if Input.is_key_pressed(KEY_D):
-			axis_z += 1.0
-		steering_module.set_z(axis_z)
-
-		var axis_x = 0.0
-		if Input.is_key_pressed(KEY_W):
-			axis_x -= 1.0
-		if Input.is_key_pressed(KEY_S):
-			axis_x += 1.0
-		steering_module.set_x(axis_x)
-
-		# Y axis positive turns plane left
-		var axis_y = 0.0
-		if Input.is_key_pressed(KEY_Q):
-			axis_y += 1.0
-		if Input.is_key_pressed(KEY_E):
-			axis_y -= 1.0
-		steering_module.set_y(axis_y)
-
-	# --- Joypad ---
+func receive_input(event):
+	# Esta función ahora solo se usa para depurar y ver los eventos que llegan.
+	# La lógica de control real está en _physics_process.
 	if event is InputEventJoypadButton:
-		# Yaw con L1 (4) y R1 (5)
-		if event.button_index == 4:
-			if event.pressed:
-				steering_module.set_y(-1)
-			else:
-				steering_module.set_y(0)
-		elif event.button_index == 5:
-			if event.pressed:
-				steering_module.set_y(1)
-			else:
-				steering_module.set_y(0)
-		# Throttle con D-pad (botones 12 y 13)
-		if steering_module.aircraft and steering_module.aircraft.has_method("set_engine_power"):
-			if event.button_index == 12 and event.pressed:
-				steering_module.aircraft.set_engine_power(steering_module.aircraft.engine_power + 0.1)
-			elif event.button_index == 13 and event.pressed:
-				steering_module.aircraft.set_engine_power(steering_module.aircraft.engine_power - 0.1)
+		print("ControlSteering: Joypad button event. Index: ", event.button_index, " Pressed: ", event.pressed)
+
+func _process_all_steering_inputs():
+	var joy_id = 0
+
+	# --- Roll (Alabeo): Stick Izquierdo X + Teclas A/D ---
+	var roll_axis = 0.0
+	if Input.is_joy_known(joy_id):
+		roll_axis += -Input.get_joy_axis(joy_id, JOY_AXIS_0) # Aileron (stick izquierdo X)
+	if Input.is_key_pressed(KEY_A):
+		roll_axis -= 1.0
+	if Input.is_key_pressed(KEY_D):
+		roll_axis += 1.0
+	steering_module.set_z(clamp(roll_axis, -1.0, 1.0))
+
+	# --- Pitch (Cabeceo): Stick Izquierdo Y + Teclas W/S ---
+	var pitch_axis = 0.0
+	if Input.is_joy_known(joy_id):
+		pitch_axis += -Input.get_joy_axis(joy_id, JOY_AXIS_1) # Elevador (stick izquierdo Y)
+	if Input.is_key_pressed(KEY_W):
+		pitch_axis -= 1.0
+	if Input.is_key_pressed(KEY_S):
+		pitch_axis += 1.0
+	steering_module.set_x(clamp(pitch_axis, -1.0, 1.0))
+
+	# --- Yaw (Guiñada): L1/R1 + Teclas Q/E ---
+	var yaw_axis = 0.0
+	# Teclado
+	if Input.is_key_pressed(KEY_Q):
+		yaw_axis += 1.0
+	if Input.is_key_pressed(KEY_E):
+		yaw_axis -= 1.0
+	
+	# Joypad (sobrescribe al teclado si se pulsa)
+	if Input.is_joy_button_pressed(joy_id, 4): # L1
+		print("ControlSteering: Joypad Yaw Override -> L1 (Yaw Left)")
+		yaw_axis = 1.0
+	elif Input.is_joy_button_pressed(joy_id, 5): # R1
+		print("ControlSteering: Joypad Yaw Override -> R1 (Yaw Right)")
+		yaw_axis = -1.0
+		
+	steering_module.set_y(clamp(yaw_axis, -1.0, 1.0))

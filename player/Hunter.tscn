@@ -175,9 +175,6 @@ parameters/conditions/IsWalking = false
 
 [node name="Hunter" parent="." instance=ExtResource( 3 )]
 
-[node name="Skeleton" parent="Hunter/Armature" index="0"]
-bones/54/bound_children = [ NodePath("BoneAttachment") ]
-
 [node name="Body" parent="Hunter/Armature/Skeleton" index="0"]
 material/0 = ExtResource( 5 )
 
@@ -206,7 +203,7 @@ material/0 = ExtResource( 6 )
 material/0 = ExtResource( 6 )
 
 [node name="BoneAttachment" type="BoneAttachment" parent="Hunter/Armature/Skeleton" index="9"]
-transform = Transform( 0.0242532, -0.125277, 0.991824, 0.717615, -0.688551, -0.104518, 0.696016, 0.714285, 0.0732004, -0.532637, 0.976459, -0.116829 )
+transform = Transform( 0.179915, -0.0741242, 0.980884, 0.826971, -0.528578, -0.191628, 0.532679, 0.845642, -0.033801, -0.538487, 0.875257, -0.0271749 )
 bone_name = "mixamorig_RightHandIndex1"
 
 [node name="Ax" parent="Hunter/Armature/Skeleton/BoneAttachment" instance=ExtResource( 4 )]
