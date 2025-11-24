@@ -659,10 +659,10 @@ margin_right = 591.0
 margin_bottom = -2.0
 
 [node name="UIAltSpeed" parent="Interface" instance=ExtResource( 22 )]
-margin_left = 518.0
-margin_top = 13.0
-margin_right = 629.0
-margin_bottom = 141.0
+margin_left = 525.0
+margin_top = 218.0
+margin_right = 636.0
+margin_bottom = 346.0
 AircraftNode = NodePath("../../Aircraft")
 
 [node name="Hint" type="Label" parent="Interface"]

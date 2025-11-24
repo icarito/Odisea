@@ -905,49 +905,6 @@ __meta__ = {
 }
 AircraftNode = NodePath("../../Aircraft")
 
-[node name="RichTextLabel" type="RichTextLabel" parent="Interface"]
-anchor_left = 1.0
-anchor_right = 1.0
-margin_left = -254.0
-margin_top = 26.0
-margin_bottom = 322.0
-mouse_filter = 2
-bbcode_enabled = true
-bbcode_text = "[color=#ffff00]CONTROLS[/color]
-
-[color=#ff0000]P[/color][color=#999999] - Start engine[/color]
-[color=#ff0000]O[/color][color=#999999] - Cut engine off[/color]
-[color=#ff0000]1[/color][color=#999999] - Forward engines min power[/color]
-[color=#ff0000]2[/color][color=#999999] - Forward engines mid power[/color]
-[color=#ff0000]3[/color][color=#999999] - Forward engines full power[/color]
-[color=#ff0000]5,T,6,Y,7,U[/color][color=#999999] - Forward individual engine throttle up/down[/color]
-[color=#ff0000]4,R[/color][color=#999999] - Bottom engine throttle up/down[/color]
-
-[color=#ff0000]Z,X,C[/color][color=#999999] - Individual fuel tanks connect/disconnect[/color]
-
-[color=#ff0000]A,D[/color][color=#999999] - Roll thrusters[/color]
-[color=#ff0000]W,S[/color][color=#999999] - Pitch thrusters[/color]
-[color=#ff0000]Q,E[/color][color=#999999] - Yaw thrusters[/color]
-
-[color=#ff0000]J,M[/color][color=#999999] - Landing gear up/down[/color]"
-text = "CONTROLS
-
-P - Start engine
-O - Cut engine off
-1 - Forward engines min power
-2 - Forward engines mid power
-3 - Forward engines full power
-5,T,6,Y,7,U - Forward individual engine throttle up/down
-4,R - Bottom engine throttle up/down
-
-Z,X,C - Individual fuel tanks connect/disconnect
-
-A,D - Roll thrusters
-W,S - Pitch thrusters
-Q,E - Yaw thrusters
-
-J,M - Landing gear up/down"
-
 [node name="Hint" type="Label" parent="Interface"]
 anchor_top = 1.0
 anchor_bottom = 1.0
@@ -998,15 +955,6 @@ TargetNode = NodePath("../../../../../Aircraft")
 transform = Transform( 0.258819, -0.25, 0.933013, 0, 0.965926, 0.258819, -0.965926, -0.0669873, 0.25, 7, 2, 2 )
 fov = 50.0
 
-[node name="BtnBack" type="Button" parent="Interface"]
-margin_left = 164.0
-margin_top = 4.0
-margin_right = 323.0
-margin_bottom = 24.0
-focus_mode = 0
-enabled_focus_mode = 0
-text = "<- Back to example list"
-
 [connection signal="atmospheric_calculations_requested" from="Aircraft" to="." method="_on_Aircraft_atmospheric_calculations_requested"]
 [connection signal="crashed" from="Aircraft" to="." method="_on_Aircraft_crashed"]
 [connection signal="moved" from="Aircraft" to="." method="_on_Aircraft_moved"]
@@ -1020,4 +968,3 @@ text = "<- Back to example list"
 [connection signal="body_exited" from="Planet1" to="." method="_on_Planet1_body_exited"]
 [connection signal="body_entered" from="Planet2" to="." method="_on_Planet2_body_entered"]
 [connection signal="body_exited" from="Planet2" to="." method="_on_Planet1_body_exited"]
-[connection signal="pressed" from="Interface/BtnBack" to="." method="_on_BtnBack_pressed"]

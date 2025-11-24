@@ -739,37 +739,6 @@ __meta__ = {
 }
 AircraftNode = NodePath("../../Aircraft")
 
-[node name="RichTextLabel" type="RichTextLabel" parent="Interface"]
-anchor_left = 1.0
-anchor_right = 1.0
-margin_left = -218.0
-margin_top = 26.0
-margin_bottom = 214.0
-mouse_filter = 2
-bbcode_enabled = true
-bbcode_text = "[color=#ffff00]CONTROLS[/color]
-
-[color=#ff0000]P[/color][color=#999999] - Start engine[/color]
-[color=#ff0000]O[/color][color=#999999] - Cut engine off[/color]
-[color=#ff0000]F, V[/color][color=#999999] - Engine throttle up/down[/color]
-
-[color=#ff0000]A,D[/color][color=#999999] - Roll left/right[/color]
-[color=#ff0000]W,S[/color][color=#999999] - Pitch front/back[/color]
-[color=#ff0000]Q,E[/color][color=#999999] - Yaw left/right[/color]
-
-[color=#ff0000]J,M[/color][color=#999999] - Landing gear up/down[/color]"
-text = "CONTROLS
-
-P - Start engine
-O - Cut engine off
-F, V - Engine throttle up/down
-
-A,D - Roll left/right
-W,S - Pitch front/back
-Q,E - Yaw left/right
-
-J,M - Landing gear up/down"
-
 [node name="Hint" type="Label" parent="Interface"]
 anchor_top = 1.0
 anchor_bottom = 1.0
@@ -805,19 +774,9 @@ valign = 1
 anims/RESET = SubResource( 31 )
 anims/Show = SubResource( 32 )
 
-[node name="BtnBack" type="Button" parent="Interface"]
-margin_left = 4.0
-margin_top = 4.0
-margin_right = 163.0
-margin_bottom = 24.0
-focus_mode = 0
-enabled_focus_mode = 0
-text = "<- Back to example list"
-
 [connection signal="crashed" from="Aircraft" to="." method="_on_Aircraft_crashed"]
 [connection signal="moved" from="Aircraft" to="." method="_on_Aircraft_moved"]
 [connection signal="parked" from="Aircraft" to="." method="_on_Aircraft_parked"]
 [connection signal="update_interface" from="Aircraft/Engine" to="Aircraft/Model/MovingParts/HeliPropellerTop" method="_on_Engine_update_interface"]
 [connection signal="update_interface" from="Aircraft/Engine" to="Aircraft/Model/MovingParts/HeliPropellerSide" method="_on_Engine_update_interface"]
 [connection signal="update_interface" from="Aircraft/LandingGear" to="Aircraft/Model/MovingParts/LandingGear" method="_on_LandingGear_update_interface"]
-[connection signal="pressed" from="Interface/BtnBack" to="." method="_on_BtnBack_pressed"]

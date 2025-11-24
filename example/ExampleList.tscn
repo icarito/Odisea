@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=2]
 
-[ext_resource path="res://assets/cursor_none.svg" type="Texture" id=2]
+[ext_resource path="res://Cursor.tscn" type="PackedScene" id=1]
 
 [sub_resource type="GDScript" id=1]
 script/source = "extends Control
@@ -119,9 +119,7 @@ Fuselage heating
 Spherical world with gravity, altitude, air density, temperautre, attitude (roll, pitch, compass bearing)
 calculated on the spherical planet. (Can travel between two nearby planets.)"
 
-[node name="Cursor" type="Sprite" parent="."]
-texture = ExtResource( 2 )
-offset = Vector2( 7, 10 )
+[node name="Cursor" parent="." instance=ExtResource( 1 )]
 
 [connection signal="pressed" from="BtnExample1" to="." method="_on_BtnExample1_pressed"]
 [connection signal="pressed" from="BtnExample2" to="." method="_on_BtnExample2_pressed"]

@@ -1,12 +1,10 @@
 [gd_scene load_steps=3 format=2]
 
 [ext_resource path="res://Menu.gd" type="Script" id=1]
-[ext_resource path="res://assets/cursor_none.svg" type="Texture" id=2]
+[ext_resource path="res://Cursor.tscn" type="PackedScene" id=2]
 
 [node name="Menu" type="Node2D"]
 script = ExtResource( 1 )
-joystick_deadzone = 0.05
-joystick_curve_type = 2
 
 [node name="Label" type="Label" parent="."]
 margin_left = 10.5
@@ -42,9 +40,7 @@ margin_bottom = 42.0
 rect_pivot_offset = Vector2( 69, 0 )
 text = "Simple Flight Sim"
 
-[node name="Cursor" type="Sprite" parent="."]
-texture = ExtResource( 2 )
-offset = Vector2( 7, 10 )
+[node name="Cursor" parent="." instance=ExtResource( 2 )]
 
 [connection signal="pressed" from="Button" to="." method="_on_Third_pressed"]
 [connection signal="pressed" from="Button2" to="." method="_on_Flight_pressed"]
