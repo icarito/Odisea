@@ -872,10 +872,10 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-margin_left = -271.0
-margin_top = -267.0
-margin_right = -55.0
-margin_bottom = -139.0
+margin_left = -267.0
+margin_top = -474.0
+margin_right = -51.0
+margin_bottom = -346.0
 
 [node name="UIAltSpeed" parent="Interface" instance=ExtResource( 12 )]
 anchor_left = 1.0
@@ -920,9 +920,9 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 margin_left = -219.0
-margin_top = -284.0
+margin_top = -331.0
 margin_right = -9.0
-margin_bottom = -270.0
+margin_bottom = -317.0
 
 [node name="CornerCamera" type="ColorRect" parent="Interface"]
 margin_right = 162.0

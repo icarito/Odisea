@@ -2,6 +2,7 @@ extends AircraftModule
 class_name AircraftModule_ControlSteering
 
 export(bool) var ControlActive = true
+export(float, 0.0, 0.9) var joy_deadzone = 0.15
 
 # There should be only one steering and one steering control in the aircraft
 var steering_module = null
@@ -34,18 +35,24 @@ func _process_all_steering_inputs():
 
 	# --- Roll (Alabeo): Stick Izquierdo X + Teclas A/D ---
 	var roll_axis = 0.0
+	var joy_roll = 0.0
 	if Input.is_joy_known(joy_id):
-		roll_axis += -Input.get_joy_axis(joy_id, JOY_AXIS_0) # Aileron (stick izquierdo X)
+		joy_roll = -Input.get_joy_axis(joy_id, JOY_AXIS_0) # Aileron (stick izquierdo X)
+	if abs(joy_roll) > joy_deadzone:
+		roll_axis += joy_roll
 	if Input.is_key_pressed(KEY_A):
 		roll_axis -= 1.0
 	if Input.is_key_pressed(KEY_D):
 		roll_axis += 1.0
 	steering_module.set_z(clamp(roll_axis, -1.0, 1.0))
 
-	# --- Pitch (Cabeceo): Stick Izquierdo Y + Teclas W/S ---
+	# --- Pitch (Cabeceo): Stick Izquierdo Y + Teclas W/S --- 
 	var pitch_axis = 0.0
+	var joy_pitch = 0.0
 	if Input.is_joy_known(joy_id):
-		pitch_axis += -Input.get_joy_axis(joy_id, JOY_AXIS_1) # Elevador (stick izquierdo Y)
+		joy_pitch = -Input.get_joy_axis(joy_id, JOY_AXIS_1) # Elevador (stick izquierdo Y)
+	if abs(joy_pitch) > joy_deadzone:
+		pitch_axis += joy_pitch
 	if Input.is_key_pressed(KEY_W):
 		pitch_axis -= 1.0
 	if Input.is_key_pressed(KEY_S):

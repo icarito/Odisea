@@ -1,4 +1,4 @@
-[gd_scene load_steps=54 format=2]
+[gd_scene load_steps=55 format=2]
 
 [ext_resource path="res://example/Example1_Simple.gd" type="Script" id=1]
 [ext_resource path="res://example/sfx/aircraft_modules/landing_gear/deploy.wav" type="AudioStream" id=2]
@@ -113,6 +113,13 @@ extents = Vector3( 10, 0.25, 50 )
 
 [sub_resource type="BoxShape" id=24]
 extents = Vector3( 5, 3.48518, 45 )
+
+[sub_resource type="GDScript" id=25]
+script/source = "extends Label
+
+func _process(delta):
+	text = \"FPS: \" + String((Performance.get_monitor(Performance.TIME_FPS)))
+"
 
 [node name="Example" type="Spatial"]
 script = ExtResource( 1 )
@@ -673,6 +680,17 @@ margin_top = -166.0
 margin_right = 222.0
 margin_bottom = -152.0
 text = "Park on runway to refuel tank"
+
+[node name="FPS" type="Label" parent="."]
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = 20.0
+margin_top = 21.0
+margin_right = -582.0
+margin_bottom = -325.0
+custom_colors/font_color = Color( 0, 0, 0, 1 )
+text = "FPS: 0"
+script = SubResource( 25 )
 
 [connection signal="crashed" from="Aircraft" to="." method="_on_Aircraft_crashed"]
 [connection signal="moved" from="Aircraft" to="." method="_on_Aircraft_moved"]

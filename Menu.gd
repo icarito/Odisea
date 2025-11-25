@@ -19,3 +19,6 @@ func _on_Third_pressed():
 	
 func _on_Flight_pressed():
 	get_tree().change_scene("res://example/ExampleList.tscn")
+
+func _on_Drive_pressed():
+	get_tree().change_scene("res://Scenes/level1.tscn")

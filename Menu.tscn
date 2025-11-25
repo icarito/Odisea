@@ -25,22 +25,31 @@ text = "Input:"
 autowrap = true
 
 [node name="Button" type="Button" parent="."]
-margin_left = 143.0
+margin_left = 110.0
 margin_top = 10.0
-margin_right = 237.0
+margin_right = 204.0
 margin_bottom = 42.0
 rect_pivot_offset = Vector2( 69, 0 )
 text = "Third Person"
 
 [node name="Button2" type="Button" parent="."]
-margin_left = 255.0
+margin_left = 218.0
 margin_top = 10.0
-margin_right = 378.0
+margin_right = 341.0
 margin_bottom = 42.0
 rect_pivot_offset = Vector2( 69, 0 )
 text = "Simple Flight Sim"
+
+[node name="Button3" type="Button" parent="."]
+margin_left = 359.0
+margin_top = 10.0
+margin_right = 482.0
+margin_bottom = 42.0
+rect_pivot_offset = Vector2( 69, 0 )
+text = "Vehicle Sim"
 
 [node name="Cursor" parent="." instance=ExtResource( 2 )]
 
 [connection signal="pressed" from="Button" to="." method="_on_Third_pressed"]
 [connection signal="pressed" from="Button2" to="." method="_on_Flight_pressed"]
+[connection signal="pressed" from="Button3" to="." method="_on_Drive_pressed"]
