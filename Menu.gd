@@ -15,7 +15,7 @@ func _unhandled_input(event):
 	# --------------------
 
 func _on_Third_pressed():
-	get_tree().change_scene("res://World.tscn")
+	get_tree().change_scene("res://Levels/Ship/main.tscn")
 	
 func _on_Flight_pressed():
 	get_tree().change_scene("res://example/ExampleList.tscn")
