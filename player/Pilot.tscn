@@ -167,6 +167,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3 )
 amount = 200
 lifetime = 15.0
 preprocess = 15.0
+local_coords = false
 mesh = SubResource( 51 )
 emission_shape = 1
 emission_sphere_radius = 2.0
