@@ -102,8 +102,6 @@ func _handle_physics(delta) -> void:
 		# Aplica la fuerza en la dirección correcta (sin el signo negativo)
 		finalForce = driveElement.global_transform.basis.z * currentDrivePower * forwardDrive
 
-		if last_finalForce == null or finalForce.length() > 0.1 and abs(finalForce.length() - (last_finalForce.length() if last_finalForce else 0)) > 10.0:
-			print("[DEBUG] finalForce:", finalForce)
 		if driveElement.has_method("set"):
 			driveElement.set("_last_finalForce", finalForce)
 

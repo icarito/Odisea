@@ -21,7 +21,8 @@ func _ready() -> void:
 	sprocket = get_node(sprocketPath)
 	idler = get_node(idlerPath)
 	for wheel in roadWheelPaths:
-		roadWheels.append(get_node(wheel))
+		if wheel:
+			roadWheels.append(get_node(wheel))
 	trackMat = mesh.surface_get_material(0)
 
 func _physics_process(delta) -> void:
@@ -33,7 +34,8 @@ func _physics_process(delta) -> void:
 	# animate wheels
 	# NOTE: The rotation is bugged in 3.1, it's fixed in 3.2 Beta 1
 	for wheel in roadWheels:
-		wheel.rotate_x(ZVel * wheelSpeedScaling * delta)
+		if wheel:
+			wheel.rotate_x(ZVel * wheelSpeedScaling * delta)
 		
 	# animate drive sprocket and idler
 	sprocket.rotate_x(ZVel * sprocketSpeedScaling * delta)

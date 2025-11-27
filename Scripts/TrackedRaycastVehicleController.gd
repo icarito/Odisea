@@ -34,13 +34,20 @@ var currentSpeed : float = 0.0
 var lastSteerValue : float = 0.0
 	
 func _handle_physics(delta) -> void:
-	# get throttle and steering input
-	var forwardDrive : float = Input.get_axis("backward", "forward")
-	var steering : float = Input.get_axis("left", "right")
-	
-	# Invert steering when reversing if enabled
-	if forwardDrive < 0 && invertSteerWhenReverse:
-		steering *= -1
+	# --- Lógica de Entrada Unificada SOLO JOYPAD ---
+	var forwardDrive : float = 0.0
+	var steering : float = 0.0
+
+	# Solo usar joystick si está conectado, si no, no hay movimiento
+	if Input.is_joy_known(0):
+		forwardDrive = Input.get_joy_axis(0, JOY_AXIS_1)
+		steering = -Input.get_joy_axis(0, JOY_AXIS_0) # Invertido para coincidir con el coche
+		# Invertir dirección si está en reversa y la opción está activa
+		if forwardDrive < 0 and invertSteerWhenReverse:
+			steering *= -1
+	else:
+		forwardDrive = 0.0
+		steering = 0.0
 	
 	# calculate speed interpolation
 	var speedInterp : float
