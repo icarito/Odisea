@@ -1,7 +1,7 @@
 extends Node
 
 func _ready():
-	var anim_player = get_parent().get_node("Pilot/AnimationPlayer")
+	var anim_player = get_parent().get_node("pilot2/AnimationPlayer")
 	if anim_player:
 		var walk_anim = anim_player.get_animation("Walk_Loop")
 		if walk_anim:

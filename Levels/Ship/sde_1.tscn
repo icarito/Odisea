@@ -28,5 +28,6 @@ uv1_scale = Vector3( 50, 50, 50 )
 transform = Transform( 80, 0, 0, 0, 80, 0, 0, 0, 80, 0, 0, 0 )
 
 [node name="Mesh_0" parent="." index="0"]
+lod_range = 731.84
 use_in_baked_light = true
 material/0 = SubResource( 3 )
