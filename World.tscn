@@ -403,3 +403,4 @@ mesh = SubResource( 1 )
 shape = SubResource( 2 )
 
 [node name="Hunter" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0 )

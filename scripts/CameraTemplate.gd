@@ -28,7 +28,7 @@ func _input(event):
 func _joystick_input():
 	if (Input.is_action_pressed("lookup") ||  Input.is_action_pressed("lookdown") ||  Input.is_action_pressed("lookleft") ||  Input.is_action_pressed("lookright")):
 		$control_stay_delay.start()
-		joyview.x = Input.get_action_strength("lookleft") - Input.get_action_strength("lookright")
+		joyview.x = Input.get_action_strength("lookright") - Input.get_action_strength("lookleft")
 		joyview.y = Input.get_action_strength("lookup") - Input.get_action_strength("lookdown")
 		camrot_h += joyview.x * joystick_sensitivity * h_sensitivity
 		camrot_v += joyview.y * joystick_sensitivity * v_sensitivity 
@@ -51,5 +51,6 @@ func _physics_process(delta):
 		#MOUSE CAMERA
 		$h.rotation_degrees.y = lerp($h.rotation_degrees.y, camrot_h, delta * h_acceleration)
 	
-	$h/v.rotation_degrees.x = lerp($h/v.rotation_degrees.x, camrot_v, delta * v_acceleration)
+	# Usamos lerp_angle también para la rotación vertical por consistencia y seguridad.
+	$h/v.rotation.x = lerp_angle($h/v.rotation.x, deg2rad(camrot_v), delta * v_acceleration)
 	

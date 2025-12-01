@@ -1,8 +1,8 @@
-[gd_scene load_steps=33 format=2]
+[gd_scene load_steps=34 format=2]
 
 [ext_resource path="res://scripts/PlayerTemplate.gd" type="Script" id=1]
 [ext_resource path="res://scripts/CameraTemplate.gd" type="Script" id=2]
-[ext_resource path="res://player/Pilot_asset.tscn" type="PackedScene" id=3]
+[ext_resource path="res://player/Pilot.glb" type="PackedScene" id=3]
 [ext_resource path="res://player/AnimationLoopFix.gd" type="Script" id=4]
 
 [sub_resource type="CapsuleShape" id=48]
@@ -10,10 +10,10 @@ radius = 0.3047
 height = 1.20199
 
 [sub_resource type="AnimationNodeAnimation" id=17]
-animation = "Attack1"
+animation = "Dance_Loop"
 
 [sub_resource type="AnimationNodeAnimation" id=18]
-animation = "Attack2"
+animation = "Spell_Simple_Shoot"
 
 [sub_resource type="AnimationNodeAnimation" id=19]
 animation = "BigAttack"
@@ -126,35 +126,46 @@ states/Walk/position = Vector2( 560, 213 )
 transitions = [ "Idle", "Attack1", SubResource( 25 ), "Attack1", "Attack2", SubResource( 26 ), "Idle", "Walk", SubResource( 27 ), "Walk", "Run", SubResource( 28 ), "Run", "Walk", SubResource( 31 ), "Walk", "Idle", SubResource( 32 ), "Run", "BigAttack", SubResource( 37 ), "BigAttack", "Idle", SubResource( 38 ), "Roll", "Run", SubResource( 39 ), "Roll", "Idle", SubResource( 40 ), "Roll", "Walk", SubResource( 41 ), "Walk", "Jump", SubResource( 42 ), "Jump", "Walk", SubResource( 43 ), "Run", "Jump", SubResource( 44 ), "Idle", "Jump", SubResource( 45 ), "Attack1", "Idle", SubResource( 46 ), "Attack2", "Idle", SubResource( 47 ) ]
 start_node = "Idle"
 end_node = "Idle"
-graph_offset = Vector2( 40, 96.504 )
+graph_offset = Vector2( 37, -121.496 )
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=50]
 
-[node name="PlayerTemplate" type="KinematicBody"]
+[sub_resource type="SpatialMaterial" id=51]
+flags_vertex_lighting = true
+albedo_color = Color( 0.231373, 0.231373, 0.231373, 1 )
+emission_enabled = true
+emission = Color( 1, 0.384314, 0.0745098, 1 )
+emission_energy = 1.0
+emission_operator = 0
+emission_on_uv2 = false
+refraction_enabled = true
+refraction_scale = 0.05
+refraction_texture_channel = 0
+
+[node name="Pilot" type="KinematicBody"]
 script = ExtResource( 1 )
 PlayerAnimationTree = NodePath("AnimationTree")
-PlayerCharacterMesh = NodePath("pilot2")
+PlayerCharacterMesh = NodePath("Pilot")
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
 shape = SubResource( 48 )
 
 [node name="Camroot" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 0.98818, -0.153296, 0, 0.153296, 0.98818, 0, 0.528992, -0.550632 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
 script = ExtResource( 2 )
-PlayerCharacterMesh = NodePath("../pilot2")
+PlayerCharacterMesh = NodePath("../Pilot")
 
 [node name="h" type="Spatial" parent="Camroot"]
+transform = Transform( 1, 0, 0, 0, 0.99968, 0.0252871, 0, -0.0252871, 0.99968, 0, 0, 0 )
 
 [node name="v" type="Spatial" parent="Camroot/h"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.41498, 0 )
+transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866, 0, 1.41498, -2.98023e-08 )
 
 [node name="Camera" type="ClippedCamera" parent="Camroot/h/v"]
-transform = Transform( -1, 3.37508e-14, -1.50996e-07, -3.98082e-08, 0.964622, 0.263638, 1.45654e-07, 0.263638, -0.964622, -4.03244e-07, 2.22395, -4.15819 )
-lod_range = 478.11
+transform = Transform( -1, 1.51227e-08, -1.50237e-07, 4.44089e-15, 0.994972, 0.100153, 1.50996e-07, 0.100153, -0.994972, -4.03244e-07, 4.76837e-07, -2.67056 )
 current = true
-fov = 90.0
-near = 0.1
+fov = 80.0
 far = 10000.0
 process_mode = 1
 
@@ -163,7 +174,7 @@ one_shot = true
 
 [node name="AnimationTree" type="AnimationTree" parent="."]
 tree_root = SubResource( 49 )
-anim_player = NodePath("../pilot2/AnimationPlayer")
+anim_player = NodePath("../Pilot/AnimationPlayer")
 active = true
 process_mode = 0
 parameters/playback = SubResource( 50 )
@@ -176,6 +187,9 @@ parameters/conditions/IsRunning = false
 parameters/conditions/IsWalking = false
 script = ExtResource( 4 )
 
-[node name="pilot2" parent="." instance=ExtResource( 3 )]
+[node name="Pilot" parent="." instance=ExtResource( 3 )]
 
-[editable path="pilot2"]
+[node name="Mesh_0001" parent="Pilot/Node_40/Skinned_Mesh_0/Skeleton" index="0"]
+material/0 = SubResource( 51 )
+
+[editable path="Pilot"]

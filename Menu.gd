@@ -1,6 +1,6 @@
 extends Node2D
 
-onready var debug_label: Label = $DebugLabel
+onready var debug_label: Label = $ScrollContainer/DebugLabel
 onready var cursor: Sprite = $Cursor
 
 

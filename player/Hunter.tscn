@@ -153,6 +153,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.41498, 0 )
 [node name="Camera" type="ClippedCamera" parent="Camroot/h/v"]
 transform = Transform( -1, 0, -1.50996e-07, 0, 1, 0, 1.50996e-07, 0, -1, -4.03244e-07, 0, -2.67056 )
 current = true
+far = 10000.0
 process_mode = 1
 
 [node name="control_stay_delay" type="Timer" parent="Camroot"]

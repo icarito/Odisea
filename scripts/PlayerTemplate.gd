@@ -48,6 +48,8 @@ func _ready(): # Camera based Rotation
 func _input(event): # All major mouse and button input events
 	if event is InputEventMouseMotion:
 		aim_turn = -event.relative.x * 0.015 # animates player with mouse movement while aiming 
+	if event is InputEventJoypadMotion:
+		aim_turn = -event.relative.x * 0.015 # animates player with mouse movement while aiming 
 	
 	if event.is_action_pressed("aim"): # Aim button triggers a strafe walk and camera mechanic
 		direction = $Camroot/h.global_transform.basis.z
@@ -130,7 +132,7 @@ func _physics_process(delta):
 		
 	# Movement input, state and mechanics. *Note: movement stops if attacking
 	if (Input.is_action_pressed("forward") ||  Input.is_action_pressed("backward") ||  Input.is_action_pressed("left") ||  Input.is_action_pressed("right")):
-		direction = Vector3(Input.get_action_strength("left") - Input.get_action_strength("right"),
+		direction = Vector3(Input.get_action_strength("right") - Input.get_action_strength("left"),
 					0,
 					Input.get_action_strength("forward") - Input.get_action_strength("backward"))
 		direction = direction.rotated(Vector3.UP, h_rot).normalized()
@@ -164,7 +166,7 @@ func _physics_process(delta):
 	movement.x = horizontal_velocity.x + vertical_velocity.x
 	movement.y = vertical_velocity.y
 	move_and_slide(movement, Vector3.UP)
-
+	
 	# ========= State machine controls =========
 	# The booleans of the on_floor, is_walking etc, trigger the 
 	# advanced conditions of the AnimationTree, controlling animation paths
