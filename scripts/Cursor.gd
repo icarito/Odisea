@@ -11,9 +11,9 @@ export (JoystickCurveType) var joystick_curve_type = JoystickCurveType.EXPONENTI
 
 # This MUST be a var, not const, to avoid errors in Godot 3.5+
 var CURVE_RESOURCES = [
-	load("res://Curves/Linear.tres"),
-	load("res://Curves/Exponential.tres"),
-	load("res://Curves/Inverse_S.tres")
+	load("res://data/Curves/Linear.tres"),
+	load("res://data/Curves/Exponential.tres"),
+	load("res://data/Curves/Inverse_S.tres")
 ]
 
 var _joy_vector = Vector2.ZERO

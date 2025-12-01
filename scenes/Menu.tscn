@@ -1,17 +1,17 @@
 [gd_scene load_steps=7 format=2]
 
-[ext_resource path="res://Menu.gd" type="Script" id=1]
-[ext_resource path="res://scenes/common/Cursor.tscn" type="PackedScene" id=2]
-[ext_resource path="res://assets/Sixtyfour-Regular-VariableFont_BLED,SCAN.ttf" type="DynamicFontData" id=3]
-[ext_resource path="res://models/Pilot.glb" type="PackedScene" id=4]
-[ext_resource path="res://scripts/Spin.gd" type="Script" id=5]
+[ext_resource path="res://models/Pilot.glb" type="PackedScene" id=1]
+[ext_resource path="res://scripts/Menu.gd" type="Script" id=2]
+[ext_resource path="res://scripts/Spin.gd" type="Script" id=3]
+[ext_resource path="res://assets/Sixtyfour-Regular-VariableFont_BLED,SCAN.ttf" type="DynamicFontData" id=4]
+[ext_resource path="res://scenes/common/Cursor.tscn" type="PackedScene" id=5]
 
 [sub_resource type="DynamicFont" id=1]
 size = 95
-font_data = ExtResource( 3 )
+font_data = ExtResource( 4 )
 
 [node name="Menu" type="Node2D"]
-script = ExtResource( 1 )
+script = ExtResource( 2 )
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 margin_left = 15.0
@@ -71,7 +71,7 @@ render_target_update_mode = 3
 
 [node name="Root3D" type="Spatial" parent="VBoxContainer/HBoxContainer/VBoxContainer/Preview3D/Viewport"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0 )
-script = ExtResource( 5 )
+script = ExtResource( 3 )
 
 [node name="Light" type="DirectionalLight" parent="VBoxContainer/HBoxContainer/VBoxContainer/Preview3D/Viewport/Root3D"]
 transform = Transform( 0.965926, -0.183013, 0.183013, 0, 0.781, 0.624516, -0.258819, -0.597132, 0.758819, 0, 0, 0 )
@@ -81,7 +81,7 @@ light_energy = 0.9
 transform = Transform( 0.99957, 2.56104e-09, -0.0293173, 0.00211857, 0.997386, 0.0722323, 0.0292407, -0.0722634, 0.996957, 0, 2.32192, 2.3521 )
 current = true
 
-[node name="PilotModel" parent="VBoxContainer/HBoxContainer/VBoxContainer/Preview3D/Viewport/Root3D" instance=ExtResource( 4 )]
+[node name="PilotModel" parent="VBoxContainer/HBoxContainer/VBoxContainer/Preview3D/Viewport/Root3D" instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 
 [node name="Button" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
@@ -90,6 +90,6 @@ margin_right = 200.0
 margin_bottom = 324.0
 text = "Iniciar juego"
 
-[node name="Cursor" parent="." instance=ExtResource( 2 )]
+[node name="Cursor" parent="." instance=ExtResource( 5 )]
 
 [connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Button" to="." method="_on_Start_pressed"]

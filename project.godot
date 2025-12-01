@@ -111,7 +111,7 @@ _global_script_class_icons={
 [application]
 
 config/name="Third"
-run/main_scene="res://Menu.tscn"
+run/main_scene="res://scenes/Menu.tscn"
 
 [autoload]
 
@@ -309,4 +309,4 @@ vram_compression/import_pvrtc=true
 quality/shadows/filter_mode=0
 quality/reflections/high_quality_ggx=false
 gles2/compatibility/disable_half_float=true
-environment/default_environment="res://default_env.tres"
+environment/default_environment="res://data/default_env.tres"

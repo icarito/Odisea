@@ -123,7 +123,7 @@ func _physics_process(delta):
 		vertical_velocity = Vector3.UP * jump_force
 
 	if (Input.is_action_pressed("forward") ||  Input.is_action_pressed("backward") ||  Input.is_action_pressed("left") ||  Input.is_action_pressed("right")):
-		direction = Vector3(Input.get_action_strength("right") - Input.get_action_strength("left"),
+		direction = Vector3(Input.get_action_strength("left") - Input.get_action_strength("right"),
 					0,
 					Input.get_action_strength("forward") - Input.get_action_strength("backward"))
 		direction = direction.rotated(Vector3.UP, h_rot).normalized()

@@ -3,7 +3,7 @@
 [ext_resource path="res://BlenderFiles/wheel.mesh" type="ArrayMesh" id=1]
 [ext_resource path="res://BlenderFiles/body.mesh" type="ArrayMesh" id=2]
 [ext_resource path="res://examples/vehicles/DriveElement.tscn" type="PackedScene" id=3]
-[ext_resource path="res://default_acceleration_curve.tres" type="Curve" id=4]
+[ext_resource path="res://data/default_acceleration_curve.tres" type="Curve" id=4]
 [ext_resource path="res://Scripts/4WheelRayVehicleController.gd" type="Script" id=6]
 [ext_resource path="res://Scripts/WheelAnimator.gd" type="Script" id=7]
 
