@@ -1,0 +1,13 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=2]
+
+[ext_resource path="res://shaders/conveyor_stripes.shader" type="Shader" id=1]
+
+[resource]
+shader = ExtResource( 1 )
+shader_param/color_a = Color( 0.07, 0.07, 0.07, 1 )
+shader_param/color_b = Color( 0.55, 0.52, 0.38, 1 )
+shader_param/tiling = 5.0
+shader_param/speed = 0.6
+shader_param/dir = Vector2( 1, 0 )
+shader_param/fill = 0.45
+shader_param/emission = 0.08

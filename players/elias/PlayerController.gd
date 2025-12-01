@@ -16,6 +16,11 @@ export var walk_speed = 1.3
 export var run_speed = 5.5
 export var dash_power = 12
 
+# Velocidad externa aplicada por plataformas/conveyors
+var platform_velocity := Vector3.ZERO
+export var snap_len := 0.5
+var snap_enabled := true
+
 var roll_node_name = "Roll"
 var idle_node_name = "Idle"
 var walk_node_name = "Walk"
@@ -43,6 +48,10 @@ onready var fake_shadow: MeshInstance = $FakeShadow
 
 func _ready():
 	direction = Vector3.BACK.rotated(Vector3.UP, $Camroot/h.global_transform.basis.get_euler().y)
+
+# Interfaz pública para que plataformas/conveyors transfieran velocidad
+func set_external_velocity(v: Vector3) -> void:
+	platform_velocity = v
 
 func _input(event):
 	if event is InputEventMouseMotion:
@@ -121,6 +130,8 @@ func _physics_process(delta):
 
 	if Input.is_action_just_pressed("jump") and ((is_attacking != true) and (is_rolling != true)) and is_on_floor():
 		vertical_velocity = Vector3.UP * jump_force
+		# Al saltar, no usamos snap este frame
+		snap_enabled = false
 
 	if (Input.is_action_pressed("forward") ||  Input.is_action_pressed("backward") ||  Input.is_action_pressed("left") ||  Input.is_action_pressed("right")):
 		direction = Vector3(Input.get_action_strength("left") - Input.get_action_strength("right"),
@@ -149,10 +160,26 @@ func _physics_process(delta):
 	else:
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * movement_speed, acceleration * delta)
 
-	movement.z = horizontal_velocity.z + vertical_velocity.z
-	movement.x = horizontal_velocity.x + vertical_velocity.x
+	# Decaimiento de la velocidad de plataforma cuando no se actualiza
+	platform_velocity = platform_velocity.linear_interpolate(Vector3.ZERO, 6.0 * delta)
+
+	# Combinar velocidad propia con la transferida por la plataforma
+	var combined_horizontal = horizontal_velocity + platform_velocity
+	movement.z = combined_horizontal.z + vertical_velocity.z
+	movement.x = combined_horizontal.x + vertical_velocity.x
 	movement.y = vertical_velocity.y
-	move_and_slide(movement, Vector3.UP)
+
+	# Snap al suelo para estabilidad en plataformas
+	var snap_vec := Vector3.ZERO
+	if is_on_floor() and snap_enabled:
+		snap_vec = Vector3.DOWN * snap_len
+	else:
+		snap_vec = Vector3.ZERO
+		# Rehabilitar snap cuando volvamos a tocar suelo
+		if is_on_floor():
+			snap_enabled = true
+
+	move_and_slide_with_snap(movement, snap_vec, Vector3.UP, false)
 
 	# --- Sombra falsa ---
 	if ground_ray.is_colliding():
@@ -164,7 +191,7 @@ func _physics_process(delta):
 		var s = clamp(0.6 + dist * 0.4, 0.5, 2.0)
 		fake_shadow.scale = Vector3(s, 1.0, s)
 		# Opacidad simple: más transparente si está alto
-		var mat := fake_shadow.get_surface_material(0)
+		var mat = fake_shadow.get_surface_material(0)
 		if mat:
 			var alpha = clamp(1.0 - dist * 0.4, 0.2, 0.9)
 			mat.albedo_color.a = alpha

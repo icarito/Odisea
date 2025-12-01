@@ -1,10 +1,11 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://scenes/levels/act1/sde_1.tscn" type="PackedScene" id=1]
 [ext_resource path="res://scripts/SceneSpawn.gd" type="Script" id=2]
 [ext_resource path="res://scenes/common/Environment.tscn" type="PackedScene" id=3]
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=4]
 [ext_resource path="res://scenes/common/MovingPlatform.tscn" type="PackedScene" id=5]
+[ext_resource path="res://scenes/common/Conveyor.tscn" type="PackedScene" id=7]
 
 [node name="Act1_Criogenia" type="Spatial"]
 script = ExtResource( 2 )
@@ -21,23 +22,17 @@ depth = 100.0
 material = ExtResource( 4 )
 
 [node name="SpawnPoint" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -317.142, 3481.75 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 114.594, -302.663, 3465.75 )
 
 [node name="PuzzleZone" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 40, -320, 3481.75 )
 
-[node name="MovingPlatform_A" parent="PuzzleZone" instance=ExtResource( 5 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
-point_a = Vector3( 0, 0, 0 )
-point_b = Vector3( 0, 0, 80 )
-speed = 4.0
-ping_pong = true
-wait_time = 0.6
-
 [node name="MovingPlatform_B" parent="PuzzleZone" instance=ExtResource( 5 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -117.539, -13.7544, 10.4038 )
 point_a = Vector3( 60, 0, -20 )
 point_b = Vector3( 60, 0, 60 )
 speed = 3.5
-ping_pong = true
 wait_time = 0.3
+
+[node name="Conveyor" parent="PuzzleZone" instance=ExtResource( 7 )]
+transform = Transform( 0.165108, 0, 0, 0, 0.150785, 0, 0, 0, 6.34903, -45.5663, -20.858, -9.07812 )

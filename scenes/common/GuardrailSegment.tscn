@@ -1,0 +1,19 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://materials/guardrail/GuardrailTranslucent.tres" type="Material" id=1]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 2, 0.9, 0.2 )
+
+[node name="GuardrailSegment" type="StaticBody"]
+
+[node name="Mesh" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1.01218, 0, 0.545912, 0 )
+width = 4.0
+height = 1.1
+depth = 0.05
+material = ExtResource( 1 )
+
+[node name="CollisionShape" type="CollisionShape" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.887523, -0.155551 )
+shape = SubResource( 1 )

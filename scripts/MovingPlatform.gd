@@ -13,6 +13,9 @@ var _direction := Vector3.ZERO
 var _waiting := false
 var _wait_timer := 0.0
 var _t := 0.0
+var last_position := Vector3.ZERO
+var platform_bodies := []
+onready var passenger_area: Area = $PassengerArea if has_node("PassengerArea") else null
 
 func _ready():
 	if start_at_a:
@@ -21,6 +24,12 @@ func _ready():
 	else:
 		_target = point_a
 		translation = point_b
+	last_position = global_transform.origin
+	if passenger_area:
+		if not passenger_area.is_connected("body_entered", self, "_on_PassengerArea_body_entered"):
+			passenger_area.connect("body_entered", self, "_on_PassengerArea_body_entered")
+		if not passenger_area.is_connected("body_exited", self, "_on_PassengerArea_body_exited"):
+			passenger_area.connect("body_exited", self, "_on_PassengerArea_body_exited")
 
 func _physics_process(delta):
 	if _waiting:
@@ -52,6 +61,14 @@ func _physics_process(delta):
 
 	move_and_slide(_direction * v)
 
+	# Calcular velocidad instantánea y transferirla a pasajeros
+	var current_pos := global_transform.origin
+	var platform_velocity := (current_pos - last_position) / max(delta, 0.0001)
+	last_position = current_pos
+	for body in platform_bodies:
+		if body and body.has_method("set_external_velocity"):
+			body.set_external_velocity(platform_velocity)
+
 func _on_reach_target():
 	if wait_time > 0.0:
 		_waiting = true
@@ -68,3 +85,11 @@ func _on_reach_target():
 			_target = point_a
 		else:
 			_target = point_b
+
+func _on_PassengerArea_body_entered(body):
+	if body and not platform_bodies.has(body):
+		platform_bodies.append(body)
+
+func _on_PassengerArea_body_exited(body):
+	if body:
+		platform_bodies.erase(body)
