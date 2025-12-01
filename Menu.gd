@@ -1,6 +1,6 @@
 extends Node2D
 
-onready var debug_label: Label = $ScrollContainer/DebugLabel
+onready var debug_label: Label = $VBoxContainer/HBoxContainer/ScrollContainer/DebugLabel
 onready var cursor: Sprite = $Cursor
 
 
@@ -14,11 +14,9 @@ func _unhandled_input(event):
 	debug_label.text = text + "\n" + event.as_text()
 	# --------------------
 
-func _on_Third_pressed():
-	get_tree().change_scene("res://Levels/Ship/main.tscn")
+func _on_Start_pressed():
+	get_tree().change_scene("res://scenes/levels/act1/criogenia.tscn")
 	
-func _on_Flight_pressed():
-	get_tree().change_scene("res://example/ExampleList.tscn")
+# eliminados botones de ejemplo
 
-func _on_Drive_pressed():
-	get_tree().change_scene("res://Scenes/level1.tscn")
+# eliminados botones de ejemplo

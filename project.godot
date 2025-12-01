@@ -9,7 +9,7 @@
 config_version=4
 
 _global_script_classes=[ {
-"base": "RigidBody",
+"base": "Reference",
 "class": "Aircraft",
 "language": "GDScript",
 "path": "res://addons/simplified_flightsim/Aircraft/Aircraft.gd"
@@ -82,17 +82,17 @@ _global_script_classes=[ {
 "base": "Spatial",
 "class": "DriveElement",
 "language": "GDScript",
-"path": "res://Scripts/DriveElementController.gd"
+"path": "res://examples/vehicles/DriveElementController.gd"
 }, {
 "base": "Spatial",
 "class": "VehicleInputController",
 "language": "GDScript",
-"path": "res://Scripts/VehicleInputController.gd"
+"path": "res://examples/vehicles/VehicleInputController.gd"
 } ]
 _global_script_class_icons={
-"Aircraft": "res://addons/simplified_flightsim/Aircraft/Aircraft_icon.png",
-"AircraftModule": "res://addons/simplified_flightsim/aircraft_modules/AircraftModule_Node_icon.png",
-"AircraftModuleSpatial": "res://addons/simplified_flightsim/aircraft_modules/AircraftModule_Spatial_icon.png",
+"Aircraft": "",
+"AircraftModule": "",
+"AircraftModuleSpatial": "",
 "AircraftModule_ControlEnergyContainer": "",
 "AircraftModule_ControlEngine": "",
 "AircraftModule_ControlFlaps": "",
@@ -115,8 +115,7 @@ run/main_scene="res://Menu.tscn"
 
 [autoload]
 
-DrawLine3D="*res://Scripts/Singletions/DrawLine3D.gd"
-GameState="*res://Scripts/Singletions/GameState.gd"
+PlayerManager="*res://autoload/PlayerManager.gd"
 
 [debug]
 
@@ -129,11 +128,11 @@ window/size/height=480
 window/size/fullscreen=true
 window/size/always_on_top=true
 window/stretch/mode="viewport"
-window/stretch/aspect="expand"
+window/stretch/aspect="keep"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/simplified_flightsim/plugin.cfg" )
+enabled=PoolStringArray(  )
 
 [global]
 

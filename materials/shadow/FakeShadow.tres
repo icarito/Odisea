@@ -1,0 +1,9 @@
+[gd_resource type="SpatialMaterial" format=2]
+
+[resource]
+flags_unshaded = true
+params_use_alpha_scissor = false
+params_cull_mode = 2
+albedo_color = Color(0, 0, 0, 0.6)
+flags_transparent = true
+roughness = 1.0
