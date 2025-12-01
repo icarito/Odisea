@@ -7,6 +7,11 @@ export(Curve) var acceleration_curve
 export(NodePath) var target_node_path
 export(bool) var active := true
 export(bool) var debug_velocity := false
+export(float) var reach_threshold := 0.3 # distancia para considerar que llegó al objetivo
+export(bool) var parametric_mode := true # si true usa interpolación por progreso en lugar de move_and_slide
+export(bool) var clamp_curve_output := true # evita sobrepasar A/B si la curva sale de [0,1]
+export(bool) var use_curve_as_speed := true # curva escala velocidad (no posición)
+export(float) var min_speed_scale := 0.05 # velocidad mínima para no quedarse congelado si la curva da 0
 
 var _target := Vector3.ZERO
 var _direction := Vector3.ZERO
@@ -20,6 +25,12 @@ onready var target_node: Spatial = null
 var start_pos := Vector3.ZERO # global
 var target_pos := Vector3.ZERO # global
 var _debug_accum := 0.0
+var _prev_to_target := Vector3.ZERO
+var progress := 0.0 # 0..1
+var direction_sign := 1 # 1 hacia target, -1 hacia start
+var path_length := 0.0
+var path_dir := Vector3.ZERO
+var dist_along := 0.0 # distancia recorrida en modo paramétrico
 
 func _ready():
 	start_pos = global_transform.origin
@@ -34,6 +45,11 @@ func _ready():
 	else:
 		target_pos = start_pos + Vector3(0, 0, 10)
 	_target = target_pos
+	path_length = (target_pos - start_pos).length()
+	path_dir = (target_pos - start_pos).normalized() if path_length > 0 else Vector3.ZERO
+	progress = 0.0
+	direction_sign = 1
+	dist_along = 0.0
 	last_position = global_transform.origin
 	if passenger_area:
 		if not passenger_area.is_connected("body_entered", self, "_on_PassengerArea_body_entered"):
@@ -50,34 +66,68 @@ func _physics_process(delta):
 			_waiting = false
 		return
 
+	if parametric_mode:
+		if path_length <= 0.001:
+			return
+		# Actualizar progress desde distancia recorrida
+		progress = dist_along / path_length
+		progress = clamp(progress, 0.0, 1.0)
+		# Calcular factor de velocidad por curva (solo si se usa como velocidad)
+		var speed_scale := 1.0
+		if acceleration_curve and use_curve_as_speed:
+			speed_scale = acceleration_curve.interpolate(progress)
+			if clamp_curve_output:
+				speed_scale = max(speed_scale, 0.0)
+		# Evitar bloqueo por tramo plano de la curva
+		if speed_scale < min_speed_scale:
+			speed_scale = min_speed_scale
+		# Avance distancia (integración suave)
+		var v = speed * speed_scale
+		dist_along += v * delta * direction_sign
+		# Verificar límites y ping-pong
+		if dist_along >= path_length:
+			dist_along = path_length
+			_on_reach_target()
+			if ping_pong:
+				direction_sign = -1
+			else:
+				dist_along = 0.0
+		elif dist_along <= 0.0:
+			dist_along = 0.0
+			_on_reach_target()
+			if ping_pong:
+				direction_sign = 1
+			else:
+				dist_along = path_length
+		# Posición nueva
+		var new_pos := start_pos + path_dir * dist_along
+		var platform_velocity := (new_pos - last_position) / max(delta, 0.0001)
+		global_transform.origin = new_pos
+		last_position = new_pos
+		for body in platform_bodies:
+			if body and body.has_method("set_external_velocity"):
+				body.set_external_velocity(platform_velocity)
+		if debug_velocity:
+			_debug_accum += delta
+			if _debug_accum >= 0.5:
+				_debug_accum = 0.0
+				print("[Platform] dist_along=", dist_along, " progress=", progress, " dir=", direction_sign, " speed_scale=", speed_scale, " v=", platform_velocity)
+		return
+
+	# MODO LEGACY (no parametric): mantener código previo pero con mejor llegada
 	var current_pos := global_transform.origin
 	var to_target = _target - current_pos
 	var dist = to_target.length()
-	if dist < 0.01:
+	if dist <= reach_threshold:
+		global_transform.origin = _target
 		_on_reach_target()
+		last_position = global_transform.origin
 		return
-
 	_direction = to_target.normalized()
 	var v = speed
-	if acceleration_curve:
-		# t en [0,1] según progreso entre puntos
-		var total = (target_pos - start_pos).length()
-		var origin = start_pos if _target == target_pos else target_pos
-		var progressed = (current_pos - origin).length()
-		var ratio = 0.0
-		if total > 0.0:
-			ratio = progressed / total
-		_t = clamp(ratio, 0.0, 1.0)
-		var f = acceleration_curve.interpolate(_t)
-		if f <= 0.0:
-			f = 1.0
-		v *= f
-
 	move_and_slide(_direction * v)
-
-	# Calcular velocidad instantánea y transferirla a pasajeros
-	var platform_velocity := (current_pos - last_position) / max(delta, 0.0001)
-	last_position = current_pos
+	var platform_velocity := (global_transform.origin - last_position) / max(delta, 0.0001)
+	last_position = global_transform.origin
 	for body in platform_bodies:
 		if body and body.has_method("set_external_velocity"):
 			body.set_external_velocity(platform_velocity)
@@ -85,20 +135,25 @@ func _physics_process(delta):
 		_debug_accum += delta
 		if _debug_accum >= 0.5:
 			_debug_accum = 0.0
-			print("[Platform] v=", platform_velocity)
+			print("[Platform-Legacy] dist=", dist, " v=", platform_velocity)
+
 
 func _on_reach_target():
 	if wait_time > 0.0:
 		_waiting = true
 		_wait_timer = wait_time
 
+	if parametric_mode:
+		# En modo paramétrico solo se ajusta en función de progress/direction_sign
+		return
+
+	# Legacy
 	if ping_pong:
 		if _target == target_pos:
 			_target = start_pos
 		else:
 			_target = target_pos
 	else:
-		# ciclo A->B->A continuo, mismo comportamiento
 		if _target == target_pos:
 			_target = start_pos
 		else:

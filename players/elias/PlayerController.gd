@@ -25,6 +25,9 @@ var _debug_accum := 0.0
 var last_platform_velocity := Vector3.ZERO
 var airborne_inherited := Vector3.ZERO
 var was_on_floor := false
+export var max_platform_up_follow := 5.0
+export var inherit_vertical_platform_jump := true
+var just_jumped := false
 
 var roll_node_name = "Roll"
 var idle_node_name = "Idle"
@@ -134,13 +137,21 @@ func _physics_process(delta):
 		is_rolling = false
 
 	if Input.is_action_just_pressed("jump") and ((is_attacking != true) and (is_rolling != true)) and is_on_floor():
+		# Capturamos velocidad actual de plataforma justo en el momento del salto (antes de posible decaimiento)
+		var pv := platform_velocity
+		# Fuerza de salto base
 		vertical_velocity = Vector3.UP * jump_force
+		# Opcional: añadir componente vertical de la plataforma si está moviéndose hacia arriba
+		if inherit_vertical_platform_jump and pv.y > 0.0:
+			vertical_velocity.y += min(pv.y, max_platform_up_follow)
 		# Al saltar, no usamos snap este frame
 		snap_enabled = false
-		# Heredar inercia horizontal de la plataforma en el instante de salto
-		airborne_inherited = Vector3(last_platform_velocity.x, 0, last_platform_velocity.z)
-		# Sumarla inmediatamente para no "quedarse atrás" el primer frame
+		# Heredar inercia horizontal de la plataforma (X,Z) para conservar momentum relativo
+		airborne_inherited = Vector3(pv.x, 0, pv.z)
+		# Aplicar inmediatamente para que el primer frame en aire no pierda empuje
 		horizontal_velocity += airborne_inherited
+		# Marcar frame de salto para evitar que seguimiento vertical de plataforma lo anule
+		just_jumped = true
 
 	var has_input := (Input.is_action_pressed("forward") ||  Input.is_action_pressed("backward") ||  Input.is_action_pressed("left") ||  Input.is_action_pressed("right"))
 	if has_input:
@@ -182,8 +193,8 @@ func _physics_process(delta):
 		last_platform_velocity = platform_velocity
 		airborne_inherited = Vector3.ZERO
 		# Ajuste vertical: seguir plataforma si sube para evitar empuje por colisión
-		if platform_velocity.y > 0.0:
-			vertical_velocity.y = platform_velocity.y
+		if platform_velocity.y > 0.0 and not just_jumped:
+			vertical_velocity.y = min(platform_velocity.y, max_platform_up_follow)
 	else:
 		# Primera frame en aire: hereda última velocidad de plataforma
 		if was_on_floor:
@@ -210,6 +221,8 @@ func _physics_process(delta):
 
 	move_and_slide_with_snap(movement, snap_vec, Vector3.UP, false)
 	was_on_floor = is_on_floor()
+	# Resetear bandera tras aplicar movimiento (un solo frame de protección)
+	just_jumped = false
 
 	# Debug periódicamente
 	if debug_movement:
