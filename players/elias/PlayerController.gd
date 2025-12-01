@@ -20,6 +20,11 @@ export var dash_power = 12
 var platform_velocity := Vector3.ZERO
 export var snap_len := 0.5
 var snap_enabled := true
+export var debug_movement := false
+var _debug_accum := 0.0
+var last_platform_velocity := Vector3.ZERO
+var airborne_inherited := Vector3.ZERO
+var was_on_floor := false
 
 var roll_node_name = "Roll"
 var idle_node_name = "Idle"
@@ -132,8 +137,13 @@ func _physics_process(delta):
 		vertical_velocity = Vector3.UP * jump_force
 		# Al saltar, no usamos snap este frame
 		snap_enabled = false
+		# Heredar inercia horizontal de la plataforma en el instante de salto
+		airborne_inherited = Vector3(last_platform_velocity.x, 0, last_platform_velocity.z)
+		# Sumarla inmediatamente para no "quedarse atrás" el primer frame
+		horizontal_velocity += airborne_inherited
 
-	if (Input.is_action_pressed("forward") ||  Input.is_action_pressed("backward") ||  Input.is_action_pressed("left") ||  Input.is_action_pressed("right")):
+	var has_input := (Input.is_action_pressed("forward") ||  Input.is_action_pressed("backward") ||  Input.is_action_pressed("left") ||  Input.is_action_pressed("right"))
+	if has_input:
 		direction = Vector3(Input.get_action_strength("left") - Input.get_action_strength("right"),
 					0,
 					Input.get_action_strength("forward") - Input.get_action_strength("backward"))
@@ -160,11 +170,30 @@ func _physics_process(delta):
 	else:
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * movement_speed, acceleration * delta)
 
+	# Fricción fuerte: si no hay input y estamos en suelo, eliminar residual para evitar "conveyor" doble
+	if not has_input and is_on_floor() and not is_attacking and not is_rolling:
+		horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, 60.0 * delta)
+
 	# Decaimiento de la velocidad de plataforma cuando no se actualiza
 	platform_velocity = platform_velocity.linear_interpolate(Vector3.ZERO, 6.0 * delta)
 
+	# Capturar velocidad de plataforma SOLO mientras estamos en suelo para heredar al saltar / caer
+	if is_on_floor():
+		last_platform_velocity = platform_velocity
+		airborne_inherited = Vector3.ZERO
+		# Ajuste vertical: seguir plataforma si sube para evitar empuje por colisión
+		if platform_velocity.y > 0.0:
+			vertical_velocity.y = platform_velocity.y
+	else:
+		# Primera frame en aire: hereda última velocidad de plataforma
+		if was_on_floor:
+			airborne_inherited = last_platform_velocity
+
 	# Combinar velocidad propia con la transferida por la plataforma
-	var combined_horizontal = horizontal_velocity + platform_velocity
+	# Evitar doble efecto: en suelo NO sumamos platform_velocity (colisión + snap ya nos mueve)
+	# En aire usamos la última velocidad capturada (solo componentes horizontales) para conservar inercia
+	var effective_platform_velocity := airborne_inherited if not is_on_floor() else Vector3.ZERO
+	var combined_horizontal = horizontal_velocity + effective_platform_velocity
 	movement.z = combined_horizontal.z + vertical_velocity.z
 	movement.x = combined_horizontal.x + vertical_velocity.x
 	movement.y = vertical_velocity.y
@@ -180,6 +209,17 @@ func _physics_process(delta):
 			snap_enabled = true
 
 	move_and_slide_with_snap(movement, snap_vec, Vector3.UP, false)
+	was_on_floor = is_on_floor()
+
+	# Debug periódicamente
+	if debug_movement:
+		_debug_accum += delta
+		if _debug_accum >= 0.5:
+			_debug_accum = 0.0
+			print("[Player] hv=", horizontal_velocity, " pv=", platform_velocity, " eff_pv=", effective_platform_velocity,
+				" airborne_inherited=", airborne_inherited, " combined=", combined_horizontal,
+				" has_input=", has_input, " on_floor=", on_floor, " friction_applied=",
+				(not has_input and on_floor and not is_attacking and not is_rolling), " snap_vec=", snap_vec)
 
 	# --- Sombra falsa ---
 	if ground_ray.is_colliding():
