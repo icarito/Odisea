@@ -150,6 +150,7 @@ refraction_scale = 0.05
 refraction_texture_channel = 0
 
 [node name="Pilot" type="KinematicBody"]
+moving_platform_apply_velocity_on_leave = 1
 script = ExtResource( 1 )
 PlayerAnimationTree = NodePath("AnimationTree")
 PlayerCharacterMesh = NodePath("Pilot")
