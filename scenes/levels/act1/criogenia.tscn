@@ -4,6 +4,7 @@
 [ext_resource path="res://scripts/SceneSpawn.gd" type="Script" id=2]
 [ext_resource path="res://scenes/common/Environment.tscn" type="PackedScene" id=3]
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=4]
+[ext_resource path="res://scenes/common/MovingPlatform.tscn" type="PackedScene" id=5]
 
 [node name="Act1_Criogenia" type="Spatial"]
 script = ExtResource( 2 )
@@ -21,3 +22,22 @@ material = ExtResource( 4 )
 
 [node name="SpawnPoint" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -317.142, 3481.75 )
+
+[node name="PuzzleZone" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 40, -320, 3481.75 )
+
+[node name="MovingPlatform_A" parent="PuzzleZone" instance=ExtResource( 5 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
+point_a = Vector3( 0, 0, 0 )
+point_b = Vector3( 0, 0, 80 )
+speed = 4.0
+ping_pong = true
+wait_time = 0.6
+
+[node name="MovingPlatform_B" parent="PuzzleZone" instance=ExtResource( 5 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0, 0 )
+point_a = Vector3( 60, 0, -20 )
+point_b = Vector3( 60, 0, 60 )
+speed = 3.5
+ping_pong = true
+wait_time = 0.3

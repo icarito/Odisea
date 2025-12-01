@@ -3,7 +3,7 @@
 Proyecto Godot (3.x) enfocado en el MVP del Acto I: “El Sepulcro Criogénico”. Controlas a Elías (tercera persona) explorando la nave Odisea.
 
 ## Ejecutar
-- Escena principal: `res://Menu.tscn`
+- Escena principal: `res://scenes/Menu.tscn`
 - Requisitos: abre el proyecto en Godot 3.6.x para reimportar assets.
 
 ## Estructura (MVP)
