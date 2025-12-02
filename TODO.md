@@ -76,3 +76,11 @@ Objetivo: Completar un primer nivel continuo (sin cambios de escena) con platafo
 ## Entregables del MVP
 - [ ] `criogenia.tscn` con: plataformas con barandas, conveyor activo, un tubo conector a ala secundaria, zona de viento para ascenso, cajas apilables para resolver un acceso, objetivo de alto contraste que concluye el recorrido.
 - [ ] Actualizar `README.md` con controles y rutas: cómo alcanzar la baliza/objetivo y cómo usar viento/cajas/conveyor.
+
+## Cambios recientes
+- [x] Ajustar transparencia del material en `WindZone` y añadir partículas.
+- [x] Corregir interacción del conveyor con Elias.
+- [x] Implementar efecto visual de "cerrar los ojos" en `KillZone`.
+- [x] Cambiar música al morir y reiniciarla al hacer respawn.
+- [x] Respawn accepts any key or button press.
+- [x] Added "Offline" label to death screen.

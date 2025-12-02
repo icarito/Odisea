@@ -42,6 +42,12 @@ var movement_speed = int()
 var angular_acceleration = int()
 var acceleration = int()
 
+# Velocidad externa aplicada por elementos como Conveyor o plataformas móviles
+var external_velocity = Vector3.ZERO
+
+func set_external_velocity(velocity: Vector3) -> void:
+	external_velocity = velocity
+
 func _ready(): # Camera based Rotation
 	direction = Vector3.BACK.rotated(Vector3.UP, $Camroot/h.global_transform.basis.get_euler().y)
 
@@ -162,10 +168,8 @@ func _physics_process(delta):
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * movement_speed, acceleration * delta)
 	
 	# The Physics Sauce. Movement, gravity and velocity in a perfect dance.
-	movement.z = horizontal_velocity.z + vertical_velocity.z
-	movement.x = horizontal_velocity.x + vertical_velocity.x
-	movement.y = vertical_velocity.y
-	move_and_slide(movement, Vector3.UP)
+	var total_movement = movement + external_velocity
+	move_and_slide(total_movement, Vector3.UP)
 	
 	# ========= State machine controls =========
 	# The booleans of the on_floor, is_walking etc, trigger the 
@@ -181,5 +185,5 @@ func _physics_process(delta):
 	animation_tree["parameters/conditions/IsNotRunning"] = !is_running
 	# Attacks and roll don't use these boolean conditions, instead
 	# they use "travel" or "start" to one-shot their animations.
-	
-	
+
+

@@ -54,4 +54,4 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.6104, -337.926, 3518.85 )
 pulsating = true
 
 [node name="KillZone" parent="." instance=ExtResource( 10 )]
-transform = Transform( 100, 0, 0, 0, 1, 0, 0, 0, 100, 9.82484, -1048.12, 3474.75 )
+transform = Transform( 100, 0, 0, 0, 1, 0, 0, 0, 100, 9.82484, -435.871, 3474.75 )

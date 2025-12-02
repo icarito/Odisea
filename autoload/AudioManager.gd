@@ -45,3 +45,11 @@ func _play_internal() -> void:
 func _on_music_finished() -> void:
 	if loop_bgm and _music.stream:
 		_music.play()
+
+func change_track_on_death(death_track: AudioStream) -> void:
+	stop_bgm()
+	play_bgm(death_track, default_volume_db, false)
+
+func restart_level_music() -> void:
+	stop_bgm()
+	play_bgm(default_bgm, default_volume_db, true)

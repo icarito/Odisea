@@ -11,3 +11,16 @@ monitorable = true
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 shape = SubResource( 1 )
+
+[node name="DeathScreen" type="CanvasLayer" parent="."]
+
+[node name="TopRect" type="ColorRect" parent="DeathScreen"]
+anchor_right = 1.0
+anchor_bottom = 0.5
+color = Color( 0, 0, 0, 1 )
+
+[node name="BottomRect" type="ColorRect" parent="DeathScreen"]
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color( 0, 0, 0, 1 )
