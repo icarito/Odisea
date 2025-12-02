@@ -167,6 +167,12 @@ func _physics_process(delta):
 	else: # Movement mechanics without limitations 
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * movement_speed, acceleration * delta)
 	
+	# Compose movement vector from horizontal and vertical components
+	movement = horizontal_velocity + vertical_velocity
+	# Debug: visualizar empuje externo
+	# Throttle debug spam
+	if external_velocity.length() > 0.01 and OS.get_ticks_msec() % 250 < 16:
+		print("[Player] external_velocity=", external_velocity, " on_floor=", on_floor)
 	# The Physics Sauce. Movement, gravity and velocity in a perfect dance.
 	var total_movement = movement + external_velocity
 	move_and_slide(total_movement, Vector3.UP)

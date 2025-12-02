@@ -7,16 +7,13 @@
 extents = Vector3( 4, 0.6, 1 )
 
 [node name="Conveyor" type="Area"]
-transform = Transform( 0.165108, 0, 0, 0, 0.150785, 0, 0, 0, 6.34903, 0, 0, 0 )
 script = ExtResource( 1 )
 push_velocity = Vector3( 1, 0, 0 )
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0 )
 shape = SubResource( 1 )
 
 [node name="Mesh" type="CSGBox" parent="."]
-use_collision = true
 width = 8.0
 height = 0.2
 material = ExtResource( 2 )

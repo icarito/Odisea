@@ -26,7 +26,8 @@ depth = 100.0
 material = ExtResource( 4 )
 
 [node name="Conveyor" parent="SDE/Platform" instance=ExtResource( 7 )]
-transform = Transform( 4.50036, 0, 0, 0, 0.150785, 0, 0, 0, 0.790991, 7.77171, 1, 29.2578 )
+transform = Transform( 4.50036, 0, 0, 0, 0.150785, 0, 0, 0, 0.790991, -24.8137, 1, 29.2578 )
+push_velocity = Vector3( 10, 0, 0 )
 stripe_tiling = 50.0
 
 [node name="PuzzleZone" type="Spatial" parent="."]
@@ -50,7 +51,7 @@ script = ExtResource( 8 )
 track_path = "res://assets/music/icarito - Escalating Dread ｜ Udio [The%20Untitled].mp3"
 
 [node name="WindZone" parent="." instance=ExtResource( 9 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.6104, -337.926, 3518.85 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -19.2357, -337.926, 3518.85 )
 pulsating = true
 
 [node name="KillZone" parent="." instance=ExtResource( 10 )]

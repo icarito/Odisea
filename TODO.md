@@ -84,3 +84,5 @@ Objetivo: Completar un primer nivel continuo (sin cambios de escena) con platafo
 - [x] Cambiar música al morir y reiniciarla al hacer respawn.
 - [x] Respawn accepts any key or button press.
 - [x] Added "Offline" label to death screen.
+- [x] WindZone: partículas billboard emisivas, distribución en volumen y sin gravedad.
+- [x] Conveyor: shader más sutil (menos contraste/emisión) y empuje aplicado también a `RigidBody`.

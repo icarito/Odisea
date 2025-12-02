@@ -201,9 +201,9 @@ func _physics_process(delta):
 			airborne_inherited = last_platform_velocity
 
 	# Combinar velocidad propia con la transferida por la plataforma
-	# Evitar doble efecto: en suelo NO sumamos platform_velocity (colisión + snap ya nos mueve)
-	# En aire usamos la última velocidad capturada (solo componentes horizontales) para conservar inercia
-	var effective_platform_velocity := airborne_inherited if not is_on_floor() else Vector3.ZERO
+	# En suelo: sumar componente horizontal de platform_velocity (requerido para conveyors)
+	# En aire: usar la última velocidad capturada para conservar inercia
+	var effective_platform_velocity := (Vector3(platform_velocity.x, 0, platform_velocity.z) if is_on_floor() else airborne_inherited)
 	var combined_horizontal = horizontal_velocity + effective_platform_velocity
 	movement.z = combined_horizontal.z + vertical_velocity.z
 	movement.x = combined_horizontal.x + vertical_velocity.x
