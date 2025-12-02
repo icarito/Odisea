@@ -22,6 +22,7 @@ var platform_is_static_surface := false
 export var snap_len := 0.5
 var snap_enabled := true
 export var debug_movement := false
+export var debug_shadow := false
 var _debug_accum := 0.0
 var last_platform_velocity := Vector3.ZERO
 var airborne_inherited := Vector3.ZERO
@@ -52,6 +53,9 @@ var vertical_velocity = Vector3()
 var movement_speed = 0
 var angular_acceleration = 10
 var acceleration = 15
+var debug_timer = Timer.new()
+var debug_ready: bool = true
+
 onready var ground_ray: RayCast = $GroundRay
 onready var fake_shadow: MeshInstance = $Pilot/FakeShadow
 
@@ -66,12 +70,19 @@ func clear_gravity_override() -> void:
 
 func _ready():
 	direction = Vector3.BACK.rotated(Vector3.UP, $Camroot/h.global_transform.basis.get_euler().y)
+	if ground_ray:
+		ground_ray.enabled = true
+		ground_ray.add_exception(self)
 
-# Interfaz pública para que plataformas/conveyors transfieran velocidad
-func set_external_velocity(v: Vector3) -> void:
-	platform_velocity = v
-	# Si la fuente establece explícitamente si es superficie estática, respetar; si no, mantener valor previo.
+	if debug_movement or debug_shadow:
+		debug_timer.wait_time = 0.5
+		debug_timer.wait_time = 0.5
+		debug_timer.one_shot = false
+		debug_timer.connect("timeout", self, "_on_debug_timer_timeout")
+		add_child(debug_timer)
+		debug_timer.start()
 
+	
 func set_external_source_is_static(is_static: bool) -> void:
 	platform_is_static_surface = is_static
 
@@ -115,6 +126,10 @@ func bigattack():
 		if Input.is_action_just_pressed("attack"):
 			horizontal_velocity = direction * dash_power
 			playback.travel(bigattack_node_name)
+
+func _on_debug_timer_timeout():
+	debug_ready = true
+	# Debounce de logs
 
 func _physics_process(delta):
 	rollattack()
@@ -250,19 +265,10 @@ func _physics_process(delta):
 	# Resetear bandera tras aplicar movimiento (un solo frame de protección)
 	just_jumped = false
 
-	# Debug periódicamente
-	if debug_movement:
-		_debug_accum += delta
-		if _debug_accum >= 0.5:
-			_debug_accum = 0.0
-			print("[Player] hv=", horizontal_velocity, " pv=", platform_velocity, " eff_pv=", effective_platform_velocity,
-				" airborne_inherited=", airborne_inherited, " combined=", combined_horizontal,
-				" has_input=", has_input, " on_floor=", on_floor, " friction_applied=",
-				(not has_input and on_floor and not is_attacking and not is_rolling), " snap_vec=", snap_vec)
-
 	# --- Sombra falsa ---
 	if ground_ray.is_colliding():
 		var hit = ground_ray.get_collision_point()
+		var collider = ground_ray.get_collider()
 		var dist = global_transform.origin.y - hit.y
 		# Posición
 		fake_shadow.global_transform.origin = Vector3(hit.x, hit.y + 0.01, hit.z)
@@ -275,8 +281,26 @@ func _physics_process(delta):
 			var alpha = clamp(1.0 - dist * 0.4, 0.2, 0.9)
 			mat.albedo_color.a = alpha
 		fake_shadow.visible = true
+		if debug_shadow and debug_ready:
+			debug_ready = false
+			var mat_alpha := 0.0
+			var mat2 = fake_shadow.get_surface_material(0)
+			if mat2:
+				mat_alpha = mat2.albedo_color.a
+			print("[Shadow] hit=", hit, " dist=", String(dist).pad_decimals(2), " alpha=", String(mat_alpha).pad_decimals(2), " collider_name=",
+				(collider.name if collider and collider.has_method("get_name") else "?"))
 	else:
 		fake_shadow.visible = false
+		if debug_shadow and debug_ready:
+			debug_ready = false
+			print("[Shadow] no collision. mask=", ground_ray.collision_mask)
+
+	if debug_movement and debug_ready:
+		debug_ready = false
+		print("[Move] hv=", horizontal_velocity, " pv=", platform_velocity,
+			" airborne_inherited=", airborne_inherited,
+			" has_input=", has_input,
+			" on_floor=", on_floor)
 
 	animation_tree["parameters/conditions/IsOnFloor"] = on_floor
 	animation_tree["parameters/conditions/IsInAir"] = !on_floor

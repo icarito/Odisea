@@ -1,8 +1,8 @@
-[gd_scene load_steps=37 format=2]
+[gd_scene load_steps=36 format=2]
 
 [ext_resource path="res://scripts/PlayerController.gd" type="Script" id=1]
 [ext_resource path="res://scripts/CameraTemplate.gd" type="Script" id=2]
-[ext_resource path="res://models/Pilot.glb" type="PackedScene" id=3]
+[ext_resource path="res://players/elias/Pilot_asset.tscn" type="PackedScene" id=3]
 [ext_resource path="res://scripts/AnimationLoopFix.gd" type="Script" id=4]
 [ext_resource path="res://materials/shadow/FakeShadow.tres" type="Material" id=52]
 
@@ -131,18 +131,6 @@ graph_offset = Vector2( 37, -121.496 )
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=50]
 
-[sub_resource type="SpatialMaterial" id=51]
-flags_vertex_lighting = true
-albedo_color = Color( 0.231373, 0.231373, 0.231373, 1 )
-emission_enabled = true
-emission = Color( 1, 0.384314, 0.0745098, 1 )
-emission_energy = 1.0
-emission_operator = 0
-emission_on_uv2 = false
-refraction_enabled = true
-refraction_scale = 0.05
-refraction_texture_channel = 0
-
 [sub_resource type="SpatialMaterial" id=54]
 albedo_color = Color( 0, 0, 0, 1 )
 
@@ -156,6 +144,8 @@ PlayerAnimationTree = NodePath("AnimationTree")
 PlayerCharacterMesh = NodePath("Pilot")
 gravity = 9.0
 jump_force = 15
+debug_movement = true
+debug_shadow = true
 max_platform_up_follow = 30.0
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
@@ -183,12 +173,6 @@ process_mode = 1
 [node name="control_stay_delay" type="Timer" parent="Camroot"]
 one_shot = true
 
-[node name="GroundRay" type="RayCast" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
-enabled = true
-cast_to = Vector3( 0, -5, 0 )
-collision_mask = 2
-
 [node name="AnimationTree" type="AnimationTree" parent="."]
 tree_root = SubResource( 49 )
 anim_player = NodePath("../Pilot/AnimationPlayer")
@@ -206,14 +190,14 @@ script = ExtResource( 4 )
 
 [node name="Pilot" parent="." instance=ExtResource( 3 )]
 
-[node name="Mesh_0001" parent="Pilot/Node_40/Skinned_Mesh_0/Skeleton" index="0"]
-material/0 = SubResource( 51 )
-
 [node name="FakeShadow" type="MeshInstance" parent="Pilot"]
-transform = Transform( 1, 0, 0, 0, -3.0598e-08, 1, 0, -0.7, -4.37114e-08, 0, 1.3863e-09, 0.0317149 )
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0.02, 0 )
 cast_shadow = 0
 mesh = SubResource( 53 )
-skeleton = NodePath("../..")
 material/0 = ExtResource( 52 )
 
-[editable path="Pilot"]
+[node name="GroundRay" type="RayCast" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
+enabled = true
+cast_to = Vector3( 0, -10, 0 )
+collision_mask = 1048575

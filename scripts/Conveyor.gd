@@ -78,7 +78,7 @@ func _physics_process(_delta):
 	var _debug_accum := 0.0
 	if debug:
 		_debug_accum += _delta
-		if _debug_accum >= 0.25:
+		if _debug_accum >= 0.5:
 			print("[Conveyor] world_push=", world_push, " bodies=", _bodies.size())
 			_debug_accum = 0.0
 	for body in _bodies:
@@ -92,10 +92,7 @@ func _physics_process(_delta):
 			if body.has_method("set_external_source_is_static"):
 				body.set_external_source_is_static(true)
 			if debug:
-				_debug_accum += _delta
-				if _debug_accum >= 0.25:
-					print("[Conveyor] set_external_velocity ->", world_push, " for:", body)
-					_debug_accum = 0.0
+				print("[Conveyor] push to:", body, " vel:", world_push)
 		elif body is RigidBody:
 			# Empuje para objetos de física. Multiplicador configurable.
 			body.add_central_force(world_push * rigid_force_multiplier)
