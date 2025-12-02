@@ -1,9 +1,9 @@
 [gd_scene load_steps=37 format=2]
 
-[ext_resource path="res://players/elias/PlayerController.gd" type="Script" id=1]
+[ext_resource path="res://scripts/PlayerController.gd" type="Script" id=1]
 [ext_resource path="res://scripts/CameraTemplate.gd" type="Script" id=2]
 [ext_resource path="res://models/Pilot.glb" type="PackedScene" id=3]
-[ext_resource path="res://players/elias/AnimationLoopFix.gd" type="Script" id=4]
+[ext_resource path="res://scripts/AnimationLoopFix.gd" type="Script" id=4]
 [ext_resource path="res://materials/shadow/FakeShadow.tres" type="Material" id=52]
 
 [sub_resource type="CapsuleShape" id=48]
@@ -153,8 +153,8 @@ refraction_texture_channel = 0
 script = ExtResource( 1 )
 PlayerAnimationTree = NodePath("AnimationTree")
 PlayerCharacterMesh = NodePath("Pilot")
-gravity = 7.0
-jump_force = 12
+gravity = 9.0
+jump_force = 15
 debug_movement = true
 max_platform_up_follow = 30.0
 

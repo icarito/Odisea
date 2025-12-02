@@ -1,7 +1,7 @@
 [gd_scene load_steps=35 format=2]
 
 [ext_resource path="res://scripts/CameraTemplate.gd" type="Script" id=1]
-[ext_resource path="res://scripts/PlayerTemplate.gd" type="Script" id=2]
+[ext_resource path="res://examples/third_person_template/PlayerTemplate.gd" type="Script" id=2]
 [ext_resource path="res://player/Hunter.gltf" type="PackedScene" id=3]
 [ext_resource path="res://player/Ax.gltf" type="PackedScene" id=4]
 [ext_resource path="res://mat/HunterBody.tres" type="Material" id=5]

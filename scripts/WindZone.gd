@@ -1,69 +1,69 @@
 extends Area
 
-export (float) var lift_force := 6.0
-export (float) var max_speed := 8.0
-export (bool) var pulsating := false
-export (float) var pulse_amplitude := 0.5
-export (float) var pulse_frequency := 1.0
-export (bool) var affect_rigid_bodies := true
-export (bool) var use_accumulated_force_for_kinematic := true
-export (bool) var debug = false
+# Fuerza de elevación (lift) aplicada como gravedad local en dirección basis.y
+# Rotando el nodo cambias la dirección del viento (volumen tipo conveyor 3D)
+export (float) var lift := -12.0
+export (bool) var debug := false
+export (float) var max_speed_along_wind := 6.0
 
 var _bodies := []
-var _time := 0.0
+var _prev_positions := {}
 onready var _particles := $Particles
 
 func _ready() -> void:
 	connect("body_entered", self, "_on_body_entered")
 	connect("body_exited", self, "_on_body_exited")
-	# Add particles for wind visualization
-	# Partículas de viento desde escena dedicada
-	# Las partículas se configuran en la escena `WindZone.tscn`.
 
 func _on_body_entered(body: Object) -> void:
 	if body in _bodies:
 		return
 	_bodies.append(body)
+	if debug:
+		print("[WindZone] body_entered: ", body.name)
+	# Aplicar override de gravedad inmediatamente
+	if body.has_method("set_gravity_override"):
+		var grav = global_transform.basis.y * lift
+		body.set_gravity_override(grav)
+		if debug:
+			print("[WindZone] set_gravity_override to: ", grav, " on:", body.name)
 
 func _on_body_exited(body: Object) -> void:
 	if body in _bodies:
 		_bodies.erase(body)
-	if is_instance_valid(body) and body.has_method("set_external_velocity"):
-		body.set_external_velocity(Vector3.ZERO)
+	if debug:
+		print("[WindZone] body_exited: ", body.name)
+	# Restaurar gravedad normal
+	if is_instance_valid(body) and body.has_method("clear_gravity_override"):
+		body.clear_gravity_override()
+		if debug:
+			print("[WindZone] cleared gravity_override for: ", body.name)
 
 func _physics_process(delta: float) -> void:
-	_time += delta
-	var pulse := 1.0
-	if pulsating:
-		pulse += sin(_time * TAU * pulse_frequency) * pulse_amplitude
-	# Fuerza efectiva del viento (magnitud) tras pulso
-	var push_mag := lift_force * pulse
-	# Dirección local "up" del WindZone en espacio mundial (entendible por partículas)
-	var world_dir := global_transform.basis.y.normalized()
-	var world_push := world_dir * push_mag
-	if debug and OS.get_ticks_msec() % 250 < 16:
-		print("[WindZone] bodies:", _bodies.size(), " dir:", world_dir, " mag:", push_mag)
-	# Sincronizar feedback visual (CPUParticles expone propiedades directamente)
+	# Dirección local "up" del WindZone en espacio mundial
+	var world_dir := global_transform.basis.orthonormalized().y
+	
+	# Actualizar partículas con dirección del viento
 	if is_instance_valid(_particles):
-		_particles.direction = global_transform.basis.y
-		_particles.initial_velocity = clamp(push_mag, 0.0, max_speed)
+		_particles.direction = world_dir
+		_particles.initial_velocity = clamp(abs(lift), 0.0, 15.0)
 		_particles.spread = 0.0
-		_particles.gravity = Vector3(0,0,0)
+		_particles.gravity = Vector3.ZERO
+	
+	# Mantener override de gravedad activo mientras los cuerpos están dentro
 	for body in _bodies:
 		if not is_instance_valid(body):
 			continue
-		# Acumular fuerza de viento por frame (contrarresta gravedad si push_mag es mayor)
-		if use_accumulated_force_for_kinematic and body.has_method("accumulate_external_force"):
-			body.accumulate_external_force(world_push * delta)
+		# Actualizar gravedad aplicada en dirección del zone
+		if body.has_method("set_gravity_override"):
+			# Estimar velocidad del cuerpo para capear empuje si supera el máximo
+			var prev_pos = _prev_positions.get(body, body.global_transform.origin)
+			var velocity = (body.global_transform.origin - prev_pos) / delta
+			_prev_positions[body] = body.global_transform.origin
+			var speed_along = velocity.dot(world_dir)
+			var grav = world_dir * lift
+			if speed_along > max_speed_along_wind:
+				# No empujar más si ya supera la velocidad máxima en dirección del viento
+				grav = Vector3.ZERO
+			body.set_gravity_override(grav)
 			if debug and OS.get_ticks_msec() % 250 < 16:
-				print("[WindZone] accumulate force:", world_push * delta, " on:", body)
-		elif body.has_method("set_external_velocity"):
-			# Fallback: aplicar como velocidad (menos estable frente a gravedad)
-			body.set_external_velocity(world_push)
-			if debug and OS.get_ticks_msec() % 250 < 16:
-				print("[WindZone] set_external_velocity:", world_push, " on:", body)
-		elif affect_rigid_bodies and body is RigidBody:
-			# Aproxima fuerza para rigidbodies
-			body.add_central_force(world_push)
-			if debug and OS.get_ticks_msec() % 250 < 16:
-				print("[WindZone] add_central_force:", world_push, " on:", body)
+				print("[WindZone] updating gravity_override: ", grav, " speed_along=", speed_along, " on: ", body.name)

@@ -1,6 +1,6 @@
 [gd_scene load_steps=31 format=2]
 
-[ext_resource path="res://scripts/PlayerTemplate.gd" type="Script" id=1]
+[ext_resource path="res://examples/third_person_template/PlayerTemplate.gd" type="Script" id=1]
 [ext_resource path="res://scripts/CameraTemplate.gd" type="Script" id=2]
 
 [sub_resource type="CapsuleShape" id=48]

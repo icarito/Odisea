@@ -139,10 +139,11 @@ func _physics_process(delta):
 		vertical_velocity += effective_gravity_vector * 2 * delta
 	else:
 		# Si la gravedad efectiva apunta hacia arriba (levanta), despegar del suelo
-		if effective_gravity_dir.dot(Vector3.UP) < -0.5:
-			vertical_velocity = Vector3.ZERO
-			# Deshabilitar snap mientras estemos bajo efecto de viento ascendente
+		if effective_gravity_dir.dot(Vector3.UP) > 0.5:
+			# Deshabilitar snap un frame para permitir despegue
 			snap_enabled = false
+			# Aplicar leve impulso en dirección de la "levitación" para separar del suelo
+			vertical_velocity = effective_gravity_dir * min(effective_gravity_mag, gravity) * 0.5
 		else:
 			vertical_velocity = -get_floor_normal() * min(effective_gravity_mag, gravity) / 3
 
