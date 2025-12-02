@@ -9,6 +9,12 @@ Objetivo: Completar un primer nivel continuo (sin cambios de escena) con platafo
 4) Barandas y conectividad: crear `GuardrailSegment.tscn` y `TubeConnector.tscn`, colocarlos en bordes críticos y unir alas para backtracking.
 5) Objetivo y cajas: `GoalBeacon.tscn` (fin del recorrido) y `PushableBox.tscn` (apilado 2–3 cajas).
 6) Integrar “Cargol”: `scenes/common/Cargol.tscn` (prop/NPC simple) y ubicarlo en `criogenia.tscn`.
+7) Spawn cinematográfico: transición de cámara y bordes negros reutilizables.
+  - Refactorizar bordes negros de para reutilizarlos al entrar, en un hud o en cinematicas.
+  - Añadir parámetros en `scripts/SceneSpawn.gd` para duración/intensidad y resetear ángulo de cámara al respawn.
+- [ ] SceneManager y Loading Screens
+  - Añadir `SceneManager` (autoload) para gestionar pantallas de carga y transiciones.
+
 
 ## Prioridad Alta
 - [ ] Plataformas con barandas
@@ -37,6 +43,10 @@ Objetivo: Completar un primer nivel continuo (sin cambios de escena) con platafo
   - Extender `autoload/PlayerManager.gd` con checkpoints (`Checkpoint.tscn`) y snapshot de posición/rotación.
   - Al morir, respawn en el último checkpoint seguro.
   - Estado: `KillZone` y `Checkpoint` implementados; `PlayerManager` extendido con `respawn()` y checkpoints. Falta colocar en `criogenia.tscn`.
+- [ ] Spawn cinematográfico y cutscenes
+  - `scenes/common/ScreenBorders.tscn` para bordes negros reutilizables (Kill/Spawn/Cutscenes).
+  - `scripts/SceneSpawn.gd` con exports para duración, grosor de bordes y transición de cámara.
+  - Al respawn, resetear el ángulo/rotación de cámara.
 
 ## Integración con lo existente
 - [ ] Ajustar `scripts/MovingPlatform.gd` si es necesario para transportar al jugador de forma estable (comprobar colisiones en bordes).
@@ -58,6 +68,8 @@ Objetivo: Completar un primer nivel continuo (sin cambios de escena) con platafo
 - [x] `scenes/common/KillZone.tscn` — `Area` grande bajo plataformas.
 - [x] `scenes/common/Checkpoint.tscn` — `Area` + marcador visual; notifica a `PlayerManager`.
 - [ ] `scripts/GoalBeacon.gd` + `scenes/common/GoalBeacon.tscn` — activa objetivo y guarda progreso.
+- [ ] `scripts/ScreenBorders.gd` + `scenes/common/ScreenBorders.tscn` — CanvasLayer con `TopRect`/`BottomRect` animables; API `show_borders()`/`hide_borders()`.
+- [ ] `scripts/SceneSpawn.gd` — añadir exports de transición (`spawn_duration`, `border_thickness_pct`, `reset_camera_on_respawn`) y métodos `play_spawn_intro()` / `play_respawn_intro()`.
 
 ## Integración de audio y Cargol (low-hanging fruit)
 - [x] Autoload `AudioManager.gd` registrado en `project.godot`.
