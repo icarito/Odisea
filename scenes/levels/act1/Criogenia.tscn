@@ -25,12 +25,6 @@ width = 100.0
 depth = 100.0
 material = ExtResource( 5 )
 
-[node name="Conveyor" parent="SDE/Platform" instance=ExtResource( 8 )]
-transform = Transform( 4.50036, 0, 0, 0, 0.150785, 0, 0, 0, 0.790991, -46.9674, 1, 29.2578 )
-push_velocity = Vector3( -3, 0, 0 )
-debug = false
-stripe_tiling = 40.0
-
 [node name="PuzzleZone" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 47.5841, -320, 3461.67 )
 
@@ -48,6 +42,12 @@ debug = false
 
 [node name="Target" type="Spatial" parent="PuzzleZone"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -128.814, 31.457, 49.655 )
+
+[node name="Conveyor" parent="PuzzleZone" instance=ExtResource( 8 )]
+transform = Transform( 4.50036, 0, 0, 0, 0.150785, 0, 0, 0, 0.790991, -94.5515, -20.858, 49.3379 )
+push_velocity = Vector3( -3, 0, 0 )
+debug = false
+stripe_tiling = 40.0
 
 [node name="SpawnPoint" type="Spatial" parent="."]
 transform = Transform( 0.688317, 0, -0.72541, 0, 1, 0, 0.72541, 0, 0.688317, -35.8538, -340.363, 3517.65 )
