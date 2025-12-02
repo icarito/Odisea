@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=11 format=2]
 
 [ext_resource path="res://scenes/common/sde_1.tscn" type="PackedScene" id=1]
 [ext_resource path="res://scripts/SceneSpawn.gd" type="Script" id=2]
@@ -7,6 +7,9 @@
 [ext_resource path="res://scenes/common/MovingPlatform.tscn" type="PackedScene" id=5]
 [ext_resource path="res://data/Curves/Linear.tres" type="Curve" id=6]
 [ext_resource path="res://scenes/common/Conveyor.tscn" type="PackedScene" id=7]
+[ext_resource path="res://scripts/LevelBGM.gd" type="Script" id=8]
+[ext_resource path="res://scenes/common/WindZone.tscn" type="PackedScene" id=9]
+[ext_resource path="res://scenes/common/KillZone.tscn" type="PackedScene" id=10]
 
 [node name="Act1_Criogenia" type="Spatial"]
 script = ExtResource( 2 )
@@ -23,7 +26,7 @@ depth = 100.0
 material = ExtResource( 4 )
 
 [node name="Conveyor" parent="SDE/Platform" instance=ExtResource( 7 )]
-transform = Transform( 4.50036, 0, 0, 0, 0.150785, 0, 0, 0, 0.790991, 7.77171, 1, -9.07812 )
+transform = Transform( 4.50036, 0, 0, 0, 0.150785, 0, 0, 0, 0.790991, 7.77171, 1, 29.2578 )
 stripe_tiling = 50.0
 
 [node name="PuzzleZone" type="Spatial" parent="."]
@@ -35,10 +38,20 @@ speed = 20.0
 wait_time = 0.3
 acceleration_curve = ExtResource( 6 )
 target_node_path = NodePath("../../Spatial")
-debug_velocity = true
 
 [node name="SpawnPoint" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -40.0108, -326.974, 3521.29 )
 
 [node name="Spatial" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.0416, -288.543, 3623.29 )
+
+[node name="LevelBGM" type="Node" parent="."]
+script = ExtResource( 8 )
+track_path = "res://assets/music/icarito - Escalating Dread ｜ Udio [The%20Untitled].mp3"
+
+[node name="WindZone" parent="." instance=ExtResource( 9 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.6104, -337.926, 3518.85 )
+pulsating = true
+
+[node name="KillZone" parent="." instance=ExtResource( 10 )]
+transform = Transform( 100, 0, 0, 0, 1, 0, 0, 0, 100, 9.82484, -1048.12, 3474.75 )

@@ -2,6 +2,8 @@ extends Node
 
 var player_scene := preload("res://players/elias/Pilot.tscn")
 var player: Node = null
+var _initial_spawn_transform := Transform()
+var last_checkpoint_transform = null
 
 func is_spawned() -> bool:
 	return player != null and is_instance_valid(player)
@@ -12,6 +14,7 @@ func spawn(initial_transform: Transform = Transform()) -> Node:
 	player = player_scene.instance()
 	# Defer child addition until scene is ready to avoid 'Parent node is busy' error
 	call_deferred("_deferred_spawn", initial_transform)
+	_initial_spawn_transform = initial_transform
 	return player
 
 func _deferred_spawn(initial_transform: Transform):
@@ -32,3 +35,15 @@ func despawn():
 
 func get_player() -> Node:
 	return player
+
+func set_checkpoint(t: Transform) -> void:
+	last_checkpoint_transform = t
+
+func respawn() -> void:
+	if not is_spawned():
+		spawn(_initial_spawn_transform)
+		return
+	var target := _initial_spawn_transform
+	if last_checkpoint_transform != null:
+		target = last_checkpoint_transform
+	player.global_transform = target

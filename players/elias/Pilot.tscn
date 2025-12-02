@@ -153,8 +153,8 @@ refraction_texture_channel = 0
 script = ExtResource( 1 )
 PlayerAnimationTree = NodePath("AnimationTree")
 PlayerCharacterMesh = NodePath("Pilot")
+gravity = 7.0
 jump_force = 12
-debug_movement = true
 max_platform_up_follow = 30.0
 
 [node name="CollisionShape" type="CollisionShape" parent="."]

@@ -116,6 +116,7 @@ run/main_scene="res://scenes/Menu.tscn"
 [autoload]
 
 PlayerManager="*res://autoload/PlayerManager.gd"
+AudioManager="*res://autoload/AudioManager.gd"
 
 [debug]
 
