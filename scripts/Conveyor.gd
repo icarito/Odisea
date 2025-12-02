@@ -27,12 +27,14 @@ func _update_shader_params(mat: ShaderMaterial) -> void:
 	if not mat:
 		return
 	var d = Vector2(push_velocity.x, push_velocity.z)
-	# Corrige orientación: rota 90° para alinear el flujo visual con la dirección real
-	d = Vector2(d.y, -d.x)
 	if d.length() > 0.001:
 		d = d.normalized()
-	mat.set_shader_param("dir", d)
-	mat.set_shader_param("speed", max(push_velocity.length(), 0.0) * 0.4)
+	# Rotar 90° para alinear con el mapeo UV (top face X/Z)
+	# e invertir para que el desplazamiento visual coincida con el empuje
+	var d_uv = Vector2(d.y, -d.x)
+	mat.set_shader_param("dir", -d_uv)
+	# Velocidad visual igual a la magnitud del empuje
+	mat.set_shader_param("speed", max(push_velocity.length(), 0.0))
 	mat.set_shader_param("color_a", stripe_dark_color)
 	mat.set_shader_param("color_b", stripe_light_color)
 	mat.set_shader_param("emission", stripe_emission)

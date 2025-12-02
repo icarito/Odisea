@@ -27,8 +27,8 @@ material = ExtResource( 4 )
 
 [node name="Conveyor" parent="SDE/Platform" instance=ExtResource( 7 )]
 transform = Transform( 4.50036, 0, 0, 0, 0.150785, 0, 0, 0, 0.790991, -24.8137, 1, 29.2578 )
-push_velocity = Vector3( 10, 0, 0 )
-stripe_tiling = 50.0
+push_velocity = Vector3( 3, 0, 0 )
+stripe_tiling = 40.0
 
 [node name="PuzzleZone" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 47.5841, -320, 3461.67 )
