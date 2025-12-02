@@ -12,6 +12,8 @@ extents = Vector3( 4, 0.1, 1 )
 [node name="Conveyor" type="Area"]
 script = ExtResource( 1 )
 push_velocity = Vector3( 1, 0, 0 )
+collision_layer = 8
+collision_mask = 129
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 shape = SubResource( 1 )
@@ -22,6 +24,8 @@ height = 0.2
 material = ExtResource( 2 )
 
 [node name="Ground" type="StaticBody" parent="."]
+collision_layer = 2
+collision_mask = 129
 
 [node name="GroundCollision" type="CollisionShape" parent="Ground"]
 shape = SubResource( 3 )
