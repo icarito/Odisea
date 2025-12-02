@@ -1,6 +1,8 @@
 # AGENTS.md — Guía de orientación para agentes (Odisea: El Arca Silenciosa)
 
-Nota: Recuerda que en GDScript los ternarios son como en Python no como en JS.
+Nota: 
+- Si el usuario te alcanza logs seguramente es que último intento falló y desea que intentes de nuevo.
+- Recuerda que en GDScript los ternarios son como en Python no como en JS.
 
 ## 1) En una frase
 Odisea (MVP) es un juego 3D en Godot 3.6 (GLES2): tercera persona + plataformas con plataformas móviles/conveyor, cámara suave, y narrativa ligera por diálogos JSON; primera entrega jugable: Acto I "Criogenia" como nivel continuo.

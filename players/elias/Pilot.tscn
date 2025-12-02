@@ -144,8 +144,6 @@ PlayerAnimationTree = NodePath("AnimationTree")
 PlayerCharacterMesh = NodePath("Pilot")
 gravity = 9.0
 jump_force = 15
-debug_movement = true
-debug_shadow = true
 max_platform_up_follow = 30.0
 
 [node name="CollisionShape" type="CollisionShape" parent="."]

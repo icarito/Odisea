@@ -18,5 +18,3 @@ refraction_texture_channel = 0
 
 [node name="Mesh_0001" parent="Node_40/Skinned_Mesh_0/Skeleton" index="0"]
 material/0 = SubResource( 1 )
-
-[node name="Spatial" type="Spatial" parent="AnimationPlayer" index="0"]

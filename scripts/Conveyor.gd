@@ -57,7 +57,7 @@ func _on_body_entered(body):
 		return
 	_bodies.append(body)
 	if debug:
-		print("[Conveyor] body_entered:", body, " total=", _bodies.size())
+		print("[Conveyor] body_entered:", body, " total=", _bodies.size(), " has_set_external=", body.has_method("set_external_velocity"))
 
 func _on_body_exited(body):
 	if body in _bodies:
@@ -92,7 +92,7 @@ func _physics_process(_delta):
 			if body.has_method("set_external_source_is_static"):
 				body.set_external_source_is_static(true)
 			if debug:
-				print("[Conveyor] push to:", body, " vel:", world_push)
+				print("[Conveyor] push to:", body.get_name() if body.has_method("get_name") else body, " vel:", world_push)
 		elif body is RigidBody:
 			# Empuje para objetos de física. Multiplicador configurable.
 			body.add_central_force(world_push * rigid_force_multiplier)

@@ -68,6 +68,10 @@ func set_gravity_override(g: Vector3) -> void:
 func clear_gravity_override() -> void:
 	local_gravity_override = Vector3.ZERO
 
+# Interfaz pública para que plataformas/conveyors transfieran velocidad
+func set_external_velocity(v: Vector3) -> void:
+	platform_velocity = v
+
 func _ready():
 	direction = Vector3.BACK.rotated(Vector3.UP, $Camroot/h.global_transform.basis.get_euler().y)
 	if ground_ray:
@@ -297,10 +301,14 @@ func _physics_process(delta):
 
 	if debug_movement and debug_ready:
 		debug_ready = false
+		var eff_pv := (Vector3(platform_velocity.x, 0, platform_velocity.z) if (on_floor and platform_is_static_surface) else airborne_inherited)
 		print("[Move] hv=", horizontal_velocity, " pv=", platform_velocity,
+			" eff_pv=", eff_pv,
+			" combined=", combined_horizontal,
 			" airborne_inherited=", airborne_inherited,
 			" has_input=", has_input,
-			" on_floor=", on_floor)
+			" on_floor=", on_floor,
+			" platform_is_static=", platform_is_static_surface)
 
 	animation_tree["parameters/conditions/IsOnFloor"] = on_floor
 	animation_tree["parameters/conditions/IsInAir"] = !on_floor
