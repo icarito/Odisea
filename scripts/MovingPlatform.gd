@@ -107,6 +107,8 @@ func _physics_process(delta):
 		for body in platform_bodies:
 			if body and body.has_method("set_external_velocity"):
 				body.set_external_velocity(platform_velocity)
+				if body.has_method("set_external_source_is_static"):
+					body.set_external_source_is_static(false)
 		if debug_velocity:
 			_debug_accum += delta
 			if _debug_accum >= 0.5:
@@ -131,6 +133,8 @@ func _physics_process(delta):
 	for body in platform_bodies:
 		if body and body.has_method("set_external_velocity"):
 			body.set_external_velocity(platform_velocity)
+			if body.has_method("set_external_source_is_static"):
+				body.set_external_source_is_static(false)
 	if debug_velocity:
 		_debug_accum += delta
 		if _debug_accum >= 0.5:

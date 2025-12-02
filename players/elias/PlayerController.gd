@@ -18,6 +18,7 @@ export var dash_power = 12
 
 # Velocidad externa aplicada por plataformas/conveyors
 var platform_velocity := Vector3.ZERO
+var platform_is_static_surface := false
 export var snap_len := 0.5
 var snap_enabled := true
 export var debug_movement := false
@@ -60,6 +61,10 @@ func _ready():
 # Interfaz pública para que plataformas/conveyors transfieran velocidad
 func set_external_velocity(v: Vector3) -> void:
 	platform_velocity = v
+	# Si la fuente establece explícitamente si es superficie estática, respetar; si no, mantener valor previo.
+
+func set_external_source_is_static(is_static: bool) -> void:
+	platform_is_static_surface = is_static
 
 func _input(event):
 	if event is InputEventMouseMotion:
@@ -203,7 +208,7 @@ func _physics_process(delta):
 	# Combinar velocidad propia con la transferida por la plataforma
 	# En suelo: sumar componente horizontal de platform_velocity (requerido para conveyors)
 	# En aire: usar la última velocidad capturada para conservar inercia
-	var effective_platform_velocity := (Vector3(platform_velocity.x, 0, platform_velocity.z) if is_on_floor() else airborne_inherited)
+	var effective_platform_velocity := (Vector3(platform_velocity.x, 0, platform_velocity.z) if (is_on_floor() and platform_is_static_surface) else airborne_inherited)
 	var combined_horizontal = horizontal_velocity + effective_platform_velocity
 	movement.z = combined_horizontal.z + vertical_velocity.z
 	movement.x = combined_horizontal.x + vertical_velocity.x

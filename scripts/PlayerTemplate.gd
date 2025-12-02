@@ -44,9 +44,16 @@ var acceleration = int()
 
 # Velocidad externa aplicada por elementos como Conveyor o plataformas móviles
 var external_velocity = Vector3.ZERO
+# Fuerza/impulso externo acumulativo (p.ej., viento) con decaimiento
+var external_force = Vector3.ZERO
 
 func set_external_velocity(velocity: Vector3) -> void:
+	# Velocidad impuesta por plataformas/conveyor (se actualiza cada frame)
 	external_velocity = velocity
+
+func accumulate_external_force(force: Vector3) -> void:
+	# Suma fuerzas/impulsos del entorno (viento) que decaen suavemente
+	external_force += force
 
 func _ready(): # Camera based Rotation
 	direction = Vector3.BACK.rotated(Vector3.UP, $Camroot/h.global_transform.basis.get_euler().y)
@@ -112,7 +119,12 @@ func _physics_process(delta):
 	if not is_on_floor(): 
 		vertical_velocity += Vector3.DOWN * gravity * 2 * delta
 	else: 
-		vertical_velocity = -get_floor_normal() * gravity / 3
+		# Si la fuerza externa hacia arriba supera parte de la gravedad, no pegamos al suelo
+		var upward_force := external_force.dot(Vector3.UP)
+		if upward_force > gravity * 0.6:
+			vertical_velocity = Vector3.ZERO
+		else:
+			vertical_velocity = -get_floor_normal() * gravity / 3
 	
 	# Defining attack state: Add more attacks animations here as you add more!
 	if (attack1_node_name in playback.get_current_node()) or (attack2_node_name in playback.get_current_node()) or (bigattack_node_name in playback.get_current_node()): 
@@ -171,10 +183,12 @@ func _physics_process(delta):
 	movement = horizontal_velocity + vertical_velocity
 	# Debug: visualizar empuje externo
 	# Throttle debug spam
-	if external_velocity.length() > 0.01 and OS.get_ticks_msec() % 250 < 16:
-		print("[Player] external_velocity=", external_velocity, " on_floor=", on_floor)
+	if (external_velocity.length() > 0.01 or external_force.length() > 0.01) and OS.get_ticks_msec() % 250 < 16:
+		print("[Player] external_velocity=", external_velocity, " external_force=", external_force, " on_floor=", on_floor)
 	# The Physics Sauce. Movement, gravity and velocity in a perfect dance.
-	var total_movement = movement + external_velocity
+	# Decaimiento suave de fuerza acumulada para evitar crecimiento infinito
+	external_force = external_force.linear_interpolate(Vector3.ZERO, 3.0 * delta)
+	var total_movement = movement + external_velocity + external_force
 	move_and_slide(total_movement, Vector3.UP)
 	
 	# ========= State machine controls =========

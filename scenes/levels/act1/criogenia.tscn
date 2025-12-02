@@ -26,22 +26,27 @@ depth = 100.0
 material = ExtResource( 4 )
 
 [node name="Conveyor" parent="SDE/Platform" instance=ExtResource( 7 )]
-transform = Transform( 4.50036, 0, 0, 0, 0.150785, 0, 0, 0, 0.790991, -24.8137, 1, 29.2578 )
-push_velocity = Vector3( 3, 0, 0 )
+transform = Transform( 4.50036, 0, 0, 0, 0.150785, 0, 0, 0, 0.790991, -46.9674, 1, 29.2578 )
+push_velocity = Vector3( -3, 0, 0 )
+debug = false
 stripe_tiling = 40.0
 
 [node name="PuzzleZone" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 47.5841, -320, 3461.67 )
 
 [node name="MovingPlatform_B" parent="PuzzleZone" instance=ExtResource( 5 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -71.3114, -22.022, 90.1299 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -126.576, -26.978, 62.6863 )
 speed = 20.0
 wait_time = 0.3
 acceleration_curve = ExtResource( 6 )
 target_node_path = NodePath("../../Spatial")
 
+[node name="WindZone" parent="PuzzleZone" instance=ExtResource( 9 )]
+transform = Transform( 3, 0, 0, 0, 3, 0, 0, 0, 3, -82.7547, -17.926, 66.1301 )
+pulsating = true
+
 [node name="SpawnPoint" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -40.0108, -326.974, 3521.29 )
+transform = Transform( 0.688317, 0, -0.72541, 0, 1, 0, 0.72541, 0, 0.688317, -41.3624, -340.363, 3503.97 )
 
 [node name="Spatial" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.0416, -288.543, 3623.29 )
@@ -49,10 +54,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.0416, -288.543, 3623.29 )
 [node name="LevelBGM" type="Node" parent="."]
 script = ExtResource( 8 )
 track_path = "res://assets/music/icarito - Escalating Dread ｜ Udio [The%20Untitled].mp3"
-
-[node name="WindZone" parent="." instance=ExtResource( 9 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -19.2357, -337.926, 3518.85 )
-pulsating = true
 
 [node name="KillZone" parent="." instance=ExtResource( 10 )]
 transform = Transform( 100, 0, 0, 0, 1, 0, 0, 0, 100, 9.82484, -435.871, 3474.75 )

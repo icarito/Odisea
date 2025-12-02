@@ -66,6 +66,8 @@ func _on_body_exited(body):
 			print("[Conveyor] body_exited:", body, " total=", _bodies.size())
 	if is_instance_valid(body) and body.has_method("set_external_velocity"):
 		body.set_external_velocity(Vector3.ZERO)
+		if body.has_method("set_external_source_is_static"):
+			body.set_external_source_is_static(false)
 		if debug:
 			print("[Conveyor] reset external velocity to ZERO for:", body)
 
@@ -87,6 +89,8 @@ func _physics_process(_delta):
 		if body.has_method("set_external_velocity"):
 			# Similar a MovingPlatform: comunicar velocidad externa cada frame
 			body.set_external_velocity(world_push)
+			if body.has_method("set_external_source_is_static"):
+				body.set_external_source_is_static(true)
 			if debug:
 				_debug_accum += _delta
 				if _debug_accum >= 0.25:
