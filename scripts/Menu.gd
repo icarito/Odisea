@@ -22,4 +22,4 @@ func _unhandled_input(event):
 	# --------------------
 
 func _on_Start_pressed():
-	get_tree().change_scene("res://scenes/levels/act1/criogenia.tscn")
+	get_tree().change_scene("res://scenes/levels/act1/Criogenia.tscn")

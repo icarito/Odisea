@@ -47,3 +47,14 @@ func respawn() -> void:
 	if last_checkpoint_transform != null:
 		target = last_checkpoint_transform
 	player.global_transform = target
+	# Reset cámara al respawn si existe estructura conocida
+	var camroot = player.get_node_or_null("Camroot")
+	if camroot:
+		var h = camroot.get_node_or_null("h")
+		var v = null
+		if h:
+			v = h.get_node_or_null("v")
+		if h:
+			h.rotation_degrees.y = 0
+		if v:
+			v.rotation_degrees.x = 0
