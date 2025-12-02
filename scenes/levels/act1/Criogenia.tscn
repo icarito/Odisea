@@ -50,7 +50,7 @@ debug = false
 stripe_tiling = 40.0
 
 [node name="SpawnPoint" type="Spatial" parent="."]
-transform = Transform( 0.688317, 0, -0.72541, 0, 1, 0, 0.72541, 0, 0.688317, -35.8538, -340.363, 3517.65 )
+transform = Transform( 0.688317, 0, -0.72541, 0, 1, 0, 0.72541, 0, 0.688317, -39.3894, -340.363, 3498.86 )
 
 [node name="LevelBGM" type="Node" parent="."]
 script = ExtResource( 3 )

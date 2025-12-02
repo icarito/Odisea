@@ -53,7 +53,8 @@ var movement_speed = 0
 var angular_acceleration = 10
 var acceleration = 15
 onready var ground_ray: RayCast = $GroundRay
-onready var fake_shadow: MeshInstance = $FakeShadow
+export (NodePath) var FakeShadowPath := NodePath("$Pilot/FakeShadow")
+onready var fake_shadow: MeshInstance = get_node_or_null(FakeShadowPath)
 
 # Override local de gravedad desde zonas (WindZone)
 var local_gravity_override := Vector3.ZERO
@@ -66,6 +67,9 @@ func clear_gravity_override() -> void:
 
 func _ready():
 	direction = Vector3.BACK.rotated(Vector3.UP, $Camroot/h.global_transform.basis.get_euler().y)
+	# Resolver sombra si no se pudo en onready
+	if not is_instance_valid(fake_shadow) and FakeShadowPath != NodePath(""):
+		fake_shadow = get_node_or_null(FakeShadowPath)
 
 # Interfaz pública para que plataformas/conveyors transfieran velocidad
 func set_external_velocity(v: Vector3) -> void:
@@ -260,22 +264,22 @@ func _physics_process(delta):
 				(not has_input and on_floor and not is_attacking and not is_rolling), " snap_vec=", snap_vec)
 
 	# --- Sombra falsa ---
-	if ground_ray.is_colliding():
-		var hit = ground_ray.get_collision_point()
-		var dist = global_transform.origin.y - hit.y
-		# Posición
-		fake_shadow.global_transform.origin = Vector3(hit.x, hit.y + 0.01, hit.z)
-		# Escala dependiente de distancia al suelo (clamp para prototipo)
-		var s = clamp(0.6 + dist * 0.4, 0.5, 2.0)
-		fake_shadow.scale = Vector3(s, 1.0, s)
-		# Opacidad simple: más transparente si está alto
-		var mat = fake_shadow.get_surface_material(0)
-		if mat:
-			var alpha = clamp(1.0 - dist * 0.4, 0.2, 0.9)
-			mat.albedo_color.a = alpha
-		fake_shadow.visible = true
-	else:
-		fake_shadow.visible = false
+	if not is_instance_valid(fake_shadow):
+		fake_shadow = get_node_or_null(FakeShadowPath)
+	if is_instance_valid(fake_shadow):
+		if ground_ray.is_colliding():
+			var hit = ground_ray.get_collision_point()
+			var dist = global_transform.origin.y - hit.y
+			fake_shadow.global_transform.origin = Vector3(hit.x, hit.y + 0.01, hit.z)
+			var s = clamp(0.6 + dist * 0.4, 0.5, 2.0)
+			fake_shadow.scale = Vector3(s, 1.0, s)
+			var mat = fake_shadow.get_surface_material(0)
+			if mat:
+				var alpha = clamp(1.0 - dist * 0.4, 0.2, 0.9)
+				mat.albedo_color.a = alpha
+			fake_shadow.visible = true
+		else:
+			fake_shadow.visible = false
 
 	animation_tree["parameters/conditions/IsOnFloor"] = on_floor
 	animation_tree["parameters/conditions/IsInAir"] = !on_floor

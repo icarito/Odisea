@@ -53,7 +53,7 @@ var movement_speed = 0
 var angular_acceleration = 10
 var acceleration = 15
 onready var ground_ray: RayCast = $GroundRay
-onready var fake_shadow: MeshInstance = $FakeShadow
+onready var fake_shadow: MeshInstance = $Pilot/FakeShadow
 
 # Override local de gravedad desde zonas (WindZone)
 var local_gravity_override := Vector3.ZERO
