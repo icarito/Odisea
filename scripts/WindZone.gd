@@ -8,10 +8,14 @@ export (float) var pulse_frequency := 1.0
 
 var _bodies := []
 var _time := 0.0
+onready var _particles := $Particles
 
 func _ready() -> void:
 	connect("body_entered", self, "_on_body_entered")
 	connect("body_exited", self, "_on_body_exited")
+	# Add particles for wind visualization
+	# Partículas de viento desde escena dedicada
+	# Las partículas se configuran en la escena `WindZone.tscn`.
 
 func _on_body_entered(body: Object) -> void:
 	if body in _bodies:
@@ -31,6 +35,12 @@ func _physics_process(delta: float) -> void:
 		pulse += sin(_time * TAU * pulse_frequency) * pulse_amplitude
 	var up_vel := clamp(lift_force * pulse, 0.0, max_speed)
 	var world_push := global_transform.basis.xform(Vector3(0, up_vel, 0))
+	# Sincronizar feedback visual (CPUParticles expone propiedades directamente)
+	if is_instance_valid(_particles):
+		_particles.direction = global_transform.basis.y
+		_particles.initial_velocity = up_vel
+		_particles.spread = 0.0
+		_particles.gravity = Vector3(0,0,0)
 	for body in _bodies:
 		if not is_instance_valid(body):
 			continue

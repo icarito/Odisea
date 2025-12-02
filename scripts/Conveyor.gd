@@ -66,3 +66,5 @@ func _physics_process(_delta):
 			continue
 		if body.has_method("set_external_velocity"):
 			body.set_external_velocity(world_push)
+		elif body is RigidBody:
+			body.add_central_force(world_push)
