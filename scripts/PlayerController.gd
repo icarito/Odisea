@@ -88,7 +88,10 @@ var vertical_velocity = Vector3()
 var movement_speed = 0
 var angular_acceleration = 10
 var acceleration = 15
-export(float, 0.0, 10.0, 0.1) var tank_turn_speed := 3.0
+export(float, 0.0, 10.0, 0.1) var tank_turn_speed := 0.3
+export(float, 0.001, 0.1, 0.001) var mouse_aim_sensitivity := 0.015
+export(float, 0.0, 50.0, 0.5) var max_rise_speed := 20.0
+export(float, 0.0, 50.0, 0.5) var max_fall_speed := 30.0
 export var cam_yaw_offset := 0.0 # radianes para compensar desfase de cámara
 export var swap_input_axes := false # intercambia X/Z si el mapeo queda 90° corrido
 export var invert_forward := false # invierte el eje Z si el mesh mira -Z
@@ -160,9 +163,9 @@ func set_external_source_is_static(is_static: bool) -> void:
 
 func _input(event):
 	if event is InputEventMouseMotion:
-		aim_turn = -event.relative.x * 0.015
+		aim_turn = -event.relative.x * mouse_aim_sensitivity
 	if event is InputEventJoypadMotion:
-		aim_turn = -event.relative.x * 0.015
+		aim_turn = -event.relative.x * mouse_aim_sensitivity
 	if event.is_action_pressed("aim"):
 		direction = $CameraRig/Yaw.global_transform.basis.z
 
@@ -304,6 +307,9 @@ func _physics_process(delta):
 		else:
 			vertical_velocity = -get_floor_normal() * min(effective_gravity_mag, gravity) / 3
 
+	# Clamp de velocidad vertical para evitar picos (como antes)
+	vertical_velocity.y = clamp(vertical_velocity.y, -max_fall_speed, max_rise_speed)
+
 	if (attack1_node_name in playback.get_current_node()) or (attack2_node_name in playback.get_current_node()) or (bigattack_node_name in playback.get_current_node()):
 		is_attacking = true
 	else:
@@ -359,13 +365,24 @@ func _physics_process(delta):
 		if processed_mag <= 0.0:
 			is_walking = false
 			is_running = false
+			movement_speed = 0.0
+			# Evitar acumulación de giro: sin input, no perseguir dirección previa
+			direction = Vector3.ZERO
 		else:
 			# Tank Controls cuando no hay componente de avance/retroceso
 			if abs(processed_dir.y) < 0.001 and abs(processed_dir.x) > 0.0:
 				# Girar en el lugar con A/D sin mover al personaje
 				# Nota: `rotation.y` está en radianes. Aplicar velocidad angular por segundo.
-				var target_yaw = player_mesh.rotation.y + (-processed_dir.x) * tank_turn_speed * delta
-				player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, target_yaw - rotation.y, delta * angular_acceleration)
+				if tank_turn_speed > 0.0:
+					var delta_yaw = (processed_dir.x) * tank_turn_speed * delta
+					# Girar todo el cuerpo del Pilot
+					rotation.y = rotation.y + delta_yaw
+					# Mantener cámara coherente: girar el Yaw junto al cuerpo
+					var yaw_node_turn = get_node_or_null("CameraRig/Yaw")
+					if yaw_node_turn:
+						yaw_node_turn.rotation.y = yaw_node_turn.rotation.y - delta_yaw
+					# Hacer que el mesh siga al cuerpo con offset si aplica
+					player_mesh.rotation.y = rotation.y + mesh_yaw_offset
 				# Actualizar la dirección como el frente del mesh para futuros avances
 				direction = Vector3.FORWARD.rotated(Vector3.UP, player_mesh.rotation.y)
 				is_walking = false
@@ -410,6 +427,8 @@ func _physics_process(delta):
 	else:
 		is_walking = false
 		is_running = false
+		# Sin input: anclar dirección para evitar giro residual
+		direction = Vector3.ZERO
 
 	# Nota: El movimiento con joypad se gestiona vía acciones de Input mapeadas (forward/backward/left/right).
 	# Mientras se mantiene aim, se bloquea el movimiento desde estas acciones para que el joypad controle la cámara.
@@ -437,22 +456,23 @@ func _physics_process(delta):
 		movement_speed = 0
 	else:
 		# Natural: el mesh gira hacia la dirección de movimiento ya en espacio de cámara
-		var target_y := atan2(direction.x, direction.z) + mesh_yaw_offset
-		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, target_y, delta * angular_acceleration)
-		if debug_enabled and (debug_movement or debug_yaw):
-			# Solo emitir si cambia suficientemente cam_yaw o dirección
-			var yaw_change := abs(h_rot - _last_cam_yaw)
-			var dir_change = (direction - _last_dir).length()
-			if yaw_change > debug_yaw_threshold or dir_change > debug_dir_threshold:
-				_last_cam_yaw = h_rot
-				_last_dir = direction
-				print_debug_tag("YawAlign", "[YawAlign] cam_yaw=" + String(h_rot).pad_decimals(3) +
-			" target_y=" + String(target_y).pad_decimals(3) +
-			" mesh_y=" + String(player_mesh.rotation.y).pad_decimals(3) +
-			" dir=" + String(direction) +
-			" swap_axes=" + String(swap_input_axes) +
-			" invert_forward=" + String(invert_forward) +
-			" cam_offset=" + String(cam_yaw_offset).pad_decimals(3))
+		if direction != Vector3.ZERO:
+			var target_y := atan2(direction.x, direction.z) + mesh_yaw_offset
+			player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, target_y, delta * angular_acceleration)
+			if debug_enabled and (debug_movement or debug_yaw):
+				# Solo emitir si cambia suficientemente cam_yaw o dirección
+				var yaw_change := abs(h_rot - _last_cam_yaw)
+				var dir_change = (direction - _last_dir).length()
+				if yaw_change > debug_yaw_threshold or dir_change > debug_dir_threshold:
+					_last_cam_yaw = h_rot
+					_last_dir = direction
+					print_debug_tag("YawAlign", "[YawAlign] cam_yaw=" + String(h_rot).pad_decimals(3) +
+				" target_y=" + String(target_y).pad_decimals(3) +
+				" mesh_y=" + String(player_mesh.rotation.y).pad_decimals(3) +
+				" dir=" + String(direction) +
+				" swap_axes=" + String(swap_input_axes) +
+				" invert_forward=" + String(invert_forward) +
+				" cam_offset=" + String(cam_yaw_offset).pad_decimals(3))
 
 	if ((is_attacking == true) or (is_rolling == true)):
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * .01 , acceleration * delta)

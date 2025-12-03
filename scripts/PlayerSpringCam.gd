@@ -18,8 +18,7 @@ export(float) var yaw_sensitivity := 0.015
 export(float) var pitch_sensitivity := 0.015
 export(float) var yaw_smooth := 12.0
 export(float) var pitch_smooth := 12.0
-export(float) var pitch_min := -0.9 # ~ -51.6°
-export(float) var pitch_max := 0.4   # ~ 22.9°
+export(float, 0.0, 90.0, 0.5) var pitch_limit_deg := 60.0 # clamp en 0–90°, default 75
 export(float) var base_length := 3.8
 export(float) var max_length := 5.0
 export(float) var zoom_speed := 3.0
@@ -60,9 +59,10 @@ func _ready():
 			# Player faces +Z in Godot commonly; set yaw to match mesh
 			target_yaw = mesh.rotation.y
 			yaw.rotation.y = target_yaw
-	# Set a sensible default pitch
+	# Set default pitch respecting limit
 	if pitch:
-		target_pitch = clamp(pitch.rotation.x, pitch_min, pitch_max)
+		var lim := deg2rad(clamp(pitch_limit_deg, 0.0, 90.0))
+		target_pitch = clamp(pitch.rotation.x, -lim, lim)
 
 func _unhandled_input(event):
 	# Toggle captura con ESC, recapturar al click
@@ -74,8 +74,9 @@ func _unhandled_input(event):
 
 	if event is InputEventMouseMotion:
 		target_yaw -= event.relative.x * yaw_sensitivity
-		target_pitch -= event.relative.y * pitch_sensitivity
-		target_pitch = clamp(target_pitch, pitch_min, pitch_max)
+		target_pitch += event.relative.y * pitch_sensitivity
+		var lim := deg2rad(clamp(pitch_limit_deg, 0.0, 90.0))
+		target_pitch = clamp(target_pitch, -lim, lim)
 
 func _physics_process(delta):
 	# Auto-align yaw to mesh for a brief startup window to avoid odd initial angles
