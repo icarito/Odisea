@@ -116,7 +116,7 @@ var time_since_start := 0.0
 export var startup_floating_block_time := 0.6
 
 onready var ground_ray: RayCast = $GroundRay
-onready var fake_shadow: MeshInstance = $Pilot/FakeShadow
+onready var fake_shadow: MeshInstance = $PilotMesh/FakeShadow
 
 # Override local de gravedad desde zonas (WindZone)
 var local_gravity_override := Vector3.ZERO
@@ -383,12 +383,9 @@ func _physics_process(delta):
 				is_tank_turning = (tank_turn_speed > 0.0)
 				if is_tank_turning:
 					var delta_yaw = processed_dir.x * tank_turn_speed * delta
-					# Rotar cuerpo y cámara directamente, sin objetivos ni syncs periódicos
+					# Rotar únicamente el cuerpo; la cámara no debe sumar yaw aquí
 					rotation.y += delta_yaw
-					var yaw_node_turn = get_node_or_null("CameraRig/Yaw")
-					if yaw_node_turn:
-						yaw_node_turn.rotation.y += delta_yaw
-					player_mesh.rotation.y = rotation.y + mesh_yaw_offset
+				# player_mesh.rotation.y = rotation.y + mesh_yaw_offset
 				# Sin movimiento en tank turn
 				is_walking = false
 				is_running = false

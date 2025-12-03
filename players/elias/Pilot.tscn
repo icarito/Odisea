@@ -172,7 +172,7 @@ material = SubResource( 54 )
 collision_mask = 254
 script = ExtResource( 1 )
 PlayerAnimationTree = NodePath("AnimationTree")
-PlayerCharacterMesh = NodePath("Pilot")
+PlayerCharacterMesh = NodePath("PilotMesh")
 gravity = 9.0
 jump_force = 15
 walk_speed = 2.0
@@ -184,7 +184,7 @@ tank_turn_speed = 2.0
 cam_yaw_offset = 0.76
 mesh_yaw_offset = 0.785398
 debug_yaw = true
-debug_interval = 2.0
+debug_interval = 0.6
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
@@ -218,7 +218,7 @@ far = 10000.0
 
 [node name="AnimationTree" type="AnimationTree" parent="."]
 tree_root = SubResource( 49 )
-anim_player = NodePath("../Pilot/AnimationPlayer")
+anim_player = NodePath("../PilotMesh/AnimationPlayer")
 active = true
 process_mode = 0
 parameters/playback = SubResource( 50 )
@@ -233,15 +233,15 @@ parameters/conditions/IsRunning = false
 parameters/conditions/IsWalking = false
 script = ExtResource( 4 )
 
-[node name="Pilot" parent="." instance=ExtResource( 3 )]
+[node name="PilotMesh" parent="." instance=ExtResource( 3 )]
 
-[node name="FakeShadow" type="MeshInstance" parent="Pilot"]
+[node name="FakeShadow" type="MeshInstance" parent="PilotMesh"]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0.02, 0 )
 cast_shadow = 0
 mesh = SubResource( 53 )
 material/0 = ExtResource( 52 )
 
-[node name="OmniLight" type="OmniLight" parent="Pilot"]
+[node name="OmniLight" type="OmniLight" parent="PilotMesh"]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 2, 0 )
 light_energy = 0.5
 light_indirect_energy = 1.952
