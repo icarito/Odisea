@@ -1,5 +1,5 @@
 experimental/
-
+port/third/third.pck
 
 # Godot-specific ignores
 *.import
