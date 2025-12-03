@@ -636,12 +636,16 @@ func reset_state_for_respawn():
 		is_rolling = false
 	if "is_attacking" in self:
 		is_attacking = false
+	""" 
+	TODO: CONFIRM UNEEDED?
 	# Ensure AnimationTree reflects grounded state next frame
 	if has_node("AnimationTree"):
-		var at = $Pilot/AnimationTree
+		var at = $PilotMesh/AnimationTree
+		
 		if at.has_parameter("conditions/IsOnFloor"):
 			at.set("parameters/conditions/IsOnFloor", is_on_floor())
 		if at.has_parameter("conditions/IsInAir"):
 			at.set("parameters/conditions/IsInAir", !is_on_floor())
 		if at.has_parameter("conditions/IsFloating"):
 			at.set("parameters/conditions/IsFloating", false)
+	"""

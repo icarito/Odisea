@@ -134,7 +134,6 @@ transform = Transform( 0.688317, 0, -0.72541, 0, 1, 0, 0.72541, 0, 0.688317, -35
 
 [node name="LevelBGM" type="Node" parent="."]
 script = ExtResource( 3 )
-track_path = ""
 
 [node name="KillZone" parent="." instance=ExtResource( 2 )]
 transform = Transform( 100, 0, 0, 0, 1, 0, 0, 0, 100, 9.82484, -435.871, 3474.75 )
