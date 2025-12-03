@@ -111,6 +111,7 @@ extents = Vector3( 10, 10, 15.5139 )
 quality = 0
 use_denoiser = false
 default_texels_per_unit = 0.05
+capture_enabled = false
 light_data = ExtResource( 11 )
 
 [node name="MeshInstance" type="MeshInstance" parent="PuzzleZone/BakedLightmap"]
