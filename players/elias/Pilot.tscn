@@ -182,7 +182,6 @@ debug_enabled = true
 max_platform_up_follow = 30.0
 tank_turn_speed = 2.0
 cam_yaw_offset = 0.76
-mesh_yaw_offset = 0.785398
 debug_yaw = true
 debug_interval = 0.6
 

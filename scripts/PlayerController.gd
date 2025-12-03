@@ -138,7 +138,8 @@ func _ready():
 	if yaw_node:
 		yaw_angle = yaw_node.global_transform.basis.get_euler().y + cam_yaw_offset
 	# Usar frente del mesh para coherencia de animación al inicio
-	direction = Vector3.FORWARD.rotated(Vector3.UP, player_mesh.rotation.y)
+	direction = Vector3.FORWARD.rotated(Vector3.UP, rotation.y)
+	# ERROR! : direction = Vector3.FORWARD.rotated(Vector3.UP, player_mesh.rotation.y)
 	# Si la cámara existe, rotar la dirección por su yaw para entrada relativa a cámara
 	direction = direction.rotated(Vector3.UP, yaw_angle)
 	if ground_ray:
@@ -432,11 +433,17 @@ func _physics_process(delta):
 
 	# Sin suavizados ni sincronizaciones periódicas de yaw: mantener determinismo
 
-	# Actualización del mesh en modo natural (cuando sí hay dirección)
+	# El mesh solo rota hacia la dirección de input relativa a la cámara cuando hay input
 	if not is_aiming and direction != Vector3.ZERO:
+		# Calcula el ángulo objetivo SOLO respecto al basis de la cámara (Yaw), nunca por cambios automáticos
 		var target_y := atan2(direction.x, direction.z) + mesh_yaw_offset
-		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, target_y, delta * angular_acceleration)
+		# Para evitar doble giro, calcula la rotación local necesaria para que la rotación global sea target_y
+		var global_target_y = target_y
+		var parent_y = rotation.y  # rotación del KinematicBody (padre)
+		var local_target_y = global_target_y - parent_y
+		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, local_target_y, delta * angular_acceleration)
 		# ...existing code de debug YawAlign...
+	# Si no hay input, NO forzar rotación del mesh (mantiene la última orientación)
 	# Interpolación de hv hacia la velocidad objetivo
 	if ((is_attacking == true) or (is_rolling == true)):
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * .01 , acceleration * delta)
