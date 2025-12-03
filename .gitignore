@@ -1,3 +1,6 @@
+experimental/
+
+
 # Godot-specific ignores
 *.import
 .import/
