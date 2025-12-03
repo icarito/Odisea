@@ -9,12 +9,16 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Cache Godot dependencies
         uses: actions/cache@v3
@@ -28,22 +32,39 @@ jobs:
             ${{ runner.os }}-godot-
 
       - name: Export to Web
+        id: export
         uses: firebelley/godot-export@v7.0.0
         with:
-          godot_executable_download_url: https://downloads.tuxfamily.org/godotengine/3.6/Godot_v3.6-stable_linux_headless.64.zip
-          godot_export_templates_download_url: https://downloads.tuxfamily.org/godotengine/3.6/Godot_v3.6-stable_export_templates.tpz
+          godot_executable_download_url: https://github.com/godotengine/godot/releases/download/3.6-stable/Godot_v3.6-stable_linux_headless.64.zip
+          godot_export_templates_download_url: https://github.com/godotengine/godot/releases/download/3.6-stable/Godot_v3.6-stable_export_templates.tpz
           relative_project_path: ./
           use_godot_3: true
+          use_preset_export_path: true
+          export_debug: false
           presets_to_export: 'HTML5'
 
+      - name: Move Web export to root
+        run: |
+          # El action crea un subdirectorio con el nombre del preset
+          # Mover todo al nivel superior para evitar /Web/ en la URL
+          if [ -d "${{ steps.export.outputs.build_directory }}/Web" ]; then
+            mv ${{ steps.export.outputs.build_directory }}/Web/* ${{ steps.export.outputs.build_directory }}/
+            rmdir ${{ steps.export.outputs.build_directory }}/Web
+            echo "Moved Web export to root directory"
+          fi
+
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4.0.0
+        uses: actions/upload-pages-artifact@v3
         with:
-          path: web/
+          path: ${{ steps.export.outputs.build_directory }}
 
   deploy:
-    needs: build-and-deploy
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    needs: build-and-deploy
     steps:
       - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v1
+        id: deployment
+        uses: actions/deploy-pages@v4
