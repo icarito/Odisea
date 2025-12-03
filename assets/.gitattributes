@@ -1,7 +1,1 @@
-Rooms filter=lfs diff=lfs merge=lfs -text
-Sixtyfour-Regular-VariableFont_BLED,SCAN.ttf filter=lfs diff=lfs merge=lfs -text
-cursor_none.svg filter=lfs diff=lfs merge=lfs -text
-cursor_none.svg.import filter=lfs diff=lfs merge=lfs -text
-music filter=lfs diff=lfs merge=lfs -text
-raw filter=lfs diff=lfs merge=lfs -text
-*.glb filter=lfs diff=lfs merge=lfs -text
+# LFS deshabilitado: todas las entradas eliminadas.

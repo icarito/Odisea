@@ -2,11 +2,6 @@
 
 Objetivo: Completar un primer nivel continuo (sin cambios de escena) con plataformas móviles, barandas, tubos conectores, conveyor, objetivos claros, fuerzas de viento, cajas apilables y sistema de muerte/respawn.
 
-## Plan del día — 2025-12-02
-1) Integrar `WindZone.tscn` en `criogenia.tscn` y calibrar `lift_force`/`max_speed`. Estado: primera WindZone integrada; pendiente tuning fino.
-2) Cámara — Zoom dinámico por velocidad: ajustar distancia (`target_distance`) según magnitud de `player_velocity` (ignorar `external_velocity` del conveyor). Rango sugerido: 4.5–7.0 m. Estado: en curso.
-
-
 ## Dejamos para mañana:
 	
 4) Barandas y conectividad: crear `GuardrailSegment.tscn` y `TubeConnector.tscn`, colocarlos en bordes críticos y unir alas para backtracking.
