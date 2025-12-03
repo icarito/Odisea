@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=2]
+[gd_scene load_steps=17 format=2]
 
 [ext_resource path="res://scenes/common/sde_1.tscn" type="PackedScene" id=1]
 [ext_resource path="res://scenes/common/KillZone.tscn" type="PackedScene" id=2]
@@ -25,6 +25,9 @@ surfaces/0 = {
 "skeleton_aabb": [  ],
 "vertex_count": 96
 }
+
+[sub_resource type="ConcavePolygonShape" id=5]
+data = PoolVector3Array( 1, -2.4344, 0, 0.7071, -2.4344, 0.7071, 0.7071, 2.4344, 0.7071, 0.7071, 2.4344, 0.7071, 1, 2.4344, 0, 1, -2.4344, 0, 0.7071, -2.4344, 0.7071, 1, -2.4344, 0, 0, -2.4344, 0, 1, 2.4344, 0, 0.7071, 2.4344, 0.7071, 0, 2.4344, 0, 0.7071, -2.4344, 0.7071, 0, -2.4344, 1, 0, 2.4344, 1, 0, 2.4344, 1, 0.7071, 2.4344, 0.7071, 0.7071, -2.4344, 0.7071, 0, -2.4344, 1, 0.7071, -2.4344, 0.7071, 0, -2.4344, 0, 0.7071, 2.4344, 0.7071, 0, 2.4344, 1, 0, 2.4344, 0, 0, -2.4344, 1, -0.7071, -2.4344, 0.7071, -0.7071, 2.4344, 0.7071, -0.7071, 2.4344, 0.7071, 0, 2.4344, 1, 0, -2.4344, 1, -0.7071, -2.4344, 0.7071, 0, -2.4344, 1, 0, -2.4344, 0, 0, 2.4344, 1, -0.7071, 2.4344, 0.7071, 0, 2.4344, 0, -0.7071, -2.4344, 0.7071, -1, -2.4344, 0, -1, 2.4344, 0, -1, 2.4344, 0, -0.7071, 2.4344, 0.7071, -0.7071, -2.4344, 0.7071, -1, -2.4344, 0, -0.7071, -2.4344, 0.7071, 0, -2.4344, 0, -0.7071, 2.4344, 0.7071, -1, 2.4344, 0, 0, 2.4344, 0, -1, -2.4344, 0, -0.7071, -2.4344, -0.7071, -0.7071, 2.4344, -0.7071, -0.7071, 2.4344, -0.7071, -1, 2.4344, 0, -1, -2.4344, 0, -0.7071, -2.4344, -0.7071, -1, -2.4344, 0, 0, -2.4344, 0, -1, 2.4344, 0, -0.7071, 2.4344, -0.7071, 0, 2.4344, 0, -0.7071, -2.4344, -0.7071, 0, -2.4344, -1, 0, 2.4344, -1, 0, 2.4344, -1, -0.7071, 2.4344, -0.7071, -0.7071, -2.4344, -0.7071, 0, -2.4344, -1, -0.7071, -2.4344, -0.7071, 0, -2.4344, 0, -0.7071, 2.4344, -0.7071, 0, 2.4344, -1, 0, 2.4344, 0, 0, -2.4344, -1, 0.7071, -2.4344, -0.7071, 0.7071, 2.4344, -0.7071, 0.7071, 2.4344, -0.7071, 0, 2.4344, -1, 0, -2.4344, -1, 0.7071, -2.4344, -0.7071, 0, -2.4344, -1, 0, -2.4344, 0, 0, 2.4344, -1, 0.7071, 2.4344, -0.7071, 0, 2.4344, 0, 0.7071, -2.4344, -0.7071, 1, -2.4344, 0, 1, 2.4344, 0, 1, 2.4344, 0, 0.7071, 2.4344, -0.7071, 0.7071, -2.4344, -0.7071, 1, -2.4344, 0, 0.7071, -2.4344, -0.7071, 0, -2.4344, 0, 0.7071, 2.4344, -0.7071, 1, 2.4344, 0, 0, 2.4344, 0 )
 
 [sub_resource type="ArrayMesh" id=2]
 lightmap_size_hint = Vector2( 146, 166 )
@@ -105,12 +108,20 @@ stripe_tiling = 40.0
 [node name="BakedLightmap" type="BakedLightmap" parent="PuzzleZone"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -87.3983, -17.2667, 47.552 )
 extents = Vector3( 10, 10, 15.5139 )
+quality = 0
+use_denoiser = false
+default_texels_per_unit = 0.05
 light_data = ExtResource( 11 )
 
 [node name="MeshInstance" type="MeshInstance" parent="PuzzleZone/BakedLightmap"]
 transform = Transform( 0.999999, 0, 0, 0, 0.999999, 0, 0, 0, 0.999999, 3.55096, -1.54788, 9.8877 )
 use_in_baked_light = true
 mesh = SubResource( 1 )
+
+[node name="StaticBody" type="StaticBody" parent="PuzzleZone/BakedLightmap/MeshInstance"]
+
+[node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/BakedLightmap/MeshInstance/StaticBody"]
+shape = SubResource( 5 )
 
 [node name="MeshInstance2" type="MeshInstance" parent="PuzzleZone/BakedLightmap"]
 transform = Transform( 0.999999, 0, 0, 0, 0.999999, 0, 0, 0, 0.999999, 3.55096, -1.54788, -7.97876 )
@@ -122,12 +133,12 @@ transform = Transform( 0.999999, 0, 0, 0, 0.999999, 0, 0, 0, 0.999999, -4.2247, 
 use_in_baked_light = true
 mesh = SubResource( 3 )
 
-[node name="MeshInstance4" type="MeshInstance" parent="PuzzleZone/BakedLightmap"]
+[node name="PlatformMesh" type="MeshInstance" parent="PuzzleZone/BakedLightmap"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 39.8142, -4.59131, -27.4719 )
 use_in_baked_light = true
 mesh = SubResource( 4 )
 
-[node name="Platform" type="CSGBox" parent="PuzzleZone/BakedLightmap/MeshInstance4"]
+[node name="Platform" type="CSGBox" parent="PuzzleZone/BakedLightmap/PlatformMesh"]
 visible = false
 use_in_baked_light = true
 use_collision = true

@@ -195,6 +195,12 @@ cast_shadow = 0
 mesh = SubResource( 53 )
 material/0 = ExtResource( 52 )
 
+[node name="OmniLight" type="OmniLight" parent="Pilot"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 2, 0 )
+light_energy = 0.5
+light_indirect_energy = 1.952
+omni_range = 11.041
+
 [node name="GroundRay" type="RayCast" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 enabled = true
