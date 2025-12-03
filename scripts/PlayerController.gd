@@ -273,13 +273,7 @@ func _physics_process(delta):
 	if Input.is_action_pressed("aim"):
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, $Camroot/h.rotation.y, delta * angular_acceleration)
 	else:
-		# Evitar deriva: solo orientar hacia la dirección de movimiento cuando hay input
-		if has_input and direction.length() > 0.001:
-			var desired_yaw := atan2(direction.x, direction.z)
-			player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, desired_yaw, delta * angular_acceleration)
-		else:
-			# Sin input, mantener orientación actual (no acumular error)
-			player_mesh.rotation.y = player_mesh.rotation.y
+		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, atan2(direction.x, direction.z) - rotation.y, delta * angular_acceleration)
 
 	if ((is_attacking == true) or (is_rolling == true)):
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * .01 , acceleration * delta)

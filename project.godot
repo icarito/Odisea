@@ -133,6 +133,7 @@ keep_debug_server_open=true
 window/size/width=640
 window/size/height=480
 window/size/fullscreen=true
+window/size/always_on_top=true
 window/stretch/mode="viewport"
 window/stretch/aspect="keep"
 
