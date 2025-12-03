@@ -34,6 +34,7 @@ export var snap_len := 0.5
 var snap_enabled := true
 export var debug_movement := false
 export var debug_shadow := false
+export var debug_input := false
 var _debug_accum := 0.0
 var last_platform_velocity := Vector3.ZERO
 var airborne_inherited := Vector3.ZERO
@@ -179,6 +180,23 @@ func _on_debug_timer_timeout():
 	debug_ready = true
 	# Debounce de logs
 
+func _debug_input_snapshot() -> Dictionary:
+	return {
+		"left": Input.is_action_pressed("left"),
+		"right": Input.is_action_pressed("right"),
+		"forward": Input.is_action_pressed("forward"),
+		"backward": Input.is_action_pressed("backward"),
+		"lookleft": Input.is_action_pressed("lookleft"),
+		"lookright": Input.is_action_pressed("lookright"),
+		"aim": Input.is_action_pressed("aim"),
+		"sprint": Input.is_action_pressed("sprint"),
+		"jump": Input.is_action_pressed("jump"),
+		"attack": Input.is_action_pressed("attack"),
+		"roll": Input.is_action_pressed("roll")
+	}
+
+var _last_input_state := {}
+
 func _physics_process(delta):
 	rollattack()
 	bigattack()
@@ -313,13 +331,27 @@ func _physics_process(delta):
 	# Nota: El movimiento con joypad se gestiona vía acciones de Input mapeadas (forward/backward/left/right).
 	# Mientras se mantiene aim, se bloquea el movimiento desde estas acciones para que el joypad controle la cámara.
 
+	# Debug de input: detectar cambios y loguear una línea sintetizada
+	if debug_input and debug_ready:
+		var snap := _debug_input_snapshot()
+		if _last_input_state != snap:
+			debug_ready = false
+			_last_input_state = snap.duplicate(true)
+			print("[Input] L=", snap.left, " R=", snap.right, " F=", snap.forward, " B=", snap.backward,
+				" Q=", snap.lookleft, " E=", snap.lookright, " AIM=", snap.aim,
+				" SPR=", snap.sprint, " JUMP=", snap.jump, " ATK=", snap.attack, " ROLL=", snap.roll)
+
 	if is_aiming:
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, $Camroot/h.rotation.y, delta * angular_acceleration)
 		# Bloquear movimiento mientras se mantiene aim
 		direction = Vector3.ZERO
 		movement_speed = 0
 	else:
-		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, atan2(direction.x, direction.z) - rotation.y, delta * angular_acceleration)
+		# STRAFE: mientras nos movemos, el personaje mira hacia la cámara
+		# En lugar de girar hacia la dirección de movimiento (tank motion),
+		# alineamos el mesh con la rotación horizontal de la cámara.
+		var cam_y = $Camroot/h.rotation.y
+		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, cam_y, delta * angular_acceleration)
 
 	if ((is_attacking == true) or (is_rolling == true)):
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * .01 , acceleration * delta)

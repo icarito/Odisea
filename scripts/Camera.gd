@@ -94,7 +94,7 @@ func _joystick_input():
 	# Cuando estamos en aim, las acciones de look/movimiento controlan la cámara con deadzone + curva
 	if aiming:
 		$control_stay_delay.start()
-		var lx := Input.get_action_strength("right") - Input.get_action_strength("left")
+		var lx := Input.get_action_strength("lookright") - Input.get_action_strength("lookleft")
 		var ly := Input.get_action_strength("lookup") - Input.get_action_strength("lookdown")
 		# Si no existen acciones de look mapeadas, usar también forward/backward como vertical
 		if abs(ly) < 0.001:
@@ -119,7 +119,8 @@ func _physics_process(delta):
 	var aiming := false
 	if player and ("is_aiming" in player):
 		aiming = player.is_aiming
-	var kb_lx := Input.get_action_strength("left") - Input.get_action_strength("right")
+	# Usar Q/E: lookleft/lookright para orbitar cámara fuera de aim
+	var kb_lx := Input.get_action_strength("lookright") - Input.get_action_strength("lookleft")
 	if not aiming and abs(kb_lx) > 0.0:
 		# Activar control directo de cámara y acumular rotación horizontal
 		$control_stay_delay.start()
