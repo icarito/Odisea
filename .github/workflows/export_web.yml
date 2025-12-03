@@ -28,7 +28,7 @@ jobs:
             ${{ runner.os }}-godot-
 
       - name: Export to Web
-        uses: icarito/godot-export@v1
+        uses: firebelley/godot-export@v7.0.0
         with:
           use_godot_3: true
           preset: 'HTML5'
