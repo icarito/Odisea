@@ -95,6 +95,8 @@ func _joystick_input():
 	if aiming:
 		$control_stay_delay.start()
 		var lx := Input.get_action_strength("lookright") - Input.get_action_strength("lookleft")
+		if abs(lx) < 0.001:
+			lx = Input.get_action_strength("right") - Input.get_action_strength("left")
 		var ly := Input.get_action_strength("lookup") - Input.get_action_strength("lookdown")
 		# Si no existen acciones de look mapeadas, usar también forward/backward como vertical
 		if abs(ly) < 0.001:
