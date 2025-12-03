@@ -39,6 +39,12 @@ var _intro_end := Transform()
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	$h/v/Camera.add_exception(get_parent())
+	# Asegurar máscaras de colisión de la cámara (solo entorno estático capa 2)
+	if _cam and _cam.has_method("set"):
+		if "collision_mask" in _cam:
+			_cam.collision_mask = 1 << 1
+		if "clip_to_areas" in _cam:
+			_cam.clip_to_areas = false
 	# Inicializar distancia base a partir de la posición local de la cámara si no está configurada
 	if _cam:
 		if base_distance <= 0.0:

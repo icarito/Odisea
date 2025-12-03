@@ -167,6 +167,7 @@ current = true
 fov = 80.0
 far = 10000.0
 process_mode = 1
+collision_mask = 2
 
 [node name="control_stay_delay" type="Timer" parent="Camroot"]
 one_shot = true
