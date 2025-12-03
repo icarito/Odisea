@@ -15,6 +15,17 @@ export var jump_force = 9
 export var walk_speed = 1.3
 export var run_speed = 5.5
 export var dash_power = 12
+# --- JOYPAD ANALÓGICO (curvas como en Cursor.gd) ---
+export (float, 0.0, 1.0) var joystick_deadzone := 0.12
+enum JoystickCurveType { LINEAR, EXPONENTIAL, INVERSE_S }
+export (JoystickCurveType) var joystick_curve_type = JoystickCurveType.EXPONENTIAL
+# Debe ser var para Godot 3.x
+var _CURVE_RESOURCES = [
+	load("res://data/Curves/Linear.tres"),
+	load("res://data/Curves/Exponential.tres"),
+	load("res://data/Curves/Inverse_S.tres")
+]
+
 
 # Velocidad externa aplicada por plataformas/conveyors
 var platform_velocity := Vector3.ZERO
@@ -65,6 +76,7 @@ var is_attacking = false
 var is_rolling = false
 var is_walking = false
 var is_running = false
+var is_aiming = false
 
 var direction = Vector3()
 var horizontal_velocity = Vector3()
@@ -252,13 +264,41 @@ func _physics_process(delta):
 		time_since_jump = 0.0
 
 	var has_input := (Input.is_action_pressed("forward") ||  Input.is_action_pressed("backward") ||  Input.is_action_pressed("left") ||  Input.is_action_pressed("right"))
-	if has_input:
+	# Estado de aim (mantener mientras se presiona; usar push/release del sistema de Input)
+	is_aiming = Input.is_action_pressed("aim")
+	if has_input and not is_aiming:
 		time_since_input = 0.0
-		direction = Vector3(Input.get_action_strength("left") - Input.get_action_strength("right"),
-					0,
-					Input.get_action_strength("forward") - Input.get_action_strength("backward"))
-		direction = direction.rotated(Vector3.UP, h_rot).normalized()
-		is_walking = true
+		# Construir vector analógico desde acciones y aplicar deadzone + curva
+		var ax := Input.get_action_strength("left") - Input.get_action_strength("right")
+		var az := Input.get_action_strength("forward") - Input.get_action_strength("backward")
+		var v2 := Vector2(ax, az)
+		var mag := v2.length()
+		var processed_mag := 0.0
+		var processed_dir := Vector2.ZERO
+		if mag > joystick_deadzone:
+			processed_dir = v2.normalized()
+			var curve: Curve = _CURVE_RESOURCES[int(joystick_curve_type)]
+			processed_mag = curve.interpolate(clamp(mag, 0.0, 1.0))
+			# Reescalar por fuera de la zona muerta (opcional, simple)
+			processed_mag = clamp(processed_mag, 0.0, 1.0)
+		# Si no supera deadzone, tratamos como sin input real
+		if processed_mag <= 0.0:
+			is_walking = false
+			is_running = false
+		else:
+			var dir3 := Vector3(processed_dir.x, 0.0, processed_dir.y)
+			direction = dir3.rotated(Vector3.UP, h_rot).normalized()
+			is_walking = true
+
+			if (Input.is_action_pressed("sprint")) and (is_walking == true):
+				movement_speed = run_speed
+				is_running = true
+			else:
+				movement_speed = walk_speed
+				is_running = false
+
+			# Escalar la velocidad objetivo por la magnitud analógica (0..1)
+			movement_speed *= processed_mag
 
 		if (Input.is_action_pressed("sprint")) and (is_walking == true):
 			movement_speed = run_speed
@@ -270,8 +310,14 @@ func _physics_process(delta):
 		is_walking = false
 		is_running = false
 
-	if Input.is_action_pressed("aim"):
+	# Nota: El movimiento con joypad se gestiona vía acciones de Input mapeadas (forward/backward/left/right).
+	# Mientras se mantiene aim, se bloquea el movimiento desde estas acciones para que el joypad controle la cámara.
+
+	if is_aiming:
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, $Camroot/h.rotation.y, delta * angular_acceleration)
+		# Bloquear movimiento mientras se mantiene aim
+		direction = Vector3.ZERO
+		movement_speed = 0
 	else:
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, atan2(direction.x, direction.z) - rotation.y, delta * angular_acceleration)
 
@@ -282,8 +328,8 @@ func _physics_process(delta):
 		var target_accel = acceleration
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * target_speed, target_accel * delta)
 
-	# Fricción fuerte: si no hay input y estamos en suelo, eliminar residual para evitar "conveyor" doble
-	if not has_input and is_on_floor() and not is_attacking and not is_rolling:
+	# Fricción fuerte: si no hay input o si está en aim (bloqueo movimiento) y estamos en suelo
+	if (not has_input or is_aiming) and is_on_floor() and not is_attacking and not is_rolling:
 		horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, 60.0 * delta)
 
 	# Decaimiento de la velocidad de plataforma cuando no se actualiza

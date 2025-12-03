@@ -15,6 +15,16 @@ var h_acceleration = 10
 var v_acceleration = 10
 var joyview = Vector2()
 
+# --- JOYPAD ANALÓGICO PARA CÁMARA (curvas como en Cursor.gd) ---
+export (float, 0.0, 1.0) var cam_joystick_deadzone := 0.12
+enum CamJoystickCurveType { LINEAR, EXPONENTIAL, INVERSE_S }
+export (CamJoystickCurveType) var cam_joystick_curve_type = CamJoystickCurveType.EXPONENTIAL
+var _CAM_CURVE_RESOURCES = [
+	load("res://data/Curves/Linear.tres"),
+	load("res://data/Curves/Exponential.tres"),
+	load("res://data/Curves/Inverse_S.tres")
+]
+
 # Zoom dinámico por velocidad (ignora external_velocity por defecto)
 export(float, 0.0, 15.0, 0.1) var base_distance := 0.0
 export(float, 0.5, 15.0, 0.1) var max_distance := 7.0
@@ -77,17 +87,45 @@ func _input(event):
 		camrot_v += event.relative.y * v_sensitivity
 		
 func _joystick_input():
-	if (Input.is_action_pressed("lookup") ||  Input.is_action_pressed("lookdown") ||  Input.is_action_pressed("lookleft") ||  Input.is_action_pressed("lookright")):
+	var player := get_parent()
+	var aiming := false
+	if player and ("is_aiming" in player):
+		aiming = player.is_aiming
+	# Cuando estamos en aim, las acciones de look/movimiento controlan la cámara con deadzone + curva
+	if aiming:
 		$control_stay_delay.start()
-		joyview.x = Input.get_action_strength("lookright") - Input.get_action_strength("lookleft")
-		joyview.y = Input.get_action_strength("lookup") - Input.get_action_strength("lookdown")
-		camrot_h += joyview.x * joystick_sensitivity * h_sensitivity
-		camrot_v += joyview.y * joystick_sensitivity * v_sensitivity 
+		var lx := Input.get_action_strength("right") - Input.get_action_strength("left")
+		var ly := Input.get_action_strength("lookup") - Input.get_action_strength("lookdown")
+		# Si no existen acciones de look mapeadas, usar también forward/backward como vertical
+		if abs(ly) < 0.001:
+			ly = Input.get_action_strength("backward") - Input.get_action_strength("forward")
+		var v2 := Vector2(lx, ly)
+		var mag := v2.length()
+		if mag > cam_joystick_deadzone:
+			var dir := v2.normalized()
+			var curve: Curve = _CAM_CURVE_RESOURCES[int(cam_joystick_curve_type)]
+			var cmag := clamp(curve.interpolate(clamp(mag, 0.0, 1.0)), 0.0, 1.0)
+			var p := dir * cmag
+			camrot_h += p.x * joystick_sensitivity * h_sensitivity
+			camrot_v += p.y * joystick_sensitivity * v_sensitivity
 		#$h.rotation_degrees.y = lerp($h.rotation_degrees.y, camrot_h, delta * h_acceleration)
 		
 func _physics_process(delta):
 	# JoyPad Controls
 	_joystick_input()
+
+	# Teclas A/D (left/right action) deben orbitar la cámara cuando NO estamos en aim
+	var player := get_parent()
+	var aiming := false
+	if player and ("is_aiming" in player):
+		aiming = player.is_aiming
+	var kb_lx := Input.get_action_strength("left") - Input.get_action_strength("right")
+	if not aiming and abs(kb_lx) > 0.0:
+		# Activar control directo de cámara y acumular rotación horizontal
+		$control_stay_delay.start()
+		camrot_h += kb_lx * joystick_sensitivity * h_sensitivity
+		# Aplicar la rotación como con mouse/joy para cortar el feedback loop
+		$h.rotation_degrees.y = lerp($h.rotation_degrees.y, camrot_h, delta * h_acceleration)
 	
 	# Intro cinematográfica: interpolar cámara y pausar lógica normal hasta terminar
 	if _intro_active and _cam:
@@ -105,19 +143,22 @@ func _physics_process(delta):
 	camrot_v = clamp(camrot_v, cam_v_min, cam_v_max)
 	
 	var mesh_front = get_node(PlayerCharacterMesh).global_transform.basis.z
-	var player := get_parent()
+	player = get_parent()
 	var horiz_speed := 0.0
 	if player and "horizontal_velocity" in player:
 		horiz_speed = player.horizontal_velocity.length()
 	var auto_rotate_speed =  (PI - mesh_front.angle_to($h.global_transform.basis.z)) * horiz_speed * rot_speed_multiplier
+	# aiming ya calculado más arriba
+
 	
 	if $control_stay_delay.is_stopped():
-		# FOLLOW CAMERA solo cuando el jugador está prácticamente quieto para evitar curvatura de dirección
-		if horiz_speed < 0.2:
+		# FOLLOW CAMERA: solo si NO estamos en aim y prácticamente quietos.
+		# Evita feedback bucle cámara→input que curva la trayectoria.
+		if not aiming and horiz_speed < 0.2:
 			$h.rotation.y = lerp_angle($h.rotation.y, get_node(PlayerCharacterMesh).global_transform.basis.get_euler().y, delta * auto_rotate_speed)
 			camrot_h = $h.rotation_degrees.y
 		else:
-			# Mantener la orientación actual; no auto-seguir durante movimiento
+			# No auto-seguir durante movimiento ni mientras se apunta
 			camrot_h = $h.rotation_degrees.y
 	else:
 		#MOUSE CAMERA

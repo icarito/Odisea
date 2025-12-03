@@ -116,7 +116,7 @@ _global_script_class_icons={
 
 [application]
 
-config/name="Third"
+config/name="Odisea"
 run/main_scene="res://scenes/Menu.tscn"
 
 [autoload]
