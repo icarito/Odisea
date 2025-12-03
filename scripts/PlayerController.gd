@@ -35,6 +35,7 @@ var snap_enabled := true
 export var debug_movement := false
 export var debug_shadow := false
 export var debug_input := false
+export var debug_enabled := false # bandera global para desactivar todos los logs por defecto
 var _debug_accum := 0.0
 var last_platform_velocity := Vector3.ZERO
 var airborne_inherited := Vector3.ZERO
@@ -91,11 +92,18 @@ export(float, 0.0, 10.0, 0.1) var tank_turn_speed := 3.0
 export var cam_yaw_offset := 0.0 # radianes para compensar desfase de cámara
 export var swap_input_axes := false # intercambia X/Z si el mapeo queda 90° corrido
 export var invert_forward := false # invierte el eje Z si el mesh mira -Z
+export var mesh_yaw_offset := 0.0 # compensación fija si el mesh tiene un desfase (p.ej. 45°)
 export var debug_yaw := false # imprime YawAlign/Dir cada frame para diagnóstico
-export(float, 0.0, 2.0, 0.01) var debug_yaw_interval := 0.2 # segundos entre trazas
+export(float, 0.0, 2.0, 0.01) var debug_interval := 0.4 # segundos entre trazas (unificado)
 var debug_timer = Timer.new()
 var debug_ready: bool = true
-var _debug_yaw_t := 0.0
+var _debug_t := 0.0
+var _last_debug_ms := 0
+var _last_tag_ms := {}
+var _last_cam_yaw := -999.0
+var _last_dir := Vector3.ZERO
+export(float, 0.0, 1.0, 0.01) var debug_yaw_threshold := 0.05 # rad (~3°)
+export(float, 0.0, 1.0, 0.01) var debug_dir_threshold := 0.05 # vector length change
 var _last_anim_node := ""
 var _last_is_floating := false
 var has_seen_floor_once := false
@@ -119,11 +127,15 @@ func set_external_velocity(v: Vector3) -> void:
 	platform_velocity = v
 
 func _ready():
+	# Alinear dirección inicial con el frente del mesh y la cámara
 	var yaw_node = get_node_or_null("CameraRig/Yaw")
 	var yaw_angle := 0.0
 	if yaw_node:
-		yaw_angle = yaw_node.global_transform.basis.get_euler().y
-	direction = Vector3.BACK.rotated(Vector3.UP, yaw_angle)
+		yaw_angle = yaw_node.global_transform.basis.get_euler().y + cam_yaw_offset
+	# Usar frente del mesh para coherencia de animación al inicio
+	direction = Vector3.FORWARD.rotated(Vector3.UP, player_mesh.rotation.y)
+	# Si la cámara existe, rotar la dirección por su yaw para entrada relativa a cámara
+	direction = direction.rotated(Vector3.UP, yaw_angle)
 	if ground_ray:
 		ground_ray.enabled = true
 		ground_ray.add_exception(self)
@@ -191,6 +203,36 @@ func _on_debug_timer_timeout():
 	debug_ready = true
 	# Debounce de logs
 
+func _can_log() -> bool:
+	var now := OS.get_ticks_msec()
+	var interval_ms := int(debug_interval * 1000.0)
+	if now - _last_debug_ms >= interval_ms:
+		_last_debug_ms = now
+		return true
+	return false
+
+func _can_log_tag(tag: String) -> bool:
+	var now := OS.get_ticks_msec()
+	var interval_ms := int(debug_interval * 1000.0)
+	var last := int(_last_tag_ms.get(tag, 0))
+	if now - last >= interval_ms:
+		_last_tag_ms[tag] = now
+		return true
+	return false
+
+func print_debug(msg: String) -> void:
+	# Debounce simple y centralizado para cualquier salida de debug
+	if not debug_enabled:
+		return
+	if _can_log():
+		print(msg)
+
+func print_debug_tag(tag: String, msg: String) -> void:
+	if not debug_enabled:
+		return
+	if _can_log_tag(tag):
+		print(msg)
+
 func _debug_input_snapshot() -> Dictionary:
 	return {
 		"left": Input.is_action_pressed("left"),
@@ -229,10 +271,10 @@ func _physics_process(delta):
 
 	var on_floor = is_on_floor()
 	# Debug de cambios de estado de suelo
-	if debug_movement and debug_ready:
+	if debug_enabled and debug_movement and debug_ready:
 		# no consumir el debounce, solo detectar cambios de on_floor
 		if on_floor != was_on_floor:
-			print("[Floor] on_floor changed:", on_floor)
+			print_debug_tag("Floor", "[Floor] on_floor changed: " + String(on_floor))
 	# Marcar que vimos suelo al menos una vez para habilitar floating post-inicio
 	if on_floor:
 		has_seen_floor_once = true
@@ -330,13 +372,23 @@ func _physics_process(delta):
 				is_running = false
 				movement_speed = 0.0
 			else:
-				# Movimiento normal (strafe/orientación por dirección)
-				var dir3 := Vector3(processed_dir.x, 0.0, processed_dir.y)
+				# Movimiento normal: proyectar el input en el espacio de la cámara (Yaw)
+				var basis := Basis()
+				var yaw_node_local = get_node_or_null("CameraRig/Yaw")
+				if yaw_node_local:
+					basis = yaw_node_local.global_transform.basis
+				var cam_forward := basis.z.normalized()
+				var cam_right := basis.x.normalized()
+				var forward_input := processed_dir.y
+				var right_input := processed_dir.x
 				if swap_input_axes:
-					dir3 = Vector3(processed_dir.y, 0.0, processed_dir.x)
+					var tmp := forward_input
+					forward_input = right_input
+					right_input = tmp
 				if invert_forward:
-					dir3.z = -dir3.z
-				direction = dir3.rotated(Vector3.UP, h_rot).normalized()
+					forward_input = -forward_input
+				var dir3 := (cam_forward * forward_input) + (cam_right * right_input)
+				direction = dir3.normalized()
 				is_walking = true
 
 				if (Input.is_action_pressed("sprint")) and (is_walking == true):
@@ -363,40 +415,44 @@ func _physics_process(delta):
 	# Mientras se mantiene aim, se bloquea el movimiento desde estas acciones para que el joypad controle la cámara.
 
 	# Debug de input: detectar cambios y loguear una línea sintetizada
-	if debug_input and debug_ready:
+	if debug_enabled and debug_input and debug_ready:
 		var snap := _debug_input_snapshot()
 		if _last_input_state != snap:
-			debug_ready = false
 			_last_input_state = snap.duplicate(true)
-			print("[Input] L=", snap.left, " R=", snap.right, " F=", snap.forward, " B=", snap.backward,
-				" Q=", snap.lookleft, " E=", snap.lookright, " AIM=", snap.aim,
-				" SPR=", snap.sprint, " JUMP=", snap.jump, " ATK=", snap.attack, " ROLL=", snap.roll)
+			print_debug_tag("Input", "[Input] L=" + String(snap.left) + " R=" + String(snap.right) +
+				" F=" + String(snap.forward) + " B=" + String(snap.backward) +
+				" Q=" + String(snap.lookleft) + " E=" + String(snap.lookright) +
+				" AIM=" + String(snap.aim) + " SPR=" + String(snap.sprint) +
+				" JUMP=" + String(snap.jump) + " ATK=" + String(snap.attack) +
+				" ROLL=" + String(snap.roll))
 
 	if is_aiming:
 		var yaw_node3 = get_node_or_null("CameraRig/Yaw")
 		var yaw_rot = player_mesh.rotation.y
 		if yaw_node3:
-			yaw_rot = yaw_node3.rotation.y
+			yaw_rot = yaw_node3.rotation.y + mesh_yaw_offset
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, yaw_rot, delta * angular_acceleration)
 		# Bloquear movimiento mientras se mantiene aim
 		direction = Vector3.ZERO
 		movement_speed = 0
 	else:
-		# Natural: el mesh gira hacia la dirección de movimiento, la cámara queda quieta
-		# Usamos el vector de entrada ya transformado por la rotación de la cámara (direction)
-		var target_y := atan2(direction.x, direction.z)
+		# Natural: el mesh gira hacia la dirección de movimiento ya en espacio de cámara
+		var target_y := atan2(direction.x, direction.z) + mesh_yaw_offset
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, target_y, delta * angular_acceleration)
-		if debug_movement or debug_yaw:
-			_debug_yaw_t += delta
-			if _debug_yaw_t >= debug_yaw_interval:
-				_debug_yaw_t = 0.0
-				print("[YawAlign] cam_yaw=", String(h_rot).pad_decimals(3),
-				" target_y=", String(target_y).pad_decimals(3),
-				" mesh_y=", String(player_mesh.rotation.y).pad_decimals(3),
-				" dir=", direction,
-				" swap_axes=", swap_input_axes,
-				" invert_forward=", invert_forward,
-				" cam_offset=", String(cam_yaw_offset).pad_decimals(3))
+		if debug_enabled and (debug_movement or debug_yaw):
+			# Solo emitir si cambia suficientemente cam_yaw o dirección
+			var yaw_change := abs(h_rot - _last_cam_yaw)
+			var dir_change = (direction - _last_dir).length()
+			if yaw_change > debug_yaw_threshold or dir_change > debug_dir_threshold:
+				_last_cam_yaw = h_rot
+				_last_dir = direction
+				print_debug_tag("YawAlign", "[YawAlign] cam_yaw=" + String(h_rot).pad_decimals(3) +
+			" target_y=" + String(target_y).pad_decimals(3) +
+			" mesh_y=" + String(player_mesh.rotation.y).pad_decimals(3) +
+			" dir=" + String(direction) +
+			" swap_axes=" + String(swap_input_axes) +
+			" invert_forward=" + String(invert_forward) +
+			" cam_offset=" + String(cam_yaw_offset).pad_decimals(3))
 
 	if ((is_attacking == true) or (is_rolling == true)):
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * .01 , acceleration * delta)
@@ -433,15 +489,15 @@ func _physics_process(delta):
 	movement.x = combined_horizontal.x + vertical_velocity.x
 	movement.y = vertical_velocity.y
 
-	if debug_movement or debug_yaw:
-		_debug_yaw_t += delta
-		if _debug_yaw_t >= debug_yaw_interval:
-			_debug_yaw_t = 0.0
-			print("[Dir] dir=", direction,
-			" cam_yaw=", String(h_rot).pad_decimals(3),
-			" hv=", horizontal_velocity,
-			" eff_pv=", effective_platform_velocity,
-			" combined=", combined_horizontal)
+	if debug_enabled and (debug_movement or debug_yaw):
+		var dir_change2 = (direction - _last_dir).length()
+		if dir_change2 > debug_dir_threshold:
+			_last_dir = direction
+			print_debug_tag("Dir", "[Dir] dir=" + String(direction) +
+		" cam_yaw=" + String(h_rot).pad_decimals(3) +
+		" hv=" + String(horizontal_velocity) +
+		" eff_pv=" + String(effective_platform_velocity) +
+		" combined=" + String(combined_horizontal))
 
 	# Snap al suelo para estabilidad en plataformas
 	var snap_vec := Vector3.ZERO
@@ -474,30 +530,25 @@ func _physics_process(delta):
 			var alpha = clamp(1.0 - dist * 0.4, 0.2, 0.9)
 			mat.albedo_color.a = alpha
 		fake_shadow.visible = true
-		if debug_shadow and debug_ready:
-			debug_ready = false
+		if debug_enabled and debug_shadow and debug_ready:
 			var mat_alpha := 0.0
 			var mat2 = fake_shadow.get_surface_material(0)
 			if mat2:
 				mat_alpha = mat2.albedo_color.a
-			print("[Shadow] hit=", hit, " dist=", String(dist).pad_decimals(2), " alpha=", String(mat_alpha).pad_decimals(2), " collider_name=",
-				(collider.name if collider and collider.has_method("get_name") else "?"))
+			var cname = (collider.name if collider and collider.has_method("get_name") else "?")
+			print_debug_tag("Shadow", "[Shadow] hit=" + String(hit) + " dist=" + String(dist).pad_decimals(2) +
+				" alpha=" + String(mat_alpha).pad_decimals(2) + " collider_name=" + cname)
 	else:
 		fake_shadow.visible = false
-		if debug_shadow and debug_ready:
-			debug_ready = false
-			print("[Shadow] no collision. mask=", ground_ray.collision_mask)
+		if debug_enabled and debug_shadow and debug_ready:
+			print_debug_tag("Shadow", "[Shadow] no collision. mask=" + String(ground_ray.collision_mask))
 
-	if debug_movement and debug_ready:
-		debug_ready = false
+	if debug_enabled and debug_movement and debug_ready:
 		var eff_pv := (Vector3(platform_velocity.x, 0, platform_velocity.z) if (on_floor and platform_is_static_surface) else airborne_inherited)
-		print("[Move] hv=", horizontal_velocity, " pv=", platform_velocity,
-			" eff_pv=", eff_pv,
-			" combined=", combined_horizontal,
-			" airborne_inherited=", airborne_inherited,
-			" has_input=", has_input,
-			" on_floor=", on_floor,
-			" platform_is_static=", platform_is_static_surface)
+		print_debug_tag("Move", "[Move] hv=" + String(horizontal_velocity) + " pv=" + String(platform_velocity) +
+			" eff_pv=" + String(eff_pv) + " combined=" + String(combined_horizontal) +
+			" airborne_inherited=" + String(airborne_inherited) + " has_input=" + String(has_input) +
+			" on_floor=" + String(on_floor) + " platform_is_static=" + String(platform_is_static_surface))
 
 	animation_tree["parameters/conditions/IsOnFloor"] = on_floor
 	animation_tree["parameters/conditions/IsInAir"] = !on_floor
@@ -539,35 +590,38 @@ func _physics_process(delta):
 	animation_tree["parameters/conditions/IsFloating"] = should_float
 
 	# Log de flotar solo en cambios
-	if debug_movement and (should_float != _last_is_floating):
-		print("[Float] is_floating changed:", should_float, " v_accel=", String(vertical_accel).pad_decimals(2),
-			" a_enter=", floating_enter_accel_threshold, " a_exit=", floating_exit_accel_threshold,
-			" v_speed=", String(vertical_speed).pad_decimals(2), " v_enter=", floating_enter_vspeed_threshold,
-			" v_exit=", floating_exit_vspeed_threshold,
-			" on_floor=", on_floor)
+	if debug_enabled and debug_movement and (should_float != _last_is_floating):
+		print_debug_tag("Float", "[Float] is_floating changed: " + String(should_float) +
+			" v_accel=" + String(vertical_accel).pad_decimals(2) +
+			" a_enter=" + String(floating_enter_accel_threshold) +
+			" a_exit=" + String(floating_exit_accel_threshold) +
+			" v_speed=" + String(vertical_speed).pad_decimals(2) +
+			" v_enter=" + String(floating_enter_vspeed_threshold) +
+			" v_exit=" + String(floating_exit_vspeed_threshold) +
+			" on_floor=" + String(on_floor))
 	_last_is_floating = should_float
 
 	# Debug de estados y condiciones
-	if debug_movement:
+	if debug_enabled and debug_movement:
 		var current_node := "?"
 		if playback:
 			current_node = String(playback.get_current_node())
 		if current_node != _last_anim_node:
 			_last_anim_node = current_node
-			print("[Anim] node=", current_node,
-				" on_floor=", on_floor,
-				" is_walking=", is_walking,
-				" is_running=", is_running,
-				" is_attacking=", is_attacking,
-				" is_rolling=", is_rolling,
-				" is_floating=", should_float,
-				" v_accel=", String(vertical_accel).pad_decimals(2),
-				" v_speed=", String(vertical_speed).pad_decimals(2),
-				" t_jump=", String(time_since_jump).pad_decimals(2),
-				" t_input=", String(time_since_input).pad_decimals(2),
-				" t_jump_state=", String(time_in_jump_state).pad_decimals(2),
-				" fall_no_jump=", falling_without_jump,
-				" no_input_ok=", no_input_ok)
+			print_debug_tag("Anim", "[Anim] node=" + current_node +
+				" on_floor=" + String(on_floor) +
+				" is_walking=" + String(is_walking) +
+				" is_running=" + String(is_running) +
+				" is_attacking=" + String(is_attacking) +
+				" is_rolling=" + String(is_rolling) +
+				" is_floating=" + String(should_float) +
+				" v_accel=" + String(vertical_accel).pad_decimals(2) +
+				" v_speed=" + String(vertical_speed).pad_decimals(2) +
+				" t_jump=" + String(time_since_jump).pad_decimals(2) +
+				" t_input=" + String(time_since_input).pad_decimals(2) +
+				" t_jump_state=" + String(time_in_jump_state).pad_decimals(2) +
+				" fall_no_jump=" + String(falling_without_jump) +
+				" no_input_ok=" + String(no_input_ok))
 
 # Respawn-safe reset of transient movement state
 func reset_state_for_respawn():

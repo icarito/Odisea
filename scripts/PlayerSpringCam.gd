@@ -23,7 +23,10 @@ export(float) var pitch_max := 0.4   # ~ 22.9°
 export(float) var base_length := 3.8
 export(float) var max_length := 5.0
 export(float) var zoom_speed := 3.0
-export(int) var collision_mask := 2
+export(int) var collision_mask := 6 # 2 (mundo) | 4 (plataformas móviles)
+export var debug_enabled := false
+export(float, 0.0, 2.0, 0.01) var debug_interval := 0.4
+var _last_debug_ms := 0
 
 var player
 var yaw
@@ -46,6 +49,8 @@ func _ready():
 		springarm.spring_length = base_length
 		springarm.collision_mask = collision_mask
 		# In Godot 3 SpringArm uses current transform forward; leave orientation to yaw/pitch
+	# Capturar el puntero para control de cámara
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	# Align initial yaw to player mesh forward if available
 	if player and yaw:
 		var mesh = null
@@ -60,6 +65,13 @@ func _ready():
 		target_pitch = clamp(pitch.rotation.x, pitch_min, pitch_max)
 
 func _unhandled_input(event):
+	# Toggle captura con ESC, recapturar al click
+	if event is InputEventKey and event.is_action_pressed("ui_cancel"):
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		return
+	if event is InputEventMouseButton and event.pressed:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
 	if event is InputEventMouseMotion:
 		target_yaw -= event.relative.x * yaw_sensitivity
 		target_pitch -= event.relative.y * pitch_sensitivity
@@ -94,3 +106,16 @@ func _physics_process(delta):
 		var speed := hv.length()
 		var target_len = lerp(base_length, max_length, clamp(speed / 8.0, 0.0, 1.0))
 		springarm.spring_length = lerp(springarm.spring_length, target_len, min(1.0, zoom_speed * delta))
+
+	# Debug básico de cámara (yaw/pitch/length)
+	if debug_enabled:
+		var now := OS.get_ticks_msec()
+		var interval_ms := int(debug_interval * 1000.0)
+		if now - _last_debug_ms >= interval_ms:
+			_last_debug_ms = now
+			var yv = (yaw.rotation.y if yaw else 0.0)
+			var pv = (pitch.rotation.x if pitch else 0.0)
+			var sl = (springarm.spring_length if springarm else 0.0)
+			print("[Cam] yaw=" + String(yv).pad_decimals(3) +
+				" pitch=" + String(pv).pad_decimals(3) +
+				" len=" + String(sl).pad_decimals(2))

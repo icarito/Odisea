@@ -178,11 +178,13 @@ jump_force = 15
 walk_speed = 2.0
 debug_movement = true
 debug_input = true
+debug_enabled = true
 max_platform_up_follow = 30.0
 tank_turn_speed = 2.2
 cam_yaw_offset = 0.76
+mesh_yaw_offset = 0.785398
 debug_yaw = true
-debug_yaw_interval = 0.4
+debug_interval = 0.3
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
@@ -204,11 +206,10 @@ transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866,
 
 [node name="SpringArm" type="SpringArm" parent="CameraRig/Yaw/Pitch"]
 transform = Transform( -1, 0, -1.50996e-07, -8.88178e-16, 1, 0, 1.50996e-07, 0, -1, 0, 0, 0.0463709 )
-collision_mask = 2
+collision_mask = 6
 spring_length = 3.8
 
 [node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
 current = true
 fov = 80.0
 near = 0.1
