@@ -88,7 +88,7 @@ func _joystick_input():
 func _physics_process(delta):
 	# JoyPad Controls
 	_joystick_input()
-    
+	
 	# Intro cinematográfica: interpolar cámara y pausar lógica normal hasta terminar
 	if _intro_active and _cam:
 		_intro_t += delta
@@ -117,7 +117,7 @@ func _physics_process(delta):
 	
 	# Usamos lerp_angle también para la rotación vertical por consistencia y seguridad.
 	$h/v.rotation.x = lerp_angle($h/v.rotation.x, deg2rad(camrot_v), delta * v_acceleration)
-    
+	
 	# --- Zoom dinámico por velocidad ---
 	if _cam:
 		var player = get_parent()

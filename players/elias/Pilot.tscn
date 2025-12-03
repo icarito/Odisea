@@ -1,4 +1,4 @@
-[gd_scene load_steps=36 format=2]
+[gd_scene load_steps=43 format=2]
 
 [ext_resource path="res://scripts/PlayerController.gd" type="Script" id=1]
 [ext_resource path="res://scripts/CameraTemplate.gd" type="Script" id=2]
@@ -30,6 +30,9 @@ animation = "Roll"
 
 [sub_resource type="AnimationNodeAnimation" id=23]
 animation = "Run"
+
+[sub_resource type="AnimationNodeAnimation" id=55]
+animation = "Swim_Idle_Loop"
 
 [sub_resource type="AnimationNodeAnimation" id=24]
 animation = "Walk_Loop"
@@ -107,6 +110,32 @@ switch_mode = 2
 advance_condition = "IsOnFloor"
 xfade_time = 0.1
 
+[sub_resource type="AnimationNodeStateMachineTransition" id=56]
+advance_condition = "!IsFloating"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=57]
+advance_condition = "IsFloating"
+xfade_time = 2.0
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=58]
+switch_mode = 2
+advance_condition = "IsFloating"
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=59]
+switch_mode = 2
+advance_condition = "IsFloating"
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=63]
+switch_mode = 2
+advance_condition = "IsFloating"
+xfade_time = 0.5
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=64]
+advance_condition = "IsOnFloor"
+xfade_time = 0.2
+
 [sub_resource type="AnimationNodeStateMachine" id=49]
 states/Attack1/node = SubResource( 17 )
 states/Attack1/position = Vector2( 359, -12 )
@@ -115,19 +144,21 @@ states/Attack2/position = Vector2( 170, -12 )
 states/BigAttack/node = SubResource( 19 )
 states/BigAttack/position = Vector2( 573, -12 )
 states/Idle/node = SubResource( 20 )
-states/Idle/position = Vector2( 359, 213 )
+states/Idle/position = Vector2( 351, 218.6 )
 states/Jump/node = SubResource( 21 )
-states/Jump/position = Vector2( 560, 327 )
+states/Jump/position = Vector2( 901.76, 429.4 )
 states/Roll/node = SubResource( 22 )
 states/Roll/position = Vector2( 560, 111 )
 states/Run/node = SubResource( 23 )
-states/Run/position = Vector2( 741, 213 )
+states/Run/position = Vector2( 804.52, 197.8 )
+states/Swim_Idle_Loop/node = SubResource( 55 )
+states/Swim_Idle_Loop/position = Vector2( 309.6, 375.043 )
 states/Walk/node = SubResource( 24 )
 states/Walk/position = Vector2( 560, 213 )
-transitions = [ "Idle", "Attack1", SubResource( 25 ), "Attack1", "Attack2", SubResource( 26 ), "Idle", "Walk", SubResource( 27 ), "Walk", "Run", SubResource( 28 ), "Run", "Walk", SubResource( 31 ), "Walk", "Idle", SubResource( 32 ), "Run", "BigAttack", SubResource( 37 ), "BigAttack", "Idle", SubResource( 38 ), "Roll", "Run", SubResource( 39 ), "Roll", "Idle", SubResource( 40 ), "Roll", "Walk", SubResource( 41 ), "Walk", "Jump", SubResource( 42 ), "Jump", "Walk", SubResource( 43 ), "Run", "Jump", SubResource( 44 ), "Idle", "Jump", SubResource( 45 ), "Attack1", "Idle", SubResource( 46 ), "Attack2", "Idle", SubResource( 47 ) ]
+transitions = [ "Idle", "Attack1", SubResource( 25 ), "Attack1", "Attack2", SubResource( 26 ), "Idle", "Walk", SubResource( 27 ), "Walk", "Run", SubResource( 28 ), "Run", "Walk", SubResource( 31 ), "Walk", "Idle", SubResource( 32 ), "Run", "BigAttack", SubResource( 37 ), "BigAttack", "Idle", SubResource( 38 ), "Roll", "Run", SubResource( 39 ), "Roll", "Idle", SubResource( 40 ), "Roll", "Walk", SubResource( 41 ), "Walk", "Jump", SubResource( 42 ), "Jump", "Walk", SubResource( 43 ), "Run", "Jump", SubResource( 44 ), "Idle", "Jump", SubResource( 45 ), "Attack1", "Idle", SubResource( 46 ), "Attack2", "Idle", SubResource( 47 ), "Swim_Idle_Loop", "Jump", SubResource( 56 ), "Idle", "Swim_Idle_Loop", SubResource( 57 ), "Walk", "Swim_Idle_Loop", SubResource( 58 ), "Run", "Swim_Idle_Loop", SubResource( 59 ), "Jump", "Swim_Idle_Loop", SubResource( 63 ), "Swim_Idle_Loop", "Walk", SubResource( 64 ) ]
 start_node = "Idle"
 end_node = "Idle"
-graph_offset = Vector2( 37, -121.496 )
+graph_offset = Vector2( -1, 124.741 )
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=50]
 
@@ -144,6 +175,8 @@ PlayerAnimationTree = NodePath("AnimationTree")
 PlayerCharacterMesh = NodePath("Pilot")
 gravity = 9.0
 jump_force = 15
+walk_speed = 2.0
+debug_movement = true
 max_platform_up_follow = 30.0
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
@@ -178,11 +211,13 @@ anim_player = NodePath("../Pilot/AnimationPlayer")
 active = true
 process_mode = 0
 parameters/playback = SubResource( 50 )
+parameters/conditions/!IsFloating = false
+parameters/conditions/IsFloating = false
 parameters/conditions/IsInAir = false
 parameters/conditions/IsNotMoving = false
 parameters/conditions/IsNotRunning = false
 parameters/conditions/IsNotWalking = false
-parameters/conditions/IsOnFloor = false
+parameters/conditions/IsOnFloor = true
 parameters/conditions/IsRunning = false
 parameters/conditions/IsWalking = false
 script = ExtResource( 4 )

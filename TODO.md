@@ -2,6 +2,13 @@
 
 Objetivo: Completar un primer nivel continuo (sin cambios de escena) con plataformas móviles, barandas, tubos conectores, conveyor, objetivos claros, fuerzas de viento, cajas apilables y sistema de muerte/respawn.
 
+## Blocker bugs:
+
+### Arreglar PlayerController
+- [ ] Al correr o caminar con WASD al poco rato el player empieza a girar hacia la derecha. Cuando el mouse se mueve este comportamiento se detiene. Posible causa: acumulación de errores en el cálculo del ángulo de yaw basado en la dirección del movimiento?
+- [ ] Al "flotar" debería usar la animación de "swim idle".
+
+
 ## Dejamos para mañana:
 	
 4) Barandas y conectividad: crear `GuardrailSegment.tscn` y `TubeConnector.tscn`, colocarlos en bordes críticos y unir alas para backtracking.

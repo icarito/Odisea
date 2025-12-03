@@ -130,7 +130,7 @@ light_data = ExtResource( 11 )
 script = ExtResource( 12 )
 
 [node name="SpawnPoint" type="Spatial" parent="."]
-transform = Transform( 0.688317, 0, -0.72541, 0, 1, 0, 0.72541, 0, 0.688317, -39.3894, -340.363, 3498.86 )
+transform = Transform( 0.688317, 0, -0.72541, 0, 1, 0, 0.72541, 0, 0.688317, -35.2729, -339.004, 3517.04 )
 
 [node name="LevelBGM" type="Node" parent="."]
 script = ExtResource( 3 )

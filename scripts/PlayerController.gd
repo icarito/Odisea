@@ -30,6 +30,27 @@ var was_on_floor := false
 export var max_platform_up_follow := 5.0
 export var inherit_vertical_platform_jump := true
 var just_jumped := false
+var time_since_jump := 1.0
+var time_since_input := 1.0
+export var floating_after_jump_delay := 0.25
+export var floating_no_input_delay := 0.3
+export var floating_vertical_speed_threshold := 0.35 # deprecated: use enter/exit thresholds below
+export var floating_enter_vspeed_threshold := 0.4
+export var floating_exit_vspeed_threshold := 1.0
+export var floating_vspeed_smooth := 0.35
+var _vspeed_smoothed := 0.0
+export var floating_enter_accel_threshold := 2.0
+export var floating_exit_accel_threshold := 3.5
+export var floating_accel_smooth := 0.3
+var _vaccel_smoothed := 0.0
+var _prev_vy := 0.0
+export var floating_from_jump_delay := 1.0
+var time_in_jump_state := 0.0
+export var floating_without_jump_delay := 0.5
+export var floating_without_jump_requires_no_input := false
+export var floating_move_speed_max := 4.8
+export var floating_move_accel := 6.0
+export var floating_horizontal_damping := 1.0
 
 var roll_node_name = "Roll"
 var idle_node_name = "Idle"
@@ -55,6 +76,11 @@ var angular_acceleration = 10
 var acceleration = 15
 var debug_timer = Timer.new()
 var debug_ready: bool = true
+var _last_anim_node := ""
+var _last_is_floating := false
+var has_seen_floor_once := false
+var time_since_start := 0.0
+export var startup_floating_block_time := 0.6
 
 onready var ground_ray: RayCast = $GroundRay
 onready var fake_shadow: MeshInstance = $Pilot/FakeShadow
@@ -85,6 +111,12 @@ func _ready():
 		debug_timer.connect("timeout", self, "_on_debug_timer_timeout")
 		add_child(debug_timer)
 		debug_timer.start()
+
+	# Inicializar condiciones del AnimationTree para evitar entrar en Swim al inicio
+	if animation_tree:
+		animation_tree["parameters/conditions/IsOnFloor"] = true
+		animation_tree["parameters/conditions/IsInAir"] = false
+		animation_tree["parameters/conditions/IsFloating"] = false
 
 	
 func set_external_source_is_static(is_static: bool) -> void:
@@ -142,7 +174,27 @@ func _physics_process(delta):
 	attack2()
 	roll()
 
+	# Timers de gracia
+	time_since_jump += delta
+	time_since_input += delta
+	time_since_start += delta
+
+	# Medir tiempo en estado Jump del AnimationTree
+	var in_jump_state = (playback and (playback.get_current_node() == jump_node_name))
+	if in_jump_state:
+		time_in_jump_state += delta
+	else:
+		time_in_jump_state = 0.0
+
 	var on_floor = is_on_floor()
+	# Debug de cambios de estado de suelo
+	if debug_movement and debug_ready:
+		# no consumir el debounce, solo detectar cambios de on_floor
+		if on_floor != was_on_floor:
+			print("[Floor] on_floor changed:", on_floor)
+	# Marcar que vimos suelo al menos una vez para habilitar floating post-inicio
+	if on_floor:
+		has_seen_floor_once = true
 	var h_rot = $Camroot/h.global_transform.basis.get_euler().y
 
 	movement_speed = 0
@@ -197,9 +249,11 @@ func _physics_process(delta):
 		horizontal_velocity += airborne_inherited
 		# Marcar frame de salto para evitar que seguimiento vertical de plataforma lo anule
 		just_jumped = true
+		time_since_jump = 0.0
 
 	var has_input := (Input.is_action_pressed("forward") ||  Input.is_action_pressed("backward") ||  Input.is_action_pressed("left") ||  Input.is_action_pressed("right"))
 	if has_input:
+		time_since_input = 0.0
 		direction = Vector3(Input.get_action_strength("left") - Input.get_action_strength("right"),
 					0,
 					Input.get_action_strength("forward") - Input.get_action_strength("backward"))
@@ -218,13 +272,23 @@ func _physics_process(delta):
 
 	if Input.is_action_pressed("aim"):
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, $Camroot/h.rotation.y, delta * angular_acceleration)
+	"""
 	else:
-		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, atan2(direction.x, direction.z) - rotation.y, delta * angular_acceleration)
+		# Evitar deriva: solo orientar hacia la dirección de movimiento cuando hay input
+		if has_input and direction.length() > 0.001:
+			var desired_yaw := atan2(direction.x, direction.z)
+			player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, desired_yaw, delta * angular_acceleration)
+		else:
+			# Sin input, mantener orientación actual (no acumular error)
+			player_mesh.rotation.y = player_mesh.rotation.y
+	"""
 
 	if ((is_attacking == true) or (is_rolling == true)):
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * .01 , acceleration * delta)
 	else:
-		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * movement_speed, acceleration * delta)
+		var target_speed = movement_speed
+		var target_accel = acceleration
+		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * target_speed, target_accel * delta)
 
 	# Fricción fuerte: si no hay input y estamos en suelo, eliminar residual para evitar "conveyor" doble
 	if not has_input and is_on_floor() and not is_attacking and not is_rolling:
@@ -316,3 +380,66 @@ func _physics_process(delta):
 	animation_tree["parameters/conditions/IsNotWalking"] = !is_walking
 	animation_tree["parameters/conditions/IsRunning"] = is_running
 	animation_tree["parameters/conditions/IsNotRunning"] = !is_running
+
+	# Estado de flotación: condición para "Swim_Idle_Loop" gestionada por el State Machine
+	# Suavizado de aceleración vertical para decisión de flotación
+	var v_accel := 0.0
+	if delta > 0.0:
+		v_accel = (vertical_velocity.y - _prev_vy) / delta
+	_prev_vy = vertical_velocity.y
+	_vaccel_smoothed = lerp(_vaccel_smoothed, v_accel, clamp(floating_accel_smooth, 0.0, 1.0))
+	var vertical_accel := abs(_vaccel_smoothed)
+	var falling_without_jump = (!on_floor) and (time_since_jump > floating_without_jump_delay)
+	var no_input_ok := (not floating_without_jump_requires_no_input) or (time_since_input > floating_no_input_delay)
+	# Histeresis basada en aceleración vertical: entrada/salida separadas
+	var accel_ok_enter := vertical_accel <= floating_enter_accel_threshold
+	var accel_ok_exit := vertical_accel <= floating_exit_accel_threshold
+	var accel_ok := (_last_is_floating and accel_ok_exit) or ((not _last_is_floating) and accel_ok_enter)
+
+	# Fallback específico para "caer sin salto": si la aceleración es alta por gravedad constante,
+	# permitimos flotación cuando la velocidad vertical es baja (p.ej., cerca del apogeo o en corrientes suaves)
+	var vertical_speed_raw := abs(vertical_velocity.y)
+	_vspeed_smoothed = lerp(_vspeed_smoothed, vertical_speed_raw, clamp(floating_vspeed_smooth, 0.0, 1.0))
+	var vertical_speed := _vspeed_smoothed
+	var vspeed_ok_enter := vertical_speed < floating_enter_vspeed_threshold
+	var vspeed_ok_exit := vertical_speed < floating_exit_vspeed_threshold
+	var vspeed_ok := (_last_is_floating and vspeed_ok_exit) or ((not _last_is_floating) and vspeed_ok_enter)
+	# Bloqueo de floating en inicio hasta ver suelo o pasar un tiempo
+	var startup_block_clear := has_seen_floor_once or (time_since_start > startup_floating_block_time)
+	var should_float = startup_block_clear and (!on_floor) and (accel_ok or (falling_without_jump and vspeed_ok)) and (not is_attacking) and (not is_rolling) and (
+		((time_since_jump > floating_after_jump_delay) and (time_since_input > floating_no_input_delay))
+		or (time_in_jump_state > floating_from_jump_delay)
+		or (falling_without_jump and no_input_ok)
+	)
+	animation_tree["parameters/conditions/IsFloating"] = should_float
+
+	# Log de flotar solo en cambios
+	if debug_movement and (should_float != _last_is_floating):
+		print("[Float] is_floating changed:", should_float, " v_accel=", String(vertical_accel).pad_decimals(2),
+			" a_enter=", floating_enter_accel_threshold, " a_exit=", floating_exit_accel_threshold,
+			" v_speed=", String(vertical_speed).pad_decimals(2), " v_enter=", floating_enter_vspeed_threshold,
+			" v_exit=", floating_exit_vspeed_threshold,
+			" on_floor=", on_floor)
+	_last_is_floating = should_float
+
+	# Debug de estados y condiciones
+	if debug_movement:
+		var current_node := "?"
+		if playback:
+			current_node = String(playback.get_current_node())
+		if current_node != _last_anim_node:
+			_last_anim_node = current_node
+			print("[Anim] node=", current_node,
+				" on_floor=", on_floor,
+				" is_walking=", is_walking,
+				" is_running=", is_running,
+				" is_attacking=", is_attacking,
+				" is_rolling=", is_rolling,
+				" is_floating=", should_float,
+				" v_accel=", String(vertical_accel).pad_decimals(2),
+				" v_speed=", String(vertical_speed).pad_decimals(2),
+				" t_jump=", String(time_since_jump).pad_decimals(2),
+				" t_input=", String(time_since_input).pad_decimals(2),
+				" t_jump_state=", String(time_in_jump_state).pad_decimals(2),
+				" fall_no_jump=", falling_without_jump,
+				" no_input_ok=", no_input_ok)

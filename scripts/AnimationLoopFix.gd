@@ -12,3 +12,6 @@ func _ready():
 		var idle_anim = anim_player.get_animation("Idle")
 		if idle_anim:
 			idle_anim.loop = true			
+		var swim_idle_anim = anim_player.get_animation("Swim_Idle_Loop")
+		if swim_idle_anim:
+			swim_idle_anim.loop = true			
