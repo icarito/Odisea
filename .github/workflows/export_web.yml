@@ -1,0 +1,47 @@
+name: Exportar a Web y Desplegar en GitHub Pages
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cache Godot dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/godot
+            ~/.config/godot
+            ~/.local/share/godot
+          key: ${{ runner.os }}-godot-${{ hashFiles('**/project.godot') }}
+          restore-keys: |
+            ${{ runner.os }}-godot-
+
+      - name: Export to Web
+        uses: icarito/godot-export@v1
+        with:
+          use_godot_3: true
+          preset: 'HTML5'
+          export_path: web/
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: web/
+
+  deploy:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v1
