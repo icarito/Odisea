@@ -67,15 +67,12 @@ func respawn() -> void:
 	if last_checkpoint_transform != null:
 		target = last_checkpoint_transform
 	player.global_transform = target
-	# Reset cámara al respawn si existe estructura conocida
+	# Reset de cámara al respawn: soporta rig antiguo (Camroot/h/v) y nuevo (CameraRig/Yaw/Pitch)
 	var camroot = player.get_node_or_null("Camroot")
-	var pilot_mesh = player.get_node_or_null("Pilot")
+	var camrig = player.get_node_or_null("CameraRig")
 	if camroot:
 		var h = camroot.get_node_or_null("h")
-		var v = null
-		if h:
-			v = h.get_node_or_null("v")
-		# Restaurar ángulos por defecto del prefab capturados al primer spawn
+		var v = h and h.get_node_or_null("v")
 		if h and _default_cam_h_deg != null:
 			h.rotation_degrees.y = _default_cam_h_deg
 			if "camrot_h" in camroot:
@@ -84,3 +81,13 @@ func respawn() -> void:
 			v.rotation_degrees.x = _default_cam_v_deg
 			if "camrot_v" in camroot:
 				camroot.camrot_v = _default_camrot_v if _default_camrot_v != null else _default_cam_v_deg
+	elif camrig:
+		var yaw = camrig.get_node_or_null("Yaw")
+		var pitch = yaw and yaw.get_node_or_null("Pitch")
+		if yaw and _default_cam_h_deg != null:
+			yaw.rotation_degrees.y = _default_cam_h_deg
+		if pitch and _default_cam_v_deg != null:
+			pitch.rotation_degrees.x = _default_cam_v_deg
+	# Limpiar estado transitorio del Player tras mover
+	if player and player.has_method("reset_state_for_respawn"):
+		player.reset_state_for_respawn()

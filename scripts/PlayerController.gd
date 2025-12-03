@@ -87,8 +87,15 @@ var vertical_velocity = Vector3()
 var movement_speed = 0
 var angular_acceleration = 10
 var acceleration = 15
+export(float, 0.0, 10.0, 0.1) var tank_turn_speed := 3.0
+export var cam_yaw_offset := 0.0 # radianes para compensar desfase de cámara
+export var swap_input_axes := false # intercambia X/Z si el mapeo queda 90° corrido
+export var invert_forward := false # invierte el eje Z si el mesh mira -Z
+export var debug_yaw := false # imprime YawAlign/Dir cada frame para diagnóstico
+export(float, 0.0, 2.0, 0.01) var debug_yaw_interval := 0.2 # segundos entre trazas
 var debug_timer = Timer.new()
 var debug_ready: bool = true
+var _debug_yaw_t := 0.0
 var _last_anim_node := ""
 var _last_is_floating := false
 var has_seen_floor_once := false
@@ -112,7 +119,11 @@ func set_external_velocity(v: Vector3) -> void:
 	platform_velocity = v
 
 func _ready():
-	direction = Vector3.BACK.rotated(Vector3.UP, $Camroot/h.global_transform.basis.get_euler().y)
+	var yaw_node = get_node_or_null("CameraRig/Yaw")
+	var yaw_angle := 0.0
+	if yaw_node:
+		yaw_angle = yaw_node.global_transform.basis.get_euler().y
+	direction = Vector3.BACK.rotated(Vector3.UP, yaw_angle)
 	if ground_ray:
 		ground_ray.enabled = true
 		ground_ray.add_exception(self)
@@ -141,7 +152,7 @@ func _input(event):
 	if event is InputEventJoypadMotion:
 		aim_turn = -event.relative.x * 0.015
 	if event.is_action_pressed("aim"):
-		direction = $Camroot/h.global_transform.basis.z
+		direction = $CameraRig/Yaw.global_transform.basis.z
 
 func roll():
 	if Input.is_action_just_pressed("roll"):
@@ -225,7 +236,10 @@ func _physics_process(delta):
 	# Marcar que vimos suelo al menos una vez para habilitar floating post-inicio
 	if on_floor:
 		has_seen_floor_once = true
-	var h_rot = $Camroot/h.global_transform.basis.get_euler().y
+	var h_rot := 0.0
+	var yaw_node2 = get_node_or_null("CameraRig/Yaw")
+	if yaw_node2:
+		h_rot = yaw_node2.global_transform.basis.get_euler().y + cam_yaw_offset
 
 	movement_speed = 0
 	angular_acceleration = 10
@@ -304,19 +318,36 @@ func _physics_process(delta):
 			is_walking = false
 			is_running = false
 		else:
-			var dir3 := Vector3(processed_dir.x, 0.0, processed_dir.y)
-			direction = dir3.rotated(Vector3.UP, h_rot).normalized()
-			is_walking = true
-
-			if (Input.is_action_pressed("sprint")) and (is_walking == true):
-				movement_speed = run_speed
-				is_running = true
-			else:
-				movement_speed = walk_speed
+			# Tank Controls cuando no hay componente de avance/retroceso
+			if abs(processed_dir.y) < 0.001 and abs(processed_dir.x) > 0.0:
+				# Girar en el lugar con A/D sin mover al personaje
+				# Nota: `rotation.y` está en radianes. Aplicar velocidad angular por segundo.
+				var target_yaw = player_mesh.rotation.y + (-processed_dir.x) * tank_turn_speed * delta
+				player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, target_yaw - rotation.y, delta * angular_acceleration)
+				# Actualizar la dirección como el frente del mesh para futuros avances
+				direction = Vector3.FORWARD.rotated(Vector3.UP, player_mesh.rotation.y)
+				is_walking = false
 				is_running = false
+				movement_speed = 0.0
+			else:
+				# Movimiento normal (strafe/orientación por dirección)
+				var dir3 := Vector3(processed_dir.x, 0.0, processed_dir.y)
+				if swap_input_axes:
+					dir3 = Vector3(processed_dir.y, 0.0, processed_dir.x)
+				if invert_forward:
+					dir3.z = -dir3.z
+				direction = dir3.rotated(Vector3.UP, h_rot).normalized()
+				is_walking = true
 
-			# Escalar la velocidad objetivo por la magnitud analógica (0..1)
-			movement_speed *= processed_mag
+				if (Input.is_action_pressed("sprint")) and (is_walking == true):
+					movement_speed = run_speed
+					is_running = true
+				else:
+					movement_speed = walk_speed
+					is_running = false
+
+				# Escalar la velocidad objetivo por la magnitud analógica (0..1)
+				movement_speed *= processed_mag
 
 		if (Input.is_action_pressed("sprint")) and (is_walking == true):
 			movement_speed = run_speed
@@ -342,15 +373,30 @@ func _physics_process(delta):
 				" SPR=", snap.sprint, " JUMP=", snap.jump, " ATK=", snap.attack, " ROLL=", snap.roll)
 
 	if is_aiming:
-		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, $Camroot/h.rotation.y, delta * angular_acceleration)
+		var yaw_node3 = get_node_or_null("CameraRig/Yaw")
+		var yaw_rot = player_mesh.rotation.y
+		if yaw_node3:
+			yaw_rot = yaw_node3.rotation.y
+		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, yaw_rot, delta * angular_acceleration)
 		# Bloquear movimiento mientras se mantiene aim
 		direction = Vector3.ZERO
 		movement_speed = 0
 	else:
 		# Natural: el mesh gira hacia la dirección de movimiento, la cámara queda quieta
 		# Usamos el vector de entrada ya transformado por la rotación de la cámara (direction)
-		var target_y := atan2(direction.x, direction.z) - rotation.y
+		var target_y := atan2(direction.x, direction.z)
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, target_y, delta * angular_acceleration)
+		if debug_movement or debug_yaw:
+			_debug_yaw_t += delta
+			if _debug_yaw_t >= debug_yaw_interval:
+				_debug_yaw_t = 0.0
+				print("[YawAlign] cam_yaw=", String(h_rot).pad_decimals(3),
+				" target_y=", String(target_y).pad_decimals(3),
+				" mesh_y=", String(player_mesh.rotation.y).pad_decimals(3),
+				" dir=", direction,
+				" swap_axes=", swap_input_axes,
+				" invert_forward=", invert_forward,
+				" cam_offset=", String(cam_yaw_offset).pad_decimals(3))
 
 	if ((is_attacking == true) or (is_rolling == true)):
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * .01 , acceleration * delta)
@@ -386,6 +432,16 @@ func _physics_process(delta):
 	movement.z = combined_horizontal.z + vertical_velocity.z
 	movement.x = combined_horizontal.x + vertical_velocity.x
 	movement.y = vertical_velocity.y
+
+	if debug_movement or debug_yaw:
+		_debug_yaw_t += delta
+		if _debug_yaw_t >= debug_yaw_interval:
+			_debug_yaw_t = 0.0
+			print("[Dir] dir=", direction,
+			" cam_yaw=", String(h_rot).pad_decimals(3),
+			" hv=", horizontal_velocity,
+			" eff_pv=", effective_platform_velocity,
+			" combined=", combined_horizontal)
 
 	# Snap al suelo para estabilidad en plataformas
 	var snap_vec := Vector3.ZERO
@@ -512,3 +568,34 @@ func _physics_process(delta):
 				" t_jump_state=", String(time_in_jump_state).pad_decimals(2),
 				" fall_no_jump=", falling_without_jump,
 				" no_input_ok=", no_input_ok)
+
+# Respawn-safe reset of transient movement state
+func reset_state_for_respawn():
+	if has_node("GroundRay"):
+		$GroundRay.force_raycast_update()
+	# Zero transient velocities and external inputs
+	if "horizontal_velocity" in self:
+		horizontal_velocity = Vector3.ZERO
+	if "vertical_velocity" in self:
+		vertical_velocity = Vector3.ZERO
+	if "platform_velocity" in self:
+		platform_velocity = Vector3.ZERO
+	if "last_platform_velocity" in self:
+		last_platform_velocity = Vector3.ZERO
+	
+	# Clear action flags
+	if "is_aiming" in self:
+		is_aiming = false
+	if "is_rolling" in self:
+		is_rolling = false
+	if "is_attacking" in self:
+		is_attacking = false
+	# Ensure AnimationTree reflects grounded state next frame
+	if has_node("AnimationTree"):
+		var at = $Pilot/AnimationTree
+		if at.has_parameter("conditions/IsOnFloor"):
+			at.set("parameters/conditions/IsOnFloor", is_on_floor())
+		if at.has_parameter("conditions/IsInAir"):
+			at.set("parameters/conditions/IsInAir", !is_on_floor())
+		if at.has_parameter("conditions/IsFloating"):
+			at.set("parameters/conditions/IsFloating", false)

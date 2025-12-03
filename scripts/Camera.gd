@@ -45,6 +45,7 @@ var _intro_active := false
 var _intro_t := 0.0
 var _intro_start := Transform()
 var _intro_end := Transform()
+export(float, 0.1, 20.0, 0.1) var follow_constant_speed := 5.0
 
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -115,12 +116,14 @@ func _joystick_input():
 func _physics_process(delta):
 	# JoyPad Controls
 	_joystick_input()
+	# No acumulamos tiempo: follow será constante cuando no haya control directo
 
 	# Teclas A/D (left/right action) deben orbitar la cámara cuando NO estamos en aim
 	var player := get_parent()
 	var aiming := false
 	if player and ("is_aiming" in player):
 		aiming = player.is_aiming
+	# Sin contadores de tiempo: respetamos Aim y evitamos feedback usando control_stay_delay
 	# Usar Q/E: lookleft/lookright para orbitar cámara fuera de aim
 	var kb_lx := Input.get_action_strength("lookright") - Input.get_action_strength("lookleft")
 	if not aiming and abs(kb_lx) > 0.0:
@@ -150,18 +153,19 @@ func _physics_process(delta):
 	var horiz_speed := 0.0
 	if player and "horizontal_velocity" in player:
 		horiz_speed = player.horizontal_velocity.length()
-	var auto_rotate_speed =  (PI - mesh_front.angle_to($h.global_transform.basis.z)) * horiz_speed * rot_speed_multiplier
+	# Error angular como en el template original: (PI - angle_to)
+	# Esto genera una ganancia proporcional al desfase entre cámara y frente del mesh.
+	var angle_error = (PI - mesh_front.angle_to($h.global_transform.basis.z))
+	var auto_rotate_speed = angle_error * horiz_speed * rot_speed_multiplier
 	# aiming ya calculado más arriba
 
 	
 	if $control_stay_delay.is_stopped():
-		# FOLLOW CAMERA: solo si NO estamos en aim y prácticamente quietos.
-		# Evita feedback bucle cámara→input que curva la trayectoria.
-		if not aiming and horiz_speed < 0.2:
+		# FOLLOW SUAVE al estilo template: solo cuando no hay control directo y no se está en Aim.
+		if not aiming:
 			$h.rotation.y = lerp_angle($h.rotation.y, get_node(PlayerCharacterMesh).global_transform.basis.get_euler().y, delta * auto_rotate_speed)
 			camrot_h = $h.rotation_degrees.y
 		else:
-			# No auto-seguir durante movimiento ni mientras se apunta
 			camrot_h = $h.rotation_degrees.y
 	else:
 		#MOUSE CAMERA
@@ -192,4 +196,4 @@ func _physics_process(delta):
 		var ct := _cam.translation
 		ct.z = -_current_distance
 		_cam.translation = ct
-	
+

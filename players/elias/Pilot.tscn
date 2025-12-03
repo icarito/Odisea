@@ -1,7 +1,7 @@
 [gd_scene load_steps=43 format=2]
 
 [ext_resource path="res://scripts/PlayerController.gd" type="Script" id=1]
-[ext_resource path="res://scripts/Camera.gd" type="Script" id=2]
+[ext_resource path="res://scripts/PlayerSpringCam.gd" type="Script" id=2]
 [ext_resource path="res://players/elias/Pilot_asset.tscn" type="PackedScene" id=3]
 [ext_resource path="res://scripts/AnimationLoopFix.gd" type="Script" id=4]
 [ext_resource path="res://materials/shadow/FakeShadow.tres" type="Material" id=52]
@@ -176,33 +176,43 @@ PlayerCharacterMesh = NodePath("Pilot")
 gravity = 9.0
 jump_force = 15
 walk_speed = 2.0
+debug_movement = true
+debug_input = true
 max_platform_up_follow = 30.0
+tank_turn_speed = 2.2
+cam_yaw_offset = 0.76
+debug_yaw = true
+debug_yaw_interval = 0.4
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
 shape = SubResource( 48 )
 
-[node name="Camroot" type="Spatial" parent="."]
+[node name="CameraRig" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
 script = ExtResource( 2 )
-PlayerCharacterMesh = NodePath("../Pilot")
+player_path = NodePath("..")
+yaw_path = NodePath("Yaw")
+pitch_path = NodePath("Yaw/Pitch")
+springarm_path = NodePath("Yaw/Pitch/SpringArm")
+camera_path = NodePath("Yaw/Pitch/SpringArm/Camera")
 
-[node name="h" type="Spatial" parent="Camroot"]
-transform = Transform( 1, 0, 0, 0, 0.99968, 0.0252871, 0, -0.0252871, 0.99968, 0, 0, 0 )
+[node name="Yaw" type="Spatial" parent="CameraRig"]
 
-[node name="v" type="Spatial" parent="Camroot/h"]
-transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866, 0, 1.41498, -2.98023e-08 )
+[node name="Pitch" type="Spatial" parent="CameraRig/Yaw"]
+transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866, 0, 1.41498, 0 )
 
-[node name="Camera" type="ClippedCamera" parent="Camroot/h/v"]
-transform = Transform( -1, 1.51227e-08, -1.50237e-07, 4.44089e-15, 0.994972, 0.100153, 1.50996e-07, 0.100153, -0.994972, -4.03244e-07, 4.76837e-07, -2.67056 )
+[node name="SpringArm" type="SpringArm" parent="CameraRig/Yaw/Pitch"]
+transform = Transform( -1, 0, -1.50996e-07, -8.88178e-16, 1, 0, 1.50996e-07, 0, -1, 0, 0, 0.0463709 )
+collision_mask = 2
+spring_length = 3.8
+
+[node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
 current = true
 fov = 80.0
+near = 0.1
 far = 10000.0
-process_mode = 1
-collision_mask = 2
-
-[node name="control_stay_delay" type="Timer" parent="Camroot"]
-one_shot = true
 
 [node name="AnimationTree" type="AnimationTree" parent="."]
 tree_root = SubResource( 49 )
