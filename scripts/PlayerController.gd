@@ -347,11 +347,10 @@ func _physics_process(delta):
 		direction = Vector3.ZERO
 		movement_speed = 0
 	else:
-		# STRAFE: mientras nos movemos, el personaje mira hacia la cámara
-		# En lugar de girar hacia la dirección de movimiento (tank motion),
-		# alineamos el mesh con la rotación horizontal de la cámara.
-		var cam_y = $Camroot/h.rotation.y
-		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, cam_y, delta * angular_acceleration)
+		# Natural: el mesh gira hacia la dirección de movimiento, la cámara queda quieta
+		# Usamos el vector de entrada ya transformado por la rotación de la cámara (direction)
+		var target_y := atan2(direction.x, direction.z) - rotation.y
+		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, target_y, delta * angular_acceleration)
 
 	if ((is_attacking == true) or (is_rolling == true)):
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * .01 , acceleration * delta)
