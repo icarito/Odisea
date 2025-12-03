@@ -3,9 +3,8 @@
 Objetivo: Completar un primer nivel continuo (sin cambios de escena) con plataformas móviles, barandas, tubos conectores, conveyor, objetivos claros, fuerzas de viento, cajas apilables y sistema de muerte/respawn.
 
 ## Plan del día — 2025-12-02
-1) BGM mínimo: usar `autoload/AudioManager.gd` en `Menu.tscn` y `criogenia.tscn` (tema menú: `assets/music/Orbital Descent.mp3`; nivel: `assets/music/Rust and Ruin.mp3`). Estado: listo (ambas escenas reproducen BGM via `LevelBGM.gd`).
-2) Integrar `WindZone.tscn` en `criogenia.tscn` y calibrar `lift_force`/`max_speed`. Estado: primera WindZone integrada; pendiente tuning fino.
-3) Kill/Respawn + Checkpoints: `KillZone.gd` + `KillZone.tscn` bajo el nivel; extender `PlayerManager.gd` con `last_checkpoint_transform` y `respawn()`; `Checkpoint.tscn` que notifique al manager. Estado: funcional (muerte/respawn, último checkpoint, música cambia en muerte y reinicia al respawn).
+1) Integrar `WindZone.tscn` en `criogenia.tscn` y calibrar `lift_force`/`max_speed`. Estado: primera WindZone integrada; pendiente tuning fino.
+2) Cámara — Zoom dinámico por velocidad: ajustar distancia (`target_distance`) según magnitud de `player_velocity` (ignorar `external_velocity` del conveyor). Rango sugerido: 4.5–7.0 m. Estado: en curso.
 
 
 ## Dejamos para mañana:
@@ -68,48 +67,17 @@ Objetivo: Completar un primer nivel continuo (sin cambios de escena) con platafo
 - Cajas (`RigidBody`): layer 8, mask: 2 (entorno), 3 (plataformas), 8 (otras cajas) — NO mask 4/5/6/7 para evitar reacciones no deseadas; permitir lectura de fuerzas vía `Area` si es necesario con monitorables.
 - Cámara helpers (raycasts/areas de cámara): layer 9, mask: 2 (entorno) — evitar interacción con player.
 
-Acción: revisar cada escena (`MovingPlatform.tscn`, `Conveyor.tscn`, `WindZone.tscn`, `KillZone.tscn`, `Checkpoint.tscn`, `PushableBox.tscn`) y aplicar este mapeo para prevenir colisiones entre plataformas y filtrar interacciones.
-
-## Nota de bug de cámara sobre Conveyor
-- Síntoma: al pasar sobre el conveyor, la cámara parece girar cuando no debería; sólo debería hacerlo si el jugador cambia de dirección.
-- Hipótesis: 1) La cámara está leyendo la orientación del `Player` influida por `external_velocity` del conveyor (p.ej., cálculo de forward via `velocity.normalized()`); 2) Un `Area` del conveyor afecta la máscara/capa de un `RayCast` de cámara; 3) `look_at`/`slerp` usa `global_transform.basis` del player que varía con fuerzas externas.
-- Acciones sugeridas:
-  - En `CameraTemplate.gd`, desacoplar orientación de cámara del `external_velocity`: base rumbo = input del jugador, no la velocidad total.
-  - Filtrar capas para que helpers de cámara ignoren layer 4 (conveyor) y 5 (wind).
-  - Clampear cambio de yaw según `dot(forward, desired_forward)` y aplicar suavizado con spring (ver plan de cámara abajo).
-  - Verificar que el `AnimationTree` del player no esté rotando el `KinematicBody` por blend dependiente de velocidad.
-
-## Plan de mejora de Cámara (siguiente paso)
-- Spring-damper: implementar en `scripts/CameraTemplate.gd` un seguimiento con modelo masa-resorte-amortiguador para posición y yaw/pitch.
-- Zoom dinámico por velocidad: ajustar distancia (`target_distance`) según magnitud de `player_velocity` (ignorar `external_velocity` del conveyor para determinación de zoom). Rango sugerido: 4.5–7.0 m.
-- Límites y suavizado: limitar pitch/yaw, suavizar transiciones con `delta` y `critically damped` (ζ≈1, ω≈3–6).
-- Colisión de cámara: raycast con layer 2 (entorno) únicamente; evitar que áreas dinámicas (4/5/6/7) afecten.
-- Parámetros exportados: `base_distance`, `max_distance`, `speed_zoom_gain`, `spring_strength`, `damping_ratio`, `ignore_external_velocity` (bool).
-
-Entrega: añadir estos exports a `CameraTemplate.gd` y validar en `criogenia.tscn` con conveyor y viento.
+ 
 
 ## Implementación técnica (archivos nuevos)
 - [ ] `scenes/common/GuardrailSegment.tscn` — segmento 2m con `StaticBody` + `CollisionShape` (altura ~1m).
 - [ ] `scenes/common/TubeConnector.tscn` — CSG + `StaticBody` con colisión cilíndrica; entradas con borde luminoso.
-- [x] `scripts/Conveyor.gd` — aplica velocidad constante a `KinematicBody`/`RigidBody` dentro (por ejemplo, vector en tangente de banda). Exponer: `push_velocity`.
-- [x] `scenes/common/Conveyor.tscn` — `Area` + `CollisionShape` + Mesh plano con textura de flechas.
-- [x] `scripts/WindZone.gd` — aplica fuerza vertical; Exponer: `lift_force`, `max_speed`. Opción pulsante.
-- [x] `scenes/common/WindZone.tscn` — `Area` + `CollisionShape` + partículas direccionales.
 - [ ] `scenes/common/PushableBox.tscn` — `RigidBody` + `CollisionShape` + Mesh cúbico; fricción alta.
-- [ ] `scripts/KillZone.gd` — al entrar, emitir señal de muerte al `PlayerManager`.
-- [ ] `scenes/common/KillZone.tscn` — `Area` grande bajo plataformas.
-- [ ] `scenes/common/Checkpoint.tscn` — `Area` + marcador visual; notifica a `PlayerManager`.
-- [x] `scripts/KillZone.gd` — al entrar, emitir señal de muerte al `PlayerManager`.
-- [x] `scenes/common/KillZone.tscn` — `Area` grande bajo plataformas.
-- [x] `scenes/common/Checkpoint.tscn` — `Area` + marcador visual; notifica a `PlayerManager`.
 - [ ] `scripts/GoalBeacon.gd` + `scenes/common/GoalBeacon.tscn` — activa objetivo y guarda progreso.
 - [ ] `scripts/ScreenBorders.gd` + `scenes/common/ScreenBorders.tscn` — CanvasLayer con `TopRect`/`BottomRect` animables; API `show_borders()`/`hide_borders()`.
 - [ ] `scripts/SceneSpawn.gd` — añadir exports de transición (`spawn_duration`, `border_thickness_pct`, `reset_camera_on_respawn`) y métodos `play_spawn_intro()` / `play_respawn_intro()`.
 
 ## Integración de audio y Cargol (low-hanging fruit)
-- [x] Autoload `AudioManager.gd` registrado en `project.godot`.
-- [x] Reproducir BGM en `Menu.tscn` (`Orbital Descent.mp3`).
-- [x] Reproducir BGM en `criogenia.tscn` (`Rust and Ruin.mp3`).
 - [ ] `scenes/common/Cargol.tscn` (prop/NPC simple) e integración en `criogenia.tscn`.
   - Nota: `scripts/LevelBGM.gd` creado para adjuntar a un nodo vacío del nivel.
 
@@ -124,12 +92,12 @@ Entrega: añadir estos exports a `CameraTemplate.gd` y validar en `criogenia.tsc
 - [ ] `criogenia.tscn` con: plataformas con barandas, conveyor activo, un tubo conector a ala secundaria, zona de viento para ascenso, cajas apilables para resolver un acceso, objetivo de alto contraste que concluye el recorrido.
 - [ ] Actualizar `README.md` con controles y rutas: cómo alcanzar la baliza/objetivo y cómo usar viento/cajas/conveyor.
 
-## Cambios recientes
-- [x] Ajustar transparencia del material en `WindZone` y añadir partículas.
-- [x] Corregir interacción del conveyor con Elias.
-- [x] Implementar efecto visual de "cerrar los ojos" en `KillZone`.
-- [x] Cambiar música al morir y reiniciarla al hacer respawn.
-- [x] Respawn accepts any key or button press.
-- [x] Added "Offline" label to death screen.
-- [x] WindZone: partículas billboard emisivas, distribución en volumen y sin gravedad.
-- [x] Conveyor: shader más sutil (menos contraste/emisión) y empuje aplicado también a `RigidBody`.
+ 
+
+## Plan de mejora de Cámara (futuro)
+- Spring-damper: implementar en `scripts/CameraTemplate.gd` un seguimiento con modelo masa-resorte-amortiguador para posición y yaw/pitch.
+- Límites y suavizado: limitar pitch/yaw, suavizar transiciones con `delta` y `critically damped` (ζ≈1, ω≈3–6).
+- Colisión de cámara: raycast con layer 2 (entorno) únicamente; evitar que áreas dinámicas (4/5/6/7) afecten.
+- Parámetros exportados: `base_distance`, `max_distance`, `speed_zoom_gain`, `spring_strength`, `damping_ratio`, `ignore_external_velocity` (bool).
+
+Entrega: añadir estos exports a `CameraTemplate.gd` y validar en `criogenia.tscn` con conveyor y viento.

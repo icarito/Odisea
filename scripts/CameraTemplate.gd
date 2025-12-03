@@ -15,9 +15,54 @@ var h_acceleration = 10
 var v_acceleration = 10
 var joyview = Vector2()
 
+# Zoom dinámico por velocidad (ignora external_velocity por defecto)
+export(float, 0.0, 15.0, 0.1) var base_distance := 0.0
+export(float, 0.5, 15.0, 0.1) var max_distance := 7.0
+export(float, 0.0, 2.0, 0.01) var speed_zoom_gain := 0.35
+export(float, 0.0, 20.0, 0.1) var zoom_lerp_speed := 6.0
+export(bool) var ignore_external_velocity := true
+export(bool) var include_vertical_speed := true
+export(float, 0.0, 3.0, 0.1) var vertical_speed_gain := 1.0
+
+# Intro cinematográfica desde un origen opcional
+export(bool) var use_cinematic_origin := true
+export(float, 0.0, 10.0, 0.1) var spawn_intro_duration := 1.5
+export(NodePath) var cinematic_origin_path
+
+onready var _cam: Camera = $h/v/Camera
+var _current_distance := 0.0
+var _intro_active := false
+var _intro_t := 0.0
+var _intro_start := Transform()
+var _intro_end := Transform()
+
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	$h/v/Camera.add_exception(get_parent())
+	# Inicializar distancia base a partir de la posición local de la cámara si no está configurada
+	if _cam:
+		if base_distance <= 0.0:
+			base_distance = -_cam.translation.z
+		_current_distance = base_distance
+		var t := _cam.translation
+		t.z = -_current_distance
+		_cam.translation = t
+	# Configurar intro cinematográfica si procede
+	if use_cinematic_origin and spawn_intro_duration > 0.0 and _cam:
+		var origin_node: Spatial = null
+		if cinematic_origin_path and String(cinematic_origin_path) != "":
+			if has_node(cinematic_origin_path):
+				origin_node = get_node(cinematic_origin_path)
+		if origin_node == null:
+			var scene := get_tree().get_current_scene()
+			if scene:
+				origin_node = scene.find_node("CinematicOrigin", true, false)
+		if origin_node:
+			_intro_active = true
+			_intro_t = 0.0
+			_intro_start = origin_node.global_transform
+			_intro_end = _cam.global_transform
+			_cam.global_transform = _intro_start
 	
 func _input(event):
 	if event is InputEventMouseMotion:
@@ -37,7 +82,20 @@ func _joystick_input():
 func _physics_process(delta):
 	# JoyPad Controls
 	_joystick_input()
-		
+    
+	# Intro cinematográfica: interpolar cámara y pausar lógica normal hasta terminar
+	if _intro_active and _cam:
+		_intro_t += delta
+		var d := max(spawn_intro_duration, 0.0001)
+		var a := clamp(_intro_t / d, 0.0, 1.0)
+		# Suavizado smoothstep
+		var s := a * a * (3.0 - 2.0 * a)
+		_cam.global_transform = _intro_start.interpolate_with(_intro_end, s)
+		if a >= 1.0:
+			_intro_active = false
+			_cam.global_transform = _intro_end
+		return
+
 	camrot_v = clamp(camrot_v, cam_v_min, cam_v_max)
 	
 	var mesh_front = get_node(PlayerCharacterMesh).global_transform.basis.z
@@ -53,4 +111,28 @@ func _physics_process(delta):
 	
 	# Usamos lerp_angle también para la rotación vertical por consistencia y seguridad.
 	$h/v.rotation.x = lerp_angle($h/v.rotation.x, deg2rad(camrot_v), delta * v_acceleration)
+    
+	# --- Zoom dinámico por velocidad ---
+	if _cam:
+		var player = get_parent()
+		var hv := Vector3.ZERO
+		var pv2 := Vector3.ZERO
+		# Tomamos solo la velocidad propia del jugador (sin external/platform) por defecto
+		if player:
+			hv = player.horizontal_velocity
+			if not ignore_external_velocity:
+				var pv = player.platform_velocity
+				pv2 = Vector3(pv.x, 0, pv.z)
+		var horiz_speed := (hv + pv2).length()
+		var eff_speed := horiz_speed
+		if include_vertical_speed and player:
+			var vy := 0.0
+			if "vertical_velocity" in player:
+				vy = player.vertical_velocity.y
+			eff_speed = sqrt(horiz_speed * horiz_speed + (vertical_speed_gain * vy) * (vertical_speed_gain * vy))
+		var desired := clamp(base_distance + eff_speed * speed_zoom_gain, base_distance, max_distance)
+		_current_distance = lerp(_current_distance, desired, clamp(zoom_lerp_speed * delta, 0.0, 1.0))
+		var ct := _cam.translation
+		ct.z = -_current_distance
+		_cam.translation = ct
 	
