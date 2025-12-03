@@ -120,3 +120,10 @@ func _physics_process(delta):
 			print("[Cam] yaw=" + String(yv).pad_decimals(3) +
 				" pitch=" + String(pv).pad_decimals(3) +
 				" len=" + String(sl).pad_decimals(2))
+
+# Aplicar delta externo de yaw (p.ej., tank turn del jugador)
+func apply_external_yaw_delta(delta_yaw: float) -> void:
+	if yaw:
+		yaw.rotation.y = yaw.rotation.y + delta_yaw
+		# Mantener el objetivo sincronizado para que el suavizado no revierta el cambio
+		target_yaw = yaw.rotation.y

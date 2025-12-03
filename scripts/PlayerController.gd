@@ -378,9 +378,13 @@ func _physics_process(delta):
 					# Girar todo el cuerpo del Pilot
 					rotation.y = rotation.y + delta_yaw
 					# Mantener cámara coherente: girar el Yaw junto al cuerpo
-					var yaw_node_turn = get_node_or_null("CameraRig/Yaw")
-					if yaw_node_turn:
-						yaw_node_turn.rotation.y = yaw_node_turn.rotation.y - delta_yaw
+					var cam_rig = get_node_or_null("CameraRig")
+					if cam_rig and cam_rig.has_method("apply_external_yaw_delta"):
+						cam_rig.apply_external_yaw_delta(delta_yaw)
+					else:
+						var yaw_node_turn = get_node_or_null("CameraRig/Yaw")
+						if yaw_node_turn:
+							yaw_node_turn.rotation.y = yaw_node_turn.rotation.y + delta_yaw
 					# Hacer que el mesh siga al cuerpo con offset si aplica
 					player_mesh.rotation.y = rotation.y + mesh_yaw_offset
 				# Actualizar la dirección como el frente del mesh para futuros avances
