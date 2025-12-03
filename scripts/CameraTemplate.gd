@@ -105,12 +105,20 @@ func _physics_process(delta):
 	camrot_v = clamp(camrot_v, cam_v_min, cam_v_max)
 	
 	var mesh_front = get_node(PlayerCharacterMesh).global_transform.basis.z
-	var auto_rotate_speed =  (PI - mesh_front.angle_to($h.global_transform.basis.z)) * get_parent().horizontal_velocity.length() * rot_speed_multiplier
+	var player := get_parent()
+	var horiz_speed := 0.0
+	if player and "horizontal_velocity" in player:
+		horiz_speed = player.horizontal_velocity.length()
+	var auto_rotate_speed =  (PI - mesh_front.angle_to($h.global_transform.basis.z)) * horiz_speed * rot_speed_multiplier
 	
 	if $control_stay_delay.is_stopped():
-		#FOLLOW CAMERA
-		$h.rotation.y = lerp_angle($h.rotation.y, get_node(PlayerCharacterMesh).global_transform.basis.get_euler().y, delta * auto_rotate_speed)
-		camrot_h = $h.rotation_degrees.y
+		# FOLLOW CAMERA solo cuando el jugador está prácticamente quieto para evitar curvatura de dirección
+		if horiz_speed < 0.2:
+			$h.rotation.y = lerp_angle($h.rotation.y, get_node(PlayerCharacterMesh).global_transform.basis.get_euler().y, delta * auto_rotate_speed)
+			camrot_h = $h.rotation_degrees.y
+		else:
+			# Mantener la orientación actual; no auto-seguir durante movimiento
+			camrot_h = $h.rotation_degrees.y
 	else:
 		#MOUSE CAMERA
 		$h.rotation_degrees.y = lerp($h.rotation_degrees.y, camrot_h, delta * h_acceleration)
@@ -120,7 +128,6 @@ func _physics_process(delta):
 	
 	# --- Zoom dinámico por velocidad ---
 	if _cam:
-		var player = get_parent()
 		var hv := Vector3.ZERO
 		var pv2 := Vector3.ZERO
 		# Tomamos solo la velocidad propia del jugador (sin external/platform) por defecto
@@ -129,7 +136,7 @@ func _physics_process(delta):
 			if not ignore_external_velocity:
 				var pv = player.platform_velocity
 				pv2 = Vector3(pv.x, 0, pv.z)
-		var horiz_speed := (hv + pv2).length()
+		horiz_speed = (hv + pv2).length()
 		var eff_speed := horiz_speed
 		if include_vertical_speed and player:
 			var vy := 0.0
