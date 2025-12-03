@@ -19,6 +19,7 @@ export(float) var pitch_sensitivity := 0.015
 export(float) var yaw_smooth := 12.0
 export(float) var pitch_smooth := 12.0
 export(float, 0.0, 90.0, 0.5) var pitch_limit_deg := 60.0 # clamp en 0–90°, default 75
+export(float) var cam_yaw_offset := 0.0
 export(float) var base_length := 3.8
 export(float) var max_length := 5.0
 export(float) var zoom_speed := 3.0
@@ -127,3 +128,10 @@ func apply_external_yaw_delta(delta_yaw: float) -> void:
 		yaw.rotation.y = yaw.rotation.y + delta_yaw
 		# Mantener el objetivo sincronizado para que el suavizado no revierta el cambio
 		target_yaw = yaw.rotation.y
+
+# Alinear yaw de cámara al yaw del cuerpo con offset configurable
+func sync_to_body_yaw(body_yaw: float, offset: float) -> void:
+	if yaw:
+		var y := body_yaw + offset
+		yaw.rotation.y = y
+		target_yaw = y

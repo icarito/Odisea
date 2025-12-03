@@ -90,6 +90,8 @@ var angular_acceleration = 10
 var acceleration = 15
 export(float, 0.0, 10.0, 0.1) var tank_turn_speed := 0.3
 export(float, 0.001, 0.1, 0.001) var mouse_aim_sensitivity := 0.015
+# --- Suavizado opcional de yaw de cuerpo + sync de cámara periódica ---
+var is_tank_turning = false
 export(float, 0.0, 50.0, 0.5) var max_rise_speed := 20.0
 export(float, 0.0, 50.0, 0.5) var max_fall_speed := 30.0
 export var cam_yaw_offset := 0.0 # radianes para compensar desfase de cámara
@@ -156,7 +158,7 @@ func _ready():
 		animation_tree["parameters/conditions/IsOnFloor"] = true
 		animation_tree["parameters/conditions/IsInAir"] = false
 		animation_tree["parameters/conditions/IsFloating"] = false
-
+	# Inicialización simple: nada que suavizar del yaw del cuerpo
 	
 func set_external_source_is_static(is_static: bool) -> void:
 	platform_is_static_surface = is_static
@@ -167,7 +169,14 @@ func _input(event):
 	if event is InputEventJoypadMotion:
 		aim_turn = -event.relative.x * mouse_aim_sensitivity
 	if event.is_action_pressed("aim"):
+		# Al entrar en aim, sincronizar cámara con el cuerpo usando el offset
+		var cam_rig = get_node_or_null("CameraRig")
+		if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
+			cam_rig.sync_to_body_yaw(rotation.y, cam_yaw_offset)
 		direction = $CameraRig/Yaw.global_transform.basis.z
+	if event.is_action_released("aim"):
+		# Al salir de aim, asegurar que el mesh y la cámara sigan el cuerpo con sus offsets
+		player_mesh.rotation.y = rotation.y + mesh_yaw_offset
 
 func roll():
 	if Input.is_action_just_pressed("roll"):
@@ -357,7 +366,7 @@ func _physics_process(delta):
 		var processed_dir := Vector2.ZERO
 		if mag > joystick_deadzone:
 			processed_dir = v2.normalized()
-			var curve: Curve = _CURVE_RESOURCES[int(joystick_curve_type)]
+			var curve: Curve = _CURVE_RESOURCES[joystick_curve_type]
 			processed_mag = curve.interpolate(clamp(mag, 0.0, 1.0))
 			# Reescalar por fuera de la zona muerta (opcional, simple)
 			processed_mag = clamp(processed_mag, 0.0, 1.0)
@@ -371,28 +380,24 @@ func _physics_process(delta):
 		else:
 			# Tank Controls cuando no hay componente de avance/retroceso
 			if abs(processed_dir.y) < 0.001 and abs(processed_dir.x) > 0.0:
-				# Girar en el lugar con A/D sin mover al personaje
-				# Nota: `rotation.y` está en radianes. Aplicar velocidad angular por segundo.
-				if tank_turn_speed > 0.0:
-					var delta_yaw = (processed_dir.x) * tank_turn_speed * delta
-					# Girar todo el cuerpo del Pilot
-					rotation.y = rotation.y + delta_yaw
-					# Mantener cámara coherente: girar el Yaw junto al cuerpo
-					var cam_rig = get_node_or_null("CameraRig")
-					if cam_rig and cam_rig.has_method("apply_external_yaw_delta"):
-						cam_rig.apply_external_yaw_delta(delta_yaw)
-					else:
-						var yaw_node_turn = get_node_or_null("CameraRig/Yaw")
-						if yaw_node_turn:
-							yaw_node_turn.rotation.y = yaw_node_turn.rotation.y + delta_yaw
-					# Hacer que el mesh siga al cuerpo con offset si aplica
+				is_tank_turning = (tank_turn_speed > 0.0)
+				if is_tank_turning:
+					var delta_yaw = processed_dir.x * tank_turn_speed * delta
+					# Rotar cuerpo y cámara directamente, sin objetivos ni syncs periódicos
+					rotation.y += delta_yaw
+					var yaw_node_turn = get_node_or_null("CameraRig/Yaw")
+					if yaw_node_turn:
+						yaw_node_turn.rotation.y += delta_yaw
 					player_mesh.rotation.y = rotation.y + mesh_yaw_offset
-				# Actualizar la dirección como el frente del mesh para futuros avances
-				direction = Vector3.FORWARD.rotated(Vector3.UP, player_mesh.rotation.y)
+				# Sin movimiento en tank turn
 				is_walking = false
 				is_running = false
 				movement_speed = 0.0
+				direction = Vector3.ZERO
+				# Frenar hv inmediatamente para evitar desplazamiento fantasma
+				horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, 120.0 * delta)
 			else:
+				is_tank_turning = false
 				# Movimiento normal: proyectar el input en el espacio de la cámara (Yaw)
 				var basis := Basis()
 				var yaw_node_local = get_node_or_null("CameraRig/Yaw")
@@ -412,7 +417,8 @@ func _physics_process(delta):
 				direction = dir3.normalized()
 				is_walking = true
 
-				if (Input.is_action_pressed("sprint")) and (is_walking == true):
+				# Sprint/walk SOLO si estamos caminando
+				if Input.is_action_pressed("sprint"):
 					movement_speed = run_speed
 					is_running = true
 				else:
@@ -421,69 +427,27 @@ func _physics_process(delta):
 
 				# Escalar la velocidad objetivo por la magnitud analógica (0..1)
 				movement_speed *= processed_mag
-
-		if (Input.is_action_pressed("sprint")) and (is_walking == true):
-			movement_speed = run_speed
-			is_running = true
-		else:
-			movement_speed = walk_speed
-			is_running = false
 	else:
 		is_walking = false
 		is_running = false
-		# Sin input: anclar dirección para evitar giro residual
+		is_tank_turning = false
 		direction = Vector3.ZERO
 
-	# Nota: El movimiento con joypad se gestiona vía acciones de Input mapeadas (forward/backward/left/right).
-	# Mientras se mantiene aim, se bloquea el movimiento desde estas acciones para que el joypad controle la cámara.
+	# Sin suavizados ni sincronizaciones periódicas de yaw: mantener determinismo
 
-	# Debug de input: detectar cambios y loguear una línea sintetizada
-	if debug_enabled and debug_input and debug_ready:
-		var snap := _debug_input_snapshot()
-		if _last_input_state != snap:
-			_last_input_state = snap.duplicate(true)
-			print_debug_tag("Input", "[Input] L=" + String(snap.left) + " R=" + String(snap.right) +
-				" F=" + String(snap.forward) + " B=" + String(snap.backward) +
-				" Q=" + String(snap.lookleft) + " E=" + String(snap.lookright) +
-				" AIM=" + String(snap.aim) + " SPR=" + String(snap.sprint) +
-				" JUMP=" + String(snap.jump) + " ATK=" + String(snap.attack) +
-				" ROLL=" + String(snap.roll))
-
-	if is_aiming:
-		var yaw_node3 = get_node_or_null("CameraRig/Yaw")
-		var yaw_rot = player_mesh.rotation.y
-		if yaw_node3:
-			yaw_rot = yaw_node3.rotation.y + mesh_yaw_offset
-		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, yaw_rot, delta * angular_acceleration)
-		# Bloquear movimiento mientras se mantiene aim
-		direction = Vector3.ZERO
-		movement_speed = 0
-	else:
-		# Natural: el mesh gira hacia la dirección de movimiento ya en espacio de cámara
-		if direction != Vector3.ZERO:
-			var target_y := atan2(direction.x, direction.z) + mesh_yaw_offset
-			player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, target_y, delta * angular_acceleration)
-			if debug_enabled and (debug_movement or debug_yaw):
-				# Solo emitir si cambia suficientemente cam_yaw o dirección
-				var yaw_change := abs(h_rot - _last_cam_yaw)
-				var dir_change = (direction - _last_dir).length()
-				if yaw_change > debug_yaw_threshold or dir_change > debug_dir_threshold:
-					_last_cam_yaw = h_rot
-					_last_dir = direction
-					print_debug_tag("YawAlign", "[YawAlign] cam_yaw=" + String(h_rot).pad_decimals(3) +
-				" target_y=" + String(target_y).pad_decimals(3) +
-				" mesh_y=" + String(player_mesh.rotation.y).pad_decimals(3) +
-				" dir=" + String(direction) +
-				" swap_axes=" + String(swap_input_axes) +
-				" invert_forward=" + String(invert_forward) +
-				" cam_offset=" + String(cam_yaw_offset).pad_decimals(3))
-
+	# Actualización del mesh en modo natural (cuando sí hay dirección)
+	if not is_aiming and direction != Vector3.ZERO:
+		var target_y := atan2(direction.x, direction.z) + mesh_yaw_offset
+		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, target_y, delta * angular_acceleration)
+		# ...existing code de debug YawAlign...
+	# Interpolación de hv hacia la velocidad objetivo
 	if ((is_attacking == true) or (is_rolling == true)):
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * .01 , acceleration * delta)
 	else:
 		var target_speed = movement_speed
 		var target_accel = acceleration
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * target_speed, target_accel * delta)
+	# ...existing code...
 
 	# Fricción fuerte: si no hay input o si está en aim (bloqueo movimiento) y estamos en suelo
 	if (not has_input or is_aiming) and is_on_floor() and not is_attacking and not is_rolling:

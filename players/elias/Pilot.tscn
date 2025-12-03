@@ -184,7 +184,7 @@ tank_turn_speed = 2.0
 cam_yaw_offset = 0.76
 mesh_yaw_offset = 0.785398
 debug_yaw = true
-debug_interval = 0.3
+debug_interval = 2.0
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
