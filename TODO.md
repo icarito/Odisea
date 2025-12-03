@@ -2,104 +2,29 @@
 
 Objetivo: Completar un primer nivel continuo (sin cambios de escena) con plataformas móviles, barandas, tubos conectores, conveyor, objetivos claros, fuerzas de viento, cajas apilables y sistema de muerte/respawn.
 
-## Blocker bugs:
+## TODO Pendiente
 
-### Arreglar PlayerController
-- [ ] Al correr o caminar con WASD al poco rato el player empieza a girar hacia la derecha. Cuando el mouse se mueve este comportamiento se detiene. Posible causa: acumulación de errores en el cálculo del ángulo de yaw basado en la dirección del movimiento?
-- [ ] Al "flotar" debería usar la animación de "swim idle".
-
-
-## Dejamos para mañana:
-	
-4) Barandas y conectividad: crear `GuardrailSegment.tscn` y `TubeConnector.tscn`, colocarlos en bordes críticos y unir alas para backtracking.
-5) Objetivo y cajas: `GoalBeacon.tscn` (fin del recorrido) y `PushableBox.tscn` (apilado 2–3 cajas).
-6) Integrar “Cargol”: `scenes/common/Cargol.tscn` (prop/NPC simple) y ubicarlo en `criogenia.tscn`.
-7) Spawn cinematográfico: transición de cámara y bordes negros reutilizables.
-  - Refactorizar bordes negros de para reutilizarlos al entrar, en un hud o en cinematicas.
-  - Añadir parámetros en `scripts/SceneSpawn.gd` para duración/intensidad y resetear ángulo de cámara al respawn.
-- [ ] SceneManager y Loading Screens
-  - Añadir `SceneManager` (autoload) para gestionar pantallas de carga y transiciones.
-
-
-## Prioridad Alta
-- [ ] Plataformas con barandas
-  - Crear `scenes/common/GuardrailSegment.tscn` (StaticBody + Mesh modular) y rodear bordes de plataformas principales y móviles, dejando huecos de salto.
-  - Integrar en `scenes/levels/act1/criogenia.tscn` (plataforma principal + `PuzzleZone`).
-- [ ] Tubos conectores entre alas
-  - Crear `scenes/common/TubeConnector.tscn` (CSGCylinder/CSGTorus + StaticBody) y conectar plataformas/alas para navegación y backtracking.
-  - Añadir entradas/salidas legibles (anillos luminosos).
-- [ ] Conveyor en plataforma principal
-  - Implementar `scripts/Conveyor.gd` + `scenes/common/Conveyor.tscn`. Estado: listo (escena y script existen; instancia presente en `criogenia.tscn`).
-  - Empuje tangencial configurable (`push_velocity`), ancho/longitud de banda y material con flechas.
-  - Colocar en la primera plataforma principal. Estado: presente; pendiente de calibración fina.
-- [ ] Objetivo de alto contraste
-  - Crear `scenes/common/GoalBeacon.tscn` (Mesh + material emisivo/color contrastante + `Area`).
-  - Al entrar en el `Area`, marcar objetivo: abrir compuerta, encender baliza o registrar progreso.
-- [x] Vientos/Fuerzas ascendentes
-  - Implementar `scripts/WindZone.gd` + `scenes/common/WindZone.tscn` (`Area`) que aplica fuerza vertical configurable a cuerpos dentro. Estado: listo (script y escena creados); falta colocar en `criogenia.tscn`.
-  - Señalizar con partículas/flechas/sonido suave.
-- [ ] Bloques apilables
-  - `scenes/common/PushableBox.tscn` (`RigidBody`) con dimensiones estándar, fricción y masa para apilar/arrastrar.
-  - Opcional: puntos de anclaje o “slots” guía para facilitar el apilado en MVP.
-- [x] Muerte por caída
-  - `scripts/KillZone.gd` (Area grande bajo zona jugable) ⇒ muerte inmediata.
-  - Opcional: `FallDamage.gd` para muerte si velocidad vertical/altura excede umbral.
-- [x] Respawn a estado viable
-  - Extender `autoload/PlayerManager.gd` con checkpoints (`Checkpoint.tscn`) y snapshot de posición/rotación.
-  - Al morir, respawn en el último checkpoint seguro.
-  - Estado: `KillZone` y `Checkpoint` implementados; `PlayerManager` extendido con `respawn()` y checkpoints. Falta colocar en `criogenia.tscn`.
-- [ ] Spawn cinematográfico y cutscenes
-  - `scenes/common/ScreenBorders.tscn` para bordes negros reutilizables (Kill/Spawn/Cutscenes).
-  - `scripts/SceneSpawn.gd` con exports para duración, grosor de bordes y transición de cámara.
-  - Al respawn, resetear el ángulo/rotación de cámara.
-
-## Integración con lo existente
-- [ ] Ajustar `scripts/MovingPlatform.gd` si es necesario para transportar al jugador de forma estable (comprobar colisiones en bordes).
-- [x] Añadir `KillZone` y `WindZone` en `criogenia.tscn` (primera ala: plataformas + conveyor; segunda ala: salto con viento + cajas apilables). Estado: colocados; pendiente de calibrar posiciones/valores.
-- [ ] Materiales: usar `materials/interior/*` y `addons/kenney_prototype_textures` (marcas de dirección para conveyor/trayectorias).
+| Prioridad | Tarea | Detalles/Notas |
+|-----------|-------|----------------|
+| Alta | Plataformas con barandas | Crear `scenes/common/GuardrailSegment.tscn` (StaticBody + Mesh modular) y rodear bordes de plataformas principales y móviles. Integrar en `Criogenia.tscn`. |
+| Alta | Tubos conectores entre secciones | Crear `scenes/common/TubeConnector.tscn` (CSGCylinder/CSGTorus + StaticBody) y conectar plataformas/alas. Añadir entradas legibles. |
+| Alta | Conveyor en plataforma principal | Calibrar empuje en `criogenia.tscn` (ya implementado, pendiente ajuste fino). |
+| Alta | Objetivo de alto contraste | Crear `scenes/common/GoalBeacon.tscn` (Mesh + Area) para marcar objetivo. |
+| Alta | Bloques apilables | Crear `scenes/common/PushableBox.tscn` (RigidBody) con fricción/masa para apilar 2-3 cajas. |
+| Alta | Spawn cinematográfico y cutscenes | Crear `scenes/common/ScreenBorders.tscn` y extender `scripts/SceneSpawn.gd` con exports para transiciones. |
+| Media | Integrar “Cargol” | Crear `scenes/common/Cargol.tscn` y ubicarlo en `criogenia.tscn`. |
+| Media | SceneManager y Loading Screens | Añadir autoload SceneManager para pantallas de carga. |
+| Baja | Integración de audio y Cargol | Adjuntar `scripts/LevelBGM.gd` al nivel. |
+| Baja | Pruebas y balance | Probar apilado de cajas y respawn en checkpoints. |
+| Baja | Entregables del MVP | Asegurar `Criogenia.tscn` con todas las piezas listadas. |
 
 ## Convenciones de capas de colisión (propuesta MVP)
-- Player (`KinematicBody`): layer 1, mask: 2 (entorno), 3 (plataformas móviles), 4 (conveyor), 5 (wind), 6 (checkpoints), 7 (kill), 8 (cajas). No debe colisionar con layer 9 (cámara helpers).
-- Entorno estático (suelo/estructuras): layer 2, mask: 1 (player), 8 (cajas).
-- Plataformas móviles: layer 3, mask: 1 (player), 8 (cajas), 2 (entorno) — evitar que plataformas choquen entre sí: NO incluir 3 en su mask.
-- Conveyor (Area): layer 4, mask: 1 (player), 8 (cajas) — aplica `push_velocity` sin colisionar físicamente.
+- Player (KinematicBody): layer 1, mask: 2 (entorno), 3 (plataformas móviles), 4 (conveyor), 5 (wind), 6 (checkpoints), 7 (kill), 8 (cajas). No colisionar con layer 9 (cámara helpers).
+- Entorno estático: layer 2, mask: 1 (player), 8 (cajas).
+- Plataformas móviles: layer 3, mask: 1 (player), 8 (cajas), 2 (entorno) — evitar choques entre plataformas.
+- Conveyor (Area): layer 4, mask: 1 (player), 8 (cajas).
 - WindZone (Area): layer 5, mask: 1 (player), 8 (cajas).
 - Checkpoint (Area): layer 6, mask: 1 (player).
-- KillZone (Area): layer 7, mask: 1 (player), 8 (cajas) si queremos limpiar caídas.
-- Cajas (`RigidBody`): layer 8, mask: 2 (entorno), 3 (plataformas), 8 (otras cajas) — NO mask 4/5/6/7 para evitar reacciones no deseadas; permitir lectura de fuerzas vía `Area` si es necesario con monitorables.
-- Cámara helpers (raycasts/areas de cámara): layer 9, mask: 2 (entorno) — evitar interacción con player.
-
- 
-
-## Implementación técnica (archivos nuevos)
-- [ ] `scenes/common/GuardrailSegment.tscn` — segmento 2m con `StaticBody` + `CollisionShape` (altura ~1m).
-- [ ] `scenes/common/TubeConnector.tscn` — CSG + `StaticBody` con colisión cilíndrica; entradas con borde luminoso.
-- [ ] `scenes/common/PushableBox.tscn` — `RigidBody` + `CollisionShape` + Mesh cúbico; fricción alta.
-- [ ] `scripts/GoalBeacon.gd` + `scenes/common/GoalBeacon.tscn` — activa objetivo y guarda progreso.
-- [ ] `scripts/ScreenBorders.gd` + `scenes/common/ScreenBorders.tscn` — CanvasLayer con `TopRect`/`BottomRect` animables; API `show_borders()`/`hide_borders()`.
-- [ ] `scripts/SceneSpawn.gd` — añadir exports de transición (`spawn_duration`, `border_thickness_pct`, `reset_camera_on_respawn`) y métodos `play_spawn_intro()` / `play_respawn_intro()`.
-
-## Integración de audio y Cargol (low-hanging fruit)
-- [ ] `scenes/common/Cargol.tscn` (prop/NPC simple) e integración en `criogenia.tscn`.
-  - Nota: `scripts/LevelBGM.gd` creado para adjuntar a un nodo vacío del nivel.
-
-## Pruebas y balance
-- [ ] Ajustar velocidades (`MovingPlatform.speed`, `wait_time`) y curvas (`data/Curves/*.tres`).
-- [ ] Conveyor: calibrar `push_velocity` para que requiera correcciones pero no frustre.
-- [ ] Viento: `lift_force` que permita ascenso controlado con salto planeado.
-- [ ] Cajas: comprobar apilado estable (2–3 cajas), sin jitter excesivo.
-- [ ] KillZone/Respawn: morir fuera de límites siempre respawnea en el último checkpoint.
-
-## Entregables del MVP
-- [ ] `criogenia.tscn` con: plataformas con barandas, conveyor activo, un tubo conector a ala secundaria, zona de viento para ascenso, cajas apilables para resolver un acceso, objetivo de alto contraste que concluye el recorrido.
-- [ ] Actualizar `README.md` con controles y rutas: cómo alcanzar la baliza/objetivo y cómo usar viento/cajas/conveyor.
-
- 
-
-## Plan de mejora de Cámara (futuro)
-- Spring-damper: implementar en `scripts/CameraTemplate.gd` un seguimiento con modelo masa-resorte-amortiguador para posición y yaw/pitch.
-- Límites y suavizado: limitar pitch/yaw, suavizar transiciones con `delta` y `critically damped` (ζ≈1, ω≈3–6).
-- Colisión de cámara: raycast con layer 2 (entorno) únicamente; evitar que áreas dinámicas (4/5/6/7) afecten.
-- Parámetros exportados: `base_distance`, `max_distance`, `speed_zoom_gain`, `spring_strength`, `damping_ratio`, `ignore_external_velocity` (bool).
-
-Entrega: añadir estos exports a `CameraTemplate.gd` y validar en `criogenia.tscn` con conveyor y viento.
+- KillZone (Area): layer 7, mask: 1 (player), 8 (cajas).
+- Cajas (RigidBody): layer 8, mask: 2 (entorno), 3 (plataformas), 8 (otras cajas).
+- Cámara helpers: layer 9, mask: 2 (entorno).

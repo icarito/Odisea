@@ -31,3 +31,12 @@ Registro de tareas completadas y cambios integrados.
 - Added "Offline" label to death screen.
 - WindZone: partículas billboard emisivas, distribución en volumen y sin gravedad.
 - Conveyor: shader más sutil (menos contraste/emisión) y empuje aplicado también a `RigidBody`.
+
+
+## 2025-12-03
+- Arreglar PlayerController: giro automático al correr/caminar y animación de flotar.
+- Vientos/Fuerzas ascendentes: script y escena implementados.
+- Muerte por caída: KillZone implementado.
+- Respawn a estado viable: PlayerManager extendido con checkpoints.
+- Ajustar MovingPlatform.gd para estabilidad.
+- Añadir KillZone y WindZone en criogenia.tscn.
