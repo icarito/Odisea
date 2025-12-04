@@ -116,6 +116,17 @@ func _joystick_input():
 func _physics_process(delta):
 	# JoyPad Controls
 	_joystick_input()
+	# Add joystick camera rotation always (like mouse)
+	var joy_x = Input.get_joy_axis(0, JOY_AXIS_2)  # Right stick X (yaw)
+	var joy_y = Input.get_joy_axis(0, JOY_AXIS_3)  # Right stick Y (pitch)
+	if abs(joy_x) > cam_joystick_deadzone:
+		var curve: Curve = _CAM_CURVE_RESOURCES[int(cam_joystick_curve_type)]
+		var cmag = clamp(curve.interpolate(clamp(abs(joy_x), 0.0, 1.0)), 0.0, 1.0)
+		camrot_h += -joy_x * cmag * joystick_sensitivity * h_sensitivity
+	if abs(joy_y) > cam_joystick_deadzone:
+		var curve: Curve = _CAM_CURVE_RESOURCES[int(cam_joystick_curve_type)]
+		var cmag = clamp(curve.interpolate(clamp(abs(joy_y), 0.0, 1.0)), 0.0, 1.0)
+		camrot_v += joy_y * cmag * joystick_sensitivity * v_sensitivity
 	# No acumulamos tiempo: follow será constante cuando no haya control directo
 
 	# Teclas A/D (left/right action) deben orbitar la cámara cuando NO estamos en aim
