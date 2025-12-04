@@ -115,21 +115,6 @@ var movement_speed := 0.0
 var acceleration := 15.0
 var is_walking := false
 var is_running := false
-var joystick_deadzone := 0.12
-var analog_run_threshold := 0.7
-var walk_speed := 3.3
-var run_speed := 7.5
-
-# --- JOYPAD ANALÓGICO (curvas como en Cursor.gd) ---
-enum JoystickCurveType { LINEAR, EXPONENTIAL, INVERSE_S }
-var joystick_curve_type = JoystickCurveType.EXPONENTIAL
-
-# Debe ser var para Godot 3.x
-var _CURVE_RESOURCES = [
-	load("res://data/Curves/Linear.tres"),
-	load("res://data/Curves/Exponential.tres"),
-	load("res://data/Curves/Inverse_S.tres")
-]
 
 onready var ground_ray: RayCast = $GroundRay
 onready var fake_shadow: MeshInstance = $PilotMesh/FakeShadow
@@ -382,68 +367,29 @@ func _physics_process(delta):
 	var has_input := (Input.is_action_pressed("forward") || Input.is_action_pressed("backward") || Input.is_action_pressed("left") || Input.is_action_pressed("right") || Input.is_action_pressed("cursor_up") || Input.is_action_pressed("cursor_down") || Input.is_action_pressed("cursor_left") || Input.is_action_pressed("cursor_right"))
 	if has_input:
 		time_since_input = 0.0
-		# Construir vector analógico desde acciones y aplicar deadzone + curva
-		var ax := ((Input.get_action_strength("left") - Input.get_action_strength("right")) - Input.get_joy_axis(0, 0)) * (-1 if invert_joy_x else 1)
-		var az := ((Input.get_action_strength("forward") - Input.get_action_strength("backward")) - Input.get_joy_axis(0, 1)) * (-1 if invert_joy_y else 1)
-			
-		var v2 := Vector2(ax, az)
-		var mag := v2.length()
-		var processed_mag := 0.0
-		var processed_dir := Vector2.ZERO
 
-		if mag > joystick_deadzone:
-			processed_dir = v2.normalized()
-			var curve: Curve = _CURVE_RESOURCES[joystick_curve_type]
-			processed_mag = curve.interpolate(clamp(mag, 0.0, 1.0))
-			# Reescalar por fuera de la zona muerta (opcional, simple)
-			processed_mag = clamp(processed_mag, 0.0, 1.0)
-			# Para input digital (full 1.0), aplicar threshold de walk si no sprint
-			if processed_mag == 1.0 and not Input.is_action_pressed("sprint"):
-				processed_mag = sprint_threshold
-
-		if processed_mag <= 0.0:
-			is_walking = false
-			is_running = false
-			direction = Vector3.ZERO
-		else:
-			# Movimiento relativo a la cámara con giro tank para curvas
-			var basis := Basis()
-			var yaw_node_local = get_node_or_null("CameraRig/Yaw")
-			if yaw_node_local:
-				basis = yaw_node_local.global_transform.basis
-			var cam_forward := basis.z.normalized()
-			var cam_right := basis.x.normalized()
-			var forward_input := processed_dir.y
-			var right_input := processed_dir.x
-			if swap_input_axes:
-				var tmp := forward_input
-				forward_input = right_input
-				right_input = tmp
-			if invert_forward:
-				forward_input = -forward_input
-			
-			# Giro continuo con input lateral para curvas
-			var turn_input = processed_dir.x * analog_turn_multiplier
-			rotation.y += turn_input * tank_turn_speed * delta
-			
-			# Dirección de movimiento: combinación de cam_forward y cam_right, pero con giro aplicado
-			var dir3 := (cam_forward * forward_input) + (cam_right * right_input)
-			direction = dir3.normalized()
-			
-			is_walking = true
-			# Solo walk o run: caminar por defecto, correr si sprint o threshold
-			if Input.is_action_pressed("sprint") or processed_mag > sprint_threshold:
-				movement_speed = run_speed
-				is_running = true
-			else:
-				movement_speed = walk_speed
-			# Escalar velocidad por magnitud analógica
-			movement_speed *= processed_mag
+	# Procesar movimiento con componente
+	if movement_comp:
+		var basis := Basis()
+		var yaw_node_local = get_node_or_null("CameraRig/Yaw")
+		if yaw_node_local:
+			basis = yaw_node_local.global_transform.basis
+		movement_comp.process_input(delta, basis, has_input)
+		
+		# Aplicar giro tank
+		var turn_input = movement_comp.get_turn_input()
+		rotation.y += turn_input * tank_turn_speed * delta
+		
+		# Obtener valores del componente
+		direction = movement_comp.direction
+		horizontal_velocity = movement_comp.get_horizontal_velocity()
+		is_walking = movement_comp.is_walking
+		is_running = movement_comp.is_running
 	else:
 		is_walking = false
 		is_running = false
-		is_tank_turning = false
 		direction = Vector3.ZERO
+		horizontal_velocity = Vector3.ZERO
 
 	# Sin suavizados ni sincronizaciones periódicas de yaw: mantener determinismo
 
@@ -457,12 +403,7 @@ func _physics_process(delta):
 		var local_target_y = global_target_y - parent_y
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, local_target_y, delta * angular_acceleration)
 	# Interpolación de hv hacia la velocidad objetivo
-	if ((is_attacking == true) or (is_rolling == true)):
-		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * .01 , acceleration * delta)
-	else:
-		var target_speed = movement_speed
-		var target_accel = acceleration
-		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * target_speed, target_accel * delta)
+	horizontal_velocity = movement_comp.horizontal_velocity
 	# ...existing code...
 
 	# Fricción fuerte: si no hay input y estamos en suelo
