@@ -1,6 +1,6 @@
 GODOT_BIN = /usr/bin/godot3-bin
 PROJECT_PATH = ..
-EXPORT_PRESET = "Linux/X11"
+EXPORT_PRESET = "Linux/X11 ARM64"
 PCK_PATH = port/third/third.pck
 REMOTE = root@angel:/roms/ports/
 

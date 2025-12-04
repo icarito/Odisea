@@ -92,6 +92,7 @@ margin_bottom = 324.0
 text = "Iniciar juego"
 
 [node name="Cursor" parent="." instance=ExtResource( 5 )]
+position = Vector2( 294, 306 )
 
 [connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Button" to="." method="_on_Start_pressed"]
 
