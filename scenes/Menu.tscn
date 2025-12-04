@@ -80,10 +80,19 @@ size_flags_vertical = 4
 icon = ExtResource( 6 )
 icon_align = 1
 
-[node name="Quit" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
-margin_top = 152.0
+[node name="CopilotButton" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
+margin_top = 78.0
 margin_right = 132.0
-margin_bottom = 226.0
+margin_bottom = 152.0
+size_flags_horizontal = 2
+size_flags_vertical = 4
+text = "Copilot"
+icon_align = 1
+
+[node name="Quit" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
+margin_top = 156.0
+margin_right = 132.0
+margin_bottom = 230.0
 size_flags_horizontal = 2
 size_flags_vertical = 6
 icon = ExtResource( 7 )
