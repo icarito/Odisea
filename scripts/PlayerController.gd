@@ -80,6 +80,7 @@ var vertical_velocity = Vector3()
 var angular_acceleration = 10
 export(float, 0.0, 10.0, 0.1) var tank_turn_speed := 0.3
 export(float, 0.0, 10.0, 0.1) var advancing_turn_speed := 0.3
+export(float, 0.0, 1.0, 0.01) var analog_turn_multiplier := 1.0
 export(float, 0.001, 0.1, 0.001) var mouse_aim_sensitivity := 0.015
 var is_tank_turning = false
 export(float, 0.0, 50.0, 0.5) var max_rise_speed := 20.0
@@ -387,8 +388,8 @@ func _physics_process(delta):
 	if has_input and not is_aiming:
 		time_since_input = 0.0
 		# Construir vector analógico desde acciones y aplicar deadzone + curva
-		var ax := (Input.get_action_strength("left") - Input.get_action_strength("right")) + Input.get_joy_axis(0, 0) * (-1 if invert_joy_x else 1)
-		var az := (Input.get_action_strength("forward") - Input.get_action_strength("backward")) + Input.get_joy_axis(0, 1) * (-1 if invert_joy_y else 1)
+		var ax := ((Input.get_action_strength("left") - Input.get_action_strength("right")) + Input.get_joy_axis(0, 0)) * (-1 if invert_joy_x else 1)
+		var az := ((Input.get_action_strength("forward") - Input.get_action_strength("backward")) + Input.get_joy_axis(0, 1)) * (-1 if invert_joy_y else 1)
 			
 		var v2 := Vector2(ax, az)
 		var mag := v2.length()
@@ -402,92 +403,74 @@ func _physics_process(delta):
 			# Reescalar por fuera de la zona muerta (opcional, simple)
 			processed_mag = clamp(processed_mag, 0.0, 1.0)
 
-		# --- DEBUG INPUT ANALÓGICO ---
-		if debug_enabled and debug_input:
-			# Solo imprime cada 0.2s para no saturar
-			if typeof(_debug_input_last) == TYPE_NIL:
-				_debug_input_last = 0.0
-			if OS.get_ticks_msec() - _debug_input_last > 200:
-				_debug_input_last = OS.get_ticks_msec()
-				var joy0 = 0 # primer joystick
-				var joy_ax0 = Input.get_joy_axis(joy0, 0)
-				var joy_ax1 = Input.get_joy_axis(joy0, 1)
-				var joy_ax2 = Input.get_joy_axis(joy0, 2)
-				var joy_ax3 = Input.get_joy_axis(joy0, 3)
-				print_debug_tag("JoyAxes", "[Joy] ax0(LX)=%.2f ax1(LY)=%.2f ax2(RX)=%.2f ax3(RY)=%.2f" % [joy_ax0, joy_ax1, joy_ax2, joy_ax3])
-				print_debug_tag("InputVec", "[Input] ax=%.2f az=%.2f mag=%.2f processed_mag=%.2f" % [ax, az, mag, processed_mag])
-		# Si no supera deadzone, tratamos como sin input real
+		# Tank controls: giro con input lateral, movimiento relativo al cuerpo
 		if processed_mag <= 0.0:
 			is_walking = false
 			is_running = false
 			movement_speed = 0.0
-			# Evitar acumulación de giro: sin input, no perseguir dirección previa
 			direction = Vector3.ZERO
 		else:
-			# Tank Controls cuando no hay componente de avance/retroceso
-			if abs(processed_dir.y) < 0.001 and abs(ax) > joystick_deadzone:
-				is_tank_turning = (tank_turn_speed > 0.0)
-				if is_tank_turning:
-					var delta_yaw = ax * tank_turn_speed * delta  # Use raw ax for analog turn
-					# Rotar únicamente el cuerpo; la cámara no debe sumar yaw aquí
-					rotation.y += delta_yaw
-				# player_mesh.rotation.y = rotation.y + mesh_yaw_offset
-				# Sin movimiento en tank turn
-				is_walking = false
-				is_running = false
-				movement_speed = 0.0
-				direction = Vector3.ZERO
-				# Frenar hv inmediatamente para evitar desplazamiento fantasma
-				horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, 120.0 * delta)
+			# Giro continuo con input lateral
+			var turn_input = processed_dir.x * analog_turn_multiplier
+			rotation.y += turn_input * tank_turn_speed * delta
+			
+			# Dirección de movimiento: relativa al cuerpo
+			var forward_input = processed_dir.y
+			direction = Vector3.FORWARD.rotated(Vector3.UP, rotation.y) * forward_input
+			
+			is_walking = abs(forward_input) > 0.0
+			if Input.is_action_pressed("sprint") or abs(forward_input) > analog_run_threshold:
+				movement_speed = run_speed
+				is_running = true
 			else:
-				is_tank_turning = false
-				# Movimiento normal: proyectar el input en el espacio de la cámara (Yaw) for digital, tank for analog
-				if processed_mag < 1.0:
-					# Tank controls for joystick
-					var forward_input = processed_dir.y
-					var turn_input = ax  # Raw for analog turn speed
-					if abs(turn_input) > joystick_deadzone:
-						rotation.y += turn_input * tank_turn_speed * delta
-					direction = Vector3.FORWARD.rotated(Vector3.UP, rotation.y) * forward_input
-					is_walking = abs(forward_input) > 0.0
-					if Input.is_action_pressed("sprint") or abs(forward_input) > analog_run_threshold:
-						movement_speed = run_speed
-						is_running = true
-					else:
-						movement_speed = walk_speed
-						is_running = false
-					movement_speed *= abs(forward_input)
-				else:
-					# Relative to camera for digital (WASD)
-					var basis := Basis()
-					var yaw_node_local = get_node_or_null("CameraRig/Yaw")
-					if yaw_node_local:
-						basis = yaw_node_local.global_transform.basis
-					var cam_forward := basis.z.normalized()
-					var cam_right := basis.x.normalized()
-					var forward_input := processed_dir.y
-					var right_input := processed_dir.x
-					if swap_input_axes:
-						var tmp := forward_input
-						forward_input = right_input
-						right_input = tmp
-					if invert_forward:
-						forward_input = -forward_input
-					var dir3 := (cam_forward * forward_input) + (cam_right * right_input)
-					direction = dir3.normalized()
-					# Giro adicional al estar avanzando
-					if abs(right_input) > 0.0 and abs(forward_input) > 0.0:
-						direction = direction.rotated(Vector3.UP, right_input * advancing_turn_speed * delta)
-					is_walking = true
-					# Sprint/walk SOLO si estamos caminando
-					if Input.is_action_pressed("sprint") or (processed_mag > analog_run_threshold and processed_mag < 1.0):
-						movement_speed = run_speed
-						is_running = true
-					else:
-						movement_speed = walk_speed
-						is_running = false
-					# Escalar la velocidad objetivo por la magnitud analógica (0..1)
-					movement_speed *= processed_mag
+				movement_speed = walk_speed
+				is_running = false
+			# Escalar velocidad por magnitud analógica
+			movement_speed *= processed_mag
+	elif is_aiming and has_input:
+		# Strafe mode: movimiento relativo a la cámara
+		var ax := ((Input.get_action_strength("left") - Input.get_action_strength("right")) + Input.get_joy_axis(0, 0)) * (-1 if invert_joy_x else 1)
+		var az := ((Input.get_action_strength("forward") - Input.get_action_strength("backward")) + Input.get_joy_axis(0, 1)) * (-1 if invert_joy_y else 1)
+			
+		var v2 := Vector2(ax, az)
+		var mag := v2.length()
+		var processed_mag := 0.0
+		var processed_dir := Vector2.ZERO
+
+		if mag > joystick_deadzone:
+			processed_dir = v2.normalized()
+			var curve: Curve = _CURVE_RESOURCES[joystick_curve_type]
+			processed_mag = curve.interpolate(clamp(mag, 0.0, 1.0))
+
+		if processed_mag <= 0.0:
+			is_walking = false
+			is_running = false
+			direction = Vector3.ZERO
+		else:
+			var basis := Basis()
+			var yaw_node_local = get_node_or_null("CameraRig/Yaw")
+			if yaw_node_local:
+				basis = yaw_node_local.global_transform.basis
+			var cam_forward := basis.z.normalized()
+			var cam_right := basis.x.normalized()
+			var forward_input := processed_dir.y
+			var right_input := processed_dir.x
+			if swap_input_axes:
+				var tmp := forward_input
+				forward_input = right_input
+				right_input = tmp
+			if invert_forward:
+				forward_input = -forward_input
+			var dir3 := (cam_forward * forward_input) + (cam_right * right_input)
+			direction = dir3.normalized()
+			is_walking = true
+			if Input.is_action_pressed("sprint") or processed_mag > analog_run_threshold:
+				movement_speed = run_speed
+				is_running = true
+			else:
+				movement_speed = walk_speed
+				is_running = false
+			movement_speed *= processed_mag
 	else:
 		is_walking = false
 		is_running = false
