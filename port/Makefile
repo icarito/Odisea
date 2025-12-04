@@ -9,7 +9,7 @@ REMOTE = root@angel:/roms/ports/
 all: export scp
 
 export:
-	$(GODOT_BIN) --no-window --path $(PROJECT_PATH) --export $(EXPORT_PRESET) $(PCK_PATH)
+	$(GODOT_BIN) --no-window --path $(PROJECT_PATH) --profiling --export-debug $(EXPORT_PRESET) $(PCK_PATH)
 
 scp: export
 	rsync -avz third Third.sh $(REMOTE)

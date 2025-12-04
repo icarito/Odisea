@@ -111,12 +111,6 @@ skeleton = NodePath("../../BakedLightmap")
 [node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/PlatformMesh/Pilar2/StaticBody"]
 shape = SubResource( 5 )
 
-[node name="OmniLight" type="OmniLight" parent="PuzzleZone/PlatformMesh"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -39.8142, 2.01926, 27.4719 )
-light_color = Color( 1, 0.0627451, 0.0627451, 1 )
-shadow_enabled = true
-omni_range = 15.798
-
 [node name="BakedLightmap" type="BakedLightmap" parent="PuzzleZone"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -87.3983, -17.2667, 47.552 )
 extents = Vector3( 10, 10, 15.5139 )
