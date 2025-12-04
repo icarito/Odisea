@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://models/Pilot.glb" type="PackedScene" id=1]
 [ext_resource path="res://scripts/Menu.gd" type="Script" id=2]
@@ -6,6 +6,7 @@
 [ext_resource path="res://assets/Sixtyfour-Regular-VariableFont_BLED,SCAN.ttf" type="DynamicFontData" id=4]
 [ext_resource path="res://scenes/common/Cursor.tscn" type="PackedScene" id=5]
 [ext_resource path="res://assets/start.png" type="Texture" id=6]
+[ext_resource path="res://assets/quit.png" type="Texture" id=7]
 
 [sub_resource type="DynamicFont" id=1]
 size = 95
@@ -65,19 +66,34 @@ current = true
 [node name="PilotModel" parent="VBoxContainer/HBoxContainer/Preview3D/Viewport/Root3D" instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 
-[node name="Button" type="Button" parent="VBoxContainer/HBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/HBoxContainer"]
 margin_left = 404.0
-margin_top = 113.0
 margin_right = 536.0
-margin_bottom = 187.0
+margin_bottom = 300.0
+size_flags_horizontal = 2
+
+[node name="Start" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
+margin_right = 132.0
+margin_bottom = 74.0
 size_flags_horizontal = 2
 size_flags_vertical = 4
 icon = ExtResource( 6 )
 icon_align = 1
 
+[node name="Quit" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
+margin_top = 152.0
+margin_right = 132.0
+margin_bottom = 226.0
+size_flags_horizontal = 2
+size_flags_vertical = 6
+icon = ExtResource( 7 )
+icon_align = 1
+
 [node name="Cursor" parent="." instance=ExtResource( 5 )]
 position = Vector2( 294, 306 )
 
-[connection signal="pressed" from="VBoxContainer/HBoxContainer/Button" to="." method="_on_Start_pressed"]
+[connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Start" to="." method="_on_Start_pressed"]
+[connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Quit" to="." method="_on_Start_pressed"]
+[connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Quit" to="." method="_on_Quit_pressed"]
 
 [editable path="VBoxContainer/HBoxContainer/Preview3D/Viewport/Root3D/PilotModel"]
