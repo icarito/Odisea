@@ -2,19 +2,16 @@ extends Node
 
 class_name PlayerMovement
 
-# @export_range(0.0, 10.0, 0.1) var walk_speed := 1.3
 export var walk_speed := 3.3
-# @export_range(0.0, 20.0, 0.1) var run_speed := 5.5
 export var run_speed := 7.5
-# @export_range(0.0, 1.0, 0.01) var joystick_deadzone := 0.12
 export var joystick_deadzone := 0.12
 enum JoystickCurveType { LINEAR, EXPONENTIAL, INVERSE_S }
 export (JoystickCurveType) var joystick_curve_type = JoystickCurveType.EXPONENTIAL
-# @export_range(0.0, 1.0, 0.01) var analog_run_threshold := 0.7
 export var analog_run_threshold := 0.7
-# @export_range(0.0, 50.0, 1.0) var acceleration := 15.0
+export var sprint_threshold := 0.7
+export var tank_turn_speed := 0.3
+export var analog_turn_multiplier := 1.0
 export var acceleration := 15.0
-# @export_range(0.0, 50.0, 1.0) var friction := 60.0
 export var friction := 60.0
 
 var _CURVE_RESOURCES = [
@@ -34,15 +31,16 @@ func get_input_vector() -> Vector2:
 	var az := (Input.get_action_strength("forward") - Input.get_action_strength("backward")) + Input.get_joy_axis(0, 1)
 	return Vector2(ax, az)
 
-func process_input(input_vec: Vector2, delta: float, cam_basis: Basis, is_aiming: bool, has_input: bool) -> void:
-	if not has_input or is_aiming:
+func process_input(delta: float, cam_basis: Basis, has_input: bool) -> void:
+	if not has_input:
 		is_walking = false
 		is_running = false
 		direction = Vector3.ZERO
 		horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, friction * delta)
 		return
 
-	var mag := input_vec.length()
+	var input_vec = get_input_vector()
+	var mag = input_vec.length()
 	var processed_mag := 0.0
 	var processed_dir := Vector2.ZERO
 
@@ -50,30 +48,42 @@ func process_input(input_vec: Vector2, delta: float, cam_basis: Basis, is_aiming
 		processed_dir = input_vec.normalized()
 		var curve: Curve = _CURVE_RESOURCES[joystick_curve_type]
 		processed_mag = curve.interpolate(clamp(mag, 0.0, 1.0))
+		# Reescalar por fuera de la zona muerta
+		processed_mag = clamp(processed_mag, 0.0, 1.0)
+		# Para input digital, aplicar threshold de walk si no sprint
+		if processed_mag == 1.0 and not Input.is_action_pressed("sprint"):
+			processed_mag = sprint_threshold
 
-	if processed_mag <= 0.0:
-		is_walking = false
-		is_running = false
-		direction = Vector3.ZERO
-		horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, friction * delta)
+	var cam_forward := cam_basis.z.normalized()
+	var cam_right := cam_basis.x.normalized()
+	var forward_input := processed_dir.y
+	var right_input := processed_dir.x
+
+	# Dirección de movimiento: combinación de cam_forward y cam_right
+	direction = (cam_forward * forward_input) + (cam_right * right_input)
+	direction = direction.normalized()
+	
+	is_walking = true
+	# Solo walk o run: caminar por defecto, correr si sprint o threshold
+	if Input.is_action_pressed("sprint") or (processed_mag > sprint_threshold and processed_mag < 1.0):
+		movement_speed = run_speed
+		is_running = true
 	else:
-		var cam_forward := cam_basis.z.normalized()
-		var cam_right := cam_basis.x.normalized()
-		var forward_input := processed_dir.y
-		var right_input := processed_dir.x
-		var dir3 := (cam_forward * forward_input) + (cam_right * right_input)
-		direction = dir3.normalized()
-		is_walking = true
-		if Input.is_action_pressed("sprint") or processed_mag > analog_run_threshold:
-			movement_speed = run_speed
-			is_running = true
-		else:
-			movement_speed = walk_speed
-			is_running = false
-		movement_speed *= processed_mag
+		movement_speed = walk_speed
+		is_running = false
+	# Escalar velocidad por magnitud
+	movement_speed *= processed_mag
 
 	var target_velocity = direction * movement_speed
 	horizontal_velocity = horizontal_velocity.linear_interpolate(target_velocity, acceleration * delta)
 
 func get_horizontal_velocity() -> Vector3:
 	return horizontal_velocity
+
+func get_turn_input() -> float:
+	var input_vec = get_input_vector()
+	var mag = input_vec.length()
+	if mag > joystick_deadzone:
+		var processed_dir = input_vec.normalized()
+		return processed_dir.x * analog_turn_multiplier
+	return 0.0
