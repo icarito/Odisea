@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=2]
+[gd_scene load_steps=14 format=2]
 
 [ext_resource path="res://scenes/common/sde_1.tscn" type="PackedScene" id=1]
 [ext_resource path="res://scenes/common/KillZone.tscn" type="PackedScene" id=2]
@@ -10,8 +10,6 @@
 [ext_resource path="res://scenes/common/Conveyor.tscn" type="PackedScene" id=8]
 [ext_resource path="res://scenes/common/WindZone.tscn" type="PackedScene" id=9]
 [ext_resource path="res://data/Curves/Linear.tres" type="Curve" id=10]
-[ext_resource path="res://scenes/levels/act1/Criogenia.lmbake" type="BakedLightmapData" id=11]
-[ext_resource path="res://scenes/common/FPS_Tricks.gd" type="Script" id=12]
 
 [sub_resource type="ArrayMesh" id=4]
 lightmap_size_hint = Vector2( 2218, 4066 )
@@ -80,7 +78,7 @@ stripe_tiling = 40.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -47.5841, -21.858, 20.0801 )
 use_in_baked_light = true
 mesh = SubResource( 4 )
-skeleton = NodePath("../BakedLightmap")
+skeleton = NodePath("")
 
 [node name="Platform" type="CSGBox" parent="PuzzleZone/PlatformMesh"]
 visible = false
@@ -93,7 +91,7 @@ depth = 100.0
 transform = Transform( 0.999999, 0, 0, 0, 0.999999, 0, 0, 0, 0.999999, -36.2632, 3.04343, 24.3159 )
 use_in_baked_light = true
 mesh = SubResource( 1 )
-skeleton = NodePath("../../BakedLightmap")
+skeleton = NodePath("")
 
 [node name="StaticBody" type="StaticBody" parent="PuzzleZone/PlatformMesh/Pilar"]
 
@@ -104,23 +102,12 @@ shape = SubResource( 5 )
 transform = Transform( 0.999999, 0, 0, 0, 0.999999, 0, 0, 0, 0.999999, -43.4282, 3.04343, 33.2603 )
 use_in_baked_light = true
 mesh = SubResource( 1 )
-skeleton = NodePath("../../BakedLightmap")
+skeleton = NodePath("")
 
 [node name="StaticBody" type="StaticBody" parent="PuzzleZone/PlatformMesh/Pilar2"]
 
 [node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/PlatformMesh/Pilar2/StaticBody"]
 shape = SubResource( 5 )
-
-[node name="BakedLightmap" type="BakedLightmap" parent="PuzzleZone"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -87.3983, -17.2667, 47.552 )
-extents = Vector3( 10, 10, 15.5139 )
-quality = 0
-use_denoiser = false
-default_texels_per_unit = 0.05
-light_data = ExtResource( 11 )
-
-[node name="Spatial" type="Spatial" parent="PuzzleZone/BakedLightmap"]
-script = ExtResource( 12 )
 
 [node name="SpawnPoint" type="Spatial" parent="."]
 transform = Transform( 0.688317, 0, -0.72541, 0, 1, 0, 0.72541, 0, 0.688317, -35.2729, -339.004, 3517.04 )
