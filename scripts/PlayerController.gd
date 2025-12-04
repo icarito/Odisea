@@ -373,10 +373,8 @@ func _physics_process(delta):
 	if has_input and not is_aiming:
 		time_since_input = 0.0
 		# Construir vector analógico desde acciones y aplicar deadzone + curva
-		var ax := -Input.get_joy_axis(0, 0) * (-1 if invert_joy_x else 1)
-		var az := Input.get_joy_axis(0, 1) * (-1 if invert_joy_y else 1)
-		if az == 0:
-			az = Input.get_joy_axis(0, 1)
+		var ax := (Input.get_action_strength("left") - Input.get_action_strength("right")) + Input.get_joy_axis(0, 0) * (-1 if invert_joy_x else 1)
+		var az := (Input.get_action_strength("forward") - Input.get_action_strength("backward")) + Input.get_joy_axis(0, 1) * (-1 if invert_joy_y else 1)
 			
 		var v2 := Vector2(ax, az)
 		var mag := v2.length()

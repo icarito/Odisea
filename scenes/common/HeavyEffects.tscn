@@ -17,4 +17,3 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -39.8142, 2.01926, 27.4719 )
 light_color = Color( 1, 0.0627451, 0.0627451, 1 )
 shadow_enabled = true
 omni_range = 15.798
-
