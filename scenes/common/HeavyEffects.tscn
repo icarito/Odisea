@@ -1,0 +1,20 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://scenes/levels/act1/Criogenia.lmbake" type="BakedLightmapData" id=1]
+
+[node name="HeavyEffects" type="Spatial"]
+
+[node name="BakedLightmap" type="BakedLightmap" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -87.3983, -17.2667, 47.552 )
+extents = Vector3( 10, 10, 15.5139 )
+quality = 0
+use_denoiser = false
+default_texels_per_unit = 0.05
+light_data = ExtResource( 1 )
+
+[node name="OmniLight" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -39.8142, 2.01926, 27.4719 )
+light_color = Color( 1, 0.0627451, 0.0627451, 1 )
+shadow_enabled = true
+omni_range = 15.798
+

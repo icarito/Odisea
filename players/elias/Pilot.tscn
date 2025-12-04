@@ -176,13 +176,15 @@ PlayerCharacterMesh = NodePath("PilotMesh")
 gravity = 9.0
 jump_force = 15
 walk_speed = 2.0
+joystick_deadzone = 0.3
 joystick_curve_type = 2
 analog_run_threshold = 0.8
+debug_input = true
+debug_enabled = true
 max_platform_up_follow = 30.0
-tank_turn_speed = 1.0
+tank_turn_speed = 2.0
 advancing_turn_speed = 3.7
 cam_yaw_offset = 0.76
-debug_yaw = true
 debug_interval = 0.6
 
 [node name="CollisionShape" type="CollisionShape" parent="."]

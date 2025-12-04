@@ -1,8 +1,9 @@
 extends Spatial
 
-# Referencia al nodo BakedLightmap de tu escena
-onready var baked_lightmap_node = $".."            # BakedLightmap (si existe)
-onready var env := get_tree().get_current_scene().find_node("Environment", true, false)
+# Referencia al nodo BakedLightmap de la instancia pesada
+var baked_lightmap_node = null
+var heavy_instance = null
+var heavy_effects_scene = preload("res://scenes/common/HeavyEffects.tscn")
 
 # FPS mínimo que consideras aceptable
 const MIN_FPS := 20
@@ -15,26 +16,21 @@ const START_DELAY := 2.0
 const CHECK_INTERVAL := 0.5
 
 func _ready():
-	# Ajustes base para GLES2
-	# MSAA y efectos de postproceso fuera
-	
-	"""
-	# Environment: quitar Glow/SSAO/Reflections si están
-	if env and env.has_method("get_environment"):
-		var e = env.get_environment()
-		if e:
-			e.glow_enabled = false
-			e.ssao_enabled = false
-			e.tone_mapper = Environment.TONE_MAPPER_LINEAR
-			e.ssa_enabled = false
-			e.dof_blur_far_enabled = false
-			e.dof_blur_near_enabled = false
-	"""
+	# Espera un poco para medir FPS inicial
+	yield(get_tree().create_timer(START_DELAY), "timeout")
+	var fps = Engine.get_frames_per_second()
+	if fps > MIN_FPS:
+		heavy_instance = heavy_effects_scene.instance()
+		get_parent().add_child(heavy_instance)
+		baked_lightmap_node = heavy_instance.get_node("BakedLightmap")
+		is_light_disabled = false
+	else:
+		is_light_disabled = true
 
 func _process(delta):
 	# Acumula tiempo desde que inicia la escena
 	_time_since_start += delta
-	# Espera 2 segundos antes de comenzar a chequear
+	# Espera START_DELAY segundos antes de comenzar a chequear
 	if _time_since_start < START_DELAY:
 		return
 
@@ -57,33 +53,31 @@ func _process(delta):
 		print("FPS recuperados: efectos pesados ACTIVADOS.")
 
 func toggle_heavy_features(enable: bool):
-	# 1) Lightmap horneado (en GLES2 no aplica; por si lo tienes en desktop)
-	if baked_lightmap_node and baked_lightmap_node is BakedLightmap:
-		baked_lightmap_node.visible = enable
+	if enable:
+		if not heavy_instance:
+			heavy_instance = heavy_effects_scene.instance()
+			get_parent().add_child(heavy_instance)
+			baked_lightmap_node = heavy_instance.get_node("BakedLightmap")
+		heavy_instance.visible = true
+		var light = heavy_instance.get_node_or_null("OmniLight")
+		if light:
+			light.shadow_enabled = true
+	else:
+		if heavy_instance:
+			get_parent().remove_child(heavy_instance)
+			heavy_instance.queue_free()
+			heavy_instance = null
+			baked_lightmap_node = null
 
-	# 2) Sombras dinámicas (muy costosas en GLES2)
-	for light in get_tree().get_nodes_in_group("lights"): # crea este grupo en tus luces
-		if light is OmniLight or light is SpotLight or light is DirectionalLight:
-			light.shadow_enabled = enable
-			# Reducir energía y rango cuando desactivas sombras ayuda a rendimiento
-			if not enable:
-				if light is OmniLight:
-					light.omni_range = min(light.omni_range, 16.0)
-				if light is SpotLight:
-					light.spot_range = min(light.spot_range, 20.0)
-
-	# 3) Partículas: apágalas si hay muchas
+	# Partículas: apágalas si hay muchas
 	for p in get_tree().get_nodes_in_group("particles"):
 		if p is Particles or p is CPUParticles:
 			p.emitting = enable
 
-	# 4) Postprocesos (glow/ssao) desde Environment
+	# Postprocesos (glow/ssao) desde Environment
+	var env = get_tree().get_current_scene().find_node("Environment", true, false)
 	if env and env.has_method("get_environment"):
 		var e = env.get_environment()
 		if e:
 			e.glow_enabled = enable
 			e.ssao_enabled = enable
-
-	# 5) Materiales: usar un shader simple (opcional)
-	# Puedes marcar materiales prototipo sin iluminación cuando enable=false.
-	# Recorre nodos MeshInstance si quieres aplicar material ligero.

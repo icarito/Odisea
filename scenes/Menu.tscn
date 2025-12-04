@@ -43,6 +43,7 @@ margin_bottom = 324.0
 rect_min_size = Vector2( 350, 0 )
 
 [node name="DebugLabel" type="Label" parent="VBoxContainer/HBoxContainer/ScrollContainer"]
+visible = false
 margin_right = 350.0
 margin_bottom = 324.0
 rect_pivot_offset = Vector2( 29.5, 14 )
@@ -93,3 +94,5 @@ text = "Iniciar juego"
 [node name="Cursor" parent="." instance=ExtResource( 5 )]
 
 [connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Button" to="." method="_on_Start_pressed"]
+
+[editable path="VBoxContainer/HBoxContainer/VBoxContainer/Preview3D/Viewport/Root3D/PilotModel"]

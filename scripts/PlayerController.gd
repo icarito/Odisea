@@ -111,11 +111,14 @@ var _last_cam_yaw := -999.0
 var _last_dir := Vector3.ZERO
 export(float, 0.0, 1.0, 0.01) var debug_yaw_threshold := 0.05 # rad (~3°)
 export(float, 0.0, 1.0, 0.01) var debug_dir_threshold := 0.05 # vector length change
+export var invert_joy_x := false
+export var invert_joy_y := false
 var _last_anim_node := ""
 var _last_is_floating := false
 var has_seen_floor_once := false
 var time_since_start := 0.0
 export var startup_floating_block_time := 0.6
+var _debug_input_last := 0.0
 
 onready var ground_ray: RayCast = $GroundRay
 onready var fake_shadow: MeshInstance = $PilotMesh/FakeShadow
@@ -370,18 +373,37 @@ func _physics_process(delta):
 	if has_input and not is_aiming:
 		time_since_input = 0.0
 		# Construir vector analógico desde acciones y aplicar deadzone + curva
-		var ax := (Input.get_action_strength("left") - Input.get_action_strength("right")) + (Input.get_action_strength("cursor_left") - Input.get_action_strength("cursor_right"))
-		var az := (Input.get_action_strength("forward") - Input.get_action_strength("backward")) + (Input.get_action_strength("cursor_down") - Input.get_action_strength("cursor_up"))
+		var ax := -Input.get_joy_axis(0, 0) * (-1 if invert_joy_x else 1)
+		var az := Input.get_joy_axis(0, 1) * (-1 if invert_joy_y else 1)
+		if az == 0:
+			az = Input.get_joy_axis(0, 1)
+			
 		var v2 := Vector2(ax, az)
 		var mag := v2.length()
 		var processed_mag := 0.0
 		var processed_dir := Vector2.ZERO
+
 		if mag > joystick_deadzone:
 			processed_dir = v2.normalized()
 			var curve: Curve = _CURVE_RESOURCES[joystick_curve_type]
 			processed_mag = curve.interpolate(clamp(mag, 0.0, 1.0))
 			# Reescalar por fuera de la zona muerta (opcional, simple)
 			processed_mag = clamp(processed_mag, 0.0, 1.0)
+
+		# --- DEBUG INPUT ANALÓGICO ---
+		if debug_enabled and debug_input:
+			# Solo imprime cada 0.2s para no saturar
+			if typeof(_debug_input_last) == TYPE_NIL:
+				_debug_input_last = 0.0
+			if OS.get_ticks_msec() - _debug_input_last > 200:
+				_debug_input_last = OS.get_ticks_msec()
+				var joy0 = 0 # primer joystick
+				var joy_ax0 = Input.get_joy_axis(joy0, 0)
+				var joy_ax1 = Input.get_joy_axis(joy0, 1)
+				var joy_ax2 = Input.get_joy_axis(joy0, 2)
+				var joy_ax3 = Input.get_joy_axis(joy0, 3)
+				print_debug_tag("JoyAxes", "[Joy] ax0(LX)=%.2f ax1(LY)=%.2f ax2(RX)=%.2f ax3(RY)=%.2f" % [joy_ax0, joy_ax1, joy_ax2, joy_ax3])
+				print_debug_tag("InputVec", "[Input] ax=%.2f az=%.2f mag=%.2f processed_mag=%.2f" % [ax, az, mag, processed_mag])
 		# Si no supera deadzone, tratamos como sin input real
 		if processed_mag <= 0.0:
 			is_walking = false
