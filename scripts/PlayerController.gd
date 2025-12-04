@@ -12,33 +12,21 @@ export onready var player_mesh = get_node(PlayerCharacterMesh)
 
 export var gravity = 9.8
 export var jump_force = 9
-export var walk_speed = 1.3
-export var run_speed = 5.5
 export var dash_power = 12
-# --- JOYPAD ANALÓGICO (curvas como en Cursor.gd) ---
-export (float, 0.0, 1.0) var joystick_deadzone := 0.12
-enum JoystickCurveType { LINEAR, EXPONENTIAL, INVERSE_S }
-export (JoystickCurveType) var joystick_curve_type = JoystickCurveType.EXPONENTIAL
-export (float, 0.0, 1.0) var analog_run_threshold := 0.7
-# Debe ser var para Godot 3.x
-var _CURVE_RESOURCES = [
-	load("res://data/Curves/Linear.tres"),
-	load("res://data/Curves/Exponential.tres"),
-	load("res://data/Curves/Inverse_S.tres")
-]
 
-
-# Velocidad externa aplicada por plataformas/conveyors
+# Velocidad externa aplicada por plataformas/conveyors (legacy, ahora en componente)
 var platform_velocity := Vector3.ZERO
 var platform_is_static_surface := false
+var last_platform_velocity := Vector3.ZERO
 export var snap_len := 0.5
 var snap_enabled := true
-export var debug_movement := false
-export var debug_shadow := false
-export var debug_input := false
-export var debug_enabled := false # bandera global para desactivar todos los logs por defecto
-var _debug_accum := 0.0
-var last_platform_velocity := Vector3.ZERO
+
+# Components
+onready var external_velocity: ExternalVelocity = $ExternalVelocity if has_node("ExternalVelocity") else null
+onready var jump_comp: PlayerJump = $PlayerJump if has_node("PlayerJump") else null
+onready var movement_comp: PlayerMovement = $PlayerMovement if has_node("PlayerMovement") else null
+
+# Legacy variables (some may be moved to components)
 var airborne_inherited := Vector3.ZERO
 var was_on_floor := false
 export var max_platform_up_follow := 5.0
@@ -46,6 +34,12 @@ export var inherit_vertical_platform_jump := true
 var just_jumped := false
 var time_since_jump := 1.0
 var time_since_input := 1.0
+
+export var debug_movement := false
+export var debug_shadow := false
+export var debug_input := false
+export var debug_enabled := false # bandera global para desactivar todos los logs por defecto
+
 export var floating_after_jump_delay := 0.25
 export var floating_no_input_delay := 0.3
 export var floating_vertical_speed_threshold := 0.35 # deprecated: use enter/exit thresholds below
@@ -77,22 +71,16 @@ var bigattack_node_name = "BigAttack"
 
 var is_attacking = false
 var is_rolling = false
-var is_walking = false
-var is_running = false
 var is_aiming = false
 
-var direction = Vector3()
-var horizontal_velocity = Vector3()
 var aim_turn = 0.0
 var movement = Vector3()
 var vertical_velocity = Vector3()
-var movement_speed = 0
+
 var angular_acceleration = 10
-var acceleration = 15
 export(float, 0.0, 10.0, 0.1) var tank_turn_speed := 0.3
 export(float, 0.0, 10.0, 0.1) var advancing_turn_speed := 0.3
 export(float, 0.001, 0.1, 0.001) var mouse_aim_sensitivity := 0.015
-# --- Suavizado opcional de yaw de cuerpo + sync de cámara periódica ---
 var is_tank_turning = false
 export(float, 0.0, 50.0, 0.5) var max_rise_speed := 20.0
 export(float, 0.0, 50.0, 0.5) var max_fall_speed := 30.0
@@ -120,6 +108,28 @@ var time_since_start := 0.0
 export var startup_floating_block_time := 0.6
 var _debug_input_last := 0.0
 
+var direction := Vector3.ZERO
+var horizontal_velocity := Vector3.ZERO
+var movement_speed := 0.0
+var acceleration := 15.0
+var is_walking := false
+var is_running := false
+var joystick_deadzone := 0.12
+var analog_run_threshold := 0.7
+var walk_speed := 1.3
+var run_speed := 5.5
+
+# --- JOYPAD ANALÓGICO (curvas como en Cursor.gd) ---
+enum JoystickCurveType { LINEAR, EXPONENTIAL, INVERSE_S }
+var joystick_curve_type = JoystickCurveType.EXPONENTIAL
+
+# Debe ser var para Godot 3.x
+var _CURVE_RESOURCES = [
+	load("res://data/Curves/Linear.tres"),
+	load("res://data/Curves/Exponential.tres"),
+	load("res://data/Curves/Inverse_S.tres")
+]
+
 onready var ground_ray: RayCast = $GroundRay
 onready var fake_shadow: MeshInstance = $PilotMesh/FakeShadow
 
@@ -134,7 +144,10 @@ func clear_gravity_override() -> void:
 
 # Interfaz pública para que plataformas/conveyors transfieran velocidad
 func set_external_velocity(v: Vector3) -> void:
-	platform_velocity = v
+	if external_velocity:
+		external_velocity.set_external_velocity(v)
+	else:
+		platform_velocity = v
 
 func _ready():
 	# Alinear dirección inicial con el frente del mesh y la cámara
@@ -143,10 +156,11 @@ func _ready():
 	if yaw_node:
 		yaw_angle = yaw_node.global_transform.basis.get_euler().y + cam_yaw_offset
 	# Usar frente del mesh para coherencia de animación al inicio
-	direction = Vector3.FORWARD.rotated(Vector3.UP, rotation.y)
-	# ERROR! : direction = Vector3.FORWARD.rotated(Vector3.UP, player_mesh.rotation.y)
+	var initial_direction = Vector3.FORWARD.rotated(Vector3.UP, rotation.y)
 	# Si la cámara existe, rotar la dirección por su yaw para entrada relativa a cámara
-	direction = direction.rotated(Vector3.UP, yaw_angle)
+	initial_direction = initial_direction.rotated(Vector3.UP, yaw_angle)
+	if movement_comp:
+		movement_comp.direction = initial_direction
 	if ground_ray:
 		ground_ray.enabled = true
 		ground_ray.add_exception(self)
@@ -189,7 +203,7 @@ func _input(event):
 		# Al salir de aim, asegurar que el mesh y la cámara sigan el cuerpo con sus offsets
 		player_mesh.rotation.y = rotation.y + mesh_yaw_offset
 
-func _process(delta):
+func _process(_delta):
 	if has_node("FPSLabel"):
 		$FPSLabel.text = "FPS: " + str(Engine.get_frames_per_second())
 

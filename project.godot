@@ -9,7 +9,7 @@
 config_version=4
 
 _global_script_classes=[ {
-"base": "Reference",
+"base": "RigidBody",
 "class": "Aircraft",
 "language": "GDScript",
 "path": "res://addons/simplified_flightsim/Aircraft/Aircraft.gd"
@@ -82,7 +82,22 @@ _global_script_classes=[ {
 "base": "Spatial",
 "class": "DriveElement",
 "language": "GDScript",
-"path": "res://examples/vehicles/DriveElementController.gd"
+"path": "res://_examples_backup/vehicles/DriveElementController.gd"
+}, {
+"base": "Node",
+"class": "ExternalVelocity",
+"language": "GDScript",
+"path": "res://scripts/ExternalVelocity.gd"
+}, {
+"base": "Node",
+"class": "PlayerJump",
+"language": "GDScript",
+"path": "res://scripts/PlayerJump.gd"
+}, {
+"base": "Node",
+"class": "PlayerMovement",
+"language": "GDScript",
+"path": "res://scripts/PlayerMovement.gd"
 }, {
 "base": "Button",
 "class": "PluginButton",
@@ -92,12 +107,12 @@ _global_script_classes=[ {
 "base": "Spatial",
 "class": "VehicleInputController",
 "language": "GDScript",
-"path": "res://examples/vehicles/VehicleInputController.gd"
+"path": "res://_examples_backup/vehicles/VehicleInputController.gd"
 } ]
 _global_script_class_icons={
-"Aircraft": "",
-"AircraftModule": "",
-"AircraftModuleSpatial": "",
+"Aircraft": "res://addons/simplified_flightsim/Aircraft/Aircraft_icon.png",
+"AircraftModule": "res://addons/simplified_flightsim/aircraft_modules/AircraftModule_Node_icon.png",
+"AircraftModuleSpatial": "res://addons/simplified_flightsim/aircraft_modules/AircraftModule_Spatial_icon.png",
 "AircraftModule_ControlEnergyContainer": "",
 "AircraftModule_ControlEngine": "",
 "AircraftModule_ControlFlaps": "",
@@ -110,6 +125,9 @@ _global_script_class_icons={
 "AircraftModule_LandingGear": "",
 "AircraftModule_Steering": "",
 "DriveElement": "",
+"ExternalVelocity": "",
+"PlayerJump": "",
+"PlayerMovement": "",
 "PluginButton": "",
 "VehicleInputController": ""
 }
