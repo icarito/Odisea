@@ -1,6 +1,7 @@
 extends Node2D
 
 onready var cursor: Sprite = $Cursor
+onready var fade_rect: ColorRect = $CanvasLayer/ColorRect  # Agrega un CanvasLayer > ColorRect negro
 
 func _ready():
 	# BGM del menú
@@ -8,8 +9,23 @@ func _ready():
 		var stream := load("res://assets/music/Orbital Descent.mp3")
 		if stream:
 			AudioManager.play_bgm(stream, -8.0, true)
+	
+	# Fade in al cargar
+	fade_rect.modulate.a = 1.0  # Empieza negro
+	var tween = Tween.new()
+	add_child(tween)
+	tween.interpolate_property(fade_rect, "modulate:a", 1.0, 0.0, 1.0, Tween.TRANS_LINEAR, Tween.EASE_IN)
+	tween.start()
 
 func _on_Start_pressed():
+	# Fade out antes de cambiar escena
+	var tween = Tween.new()
+	add_child(tween)
+	tween.interpolate_property(fade_rect, "modulate:a", 0.0, 1.0, 0.5, Tween.TRANS_LINEAR, Tween.EASE_IN)
+	tween.connect("tween_completed", self, "_on_fade_out_complete")
+	tween.start()
+
+func _on_fade_out_complete(object, key):
 	get_tree().change_scene("res://scenes/levels/act1/Criogenia.tscn")
 
 func _on_Quit_pressed():

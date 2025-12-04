@@ -92,6 +92,16 @@ icon_align = 1
 [node name="Cursor" parent="." instance=ExtResource( 5 )]
 position = Vector2( 294, 306 )
 
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="ColorRect" type="ColorRect" parent="CanvasLayer"]
+margin_right = 640.0
+margin_bottom = 480.0
+mouse_filter = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+color = Color( 0, 0, 0, 1 )
+
 [connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Start" to="." method="_on_Start_pressed"]
 [connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Quit" to="." method="_on_Start_pressed"]
 [connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Quit" to="." method="_on_Quit_pressed"]

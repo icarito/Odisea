@@ -136,6 +136,8 @@ _global_script_class_icons={
 
 config/name="Odisea"
 run/main_scene="res://scenes/Menu.tscn"
+boot_splash/image="res://assets/splash.png"
+boot_splash/bg_color=Color( 0, 0, 0, 1 )
 
 [autoload]
 
@@ -338,5 +340,6 @@ quality/shading/force_lambert_over_burley=true
 quality/shading/force_blinn_over_ggx=true
 quality/depth_prepass/enable=false
 batching/options/single_rect_fallback=true
+environment/default_clear_color=Color( 0.0980392, 0.0823529, 0.12549, 1 )
 environment/default_environment="res://data/default_env.tres"
 quality/filters/anisotropic_filtering_level=0
