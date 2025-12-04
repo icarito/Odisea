@@ -71,7 +71,6 @@ var bigattack_node_name = "BigAttack"
 
 var is_attacking = false
 var is_rolling = false
-var is_aiming = false
 
 var aim_turn = 0.0
 var movement = Vector3()
@@ -81,6 +80,7 @@ var angular_acceleration = 10
 export(float, 0.0, 10.0, 0.1) var tank_turn_speed := 0.3
 export(float, 0.0, 10.0, 0.1) var advancing_turn_speed := 0.3
 export(float, 0.0, 1.0, 0.01) var analog_turn_multiplier := 1.0
+export(float, 0.0, 1.0, 0.01) var sprint_threshold := 0.7
 export(float, 0.001, 0.1, 0.001) var mouse_aim_sensitivity := 0.015
 var is_tank_turning = false
 export(float, 0.0, 50.0, 0.5) var max_rise_speed := 20.0
@@ -191,9 +191,6 @@ func set_external_source_is_static(is_static: bool) -> void:
 func _input(event):
 	if event is InputEventMouseMotion:
 		aim_turn = -event.relative.x * mouse_aim_sensitivity
-	#if event is InputEventJoypadMotion:
-	#	print(event)
-	#	aim_turn = -event.axis_value * mouse_aim_sensitivity
 	if event.is_action_pressed("aim"):
 		# Al entrar en aim, sincronizar cámara con el cuerpo usando el offset
 		var cam_rig = get_node_or_null("CameraRig")
@@ -383,13 +380,11 @@ func _physics_process(delta):
 		time_since_jump = 0.0
 
 	var has_input := (Input.is_action_pressed("forward") || Input.is_action_pressed("backward") || Input.is_action_pressed("left") || Input.is_action_pressed("right") || Input.is_action_pressed("cursor_up") || Input.is_action_pressed("cursor_down") || Input.is_action_pressed("cursor_left") || Input.is_action_pressed("cursor_right"))
-	# Estado de aim (mantener mientras se presiona; usar push/release del sistema de Input)
-	is_aiming = Input.is_action_pressed("aim")
-	if has_input and not is_aiming:
+	if has_input:
 		time_since_input = 0.0
 		# Construir vector analógico desde acciones y aplicar deadzone + curva
-		var ax := ((Input.get_action_strength("left") - Input.get_action_strength("right")) + Input.get_joy_axis(0, 0)) * (-1 if invert_joy_x else 1)
-		var az := ((Input.get_action_strength("forward") - Input.get_action_strength("backward")) + Input.get_joy_axis(0, 1)) * (-1 if invert_joy_y else 1)
+		var ax := ((Input.get_action_strength("left") - Input.get_action_strength("right")) - Input.get_joy_axis(0, 0)) * (-1 if invert_joy_x else 1)
+		var az := ((Input.get_action_strength("forward") - Input.get_action_strength("backward")) - Input.get_joy_axis(0, 1)) * (-1 if invert_joy_y else 1)
 			
 		var v2 := Vector2(ax, az)
 		var mag := v2.length()
@@ -403,50 +398,12 @@ func _physics_process(delta):
 			# Reescalar por fuera de la zona muerta (opcional, simple)
 			processed_mag = clamp(processed_mag, 0.0, 1.0)
 
-		# Tank controls: giro con input lateral, movimiento relativo al cuerpo
-		if processed_mag <= 0.0:
-			is_walking = false
-			is_running = false
-			movement_speed = 0.0
-			direction = Vector3.ZERO
-		else:
-			# Giro continuo con input lateral
-			var turn_input = processed_dir.x * analog_turn_multiplier
-			rotation.y += turn_input * tank_turn_speed * delta
-			
-			# Dirección de movimiento: relativa al cuerpo
-			var forward_input = processed_dir.y
-			direction = Vector3.FORWARD.rotated(Vector3.UP, rotation.y) * forward_input
-			
-			is_walking = abs(forward_input) > 0.0
-			if Input.is_action_pressed("sprint") or abs(forward_input) > analog_run_threshold:
-				movement_speed = run_speed
-				is_running = true
-			else:
-				movement_speed = walk_speed
-				is_running = false
-			# Escalar velocidad por magnitud analógica
-			movement_speed *= processed_mag
-	elif is_aiming and has_input:
-		# Strafe mode: movimiento relativo a la cámara
-		var ax := ((Input.get_action_strength("left") - Input.get_action_strength("right")) + Input.get_joy_axis(0, 0)) * (-1 if invert_joy_x else 1)
-		var az := ((Input.get_action_strength("forward") - Input.get_action_strength("backward")) + Input.get_joy_axis(0, 1)) * (-1 if invert_joy_y else 1)
-			
-		var v2 := Vector2(ax, az)
-		var mag := v2.length()
-		var processed_mag := 0.0
-		var processed_dir := Vector2.ZERO
-
-		if mag > joystick_deadzone:
-			processed_dir = v2.normalized()
-			var curve: Curve = _CURVE_RESOURCES[joystick_curve_type]
-			processed_mag = curve.interpolate(clamp(mag, 0.0, 1.0))
-
 		if processed_mag <= 0.0:
 			is_walking = false
 			is_running = false
 			direction = Vector3.ZERO
 		else:
+			# Movimiento relativo a la cámara con giro tank para curvas
 			var basis := Basis()
 			var yaw_node_local = get_node_or_null("CameraRig/Yaw")
 			if yaw_node_local:
@@ -461,15 +418,24 @@ func _physics_process(delta):
 				right_input = tmp
 			if invert_forward:
 				forward_input = -forward_input
+			
+			# Giro continuo con input lateral para curvas
+			var turn_input = processed_dir.x * analog_turn_multiplier
+			rotation.y += turn_input * tank_turn_speed * delta
+			
+			# Dirección de movimiento: combinación de cam_forward y cam_right, pero con giro aplicado
 			var dir3 := (cam_forward * forward_input) + (cam_right * right_input)
 			direction = dir3.normalized()
+			
 			is_walking = true
-			if Input.is_action_pressed("sprint") or processed_mag > analog_run_threshold:
+			# Solo walk o run: caminar por defecto, correr si sprint o threshold
+			if Input.is_action_pressed("sprint") or processed_mag > sprint_threshold:
 				movement_speed = run_speed
 				is_running = true
 			else:
 				movement_speed = walk_speed
 				is_running = false
+			# Escalar velocidad por magnitud analógica
 			movement_speed *= processed_mag
 	else:
 		is_walking = false
@@ -479,17 +445,15 @@ func _physics_process(delta):
 
 	# Sin suavizados ni sincronizaciones periódicas de yaw: mantener determinismo
 
-	# El mesh solo rota hacia la dirección de input relativa a la cámara cuando hay input
-	if not is_aiming and direction != Vector3.ZERO:
-		# Calcula el ángulo objetivo SOLO respecto al basis de la cámara (Yaw), nunca por cambios automáticos
+	# El mesh rota hacia la dirección de movimiento cuando hay input
+	if direction != Vector3.ZERO:
+		# Calcula el ángulo objetivo respecto al basis de la cámara
 		var target_y := atan2(direction.x, direction.z) + mesh_yaw_offset
-		# Para evitar doble giro, calcula la rotación local necesaria para que la rotación global sea target_y
+		# Para evitar doble giro, calcula la rotación local necesaria
 		var global_target_y = target_y
 		var parent_y = rotation.y  # rotación del KinematicBody (padre)
 		var local_target_y = global_target_y - parent_y
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, local_target_y, delta * angular_acceleration)
-		# ...existing code de debug YawAlign...
-	# Si no hay input, NO forzar rotación del mesh (mantiene la última orientación)
 	# Interpolación de hv hacia la velocidad objetivo
 	if ((is_attacking == true) or (is_rolling == true)):
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * .01 , acceleration * delta)
@@ -499,8 +463,8 @@ func _physics_process(delta):
 		horizontal_velocity = horizontal_velocity.linear_interpolate(direction.normalized() * target_speed, target_accel * delta)
 	# ...existing code...
 
-	# Fricción fuerte: si no hay input o si está en aim (bloqueo movimiento) y estamos en suelo
-	if (not has_input or is_aiming) and is_on_floor() and not is_attacking and not is_rolling:
+	# Fricción fuerte: si no hay input y estamos en suelo
+	if not has_input and is_on_floor() and not is_attacking and not is_rolling:
 		horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, 60.0 * delta)
 
 	# Decaimiento de la velocidad de plataforma cuando no se actualiza
@@ -676,8 +640,6 @@ func reset_state_for_respawn():
 		last_platform_velocity = Vector3.ZERO
 	
 	# Clear action flags
-	if "is_aiming" in self:
-		is_aiming = false
 	if "is_rolling" in self:
 		is_rolling = false
 	if "is_attacking" in self:
