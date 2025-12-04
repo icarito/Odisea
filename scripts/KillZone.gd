@@ -15,7 +15,7 @@ func _ready() -> void:
 	font.font_data = load("res://assets/Sixtyfour-Regular-VariableFont_BLED,SCAN.ttf")
 	font.size = 95
 	offline_label.set("custom_fonts/font", font)
-	offline_label.text = "Offline"
+	offline_label.text = "Odisea"
 	offline_label.align = Label.ALIGN_CENTER
 	offline_label.uppercase = true
 	offline_label.visible = false

@@ -19,6 +19,7 @@ export var dash_power = 12
 export (float, 0.0, 1.0) var joystick_deadzone := 0.12
 enum JoystickCurveType { LINEAR, EXPONENTIAL, INVERSE_S }
 export (JoystickCurveType) var joystick_curve_type = JoystickCurveType.EXPONENTIAL
+export (float, 0.0, 1.0) var analog_run_threshold := 0.7
 # Debe ser var para Godot 3.x
 var _CURVE_RESOURCES = [
 	load("res://data/Curves/Linear.tres"),
@@ -89,6 +90,7 @@ var movement_speed = 0
 var angular_acceleration = 10
 var acceleration = 15
 export(float, 0.0, 10.0, 0.1) var tank_turn_speed := 0.3
+export(float, 0.0, 10.0, 0.1) var advancing_turn_speed := 0.3
 export(float, 0.001, 0.1, 0.001) var mouse_aim_sensitivity := 0.015
 # --- Suavizado opcional de yaw de cuerpo + sync de cámara periódica ---
 var is_tank_turning = false
@@ -161,14 +163,19 @@ func _ready():
 		animation_tree["parameters/conditions/IsFloating"] = false
 	# Inicialización simple: nada que suavizar del yaw del cuerpo
 	
+	var fps_label = Label.new()
+	fps_label.name = "FPSLabel"
+	add_child(fps_label)
+	
 func set_external_source_is_static(is_static: bool) -> void:
 	platform_is_static_surface = is_static
 
 func _input(event):
 	if event is InputEventMouseMotion:
 		aim_turn = -event.relative.x * mouse_aim_sensitivity
-	if event is InputEventJoypadMotion:
-		aim_turn = -event.relative.x * mouse_aim_sensitivity
+	#if event is InputEventJoypadMotion:
+	#	print(event)
+	#	aim_turn = -event.axis_value * mouse_aim_sensitivity
 	if event.is_action_pressed("aim"):
 		# Al entrar en aim, sincronizar cámara con el cuerpo usando el offset
 		var cam_rig = get_node_or_null("CameraRig")
@@ -178,6 +185,10 @@ func _input(event):
 	if event.is_action_released("aim"):
 		# Al salir de aim, asegurar que el mesh y la cámara sigan el cuerpo con sus offsets
 		player_mesh.rotation.y = rotation.y + mesh_yaw_offset
+
+func _process(delta):
+	if has_node("FPSLabel"):
+		$FPSLabel.text = "FPS: " + str(Engine.get_frames_per_second())
 
 func roll():
 	if Input.is_action_just_pressed("roll"):
@@ -353,14 +364,14 @@ func _physics_process(delta):
 		just_jumped = true
 		time_since_jump = 0.0
 
-	var has_input := (Input.is_action_pressed("forward") ||  Input.is_action_pressed("backward") ||  Input.is_action_pressed("left") ||  Input.is_action_pressed("right"))
+	var has_input := (Input.is_action_pressed("forward") || Input.is_action_pressed("backward") || Input.is_action_pressed("left") || Input.is_action_pressed("right") || Input.is_action_pressed("cursor_up") || Input.is_action_pressed("cursor_down") || Input.is_action_pressed("cursor_left") || Input.is_action_pressed("cursor_right"))
 	# Estado de aim (mantener mientras se presiona; usar push/release del sistema de Input)
 	is_aiming = Input.is_action_pressed("aim")
 	if has_input and not is_aiming:
 		time_since_input = 0.0
 		# Construir vector analógico desde acciones y aplicar deadzone + curva
-		var ax := Input.get_action_strength("left") - Input.get_action_strength("right")
-		var az := Input.get_action_strength("forward") - Input.get_action_strength("backward")
+		var ax := (Input.get_action_strength("left") - Input.get_action_strength("right")) + (Input.get_action_strength("cursor_left") - Input.get_action_strength("cursor_right"))
+		var az := (Input.get_action_strength("forward") - Input.get_action_strength("backward")) + (Input.get_action_strength("cursor_down") - Input.get_action_strength("cursor_up"))
 		var v2 := Vector2(ax, az)
 		var mag := v2.length()
 		var processed_mag := 0.0
@@ -380,10 +391,10 @@ func _physics_process(delta):
 			direction = Vector3.ZERO
 		else:
 			# Tank Controls cuando no hay componente de avance/retroceso
-			if abs(processed_dir.y) < 0.001 and abs(processed_dir.x) > 0.0:
+			if abs(processed_dir.y) < 0.001 and abs(ax) > joystick_deadzone:
 				is_tank_turning = (tank_turn_speed > 0.0)
 				if is_tank_turning:
-					var delta_yaw = processed_dir.x * tank_turn_speed * delta
+					var delta_yaw = ax * tank_turn_speed * delta  # Use raw ax for analog turn
 					# Rotar únicamente el cuerpo; la cámara no debe sumar yaw aquí
 					rotation.y += delta_yaw
 				# player_mesh.rotation.y = rotation.y + mesh_yaw_offset
@@ -396,35 +407,53 @@ func _physics_process(delta):
 				horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, 120.0 * delta)
 			else:
 				is_tank_turning = false
-				# Movimiento normal: proyectar el input en el espacio de la cámara (Yaw)
-				var basis := Basis()
-				var yaw_node_local = get_node_or_null("CameraRig/Yaw")
-				if yaw_node_local:
-					basis = yaw_node_local.global_transform.basis
-				var cam_forward := basis.z.normalized()
-				var cam_right := basis.x.normalized()
-				var forward_input := processed_dir.y
-				var right_input := processed_dir.x
-				if swap_input_axes:
-					var tmp := forward_input
-					forward_input = right_input
-					right_input = tmp
-				if invert_forward:
-					forward_input = -forward_input
-				var dir3 := (cam_forward * forward_input) + (cam_right * right_input)
-				direction = dir3.normalized()
-				is_walking = true
-
-				# Sprint/walk SOLO si estamos caminando
-				if Input.is_action_pressed("sprint"):
-					movement_speed = run_speed
-					is_running = true
+				# Movimiento normal: proyectar el input en el espacio de la cámara (Yaw) for digital, tank for analog
+				if processed_mag < 1.0:
+					# Tank controls for joystick
+					var forward_input = processed_dir.y
+					var turn_input = ax  # Raw for analog turn speed
+					if abs(turn_input) > joystick_deadzone:
+						rotation.y += turn_input * tank_turn_speed * delta
+					direction = Vector3.FORWARD.rotated(Vector3.UP, rotation.y) * forward_input
+					is_walking = abs(forward_input) > 0.0
+					if Input.is_action_pressed("sprint") or abs(forward_input) > analog_run_threshold:
+						movement_speed = run_speed
+						is_running = true
+					else:
+						movement_speed = walk_speed
+						is_running = false
+					movement_speed *= abs(forward_input)
 				else:
-					movement_speed = walk_speed
-					is_running = false
-
-				# Escalar la velocidad objetivo por la magnitud analógica (0..1)
-				movement_speed *= processed_mag
+					# Relative to camera for digital (WASD)
+					var basis := Basis()
+					var yaw_node_local = get_node_or_null("CameraRig/Yaw")
+					if yaw_node_local:
+						basis = yaw_node_local.global_transform.basis
+					var cam_forward := basis.z.normalized()
+					var cam_right := basis.x.normalized()
+					var forward_input := processed_dir.y
+					var right_input := processed_dir.x
+					if swap_input_axes:
+						var tmp := forward_input
+						forward_input = right_input
+						right_input = tmp
+					if invert_forward:
+						forward_input = -forward_input
+					var dir3 := (cam_forward * forward_input) + (cam_right * right_input)
+					direction = dir3.normalized()
+					# Giro adicional al estar avanzando
+					if abs(right_input) > 0.0 and abs(forward_input) > 0.0:
+						direction = direction.rotated(Vector3.UP, right_input * advancing_turn_speed * delta)
+					is_walking = true
+					# Sprint/walk SOLO si estamos caminando
+					if Input.is_action_pressed("sprint") or (processed_mag > analog_run_threshold and processed_mag < 1.0):
+						movement_speed = run_speed
+						is_running = true
+					else:
+						movement_speed = walk_speed
+						is_running = false
+					# Escalar la velocidad objetivo por la magnitud analógica (0..1)
+					movement_speed *= processed_mag
 	else:
 		is_walking = false
 		is_running = false
