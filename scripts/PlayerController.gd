@@ -117,8 +117,8 @@ var is_walking := false
 var is_running := false
 var joystick_deadzone := 0.12
 var analog_run_threshold := 0.7
-var walk_speed := 1.3
-var run_speed := 5.5
+var walk_speed := 3.3
+var run_speed := 7.5
 
 # --- JOYPAD ANALÓGICO (curvas como en Cursor.gd) ---
 enum JoystickCurveType { LINEAR, EXPONENTIAL, INVERSE_S }
@@ -397,6 +397,9 @@ func _physics_process(delta):
 			processed_mag = curve.interpolate(clamp(mag, 0.0, 1.0))
 			# Reescalar por fuera de la zona muerta (opcional, simple)
 			processed_mag = clamp(processed_mag, 0.0, 1.0)
+			# Para input digital (full 1.0), aplicar threshold de walk si no sprint
+			if processed_mag == 1.0 and not Input.is_action_pressed("sprint"):
+				processed_mag = sprint_threshold
 
 		if processed_mag <= 0.0:
 			is_walking = false
@@ -434,7 +437,6 @@ func _physics_process(delta):
 				is_running = true
 			else:
 				movement_speed = walk_speed
-				is_running = false
 			# Escalar velocidad por magnitud analógica
 			movement_speed *= processed_mag
 	else:

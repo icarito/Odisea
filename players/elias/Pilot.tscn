@@ -178,6 +178,7 @@ jump_force = 15
 max_platform_up_follow = 30.0
 tank_turn_speed = 2.0
 advancing_turn_speed = 3.7
+mouse_aim_sensitivity = 0.01
 cam_yaw_offset = 0.76
 debug_interval = 0.6
 

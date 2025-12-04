@@ -3,9 +3,9 @@ extends Node
 class_name PlayerMovement
 
 # @export_range(0.0, 10.0, 0.1) var walk_speed := 1.3
-export var walk_speed := 1.3
+export var walk_speed := 3.3
 # @export_range(0.0, 20.0, 0.1) var run_speed := 5.5
-export var run_speed := 5.5
+export var run_speed := 7.5
 # @export_range(0.0, 1.0, 0.01) var joystick_deadzone := 0.12
 export var joystick_deadzone := 0.12
 enum JoystickCurveType { LINEAR, EXPONENTIAL, INVERSE_S }
