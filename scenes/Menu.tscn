@@ -103,7 +103,7 @@ size_flags_vertical = 3
 color = Color( 0, 0, 0, 1 )
 
 [connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Start" to="." method="_on_Start_pressed"]
-[connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Quit" to="." method="_on_Start_pressed"]
 [connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Quit" to="." method="_on_Quit_pressed"]
+[connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Quit" to="." method="_on_Start_pressed"]
 
 [editable path="VBoxContainer/HBoxContainer/Preview3D/Viewport/Root3D/PilotModel"]

@@ -180,6 +180,7 @@ tank_turn_speed = 2.0
 advancing_turn_speed = 3.7
 cam_yaw_offset = 0.76
 debug_interval = 0.6
+invert_joy_x = true
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
