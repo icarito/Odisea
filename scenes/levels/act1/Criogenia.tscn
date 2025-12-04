@@ -88,7 +88,6 @@ use_in_baked_light = true
 use_collision = true
 width = 100.0
 depth = 100.0
-material = ExtResource( 5 )
 
 [node name="Pilar" type="MeshInstance" parent="PuzzleZone/PlatformMesh"]
 transform = Transform( 0.999999, 0, 0, 0, 0.999999, 0, 0, 0, 0.999999, -36.2632, 3.04343, 24.3159 )

@@ -133,7 +133,6 @@ keep_debug_server_open=true
 window/size/width=640
 window/size/height=480
 window/size/fullscreen=true
-window/size/always_on_top=true
 window/stretch/mode="viewport"
 window/stretch/aspect="keep"
 
@@ -144,6 +143,8 @@ enabled=PoolStringArray( "res://addons/csgtomeshinstance/plugin.cfg" )
 [global]
 
 port=false
+acum=false
+acc=false
 
 [input]
 
@@ -317,7 +318,9 @@ vram_compression/import_pvrtc=true
 quality/shadow_atlas/size=2048
 quality/shadows/filter_mode=0
 quality/reflections/high_quality_ggx=false
+quality/shading/force_lambert_over_burley=true
+quality/shading/force_blinn_over_ggx=true
 quality/depth_prepass/enable=false
-gles2/compatibility/disable_half_float=true
+batching/options/single_rect_fallback=true
 environment/default_environment="res://data/default_env.tres"
 quality/filters/anisotropic_filtering_level=0
