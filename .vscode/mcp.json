@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "mcp-godot": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/home/icarito/Proyectos/godot-mcp/build/index.js"],
+      "env": {
+        "GODOT_PATH": "/usr/local/bin/godot3"
+      }
+    }
+  },
+  "inputs": []
+}
