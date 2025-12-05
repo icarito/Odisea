@@ -110,10 +110,10 @@ skeleton = NodePath("")
 shape = SubResource( 5 )
 
 [node name="SpawnPoint2" type="Spatial" parent="."]
-transform = Transform( -0.406579, 0, 0.913616, 0, 1, 0, -0.913616, 0, -0.406579, -39.8297, -339.004, 3508.66 )
+transform = Transform( 0.8343, 0, 0.551311, 0, 1, 0, -0.551311, 0, 0.8343, -14.861, -339.004, 3464.57 )
 
 [node name="SpawnPoint" type="Spatial" parent="."]
-transform = Transform( -0.801107, 0, -0.598521, 0, 1, 0, 0.598521, 0, -0.801107, -32.6349, -339.004, 3521.43 )
+transform = Transform( -0.50498, 0, -0.863131, 0, 1, 0, 0.863131, 0, -0.50498, 9.89757, -339.004, 3479.98 )
 
 [node name="LevelBGM" type="Node" parent="."]
 script = ExtResource( 3 )

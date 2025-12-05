@@ -13,6 +13,7 @@ func _ready():
 				var p = PlayerManager.get_player()
 				if is_instance_valid(p):
 					p.global_transform = spawn.global_transform
+					p.rotation.z = spawn.rotation.z
 				else:
 					PlayerManager.spawn(spawn.global_transform)
 			else:
@@ -24,6 +25,7 @@ func _ready():
 				var p = PlayerManager.get_player()
 				if is_instance_valid(p):
 					p.global_transform = global_transform
+					p.rotation.z = spawn.rotation.z
 				else:
 					PlayerManager.spawn(global_transform)
 			else:

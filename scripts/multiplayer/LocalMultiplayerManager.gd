@@ -91,7 +91,10 @@ func _setup_players() -> void:
 	# Posicionar en SpawnPoint si existe
 	var spawn_p1 = level.get_node_or_null("SpawnPoint")
 	if spawn_p1:
-		player1.global_transform.origin = spawn_p1.global_transform.origin
+		player1.global_transform = spawn_p1.global_transform
+		var cam_rig_p1 = player1.get_node_or_null("CameraRig")
+		if cam_rig_p1 and cam_rig_p1.has_method("sync_to_body_yaw"):
+			cam_rig_p1.call_deferred("sync_to_body_yaw", spawn_p1.global_transform.basis.get_euler().y, 0)
 	else:
 		player1.global_transform.origin = Vector3(0, 2, 0)  # Fallback
 
@@ -113,7 +116,10 @@ func _setup_players() -> void:
 	# Posicionar en SpawnPoint2 si existe
 	var spawn_p2 = level.get_node_or_null("SpawnPoint2")
 	if spawn_p2:
-		player2.global_transform.origin = spawn_p2.global_transform.origin
+		player2.global_transform = spawn_p2.global_transform
+		var cam_rig_p2 = player2.get_node_or_null("CameraRig")
+		if cam_rig_p2 and cam_rig_p2.has_method("sync_to_body_yaw"):
+			cam_rig_p2.call_deferred("sync_to_body_yaw", spawn_p2.global_transform.basis.get_euler().y, 0)
 	else:
 		player2.global_transform.origin = Vector3(spawn_distance, 2, 0)  # Fallback
 

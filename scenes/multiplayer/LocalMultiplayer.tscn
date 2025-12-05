@@ -5,22 +5,6 @@
 [node name="LocalMultiplayer" type="Node"]
 script = ExtResource( 1 )
 
-[node name="CanvasLayer_UI" type="CanvasLayer" parent="."]
-
-[node name="UI_Container" type="Control" parent="CanvasLayer_UI"]
-anchor_right = 1.0
-anchor_bottom = 1.0
-
-[node name="Label_Timer" type="Label" parent="CanvasLayer_UI/UI_Container"]
-anchor_left = 0.5
-anchor_right = 0.5
-margin_left = -40.0
-margin_top = 10.0
-margin_right = 40.0
-margin_bottom = 24.0
-text = "Tiempo: 5:30"
-align = 1
-
 [node name="ViewportContainer" type="Control" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -28,23 +12,24 @@ anchor_bottom = 1.0
 [node name="GridContainer" type="GridContainer" parent="ViewportContainer"]
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
 columns = 2
 
 [node name="VP_Container_P1" type="ViewportContainer" parent="ViewportContainer/GridContainer"]
-margin_right = 318.0
+margin_right = 320.0
 margin_bottom = 480.0
 size_flags_horizontal = 3
 size_flags_vertical = 3
 stretch = true
 
 [node name="Viewport_P1" type="Viewport" parent="ViewportContainer/GridContainer/VP_Container_P1"]
-size = Vector2( 318, 480 )
+size = Vector2( 320, 480 )
 transparent_bg = true
 handle_input_locally = false
 render_target_update_mode = 3
 
 [node name="VP_Container_P2" type="ViewportContainer" parent="ViewportContainer/GridContainer"]
-margin_left = 322.0
+margin_left = 320.0
 margin_right = 640.0
 margin_bottom = 480.0
 size_flags_horizontal = 3
@@ -52,7 +37,7 @@ size_flags_vertical = 3
 stretch = true
 
 [node name="Viewport_P2" type="Viewport" parent="ViewportContainer/GridContainer/VP_Container_P2"]
-size = Vector2( 318, 480 )
+size = Vector2( 320, 480 )
 transparent_bg = true
 handle_input_locally = false
 render_target_update_mode = 3
