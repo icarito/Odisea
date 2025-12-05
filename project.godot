@@ -90,6 +90,26 @@ _global_script_classes=[ {
 "path": "res://scripts/ExternalVelocity.gd"
 }, {
 "base": "Node",
+"class": "GameConfig",
+"language": "GDScript",
+"path": "res://autoload/GameConfig.gd"
+}, {
+"base": "Node",
+"class": "LocalMultiplayerManager",
+"language": "GDScript",
+"path": "res://scripts/multiplayer/LocalMultiplayerManager.gd"
+}, {
+"base": "Node",
+"class": "MenuResolutionDetector",
+"language": "GDScript",
+"path": "res://scripts/ui/MenuResolutionDetector.gd"
+}, {
+"base": "Node",
+"class": "PlayerInput",
+"language": "GDScript",
+"path": "res://scripts/multiplayer/PlayerInput.gd"
+}, {
+"base": "Node",
 "class": "PlayerJump",
 "language": "GDScript",
 "path": "res://scripts/PlayerJump.gd"
@@ -126,6 +146,10 @@ _global_script_class_icons={
 "AircraftModule_Steering": "",
 "DriveElement": "",
 "ExternalVelocity": "",
+"GameConfig": "",
+"LocalMultiplayerManager": "",
+"MenuResolutionDetector": "",
+"PlayerInput": "",
 "PlayerJump": "",
 "PlayerMovement": "",
 "PluginButton": "",
@@ -141,9 +165,9 @@ boot_splash/bg_color=Color( 0, 0, 0, 1 )
 
 [autoload]
 
-GameConfig="*res://autoload/GameConfig.gd"
 PlayerManager="*res://autoload/PlayerManager.gd"
 AudioManager="*res://autoload/AudioManager.gd"
+GameConfig="*res://autoload/GameConfig.gd"
 
 [debug]
 
@@ -319,6 +343,26 @@ zoom_out={
 "deadzone": 0.5,
 "events": [ Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":7,"pressure":0.0,"pressed":false,"script":null)
 , Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":4,"canceled":false,"pressed":false,"doubleclick":false,"script":null)
+ ]
+}
+left_2={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":16777231,"unicode":0,"echo":false,"script":null)
+ ]
+}
+right_2={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":16777233,"unicode":0,"echo":false,"script":null)
+ ]
+}
+forward_2={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":16777232,"unicode":0,"echo":false,"script":null)
+ ]
+}
+backward_2={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":16777234,"unicode":0,"echo":false,"script":null)
  ]
 }
 

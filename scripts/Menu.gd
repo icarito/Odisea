@@ -27,8 +27,8 @@ func _ready():
 	tween.start()
 
 	# Conectar botones
-	$VBoxContainer/HBoxContainer/VBoxContainer/Start.connect("pressed", self, "_on_Start_pressed")
-	$VBoxContainer/HBoxContainer/VBoxContainer/Quit.connect("pressed", self, "_on_Quit_pressed")
+	# $VBoxContainer/HBoxContainer/VBoxContainer/Start.connect("pressed", self, "_on_Start_pressed")
+	# $VBoxContainer/HBoxContainer/VBoxContainer/Quit.connect("pressed", self, "_on_Quit_pressed")
 	if has_node("VBoxContainer/HBoxContainer/VBoxContainer/CopilotButton"):
 		$VBoxContainer/HBoxContainer/VBoxContainer/CopilotButton.connect("pressed", self, "_on_copilot_pressed")
 
@@ -45,7 +45,7 @@ func _on_fade_out_complete(object, key):
 
 func _on_copilot_pressed():
 	"""Multiplayer split-screen."""
-	GameConfig.set_mode("copilot")
+	get_node("/root/GameConfig").set_mode("copilot")
 	get_tree().change_scene("res://scenes/multiplayer/LocalMultiplayer.tscn")
 
 func _on_Quit_pressed():
