@@ -12,5 +12,5 @@ func _on_body_entered(body: Object) -> void:
 	if typeof(PlayerManager) != TYPE_NIL and PlayerManager and PlayerManager.is_spawned():
 		var p := PlayerManager.get_player()
 		if is_instance_valid(p) and body == p:
-			PlayerManager.set_checkpoint(global_transform)
+			PlayerManager.set_respawn_point(global_transform)
 			_activated = true

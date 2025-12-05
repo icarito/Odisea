@@ -987,9 +987,11 @@ boot_splash/bg_color=Color( 0, 0, 0, 1 )
 
 [autoload]
 
+GameGlobals="*res://autoload/GameGlobals.gd"
 PlayerManager="*res://autoload/PlayerManager.gd"
-AudioManager="*res://autoload/AudioManager.gd"
-GameConfig="*res://autoload/GameConfig.gd"
+SceneManager="*res://autoload/SceneManager.gd"
+AudioSystem="*res://autoload/AudioSystem.gd"
+UIManager="*res://autoload/UIManager.gd"
 
 [debug]
 

@@ -44,8 +44,8 @@ func kill_player():
 	tween.interpolate_property(bottom_rect, "rect_position:y", get_viewport().size.y, get_viewport().size.y / 2, 1.0, Tween.TRANS_QUAD, Tween.EASE_IN)
 	tween.start()
 	# Cambiar música
-	if AudioManager:
-		AudioManager.change_track_on_death(preload("res://assets/music/One Choice Remains.mp3"))
+	if AudioSystem:
+		AudioSystem.play_bgm("res://assets/music/One Choice Remains.mp3", 0.0, false)
 	# Esperar input para respawn
 	set_process_input(true)
 
@@ -59,7 +59,7 @@ func respawn():
 	bottom_rect.visible = false
 	offline_label.visible = false
 	set_process_input(false)
-	PlayerManager.respawn()
+	PlayerManager.respawn_player()
 	# Reiniciar música del nivel
-	if AudioManager:
-		AudioManager.play_bgm(preload("res://assets/music/Rust and Ruin.mp3"))
+	if AudioSystem:
+		AudioSystem.play_bgm("res://assets/music/Rust and Ruin.mp3", 0.0, true)

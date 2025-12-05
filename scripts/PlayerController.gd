@@ -145,6 +145,11 @@ func _ready():
 		get_tree().change_scene("res://players/TestScene.tscn")
 		return # Stop further execution of _ready in this context
 
+	# Connect to GameGlobals for debug mode
+	if GameGlobals:
+		debug_enabled = GameGlobals.debug_mode
+		GameGlobals.connect("debug_mode_changed", self, "_on_debug_mode_changed")
+
 	# Alinear dirección inicial con el frente del mesh y la cámara
 	var yaw_node = get_node_or_null("CameraRig/Yaw")
 	var yaw_angle := 0.0
@@ -174,6 +179,9 @@ func _ready():
 		animation_tree["parameters/conditions/IsInAir"] = false
 		animation_tree["parameters/conditions/IsFloating"] = false
 	# Inicialización simple: nada que suavizar del yaw del cuerpo
+
+func _on_debug_mode_changed(enabled: bool):
+	debug_enabled = enabled
 
 func set_player_id(id: int) -> void:
 	"""Set player ID from outside and propagate to components."""
@@ -383,6 +391,11 @@ func _physics_process(delta):
 	has_input = input_vector.length() > 0.1
 
 	if jump_pressed and ((is_attacking != true) and (is_rolling != true)) and is_on_floor():
+		# Play jump sound
+		if AudioSystem:
+			# NOTE: Path to jump sound is a placeholder.
+			AudioSystem.play_sfx("res://assets/sfx/jump.wav")
+
 		# Capturamos velocidad actual de plataforma justo en el momento del salto (antes de posible decaimiento)
 		var pv := platform_velocity
 		# Fuerza de salto base
