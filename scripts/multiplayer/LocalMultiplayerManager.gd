@@ -132,6 +132,15 @@ func _setup_players() -> void:
 	else:
 		push_error("Player 2 is missing PlayerInput node!")
 
+	# Cambiar color del Player 2: usar path exacto y asignar a material/0
+	var mesh_instance = player2.get_node_or_null("PilotMesh/Node_40/Skinned_Mesh_0/Skeleton/Mesh_0001")
+	if mesh_instance and mesh_instance is MeshInstance:
+		var mat = SpatialMaterial.new()
+		mat.albedo_color = Color.cyan
+		mat.emission = Color.darkslateblue
+		mat.emission_enabled = true
+		mesh_instance.set_surface_material(0, mat)
+
 	print("[LocalMultiplayerManager] Jugadores instanciados")
 
 func _setup_cameras() -> void:
