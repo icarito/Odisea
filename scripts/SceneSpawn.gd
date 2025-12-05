@@ -2,7 +2,7 @@ extends Spatial
 
 func _ready():
 	# En modo copilot, no spawnear automáticamente; lo hace LocalMultiplayerManager
-	if typeof(GameConfig) != TYPE_NIL and GameConfig.current_mode == GameConfig.GAME_MODE.COPILOT:
+	if GameGlobals.current_mode == GameGlobals.GAME_MODE.COPILOT:
 		return
 	
 	var spawn := get_node_or_null("SpawnPoint")
