@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=2]
+[gd_scene load_steps=10 format=2]
 
 [ext_resource path="res://models/Pilot.glb" type="PackedScene" id=1]
 [ext_resource path="res://scripts/Menu.gd" type="Script" id=2]
@@ -7,6 +7,7 @@
 [ext_resource path="res://scenes/common/Cursor.tscn" type="PackedScene" id=5]
 [ext_resource path="res://assets/start.png" type="Texture" id=6]
 [ext_resource path="res://assets/quit.png" type="Texture" id=7]
+[ext_resource path="res://assets/coop.png" type="Texture" id=8]
 
 [sub_resource type="DynamicFont" id=1]
 size = 95
@@ -16,15 +17,15 @@ font_data = ExtResource( 4 )
 script = ExtResource( 2 )
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
-margin_right = 640.0
-margin_bottom = 480.0
+margin_right = 646.0
+margin_bottom = 482.0
 size_flags_horizontal = 3
-size_flags_vertical = 9
+size_flags_vertical = 3
 
 [node name="Label" type="Label" parent="VBoxContainer"]
-margin_top = 40.0
-margin_right = 640.0
-margin_bottom = 136.0
+margin_top = 41.0
+margin_right = 646.0
+margin_bottom = 137.0
 rect_pivot_offset = Vector2( 29.5, 14 )
 size_flags_horizontal = 3
 size_flags_vertical = 6
@@ -34,9 +35,9 @@ align = 1
 uppercase = true
 
 [node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
-margin_top = 180.0
-margin_right = 640.0
-margin_bottom = 480.0
+margin_top = 182.0
+margin_right = 646.0
+margin_bottom = 482.0
 
 [node name="Preview3D" type="ViewportContainer" parent="VBoxContainer/HBoxContainer"]
 margin_right = 400.0
@@ -80,19 +81,19 @@ size_flags_vertical = 4
 icon = ExtResource( 6 )
 icon_align = 1
 
-[node name="CopilotButton" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
+[node name="CoopButton" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
 margin_top = 78.0
-margin_right = 57.0
-margin_bottom = 98.0
+margin_right = 132.0
+margin_bottom = 152.0
 size_flags_horizontal = 2
 size_flags_vertical = 4
-text = "Copilot"
+icon = ExtResource( 8 )
 icon_align = 1
 
 [node name="Quit" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
-margin_top = 164.0
+margin_top = 191.0
 margin_right = 132.0
-margin_bottom = 238.0
+margin_bottom = 265.0
 size_flags_horizontal = 2
 size_flags_vertical = 6
 icon = ExtResource( 7 )

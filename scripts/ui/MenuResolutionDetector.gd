@@ -24,11 +24,11 @@ func _set_button_visibility() -> void:
 	# Obtener referencia al menú padre
 	var menu = get_parent()
 
-	if not menu.has_node("CopilotButton"):
-		push_warning("[MenuResolutionDetector] CopilotButton no encontrado en Menu")
+	if not menu.has_node("CoopButton"):
+		push_warning("[MenuResolutionDetector] CoopButton no encontrado en Menu")
 		return
 
-	var copilot_btn = menu.get_node("CopilotButton")
+	var copilot_btn = menu.get_node("CoopButton")
 
 	# Mostrar solo si es widescreen
 	copilot_btn.visible = is_widescreen

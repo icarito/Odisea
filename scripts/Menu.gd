@@ -29,8 +29,8 @@ func _ready():
 	# Conectar botones
 	$VBoxContainer/HBoxContainer/VBoxContainer/Start.connect("pressed", self, "_on_Start_pressed")
 	$VBoxContainer/HBoxContainer/VBoxContainer/Quit.connect("pressed", self, "_on_Quit_pressed")
-	if has_node("VBoxContainer/HBoxContainer/VBoxContainer/CopilotButton"):
-		$VBoxContainer/HBoxContainer/VBoxContainer/CopilotButton.connect("pressed", self, "_on_copilot_pressed")
+	if has_node("VBoxContainer/HBoxContainer/VBoxContainer/CoopButton"):
+		$VBoxContainer/HBoxContainer/VBoxContainer/CoopButton.connect("pressed", self, "_on_copilot_pressed")
 
 func _on_Start_pressed():
 	# Fade out antes de cambiar escena
