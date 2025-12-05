@@ -21,38 +21,9 @@ margin_bottom = 24.0
 text = "Tiempo: 5:30"
 align = 1
 
-[node name="Label_P1_Status" type="Label" parent="CanvasLayer_UI/UI_Container"]
-margin_left = 10.0
-margin_top = 10.0
-margin_right = 150.0
-margin_bottom = 24.0
-text = "P1: Vivo"
-
-[node name="Label_P2_Status" type="Label" parent="CanvasLayer_UI/UI_Container"]
-anchor_left = 1.0
-anchor_right = 1.0
-margin_left = -150.0
-margin_top = 10.0
-margin_right = -10.0
-margin_bottom = 24.0
-text = "P2: Vivo"
-align = 2
-
-[node name="Button_Exit" type="Button" parent="CanvasLayer_UI/UI_Container"]
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-margin_left = -100.0
-margin_top = -40.0
-margin_right = -10.0
-margin_bottom = -10.0
-text = "Salir"
-
 [node name="ViewportContainer" type="Control" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
-stretch = true
 
 [node name="GridContainer" type="GridContainer" parent="ViewportContainer"]
 anchor_right = 1.0
@@ -60,28 +31,28 @@ anchor_bottom = 1.0
 columns = 2
 
 [node name="VP_Container_P1" type="ViewportContainer" parent="ViewportContainer/GridContainer"]
-margin_right = 320.0
+margin_right = 318.0
 margin_bottom = 480.0
 size_flags_horizontal = 3
 size_flags_vertical = 3
 stretch = true
 
 [node name="Viewport_P1" type="Viewport" parent="ViewportContainer/GridContainer/VP_Container_P1"]
-handle_input_locally = false
-size = Vector2( 320, 480 )
+size = Vector2( 318, 480 )
 transparent_bg = true
+handle_input_locally = false
 render_target_update_mode = 3
 
 [node name="VP_Container_P2" type="ViewportContainer" parent="ViewportContainer/GridContainer"]
-margin_left = 324.0
-margin_right = 644.0
+margin_left = 322.0
+margin_right = 640.0
 margin_bottom = 480.0
 size_flags_horizontal = 3
 size_flags_vertical = 3
 stretch = true
 
 [node name="Viewport_P2" type="Viewport" parent="ViewportContainer/GridContainer/VP_Container_P2"]
-handle_input_locally = false
-size = Vector2( 320, 480 )
+size = Vector2( 318, 480 )
 transparent_bg = true
+handle_input_locally = false
 render_target_update_mode = 3

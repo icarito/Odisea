@@ -174,14 +174,17 @@ func _ready():
 		animation_tree["parameters/conditions/IsInAir"] = false
 		animation_tree["parameters/conditions/IsFloating"] = false
 	# Inicialización simple: nada que suavizar del yaw del cuerpo
-	
-	var fps_label = Label.new()
-	fps_label.name = "FPSLabel"
-	add_child(fps_label)
 
 func set_player_id(id: int) -> void:
-	"""Set player ID from outside."""
+	"""Set player ID from outside and propagate to components."""
 	player_id = id
+	
+	var cam_rig = get_node_or_null("CameraRig")
+	if cam_rig and cam_rig.has_method("set_player_id"):
+		cam_rig.set_player_id(id)
+	else:
+		if id == 2:
+			push_warning("CameraRig node not found or it's missing the set_player_id method.")
 	
 func set_external_source_is_static(is_static: bool) -> void:
 	platform_is_static_surface = is_static
@@ -360,19 +363,22 @@ func _physics_process(delta):
 		is_rolling = false
 
 	var input_vector := Vector2.ZERO
+	var mouse_motion := Vector2.ZERO
 	var is_sprinting := false
 	var jump_pressed := false
 	var has_input := false
 
-	if GameConfig.current_mode == GameConfig.GAME_MODE.COPILOT and player_input:
+	if player_input:
 		input_vector = player_input.get_input_vector()
+		mouse_motion = player_input.get_mouse_motion()
 		is_sprinting = player_input.is_sprint_pressed()
 		jump_pressed = player_input.just_jumped()
 	else:
-		# Fallback to single player input
+		# Fallback to single player input if PlayerInput node is missing
 		input_vector = Vector2(Input.get_action_strength("left") - Input.get_action_strength("right"), Input.get_action_strength("forward") - Input.get_action_strength("backward"))
 		is_sprinting = Input.is_action_pressed("sprint")
 		jump_pressed = Input.is_action_just_pressed("jump")
+		# Note: Mouse motion is not handled in this fallback, it relies on PlayerInput node.
 	
 	has_input = input_vector.length() > 0.1
 
@@ -397,25 +403,44 @@ func _physics_process(delta):
 	if has_input:
 		time_since_input = 0.0
 
-	# Procesar movimiento con componente
-	if movement_comp:
-		var basis := Basis()
-		var yaw_node_local = get_node_or_null("CameraRig/Yaw")
-		if yaw_node_local:
-			basis = yaw_node_local.global_transform.basis
-
-		movement_comp.process_input_vector(delta, basis, input_vector, is_sprinting)
+	# --- Control de Cámara ---
+	var cam_rig = get_node_or_null("CameraRig")
+	if cam_rig:
+		if cam_rig.has_method("process_camera_rotation"):
+			cam_rig.process_camera_rotation(mouse_motion)
+			if debug_yaw and mouse_motion.length_squared() > 0:
+				print_debug_tag("Yaw", "[Controller] Passing mouse_motion to cam: %s" % mouse_motion)
 		
-		# Obtener valores del componente
-		direction = movement_comp.direction
-		horizontal_velocity = movement_comp.get_horizontal_velocity()
-		is_walking = movement_comp.is_walking
-		is_running = movement_comp.is_running
-	else:
-		is_walking = false
-		is_running = false
-		direction = Vector3.ZERO
-		horizontal_velocity = Vector3.ZERO
+		# --- Tank Turn y Sincronización de Cámara ---
+		# Procesar movimiento con componente
+		if movement_comp:
+			var basis := Basis()
+			var yaw_node_local = get_node_or_null("CameraRig/Yaw")
+			if yaw_node_local:
+				basis = yaw_node_local.global_transform.basis
+
+			movement_comp.process_input_vector(delta, basis, input_vector, is_sprinting)
+			
+			# Aplicar giro tank (restaurado)
+			var turn_input = movement_comp.get_turn_input_from_vector(input_vector)
+			var yaw_delta = turn_input * tank_turn_speed * delta
+			rotation.y += yaw_delta
+			
+			# Sincronizar cámara con el giro del player
+			if cam_rig.has_method("apply_external_yaw_delta"):
+				cam_rig.apply_external_yaw_delta(yaw_delta)
+	
+			# Obtener valores del componente
+			direction = movement_comp.direction
+			horizontal_velocity = movement_comp.get_horizontal_velocity()
+			is_walking = movement_comp.is_walking
+			is_running = movement_comp.is_running
+		else:
+			is_walking = false
+			is_running = false
+			direction = Vector3.ZERO
+			horizontal_velocity = Vector3.ZERO
+
 
 	# Sin suavizados ni sincronizaciones periódicas de yaw: mantener determinismo
 

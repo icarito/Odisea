@@ -34,7 +34,6 @@ func _ready() -> void:
 	_setup_level()
 	_setup_players()
 	_setup_cameras()
-	_setup_ui()
 
 	is_running = true
 	print("[LocalMultiplayerManager] Listo")
@@ -143,11 +142,6 @@ func _setup_cameras() -> void:
 
 	print("[LocalMultiplayerManager] Cámaras configuradas")
 
-func _setup_ui() -> void:
-	"""Conectar UI."""
-	var exit_btn = get_node("CanvasLayer_UI/UI_Container/Button_Exit")
-	exit_btn.connect("pressed", self, "_on_exit_pressed")
-
 func _process(delta: float) -> void:
 	"""Actualizar cámaras cada frame."""
 	if not is_running or not player1 or not player2:
@@ -163,9 +157,6 @@ func _update_ui() -> void:
 
 	var status_p1 = "Vivo" if player_stats[1]["alive"] else "Muerto"
 	var status_p2 = "Vivo" if player_stats[2]["alive"] else "Muerto"
-
-	label_p1.text = "P1: %s | Score: %d" % [status_p1, player_stats[1]["score"]]
-	label_p2.text = "P2: %s | Score: %d" % [status_p2, player_stats[2]["score"]]
 
 func _on_exit_pressed() -> void:
 	"""Volver al menú."""

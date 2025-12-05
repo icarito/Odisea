@@ -80,13 +80,17 @@ func process_input(delta: float, cam_basis: Basis, has_input: bool) -> void:
 func get_horizontal_velocity() -> Vector3:
 	return horizontal_velocity
 
-func get_turn_input() -> float:
-	var input_vec = get_input_vector()
+func get_turn_input_from_vector(input_vec: Vector2) -> float:
 	var mag = input_vec.length()
 	if mag > joystick_deadzone:
-		var processed_dir = input_vec.normalized()
-		return processed_dir.x * analog_turn_multiplier
+		# NOTE: This uses the RAW input vector's X component for turning.
+		# This is how tank controls can work with a single stick.
+		return input_vec.normalized().x * analog_turn_multiplier
 	return 0.0
+
+func get_turn_input() -> float:
+	var input_vec = get_input_vector()
+	return get_turn_input_from_vector(input_vec)
 
 func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is_sprinting: bool) -> void:
 	var mag = input_vec.length()

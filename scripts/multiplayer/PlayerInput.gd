@@ -30,11 +30,19 @@ var action_map = {
 }
 
 var joypad_device := -1  # -1 = auto-detect, 0+ = específico
+var mouse_motion := Vector2.ZERO # Almacenar movimiento relativo del mouse
 var _last_log_time := {
 	"vector": 0.0,
 	"sprint": 0.0,
-	"jump": 0.0
+	"jump": 0.0,
+	"mouse": 0.0
 }
+
+func _unhandled_input(event: InputEvent) -> void:
+	if player_id == 1 and event is InputEventMouseMotion:
+		mouse_motion += event.relative
+		if debug_input and mouse_motion.length_squared() > 0 and _can_log("mouse"):
+			print("[PlayerInput P%d] mouse_motion: %s" % [player_id, mouse_motion])
 
 func _ready() -> void:
 	"""Inicializar input."""
@@ -59,7 +67,8 @@ func _can_log(type: String) -> bool:
 func get_input_vector() -> Vector2:
 	"""Obtener vector de movimiento (normalizado)."""
 	var actions = action_map[player_id]
-	var vector = Input.get_vector(actions["left"], actions["right"], actions["forward"], actions["backward"])
+	# Corregir orden para coincidir con la implementación de single-player (left-right, forward-backward)
+	var vector = Input.get_vector(actions["right"], actions["left"], actions["backward"], actions["forward"])
 	if debug_input and vector.length() > 0.01 and _can_log("vector"):
 		print("[PlayerInput P%d] get_input_vector: %s" % [player_id, vector])
 	return vector
@@ -79,3 +88,9 @@ func just_jumped() -> bool:
 	if debug_input and jumped and _can_log("jump"):
 		print("[PlayerInput P%d] just_jumped: %s" % [player_id, jumped])
 	return jumped
+
+func get_mouse_motion() -> Vector2:
+	"""Obtener el movimiento acumulado del mouse y resetearlo."""
+	var motion = mouse_motion
+	mouse_motion = Vector2.ZERO
+	return motion

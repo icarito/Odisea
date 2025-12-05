@@ -27,8 +27,8 @@ func _ready():
 	tween.start()
 
 	# Conectar botones
-	# $VBoxContainer/HBoxContainer/VBoxContainer/Start.connect("pressed", self, "_on_Start_pressed")
-	# $VBoxContainer/HBoxContainer/VBoxContainer/Quit.connect("pressed", self, "_on_Quit_pressed")
+	$VBoxContainer/HBoxContainer/VBoxContainer/Start.connect("pressed", self, "_on_Start_pressed")
+	$VBoxContainer/HBoxContainer/VBoxContainer/Quit.connect("pressed", self, "_on_Quit_pressed")
 	if has_node("VBoxContainer/HBoxContainer/VBoxContainer/CopilotButton"):
 		$VBoxContainer/HBoxContainer/VBoxContainer/CopilotButton.connect("pressed", self, "_on_copilot_pressed")
 
