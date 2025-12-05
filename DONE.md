@@ -40,3 +40,19 @@ Registro de tareas completadas y cambios integrados.
 - Respawn a estado viable: PlayerManager extendido con checkpoints.
 - Ajustar MovingPlatform.gd para estabilidad.
 - Añadir KillZone y WindZone en criogenia.tscn.
+
+## 2025-12-05
+### Avances de commits recientes (completado)
+- Integración de multiplayer split-screen (feat: Implement split-screen multiplayer).
+- Mejoras en controles analógicos/joystick: soporte para configuración de joystick, depuración de entrada, ajustes en rotación de cámara/jugador (e.g., giro automático, flotación, nado).
+- Optimizaciones de FPS: remover efectos pesados, ajustar luces para GLES2, refactor de código para legibilidad.
+- Exportaciones: presets para HTML5/PWA, web export y deployment via GitHub Actions, soporte ARM64/Linux/Android.
+- Menú y UI: splash screen, efectos de desvanecimiento, botón salir, imagen inicio.
+- Housekeeping: eliminar material obsoleto, ajustar configuraciones de proyecto (e.g., filtros de exportación, opciones de calidad).
+
+### Tareas movidas de TODO (completado)
+- Conveyor en plataforma principal: calibrado y ajustado en criogenia.tscn (empuje aplicado a RigidBody, shader sutil).
+- WindZone y KillZone: integrados en criogenia.tscn con ajustes (partículas, efecto visual de muerte).
+- Plataformas móviles: ajustadas para estabilidad en MovingPlatform.gd.
+- SceneManager y Loading Screens: autoload SceneManager agregado para pantallas de carga.
+- Integración de audio y LevelBGM: adjuntado a nivel, BGM cambia en muerte/respawn.

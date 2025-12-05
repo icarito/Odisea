@@ -8,15 +8,17 @@ Objetivo: Completar un primer nivel continuo (sin cambios de escena) con platafo
 |-----------|-------|----------------|
 | Alta | Plataformas con barandas | Crear `scenes/common/GuardrailSegment.tscn` (StaticBody + Mesh modular) y rodear bordes de plataformas principales y móviles. Integrar en `Criogenia.tscn`. |
 | Alta | Tubos conectores entre secciones | Crear `scenes/common/TubeConnector.tscn` (CSGCylinder/CSGTorus + StaticBody) y conectar plataformas/alas. Añadir entradas legibles. |
-| Alta | Conveyor en plataforma principal | Calibrar empuje en `criogenia.tscn` (ya implementado, pendiente ajuste fino). |
 | Alta | Objetivo de alto contraste | Crear `scenes/common/GoalBeacon.tscn` (Mesh + Area) para marcar objetivo. |
 | Alta | Bloques apilables | Crear `scenes/common/PushableBox.tscn` (RigidBody) con fricción/masa para apilar 2-3 cajas. |
 | Alta | Spawn cinematográfico y cutscenes | Crear `scenes/common/ScreenBorders.tscn` y extender `scripts/SceneSpawn.gd` con exports para transiciones. |
+| Alta | Obstáculos ambientales: Fugas de plasma | Crear `scenes/common/PlasmaLeak.tscn` (Area + efectos visuales/partículas) para daño ambiental. Integrar en criogenia.tscn para tensión (casi-muerte). |
+| Alta | Drones DDC patrulleros | Crear `scenes/common/DDCDrone.tscn` (NPC simple, patrulla no agresiva) para generar tensión. Integrar en criogenia.tscn. |
+| Alta | Ventanal gigante y nebulosa | Crear escena final con Mesh ventanal, vista a nebulosa. Integrar en criogenia.tscn. |
+| Alta | Diálogos narrativos con IA | Extender DialogueManager para respuestas evasivas de Odisea (JSON + AudioStreamPlayer3D). Trigger en ventanal. |
 | Media | Integrar “Cargol” | Crear `scenes/common/Cargol.tscn` y ubicarlo en `criogenia.tscn`. |
-| Media | SceneManager y Loading Screens | Añadir autoload SceneManager para pantallas de carga. |
-| Baja | Integración de audio y Cargol | Adjuntar `scripts/LevelBGM.gd` al nivel. |
 | Baja | Pruebas y balance | Probar apilado de cajas y respawn en checkpoints. |
 | Baja | Entregables del MVP | Asegurar `Criogenia.tscn` con todas las piezas listadas. |
+| Baja | Housekeeping y limpieza | Remover scripts obsoletos (e.g., efectos pesados), refactor código para consistencia, actualizar docs en ./docs/. |
 
 ## Convenciones de capas de colisión (propuesta MVP)
 - Player (KinematicBody): layer 1, mask: 2 (entorno), 3 (plataformas móviles), 4 (conveyor), 5 (wind), 6 (checkpoints), 7 (kill), 8 (cajas). No colisionar con layer 9 (cámara helpers).
