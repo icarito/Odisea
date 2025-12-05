@@ -178,8 +178,6 @@ PlayerCharacterMesh = NodePath("PilotMesh")
 gravity = 9.0
 jump_force = 15
 max_platform_up_follow = 30.0
-debug_input = true
-debug_enabled = true
 tank_turn_speed = 2.0
 advancing_turn_speed = 3.7
 mouse_aim_sensitivity = 0.01
@@ -204,7 +202,6 @@ pitch_path = NodePath("Yaw/Pitch")
 springarm_path = NodePath("Yaw/Pitch/SpringArm")
 camera_path = NodePath("Yaw/Pitch/SpringArm/Camera")
 pitch_limit_deg = 45.0
-debug_enabled = true
 
 [node name="Yaw" type="Spatial" parent="CameraRig"]
 

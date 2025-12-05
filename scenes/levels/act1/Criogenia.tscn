@@ -110,7 +110,7 @@ skeleton = NodePath("")
 shape = SubResource( 5 )
 
 [node name="SpawnPoint" type="Spatial" parent="."]
-transform = Transform( 0.688317, 0, -0.72541, 0, 1, 0, 0.72541, 0, 0.688317, -35.2729, -339.004, 3517.04 )
+transform = Transform( -0.997175, 0, 0.0751173, 0, 1, 0, -0.0751173, 0, -0.997175, -68.9625, -332.926, 3523.6 )
 
 [node name="SpawnPoint2" type="Spatial" parent="."]
 transform = Transform( -0.942601, 0, 0.333921, 0, 1, 0, -0.333921, 0, -0.942601, -33.4237, -339.004, 3525.91 )

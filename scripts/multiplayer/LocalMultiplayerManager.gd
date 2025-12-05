@@ -37,6 +37,10 @@ func _ready() -> void:
 
 	is_running = true
 	print("[LocalMultiplayerManager] Listo")
+	
+	var fps_label = Label.new()
+	fps_label.name = "FPSLabel"
+	add_child(fps_label)
 
 func _setup_viewports() -> void:
 	"""Configurar viewports para split-screen."""
@@ -141,22 +145,6 @@ func _setup_cameras() -> void:
 		push_error("Player 2 is missing its camera at 'CameraRig/Yaw/Pitch/SpringArm/Camera'")
 
 	print("[LocalMultiplayerManager] Cámaras configuradas")
-
-func _process(delta: float) -> void:
-	"""Actualizar cámaras cada frame."""
-	if not is_running or not player1 or not player2:
-		return
-
-	# Actualizar UI
-	_update_ui()
-
-func _update_ui() -> void:
-	"""Actualizar labels de estado."""
-	var label_p1 = get_node("CanvasLayer_UI/UI_Container/Label_P1_Status")
-	var label_p2 = get_node("CanvasLayer_UI/UI_Container/Label_P2_Status")
-
-	var status_p1 = "Vivo" if player_stats[1]["alive"] else "Muerto"
-	var status_p2 = "Vivo" if player_stats[2]["alive"] else "Muerto"
 
 func _on_exit_pressed() -> void:
 	"""Volver al menú."""

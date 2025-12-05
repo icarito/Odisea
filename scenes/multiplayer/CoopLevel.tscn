@@ -113,7 +113,7 @@ shape = SubResource( 5 )
 transform = Transform( -0.406579, 0, 0.913616, 0, 1, 0, -0.913616, 0, -0.406579, -39.8297, -339.004, 3508.66 )
 
 [node name="SpawnPoint" type="Spatial" parent="."]
-transform = Transform( 0.688317, 0, -0.72541, 0, 1, 0, 0.72541, 0, 0.688317, -35.2729, -339.004, 3517.04 )
+transform = Transform( -0.801107, 0, -0.598521, 0, 1, 0, 0.598521, 0, -0.801107, -32.6349, -339.004, 3521.43 )
 
 [node name="LevelBGM" type="Node" parent="."]
 script = ExtResource( 3 )
