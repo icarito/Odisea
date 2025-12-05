@@ -5,7 +5,5 @@ export (float) var volume_db := -8.0
 export (bool) var loop := true
 
 func _ready() -> void:
-	if typeof(AudioManager) != TYPE_NIL and AudioManager:
-		var s := load(track_path)
-		if s:
-			AudioManager.play_bgm(s, volume_db, loop)
+	if typeof(AudioSystem) != TYPE_NIL and AudioSystem:
+		AudioSystem.play_bgm(track_path, 0.0, loop, volume_db)

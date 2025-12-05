@@ -16,7 +16,7 @@ var aspect_ratio := 0.0
 
 func _ready():
 	"""Detectar resolución y tipo de pantalla al iniciar."""
-	is_widescreen = GameConfig.is_widescreen
+	is_widescreen = GameGlobals.is_widescreen
 	_set_button_visibility()
 
 func _set_button_visibility() -> void:
