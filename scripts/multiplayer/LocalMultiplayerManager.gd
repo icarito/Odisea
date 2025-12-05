@@ -126,22 +126,20 @@ func _setup_players() -> void:
 	print("[LocalMultiplayerManager] Jugadores instanciados")
 
 func _setup_cameras() -> void:
-	"""Crear cámaras independientes para cada jugador."""
+	"""Asignar cámaras existentes de los jugadores a sus viewports."""
 	# Camera P1
-	camera_p1 = Camera.new()
-	camera_p1.name = "Camera_P1"
-	player1.add_child(camera_p1)
-	camera_p1.make_current()
+	camera_p1 = player1.get_node_or_null("CameraRig/Yaw/Pitch/SpringArm/Camera")
+	if camera_p1:
+		camera_p1.current = true
+	else:
+		push_error("Player 1 is missing its camera at 'CameraRig/Yaw/Pitch/SpringArm/Camera'")
 
 	# Camera P2
-	camera_p2 = Camera.new()
-	camera_p2.name = "Camera_P2"
-	player2.add_child(camera_p2)
-
-	# Offset de cámara (3ª persona)
-	var cam_offset = Vector3(0, 2, 5)
-	camera_p1.transform.origin = cam_offset
-	camera_p2.transform.origin = cam_offset
+	camera_p2 = player2.get_node_or_null("CameraRig/Yaw/Pitch/SpringArm/Camera")
+	if camera_p2:
+		camera_p2.current = true
+	else:
+		push_error("Player 2 is missing its camera at 'CameraRig/Yaw/Pitch/SpringArm/Camera'")
 
 	print("[LocalMultiplayerManager] Cámaras configuradas")
 
@@ -154,16 +152,6 @@ func _process(delta: float) -> void:
 	"""Actualizar cámaras cada frame."""
 	if not is_running or not player1 or not player2:
 		return
-
-	# Actualizar posición de cámaras (follow players)
-	var p1_pos = player1.global_transform.origin
-	var p2_pos = player2.global_transform.origin
-
-	camera_p1.global_transform.origin = p1_pos + Vector3(0, 2, 5)
-	camera_p1.look_at(p1_pos, Vector3.UP)
-
-	camera_p2.global_transform.origin = p2_pos + Vector3(0, 2, 5)
-	camera_p2.look_at(p2_pos, Vector3.UP)
 
 	# Actualizar UI
 	_update_ui()
