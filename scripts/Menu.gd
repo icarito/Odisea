@@ -1,4 +1,4 @@
-extends Node2D
+extends Control
 
 onready var cursor: Sprite = $Cursor
 onready var fade_rect: ColorRect = $CanvasLayer/ColorRect  # Agrega un CanvasLayer > ColorRect negro
