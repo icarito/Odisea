@@ -7,28 +7,34 @@ class_name PlayerInput
 # ===== CONFIG =====
 export var player_id := 1  # 1 o 2
 export var deadzone := 0.5
+export var debug_input := true
+export var debug_interval := 0.5 # Time in seconds between log messages
 
 # ===== MAPEO DE ACCIONES =====
-var key_map = {
-	1: {  # Player 1: WASD
-		"forward": KEY_W,
-		"backward": KEY_S,
-		"left": KEY_A,
-		"right": KEY_D,
-		"jump": KEY_SPACE,
-		"sprint": KEY_SHIFT
+var action_map = {
+	1: {  # Player 1
+		"left": "left",
+		"right": "right",
+		"forward": "forward",
+		"backward": "backward",
+		"jump": "jump",
+		"sprint": "sprint"
 	},
-	2: {  # Player 2: Flechas
-		"forward": KEY_UP,
-		"backward": KEY_DOWN,
-		"left": KEY_LEFT,
-		"right": KEY_RIGHT,
-		"jump": KEY_ENTER,
-		"sprint": KEY_CONTROL
+	2: {  # Player 2
+		"left": "left_2",
+		"right": "right_2",
+		"forward": "forward_2",
+		"backward": "backward_2",
+		"jump": "jump_2",		"sprint": "sprint_2"
 	}
 }
 
 var joypad_device := -1  # -1 = auto-detect, 0+ = específico
+var _last_log_time := {
+	"vector": 0.0,
+	"sprint": 0.0,
+	"jump": 0.0
+}
 
 func _ready() -> void:
 	"""Inicializar input."""
@@ -40,58 +46,36 @@ func _ready() -> void:
 	if player_id == 2:
 		joypad_device = 1  # Asumir que P2 usa joypad 2 (si existe)
 
-	print("[PlayerInput] Inicializado para Player %d" % player_id)
+	if debug_input:
+		print("[PlayerInput] Inicializado para Player %d" % player_id)
+
+func _can_log(type: String) -> bool:
+	var now = OS.get_ticks_msec() / 1000.0
+	if now - _last_log_time[type] > debug_interval:
+		_last_log_time[type] = now
+		return true
+	return false
 
 func get_input_vector() -> Vector2:
 	"""Obtener vector de movimiento (normalizado)."""
-	var input = Vector2.ZERO
-
-	# Intento 1: Keyboard directo (sin actions)
-	var keys = key_map[player_id]
-	if Input.is_key_pressed(keys["forward"]):
-		input.y -= 1
-	if Input.is_key_pressed(keys["backward"]):
-		input.y += 1
-	if Input.is_key_pressed(keys["left"]):
-		input.x -= 1
-	if Input.is_key_pressed(keys["right"]):
-		input.x += 1
-
-	# Intento 2: Joypad (si está conectado)
-	if joypad_device >= 0 and Input.get_connected_joypads().has(joypad_device):
-		var joy_x = Input.get_joy_axis(joypad_device, JOY_ANALOG_LX)
-		var joy_y = Input.get_joy_axis(joypad_device, JOY_ANALOG_LY)
-
-		if joy_x != 0 or joy_y != 0:
-			if abs(joy_x) > deadzone:
-				input.x += joy_x
-			if abs(joy_y) > deadzone:
-				input.y += joy_y
-
-	return input.normalized()
+	var actions = action_map[player_id]
+	var vector = Input.get_vector(actions["left"], actions["right"], actions["forward"], actions["backward"])
+	if debug_input and vector.length() > 0.01 and _can_log("vector"):
+		print("[PlayerInput P%d] get_input_vector: %s" % [player_id, vector])
+	return vector
 
 func is_sprint_pressed() -> bool:
 	"""Detectar si jugador presionó sprint."""
-	var keys = key_map[player_id]
-
-	# Keyboard
-	if Input.is_key_pressed(keys["sprint"]):
-		return true
-
-	# Joypad (bumper izquierdo)
-	if joypad_device >= 0:
-		return Input.is_joy_button_pressed(joypad_device, JOY_L2)
-
-	return false
+	var actions = action_map[player_id]
+	var pressed = Input.is_action_pressed(actions["sprint"])
+	if debug_input and pressed and _can_log("sprint"):
+		print("[PlayerInput P%d] is_sprint_pressed: %s" % [player_id, pressed])
+	return pressed
 
 func just_jumped() -> bool:
 	"""Detectar salto ESTE FRAME."""
-	var keys = key_map[player_id]
-
-	if Input.is_key_just_pressed(keys["jump"]):
-		return true
-
-	if joypad_device >= 0:
-		return Input.is_joy_button_just_pressed(joypad_device, JOY_BUTTON_0)
-
-	return false
+	var actions = action_map[player_id]
+	var jumped = Input.is_action_just_pressed(actions["jump"])
+	if debug_input and jumped and _can_log("jump"):
+		print("[PlayerInput P%d] just_jumped: %s" % [player_id, jumped])
+	return jumped

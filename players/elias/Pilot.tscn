@@ -1,4 +1,4 @@
-[gd_scene load_steps=44 format=2]
+[gd_scene load_steps=45 format=2]
 
 [ext_resource path="res://scripts/PlayerController.gd" type="Script" id=1]
 [ext_resource path="res://scripts/PlayerSpringCam.gd" type="Script" id=2]
@@ -6,6 +6,7 @@
 [ext_resource path="res://scripts/AnimationLoopFix.gd" type="Script" id=4]
 [ext_resource path="res://materials/shadow/FakeShadow.tres" type="Material" id=52]
 [ext_resource path="res://scripts/PlayerMovement.gd" type="Script" id=53]
+[ext_resource path="res://scripts/multiplayer/PlayerInput.gd" type="Script" id=65]
 
 [sub_resource type="CapsuleShape" id=48]
 radius = 0.3047
@@ -176,12 +177,52 @@ PlayerAnimationTree = NodePath("AnimationTree")
 PlayerCharacterMesh = NodePath("PilotMesh")
 gravity = 9.0
 jump_force = 15
+dash_power = null
+snap_len = null
 max_platform_up_follow = 30.0
+inherit_vertical_platform_jump = null
+debug_movement = null
+debug_shadow = null
+debug_input = true
+debug_enabled = true
+floating_after_jump_delay = null
+floating_no_input_delay = null
+floating_vertical_speed_threshold = null
+floating_enter_vspeed_threshold = null
+floating_exit_vspeed_threshold = null
+floating_vspeed_smooth = null
+floating_enter_accel_threshold = null
+floating_exit_accel_threshold = null
+floating_accel_smooth = null
+floating_from_jump_delay = null
+floating_without_jump_delay = null
+floating_without_jump_requires_no_input = null
+floating_move_speed_max = null
+floating_move_accel = null
+floating_horizontal_damping = null
 tank_turn_speed = 2.0
 advancing_turn_speed = 3.7
+analog_turn_multiplier = null
+sprint_threshold = null
 mouse_aim_sensitivity = 0.01
+max_rise_speed = null
+max_fall_speed = null
 cam_yaw_offset = 0.76
-debug_interval = 0.6
+swap_input_axes = null
+invert_forward = null
+mesh_yaw_offset = null
+debug_yaw = null
+debug_yaw_threshold = null
+debug_dir_threshold = null
+invert_joy_x = null
+invert_joy_y = null
+startup_floating_block_time = null
+
+[node name="PlayerInput" type="Node" parent="."]
+script = ExtResource( 65 )
+
+[node name="PlayerMovement" type="Node" parent="."]
+script = ExtResource( 53 )
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
@@ -229,9 +270,6 @@ parameters/conditions/IsOnFloor = true
 parameters/conditions/IsRunning = false
 parameters/conditions/IsWalking = false
 script = ExtResource( 4 )
-
-[node name="PlayerMovement" type="Node" parent="."]
-script = ExtResource( 53 )
 
 [node name="PilotMesh" parent="." instance=ExtResource( 3 )]
 

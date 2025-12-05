@@ -82,17 +82,12 @@ _global_script_classes=[ {
 "base": "Spatial",
 "class": "DriveElement",
 "language": "GDScript",
-"path": "res://_examples_backup/vehicles/DriveElementController.gd"
+"path": "res://zzz_inspiration/vehicles/DriveElementController.gd"
 }, {
 "base": "Node",
 "class": "ExternalVelocity",
 "language": "GDScript",
 "path": "res://scripts/ExternalVelocity.gd"
-}, {
-"base": "Node",
-"class": "GameConfig",
-"language": "GDScript",
-"path": "res://autoload/GameConfig.gd"
 }, {
 "base": "Node",
 "class": "LocalMultiplayerManager",
@@ -127,7 +122,7 @@ _global_script_classes=[ {
 "base": "Spatial",
 "class": "VehicleInputController",
 "language": "GDScript",
-"path": "res://_examples_backup/vehicles/VehicleInputController.gd"
+"path": "res://zzz_inspiration/vehicles/VehicleInputController.gd"
 } ]
 _global_script_class_icons={
 "Aircraft": "",
@@ -146,7 +141,6 @@ _global_script_class_icons={
 "AircraftModule_Steering": "",
 "DriveElement": "",
 "ExternalVelocity": "",
-"GameConfig": "",
 "LocalMultiplayerManager": "",
 "MenuResolutionDetector": "",
 "PlayerInput": "",
@@ -190,6 +184,7 @@ enabled=PoolStringArray( "res://addons/csgtomeshinstance/plugin.cfg" )
 port=false
 acum=false
 acc=false
+monit=false
 
 [input]
 
@@ -363,6 +358,16 @@ forward_2={
 backward_2={
 "deadzone": 0.5,
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":16777234,"unicode":0,"echo":false,"script":null)
+ ]
+}
+jump_2={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":16777238,"unicode":0,"echo":false,"script":null)
+ ]
+}
+sprint_2={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":16777237,"unicode":0,"echo":false,"script":null)
  ]
 }
 

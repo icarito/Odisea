@@ -25,10 +25,10 @@ var snap_enabled := true
 onready var external_velocity: ExternalVelocity = $ExternalVelocity if has_node("ExternalVelocity") else null
 onready var jump_comp: PlayerJump = $PlayerJump if has_node("PlayerJump") else null
 onready var movement_comp: PlayerMovement = $PlayerMovement if has_node("PlayerMovement") else null
+onready var player_input: Node = $PlayerInput if has_node("PlayerInput") else null
 
 # NEW: Multiplayer support
 var player_id := 1
-var input_manager: Node
 
 # Legacy variables (some may be moved to components)
 var airborne_inherited := Vector3.ZERO
@@ -140,6 +140,11 @@ func set_external_velocity(v: Vector3) -> void:
 		platform_velocity = v
 
 func _ready():
+	# If this scene is being run directly, switch to the test scene
+	if get_tree().current_scene.name == name:
+		get_tree().change_scene("res://players/TestScene.tscn")
+		return # Stop further execution of _ready in this context
+
 	# Alinear dirección inicial con el frente del mesh y la cámara
 	var yaw_node = get_node_or_null("CameraRig/Yaw")
 	var yaw_angle := 0.0
@@ -173,10 +178,6 @@ func _ready():
 	var fps_label = Label.new()
 	fps_label.name = "FPSLabel"
 	add_child(fps_label)
-
-	# NEW: Find input_manager if attached
-	if has_node("InputManager_P" + str(player_id)):
-		input_manager = get_node("InputManager_P" + str(player_id))
 
 func set_player_id(id: int) -> void:
 	"""Set player ID from outside."""
@@ -358,7 +359,23 @@ func _physics_process(delta):
 	else:
 		is_rolling = false
 
-	var jump_pressed = input_manager.just_jumped() if input_manager else Input.is_action_just_pressed("jump")
+	var input_vector := Vector2.ZERO
+	var is_sprinting := false
+	var jump_pressed := false
+	var has_input := false
+
+	if GameConfig.current_mode == GameConfig.GAME_MODE.COPILOT and player_input:
+		input_vector = player_input.get_input_vector()
+		is_sprinting = player_input.is_sprint_pressed()
+		jump_pressed = player_input.just_jumped()
+	else:
+		# Fallback to single player input
+		input_vector = Vector2(Input.get_action_strength("right") - Input.get_action_strength("left"), Input.get_action_strength("forward") - Input.get_action_strength("backward"))
+		is_sprinting = Input.is_action_pressed("sprint")
+		jump_pressed = Input.is_action_just_pressed("jump")
+	
+	has_input = input_vector.length() > 0.1
+
 	if jump_pressed and ((is_attacking != true) and (is_rolling != true)) and is_on_floor():
 		# Capturamos velocidad actual de plataforma justo en el momento del salto (antes de posible decaimiento)
 		var pv := platform_velocity
@@ -377,12 +394,6 @@ func _physics_process(delta):
 		just_jumped = true
 		time_since_jump = 0.0
 
-	var has_input := false
-	if input_manager:
-		has_input = input_manager.get_input_vector().length() > 0.1
-	else:
-		has_input = (Input.is_action_pressed("forward") || Input.is_action_pressed("backward") || Input.is_action_pressed("left") || Input.is_action_pressed("right") || Input.is_action_pressed("cursor_up") || Input.is_action_pressed("cursor_down") || Input.is_action_pressed("cursor_left") || Input.is_action_pressed("cursor_right"))
-
 	if has_input:
 		time_since_input = 0.0
 
@@ -393,14 +404,7 @@ func _physics_process(delta):
 		if yaw_node_local:
 			basis = yaw_node_local.global_transform.basis
 
-		if input_manager:
-			movement_comp.process_input_vector(delta, basis, input_manager.get_input_vector())
-		else:
-			movement_comp.process_input(delta, basis, has_input)
-		
-		# Aplicar giro tank
-		var turn_input = movement_comp.get_turn_input()
-		rotation.y += turn_input * tank_turn_speed * delta
+		movement_comp.process_input_vector(delta, basis, input_vector, is_sprinting)
 		
 		# Obtener valores del componente
 		direction = movement_comp.direction

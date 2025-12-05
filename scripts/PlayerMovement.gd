@@ -88,7 +88,7 @@ func get_turn_input() -> float:
 		return processed_dir.x * analog_turn_multiplier
 	return 0.0
 
-func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2) -> void:
+func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is_sprinting: bool) -> void:
 	var mag = input_vec.length()
 	if mag < joystick_deadzone:
 		is_walking = false
@@ -112,7 +112,7 @@ func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2) ->
 	direction = direction.normalized()
 
 	is_walking = true
-	if processed_mag > sprint_threshold:
+	if is_sprinting or (processed_mag > sprint_threshold):
 		movement_speed = run_speed
 		is_running = true
 	else:

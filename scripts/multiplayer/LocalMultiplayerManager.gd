@@ -95,11 +95,12 @@ func _setup_players() -> void:
 	if player1.has_method("set_player_id"):
 		player1.set_player_id(1)
 
-	# Adjuntar input manager
-	var input1 = load("res://scripts/multiplayer/PlayerInput.gd").new()
-	input1.player_id = 1
-	player1.add_child(input1)
-	input1.name = "InputManager_P1"
+	var input1 = player1.get_node_or_null("PlayerInput")
+	if input1:
+		input1.player_id = 1
+	else:
+		push_error("Player 1 is missing PlayerInput node!")
+
 
 	# Player 2 (derecha)
 	player2 = player_res.instance()
@@ -116,11 +117,11 @@ func _setup_players() -> void:
 	if player2.has_method("set_player_id"):
 		player2.set_player_id(2)
 
-	# Adjuntar input manager
-	var input2 = load("res://scripts/multiplayer/PlayerInput.gd").new()
-	input2.player_id = 2
-	player2.add_child(input2)
-	input2.name = "InputManager_P2"
+	var input2 = player2.get_node_or_null("PlayerInput")
+	if input2:
+		input2.player_id = 2
+	else:
+		push_error("Player 2 is missing PlayerInput node!")
 
 	print("[LocalMultiplayerManager] Jugadores instanciados")
 
