@@ -40,7 +40,7 @@ func _on_Start_pressed():
 	tween.connect("tween_completed", self, "_on_fade_out_complete")
 	tween.start()
 
-func _on_fade_out_complete(object, key):
+func _on_fade_out_complete(object, _key):
 	get_tree().change_scene("res://scenes/levels/act1/Criogenia.tscn")
 
 func _on_copilot_pressed():
