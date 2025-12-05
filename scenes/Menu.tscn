@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=2]
+[gd_scene load_steps=10 format=2]
 
 [ext_resource path="res://models/Pilot.glb" type="PackedScene" id=1]
 [ext_resource path="res://scripts/Menu.gd" type="Script" id=2]
@@ -7,19 +7,24 @@
 [ext_resource path="res://scenes/common/Cursor.tscn" type="PackedScene" id=5]
 [ext_resource path="res://assets/start.png" type="Texture" id=6]
 [ext_resource path="res://assets/quit.png" type="Texture" id=7]
+[ext_resource path="res://assets/coop.png" type="Texture" id=8]
 
 [sub_resource type="DynamicFont" id=1]
 size = 95
 font_data = ExtResource( 4 )
 
-[node name="Menu" type="Node2D"]
+[node name="Menu" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
 script = ExtResource( 2 )
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
-margin_right = 640.0
-margin_bottom = 480.0
+anchor_right = 1.0
+anchor_bottom = 1.0
 size_flags_horizontal = 3
-size_flags_vertical = 9
+size_flags_vertical = 3
 
 [node name="Label" type="Label" parent="VBoxContainer"]
 margin_top = 40.0
@@ -34,18 +39,20 @@ align = 1
 uppercase = true
 
 [node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
+margin_left = 137.0
 margin_top = 180.0
-margin_right = 640.0
+margin_right = 502.0
 margin_bottom = 480.0
+size_flags_horizontal = 6
 
 [node name="Preview3D" type="ViewportContainer" parent="VBoxContainer/HBoxContainer"]
-margin_right = 400.0
+margin_right = 229.0
 margin_bottom = 300.0
 size_flags_horizontal = 7
 size_flags_vertical = 7
 
 [node name="Viewport" type="Viewport" parent="VBoxContainer/HBoxContainer/Preview3D"]
-size = Vector2( 400, 300 )
+size = Vector2( 229, 300 )
 own_world = true
 handle_input_locally = false
 hdr = false
@@ -67,23 +74,33 @@ current = true
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 
 [node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/HBoxContainer"]
-margin_left = 404.0
-margin_right = 536.0
+margin_left = 233.0
+margin_right = 365.0
 margin_bottom = 300.0
 size_flags_horizontal = 2
 
 [node name="Start" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
+margin_top = 11.0
 margin_right = 132.0
-margin_bottom = 74.0
+margin_bottom = 85.0
 size_flags_horizontal = 2
-size_flags_vertical = 4
+size_flags_vertical = 6
 icon = ExtResource( 6 )
 icon_align = 1
 
-[node name="Quit" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
-margin_top = 152.0
+[node name="CoopButton" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
+margin_top = 112.0
 margin_right = 132.0
-margin_bottom = 226.0
+margin_bottom = 186.0
+size_flags_horizontal = 2
+size_flags_vertical = 6
+icon = ExtResource( 8 )
+icon_align = 1
+
+[node name="Quit" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
+margin_top = 214.0
+margin_right = 132.0
+margin_bottom = 288.0
 size_flags_horizontal = 2
 size_flags_vertical = 6
 icon = ExtResource( 7 )
@@ -93,6 +110,7 @@ icon_align = 1
 position = Vector2( 294, 306 )
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
+visible = false
 
 [node name="ColorRect" type="ColorRect" parent="CanvasLayer"]
 margin_right = 640.0
@@ -101,9 +119,5 @@ mouse_filter = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 color = Color( 0, 0, 0, 1 )
-
-[connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Start" to="." method="_on_Start_pressed"]
-[connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Quit" to="." method="_on_Quit_pressed"]
-[connection signal="pressed" from="VBoxContainer/HBoxContainer/VBoxContainer/Quit" to="." method="_on_Start_pressed"]
 
 [editable path="VBoxContainer/HBoxContainer/Preview3D/Viewport/Root3D/PilotModel"]

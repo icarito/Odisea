@@ -80,10 +80,49 @@ func process_input(delta: float, cam_basis: Basis, has_input: bool) -> void:
 func get_horizontal_velocity() -> Vector3:
 	return horizontal_velocity
 
-func get_turn_input() -> float:
-	var input_vec = get_input_vector()
+func get_turn_input_from_vector(input_vec: Vector2) -> float:
 	var mag = input_vec.length()
 	if mag > joystick_deadzone:
-		var processed_dir = input_vec.normalized()
-		return processed_dir.x * analog_turn_multiplier
+		# NOTE: This uses the RAW input vector's X component for turning.
+		# This is how tank controls can work with a single stick.
+		return input_vec.normalized().x * analog_turn_multiplier
 	return 0.0
+
+func get_turn_input() -> float:
+	var input_vec = get_input_vector()
+	return get_turn_input_from_vector(input_vec)
+
+func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is_sprinting: bool) -> void:
+	var mag = input_vec.length()
+	if mag < joystick_deadzone:
+		is_walking = false
+		is_running = false
+		direction = Vector3.ZERO
+		horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, friction * delta)
+		return
+
+	var processed_mag := 0.0
+	var processed_dir := input_vec.normalized()
+	var curve: Curve = _CURVE_RESOURCES[joystick_curve_type]
+	processed_mag = curve.interpolate(clamp(mag, 0.0, 1.0))
+	processed_mag = clamp(processed_mag, 0.0, 1.0)
+
+	var cam_forward := cam_basis.z.normalized()
+	var cam_right := cam_basis.x.normalized()
+	var forward_input := processed_dir.y
+	var right_input := processed_dir.x
+
+	direction = (cam_forward * forward_input) + (cam_right * right_input)
+	direction = direction.normalized()
+
+	is_walking = true
+	if is_sprinting or (processed_mag > sprint_threshold):
+		movement_speed = run_speed
+		is_running = true
+	else:
+		movement_speed = walk_speed
+		is_running = false
+	movement_speed *= processed_mag
+
+	var target_velocity = direction * movement_speed
+	horizontal_velocity = horizontal_velocity.linear_interpolate(target_velocity, acceleration * delta)
