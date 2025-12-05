@@ -390,6 +390,6 @@ quality/shading/force_lambert_over_burley=true
 quality/shading/force_blinn_over_ggx=true
 quality/depth_prepass/enable=false
 batching/options/single_rect_fallback=true
-environment/default_clear_color=Color( 0.0980392, 0.0823529, 0.12549, 1 )
+environment/default_clear_color=Color( 0.180392, 0.172549, 0.203922, 1 )
 environment/default_environment="res://data/default_env.tres"
 quality/filters/anisotropic_filtering_level=0
