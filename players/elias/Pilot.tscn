@@ -1,4 +1,4 @@
-[gd_scene load_steps=44 format=2]
+[gd_scene load_steps=45 format=2]
 
 [ext_resource path="res://scripts/PlayerController.gd" type="Script" id=1]
 [ext_resource path="res://scripts/PlayerSpringCam.gd" type="Script" id=2]
@@ -6,6 +6,7 @@
 [ext_resource path="res://scripts/AnimationLoopFix.gd" type="Script" id=4]
 [ext_resource path="res://materials/shadow/FakeShadow.tres" type="Material" id=52]
 [ext_resource path="res://scripts/PlayerMovement.gd" type="Script" id=53]
+[ext_resource path="res://scripts/multiplayer/PlayerInput.gd" type="Script" id=65]
 
 [sub_resource type="CapsuleShape" id=48]
 radius = 0.3047
@@ -175,13 +176,19 @@ script = ExtResource( 1 )
 PlayerAnimationTree = NodePath("AnimationTree")
 PlayerCharacterMesh = NodePath("PilotMesh")
 gravity = 9.0
-jump_force = 15
+jump_force = 12
 max_platform_up_follow = 30.0
 tank_turn_speed = 2.0
 advancing_turn_speed = 3.7
 mouse_aim_sensitivity = 0.01
 cam_yaw_offset = 0.76
-debug_interval = 0.6
+
+[node name="PlayerInput" type="Node" parent="."]
+script = ExtResource( 65 )
+debug_input = false
+
+[node name="PlayerMovement" type="Node" parent="."]
+script = ExtResource( 53 )
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
@@ -229,9 +236,6 @@ parameters/conditions/IsOnFloor = true
 parameters/conditions/IsRunning = false
 parameters/conditions/IsWalking = false
 script = ExtResource( 4 )
-
-[node name="PlayerMovement" type="Node" parent="."]
-script = ExtResource( 53 )
 
 [node name="PilotMesh" parent="." instance=ExtResource( 3 )]
 

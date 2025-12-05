@@ -109,11 +109,11 @@ skeleton = NodePath("")
 [node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/PlatformMesh/Pilar2/StaticBody"]
 shape = SubResource( 5 )
 
-[node name="SpawnPoint" type="Spatial" parent="."]
-transform = Transform( 0.808833, 0, -0.588039, 0, 1, 0, 0.588039, 0, 0.808833, -42.855, -332.926, 3491.17 )
-
 [node name="SpawnPoint2" type="Spatial" parent="."]
-transform = Transform( -0.942601, 0, 0.333921, 0, 1, 0, -0.333921, 0, -0.942601, -33.4237, -339.004, 3525.91 )
+transform = Transform( 0.8343, 0, 0.551311, 0, 1, 0, -0.551311, 0, 0.8343, -14.861, -339.004, 3464.57 )
+
+[node name="SpawnPoint" type="Spatial" parent="."]
+transform = Transform( -0.50498, 0, -0.863131, 0, 1, 0, 0.863131, 0, -0.50498, 9.89757, -339.004, 3479.98 )
 
 [node name="LevelBGM" type="Node" parent="."]
 script = ExtResource( 3 )

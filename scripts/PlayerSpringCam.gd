@@ -39,6 +39,14 @@ var target_pitch := 0.0
 var _align_time := 0.4
 var _t := 0.0
 
+var player_id := 1
+var joypad_device := -1
+
+func set_player_id(id: int) -> void:
+	player_id = id
+	if player_id == 2:
+		joypad_device = 1 # Asumir que P2 usa joypad 1
+
 func _ready():
 	if player_path: player = get_node(player_path)
 	if yaw_path: yaw = get_node(yaw_path)
@@ -50,7 +58,8 @@ func _ready():
 		springarm.collision_mask = collision_mask
 		# In Godot 3 SpringArm uses current transform forward; leave orientation to yaw/pitch
 	# Capturar el puntero para control de cámara
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	if player_id == 1:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	# Align initial yaw to player mesh forward if available
 	if player and yaw:
 		var mesh = null
@@ -70,16 +79,32 @@ func _unhandled_input(event):
 	if event is InputEventKey and event.is_action_pressed("ui_cancel"):
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		return
-	if event is InputEventMouseButton and event.pressed:
+	if event is InputEventMouseButton and event.pressed and player_id == 1:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
-	if event is InputEventMouseMotion:
-		target_yaw -= event.relative.x * yaw_sensitivity
-		target_pitch += event.relative.y * pitch_sensitivity
+func process_camera_rotation(motion: Vector2):
+	"""Procesa el movimiento del mouse para rotar la cámara."""
+	if player_id == 1:
+		target_yaw -= motion.x * yaw_sensitivity
+		target_pitch += motion.y * pitch_sensitivity
 		var lim := deg2rad(clamp(pitch_limit_deg, 0.0, 90.0))
 		target_pitch = clamp(target_pitch, -lim, lim)
 
+
 func _physics_process(delta):
+	if player_id == 2:
+		var joy_x = Input.get_joy_axis(joypad_device, JOY_AXIS_0)
+		var joy_y = Input.get_joy_axis(joypad_device, JOY_AXIS_1)
+		var deadzone = 0.2
+		
+		if abs(joy_x) > deadzone:
+			target_yaw -= joy_x * yaw_sensitivity * 1000 * delta
+		if abs(joy_y) > deadzone:
+			target_pitch += joy_y * pitch_sensitivity * 1000 * delta
+		
+		var lim := deg2rad(clamp(pitch_limit_deg, 0.0, 90.0))
+		target_pitch = clamp(target_pitch, -lim, lim)
+
 	# Auto-align yaw to mesh for a brief startup window to avoid odd initial angles
 	if player and yaw and _t < _align_time:
 		_t += delta
@@ -127,7 +152,7 @@ func apply_external_yaw_delta(delta_yaw: float) -> void:
 	if yaw:
 		yaw.rotation.y = yaw.rotation.y + delta_yaw
 		# Mantener el objetivo sincronizado para que el suavizado no revierta el cambio
-		target_yaw = yaw.rotation.y
+		target_yaw = target_yaw + delta_yaw
 
 # Alinear yaw de cámara al yaw del cuerpo con offset configurable
 func sync_to_body_yaw(body_yaw: float, offset: float) -> void:
