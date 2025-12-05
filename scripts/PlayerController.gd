@@ -370,7 +370,7 @@ func _physics_process(delta):
 		jump_pressed = player_input.just_jumped()
 	else:
 		# Fallback to single player input
-		input_vector = Vector2(Input.get_action_strength("right") - Input.get_action_strength("left"), Input.get_action_strength("forward") - Input.get_action_strength("backward"))
+		input_vector = Vector2(Input.get_action_strength("left") - Input.get_action_strength("right"), Input.get_action_strength("forward") - Input.get_action_strength("backward"))
 		is_sprinting = Input.is_action_pressed("sprint")
 		jump_pressed = Input.is_action_just_pressed("jump")
 	
