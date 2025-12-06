@@ -87,6 +87,13 @@ func _setup_level() -> void:
 	level = level_res.instance()
 	viewport_p1.add_child(level)
 	print("[LocalMultiplayerManager] Nivel cargado")
+	
+	# Conectar las killzones del nivel al manager
+	var killzones = level.get_tree().get_nodes_in_group("killzones")
+	for kz in killzones:
+		# Asumimos que la killzone es un Area que emite "body_entered"
+		if kz.has_signal("body_entered"):
+			kz.connect("body_entered", self, "_on_player_entered_killzone")
 
 func _setup_players() -> void:
 	"""Instanciar ambos jugadores."""
@@ -227,3 +234,26 @@ func add_player_score(player_id: int, points: int) -> void:
 	"""Añadir puntos a un jugador."""
 	if player_id in player_stats:
 		player_stats[player_id]["score"] += points
+
+func _on_player_entered_killzone(body: Node) -> void:
+	"""Manejador para cuando un jugador entra en una killzone."""
+	if not body.has_method("set_player_id"):
+		# El cuerpo que entró no es un jugador, ignorar.
+		return
+
+	# Identificar al jugador por su nodo
+	var player_id_to_respawn = -1
+	if body == player1:
+		player_id_to_respawn = 1
+	elif body == player2:
+		player_id_to_respawn = 2
+
+	if player_id_to_respawn != -1 and player_stats[player_id_to_respawn]["alive"]:
+		print("[LocalMultiplayerManager] Jugador %d entró en una killzone. Reiniciando..." % player_id_to_respawn)
+		set_player_alive(player_id_to_respawn, false)
+		
+		# Lógica de respawn
+		var spawn_point = level.get_node_or_null("SpawnPoint" + ("" if player_id_to_respawn == 1 else "2"))
+		if spawn_point:
+			body.global_transform = spawn_point.global_transform
+			set_player_alive(player_id_to_respawn, true)
