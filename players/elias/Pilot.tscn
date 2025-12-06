@@ -55,7 +55,7 @@ advance_condition = "IsRunning"
 xfade_time = 0.1
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=31]
-advance_condition = "!IsRunning"
+advance_condition = "IsNotRunning"
 xfade_time = 0.2
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=32]
@@ -160,7 +160,7 @@ states/Walk/position = Vector2( 560, 213 )
 transitions = [ "Idle", "Attack1", SubResource( 25 ), "Attack1", "Attack2", SubResource( 26 ), "Idle", "Walk", SubResource( 27 ), "Walk", "Run", SubResource( 28 ), "Run", "Walk", SubResource( 31 ), "Walk", "Idle", SubResource( 32 ), "Run", "BigAttack", SubResource( 37 ), "BigAttack", "Idle", SubResource( 38 ), "Roll", "Run", SubResource( 39 ), "Roll", "Idle", SubResource( 40 ), "Roll", "Walk", SubResource( 41 ), "Walk", "Jump", SubResource( 42 ), "Jump", "Walk", SubResource( 43 ), "Run", "Jump", SubResource( 44 ), "Idle", "Jump", SubResource( 45 ), "Attack1", "Idle", SubResource( 46 ), "Attack2", "Idle", SubResource( 47 ), "Swim_Idle_Loop", "Jump", SubResource( 56 ), "Idle", "Swim_Idle_Loop", SubResource( 57 ), "Walk", "Swim_Idle_Loop", SubResource( 58 ), "Run", "Swim_Idle_Loop", SubResource( 59 ), "Jump", "Swim_Idle_Loop", SubResource( 63 ), "Swim_Idle_Loop", "Walk", SubResource( 64 ) ]
 start_node = "Idle"
 end_node = "Idle"
-graph_offset = Vector2( 332, 74.741 )
+graph_offset = Vector2( 212, 30.741 )
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=50]
 
@@ -230,10 +230,10 @@ active = true
 process_mode = 0
 parameters/playback = SubResource( 50 )
 parameters/conditions/!IsFloating = false
-parameters/conditions/!IsRunning = false
 parameters/conditions/IsFloating = false
 parameters/conditions/IsInAir = false
 parameters/conditions/IsNotMoving = false
+parameters/conditions/IsNotRunning = false
 parameters/conditions/IsNotWalking = false
 parameters/conditions/IsOnFloor = true
 parameters/conditions/IsRunning = false
