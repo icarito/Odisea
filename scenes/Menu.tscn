@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=2]
+[gd_scene load_steps=13 format=2]
 
 [ext_resource path="res://models/Pilot.glb" type="PackedScene" id=1]
 [ext_resource path="res://scripts/Menu.gd" type="Script" id=2]
@@ -8,6 +8,7 @@
 [ext_resource path="res://assets/start.png" type="Texture" id=6]
 [ext_resource path="res://assets/quit.png" type="Texture" id=7]
 [ext_resource path="res://assets/coop.png" type="Texture" id=8]
+[ext_resource path="res://scripts/ui/LobbyUI.gd" type="Script" id=9]
 
 [sub_resource type="DynamicFont" id=1]
 size = 95
@@ -30,54 +31,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 size_flags_horizontal = 3
 size_flags_vertical = 3
-
-[node name="NetworkPanel" type="Panel" parent="VBoxContainer"]
-visible = false
-margin_top = 180.0
-margin_right = 640.0
-margin_bottom = 480.0
-
-[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/NetworkPanel"]
-anchor_right = 1.0
-anchor_bottom = 1.0
-margin_left = 20.0
-margin_top = 20.0
-margin_right = -20.0
-margin_bottom = -20.0
-
-[node name="ServerList" type="ItemList" parent="VBoxContainer/NetworkPanel/VBoxContainer"]
-margin_top = 28.0
-margin_right = 600.0
-margin_bottom = 200.0
-rect_min_size = Vector2( 0, 172 )
-
-[node name="JoinServerButton" type="Button" parent="VBoxContainer/NetworkPanel/VBoxContainer"]
-margin_top = 204.0
-margin_right = 600.0
-margin_bottom = 228.0
-text = "Join Selected Server"
-
-[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/NetworkPanel/VBoxContainer"]
-margin_right = 600.0
-margin_bottom = 24.0
-
-[node name="HostButton" type="Button" parent="VBoxContainer/NetworkPanel/VBoxContainer/HBoxContainer"]
-margin_right = 48.0
-margin_bottom = 24.0
-text = "Host"
-
-[node name="JoinIPButton" type="Button" parent="VBoxContainer/NetworkPanel/VBoxContainer/HBoxContainer"]
-margin_left = 52.0
-margin_right = 130.0
-margin_bottom = 24.0
-text = "Join by IP"
-
-[node name="IPLineEdit" type="LineEdit" parent="VBoxContainer/NetworkPanel/VBoxContainer/HBoxContainer"]
-margin_left = 134.0
-margin_right = 264.0
-margin_bottom = 24.0
-rect_min_size = Vector2( 130, 0 )
-placeholder_text = "Enter IP"
 
 [node name="Label" type="Label" parent="VBoxContainer"]
 margin_top = 40.0
@@ -138,13 +91,13 @@ initial_velocity = 0.5
 initial_velocity_random = 0.6
 color = Color( 0.172549, 0.607843, 0.615686, 1 )
 
-[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/HBoxContainer"]
+[node name="Buttons" type="VBoxContainer" parent="VBoxContainer/HBoxContainer"]
 margin_left = 233.0
 margin_right = 365.0
 margin_bottom = 300.0
 size_flags_horizontal = 2
 
-[node name="Start" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
+[node name="Start" type="Button" parent="VBoxContainer/HBoxContainer/Buttons"]
 margin_right = 132.0
 margin_bottom = 74.0
 size_flags_horizontal = 2
@@ -152,7 +105,7 @@ size_flags_vertical = 6
 icon = ExtResource( 6 )
 icon_align = 1
 
-[node name="NetworkButton" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
+[node name="NetworkButton" type="Button" parent="VBoxContainer/HBoxContainer/Buttons"]
 margin_top = 101.0
 margin_right = 65.0
 margin_bottom = 121.0
@@ -160,7 +113,7 @@ size_flags_horizontal = 2
 size_flags_vertical = 6
 text = "Network"
 
-[node name="CoopButton" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
+[node name="CoopButton" type="Button" parent="VBoxContainer/HBoxContainer/Buttons"]
 margin_top = 148.0
 margin_right = 132.0
 margin_bottom = 222.0
@@ -169,7 +122,7 @@ size_flags_vertical = 6
 icon = ExtResource( 8 )
 icon_align = 1
 
-[node name="Quit" type="Button" parent="VBoxContainer/HBoxContainer/VBoxContainer"]
+[node name="Quit" type="Button" parent="VBoxContainer/HBoxContainer/Buttons"]
 margin_top = 226.0
 margin_right = 132.0
 margin_bottom = 300.0
@@ -177,6 +130,47 @@ size_flags_horizontal = 2
 size_flags_vertical = 6
 icon = ExtResource( 7 )
 icon_align = 1
+
+[node name="NetworkPanel" type="VBoxContainer" parent="VBoxContainer/HBoxContainer"]
+visible = false
+margin_left = 369.0
+margin_right = 620.0
+margin_bottom = 300.0
+script = ExtResource( 9 )
+
+[node name="ServerList" type="ItemList" parent="VBoxContainer/HBoxContainer/NetworkPanel"]
+margin_right = 251.0
+margin_bottom = 172.0
+rect_min_size = Vector2( 0, 172 )
+
+[node name="JoinServerButton" type="Button" parent="VBoxContainer/HBoxContainer/NetworkPanel"]
+margin_top = 176.0
+margin_right = 251.0
+margin_bottom = 196.0
+text = "Join Selected Server"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/HBoxContainer/NetworkPanel"]
+margin_top = 200.0
+margin_right = 251.0
+margin_bottom = 224.0
+
+[node name="HostButton" type="Button" parent="VBoxContainer/HBoxContainer/NetworkPanel/HBoxContainer"]
+margin_right = 42.0
+margin_bottom = 24.0
+text = "Host"
+
+[node name="JoinIPButton" type="Button" parent="VBoxContainer/HBoxContainer/NetworkPanel/HBoxContainer"]
+margin_left = 46.0
+margin_right = 117.0
+margin_bottom = 24.0
+text = "Join by IP"
+
+[node name="IPLineEdit" type="LineEdit" parent="VBoxContainer/HBoxContainer/NetworkPanel/HBoxContainer"]
+margin_left = 121.0
+margin_right = 251.0
+margin_bottom = 24.0
+rect_min_size = Vector2( 130, 0 )
+placeholder_text = "Enter IP"
 
 [node name="Cursor" parent="." instance=ExtResource( 5 )]
 position = Vector2( 557, 291 )

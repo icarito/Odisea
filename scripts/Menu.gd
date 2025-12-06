@@ -26,16 +26,16 @@ func _ready():
 	tween.start()
 
 	# Conectar botones
-	$VBoxContainer/HBoxContainer/VBoxContainer/Start.connect("pressed", self, "_on_Start_pressed")
-	$VBoxContainer/HBoxContainer/VBoxContainer/Quit.connect("pressed", self, "_on_Quit_pressed")
-	if has_node("VBoxContainer/HBoxContainer/VBoxContainer/CoopButton"):
-		$VBoxContainer/HBoxContainer/VBoxContainer/CoopButton.connect("pressed", self, "_on_copilot_pressed")
-	$VBoxContainer/HBoxContainer/VBoxContainer/NetworkButton.connect("pressed", self, "_on_NetworkButton_pressed")
+	$VBoxContainer/HBoxContainer/Buttons/Start.connect("pressed", self, "_on_Start_pressed")
+	$VBoxContainer/HBoxContainer/Buttons/Quit.connect("pressed", self, "_on_Quit_pressed")
+	$VBoxContainer/HBoxContainer/Buttons/CoopButton.connect("pressed", self, "_on_copilot_pressed")
+	$VBoxContainer/HBoxContainer/Buttons/NetworkButton.connect("pressed", self, "_on_NetworkButton_pressed")
 
 	MultiplayerManager.connect("game_started", self, "_on_game_started")
 
 func _on_NetworkButton_pressed():
-	$VBoxContainer/NetworkPanel.visible = not $VBoxContainer/NetworkPanel.visible
+	var panel = $VBoxContainer/HBoxContainer/NetworkPanel
+	panel.visible = not panel.visible
 
 func _on_Start_pressed():
 	_start_game("res://scenes/levels/act1/Criogenia.tscn")
