@@ -8,7 +8,7 @@ extends Node
 var mouse_captured: bool = false setget set_mouse_captured
 
 # Activates/Deactivates debugging tools (e.g., DrawRay from icarito-odisea.txt).
-var debug_mode: bool = false setget set_debug_mode
+var debug_mode: bool = true setget set_debug_mode
 
 # Global pause state of the game (get_tree().paused).
 var is_paused: bool = false setget set_is_paused

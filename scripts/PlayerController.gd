@@ -564,7 +564,6 @@ func _physics_process(delta):
 	animation_tree["parameters/conditions/IsWalking"] = is_walking
 	animation_tree["parameters/conditions/IsNotWalking"] = !is_walking
 	animation_tree["parameters/conditions/IsRunning"] = is_running
-	animation_tree["parameters/conditions/IsNotRunning"] = !is_running
 
 	# Estado de flotación: condición para "Swim_Idle_Loop" gestionada por el State Machine
 	# Suavizado de aceleración vertical para decisión de flotación
