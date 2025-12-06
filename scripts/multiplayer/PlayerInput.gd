@@ -6,6 +6,8 @@ class_name PlayerInput
 
 # ===== CONFIG =====
 export var use_mouse_input := true
+export var JOY_BUTTON_JUMP := 1
+export var JOY_BUTTON_SPRINT := 4
 export var player_id := 1  # 1 o 2
 export var analog_sprint_threshold := 0.9
 export var debug_input := true
@@ -39,6 +41,21 @@ var _last_log_time := {
 	"mouse": 0.0
 }
 var _last_joy_vector := Vector2.ZERO
+var _joy_jump_just_pressed := false
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Capturar "just_pressed" para el botón de salto del joystick.
+	# Esto es necesario porque no hay una función directa como is_joy_button_just_pressed().
+	if event is InputEventJoypadButton and event.device == joypad_device:
+		if event.button_index == JOY_BUTTON_JUMP and event.is_pressed():
+			_joy_jump_just_pressed = true
+
+
+func _physics_process(_delta: float) -> void:
+	# Reseteamos la bandera de "just_pressed" al final de cada frame de físicas.
+	# La lectura de input se hace en _physics_process del PlayerController.
+	_joy_jump_just_pressed = false
 
 
 func initialize(p_use_mouse_input: bool, p_joypad_device: int) -> void:
@@ -93,7 +110,15 @@ func get_input_vector() -> Vector2:
 func is_sprint_pressed() -> bool:
 	"""Detectar si jugador presionó sprint."""
 	var actions = action_map[player_id]
-	var pressed = Input.is_action_pressed(actions["sprint"]) or (_last_joy_vector.length() > analog_sprint_threshold)
+	var kb_pressed = Input.is_action_pressed(actions["sprint"])
+	
+	var joy_button_pressed = false
+	if joypad_device != -1:
+		joy_button_pressed = Input.is_joy_button_pressed(joypad_device, JOY_BUTTON_SPRINT)
+		
+	var analog_sprint = _last_joy_vector.length() > analog_sprint_threshold
+	
+	var pressed = kb_pressed or joy_button_pressed or analog_sprint
 	if debug_input and pressed and _can_log("sprint"):
 		print("[PlayerInput P%d] is_sprint_pressed: %s (Joy Mag: %.2f)" % [player_id, pressed, _last_joy_vector.length()])
 	return pressed
@@ -101,7 +126,7 @@ func is_sprint_pressed() -> bool:
 func just_jumped() -> bool:
 	"""Detectar salto ESTE FRAME."""
 	var actions = action_map[player_id]
-	var jumped = Input.is_action_just_pressed(actions["jump"])
+	var jumped = Input.is_action_just_pressed(actions["jump"]) or _joy_jump_just_pressed
 	if debug_input and jumped and _can_log("jump"):
 		print("[PlayerInput P%d] just_jumped: %s" % [player_id, jumped])
 	return jumped
