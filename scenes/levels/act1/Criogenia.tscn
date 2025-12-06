@@ -142,10 +142,7 @@ skeleton = NodePath("")
 shape = SubResource( 5 )
 
 [node name="SpawnPoint" type="Spatial" parent="PuzzleZone/Platform/Pilar3"]
-transform = Transform( 1, 0, 0, 0, 0.998489, -0.0549502, 0, 0.0549502, 0.998489, -4.4282, 2.36505, 0 )
-
-[node name="SpawnPoint2" type="Spatial" parent="PuzzleZone/Platform/Pilar3"]
-transform = Transform( 1, 0, 0, 0, 0.998489, -0.0549502, 0, 0.0549502, 0.998489, -4.4282, 2.36505, 0 )
+transform = Transform( 1, 0, 0, 0, 0.998489, -0.0549502, 0, 0.0549502, 0.998489, -7.10764, 6.52124, 3.22485 )
 
 [node name="Pilar2" type="MeshInstance" parent="PuzzleZone/Platform"]
 transform = Transform( 0.999999, 0, 0, 0, 0.999999, 0, 0, 0, 0.999999, -43.4282, 3.04343, 33.2603 )
@@ -157,6 +154,20 @@ skeleton = NodePath("")
 
 [node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/Platform/Pilar2/StaticBody"]
 shape = SubResource( 5 )
+
+[node name="Pilar4" type="MeshInstance" parent="PuzzleZone/Platform"]
+transform = Transform( 0.999999, 0, 0, 0, 0.999999, 0, 0, 0, 0.999999, -43.4282, 3.04343, 42.7576 )
+use_in_baked_light = true
+mesh = SubResource( 1 )
+skeleton = NodePath("")
+
+[node name="StaticBody" type="StaticBody" parent="PuzzleZone/Platform/Pilar4"]
+
+[node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/Platform/Pilar4/StaticBody"]
+shape = SubResource( 5 )
+
+[node name="SpawnPoint2" type="Spatial" parent="PuzzleZone/Platform/Pilar4"]
+transform = Transform( -1, -8.29729e-09, -1.4992e-07, 0, 0.499246, -0.109282, 1.50996e-07, -0.0549504, -0.992875, 0, 2.43417, 0 )
 
 [node name="LevelBGM" type="Node" parent="."]
 script = ExtResource( 3 )

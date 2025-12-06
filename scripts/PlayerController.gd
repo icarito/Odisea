@@ -86,7 +86,6 @@ export(float, 0.0, 10.0, 0.1) var tank_turn_speed := 0.3
 export(float, 0.0, 10.0, 0.1) var advancing_turn_speed := 0.3
 export(float, 0.0, 1.0, 0.01) var analog_turn_multiplier := 1.0
 export(float, 0.0, 1.0, 0.01) var sprint_threshold := 0.7
-export(float, 0.001, 0.1, 0.001) var mouse_aim_sensitivity := 0.015
 export(float, 0.0, 2000.0, 10.0) var mouse_active_timeout_ms := 500.0
 var is_tank_turning = false
 export(float, 0.0, 50.0, 0.5) var max_rise_speed := 20.0

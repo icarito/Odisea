@@ -180,7 +180,6 @@ jump_force = 12
 max_platform_up_follow = 30.0
 tank_turn_speed = 2.0
 advancing_turn_speed = 3.7
-mouse_aim_sensitivity = 0.01
 cam_yaw_offset = 0.76
 debug_interval = 1.12
 
@@ -197,33 +196,35 @@ transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
 shape = SubResource( 48 )
 
 [node name="CameraRig" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.31455, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.16982, 0 )
 script = ExtResource( 2 )
 player_path = NodePath("..")
 yaw_path = NodePath("Yaw")
 pitch_path = NodePath("Yaw/Pitch")
 springarm_path = NodePath("Yaw/Pitch/SpringArm")
 camera_path = NodePath("Yaw/Pitch/SpringArm/Camera")
+yaw_sensitivity = 0.66
+pitch_sensitivity = 0.54
 pitch_limit_up_deg = 45.0
 pitch_limit_down_deg = 35.0
-base_length = 1.0
-max_length = 4.0
+base_length = 2.0
 zoom_speed = 5.0
 
 [node name="Yaw" type="Spatial" parent="CameraRig"]
 
 [node name="Pitch" type="Spatial" parent="CameraRig/Yaw"]
-transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866, 0, 1.41498, 0 )
+transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866, 0, 0.309255, 0 )
 
 [node name="SpringArm" type="SpringArm" parent="CameraRig/Yaw/Pitch"]
-transform = Transform( -1, 0, -1.50996e-07, -2.37355e-08, 0.987568, 0.157193, 1.49119e-07, 0.157193, -0.987568, 0, -0.716333, -2.04198 )
+transform = Transform( -1, 0, -1.50996e-07, -2.37355e-08, 0.987568, 0.157193, 1.49119e-07, 0.157193, -0.987568, 0, -0.0616158, -0.17651 )
 collision_mask = 255
-spring_length = 4.0
+spring_length = 3.0
 margin = 0.4
 
 [node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]
-transform = Transform( 1, 1.77636e-15, -1.42109e-13, -8.88178e-16, 1, 0, 0, 0, 1, 0, 0, 0 )
+transform = Transform( 1, -3.90799e-14, 7.10543e-14, 0, 1, 0, -1.42109e-14, 0, 1, 0, 0, 0 )
 current = true
+fov = 120.0
 near = 0.1
 far = 10000.0
 
@@ -253,7 +254,7 @@ mesh = SubResource( 53 )
 material/0 = ExtResource( 52 )
 
 [node name="OmniLight" type="OmniLight" parent="PilotMesh"]
-transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 2, 0 )
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 2.50192, 0 )
 light_energy = 0.5
 light_indirect_energy = 1.952
 omni_range = 11.041
