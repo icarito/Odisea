@@ -24,14 +24,14 @@ var horizontal_velocity := Vector3.ZERO
 var direction := Vector3.ZERO
 var movement_speed := 0.0
 var is_walking := false
-var is_running := false
+var is_running := false # true solo si is_sprinting
 
 func get_input_vector() -> Vector2:
 	var ax := (Input.get_action_strength("left") - Input.get_action_strength("right")) + Input.get_joy_axis(0, 0)
 	var az := (Input.get_action_strength("forward") - Input.get_action_strength("backward")) + Input.get_joy_axis(0, 1)
 	return Vector2(ax, az)
 
-func process_input(delta: float, cam_basis: Basis, has_input: bool) -> void:
+func process_input(delta: float, cam_basis: Basis, has_input: bool, is_sprinting: bool) -> void:
 	if not has_input:
 		is_walking = false
 		is_running = false
@@ -51,7 +51,7 @@ func process_input(delta: float, cam_basis: Basis, has_input: bool) -> void:
 		# Reescalar por fuera de la zona muerta
 		processed_mag = clamp(processed_mag, 0.0, 1.0)
 		# Para input digital, aplicar threshold de walk si no sprint
-		if processed_mag == 1.0 and not Input.is_action_pressed("sprint"):
+		if processed_mag == 1.0 and not is_sprinting:
 			processed_mag = sprint_threshold
 
 	var cam_forward := cam_basis.z.normalized()
@@ -65,7 +65,7 @@ func process_input(delta: float, cam_basis: Basis, has_input: bool) -> void:
 	
 	is_walking = true
 	# Solo walk o run: caminar por defecto, correr si sprint o threshold
-	if Input.is_action_pressed("sprint") or (processed_mag > sprint_threshold and processed_mag < 1.0):
+	if is_sprinting or (processed_mag > sprint_threshold and processed_mag < 1.0):
 		movement_speed = run_speed
 		is_running = true
 	else:
@@ -115,13 +115,17 @@ func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is
 	direction = (cam_forward * forward_input) + (cam_right * right_input)
 	direction = direction.normalized()
 
-	is_walking = true
-	if is_sprinting or (processed_mag > sprint_threshold):
+	# Determinar si hay movimiento (caminar o correr)
+	is_walking = processed_mag > 0.01
+	# Correr es un sub-estado de caminar, activado por sprint
+	is_running = is_walking and is_sprinting
+
+	if is_running:
 		movement_speed = run_speed
-		is_running = true
-	else:
+	elif is_walking:
 		movement_speed = walk_speed
-		is_running = false
+	else:
+		movement_speed = 0.0
 	movement_speed *= processed_mag
 
 	var target_velocity = direction * movement_speed
