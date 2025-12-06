@@ -192,6 +192,7 @@ script = ExtResource( 65 )
 
 [node name="PlayerMovement" type="Node" parent="."]
 script = ExtResource( 53 )
+analog_turn_multiplier = 0.5
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
