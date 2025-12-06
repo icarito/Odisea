@@ -27,6 +27,12 @@ export(float) var zoom_speed := 3.0
 export(int) var collision_mask := 6 # 2 (mundo) | 4 (plataformas móviles)
 export var debug_enabled := false
 export(float, 0.0, 2.0, 0.01) var debug_interval := 0.4
+
+# Viewport cropping
+export (float, 0.0, 0.49) var crop_margin_horizontal = 0.0 setget _set_crop_margin_horizontal
+export (float, 0.0, 0.49) var crop_margin_vertical = 0.0 setget _set_crop_margin_vertical
+
+var _original_fov := 70.0
 var _last_debug_ms := 0
 
 var player
@@ -75,6 +81,14 @@ func _ready():
 		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
 		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
 		target_pitch = clamp(pitch.rotation.x, -lim_down, lim_up)
+	
+	if cam:
+		_original_fov = cam.fov
+	
+	if is_inside_tree():
+		get_viewport().connect("size_changed", self, "_update_camera_fov")
+	_update_camera_fov()
+
 
 func _unhandled_input(event):
 	# Toggle captura con ESC, recapturar al click
@@ -167,3 +181,29 @@ func sync_to_body_yaw(body_yaw: float, offset: float) -> void:
 	if pitch:
 		pitch.rotation.x = 0.0
 		target_pitch = 0.0
+
+func _set_crop_margin_horizontal(value):
+	crop_margin_horizontal = value
+	if is_inside_tree():
+		_update_camera_fov()
+
+func _set_crop_margin_vertical(value):
+	crop_margin_vertical = value
+	if is_inside_tree():
+		_update_camera_fov()
+
+func _update_camera_fov():
+	if not cam:
+		return
+
+	var v_scale = 1.0 - (2.0 * crop_margin_vertical)
+	var h_scale = 1.0 - (2.0 * crop_margin_horizontal)
+	
+	var scale = min(v_scale, h_scale)
+	
+	if scale <= 0:
+		return
+		
+	var original_fov_rad = deg2rad(_original_fov)
+	var new_fov_rad = 2.0 * atan(tan(original_fov_rad / 2.0) * scale)
+	cam.fov = rad2deg(new_fov_rad)

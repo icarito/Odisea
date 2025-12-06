@@ -209,6 +209,8 @@ pitch_limit_up_deg = 45.0
 pitch_limit_down_deg = 35.0
 base_length = 2.0
 zoom_speed = 5.0
+crop_margin_horizontal = 0.2
+crop_margin_vertical = 0.1
 
 [node name="Yaw" type="Spatial" parent="CameraRig"]
 
@@ -216,7 +218,7 @@ zoom_speed = 5.0
 transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866, 0, 0.309255, 0 )
 
 [node name="SpringArm" type="SpringArm" parent="CameraRig/Yaw/Pitch"]
-transform = Transform( -1, 0, -1.50996e-07, -2.37355e-08, 0.987568, 0.157193, 1.49119e-07, 0.157193, -0.987568, 0, -0.0616158, -0.17651 )
+transform = Transform( -1, 0, -1.50996e-07, -2.37355e-08, 0.987568, 0.157193, 1.49119e-07, 0.157193, -0.987568, 0, -0.0616157, -0.17651 )
 collision_mask = 255
 spring_length = 3.0
 margin = 0.4
