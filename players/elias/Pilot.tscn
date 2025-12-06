@@ -197,14 +197,18 @@ transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
 shape = SubResource( 48 )
 
 [node name="CameraRig" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.31455, 0 )
 script = ExtResource( 2 )
 player_path = NodePath("..")
 yaw_path = NodePath("Yaw")
 pitch_path = NodePath("Yaw/Pitch")
 springarm_path = NodePath("Yaw/Pitch/SpringArm")
 camera_path = NodePath("Yaw/Pitch/SpringArm/Camera")
-pitch_limit_deg = 65.0
+pitch_limit_up_deg = 45.0
+pitch_limit_down_deg = 35.0
+base_length = 1.0
+max_length = 4.0
+zoom_speed = 5.0
 
 [node name="Yaw" type="Spatial" parent="CameraRig"]
 
@@ -212,11 +216,13 @@ pitch_limit_deg = 65.0
 transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866, 0, 1.41498, 0 )
 
 [node name="SpringArm" type="SpringArm" parent="CameraRig/Yaw/Pitch"]
-transform = Transform( -1, 0, -1.50996e-07, -8.88178e-16, 1, 0, 1.50996e-07, 0, -1, 0, 0, 0.0463709 )
-collision_mask = 6
-spring_length = 3.8
+transform = Transform( -1, 0, -1.50996e-07, -2.37355e-08, 0.987568, 0.157193, 1.49119e-07, 0.157193, -0.987568, 0, -0.716333, -2.04198 )
+collision_mask = 255
+spring_length = 4.0
+margin = 0.4
 
 [node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]
+transform = Transform( 1, 1.77636e-15, -1.42109e-13, -8.88178e-16, 1, 0, 0, 0, 1, 0, 0, 0 )
 current = true
 fov = 80.0
 near = 0.1

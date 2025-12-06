@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
+
+[node name="BaseFloor" type="CSGBox"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 159.907, -123.934, 3482.13 )
+use_in_baked_light = true
+use_collision = true
+collision_layer = 4
+collision_mask = 131
+width = 287.683
+depth = 484.852
+material = ExtResource( 1 )

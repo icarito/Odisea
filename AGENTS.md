@@ -1,6 +1,7 @@
 # AGENTS.md — Guía de orientación para agentes (Odisea: El Arca Silenciosa)
 
-Nota: 
+Notas:
+- GODOT_BIN: godot3-bin 
 - Si el usuario te alcanza logs seguramente es que último intento falló y desea que intentes de nuevo.
 - Recuerda que en GDScript los ternarios son como en Python no como en JS.
 - Debes declarar variables con `=` en lugar de tiparlas explícitamente `:=`. Esto no es Pascal.

@@ -6,6 +6,7 @@
 extents = Vector3( 2, 0.9, 0.2 )
 
 [node name="GuardrailSegment" type="StaticBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
 
 [node name="Mesh" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1.01218, 0, 0.545912, 0 )
