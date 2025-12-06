@@ -674,6 +674,13 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 	platform_velocity = Vector3.ZERO
 	last_platform_velocity = Vector3.ZERO
 	airborne_inherited = Vector3.ZERO
+	
+	# Resetea la dirección de movimiento para alinearla con el respawn.
+	# Esto evita que el personaje intente girar hacia su dirección anterior.
+	direction = -global_transform.basis.z.normalized()
+	if is_instance_valid(movement_comp):
+		movement_comp.direction = direction
+		movement_comp.horizontal_velocity = Vector3.ZERO
 
 	# 5. Limpiar flags de acción
 	is_rolling = false
