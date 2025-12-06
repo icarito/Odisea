@@ -186,6 +186,7 @@ debug_interval = 1.12
 
 [node name="PlayerInput" type="Node" parent="."]
 script = ExtResource( 65 )
+debug_input = false
 
 [node name="PlayerMovement" type="Node" parent="."]
 script = ExtResource( 53 )

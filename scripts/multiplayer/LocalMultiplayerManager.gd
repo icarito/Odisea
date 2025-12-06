@@ -236,7 +236,9 @@ func add_player_score(player_id: int, points: int) -> void:
 
 func _on_player_entered_killzone(body: Node) -> void:
 	"""Manejador para cuando un jugador entra en una killzone."""
+	print("LocalMultiplayerManager: Body entered killzone - ", body.name if body else "null")
 	if not body.has_method("set_player_id"):
+		print("LocalMultiplayerManager: Body does not have set_player_id method, ignoring")
 		# El cuerpo que entró no es un jugador, ignorar.
 		return
 
@@ -247,13 +249,18 @@ func _on_player_entered_killzone(body: Node) -> void:
 	elif body == player2:
 		player_id_to_respawn = 2
 
+	print("LocalMultiplayerManager: Identified player ID to respawn: ", player_id_to_respawn)
 	if player_id_to_respawn != -1 and player_stats[player_id_to_respawn]["alive"]:
+		print("LocalMultiplayerManager: Respawning player ", player_id_to_respawn)
 		set_player_alive(player_id_to_respawn, false)
 		
-	# Lógica de respawn
-	var spawn_point = level.get_node_or_null("SpawnPoint" + ("" if player_id_to_respawn == 1 else "2"))
-	if not spawn_point:
-		spawn_point = level.get_node_or_null("SpawnPoint")  # Fallback
-	if spawn_point:
-		body.call_deferred("reset_state_for_respawn", spawn_point.global_transform)
-		set_player_alive(player_id_to_respawn, true)
+		# Lógica de respawn
+		var spawn_point = level.get_node_or_null("SpawnPoint" + ("" if player_id_to_respawn == 1 else "2"))
+		if not spawn_point:
+			spawn_point = level.get_node_or_null("SpawnPoint")  # Fallback
+		if spawn_point:
+			print("LocalMultiplayerManager: Respawning at spawn_point: ", spawn_point.name, " position: ", spawn_point.global_transform.origin)
+			body.call_deferred("reset_state_for_respawn", spawn_point.global_transform)
+			set_player_alive(player_id_to_respawn, true)
+		else:
+			print("LocalMultiplayerManager: No spawn_point found for player ", player_id_to_respawn)

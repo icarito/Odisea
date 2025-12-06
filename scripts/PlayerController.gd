@@ -646,6 +646,7 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 	Establece la nueva posición/rotación y limpia todas las velocidades,
 	estados de acción y inputs residuales.
 	"""
+	print("PlayerController: Resetting state for respawn, position: ", new_transform.origin, " yaw: ", rad2deg(new_transform.basis.get_euler().y))
 	# 1. Establecer nueva posición y orientación
 	global_transform = new_transform
 
@@ -654,6 +655,7 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 	if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
 		# El yaw de la cámara debe alinearse con la nueva rotación del cuerpo
 		cam_rig.sync_to_body_yaw(new_transform.basis.get_euler().y, cam_rig.cam_yaw_offset)
+		print("PlayerController: Synced camera yaw to: ", rad2deg(new_transform.basis.get_euler().y))
 
 	# 3. Resetear input residual del mouse
 	if is_instance_valid(player_input) and player_input.has_method("reset_mouse_motion"):

@@ -9,6 +9,7 @@ signal player_killed()
 signal player_respawn_requested()
 
 func _ready() -> void:
+	add_to_group("killzones")
 	connect("body_entered", self, "_on_body_entered")
 	top_rect.visible = false
 	bottom_rect.visible = false
@@ -28,6 +29,7 @@ func _ready() -> void:
 	offline_label.rect_position = Vector2(0, get_viewport().size.y / 2 - 50)
 
 func _on_body_entered(body: Object) -> void:
+	print("KillZone: Body entered - ", body.name if body else "null")
 	if GameGlobals.current_mode == GameGlobals.GAME_MODE.COPILOT:
 		return
 	if is_dead:
