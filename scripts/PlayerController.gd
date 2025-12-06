@@ -38,6 +38,7 @@ export var inherit_vertical_platform_jump := true
 var just_jumped := false
 var time_since_jump := 1.0
 var time_since_input := 1.0
+var mouse_active_timer := 0.0
 
 export var debug_movement := false
 export var debug_shadow := false
@@ -86,6 +87,7 @@ export(float, 0.0, 10.0, 0.1) var advancing_turn_speed := 0.3
 export(float, 0.0, 1.0, 0.01) var analog_turn_multiplier := 1.0
 export(float, 0.0, 1.0, 0.01) var sprint_threshold := 0.7
 export(float, 0.001, 0.1, 0.001) var mouse_aim_sensitivity := 0.015
+export(float, 0.0, 2000.0, 10.0) var mouse_active_timeout_ms := 500.0
 var is_tank_turning = false
 export(float, 0.0, 50.0, 0.5) var max_rise_speed := 20.0
 export(float, 0.0, 50.0, 0.5) var max_fall_speed := 30.0
@@ -431,6 +433,12 @@ func _physics_process(delta):
 			if debug_yaw and mouse_motion.length_squared() > 0:
 				print_debug_tag("Yaw", "[Controller] Passing mouse_motion to cam: %s" % mouse_motion)
 		
+		# Actualizar timer de actividad del mouse
+		if mouse_motion.length() > 0.01:
+			mouse_active_timer = mouse_active_timeout_ms / 1000.0
+		mouse_active_timer = max(0.0, mouse_active_timer - delta)
+		var mouse_active = mouse_active_timer > 0.0
+		
 		# --- Tank Turn y Sincronización de Cámara ---
 		# Procesar movimiento con componente
 		if movement_comp:
@@ -441,9 +449,10 @@ func _physics_process(delta):
 
 			movement_comp.process_input_vector(delta, basis, input_vector, is_sprinting)
 			
-			# Aplicar giro tank (restaurado)
+			# Aplicar giro tank (reducido cuando mouse está activo)
 			var turn_input = movement_comp.get_turn_input_from_vector(input_vector)
-			var yaw_delta = turn_input * tank_turn_speed * delta
+			var effective_tank_speed = tank_turn_speed if not mouse_active else tank_turn_speed * 0.01
+			var yaw_delta = turn_input * effective_tank_speed * delta
 			rotation.y += yaw_delta
 			
 			# Sincronizar cámara con el giro del player
