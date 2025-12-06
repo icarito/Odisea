@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=2]
+[gd_scene load_steps=15 format=2]
 
 [ext_resource path="res://scenes/common/sde_1.tscn" type="PackedScene" id=1]
 [ext_resource path="res://scenes/common/KillZone.tscn" type="PackedScene" id=2]
@@ -8,8 +8,9 @@
 [ext_resource path="res://scenes/common/MovingPlatform.tscn" type="PackedScene" id=6]
 [ext_resource path="res://scenes/common/Environment.tscn" type="PackedScene" id=7]
 [ext_resource path="res://scenes/common/Conveyor.tscn" type="PackedScene" id=8]
-[ext_resource path="res://scenes/common/WindZone.tscn" type="PackedScene" id=9]
+[ext_resource path="res://scenes/common/Tubería.tscn" type="PackedScene" id=9]
 [ext_resource path="res://data/Curves/Linear.tres" type="Curve" id=10]
+[ext_resource path="res://assets/Rooms/Command center.obj" type="ArrayMesh" id=11]
 
 [sub_resource type="ArrayMesh" id=4]
 lightmap_size_hint = Vector2( 2218, 4066 )
@@ -46,6 +47,26 @@ data = PoolVector3Array( 1, -2.4344, 0, 0.7071, -2.4344, 0.7071, 0.7071, 2.4344,
 [node name="Act1_Criogenia" type="Spatial"]
 script = ExtResource( 4 )
 
+[node name="Command Center" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 159.907, -123.934, 3482.13 )
+use_in_baked_light = true
+use_collision = true
+collision_layer = 4
+collision_mask = 131
+width = 287.683
+depth = 484.852
+
+[node name="CommandCenter" type="MeshInstance" parent="Command Center"]
+transform = Transform( -2.18557e-09, 0, -0.05, 0, 0.05, 0, 0.05, 0, -2.18557e-09, 35, 0, 108.746 )
+mesh = ExtResource( 11 )
+skeleton = NodePath("../..")
+
+[node name="Conveyor3" parent="Command Center" instance=ExtResource( 8 )]
+transform = Transform( -13.0025, -0.0101044, -1.99084e-07, 2.46778, 0.148881, 4.52156e-08, 7.43496e-06, 2.76339e-08, -15.0395, -164.587, 28.4435, 35.3293 )
+push_velocity = Vector3( -3, 0, 0 )
+debug = false
+stripe_tiling = 40.0
+
 [node name="EnvironmentEffects" parent="." instance=ExtResource( 7 )]
 
 [node name="SDE" parent="." instance=ExtResource( 1 )]
@@ -53,29 +74,27 @@ script = ExtResource( 4 )
 [node name="PuzzleZone" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 47.5841, -320, 3461.67 )
 
-[node name="WindZone" parent="PuzzleZone" instance=ExtResource( 9 )]
-transform = Transform( 3, 0, 0, 0, 3, 0, 0, 0, 3, -97.6232, -17.926, 70.9648 )
-lift = 12.0
-debug = false
+[node name="Tubería" parent="PuzzleZone" instance=ExtResource( 9 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -120.464, 132.505, 56.4402 )
 
 [node name="PlatformTarget" type="Spatial" parent="PuzzleZone"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -128.814, 31.457, 49.655 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -120.544, 28.4869, 56.3997 )
 
 [node name="MovingPlatform_B" parent="PuzzleZone/PlatformTarget" instance=ExtResource( 6 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.238, -58.435, 13.0312 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -14.9102, -84.1535, -2.28394 )
 speed = 20.0
 wait_time = 0.3
 acceleration_curve = ExtResource( 10 )
 target_node_path = NodePath("..")
 
 [node name="Conveyor" parent="PuzzleZone" instance=ExtResource( 8 )]
-transform = Transform( 4.50036, 0, 0, 0, 0.150785, 0, 0, 0, 0.790991, -94.5515, -20.858, 41.9753 )
+transform = Transform( 4.47292, 0.0166248, 0, -0.496186, 0.149866, 0, 0, 0, 0.790991, -111.338, -19.4076, 59.6316 )
 push_velocity = Vector3( -3, 0, 0 )
 debug = false
 stripe_tiling = 40.0
 
 [node name="Conveyor2" parent="PuzzleZone" instance=ExtResource( 8 )]
-transform = Transform( 4.50036, 0, 0, 0, 0.150785, 0, 0, 0, 0.790991, -94.5515, -20.858, 47.1846 )
+transform = Transform( 4.41884, 0.0285696, 0, -0.852694, 0.148054, 0, 0, 0, 0.790991, -113.618, -19.3118, 65.9241 )
 push_velocity = Vector3( -3, 0, 0 )
 debug = false
 stripe_tiling = 40.0
