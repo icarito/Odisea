@@ -14,8 +14,8 @@ export(NodePath) var pitch_path
 export(NodePath) var springarm_path
 export(NodePath) var camera_path
 
-export(float) var yaw_sensitivity := 0.015
-export(float) var pitch_sensitivity := 0.015
+export(float, 0.001, 1, 0.01) var yaw_sensitivity := 0.015
+export(float, 0.001, 1, 0.01) var pitch_sensitivity := 0.015
 export(float) var yaw_smooth := 12.0
 export(float) var pitch_smooth := 12.0
 export(float, 0.0, 90.0, 0.5) var pitch_limit_up_deg := 85.0 # límite superior para mirar arriba
@@ -87,12 +87,12 @@ func _unhandled_input(event):
 func process_camera_rotation(motion: Vector2):
 	"""Procesa el movimiento del mouse para rotar la cámara."""
 	if player_id == 1:
-		target_yaw -= motion.x * yaw_sensitivity
-		target_pitch += motion.y * pitch_sensitivity
+		var scaled_motion = motion / 100.0
+		target_yaw -= scaled_motion.x * yaw_sensitivity
+		target_pitch += scaled_motion.y * pitch_sensitivity
 		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
 		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
 		target_pitch = clamp(target_pitch, -lim_down, lim_up)
-
 
 func _physics_process(delta):
 	if player_id == 2:
