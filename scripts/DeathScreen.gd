@@ -7,9 +7,9 @@ onready var offline_label = $OfflineLabel
 var is_showing = false
 
 func _ready():
-	top_rect.visible = false
-	bottom_rect.visible = false
-	offline_label.visible = false
+	$TopRect.visible = false
+	$BottomRect.visible = false
+	$OfflineLabel.visible = false
 	# Set font
 	var font = DynamicFont.new()
 	font.font_data = load("res://assets/Sixtyfour-Regular-VariableFont_BLED,SCAN.ttf")
