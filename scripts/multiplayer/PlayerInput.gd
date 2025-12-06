@@ -6,7 +6,7 @@ class_name PlayerInput
 
 # ===== CONFIG =====
 export var player_id := 1  # 1 o 2
-export var deadzone := 0.5
+export var analog_sprint_threshold := 0.9
 export var debug_input := true
 export var debug_interval := 0.5 # Time in seconds between log messages
 
@@ -29,7 +29,7 @@ var action_map = {
 	}
 }
 
-var joypad_device := -1  # -1 = auto-detect, 0+ = específico
+var joypad_device := 0  # 0 para P1, 1 para P2
 var mouse_motion := Vector2.ZERO # Almacenar movimiento relativo del mouse
 var _last_log_time := {
 	"vector": 0.0,
@@ -37,6 +37,8 @@ var _last_log_time := {
 	"jump": 0.0,
 	"mouse": 0.0
 }
+var _last_joy_vector := Vector2.ZERO
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if player_id == 1 and event is InputEventMouseMotion:
@@ -50,9 +52,8 @@ func _ready() -> void:
 		push_error("[PlayerInput] player_id inválido: %d" % player_id)
 		return
 
-	# Autodetectar joypad para P2
-	if player_id == 2:
-		joypad_device = 1  # Asumir que P2 usa joypad 2 (si existe)
+	# Asignar dispositivo de joypad basado en player_id (0-indexed)
+	joypad_device = player_id - 1
 
 	if debug_input:
 		print("[PlayerInput] Inicializado para Player %d" % player_id)
@@ -67,18 +68,32 @@ func _can_log(type: String) -> bool:
 func get_input_vector() -> Vector2:
 	"""Obtener vector de movimiento (normalizado)."""
 	var actions = action_map[player_id]
-	# Corregir orden para coincidir con la implementación de single-player (left-right, forward-backward)
-	var vector = Input.get_vector(actions["right"], actions["left"], actions["backward"], actions["forward"])
-	if debug_input and vector.length() > 0.01 and _can_log("vector"):
-		print("[PlayerInput P%d] get_input_vector: %s" % [player_id, vector])
-	return vector
+	
+	# Input de teclado
+	var keyboard_vector = Input.get_vector(actions["right"], actions["left"], actions["backward"], actions["forward"])
+	
+	# Input de Joystick (eje izquierdo)
+	var joy_x = Input.get_joy_axis(joypad_device, JOY_AXIS_0) # Eje X izquierdo
+	var joy_y = Input.get_joy_axis(joypad_device, JOY_AXIS_1) # Eje Y izquierdo
+	var joy_vector = Vector2(joy_x, joy_y)
+	_last_joy_vector = joy_vector # Guardar para la lógica de sprint
+
+	# Combinar: dar prioridad al que tenga mayor magnitud
+	if keyboard_vector.length_squared() > joy_vector.length_squared():
+		if debug_input and keyboard_vector.length() > 0.01 and _can_log("vector"):
+			print("[PlayerInput P%d] get_input_vector (KB): %s" % [player_id, keyboard_vector])
+		return keyboard_vector
+	else:
+		if debug_input and joy_vector.length() > 0.01 and _can_log("vector"):
+			print("[PlayerInput P%d] get_input_vector (Joy): %s" % [player_id, joy_vector])
+		return joy_vector
 
 func is_sprint_pressed() -> bool:
 	"""Detectar si jugador presionó sprint."""
 	var actions = action_map[player_id]
-	var pressed = Input.is_action_pressed(actions["sprint"])
+	var pressed = Input.is_action_pressed(actions["sprint"]) or (_last_joy_vector.length() > analog_sprint_threshold)
 	if debug_input and pressed and _can_log("sprint"):
-		print("[PlayerInput P%d] is_sprint_pressed: %s" % [player_id, pressed])
+		print("[PlayerInput P%d] is_sprint_pressed: %s (Joy Mag: %.2f)" % [player_id, pressed, _last_joy_vector.length()])
 	return pressed
 
 func just_jumped() -> bool:
