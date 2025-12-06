@@ -104,6 +104,7 @@ func _setup_players() -> void:
 	var input1 = player1.get_node_or_null("PlayerInput")
 	if input1:
 		input1.player_id = 1
+		input1.initialize()
 	else:
 		push_error("Player 1 is missing PlayerInput node!")
 
@@ -129,6 +130,7 @@ func _setup_players() -> void:
 	var input2 = player2.get_node_or_null("PlayerInput")
 	if input2:
 		input2.player_id = 2
+		input2.initialize()
 	else:
 		push_error("Player 2 is missing PlayerInput node!")
 
