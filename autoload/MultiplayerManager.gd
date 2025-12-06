@@ -13,9 +13,13 @@ export var spawn_node_name: String = "CoopLevel" # Nodo donde se agregan los jug
 var current_level_path: String = ""
 var level_ready: bool = false
 
+# Multiplayer state
+var lan_ip: String = ""
+var server_port: int = 0
+
 # LAN discovery
-const LAN_DISCOVERY_PORT = 5353
-const LAN_DISCOVERY_GROUP = "224.0.0.251"
+const LAN_DISCOVERY_PORT = 54545
+const LAN_DISCOVERY_GROUP = "239.255.42.99"
 const LAN_DISCOVERY_MSG = "HOST:%s:%d"
 var udp_socket := PacketPeerUDP.new()
 var broadcast_timer := Timer.new()
@@ -41,10 +45,14 @@ func _ready():
 
 func create_server(port: int = 7777):
 	var peer = NetworkedMultiplayerENet.new()
-	peer.create_server(port)
+	var result = peer.create_server(port)
+	if result != OK:
+		print("[MultiplayerManager] ERROR: No se pudo crear el servidor ENet en el puerto %d (código %d)" % [port, result])
+		return
 	get_tree().network_peer = peer
 	is_server = true
 	is_client = false
+	self.server_port = port
 
 	start_lan_discovery()
 	_start_lan_broadcast(port)
@@ -123,17 +131,47 @@ func _on_server_disconnected():
 
 func start_lan_discovery():
 	if udp_socket.listen(LAN_DISCOVERY_PORT) != OK:
-		print("Error listening for LAN servers")
+		print("[MultiplayerManager] Error listening on port %d" % LAN_DISCOVERY_PORT)
 		return
 
-	if udp_socket.join_multicast_group(LAN_DISCOVERY_GROUP, "*") != OK:
-		print("Error joining LAN multicast group for listening")
+	var interfaces = IP.get_local_interfaces()
+	var success = false
+
+	for iface in interfaces:
+		var suitable_ip = ""
+		for ip in iface["addresses"]:
+			# Find the first suitable private IPv4 address on this interface to use for broadcasting
+			var is_private_ipv4 = false
+			if ip.find(":") == -1: # Ensure it's not IPv6
+				if ip.begins_with("192.168.") or ip.begins_with("10."):
+					is_private_ipv4 = true
+				elif ip.begins_with("172."):
+					var parts = ip.split(".")
+					if parts.size() > 1:
+						var second_octet = parts[1].to_int()
+						if second_octet >= 16 and second_octet <= 31:
+							is_private_ipv4 = true
+			if is_private_ipv4:
+				suitable_ip = ip
+				break # Found a good IP for this interface
+		
+		if suitable_ip != "":
+			print("[MultiplayerManager] Probando interfaz: '%s' (usando IP %s para broadcast)" % [iface["name"], suitable_ip])
+			if udp_socket.join_multicast_group(LAN_DISCOVERY_GROUP, iface["name"]) == OK:
+				print("[MultiplayerManager] ¡Éxito! Unido al grupo multicast con interfaz '%s'" % iface["name"])
+				self.lan_ip = suitable_ip # Save the IP for broadcasting
+				success = true
+				break # Exit the main loop, we are connected
+	
+	if not success:
+		print("[MultiplayerManager] ERROR FATAL: No se pudo unir al grupo multicast en ninguna interfaz de red válida.")
+		udp_socket.close()
 		return
 
 	set_process(true)
-
 func stop_lan_discovery():
 	set_process(false)
+	# On stop, we should leave the group, but closing the socket does this implicitly.
 	udp_socket.close()
 
 func _process(delta):
@@ -152,8 +190,11 @@ func _start_lan_broadcast(port: int):
 	broadcast_timer.start()
 
 func _broadcast_lan_presence():
-	var own_ip = IP.get_local_addresses()[0] # Simplification: assumes first IP is correct
-	var msg = LAN_DISCOVERY_MSG % [own_ip, 7777]
+	if lan_ip == "":
+		print("[MultiplayerManager] ERROR: No hay IP de LAN para broadcast. ¿Falló el descubrimiento?")
+		return
+	
+	var msg = LAN_DISCOVERY_MSG % [lan_ip, self.server_port]
 	udp_socket.set_dest_address(LAN_DISCOVERY_GROUP, LAN_DISCOVERY_PORT)
 	udp_socket.put_packet(msg.to_utf8())
 
