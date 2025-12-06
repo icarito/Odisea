@@ -13,6 +13,7 @@ var player2: Node
 var camera_p1: Camera
 var camera_p2: Camera
 var camera_p2_proxy: Camera # Cámara proxy para el viewport del Jugador 2
+var death_screen: CanvasLayer
 
 # ===== CONFIG =====
 export var level_scene_path := "res://scenes/levels/act1/Criogenia.tscn"
@@ -36,6 +37,9 @@ func _ready() -> void:
 	_setup_level()
 	_setup_players()
 	_setup_cameras()
+
+	death_screen = preload("res://scenes/ui/DeathScreen.tscn").instance()
+	add_child(death_screen)
 
 	is_running = true
 	
@@ -243,24 +247,30 @@ func _on_player_entered_killzone(body: Node) -> void:
 		return
 
 	# Identificar al jugador por su nodo
-	var player_id_to_respawn = -1
+	var player_id_to_kill = -1
 	if body == player1:
-		player_id_to_respawn = 1
+		player_id_to_kill = 1
 	elif body == player2:
-		player_id_to_respawn = 2
+		player_id_to_kill = 2
 
-	print("LocalMultiplayerManager: Identified player ID to respawn: ", player_id_to_respawn)
-	if player_id_to_respawn != -1 and player_stats[player_id_to_respawn]["alive"]:
-		print("LocalMultiplayerManager: Respawning player ", player_id_to_respawn)
-		set_player_alive(player_id_to_respawn, false)
+	print("LocalMultiplayerManager: Identified player ID to kill: ", player_id_to_kill)
+	if player_id_to_kill != -1 and player_stats[player_id_to_kill]["alive"]:
+		print("LocalMultiplayerManager: Killing player ", player_id_to_kill)
+		set_player_alive(player_id_to_kill, false)
 		
-		# Lógica de respawn
-		var spawn_point = level.get_node_or_null("SpawnPoint" + ("" if player_id_to_respawn == 1 else "2"))
-		if not spawn_point:
-			spawn_point = level.get_node_or_null("SpawnPoint")  # Fallback
-		if spawn_point:
-			print("LocalMultiplayerManager: Respawning at spawn_point: ", spawn_point.name, " position: ", spawn_point.global_transform.origin)
-			body.call_deferred("reset_state_for_respawn", spawn_point.global_transform)
-			set_player_alive(player_id_to_respawn, true)
-		else:
-			print("LocalMultiplayerManager: No spawn_point found for player ", player_id_to_respawn)
+		# Mostrar death screen
+		death_screen.show_death_screen()
+
+func _input(event):
+	if death_screen.is_showing and event.is_pressed() and not event.is_echo():
+		# Respawn all dead players
+		for id in [1, 2]:
+			if not player_stats[id]["alive"]:
+				var spawn_point = level.get_node_or_null("SpawnPoint" + ("" if id == 1 else "2"))
+				if not spawn_point:
+					spawn_point = level.get_node_or_null("SpawnPoint")  # Fallback
+				if spawn_point:
+					var player = player1 if id == 1 else player2
+					player.call_deferred("reset_state_for_respawn", spawn_point.global_transform)
+					set_player_alive(id, true)
+		death_screen.hide_death_screen()

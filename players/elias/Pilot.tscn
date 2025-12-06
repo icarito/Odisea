@@ -204,7 +204,7 @@ yaw_path = NodePath("Yaw")
 pitch_path = NodePath("Yaw/Pitch")
 springarm_path = NodePath("Yaw/Pitch/SpringArm")
 camera_path = NodePath("Yaw/Pitch/SpringArm/Camera")
-pitch_limit_deg = 45.0
+pitch_limit_deg = 65.0
 
 [node name="Yaw" type="Spatial" parent="CameraRig"]
 

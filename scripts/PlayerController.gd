@@ -653,7 +653,7 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 	# 1.5. Resetear rotación del mesh para que mire forward
 	print (player_mesh)
 	if player_mesh:
-		player_mesh.rotation = Vector3.ZERO
+		player_mesh.rotation.y = new_transform.basis.get_euler().y + mesh_yaw_offset
 
 	# 2. Resetear orientación de la cámara
 	var cam_rig = get_node_or_null("CameraRig")
