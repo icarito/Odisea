@@ -6,7 +6,12 @@ var is_client := false
 var players = {}
 
 # Scene references
-var network_player_scene = preload("res://scenes/multiplayer/NetworkPlayer.tscn")
+export var network_player_scene = preload("res://scenes/multiplayer/NetworkPlayer.tscn")
+export var spawn_node_name: String = "CoopLevel" # Nodo donde se agregan los jugadores
+
+# Nivel actual cargado
+var current_level_path: String = ""
+var level_ready: bool = false
 
 # LAN discovery
 const LAN_DISCOVERY_PORT = 5353
@@ -53,17 +58,33 @@ func join_server(ip: String, port: int = 7777):
 
 # --- Game Management ---
 
-func start_game():
+func start_game(level_path: String = "res://scenes/levels/act1/Criogenia.tscn"):
 	emit_signal("game_started")
-	if get_tree().is_network_server():
-		_spawn_player(get_tree().get_network_unique_id())
+	current_level_path = level_path
+	level_ready = false
+	get_tree().connect("node_added", self, "_on_node_added")
+	get_tree().change_scene(level_path)
 
 remotesync func _spawn_player(id):
+	if not level_ready:
+		print("[MultiplayerManager] Esperando a que el nivel esté listo para instanciar jugador...")
+		call_deferred("_spawn_player", id)
+		return
 	var player = network_player_scene.instance()
 	player.name = str(id)
-	player.set_network_master(1) # Server is master
-	get_tree().get_root().get_node("CoopLevel").add_child(player)
-	players[id] = player
+	player.set_network_master(1) # Server es master
+	var spawn_node = get_tree().get_root().get_node(spawn_node_name)
+	if spawn_node:
+		spawn_node.add_child(player)
+		players[id] = player
+	else:
+		print("[MultiplayerManager] ERROR: Nodo de spawn '" + spawn_node_name + "' no encontrado en la escena.")
+# Detecta cuando el nodo de spawn aparece en el árbol
+func _on_node_added(node):
+	if node.name == spawn_node_name:
+		print("[MultiplayerManager] Nodo de spawn '" + spawn_node_name + "' listo.")
+		level_ready = true
+		get_tree().disconnect("node_added", self, "_on_node_added")
 
 # --- Signal Handlers ---
 
