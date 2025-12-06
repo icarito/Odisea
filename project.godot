@@ -1201,6 +1201,15 @@ sprint_2={
  ]
 }
 
+[layer_names]
+
+3d_physics/layer_1="Entorno"
+3d_physics/layer_2="Player"
+3d_physics/layer_3="NPC-Friendly"
+3d_physics/layer_4="NPC-Hostile"
+3d_physics/layer_5="Trigger"
+3d_physics/layer_6="Vehicle"
+
 [physics]
 
 3d/smooth_trimesh_collision=true
