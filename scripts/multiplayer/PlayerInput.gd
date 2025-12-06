@@ -73,8 +73,8 @@ func get_input_vector() -> Vector2:
 	var keyboard_vector = Input.get_vector(actions["right"], actions["left"], actions["backward"], actions["forward"])
 	
 	# Input de Joystick (eje izquierdo)
-	var joy_x = Input.get_joy_axis(joypad_device, JOY_AXIS_0) # Eje X izquierdo
-	var joy_y = Input.get_joy_axis(joypad_device, JOY_AXIS_1) # Eje Y izquierdo
+	var joy_x = -Input.get_joy_axis(joypad_device, JOY_AXIS_0) # Eje X izquierdo
+	var joy_y = -Input.get_joy_axis(joypad_device, JOY_AXIS_1) # Eje Y izquierdo
 	var joy_vector = Vector2(joy_x, joy_y)
 	_last_joy_vector = joy_vector # Guardar para la lógica de sprint
 
