@@ -5,6 +5,9 @@ onready var bottom_rect = $DeathScreen/BottomRect
 var offline_label
 var is_dead = false
 
+signal player_killed()
+signal player_respawn_requested()
+
 func _ready() -> void:
 	connect("body_entered", self, "_on_body_entered")
 	top_rect.visible = false
@@ -25,18 +28,21 @@ func _ready() -> void:
 	offline_label.rect_position = Vector2(0, get_viewport().size.y / 2 - 50)
 
 func _on_body_entered(body: Object) -> void:
+	if GameGlobals.current_mode == GameGlobals.GAME_MODE.COPILOT:
+		return
 	if is_dead:
 		return
 	# Si el jugador cae en la zona, iniciar efecto de muerte
 	if typeof(PlayerManager) != TYPE_NIL and PlayerManager and PlayerManager.is_spawned():
-		var p := PlayerManager.get_player()
-		# Asegurarnos que el cuerpo es el jugador y que tiene el método de respawn
-		if is_instance_valid(p) and body == p and p.has_method("respawn_at_spawnpoint"):
+		var p = PlayerManager.get_player()
+		# Asegurarnos que el cuerpo es el jugador
+		if is_instance_valid(p) and body == p:
 			kill_player()
 
 func kill_player():
+	print("Player killed")
 	# Desactivar input del jugador para que no se mueva mientras la pantalla de muerte está activa
-	PlayerManager.get_player().set_physics_process(false)
+	# Nota: physics_process se desactiva en PlayerManager.kill_player_instant()
 	is_dead = true
 	top_rect.visible = true
 	bottom_rect.visible = true
@@ -49,6 +55,8 @@ func kill_player():
 	# Cambiar música
 	if AudioSystem:
 		AudioSystem.play_bgm("res://assets/music/One Choice Remains.mp3", 0.0, false)
+	# Emitir señal de muerte (desacopla de PlayerManager)
+	emit_signal("player_killed")
 	# Esperar input para respawn
 	set_process_input(true)
 
@@ -57,17 +65,15 @@ func _input(event):
 		respawn()
 
 func respawn():
+	print("Respawning player")
 	is_dead = false
 	top_rect.visible = false
 	bottom_rect.visible = false
 	offline_label.visible = false
 	set_process_input(false)
-	
-	var p = PlayerManager.get_player()
-	if is_instance_valid(p) and p.has_method("respawn_at_spawnpoint"):
-		p.respawn_at_spawnpoint()
-		# Reactivar físicas del jugador
-		p.set_physics_process(true)
+
+	# Emitir señal para que el receptor maneje el respawn
+	emit_signal("player_respawn_requested")
 
 	# Reiniciar música del nivel
 	if AudioSystem:

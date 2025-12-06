@@ -13,6 +13,8 @@ func _ready():
 	else:
 		resolution_detector = $MenuResolutionDetector
 
+	$VBoxContainer/HBoxContainer/VBoxContainer/Start.grab_focus()
+
 	# BGM del menú
 	if typeof(AudioSystem) != TYPE_NIL and AudioSystem:
 		var bgm_path := "res://assets/music/Orbital Descent.mp3"

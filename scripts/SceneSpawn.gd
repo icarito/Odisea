@@ -1,5 +1,5 @@
-extends Spatial
 
+extends Spatial
 
 func _ready():
 	# En modo copilot, no spawnear automáticamente; lo hace LocalMultiplayerManager
@@ -31,3 +31,10 @@ func _ready():
 					PlayerManager.spawn(global_transform)
 			else:
 				PlayerManager.spawn(global_transform)
+
+	# Conectar señales de KillZone solo en modo single player
+	if GameGlobals.current_mode != GameGlobals.GAME_MODE.COPILOT:
+		var kill_zone = get_node_or_null("KillZone")
+		if kill_zone:
+			kill_zone.connect("player_killed", PlayerManager, "kill_player_instant")
+			kill_zone.connect("player_respawn_requested", PlayerManager, "respawn_player")
