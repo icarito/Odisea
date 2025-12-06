@@ -141,9 +141,12 @@ func set_external_velocity(v: Vector3) -> void:
 
 func _ready():
 	# If this scene is being run directly, switch to the test scene
-	if get_tree().current_scene.name == name:
+	# This check is to allow testing the player scene directly.
+	# It changes to a test scene only if the player's scene file is the one being run.
+	if owner and owner == get_tree().current_scene:
 		get_tree().change_scene("res://players/TestScene.tscn")
-		return # Stop further execution of _ready in this context
+		return # Stop further execution of _ready
+
 
 	# Connect to GameGlobals for debug mode
 	if GameGlobals:
@@ -635,6 +638,25 @@ func _physics_process(delta):
 				" t_jump_state=" + String(time_in_jump_state).pad_decimals(2) +
 				" fall_no_jump=" + String(falling_without_jump) +
 				" no_input_ok=" + String(no_input_ok))
+
+func respawn_at_spawnpoint() -> void:
+	"""
+	Busca el SpawnPoint en la escena actual y mueve al jugador allí.
+	También resetea las velocidades para evitar movimiento residual.
+	"""
+	var spawn_point = get_tree().current_scene.find_node("SpawnPoint", true, false)
+	if spawn_point:
+		global_transform = spawn_point.global_transform
+		print_debug_tag("Respawn", "[Respawn] Moviendo jugador a SpawnPoint: " + String(spawn_point.global_transform.origin))
+	else:
+		# Fallback si no se encuentra SpawnPoint
+		global_transform.origin = Vector3.ZERO
+		push_warning("[Respawn] No se encontró 'SpawnPoint' en la escena. Respawneando en el origen.")
+
+	# Resetear estado de movimiento
+	vertical_velocity = Vector3.ZERO
+	horizontal_velocity = Vector3.ZERO
+	platform_velocity = Vector3.ZERO
 
 # Respawn-safe reset of transient movement state
 func reset_state_for_respawn():

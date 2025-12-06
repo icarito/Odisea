@@ -30,10 +30,13 @@ func _on_body_entered(body: Object) -> void:
 	# Si el jugador cae en la zona, iniciar efecto de muerte
 	if typeof(PlayerManager) != TYPE_NIL and PlayerManager and PlayerManager.is_spawned():
 		var p := PlayerManager.get_player()
-		if is_instance_valid(p) and body == p:
+		# Asegurarnos que el cuerpo es el jugador y que tiene el método de respawn
+		if is_instance_valid(p) and body == p and p.has_method("respawn_at_spawnpoint"):
 			kill_player()
 
 func kill_player():
+	# Desactivar input del jugador para que no se mueva mientras la pantalla de muerte está activa
+	PlayerManager.get_player().set_physics_process(false)
 	is_dead = true
 	top_rect.visible = true
 	bottom_rect.visible = true
@@ -59,7 +62,13 @@ func respawn():
 	bottom_rect.visible = false
 	offline_label.visible = false
 	set_process_input(false)
-	PlayerManager.respawn_player()
+	
+	var p = PlayerManager.get_player()
+	if is_instance_valid(p) and p.has_method("respawn_at_spawnpoint"):
+		p.respawn_at_spawnpoint()
+		# Reactivar físicas del jugador
+		p.set_physics_process(true)
+
 	# Reiniciar música del nivel
 	if AudioSystem:
 		AudioSystem.play_bgm("res://assets/music/Rust and Ruin.mp3", 0.0, true)
