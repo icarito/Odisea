@@ -1,6 +1,6 @@
 extends Control
 
-onready var cursor: Sprite = $Cursor
+onready var cursor: Sprite = find_node("Cursor")
 onready var fade_rect: ColorRect = $CanvasLayer/ColorRect  # Agrega un CanvasLayer > ColorRect negro
 var resolution_detector: MenuResolutionDetector
 
@@ -13,7 +13,7 @@ func _ready():
 	else:
 		resolution_detector = $MenuResolutionDetector
 
-	$VBoxContainer/HBoxContainer/VBoxContainer/Start.grab_focus()
+	find_node("Start").grab_focus()
 
 	# BGM del menú
 	if typeof(AudioSystem) != TYPE_NIL and AudioSystem:
@@ -28,10 +28,10 @@ func _ready():
 	tween.start()
 
 	# Conectar botones
-	$VBoxContainer/HBoxContainer/VBoxContainer/Start.connect("pressed", self, "_on_Start_pressed")
-	$VBoxContainer/HBoxContainer/VBoxContainer/Quit.connect("pressed", self, "_on_Quit_pressed")
-	if has_node("VBoxContainer/HBoxContainer/VBoxContainer/CoopButton"):
-		$VBoxContainer/HBoxContainer/VBoxContainer/CoopButton.connect("pressed", self, "_on_copilot_pressed")
+	find_node("Start").connect("pressed", self, "_on_Start_pressed")
+	find_node("Quit").connect("pressed", self, "_on_Quit_pressed")
+	if find_node("CoopButton"):
+		find_node("CoopButton").connect("pressed", self, "_on_copilot_pressed")
 
 func _on_Start_pressed():
 	# Fade out antes de cambiar escena
