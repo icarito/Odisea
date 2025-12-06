@@ -26,10 +26,28 @@ func show_death_screen():
 	top_rect.visible = true
 	bottom_rect.visible = true
 	offline_label.visible = true
+	# Ajustar tamaño y posición del label para que encaje en el viewport
+	var vp_size = get_viewport().size
+	# Ajustar tamaño de fuente y label dinámicamente según el viewport
+	var font = offline_label.get("custom_fonts/font")
+	if font:
+		font.size = clamp(int(vp_size.y * 0.09), 40, 120)
+	offline_label.anchor_left = 0.5
+	offline_label.anchor_top = 0.5
+	offline_label.anchor_right = 0.5
+	offline_label.anchor_bottom = 0.5
+	offline_label.grow_horizontal = Label.SIZE_EXPAND
+	offline_label.grow_vertical = Label.SIZE_EXPAND
+	offline_label.autowrap = true
+	offline_label.rect_size = Vector2(vp_size.x * 0.8, font.size * 1.2)
+	offline_label.rect_position = Vector2(vp_size.x/2 - offline_label.rect_size.x/2, vp_size.y/2 - offline_label.rect_size.y/2)
+	offline_label.rect_scale = Vector2(min(0.5, vp_size.x/1920.0), min(0.5, vp_size.y/1080.0))
+	offline_label.set_size(Vector2(vp_size.x * 0.8, 100 * min(1.0, vp_size.y/1080.0)))
+
 	var tween = Tween.new()
 	add_child(tween)
-	tween.interpolate_property(top_rect, "rect_position:y", -get_viewport().size.y / 2, 0, 1.0, Tween.TRANS_QUAD, Tween.EASE_IN)
-	tween.interpolate_property(bottom_rect, "rect_position:y", get_viewport().size.y, get_viewport().size.y / 2, 1.0, Tween.TRANS_QUAD, Tween.EASE_IN)
+	tween.interpolate_property(top_rect, "rect_position:y", -vp_size.y / 2, 0, 1.0, Tween.TRANS_QUAD, Tween.EASE_IN)
+	tween.interpolate_property(bottom_rect, "rect_position:y", vp_size.y, vp_size.y / 2, 1.0, Tween.TRANS_QUAD, Tween.EASE_IN)
 	tween.start()
 	# Cambiar música
 	if AudioSystem:
