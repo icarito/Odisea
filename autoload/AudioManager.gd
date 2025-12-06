@@ -25,7 +25,8 @@ func play_bgm(stream: AudioStream = null, volume_db: float = INF, loop: bool = t
 func stop_bgm() -> void:
 	if _music.playing:
 		_music.stop()
-		_music.disconnect("finished", self, "_on_music_finished") if _music.is_connected("finished", self, "_on_music_finished") else null
+		if _music.is_connected("finished", self, "_on_music_finished"):
+			_music.disconnect("finished", self, "_on_music_finished")
 
 func set_volume_db(db: float) -> void:
 	_music.volume_db = db

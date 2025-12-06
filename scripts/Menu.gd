@@ -14,10 +14,9 @@ func _ready():
 		resolution_detector = $MenuResolutionDetector
 
 	# BGM del menú
-	if typeof(AudioManager) != TYPE_NIL and AudioManager:
-		var stream := load("res://assets/music/Orbital Descent.mp3")
-		if stream:
-			AudioManager.play_bgm(stream, -8.0, true)
+	if typeof(AudioSystem) != TYPE_NIL and AudioSystem:
+		var bgm_path := "res://assets/music/Orbital Descent.mp3"
+		AudioSystem.play_bgm(bgm_path, 0.0, true, -8.0)
 	
 	# Fade in al cargar
 	fade_rect.modulate.a = 1.0  # Empieza negro
@@ -56,7 +55,7 @@ func _on_fade_out_complete(object, key, scene_path):
 
 func _on_copilot_pressed():
 	"""Multiplayer split-screen."""
-	get_node("/root/GameConfig").set_mode("copilot")
+	GameGlobals.set_mode("copilot")
 	get_tree().change_scene("res://scenes/multiplayer/LocalMultiplayer.tscn")
 
 func _on_Quit_pressed():

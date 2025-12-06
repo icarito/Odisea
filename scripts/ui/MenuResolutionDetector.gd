@@ -16,7 +16,7 @@ var aspect_ratio := 0.0
 
 func _ready():
 	"""Detectar resolución y tipo de pantalla al iniciar."""
-	is_widescreen = GameConfig.is_widescreen
+	is_widescreen = GameGlobals.is_widescreen
 	_set_button_visibility()
 
 func _set_button_visibility() -> void:
@@ -24,11 +24,7 @@ func _set_button_visibility() -> void:
 	# Obtener referencia al menú padre
 	var menu = get_parent()
 
-	if not menu.has_node("CoopButton"):
-		push_warning("[MenuResolutionDetector] CoopButton no encontrado en Menu")
-		return
-
-	var copilot_btn = menu.get_node("CoopButton")
+	var copilot_btn = menu.find_node("CoopButton")
 
 	# Mostrar solo si es widescreen
 	copilot_btn.visible = is_widescreen

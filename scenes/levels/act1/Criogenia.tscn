@@ -84,6 +84,8 @@ skeleton = NodePath("")
 visible = false
 use_in_baked_light = true
 use_collision = true
+collision_layer = 4
+collision_mask = 131
 width = 100.0
 depth = 100.0
 
