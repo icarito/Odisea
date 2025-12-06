@@ -38,7 +38,6 @@ func _ready() -> void:
 	_setup_cameras()
 
 	is_running = true
-	print("[LocalMultiplayerManager] Listo")
 	
 	var fps_label = Label.new()
 	fps_label.name = "FPSLabel"
@@ -109,7 +108,6 @@ func _setup_players() -> void:
 	
 	# Posicionar en SpawnPoint si existe
 	var spawn_p1 = level.get_node_or_null("SpawnPoint")
-	print ("[LocalMultiplayerManager] SpawnPoint P1: %s" % (spawn_p1 != null ? "Encontrado" : "No encontrado"))
 	if spawn_p1:
 		player1.global_transform = spawn_p1.global_transform
 		var cam_rig_p1 = player1.get_node_or_null("CameraRig")
@@ -131,7 +129,6 @@ func _setup_players() -> void:
 	
 	# Posicionar en SpawnPoint2 si existe
 	var spawn_p2 = level.get_node_or_null("SpawnPoint2")
-	print ("[LocalMultiplayerManager] SpawnPoint P2: %s" % (spawn_p2 != null ? "Encontrado"
 	if spawn_p2:
 		player2.global_transform = spawn_p2.global_transform
 		var cam_rig_p2 = player2.get_node_or_null("CameraRig")
@@ -251,12 +248,10 @@ func _on_player_entered_killzone(body: Node) -> void:
 		player_id_to_respawn = 2
 
 	if player_id_to_respawn != -1 and player_stats[player_id_to_respawn]["alive"]:
-		print("[LocalMultiplayerManager] Jugador %d entró en una killzone. Reiniciando..." % player_id_to_respawn)
 		set_player_alive(player_id_to_respawn, false)
 		
 	# Lógica de respawn
 	var spawn_point = level.get_node_or_null("SpawnPoint" + ("" if player_id_to_respawn == 1 else "2"))
-	print ("[LocalMultiplayerManager] Respawning P%d at %s" % [player_id_to_respawn, (spawn_point != null ? "SpawnPoint" : "origen")])
 	if not spawn_point:
 		spawn_point = level.get_node_or_null("SpawnPoint")  # Fallback
 	if spawn_point:
