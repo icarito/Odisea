@@ -69,7 +69,13 @@ acceleration_curve = ExtResource( 10 )
 target_node_path = NodePath("..")
 
 [node name="Conveyor" parent="PuzzleZone" instance=ExtResource( 8 )]
-transform = Transform( 4.50036, 0, 0, 0, 0.150785, 0, 0, 0, 0.790991, -94.5515, -20.858, 49.3379 )
+transform = Transform( 4.50036, 0, 0, 0, 0.150785, 0, 0, 0, 0.790991, -94.5515, -20.858, 41.9753 )
+push_velocity = Vector3( -3, 0, 0 )
+debug = false
+stripe_tiling = 40.0
+
+[node name="Conveyor2" parent="PuzzleZone" instance=ExtResource( 8 )]
+transform = Transform( 4.50036, 0, 0, 0, 0.150785, 0, 0, 0, 0.790991, -94.5515, -20.858, 47.1846 )
 push_velocity = Vector3( -3, 0, 0 )
 debug = false
 stripe_tiling = 40.0

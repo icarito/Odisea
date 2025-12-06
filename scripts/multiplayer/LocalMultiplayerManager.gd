@@ -14,7 +14,7 @@ var camera_p1: Camera
 var camera_p2: Camera
 
 # ===== CONFIG =====
-export var level_scene_path := "res://scenes/multiplayer/CoopLevel.tscn"
+export var level_scene_path := "res://scenes/levels/act1/Criogenia.tscn"
 export var player_scene_path := "res://players/elias/Pilot.tscn"
 export var shared_world := true
 export var spawn_distance := 5.0
