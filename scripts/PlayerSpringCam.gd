@@ -18,7 +18,8 @@ export(float) var yaw_sensitivity := 0.015
 export(float) var pitch_sensitivity := 0.015
 export(float) var yaw_smooth := 12.0
 export(float) var pitch_smooth := 12.0
-export(float, 0.0, 90.0, 0.5) var pitch_limit_deg := 60.0 # clamp en 0–90°, default 75
+export(float, 0.0, 90.0, 0.5) var pitch_limit_up_deg := 85.0 # límite superior para mirar arriba
+export(float, 0.0, 90.0, 0.5) var pitch_limit_down_deg := 65.0 # límite inferior para mirar abajo
 export(float) var cam_yaw_offset := 0.0
 export(float) var base_length := 3.8
 export(float) var max_length := 5.0
@@ -71,8 +72,9 @@ func _ready():
 			yaw.rotation.y = target_yaw
 	# Set default pitch respecting limit
 	if pitch:
-		var lim := deg2rad(clamp(pitch_limit_deg, 0.0, 90.0))
-		target_pitch = clamp(pitch.rotation.x, -lim, lim)
+		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
+		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
+		target_pitch = clamp(pitch.rotation.x, -lim_down, lim_up)
 
 func _unhandled_input(event):
 	# Toggle captura con ESC, recapturar al click
@@ -87,8 +89,9 @@ func process_camera_rotation(motion: Vector2):
 	if player_id == 1:
 		target_yaw -= motion.x * yaw_sensitivity
 		target_pitch += motion.y * pitch_sensitivity
-		var lim := deg2rad(clamp(pitch_limit_deg, 0.0, 90.0))
-		target_pitch = clamp(target_pitch, -lim, lim)
+		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
+		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
+		target_pitch = clamp(target_pitch, -lim_down, lim_up)
 
 
 func _physics_process(delta):
@@ -102,8 +105,9 @@ func _physics_process(delta):
 		if abs(joy_y) > deadzone:
 			target_pitch += joy_y * pitch_sensitivity * 1000 * delta
 		
-		var lim := deg2rad(clamp(pitch_limit_deg, 0.0, 90.0))
-		target_pitch = clamp(target_pitch, -lim, lim)
+		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
+		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
+		target_pitch = clamp(target_pitch, -lim_down, lim_up)
 
 	# Auto-align yaw to mesh for a brief startup window to avoid odd initial angles
 	if player and yaw and _t < _align_time:

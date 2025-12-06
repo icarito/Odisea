@@ -4,6 +4,6 @@
 
 [resource]
 shader = ExtResource( 1 )
-shader_param/base_color = Color( 0.40, 0.48, 0.52, 0.5 )
+shader_param/base_color = Color( 0.4, 0.48, 0.52, 0.5 )
 shader_param/grime_strength = 0.35
 shader_param/edge_darkening = 0.5
