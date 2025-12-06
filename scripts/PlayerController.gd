@@ -198,8 +198,12 @@ func set_external_source_is_static(is_static: bool) -> void:
 	platform_is_static_surface = is_static
 
 func _input(event):
-	if event is InputEventMouseMotion:
-		aim_turn = -event.relative.x * mouse_aim_sensitivity
+	# Capturar movimiento del mouse solo si el PlayerInput de este jugador está configurado para usarlo.
+	if player_input and player_input.use_mouse_input and event is InputEventMouseMotion:
+		# En lugar de pasarlo a una variable 'aim_turn' que no se usa,
+		# lo pasamos directamente al componente de input para que lo procese.
+		player_input.mouse_motion += event.relative
+
 	if event.is_action_pressed("aim"):
 		# Al entrar en aim, sincronizar cámara con el cuerpo usando el offset
 		var cam_rig = get_node_or_null("CameraRig")

@@ -68,6 +68,9 @@ func _setup_viewports() -> void:
 	viewport_p1.size = Vector2(half_width, height)
 	viewport_p2.size = Vector2(half_width, height)
 
+	# CRÍTICO: Habilitar el input del mouse para el viewport del Jugador 1.
+	viewport_p1.handle_input_locally = true
+
 	# Compartir mundo
 	if shared_world:
 		viewport_p2.world = viewport_p1.world

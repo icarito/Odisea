@@ -41,12 +41,6 @@ var _last_log_time := {
 var _last_joy_vector := Vector2.ZERO
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if use_mouse_input and event is InputEventMouseMotion:
-		mouse_motion += event.relative
-		if debug_input and mouse_motion.length_squared() > 0 and _can_log("mouse"):
-			print("[PlayerInput P%d] mouse_motion: %s" % [player_id, mouse_motion])
-
 func initialize(p_use_mouse_input: bool, p_joypad_device: int) -> void:
 	"""
 	Inicializa el nodo de input. Debe ser llamado explícitamente desde el
