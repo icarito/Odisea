@@ -18,15 +18,18 @@ var lan_ip: String = ""
 var server_port: int = 0
 
 # LAN discovery
-const LAN_DISCOVERY_PORT = 54545
+const GAME_PORT = 7777
+const LAN_DISCOVERY_PORT = 7778
 const LAN_DISCOVERY_GROUP = "239.255.42.99"
 const LAN_DISCOVERY_MSG = "HOST:%s:%d"
 var udp_socket := PacketPeerUDP.new()
-var broadcast_timer := Timer.new()
+var udp_broadcaster := PacketPeerUDP.new() # Socket dedicado para anunciar la partida
+var broadcast_timer := Timer.new() # Timer para el anuncio
 var discovered_servers := {}
 
 signal server_discovered(ip)
 signal game_started
+signal level_is_ready
 
 func _ready():
 	# Connect network signals
@@ -43,7 +46,12 @@ func _ready():
 
 # --- Network Management ---
 
-func create_server(port: int = 7777):
+func create_server(port: int = GAME_PORT):
+	# Limpia cualquier conexión de red anterior para evitar conflictos de puerto.
+	if get_tree().network_peer:
+		get_tree().network_peer.close_connection()
+		get_tree().network_peer = null
+
 	var peer = NetworkedMultiplayerENet.new()
 	var result = peer.create_server(port)
 	if result != OK:
@@ -54,10 +62,9 @@ func create_server(port: int = 7777):
 	is_client = false
 	self.server_port = port
 
-	start_lan_discovery()
 	_start_lan_broadcast(port)
 
-func join_server(ip: String, port: int = 7777):
+func join_server(ip: String, port: int = GAME_PORT):
 	var peer = NetworkedMultiplayerENet.new()
 	peer.create_client(ip, port)
 	get_tree().network_peer = peer
@@ -66,45 +73,56 @@ func join_server(ip: String, port: int = 7777):
 
 # --- Game Management ---
 
-func start_game(level_path: String = "res://scenes/levels/act1/Criogenia.tscn"):
+func start_game(level_path: String = "res://scenes/levels/act1/Level1.tscn"):
 	emit_signal("game_started")
 	current_level_path = level_path
 	level_ready = false
-	get_tree().connect("node_added", self, "_on_node_added")
+	if not get_tree().is_connected("node_added", self, "_on_node_added"):
+		get_tree().connect("node_added", self, "_on_node_added")
 	get_tree().change_scene(level_path)
 
 remotesync func _spawn_player(id):
 	if not level_ready:
-		print("[MultiplayerManager] Esperando a que el nivel esté listo para instanciar jugador...")
-		call_deferred("_spawn_player", id)
-		return
+		print("[MultiplayerManager] Nivel no listo. Esperando para instanciar jugador %s..." % id)
+		yield(self, "level_is_ready")
+
+	print("[MultiplayerManager] Nivel listo. Instanciando jugador %s." % id)
 	var player = network_player_scene.instance()
 	player.name = str(id)
-	player.set_network_master(1) # Server es master
+	player.set_network_master(id) # Cada jugador es dueño de su propio nodo.
 	var spawn_node = get_tree().get_root().get_node(spawn_node_name)
 	if spawn_node:
 		spawn_node.add_child(player)
 		players[id] = player
 	else:
 		print("[MultiplayerManager] ERROR: Nodo de spawn '" + spawn_node_name + "' no encontrado en la escena.")
+
 # Detecta cuando el nodo de spawn aparece en el árbol
 func _on_node_added(node):
 	if node.name == spawn_node_name:
 		print("[MultiplayerManager] Nodo de spawn '" + spawn_node_name + "' listo.")
 		level_ready = true
-		get_tree().disconnect("node_added", self, "_on_node_added")
+		emit_signal("level_is_ready")
 
 # --- Signal Handlers ---
 
 func _on_player_connected(id):
 	print("Player connected: ", id)
 
+	# Don't spawn players if the game hasn't started yet (i.e. we are in the lobby).
+	# They will all be spawned later when the host actually starts the game.
+	if current_level_path == "":
+		print("[MultiplayerManager] Player %d connected in lobby. Spawning will occur on game start." % id)
+		return
+
+	# --- The code below is for handling players who join a game that is already in progress ---
+
 	# Tell the new player about all existing players
 	for player_id in players:
 		rpc_id(id, "_spawn_player", player_id)
 
 	# Spawn the new player on the server and all clients
-	_spawn_player(id)
+	rpc("_spawn_player", id)
 
 func _on_player_disconnected(id):
 	print("Player disconnected: ", id)
@@ -130,8 +148,24 @@ func _on_server_disconnected():
 # --- LAN Discovery ---
 
 func start_lan_discovery():
-	if udp_socket.listen(LAN_DISCOVERY_PORT) != OK:
-		print("[MultiplayerManager] Error listening on port %d" % LAN_DISCOVERY_PORT)
+	var port = LAN_DISCOVERY_PORT
+	var max_port_attempts = 10
+	var listen_success = false
+	for i in range(max_port_attempts):
+		var current_port = port + i
+		var result = udp_socket.listen(current_port)
+		if result == OK:
+			print("[MultiplayerManager] Escuchando para discovery en el puerto %d" % current_port)
+			listen_success = true
+			break
+		elif result == ERR_ALREADY_IN_USE:
+			print("[MultiplayerManager] Puerto de discovery %d en uso, probando el siguiente." % current_port)
+		else:
+			print("[MultiplayerManager] Error inesperado al escuchar en el puerto %d (código %d)" % [current_port, result])
+			break # Salir en caso de otros errores
+
+	if not listen_success:
+		print("[MultiplayerManager] ERROR: No se pudo encontrar un puerto libre para LAN discovery después de %d intentos." % max_port_attempts)
 		return
 
 	var interfaces = IP.get_local_interfaces()
@@ -195,12 +229,17 @@ func _broadcast_lan_presence():
 		return
 	
 	var msg = LAN_DISCOVERY_MSG % [lan_ip, self.server_port]
-	udp_socket.set_dest_address(LAN_DISCOVERY_GROUP, LAN_DISCOVERY_PORT)
-	udp_socket.put_packet(msg.to_utf8())
+	# Usamos el socket de broadcast para enviar, no el de escucha.
+	# No es necesario que el broadcaster escuche en ningún puerto.
+	udp_broadcaster.set_dest_address(LAN_DISCOVERY_GROUP, LAN_DISCOVERY_PORT)
+	udp_broadcaster.put_packet(msg.to_utf8())
 
 func stop_lan_broadcast():
 	broadcast_timer.stop()
+	udp_broadcaster.close()
 
 func _notification(what):
 	if what == MainLoop.NOTIFICATION_WM_QUIT_REQUEST:
+		# Asegurarse de cerrar todos los sockets al salir
 		stop_lan_discovery()
+		stop_lan_broadcast()

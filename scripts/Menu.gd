@@ -41,7 +41,7 @@ func _on_Start_pressed():
 	_start_game("res://scenes/levels/act1/Criogenia.tscn")
 
 func _on_game_started():
-	_start_game("res://scenes/multiplayer/CoopLevel.tscn")
+	_start_game("res://scenes/levels/act1/Criogenia.tscn")
 
 func _start_game(scene_path):
 	var tween = Tween.new()
