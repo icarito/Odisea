@@ -11,7 +11,7 @@ func _ready() -> void:
 	connect("body_entered", self, "_on_body_entered")
 	# Instanciar DeathScreen
 	death_screen = preload("res://scenes/ui/DeathScreen.tscn").instance()
-	add_child(death_screen)
+	get_tree().get_root().add_child(death_screen)
 
 func _on_body_entered(body: Object) -> void:
 	print("KillZone: Body entered - ", body.name if body else "null")

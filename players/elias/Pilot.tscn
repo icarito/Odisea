@@ -224,7 +224,6 @@ margin = 0.4
 [node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]
 transform = Transform( 1, 1.77636e-15, -1.42109e-13, -8.88178e-16, 1, 0, 0, 0, 1, 0, 0, 0 )
 current = true
-fov = 80.0
 near = 0.1
 far = 10000.0
 
