@@ -144,11 +144,6 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/asserts/DefaultValueProvider.gd"
 }, {
-"base": "Spatial",
-"class": "DriveElement",
-"language": "GDScript",
-"path": "res://zzz_inspiration/vehicles/DriveElementController.gd"
-}, {
 "base": "GdUnitArgumentMatcher",
 "class": "EqualsArgumentMatcher",
 "language": "GDScript",
@@ -794,11 +789,6 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/fuzzers/Vector3Fuzzer.gd"
 }, {
-"base": "Spatial",
-"class": "VehicleInputController",
-"language": "GDScript",
-"path": "res://zzz_inspiration/vehicles/VehicleInputController.gd"
-}, {
 "base": "Reference",
 "class": "XmlElement",
 "language": "GDScript",
@@ -842,7 +832,6 @@ _global_script_class_icons={
 "CmdOptions": "",
 "Comparator": "",
 "DefaultValueProvider": "",
-"DriveElement": "",
 "EqualsArgumentMatcher": "",
 "ExternalVelocity": "",
 "Fuzzer": "",
@@ -972,7 +961,6 @@ _global_script_class_icons={
 "ValueProvider": "",
 "Vector2Fuzzer": "",
 "Vector3Fuzzer": "",
-"VehicleInputController": "",
 "XmlElement": "",
 "_TestCase": "",
 "_TestSuiteScanner": ""

@@ -89,6 +89,7 @@ func _deferred_spawn(initial_transform: Transform):
 		get_tree().get_root().add_child(player_reference)
 		
 	player_reference.global_transform = initial_transform
+	print("PlayerManager: Player spawned at: ", initial_transform.origin, " rotation: ", initial_transform.basis.get_euler())
 	
 	# Capture default camera angles from the prefab on the first spawn
 	_capture_default_camera_state()
