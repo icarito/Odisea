@@ -1,5 +1,6 @@
 extends Spatial
 
+
 func _ready():
 	# En modo copilot, no spawnear automáticamente; lo hace LocalMultiplayerManager
 	if GameGlobals.current_mode == GameGlobals.GAME_MODE.COPILOT:
