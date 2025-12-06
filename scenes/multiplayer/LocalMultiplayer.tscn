@@ -16,20 +16,20 @@ grow_horizontal = 2
 columns = 2
 
 [node name="VP_Container_P1" type="ViewportContainer" parent="ViewportContainer/GridContainer"]
-margin_right = 320.0
+margin_right = 318.0
 margin_bottom = 480.0
 size_flags_horizontal = 3
 size_flags_vertical = 3
 stretch = true
 
 [node name="Viewport_P1" type="Viewport" parent="ViewportContainer/GridContainer/VP_Container_P1"]
-size = Vector2( 320, 480 )
+size = Vector2( 318, 480 )
 transparent_bg = true
 handle_input_locally = false
 render_target_update_mode = 3
 
 [node name="VP_Container_P2" type="ViewportContainer" parent="ViewportContainer/GridContainer"]
-margin_left = 320.0
+margin_left = 322.0
 margin_right = 640.0
 margin_bottom = 480.0
 size_flags_horizontal = 3
@@ -37,7 +37,7 @@ size_flags_vertical = 3
 stretch = true
 
 [node name="Viewport_P2" type="Viewport" parent="ViewportContainer/GridContainer/VP_Container_P2"]
-size = Vector2( 320, 480 )
+size = Vector2( 318, 480 )
 transparent_bg = true
 handle_input_locally = false
 render_target_update_mode = 3

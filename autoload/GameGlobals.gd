@@ -20,7 +20,7 @@ var app_id: String = ""
 var is_widescreen := false
 var screen_size := Vector2.ZERO
 
-# Game mode
+## Modo de juego y screen detection centralizados aquí
 enum GAME_MODE {
 	SINGLEPLAYER,
 	COPILOT,
@@ -58,7 +58,6 @@ func set_mode(mode_str: String) -> void:
 			current_mode = GAME_MODE.NETWORKED
 		_:
 			push_warning("Modo desconocido: %s" % mode_str)
-
 	print("[GameGlobals] Modo cambiado a: %s" % mode_str)
 
 func get_mode() -> String:
@@ -85,5 +84,4 @@ func _detect_screen_info() -> void:
 	screen_size = OS.get_screen_size()
 	var aspect = float(screen_size.x) / float(screen_size.y)
 	is_widescreen = (aspect >= 1.5) # and OS.get_name() not in ["Android", "iOS"]
-
 	print("[GameGlobals] Screen: %.0fx%.0f | Widescreen: %s" % [screen_size.x, screen_size.y, is_widescreen])

@@ -31,6 +31,7 @@ var action_map = {
 
 var joypad_device := -1  # -1 = auto-detect, 0+ = específico
 var mouse_motion := Vector2.ZERO # Almacenar movimiento relativo del mouse
+var networked_inputs = {}
 var _last_log_time := {
 	"vector": 0.0,
 	"sprint": 0.0,
@@ -64,7 +65,7 @@ func _can_log(type: String) -> bool:
 		return true
 	return false
 
-func get_input_vector() -> Vector2:
+func get_input_vector_LEGACY() -> Vector2:
 	"""Obtener vector de movimiento (normalizado)."""
 	var actions = action_map[player_id]
 	# Corregir orden para coincidir con la implementación de single-player (left-right, forward-backward)
@@ -73,7 +74,7 @@ func get_input_vector() -> Vector2:
 		print("[PlayerInput P%d] get_input_vector: %s" % [player_id, vector])
 	return vector
 
-func is_sprint_pressed() -> bool:
+func is_sprint_pressed_LEGACY() -> bool:
 	"""Detectar si jugador presionó sprint."""
 	var actions = action_map[player_id]
 	var pressed = Input.is_action_pressed(actions["sprint"])
@@ -94,3 +95,41 @@ func get_mouse_motion() -> Vector2:
 	var motion = mouse_motion
 	mouse_motion = Vector2.ZERO
 	return motion
+
+func set_inputs(inputs):
+	networked_inputs = inputs
+
+func get_input_vector() -> Vector2:
+	if networked_inputs:
+		var vector = Vector2.ZERO
+		if networked_inputs.get("right"): vector.x += 1
+		if networked_inputs.get("left"): vector.x -= 1
+		if networked_inputs.get("backward"): vector.y += 1
+		if networked_inputs.get("forward"): vector.y -= 1
+		return vector.normalized()
+
+	var actions = action_map[player_id]
+	var vector = Input.get_vector(actions["right"], actions["left"], actions["backward"], actions["forward"])
+	if debug_input and vector.length() > 0.01 and _can_log("vector"):
+		print("[PlayerInput P%d] get_input_vector: %s" % [player_id, vector])
+	return vector
+
+func is_sprint_pressed() -> bool:
+	if networked_inputs:
+		return networked_inputs.get("sprint", false)
+
+	var actions = action_map[player_id]
+	var pressed = Input.is_action_pressed(actions["sprint"])
+	if debug_input and pressed and _can_log("sprint"):
+		print("[PlayerInput P%d] is_sprint_pressed: %s" % [player_id, pressed])
+	return pressed
+
+func just_jumped_LEGACY() -> bool:
+	if networked_inputs:
+		return networked_inputs.get("jump", false)
+
+	var actions = action_map[player_id]
+	var jumped = Input.is_action_just_pressed(actions["jump"])
+	if debug_input and jumped and _can_log("jump"):
+		print("[PlayerInput P%d] just_jumped: %s" % [player_id, jumped])
+	return jumped

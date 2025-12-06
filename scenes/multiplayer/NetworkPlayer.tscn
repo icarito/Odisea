@@ -1,0 +1,258 @@
+[gd_scene load_steps=46 format=2]
+
+[ext_resource path="res://scripts/multiplayer/NetworkPlayer.gd" type="Script" id=1]
+[ext_resource path="res://scripts/PlayerSpringCam.gd" type="Script" id=2]
+[ext_resource path="res://players/elias/Pilot_asset.tscn" type="PackedScene" id=3]
+[ext_resource path="res://scripts/AnimationLoopFix.gd" type="Script" id=4]
+[ext_resource path="res://materials/shadow/FakeShadow.tres" type="Material" id=52]
+[ext_resource path="res://scripts/PlayerMovement.gd" type="Script" id=53]
+[ext_resource path="res://scripts/multiplayer/PlayerInput.gd" type="Script" id=65]
+
+[sub_resource type="CapsuleShape" id=48]
+radius = 0.3047
+height = 1.20199
+
+[sub_resource type="AnimationNodeAnimation" id=17]
+animation = "Dance_Loop"
+
+[sub_resource type="AnimationNodeAnimation" id=18]
+animation = "Spell_Simple_Shoot"
+
+[sub_resource type="AnimationNodeAnimation" id=19]
+animation = "BigAttack"
+
+[sub_resource type="AnimationNodeAnimation" id=20]
+animation = "Idle"
+
+[sub_resource type="AnimationNodeAnimation" id=21]
+animation = "Jump_Start"
+
+[sub_resource type="AnimationNodeAnimation" id=22]
+animation = "Roll"
+
+[sub_resource type="AnimationNodeAnimation" id=23]
+animation = "Run"
+
+[sub_resource type="AnimationNodeAnimation" id=55]
+animation = "Swim_Idle_Loop"
+
+[sub_resource type="AnimationNodeAnimation" id=24]
+animation = "Walk_Loop"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=25]
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=26]
+switch_mode = 2
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=27]
+advance_condition = "IsWalking"
+xfade_time = 0.1
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=28]
+advance_condition = "IsRunning"
+xfade_time = 0.1
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=31]
+advance_condition = "IsNotRunning"
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=32]
+advance_condition = "IsNotWalking"
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=37]
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=38]
+switch_mode = 2
+advance_condition = "IsOnFloor"
+xfade_time = 0.1
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=39]
+switch_mode = 2
+advance_condition = "IsRunning"
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=40]
+switch_mode = 2
+advance_condition = "IsNotMoving"
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=41]
+switch_mode = 2
+auto_advance = true
+advance_condition = "IsOnFloor"
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=42]
+advance_condition = "IsInAir"
+xfade_time = 0.1
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=43]
+advance_condition = "IsOnFloor"
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=44]
+advance_condition = "IsInAir"
+xfade_time = 0.1
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=45]
+advance_condition = "IsInAir"
+xfade_time = 0.1
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=46]
+switch_mode = 2
+advance_condition = "IsOnFloor"
+xfade_time = 0.1
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=47]
+switch_mode = 2
+advance_condition = "IsOnFloor"
+xfade_time = 0.1
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=56]
+advance_condition = "!IsFloating"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=57]
+advance_condition = "IsFloating"
+xfade_time = 2.0
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=58]
+switch_mode = 2
+advance_condition = "IsFloating"
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=59]
+switch_mode = 2
+advance_condition = "IsFloating"
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=63]
+switch_mode = 2
+advance_condition = "IsFloating"
+xfade_time = 0.5
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=64]
+advance_condition = "IsOnFloor"
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachine" id=49]
+states/Attack1/node = SubResource( 17 )
+states/Attack1/position = Vector2( 359, -12 )
+states/Attack2/node = SubResource( 18 )
+states/Attack2/position = Vector2( 170, -12 )
+states/BigAttack/node = SubResource( 19 )
+states/BigAttack/position = Vector2( 573, -12 )
+states/Idle/node = SubResource( 20 )
+states/Idle/position = Vector2( 351, 218.6 )
+states/Jump/node = SubResource( 21 )
+states/Jump/position = Vector2( 901.76, 429.4 )
+states/Roll/node = SubResource( 22 )
+states/Roll/position = Vector2( 560, 111 )
+states/Run/node = SubResource( 23 )
+states/Run/position = Vector2( 804.52, 197.8 )
+states/Swim_Idle_Loop/node = SubResource( 55 )
+states/Swim_Idle_Loop/position = Vector2( 309.6, 375.043 )
+states/Walk/node = SubResource( 24 )
+states/Walk/position = Vector2( 560, 213 )
+transitions = [ "Idle", "Attack1", SubResource( 25 ), "Attack1", "Attack2", SubResource( 26 ), "Idle", "Walk", SubResource( 27 ), "Walk", "Run", SubResource( 28 ), "Run", "Walk", SubResource( 31 ), "Walk", "Idle", SubResource( 32 ), "Run", "BigAttack", SubResource( 37 ), "BigAttack", "Idle", SubResource( 38 ), "Roll", "Run", SubResource( 39 ), "Roll", "Idle", SubResource( 40 ), "Roll", "Walk", SubResource( 41 ), "Walk", "Jump", SubResource( 42 ), "Jump", "Walk", SubResource( 43 ), "Run", "Jump", SubResource( 44 ), "Idle", "Jump", SubResource( 45 ), "Attack1", "Idle", SubResource( 46 ), "Attack2", "Idle", SubResource( 47 ), "Swim_Idle_Loop", "Jump", SubResource( 56 ), "Idle", "Swim_Idle_Loop", SubResource( 57 ), "Walk", "Swim_Idle_Loop", SubResource( 58 ), "Run", "Swim_Idle_Loop", SubResource( 59 ), "Jump", "Swim_Idle_Loop", SubResource( 63 ), "Swim_Idle_Loop", "Walk", SubResource( 64 ) ]
+start_node = "Idle"
+end_node = "Idle"
+graph_offset = Vector2( -1, 124.741 )
+
+[sub_resource type="AnimationNodeStateMachinePlayback" id=50]
+
+[sub_resource type="SpatialMaterial" id=54]
+albedo_color = Color( 0, 0, 0, 1 )
+
+[sub_resource type="QuadMesh" id=53]
+material = SubResource( 54 )
+
+[node name="NetworkPlayer" type="KinematicBody"]
+collision_mask = 254
+script = ExtResource( 1 )
+PlayerAnimationTree = NodePath("AnimationTree")
+PlayerCharacterMesh = NodePath("PilotMesh")
+gravity = 9.0
+jump_force = 12
+max_platform_up_follow = 30.0
+tank_turn_speed = 2.0
+advancing_turn_speed = 3.7
+mouse_aim_sensitivity = 0.01
+cam_yaw_offset = 0.76
+
+[node name="PlayerInput" type="Node" parent="."]
+script = ExtResource( 65 )
+debug_input = false
+
+[node name="PlayerMovement" type="Node" parent="."]
+script = ExtResource( 53 )
+
+[node name="CollisionShape" type="CollisionShape" parent="."]
+transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
+shape = SubResource( 48 )
+
+[node name="CameraRig" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
+script = ExtResource( 2 )
+player_path = NodePath("..")
+yaw_path = NodePath("Yaw")
+pitch_path = NodePath("Yaw/Pitch")
+springarm_path = NodePath("Yaw/Pitch/SpringArm")
+camera_path = NodePath("Yaw/Pitch/SpringArm/Camera")
+pitch_limit_deg = 45.0
+
+[node name="Yaw" type="Spatial" parent="CameraRig"]
+
+[node name="Pitch" type="Spatial" parent="CameraRig/Yaw"]
+transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866, 0, 1.41498, 0 )
+
+[node name="SpringArm" type="SpringArm" parent="CameraRig/Yaw/Pitch"]
+transform = Transform( -1, 0, -1.50996e-07, -8.88178e-16, 1, 0, 1.50996e-07, 0, -1, 0, 0, 0.0463709 )
+collision_mask = 6
+spring_length = 3.8
+
+[node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]
+current = true
+fov = 80.0
+near = 0.1
+far = 10000.0
+
+[node name="AnimationTree" type="AnimationTree" parent="."]
+tree_root = SubResource( 49 )
+anim_player = NodePath("../PilotMesh/AnimationPlayer")
+active = true
+process_mode = 0
+parameters/playback = SubResource( 50 )
+parameters/conditions/!IsFloating = false
+parameters/conditions/IsFloating = false
+parameters/conditions/IsInAir = false
+parameters/conditions/IsNotMoving = false
+parameters/conditions/IsNotRunning = false
+parameters/conditions/IsNotWalking = false
+parameters/conditions/IsOnFloor = true
+parameters/conditions/IsRunning = false
+parameters/conditions/IsWalking = false
+script = ExtResource( 4 )
+
+[node name="PilotMesh" parent="." instance=ExtResource( 3 )]
+
+[node name="FakeShadow" type="MeshInstance" parent="PilotMesh"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0.02, 0 )
+cast_shadow = 0
+mesh = SubResource( 53 )
+material/0 = ExtResource( 52 )
+
+[node name="OmniLight" type="OmniLight" parent="PilotMesh"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 2, 0 )
+light_energy = 0.5
+light_indirect_energy = 1.952
+omni_range = 11.041
+
+[node name="GroundRay" type="RayCast" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
+enabled = true
+cast_to = Vector3( 0, -10, 0 )
+collision_mask = 1048575
