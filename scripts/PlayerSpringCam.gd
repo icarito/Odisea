@@ -160,3 +160,6 @@ func sync_to_body_yaw(body_yaw: float, offset: float) -> void:
 		var y := body_yaw + offset
 		yaw.rotation.y = y
 		target_yaw = y
+	if pitch:
+		pitch.rotation.x = 0.0
+		target_pitch = 0.0
