@@ -72,9 +72,6 @@ push_velocity = Vector3( -3, 0, 0 )
 debug = false
 stripe_tiling = 40.0
 
-[node name="SpawnPoint" type="Spatial" parent="BaseFloor"]
-transform = Transform( 1, 0, 0, 0, 0.998489, -0.0549502, 0, 0.0549502, 0.998489, -138.768, 2, 0 )
-
 [node name="EnvironmentEffects" parent="." instance=ExtResource( 7 )]
 
 [node name="SDE" parent="." instance=ExtResource( 1 )]
@@ -143,6 +140,12 @@ skeleton = NodePath("")
 
 [node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/Platform/Pilar3/StaticBody"]
 shape = SubResource( 5 )
+
+[node name="SpawnPoint" type="Spatial" parent="PuzzleZone/Platform/Pilar3"]
+transform = Transform( 1, 0, 0, 0, 0.998489, -0.0549502, 0, 0.0549502, 0.998489, -4.4282, 2.36505, 0 )
+
+[node name="SpawnPoint2" type="Spatial" parent="PuzzleZone/Platform/Pilar3"]
+transform = Transform( 1, 0, 0, 0, 0.998489, -0.0549502, 0, 0.0549502, 0.998489, -4.4282, 2.36505, 0 )
 
 [node name="Pilar2" type="MeshInstance" parent="PuzzleZone/Platform"]
 transform = Transform( 0.999999, 0, 0, 0, 0.999999, 0, 0, 0, 0.999999, -43.4282, 3.04343, 33.2603 )
