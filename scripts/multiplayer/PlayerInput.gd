@@ -65,7 +65,7 @@ func _can_log(type: String) -> bool:
 		return true
 	return false
 
-func get_input_vector() -> Vector2:
+func get_input_vector_LEGACY() -> Vector2:
 	"""Obtener vector de movimiento (normalizado)."""
 	var actions = action_map[player_id]
 	# Corregir orden para coincidir con la implementación de single-player (left-right, forward-backward)
@@ -74,7 +74,7 @@ func get_input_vector() -> Vector2:
 		print("[PlayerInput P%d] get_input_vector: %s" % [player_id, vector])
 	return vector
 
-func is_sprint_pressed() -> bool:
+func is_sprint_pressed_LEGACY() -> bool:
 	"""Detectar si jugador presionó sprint."""
 	var actions = action_map[player_id]
 	var pressed = Input.is_action_pressed(actions["sprint"])
@@ -124,7 +124,7 @@ func is_sprint_pressed() -> bool:
 		print("[PlayerInput P%d] is_sprint_pressed: %s" % [player_id, pressed])
 	return pressed
 
-func just_jumped() -> bool:
+func just_jumped_LEGACY() -> bool:
 	if networked_inputs:
 		return networked_inputs.get("jump", false)
 
