@@ -992,7 +992,7 @@ window/size/width=640
 window/size/height=480
 window/size/fullscreen=true
 window/stretch/mode="viewport"
-window/stretch/aspect="expand"
+window/stretch/aspect="keep_height"
 
 [editor_plugins]
 
