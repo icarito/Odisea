@@ -136,3 +136,7 @@ func get_mouse_motion() -> Vector2:
 	var motion = mouse_motion
 	mouse_motion = Vector2.ZERO
 	return motion
+
+func reset_mouse_motion() -> void:
+	"""Resetea el movimiento del mouse acumulado. Útil para respawns."""
+	mouse_motion = Vector2.ZERO

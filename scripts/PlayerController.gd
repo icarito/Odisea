@@ -639,54 +639,37 @@ func _physics_process(delta):
 				" fall_no_jump=" + String(falling_without_jump) +
 				" no_input_ok=" + String(no_input_ok))
 
-func respawn_at_spawnpoint() -> void:
-	"""
-	Busca el SpawnPoint en la escena actual y mueve al jugador allí.
-	También resetea las velocidades para evitar movimiento residual.
-	"""
-	var spawn_point = get_tree().current_scene.find_node("SpawnPoint", true, false)
-	if spawn_point:
-		global_transform = spawn_point.global_transform
-		print_debug_tag("Respawn", "[Respawn] Moviendo jugador a SpawnPoint: " + String(spawn_point.global_transform.origin))
-	else:
-		# Fallback si no se encuentra SpawnPoint
-		global_transform.origin = Vector3.ZERO
-		push_warning("[Respawn] No se encontró 'SpawnPoint' en la escena. Respawneando en el origen.")
-
-	# Resetear estado de movimiento
-	vertical_velocity = Vector3.ZERO
-	horizontal_velocity = Vector3.ZERO
-	platform_velocity = Vector3.ZERO
-
 # Respawn-safe reset of transient movement state
-func reset_state_for_respawn():
+func reset_state_for_respawn(new_transform: Transform) -> void:
+	"""
+	Resetea completamente el estado del jugador para un respawn.
+	Establece la nueva posición/rotación y limpia todas las velocidades,
+	estados de acción y inputs residuales.
+	"""
+	# 1. Establecer nueva posición y orientación
+	global_transform = new_transform
+
+	# 2. Resetear orientación de la cámara
+	var cam_rig = get_node_or_null("CameraRig")
+	if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
+		# El yaw de la cámara debe alinearse con la nueva rotación del cuerpo
+		cam_rig.sync_to_body_yaw(new_transform.basis.get_euler().y, cam_rig.cam_yaw_offset)
+
+	# 3. Resetear input residual del mouse
+	if is_instance_valid(player_input) and player_input.has_method("reset_mouse_motion"):
+		player_input.reset_mouse_motion()
+
+	# 4. Resetear velocidades y estado de movimiento
 	if has_node("GroundRay"):
 		$GroundRay.force_raycast_update()
-	# Zero transient velocities and external inputs
-	if "horizontal_velocity" in self:
-		horizontal_velocity = Vector3.ZERO
-	if "vertical_velocity" in self:
-		vertical_velocity = Vector3.ZERO
-	if "platform_velocity" in self:
-		platform_velocity = Vector3.ZERO
-	if "last_platform_velocity" in self:
-		last_platform_velocity = Vector3.ZERO
-	
-	# Clear action flags
-	if "is_rolling" in self:
-		is_rolling = false
-	if "is_attacking" in self:
-		is_attacking = false
-	""" 
-	TODO: CONFIRM UNEEDED?
-	# Ensure AnimationTree reflects grounded state next frame
-	if has_node("AnimationTree"):
-		var at = $PilotMesh/AnimationTree
-		
-		if at.has_parameter("conditions/IsOnFloor"):
-			at.set("parameters/conditions/IsOnFloor", is_on_floor())
-		if at.has_parameter("conditions/IsInAir"):
-			at.set("parameters/conditions/IsInAir", !is_on_floor())
-		if at.has_parameter("conditions/IsFloating"):
-			at.set("parameters/conditions/IsFloating", false)
-	"""
+	horizontal_velocity = Vector3.ZERO
+	vertical_velocity = Vector3.ZERO
+	platform_velocity = Vector3.ZERO
+	last_platform_velocity = Vector3.ZERO
+	airborne_inherited = Vector3.ZERO
+
+	# 5. Limpiar flags de acción
+	is_rolling = false
+	is_attacking = false
+	just_jumped = false
+	snap_enabled = true

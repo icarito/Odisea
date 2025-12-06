@@ -33,24 +33,30 @@ func damage_player(amount: int) -> void:
 		emit_signal("player_died")
 		respawn_player() # Or whatever the desired logic is on death
 
+func kill_player_instant() -> void:
+	"""Maneja la muerte instantánea por zonas de kill (ej. KillZone), sin afectar salud."""
+	print("Kill player instant called")
+	if player_reference:
+		player_reference.set_physics_process(false)
+	emit_signal("player_died")
+	# No llamar respawn_player() aquí; esperar señal de respawn
+
 func respawn_player() -> void:
 	if not is_spawned():
 		spawn(_initial_spawn_transform)
 		return
 
 	var target_transform := _initial_spawn_transform
-	if respawn_point != null:
-		target_transform = respawn_point
-
-	player_reference.global_transform = target_transform
-
-	# Reset camera state on respawn
-	_reset_camera_state()
 
 	# Reset player's internal state (e.g., velocity)
+	# Esta función ahora se encarga de TODO: posición, cámara y estado interno.
 	if player_reference and player_reference.has_method("reset_state_for_respawn"):
-		player_reference.reset_state_for_respawn()
+		# Pasamos el transform para que el player se encargue de todo.
+		_reset_camera_state()
+		player_reference.reset_state_for_respawn(target_transform)
 
+	# Reactivamos las físicas después de que el estado ha sido reseteado.
+	player_reference.set_physics_process(true)
 	emit_signal("player_respawned")
 
 func set_respawn_point(new_respawn_point: Transform) -> void:
