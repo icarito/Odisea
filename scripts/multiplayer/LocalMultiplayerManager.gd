@@ -12,6 +12,7 @@ var player1: Node
 var player2: Node
 var camera_p1: Camera
 var camera_p2: Camera
+var camera_p2_proxy: Camera # Cámara proxy para el viewport del Jugador 2
 
 # ===== CONFIG =====
 export var level_scene_path := "res://scenes/levels/act1/Criogenia.tscn"
@@ -31,6 +32,7 @@ func _ready() -> void:
 	print("[LocalMultiplayerManager] Inicializando split-screen...")
 
 	_setup_viewports()
+	# El nivel y los jugadores se configuran en las siguientes funciones
 	_setup_level()
 	_setup_players()
 	_setup_cameras()
@@ -41,6 +43,13 @@ func _ready() -> void:
 	var fps_label = Label.new()
 	fps_label.name = "FPSLabel"
 	add_child(fps_label)
+
+func _process(_delta: float) -> void:
+	# Sincronizar la cámara proxy del Jugador 2 con la cámara real en cada frame.
+	# Esto es necesario porque la cámara real está en el árbol de escena de viewport_p1,
+	# pero necesitamos que viewport_p2 renderice desde su perspectiva.
+	if is_running and camera_p2 and camera_p2_proxy:
+		camera_p2_proxy.global_transform = camera_p2.global_transform
 
 func _setup_viewports() -> void:
 	"""Configurar viewports para split-screen."""
@@ -101,18 +110,13 @@ func _setup_players() -> void:
 	if player1.has_method("set_player_id"):
 		player1.set_player_id(1)
 
-	var input1 = player1.get_node_or_null("PlayerInput")
-	if input1:
-		input1.player_id = 1
-		input1.initialize()
-	else:
-		push_error("Player 1 is missing PlayerInput node!")
-
-
 	# Player 2 (derecha)
 	player2 = player_res.instance()
 	player2.name = "Player_2"
-	viewport_p2.add_child(player2)
+	# CRÍTICO: Añadir P2 al viewport de P1 para que ambos existan en el mismo World.
+	# El viewport_p2 solo se usará para renderizar la vista de la cámara de P2,
+	# pero el nodo del jugador debe vivir en el mundo principal.
+	viewport_p1.add_child(player2)
 	
 	# Posicionar en SpawnPoint2 si existe
 	var spawn_p2 = level.get_node_or_null("SpawnPoint2")
@@ -127,13 +131,7 @@ func _setup_players() -> void:
 	if player2.has_method("set_player_id"):
 		player2.set_player_id(2)
 
-	var input2 = player2.get_node_or_null("PlayerInput")
-	if input2:
-		input2.player_id = 2
-		input2.initialize()
-	else:
-		push_error("Player 2 is missing PlayerInput node!")
-
+	_configure_player_inputs()
 	# Cambiar color del Player 2: usar path exacto y asignar a material/0
 	var mesh_instance = player2.get_node_or_null("PilotMesh/Node_40/Skinned_Mesh_0/Skeleton/Mesh_0001")
 	if mesh_instance and mesh_instance is MeshInstance:
@@ -144,6 +142,42 @@ func _setup_players() -> void:
 		mesh_instance.set_surface_material(0, mat)
 
 	print("[LocalMultiplayerManager] Jugadores instanciados")
+
+func _configure_player_inputs():
+	"""Detecta dispositivos y asigna la configuración de input a cada jugador."""
+	var joypads = Input.get_connected_joypads()
+	var joy_count = joypads.size()
+	
+	var input1 = player1.get_node_or_null("PlayerInput")
+	var input2 = player2.get_node_or_null("PlayerInput")
+
+	if not input1 or not input2:
+		push_error("Falta el nodo PlayerInput en uno de los jugadores.")
+		return
+
+	# Asignar IDs de jugador
+	input1.player_id = 1
+	input2.player_id = 2
+
+	if joy_count == 0:
+		# --- Caso 0 Joysticks: Ambos usan teclado ---
+		print("[LocalMultiplayerManager] No se detectaron joysticks. Ambos jugadores usarán teclado.")
+		input1.initialize( true, 0 )
+		input2.initialize( false, -1 ) # Deshabilitar joystick para P2
+		
+	elif joy_count == 1:
+		# --- Caso especial: 1 Joystick + Teclado/Mouse ---
+		print("[LocalMultiplayerManager] Detectado 1 joystick. P1 -> KB/Mouse, P2 -> Joy 0")
+		# Player 1: Usa teclado y mouse, no fuerza ningún joystick.
+		input1.initialize( true, -1 ) # -1 para deshabilitar joystick
+		input2.initialize( false, 0)
+	else:
+		# --- Caso estándar: 2+ Joysticks ---
+		print("[LocalMultiplayerManager] Detectados %d joysticks. P1 -> Joy 0, P2 -> Joy 1" % joy_count)
+		input1.initialize( true, 0 )
+		input2.initialize( false, 1 )
+
+
 
 func _setup_cameras() -> void:
 	"""Asignar cámaras existentes de los jugadores a sus viewports."""
@@ -157,7 +191,20 @@ func _setup_cameras() -> void:
 	# Camera P2
 	camera_p2 = player2.get_node_or_null("CameraRig/Yaw/Pitch/SpringArm/Camera")
 	if camera_p2:
-		camera_p2.current = true
+		# Creamos una cámara "proxy" que vivirá dentro del viewport_p2.
+		camera_p2_proxy = Camera.new()
+		camera_p2_proxy.name = "Camera_P2_Proxy"
+		
+		# CRÍTICO: Copiar las propiedades de la cámara original a la proxy.
+		# Esto asegura que el FOV, el clipping (near/far), etc., sean idénticos.
+		camera_p2_proxy.fov = camera_p2.fov
+		camera_p2_proxy.near = camera_p2.near
+		camera_p2_proxy.far = camera_p2.far
+		camera_p2_proxy.cull_mask = camera_p2.cull_mask
+		
+		# La hacemos la cámara activa para el viewport_p2.
+		camera_p2_proxy.current = true
+		viewport_p2.add_child(camera_p2_proxy)
 	else:
 		push_error("Player 2 is missing its camera at 'CameraRig/Yaw/Pitch/SpringArm/Camera'")
 

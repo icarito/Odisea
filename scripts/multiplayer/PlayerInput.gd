@@ -5,6 +5,7 @@ extends Node
 class_name PlayerInput
 
 # ===== CONFIG =====
+export var use_mouse_input := true
 export var player_id := 1  # 1 o 2
 export var analog_sprint_threshold := 0.9
 export var debug_input := true
@@ -41,24 +42,25 @@ var _last_joy_vector := Vector2.ZERO
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if player_id == 1 and event is InputEventMouseMotion:
+	if use_mouse_input and event is InputEventMouseMotion:
 		mouse_motion += event.relative
 		if debug_input and mouse_motion.length_squared() > 0 and _can_log("mouse"):
 			print("[PlayerInput P%d] mouse_motion: %s" % [player_id, mouse_motion])
 
-func initialize() -> void:
+func initialize(p_use_mouse_input: bool, p_joypad_device: int) -> void:
 	"""
 	Inicializa el nodo de input. Debe ser llamado explícitamente desde el
 	manager que lo crea, después de haber asignado el player_id.
 	"""
+	self.use_mouse_input = p_use_mouse_input
+	self.joypad_device = p_joypad_device
+
 	if player_id < 1 or player_id > 2:
 		push_error("[PlayerInput] player_id inválido: %d" % player_id)
 		return
 
-	# Asignar dispositivo de joypad basado en player_id (0-indexed)
-	joypad_device = player_id - 1
 	if debug_input:
-		print("[PlayerInput] Inicializado para Player %d. Asignado joypad_device: %d" % [player_id, joypad_device])
+		print("[PlayerInput] Inicializado para Player %d. Asignado joypad_device: %d" % [player_id, self.joypad_device])
 
 func _can_log(type: String) -> bool:
 	var now = OS.get_ticks_msec() / 1000.0
@@ -74,10 +76,14 @@ func get_input_vector() -> Vector2:
 	# Input de teclado
 	var keyboard_vector = Input.get_vector(actions["right"], actions["left"], actions["backward"], actions["forward"])
 	
-	# Input de Joystick (eje izquierdo)
-	var joy_x = -Input.get_joy_axis(joypad_device, JOY_AXIS_0) # Eje X izquierdo
-	var joy_y = -Input.get_joy_axis(joypad_device, JOY_AXIS_1) # Eje Y izquierdo
-	var joy_vector = Vector2(joy_x, joy_y)
+	var joy_vector := Vector2.ZERO
+	# Solo leer el joystick si el dispositivo no está explícitamente deshabilitado (-1)
+	if joypad_device != -1:
+		# Input de Joystick (eje izquierdo)
+		var joy_x = -Input.get_joy_axis(joypad_device, JOY_AXIS_0) # Eje X izquierdo
+		var joy_y = -Input.get_joy_axis(joypad_device, JOY_AXIS_1) # Eje Y izquierdo
+		joy_vector = Vector2(joy_x, joy_y)
+
 	_last_joy_vector = joy_vector # Guardar para la lógica de sprint
 
 	# Combinar: dar prioridad al que tenga mayor magnitud

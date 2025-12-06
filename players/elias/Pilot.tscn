@@ -178,6 +178,9 @@ PlayerCharacterMesh = NodePath("PilotMesh")
 gravity = 9.0
 jump_force = 12
 max_platform_up_follow = 30.0
+debug_movement = true
+debug_input = true
+debug_enabled = true
 tank_turn_speed = 2.0
 advancing_turn_speed = 3.7
 mouse_aim_sensitivity = 0.01
@@ -186,7 +189,6 @@ debug_interval = 1.12
 
 [node name="PlayerInput" type="Node" parent="."]
 script = ExtResource( 65 )
-debug_input = false
 
 [node name="PlayerMovement" type="Node" parent="."]
 script = ExtResource( 53 )
