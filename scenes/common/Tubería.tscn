@@ -6,8 +6,9 @@
 [node name="Spatial" type="Spatial"]
 
 [node name="WindZone" parent="." instance=ExtResource( 3 )]
-transform = Transform( 5, 0, 0, 0, 34.526, 0, 0, 0, 5, 0, 0, 0 )
+transform = Transform( 8.67509, 0, 0, 0, 34.526, 0, 0, 0, 8.67509, 0, 0, 0 )
 lift = 20.0
+max_speed_along_wind = 30.0
 
 [node name="CSGCombiner" type="CSGCombiner" parent="."]
 transform = Transform( 3, 0, 0, 0, 34.5256, 0, 0, 0, 3, 0, 0, 0 )
