@@ -46,17 +46,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		if debug_input and mouse_motion.length_squared() > 0 and _can_log("mouse"):
 			print("[PlayerInput P%d] mouse_motion: %s" % [player_id, mouse_motion])
 
-func _ready() -> void:
-	"""Inicializar input."""
+func initialize() -> void:
+	"""
+	Inicializa el nodo de input. Debe ser llamado explícitamente desde el
+	manager que lo crea, después de haber asignado el player_id.
+	"""
 	if player_id < 1 or player_id > 2:
 		push_error("[PlayerInput] player_id inválido: %d" % player_id)
 		return
 
 	# Asignar dispositivo de joypad basado en player_id (0-indexed)
 	joypad_device = player_id - 1
-
 	if debug_input:
-		print("[PlayerInput] Inicializado para Player %d" % player_id)
+		print("[PlayerInput] Inicializado para Player %d. Asignado joypad_device: %d" % [player_id, joypad_device])
 
 func _can_log(type: String) -> bool:
 	var now = OS.get_ticks_msec() / 1000.0
