@@ -1,0 +1,30 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=1]
+[ext_resource path="res://scenes/common/Odisea.tscn" type="PackedScene" id=3]
+
+[node name="Exterior" type="Spatial"]
+
+[node name="SDE Odisea" parent="." instance=ExtResource( 3 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.00336, 0, -1.07038 )
+
+[node name="MainLightA" parent="SDE Odisea" index="1"]
+visible = false
+
+[node name="MainLightB" parent="SDE Odisea" index="2"]
+visible = false
+
+[node name="MainLightC" parent="SDE Odisea" index="3"]
+visible = false
+
+[node name="MainLightD" parent="SDE Odisea" index="4"]
+visible = false
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 1 )
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 0.855017, -0.195716, 0.480251, 0.090921, 0.968282, 0.23273, -0.510567, -0.155323, 0.845692, 3085.38, 2148.15, 5289.28 )
+far = 10000.0
+
+[editable path="SDE Odisea"]

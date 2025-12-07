@@ -7,6 +7,7 @@ func _ready():
 		return
 	
 	var spawn := find_node("SpawnPoint")
+	
 	if spawn:
 		if typeof(PlayerManager) != TYPE_NIL:
 			if PlayerManager.is_spawned():

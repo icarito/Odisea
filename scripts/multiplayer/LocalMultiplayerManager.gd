@@ -217,7 +217,8 @@ func _setup_cameras() -> void:
 		camera_p2_proxy.near = camera_p2.near
 		camera_p2_proxy.far = camera_p2.far
 		camera_p2_proxy.cull_mask = camera_p2.cull_mask
-		
+		# Asegurar que use el environment global y clear_mode SKY
+		camera_p2_proxy.environment = null
 		# La hacemos la cámara activa para el viewport_p2.
 		camera_p2_proxy.current = true
 		viewport_p2.add_child(camera_p2_proxy)
