@@ -207,8 +207,9 @@ yaw_sensitivity = 0.66
 pitch_sensitivity = 0.54
 pitch_limit_up_deg = 45.0
 pitch_limit_down_deg = 35.0
-base_length = 2.0
-zoom_speed = 5.0
+base_length = 3.0
+max_length = 10.0
+zoom_speed = 2.0
 crop_margin_horizontal = 0.2
 crop_margin_vertical = 0.1
 
@@ -224,7 +225,7 @@ spring_length = 3.0
 margin = 0.4
 
 [node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]
-transform = Transform( 1, -3.90799e-14, 7.10543e-14, 0, 1, 0, -1.42109e-14, 0, 1, 0, 0, 0 )
+transform = Transform( 1, -3.90799e-14, 8.52651e-14, 0, 1, 1.49012e-08, -1.42109e-14, -1.49012e-08, 1, 0, 0, 0 )
 current = true
 fov = 120.0
 near = 0.1
@@ -255,14 +256,18 @@ cast_shadow = 0
 mesh = SubResource( 53 )
 material/0 = ExtResource( 52 )
 
-[node name="OmniLight" type="OmniLight" parent="PilotMesh"]
-transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 2.50192, 0 )
-light_energy = 0.5
-light_indirect_energy = 1.952
-omni_range = 11.041
-
 [node name="GroundRay" type="RayCast" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 enabled = true
 cast_to = Vector3( 0, -10, 0 )
 collision_mask = 1048575
+
+[node name="OmniLight" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 2.3807, 0 )
+visible = false
+light_energy = 0.2
+light_indirect_energy = 0.5
+light_specular = 0.0
+light_bake_mode = 0
+omni_range = 200.0
+omni_attenuation = 2.0

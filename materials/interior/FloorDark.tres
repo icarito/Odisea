@@ -1,7 +1,10 @@
-[gd_resource type="SpatialMaterial" format=2]
+[gd_resource type="SpatialMaterial" load_steps=2 format=2]
+
+[ext_resource path="res://addons/kenney_prototype_textures/dark/texture_02.png" type="Texture" id=1]
 
 [resource]
 params_cull_mode = 2
-albedo_color = Color( 0.08, 0.08, 0.08, 1 )
+albedo_texture = ExtResource( 1 )
 metallic = 0.1
 roughness = 0.9
+uv1_scale = Vector3( 20, 20, 20 )

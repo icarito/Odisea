@@ -1,11 +1,15 @@
 # AGENTS.md — Guía de orientación para agentes (Odisea: El Arca Silenciosa)
 
 Notas:
-- GODOT_BIN: godot3-bin 
-- Si el usuario te alcanza logs seguramente es que último intento falló y desea que intentes de nuevo.
-- Recuerda que en GDScript los ternarios son como en Python no como en JS.
-- Debes declarar variables con `=` en lugar de tiparlas explícitamente `:=`. Esto no es Pascal.
-- Cuando exportes variables para el Inspector, añade descripciones claras usando `@export_range`, `@export_category`, y encabezados `@export_group("Debug")` (de acuerdo al contexto).
+## Godot 3.6 TSCN Tips
+- Logs → último intento falló, reintenta.
+- GDScript ternarios: `x if cond else y`.
+- Declara variables con `=`, no `:=`.
+- Color en .tscn = RGBA (0–1).
+- load_steps = 1 ext_resource + # sub_resources, ajusta o "!int_resources.has(index)".
+- No edites .tscn manual; borra `.import/` y reimporta (F5).
+- Test sin GUI: `godot --headless --export-debug`.
+- "export" no "@export".
 
 ## 1) En una frase
 Odisea (MVP) es un juego 3D en Godot 3.6 (GLES2): tercera persona + plataformas con plataformas móviles/conveyor, cámara suave, y narrativa ligera por diálogos JSON; primera entrega jugable: Acto I "Criogenia" como nivel continuo.
