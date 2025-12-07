@@ -32,6 +32,9 @@ var action_map = {
 	}
 }
 
+var vtc_action_map = {
+	"jump": "vtc_jump"
+}
 var joypad_device := 0  # 0 para P1, 1 para P2
 var mouse_motion := Vector2.ZERO # Almacenar movimiento relativo del mouse
 var _last_log_time := {
@@ -42,6 +45,11 @@ var _last_log_time := {
 }
 var _last_joy_vector := Vector2.ZERO
 var _joy_jump_just_pressed := false
+
+var joystick
+
+func _ready():
+	joystick = UIManager.joystick
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -87,6 +95,11 @@ func get_input_vector() -> Vector2:
 	# Input de teclado
 	var keyboard_vector = Input.get_vector(actions["right"], actions["left"], actions["backward"], actions["forward"])
 	
+	# Input de VTC
+	var vtc_vector = Vector2.ZERO
+	if joystick:
+		vtc_vector = joystick.output
+
 	var joy_vector := Vector2.ZERO
 	# Solo leer el joystick si el dispositivo no está explícitamente deshabilitado (-1)
 	if joypad_device != -1:
@@ -98,10 +111,14 @@ func get_input_vector() -> Vector2:
 	_last_joy_vector = joy_vector # Guardar para la lógica de sprint
 
 	# Combinar: dar prioridad al que tenga mayor magnitud
-	if keyboard_vector.length_squared() > joy_vector.length_squared():
+	if keyboard_vector.length_squared() > joy_vector.length_squared() and keyboard_vector.length_squared() > vtc_vector.length_squared():
 		if debug_input and keyboard_vector.length() > 0.01 and _can_log("vector"):
 			print("[PlayerInput P%d] get_input_vector (KB): %s" % [player_id, keyboard_vector])
 		return keyboard_vector
+	elif vtc_vector.length_squared() > joy_vector.length_squared():
+		if debug_input and vtc_vector.length() > 0.01 and _can_log("vector"):
+			print("[PlayerInput P%d] get_input_vector (VTC): %s" % [player_id, vtc_vector])
+		return vtc_vector
 	else:
 		if debug_input and joy_vector.length() > 0.01 and _can_log("vector"):
 			print("[PlayerInput P%d] get_input_vector (Joy): %s" % [player_id, joy_vector])
@@ -126,7 +143,7 @@ func is_sprint_pressed() -> bool:
 func just_jumped() -> bool:
 	"""Detectar salto ESTE FRAME."""
 	var actions = action_map[player_id]
-	var jumped = Input.is_action_just_pressed(actions["jump"]) or _joy_jump_just_pressed
+	var jumped = Input.is_action_just_pressed(actions["jump"]) or _joy_jump_just_pressed or Input.is_action_just_pressed(vtc_action_map["jump"])
 	if debug_input and jumped and _can_log("jump"):
 		print("[PlayerInput P%d] just_jumped: %s" % [player_id, jumped])
 	return jumped

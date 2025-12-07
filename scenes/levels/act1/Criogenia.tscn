@@ -1,17 +1,18 @@
-[gd_scene load_steps=16 format=2]
+[gd_scene load_steps=17 format=2]
 
-[ext_resource path="res://scenes/common/sde_1.tscn" type="PackedScene" id=1]
-[ext_resource path="res://scenes/common/KillZone.tscn" type="PackedScene" id=2]
-[ext_resource path="res://scripts/LevelBGM.gd" type="Script" id=3]
-[ext_resource path="res://scripts/SceneSpawn.gd" type="Script" id=4]
-[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=5]
-[ext_resource path="res://scenes/common/MovingPlatform.tscn" type="PackedScene" id=6]
-[ext_resource path="res://scenes/common/Environment.tscn" type="PackedScene" id=7]
-[ext_resource path="res://scenes/common/Conveyor.tscn" type="PackedScene" id=8]
-[ext_resource path="res://scenes/common/Tubería.tscn" type="PackedScene" id=9]
-[ext_resource path="res://data/Curves/Linear.tres" type="Curve" id=10]
-[ext_resource path="res://assets/Rooms/Command center.obj" type="ArrayMesh" id=11]
-[ext_resource path="res://scenes/common/BaseFloor.tscn" type="PackedScene" id=12]
+[ext_resource path="res://scenes/ui/TouchControls.tscn" type="PackedScene" id=1]
+[ext_resource path="res://scenes/common/sde_1.tscn" type="PackedScene" id=2]
+[ext_resource path="res://scenes/common/KillZone.tscn" type="PackedScene" id=3]
+[ext_resource path="res://scripts/LevelBGM.gd" type="Script" id=4]
+[ext_resource path="res://scripts/SceneSpawn.gd" type="Script" id=5]
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=6]
+[ext_resource path="res://scenes/common/MovingPlatform.tscn" type="PackedScene" id=7]
+[ext_resource path="res://scenes/common/Environment.tscn" type="PackedScene" id=8]
+[ext_resource path="res://scenes/common/Conveyor.tscn" type="PackedScene" id=9]
+[ext_resource path="res://scenes/common/Tubería.tscn" type="PackedScene" id=10]
+[ext_resource path="res://data/Curves/Linear.tres" type="Curve" id=11]
+[ext_resource path="res://assets/Rooms/Command center.obj" type="ArrayMesh" id=12]
+[ext_resource path="res://scenes/common/BaseFloor.tscn" type="PackedScene" id=13]
 
 [sub_resource type="ArrayMesh" id=4]
 lightmap_size_hint = Vector2( 2218, 4066 )
@@ -22,7 +23,7 @@ surfaces/0 = {
 "blend_shape_data": [  ],
 "format": 2170167,
 "index_count": 36,
-"material": ExtResource( 5 ),
+"material": ExtResource( 6 ),
 "primitive": 4,
 "skeleton_aabb": [  ],
 "vertex_count": 24
@@ -46,7 +47,9 @@ surfaces/0 = {
 data = PoolVector3Array( 1, -2.4344, 0, 0.7071, -2.4344, 0.7071, 0.7071, 2.4344, 0.7071, 0.7071, 2.4344, 0.7071, 1, 2.4344, 0, 1, -2.4344, 0, 0.7071, -2.4344, 0.7071, 1, -2.4344, 0, 0, -2.4344, 0, 1, 2.4344, 0, 0.7071, 2.4344, 0.7071, 0, 2.4344, 0, 0.7071, -2.4344, 0.7071, 0, -2.4344, 1, 0, 2.4344, 1, 0, 2.4344, 1, 0.7071, 2.4344, 0.7071, 0.7071, -2.4344, 0.7071, 0, -2.4344, 1, 0.7071, -2.4344, 0.7071, 0, -2.4344, 0, 0.7071, 2.4344, 0.7071, 0, 2.4344, 1, 0, 2.4344, 0, 0, -2.4344, 1, -0.7071, -2.4344, 0.7071, -0.7071, 2.4344, 0.7071, -0.7071, 2.4344, 0.7071, 0, 2.4344, 1, 0, -2.4344, 1, -0.7071, -2.4344, 0.7071, 0, -2.4344, 1, 0, -2.4344, 0, 0, 2.4344, 1, -0.7071, 2.4344, 0.7071, 0, 2.4344, 0, -0.7071, -2.4344, 0.7071, -1, -2.4344, 0, -1, 2.4344, 0, -1, 2.4344, 0, -0.7071, 2.4344, 0.7071, -0.7071, -2.4344, 0.7071, -1, -2.4344, 0, -0.7071, -2.4344, 0.7071, 0, -2.4344, 0, -0.7071, 2.4344, 0.7071, -1, 2.4344, 0, 0, 2.4344, 0, -1, -2.4344, 0, -0.7071, -2.4344, -0.7071, -0.7071, 2.4344, -0.7071, -0.7071, 2.4344, -0.7071, -1, 2.4344, 0, -1, -2.4344, 0, -0.7071, -2.4344, -0.7071, -1, -2.4344, 0, 0, -2.4344, 0, -1, 2.4344, 0, -0.7071, 2.4344, -0.7071, 0, 2.4344, 0, -0.7071, -2.4344, -0.7071, 0, -2.4344, -1, 0, 2.4344, -1, 0, 2.4344, -1, -0.7071, 2.4344, -0.7071, -0.7071, -2.4344, -0.7071, 0, -2.4344, -1, -0.7071, -2.4344, -0.7071, 0, -2.4344, 0, -0.7071, 2.4344, -0.7071, 0, 2.4344, -1, 0, 2.4344, 0, 0, -2.4344, -1, 0.7071, -2.4344, -0.7071, 0.7071, 2.4344, -0.7071, 0.7071, 2.4344, -0.7071, 0, 2.4344, -1, 0, -2.4344, -1, 0.7071, -2.4344, -0.7071, 0, -2.4344, -1, 0, -2.4344, 0, 0, 2.4344, -1, 0.7071, 2.4344, -0.7071, 0, 2.4344, 0, 0.7071, -2.4344, -0.7071, 1, -2.4344, 0, 1, 2.4344, 0, 1, 2.4344, 0, 0.7071, 2.4344, -0.7071, 0.7071, -2.4344, -0.7071, 1, -2.4344, 0, 0.7071, -2.4344, -0.7071, 0, -2.4344, 0, 0.7071, 2.4344, -0.7071, 1, 2.4344, 0, 0, 2.4344, 0 )
 
 [node name="Act1_Criogenia" type="Spatial"]
-script = ExtResource( 4 )
+script = ExtResource( 5 )
+
+[node name="TouchControls" parent="." instance=ExtResource( 1 )]
 
 [node name="Command Center" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 159.907, -123.934, 3482.13 )
@@ -57,16 +60,16 @@ collision_layer = 4
 collision_mask = 131
 width = 287.683
 depth = 484.852
-material = ExtResource( 5 )
+material = ExtResource( 6 )
 
-[node name="BaseFloor" parent="." instance=ExtResource( 12 )]
+[node name="BaseFloor" parent="." instance=ExtResource( 13 )]
 
 [node name="CommandCenter" type="MeshInstance" parent="BaseFloor"]
 transform = Transform( -2.18557e-09, 0, -0.05, 0, 0.05, 0, 0.05, 0, -2.18557e-09, 35, 0, 108.746 )
-mesh = ExtResource( 11 )
+mesh = ExtResource( 12 )
 skeleton = NodePath("../..")
 
-[node name="Conveyor3" parent="BaseFloor" instance=ExtResource( 8 )]
+[node name="Conveyor3" parent="BaseFloor" instance=ExtResource( 9 )]
 transform = Transform( -13.0029, 0.186464, -9.44261e-06, 2.46785, 0.982462, 2.23672e-06, 8.53065e-06, 2.90415e-08, -15.04, -213.078, 28.4435, -14.657 )
 push_velocity = Vector3( -3, 0, 0 )
 debug = false
@@ -75,33 +78,33 @@ stripe_tiling = 40.0
 [node name="SpawnPoint" type="Spatial" parent="BaseFloor"]
 transform = Transform( -0.942601, 0, 0.333921, 0, 1, 0, -0.333921, 0, -0.942601, 0, 11.4263, 0 )
 
-[node name="EnvironmentEffects" parent="." instance=ExtResource( 7 )]
+[node name="EnvironmentEffects" parent="." instance=ExtResource( 8 )]
 
-[node name="SDE" parent="." instance=ExtResource( 1 )]
+[node name="SDE" parent="." instance=ExtResource( 2 )]
 
 [node name="PuzzleZone" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 47.5841, -320, 3461.67 )
 
-[node name="Tubería" parent="PuzzleZone" instance=ExtResource( 9 )]
+[node name="Tubería" parent="PuzzleZone" instance=ExtResource( 10 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -120.464, 132.505, 56.4402 )
 
 [node name="PlatformTarget" type="Spatial" parent="PuzzleZone"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -120.544, 28.4869, 56.3997 )
 
-[node name="MovingPlatform_B" parent="PuzzleZone/PlatformTarget" instance=ExtResource( 6 )]
+[node name="MovingPlatform_B" parent="PuzzleZone/PlatformTarget" instance=ExtResource( 7 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -14.9102, -84.1535, -2.28394 )
 speed = 20.0
 wait_time = 0.3
-acceleration_curve = ExtResource( 10 )
+acceleration_curve = ExtResource( 11 )
 target_node_path = NodePath("..")
 
-[node name="Conveyor" parent="PuzzleZone" instance=ExtResource( 8 )]
+[node name="Conveyor" parent="PuzzleZone" instance=ExtResource( 9 )]
 transform = Transform( 4.47257, 0.110255, 0, -0.496147, 0.993903, 0, 0, 0, 0.791, -111.338, -19.4076, 59.6316 )
 push_velocity = Vector3( -3, 0, 0 )
 debug = false
 stripe_tiling = 40.0
 
-[node name="Conveyor2" parent="PuzzleZone" instance=ExtResource( 8 )]
+[node name="Conveyor2" parent="PuzzleZone" instance=ExtResource( 9 )]
 transform = Transform( 4.41849, 0.189472, 0, -0.852626, 0.981886, 0, 0, 0, 0.791, -113.618, -19.3118, 65.9241 )
 push_velocity = Vector3( -3, 0, 0 )
 debug = false
@@ -115,7 +118,7 @@ collision_layer = 4
 collision_mask = 131
 width = 100.0
 depth = 100.0
-material = ExtResource( 5 )
+material = ExtResource( 6 )
 
 [node name="PlatformMesh" type="MeshInstance" parent="PuzzleZone/Platform"]
 use_in_baked_light = true
@@ -159,10 +162,10 @@ shape = SubResource( 5 )
 transform = Transform( 0.808833, 0, -0.588039, 0, 1, 0, 0.588039, 0, 0.808833, -42.855, -332.926, 3491.17 )
 
 [node name="LevelBGM" type="Node" parent="."]
-script = ExtResource( 3 )
+script = ExtResource( 4 )
 track_path = "res://assets/music/Escalating Dread.mp3"
 
-[node name="KillZone" parent="." instance=ExtResource( 2 )]
+[node name="KillZone" parent="." instance=ExtResource( 3 )]
 transform = Transform( 100, 0, 0, 0, 1, 0, 0, 0, 100, 9.82484, -435.871, 3474.75 )
 
 [editable path="BaseFloor/Conveyor3"]

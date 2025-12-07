@@ -8,8 +8,12 @@ extends CanvasLayer
 var main_menu_scene: PackedScene = preload("res://scenes/Menu.tscn") # Adjust path if needed
 var hud_instance: Node = null
 var modal_instance: AcceptDialog = null
+var joystick: Node = null
 
 # --- Public API ---
+
+func register_joystick(p_joystick: Node) -> void:
+	joystick = p_joystick
 
 func show_main_menu() -> void:
 	# Ensure HUD is hidden
