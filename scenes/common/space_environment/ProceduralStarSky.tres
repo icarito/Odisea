@@ -1,0 +1,6 @@
+[gd_resource type="Sky" load_steps=2 format=2]
+
+[ext_resource path="res://scenes/common/space_environment/procedural_star_sky.shader" type="Shader" id=1]
+
+[resource]
+shader = ExtResource( 1 )
