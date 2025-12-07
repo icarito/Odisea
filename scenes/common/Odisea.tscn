@@ -35,23 +35,23 @@ material/0 = SubResource( 3 )
 [node name="MainLightA" type="OmniLight" parent="." index="1"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 200, 0 )
 light_color = Color( 1, 1, 0.95, 1 )
-light_energy = 2.5
+light_energy = 0.3
 omni_range = 2000.0
 
 [node name="MainLightB" type="OmniLight" parent="." index="2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 900.608, 200, 2000 )
 light_color = Color( 0.9, 0.95, 1, 1 )
-light_energy = 2.2
+light_energy = 0.3
 omni_range = 1800.0
 
 [node name="MainLightC" type="OmniLight" parent="." index="3"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -729.895, 200, -2000 )
 light_color = Color( 0.95, 1, 0.95, 1 )
-light_energy = 2.2
+light_energy = 0.3
 omni_range = 1800.0
 
 [node name="MainLightD" type="OmniLight" parent="." index="4"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 800, 0 )
 light_color = Color( 1, 0.98, 0.9, 1 )
-light_energy = 2.0
+light_energy = 0.3
 omni_range = 2200.0
