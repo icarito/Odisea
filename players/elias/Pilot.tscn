@@ -1,4 +1,4 @@
-[gd_scene load_steps=45 format=2]
+[gd_scene load_steps=47 format=2]
 
 [ext_resource path="res://scripts/PlayerController.gd" type="Script" id=1]
 [ext_resource path="res://scripts/PlayerSpringCam.gd" type="Script" id=2]
@@ -170,6 +170,20 @@ albedo_color = Color( 0, 0, 0, 1 )
 [sub_resource type="QuadMesh" id=53]
 material = SubResource( 54 )
 
+[sub_resource type="SpatialMaterial" id=65]
+flags_transparent = true
+params_billboard_mode = 1
+albedo_color = Color( 0.498039, 0.576471, 0.654902, 1 )
+emission_enabled = true
+emission = Color( 0.196078, 0.984314, 0.921569, 1 )
+emission_energy = 0.1
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="QuadMesh" id=66]
+material = SubResource( 65 )
+size = Vector2( 0.1, 0.1 )
+
 [node name="Pilot" type="KinematicBody"]
 collision_mask = 254
 script = ExtResource( 1 )
@@ -268,3 +282,16 @@ light_specular = 0.0
 light_bake_mode = 0
 omni_range = 20.0
 omni_attenuation = 0.482968
+
+[node name="SpaceDust" type="CPUParticles" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
+amount = 50
+local_coords = false
+mesh = SubResource( 66 )
+emission_shape = 1
+emission_sphere_radius = 25.0
+direction = Vector3( -0.2, 0, 0 )
+gravity = Vector3( 0, -0.6, 0 )
+initial_velocity = 0.5
+initial_velocity_random = 0.6
+color = Color( 0.172549, 0.607843, 0.615686, 1 )
