@@ -8,6 +8,7 @@
 [ext_resource path="res://assets/start.png" type="Texture" id=6]
 [ext_resource path="res://assets/quit.png" type="Texture" id=7]
 [ext_resource path="res://assets/coop.png" type="Texture" id=8]
+[ext_resource path="res://scenes/ui/ReplayDebug.tscn" type="PackedScene" id=9]
 
 [sub_resource type="DynamicFont" id=1]
 size = 95
@@ -128,6 +129,8 @@ position = Vector2( 557, 291 )
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 visible = false
+
+[node name="ReplayDebug" parent="." instance=ExtResource( 9 )]
 
 [node name="ColorRect" type="ColorRect" parent="CanvasLayer"]
 margin_right = 640.0

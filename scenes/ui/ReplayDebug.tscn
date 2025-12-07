@@ -1,0 +1,79 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://scripts/ui/ReplayDebug.gd" type="Script" id=1]
+
+[node name="ReplayDebug" type="PanelContainer"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource( 1 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+margin_left = 7.0
+margin_top = 7.0
+margin_right = 1017.0
+margin_bottom = 593.0
+
+[node name="RecordButton" type="Button" parent="VBoxContainer"]
+margin_right = 1010.0
+margin_bottom = 20.0
+text = "Start Recording"
+
+[node name="StopButton" type="Button" parent="VBoxContainer"]
+margin_top = 24.0
+margin_right = 1010.0
+margin_bottom = 44.0
+text = "Stop Recording/Playback"
+
+[node name="LoadButton" type="Button" parent="VBoxContainer"]
+margin_top = 48.0
+margin_right = 1010.0
+margin_bottom = 68.0
+text = "Load Replay"
+
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
+margin_top = 72.0
+margin_right = 1010.0
+margin_bottom = 76.0
+
+[node name="PlaybackControls" type="HBoxContainer" parent="VBoxContainer"]
+margin_top = 80.0
+margin_right = 1010.0
+margin_bottom = 100.0
+
+[node name="PauseButton" type="Button" parent="VBoxContainer/PlaybackControls"]
+margin_right = 52.0
+margin_bottom = 20.0
+text = "Pause"
+
+[node name="ResumeButton" type="Button" parent="VBoxContainer/PlaybackControls"]
+margin_left = 56.0
+margin_right = 119.0
+margin_bottom = 20.0
+text = "Resume"
+
+[node name="StepButton" type="Button" parent="VBoxContainer/PlaybackControls"]
+margin_left = 123.0
+margin_right = 168.0
+margin_bottom = 20.0
+text = "Step"
+
+[node name="FrameLabel" type="Label" parent="VBoxContainer"]
+margin_top = 104.0
+margin_right = 1010.0
+margin_bottom = 118.0
+text = "Frame: 0 / 0"
+
+[node name="FileDialog" type="FileDialog" parent="."]
+margin_left = 7.0
+margin_top = 7.0
+margin_right = 1017.0
+margin_bottom = 593.0
+window_title = "Open a File"
+mode = 0
+access = 2
+filters = PoolStringArray( "*.json" )
+current_dir = "res://replays"
+current_file = ""
