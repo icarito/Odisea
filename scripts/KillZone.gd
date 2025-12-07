@@ -6,12 +6,9 @@ var is_dead = false
 signal player_killed()
 signal player_respawn_requested()
 
+
 func _ready() -> void:
-	add_to_group("killzones")
-	connect("body_entered", self, "_on_body_entered")
-	# Instanciar DeathScreen
-	death_screen = preload("res://scenes/ui/DeathScreen.tscn").instance()
-	get_tree().get_root().add_child(death_screen)
+	call_deferred("setup_killzones")
 
 func _on_body_entered(body: Object) -> void:
 	print("KillZone: Body entered - ", body.name if body else "null")
@@ -49,3 +46,10 @@ func respawn():
 
 	# Emitir señal para que el receptor maneje el respawn
 	emit_signal("player_respawn_requested")
+
+func setup_killzones():
+	add_to_group("killzones")
+	connect("body_entered", self, "_on_body_entered")
+	# Instanciar DeathScreen
+	death_screen = preload("res://scenes/ui/DeathScreen.tscn").instance()
+	get_tree().get_root().add_child(death_screen)
