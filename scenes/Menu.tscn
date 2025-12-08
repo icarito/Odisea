@@ -83,8 +83,6 @@ render_target_update_mode = 3
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 visible = false
 
-[node name="ReplayDebug" parent="." instance=ExtResource( 9 )]
-
 [node name="ColorRect" type="ColorRect" parent="CanvasLayer"]
 margin_right = 640.0
 margin_bottom = 480.0

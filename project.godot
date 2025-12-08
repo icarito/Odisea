@@ -1008,6 +1008,7 @@ SceneManager="*res://autoload/SceneManager.gd"
 AudioSystem="*res://autoload/AudioSystem.gd"
 UIManager="*res://autoload/UIManager.gd"
 TouchCounter="*res://autoload/TouchCounter.gd"
+ReplayDebug="*res://scenes/ui/ReplayDebug.tscn"
 
 [debug]
 
@@ -1207,7 +1208,7 @@ pointing/emulate_touch_from_mouse=true
 pointing/emulate_mouse_from_touch=false
 toggle_replay_menu={
 "deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777237,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777249,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
  ]
 }
 

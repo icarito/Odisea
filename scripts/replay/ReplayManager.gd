@@ -44,7 +44,7 @@ func start_recording() -> void:
 	var replay = ReplayScript.new()
 	replay.scene_path = get_tree().current_scene.filename
 	replay.godot_version = Engine.get_version_info()["string"]
-	replay.timestamp = OS.get_datetime_string_from_unix_time(OS.get_unix_time())
+	replay.timestamp = Time.get_datetime_string_from_unix_time(Time.get_unix_time_from_system())
 
 	for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
 		var path = get_tree().current_scene.get_path_to(node)
