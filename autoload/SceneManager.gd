@@ -42,14 +42,6 @@ func _deferred_load_scene(path: String) -> void:
 		push_error("SceneManager: Failed to load scene at path: " + path)
 
 
-func spawn_network_player(peer_id: int, spawn_point: Transform) -> void:
-	# This will be implemented with the MultiplayerManager in the future.
-	# For now, it can handle local players if needed.
-	print("SceneManager: Spawning player for peer %d" % peer_id)
-	# Example: PlayerManager.spawn(spawn_point)
-	pass
-
-
 func update_split_screen_layout() -> void:
 	# This method will readjust viewports based on the number of active_players.
 	# The logic from commit b7ed493e should be refactored here.
