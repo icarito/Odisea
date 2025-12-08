@@ -1,34 +1,6 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=2 format=2]
 
-[ext_resource path="res://addons/virtual_joystick/Joystick/Joystick.tscn" type="PackedScene" id=1]
-[ext_resource path="res://addons/virtual_joystick/Joystick/joystick_handle.png" type="Texture" id=2]
-[ext_resource path="res://addons/virtual_joystick/Joystick/joystick_handle.png" type="Texture" id=3]
-[ext_resource path="res://scenes/ui/TouchControls.gd" type="Script" id=4]
+[ext_resource path="res://scenes/ui/TouchControls.gd" type="Script" id=1]
 
 [node name="TouchControls" type="CanvasLayer"]
-script = ExtResource( 4 )
-
-[node name="Joystick" parent="." instance=ExtResource( 1 )]
-anchor_top = 1.0
-anchor_bottom = 1.0
-margin_left = 40.0
-margin_top = -340.0
-margin_right = 340.0
-margin_bottom = -40.0
-visibility_mode = 1
-
-[node name="JumpButtonContainer" type="Control" parent="."]
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-margin_left = -296.0
-margin_top = -296.0
-margin_right = -40.0
-margin_bottom = -40.0
-
-[node name="JumpButton" type="TouchScreenButton" parent="JumpButtonContainer"]
-scale = Vector2( 2, 2 )
-normal = ExtResource( 2 )
-pressed = ExtResource( 3 )
-action = "vtc_jump"
+script = ExtResource( 1 )
