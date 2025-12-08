@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=2]
+[gd_scene load_steps=16 format=2]
 
 [ext_resource path="res://scenes/common/Odisea.tscn" type="PackedScene" id=1]
 [ext_resource path="res://scenes/common/KillZone.tscn" type="PackedScene" id=2]
@@ -12,6 +12,7 @@
 [ext_resource path="res://data/Curves/Linear.tres" type="Curve" id=10]
 [ext_resource path="res://assets/Rooms/Command center.obj" type="ArrayMesh" id=11]
 [ext_resource path="res://scenes/common/BaseFloor.tscn" type="PackedScene" id=12]
+[ext_resource path="res://scenes/ui/TouchControls.tscn" type="PackedScene" id=13]
 
 [sub_resource type="ArrayMesh" id=1]
 surfaces/0 = {
@@ -31,9 +32,7 @@ surfaces/0 = {
 data = PoolVector3Array( 1, -2.4344, 0, 0.7071, -2.4344, 0.7071, 0.7071, 2.4344, 0.7071, 0.7071, 2.4344, 0.7071, 1, 2.4344, 0, 1, -2.4344, 0, 0.7071, -2.4344, 0.7071, 1, -2.4344, 0, 0, -2.4344, 0, 1, 2.4344, 0, 0.7071, 2.4344, 0.7071, 0, 2.4344, 0, 0.7071, -2.4344, 0.7071, 0, -2.4344, 1, 0, 2.4344, 1, 0, 2.4344, 1, 0.7071, 2.4344, 0.7071, 0.7071, -2.4344, 0.7071, 0, -2.4344, 1, 0.7071, -2.4344, 0.7071, 0, -2.4344, 0, 0.7071, 2.4344, 0.7071, 0, 2.4344, 1, 0, 2.4344, 0, 0, -2.4344, 1, -0.7071, -2.4344, 0.7071, -0.7071, 2.4344, 0.7071, -0.7071, 2.4344, 0.7071, 0, 2.4344, 1, 0, -2.4344, 1, -0.7071, -2.4344, 0.7071, 0, -2.4344, 1, 0, -2.4344, 0, 0, 2.4344, 1, -0.7071, 2.4344, 0.7071, 0, 2.4344, 0, -0.7071, -2.4344, 0.7071, -1, -2.4344, 0, -1, 2.4344, 0, -1, 2.4344, 0, -0.7071, 2.4344, 0.7071, -0.7071, -2.4344, 0.7071, -1, -2.4344, 0, -0.7071, -2.4344, 0.7071, 0, -2.4344, 0, -0.7071, 2.4344, 0.7071, -1, 2.4344, 0, 0, 2.4344, 0, -1, -2.4344, 0, -0.7071, -2.4344, -0.7071, -0.7071, 2.4344, -0.7071, -0.7071, 2.4344, -0.7071, -1, 2.4344, 0, -1, -2.4344, 0, -0.7071, -2.4344, -0.7071, -1, -2.4344, 0, 0, -2.4344, 0, -1, 2.4344, 0, -0.7071, 2.4344, -0.7071, 0, 2.4344, 0, -0.7071, -2.4344, -0.7071, 0, -2.4344, -1, 0, 2.4344, -1, 0, 2.4344, -1, -0.7071, 2.4344, -0.7071, -0.7071, -2.4344, -0.7071, 0, -2.4344, -1, -0.7071, -2.4344, -0.7071, 0, -2.4344, 0, -0.7071, 2.4344, -0.7071, 0, 2.4344, -1, 0, 2.4344, 0, 0, -2.4344, -1, 0.7071, -2.4344, -0.7071, 0.7071, 2.4344, -0.7071, 0.7071, 2.4344, -0.7071, 0, 2.4344, -1, 0, -2.4344, -1, 0.7071, -2.4344, -0.7071, 0, -2.4344, -1, 0, -2.4344, 0, 0, 2.4344, -1, 0.7071, 2.4344, -0.7071, 0, 2.4344, 0, 0.7071, -2.4344, -0.7071, 1, -2.4344, 0, 1, 2.4344, 0, 1, 2.4344, 0, 0.7071, 2.4344, -0.7071, 0.7071, -2.4344, -0.7071, 1, -2.4344, 0, 0.7071, -2.4344, -0.7071, 0, -2.4344, 0, 0.7071, 2.4344, -0.7071, 1, 2.4344, 0, 0, 2.4344, 0 )
 
 [node name="Act1_Criogenia" type="Spatial"]
-script = ExtResource( 5 )
-
-[node name="TouchControls" parent="." instance=ExtResource( 1 )]
+script = ExtResource( 4 )
 
 [node name="LevelBGM" type="Node" parent="."]
 script = ExtResource( 3 )
@@ -60,17 +59,17 @@ transform = Transform( 100, 0, 0, 0, 1, 0, 0, 0, 100, 9.82484, -435.871, 3474.75
 [node name="PuzzleZone" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 47.5841, -320, 3461.67 )
 
-[node name="Tubería" parent="PuzzleZone" instance=ExtResource( 10 )]
+[node name="Tubería" parent="PuzzleZone" instance=ExtResource( 9 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -120.464, 132.505, 56.4402 )
 
 [node name="PlatformTarget" type="Spatial" parent="PuzzleZone"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -120.544, 28.4869, 56.3997 )
 
-[node name="MovingPlatform_B" parent="PuzzleZone/PlatformTarget" instance=ExtResource( 7 )]
+[node name="MovingPlatform_B" parent="PuzzleZone/PlatformTarget" instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -14.9102, -84.1535, -2.28394 )
 speed = 20.0
 wait_time = 0.3
-acceleration_curve = ExtResource( 11 )
+acceleration_curve = ExtResource( 10 )
 target_node_path = NodePath("..")
 
 [node name="Criogenics Lab" type="CSGBox" parent="PuzzleZone"]
@@ -103,7 +102,7 @@ collision_layer = 4
 collision_mask = 131
 width = 100.0
 depth = 100.0
-material = ExtResource( 6 )
+material = ExtResource( 5 )
 
 [node name="Pilar" type="MeshInstance" parent="PuzzleZone/Criogenics Lab/Middle Section"]
 transform = Transform( 0.999999, 0, 0, 0, 0.999999, 0, 0, 0, 0.999999, -36.2632, 3.04343, 24.3159 )
@@ -167,5 +166,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
 transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 5 )
 
 [node name="InteriorWide" parent="." instance=ExtResource( 7 )]
+
+[node name="TouchControls" parent="." instance=ExtResource( 13 )]
 
 [editable path="SDE Odisea/CommandFloor/Conveyor3"]

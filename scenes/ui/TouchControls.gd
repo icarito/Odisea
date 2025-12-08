@@ -40,11 +40,27 @@ func _ready():
 		add_child(control_node)
 
 		var scale = item.scale
-		control_node.scale = Vector2(scale, scale)
-
 		var x_ratio = item.offsetX / reference_width
 		var y_ratio = item.offsetY / reference_height
 
-		control_node.position.x = screen_size.x * x_ratio
-		control_node.position.y = screen_size.y * y_ratio
-		control_node.rotation = item.rotation
+		if control_node:
+			if item.get("scale"):
+				match item.itemType:
+					"JOYSTICK":
+						control_node.rect_scale = Vector2(scale, scale)
+						control_node.rect_position.x = screen_size.x * (item.offsetX / reference_width)
+					_:
+						control_node.scale = Vector2(scale, scale)
+						control_node.position.x = screen_size.x * x_ratio
+						control_node.position.y = screen_size.y * y_ratio
+			else:
+				print("No scale found for item:\n\n ----- \n", item)
+
+			if item.get("rotation"):
+				control_node.rotation = item.rotation
+			else:
+				print("No rotation found for item: ", item)
+
+		else:
+			push_warning("Control setup failed!")
+			print("Failed to create control for item: ", item)
