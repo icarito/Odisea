@@ -1,0 +1,51 @@
+[gd_scene load_steps=6 format=2]
+
+[ext_resource path="res://models/Pilot.glb" type="PackedScene" id=1]
+[ext_resource path="res://scripts/Spin.gd" type="Script" id=2]
+[ext_resource path="res://materials/reference/PrototypeGrey.tres" type="Material" id=3]
+
+[sub_resource type="SpatialMaterial" id=4]
+albedo_color = Color( 0.14902, 0.901961, 0.839216, 1 )
+emission_enabled = true
+emission = Color( 0.423529, 0.839216, 0.803922, 1 )
+emission_energy = 9.65
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="PointMesh" id=3]
+material = SubResource( 4 )
+
+[node name="Root3D" type="Spatial"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0 )
+script = ExtResource( 2 )
+
+[node name="Light" type="DirectionalLight" parent="."]
+transform = Transform( 0.965926, -0.183013, 0.183013, 0, 0.781, 0.624516, -0.258819, -0.597132, 0.758819, 0, 2, 1 )
+light_energy = 0.9
+
+[node name="SpotLight" type="SpotLight" parent="Light"]
+transform = Transform( 0.787199, -0.234778, -0.570261, 0.504641, 0.77675, 0.376825, 0.35448, -0.584413, 0.729935, -1.11477, 1.96122, 1.3771 )
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 0.99957, 2.56104e-09, -0.0293173, 0.00211857, 0.997386, 0.0722323, 0.0292407, -0.0722634, 0.996957, 0, 2.32192, 2.3521 )
+current = true
+
+[node name="PilotModel" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
+
+[node name="Mesh_0001" parent="PilotModel/Node_40/Skinned_Mesh_0/Skeleton" index="0"]
+material/0 = ExtResource( 3 )
+
+[node name="CPUParticles" type="CPUParticles" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
+amount = 50
+mesh = SubResource( 3 )
+emission_shape = 1
+emission_sphere_radius = 2.5
+direction = Vector3( -0.2, 0, 0 )
+gravity = Vector3( 0, -0.6, 0 )
+initial_velocity = 0.5
+initial_velocity_random = 0.6
+color = Color( 0.172549, 0.607843, 0.615686, 1 )
+
+[editable path="PilotModel"]

@@ -1,33 +1,17 @@
-[gd_scene load_steps=17 format=2]
+[gd_scene load_steps=15 format=2]
 
-[ext_resource path="res://scenes/ui/TouchControls.tscn" type="PackedScene" id=1]
-[ext_resource path="res://scenes/common/sde_1.tscn" type="PackedScene" id=2]
-[ext_resource path="res://scenes/common/KillZone.tscn" type="PackedScene" id=3]
-[ext_resource path="res://scripts/LevelBGM.gd" type="Script" id=4]
-[ext_resource path="res://scripts/SceneSpawn.gd" type="Script" id=5]
-[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=6]
-[ext_resource path="res://scenes/common/MovingPlatform.tscn" type="PackedScene" id=7]
-[ext_resource path="res://scenes/common/Environment.tscn" type="PackedScene" id=8]
-[ext_resource path="res://scenes/common/Conveyor.tscn" type="PackedScene" id=9]
-[ext_resource path="res://scenes/common/Tubería.tscn" type="PackedScene" id=10]
-[ext_resource path="res://data/Curves/Linear.tres" type="Curve" id=11]
-[ext_resource path="res://assets/Rooms/Command center.obj" type="ArrayMesh" id=12]
-[ext_resource path="res://scenes/common/BaseFloor.tscn" type="PackedScene" id=13]
-
-[sub_resource type="ArrayMesh" id=4]
-lightmap_size_hint = Vector2( 2218, 4066 )
-surfaces/0 = {
-"aabb": AABB( -50, -1, -50, 100, 2.00001, 100 ),
-"array_data": PoolByteArray( 0, 0, 72, 66, 0, 0, 128, 63, 0, 0, 72, 66, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 44, 61, 0, 224, 127, 63, 0, 0, 72, 66, 0, 0, 128, 63, 0, 0, 72, 194, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 128, 63, 0, 160, 44, 61, 0, 224, 1, 63, 0, 0, 72, 66, 0, 0, 128, 191, 0, 0, 72, 194, 127, 0, 0, 1, 0, 0, 128, 63, 0, 0, 128, 63, 0, 224, 193, 60, 0, 224, 1, 63, 0, 0, 72, 66, 0, 0, 128, 191, 0, 0, 72, 66, 127, 0, 0, 1, 0, 0, 128, 63, 0, 0, 0, 0, 0, 224, 193, 60, 0, 224, 127, 63, 0, 0, 72, 66, 0, 0, 128, 63, 0, 0, 72, 66, 0, 127, 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 117, 63, 0, 32, 124, 63, 0, 0, 72, 194, 0, 0, 128, 63, 0, 0, 72, 66, 0, 127, 127, 127, 0, 0, 0, 0, 0, 0, 128, 63, 0, 64, 117, 63, 0, 96, 252, 62, 0, 0, 72, 194, 0, 0, 128, 63, 0, 0, 72, 194, 0, 127, 127, 127, 0, 0, 128, 63, 0, 0, 128, 63, 0, 224, 101, 61, 0, 96, 252, 62, 0, 0, 72, 66, 0, 0, 128, 63, 0, 0, 72, 194, 0, 127, 127, 127, 0, 0, 128, 63, 0, 0, 0, 0, 0, 224, 101, 61, 0, 32, 124, 63, 0, 0, 72, 66, 0, 0, 128, 63, 0, 0, 72, 66, 0, 0, 129, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 122, 63, 0, 224, 53, 63, 0, 0, 72, 66, 0, 0, 128, 191, 0, 0, 72, 66, 0, 0, 129, 64, 0, 0, 0, 0, 0, 0, 128, 63, 0, 32, 118, 63, 0, 224, 53, 63, 0, 0, 72, 194, 0, 0, 128, 191, 0, 0, 72, 66, 0, 0, 129, 64, 0, 0, 128, 63, 0, 0, 128, 63, 0, 32, 118, 63, 0, 192, 95, 62, 0, 0, 72, 194, 0, 0, 128, 63, 0, 0, 72, 66, 0, 0, 129, 64, 0, 0, 128, 63, 0, 0, 0, 0, 0, 192, 122, 63, 0, 192, 95, 62, 0, 0, 72, 194, 0, 0, 128, 63, 0, 0, 72, 194, 129, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 168, 60, 0, 224, 253, 62, 0, 0, 72, 194, 0, 0, 128, 63, 0, 0, 72, 66, 129, 0, 0, 1, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 168, 60, 0, 224, 124, 63, 0, 0, 72, 194, 0, 0, 128, 191, 0, 0, 72, 66, 129, 0, 0, 1, 0, 0, 128, 63, 0, 0, 128, 63, 0, 224, 4, 59, 0, 224, 124, 63, 0, 0, 72, 194, 0, 0, 128, 191, 0, 0, 72, 194, 129, 0, 0, 1, 0, 0, 128, 63, 0, 0, 0, 0, 0, 224, 4, 59, 0, 224, 253, 62, 0, 0, 72, 194, 0, 0, 128, 191, 0, 0, 72, 66, 0, 129, 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 103, 63, 0, 0, 252, 62, 0, 0, 72, 66, 0, 0, 128, 191, 0, 0, 72, 66, 0, 129, 127, 127, 0, 0, 0, 0, 0, 0, 128, 63, 0, 96, 108, 57, 0, 0, 252, 62, 0, 0, 72, 66, 0, 0, 128, 191, 0, 0, 72, 194, 0, 129, 127, 127, 0, 0, 128, 63, 0, 0, 128, 63, 0, 96, 108, 57, 0, 224, 0, 57, 0, 0, 72, 194, 0, 0, 128, 191, 0, 0, 72, 194, 0, 129, 127, 127, 0, 0, 128, 63, 0, 0, 0, 0, 0, 0, 103, 63, 0, 224, 0, 57, 0, 0, 72, 66, 0, 0, 128, 191, 0, 0, 72, 194, 127, 127, 129, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 123, 63, 0, 32, 54, 63, 0, 0, 72, 66, 0, 0, 128, 63, 0, 0, 72, 194, 127, 127, 129, 64, 0, 0, 0, 0, 0, 0, 128, 63, 0, 224, 127, 63, 0, 32, 54, 63, 0, 0, 72, 194, 0, 0, 128, 63, 0, 0, 72, 194, 127, 127, 129, 64, 0, 0, 128, 63, 0, 0, 128, 63, 0, 224, 127, 63, 0, 192, 96, 62, 0, 0, 72, 194, 0, 0, 128, 191, 0, 0, 72, 194, 127, 127, 129, 64, 0, 0, 128, 63, 0, 0, 0, 0, 0, 32, 123, 63, 0, 192, 96, 62 ),
-"array_index_data": PoolByteArray( 0, 0, 1, 0, 2, 0, 2, 0, 3, 0, 0, 0, 4, 0, 5, 0, 6, 0, 6, 0, 7, 0, 4, 0, 8, 0, 9, 0, 10, 0, 10, 0, 11, 0, 8, 0, 12, 0, 13, 0, 14, 0, 14, 0, 15, 0, 12, 0, 16, 0, 17, 0, 18, 0, 18, 0, 19, 0, 16, 0, 20, 0, 21, 0, 22, 0, 22, 0, 23, 0, 20, 0 ),
-"blend_shape_data": [  ],
-"format": 2170167,
-"index_count": 36,
-"material": ExtResource( 6 ),
-"primitive": 4,
-"skeleton_aabb": [  ],
-"vertex_count": 24
-}
+[ext_resource path="res://scenes/common/Odisea.tscn" type="PackedScene" id=1]
+[ext_resource path="res://scenes/common/KillZone.tscn" type="PackedScene" id=2]
+[ext_resource path="res://scripts/LevelBGM.gd" type="Script" id=3]
+[ext_resource path="res://scripts/SceneSpawn.gd" type="Script" id=4]
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=5]
+[ext_resource path="res://scenes/common/MovingPlatform.tscn" type="PackedScene" id=6]
+[ext_resource path="res://scenes/reference/InteriorWide.tscn" type="PackedScene" id=7]
+[ext_resource path="res://scenes/common/Conveyor.tscn" type="PackedScene" id=8]
+[ext_resource path="res://scenes/common/Tubería.tscn" type="PackedScene" id=9]
+[ext_resource path="res://data/Curves/Linear.tres" type="Curve" id=10]
+[ext_resource path="res://assets/Rooms/Command center.obj" type="ArrayMesh" id=11]
+[ext_resource path="res://scenes/common/BaseFloor.tscn" type="PackedScene" id=12]
 
 [sub_resource type="ArrayMesh" id=1]
 surfaces/0 = {
@@ -51,36 +35,27 @@ script = ExtResource( 5 )
 
 [node name="TouchControls" parent="." instance=ExtResource( 1 )]
 
-[node name="Command Center" type="CSGBox" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 159.907, -123.934, 3482.13 )
-visible = false
-use_in_baked_light = true
-use_collision = true
-collision_layer = 4
-collision_mask = 131
-width = 287.683
-depth = 484.852
-material = ExtResource( 6 )
+[node name="LevelBGM" type="Node" parent="."]
+script = ExtResource( 3 )
+track_path = "res://assets/music/Escalating Dread.mp3"
 
-[node name="BaseFloor" parent="." instance=ExtResource( 13 )]
+[node name="SDE Odisea" parent="." instance=ExtResource( 1 )]
 
-[node name="CommandCenter" type="MeshInstance" parent="BaseFloor"]
+[node name="CommandFloor" parent="SDE Odisea" instance=ExtResource( 12 )]
+
+[node name="CommandCenter" type="MeshInstance" parent="SDE Odisea/CommandFloor"]
 transform = Transform( -2.18557e-09, 0, -0.05, 0, 0.05, 0, 0.05, 0, -2.18557e-09, 35, 0, 108.746 )
-mesh = ExtResource( 12 )
-skeleton = NodePath("../..")
+mesh = ExtResource( 11 )
+skeleton = NodePath("../../..")
 
-[node name="Conveyor3" parent="BaseFloor" instance=ExtResource( 9 )]
-transform = Transform( -13.0029, 0.186464, -9.44261e-06, 2.46785, 0.982462, 2.23672e-06, 8.53065e-06, 2.90415e-08, -15.04, -213.078, 28.4435, -14.657 )
+[node name="Conveyor3" parent="SDE Odisea/CommandFloor" instance=ExtResource( 8 )]
+transform = Transform( -13.0029, 0.186464, -9.44261e-06, 2.46785, 0.982462, 2.23672e-06, 8.53065e-06, 2.90415e-08, -15.04, -191.514, 10.3455, -14.657 )
 push_velocity = Vector3( -3, 0, 0 )
 debug = false
 stripe_tiling = 40.0
 
-[node name="SpawnPoint" type="Spatial" parent="BaseFloor"]
-transform = Transform( -0.942601, 0, 0.333921, 0, 1, 0, -0.333921, 0, -0.942601, 0, 11.4263, 0 )
-
-[node name="EnvironmentEffects" parent="." instance=ExtResource( 8 )]
-
-[node name="SDE" parent="." instance=ExtResource( 2 )]
+[node name="KillZone" parent="SDE Odisea" instance=ExtResource( 2 )]
+transform = Transform( 100, 0, 0, 0, 1, 0, 0, 0, 100, 9.82484, -435.871, 3474.75 )
 
 [node name="PuzzleZone" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 47.5841, -320, 3461.67 )
@@ -98,20 +73,30 @@ wait_time = 0.3
 acceleration_curve = ExtResource( 11 )
 target_node_path = NodePath("..")
 
-[node name="Conveyor" parent="PuzzleZone" instance=ExtResource( 9 )]
-transform = Transform( 4.47257, 0.110255, 0, -0.496147, 0.993903, 0, 0, 0, 0.791, -111.338, -19.4076, 59.6316 )
+[node name="Criogenics Lab" type="CSGBox" parent="PuzzleZone"]
+transform = Transform( 1, 2.23517e-08, 0, -2.23517e-08, 1, 0, 0, 0, 1, 48.2943, -23.8945, 59.6316 )
+use_in_baked_light = true
+use_collision = true
+collision_layer = 4
+collision_mask = 131
+width = 287.683
+depth = 484.852
+material = ExtResource( 5 )
+
+[node name="Conveyor2" parent="PuzzleZone/Criogenics Lab" instance=ExtResource( 8 )]
+transform = Transform( 4.41849, 0.189472, 0, -0.852626, 0.981886, 0, 0, 0, 0.791, -161.687, 4.5827, 6.29248 )
 push_velocity = Vector3( -3, 0, 0 )
 debug = false
 stripe_tiling = 40.0
 
-[node name="Conveyor2" parent="PuzzleZone" instance=ExtResource( 9 )]
-transform = Transform( 4.41849, 0.189472, 0, -0.852626, 0.981886, 0, 0, 0, 0.791, -113.618, -19.3118, 65.9241 )
+[node name="Conveyor" parent="PuzzleZone/Criogenics Lab" instance=ExtResource( 8 )]
+transform = Transform( 4.47257, 0.110255, 0, -0.496147, 0.993903, 0, 0, 0, 0.791, -161.788, 4.48691, 0 )
 push_velocity = Vector3( -3, 0, 0 )
 debug = false
 stripe_tiling = 40.0
 
-[node name="Platform" type="CSGBox" parent="PuzzleZone"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -47.5841, -21.858, 20.0801 )
+[node name="Middle Section" type="CSGBox" parent="PuzzleZone/Criogenics Lab"]
+transform = Transform( 1, -2.23517e-08, 0, 2.23517e-08, 1, 0, 0, 0, 1, 0, 52.9207, 0 )
 use_in_baked_light = true
 use_collision = true
 collision_layer = 4
@@ -120,52 +105,67 @@ width = 100.0
 depth = 100.0
 material = ExtResource( 6 )
 
-[node name="PlatformMesh" type="MeshInstance" parent="PuzzleZone/Platform"]
-use_in_baked_light = true
-mesh = SubResource( 4 )
-skeleton = NodePath("")
-
-[node name="Pilar" type="MeshInstance" parent="PuzzleZone/Platform"]
+[node name="Pilar" type="MeshInstance" parent="PuzzleZone/Criogenics Lab/Middle Section"]
 transform = Transform( 0.999999, 0, 0, 0, 0.999999, 0, 0, 0, 0.999999, -36.2632, 3.04343, 24.3159 )
 use_in_baked_light = true
 mesh = SubResource( 1 )
 skeleton = NodePath("")
 
-[node name="StaticBody" type="StaticBody" parent="PuzzleZone/Platform/Pilar"]
+[node name="StaticBody" type="StaticBody" parent="PuzzleZone/Criogenics Lab/Middle Section/Pilar"]
 
-[node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/Platform/Pilar/StaticBody"]
+[node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/Criogenics Lab/Middle Section/Pilar/StaticBody"]
 shape = SubResource( 5 )
 
-[node name="Pilar3" type="MeshInstance" parent="PuzzleZone/Platform"]
+[node name="Pilar3" type="MeshInstance" parent="PuzzleZone/Criogenics Lab/Middle Section"]
 transform = Transform( 1, 0, 0, 0, 0.5, 0, 0, 0, 1, -36.2632, 2.21719, 30.0432 )
 use_in_baked_light = true
 mesh = SubResource( 1 )
 skeleton = NodePath("")
 
-[node name="StaticBody" type="StaticBody" parent="PuzzleZone/Platform/Pilar3"]
+[node name="StaticBody" type="StaticBody" parent="PuzzleZone/Criogenics Lab/Middle Section/Pilar3"]
 
-[node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/Platform/Pilar3/StaticBody"]
+[node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/Criogenics Lab/Middle Section/Pilar3/StaticBody"]
 shape = SubResource( 5 )
 
-[node name="Pilar2" type="MeshInstance" parent="PuzzleZone/Platform"]
+[node name="Pilar2" type="MeshInstance" parent="PuzzleZone/Criogenics Lab/Middle Section"]
 transform = Transform( 0.999999, 0, 0, 0, 0.999999, 0, 0, 0, 0.999999, -43.4282, 3.04343, 33.2603 )
 use_in_baked_light = true
 mesh = SubResource( 1 )
 skeleton = NodePath("")
 
-[node name="StaticBody" type="StaticBody" parent="PuzzleZone/Platform/Pilar2"]
+[node name="StaticBody" type="StaticBody" parent="PuzzleZone/Criogenics Lab/Middle Section/Pilar2"]
 
-[node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/Platform/Pilar2/StaticBody"]
+[node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/Criogenics Lab/Middle Section/Pilar2/StaticBody"]
 shape = SubResource( 5 )
 
-[node name="SpawnPoint2" type="Spatial" parent="."]
-transform = Transform( 0.808833, 0, -0.588039, 0, 1, 0, 0.588039, 0, 0.808833, -42.855, -332.926, 3491.17 )
+[node name="Pilar4" type="MeshInstance" parent="PuzzleZone/Criogenics Lab/Middle Section"]
+transform = Transform( 0.999999, 0, 0, 0, 0.999999, 0, 0, 0, 0.999999, -43.4282, 3.04343, 42.7576 )
+use_in_baked_light = true
+mesh = SubResource( 1 )
+skeleton = NodePath("")
 
-[node name="LevelBGM" type="Node" parent="."]
-script = ExtResource( 4 )
-track_path = "res://assets/music/Escalating Dread.mp3"
+[node name="StaticBody" type="StaticBody" parent="PuzzleZone/Criogenics Lab/Middle Section/Pilar4"]
 
-[node name="KillZone" parent="." instance=ExtResource( 3 )]
-transform = Transform( 100, 0, 0, 0, 1, 0, 0, 0, 100, 9.82484, -435.871, 3474.75 )
+[node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/Criogenics Lab/Middle Section/Pilar4/StaticBody"]
+shape = SubResource( 5 )
 
-[editable path="BaseFloor/Conveyor3"]
+[node name="SpawnPortal" type="CSGBox" parent="PuzzleZone/Criogenics Lab/Middle Section"]
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -40.4852, 2, 31.9622 )
+visible = false
+use_in_baked_light = true
+use_collision = true
+collision_layer = 4
+collision_mask = 131
+width = 287.683
+depth = 484.852
+material = ExtResource( 5 )
+
+[node name="SpawnPoint" type="Spatial" parent="PuzzleZone/Criogenics Lab/Middle Section/SpawnPortal"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
+
+[node name="SpawnPoint2" type="Spatial" parent="PuzzleZone/Criogenics Lab/Middle Section/SpawnPortal/SpawnPoint"]
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 5 )
+
+[node name="InteriorWide" parent="." instance=ExtResource( 7 )]
+
+[editable path="SDE Odisea/CommandFloor/Conveyor3"]

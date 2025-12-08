@@ -99,6 +99,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/asserts/CallBackValueProvider.gd"
 }, {
+"base": "EditorInspectorPlugin",
+"class": "CameraInspectorPlugin",
+"language": "GDScript",
+"path": "res://addons/qol-camera/inspector_plugin.gd"
+}, {
 "base": "GdUnitArgumentMatcher",
 "class": "ChainedArgumentMatcher",
 "language": "GDScript",
@@ -789,6 +794,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/fuzzers/Vector3Fuzzer.gd"
 }, {
+"base": "EditorProperty",
+"class": "ViewLockProperty",
+"language": "GDScript",
+"path": "res://addons/qol-camera/view_lock_property.gd"
+}, {
 "base": "Reference",
 "class": "XmlElement",
 "language": "GDScript",
@@ -823,6 +833,7 @@ _global_script_class_icons={
 "AnyBuildInTypeArgumentMatcher": "",
 "AnyClazzArgumentMatcher": "",
 "CallBackValueProvider": "",
+"CameraInspectorPlugin": "",
 "ChainedArgumentMatcher": "",
 "CmdArgumentParser": "",
 "CmdCommand": "",
@@ -961,6 +972,7 @@ _global_script_class_icons={
 "ValueProvider": "",
 "Vector2Fuzzer": "",
 "Vector3Fuzzer": "",
+"ViewLockProperty": "",
 "XmlElement": "",
 "_TestCase": "",
 "_TestSuiteScanner": ""
@@ -970,8 +982,10 @@ _global_script_class_icons={
 
 config/name="Odisea"
 run/main_scene="res://scenes/Menu.tscn"
-boot_splash/image="res://assets/splash.png"
-boot_splash/bg_color=Color( 0, 0, 0, 1 )
+boot_splash/image="res://assets/splash_HI-RES.png"
+boot_splash/fullsize=false
+boot_splash/use_filter=false
+boot_splash/minimum_display_time=3
 
 [autoload]
 
@@ -989,9 +1003,12 @@ keep_debug_server_open=true
 
 window/size/width=640
 window/size/height=480
-window/size/fullscreen=true
+window/size/always_on_top=true
+window/size/test_width=1280
+window/size/test_height=960
+window/vsync/vsync_via_compositor=true
 window/stretch/mode="viewport"
-window/stretch/aspect="expand"
+window/stretch/aspect="keep_height"
 
 [editor_plugins]
 
@@ -1167,7 +1184,7 @@ common/enable_pause_aware_picking=true
 
 [rendering]
 
-quality/driver/driver_name="GLES2"
+quality/driver/fallback_to_gles2=true
 quality/intended_usage/framebuffer_allocation.mobile=2
 vram_compression/import_bptc=true
 vram_compression/import_etc=true
@@ -1180,5 +1197,4 @@ quality/shading/force_blinn_over_ggx=true
 quality/depth_prepass/enable=false
 batching/options/single_rect_fallback=true
 environment/default_clear_color=Color( 0.180392, 0.172549, 0.203922, 1 )
-environment/default_environment="res://data/default_env.tres"
 quality/filters/anisotropic_filtering_level=0

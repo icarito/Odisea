@@ -1,0 +1,16 @@
+
+[gd_resource type="ProceduralSky" load_steps=2 format=2]
+
+[ext_resource path="res://scenes/common/space_environment/procedural_star_sky.shader" type="Shader" id=1]
+
+
+[resource]
+sky_top_color = Color(0.0, 0.0, 0.01, 1)
+sky_horizon_color = Color(0.01, 0.01, 0.03, 1)
+sky_curve = 0.25
+energy = 1.2
+
+# NOTA: Godot 3.x no permite asignar un shader personalizado directo a ProceduralSky,
+# pero puedes tunear los colores para simular un fondo espacial oscuro.
+# El shader procedural de estrellas solo puede usarse en PanoramaSky con una textura generada.
+# Para máxima ligereza, se usa ProceduralSky con colores oscuros y partículas de estrellas.
