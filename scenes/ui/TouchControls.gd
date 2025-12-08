@@ -1,132 +1,94 @@
 extends CanvasLayer
 
 export var debug_mode = false
-export (float, 0.1, 5.0) var global_ui_scale : float = 1.5
-
 
 const joystick_scene = preload("res://addons/virtual_joystick/Joystick/Joystick.tscn")
-const button_texture = preload("res://addons/virtual_joystick/Joystick/joystick_handle.png")
 
-
-const json_data = """
-{"controlPad":{"name":"Elias","orientation":"LANDSCAPE","width":2166,"height":838},"controlPadItems":[{"itemIdentifier":"joystick","controlPadId":7,"offsetX":199.28172,"offsetY":265.61536,"scale":1.0512099,"itemType":"JOYSTICK","properties":"{\\"backgroundColor\\":18446649515709562880,\\"handleColor\\":18446547261128179712,\\"handleRadiusFactor\\":0.79690313}"},{"itemIdentifier":"BTN_A","controlPadId":7,"offsetX":1809.8287,"offsetY":119.001854,"scale":1.5625504,"rotation":0.5697708,"itemType":"BUTTON","properties":"{\\"text\\":\\"A\\",\\"buttonColor\\":18401625609768796160}"},{"itemIdentifier":"BTN_B","controlPadId":7,"offsetX":1740.8557,"offsetY":515.8242,"scale":1.473202,"rotation":1.232296,"itemType":"BUTTON","properties":"{\\"text\\":\\"B\\",\\"buttonColor\\":18402470034698928128}"},{"itemIdentifier":"BTN_Y","controlPadId":7,"offsetX":1356.959,"offsetY":416.8434,"scale":1.3192085,"rotation":-0.16860488,"itemType":"BUTTON","properties":"{\\"text\\":\\"Y\\"}"},{"itemIdentifier":"BTN_X","controlPadId":7,"offsetX":1451.8599,"offsetY":61.90054,"scale":1.2686917,"rotation":-0.6540756,"itemType":"BUTTON","properties":"{\\"text\\":\\"X\\"}"},{"itemIdentifier":"dpad","controlPadId":7,"offsetX":737.75696,"offsetY":353.01068,"scale":0.92181766,"rotation":0.017370217,"itemType":"DPAD","properties":"{\\"backgroundColor\\":18396924098048425984,\\"buttonColor\\":18446594784941309952,\\"style\\":\\"SPLIT\\"}"},{"itemIdentifier":"label","controlPadId":7,"offsetX":980.03436,"offsetY":0.21624961,"scale":2.8302407,"rotation":-0.16309358,"itemType":"LABEL","properties":"{\\"text\\":\\"ODISEA\\"}"}],"connectionConfig":{"controlPadId":7,"connectionType":"UDP","configJson":"{\\"host\\":\\"192.168.18.6\\",\\"port\\":9999}"}}
+export(String, MULTILINE) var json_data = """
+{
+	"controlPadItems": [
+		{"itemIdentifier":"joystick", "itemType":"JOYSTICK", "position":{"x":0.15, "y":0.5}, "scale": 1.2, "properties":"{\\"backgroundColor\\":\\"#FFFFF36B\\",\\"handleColor\\":\\"#FFFF0000\\"}"},
+		{"itemIdentifier":"BTN_A", "itemType":"BUTTON", "position":{"x":0.85, "y":0.25}, "scale": 1.6, "properties":"{\\"text\\":\\"A\\",\\"buttonColor\\":\\"#FF00A000\\"}"},
+		{"itemIdentifier":"BTN_B", "itemType":"BUTTON", "position":{"x":0.8, "y":0.75}, "scale": 1.5, "properties":"{\\"text\\":\\"B\\",\\"buttonColor\\":\\"#FF2040FF\\"}"},
+		{"itemIdentifier":"BTN_Y", "itemType":"BUTTON", "position":{"x":0.65, "y":0.65}, "scale": 1.3, "properties":"{\\"text\\":\\"Y\\"}"},
+		{"itemIdentifier":"BTN_X", "itemType":"BUTTON", "position":{"x":0.7, "y":0.15}, "scale": 1.3, "properties":"{\\"text\\":\\"X\\"}"}
+	]
+}
 """
 
-func parse_color(color_val):
-	if typeof(color_val) != TYPE_INT and typeof(color_val) != TYPE_REAL:
-		return Color(1, 1, 1, 1)
-	var upper_32 = int(float(color_val) / pow(2, 32))
-	var a = (upper_32 >> 24) & 0xFF
-	var r = (upper_32 >> 16) & 0xFF
-	var g = (upper_32 >> 8) & 0xFF
-	var b = upper_32 & 0xFF
-	return Color(r / 255.0, g / 255.0, b / 255.0, a / 255.0)
-
 func _ready():
-	var left_container = $LeftControls
-	var right_container = $RightControls
+	# Ocultar en plataformas que no son táctiles
+	if not OS.has_touchscreen_ui_hint():
+		hide()
+		return
 
 	if debug_mode:
 		var stylebox = StyleBoxFlat.new()
 		stylebox.set("bg_color", Color(1, 0, 0, 0.1))
 		stylebox.set_border_width_all(2)
 		stylebox.set("border_color", Color.red)
-		left_container.add_stylebox_override("panel", stylebox)
-		right_container.add_stylebox_override("panel", stylebox)
+		$LeftControls.add_stylebox_override("panel", stylebox)
+		$RightControls.add_stylebox_override("panel", stylebox)
 
 	var data = JSON.parse(json_data).result
 	if data == null:
 		push_error("Failed to parse JSON data for TouchControls.")
 		return
 		
-	var control_pad = data.controlPad
 	var items = data.controlPadItems
-
-	var reference_width = float(control_pad.width)
-	var half_reference_width = reference_width / 2.0
-	
-	var JOYSTICK_BASE_SIZE = Vector2(160, 240)
-	
-	# Apply the global scale directly to the containers
-
-
-
 	for item in items:
-		var control_node
-		var properties = null
-		if item.has("properties"):
-			var parsed_props = JSON.parse(item.properties)
-			if parsed_props.error == OK:
-				properties = parsed_props.result
+		_create_control_item(item)
+		
+func _create_control_item(item_data: Dictionary):
+	var control_node = null
+	var properties = {}
+	if item_data.has("properties"):
+		var parsed_props = JSON.parse(item_data.properties)
+		if parsed_props.error == OK:
+			properties = parsed_props.result
 
-		match item.itemType:
-			"JOYSTICK":
-				control_node = joystick_scene.instance()
-				control_node.name = item.itemIdentifier
-				if debug_mode:
-					control_node.debug_mode = true
-				if UIManager:
-					UIManager.register_joystick(control_node)
-				if properties:
-					if properties.has("handleColor"):
-						var handle = control_node.get_node_or_null("Background/Handle")
-						if handle:
-							handle.self_modulate = parse_color(properties.handleColor)
-					if properties.has("backgroundColor"):
-						var base = control_node.get_node_or_null("Background")
-						if base:
-							base.self_modulate = parse_color(properties.backgroundColor)
-			"BUTTON":
-				var button = Button.new()
-				button.name = item.itemIdentifier
-				if properties:
-					if properties.has("buttonColor"):
-						button.modulate = parse_color(properties.buttonColor)
-					if properties.has("text"):
-						button.text = properties.text
-				else:
-					button.text = item.itemIdentifier
-				control_node = button
-			"DPAD":
-				control_node = Control.new() # Placeholder for DPAD, needs specific implementation
-				control_node.name = item.itemIdentifier
-				if debug_mode:
-					var stylebox = StyleBoxFlat.new()
-					stylebox.set("bg_color", Color(0, 0, 1, 0.1))
-					stylebox.set_border_width_all(2)
-					stylebox.set("border_color", Color.blue)
-					control_node.add_stylebox_override("panel", stylebox)
-			"LABEL":
-				control_node = Label.new()
-				control_node.name = item.itemIdentifier
-				if properties and properties.has("text"):
-					control_node.text = properties.text
-				control_node.align = Label.ALIGN_CENTER
-				control_node.valign = Label.VALIGN_CENTER
-				# Optional: set font size or other label properties here
-			_:
-				continue
+	match item_data.itemType:
+		"JOYSTICK":
+			control_node = joystick_scene.instance()
+			if UIManager:
+				UIManager.register_joystick(control_node)
+			if properties.has("handleColor"):
+				var handle = control_node.get_node_or_null("Background/Handle")
+				if handle: handle.self_modulate = Color(properties.handleColor)
+			if properties.has("backgroundColor"):
+				var base = control_node.get_node_or_null("Background")
+				if base: base.self_modulate = Color(properties.backgroundColor)
+		"BUTTON":
+			var button = Button.new()
+			if properties.has("buttonColor"):
+				button.self_modulate = Color(properties.buttonColor)
+			button.text = properties.get("text", item_data.itemIdentifier)
+			control_node = button
+		_:
+			push_warning("Unsupported itemType: " + item_data.itemType)
+			return
 
-		if control_node:
-			if item.itemType == "JOYSTICK":
-				left_container.add_child(control_node)
-				# Posición y escala usando un factor menor para evitar que sea gigante
-				var joystick_scale = global_ui_scale * 0.35
-				control_node.rect_position = Vector2(item.offsetX, item.offsetY) * joystick_scale
-				control_node.rect_scale = Vector2(joystick_scale, joystick_scale)
-				if "rotation" in item:
-					control_node.rect_rotation = float(item.rotation)
-			elif item.itemType == "BUTTON" or item.itemType == "DPAD" or item.itemType == "LABEL":
-				right_container.add_child(control_node)
-				# Posicionar y escalar
-				var local_pos_x = (item.offsetX - half_reference_width) * global_ui_scale
-				var local_pos_y = item.offsetY * global_ui_scale
-				var item_scale = float(item.get("scale", 1.0)) * global_ui_scale
-
-				control_node.rect_position = Vector2(local_pos_x, local_pos_y)
-				control_node.rect_scale = Vector2(item_scale, item_scale)
-
-				if "rotation" in item:
-					control_node.rect_rotation = float(item.rotation)
-		else:
-			print("Failed to create control for item: ", item)
+	control_node.name = item_data.itemIdentifier
+	
+	# Usar un MarginContainer para posicionar y escalar fácilmente
+	var container = MarginContainer.new()
+	container.mouse_filter = Control.MOUSE_FILTER_PASS # Permite que los eventos de mouse pasen a través
+	container.anchor_left = item_data.position.x
+	container.anchor_top = item_data.position.y
+	container.anchor_right = item_data.position.x
+	container.anchor_bottom = item_data.position.y
+	
+	# Determinar si el control va a la izquierda o a la derecha
+	if item_data.position.x < 0.5:
+		$LeftControls.add_child(container)
+	else:
+		$RightControls.add_child(container)
+		
+	container.add_child(control_node)
+	
+	# Centrar el control en su ancla
+	control_node.rect_pivot_offset = control_node.rect_size / 2.0
+	
+	# Aplicar escala
+	var scale_factor = float(item_data.get("scale", 1.0))
+	control_node.rect_scale = Vector2.ONE * scale_factor
