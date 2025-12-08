@@ -1,13 +1,13 @@
 extends PanelContainer
 
-onready var record_button: Button = $VBoxContainer/RecordButton
-onready var stop_button: Button = $VBoxContainer/StopButton
-onready var load_button: Button = $VBoxContainer/LoadButton
-onready var pause_button: Button = $VBoxContainer/PlaybackControls/PauseButton
-onready var resume_button: Button = $VBoxContainer/PlaybackControls/ResumeButton
-onready var step_button: Button = $VBoxContainer/PlaybackControls/StepButton
-onready var frame_label: Label = $VBoxContainer/FrameLabel
-onready var file_dialog: FileDialog = $FileDialog
+onready var record_button: Button = $CanvasLayer/VBoxContainer/RecordButton
+onready var stop_button: Button = $CanvasLayer/VBoxContainer/StopButton
+onready var load_button: Button = $CanvasLayer/VBoxContainer/LoadButton
+onready var pause_button: Button = $CanvasLayer/VBoxContainer/PlaybackControls/PauseButton
+onready var resume_button: Button = $CanvasLayer/VBoxContainer/PlaybackControls/ResumeButton
+onready var step_button: Button = $CanvasLayer/VBoxContainer/PlaybackControls/StepButton
+onready var frame_label: Label = $CanvasLayer/VBoxContainer/FrameLabel
+onready var file_dialog: FileDialog = $CanvasLayer/FileDialog
 
 func _ready() -> void:
 	record_button.connect("pressed", self, "_on_RecordButton_pressed")
