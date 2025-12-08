@@ -1021,6 +1021,10 @@ acum=false
 acc=false
 monit=false
 
+[gui]
+
+theme/custom="res://assets/themes/retro_scifi.tres"
+
 [input]
 
 left={
