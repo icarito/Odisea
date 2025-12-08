@@ -7,16 +7,7 @@ const joystick_scene = preload("res://addons/virtual_joystick/Joystick/Joystick.
 const button_texture = preload("res://addons/virtual_joystick/Joystick/joystick_handle.png")
 
 export(String, MULTILINE) var json_data = """
-{
-	"controlPad":{"name":"Elias","orientation":"LANDSCAPE","width":2166,"height":838},
-	"controlPadItems":[
-		{"itemIdentifier":"joystick","offsetX":199.28172,"offsetY":265.61536,"scale":0.7,"itemType":"JOYSTICK","properties":"{\"backgroundColor\":18446649515709562880,\"handleColor\":18446547261128179712}"},
-		{"itemIdentifier":"BTN_A","offsetX":1809.8287,"offsetY":119.001854,"scale":2.0,"rotation":0.5697708,"itemType":"BUTTON","properties":"{\"text\":\"A\",\"buttonColor\":18401625609768796160}"},
-		{"itemIdentifier":"BTN_B","offsetX":1740.8557,"offsetY":515.8242,"scale":2.0,"rotation":1.232296,"itemType":"BUTTON","properties":"{\"text\":\"B\",\"buttonColor\":18402470034698928128}"},
-		{"itemIdentifier":"BTN_Y","offsetX":1356.959,"offsetY":416.8434,"scale":2.0,"rotation":-0.16860488,"itemType":"BUTTON","properties":"{\"text\":\"Y\"}"},
-		{"itemIdentifier":"BTN_X","offsetX":1451.8599,"offsetY":61.90054,"scale":2.0,"rotation":-0.6540756,"itemType":"BUTTON","properties":"{\"text\":\"X\"}"}
-	]
-}
+{"controlPad":{"name":"Elias","orientation":"LANDSCAPE","width":2166,"height":838},"controlPadItems":[{"itemIdentifier":"joystick","controlPadId":7,"offsetX":199.28172,"offsetY":265.61536,"scale":1.0512099,"itemType":"JOYSTICK","properties":"{\"backgroundColor\":18446649515709562880,\"handleColor\":18446547261128179712,\"handleRadiusFactor\":0.79690313}"},{"itemIdentifier":"BTN_A","controlPadId":7,"offsetX":1809.8287,"offsetY":119.001854,"scale":1.5625504,"rotation":0.5697708,"itemType":"BUTTON","properties":"{\"text\":\"A\",\"buttonColor\":18401625609768796160}"},{"itemIdentifier":"BTN_B","controlPadId":7,"offsetX":1740.8557,"offsetY":515.8242,"scale":1.473202,"rotation":1.232296,"itemType":"BUTTON","properties":"{\"text\":\"B\",\"buttonColor\":18402470034698928128}"},{"itemIdentifier":"BTN_Y","controlPadId":7,"offsetX":1356.959,"offsetY":416.8434,"scale":1.3192085,"rotation":-0.16860488,"itemType":"BUTTON","properties":"{\"text\":\"Y\"}"},{"itemIdentifier":"BTN_X","controlPadId":7,"offsetX":1451.8599,"offsetY":61.90054,"scale":1.2686917,"rotation":-0.6540756,"itemType":"BUTTON","properties":"{\"text\":\"X\"}"},{"itemIdentifier":"dpad","controlPadId":7,"offsetX":737.75696,"offsetY":353.01068,"scale":0.92181766,"rotation":0.017370217,"itemType":"DPAD","properties":"{\"backgroundColor\":18396924098048425984,\"buttonColor\":18446594784941309952,\"style\":\"SPLIT\"}"},{"itemIdentifier":"label","controlPadId":7,"offsetX":980.03436,"offsetY":0.21624961,"scale":2.8302407,"rotation":-0.16309358,"itemType":"LABEL","properties":"{\"text\":\"ODISEA\"}"}],"connectionConfig":{"controlPadId":7,"connectionType":"UDP","configJson":"{\"host\":\"192.168.18.6\",\"port\":9999}"}}
 """
 
 func parse_color(color_val):
@@ -51,89 +42,110 @@ func _ready():
 	var control_pad = data.get("controlPad", {})
 	var items = data.controlPadItems
 	
-	var ref_width = float(control_pad.get("width", 1920))
-	var ref_height = float(control_pad.get("height", 1080))
-	
-	for item in items:
-		_create_control_item(item, ref_width, ref_height)
-		
-func _create_control_item(item_data: Dictionary, ref_width: float, ref_height: float):
-	var control_node = null
-	var properties = {}
-	if item_data.has("properties"):
-		var parsed_props = JSON.parse(item_data.properties)
-		if parsed_props.error == OK:
-			properties = parsed_props.result
+	var reference_width = float(control_pad.get("width", 1920))
+	var reference_height = float(control_pad.get("height", 1080))
+	var screen_size = get_viewport().get_visible_rect().size
 
-	match item_data.itemType:
-		"JOYSTICK":
-			control_node = joystick_scene.instance()
-			if UIManager:
-				UIManager.register_joystick(control_node)
-			if properties.has("handleColor"):
-				var handle = control_node.get_node("Background/Handle")
-				if handle: handle.self_modulate = parse_color(properties.handleColor)
-			if properties.has("backgroundColor"):
-				var base = control_node.get_node("Background")
-				if base: base.self_modulate = parse_color(properties.backgroundColor)
-		"BUTTON":
-			var button = TextureButton.new()
-			button.texture_normal = button_texture
-			button.expand = true
-			button.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-			
-			if properties.has("buttonColor"):
-				button.self_modulate = parse_color(properties.buttonColor)
-			
-			var label = Label.new()
-			label.text = properties.get("text", item_data.itemIdentifier)
-			label.align = Label.ALIGN_CENTER
-			label.valign = Label.VALIGN_CENTER
-			label.anchor_right = 1.0
-			label.anchor_bottom = 1.0
-			label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			button.add_child(label)
-			
-			# Conectar señal para verificar que funciona
-			button.connect("pressed", self, "_on_button_pressed", [item_data.itemIdentifier])
-			
-			control_node = button
-		_:
-			push_warning("Unsupported itemType: " + item_data.itemType)
-			return
+	# 1. Calcular factor de escala para ajustar el canvas de referencia a la pantalla, manteniendo aspecto.
+	var scale_factor = 1.0
+	var screen_aspect = screen_size.x / screen_size.y
+	var ref_aspect = reference_width / reference_height
 
-	control_node.name = item_data.itemIdentifier
-	control_node.mouse_filter = Control.MOUSE_FILTER_STOP # Asegura que el botón capture el clic
-	
-	# Usar un MarginContainer para posicionar y escalar fácilmente
-	var container = MarginContainer.new()
-	container.mouse_filter = Control.MOUSE_FILTER_PASS # Permite que los eventos de mouse pasen a través
-	var relative_x = float(item_data.offsetX) / ref_width
-	var relative_y = float(item_data.offsetY) / ref_height
-	container.anchor_left = relative_x
-	container.anchor_top = relative_y
-	container.anchor_right = relative_x
-	container.anchor_bottom = relative_y
-	
-	# Determinar si el control va a la izquierda o a la derecha
-	if relative_x < 0.5:
-		$LeftControls.add_child(container)
+	if screen_aspect > ref_aspect:
+		scale_factor = screen_size.y / reference_height
 	else:
-		$RightControls.add_child(container)
-		
-	container.add_child(control_node)
-	
-	# Centrar el control en su ancla
-	# Esperar un fotograma para que rect_size se calcule correctamente
-	yield(get_tree(), "idle_frame")
-	control_node.rect_pivot_offset = control_node.rect_size / 2.0
-	
-	if item_data.has("rotation"):
-		control_node.rect_rotation = rad2deg(float(item_data.rotation))
-	
-	# Aplicar escala
-	var scale_factor = float(item_data.get("scale", 1.0)) * global_ui_scale
-	control_node.rect_scale = Vector2.ONE * scale_factor
+		scale_factor = screen_size.x / reference_width
+
+	scale_factor = min(scale_factor, 1.5)
+
+	# 2. Crear contenedores para controles izquierdos y derechos
+	var left_container = Control.new()
+	left_container.name = "LeftControls"
+	add_child(left_container)
+
+	var right_container = Control.new()
+	right_container.name = "RightControls"
+	add_child(right_container)
+
+	var half_reference_width = reference_width / 2.0
+
+	for item in items:
+		var control_node = null
+		var properties = {}
+		if item.has("properties"):
+			var parsed_props = JSON.parse(item.properties)
+			if parsed_props.error == OK:
+				properties = parsed_props.result
+
+		match item.itemType:
+			"JOYSTICK":
+				control_node = joystick_scene.instance()
+				control_node.name = item.itemIdentifier
+				if UIManager:
+					UIManager.register_joystick(control_node)
+				if properties.has("handleColor"):
+					var handle = control_node.get_node_or_null("Background/Handle")
+					if handle:
+						handle.self_modulate = parse_color(properties.handleColor)
+				if properties.has("backgroundColor"):
+					var base = control_node.get_node_or_null("Background")
+					if base:
+						base.self_modulate = parse_color(properties.backgroundColor)
+			"BUTTON":
+				var container = Node2D.new()
+				container.name = item.itemIdentifier
+				var button = TouchScreenButton.new()
+				button.name = "Button"
+				button.normal = button_texture
+				button.pressed = button_texture
+				if properties.has("buttonColor"):
+					button.modulate = parse_color(properties.buttonColor)
+				if properties.has("text"):
+					var action_name = "vtc_" + properties.text.to_lower()
+					button.action = action_name
+				container.add_child(button)
+				control_node = container
+			_:
+				continue
+
+		if control_node:
+			var parent_container = left_container if item.offsetX < half_reference_width else right_container
+			parent_container.add_child(control_node)
+
+			var item_scale = float(item.get("scale", 1.0))
+			var final_scale = Vector2(item_scale, item_scale) * scale_factor
+			if "rect_scale" in control_node:
+				control_node.rect_scale = final_scale
+			elif "scale" in control_node:
+				control_node.scale = final_scale
+
+			if "rotation" in control_node and item.has("rotation"):
+				control_node.rotation = float(item.rotation)
+
+			var center_pos = Vector2()
+			var scaled_offsetX = item.offsetX * scale_factor
+			var scaled_offsetY = item.offsetY * scale_factor
+
+			if item.offsetX < half_reference_width:
+				center_pos.x = scaled_offsetX
+			else:
+				var scaled_offset_from_right = (reference_width - item.offsetX) * scale_factor
+				center_pos.x = screen_size.x - scaled_offset_from_right
+			center_pos.y = screen_size.y - scaled_offsetY
+
+			if control_node is Control:
+				var control_size = Vector2.ZERO
+				var background_node = control_node.get_node_or_null("Background")
+				if background_node:
+					control_size = background_node.rect_size * control_node.rect_scale
+				if control_size == Vector2.ZERO:
+					control_node.rect_position = center_pos
+				else:
+					control_node.rect_position = center_pos - (control_size / 2.0)
+			else:
+				control_node.position = center_pos
+		else:
+			print("Failed to create control for item: ", item)
 
 func _on_button_pressed(button_name: String):
 	print("Button pressed: ", button_name)
