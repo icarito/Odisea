@@ -38,6 +38,32 @@ func _ready():
 	var reference_height = float(control_pad.height)
 	var screen_size = get_viewport().get_visible_rect().size
 
+	# 1. Calculate a scale factor to fit reference canvas to screen, preserving aspect ratio.
+	var scale_factor = 1.0
+	var screen_aspect = screen_size.x / screen_size.y
+	var ref_aspect = reference_width / reference_height
+
+	if screen_aspect > ref_aspect:
+		# Screen is wider than reference, so height is the limiting dimension.
+		scale_factor = screen_size.y / reference_height
+	else:
+		# Screen is taller or has same aspect, so width is the limiting dimension.
+		scale_factor = screen_size.x / reference_width
+	
+	# Clamp scale factor as requested "not too much"
+	scale_factor = min(scale_factor, 1.5)
+
+	# 2. Create containers for left and right controls as requested.
+	var left_container = Control.new()
+	left_container.name = "LeftControls"
+	add_child(left_container)
+
+	var right_container = Control.new()
+	right_container.name = "RightControls"
+	add_child(right_container)
+	
+	var half_reference_width = reference_width / 2.0
+
 	for item in items:
 		var control_node
 		var properties = null
@@ -61,67 +87,76 @@ func _ready():
 						if base:
 							base.self_modulate = parse_color(properties.backgroundColor)
 			"BUTTON":
-				control_node = TouchScreenButton.new()
-				control_node.name = item.itemIdentifier
-				control_node.normal = button_texture
-				control_node.pressed = button_texture # Placeholder
+				# Use Node2D container for scaling TouchScreenButton
+				var container = Node2D.new()
+				container.name = item.itemIdentifier
+				var button = TouchScreenButton.new()
+				button.name = "Button"
+				button.normal = button_texture
+				button.pressed = button_texture # Placeholder
 
 				if properties:
 					if properties.has("buttonColor"):
-						control_node.modulate = parse_color(properties.buttonColor)
-					if properties.has("text"):
-						var action_name = "vtc_" + properties.text.to_lower()
-						control_node.action = action_name
+						button.modulate = parse_color(properties.buttonColor)
+						if properties.has("text"):
+							var action_name = "vtc_" + properties.text.to_lower()
+							button.action = action_name
+				
+				container.add_child(button)
+				control_node = container
 			_:
 				continue
 
 		if control_node:
-			add_child(control_node)
-			var scale = float(item.get("scale", 1.0)) / 2
+			# 3. Add to correct container
+			var parent_container = left_container if item.offsetX < half_reference_width else right_container
+			parent_container.add_child(control_node)
 			
-			# Set scale and rotation first
+			# 4. Set scale and rotation first
+			# Removed the '/ 2' from the original scale calculation.
+			var item_scale = float(item.get("scale", 1.0))
+			var final_scale = Vector2(item_scale, item_scale) * scale_factor
+			
 			if "rect_scale" in control_node:
-				control_node.rect_scale = Vector2(scale, scale)
+				control_node.rect_scale = final_scale
 			elif "scale" in control_node:
-				control_node.scale = Vector2(scale, scale)
+				control_node.scale = final_scale
 
 			if "rotation" in control_node and item.has("rotation"):
 				control_node.rotation = float(item.rotation)
 
-			# --- Positioning Logic ---
-			# Assume offsetX/Y from JSON refers to the CENTER of the control.
+			# 5. Positioning Logic using the scale_factor for responsive layout
 			var center_pos = Vector2()
-			var half_reference_width = reference_width / 2.0
-
-			# 1. Calculate the center position, anchored to the bottom corners.
-			if item.offsetX < half_reference_width:
-				# Left half: anchor to bottom-left.
-				center_pos.x = item.offsetX
-			else:
-				# Right half: anchor to bottom-right.
-				var offset_from_right = reference_width - item.offsetX
-				center_pos.x = screen_size.x - offset_from_right
 			
-			# Anchor Y to the bottom for all controls. Assumes reference origin is bottom-left.
-			center_pos.y = screen_size.y - item.offsetY
+			# Calculate positions based on scaled offsets
+			var scaled_offsetX = item.offsetX * scale_factor
+			var scaled_offsetY = item.offsetY * scale_factor
 
-			# 2. Apply the calculated center position to the specific control node.
-			if control_node is TouchScreenButton:
-				# 'position' property is the center of the TouchScreenButton.
-				control_node.position = center_pos
-			elif "rect_position" in control_node: # For Joystick (and other Control nodes)
+			if item.offsetX < half_reference_width:
+				# Left half: anchor to screen bottom-left.
+				center_pos.x = scaled_offsetX
+			else:
+				# Right half: anchor to screen bottom-right.
+				var scaled_offset_from_right = (reference_width - item.offsetX) * scale_factor
+				center_pos.x = screen_size.x - scaled_offset_from_right
+			
+			# Anchor Y to the bottom for all controls.
+			center_pos.y = screen_size.y - scaled_offsetY
+
+			# 6. Apply the calculated center position to the specific control node.
+			if control_node is Control: # For Joystick (and other Control nodes)
 				# 'rect_position' is the top-left corner. We must calculate it from the center.
 				var control_size = Vector2.ZERO
-				# Get the joystick's background size, which defines its overall size.
 				var background_node = control_node.get_node_or_null("Background")
 				if background_node:
-					control_size = background_node.rect_size * scale
+					control_size = background_node.rect_size * control_node.rect_scale
 				
 				if control_size == Vector2.ZERO:
-					# Fallback if we can't get the size
 					push_warning("Could not determine size for " + control_node.name + ". Positioning may be inaccurate.")
 					control_node.rect_position = center_pos
 				else:
 					control_node.rect_position = center_pos - (control_size / 2.0)
+			else: # For Node2D (button container) or other non-Control nodes
+				control_node.position = center_pos
 		else:
 			print("Failed to create control for item: ", item)
