@@ -79,10 +79,13 @@ func _ready():
 			"BUTTON":
 				var button = Button.new()
 				button.name = item.itemIdentifier
-				button.text = properties.text if (properties and properties.has("text")) else item.itemIdentifier
-				button.rect_min_size = Vector2(120, 120)
-				button.modulate = Color(1, 0.5, 0.2, 1) # Color visible
-				button.connect("pressed", self, "_on_button_pressed", [button.name])
+				if properties:
+					if properties.has("buttonColor"):
+						button.modulate = parse_color(properties.buttonColor)
+					if properties.has("text"):
+						button.text = properties.text
+				else:
+					button.text = item.itemIdentifier
 				control_node = button
 			"DPAD":
 				control_node = Control.new() # Placeholder for DPAD, needs specific implementation
@@ -115,8 +118,8 @@ func _ready():
 					control_node.rect_rotation = float(item.rotation)
 			elif item.itemType == "BUTTON" or item.itemType == "DPAD" or item.itemType == "LABEL":
 				right_container.add_child(control_node)
-				# Posicionar y escalar dentro del contenedor derecho
-				var local_pos_x = item.offsetX * global_ui_scale
+				# Posicionar y escalar
+				var local_pos_x = (item.offsetX - half_reference_width) * global_ui_scale
 				var local_pos_y = item.offsetY * global_ui_scale
 				var item_scale = float(item.get("scale", 1.0)) * global_ui_scale
 
@@ -127,6 +130,3 @@ func _ready():
 					control_node.rect_rotation = float(item.rotation)
 		else:
 			print("Failed to create control for item: ", item)
-
-func _on_button_pressed(button_name):
-	print("Botón presionado:", button_name)
