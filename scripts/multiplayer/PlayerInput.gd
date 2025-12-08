@@ -33,10 +33,7 @@ var action_map = {
 }
 
 var vtc_action_map = {
-	"a": "vtc_a",
-	"b": "vtc_b",
-	"x": "vtc_x",
-	"y": "vtc_y"
+	"btn_a": "vtc_btn_a"
 }
 var joypad_device := 0  # 0 para P1, 1 para P2
 var mouse_motion := Vector2.ZERO # Almacenar movimiento relativo del mouse
@@ -52,7 +49,10 @@ var _joy_jump_just_pressed := false
 var joystick
 
 func _ready():
-	joystick = UIManager.joystick
+	UIManager.connect("joystick_registered", self, "_on_joystick_registered")
+
+func _on_joystick_registered(p_joystick):
+	joystick = p_joystick
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -146,7 +146,7 @@ func is_sprint_pressed() -> bool:
 func just_jumped() -> bool:
 	"""Detectar salto ESTE FRAME."""
 	var actions = action_map[player_id]
-	var jumped = Input.is_action_just_pressed(actions["jump"]) or _joy_jump_just_pressed or Input.is_action_just_pressed(vtc_action_map["a"])
+	var jumped = Input.is_action_just_pressed(actions["jump"]) or _joy_jump_just_pressed or Input.is_action_just_pressed(vtc_action_map["btn_a"])
 	if debug_input and jumped and _can_log("jump"):
 		print("[PlayerInput P%d] just_jumped: %s" % [player_id, jumped])
 	return jumped

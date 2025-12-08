@@ -99,11 +99,6 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/asserts/CallBackValueProvider.gd"
 }, {
-"base": "EditorInspectorPlugin",
-"class": "CameraInspectorPlugin",
-"language": "GDScript",
-"path": "res://addons/qol-camera/inspector_plugin.gd"
-}, {
 "base": "GdUnitArgumentMatcher",
 "class": "ChainedArgumentMatcher",
 "language": "GDScript",
@@ -679,11 +674,6 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/report/JUnitXmlReport.gd"
 }, {
-"base": "Control",
-"class": "Joystick",
-"language": "GDScript",
-"path": "res://addons/virtual_joystick/Joystick/Joystick.gd"
-}, {
 "base": "Node",
 "class": "LocalMultiplayerManager",
 "language": "GDScript",
@@ -799,11 +789,6 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/fuzzers/Vector3Fuzzer.gd"
 }, {
-"base": "EditorProperty",
-"class": "ViewLockProperty",
-"language": "GDScript",
-"path": "res://addons/qol-camera/view_lock_property.gd"
-}, {
 "base": "Reference",
 "class": "XmlElement",
 "language": "GDScript",
@@ -838,7 +823,6 @@ _global_script_class_icons={
 "AnyBuildInTypeArgumentMatcher": "",
 "AnyClazzArgumentMatcher": "",
 "CallBackValueProvider": "",
-"CameraInspectorPlugin": "",
 "ChainedArgumentMatcher": "",
 "CmdArgumentParser": "",
 "CmdCommand": "",
@@ -954,7 +938,6 @@ _global_script_class_icons={
 "GodotGdErrorMonitor": "",
 "IntFuzzer": "",
 "JUnitXmlReport": "",
-"Joystick": "",
 "LocalMultiplayerManager": "",
 "LocalTime": "",
 "MenuResolutionDetector": "",
@@ -978,7 +961,6 @@ _global_script_class_icons={
 "ValueProvider": "",
 "Vector2Fuzzer": "",
 "Vector3Fuzzer": "",
-"ViewLockProperty": "",
 "XmlElement": "",
 "_TestCase": "",
 "_TestSuiteScanner": ""
@@ -1021,10 +1003,6 @@ port=false
 acum=false
 acc=false
 monit=false
-
-[gui]
-
-theme/custom="res://assets/theme/retro_scifi.tres"
 
 [input]
 
@@ -1152,19 +1130,7 @@ sprint_2={
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":16777238,"unicode":0,"echo":false,"script":null)
  ]
 }
-vtc_a={
-"deadzone": 0.5,
-"events": [  ]
-}
-vtc_b={
-"deadzone": 0.5,
-"events": [  ]
-}
-vtc_x={
-"deadzone": 0.5,
-"events": [  ]
-}
-vtc_y={
+vtc_btn_a={
 "deadzone": 0.5,
 "events": [  ]
 }

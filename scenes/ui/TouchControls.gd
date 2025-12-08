@@ -1,127 +1,143 @@
 extends CanvasLayer
 
-const joystick_scene = preload("res://addons/virtual_joystick/Joystick/Joystick.tscn")
-const button_texture = preload("res://addons/virtual_joystick/Joystick/joystick_handle.png")
+# --- Preloaded Resources ---
+const JoystickScene = preload("res://addons/virtual_joystick/Joystick/Joystick.tscn")
+const ButtonTexture = preload("res://addons/virtual_joystick/Joystick/joystick_handle.png")
 
-const json_data = """
-{"controlPad":{"name":"Elias","orientation":"LANDSCAPE","width":2166,"height":838},"controlPadItems":[{"itemIdentifier":"joystick","controlPadId":7,"offsetX":199.28172,"offsetY":265.61536,"scale":1.0512099,"itemType":"JOYSTICK","properties":"{\\"backgroundColor\\":18446649515709562880,\\"handleColor\\":18446547261128179712,\\"handleRadiusFactor\\":0.79690313}"},{"itemIdentifier":"BTN_A","controlPadId":7,"offsetX":1809.8287,"offsetY":119.001854,"scale":1.5625504,"rotation":0.5697708,"itemType":"BUTTON","properties":"{\\"text\\":\\"A\\",\\"buttonColor\\":18401625609768796160}"},{"itemIdentifier":"BTN_B","controlPadId":7,"offsetX":1740.8557,"offsetY":515.8242,"scale":1.473202,"rotation":1.232296,"itemType":"BUTTON","properties":"{\\"text\\":\\"B\\",\\"buttonColor\\":18402470034698928128}"},{"itemIdentifier":"BTN_Y","controlPadId":7,"offsetX":1356.959,"offsetY":416.8434,"scale":1.3192085,"rotation":-0.16860488,"itemType":"BUTTON","properties":"{\\"text\\":\\"Y\\"}"},{"itemIdentifier":"BTN_X","controlPadId":7,"offsetX":1451.8599,"offsetY":61.90054,"scale":1.2686917,"rotation":-0.6540756,"itemType":"BUTTON","properties":"{\\"text\\":\\"X\\"}"},{"itemIdentifier":"dpad","controlPadId":7,"offsetX":737.75696,"offsetY":353.01068,"scale":0.92181766,"rotation":0.017370217,"itemType":"DPAD","properties":"{\\"backgroundColor\\":18396924098048425984,\\"buttonColor\\":18446594784941309952,\\"style\\":\\"SPLIT\\"}"},{"itemIdentifier":"label","controlPadId":7,"offsetX":980.03436,"offsetY":0.21624961,"scale":2.8302407,"rotation":-0.16309358,"itemType":"LABEL","properties":"{\\"text\\":\\"ODISEA\\"}"}],"connectionConfig":{"controlPadId":7,"connectionType":"UDP","configJson":"{\\"host\\":\\"192.168.18.6\\",\\"port\\":9999}"}}
-"""
-
-# The color values are 64-bit integers, but Godot's bitwise operations work on 32 bits.
-# We can extract the color by treating the value as a float and dividing to get the upper 32 bits.
-func parse_color(color_val):
-	if typeof(color_val) != TYPE_INT and typeof(color_val) != TYPE_REAL:
-		return Color(1, 1, 1, 1) # Return white for invalid types
-
-	# Use floating point division to get the upper 32 bits of the 64-bit value
-	var upper_32 = int(float(color_val) / pow(2, 32))
-
-	# The format seems to be ARGB in the high bits
-	var a = (upper_32 >> 24) & 0xFF
-	var r = (upper_32 >> 16) & 0xFF
-	var g = (upper_32 >> 8) & 0xFF
-	var b = upper_32 & 0xFF
-	
-	return Color(r / 255.0, g / 255.0, b / 255.0, a / 255.0)
-
-
+# --- Lifecycle ---
 func _ready():
-	var data = JSON.parse(json_data).result
-	if data == null:
-		push_error("Failed to parse JSON data for TouchControls.")
+	# Wait a frame to ensure the viewport size is accurate.
+	yield(get_tree(), "idle_frame")
+	_build_controls_from_json()
+
+# --- Private Methods ---
+
+# Main function to parse JSON and build the UI.
+func _build_controls_from_json():
+	var file = File.new()
+	if file.open("res://droidpad_layout.json", File.READ) != OK:
+		push_error("Failed to load DroidPad layout file.")
 		return
-		
-	var control_pad = data.controlPad
-	var items = data.controlPadItems
 
-	var reference_width = float(control_pad.width)
-	var reference_height = float(control_pad.height)
-	var screen_size = get_viewport().get_visible_rect().size
+	var json_data = file.get_as_text()
+	file.close()
 
-	for item in items:
-		var control_node
-		var properties = null
-		if item.has("properties"):
-			var parsed_props = JSON.parse(item.properties)
-			if parsed_props.error == OK:
-				properties = parsed_props.result
+	var parse_result = JSON.parse(json_data)
+	if parse_result.error != OK:
+		push_error("DroidPad JSON Error: %s" % parse_result.error_string)
+		return
 
-		match item.itemType:
-			"JOYSTICK":
-				control_node = joystick_scene.instance()
-				control_node.name = item.itemIdentifier
+	var data = parse_result.result
+	var canvas_data = data.get("canvas", {})
+	var elements = data.get("elements", [])
+
+	# --- 1. Calculate Responsive Layout ---
+	var screen_size = get_viewport().size
+	var ref_size = Vector2(canvas_data.get("width", 1), canvas_data.get("height", 1))
+
+	# Determine the scale factor to fit the reference canvas within the screen
+	# while maintaining its aspect ratio.
+	var scale_factor = 1.0
+	var screen_aspect = screen_size.x / screen_size.y
+	var ref_aspect = ref_size.x / ref_size.y
+
+	if screen_aspect > ref_aspect:
+		# Screen is wider than reference, so height is the limiting dimension.
+		scale_factor = screen_size.y / ref_size.y
+	else:
+		# Screen is taller or has the same aspect, so width is the limiting dimension.
+		scale_factor = screen_size.x / ref_size.x
+
+	var scaled_canvas_size = ref_size * scale_factor
+
+	# Calculate offset to anchor the scaled canvas to the bottom-center of the screen.
+	var offset = Vector2()
+	offset.x = (screen_size.x - scaled_canvas_size.x) / 2.0
+	offset.y = screen_size.y - scaled_canvas_size.y
+
+	# --- 2. Create and Position UI Elements ---
+	for element_data in elements:
+		var control_node = _create_element(element_data)
+		if not is_instance_valid(control_node):
+			continue
+
+		add_child(control_node)
+		_apply_layout(control_node, element_data, scale_factor, offset)
+		_apply_style(control_node, element_data)
+		_apply_properties(control_node, element_data)
+
+# Creates a control node based on the element data from the JSON.
+func _create_element(data: Dictionary) -> Control:
+	var type = data.get("type", "")
+	var id = data.get("id", "")
+
+	var control_node = null
+	match type:
+		"JOYSTICK":
+			control_node = JoystickScene.instance()
+			control_node.name = id
+			if UIManager:
 				UIManager.register_joystick(control_node)
-				if properties:
-					if properties.has("handleColor"):
-						var handle = control_node.get_node_or_null("Background/Handle")
-						if handle:
-							handle.self_modulate = parse_color(properties.handleColor)
-					if properties.has("backgroundColor"):
-						var base = control_node.get_node_or_null("Background")
-						if base:
-							base.self_modulate = parse_color(properties.backgroundColor)
-			"BUTTON":
-				control_node = TouchScreenButton.new()
-				control_node.name = item.itemIdentifier
-				control_node.normal = button_texture
-				control_node.pressed = button_texture # Placeholder
 
-				if properties:
-					if properties.has("buttonColor"):
-						control_node.modulate = parse_color(properties.buttonColor)
-					if properties.has("text"):
-						var action_name = "vtc_" + properties.text.to_lower()
-						control_node.action = action_name
-			_:
-				continue
+		"BUTTON":
+			control_node = TouchScreenButton.new()
+			control_node.name = id
+			control_node.normal = ButtonTexture
+			# A different texture could be used for the pressed state.
+			control_node.pressed = ButtonTexture
+			control_node.action = "vtc_" + id
 
-		if control_node:
-			add_child(control_node)
-			var scale = float(item.get("scale", 1.0)) / 2
-			
-			# Set scale and rotation first
-			if "rect_scale" in control_node:
-				control_node.rect_scale = Vector2(scale, scale)
-			elif "scale" in control_node:
-				control_node.scale = Vector2(scale, scale)
+	return control_node
 
-			if "rotation" in control_node and item.has("rotation"):
-				control_node.rotation = float(item.rotation)
+# Positions and scales a control node based on the calculated layout.
+func _apply_layout(node: Control, data: Dictionary, scale: float, offset: Vector2):
+	var pos_data = data.get("position", {})
+	var pos = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
+	var size = Vector2(pos_data.get("width", 100), pos_data.get("height", 100))
 
-			# --- Positioning Logic ---
-			# Assume offsetX/Y from JSON refers to the CENTER of the control.
-			var center_pos = Vector2()
-			var half_reference_width = reference_width / 2.0
+	var final_pos = pos * scale + offset
+	var final_size = size * scale
 
-			# 1. Calculate the center position, anchored to the bottom corners.
-			if item.offsetX < half_reference_width:
-				# Left half: anchor to bottom-left.
-				center_pos.x = item.offsetX
-			else:
-				# Right half: anchor to bottom-right.
-				var offset_from_right = reference_width - item.offsetX
-				center_pos.x = screen_size.x - offset_from_right
-			
-			# Anchor Y to the bottom for all controls. Assumes reference origin is bottom-left.
-			center_pos.y = screen_size.y - item.offsetY
+	node.position = final_pos
 
-			# 2. Apply the calculated center position to the specific control node.
-			if control_node is TouchScreenButton:
-				# 'position' property is the center of the TouchScreenButton.
-				control_node.position = center_pos
-			elif "rect_position" in control_node: # For Joystick (and other Control nodes)
-				# 'rect_position' is the top-left corner. We must calculate it from the center.
-				var control_size = Vector2.ZERO
-				# Get the joystick's background size, which defines its overall size.
-				var background_node = control_node.get_node_or_null("Background")
-				if background_node:
-					control_size = background_node.rect_size * scale
-				
-				if control_size == Vector2.ZERO:
-					# Fallback if we can't get the size
-					push_warning("Could not determine size for " + control_node.name + ". Positioning may be inaccurate.")
-					control_node.rect_position = center_pos
-				else:
-					control_node.rect_position = center_pos - (control_size / 2.0)
-		else:
-			print("Failed to create control for item: ", item)
+	# Scale the node to match the calculated final size.
+	var base_size = Vector2.ONE
+	if node is TouchScreenButton:
+		base_size = node.normal.get_size()
+	elif node is Joystick:
+		var background = node.get_node_or_null("Background")
+		if background:
+			base_size = background.rect_size
+
+	if base_size.x > 0 and base_size.y > 0:
+		node.scale = final_size / base_size
+
+# Applies colors and other style properties from the JSON to a control node.
+func _apply_style(node: Control, data: Dictionary):
+	var style = data.get("style", {})
+	if style.empty():
+		return
+
+	if style.has("backgroundColor"):
+		var color = Color(style["backgroundColor"])
+		if node is TouchScreenButton:
+			node.modulate = color
+		elif node is Joystick:
+			var background = node.get_node_or_null("Background")
+			if background:
+				background.modulate = color
+
+	if style.has("stickColor") and node is Joystick:
+		 var handle = node.get_node_or_null("Background/Handle")
+		 if handle:
+			 handle.modulate = Color(style["stickColor"])
+
+# Applies functional properties from the JSON to a control node.
+func _apply_properties(node: Control, data: Dictionary):
+	var props = data.get("properties", {})
+	if props.empty():
+		return
+
+	if node is Joystick:
+		if props.has("deadzone"):
+			node.set_dead_zone_size(props["deadzone"])

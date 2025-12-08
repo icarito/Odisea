@@ -4,6 +4,8 @@ extends CanvasLayer
 # Responsibility: A single point of communication for displaying UI elements
 # like menus, HUDs, and modal messages.
 
+signal joystick_registered(joystick)
+
 # --- Properties ---
 var main_menu_scene: PackedScene = preload("res://scenes/Menu.tscn") # Adjust path if needed
 var hud_instance: Node = null
@@ -14,6 +16,7 @@ var joystick: Node = null
 
 func register_joystick(p_joystick: Node) -> void:
 	joystick = p_joystick
+	emit_signal("joystick_registered", joystick)
 
 func show_main_menu() -> void:
 	# Ensure HUD is hidden

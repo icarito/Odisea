@@ -6,8 +6,7 @@ func _ready():
 	if GameGlobals.current_mode == GameGlobals.GAME_MODE.COPILOT:
 		return
 	
-	var spawn := find_node("SpawnPoint")
-	
+	var spawn := get_node_or_null("SpawnPoint")
 	if spawn:
 		if typeof(PlayerManager) != TYPE_NIL:
 			if PlayerManager.is_spawned():

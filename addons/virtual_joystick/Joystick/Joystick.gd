@@ -2,152 +2,248 @@ extends Control
 
 class_name Joystick
 
-# If the joystick is receiving inputs.
-var is_working := false
+# A simple virtual joystick for touchscreens, with useful options.
 
-# The joystick output.
-var output := Vector2.ZERO
+# The GitHub page of the project is: https://github.com/MarcoFazioRandom/Virtual-Joystick-Godot
 
-# FIXED: The joystick doesn't move.
-# DYNAMIC: Every time the joystick area is pressed, the joystick position is set on the touched position.
-# FOLLOWING: If the finger moves outside the joystick background, the joystick follows it.
-enum JoystickMode {FIXED, DYNAMIC, FOLLOWING}
+# MIT License
+# Copyright (c) 2018 Marco Fazio
 
-export(JoystickMode) var joystick_mode := JoystickMode.FIXED
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
 
-# REAL: return a vector with a lenght beetween 0 (deadzone) and 1; useful for implementing different velocity or acceleration.
-# NORMALIZED: return a normalized vector.
-enum VectorMode {REAL, NORMALIZED}
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
 
-export(VectorMode) var vector_mode := VectorMode.REAL
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
-# The color of the button when the joystick is in use.
-export(Color) var _pressed_color := Color.gray
 
-# The number of directions, e.g. a D-pad is joystick with 4 directions, keep 0 for a free joystick.
-export(int, 0, 12) var directions := 0
+# Emitted when the joystick is pressed
+signal pressed
 
-# It changes the angle of symmetry of the directions.
-#export(int, -180, 180)
-export var symmetry_angle := 90
+# Emitted when the joystick is released
+signal released
 
-#If the handle is inside this range, in proportion to the background size, the output is zero.
-export(float, 0, 0.5) var dead_zone := 0.1
+# The node with the handle texture
+onready var handle = $Background/Handle
 
-#The max distance the handle can reach, in proportion to the background size.
-export(float, 0.5, 2) var clamp_zone := 1.0
+# The node with the background texture
+onready var background = $Background
 
-#VISIBILITY_ALWAYS = Always visible.
-#VISIBILITY_TOUCHSCREEN_ONLY = Visible on touch screens only.
-enum VisibilityMode {ALWAYS , TOUCHSCREEN_ONLY }
+# The radius of the handle
+onready var handle_radius = handle.rect_size.x / 2
 
-export(VisibilityMode) var visibility_mode := VisibilityMode.ALWAYS
+# The radius of the background
+onready var background_radius = background.rect_size.x / 2
 
-onready var _background := $Background
-onready var _handle := $Background/Handle
-onready var _original_color : Color = _handle.self_modulate
-onready var _original_position : Vector2 = _background.rect_position
+# The output of the joystick, a Vector2 with x and y in [-1, 1]
+var output = Vector2()
 
-var _touch_index :int = -1
+# A unique id for the touch event, so multiple joysticks can be used on the same screen
+var touch_id = -1
 
-func _ready() -> void:
+enum JoystickMode {FIXED, DYNAMIC}
+enum VisibilityMode {ALWAYS, TOUCHSCREEN_ONLY}
+
+# The behavior of the joystick
+export(JoystickMode) var joystick_mode = JoystickMode.FIXED
+
+# The visibility of the joystick
+export(VisibilityMode) var visibility_mode = VisibilityMode.ALWAYS
+
+# If the joystick should trigger input actions
+export var use_input_actions = false
+
+# The actions to be triggered
+export var action_left = "ui_left"
+export var action_right = "ui_right"
+export var action_up = "ui_up"
+export var action_down = "ui_down"
+
+# The size of the dead zone. If the handle is inside this range the output is zero
+export(float, 0, 0.9, 0.01) var dead_zone_size = 0.2
+
+# The max distance the handle can reach
+export(float, 0, 1, 0.01) var clamp_zone_size = 0.8
+
+
+func _ready():
+	# If the device doesn't have a touchscreen, and the visibility mode is set to TOUCHSCREEN_ONLY
 	if not OS.has_touchscreen_ui_hint() and visibility_mode == VisibilityMode.TOUCHSCREEN_ONLY:
+		# hide the joystick
 		hide()
 
-func _touch_started(event: InputEventScreenTouch) -> bool:
-	return event.pressed and _touch_index == -1
+	# Center the handle inside the background in the FIXED mode
+	if joystick_mode == JoystickMode.FIXED:
+		handle.rect_position = background.rect_position
 
-func _touch_ended(event: InputEventScreenTouch) -> bool:
-	return not event.pressed and _touch_index == event.index
 
-func _input(event: InputEvent) -> void:
-	if not (event is InputEventScreenTouch or event is InputEventScreenDrag):
-		return
-
+func _input(event):
+	# If the event is a touch event
 	if event is InputEventScreenTouch:
-		if _touch_started(event) and _is_inside_control_rect(event.position, self):
-			if (joystick_mode == JoystickMode.DYNAMIC or joystick_mode == JoystickMode.FOLLOWING):
-				_center_control(_background, event.position)
-			if _is_inside_control_circle(event.position, _background):
-				_touch_index = event.index
-				_handle.self_modulate = _pressed_color
-				_update_joystick(event.position)
+		# If the event is a pressed event and no touch is being tracked
+		if event.pressed and touch_id == -1:
+			# If the joystick is dynamic
+			if joystick_mode == JoystickMode.DYNAMIC:
+				# Set the joystick position to the touch position
+				set_position(event.position - Vector2(background_radius, background_radius))
 
-		elif _touch_ended(event):
-			_reset()
+			# Calculate the distance between the touch and the center of the joystick
+			var distance = event.position.distance_to(background.rect_global_position + Vector2(background_radius, background_radius))
+			# If the distance is in the background radius
+			if distance <= background_radius:
+				# Start tracking the touch
+				touch_id = event.index
+				# Emit the pressed signal
+				emit_signal("pressed")
 
-	elif event is InputEventScreenDrag and _touch_index == event.index:
-		_update_joystick(event.position)
+		# If the event is a released event and the touch is being tracked
+		elif not event.pressed and event.index == touch_id:
+			# Stop tracking the touch
+			touch_id = -1
+			# Reset the output
+			output = Vector2()
+			# Center the handle
+			handle.rect_position = background.rect_position
+			# If the joystick is dynamic
+			if joystick_mode == JoystickMode.DYNAMIC:
+				# hide the joystick
+				hide()
+			# Emit the released signal
+			emit_signal("released")
+			# Release the input actions if they are being used
+			if use_input_actions:
+				Input.action_release(action_left)
+				Input.action_release(action_right)
+				Input.action_release(action_up)
+				Input.action_release(action_down)
 
-func _center_control(control: Control, new_global_position: Vector2) -> void:
-	control.rect_global_position = new_global_position - (control.rect_size / 2)
-	#control.rect_global_position = new_global_position - control.rect_pivot_offset
+	# If the event is a drag event
+	if event is InputEventScreenDrag:
+		# If the touch is being tracked
+		if event.index == touch_id:
+			# Calculate the vector from the center of the joystick to the touch position
+			var vector = event.position - (background.rect_global_position + Vector2(background_radius, background_radius))
+			# Clamp the vector to the clamp zone
+			vector = vector.clamped(background_radius * clamp_zone_size)
 
-func _reset_handle():
-	_center_control(_handle, _background.rect_global_position + (_background.rect_size / 2))
+			# Move the handle
+			handle.rect_position = background.rect_position + (vector - Vector2(handle_radius, handle_radius))
 
-func _reset():
-	_touch_index = -1
-	is_working = false
-	output = Vector2.ZERO
-	_handle.self_modulate = _original_color
-	_background.rect_position = _original_position
-	_reset_handle()
+			# Normalize the vector
+			vector = vector / (background_radius * clamp_zone_size)
 
-func _is_inside_control_rect(global_position: Vector2, control: Control) -> bool:
-	var x: bool = global_position.x > control.rect_global_position.x and global_position.x < control.rect_global_position.x + (control.rect_size.x * control.rect_scale.x)
-	var y: bool = global_position.y > control.rect_global_position.y and global_position.y < control.rect_global_position.y + (control.rect_size.y * control.rect_scale.y)
-	return x and y
+			# Apply the dead zone
+			if vector.length() < dead_zone_size:
+				output = Vector2()
+			else:
+				output = vector.normalized() * ( (vector.length() - dead_zone_size) / (1 - dead_zone_size) )
 
-func _is_inside_control_circle(global_position: Vector2, control: Control) -> bool:
-	var ray := control.rect_size.x * control.rect_scale.x / 2
-	var center := control.rect_global_position + Vector2(ray, ray)
-	var ray_position := global_position - center
-	return ray_position.length_squared() < ray * ray
+			# If input actions should be used
+			if use_input_actions:
+				# Press/Release the correct actions based on the joystick output
+				if output.x < -0.5:
+					Input.action_press(action_left)
+					Input.action_release(action_right)
+				elif output.x > 0.5:
+					Input.action_press(action_right)
+					Input.action_release(action_left)
+				else:
+					Input.action_release(action_left)
+					Input.action_release(action_right)
 
-func _following(vector: Vector2):
-	var clamp_size :float = clamp_zone * _background.rect_size.x / 2
-	if vector.length() > clamp_size:
-		var radius := vector.normalized() * clamp_size
-		var delta := vector - radius
-		var new_pos :Vector2 = _background.rect_position + delta
-		new_pos.x = clamp(new_pos.x, -_background.rect_size.x / 2, rect_size.x - _background.rect_size.x / 2)
-		new_pos.y = clamp(new_pos.y, -_background.rect_size.y / 2, rect_size.y - _background.rect_size.y / 2)
-		_background.rect_position = new_pos
+				if output.y < -0.5:
+					Input.action_press(action_up)
+					Input.action_release(action_down)
+				elif output.y > 0.5:
+					Input.action_press(action_down)
+					Input.action_release(action_up)
+				else:
+					Input.action_release(action_up)
+					Input.action_release(action_down)
 
-func _directional_vector(vector: Vector2, n_directions: int, _symmetry_angle := PI/2) -> Vector2:
-	var angle := (vector.angle() + _symmetry_angle) / (PI / n_directions)
-	angle = floor(angle) if angle >= 0 else ceil(angle)
-	if abs(angle) as int % 2 == 1:
-		angle = angle + 1 if angle >= 0 else angle - 1
-	angle *= PI / n_directions
-	angle -= _symmetry_angle
-	return Vector2(cos(angle), sin(angle)) * vector.length()
 
-func _update_joystick(event_position: Vector2):
-	var ray : float = _background.rect_size.x / 2
-	var dead_size := dead_zone * ray
-	var clamp_size := clamp_zone * ray
+func get_output():
+	return output
 
-	var center : Vector2 = _background.rect_global_position + (_background.rect_size / 2)
-	var vector : Vector2 = event_position - center
 
-	if vector.length() > dead_size:
-		if directions > 0:
-			vector = _directional_vector(vector, directions, deg2rad(symmetry_angle))
+func get_joystick_mode():
+	return joystick_mode
 
-		if vector_mode == VectorMode.NORMALIZED:
-			output = vector.normalized()
-			_center_control(_handle, output * clamp_size + center)
-		elif vector_mode == VectorMode.REAL:
-			var clamped_vector := vector.clamped(clamp_size)
-			output = vector.normalized() * (clamped_vector.length() - dead_size) / (clamp_size - dead_size)
-			_center_control(_handle, clamped_vector + center)
 
-		is_working = true
-		if joystick_mode == JoystickMode.FOLLOWING:
-			_following(vector)
-	else:
-		is_working = false
-		output = Vector2.ZERO
-		_reset_handle()
+func set_joystick_mode(mode):
+	joystick_mode = mode
+
+
+func get_visibility_mode():
+	return visibility_mode
+
+
+func set_visibility_mode(mode):
+	visibility_mode = mode
+
+
+func get_use_input_actions():
+	return use_input_actions
+
+
+func set_use_input_actions(use):
+	use_input_actions = use
+
+
+func get_action_left():
+	return action_left
+
+
+func set_action_left(action):
+	action_left = action
+
+
+func get_action_right():
+	return action_right
+
+
+func set_action_right(action):
+	action_right = action
+
+
+func get_action_up():
+	return action_up
+
+
+func set_action_up(action):
+	action_up = action
+
+
+func get_action_down():
+	return action_down
+
+
+func set_action_down(action):
+	action_down = action
+
+
+func get_dead_zone_size():
+	return dead_zone_size
+
+
+func set_dead_zone_size(size):
+	dead_zone_size = size
+
+
+func get_clamp_zone_size():
+	return clamp_zone_size
+
+
+func set_clamp_zone_size(size):
+	clamp_zone_size = size

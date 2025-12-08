@@ -12,6 +12,9 @@ margin_right = 300.0
 rect_pivot_offset = Vector2( 150, 150 )
 mouse_filter = 1
 script = ExtResource( 1 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
 
 [node name="Background" type="TextureRect" parent="."]
 anchor_left = 0.5
@@ -41,3 +44,6 @@ grow_vertical = 2
 rect_pivot_offset = Vector2( 64, 64 )
 texture = ExtResource( 3 )
 stretch_mode = 6
+__meta__ = {
+"_edit_use_anchors_": false
+}
