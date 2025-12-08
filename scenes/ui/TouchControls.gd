@@ -1,73 +1,60 @@
-extends CanvasLayer
+extends Control
 
-export var debug_mode = false
-export (float, 0.1, 5.0) var global_ui_scale : float = 1.0
+onready var UIManager = get_node_or_null("/root/UIManager")
 
-const joystick_scene = preload("res://addons/virtual_joystick/Joystick/Joystick.tscn")
-const button_texture = preload("res://addons/virtual_joystick/Joystick/joystick_handle.png")
+export var joystick_scene: PackedScene = preload("res://scenes/ui/Joystick.tscn")
+export var button_texture: Texture = preload("res://assets/ui/touch_button_flat_normal.png")
+export var global_ui_scale: float = 1.0
 
-export(String, MULTILINE) var json_data = """
-{"controlPad":{"name":"Elias","orientation":"LANDSCAPE","width":2166,"height":838},"controlPadItems":[{"itemIdentifier":"joystick","controlPadId":7,"offsetX":199.28172,"offsetY":265.61536,"scale":1.0512099,"itemType":"JOYSTICK","properties":"{\"backgroundColor\":18446649515709562880,\"handleColor\":18446547261128179712,\"handleRadiusFactor\":0.79690313}"},{"itemIdentifier":"BTN_A","controlPadId":7,"offsetX":1809.8287,"offsetY":119.001854,"scale":1.5625504,"rotation":0.5697708,"itemType":"BUTTON","properties":"{\"text\":\"A\",\"buttonColor\":18401625609768796160}"},{"itemIdentifier":"BTN_B","controlPadId":7,"offsetX":1740.8557,"offsetY":515.8242,"scale":1.473202,"rotation":1.232296,"itemType":"BUTTON","properties":"{\"text\":\"B\",\"buttonColor\":18402470034698928128}"},{"itemIdentifier":"BTN_Y","controlPadId":7,"offsetX":1356.959,"offsetY":416.8434,"scale":1.3192085,"rotation":-0.16860488,"itemType":"BUTTON","properties":"{\"text\":\"Y\"}"},{"itemIdentifier":"BTN_X","controlPadId":7,"offsetX":1451.8599,"offsetY":61.90054,"scale":1.2686917,"rotation":-0.6540756,"itemType":"BUTTON","properties":"{\"text\":\"X\"}"},{"itemIdentifier":"dpad","controlPadId":7,"offsetX":737.75696,"offsetY":353.01068,"scale":0.92181766,"rotation":0.017370217,"itemType":"DPAD","properties":"{\"backgroundColor\":18396924098048425984,\"buttonColor\":18446594784941309952,\"style\":\"SPLIT\"}"},{"itemIdentifier":"label","controlPadId":7,"offsetX":980.03436,"offsetY":0.21624961,"scale":2.8302407,"rotation":-0.16309358,"itemType":"LABEL","properties":"{\"text\":\"ODISEA\"}"}],"connectionConfig":{"controlPadId":7,"connectionType":"UDP","configJson":"{\"host\":\"192.168.18.6\",\"port\":9999}"}}
-"""
-
-func parse_color(color_val):
-	if typeof(color_val) != TYPE_INT and typeof(color_val) != TYPE_REAL:
-		return Color.white
-	var upper_32 = int(float(color_val) / pow(2, 32))
-	var a = (upper_32 >> 24) & 0xFF
-	var r = (upper_32 >> 16) & 0xFF
-	var g = (upper_32 >> 8) & 0xFF
-	var b = upper_32 & 0xFF
-	return Color(r / 255.0, g / 255.0, b / 255.0, a / 255.0)
+var reference_width = 1920.0
+var reference_height = 1080.0
 
 func _ready():
-	# Ocultar en plataformas que no son táctiles
+	# Ocultar en plataformas no táctiles
 	if not OS.has_touchscreen_ui_hint():
 		hide()
 		return
-
-	if debug_mode:
-		var stylebox = StyleBoxFlat.new()
-		stylebox.set("bg_color", Color(1, 0, 0, 0.1))
-		stylebox.set_border_width_all(2)
-		stylebox.set("border_color", Color.red)
-		$LeftControls.add_stylebox_override("panel", stylebox)
-		$RightControls.add_stylebox_override("panel", stylebox)
-
-	var data = JSON.parse(json_data).result
-	if data == null:
-		push_error("Failed to parse JSON data for TouchControls.")
-		return
-		
-	var control_pad = data.get("controlPad", {})
-	var items = data.controlPadItems
 	
-	var reference_width = float(control_pad.get("width", 1920))
-	var reference_height = float(control_pad.get("height", 1080))
-	var screen_size = get_viewport().get_visible_rect().size
+	# Cargar la configuración de controles
+	var layout_data = load_layout_data()
+	if layout_data:
+		create_controls_from_layout(layout_data)
 
-	# 1. Calcular factor de escala para ajustar el canvas de referencia a la pantalla, manteniendo aspecto.
-	var scale_factor = 1.0
-	var screen_aspect = screen_size.x / screen_size.y
-	var ref_aspect = reference_width / reference_height
+func load_layout_data():
+	var file = File.new()
+	# TODO: Permitir al usuario seleccionar su propio layout
+	var layout_path = "res://assets/touch_layouts/default.json"
+	if not file.file_exists(layout_path):
+		print("Default touch layout not found at: ", layout_path)
+		return null
+	
+	file.open(layout_path, File.READ)
+	var content = file.get_as_text()
+	file.close()
+	
+	var json_result = JSON.parse(content)
+	if json_result.error != OK:
+		print("Error parsing touch layout JSON: ", json_result.error_string)
+		return null
+	
+	return json_result.result
 
-	if screen_aspect > ref_aspect:
-		scale_factor = screen_size.y / reference_height
-	else:
-		scale_factor = screen_size.x / reference_width
+func parse_color(hex_color_string: String) -> Color:
+	if hex_color_string.begins_with("#"):
+		return Color(hex_color_string)
+	return Color.white
 
-	scale_factor = min(scale_factor, 1.5)
+func create_controls_from_layout(layout_data: Dictionary):
+	if not layout_data.has("items"):
+		print("Layout data has no 'items' array.")
+		return
 
-	# 2. Crear contenedores para controles izquierdos y derechos
-	var left_container = Control.new()
-	left_container.name = "LeftControls"
-	add_child(left_container)
+	var items = layout_data.items
+	reference_width = float(layout_data.get("width", 1920.0))
+	reference_height = float(layout_data.get("height", 1080.0))
 
-	var right_container = Control.new()
-	right_container.name = "RightControls"
-	add_child(right_container)
-
-	var half_reference_width = reference_width / 2.0
+	var left_container = $LeftControls
+	var right_container = $RightControls
 
 	for item in items:
 		var control_node = null
@@ -109,41 +96,39 @@ func _ready():
 				continue
 
 		if control_node:
-			var parent_container = left_container if item.offsetX < half_reference_width else right_container
-			parent_container.add_child(control_node)
-
-			var item_scale = float(item.get("scale", 1.0))
-			var final_scale = Vector2(item_scale, item_scale) * scale_factor
+			# Usar anchors relativos y MarginContainer
+			var relative_x = float(item.offsetX) / reference_width
+			var relative_y = float(item.offsetY) / reference_height
+			
+			var container = MarginContainer.new()
+			container.name = item.itemIdentifier + "_container"
+			container.mouse_filter = Control.MOUSE_FILTER_PASS
+			container.anchor_left = relative_x
+			container.anchor_top = relative_y
+			container.anchor_right = relative_x
+			container.anchor_bottom = relative_y
+			
+			if relative_x < 0.5:
+				left_container.add_child(container)
+			else:
+				right_container.add_child(container)
+			
+			container.add_child(control_node)
+			
+			# Escalado
+			var item_scale = float(item.get("scale", 1.0)) * global_ui_scale
 			if "rect_scale" in control_node:
-				control_node.rect_scale = final_scale
+				control_node.rect_scale = Vector2(item_scale, item_scale)
 			elif "scale" in control_node:
-				control_node.scale = final_scale
-
+				control_node.scale = Vector2(item_scale, item_scale)
+			
 			if "rotation" in control_node and item.has("rotation"):
 				control_node.rotation = float(item.rotation)
-
-			var center_pos = Vector2()
-			var scaled_offsetX = item.offsetX * scale_factor
-			var scaled_offsetY = item.offsetY * scale_factor
-
-			if item.offsetX < half_reference_width:
-				center_pos.x = scaled_offsetX
-			else:
-				var scaled_offset_from_right = (reference_width - item.offsetX) * scale_factor
-				center_pos.x = screen_size.x - scaled_offset_from_right
-			center_pos.y = screen_size.y - scaled_offsetY
-
-			if control_node is Control:
-				var control_size = Vector2.ZERO
-				var background_node = control_node.get_node_or_null("Background")
-				if background_node:
-					control_size = background_node.rect_size * control_node.rect_scale
-				if control_size == Vector2.ZERO:
-					control_node.rect_position = center_pos
-				else:
-					control_node.rect_position = center_pos - (control_size / 2.0)
-			else:
-				control_node.position = center_pos
+			
+			# Centrar el control en su ancla
+			yield(get_tree(), "idle_frame")
+			if "rect_pivot_offset" in control_node:
+				control_node.rect_pivot_offset = control_node.rect_size / 2.0
 		else:
 			print("Failed to create control for item: ", item)
 
