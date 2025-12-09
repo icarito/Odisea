@@ -12,6 +12,8 @@ export(String, FILE, "*.tscn") var joystick_scene_path = "res://addons/virtual_j
 export(String, FILE, "*.json") var layout_path = "res://assets/touch_layouts/elias.json"
 export var global_ui_scale_factor: float = 1.0
 
+var button_texture = preload("res://addons/virtual_joystick/Joystick/joystick_circle.png")
+
 # Layout constants
 const DIAMOND_RADIUS = 90.0
 const DIAMOND_PADDING = Vector2(180, 180)
@@ -152,29 +154,40 @@ func create_controls_from_layout(layout_data: Dictionary):
 				UIManager.register_joystick(control_node)
 			print(DEBUG_PREFIX, "Joystick added to ", "LeftControls" if rel_x < 0.5 else "RightControls", " at offset ", joystick_offset)
 		elif item.itemType == "BUTTON":
-			var button_container = Node2D.new()
 			var button = TouchScreenButton.new()
-			button.name = "Button"
-			button_container.add_child(button)
+			button.name = item.itemIdentifier
 			var action_name = "vtc_" + properties.text.to_lower()
 			button.action = action_name
+			button.normal = button_texture
 			# --- Set Button Shape ---
 			var circle_shape = CircleShape2D.new()
 			circle_shape.radius = BUTTON_SHAPE_RADIUS
 			button.shape = circle_shape
-			# --- Set Button Color via Modulate ---
-			match item.itemIdentifier:
-				"BTN_A", "BTN_B":
-					button.modulate = Color(0.2, 0.2, 1.0)
-				"BTN_X", "BTN_Y":
-					button.modulate = Color(1.0, 1.0, 0.2)
-			control_node = button_container
+			# --- Set Button Color from JSON or fallback ---
+			var color = null
+			if item.has("color"):
+				color = get_color_from_json_value(item.color)
+			else:
+				match item.itemIdentifier:
+					"BTN_A", "BTN_B":
+						color = Color(0.2, 0.2, 1.0)
+					"BTN_X", "BTN_Y":
+						color = Color(1.0, 1.0, 0.2)
+			if color == null:
+				color = Color(1,1,1,0.7)
+			button.modulate = color
+			# --- Set Button Size and Background ---
+			var scale := 1.0
+			if item.has("scale"):
+				scale = float(item.scale)
+			button.scale = Vector2(scale, scale)
+			button.modulate.a = 0.7
 			var rel_x = float(item.offsetX) / reference_width
 			var rel_y = float(item.offsetY) / reference_height
 			var panel = left_container if rel_x < 0.5 else right_container
-			panel.add_child(control_node)
+			panel.add_child(button)
 			action_buttons[item.itemIdentifier] = {
-				"node": control_node,
+				"node": button,
 				"offset": Vector2(float(item.offsetX), float(item.offsetY)),
 				"panel": "left" if rel_x < 0.5 else "right"
 			}
@@ -205,3 +218,16 @@ func load_layout_data():
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventAction and event.action.begins_with("vtc_"):
 		print(DEBUG_PREFIX, "[INPUT] Virtual Action '", event.action, "' Pressed: ", event.is_pressed())
+
+func get_color_from_json_value(json_value: float) -> Color:
+	# Convertimos el float/int gigante a string hexadecimal
+	# En Godot 3.x '%x' maneja ints de 64 bits
+	var hex_str = "%x" % int(json_value)
+	
+	# Tomamos los primeros 8 caracteres (AARRGGBB)
+	# A veces el string puede ser más corto si el alpha es 0, así que rellenamos
+	while hex_str.length() < 16:
+		hex_str = "0" + hex_str
+		
+	var argb = hex_str.substr(0, 8)
+	return Color(argb) # Godot entiende strings Hex ARGB
