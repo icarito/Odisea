@@ -2,14 +2,102 @@ extends CanvasLayer
 
 const DEBUG_PREFIX = "[TouchControls]"
 
+# -- NODES --
+onready var right_container = $RightControls
+onready var left_container = $LeftControls
 onready var UIManager = get_node_or_null("/root/UIManager")
 
+# -- CONFIGURATION --
 export(String, FILE, "*.tscn") var joystick_scene_path = "res://addons/virtual_joystick/Joystick/Joystick.tscn"
 export(String, FILE, "*.json") var layout_path = "res://assets/touch_layouts/elias.json"
 export var global_ui_scale_factor: float = 1.0
 
+# Layout constants
+const DIAMOND_RADIUS = 90.0
+const DIAMOND_PADDING = Vector2(180, 180)
+const BUTTON_SHAPE_RADIUS = 72.0
+
+# -- STATE --
 var reference_width = 1920.0
 var reference_height = 1080.0
+var action_buttons = {} # { identifier: { node, offset, panel } }
+var joystick_node = null
+var joystick_offset = null
+
+#
+# --------------------LIFECYCLE METHODS--------------------
+#
+func _ready():
+	print(DEBUG_PREFIX, " _ready() called. Initializing touch controls.")
+	var layout_data = load_layout_data()
+	if layout_data:
+		print(DEBUG_PREFIX, "Layout data loaded. Creating controls...")
+		create_controls_from_layout(layout_data)
+		
+		# Connect to viewport size changes to keep the layout updated
+		get_viewport().connect("size_changed", self, "update_layout")
+		# Set the initial layout
+		update_layout()
+	else:
+		printerr(DEBUG_PREFIX, "Failed to load layout data. No controls will be created.")
+
+#
+# --------------------LAYOUT AND POSITIONING--------------------
+#
+func update_layout():
+	# Posiciona controles según offsetX/offsetY del JSON, relativo al tamaño del panel correspondiente
+	var screen_size = get_viewport().size
+	# Ajustar paneles laterales para ocupar la mitad de la pantalla
+	if left_container and left_container is Control:
+		left_container.anchor_left = 0.0
+		left_container.anchor_top = 0.0
+		left_container.anchor_right = 0.5
+		left_container.anchor_bottom = 1.0
+		left_container.margin_left = 0
+		left_container.margin_top = 0
+		left_container.margin_right = 0
+		left_container.margin_bottom = 0
+	if right_container and right_container is Control:
+		right_container.anchor_left = 0.5
+		right_container.anchor_top = 0.0
+		right_container.anchor_right = 1.0
+		right_container.anchor_bottom = 1.0
+		right_container.margin_left = 0
+		right_container.margin_top = 0
+		right_container.margin_right = 0
+		right_container.margin_bottom = 0
+
+	# Posicionar joystick si existe
+	if joystick_node and joystick_offset and left_container:
+		var panel_size = left_container.rect_size
+		var rel_x = joystick_offset.x / reference_width
+		var rel_y = joystick_offset.y / reference_height
+		var pos = Vector2(rel_x * panel_size.x, rel_y * panel_size.y)
+		if joystick_node is Control:
+			joystick_node.rect_position = pos
+		else:
+			joystick_node.position = pos
+		print(DEBUG_PREFIX, "Joystick pos in LeftControls: ", pos)
+
+	# Posicionar botones
+	for id in action_buttons.keys():
+		var btn_info = action_buttons[id]
+		var node = btn_info.node
+		var offset = btn_info.offset
+		var panel_name = btn_info.panel
+		var panel = left_container if panel_name == "left" else right_container
+		var panel_size = panel.rect_size
+		var rel_x = offset.x / reference_width
+		var rel_y = offset.y / reference_height
+		# Si está en right panel, rel_x debe ser relativo a la mitad derecha
+		if panel_name == "right":
+			rel_x = (offset.x - reference_width * 0.5) / (reference_width * 0.5)
+		var pos = Vector2(rel_x * panel_size.x, rel_y * panel_size.y)
+		if node is Control:
+			node.rect_position = pos
+		else:
+			node.position = pos
+		print(DEBUG_PREFIX, "Button ", id, " pos in ", panel_name, ": ", pos)
 
 func get_dynamic_scale() -> float:
 	var screen_size = get_viewport().size
@@ -17,27 +105,86 @@ func get_dynamic_scale() -> float:
 	var ref_aspect = reference_width / reference_height
 	
 	var scale_factor = 1.0
-	if screen_aspect > ref_aspect: # Pantalla más ancha que la referencia
+	if screen_aspect > ref_aspect:
 		scale_factor = screen_size.y / reference_height
-	else: # Pantalla más alta/estrecha que la referencia
+	else:
 		scale_factor = screen_size.x / reference_width
 	
 	return min(scale_factor, 1.5) * global_ui_scale_factor
 
-func _ready():
-	print(DEBUG_PREFIX, " _ready() called. Initializing touch controls.")
-	# Cargar la configuración de controles
-	var layout_data = load_layout_data()
-	if layout_data:
-		print(DEBUG_PREFIX, "Layout data loaded successfully. Creating controls...")
-		create_controls_from_layout(layout_data)
-	else:
-		printerr(DEBUG_PREFIX, "Failed to load layout data. No controls will be created.")
+#
+# --------------------CONTROL CREATION--------------------
+#
 
+func create_controls_from_layout(layout_data: Dictionary):
+	if not layout_data.has("controlPadItems"):
+		printerr(DEBUG_PREFIX, "Layout data is invalid: missing 'controlPadItems' array.")
+		return
+
+	if layout_data.has("controlPad"):
+		var control_pad_info = layout_data.controlPad
+		reference_width = float(control_pad_info.get("width", 1920.0))
+		reference_height = float(control_pad_info.get("height", 1080.0))
+
+	var items = layout_data.controlPadItems
+	var joystick_created = false
+	for item in items:
+		var control_node = null
+		var properties = {}
+		if item.has("properties"):
+			var parsed_props = JSON.parse(item.properties)
+			if parsed_props.error == OK:
+				properties = parsed_props.result
+
+		if item.itemType == "JOYSTICK" and not joystick_created:
+			var joystick_scene = load(joystick_scene_path)
+			if not joystick_scene:
+				printerr(DEBUG_PREFIX, "Failed to load joystick scene: ", joystick_scene_path)
+				continue
+			control_node = joystick_scene.instance()
+			joystick_node = control_node
+			joystick_offset = Vector2(float(item.offsetX), float(item.offsetY))
+			var rel_x = float(item.offsetX) / reference_width
+			var panel =  left_container if rel_x < 0.5 else right_container
+			panel.add_child(control_node)
+			joystick_created = true
+			if UIManager:
+				UIManager.register_joystick(control_node)
+			print(DEBUG_PREFIX, "Joystick added to ", "LeftControls" if rel_x < 0.5 else "RightControls", " at offset ", joystick_offset)
+		elif item.itemType == "BUTTON":
+			var button_container = Node2D.new()
+			var button = TouchScreenButton.new()
+			button.name = "Button"
+			button_container.add_child(button)
+			var action_name = "vtc_" + properties.text.to_lower()
+			button.action = action_name
+			# --- Set Button Shape ---
+			var circle_shape = CircleShape2D.new()
+			circle_shape.radius = BUTTON_SHAPE_RADIUS
+			button.shape = circle_shape
+			# --- Set Button Color via Modulate ---
+			match item.itemIdentifier:
+				"BTN_A", "BTN_B":
+					button.modulate = Color(0.2, 0.2, 1.0)
+				"BTN_X", "BTN_Y":
+					button.modulate = Color(1.0, 1.0, 0.2)
+			control_node = button_container
+			var rel_x = float(item.offsetX) / reference_width
+			var rel_y = float(item.offsetY) / reference_height
+			var panel = left_container if rel_x < 0.5 else right_container
+			panel.add_child(control_node)
+			action_buttons[item.itemIdentifier] = {
+				"node": control_node,
+				"offset": Vector2(float(item.offsetX), float(item.offsetY)),
+				"panel": "left" if rel_x < 0.5 else "right"
+			}
+			print(DEBUG_PREFIX, "Button ", item.itemIdentifier, " added to ", "LeftControls" if rel_x < 0.5 else "RightControls", " at offset (", item.offsetX, ", ", item.offsetY, ")")
+
+#
+# --------------------DATA LOADING AND PARSING--------------------
+#
 func load_layout_data():
 	var file = File.new()
-	# TODO: Permitir al usuario seleccionar su propio layout
-	print(DEBUG_PREFIX, "Attempting to load layout from: ", layout_path)
 	if not file.file_exists(layout_path):
 		printerr(DEBUG_PREFIX, "Layout file not found at path: ", layout_path)
 		return null
@@ -48,166 +195,13 @@ func load_layout_data():
 	
 	var json_result = JSON.parse(content)
 	if json_result.error != OK:
-		printerr(DEBUG_PREFIX, "Error parsing touch layout JSON: ", json_result.error_string, " at line ", json_result.error_line)
-		print(DEBUG_PREFIX, "JSON content was: ", content)
+		printerr(DEBUG_PREFIX, "Error parsing JSON: ", json_result.error_string)
 		return null
 	
 	return json_result.result
 
-func parse_color(color_value) -> Color:
-	if typeof(color_value) == TYPE_REAL or typeof(color_value) == TYPE_INT: # JSON can parse numbers as float or int
-		# El color es un entero de 64 bits. La información ARGB está en los 32 bits superiores.
-		# 1. Desplazar 32 bits a la derecha para obtener el valor de 32 bits que nos interesa.
-		var color_int32 = int(color_value) # Cast to int to allow bitwise operations
-		color_int32 = color_int32 >> 32
-		
-		# 2. Extraer cada componente (Alfa, Rojo, Verde, Azul) de 8 bits.
-		var a = (color_int32 >> 24) & 0xFF
-		var r = (color_int32 >> 16) & 0xFF
-		var g = (color_int32 >> 8) & 0xFF
-		var b = color_int32 & 0xFF
-		
-		# 3. Crear el color de Godot normalizando los valores (dividiendo por 255.0).
-		return Color(r / 255.0, g / 255.0, b / 255.0, a / 255.0)
-	
-	return Color.white # Color por defecto si el formato es inesperado
-
-func create_controls_from_layout(layout_data: Dictionary):
-	print(DEBUG_PREFIX, "create_controls_from_layout() called.")
-	if not layout_data.has("controlPadItems"):
-		printerr(DEBUG_PREFIX, "Layout data is invalid: missing 'controlPadItems' array.")
-		return
-
-	var items = layout_data.controlPadItems
-	print(DEBUG_PREFIX, "Found ", items.size(), " items in layout.")
-	
-	if layout_data.has("controlPad"):
-		var control_pad_info = layout_data.controlPad
-		reference_width = float(control_pad_info.get("width", 1920.0))
-		reference_height = float(control_pad_info.get("height", 1080.0))
-		print(DEBUG_PREFIX, "Layout reference size set to: ", reference_width, "x", reference_height)
-
-
-	var left_container = $LeftControls
-	var right_container = $RightControls
-
-	# Lista para almacenar los nodos que necesitan centrarse después de ser añadidos
-	var nodes_to_center = []
-
-	for item in items:
-		print(DEBUG_PREFIX, "--- Processing item: ", item.itemIdentifier, " ---")
-		var control_node = null
-		var properties = {}
-		if item.has("properties"):
-			var parsed_props = JSON.parse(item.properties)
-			if parsed_props.error == OK:
-				properties = parsed_props.result
-
-		match item.itemType:
-			"JOYSTICK":
-				print(DEBUG_PREFIX, "Item type is JOYSTICK. Attempting to instance scene.")
-				var joystick_scene = load(joystick_scene_path)
-				if not joystick_scene:
-					printerr(DEBUG_PREFIX, "Failed to load joystick scene at path: ", joystick_scene_path)
-					continue
-				
-				control_node = joystick_scene.instance()
-				control_node.name = item.itemIdentifier
-				if UIManager:
-					UIManager.register_joystick(control_node)
-				if properties.has("handleColor"):
-					var handle = control_node.get_node_or_null("Background/Handle")
-					if handle:
-						handle.self_modulate = parse_color(properties.handleColor)
-				if properties.has("backgroundColor"):
-					var base = control_node.get_node_or_null("Background")
-					if base:
-						base.self_modulate = parse_color(properties.backgroundColor)
-			"BUTTON":
-				print(DEBUG_PREFIX, "Item type is BUTTON. Creating new button.")
-				var container = Node2D.new()
-				container.name = item.itemIdentifier
-				var button = TouchScreenButton.new()
-				button.name = "Button"
-				
-				# Crear un ColorRect para que el botón sea visible
-				var color_rect = ColorRect.new()
-				color_rect.rect_min_size = Vector2(128, 128) # Tamaño base, se ajustará con la escala
-				button.add_child(color_rect)
-				
-				if properties.has("buttonColor"):
-					color_rect.color = parse_color(properties.buttonColor)
-				if properties.has("text"):
-					var action_name = "vtc_" + properties.text.to_lower()
-					print(DEBUG_PREFIX, "Assigning action '", action_name, "' to button. Ensure this action exists in the Input Map.")
-					button.action = action_name
-				container.add_child(button)
-				control_node = container
-			_:
-				print(DEBUG_PREFIX, "Skipping unknown itemType: ", item.itemType)
-				continue
-
-		if control_node:
-			print(DEBUG_PREFIX, "Control node created successfully: ", control_node.name)
-			# Usar anchors relativos y MarginContainer
-			var relative_x = float(item.offsetX) / reference_width
-			var relative_y = float(item.offsetY) / reference_height
-			
-			var container = MarginContainer.new()
-			container.name = item.itemIdentifier + "_container"
-			container.mouse_filter = Control.MOUSE_FILTER_PASS
-			container.anchor_left = relative_x
-			container.anchor_top = relative_y
-			container.anchor_right = relative_x
-			container.anchor_bottom = relative_y
-			print(DEBUG_PREFIX, "Positioning at (", relative_x, ", ", relative_y, ")")
-			
-			if relative_x < 0.5:
-				print(DEBUG_PREFIX, "Adding to LeftControls.")
-				left_container.add_child(container)
-			else:
-				print(DEBUG_PREFIX, "Adding to RightControls.")
-				right_container.add_child(container)
-			
-			container.add_child(control_node)
-			
-			# Escalado
-			print(DEBUG_PREFIX, "Applying scale...")
-			var dynamic_scale = get_dynamic_scale()
-			var item_scale = float(item.get("scale", 1.0)) * dynamic_scale
-			if "rect_scale" in control_node:
-				control_node.rect_scale = Vector2(item_scale, item_scale)
-			elif "scale" in control_node:
-				control_node.scale = Vector2(item_scale, item_scale)
-			
-			if "rotation" in control_node and item.has("rotation"):
-				control_node.rotation = float(item.rotation)
-			
-			# Añadir a la lista para centrar más tarde
-			nodes_to_center.append(control_node)
-		else:
-			printerr(DEBUG_PREFIX, "Failed to create control node for item: ", item)
-
-	# Esperar a que todos los nodos se hayan añadido al árbol de escenas
-	print(DEBUG_PREFIX, "Waiting for idle frame to center all control pivots.")
-	yield(get_tree(), "idle_frame")
-	_center_pivots(nodes_to_center)
-
-func _center_pivots(nodes: Array):
-	print(DEBUG_PREFIX, "Centering pivots for ", nodes.size(), " controls.")
-	for control_node in nodes:
-		if "rect_pivot_offset" in control_node and control_node.rect_size != Vector2.ZERO:
-			control_node.rect_pivot_offset = control_node.rect_size / 2.0
-			print(DEBUG_PREFIX, "Pivot for '", control_node.name, "' centered at: ", control_node.rect_pivot_offset)
-
-func _on_button_pressed(button_name: String):
-	# Esta función es un ejemplo, los TouchScreenButton no emiten esta señal.
-	# Disparan acciones del InputMap directamente.
-	pass
-
+# Note: The original parse_color function is no longer needed as we set colors manually.
+# The unhandled_input function can be kept for debugging if desired.
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventScreenTouch or event is InputEventScreenDrag:
-		print(DEBUG_PREFIX, "Screen touch/drag event detected at position: ", event.position)
-	elif event is InputEventAction:
-		if event.action.begins_with("vtc_"):
-			print(DEBUG_PREFIX, "Virtual Action Triggered: '", event.action, "' Pressed: ", event.is_pressed())
+	if event is InputEventAction and event.action.begins_with("vtc_"):
+		print(DEBUG_PREFIX, "[INPUT] Virtual Action '", event.action, "' Pressed: ", event.is_pressed())
