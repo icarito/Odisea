@@ -4,7 +4,10 @@ class_name Joystick
 
 # --- Public Properties ---
 # A flag to enable debug printing to the console.
-var debug_mode = false
+var debug_mode = true # Activado por defecto para diagnóstico
+# Debug: control de frecuencia de logs
+var _last_debug_time := 0.0
+var _debug_interval := 0.25 # segundos entre logs
 
 # If the joystick is receiving inputs.
 var is_working := false
@@ -57,6 +60,8 @@ func _ready() -> void:
 	self.mouse_filter = MOUSE_FILTER_STOP
 	if not OS.has_touchscreen_ui_hint() and visibility_mode == VisibilityMode.TOUCHSCREEN_ONLY:
 		hide()
+	if debug_mode:
+		print("[Joystick Debug] Joystick '%s' _ready. Pos: %s, Mode: %s" % [name, rect_global_position, joystick_mode])
 
 func _touch_started(event: InputEventScreenTouch) -> bool:
 	return event.pressed and _touch_index == -1
@@ -168,6 +173,13 @@ func _update_joystick(event_position: Vector2):
 
 	var center : Vector2 = _background.rect_global_position + Vector2(ray, ray)
 	var vector : Vector2 = event_position - center
+
+	# Debug: log cada _debug_interval
+	if debug_mode:
+		var t = OS.get_ticks_msec() / 1000.0
+		if t - _last_debug_time > _debug_interval:
+			_last_debug_time = t
+			print("[Joystick Debug] event_pos:", event_position, " center:", center, " vector:", vector, " output:", output)
 
 	if vector.length() > dead_size:
 		if directions > 0:

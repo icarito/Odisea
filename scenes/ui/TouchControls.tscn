@@ -4,7 +4,6 @@
 
 [node name="TouchControls" type="CanvasLayer"]
 script = ExtResource( 1 )
-global_ui_scale_factor = 0.5
 
 [node name="LeftControls" type="Panel" parent="."]
 anchor_top = 1.0
