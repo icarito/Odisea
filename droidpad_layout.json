@@ -1,0 +1,22 @@
+{
+  "canvas": {
+    "width": 1280,
+    "height": 720,
+    "orientation": "landscape"
+  },
+  "elements": [
+    {
+      "id": "left_stick",
+      "type": "JOYSTICK",
+      "position": { "x": 100, "y": 420, "width": 250, "height": 250 },
+      "style": { "backgroundColor": "#33333380", "stickColor": "#ffffff80" }
+    },
+    {
+      "id": "btn_a",
+      "type": "BUTTON",
+      "label": "A",
+      "position": { "x": 1030, "y": 470, "width": 150, "height": 150 },
+      "style": { "backgroundColor": "#ff000080" }
+    }
+  ]
+}
