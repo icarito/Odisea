@@ -35,7 +35,7 @@ signal pressed
 signal released
 
 # The node with the handle texture
-onready var handle = $Background/Handle
+onready var handle = $Handle
 
 # The node with the background texture
 onready var background = $Background
