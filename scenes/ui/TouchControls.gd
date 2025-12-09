@@ -148,6 +148,7 @@ func _create_element(data: Dictionary) -> Control:
 		"JOYSTICK":
 			control_node = JoystickScene.instance()
 			control_node.name = id
+			control_node.use_input_actions = true
 			# Conectar señales para logging
 			control_node.connect("pressed", self, "_on_joystick_pressed", [id])
 			control_node.connect("released", self, "_on_joystick_released", [id])
@@ -210,10 +211,10 @@ func _apply_style(node: Control, data: Dictionary):
 			if background:
 				background.modulate = color
 
-	if style.has("stickColor") and node is Joystick:
+	if style.has("handleColor") and node is Joystick:
 		 var handle = node.get_node_or_null("Background/Handle")
 		 if handle:
-			 handle.modulate = Color(style["stickColor"])
+			 handle.modulate = parse_color(style["handleColor"])
 
 # Applies functional properties from the JSON to a control node.
 func _apply_properties(node: Control, data: Dictionary):
@@ -225,23 +226,50 @@ func _apply_properties(node: Control, data: Dictionary):
 		if props.has("deadzone"):
 			node.set_dead_zone_size(props["deadzone"])
 
-func _on_button_pressed(action: String):
-	print("Button pressed:", action, " at position:", get_viewport().get_mouse_position() if OS.has_touchscreen_ui_hint() else "N/A")
-	Input.action_press(action)
-
 func _input(event):
 	if event is InputEventScreenTouch:
 		print("Touch event:", "pressed" if event.pressed else "released", " at position:", event.position, " index:", event.index)
 
-# Utilidad para parsear color RGBA uint (ej: 0xFFFFFFFF)
+func _on_button_pressed(action: String):
+	print("Button pressed: ", action)
+	Input.action_press(action)
+
+func _on_button_released(action: String):
+	print("Button released: ", action)
+	Input.action_release(action)
+
+func _on_joystick_pressed(id: String):
+	print("Joystick pressed: ", id)
+
+func _on_joystick_released(id: String):
+	print("Joystick released: ", id)
+
+# Utilidad para parsear color (Int64, ej: 0xAARRGGBB)
 func parse_color(raw_color):
-	# Espera un entero tipo 0xRRGGBBAA
-	if typeof(raw_color) == TYPE_INT:
-		var r = float((raw_color >> 24) & 0xFF) / 255.0
-		var g = float((raw_color >> 16) & 0xFF) / 255.0
-		var b = float((raw_color >> 8) & 0xFF) / 255.0
-		var a = float(raw_color & 0xFF) / 255.0
-		return Color(r, g, b, a)
+	var color_val = 0
+	var type = typeof(raw_color)
+
+	if type == TYPE_INT:
+		color_val = raw_color
+	elif type == TYPE_REAL:
+		color_val = int(raw_color)
+	elif type == TYPE_STRING:
+		color_val = int(raw_color)
 	else:
-		print("parse_color: valor no soportado:", raw_color)
-		return Color(1,1,1,1)
+		print("parse_color: valor no soportado (", type, "):", raw_color)
+		return Color(1, 1, 1, 1)
+
+	# Asume formato AARRGGBB de 64-bits
+	var a = float((color_val >> 56) & 0xFF) / 255.0
+	var r = float((color_val >> 48) & 0xFF) / 255.0
+	var g = float((color_val >> 40) & 0xFF) / 255.0
+	var b = float((color_val >> 32) & 0xFF) / 255.0
+	
+	# Fallback a formato de 32-bits si el alfa es 0
+	if a == 0:
+		a = float((color_val >> 24) & 0xFF) / 255.0
+		r = float((color_val >> 16) & 0xFF) / 255.0
+		g = float((color_val >> 8) & 0xFF) / 255.0
+		b = float(color_val & 0xFF) / 255.0
+
+	return Color(r, g, b, a)
