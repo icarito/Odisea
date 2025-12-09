@@ -990,6 +990,7 @@ config/name="Odisea"
 run/main_scene="res://scenes/Menu.tscn"
 boot_splash/image="res://assets/splash.png"
 boot_splash/bg_color=Color( 0, 0, 0, 1 )
+config/icon="res://assets/odisea_icon2.png"
 
 [autoload]
 
@@ -1002,6 +1003,8 @@ UIManager="*res://autoload/UIManager.gd"
 [debug]
 
 keep_debug_server_open=true
+shapes/visible_collision_shapes=true
+shapes/visible_navigation=true
 
 [display]
 

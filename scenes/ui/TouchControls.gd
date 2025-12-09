@@ -49,25 +49,27 @@ func _ready():
 func update_layout():
 	# Posiciona controles según offsetX/offsetY del JSON, relativo al tamaño del panel correspondiente
 	var screen_size = get_viewport().size
-	# Ajustar paneles laterales para ocupar la mitad de la pantalla
+	# Ajustar paneles laterales a un tamaño fijo
 	if left_container and left_container is Control:
 		left_container.anchor_left = 0.0
-		left_container.anchor_top = 0.0
-		left_container.anchor_right = 0.5
+		left_container.anchor_top = 1.0
+		left_container.anchor_right = 0.0
 		left_container.anchor_bottom = 1.0
-		left_container.margin_left = 0
-		left_container.margin_top = 0
-		left_container.margin_right = 0
-		left_container.margin_bottom = 0
+		left_container.margin_left = 20
+		left_container.margin_top = -260
+		left_container.margin_right = 180
+		left_container.margin_bottom = -20
 	if right_container and right_container is Control:
-		right_container.anchor_left = 0.5
-		right_container.anchor_top = 0.0
+		right_container.anchor_left = 1.0
+		right_container.anchor_top = 1.0
 		right_container.anchor_right = 1.0
 		right_container.anchor_bottom = 1.0
-		right_container.margin_left = 0
-		right_container.margin_top = 0
-		right_container.margin_right = 0
-		right_container.margin_bottom = 0
+		right_container.margin_left = -180
+		right_container.margin_top = -260
+		right_container.margin_right = -20
+		right_container.margin_bottom = -20
+
+	var dynamic_scale = get_dynamic_scale()
 
 	# Posicionar joystick si existe
 	if joystick_node and joystick_offset and left_container:
@@ -77,8 +79,10 @@ func update_layout():
 		var pos = Vector2(rel_x * panel_size.x, rel_y * panel_size.y)
 		if joystick_node is Control:
 			joystick_node.rect_position = pos
+			joystick_node.rect_scale = Vector2(1, 1) * dynamic_scale
 		else:
 			joystick_node.position = pos
+			joystick_node.scale = Vector2(1, 1) * dynamic_scale
 		print(DEBUG_PREFIX, "Joystick pos in LeftControls: ", pos)
 
 	# Posicionar botones
@@ -95,10 +99,15 @@ func update_layout():
 		if panel_name == "right":
 			rel_x = (offset.x - reference_width * 0.5) / (reference_width * 0.5)
 		var pos = Vector2(rel_x * panel_size.x, rel_y * panel_size.y)
+		
+		var base_scale = btn_info.get("base_scale", 1.0)
+
 		if node is Control:
 			node.rect_position = pos
+			node.rect_scale = Vector2(base_scale, base_scale) * dynamic_scale
 		else:
 			node.position = pos
+			node.scale = Vector2(base_scale, base_scale) * dynamic_scale
 		print(DEBUG_PREFIX, "Button ", id, " pos in ", panel_name, ": ", pos)
 
 func get_dynamic_scale() -> float:
@@ -180,7 +189,7 @@ func create_controls_from_layout(layout_data: Dictionary):
 			var scale := 1.0
 			if item.has("scale"):
 				scale = float(item.scale)
-			button.scale = Vector2(scale, scale)
+			# button.scale is now set dynamically in update_layout()
 			button.modulate.a = 0.7
 			var rel_x = float(item.offsetX) / reference_width
 			var rel_y = float(item.offsetY) / reference_height
@@ -189,7 +198,8 @@ func create_controls_from_layout(layout_data: Dictionary):
 			action_buttons[item.itemIdentifier] = {
 				"node": button,
 				"offset": Vector2(float(item.offsetX), float(item.offsetY)),
-				"panel": "left" if rel_x < 0.5 else "right"
+				"panel": "left" if rel_x < 0.5 else "right",
+				"base_scale": scale
 			}
 			print(DEBUG_PREFIX, "Button ", item.itemIdentifier, " added to ", "LeftControls" if rel_x < 0.5 else "RightControls", " at offset (", item.offsetX, ", ", item.offsetY, ")")
 
