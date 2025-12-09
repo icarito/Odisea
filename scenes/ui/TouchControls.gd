@@ -76,26 +76,29 @@ func _build_controls_from_json():
 		var type = element_data.get("itemType", element_data.get("type", ""))
 		var x = element_data.get("offsetX", element_data.get("x", 0))
 		var y = element_data.get("offsetY", element_data.get("y", 0))
-		var scale = float(element_data.get("scale", 1.0))
-		var w = element_data.get("w", 100) * scale
-		var h = element_data.get("h", 100) * scale
-		if element_data.has("w") and element_data.has("h"):
-			w = float(element_data["w"]) * scale
-			h = float(element_data["h"]) * scale
-		elif element_data.has("width") and element_data.has("height"):
-			w = float(element_data["width"]) * scale
-			h = float(element_data["height"]) * scale
-		else:
-			# Si no hay w/h, usar valores por defecto según tipo
-			if type == "JOYSTICK":
-				w = 180 * scale
-				h = w
-			elif type == "BUTTON":
-				w = 120 * scale
-				h = w
-			else:
-				w = 100 * scale
-				h = 100 * scale
+		# Ignorar 'scale' del control, solo usar layout base
+		var w = 100  # default
+		if element_data.has("w"):
+			w = float(element_data["w"])
+		elif element_data.has("width"):
+			w = float(element_data["width"])
+		elif type == "JOYSTICK":
+			w = 180
+		elif type == "BUTTON":
+			w = 120
+
+		var h = 100  # default
+		if element_data.has("h"):
+			h = float(element_data["h"])
+		elif element_data.has("height"):
+			h = float(element_data["height"])
+		elif type == "JOYSTICK":
+			h = 180
+		elif type == "BUTTON":
+			h = 120
+
+		var scaled_pos = Vector2(x, y) * scale_factor + offset
+		var scaled_size = Vector2(w, h) * scale_factor
 
 		# Deserializar properties si existe
 		var props = {}
@@ -118,8 +121,8 @@ func _build_controls_from_json():
 		var parent_panel = right_panel if x > ref_size.x / 2 else left_panel
 		parent_panel.add_child(control_node)
 
-		control_node.rect_position = Vector2(x, y)
-		control_node.rect_size = Vector2(w, h)
+		control_node.rect_position = scaled_pos
+		control_node.rect_size = scaled_size
 
 		_apply_style(control_node, {"style": props, "type": type})
 		_apply_properties(control_node, {"properties": props, "type": type})
