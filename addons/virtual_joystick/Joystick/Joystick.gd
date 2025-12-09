@@ -83,9 +83,11 @@ func _ready():
 		# hide the joystick
 		hide()
 
-	# Center the handle inside the background in the FIXED mode
-	if joystick_mode == JoystickMode.FIXED:
-		handle.rect_position = background.rect_position
+	# Set absolute positions for background and handle
+	background.rect_position = Vector2(0, 0)
+	background.rect_size = Vector2(background_radius * 2, background_radius * 2)
+	handle.rect_position = Vector2(background_radius - handle_radius, background_radius - handle_radius)
+	handle.rect_size = Vector2(handle_radius * 2, handle_radius * 2)
 
 
 func _input(event):
@@ -114,7 +116,7 @@ func _input(event):
 			# Reset the output
 			output = Vector2()
 			# Center the handle
-			handle.rect_position = background.rect_position
+			handle.rect_position = Vector2(background_radius - handle_radius, background_radius - handle_radius)
 			# If the joystick is dynamic
 			if joystick_mode == JoystickMode.DYNAMIC:
 				# hide the joystick
@@ -133,12 +135,14 @@ func _input(event):
 		# If the touch is being tracked
 		if event.index == touch_id:
 			# Calculate the vector from the center of the joystick to the touch position
-			var vector = event.position - (background.rect_global_position + Vector2(background_radius, background_radius))
+			var local_event_pos = make_input_local(event).position
+			var center = Vector2(background_radius, background_radius)
+			var vector = local_event_pos - center
 			# Clamp the vector to the clamp zone
 			vector = vector.clamped(background_radius * clamp_zone_size)
 
 			# Move the handle
-			handle.rect_position = background.rect_position + (vector - Vector2(handle_radius, handle_radius))
+			handle.rect_position = center + vector - Vector2(handle_radius, handle_radius)
 
 			# Normalize the vector
 			vector = vector / (background_radius * clamp_zone_size)
