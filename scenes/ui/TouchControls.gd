@@ -5,10 +5,10 @@ const JoystickScene = preload("res://addons/virtual_joystick/Joystick/Joystick.t
 const CirclePainter = preload("res://scripts/ui/CirclePainter.gd")
 
 # --- OnReady References ---
-onready var left_panel = $HBoxContainer/LeftPanel
-onready var right_panel = $HBoxContainer/RightPanel
-onready var left_controls = $HBoxContainer/LeftPanel/Controls
-onready var right_controls = $HBoxContainer/RightPanel/Controls
+onready var left_panel = $LeftPanel
+onready var right_panel = $RightPanel
+onready var left_controls = $LeftPanel/Controls
+onready var right_controls = $RightPanel/Controls
 
 # --- Lifecycle ---
 func _ready():
