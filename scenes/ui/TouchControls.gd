@@ -136,7 +136,7 @@ func _build_controls_from_json():
 
 		_apply_style(control_node, {"style": props, "type": type})
 		_apply_properties(control_node, {"properties": props, "type": type})
-		print("Control añadido:", control_node.name, "en panel:", parent_controls.get_parent().name)
+		print("Control añadido:", control_node.name, "en panel:", parent_controls.get_parent().name, " pos:", scaled_pos, " size:", scaled_size)
 
 # Creates a control node based on the element data from the JSON.
 func _create_element(data: Dictionary) -> Control:
@@ -148,6 +148,9 @@ func _create_element(data: Dictionary) -> Control:
 		"JOYSTICK":
 			control_node = JoystickScene.instance()
 			control_node.name = id
+			# Conectar señales para logging
+			control_node.connect("pressed", self, "_on_joystick_pressed", [id])
+			control_node.connect("released", self, "_on_joystick_released", [id])
 
 		"BUTTON":
 			control_node = Button.new()
@@ -223,10 +226,12 @@ func _apply_properties(node: Control, data: Dictionary):
 			node.set_dead_zone_size(props["deadzone"])
 
 func _on_button_pressed(action: String):
+	print("Button pressed:", action, " at position:", get_viewport().get_mouse_position() if OS.has_touchscreen_ui_hint() else "N/A")
 	Input.action_press(action)
 
-func _on_button_released(action: String):
-	Input.action_release(action)
+func _input(event):
+	if event is InputEventScreenTouch:
+		print("Touch event:", "pressed" if event.pressed else "released", " at position:", event.position, " index:", event.index)
 
 # Utilidad para parsear color RGBA uint (ej: 0xFFFFFFFF)
 func parse_color(raw_color):
