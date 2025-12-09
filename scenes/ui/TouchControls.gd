@@ -128,7 +128,10 @@ func _build_controls_from_json():
 
 		# Centrar el control en su posición calculada
 		control_node.rect_position = scaled_pos - (scaled_size / 2.0)
-		control_node.rect_size = scaled_size
+		if type == "JOYSTICK":
+			control_node.rect_size = Vector2(256, 256)
+		else:
+			control_node.rect_size = scaled_size
 
 		_apply_style(control_node, {"style": props, "type": type})
 		_apply_properties(control_node, {"properties": props, "type": type})
