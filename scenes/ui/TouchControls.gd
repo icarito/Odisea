@@ -131,7 +131,8 @@ func _build_controls_from_json():
 
 		parent_controls.add_child(control_node)
 
-		control_node.rect_position = scaled_pos
+		# Centrar el control en su posición calculada
+		control_node.rect_position = scaled_pos - (scaled_size / 2.0)
 		control_node.rect_size = scaled_size
 
 		_apply_style(control_node, {"style": props, "type": type})
@@ -228,7 +229,19 @@ func _apply_properties(node: Control, data: Dictionary):
 
 func _input(event):
 	if event is InputEventScreenTouch:
-		print("Touch event:", "pressed" if event.pressed else "released", " at position:", event.position, " index:", event.index)
+		var event_type = "pressed" if event.pressed else "released"
+		print("Touch event: ", event_type, " at global position: ", event.position, " index: ", event.index)
+		
+		var all_controls = []
+		all_controls.append_array(left_controls.get_children())
+		all_controls.append_array(right_controls.get_children())
+
+		for control in all_controls:
+			var control_rect = control.get_global_rect()
+			if control_rect.has_point(event.position):
+				var local_event = control.make_input_local(event)
+				print("- Touch DETECTED inside '", control.name, "'. Control's global rect: ", control_rect, ". Touch local pos: ", local_event.position)
+
 
 func _on_button_pressed(action: String):
 	print("Button pressed: ", action)
