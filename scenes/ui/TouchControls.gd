@@ -56,16 +56,6 @@ func _build_controls_from_json():
 		ref_size = Vector2(pad.get("width", 1280), pad.get("height", 720))
 
 
-	# --- 1. Calculate Responsive Layout ---
-	var screen_size = get_viewport().size
-	if data.has("controlPad"):
-		var pad = data["controlPad"]
-		ref_size = Vector2(pad.get("width", 1280), pad.get("height", 720))
-
-	# Panel sizes (aprox. mitad de pantalla)
-	var panel_width = screen_size.x / 2.0
-	var panel_height = screen_size.y
-
 	# --- 2. Create and Position UI Elements ---
 	for element_data in elements:
 		print("Procesando elemento:", element_data)
@@ -100,13 +90,18 @@ func _build_controls_from_json():
 		var parent_controls = right_controls if is_right else left_controls
 		var panel_ref_width = ref_size.x / 2.0
 		var panel_ref_height = ref_size.y
+		
+		# --- Calculate Responsive Layout based on REAL panel size ---
+		var parent_panel = parent_controls.get_parent()
+		var panel_width = parent_panel.rect_size.x
+		var panel_height = parent_panel.rect_size.y
+
+		# Scale factor por panel
+		var panel_scale_factor = min(panel_width / panel_ref_width, panel_height / panel_ref_height)
 
 		# Posición relativa al panel
 		var rel_x = x - (panel_ref_width if is_right else 0)
 		var rel_y = y
-
-		# Scale factor por panel
-		var panel_scale_factor = min(panel_width / panel_ref_width, panel_height / panel_ref_height)
 
 		var scaled_pos = Vector2(rel_x, rel_y) * panel_scale_factor
 		var scaled_size = Vector2(w, h) * panel_scale_factor
