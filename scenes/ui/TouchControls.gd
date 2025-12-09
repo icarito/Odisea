@@ -5,8 +5,10 @@ const JoystickScene = preload("res://addons/virtual_joystick/Joystick/Joystick.t
 const CirclePainter = preload("res://scripts/ui/CirclePainter.gd")
 
 # --- OnReady References ---
-onready var left_panel = $LeftPanel
-onready var right_panel = $RightPanel
+onready var left_panel = $HBoxContainer/LeftPanel
+onready var right_panel = $HBoxContainer/RightPanel
+onready var left_controls = $HBoxContainer/LeftPanel/Controls
+onready var right_controls = $HBoxContainer/RightPanel/Controls
 
 # --- Lifecycle ---
 func _ready():
@@ -56,17 +58,13 @@ func _build_controls_from_json():
 
 	# --- 1. Calculate Responsive Layout ---
 	var screen_size = get_viewport().size
-	var scale_factor = 1.0
-	var screen_aspect = screen_size.x / screen_size.y
-	var ref_aspect = ref_size.x / ref_size.y
+	if data.has("controlPad"):
+		var pad = data["controlPad"]
+		ref_size = Vector2(pad.get("width", 1280), pad.get("height", 720))
 
-	if screen_aspect > ref_aspect:
-		scale_factor = screen_size.y / ref_size.y
-	else:
-		scale_factor = screen_size.x / ref_size.x
-
-	var scaled_canvas_size = ref_size * scale_factor
-	var offset = Vector2((screen_size.x - scaled_canvas_size.x) / 2.0, screen_size.y - scaled_canvas_size.y)
+	# Panel sizes (aprox. mitad de pantalla)
+	var panel_width = screen_size.x / 2.0
+	var panel_height = screen_size.y
 
 	# --- 2. Create and Position UI Elements ---
 	for element_data in elements:
@@ -97,8 +95,21 @@ func _build_controls_from_json():
 		elif type == "BUTTON":
 			h = 120
 
-		var scaled_pos = Vector2(x, y) * scale_factor + offset
-		var scaled_size = Vector2(w, h) * scale_factor
+		# Determinar panel y posiciones relativas
+		var is_right = x > ref_size.x / 2.0
+		var parent_controls = right_controls if is_right else left_controls
+		var panel_ref_width = ref_size.x / 2.0
+		var panel_ref_height = ref_size.y
+
+		# Posición relativa al panel
+		var rel_x = x - (panel_ref_width if is_right else 0)
+		var rel_y = y
+
+		# Scale factor por panel
+		var panel_scale_factor = min(panel_width / panel_ref_width, panel_height / panel_ref_height)
+
+		var scaled_pos = Vector2(rel_x, rel_y) * panel_scale_factor
+		var scaled_size = Vector2(w, h) * panel_scale_factor
 
 		# Deserializar properties si existe
 		var props = {}
@@ -112,21 +123,20 @@ func _build_controls_from_json():
 				else:
 					print("Error parseando properties de", id, ":", props_parse.error_string)
 
-		print("Creando control:", type, "id:", id, "x:", x, "y:", y, "w:", w, "h:", h, "props:", props)
+		print("Creando control:", type, "id:", id, "rel_x:", rel_x, "rel_y:", rel_y, "w:", w, "h:", h, "props:", props)
 		var control_node = _create_element({"type": type, "id": id, "label": props.get("text", id), "min": props.get("min", 0), "max": props.get("max", 100), "value": props.get("value", 0)})
 		if not is_instance_valid(control_node):
 			print("No se pudo instanciar control para", id)
 			continue
 
-		var parent_panel = right_panel if x > ref_size.x / 2 else left_panel
-		parent_panel.add_child(control_node)
+		parent_controls.add_child(control_node)
 
 		control_node.rect_position = scaled_pos
 		control_node.rect_size = scaled_size
 
 		_apply_style(control_node, {"style": props, "type": type})
 		_apply_properties(control_node, {"properties": props, "type": type})
-		print("Control añadido:", control_node.name, "en panel:", parent_panel.name)
+		print("Control añadido:", control_node.name, "en panel:", parent_controls.get_parent().name)
 
 # Creates a control node based on the element data from the JSON.
 func _create_element(data: Dictionary) -> Control:
