@@ -2,7 +2,6 @@ extends CanvasLayer
 
 # --- Preloaded Resources ---
 const JoystickScene = preload("res://addons/virtual_joystick/Joystick/Joystick.tscn")
-const CirclePainter = preload("res://scripts/ui/CirclePainter.gd")
 
 # --- Action Mapping ---
 var action_mapping = {
@@ -138,23 +137,30 @@ func _build_controls_from_json():
 			print("No se pudo instanciar control para", id)
 			continue
 
-		parent_controls.add_child(control_node)
+		if control_node is TouchScreenButton:
+			self.add_child(control_node)
+			# Posicionamiento manual global para TouchScreenButton
+			if id == "BTN_A":
+				control_node.position = Vector2(627, 256)
+			elif id == "BTN_B":
+				control_node.position = Vector2(647, 370)
+			elif id == "BTN_Y":
+				control_node.position = Vector2(757, 342)
+			elif id == "BTN_X":
+				control_node.position = Vector2(730, 240)
+		else:
+			parent_controls.add_child(control_node)
 
-		if control_node is Control:
-			# Centrar el control en su posición calculada
-			if parent_controls == right_controls:
-				control_node.rect_position = Vector2(right_panel.rect_size.x - scaled_pos.x - scaled_size.x / 2.0, scaled_pos.y - scaled_size.y / 2.0)
-			else:
-				control_node.rect_position = scaled_pos - (scaled_size / 2.0)
-			if type == "JOYSTICK":
-				control_node.rect_size = Vector2(256, 256)
-			else:
-				control_node.rect_size = scaled_size
-		elif control_node is TouchScreenButton:
-			if parent_controls == right_controls:
-				control_node.position = Vector2(right_panel.rect_size.x - scaled_pos.x - scaled_size.x / 2.0, scaled_pos.y - scaled_size.y / 2.0)
-			else:
-				control_node.position = scaled_pos - scaled_size / 2.0
+			if control_node is Control:
+				# Centrar el control en su posición calculada
+				if parent_controls == right_controls:
+					control_node.rect_position = Vector2(right_panel.rect_size.x - scaled_pos.x - scaled_size.x / 2.0, scaled_pos.y - scaled_size.y / 2.0)
+				else:
+					control_node.rect_position = scaled_pos - (scaled_size / 2.0)
+				if type == "JOYSTICK":
+					control_node.rect_size = Vector2(256, 256)
+				else:
+					control_node.rect_size = scaled_size
 
 		_apply_style(control_node, {"style": props, "type": type})
 		_apply_properties(control_node, {"properties": props, "type": type})
@@ -229,8 +235,12 @@ func _apply_style(node: Node, data: Dictionary):
 		var color = parse_color(raw_color)
 		print("parse_color backgroundColor:", raw_color, "->", color)
 		if node is TouchScreenButton:
-			var icon = CirclePainter.create_circle_texture(17, color)  # Approximate radius for ~34 size
-			node.normal = icon
+			var img = Image.new()
+			img.create(34, 34, false, Image.FORMAT_RGBA8)
+			img.fill(Color(1, 0, 0, 1))  # Red for visibility
+			var tex = ImageTexture.new()
+			tex.create_from_image(img)
+			node.normal = tex
 		elif node is Control:
 			if node is Joystick:
 				var background = node.get_node_or_null("Background")
