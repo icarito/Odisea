@@ -157,7 +157,7 @@ func _build_controls_from_json():
 				else:
 					control_node.rect_size = scaled_size
 
-		_apply_style(control_node, {"style": props, "type": type})
+		_apply_style(control_node, {"style": props, "type": type, "id": id})
 		_apply_properties(control_node, {"properties": props, "type": type})
 		print("Control añadido:", control_node.name, "en panel:", parent_controls.get_parent().name, " pos:", scaled_pos, " size:", scaled_size)
 
@@ -222,24 +222,41 @@ func _apply_layout(node: Control, data: Dictionary, scale: float, offset: Vector
 # Applies colors and other style properties from the JSON to a control node.
 func _apply_style(node: Node, data: Dictionary):
 	var style = data.get("style", {})
-	if style.empty():
-		return
+	var id = data.get("id", "")
+	#if style.empty() and not (node is TouchScreenButton and (id == "BTN_Y" or id == "BTN_X")):
+	#	return
 
-	if style.has("backgroundColor") or style.has("buttonColor"):
-		var raw_color = style.get("backgroundColor", style.get("buttonColor", 0))
-		var color = parse_color(raw_color)
-		print("parse_color color:", raw_color, "->", color)
-		if node is TouchScreenButton:
-			node.normal = CirclePainter.create_circle_texture(17, color)
-			# Set shape for touch detection
-			var shape = RectangleShape2D.new()
-			shape.extents = Vector2(17, 17)
-			node.shape = shape
-		elif node is Control:
-			if node is Joystick:
-				var background = node.get_node_or_null("Background")
-				if background:
-					background.modulate = color
+	var raw_color = style.get("backgroundColor", style.get("buttonColor", 0))
+	print (raw_color)
+	
+	var color = Color(1,1,1,1)  # default
+	if raw_color != 0:
+		color = parse_color(raw_color)
+
+	# if style.has("backgroundColor") or style.has("buttonColor") or (node is TouchScreenButton and (id == "BTN_Y" or id == "BTN_X")):
+	# 	var raw_color = style.get("backgroundColor", style.get("buttonColor", 0))
+	# 	var color = Color(1,1,1,1)  # default
+	# 	if raw_color != 0:
+	# 		color = parse_color(raw_color)
+	# 	else:
+	# 		# default colors for Y and X
+	# 		if id == "BTN_Y":
+	# 			color = Color(1, 1, 0, 1)  # yellow
+	# 		elif id == "BTN_X":
+	# 			color = Color(0, 0, 1, 1)  # blue
+	# print("parse_color for", id, ":", raw_color, "->", color)
+
+	if node is TouchScreenButton:
+		node.normal = CirclePainter.create_circle_texture(17, color)
+		# Set shape for touch detection
+		var shape = RectangleShape2D.new()
+		shape.extents = Vector2(17, 17)
+		node.shape = shape
+	# elif node is Control:
+	#	if node is Joystick:
+	#		var background = node.get_node_or_null("Background")
+	#		if background:
+	#			background.modulate = color
 
 	if style.has("handleColor") and node is Control and node is Joystick:
 		 var handle = node.get_node_or_null("Background/Handle")
@@ -294,7 +311,7 @@ func _on_joystick_pressed(id: String):
 func _on_joystick_released(id: String):
 	print("Joystick released: ", id)
 
-# Utilidad para parsear color (Int64, ej: 0xAARRGGBB)
+# Utilidad para parsear color (Int64, asumiendo ARGB de 32 bits en los bits bajos)
 func parse_color(raw_color):
 	var color_val = 0
 	var type = typeof(raw_color)
@@ -309,17 +326,11 @@ func parse_color(raw_color):
 		print("parse_color: valor no soportado (", type, "):", raw_color)
 		return Color(1, 1, 1, 1)
 
-	# Asume formato AARRGGBB de 64-bits
-	var a = float((color_val >> 56) & 0xFF) / 255.0
-	var r = float((color_val >> 48) & 0xFF) / 255.0
-	var g = float((color_val >> 40) & 0xFF) / 255.0
-	var b = float((color_val >> 32) & 0xFF) / 255.0
-	
-	# Fallback a formato de 32-bits si el alfa es 0
-	if a == 0:
-		a = float((color_val >> 24) & 0xFF) / 255.0
-		r = float((color_val >> 16) & 0xFF) / 255.0
-		g = float((color_val >> 8) & 0xFF) / 255.0
-		b = float(color_val & 0xFF) / 255.0
+	# Usar solo los 32 bits bajos, asumiendo ARGB
+	var argb = color_val & 0xFFFFFFFF
+	var a = float((argb >> 24) & 0xFF) / 255.0
+	var r = float((argb >> 16) & 0xFF) / 255.0
+	var g = float((argb >> 8) & 0xFF) / 255.0
+	var b = float(argb & 0xFF) / 255.0
 
 	return Color(r, g, b, a)
