@@ -12,7 +12,8 @@ export onready var player_mesh = get_node(PlayerCharacterMesh)
 
 export var gravity = 9.8
 export var jump_force = 9
-export var dash_power = 12
+export var turn_speed := 2.0
+export var dash_power := 12.0
 
 # Velocidad externa aplicada por plataformas/conveyors (legacy, ahora en componente)
 var platform_velocity := Vector3.ZERO
@@ -412,6 +413,10 @@ func _physics_process(delta):
 	
 	has_input = input_vector.length() > 0.1
 
+	# Control de movimiento y rotación
+	rotation.y += input_vector.x * turn_speed * delta
+	direction = Vector3(0, 0, -input_vector.y).rotated(Vector3.UP, rotation.y)
+
 	if jump_pressed and ((is_attacking != true) and (is_rolling != true)) and is_on_floor():
 		# Play jump sound
 		if AudioSystem:
@@ -462,9 +467,9 @@ func _physics_process(delta):
 
 			movement_comp.process_input_vector(delta, basis, input_vector, is_sprinting)
 			
-			# Aplicar giro tank (reducido cuando mouse está activo)
-			var turn_input = movement_comp.get_turn_input_from_vector(input_vector)
-			var effective_tank_speed = tank_turn_speed if not mouse_active else tank_turn_speed * 0.01
+			# Aplicar giro tank (deshabilitado cuando use_mouse_input)
+			var turn_input = input_vector.x
+			var effective_tank_speed = tank_turn_speed if not player_input.use_mouse_input else 0
 			var yaw_delta = turn_input * effective_tank_speed * delta
 			rotation.y += yaw_delta
 			
@@ -496,8 +501,8 @@ func _physics_process(delta):
 		var local_target_y = global_target_y - parent_y
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, local_target_y, delta * angular_acceleration)
 	# Interpolación de hv hacia la velocidad objetivo
-	horizontal_velocity = movement_comp.horizontal_velocity
-	# ...existing code...
+	if movement_comp:
+		horizontal_velocity = movement_comp.horizontal_velocity
 
 	# Fricción fuerte: si no hay input y estamos en suelo
 	if not has_input and is_on_floor() and not is_attacking and not is_rolling:
