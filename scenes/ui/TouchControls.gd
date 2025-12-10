@@ -1,4 +1,8 @@
 extends CanvasLayer
+## Permite acceso global al estado de controles touch
+var instance = null setget , get_instance
+func get_instance():
+	return instance
 
 # --- Preloaded Resources ---
 const JoystickScene = preload("res://addons/virtual_joystick/Joystick/Joystick.tscn")
@@ -35,6 +39,7 @@ var _ignore_mouse_until_frame := 0
 
 # --- Lifecycle ---
 func _ready():
+	instance = self
 	yield(get_tree(), "idle_frame")
 	_build_controls_from_json()
 	_init_hide_timer()
@@ -192,6 +197,10 @@ func _set_controls_visible(visible: bool):
 		_ignore_mouse_until_frame = Engine.get_frames_drawn() + 1
 	else:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+# Permite consulta global del estado touch
+func is_touch_controls_active() -> bool:
+	return controls_visible
 
 func _init_hide_timer():
 	if hide_timer:
@@ -359,11 +368,13 @@ func _on_button_pressed(action: String):
 func _on_button_released(action: String):
 	Input.action_release(action)
 
-#func _on_joystick_pressed(id: String):
-#	print("Joystick pressed: ", id)
+func _on_joystick_pressed(id: String):
+	pass
+	# print("Joystick pressed: ", id)
 
-#func _on_joystick_released(id: String):
-#	print("Joystick released: ", id)
+func _on_joystick_released(id: String):
+	pass
+	# print("Joystick released: ", id)
 
 func parse_color(color_val):
 	if typeof(color_val) != TYPE_INT and typeof(color_val) != TYPE_REAL:
