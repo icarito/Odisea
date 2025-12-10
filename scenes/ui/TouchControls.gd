@@ -2,6 +2,7 @@ extends CanvasLayer
 
 # --- Preloaded Resources ---
 const JoystickScene = preload("res://addons/virtual_joystick/Joystick/Joystick.tscn")
+const CirclePainter = preload("res://scripts/ui/CirclePainter.gd")
 
 # --- Action Mapping ---
 var action_mapping = {
@@ -229,12 +230,7 @@ func _apply_style(node: Node, data: Dictionary):
 		var color = parse_color(raw_color)
 		print("parse_color color:", raw_color, "->", color)
 		if node is TouchScreenButton:
-			var img = Image.new()
-			img.create(34, 34, false, Image.FORMAT_RGBA8)
-			img.fill(Color(1, 0, 0, 1))  # Red for visibility
-			var tex = ImageTexture.new()
-			tex.create_from_image(img)
-			node.normal = tex
+			node.normal = CirclePainter.create_circle_texture(17, color)
 			# Set shape for touch detection
 			var shape = RectangleShape2D.new()
 			shape.extents = Vector2(17, 17)
