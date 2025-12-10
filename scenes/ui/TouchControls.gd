@@ -139,15 +139,9 @@ func _build_controls_from_json():
 
 		if control_node is TouchScreenButton:
 			self.add_child(control_node)
-			# Posicionamiento manual global para TouchScreenButton
-			if id == "BTN_A":
-				control_node.position = Vector2(627, 256)
-			elif id == "BTN_B":
-				control_node.position = Vector2(647, 370)
-			elif id == "BTN_Y":
-				control_node.position = Vector2(757, 342)
-			elif id == "BTN_X":
-				control_node.position = Vector2(730, 240)
+			# Posicionamiento relativo al RightPanel
+			var button_pos = Vector2(right_panel.rect_size.x - scaled_pos.x - scaled_size.x / 2.0, scaled_pos.y - scaled_size.y / 2.0)
+			control_node.position = right_panel.rect_global_position + button_pos
 		else:
 			parent_controls.add_child(control_node)
 
@@ -230,10 +224,10 @@ func _apply_style(node: Node, data: Dictionary):
 	if style.empty():
 		return
 
-	if style.has("backgroundColor"):
-		var raw_color = style["backgroundColor"]
+	if style.has("backgroundColor") or style.has("buttonColor"):
+		var raw_color = style.get("backgroundColor", style.get("buttonColor", 0))
 		var color = parse_color(raw_color)
-		print("parse_color backgroundColor:", raw_color, "->", color)
+		print("parse_color color:", raw_color, "->", color)
 		if node is TouchScreenButton:
 			var img = Image.new()
 			img.create(34, 34, false, Image.FORMAT_RGBA8)
@@ -241,6 +235,10 @@ func _apply_style(node: Node, data: Dictionary):
 			var tex = ImageTexture.new()
 			tex.create_from_image(img)
 			node.normal = tex
+			# Set shape for touch detection
+			var shape = RectangleShape2D.new()
+			shape.extents = Vector2(17, 17)
+			node.shape = shape
 		elif node is Control:
 			if node is Joystick:
 				var background = node.get_node_or_null("Background")
