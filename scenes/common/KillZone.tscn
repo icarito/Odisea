@@ -11,5 +11,3 @@ script = ExtResource( 1 )
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 shape = SubResource( 1 )
-
-[node name="DeathScreen" parent="." instance=ExtResource( 2 )]
