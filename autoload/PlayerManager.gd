@@ -85,21 +85,10 @@ func _deferred_spawn(initial_transform: Transform):
 	player_reference.global_transform = initial_transform
 	print("PlayerManager: Player spawned at: ", initial_transform.origin, " rotation: ", initial_transform.basis.get_euler())
 	
-	# Sync camera exactamente con la rotación del mesh
-	# Forzar alineación de cámara después de que el nodo esté en escena y transform aplicado
+	# Forzar alineación de cámara después de que el nodo esté en escena y transform aplicado.
+	# La función _align_camera_to_body() debe existir en el script del player.
 	player_reference.call_deferred("_align_camera_to_body")
 	
-func _align_camera_to_body():
-	var cam_rig = self.get_node_or_null("CameraRig")
-	var body_yaw = self.global_transform.basis.get_euler().y
-	print("[PlayerManager] body_yaw (global): ", body_yaw)
-	if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
-		cam_rig.sync_to_body_yaw(body_yaw, 0)
-		print("[PlayerManager] sync_to_body_yaw called with: ", body_yaw)
-	# Capture default camera angles from the prefab on the first spawn
-	_capture_default_camera_state()
-
-
 func despawn() -> void:
 	print("[PlayerManager] despawn called")
 	if is_spawned():
