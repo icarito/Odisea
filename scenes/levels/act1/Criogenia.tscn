@@ -149,7 +149,7 @@ skeleton = NodePath("")
 shape = SubResource( 5 )
 
 [node name="SpawnPortal" type="CSGBox" parent="PuzzleZone/Criogenics Lab/Middle Section"]
-transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -82.8749, -77.6193, -106.751 )
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -82.8749, -77.6193, -106.751 )
 use_in_baked_light = true
 use_collision = true
 collision_layer = 4

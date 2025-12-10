@@ -43,8 +43,6 @@ var cam
 
 var target_yaw := 0.0
 var target_pitch := 0.0
-var _align_time := 0.4
-var _t := 0.0
 
 var player_id := 1
 var joypad_device := -1
@@ -67,15 +65,7 @@ func _ready():
 	# Capturar el puntero para control de cámara
 	if player_id == 1:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	# Align initial yaw to player mesh forward if available
-	if player and yaw:
-		var mesh = null
-		# Use get() to safely access property, returns null if missing
-		mesh = player.get("player_mesh") if player else null
-		if mesh:
-			# Player faces +Z in Godot commonly; set yaw to match mesh
-			target_yaw = mesh.rotation.y
-			yaw.rotation.y = target_yaw
+	# Initial yaw will be set by sync_to_body_yaw later
 	# Set default pitch respecting limit
 	if pitch:
 		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
@@ -123,14 +113,6 @@ func _physics_process(delta):
 		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
 		target_pitch = clamp(target_pitch, -lim_down, lim_up)
 
-	# Auto-align yaw to mesh for a brief startup window to avoid odd initial angles
-	if player and yaw and _t < _align_time:
-		_t += delta
-		var m = player.get("player_mesh") if player else null
-		if m:
-			var py = m.rotation.y
-			target_yaw = py
-			yaw.rotation.y = py
 	# Smooth yaw/pitch
 	if yaw:
 		var y = yaw.rotation.y

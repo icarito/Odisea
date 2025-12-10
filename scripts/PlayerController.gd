@@ -677,7 +677,7 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 		var yaw_node = cam_rig.get_node_or_null("Yaw")
 		if yaw_node and cam_rig.has_method("set"):
 			# El rig de la cámara se alinea con el cuerpo. Se asume que el SpringArm maneja la posición "detrás".
-			var final_cam_yaw = new_transform.basis.get_euler().y - PI/2
+			var final_cam_yaw = new_transform.basis.get_euler().y + PI
 			
 			# 1. Establecer la rotación del nodo directamente
 			yaw_node.rotation.y = final_cam_yaw

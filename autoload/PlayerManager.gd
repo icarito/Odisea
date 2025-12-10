@@ -42,38 +42,14 @@ func kill_player_instant(_player = null) -> void:
 	# No llamar respawn_player() aquí; esperar señal de respawn
 
 func respawn_player() -> void:
-	print("[PlayerManager] respawn_player called")
-	var target_transform = _initial_spawn_transform
-	if not is_spawned():
-		print("[PlayerManager] No player spawned, spawning now...")
+		print("[PlayerManager] respawn_player called")
+		var target_transform = _initial_spawn_transform
+		despawn()
 		var spawned_player = spawn(target_transform)
 		if spawned_player:
-			print("[PlayerManager] spawned_player: ", spawned_player, " has_method(reset_state_for_respawn): ", spawned_player.has_method("reset_state_for_respawn"))
-			if spawned_player.has_method("reset_state_for_respawn"):
-				print("[PlayerManager] Calling reset_state_for_respawn on newly spawned player")
-				_reset_camera_state()
-				spawned_player.reset_state_for_respawn(target_transform)
-				print("[PlayerManager] reset_state_for_respawn called on spawned_player")
-			else:
-				print("[PlayerManager] Newly spawned player does NOT have reset_state_for_respawn method!")
+			print("[PlayerManager] spawned_player: ", spawned_player)
 			spawned_player.set_physics_process(true)
 		emit_signal("player_respawned")
-		return
-
-	print("[PlayerManager] Player is already spawned, attempting to reset state...")
-	if player_reference:
-		print("[PlayerManager] player_reference: ", player_reference, " has_method(reset_state_for_respawn): ", player_reference.has_method("reset_state_for_respawn"))
-		if player_reference.has_method("reset_state_for_respawn"):
-			print("[PlayerManager] Calling reset_state_for_respawn on existing player")
-			# _reset_camera_state() # This was conflicting with the camera sync in reset_state_for_respawn
-			player_reference.reset_state_for_respawn(target_transform)
-			print("[PlayerManager] reset_state_for_respawn called on player_reference")
-		else:
-			print("[PlayerManager] Existing player does NOT have reset_state_for_respawn method!")
-
-	if player_reference:
-		player_reference.set_physics_process(true)
-	emit_signal("player_respawned")
 
 func set_respawn_point(new_respawn_point: Transform) -> void:
 	respawn_point = new_respawn_point
@@ -109,11 +85,17 @@ func _deferred_spawn(initial_transform: Transform):
 	player_reference.global_transform = initial_transform
 	print("PlayerManager: Player spawned at: ", initial_transform.origin, " rotation: ", initial_transform.basis.get_euler())
 	
-	# Sync camera
-	var cam_rig = player_reference.get_node_or_null("CameraRig")
-	if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
-		cam_rig.call_deferred("sync_to_body_yaw", initial_transform.basis.get_euler().y, PI)
+	# Sync camera exactamente con la rotación del mesh
+	# Forzar alineación de cámara después de que el nodo esté en escena y transform aplicado
+	player_reference.call_deferred("_align_camera_to_body")
 	
+func _align_camera_to_body():
+	var cam_rig = self.get_node_or_null("CameraRig")
+	var body_yaw = self.global_transform.basis.get_euler().y
+	print("[PlayerManager] body_yaw (global): ", body_yaw)
+	if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
+		cam_rig.sync_to_body_yaw(body_yaw, 0)
+		print("[PlayerManager] sync_to_body_yaw called with: ", body_yaw)
 	# Capture default camera angles from the prefab on the first spawn
 	_capture_default_camera_state()
 
