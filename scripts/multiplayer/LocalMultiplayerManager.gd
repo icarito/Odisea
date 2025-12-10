@@ -280,15 +280,20 @@ func _input(event):
 	if death_screen_p1.is_showing and jump_p1:
 		print("[Respawn] Intentando respawn P1...")
 		if not player_stats[1]["alive"]:
-				var spawn_point = level.find_node("SpawnPoint", true, false)
-				print("[Respawn] SpawnPoint P1:", spawn_point)
-				if spawn_point:
-					print("[Respawn] Llamando reset_state_for_respawn en:", player1)
-					player1.call_deferred("reset_state_for_respawn", spawn_point.global_transform)
-					set_player_alive(1, true)
-					player1.set_physics_process(true)
-				else:
-					print("[Respawn] No se encontró SpawnPoint para P1")
+			var spawn_point = level.find_node("SpawnPoint", true, false)
+			print("[Respawn] SpawnPoint P1:", spawn_point)
+			player1.queue_free()
+			var player_res = load(player_scene_path)
+			player1 = player_res.instance()
+			player1.name = "Player_1"
+			viewport_p1.add_child(player1)
+			if spawn_point:
+				player1.global_transform = spawn_point.global_transform
+			if player1.has_method("set_player_id"):
+				player1.set_player_id(1)
+			_configure_player_inputs()
+			set_player_alive(1, true)
+			player1.set_physics_process(true)
 		else:
 			print("[Respawn] P1 ya está vivo, no respawnea")
 		death_screen_p1.hide_death_screen()
@@ -301,26 +306,18 @@ func _input(event):
 			if not spawn_point2:
 				spawn_point2 = level.find_node("SpawnPoint", true, false)
 				print("[Respawn] Fallback a SpawnPoint:", spawn_point2)
+			player2.queue_free()
+			var player_res2 = load(player_scene_path)
+			player2 = player_res2.instance()
+			player2.name = "Player_2"
+			viewport_p1.add_child(player2)
 			if spawn_point2:
-				var pc2 = player2
-				print("[Respawn] Nodo player2:", pc2)
-				if not pc2.has_method("reset_state_for_respawn") and pc2.get_child_count() > 0:
-					var found2 = false
-					for c in pc2.get_children():
-						print("[Respawn] Checando hijo:", c)
-						if c.has_method("reset_state_for_respawn"):
-							print("[Respawn] Encontrado método en hijo:", c)
-							pc2 = c
-							found2 = true
-							break
-					if not found2:
-						print("[Respawn] No se encontró método reset_state_for_respawn en hijos de player2")
-				print("[Respawn] Llamando reset_state_for_respawn en:", pc2)
-				pc2.call_deferred("reset_state_for_respawn", spawn_point2.global_transform)
-				set_player_alive(2, true)
-				pc2.set_physics_process(true)
-			else:
-				print("[Respawn] No se encontró SpawnPoint para P2")
+				player2.global_transform = spawn_point2.global_transform
+			if player2.has_method("set_player_id"):
+				player2.set_player_id(2)
+			_configure_player_inputs()
+			set_player_alive(2, true)
+			player2.set_physics_process(true)
 		else:
 			print("[Respawn] P2 ya está vivo, no respawnea")
 		death_screen_p2.hide_death_screen()
