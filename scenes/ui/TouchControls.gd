@@ -227,11 +227,12 @@ func _apply_style(node: Node, data: Dictionary):
 	#	return
 
 	var raw_color = style.get("backgroundColor", style.get("buttonColor", 0))
-	print (raw_color)
+	print ("Raw color:", raw_color)
 	
 	var color = Color(1,1,1,1)  # default
 	if raw_color != 0:
 		color = parse_color(raw_color)
+	print ("parse_color for", id, ":", raw_color, "->", color)
 
 	# if style.has("backgroundColor") or style.has("buttonColor") or (node is TouchScreenButton and (id == "BTN_Y" or id == "BTN_X")):
 	# 	var raw_color = style.get("backgroundColor", style.get("buttonColor", 0))
@@ -311,26 +312,17 @@ func _on_joystick_pressed(id: String):
 func _on_joystick_released(id: String):
 	print("Joystick released: ", id)
 
-# Utilidad para parsear color (Int64, asumiendo ARGB de 32 bits en los bits bajos)
-func parse_color(raw_color):
-	var color_val = 0
-	var type = typeof(raw_color)
+func parse_color(color_val):
+	if typeof(color_val) != TYPE_INT and typeof(color_val) != TYPE_REAL:
+		return Color(1, 1, 1, 1) # Return white for invalid types
 
-	if type == TYPE_INT:
-		color_val = raw_color
-	elif type == TYPE_REAL:
-		color_val = int(raw_color)
-	elif type == TYPE_STRING:
-		color_val = int(raw_color)
-	else:
-		print("parse_color: valor no soportado (", type, "):", raw_color)
-		return Color(1, 1, 1, 1)
+	# Use floating point division to get the upper 32 bits of the 64-bit value
+	var upper_32 = int(float(color_val) / pow(2, 32))
 
-	# Usar solo los 32 bits bajos, asumiendo ARGB
-	var argb = color_val & 0xFFFFFFFF
-	var a = float((argb >> 24) & 0xFF) / 255.0
-	var r = float((argb >> 16) & 0xFF) / 255.0
-	var g = float((argb >> 8) & 0xFF) / 255.0
-	var b = float(argb & 0xFF) / 255.0
-
-	return Color(r, g, b, a)
+	# The format seems to be ARGB in the high bits
+	var a = (upper_32 >> 24) & 0xFF
+	var r = (upper_32 >> 16) & 0xFF
+	var g = (upper_32 >> 8) & 0xFF
+	var b = upper_32 & 0xFF
+	
+	return Color(r / 255.0, g / 255.0, b / 255.0, a / 255.0)
