@@ -150,14 +150,7 @@ func _setup_players() -> void:
 		player2.set_player_id(2)
 
 	_configure_player_inputs()
-	# Cambiar color del Player 2: usar path exacto y asignar a material/0
-	var mesh_instance = player2.get_node_or_null("PilotMesh/Node_40/Skinned_Mesh_0/Skeleton/Mesh_0001")
-	if mesh_instance and mesh_instance is MeshInstance:
-		var mat = SpatialMaterial.new()
-		mat.albedo_color = Color.cyan
-		mat.emission = Color.darkslateblue
-		mat.emission_enabled = true
-		mesh_instance.set_surface_material(0, mat)
+	_set_player2_color()
 
 	print("[LocalMultiplayerManager] Jugadores instanciados")
 
@@ -282,18 +275,8 @@ func _input(event):
 		if not player_stats[1]["alive"]:
 			var spawn_point = level.find_node("SpawnPoint", true, false)
 			print("[Respawn] SpawnPoint P1:", spawn_point)
+			player1.connect("tree_exited", self, "_on_player1_freed", [spawn_point])
 			player1.queue_free()
-			var player_res = load(player_scene_path)
-			player1 = player_res.instance()
-			player1.name = "Player_1"
-			viewport_p1.add_child(player1)
-			if spawn_point:
-				player1.global_transform = spawn_point.global_transform
-			if player1.has_method("set_player_id"):
-				player1.set_player_id(1)
-			_configure_player_inputs()
-			set_player_alive(1, true)
-			player1.set_physics_process(true)
 		else:
 			print("[Respawn] P1 ya está vivo, no respawnea")
 		death_screen_p1.hide_death_screen()
@@ -306,18 +289,50 @@ func _input(event):
 			if not spawn_point2:
 				spawn_point2 = level.find_node("SpawnPoint", true, false)
 				print("[Respawn] Fallback a SpawnPoint:", spawn_point2)
+			player2.connect("tree_exited", self, "_on_player2_freed", [spawn_point2])
 			player2.queue_free()
-			var player_res2 = load(player_scene_path)
-			player2 = player_res2.instance()
-			player2.name = "Player_2"
-			viewport_p1.add_child(player2)
-			if spawn_point2:
-				player2.global_transform = spawn_point2.global_transform
-			if player2.has_method("set_player_id"):
-				player2.set_player_id(2)
-			_configure_player_inputs()
-			set_player_alive(2, true)
-			player2.set_physics_process(true)
 		else:
 			print("[Respawn] P2 ya está vivo, no respawnea")
 		death_screen_p2.hide_death_screen()
+
+func _on_player1_freed(spawn_point):
+	var player_res = load(player_scene_path)
+	player1 = player_res.instance()
+	player1.name = "Player_1"
+	viewport_p1.add_child(player1)
+	if spawn_point:
+		player1.global_transform = spawn_point.global_transform
+	if player1.has_method("set_player_id"):
+		player1.set_player_id(1)
+	_configure_player_inputs()
+	set_player_alive(1, true)
+	player1.set_physics_process(true)
+	_setup_cameras()
+
+
+func _on_player2_freed(spawn_point2):
+	var player_res2 = load(player_scene_path)
+	player2 = player_res2.instance()
+	player2.name = "Player_2"
+	viewport_p1.add_child(player2)
+	if spawn_point2:
+		player2.global_transform = spawn_point2.global_transform
+	if player2.has_method("set_player_id"):
+		player2.set_player_id(2)
+	_set_player2_color()
+	_configure_player_inputs()
+	set_player_alive(2, true)
+	player2.set_physics_process(true)
+	_setup_cameras()
+
+func _set_player2_color():
+	# Cambiar color del Player 2: usar path exacto y asignar a material/0
+	if not player2:
+		return
+	var mesh_instance = player2.get_node_or_null("PilotMesh/Node_40/Skinned_Mesh_0/Skeleton/Mesh_0001")
+	if mesh_instance and mesh_instance is MeshInstance:
+		var mat = SpatialMaterial.new()
+		mat.albedo_color = Color.cyan
+		mat.emission = Color.darkslateblue
+		mat.emission_enabled = true
+		mesh_instance.set_surface_material(0, mat)
