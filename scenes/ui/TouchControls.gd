@@ -36,7 +36,6 @@ var _ignore_mouse_until_frame := 0
 # --- Lifecycle ---
 func _ready():
 	yield(get_tree(), "idle_frame")
-	print("Building touch controls from JSON layout...")
 	_build_controls_from_json()
 	_init_hide_timer()
 	_set_controls_visible(false)
@@ -60,7 +59,6 @@ func _build_controls_from_json():
 		return
 
 	var data = parse_result.result
-	print("DroidPad layout loaded successfully.")
 
 	# Adaptación para formato compacto
 	var elements = []
@@ -83,7 +81,6 @@ func _build_controls_from_json():
 
 	# --- 2. Create and Position UI Elements ---
 	for element_data in elements:
-		print("Procesando elemento:", element_data)
 		# Adaptar campos del formato DroidPad
 		var id = element_data.get("itemIdentifier", element_data.get("id", ""))
 		var type = element_data.get("itemType", element_data.get("type", ""))
@@ -145,7 +142,6 @@ func _build_controls_from_json():
 				else:
 					print("Error parseando properties de", id, ":", props_parse.error_string)
 
-		print("Creando control:", type, "id:", id, "rel_x:", rel_x, "rel_y:", rel_y, "w:", w, "h:", h, "props:", props)
 		var control_node = _create_element({"type": type, "id": id, "label": props.get("text", id), "min": props.get("min", 0), "max": props.get("max", 100), "value": props.get("value", 0)})
 		if not is_instance_valid(control_node):
 			print("No se pudo instanciar control para", id)
@@ -172,7 +168,6 @@ func _build_controls_from_json():
 
 		_apply_style(control_node, {"style": props, "type": type, "id": id})
 		_apply_properties(control_node, {"properties": props, "type": type})
-		print("Control añadido:", control_node.name, "en panel:", parent_controls.get_parent().name, " pos:", scaled_pos, " size:", scaled_size)
 
 	# Al terminar de crear controles, ocultar todos si corresponde
 	_set_controls_visible(false)
@@ -195,7 +190,6 @@ func _set_controls_visible(visible: bool):
 	if visible:
 		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 		_ignore_mouse_until_frame = Engine.get_frames_drawn() + 1
-		print("[TouchControls] Mouse liberado, ignorando eventos de mouse hasta frame ", _ignore_mouse_until_frame)
 	else:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
@@ -215,7 +209,6 @@ func set_hide_delay(val):
 
 func _restart_hide_timer():
 	if hide_timer:
-		print("[TouchControls] Timer reiniciado (hide_delay=", hide_delay, ")")
 		hide_timer.stop()
 		hide_timer.start()
 
@@ -285,12 +278,10 @@ func _apply_style(node: Node, data: Dictionary):
 	#	return
 
 	var raw_color = style.get("backgroundColor", style.get("buttonColor", 0))
-	print ("Raw color:", raw_color)
 	
 	var color = Color(1,1,1,1)  # default
 	if raw_color != 0:
 		color = parse_color(raw_color)
-	print ("parse_color for", id, ":", raw_color, "->", color)
 
 	# if style.has("backgroundColor") or style.has("buttonColor") or (node is TouchScreenButton and (id == "BTN_Y" or id == "BTN_X")):
 	# 	var raw_color = style.get("backgroundColor", style.get("buttonColor", 0))
@@ -337,55 +328,42 @@ var _active_touches := {}
 func _input(event):
 	var current_frame = Engine.get_frames_drawn()
 	if event is InputEventMouse and current_frame <= _ignore_mouse_until_frame:
-		print("[TouchControls] Ignorando evento de mouse por cooldown de frame tras liberar mouse.")
 		get_tree().set_input_as_handled()
 		return
 	if event is InputEventScreenTouch:
 		if not event.pressed and current_frame <= _ignore_mouse_until_frame:
-			print("[TouchControls] Ignorando RELEASED de touch por cooldown de frame tras liberar mouse.")
 			get_tree().set_input_as_handled()
 			return
 		if event.pressed:
-			print("[TouchControls] Touch PRESSED at ", event.position, " index: ", event.index)
 			_active_touches[event.index] = true
-			print("[TouchControls] Active touches after press:", _active_touches.keys())
 			if not controls_visible:
-				print("[TouchControls] Mostrando controles por primer toque.")
 				_set_controls_visible(true)
 			# Evitar que el mouse genere eventos mientras controles touch están activos
 			get_tree().set_input_as_handled()
 		else:
-			print("[TouchControls] Touch RELEASED at ", event.position, " index: ", event.index)
 			var was_active = _active_touches.has(event.index)
 			var prev_count = _active_touches.size()
 			if was_active:
 				_active_touches.erase(event.index)
-			print("[TouchControls] Active touches after release:", _active_touches.keys())
 			# Solo reiniciar timer si realmente soltamos un dedo que estaba activo y el conteo pasa de 1 a 0
 			if was_active and prev_count == 1 and _active_touches.size() == 0:
-				print("[TouchControls] No quedan dedos tocando, iniciando timer de ocultar controles.")
 				_restart_hide_timer()
-			else:
-				print("[TouchControls] Todavía hay dedos tocando, no se inicia timer.")
 
 func _on_hide_timer_timeout():
-	print("[TouchControls] Timer caducó, ocultando controles.")
 	_set_controls_visible(false)
 
 
 func _on_button_pressed(action: String):
-	print("Button pressed: ", action)
 	Input.action_press(action)
 
 func _on_button_released(action: String):
-	print("Button released: ", action)
 	Input.action_release(action)
 
-func _on_joystick_pressed(id: String):
-	print("Joystick pressed: ", id)
+#func _on_joystick_pressed(id: String):
+#	print("Joystick pressed: ", id)
 
-func _on_joystick_released(id: String):
-	print("Joystick released: ", id)
+#func _on_joystick_released(id: String):
+#	print("Joystick released: ", id)
 
 func parse_color(color_val):
 	if typeof(color_val) != TYPE_INT and typeof(color_val) != TYPE_REAL:
