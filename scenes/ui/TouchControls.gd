@@ -115,6 +115,8 @@ func _build_controls_from_json():
 
 		# Posición relativa al panel
 		var rel_x = x - (panel_ref_width if is_right else 0)
+		if is_right:
+			rel_x = ref_size.x - x  # Invert X for right panel
 		var rel_y = y
 
 		var scaled_pos = Vector2(rel_x, rel_y) * panel_scale_factor
