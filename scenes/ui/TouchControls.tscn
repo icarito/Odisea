@@ -4,7 +4,6 @@
 
 [node name="TouchControls" type="CanvasLayer"]
 script = ExtResource( 1 )
-hide_delay = 2.0
 
 [node name="LeftPanel" type="Control" parent="."]
 anchor_top = 0.5

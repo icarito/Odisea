@@ -189,6 +189,12 @@ func _set_controls_visible(visible: bool):
 		if c is TouchScreenButton:
 			c.visible = visible
 
+	# Control de mouse: si mostramos controles touch, liberar mouse y evitar eventos
+	if visible:
+		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+	else:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
 func _init_hide_timer():
 	if hide_timer:
 		hide_timer.queue_free()
@@ -328,6 +334,8 @@ func _input(event):
 			_set_controls_visible(true)
 		_restart_hide_timer()
 		# ...existing code for touch detection (opcional para debug)...
+		# Evitar que el mouse genere eventos mientras controles touch están activos
+		get_tree().set_input_as_handled()
 func _on_hide_timer_timeout():
 	_set_controls_visible(false)
 
