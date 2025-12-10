@@ -304,6 +304,20 @@ func _debug_input_snapshot() -> Dictionary:
 		"roll": Input.is_action_pressed("roll")
 	}
 
+func _align_camera_to_body():
+	"""
+	Called deferred from PlayerManager after spawn to correctly initialize camera yaw.
+	"""
+	var cam_rig = get_node_or_null("CameraRig")
+	if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
+		var body_yaw = global_transform.basis.get_euler().y
+		# Use PI as offset to look from behind, consistent with respawn logic.
+		var offset = PI
+		cam_rig.sync_to_body_yaw(body_yaw, offset)
+		print("[PlayerController] _align_camera_to_body: Synced camera to body yaw ", rad2deg(body_yaw), " with offset ", rad2deg(offset))
+	else:
+		print("[PlayerController] _align_camera_to_body: CameraRig or sync_to_body_yaw not found.")
+
 var _last_input_state := {}
 
 func _physics_process(delta):

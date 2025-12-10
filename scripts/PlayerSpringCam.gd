@@ -43,6 +43,7 @@ var cam
 
 var target_yaw := 0.0
 var target_pitch := 0.0
+var _yaw_initialized := false
 
 var player_id := 1
 var joypad_device := -1
@@ -65,7 +66,7 @@ func _ready():
 	# Capturar el puntero para control de cámara
 	if player_id == 1:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	# Initial yaw will be set by sync_to_body_yaw later
+	# Initial yaw will be set by _physics_process on the first frame
 	# Set default pitch respecting limit
 	if pitch:
 		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
@@ -99,6 +100,18 @@ func process_camera_rotation(motion: Vector2):
 		target_pitch = clamp(target_pitch, -lim_down, lim_up)
 
 func _physics_process(delta):
+	# --- ROBUST YAW INITIALIZATION ---
+	# On the first frame, set the camera's local yaw to PI (180 deg) to look from behind.
+	# The camera rig rotates with the player, so we only need to set this local offset once.
+	if not _yaw_initialized and is_instance_valid(player):
+		var initial_offset = 0 
+		target_yaw = initial_offset
+		if is_instance_valid(yaw):
+			yaw.rotation.y = initial_offset
+		print("[PlayerSpringCam] First frame: Initialized camera with local yaw offset: ", rad2deg(initial_offset))
+		_yaw_initialized = true
+	# ---------------------------------
+
 	if player_id == 2:
 		var joy_x = Input.get_joy_axis(joypad_device, JOY_AXIS_0)
 		var joy_y = Input.get_joy_axis(joypad_device, JOY_AXIS_1)
