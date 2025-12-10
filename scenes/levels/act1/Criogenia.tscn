@@ -36,7 +36,7 @@ script = ExtResource( 4 )
 
 [node name="LevelBGM" type="Node" parent="."]
 script = ExtResource( 3 )
-track_path = "res://assets/music/Escalating Dread.mp3"
+track_path = "res://assets/music/Override.mp3"
 
 [node name="SDE Odisea" parent="." instance=ExtResource( 1 )]
 
@@ -95,7 +95,7 @@ debug = false
 stripe_tiling = 40.0
 
 [node name="Middle Section" type="CSGBox" parent="PuzzleZone/Criogenics Lab"]
-transform = Transform( 1, -2.23517e-08, 0, 2.23517e-08, 1, 0, 0, 0, 1, 0, 52.9207, 0 )
+transform = Transform( 1, -2.23517e-08, 0, 2.23517e-08, 1, 0, 0, 0, 1, -35.1339, 52.9207, 19.0562 )
 use_in_baked_light = true
 use_collision = true
 collision_layer = 4
@@ -149,12 +149,13 @@ skeleton = NodePath("")
 shape = SubResource( 5 )
 
 [node name="SpawnPortal" type="CSGBox" parent="PuzzleZone/Criogenics Lab/Middle Section"]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -82.8749, -77.6193, -106.751 )
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -29.2352, 6.94937, 36.8484 )
 use_in_baked_light = true
 use_collision = true
 collision_layer = 4
 collision_mask = 131
 width = 10.0
+height = 0.3
 depth = 10.0
 material = ExtResource( 5 )
 
