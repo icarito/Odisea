@@ -124,7 +124,7 @@ func _setup_players() -> void:
 		# Alinear la cámara después de agregar al árbol
 		var cam_rig_p1 = player1.get_node_or_null("CameraRig")
 		if cam_rig_p1 and cam_rig_p1.has_method("sync_to_body_yaw"):
-			cam_rig_p1.call_deferred("sync_to_body_yaw", yaw, cam_rig_p1.cam_yaw_offset)
+			cam_rig_p1.call_deferred("sync_to_body_yaw", yaw, PI)
 	else:
 		player1.global_transform.origin = Vector3(0, 2, 0)  # Fallback
 
@@ -148,7 +148,7 @@ func _setup_players() -> void:
 		player2.rotation.y = yaw2
 		var cam_rig_p2 = player2.get_node_or_null("CameraRig")
 		if cam_rig_p2 and cam_rig_p2.has_method("sync_to_body_yaw"):
-			cam_rig_p2.call_deferred("sync_to_body_yaw", yaw2, cam_rig_p2.cam_yaw_offset)
+			cam_rig_p2.call_deferred("sync_to_body_yaw", yaw2, PI)
 	else:
 		push_error("No se encontró SpawnPoint2; Necesario para posicionar Player 2.")
 
