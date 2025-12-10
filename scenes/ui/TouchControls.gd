@@ -24,15 +24,24 @@ onready var right_panel = $RightPanel
 onready var left_controls = $LeftPanel/Controls
 onready var right_controls = $RightPanel/Controls
 
+## --- Exported Variables ---
+export var hide_delay: float = 2.0 setget set_hide_delay # Segundos antes de ocultar controles
+
+# --- Private Variables ---
+var controls_visible = false
+var hide_timer: Timer = null
+
 # --- Lifecycle ---
 func _ready():
-	# Wait a frame to ensure the viewport size is accurate.
 	yield(get_tree(), "idle_frame")
 	print("Building touch controls from JSON layout...")
 	_build_controls_from_json()
+	_init_hide_timer()
+	_set_controls_visible(false)
 
 # --- Private Methods ---
 
+# Main function to parse JSON and build the UI.
 # Main function to parse JSON and build the UI.
 func _build_controls_from_json():
 	var file = File.new()
@@ -163,6 +172,42 @@ func _build_controls_from_json():
 		_apply_properties(control_node, {"properties": props, "type": type})
 		print("Control añadido:", control_node.name, "en panel:", parent_controls.get_parent().name, " pos:", scaled_pos, " size:", scaled_size)
 
+	# Al terminar de crear controles, ocultar todos si corresponde
+	_set_controls_visible(false)
+# --- Mostrar/Ocultar controles ---
+func _set_controls_visible(visible: bool):
+	controls_visible = visible
+	# Oculta/muestra todos los controles hijos de ambos paneles
+	for c in left_controls.get_children():
+		if c is Control:
+			c.visible = visible
+	for c in right_controls.get_children():
+		if c is Control:
+			c.visible = visible
+	# También oculta TouchScreenButton agregados directamente
+	for c in get_children():
+		if c is TouchScreenButton:
+			c.visible = visible
+
+func _init_hide_timer():
+	if hide_timer:
+		hide_timer.queue_free()
+	hide_timer = Timer.new()
+	hide_timer.wait_time = hide_delay
+	hide_timer.one_shot = true
+	hide_timer.connect("timeout", self, "_on_hide_timer_timeout")
+	add_child(hide_timer)
+
+func set_hide_delay(val):
+	hide_delay = val
+	if hide_timer:
+		hide_timer.wait_time = hide_delay
+
+func _restart_hide_timer():
+	if hide_timer:
+		hide_timer.stop()
+		hide_timer.start()
+
 # Creates a control node based on the element data from the JSON.
 func _create_element(data: Dictionary) -> Control:
 	var type = data.get("type", "")
@@ -277,27 +322,14 @@ func _apply_properties(node: Node, data: Dictionary):
 			node.set_dead_zone_size(props["deadzone"])
 
 func _input(event):
-	if event is InputEventScreenTouch:
-		var event_type = "pressed" if event.pressed else "released"
-		print("Touch event: ", event_type, " at global position: ", event.position, " index: ", event.index)
-		
-		var all_controls = []
-		all_controls.append_array(left_controls.get_children())
-		all_controls.append_array(right_controls.get_children())
-
-		for control in all_controls:
-			if control is Control:
-				var control_rect = control.get_global_rect()
-				if control_rect.has_point(event.position):
-					var local_event = control.make_input_local(event)
-					print("- Touch DETECTED inside '", control.name, "'. Control's global rect: ", control_rect, ". Touch local pos: ", local_event.position)
-			elif control is TouchScreenButton:
-				var tex = control.normal
-				if tex:
-					var size = tex.get_size()
-					var rect = Rect2(control.global_position, size)
-					if rect.has_point(event.position):
-						print("- Touch DETECTED inside '", control.name, "'. Control's global rect: ", rect)
+	if event is InputEventScreenTouch and event.pressed:
+		print("Touch event: pressed at ", event.position, " index: ", event.index)
+		if not controls_visible:
+			_set_controls_visible(true)
+		_restart_hide_timer()
+		# ...existing code for touch detection (opcional para debug)...
+func _on_hide_timer_timeout():
+	_set_controls_visible(false)
 
 
 func _on_button_pressed(action: String):
