@@ -30,6 +30,8 @@ export var hide_delay: float = 2.0 setget set_hide_delay # Segundos antes de ocu
 # --- Private Variables ---
 var controls_visible = false
 var hide_timer: Timer = null
+# Frame hasta el cual ignorar eventos de mouse tras liberar mouse
+var _ignore_mouse_until_frame := 0
 
 # --- Lifecycle ---
 func _ready():
@@ -192,6 +194,8 @@ func _set_controls_visible(visible: bool):
 	# Control de mouse: si mostramos controles touch, liberar mouse y evitar eventos
 	if visible:
 		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+		_ignore_mouse_until_frame = Engine.get_frames_drawn() + 1
+		print("[TouchControls] Mouse liberado, ignorando eventos de mouse hasta frame ", _ignore_mouse_until_frame)
 	else:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
@@ -211,6 +215,7 @@ func set_hide_delay(val):
 
 func _restart_hide_timer():
 	if hide_timer:
+		print("[TouchControls] Timer reiniciado (hide_delay=", hide_delay, ")")
 		hide_timer.stop()
 		hide_timer.start()
 
@@ -327,16 +332,44 @@ func _apply_properties(node: Node, data: Dictionary):
 		if props.has("deadzone"):
 			node.set_dead_zone_size(props["deadzone"])
 
+var _active_touches := {}
+
 func _input(event):
-	if event is InputEventScreenTouch and event.pressed:
-		print("Touch event: pressed at ", event.position, " index: ", event.index)
-		if not controls_visible:
-			_set_controls_visible(true)
-		_restart_hide_timer()
-		# ...existing code for touch detection (opcional para debug)...
-		# Evitar que el mouse genere eventos mientras controles touch están activos
+	var current_frame = Engine.get_frames_drawn()
+	if event is InputEventMouse and current_frame <= _ignore_mouse_until_frame:
+		print("[TouchControls] Ignorando evento de mouse por cooldown de frame tras liberar mouse.")
 		get_tree().set_input_as_handled()
+		return
+	if event is InputEventScreenTouch:
+		if not event.pressed and current_frame <= _ignore_mouse_until_frame:
+			print("[TouchControls] Ignorando RELEASED de touch por cooldown de frame tras liberar mouse.")
+			get_tree().set_input_as_handled()
+			return
+		if event.pressed:
+			print("[TouchControls] Touch PRESSED at ", event.position, " index: ", event.index)
+			_active_touches[event.index] = true
+			print("[TouchControls] Active touches after press:", _active_touches.keys())
+			if not controls_visible:
+				print("[TouchControls] Mostrando controles por primer toque.")
+				_set_controls_visible(true)
+			# Evitar que el mouse genere eventos mientras controles touch están activos
+			get_tree().set_input_as_handled()
+		else:
+			print("[TouchControls] Touch RELEASED at ", event.position, " index: ", event.index)
+			var was_active = _active_touches.has(event.index)
+			var prev_count = _active_touches.size()
+			if was_active:
+				_active_touches.erase(event.index)
+			print("[TouchControls] Active touches after release:", _active_touches.keys())
+			# Solo reiniciar timer si realmente soltamos un dedo que estaba activo y el conteo pasa de 1 a 0
+			if was_active and prev_count == 1 and _active_touches.size() == 0:
+				print("[TouchControls] No quedan dedos tocando, iniciando timer de ocultar controles.")
+				_restart_hide_timer()
+			else:
+				print("[TouchControls] Todavía hay dedos tocando, no se inicia timer.")
+
 func _on_hide_timer_timeout():
+	print("[TouchControls] Timer caducó, ocultando controles.")
 	_set_controls_visible(false)
 
 
