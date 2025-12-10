@@ -40,11 +40,14 @@ func _ready() -> void:
 	_setup_cameras()
 
 	death_screen_p1 = preload("res://scenes/ui/DeathScreen.tscn").instance()
-	death_screen_p2 = preload("res://scenes/ui/DeathScreen.tscn").instance()
 	viewport_p1.add_child(death_screen_p1)
+
+	death_screen_p2 = preload("res://scenes/ui/DeathScreen.tscn").instance()
 	viewport_p2.add_child(death_screen_p2)
 
 	is_running = true
+	
+	call_deferred("_connect_killzones")
 	
 	var fps_label = Label.new()
 	fps_label.name = "FPSLabel"
@@ -94,12 +97,7 @@ func _setup_level() -> void:
 	viewport_p1.add_child(level)
 	print("[LocalMultiplayerManager] Nivel cargado")
 	
-	# Conectar las killzones del nivel al manager
-	var killzones = level.get_tree().get_nodes_in_group("killzones")
-	for kz in killzones:
-		# Conectar la señal player_killed de KillZone
-		if kz.has_signal("player_killed"):
-			kz.connect("player_killed", self, "_on_player_killed")
+	# La conexión de killzones se hará al final de _ready
 
 func _setup_players() -> void:
 	"""Instanciar ambos jugadores."""
@@ -227,9 +225,15 @@ func _setup_cameras() -> void:
 
 	print("[LocalMultiplayerManager] Cámaras configuradas")
 
-func _on_exit_pressed() -> void:
-	"""Volver al menú."""
-	get_tree().change_scene("res://scenes/ui/Menu.tscn")
+func _connect_killzones():
+	"""Conectar killzones después de que se hayan agregado al grupo."""
+	var killzones = level.get_tree().get_nodes_in_group("killzones")
+	print("[LocalMultiplayerManager] Found killzones: ", killzones)
+	for kz in killzones:
+		print("[LocalMultiplayerManager] Connecting kz: ", kz)
+		if kz.has_signal("player_killed"):
+			kz.connect("player_killed", self, "_on_player_killed")
+			print("[LocalMultiplayerManager] Connected player_killed")
 
 func set_player_alive(player_id: int, alive: bool) -> void:
 	"""Marcar jugador como vivo/muerto (respawn)."""
@@ -242,31 +246,6 @@ func add_player_score(player_id: int, points: int) -> void:
 	if player_id in player_stats:
 		player_stats[player_id]["score"] += points
 
-func _on_player_entered_killzone(body: Node) -> void:
-	"""Manejador para cuando un jugador entra en una killzone."""
-	print("LocalMultiplayerManager: Body entered killzone - ", body.name if body else "null")
-	if not body.has_method("set_player_id"):
-		print("LocalMultiplayerManager: Body does not have set_player_id method, ignoring")
-		# El cuerpo que entró no es un jugador, ignorar.
-		return
-
-	# Identificar al jugador por su nodo
-	var player_id_to_kill = -1
-	if body == player1:
-		player_id_to_kill = 1
-	elif body == player2:
-		player_id_to_kill = 2
-
-	print("LocalMultiplayerManager: Identified player ID to kill: ", player_id_to_kill)
-	if player_id_to_kill != -1 and player_stats[player_id_to_kill]["alive"]:
-		print("LocalMultiplayerManager: Killing player ", player_id_to_kill)
-		set_player_alive(player_id_to_kill, false)
-		
-		# Mostrar death screen solo en el viewport del jugador correspondiente
-		if player_id_to_kill == 1:
-			death_screen_p1.show_death_screen()
-		elif player_id_to_kill == 2:
-			death_screen_p2.show_death_screen()
 
 func _on_player_killed(player: Node) -> void:
 	"""Manejador para señal player_killed de KillZone."""
@@ -290,65 +269,67 @@ func _on_player_killed(player: Node) -> void:
 			death_screen_p2.show_death_screen()
 
 func _input(event):
-		# Solo permitir respawn si el evento corresponde al botón Jump de cada jugador
-		var jump_p1 = Input.is_action_pressed("jump")
-		var jump_p2 = Input.is_action_pressed("jump_2")
-		# Respawn P1
-		if death_screen_p1.is_showing and jump_p1:
-			print("[Respawn] Intentando respawn P1...")
-			if not player_stats[1]["alive"]:
-				var spawn_point = level.find_node("SpawnPoint", true, false)
-				print("[Respawn] SpawnPoint P1:", spawn_point)
-				if spawn_point:
-					var pc = player1
-					print("[Respawn] Nodo player1:", pc)
-					if not pc.has_method("reset_state_for_respawn") and pc.get_child_count() > 0:
-						var found = false
-						for c in pc.get_children():
-							print("[Respawn] Checando hijo:", c)
-							if c.has_method("reset_state_for_respawn"):
-								print("[Respawn] Encontrado método en hijo:", c)
-								pc = c
-								found = true
-								break
-						if not found:
-							print("[Respawn] No se encontró método reset_state_for_respawn en hijos de player1")
-					print("[Respawn] Llamando reset_state_for_respawn en:", pc)
-					pc.call_deferred("reset_state_for_respawn", spawn_point.global_transform)
-					set_player_alive(1, true)
-				else:
-					print("[Respawn] No se encontró SpawnPoint para P1")
+	# Solo permitir respawn si el evento corresponde al botón Jump de cada jugador
+	var jump_p1 = Input.is_action_pressed("jump")
+	var jump_p2 = Input.is_action_pressed("jump_2")
+	# Respawn P1
+	if death_screen_p1.is_showing and jump_p1:
+		print("[Respawn] Intentando respawn P1...")
+		if not player_stats[1]["alive"]:
+			var spawn_point = level.find_node("SpawnPoint", true, false)
+			print("[Respawn] SpawnPoint P1:", spawn_point)
+			if spawn_point:
+				var pc = player1
+				print("[Respawn] Nodo player1:", pc)
+				if not pc.has_method("reset_state_for_respawn") and pc.get_child_count() > 0:
+					var found = false
+					for c in pc.get_children():
+						print("[Respawn] Checando hijo:", c)
+						if c.has_method("reset_state_for_respawn"):
+							print("[Respawn] Encontrado método en hijo:", c)
+							pc = c
+							found = true
+							break
+					if not found:
+						print("[Respawn] No se encontró método reset_state_for_respawn en hijos de player1")
+				print("[Respawn] Llamando reset_state_for_respawn en:", pc)
+				pc.call_deferred("reset_state_for_respawn", spawn_point.global_transform)
+				set_player_alive(1, true)
+				pc.set_physics_process(true)
 			else:
-				print("[Respawn] P1 ya está vivo, no respawnea")
-			death_screen_p1.hide_death_screen()
-		# Respawn P2
-		if death_screen_p2.is_showing and jump_p2:
-			print("[Respawn] Intentando respawn P2...")
-			if not player_stats[2]["alive"]:
-				var spawn_point2 = level.find_node("SpawnPoint2", true, false)
-				print("[Respawn] SpawnPoint2:", spawn_point2)
-				if not spawn_point2:
-					spawn_point2 = level.find_node("SpawnPoint", true, false)
-					print("[Respawn] Fallback a SpawnPoint:", spawn_point2)
-				if spawn_point2:
-					var pc2 = player2
-					print("[Respawn] Nodo player2:", pc2)
-					if not pc2.has_method("reset_state_for_respawn") and pc2.get_child_count() > 0:
-						var found2 = false
-						for c in pc2.get_children():
-							print("[Respawn] Checando hijo:", c)
-							if c.has_method("reset_state_for_respawn"):
-								print("[Respawn] Encontrado método en hijo:", c)
-								pc2 = c
-								found2 = true
-								break
-						if not found2:
-							print("[Respawn] No se encontró método reset_state_for_respawn en hijos de player2")
-					print("[Respawn] Llamando reset_state_for_respawn en:", pc2)
-					pc2.call_deferred("reset_state_for_respawn", spawn_point2.global_transform)
-					set_player_alive(2, true)
-				else:
-					print("[Respawn] No se encontró SpawnPoint para P2")
+				print("[Respawn] No se encontró SpawnPoint para P1")
+		else:
+			print("[Respawn] P1 ya está vivo, no respawnea")
+		death_screen_p1.hide_death_screen()
+	# Respawn P2
+	if death_screen_p2.is_showing and jump_p2:
+		print("[Respawn] Intentando respawn P2...")
+		if not player_stats[2]["alive"]:
+			var spawn_point2 = level.find_node("SpawnPoint2", true, false)
+			print("[Respawn] SpawnPoint2:", spawn_point2)
+			if not spawn_point2:
+				spawn_point2 = level.find_node("SpawnPoint", true, false)
+				print("[Respawn] Fallback a SpawnPoint:", spawn_point2)
+			if spawn_point2:
+				var pc2 = player2
+				print("[Respawn] Nodo player2:", pc2)
+				if not pc2.has_method("reset_state_for_respawn") and pc2.get_child_count() > 0:
+					var found2 = false
+					for c in pc2.get_children():
+						print("[Respawn] Checando hijo:", c)
+						if c.has_method("reset_state_for_respawn"):
+							print("[Respawn] Encontrado método en hijo:", c)
+							pc2 = c
+							found2 = true
+							break
+					if not found2:
+						print("[Respawn] No se encontró método reset_state_for_respawn en hijos de player2")
+				print("[Respawn] Llamando reset_state_for_respawn en:", pc2)
+				pc2.call_deferred("reset_state_for_respawn", spawn_point2.global_transform)
+				set_player_alive(2, true)
+				pc2.set_physics_process(true)
 			else:
-				print("[Respawn] P2 ya está vivo, no respawnea")
-			death_screen_p2.hide_death_screen()
+				print("[Respawn] No se encontró SpawnPoint para P2")
+		else:
+			print("[Respawn] P2 ya está vivo, no respawnea")
+		death_screen_p2.hide_death_screen()
