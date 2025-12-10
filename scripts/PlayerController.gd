@@ -662,15 +662,18 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 	# 1.5. Resetear rotación del mesh para que mire forward
 	print("[PlayerController] player_mesh: ", player_mesh)
 	if player_mesh:
-		player_mesh.rotation.y = new_transform.basis.get_euler().y + mesh_yaw_offset
-		print("[PlayerController] player_mesh.rotation.y set to: ", player_mesh.rotation.y)
+		# La rotación del cuerpo (KinematicBody) ya se establece con global_transform.
+		# El mesh, al ser un nodo hijo, solo necesita su offset de rotación local.
+		player_mesh.rotation.y = mesh_yaw_offset
+		print("[PlayerController] player_mesh.rotation.y set to offset: ", player_mesh.rotation.y)
 
 	# 2. Resetear orientación de la cámara
 	var cam_rig = get_node_or_null("CameraRig")
 	if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
-		# El yaw de la cámara debe alinearse con la nueva rotación del cuerpo
-		cam_rig.sync_to_body_yaw(new_transform.basis.get_euler().y, cam_rig.cam_yaw_offset)
-		print("[PlayerController] Synced camera yaw to: ", rad2deg(new_transform.basis.get_euler().y))
+		# Usar la propiedad `rotation.y` del propio nodo después de haberle asignado
+		# el nuevo transform. Es más directo y robusto que recalcular el ángulo euler.
+		cam_rig.call_deferred("sync_to_body_yaw", rotation.y, PI)
+		print("[PlayerController] Deferred syncing camera yaw to body yaw: ", rad2deg(rotation.y))
 
 	# 3. Resetear input residual del mouse
 	if is_instance_valid(player_input) and player_input.has_method("reset_mouse_motion"):
@@ -688,12 +691,12 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 	airborne_inherited = Vector3.ZERO
 	print("[PlayerController] velocities reset to ZERO")
 	
-	# Resetea la dirección de movimiento para alinearla con el respawn.
-	# Esto evita que el personaje intente girar hacia su dirección anterior.
-	direction = -global_transform.basis.z.normalized()
-	print("[PlayerController] direction set to: ", direction)
+	# Resetea la dirección de movimiento para que el personaje no intente moverse.
+	# La orientación del cuerpo ya está establecida por global_transform.
+	direction = Vector3.ZERO
+	print("[PlayerController] direction reset to ZERO")
 	if is_instance_valid(movement_comp):
-		movement_comp.direction = direction
+		movement_comp.direction = Vector3.ZERO
 		movement_comp.horizontal_velocity = Vector3.ZERO
 		print("[PlayerController] movement_comp.direction and horizontal_velocity reset")
 

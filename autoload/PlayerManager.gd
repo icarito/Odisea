@@ -33,7 +33,7 @@ func damage_player(amount: int) -> void:
 		emit_signal("player_died")
 		respawn_player() # Or whatever the desired logic is on death
 
-func kill_player_instant() -> void:
+func kill_player_instant(_player = null) -> void:
 	"""Maneja la muerte instantánea por zonas de kill (ej. KillZone), sin afectar salud."""
 	print("[PlayerManager] kill_player_instant called")
 	if player_reference:
@@ -43,7 +43,7 @@ func kill_player_instant() -> void:
 
 func respawn_player() -> void:
 	print("[PlayerManager] respawn_player called")
-	var target_transform := _initial_spawn_transform
+	var target_transform = _initial_spawn_transform
 	if not is_spawned():
 		print("[PlayerManager] No player spawned, spawning now...")
 		var spawned_player = spawn(target_transform)
@@ -65,7 +65,7 @@ func respawn_player() -> void:
 		print("[PlayerManager] player_reference: ", player_reference, " has_method(reset_state_for_respawn): ", player_reference.has_method("reset_state_for_respawn"))
 		if player_reference.has_method("reset_state_for_respawn"):
 			print("[PlayerManager] Calling reset_state_for_respawn on existing player")
-			_reset_camera_state()
+			# _reset_camera_state() # This was conflicting with the camera sync in reset_state_for_respawn
 			player_reference.reset_state_for_respawn(target_transform)
 			print("[PlayerManager] reset_state_for_respawn called on player_reference")
 		else:
@@ -108,6 +108,11 @@ func _deferred_spawn(initial_transform: Transform):
 		
 	player_reference.global_transform = initial_transform
 	print("PlayerManager: Player spawned at: ", initial_transform.origin, " rotation: ", initial_transform.basis.get_euler())
+	
+	# Sync camera
+	var cam_rig = player_reference.get_node_or_null("CameraRig")
+	if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
+		cam_rig.call_deferred("sync_to_body_yaw", initial_transform.basis.get_euler().y, PI)
 	
 	# Capture default camera angles from the prefab on the first spawn
 	_capture_default_camera_state()
