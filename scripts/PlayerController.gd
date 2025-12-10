@@ -669,11 +669,31 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 
 	# 2. Resetear orientación de la cámara
 	var cam_rig = get_node_or_null("CameraRig")
-	if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
-		# Usar la propiedad `rotation.y` del propio nodo después de haberle asignado
-		# el nuevo transform. Es más directo y robusto que recalcular el ángulo euler.
-		cam_rig.call_deferred("sync_to_body_yaw", rotation.y, PI)
-		print("[PlayerController] Deferred syncing camera yaw to body yaw: ", rad2deg(rotation.y))
+	if cam_rig:
+		# La causa de los problemas es el bucle de suavizado en PlayerSpringCam.gd,
+		# que revierte los cambios si no se actualiza su `target_yaw`.
+		# La función sync_to_body_yaw() lo hace, pero falla en respawn por razones de estado.
+		# La solución es una reimplementación manual y directa aquí.
+		var yaw_node = cam_rig.get_node_or_null("Yaw")
+		if yaw_node and cam_rig.has_method("set"):
+			# El rig de la cámara se alinea con el cuerpo. Se asume que el SpringArm maneja la posición "detrás".
+			var final_cam_yaw = new_transform.basis.get_euler().y - PI/2
+			
+			# 1. Establecer la rotación del nodo directamente
+			yaw_node.rotation.y = final_cam_yaw
+			
+			# 2. Establecer el OBJETIVO del suavizado para que no revierta el cambio
+			cam_rig.set("target_yaw", final_cam_yaw)
+
+			# 3. Resetear el pitch de la misma forma
+			var pitch_node = yaw_node.get_node_or_null("Pitch")
+			if pitch_node:
+				pitch_node.rotation.x = 0.0
+				cam_rig.set("target_pitch", 0.0)
+			
+			print("[PlayerController] Manually reset camera yaw, target_yaw, and pitch.")
+		else:
+			print("[PlayerController] CameraRig or Yaw node not found, or it's not a script.")
 
 	# 3. Resetear input residual del mouse
 	if is_instance_valid(player_input) and player_input.has_method("reset_mouse_motion"):

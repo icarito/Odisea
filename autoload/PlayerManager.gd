@@ -126,6 +126,11 @@ func despawn() -> void:
 
 # --- Private Helper Functions ---
 
+func _deferred_respawn():
+	var target_transform = _initial_spawn_transform
+	spawn(target_transform)
+	emit_signal("player_respawned")
+
 func _capture_default_camera_state():
 	if not is_spawned(): return
 	
