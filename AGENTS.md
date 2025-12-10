@@ -8,7 +8,7 @@ Notas:
 - Color en .tscn = RGBA (0–1).
 - load_steps = 1 ext_resource + # sub_resources, ajusta o "!int_resources.has(index)".
 - No edites .tscn manual; borra `.import/` y reimporta (F5).
-- Test sin GUI: `godot --headless --export-debug`.
+- Test sin GUI: `godot3-bin --headless --export-debug`.
 - "export" no "@export".
 
 ## 1) En una frase
