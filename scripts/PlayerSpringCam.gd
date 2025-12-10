@@ -83,6 +83,12 @@ func _ready():
 
 func _unhandled_input(event):
 	# Toggle captura con ESC, recapturar al click
+	# Ignorar input de mouse si controles touch están activos
+	var touch_controls = null
+	if has_node("/root/TouchControls"):
+		touch_controls = get_node("/root/TouchControls")
+	if touch_controls and touch_controls.is_touch_controls_active():
+		return
 	if event is InputEventKey and event.is_action_pressed("ui_cancel"):
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		return
@@ -91,6 +97,11 @@ func _unhandled_input(event):
 
 func process_camera_rotation(motion: Vector2):
 	"""Procesa el movimiento del mouse para rotar la cámara."""
+	var touch_controls = null
+	if has_node("/root/TouchControls"):
+		touch_controls = get_node("/root/TouchControls")
+	if touch_controls and touch_controls.is_touch_controls_active():
+		return
 	if player_id == 1:
 		var scaled_motion = motion / 100.0
 		target_yaw -= scaled_motion.x * yaw_sensitivity
