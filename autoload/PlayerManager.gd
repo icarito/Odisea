@@ -35,28 +35,44 @@ func damage_player(amount: int) -> void:
 
 func kill_player_instant() -> void:
 	"""Maneja la muerte instantánea por zonas de kill (ej. KillZone), sin afectar salud."""
-	print("Kill player instant called")
+	print("[PlayerManager] kill_player_instant called")
 	if player_reference:
 		player_reference.set_physics_process(false)
 	emit_signal("player_died")
 	# No llamar respawn_player() aquí; esperar señal de respawn
 
 func respawn_player() -> void:
+	print("[PlayerManager] respawn_player called")
+	var target_transform := _initial_spawn_transform
 	if not is_spawned():
-		spawn(_initial_spawn_transform)
+		print("[PlayerManager] No player spawned, spawning now...")
+		var spawned_player = spawn(target_transform)
+		if spawned_player:
+			print("[PlayerManager] spawned_player: ", spawned_player, " has_method(reset_state_for_respawn): ", spawned_player.has_method("reset_state_for_respawn"))
+			if spawned_player.has_method("reset_state_for_respawn"):
+				print("[PlayerManager] Calling reset_state_for_respawn on newly spawned player")
+				_reset_camera_state()
+				spawned_player.reset_state_for_respawn(target_transform)
+				print("[PlayerManager] reset_state_for_respawn called on spawned_player")
+			else:
+				print("[PlayerManager] Newly spawned player does NOT have reset_state_for_respawn method!")
+			spawned_player.set_physics_process(true)
+		emit_signal("player_respawned")
 		return
 
-	var target_transform := _initial_spawn_transform
+	print("[PlayerManager] Player is already spawned, attempting to reset state...")
+	if player_reference:
+		print("[PlayerManager] player_reference: ", player_reference, " has_method(reset_state_for_respawn): ", player_reference.has_method("reset_state_for_respawn"))
+		if player_reference.has_method("reset_state_for_respawn"):
+			print("[PlayerManager] Calling reset_state_for_respawn on existing player")
+			_reset_camera_state()
+			player_reference.reset_state_for_respawn(target_transform)
+			print("[PlayerManager] reset_state_for_respawn called on player_reference")
+		else:
+			print("[PlayerManager] Existing player does NOT have reset_state_for_respawn method!")
 
-	# Reset player's internal state (e.g., velocity)
-	# Esta función ahora se encarga de TODO: posición, cámara y estado interno.
-	if player_reference and player_reference.has_method("reset_state_for_respawn"):
-		# Pasamos el transform para que el player se encargue de todo.
-		_reset_camera_state()
-		player_reference.reset_state_for_respawn(target_transform)
-
-	# Reactivamos las físicas después de que el estado ha sido reseteado.
-	player_reference.set_physics_process(true)
+	if player_reference:
+		player_reference.set_physics_process(true)
 	emit_signal("player_respawned")
 
 func set_respawn_point(new_respawn_point: Transform) -> void:
@@ -71,6 +87,7 @@ func get_player() -> Node:
 	return player_reference
 
 func spawn(initial_transform: Transform) -> Node:
+	print("[PlayerManager] spawn called with initial_transform: ", initial_transform.origin)
 	if is_spawned():
 		return player_reference
 	player_reference = player_scene.instance()
@@ -79,6 +96,7 @@ func spawn(initial_transform: Transform) -> Node:
 	return player_reference
 
 func _deferred_spawn(initial_transform: Transform):
+	print("[PlayerManager] _deferred_spawn called with initial_transform: ", initial_transform.origin)
 	if not is_instance_valid(player_reference):
 		player_reference = player_scene.instance()
 		
@@ -96,6 +114,7 @@ func _deferred_spawn(initial_transform: Transform):
 
 
 func despawn() -> void:
+	print("[PlayerManager] despawn called")
 	if is_spawned():
 		player_reference.queue_free()
 		player_reference = null

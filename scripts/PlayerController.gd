@@ -654,44 +654,52 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 	Establece la nueva posición/rotación y limpia todas las velocidades,
 	estados de acción y inputs residuales.
 	"""
-	print("PlayerController: Resetting state for respawn, position: ", new_transform.origin, " yaw: ", rad2deg(new_transform.basis.get_euler().y))
+	print("[PlayerController] reset_state_for_respawn called with position: ", new_transform.origin, " yaw: ", rad2deg(new_transform.basis.get_euler().y))
 	# 1. Establecer nueva posición y orientación
 	global_transform = new_transform
+	print("[PlayerController] global_transform set to: ", global_transform.origin)
 
 	# 1.5. Resetear rotación del mesh para que mire forward
-	print (player_mesh)
+	print("[PlayerController] player_mesh: ", player_mesh)
 	if player_mesh:
 		player_mesh.rotation.y = new_transform.basis.get_euler().y + mesh_yaw_offset
+		print("[PlayerController] player_mesh.rotation.y set to: ", player_mesh.rotation.y)
 
 	# 2. Resetear orientación de la cámara
 	var cam_rig = get_node_or_null("CameraRig")
 	if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
 		# El yaw de la cámara debe alinearse con la nueva rotación del cuerpo
 		cam_rig.sync_to_body_yaw(new_transform.basis.get_euler().y, cam_rig.cam_yaw_offset)
-		print("PlayerController: Synced camera yaw to: ", rad2deg(new_transform.basis.get_euler().y))
+		print("[PlayerController] Synced camera yaw to: ", rad2deg(new_transform.basis.get_euler().y))
 
 	# 3. Resetear input residual del mouse
 	if is_instance_valid(player_input) and player_input.has_method("reset_mouse_motion"):
 		player_input.reset_mouse_motion()
+		print("[PlayerController] player_input.reset_mouse_motion() called")
 
 	# 4. Resetear velocidades y estado de movimiento
 	if has_node("GroundRay"):
 		$GroundRay.force_raycast_update()
+		print("[PlayerController] GroundRay force_raycast_update called")
 	horizontal_velocity = Vector3.ZERO
 	vertical_velocity = Vector3.ZERO
 	platform_velocity = Vector3.ZERO
 	last_platform_velocity = Vector3.ZERO
 	airborne_inherited = Vector3.ZERO
+	print("[PlayerController] velocities reset to ZERO")
 	
 	# Resetea la dirección de movimiento para alinearla con el respawn.
 	# Esto evita que el personaje intente girar hacia su dirección anterior.
 	direction = -global_transform.basis.z.normalized()
+	print("[PlayerController] direction set to: ", direction)
 	if is_instance_valid(movement_comp):
 		movement_comp.direction = direction
 		movement_comp.horizontal_velocity = Vector3.ZERO
+		print("[PlayerController] movement_comp.direction and horizontal_velocity reset")
 
 	# 5. Limpiar flags de acción
 	is_rolling = false
 	is_attacking = false
 	just_jumped = false
 	snap_enabled = true
+	print("[PlayerController] action flags reset (is_rolling, is_attacking, just_jumped, snap_enabled)")
