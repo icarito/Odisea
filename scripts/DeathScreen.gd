@@ -13,7 +13,8 @@ func _ready():
 	
 	# Set font
 	var font = DynamicFont.new()
-	font.font_data = load("res://assets/Sixtyfour-Regular-VariableFont_BLED,SCAN.ttf")
+	font.font_data = load("res://assets/fonts/Titles.tres")
+
 	if font.font_data != null:
 		font.size = 95
 		$OfflineLabel.set("custom_fonts/font", font)
