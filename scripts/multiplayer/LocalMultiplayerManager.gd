@@ -15,6 +15,8 @@ var camera_p2: Camera
 var camera_p2_proxy: Camera # Cámara proxy para el viewport del Jugador 2
 var death_screen_p1: CanvasLayer
 var death_screen_p2: CanvasLayer
+var initial_transform_p1: Transform
+var initial_transform_p2: Transform
 
 # ===== CONFIG =====
 export var level_scene_path := "res://scenes/levels/act1/Criogenia.tscn"
@@ -115,9 +117,10 @@ func _setup_players() -> void:
 	var spawn_p1 = level.find_node("SpawnPoint")
 	if spawn_p1:
 		player1.global_transform = spawn_p1.global_transform
+		initial_transform_p1 = spawn_p1.global_transform
 		var cam_rig_p1 = player1.get_node_or_null("CameraRig")
 		if cam_rig_p1 and cam_rig_p1.has_method("sync_to_body_yaw"):
-			cam_rig_p1.call_deferred("sync_to_body_yaw", spawn_p1.global_transform.basis.get_euler().y, 0)
+			cam_rig_p1.call_deferred("sync_to_body_yaw", spawn_p1.global_transform.basis.get_euler().y, cam_rig_p1.cam_yaw_offset)
 	else:
 		player1.global_transform.origin = Vector3(0, 2, 0)  # Fallback
 
@@ -136,9 +139,10 @@ func _setup_players() -> void:
 	var spawn_p2 = level.find_node("SpawnPoint2")
 	if spawn_p2:
 		player2.global_transform = spawn_p2.global_transform
+		initial_transform_p2 = spawn_p2.global_transform
 		var cam_rig_p2 = player2.get_node_or_null("CameraRig")
 		if cam_rig_p2 and cam_rig_p2.has_method("sync_to_body_yaw"):
-			cam_rig_p2.call_deferred("sync_to_body_yaw", spawn_p2.global_transform.basis.get_euler().y, 0)
+			cam_rig_p2.call_deferred("sync_to_body_yaw", spawn_p2.global_transform.basis.get_euler().y, cam_rig_p2.cam_yaw_offset)
 	else:
 		push_error("No se encontró SpawnPoint2; Necesario para posicionar Player 2.")
 
@@ -276,28 +280,15 @@ func _input(event):
 	if death_screen_p1.is_showing and jump_p1:
 		print("[Respawn] Intentando respawn P1...")
 		if not player_stats[1]["alive"]:
-			var spawn_point = level.find_node("SpawnPoint", true, false)
-			print("[Respawn] SpawnPoint P1:", spawn_point)
-			if spawn_point:
-				var pc = player1
-				print("[Respawn] Nodo player1:", pc)
-				if not pc.has_method("reset_state_for_respawn") and pc.get_child_count() > 0:
-					var found = false
-					for c in pc.get_children():
-						print("[Respawn] Checando hijo:", c)
-						if c.has_method("reset_state_for_respawn"):
-							print("[Respawn] Encontrado método en hijo:", c)
-							pc = c
-							found = true
-							break
-					if not found:
-						print("[Respawn] No se encontró método reset_state_for_respawn en hijos de player1")
-				print("[Respawn] Llamando reset_state_for_respawn en:", pc)
-				pc.call_deferred("reset_state_for_respawn", spawn_point.global_transform)
-				set_player_alive(1, true)
-				pc.set_physics_process(true)
-			else:
-				print("[Respawn] No se encontró SpawnPoint para P1")
+				var spawn_point = level.find_node("SpawnPoint", true, false)
+				print("[Respawn] SpawnPoint P1:", spawn_point)
+				if spawn_point:
+					print("[Respawn] Llamando reset_state_for_respawn en:", player1)
+					player1.call_deferred("reset_state_for_respawn", spawn_point.global_transform)
+					set_player_alive(1, true)
+					player1.set_physics_process(true)
+				else:
+					print("[Respawn] No se encontró SpawnPoint para P1")
 		else:
 			print("[Respawn] P1 ya está vivo, no respawnea")
 		death_screen_p1.hide_death_screen()
