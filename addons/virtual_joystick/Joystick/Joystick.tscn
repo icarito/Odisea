@@ -5,6 +5,7 @@
 [ext_resource path="res://addons/virtual_joystick/Joystick/joystick_handle.png" type="Texture" id=3]
 
 [node name="Joystick" type="Control"]
+rect_scale = Vector2( 0.5, 0.5 )
 mouse_filter = 1
 script = ExtResource( 1 )
 

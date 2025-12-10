@@ -4,6 +4,20 @@ extends CanvasLayer
 const JoystickScene = preload("res://addons/virtual_joystick/Joystick/Joystick.tscn")
 const CirclePainter = preload("res://scripts/ui/CirclePainter.gd")
 
+# --- Action Mapping ---
+var action_mapping = {
+	"joystick": {
+		"left": "left",
+		"right": "right",
+		"up": "forward",
+		"down": "backward"
+	},
+	"BTN_A": "jump",
+	"BTN_B": "sprint",
+	"BTN_Y": "attack",
+	"BTN_X": "roll"
+}
+
 # --- OnReady References ---
 onready var left_panel = $LeftPanel
 onready var right_panel = $RightPanel
@@ -126,12 +140,21 @@ func _build_controls_from_json():
 
 		parent_controls.add_child(control_node)
 
-		# Centrar el control en su posición calculada
-		control_node.rect_position = scaled_pos - (scaled_size / 2.0)
-		if type == "JOYSTICK":
-			control_node.rect_size = Vector2(256, 256)
-		else:
-			control_node.rect_size = scaled_size
+		if control_node is Control:
+			# Centrar el control en su posición calculada
+			if parent_controls == right_controls:
+				control_node.rect_position = Vector2(right_panel.rect_size.x - scaled_pos.x - scaled_size.x / 2.0, scaled_pos.y - scaled_size.y / 2.0)
+			else:
+				control_node.rect_position = scaled_pos - (scaled_size / 2.0)
+			if type == "JOYSTICK":
+				control_node.rect_size = Vector2(256, 256)
+			else:
+				control_node.rect_size = scaled_size
+		elif control_node is TouchScreenButton:
+			if parent_controls == right_controls:
+				control_node.position = Vector2(right_panel.rect_size.x - scaled_pos.x - scaled_size.x / 2.0, scaled_pos.y - scaled_size.y / 2.0)
+			else:
+				control_node.position = scaled_pos - scaled_size / 2.0
 
 		_apply_style(control_node, {"style": props, "type": type})
 		_apply_properties(control_node, {"properties": props, "type": type})
@@ -148,17 +171,20 @@ func _create_element(data: Dictionary) -> Control:
 			control_node = JoystickScene.instance()
 			control_node.name = id
 			control_node.use_input_actions = true
+			control_node.action_left = action_mapping["joystick"]["left"]
+			control_node.action_right = action_mapping["joystick"]["right"]
+			control_node.action_up = action_mapping["joystick"]["up"]
+			control_node.action_down = action_mapping["joystick"]["down"]
 			# Conectar señales para logging
 			control_node.connect("pressed", self, "_on_joystick_pressed", [id])
 			control_node.connect("released", self, "_on_joystick_released", [id])
 
 		"BUTTON":
-			control_node = Button.new()
+			control_node = TouchScreenButton.new()
 			control_node.name = id
-			control_node.text = data.get("label", id)
-			var action_name = "vtc_" + id
-			control_node.connect("button_down", self, "_on_button_pressed", [action_name])
-			control_node.connect("button_up", self, "_on_button_released", [action_name])
+			var action_name = action_mapping.get(id, "vtc_" + id)
+			control_node.connect("pressed", self, "_on_button_pressed", [action_name])
+			control_node.connect("released", self, "_on_button_released", [action_name])
 
 		"SLIDER":
 			control_node = HSlider.new()
@@ -193,7 +219,7 @@ func _apply_layout(node: Control, data: Dictionary, scale: float, offset: Vector
 	node.rect_size = final_size
 
 # Applies colors and other style properties from the JSON to a control node.
-func _apply_style(node: Control, data: Dictionary):
+func _apply_style(node: Node, data: Dictionary):
 	var style = data.get("style", {})
 	if style.empty():
 		return
@@ -202,26 +228,27 @@ func _apply_style(node: Control, data: Dictionary):
 		var raw_color = style["backgroundColor"]
 		var color = parse_color(raw_color)
 		print("parse_color backgroundColor:", raw_color, "->", color)
-		if node is Button:
-			var icon = CirclePainter.create_circle_texture(node.rect_size.x / 2, color)
-			node.icon = icon
-		elif node is Joystick:
-			var background = node.get_node_or_null("Background")
-			if background:
-				background.modulate = color
+		if node is TouchScreenButton:
+			var icon = CirclePainter.create_circle_texture(17, color)  # Approximate radius for ~34 size
+			node.normal = icon
+		elif node is Control:
+			if node is Joystick:
+				var background = node.get_node_or_null("Background")
+				if background:
+					background.modulate = color
 
-	if style.has("handleColor") and node is Joystick:
+	if style.has("handleColor") and node is Control and node is Joystick:
 		 var handle = node.get_node_or_null("Background/Handle")
 		 if handle:
 			 handle.modulate = parse_color(style["handleColor"])
 
 # Applies functional properties from the JSON to a control node.
-func _apply_properties(node: Control, data: Dictionary):
+func _apply_properties(node: Node, data: Dictionary):
 	var props = data.get("properties", {})
 	if props.empty():
 		return
 
-	if node is Joystick:
+	if node is Control and node is Joystick:
 		if props.has("deadzone"):
 			node.set_dead_zone_size(props["deadzone"])
 
@@ -235,10 +262,18 @@ func _input(event):
 		all_controls.append_array(right_controls.get_children())
 
 		for control in all_controls:
-			var control_rect = control.get_global_rect()
-			if control_rect.has_point(event.position):
-				var local_event = control.make_input_local(event)
-				print("- Touch DETECTED inside '", control.name, "'. Control's global rect: ", control_rect, ". Touch local pos: ", local_event.position)
+			if control is Control:
+				var control_rect = control.get_global_rect()
+				if control_rect.has_point(event.position):
+					var local_event = control.make_input_local(event)
+					print("- Touch DETECTED inside '", control.name, "'. Control's global rect: ", control_rect, ". Touch local pos: ", local_event.position)
+			elif control is TouchScreenButton:
+				var tex = control.normal
+				if tex:
+					var size = tex.get_size()
+					var rect = Rect2(control.global_position, size)
+					if rect.has_point(event.position):
+						print("- Touch DETECTED inside '", control.name, "'. Control's global rect: ", rect)
 
 
 func _on_button_pressed(action: String):
