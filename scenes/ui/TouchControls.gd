@@ -36,6 +36,7 @@ var controls_visible = false
 var hide_timer: Timer = null
 # Frame hasta el cual ignorar eventos de mouse tras liberar mouse
 var _ignore_mouse_until_frame := 0
+var active_touch_controls = 0
 
 # --- Lifecycle ---
 func _ready():
@@ -236,9 +237,10 @@ func _create_element(data: Dictionary) -> Control:
 			control_node.action_right = action_mapping["joystick"]["right"]
 			control_node.action_up = action_mapping["joystick"]["up"]
 			control_node.action_down = action_mapping["joystick"]["down"]
-			# Conectar señales para logging
+			# Conectar señales para manejo de timer y vector
 			control_node.connect("pressed", self, "_on_joystick_pressed", [id])
 			control_node.connect("released", self, "_on_joystick_released", [id])
+			control_node.connect("input_vector_changed", self, "_on_joystick_vector_changed", [id])
 
 		"BUTTON":
 			control_node = TouchScreenButton.new()
@@ -354,9 +356,7 @@ func _input(event):
 			var prev_count = _active_touches.size()
 			if was_active:
 				_active_touches.erase(event.index)
-			# Solo reiniciar timer si realmente soltamos un dedo que estaba activo y el conteo pasa de 1 a 0
-			if was_active and prev_count == 1 and _active_touches.size() == 0:
-				_restart_hide_timer()
+			# No reiniciar timer aquí, se hace en las señales de controles
 
 func _on_hide_timer_timeout():
 	_set_controls_visible(false)
@@ -364,17 +364,43 @@ func _on_hide_timer_timeout():
 
 func _on_button_pressed(action: String):
 	Input.action_press(action)
+	active_touch_controls += 1
+	if active_touch_controls == 1 and not controls_visible:
+		_set_controls_visible(true)
+	_restart_hide_timer()
 
 func _on_button_released(action: String):
 	Input.action_release(action)
+	active_touch_controls -= 1
+	if active_touch_controls == 0:
+		_restart_hide_timer()
 
 func _on_joystick_pressed(id: String):
-	pass
+	active_touch_controls += 1
+	if active_touch_controls == 1 and not controls_visible:
+		_set_controls_visible(true)
+	_restart_hide_timer()
 	# print("Joystick pressed: ", id)
 
 func _on_joystick_released(id: String):
-	pass
+	active_touch_controls -= 1
+	if active_touch_controls == 0:
+		_restart_hide_timer()
+	# Reset actions to 0
+	var actions = action_mapping["joystick"]
+	Input.action_press(actions["left"], 0)
+	Input.action_press(actions["right"], 0)
+	Input.action_press(actions["up"], 0)
+	Input.action_press(actions["down"], 0)
 	# print("Joystick released: ", id)
+
+func _on_joystick_vector_changed(vector: Vector2, id: String):
+	var actions = action_mapping["joystick"]
+	Input.action_press(actions["left"], max(0, -vector.x))
+	Input.action_press(actions["right"], max(0, vector.x))
+	Input.action_press(actions["up"], max(0, -vector.y))
+	Input.action_press(actions["down"], max(0, vector.y))
+	_restart_hide_timer()
 
 func parse_color(color_val):
 	if typeof(color_val) != TYPE_INT and typeof(color_val) != TYPE_REAL:
