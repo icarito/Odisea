@@ -97,9 +97,9 @@ func _setup_level() -> void:
 	# Conectar las killzones del nivel al manager
 	var killzones = level.get_tree().get_nodes_in_group("killzones")
 	for kz in killzones:
-		# Asumimos que la killzone es un Area que emite "body_entered"
-		if kz.has_signal("body_entered"):
-			kz.connect("body_entered", self, "_on_player_entered_killzone")
+		# Conectar la señal player_killed de KillZone
+		if kz.has_signal("player_killed"):
+			kz.connect("player_killed", self, "_on_player_killed")
 
 func _setup_players() -> void:
 	"""Instanciar ambos jugadores."""
@@ -260,6 +260,27 @@ func _on_player_entered_killzone(body: Node) -> void:
 	print("LocalMultiplayerManager: Identified player ID to kill: ", player_id_to_kill)
 	if player_id_to_kill != -1 and player_stats[player_id_to_kill]["alive"]:
 		print("LocalMultiplayerManager: Killing player ", player_id_to_kill)
+		set_player_alive(player_id_to_kill, false)
+		
+		# Mostrar death screen solo en el viewport del jugador correspondiente
+		if player_id_to_kill == 1:
+			death_screen_p1.show_death_screen()
+		elif player_id_to_kill == 2:
+			death_screen_p2.show_death_screen()
+
+func _on_player_killed(player: Node) -> void:
+	"""Manejador para señal player_killed de KillZone."""
+	print("[LocalMultiplayerManager] _on_player_killed called with player:", player)
+	# Identificar al jugador por su nodo
+	var player_id_to_kill = -1
+	if player == player1:
+		player_id_to_kill = 1
+	elif player == player2:
+		player_id_to_kill = 2
+
+	print("[LocalMultiplayerManager] Identified player ID to kill: ", player_id_to_kill)
+	if player_id_to_kill != -1 and player_stats[player_id_to_kill]["alive"]:
+		print("[LocalMultiplayerManager] Killing player ", player_id_to_kill)
 		set_player_alive(player_id_to_kill, false)
 		
 		# Mostrar death screen solo en el viewport del jugador correspondiente
