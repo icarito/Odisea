@@ -149,21 +149,20 @@ skeleton = NodePath("")
 shape = SubResource( 5 )
 
 [node name="SpawnPortal" type="CSGBox" parent="PuzzleZone/Criogenics Lab/Middle Section"]
-transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -40.4852, 2, 31.9622 )
-visible = false
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -82.8749, -77.6193, -106.751 )
 use_in_baked_light = true
 use_collision = true
 collision_layer = 4
 collision_mask = 131
-width = 287.683
-depth = 484.852
+width = 10.0
+depth = 10.0
 material = ExtResource( 5 )
 
 [node name="SpawnPoint" type="Spatial" parent="PuzzleZone/Criogenics Lab/Middle Section/SpawnPortal"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -3 )
 
 [node name="SpawnPoint2" type="Spatial" parent="PuzzleZone/Criogenics Lab/Middle Section/SpawnPortal/SpawnPoint"]
-transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 5 )
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 6 )
 
 [node name="InteriorWide" parent="." instance=ExtResource( 7 )]
 
