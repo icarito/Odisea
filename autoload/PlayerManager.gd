@@ -54,6 +54,9 @@ func respawn_player() -> void:
 		
 func reset_mouse_capture() -> void:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		# Reiniciar música del nivel al respawn
+		if typeof(AudioSystem) != TYPE_NIL and AudioSystem:
+			AudioSystem.play_bgm("res://assets/music/Override.mp3", 0.0, true)
 
 func set_respawn_point(new_respawn_point: Transform) -> void:
 	respawn_point = new_respawn_point

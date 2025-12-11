@@ -74,9 +74,6 @@ func hide_death_screen():
 	if touch_controls:
 		touch_controls._set_controls_visible(true)
 		touch_controls._restart_hide_timer()
-	# Reiniciar música del nivel
-	if AudioSystem:
-		AudioSystem.play_bgm("res://assets/music/Rust and Ruin.mp3", 0.0, true)
 
 func _input(event):
 	if is_showing and event is InputEventScreenTouch and event.pressed:
