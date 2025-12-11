@@ -13,6 +13,7 @@ enum ReplayMode {
 
 var mode: int = ReplayMode.NONE
 var current_replay: Resource = null
+var current_replay_filename: String = ""
 var frame_index: int = 0
 var playback_paused: bool = false
 var headless: bool = false
@@ -120,6 +121,7 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 		print("Failed to load replay: " + replay_path)
 		return
 
+	current_replay_filename = replay_path.get_file()
 	print("Starting playback...")
 
 	get_tree().change_scene(replay.scene_path)
@@ -145,10 +147,9 @@ func stop_playback() -> void:
 	print("Stopping playback.")
 	mode = ReplayMode.NONE
 	current_replay = null
+	current_replay_filename = ""
 	for action in INPUT_ACTIONS:
 		Input.action_release(action)
-
-	restore_player_state()  # Restore player state after stopping playback
 
 	emit_signal("mode_changed", mode)
 

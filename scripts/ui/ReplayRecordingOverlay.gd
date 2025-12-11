@@ -29,6 +29,18 @@ func _on_mode_changed(new_mode: int) -> void:
 	else:
 		visible = false
 
+func _process(_delta: float) -> void:
+	if not visible:
+		return
+
+	if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING:
+		if status_label and ReplayManager.current_replay:
+			status_label.text = "Recording... %d" % len(ReplayManager.current_replay.frames)
+	elif ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
+		if status_label and ReplayManager.current_replay:
+			var total_frames = len(ReplayManager.current_replay.frames)
+			status_label.text = "Playing... %d / %d" % [ReplayManager.frame_index, total_frames]
+
 func _on_StopButton_pressed() -> void:
 	if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING:
 		ReplayManager.stop_recording()
