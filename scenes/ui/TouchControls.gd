@@ -312,10 +312,10 @@ func _apply_style(node: Node, data: Dictionary):
 	# print("parse_color for", id, ":", raw_color, "->", color)
 
 	if node is TouchScreenButton:
-		node.normal = CirclePainter.create_circle_texture(17, color)
+		node.normal = CirclePainter.create_circle_texture(37, color)
 		# Set shape for touch detection
 		var shape = RectangleShape2D.new()
-		shape.extents = Vector2(17, 17)
+		shape.extents = Vector2(37, 37)
 		node.shape = shape
 	# elif node is Control:
 	#	if node is Joystick:

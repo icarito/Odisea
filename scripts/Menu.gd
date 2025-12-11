@@ -1,5 +1,7 @@
 extends Control
 
+export var enable_touch_buttons := true
+
 onready var cursor: Sprite = find_node("Cursor")
 onready var fade_rect: ColorRect = $CanvasLayer/ColorRect  # Agrega un CanvasLayer > ColorRect negro
 var resolution_detector: MenuResolutionDetector
@@ -32,6 +34,14 @@ func _ready():
 	find_node("Quit").connect("pressed", self, "_on_Quit_pressed")
 	if find_node("CoopButton"):
 		find_node("CoopButton").connect("pressed", self, "_on_copilot_pressed")
+
+	if enable_touch_buttons:
+		var handler = $TouchCanvasLayer/TouchHandler
+		var temp_buttons = []
+		for b in [find_node("Start"), find_node("CoopButton"), find_node("Quit")]:
+			if b:
+				temp_buttons.append(b)
+		handler.buttons = temp_buttons
 
 func _on_Start_pressed():
 	# Fade out antes de cambiar escena
