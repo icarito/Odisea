@@ -43,8 +43,8 @@ var active_touch_controls = 0
 # --- Lifecycle ---
 func _ready():
 	instance = self
-	left_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	right_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	left_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	right_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	yield(get_tree(), "idle_frame")
 	_build_controls_from_json()
 	_init_hide_timer()

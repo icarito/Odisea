@@ -96,19 +96,24 @@ func _unhandled_input(event):
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func process_camera_rotation(motion: Vector2):
-	"""Procesa el movimiento del mouse para rotar la cámara."""
-	var touch_controls = null
-	if has_node("/root/TouchControls"):
-		touch_controls = get_node("/root/TouchControls")
-	if touch_controls and touch_controls.is_touch_controls_active():
-		return
+	"""Procesa el movimiento del mouse/touch para rotar la cámara."""
 	if player_id == 1:
-		var scaled_motion = motion / 100.0
+		# La sensibilidad se ajusta en PlayerController para touch
+		var scaled_motion = motion
+		
+		var touch_controls_node = null
+		if get_tree() and get_tree().current_scene:
+			touch_controls_node = get_tree().current_scene.find_node("TouchControls", true, false)
+
+		if not (touch_controls_node and touch_controls_node.is_touch_controls_active()):
+			scaled_motion = motion / 100.0
+
 		target_yaw -= scaled_motion.x * yaw_sensitivity
 		target_pitch += scaled_motion.y * pitch_sensitivity
 		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
 		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
 		target_pitch = clamp(target_pitch, -lim_down, lim_up)
+
 
 func _physics_process(delta):
 	# --- ROBUST YAW INITIALIZATION ---
@@ -123,29 +128,18 @@ func _physics_process(delta):
 		_yaw_initialized = true
 	# ---------------------------------
 	# Control de rotación de cámara
-	var touch_controls = null
-	if has_node("/root/TouchControls"):
-		touch_controls = get_node("/root/TouchControls")
-	var use_joy_for_camera = touch_controls and touch_controls.is_touch_controls_active()
-	
-	if use_joy_for_camera:
-		# Usar ejes del joypad para rotar la cámara cuando touch active
-		var joy_x = Input.get_joy_axis(joypad_device, JOY_AXIS_0)  # Eje izquierdo X
-		var joy_y = Input.get_joy_axis(joypad_device, JOY_AXIS_1)  # Eje izquierdo Y
-		var deadzone = 0.2
-		
-		if abs(joy_x) > deadzone:
-			target_yaw -= joy_x * yaw_sensitivity * 1000 * delta
-		if abs(joy_y) > deadzone:
-			target_pitch += joy_y * pitch_sensitivity * 1000 * delta
-	else:
-		# Usar mouse para player 1 si no touch
+	var touch_controls = get_node_or_null("/root/TouchControls")
+	var touch_active = touch_controls and touch_controls.is_touch_controls_active()
+
+	if not touch_active:
+		# Usar mouse/teclado para player 1 si no hay touch
 		if player_id == 1:
 			var mouse_x = Input.get_action_strength("lookleft") - Input.get_action_strength("lookright")
 			var mouse_y = Input.get_action_strength("lookup") - Input.get_action_strength("lookdown")
-			target_yaw -= mouse_x * yaw_sensitivity * 1000 * delta
-			target_pitch += mouse_y * pitch_sensitivity * 1000 * delta
-	
+			if abs(mouse_x) > 0 or abs(mouse_y) > 0:
+				target_yaw -= mouse_x * yaw_sensitivity * 1000 * delta
+				target_pitch += mouse_y * pitch_sensitivity * 1000 * delta
+
 	# Para player 2, siempre usar joy
 	if player_id == 2:
 		var joy_x = Input.get_joy_axis(joypad_device, JOY_AXIS_0)
