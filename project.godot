@@ -1150,6 +1150,11 @@ roll={
 "events": [  ]
 }
 
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+pointing/emulate_mouse_from_touch=false
+
 [layer_names]
 
 3d_physics/layer_1="Entorno"
