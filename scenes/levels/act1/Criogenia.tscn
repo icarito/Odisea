@@ -148,8 +148,12 @@ skeleton = NodePath("")
 [node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/Criogenics Lab/Middle Section/Pilar4/StaticBody"]
 shape = SubResource( 5 )
 
-[node name="SpawnPortal" type="CSGBox" parent="PuzzleZone/Criogenics Lab/Middle Section"]
-transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -29.2352, 6.94937, 36.8484 )
+[node name="TouchControls" parent="." instance=ExtResource( 13 )]
+
+[node name="InteriorWide" parent="." instance=ExtResource( 7 )]
+
+[node name="SpawnPortal" type="CSGBox" parent="."]
+transform = Transform( -1, 1.49012e-08, -8.74228e-08, 1.49012e-08, 1, 0, 8.74228e-08, 0, -1, -29.0772, -339.312, 3527.59 )
 use_in_baked_light = true
 use_collision = true
 collision_layer = 4
@@ -159,14 +163,10 @@ height = 0.3
 depth = 10.0
 material = ExtResource( 5 )
 
-[node name="SpawnPoint" type="Spatial" parent="PuzzleZone/Criogenics Lab/Middle Section/SpawnPortal"]
+[node name="SpawnPoint" type="Spatial" parent="SpawnPortal"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -3 )
 
-[node name="SpawnPoint2" type="Spatial" parent="PuzzleZone/Criogenics Lab/Middle Section/SpawnPortal/SpawnPoint"]
+[node name="SpawnPoint2" type="Spatial" parent="SpawnPortal/SpawnPoint"]
 transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 6 )
-
-[node name="TouchControls" parent="." instance=ExtResource( 13 )]
-
-[node name="InteriorWide" parent="." instance=ExtResource( 7 )]
 
 [editable path="SDE Odisea/CommandFloor/Conveyor3"]
