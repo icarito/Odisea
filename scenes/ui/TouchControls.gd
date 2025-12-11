@@ -402,6 +402,7 @@ func _on_joystick_released(id: String):
 	# print("Joystick released: ", id)
 
 func _on_joystick_vector_changed(vector: Vector2, id: String):
+	print("[TouchControls] vector_changed: ", vector, " from: ", id)
 	# Emitir eventos de joypad para simular un joystick analógico
 	var event_x = InputEventJoypadMotion.new()
 	event_x.device = 0  # Dispositivo virtual
