@@ -1,5 +1,7 @@
 extends CanvasLayer
 
+signal respawn_requested
+
 #onready var top_rect = $TopRect
 #onready var bottom_rect = $BottomRect
 #onready var offline_label = $OfflineLabel
@@ -75,3 +77,7 @@ func hide_death_screen():
 	# Reiniciar música del nivel
 	if AudioSystem:
 		AudioSystem.play_bgm("res://assets/music/Rust and Ruin.mp3", 0.0, true)
+
+func _input(event):
+	if is_showing and event is InputEventScreenTouch and event.pressed:
+		emit_signal("respawn_requested")
