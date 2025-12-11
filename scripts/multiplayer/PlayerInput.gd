@@ -13,6 +13,9 @@ export var analog_sprint_threshold := 0.9
 export var debug_input := true
 export var debug_interval := 0.5 # Time in seconds between log messages
 
+# Curva para input analógico
+var acceleration_curve: Curve = preload("res://data/default_acceleration_curve.tres")
+
 # ===== MAPEO DE ACCIONES =====
 var action_map = {
 	1: {  # Player 1
@@ -94,6 +97,12 @@ func get_input_vector() -> Vector2:
 		var joy_x = -Input.get_joy_axis(joypad_device, JOY_AXIS_0) # Eje X izquierdo
 		var joy_y = -Input.get_joy_axis(joypad_device, JOY_AXIS_1) # Eje Y izquierdo
 		joy_vector = Vector2(joy_x, joy_y)
+		
+		# Aplicar curva de aceleración al vector del joystick
+		var mag = joy_vector.length()
+		if mag > 0.0:
+			var processed_mag = acceleration_curve.interpolate(clamp(mag, 0.0, 1.0))
+			joy_vector = joy_vector.normalized() * processed_mag
 
 	_last_joy_vector = joy_vector # Guardar para la lógica de sprint
 
