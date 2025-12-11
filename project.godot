@@ -994,7 +994,7 @@ _global_script_class_icons={
 
 config/name="Odisea"
 run/main_scene="res://scenes/Menu.tscn"
-boot_splash/image="res://assets/splash_HI-RES.png"
+boot_splash/image="res://assets/splash.png"
 boot_splash/use_filter=false
 config/icon="res://assets/odisea_icon.png"
 boot_splash/minimum_display_time=3
@@ -1009,6 +1009,7 @@ UIManager="*res://autoload/UIManager.gd"
 TouchCounter="*res://autoload/TouchCounter.gd"
 ReplayManager="*res://scripts/replay/ReplayManager.gd"
 ReplayDebug="*res://scenes/ui/ReplayDebug.tscn"
+MouseCapture="*res://scripts/utils/MouseCapture.gd"
 
 [debug]
 
@@ -1039,6 +1040,17 @@ theme/custom="res://assets/themes/retro_scifi.tres"
 
 [input]
 
+ui_select={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":32,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
+ ]
+}
+ui_cancel={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777217,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
+, Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":2,"pressure":0.0,"pressed":false,"script":null)
+ ]
+}
 left={
 "deadzone": 0.5,
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":65,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
@@ -1089,13 +1101,11 @@ lookdown={
 }
 lookleft={
 "deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":81,"unicode":0,"echo":false,"script":null)
- ]
+"events": [  ]
 }
 lookright={
 "deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":69,"unicode":0,"echo":false,"script":null)
- ]
+"events": [  ]
 }
 cursor_up={
 "deadzone": 0.25,

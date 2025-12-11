@@ -15,6 +15,7 @@ var current_replay: Resource = null
 var frame_index: int = 0
 var playback_paused: bool = false
 var headless: bool = false
+var is_replay_debug_visible: bool = false
 
 const REPLAY_GROUP = "replay_track"
 const REPLAYS_DIR = "res://replays/"

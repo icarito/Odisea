@@ -224,6 +224,9 @@ func set_external_source_is_static(is_static: bool) -> void:
 	platform_is_static_surface = is_static
 
 func _input(event):
+	# Ignorar input si ReplayDebug está visible
+	if ReplayManager.is_replay_debug_visible:
+		return
 	# Capturar movimiento del mouse solo si el PlayerInput de este jugador está configurado para usarlo.
 	if player_input and player_input.use_mouse_input and event is InputEventMouseMotion:
 		# En lugar de pasarlo a una variable 'aim_turn' que no se usa,

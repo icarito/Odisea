@@ -82,6 +82,9 @@ func _ready():
 
 
 func _unhandled_input(event):
+	# Ignorar input si ReplayDebug está visible
+	if ReplayManager.is_replay_debug_visible:
+		return
 	# Toggle captura con ESC, recapturar al click
 	# Ignorar input de mouse si controles touch están activos
 	var touch_controls = null
