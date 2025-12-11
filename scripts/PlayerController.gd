@@ -82,6 +82,9 @@ var aim_turn = 0.0
 var movement = Vector3()
 var vertical_velocity = Vector3()
 
+# Touch camera control
+export var touch_sensitivity := 0.005
+
 var angular_acceleration = 10
 export(float, 0.0, 10.0, 0.1) var tank_turn_speed := 0.3
 export(float, 0.0, 10.0, 0.1) var advancing_turn_speed := 0.3
@@ -178,12 +181,27 @@ func _ready():
 		add_child(debug_timer)
 		debug_timer.start()
 
+	call_deferred("_connect_touch_camera")
+
 	# Inicializar condiciones del AnimationTree para evitar entrar en Swim al inicio
 	if animation_tree:
 		animation_tree["parameters/conditions/IsOnFloor"] = true
 		animation_tree["parameters/conditions/IsInAir"] = false
 		animation_tree["parameters/conditions/IsFloating"] = false
 	# Inicialización simple: nada que suavizar del yaw del cuerpo
+
+func _connect_touch_camera():
+	var touch_controls = get_tree().get_root().get_node_or_null("TouchControls")
+	if touch_controls:
+		var camera_input = touch_controls.get_node_or_null("CameraInput")
+		if camera_input:
+			camera_input.connect("camera_vector_changed", self, "_on_CameraInput_camera_vector_changed")
+
+func _on_CameraInput_camera_vector_changed(vector):
+	var cam_rig = get_node_or_null("CameraRig")
+	if cam_rig:
+		if cam_rig.has_method("process_camera_rotation"):
+			cam_rig.process_camera_rotation(vector * touch_sensitivity)
 
 func _on_debug_mode_changed(enabled: bool):
 	debug_enabled = enabled
