@@ -18,16 +18,16 @@ margin_right = 200.0
 margin_bottom = 100.0
 custom_constants/separation = 10
 
-[node name="ItemList" type="ItemList" parent="Control/VBoxContainer"]
-margin_right = 200.0
-margin_bottom = 150.0
-rect_min_size = Vector2( 200, 150 )
-
 [node name="StartRecordingButton" type="Button" parent="Control/VBoxContainer"]
-margin_top = 160.0
+margin_right = 200.0
+margin_bottom = 37.0
+text = "Start Recording"
+
+[node name="ItemList" type="ItemList" parent="Control/VBoxContainer"]
+margin_top = 47.0
 margin_right = 200.0
 margin_bottom = 197.0
-text = "Start Recording"
+rect_min_size = Vector2( 200, 150 )
 
 [node name="LoadReplayButton" type="Button" parent="Control/VBoxContainer"]
 margin_top = 207.0

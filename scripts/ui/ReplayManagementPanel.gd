@@ -8,6 +8,8 @@ onready var pause_button: Button = find_node("PauseButton", true, false)
 onready var resume_button: Button = find_node("ResumeButton", true, false)
 onready var step_button: Button = find_node("StepButton", true, false)
 onready var playback_controls: Control = find_node("PlaybackControls", true, false)
+onready var status_label: Label = find_node("StatusLabel", true, false)
+onready var current_replay_label: Label = find_node("CurrentReplayLabel", true, false)
 
 func _ready() -> void:
 	visible = false
@@ -32,6 +34,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			visible = !visible
 			ReplayManager.is_replay_debug_visible = visible
 			get_node("/root/MouseCapture").show_cursor(visible)
+			if visible:
+				_refresh_replay_list()
+			else:
+				if ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
+					ReplayManager.restore_player_state()
 			get_tree().set_input_as_handled()
 
 func _refresh_replay_list() -> void:
@@ -39,16 +46,34 @@ func _refresh_replay_list() -> void:
 		item_list.clear()
 		var replays = ReplayManager.get_available_replays()
 		for replay in replays:
-			item_list.add_item(replay)
+			item_list.add_item(replay.get_basename())
+
 
 func _on_mode_changed(new_mode: int) -> void:
-	if new_mode == ReplayManager.ReplayMode.PLAYBACK or new_mode == ReplayManager.ReplayMode.RECORDING:
+	visible = (new_mode != ReplayManager.ReplayMode.RECORDING)
+	if new_mode == ReplayManager.ReplayMode.PLAYBACK:
 		if playback_controls:
-			playback_controls.visible = (new_mode == ReplayManager.ReplayMode.PLAYBACK)
-		# Panel stays visible if toggled, but controls update
+			playback_controls.visible = true
 	else:
 		if playback_controls:
 			playback_controls.visible = false
+
+func _process(_delta: float) -> void:
+	if not visible:
+		return
+
+	if ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
+		if status_label and ReplayManager.current_replay:
+			var total_frames = len(ReplayManager.current_replay.frames)
+			status_label.text = "Frame: %d / %d" % [ReplayManager.frame_index, total_frames]
+		if current_replay_label:
+			current_replay_label.text = "Loaded: " + ReplayManager.current_replay_filename.get_basename()
+	elif ReplayManager.mode == ReplayManager.ReplayMode.NONE:
+		if status_label:
+			status_label.text = "Not recording or playing."
+		if current_replay_label:
+			current_replay_label.text = "Loaded: None"
+
 
 func _on_StartRecordingButton_pressed() -> void:
 	ReplayManager.start_recording()
@@ -60,7 +85,7 @@ func _on_LoadReplayButton_pressed() -> void:
 			var index = selected[0]
 			if index < item_list.get_item_count():
 				var replay_name = item_list.get_item_text(index)
-				var path = "res://replays/" + replay_name
+				var path = "res://replays/" + replay_name + ".json"
 				ReplayManager.start_playback(path)
 
 func _on_ResetButton_pressed() -> void:
