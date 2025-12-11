@@ -45,14 +45,19 @@ func _ready():
 	instance = self
 	left_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	right_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	get_viewport().connect("size_changed", self, "_on_viewport_size_changed")
+	
 	yield(get_tree(), "idle_frame")
 	_build_controls_from_json()
 	_init_hide_timer()
 	_set_controls_visible(false)
 
+func _on_viewport_size_changed():
+	call_deferred("_rebuild_controls")
+
 # --- Private Methods ---
 
-# Main function to parse JSON and build the UI.
 # Main function to parse JSON and build the UI.
 func _build_controls_from_json():
 	var file = File.new()
@@ -217,9 +222,10 @@ func _init_hide_timer():
 	add_child(hide_timer)
 
 func set_hide_delay(val):
-	hide_delay = val
-	if hide_timer:
-		hide_timer.wait_time = hide_delay
+	if val is float:
+		hide_delay = val
+		if hide_timer:
+			hide_timer.wait_time = hide_delay
 
 func _restart_hide_timer():
 	if hide_timer:
@@ -289,8 +295,6 @@ func _apply_layout(node: Control, data: Dictionary, scale: float, offset: Vector
 func _apply_style(node: Node, data: Dictionary):
 	var style = data.get("style", {})
 	var id = data.get("id", "")
-	#if style.empty() and not (node is TouchScreenButton and (id == "BTN_Y" or id == "BTN_X")):
-	#	return
 
 	var raw_color = style.get("backgroundColor", style.get("buttonColor", 0))
 	
@@ -298,35 +302,24 @@ func _apply_style(node: Node, data: Dictionary):
 	if raw_color != 0:
 		color = parse_color(raw_color)
 
-	# if style.has("backgroundColor") or style.has("buttonColor") or (node is TouchScreenButton and (id == "BTN_Y" or id == "BTN_X")):
-	# 	var raw_color = style.get("backgroundColor", style.get("buttonColor", 0))
-	# 	var color = Color(1,1,1,1)  # default
-	# 	if raw_color != 0:
-	# 		color = parse_color(raw_color)
-	# 	else:
-	# 		# default colors for Y and X
-	# 		if id == "BTN_Y":
-	# 			color = Color(1, 1, 0, 1)  # yellow
-	# 		elif id == "BTN_X":
-	# 			color = Color(0, 0, 1, 1)  # blue
-	# print("parse_color for", id, ":", raw_color, "->", color)
-
 	if node is TouchScreenButton:
-		node.normal = CirclePainter.create_circle_texture(37, color)
+		node.modulate.a = 0.5
+		var circle_color = color
+		circle_color.a = 0.5
+		node.normal = CirclePainter.create_circle_texture(37, circle_color)
 		# Set shape for touch detection
 		var shape = RectangleShape2D.new()
 		shape.extents = Vector2(37, 37)
 		node.shape = shape
-	# elif node is Control:
-	#	if node is Joystick:
-	#		var background = node.get_node_or_null("Background")
-	#		if background:
-	#			background.modulate = color
+	elif node is Joystick:
+		node.modulate.a = 0.5
 
-	if style.has("handleColor") and node is Control and node is Joystick:
+	if style.has("handleColor") and node is Joystick:
 		 var handle = node.get_node_or_null("Background/Handle")
 		 if handle:
-			 handle.modulate = parse_color(style["handleColor"])
+			 var handle_color = parse_color(style["handleColor"])
+			 handle_color.a = 0.5
+			 handle.modulate = handle_color
 
 # Applies functional properties from the JSON to a control node.
 func _apply_properties(node: Node, data: Dictionary):
@@ -425,6 +418,20 @@ func _on_joystick_vector_changed(vector: Vector2, id: String):
 	event_y.axis_value = vector.y
 	Input.parse_input_event(event_y)
 	# No reiniciar timer aquí
+
+func _rebuild_controls():
+	_clear_controls()
+	_build_controls_from_json()
+
+func _clear_controls():
+	for n in left_controls.get_children():
+		n.queue_free()
+	for n in right_controls.get_children():
+		n.queue_free()
+	# También elimina TouchScreenButton agregados directamente al CanvasLayer
+	for n in get_children():
+		if n is TouchScreenButton:
+			n.queue_free()
 
 func parse_color(color_val):
 	if typeof(color_val) != TYPE_INT and typeof(color_val) != TYPE_REAL:
