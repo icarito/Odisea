@@ -14,7 +14,7 @@ export var debug_input := true
 export var debug_interval := 0.5 # Time in seconds between log messages
 
 # Curva para input analógico
-var acceleration_curve: Curve = preload("res://data/Curves/Linear.tres")
+export var acceleration_curve: Curve = preload("res://data/Curves/Linear.tres")
 
 # ===== MAPEO DE ACCIONES =====
 var action_map = {
