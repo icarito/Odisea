@@ -36,7 +36,7 @@ func kill_player(player):
 		set_process_input(true)
 
 func _input(event):
-	if death_screen and death_screen.is_showing and event.is_pressed() and not event.is_echo():
+	if death_screen and death_screen.is_showing and Input.is_action_pressed("jump"):
 		# Suponemos que solo hay un jugador afectado por esta KillZone
 		var player = null
 		if typeof(PlayerManager) != TYPE_NIL and PlayerManager.is_spawned():
