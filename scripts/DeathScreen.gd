@@ -28,6 +28,10 @@ func show_death_screen():
 	$TopRect.visible = true
 	$BottomRect.visible = true
 	$OfflineLabel.visible = true
+	# Ocultar controles touch durante la pantalla de muerte
+	var touch_controls = get_tree().current_scene.find_node("TouchControls", true, false)
+	if touch_controls:
+		touch_controls._set_controls_visible(false)
 	# Ajustar tamaño y posición del label para que encaje en el viewport
 	var vp_size = get_viewport().size
 	# Ajustar tamaño de fuente y label dinámicamente según el viewport
@@ -63,6 +67,11 @@ func hide_death_screen():
 	$TopRect.visible = false
 	$BottomRect.visible = false
 	$OfflineLabel.visible = false
+	# Mostrar controles touch después de la pantalla de muerte
+	var touch_controls = get_tree().current_scene.find_node("TouchControls", true, false)
+	if touch_controls:
+		touch_controls._set_controls_visible(true)
+		touch_controls._restart_hide_timer()
 	# Reiniciar música del nivel
 	if AudioSystem:
 		AudioSystem.play_bgm("res://assets/music/Rust and Ruin.mp3", 0.0, true)
