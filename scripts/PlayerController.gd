@@ -772,3 +772,40 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 	just_jumped = false
 	snap_enabled = true
 	print("[PlayerController] action flags reset (is_rolling, is_attacking, just_jumped, snap_enabled)")
+
+func get_replay_state() -> Dictionary:
+	var state = {}
+	state["platform_velocity"] = platform_velocity
+	state["airborne_inherited"] = airborne_inherited
+	state["horizontal_velocity"] = horizontal_velocity
+	state["vertical_velocity"] = vertical_velocity
+	state["just_jumped"] = just_jumped
+	state["time_since_jump"] = time_since_jump
+	state["time_since_input"] = time_since_input
+	if jump_comp:
+		state["coyote_timer"] = jump_comp.coyote_timer
+		state["jump_buffer_timer"] = jump_comp.jump_buffer_timer
+		state["should_jump_buffered"] = jump_comp.should_jump_buffered
+	return state
+
+func set_replay_state(state: Dictionary) -> void:
+	if state.has("platform_velocity"):
+		platform_velocity = state["platform_velocity"]
+	if state.has("airborne_inherited"):
+		airborne_inherited = state["airborne_inherited"]
+	if state.has("horizontal_velocity"):
+		horizontal_velocity = state["horizontal_velocity"]
+	if state.has("vertical_velocity"):
+		vertical_velocity = state["vertical_velocity"]
+	if state.has("just_jumped"):
+		just_jumped = state["just_jumped"]
+	if state.has("time_since_jump"):
+		time_since_jump = state["time_since_jump"]
+	if state.has("time_since_input"):
+		time_since_input = state["time_since_input"]
+	if jump_comp and state.has("coyote_timer"):
+		jump_comp.coyote_timer = state["coyote_timer"]
+	if jump_comp and state.has("jump_buffer_timer"):
+		jump_comp.jump_buffer_timer = state["jump_buffer_timer"]
+	if jump_comp and state.has("should_jump_buffered"):
+		jump_comp.should_jump_buffered = state["should_jump_buffered"]

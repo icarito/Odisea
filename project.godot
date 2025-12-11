@@ -1008,7 +1008,6 @@ AudioSystem="*res://autoload/AudioSystem.gd"
 UIManager="*res://autoload/UIManager.gd"
 TouchCounter="*res://autoload/TouchCounter.gd"
 ReplayManager="*res://scripts/replay/ReplayManager.gd"
-ReplayDebug="*res://scenes/ui/ReplayDebug.tscn"
 MouseCapture="*res://scripts/utils/MouseCapture.gd"
 
 [debug]

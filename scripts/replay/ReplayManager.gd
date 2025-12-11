@@ -1,6 +1,7 @@
 extends Node
 
 signal replay_failed
+signal mode_changed(new_mode)
 
 const ReplayScript = preload("res://scripts/replay/Replay.gd")
 
@@ -17,6 +18,9 @@ var playback_paused: bool = false
 var headless: bool = false
 var is_replay_debug_visible: bool = false
 
+var _saved_player_transform: Transform = Transform.IDENTITY
+var _saved_player_velocity: Vector3 = Vector3.ZERO
+
 const REPLAY_GROUP = "replay_track"
 const REPLAYS_DIR = "res://replays/"
 
@@ -28,6 +32,36 @@ const FLOAT_TOLERANCE = 0.001
 
 func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS
+
+func save_player_state() -> void:
+	var player = PlayerManager.get_player()
+	if player and player is KinematicBody:
+		_saved_player_transform = player.global_transform
+		_saved_player_velocity = player.horizontal_velocity  # Assuming horizontal_velocity is the main velocity
+
+func restore_player_state() -> void:
+	var player = PlayerManager.get_player()
+	if player and player is KinematicBody:
+		player.global_transform = _saved_player_transform
+		player.horizontal_velocity = _saved_player_velocity
+
+func get_available_replays() -> Array:
+	var dir = Directory.new()
+	var replays = []
+	if dir.open(REPLAYS_DIR) == OK:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			if file_name.ends_with(".json"):
+				replays.append(file_name)
+			file_name = dir.get_next()
+	return replays
+
+func reset_replay() -> void:
+	if mode == ReplayMode.PLAYBACK:
+		stop_playback()
+	elif mode == ReplayMode.RECORDING:
+		stop_recording()
 
 func _physics_process(_delta: float) -> void:
 	if mode == ReplayMode.RECORDING:
@@ -41,6 +75,7 @@ func start_recording() -> void:
 
 	print("Starting recording...")
 	mode = ReplayMode.RECORDING
+	emit_signal("mode_changed", mode)
 
 	var replay = ReplayScript.new()
 	replay.scene_path = get_tree().current_scene.filename
@@ -72,9 +107,13 @@ func stop_recording() -> void:
 	mode = ReplayMode.NONE
 	current_replay = null
 
+	emit_signal("mode_changed", mode)
+
 func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	if mode != ReplayMode.NONE:
 		return
+
+	save_player_state()  # Save player state before starting playback
 
 	var replay = ReplayScript.new()
 	if replay.load_from_json(replay_path) != OK:
@@ -97,6 +136,8 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 		if node:
 			_set_node_state(node, current_replay.initial_states[path])
 
+	emit_signal("mode_changed", mode)
+
 func stop_playback() -> void:
 	if mode != ReplayMode.PLAYBACK:
 		return
@@ -106,6 +147,10 @@ func stop_playback() -> void:
 	current_replay = null
 	for action in INPUT_ACTIONS:
 		Input.action_release(action)
+
+	restore_player_state()  # Restore player state after stopping playback
+
+	emit_signal("mode_changed", mode)
 
 func step_frame() -> void:
 	if mode == ReplayMode.PLAYBACK and playback_paused:
@@ -173,7 +218,10 @@ func _get_node_state(node: Node) -> Dictionary:
 		state["linear_velocity"] = node.linear_velocity
 		state["angular_velocity"] = node.angular_velocity
 	if node is KinematicBody:
-		pass
+		if node.has_method("get_horizontal_velocity"):
+			state["linear_velocity"] = node.get_horizontal_velocity()
+		else:
+			state["linear_velocity"] = Vector3.ZERO  # Default if no method
 
 	return state
 
