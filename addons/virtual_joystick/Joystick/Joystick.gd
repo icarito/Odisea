@@ -34,6 +34,9 @@ signal pressed
 # Emitted when the joystick is released
 signal released
 
+# Emitted when the joystick's output vector changes
+signal input_vector_changed(vector)
+
 # The node with the handle texture
 onready var handle = $Handle
 
@@ -108,6 +111,8 @@ func _input(event):
 				touch_id = event.index
 				# Emit the pressed signal
 				emit_signal("pressed")
+				# The event is handled
+				get_tree().set_input_as_handled()
 
 		# If the event is a released event and the touch is being tracked
 		elif not event.pressed and event.index == touch_id:
@@ -115,6 +120,8 @@ func _input(event):
 			touch_id = -1
 			# Reset the output
 			output = Vector2()
+			# Emit the vector changed signal
+			emit_signal("input_vector_changed", output)
 			# Center the handle
 			handle.rect_position = Vector2(background_radius - handle_radius, background_radius - handle_radius)
 			# If the joystick is dynamic
@@ -123,6 +130,7 @@ func _input(event):
 				hide()
 			# Emit the released signal
 			emit_signal("released")
+			get_tree().set_input_as_handled()
 			# Release the input actions if they are being used
 			if use_input_actions:
 				Input.action_release(action_left)
@@ -152,6 +160,12 @@ func _input(event):
 				output = Vector2()
 			else:
 				output = vector.normalized() * ( (vector.length() - dead_zone_size) / (1 - dead_zone_size) )
+
+			# Emit the vector changed signal
+			emit_signal("input_vector_changed", output)
+			
+			# The event is handled
+			get_tree().set_input_as_handled()
 
 			# If input actions should be used
 			if use_input_actions:

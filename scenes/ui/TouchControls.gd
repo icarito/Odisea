@@ -41,6 +41,8 @@ var active_touch_controls = 0
 # --- Lifecycle ---
 func _ready():
 	instance = self
+	left_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	right_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	yield(get_tree(), "idle_frame")
 	_build_controls_from_json()
 	_init_hide_timer()
@@ -232,7 +234,7 @@ func _create_element(data: Dictionary) -> Control:
 		"JOYSTICK":
 			control_node = JoystickScene.instance()
 			control_node.name = id
-			control_node.use_input_actions = true
+			control_node.use_input_actions = false
 			control_node.action_left = action_mapping["joystick"]["left"]
 			control_node.action_right = action_mapping["joystick"]["right"]
 			control_node.action_up = action_mapping["joystick"]["up"]
@@ -376,10 +378,15 @@ func _on_button_released(action: String):
 		_restart_hide_timer()
 
 func _on_joystick_pressed(id: String):
-	pass
-	# No need for active_touch_controls
+	active_touch_controls += 1
+	if active_touch_controls == 1 and not controls_visible:
+		_set_controls_visible(true)
 
 func _on_joystick_released(id: String):
+	active_touch_controls -= 1
+	if active_touch_controls == 0:
+		_restart_hide_timer()
+
 	# Resetear ejes a 0
 	var event_x = InputEventJoypadMotion.new()
 	event_x.device = 0
