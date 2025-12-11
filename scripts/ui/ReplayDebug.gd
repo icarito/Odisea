@@ -88,4 +88,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		if get_tree().current_scene.name != "Menu":
 			print("ReplayDebug: Toggle pressed, visibility: ", not $PanelContainer.is_visible())
 			$PanelContainer.set_visible(not $PanelContainer.is_visible())
+			ReplayManager.is_replay_debug_visible = $PanelContainer.is_visible()
+			get_node("/root/MouseCapture").show_cursor($PanelContainer.is_visible())
 			get_tree().set_input_as_handled()
