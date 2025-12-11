@@ -52,23 +52,25 @@ func _input(event):
 		position = event.position
 		clamp_cursor_to_screen()
 	
-	# Gestionar los clics de joystick (izquierdo y derecho)
-	# Usamos _input() para que tenga prioridad sobre la UI.
-	if event is InputEventJoypadButton:
+	# Handle joystick clicks (left and right) using Input Actions for flexibility.
+	# We check for the actions themselves, which works for both press and release events.
+	if event.is_action("cursor_click_primary") or event.is_action("cursor_click_secondary"):
 		var mouse_button_index = 0
-		# Mapeamos botones del joystick a botones del ratón.
-		# Es mejor usar Input Actions para esto, pero por ahora usamos los índices.
-		if event.button_index == JOY_BUTTON_0: # Botón A (normalmente)
+		if event.is_action("cursor_click_primary"):
 			mouse_button_index = BUTTON_LEFT
-		elif event.button_index == JOY_BUTTON_1: # Botón B (normalmente)
+		else: # It must be the secondary action
 			mouse_button_index = BUTTON_RIGHT
 		
-		if mouse_button_index != 0:
-			var click_event = InputEventMouseButton.new()
-			click_event.button_index = mouse_button_index
-			click_event.pressed = event.is_pressed()
-			click_event.position = position
-			get_tree().input_event(click_event)
+		# Create a new mouse button event and dispatch it
+		var click_event = InputEventMouseButton.new()
+		click_event.button_index = mouse_button_index
+		click_event.pressed = event.is_pressed()
+		click_event.position = position
+		get_tree().input_event(click_event)
+		
+		# We accept the event to prevent it from being processed further,
+		# avoiding potential double inputs if the same button is mapped elsewhere.
+		get_tree().set_input_as_handled()
 
 
 func _process_joystick_input(delta):

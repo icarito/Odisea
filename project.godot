@@ -1155,6 +1155,16 @@ roll={
 "deadzone": 0.5,
 "events": [  ]
 }
+cursor_click_primary={
+"deadzone": 0.5,
+"events": [ Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":0,"pressure":0.0,"pressed":false,"script":null)
+ ]
+}
+cursor_click_secondary={
+"deadzone": 0.5,
+"events": [ Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":1,"pressure":0.0,"pressed":false,"script":null)
+ ]
+}
 
 [input_devices]
 
