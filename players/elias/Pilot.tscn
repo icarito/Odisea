@@ -221,13 +221,11 @@ springarm_path = NodePath("Yaw/Pitch/SpringArm")
 camera_path = NodePath("Yaw/Pitch/SpringArm/Camera")
 yaw_sensitivity = 0.66
 pitch_sensitivity = 0.54
-pitch_limit_up_deg = 45.0
-pitch_limit_down_deg = 35.0
+pitch_limit_up_deg = 70.0
+pitch_limit_down_deg = 80.0
 base_length = 3.0
 max_length = 8.0
 zoom_speed = 2.0
-crop_margin_horizontal = 0.2
-crop_margin_vertical = 0.1
 
 [node name="Yaw" type="Spatial" parent="CameraRig"]
 
