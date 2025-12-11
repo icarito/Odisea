@@ -50,6 +50,7 @@ func respawn_player() -> void:
 			print("[PlayerManager] spawned_player: ", spawned_player)
 			spawned_player.set_physics_process(true)
 		emit_signal("player_respawned")
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 func set_respawn_point(new_respawn_point: Transform) -> void:
 	respawn_point = new_respawn_point
