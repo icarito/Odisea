@@ -13,7 +13,7 @@ func _ready():
 	
 	# Set font
 	var font = DynamicFont.new()
-	font.font_data = load("res://assets/fonts/Titles.tres")
+	font.font_data = load("res://assets/fonts/SixtyFour-Regular-FontData.tres")
 
 	if font.font_data != null:
 		font.size = 95
