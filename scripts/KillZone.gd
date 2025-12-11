@@ -66,4 +66,11 @@ func setup_killzones():
 	if GameGlobals.current_mode != GameGlobals.GAME_MODE.COPILOT:
 		death_screen = preload("res://scenes/ui/DeathScreen.tscn").instance()
 		get_tree().get_root().add_child(death_screen)
+		death_screen.connect("respawn_requested", self, "_on_death_screen_respawn_requested")
 		print("[KillZone] DeathScreen instanced and added to root.")
+
+func _on_death_screen_respawn_requested():
+	var player = null
+	if typeof(PlayerManager) != TYPE_NIL and PlayerManager.is_spawned():
+		player = PlayerManager.get_player()
+	respawn(player)
