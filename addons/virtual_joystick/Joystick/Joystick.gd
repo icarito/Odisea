@@ -98,6 +98,7 @@ func _input(event):
 	if event is InputEventScreenTouch:
 		# If the event is a pressed event and no touch is being tracked
 		if event.pressed and touch_id == -1:
+			print("[Joystick] Press event, index: ", event.index, " pos: ", event.position)
 			# If the joystick is dynamic
 			if joystick_mode == JoystickMode.DYNAMIC:
 				# Set the joystick position to the touch position
@@ -109,6 +110,7 @@ func _input(event):
 			if distance <= background_radius:
 				# Start tracking the touch
 				touch_id = event.index
+				print("[Joystick] Touch started, touch_id: ", touch_id)
 				# Emit the pressed signal
 				emit_signal("pressed")
 				# The event is handled
@@ -116,6 +118,7 @@ func _input(event):
 
 		# If the event is a released event and the touch is being tracked
 		elif not event.pressed and event.index == touch_id:
+			print("[Joystick] Release event, index: ", event.index, " touch_id: ", touch_id)
 			# Stop tracking the touch
 			touch_id = -1
 			# Reset the output
@@ -137,11 +140,13 @@ func _input(event):
 				Input.action_release(action_right)
 				Input.action_release(action_up)
 				Input.action_release(action_down)
+			print("[Joystick] Touch stopped.")
 
 	# If the event is a drag event
 	if event is InputEventScreenDrag:
 		# If the touch is being tracked
 		if event.index == touch_id:
+			print("[Joystick] Drag event, index: ", event.index, " pos: ", event.position)
 			# Calculate the vector from the center of the joystick to the touch position
 			var local_event_pos = make_input_local(event).position
 			var center = Vector2(background_radius, background_radius)
@@ -163,6 +168,7 @@ func _input(event):
 
 			# Emit the vector changed signal
 			emit_signal("input_vector_changed", output)
+			print("[Joystick] Emitted vector: ", output)
 			
 			# The event is handled
 			get_tree().set_input_as_handled()
