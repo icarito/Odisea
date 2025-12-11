@@ -83,7 +83,7 @@ var movement = Vector3()
 var vertical_velocity = Vector3()
 
 # Touch camera control
-export var touch_sensitivity := 0.005
+export var touch_sensitivity := 0.1
 
 var angular_acceleration = 10
 export(float, 0.0, 10.0, 0.1) var tank_turn_speed := 0.3
@@ -117,6 +117,8 @@ var has_seen_floor_once := false
 var time_since_start := 0.0
 export var startup_floating_block_time := 0.6
 var _debug_input_last := 0.0
+
+var _touch_camera_connected := false
 
 var direction := Vector3.ZERO
 var horizontal_velocity := Vector3.ZERO
@@ -181,8 +183,6 @@ func _ready():
 		add_child(debug_timer)
 		debug_timer.start()
 
-	call_deferred("_connect_touch_camera")
-
 	# Inicializar condiciones del AnimationTree para evitar entrar en Swim al inicio
 	if animation_tree:
 		animation_tree["parameters/conditions/IsOnFloor"] = true
@@ -191,17 +191,20 @@ func _ready():
 	# Inicialización simple: nada que suavizar del yaw del cuerpo
 
 func _connect_touch_camera():
-	var touch_controls = get_tree().get_root().get_node_or_null("TouchControls")
+	var current_scene = get_tree().current_scene
+	var touch_controls = current_scene.find_node("TouchControls", true, false)
 	if touch_controls:
 		var camera_input = touch_controls.get_node_or_null("CameraInput")
 		if camera_input:
-			camera_input.connect("camera_vector_changed", self, "_on_CameraInput_camera_vector_changed")
+			if not camera_input.is_connected("camera_vector_changed", self, "_on_CameraInput_camera_vector_changed"):
+				var err = camera_input.connect("camera_vector_changed", self, "_on_CameraInput_camera_vector_changed")
+				if err == OK:
+					_touch_camera_connected = true
 
 func _on_CameraInput_camera_vector_changed(vector):
 	var cam_rig = get_node_or_null("CameraRig")
-	if cam_rig:
-		if cam_rig.has_method("process_camera_rotation"):
-			cam_rig.process_camera_rotation(vector * touch_sensitivity)
+	if cam_rig and cam_rig.has_method("process_camera_rotation"):
+		cam_rig.process_camera_rotation(vector * touch_sensitivity)
 
 func _on_debug_mode_changed(enabled: bool):
 	debug_enabled = enabled
@@ -340,6 +343,9 @@ func _align_camera_to_body():
 var _last_input_state := {}
 
 func _physics_process(delta):
+	if not _touch_camera_connected:
+		_connect_touch_camera()
+
 	rollattack()
 	bigattack()
 	attack1()
