@@ -55,6 +55,9 @@ var output = Vector2()
 # A unique id for the touch event, so multiple joysticks can be used on the same screen
 var touch_id = -1
 
+# A timer to debounce the release event
+var release_timer = Timer.new()
+
 enum JoystickMode {FIXED, DYNAMIC}
 enum VisibilityMode {ALWAYS, TOUCHSCREEN_ONLY}
 
@@ -118,29 +121,38 @@ func _input(event):
 
 		# If the event is a released event and the touch is being tracked
 		elif not event.pressed and event.index == touch_id:
-			print("[Joystick] Release event, index: ", event.index, " touch_id: ", touch_id)
-			# Stop tracking the touch
-			touch_id = -1
-			# Reset the output
-			output = Vector2()
-			# Emit the vector changed signal
-			emit_signal("input_vector_changed", output)
-			# Center the handle
-			handle.rect_position = Vector2(background_radius - handle_radius, background_radius - handle_radius)
-			# If the joystick is dynamic
-			if joystick_mode == JoystickMode.DYNAMIC:
-				# hide the joystick
-				hide()
-			# Emit the released signal
-			emit_signal("released")
-			get_tree().set_input_as_handled()
-			# Release the input actions if they are being used
-			if use_input_actions:
-				Input.action_release(action_left)
-				Input.action_release(action_right)
-				Input.action_release(action_up)
-				Input.action_release(action_down)
-			print("[Joystick] Touch stopped.")
+			# If this was the last touch on the screen, it's a real release
+			if TouchCounter.get_touch_count() == 0:
+				print("[Joystick] Real release event, index: ", event.index, " touch_id: ", touch_id)
+				# Stop tracking the touch
+				touch_id = -1
+				# Reset the output
+				output = Vector2()
+				# Emit the vector changed signal
+				emit_signal("input_vector_changed", output)
+				# Center the handle
+				handle.rect_position = Vector2(background_radius - handle_radius, background_radius - handle_radius)
+				# If the joystick is dynamic
+				if joystick_mode == JoystickMode.DYNAMIC:
+					# hide the joystick
+					hide()
+				# Emit the released signal
+				emit_signal("released")
+				get_tree().set_input_as_handled()
+				# Release the input actions if they are being used
+				if use_input_actions:
+					Input.action_release(action_left)
+					Input.action_release(action_right)
+					Input.action_release(action_up)
+					Input.action_release(action_down)
+				print("[Joystick] Touch stopped.")
+			else:
+				# This was likely a spurious release, as another touch is still active.
+				# Just reset the touch_id to allow a new touch to be acquired, but don't reset the output vector
+				# to prevent player stutter or emit the released signal.
+				print("[Joystick] Spurious release event ignored, index: ", event.index, " touch_id: ", touch_id)
+				touch_id = -1
+				get_tree().set_input_as_handled()
 
 	# If the event is a drag event
 	if event is InputEventScreenDrag:

@@ -1000,6 +1000,7 @@ PlayerManager="*res://autoload/PlayerManager.gd"
 SceneManager="*res://autoload/SceneManager.gd"
 AudioSystem="*res://autoload/AudioSystem.gd"
 UIManager="*res://autoload/UIManager.gd"
+TouchCounter="*res://autoload/TouchCounter.gd"
 
 [debug]
 
