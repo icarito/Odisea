@@ -1010,12 +1010,13 @@ keep_debug_server_open=true
 
 window/size/width=640
 window/size/height=480
+window/size/fullscreen=true
 window/size/always_on_top=true
 window/size/test_width=1280
 window/size/test_height=960
 window/vsync/vsync_via_compositor=true
 window/stretch/mode="viewport"
-window/stretch/aspect="keep_height"
+window/stretch/aspect="expand"
 
 [global]
 
