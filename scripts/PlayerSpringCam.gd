@@ -122,7 +122,31 @@ func _physics_process(delta):
 		print("[PlayerSpringCam] First frame: Initialized camera with local yaw offset: ", rad2deg(initial_offset))
 		_yaw_initialized = true
 	# ---------------------------------
-
+	# Control de rotación de cámara
+	var touch_controls = null
+	if has_node("/root/TouchControls"):
+		touch_controls = get_node("/root/TouchControls")
+	var use_joy_for_camera = touch_controls and touch_controls.is_touch_controls_active()
+	
+	if use_joy_for_camera:
+		# Usar ejes del joypad para rotar la cámara cuando touch active
+		var joy_x = Input.get_joy_axis(joypad_device, JOY_AXIS_0)  # Eje izquierdo X
+		var joy_y = Input.get_joy_axis(joypad_device, JOY_AXIS_1)  # Eje izquierdo Y
+		var deadzone = 0.2
+		
+		if abs(joy_x) > deadzone:
+			target_yaw -= joy_x * yaw_sensitivity * 1000 * delta
+		if abs(joy_y) > deadzone:
+			target_pitch += joy_y * pitch_sensitivity * 1000 * delta
+	else:
+		# Usar mouse para player 1 si no touch
+		if player_id == 1:
+			var mouse_x = Input.get_action_strength("lookleft") - Input.get_action_strength("lookright")
+			var mouse_y = Input.get_action_strength("lookup") - Input.get_action_strength("lookdown")
+			target_yaw -= mouse_x * yaw_sensitivity * 1000 * delta
+			target_pitch += mouse_y * pitch_sensitivity * 1000 * delta
+	
+	# Para player 2, siempre usar joy
 	if player_id == 2:
 		var joy_x = Input.get_joy_axis(joypad_device, JOY_AXIS_0)
 		var joy_y = Input.get_joy_axis(joypad_device, JOY_AXIS_1)

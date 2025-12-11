@@ -367,7 +367,7 @@ func _on_button_pressed(action: String):
 	active_touch_controls += 1
 	if active_touch_controls == 1 and not controls_visible:
 		_set_controls_visible(true)
-	_restart_hide_timer()
+	# No reiniciar timer aquí, se inicia solo al soltar todo
 
 func _on_button_released(action: String):
 	Input.action_release(action)
@@ -376,31 +376,38 @@ func _on_button_released(action: String):
 		_restart_hide_timer()
 
 func _on_joystick_pressed(id: String):
-	active_touch_controls += 1
-	if active_touch_controls == 1 and not controls_visible:
-		_set_controls_visible(true)
-	_restart_hide_timer()
-	# print("Joystick pressed: ", id)
+	pass
+	# No need for active_touch_controls
 
 func _on_joystick_released(id: String):
-	active_touch_controls -= 1
-	if active_touch_controls == 0:
-		_restart_hide_timer()
-	# Reset actions to 0
-	var actions = action_mapping["joystick"]
-	Input.action_press(actions["left"], 0)
-	Input.action_press(actions["right"], 0)
-	Input.action_press(actions["up"], 0)
-	Input.action_press(actions["down"], 0)
+	# Resetear ejes a 0
+	var event_x = InputEventJoypadMotion.new()
+	event_x.device = 0
+	event_x.axis = JOY_AXIS_0
+	event_x.axis_value = 0.0
+	Input.parse_input_event(event_x)
+	
+	var event_y = InputEventJoypadMotion.new()
+	event_y.device = 0
+	event_y.axis = JOY_AXIS_1
+	event_y.axis_value = 0.0
+	Input.parse_input_event(event_y)
 	# print("Joystick released: ", id)
 
 func _on_joystick_vector_changed(vector: Vector2, id: String):
-	var actions = action_mapping["joystick"]
-	Input.action_press(actions["left"], max(0, -vector.x))
-	Input.action_press(actions["right"], max(0, vector.x))
-	Input.action_press(actions["up"], max(0, -vector.y))
-	Input.action_press(actions["down"], max(0, vector.y))
-	_restart_hide_timer()
+	# Emitir eventos de joypad para simular un joystick analógico
+	var event_x = InputEventJoypadMotion.new()
+	event_x.device = 0  # Dispositivo virtual
+	event_x.axis = JOY_AXIS_0  # Eje X izquierdo
+	event_x.axis_value = vector.x
+	Input.parse_input_event(event_x)
+	
+	var event_y = InputEventJoypadMotion.new()
+	event_y.device = 0
+	event_y.axis = JOY_AXIS_1  # Eje Y izquierdo
+	event_y.axis_value = vector.y
+	Input.parse_input_event(event_y)
+	# No reiniciar timer aquí
 
 func parse_color(color_val):
 	if typeof(color_val) != TYPE_INT and typeof(color_val) != TYPE_REAL:
