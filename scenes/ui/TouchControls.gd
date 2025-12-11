@@ -30,10 +30,12 @@ onready var right_controls = $RightPanel/Controls
 
 ## --- Exported Variables ---
 export var hide_delay: float = 2.0 setget set_hide_delay # Segundos antes de ocultar controles
+export var debug_interval: float = 0.5 # Intervalo para logs de debug
 
 # --- Private Variables ---
 var controls_visible = false
 var hide_timer: Timer = null
+var last_debug_print_time: float = 0.0
 # Frame hasta el cual ignorar eventos de mouse tras liberar mouse
 var _ignore_mouse_until_frame := 0
 var active_touch_controls = 0
@@ -365,11 +367,12 @@ func _on_hide_timer_timeout():
 
 
 func _on_button_pressed(action: String):
+	if hide_timer:
+		hide_timer.stop()
 	Input.action_press(action)
 	active_touch_controls += 1
 	if active_touch_controls == 1 and not controls_visible:
 		_set_controls_visible(true)
-	# No reiniciar timer aquí, se inicia solo al soltar todo
 
 func _on_button_released(action: String):
 	Input.action_release(action)
@@ -378,6 +381,8 @@ func _on_button_released(action: String):
 		_restart_hide_timer()
 
 func _on_joystick_pressed(id: String):
+	if hide_timer:
+		hide_timer.stop()
 	active_touch_controls += 1
 	if active_touch_controls == 1 and not controls_visible:
 		_set_controls_visible(true)
@@ -402,7 +407,11 @@ func _on_joystick_released(id: String):
 	# print("Joystick released: ", id)
 
 func _on_joystick_vector_changed(vector: Vector2, id: String):
-	print("[TouchControls] vector_changed: ", vector, " from: ", id)
+	var current_time = OS.get_ticks_msec() / 1000.0
+	if current_time - last_debug_print_time > debug_interval:
+		last_debug_print_time = current_time
+		print("[TouchControls] vector_changed: ", vector, " from: ", id)
+
 	# Emitir eventos de joypad para simular un joystick analógico
 	var event_x = InputEventJoypadMotion.new()
 	event_x.device = 0  # Dispositivo virtual
