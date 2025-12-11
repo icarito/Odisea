@@ -12,8 +12,8 @@ action_left = ""
 action_right = ""
 action_up = ""
 action_down = ""
-dead_zone_size = 0.1
-clamp_zone_size = 0.7
+dead_zone_size = 0.05
+clamp_zone_size = 0.5
 
 [node name="Background" type="TextureRect" parent="."]
 margin_right = 256.0

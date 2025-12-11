@@ -39,13 +39,11 @@ var last_debug_print_time: float = 0.0
 # Frame hasta el cual ignorar eventos de mouse tras liberar mouse
 var _ignore_mouse_until_frame := 0
 var active_touch_controls = 0
+var _previous_mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 # --- Lifecycle ---
 func _ready():
 	instance = self
-	left_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	right_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	
 	get_viewport().connect("size_changed", self, "_on_viewport_size_changed")
 	
 	yield(get_tree(), "idle_frame")
@@ -344,6 +342,9 @@ func _input(event):
 			return
 		if event.pressed:
 			_active_touches[event.index] = true
+			if _active_touches.size() == 1:
+				_previous_mouse_mode = Input.get_mouse_mode()
+				Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 			if not controls_visible:
 				_set_controls_visible(true)
 			# Evitar que el mouse genere eventos mientras controles touch están activos
@@ -353,6 +354,8 @@ func _input(event):
 			var prev_count = _active_touches.size()
 			if was_active:
 				_active_touches.erase(event.index)
+			if _active_touches.size() == 0:
+				Input.set_mouse_mode(_previous_mouse_mode)
 			# No reiniciar timer aquí, se hace en las señales de controles
 
 func _on_hide_timer_timeout():
