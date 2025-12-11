@@ -1,9 +1,10 @@
-[gd_scene load_steps=47 format=2]
+[gd_scene load_steps=48 format=2]
 
 [ext_resource path="res://scripts/PlayerController.gd" type="Script" id=1]
 [ext_resource path="res://scripts/PlayerSpringCam.gd" type="Script" id=2]
 [ext_resource path="res://players/elias/Pilot_asset.tscn" type="PackedScene" id=3]
 [ext_resource path="res://scripts/AnimationLoopFix.gd" type="Script" id=4]
+[ext_resource path="res://data/Curves/Exponential.tres" type="Curve" id=5]
 [ext_resource path="res://materials/shadow/FakeShadow.tres" type="Material" id=52]
 [ext_resource path="res://scripts/PlayerMovement.gd" type="Script" id=53]
 [ext_resource path="res://scripts/multiplayer/PlayerInput.gd" type="Script" id=65]
@@ -192,9 +193,6 @@ PlayerCharacterMesh = NodePath("PilotMesh")
 gravity = 9.0
 jump_force = 12
 max_platform_up_follow = 30.0
-debug_movement = true
-debug_input = true
-debug_enabled = true
 tank_turn_speed = 2.0
 advancing_turn_speed = 3.7
 cam_yaw_offset = 0.76
@@ -202,6 +200,8 @@ debug_interval = 1.12
 
 [node name="PlayerInput" type="Node" parent="."]
 script = ExtResource( 65 )
+debug_input = false
+acceleration_curve = ExtResource( 5 )
 
 [node name="PlayerMovement" type="Node" parent="."]
 script = ExtResource( 53 )
@@ -223,8 +223,8 @@ yaw_sensitivity = 0.66
 pitch_sensitivity = 0.54
 pitch_limit_up_deg = 70.0
 pitch_limit_down_deg = 80.0
-base_length = 3.0
-max_length = 8.0
+base_length = 5.0
+max_length = 10.0
 zoom_speed = 2.0
 
 [node name="Yaw" type="Spatial" parent="CameraRig"]
@@ -241,7 +241,7 @@ margin = 0.4
 [node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]
 transform = Transform( 1, -3.90799e-14, 8.52651e-14, 0, 1, 1.49012e-08, -1.42109e-14, -1.49012e-08, 1, 0, 0, 0 )
 current = true
-fov = 120.0
+fov = 65.0
 near = 0.1
 far = 10000.0
 
