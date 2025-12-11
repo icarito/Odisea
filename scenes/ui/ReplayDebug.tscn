@@ -2,70 +2,79 @@
 
 [ext_resource path="res://scripts/ui/ReplayDebug.gd" type="Script" id=1]
 
-[node name="ReplayDebug" type="PanelContainer"]
-size_flags_horizontal = 0
-size_flags_vertical = 0
+[node name="ReplayDebug" type="CanvasLayer"]
+layer = 100
 script = ExtResource( 1 )
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
+[node name="PanelContainer" type="PanelContainer" parent="."]
+visible = true
+rect_size = Vector2( 300, 200 )
+mouse_filter = 1
+size_flags_horizontal = 0
+size_flags_vertical = 0
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer"]
+[node name="Control" type="Control" parent="PanelContainer"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/Control"]
 margin_left = 7.0
 margin_top = 7.0
 margin_right = 174.0
 margin_bottom = 125.0
 
-[node name="RecordButton" type="Button" parent="CanvasLayer/VBoxContainer"]
-margin_right = 167.0
-margin_bottom = 20.0
+[node name="RecordButton" type="Button" parent="PanelContainer/Control/VBoxContainer"]
+margin_right = 262.0
+margin_bottom = 31.0
 text = "Start Recording"
 
-[node name="StopButton" type="Button" parent="CanvasLayer/VBoxContainer"]
-margin_top = 24.0
-margin_right = 167.0
-margin_bottom = 44.0
+[node name="StopButton" type="Button" parent="PanelContainer/Control/VBoxContainer"]
+margin_top = 35.0
+margin_right = 262.0
+margin_bottom = 66.0
 text = "Stop Recording/Playback"
 
-[node name="LoadButton" type="Button" parent="CanvasLayer/VBoxContainer"]
-margin_top = 48.0
-margin_right = 167.0
-margin_bottom = 68.0
+[node name="LoadButton" type="Button" parent="PanelContainer/Control/VBoxContainer"]
+margin_top = 70.0
+margin_right = 262.0
+margin_bottom = 101.0
 text = "Load Replay"
 
-[node name="HSeparator" type="HSeparator" parent="CanvasLayer/VBoxContainer"]
-margin_top = 72.0
-margin_right = 167.0
-margin_bottom = 76.0
+[node name="HSeparator" type="HSeparator" parent="PanelContainer/Control/VBoxContainer"]
+margin_top = 105.0
+margin_right = 262.0
+margin_bottom = 109.0
 
-[node name="PlaybackControls" type="HBoxContainer" parent="CanvasLayer/VBoxContainer"]
-margin_top = 80.0
-margin_right = 167.0
-margin_bottom = 100.0
+[node name="PlaybackControls" type="HBoxContainer" parent="PanelContainer/Control/VBoxContainer"]
+margin_top = 113.0
+margin_right = 262.0
+margin_bottom = 144.0
 
-[node name="PauseButton" type="Button" parent="CanvasLayer/VBoxContainer/PlaybackControls"]
-margin_right = 50.0
-margin_bottom = 20.0
+[node name="PauseButton" type="Button" parent="PanelContainer/Control/VBoxContainer/PlaybackControls"]
+margin_right = 63.0
+margin_bottom = 31.0
 text = "Pause"
 
-[node name="ResumeButton" type="Button" parent="CanvasLayer/VBoxContainer/PlaybackControls"]
-margin_left = 54.0
-margin_right = 118.0
-margin_bottom = 20.0
+[node name="ResumeButton" type="Button" parent="PanelContainer/Control/VBoxContainer/PlaybackControls"]
+margin_left = 67.0
+margin_right = 147.0
+margin_bottom = 31.0
 text = "Resume"
 
-[node name="StepButton" type="Button" parent="CanvasLayer/VBoxContainer/PlaybackControls"]
-margin_left = 122.0
-margin_right = 162.0
-margin_bottom = 20.0
+[node name="StepButton" type="Button" parent="PanelContainer/Control/VBoxContainer/PlaybackControls"]
+margin_left = 151.0
+margin_right = 200.0
+margin_bottom = 31.0
 text = "Step"
 
-[node name="FrameLabel" type="Label" parent="CanvasLayer/VBoxContainer"]
-margin_top = 104.0
-margin_right = 167.0
-margin_bottom = 118.0
+[node name="FrameLabel" type="Label" parent="PanelContainer/Control/VBoxContainer"]
+margin_top = 148.0
+margin_right = 262.0
+margin_bottom = 175.0
 text = "Frame: 0 / 0"
 
-[node name="FileDialog" type="FileDialog" parent="CanvasLayer"]
+[node name="FileDialog" type="FileDialog" parent="PanelContainer"]
 margin_left = 7.0
 margin_top = 7.0
 margin_right = 647.0

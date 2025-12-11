@@ -27,7 +27,7 @@ func _ready():
 	
 	get_viewport().connect("size_changed", self, "_on_viewport_size_changed")
 	clamp_cursor_to_screen()
-
+	
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):
