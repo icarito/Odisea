@@ -16,8 +16,8 @@ var action_mapping = {
 		"up": "forward",
 		"down": "backward"
 	},
-	"BTN_A": "jump",
-	"BTN_B": "sprint",
+	"BTN_A": "sprint",
+	"BTN_B": "jump",
 	"BTN_Y": "attack",
 	"BTN_X": "roll"
 }

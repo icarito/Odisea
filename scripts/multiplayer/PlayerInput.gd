@@ -6,7 +6,7 @@ class_name PlayerInput
 
 # ===== CONFIG =====
 export var use_mouse_input := true
-export var JOY_BUTTON_JUMP := 1
+export var JOY_BUTTON_JUMP := 0
 export var JOY_BUTTON_SPRINT := 4
 export var player_id := 1  # 1 o 2
 export var analog_sprint_threshold := 0.9
