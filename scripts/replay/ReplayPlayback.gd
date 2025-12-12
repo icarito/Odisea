@@ -24,6 +24,9 @@ var time_accumulator: float = 0.0
 var headless: bool = false
 var playback_start_time: int = 0
 
+var camera_rig: Node = null
+var player: Node = null
+
 func _debug_log(message: String) -> void:
 	if GameGlobals and GameGlobals.replay_debug_mode:
 		print("[ReplayPlayback] " + message)
@@ -42,7 +45,7 @@ func _physics_process(delta: float) -> void:
 		if time_accumulator >= recorded_delta:
 			_debug_log("ReplayPlayback _physics_process: Simulating frame " + str(frame_index))
 			_apply_inputs_from_frame(frame_data)
-			_simulate_frame(recorded_delta)
+			_simulate_frame(recorded_delta, frame_data)
 			time_accumulator -= recorded_delta
 		else:
 			# Not enough accumulated time to process the next frame, break the loop
@@ -71,6 +74,11 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	# Wait for one frame to ensure the entire scene tree is ready.
 	# This prevents "node not found" errors when accessing nodes immediately after a scene load.
 	yield(get_tree(), "idle_frame")
+	
+	# Update references after scene change
+	camera_rig = get_tree().get_root().find_node("CameraRig", true, false)
+	player = PlayerManager.get_player()
+	
 	_prepare_scene_for_playback()
 	
 	# The playback is loaded, but paused, waiting for the user to press play.
@@ -210,7 +218,7 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 			if player and player.has_node("PlayerInput"):
 				# Directly provide the mouse motion to the component that handles it.
 				player.get_node("PlayerInput").mouse_motion += mouse_motion
-func _simulate_frame(recorded_delta: float) -> void:
+func _simulate_frame(recorded_delta: float, frame_data: Dictionary) -> void:
 	_debug_log("Simulating frame " + str(frame_index))
 
 	var expected_time: float = current_replay.frames[frame_index].get("timestamp", 0.0)
@@ -224,6 +232,8 @@ func _simulate_frame(recorded_delta: float) -> void:
 
 	# Manually call _physics_process on the camera rig to simulate camera movement
 	var camera_rig = get_tree().get_root().find_node("CameraRig", true, false)
+	if camera_rig and frame_data.has("camera"):
+		camera_rig.set_replay_state(frame_data["camera"])
 	if camera_rig:
 		camera_rig._physics_process(recorded_delta)
 

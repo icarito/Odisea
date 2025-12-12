@@ -223,3 +223,21 @@ func _update_camera_fov():
 	var original_fov_rad = deg2rad(_original_fov)
 	var new_fov_rad = 2.0 * atan(tan(original_fov_rad / 2.0) * scale)
 	cam.fov = rad2deg(new_fov_rad)
+
+# Replay state methods
+func get_replay_state() -> Dictionary:
+	return {
+		"yaw": yaw.rotation.y if yaw else 0.0,
+		"pitch": pitch.rotation.x if pitch else 0.0,
+		"spring_length": springarm.spring_length if springarm else base_length
+	}
+
+func set_replay_state(state: Dictionary) -> void:
+	if state.has("yaw") and yaw:
+		yaw.rotation.y = state["yaw"]
+		target_yaw = state["yaw"]
+	if state.has("pitch") and pitch:
+		pitch.rotation.x = state["pitch"]
+		target_pitch = state["pitch"]
+	if state.has("spring_length") and springarm:
+		springarm.spring_length = state["spring_length"]
