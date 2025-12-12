@@ -29,6 +29,8 @@ var camera_rig: Node = null
 var player: Node = null
 var player_path: NodePath
 
+const ReplayUtils = preload("res://scripts/replay/ReplayUtils.gd")
+
 func _ready() -> void:
 	process_priority = -100  # Ensure replay logic runs before player physics
 	set_physics_process(false)
@@ -299,10 +301,10 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 	# --- APLICAR ESTADOS DE FÍSICA NO INPUTABLES ---
 	var player = PlayerManager.get_player()
 	if player and player.external_velocity and frame_data.has("player_external_velocity"):
-		player.external_velocity.velocity = frame_data["player_external_velocity"]
+		player.external_velocity.velocity = ReplayUtils.dict_to_vector3(frame_data["player_external_velocity"])
 
 	if player and frame_data.has("player_gravity_override"):
-		player.set("gravity_override", frame_data["player_gravity_override"])
+		player.set("gravity_override", ReplayUtils.dict_to_vector3(frame_data["player_gravity_override"]))
 
 	# Aplicar estado de la cámara
 	if frame_data.has("camera"):
@@ -327,8 +329,8 @@ func check_for_drift(frame_data: Dictionary) -> void:
 	if not recorded_state.has(str(player_path)):
 		return
 	
-	var expected_transform_string = recorded_state[str(player_path)]["global_transform"]
-	var expected_transform = str2var(expected_transform_string)
+	var expected_transform_dict = recorded_state[str(player_path)]["global_transform"]
+	var expected_transform = ReplayUtils.dict_to_transform(expected_transform_dict)
 	if not expected_transform is Transform:
 		return
 	
@@ -354,14 +356,11 @@ func _set_tracked_nodes_physics_process(enabled: bool) -> void:
 		node.set_physics_process(enabled)
 		print("[ReplayPlayback] _set_tracked_nodes_physics_process: Node ", node, " physics enabled? ", enabled, node.is_physics_processing())
 
-func _get_node_state(node: Node) -> Dictionary:
-	return get_node("/root/ReplayUtils").get_node_state(node)
-
 func _set_node_state(node: Node, state: Dictionary) -> void:
 	if node.has_method("set_replay_state"):
 		node.set_replay_state(state)
 		return
-	state = get_node("/root/ReplayUtils").from_json_safe(state) # Convert the entire state dictionary from JSON-safe types to Godot types
+	state = ReplayUtils.from_json_safe(state) # Convert the entire state dictionary from JSON-safe types to Godot types
 	for key in state:
 		if key == "global_transform" and node is Spatial:
 			var transform_val = state[key]
@@ -372,9 +371,15 @@ func _set_node_state(node: Node, state: Dictionary) -> void:
 					node.global_transform = parsed_val # Legacy support for old string formats
 			elif transform_val is Transform:
 				node.global_transform = transform_val
+			elif transform_val is Dictionary:
+				node.global_transform = ReplayUtils.dict_to_transform(transform_val)
 		elif key == "linear_velocity" and node is RigidBody:
 			if state[key] is Vector3:
 				node.linear_velocity = state[key]
+			elif state[key] is Dictionary:
+				node.linear_velocity = ReplayUtils.dict_to_vector3(state[key])
 		elif key == "angular_velocity" and node is RigidBody:
 			if state[key] is Vector3:
 				node.angular_velocity = state[key]
+			elif state[key] is Dictionary:
+				node.angular_velocity = ReplayUtils.dict_to_vector3(state[key])
