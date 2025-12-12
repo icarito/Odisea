@@ -15,6 +15,9 @@ var recording_paused: bool = false
 var current_replay: Resource = null
 var mouse_motion_this_frame := Vector2.ZERO
 var last_frame_data: Dictionary = {}
+var player: Node = null
+var camera_rig: Node = null
+var start_time: int = 0
 
 func _debug_log(message: String) -> void:
 	if GameGlobals and GameGlobals.replay_debug_mode:
@@ -30,18 +33,30 @@ func _physics_process(delta: float) -> void:
 
 func start_recording(): # This function now acts like a coroutine
 	# Defer the start of recording by one frame to ensure all Autoloads are ready.
+	_debug_log("Starting recording...")
+	start_time = Time.get_ticks_usec()
+	GameGlobals.is_recording = true
 	yield(get_tree(), "idle_frame")
 
-	_debug_log("Starting recording...")
-	
 	var replay = ReplayScript.new()
 	replay.scene_path = get_tree().current_scene.filename
 	replay.godot_version = Engine.get_version_info()["string"]
 	replay.timestamp = Time.get_datetime_string_from_unix_time(int(Time.get_unix_time_from_system()))
 
-	replay.initial_states = get_node("/root/ReplayUtils").to_json_safe(_get_all_tracked_node_states())
-	# Initialize last_frame_data with the initial state to allow skipping the very first frame if it's identical.
-	last_frame_data = {"nodes": replay.initial_states}
+	player = PlayerManager.get_player()
+	var initial = {}
+	if player:
+		initial[get_tree().current_scene.get_path_to(player)] = player.get_replay_state()
+	
+	# Add CameraRig state
+	camera_rig = get_tree().get_root().find_node("CameraRig", true, false)
+	if camera_rig and camera_rig.has_method("get_replay_state"):
+		initial[get_tree().current_scene.get_path_to(camera_rig)] = camera_rig.get_replay_state()
+	
+	replay.initial_states = get_node("/root/ReplayUtils").to_json_safe(initial)
+	# Initialize last_frame_data with an empty inputs dict. This ensures the first
+	# frame is always recorded and prevents a crash when accessing .inputs.
+	last_frame_data = {"inputs": {}}
 
 	current_replay = replay
 	set_physics_process(true)
@@ -66,6 +81,7 @@ func stop_recording() -> void:
 
 	current_replay = null
 	last_frame_data = {}
+	GameGlobals.is_recording = false
 
 
 func _record_frame(delta: float) -> void:
@@ -75,46 +91,27 @@ func _record_frame(delta: float) -> void:
 	var frame_data = {
 		"delta": delta,
 		"inputs": {},
-		"nodes": {}
+		# "nodes": {} # We no longer record node state per frame for an input-based replay
 	}
 
 	for action in INPUT_ACTIONS:
 		frame_data["inputs"][action] = Input.is_action_pressed(action)
 
 	frame_data["inputs"]["mouse_motion"] = mouse_motion_this_frame
+	frame_data["timestamp"] = Time.get_ticks_usec() - start_time
 	mouse_motion_this_frame = Vector2.ZERO
-
-	frame_data["nodes"] = get_node("/root/ReplayUtils").to_json_safe(_get_all_tracked_node_states())
-
-	# Compare only the node states, not the inputs, for more effective frame skipping.
-	if not current_replay.frames.empty() and not last_frame_data.empty() and _are_dictionaries_equal(frame_data["nodes"], last_frame_data["nodes"]):
-		var last_saved_frame = current_replay.frames[len(current_replay.frames) - 1]
-		if not last_saved_frame.has("skip"):
-			last_saved_frame["skip"] = 0
-		last_saved_frame["skip"] += 1
-		_debug_log("Frame skipped, new count: %d" % last_saved_frame["skip"])
-	else:
-		current_replay.frames.append(frame_data)
-		last_frame_data = frame_data
-
-
-func _get_all_tracked_node_states() -> Dictionary:
+	
+	current_replay.frames.append(frame_data)
+	last_frame_data = frame_data
+	
+	# Record states for drift measurement
 	var states = {}
-	var player = PlayerManager.get_player()
 	if player:
-		var path = get_tree().current_scene.get_path_to(player)
-		states[path] = _get_node_state(player)
-		_debug_log("Getting state for player at path: " + path)
+		states[get_tree().current_scene.get_path_to(player)] = player.get_replay_state()
+	if camera_rig and camera_rig.has_method("get_replay_state"):
+		states[get_tree().current_scene.get_path_to(camera_rig)] = camera_rig.get_replay_state()
+	current_replay.frame_states.append(states)
 
-	for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
-		var path = get_tree().current_scene.get_path_to(node)
-		if not states.has(path):
-			states[path] = _get_node_state(node)
-			_debug_log("Getting state for node in group: " + path)
-	return states
-
-func _get_node_state(node: Node) -> Dictionary:
-	return get_node("/root/ReplayUtils").get_node_state(node)
 
 func is_recording() -> bool:
 	return current_replay != null and not recording_paused

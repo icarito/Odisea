@@ -88,7 +88,19 @@ func _ready():
 	_update_camera_fov()
 
 func _on_UIManager_overlay_shown():
-	# Ya no controlamos el modo del mouse directamente aquí.
+	print("[PlayerSpringCam] Overlay shown, checking if recording...")
+	var overlay = get_tree().get_root().find_node("ReplayRecordingOverlay", true, false)
+	if overlay and overlay is Control:
+		if GameGlobals.is_recording:
+			overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			print("[PlayerSpringCam] Recording active, setting overlay to ignore mouse")
+		else:
+			overlay.mouse_filter = Control.MOUSE_FILTER_STOP  # Default
+			print("[PlayerSpringCam] Not recording, setting overlay to stop mouse")
+	if GameGlobals.is_recording:
+		print("[PlayerSpringCam] Recording active, keeping mouse captured")
+		return
+	print("[PlayerSpringCam] Not recording, releasing mouse")
 	# UIManager debería llamar a Global.mouse_capture.capture_mouse(false)
 	pass
 
