@@ -119,12 +119,16 @@ func _update_visibility():
 				frame_slider.visible = false
 				if status_label:
 					status_label.text = "Recording..."
+				# Allow mouse events to pass through to the game during recording
+				if recording_controls: recording_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			ReplayManager.ReplayMode.PLAYBACK:
 				recording_controls.visible = false
 				playback_controls.visible = true
 				frame_slider.visible = true
 				if status_label:
 					status_label.text = "Playback Mode"
+				# Capture mouse events for the playback UI
+				if playback_controls: playback_controls.mouse_filter = Control.MOUSE_FILTER_STOP
 	else:
 		recording_controls.visible = false
 		playback_controls.visible = false

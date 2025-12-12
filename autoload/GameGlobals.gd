@@ -11,6 +11,9 @@ var mouse_captured: bool = false setget set_mouse_captured
 var debug_mode: bool = true setget set_debug_mode
 var replay_debug_mode: bool = true setget set_replay_debug_mode
 
+# Recording state
+var is_recording: bool = false setget set_is_recording
+
 # Global pause state of the game (get_tree().paused).
 var is_paused: bool = false setget set_is_paused
 
@@ -47,6 +50,9 @@ func set_replay_debug_mode(value: bool) -> void:
 	if replay_debug_mode != value:
 		replay_debug_mode = value
 		emit_signal("replay_debug_mode_changed", replay_debug_mode)
+
+func set_is_recording(value: bool) -> void:
+	is_recording = value
 
 func set_is_paused(value: bool) -> void:
 	if is_paused != value:
