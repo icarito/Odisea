@@ -31,20 +31,20 @@ var player_path: NodePath
 
 func _ready() -> void:
 	process_priority = -100  # Ensure replay logic runs before player physics
+	set_physics_process(false)
 
 func _debug_log(message: String) -> void:
 	if GameGlobals and GameGlobals.replay_debug_mode:
 		print("[ReplayPlayback] " + message)
 
 func _physics_process(delta: float) -> void:
-	var player = PlayerManager.get_player()
-	if player:
-		player.set_physics_process(false)  # Ensure player's automatic physics is disabled
-		print("[ReplayPlayback] _physics_process: Player is_physics_processing=", player.is_physics_processing())
-
 	# Guard clause: Do nothing if there's no replay loaded or if it's paused.
 	if not current_replay or playback_paused:
 		return
+
+	var player = PlayerManager.get_player()
+	if player:
+		player.set_physics_process(false)  # Ensure player's automatic physics is disabled
 
 	# If we have reached the end of the replay, stop playback.
 	if frame_index >= total_logical_frames:
@@ -56,14 +56,40 @@ func _physics_process(delta: float) -> void:
 	
 	_debug_log("ReplayPlayback _physics_process: Simulating frame " + str(frame_index))
 
-	# PASO 1: Aplicar inputs grabados y estados de física
+	# 1. Aplicación de inputs (Mouse y Teclado)
+	var recorded_inputs = frame_data.inputs
+	print("[ReplayPlayback] Frame %d, Applying Mouse Motion: %s" % [frame_index, recorded_inputs.get("mouse_motion", Vector2.ZERO)])
 	_apply_inputs_from_frame(frame_data)
 
-	# PASO 2: Manually execute the Player's physics step using the recorded delta.
-	# This ensures perfect timing and execution for the current frame's input.
+	# 2. Simulación de física:
 	if player and player.has_method("_physics_process"):
 		player._physics_process(recorded_delta)
 
+	# 3. VERIFICACIÓN: Posición simulada vs. Posición registrada
+	var simulated_pos = player.global_transform.origin
+	var recorded_pos = Vector3.ZERO
+	if current_replay.frame_states.size() > frame_index:
+		var recorded_state = current_replay.frame_states[frame_index]
+		if recorded_state.has(str(player_path)):
+			var expected_transform_string = recorded_state[str(player_path)]["global_transform"]
+			var expected_transform = str2var(expected_transform_string)
+			if expected_transform is Transform:
+				recorded_pos = expected_transform.origin
+	print("[ReplayPlayback] SIMULATED Pos: %s | RECORDED Pos: %s" % [simulated_pos, recorded_pos])
+
+	# 4. Restauración del estado de la cámara (para puntería):
+	if frame_data.has("camera"):
+		var cam_data = frame_data["camera"]
+		var recorded_yaw = cam_data.get("yaw", 0.0)
+		print("[ReplayPlayback] RESTORING Camera/Player Yaw: %s" % [recorded_yaw])
+		if player:
+			player.rotation.y = recorded_yaw + PI
+			var camera_rig = player.get_node_or_null("CameraRig")
+			if camera_rig:
+				var yaw_node = camera_rig.get_node_or_null("Yaw")
+				if yaw_node:
+					yaw_node.rotation.y = recorded_yaw
+	
 	# PASO 3: Comprobar drift
 	check_for_drift(frame_data)
 
@@ -266,9 +292,9 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 		var mouse_motion = frame_data["inputs"]["mouse_motion"]
 		if mouse_motion is Vector2 and mouse_motion.length_squared() > 0:
 			var player = PlayerManager.get_player()
-			if player and player.has_node("PlayerInput"):
+			#if player and player.has_node("PlayerInput"):
 				# Directamente provee el mouse motion al componente que lo maneja.
-				player.get_node("PlayerInput").mouse_motion += mouse_motion
+				# player.get_node("PlayerInput").mouse_motion += mouse_motion # COMENTAR ESTO
 
 	# --- APLICAR ESTADOS DE FÍSICA NO INPUTABLES ---
 	var player = PlayerManager.get_player()

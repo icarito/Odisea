@@ -81,6 +81,7 @@ var is_rolling = false
 var aim_turn = 0.0
 var velocity = Vector3() # Replaces 'movement' and 'vertical_velocity' for move_and_slide
 var vertical_velocity = Vector3()
+var pre_move_velocity_for_replay = Vector3()
 
 # Touch camera control
 export var touch_sensitivity := 0.1
@@ -446,6 +447,8 @@ func _physics_process(delta):
 	
 	has_input = input_vector.length() > 0.1
 
+	print("[PlayerController] Raw Inputs: Fwd=%s, Left=%s, Sprint=%s" % [Input.is_action_pressed("forward"), Input.is_action_pressed("left"), is_sprinting])
+
 	# Control de movimiento y rotación
 	rotation.y += input_vector.x * turn_speed * delta
 	direction = Vector3(0, 0, -input_vector.y).rotated(Vector3.UP, rotation.y)
@@ -514,6 +517,7 @@ func _physics_process(delta):
 			horizontal_velocity = movement_comp.get_horizontal_velocity()
 			is_walking = movement_comp.is_walking
 			is_running = movement_comp.is_running
+			print("[PlayerController] Calculated Move Dir (from Cam/Player Rot): %s" % [direction])
 		else:
 			is_walking = false
 			is_running = false
@@ -532,13 +536,6 @@ func _physics_process(delta):
 		var parent_y = rotation.y  # rotación del KinematicBody (padre)
 		var local_target_y = global_target_y - parent_y
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, local_target_y, delta * angular_acceleration)
-	# Interpolación de hv hacia la velocidad objetivo
-	if movement_comp:
-		horizontal_velocity = movement_comp.horizontal_velocity
-
-	# Fricción fuerte: si no hay input y estamos en suelo
-	if not has_input and is_on_floor() and not is_attacking and not is_rolling:
-		horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, 60.0 * delta)
 
 	# Decaimiento de la velocidad de plataforma cuando no se actualiza
 	platform_velocity = platform_velocity.linear_interpolate(Vector3.ZERO, 6.0 * delta)
@@ -590,10 +587,15 @@ func _physics_process(delta):
 		if is_on_floor():
 			snap_enabled = true
 
+	print("[PlayerController] Pre-move: velocity=%s, on_floor=%s" % [velocity, is_on_floor()])
+	pre_move_velocity_for_replay = velocity
 	velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
+	print("[PlayerController] Post-move Pos (Simulated): %s" % [global_transform.origin])
 	
 	# Update horizontal_velocity from the result for the next frame
 	horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
+	if movement_comp:
+		movement_comp.horizontal_velocity = horizontal_velocity
 	
 	# Update vertical_velocity from the result of the slide for the next frame's gravity calculation
 	vertical_velocity.y = velocity.y
@@ -814,12 +816,15 @@ func get_replay_state() -> Dictionary:
 		
 	var state = {
 		"global_transform": global_transform,
+		"player_position": global_transform.origin,
 		"platform_velocity": platform_velocity,
 		"airborne_inherited": airborne_inherited,
 		"just_jumped": just_jumped,
 		"time_since_jump": time_since_jump,
 		"time_since_input": time_since_input,
 		"velocity": velocity, # Record the final velocity AFTER move_and_slide
+		"pre_move_velocity": pre_move_velocity_for_replay,
+		"calculated_direction": direction,
 	}
 	if jump_comp:
 		state["coyote_timer"] = jump_comp.coyote_timer

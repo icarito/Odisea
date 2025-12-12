@@ -25,6 +25,7 @@ func _debug_log(message: String) -> void:
 
 func _ready() -> void:
 	set_process_unhandled_input(true)
+	set_physics_process(false)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if is_recording() and event is InputEventMouseMotion:
@@ -89,7 +90,7 @@ func stop_recording() -> void:
 
 
 func _record_frame(delta: float) -> void:
-	_debug_log("Start of _record_frame: mouse_motion_this_frame = " + str(mouse_motion_this_frame))
+	# _debug_log("Start of _record_frame: mouse_motion_this_frame = " + str(mouse_motion_this_frame))
 	if not current_replay:
 		return
 	if GameGlobals and GameGlobals.is_replaying:
