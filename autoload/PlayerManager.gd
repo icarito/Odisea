@@ -74,6 +74,7 @@ func spawn(initial_transform: Transform) -> Node:
 	if is_spawned():
 		return player_reference
 	player_reference = player_scene.instance()
+	player_reference.name = "Pilot"
 	call_deferred("_deferred_spawn", initial_transform)
 	_initial_spawn_transform = initial_transform
 	return player_reference

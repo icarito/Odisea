@@ -66,16 +66,16 @@ func _physics_process(delta: float) -> void:
 		player._physics_process(recorded_delta)
 
 	# 3. VERIFICACIÓN: Posición simulada vs. Posición registrada
-	var simulated_pos = player.global_transform.origin
-	var recorded_pos = Vector3.ZERO
 	if current_replay.frame_states.size() > frame_index:
 		var recorded_state = current_replay.frame_states[frame_index]
-		if recorded_state.has(str(player_path)):
-			var expected_transform_string = recorded_state[str(player_path)]["global_transform"]
-			var expected_transform = str2var(expected_transform_string)
-			if expected_transform is Transform:
-				recorded_pos = expected_transform.origin
-	print("[ReplayPlayback] SIMULATED Pos: %s | RECORDED Pos: %s" % [simulated_pos, recorded_pos])
+		var player_data = recorded_state.get(str(player_path))
+		if player_data:
+			var recorded_pos_str = player_data.get("player_position")
+			print("[ReplayPlayback DEBUG] Player Data Exists: True | Raw Position String: %s" % str(recorded_pos_str))
+		else:
+			print("[ReplayPlayback DEBUG] Player Data Exists: False (Frame keys: %s)" % [recorded_state.keys()])
+	else:
+		print("[ReplayPlayback DEBUG] frame_states index out of bounds")
 
 	# 4. Restauración del estado de la cámara (para puntería):
 	if frame_data.has("camera"):
