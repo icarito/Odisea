@@ -11,11 +11,8 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 
 [node name="VBoxContainer" type="VBoxContainer" parent="Control"]
-anchor_top = 0.5
 anchor_bottom = 0.5
-margin_top = -100.0
 margin_right = 200.0
-margin_bottom = 100.0
 custom_constants/separation = 10
 
 [node name="StartRecordingButton" type="Button" parent="Control/VBoxContainer"]
@@ -52,28 +49,3 @@ margin_top = 348.0
 margin_right = 200.0
 margin_bottom = 385.0
 text = "Return to Menu"
-
-[node name="PlaybackControls" type="HBoxContainer" parent="Control/VBoxContainer"]
-margin_top = 301.0
-margin_right = 200.0
-margin_bottom = 338.0
-
-[node name="PauseButton" type="Button" parent="Control/VBoxContainer/PlaybackControls"]
-margin_right = 60.0
-margin_bottom = 37.0
-rect_min_size = Vector2( 60, 0 )
-text = "Pause"
-
-[node name="ResumeButton" type="Button" parent="Control/VBoxContainer/PlaybackControls"]
-margin_left = 64.0
-margin_right = 133.0
-margin_bottom = 37.0
-rect_min_size = Vector2( 60, 0 )
-text = "Resume"
-
-[node name="StepButton" type="Button" parent="Control/VBoxContainer/PlaybackControls"]
-margin_left = 137.0
-margin_right = 197.0
-margin_bottom = 37.0
-rect_min_size = Vector2( 60, 0 )
-text = "Step"
