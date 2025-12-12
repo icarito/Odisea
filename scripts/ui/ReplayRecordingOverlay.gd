@@ -68,7 +68,7 @@ func _on_playback_started(total_frames):
 func _on_frame_updated(frame, _total_frames):
 	if status_label:
 		status_label.text = "Playback: Frame %d / %d" % [frame, frame_slider.max_value]
-	if frame_slider and not frame_slider.is_grabbing():
+	if frame_slider and not frame_slider.has_focus(): 
 		frame_slider.value = frame
 
 
@@ -153,9 +153,9 @@ func _on_StepBackButton_pressed() -> void:
 		playback_node.step_back_frame()
 
 func _on_EjectButton_pressed() -> void:
-	var panel = get_node("/root/ReplayManagementPanel")
-	if panel:
-		panel.visible = true
+	#var panel = get_tree().current_scene.find_node("ReplayManagementPanel", true, false)
+	#if panel:
+	#	panel.visible = true
 	visible = false
 	UIManager.notify_overlay_hidden() # Manually notify since we are hiding
 	ReplayManager.reset_replay()

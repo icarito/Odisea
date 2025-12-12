@@ -31,21 +31,20 @@ func _unhandled_input(event: InputEvent) -> void:
 			visible = !visible
 			_set_touch_controls_active(!visible)
 			get_node("/root/MouseCapture").show_cursor(visible)
-			ReplayManager.is_replay_debug_visible = visible
 			
 			if visible:
 				_refresh_replay_list()
 				if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING:
-					ReplayManager.recording_paused = true
+					ReplayManager.recorder.recording_paused = true
 				elif ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
-					ReplayManager.playback_paused = true
+					ReplayManager.get_playback_node().pause_playback()
 			else:
 				if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING:
-					ReplayManager.recording_paused = false
+					ReplayManager.recorder.recording_paused = false
 				elif ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
-					ReplayManager.playback_paused = false
+					ReplayManager.get_playback_node().resume_playback()
 				else: # ReplayMode.NONE
-					ReplayManager.finish_replay_session()
+					ReplayManager.reset_replay()
 
 			get_tree().set_input_as_handled()
 
