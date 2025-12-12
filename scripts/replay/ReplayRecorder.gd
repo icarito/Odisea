@@ -23,7 +23,10 @@ func _debug_log(message: String) -> void:
 	if GameGlobals and GameGlobals.replay_debug_mode:
 		print("[ReplayRecorder] " + message)
 
-func _unhandled_input(event: InputEvent) -> void:
+func _ready() -> void:
+	set_process_input(true)
+
+func _input(event: InputEvent) -> void:
 	if is_recording() and event is InputEventMouseMotion:
 		mouse_motion_this_frame += event.relative
 
@@ -36,7 +39,6 @@ func start_recording(): # This function now acts like a coroutine
 	_debug_log("Starting recording...")
 	start_time = Time.get_ticks_usec()
 	GameGlobals.is_recording = true
-	yield(get_tree(), "idle_frame")
 
 	var replay = ReplayScript.new()
 	replay.scene_path = get_tree().current_scene.filename
@@ -60,6 +62,7 @@ func start_recording(): # This function now acts like a coroutine
 
 	current_replay = replay
 	set_physics_process(true)
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func stop_recording() -> void:
 	_debug_log("Stopping recording.")

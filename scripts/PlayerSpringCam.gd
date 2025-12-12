@@ -64,55 +64,26 @@ func _ready():
 		springarm.spring_length = base_length
 		springarm.collision_mask = collision_mask
 
-	if Engine.has_singleton("UIManager"):
-		UIManager.connect("overlay_shown", self, "_on_UIManager_overlay_shown")
-		UIManager.connect("overlay_hidden", self, "_on_UIManager_overlay_hidden")
+	# Conectarse a la señal de GameGlobals para el cambio de captura del mouse
+	if GameGlobals:
+		GameGlobals.connect("mouse_captured_changed", self, "_on_global_mouse_captured_changed")
 
-	# Conectarse a las señales globales de captura de mouse
-	if Engine.has_singleton("Global"):
-		var g = Engine.get_singleton("Global")
-		if g.has("mouse_capture") and g.mouse_capture:
-			g.mouse_capture.connect("mouse_captured", self, "_on_mouse_captured")
-			g.mouse_capture.connect("mouse_released", self, "_on_mouse_released")
-		
-	if pitch:
-		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
-		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
-		target_pitch = clamp(pitch.rotation.x, -lim_down, lim_up)
-	
-	if cam:
-		_original_fov = cam.fov
-	
-	if is_inside_tree():
-		get_viewport().connect("size_changed", self, "_update_camera_fov")
-	_update_camera_fov()
+	# Conectarse a ReplayManager para cambios de modo
+	if ReplayManager:
+		ReplayManager.connect("mode_changed", self, "_on_replay_mode_changed")
 
-func _on_UIManager_overlay_shown():
-	print("[PlayerSpringCam] Overlay shown, checking if recording...")
-	var overlay = get_tree().get_root().find_node("ReplayRecordingOverlay", true, false)
-	if overlay and overlay is Control:
-		if GameGlobals.is_recording:
-			overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			print("[PlayerSpringCam] Recording active, setting overlay to ignore mouse")
-		else:
-			overlay.mouse_filter = Control.MOUSE_FILTER_STOP  # Default
-			print("[PlayerSpringCam] Not recording, setting overlay to stop mouse")
-	if GameGlobals.is_recording:
-		print("[PlayerSpringCam] Recording active, keeping mouse captured")
-		return
-	print("[PlayerSpringCam] Not recording, releasing mouse")
-	# UIManager debería llamar a Global.mouse_capture.capture_mouse(false)
-	pass
+	_update_mouse_look_active()
 
-func _on_UIManager_overlay_hidden():
-	# UIManager debería llamar a Global.mouse_capture.capture_mouse(true)
-	pass
+func _on_global_mouse_captured_changed(is_captured: bool):
+	_update_mouse_look_active()
 
-func _on_mouse_captured():
-	_is_mouse_look_active = true
+func _on_replay_mode_changed(new_mode: int):
+	_update_mouse_look_active()
 
-func _on_mouse_released():
-	_is_mouse_look_active = false
+func _update_mouse_look_active():
+	var is_captured = GameGlobals.mouse_captured if GameGlobals else false
+	var is_not_playback = ReplayManager.mode != ReplayManager.ReplayMode.PLAYBACK if ReplayManager else true
+	_is_mouse_look_active = is_captured and is_not_playback
 
 func process_camera_rotation(motion: Vector2):
 	"""Procesa el movimiento del mouse/touch para rotar la cámara."""

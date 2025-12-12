@@ -148,18 +148,12 @@ func set_external_velocity(v: Vector3) -> void:
 		platform_velocity = v
 
 func _ready():
-	# If this scene is being run directly, switch to the test scene
-	# This check is to allow testing the player scene directly.
-	# It changes to a test scene only if the player's scene file is the one being run.
-	if owner and owner == get_tree().current_scene:
-		get_tree().change_scene("res://players/TestScene.tscn")
-		return # Stop further execution of _ready
-
-
 	# Connect to GameGlobals for debug mode
 	if GameGlobals:
 		debug_enabled = GameGlobals.debug_mode
 		GameGlobals.connect("debug_mode_changed", self, "_on_debug_mode_changed")
+		# Set mouse capture immediately
+		GameGlobals.mouse_captured = true
 
 	if UIManager:
 		UIManager.connect("overlay_shown", self, "_on_UIManager_overlay_shown")
@@ -194,6 +188,7 @@ func _ready():
 		animation_tree["parameters/conditions/IsInAir"] = false
 		animation_tree["parameters/conditions/IsFloating"] = false
 	# Inicialización simple: nada que suavizar del yaw del cuerpo
+	
 
 func _connect_touch_camera():
 	var current_scene = get_tree().current_scene
@@ -237,14 +232,15 @@ func _on_UIManager_overlay_hidden():
 	_is_ui_overlay_active = false
 
 func _input(event):
-	# Ignorar input si hay un overlay de UI activo
-	if _is_ui_overlay_active:
-		return
-	# Capturar movimiento del mouse solo si el PlayerInput de este jugador está configurado para usarlo.
+	# Capturar movimiento del mouse siempre, incluso durante overlays
 	if player_input and player_input.use_mouse_input and event is InputEventMouseMotion:
 		# En lugar de pasarlo a una variable 'aim_turn' que no se usa,
 		# lo pasamos directamente al componente de input para que lo procese.
 		player_input.mouse_motion += event.relative
+
+	# Ignorar otros inputs si hay un overlay de UI activo
+	if _is_ui_overlay_active:
+		return
 
 	if event.is_action_pressed("aim"):
 		# Al entrar en aim, sincronizar cámara con el cuerpo usando el offset
