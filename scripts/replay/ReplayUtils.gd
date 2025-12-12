@@ -69,10 +69,21 @@ static func from_json_safe(data):
 			result[key] = from_json_safe(data[key])
 		# Check if it's a Vector3 dict
 		if result.has("x") and result.has("y") and result.has("z") and result.size() == 3:
-			return Vector3(result["x"], result["y"], result["z"])
+			var x = result.get("x")
+			var y = result.get("y")
+			var z = result.get("z")
+			if x is float and y is float and z is float:
+				return Vector3(x, y, z)
+			else:
+				return Vector3.ZERO
 		# Check if it's a Transform dict
 		if result.has("basis") and result.has("origin"):
-			return dict_to_transform(result)
+			var basis = result.get("basis")
+			var origin = result.get("origin")
+			if basis is Dictionary and origin is Dictionary:
+				return dict_to_transform(result)
+			else:
+				return Transform.IDENTITY
 		return result
 	elif data is Array:
 		var result = []
