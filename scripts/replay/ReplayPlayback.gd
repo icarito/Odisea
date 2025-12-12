@@ -12,6 +12,7 @@ const REPLAY_GROUP = "replay_track"
 const INPUT_ACTIONS = [
 	"left", "right", "forward", "backward", "jump", "sprint", "roll", "attack", "aim"
 ]
+const DRIFT_THRESHOLD = 0.001 # Maximum allowed position difference for replay verification
 
 var current_replay: Resource = null
 var current_replay_filename: String = ""
@@ -26,33 +27,49 @@ var playback_start_time: int = 0
 
 var camera_rig: Node = null
 var player: Node = null
+var player_path: NodePath
+
+func _ready() -> void:
+	process_priority = -100  # Ensure replay logic runs before player physics
 
 func _debug_log(message: String) -> void:
 	if GameGlobals and GameGlobals.replay_debug_mode:
 		print("[ReplayPlayback] " + message)
 
 func _physics_process(delta: float) -> void:
+	var player = PlayerManager.get_player()
+	if player:
+		player.set_physics_process(false)  # Ensure player's automatic physics is disabled
+		print("[ReplayPlayback] _physics_process: Player is_physics_processing=", player.is_physics_processing())
+
 	# Guard clause: Do nothing if there's no replay loaded or if it's paused.
 	if not current_replay or playback_paused:
 		return
 
-	time_accumulator += delta
-
-	while frame_index < total_logical_frames:
-		var frame_data = current_replay.frames[frame_index]
-		var recorded_delta = frame_data.get("delta", 1.0 / 60.0)
-
-		if time_accumulator >= recorded_delta:
-			_debug_log("ReplayPlayback _physics_process: Simulating frame " + str(frame_index))
-			_apply_inputs_from_frame(frame_data)
-			_simulate_frame(recorded_delta, frame_data)
-			time_accumulator -= recorded_delta
-		else:
-			# Not enough accumulated time to process the next frame, break the loop
-			break
-
+	# If we have reached the end of the replay, stop playback.
 	if frame_index >= total_logical_frames:
 		stop_playback()
+		return
+
+	var frame_data = current_replay.frames[frame_index]
+	var recorded_delta = frame_data.get("delta", 1.0 / 60.0) # Obtener el delta grabado
+	
+	_debug_log("ReplayPlayback _physics_process: Simulating frame " + str(frame_index))
+
+	# PASO 1: Aplicar inputs grabados y estados de física
+	_apply_inputs_from_frame(frame_data)
+
+	# PASO 2: Manually execute the Player's physics step using the recorded delta.
+	# This ensures perfect timing and execution for the current frame's input.
+	if player and player.has_method("_physics_process"):
+		player._physics_process(recorded_delta)
+
+	# PASO 3: Comprobar drift
+	check_for_drift(frame_data)
+
+	# PASO 4: Avanzar al siguiente frame lógico
+	frame_index += 1
+	emit_signal("frame_updated", frame_index, total_logical_frames)
 
 func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	var replay = ReplayScript.new()
@@ -71,13 +88,19 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	total_logical_frames = len(current_replay.frames)
 	time_accumulator = 0.0
 	
+	# Deterministic setup for regression testing
+	Engine.set_physics_jitter_fix(0.0)
+	seed(12345)
+	
 	# Wait for one frame to ensure the entire scene tree is ready.
 	# This prevents "node not found" errors when accessing nodes immediately after a scene load.
 	yield(get_tree(), "idle_frame")
 	
 	# Update references after scene change
-	camera_rig = get_tree().get_root().find_node("CameraRig", true, false)
+	var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 	player = PlayerManager.get_player()
+	if player:
+		player_path = get_tree().current_scene.get_path_to(player)
 	
 	_prepare_scene_for_playback()
 	
@@ -102,20 +125,36 @@ func _prepare_scene_for_playback():
 			_set_node_state(node, current_replay.initial_states[path])
 
 func start_loaded_playback() -> void:
-	print("Starting loaded playback...")
-	
+	print("[ReplayPlayback] >>>>> start_loaded_playback called")
+
 	# Disable camera input
-	var camera_rig = get_tree().get_root().find_node("CameraRig", true, false)
+	var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 	if camera_rig:
-		camera_rig.set_process_input(false)
+		if camera_rig.has_method("set_process_input"):
+			camera_rig.set_process_input(false)
 
 	# Disable player input to prevent user interference during playback
 	var player = PlayerManager.get_player()
 	if player:
 		player.set_process_input(false)
+		# Reset player state to frame 0 exact before enabling physics
+		player.velocity = Vector3.ZERO
+		if player.external_velocity:
+			player.external_velocity.velocity = Vector3.ZERO
+		player.set_physics_process(false) # CRITICAL: Disable auto-physics, we call it manually now.
+		print("[ReplayPlayback] Player physics enabled? ", player.is_physics_processing())
+		player_path = get_tree().current_scene.get_path_to(player)
+
+	# Asegurar física en todos los nodos del grupo replay_track
+	for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
+		node.set_physics_process(true)
+		print("[ReplayPlayback] Node in replay_track physics enabled? ", node, node.is_physics_processing())
 
 	playback_status = "Playing"
-	resume_playback()
+	playback_start_time = Time.get_ticks_usec()  # Reset start time when playback actually begins
+	if GameGlobals:
+		GameGlobals.replay_debug_mode = true
+		GameGlobals.is_replaying = true
 	resume_playback()
 func stop_playback() -> void:
 	print("Stopping playback.")
@@ -128,14 +167,18 @@ func stop_playback() -> void:
 
 	set_physics_process(false)
 
+	if GameGlobals:
+		GameGlobals.is_replaying = false
+
 	for action in INPUT_ACTIONS:
 		Input.action_release(action)
 
 	# Re-enable physics and input for camera only, keep player frozen
 	_set_tracked_nodes_physics_process(true)
-	var camera_rig = get_tree().get_root().find_node("CameraRig", true, false)
+	var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 	if camera_rig:
-		camera_rig.set_process_input(true)
+		if camera_rig.has_method("set_process_input"):
+			camera_rig.set_process_input(true)
 
 	# Do not re-enable player input to keep it frozen at last frame
 	# var player = PlayerManager.get_player()
@@ -160,6 +203,7 @@ func pause_playback() -> void:
 	emit_signal("playback_paused")
 	set_physics_process(false)
 func resume_playback() -> void:
+	print("[ReplayPlayback] >>>>> resume_playback called")
 	if not playback_paused:
 		return
 	if not is_in_group("playback_active"): # Add to group when playback actually resumes
@@ -168,8 +212,13 @@ func resume_playback() -> void:
 	playback_paused = false
 	playback_status = "Playing"
 	set_physics_process(true)
-	emit_signal("playback_resumed")
-	set_physics_process(true)
+	
+	# Asegurar física del player activada para playback
+	var player = PlayerManager.get_player()
+	if player:
+		# Do not re-enable player physics here. It must remain disabled.
+		print("[ReplayPlayback] Player physics enabled in resume_playback")
+	
 	emit_signal("playback_resumed")
 
 func rewind_playback() -> void:
@@ -201,6 +250,8 @@ func step_back_frame() -> void:
 		seek(frame_index - 1)
 
 func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
+	_debug_log("Applying inputs: " + str(frame_data["inputs"]))
+	_debug_log("Sprint pressed: " + str(frame_data["inputs"].get("sprint", false)))
 	for action in frame_data["inputs"]:
 		if action == "mouse_motion":
 			continue
@@ -216,62 +267,66 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 		if mouse_motion is Vector2 and mouse_motion.length_squared() > 0:
 			var player = PlayerManager.get_player()
 			if player and player.has_node("PlayerInput"):
-				# Directly provide the mouse motion to the component that handles it.
+				# Directamente provee el mouse motion al componente que lo maneja.
 				player.get_node("PlayerInput").mouse_motion += mouse_motion
-func _simulate_frame(recorded_delta: float, frame_data: Dictionary) -> void:
-	_debug_log("Simulating frame " + str(frame_index))
 
-	var expected_time: float = current_replay.frames[frame_index].get("timestamp", 0.0)
-	var actual_time: float = Time.get_ticks_usec() - playback_start_time
-	print("[Timing] Frame %d: expected %.3f ms, actual %.3f ms, diff %.3f ms" % [frame_index, expected_time / 1000.0, actual_time / 1000.0, (actual_time - expected_time) / 1000.0])
-
-	# Manually call _physics_process on the player with the recorded delta
+	# --- APLICAR ESTADOS DE FÍSICA NO INPUTABLES ---
 	var player = PlayerManager.get_player()
-	if player:
-		player._physics_process(recorded_delta)
+	if player and player.external_velocity and frame_data.has("player_external_velocity"):
+		player.external_velocity.velocity = frame_data["player_external_velocity"]
 
-	# Manually call _physics_process on the camera rig to simulate camera movement
-	var camera_rig = get_tree().get_root().find_node("CameraRig", true, false)
-	if camera_rig and frame_data.has("camera"):
-		camera_rig.set_replay_state(frame_data["camera"])
-	if camera_rig:
-		camera_rig._physics_process(recorded_delta)
+	if player and frame_data.has("player_gravity_override"):
+		player.set("gravity_override", frame_data["player_gravity_override"])
 
-	# Log drift if debug mode
-	if GameGlobals and GameGlobals.replay_debug_mode and frame_index < len(current_replay.frame_states):
-		var expected_state = current_replay.frame_states[frame_index]
-		var actual_state = {}
-		if player:
-			actual_state[get_tree().current_scene.get_path_to(player)] = player.get_replay_state()
-		if camera_rig and camera_rig.has_method("get_replay_state"):
-			actual_state[get_tree().current_scene.get_path_to(camera_rig)] = camera_rig.get_replay_state()
-		
-		# Compare positions or key values
-		for path in expected_state:
-			if actual_state.has(path):
-				var expected = expected_state[path]
-				var actual = actual_state[path]
-				if expected.has("global_transform") and actual.has("global_transform"):
-					var exp_pos = expected["global_transform"]["origin"] if expected["global_transform"] is Dictionary else Vector3.ZERO
-					var act_pos = actual["global_transform"]["origin"] if actual["global_transform"] is Dictionary else Vector3.ZERO
-					var drift = (exp_pos - act_pos).length()
-					print("[Drift] Frame %d, Node %s: position drift %.6f" % [frame_index, path, drift])
-
-	# Advance the logical frame counter for UI display
-	frame_index += 1
-	emit_signal("frame_updated", frame_index, total_logical_frames)
+	# Aplicar estado de la cámara
+	if frame_data.has("camera"):
+		var cam_data = frame_data["camera"]
+		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+		if camera_rig:
+			if camera_rig.has_node("Yaw"):
+				camera_rig.get_node("Yaw").rotation.y = cam_data["yaw"]
+			if camera_rig.has_node("Pitch"):
+				camera_rig.get_node("Pitch").rotation.x = cam_data["pitch"]
+			if camera_rig.has_node("SpringArm"):
+				var springarm = camera_rig.get_node("SpringArm")
+				if springarm.has_method("set_spring_length"):
+					springarm.set_spring_length(cam_data["spring_length"])
+func check_for_drift(frame_data: Dictionary) -> void:
+	if not player:
+		return
+	if current_replay.frame_states.size() <= frame_index:
+		return
+	
+	var recorded_state = current_replay.frame_states[frame_index]
+	if not recorded_state.has(str(player_path)):
+		return
+	
+	var expected_transform_string = recorded_state[str(player_path)]["global_transform"]
+	var expected_transform = str2var(expected_transform_string)
+	if not expected_transform is Transform:
+		return
+	
+	var expected_origin = expected_transform.origin
+	var current_origin = player.global_transform.origin
+	var difference = current_origin.distance_to(expected_origin)
+	
+	if difference > DRIFT_THRESHOLD:
+		printerr("--- REGRESSION TEST FAILED: DRIFT DETECTED ---")
+		printerr("Frame: %d" % frame_index)
+		printerr("Divergence: %s" % difference)
+		printerr("Expected Position: %s" % expected_origin)
+		printerr("Actual Position: %s" % current_origin)
+		assert(false, "Physics drift exceeded tolerance.")
 
 func _set_tracked_nodes_physics_process(enabled: bool) -> void:
 	"""Helper function to enable or disable physics for all tracked nodes."""
 	var player = PlayerManager.get_player()
 	if player:
-		# When playback starts, we disable automatic physics processing for the player.
-		# When it stops, we re-enable it.
 		player.set_physics_process(enabled)
-		
+		print("[ReplayPlayback] _set_tracked_nodes_physics_process: Player physics enabled? ", enabled, player.is_physics_processing())
 	for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
-		# Other nodes can still be controlled automatically if needed.
 		node.set_physics_process(enabled)
+		print("[ReplayPlayback] _set_tracked_nodes_physics_process: Node ", node, " physics enabled? ", enabled, node.is_physics_processing())
 
 func _get_node_state(node: Node) -> Dictionary:
 	return get_node("/root/ReplayUtils").get_node_state(node)

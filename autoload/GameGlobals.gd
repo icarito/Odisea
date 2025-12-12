@@ -14,6 +14,9 @@ var replay_debug_mode: bool = true setget set_replay_debug_mode
 # Recording state
 var is_recording: bool = false setget set_is_recording
 
+# Replaying state
+var is_replaying: bool = false setget set_is_replaying
+
 # Global pause state of the game (get_tree().paused).
 var is_paused: bool = false setget set_is_paused
 
@@ -55,6 +58,9 @@ func set_replay_debug_mode(value: bool) -> void:
 
 func set_is_recording(value: bool) -> void:
 	is_recording = value
+
+func set_is_replaying(value: bool) -> void:
+	is_replaying = value
 
 func set_is_paused(value: bool) -> void:
 	if is_paused != value:
