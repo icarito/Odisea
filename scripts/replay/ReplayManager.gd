@@ -9,7 +9,9 @@ const ReplayScript = preload("res://scripts/replay/Replay.gd")
 enum ReplayMode {
 	NONE,
 	RECORDING,
-	PLAYBACK
+	PLAYBACK,
+	PAUSED,
+	LOADED
 }
 
 var mode: int = ReplayMode.NONE
@@ -70,10 +72,11 @@ func get_available_replays() -> Array:
 	return replays
 
 func reset_replay() -> void:
-	if mode == ReplayMode.PLAYBACK:
-		stop_playback()
-	elif mode == ReplayMode.RECORDING:
-		stop_recording()
+	finish_replay_session()
+	mode = ReplayMode.NONE
+	current_replay = null
+	current_replay_filename = ""
+	emit_signal("mode_changed", mode)
 
 func _physics_process(_delta: float) -> void:
 	if mode == ReplayMode.RECORDING and not recording_paused:
@@ -136,40 +139,83 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 		return
 
 	current_replay_filename = replay_path.get_file()
-	print("Starting playback...")
+	print("Loading replay...")
 
 	get_tree().change_scene(replay.scene_path)
 	yield(get_tree(), "idle_frame")
 
-	mode = ReplayMode.PLAYBACK
+	# Stop physics process for player and replay group nodes
+	var player = PlayerManager.get_player()
+	if player:
+		player.set_physics_process(false)
+	for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
+		node.set_physics_process(false)
+
+	# Stop music
+	if get_node("/root/AudioSystem"):
+		get_node("/root/AudioSystem").stop_bgm()
+
+	mode = ReplayMode.LOADED
 	current_replay = replay
 	frame_index = 0
-	playback_paused = false
+	playback_paused = true  # Not playing yet
 	headless = is_headless
+
+	emit_signal("mode_changed", mode)
+
+func start_loaded_playback() -> void:
+	if mode != ReplayMode.LOADED:
+		return
+
+	print("Starting loaded playback...")
 
 	for path in current_replay.initial_states:
 		var node = get_tree().root.get_node(path)
 		if node:
 			_set_node_state(node, current_replay.initial_states[path])
 
+	mode = ReplayMode.PLAYBACK
+	playback_paused = false
+
 	emit_signal("mode_changed", mode)
 
 func stop_playback() -> void:
-	if mode != ReplayMode.PLAYBACK:
+	if mode != ReplayMode.PLAYBACK and mode != ReplayMode.PAUSED:
 		return
 
 	print("Stopping playback.")
-	mode = ReplayMode.NONE
-	current_replay = null
-	current_replay_filename = ""
+	mode = ReplayMode.LOADED
+	playback_paused = true
 	for action in INPUT_ACTIONS:
 		Input.action_release(action)
 
-	if get_node("/root/AudioManager"):
-		get_node("/root/AudioManager").stop_all_music()
-	get_tree().paused = true
+	if get_node("/root/AudioSystem"):
+		get_node("/root/AudioSystem").stop_bgm()
 
 	emit_signal("mode_changed", mode)
+
+func pause_playback() -> void:
+	if mode != ReplayMode.PLAYBACK:
+		return
+	playback_paused = true
+	mode = ReplayMode.PAUSED
+	emit_signal("mode_changed", mode)
+
+func resume_playback() -> void:
+	if mode != ReplayMode.PAUSED:
+		return
+	mode = ReplayMode.PLAYBACK
+	playback_paused = false
+	emit_signal("mode_changed", mode)
+
+func rewind_playback() -> void:
+	if mode != ReplayMode.PLAYBACK and mode != ReplayMode.PAUSED:
+		return
+	frame_index = 0
+	for path in current_replay.initial_states:
+		var node = get_tree().root.get_node(path)
+		if node:
+			_set_node_state(node, current_replay.initial_states[path])
 
 func step_frame() -> void:
 	if mode == ReplayMode.PLAYBACK and playback_paused:

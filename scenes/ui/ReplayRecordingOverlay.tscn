@@ -34,3 +34,35 @@ margin_top = 74.0
 margin_right = 190.0
 margin_bottom = 111.0
 text = "Stop"
+
+[node name="PlaybackControls" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+margin_top = 115.0
+margin_right = 190.0
+margin_bottom = 152.0
+
+[node name="RewindButton" type="Button" parent="MarginContainer/VBoxContainer/PlaybackControls"]
+margin_right = 60.0
+margin_bottom = 37.0
+rect_min_size = Vector2( 60, 0 )
+text = "Rewind"
+
+[node name="PauseButton" type="Button" parent="MarginContainer/VBoxContainer/PlaybackControls"]
+margin_left = 64.0
+margin_right = 123.0
+margin_bottom = 37.0
+rect_min_size = Vector2( 60, 0 )
+text = "Pause"
+
+[node name="PlayResumeButton" type="Button" parent="MarginContainer/VBoxContainer/PlaybackControls"]
+margin_left = 127.0
+margin_right = 186.0
+margin_bottom = 37.0
+rect_min_size = Vector2( 60, 0 )
+text = "Play"
+
+[node name="StepButton" type="Button" parent="MarginContainer/VBoxContainer/PlaybackControls"]
+margin_left = 190.0
+margin_right = 249.0
+margin_bottom = 37.0
+rect_min_size = Vector2( 60, 0 )
+text = "Step"

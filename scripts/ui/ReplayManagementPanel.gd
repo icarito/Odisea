@@ -4,6 +4,8 @@ onready var item_list: ItemList = find_node("ItemList", true, false)
 onready var start_recording_button: Button = find_node("StartRecordingButton", true, false)
 onready var load_button: Button = find_node("LoadReplayButton", true, false)
 onready var reset_button: Button = find_node("ResetButton", true, false)
+onready var restart_level_button: Button = find_node("RestartLevelButton", true, false)
+onready var return_to_menu_button: Button = find_node("ReturnToMenuButton", true, false)
 
 func _ready() -> void:
 	visible = false
@@ -11,14 +13,21 @@ func _ready() -> void:
 		start_recording_button.connect("pressed", self, "_on_StartRecordingButton_pressed")
 	if load_button:
 		load_button.connect("pressed", self, "_on_LoadReplayButton_pressed")
+		load_button.disabled = true
 	if reset_button:
 		reset_button.connect("pressed", self, "_on_ResetButton_pressed")
+	if restart_level_button:
+		restart_level_button.connect("pressed", self, "_on_RestartLevelButton_pressed")
+	if return_to_menu_button:
+		return_to_menu_button.connect("pressed", self, "_on_ReturnToMenuButton_pressed")
+	if item_list:
+		item_list.connect("item_selected", self, "_on_ItemList_item_selected")
 	ReplayManager.connect("mode_changed", self, "_on_mode_changed")
 	_refresh_replay_list()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_debug_menu"):
-		if get_tree().current_scene.name != "Menu":
+		if get_tree().current_scene.name != "Menu" and ReplayManager.mode != ReplayManager.ReplayMode.RECORDING and ReplayManager.mode != ReplayManager.ReplayMode.PLAYBACK:
 			visible = !visible
 			_set_touch_controls_active(!visible)
 			get_node("/root/MouseCapture").show_cursor(visible)
@@ -79,7 +88,19 @@ func _on_LoadReplayButton_pressed() -> void:
 				var replay_name = item_list.get_item_text(index)
 				var path = "res://replays/" + replay_name + ".json"
 				ReplayManager.start_playback(path)
-				# The on_mode_changed signal will hide this panel
+				visible = false  # Hide panel after loading
 
 func _on_ResetButton_pressed() -> void:
 	ReplayManager.reset_replay()
+	visible = false
+
+func _on_RestartLevelButton_pressed() -> void:
+	ReplayManager.reset_replay()
+	SceneManager.restart_level()
+
+func _on_ReturnToMenuButton_pressed() -> void:
+	ReplayManager.reset_replay()
+	SceneManager.return_to_menu()
+
+func _on_ItemList_item_selected(index: int) -> void:
+	load_button.disabled = false
