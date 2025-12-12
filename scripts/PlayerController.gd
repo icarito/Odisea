@@ -10,6 +10,8 @@ onready var playback = animation_tree.get("parameters/playback")
 export (NodePath) var PlayerCharacterMesh
 export onready var player_mesh = get_node(PlayerCharacterMesh)
 
+const ReplayUtils = preload("res://scripts/replay/ReplayUtils.gd")
+
 export var gravity = 9.8
 export var jump_force = 9
 export var turn_speed := 2.0
@@ -812,8 +814,6 @@ func _string_to_transform(s: String) -> Transform:
 		return Transform(Basis(basis_x, basis_y, basis_z), origin)
 	return Transform.IDENTITY
 
-onready var ReplayUtils = get_node("/root/ReplayUtils")
-
 func get_replay_state() -> Dictionary:
 	# This function should return raw Godot types.
 	# The ReplayRecorder is responsible for converting them to a JSON-safe format.
@@ -837,7 +837,6 @@ func get_replay_state() -> Dictionary:
 	return state
 
 func set_replay_state(state: Dictionary) -> void:
-	var ReplayUtils = get_node("/root/ReplayUtils")
 	var deserialized_state = ReplayUtils.from_json_safe(state)
 
 	# Restore state from the replay file
