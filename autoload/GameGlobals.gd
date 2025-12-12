@@ -36,10 +36,12 @@ var current_mode = GAME_MODE.SINGLEPLAYER
 signal debug_mode_changed(enabled)
 signal replay_debug_mode_changed(enabled)
 signal game_paused(is_paused)
+signal mouse_captured_changed(is_captured)
 
 func set_mouse_captured(value: bool) -> void:
 	mouse_captured = value
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED if value else Input.MOUSE_MODE_VISIBLE)
+	emit_signal("mouse_captured_changed", mouse_captured)
 
 func set_debug_mode(value: bool) -> void:
 	if debug_mode != value:
