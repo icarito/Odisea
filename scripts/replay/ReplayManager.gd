@@ -65,7 +65,12 @@ func start_recording() -> void:
 		return
 	mode = ReplayMode.RECORDING
 	emit_signal("mode_changed", mode)
-	recorder.start_recording()
+	# Yield to the recorder's start_recording function, which is a coroutine.
+	# This ensures we wait for the 'idle_frame' yield within it to complete,
+	# guaranteeing all Autoloads are ready before proceeding.
+	yield(recorder.start_recording(), "completed")
+	MouseCapture.capture_mouse(true)
+
 
 func stop_recording() -> void:
 	if mode != ReplayMode.RECORDING:
@@ -125,6 +130,7 @@ func restore_player_state() -> void:
 # Signal Handlers
 func _on_recording_stopped(frame_count, _replay_path):
 	mode = ReplayMode.NONE
+	MouseCapture.capture_mouse(false)
 	emit_signal("mode_changed", mode)
 	emit_signal("recording_stopped", frame_count)
 

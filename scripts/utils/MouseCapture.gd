@@ -1,5 +1,8 @@
 extends Node
 
+signal mouse_captured
+signal mouse_released
+
 #--- JOYSTICK CONTROL ---
 export (float, 0.0, 1.0) var joystick_deadzone = 0.02
 export (float) var joystick_sensitivity = 650.0
@@ -107,10 +110,36 @@ func _on_viewport_size_changed():
 	# When the window is resized, we make sure the cursor stays inside.
 	clamp_cursor_to_screen()
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		# Si el mouse está capturado, liberarlo.
+		# Esto asegura que ESC siempre nos devuelva el cursor.
+		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+			capture_mouse(false)
+			get_tree().set_input_as_handled()
+
 func show_cursor(show: bool):
 	if show:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		cursor_sprite.hide()
 	else:
+		# Al ocultar el cursor, no necesariamente lo capturamos.
+		# Lo ponemos en modo oculto para que el cursor virtual funcione.
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 		cursor_sprite.show()
+
+
+
+func capture_mouse(is_captured: bool):
+	if is_captured:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		cursor_sprite.hide()
+		emit_signal("mouse_captured")
+	else:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		cursor_sprite.show()
+		emit_signal("mouse_released")
+		# Centramos el cursor virtual cuando liberamos el mouse real
+		# para que no aparezca en una esquina al volver a mostrarse.
+		if get_viewport() != null:
+			cursor_sprite.position = get_viewport().size / 2

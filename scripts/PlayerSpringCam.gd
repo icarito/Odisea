@@ -44,6 +44,7 @@ var cam
 var target_yaw := 0.0
 var target_pitch := 0.0
 var _yaw_initialized := false
+var _is_mouse_look_active := false
 
 var player_id := 1
 var joypad_device := -1
@@ -63,13 +64,16 @@ func _ready():
 		springarm.spring_length = base_length
 		springarm.collision_mask = collision_mask
 
-	if UIManager:
+	if Engine.has_singleton("UIManager"):
 		UIManager.connect("overlay_shown", self, "_on_UIManager_overlay_shown")
 		UIManager.connect("overlay_hidden", self, "_on_UIManager_overlay_hidden")
-		
-	# Set initial mouse mode
-	if player_id == 1:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+	# Conectarse a las señales globales de captura de mouse
+	if Engine.has_singleton("Global"):
+		var g = Engine.get_singleton("Global")
+		if g.has("mouse_capture") and g.mouse_capture:
+			g.mouse_capture.connect("mouse_captured", self, "_on_mouse_captured")
+			g.mouse_capture.connect("mouse_released", self, "_on_mouse_released")
 		
 	if pitch:
 		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
@@ -79,24 +83,30 @@ func _ready():
 	if cam:
 		_original_fov = cam.fov
 	
-	add_to_group("replay_track")
-	
 	if is_inside_tree():
 		get_viewport().connect("size_changed", self, "_update_camera_fov")
 	_update_camera_fov()
 
 func _on_UIManager_overlay_shown():
-	if player_id == 1:
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	# Ya no controlamos el modo del mouse directamente aquí.
+	# UIManager debería llamar a Global.mouse_capture.capture_mouse(false)
+	pass
 
 func _on_UIManager_overlay_hidden():
-	if player_id == 1:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	# UIManager debería llamar a Global.mouse_capture.capture_mouse(true)
+	pass
 
+func _on_mouse_captured():
+	_is_mouse_look_active = true
+
+func _on_mouse_released():
+	_is_mouse_look_active = false
 
 func process_camera_rotation(motion: Vector2):
 	"""Procesa el movimiento del mouse/touch para rotar la cámara."""
-	if player_id == 1 and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+	if player_id == 1:
+		if not _is_mouse_look_active:
+			return
 		# La sensibilidad se ajusta en PlayerController para touch
 		var scaled_motion = motion
 		
@@ -132,7 +142,7 @@ func _physics_process(delta):
 
 	if not touch_active:
 		# Usar mouse/teclado para player 1 si no hay touch
-		if player_id == 1 and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+		if player_id == 1 and _is_mouse_look_active:
 			var mouse_x = Input.get_action_strength("lookleft") - Input.get_action_strength("lookright")
 			var mouse_y = Input.get_action_strength("lookup") - Input.get_action_strength("lookdown")
 			if abs(mouse_x) > 0 or abs(mouse_y) > 0:
