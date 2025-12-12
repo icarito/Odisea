@@ -500,7 +500,7 @@ func _physics_process(delta):
 			if yaw_node_local:
 				basis = yaw_node_local.global_transform.basis
 
-			movement_comp.process_input_vector(delta, basis, input_vector, is_sprinting)
+			movement_comp.process_input_vector(delta, basis, input_vector, is_sprinting, on_floor)
 			
 			# Aplicar giro tank (deshabilitado cuando use_mouse_input)
 			var turn_input = input_vector.x
@@ -591,6 +591,8 @@ func _physics_process(delta):
 	pre_move_velocity_for_replay = velocity
 	velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
 	print("[PlayerController] Post-move Pos (Simulated): %s" % [global_transform.origin])
+	var horizontal_sq = velocity.x * velocity.x + velocity.z * velocity.z
+	print("[PlayerController POST-SLIDE] Velocity: %s | Horiz Mag Sq: %f" % [velocity, horizontal_sq])
 	
 	# Update horizontal_velocity from the result for the next frame
 	horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
@@ -810,21 +812,23 @@ func _string_to_transform(s: String) -> Transform:
 		return Transform(Basis(basis_x, basis_y, basis_z), origin)
 	return Transform.IDENTITY
 
+onready var ReplayUtils = get_node("/root/ReplayUtils")
+
 func get_replay_state() -> Dictionary:
 	# This function should return raw Godot types.
 	# The ReplayRecorder is responsible for converting them to a JSON-safe format.
 		
 	var state = {
-		"global_transform": global_transform,
-		"player_position": global_transform.origin,
-		"platform_velocity": platform_velocity,
-		"airborne_inherited": airborne_inherited,
+		"global_transform": ReplayUtils.transform_to_dict(global_transform),
+		"player_position": ReplayUtils.vector3_to_dict(global_transform.origin),
+		"platform_velocity": ReplayUtils.vector3_to_dict(platform_velocity),
+		"airborne_inherited": ReplayUtils.vector3_to_dict(airborne_inherited),
 		"just_jumped": just_jumped,
 		"time_since_jump": time_since_jump,
 		"time_since_input": time_since_input,
-		"velocity": velocity, # Record the final velocity AFTER move_and_slide
-		"pre_move_velocity": pre_move_velocity_for_replay,
-		"calculated_direction": direction,
+		"velocity": ReplayUtils.vector3_to_dict(velocity), # Record the final velocity AFTER move_and_slide
+		"pre_move_velocity": ReplayUtils.vector3_to_dict(pre_move_velocity_for_replay),
+		"calculated_direction": ReplayUtils.vector3_to_dict(direction),
 	}
 	if jump_comp:
 		state["coyote_timer"] = jump_comp.coyote_timer

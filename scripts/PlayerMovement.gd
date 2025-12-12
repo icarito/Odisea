@@ -37,13 +37,16 @@ func get_turn_input_from_vector(input_vec: Vector2) -> float:
 		return input_vec.normalized().x * analog_turn_multiplier
 	return 0.0
 
-func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is_sprinting: bool) -> void:
+func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is_sprinting: bool, is_on_floor: bool) -> void:
 	var mag = input_vec.length()
 	if mag < joystick_deadzone:
 		is_walking = false
 		is_running = false
 		direction = Vector3.ZERO
-		horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, friction * delta)
+		if is_on_floor:
+			horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, friction * delta)
+			if horizontal_velocity.length_squared() < 0.0001:
+				horizontal_velocity = Vector3.ZERO
 		return
 
 	var processed_mag := 0.0
