@@ -34,3 +34,50 @@ static func dict_to_transform(dict: Dictionary) -> Transform:
 		var origin = dict_to_vector3(dict.origin)
 		return Transform(Basis(basis_x, basis_y, basis_z), origin)
 	return Transform.IDENTITY
+
+# Recursive function to convert Godot types to JSON-safe data
+static func to_json_safe(data):
+	if data is Vector3:
+		return {"x": data.x, "y": data.y, "z": data.z}
+	elif data is Transform:
+		return {
+			"basis": {
+				"x": vector3_to_dict(data.basis.x),
+				"y": vector3_to_dict(data.basis.y),
+				"z": vector3_to_dict(data.basis.z)
+			},
+			"origin": vector3_to_dict(data.origin)
+		}
+	elif data is Dictionary:
+		var result = {}
+		for key in data:
+			result[key] = to_json_safe(data[key])
+		return result
+	elif data is Array:
+		var result = []
+		for item in data:
+			result.append(to_json_safe(item))
+		return result
+	else:
+		return data
+
+# Recursive function to convert JSON-safe data back to Godot types
+static func from_json_safe(data):
+	if data is Dictionary:
+		var result = {}
+		for key in data:
+			result[key] = from_json_safe(data[key])
+		# Check if it's a Vector3 dict
+		if result.has("x") and result.has("y") and result.has("z") and result.size() == 3:
+			return Vector3(result["x"], result["y"], result["z"])
+		# Check if it's a Transform dict
+		if result.has("basis") and result.has("origin"):
+			return dict_to_transform(result)
+		return result
+	elif data is Array:
+		var result = []
+		for item in data:
+			result.append(from_json_safe(item))
+		return result
+	else:
+		return data

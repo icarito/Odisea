@@ -19,6 +19,8 @@ var player: Node = null
 var camera_rig: Node = null
 var start_time: int = 0
 
+const ReplayUtils = preload("res://scripts/replay/ReplayUtils.gd")
+
 func _debug_log(message: String) -> void:
 	if GameGlobals and GameGlobals.replay_debug_mode:
 		print("[ReplayRecorder] " + message)
@@ -57,7 +59,7 @@ func start_recording(): # This function now acts like a coroutine
 	if camera_rig and camera_rig.has_method("get_replay_state"):
 		initial[get_tree().current_scene.get_path_to(camera_rig)] = camera_rig.get_replay_state()
 	
-	replay.initial_states = get_node("/root/ReplayUtils").to_json_safe(initial)
+	replay.initial_states = ReplayUtils.to_json_safe(initial)
 	# Initialize last_frame_data with an empty inputs dict. This ensures the first
 	# frame is always recorded and prevents a crash when accessing .inputs.
 	last_frame_data = {"inputs": {}}
@@ -120,14 +122,14 @@ func _record_frame(delta: float) -> void:
 	
 	# Record player external velocity
 	if player and player.external_velocity:
-		frame_data["player_external_velocity"] = player.external_velocity.velocity
+		frame_data["player_external_velocity"] = ReplayUtils.vector3_to_dict(player.external_velocity.velocity)
 	
 	# Record player gravity override
 	if player:
 		var grav = player.get("gravity_override")
 		if grav == null:
 			grav = Vector3(0, -9.8, 0)
-		frame_data["player_gravity_override"] = grav
+		frame_data["player_gravity_override"] = ReplayUtils.vector3_to_dict(grav)
 	
 	current_replay.frames.append(frame_data)
 	last_frame_data = frame_data
