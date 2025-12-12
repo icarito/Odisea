@@ -62,12 +62,15 @@ func _ready():
 	if springarm:
 		springarm.spring_length = base_length
 		springarm.collision_mask = collision_mask
-		# In Godot 3 SpringArm uses current transform forward; leave orientation to yaw/pitch
-	# Capturar el puntero para control de cámara
+
+	if UIManager:
+		UIManager.connect("overlay_shown", self, "_on_UIManager_overlay_shown")
+		UIManager.connect("overlay_hidden", self, "_on_UIManager_overlay_hidden")
+		
+	# Set initial mouse mode
 	if player_id == 1:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	# Initial yaw will be set by _physics_process on the first frame
-	# Set default pitch respecting limit
+		
 	if pitch:
 		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
 		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
@@ -76,31 +79,24 @@ func _ready():
 	if cam:
 		_original_fov = cam.fov
 	
+	add_to_group("replay_track")
+	
 	if is_inside_tree():
 		get_viewport().connect("size_changed", self, "_update_camera_fov")
 	_update_camera_fov()
 
-
-func _unhandled_input(event):
-	# Ignorar input si ReplayDebug está visible
-	if ReplayManager.is_replay_debug_visible:
-		return
-	# Toggle captura con ESC, recapturar al click
-	# Ignorar input de mouse si controles touch están activos
-	var touch_controls = null
-	if has_node("/root/TouchControls"):
-		touch_controls = get_node("/root/TouchControls")
-	if touch_controls and touch_controls.is_touch_controls_active():
-		return
-	if event is InputEventKey and event.is_action_pressed("ui_cancel"):
+func _on_UIManager_overlay_shown():
+	if player_id == 1:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-		return
-	if event is InputEventMouseButton and event.pressed and player_id == 1:
+
+func _on_UIManager_overlay_hidden():
+	if player_id == 1:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
 
 func process_camera_rotation(motion: Vector2):
 	"""Procesa el movimiento del mouse/touch para rotar la cámara."""
-	if player_id == 1:
+	if player_id == 1 and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 		# La sensibilidad se ajusta en PlayerController para touch
 		var scaled_motion = motion
 		
@@ -136,7 +132,7 @@ func _physics_process(delta):
 
 	if not touch_active:
 		# Usar mouse/teclado para player 1 si no hay touch
-		if player_id == 1:
+		if player_id == 1 and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 			var mouse_x = Input.get_action_strength("lookleft") - Input.get_action_strength("lookright")
 			var mouse_y = Input.get_action_strength("lookup") - Input.get_action_strength("lookdown")
 			if abs(mouse_x) > 0 or abs(mouse_y) > 0:
