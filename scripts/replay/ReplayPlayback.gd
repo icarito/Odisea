@@ -58,16 +58,30 @@ func _physics_process(delta: float) -> void:
 	
 	_debug_log("ReplayPlayback _physics_process: Simulating frame " + str(frame_index))
 
-	# 1. Aplicación de inputs (Mouse y Teclado)
+	# 1. Restaurar posición y velocidad del jugador ANTES de simular física o aplicar inputs
+	if current_replay.frame_states.size() > frame_index:
+		var recorded_state = current_replay.frame_states[frame_index]
+		var player_data = recorded_state.get(str(player_path))
+		if player_data:
+			# Restaurar posición
+			if player_data.has("player_position"):
+				var recorded_pos_dict = player_data["player_position"]
+				var recorded_position = ReplayUtils.dict_to_vector3(recorded_pos_dict)
+				player.global_transform.origin = recorded_position
+			# Restaurar velocidad
+			if player_data.has("velocity"):
+				var recorded_vel_dict = player_data["velocity"]
+				player.velocity = ReplayUtils.dict_to_vector3(recorded_vel_dict)
+	# 2. Aplicación de inputs (Mouse y Teclado)
 	var recorded_inputs = frame_data.inputs
 	print("[ReplayPlayback] Frame %d, Applying Mouse Motion: %s" % [frame_index, recorded_inputs.get("mouse_motion", Vector2.ZERO)])
 	_apply_inputs_from_frame(frame_data)
 
-	# 2. Simulación de física:
+	# 3. Simulación de física:
 	if player and player.has_method("_physics_process"):
 		player._physics_process(recorded_delta)
 
-	# 3. VERIFICACIÓN: Posición simulada vs. Posición registrada
+	# 4. VERIFICACIÓN: Posición simulada vs. Posición registrada
 	if current_replay.frame_states.size() > frame_index:
 		var recorded_state = current_replay.frame_states[frame_index]
 		var player_data = recorded_state.get(str(player_path))
@@ -79,7 +93,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		print("[ReplayPlayback DEBUG] frame_states index out of bounds")
 
-	# 4. Restauración del estado de la cámara (para puntería):
+	# 5. Restauración del estado de la cámara (para puntería):
 	if frame_data.has("camera"):
 		var cam_data = frame_data["camera"]
 		var recorded_yaw = cam_data.get("yaw", 0.0)
@@ -91,11 +105,11 @@ func _physics_process(delta: float) -> void:
 				var yaw_node = camera_rig.get_node_or_null("Yaw")
 				if yaw_node:
 					yaw_node.rotation.y = recorded_yaw
-	
-	# PASO 3: Comprobar drift
+
+	# 6. PASO: Comprobar drift
 	check_for_drift(frame_data)
 
-	# PASO 4: Avanzar al siguiente frame lógico
+	# 7. PASO: Avanzar al siguiente frame lógico
 	frame_index += 1
 	emit_signal("frame_updated", frame_index, total_logical_frames)
 
