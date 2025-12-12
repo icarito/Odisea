@@ -2,6 +2,7 @@ extends Node
 
 signal replay_failed
 signal mode_changed(new_mode)
+signal recording_stopped(frame_count)
 
 const ReplayScript = preload("res://scripts/replay/Replay.gd")
 
@@ -16,11 +17,13 @@ var current_replay: Resource = null
 var current_replay_filename: String = ""
 var frame_index: int = 0
 var playback_paused: bool = false
+var recording_paused: bool = false
 var headless: bool = false
 var is_replay_debug_visible: bool = false
 
 var _saved_player_transform: Transform = Transform.IDENTITY
 var _saved_player_velocity: Vector3 = Vector3.ZERO
+var player_state_saved: bool = false
 
 const REPLAY_GROUP = "replay_track"
 const REPLAYS_DIR = "res://replays/"
@@ -39,12 +42,20 @@ func save_player_state() -> void:
 	if player and player is KinematicBody:
 		_saved_player_transform = player.global_transform
 		_saved_player_velocity = player.horizontal_velocity  # Assuming horizontal_velocity is the main velocity
+		player_state_saved = true
 
 func restore_player_state() -> void:
+	if not player_state_saved:
+		return
 	var player = PlayerManager.get_player()
 	if player and player is KinematicBody:
 		player.global_transform = _saved_player_transform
 		player.horizontal_velocity = _saved_player_velocity
+	player_state_saved = false
+
+func finish_replay_session() -> void:
+	restore_player_state()
+	get_tree().paused = false
 
 func get_available_replays() -> Array:
 	var dir = Directory.new()
@@ -65,7 +76,7 @@ func reset_replay() -> void:
 		stop_recording()
 
 func _physics_process(_delta: float) -> void:
-	if mode == ReplayMode.RECORDING:
+	if mode == ReplayMode.RECORDING and not recording_paused:
 		_record_frame()
 	elif mode == ReplayMode.PLAYBACK and not playback_paused:
 		_playback_frame()
@@ -94,6 +105,9 @@ func stop_recording() -> void:
 		return
 
 	print("Stopping recording.")
+
+	var frame_count = len(current_replay.frames)
+	emit_signal("recording_stopped", frame_count)
 
 	var dir = Directory.new()
 	if not dir.dir_exists(REPLAYS_DIR):
@@ -150,6 +164,10 @@ func stop_playback() -> void:
 	current_replay_filename = ""
 	for action in INPUT_ACTIONS:
 		Input.action_release(action)
+
+	if get_node("/root/AudioManager"):
+		get_node("/root/AudioManager").stop_all_music()
+	get_tree().paused = true
 
 	emit_signal("mode_changed", mode)
 

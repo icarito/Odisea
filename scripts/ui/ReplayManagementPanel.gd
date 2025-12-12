@@ -4,12 +4,6 @@ onready var item_list: ItemList = find_node("ItemList", true, false)
 onready var start_recording_button: Button = find_node("StartRecordingButton", true, false)
 onready var load_button: Button = find_node("LoadReplayButton", true, false)
 onready var reset_button: Button = find_node("ResetButton", true, false)
-onready var pause_button: Button = find_node("PauseButton", true, false)
-onready var resume_button: Button = find_node("ResumeButton", true, false)
-onready var step_button: Button = find_node("StepButton", true, false)
-onready var playback_controls: Control = find_node("PlaybackControls", true, false)
-onready var status_label: Label = find_node("StatusLabel", true, false)
-onready var current_replay_label: Label = find_node("CurrentReplayLabel", true, false)
 
 func _ready() -> void:
 	visible = false
@@ -19,12 +13,6 @@ func _ready() -> void:
 		load_button.connect("pressed", self, "_on_LoadReplayButton_pressed")
 	if reset_button:
 		reset_button.connect("pressed", self, "_on_ResetButton_pressed")
-	if pause_button:
-		pause_button.connect("pressed", self, "_on_PauseButton_pressed")
-	if resume_button:
-		resume_button.connect("pressed", self, "_on_ResumeButton_pressed")
-	if step_button:
-		step_button.connect("pressed", self, "_on_StepButton_pressed")
 	ReplayManager.connect("mode_changed", self, "_on_mode_changed")
 	_refresh_replay_list()
 
@@ -32,14 +20,32 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_debug_menu"):
 		if get_tree().current_scene.name != "Menu":
 			visible = !visible
-			ReplayManager.is_replay_debug_visible = visible
+			_set_touch_controls_active(!visible)
 			get_node("/root/MouseCapture").show_cursor(visible)
+			ReplayManager.is_replay_debug_visible = visible
+			
 			if visible:
 				_refresh_replay_list()
+				if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING:
+					ReplayManager.recording_paused = true
+				elif ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
+					ReplayManager.playback_paused = true
 			else:
-				if ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
-					ReplayManager.restore_player_state()
+				if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING:
+					ReplayManager.recording_paused = false
+				elif ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
+					ReplayManager.playback_paused = false
+				else: # ReplayMode.NONE
+					ReplayManager.finish_replay_session()
+
 			get_tree().set_input_as_handled()
+
+func _set_touch_controls_active(active: bool) -> void:
+	var touch_controls = get_tree().get_root().find_node("TouchControls", true, false)
+	if touch_controls:
+		touch_controls.visible = active
+		touch_controls.set_process_input(active)
+
 
 func _refresh_replay_list() -> void:
 	if item_list:
@@ -50,33 +56,19 @@ func _refresh_replay_list() -> void:
 
 
 func _on_mode_changed(new_mode: int) -> void:
-	visible = (new_mode != ReplayManager.ReplayMode.RECORDING)
-	if new_mode == ReplayManager.ReplayMode.PLAYBACK:
-		if playback_controls:
-			playback_controls.visible = true
-	else:
-		if playback_controls:
-			playback_controls.visible = false
+	if new_mode == ReplayManager.ReplayMode.RECORDING or new_mode == ReplayManager.ReplayMode.PLAYBACK:
+		visible = false
+
 
 func _process(_delta: float) -> void:
 	if not visible:
 		return
-
-	if ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
-		if status_label and ReplayManager.current_replay:
-			var total_frames = len(ReplayManager.current_replay.frames)
-			status_label.text = "Frame: %d / %d" % [ReplayManager.frame_index, total_frames]
-		if current_replay_label:
-			current_replay_label.text = "Loaded: " + ReplayManager.current_replay_filename.get_basename()
-	elif ReplayManager.mode == ReplayManager.ReplayMode.NONE:
-		if status_label:
-			status_label.text = "Not recording or playing."
-		if current_replay_label:
-			current_replay_label.text = "Loaded: None"
+	# This panel is now only for management, not status display.
 
 
 func _on_StartRecordingButton_pressed() -> void:
 	ReplayManager.start_recording()
+	# The on_mode_changed signal will hide this panel
 
 func _on_LoadReplayButton_pressed() -> void:
 	if item_list:
@@ -87,17 +79,7 @@ func _on_LoadReplayButton_pressed() -> void:
 				var replay_name = item_list.get_item_text(index)
 				var path = "res://replays/" + replay_name + ".json"
 				ReplayManager.start_playback(path)
+				# The on_mode_changed signal will hide this panel
 
 func _on_ResetButton_pressed() -> void:
-	ReplayManager.reset_replay()  # Assuming we add this method
-
-func _on_PauseButton_pressed() -> void:
-	ReplayManager.playback_paused = true
-
-func _on_ResumeButton_pressed() -> void:
-	ReplayManager.playback_paused = false
-
-func _on_StepButton_pressed() -> void:
-	if ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
-		ReplayManager.playback_paused = true
-		ReplayManager.step_frame()
+	ReplayManager.reset_replay()
