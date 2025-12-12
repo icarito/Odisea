@@ -9,6 +9,7 @@ var mouse_captured: bool = false setget set_mouse_captured
 
 # Activates/Deactivates debugging tools (e.g., DrawRay from icarito-odisea.txt).
 var debug_mode: bool = true setget set_debug_mode
+var replay_debug_mode: bool = true setget set_replay_debug_mode
 
 # Global pause state of the game (get_tree().paused).
 var is_paused: bool = false setget set_is_paused
@@ -30,6 +31,7 @@ var current_mode = GAME_MODE.SINGLEPLAYER
 
 # Signals
 signal debug_mode_changed(enabled)
+signal replay_debug_mode_changed(enabled)
 signal game_paused(is_paused)
 
 func set_mouse_captured(value: bool) -> void:
@@ -40,6 +42,11 @@ func set_debug_mode(value: bool) -> void:
 	if debug_mode != value:
 		debug_mode = value
 		emit_signal("debug_mode_changed", debug_mode)
+
+func set_replay_debug_mode(value: bool) -> void:
+	if replay_debug_mode != value:
+		replay_debug_mode = value
+		emit_signal("replay_debug_mode_changed", replay_debug_mode)
 
 func set_is_paused(value: bool) -> void:
 	if is_paused != value:

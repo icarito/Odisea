@@ -79,7 +79,7 @@ var is_attacking = false
 var is_rolling = false
 
 var aim_turn = 0.0
-var movement = Vector3()
+var velocity = Vector3() # Replaces 'movement' and 'vertical_velocity' for move_and_slide
 var vertical_velocity = Vector3()
 
 # Touch camera control
@@ -124,6 +124,9 @@ var direction := Vector3.ZERO
 var horizontal_velocity := Vector3.ZERO
 var movement_speed := 0.0
 var acceleration := 15.0
+
+# Replay determinism helpers
+var _is_replay_frame := false
 var is_walking := false
 var is_running := false
 
@@ -365,9 +368,11 @@ func _physics_process(delta):
 	attack2()
 	roll()
 
-	# Timers de gracia
-	time_since_jump += delta
-	time_since_input += delta
+	# Timers are only incremented on normal frames.
+	# On replay frames, their values are restored directly by set_replay_state.
+	if not _is_replay_frame:
+		time_since_jump += delta
+		time_since_input += delta
 	time_since_start += delta
 
 	# Medir tiempo en estado Jump del AnimationTree
@@ -399,18 +404,19 @@ func _physics_process(delta):
 	var effective_gravity_vector := local_gravity_override if (local_gravity_override.length() > 0.01) else (Vector3.DOWN * gravity)
 	var effective_gravity_mag := effective_gravity_vector.length()
 	var effective_gravity_dir := effective_gravity_vector.normalized() if (effective_gravity_mag > 0.01) else Vector3.DOWN
-
-	if not is_on_floor():
-		vertical_velocity += effective_gravity_vector * 2 * delta
-	else:
-		# Si la gravedad efectiva apunta hacia arriba (levanta), despegar del suelo
-		if effective_gravity_dir.dot(Vector3.UP) > 0.5:
-			# Deshabilitar snap un frame para permitir despegue
-			snap_enabled = false
-			# Aplicar leve impulso en dirección de la "levitación" para separar del suelo
-			vertical_velocity = effective_gravity_dir * min(effective_gravity_mag, gravity) * 0.5
+	
+	# Gravity is only calculated for non-replay frames.
+	# For replay frames, the entire velocity is injected later.
+	if not _is_replay_frame:
+		if not is_on_floor():
+			vertical_velocity += effective_gravity_vector * 2 * delta
 		else:
-			vertical_velocity = -get_floor_normal() * min(effective_gravity_mag, gravity) / 3
+			# Si la gravedad efectiva apunta hacia arriba (levanta), despegar del suelo
+			if effective_gravity_dir.dot(Vector3.UP) > 0.5:
+				snap_enabled = false
+				vertical_velocity = effective_gravity_dir * min(effective_gravity_mag, gravity) * 0.5
+			else:
+				vertical_velocity = -get_floor_normal() * min(effective_gravity_mag, gravity) / 3
 
 	# Clamp de velocidad vertical para evitar picos (como antes)
 	vertical_velocity.y = clamp(vertical_velocity.y, -max_fall_speed, max_rise_speed)
@@ -486,13 +492,12 @@ func _physics_process(delta):
 		if cam_rig.has_method("process_camera_rotation"):
 			cam_rig.process_camera_rotation(mouse_motion)
 			if debug_yaw and mouse_motion.length_squared() > 0:
-				print_debug_tag("Yaw", "[Controller] Passing mouse_motion to cam: %s" % mouse_motion)
+				print_debug_tag("Yaw", "[Controller] Passing mouse_motion to cam: %s" % str(mouse_motion))
 		
 		# Actualizar timer de actividad del mouse
 		if mouse_motion.length() > 0.01:
 			mouse_active_timer = mouse_active_timeout_ms / 1000.0
 		mouse_active_timer = max(0.0, mouse_active_timer - delta)
-		var mouse_active = mouse_active_timer > 0.0
 		
 		# --- Tank Turn y Sincronización de Cámara ---
 		# Procesar movimiento con componente
@@ -564,10 +569,11 @@ func _physics_process(delta):
 	# En suelo: sumar componente horizontal de platform_velocity (requerido para conveyors)
 	# En aire: usar la última velocidad capturada para conservar inercia
 	var effective_platform_velocity := (Vector3(platform_velocity.x, 0, platform_velocity.z) if (is_on_floor() and platform_is_static_surface) else airborne_inherited)
-	var combined_horizontal = horizontal_velocity + effective_platform_velocity
-	movement.z = combined_horizontal.z + vertical_velocity.z
-	movement.x = combined_horizontal.x + vertical_velocity.x
-	movement.y = vertical_velocity.y
+	var combined_horizontal: Vector3
+
+	# This calculation is now only done for non-replay frames, as replays restore the final velocity directly.
+	combined_horizontal = horizontal_velocity + effective_platform_velocity
+	var movement_this_frame = combined_horizontal + vertical_velocity
 
 	if debug_enabled and (debug_movement or debug_yaw):
 		var dir_change2 = (direction - _last_dir).length()
@@ -589,9 +595,20 @@ func _physics_process(delta):
 		if is_on_floor():
 			snap_enabled = true
 
-	move_and_slide_with_snap(movement, snap_vec, Vector3.UP, false)
+	# CRITICAL FOR DETERMINISM: On a replay frame, we bypass move_and_slide entirely,
+	# as the final velocity has already been restored in set_replay_state.
+	if not _is_replay_frame:
+		velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
+	
+	# Update horizontal_velocity from the result for the next frame
+	horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
+	
+	# Update vertical_velocity from the result of the slide for the next frame's gravity calculation
+	vertical_velocity.y = velocity.y
 	was_on_floor = is_on_floor()
 	# Resetear bandera tras aplicar movimiento (un solo frame de protección)
+	# Also reset the replay frame flag so normal physics apply next frame.
+	_is_replay_frame = false
 	just_jumped = false
 
 	# --- Sombra falsa ---
@@ -783,15 +800,37 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 	snap_enabled = true
 	print("[PlayerController] action flags reset (is_rolling, is_attacking, just_jumped, snap_enabled)")
 
+func _string_to_vector3(s: String) -> Vector3:
+	s = s.trim_prefix("(").trim_suffix(")")
+	var parts = s.split(",")
+	if parts.size() == 3:
+		return Vector3(float(parts[0]), float(parts[1]), float(parts[2]))
+	return Vector3.ZERO
+
+func _string_to_transform(s: String) -> Transform:
+	s = s.trim_prefix("(").trim_suffix(")")
+	var parts = s.split(",")
+	if parts.size() == 12:
+		var basis_x = Vector3(float(parts[0]), float(parts[1]), float(parts[2]))
+		var basis_y = Vector3(float(parts[3]), float(parts[4]), float(parts[5]))
+		var basis_z = Vector3(float(parts[6]), float(parts[7]), float(parts[8]))
+		var origin = Vector3(float(parts[9]), float(parts[10]), float(parts[11]))
+		return Transform(Basis(basis_x, basis_y, basis_z), origin)
+	return Transform.IDENTITY
+
 func get_replay_state() -> Dictionary:
-	var state = {}
-	state["platform_velocity"] = platform_velocity
-	state["airborne_inherited"] = airborne_inherited
-	state["horizontal_velocity"] = horizontal_velocity
-	state["vertical_velocity"] = vertical_velocity
-	state["just_jumped"] = just_jumped
-	state["time_since_jump"] = time_since_jump
-	state["time_since_input"] = time_since_input
+	# This function should return raw Godot types.
+	# The ReplayRecorder is responsible for converting them to a JSON-safe format.
+		
+	var state = {
+		"global_transform": global_transform,
+		"platform_velocity": platform_velocity,
+		"airborne_inherited": airborne_inherited,
+		"just_jumped": just_jumped,
+		"time_since_jump": time_since_jump,
+		"time_since_input": time_since_input,
+		"velocity": velocity, # Record the final velocity AFTER move_and_slide
+	}
 	if jump_comp:
 		state["coyote_timer"] = jump_comp.coyote_timer
 		state["jump_buffer_timer"] = jump_comp.jump_buffer_timer
@@ -799,23 +838,30 @@ func get_replay_state() -> Dictionary:
 	return state
 
 func set_replay_state(state: Dictionary) -> void:
-	if state.has("platform_velocity"):
-		platform_velocity = state["platform_velocity"]
-	if state.has("airborne_inherited"):
-		airborne_inherited = state["airborne_inherited"]
-	if state.has("horizontal_velocity"):
-		horizontal_velocity = state["horizontal_velocity"]
-	if state.has("vertical_velocity"):
-		vertical_velocity = state["vertical_velocity"]
-	if state.has("just_jumped"):
-		just_jumped = state["just_jumped"]
-	if state.has("time_since_jump"):
-		time_since_jump = state["time_since_jump"]
-	if state.has("time_since_input"):
-		time_since_input = state["time_since_input"]
-	if jump_comp and state.has("coyote_timer"):
-		jump_comp.coyote_timer = state["coyote_timer"]
-	if jump_comp and state.has("jump_buffer_timer"):
-		jump_comp.jump_buffer_timer = state["jump_buffer_timer"]
-	if jump_comp and state.has("should_jump_buffered"):
-		jump_comp.should_jump_buffered = state["should_jump_buffered"]
+	var ReplayUtils = get_node("/root/ReplayUtils")
+	var deserialized_state = ReplayUtils.from_json_safe(state)
+
+	global_transform = deserialized_state.get("global_transform", global_transform)
+	platform_velocity = deserialized_state.get("platform_velocity", platform_velocity)
+	airborne_inherited = deserialized_state.get("airborne_inherited", Vector3.ZERO)
+	just_jumped = deserialized_state.get("just_jumped", false)
+	time_since_jump = deserialized_state.get("time_since_jump", 1.0)
+	time_since_input = deserialized_state.get("time_since_input", 1.0)
+
+	# CRITICAL FOR DETERMINISM: Restore the final velocity and set a flag to bypass physics.
+	velocity = deserialized_state.get("velocity", Vector3.ZERO)
+	horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
+	vertical_velocity.y = velocity.y
+	_is_replay_frame = true
+
+	# CRITICAL FOR DETERMINISM: Reset transient state variables that are
+	# calculated within _physics_process. This prevents the physics logic
+	# from overwriting the just-restored state before it's used.
+	was_on_floor = false
+
+	if jump_comp and deserialized_state.has("coyote_timer") and deserialized_state["coyote_timer"] != null:
+		jump_comp.coyote_timer = deserialized_state["coyote_timer"]
+	if jump_comp and deserialized_state.has("jump_buffer_timer") and deserialized_state["jump_buffer_timer"] != null:
+		jump_comp.jump_buffer_timer = deserialized_state["jump_buffer_timer"]
+	if jump_comp and deserialized_state.has("should_jump_buffered") and deserialized_state["should_jump_buffered"] != null:
+		jump_comp.should_jump_buffered = deserialized_state["should_jump_buffered"]

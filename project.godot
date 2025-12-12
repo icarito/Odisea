@@ -1009,6 +1009,7 @@ UIManager="*res://autoload/UIManager.gd"
 TouchCounter="*res://autoload/TouchCounter.gd"
 ReplayManager="*res://scripts/replay/ReplayManager.gd"
 MouseCapture="*res://scripts/utils/MouseCapture.gd"
+ReplayUtils="*res://scripts/replay/ReplayUtils.gd"
 
 [debug]
 

@@ -43,6 +43,8 @@ text = "Stop Recording"
 margin_top = 115.0
 margin_right = 374.0
 margin_bottom = 131.0
+step = 10.0
+ticks_on_borders = true
 
 [node name="PlaybackControls" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
 margin_top = 135.0

@@ -27,7 +27,7 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_debug_menu"):
-		if get_tree().current_scene.name != "Menu" and ReplayManager.mode != ReplayManager.ReplayMode.RECORDING and ReplayManager.mode != ReplayManager.ReplayMode.PLAYBACK:
+		if get_tree().current_scene.name != "Menu":
 			visible = !visible
 			_set_touch_controls_active(!visible)
 			get_node("/root/MouseCapture").show_cursor(visible)
