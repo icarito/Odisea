@@ -160,6 +160,10 @@ func _ready():
 		debug_enabled = GameGlobals.debug_mode
 		GameGlobals.connect("debug_mode_changed", self, "_on_debug_mode_changed")
 
+	if UIManager:
+		UIManager.connect("overlay_shown", self, "_on_UIManager_overlay_shown")
+		UIManager.connect("overlay_hidden", self, "_on_UIManager_overlay_hidden")
+
 	# Alinear dirección inicial con el frente del mesh y la cámara
 	var yaw_node = get_node_or_null("CameraRig/Yaw")
 	var yaw_angle := 0.0
@@ -223,9 +227,15 @@ func set_player_id(id: int) -> void:
 func set_external_source_is_static(is_static: bool) -> void:
 	platform_is_static_surface = is_static
 
+var _is_ui_overlay_active := false
+func _on_UIManager_overlay_shown():
+	_is_ui_overlay_active = true
+func _on_UIManager_overlay_hidden():
+	_is_ui_overlay_active = false
+
 func _input(event):
-	# Ignorar input si ReplayDebug está visible
-	if ReplayManager.is_replay_debug_visible:
+	# Ignorar input si hay un overlay de UI activo
+	if _is_ui_overlay_active:
 		return
 	# Capturar movimiento del mouse solo si el PlayerInput de este jugador está configurado para usarlo.
 	if player_input and player_input.use_mouse_input and event is InputEventMouseMotion:

@@ -40,12 +40,17 @@ var last_debug_print_time: float = 0.0
 var _ignore_mouse_until_frame := 0
 var active_touch_controls = 0
 var _previous_mouse_mode = Input.MOUSE_MODE_CAPTURED
+var _overlay_active := false
 
 # --- Lifecycle ---
 func _ready():
 	instance = self
 	get_viewport().connect("size_changed", self, "_on_viewport_size_changed")
 	
+	if UIManager:
+		UIManager.connect("overlay_shown", self, "_on_UIManager_overlay_shown")
+		UIManager.connect("overlay_hidden", self, "_on_UIManager_overlay_hidden")
+
 	yield(get_tree(), "idle_frame")
 	_build_controls_from_json()
 	_init_hide_timer()
@@ -53,6 +58,15 @@ func _ready():
 
 func _on_viewport_size_changed():
 	call_deferred("_rebuild_controls")
+
+# --- Signal Handlers ---
+func _on_UIManager_overlay_shown():
+	_overlay_active = true
+	_set_controls_visible(false)
+
+func _on_UIManager_overlay_hidden():
+	_overlay_active = false
+	# No need to show controls, user touch will trigger it
 
 # --- Private Methods ---
 
@@ -186,6 +200,9 @@ func _build_controls_from_json():
 	_set_controls_visible(false)
 # --- Mostrar/Ocultar controles ---
 func _set_controls_visible(visible: bool):
+	if _overlay_active and visible:
+		return
+
 	controls_visible = visible
 	# Oculta/muestra todos los controles hijos de ambos paneles
 	for c in left_controls.get_children():
@@ -198,13 +215,6 @@ func _set_controls_visible(visible: bool):
 	for c in get_children():
 		if c is TouchScreenButton:
 			c.visible = visible
-
-	# Control de mouse: si mostramos controles touch, liberar mouse y evitar eventos
-	if visible:
-		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
-		_ignore_mouse_until_frame = Engine.get_frames_drawn() + 1
-	else:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 # Permite consulta global del estado touch
 func is_touch_controls_active() -> bool:
@@ -332,6 +342,9 @@ func _apply_properties(node: Node, data: Dictionary):
 var _active_touches := {}
 
 func _input(event):
+	if _overlay_active:
+		return
+
 	var current_frame = Engine.get_frames_drawn()
 	if event is InputEventMouse and current_frame <= _ignore_mouse_until_frame:
 		get_tree().set_input_as_handled()
@@ -342,9 +355,6 @@ func _input(event):
 			return
 		if event.pressed:
 			_active_touches[event.index] = true
-			if _active_touches.size() == 1:
-				_previous_mouse_mode = Input.get_mouse_mode()
-				Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 			if not controls_visible:
 				_set_controls_visible(true)
 			# Evitar que el mouse genere eventos mientras controles touch están activos
@@ -354,8 +364,6 @@ func _input(event):
 			var prev_count = _active_touches.size()
 			if was_active:
 				_active_touches.erase(event.index)
-			if _active_touches.size() == 0:
-				Input.set_mouse_mode(_previous_mouse_mode)
 			# No reiniciar timer aquí, se hace en las señales de controles
 
 func _on_hide_timer_timeout():

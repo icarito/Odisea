@@ -4,12 +4,21 @@ extends CanvasLayer
 # Responsibility: A single point of communication for displaying UI elements
 # like menus, HUDs, and modal messages.
 
+signal overlay_shown
+signal overlay_hidden
+
 # --- Properties ---
 var main_menu_scene: PackedScene = preload("res://scenes/Menu.tscn") # Adjust path if needed
 var hud_instance: Node = null
 var modal_instance: AcceptDialog = null
 
 # --- Public API ---
+
+func notify_overlay_shown():
+	emit_signal("overlay_shown")
+
+func notify_overlay_hidden():
+	emit_signal("overlay_hidden")
 
 func show_main_menu() -> void:
 	# Ensure HUD is hidden

@@ -22,47 +22,73 @@ margin_bottom = 121.0
 
 [node name="StatusLabel" type="Label" parent="MarginContainer/VBoxContainer"]
 margin_right = 190.0
-margin_bottom = 33.0
+margin_bottom = 14.0
 
 [node name="CurrentReplayLabel" type="Label" parent="MarginContainer/VBoxContainer"]
-margin_top = 37.0
+margin_top = 18.0
 margin_right = 190.0
-margin_bottom = 70.0
+margin_bottom = 32.0
 
-[node name="StopButton" type="Button" parent="MarginContainer/VBoxContainer"]
-margin_top = 74.0
+[node name="RecordingControls" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+margin_top = 36.0
 margin_right = 190.0
-margin_bottom = 111.0
-text = "Stop"
+margin_bottom = 56.0
+
+[node name="StopRecordingButton" type="Button" parent="MarginContainer/VBoxContainer/RecordingControls"]
+margin_right = 190.0
+margin_bottom = 20.0
+size_flags_horizontal = 3
+text = "Stop Recording"
+
+[node name="FrameSlider" type="HSlider" parent="MarginContainer/VBoxContainer"]
+margin_top = 60.0
+margin_right = 190.0
+margin_bottom = 76.0
+tick_count = 0
+ticks_on_top = false
 
 [node name="PlaybackControls" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
-margin_top = 115.0
-margin_right = 190.0
-margin_bottom = 152.0
+margin_top = 80.0
+margin_right = 320.0
+margin_bottom = 117.0
 
 [node name="RewindButton" type="Button" parent="MarginContainer/VBoxContainer/PlaybackControls"]
-margin_right = 60.0
+margin_right = 50.0
 margin_bottom = 37.0
-rect_min_size = Vector2( 60, 0 )
+rect_min_size = Vector2( 50, 0 )
 text = "Rewind"
 
-[node name="PauseButton" type="Button" parent="MarginContainer/VBoxContainer/PlaybackControls"]
-margin_left = 64.0
-margin_right = 123.0
+[node name="StepBackButton" type="Button" parent="MarginContainer/VBoxContainer/PlaybackControls"]
+margin_left = 54.0
+margin_right = 104.0
 margin_bottom = 37.0
-rect_min_size = Vector2( 60, 0 )
+rect_min_size = Vector2( 50, 0 )
+text = "Step<"
+
+[node name="PauseButton" type="Button" parent="MarginContainer/VBoxContainer/PlaybackControls"]
+margin_left = 108.0
+margin_right = 158.0
+margin_bottom = 37.0
+rect_min_size = Vector2( 50, 0 )
 text = "Pause"
 
 [node name="PlayResumeButton" type="Button" parent="MarginContainer/VBoxContainer/PlaybackControls"]
-margin_left = 127.0
-margin_right = 186.0
+margin_left = 162.0
+margin_right = 212.0
 margin_bottom = 37.0
-rect_min_size = Vector2( 60, 0 )
+rect_min_size = Vector2( 50, 0 )
 text = "Play"
 
 [node name="StepButton" type="Button" parent="MarginContainer/VBoxContainer/PlaybackControls"]
-margin_left = 190.0
-margin_right = 249.0
+margin_left = 216.0
+margin_right = 266.0
 margin_bottom = 37.0
-rect_min_size = Vector2( 60, 0 )
-text = "Step"
+rect_min_size = Vector2( 50, 0 )
+text = "Step>"
+
+[node name="EjectButton" type="Button" parent="MarginContainer/VBoxContainer/PlaybackControls"]
+margin_left = 270.0
+margin_right = 320.0
+margin_bottom = 37.0
+rect_min_size = Vector2( 50, 0 )
+text = "Eject"

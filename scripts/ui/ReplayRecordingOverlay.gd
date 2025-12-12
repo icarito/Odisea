@@ -1,20 +1,29 @@
 extends CanvasLayer
 
 onready var status_label: Label = find_node("StatusLabel", true, false)
-onready var stop_button: Button = find_node("StopButton", true, false)
-onready var current_replay_label: Label = find_node("CurrentReplayLabel", true, false)
-onready var playback_controls: Control = find_node("PlaybackControls", true, false)
+onready var playback_controls: Container = find_node("PlaybackControls", true, false)
+onready var recording_controls: Container = find_node("RecordingControls", true, false)
+onready var stop_recording_button: Button = find_node("StopRecordingButton", true, false)
 onready var pause_button: Button = find_node("PauseButton", true, false)
 onready var play_resume_button: Button = find_node("PlayResumeButton", true, false)
 onready var step_button: Button = find_node("StepButton", true, false)
 onready var rewind_button: Button = find_node("RewindButton", true, false)
+onready var step_back_button: Button = find_node("StepBackButton", true, false)
+onready var eject_button: Button = find_node("EjectButton", true, false)
+onready var frame_slider: HSlider = find_node("FrameSlider", true, false)
 
 var _recording_just_stopped: bool = false
+var playback_node: Node = null
 
 func _ready() -> void:
 	visible = false
-	if stop_button:
-		stop_button.connect("pressed", self, "_on_StopButton_pressed")
+	
+	if ReplayManager:
+		ReplayManager.connect("mode_changed", self, "_on_ReplayManager_mode_changed")
+		ReplayManager.connect("recording_stopped", self, "_on_ReplayManager_recording_stopped")
+
+	if stop_recording_button:
+		stop_recording_button.connect("pressed", self, "_on_StopRecordingButton_pressed")
 	if pause_button:
 		pause_button.connect("pressed", self, "_on_PauseButton_pressed")
 	if play_resume_button:
@@ -23,128 +32,140 @@ func _ready() -> void:
 		step_button.connect("pressed", self, "_on_StepButton_pressed")
 	if rewind_button:
 		rewind_button.connect("pressed", self, "_on_RewindButton_pressed")
+	if step_back_button:
+		step_back_button.connect("pressed", self, "_on_StepBackButton_pressed")
+	if eject_button:
+		eject_button.connect("pressed", self, "_on_EjectButton_pressed")
+	if frame_slider:
+		frame_slider.connect("value_changed", self, "_on_FrameSlider_value_changed")
 		
 	if status_label:
 		status_label.text = ""
-	if current_replay_label:
-		current_replay_label.text = ""
-		
-	ReplayManager.connect("mode_changed", self, "_on_mode_changed")
-	ReplayManager.connect("recording_stopped", self, "_on_recording_stopped")
+	
+	_update_visibility()
 
-func _on_recording_stopped(frame_count: int) -> void:
-	_recording_just_stopped = true
+func _on_ReplayManager_mode_changed(new_mode):
+	_update_visibility()
+	
+	if new_mode == ReplayManager.ReplayMode.PLAYBACK:
+		playback_node = ReplayManager.get_playback_node()
+		if playback_node:
+			playback_node.connect("frame_updated", self, "_on_frame_updated")
+			playback_node.connect("playback_started", self, "_on_playback_started")
+	else:
+		if playback_node:
+			if playback_node.is_connected("frame_updated", self, "_on_frame_updated"):
+				playback_node.disconnect("frame_updated", self, "_on_frame_updated")
+			if playback_node.is_connected("playback_started", self, "_on_playback_started"):
+				playback_node.disconnect("playback_started", self, "_on_playback_started")
+		playback_node = null
+
+func _on_playback_started(total_frames):
+	if frame_slider:
+		frame_slider.max_value = total_frames - 1
+		frame_slider.tick_count = total_frames / 10 # Optional: show some ticks
+
+func _on_frame_updated(frame, _total_frames):
 	if status_label:
-		status_label.text = "Stopped. Recorded %d frames." % frame_count
-		status_label.modulate = Color(1, 1, 1) # White
-	if stop_button:
-		stop_button.visible = false # Hide stop button, as it's stopped.
-	if playback_controls:
+		status_label.text = "Playback: Frame %d / %d" % [frame, frame_slider.max_value]
+	if frame_slider and not frame_slider.is_grabbing():
+		frame_slider.value = frame
+
+
+func _on_FrameSlider_value_changed(value):
+	if playback_node:
+		playback_node.seek(value)
+
+
+func _on_ReplayManager_recording_stopped(frame_count):
+	if status_label:
+		status_label.text = "Recording finished. %d frames." % frame_count
+	_recording_just_stopped = true
+	var timer = get_tree().create_timer(3.0)
+	timer.connect("timeout", self, "_on_status_clear_timeout")
+
+func _on_status_clear_timeout():
+	if status_label:
+		status_label.text = ""
+	_recording_just_stopped = false
+	_update_visibility()
+
+func _update_visibility():
+	if _recording_just_stopped:
+		if not visible:
+			UIManager.notify_overlay_shown()
+		visible = true
 		playback_controls.visible = false
-
-func _on_mode_changed(new_mode: int) -> void:
-	if new_mode == ReplayManager.ReplayMode.RECORDING:
-		_recording_just_stopped = false
-		visible = true
-		if status_label:
-			status_label.text = "Recording..."
-			status_label.modulate = Color(1, 0, 0)  # Red
-		if stop_button:
-			stop_button.visible = true
-		if current_replay_label:
-			current_replay_label.visible = false
-		if playback_controls:
-			playback_controls.visible = false
-			
-	elif new_mode == ReplayManager.ReplayMode.PLAYBACK:
-		_recording_just_stopped = false
-		visible = true
-		if status_label:
-			status_label.text = "Playing..."
-			status_label.modulate = Color(0, 1, 0)  # Green
-		if stop_button:
-			stop_button.visible = true
-		if current_replay_label:
-			current_replay_label.text = ReplayManager.current_replay_filename.get_basename()
-			current_replay_label.visible = true
-		if playback_controls:
-			playback_controls.visible = true
-			
-	elif new_mode == ReplayManager.ReplayMode.PAUSED:
-		_recording_just_stopped = false
-		visible = true
-		if status_label:
-			status_label.text = "Paused..."
-			status_label.modulate = Color(1, 1, 0)  # Yellow
-		if stop_button:
-			stop_button.visible = true
-		if current_replay_label:
-			current_replay_label.text = ReplayManager.current_replay_filename.get_basename()
-			current_replay_label.visible = true
-		if playback_controls:
-			playback_controls.visible = true
-			
-	elif new_mode == ReplayManager.ReplayMode.LOADED:
-		_recording_just_stopped = false
-		visible = true
-		if status_label:
-			status_label.text = "Stopped. Ready to play"
-			status_label.modulate = Color(0, 1, 1)  # Cyan
-		if stop_button:
-			stop_button.visible = true
-		if current_replay_label:
-			current_replay_label.text = ReplayManager.current_replay_filename.get_basename()
-			current_replay_label.visible = true
-		if playback_controls:
-			playback_controls.visible = true
-			
-	else: # ReplayMode.NONE
-		if _recording_just_stopped:
-			_recording_just_stopped = false # Reset flag
-			# Keep visible, but hide playback controls
-			if playback_controls:
-				playback_controls.visible = false
-		else:
-			visible = false
-
-func _process(_delta: float) -> void:
-	if not visible:
+		recording_controls.visible = false
+		frame_slider.visible = false
 		return
 
-	if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING and not ReplayManager.recording_paused:
-		if status_label and ReplayManager.current_replay:
-			status_label.text = "Recording... %d" % len(ReplayManager.current_replay.frames)
-	elif ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK and not ReplayManager.playback_paused:
-		if status_label and ReplayManager.current_replay:
-			var total_frames = len(ReplayManager.current_replay.frames)
-			status_label.text = "Playing... %d / %d" % [ReplayManager.frame_index, total_frames]
-	elif ReplayManager.mode == ReplayManager.ReplayMode.PAUSED:
-		if status_label and ReplayManager.current_replay:
-			var total_frames = len(ReplayManager.current_replay.frames)
-			status_label.text = "Paused... %d / %d" % [ReplayManager.frame_index, total_frames]
-	elif ReplayManager.mode == ReplayManager.ReplayMode.LOADED:
-		if status_label:
-			status_label.text = "Stopped. Ready to play"
+	var mode = ReplayManager.mode
+	
+	var should_be_visible = (mode != ReplayManager.ReplayMode.NONE)
+	if should_be_visible != visible:
+		if should_be_visible:
+			UIManager.notify_overlay_shown()
+		else:
+			UIManager.notify_overlay_hidden()
+	
+	visible = should_be_visible
 
-func _on_StopButton_pressed() -> void:
-	if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING:
-		ReplayManager.stop_recording()
-	elif ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK or ReplayManager.mode == ReplayManager.ReplayMode.PAUSED:
-		ReplayManager.stop_playback()
+	if visible:
+		match mode:
+			ReplayManager.ReplayMode.RECORDING:
+				recording_controls.visible = true
+				playback_controls.visible = false
+				frame_slider.visible = false
+				if status_label:
+					status_label.text = "Recording..."
+			ReplayManager.ReplayMode.PLAYBACK:
+				recording_controls.visible = false
+				playback_controls.visible = true
+				frame_slider.visible = true
+				if status_label:
+					status_label.text = "Playback Mode"
+	else:
+		recording_controls.visible = false
+		playback_controls.visible = false
+		frame_slider.visible = false
+		if status_label:
+			status_label.text = ""
+
+
+func _on_StopRecordingButton_pressed() -> void:
+	ReplayManager.stop_recording()
 
 func _on_PauseButton_pressed() -> void:
-	ReplayManager.pause_playback()
+	if playback_node:
+		playback_node.pause_playback()
 
 func _on_StepButton_pressed() -> void:
-	if ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
-		ReplayManager.playback_paused = true
-		ReplayManager.step_frame()
+	if playback_node:
+		playback_node.step_frame()
 
 func _on_RewindButton_pressed() -> void:
-	ReplayManager.rewind_playback()
+	if playback_node:
+		playback_node.rewind_playback()
+
+func _on_StepBackButton_pressed() -> void:
+	if playback_node:
+		playback_node.step_back_frame()
+
+func _on_EjectButton_pressed() -> void:
+	var panel = get_node("/root/ReplayManagementPanel")
+	if panel:
+		panel.visible = true
+	visible = false
+	UIManager.notify_overlay_hidden() # Manually notify since we are hiding
+	ReplayManager.reset_replay()
 
 func _on_PlayResumeButton_pressed() -> void:
-	if ReplayManager.mode == ReplayManager.ReplayMode.LOADED:
-		ReplayManager.start_loaded_playback()
-	elif ReplayManager.mode == ReplayManager.ReplayMode.PAUSED:
-		ReplayManager.resume_playback()
+	if not playback_node:
+		return
+		
+	if playback_node.playback_paused:
+		playback_node.resume_playback()
+	else:
+		# This case might not be reachable if the button is used for resume only
+		playback_node.start_loaded_playback()
