@@ -24,11 +24,12 @@ func _debug_log(message: String) -> void:
 		print("[ReplayRecorder] " + message)
 
 func _ready() -> void:
-	set_process_input(true)
+	set_process_unhandled_input(true)
 
-func _input(event: InputEvent) -> void:
+func _unhandled_input(event: InputEvent) -> void:
 	if is_recording() and event is InputEventMouseMotion:
 		mouse_motion_this_frame += event.relative
+		_debug_log("After _unhandled_input accumulation: mouse_motion_this_frame = " + str(mouse_motion_this_frame))
 
 func _physics_process(delta: float) -> void:
 	if not recording_paused:
@@ -51,7 +52,7 @@ func start_recording(): # This function now acts like a coroutine
 		initial[get_tree().current_scene.get_path_to(player)] = player.get_replay_state()
 	
 	# Add CameraRig state
-	camera_rig = get_tree().get_root().find_node("CameraRig", true, false)
+	camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 	if camera_rig and camera_rig.has_method("get_replay_state"):
 		initial[get_tree().current_scene.get_path_to(camera_rig)] = camera_rig.get_replay_state()
 	
@@ -88,8 +89,11 @@ func stop_recording() -> void:
 
 
 func _record_frame(delta: float) -> void:
+	_debug_log("Start of _record_frame: mouse_motion_this_frame = " + str(mouse_motion_this_frame))
 	if not current_replay:
 		return
+	if GameGlobals and GameGlobals.is_replaying:
+		return  # Do not record during replay playback
 
 	var frame_data = {
 		"delta": delta,
@@ -100,9 +104,29 @@ func _record_frame(delta: float) -> void:
 	for action in INPUT_ACTIONS:
 		frame_data["inputs"][action] = Input.is_action_pressed(action)
 
+	_debug_log("Mouse motion accumulated for frame " + str(len(current_replay.frames)) + ": " + str(mouse_motion_this_frame))
 	frame_data["inputs"]["mouse_motion"] = mouse_motion_this_frame
 	frame_data["timestamp"] = Time.get_ticks_usec() - start_time
 	mouse_motion_this_frame = Vector2.ZERO
+	
+	# Record camera state
+	var camera = camera_rig
+	if camera:
+		var camera_yaw = camera.yaw.rotation.y
+		var camera_pitch = camera.pitch.rotation.x
+		var spring_length = camera.springarm.spring_length
+		frame_data["camera"] = {"yaw": camera_yaw, "pitch": camera_pitch, "spring_length": spring_length}
+	
+	# Record player external velocity
+	if player and player.external_velocity:
+		frame_data["player_external_velocity"] = player.external_velocity.velocity
+	
+	# Record player gravity override
+	if player:
+		var grav = player.get("gravity_override")
+		if grav == null:
+			grav = Vector3(0, -9.8, 0)
+		frame_data["player_gravity_override"] = grav
 	
 	current_replay.frames.append(frame_data)
 	last_frame_data = frame_data

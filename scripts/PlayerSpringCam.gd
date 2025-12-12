@@ -87,6 +87,8 @@ func _update_mouse_look_active():
 
 func process_camera_rotation(motion: Vector2):
 	"""Procesa el movimiento del mouse/touch para rotar la cámara."""
+	if Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED:
+		return
 	if player_id == 1:
 		if not _is_mouse_look_active:
 			return
