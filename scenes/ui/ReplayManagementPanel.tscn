@@ -41,6 +41,18 @@ margin_right = 200.0
 margin_bottom = 291.0
 text = "Reset"
 
+[node name="RestartLevelButton" type="Button" parent="Control/VBoxContainer"]
+margin_top = 301.0
+margin_right = 200.0
+margin_bottom = 338.0
+text = "Restart Level"
+
+[node name="ReturnToMenuButton" type="Button" parent="Control/VBoxContainer"]
+margin_top = 348.0
+margin_right = 200.0
+margin_bottom = 385.0
+text = "Return to Menu"
+
 [node name="PlaybackControls" type="HBoxContainer" parent="Control/VBoxContainer"]
 margin_top = 301.0
 margin_right = 200.0
