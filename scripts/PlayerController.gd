@@ -1,5 +1,7 @@
 extends KinematicBody
 
+const FixedVec3 = preload("res://scripts/FixedVec3.gd")
+
 # Placeholder: controlador de Elías basado en PlayerTemplate
 # Nota: Se moverá lógica avanzada y referencias de animación conforme al refactor
 
@@ -10,6 +12,7 @@ onready var playback = animation_tree.get("parameters/playback")
 export (NodePath) var PlayerCharacterMesh
 export onready var player_mesh = get_node(PlayerCharacterMesh)
 
+
 const ReplayUtils = preload("res://scripts/replay/ReplayUtils.gd")
 
 export var gravity = 9.8
@@ -17,11 +20,12 @@ export var jump_force = 9
 export var turn_speed := 2.0
 export var dash_power := 12.0
 
-# Velocidad externa aplicada por plataformas/conveyors (legacy, ahora en componente)
-var platform_velocity := Vector3.ZERO
+
+# Velocidad externa aplicada por plataformas/conveyors (ahora en punto fijo)
+var platform_velocity_fixed = FixedVec3.zero()
 var platform_is_static_surface := false
-var last_platform_velocity := Vector3.ZERO
-export var snap_len := 0.5
+var last_platform_velocity_fixed = FixedVec3.zero()
+export var snap_len := 0.5 # TODO: migrar a fixed si es relevante
 var snap_enabled := true
 
 export(float, 0.0, 1.0, 0.01) var strafe_mode_influence := 1.0 # 1.0 = full strafe preferred, 0.0 = full tank turn
@@ -40,7 +44,7 @@ onready var player_input = $PlayerInput if has_node("PlayerInput") else null
 var player_id := 1
 
 # Legacy variables (some may be moved to components)
-var airborne_inherited := Vector3.ZERO
+var airborne_inherited_fixed = FixedVec3.zero()
 var was_on_floor := false
 export var max_platform_up_follow := 5.0
 export var inherit_vertical_platform_jump := true
@@ -86,9 +90,8 @@ var is_attacking = false
 var is_rolling = false
 
 var aim_turn = 0.0
-var velocity = Vector3() # Replaces 'movement' and 'vertical_velocity' for move_and_slide
-var vertical_velocity = Vector3()
-var pre_move_velocity_for_replay = Vector3()
+var velocity_fixed = FixedVec3.zero() # Reemplaza 'movement' y 'vertical_velocity' para move_and_slide
+var pre_move_velocity_for_replay_fixed = FixedVec3.zero()
 
 # Touch camera control
 export var touch_sensitivity := 0.1
@@ -129,8 +132,16 @@ var _debug_input_last := 0.0
 
 var _touch_camera_connected := false
 
+var direction_fixed = FixedVec3.zero()
 var direction := Vector3.ZERO
 var horizontal_velocity := Vector3.ZERO
+var velocity := Vector3.ZERO
+var pre_move_velocity_for_replay := Vector3.ZERO
+var platform_velocity := Vector3.ZERO
+var airborne_inherited := Vector3.ZERO
+var last_platform_velocity := Vector3.ZERO
+var horizontal_velocity_fixed = FixedVec3.zero()
+var vertical_velocity_fixed = FixedVec3.zero()
 var movement_speed := 0.0
 var acceleration := 15.0
 
@@ -149,12 +160,12 @@ func set_gravity_override(g: Vector3) -> void:
 func clear_gravity_override() -> void:
 	local_gravity_override = Vector3.ZERO
 
-# Interfaz pública para que plataformas/conveyors transfieran velocidad
-func set_external_velocity(v: Vector3) -> void:
+# Interfaz pública para que plataformas/conveyors transfieran velocidad (ahora en punto fijo)
+func set_external_velocity_fixed(v: FixedVec3) -> void:
 	if external_velocity:
-		external_velocity.set_external_velocity(v)
+		external_velocity.set_external_velocity(FixedVec3.to_vector3(v))
 	else:
-		platform_velocity = v
+		platform_velocity_fixed = v
 
 func _ready():
 	# Connect to GameGlobals for debug mode
@@ -363,6 +374,31 @@ func _physics_process(delta):
 	
 	var on_floor = is_on_floor()
 
+	# Declare input variables
+	var input_vector := Vector2.ZERO
+	var mouse_motion = null
+	var is_sprinting = false
+	var jump_pressed = false
+
+	if not is_replaying:
+		# Process player input desde InputState
+		if InputState:
+			input_vector = Vector2(
+				-InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0,
+				InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
+			)
+			mouse_motion = InputState.get_mouse_delta()
+			is_sprinting = InputState.is_action_pressed("run")
+			jump_pressed = InputState.is_action_pressed("jump")
+		has_input = input_vector.length() > 0.1
+	else:
+		# For replay, still get input_vector for rotation
+		if InputState:
+			input_vector = Vector2(
+				-InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0,
+				InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
+			)
+
 	if not is_replaying:
 		# --- NORMAL GAME LOGIC: ALL VELOCITY CALCULATION HAPPENS HERE ---
 
@@ -394,19 +430,32 @@ func _physics_process(delta):
 		var effective_gravity_mag := effective_gravity_vector.length()
 		var effective_gravity_dir := effective_gravity_vector.normalized() if (effective_gravity_mag > 0.01) else Vector3.DOWN
 		
-		# Apply Gravity
+		# Apply Gravity (fixed-point)
 		if not is_on_floor():
-			vertical_velocity += effective_gravity_vector * 2 * delta
+			var gravity_fixed = FixedVec3.from_vector3(effective_gravity_vector)
+			var delta_fixed = FixedPoint.to_fixed(delta)
+			var multiplier_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(2), delta_fixed)
+			var gravity_delta_fixed = FixedVec3.mul_scalar(gravity_fixed, multiplier_fixed)
+			vertical_velocity_fixed = FixedVec3.add(vertical_velocity_fixed, gravity_delta_fixed)
 		else:
 			# Si la gravedad efectiva apunta hacia arriba (levanta), despegar del suelo
 			if effective_gravity_dir.dot(Vector3.UP) > 0.5:
 				snap_enabled = false
-				vertical_velocity = effective_gravity_dir * min(effective_gravity_mag, gravity) * 0.5
+				var gravity_dir_fixed = FixedVec3.from_vector3(effective_gravity_dir)
+				var min_gravity_fixed = FixedPoint.to_fixed(min(effective_gravity_mag, gravity))
+				var half_gravity_fixed = FixedPoint.fixed_mul(min_gravity_fixed, FixedPoint.to_fixed(0.5))
+				vertical_velocity_fixed = FixedVec3.mul_scalar(gravity_dir_fixed, half_gravity_fixed)
 			else:
-				vertical_velocity = -get_floor_normal() * min(effective_gravity_mag, gravity) / 3
+				var floor_normal_fixed = FixedVec3.from_vector3(-get_floor_normal())
+				var min_gravity_fixed = FixedPoint.to_fixed(min(effective_gravity_mag, gravity))
+				var third_gravity_fixed = FixedPoint.fixed_div(min_gravity_fixed, FixedPoint.to_fixed(3))
+				vertical_velocity_fixed = FixedVec3.mul_scalar(floor_normal_fixed, third_gravity_fixed)
 
-		# Clamp de velocidad vertical para evitar picos
-		vertical_velocity.y = clamp(vertical_velocity.y, -max_fall_speed, max_rise_speed)
+		# Clamp de velocidad vertical para evitar picos (fixed-point)
+		var max_fall_fixed = FixedPoint.to_fixed(-max_fall_speed)
+		var max_rise_fixed = FixedPoint.to_fixed(max_rise_speed)
+		var clamped_y_fixed = FixedPoint.fixed_clamp(vertical_velocity_fixed.y, max_fall_fixed, max_rise_fixed)
+		vertical_velocity_fixed = FixedVec3.new(vertical_velocity_fixed.x, clamped_y_fixed, vertical_velocity_fixed.z)
 
 		# Check for attack/roll states that modify acceleration
 		if (attack1_node_name in playback.get_current_node()) or (attack2_node_name in playback.get_current_node()) or (bigattack_node_name in playback.get_current_node()):
@@ -425,31 +474,18 @@ func _physics_process(delta):
 			is_rolling = false
 		
 
-		# Process player input desde InputState
-		var input_vector := Vector2.ZERO
-		var mouse_motion = null
-		var is_sprinting = false
-		var jump_pressed = false
-		if InputState:
-			input_vector = Vector2(
-				-InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0,
-				InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
-			)
-			mouse_motion = InputState.get_mouse_delta()
-			is_sprinting = InputState.is_action_pressed("run")
-			jump_pressed = InputState.is_action_pressed("jump")
-		has_input = input_vector.length() > 0.1
-		# print("[PlayerController] Raw Inputs: move_x=%s, move_y=%s, run=%s" % [input_vector.x, input_vector.y, is_sprinting])
-
 		# Control de movimiento y rotación
 
-		# Handle Jump
+		# Handle Jump (fixed-point)
 		if jump_pressed and ((is_attacking != true) and (is_rolling != true)) and is_on_floor():
 			if AudioSystem: AudioSystem.play_sfx("res://assets/sfx/jump.wav")
 			var pv := platform_velocity
-			vertical_velocity = Vector3.UP * jump_force
+			var jump_force_fixed = FixedPoint.to_fixed(jump_force)
+			vertical_velocity_fixed = FixedVec3.new(0, jump_force_fixed, 0)
 			if inherit_vertical_platform_jump and pv.y > 0.0:
-				vertical_velocity.y += min(pv.y, max_platform_up_follow)
+				var min_pv_fixed = FixedPoint.to_fixed(min(pv.y, max_platform_up_follow))
+				var new_y_fixed = FixedPoint.fixed_add(vertical_velocity_fixed.y, min_pv_fixed)
+				vertical_velocity_fixed = FixedVec3.new(vertical_velocity_fixed.x, new_y_fixed, vertical_velocity_fixed.z)
 			snap_enabled = false
 			airborne_inherited = Vector3(pv.x, 0, pv.z)
 			horizontal_velocity += airborne_inherited
@@ -515,20 +551,25 @@ func _physics_process(delta):
 			else:
 				is_walking = false; is_running = false; direction = Vector3.ZERO; horizontal_velocity = Vector3.ZERO
 		
-		# Platform velocity logic
-		platform_velocity = platform_velocity.linear_interpolate(Vector3.ZERO, 6.0 * delta)
+		# Platform velocity logic (fixed-point)
+		var zero_fixed = FixedVec3.zero()
+		var lerp_factor_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(6.0), FixedPoint.to_fixed(delta))
+		platform_velocity_fixed = FixedVec3.lerp(platform_velocity_fixed, zero_fixed, lerp_factor_fixed)
 		if is_on_floor():
-			last_platform_velocity = platform_velocity
+			last_platform_velocity = FixedVec3.to_vector3(platform_velocity_fixed)
 			airborne_inherited = Vector3.ZERO
 			if platform_velocity.y > 0.0 and not just_jumped:
-				vertical_velocity.y = min(platform_velocity.y, max_platform_up_follow)
+				var min_pv_fixed = FixedPoint.to_fixed(min(platform_velocity.y, max_platform_up_follow))
+				vertical_velocity_fixed = FixedVec3.new(vertical_velocity_fixed.x, min_pv_fixed, vertical_velocity_fixed.z)
 		elif was_on_floor:
 			airborne_inherited = last_platform_velocity
 		
-		# Final velocity combination for this frame
+		# Final velocity combination for this frame (fixed-point)
 		var effective_platform_velocity := (Vector3(platform_velocity.x, 0, platform_velocity.z) if (is_on_floor() and platform_is_static_surface) else airborne_inherited)
 		var combined_horizontal = horizontal_velocity + effective_platform_velocity
-		movement_this_frame = combined_horizontal + vertical_velocity
+		var combined_horizontal_fixed = FixedVec3.from_vector3(combined_horizontal)
+		var movement_this_frame_fixed = FixedVec3.add(combined_horizontal_fixed, vertical_velocity_fixed)
+		movement_this_frame = FixedVec3.to_vector3(movement_this_frame_fixed)
 
 	else:
 		# --- REPLAY LOGIC ---
@@ -543,7 +584,7 @@ func _physics_process(delta):
 		else:
 			direction = Vector3.ZERO
 		
-		var is_sprinting = Input.is_action_pressed("run")
+		is_sprinting = Input.is_action_pressed("run")
 		is_walking = horizontal_velocity.length_squared() > 0.01
 		is_running = is_walking and is_sprinting
 		if movement_comp:
@@ -553,6 +594,15 @@ func _physics_process(delta):
 		# Update attack/roll states from animation for other logic
 		is_attacking = (attack1_node_name in playback.get_current_node()) or (attack2_node_name in playback.get_current_node()) or (bigattack_node_name in playback.get_current_node())
 		is_rolling = (roll_node_name in playback.get_current_node())
+
+	# Apply rotation always, even during replay
+	var cam_rig = get_node_or_null("CameraRig")
+	if cam_rig:
+		var turn_input = input_vector.x
+		var yaw_delta = turn_input * tank_turn_speed * delta
+		rotation.y += yaw_delta
+		if cam_rig.has_method("apply_external_yaw_delta"):
+			cam_rig.apply_external_yaw_delta(yaw_delta)
 
 	# --- LOGIC THAT RUNS IN BOTH MODES ---
 
@@ -590,13 +640,15 @@ func _physics_process(delta):
 	
 	# Update velocity components from the result for the next frame
 	horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
+	horizontal_velocity_fixed = FixedVec3.from_vector3(horizontal_velocity)
 	if movement_comp:
 		movement_comp.horizontal_velocity = horizontal_velocity
-	vertical_velocity.y = velocity.y
+	vertical_velocity_fixed = FixedVec3.from_vector3(Vector3(0, velocity.y, 0))
 	
 	# Snapping to zero to prevent numerical drift
 	if is_on_floor() and horizontal_velocity.length_squared() < 0.0001:
 		horizontal_velocity = Vector3.ZERO
+		horizontal_velocity_fixed = FixedVec3.zero()
 		velocity.x = 0
 		velocity.z = 0
 		if movement_comp:
@@ -626,13 +678,14 @@ func _physics_process(delta):
 	animation_tree["parameters/conditions/IsRunning"] = is_running
 	animation_tree["parameters/conditions/IsNotRunning"] = !is_running
 
-	# Floating state logic (uses vertical_velocity, which is now post-slide)
+	# Floating state logic (uses vertical_velocity_fixed, which is now post-slide)
+	var vertical_velocity_y_float = FixedPoint.from_fixed(vertical_velocity_fixed.y)
 	var v_accel = 0.0
-	if delta > 0.0: v_accel = (vertical_velocity.y - _prev_vy) / delta
-	_prev_vy = vertical_velocity.y
+	if delta > 0.0: v_accel = (vertical_velocity_y_float - _prev_vy) / delta
+	_prev_vy = vertical_velocity_y_float
 	_vaccel_smoothed = lerp(_vaccel_smoothed, v_accel, floating_accel_smooth)
 	var vertical_accel = abs(_vaccel_smoothed)
-	var vspeed_raw = abs(vertical_velocity.y)
+	var vspeed_raw = abs(vertical_velocity_y_float)
 	_vspeed_smoothed = lerp(_vspeed_smoothed, vspeed_raw, floating_vspeed_smooth)
 	var vertical_speed = _vspeed_smoothed
 
@@ -709,8 +762,9 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 		$GroundRay.force_raycast_update()
 		print("[PlayerController] GroundRay force_raycast_update called")
 	horizontal_velocity = Vector3.ZERO
-	vertical_velocity = Vector3.ZERO
-	platform_velocity = Vector3.ZERO
+	horizontal_velocity_fixed = FixedVec3.zero()
+	vertical_velocity_fixed = FixedVec3.zero()
+	platform_velocity_fixed = FixedVec3.zero()
 	last_platform_velocity = Vector3.ZERO
 	airborne_inherited = Vector3.ZERO
 	print("[PlayerController] velocities reset to ZERO")
@@ -745,11 +799,12 @@ func dump_state() -> Dictionary:
 		"is_on_floor": is_on_floor(),
 		"just_jumped": just_jumped,
 		"airborne_inherited": airborne_inherited,
-		"platform_velocity": platform_velocity,
+		"platform_velocity_fixed": FixedVec3.to_vector3(platform_velocity_fixed),
 		"rotation": rotation,
 		"basis": global_transform.basis,
 		"horizontal_velocity": horizontal_velocity,
-		"vertical_velocity": vertical_velocity,
+		"horizontal_velocity_fixed": FixedVec3.to_vector3(horizontal_velocity_fixed),
+		"vertical_velocity_fixed": FixedVec3.to_vector3(vertical_velocity_fixed),
 		"direction": direction,
 		"time_since_jump": time_since_jump,
 		"time_since_input": time_since_input,
@@ -777,7 +832,7 @@ func get_replay_state() -> Dictionary:
 	var state = {
 		"global_transform": ReplayUtils.transform_to_dict(global_transform),
 		"player_position": ReplayUtils.vector3_to_dict(global_transform.origin),
-		"platform_velocity": ReplayUtils.vector3_to_dict(platform_velocity),
+		"platform_velocity_fixed": ReplayUtils.vector3_to_dict(FixedVec3.to_vector3(platform_velocity_fixed)),
 		"airborne_inherited": ReplayUtils.vector3_to_dict(airborne_inherited),
 		"just_jumped": just_jumped,
 		"time_since_jump": time_since_jump,
@@ -804,17 +859,22 @@ func get_replay_state() -> Dictionary:
 func set_replay_state(state: Dictionary) -> void:
 	var deserialized_state = ReplayUtils.from_json_safe(state)
 
-	# Restore state from the replay file
-	global_transform = deserialized_state.get("global_transform", global_transform)
-	platform_velocity = deserialized_state.get("platform_velocity", platform_velocity)
-	airborne_inherited = deserialized_state.get("airborne_inherited", Vector3.ZERO)
-	just_jumped = deserialized_state.get("just_jumped", false)
-	time_since_jump = deserialized_state.get("time_since_jump", 1.0)
-	time_since_input = deserialized_state.get("time_since_input", 1.0)
-	was_on_floor = deserialized_state.get("was_on_floor", false)
-	snap_enabled = deserialized_state.get("snap_enabled", true)
-	if deserialized_state.has("rotation"):
-		rotation = deserialized_state["rotation"]
+	# Restore state from the replay file - USE FIXED-POINT DATA FOR DETERMINISTIC PLAYBACK
+	# TEMPORARILY DISABLED FOR DEBUGGING
+	# if deserialized_state.has("player_position_fixed"):
+	# 	var pos_fixed = deserialized_state["player_position_fixed"]
+	# 	if pos_fixed is Dictionary:
+	# 		global_transform.origin = ReplayUtils.fixed_dict_to_vector3(pos_fixed)
+	# 	else:
+	# 		global_transform.origin = deserialized_state.get("player_position", global_transform.origin)
+	# else:
+	global_transform.origin = deserialized_state.get("player_position", global_transform.origin)
+	
+	# if deserialized_state.has("basis_fixed"):
+	# 	var basis_fixed = deserialized_state["basis_fixed"]
+	# 	if basis_fixed is Dictionary:
+	# 		global_transform.basis = ReplayUtils.fixed_dict_to_basis(basis_fixed)
+	# elif deserialized_state.has("basis"):
 	if deserialized_state.has("basis"):
 		var basis_dict = deserialized_state["basis"]
 		if basis_dict is Dictionary and basis_dict.has("x") and basis_dict.has("y") and basis_dict.has("z"):
@@ -823,11 +883,32 @@ func set_replay_state(state: Dictionary) -> void:
 			var basis_z = basis_dict["z"]
 			if basis_x is Vector3 and basis_y is Vector3 and basis_z is Vector3:
 				global_transform.basis = Basis(basis_x, basis_y, basis_z)
+	
+	var platform_velocity_vec = deserialized_state.get("platform_velocity_fixed", FixedVec3.to_vector3(platform_velocity_fixed))
+	platform_velocity_fixed = FixedVec3.from_vector3(platform_velocity_vec)
+	airborne_inherited = deserialized_state.get("airborne_inherited", Vector3.ZERO)
+	just_jumped = deserialized_state.get("just_jumped", false)
+	time_since_jump = deserialized_state.get("time_since_jump", 1.0)
+	time_since_input = deserialized_state.get("time_since_input", 1.0)
+	was_on_floor = deserialized_state.get("was_on_floor", false)
+	snap_enabled = deserialized_state.get("snap_enabled", true)
+	if deserialized_state.has("rotation"):
+		rotation = deserialized_state["rotation"]
 
-	# Restore the final velocity from the initial state.
+	# Restore velocity from fixed-point data for deterministic playback
+	# TEMPORARILY DISABLED FOR DEBUGGING
+	# if deserialized_state.has("velocity_fixed"):
+	# 	var vel_fixed = deserialized_state["velocity_fixed"]
+	# 	if vel_fixed is Dictionary:
+	# 		velocity = ReplayUtils.fixed_dict_to_vector3(vel_fixed)
+	# 	else:
+	# 		velocity = deserialized_state.get("velocity", Vector3.ZERO)
+	# else:
 	velocity = deserialized_state.get("velocity", Vector3.ZERO)
+	
 	horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
-	vertical_velocity.y = velocity.y
+	horizontal_velocity_fixed = FixedVec3.from_vector3(horizontal_velocity)
+	vertical_velocity_fixed = FixedVec3.from_vector3(Vector3(0, velocity.y, 0))
 
 	if jump_comp and deserialized_state.has("coyote_timer") and deserialized_state["coyote_timer"] != null:
 		jump_comp.coyote_timer = deserialized_state["coyote_timer"]
