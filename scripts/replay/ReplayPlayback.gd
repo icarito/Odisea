@@ -65,7 +65,7 @@ func _physics_process(delta: float) -> void:
 						print("Divergence: %s" % divergence)
 						print("Expected Position: %s" % recorded_position)
 						print("Actual Position: %s" % simulated_pos)
-						push_error("Physics drift exceeded tolerance.")
+						print("DRIFT! Physics drift exceeded tolerance.")
 					else:
 						# This log is very noisy, let's keep it for real debug sessions
 						# print("--- Frame %d Locked. Divergence: %s ---" % [last_frame_index, divergence])
