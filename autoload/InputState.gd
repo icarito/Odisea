@@ -30,6 +30,7 @@ var axes = {
 # Mouse delta (para cámara)
 var mouse_delta = Vector2.ZERO
 var _mouse_motion_this_frame = Vector2.ZERO
+var recorded_mouse_delta = Vector2.ZERO
 
 var mode = Mode.LIVE setget set_mode
 
@@ -48,6 +49,7 @@ func set_mode(new_mode):
 func _physics_process(delta):
 	if mode == Mode.LIVE or mode == Mode.RECORD:
 		mouse_delta = _mouse_motion_this_frame
+		recorded_mouse_delta = mouse_delta
 		_mouse_motion_this_frame = Vector2.ZERO
 
 	match mode:
@@ -92,7 +94,11 @@ func _apply_replay_frame():
 	var frame = recorded_frames[replay_frame]
 	actions = frame["inputs"].duplicate()
 	axes = frame["axes"].duplicate()
-	mouse_delta = frame["mouse_delta"]
+	var md = frame.get("mouse_delta", {"x": 0.0, "y": 0.0})
+	if md is Dictionary:
+		mouse_delta = Vector2(md.get("x", 0.0), md.get("y", 0.0))
+	else:
+		mouse_delta = md
 	replay_frame += 1
 
 # API pública para gameplay/cámara
