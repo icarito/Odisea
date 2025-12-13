@@ -61,8 +61,6 @@ func _physics_process(delta: float) -> void:
 		var snapshot = frame_data["snapshot"]
 		if snapshot.has("player") and player:
 			player.set_replay_state(snapshot["player"])
-		if snapshot.has("camera") and camera_rig:
-			camera_rig.set_replay_state(snapshot["camera"])
 	
 	frame_index += 1
 	#             if camera_rig.has_node("Pitch"):

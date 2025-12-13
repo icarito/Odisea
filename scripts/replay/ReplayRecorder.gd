@@ -131,8 +131,6 @@ func _record_frame(delta: float) -> void:
 		var snapshot = {}
 		if player:
 			snapshot["player"] = player.get_replay_state()
-		if camera_rig:
-			snapshot["camera"] = camera_rig.get_replay_state()
 		frame_data["snapshot"] = snapshot
 	
 	# Record camera state

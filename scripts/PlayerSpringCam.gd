@@ -150,6 +150,8 @@ func _physics_process(delta):
 		if player_id == 1 and _is_mouse_look_active:
 			var motion = input_state.get_mouse_delta()
 			if motion is Vector2 and motion.length() > 0.0:
+				if ReplayManager and ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK and motion.length() > 50.0:
+					print("Playback camera: applying mouse_delta ", motion, " target_yaw now ", target_yaw)
 				var scaled_motion = motion / 10000.0
 				target_yaw -= scaled_motion.x * yaw_sensitivity
 				target_pitch += scaled_motion.y * pitch_sensitivity

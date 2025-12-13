@@ -439,7 +439,7 @@ func _physics_process(delta):
 			is_sprinting = InputState.is_action_pressed("run")
 			jump_pressed = InputState.is_action_pressed("jump")
 		has_input = input_vector.length() > 0.1
-		print("[PlayerController] Raw Inputs: move_x=%s, move_y=%s, run=%s" % [input_vector.x, input_vector.y, is_sprinting])
+		# print("[PlayerController] Raw Inputs: move_x=%s, move_y=%s, run=%s" % [input_vector.x, input_vector.y, is_sprinting])
 
 		# Control de movimiento y rotación
 
@@ -496,7 +496,7 @@ func _physics_process(delta):
 				var turn_input = turn_input_val # X-axis is already inverted at source
 				var effective_tank_speed = tank_turn_speed
 				var yaw_delta = turn_input * effective_tank_speed * delta
-				print("StrafeDebug: Active=%s, TurnVal=%s, YawDelta=%s, Sticky=%.2f" % [strafe_mode_active, turn_input_val, yaw_delta, strafe_sticky_timer])
+				# print("StrafeDebug: Active=%s, TurnVal=%s, YawDelta=%s, Sticky=%.2f" % [strafe_mode_active, turn_input_val, yaw_delta, strafe_sticky_timer])
 				rotation.y += yaw_delta
 				if cam_rig.has_method("apply_external_yaw_delta") and not strafe_mode_active: cam_rig.apply_external_yaw_delta(yaw_delta)
 
@@ -571,7 +571,7 @@ func _physics_process(delta):
 	if GameGlobals and GameGlobals.replay_debug_mode and is_replaying:
 		print("[PlayerController Playback] Pre-move: velocity=", movement_this_frame, " on_floor=", on_floor)
 	
-	print("[PlayerController] Pre-move: velocity=%s, on_floor=%s" % [movement_this_frame, on_floor])
+	# print("[PlayerController] Pre-move: velocity=%s, on_floor=%s" % [movement_this_frame, on_floor])
 	pre_move_velocity_for_replay = movement_this_frame
 	
 	# Snap to ground
@@ -585,8 +585,8 @@ func _physics_process(delta):
 	velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
 	# ---
 
-	print("[PlayerController] Post-move Pos (Simulated): %s" % [global_transform.origin])
-	print("[PlayerController POST-SLIDE] Velocity: %s" % [velocity])
+	# print("[PlayerController] Post-move Pos (Simulated): %s" % [global_transform.origin])
+	# print("[PlayerController POST-SLIDE] Velocity: %s" % [velocity])
 	
 	# Update velocity components from the result for the next frame
 	horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
