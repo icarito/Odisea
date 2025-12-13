@@ -44,9 +44,33 @@ func _physics_process(delta: float) -> void:
 	if not current_replay or playback_paused:
 		return
 
-	var player = PlayerManager.get_player()
-	if player:
-		player.set_physics_process(false)  # Ensure player's automatic physics is disabled
+	# CHEQUEO DE DERIVA (DRIFT) para el frame ANTERIOR
+	# Se ejecuta ANTES de aplicar los nuevos inputs.
+	# De esta forma, el estado actual del player es el resultado de la simulación del frame anterior.
+	if frame_index > 0:
+		var last_frame_index = frame_index - 1
+		var player = PlayerManager.get_player()
+		if player and current_replay.frame_states.size() > last_frame_index:
+			var recorded_state = current_replay.frame_states[last_frame_index]
+			var player_data = recorded_state.get(str(player_path))
+			if player_data:
+				var recorded_pos_dict = player_data.get("player_position")
+				if recorded_pos_dict:
+					var recorded_position = ReplayUtils.dict_to_vector3(recorded_pos_dict)
+					var simulated_pos = player.global_transform.origin
+					var divergence = recorded_position.distance_to(simulated_pos)
+					if divergence > DRIFT_THRESHOLD:
+						print("--- REGRESSION TEST FAILED: DRIFT DETECTED ---")
+						print("Frame: %d" % last_frame_index)
+						print("Divergence: %s" % divergence)
+						print("Expected Position: %s" % recorded_position)
+						print("Actual Position: %s" % simulated_pos)
+						push_error("Physics drift exceeded tolerance.")
+					else:
+						# This log is very noisy, let's keep it for real debug sessions
+						# print("--- Frame %d Locked. Divergence: %s ---" % [last_frame_index, divergence])
+						pass
+
 
 	# If we have reached the end of the replay, stop playback.
 	if frame_index >= total_logical_frames:
@@ -58,58 +82,13 @@ func _physics_process(delta: float) -> void:
 	
 	_debug_log("ReplayPlayback _physics_process: Simulating frame " + str(frame_index))
 
-	# 1. Restaurar posición y velocidad del jugador ANTES de simular física o aplicar inputs
-	if current_replay.frame_states.size() > frame_index:
-		var recorded_state = current_replay.frame_states[frame_index]
-		var player_data = recorded_state.get(str(player_path))
-		if player_data:
-			# Restaurar posición
-			if player_data.has("player_position"):
-				var recorded_pos_dict = player_data["player_position"]
-				var recorded_position = ReplayUtils.dict_to_vector3(recorded_pos_dict)
-				player.global_transform.origin = recorded_position
-			# Restaurar velocidad
-			if player_data.has("velocity"):
-				var recorded_vel_dict = player_data["velocity"]
-				player.velocity = ReplayUtils.dict_to_vector3(recorded_vel_dict)
-	# 2. Aplicación de inputs (Mouse y Teclado)
-	var recorded_inputs = frame_data.inputs
-	print("[ReplayPlayback] Frame %d, Applying Mouse Motion: %s" % [frame_index, recorded_inputs.get("mouse_motion", Vector2.ZERO)])
+	# Aplicar Inputs
 	_apply_inputs_from_frame(frame_data)
 
-	# 3. Simulación de física:
-	if player and player.has_method("_physics_process"):
-		player._physics_process(recorded_delta)
+	# El estado de la cámara se aplica en _apply_inputs_from_frame, no es necesario duplicarlo.
+	# NOTA: Esto era una fuente potencial de no-determinismo si se restauraba estado de cámara
+	# que afectara la lógica del player. Ahora se centraliza en apply_inputs.
 
-	# 4. VERIFICACIÓN: Posición simulada vs. Posición registrada
-	if current_replay.frame_states.size() > frame_index:
-		var recorded_state = current_replay.frame_states[frame_index]
-		var player_data = recorded_state.get(str(player_path))
-		if player_data:
-			var recorded_pos_str = player_data.get("player_position")
-			print("[ReplayPlayback DEBUG] Player Data Exists: True | Raw Position String: %s" % str(recorded_pos_str))
-		else:
-			print("[ReplayPlayback DEBUG] Player Data Exists: False (Frame keys: %s)" % [recorded_state.keys()])
-	else:
-		print("[ReplayPlayback DEBUG] frame_states index out of bounds")
-
-	# 5. Restauración del estado de la cámara (para puntería):
-	if frame_data.has("camera"):
-		var cam_data = frame_data["camera"]
-		var recorded_yaw = cam_data.get("yaw", 0.0)
-		print("[ReplayPlayback] RESTORING Camera/Player Yaw: %s" % [recorded_yaw])
-		if player:
-			player.rotation.y = recorded_yaw + PI
-			var camera_rig = player.get_node_or_null("CameraRig")
-			if camera_rig:
-				var yaw_node = camera_rig.get_node_or_null("Yaw")
-				if yaw_node:
-					yaw_node.rotation.y = recorded_yaw
-
-	# 6. PASO: Comprobar drift
-	check_for_drift(frame_data)
-
-	# 7. PASO: Avanzar al siguiente frame lógico
 	frame_index += 1
 	emit_signal("frame_updated", frame_index, total_logical_frames)
 
@@ -179,12 +158,7 @@ func start_loaded_playback() -> void:
 	var player = PlayerManager.get_player()
 	if player:
 		player.set_process_input(false)
-		# Reset player state to frame 0 exact before enabling physics
-		player.velocity = Vector3.ZERO
-		if player.external_velocity:
-			player.external_velocity.velocity = Vector3.ZERO
-		player.set_physics_process(false) # CRITICAL: Disable auto-physics, we call it manually now.
-		print("[ReplayPlayback] Player physics enabled? ", player.is_physics_processing())
+		player.set_physics_process(true)  # Enable for deterministic simulation
 		player_path = get_tree().current_scene.get_path_to(player)
 
 	# Asegurar física en todos los nodos del grupo replay_track
@@ -198,6 +172,7 @@ func start_loaded_playback() -> void:
 		GameGlobals.replay_debug_mode = true
 		GameGlobals.is_replaying = true
 	resume_playback()
+
 func stop_playback() -> void:
 	print("Stopping playback.")
 	playback_paused = true
@@ -231,6 +206,7 @@ func stop_playback() -> void:
 		get_node("/root/AudioSystem").stop_bgm() # consider if we want to resume music
 
 	emit_signal("playback_stopped")
+
 func pause_playback() -> void:
 	if playback_paused:
 		return
@@ -244,6 +220,7 @@ func pause_playback() -> void:
 	set_physics_process(false)
 	emit_signal("playback_paused")
 	set_physics_process(false)
+
 func resume_playback() -> void:
 	print("[ReplayPlayback] >>>>> resume_playback called")
 	if not playback_paused:
@@ -258,8 +235,23 @@ func resume_playback() -> void:
 	# Asegurar física del player activada para playback
 	var player = PlayerManager.get_player()
 	if player:
-		# Do not re-enable player physics here. It must remain disabled.
+		player.set_physics_process(true)  # Enable player physics for deterministic simulation
 		print("[ReplayPlayback] Player physics enabled in resume_playback")
+		
+		# Configurar estado inicial una sola vez
+		if current_replay.initial_states.has(str(player_path)):
+			var initial_data = current_replay.initial_states[str(player_path)]
+			
+			# 1. RESTAURAR TRANSFORMACIÓN COMPLETA (CRÍTICO)
+			if initial_data.has("global_transform"):
+				var initial_transform = ReplayUtils.from_json_safe(initial_data["global_transform"])
+				player.global_transform = initial_transform
+				# --- AGREGAR ESTA LÍNEA DE DEBUG ---
+				print("[ReplayPlayback] INITIAL POS APPLIED: %s" % player.global_transform.origin)
+				
+			# 2. RESTAURAR VELOCIDAD
+			if initial_data.has("velocity"):
+				player.velocity = ReplayUtils.from_json_safe(initial_data["velocity"])
 	
 	emit_signal("playback_resumed")
 
@@ -333,6 +325,30 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 				var springarm = camera_rig.get_node("SpringArm")
 				if springarm.has_method("set_spring_length"):
 					springarm.set_spring_length(cam_data["spring_length"])
+	
+	# --- INYECCIÓN CRÍTICA DE LA VELOCIDAD DE FÍSICA ---
+	# Esto sincroniza el estado de la física antes de que se ejecute _physics_process,
+	# eliminando la acumulación de errores de punto flotante.
+	if player and current_replay.frame_states.size() > frame_index:
+		var recorded_state = current_replay.frame_states[frame_index]
+		var player_data = recorded_state.get(str(player_path))
+		
+		if player_data and player_data.has("pre_move_velocity"):
+			var recorded_velocity = ReplayUtils.from_json_safe(player_data["pre_move_velocity"])
+			
+			# Inyectar la velocidad y sus componentes descompuestos en el controlador.
+			# Esto es crucial porque _physics_process usa 'horizontal_velocity' y 'vertical_velocity'
+			# para calcular el movimiento final.
+			player.velocity = recorded_velocity
+			player.pre_move_velocity_for_replay = recorded_velocity # Para consistencia en logs
+			player.horizontal_velocity = recorded_velocity - Vector3(0, recorded_velocity.y, 0)
+			player.vertical_velocity.y = recorded_velocity.y
+			
+			# Adicionalmente, actualizar el componente de movimiento si existe.
+			if player.movement_comp:
+				player.movement_comp.horizontal_velocity = player.horizontal_velocity
+			
+			_debug_log("VELOCITY INJECTED: %s" % str(recorded_velocity))
 func check_for_drift(frame_data: Dictionary) -> void:
 	if not player:
 		return

@@ -358,291 +358,241 @@ func _align_camera_to_body():
 var _last_input_state := {}
 
 func _physics_process(delta):
+	var has_input := false
+	var movement_this_frame := Vector3.ZERO
+	var is_replaying = GameGlobals and GameGlobals.is_replaying
+	
 	if not _touch_camera_connected:
 		_connect_touch_camera()
-
-	rollattack()
-	bigattack()
-	attack1()
-	attack2()
-	roll()
 
 	time_since_jump += delta
 	time_since_input += delta
 	time_since_start += delta
-
-	# Medir tiempo en estado Jump del AnimationTree
-	var in_jump_state = (playback and (playback.get_current_node() == jump_node_name))
-	if in_jump_state:
-		time_in_jump_state += delta
-	else:
-		time_in_jump_state = 0.0
-
+	
 	var on_floor = is_on_floor()
-	# Debug de cambios de estado de suelo
-	if debug_enabled and debug_movement and debug_ready:
-		# no consumir el debounce, solo detectar cambios de on_floor
-		if on_floor != was_on_floor:
-			print_debug_tag("Floor", "[Floor] on_floor changed: " + String(on_floor))
-	# Marcar que vimos suelo al menos una vez para habilitar floating post-inicio
-	if on_floor:
-		has_seen_floor_once = true
-	var h_rot := 0.0
-	var yaw_node2 = get_node_or_null("CameraRig/Yaw")
-	if yaw_node2:
-		h_rot = yaw_node2.global_transform.basis.get_euler().y + cam_yaw_offset
 
-	movement_speed = 0
-	angular_acceleration = 10
-	acceleration = 15
+	if not is_replaying:
+		# --- NORMAL GAME LOGIC: ALL VELOCITY CALCULATION HAPPENS HERE ---
 
-	# Gravedad efectiva: usar override si existe
-	var effective_gravity_vector := local_gravity_override if (local_gravity_override.length() > 0.01) else (Vector3.DOWN * gravity)
-	var effective_gravity_mag := effective_gravity_vector.length()
-	var effective_gravity_dir := effective_gravity_vector.normalized() if (effective_gravity_mag > 0.01) else Vector3.DOWN
-	
-	if not is_on_floor():
-		vertical_velocity += effective_gravity_vector * 2 * delta
-	else:
-		# Si la gravedad efectiva apunta hacia arriba (levanta), despegar del suelo
-		if effective_gravity_dir.dot(Vector3.UP) > 0.5:
+		# Process attacks and rolls that can affect movement
+		rollattack()
+		bigattack()
+		attack1()
+		attack2()
+		roll()
+
+		# Medir tiempo en estado Jump del AnimationTree
+		var in_jump_state = (playback and (playback.get_current_node() == jump_node_name))
+		if in_jump_state:
+			time_in_jump_state += delta
+		else:
+			time_in_jump_state = 0.0
+
+		# Marcar que vimos suelo al menos una vez para habilitar floating post-inicio
+		if on_floor:
+			has_seen_floor_once = true
+		
+		# Reset movement parameters
+		movement_speed = 0
+		angular_acceleration = 10
+		acceleration = 15
+
+		# Gravedad efectiva: usar override si existe
+		var effective_gravity_vector := local_gravity_override if (local_gravity_override.length() > 0.01) else (Vector3.DOWN * gravity)
+		var effective_gravity_mag := effective_gravity_vector.length()
+		var effective_gravity_dir := effective_gravity_vector.normalized() if (effective_gravity_mag > 0.01) else Vector3.DOWN
+		
+		# Apply Gravity
+		if not is_on_floor():
+			vertical_velocity += effective_gravity_vector * 2 * delta
+		else:
+			# Si la gravedad efectiva apunta hacia arriba (levanta), despegar del suelo
+			if effective_gravity_dir.dot(Vector3.UP) > 0.5:
+				snap_enabled = false
+				vertical_velocity = effective_gravity_dir * min(effective_gravity_mag, gravity) * 0.5
+			else:
+				vertical_velocity = -get_floor_normal() * min(effective_gravity_mag, gravity) / 3
+
+		# Clamp de velocidad vertical para evitar picos
+		vertical_velocity.y = clamp(vertical_velocity.y, -max_fall_speed, max_rise_speed)
+
+		# Check for attack/roll states that modify acceleration
+		if (attack1_node_name in playback.get_current_node()) or (attack2_node_name in playback.get_current_node()) or (bigattack_node_name in playback.get_current_node()):
+			is_attacking = true
+		else:
+			is_attacking = false
+
+		if bigattack_node_name in playback.get_current_node():
+			acceleration = 3
+
+		if roll_node_name in playback.get_current_node():
+			is_rolling = true
+			acceleration = 2
+			angular_acceleration = 2
+		else:
+			is_rolling = false
+		
+		# Process player input
+		var input_vector := Vector2.ZERO
+		var mouse_motion := Vector2.ZERO
+		var is_sprinting := false
+		var jump_pressed := false
+
+		if player_input:
+			input_vector = player_input.get_input_vector()
+			mouse_motion = player_input.get_mouse_motion()
+			is_sprinting = player_input.is_sprint_pressed()
+			jump_pressed = player_input.just_jumped()
+		else:
+			# Fallback to single player input if PlayerInput node is missing
+			input_vector = Vector2(Input.get_action_strength("left") - Input.get_action_strength("right"), Input.get_action_strength("forward") - Input.get_action_strength("backward"))
+			is_sprinting = Input.is_action_pressed("sprint")
+			jump_pressed = Input.is_action_just_pressed("jump")
+		
+		has_input = input_vector.length() > 0.1
+		print("[PlayerController] Raw Inputs: Fwd=%s, Left=%s, Sprint=%s" % [Input.is_action_pressed("forward"), Input.is_action_pressed("left"), is_sprinting])
+
+		# Control de movimiento y rotación
+		rotation.y += input_vector.x * turn_speed * delta
+		direction = Vector3(0, 0, -input_vector.y).rotated(Vector3.UP, rotation.y)
+
+		# Handle Jump
+		if jump_pressed and ((is_attacking != true) and (is_rolling != true)) and is_on_floor():
+			if AudioSystem: AudioSystem.play_sfx("res://assets/sfx/jump.wav")
+			var pv := platform_velocity
+			vertical_velocity = Vector3.UP * jump_force
+			if inherit_vertical_platform_jump and pv.y > 0.0:
+				vertical_velocity.y += min(pv.y, max_platform_up_follow)
 			snap_enabled = false
-			vertical_velocity = effective_gravity_dir * min(effective_gravity_mag, gravity) * 0.5
-		else:
-			vertical_velocity = -get_floor_normal() * min(effective_gravity_mag, gravity) / 3
+			airborne_inherited = Vector3(pv.x, 0, pv.z)
+			horizontal_velocity += airborne_inherited
+			just_jumped = true
+			time_since_jump = 0.0
 
-	# Clamp de velocidad vertical para evitar picos (como antes)
-	vertical_velocity.y = clamp(vertical_velocity.y, -max_fall_speed, max_rise_speed)
+		if has_input:
+			time_since_input = 0.0
 
-	if (attack1_node_name in playback.get_current_node()) or (attack2_node_name in playback.get_current_node()) or (bigattack_node_name in playback.get_current_node()):
-		is_attacking = true
-	else:
-		is_attacking = false
-
-	if bigattack_node_name in playback.get_current_node():
-		acceleration = 3
-
-	if roll_node_name in playback.get_current_node():
-		is_rolling = true
-		acceleration = 2
-		angular_acceleration = 2
-	else:
-		is_rolling = false
-
-	var input_vector := Vector2.ZERO
-	var mouse_motion := Vector2.ZERO
-	var is_sprinting := false
-	var jump_pressed := false
-	var has_input := false
-
-	if player_input:
-		input_vector = player_input.get_input_vector()
-		mouse_motion = player_input.get_mouse_motion()
-		is_sprinting = player_input.is_sprint_pressed()
-		jump_pressed = player_input.just_jumped()
-	else:
-		# Fallback to single player input if PlayerInput node is missing
-		input_vector = Vector2(Input.get_action_strength("left") - Input.get_action_strength("right"), Input.get_action_strength("forward") - Input.get_action_strength("backward"))
-		is_sprinting = Input.is_action_pressed("sprint")
-		jump_pressed = Input.is_action_just_pressed("jump")
-		# Note: Mouse motion is not handled in this fallback, it relies on PlayerInput node.
-	
-	has_input = input_vector.length() > 0.1
-
-	print("[PlayerController] Raw Inputs: Fwd=%s, Left=%s, Sprint=%s" % [Input.is_action_pressed("forward"), Input.is_action_pressed("left"), is_sprinting])
-
-	# Control de movimiento y rotación
-	rotation.y += input_vector.x * turn_speed * delta
-	direction = Vector3(0, 0, -input_vector.y).rotated(Vector3.UP, rotation.y)
-
-	if jump_pressed and ((is_attacking != true) and (is_rolling != true)) and is_on_floor():
-		# Play jump sound
-		if AudioSystem:
-			# NOTE: Path to jump sound is a placeholder.
-			AudioSystem.play_sfx("res://assets/sfx/jump.wav")
-
-		# Capturamos velocidad actual de plataforma justo en el momento del salto (antes de posible decaimiento)
-		var pv := platform_velocity
-		# Fuerza de salto base
-		vertical_velocity = Vector3.UP * jump_force
-		# Opcional: añadir componente vertical de la plataforma si está moviéndose hacia arriba
-		if inherit_vertical_platform_jump and pv.y > 0.0:
-			vertical_velocity.y += min(pv.y, max_platform_up_follow)
-		# Al saltar, no usamos snap este frame
-		snap_enabled = false
-		# Heredar inercia horizontal de la plataforma (X,Z) para conservar momentum relativo
-		airborne_inherited = Vector3(pv.x, 0, pv.z)
-		# Aplicar inmediatamente para que el primer frame en aire no pierda empuje
-		horizontal_velocity += airborne_inherited
-		# Marcar frame de salto para evitar que seguimiento vertical de plataforma lo anule
-		just_jumped = true
-		time_since_jump = 0.0
-
-	if has_input:
-		time_since_input = 0.0
-
-	# --- Control de Cámara ---
-	var cam_rig = get_node_or_null("CameraRig")
-	if cam_rig:
-		if cam_rig.has_method("process_camera_rotation"):
-			cam_rig.process_camera_rotation(mouse_motion)
-			if debug_yaw and mouse_motion.length_squared() > 0:
-				print_debug_tag("Yaw", "[Controller] Passing mouse_motion to cam: %s" % str(mouse_motion))
-		
-		# Actualizar timer de actividad del mouse
-		if mouse_motion.length() > 0.01:
-			mouse_active_timer = mouse_active_timeout_ms / 1000.0
-		mouse_active_timer = max(0.0, mouse_active_timer - delta)
-		
-		# --- Tank Turn y Sincronización de Cámara ---
-		# Procesar movimiento con componente
-		if movement_comp:
-			var basis := Basis()
-			var yaw_node_local = get_node_or_null("CameraRig/Yaw")
-			if yaw_node_local:
-				basis = yaw_node_local.global_transform.basis
-
-			movement_comp.process_input_vector(delta, basis, input_vector, is_sprinting, on_floor)
+		# Camera Control
+		var cam_rig = get_node_or_null("CameraRig")
+		if cam_rig:
+			if cam_rig.has_method("process_camera_rotation"):
+				cam_rig.process_camera_rotation(mouse_motion)
+			if mouse_motion.length() > 0.01: mouse_active_timer = mouse_active_timeout_ms / 1000.0
+			mouse_active_timer = max(0.0, mouse_active_timer - delta)
 			
-			# Aplicar giro tank (deshabilitado cuando use_mouse_input)
-			var turn_input = input_vector.x
-			var effective_tank_speed = tank_turn_speed if not player_input.use_mouse_input else 0
-			var yaw_delta = turn_input * effective_tank_speed * delta
-			rotation.y += yaw_delta
-			
-			# Sincronizar cámara con el giro del player
-			if cam_rig.has_method("apply_external_yaw_delta"):
-				cam_rig.apply_external_yaw_delta(yaw_delta)
-	
-			# Obtener valores del componente
-			direction = movement_comp.direction
-			horizontal_velocity = movement_comp.get_horizontal_velocity()
-			is_walking = movement_comp.is_walking
-			is_running = movement_comp.is_running
-			print("[PlayerController] Calculated Move Dir (from Cam/Player Rot): %s" % [direction])
+			if movement_comp:
+				var basis := Basis()
+				var yaw_node_local = get_node_or_null("CameraRig/Yaw")
+				if yaw_node_local: basis = yaw_node_local.global_transform.basis
+				movement_comp.process_input_vector(delta, basis, input_vector, is_sprinting, on_floor)
+				var turn_input = input_vector.x
+				var effective_tank_speed = tank_turn_speed if not player_input.use_mouse_input else 0
+				var yaw_delta = turn_input * effective_tank_speed * delta
+				rotation.y += yaw_delta
+				if cam_rig.has_method("apply_external_yaw_delta"): cam_rig.apply_external_yaw_delta(yaw_delta)
+				direction = movement_comp.direction
+				horizontal_velocity = movement_comp.get_horizontal_velocity()
+				is_walking = movement_comp.is_walking
+				is_running = movement_comp.is_running
+			else:
+				is_walking = false; is_running = false; direction = Vector3.ZERO; horizontal_velocity = Vector3.ZERO
+		
+		# Platform velocity logic
+		platform_velocity = platform_velocity.linear_interpolate(Vector3.ZERO, 6.0 * delta)
+		if is_on_floor():
+			last_platform_velocity = platform_velocity
+			airborne_inherited = Vector3.ZERO
+			if platform_velocity.y > 0.0 and not just_jumped:
+				vertical_velocity.y = min(platform_velocity.y, max_platform_up_follow)
+		elif was_on_floor:
+			airborne_inherited = last_platform_velocity
+		
+		# Final velocity combination for this frame
+		var effective_platform_velocity := (Vector3(platform_velocity.x, 0, platform_velocity.z) if (is_on_floor() and platform_is_static_surface) else airborne_inherited)
+		var combined_horizontal = horizontal_velocity + effective_platform_velocity
+		movement_this_frame = combined_horizontal + vertical_velocity
+
+	else:
+		# --- REPLAY LOGIC ---
+		# Velocity is injected by the ReplayPlayback system into the 'velocity' property.
+		# Use it directly as the movement vector for this frame.
+		movement_this_frame = velocity
+		
+		# Derive animation states from the injected velocity.
+		horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
+		if horizontal_velocity.length_squared() > 0.01:
+			direction = horizontal_velocity.normalized()
 		else:
-			is_walking = false
-			is_running = false
 			direction = Vector3.ZERO
-			horizontal_velocity = Vector3.ZERO
+		
+		var is_sprinting = Input.is_action_pressed("sprint")
+		is_walking = horizontal_velocity.length_squared() > 0.01
+		is_running = is_walking and is_sprinting
+		if movement_comp:
+			movement_comp.is_walking = is_walking
+			movement_comp.is_running = is_running
+		
+		# Update attack/roll states from animation for other logic
+		is_attacking = (attack1_node_name in playback.get_current_node()) or (attack2_node_name in playback.get_current_node()) or (bigattack_node_name in playback.get_current_node())
+		is_rolling = (roll_node_name in playback.get_current_node())
 
+	# --- LOGIC THAT RUNS IN BOTH MODES ---
 
-	# Sin suavizados ni sincronizaciones periódicas de yaw: mantener determinismo
-
-	# El mesh rota hacia la dirección de movimiento cuando hay input
+	# Rotate mesh towards movement direction
 	if direction != Vector3.ZERO:
-		# Calcula el ángulo objetivo respecto al basis de la cámara
 		var target_y := atan2(direction.x, direction.z) + mesh_yaw_offset
-		# Para evitar doble giro, calcula la rotación local necesaria
-		var global_target_y = target_y
-		var parent_y = rotation.y  # rotación del KinematicBody (padre)
+		var parent_y = rotation.y
 		var local_target_y = global_target_y - parent_y
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, local_target_y, delta * angular_acceleration)
 
-	# Decaimiento de la velocidad de plataforma cuando no se actualiza
-	platform_velocity = platform_velocity.linear_interpolate(Vector3.ZERO, 6.0 * delta)
-
-	# Capturar velocidad de plataforma SOLO mientras estamos en suelo para heredar al saltar / caer
-	if is_on_floor():
-		last_platform_velocity = platform_velocity
-		airborne_inherited = Vector3.ZERO
-		# Ajuste vertical: seguir plataforma si sube para evitar empuje por colisión
-		if platform_velocity.y > 0.0 and not just_jumped:
-			vertical_velocity.y = min(platform_velocity.y, max_platform_up_follow)
-	else:
-		# Primera frame en aire: hereda última velocidad de plataforma
-		if was_on_floor:
-			airborne_inherited = last_platform_velocity
-
-	# Combinar velocidad propia con la transferida por la plataforma
-	# En suelo: sumar componente horizontal de platform_velocity (requerido para conveyors)
-	# En aire: usar la última velocidad capturada para conservar inercia
-	var effective_platform_velocity := (Vector3(platform_velocity.x, 0, platform_velocity.z) if (is_on_floor() and platform_is_static_surface) else airborne_inherited)
-	var combined_horizontal: Vector3
-
-	# This calculation is now only done for non-replay frames, as replays restore the final velocity directly.
-	combined_horizontal = horizontal_velocity + effective_platform_velocity
-	var movement_this_frame = combined_horizontal + vertical_velocity
-
-	if debug_enabled and (debug_movement or debug_yaw):
-		var dir_change2 = (direction - _last_dir).length()
-		if dir_change2 > debug_dir_threshold:
-			_last_dir = direction
-			print_debug_tag("Dir", "[Dir] dir=" + String(direction) +
-		" cam_yaw=" + String(h_rot).pad_decimals(3) +
-		" hv=" + String(horizontal_velocity) +
-		" eff_pv=" + String(effective_platform_velocity) +
-		" combined=" + String(combined_horizontal))
+	var h_rot := 0.0
+	var yaw_node2 = get_node_or_null("CameraRig/Yaw")
+	if yaw_node2: h_rot = yaw_node2.global_transform.basis.get_euler().y + cam_yaw_offset
 
 	# Detailed logging for replay diagnostics
-	if GameGlobals and GameGlobals.replay_debug_mode:
-		if not get_tree().get_nodes_in_group("playback_active").empty():
-			print("[PlayerController Playback] Pre-move: velocity=", movement_this_frame, " on_floor=", is_on_floor())
-
-	# Snap al suelo para estabilidad en plataformas
-	var snap_vec := Vector3.ZERO
-	if is_on_floor() and snap_enabled:
-		snap_vec = Vector3.DOWN * snap_len
-	else:
-		snap_vec = Vector3.ZERO
-		# Rehabilitar snap cuando volvamos a tocar suelo
-		if is_on_floor():
-			snap_enabled = true
-
-	print("[PlayerController] Pre-move: velocity=%s, on_floor=%s" % [velocity, is_on_floor()])
-	pre_move_velocity_for_replay = velocity
-	velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
-	print("[PlayerController] Post-move Pos (Simulated): %s" % [global_transform.origin])
-	var horizontal_sq = velocity.x * velocity.x + velocity.z * velocity.z
-	print("[PlayerController POST-SLIDE] Velocity: %s | Horiz Mag Sq: %f" % [velocity, horizontal_sq])
+	if GameGlobals and GameGlobals.replay_debug_mode and is_replaying:
+		print("[PlayerController Playback] Pre-move: velocity=", movement_this_frame, " on_floor=", on_floor)
 	
-	# Update horizontal_velocity from the result for the next frame
+	print("[PlayerController] Pre-move: velocity=%s, on_floor=%s" % [movement_this_frame, on_floor])
+	pre_move_velocity_for_replay = movement_this_frame
+	
+	# Snap to ground
+	var snap_vec := Vector3.ZERO
+	if on_floor and snap_enabled:
+		snap_vec = Vector3.DOWN * snap_len
+	elif on_floor:
+		snap_enabled = true
+
+	# --- THE ACTUAL PHYSICS STEP ---
+	velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
+	# ---
+
+	print("[PlayerController] Post-move Pos (Simulated): %s" % [global_transform.origin])
+	print("[PlayerController POST-SLIDE] Velocity: %s" % [velocity])
+	
+	# Update velocity components from the result for the next frame
 	horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
 	if movement_comp:
 		movement_comp.horizontal_velocity = horizontal_velocity
-	
-	# Update vertical_velocity from the result of the slide for the next frame's gravity calculation
 	vertical_velocity.y = velocity.y
+	
 	was_on_floor = is_on_floor()
-	# Resetear bandera tras aplicar movimiento (un solo frame de protección)
-	just_jumped = false
+	just_jumped = false # Reset one-frame flag
 
-	# --- Sombra falsa ---
+	# --- FAKE SHADOW & ANIMATIONS ---
 	if ground_ray.is_colliding():
 		var hit = ground_ray.get_collision_point()
-		var collider = ground_ray.get_collider()
-		var dist = global_transform.origin.y - hit.y
-		# Posición
 		fake_shadow.global_transform.origin = Vector3(hit.x, hit.y + 0.01, hit.z)
-		# Escala dependiente de distancia al suelo (clamp para prototipo)
+		var dist = global_transform.origin.y - hit.y
 		var s = clamp(0.6 + dist * 0.4, 0.5, 2.0)
 		fake_shadow.scale = Vector3(s, 1.0, s)
-		# Opacidad simple: más transparente si está alto
 		var mat = fake_shadow.get_surface_material(0)
-		if mat:
-			var alpha = clamp(1.0 - dist * 0.4, 0.2, 0.9)
-			mat.albedo_color.a = alpha
+		if mat: mat.albedo_color.a = clamp(1.0 - dist * 0.4, 0.2, 0.9)
 		fake_shadow.visible = true
-		if debug_enabled and debug_shadow and debug_ready:
-			var mat_alpha := 0.0
-			var mat2 = fake_shadow.get_surface_material(0)
-			if mat2:
-				mat_alpha = mat2.albedo_color.a
-			var cname = (collider.name if collider and collider.has_method("get_name") else "?")
-			print_debug_tag("Shadow", "[Shadow] hit=" + String(hit) + " dist=" + String(dist).pad_decimals(2) +
-				" alpha=" + String(mat_alpha).pad_decimals(2) + " collider_name=" + cname)
 	else:
 		fake_shadow.visible = false
-		if debug_enabled and debug_shadow and debug_ready:
-			print_debug_tag("Shadow", "[Shadow] no collision. mask=" + String(ground_ray.collision_mask))
 
-	if debug_enabled and debug_movement and debug_ready:
-		var eff_pv := (Vector3(platform_velocity.x, 0, platform_velocity.z) if (on_floor and platform_is_static_surface) else airborne_inherited)
-		print_debug_tag("Move", "[Move] hv=" + String(horizontal_velocity) + " pv=" + String(platform_velocity) +
-			" eff_pv=" + String(eff_pv) + " combined=" + String(combined_horizontal) +
-			" airborne_inherited=" + String(airborne_inherited) + " has_input=" + String(has_input) +
-			" on_floor=" + String(on_floor) + " platform_is_static=" + String(platform_is_static_surface))
-
+	# Animation Tree Updates
 	animation_tree["parameters/conditions/IsOnFloor"] = on_floor
 	animation_tree["parameters/conditions/IsInAir"] = !on_floor
 	animation_tree["parameters/conditions/IsWalking"] = is_walking
@@ -650,71 +600,30 @@ func _physics_process(delta):
 	animation_tree["parameters/conditions/IsRunning"] = is_running
 	animation_tree["parameters/conditions/IsNotRunning"] = !is_running
 
-	# Estado de flotación: condición para "Swim_Idle_Loop" gestionada por el State Machine
-	# Suavizado de aceleración vertical para decisión de flotación
-	var v_accel := 0.0
-	if delta > 0.0:
-		v_accel = (vertical_velocity.y - _prev_vy) / delta
+	# Floating state logic (uses vertical_velocity, which is now post-slide)
+	var v_accel = 0.0
+	if delta > 0.0: v_accel = (vertical_velocity.y - _prev_vy) / delta
 	_prev_vy = vertical_velocity.y
-	_vaccel_smoothed = lerp(_vaccel_smoothed, v_accel, clamp(floating_accel_smooth, 0.0, 1.0))
-	var vertical_accel := abs(_vaccel_smoothed)
-	var falling_without_jump = (!on_floor) and (time_since_jump > floating_without_jump_delay)
-	var no_input_ok := (not floating_without_jump_requires_no_input) or (time_since_input > floating_no_input_delay)
-	# Histeresis basada en aceleración vertical: entrada/salida separadas
-	var accel_ok_enter := vertical_accel <= floating_enter_accel_threshold
-	var accel_ok_exit := vertical_accel <= floating_exit_accel_threshold
-	var accel_ok := (_last_is_floating and accel_ok_exit) or ((not _last_is_floating) and accel_ok_enter)
+	_vaccel_smoothed = lerp(_vaccel_smoothed, v_accel, floating_accel_smooth)
+	var vertical_accel = abs(_vaccel_smoothed)
+	var vspeed_raw = abs(vertical_velocity.y)
+	_vspeed_smoothed = lerp(_vspeed_smoothed, vspeed_raw, floating_vspeed_smooth)
+	var vertical_speed = _vspeed_smoothed
 
-	# Fallback específico para "caer sin salto": si la aceleración es alta por gravedad constante,
-	# permitimos flotación cuando la velocidad vertical es baja (p.ej., cerca del apogeo o en corrientes suaves)
-	var vertical_speed_raw := abs(vertical_velocity.y)
-	_vspeed_smoothed = lerp(_vspeed_smoothed, vertical_speed_raw, clamp(floating_vspeed_smooth, 0.0, 1.0))
-	var vertical_speed := _vspeed_smoothed
-	var vspeed_ok_enter := vertical_speed < floating_enter_vspeed_threshold
-	var vspeed_ok_exit := vertical_speed < floating_exit_vspeed_threshold
-	var vspeed_ok := (_last_is_floating and vspeed_ok_exit) or ((not _last_is_floating) and vspeed_ok_enter)
-	# Bloqueo de floating en inicio hasta ver suelo o pasar un tiempo
-	var startup_block_clear := has_seen_floor_once or (time_since_start > startup_floating_block_time)
+	var in_jump_state = (playback and (playback.get_current_node() == jump_node_name))
+	var falling_without_jump = (!on_floor) and (time_since_jump > floating_without_jump_delay)
+	var no_input_ok = (not floating_without_jump_requires_no_input) or (time_since_input > floating_no_input_delay)
+	var accel_ok = (_last_is_floating and (vertical_accel <= floating_exit_accel_threshold)) or ((not _last_is_floating) and (vertical_accel <= floating_enter_accel_threshold))
+	var vspeed_ok = (_last_is_floating and (vertical_speed < floating_exit_vspeed_threshold)) or ((not _last_is_floating) and (vertical_speed < floating_enter_vspeed_threshold))
+	var startup_block_clear = has_seen_floor_once or (time_since_start > startup_floating_block_time)
 	var should_float = startup_block_clear and (!on_floor) and (accel_ok or (falling_without_jump and vspeed_ok)) and (not is_attacking) and (not is_rolling) and (
 		((time_since_jump > floating_after_jump_delay) and (time_since_input > floating_no_input_delay))
 		or (time_in_jump_state > floating_from_jump_delay)
 		or (falling_without_jump and no_input_ok)
 	)
 	animation_tree["parameters/conditions/IsFloating"] = should_float
-
-	# Log de flotar solo en cambios
-	if debug_enabled and debug_movement and (should_float != _last_is_floating):
-		print_debug_tag("Float", "[Float] is_floating changed: " + String(should_float) +
-			" v_accel=" + String(vertical_accel).pad_decimals(2) +
-			" a_enter=" + String(floating_enter_accel_threshold) +
-			" a_exit=" + String(floating_exit_accel_threshold) +
-			" v_speed=" + String(vertical_speed).pad_decimals(2) +
-			" v_enter=" + String(floating_enter_vspeed_threshold) +
-			" v_exit=" + String(floating_exit_vspeed_threshold) +
-			" on_floor=" + String(on_floor))
 	_last_is_floating = should_float
 
-	# Debug de estados y condiciones
-	if debug_enabled and debug_movement:
-		var current_node := "?"
-		if playback:
-			current_node = String(playback.get_current_node())
-		if current_node != _last_anim_node:
-			_last_anim_node = current_node
-			print_debug_tag("Anim", "[Anim] node=" + current_node +
-				" on_floor=" + String(on_floor) +
-				" is_walking=" + String(is_walking) +
-				" is_running=" + String(is_running) +
-				" is_attacking=" + String(is_attacking) +
-				" is_rolling=" + String(is_rolling) +
-				" is_floating=" + String(should_float) +
-				" v_accel=" + String(vertical_accel).pad_decimals(2) +
-				" v_speed=" + String(vertical_speed).pad_decimals(2) +
-				" t_jump=" + String(time_since_jump).pad_decimals(2) +
-				" t_input=" + String(time_since_input).pad_decimals(2) +
-				" t_jump_state=" + String(time_in_jump_state).pad_decimals(2) +
-				" fall_no_jump=" + String(falling_without_jump) +
-				" no_input_ok=" + String(no_input_ok))
 
 # Respawn-safe reset of transient movement state
 func reset_state_for_respawn(new_transform: Transform) -> void:
