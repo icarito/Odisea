@@ -10,6 +10,7 @@ Notas:
 - No edites .tscn manual; borra `.import/` y reimporta (F5).
 - Test sin GUI: `godot3-bin --headless --export-debug`.
 - "export" no "@export".
+- Nunca pases nil a funciones que esperan bool, Vector2, Vector3, etc.; usa siempre un valor por defecto seguro (ej. false, Vector2.ZERO, 0.0)
 
 ## 1) En una frase
 Odisea (MVP) es un juego 3D en Godot 3.6 (GLES2): tercera persona + plataformas con plataformas móviles/conveyor, cámara suave, y narrativa ligera por diálogos JSON; primera entrega jugable: Acto I "Criogenia" como nivel continuo.
