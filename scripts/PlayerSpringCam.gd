@@ -108,8 +108,8 @@ func _on_replay_mode_changed(new_mode: int):
 
 func _update_mouse_look_active():
 	var is_captured = GameGlobals.mouse_captured if GameGlobals else false
-	var is_not_playback = ReplayManager.mode != ReplayManager.ReplayMode.PLAYBACK if ReplayManager else true
-	_is_mouse_look_active = is_captured and is_not_playback
+	var is_playback = ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK if ReplayManager else false
+	_is_mouse_look_active = is_captured or is_playback
 
 func process_camera_rotation(_motion: Vector2):
 	"""Procesa el movimiento del mouse/touch para rotar la cámara desde InputState."""
