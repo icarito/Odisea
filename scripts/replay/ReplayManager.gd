@@ -27,6 +27,7 @@ const REPLAYS_DIR = "res://replays/"
 
 func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS
+	print("ReplayManager _ready called")
 
 	recorder = ReplayRecorderScript.new()
 	recorder.name = "ReplayRecorder"

@@ -29,13 +29,24 @@ func _debug_log(message: String) -> void:
 func _ready() -> void:
 	process_priority = 100  # High priority to capture input before CameraRig
 	set_process_input(true)
-	set_physics_process(false)
+	set_process_unhandled_input(true)
+	print("ReplayRecorder _ready: process_input enabled: ", is_processing_input())
+	print("ReplayRecorder is in tree: ", is_inside_tree())
+	if is_inside_tree():
+		print("ReplayRecorder tree path: ", get_path())
 
 func _input(event: InputEvent) -> void:
+	print("ReplayRecorder _input called with event: ", event)
 	if is_recording() and event is InputEventMouseMotion:
 		mouse_motion_accumulated += event.relative
-		_debug_log("After _input accumulation: mouse_motion_accumulated = " + str(mouse_motion_accumulated))
+		print("DEBUG CAPTURE: Mouse Motion acumulado: ", mouse_motion_accumulated)
 		# Do not accept the event, so it continues to CameraRig
+
+func _unhandled_input(event: InputEvent) -> void:
+	print("ReplayRecorder _unhandled_input called with event: ", event)
+	if is_recording() and event is InputEventMouseMotion:
+		mouse_motion_accumulated += event.relative
+		print("DEBUG UNHANDLED CAPTURE: Mouse Motion acumulado: ", mouse_motion_accumulated)
 
 func _physics_process(delta: float) -> void:
 	if not recording_paused:
@@ -43,24 +54,29 @@ func _physics_process(delta: float) -> void:
 
 func start_recording(): # This function now acts like a coroutine
 	# Defer the start of recording by one frame to ensure all Autoloads are ready.
+	print("ReplayRecorder start_recording called")
 	_debug_log("Starting recording...")
 	start_time = Time.get_ticks_usec()
 	GameGlobals.is_recording = true
 
 	var replay = ReplayScript.new()
-	replay.scene_path = get_tree().current_scene.filename
+	if get_tree() and get_tree().current_scene:
+		replay.scene_path = get_tree().current_scene.filename
+	else:
+		replay.scene_path = "unknown"
 	replay.godot_version = Engine.get_version_info()["string"]
 	replay.timestamp = Time.get_datetime_string_from_unix_time(int(Time.get_unix_time_from_system()))
 
 	player = PlayerManager.get_player()
 	var initial = {}
-	if player:
+	if player and get_tree() and get_tree().current_scene:
 		initial[get_tree().current_scene.get_path_to(player)] = player.get_replay_state()
 	
 	# Add CameraRig state
-	camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-	if camera_rig and camera_rig.has_method("get_replay_state"):
-		initial[get_tree().current_scene.get_path_to(camera_rig)] = camera_rig.get_replay_state()
+	if get_tree() and get_tree().current_scene:
+		camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+		if camera_rig and camera_rig.has_method("get_replay_state"):
+			initial[get_tree().current_scene.get_path_to(camera_rig)] = camera_rig.get_replay_state()
 	
 	replay.initial_states = ReplayUtils.to_json_safe(initial)
 	# Initialize last_frame_data with an empty inputs dict. This ensures the first
@@ -111,6 +127,7 @@ func _record_frame(delta: float) -> void:
 		frame_data["inputs"][action] = Input.is_action_pressed(action)
 
 	_debug_log("Mouse motion accumulated for frame " + str(len(current_replay.frames)) + ": " + str(mouse_motion_accumulated))
+	print("DEBUG RECORD: Frame ", len(current_replay.frames), " grabando motion: ", mouse_motion_accumulated, " y reseteando.")
 	frame_data["inputs"]["mouse_motion"] = mouse_motion_accumulated
 	frame_data["timestamp"] = Time.get_ticks_usec() - start_time
 	mouse_motion_accumulated = Vector2.ZERO

@@ -91,22 +91,23 @@ func _physics_process(delta: float) -> void:
 				player.global_transform.basis = recorded_basis  # ¡Forzar la rotación grabada!
 
 	# Restaurar Cámara
-	var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-	var camera_data = frame_data.get("camera", {})
+	if get_tree() and get_tree().current_scene:
+		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+		var camera_data = frame_data.get("camera", {})
 
-	if camera_rig and camera_data:
-		# Forzar los ángulos de la cámara a los grabados
-		if camera_data.has("pitch"):
-			if camera_rig.has_node("Pitch"):
-				camera_rig.get_node("Pitch").rotation.x = camera_data["pitch"]
-		if camera_data.has("yaw"):
-			if camera_rig.has_node("Yaw"):
-				camera_rig.get_node("Yaw").rotation.y = camera_data["yaw"]
-		if camera_data.has("spring_length"):
-			if camera_rig.has_node("SpringArm"):
-				var springarm = camera_rig.get_node("SpringArm")
-				if springarm.has_method("set_spring_length"):
-					springarm.set_spring_length(camera_data["spring_length"])
+		if camera_rig and camera_data:
+			# Forzar los ángulos de la cámara a los grabados
+			if camera_data.has("pitch"):
+				if camera_rig.has_node("Pitch"):
+					camera_rig.get_node("Pitch").rotation.x = camera_data["pitch"]
+			if camera_data.has("yaw"):
+				if camera_rig.has_node("Yaw"):
+					camera_rig.get_node("Yaw").rotation.y = camera_data["yaw"]
+			if camera_data.has("spring_length"):
+				if camera_rig.has_node("SpringArm"):
+					var springarm = camera_rig.get_node("SpringArm")
+					if springarm.has_method("set_spring_length"):
+						springarm.set_spring_length(camera_data["spring_length"])
 
 
 	# Check drift for previous frame (without correction)
@@ -166,13 +167,15 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	
 	# Wait for one frame to ensure the entire scene tree is ready.
 	# This prevents "node not found" errors when accessing nodes immediately after a scene load.
-	yield(get_tree(), "idle_frame")
+	if get_tree():
+		yield(get_tree(), "idle_frame")
 	
 	# Update references after scene change
-	var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-	player = PlayerManager.get_player()
-	if player:
-		player_path = get_tree().current_scene.get_path_to(player)
+	if get_tree() and get_tree().current_scene:
+		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+		player = PlayerManager.get_player()
+		if player:
+			player_path = get_tree().current_scene.get_path_to(player)
 	
 	_prepare_scene_for_playback()
 	
@@ -188,37 +191,41 @@ func _prepare_scene_for_playback():
 	_set_tracked_nodes_physics_process(false)
 
 	# Stop music
-	if get_node("/root/AudioSystem"):
-		get_node("/root/AudioSystem").stop_bgm()
+	if get_tree() and get_tree().root.has_node("AudioSystem"):
+		get_tree().root.get_node("AudioSystem").stop_bgm()
 		
-	for path in current_replay.initial_states:
-		var node = get_tree().current_scene.get_node(path)
-		if node:
-			_set_node_state(node, current_replay.initial_states[path])
+	if get_tree() and get_tree().current_scene:
+		for path in current_replay.initial_states:
+			var node = get_tree().current_scene.get_node(path)
+			if node:
+				_set_node_state(node, current_replay.initial_states[path])
 
 func start_loaded_playback() -> void:
 	print("[ReplayPlayback] >>>>> start_loaded_playback called")
 	frame_count = 0
 
 	# Disable camera input
-	var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-	if camera_rig:
-		if camera_rig.has_method("set_process_input"):
-			camera_rig.set_process_input(false)
+	if get_tree() and get_tree().current_scene:
+		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+		if camera_rig:
+			if camera_rig.has_method("set_process_input"):
+				camera_rig.set_process_input(false)
 
 	# Disable player input to prevent user interference during playback
 	var player = PlayerManager.get_player()
 	if player:
 		player.set_process_input(false)
 		player.set_physics_process(true)  # Enable for deterministic simulation
-		player_path = get_tree().current_scene.get_path_to(player)
+		if get_tree() and get_tree().current_scene:
+			player_path = get_tree().current_scene.get_path_to(player)
 		if player.player_input:
 			player.player_input.is_replay_mode = true
 
 	# Asegurar física en todos los nodos del grupo replay_track
-	for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
-		node.set_physics_process(true)
-		print("[ReplayPlayback] Node in replay_track physics enabled? ", node, node.is_physics_processing())
+	if get_tree():
+		for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
+			node.set_physics_process(true)
+			print("[ReplayPlayback] Node in replay_track physics enabled? ", node, node.is_physics_processing())
 
 	playback_status = "Playing"
 	playback_start_time = Time.get_ticks_usec()  # Reset start time when playback actually begins
@@ -246,10 +253,11 @@ func stop_playback() -> void:
 
 	# Re-enable physics and input for camera only, keep player frozen
 	_set_tracked_nodes_physics_process(true)
-	var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-	if camera_rig:
-		if camera_rig.has_method("set_process_input"):
-			camera_rig.set_process_input(true)
+	if get_tree() and get_tree().current_scene:
+		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+		if camera_rig:
+			if camera_rig.has_method("set_process_input"):
+				camera_rig.set_process_input(true)
 
 	# Do not re-enable player input to keep it frozen at last frame
 	# var player = PlayerManager.get_player()
@@ -259,8 +267,8 @@ func stop_playback() -> void:
 	if player and player.player_input:
 		player.player_input.is_replay_mode = false
 
-	if get_node("/root/AudioSystem"):
-		get_node("/root/AudioSystem").stop_bgm() # consider if we want to resume music
+	if get_tree() and get_tree().root.has_node("AudioSystem"):
+		get_tree().root.get_node("AudioSystem").stop_bgm() # consider if we want to resume music
 
 	emit_signal("playback_stopped")
 
@@ -325,10 +333,11 @@ func seek(frame_idx: int) -> void:
 	# In a pure input-based system, we can't instantly jump to an arbitrary frame's state.
 	# We can only restore the initial state when seeking to the beginning.
 	if frame_index == 0:
-		for path in current_replay.initial_states:
-			var node = get_tree().current_scene.get_node(path)
-			if node:
-				_set_node_state(node, current_replay.initial_states[path])
+		if get_tree() and get_tree().current_scene:
+			for path in current_replay.initial_states:
+				var node = get_tree().current_scene.get_node(path)
+				if node:
+					_set_node_state(node, current_replay.initial_states[path])
 
 	emit_signal("frame_updated", frame_index, total_logical_frames)
 
@@ -362,9 +371,10 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 	if frame_data["inputs"].has("mouse_motion"):
 		var mouse_motion = frame_data["inputs"]["mouse_motion"]
 		if mouse_motion is Vector2 and mouse_motion.length_squared() > 0:
-			var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-			if camera_rig and camera_rig.has_method("process_camera_rotation"):
-				camera_rig.process_camera_rotation(mouse_motion)
+			if get_tree() and get_tree().current_scene:
+				var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+				if camera_rig and camera_rig.has_method("process_camera_rotation"):
+					camera_rig.process_camera_rotation(mouse_motion)
 
 	# --- APLICAR ESTADOS DE FÍSICA NO INPUTABLES ---
 	if player and player.external_velocity and frame_data.has("player_external_velocity"):
@@ -439,9 +449,10 @@ func _set_tracked_nodes_physics_process(enabled: bool) -> void:
 	if player:
 		player.set_physics_process(enabled)
 		print("[ReplayPlayback] _set_tracked_nodes_physics_process: Player physics enabled? ", enabled, player.is_physics_processing())
-	for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
-		node.set_physics_process(enabled)
-		print("[ReplayPlayback] _set_tracked_nodes_physics_process: Node ", node, " physics enabled? ", enabled, node.is_physics_processing())
+	if get_tree():
+		for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
+			node.set_physics_process(enabled)
+			print("[ReplayPlayback] _set_tracked_nodes_physics_process: Node ", node, " physics enabled? ", enabled, node.is_physics_processing())
 
 func _set_node_state(node: Node, state: Dictionary) -> void:
 	if node.has_method("set_replay_state"):

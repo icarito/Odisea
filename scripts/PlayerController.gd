@@ -237,6 +237,7 @@ func _on_UIManager_overlay_hidden():
 func _input(event):
 	# Capturar movimiento del mouse siempre, incluso durante overlays
 	if event is InputEventMouseMotion:
+		print("PlayerController _input: MouseMotion event.relative: ", event.relative)
 		if player_input:
 			player_input.mouse_motion += event.relative
 
