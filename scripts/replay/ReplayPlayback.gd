@@ -78,36 +78,36 @@ func _physics_process(delta: float) -> void:
 				if is_instance_valid(player):
 					player.global_transform.origin = recorded_pos
 					player.velocity = recorded_vel
-					player.global_transform.basis = recorded_basis  # ¡Forzar la rotación grabada!
+					# Removed: player.global_transform.basis = recorded_basis  # No forzar rotación, dejar que el input simulado la determine
 					
-					_debug_log("Restored state from fixed-point: P:%s V:%s B:%s" % [recorded_pos, recorded_vel, recorded_basis])
+					_debug_log("Restored state from fixed-point: P:%s V:%s" % [recorded_pos, recorded_vel])
 			else:
 				_debug_log("Frame %d missing fixed-point data. has_pos:%s, has_vel:%s, has_basis:%s" % [frame_index, has_pos, has_vel, has_basis])
 
-			# Restaurar Basis del Jugador desde global_transform si no hay fixed
-			if not has_basis and player_data.has("global_transform"):
-				var gt_data = player_data["global_transform"]
-				var recorded_basis = ReplayUtils.dict_to_basis(gt_data["basis"])
-				player.global_transform.basis = recorded_basis  # ¡Forzar la rotación grabada!
+			# Removed: Restaurar Basis del Jugador desde global_transform si no hay fixed
+			# if not has_basis and player_data.has("global_transform"):
+			#     var gt_data = player_data["global_transform"]
+			#     var recorded_basis = ReplayUtils.dict_to_basis(gt_data["basis"])
+			#     player.global_transform.basis = recorded_basis  # ¡Forzar la rotación grabada!
 
-	# Restaurar Cámara
-	if get_tree() and get_tree().current_scene:
-		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-		var camera_data = frame_data.get("camera", {})
+	# Removed: Restaurar Cámara - Dejar que el input simulado determine la rotación de la cámara
+	# if get_tree() and get_tree().current_scene:
+	#     var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+	#     var camera_data = frame_data.get("camera", {})
 
-		if camera_rig and camera_data:
-			# Forzar los ángulos de la cámara a los grabados
-			if camera_data.has("pitch"):
-				if camera_rig.has_node("Pitch"):
-					camera_rig.get_node("Pitch").rotation.x = camera_data["pitch"]
-			if camera_data.has("yaw"):
-				if camera_rig.has_node("Yaw"):
-					camera_rig.get_node("Yaw").rotation.y = camera_data["yaw"]
-			if camera_data.has("spring_length"):
-				if camera_rig.has_node("SpringArm"):
-					var springarm = camera_rig.get_node("SpringArm")
-					if springarm.has_method("set_spring_length"):
-						springarm.set_spring_length(camera_data["spring_length"])
+	#     if camera_rig and camera_data:
+	#         # Forzar los ángulos de la cámara a los grabados
+	#         if camera_data.has("pitch"):
+	#             if camera_rig.has_node("Pitch"):
+	#                 camera_rig.get_node("Pitch").rotation.x = camera_data["pitch"]
+	#         if camera_data.has("yaw"):
+	#             if camera_rig.has_node("Yaw"):
+	#                 camera_rig.get_node("Yaw").rotation.y = camera_data["yaw"]
+	#         if camera_data.has("spring_length"):
+	#             if camera_rig.has_node("SpringArm"):
+	#                 var springarm = camera_rig.get_node("SpringArm")
+	#                 if springarm.has_method("set_spring_length"):
+	#                     springarm.set_spring_length(camera_data["spring_length"])
 
 
 	# Check drift for previous frame (without correction)
