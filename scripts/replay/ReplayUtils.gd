@@ -23,10 +23,20 @@ static func vector3_to_fixed_dict(vector: Vector3) -> Dictionary:
 
 static func fixed_dict_to_vector3(dict: Dictionary) -> Vector3:
 	if dict and dict.has_all(["x", "y", "z"]) and dict.x != null and dict.y != null and dict.z != null:
+		# Handle both int and float values (JSON parsing can return floats)
+		var x_val = dict.x
+		var y_val = dict.y  
+		var z_val = dict.z
+		if typeof(x_val) == TYPE_REAL:
+			x_val = int(round(x_val))
+		if typeof(y_val) == TYPE_REAL:
+			y_val = int(round(y_val))
+		if typeof(z_val) == TYPE_REAL:
+			z_val = int(round(z_val))
 		return Vector3(
-			fixed_to_float(dict.x),
-			fixed_to_float(dict.y),
-			fixed_to_float(dict.z)
+			fixed_to_float(x_val),
+			fixed_to_float(y_val),
+			fixed_to_float(z_val)
 		)
 	return Vector3.ZERO
 

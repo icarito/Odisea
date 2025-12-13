@@ -669,11 +669,6 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/monitor/GodotGdErrorMonitor.gd"
 }, {
-"base": "Node",
-"class": "InputState",
-"language": "GDScript",
-"path": "res://autoload/InputState.gd"
-}, {
 "base": "Fuzzer",
 "class": "IntFuzzer",
 "language": "GDScript",
@@ -962,7 +957,6 @@ _global_script_class_icons={
 "GdUnitVector3Assert": "",
 "GdUnitVector3AssertImpl": "",
 "GodotGdErrorMonitor": "",
-"InputState": "",
 "IntFuzzer": "",
 "JUnitXmlReport": "",
 "Joystick": "",
@@ -1017,6 +1011,7 @@ ReplayManager="*res://scripts/replay/ReplayManager.gd"
 MouseCapture="*res://scripts/utils/MouseCapture.gd"
 ReplayUtils="*res://scripts/replay/ReplayUtils.gd"
 InputState="*res://autoload/InputState.gd"
+FixedPoint="*res://autoload/FixedPoint.gd"
 
 [debug]
 
