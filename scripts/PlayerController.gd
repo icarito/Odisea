@@ -24,6 +24,10 @@ var last_platform_velocity := Vector3.ZERO
 export var snap_len := 0.5
 var snap_enabled := true
 
+export(float, 0.0, 1.0, 0.01) var strafe_mode_influence := 1.0 # 1.0 = full strafe preferred, 0.0 = full tank turn
+var strafe_mode_active := false
+var strafe_sticky_timer := 0.0 # Timer for sticky strafe mode
+
 # Components
 onready var external_velocity: ExternalVelocity = $ExternalVelocity if has_node("ExternalVelocity") else null
 onready var jump_comp: PlayerJump = $PlayerJump if has_node("PlayerJump") else null
@@ -42,7 +46,6 @@ export var inherit_vertical_platform_jump := true
 var just_jumped := false
 var time_since_jump := 1.0
 var time_since_input := 1.0
-var mouse_active_timer := 0.0
 
 export var debug_movement := false
 export var debug_shadow := false
@@ -95,6 +98,7 @@ export(float, 0.0, 10.0, 0.1) var advancing_turn_speed := 0.3
 export(float, 0.0, 1.0, 0.01) var analog_turn_multiplier := 1.0
 export(float, 0.0, 1.0, 0.01) var sprint_threshold := 0.7
 export(float, 0.0, 2000.0, 10.0) var mouse_active_timeout_ms := 500.0
+var mouse_active_timer := 0.0 # Timer para detectar actividad reciente del mouse
 var is_tank_turning = false
 export(float, 0.0, 50.0, 0.5) var max_rise_speed := 20.0
 export(float, 0.0, 50.0, 0.5) var max_fall_speed := 30.0
@@ -427,7 +431,7 @@ func _physics_process(delta):
 		var jump_pressed = false
 		if InputState:
 			input_vector = Vector2(
-				InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0,
+				-InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0,
 				InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
 			)
 			mouse_motion = InputState.get_mouse_delta()
@@ -437,8 +441,6 @@ func _physics_process(delta):
 		print("[PlayerController] Raw Inputs: move_x=%s, move_y=%s, run=%s" % [input_vector.x, input_vector.y, is_sprinting])
 
 		# Control de movimiento y rotación
-		rotation.y += input_vector.x * turn_speed * delta
-		direction = Vector3(0, 0, -input_vector.y).rotated(Vector3.UP, rotation.y)
 
 		# Handle Jump
 		if jump_pressed and ((is_attacking != true) and (is_rolling != true)) and is_on_floor():
@@ -467,16 +469,44 @@ func _physics_process(delta):
 			mouse_active_timer = max(0.0, mouse_active_timer - delta)
 			
 			if movement_comp:
+				# --- Strafe Mode Logic ---
+				# Strafe mode is active as long as mouse has been recently active and player is moving, or sticky timer is running
+				var strafe_condition = mouse_active_timer > 0.0 and has_input
+				if strafe_condition:
+					strafe_sticky_timer = 2.0
+				strafe_sticky_timer = max(0.0, strafe_sticky_timer - delta)
+				strafe_mode_active = strafe_condition or strafe_sticky_timer > 0.0
+				
+				if cam_rig and cam_rig.has_method("set_strafe_mode"):
+					cam_rig.set_strafe_mode(strafe_mode_active)
+				
+				var turn_input_val = input_vector.x
+				var movement_input_vec = input_vector
+				
+				if strafe_mode_active:
+					# In strafe mode, no turning at all
+					turn_input_val = 0.0
+				else:
+					# In tank mode, full turning, no strafing
+					turn_input_val = input_vector.x
+					movement_input_vec.x = 0.0
+				
+				# 1. Apply rotation to player body
+				var turn_input = turn_input_val # X-axis is already inverted at source
+				var effective_tank_speed = tank_turn_speed
+				var yaw_delta = turn_input * effective_tank_speed * delta
+				print("StrafeDebug: Active=%s, TurnVal=%s, YawDelta=%s, Sticky=%.2f" % [strafe_mode_active, turn_input_val, yaw_delta, strafe_sticky_timer])
+				rotation.y += yaw_delta
+				if cam_rig.has_method("apply_external_yaw_delta") and not strafe_mode_active: cam_rig.apply_external_yaw_delta(yaw_delta)
+
+				# 2. Process movement with the modified input vector
 				var basis := Basis()
 				var yaw_node_local = get_node_or_null("CameraRig/Yaw")
 				if yaw_node_local:
 					basis = yaw_node_local.global_transform.basis
-					movement_comp.process_input_vector(delta, basis, input_vector, is_sprinting if is_sprinting != null else false, on_floor if on_floor != null else false)
-				var turn_input = -input_vector.x
-				var effective_tank_speed = tank_turn_speed # player_input ya no existe, usar siempre tank_turn_speed o condicionar a futuro si se requiere
-				var yaw_delta = turn_input * effective_tank_speed * delta
-				rotation.y += yaw_delta
-				if cam_rig.has_method("apply_external_yaw_delta"): cam_rig.apply_external_yaw_delta(yaw_delta)
+					movement_comp.process_input_vector(delta, basis, movement_input_vec, is_sprinting if is_sprinting != null else false, on_floor if on_floor != null else false)
+
+				# 3. Get results from movement component
 				direction = movement_comp.direction
 				horizontal_velocity = movement_comp.get_horizontal_velocity()
 				is_walking = movement_comp.is_walking
