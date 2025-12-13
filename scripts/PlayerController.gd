@@ -28,7 +28,8 @@ var snap_enabled := true
 onready var external_velocity: ExternalVelocity = $ExternalVelocity if has_node("ExternalVelocity") else null
 onready var jump_comp: PlayerJump = $PlayerJump if has_node("PlayerJump") else null
 onready var movement_comp: PlayerMovement = $PlayerMovement if has_node("PlayerMovement") else null
-onready var player_input: PlayerInput = $PlayerInput if has_node("PlayerInput") else null
+# Usar InputState global como fuente de input
+onready var InputState = get_node("/root/InputState")
 
 # NEW: Multiplayer support
 var player_id := 1
@@ -235,24 +236,15 @@ func _on_UIManager_overlay_hidden():
 	_is_ui_overlay_active = false
 
 func _input(event):
-	# Capturar movimiento del mouse siempre, incluso durante overlays
-	if event is InputEventMouseMotion:
-		print("PlayerController _input: MouseMotion event.relative: ", event.relative)
-		if player_input:
-			player_input.mouse_motion += event.relative
-
-	# Ignorar otros inputs si hay un overlay de UI activo
+	# InputState gestiona el input globalmente. Aquí solo overlays y sincronización de cámara.
 	if _is_ui_overlay_active:
 		return
-
 	if event.is_action_pressed("aim"):
-		# Al entrar en aim, sincronizar cámara con el cuerpo usando el offset
 		var cam_rig = get_node_or_null("CameraRig")
 		if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
 			cam_rig.sync_to_body_yaw(rotation.y, cam_yaw_offset)
 		direction = $CameraRig/Yaw.global_transform.basis.z
 	if event.is_action_released("aim"):
-		# Al salir de aim, asegurar que el mesh y la cámara sigan el cuerpo con sus offsets
 		player_mesh.rotation.y = rotation.y + mesh_yaw_offset
 
 func _process(_delta):
@@ -260,35 +252,35 @@ func _process(_delta):
 		$FPSLabel.text = "FPS: " + str(Engine.get_frames_per_second())
 
 func roll():
-	if Input.is_action_just_pressed("roll"):
+	if InputState and InputState.is_action_pressed("roll"):
 		if !roll_node_name in playback.get_current_node() and !jump_node_name in playback.get_current_node() and !bigattack_node_name in playback.get_current_node():
 			playback.start(roll_node_name)
 			horizontal_velocity = direction * dash_power
 
 func attack1():
 	if (idle_node_name in playback.get_current_node() or walk_node_name in playback.get_current_node()) and is_on_floor():
-		if Input.is_action_just_pressed("attack"):
+		if InputState and InputState.is_action_pressed("attack"):
 			if (is_attacking == false):
 				playback.travel(attack1_node_name)
 
 func attack2():
 	if attack1_node_name in playback.get_current_node():
-		if Input.is_action_just_pressed("attack"):
+		if InputState and InputState.is_action_pressed("attack"):
 			playback.travel(attack2_node_name)
 
 func attack3():
 	if attack1_node_name in playback.get_current_node():
-		if Input.is_action_just_pressed("attack"):
+		if InputState.is_action_pressed("attack"):
 			pass
 
 func rollattack():
 	if roll_node_name in playback.get_current_node():
-		if Input.is_action_just_pressed("attack"):
+		if InputState and InputState.is_action_pressed("attack"):
 			playback.travel(bigattack_node_name)
 
 func bigattack():
 	if run_node_name in playback.get_current_node():
-		if Input.is_action_just_pressed("attack"):
+		if InputState and InputState.is_action_pressed("attack"):
 			horizontal_velocity = direction * dash_power
 			playback.travel(bigattack_node_name)
 
@@ -327,19 +319,14 @@ func print_debug_tag(tag: String, msg: String) -> void:
 		print(msg)
 
 func _debug_input_snapshot() -> Dictionary:
-	return {
-		"left": Input.is_action_pressed("left"),
-		"right": Input.is_action_pressed("right"),
-		"forward": Input.is_action_pressed("forward"),
-		"backward": Input.is_action_pressed("backward"),
-		"lookleft": Input.is_action_pressed("lookleft"),
-		"lookright": Input.is_action_pressed("lookright"),
-		"aim": Input.is_action_pressed("aim"),
-		"sprint": Input.is_action_pressed("sprint"),
-		"jump": Input.is_action_pressed("jump"),
-		"attack": Input.is_action_pressed("attack"),
-		"roll": Input.is_action_pressed("roll")
-	}
+	   if not InputState:
+		   return { "move_x": 0.0, "move_y": 0.0, "run": false, "jump": false }
+	   return {
+		   "move_x": InputState.get_axis("move_x"),
+		   "move_y": InputState.get_axis("move_y"),
+		   "run": InputState.is_action_pressed("run"),
+		   "jump": InputState.is_action_pressed("jump")
+	   }
 
 func _align_camera_to_body():
 	"""
@@ -432,26 +419,22 @@ func _physics_process(delta):
 		else:
 			is_rolling = false
 		
-		# Process player input
-		var input_vector := Vector2.ZERO
-		var mouse_motion := Vector2.ZERO
-		var is_sprinting := false
-		var jump_pressed := false
 
-		if player_input:
-			var input_data = player_input.get_input_frame()
-			input_vector = input_data.get("move_vec", Vector2.ZERO)
-			mouse_motion = input_data.get("mouse_motion", Vector2.ZERO)
-			is_sprinting = input_data.get("sprint", false)
-			jump_pressed = input_data.get("jump", false)
-		else:
-			# Fallback to single player input if PlayerInput node is missing
-			input_vector = Vector2(Input.get_action_strength("left") - Input.get_action_strength("right"), Input.get_action_strength("forward") - Input.get_action_strength("backward"))
-			is_sprinting = Input.is_action_pressed("sprint")
-			jump_pressed = Input.is_action_just_pressed("jump")
-		
+		# Process player input desde InputState
+		var input_vector := Vector2.ZERO
+		var mouse_motion = null
+		var is_sprinting = false
+		var jump_pressed = false
+		if InputState:
+			input_vector = Vector2(
+				InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0,
+				InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
+			)
+			mouse_motion = InputState.get_mouse_delta()
+			is_sprinting = InputState.is_action_pressed("run")
+			jump_pressed = InputState.is_action_pressed("jump")
 		has_input = input_vector.length() > 0.1
-		print("[PlayerController] Raw Inputs: Fwd=%s, Left=%s, Sprint=%s" % [Input.is_action_pressed("forward"), Input.is_action_pressed("left"), is_sprinting])
+		print("[PlayerController] Raw Inputs: move_x=%s, move_y=%s, run=%s" % [input_vector.x, input_vector.y, is_sprinting])
 
 		# Control de movimiento y rotación
 		rotation.y += input_vector.x * turn_speed * delta
@@ -477,17 +460,20 @@ func _physics_process(delta):
 		var cam_rig = get_node_or_null("CameraRig")
 		if cam_rig:
 			if cam_rig.has_method("process_camera_rotation"):
-				cam_rig.process_camera_rotation(mouse_motion)
-			if mouse_motion.length() > 0.01: mouse_active_timer = mouse_active_timeout_ms / 1000.0
+				   if mouse_motion != null:
+					   # cam_rig.process_camera_rotation(mouse_motion) # Desactivado: la cámara gestiona su propio input en _physics_process
+					   pass
+			if mouse_motion and mouse_motion.length() > 0.01: mouse_active_timer = mouse_active_timeout_ms / 1000.0
 			mouse_active_timer = max(0.0, mouse_active_timer - delta)
 			
 			if movement_comp:
 				var basis := Basis()
 				var yaw_node_local = get_node_or_null("CameraRig/Yaw")
-				if yaw_node_local: basis = yaw_node_local.global_transform.basis
-				movement_comp.process_input_vector(delta, basis, input_vector, is_sprinting, on_floor)
-				var turn_input = input_vector.x
-				var effective_tank_speed = tank_turn_speed if not player_input.use_mouse_input else 0
+				if yaw_node_local:
+					basis = yaw_node_local.global_transform.basis
+					movement_comp.process_input_vector(delta, basis, input_vector, is_sprinting if is_sprinting != null else false, on_floor if on_floor != null else false)
+				var turn_input = -input_vector.x
+				var effective_tank_speed = tank_turn_speed # player_input ya no existe, usar siempre tank_turn_speed o condicionar a futuro si se requiere
 				var yaw_delta = turn_input * effective_tank_speed * delta
 				rotation.y += yaw_delta
 				if cam_rig.has_method("apply_external_yaw_delta"): cam_rig.apply_external_yaw_delta(yaw_delta)
@@ -682,10 +668,10 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 		else:
 			print("[PlayerController] CameraRig or Yaw node not found, or it's not a script.")
 
-	# 3. Resetear input residual del mouse
-	if is_instance_valid(player_input) and player_input.has_method("reset_mouse_motion"):
-		player_input.reset_mouse_motion()
-		print("[PlayerController] player_input.reset_mouse_motion() called")
+	# 3. Resetear input residual del mouse (si aplica, delegar a InputState o cámara)
+	if InputState.has_method("reset_mouse_motion"):
+		InputState.reset_mouse_motion()
+	print("[PlayerController] InputState.reset_mouse_motion() called")
 
 	# 4. Resetear velocidades y estado de movimiento
 	if has_node("GroundRay"):

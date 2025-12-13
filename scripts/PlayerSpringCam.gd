@@ -14,8 +14,8 @@ export(NodePath) var pitch_path
 export(NodePath) var springarm_path
 export(NodePath) var camera_path
 
-export(float, 0.001, 1, 0.01) var yaw_sensitivity := 0.015
-export(float, 0.001, 1, 0.01) var pitch_sensitivity := 0.015
+export(float, 0.001, 1, 0.01) var yaw_sensitivity := 0.0005
+export(float, 0.001, 1, 0.01) var pitch_sensitivity := 0.0001
 export(float) var yaw_smooth := 12.0
 export(float) var pitch_smooth := 12.0
 export(float, 0.0, 90.0, 0.5) var pitch_limit_up_deg := 85.0 # límite superior para mirar arriba
@@ -43,6 +43,7 @@ var cam
 
 var target_yaw := 0.0
 var target_pitch := 0.0
+onready var input_state = get_node("/root/InputState")
 var _yaw_initialized := false
 var _is_mouse_look_active := false
 
@@ -85,23 +86,14 @@ func _update_mouse_look_active():
 	var is_not_playback = ReplayManager.mode != ReplayManager.ReplayMode.PLAYBACK if ReplayManager else true
 	_is_mouse_look_active = is_captured and is_not_playback
 
-func process_camera_rotation(motion: Vector2):
-	"""Procesa el movimiento del mouse/touch para rotar la cámara."""
-	if Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED:
+func process_camera_rotation(_motion: Vector2):
+	"""Procesa el movimiento del mouse/touch para rotar la cámara desde InputState."""
+	if not _is_mouse_look_active:
 		return
-	if player_id == 1:
-		if not _is_mouse_look_active:
-			return
-		# La sensibilidad se ajusta en PlayerController para touch
-		var scaled_motion = motion
-		
-		var touch_controls_node = null
-		if get_tree() and get_tree().current_scene:
-			touch_controls_node = get_tree().current_scene.find_node("TouchControls", true, false)
 
-		if not (touch_controls_node and touch_controls_node.is_touch_controls_active()):
-			scaled_motion = motion / 100.0
-
+	var motion = input_state.get_mouse_delta()
+	if motion != null:
+		var scaled_motion = motion / 10000.0
 		target_yaw -= scaled_motion.x * yaw_sensitivity
 		target_pitch += scaled_motion.y * pitch_sensitivity
 		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
@@ -128,26 +120,16 @@ func _physics_process(delta):
 	if not touch_active:
 		# Usar mouse/teclado para player 1 si no hay touch
 		if player_id == 1 and _is_mouse_look_active:
-			var mouse_x = Input.get_action_strength("lookleft") - Input.get_action_strength("lookright")
-			var mouse_y = Input.get_action_strength("lookup") - Input.get_action_strength("lookdown")
-			if abs(mouse_x) > 0 or abs(mouse_y) > 0:
-				target_yaw -= mouse_x * yaw_sensitivity * 1000 * delta
-				target_pitch += mouse_y * pitch_sensitivity * 1000 * delta
+			   var motion = input_state.get_mouse_delta()
+			   if motion != null and motion.length() > 0.0:
+				   var scaled_motion = motion / 10000.0
+				   target_yaw -= scaled_motion.x * yaw_sensitivity
+				   target_pitch += scaled_motion.y * pitch_sensitivity
 
 	# Para player 2, siempre usar joy
 	if player_id == 2:
-		var joy_x = Input.get_joy_axis(joypad_device, JOY_AXIS_0)
-		var joy_y = Input.get_joy_axis(joypad_device, JOY_AXIS_1)
-		var deadzone = 0.2
-		
-		if abs(joy_x) > deadzone:
-			target_yaw -= joy_x * yaw_sensitivity * 1000 * delta
-		if abs(joy_y) > deadzone:
-			target_pitch += joy_y * pitch_sensitivity * 1000 * delta
-		
-		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
-		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
-		target_pitch = clamp(target_pitch, -lim_down, lim_up)
+		# TODO: Integrar ejes de InputState si se usan para joypad
+		pass
 
 	# Smooth yaw/pitch
 	if yaw:
