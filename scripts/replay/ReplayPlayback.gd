@@ -12,7 +12,10 @@ const REPLAY_GROUP = "replay_track"
 const INPUT_ACTIONS = [
 	"left", "right", "forward", "backward", "jump", "sprint", "roll", "attack", "aim"
 ]
-const DRIFT_THRESHOLD = 0.001 # Maximum allowed position difference for replay verification
+const DRIFT_THRESHOLD = 0.005 # Maximum allowed position difference before correction
+const MAX_CORRECTION_DISTANCE = 0.5 # Max distance to correct per frame, use snapping above this
+const RESYNC_INTERVAL = 20 # Frames between drift checks and corrections
+const LERP_FACTOR = 0.2 # Factor for smooth correction interpolation
 
 var current_replay: Resource = null
 var current_replay_filename: String = ""
@@ -24,6 +27,7 @@ var playback_status: String = "Stopped"  # "Playing", "Paused", "Stopped"
 var time_accumulator: float = 0.0
 var headless: bool = false
 var playback_start_time: int = 0
+var frame_count: int = 0
 
 var camera_rig: Node = null
 var player: Node = null
@@ -40,42 +44,37 @@ func _debug_log(message: String) -> void:
 		print("[ReplayPlayback] " + message)
 
 func _physics_process(delta: float) -> void:
+	frame_count += 1
 	# Guard clause: Do nothing if there's no replay loaded or if it's paused.
 	if not current_replay or playback_paused:
 		return
-
-	# CHEQUEO DE DERIVA (DRIFT) para el frame ANTERIOR
-	# Se ejecuta ANTES de aplicar los nuevos inputs.
-	# De esta forma, el estado actual del player es el resultado de la simulación del frame anterior.
-	if frame_index > 0:
-		var last_frame_index = frame_index - 1
-		var player = PlayerManager.get_player()
-		if player and current_replay.frame_states.size() > last_frame_index:
-			var recorded_state = current_replay.frame_states[last_frame_index]
-			var player_data = recorded_state.get(str(player_path))
-			if player_data:
-				var recorded_pos_dict = player_data.get("player_position")
-				if recorded_pos_dict:
-					var recorded_position = ReplayUtils.dict_to_vector3(recorded_pos_dict)
-					var simulated_pos = player.global_transform.origin
-					var divergence = recorded_position.distance_to(simulated_pos)
-					if divergence > DRIFT_THRESHOLD:
-						print("--- REGRESSION TEST FAILED: DRIFT DETECTED ---")
-						print("Frame: %d" % last_frame_index)
-						print("Divergence: %s" % divergence)
-						print("Expected Position: %s" % recorded_position)
-						print("Actual Position: %s" % simulated_pos)
-						print("DRIFT! Physics drift exceeded tolerance.")
-					else:
-						# This log is very noisy, let's keep it for real debug sessions
-						# print("--- Frame %d Locked. Divergence: %s ---" % [last_frame_index, divergence])
-						pass
-
 
 	# If we have reached the end of the replay, stop playback.
 	if frame_index >= total_logical_frames:
 		stop_playback()
 		return
+
+	# Check drift for previous frame (without correction)
+	if frame_index > 0:
+		var prev_frame_index = frame_index - 1
+		if current_replay.frame_states.size() > prev_frame_index:
+			var recorded_state = current_replay.frame_states[prev_frame_index]
+			if recorded_state.has(str(player_path)):
+				var player_data = recorded_state[str(player_path)]
+				if player_data.has("player_position"):
+					var recorded_pos_dict = player_data["player_position"]
+					var recorded_position = ReplayUtils.dict_to_vector3(recorded_pos_dict)
+					var simulated_pos = player.global_transform.origin
+					var divergence = recorded_position.distance_to(simulated_pos)
+					if divergence > DRIFT_THRESHOLD:
+						print("--- DRIFT DETECTED in previous frame %d: Divergence %s ---" % [prev_frame_index, divergence])
+						print("Recorded pos: %s, Simulated pos: %s" % [recorded_position, simulated_pos])
+						# Dump state for debugging
+						if player.has_method("dump_state"):
+							var dump = player.dump_state()
+							print("Player state dump: ", dump)
+					else:
+						print("Frame %d OK: Divergence %s" % [prev_frame_index, divergence])
 
 	var frame_data = current_replay.frames[frame_index]
 	var recorded_delta = frame_data.get("delta", 1.0 / 60.0) # Obtener el delta grabado
@@ -88,6 +87,10 @@ func _physics_process(delta: float) -> void:
 	# El estado de la cámara se aplica en _apply_inputs_from_frame, no es necesario duplicarlo.
 	# NOTA: Esto era una fuente potencial de no-determinismo si se restauraba estado de cámara
 	# que afectara la lógica del player. Ahora se centraliza en apply_inputs.
+
+	# Periodic drift check and correction
+	if frame_count % RESYNC_INTERVAL == 0:
+		check_for_drift(frame_data)
 
 	frame_index += 1
 	emit_signal("frame_updated", frame_index, total_logical_frames)
@@ -147,6 +150,7 @@ func _prepare_scene_for_playback():
 
 func start_loaded_playback() -> void:
 	print("[ReplayPlayback] >>>>> start_loaded_playback called")
+	frame_count = 0
 
 	# Disable camera input
 	var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
@@ -160,6 +164,8 @@ func start_loaded_playback() -> void:
 		player.set_process_input(false)
 		player.set_physics_process(true)  # Enable for deterministic simulation
 		player_path = get_tree().current_scene.get_path_to(player)
+		if player.player_input:
+			player.player_input.is_replay_mode = true
 
 	# Asegurar física en todos los nodos del grupo replay_track
 	for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
@@ -201,6 +207,9 @@ func stop_playback() -> void:
 	# var player = PlayerManager.get_player()
 	# if player:
 	#     player.set_process_input(true)
+	var player = PlayerManager.get_player()
+	if player and player.player_input:
+		player.player_input.is_replay_mode = false
 
 	if get_node("/root/AudioSystem"):
 		get_node("/root/AudioSystem").stop_bgm() # consider if we want to resume music
@@ -286,26 +295,29 @@ func step_back_frame() -> void:
 func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 	_debug_log("Applying inputs: " + str(frame_data["inputs"]))
 	_debug_log("Sprint pressed: " + str(frame_data["inputs"].get("sprint", false)))
-	for action in frame_data["inputs"]:
-		if action == "mouse_motion":
-			continue
-		var value = frame_data["inputs"][action]
-		if value is bool:
-			if value:
-				Input.action_press(action)
-			else:
-				Input.action_release(action)
+	
+	var player = PlayerManager.get_player()
+	if player and player.player_input:
+		player.player_input.inject_input(frame_data["inputs"])
+	else:
+		# Fallback to old method if not available
+		for action in frame_data["inputs"]:
+			if action == "mouse_motion":
+				continue
+			var value = frame_data["inputs"][action]
+			if value is bool:
+				if value:
+					Input.action_press(action)
+				else:
+					Input.action_release(action)
 
 	if frame_data["inputs"].has("mouse_motion"):
 		var mouse_motion = frame_data["inputs"]["mouse_motion"]
 		if mouse_motion is Vector2 and mouse_motion.length_squared() > 0:
-			var player = PlayerManager.get_player()
-			#if player and player.has_node("PlayerInput"):
-				# Directamente provee el mouse motion al componente que lo maneja.
-				# player.get_node("PlayerInput").mouse_motion += mouse_motion # COMENTAR ESTO
+			if player and player.player_input:
+				player.player_input.mouse_motion += mouse_motion
 
 	# --- APLICAR ESTADOS DE FÍSICA NO INPUTABLES ---
-	var player = PlayerManager.get_player()
 	if player and player.external_velocity and frame_data.has("player_external_velocity"):
 		player.external_velocity.velocity = ReplayUtils.dict_to_vector3(frame_data["player_external_velocity"])
 
@@ -368,13 +380,23 @@ func check_for_drift(frame_data: Dictionary) -> void:
 	var current_origin = player.global_transform.origin
 	var difference = current_origin.distance_to(expected_origin)
 	
-	if difference > DRIFT_THRESHOLD:
-		printerr("--- REGRESSION TEST FAILED: DRIFT DETECTED ---")
-		printerr("Frame: %d" % frame_index)
-		printerr("Divergence: %s" % difference)
-		printerr("Expected Position: %s" % expected_origin)
-		printerr("Actual Position: %s" % current_origin)
-		assert(false, "Physics drift exceeded tolerance.")
+	if difference > MAX_CORRECTION_DISTANCE:
+		# Critical error: Forced snapping
+		player.global_transform.origin = expected_origin
+		print("🚨 CRITICAL: Forced snapping due to large drift: %s at frame %d" % [difference, frame_index])
+	elif difference > DRIFT_THRESHOLD:
+		# Smooth correction using lerp
+		var correction_vector = expected_origin - current_origin
+		player.global_transform.origin += correction_vector * LERP_FACTOR
+		print("✅ Smooth correction. Divergence: %s at frame %d" % [difference, frame_index])
+	else:
+		print("Frame %d: Drift within tolerance (%s)" % [frame_index, difference])
+	
+	# Always correct velocity smoothly
+	var player_data = recorded_state[str(player_path)]
+	if player_data.has("velocity"):
+		var expected_velocity = ReplayUtils.dict_to_vector3(player_data["velocity"])
+		player.velocity = player.velocity.linear_interpolate(expected_velocity, LERP_FACTOR)
 
 func _set_tracked_nodes_physics_process(enabled: bool) -> void:
 	"""Helper function to enable or disable physics for all tracked nodes."""

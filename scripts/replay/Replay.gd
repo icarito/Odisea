@@ -16,6 +16,9 @@ var frames: Array = []
 # Per-frame states for drift measurement
 var frame_states: Array = []
 
+# Sparse snapshots for debugging (every 60 frames)
+var snapshots: Dictionary = {}
+
 func _init() -> void:
 	pass
 
