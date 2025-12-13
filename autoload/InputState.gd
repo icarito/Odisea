@@ -34,6 +34,10 @@ var mouse_delta = Vector2.ZERO
 var _mouse_motion_this_frame = Vector2.ZERO
 var recorded_mouse_delta = Vector2.ZERO
 
+# Estado de strafing
+var is_strafing_mode_active = false
+var strafing_timer = 0.0
+
 var mode = Mode.LIVE setget set_mode
 
 # Frame actual de replay (solo en playback/record)
@@ -53,6 +57,13 @@ func _physics_process(delta):
 		mouse_delta = _mouse_motion_this_frame
 		recorded_mouse_delta = mouse_delta
 		_mouse_motion_this_frame = Vector2.ZERO
+		
+		# Actualizar temporizador de strafing
+		if is_strafing_mode_active:
+			strafing_timer -= delta
+			if strafing_timer <= 0.0:
+				is_strafing_mode_active = false
+				strafing_timer = 0.0
 
 	match mode:
 		Mode.LIVE:
@@ -87,7 +98,9 @@ func _record_current_frame():
 	var frame = {
 		"inputs": actions.duplicate(),
 		"axes": axes.duplicate(),
-		"mouse_delta": mouse_delta
+		"mouse_delta": mouse_delta,
+		"strafing_active": is_strafing_mode_active,
+		"strafing_timer": strafing_timer
 	}
 	recorded_frames.append(frame)
 
@@ -102,6 +115,8 @@ func _apply_replay_frame():
 		mouse_delta = Vector2(md.get("x", 0.0), md.get("y", 0.0))
 	else:
 		mouse_delta = md
+	is_strafing_mode_active = frame.get("strafing_active", false)
+	strafing_timer = frame.get("strafing_timer", 0.0)
 	replay_frame += 1
 
 # API pública para gameplay/cámara

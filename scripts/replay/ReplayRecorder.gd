@@ -127,6 +127,8 @@ func _record_frame(delta: float) -> void:
 		"inputs": InputState.actions.duplicate(),
 		"axes": InputState.axes.duplicate(),
 		"mouse_delta": {"x": InputState.recorded_mouse_delta.x, "y": InputState.recorded_mouse_delta.y},
+		"strafing_active": InputState.is_strafing_mode_active,
+		"strafing_timer": InputState.strafing_timer,
 		"timestamp": Time.get_ticks_usec() - start_time
 	}
 	
