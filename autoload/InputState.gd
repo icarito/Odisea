@@ -29,6 +29,7 @@ var axes = {
 
 # Mouse delta (para cámara)
 var mouse_delta = Vector2.ZERO
+var _mouse_motion_this_frame = Vector2.ZERO
 
 var mode = Mode.LIVE setget set_mode
 
@@ -45,6 +46,10 @@ func set_mode(new_mode):
 		replay_frame = 0
 
 func _physics_process(delta):
+	if mode == Mode.LIVE or mode == Mode.RECORD:
+		mouse_delta = _mouse_motion_this_frame
+		_mouse_motion_this_frame = Vector2.ZERO
+
 	match mode:
 		Mode.LIVE:
 			_update_from_input()
@@ -70,8 +75,8 @@ func _update_from_input():
 	# Ejes analógicos (ejemplo WASD)
 	axes["move_x"] = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")
 	axes["move_y"] = Input.get_action_strength("move_forward") - Input.get_action_strength("move_back")
-	# Mouse delta
-	mouse_delta = Input.get_last_mouse_speed()
+	# Mouse delta is now handled in _input and _physics_process
+
 
 func _record_current_frame():
 	var frame = {
@@ -108,3 +113,7 @@ func start_playback():
 
 func stop():
 	set_mode(Mode.LIVE)
+
+func _input(event):
+	if event is InputEventMouseMotion and (mode == Mode.LIVE or mode == Mode.RECORD):
+		_mouse_motion_this_frame += event.relative

@@ -14,8 +14,11 @@ export(NodePath) var pitch_path
 export(NodePath) var springarm_path
 export(NodePath) var camera_path
 
-export(float, 0.001, 1, 0.01) var yaw_sensitivity := 0.0005
-export(float, 0.001, 1, 0.01) var pitch_sensitivity := 0.0001
+export(float, 0.1, 5.0, 0.1) var strafe_mode_timeout := 1.0
+export(float, 0.0, 1.0, 0.05) var strafe_mode_influence := 1.0
+
+export(float, 0.1, 100, 1) var yaw_sensitivity := 20
+export(float, 0.1, 100, 1) var pitch_sensitivity := 20
 export(float) var yaw_smooth := 12.0
 export(float) var pitch_smooth := 12.0
 export(float, 0.0, 90.0, 0.5) var pitch_limit_up_deg := 85.0 # límite superior para mirar arriba
@@ -47,6 +50,9 @@ onready var input_state = get_node("/root/InputState")
 var _yaw_initialized := false
 var _is_mouse_look_active := false
 
+var _strafe_mode_active := false
+var _strafe_mode_timer: Timer
+
 var player_id := 1
 var joypad_device := -1
 
@@ -72,8 +78,27 @@ func _ready():
 	# Conectarse a ReplayManager para cambios de modo
 	if ReplayManager:
 		ReplayManager.connect("mode_changed", self, "_on_replay_mode_changed")
+	
+	_strafe_mode_timer = Timer.new()
+	_strafe_mode_timer.wait_time = strafe_mode_timeout
+	_strafe_mode_timer.one_shot = true
+	_strafe_mode_timer.connect("timeout", self, "_on_strafe_mode_timeout")
+	add_child(_strafe_mode_timer)
 
 	_update_mouse_look_active()
+
+func _on_strafe_mode_timeout():
+	_strafe_mode_active = false
+
+func get_strafe_mode() -> bool:
+	return _strafe_mode_active
+
+func set_strafe_mode(active: bool) -> void:
+	_strafe_mode_active = active
+	if active:
+		_strafe_mode_timer.start()
+	else:
+		_strafe_mode_timer.stop()
 
 func _on_global_mouse_captured_changed(is_captured: bool):
 	_update_mouse_look_active()
@@ -93,6 +118,10 @@ func process_camera_rotation(_motion: Vector2):
 
 	var motion = input_state.get_mouse_delta()
 	if motion != null:
+		if motion.length_squared() > 0:
+			_strafe_mode_active = true
+			_strafe_mode_timer.start()
+
 		var scaled_motion = motion / 10000.0
 		target_yaw -= scaled_motion.x * yaw_sensitivity
 		target_pitch += scaled_motion.y * pitch_sensitivity
