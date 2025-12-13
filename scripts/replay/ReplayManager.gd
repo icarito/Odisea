@@ -87,6 +87,8 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 		print("Failed to load replay: " + replay_path)
 		return
 
+	GameGlobals.is_replaying = true  # Set before changing scene so new instances disable input processing
+
 	# Change scene and then start playback
 	get_tree().change_scene(replay_resource.scene_path)
 	yield(get_tree(), "idle_frame")
@@ -134,6 +136,7 @@ func _on_recording_stopped(frame_count, _replay_path):
 
 func _on_playback_stopped():
 	mode = ReplayMode.NONE
+	GameGlobals.is_replaying = false
 	emit_signal("mode_changed", mode)
 
 func _on_playback_failed():

@@ -37,6 +37,7 @@ export (float, 0.0, 0.49) var crop_margin_vertical = 0.0 setget _set_crop_margin
 
 var _original_fov := 70.0
 var _last_debug_ms := 0
+var _last_playback_debug_ms := 0
 
 var player
 var yaw
@@ -150,7 +151,7 @@ func _physics_process(delta):
 		if player_id == 1 and _is_mouse_look_active:
 			var motion = input_state.get_mouse_delta()
 			if motion is Vector2 and motion.length() > 0.0:
-				if ReplayManager and ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK and motion.length() > 50.0:
+				if ReplayManager and ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK and motion.length() > 5.0:
 					print("Playback camera: applying mouse_delta ", motion, " target_yaw now ", target_yaw)
 				var scaled_motion = motion / 10000.0
 				target_yaw -= scaled_motion.x * yaw_sensitivity
@@ -194,6 +195,13 @@ func _physics_process(delta):
 			print("[Cam] yaw=" + String(yv).pad_decimals(3) +
 				" pitch=" + String(pv).pad_decimals(3) +
 				" len=" + String(sl).pad_decimals(2))
+	
+	# Debug adicional para playback
+	if ReplayManager and ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
+		var now := OS.get_ticks_msec()
+		if now - _last_playback_debug_ms >= 1000:  # Cada segundo
+			_last_playback_debug_ms = now
+			print("Playback Cam: yaw=", yaw.rotation.y if yaw else 0, " target_yaw=", target_yaw)
 
 # Aplicar delta externo de yaw (p.ej., tank turn del jugador)
 func apply_external_yaw_delta(delta_yaw: float) -> void:
