@@ -22,12 +22,12 @@ static func fixed_sub(a: int, b: int) -> int:
 	return a - b
 
 static func fixed_mul(a: int, b: int) -> int:
-	return int((a * b) >> FIXED_SHIFT)
+	return int(round(float(a) * float(b) / FIXED_ONE))
 
 static func fixed_div(a: int, b: int) -> int:
 	if b == 0:
 		return 0
-	return int((a << FIXED_SHIFT) / b)
+	return int(round(float(a) / float(b) * FIXED_ONE))
 
 static func fixed_clamp(x: int, minv: int, maxv: int) -> int:
 	var _min = min(x, maxv)

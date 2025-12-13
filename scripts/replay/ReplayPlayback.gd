@@ -286,28 +286,23 @@ func resume_playback() -> void:
 			var initial_data = current_replay.initial_states[str(player_path)]
 			
 			# 1. RESTAURAR TRANSFORMACIÓN COMPLETA (CRÍTICO) - USE FIXED-POINT FOR DETERMINISM
-			# TEMPORARILY DISABLED FOR DEBUGGING
-			# if initial_data.has("player_position_fixed"):
-			# 	var pos_fixed = ReplayUtils.from_json_safe(initial_data["player_position_fixed"])
-			# 	player.global_transform.origin = ReplayUtils.fixed_dict_to_vector3(pos_fixed)
-			# elif initial_data.has("global_transform"):
-			if initial_data.has("global_transform"):
+			if initial_data.has("player_position_fixed"):
+				var pos_fixed = initial_data["player_position_fixed"]
+				player.global_transform.origin = ReplayUtils.fixed_dict_to_vector3(pos_fixed)
+			elif initial_data.has("global_transform"):
 				var initial_transform = ReplayUtils.from_json_safe(initial_data["global_transform"])
 				player.global_transform = initial_transform
 			
 			# 2. RESTAURAR BASIS FROM FIXED-POINT
-			# TEMPORARILY DISABLED FOR DEBUGGING
-			# if initial_data.has("basis_fixed"):
-			# 	var basis_fixed = ReplayUtils.from_json_safe(initial_data["basis_fixed"])
-			# 	player.global_transform.basis = ReplayUtils.fixed_dict_to_basis(basis_fixed)
+			if initial_data.has("basis_fixed"):
+				var basis_fixed = initial_data["basis_fixed"]
+				player.global_transform.basis = ReplayUtils.fixed_dict_to_basis(basis_fixed)
 			
 			# 3. RESTAURAR VELOCIDAD FROM FIXED-POINT
-			# TEMPORARILY DISABLED FOR DEBUGGING
-			# if initial_data.has("velocity_fixed"):
-			# 	var vel_fixed = ReplayUtils.from_json_safe(initial_data["velocity_fixed"])
-			# 	player.velocity = ReplayUtils.fixed_dict_to_vector3(vel_fixed)
-			# elif initial_data.has("velocity"):
-			if initial_data.has("velocity"):
+			if initial_data.has("velocity_fixed"):
+				var vel_fixed = initial_data["velocity_fixed"]
+				player.velocity = ReplayUtils.fixed_dict_to_vector3(vel_fixed)
+			elif initial_data.has("velocity"):
 				player.velocity = ReplayUtils.from_json_safe(initial_data["velocity"])
 			
 			# --- AGREGAR ESTA LÍNEA DE DEBUG ---
@@ -395,7 +390,7 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 			player.velocity = recorded_velocity
 			player.pre_move_velocity_for_replay = recorded_velocity # Para consistencia en logs
 			player.horizontal_velocity = recorded_velocity - Vector3(0, recorded_velocity.y, 0)
-			player.vertical_velocity.y = recorded_velocity.y
+			# player.vertical_velocity.y = recorded_velocity.y  # Commented out due to access error
 			
 			# Adicionalmente, actualizar el componente de movimiento si existe.
 			if player.movement_comp:
