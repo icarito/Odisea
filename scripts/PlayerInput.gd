@@ -14,7 +14,7 @@ func get_input_frame() -> Dictionary:
 			"move_vec": Input.get_vector("left", "right", "forward", "backward"),
 			"jump": Input.is_action_just_pressed("jump"),
 			"attack1": Input.is_action_just_pressed("attack"),
-			"sprint": Input.is_action_pressed("sprint"),
+			"sprint": Input.is_action_pressed("run"),
 			"roll": Input.is_action_pressed("roll"),
 			"mouse_motion": mouse_motion
 		}

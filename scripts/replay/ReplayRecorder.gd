@@ -126,7 +126,7 @@ func _record_frame(delta: float) -> void:
 		"delta": FIXED_DELTA,
 		"inputs": InputState.actions.duplicate(),
 		"axes": InputState.axes.duplicate(),
-		"mouse_delta": InputState.recorded_mouse_delta,
+		"mouse_delta": {"x": InputState.recorded_mouse_delta.x, "y": InputState.recorded_mouse_delta.y},
 		"timestamp": Time.get_ticks_usec() - start_time
 	}
 	

@@ -543,7 +543,7 @@ func _physics_process(delta):
 		else:
 			direction = Vector3.ZERO
 		
-		var is_sprinting = Input.is_action_pressed("sprint")
+		var is_sprinting = Input.is_action_pressed("run")
 		is_walking = horizontal_velocity.length_squared() > 0.01
 		is_running = is_walking and is_sprinting
 		if movement_comp:
