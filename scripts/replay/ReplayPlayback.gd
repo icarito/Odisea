@@ -129,6 +129,7 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	# Load frames into InputState
 	InputState.recorded_frames = current_replay.frames.duplicate()
 	InputState.mode = InputState.Mode.PLAYBACK
+	InputState.paused = true  # Start paused
 	InputState.replay_frame = 0
 	
 	# Deterministic setup for regression testing
@@ -219,6 +220,9 @@ func stop_playback() -> void:
 	if GameGlobals:
 		GameGlobals.is_replaying = false
 
+	InputState.mode = InputState.Mode.LIVE
+	InputState.paused = false
+
 	for action in INPUT_ACTIONS:
 		Input.action_release(action)
 
@@ -255,6 +259,7 @@ func pause_playback() -> void:
 		remove_from_group("playback_active")
 
 	set_physics_process(false)
+	InputState.paused = true
 	emit_signal("playback_paused")
 	set_physics_process(false)
 
@@ -268,6 +273,7 @@ func resume_playback() -> void:
 	playback_paused = false
 	playback_status = "Playing"
 	set_physics_process(true)
+	InputState.paused = false
 	
 	# Asegurar física del player activada para playback
 	var player = PlayerManager.get_player()

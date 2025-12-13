@@ -6,6 +6,8 @@ extends Node
 # Modos de operación
 enum Mode { LIVE, RECORD, PLAYBACK }
 
+var paused: bool = false
+
 # Acciones lógicas (rellenar según necesidades del juego)
 var actions = {
 	"move_forward": false,
@@ -59,7 +61,8 @@ func _physics_process(delta):
 			_update_from_input()
 			_record_current_frame()
 		Mode.PLAYBACK:
-			_apply_replay_frame()
+			if not paused:
+				_apply_replay_frame()
 
 func _update_from_input():
 	# Mapear acciones lógicas
