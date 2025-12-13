@@ -51,9 +51,6 @@ onready var input_state = get_node("/root/InputState")
 var _yaw_initialized := false
 var _is_mouse_look_active := false
 
-var _strafe_mode_active := false
-var _strafe_mode_timer: Timer
-
 var player_id := 1
 var joypad_device := -1
 
@@ -80,26 +77,10 @@ func _ready():
 	if ReplayManager:
 		ReplayManager.connect("mode_changed", self, "_on_replay_mode_changed")
 	
-	_strafe_mode_timer = Timer.new()
-	_strafe_mode_timer.wait_time = strafe_mode_timeout
-	_strafe_mode_timer.one_shot = true
-	_strafe_mode_timer.connect("timeout", self, "_on_strafe_mode_timeout")
-	add_child(_strafe_mode_timer)
-
 	_update_mouse_look_active()
 
-func _on_strafe_mode_timeout():
-	_strafe_mode_active = false
-
 func get_strafe_mode() -> bool:
-	return _strafe_mode_active
-
-func set_strafe_mode(active: bool) -> void:
-	_strafe_mode_active = active
-	if active:
-		_strafe_mode_timer.start()
-	else:
-		_strafe_mode_timer.stop()
+	return input_state.is_strafing_mode_active
 
 func _on_global_mouse_captured_changed(is_captured: bool):
 	_update_mouse_look_active()
@@ -119,8 +100,8 @@ func process_camera_rotation(_motion: Vector2):
 
 	var motion = input_state.get_mouse_delta()
 	if motion is Vector2 and motion.length_squared() > 0:
-		_strafe_mode_active = true
-		_strafe_mode_timer.start()
+		input_state.is_strafing_mode_active = true
+		input_state.strafing_timer = strafe_mode_timeout
 
 		var scaled_motion = motion / 10000.0
 		target_yaw -= scaled_motion.x * yaw_sensitivity
@@ -156,6 +137,10 @@ func _physics_process(delta):
 				var scaled_motion = motion / 10000.0
 				target_yaw -= scaled_motion.x * yaw_sensitivity
 				target_pitch += scaled_motion.y * pitch_sensitivity
+				# Activar strafing si hay movimiento del mouse
+				if motion.length_squared() > 0:
+					input_state.is_strafing_mode_active = true
+					input_state.strafing_timer = strafe_mode_timeout
 
 	# Para player 2, siempre usar joy
 	if player_id == 2:

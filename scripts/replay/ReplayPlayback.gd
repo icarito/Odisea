@@ -366,6 +366,15 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 				var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 				if camera_rig and camera_rig.has_method("process_camera_rotation"):
 					camera_rig.process_camera_rotation(mouse_motion)
+	elif frame_data.has("mouse_delta"):
+		var md_dict = frame_data["mouse_delta"]
+		if md_dict is Dictionary:
+			var mouse_motion = Vector2(md_dict.get("x", 0.0), md_dict.get("y", 0.0))
+			if mouse_motion.length_squared() > 0:
+				if get_tree() and get_tree().current_scene:
+					var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+					if camera_rig and camera_rig.has_method("process_camera_rotation"):
+						camera_rig.process_camera_rotation(mouse_motion)
 
 	# --- APLICAR ESTADOS DE FÍSICA NO INPUTABLES ---
 	if player and player.external_velocity and frame_data.has("player_external_velocity"):
