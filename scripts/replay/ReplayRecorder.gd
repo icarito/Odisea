@@ -27,9 +27,13 @@ func _debug_log(message: String) -> void:
 		print("[ReplayRecorder] " + message)
 
 func _ready() -> void:
-	process_priority = 100  # High priority to capture input before CameraRig
-	set_process_input(true)
-	set_process_unhandled_input(true)
+	process_priority = -10  # Low priority to run before CameraRig
+	if not (GameGlobals and GameGlobals.is_replaying):  # Only enable input processing when not replaying
+		set_process_input(true)
+		set_process_unhandled_input(true)
+	else:
+		set_process_input(false)
+		set_process_unhandled_input(false)
 	print("ReplayRecorder _ready: process_input enabled: ", is_processing_input())
 	print("ReplayRecorder is in tree: ", is_inside_tree())
 	if is_inside_tree():
