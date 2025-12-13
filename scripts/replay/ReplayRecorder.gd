@@ -14,7 +14,7 @@ signal recording_stopped(frame_count, replay_path)
 
 var recording_paused: bool = false
 var current_replay: Resource = null
-var mouse_motion_this_frame := Vector2.ZERO
+var mouse_motion_accumulated := Vector2.ZERO
 var last_frame_data: Dictionary = {}
 var player: Node = null
 var camera_rig: Node = null
@@ -27,13 +27,15 @@ func _debug_log(message: String) -> void:
 		print("[ReplayRecorder] " + message)
 
 func _ready() -> void:
-	set_process_unhandled_input(true)
+	process_priority = 100  # High priority to capture input before CameraRig
+	set_process_input(true)
 	set_physics_process(false)
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
 	if is_recording() and event is InputEventMouseMotion:
-		mouse_motion_this_frame += event.relative
-		_debug_log("After _unhandled_input accumulation: mouse_motion_this_frame = " + str(mouse_motion_this_frame))
+		mouse_motion_accumulated += event.relative
+		_debug_log("After _input accumulation: mouse_motion_accumulated = " + str(mouse_motion_accumulated))
+		# Do not accept the event, so it continues to CameraRig
 
 func _physics_process(delta: float) -> void:
 	if not recording_paused:
@@ -108,10 +110,10 @@ func _record_frame(delta: float) -> void:
 	for action in INPUT_ACTIONS:
 		frame_data["inputs"][action] = Input.is_action_pressed(action)
 
-	_debug_log("Mouse motion accumulated for frame " + str(len(current_replay.frames)) + ": " + str(mouse_motion_this_frame))
-	frame_data["inputs"]["mouse_motion"] = mouse_motion_this_frame
+	_debug_log("Mouse motion accumulated for frame " + str(len(current_replay.frames)) + ": " + str(mouse_motion_accumulated))
+	frame_data["inputs"]["mouse_motion"] = mouse_motion_accumulated
 	frame_data["timestamp"] = Time.get_ticks_usec() - start_time
-	mouse_motion_this_frame = Vector2.ZERO
+	mouse_motion_accumulated = Vector2.ZERO
 	
 	# Record camera state
 	var camera = camera_rig
