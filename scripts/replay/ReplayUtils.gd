@@ -58,6 +58,14 @@ static func dict_to_vector3(dict: Dictionary) -> Vector3:
 	# Return Vector3.ZERO if keys are missing or format is incorrect.
 	return Vector3.ZERO
 
+# Helper function to deserialize a dictionary from JSON back to a Vector2.
+static func dict_to_vector2(dict: Dictionary) -> Vector2:
+	if dict and dict.has_all(["x", "y"]) and dict.x != null and dict.y != null:
+		if typeof(dict.x) in [TYPE_REAL, TYPE_INT] and typeof(dict.y) in [TYPE_REAL, TYPE_INT]:
+			return Vector2(dict.x, dict.y)
+	# Return Vector2.ZERO if keys are missing or format is incorrect.
+	return Vector2.ZERO
+
 # Helper function to serialize a Transform to a dictionary.
 static func transform_to_dict(transform: Transform) -> Dictionary:
 	return {
@@ -91,6 +99,8 @@ static func basis_to_dict(basis: Basis) -> Dictionary:
 static func to_json_safe(data):
 	if data is Vector3:
 		return {"x": data.x, "y": data.y, "z": data.z}
+	elif data is Vector2:
+		return {"x": data.x, "y": data.y}
 	elif data is Transform:
 		return {
 			"basis": {

@@ -54,6 +54,9 @@ func _physics_process(delta: float) -> void:
 		stop_playback()
 		return
 
+	var frame_data = current_replay.frames[frame_index]
+	var recorded_delta = frame_data.get("delta", 1.0 / 60.0) # Obtener el delta grabado
+
 	# --- FIXED-POINT STATE RESTORATION ---
 	# Forcefully restore the player's state from the deterministic fixed-point data
 	# at the beginning of each frame. This prevents any of Godot's floating-point
@@ -75,11 +78,35 @@ func _physics_process(delta: float) -> void:
 				if is_instance_valid(player):
 					player.global_transform.origin = recorded_pos
 					player.velocity = recorded_vel
-					player.global_transform.basis = recorded_basis
+					player.global_transform.basis = recorded_basis  # ¡Forzar la rotación grabada!
 					
-					_debug_log("Restored state from fixed-point: P:%s V:%s" % [recorded_pos, recorded_vel])
+					_debug_log("Restored state from fixed-point: P:%s V:%s B:%s" % [recorded_pos, recorded_vel, recorded_basis])
 			else:
 				_debug_log("Frame %d missing fixed-point data. has_pos:%s, has_vel:%s, has_basis:%s" % [frame_index, has_pos, has_vel, has_basis])
+
+			# Restaurar Basis del Jugador desde global_transform si no hay fixed
+			if not has_basis and player_data.has("global_transform"):
+				var gt_data = player_data["global_transform"]
+				var recorded_basis = ReplayUtils.dict_to_basis(gt_data["basis"])
+				player.global_transform.basis = recorded_basis  # ¡Forzar la rotación grabada!
+
+	# Restaurar Cámara
+	var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+	var camera_data = frame_data.get("camera", {})
+
+	if camera_rig and camera_data:
+		# Forzar los ángulos de la cámara a los grabados
+		if camera_data.has("pitch"):
+			if camera_rig.has_node("Pitch"):
+				camera_rig.get_node("Pitch").rotation.x = camera_data["pitch"]
+		if camera_data.has("yaw"):
+			if camera_rig.has_node("Yaw"):
+				camera_rig.get_node("Yaw").rotation.y = camera_data["yaw"]
+		if camera_data.has("spring_length"):
+			if camera_rig.has_node("SpringArm"):
+				var springarm = camera_rig.get_node("SpringArm")
+				if springarm.has_method("set_spring_length"):
+					springarm.set_spring_length(camera_data["spring_length"])
 
 
 	# Check drift for previous frame (without correction)
@@ -104,17 +131,10 @@ func _physics_process(delta: float) -> void:
 					else:
 						print("Frame %d OK: Divergence %s" % [prev_frame_index, divergence])
 
-	var frame_data = current_replay.frames[frame_index]
-	var recorded_delta = frame_data.get("delta", 1.0 / 60.0) # Obtener el delta grabado
-	
 	_debug_log("ReplayPlayback _physics_process: Simulating frame " + str(frame_index))
 
 	# Aplicar Inputs
 	_apply_inputs_from_frame(frame_data)
-
-	# El estado de la cámara se aplica en _apply_inputs_from_frame, no es necesario duplicarlo.
-	# NOTA: Esto era una fuente potencial de no-determinismo si se restauraba estado de cámara
-	# que afectara la lógica del player. Ahora se centraliza en apply_inputs.
 
 	# Periodic drift check and correction
 	if frame_count % RESYNC_INTERVAL == 0:
@@ -342,8 +362,9 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 	if frame_data["inputs"].has("mouse_motion"):
 		var mouse_motion = frame_data["inputs"]["mouse_motion"]
 		if mouse_motion is Vector2 and mouse_motion.length_squared() > 0:
-			if player and player.player_input:
-				player.player_input.mouse_motion += mouse_motion
+			var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+			if camera_rig and camera_rig.has_method("process_camera_rotation"):
+				camera_rig.process_camera_rotation(mouse_motion)
 
 	# --- APLICAR ESTADOS DE FÍSICA NO INPUTABLES ---
 	if player and player.external_velocity and frame_data.has("player_external_velocity"):
@@ -352,20 +373,6 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 	if player and frame_data.has("player_gravity_override"):
 		player.set("gravity_override", ReplayUtils.dict_to_vector3(frame_data["player_gravity_override"]))
 
-	# Aplicar estado de la cámara
-	if frame_data.has("camera"):
-		var cam_data = frame_data["camera"]
-		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-		if camera_rig:
-			if camera_rig.has_node("Yaw"):
-				camera_rig.get_node("Yaw").rotation.y = cam_data["yaw"]
-			if camera_rig.has_node("Pitch"):
-				camera_rig.get_node("Pitch").rotation.x = cam_data["pitch"]
-			if camera_rig.has_node("SpringArm"):
-				var springarm = camera_rig.get_node("SpringArm")
-				if springarm.has_method("set_spring_length"):
-					springarm.set_spring_length(cam_data["spring_length"])
-	
 	# --- INYECCIÓN CRÍTICA DE LA VELOCIDAD DE FÍSICA ---
 	# Esto sincroniza el estado de la física antes de que se ejecute _physics_process,
 	# eliminando la acumulación de errores de punto flotante.
