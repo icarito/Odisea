@@ -29,8 +29,6 @@ export var snap_len := 0.5 # TODO: migrar a fixed si es relevante
 var snap_enabled := true
 
 export(float, 0.0, 1.0, 0.01) var strafe_mode_influence := 1.0 # 1.0 = full strafe preferred, 0.0 = full tank turn
-var strafe_mode_active := false
-var strafe_sticky_timer := 0.0 # Timer for sticky strafe mode
 
 # Components
 onready var external_velocity: ExternalVelocity = $ExternalVelocity if has_node("ExternalVelocity") else null
@@ -102,7 +100,6 @@ export(float, 0.0, 10.0, 0.1) var advancing_turn_speed := 0.3
 export(float, 0.0, 1.0, 0.01) var analog_turn_multiplier := 1.0
 export(float, 0.0, 1.0, 0.01) var sprint_threshold := 0.7
 export(float, 0.0, 2000.0, 10.0) var mouse_active_timeout_ms := 500.0
-var mouse_active_timer := 0.0 # Timer para detectar actividad reciente del mouse
 var is_tank_turning = false
 export(float, 0.0, 50.0, 0.5) var max_rise_speed := 20.0
 export(float, 0.0, 50.0, 0.5) var max_fall_speed := 30.0
@@ -502,20 +499,29 @@ func _physics_process(delta):
 				   if mouse_motion != null:
 					   # cam_rig.process_camera_rotation(mouse_motion) # Desactivado: la cámara gestiona su propio input en _physics_process
 					   pass
-			if mouse_motion and mouse_motion.length() > 0.01: mouse_active_timer = mouse_active_timeout_ms / 1000.0
-			mouse_active_timer = max(0.0, mouse_active_timer - delta)
+			# Removed mouse_active_timer logic, now handled in InputState
 			
 			if movement_comp:
 				# --- Strafe Mode Logic ---
-				# Strafe mode is active as long as mouse has been recently active and player is moving, or sticky timer is running
-				var strafe_condition = mouse_active_timer > 0.0 and has_input
-				if strafe_condition:
-					strafe_sticky_timer = 2.0
-				strafe_sticky_timer = max(0.0, strafe_sticky_timer - delta)
-				strafe_mode_active = strafe_condition or strafe_sticky_timer > 0.0
+				# Strafe mode is active based on InputState
+				if InputState.mode == InputState.Mode.LIVE or InputState.mode == InputState.Mode.RECORD:
+					if InputState.mouse_delta.length() > 0.0 and has_input:
+						InputState.is_strafing_mode_active = true
+						InputState.strafing_timer = 2.0
+					else:
+						if InputState.is_strafing_mode_active:
+							InputState.strafing_timer -= delta
+							if InputState.strafing_timer <= 0.0:
+								InputState.is_strafing_mode_active = false
+				
+				var strafe_mode_active = InputState.is_strafing_mode_active
 				
 				if cam_rig and cam_rig.has_method("set_strafe_mode"):
 					cam_rig.set_strafe_mode(strafe_mode_active)
+				
+				# Set strafe mode in movement component
+				if movement_comp:
+					movement_comp.strafe_mode = strafe_mode_active
 				
 				var turn_input_val = input_vector.x
 				var movement_input_vec = input_vector
@@ -532,7 +538,6 @@ func _physics_process(delta):
 				var turn_input = turn_input_val # X-axis is already inverted at source
 				var effective_tank_speed = tank_turn_speed
 				var yaw_delta = turn_input * effective_tank_speed * delta
-				# print("StrafeDebug: Active=%s, TurnVal=%s, YawDelta=%s, Sticky=%.2f" % [strafe_mode_active, turn_input_val, yaw_delta, strafe_sticky_timer])
 				rotation.y += yaw_delta
 				if cam_rig.has_method("apply_external_yaw_delta") and not strafe_mode_active: cam_rig.apply_external_yaw_delta(yaw_delta)
 

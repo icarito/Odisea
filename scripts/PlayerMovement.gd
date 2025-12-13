@@ -25,6 +25,7 @@ var direction := Vector3.ZERO
 var movement_speed := 0.0
 var is_walking := false
 var is_running := false # true solo si is_sprinting
+var strafe_mode := false
 
 func get_horizontal_velocity() -> Vector3:
 	return horizontal_velocity
@@ -62,6 +63,10 @@ func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is
 
 	direction = (cam_forward * forward_input) + (cam_right * right_input)
 	direction = direction.normalized()
+
+	# Align player to movement direction if not in strafe mode
+	if not strafe_mode and direction.length_squared() > 0.01:
+		get_parent().rotation.y = atan2(direction.x, direction.z)
 
 	# Determinar si hay movimiento (caminar o correr)
 	is_walking = processed_mag > 0.01
