@@ -542,7 +542,7 @@ func _physics_process(delta):
 	if direction != Vector3.ZERO:
 		var target_y := atan2(direction.x, direction.z) + mesh_yaw_offset
 		var parent_y = rotation.y
-		var local_target_y = global_target_y - parent_y
+		var local_target_y = target_y - parent_y
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, local_target_y, delta * angular_acceleration)
 
 	var h_rot := 0.0
@@ -575,6 +575,14 @@ func _physics_process(delta):
 	if movement_comp:
 		movement_comp.horizontal_velocity = horizontal_velocity
 	vertical_velocity.y = velocity.y
+	
+	# Snapping to zero to prevent numerical drift
+	if is_on_floor() and horizontal_velocity.length_squared() < 0.0001:
+		horizontal_velocity = Vector3.ZERO
+		velocity.x = 0
+		velocity.z = 0
+		if movement_comp:
+			movement_comp.horizontal_velocity = Vector3.ZERO
 	
 	was_on_floor = is_on_floor()
 	just_jumped = false # Reset one-frame flag
