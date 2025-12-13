@@ -771,6 +771,11 @@ func get_replay_state() -> Dictionary:
 		"velocity": ReplayUtils.vector3_to_dict(velocity), # Record the final velocity AFTER move_and_slide
 		"pre_move_velocity": ReplayUtils.vector3_to_dict(pre_move_velocity_for_replay),
 		"calculated_direction": ReplayUtils.vector3_to_dict(direction),
+		
+		# --- FIXED-POINT DATA FOR DETERMINISTIC REPLAY ---
+		"player_position_fixed": ReplayUtils.vector3_to_fixed_dict(global_transform.origin),
+		"velocity_fixed": ReplayUtils.vector3_to_fixed_dict(velocity),
+		"basis_fixed": ReplayUtils.basis_to_fixed_dict(global_transform.basis)
 	}
 	if jump_comp:
 		state["coyote_timer"] = jump_comp.coyote_timer
