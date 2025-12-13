@@ -34,6 +34,7 @@ onready var jump_comp: PlayerJump = $PlayerJump if has_node("PlayerJump") else n
 onready var movement_comp: PlayerMovement = $PlayerMovement if has_node("PlayerMovement") else null
 # Usar InputState global como fuente de input
 onready var InputState = get_node("/root/InputState")
+onready var player_input = $PlayerInput if has_node("PlayerInput") else null
 
 # NEW: Multiplayer support
 var player_id := 1

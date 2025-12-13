@@ -117,10 +117,9 @@ func process_camera_rotation(_motion: Vector2):
 		return
 
 	var motion = input_state.get_mouse_delta()
-	if motion != null:
-		if motion.length_squared() > 0:
-			_strafe_mode_active = true
-			_strafe_mode_timer.start()
+	if motion is Vector2 and motion.length_squared() > 0:
+		_strafe_mode_active = true
+		_strafe_mode_timer.start()
 
 		var scaled_motion = motion / 10000.0
 		target_yaw -= scaled_motion.x * yaw_sensitivity
@@ -149,11 +148,11 @@ func _physics_process(delta):
 	if not touch_active:
 		# Usar mouse/teclado para player 1 si no hay touch
 		if player_id == 1 and _is_mouse_look_active:
-			   var motion = input_state.get_mouse_delta()
-			   if motion != null and motion.length() > 0.0:
-				   var scaled_motion = motion / 10000.0
-				   target_yaw -= scaled_motion.x * yaw_sensitivity
-				   target_pitch += scaled_motion.y * pitch_sensitivity
+			var motion = input_state.get_mouse_delta()
+			if motion is Vector2 and motion.length() > 0.0:
+				var scaled_motion = motion / 10000.0
+				target_yaw -= scaled_motion.x * yaw_sensitivity
+				target_pitch += scaled_motion.y * pitch_sensitivity
 
 	# Para player 2, siempre usar joy
 	if player_id == 2:

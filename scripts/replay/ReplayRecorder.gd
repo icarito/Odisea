@@ -58,6 +58,7 @@ func start_recording(): # This function now acts like a coroutine
 	_debug_log("Starting recording...")
 	start_time = Time.get_ticks_usec()
 	GameGlobals.is_recording = true
+	InputState.mode = InputState.Mode.RECORD
 
 	var replay = ReplayScript.new()
 	if get_tree() and get_tree().current_scene:
@@ -119,18 +120,20 @@ func _record_frame(delta: float) -> void:
 
 	var frame_data = {
 		"delta": FIXED_DELTA,
-		"inputs": {},
-		# "nodes": {} # We no longer record node state per frame for an input-based replay
+		"inputs": InputState.actions.duplicate(),
+		"axes": InputState.axes.duplicate(),
+		"mouse_delta": InputState.mouse_delta,
+		"timestamp": Time.get_ticks_usec() - start_time
 	}
-
-	for action in INPUT_ACTIONS:
-		frame_data["inputs"][action] = Input.is_action_pressed(action)
-
-	_debug_log("Mouse motion accumulated for frame " + str(len(current_replay.frames)) + ": " + str(mouse_motion_accumulated))
-	print("DEBUG RECORD: Frame ", len(current_replay.frames), " grabando motion: ", mouse_motion_accumulated, " y reseteando.")
-	frame_data["inputs"]["mouse_motion"] = mouse_motion_accumulated
-	frame_data["timestamp"] = Time.get_ticks_usec() - start_time
-	mouse_motion_accumulated = Vector2.ZERO
+	
+	# Snapshot every 100 frames
+	if len(current_replay.frames) % 100 == 0:
+		var snapshot = {}
+		if player:
+			snapshot["player"] = player.get_replay_state()
+		if camera_rig:
+			snapshot["camera"] = camera_rig.get_replay_state()
+		frame_data["snapshot"] = snapshot
 	
 	# Record camera state
 	var camera = camera_rig

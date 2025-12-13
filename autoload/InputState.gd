@@ -80,7 +80,7 @@ func _update_from_input():
 
 func _record_current_frame():
 	var frame = {
-		"actions": actions.duplicate(),
+		"inputs": actions.duplicate(),
 		"axes": axes.duplicate(),
 		"mouse_delta": mouse_delta
 	}
@@ -90,7 +90,7 @@ func _apply_replay_frame():
 	if replay_frame >= recorded_frames.size():
 		return # Fin del replay
 	var frame = recorded_frames[replay_frame]
-	actions = frame["actions"].duplicate()
+	actions = frame["inputs"].duplicate()
 	axes = frame["axes"].duplicate()
 	mouse_delta = frame["mouse_delta"]
 	replay_frame += 1
