@@ -28,7 +28,7 @@ var snap_enabled := true
 onready var external_velocity: ExternalVelocity = $ExternalVelocity if has_node("ExternalVelocity") else null
 onready var jump_comp: PlayerJump = $PlayerJump if has_node("PlayerJump") else null
 onready var movement_comp: PlayerMovement = $PlayerMovement if has_node("PlayerMovement") else null
-onready var player_input: Node = $PlayerInput if has_node("PlayerInput") else null
+onready var player_input: PlayerInput = $PlayerInput if has_node("PlayerInput") else null
 
 # NEW: Multiplayer support
 var player_id := 1
@@ -236,10 +236,9 @@ func _on_UIManager_overlay_hidden():
 
 func _input(event):
 	# Capturar movimiento del mouse siempre, incluso durante overlays
-	if player_input and player_input.use_mouse_input and event is InputEventMouseMotion:
-		# En lugar de pasarlo a una variable 'aim_turn' que no se usa,
-		# lo pasamos directamente al componente de input para que lo procese.
-		player_input.mouse_motion += event.relative
+	if event is InputEventMouseMotion:
+		if player_input:
+			player_input.mouse_motion += event.relative
 
 	# Ignorar otros inputs si hay un overlay de UI activo
 	if _is_ui_overlay_active:
@@ -439,10 +438,11 @@ func _physics_process(delta):
 		var jump_pressed := false
 
 		if player_input:
-			input_vector = player_input.get_input_vector()
-			mouse_motion = player_input.get_mouse_motion()
-			is_sprinting = player_input.is_sprint_pressed()
-			jump_pressed = player_input.just_jumped()
+			var input_data = player_input.get_input_frame()
+			input_vector = input_data.get("move_vec", Vector2.ZERO)
+			mouse_motion = input_data.get("mouse_motion", Vector2.ZERO)
+			is_sprinting = input_data.get("sprint", false)
+			jump_pressed = input_data.get("jump", false)
 		else:
 			# Fallback to single player input if PlayerInput node is missing
 			input_vector = Vector2(Input.get_action_strength("left") - Input.get_action_strength("right"), Input.get_action_strength("forward") - Input.get_action_strength("backward"))
@@ -720,16 +720,37 @@ func _string_to_vector3(s: String) -> Vector3:
 		return Vector3(float(parts[0]), float(parts[1]), float(parts[2]))
 	return Vector3.ZERO
 
-func _string_to_transform(s: String) -> Transform:
-	s = s.trim_prefix("(").trim_suffix(")")
-	var parts = s.split(",")
-	if parts.size() == 12:
-		var basis_x = Vector3(float(parts[0]), float(parts[1]), float(parts[2]))
-		var basis_y = Vector3(float(parts[3]), float(parts[4]), float(parts[5]))
-		var basis_z = Vector3(float(parts[6]), float(parts[7]), float(parts[8]))
-		var origin = Vector3(float(parts[9]), float(parts[10]), float(parts[11]))
-		return Transform(Basis(basis_x, basis_y, basis_z), origin)
-	return Transform.IDENTITY
+func dump_state() -> Dictionary:
+	var state = {
+		"global_transform_origin": global_transform.origin,
+		"velocity": velocity,
+		"is_on_floor": is_on_floor(),
+		"just_jumped": just_jumped,
+		"airborne_inherited": airborne_inherited,
+		"platform_velocity": platform_velocity,
+		"rotation": rotation,
+		"basis": global_transform.basis,
+		"horizontal_velocity": horizontal_velocity,
+		"vertical_velocity": vertical_velocity,
+		"direction": direction,
+		"time_since_jump": time_since_jump,
+		"time_since_input": time_since_input,
+		"was_on_floor": was_on_floor,
+		"snap_enabled": snap_enabled,
+		"collisions": []
+	}
+	
+	# Dump all slide collisions
+	for i in range(get_slide_count()):
+		var collision = get_slide_collision(i)
+		state["collisions"].append({
+			"collider": collision.collider.name if collision.collider else "null",
+			"normal": collision.normal,
+			"position": collision.position,
+			"remainder": collision.remainder
+		})
+	
+	return state
 
 func get_replay_state() -> Dictionary:
 	# This function should return raw Godot types.
@@ -743,6 +764,10 @@ func get_replay_state() -> Dictionary:
 		"just_jumped": just_jumped,
 		"time_since_jump": time_since_jump,
 		"time_since_input": time_since_input,
+		"was_on_floor": was_on_floor,
+		"snap_enabled": snap_enabled,
+		"rotation": ReplayUtils.vector3_to_dict(rotation),
+		"basis": ReplayUtils.basis_to_dict(global_transform.basis),
 		"velocity": ReplayUtils.vector3_to_dict(velocity), # Record the final velocity AFTER move_and_slide
 		"pre_move_velocity": ReplayUtils.vector3_to_dict(pre_move_velocity_for_replay),
 		"calculated_direction": ReplayUtils.vector3_to_dict(direction),
@@ -763,6 +788,18 @@ func set_replay_state(state: Dictionary) -> void:
 	just_jumped = deserialized_state.get("just_jumped", false)
 	time_since_jump = deserialized_state.get("time_since_jump", 1.0)
 	time_since_input = deserialized_state.get("time_since_input", 1.0)
+	was_on_floor = deserialized_state.get("was_on_floor", false)
+	snap_enabled = deserialized_state.get("snap_enabled", true)
+	if deserialized_state.has("rotation"):
+		rotation = deserialized_state["rotation"]
+	if deserialized_state.has("basis"):
+		var basis_dict = deserialized_state["basis"]
+		if basis_dict is Dictionary and basis_dict.has("x") and basis_dict.has("y") and basis_dict.has("z"):
+			var basis_x = basis_dict["x"]
+			var basis_y = basis_dict["y"]
+			var basis_z = basis_dict["z"]
+			if basis_x is Vector3 and basis_y is Vector3 and basis_z is Vector3:
+				global_transform.basis = Basis(basis_x, basis_y, basis_z)
 
 	# Restore the final velocity from the initial state.
 	velocity = deserialized_state.get("velocity", Vector3.ZERO)

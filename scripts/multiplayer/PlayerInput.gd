@@ -13,6 +13,10 @@ export var analog_sprint_threshold := 0.9
 export var debug_input := true
 export var debug_interval := 0.5 # Time in seconds between log messages
 
+# Replay support
+export var is_replay_mode := false
+var _override_inputs: Dictionary = {}
+
 # Curva para input analógico
 export var acceleration_curve: Curve = preload("res://data/Curves/Linear.tres")
 
@@ -85,6 +89,9 @@ func _can_log(type: String) -> bool:
 
 func get_input_vector() -> Vector2:
 	"""Obtener vector de movimiento (normalizado)."""
+	if is_replay_mode:
+		return _override_inputs.get("move_vec", Vector2.ZERO)
+	
 	var actions = action_map[player_id]
 	
 	# Input de teclado
@@ -118,6 +125,9 @@ func get_input_vector() -> Vector2:
 
 func is_sprint_pressed() -> bool:
 	"""Detectar si jugador presionó sprint."""
+	if is_replay_mode:
+		return _override_inputs.get("sprint", false)
+	
 	var actions = action_map[player_id]
 	var kb_pressed = Input.is_action_pressed(actions["sprint"])
 	
@@ -134,6 +144,9 @@ func is_sprint_pressed() -> bool:
 
 func just_jumped() -> bool:
 	"""Detectar salto ESTE FRAME."""
+	if is_replay_mode:
+		return _override_inputs.get("jump", false)
+	
 	var actions = action_map[player_id]
 	var jumped = Input.is_action_just_pressed(actions["jump"]) or _joy_jump_just_pressed
 	if debug_input and jumped and _can_log("jump"):
@@ -149,3 +162,19 @@ func get_mouse_motion() -> Vector2:
 func reset_mouse_motion() -> void:
 	"""Resetea el movimiento del mouse acumulado. Útil para respawns."""
 	mouse_motion = Vector2.ZERO
+
+func inject_input(inputs: Dictionary):
+	_override_inputs = inputs
+
+func get_input_frame() -> Dictionary:
+	if is_replay_mode:
+		return _override_inputs.duplicate(true)
+	else:
+		return {
+			"move_vec": get_input_vector(),
+			"jump": just_jumped(),
+			"attack1": false,  # Not implemented yet
+			"sprint": is_sprint_pressed(),
+			"roll": false,  # Not implemented yet
+			"mouse_motion": get_mouse_motion()
+		}

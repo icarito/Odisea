@@ -4,6 +4,7 @@ const ReplayScript = preload("res://scripts/replay/Replay.gd")
 
 const REPLAY_GROUP = "replay_track"
 const REPLAYS_DIR = "res://replays/"
+const FIXED_DELTA = 1.0 / 60.0 # Fixed delta for deterministic recording
 
 const INPUT_ACTIONS = [
 	"left", "right", "forward", "backward", "jump", "sprint", "roll", "attack", "aim"
@@ -99,7 +100,7 @@ func _record_frame(delta: float) -> void:
 		return  # Do not record during replay playback
 
 	var frame_data = {
-		"delta": delta,
+		"delta": FIXED_DELTA,
 		"inputs": {},
 		# "nodes": {} # We no longer record node state per frame for an input-based replay
 	}
@@ -133,6 +134,14 @@ func _record_frame(delta: float) -> void:
 	
 	current_replay.frames.append(frame_data)
 	last_frame_data = frame_data
+	
+	# Record sparse snapshots for debugging
+	if len(current_replay.frames) % 60 == 0:
+		var snapshot = {}
+		for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
+			if node.has_method("get_replay_state"):
+				snapshot[node.get_path()] = node.get_replay_state()
+		current_replay.snapshots[str(len(current_replay.frames))] = snapshot
 	
 	# Record states for drift measurement
 	var states = {}
