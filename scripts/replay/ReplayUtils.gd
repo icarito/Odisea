@@ -4,6 +4,48 @@ extends Node
 # This script provides utility functions for the replay system,
 # specifically for handling data serialization and deserialization.
 
+const FIXED_POINT_SCALE = 65536.0
+
+# Functions for single float conversion
+static func float_to_fixed(value: float) -> int:
+	return int(round(value * FIXED_POINT_SCALE))
+
+static func fixed_to_float(value: int) -> float:
+	return float(value) / FIXED_POINT_SCALE
+
+# --- Vector3 conversion to/from fixed-point ---
+static func vector3_to_fixed_dict(vector: Vector3) -> Dictionary:
+	return {
+		"x": float_to_fixed(vector.x),
+		"y": float_to_fixed(vector.y),
+		"z": float_to_fixed(vector.z)
+	}
+
+static func fixed_dict_to_vector3(dict: Dictionary) -> Vector3:
+	if dict and dict.has_all(["x", "y", "z"]) and dict.x != null and dict.y != null and dict.z != null:
+		return Vector3(
+			fixed_to_float(dict.x),
+			fixed_to_float(dict.y),
+			fixed_to_float(dict.z)
+		)
+	return Vector3.ZERO
+
+# --- Basis conversion to/from fixed-point ---
+static func basis_to_fixed_dict(basis: Basis) -> Dictionary:
+	return {
+		"x": vector3_to_fixed_dict(basis.x),
+		"y": vector3_to_fixed_dict(basis.y),
+		"z": vector3_to_fixed_dict(basis.z)
+	}
+
+static func fixed_dict_to_basis(dict: Dictionary) -> Basis:
+	if dict and dict.has_all(["x", "y", "z"]) and dict.x != null and dict.y != null and dict.z != null:
+		var basis_x = fixed_dict_to_vector3(dict.x)
+		var basis_y = fixed_dict_to_vector3(dict.y)
+		var basis_z = fixed_dict_to_vector3(dict.z)
+		return Basis(basis_x, basis_y, basis_z)
+	return Basis.IDENTITY
+
 # Helper function to serialize a Vector3 to a dictionary for JSON optimization.
 static func vector3_to_dict(vector: Vector3) -> Dictionary:
 	return {"x": vector.x, "y": vector.y, "z": vector.z}

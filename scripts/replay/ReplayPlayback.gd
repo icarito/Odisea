@@ -54,6 +54,34 @@ func _physics_process(delta: float) -> void:
 		stop_playback()
 		return
 
+	# --- FIXED-POINT STATE RESTORATION ---
+	# Forcefully restore the player's state from the deterministic fixed-point data
+	# at the beginning of each frame. This prevents any of Godot's floating-point
+	# errors from accumulating across frames.
+	if current_replay.frame_states.size() > frame_index:
+		var frame_state_data = current_replay.frame_states[frame_index]
+		if frame_state_data.has(str(player_path)):
+			var player_data = frame_state_data[str(player_path)]
+			
+			var has_pos = player_data.has("player_position_fixed")
+			var has_vel = player_data.has("velocity_fixed")
+			var has_basis = player_data.has("basis_fixed")
+
+			if has_pos and has_vel and has_basis:
+				var recorded_pos = ReplayUtils.fixed_dict_to_vector3(player_data.player_position_fixed)
+				var recorded_vel = ReplayUtils.fixed_dict_to_vector3(player_data.velocity_fixed)
+				var recorded_basis = ReplayUtils.fixed_dict_to_basis(player_data.basis_fixed)
+				
+				if is_instance_valid(player):
+					player.global_transform.origin = recorded_pos
+					player.velocity = recorded_vel
+					player.global_transform.basis = recorded_basis
+					
+					_debug_log("Restored state from fixed-point: P:%s V:%s" % [recorded_pos, recorded_vel])
+			else:
+				_debug_log("Frame %d missing fixed-point data. has_pos:%s, has_vel:%s, has_basis:%s" % [frame_index, has_pos, has_vel, has_basis])
+
+
 	# Check drift for previous frame (without correction)
 	if frame_index > 0:
 		var prev_frame_index = frame_index - 1
