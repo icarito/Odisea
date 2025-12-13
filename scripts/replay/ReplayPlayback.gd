@@ -55,49 +55,16 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var frame_data = current_replay.frames[frame_index]
-	var recorded_delta = frame_data.get("delta", 1.0 / 60.0) # Obtener el delta grabado
-
-	# --- FIXED-POINT STATE RESTORATION ---
-	# Forcefully restore the player's state from the deterministic fixed-point data
-	# at the beginning of each frame. This prevents any of Godot's floating-point
-	# errors from accumulating across frames.
-	if current_replay.frame_states.size() > frame_index:
-		var frame_state_data = current_replay.frame_states[frame_index]
-		if frame_state_data.has(str(player_path)):
-			var player_data = frame_state_data[str(player_path)]
-			
-			var has_pos = player_data.has("player_position_fixed")
-			var has_vel = player_data.has("velocity_fixed")
-			var has_basis = player_data.has("basis_fixed")
-
-			if has_pos and has_vel and has_basis:
-				var recorded_pos = ReplayUtils.fixed_dict_to_vector3(player_data.player_position_fixed)
-				var recorded_vel = ReplayUtils.fixed_dict_to_vector3(player_data.velocity_fixed)
-				var recorded_basis = ReplayUtils.fixed_dict_to_basis(player_data.basis_fixed)
-				
-				if is_instance_valid(player):
-					player.global_transform.origin = recorded_pos
-					player.velocity = recorded_vel
-					# Removed: player.global_transform.basis = recorded_basis  # No forzar rotación, dejar que el input simulado la determine
-					
-					_debug_log("Restored state from fixed-point: P:%s V:%s" % [recorded_pos, recorded_vel])
-			else:
-				_debug_log("Frame %d missing fixed-point data. has_pos:%s, has_vel:%s, has_basis:%s" % [frame_index, has_pos, has_vel, has_basis])
-
-			# Removed: Restaurar Basis del Jugador desde global_transform si no hay fixed
-			# if not has_basis and player_data.has("global_transform"):
-			#     var gt_data = player_data["global_transform"]
-			#     var recorded_basis = ReplayUtils.dict_to_basis(gt_data["basis"])
-			#     player.global_transform.basis = recorded_basis  # ¡Forzar la rotación grabada!
-
-	# Removed: Restaurar Cámara - Dejar que el input simulado determine la rotación de la cámara
-	# if get_tree() and get_tree().current_scene:
-	#     var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-	#     var camera_data = frame_data.get("camera", {})
-
-	#     if camera_rig and camera_data:
-	#         # Forzar los ángulos de la cámara a los grabados
-	#         if camera_data.has("pitch"):
+	
+	# Restore snapshot if present
+	if frame_data.has("snapshot"):
+		var snapshot = frame_data["snapshot"]
+		if snapshot.has("player") and player:
+			player.set_replay_state(snapshot["player"])
+		if snapshot.has("camera") and camera_rig:
+			camera_rig.set_replay_state(snapshot["camera"])
+	
+	frame_index += 1
 	#             if camera_rig.has_node("Pitch"):
 	#                 camera_rig.get_node("Pitch").rotation.x = camera_data["pitch"]
 	#         if camera_data.has("yaw"):
@@ -161,6 +128,11 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	total_logical_frames = len(current_replay.frames)
 	time_accumulator = 0.0
 	
+	# Load frames into InputState
+	InputState.recorded_frames = current_replay.frames.duplicate()
+	InputState.mode = InputState.Mode.PLAYBACK
+	InputState.replay_frame = 0
+	
 	# Deterministic setup for regression testing
 	Engine.set_physics_jitter_fix(0.0)
 	seed(12345)
@@ -218,8 +190,9 @@ func start_loaded_playback() -> void:
 		player.set_physics_process(true)  # Enable for deterministic simulation
 		if get_tree() and get_tree().current_scene:
 			player_path = get_tree().current_scene.get_path_to(player)
-		if player.player_input:
-			player.player_input.is_replay_mode = true
+		if player.has_node("PlayerInput"):
+			var player_input = player.get_node("PlayerInput")
+			player_input.is_replay_mode = true
 
 	# Asegurar física en todos los nodos del grupo replay_track
 	if get_tree():
@@ -264,8 +237,9 @@ func stop_playback() -> void:
 	# if player:
 	#     player.set_process_input(true)
 	var player = PlayerManager.get_player()
-	if player and player.player_input:
-		player.player_input.is_replay_mode = false
+	if player and player.has_node("PlayerInput"):
+		var player_input = player.get_node("PlayerInput")
+		player_input.is_replay_mode = false
 
 	if get_tree() and get_tree().root.has_node("AudioSystem"):
 		get_tree().root.get_node("AudioSystem").stop_bgm() # consider if we want to resume music
@@ -354,8 +328,9 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 	_debug_log("Sprint pressed: " + str(frame_data["inputs"].get("sprint", false)))
 	
 	var player = PlayerManager.get_player()
-	if player and player.player_input:
-		player.player_input.inject_input(frame_data["inputs"])
+	if player and player.has_node("PlayerInput"):
+		var player_input = player.get_node("PlayerInput")
+		player_input.inject_input(frame_data["inputs"])
 	else:
 		# Fallback to old method if not available
 		for action in frame_data["inputs"]:
