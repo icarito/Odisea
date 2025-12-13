@@ -194,9 +194,8 @@ func reset_to_t_pose():
     for bone_name in _target_transforms:
         var bone_idx = _skeleton.find_bone(bone_name)
         if bone_idx != -1:
-            # Note: This resets to identity, not the bone's rest pose.
-            # For this mocap use case, an identity T-pose is the desired fallback.
-            _skeleton.set_bone_pose(bone_idx, Transform())
+            # Reset the bone to its defined rest pose, which is the visually correct T-pose.
+            _skeleton.set_bone_pose(bone_idx, _skeleton.get_bone_rest(bone_idx))
 
     # Now clear the cache so they are no longer considered "controlled".
     _target_transforms.clear()
