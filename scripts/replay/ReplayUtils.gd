@@ -1,3 +1,4 @@
+extends Node
 # /scripts/replay/ReplayUtils.gd
 
 # This script provides utility functions for the replay system,
@@ -63,32 +64,30 @@ static func to_json_safe(data):
 
 # Recursive function to convert JSON-safe data back to Godot types
 static func from_json_safe(data):
-	if data is Dictionary:
-		var result = {}
-		for key in data:
-			result[key] = from_json_safe(data[key])
-		# Check if it's a Vector3 dict
-		if result.has("x") and result.has("y") and result.has("z") and result.size() == 3:
-			var x = result.get("x")
-			var y = result.get("y")
-			var z = result.get("z")
-			if x is float and y is float and z is float:
-				return Vector3(x, y, z)
-			else:
-				return Vector3.ZERO
-		# Check if it's a Transform dict
-		if result.has("basis") and result.has("origin"):
-			var basis = result.get("basis")
-			var origin = result.get("origin")
-			if basis is Dictionary and origin is Dictionary:
-				return dict_to_transform(result)
-			else:
-				return Transform.IDENTITY
-		return result
-	elif data is Array:
+	if data is Array:
 		var result = []
 		for item in data:
 			result.append(from_json_safe(item))
 		return result
-	else:
+		
+	if not data is Dictionary:
 		return data
+
+	# It's a dictionary, check for known Godot types FIRST before recursing.
+	# This avoids bugs where child dictionaries (like 'origin') are converted
+	# before the parent ('transform') is identified.
+	if data.has("basis") and data.has("origin"):
+		# It's a Transform, we can use our robust dict_to_transform directly.
+		# No need to recurse further.
+		return dict_to_transform(data)
+	
+	if data.has_all(["x", "y", "z"]) and data.size() == 3:
+		# It's a Vector3, use dict_to_vector3.
+		return dict_to_vector3(data)
+
+	# If it's not a special Godot type, then it's a generic dictionary.
+	# Now we can safely recurse on its values.
+	var result = {}
+	for key in data:
+		result[key] = from_json_safe(data[key])
+	return result
