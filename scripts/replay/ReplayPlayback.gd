@@ -167,10 +167,16 @@ func _prepare_scene_for_playback():
 		get_tree().root.get_node("AudioSystem").stop_bgm()
 		
 	if get_tree() and get_tree().current_scene:
+		var pilot = get_tree().current_scene.get_node("Pilot/PlayerInput")
+		var scene = get_tree().current_scene
 		for path in current_replay.initial_states:
-			var node = get_tree().current_scene.get_node(path)
+			var node_name = path.trim_prefix("@")
+			var node = get_tree().current_scene.find_node(node_name, true, false)
+			print (node, path)
 			if node:
 				_set_node_state(node, current_replay.initial_states[path])
+		print("Done **************************************************")				
+		print("Done")
 
 func start_loaded_playback() -> void:
 	print("[ReplayPlayback] >>>>> start_loaded_playback called")
@@ -326,7 +332,8 @@ func seek(frame_idx: int) -> void:
 	if frame_index == 0:
 		if get_tree() and get_tree().current_scene:
 			for path in current_replay.initial_states:
-				var node = get_tree().current_scene.get_node(path)
+				var node_name = path.trim_prefix("@")
+				var node = get_tree().current_scene.find_node(node_name, true, false)
 				if node:
 					_set_node_state(node, current_replay.initial_states[path])
 
@@ -441,12 +448,12 @@ func check_for_drift(frame_data: Dictionary) -> void:
 	var difference = current_origin.distance_to(expected_origin)
 	
 	if difference > MAX_CORRECTION_DISTANCE:
-		# Critical error: Forced snapping
-		player.global_transform.origin = expected_origin
-		print("🚨 CRITICAL: Forced snapping due to large drift: %s at frame %d" % [difference, frame_index])
+		# Use smooth correction even for large drifts to avoid yank
+		_apply_smooth_correction(player, expected_transform, 1.0)  # Full correction in one frame for large drifts
+		print("🚨 CRITICAL: Smooth correction due to large drift: %s at frame %d" % [difference, frame_index])
 	elif difference > MIN_DIVERGENCE_TO_CORRECT:
-		# Smooth correction using lerp
-		player.global_transform.origin = player.global_transform.origin.linear_interpolate(expected_origin, LERP_FACTOR)
+		# Smooth correction using lerp/slerp
+		_apply_smooth_correction(player, expected_transform, LERP_FACTOR)
 		print("✅ Smooth correction. Divergence: %s at frame %d" % [difference, frame_index])
 	else:
 		print("Frame %d: Drift within tolerance (%s)" % [frame_index, difference])
@@ -456,6 +463,10 @@ func check_for_drift(frame_data: Dictionary) -> void:
 	if player_data.has("velocity"):
 		var expected_velocity = ReplayUtils.dict_to_vector3(player_data["velocity"])
 		player.velocity = player.velocity.linear_interpolate(expected_velocity, LERP_FACTOR)
+
+func _apply_smooth_correction(node: Spatial, expected_transform: Transform, lerp_factor: float) -> void:
+	node.global_transform.origin = node.global_transform.origin.linear_interpolate(expected_transform.origin, lerp_factor)
+	node.global_transform.basis = node.global_transform.basis.slerp(expected_transform.basis, lerp_factor)
 
 func _set_tracked_nodes_physics_process(enabled: bool) -> void:
 	"""Helper function to enable or disable physics for all tracked nodes."""

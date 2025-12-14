@@ -25,7 +25,7 @@ var canvas_layer: CanvasLayer
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	var viewport = get_viewport()
 	
 	canvas_layer = CanvasLayer.new()
@@ -123,10 +123,9 @@ func show_cursor(show: bool):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		cursor_sprite.hide()
 	else:
-		# Al ocultar el cursor, no necesariamente lo capturamos.
-		# Lo ponemos en modo oculto para que el cursor virtual funcione.
-		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
-		cursor_sprite.show()
+		# Al ocultar el cursor, capturarlo para el juego.
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		cursor_sprite.hide()
 
 
 
