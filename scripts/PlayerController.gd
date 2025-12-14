@@ -722,12 +722,6 @@ func _physics_process(delta):
 	animation_tree["parameters/conditions/IsFloating"] = should_float
 	_last_is_floating = should_float
 
-	# --- CONSUMIR DELTA DEL RATÓN DURANTE REPLAY ---
-	# El PlayerController es responsable de consumir el eje X (Yaw).
-	if GameGlobals and GameGlobals.is_replaying:
-		InputState.mouse_delta.x = 0.0
-		# NOTA: NO limpiar InputState.mouse_delta.y aquí, ya lo hace PlayerSpringCam.
-
 
 # Respawn-safe reset of transient movement state
 func reset_state_for_respawn(new_transform: Transform) -> void:
