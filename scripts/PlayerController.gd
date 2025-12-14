@@ -521,6 +521,11 @@ func _physics_process(delta):
 								strafe_cooldown = 0.5 # Prevent sudden turn after strafe
 				
 				var strafe_mode_active = InputState.is_strafing_mode_active
+				# --- Sincronización explícita durante replay ---
+				if GameGlobals and GameGlobals.is_replaying:
+					strafe_mode_active = InputState.is_strafing_mode_active
+					# (Opcional) También sincroniza el timer si es relevante:
+					# strafing_timer = InputState.strafing_timer
 				print("Strafe active: ", strafe_mode_active, " timer: ", InputState.strafing_timer)
 				
 				# Set strafe mode in movement component
@@ -529,26 +534,25 @@ func _physics_process(delta):
 				
 				var turn_input_val = input_vector.x
 				var movement_input_vec = input_vector
-				
+				var yaw_delta = 0.0
 				if strafe_mode_active:
-					# In strafe mode, no turning at all
+					# En modo strafe, bloquear rotación del cuerpo (Yaw): NO modificar rotation.y
 					turn_input_val = 0.0
+					yaw_delta = 0.0
 				else:
-					# In tank mode, full turning, no strafing
+					# En modo tank, permitir giro normal
 					turn_input_val = input_vector.x
 					movement_input_vec.x = 0.0
-				
+					var effective_tank_speed = tank_turn_speed
+					yaw_delta = turn_input_val * effective_tank_speed * delta
+					rotation.y += yaw_delta
+					if cam_rig.has_method("apply_external_yaw_delta"): cam_rig.apply_external_yaw_delta(yaw_delta)
+
 				# Prevent sudden turn after strafe ends
 				if strafe_cooldown > 0.0:
-					turn_input_val = 0.0
-				
-				# 1. Apply rotation to player body
-				var turn_input = turn_input_val # X-axis is already inverted at source
-				var effective_tank_speed = tank_turn_speed
-				var yaw_delta = turn_input * effective_tank_speed * delta
+					# Bloquea giro durante cooldown
+					yaw_delta = 0.0
 				print("StrafeDebug: Active=%s, TurnVal=%s, YawDelta=%s, Timer=%.2f, MouseDelta=%s" % [strafe_mode_active, turn_input_val, yaw_delta, InputState.strafing_timer, InputState.mouse_delta])
-				rotation.y += yaw_delta
-				if cam_rig.has_method("apply_external_yaw_delta") and not strafe_mode_active: cam_rig.apply_external_yaw_delta(yaw_delta)
 
 				# 2. Process movement with the modified input vector
 				var basis := Basis()
@@ -717,6 +721,12 @@ func _physics_process(delta):
 	)
 	animation_tree["parameters/conditions/IsFloating"] = should_float
 	_last_is_floating = should_float
+
+	# --- CONSUMIR DELTA DEL RATÓN DURANTE REPLAY ---
+	# El PlayerController es responsable de consumir el eje X (Yaw).
+	if GameGlobals and GameGlobals.is_replaying:
+		InputState.mouse_delta.x = 0.0
+		# NOTA: NO limpiar InputState.mouse_delta.y aquí, ya lo hace PlayerSpringCam.
 
 
 # Respawn-safe reset of transient movement state

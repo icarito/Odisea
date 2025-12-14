@@ -341,6 +341,20 @@ func step_back_frame() -> void:
 		seek(frame_index - 1)
 
 func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
+	# --- INYECCIÓN DE ESTADO DE STRAFING ---
+	if frame_data.has("strafing_active"):
+		InputState.is_strafing_mode_active = frame_data.get("strafing_active", false)
+	if frame_data.has("strafing_timer"):
+		InputState.strafing_timer = frame_data.get("strafing_timer", 0.0)
+
+	# --- CORRECCIÓN FALTANTE: INYECCIÓN DE MOUSE DELTA ---
+	if frame_data.has("mouse_delta"):
+		var md = frame_data["mouse_delta"]
+		# Es vital convertir el Diccionario {x, y} a Vector2
+		InputState.mouse_delta = Vector2(md.get("x", 0), md.get("y", 0))
+	else:
+		InputState.mouse_delta = Vector2.ZERO
+
 	_debug_log("Applying inputs: " + str(frame_data["inputs"]))
 	_debug_log("Sprint pressed: " + str(frame_data["inputs"].get("sprint", false)))
 	

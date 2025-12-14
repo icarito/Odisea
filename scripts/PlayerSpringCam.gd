@@ -87,7 +87,7 @@ func _on_replay_mode_changed(new_mode: int):
 
 func _update_mouse_look_active():
 	var is_captured = GameGlobals.mouse_captured if GameGlobals else false
-	var is_playback = ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK if ReplayManager else false
+	var is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
 	_is_mouse_look_active = is_captured or is_playback
 
 func process_camera_rotation(_motion: Vector2):
@@ -120,26 +120,39 @@ func _physics_process(delta):
 	# Control de rotación de cámara
 	var touch_controls = get_node_or_null("/root/TouchControls")
 	var touch_active = touch_controls and touch_controls.is_touch_controls_active()
+	var is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
+	var is_record = input_state and input_state.mode == input_state.Mode.RECORD
+	
+	var motion = Vector2.ZERO
+	
+	# 1. Adquirir 'motion' (delta de mouse/look)
+	if is_playback:
+		# Usar 'recorded_mouse_delta' que es una copia limpia del valor del frame de replay,
+		# para evitar problemas de race condition con otros scripts que consumen 'mouse_delta'.
+		motion = input_state.recorded_mouse_delta
+	elif not touch_active and player_id == 1 and _is_mouse_look_active:
+		# En modo 'live', usar el mouse si no hay controles touch activos.
+		motion = input_state.get_mouse_delta()
 
-	if not touch_active:
-		# Usar mouse/teclado para player 1 si no hay touch
-		if player_id == 1 and _is_mouse_look_active:
-			var motion = input_state.get_mouse_delta()
-			if motion is Vector2 and motion.length() > 0.0:
-				if ReplayManager and ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK and motion.length() > 5.0:
-					print("Playback camera: applying mouse_delta ", motion, " target_yaw now ", target_yaw)
-				var scaled_motion = motion / 1000.0
-				target_yaw -= scaled_motion.x * yaw_sensitivity
-				target_pitch += scaled_motion.y * pitch_sensitivity
-				# Clamp pitch to limits
-				var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
-				var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
-				target_pitch = clamp(target_pitch, -lim_down, lim_up)
-				# Activar strafing si hay movimiento del mouse
-				if motion.length_squared() > 0:
-					print("Activating strafe on mouse motion, delta: ", motion)
-					input_state.is_strafing_mode_active = true
-					# Timer is handled in PlayerController
+	# 2. Aplicar rotación si hay movimiento
+	if motion is Vector2 and motion.length() > 0.0:
+		var scaled_motion = motion / 1000.0
+		target_yaw -= scaled_motion.x * yaw_sensitivity
+		target_pitch += scaled_motion.y * pitch_sensitivity
+		
+		# Limitar pitch
+		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
+		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
+		target_pitch = clamp(target_pitch, -lim_down, lim_up)
+		
+		if is_playback:
+			# Ya no se consume el input aquí. Se lee una variable limpia.
+			pass
+		else: # Solo en modo 'live'
+			# Activar strafing si hay movimiento del mouse
+			if motion.length_squared() > 0:
+				input_state.is_strafing_mode_active = true
+				# El timer es manejado en PlayerController
 
 	# Para player 2, siempre usar joy
 	if player_id == 2:
@@ -155,6 +168,12 @@ func _physics_process(delta):
 		var p = pitch.rotation.x
 		p += (target_pitch - p) * min(1.0, pitch_smooth * delta)
 		pitch.rotation.x = p
+
+	if (is_record or is_playback) and motion.length_squared() > 0.01:
+		var mode_str = "REC" if is_record else "PLAY"
+		var pitch_deg = rad2deg(pitch.rotation.x)
+		var target_pitch_deg = rad2deg(target_pitch)
+		print("CAM_PITCH_DEBUG | %s | motion_y: %.2f | target_pitch: %.2f | final_pitch: %.2f" % [mode_str, motion.y, target_pitch_deg, pitch_deg])
 	# Dynamic zoom based on player horizontal speed
 	if player and springarm:
 		var hv := Vector3.ZERO
