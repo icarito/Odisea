@@ -40,14 +40,12 @@ func _ready() -> void:
 		print("ReplayRecorder tree path: ", get_path())
 
 func _input(event: InputEvent) -> void:
-	print("ReplayRecorder _input called with event: ", event)
 	if is_recording() and event is InputEventMouseMotion:
 		mouse_motion_accumulated += event.relative
 		print("DEBUG CAPTURE: Mouse Motion acumulado: ", mouse_motion_accumulated)
 		# Do not accept the event, so it continues to CameraRig
 
 func _unhandled_input(event: InputEvent) -> void:
-	print("ReplayRecorder _unhandled_input called with event: ", event)
 	if is_recording() and event is InputEventMouseMotion:
 		mouse_motion_accumulated += event.relative
 		print("DEBUG UNHANDLED CAPTURE: Mouse Motion acumulado: ", mouse_motion_accumulated)

@@ -79,14 +79,6 @@ func _ready():
 	
 	_update_mouse_look_active()
 
-func get_strafe_mode() -> bool:
-	return input_state.is_strafing_mode_active
-
-func set_strafe_mode(active: bool):
-	input_state.is_strafing_mode_active = active
-	if active:
-		input_state.strafing_timer = strafe_mode_timeout
-
 func _on_global_mouse_captured_changed(is_captured: bool):
 	_update_mouse_look_active()
 
@@ -105,11 +97,8 @@ func process_camera_rotation(_motion: Vector2):
 
 	var motion = input_state.get_mouse_delta()
 	if motion is Vector2 and motion.length_squared() > 0:
-		input_state.is_strafing_mode_active = true
-		input_state.strafing_timer = strafe_mode_timeout
-
 		var scaled_motion = motion / 10000.0
-		target_yaw -= scaled_motion.x * yaw_sensitivity
+		target_yaw -= -scaled_motion.x * yaw_sensitivity
 		target_pitch += scaled_motion.y * pitch_sensitivity
 		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
 		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
@@ -144,8 +133,9 @@ func _physics_process(delta):
 				target_pitch += scaled_motion.y * pitch_sensitivity
 				# Activar strafing si hay movimiento del mouse
 				if motion.length_squared() > 0:
+					print("Activating strafe on mouse motion, delta: ", motion)
 					input_state.is_strafing_mode_active = true
-					input_state.strafing_timer = strafe_mode_timeout
+					# Timer is handled in PlayerController
 
 	# Para player 2, siempre usar joy
 	if player_id == 2:
