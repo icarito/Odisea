@@ -141,7 +141,15 @@ func get_mouse_delta():
 	return mouse_delta
 
 func get_live_mouse_delta() -> Vector2:
-	return _mouse_motion_this_frame
+	var delta = _mouse_motion_this_frame
+	_mouse_motion_this_frame = Vector2.ZERO
+	return delta
+
+func clean_mouse_delta_y():
+	mouse_delta.y = 0.0
+
+func clean_mouse_delta_x():
+	mouse_delta.x = 0.0
 
 func start_recording():
 	set_mode(Mode.RECORD)

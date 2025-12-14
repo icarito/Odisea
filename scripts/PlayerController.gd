@@ -363,6 +363,7 @@ func _physics_process(delta):
 	var has_input := false
 	var movement_this_frame := Vector3.ZERO
 	var is_replaying = GameGlobals and GameGlobals.is_replaying
+	var replay_manager = get_node("/root/ReplayManager")
 	
 	if not _touch_camera_connected:
 		_connect_touch_camera()
@@ -526,7 +527,6 @@ func _physics_process(delta):
 					strafe_mode_active = InputState.is_strafing_mode_active
 					# (Opcional) También sincroniza el timer si es relevante:
 					# strafing_timer = InputState.strafing_timer
-				print("Strafe active: ", strafe_mode_active, " timer: ", InputState.strafing_timer)
 				
 				# Set strafe mode in movement component
 				if movement_comp:
@@ -552,7 +552,6 @@ func _physics_process(delta):
 				if strafe_cooldown > 0.0:
 					# Bloquea giro durante cooldown
 					yaw_delta = 0.0
-				print("StrafeDebug: Active=%s, TurnVal=%s, YawDelta=%s, Timer=%.2f, MouseDelta=%s" % [strafe_mode_active, turn_input_val, yaw_delta, InputState.strafing_timer, InputState.mouse_delta])
 
 				# 2. Process movement with the modified input vector
 				var basis := Basis()
@@ -877,6 +876,8 @@ func get_replay_state() -> Dictionary:
 
 func set_replay_state(state: Dictionary) -> void:
 	var deserialized_state = ReplayUtils.from_json_safe(state)
+	var is_replaying = GameGlobals and GameGlobals.is_replaying
+	var replay_manager = get_node("/root/ReplayManager")
 
 	# Restore state from the replay file - USE FIXED-POINT DATA FOR DETERMINISTIC PLAYBACK
 	if state.has("player_position_fixed"):
@@ -932,3 +933,6 @@ func set_replay_state(state: Dictionary) -> void:
 		jump_comp.jump_buffer_timer = deserialized_state["jump_buffer_timer"]
 	if jump_comp and deserialized_state.has("should_jump_buffered") and deserialized_state["should_jump_buffered"] != null:
 		jump_comp.should_jump_buffered = deserialized_state["should_jump_buffered"]
+
+	if is_replaying and not replay_manager.is_camera_free_look_active:
+		InputState.clean_mouse_delta_x()

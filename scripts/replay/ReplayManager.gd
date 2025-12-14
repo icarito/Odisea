@@ -16,6 +16,7 @@ enum ReplayMode {
 }
 
 var mode: int = ReplayMode.NONE
+var is_camera_free_look_active: bool = false  # Nueva bandera para modo de cámara dual
 var recorder: Node = null
 var playback: Node = null
 
@@ -93,6 +94,7 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	get_tree().change_scene(replay_resource.scene_path)
 	yield(get_tree(), "idle_frame")
 	
+	GameGlobals.mouse_captured = true
 	mode = ReplayMode.PLAYBACK
 	emit_signal("mode_changed", mode)
 	playback.start_playback(replay_path, is_headless)
@@ -137,9 +139,11 @@ func _on_recording_stopped(frame_count, _replay_path):
 func _on_playback_stopped():
 	mode = ReplayMode.NONE
 	GameGlobals.is_replaying = false
+	GameGlobals.mouse_captured = false
 	emit_signal("mode_changed", mode)
 
 func _on_playback_failed():
 	emit_signal("replay_failed")
 	mode = ReplayMode.NONE
+	GameGlobals.mouse_captured = false
 	emit_signal("mode_changed", mode)

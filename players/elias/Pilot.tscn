@@ -194,9 +194,6 @@ gravity = 9.0
 jump_force = 12
 turn_speed = 1.2
 max_platform_up_follow = 30.0
-debug_movement = true
-debug_input = true
-debug_enabled = true
 tank_turn_speed = 2.0
 advancing_turn_speed = 3.7
 cam_yaw_offset = 0.76
@@ -204,6 +201,7 @@ debug_interval = 1.12
 
 [node name="PlayerInput" type="Node" parent="."]
 script = ExtResource( 65 )
+debug_input = false
 acceleration_curve = ExtResource( 5 )
 
 [node name="PlayerMovement" type="Node" parent="."]
@@ -227,7 +225,6 @@ pitch_limit_down_deg = 80.0
 base_length = 5.0
 max_length = 10.0
 zoom_speed = 2.0
-debug_enabled = true
 
 [node name="Yaw" type="Spatial" parent="CameraRig"]
 

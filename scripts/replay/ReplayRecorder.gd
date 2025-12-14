@@ -88,7 +88,7 @@ func start_recording(): # This function now acts like a coroutine
 
 	current_replay = replay
 	set_physics_process(true)
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	GameGlobals.mouse_captured = true
 
 func stop_recording() -> void:
 	_debug_log("Stopping recording.")

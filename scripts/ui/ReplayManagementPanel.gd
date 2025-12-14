@@ -23,6 +23,7 @@ func _ready() -> void:
 	if item_list:
 		item_list.connect("item_selected", self, "_on_ItemList_item_selected")
 	ReplayManager.connect("mode_changed", self, "_on_mode_changed")
+	GameGlobals.connect("mouse_captured_changed", self, "_on_mouse_captured_changed")
 	_refresh_replay_list()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -103,3 +104,16 @@ func _on_ReturnToMenuButton_pressed() -> void:
 
 func _on_ItemList_item_selected(index: int) -> void:
 	load_button.disabled = false
+
+func _on_mouse_captured_changed(is_captured: bool) -> void:
+	if not is_captured and visible:
+		# Si el mouse se libera mientras el panel está abierto, cerrarlo
+		visible = false
+		_set_touch_controls_active(true)
+		get_node("/root/MouseCapture").show_cursor(true)
+		if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING:
+			ReplayManager.recorder.recording_paused = false
+		elif ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
+			ReplayManager.get_playback_node().resume_playback()
+		else: # ReplayMode.NONE
+			ReplayManager.reset_replay()

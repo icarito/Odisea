@@ -122,13 +122,16 @@ func _physics_process(delta):
 	var touch_active = touch_controls and touch_controls.is_touch_controls_active()
 	var is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
 	var is_record = input_state and input_state.mode == input_state.Mode.RECORD
+	var replay_manager = get_node("/root/ReplayManager")
 	
 	var motion = Vector2.ZERO
 	
 	# 1. Adquirir 'motion' (delta de mouse/look)
 	if is_playback:
-		# FEATURE: durante el playback, la cámara es libre y usa el input real del mouse.
-		motion = input_state.get_live_mouse_delta()
+		if replay_manager.is_camera_free_look_active:
+			motion = input_state.get_live_mouse_delta()
+		else:
+			motion = input_state.get_mouse_delta()
 	elif not touch_active and player_id == 1 and _is_mouse_look_active:
 		# En modo 'live' o 'record', usar el mouse procesado si no hay controles touch activos.
 		motion = input_state.get_mouse_delta()
@@ -143,6 +146,9 @@ func _physics_process(delta):
 		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
 		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
 		target_pitch = clamp(target_pitch, -lim_down, lim_up)
+		
+		if is_playback and not replay_manager.is_camera_free_look_active:
+			input_state.clean_mouse_delta_y()
 		
 		if is_playback:
 			# Ya no se consume el input aquí. Se lee una variable limpia.
