@@ -30,6 +30,8 @@ var snap_enabled := true
 
 export(float, 0.0, 1.0, 0.01) var strafe_mode_influence := 1.0 # 1.0 = full strafe preferred, 0.0 = full tank turn
 
+var strafe_cooldown := 0.0 # Prevents sudden turn after strafe ends
+
 # Components
 onready var external_velocity: ExternalVelocity = $ExternalVelocity if has_node("ExternalVelocity") else null
 onready var jump_comp: PlayerJump = $PlayerJump if has_node("PlayerJump") else null
@@ -369,6 +371,8 @@ func _physics_process(delta):
 	time_since_input += delta
 	time_since_start += delta
 	
+	strafe_cooldown = max(0.0, strafe_cooldown - delta)
+	
 	var on_floor = is_on_floor()
 
 	# Declare input variables
@@ -503,21 +507,19 @@ func _physics_process(delta):
 			
 			if movement_comp:
 				# --- Strafe Mode Logic ---
-				# Strafe mode is active based on InputState
+				# The strafing state is now managed centrally by InputState.gd
 				if InputState.mode == InputState.Mode.LIVE or InputState.mode == InputState.Mode.RECORD:
-					if InputState.mouse_delta.length() > 0.0 and has_input:
+					if InputState.mouse_delta.length() > 0.0:
 						InputState.is_strafing_mode_active = true
-						InputState.strafing_timer = 2.0
-					else:
-						if InputState.is_strafing_mode_active:
-							InputState.strafing_timer -= delta
-							if InputState.strafing_timer <= 0.0:
-								InputState.is_strafing_mode_active = false
+						InputState.strafing_timer = 5.0
+					if InputState.is_strafing_mode_active:
+						InputState.strafing_timer -= delta
+						if InputState.strafing_timer <= 0.0:
+							InputState.is_strafing_mode_active = false
+							strafe_cooldown = 0.5 # Prevent sudden turn after strafe
 				
 				var strafe_mode_active = InputState.is_strafing_mode_active
-				
-				if cam_rig and cam_rig.has_method("set_strafe_mode"):
-					cam_rig.set_strafe_mode(strafe_mode_active)
+				print("Strafe active: ", strafe_mode_active, " timer: ", InputState.strafing_timer)
 				
 				# Set strafe mode in movement component
 				if movement_comp:
@@ -534,10 +536,15 @@ func _physics_process(delta):
 					turn_input_val = input_vector.x
 					movement_input_vec.x = 0.0
 				
+				# Prevent sudden turn after strafe ends
+				if strafe_cooldown > 0.0:
+					turn_input_val = 0.0
+				
 				# 1. Apply rotation to player body
 				var turn_input = turn_input_val # X-axis is already inverted at source
 				var effective_tank_speed = tank_turn_speed
 				var yaw_delta = turn_input * effective_tank_speed * delta
+				print("StrafeDebug: Active=%s, TurnVal=%s, YawDelta=%s, Timer=%.2f, MouseDelta=%s" % [strafe_mode_active, turn_input_val, yaw_delta, InputState.strafing_timer, InputState.mouse_delta])
 				rotation.y += yaw_delta
 				if cam_rig.has_method("apply_external_yaw_delta") and not strafe_mode_active: cam_rig.apply_external_yaw_delta(yaw_delta)
 
@@ -605,9 +612,10 @@ func _physics_process(delta):
 	if cam_rig:
 		var turn_input = input_vector.x
 		var yaw_delta = turn_input * tank_turn_speed * delta
-		rotation.y += yaw_delta
-		if cam_rig.has_method("apply_external_yaw_delta"):
-			cam_rig.apply_external_yaw_delta(yaw_delta)
+		if not InputState.is_strafing_mode_active:
+			rotation.y += yaw_delta
+			if cam_rig.has_method("apply_external_yaw_delta"):
+				cam_rig.apply_external_yaw_delta(yaw_delta)
 
 	# --- LOGIC THAT RUNS IN BOTH MODES ---
 

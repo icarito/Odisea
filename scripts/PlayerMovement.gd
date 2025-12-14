@@ -65,9 +65,8 @@ func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is
 	direction = (forward * forward_input) + (right * right_input)
 	direction = direction.normalized()
 
-	# Align player to movement direction if not in strafe mode
-	if not strafe_mode and direction.length_squared() > 0.01:
-		get_parent().rotation.y = atan2(direction.x, direction.z)
+	# The PlayerController is now solely responsible for body rotation.
+	# This component only calculates the direction and velocity.
 
 	# Determinar si hay movimiento (caminar o correr)
 	is_walking = processed_mag > 0.01
