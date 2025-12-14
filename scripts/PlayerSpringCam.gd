@@ -82,6 +82,11 @@ func _ready():
 func get_strafe_mode() -> bool:
 	return input_state.is_strafing_mode_active
 
+func set_strafe_mode(active: bool):
+	input_state.is_strafing_mode_active = active
+	if active:
+		input_state.strafing_timer = strafe_mode_timeout
+
 func _on_global_mouse_captured_changed(is_captured: bool):
 	_update_mouse_look_active()
 
@@ -134,7 +139,7 @@ func _physics_process(delta):
 			if motion is Vector2 and motion.length() > 0.0:
 				if ReplayManager and ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK and motion.length() > 5.0:
 					print("Playback camera: applying mouse_delta ", motion, " target_yaw now ", target_yaw)
-				var scaled_motion = motion / 10000.0
+				var scaled_motion = motion / 1000.0
 				target_yaw -= scaled_motion.x * yaw_sensitivity
 				target_pitch += scaled_motion.y * pitch_sensitivity
 				# Activar strafing si hay movimiento del mouse

@@ -56,12 +56,13 @@ func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is
 	processed_mag = curve.interpolate(clamp(mag, 0.0, 1.0))
 	processed_mag = clamp(processed_mag, 0.0, 1.0)
 
-	var cam_forward := cam_basis.z.normalized()
-	var cam_right := cam_basis.x.normalized()
+	var basis_to_use: Basis = cam_basis
+	var forward := basis_to_use.z.normalized()
+	var right := basis_to_use.x.normalized()
 	var forward_input := processed_dir.y
 	var right_input := processed_dir.x
 
-	direction = (cam_forward * forward_input) + (cam_right * right_input)
+	direction = (forward * forward_input) + (right * right_input)
 	direction = direction.normalized()
 
 	# Align player to movement direction if not in strafe mode
