@@ -56,7 +56,7 @@ func _physics_process(delta):
 	if mode == Mode.LIVE or mode == Mode.RECORD:
 		mouse_delta = _mouse_motion_this_frame
 		recorded_mouse_delta = mouse_delta
-		_mouse_motion_this_frame = Vector2.ZERO
+		# _mouse_motion_this_frame is now cleared at the end of the function
 
 		# --- Deterministic Strafing Mode Logic ---
 		# 1. Activation: If there's mouse movement AND directional input, activate strafe mode.
@@ -82,6 +82,8 @@ func _physics_process(delta):
 		Mode.PLAYBACK:
 			if not paused:
 				_apply_replay_frame()
+	
+	_mouse_motion_this_frame = Vector2.ZERO
 
 func _update_from_input():
 	# Mapear acciones lógicas
@@ -138,6 +140,9 @@ func get_axis(axis):
 func get_mouse_delta():
 	return mouse_delta
 
+func get_live_mouse_delta() -> Vector2:
+	return _mouse_motion_this_frame
+
 func start_recording():
 	set_mode(Mode.RECORD)
 
@@ -148,5 +153,5 @@ func stop():
 	set_mode(Mode.LIVE)
 
 func _input(event):
-	if event is InputEventMouseMotion and (mode == Mode.LIVE or mode == Mode.RECORD):
+	if event is InputEventMouseMotion:
 		_mouse_motion_this_frame += event.relative

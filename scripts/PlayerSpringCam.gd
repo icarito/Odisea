@@ -127,11 +127,10 @@ func _physics_process(delta):
 	
 	# 1. Adquirir 'motion' (delta de mouse/look)
 	if is_playback:
-		# Usar 'recorded_mouse_delta' que es una copia limpia del valor del frame de replay,
-		# para evitar problemas de race condition con otros scripts que consumen 'mouse_delta'.
-		motion = input_state.recorded_mouse_delta
+		# FEATURE: durante el playback, la cámara es libre y usa el input real del mouse.
+		motion = input_state.get_live_mouse_delta()
 	elif not touch_active and player_id == 1 and _is_mouse_look_active:
-		# En modo 'live', usar el mouse si no hay controles touch activos.
+		# En modo 'live' o 'record', usar el mouse procesado si no hay controles touch activos.
 		motion = input_state.get_mouse_delta()
 
 	# 2. Aplicar rotación si hay movimiento
@@ -258,11 +257,12 @@ func get_replay_state() -> Dictionary:
 	}
 
 func set_replay_state(state: Dictionary) -> void:
-	if state.has("yaw") and yaw:
-		yaw.rotation.y = state["yaw"]
-		target_yaw = state["yaw"]
-	if state.has("pitch") and pitch:
-		pitch.rotation.x = state["pitch"]
-		target_pitch = state["pitch"]
+	# FEATURE: Durante el playback, la cámara es libre. No restaurar yaw/pitch.
+	# if state.has("yaw") and yaw:
+	# 	yaw.rotation.y = state["yaw"]
+	# 	target_yaw = state["yaw"]
+	# if state.has("pitch") and pitch:
+	# 	pitch.rotation.x = state["pitch"]
+	# 	target_pitch = state["pitch"]
 	if state.has("spring_length") and springarm:
 		springarm.spring_length = state["spring_length"]
