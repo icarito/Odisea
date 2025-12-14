@@ -131,6 +131,10 @@ func _physics_process(delta):
 				var scaled_motion = motion / 1000.0
 				target_yaw -= scaled_motion.x * yaw_sensitivity
 				target_pitch += scaled_motion.y * pitch_sensitivity
+				# Clamp pitch to limits
+				var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
+				var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
+				target_pitch = clamp(target_pitch, -lim_down, lim_up)
 				# Activar strafing si hay movimiento del mouse
 				if motion.length_squared() > 0:
 					print("Activating strafe on mouse motion, delta: ", motion)

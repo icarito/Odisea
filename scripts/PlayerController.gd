@@ -513,10 +513,12 @@ func _physics_process(delta):
 						InputState.is_strafing_mode_active = true
 						InputState.strafing_timer = 5.0
 					if InputState.is_strafing_mode_active:
-						InputState.strafing_timer -= delta
-						if InputState.strafing_timer <= 0.0:
-							InputState.is_strafing_mode_active = false
-							strafe_cooldown = 0.5 # Prevent sudden turn after strafe
+						# Only decrement timer if not pressing movement buttons
+						if input_vector.length() <= 0.1:
+							InputState.strafing_timer -= delta
+							if InputState.strafing_timer <= 0.0:
+								InputState.is_strafing_mode_active = false
+								strafe_cooldown = 0.5 # Prevent sudden turn after strafe
 				
 				var strafe_mode_active = InputState.is_strafing_mode_active
 				print("Strafe active: ", strafe_mode_active, " timer: ", InputState.strafing_timer)
