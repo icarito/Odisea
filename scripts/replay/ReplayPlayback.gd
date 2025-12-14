@@ -15,7 +15,8 @@ const INPUT_ACTIONS = [
 const DRIFT_THRESHOLD = 0.005 # Maximum allowed position difference before correction
 const MAX_CORRECTION_DISTANCE = 0.5 # Max distance to correct per frame, use snapping above this
 const RESYNC_INTERVAL = 20 # Frames between drift checks and corrections
-const LERP_FACTOR = 0.2 # Factor for smooth correction interpolation
+const LERP_FACTOR = 0.65 # Factor for smooth correction interpolation
+const MIN_DIVERGENCE_TO_CORRECT = 0.1 # Threshold to avoid insignificant corrections
 
 var current_replay: Resource = null
 var current_replay_filename: String = ""
@@ -429,10 +430,9 @@ func check_for_drift(frame_data: Dictionary) -> void:
 		# Critical error: Forced snapping
 		player.global_transform.origin = expected_origin
 		print("🚨 CRITICAL: Forced snapping due to large drift: %s at frame %d" % [difference, frame_index])
-	elif difference > DRIFT_THRESHOLD:
+	elif difference > MIN_DIVERGENCE_TO_CORRECT:
 		# Smooth correction using lerp
-		var correction_vector = expected_origin - current_origin
-		player.global_transform.origin += correction_vector * LERP_FACTOR
+		player.global_transform.origin = player.global_transform.origin.linear_interpolate(expected_origin, LERP_FACTOR)
 		print("✅ Smooth correction. Divergence: %s at frame %d" % [difference, frame_index])
 	else:
 		print("Frame %d: Drift within tolerance (%s)" % [frame_index, difference])
