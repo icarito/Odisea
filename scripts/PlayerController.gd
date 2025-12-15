@@ -375,8 +375,6 @@ func _physics_process(delta):
 	time_since_input += delta
 	time_since_start += delta
 
-	strafe_cooldown = max(0.0, strafe_cooldown - delta)
-
 	var on_floor = is_on_floor()
 
 	# Declare input variables
@@ -409,6 +407,12 @@ func _physics_process(delta):
 		is_sprinting = InputState.is_action_pressed("run")
 		jump_pressed = InputState.is_action_pressed("jump")
 	has_input = input_vector.length() > 0.1
+
+	# Resetear strafe_cooldown si hay input, solo decrementar si NO hay input
+	if input_vector.length() > 0.1:
+		strafe_cooldown = 0.0
+	else:
+		strafe_cooldown = max(0.0, strafe_cooldown - delta)
 
 	# --- MOVEMENT LOGIC: RUNS FOR BOTH NORMAL AND REPLAY ---
 
@@ -522,8 +526,9 @@ func _physics_process(delta):
 					InputState.is_strafing_mode_active = true
 					InputState.strafing_timer = 5.0
 				if InputState.is_strafing_mode_active:
-					# Only decrement timer if not pressing movement buttons
-					if input_vector.length() <= 0.1:
+					if input_vector.length() > 0.1:
+						InputState.strafing_timer = 5.0  # Reset timer while moving
+					else:
 						InputState.strafing_timer -= delta
 						if InputState.strafing_timer <= 0.0:
 							InputState.is_strafing_mode_active = false
