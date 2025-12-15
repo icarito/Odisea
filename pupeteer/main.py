@@ -68,7 +68,7 @@ def main():
         import json
         import numpy as np
         # Cargar tpose_export.json una vez (puedes optimizar cacheando si es necesario)
-        with open('../tpose_export.json','r') as f:
+        with open('tpose_export.json','r') as f:
             tpose_godot = json.load(f)
         bones = posenet_to_godot_bones(pose, tpose_godot)
         
@@ -84,9 +84,9 @@ def main():
                 else: # Quat inválido, enviar identidad
                     bones[bone_name] = list(pos) + [0, 0, 0, 1]
 
-        print("--- PUPETEER DEBUG (ENVIANDO GODOT BONES) ---")
-        print(f"Hips Enviado: {bones.get('DEF-hips')}")
-        print(f"Wrist.R Enviado: {bones.get('DEF-forearmR')}")
+        # Verification print as requested
+        print("ENVIANDO HUESOS:", sorted(bones.keys()))
+        
         sender.send_pose({"bones": bones})
         if args.ascii and shape_hint is not None:
             ascii_art = render_ascii_skeleton(pose, shape_hint)
@@ -104,31 +104,35 @@ def main():
         from bone_mapper import posenet_to_godot_bones
         import numpy as np
         # Cargar tpose_posenet.json
-        with open('../tpose_posenet.json','r') as f:
+        with open('tpose_posenet.json','r') as f:
             data = json.load(f)
-        # Extraer keypoints estilo PoseNet y normalizar
+        
+        # The new bone_mapper expects un-normalized coordinates, similar to what MediaPipe
+        # provides before normalization. The tpose_posenet.json file contains pixel coordinates.
+        # We can use them directly.
         if 'keypoints' in data:
-            keypoints = data['keypoints']
-            # Obtener rangos para normalizar
-            xs = [kp['position']['x'] for kp in keypoints]
-            ys = [kp['position']['y'] for kp in keypoints]
-            min_x, max_x = min(xs), max(xs)
-            min_y, max_y = min(ys), max(ys)
-            # Normalizar a rango [0,1]
             landmarks = []
-            for kp in keypoints:
-                x = (kp['position']['x'] - min_x) / (max_x - min_x + 1e-8)
-                y = (kp['position']['y'] - min_y) / (max_y - min_y + 1e-8)
-                z = kp.get('z', 0)
-                landmarks.append({'x': x, 'y': y, 'z': z, 'visibility': kp.get('visibility', 1.0)})
+            for kp in data['keypoints']:
+                # The bone mapper expects a list of dicts with 'x', 'y', 'z'
+                landmarks.append({
+                    'x': kp['position']['x'],
+                    'y': kp['position']['y'],
+                    'z': kp.get('z', 0) # Z might not be present, default to 0
+                })
         else:
             print('No se encontraron keypoints en tpose_posenet.json')
             return
+            
         # Cargar tpose_export.json para la referencia de huesos
-        with open('../tpose_export.json','r') as f:
+        with open('tpose_export.json','r') as f:
             tpose_godot = json.load(f)
+            
         print("--- MODO TEST T-POSE: Enviando tpose_posenet.json convertido a Godot (feed continuo) ---")
         while running:
+            if paused:
+                time.sleep(0.1)
+                continue
+
             bones = posenet_to_godot_bones(landmarks, tpose_godot)
 
             # Normalizar quaternions antes de enviar
@@ -145,10 +149,29 @@ def main():
 
             sender.send_pose({"bones": bones})
             if args.ascii:
-                ascii_art = render_ascii_skeleton(landmarks, (480, 640, 3))
+                # The ascii renderer expects normalized coordinates (0-1).
+                # The bone mapper now expects un-normalized coordinates.
+                # So, we create a normalized copy just for rendering.
+                xs = [lm['x'] for lm in landmarks]
+                ys = [lm['y'] for lm in landmarks]
+                max_x = max(xs) if xs else 1
+                max_y = max(ys) if ys else 1
+                
+                normalized_landmarks = []
+                for lm in landmarks:
+                    normalized_landmarks.append({
+                        'x': lm['x'] / max_x,
+                        'y': lm['y'] / max_y,
+                        'z': lm.get('z', 0), # z is not used by renderer but good to keep
+                        'visibility': lm.get('visibility', 1.0)
+                    })
+
+                shape_hint = (int(max_y), int(max_x), 3)
+                ascii_art = render_ascii_skeleton(normalized_landmarks, shape_hint)
                 os.system('clear')
                 print(ascii_art)
             time.sleep(1/60)
+            
         detector.close()
         sender.close()
         print("Shutdown complete (T-Pose test)")

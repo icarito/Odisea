@@ -29,7 +29,6 @@ BONE_HIERARCHY = [
     "DEF-thighR",
     "DEF-shinR",
     "DEF-footR",
-    "DEF-spine", # Simplified spine
     "DEF-chest",
     "DEF-neck",
     "DEF-head",
@@ -45,11 +44,10 @@ BONE_HIERARCHY = [
 
 BONE_PARENTS = {
     "DEF-hips": None, # Root of the hierarchy
-    "DEF-spine": "DEF-hips",
-    "DEF-chest": "DEF-spine",
+    "DEF-chest": "DEF-hips",
     "DEF-neck": "DEF-chest",
     "DEF-head": "DEF-neck",
-    
+
     # Left Arm
     "DEF-shoulderL": "DEF-chest",
     "DEF-upper_armL": "DEF-shoulderL",
@@ -77,7 +75,6 @@ BONE_PARENTS = {
 BONE_LANDMARKS = {
     # Torso
     "DEF-hips": ['left_hip', 'right_hip'],
-    "DEF-spine": ['left_shoulder', 'right_shoulder'], # Simplified: spine is chest
     "DEF-chest": ['left_shoulder', 'right_shoulder'],
     "DEF-neck": ['nose', 'chest'], # Midpoint
     "DEF-head": ['nose'],
@@ -87,7 +84,7 @@ BONE_LANDMARKS = {
     "DEF-upper_armL": ['left_elbow'],
     "DEF-forearmL": ['left_wrist'],
     "DEF-handL": ['left_wrist'], # Using wrist for hand position
-    
+
     # Right Arm
     "DEF-shoulderR": ['right_shoulder'],
     "DEF-upper_armR": ['right_elbow'],
@@ -97,7 +94,7 @@ BONE_LANDMARKS = {
     # Left Leg
     "DEF-thighL": ['left_knee'],
     "DEF-shinL": ['left_ankle'],
-    "DEF-footL": ['left_ankle'], 
+    "DEF-footL": ['left_ankle'],
 
     # Right Leg
     "DEF-thighR": ['right_knee'],
