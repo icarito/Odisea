@@ -364,16 +364,16 @@ func _physics_process(delta):
 	var movement_this_frame := Vector3.ZERO
 	var is_replaying = GameGlobals and GameGlobals.is_replaying
 	var replay_manager = get_node("/root/ReplayManager")
-	
+
 	if not _touch_camera_connected:
 		_connect_touch_camera()
 
 	time_since_jump += delta
 	time_since_input += delta
 	time_since_start += delta
-	
+
 	strafe_cooldown = max(0.0, strafe_cooldown - delta)
-	
+
 	var on_floor = is_on_floor()
 
 	# Declare input variables
@@ -382,193 +382,195 @@ func _physics_process(delta):
 	var is_sprinting = false
 	var jump_pressed = false
 
-	if not is_replaying:
-		# Process player input desde InputState
-		if InputState:
-			input_vector = Vector2(
-				-InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0,
-				InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
-			)
-			mouse_motion = InputState.get_mouse_delta()
-			is_sprinting = InputState.is_action_pressed("run")
-			jump_pressed = InputState.is_action_pressed("jump")
-		has_input = input_vector.length() > 0.1
+	if is_replaying and replay_manager:
+		var replay_playback = replay_manager.get_playback_node()
+		if replay_playback and replay_playback.current_replay:
+			var frame_index = replay_playback.frame_index
+			if replay_playback.current_replay.frame_states.size() > frame_index:
+				var recorded_state = replay_playback.current_replay.frame_states[frame_index]
+				var pilot_state = recorded_state.get("@Pilot@10", null)
+				if pilot_state:
+					playback_process(pilot_state, delta)
+					# Continue with movement logic but skip physics
+
+	# Process player input desde InputState (both normal and replay)
+	if InputState:
+		input_vector = Vector2(
+			-InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0,
+			InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
+		)
+		mouse_motion = InputState.get_mouse_delta()
+		is_sprinting = InputState.is_action_pressed("run")
+		jump_pressed = InputState.is_action_pressed("jump")
+	has_input = input_vector.length() > 0.1
+
+	# --- MOVEMENT LOGIC: RUNS FOR BOTH NORMAL AND REPLAY ---
+
+	# Process attacks and rolls that can affect movement
+	rollattack()
+	bigattack()
+	attack1()
+	attack2()
+	roll()
+
+	# Medir tiempo en estado Jump del AnimationTree
+	var in_jump_state = (playback and (playback.get_current_node() == jump_node_name))
+	if in_jump_state:
+		time_in_jump_state += delta
 	else:
-		# For replay, still get input_vector for rotation
-		if InputState:
-			input_vector = Vector2(
-				-InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0,
-				InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
-			)
+		time_in_jump_state = 0.0
 
-	if not is_replaying:
-		# --- NORMAL GAME LOGIC: ALL VELOCITY CALCULATION HAPPENS HERE ---
+	# Marcar que vimos suelo al menos una vez para habilitar floating post-inicio
+	if on_floor:
+		has_seen_floor_once = true
+	
+	# Reset movement parameters
+	movement_speed = 0
+	angular_acceleration = 10
+	acceleration = 15
 
-		# Process attacks and rolls that can affect movement
-		rollattack()
-		bigattack()
-		attack1()
-		attack2()
-		roll()
-
-		# Medir tiempo en estado Jump del AnimationTree
-		var in_jump_state = (playback and (playback.get_current_node() == jump_node_name))
-		if in_jump_state:
-			time_in_jump_state += delta
-		else:
-			time_in_jump_state = 0.0
-
-		# Marcar que vimos suelo al menos una vez para habilitar floating post-inicio
-		if on_floor:
-			has_seen_floor_once = true
-		
-		# Reset movement parameters
-		movement_speed = 0
-		angular_acceleration = 10
-		acceleration = 15
-
-		# Gravedad efectiva: usar override si existe
-		var effective_gravity_vector := local_gravity_override if (local_gravity_override.length() > 0.01) else (Vector3.DOWN * gravity)
-		var effective_gravity_mag := effective_gravity_vector.length()
-		var effective_gravity_dir := effective_gravity_vector.normalized() if (effective_gravity_mag > 0.01) else Vector3.DOWN
-		
-		# Apply Gravity (fixed-point)
-		if not is_on_floor():
-			var gravity_fixed = FixedVec3.from_vec3(effective_gravity_vector)
-			var delta_fixed = FixedPoint.to_fixed(delta)
-			var multiplier_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(2), delta_fixed)
-			var gravity_delta_fixed = FixedVec3.mul_scalar(gravity_fixed, multiplier_fixed)
-			vertical_velocity_fixed = FixedVec3.add(vertical_velocity_fixed, gravity_delta_fixed)
-		else:
-			# Si la gravedad efectiva apunta hacia arriba (levanta), despegar del suelo
-			if effective_gravity_dir.dot(Vector3.UP) > 0.5:
-				snap_enabled = false
-				var gravity_dir_fixed = FixedVec3.from_vec3(effective_gravity_dir)
-				var min_gravity_fixed = FixedPoint.to_fixed(min(effective_gravity_mag, gravity))
-				var half_gravity_fixed = FixedPoint.fixed_mul(min_gravity_fixed, FixedPoint.to_fixed(0.5))
-				vertical_velocity_fixed = FixedVec3.mul_scalar(gravity_dir_fixed, half_gravity_fixed)
-			else:
-				var floor_normal_fixed = FixedVec3.from_vec3(-get_floor_normal())
-				var min_gravity_fixed = FixedPoint.to_fixed(min(effective_gravity_mag, gravity))
-				var third_gravity_fixed = FixedPoint.fixed_div(min_gravity_fixed, FixedPoint.to_fixed(3))
-				vertical_velocity_fixed = FixedVec3.mul_scalar(floor_normal_fixed, third_gravity_fixed)
-
-		# Clamp de velocidad vertical para evitar picos (fixed-point)
-		var max_fall_fixed = FixedPoint.to_fixed(-max_fall_speed)
-		var max_rise_fixed = FixedPoint.to_fixed(max_rise_speed)
-		var clamped_y_fixed = FixedPoint.fixed_clamp(vertical_velocity_fixed.y, max_fall_fixed, max_rise_fixed)
-		vertical_velocity_fixed = {"x": vertical_velocity_fixed.x, "y": clamped_y_fixed, "z": vertical_velocity_fixed.z}
-
-		# Check for attack/roll states that modify acceleration
-		if (attack1_node_name in playback.get_current_node()) or (attack2_node_name in playback.get_current_node()) or (bigattack_node_name in playback.get_current_node()):
-			is_attacking = true
-		else:
-			is_attacking = false
-
-		if bigattack_node_name in playback.get_current_node():
-			acceleration = 3
-
-		if roll_node_name in playback.get_current_node():
-			is_rolling = true
-			acceleration = 2
-			angular_acceleration = 2
-		else:
-			is_rolling = false
-		
-
-		# Control de movimiento y rotación
-
-		# Handle Jump (fixed-point)
-		if jump_pressed and ((is_attacking != true) and (is_rolling != true)) and is_on_floor():
-			if AudioSystem: AudioSystem.play_sfx("res://assets/sfx/jump.wav")
-			var pv := platform_velocity
-			var jump_force_fixed = FixedPoint.to_fixed(jump_force)
-			vertical_velocity_fixed = {"x": 0, "y": jump_force_fixed, "z": 0}
-			if inherit_vertical_platform_jump and pv.y > 0.0:
-				var min_pv_fixed = FixedPoint.to_fixed(min(pv.y, max_platform_up_follow))
-				var new_y_fixed = FixedPoint.fixed_add(vertical_velocity_fixed.y, min_pv_fixed)
-				vertical_velocity_fixed = {"x": vertical_velocity_fixed.x, "y": new_y_fixed, "z": vertical_velocity_fixed.z}
+	# Gravedad efectiva: usar override si existe
+	var effective_gravity_vector := local_gravity_override if (local_gravity_override.length() > 0.01) else (Vector3.DOWN * gravity)
+	var effective_gravity_mag := effective_gravity_vector.length()
+	var effective_gravity_dir := effective_gravity_vector.normalized() if (effective_gravity_mag > 0.01) else Vector3.DOWN
+	
+	# Apply Gravity (fixed-point)
+	if not is_on_floor():
+		var gravity_fixed = FixedVec3.from_vec3(effective_gravity_vector)
+		var delta_fixed = FixedPoint.to_fixed(delta)
+		var multiplier_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(2), delta_fixed)
+		var gravity_delta_fixed = FixedVec3.mul_scalar(gravity_fixed, multiplier_fixed)
+		vertical_velocity_fixed = FixedVec3.add(vertical_velocity_fixed, gravity_delta_fixed)
+	else:
+		# Si la gravedad efectiva apunta hacia arriba (levanta), despegar del suelo
+		if effective_gravity_dir.dot(Vector3.UP) > 0.5:
 			snap_enabled = false
-			airborne_inherited = Vector3(pv.x, 0, pv.z)
-			horizontal_velocity += airborne_inherited
-			just_jumped = true
-			time_since_jump = 0.0
+			var gravity_dir_fixed = FixedVec3.from_vec3(effective_gravity_dir)
+			var min_gravity_fixed = FixedPoint.to_fixed(min(effective_gravity_mag, gravity))
+			var half_gravity_fixed = FixedPoint.fixed_mul(min_gravity_fixed, FixedPoint.to_fixed(0.5))
+			vertical_velocity_fixed = FixedVec3.mul_scalar(gravity_dir_fixed, half_gravity_fixed)
+		else:
+			var floor_normal_fixed = FixedVec3.from_vec3(-get_floor_normal())
+			var min_gravity_fixed = FixedPoint.to_fixed(min(effective_gravity_mag, gravity))
+			var third_gravity_fixed = FixedPoint.fixed_div(min_gravity_fixed, FixedPoint.to_fixed(3))
+			vertical_velocity_fixed = FixedVec3.mul_scalar(floor_normal_fixed, third_gravity_fixed)
 
-		if has_input:
-			time_since_input = 0.0
+	# Clamp de velocidad vertical para evitar picos (fixed-point)
+	var max_fall_fixed = FixedPoint.to_fixed(-max_fall_speed)
+	var max_rise_fixed = FixedPoint.to_fixed(max_rise_speed)
+	var clamped_y_fixed = FixedPoint.fixed_clamp(vertical_velocity_fixed.y, max_fall_fixed, max_rise_fixed)
+	vertical_velocity_fixed = {"x": vertical_velocity_fixed.x, "y": clamped_y_fixed, "z": vertical_velocity_fixed.z}
 
-		# Camera Control
-		var cam_rig = get_node_or_null("CameraRig")
-		if cam_rig:
-			if cam_rig.has_method("process_camera_rotation"):
-				   if mouse_motion != null:
-					   # cam_rig.process_camera_rotation(mouse_motion) # Desactivado: la cámara gestiona su propio input en _physics_process
-					   pass
-			# Removed mouse_active_timer logic, now handled in InputState
-			
-			if movement_comp:
-				# --- Strafe Mode Logic ---
-				# The strafing state is now managed centrally by InputState.gd
-				if InputState.mode == InputState.Mode.LIVE or InputState.mode == InputState.Mode.RECORD:
-					if InputState.mouse_delta.length() > 0.0:
-						InputState.is_strafing_mode_active = true
-						InputState.strafing_timer = 5.0
-					if InputState.is_strafing_mode_active:
-						# Only decrement timer if not pressing movement buttons
-						if input_vector.length() <= 0.1:
-							InputState.strafing_timer -= delta
-							if InputState.strafing_timer <= 0.0:
-								InputState.is_strafing_mode_active = false
-								strafe_cooldown = 0.5 # Prevent sudden turn after strafe
-				
-				var strafe_mode_active = InputState.is_strafing_mode_active
-				# --- Sincronización explícita durante replay ---
-				if GameGlobals and GameGlobals.is_replaying:
-					strafe_mode_active = InputState.is_strafing_mode_active
-					# (Opcional) También sincroniza el timer si es relevante:
-					# strafing_timer = InputState.strafing_timer
-				
-				# Set strafe mode in movement component
-				if movement_comp:
-					movement_comp.strafe_mode = strafe_mode_active
-				
-				var turn_input_val = input_vector.x
-				var movement_input_vec = input_vector
-				var yaw_delta = 0.0
-				if strafe_mode_active:
-					# En modo strafe, bloquear rotación del cuerpo (Yaw): NO modificar rotation.y
-					turn_input_val = 0.0
-					yaw_delta = 0.0
-				else:
-					# En modo tank, permitir giro normal
-					turn_input_val = input_vector.x
-					movement_input_vec.x = 0.0
-					var effective_tank_speed = tank_turn_speed
-					yaw_delta = turn_input_val * effective_tank_speed * delta
-					rotation.y += yaw_delta
-					if cam_rig.has_method("apply_external_yaw_delta"): cam_rig.apply_external_yaw_delta(yaw_delta)
+	# Check for attack/roll states that modify acceleration
+	if (attack1_node_name in playback.get_current_node()) or (attack2_node_name in playback.get_current_node()) or (bigattack_node_name in playback.get_current_node()):
+		is_attacking = true
+	else:
+		is_attacking = false
 
-				# Prevent sudden turn after strafe ends
-				if strafe_cooldown > 0.0:
-					# Bloquea giro durante cooldown
-					yaw_delta = 0.0
+	if bigattack_node_name in playback.get_current_node():
+		acceleration = 3
 
-				# 2. Process movement with the modified input vector
-				var basis := Basis()
-				var yaw_node_local = get_node_or_null("CameraRig/Yaw")
-				if yaw_node_local:
-					basis = yaw_node_local.global_transform.basis
-					movement_comp.process_input_vector(delta, basis, movement_input_vec, is_sprinting if is_sprinting != null else false, on_floor if on_floor != null else false)
+	if roll_node_name in playback.get_current_node():
+		is_rolling = true
+		acceleration = 2
+		angular_acceleration = 2
+	else:
+		is_rolling = false
+	
 
-				# 3. Get results from movement component
-				direction = movement_comp.direction
-				horizontal_velocity = movement_comp.get_horizontal_velocity()
-				is_walking = movement_comp.is_walking
-				is_running = movement_comp.is_running
-			else:
-				is_walking = false; is_running = false; direction = Vector3.ZERO; horizontal_velocity = Vector3.ZERO
+	# Control de movimiento y rotación
+
+	# Handle Jump (fixed-point)
+	if jump_pressed and ((is_attacking != true) and (is_rolling != true)) and is_on_floor():
+		if AudioSystem: AudioSystem.play_sfx("res://assets/sfx/jump.wav")
+		var pv := platform_velocity
+		var jump_force_fixed = FixedPoint.to_fixed(jump_force)
+		vertical_velocity_fixed = {"x": 0, "y": jump_force_fixed, "z": 0}
+		if inherit_vertical_platform_jump and pv.y > 0.0:
+			var min_pv_fixed = FixedPoint.to_fixed(min(pv.y, max_platform_up_follow))
+			var new_y_fixed = FixedPoint.fixed_add(vertical_velocity_fixed.y, min_pv_fixed)
+			vertical_velocity_fixed = {"x": vertical_velocity_fixed.x, "y": new_y_fixed, "z": vertical_velocity_fixed.z}
+		snap_enabled = false
+		airborne_inherited = Vector3(pv.x, 0, pv.z)
+		horizontal_velocity += airborne_inherited
+		just_jumped = true
+		time_since_jump = 0.0
+
+	if has_input:
+		time_since_input = 0.0
+
+	# Camera Control (runs for both normal and replay)
+	var cam_rig = get_node_or_null("CameraRig")
+	if cam_rig:
+		if cam_rig.has_method("process_camera_rotation"):
+			   if mouse_motion != null:
+				   # cam_rig.process_camera_rotation(mouse_motion) # Desactivado: la cámara gestiona su propio input en _physics_process
+				   pass
+		# Removed mouse_active_timer logic, now handled in InputState
 		
-		# Platform velocity logic (fixed-point)
+		if movement_comp:
+			# --- Strafe Mode Logic ---
+			# The strafing state is now managed centrally by InputState.gd
+			if InputState.mode == InputState.Mode.LIVE or InputState.mode == InputState.Mode.RECORD:
+				if InputState.mouse_delta.length() > 0.0:
+					InputState.is_strafing_mode_active = true
+					InputState.strafing_timer = 5.0
+				if InputState.is_strafing_mode_active:
+					# Only decrement timer if not pressing movement buttons
+					if input_vector.length() <= 0.1:
+						InputState.strafing_timer -= delta
+						if InputState.strafing_timer <= 0.0:
+							InputState.is_strafing_mode_active = false
+							strafe_cooldown = 0.5 # Prevent sudden turn after strafe
+			
+			var strafe_mode_active = InputState.is_strafing_mode_active
+			# --- Sincronización explícita durante replay ---
+			if GameGlobals and GameGlobals.is_replaying:
+				strafe_mode_active = InputState.is_strafing_mode_active
+				# (Opcional) También sincroniza el timer si es relevante:
+				# strafing_timer = InputState.strafing_timer
+			
+			# Set strafe mode in movement component
+			if movement_comp:
+				movement_comp.strafe_mode = strafe_mode_active
+			
+			var turn_input_val = input_vector.x
+			var movement_input_vec = input_vector
+			var yaw_delta = 0.0
+			if strafe_mode_active:
+				# En modo strafe, bloquear rotación del cuerpo (Yaw): NO modificar rotation.y
+				turn_input_val = 0.0
+				yaw_delta = 0.0
+			else:
+				# En modo tank, permitir giro normal
+				turn_input_val = input_vector.x
+				movement_input_vec.x = 0.0
+				var effective_tank_speed = tank_turn_speed
+				yaw_delta = turn_input_val * effective_tank_speed * delta
+				rotation.y += yaw_delta
+				if cam_rig.has_method("apply_external_yaw_delta"): cam_rig.apply_external_yaw_delta(yaw_delta)
+
+			# Prevent sudden turn after strafe ends
+			if strafe_cooldown > 0.0:
+				# Bloquea giro durante cooldown
+				yaw_delta = 0.0
+
+			# 2. Process movement with the modified input vector
+			var basis := Basis()
+			var yaw_node_local = get_node_or_null("CameraRig/Yaw")
+			if yaw_node_local:
+				basis = yaw_node_local.global_transform.basis
+				movement_comp.process_input_vector(delta, basis, movement_input_vec, is_sprinting if is_sprinting != null else false, on_floor if on_floor != null else false)
+
+			# 3. Get results from movement component
+			direction = movement_comp.direction
+			horizontal_velocity = movement_comp.get_horizontal_velocity()
+			is_walking = movement_comp.is_walking
+			is_running = movement_comp.is_running
+		else:
+			is_walking = false; is_running = false; direction = Vector3.ZERO; horizontal_velocity = Vector3.ZERO
+	
+	# Platform velocity logic (fixed-point)
 		var zero_fixed = FixedVec3.zero()
 		var lerp_factor_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(6.0), FixedPoint.to_fixed(delta))
 		platform_velocity_fixed = FixedVec3.lerp(platform_velocity_fixed, zero_fixed, lerp_factor_fixed)
@@ -587,40 +589,6 @@ func _physics_process(delta):
 		var combined_horizontal_fixed = FixedVec3.from_vec3(combined_horizontal)
 		var movement_this_frame_fixed = FixedVec3.add(combined_horizontal_fixed, vertical_velocity_fixed)
 		movement_this_frame = FixedVec3.to_vec3(movement_this_frame_fixed)
-
-	else:
-		# --- REPLAY LOGIC ---
-		# Velocity is injected by the ReplayPlayback system into the 'velocity' property.
-		# Use it directly as the movement vector for this frame.
-		movement_this_frame = velocity
-		
-		# Derive animation states from the injected velocity.
-		horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
-		if horizontal_velocity.length_squared() > 0.01:
-			direction = horizontal_velocity.normalized()
-		else:
-			direction = Vector3.ZERO
-		
-		is_sprinting = Input.is_action_pressed("run")
-		is_walking = horizontal_velocity.length_squared() > 0.01
-		is_running = is_walking and is_sprinting
-		if movement_comp:
-			movement_comp.is_walking = is_walking
-			movement_comp.is_running = is_running
-		
-		# Update attack/roll states from animation for other logic
-		is_attacking = (attack1_node_name in playback.get_current_node()) or (attack2_node_name in playback.get_current_node()) or (bigattack_node_name in playback.get_current_node())
-		is_rolling = (roll_node_name in playback.get_current_node())
-
-	# Apply rotation always, even during replay
-	var cam_rig = get_node_or_null("CameraRig")
-	if cam_rig:
-		var turn_input = input_vector.x
-		var yaw_delta = turn_input * tank_turn_speed * delta
-		if not InputState.is_strafing_mode_active:
-			rotation.y += yaw_delta
-			if cam_rig.has_method("apply_external_yaw_delta"):
-				cam_rig.apply_external_yaw_delta(yaw_delta)
 
 	# --- LOGIC THAT RUNS IN BOTH MODES ---
 
@@ -650,8 +618,11 @@ func _physics_process(delta):
 		snap_enabled = true
 
 	# --- THE ACTUAL PHYSICS STEP ---
-	velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
-	# ---
+	if not is_replaying:
+		velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
+	else:
+		# During replay, don't run physics simulation - position is set by ReplayPlayback
+		velocity = movement_this_frame
 
 	# print("[PlayerController] Post-move Pos (Simulated): %s" % [global_transform.origin])
 	# print("[PlayerController POST-SLIDE] Velocity: %s" % [velocity])
@@ -707,7 +678,6 @@ func _physics_process(delta):
 	_vspeed_smoothed = lerp(_vspeed_smoothed, vspeed_raw, floating_vspeed_smooth)
 	var vertical_speed = _vspeed_smoothed
 
-	var in_jump_state = (playback and (playback.get_current_node() == jump_node_name))
 	var falling_without_jump = (!on_floor) and (time_since_jump > floating_without_jump_delay)
 	var no_input_ok = (not floating_without_jump_requires_no_input) or (time_since_input > floating_no_input_delay)
 	var accel_ok = (_last_is_floating and (vertical_accel <= floating_exit_accel_threshold)) or ((not _last_is_floating) and (vertical_accel <= floating_enter_accel_threshold))
@@ -936,3 +906,14 @@ func set_replay_state(state: Dictionary) -> void:
 
 	if is_replaying and not replay_manager.is_camera_free_look_active:
 		InputState.clean_mouse_delta_x()
+
+func playback_process(frame_data_state: Dictionary, _delta: float) -> void:
+	# During replay, state is now set directly by ReplayPlayback, so no physics simulation here
+	# Just update derived variables if needed
+	if frame_data_state.has("velocity"):
+		velocity = ReplayUtils.dict_to_vector3(frame_data_state["velocity"])
+		horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
+		if movement_comp:
+			movement_comp.horizontal_velocity = horizontal_velocity
+		vertical_velocity_fixed = FixedVec3.from_vec3(Vector3(0, velocity.y, 0))
+		pre_move_velocity_for_replay = velocity
