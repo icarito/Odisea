@@ -4,11 +4,15 @@ extends Node
 # Responsibility: Point of entry global, configuration and handling of basic binary states.
 # It will absorb and modernize the logic of the old GameState.gd.
 
-# Controls the mouse mode (Input.MOUSE_MODE_CAPTURED).
-var mouse_captured: bool = false setget set_mouse_captured
-
 # Activates/Deactivates debugging tools (e.g., DrawRay from icarito-odisea.txt).
 var debug_mode: bool = true setget set_debug_mode
+var replay_debug_mode: bool = true setget set_replay_debug_mode
+
+# Recording state
+var is_recording: bool = false setget set_is_recording
+
+# Replaying state
+var is_replaying: bool = false setget set_is_replaying
 
 # Global pause state of the game (get_tree().paused).
 var is_paused: bool = false setget set_is_paused
@@ -30,16 +34,24 @@ var current_mode = GAME_MODE.SINGLEPLAYER
 
 # Signals
 signal debug_mode_changed(enabled)
+signal replay_debug_mode_changed(enabled)
 signal game_paused(is_paused)
-
-func set_mouse_captured(value: bool) -> void:
-	mouse_captured = value
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED if value else Input.MOUSE_MODE_VISIBLE)
 
 func set_debug_mode(value: bool) -> void:
 	if debug_mode != value:
 		debug_mode = value
 		emit_signal("debug_mode_changed", debug_mode)
+
+func set_replay_debug_mode(value: bool) -> void:
+	if replay_debug_mode != value:
+		replay_debug_mode = value
+		emit_signal("replay_debug_mode_changed", replay_debug_mode)
+
+func set_is_recording(value: bool) -> void:
+	is_recording = value
+
+func set_is_replaying(value: bool) -> void:
+	is_replaying = value
 
 func set_is_paused(value: bool) -> void:
 	if is_paused != value:
@@ -73,8 +85,6 @@ func get_mode() -> String:
 	return "unknown"
 
 func _ready() -> void:
-	# Initialize mouse mode on start
-	self.mouse_captured = mouse_captured
 	# Initialize pause state
 	self.is_paused = is_paused
 	# Detect screen info
