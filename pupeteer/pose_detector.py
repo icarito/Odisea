@@ -49,7 +49,7 @@ class PoseDetector:
     def __init__(self):
         self.mp_pose = mp.solutions.pose
         self.pose = self.mp_pose.Pose(
-            static_image_mode=False,
+            static_image_mode=False,  # Mejor para video en tiempo real
             model_complexity=0,
             enable_segmentation=False,
             min_detection_confidence=0.2,

@@ -48,6 +48,8 @@ def main():
     parser.add_argument('--demo', action='store_true', help='Use synthetic demo')
     parser.add_argument('--calib', action='store_true', help='Auto-calibrate height')
     parser.add_argument('--ascii', action='store_true', help='Render ASCII skeleton')
+    parser.add_argument('--quat', action='store_true', help='Export/send only position+quaternion for Godot')
+    parser.add_argument('--tpose', action='store_true', help='Envia la T-Pose Godot convertida para depuración')
     args = parser.parse_args()
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -61,6 +63,83 @@ def main():
     # Start keyboard listener
     threading.Thread(target=keyboard_listener, daemon=True).start()
 
+
+    def send_pose_with_quat(pose, shape_hint=None):
+        from bone_mapper import posenet_to_godot_bones
+        import json
+        # Cargar tpose_export.json una vez (puedes optimizar cacheando si es necesario)
+        with open('../tpose_export.json','r') as f:
+            tpose_godot = json.load(f)
+        bones = posenet_to_godot_bones(pose, tpose_godot)
+        print("--- PUPETEER DEBUG (ENVIANDO GODOT BONES) ---")
+        print(f"Hips Enviado: {bones.get('DEF-hips')}")
+        print(f"Wrist.R Enviado: {bones.get('DEF-forearmR')}")
+        sender.send_pose({"bones": bones})
+        if args.ascii and shape_hint is not None:
+            ascii_art = render_ascii_skeleton(pose, shape_hint)
+            os.system('clear')
+            print(ascii_art)
+
+    def send_pose_default(pose, shape_hint=None):
+        bones = map_pose_to_bones(pose, calibrated_height)
+        pose_data = {
+            "t": time.time(),
+            "h": calibrated_height,
+            "bones": bones
+        }
+        print("--- PUPETEER DEBUG (ENVIANDO) ---")
+        print(f"Hips Enviado: {bones.get('hips')}")
+        print(f"Wrist.R Enviado: {bones.get('wrist.R')}")
+        sender.send_pose(pose_data)
+        if args.ascii and shape_hint is not None:
+            ascii_art = render_ascii_skeleton(pose, shape_hint)
+            os.system('clear')
+            print(ascii_art)
+
+    send_pose = send_pose_with_quat if args.quat else send_pose_default
+
+    # --- MODO TEST T-POSE ---
+    if args.tpose:
+        import json
+        from bone_mapper import posenet_to_godot_bones
+        # Cargar tpose_posenet.json
+        with open('../tpose_posenet.json','r') as f:
+            data = json.load(f)
+        # Extraer keypoints estilo PoseNet y normalizar
+        if 'keypoints' in data:
+            keypoints = data['keypoints']
+            # Obtener rangos para normalizar
+            xs = [kp['position']['x'] for kp in keypoints]
+            ys = [kp['position']['y'] for kp in keypoints]
+            min_x, max_x = min(xs), max(xs)
+            min_y, max_y = min(ys), max(ys)
+            # Normalizar a rango [0,1]
+            landmarks = []
+            for kp in keypoints:
+                x = (kp['position']['x'] - min_x) / (max_x - min_x + 1e-8)
+                y = (kp['position']['y'] - min_y) / (max_y - min_y + 1e-8)
+                z = kp.get('z', 0)
+                landmarks.append({'x': x, 'y': y, 'z': z, 'visibility': kp.get('visibility', 1.0)})
+        else:
+            print('No se encontraron keypoints en tpose_posenet.json')
+            return
+        # Cargar tpose_export.json para la referencia de huesos
+        with open('../tpose_export.json','r') as f:
+            tpose_godot = json.load(f)
+        print("--- MODO TEST T-POSE: Enviando tpose_posenet.json convertido a Godot (feed continuo) ---")
+        while running:
+            bones = posenet_to_godot_bones(landmarks, tpose_godot)
+            sender.send_pose({"bones": bones})
+            if args.ascii:
+                ascii_art = render_ascii_skeleton(landmarks, (480, 640, 3))
+                os.system('clear')
+                print(ascii_art)
+            time.sleep(1/60)
+        detector.close()
+        sender.close()
+        print("Shutdown complete (T-Pose test)")
+        return
+
     if args.demo:
         print("Starting demo mode...")
         for pose in demo_generator():
@@ -69,17 +148,7 @@ def main():
             if paused:
                 time.sleep(0.1)
                 continue
-            bones = map_pose_to_bones(pose, calibrated_height)
-            pose_data = {
-                "t": time.time(),
-                "h": calibrated_height,
-                "bones": bones
-            }
-            sender.send_pose(pose_data)
-            if args.ascii:
-                ascii_art = render_ascii_skeleton(pose, (480, 640, 3))
-                os.system('clear')
-                print(ascii_art)
+            send_pose(pose, (480, 640, 3))
     else:
         cap = cv2.VideoCapture(args.video if args.video else 0)
         if not cap.isOpened():
@@ -100,17 +169,7 @@ def main():
             landmarks = detector.process_frame(frame)
 
             if landmarks:
-                bones = map_pose_to_bones(landmarks, calibrated_height)
-                pose_data = {
-                    "t": time.time(),
-                    "h": calibrated_height,
-                    "bones": bones
-                }
-                sender.send_pose(pose_data)
-                if args.ascii:
-                    ascii_art = render_ascii_skeleton(landmarks, frame.shape)
-                    os.system('clear')
-                    print(ascii_art)
+                send_pose(landmarks, frame.shape)
 
             time.sleep(1/60)  # 60Hz
 
