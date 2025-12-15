@@ -4,9 +4,6 @@ extends Node
 # Responsibility: Point of entry global, configuration and handling of basic binary states.
 # It will absorb and modernize the logic of the old GameState.gd.
 
-# Controls the mouse mode (Input.MOUSE_MODE_CAPTURED).
-var mouse_captured: bool = false setget set_mouse_captured
-
 # Activates/Deactivates debugging tools (e.g., DrawRay from icarito-odisea.txt).
 var debug_mode: bool = true setget set_debug_mode
 var replay_debug_mode: bool = true setget set_replay_debug_mode
@@ -39,12 +36,6 @@ var current_mode = GAME_MODE.SINGLEPLAYER
 signal debug_mode_changed(enabled)
 signal replay_debug_mode_changed(enabled)
 signal game_paused(is_paused)
-signal mouse_captured_changed(is_captured)
-
-func set_mouse_captured(value: bool) -> void:
-	mouse_captured = value
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED if value else Input.MOUSE_MODE_VISIBLE)
-	emit_signal("mouse_captured_changed", mouse_captured)
 
 func set_debug_mode(value: bool) -> void:
 	if debug_mode != value:
@@ -94,8 +85,6 @@ func get_mode() -> String:
 	return "unknown"
 
 func _ready() -> void:
-	# Initialize mouse mode on start
-	self.mouse_captured = mouse_captured
 	# Initialize pause state
 	self.is_paused = is_paused
 	# Detect screen info

@@ -52,7 +52,7 @@ func _on_ReplayManager_mode_changed(new_mode):
 		if playback_node:
 			playback_node.connect("frame_updated", self, "_on_frame_updated")
 			playback_node.connect("playback_started", self, "_on_playback_started")
-	else:
+	elif new_mode == ReplayManager.ReplayMode.NONE:
 		if playback_node:
 			if playback_node.is_connected("frame_updated", self, "_on_frame_updated"):
 				playback_node.disconnect("frame_updated", self, "_on_frame_updated")
@@ -119,7 +119,6 @@ func _update_visibility():
 				frame_slider.visible = false
 				if status_label:
 					status_label.text = "Recording..."
-				# Allow mouse events to pass through to the game during recording
 				if recording_controls: recording_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			ReplayManager.ReplayMode.PLAYBACK:
 				recording_controls.visible = false
@@ -127,7 +126,13 @@ func _update_visibility():
 				frame_slider.visible = true
 				if status_label:
 					status_label.text = "Playback Mode"
-				# Capture mouse events for the playback UI
+				if playback_controls: playback_controls.mouse_filter = Control.MOUSE_FILTER_STOP
+			ReplayManager.ReplayMode.STOPPED:
+				recording_controls.visible = false
+				playback_controls.visible = true
+				frame_slider.visible = true
+				if status_label:
+					status_label.text = "Playback Stopped"
 				if playback_controls: playback_controls.mouse_filter = Control.MOUSE_FILTER_STOP
 	else:
 		recording_controls.visible = false
@@ -157,12 +162,9 @@ func _on_StepBackButton_pressed() -> void:
 		playback_node.step_back_frame()
 
 func _on_EjectButton_pressed() -> void:
-	#var panel = get_tree().current_scene.find_node("ReplayManagementPanel", true, false)
-	#if panel:
-	#	panel.visible = true
 	visible = false
 	UIManager.notify_overlay_hidden() # Manually notify since we are hiding
-	ReplayManager.reset_replay()
+	ReplayManager.eject_playback()
 
 func _on_PlayResumeButton_pressed() -> void:
 	if not playback_node:
@@ -171,5 +173,4 @@ func _on_PlayResumeButton_pressed() -> void:
 	if playback_node.playback_paused:
 		playback_node.resume_playback()
 	else:
-		# This case might not be reachable if the button is used for resume only
 		playback_node.start_loaded_playback()

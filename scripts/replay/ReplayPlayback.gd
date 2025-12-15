@@ -68,7 +68,18 @@ func _physics_process(delta: float) -> void:
 		var recorded_state = current_replay.frame_states[frame_index]
 		if recorded_state.has(PILOT_STATE_KEY):
 			var pilot_state = recorded_state[PILOT_STATE_KEY]
-			_sync_pilot_to_frame(pilot_state)
+			#_sync_pilot_to_frame(pilot_state)
+	
+			# ENVIAR POSICIÓN OBJETIVO (La Guía)
+			var pilot = PlayerManager.get_player()
+			if pilot:
+				var pos_data = pilot_state.get("global_transform", {}).get("origin", null)
+				if pos_data:
+					# Enviamos al pilot dónde DEBERÍA estar
+					pilot.playback_target_pos = Vector3(pos_data.x, pos_data.y, pos_data.z)
+				else:
+					pilot.playback_target_pos = null # Sin datos, no corregir
+
 	
 	# Apply inputs (for camera and other non-physics systems)
 	_apply_inputs_from_frame(frame_data)
@@ -191,7 +202,6 @@ func stop_playback() -> void:
 	playback_paused = true
 	playback_status = "Stopped"
 	
-	# Use a check to prevent error if trying to remove from a group it's not in.
 	if is_in_group("playback_active"):
 		remove_from_group("playback_active")
 
@@ -200,31 +210,37 @@ func stop_playback() -> void:
 	if GameGlobals:
 		GameGlobals.is_replaying = false
 
+	# Release mouse/camera control to user, but keep player frozen
 	InputState.mode = InputState.Mode.LIVE
 	InputState.paused = false
 
 	for action in INPUT_ACTIONS:
 		Input.action_release(action)
 
-	# Re-enable physics and input for camera only, keep player frozen
-	_set_tracked_nodes_physics_process(true)
+	var player = PlayerManager.get_player()
+	if player:
+		# Freeze player by disabling physics
+		player.set_physics_process(false)
+		# Stop animations
+		if player.animation_tree:
+			player.animation_tree.active = false
+
+	# Release camera control to user
 	if get_tree() and get_tree().current_scene:
 		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 		if camera_rig:
 			if camera_rig.has_method("set_process_input"):
 				camera_rig.set_process_input(true)
+			if camera_rig.has_method("set_physics_process"):
+				camera_rig.set_physics_process(true)
 
-	# Do not re-enable player input to keep it frozen at last frame
-	# var player = PlayerManager.get_player()
-	# if player:
-	#     player.set_process_input(true)
-	var player = PlayerManager.get_player()
+	# Reset player input mode
 	if player and player.has_node("PlayerInput"):
 		var player_input = player.get_node("PlayerInput")
 		player_input.is_replay_mode = false
 
 	if get_tree() and get_tree().root.has_node("AudioSystem"):
-		get_tree().root.get_node("AudioSystem").stop_bgm() # consider if we want to resume music
+		get_tree().root.get_node("AudioSystem").stop_bgm()
 
 	emit_signal("playback_stopped")
 
