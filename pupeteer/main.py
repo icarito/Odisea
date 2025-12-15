@@ -7,7 +7,6 @@ import signal
 import sys
 import os
 from pose_detector import PoseDetector
-from bone_mapper import map_pose_to_bones
 from udp_sender import UDPSender
 from demo import demo_generator
 from config import DEFAULT_HEIGHT
@@ -67,10 +66,24 @@ def main():
     def send_pose_with_quat(pose, shape_hint=None):
         from bone_mapper import posenet_to_godot_bones
         import json
+        import numpy as np
         # Cargar tpose_export.json una vez (puedes optimizar cacheando si es necesario)
         with open('../tpose_export.json','r') as f:
             tpose_godot = json.load(f)
         bones = posenet_to_godot_bones(pose, tpose_godot)
+        
+        # Normalizar quaternions antes de enviar
+        for bone_name, bone_data in bones.items():
+            if len(bone_data) == 7:
+                pos = bone_data[:3]
+                quat_raw = np.array(bone_data[3:])
+                norm = np.linalg.norm(quat_raw)
+                if norm > 1e-6:
+                    quat_norm = quat_raw / norm
+                    bones[bone_name] = list(pos) + list(quat_norm)
+                else: # Quat inválido, enviar identidad
+                    bones[bone_name] = list(pos) + [0, 0, 0, 1]
+
         print("--- PUPETEER DEBUG (ENVIANDO GODOT BONES) ---")
         print(f"Hips Enviado: {bones.get('DEF-hips')}")
         print(f"Wrist.R Enviado: {bones.get('DEF-forearmR')}")
@@ -80,28 +93,16 @@ def main():
             os.system('clear')
             print(ascii_art)
 
-    def send_pose_default(pose, shape_hint=None):
-        bones = map_pose_to_bones(pose, calibrated_height)
-        pose_data = {
-            "t": time.time(),
-            "h": calibrated_height,
-            "bones": bones
-        }
-        print("--- PUPETEER DEBUG (ENVIANDO) ---")
-        print(f"Hips Enviado: {bones.get('hips')}")
-        print(f"Wrist.R Enviado: {bones.get('wrist.R')}")
-        sender.send_pose(pose_data)
-        if args.ascii and shape_hint is not None:
-            ascii_art = render_ascii_skeleton(pose, shape_hint)
-            os.system('clear')
-            print(ascii_art)
+    if not args.quat:
+        print("WARN: The --quat flag is now implicitly enabled. The old mode is no longer supported.")
 
-    send_pose = send_pose_with_quat if args.quat else send_pose_default
+    send_pose = send_pose_with_quat
 
     # --- MODO TEST T-POSE ---
     if args.tpose:
         import json
         from bone_mapper import posenet_to_godot_bones
+        import numpy as np
         # Cargar tpose_posenet.json
         with open('../tpose_posenet.json','r') as f:
             data = json.load(f)
@@ -129,6 +130,19 @@ def main():
         print("--- MODO TEST T-POSE: Enviando tpose_posenet.json convertido a Godot (feed continuo) ---")
         while running:
             bones = posenet_to_godot_bones(landmarks, tpose_godot)
+
+            # Normalizar quaternions antes de enviar
+            for bone_name, bone_data in bones.items():
+                if len(bone_data) == 7:
+                    pos = bone_data[:3]
+                    quat_raw = np.array(bone_data[3:])
+                    norm = np.linalg.norm(quat_raw)
+                    if norm > 1e-6:
+                        quat_norm = quat_raw / norm
+                        bones[bone_name] = list(pos) + list(quat_norm)
+                    else: # Quat inválido, enviar identidad
+                        bones[bone_name] = list(pos) + [0, 0, 0, 1]
+
             sender.send_pose({"bones": bones})
             if args.ascii:
                 ascii_art = render_ascii_skeleton(landmarks, (480, 640, 3))
