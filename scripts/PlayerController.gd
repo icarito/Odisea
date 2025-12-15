@@ -99,9 +99,6 @@ var pre_move_velocity_for_replay_fixed: Dictionary = FixedVec3.zero()
 # Touch camera control
 export var touch_sensitivity := 0.1
 
-# Touch camera control
-export var touch_sensitivity := 0.1
-
 var angular_acceleration = 10
 export(float, 0.0, 10.0, 0.1) var tank_turn_speed := 0.3
 export(float, 0.0, 10.0, 0.1) var advancing_turn_speed := 0.3
@@ -233,22 +230,6 @@ func _on_CameraInput_camera_vector_changed(vector):
 	if cam_rig and cam_rig.has_method("process_camera_rotation"):
 		cam_rig.process_camera_rotation(vector * touch_sensitivity)
 
-func _connect_touch_camera():
-	var current_scene = get_tree().current_scene
-	var touch_controls = current_scene.find_node("TouchControls", true, false)
-	if touch_controls:
-		var camera_input = touch_controls.get_node_or_null("CameraInput")
-		if camera_input:
-			if not camera_input.is_connected("camera_vector_changed", self, "_on_CameraInput_camera_vector_changed"):
-				var err = camera_input.connect("camera_vector_changed", self, "_on_CameraInput_camera_vector_changed")
-				if err == OK:
-					_touch_camera_connected = true
-
-func _on_CameraInput_camera_vector_changed(vector):
-	var cam_rig = get_node_or_null("CameraRig")
-	if cam_rig and cam_rig.has_method("process_camera_rotation"):
-		cam_rig.process_camera_rotation(vector * touch_sensitivity)
-
 func _on_debug_mode_changed(enabled: bool):
 	debug_enabled = enabled
 
@@ -364,20 +345,6 @@ func _debug_input_snapshot() -> Dictionary:
 		   "run": InputState.is_action_pressed("run"),
 		   "jump": InputState.is_action_pressed("jump")
 	   }
-
-func _align_camera_to_body():
-	"""
-	Called deferred from PlayerManager after spawn to correctly initialize camera yaw.
-	"""
-	var cam_rig = get_node_or_null("CameraRig")
-	if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
-		var body_yaw = global_transform.basis.get_euler().y
-		# Use PI as offset to look from behind, consistent with respawn logic.
-		var offset = PI
-		cam_rig.sync_to_body_yaw(body_yaw, offset)
-		print("[PlayerController] _align_camera_to_body: Synced camera to body yaw ", rad2deg(body_yaw), " with offset ", rad2deg(offset))
-	else:
-		print("[PlayerController] _align_camera_to_body: CameraRig or sync_to_body_yaw not found.")
 
 func _align_camera_to_body():
 	"""
