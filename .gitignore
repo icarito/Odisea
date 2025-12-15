@@ -17,3 +17,5 @@ mono_crash.*.json
 
 # Game specific
 replays/
+
+pupeteer/.venv/

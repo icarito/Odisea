@@ -51,6 +51,27 @@ var _last_heartbeat = 0.0
 # Flag to control the listening process.
 var _is_listening = false
 
+# Bone name mapping from incoming JSON to Godot skeleton bone names.
+var _bone_mapping = {
+	"hips": "DEF-hips",
+	"chest": "DEF-chest",
+	"spine": "DEF-spine",
+	"neck": "DEF-neck",
+	"head": "DEF-head",
+	"shoulder.L": "DEF-shoulderL",
+	"elbow.L": "DEF-upper_armL",
+	"wrist.L": "DEF-forearmL",
+	"shoulder.R": "DEF-shoulderR",
+	"elbow.R": "DEF-upper_armR",
+	"wrist.R": "DEF-forearmR",
+	"upperLeg.L": "DEF-thighL",
+	"knee.L": "DEF-shinL",
+	"ankle.L": "DEF-footL",
+	"upperLeg.R": "DEF-thighR",
+	"knee.R": "DEF-shinR",
+	"ankle.R": "DEF-footR"
+}
+
 
 # ----- GODOT LIFECYCLE METHODS -----
 
@@ -138,7 +159,10 @@ func apply_bone_data(bone_data: Dictionary):
 			push_warning("RemoteSkeletonUDP: Invalid data for bone '%s'. Expected 7-float array." % bone_name)
 			continue
 
-		var bone_idx = _skeleton.find_bone(bone_name)
+		# Map the incoming bone name to the Godot bone name
+		var godot_bone_name = _bone_mapping.get(bone_name, bone_name)
+
+		var bone_idx = _skeleton.find_bone(godot_bone_name)
 		if bone_idx == -1:
 			# Silently ignore bones that don't exist in our skeleton
 			continue
@@ -149,7 +173,7 @@ func apply_bone_data(bone_data: Dictionary):
 		var basis = Basis(quat)
 
 		# Cache the new transform
-		_target_transforms[bone_name] = Transform(basis, translation)
+		_target_transforms[godot_bone_name] = Transform(basis, translation)
 
 func interpolate_transforms(delta):
 	"""
