@@ -468,9 +468,9 @@ func _sync_pilot_to_frame(frame_data_state: Dictionary) -> void:
 		return
 	
 	# Set transform directly from recorded state
-	if frame_data_state.has("global_transform"):
-		var transform_dict = frame_data_state["global_transform"]
-		player.global_transform = ReplayUtils.dict_to_transform(transform_dict)
+	# if frame_data_state.has("global_transform"):
+	#	var transform_dict = frame_data_state["global_transform"]
+	#	player.global_transform = ReplayUtils.dict_to_transform(transform_dict)
 	
 	# Set velocity directly
 	if frame_data_state.has("velocity"):
