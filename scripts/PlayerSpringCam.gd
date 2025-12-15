@@ -69,9 +69,9 @@ func _ready():
 		springarm.spring_length = base_length
 		springarm.collision_mask = collision_mask
 
-	# Conectarse a la señal de GameGlobals para el cambio de captura del mouse
-	if GameGlobals:
-		GameGlobals.connect("mouse_captured_changed", self, "_on_global_mouse_captured_changed")
+	# Conectarse a la señal de MouseCapture para el cambio de captura del mouse
+	if MouseCapture:
+		MouseCapture.connect("capture_changed", self, "_on_capture_changed")
 
 	# Conectarse a ReplayManager para cambios de modo
 	if ReplayManager:
@@ -79,14 +79,14 @@ func _ready():
 	
 	_update_mouse_look_active()
 
-func _on_global_mouse_captured_changed(is_captured: bool):
+func _on_capture_changed(is_captured: bool):
 	_update_mouse_look_active()
 
 func _on_replay_mode_changed(new_mode: int):
 	_update_mouse_look_active()
 
 func _update_mouse_look_active():
-	var is_captured = GameGlobals.mouse_captured if GameGlobals else false
+	var is_captured = MouseCapture.is_captured if MouseCapture else false
 	var is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
 	_is_mouse_look_active = is_captured or is_playback
 

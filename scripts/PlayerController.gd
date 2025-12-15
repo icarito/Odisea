@@ -1,5 +1,8 @@
 extends KinematicBody
 
+var playback_target_pos = null # Nueva variable para el objetivo
+const CORRECTION_STRENGTH = 2.0 # Fuerza del imán (ajustable: 1.0 es suave, 5.0 es fuerte)
+
 const FixedVec3 = preload("res://scripts/utils/FVec3.gd")
 
 # Placeholder: controlador de Elías basado en PlayerTemplate
@@ -172,7 +175,7 @@ func _ready():
 		debug_enabled = GameGlobals.debug_mode
 		GameGlobals.connect("debug_mode_changed", self, "_on_debug_mode_changed")
 		# Set mouse capture immediately
-		GameGlobals.mouse_captured = true
+		MouseCapture.set_capture(true)
 
 	if UIManager:
 		UIManager.connect("overlay_shown", self, "_on_UIManager_overlay_shown")
@@ -390,7 +393,10 @@ func _physics_process(delta):
 				var recorded_state = replay_playback.current_replay.frame_states[frame_index]
 				var pilot_state = recorded_state.get("@Pilot@10", null)
 				if pilot_state:
-					playback_process(pilot_state, delta)
+					# The call to playback_process(pilot_state, delta) was here.
+					# It's disabled to favor a pure input-based replay with soft sync correction,
+					# as it represents a conflicting state-based approach.
+					pass
 					# Continue with movement logic but skip physics
 
 	# Process player input desde InputState (both normal and replay)
@@ -589,6 +595,22 @@ func _physics_process(delta):
 		var combined_horizontal_fixed = FixedVec3.from_vec3(combined_horizontal)
 		var movement_this_frame_fixed = FixedVec3.add(combined_horizontal_fixed, vertical_velocity_fixed)
 		movement_this_frame = FixedVec3.to_vec3(movement_this_frame_fixed)
+
+	# [NUEVO] APLICAR SOFT SYNC (MANO INVISIBLE)
+	# Hacemos esto JUSTO ANTES de move_and_slide
+	if GameGlobals.is_replaying and playback_target_pos != null:
+		var current_pos = global_transform.origin
+		
+		# Vector desde donde estoy hacia donde debería estar
+		var error_vector = playback_target_pos - current_pos
+		
+		# Opción más robusta: Separar horizontal y vertical
+		movement_this_frame.x += error_vector.x * CORRECTION_STRENGTH
+		movement_this_frame.z += error_vector.z * CORRECTION_STRENGTH
+		
+		# Si el error es muy grande (> 1 metro), hacemos un SNAP de emergencia
+		if error_vector.length() > 1.0:
+			 global_transform.origin = playback_target_pos
 
 	# --- LOGIC THAT RUNS IN BOTH MODES ---
 

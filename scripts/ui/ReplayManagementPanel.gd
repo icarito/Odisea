@@ -23,31 +23,44 @@ func _ready() -> void:
 	if item_list:
 		item_list.connect("item_selected", self, "_on_ItemList_item_selected")
 	ReplayManager.connect("mode_changed", self, "_on_mode_changed")
-	GameGlobals.connect("mouse_captured_changed", self, "_on_mouse_captured_changed")
+	# MouseCapture.connect("capture_changed", self, "_on_capture_changed") # REMOVED
 	_refresh_replay_list()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if visible and event.is_action_pressed("ui_cancel"):
+		hide_panel()
+		get_tree().set_input_as_handled()
+		return
+
 	if event.is_action_pressed("toggle_debug_menu"):
 		if get_tree().current_scene.name != "Menu":
-			visible = !visible
-			_set_touch_controls_active(!visible)
-			get_node("/root/MouseCapture").show_cursor(visible)
-			
 			if visible:
-				_refresh_replay_list()
-				if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING:
-					ReplayManager.recorder.recording_paused = true
-				elif ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
-					ReplayManager.get_playback_node().pause_playback()
+				hide_panel()
 			else:
-				if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING:
-					ReplayManager.recorder.recording_paused = false
-				elif ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
-					ReplayManager.get_playback_node().resume_playback()
-				else: # ReplayMode.NONE
-					ReplayManager.reset_replay()
+				show_panel()
+		get_tree().set_input_as_handled()
 
-			get_tree().set_input_as_handled()
+func show_panel():
+	visible = true
+	_set_touch_controls_active(false)
+	MouseCapture.show_cursor(true) # Release mouse
+	_refresh_replay_list()
+	
+	if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING:
+		ReplayManager.recorder.recording_paused = true
+	elif ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
+		ReplayManager.get_playback_node().pause_playback()
+
+func hide_panel():
+	visible = false
+	_set_touch_controls_active(true)
+	MouseCapture.show_cursor(false) # Capture mouse
+
+	if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING:
+		if ReplayManager.recorder: ReplayManager.recorder.recording_paused = false
+	elif ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
+		if ReplayManager.get_playback_node(): ReplayManager.get_playback_node().resume_playback()
+	# In NONE or STOPPED mode, hiding the panel just captures the mouse and enables camera control.
 
 func _set_touch_controls_active(active: bool) -> void:
 	var touch_controls = get_tree().get_root().find_node("TouchControls", true, false)
@@ -65,7 +78,9 @@ func _refresh_replay_list() -> void:
 
 
 func _on_mode_changed(new_mode: int) -> void:
-	if new_mode == ReplayManager.ReplayMode.RECORDING or new_mode == ReplayManager.ReplayMode.PLAYBACK:
+	if new_mode == ReplayManager.ReplayMode.RECORDING or new_mode == ReplayManager.ReplayMode.PLAYBACK or new_mode == ReplayManager.ReplayMode.STOPPED:
+		visible = false
+	elif new_mode == ReplayManager.ReplayMode.NONE:
 		visible = false
 
 
@@ -105,15 +120,16 @@ func _on_ReturnToMenuButton_pressed() -> void:
 func _on_ItemList_item_selected(index: int) -> void:
 	load_button.disabled = false
 
-func _on_mouse_captured_changed(is_captured: bool) -> void:
-	if not is_captured and visible:
-		# Si el mouse se libera mientras el panel está abierto, cerrarlo
-		visible = false
-		_set_touch_controls_active(true)
-		get_node("/root/MouseCapture").show_cursor(true)
-		if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING:
-			ReplayManager.recorder.recording_paused = false
-		elif ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
-			ReplayManager.get_playback_node().resume_playback()
-		else: # ReplayMode.NONE
-			ReplayManager.reset_replay()
+# This function is removed as it conflicts with the desired UI behavior
+#func _on_capture_changed(is_captured: bool) -> void:
+#	if not is_captured and visible:
+#		# Si el mouse se libera mientras el panel está abierto, cerrarlo
+#		visible = false
+#		_set_touch_controls_active(true)
+#		MouseCapture.show_cursor(true)
+#		if ReplayManager.mode == ReplayManager.ReplayMode.RECORDING:
+#			ReplayManager.recorder.recording_paused = false
+#		elif ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
+#			ReplayManager.get_playback_node().resume_playback()
+#		else: # ReplayMode.NONE
+#			ReplayManager.reset_replay()

@@ -12,11 +12,12 @@ const ReplayScript = preload("res://scripts/replay/Replay.gd")
 enum ReplayMode {
 	NONE,
 	RECORDING,
-	PLAYBACK
+	PLAYBACK,
+	STOPPED
 }
 
 var mode: int = ReplayMode.NONE
-var is_camera_free_look_active: bool = false  # Nueva bandera para modo de cámara dual
+var is_camera_free_look_active: bool = false
 var recorder: Node = null
 var playback: Node = null
 
@@ -54,12 +55,25 @@ func get_available_replays() -> Array:
 			file_name = dir.get_next()
 	return replays
 
+func _unhandled_input(event):
+	if mode == ReplayMode.STOPPED and event.is_action_pressed("ui_cancel"):
+		eject_playback()
+		get_tree().set_input_as_handled()
+
 func reset_replay() -> void:
-	if mode == ReplayMode.PLAYBACK:
-		stop_playback()
+	eject_playback()
+
+func eject_playback() -> void:
+	var previous_mode = mode
+	mode = ReplayMode.NONE # Set mode to NONE first to avoid _on_playback_stopped logic
 	
-	mode = ReplayMode.NONE
-	emit_signal("mode_changed", mode)
+	if previous_mode == ReplayMode.PLAYBACK:
+		playback.stop_playback()
+
+	restore_player_state()
+	GameGlobals.is_replaying = false
+	MouseCapture.set_capture(false)
+	emit_signal("mode_changed", ReplayMode.NONE)
 
 # Recording API
 func start_recording() -> void:
@@ -67,7 +81,6 @@ func start_recording() -> void:
 		return
 	mode = ReplayMode.RECORDING
 	emit_signal("mode_changed", mode)
-	# Start recording immediately
 	recorder.start_recording()
 
 
@@ -88,13 +101,12 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 		print("Failed to load replay: " + replay_path)
 		return
 
-	GameGlobals.is_replaying = true  # Set before changing scene so new instances disable input processing
+	GameGlobals.is_replaying = true
 
-	# Change scene and then start playback
 	get_tree().change_scene(replay_resource.scene_path)
 	yield(get_tree(), "idle_frame")
 	
-	GameGlobals.mouse_captured = true
+	MouseCapture.set_capture(true)
 	mode = ReplayMode.PLAYBACK
 	emit_signal("mode_changed", mode)
 	playback.start_playback(replay_path, is_headless)
@@ -103,7 +115,6 @@ func stop_playback() -> void:
 	if mode != ReplayMode.PLAYBACK:
 		return
 	playback.stop_playback()
-	restore_player_state()
 	# The playback node will emit a signal when it's done, see _on_playback_stopped
 
 func get_playback_node():
@@ -132,18 +143,18 @@ func restore_player_state() -> void:
 # Signal Handlers
 func _on_recording_stopped(frame_count, _replay_path):
 	mode = ReplayMode.NONE
-	GameGlobals.mouse_captured = false
+	MouseCapture.set_capture(false)
 	emit_signal("mode_changed", mode)
 	emit_signal("recording_stopped", frame_count)
 
 func _on_playback_stopped():
-	mode = ReplayMode.NONE
-	GameGlobals.is_replaying = false
-	GameGlobals.mouse_captured = false
-	emit_signal("mode_changed", mode)
+	if mode == ReplayMode.PLAYBACK:
+		mode = ReplayMode.STOPPED
+		GameGlobals.is_replaying = false
+		emit_signal("mode_changed", mode)
 
 func _on_playback_failed():
 	emit_signal("replay_failed")
 	mode = ReplayMode.NONE
-	GameGlobals.mouse_captured = false
+	MouseCapture.set_capture(false)
 	emit_signal("mode_changed", mode)
