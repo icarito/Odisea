@@ -77,17 +77,38 @@ var _bone_mapping = {
 # ----- GODOT LIFECYCLE METHODS -----
 
 func _ready():
+	print("RemoteSkeletonUDP: _ready() called.")
 	set_process_input(true)
+	
 	_skeleton = get_node_or_null(skeleton_path)
 	if not _skeleton:
 		push_warning("RemoteSkeletonUDP: Target Skeleton node not found at path: %s" % skeleton_path)
+		print("RemoteSkeletonUDP: ABORTING setup. Skeleton node not found at the configured path.")
 		return
+	
+	print("RemoteSkeletonUDP: Skeleton node found: ", _skeleton.name)
 
 	print("running export tpose ****")
 	export_tpose_json()
 
+	# Defensively ensure auto_start is not null
+	if auto_start == null:
+		print("RemoteSkeletonUDP: 'auto_start' is null! Defaulting to true.")
+		auto_start = true
+
+	print("RemoteSkeletonUDP: Checking conditions to start listener...")
+	print("RemoteSkeletonUDP: auto_start = ", auto_start)
+	print("RemoteSkeletonUDP: Engine.editor_hint = ", Engine.editor_hint)
+
 	if auto_start and not Engine.editor_hint:
+		print("RemoteSkeletonUDP: Conditions met. Attempting to start listening...")
 		start_listening()
+	else:
+		print("RemoteSkeletonUDP: Conditions not met. Listener will not start automatically.")
+		if not auto_start:
+			print("RemoteSkeletonUDP: Reason: 'auto_start' is false. Please enable it in the Inspector if you want the listener to start on ready.")
+		if Engine.editor_hint:
+			print("RemoteSkeletonUDP: Reason: Script is running inside the Godot editor. The listener only starts automatically when the game is played (e.g., by pressing F5).")
 
 func _input(event):
 	if event is InputEventKey and event.pressed and event.scancode == KEY_ENTER:
@@ -118,7 +139,7 @@ func _process(delta):
 		return
 
 	# Debug feature for manual reset
-	if manual_reset_timer > 0:
+	if manual_reset_timer != null and manual_reset_timer > 0:
 		reset_to_t_pose()
 		manual_reset_timer = 0.0
 		print("RemoteSkeletonUDP: Manual T-pose reset triggered.")
@@ -205,34 +226,47 @@ func apply_bone_data(bone_data: Dictionary):
 			print("RemoteSkeletonUDP: Bone '%s' mapped to '%s' not found in skeleton." % [bone_name, godot_bone_name])
 			continue
 
-		# Construct the Transform from the 7-float array
 		var translation = Vector3(transform_arr[0], transform_arr[1], transform_arr[2])
 		var quat = Quat(transform_arr[3], transform_arr[4], transform_arr[5], transform_arr[6])
 		var basis = Basis(quat)
 
-		# Cache the new transform
-		_target_transforms[godot_bone_name] = Transform(basis, translation)
+		if godot_bone_name == "DEF-hips":
+			# Guardar la posición global para el nodo Spatial
+			_target_transforms["_SKELETON_ROOT_POS"] = Transform(Basis(), translation)
+			# Solo la rotación local para el bone
+			_target_transforms[godot_bone_name] = Transform(basis, Vector3.ZERO)
+		else:
+			_target_transforms[godot_bone_name] = Transform(basis, translation)
 
 func interpolate_transforms(delta):
 	"""
 	Smoothly interpolates the current bone transforms towards the cached
 	target transforms using the 'smoothing' factor and applies it to the skeleton.
 	"""
-	# Inverse of smoothing for lerp weight. 0.0 = instant, 1.0 = static.
+	# Defensively check for null in case the exported var fails to initialize
+	if smoothing == null:
+		smoothing = 0.1
+
 	var lerp_weight = 1.0 - smoothing
 
+	# 1. Interpolar y aplicar la posición global del esqueleto (solo si existe)
+	if _target_transforms.has("_SKELETON_ROOT_POS"):
+		var target_pos = _target_transforms["_SKELETON_ROOT_POS"].origin
+		var current_pos = global_transform.origin
+		global_transform.origin = current_pos.linear_interpolate(target_pos, lerp_weight)
+
+	# 2. Aplicar poses a los huesos (excepto _SKELETON_ROOT_POS)
 	for bone_name in _target_transforms:
+		if bone_name == "_SKELETON_ROOT_POS":
+			continue
 		var bone_idx = _skeleton.find_bone(bone_name)
 		if bone_idx == -1:
 			continue
-
 		var current_transform = _skeleton.get_bone_pose(bone_idx)
 		var target_transform = _target_transforms[bone_name]
-
-		# Interpolate translation and rotation separately
 		var new_origin = current_transform.origin.linear_interpolate(target_transform.origin, lerp_weight)
 		var new_basis = current_transform.basis.slerp(target_transform.basis, lerp_weight)
-
+		print_debug("BONE_FINAL: %s Rot: %s" % [bone_name, new_basis.get_rotation_quat()])
 		_skeleton.set_bone_pose(bone_idx, Transform(new_basis, new_origin))
 
 
@@ -241,6 +275,10 @@ func check_heartbeat(delta):
 	Checks for connection timeouts. If no packet has been received for
 	'heartbeat_timeout' seconds, triggers a reset to T-pose.
 	"""
+	# Defensively check for null in case the exported var fails to initialize
+	if heartbeat_timeout == null:
+		heartbeat_timeout = 2.0
+		
 	_last_heartbeat += delta
 	if _last_heartbeat > heartbeat_timeout:
 		print("RemoteSkeletonUDP: Heartbeat timeout. Resetting to T-pose.")
