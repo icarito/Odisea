@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=8 format=2]
 
 [ext_resource path="res://models/Material_0_001.material" type="Material" id=1]
 [ext_resource path="res://addons/remote_skeleton_udp/RemoteSkeletonUDP.gd" type="Script" id=2]
@@ -150,6 +150,14 @@ emission_on_uv2 = false
 refraction_enabled = true
 refraction_scale = 0.05
 refraction_texture_channel = 0
+
+[sub_resource type="ProceduralSky" id=4]
+
+[sub_resource type="Environment" id=5]
+background_mode = 2
+background_sky = SubResource( 4 )
+background_color = Color( 0.0470588, 0.4, 0.25098, 1 )
+background_energy = 0.38
 
 [node name="Spatial" type="Spatial"]
 
@@ -361,3 +369,8 @@ bones/38/bound_children = [  ]
 mesh = SubResource( 1 )
 skin = SubResource( 2 )
 material/0 = SubResource( 3 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource( 5 )

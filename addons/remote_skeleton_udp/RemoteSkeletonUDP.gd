@@ -103,7 +103,8 @@ func save_current_pose_json():
 		var t = _target_transforms[bone_name]
 		var pos = t.origin
 		var quat = t.basis.get_rotation_quat()
-		pose_dict[bone_name] = [pos.x, pos.y, pos.z, quat.x, quat.y, quat.z, quat.w]
+		# Export in [Pos_X, Pos_Y, Pos_Z, W, X, Y, Z] order to match the Python source.
+		pose_dict[bone_name] = [pos.x, pos.y, pos.z, quat.w, quat.x, quat.y, quat.z]
 	var json = JSON.print(pose_dict, "  ")
 	var file = File.new()
 	var save_path = "res://result%03d.json" % _save_counter
@@ -205,9 +206,11 @@ func apply_bone_data(bone_data: Dictionary):
 			print("RemoteSkeletonUDP: Bone '%s' mapped to '%s' not found in skeleton." % [bone_name, godot_bone_name])
 			continue
 
-		# Construct the Transform from the 7-float array
+		# Construct the Transform from the 7-float array.
+		# The incoming format is assumed to be [pos.x, pos.y, pos.z, quat.w, quat.x, quat.y, quat.z]
 		var translation = Vector3(transform_arr[0], transform_arr[1], transform_arr[2])
-		var quat = Quat(transform_arr[3], transform_arr[4], transform_arr[5], transform_arr[6])
+		# Godot's Quat constructor requires Quat(x, y, z, w), so we remap the array indices.
+		var quat = Quat(transform_arr[4], transform_arr[5], transform_arr[6], transform_arr[3])
 		var basis = Basis(quat)
 
 		# Cache the new transform
@@ -273,9 +276,10 @@ func export_tpose_json():
 		var rest = _skeleton.get_bone_rest(i)
 		var pos = rest.origin
 		var quat = rest.basis.get_rotation_quat()
-		tpose_dict[bone_name] = [pos.x, pos.y, pos.z, quat.x, quat.y, quat.z, quat.w]
+		# Export in [Pos_X, Pos_Y, Pos_Z, W, X, Y, Z] order to match the Python source.
+		tpose_dict[bone_name] = [pos.x, pos.y, pos.z, quat.w, quat.x, quat.y, quat.z]
 	var json = JSON.print(tpose_dict, "  ")
-	print("[TPOSE_EXPORT] JSON (Godot order, Vector3+Quat):\n" + json)
+	print("[TPOSE_EXPORT] JSON (Python order, Pos+WXYZ Quat):\n" + json)
 	# Save to file
 	var file = File.new()
 	var save_path = "res://tpose_export.json"
