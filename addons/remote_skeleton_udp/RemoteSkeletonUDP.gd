@@ -37,6 +37,7 @@ export var manual_reset_timer = 0.0
 
 # UDP socket handler.
 var _udp = PacketPeerUDP.new()
+var _save_counter = 0
 
 # Target Skeleton node.
 var _skeleton = null
@@ -76,13 +77,41 @@ var _bone_mapping = {
 # ----- GODOT LIFECYCLE METHODS -----
 
 func _ready():
+	set_process_input(true)
 	_skeleton = get_node_or_null(skeleton_path)
 	if not _skeleton:
 		push_warning("RemoteSkeletonUDP: Target Skeleton node not found at path: %s" % skeleton_path)
 		return
 
+	print("running export tpose ****")
+	export_tpose_json()
+
 	if auto_start and not Engine.editor_hint:
 		start_listening()
+
+func _input(event):
+	if event is InputEventKey and event.pressed and event.scancode == KEY_ENTER:
+		save_current_pose_json()
+
+# --- DEBUG: Guardar la pose recibida como JSON ---
+func save_current_pose_json():
+	if not _skeleton:
+		print("[POSE_EXPORT] No skeleton found.")
+		return
+	var pose_dict = {}
+	for bone_name in _target_transforms:
+		var t = _target_transforms[bone_name]
+		var pos = t.origin
+		var quat = t.basis.get_rotation_quat()
+		pose_dict[bone_name] = [pos.x, pos.y, pos.z, quat.x, quat.y, quat.z, quat.w]
+	var json = JSON.print(pose_dict, "  ")
+	var file = File.new()
+	var save_path = "res://result%03d.json" % _save_counter
+	_save_counter += 1
+	if file.open(save_path, File.WRITE) == OK:
+		file.store_string(json)
+		file.close()
+		print("[POSE_EXPORT] Saved pose JSON to: " + save_path)
 
 func _process(delta):
 	if not _is_listening or not _skeleton:
@@ -151,6 +180,15 @@ func apply_bone_data(bone_data: Dictionary):
 	Parses the bone data from JSON, constructs Godot Transforms,
 	and caches them in the _target_transforms dictionary.
 	"""
+	if bone_data.has("hips"):
+		var hip_arr = bone_data["hips"]
+		print("--- SKELETON DEBUG (RECIBIDO) ---")
+		print("Hips Recibido: " + str(hip_arr))
+
+	if bone_data.has("wrist.R"):
+		var hand_arr = bone_data["wrist.R"]
+		print("Wrist.R Recibido: " + str(hand_arr))
+
 	for bone_name in bone_data:
 		var transform_arr = bone_data[bone_name]
 
@@ -164,7 +202,7 @@ func apply_bone_data(bone_data: Dictionary):
 
 		var bone_idx = _skeleton.find_bone(godot_bone_name)
 		if bone_idx == -1:
-			# Silently ignore bones that don't exist in our skeleton
+			print("RemoteSkeletonUDP: Bone '%s' mapped to '%s' not found in skeleton." % [bone_name, godot_bone_name])
 			continue
 
 		# Construct the Transform from the 7-float array
@@ -223,3 +261,26 @@ func reset_to_t_pose():
 
 	# Now clear the cache so they are no longer considered "controlled".
 	_target_transforms.clear()
+
+# --- DEBUG: Exportar T-Pose actual del esqueleto en formato JSON ---
+func export_tpose_json():
+	if not _skeleton:
+		print("[TPOSE_EXPORT] No skeleton found.")
+		return
+	var tpose_dict = {}
+	for i in range(_skeleton.get_bone_count()):
+		var bone_name = _skeleton.get_bone_name(i)
+		var rest = _skeleton.get_bone_rest(i)
+		var pos = rest.origin
+		var quat = rest.basis.get_rotation_quat()
+		tpose_dict[bone_name] = [pos.x, pos.y, pos.z, quat.x, quat.y, quat.z, quat.w]
+	var json = JSON.print(tpose_dict, "  ")
+	print("[TPOSE_EXPORT] JSON (Godot order, Vector3+Quat):\n" + json)
+	# Save to file
+	var file = File.new()
+	var save_path = "res://tpose_export.json"
+	if file.open(save_path, File.WRITE) == OK:
+		file.store_string(json)
+		file.close()
+		print("[TPOSE_EXPORT] Saved T-pose JSON to: " + save_path)
+		
