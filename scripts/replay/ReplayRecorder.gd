@@ -130,12 +130,11 @@ func _record_frame(delta: float) -> void:
 		"timestamp": Time.get_ticks_usec() - start_time
 	}
 	
-	# Snapshot every 100 frames
-	if len(current_replay.frames) % 100 == 0:
-		var snapshot = {}
-		if player:
-			snapshot["player"] = player.get_replay_state()
-		frame_data["snapshot"] = snapshot
+	# Snapshot every frame for deterministic position
+	var snapshot = {}
+	if player:
+		snapshot["player"] = player.get_replay_state()
+	frame_data["snapshot"] = snapshot
 	
 	# Record camera state
 	var camera = camera_rig
@@ -161,11 +160,11 @@ func _record_frame(delta: float) -> void:
 	
 	# Record sparse snapshots for debugging
 	if len(current_replay.frames) % 60 == 0:
-		var snapshot = {}
+		var debug_snapshot = {}
 		for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
 			if node.has_method("get_replay_state"):
-				snapshot[node.get_path()] = node.get_replay_state()
-		current_replay.snapshots[str(len(current_replay.frames))] = snapshot
+				debug_snapshot[node.get_path()] = node.get_replay_state()
+		current_replay.snapshots[str(len(current_replay.frames))] = debug_snapshot
 	
 	# Record states for drift measurement
 	var states = {}

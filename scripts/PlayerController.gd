@@ -618,11 +618,7 @@ func _physics_process(delta):
 		snap_enabled = true
 
 	# --- THE ACTUAL PHYSICS STEP ---
-	if not is_replaying:
-		velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
-	else:
-		# During replay, don't run physics simulation - position is set by ReplayPlayback
-		velocity = movement_this_frame
+	velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
 
 	# print("[PlayerController] Post-move Pos (Simulated): %s" % [global_transform.origin])
 	# print("[PlayerController POST-SLIDE] Velocity: %s" % [velocity])
