@@ -20,3 +20,4 @@ replays/
 
 pupeteer/.venv/
 *.pyc
+*/__pycache__/
