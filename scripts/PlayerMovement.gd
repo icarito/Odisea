@@ -25,6 +25,7 @@ var direction := Vector3.ZERO
 var movement_speed := 0.0
 var is_walking := false
 var is_running := false # true solo si is_sprinting
+var strafe_mode := false
 
 func get_horizontal_velocity() -> Vector3:
 	return horizontal_velocity
@@ -37,13 +38,16 @@ func get_turn_input_from_vector(input_vec: Vector2) -> float:
 		return input_vec.normalized().x * analog_turn_multiplier
 	return 0.0
 
-func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is_sprinting: bool) -> void:
+func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is_sprinting: bool, is_on_floor: bool) -> void:
 	var mag = input_vec.length()
 	if mag < joystick_deadzone:
 		is_walking = false
 		is_running = false
 		direction = Vector3.ZERO
-		horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, friction * delta)
+		if is_on_floor:
+			horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, friction * delta)
+			if horizontal_velocity.length_squared() < 0.0001:
+				horizontal_velocity = Vector3.ZERO
 		return
 
 	var processed_mag := 0.0
@@ -52,13 +56,17 @@ func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is
 	processed_mag = curve.interpolate(clamp(mag, 0.0, 1.0))
 	processed_mag = clamp(processed_mag, 0.0, 1.0)
 
-	var cam_forward := cam_basis.z.normalized()
-	var cam_right := cam_basis.x.normalized()
+	var basis_to_use: Basis = cam_basis
+	var forward := basis_to_use.z.normalized()
+	var right := basis_to_use.x.normalized()
 	var forward_input := processed_dir.y
 	var right_input := processed_dir.x
 
-	direction = (cam_forward * forward_input) + (cam_right * right_input)
+	direction = (forward * forward_input) + (right * right_input)
 	direction = direction.normalized()
+
+	# The PlayerController is now solely responsible for body rotation.
+	# This component only calculates the direction and velocity.
 
 	# Determinar si hay movimiento (caminar o correr)
 	is_walking = processed_mag > 0.01

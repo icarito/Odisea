@@ -28,9 +28,16 @@ func load_scene_async(path: String) -> void:
 	# For now, we'll just defer the scene change
 	call_deferred("_deferred_load_scene", path)
 
+func restart_level() -> void:
+	get_tree().reload_current_scene()
+
+func return_to_menu() -> void:
+	load_scene_async("res://scenes/Menu.tscn")
+
 func _deferred_load_scene(path: String) -> void:
-	if _current_scene:
-		_current_scene.free()
+	var old_scene = get_tree().current_scene
+	if old_scene:
+		old_scene.queue_free()
 	
 	var next_scene_res = load(path)
 	if next_scene_res:

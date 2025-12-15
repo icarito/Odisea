@@ -14,8 +14,11 @@ export(NodePath) var pitch_path
 export(NodePath) var springarm_path
 export(NodePath) var camera_path
 
-export(float, 0.001, 1, 0.01) var yaw_sensitivity := 0.015
-export(float, 0.001, 1, 0.01) var pitch_sensitivity := 0.015
+export(float, 0.1, 5.0, 0.1) var strafe_mode_timeout := 1.0
+export(float, 0.0, 1.0, 0.05) var strafe_mode_influence := 1.0
+
+export(float, 0.1, 100, 1) var yaw_sensitivity := 20
+export(float, 0.1, 100, 1) var pitch_sensitivity := 20
 export(float) var yaw_smooth := 12.0
 export(float) var pitch_smooth := 12.0
 export(float, 0.0, 90.0, 0.5) var pitch_limit_up_deg := 85.0 # límite superior para mirar arriba
@@ -34,6 +37,7 @@ export (float, 0.0, 0.49) var crop_margin_vertical = 0.0 setget _set_crop_margin
 
 var _original_fov := 70.0
 var _last_debug_ms := 0
+var _last_playback_debug_ms := 0
 
 var player
 var yaw
@@ -43,7 +47,9 @@ var cam
 
 var target_yaw := 0.0
 var target_pitch := 0.0
+onready var input_state = get_node("/root/InputState")
 var _yaw_initialized := false
+var _is_mouse_look_active := false
 
 var player_id := 1
 var joypad_device := -1
@@ -62,53 +68,37 @@ func _ready():
 	if springarm:
 		springarm.spring_length = base_length
 		springarm.collision_mask = collision_mask
-		# In Godot 3 SpringArm uses current transform forward; leave orientation to yaw/pitch
-	# Capturar el puntero para control de cámara
-	if player_id == 1:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	# Initial yaw will be set by _physics_process on the first frame
-	# Set default pitch respecting limit
-	if pitch:
-		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
-		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
-		target_pitch = clamp(pitch.rotation.x, -lim_down, lim_up)
+
+	# Conectarse a la señal de MouseCapture para el cambio de captura del mouse
+	if MouseCapture:
+		MouseCapture.connect("capture_changed", self, "_on_capture_changed")
+
+	# Conectarse a ReplayManager para cambios de modo
+	if ReplayManager:
+		ReplayManager.connect("mode_changed", self, "_on_replay_mode_changed")
 	
-	if cam:
-		_original_fov = cam.fov
-	
-	if is_inside_tree():
-		get_viewport().connect("size_changed", self, "_update_camera_fov")
-	_update_camera_fov()
+	_update_mouse_look_active()
 
+func _on_capture_changed(is_captured: bool):
+	_update_mouse_look_active()
 
-func _unhandled_input(event):
-	# Toggle captura con ESC, recapturar al click
-	# Ignorar input de mouse si controles touch están activos
-	var touch_controls = null
-	if has_node("/root/TouchControls"):
-		touch_controls = get_node("/root/TouchControls")
-	if touch_controls and touch_controls.is_touch_controls_active():
+func _on_replay_mode_changed(new_mode: int):
+	_update_mouse_look_active()
+
+func _update_mouse_look_active():
+	var is_captured = MouseCapture.is_captured if MouseCapture else false
+	var is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
+	_is_mouse_look_active = is_captured or is_playback
+
+func process_camera_rotation(_motion: Vector2):
+	"""Procesa el movimiento del mouse/touch para rotar la cámara desde InputState."""
+	if not _is_mouse_look_active:
 		return
-	if event is InputEventKey and event.is_action_pressed("ui_cancel"):
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-		return
-	if event is InputEventMouseButton and event.pressed and player_id == 1:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
-func process_camera_rotation(motion: Vector2):
-	"""Procesa el movimiento del mouse/touch para rotar la cámara."""
-	if player_id == 1:
-		# La sensibilidad se ajusta en PlayerController para touch
-		var scaled_motion = motion
-		
-		var touch_controls_node = null
-		if get_tree() and get_tree().current_scene:
-			touch_controls_node = get_tree().current_scene.find_node("TouchControls", true, false)
-
-		if not (touch_controls_node and touch_controls_node.is_touch_controls_active()):
-			scaled_motion = motion / 100.0
-
-		target_yaw -= scaled_motion.x * yaw_sensitivity
+	var motion = input_state.get_mouse_delta()
+	if motion is Vector2 and motion.length_squared() > 0:
+		var scaled_motion = motion / 10000.0
+		target_yaw -= -scaled_motion.x * yaw_sensitivity
 		target_pitch += scaled_motion.y * pitch_sensitivity
 		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
 		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
@@ -130,30 +120,49 @@ func _physics_process(delta):
 	# Control de rotación de cámara
 	var touch_controls = get_node_or_null("/root/TouchControls")
 	var touch_active = touch_controls and touch_controls.is_touch_controls_active()
+	var is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
+	var is_record = input_state and input_state.mode == input_state.Mode.RECORD
+	var replay_manager = get_node("/root/ReplayManager")
+	
+	var motion = Vector2.ZERO
+	
+	# 1. Adquirir 'motion' (delta de mouse/look)
+	if is_playback:
+		if replay_manager.is_camera_free_look_active:
+			motion = input_state.get_live_mouse_delta()
+		else:
+			motion = input_state.get_mouse_delta()
+	elif not touch_active and player_id == 1 and _is_mouse_look_active:
+		# En modo 'live' o 'record', usar el mouse procesado si no hay controles touch activos.
+		motion = input_state.get_mouse_delta()
 
-	if not touch_active:
-		# Usar mouse/teclado para player 1 si no hay touch
-		if player_id == 1:
-			var mouse_x = Input.get_action_strength("lookleft") - Input.get_action_strength("lookright")
-			var mouse_y = Input.get_action_strength("lookup") - Input.get_action_strength("lookdown")
-			if abs(mouse_x) > 0 or abs(mouse_y) > 0:
-				target_yaw -= mouse_x * yaw_sensitivity * 1000 * delta
-				target_pitch += mouse_y * pitch_sensitivity * 1000 * delta
-
-	# Para player 2, siempre usar joy
-	if player_id == 2:
-		var joy_x = Input.get_joy_axis(joypad_device, JOY_AXIS_0)
-		var joy_y = Input.get_joy_axis(joypad_device, JOY_AXIS_1)
-		var deadzone = 0.2
+	# 2. Aplicar rotación si hay movimiento
+	if motion is Vector2 and motion.length() > 0.0:
+		var scaled_motion = motion / 1000.0
+		target_yaw -= scaled_motion.x * yaw_sensitivity
+		target_pitch += scaled_motion.y * pitch_sensitivity
 		
-		if abs(joy_x) > deadzone:
-			target_yaw -= joy_x * yaw_sensitivity * 1000 * delta
-		if abs(joy_y) > deadzone:
-			target_pitch += joy_y * pitch_sensitivity * 1000 * delta
-		
+		# Limitar pitch
 		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
 		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
 		target_pitch = clamp(target_pitch, -lim_down, lim_up)
+		
+		if is_playback and not replay_manager.is_camera_free_look_active:
+			input_state.clean_mouse_delta_y()
+		
+		if is_playback:
+			# Ya no se consume el input aquí. Se lee una variable limpia.
+			pass
+		else: # Solo en modo 'live'
+			# Activar strafing si hay movimiento del mouse
+			if motion.length_squared() > 0:
+				input_state.is_strafing_mode_active = true
+				# El timer es manejado en PlayerController
+
+	# Para player 2, siempre usar joy
+	if player_id == 2:
+		# TODO: Integrar ejes de InputState si se usan para joypad
+		pass
 
 	# Smooth yaw/pitch
 	if yaw:
@@ -164,6 +173,12 @@ func _physics_process(delta):
 		var p = pitch.rotation.x
 		p += (target_pitch - p) * min(1.0, pitch_smooth * delta)
 		pitch.rotation.x = p
+
+	if (is_record or is_playback) and motion.length_squared() > 0.01:
+		var mode_str = "REC" if is_record else "PLAY"
+		var pitch_deg = rad2deg(pitch.rotation.x)
+		var target_pitch_deg = rad2deg(target_pitch)
+		print("CAM_PITCH_DEBUG | %s | motion_y: %.2f | target_pitch: %.2f | final_pitch: %.2f" % [mode_str, motion.y, target_pitch_deg, pitch_deg])
 	# Dynamic zoom based on player horizontal speed
 	if player and springarm:
 		var hv := Vector3.ZERO
@@ -188,6 +203,13 @@ func _physics_process(delta):
 			print("[Cam] yaw=" + String(yv).pad_decimals(3) +
 				" pitch=" + String(pv).pad_decimals(3) +
 				" len=" + String(sl).pad_decimals(2))
+	
+	# Debug adicional para playback
+	if ReplayManager and ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
+		var now := OS.get_ticks_msec()
+		if now - _last_playback_debug_ms >= 1000:  # Cada segundo
+			_last_playback_debug_ms = now
+			print("Playback Cam: yaw=", yaw.rotation.y if yaw else 0, " target_yaw=", target_yaw)
 
 # Aplicar delta externo de yaw (p.ej., tank turn del jugador)
 func apply_external_yaw_delta(delta_yaw: float) -> void:
@@ -231,3 +253,22 @@ func _update_camera_fov():
 	var original_fov_rad = deg2rad(_original_fov)
 	var new_fov_rad = 2.0 * atan(tan(original_fov_rad / 2.0) * scale)
 	cam.fov = rad2deg(new_fov_rad)
+
+# Replay state methods
+func get_replay_state() -> Dictionary:
+	return {
+		"yaw": yaw.rotation.y if yaw else 0.0,
+		"pitch": pitch.rotation.x if pitch else 0.0,
+		"spring_length": springarm.spring_length if springarm else base_length
+	}
+
+func set_replay_state(state: Dictionary) -> void:
+	# FEATURE: Durante el playback, la cámara es libre. No restaurar yaw/pitch.
+	# if state.has("yaw") and yaw:
+	# 	yaw.rotation.y = state["yaw"]
+	# 	target_yaw = state["yaw"]
+	# if state.has("pitch") and pitch:
+	# 	pitch.rotation.x = state["pitch"]
+	# 	target_pitch = state["pitch"]
+	if state.has("spring_length") and springarm:
+		springarm.spring_length = state["spring_length"]
