@@ -1030,7 +1030,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/remote_skeleton_udp/plugin.cfg" )
+enabled=PoolStringArray(  )
 
 [global]
 
