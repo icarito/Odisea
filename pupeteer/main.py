@@ -125,22 +125,24 @@ def main():
             capture.release()
         source_iterator = video_generator(cap)
 
+
+    save_counter = 0
     for frame in source_iterator:
-        if not running: break
+        if not running:
+            break
 
         landmarks = None
         # Demo mode yields landmarks directly, video yields frames
         if isinstance(frame, np.ndarray):
-            if not args.video: frame = cv2.flip(frame, 1) # Mirror webcam
+            if not args.video:
+                frame = cv2.flip(frame, 1) # Mirror webcam
             landmarks = detector.process_frame(frame)
         else: # Demo data
-            landmarks = frame 
+            landmarks = frame
 
         if landmarks:
             bones = posenet_to_godot_bones(landmarks, tpose_godot)
-
             corrected_bones = bones
-            
             final_packet = {}
             for def_name, data in corrected_bones.items():
                 sender_name = sender_map.get(def_name)
@@ -153,12 +155,22 @@ def main():
                 print(f"Sending bones: {list(final_packet.keys())}")
                 sender.send_pose({"bones": final_packet})
 
+                # --- Export result000.json (auto-increment) ---
+                try:
+                    export_dict = {def_name: data for def_name, data in corrected_bones.items()}
+                    json_path = f"result{save_counter:03d}.json"
+                    with open(json_path, "w") as f:
+                        json.dump(export_dict, f, indent=2)
+                    save_counter = (save_counter + 1) % 1000  # Rollover after 999
+                except Exception as e:
+                    print(f"[POSE_EXPORT] Error saving {json_path}: {e}")
+
             if args.ascii:
                 shape = frame.shape if isinstance(frame, np.ndarray) else (480, 640, 3)
                 ascii_art = render_ascii_skeleton(landmarks, shape)
                 os.system('clear'); print(ascii_art)
-        
-        time.sleep(1/60)
+
+        time.sleep(1/30)
 
     # --- Shutdown ---
     detector.close()

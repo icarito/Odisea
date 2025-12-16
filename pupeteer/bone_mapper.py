@@ -34,8 +34,8 @@ def _get_landmark_pos(landmarks, key, lm_pos_cache):
     index = LANDMARK_INDICES.get(key)
     if index is not None and index < len(landmarks):
         lm = landmarks[index]
-        # Convert to Y-up, Z-forward (Godot) and apply Y-inversion for landmarks
-        pos = np.array([lm['x'], -lm['y'], -lm['z']]) 
+        # PRUEBA: Solo invertir eje Z (Godot: Y+ arriba, Z- adelante)
+        pos = np.array([lm['x'], lm['y'], -lm['z']])
         lm_pos_cache[key] = pos
         return pos
     return None
@@ -49,7 +49,6 @@ def posenet_to_godot_bones(landmarks, tpose_godot):
     ROOT_OFFSET_Y = -1.0  # Calibrate this value to adjust character height
     TILT_CORRECTION = R.from_euler('x', 20, degrees=True) # Corrects forward tilt
     # Flips the arm rotation on its twist axis
-    ARM_INVERSION_FIX = R.from_euler('z', 180, degrees=True)
 
     lm_pos_cache = {}
     def get_lm(key):
@@ -79,16 +78,19 @@ def posenet_to_godot_bones(landmarks, tpose_godot):
 
     # --- Hips (Root of animated skeleton) ---
     hips_to_shoulders_vec = shoulders_center - hips_center
-    hips_global_rot_capture = R.from_quat(limb_quat(np.array([0,0,0]), hips_to_shoulders_vec, ref_vec=np.array([0, 1, 0])))
-    
-    hip_tpose_quat_wxyz = tpose_godot["DEF-hips"][3:]
-    hip_tpose_quat_xyzw = [hip_tpose_quat_wxyz[1], hip_tpose_quat_wxyz[2], hip_tpose_quat_wxyz[3], hip_tpose_quat_wxyz[0]]
+    # PRUEBA: ref_vec apunta hacia arriba (Y+) pero con Y no invertido
+    hips_global_rot_capture = R.from_quat(limb_quat(np.array([0,1,0]), hips_to_shoulders_vec, ref_vec=np.array([0, 1, 0])))
+
+    # Offset global: rotación de 90° en X y 180° en Y (mirar hacia adelante)
+    offset_rot = R.from_euler('xy', [90, 180], degrees=True)
+
+    hip_tpose_quat_xyzw = tpose_godot["DEF-hips"][3:]
     hip_tpose_rotation = R.from_quat(hip_tpose_quat_xyzw)
 
-    # Apply T-Pose retargeting AND the tilt correction
-    final_hips_rotation = hips_global_rot_capture * hip_tpose_rotation.inv() * TILT_CORRECTION
+    # Apply T-Pose retargeting, tilt correction y offset global
+    final_hips_rotation = offset_rot * hips_global_rot_capture * hip_tpose_rotation.inv() * TILT_CORRECTION
     global_bone_rotations["DEF-hips"] = final_hips_rotation
-    
+
     hip_tpose_pos = tpose_godot.get("DEF-hips", [0,0,0,0,0,0,1])[:3]
     final_bones["DEF-hips"] = list(hip_tpose_pos) + list(final_hips_rotation.as_quat())
 
@@ -111,24 +113,35 @@ def posenet_to_godot_bones(landmarks, tpose_godot):
             start_lm = get_lm('left_hip' if 'L' in bone_name else 'right_hip')
             end_lm = get_lm('left_knee' if 'L' in bone_name else 'right_knee')
             if start_lm is not None and end_lm is not None:
-                child_global_rot = R.from_quat(limb_quat(start_lm, end_lm, ref_vec=np.array([0, -1, 0])))
+                # PRUEBA: invertir Z en ref_vec para piernas
+                child_global_rot = R.from_quat(limb_quat(start_lm, end_lm, ref_vec=np.array([0, 1, -0])))
         elif "shin" in bone_name:
             start_lm = get_lm('left_knee' if 'L' in bone_name else 'right_knee')
             end_lm = get_lm('left_ankle' if 'L' in bone_name else 'right_ankle')
             if start_lm is not None and end_lm is not None:
-                child_global_rot = R.from_quat(limb_quat(start_lm, end_lm, ref_vec=np.array([0, -1, 0])))
+                # PRUEBA: invertir Z en ref_vec para piernas
+                child_global_rot = R.from_quat(limb_quat(start_lm, end_lm, ref_vec=np.array([0, 1, -0])))
         elif "upper_arm" in bone_name:
             start_lm = get_lm('left_shoulder' if 'L' in bone_name else 'right_shoulder')
             end_lm = get_lm('left_elbow' if 'L' in bone_name else 'right_elbow')
             if start_lm is not None and end_lm is not None:
-                # Use a neutral ref_vec, fix will be applied to local rotation
-                child_global_rot = R.from_quat(limb_quat(start_lm, end_lm, ref_vec=np.array([0, 1, 0])))
+                ref_vec = np.array([1, 0, 0]) if 'L' in bone_name else np.array([-1, 0, 0])
+                quat = limb_quat(start_lm, end_lm, ref_vec=ref_vec)
+                rot = R.from_quat(quat)
+                if 'R' in bone_name:
+                    # Multiplicar por rotación de 180° en Y para reflejar simetría
+                    rot = R.from_euler('y', 180, degrees=True) * rot
+                child_global_rot = rot
         elif "forearm" in bone_name:
             start_lm = get_lm('left_elbow' if 'L' in bone_name else 'right_elbow')
             end_lm = get_lm('left_wrist' if 'L' in bone_name else 'right_wrist')
             if start_lm is not None and end_lm is not None:
-                # Use a neutral ref_vec, fix will be applied to local rotation
-                child_global_rot = R.from_quat(limb_quat(start_lm, end_lm, ref_vec=np.array([0, 1, 0])))
+                ref_vec = np.array([1, 0, 0]) if 'L' in bone_name else np.array([-1, 0, 0])
+                quat = limb_quat(start_lm, end_lm, ref_vec=ref_vec)
+                rot = R.from_quat(quat)
+                if 'R' in bone_name:
+                    rot = R.from_euler('y', 180, degrees=True) * rot
+                child_global_rot = rot
         elif "head" in bone_name or "neck" in bone_name or "spine" in bone_name:
             # For spine, neck, and head, just inherit parent's rotation for simplicity for now
             child_global_rot = parent_global_rot
@@ -141,9 +154,6 @@ def posenet_to_godot_bones(landmarks, tpose_godot):
         # --- Convert to local rotation ---
         local_rot = parent_global_rot.inv() * child_global_rot
 
-        # --- APPLY ARM INVERSION FIX ---
-        if "upper_arm" in bone_name or "forearm" in bone_name:
-            local_rot = local_rot * ARM_INVERSION_FIX
 
         # --- Store final bone data (STATIC position + DYNAMIC rotation) ---
         bone_tpose_pos = tpose_godot.get(bone_name, [0,0,0,0,0,0,1])[:3]

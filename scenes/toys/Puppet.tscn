@@ -167,7 +167,7 @@ skeleton_path = NodePath("../Skeleton")
 print_packets = true
 
 [node name="Camera" type="Camera" parent="RemoteSkeletonUDP"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.32969, 5.27663 )
+transform = Transform( 0.999237, 0.01056, 0.0376044, -0.0110371, 0.999861, 0.0125024, -0.0374671, -0.0129079, 0.999215, 0.160276, 1.13202, 4.12097 )
 
 [node name="Skeleton" type="Skeleton" parent="."]
 bones/0/name = "root"
@@ -375,3 +375,6 @@ material/0 = SubResource( 3 )
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource( 5 )
+
+[node name="SpotLight" type="SpotLight" parent="."]
+transform = Transform( 0.972715, 0.067308, 0.222024, -0.232003, 0.282202, 0.93088, 0, -0.956991, 0.290118, 0, 4.38229, 1.3786 )
