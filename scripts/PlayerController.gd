@@ -100,7 +100,6 @@ var pre_move_velocity_for_replay_fixed: Dictionary = FixedVec3.zero()
 export var touch_sensitivity := 0.1
 
 var angular_acceleration = 10
-export(float, 0.0, 10.0, 0.1) var tank_turn_speed := 0.3
 export(float, 0.0, 10.0, 0.1) var advancing_turn_speed := 0.3
 export(float, 0.0, 1.0, 0.01) var analog_turn_multiplier := 1.0
 export(float, 0.0, 1.0, 0.01) var sprint_threshold := 0.7
@@ -533,11 +532,10 @@ func _physics_process(delta):
 				# En modo tank, permitir giro normal
 				turn_input_val = input_vector.x
 				movement_input_vec.x = 0.0
-				var effective_tank_speed = tank_turn_speed
-				yaw_delta = turn_input_val * effective_tank_speed * delta
+				yaw_delta = turn_input_val * movement_comp.tank_turn_speed * delta
 				rotation.y += yaw_delta
-				if cam_rig.has_method("apply_external_yaw_delta"): cam_rig.apply_external_yaw_delta(yaw_delta)
-
+				if cam_rig.has_method("apply_external_yaw_delta"):
+					cam_rig.apply_external_yaw_delta(yaw_delta)
 			# Prevent sudden turn after strafe ends
 			if strafe_cooldown > 0.0:
 				# Bloquea giro durante cooldown

@@ -194,7 +194,6 @@ gravity = 9.0
 jump_force = 12
 turn_speed = 1.2
 max_platform_up_follow = 30.0
-tank_turn_speed = 2.0
 advancing_turn_speed = 3.7
 cam_yaw_offset = 0.76
 debug_interval = 1.12
@@ -206,6 +205,7 @@ acceleration_curve = ExtResource( 5 )
 
 [node name="PlayerMovement" type="Node" parent="."]
 script = ExtResource( 53 )
+tank_turn_speed = 1.2
 analog_turn_multiplier = 0.5
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
@@ -220,7 +220,7 @@ yaw_path = NodePath("Yaw")
 pitch_path = NodePath("Yaw/Pitch")
 springarm_path = NodePath("Yaw/Pitch/SpringArm")
 camera_path = NodePath("Yaw/Pitch/SpringArm/Camera")
-strafe_mode_timeout = 5.0
+strafe_mode_timeout = 0.5
 yaw_sensitivity = 10.0
 pitch_sensitivity = 10.0
 pitch_limit_up_deg = 70.0

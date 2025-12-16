@@ -53,7 +53,6 @@ var _is_mouse_look_active := false
 
 var player_id := 1
 var joypad_device := -1
-var _touch_camera_connected := false
 
 func set_player_id(id: int) -> void:
 	player_id = id
@@ -79,39 +78,6 @@ func _ready():
 		ReplayManager.connect("mode_changed", self, "_on_replay_mode_changed")
 	
 	_update_mouse_look_active()
-	_connect_touch_camera()
-
-func _connect_touch_camera():
-	# Find the TouchControls node, which is an autoload singleton.
-	var touch_controls = get_node_or_null("/root/TouchControls")
-	if touch_controls:
-		# The CameraInput node is a child of TouchControls
-		var camera_input = touch_controls.get_node_or_null("CameraInput")
-		if camera_input:
-			if not camera_input.is_connected("input_vector_changed", self, "_on_CameraInput_input_vector_changed"):
-				var err = camera_input.connect("input_vector_changed", self, "_on_CameraInput_input_vector_changed")
-				if err == OK:
-					_touch_camera_connected = true
-					print("[PlayerSpringCam] Connected to CameraInput signal.")
-		else:
-			# This can happen if the scene is still setting up.
-			# We'll retry in _physics_process if not connected.
-			pass
-
-func _on_CameraInput_input_vector_changed(vector):
-	# This signal is received when the user drags on the touch camera area.
-	process_touch_camera_vector(vector)
-
-func process_touch_camera_vector(motion: Vector2):
-	var touch_sensitivity = 0.1 # Hardcoded for now as it was in PlayerController
-	var scaled_motion = motion * touch_sensitivity / 100.0
-	target_yaw -= scaled_motion.x * yaw_sensitivity
-	target_pitch += scaled_motion.y * pitch_sensitivity
-	
-	# Limitar pitch
-	var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
-	var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
-	target_pitch = clamp(target_pitch, -lim_down, lim_up)
 
 func _on_capture_changed(is_captured: bool):
 	_update_mouse_look_active()
@@ -123,16 +89,15 @@ func _on_replay_mode_changed(new_mode: int):
 func _update_mouse_look_active():
 	var is_captured = MouseCapture.is_captured if MouseCapture else false
 	var is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
-	_is_mouse_look_active = is_captured or is_playback
+	var has_touchscreen = OS.has_touchscreen_ui_hint()
+	_is_mouse_look_active = is_captured or is_playback or has_touchscreen
 
 func _get_mouse_motion() -> Vector2:
 	var is_playback = ReplayManager and ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK
 	
 	if not is_playback:
 		# Live or Recording mode
-		var touch_controls = get_node_or_null("/root/TouchControls")
-		var touch_active = touch_controls and touch_controls.is_touch_controls_active()
-		if not touch_active and player_id == 1 and _is_mouse_look_active:
+		if player_id == 1 and _is_mouse_look_active:
 			return input_state.get_mouse_delta()
 		else:
 			return Vector2.ZERO
@@ -157,9 +122,6 @@ func _physics_process(delta):
 			yaw.rotation.y = initial_offset
 		_yaw_initialized = true
 	# ---------------------------------
-	
-	if not _touch_camera_connected:
-		_connect_touch_camera()
 		
 	var motion = _get_mouse_motion()
 	

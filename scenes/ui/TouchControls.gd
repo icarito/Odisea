@@ -258,7 +258,9 @@ func _create_element(data: Dictionary) -> Control:
 			# Conectar señales para manejo de timer y vector
 			control_node.connect("pressed", self, "_on_joystick_pressed", [id])
 			control_node.connect("released", self, "_on_joystick_released", [id])
-			control_node.connect("input_vector_changed", self, "_on_joystick_vector_changed", [id])
+			var input_state = get_node("/root/InputState")
+			if input_state:
+				control_node.connect("input_vector_changed", input_state, "set_virtual_joystick_vector")
 
 		"BUTTON":
 			control_node = TouchScreenButton.new()
@@ -364,7 +366,7 @@ func _input(event):
 			# -----------------------------------------------------------
 			
 			# Evitar que el mouse genere eventos mientras controles touch están activos
-			get_tree().set_input_as_handled()
+			# get_tree().set_input_as_handled()
 		else:
 			var was_active = _active_touches.has(event.index)
 			var prev_count = _active_touches.size()
@@ -402,39 +404,9 @@ func _on_joystick_released(id: String):
 	if active_touch_controls == 0:
 		_restart_hide_timer()
 
-	# Resetear ejes a 0
-	var event_x = InputEventJoypadMotion.new()
-	event_x.device = 0
-	event_x.axis = JOY_AXIS_0
-	event_x.axis_value = 0.0
-	Input.parse_input_event(event_x)
-	
-	var event_y = InputEventJoypadMotion.new()
-	event_y.device = 0
-	event_y.axis = JOY_AXIS_1
-	event_y.axis_value = 0.0
-	Input.parse_input_event(event_y)
-	# print("Joystick released: ", id)
-
-func _on_joystick_vector_changed(vector: Vector2, id: String):
-	var current_time = OS.get_ticks_msec() / 1000.0
-	if current_time - last_debug_print_time > debug_interval:
-		last_debug_print_time = current_time
-		print("[TouchControls] vector_changed: ", vector, " from: ", id)
-
-	# Emitir eventos de joypad para simular un joystick analógico
-	var event_x = InputEventJoypadMotion.new()
-	event_x.device = 0  # Dispositivo virtual
-	event_x.axis = JOY_AXIS_0  # Eje X izquierdo
-	event_x.axis_value = vector.x
-	Input.parse_input_event(event_x)
-	
-	var event_y = InputEventJoypadMotion.new()
-	event_y.device = 0
-	event_y.axis = JOY_AXIS_1  # Eje Y izquierdo
-	event_y.axis_value = vector.y
-	Input.parse_input_event(event_y)
-	# No reiniciar timer aquí
+	var input_state = get_node("/root/InputState")
+	if input_state:
+		input_state.reset_virtual_joystick()
 
 func _rebuild_controls():
 	_clear_controls()
