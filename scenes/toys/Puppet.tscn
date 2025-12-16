@@ -164,9 +164,10 @@ background_energy = 0.38
 [node name="RemoteSkeletonUDP" type="Spatial" parent="."]
 script = ExtResource( 2 )
 skeleton_path = NodePath("../Skeleton")
+print_packets = true
 
 [node name="Camera" type="Camera" parent="RemoteSkeletonUDP"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.87318, 3.83368 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.32969, 5.27663 )
 
 [node name="Skeleton" type="Skeleton" parent="."]
 bones/0/name = "root"

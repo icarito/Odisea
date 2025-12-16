@@ -2,219 +2,168 @@
 import argparse
 import cv2
 import time
-import threading
 import signal
 import sys
 import os
+import json
+import numpy as np
+from scipy.spatial.transform import Rotation as R
+
+# Import necessary components from the project
 from pose_detector import PoseDetector
 from udp_sender import UDPSender
 from demo import demo_generator
-from config import DEFAULT_HEIGHT
 from ascii_renderer import render_ascii_skeleton
+from bone_mapper import posenet_to_godot_bones
 
+# --- Global State ---
 running = True
-paused = False
-calibrated_height = DEFAULT_HEIGHT
 
 def signal_handler(sig, frame):
+    """Gracefully handle Ctrl+C."""
     global running
+    print("\nSignal received, shutting down...")
     running = False
 
-def keyboard_listener():
-    global paused, calibrated_height, running
-    while running:
-        try:
-            key = input().strip().lower()
-            if key == 'q':
-                running = False
-            elif key == ' ':
-                paused = not paused
-                print("Paused" if paused else "Resumed")
-            elif key == 'c':
-                # Simple height calibration (placeholder)
-                calibrated_height = 1.75  # Example
-                print(f"Height calibrated to {calibrated_height}m")
-        except EOFError:
-            break
+
 
 def main():
-    global running, paused, calibrated_height
+    global running
 
-    parser = argparse.ArgumentParser(description="Kohai Godot LiveLink")
+    # --- Argument Parsing ---
+    parser = argparse.ArgumentParser(description="Mocap stream sender for Godot")
     parser.add_argument('--port', type=int, default=5555, help='UDP port for Godot')
     parser.add_argument('--host', type=str, default='127.0.0.1', help='UDP host for Godot')
-    parser.add_argument('--video', type=str, help='Video file path')
-    parser.add_argument('--demo', action='store_true', help='Use synthetic demo')
-    parser.add_argument('--calib', action='store_true', help='Auto-calibrate height')
-    parser.add_argument('--ascii', action='store_true', help='Render ASCII skeleton')
-    parser.add_argument('--quat', action='store_true', help='Export/send only position+quaternion for Godot')
-    parser.add_argument('--tpose', action='store_true', help='Envia la T-Pose Godot convertida para depuración')
+    parser.add_argument('--video', type=str, help='Path to a video file to process instead of webcam')
+    parser.add_argument('--demo', action='store_true', help='Use synthetic demo data instead of a live camera')
+    parser.add_argument('--ascii', action='store_true', help='Render an ASCII art skeleton in the terminal')
+    parser.add_argument('--tpose', action='store_true', help='Send the converted tpose_posenet.json for debugging')
     args = parser.parse_args()
 
+    # --- Initialization ---
     signal.signal(signal.SIGINT, signal_handler)
-
+    
     detector = PoseDetector()
     sender = UDPSender(host=args.host, port=args.port)
-
-    if args.calib:
-        calibrated_height = 1.80  # Placeholder
-
-    # Start keyboard listener
-    threading.Thread(target=keyboard_listener, daemon=True).start()
-
-
-    def send_pose_with_quat(pose, shape_hint=None):
-        from bone_mapper import posenet_to_godot_bones
-        import json
-        import numpy as np
-        # Cargar tpose_export.json una vez (puedes optimizar cacheando si es necesario)
-        with open('tpose_export.json','r') as f:
+    
+    try:
+        with open('tpose_export.json', 'r') as f:
             tpose_godot = json.load(f)
-        bones = posenet_to_godot_bones(pose, tpose_godot)
-        
-        # Normalizar quaternions antes de enviar
-        for bone_name, bone_data in bones.items():
-            if len(bone_data) == 7:
-                pos = bone_data[:3]
-                quat_raw = np.array(bone_data[3:])
-                norm = np.linalg.norm(quat_raw)
-                if norm > 1e-6:
-                    quat_norm = quat_raw / norm
-                    bones[bone_name] = list(pos) + list(quat_norm)
-                else: # Quat inválido, enviar identidad
-                    bones[bone_name] = list(pos) + [0, 0, 0, 1]
-
-        # Verification print as requested
-        print("ENVIANDO HUESOS:", sorted(bones.keys()))
-        
-        sender.send_pose({"bones": bones})
-        if args.ascii and shape_hint is not None:
-            ascii_art = render_ascii_skeleton(pose, shape_hint)
-            os.system('clear')
-            print(ascii_art)
-
-    if not args.quat:
-        print("WARN: The --quat flag is now implicitly enabled. The old mode is no longer supported.")
-
-    send_pose = send_pose_with_quat
-
-    # --- MODO TEST T-POSE ---
-    if args.tpose:
-        import json
-        from bone_mapper import posenet_to_godot_bones
-        import numpy as np
-        # Cargar tpose_posenet.json
-        with open('tpose_posenet.json','r') as f:
-            data = json.load(f)
-        
-        # The new bone_mapper expects un-normalized coordinates, similar to what MediaPipe
-        # provides before normalization. The tpose_posenet.json file contains pixel coordinates.
-        # We can use them directly.
-        if 'keypoints' in data:
-            landmarks = []
-            for kp in data['keypoints']:
-                # The bone mapper expects a list of dicts with 'x', 'y', 'z'
-                landmarks.append({
-                    'x': kp['position']['x'],
-                    'y': kp['position']['y'],
-                    'z': kp.get('z', 0) # Z might not be present, default to 0
-                })
-        else:
-            print('No se encontraron keypoints en tpose_posenet.json')
-            return
-            
-        # Cargar tpose_export.json para la referencia de huesos
-        with open('tpose_export.json','r') as f:
-            tpose_godot = json.load(f)
-            
-        print("--- MODO TEST T-POSE: Enviando tpose_posenet.json convertido a Godot (feed continuo) ---")
-        while running:
-            if paused:
-                time.sleep(0.1)
-                continue
-
-            bones = posenet_to_godot_bones(landmarks, tpose_godot)
-
-            # Normalizar quaternions antes de enviar
-            for bone_name, bone_data in bones.items():
-                if len(bone_data) == 7:
-                    pos = bone_data[:3]
-                    quat_raw = np.array(bone_data[3:])
-                    norm = np.linalg.norm(quat_raw)
-                    if norm > 1e-6:
-                        quat_norm = quat_raw / norm
-                        bones[bone_name] = list(pos) + list(quat_norm)
-                    else: # Quat inválido, enviar identidad
-                        bones[bone_name] = list(pos) + [0, 0, 0, 1]
-
-            sender.send_pose({"bones": bones})
-            if args.ascii:
-                # The ascii renderer expects normalized coordinates (0-1).
-                # The bone mapper now expects un-normalized coordinates.
-                # So, we create a normalized copy just for rendering.
-                xs = [lm['x'] for lm in landmarks]
-                ys = [lm['y'] for lm in landmarks]
-                max_x = max(xs) if xs else 1
-                max_y = max(ys) if ys else 1
-                
-                normalized_landmarks = []
-                for lm in landmarks:
-                    normalized_landmarks.append({
-                        'x': lm['x'] / max_x,
-                        'y': lm['y'] / max_y,
-                        'z': lm.get('z', 0), # z is not used by renderer but good to keep
-                        'visibility': lm.get('visibility', 1.0)
-                    })
-
-                shape_hint = (int(max_y), int(max_x), 3)
-                ascii_art = render_ascii_skeleton(normalized_landmarks, shape_hint)
-                os.system('clear')
-                print(ascii_art)
-            time.sleep(1/60)
-            
-        detector.close()
-        sender.close()
-        print("Shutdown complete (T-Pose test)")
+    except FileNotFoundError:
+        print("FATAL: 'tpose_export.json' not found. Please run the Godot project first to generate it.")
         return
 
+    # --- Shared Bone Mapping ---
+    # Maps the internal DEF- names from bone_mapper to the names Godot's script expects
+    sender_map = {
+        "_SKELETON_ROOT_POS": "_SKELETON_ROOT_POS",
+        "DEF-hips": "hips", "DEF-chest": "chest", "DEF-spine": "spine", "DEF-neck": "neck",
+        "DEF-head": "head", "DEF-shoulderL": "shoulder.L", "DEF-upper_armL": "elbow.L",
+        "DEF-forearmL": "wrist.L", "DEF-shoulderR": "shoulder.R", "DEF-upper_armR": "elbow.R",
+        "DEF-forearmR": "wrist.R", "DEF-thighL": "upperLeg.L", "DEF-shinL": "knee.L",
+        "DEF-footL": "ankle.L", "DEF-thighR": "upperLeg.R", "DEF-shinR": "knee.R", "DEF-footR": "ankle.R"
+    }
+
+    # --- T-Pose Debug Mode ---
+    if args.tpose:
+        print("--- T-POSE DEBUG MODE ---")
+        try:
+            with open('tpose_posenet.json', 'r') as f:
+                posenet_data = json.load(f)
+        except FileNotFoundError:
+            print("FATAL: 'tpose_posenet.json' not found for --tpose mode.")
+            return
+
+        landmarks = [{'x': kp['position']['x'], 'y': kp['position']['y'], 'z': kp.get('z', 0)} for kp in posenet_data.get('keypoints', [])]
+        if not landmarks:
+            print("Error: No keypoints found in tpose_posenet.json")
+            return
+
+        print("Continuously sending converted T-Pose...")
+        while running:
+            bones = posenet_to_godot_bones(landmarks, tpose_godot)
+
+            corrected_bones = bones
+            
+            final_packet = {}
+            for def_name, data in corrected_bones.items():
+                sender_name = sender_map.get(def_name)
+                if sender_name:
+                    quat_xyzw = data[3:]
+                    quat_wxyz = [quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]] # W,X,Y,Z
+                    final_packet[sender_name] = data[:3] + quat_wxyz
+            
+            if final_packet:
+                sender.send_pose({"bones": final_packet})
+
+            if args.ascii:
+                xs = [lm['x'] for lm in landmarks]; ys = [lm['y'] for lm in landmarks]
+                max_x, max_y = (max(xs) if xs else 1, max(ys) if ys else 1)
+                norm_landmarks = [{'x': lm['x']/max_x, 'y': lm['y']/max_y, 'z': lm['z']} for lm in landmarks]
+                shape_hint = (int(max_y), int(max_x), 3)
+                ascii_art = render_ascii_skeleton(norm_landmarks, shape_hint)
+                os.system('clear'); print(ascii_art)
+            time.sleep(1/30)
+        return
+
+    # --- Main Loop (Live/Demo) ---
+    print("Starting pose detection. Press Ctrl+C to stop.")
+    
+    source_iterator = None
     if args.demo:
-        print("Starting demo mode...")
-        for pose in demo_generator():
-            if not running:
-                break
-            if paused:
-                time.sleep(0.1)
-                continue
-            send_pose(pose, (480, 640, 3))
+        source_iterator = demo_generator()
     else:
         cap = cv2.VideoCapture(args.video if args.video else 0)
         if not cap.isOpened():
-            print("Error opening video source")
+            print(f"Error: Could not open video source '{args.video or 0}'")
             return
+        def video_generator(capture):
+            while running:
+                ret, frame = capture.read()
+                if not ret: break
+                yield frame
+            capture.release()
+        source_iterator = video_generator(cap)
 
-        print("Starting pose detection...")
-        while running:
-            if paused:
-                time.sleep(0.1)
-                continue
+    for frame in source_iterator:
+        if not running: break
 
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            frame = cv2.flip(frame, 1)  # Mirror for webcam
+        landmarks = None
+        # Demo mode yields landmarks directly, video yields frames
+        if isinstance(frame, np.ndarray):
+            if not args.video: frame = cv2.flip(frame, 1) # Mirror webcam
             landmarks = detector.process_frame(frame)
+        else: # Demo data
+            landmarks = frame 
 
-            if landmarks:
-                send_pose(landmarks, frame.shape)
+        if landmarks:
+            bones = posenet_to_godot_bones(landmarks, tpose_godot)
 
-            time.sleep(1/60)  # 60Hz
+            corrected_bones = bones
+            
+            final_packet = {}
+            for def_name, data in corrected_bones.items():
+                sender_name = sender_map.get(def_name)
+                if sender_name:
+                    quat_xyzw = data[3:]
+                    quat_wxyz = [quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]] # W,X,Y,Z
+                    final_packet[sender_name] = data[:3] + quat_wxyz
 
-        cap.release()
+            if final_packet:
+                print(f"Sending bones: {list(final_packet.keys())}")
+                sender.send_pose({"bones": final_packet})
 
+            if args.ascii:
+                shape = frame.shape if isinstance(frame, np.ndarray) else (480, 640, 3)
+                ascii_art = render_ascii_skeleton(landmarks, shape)
+                os.system('clear'); print(ascii_art)
+        
+        time.sleep(1/60)
+
+    # --- Shutdown ---
     detector.close()
     sender.close()
-    print("Shutdown complete")
+    print("Shutdown complete.")
 
 if __name__ == '__main__':
     main()
