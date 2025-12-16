@@ -33,29 +33,48 @@ var path_dir := Vector3.ZERO
 var dist_along := 0.0 # distancia recorrida en modo paramétrico
 
 func _ready():
-	start_pos = global_transform.origin
-	# Resolver nodo destino
-	if target_node_path and has_node(target_node_path):
-		target_node = get_node(target_node_path)
-	elif has_node("Target"):
-		target_node = $Target
-	# Posición de destino
-	if target_node:
-		target_pos = target_node.global_transform.origin
-	else:
-		target_pos = start_pos + Vector3(0, 0, 10)
-	_target = target_pos
-	path_length = (target_pos - start_pos).length()
-	path_dir = (target_pos - start_pos).normalized() if path_length > 0 else Vector3.ZERO
-	progress = 0.0
-	direction_sign = 1
-	dist_along = 0.0
-	last_position = global_transform.origin
-	if passenger_area:
-		if not passenger_area.is_connected("body_entered", self, "_on_PassengerArea_body_entered"):
-			passenger_area.connect("body_entered", self, "_on_PassengerArea_body_entered")
-		if not passenger_area.is_connected("body_exited", self, "_on_PassengerArea_body_exited"):
-			passenger_area.connect("body_exited", self, "_on_PassengerArea_body_exited")
+       start_pos = global_transform.origin
+       # Resolver nodo destino
+       if target_node_path and has_node(target_node_path):
+	       target_node = get_node(target_node_path)
+       elif has_node("Target"):
+	       target_node = $Target
+       # Posición de destino
+       if target_node:
+	       target_pos = target_node.global_transform.origin
+       else:
+	       target_pos = start_pos + Vector3(0, 0, 10)
+       _target = target_pos
+       path_length = (target_pos - start_pos).length()
+       path_dir = (target_pos - start_pos).normalized() if path_length > 0 else Vector3.ZERO
+       progress = 0.0
+       direction_sign = 1
+       dist_along = 0.0
+       last_position = global_transform.origin
+       if passenger_area:
+	       if not passenger_area.is_connected("body_entered", self, "_on_PassengerArea_body_entered"):
+		       passenger_area.connect("body_entered", self, "_on_PassengerArea_body_entered")
+	       if not passenger_area.is_connected("body_exited", self, "_on_PassengerArea_body_exited"):
+		       passenger_area.connect("body_exited", self, "_on_PassengerArea_body_exited")
+       # Añadir al grupo especial de replay para snapshot
+       add_to_group("replay_track")
+
+# --- Métodos para snapshot de replay determinista ---
+func get_replay_snapshot() -> Dictionary:
+       return {
+	       "dist_along": dist_along,
+	       "direction_sign": direction_sign,
+	       "progress": progress,
+	       "last_position": last_position,
+	       "global_transform": global_transform
+       }
+
+func set_replay_snapshot(state: Dictionary) -> void:
+       if state.has("dist_along"): dist_along = state["dist_along"]
+       if state.has("direction_sign"): direction_sign = state["direction_sign"]
+       if state.has("progress"): progress = state["progress"]
+       if state.has("last_position"): last_position = state["last_position"]
+       if state.has("global_transform"): global_transform = state["global_transform"]
 
 func _physics_process(delta):
 	if not active:

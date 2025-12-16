@@ -345,36 +345,19 @@ var _last_input_state := {}
 func _physics_process(delta):
 	var has_input := false
 	var movement_this_frame := Vector3.ZERO
-	var is_replaying = GameGlobals and GameGlobals.is_replaying
-	var replay_manager = get_node("/root/ReplayManager")
-
 	time_since_jump += delta
 	time_since_input += delta
 	time_since_start += delta
 
 	var on_floor = is_on_floor()
 
-	# Declare input variables
+	# Declarar variables de input
 	var input_vector := Vector2.ZERO
 	var mouse_motion = null
 	var is_sprinting = false
 	var jump_pressed = false
 
-	if is_replaying and replay_manager:
-		var replay_playback = replay_manager.get_playback_node()
-		if replay_playback and replay_playback.current_replay:
-			var frame_index = replay_playback.frame_index
-			if replay_playback.current_replay.frame_states.size() > frame_index:
-				var recorded_state = replay_playback.current_replay.frame_states[frame_index]
-				var pilot_state = recorded_state.get("@Pilot@10", null)
-				if pilot_state:
-					# The call to playback_process(pilot_state, delta) was here.
-					# It's disabled to favor a pure input-based replay with soft sync correction,
-					# as it represents a conflicting state-based approach.
-					pass
-					# Continue with movement logic but skip physics
-
-	# Process player input desde InputState (both normal and replay)
+	# Siempre usar InputState para obtener input y mouse delta, tanto en vivo como en replay
 	if InputState:
 		var move_x = InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0
 		var move_y = InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
@@ -606,7 +589,7 @@ func _physics_process(delta):
 	if yaw_node2: h_rot = yaw_node2.global_transform.basis.get_euler().y + cam_yaw_offset
 
 	# Detailed logging for replay diagnostics
-	if GameGlobals and GameGlobals.replay_debug_mode and is_replaying:
+	if GameGlobals and GameGlobals.replay_debug_mode and GameGlobals.is_replaying:
 		print("[PlayerController Playback] Pre-move: velocity=", movement_this_frame, " on_floor=", on_floor)
 	
 	# print("[PlayerController] Pre-move: velocity=%s, on_floor=%s" % [movement_this_frame, on_floor])
@@ -690,7 +673,8 @@ func _physics_process(delta):
 	_last_is_floating = should_float
 
 	# --- Conditional Input Consumption ---
-	if is_replaying and replay_manager.current_camera_mode == replay_manager.CameraMode.FOLLOW_REPLAY:
+	var replay_manager = get_node("/root/ReplayManager")
+	if GameGlobals.is_replaying and replay_manager.current_camera_mode == replay_manager.CameraMode.FOLLOW_REPLAY:
 		# This script just used the replayed yaw value. Clean it so it's not used elsewhere.
 		InputState.clean_mouse_delta_x()
 

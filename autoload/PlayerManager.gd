@@ -156,3 +156,18 @@ func _reset_camera_state():
 			yaw.rotation_degrees.y = _default_cam_h_deg
 		if pitch and _default_cam_v_deg != null:
 			pitch.rotation_degrees.x = _default_cam_v_deg
+
+# --- Utilidad para tests/replay ---
+func reset_hard() -> void:
+	"""
+	Resetea todo el estado persistente del jugador y cámara. Útil para tests y replays deterministas.
+	"""
+	player_health = 100
+	respawn_point = Transform()
+	player_reference = null
+	_initial_spawn_transform = Transform()
+	_default_cam_h_deg = null
+	_default_cam_v_deg = null
+	_default_camrot_h = null
+	_default_camrot_v = null
+	print("[PlayerManager] reset_hard: Estado reseteado")
