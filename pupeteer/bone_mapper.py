@@ -126,15 +126,15 @@ def posenet_to_godot_bones(landmarks, tpose_godot):
             start_lm = get_lm('left_shoulder' if 'L' in bone_name else 'right_shoulder')
             end_lm = get_lm('left_elbow' if 'L' in bone_name else 'right_elbow')
             if start_lm is not None and end_lm is not None:
-                # Convención clásica: X+ para L, X- para R
-                ref_vec = np.array([1, 0, 0]) if 'L' in bone_name else np.array([-1, 0, 0])
+                # Simetría correcta: X- para L, X+ para R
+                ref_vec = np.array([-1, 0, 0]) if 'L' in bone_name else np.array([1, 0, 0])
                 quat = limb_quat(start_lm, end_lm, ref_vec=ref_vec)
                 child_global_rot = R.from_quat(quat)
         elif "forearm" in bone_name:
             start_lm = get_lm('left_elbow' if 'L' in bone_name else 'right_elbow')
             end_lm = get_lm('left_wrist' if 'L' in bone_name else 'right_wrist')
             if start_lm is not None and end_lm is not None:
-                ref_vec = np.array([1, 0, 0]) if 'L' in bone_name else np.array([-1, 0, 0])
+                ref_vec = np.array([-1, 0, 0]) if 'L' in bone_name else np.array([1, 0, 0])
                 quat = limb_quat(start_lm, end_lm, ref_vec=ref_vec)
                 child_global_rot = R.from_quat(quat)
         elif "head" in bone_name or "neck" in bone_name or "spine" in bone_name:
