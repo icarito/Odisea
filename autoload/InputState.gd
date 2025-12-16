@@ -94,7 +94,6 @@ func _update_from_input():
 	actions["move_left"] = Input.is_action_pressed("move_left")
 	actions["move_right"] = Input.is_action_pressed("move_right")
 	actions["jump"] = Input.is_action_pressed("jump")
-	actions["run"] = Input.is_action_pressed("run")
 	actions["crouch"] = Input.is_action_pressed("crouch")
 	actions["interact"] = Input.is_action_pressed("interact")
 	actions["roll"] = Input.is_action_pressed("roll")
@@ -113,6 +112,8 @@ func _update_from_input():
 		Input.get_joy_axis(0, JOY_AXIS_0), # X-axis
 		-Input.get_joy_axis(0, JOY_AXIS_1)  # Y-axis invertido SOLO para joystick físico
 	)
+	
+	actions["run"] = Input.is_action_pressed("run") or joy_vec.length() > 0.8
 
 	# 3. Use the vector with the greatest magnitude (keyboard, physical joy, or virtual joy)
 	# El joystick virtual emite la Y invertida, así que lo invertimos aquí para unificar el sistema.
