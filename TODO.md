@@ -30,3 +30,17 @@ Objetivo: Completar un primer nivel continuo (sin cambios de escena) con platafo
 - KillZone (Area): layer 7, mask: 1 (player), 8 (cajas).
 - Cajas (RigidBody): layer 8, mask: 2 (entorno), 3 (plataformas), 8 (otras cajas).
 - Cámara helpers: layer 9, mask: 2 (entorno).
+
+# Futuras Iniciativas y Mejoras
+
+Esta sección agrupa funcionalidades que van más allá del MVP inicial del "Acto I".
+
+## Sistema de Replay
+
+La base del sistema de grabación y reproducción está implementada. Pasos futuros:
+
+| Prioridad | Tarea | Detalles/Notas |
+|-----------|-------|----------------|
+| Media | UI para control de repeticiones | Crear una interfaz en el menú o una consola para listar, reproducir y eliminar repeticiones. |
+| Media | Guardar/Cargar repeticiones | Implementar la serialización de los datos de repetición a archivos (`.replay`) para poder compartirlos y verlos más tarde. |
+| Baja | Controles de reproducción | Añadir controles como pausa, avance rápido o cambio de velocidad de reproducción. |

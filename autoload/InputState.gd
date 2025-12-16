@@ -85,6 +85,8 @@ func _physics_process(delta):
 	
 	_mouse_motion_this_frame = Vector2.ZERO
 
+var _virtual_joystick_vector := Vector2.ZERO
+
 func _update_from_input():
 	# Mapear acciones lógicas
 	actions["move_forward"] = Input.is_action_pressed("move_forward")
@@ -98,10 +100,41 @@ func _update_from_input():
 	actions["roll"] = Input.is_action_pressed("roll")
 	actions["attack"] = Input.is_action_pressed("attack")
 	actions["aim"] = Input.is_action_pressed("aim")
-	# Ejes analógicos (ejemplo WASD)
-	axes["move_x"] = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")
-	axes["move_y"] = Input.get_action_strength("move_forward") - Input.get_action_strength("move_back")
+
+	# --- AXES INPUT (KEYBOARD, PHYSICAL & VIRTUAL JOYSTICK) ---
+	# 1. Get keyboard vector
+	var keyboard_vec = Vector2(
+		Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
+		Input.get_action_strength("move_forward") - Input.get_action_strength("move_back")
+	)
+
+	# 2. Get physical joystick vector (device 0)
+	var joy_vec = Vector2(
+		Input.get_joy_axis(0, JOY_AXIS_0), # X-axis
+		-Input.get_joy_axis(0, JOY_AXIS_1)  # Y-axis invertido SOLO para joystick físico
+	)
+
+	# 3. Use the vector with the greatest magnitude (keyboard, physical joy, or virtual joy)
+	# El joystick virtual emite la Y invertida, así que lo invertimos aquí para unificar el sistema.
+	var virtual_vec = Vector2(_virtual_joystick_vector.x, -_virtual_joystick_vector.y)
+	var final_vec = virtual_vec
+	print("[InputState] keyboard_vec=", keyboard_vec, " joy_vec=", joy_vec, " _virtual_joystick_vector=", _virtual_joystick_vector, " virtual_vec=", virtual_vec)
+	if keyboard_vec.length_squared() > final_vec.length_squared():
+		final_vec = keyboard_vec
+	if joy_vec.length_squared() > final_vec.length_squared():
+		final_vec = joy_vec
+	print("[InputState] final_vec=", final_vec)
+
+	axes["move_x"] = final_vec.x
+	axes["move_y"] = final_vec.y
+
+	# 4. Reset virtual joystick vector after reading it for this frame
+	_virtual_joystick_vector = Vector2.ZERO
 	# Mouse delta is now handled in _input and _physics_process
+
+# Public API for virtual joystick to send its data
+func set_virtual_joystick_vector(vector: Vector2):
+	_virtual_joystick_vector = vector
 
 
 func _record_current_frame():

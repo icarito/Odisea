@@ -16,8 +16,10 @@ enum ReplayMode {
 	STOPPED
 }
 
+enum CameraMode { FOLLOW_REPLAY, FREE_LOOK }
+
 var mode: int = ReplayMode.NONE
-var is_camera_free_look_active: bool = false
+var current_camera_mode = CameraMode.FOLLOW_REPLAY
 var recorder: Node = null
 var playback: Node = null
 
@@ -56,6 +58,15 @@ func get_available_replays() -> Array:
 	return replays
 
 func _unhandled_input(event):
+	if mode == ReplayMode.PLAYBACK and event.is_action_pressed("ui_focus_next"): # Using 'ui_focus_next' which is TAB by default, can be changed to a dedicated action
+		if current_camera_mode == CameraMode.FOLLOW_REPLAY:
+			current_camera_mode = CameraMode.FREE_LOOK
+			print("Camera mode: FREE LOOK")
+		else:
+			current_camera_mode = CameraMode.FOLLOW_REPLAY
+			print("Camera mode: FOLLOW REPLAY")
+		get_tree().set_input_as_handled()
+		
 	if mode == ReplayMode.STOPPED and event.is_action_pressed("ui_cancel"):
 		eject_playback()
 		get_tree().set_input_as_handled()

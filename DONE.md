@@ -2,6 +2,18 @@
 
 Registro de tareas completadas y cambios integrados.
 
+## 2025-12-15
+
+### Nuevas funcionalidades (completado)
+- **Sistema de Repetición (Replay System)**: Implementado un sistema para grabar y reproducir sesiones de juego.
+  - Graba snapshots de estado del jugador a intervalos regulares.
+  - Reproduce el movimiento y las acciones del jugador, con lógica de corrección de deriva.
+  - Mejorada la gestión de la entrada del mouse (captura y delta) durante la grabación y reproducción.
+
+### Refactor y Housekeeping (completado)
+- **Refactor de PlayerController**: Eliminados métodos redundantes de control de cámara táctil.
+- **Limpieza de proyecto**: Añadido `__pycache__` al `.gitignore` y eliminados archivos compilados de Python.
+
 ## 2025-12-02
 
 ### Plan del día (completado)

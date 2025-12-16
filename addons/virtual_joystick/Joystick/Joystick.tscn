@@ -5,13 +5,13 @@
 [ext_resource path="res://addons/virtual_joystick/Joystick/joystick_handle.png" type="Texture" id=3]
 
 [node name="Joystick" type="Control"]
-rect_scale = Vector2( 0.5, 0.5 )
+rect_scale = Vector2( 0.6, 0.6 )
 mouse_filter = 2
 script = ExtResource( 1 )
-action_left = ""
-action_right = ""
-action_up = ""
-action_down = ""
+action_left = "move_left"
+action_right = "move_right"
+action_up = "move_back"
+action_down = "move_forward"
 dead_zone_size = 0.05
 clamp_zone_size = 0.5
 

@@ -38,6 +38,7 @@ material/0 = ExtResource( 3 )
 
 [node name="CPUParticles" type="CPUParticles" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
+visible = false
 amount = 50
 mesh = SubResource( 3 )
 emission_shape = 1

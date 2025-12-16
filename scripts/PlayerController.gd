@@ -123,8 +123,7 @@ var _last_cam_yaw := -999.0
 var _last_dir := Vector3.ZERO
 export(float, 0.0, 1.0, 0.01) var debug_yaw_threshold := 0.05 # rad (~3°)
 export(float, 0.0, 1.0, 0.01) var debug_dir_threshold := 0.05 # vector length change
-export var invert_joy_x := false
-export var invert_joy_y := false
+## Eliminadas variables de inversión de joystick físico
 var _last_anim_node := ""
 var _last_is_floating := false
 var has_seen_floor_once := false
@@ -132,7 +131,7 @@ var time_since_start := 0.0
 export var startup_floating_block_time := 0.6
 var _debug_input_last := 0.0
 
-var _touch_camera_connected := false
+
 
 var direction_fixed: Dictionary = FixedVec3.zero()
 var direction := Vector3.ZERO
@@ -211,24 +210,6 @@ func _ready():
 		animation_tree["parameters/conditions/IsFloating"] = false
 	# Inicialización simple: nada que suavizar del yaw del cuerpo
 	
-
-func _connect_touch_camera():
-	var current_scene = get_tree().current_scene
-	if not is_instance_valid(current_scene):
-		return # Scene is not ready, try again next frame.
-	var touch_controls = current_scene.find_node("TouchControls", true, false)
-	if touch_controls:
-		var camera_input = touch_controls.get_node_or_null("CameraInput")
-		if camera_input:
-			if not camera_input.is_connected("camera_vector_changed", self, "_on_CameraInput_camera_vector_changed"):
-				var err = camera_input.connect("camera_vector_changed", self, "_on_CameraInput_camera_vector_changed")
-				if err == OK:
-					_touch_camera_connected = true
-
-func _on_CameraInput_camera_vector_changed(vector):
-	var cam_rig = get_node_or_null("CameraRig")
-	if cam_rig and cam_rig.has_method("process_camera_rotation"):
-		cam_rig.process_camera_rotation(vector * touch_sensitivity)
 
 func _on_debug_mode_changed(enabled: bool):
 	debug_enabled = enabled
@@ -368,9 +349,6 @@ func _physics_process(delta):
 	var is_replaying = GameGlobals and GameGlobals.is_replaying
 	var replay_manager = get_node("/root/ReplayManager")
 
-	if not _touch_camera_connected:
-		_connect_touch_camera()
-
 	time_since_jump += delta
 	time_since_input += delta
 	time_since_start += delta
@@ -399,10 +377,9 @@ func _physics_process(delta):
 
 	# Process player input desde InputState (both normal and replay)
 	if InputState:
-		input_vector = Vector2(
-			-InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0,
-			InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
-		)
+		var move_x = InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0
+		var move_y = InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
+		input_vector = Vector2(-move_x, move_y)
 		mouse_motion = InputState.get_mouse_delta()
 		is_sprinting = InputState.is_action_pressed("run")
 		jump_pressed = InputState.is_action_pressed("jump")
@@ -714,6 +691,11 @@ func _physics_process(delta):
 	animation_tree["parameters/conditions/IsFloating"] = should_float
 	_last_is_floating = should_float
 
+	# --- Conditional Input Consumption ---
+	if is_replaying and replay_manager.current_camera_mode == replay_manager.CameraMode.FOLLOW_REPLAY:
+		# This script just used the replayed yaw value. Clean it so it's not used elsewhere.
+		InputState.clean_mouse_delta_x()
+
 
 # Respawn-safe reset of transient movement state
 func reset_state_for_respawn(new_transform: Transform) -> void:
@@ -927,8 +909,6 @@ func set_replay_state(state: Dictionary) -> void:
 	if jump_comp and deserialized_state.has("should_jump_buffered") and deserialized_state["should_jump_buffered"] != null:
 		jump_comp.should_jump_buffered = deserialized_state["should_jump_buffered"]
 
-	if is_replaying and not replay_manager.is_camera_free_look_active:
-		InputState.clean_mouse_delta_x()
 
 func playback_process(frame_data_state: Dictionary, _delta: float) -> void:
 	# During replay, state is now set directly by ReplayPlayback, so no physics simulation here

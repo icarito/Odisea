@@ -357,6 +357,12 @@ func _input(event):
 			_active_touches[event.index] = true
 			if not controls_visible:
 				_set_controls_visible(true)
+			
+			# --- BUGFIX: Release mouse capture when touch is detected ---
+			if MouseCapture:
+				MouseCapture.set_capture(false)
+			# -----------------------------------------------------------
+			
 			# Evitar que el mouse genere eventos mientras controles touch están activos
 			get_tree().set_input_as_handled()
 		else:

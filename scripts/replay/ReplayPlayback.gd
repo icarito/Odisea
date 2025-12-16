@@ -15,7 +15,7 @@ const INPUT_ACTIONS = [
 const DRIFT_THRESHOLD = 0.005 # Maximum allowed position difference before correction
 const MAX_CORRECTION_DISTANCE = 0.5 # Max distance to correct per frame, use snapping above this
 const RESYNC_INTERVAL = 20 # Frames between drift checks and corrections
-const DRIFT_CORRECTION_STRENGTH = 400.0 # Strength for smooth correction interpolation
+const DRIFT_CORRECTION_STRENGTH = 10.0 # Suavidad de la corrección. 10 es firme, 5 es suave.
 const MIN_DIVERGENCE_TO_CORRECT = 0.01 # Threshold to avoid insignificant corrections
 const FIXED_DELTA = 0.016667 # Fixed delta for 60 FPS simulation
 const IGNORE_THRESHOLD = 0.001 # Ignore micro-drift to eliminate floating
@@ -50,6 +50,22 @@ func _debug_log(message: String) -> void:
 	if GameGlobals and GameGlobals.replay_debug_mode:
 		print("[ReplayPlayback] " + message)
 
+func _apply_smooth_drift_correction(pilot: Spatial, target_transform: Transform, delta: float) -> void:
+	# Cálculo frame-rate-independiente.
+	var t = 1.0 - exp(-delta * DRIFT_CORRECTION_STRENGTH)
+	
+	# 1. Suavizar Posición (LERP)
+	var new_origin = pilot.global_transform.origin.linear_interpolate(
+		target_transform.origin, t
+	)
+	
+	# 2. Suavizar Rotación (SLERP)
+	var new_basis = pilot.global_transform.basis.slerp(target_transform.basis, t) 
+	
+	# 3. Aplicar
+	pilot.global_transform.origin = new_origin
+	pilot.global_transform.basis = new_basis
+
 func _physics_process(delta: float) -> void:
 	frame_count += 1
 	# Guard clause: Do nothing if there's no replay loaded or if it's paused.
@@ -68,17 +84,10 @@ func _physics_process(delta: float) -> void:
 		var recorded_state = current_replay.frame_states[frame_index]
 		if recorded_state.has(PILOT_STATE_KEY):
 			var pilot_state = recorded_state[PILOT_STATE_KEY]
-			#_sync_pilot_to_frame(pilot_state)
-	
-			# ENVIAR POSICIÓN OBJETIVO (La Guía)
 			var pilot = PlayerManager.get_player()
-			if pilot:
-				var pos_data = pilot_state.get("global_transform", {}).get("origin", null)
-				if pos_data:
-					# Enviamos al pilot dónde DEBERÍA estar
-					pilot.playback_target_pos = Vector3(pos_data.x, pos_data.y, pos_data.z)
-				else:
-					pilot.playback_target_pos = null # Sin datos, no corregir
+			if pilot and pilot_state.has("global_transform"):
+				var target_transform = ReplayUtils.dict_to_transform(pilot_state["global_transform"])
+				_apply_smooth_drift_correction(pilot, target_transform, delta)
 
 	
 	# Apply inputs (for camera and other non-physics systems)
@@ -418,65 +427,6 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 			
 			_debug_log("VELOCITY INJECTED: %s" % str(recorded_velocity))
 
-func check_for_drift(frame_data: Dictionary) -> void:
-	print("[DRIFT_DEBUG] check_for_drift called for frame ", frame_index)
-	if not player:
-		print("[DRIFT_DEBUG] No player")
-		return
-	if current_replay.frame_states.size() <= frame_index:
-		print("[DRIFT_DEBUG] frame_states size: ", current_replay.frame_states.size(), " frame_index: ", frame_index)
-		return
-	
-	var recorded_state = current_replay.frame_states[frame_index]
-	if not recorded_state.has(PILOT_STATE_KEY):
-		print("[DRIFT_DEBUG] recorded_state does not have PILOT_STATE_KEY: ", PILOT_STATE_KEY)
-		return
-	
-	var expected_transform_dict = recorded_state[PILOT_STATE_KEY]["global_transform"]
-	var expected_transform = ReplayUtils.dict_to_transform(expected_transform_dict)
-	if not expected_transform is Transform:
-		print("[DRIFT_DEBUG] dict_to_transform failed")
-		return
-	
-	var expected_origin = expected_transform.origin
-	var current_origin = player.global_transform.origin
-	var divergence = current_origin.distance_to(expected_origin)
-	var current_pos = current_origin
-	var target_pos = expected_origin
-	
-	# Detailed logging for debugging
-	print("[DRIFT_DEBUG] Frame %s | Divergence: %s | Current Pos: %s | Target Pos: %s" % [frame_index, divergence, current_pos, target_pos])
-	
-	if divergence <= IGNORE_THRESHOLD:
-		# Ignore micro-drift to eliminate floating
-		print("[DRIFT_DEBUG] Correction Applied: NONE")
-		return
-	
-	if divergence > SNAP_THRESHOLD:
-		# Instant snap for large divergences
-		player.global_transform = expected_transform
-		print("[DRIFT_DEBUG] Correction Applied: SNAP")
-	else:
-		# Ultra-fast LERP for medium divergences
-		var t = 1.0 - exp(-FIXED_DELTA * LERP_STRENGTH_ULTRA_FAST)
-		player.global_transform.origin = player.global_transform.origin.linear_interpolate(expected_transform.origin, t)
-		player.global_transform.basis = player.global_transform.basis.slerp(expected_transform.basis, t)
-		print("[DRIFT_DEBUG] Correction Applied: LERP_ULTRA_FAST")
-	
-	# Always correct velocity smoothly if position was corrected
-	var player_data = recorded_state[PILOT_STATE_KEY]
-	if player_data.has("velocity"):
-		var expected_velocity = ReplayUtils.dict_to_vector3(player_data["velocity"])
-		player.velocity = player.velocity.linear_interpolate(expected_velocity, LERP_STRENGTH_ULTRA_FAST)
-
-func _apply_smooth_correction(node: Spatial, expected_transform: Transform, lerp_factor: float) -> void:
-	var t: float
-	if lerp_factor == 1.0:
-		t = 1.0  # Snap
-	else:
-		t = 1.0 - exp(-FIXED_DELTA * lerp_factor)
-	node.global_transform.origin = node.global_transform.origin.linear_interpolate(expected_transform.origin, t)
-	node.global_transform.basis = node.global_transform.basis.slerp(expected_transform.basis, t)
 
 func _sync_pilot_to_frame(frame_data_state: Dictionary) -> void:
 	"""Force the player's position and rotation to match the recorded state exactly."""
