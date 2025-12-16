@@ -166,8 +166,14 @@ script = ExtResource( 2 )
 skeleton_path = NodePath("../Skeleton")
 print_packets = true
 
-[node name="Camera" type="Camera" parent="RemoteSkeletonUDP"]
+[node name="CameraFront" type="Camera" parent="RemoteSkeletonUDP"]
 transform = Transform( 0.999237, 0.01056, 0.0376044, -0.0110371, 0.999861, 0.0125024, -0.0374671, -0.0129079, 0.999215, 0.160276, 1.13202, 4.12097 )
+
+[node name="CameraBottom" type="Camera" parent="RemoteSkeletonUDP"]
+transform = Transform( 0.999237, 0.01056, 0.0376044, 0.0386138, -0.412022, -0.910355, 0.00588044, 0.911113, -0.412115, 0.160276, -1.92734, -1.07034 )
+
+[node name="CameraTop" type="Camera" parent="RemoteSkeletonUDP"]
+transform = Transform( 0.999237, 0.01056, 0.0376044, -0.0312308, -0.362184, 0.931583, 0.0234573, -0.932047, -0.361578, 0.160276, 3.83259, -1.07034 )
 
 [node name="Skeleton" type="Skeleton" parent="."]
 bones/0/name = "root"

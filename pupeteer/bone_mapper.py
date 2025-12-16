@@ -47,6 +47,7 @@ def posenet_to_godot_bones(landmarks, tpose_godot):
     # --- Constants for Corrections ---
     SCALE_FACTOR = 0.001
     ROOT_OFFSET_Y = -1.0  # Calibrate this value to adjust character height
+    ROOT_OFFSET_Z = 0.5   # Nuevo offset para empujar el personaje hacia atrás (Z+)
     TILT_CORRECTION = R.from_euler('x', 20, degrees=True) # Corrects forward tilt
     # Flips the arm rotation on its twist axis
 
@@ -73,15 +74,16 @@ def posenet_to_godot_bones(landmarks, tpose_godot):
     
     # --- Root Position and Scaling (with Y Offset) ---
     final_root_pos = hips_center * SCALE_FACTOR
-    final_root_pos[1] += ROOT_OFFSET_Y # Apply height offset
-    final_bones["_SKELETON_ROOT_POS"] = final_root_pos.tolist() + [0, 0, 0, 1] 
+    final_root_pos[1] += ROOT_OFFSET_Y # Offset vertical (Y)
+    final_root_pos[2] += ROOT_OFFSET_Z # Offset horizontal (Z)
+    final_bones["_SKELETON_ROOT_POS"] = final_root_pos.tolist() + [0, 0, 0, 1]
 
     # --- Hips (Root of animated skeleton) ---
     hips_to_shoulders_vec = shoulders_center - hips_center
     # PRUEBA: ref_vec apunta hacia arriba (Y+) pero con Y no invertido
     hips_global_rot_capture = R.from_quat(limb_quat(np.array([0,1,0]), hips_to_shoulders_vec, ref_vec=np.array([0, 1, 0])))
 
-    # Offset global: rotación de 90° en X y 180° en Y (mirar hacia adelante)
+    # Offset global: rotación de 90° en X + flip 180° en Y
     offset_rot = R.from_euler('xy', [90, 180], degrees=True)
 
     hip_tpose_quat_xyzw = tpose_godot["DEF-hips"][3:]
@@ -113,35 +115,28 @@ def posenet_to_godot_bones(landmarks, tpose_godot):
             start_lm = get_lm('left_hip' if 'L' in bone_name else 'right_hip')
             end_lm = get_lm('left_knee' if 'L' in bone_name else 'right_knee')
             if start_lm is not None and end_lm is not None:
-                # PRUEBA: invertir Z en ref_vec para piernas
-                child_global_rot = R.from_quat(limb_quat(start_lm, end_lm, ref_vec=np.array([0, 1, -0])))
+                # Usar Y+ como referencia para flexión de pierna
+                child_global_rot = R.from_quat(limb_quat(start_lm, end_lm, ref_vec=np.array([0, 1, 0])))
         elif "shin" in bone_name:
             start_lm = get_lm('left_knee' if 'L' in bone_name else 'right_knee')
             end_lm = get_lm('left_ankle' if 'L' in bone_name else 'right_ankle')
             if start_lm is not None and end_lm is not None:
-                # PRUEBA: invertir Z en ref_vec para piernas
-                child_global_rot = R.from_quat(limb_quat(start_lm, end_lm, ref_vec=np.array([0, 1, -0])))
+                child_global_rot = R.from_quat(limb_quat(start_lm, end_lm, ref_vec=np.array([0, 1, 0])))
         elif "upper_arm" in bone_name:
             start_lm = get_lm('left_shoulder' if 'L' in bone_name else 'right_shoulder')
             end_lm = get_lm('left_elbow' if 'L' in bone_name else 'right_elbow')
             if start_lm is not None and end_lm is not None:
+                # Convención clásica: X+ para L, X- para R
                 ref_vec = np.array([1, 0, 0]) if 'L' in bone_name else np.array([-1, 0, 0])
                 quat = limb_quat(start_lm, end_lm, ref_vec=ref_vec)
-                rot = R.from_quat(quat)
-                if 'R' in bone_name:
-                    # Multiplicar por rotación de 180° en Y para reflejar simetría
-                    rot = R.from_euler('y', 180, degrees=True) * rot
-                child_global_rot = rot
+                child_global_rot = R.from_quat(quat)
         elif "forearm" in bone_name:
             start_lm = get_lm('left_elbow' if 'L' in bone_name else 'right_elbow')
             end_lm = get_lm('left_wrist' if 'L' in bone_name else 'right_wrist')
             if start_lm is not None and end_lm is not None:
                 ref_vec = np.array([1, 0, 0]) if 'L' in bone_name else np.array([-1, 0, 0])
                 quat = limb_quat(start_lm, end_lm, ref_vec=ref_vec)
-                rot = R.from_quat(quat)
-                if 'R' in bone_name:
-                    rot = R.from_euler('y', 180, degrees=True) * rot
-                child_global_rot = rot
+                child_global_rot = R.from_quat(quat)
         elif "head" in bone_name or "neck" in bone_name or "spine" in bone_name:
             # For spine, neck, and head, just inherit parent's rotation for simplicity for now
             child_global_rot = parent_global_rot
