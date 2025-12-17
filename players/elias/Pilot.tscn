@@ -213,7 +213,7 @@ analog_turn_multiplier = 0.5
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
 shape = SubResource( 48 )
 
-[node name="CameraRig" type="Spatial" parent="."]
+[node name="CameraRig" type="Spatial" parent="." groups=["replay_track"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.16982, 0 )
 script = ExtResource( 2 )
 player_path = NodePath("..")

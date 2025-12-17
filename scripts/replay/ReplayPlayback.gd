@@ -12,16 +12,16 @@ const REPLAY_GROUP = "replay_track"
 const INPUT_ACTIONS = [
 	"left", "right", "forward", "backward", "jump", "sprint", "roll", "attack", "aim"
 ]
-const DRIFT_THRESHOLD = 0.005 # Maximum allowed position difference before correction
+const DRIFT_THRESHOLD = 0.05 # Maximum allowed position difference before correction
 const MAX_CORRECTION_DISTANCE = 0.5 # Max distance to correct per frame, use snapping above this
-const RESYNC_INTERVAL = 1 # Chequeo en cada frame (debug)
-const ROTATION_DRIFT_THRESHOLD = 0.01 # ~0.5 grados
-const DRIFT_CORRECTION_STRENGTH = 10.0 # Suavidad de la corrección. 10 es firme, 5 es suave.
+const RESYNC_INTERVAL = 10 # Chequeo en cada frame (debug)
+const ROTATION_DRIFT_THRESHOLD = 0.05 # ~0.5 grados
+const DRIFT_CORRECTION_STRENGTH = 100.0 # Suavidad de la corrección. 10 es firme, 5 es suave.
 const MIN_DIVERGENCE_TO_CORRECT = 0.01 # Threshold to avoid insignificant corrections
 const FIXED_DELTA = 1.0 / 60.0 # Fixed delta para 60 FPS (máxima precisión)
 const IGNORE_THRESHOLD = 0.001 # Ignore micro-drift to eliminate floating
 const FAST_LERP_THRESHOLD = 0.05 # Use ultra-fast LERP if between this and SNAP
-const SNAP_THRESHOLD = 0.005 # Instant correction threshold (5mm)
+const SNAP_THRESHOLD = 0.02 # Instant correction threshold (10cm, forzar corrección agresiva)
 const LERP_STRENGTH_ULTRA_FAST = 200.0 # Ultra-fast LERP strength
 const PILOT_STATE_KEY = "Pilot" # Key correcta según el JSON grabado
 
@@ -75,8 +75,13 @@ func _physics_process(delta: float) -> void:
 	if not current_replay or playback_paused:
 		return
 
-	# If we have reached the end of the replay, stop playback.
-	if frame_index >= total_logical_frames:
+	# Si llegamos al final del replay, detener playback usando el tamaño real de frame_states
+	var max_frames = 0
+	if current_replay and current_replay.frame_states:
+		max_frames = current_replay.frame_states.size()
+	else:
+		max_frames = total_logical_frames
+	if frame_index >= max_frames:
 		stop_playback()
 		return
 
@@ -84,6 +89,28 @@ func _physics_process(delta: float) -> void:
 
 	# --- DRIFT CHECK & LOG DETALLADO ---
 	_process_drift_check(delta)
+
+	# Solo forzar posición y rotación del mesh en los snapshots (cada RESYNC_INTERVAL)
+	if current_replay and current_replay.frame_states.size() > frame_index and current_replay.frame_states[frame_index].has(PILOT_STATE_KEY):
+		var player_state = current_replay.frame_states[frame_index][PILOT_STATE_KEY]
+		if frame_index % RESYNC_INTERVAL == 0:
+			if player_state.has("rotation") and player:
+				var rot_euler = ReplayUtils.dict_to_vector3(player_state["rotation"])
+				player.rotation.y = rot_euler.y
+			if player_state.has("player_position") and player:
+				player.global_transform.origin = ReplayUtils.dict_to_vector3(player_state["player_position"])
+
+		# Fallback: Forzar rotación absoluta de la cámara si los valores grabados existen (esto sí, cada frame)
+		var cam_rig_group = get_tree().get_nodes_in_group("camera_rig_group")
+		if cam_rig_group.size() > 0:
+			var camera_rig = cam_rig_group.front()
+			if camera_rig:
+				if player_state.has("camera_yaw"):
+					if camera_rig.has("yaw"):
+						camera_rig.yaw.rotation.y = player_state["camera_yaw"]
+				if player_state.has("camera_pitch"):
+					if camera_rig.has("pitch"):
+						camera_rig.pitch.rotation.x = player_state["camera_pitch"]
 
 	# Aplicar inputs y avanzar frame SOLO aquí (no en _process_drift_check)
 	_apply_inputs_from_frame(frame_data)
@@ -108,7 +135,7 @@ func _process_drift_check(delta: float) -> void:
 	for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
 		var node_path = get_tree().current_scene.get_path_to(node)
 		# 1. Chequeo del Pilot
-		if node_path == PILOT_STATE_KEY and recorded_states.has(PILOT_STATE_KEY):
+		if node.name == PILOT_STATE_KEY and recorded_states.has(PILOT_STATE_KEY):
 			var current_node = node
 			var recorded_state = recorded_states[PILOT_STATE_KEY]
 			# 1a. Obtener la verdad del mundo (Posición y Rotación)
@@ -124,22 +151,34 @@ func _process_drift_check(delta: float) -> void:
 				" | **Distancia:** ", distance,
 				" | **Grabado POS:** ", recorded_pos,
 				" | **Actual POS:** ", current_pos,
+				" | Drift Vec: ", recorded_pos - current_pos,
+				" | Drift Magnitude: ", (recorded_pos - current_pos).length(),
 				" | Angular: ", angular_drift
 			)
-			# 1b. Corrección Posicional (SNAP: La posición grabada es la verdad)
-			if distance > DRIFT_THRESHOLD:
-				current_node.global_transform.origin = recorded_pos
-				print("[DRIFT CORRECTION] SNAP Posición Forzada. Dist: ", distance)
-			# 1c. Corrección Angular (SNAP: La rotación es la causa más común de deriva)
-			if angular_drift > ROTATION_DRIFT_THRESHOLD:
-				current_node.rotation.y = recorded_rot.y
+			# 1b. Corrección Posicional y Angular (SNAP: La posición y rotación grabadas son la verdad)
+			if distance > DRIFT_THRESHOLD or angular_drift > ROTATION_DRIFT_THRESHOLD:
+				var t = current_node.global_transform
+				t.origin = recorded_pos
+				t.basis = Basis(recorded_rot)
+				current_node.global_transform = t
+				# Forzar velocidades grabadas si existen
+				if recorded_state.has("velocity"):
+					current_node.velocity = ReplayUtils.dict_to_vector3(recorded_state["velocity"])
+				if recorded_state.has("linear_velocity"):
+					current_node.linear_velocity = ReplayUtils.dict_to_vector3(recorded_state["linear_velocity"])
+				if recorded_state.has("horizontal_velocity"):
+					current_node.horizontal_velocity = ReplayUtils.dict_to_vector3(recorded_state["horizontal_velocity"])
+				print("[DRIFT CORRECTION] HARD SNAP Posición, Rotación y Velocidades Forzadas. Dist: ", distance, " Ang: ", angular_drift)
 				# Corregir el rig de la cámara para que los inputs futuros sean correctos
 				var cam_rig_group = get_tree().get_nodes_in_group("camera_rig_group")
 				if cam_rig_group.size() > 0:
 					var cam_rig = cam_rig_group.front()
 					if cam_rig and cam_rig.has_method("set_replay_state"):
-						cam_rig.set_replay_state({"yaw": recorded_rot.y})
-				print("[DRIFT CORRECTION] SNAP Rotación Forzada. Ang: ", angular_drift)
+						var cam_state = {"yaw": recorded_rot.y}
+						# --- NUEVO: Restaurar pitch si está disponible ---
+						if recorded_state.has("camera_pitch"):
+							cam_state["pitch"] = recorded_state["camera_pitch"]
+						cam_rig.set_replay_state(cam_state)
 	# Aquí puedes añadir la lógica de chequeo para otros nodos en REPLAY_GROUP
 	# ...aquí puedes añadir la lógica para otros nodos del grupo REPLAY_GROUP si lo necesitas...
 
@@ -219,33 +258,11 @@ func start_loaded_playback() -> void:
 	# Disable camera input
 	if get_tree() and get_tree().current_scene:
 		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-		if camera_rig:
-			if camera_rig.has_method("set_process_input"):
-				camera_rig.set_process_input(false)
-
-	# Disable player input to prevent user interference during playback
-	var player = PlayerManager.get_player()
-	if player:
-		player.set_process_input(false)
-		player.set_physics_process(true)  # Enable for deterministic simulation
-		if get_tree() and get_tree().current_scene:
-			player_path = get_tree().current_scene.get_path_to(player)
-			# Find the correct player_path key from initial_states to match frame_states
-			for path in current_replay.initial_states:
-				var node_name = path.trim_prefix("@")
-				var node = get_tree().current_scene.find_node(node_name, true, false)
-				if node == player:
-					player_path = path
-					break
-		if player.has_node("PlayerInput"):
-			var player_input = player.get_node("PlayerInput")
-			player_input.is_replay_mode = true
-
-	# Asegurar física en todos los nodos del grupo replay_track
-	if get_tree():
-		for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
-			node.set_physics_process(true)
-			print("[ReplayPlayback] Node in replay_track physics enabled? ", node, node.is_physics_processing())
+		if player:
+			player.set_physics_process(true)  # Enable player physics for deterministic simulation
+			print("[ReplayPlayback] Player physics enabled in resume_playback")
+			set_physics_process(true)
+			print("[ReplayPlayback] Node in replay_track physics enabled? ", is_physics_processing())
 
 	playback_status = "Playing"
 	playback_start_time = Time.get_ticks_usec()  # Reset start time when playback actually begins
@@ -258,7 +275,8 @@ func stop_playback() -> void:
 	print("Stopping playback.")
 	playback_paused = true
 	playback_status = "Stopped"
-	
+	frame_index = 0
+
 	if is_in_group("playback_active"):
 		remove_from_group("playback_active")
 
@@ -334,32 +352,47 @@ func resume_playback() -> void:
 		player.set_physics_process(true)  # Enable player physics for deterministic simulation
 		print("[ReplayPlayback] Player physics enabled in resume_playback")
 		
-		# Configurar estado inicial una sola vez
-		if current_replay.initial_states.has(PILOT_STATE_KEY):
+		# Sincronizar estado al resumir para asegurar consistencia
+		var frame_state_to_apply = null
+		if current_replay.frame_states and current_replay.frame_states.size() > frame_index and current_replay.frame_states[frame_index].has(PILOT_STATE_KEY):
+			frame_state_to_apply = current_replay.frame_states[frame_index][PILOT_STATE_KEY]
+
+		if frame_state_to_apply:
+			# 1. Posición y rotación exactas
+			if frame_state_to_apply.has("player_position"):
+				player.global_transform.origin = ReplayUtils.dict_to_vector3(frame_state_to_apply["player_position"])
+			
+			if frame_state_to_apply.has("rotation"):
+				var rot_euler = ReplayUtils.dict_to_vector3(frame_state_to_apply["rotation"])
+				player.global_transform.basis = Basis(rot_euler)
+			
+			# 2. Velocidad
+			if frame_state_to_apply.has("velocity"):
+				player.velocity = ReplayUtils.dict_to_vector3(frame_state_to_apply["velocity"])
+			if frame_state_to_apply.has("linear_velocity"):
+				player.linear_velocity = ReplayUtils.dict_to_vector3(frame_state_to_apply["linear_velocity"])
+			if frame_state_to_apply.has("horizontal_velocity"):
+				player.horizontal_velocity = ReplayUtils.dict_to_vector3(frame_state_to_apply["horizontal_velocity"])
+			
+			# 3. Estados internos críticos
+			if frame_state_to_apply.has("on_floor"):
+				player.set("on_floor", frame_state_to_apply["on_floor"])
+			if frame_state_to_apply.has("was_on_floor"):
+				player.set("was_on_floor", frame_state_to_apply["was_on_floor"])
+			if frame_state_to_apply.has("coyote_timer"):
+				player.set("coyote_timer", frame_state_to_apply["coyote_timer"])
+			if frame_state_to_apply.has("jump_buffer_timer"):
+				player.set("jump_buffer_timer", frame_state_to_apply["jump_buffer_timer"])
+
+			print("[ReplayPlayback] STATE SYNC ON RESUME (from frame_states[%d]) | Pos: %s | Rot: %s" % [frame_index, player.global_transform.origin, player.rotation])
+		
+		elif current_replay.initial_states.has(PILOT_STATE_KEY): # Fallback
 			var initial_data = current_replay.initial_states[PILOT_STATE_KEY]
-			
-			# 1. RESTAURAR TRANSFORMACIÓN COMPLETA (CRÍTICO) - USE FIXED-POINT FOR DETERMINISM
-			if initial_data.has("player_position_fixed"):
-				var pos_fixed = initial_data["player_position_fixed"]
-				player.global_transform.origin = ReplayUtils.fixed_dict_to_vector3(pos_fixed)
-			elif initial_data.has("global_transform"):
-				var initial_transform = ReplayUtils.from_json_safe(initial_data["global_transform"])
-				player.global_transform = initial_transform
-			
-			# 2. RESTAURAR BASIS FROM FIXED-POINT
-			if initial_data.has("basis_fixed"):
-				var basis_fixed = initial_data["basis_fixed"]
-				player.global_transform.basis = ReplayUtils.fixed_dict_to_basis(basis_fixed)
-			
-			# 3. RESTAURAR VELOCIDAD FROM FIXED-POINT
-			if initial_data.has("velocity_fixed"):
-				var vel_fixed = initial_data["velocity_fixed"]
-				player.velocity = ReplayUtils.fixed_dict_to_vector3(vel_fixed)
-			elif initial_data.has("velocity"):
+			if initial_data.has("global_transform"):
+				player.global_transform = ReplayUtils.from_json_safe(initial_data["global_transform"])
+			if initial_data.has("velocity"):
 				player.velocity = ReplayUtils.from_json_safe(initial_data["velocity"])
-			
-			# --- AGREGAR ESTA LÍNEA DE DEBUG ---
-			print("[ReplayPlayback] INITIAL POS APPLIED: %s" % player.global_transform.origin)
+			print("[ReplayPlayback] STATE SYNC ON RESUME (from initial_states): %s" % player.global_transform.origin)
 	
 	emit_signal("playback_resumed")
 
@@ -395,24 +428,45 @@ func step_back_frame() -> void:
 
 func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 	# --- INYECCIÓN DE ESTADO DE STRAFING ---
-	if frame_data.has("strafing_active"):
-		InputState.is_strafing_mode_active = frame_data.get("strafing_active", false)
+	var strafe_val = frame_data.get("strafing_active", false)
+	InputState.is_strafing_mode_active = strafe_val
 	if frame_data.has("strafing_timer"):
 		InputState.strafing_timer = frame_data.get("strafing_timer", 0.0)
 
-	# --- CORRECCIÓN FALTANTE: INYECCIÓN DE MOUSE DELTA ---
+	# --- INYECCIÓN DE MOUSE ---
 	if frame_data.has("mouse_delta"):
 		var md = frame_data["mouse_delta"]
-		# Es vital convertir el Diccionario {x, y} a Vector2
-		InputState.mouse_delta = Vector2(md.get("x", 0), md.get("y", 0))
-		print("[REPLAY][ReplayPlayback] Inyectando mouse_delta.x=", md.get("x", 0), " mouse_delta.y=", md.get("y", 0))
-		# Llamar a inject_replay_input en el Player si existe
-		var player = PlayerManager.get_player()
-		if player and player.has_method("inject_replay_input"):
-			player.inject_replay_input(InputState.mouse_delta)
+		var mouse_delta_vec = Vector2(md.get("x", 0), md.get("y", 0))
+
+		InputState.mouse_delta = mouse_delta_vec
+		print("[REPLAY][ReplayPlayback] Inyectando mouse_delta.x=", mouse_delta_vec.x, " mouse_delta.y=", mouse_delta_vec.y)
+
+		# Enviar el input del mouse directamente al camera rig
+		if mouse_delta_vec.length_squared() > 0:
+			var cam_rig_group = get_tree().get_nodes_in_group("camera_rig_group")
+			print("[REPLAY DEBUG] Found ", cam_rig_group.size(), " nodes in camera_rig_group")
+
+			if cam_rig_group.size() > 0:
+				var camera_rig = cam_rig_group.front()
+				print("[REPLAY DEBUG] Camera rig node: ", camera_rig.name, " path: ", camera_rig.get_path())
+				
+				# Directly set the strafe state on the camera rig
+				camera_rig.set("is_strafing_mode_active", strafe_val)
+				var actual_strafe_state = camera_rig.get("is_strafing_mode_active")
+				print("[REPLAY DEBUG] Setting camera_rig.is_strafing_mode_active to ", strafe_val, ". Actual value is now: ", actual_strafe_state)
+
+				if camera_rig.has_method("process_camera_rotation"):
+					print("[REPLAY DEBUG] Camera rig HAS process_camera_rotation. Calling it now.")
+					camera_rig.process_camera_rotation(mouse_delta_vec)
+				else:
+					print("[REPLAY DEBUG] ERROR: Camera rig does NOT have process_camera_rotation method.")
+			else:
+				print("[REPLAY DEBUG] ERROR: camera_rig_group is empty.")
 	else:
 		InputState.mouse_delta = Vector2.ZERO
+		print("[REPLAY][ReplayPlayback] Inyectando mouse_delta.x=0 mouse_delta.y=0 (no grabado)")
 
+	# --- INYECCIÓN DE BOTONES ---
 	_debug_log("Applying inputs: " + str(frame_data["inputs"]))
 	_debug_log("Sprint pressed: " + str(frame_data["inputs"].get("sprint", false)))
 	
@@ -432,23 +486,6 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 				else:
 					Input.action_release(action)
 
-	if frame_data["inputs"].has("mouse_motion"):
-		var mouse_motion = frame_data["inputs"]["mouse_motion"]
-		if mouse_motion is Vector2 and mouse_motion.length_squared() > 0:
-			if get_tree() and get_tree().current_scene:
-				var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-				if camera_rig and camera_rig.has_method("process_camera_rotation"):
-					camera_rig.process_camera_rotation(mouse_motion)
-	elif frame_data.has("mouse_delta"):
-		var md_dict = frame_data["mouse_delta"]
-		if md_dict is Dictionary:
-			var mouse_motion = Vector2(md_dict.get("x", 0.0), md_dict.get("y", 0.0))
-			if mouse_motion.length_squared() > 0:
-				if get_tree() and get_tree().current_scene:
-					var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-					if camera_rig and camera_rig.has_method("process_camera_rotation"):
-						camera_rig.process_camera_rotation(mouse_motion)
-
 	# --- APLICAR ESTADOS DE FÍSICA NO INPUTABLES ---
 	if player and player.external_velocity and frame_data.has("player_external_velocity"):
 		player.external_velocity.velocity = ReplayUtils.dict_to_vector3(frame_data["player_external_velocity"])
@@ -456,28 +493,28 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 	if player and frame_data.has("player_gravity_override"):
 		player.set("gravity_override", ReplayUtils.dict_to_vector3(frame_data["player_gravity_override"]))
 
-	# --- INYECCIÓN CRÍTICA DE LA VELOCIDAD DE FÍSICA ---
-	# Esto sincroniza el estado de la física antes de que se ejecute _physics_process,
-	# eliminando la acumulación de errores de punto flotante.
+	# --- INYECCIÓN CRÍTICA DE LA VELOCIDAD DE FÍSICA SOLO SI HUBO CORRECCIÓN DE DERIVA ---
+	# Solo inyectar la velocidad si el drift posicional o angular supera el umbral
 	if player and current_replay.frame_states.size() > frame_index:
 		var recorded_state = current_replay.frame_states[frame_index]
 		var player_data = recorded_state.get(PILOT_STATE_KEY)
-		
-		if player_data and player_data.has("pre_move_velocity"):
+		var apply_velocity_correction := false
+		if player_data and player_data.has("player_position") and player_data.has("rotation"):
+			var current_pos = player.global_transform.origin
+			var recorded_pos = ReplayUtils.dict_to_vector3(player_data["player_position"])
+			var current_rot = player.rotation
+			var recorded_rot = ReplayUtils.dict_to_vector3(player_data["rotation"])
+			var distance = current_pos.distance_to(recorded_pos)
+			var angular_drift = abs(fmod(current_rot.y - recorded_rot.y, PI * 2.0))
+			if distance > DRIFT_THRESHOLD or angular_drift > ROTATION_DRIFT_THRESHOLD:
+				apply_velocity_correction = true
+		if apply_velocity_correction and player_data and player_data.has("pre_move_velocity"):
 			var recorded_velocity = ReplayUtils.from_json_safe(player_data["pre_move_velocity"])
-			
-			# Inyectar la velocidad y sus componentes descompuestos en el controlador.
-			# Esto es crucial porque _physics_process usa 'horizontal_velocity' y 'vertical_velocity'
-			# para calcular el movimiento final.
 			player.velocity = recorded_velocity
 			player.pre_move_velocity_for_replay = recorded_velocity # Para consistencia en logs
 			player.horizontal_velocity = recorded_velocity - Vector3(0, recorded_velocity.y, 0)
-			# player.vertical_velocity.y = recorded_velocity.y  # Commented out due to access error
-			
-			# Adicionalmente, actualizar el componente de movimiento si existe.
 			if player.movement_comp:
 				player.movement_comp.horizontal_velocity = player.horizontal_velocity
-			
 			_debug_log("VELOCITY INJECTED: %s" % str(recorded_velocity))
 
 

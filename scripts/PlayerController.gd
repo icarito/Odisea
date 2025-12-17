@@ -928,47 +928,43 @@ func set_replay_state(state: Dictionary) -> void:
 
 
 func playback_process(frame_data_state: Dictionary, _delta: float) -> void:
-	# During replay, state is now set directly by ReplayPlayback, so no physics simulation here
-	# Just update derived variables if needed
-	if frame_data_state.has("velocity"):
-		velocity = ReplayUtils.dict_to_vector3(frame_data_state["velocity"])
-		horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
-		if movement_comp:
-			movement_comp.horizontal_velocity = horizontal_velocity
-		vertical_velocity_fixed = FixedVec3.from_vec3(Vector3(0, velocity.y, 0))
-		pre_move_velocity_for_replay = velocity
+		   # En modo PLAYBACK, procesar los inputs grabados igual que en LIVE/RECORD
+		   # 1. Inyectar input_vector, mouse_delta y strafe grabados en InputState
+		   if frame_data_state.has("input_vector"):
+			   InputState.input_vector = ReplayUtils.dict_to_vector2(frame_data_state["input_vector"])
+		   if frame_data_state.has("mouse_delta"):
+			   InputState.mouse_delta = ReplayUtils.dict_to_vector2(frame_data_state["mouse_delta"])
+		   if frame_data_state.has("strafing_active"):
+			   InputState.is_strafing_mode_active = frame_data_state["strafing_active"]
+		   else:
+			   InputState.is_strafing_mode_active = false
+		   # 2. Procesar el movimiento normalmente (igual que LIVE/RECORD)
+		   # Esto ocurre en _physics_process, así que aquí no se debe modificar velocity ni horizontal_velocity
 
-	# 1. Usar el valor grabado de strafe_mode_active si está presente en el frame
-	if frame_data_state.has("strafing_active"):
-		strafe_mode_active = frame_data_state["strafing_active"]
-	else:
-		strafe_mode_active = false
-	if movement_comp:
-		movement_comp.strafe_mode = strafe_mode_active
+		   # 3. Solo usar la inyección de estado (velocidad, posición) para corrección de deriva (drift correction), no en el ciclo normal
 
-	# 2. SNAP de rotación al mesh si el cuerpo fue corregido (esto debe ser llamado desde ReplayPlayback.gd, pero aquí lo forzamos si hay diferencia grande)
-	if is_instance_valid(player_mesh):
-		var mesh_snap_threshold = 0.01
-		var mesh_rot_diff = abs(fmod(player_mesh.rotation.y, PI * 2.0))
-		if mesh_rot_diff > mesh_snap_threshold:
-			player_mesh.rotation.y = 0.0 # El mesh debe alinearse al cuerpo tras SNAP
+		   # 4. SNAP de rotación al mesh si el cuerpo fue corregido (esto debe ser llamado desde ReplayPlayback.gd, pero aquí lo forzamos si hay diferencia grande)
+		   if is_instance_valid(player_mesh):
+			   var mesh_snap_threshold = 0.01
+			   var mesh_rot_diff = abs(fmod(player_mesh.rotation.y, PI * 2.0))
+			   if mesh_rot_diff > mesh_snap_threshold:
+				   player_mesh.rotation.y = 0.0 # El mesh debe alinearse al cuerpo tras SNAP
 
-	# 3. Replica la lógica de rotación visual del mesh del _physics_process
-	if is_instance_valid(player_mesh) and frame_data_state.has("velocity"):
-		var movement_dir = horizontal_velocity.normalized()
-		var horizontal_speed = horizontal_velocity.length()
-		# 1. Rotar el mesh SÓLO si hay movimiento
-		if horizontal_speed > 0.05:
-			# Calcular el ángulo al que apunta la velocidad horizontal (X/Z)
-			var target_angle_global = atan2(movement_dir.x, movement_dir.z)
-			# 2. Rotación RELATIVA: El mesh rota respecto al KinematicBody (self.rotation.y)
-			var relative_rotation = target_angle_global - rotation.y
-			# 3. Aplicar la rotación del mesh. Usamos un LERP para suavizar (como en modo live)
-			var turn_rate = turn_speed * 10.0 * _delta
-			player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, relative_rotation, turn_rate)
-		else:
-			# Cuando está parado, el mesh se alinea al frente del KinematicBody (rotación relativa 0)
-			player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, 0.0, _delta * 10.0)
+			   # --- ANTI-PATINAJE: Rotación visual del mesh igual que en _physics_process ---
+			   var horizontal_speed = horizontal_velocity.length()
+			   print("[REPLAY][ANTI-PATINAJE] Frame:", Engine.get_frames_drawn(),
+				   " | horizontal_velocity:", horizontal_velocity,
+				   " | horizontal_speed:", horizontal_speed,
+				   " | player_mesh.rotation.y:", player_mesh.rotation.y,
+				   " | cuerpo.rotation.y:", rotation.y)
+			   if horizontal_speed > 0.05:
+				   var movement_dir = horizontal_velocity.normalized()
+				   var target_angle_global = atan2(movement_dir.x, movement_dir.z)
+				   var relative_rotation = target_angle_global - rotation.y
+				   var turn_rate = turn_speed * 10.0 * _delta
+				   player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, relative_rotation, turn_rate)
+			   else:
+				   player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, 0.0, _delta * 10.0)
 
 ## --- INYECCIÓN DE INPUT DE REPLAY ---
 # Este método permite que el sistema de replay fuerce la rotación y anule el strafe.

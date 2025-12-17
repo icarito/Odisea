@@ -60,24 +60,28 @@ func set_player_id(id: int) -> void:
 		joypad_device = 1 # Asumir que P2 usa joypad 1
 
 func _ready():
-	if player_path: player = get_node(player_path)
-	if yaw_path: yaw = get_node(yaw_path)
-	if pitch_path: pitch = get_node(pitch_path)
-	if springarm_path: springarm = get_node(springarm_path)
-	if camera_path: cam = get_node(camera_path)
-	if springarm:
-		springarm.spring_length = base_length
-		springarm.collision_mask = collision_mask
+   if player_path: player = get_node(player_path)
+   if yaw_path: yaw = get_node(yaw_path)
+   if pitch_path: pitch = get_node(pitch_path)
+   if springarm_path: springarm = get_node(springarm_path)
+   if camera_path: cam = get_node(camera_path)
+   if springarm:
+	   springarm.spring_length = base_length
+	   springarm.collision_mask = collision_mask
 
-	# Conectarse a la señal de MouseCapture para el cambio de captura del mouse
-	if MouseCapture:
-		MouseCapture.connect("capture_changed", self, "_on_capture_changed")
+   # Añadir al grupo para replay
+   if not is_in_group("camera_rig_group"):
+	   add_to_group("camera_rig_group")
 
-	# Conectarse a ReplayManager para cambios de modo
-	if ReplayManager:
-		ReplayManager.connect("mode_changed", self, "_on_replay_mode_changed")
-	
-	_update_mouse_look_active()
+   # Conectarse a la señal de MouseCapture para el cambio de captura del mouse
+   if MouseCapture:
+	   MouseCapture.connect("capture_changed", self, "_on_capture_changed")
+
+   # Conectarse a ReplayManager para cambios de modo
+   if ReplayManager:
+	   ReplayManager.connect("mode_changed", self, "_on_replay_mode_changed")
+   
+   _update_mouse_look_active()
 
 func _on_capture_changed(is_captured: bool):
 	_update_mouse_look_active()
@@ -142,15 +146,23 @@ func _physics_process(delta):
 			input_state.is_strafing_mode_active = true
 			# El timer es manejado en PlayerController
 
-	# Smooth yaw/pitch
-	if yaw:
-		var y = yaw.rotation.y
-		y += (target_yaw - y) * min(1.0, yaw_smooth * delta)
-		yaw.rotation.y = y
-	if pitch:
-		var p = pitch.rotation.x
-		p += (target_pitch - p) * min(1.0, pitch_smooth * delta)
-		pitch.rotation.x = p
+	# Smooth yaw/pitch solo si NO estamos en modo replay
+	var is_playback = ReplayManager and ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK
+	if not is_playback:
+		if yaw:
+			var y = yaw.rotation.y
+			y += (target_yaw - y) * min(1.0, yaw_smooth * delta)
+			yaw.rotation.y = y
+		if pitch:
+			var p = pitch.rotation.x
+			p += (target_pitch - p) * min(1.0, pitch_smooth * delta)
+			pitch.rotation.x = p
+	else:
+		# En modo replay, forzar valores exactos
+		if yaw:
+			yaw.rotation.y = target_yaw
+		if pitch:
+			pitch.rotation.x = target_pitch
 	
 	# Dynamic zoom based on player horizontal speed
 	if player and springarm:
@@ -164,7 +176,7 @@ func _physics_process(delta):
 		springarm.spring_length = lerp(springarm.spring_length, target_len, min(1.0, zoom_speed * delta))
 
 	# --- Conditional Input Consumption ---
-	var is_playback = ReplayManager and ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK
+	is_playback = ReplayManager and ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK
 	if is_playback and ReplayManager.current_camera_mode == ReplayManager.CameraMode.FOLLOW_REPLAY:
 		# This script just used the replayed pitch value. Clean it so it's not used elsewhere.
 		input_state.clean_mouse_delta_y()
@@ -236,6 +248,26 @@ func set_replay_state(state: Dictionary) -> void:
 func apply_replay_rotation(mouse_delta: Vector2) -> void:
 	if mouse_delta == null:
 		return
+	var pitch_change = mouse_delta.y * pitch_sensitivity / 1000.0
+	target_pitch += pitch_change
+	# Limitar pitch
+	var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
+	var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
+	target_pitch = clamp(target_pitch, -lim_down, lim_up)
+	if pitch:
+		pitch.rotation.x = target_pitch
+
+## Permite que el sistema de replay inyecte rotación de cámara (yaw/pitch) desde mouse_delta grabado
+func process_camera_rotation(mouse_delta: Vector2) -> void:
+	# Simula el efecto del mouse grabado sobre la cámara durante el replay
+	if mouse_delta == null:
+		return
+	# Yaw (horizontal)
+	var yaw_change = -mouse_delta.x * yaw_sensitivity / 1000.0
+	target_yaw += yaw_change
+	if yaw:
+		yaw.rotation.y = target_yaw
+	# Pitch (vertical)
 	var pitch_change = mouse_delta.y * pitch_sensitivity / 1000.0
 	target_pitch += pitch_change
 	# Limitar pitch
