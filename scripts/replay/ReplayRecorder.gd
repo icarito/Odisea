@@ -71,6 +71,12 @@ func _physics_process(delta: float) -> void:
 		"strafing_timer": InputState.strafing_timer,
 		"timestamp": Time.get_ticks_usec() - start_time
 	}
+	# Guardar posición, rotación y velocidad en punto fijo (además de snapshot)
+	if player:
+		frame_data["player_position_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.global_transform.origin)
+		frame_data["rotation_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.rotation)
+		frame_data["velocity_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.velocity)
+	
 	# LOG: Delta y estado crítico para debug determinista
 	if player:
 		print("[REPLAY][Record][Frame] idx=", len(current_replay.frames), " delta=", FIXED_DELTA, " pos=", player.global_transform.origin, " rot=", player.rotation, " vel=", player.velocity)
@@ -80,6 +86,10 @@ func _physics_process(delta: float) -> void:
 	if player:
 		# Estado completo del PlayerController, incluyendo jump_comp y flags críticos
 		snapshot["player"] = player.get_replay_state()
+		# Guardar también posición, rotación y velocidad en punto fijo en el snapshot
+		snapshot["player_position_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.global_transform.origin)
+		snapshot["rotation_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.rotation)
+		snapshot["velocity_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.velocity)
 		if "strafe_mode_active" in player:
 			snapshot["strafe_mode_active"] = player.strafe_mode_active
 		if "strafe_timer" in player:

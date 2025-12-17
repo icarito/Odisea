@@ -675,31 +675,33 @@ func _physics_process(delta):
 	animation_tree["parameters/conditions/IsNotRunning"] = !is_running
 
 	# Floating state logic (uses vertical_velocity_fixed, which is now post-slide)
+	var replay_manager = null
+	if has_node("/root/ReplayManager"):
+		replay_manager = get_node("/root/ReplayManager")
 	var vertical_velocity_y_float = FixedPoint.from_fixed(vertical_velocity_fixed.y)
-	var v_accel = 0.0
-	if delta > 0.0: v_accel = (vertical_velocity_y_float - _prev_vy) / delta
-	_prev_vy = vertical_velocity_y_float
-	_vaccel_smoothed = lerp(_vaccel_smoothed, v_accel, floating_accel_smooth)
-	var vertical_accel = abs(_vaccel_smoothed)
-	var vspeed_raw = abs(vertical_velocity_y_float)
-	_vspeed_smoothed = lerp(_vspeed_smoothed, vspeed_raw, floating_vspeed_smooth)
-	var vertical_speed = _vspeed_smoothed
-
-	var falling_without_jump = (!on_floor) and (time_since_jump > floating_without_jump_delay)
-	var no_input_ok = (not floating_without_jump_requires_no_input) or (time_since_input > floating_no_input_delay)
-	var accel_ok = (_last_is_floating and (vertical_accel <= floating_exit_accel_threshold)) or ((not _last_is_floating) and (vertical_accel <= floating_enter_accel_threshold))
-	var vspeed_ok = (_last_is_floating and (vertical_speed < floating_exit_vspeed_threshold)) or ((not _last_is_floating) and (vertical_speed < floating_enter_vspeed_threshold))
-	var startup_block_clear = has_seen_floor_once or (time_since_start > startup_floating_block_time)
-	var should_float = startup_block_clear and (!on_floor) and (accel_ok or (falling_without_jump and vspeed_ok)) and (not is_attacking) and (not is_rolling) and (
-		((time_since_jump > floating_after_jump_delay) and (time_since_input > floating_no_input_delay))
-		or (time_in_jump_state > floating_from_jump_delay)
-		or (falling_without_jump and no_input_ok)
-	)
-	animation_tree["parameters/conditions/IsFloating"] = should_float
+	var should_float = false
+	if !on_floor and abs(vertical_velocity_y_float) < floating_enter_vspeed_threshold:
+		should_float = true
+	var state = {
+		# Solo punto fijo para replay determinista
+		"player_position_fixed": ReplayUtils.vector3_to_fixed_dict(global_transform.origin),
+		"platform_velocity_fixed": platform_velocity_fixed,
+		"airborne_inherited_fixed": airborne_inherited_fixed,
+		"just_jumped": just_jumped,
+		"time_since_jump": time_since_jump,
+		"time_since_input": time_since_input,
+		"was_on_floor": was_on_floor,
+		"snap_enabled": snap_enabled,
+		"rotation_fixed": ReplayUtils.vector3_to_fixed_dict(rotation),
+		"basis_fixed": ReplayUtils.basis_to_fixed_dict(global_transform.basis),
+		"velocity_fixed": velocity_fixed,
+		"pre_move_velocity_fixed": pre_move_velocity_for_replay_fixed,
+		"direction_fixed": direction_fixed
+	}
 	_last_is_floating = should_float
-
-	# --- Conditional Input Consumption ---
-	var replay_manager = get_node("/root/ReplayManager")
+	state["coyote_timer"] = jump_comp.coyote_timer
+	state["jump_buffer_timer"] = jump_comp.jump_buffer_timer
+	state["should_jump_buffered"] = jump_comp.should_jump_buffered
 	if GameGlobals.is_replaying and replay_manager.current_camera_mode == replay_manager.CameraMode.FOLLOW_REPLAY:
 		# This script just used the replayed yaw value. Clean it so it's not used elsewhere.
 		InputState.clean_mouse_delta_x()
