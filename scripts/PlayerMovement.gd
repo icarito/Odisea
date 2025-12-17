@@ -24,6 +24,7 @@ var _CURVE_RESOURCES = [
 ]
 
 var horizontal_velocity := Vector3.ZERO
+var horizontal_velocity_fixed := {"x": 0, "y": 0, "z": 0} # Punto fijo sincronizado
 var direction := Vector3.ZERO
 var movement_speed := 0.0
 var is_walking := false
@@ -48,9 +49,8 @@ func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is
 		is_running = false
 		direction = Vector3.ZERO
 		if is_on_floor:
-			horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, friction * delta)
-			if horizontal_velocity.length_squared() < 0.0001:
-				horizontal_velocity = Vector3.ZERO
+			# La fricción ahora se maneja en PlayerController.gd
+			pass
 		return
 
 	# --- LÓGICA DE VELOCIDAD DISCRETA ---
@@ -95,6 +95,10 @@ func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is
 
 	var target_velocity = direction * movement_speed
 	horizontal_velocity = horizontal_velocity.linear_interpolate(target_velocity, acceleration * delta)
+
+	# Sincronizar punto fijo
+	var FixedVec3 = preload("res://scripts/utils/FVec3.gd")
+	horizontal_velocity_fixed = FixedVec3.from_vec3(horizontal_velocity)
 
 	# (El cálculo de dirección ya fue realizado antes en esta función)
 

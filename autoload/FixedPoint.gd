@@ -21,13 +21,16 @@ static func fixed_add(a: int, b: int) -> int:
 static func fixed_sub(a: int, b: int) -> int:
 	return a - b
 
+const ROUNDING_TERM = FIXED_ONE >> 1 # Para redondeo determinístico en multiplicación
+
+# Multiplicación determinística 100% entera
 static func fixed_mul(a: int, b: int) -> int:
-	return int(round(float(a) * float(b) / FIXED_ONE))
+	return (a * b + ROUNDING_TERM) >> FIXED_SHIFT
 
 static func fixed_div(a: int, b: int) -> int:
-	if b == 0:
-		return 0
-	return int(round(float(a) / float(b) * FIXED_ONE))
+       if b == 0:
+	       return 0
+       return (a << FIXED_SHIFT) / b
 
 static func fixed_clamp(x: int, minv: int, maxv: int) -> int:
 	var _min = min(x, maxv)

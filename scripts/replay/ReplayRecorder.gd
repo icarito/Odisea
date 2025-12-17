@@ -75,11 +75,11 @@ func _physics_process(delta: float) -> void:
 	if player:
 		frame_data["player_position_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.global_transform.origin)
 		frame_data["rotation_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.rotation)
-		frame_data["velocity_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.velocity)
+		frame_data["velocity_fixed"] = player.velocity_fixed
 	
 	# LOG: Delta y estado crítico para debug determinista
 	if player:
-		print("[REPLAY][Record][Frame] idx=", len(current_replay.frames), " delta=", FIXED_DELTA, " pos=", player.global_transform.origin, " rot=", player.rotation, " vel=", player.velocity)
+		print("[REPLAY][Record][Frame] idx=", len(current_replay.frames), " delta=", FIXED_DELTA, " pos=", player.global_transform.origin, " rot=", player.rotation, " vel=", player.velocity_fixed)
 
 	# Snapshot cada frame para posición determinista y estado completo
 	var snapshot = {}
@@ -89,14 +89,14 @@ func _physics_process(delta: float) -> void:
 		# Guardar también posición, rotación y velocidad en punto fijo en el snapshot
 		snapshot["player_position_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.global_transform.origin)
 		snapshot["rotation_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.rotation)
-		snapshot["velocity_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.velocity)
+		snapshot["velocity_fixed"] = player.velocity_fixed
 		if "strafe_mode_active" in player:
 			snapshot["strafe_mode_active"] = player.strafe_mode_active
 		if "strafe_timer" in player:
 			snapshot["strafe_timer"] = player.strafe_timer
 		# DEBUG: Print variables clave del snapshot
 		var dbg = snapshot["player"]
-		print("[REPLAY][Snapshot][Debug] idx=", len(current_replay.frames), " pos=", player.global_transform.origin, " vel=", player.velocity, " coyote=", dbg["coyote_timer"] if "coyote_timer" in dbg else "-", " jump_buf=", dbg["jump_buffer_timer"] if "jump_buffer_timer" in dbg else "-", " should_jump_buf=", dbg["should_jump_buffered"] if "should_jump_buffered" in dbg else "-", " strafe=", player.strafe_mode_active if "strafe_mode_active" in player else "-", " strafe_timer=", player.strafe_timer if "strafe_timer" in player else "-")
+		print("[REPLAY][Snapshot][Debug] idx=", len(current_replay.frames), " pos=", player.global_transform.origin, " vel=", player.velocity_fixed, " coyote=", dbg["coyote_timer"] if "coyote_timer" in dbg else "-", " jump_buf=", dbg["jump_buffer_timer"] if "jump_buffer_timer" in dbg else "-", " should_jump_buf=", dbg["should_jump_buffered"] if "should_jump_buffered" in dbg else "-", " strafe=", player.strafe_mode_active if "strafe_mode_active" in player else "-", " strafe_timer=", player.strafe_timer if "strafe_timer" in player else "-")
 	frame_data["snapshot"] = snapshot
 
 	# Estado de cámara

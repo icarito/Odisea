@@ -53,6 +53,7 @@ func set_mode(new_mode):
 		replay_frame = 0
 
 func _physics_process(delta):
+	print("[InputState] axes: move_x=", axes["move_x"], ", move_y=", axes["move_y"])
 	if mode == Mode.LIVE or mode == Mode.RECORD:
 		mouse_delta = _mouse_motion_this_frame
 		recorded_mouse_delta = mouse_delta

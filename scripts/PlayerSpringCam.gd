@@ -1,5 +1,8 @@
 extends Spatial
 
+# Importar FixedVec3 para conversión de punto fijo
+const FixedVec3 = preload("res://scripts/utils/FVec3.gd")
+
 # Godot 3.6 SpringArm-based third person camera controller
 # Node layout expected:
 # CameraRig (Spatial with this script)
@@ -169,8 +172,12 @@ func _physics_process(delta):
 		var hv := Vector3.ZERO
 		if player.has_method("get_horizontal_velocity"):
 			hv = player.get_horizontal_velocity()
+		elif player and ("horizontal_velocity_fixed" in player):
+			var hv_fixed = player.get("horizontal_velocity_fixed")
+			hv = FixedVec3.to_vec3(hv_fixed) if hv_fixed != null else Vector3.ZERO
 		else:
-			hv = player.get("horizontal_velocity") if player else Vector3.ZERO
+			var hv_val = player.get("horizontal_velocity") if player else null
+			hv = hv_val if hv_val != null else Vector3.ZERO
 		var speed := hv.length()
 		var target_len = lerp(base_length, max_length, clamp(speed / 8.0, 0.0, 1.0))
 		springarm.spring_length = lerp(springarm.spring_length, target_len, min(1.0, zoom_speed * delta))
