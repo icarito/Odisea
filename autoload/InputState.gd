@@ -152,14 +152,34 @@ func reset_virtual_joystick():
 
 
 func _record_current_frame():
+	var pilot = get_tree().current_scene.find_node("Pilot", true, false)
+	var cam_rig = pilot.get_node_or_null("CameraRig") if pilot else null
+	var pilot_pos = pilot.global_transform.origin if pilot else null
+	var pilot_rot = pilot.rotation if pilot else null
+	var cam_pos = cam_rig.global_transform.origin if cam_rig else null
+	var cam_rot = cam_rig.rotation if cam_rig else null
 	var frame = {
 		"inputs": actions.duplicate(),
 		"axes": axes.duplicate(),
 		"mouse_delta": mouse_delta,
 		"strafing_active": is_strafing_mode_active,
-		"strafing_timer": strafing_timer
+		"strafing_timer": strafing_timer,
+		"pilot_pos": pilot_pos,
+		"pilot_rot": pilot_rot,
+		"cam_pos": cam_pos,
+		"cam_rot": cam_rot
 	}
 	recorded_frames.append(frame)
+	if recorded_frames.size() % 10 == 0:
+		print("[InputState][RECORD] Frame=", recorded_frames.size(),
+			" actions=", actions,
+			" axes=", axes,
+			" mouse_delta=", mouse_delta,
+			" strafe=", is_strafing_mode_active,
+			" pilot_pos=", pilot_pos,
+			" pilot_rot=", pilot_rot,
+			" cam_pos=", cam_pos,
+			" cam_rot=", cam_rot)
 
 func _apply_replay_frame():
 	if replay_frame >= recorded_frames.size():
@@ -175,6 +195,7 @@ func _apply_replay_frame():
 	recorded_mouse_delta = mouse_delta
 	is_strafing_mode_active = frame.get("strafing_active", false)
 	strafing_timer = frame.get("strafing_timer", 0.0)
+	print("[InputState][PLAYBACK] Frame=", replay_frame, " actions=", actions, " axes=", axes, " mouse_delta=", mouse_delta, " strafe=", is_strafing_mode_active)
 	replay_frame += 1
 
 # API pública para gameplay/cámara

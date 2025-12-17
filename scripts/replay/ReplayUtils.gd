@@ -1,3 +1,6 @@
+# Helper function to serialize a Vector2 to a dictionary for JSON optimization.
+static func vector2_to_dict(vector: Vector2) -> Dictionary:
+	return {"x": vector.x, "y": vector.y}
 extends Node
 # /scripts/replay/ReplayUtils.gd
 

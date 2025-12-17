@@ -52,8 +52,86 @@ func _unhandled_input(event: InputEvent) -> void:
 		print("DEBUG UNHANDLED CAPTURE: Mouse Motion acumulado: ", mouse_motion_accumulated)
 
 func _physics_process(delta: float) -> void:
-	if not recording_paused:
-		_record_frame(delta)
+	if not is_recording():
+		return
+
+	# Preparar frame_data como en _record_frame
+	if not current_replay:
+		return
+	if GameGlobals and GameGlobals.is_replaying:
+		return  # No grabar durante reproducción
+
+	var frame_data = {
+		"delta": FIXED_DELTA,
+		"inputs": InputState.actions.duplicate(),
+		"axes": InputState.axes.duplicate(),
+		# mouse_delta se sobrescribe abajo
+		"mouse_delta": {},
+		"strafing_active": InputState.is_strafing_mode_active,
+		"strafing_timer": InputState.strafing_timer,
+		"timestamp": Time.get_ticks_usec() - start_time
+	}
+	# LOG: Delta y estado crítico para debug determinista
+	if player:
+		print("[REPLAY][Record][Frame] idx=", len(current_replay.frames), " delta=", FIXED_DELTA, " pos=", player.global_transform.origin, " rot=", player.rotation, " vel=", player.velocity)
+
+	# Snapshot cada frame para posición determinista y estado completo
+	var snapshot = {}
+	if player:
+		# Estado completo del PlayerController, incluyendo jump_comp y flags críticos
+		snapshot["player"] = player.get_replay_state()
+		if "strafe_mode_active" in player:
+			snapshot["strafe_mode_active"] = player.strafe_mode_active
+		if "strafe_timer" in player:
+			snapshot["strafe_timer"] = player.strafe_timer
+		# DEBUG: Print variables clave del snapshot
+		var dbg = snapshot["player"]
+		print("[REPLAY][Snapshot][Debug] idx=", len(current_replay.frames), " pos=", player.global_transform.origin, " vel=", player.velocity, " coyote=", dbg["coyote_timer"] if "coyote_timer" in dbg else "-", " jump_buf=", dbg["jump_buffer_timer"] if "jump_buffer_timer" in dbg else "-", " should_jump_buf=", dbg["should_jump_buffered"] if "should_jump_buffered" in dbg else "-", " strafe=", player.strafe_mode_active if "strafe_mode_active" in player else "-", " strafe_timer=", player.strafe_timer if "strafe_timer" in player else "-")
+	frame_data["snapshot"] = snapshot
+
+	# Estado de cámara
+	var camera = camera_rig
+	if camera:
+		var camera_yaw = camera.yaw.rotation.y
+		var camera_pitch = camera.pitch.rotation.x
+		var spring_length = camera.springarm.spring_length
+		frame_data["camera"] = {"yaw": camera_yaw, "pitch": camera_pitch, "spring_length": spring_length}
+
+	# Velocidad externa del jugador
+	if player and player.external_velocity:
+		frame_data["player_external_velocity"] = ReplayUtils.vector3_to_dict(player.external_velocity.velocity)
+
+	# Gravedad override
+	if player:
+		var grav = player.get("gravity_override")
+		if grav == null:
+			grav = Vector3(0, -9.8, 0)
+		frame_data["player_gravity_override"] = ReplayUtils.vector3_to_dict(grav)
+
+	# 1. Capturar el mouse acumulado
+	frame_data["mouse_delta"] = ReplayUtils.vector2_to_dict(mouse_motion_accumulated)
+	# 2. Resetear el acumulador
+	mouse_motion_accumulated = Vector2.ZERO
+
+	# 3. Guardar el frame
+	current_replay.frames.append(frame_data)
+	last_frame_data = frame_data
+
+	# Snapshots de debug
+	if len(current_replay.frames) % SNAPSHOT_INTERVAL == 0:
+		var debug_snapshot = {}
+		for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
+			if node.has_method("get_replay_state"):
+				debug_snapshot[node.get_path()] = node.get_replay_state()
+		current_replay.snapshots[str(len(current_replay.frames))] = debug_snapshot
+
+	# Estados para drift
+	var states = {}
+	if player:
+		states[get_tree().current_scene.get_path_to(player)] = player.get_replay_state()
+	if camera_rig and camera_rig.has_method("get_replay_state"):
+		states[get_tree().current_scene.get_path_to(camera_rig)] = camera_rig.get_replay_state()
+	current_replay.frame_states.append(states)
 
 func start_recording(): # This function now acts like a coroutine
 	# Defer the start of recording by one frame to ensure all Autoloads are ready.
@@ -76,11 +154,13 @@ func start_recording(): # This function now acts like a coroutine
 	if player and get_tree() and get_tree().current_scene:
 		initial[get_tree().current_scene.get_path_to(player)] = player.get_replay_state()
 	
-	# Add CameraRig state
+	# Add CameraRig state (guardar rotación inicial exacta)
 	if get_tree() and get_tree().current_scene:
 		camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 		if camera_rig and camera_rig.has_method("get_replay_state"):
-			initial[get_tree().current_scene.get_path_to(camera_rig)] = camera_rig.get_replay_state()
+			# Forzar snapshot de yaw/pitch actuales
+			var cam_state = camera_rig.get_replay_state()
+			initial[get_tree().current_scene.get_path_to(camera_rig)] = cam_state
 	
 	replay.initial_states = ReplayUtils.to_json_safe(initial)
 	# Initialize last_frame_data with an empty inputs dict. This ensures the first

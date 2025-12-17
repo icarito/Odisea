@@ -1,6 +1,7 @@
 extends KinematicBody
 
 var playback_target_pos = null # Nueva variable para el objetivo
+var _replay_rotation_initialized := false
 const CORRECTION_STRENGTH = 2.0 # Fuerza del imán (ajustable: 1.0 es suave, 5.0 es fuerte)
 
 const FixedVec3 = preload("res://scripts/utils/FVec3.gd")
@@ -35,6 +36,7 @@ export(float, 0.0, 1.0, 0.01) var strafe_mode_influence := 1.0 # 1.0 = full stra
 
 var strafe_cooldown := 0.0 # Prevents sudden turn after strafe ends
 
+
 # Components
 onready var external_velocity: ExternalVelocity = $ExternalVelocity if has_node("ExternalVelocity") else null
 onready var jump_comp: PlayerJump = $PlayerJump if has_node("PlayerJump") else null
@@ -42,6 +44,9 @@ onready var movement_comp: PlayerMovement = $PlayerMovement if has_node("PlayerM
 # Usar InputState global como fuente de input
 onready var InputState = get_node("/root/InputState")
 onready var player_input = $PlayerInput if has_node("PlayerInput") else null
+
+# --- REPLAY/STRAFE ---
+var strafe_mode_active := false
 
 # NEW: Multiplayer support
 var player_id := 1
@@ -317,14 +322,14 @@ func print_debug_tag(tag: String, msg: String) -> void:
 		print(msg)
 
 func _debug_input_snapshot() -> Dictionary:
-	   if not InputState:
-		   return { "move_x": 0.0, "move_y": 0.0, "run": false, "jump": false }
-	   return {
-		   "move_x": InputState.get_axis("move_x"),
-		   "move_y": InputState.get_axis("move_y"),
-		   "run": InputState.is_action_pressed("run"),
-		   "jump": InputState.is_action_pressed("jump")
-	   }
+	if not InputState:
+		return { "move_x": 0.0, "move_y": 0.0, "run": false, "jump": false }
+	return {
+		"move_x": InputState.get_axis("move_x"),
+		"move_y": InputState.get_axis("move_y"),
+		"run": InputState.is_action_pressed("run"),
+		"jump": InputState.is_action_pressed("jump")
+	}
 
 func _align_camera_to_body():
 	"""
@@ -472,11 +477,11 @@ func _physics_process(delta):
 	var cam_rig = get_node_or_null("CameraRig")
 	if cam_rig:
 		if cam_rig.has_method("process_camera_rotation"):
-			   if mouse_motion != null:
-				   # cam_rig.process_camera_rotation(mouse_motion) # Desactivado: la cámara gestiona su propio input en _physics_process
-				   pass
+			if mouse_motion != null:
+				# cam_rig.process_camera_rotation(mouse_motion) # Desactivado: la cámara gestiona su propio input en _physics_process
+				pass
 		# Removed mouse_active_timer logic, now handled in InputState
-		
+
 		if movement_comp:
 			# --- Strafe Mode Logic ---
 			# The strafing state is now managed centrally by InputState.gd
@@ -492,13 +497,23 @@ func _physics_process(delta):
 						if InputState.strafing_timer <= 0.0:
 							InputState.is_strafing_mode_active = false
 							strafe_cooldown = 0.5 # Prevent sudden turn after strafe
-			
+
 			var strafe_mode_active = InputState.is_strafing_mode_active
 			# --- Sincronización explícita durante replay ---
 			if GameGlobals and GameGlobals.is_replaying:
 				strafe_mode_active = InputState.is_strafing_mode_active
 				# (Opcional) También sincroniza el timer si es relevante:
-				# strafing_timer = InputState.strafing_timer
+
+			# --- ROTACIÓN DEL CUERPO CON EL MOUSE (SOLO LIVE) ---
+			# En modo REPLAY, la rotación la fuerza el sistema de replay (SNAP/corrección), no el mouse_delta
+			if not strafe_mode_active and mouse_motion != null:
+				var yaw_sens := 2.0 # Ajusta según lo que uses en cámara
+				if GameGlobals and GameGlobals.is_replaying:
+					# No modificar rotation.y aquí, la rotación será corregida por ReplayPlayback.gd
+					pass
+				else:
+					rotation.y -= mouse_motion.x * yaw_sens / 1000.0
+			# strafing_timer = InputState.strafing_timer
 			
 			# Set strafe mode in movement component
 			if movement_comp:
@@ -588,9 +603,20 @@ func _physics_process(delta):
 	var yaw_node2 = get_node_or_null("CameraRig/Yaw")
 	if yaw_node2: h_rot = yaw_node2.global_transform.basis.get_euler().y + cam_yaw_offset
 
-	# Detailed logging for replay diagnostics
+	# 💥 LOG CRÍTICO PARA DETERMINISMO 💥
+	# Usar SIEMPRE el valor de strafe desde InputState
+	strafe_mode_active = InputState.is_strafing_mode_active
+	if movement_comp:
+		movement_comp.strafe_mode = strafe_mode_active
 	if GameGlobals and GameGlobals.replay_debug_mode and GameGlobals.is_replaying:
-		print("[PlayerController Playback] Pre-move: velocity=", movement_this_frame, " on_floor=", on_floor)
+		print(
+			"[PlayerController DETAILED STATE] Frame:", Engine.get_physics_frames(),
+			" | Pos:", global_transform.origin,
+			" | Rot:", rotation.y,
+			" | Vel:", velocity,
+			" | Dir:", movement_this_frame,
+			" | Strafe:", strafe_mode_active
+		)
 	
 	# print("[PlayerController] Pre-move: velocity=%s, on_floor=%s" % [movement_this_frame, on_floor])
 	pre_move_velocity_for_replay = movement_this_frame
@@ -832,6 +858,11 @@ func get_replay_state() -> Dictionary:
 	return state
 
 func set_replay_state(state: Dictionary) -> void:
+
+	# Resetear la bandera al inicio de cada replay (cuando se recibe un nuevo estado inicial)
+	if state.has("player_position_fixed"):
+		_replay_rotation_initialized = false
+
 	var deserialized_state = ReplayUtils.from_json_safe(state)
 	var is_replaying = GameGlobals and GameGlobals.is_replaying
 	var replay_manager = get_node("/root/ReplayManager")
@@ -867,8 +898,12 @@ func set_replay_state(state: Dictionary) -> void:
 	time_since_input = deserialized_state.get("time_since_input", 1.0)
 	was_on_floor = deserialized_state.get("was_on_floor", false)
 	snap_enabled = deserialized_state.get("snap_enabled", true)
-	if deserialized_state.has("rotation"):
-		rotation = deserialized_state["rotation"]
+
+	# Solo restaurar la rotación en el primer frame del replay (usando una variable miembro booleana)
+	if not _replay_rotation_initialized:
+		if deserialized_state.has("rotation"):
+			rotation = deserialized_state["rotation"]
+		_replay_rotation_initialized = true
 
 	# Restore velocity from fixed-point data for deterministic playback
 	if state.has("velocity_fixed"):
@@ -902,3 +937,52 @@ func playback_process(frame_data_state: Dictionary, _delta: float) -> void:
 			movement_comp.horizontal_velocity = horizontal_velocity
 		vertical_velocity_fixed = FixedVec3.from_vec3(Vector3(0, velocity.y, 0))
 		pre_move_velocity_for_replay = velocity
+
+	# 1. Usar el valor grabado de strafe_mode_active si está presente en el frame
+	if frame_data_state.has("strafing_active"):
+		strafe_mode_active = frame_data_state["strafing_active"]
+	else:
+		strafe_mode_active = false
+	if movement_comp:
+		movement_comp.strafe_mode = strafe_mode_active
+
+	# 2. SNAP de rotación al mesh si el cuerpo fue corregido (esto debe ser llamado desde ReplayPlayback.gd, pero aquí lo forzamos si hay diferencia grande)
+	if is_instance_valid(player_mesh):
+		var mesh_snap_threshold = 0.01
+		var mesh_rot_diff = abs(fmod(player_mesh.rotation.y, PI * 2.0))
+		if mesh_rot_diff > mesh_snap_threshold:
+			player_mesh.rotation.y = 0.0 # El mesh debe alinearse al cuerpo tras SNAP
+
+	# 3. Replica la lógica de rotación visual del mesh del _physics_process
+	if is_instance_valid(player_mesh) and frame_data_state.has("velocity"):
+		var movement_dir = horizontal_velocity.normalized()
+		var horizontal_speed = horizontal_velocity.length()
+		# 1. Rotar el mesh SÓLO si hay movimiento
+		if horizontal_speed > 0.05:
+			# Calcular el ángulo al que apunta la velocidad horizontal (X/Z)
+			var target_angle_global = atan2(movement_dir.x, movement_dir.z)
+			# 2. Rotación RELATIVA: El mesh rota respecto al KinematicBody (self.rotation.y)
+			var relative_rotation = target_angle_global - rotation.y
+			# 3. Aplicar la rotación del mesh. Usamos un LERP para suavizar (como en modo live)
+			var turn_rate = turn_speed * 10.0 * _delta
+			player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, relative_rotation, turn_rate)
+		else:
+			# Cuando está parado, el mesh se alinea al frente del KinematicBody (rotación relativa 0)
+			player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, 0.0, _delta * 10.0)
+
+## --- INYECCIÓN DE INPUT DE REPLAY ---
+# Este método permite que el sistema de replay fuerce la rotación y anule el strafe.
+func inject_replay_input(mouse_delta: Vector2) -> void:
+	# 1. Anular strafe para permitir rotación por mouse_delta.x
+	var strafe_mode_active = false
+	# 2. Aplicar rotación Yaw (horizontal) al cuerpo
+	var yaw_sens := 2.0 # Debe coincidir con el usado en _physics_process
+	if mouse_delta != null:
+		rotation.y -= mouse_delta.x * yaw_sens / 1000.0
+	# 3. Aplicar Pitch (vertical) a la cámara si existe
+	var cam_rig = get_node_or_null("CameraRig")
+	if cam_rig and cam_rig.has_method("apply_replay_rotation"):
+		cam_rig.apply_replay_rotation(mouse_delta)
+	# 4. (Opcional) Sincronizar strafe en el movement_comp si es necesario
+	if movement_comp:
+		movement_comp.strafe_mode = strafe_mode_active

@@ -14,15 +14,16 @@ const INPUT_ACTIONS = [
 ]
 const DRIFT_THRESHOLD = 0.005 # Maximum allowed position difference before correction
 const MAX_CORRECTION_DISTANCE = 0.5 # Max distance to correct per frame, use snapping above this
-const RESYNC_INTERVAL = 20 # Frames between drift checks and corrections
+const RESYNC_INTERVAL = 1 # Chequeo en cada frame (debug)
+const ROTATION_DRIFT_THRESHOLD = 0.01 # ~0.5 grados
 const DRIFT_CORRECTION_STRENGTH = 10.0 # Suavidad de la corrección. 10 es firme, 5 es suave.
 const MIN_DIVERGENCE_TO_CORRECT = 0.01 # Threshold to avoid insignificant corrections
-const FIXED_DELTA = 0.016667 # Fixed delta for 60 FPS simulation
+const FIXED_DELTA = 1.0 / 60.0 # Fixed delta para 60 FPS (máxima precisión)
 const IGNORE_THRESHOLD = 0.001 # Ignore micro-drift to eliminate floating
 const FAST_LERP_THRESHOLD = 0.05 # Use ultra-fast LERP if between this and SNAP
 const SNAP_THRESHOLD = 0.005 # Instant correction threshold (5mm)
 const LERP_STRENGTH_ULTRA_FAST = 200.0 # Ultra-fast LERP strength
-const PILOT_STATE_KEY = "@Pilot@10" # Key for pilot state in frame_states and initial_states
+const PILOT_STATE_KEY = "Pilot" # Key correcta según el JSON grabado
 
 var current_replay: Resource = null
 var current_replay_filename: String = ""
@@ -67,7 +68,9 @@ func _apply_smooth_drift_correction(pilot: Spatial, target_transform: Transform,
 	pilot.global_transform.basis = new_basis
 
 func _physics_process(delta: float) -> void:
+
 	frame_count += 1
+	var player = PlayerManager.get_player()
 	# Guard clause: Do nothing if there's no replay loaded or if it's paused.
 	if not current_replay or playback_paused:
 		return
@@ -78,23 +81,68 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var frame_data = current_replay.frames[frame_index]
-	
-	# Force player state to recorded state for this frame
-	if current_replay.frame_states.size() > frame_index:
-		var recorded_state = current_replay.frame_states[frame_index]
-		if recorded_state.has(PILOT_STATE_KEY):
-			var pilot_state = recorded_state[PILOT_STATE_KEY]
-			var pilot = PlayerManager.get_player()
-			if pilot and pilot_state.has("global_transform"):
-				var target_transform = ReplayUtils.dict_to_transform(pilot_state["global_transform"])
-				_apply_smooth_drift_correction(pilot, target_transform, delta)
 
-	
-	# Apply inputs (for camera and other non-physics systems)
+	# --- DRIFT CHECK & LOG DETALLADO ---
+	_process_drift_check(delta)
+
+	# Aplicar inputs y avanzar frame SOLO aquí (no en _process_drift_check)
 	_apply_inputs_from_frame(frame_data)
-
 	frame_index += 1
 	emit_signal("frame_updated", frame_index, total_logical_frames)
+	
+func _process_drift_check(delta: float) -> void:
+	# 🚨 Log de nivel superior para asegurar que la función se ejecuta
+	if frame_index % RESYNC_INTERVAL == 0:
+		print("[DRIFT DEBUG] ¡Chequeo de deriva activado! Frame: ", frame_index)
+	else:
+		return
+
+	if not current_replay or current_replay.frame_states.size() <= frame_index:
+		return
+	var recorded_states = current_replay.frame_states[frame_index]
+	# Chequeo de frecuencia (se activa en cada frame porque RESYNC_INTERVAL = 1)
+	if frame_index % RESYNC_INTERVAL != 0:
+		return
+	print("[DRIFT DEBUG] ¡Chequeo de deriva activado! Frame: ", frame_index)
+	# Recorrer los nodos marcados para tracking
+	for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
+		var node_path = get_tree().current_scene.get_path_to(node)
+		# 1. Chequeo del Pilot
+		if node_path == PILOT_STATE_KEY and recorded_states.has(PILOT_STATE_KEY):
+			var current_node = node
+			var recorded_state = recorded_states[PILOT_STATE_KEY]
+			# 1a. Obtener la verdad del mundo (Posición y Rotación)
+			var current_pos = current_node.global_transform.origin
+			var recorded_pos = ReplayUtils.dict_to_vector3(recorded_state["player_position"])
+			var current_rot = current_node.rotation
+			var recorded_rot = ReplayUtils.dict_to_vector3(recorded_state["rotation"])
+			var distance = current_pos.distance_to(recorded_pos)
+			var angular_drift = abs(fmod(current_rot.y - recorded_rot.y, PI * 2.0))
+			# 💥 LOG CRÍTICO QUE DEBE APARECER Y MOSTRAR EL DRIFT REAL 💥
+			print(
+				"[DRIFT CHECK][PILOT] Frame:", frame_index,
+				" | **Distancia:** ", distance,
+				" | **Grabado POS:** ", recorded_pos,
+				" | **Actual POS:** ", current_pos,
+				" | Angular: ", angular_drift
+			)
+			# 1b. Corrección Posicional (SNAP: La posición grabada es la verdad)
+			if distance > DRIFT_THRESHOLD:
+				current_node.global_transform.origin = recorded_pos
+				print("[DRIFT CORRECTION] SNAP Posición Forzada. Dist: ", distance)
+			# 1c. Corrección Angular (SNAP: La rotación es la causa más común de deriva)
+			if angular_drift > ROTATION_DRIFT_THRESHOLD:
+				current_node.rotation.y = recorded_rot.y
+				# Corregir el rig de la cámara para que los inputs futuros sean correctos
+				var cam_rig_group = get_tree().get_nodes_in_group("camera_rig_group")
+				if cam_rig_group.size() > 0:
+					var cam_rig = cam_rig_group.front()
+					if cam_rig and cam_rig.has_method("set_replay_state"):
+						cam_rig.set_replay_state({"yaw": recorded_rot.y})
+				print("[DRIFT CORRECTION] SNAP Rotación Forzada. Ang: ", angular_drift)
+	# Aquí puedes añadir la lógica de chequeo para otros nodos en REPLAY_GROUP
+	# ...aquí puedes añadir la lógica para otros nodos del grupo REPLAY_GROUP si lo necesitas...
+
 
 func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	var replay = ReplayScript.new()
@@ -357,6 +405,11 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 		var md = frame_data["mouse_delta"]
 		# Es vital convertir el Diccionario {x, y} a Vector2
 		InputState.mouse_delta = Vector2(md.get("x", 0), md.get("y", 0))
+		print("[REPLAY][ReplayPlayback] Inyectando mouse_delta.x=", md.get("x", 0), " mouse_delta.y=", md.get("y", 0))
+		# Llamar a inject_replay_input en el Player si existe
+		var player = PlayerManager.get_player()
+		if player and player.has_method("inject_replay_input"):
+			player.inject_replay_input(InputState.mouse_delta)
 	else:
 		InputState.mouse_delta = Vector2.ZERO
 

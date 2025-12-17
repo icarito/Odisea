@@ -222,12 +222,25 @@ func get_replay_state() -> Dictionary:
 	}
 
 func set_replay_state(state: Dictionary) -> void:
-	# FEATURE: Durante el playback, la cámara es libre. No restaurar yaw/pitch.
-	# if state.has("yaw") and yaw:
-	# 	yaw.rotation.y = state["yaw"]
-	# 	target_yaw = state["yaw"]
-	# if state.has("pitch") and pitch:
-	# 	pitch.rotation.x = state["pitch"]
-	# 	target_pitch = state["pitch"]
+	# Restaurar yaw y pitch iniciales para alineación perfecta en playback
+	if state.has("yaw") and yaw:
+		yaw.rotation.y = state["yaw"]
+		target_yaw = state["yaw"]
+	if state.has("pitch") and pitch:
+		pitch.rotation.x = state["pitch"]
+		target_pitch = state["pitch"]
 	if state.has("spring_length") and springarm:
 		springarm.spring_length = state["spring_length"]
+
+## --- REPLAY: Aplicar rotación de input grabado ---
+func apply_replay_rotation(mouse_delta: Vector2) -> void:
+	if mouse_delta == null:
+		return
+	var pitch_change = mouse_delta.y * pitch_sensitivity / 1000.0
+	target_pitch += pitch_change
+	# Limitar pitch
+	var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
+	var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
+	target_pitch = clamp(target_pitch, -lim_down, lim_up)
+	if pitch:
+		pitch.rotation.x = target_pitch
