@@ -64,10 +64,15 @@ static func vector3_to_dict(vector: Vector3) -> Dictionary:
 	return {"x": vector.x, "y": vector.y, "z": vector.z}
 
 # Helper function to deserialize a dictionary from JSON back to a Vector3.
-static func dict_to_vector3(dict: Dictionary) -> Vector3:
-	if dict and dict.has_all(["x", "y", "z"]) and dict.x != null and dict.y != null and dict.z != null:
-		if typeof(dict.x) in [TYPE_REAL, TYPE_INT] and typeof(dict.y) in [TYPE_REAL, TYPE_INT] and typeof(dict.z) in [TYPE_REAL, TYPE_INT]:
-			return Vector3(dict.x, dict.y, dict.z)
+static func dict_to_vector3(data) -> Vector3:
+	if data is Dictionary:
+		if data.has_all(["x", "y", "z"]) and data.x != null and data.y != null and data.z != null:
+			if typeof(data.x) in [TYPE_REAL, TYPE_INT] and typeof(data.y) in [TYPE_REAL, TYPE_INT] and typeof(data.z) in [TYPE_REAL, TYPE_INT]:
+				return Vector3(data.x, data.y, data.z)
+	elif data is String:
+		var parsed = str2var(data)
+		if parsed is Vector3:
+			return parsed
 	# Return Vector3.ZERO if keys are missing or format is incorrect.
 	return Vector3.ZERO
 

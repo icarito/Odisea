@@ -3,7 +3,7 @@ extends Node
 const ReplayScript = preload("res://scripts/replay/Replay.gd")
 
 const REPLAY_GROUP = "replay_track"
-const REPLAYS_DIR = "res://replays/"
+const REPLAYS_DIR = "user://replays/"
 const FIXED_DELTA = 1.0 / 60.0 # Fixed delta for deterministic recording
 const SNAPSHOT_INTERVAL = 100
 
@@ -20,6 +20,7 @@ var last_frame_data: Dictionary = {}
 var player: Node = null
 var camera_rig: Node = null
 var start_time: int = 0
+var spawn_point: Node = null
 
 const ReplayUtils = preload("res://scripts/replay/ReplayUtils.gd")
 
@@ -39,6 +40,7 @@ func _ready() -> void:
 	print("ReplayRecorder is in tree: ", is_inside_tree())
 	if is_inside_tree():
 		print("ReplayRecorder tree path: ", get_path())
+		call_deferred("_find_spawn_point")
 
 func _input(event: InputEvent) -> void:
 	if is_recording() and event is InputEventMouseMotion:
@@ -46,12 +48,13 @@ func _input(event: InputEvent) -> void:
 		print("DEBUG CAPTURE: Mouse Motion acumulado: ", mouse_motion_accumulated)
 		# Do not accept the event, so it continues to CameraRig
 
-func _unhandled_input(event: InputEvent) -> void:
-	if is_recording() and event is InputEventMouseMotion:
-		mouse_motion_accumulated += event.relative
-		print("DEBUG UNHANDLED CAPTURE: Mouse Motion acumulado: ", mouse_motion_accumulated)
+func _find_spawn_point():
+	spawn_point = get_tree().root.find_node("SpawnPoint", true, false)
+	print("ReplayRecorder spawn_point found: ", spawn_point)
 
 func _physics_process(delta: float) -> void:
+	if not spawn_point:
+		_find_spawn_point()
 	if not is_recording():
 		return
 
@@ -75,6 +78,11 @@ func _physics_process(delta: float) -> void:
 	if player:
 		frame_data["player_position_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.global_transform.origin)
 		frame_data["rotation_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.rotation)
+		if spawn_point:
+			frame_data["pilot_pos"] = spawn_point.to_local(player.global_transform.origin)
+		else:
+			frame_data["pilot_pos"] = player.global_transform.origin
+		frame_data["pilot_rot"] = player.rotation.y
 		frame_data["velocity_fixed"] = player.velocity_fixed
 	
 	# LOG: Delta y estado crítico para debug determinista
@@ -157,24 +165,42 @@ func start_recording(): # This function now acts like a coroutine
 	else:
 		replay.scene_path = "unknown"
 	replay.godot_version = Engine.get_version_info()["string"]
+	# Intentar obtener el commit hash de git
+	var git_commit = ""
+	var git_file = File.new()
+	if git_file.open(".git/HEAD", File.READ) == OK:
+		var head = git_file.get_line().strip_edges()
+		git_file.close()
+		if head.begins_with("ref:"):
+			var ref = head.split(" ")[1]
+			var ref_file = File.new()
+			if ref_file.open(".git/" + ref, File.READ) == OK:
+				git_commit = ref_file.get_line().strip_edges()
+				ref_file.close()
+		else:
+			git_commit = head
+	replay.game_version = git_commit
 	replay.timestamp = Time.get_datetime_string_from_unix_time(int(Time.get_unix_time_from_system()))
 
 	player = PlayerManager.get_player()
 	var initial = {}
 	if player and get_tree() and get_tree().current_scene:
 		initial[get_tree().current_scene.get_path_to(player)] = player.get_replay_state()
+		# Guardar posición y rotación redundante
+		initial["player_position_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.global_transform.origin)
+		initial["player_rotation_fixed"] = ReplayUtils.vector3_to_fixed_dict(player.rotation)
 	
 	# Add CameraRig state (guardar rotación inicial exacta)
 	if get_tree() and get_tree().current_scene:
 		camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 		if camera_rig and camera_rig.has_method("get_replay_state"):
-			# Forzar snapshot de yaw/pitch actuales
 			var cam_state = camera_rig.get_replay_state()
 			initial[get_tree().current_scene.get_path_to(camera_rig)] = cam_state
-	
+			initial["camera_yaw"] = camera_rig.yaw.rotation.y if camera_rig.has_node("yaw") else null
+			initial["camera_pitch"] = camera_rig.pitch.rotation.x if camera_rig.has_node("pitch") else null
+			initial["camera_spring_length"] = camera_rig.springarm.spring_length if camera_rig.has_node("springarm") else null
+
 	replay.initial_states = ReplayUtils.to_json_safe(initial)
-	# Initialize last_frame_data with an empty inputs dict. This ensures the first
-	# frame is always recorded and prevents a crash when accessing .inputs.
 	last_frame_data = {"inputs": {}}
 
 	current_replay = replay

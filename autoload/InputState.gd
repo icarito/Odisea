@@ -40,6 +40,9 @@ var strafing_timer = 0.0
 
 var mode = Mode.LIVE setget set_mode
 
+# Fixed delta for deterministic replay
+const FIXED_DELTA = 1.0 / 60.0
+
 # Frame actual de replay (solo en playback/record)
 var replay_frame = 0
 
@@ -69,7 +72,7 @@ func _physics_process(delta):
 		# 2. Persistence: If strafe mode is active, countdown the timer.
 		# This part runs regardless of mouse input in the current frame.
 		if is_strafing_mode_active:
-			strafing_timer -= delta
+			strafing_timer -= FIXED_DELTA
 			if strafing_timer <= 0.0:
 				is_strafing_mode_active = false
 				strafing_timer = 0.0
@@ -153,7 +156,7 @@ func reset_virtual_joystick():
 
 
 func _record_current_frame():
-	var pilot = get_tree().current_scene.find_node("Pilot", true, false)
+	var pilot = PlayerManager.player_reference
 	var cam_rig = pilot.get_node_or_null("CameraRig") if pilot else null
 	var pilot_pos = pilot.global_transform.origin if pilot else null
 	var pilot_rot = pilot.rotation if pilot else null
@@ -192,7 +195,7 @@ func _apply_replay_frame():
 	if md is Dictionary:
 		mouse_delta = Vector2(md.get("x", 0.0), md.get("y", 0.0))
 	else:
-		mouse_delta = md
+		mouse_delta = Vector2.ZERO
 	recorded_mouse_delta = mouse_delta
 	is_strafing_mode_active = frame.get("strafing_active", false)
 	strafing_timer = frame.get("strafing_timer", 0.0)

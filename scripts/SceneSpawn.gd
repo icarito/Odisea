@@ -7,6 +7,10 @@ func _ready():
 	if GameGlobals.current_mode == GameGlobals.GAME_MODE.COPILOT:
 		print("[SceneSpawn] COPILOT mode, skipping spawn")
 		return
+	# En test de determinismo, no spawnear; lo hace el test manualmente
+	if GameGlobals.determinism_test:
+		print("[SceneSpawn] Determinism test, skipping spawn")
+		return
 
 	var spawn := find_node("SpawnPoint")
 	print("[SceneSpawn] Found spawn:", spawn)
@@ -20,7 +24,7 @@ func _ready():
 				print("[SceneSpawn] PlayerManager.get_player():", p)
 				if is_instance_valid(p):
 					p.global_transform = spawn.global_transform
-					p.rotation.z = spawn.rotation.z
+					p.rotation.y = spawn.rotation.y
 					print("[SceneSpawn] Player relocated to spawn")
 				else:
 					print("[SceneSpawn] Player not valid, spawning new")
@@ -39,7 +43,7 @@ func _ready():
 				print("[SceneSpawn] PlayerManager.get_player():", p)
 				if is_instance_valid(p):
 					p.global_transform = global_transform
-					p.rotation.z = spawn.rotation.z
+					p.rotation.y = spawn.rotation.y
 					print("[SceneSpawn] Player relocated to origin")
 				else:
 					print("[SceneSpawn] Player not valid, spawning new")

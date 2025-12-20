@@ -26,6 +26,7 @@ var playback: Node = null
 var _saved_player_transform: Transform = Transform.IDENTITY
 var _saved_player_velocity: Vector3 = Vector3.ZERO
 var player_state_saved: bool = false
+var last_replay_path: String = ""
 
 const REPLAYS_DIR = "res://replays/"
 
@@ -95,10 +96,11 @@ func start_recording() -> void:
 	recorder.start_recording()
 
 
-func stop_recording() -> void:
+func stop_recording() -> String:
 	if mode != ReplayMode.RECORDING:
-		return
+		return ""
 	recorder.stop_recording()
+	return last_replay_path
 
 # Playback API
 func start_playback(replay_path: String, is_headless: bool = false) -> void:
@@ -154,6 +156,7 @@ func restore_player_state() -> void:
 # Signal Handlers
 func _on_recording_stopped(frame_count, _replay_path):
 	mode = ReplayMode.NONE
+	last_replay_path = _replay_path
 	MouseCapture.set_capture(false)
 	emit_signal("mode_changed", mode)
 	emit_signal("recording_stopped", frame_count)

@@ -22,34 +22,64 @@ var snapshots: Dictionary = {}
 func _init() -> void:
 	pass
 
+
 func save_to_json(path: String) -> int:
-	var file = File.new()
-	var error = file.open(path, File.WRITE)
-	if error != OK:
-		return error
+	   var file = File.new()
+	   var error = file.open(path, File.WRITE)
+	   if error != OK:
+		   return error
 
-	var data = {
-		"scene_path": scene_path,
-		"godot_version": godot_version,
-		"game_version": game_version,
-		"timestamp": timestamp,
-		"initial_states": initial_states,
-		"frames": frames,
-		"frame_states": frame_states
-	}
+	   # Validar que initial_states y frames tengan datos vitales
+	   var valid = true
+	   if initial_states.empty():
+		   printerr("Replay JSON: initial_states está vacío!")
+		   valid = false
+	   if frames.empty():
+		   printerr("Replay JSON: frames está vacío!")
+		   valid = false
+		   # No se puede acceder a frames[0] ni frames[-1] si está vacío
+		   # Retornar error inmediatamente para evitar crash
+		   return ERR_INVALID_DATA
+	   if not frames[0].has("player_position_fixed") or not frames[-1].has("player_position_fixed"):
+		   printerr("Replay JSON: primer/último frame sin posición de player!")
+		   valid = false
 
-	file.store_line(to_json(data))
-	file.close()
-	
-	# Save debug version with D_ prefix
-	if path.begins_with("res://replays/"):
-		var debug_path = path.replace("res://replays/", "res://replays/D_")
-		var debug_file = File.new()
-		if debug_file.open(debug_path, File.WRITE) == OK:
-			debug_file.store_line(to_json(data))
-			debug_file.close()
-	
-	return OK
+	   # Guardar estado final redundante
+	   var final_state = {}
+	   if frames.size() > 0:
+		   final_state["player"] = frames[-1].get("player_position_fixed", null)
+		   final_state["player_rot"] = frames[-1].get("rotation_fixed", null)
+		   final_state["camera"] = frames[-1].get("camera", null)
+	   else:
+		   final_state["player"] = null
+		   final_state["player_rot"] = null
+		   final_state["camera"] = null
+
+	   var data = {
+		   "scene_path": scene_path,
+		   "godot_version": godot_version,
+		   "game_version": game_version,
+		   "timestamp": timestamp,
+		   "initial_states": initial_states,
+		   "final_state": final_state,
+		   "frames": frames,
+		   "frame_states": frame_states
+	   }
+
+	   file.store_line(to_json(data))
+	   file.close()
+
+	   # Save debug version with D_ prefix
+	   if path.begins_with("res://replays/"):
+		   var debug_path = path.replace("res://replays/", "res://replays/D_")
+		   var debug_file = File.new()
+		   if debug_file.open(debug_path, File.WRITE) == OK:
+			   debug_file.store_line(to_json(data))
+			   debug_file.close()
+
+	   if not valid:
+		   return ERR_INVALID_DATA
+	   return OK
 
 func load_from_json(path: String) -> int:
 	var file = File.new()

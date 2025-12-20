@@ -1,4 +1,4 @@
-[gd_scene load_steps=49 format=2]
+[gd_scene load_steps=50 format=2]
 
 [ext_resource path="res://scripts/PlayerController.gd" type="Script" id=1]
 [ext_resource path="res://scripts/PlayerSpringCam.gd" type="Script" id=2]
@@ -9,6 +9,8 @@
 [ext_resource path="res://materials/shadow/FakeShadow.tres" type="Material" id=52]
 [ext_resource path="res://scripts/PlayerMovement.gd" type="Script" id=53]
 [ext_resource path="res://scripts/multiplayer/PlayerInput.gd" type="Script" id=65]
+
+[ext_resource path="res://scripts/replay/ReplayPlayback.gd" type="Script" id=66]
 
 [sub_resource type="CapsuleShape" id=48]
 radius = 0.3047
@@ -337,3 +339,6 @@ color = Color( 0.172549, 0.607843, 0.615686, 1 )
 
 [node name="PlayerJump" type="Node" parent="."]
 script = ExtResource( 6 )
+
+[node name="ReplayPlayback" type="Node" parent="."]
+script = ExtResource( 66 )

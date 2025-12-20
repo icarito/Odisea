@@ -93,6 +93,8 @@ func _deferred_spawn(initial_transform: Transform):
 	player_reference.global_transform = initial_transform
 	print("PlayerManager: Player spawned at: ", initial_transform.origin, " rotation: ", initial_transform.basis.get_euler())
 	
+	player_reference._finish_spawn()
+	
 	# Forzar alineación de cámara después de que el nodo esté en escena y transform aplicado.
 	# La función _align_camera_to_body() debe existir en el script del player.
 	player_reference.call_deferred("_align_camera_to_body")

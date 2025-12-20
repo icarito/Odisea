@@ -14,6 +14,12 @@ var is_recording: bool = false setget set_is_recording
 # Replaying state
 var is_replaying: bool = false setget set_is_replaying
 
+# Determinism test flag
+var determinism_test: bool = false
+
+# Test mode flag for disabling drift correction in tests
+var is_test_mode: bool = false
+
 # Global pause state of the game (get_tree().paused).
 var is_paused: bool = false setget set_is_paused
 
