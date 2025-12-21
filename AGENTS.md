@@ -1,8 +1,8 @@
 # AGENTS.md — Guía de orientación para agentes (Odisea: El Arca Silenciosa)
 
-Notas:
-## Godot 3.6 TSCN Tips
+Notas importantes:
 - Logs → último intento falló, reintenta.
+- GDscript usa tabs, nunca espacios y es muy sensible a indentación.
 - GDScript ternarios: `x if cond else y`.
 - Declara variables con `=`, no `:=`.
 - Color en .tscn = RGBA (0–1).

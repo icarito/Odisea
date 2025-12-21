@@ -9,7 +9,7 @@ fi
 
 # we not use no-window because of issue https://github.com/godotengine/godot/issues/55379
 #$GODOT_BIN --no-window -s -d ./addons/gdUnit3/bin/GdUnitCmdTool.gd $*
-$GODOT_BIN --path . -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd -a tests/ -c
+$GODOT_BIN --no-window --path . -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd -a tests/ -c
 exit_code=$?
 $GODOT_BIN --no-window --quiet -s -d ./addons/gdUnit3/bin/GdUnitCopyLog.gd $* > /dev/null
 exit $exit_code

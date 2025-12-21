@@ -3,7 +3,7 @@ extends Node
 const ReplayScript = preload("res://scripts/replay/Replay.gd")
 
 const REPLAY_GROUP = "replay_track"
-const REPLAYS_DIR = "user://replays/"
+var REPLAYS_DIR = "user://replays/"
 const FIXED_DELTA = 1.0 / 60.0 # Fixed delta for deterministic recording
 const SNAPSHOT_INTERVAL = 100
 
@@ -40,7 +40,7 @@ func _ready() -> void:
 	print("ReplayRecorder is in tree: ", is_inside_tree())
 	if is_inside_tree():
 		print("ReplayRecorder tree path: ", get_path())
-		call_deferred("_find_spawn_point")
+		_find_spawn_point()
 
 func _input(event: InputEvent) -> void:
 	if is_recording() and event is InputEventMouseMotion:

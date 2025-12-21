@@ -52,33 +52,44 @@ var recorded_frames := []
 # Flag para modo manual (usado en tests para inyección directa)
 var manual_playback: bool = false
 
+
 func set_mode(new_mode: int) -> void:
-   mode = new_mode
-   if mode == Mode.LIVE:
-	   recorded_frames.clear()
-	   replay_frame = 0
+	mode = new_mode
+	reset()
+
+# --- RESET DE ESTADO COMPLETO ---
+
+func reset():
+	for k in actions.keys():
+		actions[k] = false
+	for k in axes.keys():
+		axes[k] = 0.0
+	mouse_delta = Vector2.ZERO
+	recorded_mouse_delta = Vector2.ZERO
+	_mouse_motion_this_frame = Vector2.ZERO
+	is_strafing_mode_active = false
+	strafing_timer = 0.0
+	replay_frame = 0
+	recorded_frames.clear()
+	_virtual_joystick_vector = Vector2.ZERO
+
 
 func _physics_process(_delta):
-	# print("[InputState] axes: move_x=", axes["move_x"], ", move_y=", axes["move_y"])
-	if mode == Mode.LIVE or mode == Mode.RECORD:
-		mouse_delta = _mouse_motion_this_frame
-		recorded_mouse_delta = mouse_delta
-		# _mouse_motion_this_frame is now cleared at the end of the function
+	# --- Deterministic Strafing Mode Logic ---
+	# 1. Activation: If there's mouse movement AND directional input, activate strafe mode.
+	var has_input = abs(get_axis("move_x")) > 0.1 or abs(get_axis("move_y")) > 0.1
+	if mouse_delta.length_squared() > 0.001 and has_input:
+		is_strafing_mode_active = true
+		strafing_timer = 2.0 # Reset timer
 
-		# --- Deterministic Strafing Mode Logic ---
-		# 1. Activation: If there's mouse movement AND directional input, activate strafe mode.
-		var has_input = abs(get_axis("move_x")) > 0.1 or abs(get_axis("move_y")) > 0.1
-		if mouse_delta.length_squared() > 0.001 and has_input:
-			is_strafing_mode_active = true
-			strafing_timer = 2.0 # Reset timer
+	# 2. Persistence: If strafe mode is active, countdown the timer.
+	# This part runs regardless of mouse input in the current frame.
+	if is_strafing_mode_active:
+		strafing_timer -= FIXED_DELTA
+		if strafing_timer <= 0.0:
+			is_strafing_mode_active = false
+			strafing_timer = 0.0
 
-		# 2. Persistence: If strafe mode is active, countdown the timer.
-		# This part runs regardless of mouse input in the current frame.
-		if is_strafing_mode_active:
-			strafing_timer -= FIXED_DELTA
-			if strafing_timer <= 0.0:
-				is_strafing_mode_active = false
-				strafing_timer = 0.0
 
 	match mode:
 		Mode.LIVE:
@@ -90,7 +101,12 @@ func _physics_process(_delta):
 		Mode.PLAYBACK:
 			if not paused and not manual_playback:
 				_apply_replay_frame()
-	
+
+# Permite a los tests avanzar el replay manualmente cuando manual_playback es true
+func step_replay_frame():
+	if mode == Mode.PLAYBACK and manual_playback and not paused:
+		_apply_replay_frame()
+
 	_mouse_motion_this_frame = Vector2.ZERO
 
 var _virtual_joystick_vector := Vector2.ZERO

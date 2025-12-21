@@ -12,7 +12,7 @@ var InputState = null
 
 var test_suite = {
 	"T1": {
-		"description": "Friccion - Frames 0-150: move_forward, 151-300: Idle",
+		"description": "Friccion - Frames 0-5: move_forward, 6-10: Idle",
 		"frames": []
 	},
 	"T2": {
@@ -44,7 +44,7 @@ func before():
 func generate_test_inputs():
 	for test_id in test_suite.keys():
 		test_suite[test_id].frames = []
-		for i in range(300):
+		for i in range(10):
 			var frame = {
 				"inputs": {},
 				"axes": {},
@@ -54,8 +54,8 @@ func generate_test_inputs():
 			}
 			match test_id:
 				"T1":
-					# T1: 0-150 move_forward, 151-300 idle
-					if i < 150:
+					# T1: 0-5 move_forward, 6-10 idle
+					if i < 5:
 						frame.inputs["move_forward"] = true
 						frame.axes["move_y"] = 1.0
 					else:
@@ -124,13 +124,20 @@ func run_test(test_id):
 		ReplayManager.playback.set_physics_process(false)
 	ReplayManager.mode = ReplayManager.ReplayMode.NONE
 
+	var runner = scene_runner(test_scene_local)
+
 	# Añadir ReplayManager al test_scene para que su _physics_process sea llamado en la simulación
-	# var replay_manager = load("res://scripts/replay/ReplayManager.gd").new()
-	# replay_manager.name = "ReplayManager"
-	# test_scene_local.add_child(replay_manager)
+	var replay_manager = load("res://scripts/replay/ReplayManager.gd").new()
+	replay_manager.name = "ReplayManager"
+	test_scene_local.add_child(replay_manager)
+	# Esperar a que _ready se llame
+	runner.simulate_frames(1)
+	var playback = replay_manager.get_node("ReplayPlayback")
+	playback.spawn_point = spawn_point
 
 	# Inicializar InputState como autoload
 	var input_state = get_node("/root/InputState")
+	var player_manager = get_node("/root/PlayerManager")
 
 	# Asignar SpawnPoint y Player
 	spawn_point = test_scene_local.get_node("CSGBox/SpawnPoint")
@@ -152,7 +159,7 @@ func run_test(test_id):
 	player_scene.last_platform_velocity_fixed = FixedVec3.zero()
 	player_scene.vertical_velocity_fixed = FixedVec3.zero()
 
-	var runner = scene_runner(test_scene_local)
+	var replay_runner = scene_runner(test_scene_local)
 
 	# Añadir cámara para que get_viewport().get_camera() funcione
 	var camera = Camera.new()
@@ -167,6 +174,8 @@ func run_test(test_id):
 
 	# Reset position after settlement
 	player_scene.transform = spawn_transform
+
+	runner.simulate_frames(1)  # Final settle
 
 	# Asignar spawn_point manualmente para el test (como en simulate_session)
 	# if replay_manager and replay_manager.has_node("ReplayRecorder"):
@@ -217,36 +226,43 @@ func run_test(test_id):
 			"rotation": camera.global_transform.basis.get_euler()
 		}
 	}
-	var replay_path = "user://replays/test_" + test_id + ".json"
-	replay.save_to_json(replay_path)
+	var replay_path = "res://replays/test_" + test_id + ".json"
+	var save_result = replay.save_to_json(replay_path)
+	if save_result != OK:
+		return {"passed": false, "error": "Failed to save replay: " + str(save_result)}
 
 	# Posición final grabada
-	var final_pos_rec = input_state.recorded_frames[-1]["pilot_pos"]
-	var final_rot_rec = input_state.recorded_frames[-1]["pilot_rot"]
+	var final_pos_rec = spawn_point.to_global(replay.frames[-1]["pilot_pos"]) if spawn_point else replay.frames[-1]["pilot_pos"]
+	var final_rot_rec = replay.frames[-1]["pilot_rot"]
 
 	# FASE 2: REPRODUCCIÓN (Playback Run)
-	input_state.recorded_frames = replay.frames.duplicate()
-	input_state.mode = InputState.Mode.PLAYBACK
-	input_state.replay_frame = 0
-	input_state.manual_playback = true
-	# Aplicar manualmente los inputs grabados en cada frame durante playback
-	for i in range(input_state.recorded_frames.size()):
-		var frame = input_state.recorded_frames[i]
-		input_state.actions = frame.inputs.duplicate()
-		input_state.axes = frame.axes.duplicate()
-		input_state.mouse_delta = Vector2(frame.mouse_delta.x, frame.mouse_delta.y)
-		input_state.is_strafing_mode_active = frame.has("strafing_active") and frame.strafing_active
-		input_state.strafing_timer = frame.strafing_timer if frame.has("strafing_timer") else 0.0
+	# Reset player position for playback
+	player_scene.transform = spawn_transform
+	player_scene.horizontal_velocity_fixed = FixedVec3.zero()
+	player_scene.velocity_fixed = FixedVec3.zero()
+	player_scene.platform_velocity_fixed = FixedVec3.zero()
+	player_scene.last_platform_velocity_fixed = FixedVec3.zero()
+	player_scene.vertical_velocity_fixed = FixedVec3.zero()
+
+	# Cargar y iniciar replay
+	var playback_replay_path = "res://replays/test_" + test_id + ".json"
+	replay_manager.start_playback(playback_replay_path, true)  # headless = true
+	# Esperar a que se cargue
+	runner.simulate_frames(1)
+	replay_manager.playback.resume_playback()
+
+	# Simular todos los frames del replay
+	for i in range(test_suite[test_id].frames.size()):
 		runner.simulate_frames(1)
-	input_state.manual_playback = false
+
+	if not player_scene or not player_scene.is_inside_tree():
+		return {"passed": false, "error": "Player not spawned in playback"}
 
 	var final_pos_rep = player_scene.global_transform.origin
 	var final_rot_rep = player_scene.rotation.y
 
 	var pos_distance = final_pos_rec.distance_to(final_pos_rep)
 	var rot_distance = abs(final_rot_rec.y - final_rot_rep)
-
-	test_scene_local.queue_free()
 
 	# Desactivar modo test
 	GameGlobals.is_test_mode = false

@@ -71,61 +71,61 @@ func _apply_smooth_drift_correction(pilot: Spatial, target_transform: Transform,
 	pilot.global_transform.basis = new_basis
 
 func _physics_process(_delta: float) -> void:
-	if get_node("/root/GameGlobals") and get_node("/root/GameGlobals").is_test_mode:
-		return
-	frame_count += 1
-	var player = PlayerManager.get_player()
-	if player and is_instance_valid(player):
-		print("[ReplayPlayback] Frame ", frame_count, " - Player pos: ", player.global_transform.origin)
-	else:
-		print("[ReplayPlayback] Frame ", frame_count, " - Player pos: null")
-	var _player = PlayerManager.get_player()
-	
-	# Guard clause: Do nothing if there's no replay loaded or if it's paused.
-	if not current_replay or playback_paused:
-		return
-	
-	# Si llegamos al final del replay, detener playback usando el tamaño real de frame_states
-	var max_frames = 0
-	if current_replay and current_replay.frame_states:
-		max_frames = current_replay.frame_states.size()
-	else:
-		max_frames = total_logical_frames
-	if frame_index >= max_frames:
-		stop_playback()
-		return
-	
-	var frame_data = current_replay.frames[frame_index]
-	
-	# --- DRIFT CHECK & LOG DETALLADO ---
-	_process_drift_check(_delta)
-	
-	# Solo forzar posición y rotación del mesh en los snapshots (cada RESYNC_INTERVAL)
-	if current_replay and current_replay.frame_states.size() > frame_index and current_replay.frame_states[frame_index].has(PILOT_STATE_KEY):
-		var player_state = current_replay.frame_states[frame_index][PILOT_STATE_KEY]
-		if frame_index % RESYNC_INTERVAL == 0:
-			if player_state.has("rotation") and _player and is_instance_valid(_player):
-				var rot_euler = ReplayUtils.dict_to_vector3(player_state["rotation"])
-				_player.rotation.y = rot_euler.y
-			if player_state.has("pilot_pos") and _player and is_instance_valid(_player) and spawn_point:
-				_player.global_transform.origin = spawn_point.to_global(ReplayUtils.dict_to_vector3(player_state["pilot_pos"]))
-	
-		# Fallback: Forzar rotación absoluta de la cámara si los valores grabados existen (esto sí, cada frame)
-		var cam_rig_group = get_tree().get_nodes_in_group("camera_rig_group")
-		if cam_rig_group.size() > 0:
-			var camera_rig = cam_rig_group.front()
-			if camera_rig:
-				if player_state.has("camera_yaw"):
-					if camera_rig.has("yaw"):
-						camera_rig.yaw.rotation.y = player_state["camera_yaw"]
-				if player_state.has("camera_pitch"):
-					if camera_rig.has("pitch"):
-						camera_rig.pitch.rotation.x = player_state["camera_pitch"]
-	
-	# Aplicar inputs y avanzar frame SOLO aquí (no en _process_drift_check)
-	_apply_inputs_from_frame(frame_data)
-	frame_index += 1
-	emit_signal("frame_updated", frame_index, total_logical_frames)
+		if get_node("/root/GameGlobals") and get_node("/root/GameGlobals").is_test_mode:
+			return
+		frame_count += 1
+		var player = PlayerManager.get_player()
+		if not (player and is_instance_valid(player) and player.is_inside_tree()):
+			print("[ReplayPlayback] Frame ", frame_count, " - Player not inside tree (bloqueando avance de frame)")
+			return
+		else:
+			print("[ReplayPlayback] Frame ", frame_count, " - Player pos: ", player.global_transform.origin)
+
+		# Guard clause: Do nothing if there's no replay loaded or if it's paused.
+		if not current_replay or playback_paused:
+			return
+
+		# Si llegamos al final del replay, detener playback usando el tamaño real de frame_states
+		var max_frames = 0
+		if current_replay and current_replay.frame_states:
+			max_frames = current_replay.frame_states.size()
+		else:
+			max_frames = total_logical_frames
+		if frame_index >= max_frames:
+			stop_playback()
+			return
+
+		var frame_data = current_replay.frames[frame_index]
+
+		# --- DRIFT CHECK & LOG DETALLADO ---
+		_process_drift_check(_delta)
+
+		# Solo forzar posición y rotación del mesh en los snapshots (cada RESYNC_INTERVAL)
+		if current_replay and current_replay.frame_states.size() > frame_index and current_replay.frame_states[frame_index].has(PILOT_STATE_KEY):
+			var player_state = current_replay.frame_states[frame_index][PILOT_STATE_KEY]
+			if frame_index % RESYNC_INTERVAL == 0:
+				if player_state.has("rotation") and player and is_instance_valid(player):
+					var rot_euler = ReplayUtils.dict_to_vector3(player_state["rotation"])
+					player.rotation.y = rot_euler.y
+				if player_state.has("pilot_pos") and player and is_instance_valid(player) and spawn_point:
+					player.global_transform.origin = spawn_point.to_global(ReplayUtils.dict_to_vector3(player_state["pilot_pos"]))
+
+			# Fallback: Forzar rotación absoluta de la cámara si los valores grabados existen (esto sí, cada frame)
+			var cam_rig_group = get_tree().get_nodes_in_group("camera_rig_group")
+			if cam_rig_group.size() > 0:
+				var camera_rig = cam_rig_group.front()
+				if camera_rig:
+					if player_state.has("camera_yaw"):
+						if camera_rig.has("yaw"):
+							camera_rig.yaw.rotation.y = player_state["camera_yaw"]
+					if player_state.has("camera_pitch"):
+						if camera_rig.has("pitch"):
+							camera_rig.pitch.rotation.x = player_state["camera_pitch"]
+
+		# Aplicar inputs y avanzar frame SOLO aquí (no en _process_drift_check)
+		_apply_inputs_from_frame(frame_data)
+		frame_index += 1
+		emit_signal("frame_updated", frame_index, total_logical_frames)
 	
 func _process_drift_check(delta: float) -> void:
 	# Skip drift correction in test mode to see pure error
@@ -237,6 +237,21 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	# This prevents "node not found" errors when accessing nodes immediately after a scene load.
 	if get_tree():
 		yield(get_tree(), "idle_frame")
+	
+	_find_spawn_point()
+	
+	# If player not spawned, spawn at initial position
+	if not PlayerManager.is_spawned() and current_replay.initial_states.has(PILOT_STATE_KEY):
+		var initial_data = current_replay.initial_states[PILOT_STATE_KEY]
+		var transform = Transform()
+		if initial_data.has("pilot_pos"):
+			var pos = ReplayUtils.dict_to_vector3(initial_data["pilot_pos"])
+			transform.origin = spawn_point.to_global(pos) if spawn_point else pos
+		if initial_data.has("rotation"):
+			var rot = ReplayUtils.dict_to_vector3(initial_data["rotation"])
+			transform.basis = Basis(rot)
+		PlayerManager.spawn(transform)
+		print("[ReplayPlayback] Spawned player at initial position: ", transform.origin)
 	
 	# Validate that player exists and has required nodes before proceeding
 	var player_check = PlayerManager.get_player()
@@ -625,6 +640,9 @@ func _set_node_state(node: Node, state: Dictionary) -> void:
 				node.global_transform = transform_val
 			elif transform_val is Dictionary:
 				node.global_transform = ReplayUtils.dict_to_transform(transform_val)
+		elif key == "velocity" and node is KinematicBody:
+			if state[key] is Vector3:
+				node.velocity = state[key]
 		elif key == "linear_velocity" and node is RigidBody:
 			if state[key] is Vector3:
 				node.linear_velocity = state[key]

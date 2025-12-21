@@ -28,7 +28,7 @@ var _saved_player_velocity: Vector3 = Vector3.ZERO
 var player_state_saved: bool = false
 var last_replay_path: String = ""
 
-const REPLAYS_DIR = "res://replays/"
+const REPLAYS_DIR = "user://replays/"
 
 func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS

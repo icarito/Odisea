@@ -44,7 +44,7 @@ func save_to_json(path: String) -> int:
 		   # No se puede acceder a frames[0] ni frames[-1] si está vacío
 		   # Retornar error inmediatamente para evitar crash
 		   return ERR_INVALID_DATA
-	   if not frames[0].has("player_position_fixed") or not frames[-1].has("player_position_fixed"):
+	   if not frames[0].has("pilot_pos") or not frames[-1].has("pilot_pos"):
 		   printerr("Replay JSON: primer/último frame sin posición de player!")
 		   valid = false
 
@@ -63,13 +63,6 @@ func save_to_json(path: String) -> int:
 	   file.store_line(to_json(data))
 	   file.close()
 
-	   # Save debug version with D_ prefix
-	   if path.begins_with("res://replays/"):
-		   var debug_path = path.replace("res://replays/", "res://replays/D_")
-		   var debug_file = File.new()
-		   if debug_file.open(debug_path, File.WRITE) == OK:
-			   debug_file.store_line(to_json(data))
-			   debug_file.close()
 
 	   if not valid:
 		   return ERR_INVALID_DATA
