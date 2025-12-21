@@ -8,6 +8,7 @@ signal playback_resumed
 signal frame_updated(frame_index, total_frames)
 
 const ReplayScript = preload("res://scripts/replay/Replay.gd")
+const GameGlobals = preload("res://autoload/GameGlobals.gd")
 const REPLAY_GROUP = "replay_track"
 const INPUT_ACTIONS = [
 	"left", "right", "forward", "backward", "jump", "sprint", "roll", "attack", "aim"
@@ -69,8 +70,15 @@ func _apply_smooth_drift_correction(pilot: Spatial, target_transform: Transform,
 	pilot.global_transform.origin = new_origin
 	pilot.global_transform.basis = new_basis
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
+	if get_node("/root/GameGlobals") and get_node("/root/GameGlobals").is_test_mode:
+		return
 	frame_count += 1
+	var player = PlayerManager.get_player()
+	if player and is_instance_valid(player):
+		print("[ReplayPlayback] Frame ", frame_count, " - Player pos: ", player.global_transform.origin)
+	else:
+		print("[ReplayPlayback] Frame ", frame_count, " - Player pos: null")
 	var _player = PlayerManager.get_player()
 	
 	# Guard clause: Do nothing if there's no replay loaded or if it's paused.
@@ -90,7 +98,7 @@ func _physics_process(delta: float) -> void:
 	var frame_data = current_replay.frames[frame_index]
 	
 	# --- DRIFT CHECK & LOG DETALLADO ---
-	_process_drift_check(delta)
+	_process_drift_check(_delta)
 	
 	# Solo forzar posición y rotación del mesh en los snapshots (cada RESYNC_INTERVAL)
 	if current_replay and current_replay.frame_states.size() > frame_index and current_replay.frame_states[frame_index].has(PILOT_STATE_KEY):
@@ -136,7 +144,7 @@ func _process_drift_check(delta: float) -> void:
 	print("[DRIFT DEBUG] ¡Chequeo de deriva activado! Frame: ", frame_index)
 	# Recorrer los nodos marcados para tracking
 	for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
-		var node_path = get_tree().current_scene.get_path_to(node)
+		var _node_path = get_tree().current_scene.get_path_to(node)
 		# 1. Chequeo del Pilot
 		if node.name == PILOT_STATE_KEY and recorded_states.has(PILOT_STATE_KEY):
 			var current_node = node
@@ -241,7 +249,7 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	
 	# Update references after scene change
 	if get_tree() and get_tree().current_scene:
-		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+		var _camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 		player = PlayerManager.get_player()
 		if is_instance_valid(player) and player.is_inside_tree():
 			player_path = get_tree().current_scene.get_path_to(player)
@@ -271,8 +279,8 @@ func _prepare_scene_for_playback():
 			emit_signal("playback_failed")
 			return
 		
-		var pilot = get_tree().current_scene.get_node("Pilot/PlayerInput")
-		var scene = get_tree().current_scene
+		var _pilot = get_tree().current_scene.get_node("Pilot/PlayerInput")
+		var _scene = get_tree().current_scene
 		for path in current_replay.initial_states:
 			var node_name = path.trim_prefix("@")
 			var node = get_tree().current_scene.find_node(node_name, true, false)
@@ -288,7 +296,7 @@ func start_loaded_playback() -> void:
 
 	# Disable camera input
 	if get_tree() and get_tree().current_scene:
-		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+		var _camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 		var _player = PlayerManager.get_player()
 		if is_instance_valid(_player):
 			_player.set_physics_process(true)  # Enable player physics for deterministic simulation
@@ -537,7 +545,7 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 	if _player and is_instance_valid(_player) and current_replay.frame_states.size() > frame_index:
 		var recorded_state = current_replay.frame_states[frame_index]
 		var player_data = recorded_state.get(PILOT_STATE_KEY)
-		var apply_velocity_correction := false
+		var _apply_velocity_correction := false
 		if player_data and player_data.has("pilot_pos") and player_data.has("rotation") and spawn_point:
 			var current_pos = _player.global_transform.origin
 			var recorded_pos = spawn_point.to_global(ReplayUtils.dict_to_vector3(player_data["pilot_pos"]))
@@ -546,11 +554,11 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 			var distance = current_pos.distance_to(recorded_pos)
 			var angular_drift = abs(fmod(current_rot.y - recorded_rot.y, PI * 2.0))
 			if distance > DRIFT_THRESHOLD or angular_drift > ROTATION_DRIFT_THRESHOLD:
-				apply_velocity_correction = true
+				_apply_velocity_correction = true
 	# --- VELOCIDAD NO SE INYECTA PARA EVITAR DRIFT ---
 	# Eliminado: Inyección de velocidad grabada para permitir que la simulación física determine la velocidad basada en inputs.
 	# Esto previene el drift causado por valores flotantes inconsistentes.
-	# if apply_velocity_correction and player_data and player_data.has("pre_move_velocity"):
+	# if _apply_velocity_correction and player_data and player_data.has("pre_move_velocity"):
 	#	var recorded_velocity = ReplayUtils.from_json_safe(player_data["pre_move_velocity"])
 	#	player.velocity = recorded_velocity
 	#	player.pre_move_velocity_for_replay = recorded_velocity # Para consistencia en logs

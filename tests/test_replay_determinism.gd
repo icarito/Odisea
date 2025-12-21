@@ -1,4 +1,4 @@
-extends GdUnitTestSuite
+extends "res://addons/gdUnit3/src/GdUnitTestSuite.gd"
 
 # test_replay_determinism.gd
 # Test de Validación de Determinismo de Movimiento (TVDM)
@@ -113,10 +113,21 @@ func run_test(test_id):
 	# Crear escena nueva para este test
 	var test_scene_local = load("res://tests/fixtures/TestScene.tscn").instance()
 
+	# Remover componentes de replay que interfieren con el test
+	if test_scene_local.has_node("ReplayManagementPanel"):
+		test_scene_local.get_node("ReplayManagementPanel").queue_free()
+	if test_scene_local.has_node("ReplayRecordingOverlay"):
+		test_scene_local.get_node("ReplayRecordingOverlay").queue_free()
+	# Desactivar ReplayPlayback del autoload
+	if ReplayManager.playback:
+		ReplayManager.playback.set_process(false)
+		ReplayManager.playback.set_physics_process(false)
+	ReplayManager.mode = ReplayManager.ReplayMode.NONE
+
 	# Añadir ReplayManager al test_scene para que su _physics_process sea llamado en la simulación
-	var replay_manager = load("res://scripts/replay/ReplayManager.gd").new()
-	replay_manager.name = "ReplayManager"
-	test_scene_local.add_child(replay_manager)
+	# var replay_manager = load("res://scripts/replay/ReplayManager.gd").new()
+	# replay_manager.name = "ReplayManager"
+	# test_scene_local.add_child(replay_manager)
 
 	# Inicializar InputState como autoload
 	var input_state = get_node("/root/InputState")
@@ -130,11 +141,8 @@ func run_test(test_id):
 	if not player_scene:
 		test_scene_local.queue_free()
 		return {"passed": false, "error": "Failed to instance player scene", "pos_drift": 0.0, "rot_drift": 0.0}
-	print("Player scene name: ", player_scene.name)
-	print("Player scene script: ", player_scene.get_script())
 	test_scene_local.add_child(player_scene)
 	player_scene.transform = spawn_transform
-	print("Player position after set: ", player_scene.global_transform.origin)
 	PlayerManager.player_reference = player_scene
 
 	# Reset FixedVec3 variables to 0 at start of test
@@ -156,21 +164,21 @@ func run_test(test_id):
 	# Fase de asentamiento: simular 5 frames para asegurar is_on_floor True desde frame 0
 	for _i in range(5):
 		runner.simulate_frames(1)
-	print("Player position after settlement: ", player_scene.global_transform.origin)
 
 	# Reset position after settlement
 	player_scene.transform = spawn_transform
-	print("Player position after reset: ", player_scene.global_transform.origin)
 
 	# Asignar spawn_point manualmente para el test (como en simulate_session)
-	if replay_manager and replay_manager.has_node("ReplayRecorder"):
-		replay_manager.get_node("ReplayRecorder").spawn_point = spawn_point
-	if replay_manager and replay_manager.has_node("ReplayPlayback"):
-		replay_manager.get_node("ReplayPlayback").spawn_point = spawn_point
+	# if replay_manager and replay_manager.has_node("ReplayRecorder"):
+	# 	replay_manager.get_node("ReplayRecorder").spawn_point = spawn_point
+	# 	replay_manager.get_node("ReplayRecorder").player = player_scene
+	# if replay_manager and replay_manager.has_node("ReplayPlayback"):
+	# 	replay_manager.get_node("ReplayPlayback").spawn_point = spawn_point
 
 	# FASE 1: GRABACIÓN (Live Run)
-	input_state.mode = InputState.Mode.RECORD
+	input_state.set_mode(InputState.Mode.RECORD)
 	input_state.recorded_frames = []  # Reset
+	input_state.manual_playback = true
 	for frame in test_suite[test_id].frames:
 		input_state.actions = frame.inputs.duplicate()
 		input_state.axes = frame.axes.duplicate()
@@ -178,12 +186,37 @@ func run_test(test_id):
 		input_state.is_strafing_mode_active = frame.strafing_active
 		input_state.strafing_timer = frame.strafing_timer
 		runner.simulate_frames(1)
-		print("Player pos after simulate: ", player_scene.global_transform.origin)
 		input_state._record_current_frame()
+	input_state.manual_playback = false
 
 	# Crear y guardar replay
 	var replay = load("res://scripts/replay/Replay.gd").new()
 	replay.frames = input_state.recorded_frames.duplicate()
+	replay.scene_path = "res://tests/fixtures/TestScene.tscn"
+	replay.godot_version = Engine.get_version_info()["string"]
+	replay.game_version = "dev"
+	replay.timestamp = str(OS.get_unix_time())
+	replay.initial_states = {
+		"player": {
+			"position": player_scene.global_transform.origin,
+			"rotation": player_scene.rotation
+		},
+		"camera": {
+			"position": camera.global_transform.origin,
+			"rotation": camera.global_transform.basis.get_euler()
+		}
+	}
+	# Guardar estado final análogo a initial_states
+	replay.final_states = {
+		"player": {
+			"position": player_scene.global_transform.origin,
+			"rotation": player_scene.rotation
+		},
+		"camera": {
+			"position": camera.global_transform.origin,
+			"rotation": camera.global_transform.basis.get_euler()
+		}
+	}
 	var replay_path = "user://replays/test_" + test_id + ".json"
 	replay.save_to_json(replay_path)
 
@@ -195,9 +228,17 @@ func run_test(test_id):
 	input_state.recorded_frames = replay.frames.duplicate()
 	input_state.mode = InputState.Mode.PLAYBACK
 	input_state.replay_frame = 0
-	player_scene.set_physics_process(false)  # Disable PlayerController movement during playback
-	player_scene.get_node("CameraRig").set_physics_process(false)  # Disable camera movement during playback
-	runner.simulate_frames(300)
+	input_state.manual_playback = true
+	# Aplicar manualmente los inputs grabados en cada frame durante playback
+	for i in range(input_state.recorded_frames.size()):
+		var frame = input_state.recorded_frames[i]
+		input_state.actions = frame.inputs.duplicate()
+		input_state.axes = frame.axes.duplicate()
+		input_state.mouse_delta = Vector2(frame.mouse_delta.x, frame.mouse_delta.y)
+		input_state.is_strafing_mode_active = frame.has("strafing_active") and frame.strafing_active
+		input_state.strafing_timer = frame.strafing_timer if frame.has("strafing_timer") else 0.0
+		runner.simulate_frames(1)
+	input_state.manual_playback = false
 
 	var final_pos_rep = player_scene.global_transform.origin
 	var final_rot_rep = player_scene.rotation.y

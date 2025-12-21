@@ -52,7 +52,7 @@ func _find_spawn_point():
 	spawn_point = get_tree().root.find_node("SpawnPoint", true, false)
 	print("ReplayRecorder spawn_point found: ", spawn_point)
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	if not spawn_point:
 		_find_spawn_point()
 	if not is_recording():
@@ -230,7 +230,7 @@ func stop_recording() -> void:
 	GameGlobals.is_recording = false
 
 
-func _record_frame(delta: float) -> void:
+func _record_frame(_delta: float) -> void:
 	# _debug_log("Start of _record_frame: mouse_motion_this_frame = " + str(mouse_motion_this_frame))
 	if not current_replay:
 		return

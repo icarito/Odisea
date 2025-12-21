@@ -116,8 +116,9 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 
 	GameGlobals.is_replaying = true
 
-	get_tree().change_scene(replay_resource.scene_path)
-	yield(get_tree(), "idle_frame")
+	if get_tree().current_scene.filename != replay_resource.scene_path:
+		get_tree().change_scene(replay_resource.scene_path)
+		yield(get_tree(), "idle_frame")
 	
 	MouseCapture.set_capture(true)
 	mode = ReplayMode.PLAYBACK

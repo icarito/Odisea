@@ -9,7 +9,7 @@ enum Mode { LIVE, RECORD, PLAYBACK }
 var paused: bool = false
 
 # Acciones lógicas (rellenar según necesidades del juego)
-var actions = {
+var actions := {
 	"move_forward": false,
 	"move_back": false,
 	"move_left": false,
@@ -24,7 +24,7 @@ var actions = {
 }
 
 # Ejes analógicos (ejemplo: para sticks o mouse)
-var axes = {
+var axes := {
 	"move_x": 0.0,
 	"move_y": 0.0
 }
@@ -38,7 +38,7 @@ var recorded_mouse_delta = Vector2.ZERO
 var is_strafing_mode_active = false
 var strafing_timer = 0.0
 
-var mode = Mode.LIVE setget set_mode
+var mode: int = Mode.LIVE setget set_mode
 
 # Fixed delta for deterministic replay
 const FIXED_DELTA = 1.0 / 60.0
@@ -47,15 +47,18 @@ const FIXED_DELTA = 1.0 / 60.0
 var replay_frame = 0
 
 # Buffer de frames grabados (solo en record/playback)
-var recorded_frames = []
+var recorded_frames := []
 
-func set_mode(new_mode):
-	mode = new_mode
-	if mode == Mode.LIVE:
-		recorded_frames.clear()
-		replay_frame = 0
+# Flag para modo manual (usado en tests para inyección directa)
+var manual_playback: bool = false
 
-func _physics_process(delta):
+func set_mode(new_mode: int) -> void:
+   mode = new_mode
+   if mode == Mode.LIVE:
+	   recorded_frames.clear()
+	   replay_frame = 0
+
+func _physics_process(_delta):
 	# print("[InputState] axes: move_x=", axes["move_x"], ", move_y=", axes["move_y"])
 	if mode == Mode.LIVE or mode == Mode.RECORD:
 		mouse_delta = _mouse_motion_this_frame
@@ -81,10 +84,11 @@ func _physics_process(delta):
 		Mode.LIVE:
 			_update_from_input()
 		Mode.RECORD:
-			_update_from_input()
-			_record_current_frame()
+			if not manual_playback:
+				_update_from_input()
+				_record_current_frame()
 		Mode.PLAYBACK:
-			if not paused:
+			if not paused and not manual_playback:
 				_apply_replay_frame()
 	
 	_mouse_motion_this_frame = Vector2.ZERO

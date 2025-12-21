@@ -1,6 +1,7 @@
 extends Resource
 class_name Replay
 
+
 # Metadata
 var scene_path: String = ""
 var godot_version: String = ""
@@ -18,6 +19,9 @@ var frame_states: Array = []
 
 # Sparse snapshots for debugging (every 60 frames)
 var snapshots: Dictionary = {}
+
+# Estado final completo (player y cámara)
+export (Dictionary) var final_states = {}
 
 func _init() -> void:
 	pass
@@ -44,16 +48,6 @@ func save_to_json(path: String) -> int:
 		   printerr("Replay JSON: primer/último frame sin posición de player!")
 		   valid = false
 
-	   # Guardar estado final redundante
-	   var final_state = {}
-	   if frames.size() > 0:
-		   final_state["player"] = frames[-1].get("player_position_fixed", null)
-		   final_state["player_rot"] = frames[-1].get("rotation_fixed", null)
-		   final_state["camera"] = frames[-1].get("camera", null)
-	   else:
-		   final_state["player"] = null
-		   final_state["player_rot"] = null
-		   final_state["camera"] = null
 
 	   var data = {
 		   "scene_path": scene_path,
@@ -61,7 +55,7 @@ func save_to_json(path: String) -> int:
 		   "game_version": game_version,
 		   "timestamp": timestamp,
 		   "initial_states": initial_states,
-		   "final_state": final_state,
+		   "final_states": final_states,
 		   "frames": frames,
 		   "frame_states": frame_states
 	   }
@@ -97,6 +91,7 @@ func load_from_json(path: String) -> int:
 		game_version = data.get("game_version", "")
 		timestamp = data.get("timestamp", "")
 		initial_states = data.get("initial_states", {})
+		final_states = data.get("final_states", {})
 		frames = data.get("frames", [])
 		frame_states = data.get("frame_states", [])
 		return OK

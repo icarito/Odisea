@@ -49,7 +49,7 @@ func _deferred_load_scene(path: String) -> void:
 		push_error("SceneManager: Failed to load scene at path: " + path)
 
 
-func spawn_network_player(peer_id: int, spawn_point: Transform) -> void:
+func spawn_network_player(peer_id: int, _spawn_point: Transform) -> void:
 	# This will be implemented with the MultiplayerManager in the future.
 	# For now, it can handle local players if needed.
 	print("SceneManager: Spawning player for peer %d" % peer_id)

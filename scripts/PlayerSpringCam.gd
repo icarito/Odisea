@@ -20,8 +20,8 @@ export(NodePath) var camera_path
 export(float, 0.1, 5.0, 0.1) var strafe_mode_timeout := 1.0
 export(float, 0.0, 1.0, 0.05) var strafe_mode_influence := 1.0
 
-export(float, 0.1, 100, 1) var yaw_sensitivity := 20
-export(float, 0.1, 100, 1) var pitch_sensitivity := 20
+export(float, 0.1, 100, 1) var yaw_sensitivity := 20.0
+export(float, 0.1, 100, 1) var pitch_sensitivity := 20.0
 export(float) var yaw_smooth := 12.0
 export(float) var pitch_smooth := 12.0
 export(float, 0.0, 90.0, 0.5) var pitch_limit_up_deg := 85.0 # límite superior para mirar arriba
@@ -66,34 +66,34 @@ func set_player_id(id: int) -> void:
 		joypad_device = 1 # Asumir que P2 usa joypad 1
 
 func _ready():
-   if player_path: player = get_node(player_path)
-   if yaw_path: yaw = get_node(yaw_path)
-   if pitch_path: pitch = get_node(pitch_path)
-   if springarm_path: springarm = get_node(springarm_path)
-   if camera_path: cam = get_node(camera_path)
-   if springarm:
-	   springarm.spring_length = base_length
-	   springarm.collision_mask = collision_mask
+	if player_path: player = get_node(player_path)
+	if yaw_path: yaw = get_node(yaw_path)
+	if pitch_path: pitch = get_node(pitch_path)
+	if springarm_path: springarm = get_node(springarm_path)
+	if camera_path: cam = get_node(camera_path)
+	if springarm:
+		springarm.spring_length = base_length
+		springarm.collision_mask = collision_mask
 
-   # Añadir al grupo para replay
-   if not is_in_group("camera_rig_group"):
-	   add_to_group("camera_rig_group")
+	# Añadir al grupo para replay
+	if not is_in_group("camera_rig_group"):
+		add_to_group("camera_rig_group")
 
-   # Conectarse a la señal de MouseCapture para el cambio de captura del mouse
-   if MouseCapture:
-	   MouseCapture.connect("capture_changed", self, "_on_capture_changed")
+	# Conectarse a la señal de MouseCapture para el cambio de captura del mouse
+	if MouseCapture:
+		MouseCapture.connect("capture_changed", self, "_on_capture_changed")
 
-   # Conectarse a ReplayManager para cambios de modo
-   if ReplayManager:
-	   ReplayManager.connect("mode_changed", self, "_on_replay_mode_changed")
-   
-   _update_mouse_look_active()
+	# Conectarse a ReplayManager para cambios de modo
+	if ReplayManager:
+		ReplayManager.connect("mode_changed", self, "_on_replay_mode_changed")
+	
+	_update_mouse_look_active()
 
-func _on_capture_changed(is_captured: bool):
+func _on_capture_changed(_is_captured: bool):
 	_update_mouse_look_active()
 
 
-func _on_replay_mode_changed(new_mode: int):
+func _on_replay_mode_changed(_new_mode: int):
 	_update_mouse_look_active()
 
 func _update_mouse_look_active():
@@ -123,7 +123,7 @@ func _get_mouse_motion() -> Vector2:
 	
 	return Vector2.ZERO
 
-func _physics_process(delta):
+func _physics_process(_delta):
 	# --- ROBUST YAW INITIALIZATION ---
 	if not _yaw_initialized and is_instance_valid(player):
 		var initial_offset = 0 
@@ -160,12 +160,12 @@ func _physics_process(delta):
 		if yaw:
 			var target_yaw = FixedPoint.from_fixed(target_yaw_fixed)
 			var y = yaw.rotation.y
-			y += (target_yaw - y) * min(1.0, yaw_smooth * delta)
+			y += (target_yaw - y) * min(1.0, yaw_smooth * _delta)
 			yaw.rotation.y = y
 		if pitch:
 			var target_pitch = FixedPoint.from_fixed(target_pitch_fixed)
 			var p = pitch.rotation.x
-			p += (target_pitch - p) * min(1.0, pitch_smooth * delta)
+			p += (target_pitch - p) * min(1.0, pitch_smooth * _delta)
 			pitch.rotation.x = p
 	else:
 		# En modo replay, forzar valores exactos
@@ -187,7 +187,7 @@ func _physics_process(delta):
 			hv = hv_val if hv_val != null else Vector3.ZERO
 		var speed := hv.length()
 		var target_len = lerp(base_length, max_length, clamp(speed / 8.0, 0.0, 1.0))
-		springarm.spring_length = lerp(springarm.spring_length, target_len, min(1.0, zoom_speed * delta))
+		springarm.spring_length = lerp(springarm.spring_length, target_len, min(1.0, zoom_speed * _delta))
 
 	# --- Conditional Input Consumption ---
 	is_playback = ReplayManager and ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK

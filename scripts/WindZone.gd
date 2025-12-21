@@ -38,7 +38,7 @@ func _on_body_exited(body: Object) -> void:
 		if debug:
 			print("[WindZone] cleared gravity_override for: ", body.name)
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	# Dirección local "up" del WindZone en espacio mundial
 	var world_dir := global_transform.basis.orthonormalized().y
 	
@@ -57,7 +57,7 @@ func _physics_process(delta: float) -> void:
 		if body.has_method("set_gravity_override"):
 			# Estimar velocidad del cuerpo para capear empuje si supera el máximo
 			var prev_pos = _prev_positions.get(body, body.global_transform.origin)
-			var velocity = (body.global_transform.origin - prev_pos) / delta
+			var velocity = (body.global_transform.origin - prev_pos) / _delta
 			_prev_positions[body] = body.global_transform.origin
 			var speed_along = velocity.dot(world_dir)
 			var grav = world_dir * lift

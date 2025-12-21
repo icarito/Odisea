@@ -1,16 +1,11 @@
-[gd_scene load_steps=10 format=2]
+[gd_scene load_steps=7 format=2]
 
-[ext_resource path="res://materials/reference/PrototypeGrey.tres" type="Material" id=1]
-[ext_resource path="res://addons/kenney_prototype_textures/dark/texture_01.png" type="Texture" id=2]
+[ext_resource path="res://addons/kenney_prototype_textures/dark/texture_01.png" type="Texture" id=1]
 [ext_resource path="res://scripts/SceneSpawn.gd" type="Script" id=3]
-[ext_resource path="res://scenes/ui/ReplayManagementPanel.tscn" type="PackedScene" id=4]
-[ext_resource path="res://scenes/ui/ReplayRecordingOverlay.tscn" type="PackedScene" id=5]
+[ext_resource path="res://materials/reference/PrototypeGrey.tres" type="Material" id=4]
 
 [sub_resource type="SpatialMaterial" id=3]
-albedo_texture = ExtResource( 2 )
-
-[sub_resource type="BoxShape" id=4]
-extents = Vector3( 50, 0.1, 50 )
+albedo_texture = ExtResource( 1 )
 
 [sub_resource type="ProceduralSky" id=1]
 sky_top_color = Color( 0.152941, 0.752941, 0.752941, 1 )
@@ -35,6 +30,7 @@ glow_strength = 1.04
 glow_bloom = 1.0
 
 [node name="TestScene" type="Spatial"]
+script = ExtResource( 3 )
 
 [node name="CSGBox" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
@@ -42,10 +38,10 @@ use_collision = true
 width = 100.0
 height = 0.2
 depth = 100.0
-material = ExtResource( 1 )
+material = ExtResource( 4 )
 
 [node name="SpawnPoint" type="Spatial" parent="CSGBox"]
-transform = Transform( -0.68233, 0, 0.731044, 0, 1, 0, -0.731044, 0, -0.68233, 0.180838, 1.30911, 2.09065 )
+transform = Transform( 0.688317, 0, -0.72541, 0, 1, 0, 0.72541, 0, 0.688317, 0, 0.926592, 0 )
 
 [node name="CSGSphere" type="CSGSphere" parent="CSGBox"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 2.00326, -0.165248 )
@@ -67,32 +63,5 @@ transform = Transform( 0.575062, -0.817837, 0.0211172, -2.25658e-09, -0.0258122,
 height = 7.73908
 material = SubResource( 3 )
 
-[node name="Floor" type="StaticBody" parent="."]
-
-[node name="CollisionShape" type="CollisionShape" parent="Floor"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.9, 0 )
-shape = SubResource( 4 )
-
 [node name="EnvironmentEffects" type="WorldEnvironment" parent="."]
 environment = SubResource( 2 )
-
-[node name="ReplayRecordingOverlay" parent="." instance=ExtResource( 5 )]
-
-[node name="ReplayManagementPanel" parent="." instance=ExtResource( 4 )]
-
-[node name="DriftOverlay" type="CanvasLayer" parent="."]
-
-[node name="DriftLabel" type="Label" parent="DriftOverlay"]
-anchor_right = 1.0
-anchor_bottom = 1.0
-margin_left = 10.0
-margin_top = 10.0
-margin_right = -10.0
-margin_bottom = -10.0
-text = "Drift: Pos=0.000 m, Rot=0.000 rad"
-align = 1
-valign = 1
-
-[node name="DebugCamera" type="Camera" parent="."]
-transform = Transform( 1, 0, 0, 0, 0.707, 0.707, 0, -0.707, 0.707, 0, 5, 10 )
-current = true
