@@ -134,7 +134,7 @@ func _physics_process(delta):
 			motion = input_state.get_mouse_delta()
 	elif not touch_active and player_id == 1 and _is_mouse_look_active:
 		# En modo 'live' o 'record', usar el mouse procesado si no hay controles touch activos.
-		motion = input_state.get_mouse_delta()
+		motion = input_state.get_live_mouse_delta()
 
 	# 2. Aplicar rotación si hay movimiento
 	if motion is Vector2 and motion.length() > 0.0:
