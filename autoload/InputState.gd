@@ -215,11 +215,11 @@ func _apply_replay_frame():
 	var frame = recorded_frames[replay_frame]
 	actions = frame["inputs"].duplicate()
 	axes = frame["axes"].duplicate()
-	var md = frame.get("mouse_delta", {"x": 0.0, "y": 0.0})
-	if md is Dictionary:
-		mouse_delta = Vector2(md.get("x", 0.0), md.get("y", 0.0))
+	var md = frame.get("mouse_delta", "(0, 0)")
+	if md is String:
+		mouse_delta = str2var("Vector2" + md)
 	else:
-		mouse_delta = Vector2.ZERO
+		mouse_delta = Vector2(md.get("x", 0.0), md.get("y", 0.0))
 	recorded_mouse_delta = mouse_delta
 	is_strafing_mode_active = frame.get("strafing_active", false)
 	strafing_timer = frame.get("strafing_timer", 0.0)
@@ -251,6 +251,11 @@ func start_recording():
 	set_mode(Mode.RECORD)
 
 func start_playback():
+	set_mode(Mode.PLAYBACK)
+
+func load_replay(replay_data: Array):
+	recorded_frames = replay_data.duplicate()
+	replay_frame = 0
 	set_mode(Mode.PLAYBACK)
 
 func stop():
