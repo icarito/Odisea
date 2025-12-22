@@ -447,10 +447,12 @@ func _physics_process(delta):
 	# Apply Gravity (fixed-point)
 	if not is_on_floor():
 		var gravity_fixed = FixedVec3.from_vec3(effective_gravity_vector)
+		print("[PlayerController] Conversión Vector3 a fixed: effective_gravity_vector -> gravity_fixed:", effective_gravity_vector, "->", gravity_fixed)
 		var delta_fixed = FixedPoint.to_fixed(delta)
 		var multiplier_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(2), delta_fixed)
 		var gravity_delta_fixed = FixedVec3.mul_scalar(gravity_fixed, multiplier_fixed)
 		vertical_velocity_fixed = FixedVec3.add(vertical_velocity_fixed, gravity_delta_fixed)
+		print("[PlayerController] Velocidad vertical fixed actualizada (gravedad):", vertical_velocity_fixed)
 	else:
 		# Si la gravedad efectiva apunta hacia arriba (levanta), despegar del suelo
 		if effective_gravity_dir.dot(Vector3.UP) > 0.5:
@@ -470,6 +472,7 @@ func _physics_process(delta):
 	var max_rise_fixed = FixedPoint.to_fixed(max_rise_speed)
 	var clamped_y_fixed = FixedPoint.fixed_clamp(vertical_velocity_fixed.y, max_fall_fixed, max_rise_fixed)
 	vertical_velocity_fixed = {"x": vertical_velocity_fixed.x, "y": clamped_y_fixed, "z": vertical_velocity_fixed.z}
+	print("[PlayerController] Velocidad vertical fixed clamped:", vertical_velocity_fixed)
 
 	# Check for attack/roll states that modify acceleration
 	if (attack1_node_name in playback.get_current_node()) or (attack2_node_name in playback.get_current_node()) or (bigattack_node_name in playback.get_current_node()):
@@ -496,10 +499,12 @@ func _physics_process(delta):
 		var pv := platform_velocity
 		var jump_force_fixed = FixedPoint.to_fixed(jump_force)
 		vertical_velocity_fixed = {"x": 0, "y": jump_force_fixed, "z": 0}
+		print("[PlayerController] Velocidad vertical fixed actualizada (jump):", vertical_velocity_fixed)
 		if inherit_vertical_platform_jump and pv.y > 0.0:
 			var min_pv_fixed = FixedPoint.to_fixed(min(pv.y, max_platform_up_follow))
 			var new_y_fixed = FixedPoint.fixed_add(vertical_velocity_fixed.y, min_pv_fixed)
 			vertical_velocity_fixed = {"x": vertical_velocity_fixed.x, "y": new_y_fixed, "z": vertical_velocity_fixed.z}
+			print("[PlayerController] Velocidad vertical fixed actualizada (platform jump):", vertical_velocity_fixed)
 		snap_enabled = false
 		airborne_inherited = Vector3(pv.x, 0, pv.z)
 		horizontal_velocity += airborne_inherited
@@ -585,12 +590,14 @@ func _physics_process(delta):
 		var zero_fixed = FixedVec3.zero()
 		var lerp_factor_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(6.0), FixedPoint.to_fixed(delta))
 		platform_velocity_fixed = FixedVec3.lerp(platform_velocity_fixed, zero_fixed, lerp_factor_fixed)
+		print("[PlayerController] Velocidad plataforma fixed actualizada:", platform_velocity_fixed)
 		if is_on_floor():
 			last_platform_velocity = FixedVec3.to_vec3(platform_velocity_fixed)
 			airborne_inherited = Vector3.ZERO
 			if platform_velocity.y > 0.0 and not just_jumped:
 				var min_pv_fixed = FixedPoint.to_fixed(min(platform_velocity.y, max_platform_up_follow))
 				vertical_velocity_fixed = {"x": vertical_velocity_fixed.x, "y": min_pv_fixed, "z": vertical_velocity_fixed.z}
+				print("[PlayerController] Velocidad vertical fixed actualizada (platform):", vertical_velocity_fixed)
 		elif was_on_floor:
 			airborne_inherited = last_platform_velocity
 		
@@ -598,8 +605,11 @@ func _physics_process(delta):
 		var effective_platform_velocity := (Vector3(platform_velocity.x, 0, platform_velocity.z) if (is_on_floor() and platform_is_static_surface) else airborne_inherited)
 		var combined_horizontal = horizontal_velocity + effective_platform_velocity
 		var combined_horizontal_fixed = FixedVec3.from_vec3(combined_horizontal)
+		print("[PlayerController] Conversión Vector3 a fixed: combined_horizontal -> combined_horizontal_fixed:", combined_horizontal, "->", combined_horizontal_fixed)
 		var movement_this_frame_fixed = FixedVec3.add(combined_horizontal_fixed, vertical_velocity_fixed)
+		print("[PlayerController] Velocidad movimiento fixed:", movement_this_frame_fixed)
 		movement_this_frame = FixedVec3.to_vec3(movement_this_frame_fixed)
+		print("[PlayerController] Conversión fixed a Vector3: movement_this_frame_fixed -> movement_this_frame:", movement_this_frame_fixed, "->", movement_this_frame)
 
 	# [NUEVO] APLICAR SOFT SYNC (MANO INVISIBLE)
 	# Hacemos esto JUSTO ANTES de move_and_slide
@@ -653,9 +663,11 @@ func _physics_process(delta):
 	# Update velocity components from the result for the next frame
 	horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
 	horizontal_velocity_fixed = FixedVec3.from_vec3(horizontal_velocity)
+	print("[PlayerController] Velocidad horizontal fixed actualizada:", horizontal_velocity_fixed)
 	if movement_comp:
 		movement_comp.horizontal_velocity = horizontal_velocity
 	vertical_velocity_fixed = FixedVec3.from_vec3(Vector3(0, velocity.y, 0))
+	print("[PlayerController] Velocidad vertical fixed actualizada (post-slide):", vertical_velocity_fixed)
 	
 	# Snapping to zero to prevent numerical drift
 	if is_on_floor() and horizontal_velocity.length_squared() < 0.0001:
@@ -877,6 +889,7 @@ func set_replay_state(state: Dictionary) -> void:
 		var pos_fixed = state["player_position_fixed"]
 		if pos_fixed is Dictionary:
 			global_transform.origin = ReplayUtils.fixed_dict_to_vector3(pos_fixed)
+			print("[PlayerController] Posición fixed actualizada:", global_transform.origin)
 		else:
 			global_transform.origin = deserialized_state.get("player_position", global_transform.origin)
 	else:
@@ -911,6 +924,7 @@ func set_replay_state(state: Dictionary) -> void:
 		var vel_fixed = state["velocity_fixed"]
 		if vel_fixed is Dictionary:
 			velocity = ReplayUtils.fixed_dict_to_vector3(vel_fixed)
+			print("[PlayerController] Velocidad fixed:", velocity)
 		else:
 			velocity = deserialized_state.get("velocity", Vector3.ZERO)
 	else:
