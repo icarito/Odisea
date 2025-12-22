@@ -71,8 +71,14 @@ func eject_playback() -> void:
 		playback.stop_playback()
 
 	restore_player_state()
-	GameGlobals.is_replaying = false
-	MouseCapture.set_capture(false)
+	if has_node("/root/GameGlobals"):
+		get_node("/root/GameGlobals").is_replaying = false
+	else:
+		print("[ReplayManager] Advertencia: GameGlobals no está disponible en /root.")
+	if has_node("/root/MouseCapture"):
+		get_node("/root/MouseCapture").set_capture(false)
+	else:
+		print("[ReplayManager] Advertencia: MouseCapture no está disponible en /root.")
 	emit_signal("mode_changed", ReplayMode.NONE)
 
 # Recording API
@@ -101,12 +107,18 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 		print("Failed to load replay: " + replay_path)
 		return
 
-	GameGlobals.is_replaying = true
+	if has_node("/root/GameGlobals"):
+		get_node("/root/GameGlobals").is_replaying = true
+	else:
+		print("[ReplayManager] Advertencia: GameGlobals no está disponible en /root.")
 
 	get_tree().change_scene(replay_resource.scene_path)
 	yield(get_tree(), "idle_frame")
-	
-	MouseCapture.set_capture(true)
+
+	if has_node("/root/MouseCapture"):
+		get_node("/root/MouseCapture").set_capture(true)
+	else:
+		print("[ReplayManager] Advertencia: MouseCapture no está disponible en /root.")
 	mode = ReplayMode.PLAYBACK
 	emit_signal("mode_changed", mode)
 	playback.start_playback(replay_path, is_headless)
@@ -122,8 +134,12 @@ func get_playback_node():
 
 # Player state management
 func save_player_state() -> void:
-	var player = PlayerManager.get_player()
-	if player and player is KinematicBody:
+	var player = null
+	if has_node("/root/PlayerManager"):
+		player = get_node("/root/PlayerManager").get_player()
+	else:
+		print("[ReplayManager] Advertencia: PlayerManager no está disponible en /root.")
+	if player and is_instance_valid(player) and player is KinematicBody and player.is_inside_tree():
 		_saved_player_transform = player.global_transform
 		if player.has_method("get_horizontal_velocity"):
 			_saved_player_velocity = player.get_horizontal_velocity()
@@ -132,7 +148,11 @@ func save_player_state() -> void:
 func restore_player_state() -> void:
 	if not player_state_saved:
 		return
-	var player = PlayerManager.get_player()
+	var player = null
+	if has_node("/root/PlayerManager"):
+		player = get_node("/root/PlayerManager").get_player()
+	else:
+		print("[ReplayManager] Advertencia: PlayerManager no está disponible en /root.")
 	if player and player is KinematicBody:
 		player.global_transform = _saved_player_transform
 		if player.has_method("set_horizontal_velocity"):
@@ -143,18 +163,27 @@ func restore_player_state() -> void:
 # Signal Handlers
 func _on_recording_stopped(frame_count, _replay_path):
 	mode = ReplayMode.NONE
-	MouseCapture.set_capture(false)
+	if has_node("/root/MouseCapture"):
+		get_node("/root/MouseCapture").set_capture(false)
+	else:
+		print("[ReplayManager] Advertencia: MouseCapture no está disponible en /root.")
 	emit_signal("mode_changed", mode)
 	emit_signal("recording_stopped", frame_count)
 
 func _on_playback_stopped():
 	if mode == ReplayMode.PLAYBACK:
 		mode = ReplayMode.STOPPED
-		GameGlobals.is_replaying = false
+		if has_node("/root/GameGlobals"):
+			get_node("/root/GameGlobals").is_replaying = false
+		else:
+			print("[ReplayManager] Advertencia: GameGlobals no está disponible en /root.")
 		emit_signal("mode_changed", mode)
 
 func _on_playback_failed():
 	emit_signal("replay_failed")
 	mode = ReplayMode.NONE
-	MouseCapture.set_capture(false)
+	if has_node("/root/MouseCapture"):
+		get_node("/root/MouseCapture").set_capture(false)
+	else:
+		print("[ReplayManager] Advertencia: MouseCapture no está disponible en /root.")
 	emit_signal("mode_changed", mode)

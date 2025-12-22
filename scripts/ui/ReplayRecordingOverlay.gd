@@ -14,6 +14,8 @@ onready var frame_slider: HSlider = find_node("FrameSlider", true, false)
 
 var _recording_just_stopped: bool = false
 var playback_node: Node = null
+var _auto_play_cli_replay := false
+var _has_auto_played := false
 
 func _ready() -> void:
 	visible = false
@@ -21,6 +23,17 @@ func _ready() -> void:
 	if ReplayManager:
 		ReplayManager.connect("mode_changed", self, "_on_ReplayManager_mode_changed")
 		ReplayManager.connect("recording_stopped", self, "_on_ReplayManager_recording_stopped")
+
+	# Soporte para reproducción automática desde CLI
+	var args = OS.get_cmdline_args()
+	var replay_arg_idx = args.find("--replay")
+	if replay_arg_idx != -1 and replay_arg_idx + 1 < args.size() and not GameGlobals.cli_replay_processed:
+		GameGlobals.cli_replay_processed = true
+		var replay_path = args[replay_arg_idx + 1]
+		print("[ReplayRecordingOverlay] Reproduciendo replay desde CLI: ", replay_path)
+		ReplayManager.start_playback(replay_path)
+		# Marcar que es CLI para auto-play
+		_auto_play_cli_replay = true
 
 	if stop_recording_button:
 		stop_recording_button.connect("pressed", self, "_on_StopRecordingButton_pressed")
@@ -46,12 +59,17 @@ func _ready() -> void:
 
 func _on_ReplayManager_mode_changed(new_mode):
 	_update_visibility()
-	
+       
 	if new_mode == ReplayManager.ReplayMode.PLAYBACK:
 		playback_node = ReplayManager.get_playback_node()
 		if playback_node:
 			playback_node.connect("frame_updated", self, "_on_frame_updated")
 			playback_node.connect("playback_started", self, "_on_playback_started")
+			# Si es CLI, iniciar reproducción automáticamente
+			if _auto_play_cli_replay and not _has_auto_played:
+				_has_auto_played = true
+				_auto_play_cli_replay = false
+				playback_node.start_loaded_playback()
 	elif new_mode == ReplayManager.ReplayMode.NONE:
 		if playback_node:
 			if playback_node.is_connected("frame_updated", self, "_on_frame_updated"):

@@ -126,6 +126,24 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	if get_tree():
 		yield(get_tree(), "idle_frame")
 	
+	# Spawn player if not exists
+	if not PlayerManager.is_spawned():
+		var initial_transform = Transform()
+		if current_replay.initial_states.has("player"):
+			var pos_str = current_replay.initial_states["player"]["position"]
+			var rot_str = current_replay.initial_states["player"]["rotation"]
+			# Parse position: "(x, y, z)" -> Vector3
+			pos_str = pos_str.trim_prefix("(").trim_suffix(")")
+			var pos_parts = pos_str.split(",")
+			var pos = Vector3(float(pos_parts[0]), float(pos_parts[1]), float(pos_parts[2]))
+			# Parse rotation: "(x, y, z)" -> Vector3 for euler
+			rot_str = rot_str.trim_prefix("(").trim_suffix(")")
+			var rot_parts = rot_str.split(",")
+			var rot = Vector3(float(rot_parts[0]), float(rot_parts[1]), float(rot_parts[2]))
+			initial_transform.origin = pos
+			initial_transform.basis = Basis(rot)
+		PlayerManager.spawn(initial_transform)
+	
 	# Update references after scene change
 	if get_tree() and get_tree().current_scene:
 		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
