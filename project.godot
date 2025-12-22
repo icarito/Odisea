@@ -459,11 +459,6 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://tests/test_replay_playback.gd"
 }, {
-"base": "GdUnitTestSuite",
-"class": "GdUnitReplayRecorderTestSuite",
-"language": "GDScript",
-"path": "res://tests/test_replay_recorder.gd"
-}, {
 "base": "Resource",
 "class": "GdUnitReport",
 "language": "GDScript",
@@ -930,7 +925,6 @@ _global_script_class_icons={
 "GdUnitPatcher": "",
 "GdUnitProperty": "",
 "GdUnitReplayPlaybackTestSuite": "",
-"GdUnitReplayRecorderTestSuite": "",
 "GdUnitReport": "",
 "GdUnitReportCollector": "",
 "GdUnitReportConsumer": "",

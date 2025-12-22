@@ -5,7 +5,7 @@ onready var ReplayScript = load("res://scripts/replay/Replay.gd")
 const REPLAY_GROUP = "replay_track"
 const REPLAYS_DIR = "res://replays/"
 const FIXED_DELTA = 1.0 / 60.0 # Fixed delta for deterministic recording
-const SNAPSHOT_INTERVAL = 100
+const SNAPSHOT_INTERVAL = 10
 
 const INPUT_ACTIONS = [
 	"left", "right", "forward", "backward", "jump", "sprint", "roll", "attack", "aim"
@@ -103,13 +103,27 @@ func start_recording(): # This function now acts like a coroutine
 	# Add CameraRig state
 	if get_tree() and get_tree().current_scene:
 		camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+		# also try viewport camera as fallback
+		var viewport_cam = null
+		if get_viewport():
+			viewport_cam = get_viewport().get_camera()
 		if camera_rig and camera_rig.has_method("get_replay_state"):
 			if not camera_rig.is_inside_tree():
 				yield(get_tree(), "idle_frame")
 			if camera_rig.is_inside_tree():
 				initial[camera_rig.get_path()] = camera_rig.get_replay_state()
+		elif viewport_cam and viewport_cam.has_method("get_replay_state"):
+			if not viewport_cam.is_inside_tree():
+				yield(get_tree(), "idle_frame")
+			if viewport_cam.is_inside_tree():
+				initial[viewport_cam.get_path()] = viewport_cam.get_replay_state()
+		# Ensure camera_rig variable references whichever we recorded (prefer rig)
+		if not camera_rig and viewport_cam:
+			camera_rig = viewport_cam
 	
 	replay.initial_states = ReplayUtils.to_json_safe(initial)
+	# mark initial states frame as 0 (recording starts at frame 0)
+	replay.initial_states_frame = 0
 	# Initialize last_frame_data with an empty inputs dict. This ensures the first
 	# frame is always recorded and prevents a crash when accessing .inputs.
 	last_frame_data = {"inputs": {}}
@@ -117,6 +131,14 @@ func start_recording(): # This function now acts like a coroutine
 	current_replay = replay
 	set_physics_process(true)
 	MouseCapture.set_capture(true)
+
+	# Ensure player/camera are part of the replay group so snapshots include them
+	if player and player.is_inside_tree():
+		if not player.is_in_group(REPLAY_GROUP):
+			player.add_to_group(REPLAY_GROUP)
+	if camera_rig and camera_rig.is_inside_tree():
+		if not camera_rig.is_in_group(REPLAY_GROUP):
+			camera_rig.add_to_group(REPLAY_GROUP)
 
 func stop_recording() -> void:
 	_debug_log("Stopping recording.")
@@ -134,6 +156,27 @@ func stop_recording() -> void:
 
 	var filename = String(current_replay.timestamp).replace(":", "-") + ".json"
 	var path = REPLAYS_DIR.plus_file(filename)
+
+	# Before saving, record final_states snapshot for debugging/drift checks
+	var final_states = {}
+	# Prefer nodes in replay group
+	if get_tree():
+		for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
+			if not node.is_inside_tree():
+				continue
+			if node.has_method("get_replay_state"):
+				final_states[node.get_path()] = node.get_replay_state()
+	# Fallback to player/camera_rig
+		if final_states.size() == 0:
+			if player and player.is_inside_tree() and player.has_method("get_replay_state"):
+				final_states[player.get_path()] = player.get_replay_state()
+			if camera_rig and camera_rig.is_inside_tree() and camera_rig.has_method("get_replay_state"):
+				final_states[camera_rig.get_path()] = camera_rig.get_replay_state()
+
+	# Mark final states frame index (frame count)
+	current_replay.final_states = ReplayUtils.to_json_safe(final_states)
+	current_replay.final_states_frame = frame_count
+	_debug_log("Final states captured count=" + str(final_states.size()))
 
 	current_replay.save_to_json(path)
 	_debug_log("Replay saved to: " + path)
@@ -184,38 +227,31 @@ func record_frame(delta: float) -> void:
 		"strafing_timer": strafing_timer_val,
 		"timestamp": Time.get_ticks_usec() - start_time
 	}
+
+	# Optionally include lightweight player logical flags in each frame so playback
+	# can access them without needing a full snapshot (useful for tests).
+	if player and player.is_inside_tree() and player.has_method("get_replay_state"):
+		var pstate = player.get_replay_state()
+		frame_data["player_flags"] = {
+			"was_on_floor": pstate.get("was_on_floor", false),
+			"just_jumped": pstate.get("just_jumped", false)
+		}
 	
-	# Snapshot placeholder for every frame; actual positional states (player/camera) are recorded
-	# into frame_states only at SNAPSHOT_INTERVAL to avoid large per-frame data.
-	var snapshot = {}
-	frame_data["snapshot"] = snapshot
-	
-	# Record camera state
-	var camera = camera_rig
-	if camera:
-		var camera_yaw = camera.yaw.rotation.y
-		var camera_pitch = camera.pitch.rotation.x
-		var spring_length = camera.springarm.spring_length
-		frame_data["camera"] = {"yaw": camera_yaw, "pitch": camera_pitch, "spring_length": spring_length}
-	
-	# Record player external velocity
-	if player and player.external_velocity:
-		frame_data["player_external_velocity"] = ReplayUtils.vector3_to_dict(player.external_velocity.velocity)
-	
-	# Record player gravity override
-	if player:
-		var grav = player.get("gravity_override")
-		if grav == null:
-			grav = Vector3(0, -9.8, 0)
-		frame_data["player_gravity_override"] = ReplayUtils.vector3_to_dict(grav)
+	# Do NOT include any snapshot or positional state in per-frame data.
+	# Positional states (pilot/camera) are recorded in `frame_states` only at
+	# SNAPSHOT_INTERVAL to avoid large per-frame payloads.
 	
 	# Ensure frame data is JSON-safe before storing
 	var safe_frame = ReplayUtils.to_json_safe(frame_data)
 	current_replay.frames.append(safe_frame)
-	last_frame_data = safe_frame
+	# Attach a 1-based frame index to the last appended frame for traceability
+	var frame_index = current_replay.frames.size()
+	var last_frame = current_replay.frames[frame_index - 1]
+	last_frame["frame_index"] = frame_index
+	last_frame_data = last_frame
 
 	# Every SNAPSHOT_INTERVAL frames, capture debug snapshot and record positional states
-	var frame_index = len(current_replay.frames)
+	# var frame_index = len(current_replay.frames)
 	if frame_index % SNAPSHOT_INTERVAL == 0:
 		var debug_snapshot = {}
 		for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
@@ -224,22 +260,16 @@ func record_frame(delta: float) -> void:
 			if node.has_method("get_replay_state"):
 				debug_snapshot[node.get_path()] = node.get_replay_state()
 
-		# store debug snapshot in snapshots map
-		current_replay.snapshots[str(frame_index)] = ReplayUtils.to_json_safe(debug_snapshot)
-
-		# also attach debug snapshot into the last frame's snapshot.debug for test expectations
-		if current_replay.frames.size() > 0:
-			var last_frame = current_replay.frames[current_replay.frames.size() - 1]
-			if last_frame.has("snapshot"):
-				last_frame["snapshot"]["debug"] = ReplayUtils.to_json_safe(debug_snapshot)
-
 		# Record states for drift measurement (player and camera positions)
 		var states = {}
 		if player and player.is_inside_tree():
 			states[player.get_path()] = player.get_replay_state()
 		if camera_rig and camera_rig.has_method("get_replay_state") and camera_rig.is_inside_tree():
 			states[camera_rig.get_path()] = camera_rig.get_replay_state()
+		# Attach the frame index to the snapshot entry so we know which frame it corresponds to
+		states["frame_index"] = frame_index
 		current_replay.frame_states.append(ReplayUtils.to_json_safe(states))
+		_debug_log("Captured frame_states entry for frame_index=" + str(frame_index) + " entries=" + str(current_replay.frame_states.size()))
 
 
 func is_recording() -> bool:

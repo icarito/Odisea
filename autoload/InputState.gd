@@ -29,6 +29,10 @@ var axes := {
 	"move_y": 0.0
 }
 
+# Master key lists used for recording to ensure missing keys default to safe values
+const ACTION_KEYS = ["move_forward","move_back","move_left","move_right","jump","run","crouch","interact","roll","attack","aim"]
+const AXIS_KEYS = ["move_x","move_y"]
+
 # Mouse delta (para cámara)
 var mouse_delta = Vector2.ZERO
 var _mouse_motion_this_frame = Vector2.ZERO
@@ -184,33 +188,34 @@ func _record_current_frame():
 	var pilot = PlayerManager.player_reference
 	if not pilot or not is_instance_valid(pilot):
 		return
-	var cam_rig = pilot.get_node_or_null("CameraRig") if pilot else null
-	var pilot_pos = pilot.global_transform.origin if pilot else null
-	var pilot_rot = pilot.rotation if pilot else null
-	var cam_pos = cam_rig.global_transform.origin if cam_rig else null
-	var cam_rot = cam_rig.rotation if cam_rig else null
+	# Only record controller/input state per-frame. Positional and camera
+	# states are recorded by the ReplayRecorder at snapshot intervals into
+	# `frame_states` to avoid large per-frame payloads.
+	# Build a complete inputs dict using ACTION_KEYS so tests that replace
+	# `actions` with a sparse dict still result in a full snapshot.
+	var inputs_snapshot = {}
+	for k in ACTION_KEYS:
+		inputs_snapshot[k] = bool(actions.get(k, false))
+
+	# Build a complete axes dict using AXIS_KEYS
+	var axes_snapshot = {}
+	for k in AXIS_KEYS:
+		axes_snapshot[k] = float(axes.get(k, 0.0))
+
 	var frame = {
-		"inputs": actions.duplicate(),
-		"axes": axes.duplicate(),
-		"mouse_delta": mouse_delta,
+		"inputs": inputs_snapshot,
+		"axes": axes_snapshot,
+		"mouse_delta": recorded_mouse_delta,
 		"strafing_active": is_strafing_mode_active,
-		"strafing_timer": strafing_timer,
-		"pilot_pos": pilot_pos,
-		"pilot_rot": pilot_rot,
-		"cam_pos": cam_pos,
-		"cam_rot": cam_rot
+		"strafing_timer": strafing_timer
 	}
 	recorded_frames.append(frame)
 	if recorded_frames.size() % 10 == 0:
-		print("[InputState][RECORD] Frame=", recorded_frames.size(),
-			" actions=", actions,
-			" axes=", axes,
-			" mouse_delta=", mouse_delta,
-			" strafe=", is_strafing_mode_active,
-			" pilot_pos=", pilot_pos,
-			" pilot_rot=", pilot_rot,
-			" cam_pos=", cam_pos,
-			" cam_rot=", cam_rot)
+		print("[InputState][RECORD] Frame=", recorded_frames.size() - 1,
+			" inputs=", inputs_snapshot,
+			" axes=", axes_snapshot,
+			" mouse_delta=", recorded_mouse_delta,
+			" strafe=", is_strafing_mode_active)
 
 func _apply_replay_frame():
 	if replay_frame >= recorded_frames.size():
