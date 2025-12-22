@@ -129,13 +129,13 @@ func run_test(test_id):
 		test_scene_local.get_node("ReplayManagementPanel").queue_free()
 	if test_scene_local.has_node("ReplayRecordingOverlay"):
 		test_scene_local.get_node("ReplayRecordingOverlay").queue_free()
+	# Remover SceneSpawn que interfiere con el posicionamiento del player
+	test_scene_local.set_script(null)
 	# Desactivar ReplayPlayback del autoload
 	if ReplayManager.playback:
 		ReplayManager.playback.set_process(false)
 		ReplayManager.playback.set_physics_process(false)
 	ReplayManager.mode = ReplayManager.ReplayMode.NONE
-
-	var runner = scene_runner(test_scene_local)
 
 	# Inicializar InputState como autoload
 	var input_state = get_node("/root/InputState")
@@ -152,10 +152,14 @@ func run_test(test_id):
 		spawn_point.name = "SpawnPoint"
 		test_scene_local.add_child(spawn_point)
 	spawn_transform = spawn_point.transform if spawn_point else Transform.IDENTITY
+	if PlayerManager.is_spawned():
+		PlayerManager.despawn()
 	PlayerManager.spawn(spawn_transform)
-	get_tree().root.add_child(test_scene_local)
+	if not test_scene_local.get_parent():
+		get_tree().root.add_child(test_scene_local)
+	var replay_runner = scene_runner(test_scene_local)
 	# Simular un frame para procesar deferred spawn
-	runner.simulate_frames(1)
+	replay_runner.simulate_frames(1)
 	player_ref = PlayerManager.player_reference
 	# Move player to test scene
 	test_scene_local.add_child(player_ref)
@@ -167,14 +171,12 @@ func run_test(test_id):
 	player_ref.last_platform_velocity_fixed = FixedVec3.zero()
 	player_ref.vertical_velocity_fixed = FixedVec3.zero()
 
-	var replay_runner = scene_runner(test_scene_local)
-
 	# Añadir ReplayManager al test_scene para que su _physics_process sea llamado en la simulación
 	var replay_manager = load("res://scripts/replay/ReplayManager.gd").new()
 	replay_manager.name = "ReplayManager"
 	test_scene_local.add_child(replay_manager)
 	# Esperar a que _ready se llame
-	runner.simulate_frames(1)
+	replay_runner.simulate_frames(1)
 	var playback = replay_manager.get_node("ReplayPlayback")
 	# playback.spawn_point = spawn_point  # Not needed
 
@@ -187,19 +189,12 @@ func run_test(test_id):
 
 	# Fase de asentamiento: simular 5 frames para asegurar is_on_floor True desde frame 0
 	for _i in range(5):
-		runner.simulate_frames(1)
+		replay_runner.simulate_frames(1)
 
 	# Reset position after settlement
 	player_ref.transform = spawn_transform
 
-	runner.simulate_frames(1)  # Final settle
-
-	# Asignar spawn_point manualmente para el test (como en simulate_session)
-	# if replay_manager and replay_manager.has_node("ReplayRecorder"):
-	# 	replay_manager.get_node("ReplayRecorder").spawn_point = spawn_point
-	# 	replay_manager.get_node("ReplayRecorder").player = player_scene
-	# if replay_manager and replay_manager.has_node("ReplayPlayback"):
-	# 	replay_manager.get_node("ReplayPlayback").spawn_point = spawn_point
+	replay_runner.simulate_frames(1)  # Final settle
 
 	# FASE 1: GRABACIÓN (Live Run)
 	input_state.set_mode(InputState.Mode.RECORD)
@@ -211,7 +206,7 @@ func run_test(test_id):
 		input_state.mouse_delta = Vector2(frame.mouse_delta.x, frame.mouse_delta.y)
 		input_state.is_strafing_mode_active = frame.strafing_active
 		input_state.strafing_timer = frame.strafing_timer
-		runner.simulate_frames(1)
+		replay_runner.simulate_frames(1)
 		input_state._record_current_frame()
 	input_state.manual_playback = false
 
@@ -235,24 +230,13 @@ func run_test(test_id):
 			"rotation": camera.global_transform.basis.get_euler()
 		}
 	}
-	# Guardar estado final análogo a initial_states
-	# replay.final_states = {
-	# 	"player": {
-	# 		"position": player_scene.global_transform.origin,
-	# 		"rotation": player_scene.rotation
-	# 	},
-	# 	"camera": {
-	# 		"position": camera.global_transform.origin,
-	# 		"rotation": camera.global_transform.basis.get_euler()
-	# 	}
-	# }
 	var replay_path = "res://replays/test_" + test_id + ".json"
 	var save_result = replay.save_to_json(replay_path)
 	if save_result != OK:
 		return {"passed": false, "error": "Failed to save replay: " + str(save_result)}
 
 	# Posición final grabada
-	var final_pos_rec = spawn_point.to_global(replay.frames[-1]["pilot_pos"]) if spawn_point else replay.frames[-1]["pilot_pos"]
+	var final_pos_rec = replay.frames[-1]["pilot_pos"]
 	var final_rot_rec = replay.frames[-1]["pilot_rot"]
 
 	# FASE 2: REPRODUCCIÓN (Playback Run)
@@ -276,7 +260,7 @@ func run_test(test_id):
 	# Simular todos los frames del replay
 	print("[TestReplay] Iniciando simulación de replay desde archivo: ", playback_replay_path)
 	for i in range(test_suite[test_id].frames.size()):
-		runner.simulate_frames(1)
+		replay_runner.simulate_frames(1)
 
 	if not player_ref or not player_ref.is_inside_tree():
 		return {"passed": false, "error": "Player not spawned in playback"}

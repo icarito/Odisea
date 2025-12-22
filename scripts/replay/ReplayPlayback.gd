@@ -7,7 +7,7 @@ signal playback_paused
 signal playback_resumed
 signal frame_updated(frame_index, total_frames)
 
-const ReplayScript = preload("res://scripts/replay/Replay.gd")
+onready var ReplayScript = load("res://scripts/replay/Replay.gd")
 const REPLAY_GROUP = "replay_track"
 const INPUT_ACTIONS = [
 	"left", "right", "forward", "backward", "jump", "sprint", "roll", "attack", "aim"
@@ -40,14 +40,21 @@ var camera_rig: Node = null
 var player: Node = null
 var player_path: NodePath
 
-const ReplayUtils = preload("res://scripts/replay/ReplayUtils.gd")
+onready var ReplayUtils = load("res://scripts/replay/ReplayUtils.gd")
 
 func _ready() -> void:
 	process_priority = -100  # Ensure replay logic runs before player physics
 	set_physics_process(false)
 
 func _debug_log(message: String) -> void:
-	if GameGlobals and GameGlobals.replay_debug_mode:
+	var game_globals = GameGlobals
+	if not game_globals:
+		game_globals = get_node_or_null("/root/GameGlobals")
+	if not game_globals:
+		game_globals = get_node_or_null("../GameGlobals")
+	if not game_globals:
+		game_globals = get_node_or_null("../../GameGlobals")
+	if game_globals and game_globals.replay_debug_mode:
 		print("[ReplayPlayback] " + message)
 
 func _physics_process(delta: float) -> void:
@@ -68,7 +75,7 @@ func _physics_process(delta: float) -> void:
 		var recorded_state = current_replay.frame_states[frame_index]
 		if recorded_state.has(PILOT_STATE_KEY):
 			var pilot_state = recorded_state[PILOT_STATE_KEY]
-			#_sync_pilot_to_frame(pilot_state)
+			_sync_pilot_to_frame(pilot_state)
 	
 			# ENVIAR POSICIÓN OBJETIVO (La Guía)
 			var pilot = PlayerManager.get_player()
@@ -192,9 +199,16 @@ func start_loaded_playback() -> void:
 
 	playback_status = "Playing"
 	playback_start_time = Time.get_ticks_usec()  # Reset start time when playback actually begins
-	if GameGlobals:
-		GameGlobals.replay_debug_mode = true
-		GameGlobals.is_replaying = true
+	var game_globals = GameGlobals
+	if not game_globals:
+		game_globals = get_node_or_null("/root/GameGlobals")
+	if not game_globals:
+		game_globals = get_node_or_null("../GameGlobals")
+	if not game_globals:
+		game_globals = get_node_or_null("../../GameGlobals")
+	if game_globals:
+		game_globals.replay_debug_mode = true
+		game_globals.is_replaying = true
 	resume_playback()
 
 func stop_playback() -> void:
@@ -207,8 +221,15 @@ func stop_playback() -> void:
 
 	set_physics_process(false)
 
-	if GameGlobals:
-		GameGlobals.is_replaying = false
+	var game_globals = GameGlobals
+	if not game_globals:
+		game_globals = get_node_or_null("/root/GameGlobals")
+	if not game_globals:
+		game_globals = get_node_or_null("../GameGlobals")
+	if not game_globals:
+		game_globals = get_node_or_null("../../GameGlobals")
+	if game_globals:
+		game_globals.is_replaying = false
 
 	# Release mouse/camera control to user, but keep player frozen
 	InputState.mode = InputState.Mode.LIVE
@@ -274,8 +295,8 @@ func resume_playback() -> void:
 	# Asegurar física del player activada para playback
 	var player = PlayerManager.get_player()
 	if player:
-		player.set_physics_process(true)  # Enable player physics for deterministic simulation
-		print("[ReplayPlayback] Player physics enabled in resume_playback")
+		player.set_physics_process(false)  # Disable player physics for deterministic playback
+		print("[ReplayPlayback] Player physics disabled for deterministic playback")
 		
 		# Configurar estado inicial una sola vez
 		if current_replay.initial_states.has(PILOT_STATE_KEY):
@@ -346,10 +367,15 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 	# --- CORRECCIÓN FALTANTE: INYECCIÓN DE MOUSE DELTA ---
 	if frame_data.has("mouse_delta"):
 		var md = frame_data["mouse_delta"]
-		# Es vital convertir el Diccionario {x, y} a Vector2
-		InputState.mouse_delta = Vector2(md.get("x", 0), md.get("y", 0))
-	else:
-		InputState.mouse_delta = Vector2.ZERO
+		if md is Dictionary:
+			# Es vital convertir el Diccionario {x, y} a Vector2
+			InputState.mouse_delta = Vector2(md.get("x", 0), md.get("y", 0))
+		elif md is Vector2:
+			InputState.mouse_delta = md
+		else:
+			# Handle other cases, like String
+			_debug_log("Unexpected mouse_delta type: " + str(typeof(md)) + " value: " + str(md))
+			# Don't set InputState.mouse_delta to avoid changing it unexpectedly
 
 	_debug_log("Applying inputs: " + str(frame_data["inputs"]))
 	_debug_log("Sprint pressed: " + str(frame_data["inputs"].get("sprint", false)))
@@ -386,6 +412,14 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 					var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 					if camera_rig and camera_rig.has_method("process_camera_rotation"):
 						camera_rig.process_camera_rotation(mouse_motion)
+		elif md_dict is Vector2:
+			if md_dict.length_squared() > 0:
+				if get_tree() and get_tree().current_scene:
+					var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+					if camera_rig and camera_rig.has_method("process_camera_rotation"):
+						camera_rig.process_camera_rotation(md_dict)
+		else:
+			_debug_log("Unexpected mouse_delta type in camera processing: " + str(typeof(md_dict)) + " value: " + str(md_dict))
 
 	# --- APLICAR ESTADOS DE FÍSICA NO INPUTABLES ---
 	if player and player.external_velocity and frame_data.has("player_external_velocity"):
@@ -479,32 +513,38 @@ func _apply_smooth_correction(node: Spatial, expected_transform: Transform, lerp
 	node.global_transform.basis = node.global_transform.basis.slerp(expected_transform.basis, t)
 
 func _sync_pilot_to_frame(frame_data_state: Dictionary) -> void:
-	"""Force the player's position and rotation to match the recorded state exactly."""
+	"""Apply soft drift correction to keep player in sync with recorded state."""
 	if not player:
 		return
 	
-	# Set transform directly from recorded state
-	# if frame_data_state.has("global_transform"):
-	#	var transform_dict = frame_data_state["global_transform"]
-	#	player.global_transform = ReplayUtils.dict_to_transform(transform_dict)
+	# Get recorded position
+	var recorded_transform = frame_data_state.get("global_transform")
+	if recorded_transform:
+		var recorded_pos = recorded_transform.origin
+		var current_pos = player.global_transform.origin
+		var divergence = current_pos.distance_to(recorded_pos)
+		
+		if divergence > MIN_DIVERGENCE_TO_CORRECT:
+			if divergence > MAX_CORRECTION_DISTANCE:
+				# Snap to position if too far
+				player.global_transform.origin = recorded_pos
+				_debug_log("Snapped player position due to high divergence: " + str(divergence))
+			else:
+				# Smooth correction
+				var correction_strength = DRIFT_CORRECTION_STRENGTH
+				if divergence < FAST_LERP_THRESHOLD:
+					correction_strength = LERP_STRENGTH_ULTRA_FAST
+				var correction_vector = (recorded_pos - current_pos).normalized() * correction_strength * FIXED_DELTA
+				player.global_transform.origin += correction_vector
+				_debug_log("Applied drift correction: " + str(correction_vector.length()))
 	
-	# Set velocity directly
-	if frame_data_state.has("velocity"):
-		var vel_dict = frame_data_state["velocity"]
-		player.velocity = ReplayUtils.dict_to_vector3(vel_dict)
-	
-	# Set other critical state
-	if frame_data_state.has("on_floor"):
-		player.was_on_floor = frame_data_state["on_floor"]
-	
-	# Additional state restoration if needed
-	if frame_data_state.has("platform_velocity_fixed"):
-		var pv_dict = frame_data_state["platform_velocity_fixed"]
-		player.platform_velocity_fixed = ReplayUtils.dict_to_vector3(pv_dict)
-	
-	if frame_data_state.has("airborne_inherited"):
-		var ai_dict = frame_data_state["airborne_inherited"]
-		player.airborne_inherited = ReplayUtils.dict_to_vector3(ai_dict)
+	# Optional: Correct rotation if needed
+	if frame_data_state.has("rotation"):
+		var recorded_rot = frame_data_state["rotation"]
+		var current_rot = player.rotation
+		var rot_divergence = abs(recorded_rot.y - current_rot.y)
+		if rot_divergence > 0.01:  # Small threshold for rotation
+			player.rotation.y = lerp(current_rot.y, recorded_rot.y, 0.1)  # Gentle rotation correction
 
 func _set_tracked_nodes_physics_process(enabled: bool) -> void:
 	"""Helper function to enable or disable physics for all tracked nodes."""
