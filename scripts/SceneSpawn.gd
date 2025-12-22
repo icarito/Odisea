@@ -11,6 +11,15 @@ func _ready():
 	var spawn := find_node("SpawnPoint")
 	print("[SceneSpawn] Found spawn:", spawn)
 
+	# Si estamos en modo replay, spawnear el player si no existe
+	if GameGlobals.is_replaying:
+		if not PlayerManager.is_spawned():
+			print("[SceneSpawn] Spawneando player en modo replay")
+			PlayerManager.spawn(spawn.global_transform if spawn else Transform())
+		else:
+			print("[SceneSpawn] Player ya spawneado en modo replay")
+		return
+
 	if spawn:
 		if typeof(PlayerManager) != TYPE_NIL:
 			print("[SceneSpawn] PlayerManager ref:", PlayerManager)
@@ -48,4 +57,3 @@ func _ready():
 				print("[SceneSpawn] Player not spawned, spawning new")
 				PlayerManager.spawn(global_transform)
 
-	# (Conexión de señales movida a KillZone._ready)

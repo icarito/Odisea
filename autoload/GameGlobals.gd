@@ -20,6 +20,9 @@ var is_paused: bool = false setget set_is_paused
 # Test mode for determinism tests
 var is_test_mode: bool = false
 
+# Flag to prevent multiple processing of CLI --replay
+var cli_replay_processed := false
+
 # Application ID for canvas environments.
 var app_id: String = ""
 

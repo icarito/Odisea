@@ -42,15 +42,22 @@ func kill_player_instant(_player = null) -> void:
 	# No llamar respawn_player() aquí; esperar señal de respawn
 
 func respawn_player() -> void:
-		print("[PlayerManager] respawn_player called")
-		var target_transform = _initial_spawn_transform
-		despawn()
-		var spawned_player = spawn(target_transform)
-		if spawned_player:
-			print("[PlayerManager] spawned_player: ", spawned_player)
-			spawned_player.set_physics_process(true)
-		emit_signal("player_respawned")
-		call_deferred("reset_mouse_capture")
+			   print("[PlayerManager] respawn_player called")
+			   # Prevenir respawn si estamos en modo replay playback
+			   if has_node("/root/ReplayManager"):
+				   var rm = get_node("/root/ReplayManager")
+				   if "mode" in rm and "ReplayMode" in rm:
+					   if rm.mode == rm.ReplayMode.PLAYBACK:
+						   print("[PlayerManager] Respawn bloqueado: modo PLAYBACK activo en ReplayManager")
+						   return
+			   var target_transform = _initial_spawn_transform
+			   despawn()
+			   var spawned_player = spawn(target_transform)
+			   if spawned_player:
+				   print("[PlayerManager] spawned_player: ", spawned_player)
+				   spawned_player.set_physics_process(true)
+			   emit_signal("player_respawned")
+			   call_deferred("reset_mouse_capture")
 		
 func reset_mouse_capture() -> void:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -92,6 +99,13 @@ func _deferred_spawn(initial_transform: Transform):
 		
 	player_reference.global_transform = initial_transform
 	print("PlayerManager: Player spawned at: ", initial_transform.origin, " rotation: ", initial_transform.basis.get_euler())
+	
+	# Set replay mode on PlayerInput if in replay
+	if GameGlobals.is_replaying:
+		var player_input = player_reference.find_node("PlayerInput", true, false)
+		if player_input and player_input.has_method("set"):
+			player_input.is_replay_mode = true
+			print("[PlayerManager] PlayerInput set to replay mode")
 	
 	# Forzar alineación de cámara después de que el nodo esté en escena y transform aplicado.
 	# La función _align_camera_to_body() debe existir en el script del player.
