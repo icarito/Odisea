@@ -75,7 +75,13 @@ func reset():
 
 
 func _physics_process(_delta):
-	# --- Deterministic Strafing Mode Logic ---
+	if mode == Mode.PLAYBACK:
+		if not paused and not manual_playback:
+			_apply_replay_frame()
+		# En playback, no procesar lógica de input real ni de strafing
+		return
+
+	# --- Deterministic Strafing Mode Logic (solo LIVE/RECORD) ---
 	# 1. Activation: If there's mouse movement AND directional input, activate strafe mode.
 	var has_input = abs(get_axis("move_x")) > 0.1 or abs(get_axis("move_y")) > 0.1
 	if mouse_delta.length_squared() > 0.001 and has_input:
@@ -83,13 +89,11 @@ func _physics_process(_delta):
 		strafing_timer = 2.0 # Reset timer
 
 	# 2. Persistence: If strafe mode is active, countdown the timer.
-	# This part runs regardless of mouse input in the current frame.
 	if is_strafing_mode_active:
 		strafing_timer -= FIXED_DELTA
 		if strafing_timer <= 0.0:
 			is_strafing_mode_active = false
 			strafing_timer = 0.0
-
 
 	match mode:
 		Mode.LIVE:
@@ -98,9 +102,6 @@ func _physics_process(_delta):
 			if not manual_playback:
 				_update_from_input()
 				_record_current_frame()
-		Mode.PLAYBACK:
-			if not paused and not manual_playback:
-				_apply_replay_frame()
 
 	if mode == Mode.LIVE or mode == Mode.RECORD:
 		mouse_delta = _mouse_motion_this_frame
@@ -228,13 +229,22 @@ func _apply_replay_frame():
 
 # API pública para gameplay/cámara
 func is_action_pressed(action):
-	return bool(actions.get(action, false))
+	if mode == Mode.PLAYBACK:
+		return bool(actions.get(action, false))
+	else:
+		return bool(actions.get(action, false))
 
 func get_axis(axis):
-	return axes.get(axis, 0.0)
+	if mode == Mode.PLAYBACK:
+		return axes.get(axis, 0.0)
+	else:
+		return axes.get(axis, 0.0)
 
 func get_mouse_delta():
-	return mouse_delta
+	if mode == Mode.PLAYBACK:
+		return mouse_delta
+	else:
+		return mouse_delta
 
 func get_live_mouse_delta() -> Vector2:
 	var delta = _mouse_motion_this_frame

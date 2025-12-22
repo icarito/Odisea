@@ -313,8 +313,9 @@ func resume_playback() -> void:
 	# Asegurar física del player activada para playback
 	var player = PlayerManager.get_player()
 	if player:
-		player.set_physics_process(false)  # Disable player physics for deterministic playback
-		print("[ReplayPlayback] Player physics disabled for deterministic playback")
+		var use_physics = current_replay.frame_states.empty()
+		player.set_physics_process(use_physics)  # Enable physics if no frame states (input-based replay)
+		print("[ReplayPlayback] Player physics %s for playback" % ("enabled" if use_physics else "disabled"))
 		
 		# Configurar estado inicial una sola vez
 		if current_replay.initial_states.has(PILOT_STATE_KEY):
