@@ -6,7 +6,7 @@ var replay_manager: Node
 var replay_playback: Node
 var scene: Node
 
-func before_each():
+func before():
 	runner = scene_runner("res://tests/fixtures/TestScene.tscn")
 	replay_playback = Node.new()
 	replay_playback.set_script(load("res://scripts/replay/ReplayPlayback.gd"))

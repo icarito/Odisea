@@ -6,7 +6,7 @@ var replay_recorder: Node
 var scene: Node
 var last_replay_path: String
 
-func before_each():
+func before():
 	runner = scene_runner("res://tests/fixtures/TestScene.tscn")
 	# Add autoloads
 	var game_globals = Node.new()
