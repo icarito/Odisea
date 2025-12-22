@@ -26,7 +26,6 @@ const PILOT_STATE_KEY = "@Pilot@10" # Key for pilot state in frame_states and in
 
 var current_replay: Resource = null
 var current_replay_filename: String = ""
-var frame_index: int = 0
 var total_logical_frames: int = 0
 var playback_paused: bool = false
 var playback_status: String = "Stopped"  # "Playing", "Paused", "Stopped"
@@ -64,15 +63,20 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# If we have reached the end of the replay, stop playback.
-	if frame_index >= total_logical_frames:
+	if InputState.replay_frame >= total_logical_frames:
 		stop_playback()
 		return
 
-	var frame_data = current_replay.frames[frame_index]
+	var frame_data = current_replay.frames[InputState.replay_frame]
+	
+	print("Replay frame: ", InputState.replay_frame)
+	print("Frame data keys: ", frame_data.keys())
+	if frame_data.has("inputs"):
+		print("Inputs: ", frame_data.inputs)
 	
 	# Force player state to recorded state for this frame
-	if current_replay.frame_states.size() > frame_index:
-		var recorded_state = current_replay.frame_states[frame_index]
+	if current_replay.frame_states.size() > InputState.replay_frame:
+		var recorded_state = current_replay.frame_states[InputState.replay_frame]
 		if recorded_state.has(PILOT_STATE_KEY):
 			var pilot_state = recorded_state[PILOT_STATE_KEY]
 			_sync_pilot_to_frame(pilot_state)
@@ -91,8 +95,8 @@ func _physics_process(delta: float) -> void:
 	# Apply inputs (for camera and other non-physics systems)
 	_apply_inputs_from_frame(frame_data)
 
-	frame_index += 1
-	emit_signal("frame_updated", frame_index, total_logical_frames)
+	# Note: frame advancement is handled by InputState
+	emit_signal("frame_updated", InputState.replay_frame, total_logical_frames)
 
 func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	var replay = ReplayScript.new()
@@ -107,15 +111,17 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	current_replay = replay
 	playback_start_time = Time.get_ticks_usec()
 	headless = is_headless
-	frame_index = 0
 	total_logical_frames = len(current_replay.frames)
+	if total_logical_frames == 0 and current_replay.frame_states.size() > 0:
+		total_logical_frames = current_replay.frame_states.size()
 	time_accumulator = 0.0
 	
 	# Load frames into InputState
 	InputState.recorded_frames = current_replay.frames.duplicate()
 	InputState.mode = InputState.Mode.PLAYBACK
-	InputState.paused = true  # Start paused
+	InputState.paused = false  # Start playing
 	InputState.replay_frame = 0
+	print("Set replay_frame to 0")
 	
 	# Deterministic setup for regression testing
 	Engine.set_physics_jitter_fix(0.0)
@@ -153,8 +159,8 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	
 	_prepare_scene_for_playback()
 	
-	# The playback is loaded, but paused, waiting for the user to press play.
-	pause_playback() 
+	# The playback is loaded and starting to play automatically.
+	resume_playback() 
 	
 	emit_signal("playback_started", total_logical_frames)
 	
@@ -183,6 +189,9 @@ func _prepare_scene_for_playback():
 func start_loaded_playback() -> void:
 	print("[ReplayPlayback] >>>>> start_loaded_playback called")
 	frame_count = 0
+
+	# Start from frame 0
+	InputState.replay_frame = 0
 
 	# Disable camera input
 	if get_tree() and get_tree().current_scene:
@@ -313,9 +322,8 @@ func resume_playback() -> void:
 	# Asegurar física del player activada para playback
 	var player = PlayerManager.get_player()
 	if player:
-		var use_physics = current_replay.frame_states.empty()
-		player.set_physics_process(use_physics)  # Enable physics if no frame states (input-based replay)
-		print("[ReplayPlayback] Player physics %s for playback" % ("enabled" if use_physics else "disabled"))
+		player.set_physics_process(true)  # Always enable physics for input-driven playback with correction
+		print("[ReplayPlayback] Player physics enabled for playback")
 		
 		# Configurar estado inicial una sola vez
 		if current_replay.initial_states.has(PILOT_STATE_KEY):
@@ -353,12 +361,12 @@ func seek(frame_idx: int) -> void:
 	if not current_replay or frame_idx < 0 or frame_idx >= total_logical_frames:
 		return
 		
-	frame_index = frame_idx
+	InputState.replay_frame = frame_idx
 	
 	time_accumulator = 0.0
 	# In a pure input-based system, we can't instantly jump to an arbitrary frame's state.
 	# We can only restore the initial state when seeking to the beginning.
-	if frame_index == 0:
+	if InputState.replay_frame == 0:
 		if get_tree() and get_tree().current_scene:
 			for path in current_replay.initial_states:
 				var node_name = path.trim_prefix("@")
@@ -366,15 +374,15 @@ func seek(frame_idx: int) -> void:
 				if node:
 					_set_node_state(node, current_replay.initial_states[path])
 
-	emit_signal("frame_updated", frame_index, total_logical_frames)
+	emit_signal("frame_updated", InputState.replay_frame, total_logical_frames)
 
 func step_frame() -> void:
-	if frame_index < total_logical_frames - 1:
-		seek(frame_index + 1)
+	if InputState.replay_frame < total_logical_frames - 1:
+		seek(InputState.replay_frame + 1)
 
 func step_back_frame() -> void:
-	if frame_index > 0:
-		seek(frame_index - 1)
+	if InputState.replay_frame > 0:
+		seek(InputState.replay_frame - 1)
 
 func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 	# --- INYECCIÓN DE ESTADO DE STRAFING ---
@@ -398,6 +406,22 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 
 	_debug_log("Applying inputs: " + str(frame_data["inputs"]))
 	_debug_log("Sprint pressed: " + str(frame_data["inputs"].get("sprint", false)))
+	
+	# Set InputState actions and axes from frame_data["inputs"]
+	if frame_data.has("inputs"):
+		var inputs = frame_data["inputs"]
+		if inputs.has("move_vec") and inputs["move_vec"] is Vector2:
+			InputState.axes["move_x"] = inputs["move_vec"].x
+			InputState.axes["move_y"] = inputs["move_vec"].y
+		if inputs.has("jump"):
+			InputState.actions["jump"] = inputs["jump"]
+		if inputs.has("sprint"):
+			InputState.actions["run"] = inputs["sprint"]
+		if inputs.has("roll"):
+			InputState.actions["roll"] = inputs["roll"]
+		if inputs.has("attack"):
+			InputState.actions["attack"] = inputs["attack"]
+		# Add other actions if needed
 	
 	var player = PlayerManager.get_player()
 	if player and player.has_node("PlayerInput"):
@@ -448,39 +472,19 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 		player.set("gravity_override", ReplayUtils.dict_to_vector3(frame_data["player_gravity_override"]))
 
 	# --- INYECCIÓN CRÍTICA DE LA VELOCIDAD DE FÍSICA ---
-	# Esto sincroniza el estado de la física antes de que se ejecute _physics_process,
-	# eliminando la acumulación de errores de punto flotante.
-	if player and current_replay.frame_states.size() > frame_index:
-		var recorded_state = current_replay.frame_states[frame_index]
-		var player_data = recorded_state.get(PILOT_STATE_KEY)
-		
-		if player_data and player_data.has("pre_move_velocity"):
-			var recorded_velocity = ReplayUtils.from_json_safe(player_data["pre_move_velocity"])
-			
-			# Inyectar la velocidad y sus componentes descompuestos en el controlador.
-			# Esto es crucial porque _physics_process usa 'horizontal_velocity' y 'vertical_velocity'
-			# para calcular el movimiento final.
-			player.velocity = recorded_velocity
-			player.pre_move_velocity_for_replay = recorded_velocity # Para consistencia en logs
-			player.horizontal_velocity = recorded_velocity - Vector3(0, recorded_velocity.y, 0)
-			# player.vertical_velocity.y = recorded_velocity.y  # Commented out due to access error
-			
-			# Adicionalmente, actualizar el componente de movimiento si existe.
-			if player.movement_comp:
-				player.movement_comp.horizontal_velocity = player.horizontal_velocity
-			
-			_debug_log("VELOCITY INJECTED: %s" % str(recorded_velocity))
+	# REMOVED: Direct velocity injection to allow physics to process inputs naturally
+	# The position correction in _sync_pilot_to_frame will keep the player in sync
 
 func check_for_drift(frame_data: Dictionary) -> void:
-	print("[DRIFT_DEBUG] check_for_drift called for frame ", frame_index)
+	print("[DRIFT_DEBUG] check_for_drift called for frame ", InputState.replay_frame)
 	if not player:
 		print("[DRIFT_DEBUG] No player")
 		return
-	if current_replay.frame_states.size() <= frame_index:
-		print("[DRIFT_DEBUG] frame_states size: ", current_replay.frame_states.size(), " frame_index: ", frame_index)
+	if current_replay.frame_states.size() <= InputState.replay_frame:
+		print("[DRIFT_DEBUG] frame_states size: ", current_replay.frame_states.size(), " frame_index: ", InputState.replay_frame)
 		return
 	
-	var recorded_state = current_replay.frame_states[frame_index]
+	var recorded_state = current_replay.frame_states[InputState.replay_frame]
 	if not recorded_state.has(PILOT_STATE_KEY):
 		print("[DRIFT_DEBUG] recorded_state does not have PILOT_STATE_KEY: ", PILOT_STATE_KEY)
 		return
@@ -498,7 +502,7 @@ func check_for_drift(frame_data: Dictionary) -> void:
 	var target_pos = expected_origin
 	
 	# Detailed logging for debugging
-	print("[DRIFT_DEBUG] Frame %s | Divergence: %s | Current Pos: %s | Target Pos: %s" % [frame_index, divergence, current_pos, target_pos])
+	print("[DRIFT_DEBUG] Frame %s | Divergence: %s | Current Pos: %s | Target Pos: %s" % [InputState.replay_frame, divergence, current_pos, target_pos])
 	
 	if divergence <= IGNORE_THRESHOLD:
 		# Ignore micro-drift to eliminate floating

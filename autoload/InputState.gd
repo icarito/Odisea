@@ -182,6 +182,8 @@ func reset_virtual_joystick():
 
 func _record_current_frame():
 	var pilot = PlayerManager.player_reference
+	if not pilot or not is_instance_valid(pilot):
+		return
 	var cam_rig = pilot.get_node_or_null("CameraRig") if pilot else null
 	var pilot_pos = pilot.global_transform.origin if pilot else null
 	var pilot_rot = pilot.rotation if pilot else null
@@ -266,6 +268,7 @@ func start_playback():
 func load_replay(replay_data: Array):
 	recorded_frames = replay_data.duplicate()
 	replay_frame = 0
+	print("load_replay set replay_frame to 0")
 	set_mode(Mode.PLAYBACK)
 
 func stop():

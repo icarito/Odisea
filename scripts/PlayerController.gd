@@ -386,7 +386,7 @@ func _physics_process(delta):
 	if is_replaying and replay_manager:
 		var replay_playback = replay_manager.get_playback_node()
 		if replay_playback and replay_playback.current_replay:
-			var frame_index = replay_playback.frame_index
+			var frame_index = InputState.replay_frame
 			if replay_playback.current_replay.frame_states.size() > frame_index:
 				var recorded_state = replay_playback.current_replay.frame_states[frame_index]
 				var pilot_state = recorded_state.get("@Pilot@10", null)
@@ -614,18 +614,20 @@ func _physics_process(delta):
 	# [NUEVO] APLICAR SOFT SYNC (MANO INVISIBLE)
 	# Hacemos esto JUSTO ANTES de move_and_slide
 	if GameGlobals.is_replaying and playback_target_pos != null:
-		var current_pos = global_transform.origin
-		
-		# Vector desde donde estoy hacia donde debería estar
-		var error_vector = playback_target_pos - current_pos
-		
-		# Opción más robusta: Separar horizontal y vertical
-		movement_this_frame.x += error_vector.x * CORRECTION_STRENGTH
-		movement_this_frame.z += error_vector.z * CORRECTION_STRENGTH
-		
-		# Si el error es muy grande (> 1 metro), hacemos un SNAP de emergencia
-		if error_vector.length() > 1.0:
-			 global_transform.origin = playback_target_pos
+		# Only correct position when there are no movement inputs to allow physics-driven movement
+		if InputState.get_axis("move_x") == 0 and InputState.get_axis("move_y") == 0:
+			var current_pos = global_transform.origin
+			
+			# Vector desde donde estoy hacia donde debería estar
+			var error_vector = playback_target_pos - current_pos
+			
+			# Opción más robusta: Separar horizontal y vertical
+			movement_this_frame.x += error_vector.x * CORRECTION_STRENGTH
+			movement_this_frame.z += error_vector.z * CORRECTION_STRENGTH
+			
+			# Si el error es muy grande (> 1 metro), hacemos un SNAP de emergencia
+			if error_vector.length() > 1.0:
+				 global_transform.origin = playback_target_pos
 
 	# --- LOGIC THAT RUNS IN BOTH MODES ---
 
@@ -849,6 +851,8 @@ func dump_state() -> Dictionary:
 	return state
 
 func get_replay_state() -> Dictionary:
+	if not is_inside_tree():
+		return {}
 	# This function should return raw Godot types.
 	# The ReplayRecorder is responsible for converting them to a JSON-safe format.
 		
