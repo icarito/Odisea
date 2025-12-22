@@ -179,11 +179,3 @@ func _on_playback_stopped():
 			print("[ReplayManager] Advertencia: GameGlobals no está disponible en /root.")
 		emit_signal("mode_changed", mode)
 
-func _on_playback_failed():
-	emit_signal("replay_failed")
-	mode = ReplayMode.NONE
-	if has_node("/root/MouseCapture"):
-		get_node("/root/MouseCapture").set_capture(false)
-	else:
-		print("[ReplayManager] Advertencia: MouseCapture no está disponible en /root.")
-	emit_signal("mode_changed", mode)

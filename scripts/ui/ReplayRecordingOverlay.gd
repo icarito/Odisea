@@ -57,9 +57,18 @@ func _ready() -> void:
 	
 	_update_visibility()
 
+#func _on_StopRecordingButton_pressed():
+#	if recorder:
+#		recorder.recording_paused = true
+#		if recorder.current_replay:
+#			var save_path = "res://replays/" + recorder.current_replay_filename + ".json"
+#			recorder.current_replay.save_to_json(save_path)
+#			print("Replay saved to ", save_path)
+#		ReplayManager._on_recording_stopped(len(recorder.current_replay.frames) if recorder.current_replay else 0)
+
 func _on_ReplayManager_mode_changed(new_mode):
 	_update_visibility()
-       
+	   
 	if new_mode == ReplayManager.ReplayMode.PLAYBACK:
 		playback_node = ReplayManager.get_playback_node()
 		if playback_node:
@@ -69,7 +78,7 @@ func _on_ReplayManager_mode_changed(new_mode):
 			if _auto_play_cli_replay and not _has_auto_played:
 				_has_auto_played = true
 				_auto_play_cli_replay = false
-				playback_node.start_loaded_playback()
+				playback_node.resume_playback()
 	elif new_mode == ReplayManager.ReplayMode.NONE:
 		if playback_node:
 			if playback_node.is_connected("frame_updated", self, "_on_frame_updated"):

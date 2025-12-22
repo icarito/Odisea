@@ -123,6 +123,7 @@ func run_test(test_id):
 
 	# Crear escena nueva para este test
 	var test_scene_local = load("res://tests/fixtures/TestScene.tscn").instance()
+	test_scene_local.name = "TestScene_" + test_id
 
 	# Remover componentes de replay que interfieren con el test
 	if test_scene_local.has_node("ReplayManagementPanel"):
@@ -155,9 +156,10 @@ func run_test(test_id):
 	if PlayerManager.is_spawned():
 		PlayerManager.despawn()
 	PlayerManager.spawn(spawn_transform)
-	if not test_scene_local.get_parent():
-		get_tree().root.add_child(test_scene_local)
+	if test_scene_local.get_parent():
+		test_scene_local.get_parent().remove_child(test_scene_local)
 	var replay_runner = scene_runner(test_scene_local)
+	get_tree().current_scene = test_scene_local
 	# Simular un frame para procesar deferred spawn
 	replay_runner.simulate_frames(1)
 	player_ref = PlayerManager.player_reference
@@ -294,6 +296,7 @@ func test_T1():
 func test_T2():
 	print("EJECUTANDO TEST T2")
 	var result = run_test("T2")
+	assert_that(result).contains_keys(["passed", "pos_drift", "rot_drift"])
 	assert_that(result.passed).is_true()
 	if not result.passed:
 		var error_msg = result.get("error", "Unknown error")
@@ -302,6 +305,7 @@ func test_T2():
 func test_T3():
 	print("EJECUTANDO TEST T3")
 	var result = run_test("T3")
+	assert_that(result).contains_keys(["passed", "pos_drift", "rot_drift"])
 	assert_that(result.passed).is_true()
 	if not result.passed:
 		var error_msg = result.get("error", "Unknown error")
@@ -310,6 +314,7 @@ func test_T3():
 func test_T4():
 	print("EJECUTANDO TEST T4")
 	var result = run_test("T4")
+	assert_that(result).contains_keys(["passed", "pos_drift", "rot_drift"])
 	assert_that(result.passed).is_true()
 	if not result.passed:
 		var error_msg = result.get("error", "Unknown error")
@@ -318,6 +323,7 @@ func test_T4():
 func test_T5():
 	print("EJECUTANDO TEST T5")
 	var result = run_test("T5")
+	assert_that(result).contains_keys(["passed", "pos_drift", "rot_drift"])
 	assert_that(result.passed).is_true()
 	if not result.passed:
 		var error_msg = result.get("error", "Unknown error")

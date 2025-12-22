@@ -67,7 +67,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	if not recording_paused:
-		_record_frame(delta)
+		record_frame(delta)
 
 func start_recording(): # This function now acts like a coroutine
 	# Defer the start of recording by one frame to ensure all Autoloads are ready.
@@ -87,14 +87,14 @@ func start_recording(): # This function now acts like a coroutine
 
 	player = PlayerManager.get_player()
 	var initial = {}
-	if player and get_tree() and get_tree().current_scene:
-		initial[get_tree().current_scene.get_path_to(player)] = player.get_replay_state()
+	if player:
+		initial[player.get_path()] = player.get_replay_state()
 	
 	# Add CameraRig state
 	if get_tree() and get_tree().current_scene:
 		camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 		if camera_rig and camera_rig.has_method("get_replay_state"):
-			initial[get_tree().current_scene.get_path_to(camera_rig)] = camera_rig.get_replay_state()
+			initial[camera_rig.get_path()] = camera_rig.get_replay_state()
 	
 	replay.initial_states = ReplayUtils.to_json_safe(initial)
 	# Initialize last_frame_data with an empty inputs dict. This ensures the first
@@ -128,7 +128,7 @@ func stop_recording() -> void:
 	GameGlobals.is_recording = false
 
 
-func _record_frame(delta: float) -> void:
+func record_frame(delta: float) -> void:
 	# _debug_log("Start of _record_frame: mouse_motion_this_frame = " + str(mouse_motion_this_frame))
 	if not current_replay:
 		return
@@ -184,14 +184,18 @@ func _record_frame(delta: float) -> void:
 	# Record states for drift measurement
 	var states = {}
 	if player:
-		states[get_tree().current_scene.get_path_to(player)] = player.get_replay_state()
+		states[player.get_path()] = player.get_replay_state()
 	if camera_rig and camera_rig.has_method("get_replay_state"):
-		states[get_tree().current_scene.get_path_to(camera_rig)] = camera_rig.get_replay_state()
+		states[camera_rig.get_path()] = camera_rig.get_replay_state()
 	current_replay.frame_states.append(states)
 
 
 func is_recording() -> bool:
 	return current_replay != null and not recording_paused
+
+func record_frames(count: int) -> void:
+	for i in range(count):
+		record_frame(1.0/60.0)
 
 func _are_dictionaries_equal(dict1: Dictionary, dict2: Dictionary) -> bool:
 	# Comparing JSON strings is a fast and reliable way to perform a deep comparison
