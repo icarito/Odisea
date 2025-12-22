@@ -38,6 +38,9 @@ var frame_count: int = 0
 var camera_rig: Node = null
 var player: Node = null
 var player_path: NodePath
+export(int) var replay_hold_frames := 6 # how many frames to hold a non-zero axis during playback
+var _hold_counters := {}
+var _held_axes := {}
 
 onready var ReplayUtils = load("res://scripts/replay/ReplayUtils.gd")
 
@@ -74,26 +77,30 @@ func _physics_process(delta: float) -> void:
 	if frame_data.has("inputs"):
 		print("Inputs: ", frame_data.inputs)
 	
-	# Force player state to recorded state for this frame
-	if current_replay.frame_states.size() > InputState.replay_frame:
-		var recorded_state = current_replay.frame_states[InputState.replay_frame]
-		if recorded_state.has(PILOT_STATE_KEY):
-			var pilot_state = recorded_state[PILOT_STATE_KEY]
-			_sync_pilot_to_frame(pilot_state)
-	
-			# ENVIAR POSICIÓN OBJETIVO (La Guía)
-			var pilot = PlayerManager.get_player()
-			if pilot:
-				var pos_data = pilot_state.get("global_transform", {}).get("origin", null)
-				if pos_data:
-					# Enviamos al pilot dónde DEBERÍA estar
-					pilot.playback_target_pos = Vector3(pos_data.x, pos_data.y, pos_data.z)
-				else:
-					pilot.playback_target_pos = null # Sin datos, no corregir
+	# Force player state to recorded state for this frame if available
+	var recorded_state = null
+	for fs in current_replay.frame_states:
+		if fs.has("frame_index") and fs["frame_index"] == InputState.replay_frame:
+			recorded_state = fs
+			break
+	if recorded_state:
+		for path in recorded_state:
+			if path != "frame_index":
+				var node = get_tree().current_scene.get_node_or_null(path)
+				if node and node.has_method("get_replay_state"):
+					# For drift correction, compare and correct
+					var current_state = node.get_replay_state()
+					# Implement drift correction logic here
+					# For now, just log
+					_debug_log("Frame " + str(InputState.replay_frame) + " has state for " + path)
 
 	
 	# Apply inputs (for camera and other non-physics systems)
 	_apply_inputs_from_frame(frame_data)
+
+	# Periodically check for drift and correct the pilot position
+	if frame_count % RESYNC_INTERVAL == 0:
+		check_for_drift(frame_data)
 
 	# Note: frame advancement is handled by InputState
 	emit_signal("frame_updated", InputState.replay_frame, total_logical_frames)
@@ -116,11 +123,20 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 		total_logical_frames = current_replay.frame_states.size()
 	time_accumulator = 0.0
 	
-	# Load frames into InputState
-	InputState.recorded_frames = current_replay.frames.duplicate()
-	InputState.mode = InputState.Mode.PLAYBACK
+	# Load frames into InputState using its helper to avoid being cleared by set_mode()
+	# Optionally preprocess frames to hold short axis pulses so sampling noise
+	# from recording doesn't become intermittent during playback.
+	var frames_to_load = current_replay.frames
+	if replay_hold_frames and replay_hold_frames > 0:
+		frames_to_load = _frames_with_hold(current_replay.frames, replay_hold_frames)
+		print("[ReplayPlayback] Preprocessed frames with hold=" + str(replay_hold_frames) + ", original=" + str(len(current_replay.frames)) + ", processed=" + str(len(frames_to_load)))
+	if InputState.has_method("load_replay"):
+		InputState.load_replay(frames_to_load)
+	else:
+		InputState.recorded_frames = current_replay.frames.duplicate()
+		InputState.mode = InputState.Mode.PLAYBACK
+		InputState.replay_frame = 0
 	InputState.paused = false  # Start playing
-	InputState.replay_frame = 0
 	print("Set replay_frame to 0")
 	
 	# Deterministic setup for regression testing
@@ -135,19 +151,22 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	# Spawn player if not exists
 	if not PlayerManager.is_spawned():
 		var initial_transform = Transform()
-		if current_replay.initial_states.has("player"):
-			var pos_str = current_replay.initial_states["player"]["position"]
-			var rot_str = current_replay.initial_states["player"]["rotation"]
-			# Parse position: "(x, y, z)" -> Vector3
-			pos_str = pos_str.trim_prefix("(").trim_suffix(")")
-			var pos_parts = pos_str.split(",")
-			var pos = Vector3(float(pos_parts[0]), float(pos_parts[1]), float(pos_parts[2]))
-			# Parse rotation: "(x, y, z)" -> Vector3 for euler
-			rot_str = rot_str.trim_prefix("(").trim_suffix(")")
-			var rot_parts = rot_str.split(",")
-			var rot = Vector3(float(rot_parts[0]), float(rot_parts[1]), float(rot_parts[2]))
-			initial_transform.origin = pos
-			initial_transform.basis = Basis(rot)
+		# Find player initial state
+		for path in current_replay.initial_states:
+			if "Pilot" in path or "Player" in path:
+				var state = current_replay.initial_states[path]
+				if state.has("global_transform"):
+					var gt = state["global_transform"]
+					if gt.has("origin"):
+						initial_transform.origin = Vector3(gt["origin"]["x"], gt["origin"]["y"], gt["origin"]["z"])
+					if gt.has("basis"):
+						# Assuming basis is stored as dict with x,y,z vectors
+						var basis_dict = gt["basis"]
+						var x_vec = Vector3(basis_dict["x"]["x"], basis_dict["x"]["y"], basis_dict["x"]["z"])
+						var y_vec = Vector3(basis_dict["y"]["x"], basis_dict["y"]["y"], basis_dict["y"]["z"])
+						var z_vec = Vector3(basis_dict["z"]["x"], basis_dict["z"]["y"], basis_dict["z"]["z"])
+						initial_transform.basis = Basis(x_vec, y_vec, z_vec)
+				break
 		PlayerManager.spawn(initial_transform)
 	
 	# Update references after scene change
@@ -178,13 +197,10 @@ func _prepare_scene_for_playback():
 		var pilot = get_tree().current_scene.get_node("Pilot/PlayerInput")
 		var scene = get_tree().current_scene
 		for path in current_replay.initial_states:
-			var node_name = path.trim_prefix("@")
-			var node = get_tree().current_scene.find_node(node_name, true, false)
-			print (node, path)
+			var node = get_tree().current_scene.get_node_or_null(path)
 			if node:
 				_set_node_state(node, current_replay.initial_states[path])
-		print("Done **************************************************")				
-		print("Done")
+		print("Done setting initial states")
 
 func start_loaded_playback() -> void:
 	print("[ReplayPlayback] >>>>> start_loaded_playback called")
@@ -309,8 +325,8 @@ func pause_playback() -> void:
 
 func resume_playback() -> void:
 	print("[ReplayPlayback] >>>>> resume_playback called")
-	if not playback_paused:
-		return
+	# Allow resume_playback to be called both for resuming from pause
+	# and for initial start. Do not early-return when not paused.
 	if not is_in_group("playback_active"): # Add to group when playback actually resumes
 		add_to_group("playback_active")
 
@@ -410,9 +426,30 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 	# Set InputState actions and axes from frame_data["inputs"]
 	if frame_data.has("inputs"):
 		var inputs = frame_data["inputs"]
+		# AXES: apply hold-smoothing if enabled
+		var axes_vals := {"move_x": 0.0, "move_y": 0.0}
 		if inputs.has("move_vec") and inputs["move_vec"] is Vector2:
-			InputState.axes["move_x"] = inputs["move_vec"].x
-			InputState.axes["move_y"] = inputs["move_vec"].y
+			axes_vals["move_x"] = inputs["move_vec"].x
+			axes_vals["move_y"] = inputs["move_vec"].y
+		# For compatibility with older recordings that stored axes separately
+		if frame_data.has("axes") and frame_data["axes"] is Dictionary:
+			axes_vals["move_x"] = float(frame_data["axes"].get("move_x", axes_vals["move_x"]))
+			axes_vals["move_y"] = float(frame_data["axes"].get("move_y", axes_vals["move_y"]))
+
+		# Apply hold counters: if axis is non-zero, set hold counter; if zero but counter>0, reuse held value and decrement
+		for a in ["move_x", "move_y"]:
+			var v = axes_vals.get(a, 0.0)
+			if abs(v) > 0.0001:
+				_hold_counters[a] = replay_hold_frames
+				_held_axes[a] = v
+				InputState.axes[a] = v
+			else:
+				var cnt = int(_hold_counters.get(a, 0))
+				if cnt > 0 and _held_axes.has(a):
+					InputState.axes[a] = _held_axes[a]
+					_hold_counters[a] = cnt - 1
+				else:
+					InputState.axes[a] = 0.0
 		if inputs.has("jump"):
 			InputState.actions["jump"] = inputs["jump"]
 		if inputs.has("sprint"):
@@ -475,16 +512,68 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 	# REMOVED: Direct velocity injection to allow physics to process inputs naturally
 	# The position correction in _sync_pilot_to_frame will keep the player in sync
 
+func _frames_with_hold(orig_frames: Array, hold_frames: int) -> Array:
+	# Returns a new frames array where brief axis pulses are expanded (held)
+	# for up to `hold_frames` frames to avoid sampling jitter during playback.
+	if not orig_frames:
+		return orig_frames
+	var result := []
+	var hold_counters := {"move_x": 0, "move_y": 0}
+	var held_axes := {}
+	for f in orig_frames:
+		var copy = {}
+		# duplicate shallowly all keys except we'll replace/ensure `axes` dict
+		for k in f.keys():
+			copy[k] = f[k]
+		# Resolve source axes: prefer explicit `axes`, else try `inputs.move_vec`
+		var axes_dict := {"move_x": 0.0, "move_y": 0.0}
+		if f.has("axes") and f["axes"] is Dictionary:
+			axes_dict["move_x"] = float(f["axes"].get("move_x", 0.0))
+			axes_dict["move_y"] = float(f["axes"].get("move_y", 0.0))
+		elif f.has("inputs") and f["inputs"].has("move_vec") and f["inputs"]["move_vec"] is Vector2:
+			axes_dict["move_x"] = f["inputs"]["move_vec"].x
+			axes_dict["move_y"] = f["inputs"]["move_vec"].y
+		# Apply hold logic per axis
+		for a in ["move_x", "move_y"]:
+			var v = axes_dict.get(a, 0.0)
+			if abs(v) > 0.0001:
+				hold_counters[a] = int(hold_frames)
+				held_axes[a] = v
+				axes_dict[a] = v
+			else:
+				var cnt = int(hold_counters.get(a, 0))
+				if cnt > 0 and held_axes.has(a):
+					axes_dict[a] = held_axes[a]
+					hold_counters[a] = cnt - 1
+				else:
+					axes_dict[a] = 0.0
+		# Ensure copy has `axes` replaced with our processed dict
+		copy["axes"] = axes_dict
+		result.append(copy)
+	return result
+
 func check_for_drift(frame_data: Dictionary) -> void:
 	print("[DRIFT_DEBUG] check_for_drift called for frame ", InputState.replay_frame)
 	if not player:
 		print("[DRIFT_DEBUG] No player")
 		return
-	if current_replay.frame_states.size() <= InputState.replay_frame:
-		print("[DRIFT_DEBUG] frame_states size: ", current_replay.frame_states.size(), " frame_index: ", InputState.replay_frame)
+	# Find the nearest frame_state entry that matches current replay frame_index
+	var recorded_state = null
+	for fs in current_replay.frame_states:
+		if fs.has("frame_index") and int(fs["frame_index"]) == int(InputState.replay_frame):
+			recorded_state = fs
+			break
+	# If not found, try to find the closest earlier snapshot
+	if recorded_state == null and current_replay.frame_states.size() > 0:
+		for i in range(current_replay.frame_states.size() - 1, -1, -1):
+			var cand = current_replay.frame_states[i]
+			if cand.has("frame_index") and int(cand["frame_index"]) < int(InputState.replay_frame):
+				recorded_state = cand
+				break
+	if recorded_state == null:
+		print("[DRIFT_DEBUG] No suitable frame_state found for frame", InputState.replay_frame)
 		return
-	
-	var recorded_state = current_replay.frame_states[InputState.replay_frame]
+
 	if not recorded_state.has(PILOT_STATE_KEY):
 		print("[DRIFT_DEBUG] recorded_state does not have PILOT_STATE_KEY: ", PILOT_STATE_KEY)
 		return

@@ -60,6 +60,11 @@ var manual_playback: bool = false
 func set_mode(new_mode: int) -> void:
 	mode = new_mode
 	reset()
+	# Ensure the InputState receives physics ticks when recording or playing back
+	if mode == Mode.RECORD or mode == Mode.PLAYBACK:
+		set_physics_process(true)
+	else:
+		set_physics_process(false)
 
 # --- RESET DE ESTADO COMPLETO ---
 
@@ -271,10 +276,11 @@ func start_playback():
 	set_mode(Mode.PLAYBACK)
 
 func load_replay(replay_data: Array):
+	# Switch to PLAYBACK mode first (this calls reset()), then set the frames
+	set_mode(Mode.PLAYBACK)
 	recorded_frames = replay_data.duplicate()
 	replay_frame = 0
 	print("load_replay set replay_frame to 0")
-	set_mode(Mode.PLAYBACK)
 
 func stop():
 	set_mode(Mode.LIVE)

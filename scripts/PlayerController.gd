@@ -59,6 +59,7 @@ export var debug_movement := false
 export var debug_shadow := false
 export var debug_input := false
 export var debug_enabled := false # bandera global para desactivar todos los logs por defecto
+export var debug_force_direct_move := false
 
 export var floating_after_jump_delay := 0.25
 export var floating_no_input_delay := 0.3
@@ -657,7 +658,18 @@ func _physics_process(delta):
 		snap_enabled = true
 
 	# --- THE ACTUAL PHYSICS STEP ---
-	velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
+	var pos_before := global_transform.origin
+	if GameGlobals and GameGlobals.is_replaying and debug_force_direct_move:
+		# Modo de diagnóstico: aplicar movimiento directamente (no física)
+		global_transform.origin = global_transform.origin + movement_this_frame * delta
+		velocity = Vector3(movement_this_frame.x, movement_this_frame.y, movement_this_frame.z)
+		print("[PlayerController DEBUG] Applied direct move for replay: pos_before=", pos_before, " pos_after=", global_transform.origin, " disp=", global_transform.origin - pos_before)
+	else:
+		velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
+		var pos_after := global_transform.origin
+		var disp := pos_after - pos_before
+		if GameGlobals and GameGlobals.replay_debug_mode and GameGlobals.is_replaying:
+			print("[PlayerController DEBUG] move_and_slide pos_before=", pos_before, " pos_after=", pos_after, " disp=", disp, " velocity_out=", velocity)
 
 	# print("[PlayerController] Post-move Pos (Simulated): %s" % [global_transform.origin])
 	# print("[PlayerController POST-SLIDE] Velocity: %s" % [velocity])
