@@ -340,6 +340,11 @@ func resume_playback() -> void:
 	if player:
 		player.set_physics_process(true)  # Always enable physics for input-driven playback with correction
 		print("[ReplayPlayback] Player physics enabled for playback")
+		# Ensure all physics bodies and collision shapes in the scene are enabled
+		_enable_all_physics_and_collisions()
+		# Ensure PlayerController does not use debug direct-move mode during normal playback
+		if player.has_method("set"):
+			player.set("debug_force_direct_move", false)
 		
 		# Configurar estado inicial una sola vez
 		if current_replay.initial_states.has(PILOT_STATE_KEY):
@@ -369,6 +374,30 @@ func resume_playback() -> void:
 			print("[ReplayPlayback] INITIAL POS APPLIED: %s" % player.global_transform.origin)
 	
 	emit_signal("playback_resumed")
+
+func _enable_all_physics_and_collisions() -> void:
+	# Walk the current scene and make sure physics processing is enabled
+	if not get_tree() or not get_tree().current_scene:
+		return
+	var root = get_tree().current_scene
+	# Recursive traversal
+	var stack = [root]
+	while stack.size() > 0:
+		var node = stack.pop_back()
+		# Enable physics processing when available
+		if node.has_method("set_physics_process"):
+			node.set_physics_process(true)
+		# If the node is a CollisionShape, ensure it's enabled
+		if node.get_class() == "CollisionShape" or node.get_class() == "CollisionShape2D":
+			if node.has_method("set_disabled"):
+				node.set_disabled(false)
+		# For legacy property name 'disabled' that might be direct
+		if node.has_meta("disabled"):
+			node.set_meta("disabled", false)
+		# Push children
+		for c in node.get_children():
+			if c:
+				stack.push_back(c)
 
 func rewind_playback() -> void:
 	seek(0)
