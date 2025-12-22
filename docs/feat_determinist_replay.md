@@ -16,14 +16,14 @@ Crear `data/test_suite_inputs.json` con secuencias de 120 frames (2 segundos a 6
 Implementar `tests/test_replay_determinism.gd` con el pipeline:
 
 1. **Fase 1: Grabación (Live Run)**
-   - Instanciar jugador en (0,0,0)
+   - Instanciar jugador en SpawnPoint
    - Inyectar inputs al `InputState` en modo RECORD
    - Simular N frames con `_physics_process(1.0/60.0)`
    - Guardar `replays/replay_T[n]_recorded.json`
    - Almacenar posición/rotación final grabada
 
 2. **Fase 2: Reproducción (Playback Run)**
-   - Reiniciar escena, instanciar jugador en (0,0,0)
+   - Reiniciar escena, instanciar jugador en SpawnPoint
    - Cargar replay grabado
    - Poner `InputState` en modo PLAYBACK
    - Desactivar "Soft-Correction" para medir drift puro

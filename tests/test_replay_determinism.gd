@@ -10,6 +10,7 @@ const FixedVec3 = preload("res://scripts/utils/FVec3.gd")  # Load later to avoid
 
 var paused = false
 var InputState = null
+var last_local_replay_path: String = ""
 
 var test_suite = {
 	"T1": {
@@ -199,47 +200,71 @@ func run_test(test_id):
 	replay_runner.simulate_frames(1)  # Final settle
 
 	# FASE 1: GRABACIÓN (Live Run)
+	# Use ReplayRecorder to capture frames and snapshots
+	var rr = load("res://scripts/replay/ReplayRecorder.gd").new()
+	rr.name = "ReplayRecorder"
+	test_scene_local.add_child(rr)
+	# allow _ready
+	replay_runner.simulate_frames(1)
+	rr.connect("recording_stopped", self, "_on_local_recording_stopped")
+
 	input_state.set_mode(InputState.Mode.RECORD)
-	input_state.recorded_frames = []  # Reset
-	input_state.manual_playback = true
+	# Start recording via recorder (it will populate initial_states)
+	rr.start_recording()
+
 	for frame in test_suite[test_id].frames:
-		input_state.actions = frame.inputs.duplicate()
-		input_state.axes = frame.axes.duplicate()
-		input_state.mouse_delta = Vector2(frame.mouse_delta.x, frame.mouse_delta.y)
+		# Build a complete actions dict using InputState constants so tests
+		# produce the same shape as runtime.
+		var actions_full = {}
+		for k in InputState.ACTION_KEYS:
+			actions_full[k] = bool(frame.inputs.get(k, false))
+		input_state.actions = actions_full
+
+		var axes_full = {}
+		for k in InputState.AXIS_KEYS:
+			axes_full[k] = float(frame.axes.get(k, 0.0))
+		input_state.axes = axes_full
+
+		# Use recorded_mouse_delta so ReplayRecorder picks it up
+		input_state.recorded_mouse_delta = Vector2(frame.mouse_delta.x, frame.mouse_delta.y)
 		input_state.is_strafing_mode_active = frame.strafing_active
 		input_state.strafing_timer = frame.strafing_timer
+		# Advance physics/frame and force recorder to process this frame
 		replay_runner.simulate_frames(1)
-		input_state._record_current_frame()
-	input_state.manual_playback = false
+		if rr and rr.has_method("record_frame"):
+			rr.record_frame(1.0/60.0)
 
+	# Stop recording and allow final_states to be captured
+	rr.stop_recording()
 	print("Player position after record: ", player_ref.global_transform.origin)
-	print("Last recorded position: ", input_state.recorded_frames.back().pilot_pos)
+
+	# The recorder no longer stores positional data per-frame. Capture the
+	# final recorded position/rotation directly from the player instance so
+	# we can compare against playback later.
+	var final_pos_rec = player_ref.global_transform.origin
+	var final_rot_rec = player_ref.rotation.y
 
 	# Crear y guardar replay
-	var replay = load("res://scripts/replay/Replay.gd").new()
-	replay.frames = input_state.recorded_frames.duplicate()
-	replay.scene_path = "res://tests/fixtures/TestScene.tscn"
-	replay.godot_version = Engine.get_version_info()["string"]
-	replay.game_version = "dev"
-	replay.timestamp = str(OS.get_unix_time())
-	replay.initial_states = {
-		"player": {
-			"position": player_ref.global_transform.origin,
-			"rotation": player_ref.rotation
-		},
-		"camera": {
-			"position": camera.global_transform.origin,
-			"rotation": camera.global_transform.basis.get_euler()
-		}
-	}
-	var replay_path = "res://replays/test_" + test_id + ".json"
-	var save_result = replay.save_to_json(replay_path)
-	if save_result != OK:
-		return {"passed": false, "error": "Failed to save replay: " + str(save_result)}
+	# The recorder saved the replay file and signaled its path; use that
+	var replay_path = last_local_replay_path
+	if replay_path == "":
+		# fallback: try to find recently written file in res://replays
+		var dir = Directory.new()
+		if dir.open("res://replays/") == OK:
+			dir.list_dir_begin(true, true)
+			var f = dir.get_next()
+			var latest = ""
+			while f != "":
+				if f.ends_with(".json"):
+					latest = "res://replays/" + f
+				f = dir.get_next()
+			dir.list_dir_end()
+			replay_path = latest
 
-	# Posición final grabada
-	var final_pos_rec = replay.frames[-1]["pilot_pos"]
-	var final_rot_rec = replay.frames[-1]["pilot_rot"]
+	if replay_path == "":
+		return {"passed": false, "error": "No replay file produced"}
+
+	# Posición final grabada (ya capturada por recorder en final_states)
 
 	# FASE 2: REPRODUCCIÓN (Playback Run)
 	# Reset player position for playback
@@ -271,7 +296,7 @@ func run_test(test_id):
 	var final_rot_rep = player_ref.rotation.y
 
 	var pos_distance = final_pos_rec.distance_to(final_pos_rep)
-	var rot_distance = abs(final_rot_rec.y - final_rot_rep)
+	var rot_distance = abs(final_rot_rec - final_rot_rep)
 
 	# Desactivar modo test
 	GameGlobals.is_test_mode = false
@@ -287,6 +312,10 @@ func run_test(test_id):
 		result["error"] = "Drift too high: pos %.3f (max 0.1), rot %.3f (max 0.01)" % [pos_distance, rot_distance]
 
 	return result
+
+func _on_local_recording_stopped(frame_count, replay_path):
+	last_local_replay_path = replay_path
+	print("_on_local_recording_stopped: ", frame_count, replay_path)
 
 
 # Tests individuales para mejor detección

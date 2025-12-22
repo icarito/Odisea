@@ -16,8 +16,10 @@ var frames: Array = []
 # Per-frame states for drift measurement
 var frame_states: Array = []
 
-# Sparse snapshots for debugging (every 60 frames)
-var snapshots: Dictionary = {}
+# Final states captured at end of recording (useful for drift/debug)
+var final_states: Dictionary = {}
+var initial_states_frame: int = 0
+var final_states_frame: int = 0
 
 func _init() -> void:
 	pass
@@ -35,7 +37,10 @@ func save_to_json(path: String) -> int:
 		"timestamp": timestamp,
 		"initial_states": initial_states,
 		"frames": frames,
-		"frame_states": frame_states
+		"frame_states": frame_states,
+		"final_states": final_states,
+		"initial_states_frame": initial_states_frame,
+		"final_states_frame": final_states_frame
 	}
 
 	file.store_line(to_json(data))
@@ -69,6 +74,9 @@ func load_from_json(path: String) -> int:
 		initial_states = data.get("initial_states", {})
 		frames = data.get("frames", [])
 		frame_states = data.get("frame_states", [])
+		final_states = data.get("final_states", {})
+		initial_states_frame = int(data.get("initial_states_frame", 0))
+		final_states_frame = int(data.get("final_states_frame", 0))
 		return OK
 	else:
 		return FAILED
