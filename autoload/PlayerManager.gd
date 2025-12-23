@@ -101,11 +101,36 @@ func _deferred_spawn(initial_transform: Transform):
 	print("PlayerManager: Player spawned at: ", initial_transform.origin, " rotation: ", initial_transform.basis.get_euler())
 	
 	# Set replay mode on PlayerInput if in replay
+	# Detect replay via GameGlobals or ReplayManager and mark player accordingly
+	var replay_marked := false
 	if GameGlobals.is_replaying:
 		var player_input = player_reference.find_node("PlayerInput", true, false)
 		if player_input and player_input.has_method("set"):
 			player_input.is_replay_mode = true
 			print("[PlayerManager] PlayerInput set to replay mode")
+		player_reference.set("is_replaying", true)
+		print("[PlayerManager] PlayerController is_replaying set to true on spawn (via set, GameGlobals)")
+		replay_marked = true
+
+	# Also check ReplayManager directly in case GameGlobals flag isn't set yet
+	if not replay_marked and has_node("/root/ReplayManager"):
+		var rm = get_node("/root/ReplayManager")
+		var is_playback := false
+		if rm:
+			if rm.has_method("get_playback_node"):
+				var pb = rm.get_playback_node()
+				if pb and pb.current_replay:
+					is_playback = true
+			elif "mode" in rm and "ReplayMode" in rm:
+				if rm.mode == rm.ReplayMode.PLAYBACK:
+					is_playback = true
+			# If we detect playback, mark player and PlayerInput
+			if is_playback:
+				var player_input2 = player_reference.find_node("PlayerInput", true, false)
+				if player_input2 and player_input2.has_method("set"):
+					player_input2.is_replay_mode = true
+				player_reference.set("is_replaying", true)
+				print("[PlayerManager] PlayerController is_replaying set to true on spawn (via ReplayManager)")
 	
 	# Forzar alineación de cámara después de que el nodo esté en escena y transform aplicado.
 	# La función _align_camera_to_body() debe existir en el script del player.
