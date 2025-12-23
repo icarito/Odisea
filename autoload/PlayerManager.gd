@@ -109,7 +109,8 @@ func _deferred_spawn(initial_transform: Transform):
 	
 	# Forzar alineación de cámara después de que el nodo esté en escena y transform aplicado.
 	# La función _align_camera_to_body() debe existir en el script del player.
-	player_reference.call_deferred("_align_camera_to_body")
+	# SOLO alinear si NO estamos en replay (para preservar la orientación grabada)
+	player_reference.call_deferred("_check_and_align_camera")
 
 	# Forzar captura de mouse tras spawn inicial (consistente con MouseCapture.gd)
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
