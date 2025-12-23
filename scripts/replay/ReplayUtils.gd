@@ -162,3 +162,20 @@ static func from_json_safe(data):
 	for key in data:
 		result[key] = from_json_safe(data[key])
 	return result
+
+# Generate a simple hash for state verification (for determinism checks)
+static func generate_state_hash(state: Dictionary) -> String:
+	var keys = state.keys()
+	keys.sort()  # Ensure consistent order
+	var concat = ""
+	for key in keys:
+		var val = state[key]
+		if val is float:
+			concat += str(stepify(val, 0.001))  # Round to avoid floating point precision issues
+		elif val is int:
+			concat += str(val)
+		elif val is Vector3:
+			concat += str(stepify(val.x, 0.001)) + "," + str(stepify(val.y, 0.001)) + "," + str(stepify(val.z, 0.001))
+		else:
+			concat += str(val)
+	return concat.md5_text().substr(0, 8)  # Short hash

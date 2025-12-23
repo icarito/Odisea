@@ -6,6 +6,7 @@ var scene_path: String = ""
 var godot_version: String = ""
 var game_version: String = "" # You might want to add your own versioning
 var timestamp: String = ""
+var state_hash: String = "" # Hash for determinism verification
 
 # Initial state of tracked objects
 var initial_states: Dictionary = {}
@@ -35,6 +36,7 @@ func save_to_json(path: String) -> int:
 		"godot_version": godot_version,
 		"game_version": game_version,
 		"timestamp": timestamp,
+		"state_hash": state_hash,
 		"initial_states": initial_states,
 		"frames": frames,
 		"frame_states": frame_states,
@@ -71,6 +73,7 @@ func load_from_json(path: String) -> int:
 		godot_version = data.get("godot_version", "")
 		game_version = data.get("game_version", "")
 		timestamp = data.get("timestamp", "")
+		state_hash = data.get("state_hash", "")
 		initial_states = data.get("initial_states", {})
 		frames = data.get("frames", [])
 		frame_states = data.get("frame_states", [])

@@ -272,3 +272,12 @@ func set_replay_state(state: Dictionary) -> void:
 		target_pitch = state["pitch"]
 	if state.has("spring_length") and springarm:
 		springarm.spring_length = state["spring_length"]
+	# Force immediate update to ensure transform is applied
+	update_camera_transform()
+
+func update_camera_transform() -> void:
+	# Force immediate application of yaw/pitch to transforms
+	if yaw:
+		yaw.rotation.y = target_yaw
+	if pitch:
+		pitch.rotation.x = target_pitch
