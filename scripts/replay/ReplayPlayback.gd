@@ -48,6 +48,15 @@ func _ready() -> void:
 	process_priority = -100  # Ensure replay logic runs before player physics
 	set_physics_process(false)
 
+func _resolve_node(role_id: String) -> Node:
+	if role_id == "player":
+		return PlayerManager.get_player()
+	elif role_id == "camera" or role_id == "CameraRig":
+		return get_tree().current_scene.find_node("CameraRig", true, false)
+	else:
+		# For other nodes, try to find by name
+		return get_tree().current_scene.find_node(role_id, true, false)
+
 func _debug_log(message: String) -> void:
 	var game_globals = GameGlobals
 	if not game_globals:
@@ -86,7 +95,7 @@ func _physics_process(delta: float) -> void:
 	if recorded_state:
 		for path in recorded_state:
 			if path != "frame_index":
-				var node = get_tree().current_scene.find_node(path, true, false)
+				var node = _resolve_node(path)
 				if node and node.has_method("get_replay_state"):
 					# For drift correction, compare and correct
 					var current_state = node.get_replay_state()
@@ -197,10 +206,22 @@ func _prepare_scene_for_playback():
 		var pilot = get_tree().current_scene.get_node("Pilot/PlayerInput")
 		var scene = get_tree().current_scene
 		for path in current_replay.initial_states:
-			var node = get_tree().current_scene.find_node(path, true, false)
+			var node = _resolve_node(path)
 			if node:
 				_set_node_state(node, current_replay.initial_states[path])
 		print("Done setting initial states")
+		
+		# DEBUG: Log initial orientations
+		print("DEBUG INITIAL STATE: initial_states keys: ", current_replay.initial_states.keys())
+		var player = PlayerManager.get_player()
+		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+		if player:
+			print("DEBUG INITIAL STATE: Recorded Player Yaw: ", current_replay.initial_states.get("player", {}).get("rotation", {}).get("y", "N/A"))
+			print("DEBUG INITIAL STATE: Actual Player Yaw: ", player.rotation.y)
+		if camera_rig and camera_rig.has_method("get_replay_state"):
+			var cam_state = camera_rig.get_replay_state()
+			print("DEBUG INITIAL STATE: Recorded Camera Yaw: ", current_replay.initial_states.get("camera", {}).get("yaw", "N/A"))
+			print("DEBUG INITIAL STATE: Actual Camera Yaw: ", cam_state.get("yaw", "N/A"))
 
 func start_loaded_playback() -> void:
 	print("[ReplayPlayback] >>>>> start_loaded_playback called")
@@ -437,7 +458,7 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 		var md = frame_data["mouse_delta"]
 		if md is Dictionary:
 			# Es vital convertir el Diccionario {x, y} a Vector2
-			InputState.mouse_delta = Vector2(md.get("x", 0), md.get("y", 0))
+			InputState.mouse_delta = Vector2(FixedPoint.from_fixed(md.get("x", 0)), FixedPoint.from_fixed(md.get("y", 0)))
 		elif md is Vector2:
 			InputState.mouse_delta = md
 		else:
@@ -511,7 +532,7 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 	elif frame_data.has("mouse_delta"):
 		var md_dict = frame_data["mouse_delta"]
 		if md_dict is Dictionary:
-			var mouse_motion = Vector2(md_dict.get("x", 0.0), md_dict.get("y", 0.0))
+			var mouse_motion = Vector2(FixedPoint.from_fixed(md_dict.get("x", 0)), FixedPoint.from_fixed(md_dict.get("y", 0)))
 			if mouse_motion.length_squared() > 0:
 				if get_tree() and get_tree().current_scene:
 					var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)

@@ -48,15 +48,15 @@ func generate_test_inputs():
 		var frame_count = 0
 		match test_id:
 			"T1":
-				frame_count = 5  # Short for testing
+				frame_count = 500  # Short for testing
 			"T2":
-				frame_count = 301  # 0-300
+				frame_count = 3001  # 0-300
 			"T3":
-				frame_count = 121  # 0-120
+				frame_count = 1201  # 0-120
 			"T4":
-				frame_count = 61  # 0-60
+				frame_count = 601  # 0-60
 			"T5":
-				frame_count = 61  # 0-60
+				frame_count = 601  # 0-60
 		for i in range(frame_count):
 			var frame = {
 				"inputs": {},
@@ -67,24 +67,24 @@ func generate_test_inputs():
 			}
 			match test_id:
 				"T1":
-					# T1: 0-5 move_forward, 6-10 idle
-					if i <= 5:
+					# T1: 0-249 move_forward, 250+ idle (longer movement to detect drift)
+					if i < 250:
 						frame.inputs["move_forward"] = true
 						frame.axes["move_y"] = 1.0
 					else:
 						frame.inputs["move_forward"] = false
 						frame.axes["move_y"] = 0.0
 				"T2":
-					# T2: idle, salto en frame 60
-					frame.inputs["move_forward"] = false
-					frame.axes["move_y"] = 0.0
-					if i == 60:
+					# T2: continuous forward movement with jumps every 300 frames
+					frame.inputs["move_forward"] = true
+					frame.axes["move_y"] = 1.0
+					if i % 300 == 60:
 						frame.inputs["jump"] = true
 					else:
 						frame.inputs["jump"] = false
 				"T3":
-					# T3: 0-120 move_forward + move_right + strafe: True
-					if i <= 120:
+					# T3: 0-600 move_forward + move_right + strafe: True, then idle
+					if i < 600:
 						frame.inputs["move_forward"] = true
 						frame.inputs["move_right"] = true
 						frame.axes["move_y"] = 1.0
@@ -97,8 +97,8 @@ func generate_test_inputs():
 						frame.axes["move_x"] = 0.0
 						frame.strafing_active = false
 				"T4":
-					# T4: 0-60 move_right + strafe: False
-					if i <= 60:
+					# T4: 0-300 move_right + strafe: False, then idle
+					if i < 300:
 						frame.inputs["move_right"] = true
 						frame.axes["move_x"] = 1.0
 						frame.strafing_active = false
@@ -107,8 +107,8 @@ func generate_test_inputs():
 						frame.axes["move_x"] = 0.0
 						frame.strafing_active = false
 				"T5":
-					# T5: 0-60 mouse_delta.x = 10.0
-					if i <= 60:
+					# T5: 0-300 mouse_delta.x = 10.0, then zero
+					if i < 300:
 						frame.mouse_delta = Vector2(10.0, 0.0)
 					else:
 						frame.mouse_delta = Vector2.ZERO
@@ -263,7 +263,7 @@ func run_test(test_id):
 	var recorded_replay = Replay.new()
 	if recorded_replay.load_from_json(replay_path) != OK:
 		return {"passed": false, "error": "Failed to load recorded replay"}
-	var player_path = player_ref.name
+	var player_path = "player"
 	var final_pos_rec: Vector3
 	var final_rot_rec: float
 	if recorded_replay.final_states.has(player_path):

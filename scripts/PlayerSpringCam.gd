@@ -263,12 +263,12 @@ func get_replay_state() -> Dictionary:
 	}
 
 func set_replay_state(state: Dictionary) -> void:
-	# FEATURE: Durante el playback, la cámara es libre. No restaurar yaw/pitch.
-	# if state.has("yaw") and yaw:
-	# 	yaw.rotation.y = state["yaw"]
-	# 	target_yaw = state["yaw"]
-	# if state.has("pitch") and pitch:
-	# 	pitch.rotation.x = state["pitch"]
-	# 	target_pitch = state["pitch"]
+	# Restore camera orientation for deterministic replay
+	if state.has("yaw") and yaw:
+		yaw.rotation.y = state["yaw"]
+		target_yaw = state["yaw"]
+	if state.has("pitch") and pitch:
+		pitch.rotation.x = state["pitch"]
+		target_pitch = state["pitch"]
 	if state.has("spring_length") and springarm:
 		springarm.spring_length = state["spring_length"]

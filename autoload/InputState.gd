@@ -232,7 +232,7 @@ func _apply_replay_frame():
 	if md is String:
 		mouse_delta = str2var("Vector2" + md)
 	else:
-		mouse_delta = Vector2(md.get("x", 0.0), md.get("y", 0.0))
+		mouse_delta = Vector2(FixedPoint.from_fixed(md.get("x", 0)), FixedPoint.from_fixed(md.get("y", 0)))
 	recorded_mouse_delta = mouse_delta
 	is_strafing_mode_active = frame.get("strafing_active", false)
 	strafing_timer = frame.get("strafing_timer", 0.0)
