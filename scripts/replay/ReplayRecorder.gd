@@ -156,6 +156,8 @@ func start_recording(): # This function now acts like a coroutine
 			yield(get_tree(), "idle_frame")
 
 	replay.initial_states = ReplayUtils.to_json_safe(initial)
+	# Generate state hash for determinism verification
+	replay.state_hash = ReplayUtils.generate_state_hash(initial)
 	# mark initial states frame as 0 (recording starts at frame 0)
 	replay.initial_states_frame = 0
 	# Initialize last_frame_data with an empty inputs dict. This ensures the first
