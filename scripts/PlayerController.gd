@@ -43,6 +43,9 @@ onready var movement_comp: PlayerMovement = $PlayerMovement if has_node("PlayerM
 onready var InputState = get_node("/root/InputState")
 onready var player_input = $PlayerInput if has_node("PlayerInput") else null
 
+# Flag local para bloquear alineados automáticos durante replay
+var is_replaying := false
+
 # NEW: Multiplayer support
 var player_id := 1
 
@@ -351,15 +354,78 @@ func _align_camera_to_body():
 	"""
 	Called deferred from PlayerManager after spawn to correctly initialize camera yaw.
 	"""
+	# Respect local replay flag first to ensure PlayerManager/ReplayPlayback
+	# can control camera restore deterministically.
+	if is_replaying or (GameGlobals and GameGlobals.is_replaying):
+		print("[PlayerController] _align_camera_to_body: Skipping auto-align because replay active (is_replaying=", is_replaying, ")")
+		return
+
 	var cam_rig = get_node_or_null("CameraRig")
-	if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
-		var body_yaw = global_transform.basis.get_euler().y
-		# Use PI as offset to look from behind, consistent with respawn logic.
-		var offset = PI
-		cam_rig.sync_to_body_yaw(body_yaw, offset)
-		print("[PlayerController] _align_camera_to_body: Synced camera to body yaw ", rad2deg(body_yaw), " with offset ", rad2deg(offset))
-	else:
+	if not cam_rig or not cam_rig.has_method("sync_to_body_yaw"):
 		print("[PlayerController] _align_camera_to_body: CameraRig or sync_to_body_yaw not found.")
+		return
+
+	# Prefer recorded yaw/pitch when a replay is loaded. Use ReplayManager/playback
+	# detection instead of relying solely on GameGlobals to handle timing issues
+	# during scene/spawn ordering.
+	var rm = get_node_or_null("/root/ReplayManager")
+	if rm:
+		var pb = null
+		if rm.has_method("get_playback_node"):
+			pb = rm.get_playback_node()
+		else:
+			pb = rm.get_node_or_null("ReplayPlayback")
+		if pb and pb.current_replay:
+			var initials = pb.current_replay.initial_states
+			if initials and typeof(initials) == TYPE_DICTIONARY:
+				# 1) Prefer explicit camera_yaw/camera_pitch shortcuts
+				if initials.has("camera_yaw") and initials.has("camera_pitch"):
+					var state = {"yaw": initials["camera_yaw"], "pitch": initials["camera_pitch"]}
+					if cam_rig.has_method("set_replay_state"):
+						cam_rig.set_replay_state(state)
+						print("[PlayerController] _align_camera_to_body: Applied recorded camera_yaw/pitch from initial_states")
+						return
+				# 2) Direct camera dict
+				if initials.has("camera") and cam_rig.has_method("set_replay_state"):
+					cam_rig.set_replay_state(initials["camera"])
+					print("[PlayerController] _align_camera_to_body: Applied recorded camera dict from initial_states")
+					return
+				# 3) Search for camera-like keys (CameraRig, camera_node_name, etc.)
+				for key in initials.keys():
+					var kl = str(key).to_lower()
+					if kl.find("camera") != -1 or kl.find("camerarig") != -1:
+						var camdict = initials[key]
+						if camdict and cam_rig.has_method("set_replay_state"):
+							cam_rig.set_replay_state(camdict)
+							print("[PlayerController] _align_camera_to_body: Applied recorded camera from key: " + str(key))
+							return
+			# If replay is present but we couldn't find camera data, skip forcing the PI offset.
+			print("[PlayerController] _align_camera_to_body: Replay active but no recorded camera state found; skipping auto-offset")
+			return
+
+	# If we're in replay mode but the ReplayPlayback node or current_replay
+	# isn't available yet (spawn ordering), avoid applying the live PI offset
+	# so the playback system can set the camera state later when it's ready.
+	if GameGlobals and GameGlobals.is_replaying:
+		print("[PlayerController] _align_camera_to_body: Replay mode active but no playback-ready camera data yet; skipping auto-offset until playback applies camera.")
+		return
+
+	# Normal live path: align behind the body using PI offset
+	var body_yaw = global_transform.basis.get_euler().y
+	# Use PI as offset to look from behind, consistent with respawn logic.
+	var offset = PI
+	cam_rig.sync_to_body_yaw(body_yaw, offset)
+	print("[PlayerController] _align_camera_to_body: Synced camera to body yaw ", rad2deg(body_yaw), " with offset ", rad2deg(offset))
+
+func _check_and_align_camera() -> void:
+	# Wrapper called deferred by PlayerManager. Delegate to _align_camera_to_body
+	# The _align_camera_to_body implementation already handles replay vs live.
+	# Give the engine a couple of idle frames to let ReplayPlayback/startup set
+	# global replay flags and for the playback system to apply initial camera state.
+	if get_tree():
+		yield(get_tree(), "idle_frame")
+		yield(get_tree(), "idle_frame")
+	_align_camera_to_body()
 
 var _last_input_state := {}
 

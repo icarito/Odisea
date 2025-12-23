@@ -124,7 +124,37 @@ func start_recording(): # This function now acts like a coroutine
 		# Ensure camera_rig variable references whichever we recorded (prefer rig)
 		if not camera_rig and viewport_cam:
 			camera_rig = viewport_cam
-	
+
+	# Also expose top-level camera yaw/pitch shortcuts for tests/tools
+	if initial.has("camera"):
+		var cam_state = initial["camera"]
+		# cam_state expected to have 'yaw' and 'pitch' keys from CameraRig.get_replay_state()
+		initial["camera_yaw"] = cam_state.get("yaw", 0.0)
+		initial["camera_pitch"] = cam_state.get("pitch", 0.0)
+
+	# If camera not present yet, retry a few idle frames to allow deferred camera nodes to enter the tree.
+	if not initial.has("camera"):
+		var attempts := 0
+		while attempts < 5:
+			var found_cam = null
+			if get_tree() and get_tree().current_scene:
+				found_cam = get_tree().current_scene.find_node("CameraRig", true, false)
+			if not found_cam and get_viewport():
+				found_cam = get_viewport().get_camera()
+			if found_cam and found_cam.has_method("get_replay_state"):
+				if not found_cam.is_inside_tree():
+					yield(get_tree(), "idle_frame")
+				if found_cam.is_inside_tree():
+					initial["camera"] = found_cam.get_replay_state()
+					camera_rig = found_cam
+					# expose yaw/pitch shortcuts as before
+					var cs = initial["camera"]
+					initial["camera_yaw"] = cs.get("yaw", 0.0)
+					initial["camera_pitch"] = cs.get("pitch", 0.0)
+					break
+			attempts += 1
+			yield(get_tree(), "idle_frame")
+
 	replay.initial_states = ReplayUtils.to_json_safe(initial)
 	# mark initial states frame as 0 (recording starts at frame 0)
 	replay.initial_states_frame = 0
@@ -168,6 +198,11 @@ func stop_recording() -> void:
 		final_states["player"] = player.get_replay_state()
 	if camera_rig and camera_rig.is_inside_tree() and camera_rig.has_method("get_replay_state"):
 		final_states["camera"] = camera_rig.get_replay_state()
+	# Expose top-level camera yaw/pitch for final snapshot as well
+	if final_states.has("camera"):
+		var fcam = final_states["camera"]
+		final_states["camera_yaw"] = fcam.get("yaw", 0.0)
+		final_states["camera_pitch"] = fcam.get("pitch", 0.0)
 
 	# Mark final states frame index (frame count)
 	current_replay.final_states = ReplayUtils.to_json_safe(final_states)

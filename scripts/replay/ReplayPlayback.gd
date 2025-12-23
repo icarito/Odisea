@@ -99,9 +99,13 @@ func _physics_process(delta: float) -> void:
 				if node and node.has_method("get_replay_state"):
 					# For drift correction, compare and correct
 					var current_state = node.get_replay_state()
-					# Implement drift correction logic here
-					# For now, just log
-					_debug_log("Frame " + str(InputState.replay_frame) + " has state for " + path)
+					var recorded_node_state = recorded_state[path]
+					if not _compare_states(recorded_node_state, current_state):
+						print("DETERMINISM TEST FAILED at frame " + str(InputState.replay_frame) + " for " + path)
+						print("Recorded: ", recorded_node_state)
+						print("Current: ", current_state)
+					else:
+						_debug_log("Determinism check passed for frame " + str(InputState.replay_frame) + " " + path)
 
 	
 	# Apply inputs (for camera and other non-physics systems)
@@ -156,6 +160,19 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 	# This prevents "node not found" errors when accessing nodes immediately after a scene load.
 	if get_tree():
 		yield(get_tree(), "idle_frame")
+
+	# Mark global replay state early so deferred spawn/alignment logic
+	# in PlayerManager / PlayerController can detect replay mode during spawn.
+	var game_globals = GameGlobals
+	if not game_globals:
+		game_globals = get_node_or_null("/root/GameGlobals")
+	if not game_globals:
+		game_globals = get_node_or_null("../GameGlobals")
+	if not game_globals:
+		game_globals = get_node_or_null("../../GameGlobals")
+	if game_globals:
+		game_globals.replay_debug_mode = true
+		game_globals.is_replaying = true
 	
 	# Spawn player if not exists
 	if not PlayerManager.is_spawned():
@@ -223,6 +240,9 @@ func _prepare_scene_for_playback():
 			print("DEBUG INITIAL STATE: Recorded Camera Yaw: ", current_replay.initial_states.get("camera", {}).get("yaw", "N/A"))
 			print("DEBUG INITIAL STATE: Actual Camera Yaw: ", cam_state.get("yaw", "N/A"))
 
+		# Force camera values specifically before processing first frame
+		# Moved to start_loaded_playback after player spawn
+
 func start_loaded_playback() -> void:
 	print("[ReplayPlayback] >>>>> start_loaded_playback called")
 	frame_count = 0
@@ -247,6 +267,9 @@ func start_loaded_playback() -> void:
 		if player.has_node("PlayerInput"):
 			var player_input = player.get_node("PlayerInput")
 			player_input.is_replay_mode = true
+
+	# Force camera values specifically before processing first frame
+	# Moved to resume_playback
 
 	# Asegurar física en todos los nodos del grupo replay_track
 	if get_tree():
@@ -389,6 +412,46 @@ func resume_playback() -> void:
 			
 			# --- AGREGAR ESTA LÍNEA DE DEBUG ---
 			print("[ReplayPlayback] INITIAL POS APPLIED: %s" % player.global_transform.origin)
+	
+	# Force camera values specifically before processing first frame.
+	# Be robust: try multiple common camera nodes under the player and scene.
+	if player and current_replay.initial_states.has("camera_yaw"):
+		var yaw_val = current_replay.initial_states.get("camera_yaw", null)
+		var pitch_val = current_replay.initial_states.get("camera_pitch", null)
+		if yaw_val != null and pitch_val != null:
+			var applied := false
+			# 1) Prefer CameraRig under player
+			var camnode = player.get_node_or_null("CameraRig")
+			if not camnode:
+				camnode = player.find_node("CameraRig", true, false)
+			if camnode and camnode.has_method("set_replay_state"):
+				camnode.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
+				applied = true
+			# 2) Try generic CameraOrbit/Camroot structures
+			if not applied:
+				var camroot = player.get_node_or_null("Camroot")
+				if not camroot:
+					camroot = player.find_node("Camroot", true, false)
+				if camroot:
+					var h = camroot.get_node_or_null("h")
+					if h:
+						# h is yaw node, its child v is pitch
+						var v = h.get_node_or_null("v") if h else null
+						if h:
+							h.rotation.y = float(yaw_val)
+							if v:
+								v.rotation.x = float(pitch_val)
+							applied = true
+			# 3) Search scene for CameraRig as fallback
+			if not applied and get_tree() and get_tree().current_scene:
+				var scene_cam = get_tree().current_scene.find_node("CameraRig", true, false)
+				if scene_cam and scene_cam.has_method("set_replay_state"):
+					scene_cam.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
+					applied = true
+			if applied:
+				print("[ReplayPlayback] Forced camera yaw/pitch from initial_states")
+			else:
+				print("[ReplayPlayback] WARNING: could not find camera node to apply camera_yaw/camera_pitch")
 	
 	emit_signal("playback_resumed")
 
@@ -653,6 +716,15 @@ func check_for_drift(frame_data: Dictionary) -> void:
 	if player_data.has("velocity"):
 		var expected_velocity = ReplayUtils.dict_to_vector3(player_data["velocity"])
 		player.velocity = player.velocity.linear_interpolate(expected_velocity, LERP_STRENGTH_ULTRA_FAST)
+	
+	# Correct camera state
+	for path in recorded_state:
+		if path != "frame_index" and path != player_path:
+			var node = _resolve_node(path)
+			if node and node.has_method("set_replay_state"):
+				var recorded_node_state = recorded_state[path]
+				node.set_replay_state(recorded_node_state)
+				print("[DRIFT_DEBUG] Corrected " + path)
 
 func _apply_smooth_correction(node: Spatial, expected_transform: Transform, lerp_factor: float) -> void:
 	var t: float
@@ -735,3 +807,64 @@ func _set_node_state(node: Node, state: Dictionary) -> void:
 				node.angular_velocity = state[key]
 			elif state[key] is Dictionary:
 				node.angular_velocity = ReplayUtils.dict_to_vector3(state[key])
+		# Support explicit camera yaw/pitch entries stored in initial_states or node states
+		elif key == "camera_yaw" and node is Spatial:
+			var yaw_val = state.get("camera_yaw", null)
+			var pitch_val = state.get("camera_pitch", null)
+			if yaw_val != null and pitch_val != null:
+				# Prefer high-level API if camera rig provides it
+				if node.has_method("set_replay_state"):
+					node.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
+					return
+				# Common explicit CameraOrbit child node (most rigs use a single orbit controller)
+				var cam_orbit = node.get_node_or_null("CameraOrbit")
+				if cam_orbit:
+					# Some CameraOrbit implementations expose yaw/pitch properties
+					if cam_orbit.has_variable("yaw"):
+						cam_orbit.yaw = float(yaw_val)
+					if cam_orbit.has_variable("pitch"):
+						cam_orbit.pitch = float(pitch_val)
+					# Force an update if method exists
+					if cam_orbit.has_method("update_camera_transform"):
+						cam_orbit.update_camera_transform()
+					return
+				# Fallback to Yaw/Pitch or h/v node layout
+				var yaw_node = node.get_node_or_null("Yaw")
+				if not yaw_node:
+					yaw_node = node.get_node_or_null("h")
+				if yaw_node:
+					yaw_node.rotation.y = float(yaw_val)
+					var pitch_node = yaw_node.get_node_or_null("Pitch")
+					if not pitch_node:
+						pitch_node = yaw_node.get_node_or_null("v")
+					if pitch_node:
+						pitch_node.rotation.x = float(pitch_val)
+		elif key == "camera_pitch" and node is Spatial:
+			# handled above when camera_yaw is present; ignore single-key here
+			pass
+
+func _compare_states(a, b, epsilon = 0.001):
+	if typeof(a) != typeof(b):
+		return false
+	if a is Dictionary:
+		if a.size() != b.size():
+			return false
+		for key in a:
+			if not b.has(key):
+				return false
+			if not _compare_states(a[key], b[key], epsilon):
+				return false
+		return true
+	elif a is Array:
+		if a.size() != b.size():
+			return false
+		for i in range(a.size()):
+			if not _compare_states(a[i], b[i], epsilon):
+				return false
+		return true
+	elif a is Vector3:
+		return (a - b).length() < epsilon
+	elif a is float:
+		return abs(a - b) < epsilon
+	else:
+		return a == b
