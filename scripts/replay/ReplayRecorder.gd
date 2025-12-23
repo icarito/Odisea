@@ -97,8 +97,8 @@ func start_recording(): # This function now acts like a coroutine
 		# then only call get_path() if the node is inside the tree.
 		if not player.is_inside_tree():
 			yield(get_tree(), "idle_frame")
-		if player.is_inside_tree():
-			initial[player.get_path()] = player.get_replay_state()
+	if player.is_inside_tree():
+			initial[player.name] = player.get_replay_state()
 	
 	# Add CameraRig state
 	if get_tree() and get_tree().current_scene:
@@ -111,12 +111,12 @@ func start_recording(): # This function now acts like a coroutine
 			if not camera_rig.is_inside_tree():
 				yield(get_tree(), "idle_frame")
 			if camera_rig.is_inside_tree():
-				initial[camera_rig.get_path()] = camera_rig.get_replay_state()
+				initial[camera_rig.name] = camera_rig.get_replay_state()
 		elif viewport_cam and viewport_cam.has_method("get_replay_state"):
 			if not viewport_cam.is_inside_tree():
 				yield(get_tree(), "idle_frame")
 			if viewport_cam.is_inside_tree():
-				initial[viewport_cam.get_path()] = viewport_cam.get_replay_state()
+				initial[viewport_cam.name] = viewport_cam.get_replay_state()
 		# Ensure camera_rig variable references whichever we recorded (prefer rig)
 		if not camera_rig and viewport_cam:
 			camera_rig = viewport_cam
@@ -165,13 +165,13 @@ func stop_recording() -> void:
 			if not node.is_inside_tree():
 				continue
 			if node.has_method("get_replay_state"):
-				final_states[node.get_path()] = node.get_replay_state()
+				final_states[node.name] = node.get_replay_state()
 	# Fallback to player/camera_rig
 		if final_states.size() == 0:
 			if player and player.is_inside_tree() and player.has_method("get_replay_state"):
-				final_states[player.get_path()] = player.get_replay_state()
+				final_states[player.name] = player.get_replay_state()
 			if camera_rig and camera_rig.is_inside_tree() and camera_rig.has_method("get_replay_state"):
-				final_states[camera_rig.get_path()] = camera_rig.get_replay_state()
+				final_states[camera_rig.name] = camera_rig.get_replay_state()
 
 	# Mark final states frame index (frame count)
 	current_replay.final_states = ReplayUtils.to_json_safe(final_states)
@@ -258,14 +258,14 @@ func record_frame(delta: float) -> void:
 			if not node.is_inside_tree():
 				continue
 			if node.has_method("get_replay_state"):
-				debug_snapshot[node.get_path()] = node.get_replay_state()
+				debug_snapshot[node.name] = node.get_replay_state()
 
 		# Record states for drift measurement (player and camera positions)
 		var states = {}
 		if player and player.is_inside_tree():
-			states[player.get_path()] = player.get_replay_state()
+			states[player.name] = player.get_replay_state()
 		if camera_rig and camera_rig.has_method("get_replay_state") and camera_rig.is_inside_tree():
-			states[camera_rig.get_path()] = camera_rig.get_replay_state()
+			states[camera_rig.name] = camera_rig.get_replay_state()
 		# Attach the frame index to the snapshot entry so we know which frame it corresponds to
 		states["frame_index"] = frame_index
 		current_replay.frame_states.append(ReplayUtils.to_json_safe(states))

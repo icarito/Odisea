@@ -6,6 +6,7 @@ extends GdUnitTestSuite
 
 const FIXED_DELTA = 1.0 / 60.0
 const Replay = preload("res://scripts/replay/Replay.gd")
+const ReplayUtils = preload("res://scripts/replay/ReplayUtils.gd")
 const FixedVec3 = preload("res://scripts/utils/FVec3.gd")  # Load later to avoid autoload issues
 
 var paused = false
@@ -238,12 +239,6 @@ func run_test(test_id):
 	rr.stop_recording()
 	print("Player position after record: ", player_ref.global_transform.origin)
 
-	# The recorder no longer stores positional data per-frame. Capture the
-	# final recorded position/rotation directly from the player instance so
-	# we can compare against playback later.
-	var final_pos_rec = player_ref.global_transform.origin
-	var final_rot_rec = player_ref.rotation.y
-
 	# Crear y guardar replay
 	# The recorder saved the replay file and signaled its path; use that
 	var replay_path = last_local_replay_path
@@ -264,7 +259,21 @@ func run_test(test_id):
 	if replay_path == "":
 		return {"passed": false, "error": "No replay file produced"}
 
-	# Posición final grabada (ya capturada por recorder en final_states)
+	# Load the recorded replay and extract final state
+	var recorded_replay = Replay.new()
+	if recorded_replay.load_from_json(replay_path) != OK:
+		return {"passed": false, "error": "Failed to load recorded replay"}
+	var player_path = player_ref.name
+	var final_pos_rec: Vector3
+	var final_rot_rec: float
+	if recorded_replay.final_states.has(player_path):
+		var final_state = recorded_replay.final_states[player_path]
+		final_pos_rec = ReplayUtils.dict_to_vector3(final_state["player_position"])
+		final_rot_rec = ReplayUtils.dict_to_vector3(final_state["rotation"]).y
+	else:
+		# Fallback to current player state
+		final_pos_rec = player_ref.global_transform.origin
+		final_rot_rec = player_ref.rotation.y
 
 	# FASE 2: REPRODUCCIÓN (Playback Run)
 	# Reset player position for playback
@@ -276,7 +285,7 @@ func run_test(test_id):
 	player_ref.vertical_velocity_fixed = FixedVec3.zero()
 
 	# Cargar y iniciar replay directamente en InputState
-	var playback_replay_path = "res://replays/test_" + test_id + ".json"
+	var playback_replay_path = replay_path
 	var playback_replay = Replay.new()
 	playback_replay.load_from_json(playback_replay_path)
 	input_state.set_mode(InputState.Mode.PLAYBACK)

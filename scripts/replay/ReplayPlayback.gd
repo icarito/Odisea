@@ -17,12 +17,12 @@ const MAX_CORRECTION_DISTANCE = 0.5 # Max distance to correct per frame, use sna
 const RESYNC_INTERVAL = 20 # Frames between drift checks and corrections
 const DRIFT_CORRECTION_STRENGTH = 400.0 # Strength for smooth correction interpolation
 const MIN_DIVERGENCE_TO_CORRECT = 0.01 # Threshold to avoid insignificant corrections
-const FIXED_DELTA = 0.016667 # Fixed delta for 60 FPS simulation
+const FIXED_DELTA = 1.0 / 60.0 # Fixed delta for 60 FPS simulation
 const IGNORE_THRESHOLD = 0.001 # Ignore micro-drift to eliminate floating
 const FAST_LERP_THRESHOLD = 0.05 # Use ultra-fast LERP if between this and SNAP
 const SNAP_THRESHOLD = 0.005 # Instant correction threshold (5mm)
 const LERP_STRENGTH_ULTRA_FAST = 200.0 # Ultra-fast LERP strength
-const PILOT_STATE_KEY = "@Pilot@10" # Key for pilot state in frame_states and initial_states
+# const PILOT_STATE_KEY = "@Pilot@10" # REMOVED: Use dynamic player path instead
 
 var current_replay: Resource = null
 var current_replay_filename: String = ""
@@ -37,7 +37,7 @@ var frame_count: int = 0
 
 var camera_rig: Node = null
 var player: Node = null
-var player_path: NodePath
+var player_path: String
 export(int) var replay_hold_frames := 6 # how many frames to hold a non-zero axis during playback
 var _hold_counters := {}
 var _held_axes := {}
@@ -86,7 +86,7 @@ func _physics_process(delta: float) -> void:
 	if recorded_state:
 		for path in recorded_state:
 			if path != "frame_index":
-				var node = get_tree().current_scene.get_node_or_null(path)
+				var node = get_tree().current_scene.find_node(path, true, false)
 				if node and node.has_method("get_replay_state"):
 					# For drift correction, compare and correct
 					var current_state = node.get_replay_state()
@@ -174,7 +174,7 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 		player = PlayerManager.get_player()
 		if player:
-			player_path = get_tree().current_scene.get_path_to(player)
+			player_path = player.name
 	
 	_prepare_scene_for_playback()
 	
@@ -197,7 +197,7 @@ func _prepare_scene_for_playback():
 		var pilot = get_tree().current_scene.get_node("Pilot/PlayerInput")
 		var scene = get_tree().current_scene
 		for path in current_replay.initial_states:
-			var node = get_tree().current_scene.get_node_or_null(path)
+			var node = get_tree().current_scene.find_node(path, true, false)
 			if node:
 				_set_node_state(node, current_replay.initial_states[path])
 		print("Done setting initial states")
@@ -222,14 +222,7 @@ func start_loaded_playback() -> void:
 		player.set_process_input(false)
 		player.set_physics_process(true)  # Enable for deterministic simulation
 		if get_tree() and get_tree().current_scene:
-			player_path = get_tree().current_scene.get_path_to(player)
-			# Find the correct player_path key from initial_states to match frame_states
-			for path in current_replay.initial_states:
-				var node_name = path.trim_prefix("@")
-				var node = get_tree().current_scene.find_node(node_name, true, false)
-				if node == player:
-					player_path = path
-					break
+			player_path = player.name
 		if player.has_node("PlayerInput"):
 			var player_input = player.get_node("PlayerInput")
 			player_input.is_replay_mode = true
@@ -340,6 +333,9 @@ func resume_playback() -> void:
 	if player:
 		player.set_physics_process(true)  # Always enable physics for input-driven playback with correction
 		print("[ReplayPlayback] Player physics enabled for playback")
+		# Detect player path dynamically for drift correction
+		player_path = player.name
+		print("[ReplayPlayback] Detected player path for drift correction: ", player_path)
 		# Ensure all physics bodies and collision shapes in the scene are enabled
 		_enable_all_physics_and_collisions()
 		# Ensure PlayerController does not use debug direct-move mode during normal playback
@@ -347,8 +343,8 @@ func resume_playback() -> void:
 			player.set("debug_force_direct_move", false)
 		
 		# Configurar estado inicial una sola vez
-		if current_replay.initial_states.has(PILOT_STATE_KEY):
-			var initial_data = current_replay.initial_states[PILOT_STATE_KEY]
+		if current_replay.initial_states.has(player_path):
+			var initial_data = current_replay.initial_states[player_path]
 			
 			# 1. RESTAURAR TRANSFORMACIÓN COMPLETA (CRÍTICO) - USE FIXED-POINT FOR DETERMINISM
 			if initial_data.has("player_position_fixed"):
@@ -586,28 +582,20 @@ func check_for_drift(frame_data: Dictionary) -> void:
 	if not player:
 		print("[DRIFT_DEBUG] No player")
 		return
-	# Find the nearest frame_state entry that matches current replay frame_index
-	var recorded_state = null
-	for fs in current_replay.frame_states:
-		if fs.has("frame_index") and int(fs["frame_index"]) == int(InputState.replay_frame):
-			recorded_state = fs
-			break
-	# If not found, try to find the closest earlier snapshot
-	if recorded_state == null and current_replay.frame_states.size() > 0:
-		for i in range(current_replay.frame_states.size() - 1, -1, -1):
-			var cand = current_replay.frame_states[i]
-			if cand.has("frame_index") and int(cand["frame_index"]) < int(InputState.replay_frame):
-				recorded_state = cand
-				break
-	if recorded_state == null:
-		print("[DRIFT_DEBUG] No suitable frame_state found for frame", InputState.replay_frame)
+	# Calculate state_index based on snapshot interval
+	var state_index = int(InputState.replay_frame / 10.0)
+	if state_index < 0:
+		state_index = 0
+	if state_index >= current_replay.frame_states.size():
+		print("[DRIFT_DEBUG] state_index out of range: ", state_index)
 		return
+	var recorded_state = current_replay.frame_states[state_index]
 
-	if not recorded_state.has(PILOT_STATE_KEY):
-		print("[DRIFT_DEBUG] recorded_state does not have PILOT_STATE_KEY: ", PILOT_STATE_KEY)
+	if not recorded_state.has(player_path):
+		print("[DRIFT_DEBUG] recorded_state does not have player_path: ", player_path)
 		return
 	
-	var expected_transform_dict = recorded_state[PILOT_STATE_KEY]["global_transform"]
+	var expected_transform_dict = recorded_state[player_path]["global_transform"]
 	var expected_transform = ReplayUtils.dict_to_transform(expected_transform_dict)
 	if not expected_transform is Transform:
 		print("[DRIFT_DEBUG] dict_to_transform failed")
@@ -621,25 +609,26 @@ func check_for_drift(frame_data: Dictionary) -> void:
 	
 	# Detailed logging for debugging
 	print("[DRIFT_DEBUG] Frame %s | Divergence: %s | Current Pos: %s | Target Pos: %s" % [InputState.replay_frame, divergence, current_pos, target_pos])
+	print("[Drift] Frame: %s | Nodo: %s | Distancia: %s" % [InputState.replay_frame, player.name, divergence])
 	
 	if divergence <= IGNORE_THRESHOLD:
 		# Ignore micro-drift to eliminate floating
 		print("[DRIFT_DEBUG] Correction Applied: NONE")
 		return
 	
-	if divergence > SNAP_THRESHOLD:
+	if divergence > MAX_CORRECTION_DISTANCE:
 		# Instant snap for large divergences
 		player.global_transform = expected_transform
 		print("[DRIFT_DEBUG] Correction Applied: SNAP")
 	else:
-		# Ultra-fast LERP for medium divergences
+		# Smooth LERP for smaller divergences
 		var t = 1.0 - exp(-FIXED_DELTA * LERP_STRENGTH_ULTRA_FAST)
 		player.global_transform.origin = player.global_transform.origin.linear_interpolate(expected_transform.origin, t)
 		player.global_transform.basis = player.global_transform.basis.slerp(expected_transform.basis, t)
-		print("[DRIFT_DEBUG] Correction Applied: LERP_ULTRA_FAST")
+		print("[DRIFT_DEBUG] Correction Applied: LERP")
 	
 	# Always correct velocity smoothly if position was corrected
-	var player_data = recorded_state[PILOT_STATE_KEY]
+	var player_data = recorded_state[player_path]
 	if player_data.has("velocity"):
 		var expected_velocity = ReplayUtils.dict_to_vector3(player_data["velocity"])
 		player.velocity = player.velocity.linear_interpolate(expected_velocity, LERP_STRENGTH_ULTRA_FAST)
