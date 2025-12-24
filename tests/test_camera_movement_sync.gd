@@ -17,8 +17,8 @@ func test_frame_perfect_sync():
 	# spawn player scene (adjust path if your project differs)
 	var player_scene = load("res://players/elias/Pilot.tscn")
 	assert_that(player_scene).is_not_null()
-	var player = player_scene.instance()
-	add_child(player)
+	var _test_player = player_scene.instance()
+	add_child(_test_player)
 
 	# Apply initial player pos and camera state from initials
 	var initial_states = data.get("initial_states", null)
@@ -26,13 +26,13 @@ func test_frame_perfect_sync():
 		if initial_states.has("player"):
 			var p = initial_states.get("player")
 			if p and typeof(p) == TYPE_DICTIONARY and p.has("player_position"):
-				player.global_transform.origin = ReplayUtils.dict_to_vector3(p.get("player_position"))
+				_test_player.global_transform.origin = ReplayUtils.dict_to_vector3(p.get("player_position"))
 			if p and typeof(p) == TYPE_DICTIONARY and p.has("rotation"):
-				player.rotation = ReplayUtils.dict_to_vector3(p.get("rotation"))
+				_test_player.rotation = ReplayUtils.dict_to_vector3(p.get("rotation"))
 		if initial_states.has("camera"):
 			var cam_state = initial_states.get("camera")
-			if player.has_node("CameraRig") and player.get_node("CameraRig").has_method("set_replay_state"):
-				player.get_node("CameraRig").set_replay_state(cam_state)
+			if _test_player.has_node("CameraRig") and _test_player.get_node("CameraRig").has_method("set_replay_state"):
+				_test_player.get_node("CameraRig").set_replay_state(cam_state)
 
 	# Run a short critical loop of frames, applying camera update BEFORE player physics
 	var frames = data.get("frames", [])
@@ -44,8 +44,8 @@ func test_frame_perfect_sync():
 
 		# Step A: Rotate camera first (force immediate)
 		var cam = null
-		if player.has_node("CameraRig"):
-			cam = player.get_node("CameraRig")
+		if _test_player.has_node("CameraRig"):
+			cam = _test_player.get_node("CameraRig")
 		elif get_tree().get_current_scene() and get_tree().get_current_scene().has_node("CameraRig"):
 			cam = get_tree().get_current_scene().get_node("CameraRig")
 		if cam and cam.has_method("force_rotate_for_playback"):
@@ -56,14 +56,14 @@ func test_frame_perfect_sync():
 				cam.update_camera_transform()
 
 		# Step B: Inject inputs and run player physics
-		if player.has_node("PlayerInput"):
-			player.get_node("PlayerInput").inject_input(frame.inputs)
-		player._physics_process(FIXED_DELTA)
+		if _test_player.has_node("PlayerInput"):
+			_test_player.get_node("PlayerInput").inject_input(frame.inputs)
+		_test_player._physics_process(FIXED_DELTA)
 
 		# Step C: Compare position against expected if present
 		if frame.has("expected_pos"):
 			var expected = ReplayUtils.dict_to_vector3(frame.expected_pos)
-			assert_vector3(player.global_transform.origin).is_equal_approx(expected, Vector3(0.001, 0.001, 0.001))
+			assert_vector3(_test_player.global_transform.origin).is_equal_approx(expected, Vector3(0.001, 0.001, 0.001))
 
 func after():
 	# free all players
