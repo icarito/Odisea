@@ -239,7 +239,7 @@ func _physics_process(delta):
 	var touch_controls = get_node_or_null("/root/TouchControls")
 	var touch_active = touch_controls and touch_controls.is_touch_controls_active()
 	var is_record = input_state and input_state.mode == input_state.Mode.RECORD
-	var replay_manager = get_node("/root/ReplayManager")
+	var replay_manager = get_node_or_null("/root/ReplayManager")
 	var motion = Vector2.ZERO
 	if not touch_active and player_id == 1 and _is_mouse_look_active:
 		motion = input_state.get_live_mouse_delta()

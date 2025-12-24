@@ -451,22 +451,16 @@ func _physics_process(delta):
 	var has_input := false
 	var movement_this_frame := Vector3.ZERO
 	var is_replaying = GameGlobals and GameGlobals.is_replaying
-	var replay_manager = get_node("/root/ReplayManager")
+	var replay_manager = get_node_or_null("/root/ReplayManager")
 
 	# Modo pasivo total durante replay: evitar cálculo de gravedad/movimiento
 	# y limpiar fuerzas para prevenir acumulación que produce 'yank'.
 	if is_replaying:
-		# For replay: run physics deterministically but force fixed delta
-		# Do NOT early-return; let gravity, collisions and move_and_slide run
-		# so the body remains grounded and behaves with proper inertia.
+		# For replay: force a fixed delta so physics is deterministic.
+		# Do NOT change physics forces here; physics should run identically
+		# during recording and playback — only the input source differs.
 		delta = 1.0 / 60.0
-		# Prevent accumulation of vertical fixed-point velocity which causes violent collisions
-		vertical_velocity_fixed = FixedVec3.zero()
-		# Also zero the vertical component of runtime velocity to avoid impulse buildup
-		velocity.y = 0.0
-		pre_move_velocity_for_replay = Vector3.ZERO
-		platform_velocity_fixed = FixedVec3.zero()
-		print("[PlayerController] Replay passive: forcing fixed delta, zeroed vertical velocities")
+		print("[PlayerController] Replay: using fixed delta 1/60 for deterministic physics")
 
 	if not _touch_camera_connected:
 		_connect_touch_camera()
@@ -545,31 +539,27 @@ func _physics_process(delta):
 	var effective_gravity_dir := effective_gravity_vector.normalized() if (effective_gravity_mag > 0.01) else Vector3.DOWN
 	
 	# Apply Gravity (fixed-point)
-	if not is_replaying:
-		if not is_on_floor():
-			var gravity_fixed = FixedVec3.from_vec3(effective_gravity_vector)
-			print("[PlayerController] Conversión Vector3 a fixed: effective_gravity_vector -> gravity_fixed:", effective_gravity_vector, "->", gravity_fixed)
-			var delta_fixed = FixedPoint.to_fixed(delta)
-			var multiplier_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(2), delta_fixed)
-			var gravity_delta_fixed = FixedVec3.mul_scalar(gravity_fixed, multiplier_fixed)
-			vertical_velocity_fixed = FixedVec3.add(vertical_velocity_fixed, gravity_delta_fixed)
-			print("[PlayerController] Velocidad vertical fixed actualizada (gravedad):", vertical_velocity_fixed)
-		else:
-			# Si la gravedad efectiva apunta hacia arriba (levanta), despegar del suelo
-			if effective_gravity_dir.dot(Vector3.UP) > 0.5:
-				snap_enabled = false
-				var gravity_dir_fixed = FixedVec3.from_vec3(effective_gravity_dir)
-				var min_gravity_fixed = FixedPoint.to_fixed(min(effective_gravity_mag, gravity))
-				var half_gravity_fixed = FixedPoint.fixed_mul(min_gravity_fixed, FixedPoint.to_fixed(0.5))
-				vertical_velocity_fixed = FixedVec3.mul_scalar(gravity_dir_fixed, half_gravity_fixed)
-			else:
-				var floor_normal_fixed = FixedVec3.from_vec3(-get_floor_normal())
-				var min_gravity_fixed = FixedPoint.to_fixed(min(effective_gravity_mag, gravity))
-				var third_gravity_fixed = FixedPoint.fixed_div(min_gravity_fixed, FixedPoint.to_fixed(3))
-				vertical_velocity_fixed = FixedVec3.mul_scalar(floor_normal_fixed, third_gravity_fixed)
+	if not is_on_floor():
+		var gravity_fixed = FixedVec3.from_vec3(effective_gravity_vector)
+		print("[PlayerController] Conversión Vector3 a fixed: effective_gravity_vector -> gravity_fixed:", effective_gravity_vector, "->", gravity_fixed)
+		var delta_fixed = FixedPoint.to_fixed(delta)
+		var multiplier_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(2), delta_fixed)
+		var gravity_delta_fixed = FixedVec3.mul_scalar(gravity_fixed, multiplier_fixed)
+		vertical_velocity_fixed = FixedVec3.add(vertical_velocity_fixed, gravity_delta_fixed)
+		print("[PlayerController] Velocidad vertical fixed actualizada (gravedad):", vertical_velocity_fixed)
 	else:
-		# In replay mode, do NOT apply gravity calculations to avoid physics impulses
-		vertical_velocity_fixed = FixedVec3.zero()
+		# Si la gravedad efectiva apunta hacia arriba (levanta), despegar del suelo
+		if effective_gravity_dir.dot(Vector3.UP) > 0.5:
+			snap_enabled = false
+			var gravity_dir_fixed = FixedVec3.from_vec3(effective_gravity_dir)
+			var min_gravity_fixed = FixedPoint.to_fixed(min(effective_gravity_mag, gravity))
+			var half_gravity_fixed = FixedPoint.fixed_mul(min_gravity_fixed, FixedPoint.to_fixed(0.5))
+			vertical_velocity_fixed = FixedVec3.mul_scalar(gravity_dir_fixed, half_gravity_fixed)
+		else:
+			var floor_normal_fixed = FixedVec3.from_vec3(-get_floor_normal())
+			var min_gravity_fixed = FixedPoint.to_fixed(min(effective_gravity_mag, gravity))
+			var third_gravity_fixed = FixedPoint.fixed_div(min_gravity_fixed, FixedPoint.to_fixed(3))
+			vertical_velocity_fixed = FixedVec3.mul_scalar(floor_normal_fixed, third_gravity_fixed)
 
 	# Clamp de velocidad vertical para evitar picos (fixed-point)
 	var max_fall_fixed = FixedPoint.to_fixed(-max_fall_speed)
@@ -747,8 +737,17 @@ func _physics_process(delta):
 	if yaw_node2: h_rot = yaw_node2.global_transform.basis.get_euler().y + cam_yaw_offset
 
 	# Detailed logging for replay diagnostics
+	# Read replay correction (if any) so debug prints can reference it
+	var replay_corr := Vector3.ZERO
+	if has_method("get"):
+		var raw_corr = get("replay_velocity_correction")
+		if raw_corr != null and typeof(raw_corr) == TYPE_VECTOR3:
+			replay_corr = raw_corr
+			# consume once
+			set("replay_velocity_correction", null)
+
 	if GameGlobals and GameGlobals.replay_debug_mode and is_replaying:
-		print("[PlayerController Playback] Pre-move: velocity=", movement_this_frame, " on_floor=", on_floor)
+		print("[PlayerController Playback] Pre-move: velocity=", movement_this_frame, " on_floor=", on_floor, " replay_corr=", replay_corr)
 	
 	# print("[PlayerController] Pre-move: velocity=%s, on_floor=%s" % [movement_this_frame, on_floor])
 	pre_move_velocity_for_replay = movement_this_frame
@@ -762,6 +761,10 @@ func _physics_process(delta):
 
 	# --- THE ACTUAL PHYSICS STEP ---
 	var pos_before := global_transform.origin
+	# If a replay correction exists, add it to the movement/velocity for this frame
+	if replay_corr != Vector3.ZERO:
+		movement_this_frame += replay_corr
+
 	if GameGlobals and GameGlobals.is_replaying and debug_force_direct_move:
 		# Modo de diagnóstico: aplicar movimiento directamente (no física)
 		global_transform.origin = global_transform.origin + movement_this_frame * delta
@@ -1010,7 +1013,7 @@ func get_replay_state() -> Dictionary:
 func set_replay_state(state: Dictionary) -> void:
 	var deserialized_state = ReplayUtils.from_json_safe(state)
 	var is_replaying = GameGlobals and GameGlobals.is_replaying
-	var replay_manager = get_node("/root/ReplayManager")
+	var replay_manager = get_node_or_null("/root/ReplayManager")
 
 	# Restore state from the replay file - USE FIXED-POINT DATA FOR DETERMINISTIC PLAYBACK
 	if state.has("player_position_fixed"):
