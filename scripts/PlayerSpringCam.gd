@@ -172,6 +172,17 @@ func _apply_rotation(motion: Vector2, delta: float, ignore_smoothing: bool) -> v
 		if pitch:
 			pitch.rotation.x = target_pitch
 
+	# Durante playback siempre imprimir estado para diagnóstico (no depender de debug_enabled)
+	var is_playback_mode = input_state and input_state.mode == input_state.Mode.PLAYBACK
+	if is_playback_mode:
+		var cam_cur = false
+		if cam:
+			if "current" in cam:
+				cam_cur = cam.current
+			elif cam.has_method("is_current"):
+				cam_cur = cam.is_current()
+		print("[PlayerSpringCam][_apply_rotation][PLAYBACK] POST_APPLY yaw=", (yaw.rotation.y if yaw else "nil"), " pitch=", (pitch.rotation.x if pitch else "nil"), " cam_current=", cam_cur)
+
 
 func _physics_process(delta):
 	_update_mouse_look_active()
@@ -199,7 +210,11 @@ func _physics_process(delta):
 		if input_state:
 			var replay_motion = input_state.get_mouse_delta()
 			if replay_motion is Vector2 and replay_motion.length_squared() > 0.0:
-				process_camera_rotation(replay_motion)
+				# Aplicar rotación CRUDA durante playback para evitar cualquier suavizado
+				# o lógica de auto-alineación que introduzca divergencia respecto al input.
+				_apply_rotation(replay_motion, 0.0, true)
+				# Forzar que los valores queden escritos en los nodos inmediatamente.
+				update_camera_transform()
 				# Limpiar el delta solo si no lo hace ReplayPlayback
 				input_state.clean_mouse_delta_x()
 				input_state.clean_mouse_delta_y()
