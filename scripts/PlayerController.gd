@@ -453,6 +453,21 @@ func _physics_process(delta):
 	var is_replaying = GameGlobals and GameGlobals.is_replaying
 	var replay_manager = get_node("/root/ReplayManager")
 
+	# Modo pasivo total durante replay: evitar cálculo de gravedad/movimiento
+	# y limpiar fuerzas para prevenir acumulación que produce 'yank'.
+	if is_replaying:
+		# For replay: run physics deterministically but force fixed delta
+		# Do NOT early-return; let gravity, collisions and move_and_slide run
+		# so the body remains grounded and behaves with proper inertia.
+		delta = 1.0 / 60.0
+		# Prevent accumulation of vertical fixed-point velocity which causes violent collisions
+		vertical_velocity_fixed = FixedVec3.zero()
+		# Also zero the vertical component of runtime velocity to avoid impulse buildup
+		velocity.y = 0.0
+		pre_move_velocity_for_replay = Vector3.ZERO
+		platform_velocity_fixed = FixedVec3.zero()
+		print("[PlayerController] Replay passive: forcing fixed delta, zeroed vertical velocities")
+
 	if not _touch_camera_connected:
 		_connect_touch_camera()
 
@@ -530,27 +545,31 @@ func _physics_process(delta):
 	var effective_gravity_dir := effective_gravity_vector.normalized() if (effective_gravity_mag > 0.01) else Vector3.DOWN
 	
 	# Apply Gravity (fixed-point)
-	if not is_on_floor():
-		var gravity_fixed = FixedVec3.from_vec3(effective_gravity_vector)
-		print("[PlayerController] Conversión Vector3 a fixed: effective_gravity_vector -> gravity_fixed:", effective_gravity_vector, "->", gravity_fixed)
-		var delta_fixed = FixedPoint.to_fixed(delta)
-		var multiplier_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(2), delta_fixed)
-		var gravity_delta_fixed = FixedVec3.mul_scalar(gravity_fixed, multiplier_fixed)
-		vertical_velocity_fixed = FixedVec3.add(vertical_velocity_fixed, gravity_delta_fixed)
-		print("[PlayerController] Velocidad vertical fixed actualizada (gravedad):", vertical_velocity_fixed)
-	else:
-		# Si la gravedad efectiva apunta hacia arriba (levanta), despegar del suelo
-		if effective_gravity_dir.dot(Vector3.UP) > 0.5:
-			snap_enabled = false
-			var gravity_dir_fixed = FixedVec3.from_vec3(effective_gravity_dir)
-			var min_gravity_fixed = FixedPoint.to_fixed(min(effective_gravity_mag, gravity))
-			var half_gravity_fixed = FixedPoint.fixed_mul(min_gravity_fixed, FixedPoint.to_fixed(0.5))
-			vertical_velocity_fixed = FixedVec3.mul_scalar(gravity_dir_fixed, half_gravity_fixed)
+	if not is_replaying:
+		if not is_on_floor():
+			var gravity_fixed = FixedVec3.from_vec3(effective_gravity_vector)
+			print("[PlayerController] Conversión Vector3 a fixed: effective_gravity_vector -> gravity_fixed:", effective_gravity_vector, "->", gravity_fixed)
+			var delta_fixed = FixedPoint.to_fixed(delta)
+			var multiplier_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(2), delta_fixed)
+			var gravity_delta_fixed = FixedVec3.mul_scalar(gravity_fixed, multiplier_fixed)
+			vertical_velocity_fixed = FixedVec3.add(vertical_velocity_fixed, gravity_delta_fixed)
+			print("[PlayerController] Velocidad vertical fixed actualizada (gravedad):", vertical_velocity_fixed)
 		else:
-			var floor_normal_fixed = FixedVec3.from_vec3(-get_floor_normal())
-			var min_gravity_fixed = FixedPoint.to_fixed(min(effective_gravity_mag, gravity))
-			var third_gravity_fixed = FixedPoint.fixed_div(min_gravity_fixed, FixedPoint.to_fixed(3))
-			vertical_velocity_fixed = FixedVec3.mul_scalar(floor_normal_fixed, third_gravity_fixed)
+			# Si la gravedad efectiva apunta hacia arriba (levanta), despegar del suelo
+			if effective_gravity_dir.dot(Vector3.UP) > 0.5:
+				snap_enabled = false
+				var gravity_dir_fixed = FixedVec3.from_vec3(effective_gravity_dir)
+				var min_gravity_fixed = FixedPoint.to_fixed(min(effective_gravity_mag, gravity))
+				var half_gravity_fixed = FixedPoint.fixed_mul(min_gravity_fixed, FixedPoint.to_fixed(0.5))
+				vertical_velocity_fixed = FixedVec3.mul_scalar(gravity_dir_fixed, half_gravity_fixed)
+			else:
+				var floor_normal_fixed = FixedVec3.from_vec3(-get_floor_normal())
+				var min_gravity_fixed = FixedPoint.to_fixed(min(effective_gravity_mag, gravity))
+				var third_gravity_fixed = FixedPoint.fixed_div(min_gravity_fixed, FixedPoint.to_fixed(3))
+				vertical_velocity_fixed = FixedVec3.mul_scalar(floor_normal_fixed, third_gravity_fixed)
+	else:
+		# In replay mode, do NOT apply gravity calculations to avoid physics impulses
+		vertical_velocity_fixed = FixedVec3.zero()
 
 	# Clamp de velocidad vertical para evitar picos (fixed-point)
 	var max_fall_fixed = FixedPoint.to_fixed(-max_fall_speed)
