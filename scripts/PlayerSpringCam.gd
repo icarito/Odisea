@@ -358,3 +358,10 @@ func update_camera_transform() -> void:
 		yaw.rotation.y = target_yaw
 	if pitch:
 		pitch.rotation.x = target_pitch
+
+func force_update_transform() -> void:
+	# Compatibility helper used by tests/ReplayPlayback: force immediate transform application
+	update_camera_transform()
+	# ensure Godot applies transforms immediately
+	if is_inside_tree():
+		VisualServer.force_draw()

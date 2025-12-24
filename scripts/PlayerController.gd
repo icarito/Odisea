@@ -768,10 +768,14 @@ func _run_replay_physics(delta: float):
 			vertical_velocity_fixed = FixedVec3.mul_scalar(floor_normal_fixed, third_gravity_fixed)
 
 	# Clamp de velocidad vertical para evitar picos (fixed-point)
-	var max_fall_fixed = FixedPoint.to_fixed(-max_fall_speed)
+	# Ensure explicit terminal velocity clamp (fixed representation)
+	var max_fall_fixed_pos = FixedPoint.to_fixed(max_fall_speed)
+	if vertical_velocity_fixed.y < -max_fall_fixed_pos:
+		vertical_velocity_fixed = {"x": vertical_velocity_fixed.x, "y": -max_fall_fixed_pos, "z": vertical_velocity_fixed.z}
 	var max_rise_fixed = FixedPoint.to_fixed(max_rise_speed)
-	var clamped_y_fixed = FixedPoint.fixed_clamp(vertical_velocity_fixed.y, max_fall_fixed, max_rise_fixed)
-	vertical_velocity_fixed = {"x": vertical_velocity_fixed.x, "y": clamped_y_fixed, "z": vertical_velocity_fixed.z}
+	# Also ensure we respect rise limit
+	if vertical_velocity_fixed.y > max_rise_fixed:
+		vertical_velocity_fixed = {"x": vertical_velocity_fixed.x, "y": max_rise_fixed, "z": vertical_velocity_fixed.z}
 	print("[PlayerController] Velocidad vertical fixed clamped:", vertical_velocity_fixed)
 
 	# Check for attack/roll states that modify acceleration
@@ -896,6 +900,10 @@ func _run_replay_physics(delta: float):
 				var min_pv_fixed = FixedPoint.to_fixed(min(platform_velocity.y, max_platform_up_follow))
 				vertical_velocity_fixed = {"x": vertical_velocity_fixed.x, "y": min_pv_fixed, "z": vertical_velocity_fixed.z}
 				print("[PlayerController] Velocidad vertical fixed actualizada (platform):", vertical_velocity_fixed)
+			else:
+				# If standing on floor and not inheriting upward platform impulse, reset vertical velocity to zero
+				if not just_jumped:
+					vertical_velocity_fixed = FixedVec3.zero()
 		elif was_on_floor:
 			airborne_inherited = last_platform_velocity
 		

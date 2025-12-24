@@ -129,7 +129,28 @@ func _physics_process(delta: float) -> void:
 				"yaw": frame_data.camera_yaw,
 				"pitch": frame_data.camera_pitch
 			}
-			camera_rig.set_replay_state(camera_state)
+			# Force immediate, non-smoothed application during playback
+			if camera_rig.has_method("set_is_playback"):
+				camera_rig.set_is_playback(true)
+			# prefer a hard-rotate method if available to avoid any internal smoothing
+			if camera_rig.has_method("force_rotate_for_playback") and frame_data.has("mouse_delta"):
+				var md = frame_data["mouse_delta"]
+				var md_vec = null
+				if md is Dictionary:
+					md_vec = Vector2(FixedPoint.from_fixed(md.get("x", 0)), FixedPoint.from_fixed(md.get("y", 0)))
+				elif md is Vector2:
+					md_vec = md
+				# If we have a concrete delta, force rotate using the camera's playback API
+				if md_vec and md_vec.length_squared() > 0:
+					camera_rig.force_rotate_for_playback(md_vec)
+					if camera_rig.has_method("update_camera_transform"):
+						camera_rig.update_camera_transform()
+				else:
+					# Fallback to absolute set_replay_state to snap yaw/pitch
+					camera_rig.set_replay_state(camera_state)
+			else:
+				# Default: absolute set_replay_state
+				camera_rig.set_replay_state(camera_state)
 
 	# --- SINCRONIZACIÓN DE ANIMACIONES ---
 	if player and player.has_node("PlayerAnimationTree"):
