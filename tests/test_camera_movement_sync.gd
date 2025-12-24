@@ -67,6 +67,12 @@ func test_frame_perfect_sync():
 
 func after():
 	# free all players
+	# Ensure all nodes created during the test are freed to avoid orphan/leaks.
 	for c in get_children():
-		if c and is_instance_valid(c) and c.name == "Pilot":
-			c.free()
+		if c and is_instance_valid(c):
+			# Prefer deferred free to avoid modifying the children list while iterating
+			c.queue_free()
+	# Let the engine process queued frees
+	if get_tree():
+		yield(get_tree(), "idle_frame")
+		yield(get_tree(), "idle_frame")
