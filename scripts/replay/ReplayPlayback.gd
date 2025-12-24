@@ -18,9 +18,9 @@ const RESYNC_INTERVAL = 20 # Frames between drift checks and corrections
 const DRIFT_CORRECTION_STRENGTH = 400.0 # Strength for smooth correction interpolation
 const MIN_DIVERGENCE_TO_CORRECT = 0.01 # Threshold to avoid insignificant corrections
 const FIXED_DELTA = 1.0 / 60.0 # Fixed delta for 60 FPS simulation
-const IGNORE_THRESHOLD = 0.001 # Ignore micro-drift to eliminate floating
+const IGNORE_THRESHOLD = 0.05 # Ignore micro-drift to eliminate floating (raised)
 const FAST_LERP_THRESHOLD = 0.05 # Use ultra-fast LERP if between this and SNAP
-const SNAP_THRESHOLD = 0.005 # Instant correction threshold (5mm)
+const SNAP_THRESHOLD = 0.2 # Instant correction threshold (20cm) — raised to avoid small snaps
 const LERP_STRENGTH_ULTRA_FAST = 200.0 # Ultra-fast LERP strength
 # const PILOT_STATE_KEY = "@Pilot@10" # REMOVED: Use dynamic player path instead
 
@@ -48,6 +48,7 @@ var _camera_smooth_frames = 12
 var _camera_smooth_progress = 0
 
 onready var ReplayUtils = load("res://scripts/replay/ReplayUtils.gd")
+const FixedVec3 = preload("res://scripts/utils/FVec3.gd")
 
 func _safe_get_player() -> Node:
 	# Return the player from PlayerManager when available, otherwise fallback to scene node named "Pilot"
@@ -503,6 +504,14 @@ func resume_playback() -> void:
 			
 			# --- AGREGAR ESTA LÍNEA DE DEBUG ---
 			print("[ReplayPlayback] INITIAL POS APPLIED: %s" % player.global_transform.origin)
+			# Limpieza de fuerzas para evitar que la física acumulada provoque tirones
+			if player:
+				player.velocity = Vector3.ZERO
+				# Intentar limpiar las versiones fixed si existen en el script del player
+				# (al usar player.set esto no fallará si la propiedad no existe)
+				player.set("vertical_velocity_fixed", FixedVec3.zero()) if typeof(FixedVec3) != TYPE_NIL else null
+				player.set("horizontal_velocity_fixed", FixedVec3.zero()) if typeof(FixedVec3) != TYPE_NIL else null
+				player.set("platform_velocity_fixed", FixedVec3.zero()) if typeof(FixedVec3) != TYPE_NIL else null
 	
 	# Force camera values specifically before processing first frame.
 	# Be robust: try multiple common camera nodes under the player and scene.
