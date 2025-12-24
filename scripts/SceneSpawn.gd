@@ -1,4 +1,3 @@
-
 extends Spatial
 
 func _ready():
@@ -29,7 +28,10 @@ func _ready():
 				print("[SceneSpawn] PlayerManager.get_player():", p)
 				if is_instance_valid(p):
 					p.global_transform = spawn.global_transform
-					p.rotation.z = spawn.rotation.z
+					if spawn:
+						p.rotation.z = spawn.rotation.z
+					else:
+						print("[SceneSpawn] Warning: SpawnPoint is null, skipping rotation.z assignment")
 					print("[SceneSpawn] Player relocated to spawn")
 				else:
 					print("[SceneSpawn] Player not valid, spawning new")
@@ -48,7 +50,10 @@ func _ready():
 				print("[SceneSpawn] PlayerManager.get_player():", p)
 				if is_instance_valid(p):
 					p.global_transform = global_transform
-					p.rotation.z = spawn.rotation.z
+					if spawn:
+						p.rotation.z = spawn.rotation.z
+					else:
+						print("[SceneSpawn] Warning: SpawnPoint is null in fallback, skipping rotation.z assignment")
 					print("[SceneSpawn] Player relocated to origin")
 				else:
 					print("[SceneSpawn] Player not valid, spawning new")

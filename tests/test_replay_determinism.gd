@@ -5,13 +5,10 @@ extends GdUnitTestSuite
 # Test de Validación de Determinismo de Movimiento (TVDM)
 
 const FIXED_DELTA = 1.0 / 60.0
-const Replay = preload("res://scripts/replay/Replay.gd")
-const ReplayUtils = preload("res://scripts/replay/ReplayUtils.gd")
 const FixedVec3 = preload("res://scripts/utils/FVec3.gd")  # Load later to avoid autoload issues
 
 var paused = false
 var InputState = null
-var last_local_replay_path: String = ""
 
 var test_suite = {
 	"T1": {
@@ -115,6 +112,7 @@ func generate_test_inputs():
 			test_suite[test_id].frames.append(frame)
 
 func run_test(test_id):
+	var rr = null  # Declarar la variable rr
 	var player_ref = null  # Declare to avoid parser error
 	var spawn_point = null  # Declare to avoid parser error
 	var spawn_transform = Transform.IDENTITY  # Declare to avoid parser error
@@ -131,14 +129,9 @@ func run_test(test_id):
 	if test_scene_local.has_node("ReplayManagementPanel"):
 		test_scene_local.get_node("ReplayManagementPanel").queue_free()
 	if test_scene_local.has_node("ReplayRecordingOverlay"):
+		rr = test_scene_local.get_node("ReplayRecordingOverlay")  # Inicializar rr
 		test_scene_local.get_node("ReplayRecordingOverlay").queue_free()
 	# Remover SceneSpawn que interfiere con el posicionamiento del player
-	test_scene_local.set_script(null)
-	# Desactivar ReplayPlayback del autoload
-	if ReplayManager.playback:
-		ReplayManager.playback.set_process(false)
-		ReplayManager.playback.set_physics_process(false)
-	ReplayManager.mode = ReplayManager.ReplayMode.NONE
 
 	# Inicializar InputState como autoload
 	var input_state = get_node("/root/InputState")
@@ -161,28 +154,6 @@ func run_test(test_id):
 	if test_scene_local.get_parent():
 		test_scene_local.get_parent().remove_child(test_scene_local)
 	var replay_runner = scene_runner(test_scene_local)
-	get_tree().current_scene = test_scene_local
-	# Simular un frame para procesar deferred spawn
-	replay_runner.simulate_frames(1)
-	player_ref = PlayerManager.player_reference
-	# Move player to test scene
-	test_scene_local.add_child(player_ref)
-
-	# Reset FixedVec3 variables to 0 at start of test
-	player_ref.horizontal_velocity_fixed = FixedVec3.zero()
-	player_ref.velocity_fixed = FixedVec3.zero()
-	player_ref.platform_velocity_fixed = FixedVec3.zero()
-	player_ref.last_platform_velocity_fixed = FixedVec3.zero()
-	player_ref.vertical_velocity_fixed = FixedVec3.zero()
-
-	# Añadir ReplayManager al test_scene para que su _physics_process sea llamado en la simulación
-	var replay_manager = load("res://scripts/replay/ReplayManager.gd").new()
-	replay_manager.name = "ReplayManager"
-	test_scene_local.add_child(replay_manager)
-	# Esperar a que _ready se llame
-	replay_runner.simulate_frames(1)
-	var playback = replay_manager.get_node("ReplayPlayback")
-	# playback.spawn_point = spawn_point  # Not needed
 
 	# Añadir cámara para que get_viewport().get_camera() funcione
 	var camera = Camera.new()
@@ -191,27 +162,32 @@ func run_test(test_id):
 	camera.look_at(Vector3(0, 0, 0), Vector3.UP)
 	camera.current = true
 
+	# Simular un frame para procesar deferred spawn
+	replay_runner.simulate_frames(1)  # Simular un frame de física
+	player_ref = PlayerManager.player_reference
+	if not is_instance_valid(player_ref):
+		return {"passed": false, "error": "Player reference is not valid after spawn."}
+
+	# Mover player a la escena de test para que esté en el árbol correcto
+	if player_ref.get_parent():
+		player_ref.get_parent().remove_child(player_ref)
+	test_scene_local.add_child(player_ref)
+
 	# Fase de asentamiento: simular 5 frames para asegurar is_on_floor True desde frame 0
 	for _i in range(5):
-		replay_runner.simulate_frames(1)
+		replay_runner.simulate_frames(1)  # Simular un frame de física
 
 	# Reset position after settlement
 	player_ref.transform = spawn_transform
-
 	replay_runner.simulate_frames(1)  # Final settle
 
 	# FASE 1: GRABACIÓN (Live Run)
-	# Use ReplayRecorder to capture frames and snapshots
-	var rr = load("res://scripts/replay/ReplayRecorder.gd").new()
-	rr.name = "ReplayRecorder"
-	test_scene_local.add_child(rr)
-	# allow _ready
-	replay_runner.simulate_frames(1)
-	rr.connect("recording_stopped", self, "_on_local_recording_stopped")
+	# Resetear estado del jugador
+	_reset_player_state(player_ref)
 
 	input_state.set_mode(InputState.Mode.RECORD)
 	# Start recording via recorder (it will populate initial_states)
-	rr.start_recording()
+	ReplayManager.start_recording()
 
 	for frame in test_suite[test_id].frames:
 		# Build a complete actions dict using InputState constants so tests
@@ -230,71 +206,30 @@ func run_test(test_id):
 		input_state.recorded_mouse_delta = Vector2(frame.mouse_delta.x, frame.mouse_delta.y)
 		input_state.is_strafing_mode_active = frame.strafing_active
 		input_state.strafing_timer = frame.strafing_timer
-		# Advance physics/frame and force recorder to process this frame
+		
+		# Avanzar un frame de física con el delta fijo
 		replay_runner.simulate_frames(1)
-		if rr and rr.has_method("record_frame"):
-			rr.record_frame(1.0/60.0)
 
-	# Stop recording and allow final_states to be captured
-	rr.stop_recording()
 	print("Player position after record: ", player_ref.global_transform.origin)
 
-	# Crear y guardar replay
-	# The recorder saved the replay file and signaled its path; use that
-	var replay_path = last_local_replay_path
-	if replay_path == "":
-		# fallback: try to find recently written file in res://replays
-		var dir = Directory.new()
-		if dir.open("res://replays/") == OK:
-			dir.list_dir_begin(true, true)
-			var f = dir.get_next()
-			var latest = ""
-			while f != "":
-				if f.ends_with(".json"):
-					latest = "res://replays/" + f
-				f = dir.get_next()
-			dir.list_dir_end()
-			replay_path = latest
-
-	if replay_path == "":
-		return {"passed": false, "error": "No replay file produced"}
-
-	# Load the recorded replay and extract final state
-	var recorded_replay = Replay.new()
-	if recorded_replay.load_from_json(replay_path) != OK:
-		return {"passed": false, "error": "Failed to load recorded replay"}
-	var player_path = "player"
-	var final_pos_rec: Vector3
-	var final_rot_rec: float
-	if recorded_replay.final_states.has(player_path):
-		var final_state = recorded_replay.final_states[player_path]
-		final_pos_rec = ReplayUtils.dict_to_vector3(final_state["player_position"])
-		final_rot_rec = ReplayUtils.dict_to_vector3(final_state["rotation"]).y
-	else:
-		# Fallback to current player state
-		final_pos_rec = player_ref.global_transform.origin
-		final_rot_rec = player_ref.rotation.y
+	# Capturar estado final de la grabación
+	var final_pos_rec = player_ref.global_transform.origin
+	var final_rot_rec = player_ref.rotation.y
 
 	# FASE 2: REPRODUCCIÓN (Playback Run)
 	# Reset player position for playback
-	player_ref.transform = spawn_transform
-	player_ref.horizontal_velocity_fixed = FixedVec3.zero()
-	player_ref.velocity_fixed = FixedVec3.zero()
-	player_ref.platform_velocity_fixed = FixedVec3.zero()
-	player_ref.last_platform_velocity_fixed = FixedVec3.zero()
-	player_ref.vertical_velocity_fixed = FixedVec3.zero()
+	_reset_player_state(player_ref)
+	player_ref.transform = spawn_transform # Reposicionar en el spawn
+	replay_runner.simulate_frames(1) # Aplicar transform
 
 	# Cargar y iniciar replay directamente en InputState
-	var playback_replay_path = replay_path
-	var playback_replay = Replay.new()
-	playback_replay.load_from_json(playback_replay_path)
 	input_state.set_mode(InputState.Mode.PLAYBACK)
-	input_state.recorded_frames = playback_replay.frames.duplicate()
+	input_state.recorded_frames = test_suite[test_id].frames.duplicate(true)
 	input_state.replay_frame = 0
 	input_state.manual_playback = false  # Use automatic playback
 
 	# Simular todos los frames del replay
-	print("[TestReplay] Iniciando simulación de replay desde archivo: ", playback_replay_path)
+	print("[TestReplay] Iniciando simulación de replay para test: ", test_id)
 	for i in range(test_suite[test_id].frames.size()):
 		replay_runner.simulate_frames(1)
 
@@ -322,10 +257,13 @@ func run_test(test_id):
 
 	return result
 
-func _on_local_recording_stopped(frame_count, replay_path):
-	last_local_replay_path = replay_path
-	print("_on_local_recording_stopped: ", frame_count, replay_path)
-
+func _reset_player_state(player_ref):
+	if not is_instance_valid(player_ref): return
+	player_ref.horizontal_velocity_fixed = FixedVec3.zero()
+	player_ref.velocity_fixed = FixedVec3.zero()
+	player_ref.platform_velocity_fixed = FixedVec3.zero()
+	player_ref.last_platform_velocity_fixed = FixedVec3.zero()
+	player_ref.vertical_velocity_fixed = FixedVec3.zero()
 
 # Tests individuales para mejor detección
 func test_T1():

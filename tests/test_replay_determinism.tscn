@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=2]
+
+[node name="TVDM" type="Node"]
+script = ExtResource( 1 )
+
+[ext_resource path="res://tests/test_replay_determinism.gd" type="Script" id=1]
