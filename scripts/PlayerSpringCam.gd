@@ -115,7 +115,11 @@ func _on_replay_mode_changed(new_mode: int):
 func _update_mouse_look_active():
 	var is_captured = MouseCapture.is_captured if MouseCapture else false
 	var is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
-	_is_mouse_look_active = is_captured or is_playback
+	# During playback, always allow mouse-look so recorded deltas are applied.
+	if is_playback:
+		_is_mouse_look_active = true # 2. Asegurarse de que _is_mouse_look_active sea true en playback
+	else:
+		_is_mouse_look_active = is_captured
 
 func process_camera_rotation(_motion: Vector2):
 	"""Procesa el movimiento del mouse/touch para rotar la cámara desde InputState."""
@@ -150,6 +154,20 @@ func process_camera_rotation(_motion: Vector2):
 	# Decide whether to ignore smoothing during playback to avoid double-interpolation jitter
 	var replay_manager = get_node_or_null("/root/ReplayManager")
 	is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
+	# If we're in playback mode, apply rotation instantly and update transforms
+	if is_playback:
+		# Apply rotation immediately without smoothing and force transforms to match recording
+		_apply_rotation(motion, 0.0, true)
+		# Ensure transforms are snapped exactly
+		if yaw:
+			yaw.rotation.y = target_yaw
+		if pitch:
+			pitch.rotation.x = target_pitch
+		update_camera_transform()
+		# Notify InputState if motion was external
+		if motion_from_param and input_state and input_state.has_method("notify_mouse_motion"):
+			input_state.notify_mouse_motion(motion)
+		return
 	var ignore_smoothing = false
 	if is_playback and replay_manager and not replay_manager.is_camera_free_look_active:
 		ignore_smoothing = true
@@ -190,11 +208,12 @@ func _apply_rotation(motion: Vector2, delta: float, ignore_smoothing: bool) -> v
 	var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
 	var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
 	target_pitch = clamp(target_pitch, -lim_down, lim_up)
-	if ignore_smoothing:
+	# 3. Si es playback, la rotación debe ser un set directo, sin lerp.
+	if is_playback or ignore_smoothing:
 		if yaw:
-			yaw.rotation.y = target_yaw
+			yaw.rotation.y = target_yaw # Asignación directa
 		if pitch:
-			pitch.rotation.x = target_pitch
+			pitch.rotation.x = target_pitch # Asignación directa
 
 	# Durante playback siempre imprimir estado para diagnóstico (no depender de debug_enabled)
 	var is_playback_mode = input_state and input_state.mode == input_state.Mode.PLAYBACK
@@ -225,11 +244,9 @@ func _physics_process(delta):
 		print("[PlayerSpringCam] First frame: Initialized camera with local yaw offset: ", rad2deg(initial_offset))
 		_yaw_initialized = true
 	# ---------------------------------
+	# 1. Si is_playback es true, desactivar todo el procesamiento de física/input manual.
 	if is_playback:
-		# En modo replay, este nodo es pasivo. ReplayPlayback lo controla directamente
-		# llamando a force_rotate_for_playback. Desactivamos el procesamiento de física
-		# para evitar conflictos.
-		set_physics_process(false)
+		# La cámara solo debe responder a llamadas directas de ReplayPlayback.
 		return
 
 	# Lógica de input/smoothing solo si NO es playback
@@ -352,6 +369,9 @@ func set_is_playback(value: bool) -> void:
 	is_playback = value
 	# Disable physics processing to prevent camera from running its own smoothing
 	set_physics_process(not value)
+	# Force mouse-look active during playback so camera accepts deltas
+	if value:
+		_is_mouse_look_active = true
 	if value:
 		if yaw:
 			yaw.rotation.y = target_yaw

@@ -13,7 +13,7 @@ const INPUT_ACTIONS = [
 	"left", "right", "forward", "backward", "jump", "sprint", "roll", "attack", "aim"
 ]
 const DRIFT_THRESHOLD = 0.005 # Maximum allowed position difference before correction
-const MAX_CORRECTION_DISTANCE = 0.5 # Max distance to correct per frame, use snapping above this
+const MAX_CORRECTION_DISTANCE = 2.0 # Max distance to correct per frame, use snapping above this (increased to avoid frequent snaps)
 const RESYNC_INTERVAL = 20 # Frames between drift checks and corrections
 const DRIFT_CORRECTION_STRENGTH = 400.0 # Strength for smooth correction interpolation
 const MIN_DIVERGENCE_TO_CORRECT = 0.01 # Threshold to avoid insignificant corrections
@@ -910,10 +910,10 @@ func check_for_drift(frame_data: Dictionary) -> void:
 
 	# If extremely divergent horizontally, only snap as a last-last resort.
 	# Use a higher threshold to avoid snapping due to small spawn/ground offsets.
-	if horiz_divergence > SNAP_THRESHOLD:
-		player.global_transform = expected_transform
-		player.set("replay_velocity_correction", null)
-		_debug_log("check_for_drift: HUGE horizontal divergence snap applied")
+	if horiz_divergence > SNAP_THRESHOLD: # MODIFICADO: Desactivar Snap y solo imprimir
+		#player.global_transform = expected_transform
+		#player.set("replay_velocity_correction", null)
+		_debug_log("DIVERGENCIA CRÍTICA: " + str(horiz_divergence))
 		return
 
 	# Compute a target velocity (magnet) and store it as a replay-provided velocity
@@ -1128,7 +1128,7 @@ func _apply_velocity_drift_correction(frame_data: Dictionary) -> void:
 		player.set("replay_velocity_correction", null)
 		return
 
-	if divergence > 1.0:
+	if divergence > 5.0:
 		# snap as last resort
 		player.global_transform = expected_transform
 		player.set("replay_velocity_correction", null)
