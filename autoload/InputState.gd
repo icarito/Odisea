@@ -97,7 +97,7 @@ func _physics_process(_delta):
 		# Clear any accumulated live mouse motion before applying the recorded frame
 		# to guarantee the recorded camera deltas are authoritative.
 		_mouse_motion_this_frame = Vector2.ZERO
-		mouse_delta = Vector2.ZERO
+		# Removed: mouse_delta = Vector2.ZERO  # Don't reset during playback, as it's set from recorded frames
 		if not paused and not manual_playback:
 			_apply_replay_frame()
 		# En playback, no procesar lógica de input real ni de strafing

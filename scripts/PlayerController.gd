@@ -1032,8 +1032,7 @@ func set_replay_state(state: Dictionary) -> void:
 	if jump_comp and deserialized_state.has("should_jump_buffered") and deserialized_state["should_jump_buffered"] != null:
 		jump_comp.should_jump_buffered = deserialized_state["should_jump_buffered"]
 
-	if is_replaying and not replay_manager.is_camera_free_look_active:
-		InputState.clean_mouse_delta_x()
+	# Eliminado: limpieza de mouse_delta_x en replay para evitar conflicto con la cámara
 
 func playback_process(frame_data_state: Dictionary, _delta: float) -> void:
 	# During replay, state is now set directly by ReplayPlayback, so no physics simulation here
