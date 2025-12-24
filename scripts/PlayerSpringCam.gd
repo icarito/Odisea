@@ -78,6 +78,11 @@ func _ready():
 		ReplayManager.connect("mode_changed", self, "_on_replay_mode_changed")
 	
 	_update_mouse_look_active()
+	# Ajuste de sensibilidad en modo replay para evitar duplicar la escala de los deltas grabados
+	var game_globals = GameGlobals
+	# NOTE: do not forcibly override exported sensitivities here - recorded deltas
+	# already contain the expected magnitude. Changing the exported values at
+	# runtime made playback almost immobile. Keep exported defaults.
 
 func _on_capture_changed(is_captured: bool):
 	_update_mouse_look_active()
@@ -92,20 +97,61 @@ func _update_mouse_look_active():
 
 func process_camera_rotation(_motion: Vector2):
 	"""Procesa el movimiento del mouse/touch para rotar la cámara desde InputState."""
-	if not _is_mouse_look_active:
+	# Asegurar que la cámara procese input durante playback aún si el estado local
+	# de captura de ratón no está activo (puede ser refrescado por ReplayManager).
+	var is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
+	if not _is_mouse_look_active and not is_playback:
+		var gg = GameGlobals if GameGlobals else get_node_or_null("/root/GameGlobals")
+		if gg and gg.replay_debug_mode:
+			print("[PlayerSpringCam][process_camera_rotation] SKIP: _is_mouse_look_active=false, not playback")
 		return
 
-	var motion = input_state.get_mouse_delta()
+	# Prefer explicit motion provided by caller (ReplayPlayback), fallback to InputState
+	var motion = Vector2.ZERO
+	if _motion and _motion is Vector2 and _motion.length_squared() > 0:
+		motion = _motion
+	else:
+		motion = input_state.get_mouse_delta()
+	var gg = GameGlobals if GameGlobals else get_node_or_null("/root/GameGlobals")
+	if gg and gg.replay_debug_mode:
+		print("[PlayerSpringCam][process_camera_rotation] called. mode=", input_state.mode, " _is_mouse_look_active=", _is_mouse_look_active, " param_motion=", _motion, " input_mouse_delta=", motion)
+
+	# Decide whether to ignore smoothing during playback to avoid double-interpolation jitter
+	var replay_manager = get_node_or_null("/root/ReplayManager")
+	is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
+	var ignore_smoothing = false
+	if is_playback and replay_manager and not replay_manager.is_camera_free_look_active:
+		ignore_smoothing = true
+
 	if motion is Vector2 and motion.length_squared() > 0:
-		var scaled_motion = motion / 10000.0
-		target_yaw -= -scaled_motion.x * yaw_sensitivity
-		target_pitch += scaled_motion.y * pitch_sensitivity
-		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
-		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
-		target_pitch = clamp(target_pitch, -lim_down, lim_up)
+		if gg and gg.replay_debug_mode:
+			print("[PlayerSpringCam][process_camera_rotation] ignore_smoothing=", ignore_smoothing, " motion=", motion)
+		_apply_rotation(motion, 0.0, ignore_smoothing)
+
+
+func _apply_rotation(motion: Vector2, delta: float, ignore_smoothing: bool) -> void:
+	# Centraliza la lógica de aplicación de rotación para poder ignorar el smoothing
+	if not (motion is Vector2) or motion.length_squared() == 0:
+		return
+	var scaled_motion = motion / 1000.0
+	var gg = GameGlobals if GameGlobals else get_node_or_null("/root/GameGlobals")
+	if gg and gg.replay_debug_mode:
+		print("[PlayerSpringCam][_apply_rotation] scaled_motion=", scaled_motion, " ignore_smoothing=", ignore_smoothing, " yaw_sens=", yaw_sensitivity, " pitch_sens=", pitch_sensitivity)
+	target_yaw -= scaled_motion.x * yaw_sensitivity
+	target_pitch += scaled_motion.y * pitch_sensitivity
+	var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
+	var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
+	target_pitch = clamp(target_pitch, -lim_down, lim_up)
+	if ignore_smoothing:
+		if yaw:
+			yaw.rotation.y = target_yaw
+		if pitch:
+			pitch.rotation.x = target_pitch
 
 
 func _physics_process(delta):
+	# Refresh mouse-look active state each frame to handle mode changes reliably
+	_update_mouse_look_active()
 	# --- ROBUST YAW INITIALIZATION ---
 	# On the first frame, set the camera's local yaw to PI (180 deg) to look from behind.
 	# The camera rig rotates with the player, so we only need to set this local offset once.
@@ -137,19 +183,23 @@ func _physics_process(delta):
 		motion = input_state.get_live_mouse_delta()
 
 	# 2. Aplicar rotación si hay movimiento
+	var gg = GameGlobals if GameGlobals else get_node_or_null("/root/GameGlobals")
+	if gg and gg.replay_debug_mode:
+		print("[PlayerSpringCam][_physics_process] beginning. motion=", motion, " is_playback=", is_playback, " player_id=", player_id)
 	if motion is Vector2 and motion.length() > 0.0:
-		var scaled_motion = motion / 1000.0
-		target_yaw -= scaled_motion.x * yaw_sensitivity
-		target_pitch += scaled_motion.y * pitch_sensitivity
-		
-		# Limitar pitch
-		var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
-		var lim_down := deg2rad(clamp(pitch_limit_down_deg, 0.0, 90.0))
-		target_pitch = clamp(target_pitch, -lim_down, lim_up)
-		
+		# Decide whether to ignore smoothing during playback to avoid jitter
+		var ignore_smoothing = false
+		if is_playback and replay_manager and not replay_manager.is_camera_free_look_active:
+			ignore_smoothing = true
+
+		if gg and gg.replay_debug_mode:
+			print("[PlayerSpringCam][_physics_process] about to _apply_rotation. ignore_smoothing=", ignore_smoothing, " raw_motion=", motion)
+
+		_apply_rotation(motion, delta, ignore_smoothing)
+
 		if is_playback and not replay_manager.is_camera_free_look_active:
 			input_state.clean_mouse_delta_y()
-		
+
 		if is_playback:
 			# Ya no se consume el input aquí. Se lee una variable limpia.
 			pass
@@ -164,15 +214,22 @@ func _physics_process(delta):
 		# TODO: Integrar ejes de InputState si se usan para joypad
 		pass
 
-	# Smooth yaw/pitch
-	if yaw:
-		var y = yaw.rotation.y
-		y += (target_yaw - y) * min(1.0, yaw_smooth * delta)
-		yaw.rotation.y = y
-	if pitch:
-		var p = pitch.rotation.x
-		p += (target_pitch - p) * min(1.0, pitch_smooth * delta)
-		pitch.rotation.x = p
+	# Smooth yaw/pitch (omit smoothing in playback when camera is authoritative)
+	var skip_smoothing = (is_playback and replay_manager and not replay_manager.is_camera_free_look_active)
+	if skip_smoothing:
+		if yaw:
+			yaw.rotation.y = target_yaw
+		if pitch:
+			pitch.rotation.x = target_pitch
+	else:
+		if yaw:
+			var y = yaw.rotation.y
+			y += (target_yaw - y) * min(1.0, yaw_smooth * delta)
+			yaw.rotation.y = y
+		if pitch:
+			var p = pitch.rotation.x
+			p += (target_pitch - p) * min(1.0, pitch_smooth * delta)
+			pitch.rotation.x = p
 
 	if (is_record or is_playback) and motion.length_squared() > 0.01:
 		var mode_str = "REC" if is_record else "PLAY"

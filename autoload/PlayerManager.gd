@@ -81,6 +81,7 @@ func get_player() -> Node:
 func spawn(initial_transform: Transform) -> Node:
 	print("[PlayerManager] spawn called with initial_transform: ", initial_transform.origin)
 	if is_spawned():
+		print("[PlayerManager] Bloqueando spawn duplicado")
 		return player_reference
 	player_reference = player_scene.instance()
 	player_reference.name = "Pilot"

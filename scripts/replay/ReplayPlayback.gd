@@ -599,8 +599,10 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 		if md is Dictionary:
 			# Es vital convertir el Diccionario {x, y} a Vector2
 			InputState.mouse_delta = Vector2(FixedPoint.from_fixed(md.get("x", 0)), FixedPoint.from_fixed(md.get("y", 0)))
+			print("[ReplayPlayback][Camera] frame=", InputState.replay_frame, " set InputState.mouse_delta=", InputState.mouse_delta)
 		elif md is Vector2:
 			InputState.mouse_delta = md
+			print("[ReplayPlayback][Camera] frame=", InputState.replay_frame, " set InputState.mouse_delta=", InputState.mouse_delta)
 		else:
 			# Handle other cases, like String
 			_debug_log("Unexpected mouse_delta type: " + str(typeof(md)) + " value: " + str(md))
@@ -668,7 +670,10 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 			if get_tree() and get_tree().current_scene:
 				var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 				if camera_rig and camera_rig.has_method("process_camera_rotation"):
+					print("[ReplayPlayback][Camera] frame=", InputState.replay_frame, " calling process_camera_rotation with mouse_motion=", mouse_motion)
 					camera_rig.process_camera_rotation(mouse_motion)
+					if camera_rig.has_method("update_camera_transform"):
+						camera_rig.update_camera_transform()
 	elif frame_data.has("mouse_delta"):
 		var md_dict = frame_data["mouse_delta"]
 		if md_dict is Dictionary:
@@ -677,13 +682,19 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 				if get_tree() and get_tree().current_scene:
 					var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 					if camera_rig and camera_rig.has_method("process_camera_rotation"):
+						print("[ReplayPlayback][Camera] frame=", InputState.replay_frame, " calling process_camera_rotation with mouse_motion=", mouse_motion)
 						camera_rig.process_camera_rotation(mouse_motion)
+						if camera_rig.has_method("update_camera_transform"):
+							camera_rig.update_camera_transform()
 		elif md_dict is Vector2:
 			if md_dict.length_squared() > 0:
 				if get_tree() and get_tree().current_scene:
 					var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 					if camera_rig and camera_rig.has_method("process_camera_rotation"):
+						print("[ReplayPlayback][Camera] frame=", InputState.replay_frame, " calling process_camera_rotation with mouse_delta_vector=", md_dict)
 						camera_rig.process_camera_rotation(md_dict)
+						if camera_rig.has_method("update_camera_transform"):
+							camera_rig.update_camera_transform()
 		else:
 			_debug_log("Unexpected mouse_delta type in camera processing: " + str(typeof(md_dict)) + " value: " + str(md_dict))
 
@@ -818,9 +829,19 @@ func check_for_drift(frame_data: Dictionary) -> void:
 		if path == player_key:
 			continue
 		var node = _resolve_node(path)
+		if not node:
+			continue
+		# Skip correcting camera-like nodes during playback except at frame 0
+		var lname = str(node.name).to_lower()
+		if InputState.replay_frame != 0 and (lname.find("camera") != -1 or node.has_method("process_camera_rotation") or node.has_method("update_camera_transform")):
+			print("[DRIFT_DEBUG] Skipping camera correction for node: " + str(node.name))
+			continue
 		if node and node.has_method("set_replay_state"):
 			var recorded_node_state = recorded_state[path]
 			node.set_replay_state(recorded_node_state)
+			# Ensure immediate update if available
+			if node.has_method("update_camera_transform"):
+				node.update_camera_transform()
 			print("[DRIFT_DEBUG] Corrected " + path)
 
 func _apply_smooth_correction(node: Spatial, expected_transform: Transform, lerp_factor: float) -> void:
@@ -885,7 +906,7 @@ func _set_node_state(node: Node, state: Dictionary) -> void:
 		var recorded_yaw = current_yaw
 		if state.has("yaw") and typeof(state["yaw"]) in [TYPE_REAL, TYPE_INT]:
 			recorded_yaw = float(state["yaw"])
-		if abs(current_yaw - recorded_yaw) > deg2rad(5.0):
+		if abs(current_yaw - recorded_yaw) > deg2rad(2.0):
 			if node.has_method("set_replay_state"):
 				node.set_replay_state(state)
 				if node.has_method("update_camera_transform"):
