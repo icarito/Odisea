@@ -900,6 +900,13 @@ func _set_tracked_nodes_physics_process(enabled: bool) -> void:
 
 func _set_node_state(node: Node, state: Dictionary) -> void:
 	if node.name == "CameraRig":
+		# Only apply CameraRig state at the initial frame (frame 0).
+		# Subsequent camera corrections introduce yank because camera must be driven
+		# purely by recorded input. Skip CameraRig corrective applications after
+		# the first frame so playback remains input-authoritative.
+		if InputState and InputState.replay_frame != 0:
+			_debug_log("_set_node_state: skipping CameraRig apply after frame 0 to avoid yank")
+			return
 		var current_yaw = 0.0
 		if node.get("yaw") != null and typeof(node.get("yaw")) in [TYPE_REAL, TYPE_INT]:
 			current_yaw = float(node.get("yaw"))
