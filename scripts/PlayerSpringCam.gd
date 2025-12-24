@@ -1,5 +1,6 @@
 
 extends Spatial
+
 export var is_playback := false # Flag para desactivar lógica de input/smoothing en modo replay
 
 # Godot 3.6 SpringArm-based third person camera controller
@@ -52,6 +53,7 @@ var target_pitch := 0.0
 onready var input_state = get_node("/root/InputState")
 var _yaw_initialized := false
 var _is_mouse_look_active := false
+var _pending_mouse_motion := Vector2.ZERO
 
 var player_id := 1
 var joypad_device := -1
@@ -61,7 +63,11 @@ func set_player_id(id: int) -> void:
 	if player_id == 2:
 		joypad_device = 1 # Asumir que P2 usa joypad 1
 
+func _enter_tree():
+	pass
+
 func _ready():
+	process_priority = -5  # Ensure camera runs before player physics
 	if player_path: player = get_node(player_path)
 	if yaw_path: yaw = get_node(yaw_path)
 	if pitch_path: pitch = get_node(pitch_path)
@@ -126,10 +132,17 @@ func process_camera_rotation(_motion: Vector2):
 
 	# Prefer explicit motion provided by caller (ReplayPlayback), fallback a InputState
 	var motion = Vector2.ZERO
+	var motion_from_param := false
 	if _motion and _motion is Vector2 and _motion.length_squared() > 0:
 		motion = _motion
+		motion_from_param = true
 	else:
-		motion = input_state.get_mouse_delta()
+		# Prefer any locally-captured pending mouse motion (from this camera's _input)
+		if _pending_mouse_motion.length_squared() > 0:
+			motion = _pending_mouse_motion
+			_pending_mouse_motion = Vector2.ZERO
+		else:
+			motion = input_state.peek_mouse_motion() if input_state and input_state.has_method("peek_mouse_motion") else input_state.get_mouse_delta()
 	gg = GameGlobals if GameGlobals else get_node_or_null("/root/GameGlobals")
 	if gg and gg.replay_debug_mode:
 		print("[PlayerSpringCam][process_camera_rotation] called. mode=", input_state.mode, " _is_mouse_look_active=", _is_mouse_look_active, " param_motion=", _motion, " input_mouse_delta=", motion)
@@ -145,6 +158,10 @@ func process_camera_rotation(_motion: Vector2):
 		if gg and gg.replay_debug_mode:
 			print("[PlayerSpringCam][process_camera_rotation] ignore_smoothing=", ignore_smoothing, " motion=", motion)
 		_apply_rotation(motion, 0.0, ignore_smoothing)
+		# If the rotation was driven by an external caller (not from InputState),
+		# notify the InputState so it can update strafing state and recording.
+		if motion_from_param and input_state and input_state.has_method("notify_mouse_motion"):
+			input_state.notify_mouse_motion(motion)
 	elif gg and gg.replay_debug_mode:
 		print("[PlayerSpringCam][process_camera_rotation] motion vacío o no Vector2: ", motion)
 
@@ -157,6 +174,13 @@ func _apply_rotation(motion: Vector2, delta: float, ignore_smoothing: bool) -> v
 			print("[PlayerSpringCam][_apply_rotation] NO ROT: motion vacío o no Vector2: ", motion)
 		return
 	if gg and gg.replay_debug_mode:
+		# Durante el replay, el delta es fijo y la sensibilidad debe ser consistente.
+		# La división por 1000 es un artefacto de cómo se manejaba el input del ratón.
+		# Si el mouse_delta grabado ya tiene la escala correcta, esta división puede ser
+		# la causa de que el movimiento sea casi nulo.
+		# Para el replay, usaremos el valor más directamente.
+		if is_playback:
+			var scaled_motion = motion * 0.01
 		print("[PlayerSpringCam][_apply_rotation] APLICANDO: motion=", motion, " ignore_smoothing=", ignore_smoothing)
 	var scaled_motion = motion / 1000.0
 	if gg and gg.replay_debug_mode:
@@ -183,12 +207,18 @@ func _apply_rotation(motion: Vector2, delta: float, ignore_smoothing: bool) -> v
 				cam_cur = cam.is_current()
 		print("[PlayerSpringCam][_apply_rotation][PLAYBACK] POST_APPLY yaw=", (yaw.rotation.y if yaw else "nil"), " pitch=", (pitch.rotation.x if pitch else "nil"), " cam_current=", cam_cur)
 
+func force_rotate_for_playback(motion: Vector2):
+	"""
+	Llamado directamente por ReplayPlayback para garantizar la rotación instantánea
+	sin pasar por la lógica de _physics_process.
+	"""
+	_apply_rotation(motion, 0.0, true)
 
 func _physics_process(delta):
-	_update_mouse_look_active()
 	# --- ROBUST YAW INITIALIZATION ---
 	if not _yaw_initialized and is_instance_valid(player):
-		var initial_offset = 0 
+		# El offset inicial debe respetar la rotación del cuerpo del jugador para evitar un "salto" visual.
+		var initial_offset = player.global_transform.basis.get_euler().y + PI
 		target_yaw = initial_offset
 		if is_instance_valid(yaw):
 			yaw.rotation.y = initial_offset
@@ -196,53 +226,27 @@ func _physics_process(delta):
 		_yaw_initialized = true
 	# ---------------------------------
 	if is_playback:
-		# En modo replay: aplicar mouse_delta grabado cada frame, sin smoothing ni input real
-		if player and springarm:
-			var hv := Vector3.ZERO
-			if player.has_method("get_horizontal_velocity"):
-				hv = player.get_horizontal_velocity()
-			else:
-				hv = player.get("horizontal_velocity") if player else Vector3.ZERO
-			var speed := hv.length()
-			var target_len = lerp(base_length, max_length, clamp(speed / 8.0, 0.0, 1.0))
-			springarm.spring_length = lerp(springarm.spring_length, target_len, min(1.0, zoom_speed * delta))
-		# Aplicar mouse_delta del replay
-		if input_state:
-			var replay_motion = input_state.get_mouse_delta()
-			if replay_motion is Vector2 and replay_motion.length_squared() > 0.0:
-				# Aplicar rotación CRUDA durante playback para evitar cualquier suavizado
-				# o lógica de auto-alineación que introduzca divergencia respecto al input.
-				_apply_rotation(replay_motion, 0.0, true)
-				# Forzar que los valores queden escritos en los nodos inmediatamente.
-				update_camera_transform()
-				# Limpiar el delta solo si no lo hace ReplayPlayback
-				input_state.clean_mouse_delta_x()
-				input_state.clean_mouse_delta_y()
-		if debug_enabled:
-			var now := OS.get_ticks_msec()
-			var interval_ms := int(debug_interval * 1000.0)
-			if now - _last_debug_ms >= interval_ms:
-				_last_debug_ms = now
-				var yv = (yaw.rotation.y if yaw else 0.0)
-				var pv = (pitch.rotation.x if pitch else 0.0)
-				var sl = (springarm.spring_length if springarm else 0.0)
-				print("[Cam] yaw=" + String(yv).pad_decimals(3) +
-					" pitch=" + String(pv).pad_decimals(3) +
-					" len=" + String(sl).pad_decimals(2))
-		if ReplayManager and ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
-			var now := OS.get_ticks_msec()
-			if now - _last_playback_debug_ms >= 1000:
-				_last_playback_debug_ms = now
-				print("Playback Cam: yaw=", yaw.rotation.y if yaw else 0, " target_yaw=", target_yaw)
+		# En modo replay, este nodo es pasivo. ReplayPlayback lo controla directamente
+		# llamando a force_rotate_for_playback. Desactivamos el procesamiento de física
+		# para evitar conflictos.
+		set_physics_process(false)
 		return
+
 	# Lógica de input/smoothing solo si NO es playback
+	_update_mouse_look_active()
+
 	var touch_controls = get_node_or_null("/root/TouchControls")
 	var touch_active = touch_controls and touch_controls.is_touch_controls_active()
 	var is_record = input_state and input_state.mode == input_state.Mode.RECORD
 	var replay_manager = get_node_or_null("/root/ReplayManager")
 	var motion = Vector2.ZERO
 	if not touch_active and player_id == 1 and _is_mouse_look_active:
-		motion = input_state.get_live_mouse_delta()
+		# Prefer any locally-captured pending mouse motion captured in _input
+		if _pending_mouse_motion.length_squared() > 0:
+			motion = _pending_mouse_motion
+			_pending_mouse_motion = Vector2.ZERO
+		else:
+			motion = input_state.peek_mouse_motion() if input_state and input_state.has_method("peek_mouse_motion") else input_state.get_live_mouse_delta()
 	var gg = GameGlobals if GameGlobals else get_node_or_null("/root/GameGlobals")
 	if gg and gg.replay_debug_mode:
 		print("[PlayerSpringCam][_physics_process] beginning. motion=", motion, " is_playback=", is_playback, " player_id=", player_id)
@@ -250,21 +254,17 @@ func _physics_process(delta):
 		if gg and gg.replay_debug_mode:
 			print("[PlayerSpringCam][_physics_process] about to _apply_rotation. raw_motion=", motion)
 		_apply_rotation(motion, delta, false)
-		# Activar strafing si hay movimiento del mouse
-		if motion.length_squared() > 0:
-			input_state.is_strafing_mode_active = true
+		# Activar strafing si hay movimiento del mouse (camera already notifies
+		# InputState when it captured the raw InputEvent in _input)
 	# Para player 2, siempre usar joy
 	if player_id == 2:
 		pass
 	# Smooth yaw/pitch
 	if yaw:
-		var y = yaw.rotation.y
-		y += (target_yaw - y) * min(1.0, yaw_smooth * delta)
-		yaw.rotation.y = y
+		yaw.rotation.y = lerp_angle(yaw.rotation.y, target_yaw, min(1.0, yaw_smooth * delta))
 	if pitch:
-		var p = pitch.rotation.x
-		p += (target_pitch - p) * min(1.0, pitch_smooth * delta)
-		pitch.rotation.x = p
+		pitch.rotation.x = lerp(pitch.rotation.x, target_pitch, min(1.0, pitch_smooth * delta))
+
 	if (is_record) and motion.length_squared() > 0.01:
 		var mode_str = "REC"
 		var pitch_deg = rad2deg(pitch.rotation.x)
