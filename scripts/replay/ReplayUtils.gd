@@ -61,18 +61,24 @@ static func vector3_to_dict(vector: Vector3) -> Dictionary:
 	return {"x": vector.x, "y": vector.y, "z": vector.z}
 
 # Helper function to deserialize a dictionary from JSON back to a Vector3.
-static func dict_to_vector3(dict: Dictionary) -> Vector3:
-	if dict and dict.has_all(["x", "y", "z"]) and dict.x != null and dict.y != null and dict.z != null:
-		if typeof(dict.x) in [TYPE_REAL, TYPE_INT] and typeof(dict.y) in [TYPE_REAL, TYPE_INT] and typeof(dict.z) in [TYPE_REAL, TYPE_INT]:
-			return Vector3(dict.x, dict.y, dict.z)
+static func dict_to_vector3(value) -> Vector3:
+	# Accept a Vector3 directly (already parsed) or a Dictionary with x,y,z.
+	if value is Vector3:
+		return value
+	if value and typeof(value) == TYPE_DICTIONARY and value.has_all(["x", "y", "z"]) and value.x != null and value.y != null and value.z != null:
+		if typeof(value.x) in [TYPE_REAL, TYPE_INT] and typeof(value.y) in [TYPE_REAL, TYPE_INT] and typeof(value.z) in [TYPE_REAL, TYPE_INT]:
+			return Vector3(value.x, value.y, value.z)
 	# Return Vector3.ZERO if keys are missing or format is incorrect.
 	return Vector3.ZERO
 
 # Helper function to deserialize a dictionary from JSON back to a Vector2.
-static func dict_to_vector2(dict: Dictionary) -> Vector2:
-	if dict and dict.has_all(["x", "y"]) and dict.x != null and dict.y != null:
-		if typeof(dict.x) in [TYPE_REAL, TYPE_INT] and typeof(dict.y) in [TYPE_REAL, TYPE_INT]:
-			return Vector2(dict.x, dict.y)
+static func dict_to_vector2(value) -> Vector2:
+	# Accept a Vector2 directly (already parsed) or a Dictionary with x,y.
+	if value is Vector2:
+		return value
+	if value and typeof(value) == TYPE_DICTIONARY and value.has_all(["x", "y"]) and value.x != null and value.y != null:
+		if typeof(value.x) in [TYPE_REAL, TYPE_INT] and typeof(value.y) in [TYPE_REAL, TYPE_INT]:
+			return Vector2(value.x, value.y)
 	# Return Vector2.ZERO if keys are missing or format is incorrect.
 	return Vector2.ZERO
 
@@ -198,3 +204,17 @@ static func generate_state_hash(state: Dictionary) -> String:
 		return ""
 	var rep = _repr_for_hash(state)
 	return rep.md5_text().substr(0, 8)
+
+# Load a JSON file from `path` and convert it to Godot types using `from_json_safe`.
+# Returns the parsed Dictionary/Array or `null` on error.
+static func load_json(path: String):
+	var f = File.new()
+	var err = f.open(path, File.READ)
+	if err != OK:
+		return null
+	var text = f.get_as_text()
+	f.close()
+	var parsed = JSON.parse(text)
+	if parsed.error != OK:
+		return null
+	return from_json_safe(parsed.result)
