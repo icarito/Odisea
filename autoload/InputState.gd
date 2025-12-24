@@ -255,12 +255,24 @@ func _record_current_frame():
 	for k in AXIS_KEYS:
 		axes_snapshot[k] = float(axes.get(k, 0.0))
 
+	# --- SINCRONIZACIÓN DE ÁNGULO ABSOLUTO ---
+	# Grabar el yaw y pitch absolutos de la cámara en cada frame.
+	var cam_yaw = 0.0
+	var cam_pitch = 0.0
+	var cam_rig = get_tree().current_scene.find_node("CameraRig", true, false) if get_tree().current_scene else null
+	if cam_rig and cam_rig.has_method("get_replay_state"):
+		var cam_state = cam_rig.get_replay_state()
+		cam_yaw = cam_state.get("yaw", 0.0)
+		cam_pitch = cam_state.get("pitch", 0.0)
+
 	var frame = {
 		"inputs": inputs_snapshot,
 		"axes": axes_snapshot,
 		"mouse_delta": recorded_mouse_delta,
 		"strafing_active": is_strafing_mode_active,
-		"strafing_timer": strafing_timer
+		"strafing_timer": strafing_timer,
+		"camera_yaw": cam_yaw,
+		"camera_pitch": cam_pitch
 	}
 	recorded_frames.append(frame)
 	if recorded_frames.size() % 10 == 0:

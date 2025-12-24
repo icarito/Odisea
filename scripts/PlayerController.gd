@@ -524,19 +524,18 @@ func _physics_process(delta):
 	var effective_gravity_dir := effective_gravity_vector.normalized() if (effective_gravity_mag > 0.01) else Vector3.DOWN
 	
 	# Apply Gravity (fixed-point)
-	if is_replaying:
-		# CORRECCIÓN CRÍTICA: Durante el replay, la gravedad DEBE ser determinista y no acumulativa de forma errónea.
-		# Forzamos una gravedad negativa constante si no está en el suelo.
+	if is_replaying: # CORRECCIÓN: Lógica de gravedad para replay, más robusta y aislada.
 		if not is_on_floor():
+			# Durante el replay, la gravedad es una constante negativa para asegurar tracción y evitar flotación.
 			var gravity_force_fixed = FixedVec3.from_vec3(Vector3(0, -9.8, 0))
 			var delta_fixed = FixedPoint.to_fixed(delta)
 			var gravity_this_frame = FixedVec3.mul_scalar(gravity_force_fixed, delta_fixed)
 			vertical_velocity_fixed = FixedVec3.add(vertical_velocity_fixed, gravity_this_frame)
-	elif not is_on_floor():
+	elif not on_floor: # Lógica de gravedad para modo LIVE
 		var gravity_fixed = FixedVec3.from_vec3(effective_gravity_vector)
 		var gravity_delta_fixed = FixedVec3.mul_scalar(gravity_fixed, FixedPoint.to_fixed(delta))
 		vertical_velocity_fixed = FixedVec3.add(vertical_velocity_fixed, gravity_delta_fixed)
-	else: # is_on_floor() and not is_replaying
+	else: # is_on_floor() and not is_replaying (modo LIVE en el suelo)
 		# Si la gravedad efectiva apunta hacia arriba (levanta), despegar del suelo
 		if effective_gravity_dir.dot(Vector3.UP) > 0.5:
 			snap_enabled = false
@@ -1060,13 +1059,17 @@ func set_replay_state(state: Dictionary) -> void:
 	else:
 		velocity = deserialized_state.get("velocity", Vector3.ZERO)
 	
-	# CORRECCIÓN: Al iniciar el replay, resetea todas las velocidades a CERO.
+	# CORRECCIÓN FINAL: Reset total y explícito de TODAS las velocidades al cargar estado de replay.
 	# La velocidad debe ser generada por los inputs grabados, no restaurada de un snapshot.
 	# Esto previene la inyección de velocidades finales acumuladas que causan la "flotación".
 	velocity = Vector3.ZERO
 	horizontal_velocity = Vector3.ZERO
-	horizontal_velocity_fixed = FixedVec3.from_vec3(horizontal_velocity)
-	vertical_velocity_fixed = FixedVec3.from_vec3(Vector3(0, velocity.y, 0))
+	platform_velocity = Vector3.ZERO # Resetea la velocidad de la plataforma
+	airborne_inherited = Vector3.ZERO # Resetea la inercia heredada en el aire
+	horizontal_velocity_fixed = FixedVec3.zero() # Resetea la velocidad horizontal de punto fijo
+	vertical_velocity_fixed = FixedVec3.zero() # Resetea la velocidad vertical de punto fijo
+	platform_velocity_fixed = FixedVec3.zero() # Resetea la velocidad de plataforma de punto fijo
+	airborne_inherited_fixed = FixedVec3.zero() # Resetea la inercia de punto fijo
 
 	if jump_comp and deserialized_state.has("coyote_timer") and deserialized_state["coyote_timer"] != null:
 		jump_comp.coyote_timer = deserialized_state["coyote_timer"]

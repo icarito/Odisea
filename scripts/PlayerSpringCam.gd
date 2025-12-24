@@ -185,6 +185,15 @@ func process_camera_rotation(_motion: Vector2):
 
 
 func _apply_rotation(motion: Vector2, delta: float, ignore_smoothing: bool) -> void:
+	# 2. Eliminación de la "Física de Cámara"
+	# En modo is_playback, la cámara debe ser puramente matemática.
+	# Si es replay, no hagas cálculos de sensibilidad ni sumas.
+	if is_playback:
+		# En modo replay, target_yaw y target_pitch son establecidos directamente
+		# por set_replay_state. Esta función solo debe asegurarse de que se apliquen.
+		yaw.rotation.y = target_yaw
+		pitch.rotation.x = target_pitch
+		return
 	# Centraliza la lógica de aplicación de rotación para poder ignorar el smoothing
 	var gg = GameGlobals if GameGlobals else get_node_or_null("/root/GameGlobals")
 	if not (motion is Vector2) or motion.length_squared() == 0:
@@ -234,6 +243,11 @@ func force_rotate_for_playback(motion: Vector2):
 	_apply_rotation(motion, 0.0, true)
 
 func _physics_process(delta):
+	# 2. Congelar la lógica de la Cámara: Si es playback, no hacer nada.
+	if is_playback:
+		set_physics_process(false) # Desactivarse para no consumir recursos.
+		return
+
 	# --- ROBUST YAW INITIALIZATION ---
 	if not _yaw_initialized and is_instance_valid(player):
 		# El offset inicial debe respetar la rotación del cuerpo del jugador para evitar un "salto" visual.
@@ -244,11 +258,6 @@ func _physics_process(delta):
 		print("[PlayerSpringCam] First frame: Initialized camera with local yaw offset: ", rad2deg(initial_offset))
 		_yaw_initialized = true
 	# ---------------------------------
-	# 1. Si is_playback es true, desactivar todo el procesamiento de física/input manual.
-	if is_playback:
-		# La cámara solo debe responder a llamadas directas de ReplayPlayback.
-		return
-
 	# Lógica de input/smoothing solo si NO es playback
 	_update_mouse_look_active()
 
@@ -344,12 +353,13 @@ func get_replay_state() -> Dictionary:
 
 func set_replay_state(state: Dictionary) -> void:
 	# Restore camera orientation for deterministic replay
+	# 1. Sincronización Absoluta: Sobreescribir directamente la rotación.
 	if state.has("yaw") and yaw:
-		yaw.rotation.y = state["yaw"]
 		target_yaw = state["yaw"]
+		yaw.rotation.y = target_yaw
 	if state.has("pitch") and pitch:
-		pitch.rotation.x = state["pitch"]
 		target_pitch = state["pitch"]
+		pitch.rotation.x = target_pitch
 	if state.has("spring_length") and springarm:
 		springarm.spring_length = state["spring_length"]
 	# Force immediate update to ensure transform is applied
