@@ -56,6 +56,9 @@ var recorded_frames := []
 # Flag para modo manual (usado en tests para inyección directa)
 var manual_playback: bool = false
 
+# Máximo mouse delta (en píxeles) aceptable desde frames de replay para evitar picos
+const MAX_REPLAY_MOUSE_DELTA = 100.0
+
 
 func set_mode(new_mode: int) -> void:
 	mode = new_mode
@@ -65,6 +68,12 @@ func set_mode(new_mode: int) -> void:
 		set_physics_process(true)
 	else:
 		set_physics_process(false)
+
+	# If switching to playback, clear any accumulated mouse motion to avoid
+	# hardware artefacts contaminating the recorded deltas.
+	if mode == Mode.PLAYBACK:
+		_mouse_motion_this_frame = Vector2.ZERO
+		mouse_delta = Vector2.ZERO
 
 # --- RESET DE ESTADO COMPLETO ---
 
@@ -85,6 +94,10 @@ func reset():
 
 func _physics_process(_delta):
 	if mode == Mode.PLAYBACK:
+		# Clear any accumulated live mouse motion before applying the recorded frame
+		# to guarantee the recorded camera deltas are authoritative.
+		_mouse_motion_this_frame = Vector2.ZERO
+		mouse_delta = Vector2.ZERO
 		if not paused and not manual_playback:
 			_apply_replay_frame()
 		# En playback, no procesar lógica de input real ni de strafing
@@ -228,7 +241,10 @@ func _apply_replay_frame():
 	var frame = recorded_frames[replay_frame]
 	actions = frame["inputs"].duplicate()
 	axes = frame["axes"].duplicate()
-	var md = frame.get("mouse_delta", "(0, 0)")
+	var md = frame.get("mouse_delta", {"x": 0, "y": 0})
+	# Use the recorded mouse_delta even on the first playback frame.
+	# The ReplayPlayback will restore the camera's initial transform/state
+	# to avoid jumps caused by immediate delta application.
 	if md is String:
 		mouse_delta = str2var("Vector2" + md)
 	else:
@@ -286,6 +302,12 @@ func stop():
 	set_mode(Mode.LIVE)
 
 func _input(event):
+	# Ignore real OS mouse input during replay playback to avoid double-application
+	if typeof(GameGlobals) != TYPE_NIL and GameGlobals and GameGlobals.is_replaying:
+		return
+	if mode == Mode.PLAYBACK:
+		# In playback mode we should not accept live mouse motion
+		return
 	if event is InputEventMouseMotion:
 		_mouse_motion_this_frame += event.relative
 	elif event is InputEventScreenDrag:

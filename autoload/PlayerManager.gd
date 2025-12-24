@@ -18,6 +18,8 @@ var _default_cam_v_deg = null
 var _default_camrot_h = null
 var _default_camrot_v = null
 
+const ReplayUtils = preload("res://scripts/replay/ReplayUtils.gd")
+
 # --- Signals ---
 signal player_died()
 signal health_updated(new_health)
@@ -82,7 +84,27 @@ func spawn(initial_transform: Transform) -> Node:
 		return player_reference
 	player_reference = player_scene.instance()
 	player_reference.name = "Pilot"
-	call_deferred("_deferred_spawn", initial_transform)
+	# If we're in replay mode, spawn immediately so camera and child
+	# nodes exist before playback starts; otherwise defer to avoid
+	# blocking startup ordering in normal gameplay.
+	var replay_active := false
+	if typeof(GameGlobals) != TYPE_NIL and GameGlobals:
+		replay_active = GameGlobals.is_replaying
+	if not replay_active and has_node("/root/ReplayManager"):
+		var rm_check = get_node("/root/ReplayManager")
+		if rm_check:
+			if rm_check.has_method("get_playback_node"):
+				var pbtmp = rm_check.get_playback_node()
+				if pbtmp and pbtmp.current_replay:
+					replay_active = true
+			elif "mode" in rm_check and "ReplayMode" in rm_check:
+				if rm_check.mode == rm_check.ReplayMode.PLAYBACK:
+					replay_active = true
+	if replay_active:
+		# Synchronous spawn to ensure children (CameraRig/PlayerInput) exist
+		_deferred_spawn(initial_transform)
+	else:
+		call_deferred("_deferred_spawn", initial_transform)
 	_initial_spawn_transform = initial_transform
 	return player_reference
 
@@ -97,8 +119,80 @@ func _deferred_spawn(initial_transform: Transform):
 	else:
 		get_tree().get_root().add_child(player_reference)
 		
-	player_reference.global_transform = initial_transform
-	print("PlayerManager: Player spawned at: ", initial_transform.origin, " rotation: ", initial_transform.basis.get_euler())
+	# Determine if we're in replay mode early so we can avoid inheriting
+	# transforms from the spawn point or scene root which may differ
+	# from the recorded initial state. When replaying, reset local basis
+	# and only apply the recorded origin to avoid 'angle of death' issues.
+	var replay_active := false
+	if typeof(GameGlobals) != TYPE_NIL and GameGlobals:
+		replay_active = GameGlobals.is_replaying
+	# Also consult ReplayManager if GameGlobals not yet set
+	if not replay_active and has_node("/root/ReplayManager"):
+		var rm_check = get_node("/root/ReplayManager")
+		if rm_check:
+			if rm_check.has_method("get_playback_node"):
+				var pbtmp = rm_check.get_playback_node()
+				if pbtmp and pbtmp.current_replay:
+					replay_active = true
+			elif "mode" in rm_check and "ReplayMode" in rm_check:
+				if rm_check.mode == rm_check.ReplayMode.PLAYBACK:
+					replay_active = true
+
+	# When replaying, avoid applying any recorded basis that may have been
+	# modified by spawn transforms; set Basis.IDENTITY then apply origin.
+	if replay_active:
+		player_reference.global_transform = Transform(Basis.IDENTITY, initial_transform.origin)
+		print("[PlayerManager] Replay-active spawn: reset basis to IDENTITY and applied origin: ", initial_transform.origin)
+		# Ensure any pre-existing physics state is cleared so replay starts deterministic
+		if player_reference.has_method("reset_physics"):
+			player_reference.reset_physics()
+			print("[PlayerManager] FIX: reset_physics() called on player_reference to clear legacy velocities")
+		# Also zero common velocity properties if present
+			# Use safe property checks via get(..., null) because Object/Node
+			# don't implement a generic `has()` method in Godot 3.6.
+			if player_reference.get("velocity") != null:
+				player_reference.velocity = Vector3()
+			if player_reference.get("linear_velocity") != null:
+				player_reference.linear_velocity = Vector3()
+	else:
+		# Normal path: enforce initial transform provided by caller
+		player_reference.global_transform = initial_transform
+		print("PlayerManager: Player spawned at: ", initial_transform.origin, " rotation: ", initial_transform.basis.get_euler())
+
+	# Emergency: if there's an active replay with initial camera snapshot, apply it now
+	if has_node("/root/ReplayManager"):
+		var rm = get_node("/root/ReplayManager")
+		if rm and rm.playback and rm.playback.current_replay:
+			var initials = rm.playback.current_replay.initial_states
+			# If initials were serialized as a JSON string, try to parse them.
+			if typeof(initials) == TYPE_STRING:
+				var parsed = parse_json(initials)
+				if typeof(parsed) == TYPE_DICTIONARY:
+					initials = ReplayUtils.from_json_safe(parsed)
+				else:
+					print("[PlayerManager] Warning: could not parse initial_states string from replay")
+			# If it's already a dictionary, ensure Godot types are restored (Vector3/Transform)
+			elif typeof(initials) == TYPE_DICTIONARY:
+				initials = ReplayUtils.from_json_safe(initials)
+			# Prefer a full camera dict
+			if initials.has("camera"):
+				var cam_state = initials["camera"]
+				var cam = player_reference.get_node_or_null("CameraRig")
+				if cam and cam.has_method("set_replay_state"):
+					cam.set_replay_state(cam_state)
+					if cam.has_method("update_camera_transform"):
+						cam.update_camera_transform()
+					print("[PlayerManager] Applied camera snapshot from replay on spawn")
+			# Fallback to top-level yaw/pitch shortcuts
+			elif initials.has("camera_yaw") and initials.has("camera_pitch"):
+				var cy = initials.get("camera_yaw", null)
+				var cp = initials.get("camera_pitch", null)
+				var cam2 = player_reference.get_node_or_null("CameraRig")
+				if cam2 and cam2.has_method("set_replay_state"):
+					cam2.set_replay_state({"yaw": cy, "pitch": cp})
+					if cam2.has_method("update_camera_transform"):
+						cam2.update_camera_transform()
+					print("[PlayerManager] Applied camera yaw/pitch from replay on spawn")
 	
 	# Set replay mode on PlayerInput if in replay
 	# Detect replay via GameGlobals or ReplayManager and mark player accordingly
@@ -135,7 +229,7 @@ func _deferred_spawn(initial_transform: Transform):
 	# Forzar alineación de cámara después de que el nodo esté en escena y transform aplicado.
 	# La función _align_camera_to_body() debe existir en el script del player.
 	# SOLO alinear si NO estamos en replay (para preservar la orientación grabada)
-	var replay_active := false
+	replay_active = false
 	if typeof(GameGlobals) != TYPE_NIL and GameGlobals:
 		replay_active = GameGlobals.is_replaying
 	# Also respect the player property if set

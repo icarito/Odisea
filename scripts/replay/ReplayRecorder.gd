@@ -90,7 +90,13 @@ func start_recording(): # This function now acts like a coroutine
 	# even if this function yields waiting for deferred nodes to enter the tree.
 	current_replay = replay
 
-	player = PlayerManager.get_player()
+	# Safe get player from PlayerManager if available, otherwise fallback to scene node
+	player = null
+	if typeof(PlayerManager) != TYPE_NIL and PlayerManager and PlayerManager.has_method("get_player"):
+		player = PlayerManager.get_player()
+	else:
+		if get_tree() and get_tree().current_scene:
+			player = get_tree().current_scene.find_node("Pilot", true, false)
 	var initial = {}
 	if player:
 		# If player was spawned via deferred call, it might not be in the SceneTree yet.
@@ -156,8 +162,8 @@ func start_recording(): # This function now acts like a coroutine
 			yield(get_tree(), "idle_frame")
 
 	replay.initial_states = ReplayUtils.to_json_safe(initial)
-	# Generate state hash for determinism verification
-	replay.state_hash = ReplayUtils.generate_state_hash(initial)
+	# Generate state hash for determinism verification using the JSON-safe form
+	replay.state_hash = ReplayUtils.generate_state_hash(replay.initial_states)
 	# mark initial states frame as 0 (recording starts at frame 0)
 	replay.initial_states_frame = 0
 	# Initialize last_frame_data with an empty inputs dict. This ensures the first
