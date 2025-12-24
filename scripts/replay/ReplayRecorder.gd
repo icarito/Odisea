@@ -98,31 +98,30 @@ func start_recording(): # This function now acts like a coroutine
 		if get_tree() and get_tree().current_scene:
 			player = get_tree().current_scene.find_node("Pilot", true, false)
 	var initial = {}
-	if player:
+	if is_instance_valid(player):
 		# If player was spawned via deferred call, it might not be in the SceneTree yet.
 		# Wait a single idle frame to allow deferred add_child() to complete,
 		# then only call get_path() if the node is inside the tree.
 		if not player.is_inside_tree():
 			yield(get_tree(), "idle_frame")
-	if player.is_inside_tree():
+		if player.is_inside_tree() and player.has_method("get_replay_state"):
 			initial["player"] = player.get_replay_state()
-		# Populate role_map
-	role_map["player"] = player
+			role_map["player"] = player
 	
 	# Add CameraRig state
 	if get_tree() and get_tree().current_scene:
 		var viewport_cam = null
 		if get_viewport():
 			viewport_cam = get_viewport().get_camera()
-		role_map["camera"] = camera_rig if camera_rig else viewport_cam
+		role_map["camera"] = camera_rig if is_instance_valid(camera_rig) else viewport_cam
 		if get_viewport():
 			viewport_cam = get_viewport().get_camera()
-		if camera_rig and camera_rig.has_method("get_replay_state"):
+		if is_instance_valid(camera_rig) and camera_rig.has_method("get_replay_state"):
 			if not camera_rig.is_inside_tree():
 				yield(get_tree(), "idle_frame")
 			if camera_rig.is_inside_tree():
 				initial["camera"] = camera_rig.get_replay_state()
-		elif viewport_cam and viewport_cam.has_method("get_replay_state"):
+		elif is_instance_valid(viewport_cam) and viewport_cam.has_method("get_replay_state"):
 			if not viewport_cam.is_inside_tree():
 				yield(get_tree(), "idle_frame")
 			if viewport_cam.is_inside_tree():
@@ -147,7 +146,7 @@ func start_recording(): # This function now acts like a coroutine
 				found_cam = get_tree().current_scene.find_node("CameraRig", true, false)
 			if not found_cam and get_viewport():
 				found_cam = get_viewport().get_camera()
-			if found_cam and found_cam.has_method("get_replay_state"):
+			if is_instance_valid(found_cam) and found_cam.has_method("get_replay_state"):
 				if not found_cam.is_inside_tree():
 					yield(get_tree(), "idle_frame")
 				if found_cam.is_inside_tree():
@@ -175,10 +174,10 @@ func start_recording(): # This function now acts like a coroutine
 	MouseCapture.set_capture(true)
 
 	# Ensure player/camera are part of the replay group so snapshots include them
-	if player and player.is_inside_tree():
+	if is_instance_valid(player) and player.is_inside_tree():
 		if not player.is_in_group(REPLAY_GROUP):
 			player.add_to_group(REPLAY_GROUP)
-	if camera_rig and camera_rig.is_inside_tree():
+	if is_instance_valid(camera_rig) and camera_rig.is_inside_tree():
 		if not camera_rig.is_in_group(REPLAY_GROUP):
 			camera_rig.add_to_group(REPLAY_GROUP)
 
@@ -202,9 +201,9 @@ func stop_recording() -> void:
 	# Before saving, record final_states snapshot for debugging/drift checks
 	var final_states = {}
 	# Use consistent keys: "player" and "camera"
-	if player and player.is_inside_tree() and player.has_method("get_replay_state"):
+	if is_instance_valid(player) and player.is_inside_tree() and player.has_method("get_replay_state"):
 		final_states["player"] = player.get_replay_state()
-	if camera_rig and camera_rig.is_inside_tree() and camera_rig.has_method("get_replay_state"):
+	if is_instance_valid(camera_rig) and camera_rig.is_inside_tree() and camera_rig.has_method("get_replay_state"):
 		final_states["camera"] = camera_rig.get_replay_state()
 	# Expose top-level camera yaw/pitch for final snapshot as well
 	if final_states.has("camera"):
@@ -273,7 +272,7 @@ func record_frame(delta: float) -> void:
 
 	# Optionally include lightweight player logical flags in each frame so playback
 	# can access them without needing a full snapshot (useful for tests).
-	if player and player.is_inside_tree() and player.has_method("get_replay_state"):
+	if is_instance_valid(player) and player.is_inside_tree() and player.has_method("get_replay_state"):
 		var pstate = player.get_replay_state()
 		frame_data["player_flags"] = {
 			"was_on_floor": pstate.get("was_on_floor", false),
@@ -298,16 +297,16 @@ func record_frame(delta: float) -> void:
 	if frame_index % SNAPSHOT_INTERVAL == 0:
 		var debug_snapshot = {}
 		for node in get_tree().get_nodes_in_group(REPLAY_GROUP):
-			if not node.is_inside_tree():
+			if not is_instance_valid(node) or not node.is_inside_tree():
 				continue
 			if node.has_method("get_replay_state"):
 				debug_snapshot[node.name] = node.get_replay_state()
 
 		# Record states for drift measurement (player and camera positions)
 		var states = {}
-		if player and player.is_inside_tree():
+		if is_instance_valid(player) and player.is_inside_tree():
 			states["player"] = player.get_replay_state()
-		if camera_rig and camera_rig.has_method("get_replay_state") and camera_rig.is_inside_tree():
+		if is_instance_valid(camera_rig) and camera_rig.has_method("get_replay_state") and camera_rig.is_inside_tree():
 			states["camera"] = camera_rig.get_replay_state()
 		# Attach the frame index to the snapshot entry so we know which frame it corresponds to
 		states["frame_index"] = frame_index

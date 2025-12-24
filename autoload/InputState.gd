@@ -274,7 +274,7 @@ func _record_current_frame():
 	var frame = {
 		"inputs": inputs_snapshot,
 		"axes": axes_snapshot,
-		"mouse_delta": recorded_mouse_delta,
+		"mouse_delta": {"x": FixedPoint.to_fixed(recorded_mouse_delta.x), "y": FixedPoint.to_fixed(recorded_mouse_delta.y)},
 		"strafing_active": is_strafing_mode_active,
 		"strafing_timer": strafing_timer,
 		"camera_yaw": cam_yaw,
@@ -300,8 +300,21 @@ func _apply_replay_frame():
 	# to avoid jumps caused by immediate delta application.
 	if md is String:
 		mouse_delta = str2var("Vector2" + md)
+	elif md is Vector2:
+		mouse_delta = md
+	elif md is Dictionary:
+		mouse_delta = Vector2(
+			FixedPoint.from_fixed(md.get("x", 0)),
+			FixedPoint.from_fixed(md.get("y", 0))
+		)
+	elif md is Array and md.size() >= 2:
+		mouse_delta = Vector2(
+			FixedPoint.from_fixed(md[0]),
+			FixedPoint.from_fixed(md[1])
+		)
 	else:
-		mouse_delta = Vector2(FixedPoint.from_fixed(md.get("x", 0)), FixedPoint.from_fixed(md.get("y", 0)))
+		# Fallback to zero if format is unexpected
+		mouse_delta = Vector2.ZERO
 	recorded_mouse_delta = mouse_delta
 	is_strafing_mode_active = frame.get("strafing_active", false)
 	strafing_timer = frame.get("strafing_timer", 0.0)
