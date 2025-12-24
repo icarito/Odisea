@@ -267,6 +267,10 @@ func record_frame(delta: float) -> void:
 		"timestamp": Time.get_ticks_usec() - start_time
 	}
 
+	# Reset recorded_mouse_delta immediately after capturing to prevent accumulation
+	if input_state_node:
+		input_state_node.recorded_mouse_delta = Vector2.ZERO
+
 	# Optionally include lightweight player logical flags in each frame so playback
 	# can access them without needing a full snapshot (useful for tests).
 	if player and player.is_inside_tree() and player.has_method("get_replay_state"):

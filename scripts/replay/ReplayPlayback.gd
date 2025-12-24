@@ -878,6 +878,23 @@ func _set_tracked_nodes_physics_process(enabled: bool) -> void:
 			print("[ReplayPlayback] _set_tracked_nodes_physics_process: Node ", node, " physics enabled? ", enabled, node.is_physics_processing())
 
 func _set_node_state(node: Node, state: Dictionary) -> void:
+	if node.name == "CameraRig":
+		var current_yaw = 0.0
+		if node.get("yaw") != null and typeof(node.get("yaw")) in [TYPE_REAL, TYPE_INT]:
+			current_yaw = float(node.get("yaw"))
+		var recorded_yaw = current_yaw
+		if state.has("yaw") and typeof(state["yaw"]) in [TYPE_REAL, TYPE_INT]:
+			recorded_yaw = float(state["yaw"])
+		if abs(current_yaw - recorded_yaw) > deg2rad(5.0):
+			if node.has_method("set_replay_state"):
+				node.set_replay_state(state)
+				if node.has_method("update_camera_transform"):
+					node.update_camera_transform()
+			_debug_log("[ReplayPlayback] _set_node_state: applied CameraRig state due to large drift yaw_diff=%s" % str(abs(current_yaw - recorded_yaw)))
+		else:
+			_debug_log("[ReplayPlayback] _set_node_state: skipped CameraRig state application, small drift yaw_diff=%s" % str(abs(current_yaw - recorded_yaw)))
+		return
+	
 	if node.has_method("set_replay_state"):
 		node.set_replay_state(state)
 		# Force immediate update if available
