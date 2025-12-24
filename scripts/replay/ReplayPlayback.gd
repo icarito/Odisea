@@ -21,6 +21,11 @@ const FIXED_DELTA = 1.0 / 60.0 # Fixed delta for 60 FPS simulation
 const IGNORE_THRESHOLD = 0.05 # Ignore micro-drift to eliminate floating (raised)
 const FAST_LERP_THRESHOLD = 0.05 # Use ultra-fast LERP if between this and SNAP
 const SNAP_THRESHOLD = 0.2 # Instant correction threshold (20cm) — raised to avoid small snaps
+
+# Drift correction tuning (velocity-based 'magnet')
+const DRIFT_MAGNET_STRENGTH = 5.0
+const IGNORE_DRIVE_THRESHOLD = 0.03
+const MAX_PHYSICS_CORRECTION = 2.0
 const LERP_STRENGTH_ULTRA_FAST = 200.0 # Ultra-fast LERP strength
 # const PILOT_STATE_KEY = "@Pilot@10" # REMOVED: Use dynamic player path instead
 
@@ -138,6 +143,9 @@ func _physics_process(delta: float) -> void:
 	
 	# Apply inputs (for camera and other non-physics systems)
 	_apply_inputs_from_frame(frame_data)
+
+	# Apply per-frame velocity-based drift correction (magnet) to avoid snaps
+	_apply_velocity_drift_correction(frame_data)
 
 	# Periodically check for drift and correct the pilot position
 	if frame_count % RESYNC_INTERVAL == 0:
@@ -759,23 +767,30 @@ func _frames_with_hold(orig_frames: Array, hold_frames: int) -> Array:
 	return result
 
 func check_for_drift(frame_data: Dictionary) -> void:
-	print("[DRIFT_DEBUG] check_for_drift called for frame ", InputState.replay_frame)
+	# Velocity-based drift correction (magnet) — avoids snapping and yank.
 	if not player:
-		print("[DRIFT_DEBUG] No player")
+		_debug_log("check_for_drift: no player")
 		return
-	# Calculate state_index based on snapshot interval
-	var state_index = int(InputState.replay_frame / 10.0)
-	if state_index < 0:
-		state_index = 0
-	if state_index >= current_replay.frame_states.size():
-		print("[DRIFT_DEBUG] state_index out of range: ", state_index)
-		return
-	var recorded_state = current_replay.frame_states[state_index]
 
-	# Resolve which key in recorded_state corresponds to the current player node.
+	# Prefer to use per-frame recorded state if available; fall back to nearest snapshot
+	var frame_idx = InputState.replay_frame
+	var recorded_state = null
+	if current_replay and current_replay.frame_states.size() > frame_idx:
+		recorded_state = current_replay.frame_states[frame_idx]
+	else:
+		# fallback: use closest available snapshot
+		var idx = int(frame_idx)
+		if current_replay and current_replay.frame_states.size() > 0:
+			idx = clamp(idx, 0, current_replay.frame_states.size() - 1)
+			recorded_state = current_replay.frame_states[idx]
+
+	if not recorded_state:
+		_debug_log("check_for_drift: no recorded_state")
+		return
+
+	# Resolve player key
 	var player_key = node_key_map.get(player.name, null)
 	if player_key == null:
-		# Try to discover by comparing resolved nodes for keys in the snapshot
 		for k in recorded_state.keys():
 			if k == "frame_index":
 				continue
@@ -786,72 +801,47 @@ func check_for_drift(frame_data: Dictionary) -> void:
 				break
 
 	if player_key == null or not recorded_state.has(player_key):
-		print("[DRIFT_DEBUG] recorded_state does not have player_path: ", player_path, " mapped_key:", player_key)
+		_debug_log("check_for_drift: no player_key or missing data")
 		return
-	
-	var expected_transform_dict = recorded_state[player_key]["global_transform"]
-	var expected_transform = ReplayUtils.dict_to_transform(expected_transform_dict)
-	if not expected_transform is Transform:
-		print("[DRIFT_DEBUG] dict_to_transform failed")
+
+	var rec = recorded_state[player_key]
+	if not rec or not rec.has("global_transform"):
+		_debug_log("check_for_drift: no global_transform in recorded player state")
 		return
-	
-	var expected_origin = expected_transform.origin
-	var current_origin = player.global_transform.origin
-	var divergence = current_origin.distance_to(expected_origin)
-	var current_pos = current_origin
-	var target_pos = expected_origin
-	
-	# Detailed logging for debugging
-	print("[DRIFT_DEBUG] Frame %s | Divergence: %s | Current Pos: %s | Target Pos: %s" % [InputState.replay_frame, divergence, current_pos, target_pos])
-	print("[Drift] Frame: %s | Nodo: %s | Distancia: %s" % [InputState.replay_frame, player.name, divergence])
-	
-	if divergence <= IGNORE_THRESHOLD:
-		# Ignore micro-drift to eliminate floating
-		print("[DRIFT_DEBUG] Correction Applied: NONE")
+
+	var expected_transform = ReplayUtils.dict_to_transform(rec["global_transform"])
+	if not expected_transform:
+		_debug_log("check_for_drift: failed to build expected_transform")
 		return
-	
-	if divergence > MAX_CORRECTION_DISTANCE:
-		# Instant snap for large divergences
+
+	var expected_pos = expected_transform.origin
+	var current_pos = player.global_transform.origin
+	var error_vec = expected_pos - current_pos
+	var divergence = error_vec.length()
+
+	_debug_log("check_for_drift: frame=%s divergence=%s" % [InputState.replay_frame, divergence])
+
+	if divergence <= IGNORE_DRIVE_THRESHOLD:
+		# small error -> no correction
+		player.set("replay_velocity_correction", null)
+		return
+
+	# If extremely divergent, snap as last resort
+	if divergence > 1.0:
 		player.global_transform = expected_transform
-		print("[DRIFT_DEBUG] Correction Applied: SNAP")
-	else:
-		# Smooth LERP for smaller divergences
-		var t = 1.0 - exp(-FIXED_DELTA * LERP_STRENGTH_ULTRA_FAST)
-		player.global_transform.origin = player.global_transform.origin.linear_interpolate(expected_transform.origin, t)
-		player.global_transform.basis = player.global_transform.basis.slerp(expected_transform.basis, t)
-		print("[DRIFT_DEBUG] Correction Applied: LERP")
-	
-	# Always correct velocity smoothly if position was corrected
-	# Use the mapped player key (player_key) rather than the generic player_path
-	# and guard against missing entries to avoid invalid dictionary index errors.
-	var player_data = null
-	if player_key != null and recorded_state.has(player_key):
-		player_data = recorded_state[player_key]
-	if player_data and typeof(player_data) == TYPE_DICTIONARY and player_data.has("velocity"):
-		var expected_velocity = ReplayUtils.dict_to_vector3(player_data["velocity"])
-		player.velocity = player.velocity.linear_interpolate(expected_velocity, LERP_STRENGTH_ULTRA_FAST)
-	
-	# Correct camera/state for non-player nodes
-	for path in recorded_state:
-		if path == "frame_index":
-			continue
-		if path == player_key:
-			continue
-		var node = _resolve_node(path)
-		if not node:
-			continue
-		# Skip correcting camera-like nodes during playback except at frame 0
-		var lname = str(node.name).to_lower()
-		if InputState.replay_frame != 0 and (lname.find("camera") != -1 or node.has_method("process_camera_rotation") or node.has_method("update_camera_transform")):
-			print("[DRIFT_DEBUG] Skipping camera correction for node: " + str(node.name))
-			continue
-		if node and node.has_method("set_replay_state"):
-			var recorded_node_state = recorded_state[path]
-			node.set_replay_state(recorded_node_state)
-			# Ensure immediate update if available
-			if node.has_method("update_camera_transform"):
-				node.update_camera_transform()
-			print("[DRIFT_DEBUG] Corrected " + path)
+		player.set("replay_velocity_correction", null)
+		_debug_log("check_for_drift: huge divergence snap applied")
+		return
+
+	# Compute a corrective velocity (magnet), scale to fixed-delta as an impulse
+	var correction_vel = error_vec * DRIFT_MAGNET_STRENGTH
+	var correction_delta = correction_vel * FIXED_DELTA
+	if correction_delta.length() > MAX_PHYSICS_CORRECTION:
+		correction_delta = correction_delta.normalized() * MAX_PHYSICS_CORRECTION
+
+	# Store correction on player for consumption by PlayerController just before move_and_slide
+	player.set("replay_velocity_correction", correction_delta)
+	_debug_log("check_for_drift: applying velocity correction %s" % str(correction_delta))
 
 func _apply_smooth_correction(node: Spatial, expected_transform: Transform, lerp_factor: float) -> void:
 	var t: float
@@ -916,91 +906,159 @@ func _set_node_state(node: Node, state: Dictionary) -> void:
 		if InputState and InputState.replay_frame != 0:
 			_debug_log("_set_node_state: skipping CameraRig apply after frame 0 to avoid yank")
 			return
-		var current_yaw = 0.0
-		if node.get("yaw") != null and typeof(node.get("yaw")) in [TYPE_REAL, TYPE_INT]:
-			current_yaw = float(node.get("yaw"))
-		var recorded_yaw = current_yaw
-		if state.has("yaw") and typeof(state["yaw"]) in [TYPE_REAL, TYPE_INT]:
-			recorded_yaw = float(state["yaw"])
-		if abs(current_yaw - recorded_yaw) > deg2rad(2.0):
-			if node.has_method("set_replay_state"):
-				node.set_replay_state(state)
-				if node.has_method("update_camera_transform"):
-					node.update_camera_transform()
-			_debug_log("[ReplayPlayback] _set_node_state: applied CameraRig state due to large drift yaw_diff=%s" % str(abs(current_yaw - recorded_yaw)))
-		else:
-			_debug_log("[ReplayPlayback] _set_node_state: skipped CameraRig state application, small drift yaw_diff=%s" % str(abs(current_yaw - recorded_yaw)))
+
+	# Apply generic node state handling (yaw/pitch shortcut + set_replay_state path)
+	var current_yaw = 0.0
+	if node.get("yaw") != null and typeof(node.get("yaw")) in [TYPE_REAL, TYPE_INT]:
+		current_yaw = float(node.get("yaw"))
+	var recorded_yaw = current_yaw
+	if state.has("yaw") and typeof(state["yaw"]) in [TYPE_REAL, TYPE_INT]:
+		recorded_yaw = float(state["yaw"])
+	if abs(current_yaw - recorded_yaw) > deg2rad(2.0):
+		if node.has_method("set_replay_state"):
+			node.set_replay_state(state)
+			if node.has_method("update_camera_transform"):
+				node.update_camera_transform()
+		_debug_log("[ReplayPlayback] _set_node_state: applied CameraRig state due to large drift yaw_diff=%s" % str(abs(current_yaw - recorded_yaw)))
+	else:
+		_debug_log("[ReplayPlayback] _set_node_state: skipped CameraRig state application, small drift yaw_diff=%s" % str(abs(current_yaw - recorded_yaw)))
 		return
-	
+
 	if node.has_method("set_replay_state"):
 		node.set_replay_state(state)
 		# Force immediate update if available
 		if node.has_method("update_camera_transform"):
 			node.update_camera_transform()
 		_debug_log("[ReplayPlayback] _set_node_state: used set_replay_state on %s" % str(node.name))
+		# Also handle explicit state keys that may not be covered by set_replay_state
+		var s = ReplayUtils.from_json_safe(state)
+		for key in s:
+			if key == "global_transform" and node is Spatial:
+				var transform_val = s[key]
+				if transform_val is String:
+					var parsed_val = str2var(transform_val)
+					if parsed_val is Transform:
+						node.global_transform = parsed_val
+				elif transform_val is Transform:
+					node.global_transform = transform_val
+				elif transform_val is Dictionary:
+					node.global_transform = ReplayUtils.dict_to_transform(transform_val)
+			elif key == "linear_velocity" and node is RigidBody:
+				if s[key] is Vector3:
+					node.linear_velocity = s[key]
+				elif s[key] is Dictionary:
+					node.linear_velocity = ReplayUtils.dict_to_vector3(s[key])
+			elif key == "angular_velocity" and node is RigidBody:
+				if s[key] is Vector3:
+					node.angular_velocity = s[key]
+				elif s[key] is Dictionary:
+					node.angular_velocity = ReplayUtils.dict_to_vector3(s[key])
+			elif key == "camera_yaw" and node is Spatial:
+				var yaw_val = s.get("camera_yaw", null)
+				var pitch_val = s.get("camera_pitch", null)
+				if yaw_val != null and pitch_val != null:
+					if node.has_method("set_replay_state"):
+						node.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
+						_debug_log("[ReplayPlayback] _set_node_state: applied camera yaw/pitch via set_replay_state on %s yaw=%s pitch=%s" % [str(node.name), str(yaw_val), str(pitch_val)])
+						return
+					# Common explicit CameraOrbit child node
+					var cam_orbit = node.get_node_or_null("CameraOrbit")
+					if cam_orbit:
+						if cam_orbit.has_variable("yaw"):
+							cam_orbit.yaw = float(yaw_val)
+						if cam_orbit.has_variable("pitch"):
+							cam_orbit.pitch = float(pitch_val)
+						if cam_orbit.has_method("update_camera_transform"):
+							cam_orbit.update_camera_transform()
+						_debug_log("[ReplayPlayback] _set_node_state: applied camera yaw/pitch to CameraOrbit on %s yaw=%s pitch=%s" % [str(node.name), str(yaw_val), str(pitch_val)])
+						return
+					var yaw_node = node.get_node_or_null("Yaw")
+					if not yaw_node:
+						yaw_node = node.get_node_or_null("h")
+					if yaw_node:
+						yaw_node.rotation.y = float(yaw_val)
+						var pitch_node = yaw_node.get_node_or_null("Pitch")
+						if not pitch_node:
+							pitch_node = yaw_node.get_node_or_null("v")
+						if pitch_node:
+							pitch_node.rotation.x = float(pitch_val)
+						_debug_log("[ReplayPlayback] _set_node_state: applied camera yaw/pitch via yaw_node on %s yaw=%s pitch=%s" % [str(node.name), str(yaw_val), str(pitch_val)])
+			elif key == "camera_pitch" and node is Spatial:
+				# handled above when camera_yaw is present; ignore single-key here
+				pass
+		# End for
 		return
-	state = ReplayUtils.from_json_safe(state) # Convert the entire state dictionary from JSON-safe types to Godot types
-	for key in state:
-		if key == "global_transform" and node is Spatial:
-			var transform_val = state[key]
-			if transform_val is String:
-				# Attempt to parse as a standard Godot Transform string (e.g., Transform(1,0,0,...))
-				var parsed_val = str2var(transform_val)
-				if parsed_val is Transform:
-					node.global_transform = parsed_val # Legacy support for old string formats
-			elif transform_val is Transform:
-				node.global_transform = transform_val
-			elif transform_val is Dictionary:
-				node.global_transform = ReplayUtils.dict_to_transform(transform_val)
-		elif key == "linear_velocity" and node is RigidBody:
-			if state[key] is Vector3:
-				node.linear_velocity = state[key]
-			elif state[key] is Dictionary:
-				node.linear_velocity = ReplayUtils.dict_to_vector3(state[key])
-		elif key == "angular_velocity" and node is RigidBody:
-			if state[key] is Vector3:
-				node.angular_velocity = state[key]
-			elif state[key] is Dictionary:
-				node.angular_velocity = ReplayUtils.dict_to_vector3(state[key])
-		# Support explicit camera yaw/pitch entries stored in initial_states or node states
-		elif key == "camera_yaw" and node is Spatial:
-			var yaw_val = state.get("camera_yaw", null)
-			var pitch_val = state.get("camera_pitch", null)
-			if yaw_val != null and pitch_val != null:
-				# Prefer high-level API if camera rig provides it
-				if node.has_method("set_replay_state"):
-					node.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
-					_debug_log("[ReplayPlayback] _set_node_state: applied camera yaw/pitch via set_replay_state on %s yaw=%s pitch=%s" % [str(node.name), str(yaw_val), str(pitch_val)])
-					return
-				# Common explicit CameraOrbit child node (most rigs use a single orbit controller)
-				var cam_orbit = node.get_node_or_null("CameraOrbit")
-				if cam_orbit:
-					# Some CameraOrbit implementations expose yaw/pitch properties
-					if cam_orbit.has_variable("yaw"):
-						cam_orbit.yaw = float(yaw_val)
-					if cam_orbit.has_variable("pitch"):
-						cam_orbit.pitch = float(pitch_val)
-					# Force an update if method exists
-					if cam_orbit.has_method("update_camera_transform"):
-						cam_orbit.update_camera_transform()
-					_debug_log("[ReplayPlayback] _set_node_state: applied camera yaw/pitch to CameraOrbit on %s yaw=%s pitch=%s" % [str(node.name), str(yaw_val), str(pitch_val)])
-					return
-				# Fallback to Yaw/Pitch or h/v node layout
-				var yaw_node = node.get_node_or_null("Yaw")
-				if not yaw_node:
-					yaw_node = node.get_node_or_null("h")
-				if yaw_node:
-					yaw_node.rotation.y = float(yaw_val)
-					var pitch_node = yaw_node.get_node_or_null("Pitch")
-					if not pitch_node:
-						pitch_node = yaw_node.get_node_or_null("v")
-					if pitch_node:
-						pitch_node.rotation.x = float(pitch_val)
-					_debug_log("[ReplayPlayback] _set_node_state: applied camera yaw/pitch via yaw_node on %s yaw=%s pitch=%s" % [str(node.name), str(yaw_val), str(pitch_val)])
-		elif key == "camera_pitch" and node is Spatial:
-			# handled above when camera_yaw is present; ignore single-key here
-			pass
 
+func _apply_velocity_drift_correction(frame_data: Dictionary) -> void:
+	# Continuous velocity-based drift correction applied every physics frame.
+	if not player or not current_replay:
+		return
+
+	var frame_idx = InputState.replay_frame
+	var recorded_state = null
+	if current_replay.frame_states.size() > frame_idx:
+		recorded_state = current_replay.frame_states[frame_idx]
+	else:
+		# fallback to nearest
+		if current_replay.frame_states.size() > 0:
+			var idx = clamp(frame_idx, 0, current_replay.frame_states.size() - 1)
+			recorded_state = current_replay.frame_states[idx]
+
+	if not recorded_state:
+		return
+
+	# find player key
+	var player_key = node_key_map.get(player.name, null)
+	if player_key == null:
+		for k in recorded_state.keys():
+			if k == "frame_index":
+				continue
+			var resolved = _resolve_node(k)
+			if resolved == player:
+				player_key = k
+				node_key_map[player.name] = k
+				break
+
+	if player_key == null or not recorded_state.has(player_key):
+		return
+
+	var rec = recorded_state[player_key]
+	if not rec or not rec.has("global_transform"):
+		return
+
+	var expected_transform = ReplayUtils.dict_to_transform(rec["global_transform"])
+	if not expected_transform:
+		return
+
+	var expected_pos = expected_transform.origin
+	var current_pos = player.global_transform.origin
+	var error_vec = expected_pos - current_pos
+	var divergence = error_vec.length()
+
+	if divergence <= IGNORE_DRIVE_THRESHOLD:
+		# nothing to do
+		player.set("replay_velocity_correction", null)
+		return
+
+	if divergence > 1.0:
+		# snap as last resort
+		player.global_transform = expected_transform
+		player.set("replay_velocity_correction", null)
+		print("[ReplayPlayback] DRIFT: snap applied for large divergence", divergence)
+		return
+
+	# Compute correction velocity (magnet) and clamp
+	var correction_vel = error_vec * DRIFT_MAGNET_STRENGTH
+	# Convert to per-frame delta-scaled impulse
+	var correction_delta = correction_vel * FIXED_DELTA
+	if correction_delta.length() > MAX_PHYSICS_CORRECTION:
+		correction_delta = correction_delta.normalized() * MAX_PHYSICS_CORRECTION
+
+	# Write correction to player for consumption
+	player.set("replay_velocity_correction", correction_delta)
+	# Debug
+	print("[ReplayPlayback] DRIFT: applied correction", correction_delta, "divergence", divergence)
+	return
 func _compare_states(a, b, epsilon = 0.001):
 	# Allow numeric type differences (int vs float) by normalizing here.
 	if typeof(a) in [TYPE_REAL, TYPE_INT] and typeof(b) in [TYPE_REAL, TYPE_INT]:
