@@ -255,6 +255,12 @@ func _record_current_frame():
 	for k in AXIS_KEYS:
 		axes_snapshot[k] = float(axes.get(k, 0.0))
 
+	# --- SINCRONIZACIÓN DE ESTADO FÍSICO ---
+	# Grabar el estado 'is_on_floor' para forzar la tracción en el replay.
+	var on_floor = false
+	if pilot and pilot.has_method("is_on_floor"):
+		on_floor = pilot.is_on_floor()
+
 	# --- SINCRONIZACIÓN DE ÁNGULO ABSOLUTO ---
 	# Grabar el yaw y pitch absolutos de la cámara en cada frame.
 	var cam_yaw = 0.0
