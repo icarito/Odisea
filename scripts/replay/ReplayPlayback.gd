@@ -118,6 +118,18 @@ func _physics_process(delta: float) -> void:
 	# 2. Aplicar corrección de posición suave (Lerp) o dura (Snap)
 	check_for_drift(frame_data)
 
+	# --- SINCRONIZACIÓN DE ÁNGULO ABSOLUTO (OBLIGATORIO) ---
+	# En cada frame, en lugar de usar mouse_delta, forzamos el estado absoluto
+	# de la cámara usando los valores de yaw y pitch grabados en el frame.
+	if frame_data.has("camera_yaw") and frame_data.has("camera_pitch"):
+		if not camera_rig: camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+		if camera_rig and camera_rig.has_method("set_replay_state"):
+			var camera_state = {
+				"yaw": frame_data.camera_yaw,
+				"pitch": frame_data.camera_pitch
+			}
+			camera_rig.set_replay_state(camera_state)
+
 	# --- SINCRONIZACIÓN DE ANIMACIONES ---
 	if player and player.has_node("PlayerAnimationTree"):
 		var anim_tree = player.get_node("PlayerAnimationTree")
@@ -147,21 +159,7 @@ func _physics_process(delta: float) -> void:
 	# --- SINCRONIZACIÓN ESTRICTA DE CÁMARA ---
 	# Forzar la rotación de la cámara AHORA MISMO, usando el mouse_delta que acabamos de inyectar.
 	# Esto asegura que la cámara esté en la orientación correcta ANTES de que el PlayerController
-	# ejecute su _physics_process y calcule su vector de movimiento.
-	if InputState.mouse_delta.length_squared() > 0:
-		if not camera_rig:
-			camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-		
-		if camera_rig and camera_rig.has_method("force_rotate_for_playback"):
-			_debug_log("Forcing camera rotation with delta: " + str(InputState.mouse_delta))
-			# Llamamos a la función específica de replay para una rotación instantánea.
-			camera_rig.force_rotate_for_playback(InputState.mouse_delta)
-			if camera_rig.has_method("update_camera_transform"):
-				camera_rig.update_camera_transform()
-			# Limpiar el delta DESPUÉS de usarlo para evitar que se procese de nuevo.
-			if InputState.has_method("set"):
-				InputState.set("mouse_delta", Vector2.ZERO)
-
+	# ejecute su _physics_process y calcule su vector de movimiento. (AHORA MANEJADO POR ESTADO ABSOLUTO)
 
 	# Note: frame advancement is handled by InputState
 	emit_signal("frame_updated", InputState.replay_frame, total_logical_frames)
@@ -928,9 +926,20 @@ func check_for_drift(frame_data: Dictionary) -> void:
 		player.set("replay_velocity_correction", velocity_hacia_objetivo)
 		_debug_log("check_for_drift: set replay_velocity_correction on player: %s" % str(velocity_hacia_objetivo))
 
-	# Sincronización Total de Ángulos de Cámara
+	# 1. Sincronización Forzada de Ángulos
+	# No confíes solo en el mouse_delta. En el método _check_for_drift, añade una corrección para la cámara.
+	# Cada N frames (junto con la posición), busca el yaw y pitch grabados en el JSON y oblígale a la cámara a tomarlos.
 	var camera_key = node_key_map.get("CameraRig", null)
-	if camera_key and recorded_state.has(camera_key):
+	if camera_key == null:
+		# Intenta encontrar la clave de la cámara si aún no está mapeada
+		for k in recorded_state.keys():
+			if str(k).to_lower().find("camera") != -1:
+				camera_key = k
+				node_key_map["CameraRig"] = k
+				break
+
+	# Sincronización Total de Ángulos de Cámara
+	if camera_key != null and recorded_state.has(camera_key):
 		var rec_cam_state = recorded_state[camera_key]
 		var cam_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 		if cam_rig and cam_rig.has_method("set_replay_state"):
