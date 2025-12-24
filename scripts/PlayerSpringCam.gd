@@ -254,12 +254,15 @@ func _update_camera_fov():
 	var new_fov_rad = 2.0 * atan(tan(original_fov_rad / 2.0) * scale)
 	cam.fov = rad2deg(new_fov_rad)
 
+func _round(v: float) -> float:
+	return round(v * 1000000.0) / 1000000.0
+
 # Replay state methods
 func get_replay_state() -> Dictionary:
 	return {
-		"yaw": yaw.rotation.y if yaw else 0.0,
-		"pitch": pitch.rotation.x if pitch else 0.0,
-		"spring_length": springarm.spring_length if springarm else base_length
+		"yaw": _round(yaw.rotation.y) if yaw else 0.0,
+		"pitch": _round(pitch.rotation.x) if pitch else 0.0,
+		"spring_length": round((springarm.spring_length if springarm else base_length) * 1000000.0) / 1000000.0
 	}
 
 func set_replay_state(state: Dictionary) -> void:

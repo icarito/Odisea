@@ -743,11 +743,9 @@ func _physics_process(delta):
 	# Update velocity components from the result for the next frame
 	horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
 	horizontal_velocity_fixed = FixedVec3.from_vec3(horizontal_velocity)
-	print("[PlayerController] Velocidad horizontal fixed actualizada:", horizontal_velocity_fixed)
 	if movement_comp:
 		movement_comp.horizontal_velocity = horizontal_velocity
 	vertical_velocity_fixed = FixedVec3.from_vec3(Vector3(0, velocity.y, 0))
-	print("[PlayerController] Velocidad vertical fixed actualizada (post-slide):", vertical_velocity_fixed)
 	
 	# Snapping to zero to prevent numerical drift
 	if is_on_floor() and horizontal_velocity.length_squared() < 0.0001:
@@ -928,29 +926,40 @@ func dump_state() -> Dictionary:
 	
 	return state
 
+func _roundf(v: float) -> float:
+	return round(v * 1000.0) / 1000.0
+
+func _vec3_to_dict_round(v: Vector3) -> Dictionary:
+	return {"x": _roundf(v.x), "y": _roundf(v.y), "z": _roundf(v.z)}
+
+func _basis_to_dict_round(b: Basis) -> Dictionary:
+	return {"x": _vec3_to_dict_round(b.x), "y": _vec3_to_dict_round(b.y), "z": _vec3_to_dict_round(b.z)}
+
 func get_replay_state() -> Dictionary:
 	if not is_inside_tree():
 		return {}
-	# This function should return raw Godot types.
-	# The ReplayRecorder is responsible for converting them to a JSON-safe format.
-		
+	# Produce a JSON-safe, canonical representation with rounded floats
+
 	var state = {
-		"global_transform": ReplayUtils.transform_to_dict(global_transform),
-		"player_position": ReplayUtils.vector3_to_dict(global_transform.origin),
+		"global_transform": {
+			"basis": _basis_to_dict_round(global_transform.basis),
+			"origin": _vec3_to_dict_round(global_transform.origin)
+		},
+		"player_position": _vec3_to_dict_round(global_transform.origin),
 		"platform_velocity_fixed": ReplayUtils.vector3_to_dict(FixedVec3.to_vec3(platform_velocity_fixed)),
-		"airborne_inherited": ReplayUtils.vector3_to_dict(airborne_inherited),
-		"just_jumped": just_jumped,
-		"time_since_jump": time_since_jump,
-		"time_since_input": time_since_input,
-		"was_on_floor": was_on_floor,
-		"snap_enabled": snap_enabled,
-		"rotation": ReplayUtils.vector3_to_dict(rotation),
-		"basis": ReplayUtils.basis_to_dict(global_transform.basis),
-		"velocity": ReplayUtils.vector3_to_dict(velocity), # Record the final velocity AFTER move_and_slide
-		"pre_move_velocity": ReplayUtils.vector3_to_dict(pre_move_velocity_for_replay),
-		"calculated_direction": ReplayUtils.vector3_to_dict(direction),
-		
-		# --- FIXED-POINT DATA FOR DETERMINISTIC REPLAY ---
+		"airborne_inherited": _vec3_to_dict_round(airborne_inherited),
+		"just_jumped": bool(just_jumped),
+		"time_since_jump": _roundf(time_since_jump),
+		"time_since_input": _roundf(time_since_input),
+		"was_on_floor": bool(was_on_floor),
+		"snap_enabled": bool(snap_enabled),
+		"rotation": _vec3_to_dict_round(rotation),
+		"basis": _basis_to_dict_round(global_transform.basis),
+		"velocity": _vec3_to_dict_round(velocity), # final velocity AFTER move_and_slide
+		"pre_move_velocity": _vec3_to_dict_round(pre_move_velocity_for_replay),
+		"calculated_direction": _vec3_to_dict_round(direction),
+
+		# Fixed-point representations (retain for deterministic restore)
 		"player_position_fixed": ReplayUtils.vector3_to_fixed_dict(global_transform.origin),
 		"velocity_fixed": ReplayUtils.vector3_to_fixed_dict(velocity),
 		"basis_fixed": ReplayUtils.basis_to_fixed_dict(global_transform.basis)

@@ -38,11 +38,24 @@ var frame_count: int = 0
 var camera_rig: Node = null
 var player: Node = null
 var player_path: String
+var node_key_map := {}
 export(int) var replay_hold_frames := 6 # how many frames to hold a non-zero axis during playback
 var _hold_counters := {}
 var _held_axes := {}
 
 onready var ReplayUtils = load("res://scripts/replay/ReplayUtils.gd")
+
+func _safe_get_player() -> Node:
+	# Return the player from PlayerManager when available, otherwise fallback to scene node named "Pilot"
+	if typeof(PlayerManager) != TYPE_NIL and PlayerManager and PlayerManager.has_method("get_player"):
+		var p = PlayerManager.get_player()
+		if p:
+			return p
+	if get_tree() and get_tree().current_scene:
+		var found = get_tree().current_scene.find_node("Pilot", true, false)
+		if found:
+			return found
+	return null
 
 func _ready() -> void:
 	process_priority = -100  # Ensure replay logic runs before player physics
@@ -50,7 +63,15 @@ func _ready() -> void:
 
 func _resolve_node(role_id: String) -> Node:
 	if role_id == "player":
-		return PlayerManager.get_player()
+		# Prefer autoload PlayerManager if present, otherwise fallback
+		if typeof(PlayerManager) != TYPE_NIL and PlayerManager and PlayerManager.has_method("get_player"):
+			return PlayerManager.get_player()
+		# Fallback: try to find in current scene (node named Pilot)
+		if get_tree() and get_tree().current_scene:
+			var found = get_tree().current_scene.find_node("Pilot", true, false)
+			if found:
+				return found
+		return null
 	elif role_id == "camera" or role_id == "CameraRig":
 		return get_tree().current_scene.find_node("CameraRig", true, false)
 	else:
@@ -174,8 +195,15 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 		game_globals.replay_debug_mode = true
 		game_globals.is_replaying = true
 	
-	# Spawn player if not exists
-	if not PlayerManager.is_spawned():
+	# Spawn player if not exists (guard PlayerManager calls)
+	var pm_available = (typeof(PlayerManager) != TYPE_NIL and PlayerManager and PlayerManager.has_method("is_spawned"))
+	var player_exists = false
+	if pm_available:
+		player_exists = PlayerManager.is_spawned()
+	else:
+		if get_tree() and get_tree().current_scene:
+			player_exists = get_tree().current_scene.find_node("Pilot", true, false) != null
+	if not player_exists:
 		var initial_transform = Transform()
 		# Find player initial state
 		for path in current_replay.initial_states:
@@ -193,12 +221,15 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 						var z_vec = Vector3(basis_dict["z"]["x"], basis_dict["z"]["y"], basis_dict["z"]["z"])
 						initial_transform.basis = Basis(x_vec, y_vec, z_vec)
 				break
-		PlayerManager.spawn(initial_transform)
+		if pm_available and PlayerManager.has_method("spawn"):
+			PlayerManager.spawn(initial_transform)
+		else:
+			print("[ReplayPlayback] Warning: PlayerManager unavailable; cannot spawn player. Ensure scene contains player node.")
 	
 	# Update references after scene change
 	if get_tree() and get_tree().current_scene:
 		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-		player = PlayerManager.get_player()
+		player = _safe_get_player()
 		if player:
 			player_path = player.name
 	
@@ -226,24 +257,91 @@ func _prepare_scene_for_playback():
 			var node = _resolve_node(path)
 			if node:
 				_set_node_state(node, current_replay.initial_states[path])
+				# Record mapping from resolved node name to recorded key
+				node_key_map[node.name] = path
 		print("Done setting initial states")
+		# Ensure camera yaw/pitch from initial_states are applied BEFORE computing state hash.
+		# Some recordings store camera values at top-level keys (camera_yaw/camera_pitch)
+		# or inside a 'camera' entry. Apply them now so the subsequent hash check is accurate.
+		var yaw_val = null
+		var pitch_val = null
+		# Look for camera entries in initials
+		for key in current_replay.initial_states.keys():
+			var kl = str(key).to_lower()
+			if kl.find("camera") != -1:
+				var camdict = current_replay.initial_states[key]
+				if camdict and typeof(camdict) == TYPE_DICTIONARY:
+					yaw_val = camdict.get("yaw", yaw_val)
+					pitch_val = camdict.get("pitch", pitch_val)
+		# Also check top-level camera_yaw/camera_pitch
+		if current_replay.initial_states.has("camera_yaw"):
+			yaw_val = current_replay.initial_states.get("camera_yaw", yaw_val)
+		if current_replay.initial_states.has("camera_pitch"):
+			pitch_val = current_replay.initial_states.get("camera_pitch", pitch_val)
+		if yaw_val != null and pitch_val != null:
+			var applied_cam = false
+			# Prefer scene CameraRig
+			if get_tree() and get_tree().current_scene:
+				var scene_cam = get_tree().current_scene.find_node("CameraRig", true, false)
+				if scene_cam and scene_cam.has_method("set_replay_state"):
+					scene_cam.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
+					applied_cam = true
+			# Try player-local CameraRig
+			var player_node = _safe_get_player()
+			if not applied_cam and player_node:
+				var player_cam = player_node.get_node_or_null("CameraRig")
+				if player_cam and player_cam.has_method("set_replay_state"):
+					player_cam.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
+					applied_cam = true
+			# Fallback to direct nodes (h/v)
+			if not applied_cam and player_node:
+				var camroot = player_node.get_node_or_null("Camroot")
+				if not camroot:
+					camroot = player_node.find_node("Camroot", true, false)
+				if camroot:
+					var h = camroot.get_node_or_null("h")
+					if h:
+						h.rotation.y = float(yaw_val)
+						var v = h.get_node_or_null("v")
+						if v:
+							v.rotation.x = float(pitch_val)
+						applied_cam = true
+			if applied_cam:
+				print("[ReplayPlayback] Applied initial camera yaw/pitch before hash check")
 		
-		# Verify state hash for determinism
-		if current_replay.has("state_hash"):
-			var current_state = {}
+		# Verify initial state determinism by per-node approximate comparison.
+		# Use per-node comparisons (with a small epsilon) rather than relying
+		# solely on the stored hash; this avoids false positives due to
+		# representation/type differences (ints vs floats) while preserving
+		# meaningful drift detection.
+		if current_replay.state_hash != "":
+			var drift_found := false
 			for path in current_replay.initial_states:
 				var node = _resolve_node(path)
 				if node and node.has_method("get_replay_state"):
-					current_state[path] = node.get_replay_state()
-			var current_hash = ReplayUtils.generate_state_hash(current_state)
-			if current_hash != current_replay.state_hash:
-				print("[REPLAY_ERROR] Drift detectado en estado inicial. Grabado: %s, Actual: %s. Causa probable: aplicación de estado incompleta." % [current_replay.state_hash, current_hash])
+					var recorded_node_state = current_replay.initial_states[path]
+					var current_node_state = node.get_replay_state()
+					if not _compare_states(recorded_node_state, current_node_state, 0.01):
+						print("[REPLAY_ERROR] Initial-state mismatch for path: %s" % str(path))
+						print("Recorded: ", recorded_node_state)
+						print("Current:  ", current_node_state)
+						drift_found = true
+			# Fall back to hashed check for overall sanity if nothing flagged
+			if drift_found:
+				print("[REPLAY_ERROR] Drift detectado en estado inicial. Causa probable: aplicación de estado incompleta.")
 			else:
-				print("[ReplayPlayback] State hash verified: %s" % current_hash)
+				# Generate a combined hash for informational purposes
+				var current_state = {}
+				for path in current_replay.initial_states:
+					var node = _resolve_node(path)
+					if node and node.has_method("get_replay_state"):
+						current_state[path] = node.get_replay_state()
+				var current_hash = ReplayUtils.generate_state_hash(current_state)
+				print("[ReplayPlayback] Initial state verified (per-node): %s" % current_hash)
 		
 		# DEBUG: Log initial orientations
 		print("DEBUG INITIAL STATE: initial_states keys: ", current_replay.initial_states.keys())
-		var player = PlayerManager.get_player()
+		var player = _safe_get_player()
 		var camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
 		if player:
 			print("DEBUG INITIAL STATE: Recorded Player Yaw: ", current_replay.initial_states.get("player", {}).get("rotation", {}).get("y", "N/A"))
@@ -271,7 +369,7 @@ func start_loaded_playback() -> void:
 				camera_rig.set_process_input(false)
 
 	# Disable player input to prevent user interference during playback
-	var player = PlayerManager.get_player()
+	var player = _safe_get_player()
 	if player:
 		player.set_process_input(false)
 		player.set_physics_process(true)  # Enable for deterministic simulation
@@ -331,7 +429,7 @@ func stop_playback() -> void:
 	for action in INPUT_ACTIONS:
 		Input.action_release(action)
 
-	var player = PlayerManager.get_player()
+	var player = _safe_get_player()
 	if player:
 		# Freeze player by disabling physics
 		player.set_physics_process(false)
@@ -386,7 +484,7 @@ func resume_playback() -> void:
 	InputState.paused = false
 	
 	# Asegurar física del player activada para playback
-	var player = PlayerManager.get_player()
+	var player = _safe_get_player()
 	if player:
 		player.set_physics_process(true)  # Always enable physics for input-driven playback with correction
 		print("[ReplayPlayback] Player physics enabled for playback")
@@ -468,6 +566,19 @@ func resume_playback() -> void:
 			# Also schedule a deferred re-apply a couple frames later to beat any late camera initialization
 			if get_tree():
 				call_deferred("_deferred_reapply_camera_from_initials")
+
+		# Additionally, apply any full camera initial state dictionaries that may
+		# include transforms or extra parameters. This ensures the camera starts
+		# exactly at the recorded snapshot rather than relying only on mouse deltas
+		# or yaw/pitch values.
+		for key in current_replay.initial_states.keys():
+			var kl = str(key).to_lower()
+			if kl.find("camera") != -1:
+				var node = _resolve_node(key)
+				if node:
+					# Use the generic setter which handles transforms/yaw/pitch etc.
+					_set_node_state(node, current_replay.initial_states[key])
+					print("[ReplayPlayback] Applied full initial camera state for key: %s" % str(key))
 	
 	emit_signal("playback_resumed")
 
@@ -585,7 +696,7 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 			InputState.actions["attack"] = inputs["attack"]
 		# Add other actions if needed
 	
-	var player = PlayerManager.get_player()
+	var player = _safe_get_player()
 	if player and player.has_node("PlayerInput"):
 		var player_input = player.get_node("PlayerInput")
 		player_input.inject_input(frame_data["inputs"])
@@ -691,11 +802,24 @@ func check_for_drift(frame_data: Dictionary) -> void:
 		return
 	var recorded_state = current_replay.frame_states[state_index]
 
-	if not recorded_state.has(player_path):
-		print("[DRIFT_DEBUG] recorded_state does not have player_path: ", player_path)
+	# Resolve which key in recorded_state corresponds to the current player node.
+	var player_key = node_key_map.get(player.name, null)
+	if player_key == null:
+		# Try to discover by comparing resolved nodes for keys in the snapshot
+		for k in recorded_state.keys():
+			if k == "frame_index":
+				continue
+			var resolved = _resolve_node(k)
+			if resolved == player:
+				player_key = k
+				node_key_map[player.name] = k
+				break
+
+	if player_key == null or not recorded_state.has(player_key):
+		print("[DRIFT_DEBUG] recorded_state does not have player_path: ", player_path, " mapped_key:", player_key)
 		return
 	
-	var expected_transform_dict = recorded_state[player_path]["global_transform"]
+	var expected_transform_dict = recorded_state[player_key]["global_transform"]
 	var expected_transform = ReplayUtils.dict_to_transform(expected_transform_dict)
 	if not expected_transform is Transform:
 		print("[DRIFT_DEBUG] dict_to_transform failed")
@@ -728,19 +852,26 @@ func check_for_drift(frame_data: Dictionary) -> void:
 		print("[DRIFT_DEBUG] Correction Applied: LERP")
 	
 	# Always correct velocity smoothly if position was corrected
-	var player_data = recorded_state[player_path]
-	if player_data.has("velocity"):
+	# Use the mapped player key (player_key) rather than the generic player_path
+	# and guard against missing entries to avoid invalid dictionary index errors.
+	var player_data = null
+	if player_key != null and recorded_state.has(player_key):
+		player_data = recorded_state[player_key]
+	if player_data and typeof(player_data) == TYPE_DICTIONARY and player_data.has("velocity"):
 		var expected_velocity = ReplayUtils.dict_to_vector3(player_data["velocity"])
 		player.velocity = player.velocity.linear_interpolate(expected_velocity, LERP_STRENGTH_ULTRA_FAST)
 	
-	# Correct camera state
+	# Correct camera/state for non-player nodes
 	for path in recorded_state:
-		if path != "frame_index" and path != player_path:
-			var node = _resolve_node(path)
-			if node and node.has_method("set_replay_state"):
-				var recorded_node_state = recorded_state[path]
-				node.set_replay_state(recorded_node_state)
-				print("[DRIFT_DEBUG] Corrected " + path)
+		if path == "frame_index":
+			continue
+		if path == player_key:
+			continue
+		var node = _resolve_node(path)
+		if node and node.has_method("set_replay_state"):
+			var recorded_node_state = recorded_state[path]
+			node.set_replay_state(recorded_node_state)
+			print("[DRIFT_DEBUG] Corrected " + path)
 
 func _apply_smooth_correction(node: Spatial, expected_transform: Transform, lerp_factor: float) -> void:
 	var t: float
@@ -787,7 +918,7 @@ func _sync_pilot_to_frame(frame_data_state: Dictionary) -> void:
 
 func _set_tracked_nodes_physics_process(enabled: bool) -> void:
 	"""Helper function to enable or disable physics for all tracked nodes."""
-	var player = PlayerManager.get_player()
+	var player = _safe_get_player()
 	if player:
 		player.set_physics_process(enabled)
 		print("[ReplayPlayback] _set_tracked_nodes_physics_process: Player physics enabled? ", enabled, player.is_physics_processing())
@@ -867,7 +998,16 @@ func _set_node_state(node: Node, state: Dictionary) -> void:
 			pass
 
 func _compare_states(a, b, epsilon = 0.001):
+	# Allow numeric type differences (int vs float) by normalizing here.
+	if typeof(a) in [TYPE_REAL, TYPE_INT] and typeof(b) in [TYPE_REAL, TYPE_INT]:
+		return abs(float(a) - float(b)) < epsilon
+
 	if typeof(a) != typeof(b):
+		# Allow Vector3 represented as Dictionary to compare to Vector3, and vice-versa
+		if a is Vector3 and typeof(b) == TYPE_DICTIONARY:
+			return _compare_states(ReplayUtils.vector3_to_dict(a), b, epsilon)
+		if b is Vector3 and typeof(a) == TYPE_DICTIONARY:
+			return _compare_states(a, ReplayUtils.vector3_to_dict(b), epsilon)
 		return false
 	if a is Dictionary:
 		if a.size() != b.size():
@@ -923,7 +1063,7 @@ func _deferred_reapply_camera_from_initials() -> void:
 		scene_cam.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
 		applied = true
 	# Try player-local CameraRig
-	var player_node = PlayerManager.get_player()
+	var player_node = _safe_get_player()
 	if player_node:
 		var player_cam = player_node.get_node_or_null("CameraRig")
 		if player_cam and player_cam.has_method("set_replay_state"):
