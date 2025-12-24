@@ -42,6 +42,10 @@ var node_key_map := {}
 export(int) var replay_hold_frames := 6 # how many frames to hold a non-zero axis during playback
 var _hold_counters := {}
 var _held_axes := {}
+# Camera smoothing target to avoid instant yank when applying recorded yaw/pitch
+var _camera_target_state = null
+var _camera_smooth_frames = 12
+var _camera_smooth_progress = 0
 
 onready var ReplayUtils = load("res://scripts/replay/ReplayUtils.gd")
 
@@ -90,6 +94,8 @@ func _debug_log(message: String) -> void:
 		print("[ReplayPlayback] " + message)
 
 func _physics_process(delta: float) -> void:
+	# Update any smooth camera transition in progress to avoid instant jumps
+	_update_smooth_camera()
 	frame_count += 1
 	# Guard clause: Do nothing if there's no replay loaded or if it's paused.
 	if not current_replay or playback_paused:
@@ -279,35 +285,9 @@ func _prepare_scene_for_playback():
 		if current_replay.initial_states.has("camera_pitch"):
 			pitch_val = current_replay.initial_states.get("camera_pitch", pitch_val)
 		if yaw_val != null and pitch_val != null:
-			var applied_cam = false
-			# Prefer scene CameraRig
-			if get_tree() and get_tree().current_scene:
-				var scene_cam = get_tree().current_scene.find_node("CameraRig", true, false)
-				if scene_cam and scene_cam.has_method("set_replay_state"):
-					scene_cam.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
-					applied_cam = true
-			# Try player-local CameraRig
-			var player_node = _safe_get_player()
-			if not applied_cam and player_node:
-				var player_cam = player_node.get_node_or_null("CameraRig")
-				if player_cam and player_cam.has_method("set_replay_state"):
-					player_cam.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
-					applied_cam = true
-			# Fallback to direct nodes (h/v)
-			if not applied_cam and player_node:
-				var camroot = player_node.get_node_or_null("Camroot")
-				if not camroot:
-					camroot = player_node.find_node("Camroot", true, false)
-				if camroot:
-					var h = camroot.get_node_or_null("h")
-					if h:
-						h.rotation.y = float(yaw_val)
-						var v = h.get_node_or_null("v")
-						if v:
-							v.rotation.x = float(pitch_val)
-						applied_cam = true
-			if applied_cam:
-				print("[ReplayPlayback] Applied initial camera yaw/pitch before hash check")
+			# Schedule a smooth camera interpolation instead of snapping immediately.
+			_start_smooth_camera({"yaw": yaw_val, "pitch": pitch_val}, 6)
+			print("[ReplayPlayback] Scheduled smooth camera application before hash check")
 		
 		# Verify initial state determinism by per-node approximate comparison.
 		# Use per-node comparisons (with a small epsilon) rather than relying
@@ -530,39 +510,9 @@ func resume_playback() -> void:
 		var yaw_val = current_replay.initial_states.get("camera_yaw", null)
 		var pitch_val = current_replay.initial_states.get("camera_pitch", null)
 		if yaw_val != null and pitch_val != null:
-			var applied := false
-			# 1) Prefer CameraRig under player
-			var camnode = player.get_node_or_null("CameraRig")
-			if not camnode:
-				camnode = player.find_node("CameraRig", true, false)
-			if camnode and camnode.has_method("set_replay_state"):
-				camnode.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
-				applied = true
-			# 2) Try generic CameraOrbit/Camroot structures
-			if not applied:
-				var camroot = player.get_node_or_null("Camroot")
-				if not camroot:
-					camroot = player.find_node("Camroot", true, false)
-				if camroot:
-					var h = camroot.get_node_or_null("h")
-					if h:
-						# h is yaw node, its child v is pitch
-						var v = h.get_node_or_null("v") if h else null
-						if h:
-							h.rotation.y = float(yaw_val)
-							if v:
-								v.rotation.x = float(pitch_val)
-							applied = true
-			# 3) Search scene for CameraRig as fallback
-			if not applied and get_tree() and get_tree().current_scene:
-				var scene_cam = get_tree().current_scene.find_node("CameraRig", true, false)
-				if scene_cam and scene_cam.has_method("set_replay_state"):
-					scene_cam.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
-					applied = true
-			if applied:
-				print("[ReplayPlayback] Forced camera yaw/pitch from initial_states")
-			else:
-				print("[ReplayPlayback] WARNING: could not find camera node to apply camera_yaw/camera_pitch")
+			# Schedule a smooth camera interpolation rather than snapping immediately
+			_start_smooth_camera({"yaw": yaw_val, "pitch": pitch_val}, 6)
+			print("[ReplayPlayback] Scheduled smooth camera application from initial_states")
 			# Also schedule a deferred re-apply a couple frames later to beat any late camera initialization
 			if get_tree():
 				call_deferred("_deferred_reapply_camera_from_initials")
@@ -1031,6 +981,143 @@ func _compare_states(a, b, epsilon = 0.001):
 		return abs(a - b) < epsilon
 	else:
 		return a == b
+
+func _start_smooth_camera(target_state: Dictionary, frames: int = -1) -> void:
+	# target_state may contain either yaw/pitch or a full global_transform.
+	if target_state == null:
+		return
+
+	# Prefer full transform if provided
+	if target_state.has("global_transform") or target_state.has("transform"):
+		var tfv = target_state.get("global_transform", target_state.get("transform", null))
+		var target_tf = null
+		if tfv is Transform:
+			target_tf = tfv
+		elif typeof(tfv) == TYPE_DICTIONARY:
+			target_tf = ReplayUtils.dict_to_transform(tfv)
+		elif typeof(tfv) == TYPE_STRING:
+			var parsed = str2var(tfv)
+			if parsed is Transform:
+				target_tf = parsed
+
+		if target_tf != null:
+			# Find a camera node to source the starting transform
+			var camnode = null
+			var player_node = _safe_get_player()
+			if player_node:
+				camnode = player_node.get_node_or_null("CameraRig")
+				if not camnode:
+					camnode = player_node.find_node("CameraRig", true, false)
+			if not camnode and get_tree() and get_tree().current_scene:
+				camnode = get_tree().current_scene.find_node("CameraRig", true, false)
+
+			var from_tf = Transform()
+			if camnode and camnode is Spatial:
+				from_tf = camnode.global_transform
+			_camera_target_state = {"type": "transform", "from": from_tf, "to": target_tf}
+		else:
+			return
+	elif target_state.has("yaw") or target_state.has("pitch"):
+		_camera_target_state = {"type": "yawpitch", "yaw": float(target_state.get("yaw", 0.0)), "pitch": float(target_state.get("pitch", 0.0))}
+	else:
+		return
+
+	if frames > 0:
+		_camera_smooth_frames = frames
+	_camera_smooth_progress = 0
+
+func _update_smooth_camera() -> void:
+	if _camera_target_state == null:
+		return
+
+	# Find camera node (player-local preferred)
+	var player_node = _safe_get_player()
+	var camnode = null
+	var hnode = null
+	var vnode = null
+	if player_node:
+		camnode = player_node.get_node_or_null("CameraRig")
+		if not camnode:
+			camnode = player_node.find_node("CameraRig", true, false)
+	if not camnode and get_tree() and get_tree().current_scene:
+		camnode = get_tree().current_scene.find_node("CameraRig", true, false)
+
+	# Compute interpolation factor (eased)
+	_camera_smooth_progress += 1
+	var t = float(_camera_smooth_progress) / float(max(1, _camera_smooth_frames))
+	if t > 1.0:
+		t = 1.0
+	var te = 1.0 - pow(1.0 - t, 2.0) # ease-out
+
+	if _camera_target_state.has("type") and _camera_target_state["type"] == "transform":
+		var from_tf: Transform = _camera_target_state.get("from", null)
+		var to_tf: Transform = _camera_target_state.get("to", null)
+		if not (from_tf is Transform) or not (to_tf is Transform):
+			_camera_target_state = null
+			return
+
+		# Apply interpolation between transforms
+		var interp_origin = from_tf.origin.linear_interpolate(to_tf.origin, te)
+		var interp_basis = from_tf.basis.slerp(to_tf.basis, te)
+
+		# If we have a camnode that's Spatial, write global_transform
+		if camnode and camnode is Spatial:
+			var new_tf = camnode.global_transform
+			new_tf.origin = interp_origin
+			new_tf.basis = interp_basis
+			camnode.global_transform = new_tf
+			if camnode.has_method("update_camera_transform"):
+				camnode.update_camera_transform()
+		else:
+			# Fallback: try applying yaw/pitch derived from basis
+			var yaw_val = atan2(interp_basis.x.z, interp_basis.x.x)
+			var pitch_val = asin(-interp_basis.x.y)
+			if camnode and camnode.has_method("set_replay_state"):
+				camnode.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
+				if camnode.has_method("update_camera_transform"):
+					camnode.update_camera_transform()
+
+	elif _camera_target_state.has("type") and _camera_target_state["type"] == "yawpitch":
+		# Find current yaw/pitch
+		var cur_yaw = 0.0
+		var cur_pitch = 0.0
+		var applied_direct = false
+		if camnode and camnode.has_method("get_replay_state"):
+			var cs = camnode.get_replay_state()
+			cur_yaw = float(cs.get("yaw", 0.0))
+			cur_pitch = float(cs.get("pitch", 0.0))
+		else:
+			# try Camroot h/v under player
+			vnode = null
+			# (hnode declared at function scope)
+			if player_node:
+				var camroot = player_node.get_node_or_null("Camroot")
+				if not camroot:
+					camroot = player_node.find_node("Camroot", true, false)
+				if camroot:
+					hnode = camroot.get_node_or_null("h")
+					vnode = hnode.get_node_or_null("v") if hnode else null
+					if hnode:
+						cur_yaw = float(hnode.rotation.y)
+						cur_pitch = float(vnode.rotation.x) if vnode else 0.0
+						applied_direct = true
+
+		var ty = lerp(cur_yaw, float(_camera_target_state.get("yaw", 0.0)), te)
+		var tp = lerp(cur_pitch, float(_camera_target_state.get("pitch", 0.0)), te)
+
+		if camnode and camnode.has_method("set_replay_state"):
+			camnode.set_replay_state({"yaw": ty, "pitch": tp})
+			if camnode.has_method("update_camera_transform"):
+				camnode.update_camera_transform()
+		elif applied_direct and hnode:
+			hnode.rotation.y = ty
+			if vnode:
+				vnode.rotation.x = tp
+
+	# Finish smoothing if done
+	if _camera_smooth_progress >= _camera_smooth_frames:
+		_camera_target_state = null
+		_camera_smooth_progress = 0
 
 func _deferred_reapply_camera_from_initials() -> void:
 	# Called deferred to ensure camera rigs initialized, tries multiple fallbacks.
