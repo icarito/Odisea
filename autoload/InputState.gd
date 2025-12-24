@@ -53,6 +53,10 @@ var replay_frame = 0
 # Buffer de frames grabados (solo en record/playback)
 var recorded_frames := []
 
+# Fallback tracking de posición del ratón para entornos donde
+# InputEventMouseMotion no se entrega al singleton.
+var _last_mouse_position := Vector2.ZERO
+
 # Flag para modo manual (usado en tests para inyección directa)
 var manual_playback: bool = false
 
@@ -63,11 +67,14 @@ const MAX_REPLAY_MOUSE_DELTA = 100.0
 func set_mode(new_mode: int) -> void:
 	mode = new_mode
 	reset()
-	# Ensure the InputState receives physics ticks when recording or playing back
-	if mode == Mode.RECORD or mode == Mode.PLAYBACK:
+	# Ensure the InputState receives physics ticks when recording, playing back, or in live for strafe
+	if mode == Mode.RECORD or mode == Mode.PLAYBACK or mode == Mode.LIVE:
 		set_physics_process(true)
+		# Also enable input processing so _input receives InputEvent callbacks
+		set_process_input(true)
 	else:
 		set_physics_process(false)
+		set_process_input(false)
 
 	# If switching to playback, clear any accumulated mouse motion to avoid
 	# hardware artefacts contaminating the recorded deltas.
@@ -103,20 +110,6 @@ func _physics_process(_delta):
 		# En playback, no procesar lógica de input real ni de strafing
 		return
 
-	# --- Deterministic Strafing Mode Logic (solo LIVE/RECORD) ---
-	# 1. Activation: If there's mouse movement AND directional input, activate strafe mode.
-	var has_input = abs(get_axis("move_x")) > 0.1 or abs(get_axis("move_y")) > 0.1
-	if mouse_delta.length_squared() > 0.001 and has_input:
-		is_strafing_mode_active = true
-		strafing_timer = 2.0 # Reset timer
-
-	# 2. Persistence: If strafe mode is active, countdown the timer.
-	if is_strafing_mode_active:
-		strafing_timer -= FIXED_DELTA
-		if strafing_timer <= 0.0:
-			is_strafing_mode_active = false
-			strafing_timer = 0.0
-
 	match mode:
 		Mode.LIVE:
 			_update_from_input()
@@ -126,8 +119,50 @@ func _physics_process(_delta):
 				_record_current_frame()
 
 	if mode == Mode.LIVE or mode == Mode.RECORD:
-		mouse_delta = _mouse_motion_this_frame
+		# Prefer accumulated events, but fall back to a safe mouse-position delta
+		var live_delta = _mouse_motion_this_frame
+		if live_delta == Vector2.ZERO:
+			# Fallback: compute delta using Input.get_mouse_position() if available.
+			# Protect calls that may not exist in some embedded runtimes.
+			if Input.has_method("get_mouse_position"):
+				var current_pos = Input.get_mouse_position()
+				# Initialize _last_mouse_position on first use to avoid huge spikes
+				if _last_mouse_position == Vector2.ZERO:
+					_last_mouse_position = current_pos
+				var os_delta = current_pos - _last_mouse_position
+				_last_mouse_position = current_pos
+				if os_delta != Vector2.ZERO:
+					# Clamp large deltas to avoid spikes from alt-tab or focus changes
+					if os_delta.length() > MAX_REPLAY_MOUSE_DELTA:
+						os_delta = os_delta.normalized() * MAX_REPLAY_MOUSE_DELTA
+					live_delta = os_delta
+			# If Input.get_mouse_position() is unavailable, silently skip fallback
+		mouse_delta = live_delta
 		recorded_mouse_delta = mouse_delta
+
+		# --- Deterministic Strafing Mode Logic (solo LIVE/RECORD) ---
+		# 1. Activation: If there's mouse movement, activate strafe mode.
+		if mouse_delta.length_squared() > 0.001:
+			if not is_strafing_mode_active:
+				is_strafing_mode_active = true
+				strafing_timer = 5.0 # Reset timer
+				print("[InputState LIVE] Strafe ACTIVATED. mouse_delta=", mouse_delta, " timer=", strafing_timer)
+
+		# 2. Persistence: If strafe mode is active, countdown the timer.
+		if is_strafing_mode_active:
+			strafing_timer -= FIXED_DELTA
+			if strafing_timer <= 0.0:
+				is_strafing_mode_active = false
+				strafing_timer = 0.0
+				print("[InputState LIVE] Strafe DEACTIVATED (timer). mouse_delta=", mouse_delta, " timer=", strafing_timer)
+
+		# Debug trace each physics frame for strafe/mouse state (keep minimal)
+		if OS.has_feature("debug"):
+			print("[InputState LIVE][FRAME] mouse_delta=", mouse_delta, " strafing=", is_strafing_mode_active, " timer=", strafing_timer)
+
+		# Consume/clear any accumulated raw mouse motion for this frame so it
+		# doesn't keep growing if other systems only peek at the value.
+		_mouse_motion_this_frame = Vector2.ZERO
 
 # Permite a los tests avanzar el replay manualmente cuando manual_playback es true
 func step_replay_frame():
@@ -276,8 +311,13 @@ func get_mouse_delta():
 
 func get_live_mouse_delta() -> Vector2:
 	var delta = _mouse_motion_this_frame
+	# Consuming getter (used by some callers). Keep for compatibility.
 	_mouse_motion_this_frame = Vector2.ZERO
 	return delta
+
+# Peek current accumulated mouse motion without clearing it.
+func peek_mouse_motion() -> Vector2:
+	return _mouse_motion_this_frame
 
 func clean_mouse_delta_y():
 	mouse_delta.y = 0.0
@@ -310,5 +350,22 @@ func _input(event):
 		return
 	if event is InputEventMouseMotion:
 		_mouse_motion_this_frame += event.relative
+		if OS.has_feature("debug"):
+			print("[InputState._input] MouseMotion received: rel=", event.relative, " _mouse_motion_this_frame=", _mouse_motion_this_frame)
 	elif event is InputEventScreenDrag:
 		_mouse_motion_this_frame += event.relative
+		if OS.has_feature("debug"):
+			print("[InputState._input] ScreenDrag received: rel=", event.relative, " _mouse_motion_this_frame=", _mouse_motion_this_frame)
+
+
+func notify_mouse_motion(delta: Vector2) -> void:
+	# Called by camera/controllers that already saw mouse motion
+	# Ensure InputState tracks it for strafing logic and recording
+	if not (delta is Vector2):
+		return
+	_mouse_motion_this_frame += delta
+	if delta.length_squared() > 0.0:
+		is_strafing_mode_active = true
+		strafing_timer = 5.0
+		# Also record a trace for debugging
+		print("[InputState] notify_mouse_motion called ->", delta, " strafing_timer=", strafing_timer)

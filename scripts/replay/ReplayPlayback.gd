@@ -20,13 +20,14 @@ const MIN_DIVERGENCE_TO_CORRECT = 0.01 # Threshold to avoid insignificant correc
 const FIXED_DELTA = 1.0 / 60.0 # Fixed delta for 60 FPS simulation
 const IGNORE_THRESHOLD = 0.05 # Ignore micro-drift to eliminate floating (raised)
 const FAST_LERP_THRESHOLD = 0.05 # Use ultra-fast LERP if between this and SNAP
-const SNAP_THRESHOLD = 0.2 # Instant correction threshold (20cm) — raised to avoid small snaps
+const SNAP_THRESHOLD = 5.0 # Instant correction threshold (5.0m) - Evita teletransporte por errores pequeños
 
 # Drift correction tuning (velocity-based 'magnet')
-const DRIFT_MAGNET_STRENGTH = 5.0
-const IGNORE_DRIVE_THRESHOLD = 0.03
-const MAX_PHYSICS_CORRECTION = 2.0
+const DRIFT_MAGNET_STRENGTH = 60.0
+const IGNORE_DRIVE_THRESHOLD = 0.1
+const MAX_PHYSICS_CORRECTION = 0.1 # cap per-frame impulse to small values
 const LERP_STRENGTH_ULTRA_FAST = 200.0 # Ultra-fast LERP strength
+const EARLY_CORRECTION_FRAMES = 60 # don't apply drift corrections during first N frames after resume
 # const PILOT_STATE_KEY = "@Pilot@10" # REMOVED: Use dynamic player path instead
 
 var current_replay: Resource = null
@@ -34,7 +35,6 @@ var current_replay_filename: String = ""
 var total_logical_frames: int = 0
 var playback_paused: bool = false
 var playback_status: String = "Stopped"  # "Playing", "Paused", "Stopped"
-
 var time_accumulator: float = 0.0
 var headless: bool = false
 var playback_start_time: int = 0
@@ -47,10 +47,6 @@ var node_key_map := {}
 export(int) var replay_hold_frames := 6 # how many frames to hold a non-zero axis during playback
 var _hold_counters := {}
 var _held_axes := {}
-# Camera smoothing target to avoid instant yank when applying recorded yaw/pitch
-var _camera_target_state = null
-var _camera_smooth_frames = 12
-var _camera_smooth_progress = 0
 
 onready var ReplayUtils = load("res://scripts/replay/ReplayUtils.gd")
 const FixedVec3 = preload("res://scripts/utils/FVec3.gd")
@@ -68,7 +64,7 @@ func _safe_get_player() -> Node:
 	return null
 
 func _ready() -> void:
-	process_priority = -100  # Ensure replay logic runs before player physics
+	process_priority = -10  # Ensure replay logic runs before player physics
 	set_physics_process(false)
 
 func _resolve_node(role_id: String) -> Node:
@@ -100,56 +96,72 @@ func _debug_log(message: String) -> void:
 		print("[ReplayPlayback] " + message)
 
 func _physics_process(delta: float) -> void:
-	# Update any smooth camera transition in progress to avoid instant jumps
-	_update_smooth_camera()
 	frame_count += 1
 	# Guard clause: Do nothing if there's no replay loaded or if it's paused.
 	if not current_replay or playback_paused:
 		return
 
-	# If we have reached the end of the replay, stop playback.
 	if InputState.replay_frame >= total_logical_frames:
 		stop_playback()
 		return
 
 	var frame_data = current_replay.frames[InputState.replay_frame]
-	
-	print("Replay frame: ", InputState.replay_frame)
-	print("Frame data keys: ", frame_data.keys())
-	if frame_data.has("inputs"):
-		print("Inputs: ", frame_data.inputs)
-	
-	# Force player state to recorded state for this frame if available
+
+	# --- AUTORIDAD DE POSICIÓN Y ROTACIÓN ---
+	# 1. Obtener el estado grabado para el frame actual
 	var recorded_state = null
 	for fs in current_replay.frame_states:
 		if fs.has("frame_index") and fs["frame_index"] == InputState.replay_frame:
 			recorded_state = fs
 			break
-	if recorded_state:
-		for path in recorded_state:
-			if path != "frame_index":
-				var node = _resolve_node(path)
-				if node and node.has_method("get_replay_state"):
-					# For drift correction, compare and correct
-					var current_state = node.get_replay_state()
-					var recorded_node_state = recorded_state[path]
-					if not _compare_states(recorded_node_state, current_state):
-						print("DETERMINISM TEST FAILED at frame " + str(InputState.replay_frame) + " for " + path)
-						print("Recorded: ", recorded_node_state)
-						print("Current: ", current_state)
-					else:
-						_debug_log("Determinism check passed for frame " + str(InputState.replay_frame) + " " + path)
 
-	
-	# Apply inputs (for camera and other non-physics systems)
+	# 2. Aplicar corrección de posición suave (Lerp) o dura (Snap)
+	check_for_drift(frame_data)
+
+	# --- SINCRONIZACIÓN DE ANIMACIONES ---
+	if player and player.has_node("PlayerAnimationTree"):
+		var anim_tree = player.get_node("PlayerAnimationTree")
+		if not anim_tree:
+			_debug_log("AnimationTree node not found on player.")
+			return
+
+		var inputs = frame_data.get("inputs", {})
+		var axes = frame_data.get("axes", {})
+		var move_vec = Vector2(float(axes.get("move_x", 0.0)), float(axes.get("move_y", 0.0)))
+		var is_moving = move_vec.length_squared() > 0.01
+		var is_running = bool(inputs.get("run", false)) and is_moving
+		var is_walking = is_moving and not is_running
+
+		# Asumimos que el estado "on_floor" del replay es fiable.
+		# Una mejora sería grabarlo en los snapshots. Por ahora, usamos el del propio player.
+		var on_floor = player.is_on_floor()
+
+		anim_tree["parameters/conditions/IsOnFloor"] = on_floor
+		anim_tree["parameters/conditions/IsInAir"] = not on_floor
+		anim_tree["parameters/conditions/IsWalking"] = is_walking
+		anim_tree["parameters/conditions/IsRunning"] = is_running
+
+	# Aplicar inputs para sistemas que aún los necesiten (ej. cámara)
 	_apply_inputs_from_frame(frame_data)
 
-	# Apply per-frame velocity-based drift correction (magnet) to avoid snaps
-	_apply_velocity_drift_correction(frame_data)
+	# --- SINCRONIZACIÓN ESTRICTA DE CÁMARA ---
+	# Forzar la rotación de la cámara AHORA MISMO, usando el mouse_delta que acabamos de inyectar.
+	# Esto asegura que la cámara esté en la orientación correcta ANTES de que el PlayerController
+	# ejecute su _physics_process y calcule su vector de movimiento.
+	if InputState.mouse_delta.length_squared() > 0:
+		if not camera_rig:
+			camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+		
+		if camera_rig and camera_rig.has_method("force_rotate_for_playback"):
+			_debug_log("Forcing camera rotation with delta: " + str(InputState.mouse_delta))
+			# Llamamos a la función específica de replay para una rotación instantánea.
+			camera_rig.force_rotate_for_playback(InputState.mouse_delta)
+			if camera_rig.has_method("update_camera_transform"):
+				camera_rig.update_camera_transform()
+			# Limpiar el delta DESPUÉS de usarlo para evitar que se procese de nuevo.
+			if InputState.has_method("set"):
+				InputState.set("mouse_delta", Vector2.ZERO)
 
-	# Periodically check for drift and correct the pilot position
-	if frame_count % RESYNC_INTERVAL == 0:
-		check_for_drift(frame_data)
 
 	# Note: frame advancement is handled by InputState
 	emit_signal("frame_updated", InputState.replay_frame, total_logical_frames)
@@ -222,7 +234,8 @@ func start_playback(replay_path: String, is_headless: bool = false) -> void:
 		var initial_transform = Transform()
 		# Find player initial state
 		for path in current_replay.initial_states:
-			if "Pilot" in path or "Player" in path:
+			var keyl = str(path).to_lower()
+			if keyl.find("pilot") != -1 or keyl.find("player") != -1:
 				var state = current_replay.initial_states[path]
 				if state.has("global_transform"):
 					var gt = state["global_transform"]
@@ -294,9 +307,10 @@ func _prepare_scene_for_playback():
 		if current_replay.initial_states.has("camera_pitch"):
 			pitch_val = current_replay.initial_states.get("camera_pitch", pitch_val)
 		if yaw_val != null and pitch_val != null:
-			# Schedule a smooth camera interpolation instead of snapping immediately.
-			_start_smooth_camera({"yaw": yaw_val, "pitch": pitch_val}, 6)
-			print("[ReplayPlayback] Scheduled smooth camera application before hash check")
+			# Try immediate re-apply of camera values synchronously to reduce
+			# the chance that per-node comparisons see an uninitialized camera
+			# and report a false drift. Keep deferred reapply as a fallback.
+			_deferred_reapply_camera_from_initials()
 		
 		# Verify initial state determinism by per-node approximate comparison.
 		# Use per-node comparisons (with a small epsilon) rather than relying
@@ -422,9 +436,19 @@ func stop_playback() -> void:
 	if player:
 		# Freeze player by disabling physics
 		player.set_physics_process(false)
-		# Stop animations
-		if player.animation_tree:
-			player.animation_tree.active = false
+		# Stop animations (usar acceso defensivo porque `player` puede no exponer
+		# una propiedad directa llamada `animation_tree` o puede ser un KinematicBody
+		# sin esa propiedad). Intentar obtener el AnimationTree como propiedad
+		# o como nodo hijo antes de manipularlo.
+		var _anim_tree = null
+		if player.has_method("get"):
+			var tmp = player.get("animation_tree")
+			if tmp != null:
+				_anim_tree = tmp
+		if _anim_tree == null and player.has_node("AnimationTree"):
+			_anim_tree = player.get_node("AnimationTree")
+		if _anim_tree and _anim_tree.has_method("set"):
+			_anim_tree.active = false
 
 	# Release camera control to user
 	if get_tree() and get_tree().current_scene:
@@ -472,24 +496,17 @@ func resume_playback() -> void:
 	set_physics_process(true)
 	InputState.paused = false
 	
-	# Asegurar física del player activada para playback
+	# Asegurar que el estado inicial del player se aplique ANTES de habilitar la física
 	var player = _safe_get_player()
 	if player:
-		player.set_physics_process(true)  # Always enable physics for input-driven playback with correction
-		print("[ReplayPlayback] Player physics enabled for playback")
-		# Detect player path dynamically for drift correction
+		# Detectar player_path primero
 		player_path = player.name
 		print("[ReplayPlayback] Detected player path for drift correction: ", player_path)
-		# Ensure all physics bodies and collision shapes in the scene are enabled
-		_enable_all_physics_and_collisions()
-		# Ensure PlayerController does not use debug direct-move mode during normal playback
-		if player.has_method("set"):
-			player.set("debug_force_direct_move", false)
-		
-		# Configurar estado inicial una sola vez
+
+		# Configurar estado inicial una sola vez, antes de encender la física
 		if current_replay.initial_states.has(player_path):
 			var initial_data = current_replay.initial_states[player_path]
-			
+
 			# 1. RESTAURAR TRANSFORMACIÓN COMPLETA (CRÍTICO) - USE FIXED-POINT FOR DETERMINISM
 			if initial_data.has("player_position_fixed"):
 				var pos_fixed = initial_data["player_position_fixed"]
@@ -497,29 +514,61 @@ func resume_playback() -> void:
 			elif initial_data.has("global_transform"):
 				var initial_transform = ReplayUtils.from_json_safe(initial_data["global_transform"])
 				player.global_transform = initial_transform
-			
+
 			# 2. RESTAURAR BASIS FROM FIXED-POINT
 			if initial_data.has("basis_fixed"):
 				var basis_fixed = initial_data["basis_fixed"]
 				player.global_transform.basis = ReplayUtils.fixed_dict_to_basis(basis_fixed)
-			
-			# 3. RESTAURAR VELOCIDAD FROM FIXED-POINT
+
+			# 3. RESTAURAR VELOCIDAD FROM FIXED-POINT (aplicar como corrección segura)
 			if initial_data.has("velocity_fixed"):
 				var vel_fixed = initial_data["velocity_fixed"]
-				player.velocity = ReplayUtils.fixed_dict_to_vector3(vel_fixed)
+				# Forzar reseteo de velocidades horizontales y verticales desde el estado inicial
+				if initial_data.has("horizontal_velocity_fixed"):
+					var h_vel_fixed = initial_data["horizontal_velocity_fixed"]
+					player.set("horizontal_velocity_fixed", h_vel_fixed)
+					print("[ReplayPlayback] Player horizontal_velocity_fixed reset from initial_state.")
+
+				if initial_data.has("vertical_velocity_fixed"):
+					var v_vel_fixed = initial_data["vertical_velocity_fixed"]
+					player.set("vertical_velocity_fixed", v_vel_fixed)
+					print("[ReplayPlayback] Player vertical_velocity_fixed reset from initial_state.")
+
+				player.set("replay_velocity_correction", ReplayUtils.fixed_dict_to_vector3(vel_fixed))
 			elif initial_data.has("velocity"):
-				player.velocity = ReplayUtils.from_json_safe(initial_data["velocity"])
-			
-			# --- AGREGAR ESTA LÍNEA DE DEBUG ---
+				player.set("replay_velocity_correction", ReplayUtils.from_json_safe(initial_data["velocity"]))
+
 			print("[ReplayPlayback] INITIAL POS APPLIED: %s" % player.global_transform.origin)
 			# Limpieza de fuerzas para evitar que la física acumulada provoque tirones
-			if player:
+			player.set("replay_velocity_correction", Vector3.ZERO)
+			if typeof(FixedVec3) != TYPE_NIL:
+				player.set("vertical_velocity_fixed", FixedVec3.zero())
+				player.set("horizontal_velocity_fixed", FixedVec3.zero())
+				player.set("platform_velocity_fixed", FixedVec3.zero())
+				# Limpieza adicional para asegurar un estado físico 100% limpio
+				player.set("velocity_fixed", FixedVec3.zero())
+				player.set("airborne_inherited_fixed", FixedVec3.zero())
+				player.set("last_platform_velocity_fixed", FixedVec3.zero())
 				player.velocity = Vector3.ZERO
-				# Intentar limpiar las versiones fixed si existen en el script del player
-				# (al usar player.set esto no fallará si la propiedad no existe)
-				player.set("vertical_velocity_fixed", FixedVec3.zero()) if typeof(FixedVec3) != TYPE_NIL else null
-				player.set("horizontal_velocity_fixed", FixedVec3.zero()) if typeof(FixedVec3) != TYPE_NIL else null
-				player.set("platform_velocity_fixed", FixedVec3.zero()) if typeof(FixedVec3) != TYPE_NIL else null
+				# Forzar velocidad a cero en el frame 0 para eliminar 'vuelo' heredado
+				if InputState.replay_frame == 0:
+					player.velocity = Vector3.ZERO
+					player.set("vertical_velocity_fixed", FixedVec3.zero())
+					print("[ReplayPlayback] Player velocity forced to ZERO at frame 0.")
+				print("[ReplayPlayback] Player physics state fully reset.")
+
+		# Ahora que el transform inicial fue aplicado, habilitar física y colisiones
+		player.set_physics_process(true)  # Enable physics after applying initial state
+		print("[ReplayPlayback] Player physics enabled for playback")
+		# Ensure all physics bodies and collision shapes in the scene are enabled
+		_enable_all_physics_and_collisions()
+		# Ensure PlayerController does not use debug direct-move mode during normal playback
+		if player.has_method("set"):
+			player.set("debug_force_direct_move", false)
+		# If PlayerInput exists, set replay flag
+		if player.has_node("PlayerInput"):
+			var player_input = player.get_node("PlayerInput")
+			player_input.is_replay_mode = true
 	
 	# Force camera values specifically before processing first frame.
 	# Be robust: try multiple common camera nodes under the player and scene.
@@ -527,9 +576,8 @@ func resume_playback() -> void:
 		var yaw_val = current_replay.initial_states.get("camera_yaw", null)
 		var pitch_val = current_replay.initial_states.get("camera_pitch", null)
 		if yaw_val != null and pitch_val != null:
-			# Schedule a smooth camera interpolation rather than snapping immediately
-			_start_smooth_camera({"yaw": yaw_val, "pitch": pitch_val}, 6)
-			print("[ReplayPlayback] Scheduled smooth camera application from initial_states")
+			# No longer using smooth camera. The deferred call will handle the snap.
+			print("[ReplayPlayback] Found initial camera state. Will be applied deferred.")
 			# Also schedule a deferred re-apply a couple frames later to beat any late camera initialization
 			if get_tree():
 				call_deferred("_deferred_reapply_camera_from_initials")
@@ -716,8 +764,17 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 			_debug_log("Unexpected mouse_delta type in camera processing: " + str(typeof(md_dict)) + " value: " + str(md_dict))
 
 	# --- APLICAR ESTADOS DE FÍSICA NO INPUTABLES ---
-	if player and player.external_velocity and frame_data.has("player_external_velocity"):
-		player.external_velocity.velocity = ReplayUtils.dict_to_vector3(frame_data["player_external_velocity"])
+	if player and frame_data.has("player_external_velocity"):
+		# Safely apply external_velocity if the player exposes it as a node or property
+		if player.has_node("ExternalVelocity"):
+			var ev = player.get_node("ExternalVelocity")
+			if ev and ev.has_method("set_external_velocity"):
+				ev.set_external_velocity(ReplayUtils.dict_to_vector3(frame_data["player_external_velocity"]))
+			elif ev and ev.has("velocity"):
+				ev.velocity = ReplayUtils.dict_to_vector3(frame_data["player_external_velocity"])
+		else:
+			# Fallback: try setting a property safely
+			player.set("player_external_velocity", ReplayUtils.dict_to_vector3(frame_data["player_external_velocity"]))
 
 	if player and frame_data.has("player_gravity_override"):
 		player.set("gravity_override", ReplayUtils.dict_to_vector3(frame_data["player_gravity_override"]))
@@ -817,31 +874,71 @@ func check_for_drift(frame_data: Dictionary) -> void:
 	var expected_pos = expected_transform.origin
 	var current_pos = player.global_transform.origin
 	var error_vec = expected_pos - current_pos
-	var divergence = error_vec.length()
+	# Prefer horizontal divergence to avoid vertical snaps due to spawn/ground differences
+	var horiz_error = Vector3(error_vec.x, 0, error_vec.z)
+	var horiz_divergence = horiz_error.length()
+	var vertical_divergence = abs(error_vec.y)
+	var divergence = horiz_divergence
 
 	_debug_log("check_for_drift: frame=%s divergence=%s" % [InputState.replay_frame, divergence])
 
-	if divergence <= IGNORE_DRIVE_THRESHOLD:
+	# If the recorded frame shows player-driven input (axes or movement actions),
+	# avoid applying the replay magnet so we don't fight the player's intended motion.
+	var frame_inputs = recorded_state.get("inputs", null)
+	var frame_axes = recorded_state.get("axes", null)
+	var has_movement_input := false
+	if frame_inputs and typeof(frame_inputs) == TYPE_DICTIONARY:
+		for k in ["move_forward", "move_back", "move_left", "move_right", "run", "roll"]:
+			if frame_inputs.has(k) and frame_inputs[k]:
+				has_movement_input = true
+				break
+	if not has_movement_input and frame_axes and typeof(frame_axes) == TYPE_DICTIONARY:
+		var mx = float(frame_axes.get("move_x", 0.0))
+		var my = float(frame_axes.get("move_y", 0.0))
+		if abs(mx) > 0.05 or abs(my) > 0.05:
+			has_movement_input = true
+
+	# Skip corrections for very early frames to allow initial states and physics settle
+	if InputState.replay_frame <= EARLY_CORRECTION_FRAMES:
+		player.set("replay_velocity_correction", null)
+		return
+
+	if divergence <= IGNORE_DRIVE_THRESHOLD or has_movement_input:
 		# small error -> no correction
 		player.set("replay_velocity_correction", null)
 		return
 
-	# If extremely divergent, snap as last resort
-	if divergence > 1.0:
+	# If extremely divergent horizontally, only snap as a last-last resort.
+	# Use a higher threshold to avoid snapping due to small spawn/ground offsets.
+	if horiz_divergence > SNAP_THRESHOLD:
 		player.global_transform = expected_transform
 		player.set("replay_velocity_correction", null)
-		_debug_log("check_for_drift: huge divergence snap applied")
+		_debug_log("check_for_drift: HUGE horizontal divergence snap applied")
 		return
 
-	# Compute a corrective velocity (magnet), scale to fixed-delta as an impulse
-	var correction_vel = error_vec * DRIFT_MAGNET_STRENGTH
-	var correction_delta = correction_vel * FIXED_DELTA
-	if correction_delta.length() > MAX_PHYSICS_CORRECTION:
-		correction_delta = correction_delta.normalized() * MAX_PHYSICS_CORRECTION
+	# Compute a target velocity (magnet) and store it as a replay-provided velocity
+	# so PlayerController can consume it in a safe, script-agnostic way.
+	# Build a target velocity that prioritizes horizontal correction and damps vertical
+	# El vector de error completo (incluyendo Y) se usa para atraer al jugador.
+	# El PlayerController se encargará de la gravedad, pero esta fuerza ayuda a corregir
+	# desviaciones en todos los ejes.
+	var velocity_hacia_objetivo = error_vec * DRIFT_MAGNET_STRENGTH
+	if player:
+		# Apply direct velocity correction for physics resolution
+		player.set("replay_velocity_correction", velocity_hacia_objetivo)
+		_debug_log("check_for_drift: set replay_velocity_correction on player: %s" % str(velocity_hacia_objetivo))
 
-	# Store correction on player for consumption by PlayerController just before move_and_slide
-	player.set("replay_velocity_correction", correction_delta)
-	_debug_log("check_for_drift: applying velocity correction %s" % str(correction_delta))
+	# Sincronización Total de Ángulos de Cámara
+	var camera_key = node_key_map.get("CameraRig", null)
+	if camera_key and recorded_state.has(camera_key):
+		var rec_cam_state = recorded_state[camera_key]
+		var cam_rig = get_tree().current_scene.find_node("CameraRig", true, false)
+		if cam_rig and cam_rig.has_method("set_replay_state"):
+			# Forzar la rotación exacta, ignorando cualquier suavizado.
+			# Usar force_snap = true para que la cámara se ajuste al 100% a los datos del JSON.
+			rec_cam_state["force_snap"] = true
+			cam_rig.set_replay_state(rec_cam_state)
+			_debug_log("check_for_drift: Forcing camera sync with state: " + str(rec_cam_state))
 
 func _apply_smooth_correction(node: Spatial, expected_transform: Transform, lerp_factor: float) -> void:
 	var t: float
@@ -907,23 +1004,8 @@ func _set_node_state(node: Node, state: Dictionary) -> void:
 			_debug_log("_set_node_state: skipping CameraRig apply after frame 0 to avoid yank")
 			return
 
-	# Apply generic node state handling (yaw/pitch shortcut + set_replay_state path)
-	var current_yaw = 0.0
-	if node.get("yaw") != null and typeof(node.get("yaw")) in [TYPE_REAL, TYPE_INT]:
-		current_yaw = float(node.get("yaw"))
-	var recorded_yaw = current_yaw
-	if state.has("yaw") and typeof(state["yaw"]) in [TYPE_REAL, TYPE_INT]:
-		recorded_yaw = float(state["yaw"])
-	if abs(current_yaw - recorded_yaw) > deg2rad(2.0):
-		if node.has_method("set_replay_state"):
-			node.set_replay_state(state)
-			if node.has_method("update_camera_transform"):
-				node.update_camera_transform()
-		_debug_log("[ReplayPlayback] _set_node_state: applied CameraRig state due to large drift yaw_diff=%s" % str(abs(current_yaw - recorded_yaw)))
-	else:
-		_debug_log("[ReplayPlayback] _set_node_state: skipped CameraRig state application, small drift yaw_diff=%s" % str(abs(current_yaw - recorded_yaw)))
-		return
-
+	# Apply generic node state handling. For non-camera nodes, always
+	# attempt to restore state via `set_replay_state` when available.
 	if node.has_method("set_replay_state"):
 		node.set_replay_state(state)
 		# Force immediate update if available
@@ -1007,6 +1089,12 @@ func _apply_velocity_drift_correction(frame_data: Dictionary) -> void:
 	if not recorded_state:
 		return
 
+	# Skip applying velocity corrections during early frames to avoid fighting
+	# initial spawn/settle and camera re-application which can create snaps.
+	if InputState.replay_frame <= EARLY_CORRECTION_FRAMES:
+		player.set("replay_velocity_correction", null)
+		return
+
 	# find player key
 	var player_key = node_key_map.get(player.name, null)
 	if player_key == null:
@@ -1047,17 +1135,11 @@ func _apply_velocity_drift_correction(frame_data: Dictionary) -> void:
 		print("[ReplayPlayback] DRIFT: snap applied for large divergence", divergence)
 		return
 
-	# Compute correction velocity (magnet) and clamp
-	var correction_vel = error_vec * DRIFT_MAGNET_STRENGTH
-	# Convert to per-frame delta-scaled impulse
-	var correction_delta = correction_vel * FIXED_DELTA
-	if correction_delta.length() > MAX_PHYSICS_CORRECTION:
-		correction_delta = correction_delta.normalized() * MAX_PHYSICS_CORRECTION
-
-	# Write correction to player for consumption
-	player.set("replay_velocity_correction", correction_delta)
-	# Debug
-	print("[ReplayPlayback] DRIFT: applied correction", correction_delta, "divergence", divergence)
+	# Compute the target velocity (magnet) and store it as a replay-provided velocity
+	var target_velocity = error_vec * DRIFT_MAGNET_STRENGTH
+	if player:
+		player.set("replay_velocity_correction", target_velocity)
+		print("[ReplayPlayback] DRIFT: set replay_velocity_correction to", target_velocity, "divergence", divergence)
 	return
 func _compare_states(a, b, epsilon = 0.001):
 	# Allow numeric type differences (int vs float) by normalizing here.
@@ -1093,143 +1175,6 @@ func _compare_states(a, b, epsilon = 0.001):
 		return abs(a - b) < epsilon
 	else:
 		return a == b
-
-func _start_smooth_camera(target_state: Dictionary, frames: int = -1) -> void:
-	# target_state may contain either yaw/pitch or a full global_transform.
-	if target_state == null:
-		return
-
-	# Prefer full transform if provided
-	if target_state.has("global_transform") or target_state.has("transform"):
-		var tfv = target_state.get("global_transform", target_state.get("transform", null))
-		var target_tf = null
-		if tfv is Transform:
-			target_tf = tfv
-		elif typeof(tfv) == TYPE_DICTIONARY:
-			target_tf = ReplayUtils.dict_to_transform(tfv)
-		elif typeof(tfv) == TYPE_STRING:
-			var parsed = str2var(tfv)
-			if parsed is Transform:
-				target_tf = parsed
-
-		if target_tf != null:
-			# Find a camera node to source the starting transform
-			var camnode = null
-			var player_node = _safe_get_player()
-			if player_node:
-				camnode = player_node.get_node_or_null("CameraRig")
-				if not camnode:
-					camnode = player_node.find_node("CameraRig", true, false)
-			if not camnode and get_tree() and get_tree().current_scene:
-				camnode = get_tree().current_scene.find_node("CameraRig", true, false)
-
-			var from_tf = Transform()
-			if camnode and camnode is Spatial:
-				from_tf = camnode.global_transform
-			_camera_target_state = {"type": "transform", "from": from_tf, "to": target_tf}
-		else:
-			return
-	elif target_state.has("yaw") or target_state.has("pitch"):
-		_camera_target_state = {"type": "yawpitch", "yaw": float(target_state.get("yaw", 0.0)), "pitch": float(target_state.get("pitch", 0.0))}
-	else:
-		return
-
-	if frames > 0:
-		_camera_smooth_frames = frames
-	_camera_smooth_progress = 0
-
-func _update_smooth_camera() -> void:
-	if _camera_target_state == null:
-		return
-
-	# Find camera node (player-local preferred)
-	var player_node = _safe_get_player()
-	var camnode = null
-	var hnode = null
-	var vnode = null
-	if player_node:
-		camnode = player_node.get_node_or_null("CameraRig")
-		if not camnode:
-			camnode = player_node.find_node("CameraRig", true, false)
-	if not camnode and get_tree() and get_tree().current_scene:
-		camnode = get_tree().current_scene.find_node("CameraRig", true, false)
-
-	# Compute interpolation factor (eased)
-	_camera_smooth_progress += 1
-	var t = float(_camera_smooth_progress) / float(max(1, _camera_smooth_frames))
-	if t > 1.0:
-		t = 1.0
-	var te = 1.0 - pow(1.0 - t, 2.0) # ease-out
-
-	if _camera_target_state.has("type") and _camera_target_state["type"] == "transform":
-		var from_tf: Transform = _camera_target_state.get("from", null)
-		var to_tf: Transform = _camera_target_state.get("to", null)
-		if not (from_tf is Transform) or not (to_tf is Transform):
-			_camera_target_state = null
-			return
-
-		# Apply interpolation between transforms
-		var interp_origin = from_tf.origin.linear_interpolate(to_tf.origin, te)
-		var interp_basis = from_tf.basis.slerp(to_tf.basis, te)
-
-		# If we have a camnode that's Spatial, write global_transform
-		if camnode and camnode is Spatial:
-			var new_tf = camnode.global_transform
-			new_tf.origin = interp_origin
-			new_tf.basis = interp_basis
-			camnode.global_transform = new_tf
-			if camnode.has_method("update_camera_transform"):
-				camnode.update_camera_transform()
-		else:
-			# Fallback: try applying yaw/pitch derived from basis
-			var yaw_val = atan2(interp_basis.x.z, interp_basis.x.x)
-			var pitch_val = asin(-interp_basis.x.y)
-			if camnode and camnode.has_method("set_replay_state"):
-				camnode.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
-				if camnode.has_method("update_camera_transform"):
-					camnode.update_camera_transform()
-
-	elif _camera_target_state.has("type") and _camera_target_state["type"] == "yawpitch":
-		# Find current yaw/pitch
-		var cur_yaw = 0.0
-		var cur_pitch = 0.0
-		var applied_direct = false
-		if camnode and camnode.has_method("get_replay_state"):
-			var cs = camnode.get_replay_state()
-			cur_yaw = float(cs.get("yaw", 0.0))
-			cur_pitch = float(cs.get("pitch", 0.0))
-		else:
-			# try Camroot h/v under player
-			vnode = null
-			# (hnode declared at function scope)
-			if player_node:
-				var camroot = player_node.get_node_or_null("Camroot")
-				if not camroot:
-					camroot = player_node.find_node("Camroot", true, false)
-				if camroot:
-					hnode = camroot.get_node_or_null("h")
-					vnode = hnode.get_node_or_null("v") if hnode else null
-					if hnode:
-						cur_yaw = float(hnode.rotation.y)
-						cur_pitch = float(vnode.rotation.x) if vnode else 0.0
-						applied_direct = true
-
-		var ty = lerp(cur_yaw, float(_camera_target_state.get("yaw", 0.0)), te)
-		var tp = lerp(cur_pitch, float(_camera_target_state.get("pitch", 0.0)), te)
-
-		if camnode and camnode.has_method("set_replay_state"):
-			camnode.set_replay_state({"yaw": ty, "pitch": tp})
-			if camnode.has_method("update_camera_transform"):
-				camnode.update_camera_transform()
-		elif applied_direct and hnode:
-			hnode.rotation.y = ty
-			if vnode:
-				vnode.rotation.x = tp
-
-	# Finish smoothing if done
-	if _camera_smooth_progress >= _camera_smooth_frames:
-		_camera_target_state = null
-		_camera_smooth_progress = 0
 
 func _deferred_reapply_camera_from_initials() -> void:
 	# Called deferred to ensure camera rigs initialized, tries multiple fallbacks.

@@ -1,0 +1,37 @@
+{
+  "T1_Friccion": {
+    "description": "Frames 0-30: move_forward, 31-119: idle",
+    "frames": [
+      {"count": 30, "input": {"move_forward": 1, "move_right": 0, "jump": 0, "mouse_delta": {"x":0, "y":0}}},
+      {"count": 90, "input": {"move_forward": 0, "move_right": 0, "jump": 0, "mouse_delta": {"x":0, "y":0}}}
+    ]
+  },
+  "T2_Salto": {
+    "description": "Frame 10: jump (press), resto idle",
+    "frames": [
+      {"count": 9, "input": {"move_forward": 0, "move_right": 0, "jump": 0, "mouse_delta": {"x":0, "y":0}}},
+      {"count": 1, "input": {"move_forward": 0, "move_right": 0, "jump": 1, "mouse_delta": {"x":0, "y":0}}},
+      {"count": 110, "input": {"move_forward": 0, "move_right": 0, "jump": 0, "mouse_delta": {"x":0, "y":0}}}
+    ]
+  },
+  "T3_Strafe": {
+    "description": "Frames 0-119: move_forward + move_right (strafe)",
+    "frames": [
+      {"count": 120, "input": {"move_forward": 1, "move_right": 1, "jump": 0, "mouse_delta": {"x":0, "y":0}}}
+    ]
+  },
+  "T4_TankTurn": {
+    "description": "Frames 0-59: move_right (turn), 60-119: idle",
+    "frames": [
+      {"count": 60, "input": {"move_forward": 0, "move_right": 1, "jump": 0, "mouse_delta": {"x":0, "y":0}}},
+      {"count": 60, "input": {"move_forward": 0, "move_right": 0, "jump": 0, "mouse_delta": {"x":0, "y":0}}}
+    ]
+  },
+  "T5_MouseLook": {
+    "description": "Frames 0-59: mouse_delta.x = 10.0, 60-119: idle",
+    "frames": [
+      {"count": 60, "input": {"move_forward": 0, "move_right": 0, "jump": 0, "mouse_delta": {"x":10.0, "y":0}}},
+      {"count": 60, "input": {"move_forward": 0, "move_right": 0, "jump": 0, "mouse_delta": {"x":0, "y":0}}}
+    ]
+  }
+}

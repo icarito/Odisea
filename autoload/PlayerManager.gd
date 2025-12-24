@@ -142,8 +142,69 @@ func _deferred_spawn(initial_transform: Transform):
 	# When replaying, avoid applying any recorded basis that may have been
 	# modified by spawn transforms; set Basis.IDENTITY then apply origin.
 	if replay_active:
-		player_reference.global_transform = Transform(Basis.IDENTITY, initial_transform.origin)
-		print("[PlayerManager] Replay-active spawn: reset basis to IDENTITY and applied origin: ", initial_transform.origin)
+		# If the caller provided a non-identity initial_transform (e.g. ReplayPlayback
+		# assembled a full basis+origin), prefer using it directly rather than
+		# forcing Basis.IDENTITY. This covers the common case where the
+		# playback code constructs an initial_transform and then calls spawn().
+		if initial_transform.basis != Basis.IDENTITY:
+			player_reference.global_transform = initial_transform
+			print("[PlayerManager] Replay-active spawn: applied caller initial_transform with basis and origin:", initial_transform.origin)
+			# Clear physics if present
+			if player_reference.has_method("reset_physics"):
+				player_reference.reset_physics()
+				if player_reference.get("velocity") != null:
+					player_reference.velocity = Vector3()
+				if player_reference.get("linear_velocity") != null:
+					player_reference.linear_velocity = Vector3()
+			return
+		# If the replay contains a recorded player state, prefer applying
+		# the recorded full transform (basis + origin) so the playback starts
+		# exactly at the captured orientation/position. Fallback to the
+		# previous behaviour (identity basis + origin) when no player state
+		# is available.
+		var applied_full_player_transform := false
+		if has_node("/root/ReplayManager"):
+			var rm_local = get_node("/root/ReplayManager")
+			if rm_local and rm_local.playback and rm_local.playback.current_replay:
+				var initials_local = rm_local.playback.current_replay.initial_states
+				if typeof(initials_local) == TYPE_STRING:
+					var parsed_local = parse_json(initials_local)
+					if typeof(parsed_local) == TYPE_DICTIONARY:
+						initials_local = ReplayUtils.from_json_safe(parsed_local)
+					else:
+						initials_local = {}
+				elif typeof(initials_local) == TYPE_DICTIONARY:
+					initials_local = ReplayUtils.from_json_safe(initials_local)
+					# If we have a recorded player snapshot, try several formats:
+					# - initials_local["player"] is a Dictionary containing a "global_transform"
+					# - initials_local["player"] already contains a Transform for global_transform
+					# - initials_local["player"] is itself a Transform (less likely)
+					if initials_local and typeof(initials_local) == TYPE_DICTIONARY and initials_local.has("player"):
+						var pstate = initials_local["player"]
+						# Case: pstate is a Dictionary with a nested global_transform
+						if typeof(pstate) == TYPE_DICTIONARY and pstate.has("global_transform"):
+							var gtf = pstate["global_transform"]
+							if typeof(gtf) != TYPE_NIL:
+								player_reference.global_transform = gtf
+								print("[PlayerManager] Replay-active spawn: applied recorded player global_transform: ", gtf.origin)
+								applied_full_player_transform = true
+						# Case: pstate itself is a Transform
+						elif pstate is Transform:
+							player_reference.global_transform = pstate
+							print("[PlayerManager] Replay-active spawn: applied recorded player Transform (direct)")
+							applied_full_player_transform = true
+						# Case: pstate is a raw JSON-like dict representing a Transform
+						elif typeof(pstate) == TYPE_DICTIONARY:
+							# Try to convert to Transform defensively
+							var try_gtf = ReplayUtils.from_json_safe(pstate)
+							if try_gtf is Transform:
+								player_reference.global_transform = try_gtf
+								print("[PlayerManager] Replay-active spawn: applied recorded player transform (converted)", try_gtf.origin)
+								applied_full_player_transform = true
+		# Fallback to previous behaviour when no recorded player transform available
+		if not applied_full_player_transform:
+			player_reference.global_transform = Transform(Basis.IDENTITY, initial_transform.origin)
+			print("[PlayerManager] Replay-active spawn: reset basis to IDENTITY and applied origin: ", initial_transform.origin)
 		# Ensure any pre-existing physics state is cleared so replay starts deterministic
 		if player_reference.has_method("reset_physics"):
 			player_reference.reset_physics()

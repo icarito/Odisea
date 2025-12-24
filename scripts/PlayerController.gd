@@ -139,7 +139,7 @@ var debug_timer = Timer.new()
 var debug_ready: bool = true
 var _debug_t := 0.0
 var _last_debug_ms := 0
-var _last_tag_ms := {}
+var _last_tag_ms = {}
 var _last_cam_yaw := -999.0
 var _last_dir := Vector3.ZERO
 export(float, 0.0, 1.0, 0.01) var debug_yaw_threshold := 0.05 # rad (~3°)
@@ -160,6 +160,7 @@ var direction := Vector3.ZERO
 var horizontal_velocity := Vector3.ZERO
 var velocity := Vector3.ZERO
 var pre_move_velocity_for_replay := Vector3.ZERO
+var _last_replay_corr := Vector3.ZERO
 var platform_velocity := Vector3.ZERO
 var airborne_inherited := Vector3.ZERO
 var last_platform_velocity := Vector3.ZERO
@@ -191,12 +192,13 @@ func set_external_velocity_fixed(v: Dictionary) -> void:
 		platform_velocity_fixed = v
 
 func _ready():
+	process_priority = 0  # Ensure player physics runs after replay and camera
 	# Connect to GameGlobals for debug mode
 	if GameGlobals:
 		debug_enabled = GameGlobals.debug_mode
 		GameGlobals.connect("debug_mode_changed", self, "_on_debug_mode_changed")
 		# Set mouse capture immediately
-		MouseCapture.set_capture(true)
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 	if UIManager:
 		UIManager.connect("overlay_shown", self, "_on_UIManager_overlay_shown")
@@ -445,22 +447,19 @@ func _check_and_align_camera() -> void:
 		yield(get_tree(), "idle_frame")
 	_align_camera_to_body()
 
-var _last_input_state := {}
+var _last_input_state = {}
 
 func _physics_process(delta):
 	var has_input := false
 	var movement_this_frame := Vector3.ZERO
 	var is_replaying = GameGlobals and GameGlobals.is_replaying
+	var is_test_mode = GameGlobals and GameGlobals.is_test_mode
 	var replay_manager = get_node_or_null("/root/ReplayManager")
 
-	# Modo pasivo total durante replay: evitar cálculo de gravedad/movimiento
-	# y limpiar fuerzas para prevenir acumulación que produce 'yank'.
-	if is_replaying:
-		# For replay: force a fixed delta so physics is deterministic.
-		# Do NOT change physics forces here; physics should run identically
-		# during recording and playback — only the input source differs.
+	# Para asegurar determinismo, usamos un delta fijo en todos los modos relevantes.
+	# Esto es CRÍTICO para que la grabación y la reproducción sean idénticas.
+	if is_replaying or is_test_mode or (InputState and InputState.mode == InputState.Mode.RECORD) or (GameGlobals and GameGlobals.is_recording):
 		delta = 1.0 / 60.0
-		print("[PlayerController] Replay: using fixed delta 1/60 for deterministic physics")
 
 	if not _touch_camera_connected:
 		_connect_touch_camera()
@@ -476,20 +475,6 @@ func _physics_process(delta):
 	var mouse_motion = null
 	var is_sprinting = false
 	var jump_pressed = false
-
-	if is_replaying and replay_manager:
-		var replay_playback = replay_manager.get_playback_node()
-		if replay_playback and replay_playback.current_replay:
-			var frame_index = InputState.replay_frame
-			if replay_playback.current_replay.frame_states.size() > frame_index:
-				var recorded_state = replay_playback.current_replay.frame_states[frame_index]
-				var pilot_state = recorded_state.get("@Pilot@10", null)
-				if pilot_state:
-					# The call to playback_process(pilot_state, delta) was here.
-					# It's disabled to favor a pure input-based replay with soft sync correction,
-					# as it represents a conflicting state-based approach.
-					pass
-					# Continue with movement logic but skip physics
 
 	# Process player input desde InputState (both normal and replay)
 	if InputState:
@@ -533,8 +518,8 @@ func _physics_process(delta):
 	angular_acceleration = 10
 	acceleration = 15
 
-	# Gravedad efectiva: usar override si existe
-	var effective_gravity_vector := local_gravity_override if (local_gravity_override.length() > 0.01) else (Vector3.DOWN * gravity)
+	# Gravedad efectiva: usar override si existe, pero forzar fija en replay
+	var effective_gravity_vector := Vector3.DOWN * 9.8 if is_replaying else (local_gravity_override if (local_gravity_override.length() > 0.01) else (Vector3.DOWN * gravity))
 	var effective_gravity_mag := effective_gravity_vector.length()
 	var effective_gravity_dir := effective_gravity_vector.normalized() if (effective_gravity_mag > 0.01) else Vector3.DOWN
 	
@@ -542,8 +527,8 @@ func _physics_process(delta):
 	if not is_on_floor():
 		var gravity_fixed = FixedVec3.from_vec3(effective_gravity_vector)
 		print("[PlayerController] Conversión Vector3 a fixed: effective_gravity_vector -> gravity_fixed:", effective_gravity_vector, "->", gravity_fixed)
-		var delta_fixed = FixedPoint.to_fixed(delta)
-		var multiplier_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(2), delta_fixed)
+		# CORRECCIÓN: Se elimina el multiplicador `* 2` que causaba la gravedad positiva gigante en replays.
+		var multiplier_fixed = FixedPoint.to_fixed(delta)
 		var gravity_delta_fixed = FixedVec3.mul_scalar(gravity_fixed, multiplier_fixed)
 		vertical_velocity_fixed = FixedVec3.add(vertical_velocity_fixed, gravity_delta_fixed)
 		print("[PlayerController] Velocidad vertical fixed actualizada (gravedad):", vertical_velocity_fixed)
@@ -625,8 +610,8 @@ func _physics_process(delta):
 					InputState.is_strafing_mode_active = true
 					InputState.strafing_timer = 5.0
 				if InputState.is_strafing_mode_active:
-					if input_vector.length() > 0.1:
-						InputState.strafing_timer = 5.0  # Reset timer while moving
+					if InputState.mouse_delta.length() > 0.0:  # Reset timer while mouse is moving
+						InputState.strafing_timer = 5.0
 					else:
 						InputState.strafing_timer -= delta
 						if InputState.strafing_timer <= 0.0:
@@ -634,12 +619,8 @@ func _physics_process(delta):
 							strafe_cooldown = 0.5 # Prevent sudden turn after strafe
 			
 			var strafe_mode_active = InputState.is_strafing_mode_active
-			# --- Sincronización explícita durante replay ---
 			if GameGlobals and GameGlobals.is_replaying:
 				strafe_mode_active = InputState.is_strafing_mode_active
-				# (Opcional) También sincroniza el timer si es relevante:
-				# strafing_timer = InputState.strafing_timer
-			
 			# Set strafe mode in movement component
 			if movement_comp:
 				movement_comp.strafe_mode = strafe_mode_active
@@ -682,8 +663,10 @@ func _physics_process(delta):
 	
 	# Platform velocity logic (fixed-point)
 		var zero_fixed = FixedVec3.zero()
-		var lerp_factor_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(6.0), FixedPoint.to_fixed(delta))
-		platform_velocity_fixed = FixedVec3.lerp(platform_velocity_fixed, zero_fixed, lerp_factor_fixed)
+		# CORRECCIÓN: Desactivar la fricción en modo replay para que no luche contra el imán.
+		if not is_replaying:
+			var lerp_factor_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(6.0), FixedPoint.to_fixed(delta))
+			platform_velocity_fixed = FixedVec3.lerp(platform_velocity_fixed, zero_fixed, lerp_factor_fixed)
 		print("[PlayerController] Velocidad plataforma fixed actualizada:", platform_velocity_fixed)
 		if is_on_floor():
 			last_platform_velocity = FixedVec3.to_vec3(platform_velocity_fixed)
@@ -720,8 +703,12 @@ func _physics_process(delta):
 			movement_this_frame.z += error_vector.z * CORRECTION_STRENGTH
 			
 			# Si el error es muy grande (> 1 metro), hacemos un SNAP de emergencia
-			if error_vector.length() > 1.0:
-				 global_transform.origin = playback_target_pos
+			if error_vector.length() > 5.0:
+				global_transform.origin = playback_target_pos
+				# Resetear inercia para evitar que la velocidad errónea continúe
+				velocity = Vector3.ZERO
+				horizontal_velocity_fixed = FixedVec3.zero()
+				vertical_velocity_fixed = FixedVec3.zero()
 
 	# --- LOGIC THAT RUNS IN BOTH MODES ---
 
@@ -742,9 +729,17 @@ func _physics_process(delta):
 	if has_method("get"):
 		var raw_corr = get("replay_velocity_correction")
 		if raw_corr != null and typeof(raw_corr) == TYPE_VECTOR3:
-			replay_corr = raw_corr
+			# Drop vertical component to avoid fighting gravity and causing yank
+			var target_corr = Vector3(raw_corr.x, 0.0, raw_corr.z)
+			# Smooth corrections over frames to avoid sudden impulses
+			var SMOOTH_FACTOR := 0.25
+			_last_replay_corr = _last_replay_corr.linear_interpolate(target_corr, SMOOTH_FACTOR)
+			replay_corr = _last_replay_corr
 			# consume once
 			set("replay_velocity_correction", null)
+		else:
+			# Decay residual correction toward zero
+			_last_replay_corr = _last_replay_corr.linear_interpolate(Vector3.ZERO, 0.2)
 
 	if GameGlobals and GameGlobals.replay_debug_mode and is_replaying:
 		print("[PlayerController Playback] Pre-move: velocity=", movement_this_frame, " on_floor=", on_floor, " replay_corr=", replay_corr)
@@ -753,14 +748,14 @@ func _physics_process(delta):
 	pre_move_velocity_for_replay = movement_this_frame
 	
 	# Snap to ground
-	var snap_vec := Vector3.ZERO
+	var snap_vec = Vector3.ZERO
 	if on_floor and snap_enabled:
-		snap_vec = Vector3.DOWN * snap_len
+		snap_vec = -get_floor_normal() * snap_len
 	elif on_floor:
 		snap_enabled = true
 
 	# --- THE ACTUAL PHYSICS STEP ---
-	var pos_before := global_transform.origin
+	var pos_before = global_transform.origin
 	# If a replay correction exists, add it to the movement/velocity for this frame
 	if replay_corr != Vector3.ZERO:
 		movement_this_frame += replay_corr
@@ -772,8 +767,8 @@ func _physics_process(delta):
 		print("[PlayerController DEBUG] Applied direct move for replay: pos_before=", pos_before, " pos_after=", global_transform.origin, " disp=", global_transform.origin - pos_before)
 	else:
 		velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
-		var pos_after := global_transform.origin
-		var disp := pos_after - pos_before
+		var pos_after = global_transform.origin
+		var disp = pos_after - pos_before
 		if GameGlobals and GameGlobals.replay_debug_mode and GameGlobals.is_replaying:
 			print("[PlayerController DEBUG] move_and_slide pos_before=", pos_before, " pos_after=", pos_after, " disp=", disp, " velocity_out=", velocity)
 
@@ -1012,6 +1007,7 @@ func get_replay_state() -> Dictionary:
 
 func set_replay_state(state: Dictionary) -> void:
 	var deserialized_state = ReplayUtils.from_json_safe(state)
+	print("[PlayerController][set_replay_state] incoming keys:", state.keys())
 	var is_replaying = GameGlobals and GameGlobals.is_replaying
 	var replay_manager = get_node_or_null("/root/ReplayManager")
 
@@ -1023,6 +1019,7 @@ func set_replay_state(state: Dictionary) -> void:
 			print("[PlayerController] Posición fixed actualizada:", global_transform.origin)
 		else:
 			global_transform.origin = deserialized_state.get("player_position", global_transform.origin)
+			print("[PlayerController] Posición (fallback) aplicada:", global_transform.origin)
 	else:
 		global_transform.origin = deserialized_state.get("player_position", global_transform.origin)
 	
