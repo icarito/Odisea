@@ -83,8 +83,7 @@ func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is
 	movement_speed *= processed_mag
 
 	var target_velocity = direction * movement_speed
-	
-	# A. Restaurar la Física de Aire: Usar una aceleración diferente si no está en el suelo.
+	# CRÍTICO: Restaurar la aceleración reducida en el aire para el modo LIVE.
 	var effective_accel = acceleration
 	if not is_on_floor:
 		effective_accel = acceleration * air_acceleration_multiplier
