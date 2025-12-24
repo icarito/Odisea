@@ -1,5 +1,22 @@
 extends KinematicBody
 
+func set_is_replaying(value: bool):
+	is_replaying = value
+	_sync_camera_mode()
+
+func _sync_camera_mode():
+	   var cam = get_node_or_null("CameraRig")
+	   if cam:
+		   # Preferir método explícito si el nodo lo ofrece
+		   if cam.has_method("set_is_playback"):
+			   cam.call("set_is_playback", is_replaying)
+		   elif ("is_playback" in cam):
+			   cam.is_playback = is_replaying
+		   else:
+			   # Último recurso: intentar setear la propiedad si existe
+			   if cam.get("is_playback") != null:
+				   cam.set("is_playback", is_replaying)
+
 var playback_target_pos = null # Nueva variable para el objetivo
 const CORRECTION_STRENGTH = 2.0 # Fuerza del imán (ajustable: 1.0 es suave, 5.0 es fuerte)
 
@@ -214,6 +231,7 @@ func _ready():
 		animation_tree["parameters/conditions/IsInAir"] = false
 		animation_tree["parameters/conditions/IsFloating"] = false
 	# Inicialización simple: nada que suavizar del yaw del cuerpo
+	_sync_camera_mode()
 	
 
 func _connect_touch_camera():

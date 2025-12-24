@@ -181,6 +181,9 @@ func _deferred_spawn(initial_transform: Transform):
 				var cam = player_reference.get_node_or_null("CameraRig")
 				if cam and cam.has_method("set_replay_state"):
 					cam.set_replay_state(cam_state)
+					# Force camera into playback/passive mode to avoid internal smoothing
+					if cam and cam.has_method("set_is_playback"):
+						cam.set_is_playback(true)
 					if cam.has_method("update_camera_transform"):
 						cam.update_camera_transform()
 					print("[PlayerManager] Applied camera snapshot from replay on spawn")
@@ -191,6 +194,9 @@ func _deferred_spawn(initial_transform: Transform):
 				var cam2 = player_reference.get_node_or_null("CameraRig")
 				if cam2 and cam2.has_method("set_replay_state"):
 					cam2.set_replay_state({"yaw": cy, "pitch": cp})
+					# Force passive playback mode on camera
+					if cam2 and cam2.has_method("set_is_playback"):
+						cam2.set_is_playback(true)
 					if cam2.has_method("update_camera_transform"):
 						cam2.update_camera_transform()
 					print("[PlayerManager] Applied camera yaw/pitch from replay on spawn")
@@ -206,6 +212,10 @@ func _deferred_spawn(initial_transform: Transform):
 		player_reference.set("is_replaying", true)
 		print("[PlayerManager] PlayerController is_replaying set to true on spawn (via set, GameGlobals)")
 		replay_marked = true
+		# Propagate to camera rig to ensure passive playback mode
+		var camnode = player_reference.get_node_or_null("CameraRig")
+		if camnode and camnode.has_method("set_is_playback"):
+			camnode.set_is_playback(true)
 
 	# Also check ReplayManager directly in case GameGlobals flag isn't set yet
 	if not replay_marked and has_node("/root/ReplayManager"):
@@ -226,6 +236,9 @@ func _deferred_spawn(initial_transform: Transform):
 					player_input2.is_replay_mode = true
 				player_reference.set("is_replaying", true)
 				print("[PlayerManager] PlayerController is_replaying set to true on spawn (via ReplayManager)")
+				var camnode2 = player_reference.get_node_or_null("CameraRig")
+				if camnode2 and camnode2.has_method("set_is_playback"):
+					camnode2.set_is_playback(true)
 	
 	# Forzar alineación de cámara después de que el nodo esté en escena y transform aplicado.
 	# La función _align_camera_to_body() debe existir en el script del player.
