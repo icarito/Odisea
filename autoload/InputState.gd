@@ -43,6 +43,7 @@ var is_strafing_mode_active = false
 var strafing_timer = 0.0
 
 var mode: int = Mode.LIVE setget set_mode
+var debug_input: bool = false # Habilitar para trazas de input detalladas
 
 # Fixed delta for deterministic replay
 const FIXED_DELTA = 1.0 / 60.0
@@ -146,7 +147,8 @@ func _physics_process(_delta):
 			if not is_strafing_mode_active:
 				is_strafing_mode_active = true
 				strafing_timer = 5.0 # Reset timer
-				print("[InputState LIVE] Strafe ACTIVATED. mouse_delta=", mouse_delta, " timer=", strafing_timer)
+				if debug_input:
+					print("[InputState LIVE] Strafe ACTIVATED. mouse_delta=", mouse_delta, " timer=", strafing_timer)
 
 		# 2. Persistence: If strafe mode is active, countdown the timer.
 		if is_strafing_mode_active:
@@ -154,10 +156,11 @@ func _physics_process(_delta):
 			if strafing_timer <= 0.0:
 				is_strafing_mode_active = false
 				strafing_timer = 0.0
-				print("[InputState LIVE] Strafe DEACTIVATED (timer). mouse_delta=", mouse_delta, " timer=", strafing_timer)
+				if debug_input:
+					print("[InputState LIVE] Strafe DEACTIVATED (timer). mouse_delta=", mouse_delta, " timer=", strafing_timer)
 
-		# Debug trace each physics frame for strafe/mouse state (keep minimal)
-		if OS.has_feature("debug"):
+		# Debug trace only when explicitly enabled and mouse moved
+		if debug_input and mouse_delta.length_squared() > 1.0:
 			print("[InputState LIVE][FRAME] mouse_delta=", mouse_delta, " strafing=", is_strafing_mode_active, " timer=", strafing_timer)
 
 		# Consume/clear any accumulated raw mouse motion for this frame so it
@@ -281,7 +284,7 @@ func _record_current_frame():
 		"camera_pitch": cam_pitch
 	}
 	recorded_frames.append(frame)
-	if recorded_frames.size() % 10 == 0:
+	if debug_input and recorded_frames.size() % 10 == 0:
 		print("[InputState][RECORD] Frame=", recorded_frames.size() - 1,
 			" inputs=", inputs_snapshot,
 			" axes=", axes_snapshot,
@@ -318,7 +321,8 @@ func _apply_replay_frame():
 	recorded_mouse_delta = mouse_delta
 	is_strafing_mode_active = frame.get("strafing_active", false)
 	strafing_timer = frame.get("strafing_timer", 0.0)
-	print("[InputState][PLAYBACK] Frame=", replay_frame, " actions=", actions, " axes=", axes, " mouse_delta=", mouse_delta, " strafe=", is_strafing_mode_active)
+	if debug_input:
+		print("[InputState][PLAYBACK] Frame=", replay_frame, " actions=", actions, " axes=", axes, " mouse_delta=", mouse_delta, " strafe=", is_strafing_mode_active)
 	replay_frame += 1
 
 # API pública para gameplay/cámara
@@ -381,11 +385,11 @@ func _input(event):
 		return
 	if event is InputEventMouseMotion:
 		_mouse_motion_this_frame += event.relative
-		if OS.has_feature("debug"):
+		if debug_input:
 			print("[InputState._input] MouseMotion received: rel=", event.relative, " _mouse_motion_this_frame=", _mouse_motion_this_frame)
 	elif event is InputEventScreenDrag:
 		_mouse_motion_this_frame += event.relative
-		if OS.has_feature("debug"):
+		if debug_input:
 			print("[InputState._input] ScreenDrag received: rel=", event.relative, " _mouse_motion_this_frame=", _mouse_motion_this_frame)
 
 

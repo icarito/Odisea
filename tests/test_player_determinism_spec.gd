@@ -4,7 +4,7 @@ extends GdUnitTestSuite
 const TEST_REPLAY_PATH = "res://tests/fixtures/reference.json"
 const FIXED_DELTA = 1.0 / 60.0
 
-var player: KinematicBody
+var _test_player: KinematicBody
 var replay_data: Dictionary
 
 func before():
@@ -31,8 +31,8 @@ func before():
 	# 2. Instanciar al jugador para el test
 	# El Agente debe asegurar que esta ruta es correcta según tu proyecto
 	var scene = load("res://players/elias/Pilot.tscn")
-	player = scene.instance()
-	add_child(player)
+	_test_player = scene.instance()
+	add_child(_test_player)
 
 func test_determinism_live_vs_replay():
 	# Extraer el SpawnPoint real del JSON
@@ -40,33 +40,33 @@ func test_determinism_live_vs_replay():
 	var spawn_rot = ReplayUtils.dict_to_vector3(replay_data.final_states.player.rotation)
 	
 	# --- PASO 1: SIMULACIÓN MODO LIVE (Física Normal) ---
-	player.global_transform.origin = spawn_pos
-	player.rotation = spawn_rot
-	player.set_is_replaying(false) # IMPORTANTE: Aquí probamos tu gameplay real
+	_test_player.global_transform.origin = spawn_pos
+	_test_player.rotation = spawn_rot
+	_test_player.set_is_replaying(false) # IMPORTANTE: Aquí probamos tu gameplay real
 	
 	for frame in replay_data.frames:
-		player.get_node("PlayerInput").inject_input(frame.inputs)
+		_test_player.get_node("PlayerInput").inject_input(frame.inputs)
 		# Ejecutamos la física manualmente frame a frame
-		player._physics_process(FIXED_DELTA)
+		_test_player._physics_process(FIXED_DELTA)
 	
-	var final_pos_live = player.global_transform.origin
-	var final_rot_live = player.rotation
+	var final_pos_live = _test_player.global_transform.origin
+	var final_rot_live = _test_player.rotation
 	
 	# --- PASO 2: SIMULACIÓN MODO REPLAY (Física Reproducida) ---
 	# Reset total
-	player.global_transform.origin = spawn_pos
-	player.rotation = spawn_rot
-	if player.has_method("reset_physics_state"):
-		player.reset_physics_state()
+	_test_player.global_transform.origin = spawn_pos
+	_test_player.rotation = spawn_rot
+	if _test_player.has_method("reset_physics_state"):
+		_test_player.reset_physics_state()
 		
-	player.set_is_replaying(true) # Cambiamos al modo que el Agente "limpió"
+	_test_player.set_is_replaying(true) # Cambiamos al modo que el Agente "limpió"
 	
 	for frame in replay_data.frames:
-		player.get_node("PlayerInput").inject_input(frame.inputs)
-		player._physics_process(FIXED_DELTA)
+		_test_player.get_node("PlayerInput").inject_input(frame.inputs)
+		_test_player._physics_process(FIXED_DELTA)
 		
-	var final_pos_replay = player.global_transform.origin
-	var final_rot_replay = player.rotation
+	var final_pos_replay = _test_player.global_transform.origin
+	var final_rot_replay = _test_player.rotation
 	
 	# --- PASO 3: MEDICIÓN DEL DESASTRE ---
 	var drift = final_pos_live.distance_to(final_pos_replay)
@@ -85,8 +85,8 @@ func test_determinism_live_vs_replay():
 	assert_float(rot_drift).is_less_equal(0.05)
 
 func after():
-	if is_instance_valid(player):
-		player.free()
+	if is_instance_valid(_test_player):
+		_test_player.free()
 
 # Prefijar variables no utilizadas con un guion bajo
 var _mouse_motion = Vector2.ZERO
@@ -99,7 +99,7 @@ var _vertical_divergence = 0.0
 var _on_floor = false
 
 # Resolver conflictos de nombres
-var player_instance = player
+var player_instance = _test_player
 
 # Corregir tipos de datos
 export(float) var example_float = 0.0
