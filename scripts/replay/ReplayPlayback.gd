@@ -21,7 +21,7 @@ const FIXED_DELTA = 1.0 / 60.0 # Fixed delta for 60 FPS simulation
 const IGNORE_THRESHOLD = 0.05 # Ignore micro-drift to eliminate floating (raised)
 const FAST_LERP_THRESHOLD = 0.05 # Use ultra-fast LERP if between this and SNAP
 const SNAP_THRESHOLD = 5.0 # Instant correction threshold (5.0m) - Evita teletransporte por errores pequeños
-
+const HARD_SYNC_THRESHOLD = 0.1 # Distancia para forzar un Hard Sync
 # Drift correction tuning (velocity-based 'magnet')
 const DRIFT_MAGNET_STRENGTH = 30.0
 const VERTICAL_MAGNET_MULTIPLIER = 2.0 # Aumenta la fuerza del imán en el eje Y
@@ -901,42 +901,17 @@ func check_for_drift(frame_data: Dictionary) -> void:
 	if InputState.replay_frame <= EARLY_CORRECTION_FRAMES:
 		player.set("replay_velocity_correction", null)
 		return
-
-	if divergence <= IGNORE_DRIVE_THRESHOLD or has_movement_input:
-		# small error -> no correction
-		player.set("replay_velocity_correction", null)
-		return
-
-	# If extremely divergent horizontally, only snap as a last-last resort.
-	# Use a higher threshold to avoid snapping due to small spawn/ground offsets.
-	if horiz_divergence > SNAP_THRESHOLD: # MODIFICADO: Desactivar Snap y solo imprimir
-		#player.global_transform = expected_transform
-		#player.set("replay_velocity_correction", null)
-		_debug_log("DIVERGENCIA CRÍTICA: " + str(horiz_divergence))
-		return
-
-	# Compute a target velocity (magnet) and store it as a replay-provided velocity
-	# so PlayerController can consume it in a safe, script-agnostic way.
-	# Build a target velocity that prioritizes horizontal correction and damps vertical
-	# El vector de error completo (incluyendo Y) se usa para atraer al jugador.
-	# El PlayerController se encargará de la gravedad, pero esta fuerza ayuda a corregir
-	# desviaciones en todos los ejes, con un énfasis en el vertical.
-	var velocity_hacia_objetivo = Vector3(
-		error_vec.x * DRIFT_MAGNET_STRENGTH,
-		error_vec.y * DRIFT_MAGNET_STRENGTH * VERTICAL_MAGNET_MULTIPLIER, # 2. El Imán de Altura
-		error_vec.z * DRIFT_MAGNET_STRENGTH
-	)
-
-	if player:
-		# Apply direct velocity correction for physics resolution
-		# 3. Sincronización de Velocidad Terminal: Cada N frames, resetea la velocidad a la grabada.
-		if frame_idx % RESYNC_INTERVAL == 0 and rec.has("velocity"):
-			var recorded_velocity = ReplayUtils.dict_to_vector3(rec["velocity"])
-			# Inyectar la velocidad grabada para resetear la inercia perdida.
-			velocity_hacia_objetivo = recorded_velocity
-
-		player.set("replay_velocity_correction", velocity_hacia_objetivo)
-		_debug_log("check_for_drift: set replay_velocity_correction on player: %s" % str(velocity_hacia_objetivo))
+	
+	# Implementar Hard Sync cada 30 frames.
+	if frame_idx % 30 == 0:
+		if divergence > HARD_SYNC_THRESHOLD:
+			player.global_transform.origin = expected_pos
+			# Resetear inercia para evitar que la velocidad errónea continúe
+			player.velocity = Vector3.ZERO
+			if player.has_method("set"):
+				player.set("horizontal_velocity_fixed", FixedVec3.zero())
+				player.set("vertical_velocity_fixed", FixedVec3.zero())
+			_debug_log("Hard Sync Applied. Drift: " + str(divergence))
 
 	# 1. Sincronización Forzada de Ángulos
 	# No confíes solo en el mouse_delta. En el método _check_for_drift, añade una corrección para la cámara.

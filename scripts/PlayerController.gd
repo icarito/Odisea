@@ -450,8 +450,8 @@ func _check_and_align_camera() -> void:
 
 var _last_input_state = {}
 
-func _physics_process(delta: float):
-	# A. Bifurcación real: Separar lógica de Replay y Live.
+func _physics_process(delta: float): # Main dispatcher
+	# 1. Crear una bifurcación real en _physics_process
 	if is_replaying:
 		# En modo replay, usamos un delta fijo para el determinismo.
 		_run_replay_physics(FIXED_DELTA)
@@ -460,7 +460,8 @@ func _physics_process(delta: float):
 		_run_live_physics(delta)
 
 func _run_live_physics(delta: float):
-	# B. Lógica de físicas para el modo LIVE. Usa floats y delta variable.
+	# 2. Restaurar _run_live_physics (Modo Normal)
+	# Usa delta variable, Vector3 (floats), y no tiene conocimiento de 'replay'.
 	var has_input := false
 	var movement_this_frame := Vector3.ZERO
 
@@ -617,7 +618,7 @@ func _run_live_physics(delta: float):
 	var effective_platform_velocity := (Vector3(platform_velocity.x, 0, platform_velocity.z) if (on_floor and platform_is_static_surface) else airborne_inherited)
 	var combined_horizontal = horizontal_velocity + effective_platform_velocity
 	
-	# D. Recuperar el Límite de Velocidad (Speed Clamping)
+	# 4. El "Clamping" de Seguridad
 	var max_speed = movement_comp.walk_speed if not is_running else movement_comp.run_speed
 	if combined_horizontal.length() > max_speed:
 		combined_horizontal = combined_horizontal.normalized() * max_speed
@@ -659,7 +660,8 @@ func _run_live_physics(delta: float):
 	# Actualizar animaciones y otros sistemas
 	_update_animations_and_fx(on_floor, is_walking, is_running, delta)
 
-func _run_replay_physics(delta):
+func _run_replay_physics(delta: float):
+	# Lógica de físicas para el modo REPLAY. Usa punto fijo y delta fijo.
 	var has_input := false
 	var movement_this_frame := Vector3.ZERO
 	var is_replaying = GameGlobals and GameGlobals.is_replaying

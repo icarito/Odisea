@@ -248,54 +248,41 @@ func _physics_process(delta):
 		set_physics_process(false) # Desactivarse para no consumir recursos.
 		return
 
-	# --- ROBUST YAW INITIALIZATION ---
-	if not _yaw_initialized and is_instance_valid(player):
-		# El offset inicial debe respetar la rotación del cuerpo del jugador para evitar un "salto" visual.
-		var initial_offset = player.global_transform.basis.get_euler().y + PI
-		target_yaw = initial_offset
-		if is_instance_valid(yaw):
-			yaw.rotation.y = initial_offset
-		print("[PlayerSpringCam] First frame: Initialized camera with local yaw offset: ", rad2deg(initial_offset))
-		_yaw_initialized = true
-	# ---------------------------------
-	# Lógica de input/smoothing solo si NO es playback
+	# --- Lógica de input/smoothing solo si NO es playback (Modo LIVE) ---
 	_update_mouse_look_active()
 
-	var touch_controls = get_node_or_null("/root/TouchControls")
-	var touch_active = touch_controls and touch_controls.is_touch_controls_active()
-	var is_record = input_state and input_state.mode == input_state.Mode.RECORD
-	var replay_manager = get_node_or_null("/root/ReplayManager")
 	var motion = Vector2.ZERO
-	if not touch_active and player_id == 1 and _is_mouse_look_active:
-		# Prefer any locally-captured pending mouse motion captured in _input
-		if _pending_mouse_motion.length_squared() > 0:
-			motion = _pending_mouse_motion
-			_pending_mouse_motion = Vector2.ZERO
-		else:
-			motion = input_state.peek_mouse_motion() if input_state and input_state.has_method("peek_mouse_motion") else input_state.get_live_mouse_delta()
-	var gg = GameGlobals if GameGlobals else get_node_or_null("/root/GameGlobals")
-	if gg and gg.replay_debug_mode:
-		print("[PlayerSpringCam][_physics_process] beginning. motion=", motion, " is_playback=", is_playback, " player_id=", player_id)
-	if motion is Vector2 and motion.length() > 0.0:
-		if gg and gg.replay_debug_mode:
-			print("[PlayerSpringCam][_physics_process] about to _apply_rotation. raw_motion=", motion)
+	if _is_mouse_look_active:
+		# En modo LIVE, leer el delta del mouse desde InputState.
+		motion = input_state.get_mouse_delta()
+
+	if motion.length_squared() > 0.0:
 		_apply_rotation(motion, delta, false)
-		# Activar strafing si hay movimiento del mouse (camera already notifies
-		# InputState when it captured the raw InputEvent in _input)
-	# Para player 2, siempre usar joy
-	if player_id == 2:
-		pass
-	# Smooth yaw/pitch
+
+	# Smooth yaw/pitch (solo para modo LIVE)
 	if yaw:
 		yaw.rotation.y = lerp_angle(yaw.rotation.y, target_yaw, min(1.0, yaw_smooth * delta))
 	if pitch:
 		pitch.rotation.x = lerp(pitch.rotation.x, target_pitch, min(1.0, pitch_smooth * delta))
 
-	if (is_record) and motion.length_squared() > 0.01:
-		var mode_str = "REC"
-		var pitch_deg = rad2deg(pitch.rotation.x)
-		var target_pitch_deg = rad2deg(target_pitch)
-		print("CAM_PITCH_DEBUG | %s | motion_y: %.2f | target_pitch: %.2f | final_pitch: %.2f" % [mode_str, motion.y, target_pitch_deg, pitch_deg])
+
+func set_is_playback(value: bool) -> void:
+	# When entering playback, become passive: stop physics processing
+	# and snap transforms to recorded targets to avoid internal smoothing.
+	is_playback = value
+	# 3. Limpieza de set_is_playback: Esta línea es la clave.
+	# Si value es 'false' (modo Live), set_physics_process será 'true'.
+	set_physics_process(not value)
+	# Force mouse-look active during playback so camera accepts deltas
+	if value:
+		_is_mouse_look_active = true
+	if value:
+		if yaw:
+			yaw.rotation.y = target_yaw
+		if pitch:
+			pitch.rotation.x = target_pitch
+		# Also ensure immediate transform application
+		update_camera_transform()
 
 # Aplicar delta externo de yaw (p.ej., tank turn del jugador)
 func apply_external_yaw_delta(delta_yaw: float) -> void:
@@ -371,21 +358,3 @@ func update_camera_transform() -> void:
 		yaw.rotation.y = target_yaw
 	if pitch:
 		pitch.rotation.x = target_pitch
-
-
-func set_is_playback(value: bool) -> void:
-	# When entering playback, become passive: stop physics processing
-	# and snap transforms to recorded targets to avoid internal smoothing.
-	is_playback = value
-	# Disable physics processing to prevent camera from running its own smoothing
-	set_physics_process(not value)
-	# Force mouse-look active during playback so camera accepts deltas
-	if value:
-		_is_mouse_look_active = true
-	if value:
-		if yaw:
-			yaw.rotation.y = target_yaw
-		if pitch:
-			pitch.rotation.x = target_pitch
-		# Also ensure immediate transform application
-		update_camera_transform()
