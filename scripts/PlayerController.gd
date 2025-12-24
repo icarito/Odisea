@@ -130,6 +130,7 @@ export(float, 0.0, 2000.0, 10.0) var mouse_active_timeout_ms := 500.0
 var is_tank_turning = false
 export(float, 0.0, 50.0, 0.5) var max_rise_speed := 20.0
 export(float, 0.0, 50.0, 0.5) var max_fall_speed := 30.0
+export(float, 0.0, 1.0, 0.01) var air_control_multiplier := 0.2
 export var cam_yaw_offset := 0.0 # radianes para compensar desfase de cámara
 export var swap_input_axes := false # intercambia X/Z si el mapeo queda 90° corrido
 export var invert_forward := false # invierte el eje Z si el mesh mira -Z
@@ -623,6 +624,10 @@ func _run_live_physics(delta: float):
 	if combined_horizontal.length() > max_speed:
 		combined_horizontal = combined_horizontal.normalized() * max_speed
 
+	# Apply reduced horizontal control in air to simulate friction/air control
+	if not on_floor:
+		combined_horizontal *= air_control_multiplier
+
 	movement_this_frame = combined_horizontal + Vector3(0, velocity.y, 0)
 
 	# Rotar el mesh
@@ -641,6 +646,10 @@ func _run_live_physics(delta: float):
 
 	# Paso de físicas final
 	velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
+
+	# Ensure vertical fixed velocity is zeroed when on floor to avoid drift
+	if on_floor:
+		vertical_velocity_fixed = FixedVec3.zero()
 	
 	# Post-proceso
 	horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
@@ -910,6 +919,9 @@ func _run_replay_physics(delta: float):
 		# Combinación final de velocidad
 		var effective_platform_velocity := (Vector3(platform_velocity.x, 0, platform_velocity.z) if (effective_on_floor and platform_is_static_surface) else airborne_inherited)
 		var combined_horizontal = horizontal_velocity + effective_platform_velocity
+		# Apply reduced horizontal control in air during replay as well
+		if not effective_on_floor:
+			combined_horizontal *= air_control_multiplier
 		var combined_horizontal_fixed = FixedVec3.from_vec3(combined_horizontal)
 		print("[PlayerController] Conversión Vector3 a fixed: combined_horizontal -> combined_horizontal_fixed:", combined_horizontal, "->", combined_horizontal_fixed)
 		var movement_this_frame_fixed = FixedVec3.add(combined_horizontal_fixed, vertical_velocity_fixed)
@@ -1004,12 +1016,16 @@ func _run_replay_physics(delta: float):
 	# print("[PlayerController] Post-move Pos (Simulated): %s" % [global_transform.origin])
 	# print("[PlayerController POST-SLIDE] Velocity: %s" % [velocity])
 	
-	# Update velocity components from the result for the next frame
-	horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
-	horizontal_velocity_fixed = FixedVec3.from_vec3(horizontal_velocity)
-	if movement_comp:
-		movement_comp.horizontal_velocity = horizontal_velocity
-	vertical_velocity_fixed = FixedVec3.from_vec3(Vector3(0, velocity.y, 0))
+		# Update velocity components from the result for the next frame
+		horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
+		horizontal_velocity_fixed = FixedVec3.from_vec3(horizontal_velocity)
+		if movement_comp:
+			movement_comp.horizontal_velocity = horizontal_velocity
+		# If we're on the floor in replay, reset vertical fixed velocity to zero to avoid residuals
+		if effective_on_floor:
+			vertical_velocity_fixed = FixedVec3.zero()
+		else:
+			vertical_velocity_fixed = FixedVec3.from_vec3(Vector3(0, velocity.y, 0))
 	
 	# Snapping to zero to prevent numerical drift
 	if effective_on_floor and horizontal_velocity.length_squared() < 0.0001:
