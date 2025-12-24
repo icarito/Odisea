@@ -23,7 +23,8 @@ const FAST_LERP_THRESHOLD = 0.05 # Use ultra-fast LERP if between this and SNAP
 const SNAP_THRESHOLD = 5.0 # Instant correction threshold (5.0m) - Evita teletransporte por errores pequeños
 
 # Drift correction tuning (velocity-based 'magnet')
-const DRIFT_MAGNET_STRENGTH = 60.0
+const DRIFT_MAGNET_STRENGTH = 30.0
+const VERTICAL_MAGNET_MULTIPLIER = 2.0 # Aumenta la fuerza del imán en el eje Y
 const IGNORE_DRIVE_THRESHOLD = 0.1
 const MAX_PHYSICS_CORRECTION = 0.1 # cap per-frame impulse to small values
 const LERP_STRENGTH_ULTRA_FAST = 200.0 # Ultra-fast LERP strength
@@ -919,10 +920,21 @@ func check_for_drift(frame_data: Dictionary) -> void:
 	# Build a target velocity that prioritizes horizontal correction and damps vertical
 	# El vector de error completo (incluyendo Y) se usa para atraer al jugador.
 	# El PlayerController se encargará de la gravedad, pero esta fuerza ayuda a corregir
-	# desviaciones en todos los ejes.
-	var velocity_hacia_objetivo = error_vec * DRIFT_MAGNET_STRENGTH
+	# desviaciones en todos los ejes, con un énfasis en el vertical.
+	var velocity_hacia_objetivo = Vector3(
+		error_vec.x * DRIFT_MAGNET_STRENGTH,
+		error_vec.y * DRIFT_MAGNET_STRENGTH * VERTICAL_MAGNET_MULTIPLIER, # 2. El Imán de Altura
+		error_vec.z * DRIFT_MAGNET_STRENGTH
+	)
+
 	if player:
 		# Apply direct velocity correction for physics resolution
+		# 3. Sincronización de Velocidad Terminal: Cada N frames, resetea la velocidad a la grabada.
+		if frame_idx % RESYNC_INTERVAL == 0 and rec.has("velocity"):
+			var recorded_velocity = ReplayUtils.dict_to_vector3(rec["velocity"])
+			# Inyectar la velocidad grabada para resetear la inercia perdida.
+			velocity_hacia_objetivo = recorded_velocity
+
 		player.set("replay_velocity_correction", velocity_hacia_objetivo)
 		_debug_log("check_for_drift: set replay_velocity_correction on player: %s" % str(velocity_hacia_objetivo))
 
