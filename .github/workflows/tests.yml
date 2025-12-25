@@ -19,14 +19,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-godot-
 
-      - name: Download Godot headless (match export job)
+      - name: Download Godot editor (to ensure importers are available)
         run: |
-          echo "Downloading Godot headless to run imports and tests"
-          GODOT_URL="https://github.com/godotengine/godot/releases/download/3.6-stable/Godot_v3.6-stable_linux_headless.64.zip"
-          curl -L "$GODOT_URL" -o godot_headless.zip
-          unzip -q godot_headless.zip -d godot-headless
-          chmod +x godot-headless/* || true
-          echo "GODOT_BIN=$(pwd)/godot-headless/Godot_v3.6-stable_linux_headless.64" >> $GITHUB_ENV
+          echo "Downloading Godot editor to run imports and tests"
+          GODOT_URL="https://github.com/godotengine/godot/releases/download/3.6-stable/Godot_v3.6-stable_linux_64.zip"
+          curl -L "$GODOT_URL" -o godot_editor.zip
+          unzip -q godot_editor.zip -d godot-editor
+          chmod +x godot-editor/* || true
+          echo "GODOT_BIN=$(pwd)/godot-editor/Godot_v3.6-stable_linux_64" >> $GITHUB_ENV
 
       - name: Import Godot project resources
         run: |
