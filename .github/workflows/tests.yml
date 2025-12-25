@@ -22,11 +22,11 @@ jobs:
       - name: Download Godot editor (to ensure importers are available)
         run: |
           echo "Downloading Godot editor to run imports and tests"
-          GODOT_URL="https://github.com/godotengine/godot/releases/download/3.6-stable/Godot_v3.6-stable_linux_64.zip"
+          GODOT_URL="https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_x11.64.zip"
           curl -L "$GODOT_URL" -o godot_editor.zip
           unzip -q godot_editor.zip -d godot-editor
           chmod +x godot-editor/* || true
-          echo "GODOT_BIN=$(pwd)/godot-editor/Godot_v3.6-stable_linux_64" >> $GITHUB_ENV
+          echo "GODOT_BIN=$(pwd)/godot-editor/Godot_v3.6.2-stable_x11.64" >> $GITHUB_ENV
 
       - name: Import Godot project resources
         run: |
