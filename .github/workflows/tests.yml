@@ -14,21 +14,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Godot cache
-        # MEJORA: Cachear la carpeta .import para acelerar la importación de assets. [2]
         uses: actions/cache@v4
         with:
           path: ~/.godot/projects/odisea-project-cache
           key: ${{ runner.os }}-godot-${{ hashFiles('**/project.godot') }}
           restore-keys: |
             ${{ runner.os }}-godot-
-
-      - name: Setup Godot Project
-        run: |
-          # Es una buena práctica correr el editor una vez para que importe los assets.
-          # El flag --quit asegura que el proceso termine después de importar.
-          # Creamos un directorio para el cache del proyecto.
-          mkdir -p ~/.godot/projects/odisea-project-cache
-          godot -v -e --quit --headless
 
       - name: Run GDUnit3 Tests
         run: |
