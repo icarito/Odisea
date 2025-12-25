@@ -6,8 +6,6 @@ jobs:
   unit-test:
     name: Run GDUnit3 Tests
     runs-on: ubuntu-latest
-    container:
-      image: barichello/godot-ci:3.6.2
 
     steps:
       - name: Checkout repository
@@ -21,20 +19,28 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-godot-
 
+      - name: Download Godot headless (match export job)
+        run: |
+          echo "Downloading Godot headless to run imports and tests"
+          GODOT_URL="https://github.com/godotengine/godot/releases/download/3.6-stable/Godot_v3.6-stable_linux_headless.64.zip"
+          curl -L "$GODOT_URL" -o godot_headless.zip
+          unzip -q godot_headless.zip -d godot-headless
+          chmod +x godot-headless/* || true
+          echo "GODOT_BIN=$(pwd)/godot-headless/Godot_v3.6-stable_linux_headless.64" >> $GITHUB_ENV
+
       - name: Import Godot project resources
         run: |
-          echo "Importing Godot project resources (generate .import)"
-          # Ejecutar Godot sin script para forzar la importación de recursos
-          godot --path . -e --quit --headless || true
+          echo "Importing Godot project resources (generate .import) using $GODOT_BIN"
+          "$GODOT_BIN" --path . -e --quit --headless || true
           echo "List .import (if any):" && ls -la .import || true
 
       - name: Run GDUnit3 Tests
         run: |
-          # Tu script runtest.sh espera la variable GODOT_BIN.
-          # Pasamos la ruta de recursos de Godot para que GdUnit encuentre las suites: 'res://tests'
+          # Tu script runtest.sh espera la variable GODOT_BIN (ahora proveniente de GITHUB_ENV).
           echo "Working dir: $(pwd)"
+          echo "GODOT_BIN=$GODOT_BIN"
           echo "List candidate tests directory:" && ls -la tests || true
-          GODOT_BIN=godot ./runtest.sh -a res://tests
+          ./runtest.sh -a res://tests
 
       - name: Show GdUnit runner log (if present)
         if: always()
