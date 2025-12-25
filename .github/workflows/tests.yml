@@ -29,6 +29,17 @@ jobs:
           #   Esto también asegura que el exit code refleje el número de tests fallidos.
           GODOT_BIN=godot ./runtest.sh -a ./tests
 
+      - name: Show GdUnit runner log (if present)
+        if: always()
+        run: |
+          if [ -f reports/gdunit_runner.log ]; then
+            echo "--- BEGIN gdunit_runner.log ---"
+            sed -n '1,400p' reports/gdunit_runner.log || true
+            echo "--- END gdunit_runner.log ---"
+          else
+            echo "No gdunit_runner.log present."
+          fi
+
       - name: List files for debugging
         run: |
           ls -laR
