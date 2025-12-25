@@ -10,7 +10,7 @@ var respawn_point: Transform setget set_respawn_point
 var player_reference: Node = null # Reference to the active PlayerController node
 
 var player_scene_path := "res://players/elias/Pilot.tscn"
-var player_scene := null
+var player_scene = null
 var _initial_spawn_transform := Transform()
 
 # --- Private properties for camera state reset ---
@@ -19,7 +19,7 @@ var _default_cam_v_deg = null
 var _default_camrot_h = null
 var _default_camrot_v = null
 
-const ReplayUtils = preload("res://scripts/replay/ReplayUtils.gd")
+onready var ReplayUtils = load("res://scripts/replay/ReplayUtils.gd")
 
 # --- Signals ---
 signal player_died()
