@@ -9,7 +9,8 @@ var player_health: int = 100
 var respawn_point: Transform setget set_respawn_point
 var player_reference: Node = null # Reference to the active PlayerController node
 
-var player_scene := preload("res://players/elias/Pilot.tscn")
+var player_scene_path := "res://players/elias/Pilot.tscn"
+var player_scene := null
 var _initial_spawn_transform := Transform()
 
 # --- Private properties for camera state reset ---
@@ -83,7 +84,18 @@ func spawn(initial_transform: Transform) -> Node:
 	if is_spawned():
 		print("[PlayerManager] Bloqueando spawn duplicado")
 		return player_reference
-	player_reference = player_scene.instance()
+	# Lazy-load the player scene to avoid parse-time preload errors when assets are missing
+	if player_scene == null:
+		if ResourceLoader.exists(player_scene_path):
+			player_scene = load(player_scene_path)
+		else:
+			push_error("PlayerManager: player scene not found: %s" % player_scene_path)
+			return null
+	if typeof(player_scene) == TYPE_OBJECT and player_scene is PackedScene:
+		player_reference = player_scene.instance()
+	else:
+		push_error("PlayerManager: loaded player_scene is not a PackedScene: %s" % str(player_scene))
+		return null
 	player_reference.name = "Pilot"
 	# If we're in replay mode, spawn immediately so camera and child
 	# nodes exist before playback starts; otherwise defer to avoid
@@ -112,7 +124,18 @@ func spawn(initial_transform: Transform) -> Node:
 func _deferred_spawn(initial_transform: Transform):
 	print("[PlayerManager] _deferred_spawn called with initial_transform: ", initial_transform.origin)
 	if not is_instance_valid(player_reference):
-		player_reference = player_scene.instance()
+		# Ensure player scene is loaded lazily here as well
+		if player_scene == null:
+			if ResourceLoader.exists(player_scene_path):
+				player_scene = load(player_scene_path)
+			else:
+				push_error("PlayerManager: player scene not found (deferred): %s" % player_scene_path)
+				return
+		if typeof(player_scene) == TYPE_OBJECT and player_scene is PackedScene:
+			player_reference = player_scene.instance()
+		else:
+			push_error("PlayerManager: loaded player_scene is not a PackedScene (deferred): %s" % str(player_scene))
+			return
 		
 	var scene = get_tree().get_current_scene()
 	if scene:
