@@ -33,8 +33,9 @@ func show_main_menu() -> void:
 		else:
 			push_error("UIManager: main menu scene not found: %s" % main_menu_scene_path)
 			return
+	var menu = null
 	if typeof(main_menu_scene) == TYPE_OBJECT and main_menu_scene is PackedScene:
-		var menu = main_menu_scene.instance()
+		menu = main_menu_scene.instance()
 	else:
 		push_error("UIManager: loaded main_menu_scene is not a PackedScene: %s" % str(main_menu_scene))
 		return
