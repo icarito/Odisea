@@ -38,6 +38,10 @@ jobs:
           #   Esto también asegura que el exit code refleje el número de tests fallidos.
           GODOT_BIN=godot ./runtest.sh -a ./tests
 
+      - name: List files for debugging
+        run: |
+          ls -laR
+
       - name: Upload Test Artifacts
         if: always()
         uses: actions/upload-artifact@v4
