@@ -25,7 +25,7 @@ jobs:
         run: |
           echo "Importing Godot project resources (generate .import)"
           # Ejecutar Godot sin script para forzar la importación de recursos
-          godot --path . --no-window || true
+          godot --path . -v -e --quit --headless || true
           echo "List .import (if any):" && ls -la .import || true
 
       - name: Run GDUnit3 Tests
