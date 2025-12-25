@@ -599,6 +599,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/report/GdUnitTestCaseReport.gd"
 }, {
+"base": "GdUnitTestSuite",
+"class": "GdUnitTestReplayDeterminism",
+"language": "GDScript",
+"path": "res://tests/test_replay_determinism.gd"
+}, {
 "base": "Node",
 "class": "GdUnitTestSuite",
 "language": "GDScript",
@@ -953,6 +958,7 @@ _global_script_class_icons={
 "GdUnitTestCameraDeterminism": "",
 "GdUnitTestCaseDto": "",
 "GdUnitTestCaseReport": "",
+"GdUnitTestReplayDeterminism": "",
 "GdUnitTestSuite": "",
 "GdUnitTestSuiteBuilder": "",
 "GdUnitTestSuiteDefaultTemplate": "",
@@ -1043,11 +1049,6 @@ window/stretch/aspect="expand"
 [editor_plugins]
 
 enabled=PoolStringArray( "res://addons/gdUnit3/plugin.cfg" )
-
-[gdunit3]
-
-settings/test/test_root_folder="tests"
-report/godot/push_error=true
 
 [global]
 
