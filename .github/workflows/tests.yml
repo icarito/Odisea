@@ -47,10 +47,6 @@ jobs:
             echo "No gdunit_runner.log present."
           fi
 
-      - name: List files for debugging
-        run: |
-          ls -laR
-
       - name: Upload Test Artifacts
         if: always()
         uses: actions/upload-artifact@v4
