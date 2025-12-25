@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       # Usamos la imagen de godot-ci que incluye el binario de Godot headless
-      image: barichello/godot-ci:3.5-stable
+      image: barichello/godot-ci:3.6.2-stable
 
     steps:
       - name: Checkout repository
