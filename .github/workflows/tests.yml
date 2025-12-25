@@ -7,21 +7,39 @@ jobs:
     name: Run GDUnit3 Tests
     runs-on: ubuntu-latest
     container:
-      # Usamos la imagen de godot-ci que incluye el binario de Godot headless
       image: barichello/godot-ci:3.6.2
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Godot cache
+        # MEJORA: Cachear la carpeta .import para acelerar la importación de assets. [2]
+        uses: actions/cache@v4
+        with:
+          path: ~/.godot/projects/odisea-project-cache
+          key: ${{ runner.os }}-godot-${{ hashFiles('**/project.godot') }}
+          restore-keys: |
+            ${{ runner.os }}-godot-
+
       - name: Setup Godot Project
         run: |
           # Es una buena práctica correr el editor una vez para que importe los assets.
           # El flag --quit asegura que el proceso termine después de importar.
+          # Creamos un directorio para el cache del proyecto.
+          mkdir -p ~/.godot/projects/odisea-project-cache
           godot -v -e --quit --headless
 
       - name: Run GDUnit3 Tests
         run: |
           # Tu script runtest.sh espera la variable GODOT_BIN.
           # El comando 'godot' ya está en el PATH de la imagen de Docker.
-          GODOT_BIN=godot ./runtest.sh -a ./tests -p .
+          GODOT_BIN=godot ./runtest.sh -a ./tests
+
+      - name: Upload Test Artifacts
+        # MEJORA: Guardar los logs de los tests como artefactos para su revisión. [3]
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdunit-logs
+          path: reports/
