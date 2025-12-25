@@ -36,7 +36,7 @@ jobs:
           # - El comando 'godot' ya está en el PATH de la imagen de Docker.
           # - Añadimos '-rjunit' para generar un reporte en formato JUnit XML.
           #   Esto también asegura que el exit code refleje el número de tests fallidos.
-          GODOT_BIN=godot ./runtest.sh -a ./tests -rjunit
+          GODOT_BIN=godot ./runtest.sh -a ./tests
 
       - name: Upload Test Artifacts
         if: always()
