@@ -33,13 +33,14 @@ jobs:
       - name: Run GDUnit3 Tests
         run: |
           # Tu script runtest.sh espera la variable GODOT_BIN.
-          # El comando 'godot' ya está en el PATH de la imagen de Docker.
-          GODOT_BIN=godot ./runtest.sh -a ./tests
+          # - El comando 'godot' ya está en el PATH de la imagen de Docker.
+          # - Añadimos '-rjunit' para generar un reporte en formato JUnit XML.
+          #   Esto también asegura que el exit code refleje el número de tests fallidos.
+          GODOT_BIN=godot ./runtest.sh -a ./tests -rjunit
 
       - name: Upload Test Artifacts
-        # MEJORA: Guardar los logs de los tests como artefactos para su revisión. [3]
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gdunit-logs
-          path: reports/
+          path: .gdunit/
