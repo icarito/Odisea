@@ -21,6 +21,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-godot-
 
+      - name: Import Godot project resources
+        run: |
+          echo "Importing Godot project resources (generate .import)"
+          # Ejecutar Godot sin script para forzar la importación de recursos
+          godot --path . --no-window || true
+          echo "List .import (if any):" && ls -la .import || true
+
       - name: Run GDUnit3 Tests
         run: |
           # Tu script runtest.sh espera la variable GODOT_BIN.
