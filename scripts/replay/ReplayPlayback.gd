@@ -98,6 +98,20 @@ func _debug_log(message: String) -> void:
 
 func _physics_process(delta: float) -> void:
 	frame_count += 1
+	
+	# Debug: Comparar posición actual vs target cada 60 frames
+	if frame_count % 60 == 0:
+		var recorded_state = null
+		for fs in current_replay.frame_states:
+			if fs.has("frame_index") and fs["frame_index"] == InputState.replay_frame:
+				recorded_state = fs
+				break
+		var recorded_pos = null
+		if recorded_state and recorded_state.has("global_transform") and recorded_state["global_transform"].has("origin"):
+			recorded_pos = Vector3(recorded_state["global_transform"]["origin"]["x"], recorded_state["global_transform"]["origin"]["y"], recorded_state["global_transform"]["origin"]["z"])
+		var current_pos = player.global_transform.origin if player else null
+		var diff = (current_pos - recorded_pos) if current_pos and recorded_pos else null
+		_debug_log("Frame %d: recorded_pos=%s, current_pos=%s, diff=%s" % [InputState.replay_frame, recorded_pos, current_pos, diff])
 	# Guard clause: Do nothing if there's no replay loaded or if it's paused.
 	if not current_replay or playback_paused:
 		return
@@ -119,38 +133,7 @@ func _physics_process(delta: float) -> void:
 	# 2. Aplicar corrección de posición suave (Lerp) o dura (Snap)
 	check_for_drift(frame_data)
 
-	# --- SINCRONIZACIÓN DE ÁNGULO ABSOLUTO (OBLIGATORIO) ---
-	# En cada frame, en lugar de usar mouse_delta, forzamos el estado absoluto
-	# de la cámara usando los valores de yaw y pitch grabados en el frame.
-	if frame_data.has("camera_yaw") and frame_data.has("camera_pitch"):
-		if not camera_rig: camera_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-		if camera_rig and camera_rig.has_method("set_replay_state"):
-			var camera_state = {
-				"yaw": frame_data.camera_yaw,
-				"pitch": frame_data.camera_pitch
-			}
-			# Force immediate, non-smoothed application during playback
-			if camera_rig.has_method("set_is_playback"):
-				camera_rig.set_is_playback(true)
-			# prefer a hard-rotate method if available to avoid any internal smoothing
-			if camera_rig.has_method("force_rotate_for_playback") and frame_data.has("mouse_delta"):
-				var md = frame_data["mouse_delta"]
-				var md_vec = null
-				if md is Dictionary:
-					md_vec = Vector2(FixedPoint.from_fixed(md.get("x", 0)), FixedPoint.from_fixed(md.get("y", 0)))
-				elif md is Vector2:
-					md_vec = md
-				# If we have a concrete delta, force rotate using the camera's playback API
-				if md_vec and md_vec.length_squared() > 0:
-					camera_rig.force_rotate_for_playback(md_vec)
-					if camera_rig.has_method("update_camera_transform"):
-						camera_rig.update_camera_transform()
-				else:
-					# Fallback to absolute set_replay_state to snap yaw/pitch
-					camera_rig.set_replay_state(camera_state)
-			else:
-				# Default: absolute set_replay_state
-				camera_rig.set_replay_state(camera_state)
+	# Camera synchronization removed for spectator mode - camera is now free during playback
 
 	# --- SINCRONIZACIÓN DE ANIMACIONES ---
 	if player and player.has_node("PlayerAnimationTree"):
@@ -340,6 +323,9 @@ func _prepare_scene_for_playback():
 		if current_replay.state_hash != "":
 			var drift_found := false
 			for path in current_replay.initial_states:
+				# In spectator mode, skip camera and player state verification since transforms are applied directly each frame
+				if str(path).to_lower().find("camera") != -1 or str(path).to_lower().find("player") != -1:
+					continue
 				var node = _resolve_node(path)
 				if node and node.has_method("get_replay_state"):
 					var recorded_node_state = current_replay.initial_states[path]
@@ -723,6 +709,11 @@ func _apply_inputs_from_frame(frame_data: Dictionary) -> void:
 					_hold_counters[a] = cnt - 1
 				else:
 					InputState.axes[a] = 0.0
+
+		# Debug: report applied axes when in debug mode to diagnose mapping issues
+		# For initial frames, always print recorded vs applied axes to diagnose mismatches
+		if InputState.replay_frame < 12:
+			print("[ReplayPlayback][AXIS DEBUG] frame=", InputState.replay_frame, " recorded_axes=", axes_vals, " applied_axes=", {"move_x": InputState.axes["move_x"], "move_y": InputState.axes["move_y"]})
 		if inputs.has("jump"):
 			InputState.actions["jump"] = inputs["jump"]
 		if inputs.has("sprint"):
@@ -926,36 +917,17 @@ func check_for_drift(frame_data: Dictionary) -> void:
 	# Implementar Hard Sync cada 30 frames.
 	if frame_idx % 30 == 0:
 		if divergence > HARD_SYNC_THRESHOLD:
-			player.global_transform.origin = expected_pos
-			# Resetear inercia para evitar que la velocidad errónea continúe
-			player.velocity = Vector3.ZERO
+			# No forzar snap directo a transform; en su lugar programar una
+			# corrección de velocidad pequeña para no romper la integración física.
+			var correction = expected_pos - player.global_transform.origin
+			# Capear la corrección por frame para evitar impulsos gigantes
+			if correction.length() > MAX_PHYSICS_CORRECTION:
+				correction = correction.normalized() * MAX_PHYSICS_CORRECTION
 			if player.has_method("set"):
-				player.set("horizontal_velocity_fixed", FixedVec3.zero())
-				player.set("vertical_velocity_fixed", FixedVec3.zero())
-			_debug_log("Hard Sync Applied. Drift: " + str(divergence))
+				player.set("replay_velocity_correction", correction)
+			_debug_log("Scheduled hard correction (velocity) len=" + str(correction.length()) + " drift=" + str(divergence))
 
-	# 1. Sincronización Forzada de Ángulos
-	# No confíes solo en el mouse_delta. En el método _check_for_drift, añade una corrección para la cámara.
-	# Cada N frames (junto con la posición), busca el yaw y pitch grabados en el JSON y oblígale a la cámara a tomarlos.
-	var camera_key = node_key_map.get("CameraRig", null)
-	if camera_key == null:
-		# Intenta encontrar la clave de la cámara si aún no está mapeada
-		for k in recorded_state.keys():
-			if str(k).to_lower().find("camera") != -1:
-				camera_key = k
-				node_key_map["CameraRig"] = k
-				break
-
-	# Sincronización Total de Ángulos de Cámara
-	if camera_key != null and recorded_state.has(camera_key):
-		var rec_cam_state = recorded_state[camera_key]
-		var cam_rig = get_tree().current_scene.find_node("CameraRig", true, false)
-		if cam_rig and cam_rig.has_method("set_replay_state"):
-			# Forzar la rotación exacta, ignorando cualquier suavizado.
-			# Usar force_snap = true para que la cámara se ajuste al 100% a los datos del JSON.
-			rec_cam_state["force_snap"] = true
-			cam_rig.set_replay_state(rec_cam_state)
-			_debug_log("check_for_drift: Forcing camera sync with state: " + str(rec_cam_state))
+	# Camera synchronization removed for spectator mode - camera is now free during playback
 
 func _apply_smooth_correction(node: Spatial, expected_transform: Transform, lerp_factor: float) -> void:
 	var t: float
@@ -980,17 +952,22 @@ func _sync_pilot_to_frame(frame_data_state: Dictionary) -> void:
 		
 		if divergence > MIN_DIVERGENCE_TO_CORRECT:
 			if divergence > MAX_CORRECTION_DISTANCE:
-				# Snap to position if too far
-				player.global_transform.origin = recorded_pos
-				_debug_log("Snapped player position due to high divergence: " + str(divergence))
+				# Si la divergencia es excesiva, programar una corrección grande
+				var big_corr = recorded_pos - current_pos
+				if big_corr.length() > MAX_PHYSICS_CORRECTION:
+					big_corr = big_corr.normalized() * MAX_PHYSICS_CORRECTION
+				if player.has_method("set"):
+					player.set("replay_velocity_correction", big_corr)
+				_debug_log("Scheduled large correction via velocity len=" + str(big_corr.length()) + " divergence=" + str(divergence))
 			else:
-				# Smooth correction
+				# Aplicar corrección suave vía 'replay_velocity_correction' en lugar de tocar transform directamente
 				var correction_strength = DRIFT_CORRECTION_STRENGTH
 				if divergence < FAST_LERP_THRESHOLD:
 					correction_strength = LERP_STRENGTH_ULTRA_FAST
-				var correction_vector = (recorded_pos - current_pos).normalized() * correction_strength * FIXED_DELTA
-				player.global_transform.origin += correction_vector
-				_debug_log("Applied drift correction: " + str(correction_vector.length()))
+				var correction_vector = (recorded_pos - current_pos) * (correction_strength * FIXED_DELTA / max(divergence, 0.0001))
+				if player.has_method("set"):
+					player.set("replay_velocity_correction", correction_vector)
+				_debug_log("Scheduled smooth correction via velocity len=" + str(correction_vector.length()) + " divergence=" + str(divergence))
 	
 	# Optional: Correct rotation if needed
 	if frame_data_state.has("rotation"):
@@ -1013,13 +990,9 @@ func _set_tracked_nodes_physics_process(enabled: bool) -> void:
 
 func _set_node_state(node: Node, state: Dictionary) -> void:
 	if node.name == "CameraRig":
-		# Only apply CameraRig state at the initial frame (frame 0).
-		# Subsequent camera corrections introduce yank because camera must be driven
-		# purely by recorded input. Skip CameraRig corrective applications after
-		# the first frame so playback remains input-authoritative.
-		if InputState and InputState.replay_frame != 0:
-			_debug_log("_set_node_state: skipping CameraRig apply after frame 0 to avoid yank")
-			return
+		# In spectator mode, never apply CameraRig state - camera is free during playback
+		_debug_log("_set_node_state: skipping CameraRig apply for spectator mode")
+		return
 
 	# Apply generic node state handling. For non-camera nodes, always
 	# attempt to restore state via `set_replay_state` when available.
@@ -1053,35 +1026,8 @@ func _set_node_state(node: Node, state: Dictionary) -> void:
 				elif s[key] is Dictionary:
 					node.angular_velocity = ReplayUtils.dict_to_vector3(s[key])
 			elif key == "camera_yaw" and node is Spatial:
-				var yaw_val = s.get("camera_yaw", null)
-				var pitch_val = s.get("camera_pitch", null)
-				if yaw_val != null and pitch_val != null:
-					if node.has_method("set_replay_state"):
-						node.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
-						_debug_log("[ReplayPlayback] _set_node_state: applied camera yaw/pitch via set_replay_state on %s yaw=%s pitch=%s" % [str(node.name), str(yaw_val), str(pitch_val)])
-						return
-					# Common explicit CameraOrbit child node
-					var cam_orbit = node.get_node_or_null("CameraOrbit")
-					if cam_orbit:
-						if cam_orbit.has_variable("yaw"):
-							cam_orbit.yaw = float(yaw_val)
-						if cam_orbit.has_variable("pitch"):
-							cam_orbit.pitch = float(pitch_val)
-						if cam_orbit.has_method("update_camera_transform"):
-							cam_orbit.update_camera_transform()
-						_debug_log("[ReplayPlayback] _set_node_state: applied camera yaw/pitch to CameraOrbit on %s yaw=%s pitch=%s" % [str(node.name), str(yaw_val), str(pitch_val)])
-						return
-					var yaw_node = node.get_node_or_null("Yaw")
-					if not yaw_node:
-						yaw_node = node.get_node_or_null("h")
-					if yaw_node:
-						yaw_node.rotation.y = float(yaw_val)
-						var pitch_node = yaw_node.get_node_or_null("Pitch")
-						if not pitch_node:
-							pitch_node = yaw_node.get_node_or_null("v")
-						if pitch_node:
-							pitch_node.rotation.x = float(pitch_val)
-						_debug_log("[ReplayPlayback] _set_node_state: applied camera yaw/pitch via yaw_node on %s yaw=%s pitch=%s" % [str(node.name), str(yaw_val), str(pitch_val)])
+				# In spectator mode, skip camera synchronization
+				pass
 			elif key == "camera_pitch" and node is Spatial:
 				# handled above when camera_yaw is present; ignore single-key here
 				pass
@@ -1194,51 +1140,6 @@ func _compare_states(a, b, epsilon = 0.001):
 		return a == b
 
 func _deferred_reapply_camera_from_initials() -> void:
-	# Called deferred to ensure camera rigs initialized, tries multiple fallbacks.
-	if not current_replay:
-		return
-	if not get_tree() or not get_tree().current_scene:
-		return
-	var yaw_val = null
-	var pitch_val = null
-	# Search for camera entries in initial_states
-	for key in current_replay.initial_states.keys():
-		var kl = str(key).to_lower()
-		if kl.find("camera") != -1:
-			var camdict = current_replay.initial_states[key]
-			if camdict and typeof(camdict) == TYPE_DICTIONARY:
-				yaw_val = camdict.get("yaw", yaw_val)
-				pitch_val = camdict.get("pitch", pitch_val)
-	# Also check top-level camera_yaw/camera_pitch
-	if current_replay.initial_states.has("camera_yaw"):
-		yaw_val = current_replay.initial_states.get("camera_yaw", yaw_val)
-	if current_replay.initial_states.has("camera_pitch"):
-		pitch_val = current_replay.initial_states.get("camera_pitch", pitch_val)
-	if yaw_val == null or pitch_val == null:
-		_debug_log("[ReplayPlayback] _deferred_reapply_camera_from_initials: no camera yaw/pitch found in initials")
-		return
-	var applied = false
-	# Try scene CameraRig
-	var scene_cam = get_tree().current_scene.find_node("CameraRig", true, false)
-	if scene_cam and scene_cam.has_method("set_replay_state"):
-		scene_cam.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
-		applied = true
-	# Try player-local CameraRig
-	var player_node = _safe_get_player()
-	if player_node:
-		var player_cam = player_node.get_node_or_null("CameraRig")
-		if player_cam and player_cam.has_method("set_replay_state"):
-			player_cam.set_replay_state({"yaw": yaw_val, "pitch": pitch_val})
-			applied = true
-	# Try direct CameraOrbit fallback
-	if not applied and player_node:
-		var orbit = player_node.find_node("CameraOrbit", true, false)
-		if orbit:
-			if orbit.has_variable("yaw"): orbit.yaw = float(yaw_val)
-			if orbit.has_variable("pitch"): orbit.pitch = float(pitch_val)
-			if orbit.has_method("update_camera_transform"): orbit.update_camera_transform()
-			applied = true
-	if applied:
-		print("[ReplayPlayback] Deferred re-applied camera yaw/pitch: ", yaw_val, pitch_val)
-	else:
-		print("[ReplayPlayback] Deferred re-apply failed: no suitable camera node found")
+	# In spectator mode, skip camera state application - camera remains free
+	_debug_log("[ReplayPlayback] _deferred_reapply_camera_from_initials: skipping for spectator mode")
+	return

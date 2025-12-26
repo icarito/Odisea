@@ -5,7 +5,7 @@ extends Node
 # It will absorb and modernize the logic of the old GameState.gd.
 
 # Activates/Deactivates debugging tools (e.g., DrawRay from icarito-odisea.txt).
-var debug_mode: bool = false setget set_debug_mode
+var debug_mode: bool = true setget set_debug_mode
 var replay_debug_mode: bool = true setget set_replay_debug_mode
 
 # Recording state

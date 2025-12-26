@@ -2,6 +2,7 @@ extends KinematicBody
 
 func set_is_replaying(value: bool):
 	is_replaying = value
+	log_tag = "REPLAY" if value else "LIVE"
 	_sync_camera_mode()
 
 func _sync_camera_mode():
@@ -63,6 +64,7 @@ onready var player_input = $PlayerInput if has_node("PlayerInput") else null
 
 # Flag local para bloquear alineados automáticos durante replay
 var is_replaying = false
+var log_tag = "LIVE"
 
 # NEW: Multiplayer support
 var player_id = 1
@@ -284,10 +286,9 @@ func _input(event):
 	if _is_ui_overlay_active:
 		return
 	if event.is_action_pressed("aim"):
-		var cam_rig = get_node_or_null("CameraRig")
-		if cam_rig and cam_rig.has_method("sync_to_body_yaw"):
-			cam_rig.sync_to_body_yaw(rotation.y, cam_yaw_offset)
-		direction = $CameraRig/Yaw.global_transform.basis.z
+		var cam_rig = get_node_or_null("CameraRig") if has_node("CameraRig") else get_node_or_null("MockCamera")
+		if cam_rig:
+			direction = cam_rig.get_node("Yaw").global_transform.basis.z
 	if event.is_action_released("aim"):
 		player_mesh.rotation.y = rotation.y + mesh_yaw_offset
 
@@ -451,18 +452,10 @@ func _check_and_align_camera() -> void:
 
 var _last_input_state = {}
 
-func _physics_process(delta: float): # Main dispatcher
-	# 1. Crear una bifurcación real en _physics_process
-	if is_replaying:
-		# En modo replay, usamos un delta fijo para el determinismo.
-		_run_replay_physics(FIXED_DELTA)
-	else:
-		# En modo live, usamos el delta del motor para un movimiento fluido.
-		_run_live_physics(delta)
-
-func _run_live_physics(delta: float):
-	# 2. Restaurar _run_live_physics (Modo Normal)
-	# Usa delta variable, Vector3 (floats), y no tiene conocimiento de 'replay'.
+func _physics_process(delta: float):
+	# Always run the live physics step. Replay should be driven by injected
+	# inputs so the physics integration remains identical to live play.
+	# Esta es ahora la única función de físicas, unificando live y replay.
 	var has_input = false
 	var movement_this_frame = Vector3.ZERO
 
@@ -483,11 +476,19 @@ func _run_live_physics(delta: float):
 
 	# Process player input desde InputState (solo modo LIVE)
 	if InputState:
-		input_vector = Vector2(
-			-InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0,
-			InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
-		)
-		mouse_motion = InputState.get_mouse_delta()
+		var raw_mx = InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0
+		var raw_my = InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
+		if GameGlobals.is_test_mode:
+			input_vector = Vector2(raw_mx, raw_my)
+		elif InputState.mode == InputState.Mode.PLAYBACK:
+			input_vector = Vector2(raw_mx, raw_my)
+		else:
+			input_vector = Vector2(-raw_mx, raw_my)
+		
+		# Consumir el delta del mouse y aplicar sensibilidad
+		if player_input:
+			var raw_mouse_motion = player_input.get_mouse_motion()
+			mouse_motion = raw_mouse_motion # Pasamos el movimiento en bruto
 		is_sprinting = InputState.is_action_pressed("run")
 		jump_pressed = InputState.is_action_pressed("jump")
 	has_input = input_vector.length() > 0.1
@@ -518,9 +519,12 @@ func _run_live_physics(delta: float):
 	acceleration = 15
 
 	var effective_gravity_vector := local_gravity_override if (local_gravity_override.length() > 0.01) else (Vector3.DOWN * gravity)
+	# During tests we may want to disable gravity to compare horizontal/XZ motion only
+	if GameGlobals and GameGlobals.is_test_mode:
+		effective_gravity_vector = Vector3.ZERO
 	
 	# Aplicar Gravedad (usando floats)
-	var prev_velocity_y = velocity.y
+	var _prev_velocity_y = velocity.y
 	if not on_floor:
 		var dv = effective_gravity_vector.y * delta
 		# Safety: prevent absurd per-frame impulses
@@ -571,6 +575,9 @@ func _run_live_physics(delta: float):
 	# Control de Cámara
 	var cam_rig = get_node_or_null("CameraRig")
 	if cam_rig:
+		if cam_rig.has_method("process_camera_rotation") and mouse_motion != null and mouse_motion.length_squared() > 0:
+			cam_rig.process_camera_rotation(mouse_motion)
+
 		if movement_comp:
 			if InputState.mode == InputState.Mode.LIVE:
 				if InputState.mouse_delta.length() > 0.0:
@@ -660,11 +667,11 @@ func _run_live_physics(delta: float):
 	var combined_horizontal = horizontal_velocity
 
 	if debug_enabled or debug_movement:
-		print("[PlayerController INERTIA][LIVE] movement_comp_h=", movement_comp_h, " movement_contrib=", movement_contrib, " platform_part=", platform_part, " inherited_part=", inherited_part, " target_full=", target_full, " combined_horizontal=", combined_horizontal)
+		print("[PlayerController INERTIA][" + log_tag + "] movement_comp_h=", movement_comp_h, " movement_contrib=", movement_contrib, " platform_part=", platform_part, " inherited_part=", inherited_part, " target_full=", target_full, " combined_horizontal=", combined_horizontal)
 
 	movement_this_frame = combined_horizontal + Vector3(0, velocity.y, 0)
 	if debug_enabled or debug_movement:
-		print("[PlayerController INERTIA][LIVE][POST] combined_horizontal=", combined_horizontal, " movement_this_frame=", movement_this_frame, " velocity.y=", velocity.y, " horizontal_velocity(before move)=", horizontal_velocity)
+		print("[PlayerController INERTIA][" + log_tag + "][POST] combined_horizontal=", combined_horizontal, " movement_this_frame=", movement_this_frame, " velocity.y=", velocity.y, " horizontal_velocity(before move)=", horizontal_velocity)
 
 	# Rotar el mesh
 	if direction != Vector3.ZERO:
@@ -683,10 +690,10 @@ func _run_live_physics(delta: float):
 	# Paso de físicas final
 	if debug_enabled and not on_floor:
 		var dbg_comp_h = movement_comp.get_horizontal_velocity() if movement_comp else Vector3.ZERO
-		print("[PlayerController DEBUG][LIVE] prev_horizontal=", horizontal_velocity, " movement_comp_h=", dbg_comp_h, " combined_horizontal=", combined_horizontal, " movement_this_frame=", movement_this_frame)
+		print("[PlayerController DEBUG][" + log_tag + "] prev_horizontal=", horizontal_velocity, " movement_comp_h=", dbg_comp_h, " combined_horizontal=", combined_horizontal, " movement_this_frame=", movement_this_frame)
 	velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
 	if debug_enabled and not on_floor:
-		print("[PlayerController DEBUG][LIVE] post_velocity=", velocity)
+		print("[PlayerController DEBUG][" + log_tag + "] post_velocity=", velocity)
 
 	# Ensure vertical fixed velocity is set/zeroed to avoid drift
 	if on_floor:
@@ -712,420 +719,7 @@ func _run_live_physics(delta: float):
 	# Actualizar animaciones y otros sistemas
 	_update_animations_and_fx(on_floor, is_walking, is_running, delta)
 
-func _run_replay_physics(delta: float):
-	# Lógica de físicas para el modo REPLAY. Usa punto fijo y delta fijo.
-	var has_input := false
-	var movement_this_frame := Vector3.ZERO
-	var is_replaying = GameGlobals and GameGlobals.is_replaying
-	var is_test_mode = GameGlobals and GameGlobals.is_test_mode
-	var replay_manager = get_node_or_null("/root/ReplayManager")
-	var effective_delta = delta # This will be FIXED_DELTA
-
-	# Para asegurar determinismo, usamos un delta fijo en todos los modos relevantes.
-	# Esto es CRÍTICO para que la grabación y la reproducción sean idénticas.
-	if is_replaying or is_test_mode or (InputState and InputState.mode == InputState.Mode.RECORD) or (GameGlobals and GameGlobals.is_recording):
-		effective_delta = 1.0 / 60.0
-
-	# No conectar touch camera en replay
-
-	time_since_jump += effective_delta
-	time_since_input += effective_delta
-	time_since_start += effective_delta
-
-	var on_floor = is_on_floor() # Estado físico real
-	var effective_on_floor = on_floor # Por defecto, usar el estado real
-
-	# Forzar Tracción Total: Durante el replay, usar el estado 'is_on_floor' grabado.
-	if is_replaying and InputState.mode == InputState.Mode.PLAYBACK and InputState.replay_frame < InputState.recorded_frames.size():
-		var frame_data = InputState.recorded_frames[InputState.replay_frame]
-		effective_on_floor = frame_data.get("is_on_floor", on_floor)
-
-	# Declare input variables
-	var input_vector := Vector2.ZERO
-	var mouse_motion = null
-	var is_sprinting = false
-	var jump_pressed = false
-
-	# Process player input desde InputState (both normal and replay)
-	if InputState:
-		input_vector = Vector2(
-			-InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0,
-			InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
-		)
-		mouse_motion = InputState.get_mouse_delta()
-		is_sprinting = InputState.is_action_pressed("run")
-		jump_pressed = InputState.is_action_pressed("jump")
-	has_input = input_vector.length() > 0.1
-
-	# Resetear strafe_cooldown si hay input, solo decrementar si NO hay input
-	if input_vector.length() > 0.1:
-		strafe_cooldown = 0.0
-	else:
-		strafe_cooldown = max(0.0, strafe_cooldown - effective_delta)
-
-	# --- MOVEMENT LOGIC: RUNS FOR BOTH NORMAL AND REPLAY ---
-
-	# Process attacks and rolls that can affect movement
-	rollattack()
-	bigattack()
-	attack1()
-	attack2()
-	roll()
-
-	# Medir tiempo en estado Jump del AnimationTree
-	var in_jump_state = (playback and (playback.get_current_node() == jump_node_name))
-	if in_jump_state:
-		time_in_jump_state += effective_delta
-	else:
-		time_in_jump_state = 0.0
-
-	# Marcar que vimos suelo al menos una vez para habilitar floating post-inicio
-	if effective_on_floor:
-		has_seen_floor_once = true
-	
-	# Reset movement parameters
-	movement_speed = 0
-	angular_acceleration = 10
-	acceleration = 15
-
-	# Gravedad efectiva: usar override si existe
-	var effective_gravity_vector = local_gravity_override if (local_gravity_override.length() > 0.01) else (Vector3.DOWN * gravity)
-	var effective_gravity_mag = effective_gravity_vector.length()
-	var effective_gravity_dir = effective_gravity_vector.normalized() if (effective_gravity_mag > 0.01) else Vector3.DOWN
-
-	# --- GRAVITY: use float integration for replay to match live integration precisely ---
-	# Convert current fixed vertical velocity to float for deterministic float integration
-	var vertical_velocity_float = FixedPoint.from_fixed(vertical_velocity_fixed.y)
-
-	# Use a fixed small timestep for replay integration to avoid applying a
-	# full-second gravity impulse. For replay, prefer FIXED_DELTA; for live,
-	# keep using the effective_delta provided by the engine.
-	var gravity_dt = FIXED_DELTA if is_replaying else effective_delta
-
-	if not effective_on_floor:
-		vertical_velocity_float += effective_gravity_vector.y * gravity_dt
-	else:
-		# When standing on floor during replay/live, reset vertical float velocity
-		# to zero to avoid injecting residuals into fixed-point state.
-		vertical_velocity_float = 0.0
-
-	# Clamp vertical float velocity to terminal limits (in meters/sec)
-	vertical_velocity_float = clamp(vertical_velocity_float, -max_fall_speed, max_rise_speed)
-
-	# Safety guard: if value is absurd (possible prior-corruption), clamp to terminal
-	if abs(vertical_velocity_float) > max_fall_speed * 2.0:
-		vertical_velocity_float = sign(vertical_velocity_float) * max_fall_speed
-
-	# Convert back to fixed for movement math
-	vertical_velocity_fixed = FixedVec3.from_vec3(Vector3(0, vertical_velocity_float, 0))
-
-	# Clamp de velocidad vertical para evitar picos (fixed-point)
-	var max_fall_fixed_pos = FixedPoint.to_fixed(max_fall_speed)
-	var max_rise_fixed = FixedPoint.to_fixed(max_rise_speed)
-	if vertical_velocity_fixed.y < -max_fall_fixed_pos:
-		vertical_velocity_fixed["y"] = -max_fall_fixed_pos
-	if vertical_velocity_fixed.y > max_rise_fixed:
-		vertical_velocity_fixed["y"] = max_rise_fixed
-	# Debug clamp
-	print_debug("[PlayerController] Velocidad vertical fixed clamped: " + str(vertical_velocity_fixed))
-
-	# Check for attack/roll states that modify acceleration
-	if (attack1_node_name in playback.get_current_node()) or (attack2_node_name in playback.get_current_node()) or (bigattack_node_name in playback.get_current_node()):
-		is_attacking = true
-	else:
-		is_attacking = false
-
-	if bigattack_node_name in playback.get_current_node():
-		acceleration = 3
-
-	if roll_node_name in playback.get_current_node():
-		is_rolling = true
-		acceleration = 2
-		angular_acceleration = 2
-	else:
-		is_rolling = false
-	
-
-	# Control de movimiento y rotación
-
-	# Handle Jump (fixed-point)
-	if jump_pressed and ((is_attacking != true) and (is_rolling != true)) and effective_on_floor:
-		if AudioSystem: AudioSystem.play_sfx("res://assets/sfx/jump.wav")
-		var pv = platform_velocity
-		var jump_force_fixed = FixedPoint.to_fixed(jump_force)
-		vertical_velocity_fixed = {"x": 0, "y": jump_force_fixed, "z": 0}
-		print("[PlayerController] Velocidad vertical fixed actualizada (jump):", vertical_velocity_fixed)
-		if inherit_vertical_platform_jump and pv.y > 0.0:
-			var min_pv_fixed = FixedPoint.to_fixed(min(pv.y, max_platform_up_follow))
-			var new_y_fixed = FixedPoint.fixed_add(vertical_velocity_fixed.y, min_pv_fixed)
-			vertical_velocity_fixed = {"x": vertical_velocity_fixed.x, "y": new_y_fixed, "z": vertical_velocity_fixed.z}
-			print("[PlayerController] Velocidad vertical fixed actualizada (platform jump):", vertical_velocity_fixed)
-		snap_enabled = false
-		# Store inherited horizontal impulse from platform; do NOT add it directly
-		# to `horizontal_velocity` now. It will be combined into movement_this_frame
-		# so air-control multipliers do not wrongly scale it.
-		airborne_inherited = Vector3(pv.x, 0, pv.z)
-		just_jumped = true
-		time_since_jump = 0.0
-
-	if has_input:
-		time_since_input = 0.0
-
-	# Camera Control (runs for both normal and replay)
-	var cam_rig = get_node_or_null("CameraRig")
-	if cam_rig:
-		if cam_rig.has_method("process_camera_rotation"):
-			   if mouse_motion != null:
-				   # cam_rig.process_camera_rotation(mouse_motion) # Desactivado: la cámara gestiona su propio input en _physics_process
-				   pass
-		# Removed mouse_active_timer logic, now handled in InputState
-		
-		if movement_comp:
-			# --- Strafe Mode Logic ---
-			# The strafing state is managed centrally by InputState.gd. Only update
-			# the strafing timer when in LIVE or RECORD modes (user input present).
-			if InputState.mode == InputState.Mode.LIVE or InputState.mode == InputState.Mode.RECORD:
-				if InputState.mouse_delta.length() > 0.0:
-					InputState.is_strafing_mode_active = true
-					InputState.strafing_timer = 5.0
-				elif InputState.is_strafing_mode_active:
-					if InputState.mouse_delta.length() > 0.0:
-						InputState.strafing_timer = 5.0
-					else:
-						InputState.strafing_timer -= effective_delta
-						if InputState.strafing_timer <= 0.0:
-							InputState.is_strafing_mode_active = false
-							strafe_cooldown = 0.5 # Prevent sudden turn after strafe
-			
-			var strafe_mode_active = InputState.is_strafing_mode_active
-			if GameGlobals and GameGlobals.is_replaying:
-				strafe_mode_active = InputState.is_strafing_mode_active
-			# Set strafe mode in movement component (always) so the component
-			# behaves consistently in PLAYBACK too.
-			if movement_comp:
-				movement_comp.strafe_mode = strafe_mode_active
-			
-			var turn_input_val = input_vector.x
-			var movement_input_vec = input_vector
-			var yaw_delta = 0.0
-			if strafe_mode_active:
-				# En modo strafe, bloquear rotación del cuerpo (Yaw): NO modificar rotation.y
-				turn_input_val = 0.0
-				yaw_delta = 0.0
-			else:
-				# En modo tank, permitir giro normal
-				turn_input_val = input_vector.x
-				movement_input_vec.x = 0.0
-				var effective_tank_speed = tank_turn_speed
-				yaw_delta = turn_input_val * effective_tank_speed * effective_delta
-				rotation.y += yaw_delta
-				if cam_rig.has_method("apply_external_yaw_delta"): cam_rig.apply_external_yaw_delta(yaw_delta)
-
-			# Prevent sudden turn after strafe ends
-			if strafe_cooldown > 0.0:
-				# Bloquea giro durante cooldown
-				yaw_delta = 0.0
-
-			# 2. Process movement with the modified input vector
-			var basis := Basis()
-			var yaw_node_local = get_node_or_null("CameraRig/Yaw")
-			if yaw_node_local:
-				basis = yaw_node_local.global_transform.basis # 3. El PlayerController lee la cámara DESPUÉS de que el Replay la haya rotado
-				# Always call process_input_vector so the movement component can
-				# compute its internal velocities from recorded input during PLAYBACK.
-				movement_comp.process_input_vector(effective_delta, basis, movement_input_vec, is_sprinting if is_sprinting != null else false, effective_on_floor if effective_on_floor != null else false)
-
-			# 3. Get results from movement component
-			direction = movement_comp.direction
-			var new_horiz = movement_comp.get_horizontal_velocity()
-			# Preserve inertia: if on floor or movement component provides a non-trivial
-			# horizontal velocity, accept it; otherwise keep previous horizontal_velocity
-			# which may include airborne_inherited from a recent jump.
-			if effective_on_floor or new_horiz.length() > 0.01:
-				horizontal_velocity = new_horiz
-			# else: keep existing horizontal_velocity (preserves inherited/platform impulse)
-			is_walking = movement_comp.is_walking
-			is_running = movement_comp.is_running
-		else:
-			is_walking = false; is_running = false; direction = Vector3.ZERO; horizontal_velocity = Vector3.ZERO
-	
-	# Platform velocity logic (fixed-point)
-		var zero_fixed = FixedVec3.zero()
-		# CORRECCIÓN: Desactivar la fricción en modo replay para que no luche contra el imán.
-		if not is_replaying:
-			var lerp_factor_fixed = FixedPoint.fixed_mul(FixedPoint.to_fixed(6.0), FixedPoint.to_fixed(effective_delta))
-			platform_velocity_fixed = FixedVec3.lerp(platform_velocity_fixed, zero_fixed, lerp_factor_fixed)
-		print("[PlayerController] Velocidad plataforma fixed actualizada:", platform_velocity_fixed)
-		if effective_on_floor:
-			last_platform_velocity = FixedVec3.to_vec3(platform_velocity_fixed)
-			airborne_inherited = Vector3.ZERO
-			if platform_velocity.y > 0.0 and not just_jumped:
-				var min_pv_fixed = FixedPoint.to_fixed(min(platform_velocity.y, max_platform_up_follow))
-				vertical_velocity_fixed = {"x": vertical_velocity_fixed.x, "y": min_pv_fixed, "z": vertical_velocity_fixed.z}
-				print("[PlayerController] Velocidad vertical fixed actualizada (platform):", vertical_velocity_fixed)
-			else:
-				# If standing on floor and not inheriting upward platform impulse, reset vertical velocity to zero
-				if not just_jumped:
-					vertical_velocity_fixed = FixedVec3.zero()
-		elif was_on_floor:
-			airborne_inherited = last_platform_velocity
-		
-		# Build horizontal movement similarly to live: separate movement comp,
-		# platform velocity and inherited impulse so air_control_multiplier only
-		# affects the player's movement input, not inherited impulses.
-		var movement_comp_h := Vector3.ZERO
-		if movement_comp:
-			movement_comp_h = movement_comp.get_horizontal_velocity()
-		var movement_contrib = movement_comp_h
-		if not effective_on_floor:
-			movement_contrib *= air_control_multiplier
-		var platform_part = Vector3(platform_velocity.x, 0, platform_velocity.z) if (effective_on_floor and platform_is_static_surface) else Vector3.ZERO
-		var inherited_part = (airborne_inherited if not effective_on_floor else Vector3.ZERO)
-		# Target velocity including movement input and environment contributions
-		var target_full = movement_contrib + platform_part + inherited_part
-		# Safety clamp on the target
-		var safe_max_speed = movement_comp.run_speed + max_fall_speed
-		if target_full.length() > safe_max_speed * 10.0:
-			target_full = target_full.normalized() * (safe_max_speed * 10.0)
-
-		# Apply inertia rule in fixed-mode: replicate move_toward curve using fixed-point lerp
-		var target_fixed = FixedVec3.from_vec3(target_full)
-		if effective_on_floor:
-			horizontal_velocity_fixed = target_fixed
-		else:
-			# t corresponds to acceleration * 0.2 * dt in fixed representation
-			var t_float = acceleration * 0.2 * effective_delta
-			if t_float > 1.0:
-				t_float = 1.0
-			var t_fixed = FixedPoint.to_fixed(t_float)
-			horizontal_velocity_fixed = FixedVec3.lerp(horizontal_velocity_fixed, target_fixed, t_fixed)
-
-		# Convert fixed back to float representation for downstream logic
-		horizontal_velocity = FixedVec3.to_vec3(horizontal_velocity_fixed)
-		# combined_horizontal_fixed is the authoritative horizontal in fixed domain
-		var combined_horizontal_fixed = horizontal_velocity_fixed
-		var movement_this_frame_fixed = FixedVec3.add(combined_horizontal_fixed, vertical_velocity_fixed)
-		movement_this_frame = FixedVec3.to_vec3(movement_this_frame_fixed)
-		print_debug("[PlayerController] Replay movement_this_frame (float) = " + str(movement_this_frame))
-
-	# [NUEVO] APLICAR SOFT SYNC (MANO INVISIBLE)
-	# Hacemos esto JUSTO ANTES de move_and_slide
-	if GameGlobals.is_replaying and playback_target_pos != null:
-		# Only correct position when there are no movement inputs to allow physics-driven movement
-		if InputState.get_axis("move_x") == 0 and InputState.get_axis("move_y") == 0:
-			var current_pos = global_transform.origin
-			
-			# Vector desde donde estoy hacia donde debería estar
-			var error_vector = playback_target_pos - current_pos
-			
-			# Opción más robusta: Separar horizontal y vertical
-			movement_this_frame.x += error_vector.x * CORRECTION_STRENGTH
-			movement_this_frame.z += error_vector.z * CORRECTION_STRENGTH
-			
-			# Si el error es muy grande (> 1 metro), hacemos un SNAP de emergencia
-			if error_vector.length() > 5.0:
-				global_transform.origin = playback_target_pos
-				# Resetear inercia para evitar que la velocidad errónea continúe
-				velocity = Vector3.ZERO
-				horizontal_velocity_fixed = FixedVec3.zero()
-				vertical_velocity_fixed = FixedVec3.zero()
-
-	# --- LOGIC THAT RUNS IN BOTH MODES ---
-
-	# Rotate mesh towards movement direction
-	if direction != Vector3.ZERO:
-		var target_y = atan2(direction.x, direction.z) + mesh_yaw_offset
-		var parent_y = rotation.y
-		var local_target_y = target_y - parent_y
-		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, local_target_y, effective_delta * angular_acceleration)
-
-	var h_rot := 0.0
-	var yaw_node2 = get_node_or_null("CameraRig/Yaw")
-	if yaw_node2: h_rot = yaw_node2.global_transform.basis.get_euler().y + cam_yaw_offset
-
-	# Detailed logging for replay diagnostics
-	# Read replay correction (if any) so debug prints can reference it
-	var replay_corr := Vector3.ZERO
-	if has_method("get"):
-		var raw_corr = get("replay_velocity_correction")
-		if raw_corr != null and typeof(raw_corr) == TYPE_VECTOR3:
-			# Drop vertical component to avoid fighting gravity and causing yank
-			var target_corr = Vector3(raw_corr.x, 0.0, raw_corr.z)
-			# Smooth corrections over frames to avoid sudden impulses
-			var SMOOTH_FACTOR := 0.25
-			_last_replay_corr = _last_replay_corr.linear_interpolate(target_corr, SMOOTH_FACTOR)
-			replay_corr = _last_replay_corr
-			# consume once
-			set("replay_velocity_correction", null)
-		else:
-			# Decay residual correction toward zero
-			_last_replay_corr = _last_replay_corr.linear_interpolate(Vector3.ZERO, 0.2)
-
-	if GameGlobals and GameGlobals.replay_debug_mode and is_replaying:
-		print("[PlayerController Playback] Pre-move: velocity=", movement_this_frame, " on_floor=", on_floor, " replay_corr=", replay_corr)
-	
-	# print("[PlayerController] Pre-move: velocity=%s, on_floor=%s" % [movement_this_frame, on_floor])
-	pre_move_velocity_for_replay = movement_this_frame
-	
-	# Snap to ground
-	var snap_vec = Vector3.ZERO
-	if effective_on_floor and snap_enabled:
-		snap_vec = -get_floor_normal() * snap_len
-	elif on_floor:
-		snap_enabled = true
-
-	# --- THE ACTUAL PHYSICS STEP ---
-	var pos_before = global_transform.origin
-	# If a replay correction exists, add it to the movement/velocity for this frame
-	if replay_corr != Vector3.ZERO:
-		movement_this_frame += replay_corr
-
-	# Debug for replay inertia when airborne (avoid referencing fixed-only var)
-	if GameGlobals and GameGlobals.replay_debug_mode and is_replaying and not effective_on_floor:
-		print("[PlayerController DEBUG][REPLAY] movement_this_frame=", movement_this_frame)
-
-	if GameGlobals and GameGlobals.is_replaying and debug_force_direct_move:
-		# Modo de diagnóstico: aplicar movimiento directamente (no física)
-		global_transform.origin = global_transform.origin + movement_this_frame * effective_delta
-		velocity = Vector3(movement_this_frame.x, movement_this_frame.y, movement_this_frame.z)
-		print("[PlayerController DEBUG] Applied direct move for replay: pos_before=", pos_before, " pos_after=", global_transform.origin, " disp=", global_transform.origin - pos_before)
-	else:
-		velocity = move_and_slide_with_snap(movement_this_frame, snap_vec, Vector3.UP, false)
-		var pos_after = global_transform.origin
-		var disp = pos_after - pos_before
-		if GameGlobals and GameGlobals.replay_debug_mode and GameGlobals.is_replaying:
-			print("[PlayerController DEBUG] move_and_slide pos_before=", pos_before, " pos_after=", pos_after, " disp=", disp, " velocity_out=", velocity)
-
-	# print("[PlayerController] Post-move Pos (Simulated): %s" % [global_transform.origin])
-	# print("[PlayerController POST-SLIDE] Velocity: %s" % [velocity])
-	
-		# Update velocity components from the result for the next frame
-		horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
-		horizontal_velocity_fixed = FixedVec3.from_vec3(horizontal_velocity)
-		if movement_comp:
-			movement_comp.horizontal_velocity = horizontal_velocity
-		# If we're on the floor in replay, reset vertical fixed velocity to zero to avoid residuals
-		if effective_on_floor:
-			vertical_velocity_fixed = FixedVec3.zero()
-		else:
-			vertical_velocity_fixed = FixedVec3.from_vec3(Vector3(0, velocity.y, 0))
-	
-	# Snapping to zero to prevent numerical drift
-	if effective_on_floor and horizontal_velocity.length_squared() < 0.0001:
-		horizontal_velocity = Vector3.ZERO
-		horizontal_velocity_fixed = FixedVec3.zero()
-		velocity.x = 0.0
-		velocity.z = 0.0
-		if movement_comp:
-			movement_comp.horizontal_velocity = Vector3.ZERO
-	
-	was_on_floor = on_floor # was_on_floor debe usar el estado real para la lógica del siguiente frame
-	just_jumped = false # Reset one-frame flag
-
-	# --- FAKE SHADOW & ANIMATIONS ---
-	_update_animations_and_fx(effective_on_floor, is_walking, is_running, effective_delta)
-
-func _update_animations_and_fx(on_floor: bool, is_walking: bool, is_running: bool, delta: float):
+func _update_animations_and_fx(on_floor: bool, _is_walking: bool, _is_running: bool, delta: float):
 	# Lógica de animaciones y efectos visuales que es común a ambos modos.
 	if ground_ray.is_colliding():
 		var hit = ground_ray.get_collision_point()
@@ -1142,10 +736,10 @@ func _update_animations_and_fx(on_floor: bool, is_walking: bool, is_running: boo
 	# Animation Tree Updates
 	animation_tree["parameters/conditions/IsOnFloor"] = on_floor
 	animation_tree["parameters/conditions/IsInAir"] = !on_floor
-	animation_tree["parameters/conditions/IsWalking"] = is_walking
-	animation_tree["parameters/conditions/IsNotWalking"] = !is_walking
-	animation_tree["parameters/conditions/IsRunning"] = is_running
-	animation_tree["parameters/conditions/IsNotRunning"] = !is_running
+	animation_tree["parameters/conditions/IsWalking"] = _is_walking
+	animation_tree["parameters/conditions/IsNotWalking"] = !_is_walking
+	animation_tree["parameters/conditions/IsRunning"] = _is_running
+	animation_tree["parameters/conditions/IsNotRunning"] = !_is_running
 
 	# Floating state logic (uses vertical_velocity_fixed, which is now post-slide)
 	var vertical_velocity_y_float = FixedPoint.from_fixed(vertical_velocity_fixed.y)
@@ -1339,19 +933,22 @@ func get_replay_state() -> Dictionary:
 
 func set_replay_state(state: Dictionary) -> void:
 	var deserialized_state = ReplayUtils.from_json_safe(state)
-	print("[PlayerController][set_replay_state] incoming keys:", state.keys())
+	if GameGlobals and GameGlobals.debug_mode:
+		print("[PlayerController][set_replay_state] incoming keys:", state.keys())
 	var is_replaying = GameGlobals and GameGlobals.is_replaying
-	var replay_manager = get_node_or_null("/root/ReplayManager")
+	var _replay_manager = get_node_or_null("/root/ReplayManager")
 
 	# Restore state from the replay file - USE FIXED-POINT DATA FOR DETERMINISTIC PLAYBACK
 	if state.has("player_position_fixed"):
 		var pos_fixed = state["player_position_fixed"]
 		if pos_fixed is Dictionary:
 			global_transform.origin = ReplayUtils.fixed_dict_to_vector3(pos_fixed)
-			print("[PlayerController] Posición fixed actualizada:", global_transform.origin)
+			if GameGlobals and GameGlobals.debug_mode:
+				print("[PlayerController] Posición fixed actualizada:", global_transform.origin)
 		else:
 			global_transform.origin = deserialized_state.get("player_position", global_transform.origin)
-			print("[PlayerController] Posición (fallback) aplicada:", global_transform.origin)
+			if GameGlobals and GameGlobals.debug_mode:
+				print("[PlayerController] Posición (fallback) aplicada:", global_transform.origin)
 	else:
 		global_transform.origin = deserialized_state.get("player_position", global_transform.origin)
 	
@@ -1373,6 +970,8 @@ func set_replay_state(state: Dictionary) -> void:
 	airborne_inherited = deserialized_state.get("airborne_inherited", Vector3.ZERO)
 	just_jumped = deserialized_state.get("just_jumped", false)
 	time_since_jump = deserialized_state.get("time_since_jump", 1.0)
+	# Forzar la sincronización de los temporizadores es CRÍTICO para el determinismo.
+	time_since_input = deserialized_state.get("time_since_input", 1.0)
 	time_since_input = deserialized_state.get("time_since_input", 1.0)
 	was_on_floor = deserialized_state.get("was_on_floor", false)
 	snap_enabled = deserialized_state.get("snap_enabled", true)
@@ -1384,22 +983,11 @@ func set_replay_state(state: Dictionary) -> void:
 		var vel_fixed = state["velocity_fixed"]
 		if vel_fixed is Dictionary:
 			velocity = ReplayUtils.fixed_dict_to_vector3(vel_fixed)
-			print("[PlayerController] Velocidad fixed:", velocity)
+			if GameGlobals and GameGlobals.debug_mode:
+				print("[PlayerController] Velocidad fixed:", velocity)
 	else:
 		velocity = deserialized_state.get("velocity", Vector3.ZERO)
 	
-	# CORRECCIÓN FINAL: Reset total y explícito de TODAS las velocidades al cargar estado de replay.
-	# La velocidad debe ser generada por los inputs grabados, no restaurada de un snapshot.
-	# Esto previene la inyección de velocidades finales acumuladas que causan la "flotación".
-	velocity = Vector3.ZERO
-	horizontal_velocity = Vector3.ZERO
-	platform_velocity = Vector3.ZERO # Resetea la velocidad de la plataforma
-	airborne_inherited = Vector3.ZERO # Resetea la inercia heredada en el aire
-	horizontal_velocity_fixed = FixedVec3.zero() # Resetea la velocidad horizontal de punto fijo
-	vertical_velocity_fixed = FixedVec3.zero() # Resetea la velocidad vertical de punto fijo
-	platform_velocity_fixed = FixedVec3.zero() # Resetea la velocidad de plataforma de punto fijo
-	airborne_inherited_fixed = FixedVec3.zero() # Resetea la inercia de punto fijo
-
 	if jump_comp and deserialized_state.has("coyote_timer") and deserialized_state["coyote_timer"] != null:
 		jump_comp.coyote_timer = deserialized_state["coyote_timer"]
 	if jump_comp and deserialized_state.has("jump_buffer_timer") and deserialized_state["jump_buffer_timer"] != null:
@@ -1409,13 +997,47 @@ func set_replay_state(state: Dictionary) -> void:
 
 	# Eliminado: limpieza de mouse_delta_x en replay para evitar conflicto con la cámara
 
+func set_deterministic_state(state: Dictionary) -> void:
+	"""
+	Forza un estado interno completo para tests de determinismo.
+	A diferencia de set_replay_state, esta función está diseñada para
+	una sincronización inicial bit a bit, incluyendo timers y velocidades.
+	"""
+	if state.has("global_transform"):
+		var t = ReplayUtils.dict_to_transform(state["global_transform"])
+		if t: global_transform = t
+
+	if state.has("velocity_fixed"):
+		velocity = ReplayUtils.fixed_dict_to_vector3(state["velocity_fixed"])
+	elif state.has("velocity"):
+		velocity = state["velocity"]
+
+	time_since_input = state.get("time_since_input", 0.0)
+	time_since_jump = state.get("time_since_jump", 0.0)
+	was_on_floor = state.get("was_on_floor", false)
+	# También reseteamos otras variables de estado para una simulación limpia
+	horizontal_velocity = Vector3.ZERO
+
 func playback_process(frame_data_state: Dictionary, _delta: float) -> void:
-	# During replay, state is now set directly by ReplayPlayback, so no physics simulation here
-	# Just update derived variables if needed
-	if frame_data_state.has("velocity"):
-		velocity = ReplayUtils.dict_to_vector3(frame_data_state["velocity"])
-		horizontal_velocity = velocity - Vector3(0, velocity.y, 0)
-		if movement_comp:
-			movement_comp.horizontal_velocity = horizontal_velocity
-		vertical_velocity_fixed = FixedVec3.from_vec3(Vector3(0, velocity.y, 0))
-		pre_move_velocity_for_replay = velocity
+	# During spectator mode replay, apply exact transform from JSON for perfect path following
+	# But in test mode, skip this to allow physics simulation with modified parameters (e.g., no gravity)
+	if GameGlobals and GameGlobals.is_test_mode:
+		return
+	if frame_data_state.has("global_transform"):
+		var new_transform = ReplayUtils.dict_to_transform(frame_data_state["global_transform"])
+		# Verificar que el transform no tenga valores NaN para evitar que el personaje desaparezca
+		var has_nan = false
+		var o = new_transform.origin
+		var bx = new_transform.basis.x
+		var by = new_transform.basis.y
+		var bz = new_transform.basis.z
+		if is_nan(o.x) or is_nan(o.y) or is_nan(o.z) or \
+		   is_nan(bx.x) or is_nan(bx.y) or is_nan(bx.z) or \
+		   is_nan(by.x) or is_nan(by.y) or is_nan(by.z) or \
+		   is_nan(bz.x) or is_nan(bz.y) or is_nan(bz.z):
+			has_nan = true
+		if not has_nan:
+			global_transform = new_transform
+		else:
+			print("NaN detected in transform, skipping application")
+	# No aplicar velocity, solo teleportar a la posición grabada
