@@ -40,17 +40,29 @@ jobs:
 
       # Omitido: Anotación de reporte de determinismo para simplificar
 
-      - name: Annotate GDUnit test failures
+      - name: Annotate GDUnit test results and warnings
         if: always()
         run: |
           LOG=reports/gdunit_runner.log
           if [ ! -f "$LOG" ]; then
             exit 0
           fi
-          # Solo anotar errores de tests fallidos, sin contexto extra
+          # Anotar errores de tests fallidos
           grep -n "Run Test: .*:FAILED" "$LOG" || true | while IFS=: read -r LN LINE; do
-            esc=$(printf '%s' "$LINE" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
-            echo "::error title=GDUnit Failure::$esc"
+            # Capturar el bloque de reporte asociado (hasta la siguiente línea vacía o Run Test)
+            BLOCK=$(sed -n "${LN},$((LN+10))p" "$LOG" | sed '/^$/q')
+            # Si el bloque contiene 'Expecting to be less' o 'FAILED', es error
+            if echo "$BLOCK" | grep -q 'Expecting to be less\|FAILED'; then
+              esc=$(printf '%s' "$BLOCK" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
+              echo "::error title=GDUnit Failure::$esc"
+            fi
+          done
+          # Anotar advertencias (WARNING) como notice
+          grep -n "WARNING:" "$LOG" || true | while IFS=: read -r LN LINE; do
+            # Capturar el bloque de advertencia (línea y contexto)
+            BLOCK=$(sed -n "$((LN-2)),$((LN+2))p" "$LOG" | sed '/^$/q')
+            esc=$(printf '%s' "$BLOCK" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
+            echo "::notice title=GDUnit Warning::$esc"
           done
 
       # Omitido: Anotación de resumen general para reducir ruido
