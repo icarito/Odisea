@@ -38,6 +38,18 @@ jobs:
 
       # Omitido: Mostrar log completo para reducir ruido
 
+      - name: Annotate first FAILED Report block (experimental)
+        if: always()
+        run: |
+          LOG=reports/gdunit_runner.log
+          if [ ! -f "$LOG" ]; then exit 0; fi
+          # Limpiar ANSI y extraer solo el primer bloque Report: tras un FAILED
+          sed 's/\x1b\[[0-9;]*m//g' "$LOG" | awk '/FAILED/ {failed=1} /Report:/ {if (failed) {print; r=1; failed=0; next}} r && !/^(PASSED|FAILED|SKIPPED|Run Test|Run Test Suite)/ {print; lines++; if (lines>20) exit} /^(PASSED|FAILED|SKIPPED|Run Test|Run Test Suite)/ {if (r) exit; r=0}' > /tmp/_reporte.txt
+          if [ -s /tmp/_reporte.txt ]; then
+            esc=$(cat /tmp/_reporte.txt | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
+            echo "::error title=GDUnit Failure::$esc"
+          fi
+
       # Omitido: Anotación de reporte de determinismo para simplificar
 
       - name: Annotate GDUnit test results and warnings
