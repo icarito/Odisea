@@ -74,6 +74,7 @@ jobs:
                 esc=$(printf '%s' "$BLOCK" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
                 echo "::notice title=GDUnit Warning::$esc"
               fi
+            fi
           done
 
       # Omitido: Anotación de resumen general para reducir ruido
