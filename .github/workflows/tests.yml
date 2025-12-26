@@ -55,8 +55,8 @@ jobs:
             {blk=blk $0 "\n"} \
             END{if(blk!=""){print blk "\x1e"}}' "$LOG" | \
           awk -v RS='\x1e' '{if(length($0)>10) print $0}' | while IFS= read -r BLOCK; do
-            # Extraer el bloque Report: si existe, que contiene los detalles clave
-            REPORT=$(echo "$BLOCK" | awk '/Report:/, /^[[:space:]]*$/ {print}')
+            # Extraer el bloque Report: si existe, removiendo códigos ANSI primero
+            REPORT=$(echo "$BLOCK" | sed 's/\x1b\[[0-9;]*m//g' | awk '/Report:/, /^[[:space:]]*$/ {print}')
             if echo "$BLOCK" | grep -q ':FAILED'; then
               if [ -n "$REPORT" ]; then
                 esc=$(printf '%s' "$REPORT" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
@@ -68,6 +68,10 @@ jobs:
             elif echo "$BLOCK" | grep -q 'WARNING:'; then
               if [ -n "$REPORT" ]; then
                 esc=$(printf '%s' "$REPORT" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
+                echo "::notice title=GDUnit Warning::$esc"
+              else
+                # Si no hay Report:, anotar todo el bloque para capturar el warning
+                esc=$(printf '%s' "$BLOCK" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
                 echo "::notice title=GDUnit Warning::$esc"
               fi
           done
