@@ -59,8 +59,8 @@ jobs:
               esc=$(printf '%s' "$BLOCK" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
               echo "::error title=GDUnit Failure::$esc"
             elif echo "$BLOCK" | grep -q 'WARNING:'; then
-            # Extraer desde la primera WARNING: hasta el final del bloque para incluir el mensaje completo
-            WARNING_BLOCK=$(echo "$BLOCK" | sed -n '/WARNING:/,$p')
+            # Extraer la línea WARNING: y la línea siguiente para incluir el mensaje completo
+            WARNING_BLOCK=$(echo "$BLOCK" | sed -n '/WARNING:/{p; n; p}')
             esc=$(printf '%s' "$WARNING_BLOCK" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
             echo "::notice title=GDUnit Warning::$esc"
             fi
