@@ -49,32 +49,37 @@ jobs:
           fi
           # Procesar cada bloque de test (Run Test ... hasta la siguiente Run Test o EOF)
           # Separar bloques de test robustamente, incluso con líneas vacías
+          escape_github_annotation() {
+            sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g'
+          }
           awk 'BEGIN{blk=""} \
             /^\s*Run Test: /{if(blk!=""){print blk "\x1e"}; blk=$0 "\n"; next} \
             /^[[:space:]]*$/ {blk=blk $0 "\n"; next} \
             {blk=blk $0 "\n"} \
             END{if(blk!=""){print blk "\x1e"}}' "$LOG" | \
-          escape_github_annotation() {
-            sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g'
-          }
-          awk -v RS='\x1e' '{if(length($0)>10) print $0}' | while IFS= read -r BLOCK; do
-            # Extraer todas las líneas entre Report: y el siguiente encabezado de test o resultado, removiendo códigos ANSI
-            REPORT=$(echo "$BLOCK" | sed 's/\x1b\[[0-9;]*m//g' | awk '/Report:/{flag=1; next} flag && !/^(PASSED|FAILED|SKIPPED|Run Test|Run Test Suite)/ {print; next} flag {exit}')
-            if echo "$BLOCK" | grep -q ':FAILED'; then
-              if [ -n "$REPORT" ]; then
+          awk -v RS='\x1e' '{if(length($0)>10) print $0}' | \
+          while IFS= read -r BLOCK; do
+            clean_block=$(echo "$BLOCK" | sed 's/\x1b\[[0-9;]*m//g')
+            # Extraer el bloque Report: si existe
+            REPORT=$(echo "$clean_block" | awk '/Report:/{flag=1; next} flag && !/^(PASSED|FAILED|SKIPPED|Run Test|Run Test Suite)/ {print; next} flag {exit}')
+            # Debug opcional:
+            # echo "==== DEBUG ===="
+            # echo "$REPORT"
+            # echo "==============="
+            if echo "$clean_block" | grep -q ':FAILED'; then
+              if [ -n "$REPORT" ] && [ $(echo "$REPORT" | grep -c '^') -gt 1 ]; then
                 esc=$(printf '%s' "$REPORT" | escape_github_annotation)
                 echo "::error title=GDUnit Failure::$esc"
               else
-                esc=$(printf '%s' "$BLOCK" | escape_github_annotation)
+                esc=$(printf '%s' "$clean_block" | escape_github_annotation)
                 echo "::error title=GDUnit Failure::$esc"
               fi
-            elif echo "$BLOCK" | grep -q 'WARNING:'; then
-              REPORT_LINES=$(echo "$REPORT" | grep -c '^')
-              if [ -n "$REPORT" ] && [ "$REPORT_LINES" -gt 1 ]; then
+            elif echo "$clean_block" | grep -q 'WARNING:'; then
+              if [ -n "$REPORT" ] && [ $(echo "$REPORT" | grep -c '^') -gt 1 ]; then
                 esc=$(printf '%s' "$REPORT" | escape_github_annotation)
                 echo "::notice title=GDUnit Warning::$esc"
               else
-                esc=$(printf '%s' "$BLOCK" | escape_github_annotation)
+                esc=$(printf '%s' "$clean_block" | escape_github_annotation)
                 echo "::notice title=GDUnit Warning::$esc"
               fi
             fi
