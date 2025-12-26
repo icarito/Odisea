@@ -70,11 +70,12 @@ jobs:
                 echo "::error title=GDUnit Failure::$esc"
               fi
             elif echo "$BLOCK" | grep -q 'WARNING:'; then
-              if [ -n "$REPORT" ]; then
+              # Si el Report: tiene más de una línea, usarlo; si no, anotar todo el bloque
+              REPORT_LINES=$(echo "$REPORT" | grep -c '^')
+              if [ -n "$REPORT" ] && [ "$REPORT_LINES" -gt 1 ]; then
                 esc=$(printf '%s' "$REPORT" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
                 echo "::notice title=GDUnit Warning::$esc"
               else
-                # Si no hay Report:, anotar todo el bloque para capturar el warning
                 esc=$(printf '%s' "$BLOCK" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
                 echo "::notice title=GDUnit Warning::$esc"
               fi
