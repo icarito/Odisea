@@ -26,7 +26,7 @@ func _read_live_input() -> InputDataV2:
     var d = InputDataV2.new()
 
     d.move_vec = Vector2(
-        Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
+        Input.get_action_strength("move_left") - Input.get_action_strength("move_right"),
         Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward")
     )
 
@@ -37,7 +37,7 @@ func _read_live_input() -> InputDataV2:
     d.sprint = Input.is_action_pressed("run")
 
     var m = Input.get_last_mouse_speed()
-    d.mouse_delta = Vector2(_q(m.x), _q(m.y))
+    d.mouse_delta = Vector2(_q(m.x), _q(-m.y))
 
     return d
 
