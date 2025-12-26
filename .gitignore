@@ -20,3 +20,5 @@ reports/
 pupeteer/.venv/
 *.pyc
 */__pycache__/
+godot-headless/
+godot_headless.zip
