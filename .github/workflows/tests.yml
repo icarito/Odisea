@@ -48,9 +48,14 @@ jobs:
             exit 0
           fi
           # Procesar cada bloque de test (Run Test ... hasta la siguiente Run Test o EOF)
-          awk '/^\s*Run Test: /{if(NR>1)print "\x1e";blk=""}{blk=blk $0 "\n"}END{print "\x1e"}' "$LOG" | \
-          awk -v RS='\x1e' '{if($0!="") print $0}' | while IFS= read -r BLOCK; do
-            # Determinar si es FAILED o PASSED
+          # Separar bloques de test robustamente, incluso con líneas vacías
+          awk 'BEGIN{blk=""} \
+            /^\s*Run Test: /{if(blk!=""){print blk "\x1e"}; blk=$0 "\n"; next} \
+            /^[[:space:]]*$/ {blk=blk $0 "\n"; next} \
+            {blk=blk $0 "\n"} \
+            END{if(blk!=""){print blk "\x1e"}}' "$LOG" | \
+          awk -v RS='\x1e' '{if(length($0)>10) print $0}' | while IFS= read -r BLOCK; do
+            # Determinar si es FAILED o PASSED con WARNING
             if echo "$BLOCK" | grep -q ':FAILED'; then
               esc=$(printf '%s' "$BLOCK" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
               echo "::error title=GDUnit Failure::$esc"
