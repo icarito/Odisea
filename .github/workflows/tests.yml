@@ -55,15 +55,21 @@ jobs:
             {blk=blk $0 "\n"} \
             END{if(blk!=""){print blk "\x1e"}}' "$LOG" | \
           awk -v RS='\x1e' '{if(length($0)>10) print $0}' | while IFS= read -r BLOCK; do
+            # Extraer el bloque Report: si existe, que contiene los detalles clave
+            REPORT=$(echo "$BLOCK" | awk '/Report:/, /^[[:space:]]*$/ {print}')
             if echo "$BLOCK" | grep -q ':FAILED'; then
-              esc=$(printf '%s' "$BLOCK" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
-              echo "::error title=GDUnit Failure::$esc"
+              if [ -n "$REPORT" ]; then
+                esc=$(printf '%s' "$REPORT" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
+                echo "::error title=GDUnit Failure::$esc"
+              else
+                esc=$(printf '%s' "$BLOCK" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
+                echo "::error title=GDUnit Failure::$esc"
+              fi
             elif echo "$BLOCK" | grep -q 'WARNING:'; then
-            # Extraer la línea WARNING: y la línea siguiente para incluir el mensaje completo
-            WARNING_BLOCK=$(echo "$BLOCK" | sed -n '/WARNING:/{p; n; p}')
-            esc=$(printf '%s' "$WARNING_BLOCK" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
-            echo "::notice title=GDUnit Warning::$esc"
-            fi
+              if [ -n "$REPORT" ]; then
+                esc=$(printf '%s' "$REPORT" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
+                echo "::notice title=GDUnit Warning::$esc"
+              fi
           done
 
       # Omitido: Anotación de resumen general para reducir ruido
