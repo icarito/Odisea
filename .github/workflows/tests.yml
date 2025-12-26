@@ -47,22 +47,17 @@ jobs:
           if [ ! -f "$LOG" ]; then
             exit 0
           fi
-          # Anotar errores de tests fallidos
-          grep -n "Run Test: .*:FAILED" "$LOG" || true | while IFS=: read -r LN LINE; do
-            # Capturar el bloque de reporte asociado (hasta la siguiente línea vacía o Run Test)
-            BLOCK=$(sed -n "${LN},$((LN+10))p" "$LOG" | sed '/^$/q')
-            # Si el bloque contiene 'Expecting to be less' o 'FAILED', es error
-            if echo "$BLOCK" | grep -q 'Expecting to be less\|FAILED'; then
+          # Procesar cada bloque de test (Run Test ... hasta la siguiente Run Test o EOF)
+          awk '/^\s*Run Test: /{if(NR>1)print "\x1e";blk=""}{blk=blk $0 "\n"}END{print "\x1e"}' "$LOG" | \
+          awk -v RS='\x1e' '{if($0!="") print $0}' | while IFS= read -r BLOCK; do
+            # Determinar si es FAILED o PASSED
+            if echo "$BLOCK" | grep -q ':FAILED'; then
               esc=$(printf '%s' "$BLOCK" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
               echo "::error title=GDUnit Failure::$esc"
+            elif echo "$BLOCK" | grep -q 'WARNING:'; then
+              esc=$(printf '%s' "$BLOCK" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
+              echo "::notice title=GDUnit Warning::$esc"
             fi
-          done
-          # Anotar advertencias (WARNING) como notice
-          grep -n "WARNING:" "$LOG" || true | while IFS=: read -r LN LINE; do
-            # Capturar el bloque de advertencia (línea y contexto)
-            BLOCK=$(sed -n "$((LN-2)),$((LN+2))p" "$LOG" | sed '/^$/q')
-            esc=$(printf '%s' "$BLOCK" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
-            echo "::notice title=GDUnit Warning::$esc"
           done
 
       # Omitido: Anotación de resumen general para reducir ruido
