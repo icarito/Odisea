@@ -30,77 +30,30 @@ jobs:
 
       - name: Import Godot project resources
         run: |
-          echo "Importing Godot project resources (generate .import) using $GODOT_BIN"
           "$GODOT_BIN" --path . -e --quit --headless || true
-          echo "List .import (if any):" && ls -la .import || true
 
       - name: Run GDUnit3 Tests
         run: |
-          # Tu script runtest.sh espera la variable GODOT_BIN (ahora proveniente de GITHUB_ENV).
-          echo "Working dir: $(pwd)"
-          echo "GODOT_BIN=$GODOT_BIN"
-          echo "List candidate tests directory:" && ls -la tests || true
           ./runtest.sh -a res://tests
 
-      - name: Show GdUnit runner log (if present)
-        if: always()
-        run: |
-          if [ -f reports/gdunit_runner.log ]; then
-            echo "--- BEGIN gdunit_runner.log ---"
-            sed -n '1,400p' reports/gdunit_runner.log || true
-            echo "--- END gdunit_runner.log ---"
-          else
-            echo "No gdunit_runner.log present."
-          fi
+      # Omitido: Mostrar log completo para reducir ruido
 
-      - name: Annotate determinism drift (if present)
-        if: always()
-        run: |
-          # Buscar el bloque del reporte de determinismo en el log y crear una annotation
-          if [ -f reports/gdunit_runner.log ]; then
-            REPORT=$(awk 'BEGIN{found=0} /--- REPORTE DE DETERMINISMO ---/{found=1} found{print}' reports/gdunit_runner.log | sed '/^$/q')
-            if [ -n "$REPORT" ]; then
-              # Escape special chars for workflow command
-              esc=$(printf '%s' "$REPORT" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
-              # Emitir annotation as error so it appears in Checks UI (won't change exit code here)
-              echo "::error title=Determinism Report::$esc"
-            else
-              echo "No determinism report found in gdunit log."
-            fi
-          else
-            echo "No gdunit_runner.log present to annotate."
-          fi
+      # Omitido: Anotación de reporte de determinismo para simplificar
 
-      - name: Annotate individual GDUnit failures
+      - name: Annotate GDUnit test failures
         if: always()
         run: |
-          # Parse the gdunit runner log and create an annotation per failed test
           LOG=reports/gdunit_runner.log
           if [ ! -f "$LOG" ]; then
-            echo "No gdunit_runner.log found, skipping failure annotations."
             exit 0
           fi
-          # For each 'Run Test: <suite> > <test> :FAILED' line, grab context lines and annotate
+          # Solo anotar errores de tests fallidos, sin contexto extra
           grep -n "Run Test: .*:FAILED" "$LOG" || true | while IFS=: read -r LN LINE; do
-            CONTEXT=$(sed -n "${LN},$((LN+12))p" "$LOG")
-            # escape for workflow command
-            esc=$(printf '%s' "$CONTEXT" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
+            esc=$(printf '%s' "$LINE" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
             echo "::error title=GDUnit Failure::$esc"
           done
 
-      - name: Annotate overall test summary
-        if: always()
-        run: |
-          LOG=reports/gdunit_runner.log
-          if [ -f "$LOG" ]; then
-            # extract summary lines
-            SUMMARY=$(awk '/Total test suites:/,/Exit code:/' "$LOG" | sed -n '1,80p')
-            if [ -n "$SUMMARY" ]; then
-              esc=$(printf '%s' "$SUMMARY" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
-              # use notice so it doesn't mark checks as errored (failed tests already shown)
-              echo "::notice title=GDUnit Summary::$esc"
-            fi
-          fi
+      # Omitido: Anotación de resumen general para reducir ruido
 
       - name: Upload Test Artifacts
         if: always()
