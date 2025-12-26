@@ -116,9 +116,6 @@ func _physics_process(delta: float) -> void:
 			recorded_state = fs
 			break
 
-	# 2. Aplicar corrección de posición suave (Lerp) o dura (Snap)
-	check_for_drift(frame_data)
-
 	# --- SINCRONIZACIÓN DE ÁNGULO ABSOLUTO (OBLIGATORIO) ---
 	# En cada frame, en lugar de usar mouse_delta, forzamos el estado absoluto
 	# de la cámara usando los valores de yaw y pitch grabados en el frame.
@@ -1087,77 +1084,6 @@ func _set_node_state(node: Node, state: Dictionary) -> void:
 				pass
 		# End for
 		return
-
-func _apply_velocity_drift_correction(frame_data: Dictionary) -> void:
-	# Continuous velocity-based drift correction applied every physics frame.
-	if not player or not current_replay:
-		return
-
-	var frame_idx = InputState.replay_frame
-	var recorded_state = null
-	if current_replay.frame_states.size() > frame_idx:
-		recorded_state = current_replay.frame_states[frame_idx]
-	else:
-		# fallback to nearest
-		if current_replay.frame_states.size() > 0:
-			var idx = clamp(frame_idx, 0, current_replay.frame_states.size() - 1)
-			recorded_state = current_replay.frame_states[idx]
-
-	if not recorded_state:
-		return
-
-	# Skip applying velocity corrections during early frames to avoid fighting
-	# initial spawn/settle and camera re-application which can create snaps.
-	if InputState.replay_frame <= EARLY_CORRECTION_FRAMES:
-		player.set("replay_velocity_correction", null)
-		return
-
-	# find player key
-	var player_key = node_key_map.get(player.name, null)
-	if player_key == null:
-		for k in recorded_state.keys():
-			if k == "frame_index":
-				continue
-			var resolved = _resolve_node(k)
-			if resolved == player:
-				player_key = k
-				node_key_map[player.name] = k
-				break
-
-	if player_key == null or not recorded_state.has(player_key):
-		return
-
-	var rec = recorded_state[player_key]
-	if not rec or not rec.has("global_transform"):
-		return
-
-	var expected_transform = ReplayUtils.dict_to_transform(rec["global_transform"])
-	if not expected_transform:
-		return
-
-	var expected_pos = expected_transform.origin
-	var current_pos = player.global_transform.origin
-	var error_vec = expected_pos - current_pos
-	var divergence = error_vec.length()
-
-	if divergence <= IGNORE_DRIVE_THRESHOLD:
-		# nothing to do
-		player.set("replay_velocity_correction", null)
-		return
-
-	if divergence > 5.0:
-		# snap as last resort
-		player.global_transform = expected_transform
-		player.set("replay_velocity_correction", null)
-		print("[ReplayPlayback] DRIFT: snap applied for large divergence", divergence)
-		return
-
-	# Compute the target velocity (magnet) and store it as a replay-provided velocity
-	var target_velocity = error_vec * DRIFT_MAGNET_STRENGTH
-	if player:
-		player.set("replay_velocity_correction", target_velocity)
-		print("[ReplayPlayback] DRIFT: set replay_velocity_correction to", target_velocity, "divergence", divergence)
-	return
 func _compare_states(a, b, epsilon = 0.001):
 	# Allow numeric type differences (int vs float) by normalizing here.
 	if typeof(a) in [TYPE_REAL, TYPE_INT] and typeof(b) in [TYPE_REAL, TYPE_INT]:
