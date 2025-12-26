@@ -25,26 +25,26 @@ var start_time: int = 0
 const ReplayUtils = preload("res://scripts/replay/ReplayUtils.gd")
 
 func _debug_log(message: String) -> void:
-	var game_globals = GameGlobals
-	if not game_globals:
-		game_globals = get_node_or_null("/root/GameGlobals")
-	if not game_globals:
-		game_globals = get_node_or_null("../GameGlobals")
-	if not game_globals:
-		game_globals = get_node_or_null("../../GameGlobals")
-	if game_globals and game_globals.replay_debug_mode:
+	var _game_globals = GameGlobals
+	if not _game_globals:
+		_game_globals = get_node_or_null("/root/GameGlobals")
+	if not _game_globals:
+		_game_globals = get_node_or_null("../GameGlobals")
+	if not _game_globals:
+		_game_globals = get_node_or_null("../../GameGlobals")
+	if _game_globals and _game_globals.replay_debug_mode:
 		print("[ReplayRecorder] " + message)
 
 func _ready() -> void:
 	process_priority = -10  # Low priority to run before CameraRig
-	var game_globals = GameGlobals
-	if not game_globals:
-		game_globals = get_node_or_null("/root/GameGlobals")
-	if not game_globals:
-		game_globals = get_node_or_null("../GameGlobals")
-	if not game_globals:
-		game_globals = get_node_or_null("../../GameGlobals")
-	if not (game_globals and game_globals.is_replaying):  # Only enable input processing when not replaying
+	var _game_globals = GameGlobals
+	if not _game_globals:
+		_game_globals = get_node_or_null("/root/GameGlobals")
+	if not _game_globals:
+		_game_globals = get_node_or_null("../GameGlobals")
+	if not _game_globals:
+		_game_globals = get_node_or_null("../../GameGlobals")
+	if not (_game_globals and _game_globals.is_replaying):  # Only enable input processing when not replaying
 		set_process_input(true)
 		set_process_unhandled_input(true)
 	else:

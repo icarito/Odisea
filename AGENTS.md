@@ -8,7 +8,6 @@ Notas:
 - Color en .tscn = RGBA (0–1).
 - load_steps = 1 ext_resource + # sub_resources, ajusta o "!int_resources.has(index)".
 - No edites .tscn manual; borra `.import/` y reimporta (F5).
-- Test sin GUI: `godot3-bin --headless --export-debug`.
 - "export" no "@export".
 - Nunca pases nil a funciones que esperan bool, Vector2, Vector3, etc.; usa siempre un valor por defecto seguro (ej. false, Vector2.ZERO, 0.0)
 - el comando para probar es godot3-bin --path "ruta/proyecto" --scene "ruta/escena.tscn" (no existe headless ni check-only en Godot 3.6)

@@ -103,13 +103,14 @@ static func dict_to_transform(dict: Dictionary) -> Transform:
 		return Transform(Basis(basis_x, basis_y, basis_z), origin)
 	return Transform.IDENTITY
 
-# Helper function to serialize a Basis to a dictionary.
-static func basis_to_dict(basis: Basis) -> Dictionary:
-	return {
-		"x": vector3_to_dict(basis.x),
-		"y": vector3_to_dict(basis.y),
-		"z": vector3_to_dict(basis.z)
-	}
+# Helper function to deserialize a dictionary back to a Basis.
+static func dict_to_basis(dict: Dictionary) -> Basis:
+	if dict and dict.has_all(["x", "y", "z"]) and dict.x != null and dict.y != null and dict.z != null:
+		var basis_x = dict_to_vector3(dict.x)
+		var basis_y = dict_to_vector3(dict.y)
+		var basis_z = dict_to_vector3(dict.z)
+		return Basis(basis_x, basis_y, basis_z)
+	return Basis.IDENTITY
 
 # Recursive function to convert Godot types to JSON-safe data
 static func to_json_safe(data):

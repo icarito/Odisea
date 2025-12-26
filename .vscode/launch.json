@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense para saber los atributos posibles.
+    // Mantenga el puntero para ver las descripciones de los existentes atributos.
+    // Para más información, visite: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "GDScript: Launch determinism test",
+            "type": "godot",
+            "request": "launch",
+            "project": "",
+            "debug_collisions": false,
+            "debug_paths": false,
+            "debug_navigation": false,
+            "additional_options": "-s -d ./addons/gdUnit3/bin/GdUnitCmdTool.gd -a ./tests/test_player_determinism_spec.gd"
+        },
+        {
+            "name": "GDScript: Launch Current File",
+            "type": "godot",
+            "request": "launch",
+            "scene": "current",
+            "project": "",
+            "additional_options": ""
+        },
+
+        {
+            "name": "GDScript: Launch Pinned File",
+            "type": "godot",
+            "request": "launch",
+            "scene": "pinned",
+            "project": "",
+            "additional_options": ""
+        },
+        {
+            "name": "GDScript: Launch Project",
+            "type": "godot",
+            "request": "launch",
+            "project": "${workspaceFolder}",
+            "debug_collisions": false,
+            "debug_paths": false,
+            "debug_navigation": false,
+            "additional_options": ""
+        }
+    ]
+}
