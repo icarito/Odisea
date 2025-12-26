@@ -166,7 +166,7 @@ func run_test(test_id):
 	replay_runner.simulate_frames(1)  # Simular un frame de física
 	player_ref = PlayerManager.player_reference
 	if not is_instance_valid(player_ref):
-		return {"passed": false, "error": "Player reference is not valid after spawn."}
+		return {"passed": false, "pos_drift": 9999.0, "rot_drift": 9999.0, "error": "Player reference is not valid after spawn."}
 
 	# Mover player a la escena de test para que esté en el árbol correcto
 	if player_ref.get_parent():
@@ -234,7 +234,7 @@ func run_test(test_id):
 		replay_runner.simulate_frames(1)
 
 	if not player_ref or not player_ref.is_inside_tree():
-		return {"passed": false, "error": "Player not spawned in playback"}
+		return {"passed": false, "pos_drift": 9999.0, "rot_drift": 9999.0, "error": "Player not spawned in playback"}
 
 	var final_pos_rep = player_ref.global_transform.origin
 	var final_rot_rep = player_ref.rotation.y

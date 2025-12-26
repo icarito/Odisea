@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/Fingers Trace the Stars ext v2.mp3-9d14f57ef36aa66b004f987908a55494.mp3str"
+
+[deps]
+
+source_file="res://assets/music/Fingers Trace the Stars ext v2.mp3"
+dest_files=[ "res://.import/Fingers Trace the Stars ext v2.mp3-9d14f57ef36aa66b004f987908a55494.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0
