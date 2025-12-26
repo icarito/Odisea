@@ -1,6 +1,7 @@
-[gd_scene load_steps=105 format=2]
+[gd_scene load_steps=106 format=2]
 
 [ext_resource path="res://models/Material_0_001.material" type="Material" id=1]
+[ext_resource path="res://core_v2/sim/PlayerControllerV2.gd" type="Script" id=2]
 [ext_resource path="res://materials/shadow/FakeShadow.tres" type="Material" id=52]
 
 [sub_resource type="CapsuleShape" id=48]
@@ -16945,6 +16946,7 @@ size = Vector2( 0.1, 0.1 )
 
 [node name="Pilot" type="KinematicBody"]
 collision_mask = 254
+script = ExtResource( 2 )
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
