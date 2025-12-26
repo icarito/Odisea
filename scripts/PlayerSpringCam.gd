@@ -17,11 +17,9 @@ export(NodePath) var pitch_path
 export(NodePath) var springarm_path
 export(NodePath) var camera_path
 
-export(float, 0.1, 5.0, 0.1) var strafe_mode_timeout := 1.0
-export(float, 0.0, 1.0, 0.05) var strafe_mode_influence := 1.0
 
-export(float, 0.1, 100, 1) var yaw_sensitivity := 20
-export(float, 0.1, 100, 1) var pitch_sensitivity := 20
+export(float, 0.1, 5.0, 0.1) var yaw_sensitivity := 1.0
+export(float, 0.1, 5.0, 0.1) var pitch_sensitivity := 1.0
 export(float) var yaw_smooth := 12.0
 export(float) var pitch_smooth := 12.0
 export(float, 0.0, 90.0, 0.5) var pitch_limit_up_deg := 85.0 # límite superior para mirar arriba
@@ -101,22 +99,22 @@ func _ready():
 	if started_in_playback:
 		set_is_playback(true)
 	# Ajuste de sensibilidad en modo replay para evitar duplicar la escala de los deltas grabados
-	var game_globals = GameGlobals
+	var _game_globals = GameGlobals
 	# NOTE: do not forcibly override exported sensitivities here - recorded deltas
 	# already contain the expected magnitude. Changing the exported values at
 	# runtime made playback almost immobile. Keep exported defaults.
 
-func _on_capture_changed(is_captured: bool):
+func _on_capture_changed(_is_captured: bool):
 	_update_mouse_look_active()
 
-func _on_replay_mode_changed(new_mode: int):
+func _on_replay_mode_changed(_new_mode: int):
 	_update_mouse_look_active()
 
 func _update_mouse_look_active():
 	var is_captured = MouseCapture.is_captured if MouseCapture else false
-	var is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
+	var _is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
 	# During playback, always allow mouse-look so recorded deltas are applied.
-	if is_playback:
+	if _is_playback:
 		_is_mouse_look_active = true # 2. Asegurarse de que _is_mouse_look_active sea true en playback
 	else:
 		_is_mouse_look_active = is_captured
@@ -125,14 +123,14 @@ func process_camera_rotation(_motion: Vector2):
 	"""Procesa el movimiento del mouse/touch para rotar la cámara desde InputState."""
 	# Asegurar que la cámara procese input durante playback aún si el estado local
 	# de captura de ratón no está activo (puede ser refrescado por ReplayManager).
-	var is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
+	var _is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
 	var gg = GameGlobals if GameGlobals else get_node_or_null("/root/GameGlobals")
-	if not _is_mouse_look_active and not is_playback:
+	if not _is_mouse_look_active and not _is_playback:
 		if gg and gg.replay_debug_mode:
 			print("[PlayerSpringCam][process_camera_rotation] SKIP: _is_mouse_look_active=false, not playback")
 		return
 	if gg and gg.replay_debug_mode:
-		print("[PlayerSpringCam][process_camera_rotation] ENTER: is_playback=", is_playback, " _is_mouse_look_active=", _is_mouse_look_active, " _motion=", _motion)
+		print("[PlayerSpringCam][process_camera_rotation] ENTER: is_playback=", _is_playback, " _is_mouse_look_active=", _is_mouse_look_active, " _motion=", _motion)
 
 	# Prefer explicit motion provided by caller (ReplayPlayback), fallback a InputState
 	var motion = Vector2.ZERO
@@ -184,7 +182,7 @@ func process_camera_rotation(_motion: Vector2):
 		print("[PlayerSpringCam][process_camera_rotation] motion vacío o no Vector2: ", motion)
 
 
-func _apply_rotation(motion: Vector2, delta: float, ignore_smoothing: bool) -> void:
+func _apply_rotation(motion: Vector2, _delta: float, ignore_smoothing: bool) -> void:
 	# 2. Eliminación de la "Física de Cámara"
 	# En modo is_playback, la cámara debe ser puramente matemática.
 	# Si es replay, no hagas cálculos de sensibilidad ni sumas.
@@ -195,23 +193,7 @@ func _apply_rotation(motion: Vector2, delta: float, ignore_smoothing: bool) -> v
 		pitch.rotation.x = target_pitch
 		return
 	# Centraliza la lógica de aplicación de rotación para poder ignorar el smoothing
-	var gg = GameGlobals if GameGlobals else get_node_or_null("/root/GameGlobals")
-	if not (motion is Vector2) or motion.length_squared() == 0:
-		if gg and gg.replay_debug_mode:
-			print("[PlayerSpringCam][_apply_rotation] NO ROT: motion vacío o no Vector2: ", motion)
-		return
-	if gg and gg.replay_debug_mode:
-		# Durante el replay, el delta es fijo y la sensibilidad debe ser consistente.
-		# La división por 1000 es un artefacto de cómo se manejaba el input del ratón.
-		# Si el mouse_delta grabado ya tiene la escala correcta, esta división puede ser
-		# la causa de que el movimiento sea casi nulo.
-		# Para el replay, usaremos el valor más directamente.
-		if is_playback:
-			var scaled_motion = motion * 0.01
-		print("[PlayerSpringCam][_apply_rotation] APLICANDO: motion=", motion, " ignore_smoothing=", ignore_smoothing)
-	var scaled_motion = motion / 1000.0
-	if gg and gg.replay_debug_mode:
-		print("[PlayerSpringCam][_apply_rotation] scaled_motion=", scaled_motion, " ignore_smoothing=", ignore_smoothing, " yaw_sens=", yaw_sensitivity, " pitch_sens=", pitch_sensitivity)
+	var scaled_motion = motion * 0.001
 	target_yaw -= scaled_motion.x * yaw_sensitivity
 	target_pitch += scaled_motion.y * pitch_sensitivity
 	var lim_up := deg2rad(clamp(pitch_limit_up_deg, 0.0, 90.0))
@@ -233,7 +215,8 @@ func _apply_rotation(motion: Vector2, delta: float, ignore_smoothing: bool) -> v
 				cam_cur = cam.current
 			elif cam.has_method("is_current"):
 				cam_cur = cam.is_current()
-		print("[PlayerSpringCam][_apply_rotation][PLAYBACK] POST_APPLY yaw=", (yaw.rotation.y if yaw else "nil"), " pitch=", (pitch.rotation.x if pitch else "nil"), " cam_current=", cam_cur)
+		if GameGlobals and GameGlobals.debug_mode:
+			print("[PlayerSpringCam][_apply_rotation][PLAYBACK] POST_APPLY yaw=", (yaw.rotation.y if yaw else "nil"), " pitch=", (pitch.rotation.x if pitch else "nil"), " cam_current=", cam_cur)
 
 func force_rotate_for_playback(motion: Vector2):
 	"""
@@ -339,7 +322,7 @@ func get_replay_state() -> Dictionary:
 	}
 
 func set_replay_state(state: Dictionary) -> void:
-	# Restore camera orientation for deterministic replay
+	# Restore camera orientation for deterministic replay (applies also en playback)
 	# 1. Sincronización Absoluta: Sobreescribir directamente la rotación.
 	if state.has("yaw") and yaw:
 		target_yaw = state["yaw"]
@@ -359,9 +342,10 @@ func update_camera_transform() -> void:
 	if pitch:
 		pitch.rotation.x = target_pitch
 
-func force_update_transform() -> void:
-	# Compatibility helper used by tests/ReplayPlayback: force immediate transform application
-	update_camera_transform()
-	# ensure Godot applies transforms immediately
-	if is_inside_tree():
-		VisualServer.force_draw()
+func _unhandled_input(event: InputEvent) -> void:
+	# Ignore real mouse input while in playback mode to avoid conflicts with recorded camera state
+	if event is InputEventMouseMotion:
+		if is_playback:
+			return
+		# En modo LIVE, capturar movimiento real del mouse para controlar la cámara
+		_pending_mouse_motion += event.relative

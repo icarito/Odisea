@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPLAY_PATH="./replays/2025-12-23T22-33-15.json"
+REPLAY_PATH="./replays/2025-12-26T13-04-48.json"
 LOG_DIR="./tests/logs"
 LOG_FILE="$LOG_DIR/replay_regression.log"
 
