@@ -55,12 +55,8 @@ jobs:
             {blk=blk $0 "\n"} \
             END{if(blk!=""){print blk "\x1e"}}' "$LOG" | \
           awk -v RS='\x1e' '{if(length($0)>10) print $0}' | while IFS= read -r BLOCK; do
-            # Extraer las líneas indentadas del bloque Report:, removiendo códigos ANSI
-            REPORT=$(echo "$BLOCK" | sed 's/\x1b\[[0-9;]*m//g' | awk '
-              /Report:/ {flag=1; next}
-              flag && (/^[\t ]+/ || /^[[:space:]]*$/) {print; next}
-              flag {exit}
-            ')
+                # Extraer todas las líneas entre Report: y el siguiente encabezado de test o resultado, removiendo códigos ANSI
+                REPORT=$(echo "$BLOCK" | sed 's/\x1b\[[0-9;]*m//g' | awk '/Report:/{flag=1; next} flag && !/^(PASSED|FAILED|SKIPPED|Run Test|Run Test Suite)/ {print; next} flag {exit}')
             if echo "$BLOCK" | grep -q ':FAILED'; then
               if [ -n "$REPORT" ]; then
                 esc=$(printf '%s' "$REPORT" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
