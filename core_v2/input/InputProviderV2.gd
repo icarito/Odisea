@@ -1,5 +1,4 @@
 extends Reference
-
 class_name InputProviderV2
 
 enum Mode {
@@ -19,6 +18,10 @@ func get_frame_input() -> InputDataV2:
         return _read_replay_input()
 
 
+func _q(v):
+    return round(v * 1000.0) / 1000.0
+
+
 func _read_live_input() -> InputDataV2:
     var d = InputDataV2.new()
 
@@ -27,21 +30,16 @@ func _read_live_input() -> InputDataV2:
         Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward")
     )
 
-    d.jump = Input.is_action_pressed("jump")
-    d.sprint = Input.is_action_pressed("run")
-    d.mouse_delta = Input.get_last_mouse_speed()
-
-    # Quantize for determinism
     d.move_vec.x = _q(d.move_vec.x)
     d.move_vec.y = _q(d.move_vec.y)
-    d.mouse_delta.x = _q(d.mouse_delta.x)
-    d.mouse_delta.y = _q(d.mouse_delta.y)
+
+    d.jump = Input.is_action_pressed("jump")
+    d.sprint = Input.is_action_pressed("run")
+
+    var m = Input.get_last_mouse_speed()
+    d.mouse_delta = Vector2(_q(m.x), _q(m.y))
 
     return d
-
-
-func _q(v):
-    return round(v * 1000) / 1000.0
 
 
 func _read_replay_input() -> InputDataV2:
@@ -60,4 +58,6 @@ func set_replay_data(data:Array):
 
 
 func set_live_mode():
+    replay_buffer.clear()
+    replay_index = 0
     mode = Mode.LIVE
