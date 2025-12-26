@@ -58,7 +58,7 @@ jobs:
             {blk=blk $0 "\n"} \
             END{if(blk!=""){print blk "\x1e"}}' "$LOG" | \
           awk -v RS='\x1e' '{if(length($0)>10) print $0}' | \
-          while IFS= read -r BLOCK; do
+          while IFS= read -r -d $'\x1e' BLOCK; do
             clean_block=$(echo "$BLOCK" | sed 's/\x1b\[[0-9;]*m//g')
             # Extraer el bloque Report: si existe
             REPORT=$(echo "$clean_block" | awk '/Report:/{flag=1; next} flag && !/^(PASSED|FAILED|SKIPPED|Run Test|Run Test Suite)/ {print; next} flag {exit}')
