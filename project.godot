@@ -717,7 +717,7 @@ _global_script_classes=[ {
 "base": "Node",
 "class": "PlayerInput",
 "language": "GDScript",
-"path": "res://scripts/multiplayer/PlayerInput.gd"
+"path": "res://scripts/PlayerInput.gd"
 }, {
 "base": "Node",
 "class": "PlayerJump",
@@ -1016,20 +1016,6 @@ boot_splash/image="res://assets/splash.png"
 boot_splash/use_filter=false
 config/icon="res://assets/odisea_icon.png"
 boot_splash/minimum_display_time=3
-
-[autoload]
-
-GameGlobals="*res://autoload/GameGlobals.gd"
-PlayerManager="*res://autoload/PlayerManager.gd"
-SceneManager="*res://autoload/SceneManager.gd"
-AudioSystem="*res://autoload/AudioSystem.gd"
-UIManager="*res://autoload/UIManager.gd"
-TouchCounter="*res://autoload/TouchCounter.gd"
-ReplayManager="*res://scripts/replay/ReplayManager.gd"
-MouseCapture="*res://scripts/utils/MouseCapture.gd"
-ReplayUtils="*res://scripts/replay/ReplayUtils.gd"
-InputState="*res://autoload/InputState.gd"
-FixedPoint="*res://autoload/FixedPoint.gd"
 
 [debug]
 
