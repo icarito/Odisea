@@ -56,7 +56,7 @@ jobs:
             END{if(blk!=""){print blk "\x1e"}}' "$LOG" | \
           awk -v RS='\x1e' '{if(length($0)>10) print $0}' | while IFS= read -r BLOCK; do
             # Extraer las líneas indentadas del bloque Report:, removiendo códigos ANSI
-            REPORT=$(echo "$BLOCK" | sed 's/\x1b\[[0-9;]*m//g' | awk '/Report:/{flag=1; next} flag {if (/^ +/) print; if (/^[[:space:]]*$/) exit}')
+            REPORT=$(echo "$BLOCK" | sed 's/\x1b\[[0-9;]*m//g' | awk '/Report:/{flag=1; next} flag {if (/^[\t ]+/) print; if (/^[[:space:]]*$/) exit}')
             if echo "$BLOCK" | grep -q ':FAILED'; then
               if [ -n "$REPORT" ]; then
                 esc=$(printf '%s' "$REPORT" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
