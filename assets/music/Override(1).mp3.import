@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/Override(1).mp3-19e7cabcd143384dc3c9ef041729010b.mp3str"
+
+[deps]
+
+source_file="res://assets/music/Override(1).mp3"
+dest_files=[ "res://.import/Override(1).mp3-19e7cabcd143384dc3c9ef041729010b.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0
