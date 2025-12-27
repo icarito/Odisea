@@ -9,6 +9,7 @@ enum Mode {
 var mode = Mode.LIVE
 var replay_buffer := []
 var replay_index := 0
+var mouse_delta_accum := Vector2()
 
 
 func get_frame_input() -> InputDataV2:
@@ -36,8 +37,8 @@ func _read_live_input() -> InputDataV2:
     d.jump = Input.is_action_pressed("jump")
     d.sprint = Input.is_action_pressed("run")
 
-    var m = Input.get_last_mouse_speed()
-    d.mouse_delta = Vector2(_q(m.x), _q(-m.y))
+    d.mouse_delta = Vector2(_q(mouse_delta_accum.x), _q(-mouse_delta_accum.y))
+    mouse_delta_accum = Vector2()
 
     return d
 
