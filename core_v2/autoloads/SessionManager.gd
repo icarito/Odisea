@@ -1,8 +1,7 @@
 extends Node
 
-export(NodePath) var player_path
-onready var player = get_node(player_path)
-
+var player: KinematicBody = null
+var _player_searched = false
 var buffer := []
 var is_recording := false
 var is_replaying := false
@@ -11,15 +10,64 @@ var final_expected_state = null
 var is_cli_mode := false
 var _drift_validated := false
 
+func _find_player():
+	if not is_instance_valid(player) and get_tree().current_scene:
+		# Busca al jugador en la escena actual. Asumimos que se llama 'Pilot_v2'.
+		player = get_tree().get_root().find_node("Pilot", true, false)
+		if not is_instance_valid(player):
+			player = null # Asegurarse de que sea nulo si no se encuentra.
+
 func _ready():
 	# Detección de parámetro --replay
 	var args = OS.get_cmdline_args()
 	for i in range(args.size()):
-		if args[i] == "--replay" and i + 1 < args.size():
+		var arg = args[i]
+		if arg == "--replay" and i + 1 < args.size():
 			is_cli_mode = true
-			load_and_play(args[i+1])
+			var replay_path = args[i+1]
+			# NO llamamos a load_and_play aquí. La escena aún no está lista.
+			# En su lugar, nos conectamos a la señal 'tree_changed'.
+			# Se disparará cuando la escena principal se cargue, y entonces ejecutaremos el replay.
+			get_tree().connect("tree_changed", self, "_on_tree_changed_for_replay", [replay_path], CONNECT_ONESHOT)
+			return
+
+	
+	# Capturar el mouse solo si no estamos en un entorno de test.
+	# Hacemos la llamada de forma segura para evitar un error de compilación
+	# cuando GdUnit3 no está presente (ej. en una ejecución normal).
+	var is_testing = false
+	if Engine.has_singleton("GdUnit3"):
+		is_testing = Engine.get_singleton("GdUnit3").is_test_suite()
+	
+	# Do not capture mouse in CLI mode or during tests.
+	if not is_testing and not is_cli_mode:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+func _on_tree_changed_for_replay(replay_path: String):
+	# Esta función se ejecuta una sola vez cuando la escena principal está lista.
+	# Ahora es seguro buscar al jugador y cargar el replay.
+	_find_player()
+	load_and_play(replay_path)
+
+func _unhandled_input(event):
+	# Gestionamos la captura y liberación del mouse de forma centralizada.
+	# Esto evita que el PlayerController tenga que saber sobre el estado del UI.
+	var is_testing = false
+	if Engine.has_singleton("GdUnit3"):
+		is_testing = Engine.get_singleton("GdUnit3").is_test_suite()
+
+	# Do not manage mouse input in CLI mode or during tests.
+	if not is_testing and not is_cli_mode:
+		if event.is_action_pressed("ui_cancel"):
+			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		# Re-capturar al hacer click en la pantalla, solo si el cursor está visible.
+		if event is InputEventMouseButton and event.pressed and Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE:
+			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
 
 func _physics_process(_dt):
+	_find_player()
+
 	if Input.is_action_just_pressed("record-toggle"):
 		if not is_recording:
 			start_recording()
@@ -47,6 +95,9 @@ func _physics_process(_dt):
 			player.external_input_provided = true
 
 func start_recording():
+	if not is_instance_valid(player):
+		printerr("SessionManager: No se puede iniciar la grabación, no se encontró al jugador.")
+		return
 	buffer.clear()
 	is_recording = true
 	replay_meta = {
@@ -56,12 +107,15 @@ func start_recording():
 	}
 	# Guardamos el estado inicial como primer elemento del buffer
 	buffer.append({"snapshot": player.get_full_snapshot()})
-	var cam = player.camera_rig if player.camera_rig else null
+	var cam = player.get_node_or_null("CameraRig")
 	print("GRAB_START\nrotation:", player.yaw, player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam.global_transform.origin)
 
 func stop_and_save_recording():
+	if not is_instance_valid(player):
+		printerr("SessionManager: No se puede detener la grabación, no se encontró al jugador.")
+		return
 	is_recording = false
-	var cam = player.camera_rig if player.camera_rig else null
+	var cam = player.get_node_or_null("CameraRig")
 	print("GRAB_END\nrotation:", player.yaw, player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam.global_transform.origin)
 	var file_path = "user://replay_" + str(OS.get_unix_time()) + ".json"
 	var file = File.new()
@@ -91,7 +145,7 @@ func load_and_play(path: String):
 		if buffer.size() > 0 and buffer[0].has("snapshot"):
 			if player and player.has_method("restore_snapshot"):
 				player.restore_snapshot(buffer[0]["snapshot"])
-				var cam = player.camera_rig if player.camera_rig else null
+				var cam = player.get_node_or_null("CameraRig")
 				print("PLAYBACK_START\nrotation:", player.yaw, ",", player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam.global_transform.origin)
 				_playback_printed_start = true
 			else:
@@ -123,7 +177,7 @@ func _finish_and_validate():
 	
 	# 1. Imprimir estado final
 	if player:
-		var cam = player.camera_rig
+		var cam = player.get_node_or_null("CameraRig")
 		print("PLAYBACK_END\nrotation:", player.yaw, ",", player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam.global_transform.origin)
 
 	# 2. Validar drift
@@ -161,6 +215,8 @@ func _finish_and_validate():
 		get_tree().quit(0 if success else 1)
 
 func run_playback():
+	_find_player()
+
 	# Detectar cuando el provider llega al final del buffer y validar
 	if player and "input_provider" in player and player.input_provider:
 		var prov = player.input_provider
