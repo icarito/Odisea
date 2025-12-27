@@ -1029,6 +1029,10 @@ boot_splash/use_filter=false
 config/icon="res://assets/odisea_icon.png"
 boot_splash/minimum_display_time=3
 
+[autoload]
+
+SessionManager="*res://core_v2/autoloads/SessionManager.gd"
+
 [debug]
 
 keep_debug_server_open=true
