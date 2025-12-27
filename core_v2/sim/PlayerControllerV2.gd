@@ -3,11 +3,12 @@ extends KinematicBody
 const FIXED_DT := 1.0 / 60.0
 const UP := Vector3.UP
 
-# tuning
-const MOVE_SPEED := 6.0
-const GRAVITY := -9.8
-const JUMP_FORCE := 8.0
-export var mouse_sensitivity := 0.0001
+# --- EXPORTED TUNING ---
+export var move_speed := 5.0
+export var run_speed_multiplier := 1.8  # Correr será un 80% más rápido
+export var gravity := -9.8
+export var jump_force := 8.0
+export var mouse_sensitivity := 0.005
 
 # state
 var velocity := Vector3()
@@ -31,6 +32,9 @@ func _input(event):
 	# Re-capturar al hacer click en la pantalla
 	if event is InputEventMouseButton and event.pressed:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	# Acumulamos el delta del mouse para determinismo
+	if event is InputEventMouseMotion:
+		input_provider.mouse_delta_accum += event.relative
 
 func step(dt: float, input: InputDataV2):
 	# --- ROTATION ---
@@ -62,21 +66,26 @@ func step(dt: float, input: InputDataV2):
 	dir += right * input.move_vec.x
 	dir = dir.normalized()
 
+	# --- SPRINT LOGIC ---
+	var current_speed = move_speed
+	if input.sprint: # Asumiendo que InputDataV2 ya tiene el booleano 'sprint'
+		current_speed *= run_speed_multiplier
+
 	# --- HORIZONTAL VELOCITY ---
-	var target = dir * MOVE_SPEED
+	var target = dir * current_speed
 	velocity.x = target.x
 	velocity.z = target.z
 
 	# --- GRAVITY ---
-	velocity.y += GRAVITY * dt
+	velocity.y += gravity * dt
 
 	# --- JUMP ---
 	if input.jump and is_on_floor():
-		velocity.y = JUMP_FORCE
+		velocity.y = jump_force
 
 	# --- APPLY ---
 	velocity = move_and_slide(velocity, UP)
 
 func _physics_process(_delta):
-    var input := input_provider.get_frame_input()
-    step(FIXED_DT, input)
+	var input := input_provider.get_frame_input()
+	step(FIXED_DT, input)
