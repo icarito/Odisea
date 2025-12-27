@@ -90,17 +90,11 @@ var external_input_provided := false
 
 func _ready():
 	input_provider = InputProviderV2.new()
-	# 1. CAPTURA DEL MOUSE: Bloquea el puntero al centro de la pantalla
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	# La captura del mouse ahora es gestionada por SessionManager.
 
 func _input(event):
-	# Opcional: Liberar el mouse con la tecla ESC
-	if event.is_action_pressed("ui_cancel"):
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	# Re-capturar al hacer click en la pantalla
-	if event is InputEventMouseButton and event.pressed:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	# Acumulamos el delta del mouse globalmente
+	# La única responsabilidad en _input es acumular el delta del mouse
+	# para que el InputProvider lo consuma en el frame de física.
 	if event is InputEventMouseMotion:
 		if input_provider:
 			input_provider.mouse_delta_accum += event.relative
