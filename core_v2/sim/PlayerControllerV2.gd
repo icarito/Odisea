@@ -67,6 +67,8 @@ func restore_snapshot(data: Dictionary) -> void:
 		if typeof(vel) == TYPE_ARRAY:
 			vel = Vector3(vel[0], vel[1], vel[2])
 		velocity = vel
+	else:
+		velocity = Vector3.ZERO
 	if data.has("yaw"):
 		yaw = data["yaw"]
 		self.rotation.y = yaw
@@ -102,7 +104,6 @@ func _input(event):
 	if event is InputEventMouseMotion:
 		if input_provider:
 			input_provider.mouse_delta_accum += event.relative
-			print("MOUSE_DELTA_ACCUM", input_provider.mouse_delta_accum)
 
 func step(dt: float, input: InputDataV2):
 	# --- ROTATION ---
