@@ -35,7 +35,7 @@ jobs:
         # Añadimos el parámetro -r junit para que genere el XML
         run: |
           chmod +x ./runtest.sh
-          xvfb-run ./runtest.sh -a res://core_v2/tests -r junit
+          xvfb-run ./runtest.sh -a res://core_v2/tests
 
       - name: Publish Test Report
         # Esta acción reemplaza todos tus scripts de awk/sed
