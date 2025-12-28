@@ -40,12 +40,14 @@ jobs:
       - name: Publicar resumen de tests y drift
         if: always()
         run: |
-          LOG="reports/gdunit_runner.log"
-          XML=$(ls reports/*.xml | head -n1)
+          # Buscar reportes XML y log de gdunit recursivamente
+          XML=$(find reports -type f -name '*.xml' -print -quit || find . -type f -name 'results.xml' -print -quit || true)
+          LOG=$(find reports -type f -name 'gdunit_runner.log' -print -quit || find . -type f -name 'gdunit_runner.log' -print -quit || true)
           SUMMARY="$GITHUB_STEP_SUMMARY"
 
           echo "## 🧪 Resultados de tests (GDUnit3)" > "$SUMMARY"
-          if [[ -f "$XML" ]]; then
+          if [[ -n "$XML" && -f "$XML" ]]; then
+            echo "Reporte XML encontrado en: $XML" >> "$SUMMARY"
             TESTS=$(xmllint --xpath "string(/testsuites/@tests)" "$XML" 2>/dev/null)
             FAILURES=$(xmllint --xpath "string(/testsuites/@failures)" "$XML" 2>/dev/null)
             ERRORS=$(xmllint --xpath "string(/testsuites/@errors)" "$XML" 2>/dev/null)
@@ -57,16 +59,18 @@ jobs:
             echo "- Saltados: $SKIPPED" >> "$SUMMARY"
             echo "- Tiempo total: $TIME sec" >> "$SUMMARY"
           else
-            echo "No se encontró reporte XML de GDUnit3." >> "$SUMMARY"
+            echo "No se encontró reporte XML de GDUnit3. Buscado en: $XML" >> "$SUMMARY"
           fi
 
-          # Drift solo si existe y ni una vez más
-          if [[ -f "$LOG" && $(grep -c "DRIFT_CHECK:" "$LOG") -gt 0 ]]; then
+          # Drift: buscar en el log detectado (si existe)
+          if [[ -n "$LOG" && -f "$LOG" && $(grep -c "DRIFT_CHECK:" "$LOG") -gt 0 ]]; then
             echo -e "\n### 🔍 Análisis de Drift" >> "$SUMMARY"
             grep "DRIFT_CHECK:" "$LOG" >> "$SUMMARY"
             grep "DRIFT_CHECK:" "$LOG" | while read -r line; do
               echo "::warning title=Determinism Drift::$line"
             done
+          else
+            echo "No se encontró DRIFT_CHECK en: $LOG" >> "$SUMMARY"
           fi
 
       - name: Upload Artifacts
