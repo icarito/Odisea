@@ -30,12 +30,26 @@ jobs:
         run: godot --path . -e --quit --headless || true
 
       - name: Run GDUnit3 Tests
-        env: 
+        env:
           GODOT_BIN: /usr/local/bin/godot
-        # Añadimos el parámetro -r junit para que genere el XML
+        # Pedir salida JUnit (-r junit) para que se genere XML
         run: |
           chmod +x ./runtest.sh
           xvfb-run ./runtest.sh -a res://core_v2/tests
+
+      - name: Annotate DRIFT_CHECK
+        if: always()
+        run: |
+          LOG="reports/gdunit_runner.log"
+          # Buscar líneas DRIFT_CHECK en el log y convertirlas en anotaciones
+          if [ -f "$LOG" ] && grep -q "DRIFT_CHECK:" "$LOG"; then
+            grep "DRIFT_CHECK:" "$LOG" | while IFS= read -r line; do
+              # Emitir como warning para que aparezca en la UI de Actions
+              echo "::warning title=DRIFT_CHECK::$line"
+            done
+          else
+            echo "No DRIFT_CHECK found in $LOG"
+          fi
 
       - name: Publish Test Report
         # Esta acción reemplaza todos tus scripts de awk/sed
