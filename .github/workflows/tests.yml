@@ -30,6 +30,8 @@ jobs:
         run: godot --path . -e --quit --headless || true
 
       - name: Run GDUnit3 Tests
+        env: 
+          GODOT_BIN: /usr/local/bin/godot
         # Añadimos el parámetro -r junit para que genere el XML
         run: |
           chmod +x ./runtest.sh
