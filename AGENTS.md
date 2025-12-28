@@ -1,56 +1,37 @@
-# AGENTS.md — Guía de orientación para agentes (Odisea: El Arca Silenciosa)
+# AGENTS.md — Guía breve para agentes (Odisea)
 
-Notas:
-## Godot 3.6 TSCN Tips
-- Logs → último intento falló, reintenta.
-- GDScript ternarios: `x if cond else y`.
-- Declara variables con `=`, no `:=`.
-- Color en .tscn = RGBA (0–1).
-- load_steps = 1 ext_resource + # sub_resources, ajusta o "!int_resources.has(index)".
-- No edites .tscn manual; borra `.import/` y reimporta (F5).
-- "export" no "@export".
-- Nunca pases nil a funciones que esperan bool, Vector2, Vector3, etc.; usa siempre un valor por defecto seguro (ej. false, Vector2.ZERO, 0.0)
-- el comando para probar es godot3-bin --path "ruta/proyecto" --scene "ruta/escena.tscn" (no existe headless ni check-only en Godot 3.6)
+Propósito: fuente de verdad compacta para asistentes IA y desarrolladores sobre reglas críticas del proyecto (Godot 3.6, GLES2).
 
-## 1) En una frase
-Odisea (MVP) es un juego 3D en Godot 3.6 (GLES2): tercera persona + plataformas con plataformas móviles/conveyor, cámara suave, y narrativa ligera por diálogos JSON; primera entrega jugable: Acto I "Criogenia" como nivel continuo.
+## Tips rápidos Godot 3.6
+- Ternario: `a if cond else b`.
+- Declarar variables con `=` y preferir type hints: `var x: int = 0`.
+- No editar `.tscn` manualmente; reimportar si hace falta. Colores en .tscn usan RGBA (0–1).
+- Nunca pasar `nil` a funciones que esperan bool/Vector2/Vector3; usar valores por defecto seguros.
 
-## 2) Lo que más importa (Top Goals — MVP Acto I)
-- Jugabilidad base estable: `move_and_slide_with_snap`, transferencia de velocidad externa (plataformas/conveyor), coyote time e input buffer.
-- Nivel continuo `scenes/levels/act1/criogenia.tscn` con plataformas, conveyor, viento, cajas apilables, kill/respawn y objetivo claro.
-- Narrativa mínima: DialogueManager (JSON + AudioStreamPlayer3D).
-- Rendimiento: 60 FPS desktop, 30–60 FPS Android (GLES2).
+## Objetivo (MVP Acto I)
+- Juego 3D en Godot 3.6 (GLES2): 3ª persona, plataformas móviles/conveyors y narrativa JSON.
 
-## 7) Contratos de interfaces (críticos)
+## Contratos críticos (resumen)
 - `PlayerController.gd` (KinematicBody):
-  - `set_external_velocity(v: Vector3) -> void`: suma velocidad externa (plataformas/conveyor) con decaimiento suave por frame.
-  - Usar `move_and_slide_with_snap(motion, snap_vec, Vector3.UP, true)` con `snap_vec = -get_floor_normal() * snap_len` cuando en suelo.
+  - Exponer `set_external_velocity(v: Vector3) -> void` (suma con decaimiento por frame).
+  - Usar `move_and_slide_with_snap(motion, snap_vec, Vector3.UP, true)`; `snap_vec = -get_floor_normal() * snap_len` cuando esté en suelo.
   - Implementar coyote time (~120–150 ms) e input buffer (~100–120 ms) para saltos.
 - `MovingPlatform.gd`:
-  - Calcular velocidad instantánea (Δpos / Δt) y comunicársela al jugador si está sobre ella (vía `Area`/detección).
-  - Mantener lista de cuerpos pasajeros y llamar `set_external_velocity()`.
+  - Calcular velocidad instantánea (Δpos / Δt) y comunicarla a cuerpos pasajeros (Area/detección).
+  - Mantener lista de pasajeros y llamar `set_external_velocity()` según corresponda.
 - `Conveyor.gd` (Area):
-  - Aplicar `push_velocity` constante a `KinematicBody`/`RigidBody` (para jugador usar `set_external_velocity`).
-  - Configurable: dirección y magnitud; coherente con material visual (flechas).
+  - Aplicar `push_velocity` a KinematicBody/RigidBody; para el jugador usar `set_external_velocity`.
+  - Exports: dirección y magnitud; visual coherente (flechas).
 - Diálogos:
-  - `autoload/DialogueManager.gd`: carga JSON, expone `start_dialogue(id)` y señales básicas; reproducir voz con `AudioStreamPlayer3D`.
+  - `autoload/DialogueManager.gd`: cargar JSON, exponer `start_dialogue(id)` y señales; reproducir voz con `AudioStreamPlayer3D`.
 
-## 11) Estilo de trabajo (cómo colaborar eficazmente)
-- Cambios pequeños y enfocados por feature; evitar refactors amplios no solicitados.
-- Mantener nombres/paths consistentes con los docs para reducir fricción.
-- Al tocar movimiento, validar en `criogenia.tscn` con pruebas dirigidas (plataformas, conveyor, viento).
-- Documentar parámetros críticos en el Inspector (export variables) y anotar valores por defecto razonables.
+## Normas de trabajo relevantes
+- Cambios pequeños y enfocados por feature; validar movimiento en `src/core_v2/scenes/TestScene_v2.tscn`.
+- Documentar exports críticos en el Inspector con valores por defecto razonables.
+- Tests: usar GdUnit3 (API fluida).
+- CI: separar args de motor vs usuario con `--`.
 
-## 12) Checklist rápida por feature
-- ¿Define interfaz pública clara? (`set_external_velocity`, señales, exports)
-- ¿Tiene escena `.tscn` + `.gd` y colisiones correctas?
-- ¿Existen valores exportados con descripciones claras?
-- ¿Probado en `criogenia.tscn` con casos reales?
-- ¿Sin romper FPS objetivo (ver Monitor/Profiler)?
-- ¿Actualizaste referencias en `README.md`/`docs` si aplica?
-
-## 13) Glosario mínimo
-- Snap: vector de adhesión al suelo para `move_and_slide_with_snap`.
-- External/Platform Velocity: velocidad de transporte impartida al jugador por entorno dinámico.
-- Coyote Time / Input Buffer: ventanas de tolerancia para saltos responsivos.
-- MVP Acto I (Criogenia): primer nivel completo y continuo con piezas clave.
+## Refactor / política de scripts
+- Proyecto en proceso de refactor a `src/core_v2`.
+- Regla: todos los scripts `.gd` nuevos o refactorizados deben residir en `src/core_v2`.
+- No crear archivos `.gd` fuera de `src/core_v2` sin aprobación explícita.
