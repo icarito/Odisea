@@ -130,11 +130,22 @@ func test_determinismo_headless():
 	if expected_pitch != null:
 		pitch_diff = abs(actual_pitch - expected_pitch)
 
-	print("[REPORT] determinism: initial_pos=", initial_pos, ", initial_vel=", initial_vel)
 	print("[REPORT] determinism: final_pos=", actual_pos, ", expected_pos=", expected_pos, ", drift=", drift)
 	print("[REPORT] determinism: final_vel=", actual_vel, ", expected_vel=", (expected_vel if typeof(expected_vel) == TYPE_VECTOR3 else null))
-	print("[REPORT] determinism: yaw(actual,expected,diff)=", actual_yaw, expected_yaw, yaw_diff, ", pitch(actual,expected,diff)=", actual_pitch, expected_pitch, pitch_diff)
+	print("[REPORT] determinism: yaw(actual,expected,diff)=", actual_yaw, ",", expected_yaw, ",", yaw_diff, ", pitch(actual,expected,diff)=", actual_pitch, ",", expected_pitch, ",", pitch_diff)
 
+	# Imprimir resumen estilo SessionManager: PLAYBACK_END + posición esperada registrada
+	var cam = player.get_node_or_null("CameraRig")
+	var cam_pos = null
+	if cam:
+		cam_pos = cam.global_transform.origin
+	print("PLAYBACK_END")
+	print("rotation:", actual_yaw, ",", actual_pitch)
+	print("pos:", actual_pos)
+	if cam_pos != null:
+		print("cam:", cam_pos)
+	print("expected_pos:", expected_pos)
+	print("DRIFT_CHECK: dist=", drift, ", yaw_diff=", yaw_diff, ", pitch_diff=", pitch_diff)
 	assert_vector3(actual_pos).is_equal_approx(expected_pos, Vector3(0.0001, 0.0001, 0.0001))
 
 	# Verificar velocidad final si el estado esperado la incluye
