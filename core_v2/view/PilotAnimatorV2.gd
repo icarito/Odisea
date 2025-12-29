@@ -64,13 +64,13 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	# Rota el pivote visual hacia la dirección de movimiento deseada (wish_direction).
 	# Esto solo ocurre si hay una intención de movimiento para evitar que el personaje
 	# vuelva a la rotación por defecto al detenerse.
-	var horizontal_velocity = wish_direction * Vector3(1, 0, 1)
-	if horizontal_velocity.length_squared() > 0.01:
-		var target_angle = atan2(horizontal_velocity.x, horizontal_velocity.z)
-		if dt > 0: # Suavizado en modo LIVE
-			self.rotation.y = lerp_angle(self.rotation.y, target_angle, rotation_lerp_speed * dt)
-		else: # Aplicación instantánea en modo REPLAY
-			self.rotation.y = target_angle
+	var horizontal_wish_direction = wish_direction * Vector3(1, 0, 1)
+	if horizontal_wish_direction.length_squared() > 0.01:
+		var target_angle = atan2(horizontal_wish_direction.x, horizontal_wish_direction.z)
+		if dt > 0: # Suavizado en modo LIVE.
+			rotation.y = lerp_angle(rotation.y, target_angle, rotation_lerp_speed * dt)
+		else: # Aplicación instantánea en modo REPLAY.
+			rotation.y = target_angle
 
 	# 4. APLICACIÓN DE ESTADO AL ANIMATIONTREE
 	update_animation_parameters(is_on_floor, visual_velocity)
