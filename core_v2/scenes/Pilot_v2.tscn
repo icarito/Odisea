@@ -181,9 +181,9 @@ animation = "Run"
 blend_point_0/node = SubResource( 108 )
 blend_point_0/pos = 0.0
 blend_point_1/node = SubResource( 109 )
-blend_point_1/pos = 0.1
+blend_point_1/pos = 2.8
 blend_point_2/node = SubResource( 110 )
-blend_point_2/pos = 4.3
+blend_point_2/pos = 6.8
 min_space = 0.0
 max_space = 9.0
 
@@ -216,7 +216,7 @@ states/Grounded/position = Vector2( 441.4, 160.6 )
 states/InAir/node = SubResource( 111 )
 states/InAir/position = Vector2( 450.2, 303 )
 transitions = [ "Grounded", "InAir", SubResource( 112 ), "InAir", "Grounded", SubResource( 113 ) ]
-graph_offset = Vector2( 55, 76.95 )
+graph_offset = Vector2( 199, 108.95 )
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=175]
 
@@ -17104,7 +17104,7 @@ parameters/playback = SubResource( 175 )
 parameters/conditions/!is_on_floor = false
 parameters/conditions/is_on_floor = true
 parameters/Grounded/Jump/active = false
-parameters/Grounded/Locomotion/blend_position = 0.0
+parameters/Grounded/Locomotion/blend_position = 2.10598
 
 [node name="GroundRay" type="RayCast" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )

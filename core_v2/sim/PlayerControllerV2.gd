@@ -113,17 +113,19 @@ func step(dt: float, input: InputDataV2):
 	pitch = clamp(pitch, deg2rad(-85), deg2rad(85))
 
 	# APLICACIÓN:
-	# El cuerpo (self) rota en Y (yaw), y el CameraRig rota en X (pitch).
-	self.rotation.y = yaw
+	# El cuerpo (self) ya NO rota. El CameraRig rota en AMBOS ejes para controlar la vista.
+	# IMPORTANTE: No asignar yaw/pitch a rotation.y/x por separado, ya que puede causar
+	# problemas de Gimbal Lock. Es más robusto construir una nueva base de rotación.
 	if camera_rig:
-		camera_rig.rotation.x = pitch
+		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 	
 	# --- MOVEMENT INPUT ---
-	# Usamos la base del cuerpo para que el movimiento sea relativo a su orientación.
-	var forward = -global_transform.basis.z
+	# Usamos la base LOCAL del CameraRig para que el movimiento sea relativo a la cámara.
+	var cam_basis = camera_rig.transform.basis
+	var forward = -cam_basis.z
 	forward.y = 0 # Proyectamos en el plano horizontal para evitar moverse hacia arriba/abajo.
 	forward = forward.normalized()
-	var right = global_transform.basis.x
+	var right = cam_basis.x
 
 	# Calculamos y almacenamos la dirección deseada (wish_direction)
 	wish_direction = Vector3.ZERO
