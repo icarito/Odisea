@@ -45,6 +45,9 @@ func set_mouse_sensitivity(v):
 		mouse_sensitivity = v
 func get_mouse_sensitivity(): return mouse_sensitivity
 
+# --- SEÑALES ---
+signal jumped
+
 ## --- SNAPSHOT SERIALIZACIÓN ---
 func get_full_snapshot() -> Dictionary:
 	return {
@@ -145,6 +148,7 @@ func step(dt: float, input: InputDataV2):
 	# --- JUMP ---
 	if input.jump and is_on_floor():
 		velocity.y = jump_force
+		emit_signal("jumped") # Emitimos la señal del evento de salto
 
 	# --- APPLY ---
 	velocity = move_and_slide(velocity, UP)

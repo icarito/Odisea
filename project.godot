@@ -724,6 +724,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://scripts/ui/MenuResolutionDetector.gd"
 }, {
+"base": "Spatial",
+"class": "PilotAnimatorV2",
+"language": "GDScript",
+"path": "res://core_v2/view/PilotAnimatorV2.gd"
+}, {
 "base": "Node",
 "class": "PlayerInput",
 "language": "GDScript",
@@ -993,6 +998,7 @@ _global_script_class_icons={
 "LocalMultiplayerManager": "",
 "LocalTime": "",
 "MenuResolutionDetector": "",
+"PilotAnimatorV2": "",
 "PlayerInput": "",
 "PlayerJump": "",
 "PlayerMovement": "",
