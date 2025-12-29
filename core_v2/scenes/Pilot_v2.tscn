@@ -1,7 +1,8 @@
-[gd_scene load_steps=84 format=2]
+[gd_scene load_steps=85 format=2]
 
 [ext_resource path="res://models/Material_0_001.material" type="Material" id=1]
 [ext_resource path="res://core_v2/sim/PlayerControllerV2.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/view/PilotAnimatorV2.gd" type="Script" id=3]
 [ext_resource path="res://materials/shadow/FakeShadow.tres" type="Material" id=52]
 
 [sub_resource type="CapsuleShape" id=48]
@@ -16884,6 +16885,7 @@ far = 10000.0
 [node name="Visual" type="Spatial" parent="."]
 
 [node name="Pivot" type="Spatial" parent="Visual"]
+script = ExtResource( 3 )
 
 [node name="Skeleton" type="Skeleton" parent="Visual/Pivot"]
 bones/0/name = "root"
