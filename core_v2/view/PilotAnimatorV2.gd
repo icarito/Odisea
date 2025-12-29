@@ -9,8 +9,8 @@ export var rotation_lerp_speed: float = 15.0
 export var velocity_lerp_speed: float = 10.0
 
 # --- NODES ---
-onready var controller: KinematicBody = get_parent()
-onready var animation_tree: AnimationTree = $AnimationTree
+onready var controller = get_parent()
+onready var animation_tree: AnimationTree = get_node("AnimationTree")
 
 # --- STATE ---
 # Almacena la velocidad suavizada para el blend tree de animación.
@@ -20,6 +20,7 @@ var visual_velocity: Vector3 = Vector3.ZERO
 
 func _ready() -> void:
 	if not controller or not (controller is KinematicBody and controller.has_method("step")):
+		print("Controller type:", controller.get_class() if controller else "null")
 		push_error("PilotAnimatorV2 debe ser hijo de un PlayerControllerV2 válido.")
 		set_process(false)
 		return
@@ -35,6 +36,9 @@ func _ready() -> void:
 	# Conectar la señal de salto para manejar la animación de forma reactiva.
 	controller.connect("jumped", self, "_on_controller_jumped")
 
+	var playback = animation_tree.get("parameters/playback")
+	playback.start("Grounded")
+	
 func _process(delta: float) -> void:
 	if not is_instance_valid(controller):
 		return
@@ -43,7 +47,9 @@ func _process(delta: float) -> void:
 	# Interpola suavemente la rotación de este nodo (el modelo visual) hacia la
 	# rotación instantánea y lógica del controlador padre.
 	# Esto es clave para no afectar el determinismo del replay.
-	self.global_transform.basis = self.global_transform.basis.slerp(controller.global_transform.basis, rotation_lerp_speed * delta)
+	var target_quat = controller.global_transform.basis.get_rotation_quat()
+	var current_quat = self.global_transform.basis.get_rotation_quat()
+	self.global_transform.basis = Basis(current_quat.slerp(target_quat, rotation_lerp_speed * delta))
 
 	# 2. LECTURA DE ESTADO DEL CONTROLADOR
 	var is_on_floor: bool = controller.is_on_floor()
@@ -60,9 +66,15 @@ func _process(delta: float) -> void:
 	
 	# El parámetro "speed" controla la mezcla entre idle, walk y run.
 	# Usamos la longitud del vector de velocidad horizontal suavizado para el blendspace.
-	animation_tree.set("parameters/Grounded/Locomotion/blend_position", Vector2(visual_velocity.x, visual_velocity.z).length())
+	var blend_pos = Vector2(visual_velocity.x, visual_velocity.z).length()
+	animation_tree.set("parameters/Grounded/Locomotion/blend_position", blend_pos)
 	# Parámetro para animaciones en el aire (salto, caída).
-	animation_tree.set("parameters/is_on_floor", is_on_floor)
+	animation_tree.set("parameters/conditions/is_on_floor", is_on_floor)
+	animation_tree.set("parameters/conditions/!is_on_floor", not is_on_floor)
+
+	# Desactivar Jump/active cuando el jugador vuelve al suelo
+	if animation_tree.get("parameters/Grounded/Jump/active") and controller.is_on_floor():
+		animation_tree.set("parameters/Grounded/Jump/active", false)
 
 	# Ejemplo de otros posibles estados a animar:
 	# if controller.is_rolling():
@@ -70,4 +82,4 @@ func _process(delta: float) -> void:
 
 func _on_controller_jumped() -> void:
 	"""Se ejecuta cuando el controlador emite la señal 'jumped'."""
-	animation_tree.set("parameters/Grounded/Jump/request", 1)
+	animation_tree.set("parameters/Grounded/Jump/active", true)
