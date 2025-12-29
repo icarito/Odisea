@@ -164,6 +164,8 @@ albedo_color = Color( 0, 0, 0, 1 )
 material = SubResource( 101 )
 
 [sub_resource type="AnimationNodeOneShot" id=107]
+fadein_time = 0.2
+fadeout_time = 0.2
 
 [sub_resource type="AnimationNodeAnimation" id=106]
 animation = "Jump_Start"
@@ -181,15 +183,15 @@ animation = "Run"
 blend_point_0/node = SubResource( 108 )
 blend_point_0/pos = 0.0
 blend_point_1/node = SubResource( 109 )
-blend_point_1/pos = 2.8
+blend_point_1/pos = 4.3
 blend_point_2/node = SubResource( 110 )
-blend_point_2/pos = 6.8
+blend_point_2/pos = 8.4
 min_space = 0.0
 max_space = 9.0
 
 [sub_resource type="AnimationNodeBlendTree" id=104]
 resource_local_to_scene = true
-graph_offset = Vector2( -182.299, -38.061 )
+graph_offset = Vector2( -85.5502, -40.7714 )
 nodes/Jump/node = SubResource( 107 )
 nodes/Jump/position = Vector2( 288, 176 )
 nodes/JumpAnim/node = SubResource( 106 )
@@ -16856,6 +16858,7 @@ tracks/38/keys = PoolRealArray( 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1.33333, 1, 
 [node name="Pilot" type="KinematicBody"]
 collision_mask = 254
 script = ExtResource( 2 )
+move_speed = 4.0
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
@@ -16886,6 +16889,7 @@ far = 10000.0
 
 [node name="Pivot" type="Spatial" parent="Visual"]
 script = ExtResource( 3 )
+velocity_lerp_speed = 5.0
 
 [node name="Skeleton" type="Skeleton" parent="Visual/Pivot"]
 bones/0/name = "root"
@@ -17104,7 +17108,7 @@ parameters/playback = SubResource( 175 )
 parameters/conditions/!is_on_floor = false
 parameters/conditions/is_on_floor = true
 parameters/Grounded/Jump/active = false
-parameters/Grounded/Locomotion/blend_position = 2.10598
+parameters/Grounded/Locomotion/blend_position = 0.0
 
 [node name="GroundRay" type="RayCast" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
