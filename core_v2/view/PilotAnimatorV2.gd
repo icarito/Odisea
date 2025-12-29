@@ -44,34 +44,40 @@ func _ready() -> void:
 	is_initialized = true
 
 	
-func _physics_process(delta: float) -> void:
-	# Si el controlador no es válido o no está procesando, el animador tampoco debe hacerlo.
-	if not is_initialized or not is_instance_valid(controller) or not controller.is_physics_processing():
-		return
-
-	# 1. LECTURA DE ESTADO DEL CONTROLADOR
+func step_animator(dt: float, p_current_velocity: Vector3) -> void:
+	"""
+	Actualiza todos los aspectos visuales del personaje.
+	Debe ser llamado manualmente por el controlador después de cada 'step' de física.
+	"""
 	var is_on_floor: bool = controller.is_on_floor()
-	var current_velocity: Vector3 = controller.velocity
 	var wish_direction: Vector3 = controller.get_wish_direction()
 
 	# 2. SUAVIZADO DE VELOCIDAD PARA ANIMACIÓN
 	# Usamos la velocidad del controlador para el movimiento, pero una versión
 	# suavizada para que las transiciones de animación (e.g., idle -> run) no sean abruptas.
-	visual_velocity = visual_velocity.linear_interpolate(current_velocity, velocity_lerp_speed * delta)
+	if dt > 0:
+		visual_velocity = visual_velocity.linear_interpolate(p_current_velocity, velocity_lerp_speed * dt)
+	else:
+		visual_velocity = p_current_velocity
 
-	# 3. ROTACIÓN VISUAL SUAVE (YAW)
-	# Rota el pivote visual hacia la dirección de movimiento deseada (wish_direction).
-	# Esto solo ocurre si hay una intención de movimiento para evitar que el personaje
-	# vuelva a la rotación por defecto al detenerse.
-	var horizontal_velocity = wish_direction * Vector3(1, 0, 1)
-	if horizontal_velocity.length_squared() > 0.01:
-		var target_angle = atan2(horizontal_velocity.x, horizontal_velocity.z)
-		self.rotation.y = lerp_angle(self.rotation.y, target_angle, rotation_lerp_speed * delta)
-		# DEBUG: Imprime la dirección deseada y el ángulo objetivo
-		# print("Wish Direction: ", wish_direction, " Target Angle: ", rad2deg(target_angle))
+	# 3. ROTACIÓN VISUAL (DESACTIVADA POR AHORA)
+	# En el siguiente paso, desacoplaremos la rotación del cuerpo y activaremos esta sección
+	# para que el modelo mire hacia donde se mueve, independientemente de la cámara.
+	#
+	#var horizontal_velocity = wish_direction * Vector3(1, 0, 1)
+	#if horizontal_velocity.length_squared() > 0.01:
+	#	var target_angle = atan2(horizontal_velocity.x, horizontal_velocity.z)
+	#	if dt > 0: # Suavizado en modo LIVE
+	#		self.rotation.y = lerp_angle(self.rotation.y, target_angle, rotation_lerp_speed * dt)
+	#	else: # Aplicación instantánea en modo REPLAY
+	#		self.rotation.y = target_angle
 
 	# 4. APLICACIÓN DE ESTADO AL ANIMATIONTREE
 	update_animation_parameters(is_on_floor, visual_velocity)
+	
+	# 5. AVANCE MANUAL DEL ANIMATIONTREE
+	# Esto es crítico para el determinismo en tests y replays.
+	animation_tree.advance(dt)
 
 
 func update_animation_parameters(is_on_floor: bool, p_visual_velocity: Vector3) -> void:
@@ -103,4 +109,6 @@ func update_animation_parameters(is_on_floor: bool, p_visual_velocity: Vector3) 
 
 func _on_controller_jumped() -> void:
 	"""Se ejecuta cuando el controlador emite la señal 'jumped'."""
-	animation_tree.set("parameters/Grounded/Jump/active", 1)
+	# Usar ONE_SHOT_REQUEST_FIRE es la forma correcta y determinista de activar animaciones OneShot.
+	# NO NO NO NO ES ACTIVE 1
+	animation_tree.set("parameters/Grounded/Jump/active", 1) ### NO TOCAR
