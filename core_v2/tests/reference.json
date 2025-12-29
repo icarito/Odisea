@@ -3,23 +3,23 @@
     "date": {
       "year": 2025,
       "month": 12,
-      "day": 27,
-      "weekday": 6,
+      "day": 29,
+      "weekday": 1,
       "dst": false,
-      "hour": 9,
-      "minute": 55,
-      "second": 1
+      "hour": 18,
+      "minute": 28,
+      "second": 44
     },
-    "unix_time": 1766847301,
+    "unix_time": 1767050924,
     "scene": "res://core_v2/scenes/TestScene_v2.tscn"
   },
   "buffer": [
     {
       "snapshot": {
-        "position": [22.612965, 0.08967, -6.463517],
-        "velocity": [0.000001, 0, -0.000001],
-        "yaw": 5.206845,
-        "pitch": 0.12224
+        "position": [10.505075, 0.08967, 6.13027],
+        "velocity": [-0.000001, 0, 0.000002],
+        "yaw": 2.63456,
+        "pitch": 0.239975
       }
     },
     {
@@ -162,150 +162,6 @@
       "input": {
         "move_vec": [0, 0],
         "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-0.444, -0],
         "jump": false,
         "sprint": true
       }
@@ -313,190 +169,6 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [-2.221, 1.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-3.998, 2.222],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-5.331, 2.667],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-4.887, 2.667],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-4.887, 3.111],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-6.664, 3.556],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [-3.998, 1.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [-3.998, 0.889],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [-3.554, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [-2.666, 0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [-2.221, 0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [-2.221, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [-1.333, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [-0.444, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
         "mouse_delta": [0, -0],
         "jump": false,
         "sprint": true
@@ -505,7 +177,7 @@
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [-1.777, -0],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": true
       }
@@ -513,22 +185,158 @@
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [-3.554, -0],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": true
       }
     },
     {
       "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-2.221, -0],
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": true
       }
     },
     {
       "input": {
-        "move_vec": [0, -1],
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
         "mouse_delta": [-0.889, -0],
         "jump": false,
         "sprint": true
@@ -536,15 +344,71 @@
     },
     {
       "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-0.444, -0],
+        "move_vec": [-1, -1],
+        "mouse_delta": [-3.11, -0.444],
         "jump": false,
         "sprint": true
       }
     },
     {
       "input": {
-        "move_vec": [0, -1],
+        "move_vec": [-1, -1],
+        "mouse_delta": [-6.664, -1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-8.885, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-15.105, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-8.885, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-5.331, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-3.998, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-2.666, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
         "mouse_delta": [-2.221, -0],
         "jump": false,
         "sprint": true
@@ -552,1319 +416,15 @@
     },
     {
       "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.11, -0],
+        "move_vec": [-1, -1],
+        "mouse_delta": [-2.666, -0.889],
         "jump": false,
         "sprint": true
       }
     },
     {
       "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.11, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-1.333, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-1.333, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-2.221, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.998, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-4.443, -1.333],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.998, -1.778],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.998, -1.778],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.554, -3.556],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-0.889, -2.667],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-1.333, -3.111],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-1.333, -3.111],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-0.444, -3.111],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-0.444, -3.556],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-0.444, -3.556],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-0.444, -3.556],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-0.444, -3.111],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-0.889, -4],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -4.889],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -17.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -4.889],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -2.222],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -2.222],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -3.111],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -2.222],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -3.111],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -2.667],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-0.889, -2.667],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -2.667],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-0.444, -2.222],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-0.444, -1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.444, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [2.221, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [3.11, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [4.887, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [6.664, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [7.997, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [9.33, -0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [9.33, -0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [7.553, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [6.664, -0.889],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [6.664, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [6.664, 1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [7.553, 3.556],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [3.998, 1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [1.777, 2.667],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.889, 1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.444, 0.889],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, 0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.889, 0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [2.666, 0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [8.441, 0.889],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [10.662, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [15.105, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [16.882, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [15.549, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [14.217, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [12.44, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [11.107, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [11.107, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [9.33, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [7.108, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [3.998, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [1.777, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.444, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [3.11, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [6.22, -0.444],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [7.997, -0.889],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [11.995, -0.444],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [8.885, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [9.774, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [9.774, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [9.774, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [11.551, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [11.107, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [9.774, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [9.774, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [6.22, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [2.221, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.444, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-0.889, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.11, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.11, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.11, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
+        "move_vec": [-1, -1],
         "mouse_delta": [-3.998, -0],
         "jump": false,
         "sprint": true
@@ -1872,7 +432,7 @@
     },
     {
       "input": {
-        "move_vec": [0, -1],
+        "move_vec": [-1, -1],
         "mouse_delta": [-3.998, -0],
         "jump": false,
         "sprint": true
@@ -1880,63 +440,127 @@
     },
     {
       "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-9.774, -0.444],
-        "jump": false,
+        "move_vec": [-1, -1],
+        "mouse_delta": [-2.666, -0.889],
+        "jump": true,
         "sprint": true
       }
     },
     {
       "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-7.997, -0.444],
-        "jump": false,
+        "move_vec": [-1, -1],
+        "mouse_delta": [-3.11, -0],
+        "jump": true,
         "sprint": true
       }
     },
     {
       "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-6.22, -0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-5.331, -0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
+        "move_vec": [-1, -1],
         "mouse_delta": [-4.443, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-7.553, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-3.11, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-2.666, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-2.221, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-2.221, -0.889],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-3.11, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-4.887, -0.889],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-5.776, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-6.22, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-5.776, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-6.22, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-6.664, -0.889],
         "jump": false,
         "sprint": true
       }
     },
     {
       "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-6.664, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-7.997, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
+        "move_vec": [-1, -1],
         "mouse_delta": [-9.33, -0],
         "jump": false,
         "sprint": true
@@ -1944,8 +568,24 @@
     },
     {
       "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-9.33, -0],
+        "move_vec": [-1, -1],
+        "mouse_delta": [-4.887, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-3.11, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-2.221, -0],
         "jump": false,
         "sprint": true
       }
@@ -1953,7 +593,7 @@
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [-7.997, -0],
+        "mouse_delta": [-3.998, -0],
         "jump": false,
         "sprint": true
       }
@@ -1969,79 +609,183 @@
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [-7.553, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-11.107, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-6.22, 0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-7.997, 0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-8.885, 0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-8.441, 0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-9.774, 0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-9.33, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
         "mouse_delta": [-8.885, -0],
         "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-6.664, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-5.331, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-3.11, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.333, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
         "sprint": false
       }
     },
     {
       "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-9.33, -0],
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": false
       }
@@ -2049,7 +793,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [-10.218, -0],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": false
       }
@@ -2057,7 +801,71 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [-11.551, -0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": false
       }
@@ -2065,7 +873,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [-9.33, -0],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": false
       }
@@ -2073,7 +881,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [-9.774, 1.333],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": false
       }
@@ -2081,289 +889,417 @@
     {
       "input": {
         "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-2.666, -0.444],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-8.885, -0.444],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-10.662, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-8.441, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-6.22, 0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-3.554, 0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.333, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.889, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-4.443, 0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-6.664, 0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-7.108, 1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
         "mouse_delta": [-6.22, 1.333],
         "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-8.885, 2.222],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-12.44, 2.667],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-11.551, 2.667],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-7.997, 2.667],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-3.998, 1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-3.998, 1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-4.887, 3.111],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-6.22, 4],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-4.443, 4],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-2.221, 3.111],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-2.666, 4],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-4.443, 4.889],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-5.331, 6.667],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-5.331, 5.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-4.443, 4.889],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-4.443, 4],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-5.331, 3.111],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-4.887, 3.556],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-3.554, 2.222],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-2.221, 0.889],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-0.889, 0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [-0.444, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, 0.889],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.889, 1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [2.221, 2.222],
-        "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [1.777, 1.778],
+        "mouse_delta": [-4.443, 1.333],
         "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [1.333, 2.222],
+        "mouse_delta": [-2.666, 1.333],
         "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [0.889, 1.333],
+        "mouse_delta": [-1.333, -0],
         "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
@@ -2371,7 +1307,7 @@
         "move_vec": [0, -1],
         "mouse_delta": [0, -0],
         "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
@@ -2379,533 +1315,13 @@
         "move_vec": [0, -1],
         "mouse_delta": [0, -0],
         "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-0.444, 1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.554, 3.111],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-6.22, 4.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-7.553, 4.889],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-5.331, 2.667],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-1.333, 0.889],
-        "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
       "input": {
         "move_vec": [0, -1],
         "mouse_delta": [-0.444, 0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [2.221, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [4.443, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [4.887, -0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [6.664, -1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [7.997, -1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [7.108, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [5.776, -1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [4.443, -0.889],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [2.221, -0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [1.333, -0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-0.444, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-1.777, 0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-2.666, 0.889],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-2.221, 1.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-2.666, 3.556],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-4.887, 6.222],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-5.776, 7.111],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-7.108, 9.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.554, 7.111],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.554, 5.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.554, 5.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.998, 5.778],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-4.443, 6.222],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-6.22, 5.778],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-5.776, 4.889],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-3.554, 2.222],
         "jump": false,
         "sprint": true
       }
@@ -2921,7 +1337,7 @@
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [-2.666, 0.889],
+        "mouse_delta": [-8.441, 2.667],
         "jump": false,
         "sprint": true
       }
@@ -2929,7 +1345,2879 @@
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [-2.221, 0.889],
+        "mouse_delta": [-7.108, 1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-5.776, 0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-5.331, 0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-3.998, 0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-2.221, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.889, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-4.887, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-7.997, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-11.107, -3.556],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-18.215, -5.333],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-15.994, -5.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-7.108, -2.667],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-6.664, -3.556],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-6.22, -3.556],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-4.887, -3.556],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-3.998, -3.111],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-5.776, -3.111],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-4.887, -2.222],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-5.331, -1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-5.776, -1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-7.108, -1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-7.553, -1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-6.664, -1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-5.331, -1.333],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-4.443, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-4.443, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-4.887, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-5.331, -0.889],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-9.33, -0.889],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-4.887, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-3.998, -0.889],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-2.221, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.889, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.444, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.444, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.444, -0.889],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.444, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.444, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [-0.444, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [-0.444, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [-1.333, -0.444],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [-0.889, -0.444],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, 0],
+        "mouse_delta": [-0.444, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-1.777, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-2.666, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-3.554, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-3.554, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-3.554, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-3.554, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-2.221, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.889, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-1.333, -0],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.889, 0.889],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-1.333, 0.444],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.444, 0.444],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-1.333, 0.444],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.889, 0.889],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.889, 0.889],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-1.333, 1.778],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.444, 1.778],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.444, 3.111],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.889, 2.667],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-1.333, 3.111],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-1.777, 4],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-1.777, 2.222],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-2.221, 2.667],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-1.333, 3.111],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-1.333, 2.667],
+        "jump": false,
+        "sprint": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-1.333, 3.556],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-1.333, 3.556],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, 0],
+        "mouse_delta": [-2.221, 4.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.777, 4.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.777, 5.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.777, 5.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.777, 4.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.777, 5.333],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.444, 2.222],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, 0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, 0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, 0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, 0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, 0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.889, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.333, 0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.889, 0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.444, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.444, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.444, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.889, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.333, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.889, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.444, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 3.111],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 4],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 4],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 2.667],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 1.333],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [1, -1],
+        "mouse_delta": [0, 0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0.889, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [1.777, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [3.11, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0.444, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.333, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-2.221, -1.333],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.889, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.889, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.444, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.444, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0.889, -2.667],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0.889, -1.333],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0.889, -2.222],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -1.333],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0.889, -1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0.889, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0.889, -1.333],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [1.333, -1.333],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [1.777, -1.778],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [3.554, -3.111],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [6.22, -3.556],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [7.997, -4.444],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [7.997, -2.667],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [6.664, -2.667],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [5.331, -2.222],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [1.777, -0.444],
+        "jump": true,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0.889, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [1.333, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [1.777, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [1.777, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [2.221, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0.444, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0.889, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [1.333, -1.333],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0.444, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0.444, -1.333],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0.889, -2.222],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0.444, -2.667],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0.444, -2.222],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -2.667],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0.444, -1.333],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0.444, -1.333],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -2.667],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -2.667],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -2.667],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -1.778],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-0.444, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [-1, -1],
+        "mouse_delta": [-1.333, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.777, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.444, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-2.221, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-2.221, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-2.666, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.777, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.777, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.333, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.889, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.333, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.444, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.444, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.333, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-3.554, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-4.443, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-2.666, -0.889],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-2.666, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-2.666, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-3.998, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-4.443, -0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-4.443, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-3.554, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-3.554, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-3.11, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-4.443, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-4.443, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-3.11, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-2.221, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [0, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-0.444, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-1.333, -0],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-2.666, 0.444],
+        "jump": false,
+        "sprint": true
+      }
+    },
+    {
+      "input": {
+        "move_vec": [0, -1],
+        "mouse_delta": [-3.998, 0.889],
         "jump": false,
         "sprint": true
       }
@@ -2977,1825 +4265,9 @@
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [-0.889, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-1.333, -0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [-1.333, -1.778],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -1.778],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -2.667],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -2.667],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0.889],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.889, -0.889],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [2.666, -1.778],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [3.998, -1.778],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [3.554, -0.889],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [2.666, -0.889],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [3.554, -1.778],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [7.553, -2.667],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [9.774, -3.556],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [8.885, -2.222],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [5.331, -0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [1.777, -0.889],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.444, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [4.443, -0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [8.885, -2.667],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [9.33, -2.222],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [7.108, -2.222],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [2.221, -0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.444, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [6.22, -0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [4.887, -0.889],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [16.438, -2.667],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [10.662, -2.667],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [9.774, -1.778],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [7.108, -0.889],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [6.22, -1.778],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [7.108, -0.889],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [8.441, -1.778],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [9.774, -0.889],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [8.885, -0.889],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [7.997, -1.778],
-        "jump": true,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [7.553, -1.778],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [9.774, -2.222],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [3.998, -0.889],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [1.333, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.444, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [2.221, -1.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [3.998, -1.778],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [4.887, -2.222],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [3.11, -1.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.444, -0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.444, -0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [1.777, -1.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [2.666, -1.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [1.777, -1.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [1.777, -0.889],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.444, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.444, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.444, -1.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [1.333, -1.778],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [2.221, -4],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [1.333, -2.667],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [1.333, -3.556],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.889, -3.556],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.889, -2.222],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0.444],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.889, -0.889],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -1.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -1.333],
-        "jump": false,
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.889, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0.889],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.889, -1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.889, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.889, -2.222],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.444, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [2.221, -0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [3.998, -0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [5.331, -0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [5.331, -0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [2.221, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [2.221, -0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [5.776, -0.889],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [7.108, -0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [8.885, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.889, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.444, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [2.666, -1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [5.776, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [7.108, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [7.108, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [7.108, -2.667],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [7.553, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [9.774, -1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [14.661, -2.667],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [20.436001, -3.111],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [23.101999, -2.222],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [23.546, -1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [28.433001, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [16.438, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [16.438, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [14.661, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [11.995, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [12.884, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [15.105, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [9.774, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [4.443, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [1.777, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0, 0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.444, 3.556],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [1.777, 5.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [2.666, 4],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.889, 3.111],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.444, 1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.889, 1.778],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.444, 1.333],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0.444, 0.889],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, -1],
         "mouse_delta": [0, -0],
         "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
@@ -4803,7 +4275,7 @@
         "move_vec": [0, -1],
         "mouse_delta": [0, -0],
         "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
@@ -4811,7 +4283,7 @@
         "move_vec": [0, -1],
         "mouse_delta": [0, -0],
         "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
@@ -4819,7 +4291,7 @@
         "move_vec": [0, -1],
         "mouse_delta": [0, -0],
         "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
@@ -4827,7 +4299,7 @@
         "move_vec": [0, -1],
         "mouse_delta": [0, -0],
         "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
@@ -4835,7 +4307,7 @@
         "move_vec": [0, -1],
         "mouse_delta": [0, -0],
         "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
@@ -4843,37 +4315,37 @@
         "move_vec": [0, -1],
         "mouse_delta": [0, -0],
         "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-0.444, -0],
         "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-3.11, -0],
         "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-3.998, -0.889],
         "jump": false,
-        "sprint": false
+        "sprint": true
       }
     },
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-5.331, -0.889],
         "jump": false,
         "sprint": false
       }
@@ -4881,7 +4353,7 @@
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-5.776, -1.333],
         "jump": false,
         "sprint": false
       }
@@ -4889,23 +4361,23 @@
     {
       "input": {
         "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-4.443, -0.889],
         "jump": false,
         "sprint": false
       }
     },
     {
       "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
+        "move_vec": [0, 0],
+        "mouse_delta": [-2.221, -0.889],
         "jump": false,
         "sprint": false
       }
     },
     {
       "input": {
-        "move_vec": [0, -1],
-        "mouse_delta": [0, -0],
+        "move_vec": [0, 0],
+        "mouse_delta": [-0.444, -0.444],
         "jump": false,
         "sprint": false
       }
@@ -4921,7 +4393,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [1.333, -0.444],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": false
       }
@@ -4929,7 +4401,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [8.441, -2.667],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": false
       }
@@ -4937,7 +4409,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [15.105, -5.333],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": false
       }
@@ -4945,7 +4417,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [17.327, -5.333],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": false
       }
@@ -4953,7 +4425,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [17.327, -5.333],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": false
       }
@@ -4961,7 +4433,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [23.990999, -5.333],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": false
       }
@@ -4969,7 +4441,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [11.551, -1.333],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": false
       }
@@ -4977,7 +4449,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [8.441, -0],
+        "mouse_delta": [0, -0],
         "jump": false,
         "sprint": false
       }
@@ -4985,7 +4457,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [7.997, -0.444],
+        "mouse_delta": [7.997, -0.889],
         "jump": false,
         "sprint": false
       }
@@ -4993,7 +4465,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [7.553, -0.444],
+        "mouse_delta": [17.327, -1.333],
         "jump": false,
         "sprint": false
       }
@@ -5001,7 +4473,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [7.108, -0.444],
+        "mouse_delta": [7.997, -0.889],
         "jump": false,
         "sprint": false
       }
@@ -5009,7 +4481,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [4.443, -0.444],
+        "mouse_delta": [-5.776, -0.444],
         "jump": false,
         "sprint": false
       }
@@ -5017,55 +4489,15 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [1.333, -0.444],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 0],
-        "mouse_delta": [0.444, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [-1, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-15.105, -0],
         "jump": false,
         "sprint": false
       }
     },
     {
       "input": {
-        "move_vec": [-1, 0],
-        "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-19.992001, 0.444],
         "jump": false,
         "sprint": false
       }
@@ -5073,7 +4505,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-37.319, 2.667],
         "jump": false,
         "sprint": false
       }
@@ -5081,7 +4513,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0.444, -0],
+        "mouse_delta": [-24.879, 1.778],
         "jump": false,
         "sprint": false
       }
@@ -5089,7 +4521,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [1.333, 1.333],
+        "mouse_delta": [-21.325001, 1.333],
         "jump": false,
         "sprint": false
       }
@@ -5097,7 +4529,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0.889, 1.333],
+        "mouse_delta": [-18.215, 1.333],
         "jump": false,
         "sprint": false
       }
@@ -5105,7 +4537,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0.889, -0],
+        "mouse_delta": [-15.549, 0.889],
         "jump": false,
         "sprint": false
       }
@@ -5113,7 +4545,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0.444, 0.444],
+        "mouse_delta": [-14.661, -0],
         "jump": false,
         "sprint": false
       }
@@ -5121,7 +4553,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [2.666, 0.889],
+        "mouse_delta": [-14.217, -0],
         "jump": false,
         "sprint": false
       }
@@ -5129,7 +4561,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [6.664, 2.222],
+        "mouse_delta": [-15.105, -0],
         "jump": false,
         "sprint": false
       }
@@ -5137,7 +4569,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [7.997, 2.667],
+        "mouse_delta": [-15.105, 0.444],
         "jump": false,
         "sprint": false
       }
@@ -5145,7 +4577,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [6.664, 2.667],
+        "mouse_delta": [-14.217, 0.444],
         "jump": false,
         "sprint": false
       }
@@ -5153,7 +4585,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0.444, 0.889],
+        "mouse_delta": [-13.328, 1.333],
         "jump": false,
         "sprint": false
       }
@@ -5161,7 +4593,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-12.884, 1.333],
         "jump": false,
         "sprint": false
       }
@@ -5169,7 +4601,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-18.659, 3.111],
         "jump": false,
         "sprint": false
       }
@@ -5177,7 +4609,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-11.995, 2.667],
         "jump": false,
         "sprint": false
       }
@@ -5185,7 +4617,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-10.662, 1.778],
         "jump": false,
         "sprint": false
       }
@@ -5193,7 +4625,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0.444, -0],
+        "mouse_delta": [-11.107, 2.667],
         "jump": false,
         "sprint": false
       }
@@ -5201,7 +4633,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [2.221, 1.333],
+        "mouse_delta": [-11.107, 2.222],
         "jump": false,
         "sprint": false
       }
@@ -5209,7 +4641,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [2.666, 2.222],
+        "mouse_delta": [-10.662, 2.667],
         "jump": false,
         "sprint": false
       }
@@ -5217,7 +4649,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [3.554, 2.222],
+        "mouse_delta": [-10.662, 2.222],
         "jump": false,
         "sprint": false
       }
@@ -5225,7 +4657,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [3.998, 2.667],
+        "mouse_delta": [-9.774, 2.667],
         "jump": false,
         "sprint": false
       }
@@ -5233,7 +4665,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [5.776, 4],
+        "mouse_delta": [-9.33, 1.778],
         "jump": false,
         "sprint": false
       }
@@ -5241,7 +4673,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [10.662, 7.556],
+        "mouse_delta": [-9.774, 2.667],
         "jump": false,
         "sprint": false
       }
@@ -5249,7 +4681,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [8.441, 6.222],
+        "mouse_delta": [-9.774, 2.667],
         "jump": false,
         "sprint": false
       }
@@ -5257,7 +4689,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [8.441, 4.444],
+        "mouse_delta": [-8.885, 2.667],
         "jump": false,
         "sprint": false
       }
@@ -5265,7 +4697,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [6.22, 4],
+        "mouse_delta": [-11.995, 2.667],
         "jump": false,
         "sprint": false
       }
@@ -5273,7 +4705,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [3.11, 2.222],
+        "mouse_delta": [-5.776, 1.778],
         "jump": false,
         "sprint": false
       }
@@ -5281,7 +4713,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [1.333, 0.889],
+        "mouse_delta": [-6.22, 1.778],
         "jump": false,
         "sprint": false
       }
@@ -5289,7 +4721,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [1.333, 1.333],
+        "mouse_delta": [-5.331, 0.889],
         "jump": false,
         "sprint": false
       }
@@ -5297,7 +4729,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [1.777, 0.889],
+        "mouse_delta": [-5.331, 0.889],
         "jump": false,
         "sprint": false
       }
@@ -5305,7 +4737,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [3.11, 0.889],
+        "mouse_delta": [-5.331, 0.444],
         "jump": false,
         "sprint": false
       }
@@ -5313,7 +4745,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [1.333, 0.444],
+        "mouse_delta": [-4.443, 0.889],
         "jump": false,
         "sprint": false
       }
@@ -5321,7 +4753,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [1.333, 0.444],
+        "mouse_delta": [-4.443, -0],
         "jump": false,
         "sprint": false
       }
@@ -5329,7 +4761,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0.889, -0],
+        "mouse_delta": [-3.998, -0],
         "jump": false,
         "sprint": false
       }
@@ -5337,7 +4769,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-3.998, -0],
         "jump": false,
         "sprint": false
       }
@@ -5345,7 +4777,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-3.998, -0],
         "jump": false,
         "sprint": false
       }
@@ -5353,7 +4785,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-3.998, -0],
         "jump": false,
         "sprint": false
       }
@@ -5361,7 +4793,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-8.441, -0],
         "jump": false,
         "sprint": false
       }
@@ -5369,7 +4801,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-6.22, -0],
         "jump": false,
         "sprint": false
       }
@@ -5377,7 +4809,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-4.887, -0],
         "jump": false,
         "sprint": false
       }
@@ -5385,7 +4817,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-2.666, -0],
         "jump": false,
         "sprint": false
       }
@@ -5393,7 +4825,7 @@
     {
       "input": {
         "move_vec": [0, 0],
-        "mouse_delta": [0, -0],
+        "mouse_delta": [-0.444, -0],
         "jump": false,
         "sprint": false
       }
@@ -5538,38 +4970,6 @@
       "input": {
         "move_vec": [0, 0],
         "mouse_delta": [0, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.444, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [1.333, -0],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.889, 0.889],
-        "jump": false,
-        "sprint": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [0, 0],
-        "mouse_delta": [0.889, -0],
         "jump": false,
         "sprint": false
       }
@@ -5616,9 +5016,9 @@
     }
   ],
   "final_expected_state": {
-    "position": [-11.833223, 6.887031, 9.55422],
-    "velocity": [-0.042369, -0.028151, -0.052942],
-    "yaw": 1.9681,
-    "pitch": 0.08223
+    "position": [-13.41552, 6.808661, 11.21918],
+    "velocity": [0.035469, -0.028151, 0.057792],
+    "yaw": 7.83695,
+    "pitch": 0.139955
   }
 }
