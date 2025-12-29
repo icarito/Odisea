@@ -166,6 +166,7 @@ material = SubResource( 101 )
 [sub_resource type="AnimationNodeOneShot" id=107]
 fadein_time = 0.2
 fadeout_time = 0.2
+sync = true
 
 [sub_resource type="AnimationNodeAnimation" id=106]
 animation = "Jump_Start"
@@ -191,7 +192,7 @@ max_space = 9.0
 
 [sub_resource type="AnimationNodeBlendTree" id=104]
 resource_local_to_scene = true
-graph_offset = Vector2( -85.5502, -40.7714 )
+graph_offset = Vector2( -85.5502, -30.1832 )
 nodes/Jump/node = SubResource( 107 )
 nodes/Jump/position = Vector2( 288, 176 )
 nodes/JumpAnim/node = SubResource( 106 )
@@ -17104,6 +17105,7 @@ material/0 = ExtResource( 52 )
 tree_root = SubResource( 103 )
 anim_player = NodePath("../../../AnimationPlayer")
 active = true
+root_motion_track = NodePath("Pivot/Skeleton:root")
 parameters/playback = SubResource( 175 )
 parameters/conditions/!is_on_floor = false
 parameters/conditions/is_on_floor = true

@@ -66,6 +66,7 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	# vuelva a la rotación por defecto al detenerse.
 	var horizontal_wish_direction = wish_direction * Vector3(1, 0, 1)
 	if horizontal_wish_direction.length_squared() > 0.01:
+		# wish_direction ahora es siempre correcta, por lo que no necesitamos lógica condicional.
 		var target_angle = atan2(horizontal_wish_direction.x, horizontal_wish_direction.z)
 		if dt > 0: # Suavizado en modo LIVE.
 			rotation.y = lerp_angle(rotation.y, target_angle, rotation_lerp_speed * dt)
