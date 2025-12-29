@@ -72,13 +72,12 @@ func restore_snapshot(data: Dictionary) -> void:
 		velocity = vel
 	else:
 		velocity = Vector3.ZERO
-	if data.has("yaw"):
-		yaw = data["yaw"]
-		self.rotation.y = yaw
-	if data.has("pitch"):
-		pitch = data["pitch"]
-		if camera_rig:
-			camera_rig.rotation.x = pitch
+	yaw = data.get("yaw", 0.0)
+	pitch = data.get("pitch", 0.0)
+	
+	# APLICACIÓN: Unificamos la lógica de rotación con la de step() para garantizar determinismo.
+	if camera_rig:
+		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 
 # state
 var velocity := Vector3()
