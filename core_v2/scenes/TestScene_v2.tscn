@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://materials/reference/PrototypeGrey.tres" type="Material" id=1]
 [ext_resource path="res://addons/kenney_prototype_textures/dark/texture_01.png" type="Texture" id=2]
@@ -28,8 +28,6 @@ glow_enabled = true
 glow_intensity = 1.81
 glow_strength = 1.04
 glow_bloom = 1.0
-
-[sub_resource type="AnimationNodeStateMachinePlayback" id=4]
 
 [node name="TestScene" type="Spatial"]
 
@@ -68,8 +66,3 @@ environment = SubResource( 2 )
 
 [node name="Pilot" parent="." instance=ExtResource( 3 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.447498, 0 )
-
-[node name="AnimationTree" parent="Pilot/Visual" index="2"]
-parameters/playback = SubResource( 4 )
-
-[editable path="Pilot"]
