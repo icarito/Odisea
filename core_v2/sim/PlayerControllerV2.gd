@@ -45,9 +45,6 @@ func set_mouse_sensitivity(v):
 		mouse_sensitivity = v
 func get_mouse_sensitivity(): return mouse_sensitivity
 
-# --- SEÑALES ---
-signal jumped
-
 ## --- SNAPSHOT SERIALIZACIÓN ---
 func get_full_snapshot() -> Dictionary:
 	return {
@@ -113,19 +110,17 @@ func step(dt: float, input: InputDataV2):
 	pitch = clamp(pitch, deg2rad(-85), deg2rad(85))
 
 	# APLICACIÓN:
-	# El cuerpo (self) ya NO rota. La rotación visual la maneja el animador.
-	# El CameraRig rota en AMBOS ejes para controlar la vista.
+	# El cuerpo (self) rota en Y (yaw), y el CameraRig rota en X (pitch).
+	self.rotation.y = yaw
 	if camera_rig:
-		camera_rig.rotation.y = yaw
 		camera_rig.rotation.x = pitch
 	
 	# --- MOVEMENT INPUT ---
-	# Usamos la base del CameraRig para que el movimiento sea relativo a la cámara.
-	var cam_basis = camera_rig.global_transform.basis
-	var forward = -cam_basis.z
+	# Usamos la base del cuerpo para que el movimiento sea relativo a su orientación.
+	var forward = -global_transform.basis.z
 	forward.y = 0 # Proyectamos en el plano horizontal para evitar moverse hacia arriba/abajo.
 	forward = forward.normalized()
-	var right = cam_basis.x
+	var right = global_transform.basis.x
 
 	# Calculamos y almacenamos la dirección deseada (wish_direction)
 	wish_direction = Vector3.ZERO
@@ -149,11 +144,10 @@ func step(dt: float, input: InputDataV2):
 	# --- JUMP ---
 	if input.jump and is_on_floor():
 		velocity.y = jump_force
-		emit_signal("jumped") # Emitimos la señal del evento de salto
 
 	# --- APPLY ---
 	velocity = move_and_slide(velocity, UP)
-
+	
 func _physics_process(_delta):
 	# Si otro sistema (SessionManager) ya llamó a step() con el input de este frame,
 	# evitamos consumir el provider dos veces. Solo limpiamos el acumulador.
