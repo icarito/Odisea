@@ -45,6 +45,9 @@ func set_mouse_sensitivity(v):
 		mouse_sensitivity = v
 func get_mouse_sensitivity(): return mouse_sensitivity
 
+# --- SEÑALES ---
+signal jumped
+
 ## --- SNAPSHOT SERIALIZACIÓN ---
 func get_full_snapshot() -> Dictionary:
 	return {
@@ -85,13 +88,13 @@ var wish_direction := Vector3.ZERO
 
 # Nodos (Asegúrate de que los nombres coincidan con tu escena)
 onready var camera_rig = $CameraRig 
+onready var animator = $Visual/Pivot
 
 var input_provider
 var external_input_provided := false
 
 func _ready():
 	input_provider = InputProviderV2.new()
-	# La captura del mouse ahora es gestionada por SessionManager.
 
 func _input(event):
 	# La única responsabilidad en _input es acumular el delta del mouse
@@ -144,9 +147,14 @@ func step(dt: float, input: InputDataV2):
 	# --- JUMP ---
 	if input.jump and is_on_floor():
 		velocity.y = jump_force
+		emit_signal("jumped")
 
 	# --- APPLY ---
 	velocity = move_and_slide(velocity, UP)
+	
+	# AL FINAL DEL STEP: Llamamos al animador manualmente para garantizar el orden de ejecución.
+	if animator:
+		animator.step_animator(FIXED_DT, velocity)
 	
 func _physics_process(_delta):
 	# Si otro sistema (SessionManager) ya llamó a step() con el input de este frame,
