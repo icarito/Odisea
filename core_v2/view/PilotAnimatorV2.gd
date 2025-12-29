@@ -9,12 +9,13 @@ export var velocity_lerp_speed: float = 10.0
 export var rotation_lerp_speed: float = 10.0
 
 # --- NODES ---
-onready var controller = get_parent()
-onready var animation_tree: AnimationTree = $AnimationTree
+onready var controller = get_parent().get_parent() # Sube dos niveles: Pivot -> Visual -> Pilot
+onready var animation_tree: AnimationTree = $AnimationTree # AnimationTree es ahora hijo del Pivot
 
 # --- STATE ---
 # Almacena la velocidad suavizada para el blend tree de animación.
 var visual_velocity: Vector3 = Vector3.ZERO
+var is_initialized := false
 
 # --- LIFECYCLE ---
 func _ready() -> void:
@@ -25,7 +26,7 @@ func _ready() -> void:
 		return
 		
 	if not animation_tree:
-		push_error("No se encontró un nodo AnimationTree dentro de 'Pivot'.")
+		push_error("No se encontró un nodo AnimationTree como hijo del Pivot.")
 		set_process(false)
 		return
 
@@ -39,10 +40,13 @@ func _ready() -> void:
 	var playback = animation_tree.get("parameters/playback")
 	if playback:
 		playback.start("Grounded")
+	
+	is_initialized = true
 
 	
 func _physics_process(delta: float) -> void:
-	if not is_instance_valid(controller):
+	# Si el controlador no es válido o no está procesando, el animador tampoco debe hacerlo.
+	if not is_initialized or not is_instance_valid(controller) or not controller.is_physics_processing():
 		return
 
 	# 1. LECTURA DE ESTADO DEL CONTROLADOR
@@ -99,4 +103,4 @@ func update_animation_parameters(is_on_floor: bool, p_visual_velocity: Vector3) 
 
 func _on_controller_jumped() -> void:
 	"""Se ejecuta cuando el controlador emite la señal 'jumped'."""
-	animation_tree.set("parameters/Grounded/Jump/active", true)
+	animation_tree.set("parameters/Grounded/Jump/active", 1)
