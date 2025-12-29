@@ -84,6 +84,7 @@ func restore_snapshot(data: Dictionary) -> void:
 var velocity := Vector3()
 var yaw := 0.0
 var pitch := 0.0
+var wish_direction := Vector3.ZERO
 
 # Nodos (Asegúrate de que los nombres coincidan con tu escena)
 onready var camera_rig = $CameraRig 
@@ -112,25 +113,25 @@ func step(dt: float, input: InputDataV2):
 	pitch = clamp(pitch, deg2rad(-85), deg2rad(85))
 
 	# APLICACIÓN:
-	# El cuerpo (self) SOLO rota en Y (izquierda/derecha)
-	self.rotation.y = yaw
-	
-	# El CameraRig SOLO rota en X (arriba/abajo)
+	# El cuerpo (self) ya NO rota. La rotación visual la maneja el animador.
+	# El CameraRig rota en AMBOS ejes para controlar la vista.
 	if camera_rig:
+		camera_rig.rotation.y = yaw
 		camera_rig.rotation.x = pitch
-
+	
 	# --- MOVEMENT INPUT ---
-	var dir = Vector3()
+	# Usamos la base del CameraRig para que el movimiento sea relativo a la cámara.
+	var cam_basis = camera_rig.global_transform.basis
+	var forward = -cam_basis.z
+	forward.y = 0 # Proyectamos en el plano horizontal para evitar moverse hacia arriba/abajo.
+	forward = forward.normalized()
+	var right = cam_basis.x
 
-	# Usamos la base del cuerpo (que ahora solo tiene Yaw)
-	# Esto garantiza que 'forward' siempre sea paralelo al suelo
-	var basis = global_transform.basis
-	var forward = -basis.z
-	var right = basis.x
-
-	dir += forward * input.move_vec.y
-	dir += right * input.move_vec.x
-	dir = dir.normalized()
+	# Calculamos y almacenamos la dirección deseada (wish_direction)
+	wish_direction = Vector3.ZERO
+	wish_direction += forward * input.move_vec.y
+	wish_direction += right * input.move_vec.x
+	wish_direction = wish_direction.normalized()
 
 	# --- SPRINT LOGIC ---
 	var current_speed = move_speed
@@ -138,7 +139,7 @@ func step(dt: float, input: InputDataV2):
 		current_speed *= run_speed_multiplier
 
 	# --- HORIZONTAL VELOCITY ---
-	var target = dir * current_speed
+	var target = wish_direction * current_speed
 	velocity.x = target.x
 	velocity.z = target.z
 
@@ -164,3 +165,10 @@ func _physics_process(_delta):
 	var input = input_provider.get_input()
 	step(FIXED_DT, input)
 	# Nota: el proveedor ya limpia `mouse_delta_accum` en _read_live_input()
+
+func get_wish_direction() -> Vector3:
+	"""
+	Devuelve la dirección de movimiento deseada por el jugador, en coordenadas globales.
+	Es usada por el animador para orientar el modelo visual.
+	"""
+	return wish_direction
