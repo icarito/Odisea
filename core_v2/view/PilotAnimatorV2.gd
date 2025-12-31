@@ -2,11 +2,17 @@ extends Spatial
 
 class_name PilotAnimatorV2
 
+enum JumpPhase { GROUNDED, START, JUMP_LOOP, FLOAT_LOOP, LAND }
+
 # --- EXPORTS ---
 # Velocidad de suavizado para la velocidad usada en el AnimationTree.
 export var velocity_lerp_speed: float = 10.0
 # Velocidad de suavizado para la rotación visual del personaje.
 export var rotation_lerp_speed: float = 10.0
+# Umbral de velocidad de caída para distinguir entre JUMP_LOOP y FLOAT_LOOP.
+export var fall_speed_threshold: float = 2.0
+# Duración de la fase START del salto.
+export var jump_start_duration: float = 0.3
 
 # --- NODES ---
 onready var controller = get_parent().get_parent() # Sube dos niveles: Pivot -> Visual -> Pilot
@@ -16,6 +22,10 @@ onready var animation_tree: AnimationTree = $AnimationTree # AnimationTree es ah
 # Almacena la velocidad suavizada para el blend tree de animación.
 var visual_velocity: Vector3 = Vector3.ZERO
 var is_initialized := false
+var was_on_floor_last_frame: bool = true
+var current_jump_phase: int = JumpPhase.GROUNDED
+var time_on_ground_after_land: float = 0.0
+var jump_timer: float = 0.0
 
 # --- LIFECYCLE ---
 func _ready() -> void:
@@ -33,10 +43,6 @@ func _ready() -> void:
 	# Conectar la señal de salto para manejar la animación de forma reactiva.
 	controller.connect("jumped", self, "_on_controller_jumped")
 
-	# Asegurarse de que el AnimationTree esté activo y tenga un playback válido.
-	if not animation_tree.active:
-		animation_tree.active = true
-
 	var playback = animation_tree.get("parameters/playback")
 	if playback:
 		playback.start("Grounded")
@@ -51,6 +57,40 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	"""
 	var is_on_floor: bool = controller.is_on_floor()
 	var wish_direction: Vector3 = controller.get_wish_direction()
+
+	# DETECCIÓN DE FASES DE SALTO
+	if is_on_floor:
+		if not was_on_floor_last_frame:
+			current_jump_phase = JumpPhase.LAND
+			time_on_ground_after_land = 0.0
+		elif current_jump_phase == JumpPhase.LAND:
+			time_on_ground_after_land += dt
+			if time_on_ground_after_land > 0.2:
+				current_jump_phase = JumpPhase.GROUNDED
+				time_on_ground_after_land = 0.0
+	else:  # Aire
+		if was_on_floor_last_frame:  # Despegue
+			if p_current_velocity.y > 1.0:
+				current_jump_phase = JumpPhase.START
+				jump_timer = jump_start_duration
+			else:
+				current_jump_phase = JumpPhase.FLOAT_LOOP
+		else:  # Durante el aire
+			if current_jump_phase == JumpPhase.START:
+				jump_timer -= dt
+				if jump_timer <= 0 or p_current_velocity.y < -fall_speed_threshold:
+					if p_current_velocity.y < -fall_speed_threshold:
+						current_jump_phase = JumpPhase.JUMP_LOOP
+					else:
+						current_jump_phase = JumpPhase.FLOAT_LOOP
+			else:
+				if p_current_velocity.y < -fall_speed_threshold:
+					current_jump_phase = JumpPhase.JUMP_LOOP
+				else:
+					current_jump_phase = JumpPhase.FLOAT_LOOP
+
+	# Actualizar el AnimationTree
+	animation_tree.set("parameters/JumpState/current", current_jump_phase)
 
 	# 2. SUAVIZADO DE VELOCIDAD PARA ANIMACIÓN
 	# Usamos la velocidad del controlador para el movimiento, pero una versión
@@ -80,6 +120,8 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	# Esto es crítico para el determinismo en tests y replays.
 	animation_tree.advance(dt)
 
+	was_on_floor_last_frame = is_on_floor
+
 
 func update_animation_parameters(is_on_floor: bool, p_visual_velocity: Vector3) -> void:
 	"""Actualiza los parámetros del AnimationTree basados en el estado del controlador."""
@@ -91,21 +133,10 @@ func update_animation_parameters(is_on_floor: bool, p_visual_velocity: Vector3) 
 	# Parámetro para la mezcla de locomoción (Idle/Walk/Run).
 	# Usa la magnitud de la velocidad horizontal suavizada.
 	var blend_pos = Vector2(p_visual_velocity.x, p_visual_velocity.z).length()
-	animation_tree.set("parameters/Grounded/Locomotion/blend_position", blend_pos)
+	animation_tree.set("parameters/Grounded/blend_position", blend_pos)
 	
 	# DEBUG: Imprime la velocidad que se pasa al blend tree
 	# print("Animation Speed: ", blend_pos)
-	
-	# Parámetros para animaciones en el aire (salto/caída).
-	# Distingue entre ascenso y descenso para transiciones más precisas.
-	if not is_on_floor:
-		animation_tree.set("parameters/conditions/is_falling", p_visual_velocity.y < 0)
-		animation_tree.set("parameters/conditions/is_jumping", p_visual_velocity.y > 0)
-
-	# Desactiva el OneShot de salto cuando el jugador vuelve al suelo para que pueda
-	# ejecutarse de nuevo en el próximo salto.
-	if animation_tree.get("parameters/Grounded/Jump/active") and controller.is_on_floor():
-		animation_tree.set("parameters/Grounded/Jump/active", false)
 
 
 func _on_controller_jumped() -> void:
