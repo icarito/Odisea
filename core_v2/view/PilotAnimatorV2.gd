@@ -42,6 +42,14 @@ func _ready() -> void:
 	
 	is_initialized = true
 
+	# Warmup animations to cache blends
+	_warmup_animations()
+
+func _warmup_animations() -> void:
+	"""Fuerza el cacheo de las mezclas de Grounded e InAir avanzando el AnimationTree."""
+	for _i in range(10):
+		animation_tree.advance(0.001)
+
 	
 func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	"""
