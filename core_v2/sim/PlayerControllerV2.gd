@@ -1,6 +1,8 @@
 extends KinematicBody
 
 const InputProviderV2 = preload("../input/InputProviderV2.gd")
+const PlayerJumpV2 = preload("PlayerJumpV2.gd")
+const PlayerMovementV2 = preload("PlayerMovementV2.gd")
 
 const FIXED_DT := 1.0 / 60.0
 const UP := Vector3.UP
@@ -83,7 +85,6 @@ func restore_snapshot(data: Dictionary) -> void:
 var velocity := Vector3()
 var yaw := 0.0
 var pitch := 0.0
-var wish_direction := Vector3.ZERO
 
 # Nodos (Asegúrate de que los nombres coincidan con tu escena)
 onready var camera_rig = $CameraRig 
@@ -92,8 +93,18 @@ onready var animator = $Visual/Pivot
 var input_provider
 var external_input_provided := false
 
+var jump_logic: PlayerJumpV2
+var movement_logic: PlayerMovementV2
+
 func _ready():
 	input_provider = InputProviderV2.new()
+	jump_logic = PlayerJumpV2.new()
+	movement_logic = PlayerMovementV2.new()
+	movement_logic.move_speed = move_speed
+	movement_logic.run_speed_multiplier = run_speed_multiplier
+
+func get_camera_basis() -> Basis:
+	return camera_rig.transform.basis if camera_rig else Basis()
 
 func _input(event):
 	# La única responsabilidad en _input es acumular el delta del mouse
@@ -102,7 +113,7 @@ func _input(event):
 		if input_provider:
 			input_provider.mouse_delta_accum += event.relative
 
-func step(dt: float, input: InputDataV2):
+func step(dt: float, input: InputDataV2) -> void:
 	# --- ROTATION ---
 	# Acumulamos los ángulos
 	yaw   -= input.mouse_delta.x * mouse_sensitivity
@@ -118,44 +129,36 @@ func step(dt: float, input: InputDataV2):
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 	
-	# --- MOVEMENT INPUT ---
-	# Usamos la base LOCAL del CameraRig para que el movimiento sea relativo a la cámara.
-	var cam_basis = camera_rig.transform.basis
-	var forward = -cam_basis.z
-	forward.y = 0 # Proyectamos en el plano horizontal para evitar moverse hacia arriba/abajo.
-	forward = forward.normalized()
-	var right = cam_basis.x
+	# 1. Actualizar timers de los componentes
+	if is_on_floor():
+		jump_logic.reset_on_floor()
+	else:
+		jump_logic.on_air_tick(dt)
+		
+	if input.jump:
+		jump_logic.buffer_jump()
 
-	# Calculamos y almacenamos la dirección deseada (wish_direction)
-	wish_direction = Vector3.ZERO
-	wish_direction += forward * input.move_vec.y
-	wish_direction += right * input.move_vec.x
-	wish_direction = wish_direction.normalized()
+	# 2. Delegar movimiento horizontal
+	var basis = get_camera_basis()
+	movement_logic.process_movement(dt, input.move_vec, basis, input.sprint)
+	var h_vel = movement_logic.get_horizontal_velocity()
+	
+	velocity.x = h_vel.x
+	velocity.z = h_vel.z
 
-	# --- SPRINT LOGIC ---
-	var current_speed = move_speed
-	if input.sprint: # Asumiendo que InputDataV2 ya tiene el booleano 'sprint'
-		current_speed *= run_speed_multiplier
-
-	# --- HORIZONTAL VELOCITY ---
-	var target = wish_direction * current_speed
-	velocity.x = target.x
-	velocity.z = target.z
-
-	# --- GRAVITY ---
-	velocity.y += gravity * dt
-
-	# --- JUMP ---
-	if input.jump and is_on_floor():
+	# 3. Aplicar Salto o Gravedad
+	if jump_logic.can_jump(is_on_floor()):
 		velocity.y = jump_force
+		jump_logic.consume_jump()
 		emit_signal("jumped")
+	else:
+		velocity.y += gravity * dt
 
-	# --- APPLY ---
+	# 4. Movimiento Final y Animación
 	velocity = move_and_slide(velocity, UP)
 	
-	# AL FINAL DEL STEP: Llamamos al animador manualmente para garantizar el orden de ejecución.
 	if animator:
-		animator.step_animator(FIXED_DT, velocity)
+		animator.step_animator(dt, velocity)
 	
 func _physics_process(_delta):
 	# Si otro sistema (SessionManager) ya llamó a step() con el input de este frame,
@@ -174,4 +177,4 @@ func get_wish_direction() -> Vector3:
 	Devuelve la dirección de movimiento deseada por el jugador, en coordenadas globales.
 	Es usada por el animador para orientar el modelo visual.
 	"""
-	return wish_direction
+	return movement_logic.wish_direction
