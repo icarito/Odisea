@@ -17,6 +17,8 @@ onready var animation_tree: AnimationTree = $AnimationTree # AnimationTree es ah
 var visual_velocity: Vector3 = Vector3.ZERO
 var is_initialized := false
 var was_on_floor_last_frame: bool = true
+var time_since_jump: float = 0.0
+var time_since_input: float = 0.0
 
 # --- LIFECYCLE ---
 func _ready() -> void:
@@ -49,6 +51,20 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	var is_on_floor: bool = controller.is_on_floor()
 	var wish_direction: Vector3 = controller.get_wish_direction()
 
+	# Lógica de tiempo para flotación
+	if is_on_floor:
+		time_since_jump = 0.0
+		time_since_input = 0.0
+	else:
+		time_since_jump += dt
+		time_since_input += dt
+
+	if controller.get_wish_direction().length() > 0.1:
+		time_since_input = 0.0
+
+	# Cálculo de is_floating
+	var is_floating = (!is_on_floor) and (time_since_jump > 0.4 or (abs(p_current_velocity.y) < 1.5 and time_since_input > 0.2))
+
 	# 1. SUAVIZADO DE VELOCIDAD PARA ANIMACIÓN
 	# Usamos la velocidad del controlador para el movimiento, pero una versión
 	# suavizada para que las transiciones de animación (e.g., idle -> run) no sean abruptas.
@@ -71,7 +87,7 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 			rotation.y = target_angle
 
 	# 3. APLICACIÓN DE ESTADO AL ANIMATIONTREE
-	update_animation_parameters(is_on_floor, p_current_velocity)
+	update_animation_parameters(is_on_floor, p_current_velocity, is_floating)
 	
 	# Forzar sincronización de la fase de animaciones si es necesario
 	animation_tree.set("parameters/playback/active", true)
@@ -83,13 +99,15 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	was_on_floor_last_frame = is_on_floor
 
 
-func update_animation_parameters(is_on_floor: bool, velocity: Vector3) -> void:
+func update_animation_parameters(is_on_floor: bool, velocity: Vector3, is_floating: bool) -> void:
 	"""Actualiza los parámetros del AnimationTree basados en el estado del controlador."""
 
 	# Parámetros de condición para la máquina de estados.
 	animation_tree.set("parameters/conditions/on_floor", is_on_floor)
 	animation_tree.set("parameters/conditions/is_falling", velocity.y < -1.0)
 	animation_tree.set("parameters/conditions/is_jumping", velocity.y > 1.0)
+	animation_tree.set("parameters/conditions/is_floating", is_floating)
+	animation_tree.set("parameters/conditions/is_falling_fast", not is_floating)
 
 	# Parámetro para la mezcla de locomoción (Idle/Walk/Run).
 	# Usa la magnitud de la velocidad horizontal suavizada.
