@@ -1,4 +1,4 @@
-[gd_scene load_steps=35 format=2]
+[gd_scene load_steps=36 format=2]
 
 [ext_resource path="res://models/Material_0_001.material" type="Material" id=1]
 [ext_resource path="res://core_v2/sim/PlayerControllerV2.gd" type="Script" id=2]
@@ -252,6 +252,10 @@ xfade_time = 0.1
 [sub_resource type="AnimationNodeStateMachineTransition" id=133]
 advance_condition = "on_floor = false"
 
+[sub_resource type="AnimationNodeStateMachineTransition" id=134]
+switch_mode = 1
+advance_condition = "is_floating"
+
 [sub_resource type="AnimationNodeStateMachine" id=107]
 states/Grounded/node = SubResource( 106 )
 states/Grounded/position = Vector2( 342.84, 107 )
@@ -263,7 +267,7 @@ states/Jump_Loop/node = SubResource( 128 )
 states/Jump_Loop/position = Vector2( 200.6, 366.067 )
 states/Jump_Start/node = SubResource( 111 )
 states/Jump_Start/position = Vector2( 153.4, 242.808 )
-transitions = [ "Jump_Land", "Grounded", SubResource( 113 ), "Grounded", "Jump_Start", SubResource( 115 ), "InAir", "Jump_Land", SubResource( 126 ), "Jump_Start", "Jump_Loop", SubResource( 129 ), "Jump_Loop", "InAir", SubResource( 130 ), "InAir", "Jump_Loop", SubResource( 131 ), "Jump_Loop", "Jump_Land", SubResource( 132 ), "Grounded", "Jump_Loop", SubResource( 133 ) ]
+transitions = [ "Jump_Land", "Grounded", SubResource( 113 ), "Grounded", "Jump_Start", SubResource( 115 ), "InAir", "Jump_Land", SubResource( 126 ), "Jump_Start", "Jump_Loop", SubResource( 129 ), "Jump_Loop", "InAir", SubResource( 130 ), "InAir", "Jump_Loop", SubResource( 131 ), "Jump_Loop", "Jump_Land", SubResource( 132 ), "Grounded", "Jump_Loop", SubResource( 133 ), "Grounded", "InAir", SubResource( 134 ) ]
 graph_offset = Vector2( -12, 68.9207 )
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=108]
@@ -535,7 +539,7 @@ parameters/playback = SubResource( 108 )
 parameters/conditions/is_floating = false
 "parameters/conditions/is_floating = false" = false
 parameters/conditions/is_jumping = false
-parameters/conditions/on_floor = false
+parameters/conditions/on_floor = true
 "parameters/conditions/on_floor = false" = false
 parameters/Grounded/blend_position = 0.2
 parameters/InAir/InAir/current = 1
