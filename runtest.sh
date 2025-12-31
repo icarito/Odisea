@@ -1,9 +1,7 @@
 #!/bin/sh
 
 if [ -z "$GODOT_BIN" ]; then
-    echo "'GODOT_BIN' is not set."
-    echo "Please set the environment variable  'export GODOT_BIN=/Applications/Godot.app/Contents/MacOS/Godot'"
-    exit 1
+    GODOT_BIN="godot3"
 fi
 
 # we not use no-window because of issue https://github.com/godotengine/godot/issues/55379
