@@ -103,8 +103,10 @@ func _ready():
 	movement_logic.move_speed = move_speed
 	movement_logic.run_speed_multiplier = run_speed_multiplier
 
+const DEFAULT_BASIS = Basis.IDENTITY
+
 func get_camera_basis() -> Basis:
-	return camera_rig.transform.basis if camera_rig else Basis()
+	return camera_rig.transform.basis if camera_rig else DEFAULT_BASIS
 
 func _input(event):
 	# La única responsabilidad en _input es acumular el delta del mouse
@@ -128,6 +130,11 @@ func step(dt: float, input: InputDataV2) -> void:
 	# problemas de Gimbal Lock. Es más robusto construir una nueva base de rotación.
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+	
+	# --- GRAVITY CLEANUP ---
+	# Set velocity.y to 0 if on floor to prevent gravity force accumulation against CSG/Physics collision.
+	if is_on_floor():
+		velocity.y = 0
 	
 	# 1. Actualizar timers de los componentes
 	if is_on_floor():
@@ -178,3 +185,7 @@ func get_wish_direction() -> Vector3:
 	Es usada por el animador para orientar el modelo visual.
 	"""
 	return movement_logic.wish_direction
+
+func _process(_delta):
+	if Engine.get_frames_per_second() < 20: # Si baja de 60fps bruscamente
+		print("[PERF] Caída de frames detectada! Velocity: ", velocity, " OnFloor: ", is_on_floor())

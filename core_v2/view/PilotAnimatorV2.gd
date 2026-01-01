@@ -2,6 +2,17 @@ extends Spatial
 
 class_name PilotAnimatorV2
 
+# --- PARAMETER PATHS (CACHED STRINGS) ---
+const PARAM_PLAYBACK = "parameters/playback"
+const PARAM_CONDITIONS_ON_FLOOR = "parameters/conditions/on_floor"
+const PARAM_CONDITIONS_IS_FALLING = "parameters/conditions/is_falling"
+const PARAM_CONDITIONS_IS_JUMPING = "parameters/conditions/is_jumping"
+const PARAM_CONDITIONS_IS_FLOATING = "parameters/conditions/is_floating"
+const PARAM_CONDITIONS_IS_FALLING_FAST = "parameters/conditions/is_falling_fast"
+const PARAM_GROUNDED_BLEND_POSITION = "parameters/Grounded/blend_position"
+const PARAM_GROUNDED_JUMP_ACTIVE = "parameters/Grounded/Jump/active"
+const PARAM_PLAYBACK_ACTIVE = "parameters/playback/active"
+
 # --- EXPORTS ---
 # Velocidad de suavizado para la velocidad usada en el AnimationTree.
 export var velocity_lerp_speed: float = 5.0
@@ -36,9 +47,11 @@ func _ready() -> void:
 	# Conectar la señal de salto para manejar la animación de forma reactiva.
 	controller.connect("jumped", self, "_on_controller_jumped")
 
-	var playback = animation_tree.get("parameters/playback")
+	var playback = animation_tree.get(PARAM_PLAYBACK)
 	if playback:
 		playback.start("Grounded")
+	
+	animation_tree.set(PARAM_PLAYBACK_ACTIVE, true)
 	
 	is_initialized = true
 
@@ -96,13 +109,6 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 
 	# 3. APLICACIÓN DE ESTADO AL ANIMATIONTREE
 	update_animation_parameters(is_on_floor, p_current_velocity, is_floating)
-	
-	# Forzar sincronización de la fase de animaciones si es necesario
-	animation_tree.set("parameters/playback/active", true)
-	
-	# 4. AVANCE MANUAL DEL ANIMATIONTREE
-	# Esto es crítico para el determinismo en tests y replays.
-	#animation_tree.advance(dt)
 
 	was_on_floor_last_frame = is_on_floor
 
@@ -110,21 +116,26 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 func update_animation_parameters(is_on_floor: bool, velocity: Vector3, is_floating: bool) -> void:
 	"""Actualiza los parámetros del AnimationTree basados en el estado del controlador."""
 
-	# Parámetros de condición para la máquina de estados.
-	animation_tree.set("parameters/conditions/on_floor", is_on_floor)
-	animation_tree.set("parameters/conditions/is_falling", velocity.y < -1.0)
-	animation_tree.set("parameters/conditions/is_jumping", velocity.y > 1.0)
-	animation_tree.set("parameters/conditions/is_floating", is_floating)
-	animation_tree.set("parameters/conditions/is_falling_fast", not is_floating)
+	# Solo actualizar 3 condiciones base: on_floor, is_jumping (trigger de inicio), is_floating (parámetro interno de In_Air).
+	animation_tree.set(PARAM_CONDITIONS_ON_FLOOR, is_on_floor)
+	
+	if is_on_floor:
+		# Forzar is_jumping a false inmediatamente para limpiar el buffer del AnimationTree y evitar que el personaje quiera saltar de nuevo al aterrizar.
+		animation_tree.set(PARAM_CONDITIONS_IS_JUMPING, false)
+	else:
+		# is_jumping solo true si velocity.y > 1.0 y no está en el suelo (trigger de inicio).
+		animation_tree.set(PARAM_CONDITIONS_IS_JUMPING, velocity.y > 1.0)
+	
+	animation_tree.set(PARAM_CONDITIONS_IS_FLOATING, is_floating)
 
 	# Parámetro para la mezcla de locomoción (Idle/Walk/Run).
 	# Usa la magnitud de la velocidad horizontal suavizada.
 	var blend_pos = Vector2(visual_velocity.x, visual_velocity.z).length()
-	animation_tree.set("parameters/Grounded/blend_position", blend_pos)
+	animation_tree.set(PARAM_GROUNDED_BLEND_POSITION, blend_pos)
 
 
 func _on_controller_jumped() -> void:
 	"""Se ejecuta cuando el controlador emite la señal 'jumped'."""
 	# Usar ONE_SHOT_REQUEST_FIRE es la forma correcta y determinista de activar animaciones OneShot.
 	# NO NO NO NO ES ACTIVE 1
-	animation_tree.set("parameters/Grounded/Jump/active", 1) ### NO TOCAR
+	animation_tree.set(PARAM_GROUNDED_JUMP_ACTIVE, 1) ### NO TOCAR
