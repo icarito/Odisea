@@ -1,4 +1,4 @@
-[gd_scene load_steps=97 format=2]
+[gd_scene load_steps=92 format=2]
 
 [ext_resource path="res://models/Material_0_001.material" type="Material" id=1]
 [ext_resource path="res://core_v2/sim/PlayerControllerV2.gd" type="Script" id=2]
@@ -183,75 +183,55 @@ max_space = 9.0
 [sub_resource type="AnimationNodeAnimation" id=123]
 animation = "Swim_Idle_Loop"
 
+[sub_resource type="AnimationNodeAnimation" id=124]
+animation = "Jump_Loop"
+
 [sub_resource type="AnimationNodeTransition" id=121]
 input_count = 2
-xfade_time = 0.25
+xfade_time = 0.1
 input_0/name = "Jumping"
 input_0/auto_advance = false
 input_1/name = "Falling"
 input_1/auto_advance = false
 
-[sub_resource type="AnimationNodeAnimation" id=124]
-animation = "Jump_Loop"
-
 [sub_resource type="AnimationNodeBlendTree" id=122]
-graph_offset = Vector2( -3.1778, 55.9778 )
+graph_offset = Vector2( -3.1778, -37.4 )
 nodes/Falling/node = SubResource( 123 )
 nodes/Falling/position = Vector2( 48, 256 )
-nodes/InAir/node = SubResource( 121 )
-nodes/InAir/position = Vector2( 288, 144 )
 nodes/Jumping/node = SubResource( 124 )
 nodes/Jumping/position = Vector2( 64, 112 )
+nodes/Transition/node = SubResource( 121 )
+nodes/Transition/position = Vector2( 288, 144 )
 nodes/output/position = Vector2( 528, 112 )
-node_connections = [ "InAir", 0, "Jumping", "InAir", 1, "Falling", "output", 0, "InAir" ]
+node_connections = [ "Transition", 0, "Jumping", "Transition", 1, "Falling", "output", 0, "Transition" ]
 
 [sub_resource type="AnimationNodeAnimation" id=110]
 animation = "Jump_Land"
-
-[sub_resource type="AnimationNodeAnimation" id=128]
-animation = "Jump_Loop"
 
 [sub_resource type="AnimationNodeAnimation" id=111]
 animation = "Jump_Start"
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=113]
+switch_mode = 1
 auto_advance = true
-advance_condition = "on_floor"
-xfade_time = 0.1
+xfade_time = 0.2
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=115]
 advance_condition = "is_jumping"
-xfade_time = 0.2
+xfade_time = 0.1
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=126]
 advance_condition = "on_floor"
 xfade_time = 0.1
 
-[sub_resource type="AnimationNodeStateMachineTransition" id=129]
-switch_mode = 1
-auto_advance = true
-xfade_time = 0.3
-
-[sub_resource type="AnimationNodeStateMachineTransition" id=130]
-switch_mode = 1
-advance_condition = "is_floating"
-xfade_time = 0.3
-
-[sub_resource type="AnimationNodeStateMachineTransition" id=131]
-switch_mode = 1
-advance_condition = "is_floating = false"
+[sub_resource type="AnimationNodeStateMachineTransition" id=134]
+advance_condition = "!on_floor"
 xfade_time = 0.2
 
-[sub_resource type="AnimationNodeStateMachineTransition" id=132]
-advance_condition = "on_floor"
-xfade_time = 0.1
-
-[sub_resource type="AnimationNodeStateMachineTransition" id=133]
-advance_condition = "on_floor = false"
-
-[sub_resource type="AnimationNodeStateMachineTransition" id=134]
-switch_mode = 1
-advance_condition = "is_floating"
+[sub_resource type="AnimationNodeStateMachineTransition" id=188]
+switch_mode = 2
+auto_advance = true
+xfade_time = 0.2
 
 [sub_resource type="AnimationNodeStateMachine" id=107]
 states/Grounded/node = SubResource( 106 )
@@ -260,12 +240,10 @@ states/InAir/node = SubResource( 122 )
 states/InAir/position = Vector2( 420.6, 367.003 )
 states/Jump_Land/node = SubResource( 110 )
 states/Jump_Land/position = Vector2( 581.4, 243 )
-states/Jump_Loop/node = SubResource( 128 )
-states/Jump_Loop/position = Vector2( 200.6, 366.067 )
 states/Jump_Start/node = SubResource( 111 )
 states/Jump_Start/position = Vector2( 153.4, 242.808 )
-transitions = [ "Jump_Land", "Grounded", SubResource( 113 ), "Grounded", "Jump_Start", SubResource( 115 ), "InAir", "Jump_Land", SubResource( 126 ), "Jump_Start", "Jump_Loop", SubResource( 129 ), "Jump_Loop", "InAir", SubResource( 130 ), "InAir", "Jump_Loop", SubResource( 131 ), "Jump_Loop", "Jump_Land", SubResource( 132 ), "Grounded", "Jump_Loop", SubResource( 133 ), "Grounded", "InAir", SubResource( 134 ) ]
-graph_offset = Vector2( -12, 68.9207 )
+transitions = [ "Jump_Land", "Grounded", SubResource( 113 ), "Grounded", "Jump_Start", SubResource( 115 ), "InAir", "Jump_Land", SubResource( 126 ), "Grounded", "InAir", SubResource( 134 ), "Jump_Start", "InAir", SubResource( 188 ) ]
+graph_offset = Vector2( 51, 50.9207 )
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=108]
 
@@ -17059,6 +17037,7 @@ bones/38/bound_children = [  ]
 [node name="Mesh_0001" type="MeshInstance" parent="Visual/Pivot/Skeleton"]
 mesh = SubResource( 1 )
 skin = SubResource( 2 )
+software_skinning_transform_normals = false
 material/0 = SubResource( 67 )
 
 [node name="FakeShadow" type="MeshInstance" parent="Visual/Pivot"]
@@ -17066,6 +17045,7 @@ transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0.02
 cast_shadow = 0
 mesh = SubResource( 102 )
 skeleton = NodePath("../..")
+software_skinning_transform_normals = false
 material/0 = ExtResource( 52 )
 
 [node name="AnimationTree" type="AnimationTree" parent="Visual/Pivot"]
@@ -17073,13 +17053,11 @@ tree_root = SubResource( 107 )
 anim_player = NodePath("../../../AnimationPlayer")
 active = true
 parameters/playback = SubResource( 108 )
-parameters/conditions/is_floating = false
-"parameters/conditions/is_floating = false" = false
+parameters/conditions/!on_floor = false
 parameters/conditions/is_jumping = false
 parameters/conditions/on_floor = true
-"parameters/conditions/on_floor = false" = false
-parameters/Grounded/blend_position = 0.2
-parameters/InAir/InAir/current = 1
+parameters/Grounded/blend_position = 0.0
+parameters/InAir/Transition/current = 1
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
@@ -17204,3 +17182,6 @@ script = ExtResource( 4 )
 
 [node name="Movement" type="Node" parent="Logic"]
 script = ExtResource( 6 )
+acceleration = 5.0
+friction = 50.0
+move_speed = 3.0
