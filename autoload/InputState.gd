@@ -1,9 +1,13 @@
 extends Node
 
+onready var FixedPoint = preload("res://autoload/FixedPoint.gd")
+
+onready var GameGlobals = preload("res://autoload/GameGlobals.gd")
+
 # InputState.gd — Singleton global para gestión de input (LIVE/RECORD/PLAYBACK)
 # No permite acceso directo a Input desde gameplay/cámara.
 
-# Modos de operación
+# Modos de operaciónget_axis
 enum Mode { LIVE, RECORD, PLAYBACK }
 
 var paused: bool = false
@@ -30,7 +34,7 @@ var axes := {
 }
 
 # Master key lists used for recording to ensure missing keys default to safe values
-const ACTION_KEYS = ["move_forward","move_back","move_left","move_right","jump","run","crouch","interact","roll","attack","aim"]
+const ACTION_KEYS = ["move_forward","move_backward","move_left","move_right","jump","run","crouch","interact","roll","attack","aim"]
 const AXIS_KEYS = ["move_x","move_y"]
 
 # Mouse delta (para cámara)
@@ -179,7 +183,7 @@ var _virtual_joystick_vector := Vector2.ZERO
 func _update_from_input():
 	# Mapear acciones lógicas
 	actions["move_forward"] = Input.is_action_pressed("move_forward")
-	actions["move_back"] = Input.is_action_pressed("move_back")
+	actions["move_back"] = Input.is_action_pressed("move_backward")
 	actions["move_left"] = Input.is_action_pressed("move_left")
 	actions["move_right"] = Input.is_action_pressed("move_right")
 	actions["jump"] = Input.is_action_pressed("jump")
@@ -193,7 +197,7 @@ func _update_from_input():
 	# 1. Get keyboard vector
 	var keyboard_vec = Vector2(
 		Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
-		Input.get_action_strength("move_forward") - Input.get_action_strength("move_back")
+		Input.get_action_strength("move_forward") - Input.get_action_strength("move_backward")
 	)
 
 	# 2. Get physical joystick vector (device 0)
@@ -241,7 +245,7 @@ func reset_virtual_joystick():
 
 
 func _record_current_frame():
-	var pilot = PlayerManager.player_reference
+	var pilot = get_node("root").find_node("Pilot")
 	if not pilot or not is_instance_valid(pilot):
 		return
 	# Only record controller/input state per-frame. Positional and camera
@@ -327,16 +331,10 @@ func _apply_replay_frame():
 
 # API pública para gameplay/cámara
 func is_action_pressed(action):
-	if mode == Mode.PLAYBACK:
-		return bool(actions.get(action, false))
-	else:
-		return bool(actions.get(action, false))
+	return bool(actions.get(action, false))
 
 func get_axis(axis):
-	if mode == Mode.PLAYBACK:
-		return axes.get(axis, 0.0)
-	else:
-		return axes.get(axis, 0.0)
+	return axes.get(axis, 0.0)
 
 func get_mouse_delta():
 	if mode == Mode.PLAYBACK:
@@ -344,7 +342,7 @@ func get_mouse_delta():
 	else:
 		return mouse_delta
 
-func get_live_mouse_delta() -> Vector2:
+static func get_live_mouse_delta() -> Vector2:
 	var delta = _mouse_motion_this_frame
 	# Consuming getter (used by some callers). Keep for compatibility.
 	_mouse_motion_this_frame = Vector2.ZERO

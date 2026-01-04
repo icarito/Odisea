@@ -1,5 +1,9 @@
 extends KinematicBody
 
+onready var GameGlobals = preload("res://autoload/GameGlobals.gd")
+onready var FixedPoint = preload("res://autoload/FixedPoint.gd")
+const FixedVec3 = preload("res://scripts/utils/FVec3.gd")
+
 func set_is_replaying(value: bool):
 	is_replaying = value
 	log_tag = "REPLAY" if value else "LIVE"
@@ -22,7 +26,6 @@ var playback_target_pos = null # Nueva variable para el objetivo
 const CORRECTION_STRENGTH = 2.0 # Fuerza del imán (ajustable: 1.0 es suave, 5.0 es fuerte)
 const FIXED_DELTA = 1.0 / 60.0
 
-const FixedVec3 = preload("res://scripts/utils/FVec3.gd")
 
 # Placeholder: controlador de Elías basado en PlayerTemplate
 # Nota: Se moverá lógica avanzada y referencias de animación conforme al refactor
@@ -58,9 +61,13 @@ var strafe_cooldown = 0.0 # Prevents sudden turn after strafe ends
 onready var external_velocity: ExternalVelocity = $ExternalVelocity if has_node("ExternalVelocity") else null
 onready var jump_comp: PlayerJump = $PlayerJump if has_node("PlayerJump") else null
 onready var movement_comp: PlayerMovement = $PlayerMovement if has_node("PlayerMovement") else null
-# Usar InputState global como fuente de input
-onready var InputState = get_node("/root/InputState")
+# Input handling without autoloads
 onready var player_input = $PlayerInput if has_node("PlayerInput") else null
+
+# Local input variables for naive version
+var mouse_delta = Vector2.ZERO
+var is_strafing_mode_active = false
+var strafing_timer = 0.0
 
 # Flag local para bloquear alineados automáticos durante replay
 var is_replaying = false
@@ -136,7 +143,7 @@ export(float, 0.0, 1.0, 0.01) var air_control_multiplier = 0.2
 export var cam_yaw_offset = 0.0 # radianes para compensar desfase de cámara
 export var swap_input_axes = false # intercambia X/Z si el mapeo queda 90° corrido
 export var invert_forward = false # invierte el eje Z si el mesh mira -Z
-export var mesh_yaw_offset = 0.0 # compensación fija si el mesh tiene un desfase (p.ej. 45°)
+export var mesh_yaw_offset = PI/4.0 # compensación fija si el mesh tiene un desfase (p.ej. 45°)
 export var debug_yaw = false # imprime YawAlign/Dir cada frame para diagnóstico
 export(float, 0.0, 2.0, 0.01) var debug_interval = 0.4 # segundos entre trazas (unificado)
 var debug_timer = Timer.new()
@@ -197,18 +204,7 @@ func set_external_velocity_fixed(v: Dictionary) -> void:
 
 func _ready():
 	process_priority = 0  # Ensure player physics runs after replay and camera
-	# Connect to GameGlobals for debug mode
-	if GameGlobals:
-		debug_enabled = GameGlobals.debug_mode
-		GameGlobals.connect("debug_mode_changed", self, "_on_debug_mode_changed")
-		# Set mouse capture immediately
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
-	if UIManager:
-		UIManager.connect("overlay_shown", self, "_on_UIManager_overlay_shown")
-		UIManager.connect("overlay_hidden", self, "_on_UIManager_overlay_hidden")
-
-	# Alinear dirección inicial con el frente del mesh y la cámara
 	var yaw_node = get_node_or_null("CameraRig/Yaw")
 	var yaw_angle = 0.0
 	if yaw_node:
@@ -282,9 +278,11 @@ func _on_UIManager_overlay_hidden():
 	_is_ui_overlay_active = false
 
 func _input(event):
-	# InputState gestiona el input globalmente. Aquí solo overlays y sincronización de cámara.
+	# Input handling without autoloads. Aquí solo overlays, sincronización de cámara y mouse.
 	if _is_ui_overlay_active:
 		return
+	if event is InputEventMouseMotion:
+		mouse_delta = event.relative
 	if event.is_action_pressed("aim"):
 		var cam_rig = get_node_or_null("CameraRig") if has_node("CameraRig") else get_node_or_null("MockCamera")
 		if cam_rig:
@@ -297,35 +295,35 @@ func _process(_delta):
 		$FPSLabel.text = "FPS: " + str(Engine.get_frames_per_second())
 
 func roll():
-	if InputState and InputState.is_action_pressed("roll"):
+	if Input.is_action_pressed("roll"):
 		if !roll_node_name in playback.get_current_node() and !jump_node_name in playback.get_current_node() and !bigattack_node_name in playback.get_current_node():
 			playback.start(roll_node_name)
 			horizontal_velocity = direction * dash_power
 
 func attack1():
 	if (idle_node_name in playback.get_current_node() or walk_node_name in playback.get_current_node()) and is_on_floor():
-		if InputState and InputState.is_action_pressed("attack"):
+		if Input.is_action_pressed("attack"):
 			if (is_attacking == false):
 				playback.travel(attack1_node_name)
 
 func attack2():
 	if attack1_node_name in playback.get_current_node():
-		if InputState and InputState.is_action_pressed("attack"):
+		if Input.is_action_pressed("attack"):
 			playback.travel(attack2_node_name)
 
 func attack3():
 	if attack1_node_name in playback.get_current_node():
-		if InputState.is_action_pressed("attack"):
+		if Input.is_action_pressed("attack"):
 			pass
 
 func rollattack():
 	if roll_node_name in playback.get_current_node():
-		if InputState and InputState.is_action_pressed("attack"):
+		if Input.is_action_pressed("attack"):
 			playback.travel(bigattack_node_name)
 
 func bigattack():
 	if run_node_name in playback.get_current_node():
-		if InputState and InputState.is_action_pressed("attack"):
+		if Input.is_action_pressed("attack"):
 			horizontal_velocity = direction * dash_power
 			playback.travel(bigattack_node_name)
 
@@ -364,13 +362,11 @@ func print_debug_tag(tag: String, msg: String) -> void:
 		print(msg)
 
 func _debug_input_snapshot() -> Dictionary:
-	   if not InputState:
-		   return { "move_x": 0.0, "move_y": 0.0, "run": false, "jump": false }
 	   return {
-		   "move_x": InputState.get_axis("move_x"),
-		   "move_y": InputState.get_axis("move_y"),
-		   "run": InputState.is_action_pressed("run"),
-		   "jump": InputState.is_action_pressed("jump")
+		   "move_x": Input.get_axis("move_left", "move_right"),
+		   "move_y": Input.get_axis("move_forward", "move_backward"),
+		   "run": Input.is_action_pressed("run"),
+		   "jump": Input.is_action_pressed("jump")
 	   }
 
 func _align_camera_to_body():
@@ -474,23 +470,15 @@ func _physics_process(delta: float):
 	var is_sprinting = false
 	var jump_pressed = false
 
-	# Process player input desde InputState (solo modo LIVE)
-	if InputState:
-		var raw_mx = InputState.get_axis("move_x") if InputState.get_axis("move_x") != null else 0.0
-		var raw_my = InputState.get_axis("move_y") if InputState.get_axis("move_y") != null else 0.0
-		if GameGlobals.is_test_mode:
-			input_vector = Vector2(raw_mx, raw_my)
-		elif InputState.mode == InputState.Mode.PLAYBACK:
-			input_vector = Vector2(raw_mx, raw_my)
-		else:
-			input_vector = Vector2(-raw_mx, raw_my)
-		
-		# Consumir el delta del mouse y aplicar sensibilidad
-		if player_input:
-			var raw_mouse_motion = player_input.get_mouse_motion()
-			mouse_motion = raw_mouse_motion # Pasamos el movimiento en bruto
-		is_sprinting = InputState.is_action_pressed("run")
-		jump_pressed = InputState.is_action_pressed("jump")
+	# Process player input directly (naive version without autoloads)
+	var raw_mx = Input.get_axis("move_left", "move_right")
+	var raw_my = Input.get_axis("move_forward", "move_backward")
+	input_vector = Vector2(-raw_mx, -raw_my)
+	
+	# Consumir el delta del mouse y aplicar sensibilidad
+	mouse_motion = mouse_delta
+	is_sprinting = Input.is_action_pressed("run")
+	jump_pressed = Input.is_action_pressed("jump")
 	has_input = input_vector.length() > 0.1
 
 	if input_vector.length() > 0.1:
@@ -519,9 +507,6 @@ func _physics_process(delta: float):
 	acceleration = 15
 
 	var effective_gravity_vector := local_gravity_override if (local_gravity_override.length() > 0.01) else (Vector3.DOWN * gravity)
-	# During tests we may want to disable gravity to compare horizontal/XZ motion only
-	if GameGlobals and GameGlobals.is_test_mode:
-		effective_gravity_vector = Vector3.ZERO
 	
 	# Aplicar Gravedad (usando floats)
 	var _prev_velocity_y = velocity.y
@@ -535,7 +520,9 @@ func _physics_process(delta: float):
 		# On floor: small downward hold to maintain tracción (mirror live behavior)
 		velocity.y = -gravity * delta * 0.5
 
+
 	# Clamp de velocidad vertical
+	print (velocity.y)
 	velocity.y = clamp(velocity.y, -max_fall_speed, max_rise_speed)
 
 	if (attack1_node_name in playback.get_current_node()) or (attack2_node_name in playback.get_current_node()) or (bigattack_node_name in playback.get_current_node()):
@@ -555,7 +542,7 @@ func _physics_process(delta: float):
 	
 	# Salto
 	if jump_pressed and ((is_attacking != true) and (is_rolling != true)) and on_floor:
-		if AudioSystem: AudioSystem.play_sfx("res://assets/sfx/jump.wav")
+		# if AudioSystem: AudioSystem.play_sfx("res://assets/sfx/jump.wav")
 		velocity.y = jump_force
 		if inherit_vertical_platform_jump and platform_velocity.y > 0.0:
 			velocity.y += min(platform_velocity.y, max_platform_up_follow)
@@ -579,25 +566,24 @@ func _physics_process(delta: float):
 			cam_rig.process_camera_rotation(mouse_motion)
 
 		if movement_comp:
-			if InputState.mode == InputState.Mode.LIVE:
-				if InputState.mouse_delta.length() > 0.0:
-					InputState.is_strafing_mode_active = true
-					InputState.strafing_timer = 5.0
-				elif InputState.is_strafing_mode_active:
-					if InputState.mouse_delta.length() > 0.0:
-						InputState.strafing_timer = 5.0
-					else:
-						InputState.strafing_timer -= delta
-						if InputState.strafing_timer <= 0.0:
-							InputState.is_strafing_mode_active = false
-							strafe_cooldown = 0.5
+			if mouse_delta.length() > 0.0:
+				is_strafing_mode_active = true
+				strafing_timer = 5.0
+			elif is_strafing_mode_active:
+				if mouse_delta.length() > 0.0:
+					strafing_timer = 5.0
+				else:
+					strafing_timer -= delta
+					if strafing_timer <= 0.0:
+						is_strafing_mode_active = false
+						strafe_cooldown = 0.5
 			
-			movement_comp.strafe_mode = InputState.is_strafing_mode_active
+			movement_comp.strafe_mode = is_strafing_mode_active
 			
 			var turn_input_val = input_vector.x
 			var movement_input_vec = input_vector
 			var yaw_delta = 0.0
-			if InputState.is_strafing_mode_active:
+			if is_strafing_mode_active:
 				yaw_delta = 0.0
 			else:
 				turn_input_val = input_vector.x
@@ -625,6 +611,8 @@ func _physics_process(delta: float):
 			is_running = movement_comp.is_running
 		else:
 			is_walking = false; is_running = false; direction = Vector3.ZERO; horizontal_velocity = Vector3.ZERO
+	
+	mouse_delta = Vector2.ZERO  # Reset after use
 	
 	# Lógica de Plataformas (usando floats)
 	platform_velocity = platform_velocity.linear_interpolate(Vector3.ZERO, 6.0 * delta)
@@ -814,10 +802,9 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 		else:
 			print("[PlayerController] CameraRig or Yaw node not found, or it's not a script.")
 
-	# 3. Resetear input residual del mouse (si aplica, delegar a InputState o cámara)
-	if InputState.has_method("reset_mouse_motion"):
-		InputState.reset_mouse_motion()
-	print("[PlayerController] InputState.reset_mouse_motion() called")
+	# 3. Resetear input residual del mouse
+	mouse_delta = Vector2.ZERO
+	print("[PlayerController] mouse_delta reset to ZERO")
 
 	# 4. Resetear velocidades y estado de movimiento
 	if has_node("GroundRay"):
