@@ -522,7 +522,6 @@ func _physics_process(delta: float):
 
 
 	# Clamp de velocidad vertical
-	print (velocity.y)
 	velocity.y = clamp(velocity.y, -max_fall_speed, max_rise_speed)
 
 	if (attack1_node_name in playback.get_current_node()) or (attack2_node_name in playback.get_current_node()) or (bigattack_node_name in playback.get_current_node()):
