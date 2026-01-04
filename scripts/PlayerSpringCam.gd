@@ -1,5 +1,6 @@
-
 extends Spatial
+
+# Autoloads disabled for naive version
 
 export var is_playback := false # Flag para desactivar lógica de input/smoothing en modo replay
 
@@ -48,10 +49,9 @@ var cam
 
 var target_yaw := 0.0
 var target_pitch := 0.0
-onready var input_state = get_node("/root/InputState")
+var input_state = null
 var _yaw_initialized := false
 var _is_mouse_look_active := false
-var _pending_mouse_motion := Vector2.ZERO
 
 var player_id := 1
 var joypad_device := -1
@@ -75,31 +75,16 @@ func _ready():
 		springarm.spring_length = base_length
 		springarm.collision_mask = collision_mask
 
-	# Conectarse a la señal de MouseCapture para el cambio de captura del mouse
-	if MouseCapture:
-		MouseCapture.connect("capture_changed", self, "_on_capture_changed")
+	# MouseCapture disabled for naive version
 
-	# Conectarse a ReplayManager para cambios de modo
-	if ReplayManager:
-		ReplayManager.connect("mode_changed", self, "_on_replay_mode_changed")
-	
 	_update_mouse_look_active()
 	# If replay is already active when this node enters tree, go passive immediately
 	var started_in_playback := false
 	if input_state and input_state.mode == input_state.Mode.PLAYBACK:
 		started_in_playback = true
-	elif typeof(GameGlobals) != TYPE_NIL and GameGlobals and GameGlobals.is_replaying:
-		started_in_playback = true
-	elif ReplayManager:
-		# Evitar el uso de 'in' con objetos; comprobar de forma segura que las propiedades
-		# existen comprobando que su tipo no sea NIL al acceder (autocast a null devuelve TYPE_NIL).
-		if typeof(ReplayManager.mode) != TYPE_NIL and typeof(ReplayManager.ReplayMode) != TYPE_NIL:
-			if ReplayManager.mode == ReplayManager.ReplayMode.PLAYBACK:
-				started_in_playback = true
-	if started_in_playback:
-		set_is_playback(true)
-	# Ajuste de sensibilidad en modo replay para evitar duplicar la escala de los deltas grabados
-	var _game_globals = GameGlobals
+	
+	# Sensitivities not adjusted for naive version
+	var _game_globals = null
 	# NOTE: do not forcibly override exported sensitivities here - recorded deltas
 	# already contain the expected magnitude. Changing the exported values at
 	# runtime made playback almost immobile. Keep exported defaults.
@@ -111,20 +96,15 @@ func _on_replay_mode_changed(_new_mode: int):
 	_update_mouse_look_active()
 
 func _update_mouse_look_active():
-	var is_captured = MouseCapture.is_captured if MouseCapture else false
-	var _is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
-	# During playback, always allow mouse-look so recorded deltas are applied.
-	if _is_playback:
-		_is_mouse_look_active = true # 2. Asegurarse de que _is_mouse_look_active sea true en playback
-	else:
-		_is_mouse_look_active = is_captured
+	# For naive version without autoloads, always allow mouse look
+	_is_mouse_look_active = true
 
 func process_camera_rotation(_motion: Vector2):
 	"""Procesa el movimiento del mouse/touch para rotar la cámara desde InputState."""
 	# Asegurar que la cámara procese input durante playback aún si el estado local
 	# de captura de ratón no está activo (puede ser refrescado por ReplayManager).
 	var _is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
-	var gg = GameGlobals if GameGlobals else get_node_or_null("/root/GameGlobals")
+	var gg = null  # Autoloads disabled
 	if not _is_mouse_look_active and not _is_playback:
 		if gg and gg.replay_debug_mode:
 			print("[PlayerSpringCam][process_camera_rotation] SKIP: _is_mouse_look_active=false, not playback")
@@ -132,26 +112,15 @@ func process_camera_rotation(_motion: Vector2):
 	if gg and gg.replay_debug_mode:
 		print("[PlayerSpringCam][process_camera_rotation] ENTER: is_playback=", _is_playback, " _is_mouse_look_active=", _is_mouse_look_active, " _motion=", _motion)
 
-	# Prefer explicit motion provided by caller (ReplayPlayback), fallback a InputState
-	var motion = Vector2.ZERO
-	var motion_from_param := false
-	if _motion and _motion is Vector2 and _motion.length_squared() > 0:
-		motion = _motion
-		motion_from_param = true
-	else:
-		# Prefer any locally-captured pending mouse motion (from this camera's _input)
-		if _pending_mouse_motion.length_squared() > 0:
-			motion = _pending_mouse_motion
-			_pending_mouse_motion = Vector2.ZERO
-		else:
-			motion = input_state.peek_mouse_motion() if input_state and input_state.has_method("peek_mouse_motion") else input_state.get_mouse_delta()
-	gg = GameGlobals if GameGlobals else get_node_or_null("/root/GameGlobals")
-	if gg and gg.replay_debug_mode:
-		print("[PlayerSpringCam][process_camera_rotation] called. mode=", input_state.mode, " _is_mouse_look_active=", _is_mouse_look_active, " param_motion=", _motion, " input_mouse_delta=", motion)
+	# Prefer explicit motion provided by caller (ReplayPlayback)
+	var motion = _motion if (_motion and _motion is Vector2) else Vector2.ZERO
+	var motion_from_param = motion != Vector2.ZERO
+	gg = null
+	# Debug disabled for naive version
 
 	# Decide whether to ignore smoothing during playback to avoid double-interpolation jitter
 	var replay_manager = get_node_or_null("/root/ReplayManager")
-	is_playback = input_state and input_state.mode == input_state.Mode.PLAYBACK
+	is_playback = false  # No input_state, assume live
 	# If we're in playback mode, apply rotation instantly and update transforms
 	if is_playback:
 		# Apply rotation immediately without smoothing and force transforms to match recording
@@ -207,7 +176,7 @@ func _apply_rotation(motion: Vector2, _delta: float, ignore_smoothing: bool) -> 
 			pitch.rotation.x = target_pitch # Asignación directa
 
 	# Durante playback siempre imprimir estado para diagnóstico (no depender de debug_enabled)
-	var is_playback_mode = input_state and input_state.mode == input_state.Mode.PLAYBACK
+	var is_playback_mode = false  # No input_state
 	if is_playback_mode:
 		var cam_cur = false
 		if cam:
@@ -215,7 +184,7 @@ func _apply_rotation(motion: Vector2, _delta: float, ignore_smoothing: bool) -> 
 				cam_cur = cam.current
 			elif cam.has_method("is_current"):
 				cam_cur = cam.is_current()
-		if GameGlobals and GameGlobals.debug_mode:
+		if false:
 			print("[PlayerSpringCam][_apply_rotation][PLAYBACK] POST_APPLY yaw=", (yaw.rotation.y if yaw else "nil"), " pitch=", (pitch.rotation.x if pitch else "nil"), " cam_current=", cam_cur)
 
 func force_rotate_for_playback(motion: Vector2):
@@ -233,14 +202,6 @@ func _physics_process(delta):
 
 	# --- Lógica de input/smoothing solo si NO es playback (Modo LIVE) ---
 	_update_mouse_look_active()
-
-	var motion = Vector2.ZERO
-	if _is_mouse_look_active:
-		# En modo LIVE, leer el delta del mouse desde InputState.
-		motion = input_state.get_mouse_delta()
-
-	if motion.length_squared() > 0.0:
-		_apply_rotation(motion, delta, false)
 
 	# Smooth yaw/pitch (solo para modo LIVE)
 	if yaw:
@@ -342,10 +303,4 @@ func update_camera_transform() -> void:
 	if pitch:
 		pitch.rotation.x = target_pitch
 
-func _unhandled_input(event: InputEvent) -> void:
-	# Ignore real mouse input while in playback mode to avoid conflicts with recorded camera state
-	if event is InputEventMouseMotion:
-		if is_playback:
-			return
-		# En modo LIVE, capturar movimiento real del mouse para controlar la cámara
-		_pending_mouse_motion += event.relative
+
