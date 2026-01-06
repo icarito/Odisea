@@ -67,11 +67,32 @@ var external_input_provided := false
 
 var jump_logic: PlayerJumpV2
 var movement_logic: PlayerMovementV2
+var _created_jump_logic := false
+var _created_movement_logic := false
 
 func _ready():
 	input_provider = InputProviderV2.new()
-	jump_logic = PlayerJumpV2.new()
-	movement_logic = PlayerMovementV2.new()
+
+	# Usar componentes existentes en la escena si están presentes, para evitar duplicados
+	if has_node("PlayerJumpV2"):
+		jump_logic = get_node("PlayerJumpV2")
+		_created_jump_logic = false
+	else:
+		jump_logic = PlayerJumpV2.new()
+		_created_jump_logic = true
+		if jump_logic and jump_logic is Node:
+			jump_logic.name = "PlayerJumpV2"
+			add_child(jump_logic)
+
+	if has_node("PlayerMovementV2"):
+		movement_logic = get_node("PlayerMovementV2")
+		_created_movement_logic = false
+	else:
+		movement_logic = PlayerMovementV2.new()
+		_created_movement_logic = true
+		if movement_logic and movement_logic is Node:
+			movement_logic.name = "PlayerMovementV2"
+			add_child(movement_logic)
 	# Ya no necesitamos copiar variables, los componentes tienen sus propios exports
 
 const DEFAULT_BASIS = Basis.IDENTITY
@@ -160,3 +181,12 @@ func get_wish_direction() -> Vector3:
 func _process(_delta):
 	if Engine.get_frames_per_second() < 20: # Si baja de 60fps bruscamente
 		print("[PERF] Caída de frames detectada! Velocity: ", velocity, " OnFloor: ", is_on_floor())
+
+
+func _exit_tree() -> void:
+	# Si el controlador creó los componentes dinámicamente, liberarlos explícitamente
+	if _created_jump_logic and jump_logic and jump_logic.is_inside_tree():
+		jump_logic.queue_free()
+
+	if _created_movement_logic and movement_logic and movement_logic.is_inside_tree():
+		movement_logic.queue_free()
