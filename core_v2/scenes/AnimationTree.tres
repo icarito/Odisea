@@ -13,11 +13,12 @@ animation = "Run"
 blend_point_0/node = SubResource( 103 )
 blend_point_0/pos = 0.0
 blend_point_1/node = SubResource( 104 )
-blend_point_1/pos = 2.5
+blend_point_1/pos = 2.0
 blend_point_2/node = SubResource( 105 )
 blend_point_2/pos = 7.5
 min_space = 0.0
 max_space = 9.0
+snap = 0.5
 
 [sub_resource type="AnimationNodeAnimation" id=189]
 animation = "Jump_Land"
