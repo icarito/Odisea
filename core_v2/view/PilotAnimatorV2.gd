@@ -27,9 +27,9 @@ export var rotation_lerp_speed: float = 10.0
 export var jump_buffer_duration: float = 0.18
 
 # --- NODES ---
-onready var controller = get_parent().get_parent() # Sube dos niveles: Pivot -> Visual -> Pilot
-onready var animation_tree: AnimationTree = $AnimationTree # AnimationTree es ahora hijo del Pivot
-var anim_player: AnimationPlayer
+var controller: Node = null
+onready var animation_tree: AnimationTree = get_node_or_null("AnimationTree")
+var anim_player: AnimationPlayer = null
 
 # --- STATE ---
 # Almacena la velocidad suavizada para el blend tree de animación.
@@ -43,29 +43,30 @@ var jumped_buffer_time: float = 0.0
 
 # --- LIFECYCLE ---
 func _ready() -> void:
+	# Asignar controller de forma segura (dos niveles arriba: Pivot -> Visual -> Pilot)
+	controller = get_parent().get_parent() if get_parent() and get_parent().get_parent() else null
 	# Validaciones para asegurar la correcta configuración de la escena.
 	if not controller or not controller.has_method("get_wish_direction"):
-		push_error("PilotAnimatorV2 debe ser hijo de un PlayerControllerV2 válido.")
-		set_process(false)
-		return
-		
+		 push_error("PilotAnimatorV2 debe ser hijo de un PlayerControllerV2 válido.")
+		 set_process(false)
+		 return
+		 
 	if not animation_tree:
-		push_error("No se encontró un nodo AnimationTree como hijo del Pivot.")
-		set_process(false)
-		return
+		 push_error("No se encontró un nodo AnimationTree como hijo del Pivot.")
+		 set_process(false)
+		 return
 
 	# Conectar la señal de salto para manejar la animación de forma reactiva.
 	controller.connect("jumped", self, "_on_controller_jumped")
 
 	# Intentar obtener AnimationPlayer si existe
-	if has_node("AnimationPlayer"):
-		anim_player = $AnimationPlayer
-
-	var playback = animation_tree.get(PARAM_PLAYBACK)
+	anim_player = get_node_or_null("AnimationPlayer")
+ 
+	var playback = animation_tree.get(PARAM_PLAYBACK) if animation_tree else null
 	if playback:
 		playback.start("Grounded")
-	
-	animation_tree.set(PARAM_PLAYBACK_ACTIVE, true)
+	# activar el AnimationTree de forma segura
+	animation_tree.active = true
 	
 	is_initialized = true
 
