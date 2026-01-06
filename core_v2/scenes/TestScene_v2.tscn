@@ -65,4 +65,4 @@ material = SubResource( 3 )
 environment = SubResource( 2 )
 
 [node name="Pilot" parent="." instance=ExtResource( 3 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.447498, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.949169, 0 )

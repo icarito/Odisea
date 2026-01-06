@@ -10,8 +10,11 @@ const PARAM_CONDITIONS_IS_FALLING = "parameters/conditions/is_falling"
 const PARAM_CONDITIONS_IS_JUMPING = "parameters/conditions/is_jumping"
 const PARAM_CONDITIONS_IS_FLOATING = "parameters/conditions/is_floating"
 const PARAM_CONDITIONS_IS_FALLING_FAST = "parameters/conditions/is_falling_fast"
+const PARAM_CONDITIONS_LAND_SOFT = "parameters/conditions/land_soft"
+const PARAM_CONDITIONS_LAND_HARD = "parameters/conditions/land_hard"
 const PARAM_GROUNDED_BLEND_POSITION = "parameters/Grounded/blend_position"
 const PARAM_GROUNDED_JUMP_ACTIVE = "parameters/Grounded/Jump/active"
+const PARAM_LAND_TRANSITION_CURRENT = "parameters/Land/Transition/current"
 const PARAM_PLAYBACK_ACTIVE = "parameters/playback/active"
 
 # --- EXPORTS ---
@@ -23,6 +26,7 @@ export var rotation_lerp_speed: float = 10.0
 # --- NODES ---
 onready var controller = get_parent().get_parent() # Sube dos niveles: Pivot -> Visual -> Pilot
 onready var animation_tree: AnimationTree = $AnimationTree # AnimationTree es ahora hijo del Pivot
+onready var anim_player : AnimationPlayer = $AnimationPlayer
 
 # --- STATE ---
 # Almacena la velocidad suavizada para el blend tree de animación.
@@ -31,6 +35,7 @@ var is_initialized := false
 var was_on_floor_last_frame: bool = true
 var time_since_jump: float = 0.0
 var time_since_input: float = 0.0
+var last_air_vertical_speed: float = 0.0 # Guarda la velocidad vertical del último frame en el aire
 
 # --- LIFECYCLE ---
 func _ready() -> void:
@@ -73,6 +78,10 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	var is_on_floor: bool = controller.is_on_floor()
 	var wish_direction: Vector3 = controller.get_wish_direction()
 
+	# Guardar la velocidad vertical mientras estamos en el aire para usarla al aterrizar
+	if not is_on_floor:
+		last_air_vertical_speed = p_current_velocity.y
+
 	# Lógica de tiempo para flotación
 	if is_on_floor:
 		time_since_jump = 0.0
@@ -109,30 +118,33 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 			rotation.y = target_angle
 
 	# 3. APLICACIÓN DE ESTADO AL ANIMATIONTREE
-	update_animation_parameters(is_on_floor, p_current_velocity, is_floating)
+	update_animation_parameters(p_current_velocity, is_on_floor, controller.get_wish_direction().length())
 
 	was_on_floor_last_frame = is_on_floor
 
 
-func update_animation_parameters(is_on_floor: bool, velocity: Vector3, is_floating: bool) -> void:
-	"""Actualiza los parámetros del AnimationTree basados en el estado del controlador."""
+func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_length: float) -> void:
+	if not animation_tree:
+		return
 
-	# Actualizar condiciones de piso
+	# Actualizar condiciones básicas
 	animation_tree.set(PARAM_CONDITIONS_ON_FLOOR, is_on_floor)
 	animation_tree.set(PARAM_CONDITIONS_NOT_ON_FLOOR, not is_on_floor)
-	
-	# is_falling solo se activa cuando está cayendo significativamente
-	var is_falling = velocity.y < -1.0
+
+	# Estados de salto/caída usando la velocidad registrada en el último frame en aire
+	var is_falling: bool = last_air_vertical_speed < -1.0
+	var is_floating: bool = last_air_vertical_speed >= -1.0 and last_air_vertical_speed < 0.0
+
 	animation_tree.set(PARAM_CONDITIONS_IS_FALLING, is_falling)
-	
-	if is_on_floor:
-		# Forzar is_jumping a false inmediatamente para limpiar el buffer del AnimationTree y evitar que el personaje quiera saltar de nuevo al aterrizar.
-		animation_tree.set(PARAM_CONDITIONS_IS_JUMPING, false)
-	else:
-		# is_jumping solo true si velocity.y > 1.0 y no está en el suelo (trigger de inicio).
-		animation_tree.set(PARAM_CONDITIONS_IS_JUMPING, velocity.y > 1.0)
-	
 	animation_tree.set(PARAM_CONDITIONS_IS_FLOATING, is_floating)
+
+	# Emitir land_soft / land_hard SOLO en el frame de aterrizaje (edge detect)
+	var landed_now: bool = is_on_floor and not was_on_floor_last_frame
+	var land_soft: bool = landed_now and last_air_vertical_speed >= -5.0
+	var land_hard: bool = landed_now and last_air_vertical_speed < -5.0
+
+	animation_tree.set(PARAM_CONDITIONS_LAND_SOFT, land_soft)
+	animation_tree.set(PARAM_CONDITIONS_LAND_HARD, land_hard)
 
 	# Parámetro para la mezcla de locomoción (Idle/Walk/Run).
 	# Usa la magnitud de la velocidad horizontal suavizada.
@@ -145,3 +157,5 @@ func _on_controller_jumped() -> void:
 	# Usar ONE_SHOT_REQUEST_FIRE es la forma correcta y determinista de activar animaciones OneShot.
 	# NO NO NO NO ES ACTIVE 1
 	animation_tree.set(PARAM_GROUNDED_JUMP_ACTIVE, 1) ### NO TOCAR
+
+
