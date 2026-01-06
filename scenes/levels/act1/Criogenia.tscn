@@ -1,9 +1,7 @@
-[gd_scene load_steps=18 format=2]
+[gd_scene load_steps=14 format=2]
 
 [ext_resource path="res://scenes/common/Odisea.tscn" type="PackedScene" id=1]
 [ext_resource path="res://scenes/common/KillZone.tscn" type="PackedScene" id=2]
-[ext_resource path="res://scripts/LevelBGM.gd" type="Script" id=3]
-[ext_resource path="res://scripts/SceneSpawn.gd" type="Script" id=4]
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=5]
 [ext_resource path="res://scenes/common/MovingPlatform.tscn" type="PackedScene" id=6]
 [ext_resource path="res://scenes/reference/InteriorLab.tscn" type="PackedScene" id=7]
@@ -12,9 +10,7 @@
 [ext_resource path="res://data/Curves/Linear.tres" type="Curve" id=10]
 [ext_resource path="res://assets/Rooms/Command center.obj" type="ArrayMesh" id=11]
 [ext_resource path="res://scenes/common/BaseFloor.tscn" type="PackedScene" id=12]
-[ext_resource path="res://scenes/ui/TouchControls.tscn" type="PackedScene" id=13]
-[ext_resource path="res://scenes/ui/ReplayRecordingOverlay.tscn" type="PackedScene" id=14]
-[ext_resource path="res://scenes/ui/ReplayManagementPanel.tscn" type="PackedScene" id=15]
+[ext_resource path="res://players/elias/Pilot.tscn" type="PackedScene" id=14]
 
 [sub_resource type="ArrayMesh" id=1]
 surfaces/0 = {
@@ -34,11 +30,6 @@ surfaces/0 = {
 data = PoolVector3Array( 1, -2.4344, 0, 0.7071, -2.4344, 0.7071, 0.7071, 2.4344, 0.7071, 0.7071, 2.4344, 0.7071, 1, 2.4344, 0, 1, -2.4344, 0, 0.7071, -2.4344, 0.7071, 1, -2.4344, 0, 0, -2.4344, 0, 1, 2.4344, 0, 0.7071, 2.4344, 0.7071, 0, 2.4344, 0, 0.7071, -2.4344, 0.7071, 0, -2.4344, 1, 0, 2.4344, 1, 0, 2.4344, 1, 0.7071, 2.4344, 0.7071, 0.7071, -2.4344, 0.7071, 0, -2.4344, 1, 0.7071, -2.4344, 0.7071, 0, -2.4344, 0, 0.7071, 2.4344, 0.7071, 0, 2.4344, 1, 0, 2.4344, 0, 0, -2.4344, 1, -0.7071, -2.4344, 0.7071, -0.7071, 2.4344, 0.7071, -0.7071, 2.4344, 0.7071, 0, 2.4344, 1, 0, -2.4344, 1, -0.7071, -2.4344, 0.7071, 0, -2.4344, 1, 0, -2.4344, 0, 0, 2.4344, 1, -0.7071, 2.4344, 0.7071, 0, 2.4344, 0, -0.7071, -2.4344, 0.7071, -1, -2.4344, 0, -1, 2.4344, 0, -1, 2.4344, 0, -0.7071, 2.4344, 0.7071, -0.7071, -2.4344, 0.7071, -1, -2.4344, 0, -0.7071, -2.4344, 0.7071, 0, -2.4344, 0, -0.7071, 2.4344, 0.7071, -1, 2.4344, 0, 0, 2.4344, 0, -1, -2.4344, 0, -0.7071, -2.4344, -0.7071, -0.7071, 2.4344, -0.7071, -0.7071, 2.4344, -0.7071, -1, 2.4344, 0, -1, -2.4344, 0, -0.7071, -2.4344, -0.7071, -1, -2.4344, 0, 0, -2.4344, 0, -1, 2.4344, 0, -0.7071, 2.4344, -0.7071, 0, 2.4344, 0, -0.7071, -2.4344, -0.7071, 0, -2.4344, -1, 0, 2.4344, -1, 0, 2.4344, -1, -0.7071, 2.4344, -0.7071, -0.7071, -2.4344, -0.7071, 0, -2.4344, -1, -0.7071, -2.4344, -0.7071, 0, -2.4344, 0, -0.7071, 2.4344, -0.7071, 0, 2.4344, -1, 0, 2.4344, 0, 0, -2.4344, -1, 0.7071, -2.4344, -0.7071, 0.7071, 2.4344, -0.7071, 0.7071, 2.4344, -0.7071, 0, 2.4344, -1, 0, -2.4344, -1, 0.7071, -2.4344, -0.7071, 0, -2.4344, -1, 0, -2.4344, 0, 0, 2.4344, -1, 0.7071, 2.4344, -0.7071, 0, 2.4344, 0, 0.7071, -2.4344, -0.7071, 1, -2.4344, 0, 1, 2.4344, 0, 1, 2.4344, 0, 0.7071, 2.4344, -0.7071, 0.7071, -2.4344, -0.7071, 1, -2.4344, 0, 0.7071, -2.4344, -0.7071, 0, -2.4344, 0, 0.7071, 2.4344, -0.7071, 1, 2.4344, 0, 0, 2.4344, 0 )
 
 [node name="Act1_Criogenia" type="Spatial"]
-script = ExtResource( 4 )
-
-[node name="LevelBGM" type="Node" parent="."]
-script = ExtResource( 3 )
-track_path = "res://assets/music/Override.mp3"
 
 [node name="SDE Odisea" parent="." instance=ExtResource( 1 )]
 
@@ -150,8 +141,6 @@ skeleton = NodePath("")
 [node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/Criogenics Lab/Middle Section/Pilar4/StaticBody"]
 shape = SubResource( 5 )
 
-[node name="TouchControls" parent="." instance=ExtResource( 13 )]
-
 [node name="InteriorWide" parent="." instance=ExtResource( 7 )]
 
 [node name="SpawnPortal" type="CSGBox" parent="."]
@@ -168,11 +157,10 @@ material = ExtResource( 5 )
 [node name="SpawnPoint" type="Spatial" parent="SpawnPortal"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -3 )
 
+[node name="Pilot" parent="SpawnPortal/SpawnPoint" instance=ExtResource( 14 )]
+transform = Transform( 1, 0, 0, -1.13886e-22, 1, 0, 0, 0, 1, 0, 0, 0 )
+
 [node name="SpawnPoint2" type="Spatial" parent="SpawnPortal/SpawnPoint"]
 transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 6 )
-
-[node name="ReplayRecordingOverlay" parent="." instance=ExtResource( 14 )]
-
-[node name="ReplayManagementPanel" parent="." instance=ExtResource( 15 )]
 
 [editable path="SDE Odisea/CommandFloor/Conveyor3"]

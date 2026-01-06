@@ -143,7 +143,9 @@ export(float, 0.0, 1.0, 0.01) var air_control_multiplier = 0.2
 export var cam_yaw_offset = 0.0 # radianes para compensar desfase de cámara
 export var swap_input_axes = false # intercambia X/Z si el mapeo queda 90° corrido
 export var invert_forward = false # invierte el eje Z si el mesh mira -Z
-export var mesh_yaw_offset = PI/4.0 # compensación fija si el mesh tiene un desfase (p.ej. 45°)
+# El offset del mesh ahora se calcula dinámicamente a partir de la rotación local
+# del `player_mesh` para evitar offsets por escena hardcodeados.
+var mesh_local_yaw_offset = 0.0
 export var debug_yaw = false # imprime YawAlign/Dir cada frame para diagnóstico
 export(float, 0.0, 2.0, 0.01) var debug_interval = 0.4 # segundos entre trazas (unificado)
 var debug_timer = Timer.new()
@@ -165,6 +167,45 @@ export var startup_floating_block_time = 0.6
 var _debug_input_last = 0.0
 
 var _touch_camera_connected := false
+
+
+func _wrap_angle(a: float) -> float:
+	var v = fmod(a + PI, TAU)
+	if v < 0:
+		v += TAU
+	return v - PI
+
+
+func _normalize_mesh_orientation() -> void:
+	"""Force mesh to face +Z world direction by setting local yaw offset to -body_yaw.
+	This assumes the GLB model is oriented facing +Z in its local space.
+	"""
+	if not is_instance_valid(player_mesh):
+		mesh_local_yaw_offset = 0.0
+		return
+	var body_yaw = global_transform.basis.get_euler().y
+	mesh_local_yaw_offset = -body_yaw
+	
+	# Debug prints
+	print("Body yaw: ", body_yaw)
+	print("Mesh local yaw offset: ", mesh_local_yaw_offset)
+
+
+func _find_visual_node(root: Node) -> Node:
+	if not is_instance_valid(root):
+		return null
+	# BFS search for first MeshInstance or any node with a mesh/skeleton indicating visual
+	var q = [root]
+	while q.size() > 0:
+		var n = q.pop_front()
+		if n is MeshInstance:
+			return n
+		# Some GLTF imports use different node types; check for presence of a mesh property
+		if n.has_method("get_mesh") and n.get("mesh") != null:
+			return n
+		for c in n.get_children():
+			q.append(c)
+	return null
 
 var direction_fixed: Dictionary = FixedVec3.zero()
 var direction = Vector3.ZERO
@@ -215,6 +256,17 @@ func _ready():
 	initial_direction = initial_direction.rotated(Vector3.UP, yaw_angle)
 	if movement_comp:
 		movement_comp.direction = initial_direction
+
+	# Calcular y almacenar el offset local del mesh respecto al cuerpo.
+	# Esto permite que el controlador funcione igual en escenas con distinto
+	# parent transform (SpawnPoint, SpawnPortal, etc.) sin exportar offsets.
+	if player_mesh:
+		# Normalizar la orientación del mesh respecto al cuerpo para
+		# soportar escenas con distintos parent transforms (SpawnPortal, etc.).
+		_normalize_mesh_orientation()
+		# Aplicar la rotación local calculada para alinear la malla inmediatamente
+		player_mesh.rotation.y = mesh_local_yaw_offset
+
 	if ground_ray:
 		ground_ray.enabled = true
 		ground_ray.add_exception(self)
@@ -288,7 +340,8 @@ func _input(event):
 		if cam_rig:
 			direction = cam_rig.get_node("Yaw").global_transform.basis.z
 	if event.is_action_released("aim"):
-		player_mesh.rotation.y = rotation.y + mesh_yaw_offset
+		# Restaurar rotación local del mesh (no sumar la rotación del cuerpo)
+		player_mesh.rotation.y = mesh_local_yaw_offset
 
 func _process(_delta):
 	if has_node("FPSLabel"):
@@ -662,7 +715,7 @@ func _physics_process(delta: float):
 
 	# Rotar el mesh
 	if direction != Vector3.ZERO:
-		var target_y = atan2(direction.x, direction.z) + mesh_yaw_offset
+		var target_y = atan2(direction.x, direction.z) + mesh_local_yaw_offset
 		var parent_y = rotation.y
 		var local_target_y = target_y - parent_y
 		player_mesh.rotation.y = lerp_angle(player_mesh.rotation.y, local_target_y, delta * angular_acceleration)
@@ -768,10 +821,10 @@ func reset_state_for_respawn(new_transform: Transform) -> void:
 	# 1.5. Resetear rotación del mesh para que mire forward
 	print("[PlayerController] player_mesh: ", player_mesh)
 	if player_mesh:
-		# La rotación del cuerpo (KinematicBody) ya se establece con global_transform.
-		# El mesh, al ser un nodo hijo, solo necesita su offset de rotación local.
-		player_mesh.rotation.y = mesh_yaw_offset
-		print("[PlayerController] player_mesh.rotation.y set to offset: ", player_mesh.rotation.y)
+		# Recalcular y aplicar offset del mesh después de teleportar
+		_normalize_mesh_orientation()
+		player_mesh.rotation.y = mesh_local_yaw_offset
+		print("[PlayerController] player_mesh.rotation.y set to local offset: ", player_mesh.rotation.y)
 
 	# 2. Resetear orientación de la cámara
 	var cam_rig = get_node_or_null("CameraRig")
