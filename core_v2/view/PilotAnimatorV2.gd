@@ -5,6 +5,7 @@ class_name PilotAnimatorV2
 # --- PARAMETER PATHS (CACHED STRINGS) ---
 const PARAM_PLAYBACK = "parameters/playback"
 const PARAM_CONDITIONS_ON_FLOOR = "parameters/conditions/on_floor"
+const PARAM_CONDITIONS_NOT_ON_FLOOR = "parameters/conditions/!on_floor"
 const PARAM_CONDITIONS_IS_FALLING = "parameters/conditions/is_falling"
 const PARAM_CONDITIONS_IS_JUMPING = "parameters/conditions/is_jumping"
 const PARAM_CONDITIONS_IS_FLOATING = "parameters/conditions/is_floating"
@@ -116,8 +117,9 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 func update_animation_parameters(is_on_floor: bool, velocity: Vector3, is_floating: bool) -> void:
 	"""Actualiza los parámetros del AnimationTree basados en el estado del controlador."""
 
-	# Solo actualizar 3 condiciones base: on_floor, is_jumping (trigger de inicio), is_floating (parámetro interno de In_Air).
+	# Actualizar condiciones de piso
 	animation_tree.set(PARAM_CONDITIONS_ON_FLOOR, is_on_floor)
+	animation_tree.set(PARAM_CONDITIONS_NOT_ON_FLOOR, not is_on_floor)
 	
 	# is_falling solo se activa cuando está cayendo significativamente
 	var is_falling = velocity.y < -1.0
