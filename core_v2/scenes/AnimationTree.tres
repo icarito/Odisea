@@ -52,16 +52,13 @@ animation = "Jump_Start"
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=115]
 advance_condition = "is_jumping"
-xfade_time = 0.2
-
-[sub_resource type="AnimationNodeStateMachineTransition" id=134]
-advance_condition = "!on_floor"
-xfade_time = 0.2
+xfade_time = 0.25
+priority = 2
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=188]
 switch_mode = 2
 auto_advance = true
-xfade_time = 0.2
+xfade_time = 0.3
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=192]
 advance_condition = "land_hard"
@@ -69,7 +66,7 @@ xfade_time = 0.2
 priority = 2
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=194]
-switch_mode = 2
+switch_mode = 1
 auto_advance = true
 xfade_time = 0.2
 
@@ -78,14 +75,20 @@ advance_condition = "on_floor"
 xfade_time = 0.1
 priority = 5
 
+[sub_resource type="AnimationNodeStateMachineTransition" id=196]
+switch_mode = 1
+advance_condition = "!on_floor"
+xfade_time = 0.25
+priority = 5
+
 [resource]
 states/Grounded/node = SubResource( 106 )
-states/Grounded/position = Vector2( 342.84, 107 )
+states/Grounded/position = Vector2( 360.44, 104.6 )
 states/HardLand/node = SubResource( 189 )
 states/HardLand/position = Vector2( 679, 274.241 )
 states/InAir/node = SubResource( 122 )
 states/InAir/position = Vector2( 352.6, 386.203 )
 states/Jump/node = SubResource( 111 )
 states/Jump/position = Vector2( 153.4, 242.808 )
-transitions = [ "Grounded", "Jump", SubResource( 115 ), "Grounded", "InAir", SubResource( 134 ), "Jump", "InAir", SubResource( 188 ), "InAir", "HardLand", SubResource( 192 ), "HardLand", "Grounded", SubResource( 194 ), "InAir", "Grounded", SubResource( 195 ) ]
+transitions = [ "Grounded", "Jump", SubResource( 115 ), "Jump", "InAir", SubResource( 188 ), "InAir", "HardLand", SubResource( 192 ), "HardLand", "Grounded", SubResource( 194 ), "InAir", "Grounded", SubResource( 195 ), "Grounded", "InAir", SubResource( 196 ) ]
 graph_offset = Vector2( -29, 42.881 )
