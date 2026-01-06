@@ -119,6 +119,10 @@ func update_animation_parameters(is_on_floor: bool, velocity: Vector3, is_floati
 	# Solo actualizar 3 condiciones base: on_floor, is_jumping (trigger de inicio), is_floating (parámetro interno de In_Air).
 	animation_tree.set(PARAM_CONDITIONS_ON_FLOOR, is_on_floor)
 	
+	# is_falling solo se activa cuando está cayendo significativamente
+	var is_falling = velocity.y < -1.0
+	animation_tree.set(PARAM_CONDITIONS_IS_FALLING, is_falling)
+	
 	if is_on_floor:
 		# Forzar is_jumping a false inmediatamente para limpiar el buffer del AnimationTree y evitar que el personaje quiera saltar de nuevo al aterrizar.
 		animation_tree.set(PARAM_CONDITIONS_IS_JUMPING, false)

@@ -2,6 +2,9 @@ extends Node
 
 # PlayerJumpV2.gd - Componente para lógica de salto con coyote time y jump buffer
 
+export(float) var jump_force := 8.0
+export(float) var gravity := -9.8
+
 const COYOTE_TIME := 0.15  # ~120-150 ms
 const JUMP_BUFFER_TIME := 0.1  # ~100-120 ms
 
@@ -28,3 +31,9 @@ func can_jump(on_floor: bool) -> bool:
 func consume_jump() -> void:
 	coyote_timer = 0.0
 	jump_buffer_timer = 0.0
+
+func get_jump_force() -> float:
+	return jump_force
+
+func get_gravity() -> float:
+	return gravity

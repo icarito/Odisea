@@ -16829,8 +16829,6 @@ tracks/38/keys = PoolRealArray( 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1.33333, 1, 
 [node name="Pilot" type="KinematicBody"]
 collision_mask = 254
 script = ExtResource( 2 )
-move_speed = 2.5
-run_speed_multiplier = 3.0
 
 [node name="Visual" type="Spatial" parent="."]
 
@@ -17185,3 +17183,4 @@ script = ExtResource( 6 )
 acceleration = 5.0
 friction = 50.0
 move_speed = 3.0
+stop_threshold = 0.2

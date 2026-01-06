@@ -9,37 +9,9 @@ const UP := Vector3.UP
 
 
 # --- EXPORTED TUNING ---
-export(float) var move_speed := 5.0 setget set_move_speed, get_move_speed
-export(float) var run_speed_multiplier := 1.8 setget set_run_speed_multiplier, get_run_speed_multiplier # Correr será un 80% más rápido
-export(float) var gravity := -9.8 setget set_gravity, get_gravity
-export(float) var jump_force := 8.0 setget set_jump_force, get_jump_force
 export(float) var mouse_sensitivity := 0.005 setget set_mouse_sensitivity, get_mouse_sensitivity
 
 # Métodos de acceso para export (opcional, para Inspector)
-func set_move_speed(v):
-	if v == null:
-		move_speed = 5.0
-	else:
-		move_speed = v
-func get_move_speed(): return move_speed
-func set_run_speed_multiplier(v):
-	if v == null:
-		run_speed_multiplier = 1.8
-	else:
-		run_speed_multiplier = v
-func get_run_speed_multiplier(): return run_speed_multiplier
-func set_gravity(v):
-	if v == null:
-		gravity = -9.8
-	else:
-		gravity = v
-func get_gravity(): return gravity
-func set_jump_force(v):
-	if v == null:
-		jump_force = 8.0
-	else:
-		jump_force = v
-func get_jump_force(): return jump_force
 func set_mouse_sensitivity(v):
 	if v == null:
 		mouse_sensitivity = 0.005
@@ -100,8 +72,7 @@ func _ready():
 	input_provider = InputProviderV2.new()
 	jump_logic = PlayerJumpV2.new()
 	movement_logic = PlayerMovementV2.new()
-	movement_logic.move_speed = move_speed
-	movement_logic.run_speed_multiplier = run_speed_multiplier
+	# Ya no necesitamos copiar variables, los componentes tienen sus propios exports
 
 const DEFAULT_BASIS = Basis.IDENTITY
 
@@ -147,7 +118,7 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	# 2. Delegar movimiento horizontal
 	var basis = get_camera_basis()
-	movement_logic.process_movement(dt, input.move_vec, basis, input.sprint)
+	movement_logic.process_movement(dt, input.move_vec, basis, input.sprint, is_on_floor())
 	var h_vel = movement_logic.get_horizontal_velocity()
 	
 	velocity.x = h_vel.x
@@ -155,11 +126,11 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	# 3. Aplicar Salto o Gravedad
 	if jump_logic.can_jump(is_on_floor()):
-		velocity.y = jump_force
+		velocity.y = jump_logic.get_jump_force()
 		jump_logic.consume_jump()
 		emit_signal("jumped")
 	else:
-		velocity.y += gravity * dt
+		velocity.y += jump_logic.get_gravity() * dt
 
 	# 4. Movimiento Final y Animación
 	velocity = move_and_slide(velocity, UP)
