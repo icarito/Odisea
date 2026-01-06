@@ -29,7 +29,7 @@ export var jump_buffer_duration: float = 0.18
 # --- NODES ---
 onready var controller = get_parent().get_parent() # Sube dos niveles: Pivot -> Visual -> Pilot
 onready var animation_tree: AnimationTree = $AnimationTree # AnimationTree es ahora hijo del Pivot
-onready var anim_player : AnimationPlayer = $AnimationPlayer
+var anim_player: AnimationPlayer
 
 # --- STATE ---
 # Almacena la velocidad suavizada para el blend tree de animación.
@@ -56,6 +56,10 @@ func _ready() -> void:
 
 	# Conectar la señal de salto para manejar la animación de forma reactiva.
 	controller.connect("jumped", self, "_on_controller_jumped")
+
+	# Intentar obtener AnimationPlayer si existe
+	if has_node("AnimationPlayer"):
+		anim_player = $AnimationPlayer
 
 	var playback = animation_tree.get(PARAM_PLAYBACK)
 	if playback:
@@ -100,9 +104,6 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 
 	if controller.get_wish_direction().length() > 0.1:
 		time_since_input = 0.0
-
-	# Cálculo de is_floating
-	var is_floating = (!is_on_floor) and (time_since_jump > 0.4 or (abs(p_current_velocity.y) < 1.5 and time_since_input > 0.2))
 
 	# 1. SUAVIZADO DE VELOCIDAD PARA ANIMACIÓN
 	# Usamos la velocidad del controlador para el movimiento, pero una versión
