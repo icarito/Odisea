@@ -12,6 +12,7 @@ const PARAM_CONDITIONS_IS_FLOATING = "parameters/conditions/is_floating"
 const PARAM_CONDITIONS_IS_FALLING_FAST = "parameters/conditions/is_falling_fast"
 const PARAM_CONDITIONS_LAND_SOFT = "parameters/conditions/land_soft"
 const PARAM_CONDITIONS_LAND_HARD = "parameters/conditions/land_hard"
+const PARAM_CONDITIONS_USE_JUMP_LOOP = "parameters/conditions/use_jump_loop"
 const PARAM_GROUNDED_BLEND_POSITION = "parameters/Grounded/blend_position"
 const PARAM_GROUNDED_JUMP_ACTIVE = "parameters/Grounded/Jump/active"
 const PARAM_LAND_TRANSITION_CURRENT = "parameters/Land/Transition/current"
@@ -22,6 +23,8 @@ const PARAM_PLAYBACK_ACTIVE = "parameters/playback/active"
 export var velocity_lerp_speed: float = 5.0
 # Velocidad de suavizado para la rotación visual del personaje.
 export var rotation_lerp_speed: float = 10.0
+# Duración en segundos durante la cual consideramos que el salto acaba de iniciarse (buffer)
+export var jump_buffer_duration: float = 0.18
 
 # --- NODES ---
 onready var controller = get_parent().get_parent() # Sube dos niveles: Pivot -> Visual -> Pilot
@@ -36,6 +39,7 @@ var was_on_floor_last_frame: bool = true
 var time_since_jump: float = 0.0
 var time_since_input: float = 0.0
 var last_air_vertical_speed: float = 0.0 # Guarda la velocidad vertical del último frame en el aire
+var jumped_buffer_time: float = 0.0
 
 # --- LIFECYCLE ---
 func _ready() -> void:
@@ -90,6 +94,10 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 		time_since_jump += dt
 		time_since_input += dt
 
+	# Actualizar buffer de salto (permite que is_jumping sea true por unos ms)
+	if jumped_buffer_time > 0.0:
+		jumped_buffer_time = max(0.0, jumped_buffer_time - dt)
+
 	if controller.get_wish_direction().length() > 0.1:
 		time_since_input = 0.0
 
@@ -138,10 +146,14 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	animation_tree.set(PARAM_CONDITIONS_IS_FALLING, is_falling)
 	animation_tree.set(PARAM_CONDITIONS_IS_FLOATING, is_floating)
 
+	# is_jumping: true si acabamos de disparar el salto (buffer) o si estamos subiendo en aire
+	var is_jumping_param: bool = (jumped_buffer_time > 0.0) or (not is_on_floor and velocity.y > 1.0)
+	animation_tree.set(PARAM_CONDITIONS_IS_JUMPING, is_jumping_param)
+
 	# Emitir land_soft / land_hard SOLO en el frame de aterrizaje (edge detect)
 	var landed_now: bool = is_on_floor and not was_on_floor_last_frame
-	var land_soft: bool = landed_now and last_air_vertical_speed >= -5.0
-	var land_hard: bool = landed_now and last_air_vertical_speed < -5.0
+	var land_soft: bool = landed_now and last_air_vertical_speed >= -1.0
+	var land_hard: bool = landed_now and last_air_vertical_speed < -1.0
 
 	animation_tree.set(PARAM_CONDITIONS_LAND_SOFT, land_soft)
 	animation_tree.set(PARAM_CONDITIONS_LAND_HARD, land_hard)
@@ -151,11 +163,19 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	var blend_pos = Vector2(visual_velocity.x, visual_velocity.z).length()
 	animation_tree.set(PARAM_GROUNDED_BLEND_POSITION, blend_pos)
 
+	# Selección entre JumpLoop y FloatLoop: usar JumpLoop si saltamos recientemente
+	# o si hay entrada de movimiento significativa.
+	var use_jump_loop: bool = (time_since_jump < 0.25) or (move_vec_length > 0.3)
+	animation_tree.set(PARAM_CONDITIONS_USE_JUMP_LOOP, use_jump_loop)
+
 
 func _on_controller_jumped() -> void:
 	"""Se ejecuta cuando el controlador emite la señal 'jumped'."""
 	# Usar ONE_SHOT_REQUEST_FIRE es la forma correcta y determinista de activar animaciones OneShot.
 	# NO NO NO NO ES ACTIVE 1
 	animation_tree.set(PARAM_GROUNDED_JUMP_ACTIVE, 1) ### NO TOCAR
+
+	# Activar buffer de salto para mantener `is_jumping` verdadero algunos ms
+	jumped_buffer_time = jump_buffer_duration
 
 
