@@ -1,8 +1,9 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=8 format=2]
 
 [ext_resource path="res://materials/reference/PrototypeGrey.tres" type="Material" id=1]
 [ext_resource path="res://addons/kenney_prototype_textures/dark/texture_01.png" type="Texture" id=2]
 [ext_resource path="res://core_v2/scenes/Pilot_v2.tscn" type="PackedScene" id=3]
+[ext_resource path="res://core_v2/things/MovingPlatformV2.tscn" type="PackedScene" id=4]
 
 [sub_resource type="SpatialMaterial" id=3]
 albedo_texture = ExtResource( 2 )
@@ -32,6 +33,7 @@ glow_bloom = 1.0
 [node name="TestScene" type="Spatial"]
 
 [node name="CSGBox" type="CSGBox" parent="."]
+transform = Transform( 0.999998, 0.00179769, 0, -0.00179769, 0.999998, 0, 0, 0, 1, 0, 0, 0 )
 use_collision = true
 width = 100.0
 height = 0.2
@@ -66,3 +68,7 @@ environment = SubResource( 2 )
 
 [node name="Pilot" parent="." instance=ExtResource( 3 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.949169, 0 )
+
+[node name="MovingPlatformV2" parent="." instance=ExtResource( 4 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -18.0099, 6.62853, 17.1957 )
+movement_vector = Vector3( 10, 0, 10 )

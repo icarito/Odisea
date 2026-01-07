@@ -178,9 +178,9 @@ func get_wish_direction() -> Vector3:
 	"""
 	return movement_logic.wish_direction
 
-func _process(_delta):
-	if Engine.get_frames_per_second() < 20: # Si baja de 60fps bruscamente
-		print("[PERF] Caída de frames detectada! Velocity: ", velocity, " OnFloor: ", is_on_floor())
+#func _process(_delta):
+#	if Engine.get_frames_per_second() < 10: # Si baja de 60fps bruscamente
+#		print("[PERF] Caída de frames detectada! Velocity: ", velocity, " OnFloor: ", is_on_floor())
 
 
 func _exit_tree() -> void:
