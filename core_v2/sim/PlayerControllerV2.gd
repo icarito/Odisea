@@ -12,6 +12,7 @@ var is_replay_mode := false
 
 # --- EXPORTED TUNING ---
 export(float) var mouse_sensitivity := 0.005 setget set_mouse_sensitivity, get_mouse_sensitivity
+export(float) var snap_length := 0.5
 
 # Métodos de acceso para export (opcional, para Inspector)
 func set_mouse_sensitivity(v):
@@ -29,6 +30,7 @@ func get_full_snapshot() -> Dictionary:
 	var snapshot = {
 		"position": [self.global_transform.origin.x, self.global_transform.origin.y, self.global_transform.origin.z],
 		"velocity": [velocity.x, velocity.y, velocity.z],
+		"external_velocity": [external_velocity.x, external_velocity.y, external_velocity.z],
 		"yaw": yaw,
 		"pitch": pitch
 	}
@@ -55,6 +57,12 @@ func restore_snapshot(data: Dictionary) -> void:
 		velocity = vel
 	else:
 		velocity = Vector3.ZERO
+	if data.has("external_velocity"):
+		var ext_vel = data["external_velocity"]
+		if typeof(ext_vel) == TYPE_ARRAY:
+			external_velocity = Vector3(ext_vel[0], ext_vel[1], ext_vel[2])
+	else:
+		external_velocity = Vector3.ZERO
 	yaw = data.get("yaw", 0.0)
 	pitch = data.get("pitch", 0.0)
 	
@@ -73,6 +81,22 @@ func restore_snapshot(data: Dictionary) -> void:
 var velocity := Vector3()
 var yaw := 0.0
 var pitch := 0.0
+
+# Sistema de velocidad externa (para plataformas móviles)
+var external_velocity := Vector3.ZERO
+export var external_decay_rate := 6.0
+
+func set_external_velocity(v: Vector3) -> void:
+	"""API para plataformas móviles: establece velocidad externa."""
+	external_velocity = v
+
+func _integrate_external_velocity(delta: float) -> Vector3:
+	"""Integra y aplica decaimiento a la velocidad externa."""
+	if external_velocity.length() < 0.001:
+		external_velocity = Vector3.ZERO
+		return Vector3.ZERO
+	external_velocity = external_velocity.linear_interpolate(Vector3.ZERO, external_decay_rate * delta)
+	return external_velocity
 
 # Nodos (Asegúrate de que los nombres coincidan con tu escena)
 onready var camera_rig = $CameraRig 
@@ -157,7 +181,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	var basis = get_camera_basis()
 	movement_logic.process_movement(dt, input.move_vec, basis, input.sprint, is_on_floor())
 	var h_vel = movement_logic.get_horizontal_velocity()
-	
+
 	velocity.x = h_vel.x
 	velocity.z = h_vel.z
 
@@ -169,8 +193,25 @@ func step(dt: float, input: InputDataV2) -> void:
 	else:
 		velocity.y += jump_logic.get_gravity() * dt
 
-	# 4. Movimiento Final y Animación
-	velocity = move_and_slide(velocity, UP)
+	# 4. Aplicar velocidad externa (plataformas móviles) - solo cuando NO estamos en el suelo
+	var external_vel = Vector3.ZERO
+	if not is_on_floor():
+		external_vel = _integrate_external_velocity(dt)
+	velocity += external_vel
+
+	# 5. Movimiento Final y Animación
+	if velocity.y > 0:
+		# Saltando: usar move_and_slide normal para no interferir con el salto
+		velocity = move_and_slide(velocity, UP)
+	else:
+		# En suelo o cayendo: usar snap solo si no hay external_velocity (plataformas móviles ya manejan el movimiento)
+		if external_velocity.length_squared() > 0.001 and not is_on_floor():
+			# Plataforma móvil (cayendo hacia ella): no usar snap, dejar que external_velocity maneje el movimiento
+			velocity = move_and_slide(velocity, UP)
+		else:
+			# Suelo normal o encima de plataforma: usar snap para estabilidad
+			var snap_vec = -get_floor_normal() * snap_length if is_on_floor() else Vector3.ZERO
+			velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true)
 	
 	if animator:
 		animator.step_animator(dt, velocity)
