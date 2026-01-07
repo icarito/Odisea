@@ -2,8 +2,6 @@ extends KinematicBody
 
 # MovingPlatformV2.gd
 
-const FIXED_DT := 1.0 / 60.0
-
 enum EaseType { LINEAR, SINE, CUSTOM_CURVE }
 
 # --- Parámetros Exportables ---
@@ -26,7 +24,7 @@ var end_position: Vector3
 var passengers := []
 onready var passenger_area: Area = null
 var _debug_accum := 0.0
-var _needs_sync := false
+var _pending_snapshot = null
  
 
 func _ready():
@@ -44,22 +42,41 @@ func _ready():
 		if debug_passengers:
 			print("[MP2] passenger area ready mask=", passenger_area.collision_mask, " layer=", passenger_area.collision_layer)
 
-
-	# La posición inicial se captura una sola vez al inicio.
+	# Capturar posición inicial con global_transform.origin (única fuente de verdad).
 	start_position = global_transform.origin
 	end_position = start_position + movement_vector
-
 	time_accumulator = -start_delay
 
-func _apply_snapshot(data: Dictionary) -> void:
-	# FIX: Asegurarse de que start_position esté inicializada antes de usarla.
-	# En un replay, restore_snapshot() puede ser llamado antes que _ready().
-	if start_position == Vector3.ZERO:
-		start_position = global_transform.origin
+	# Aplicar snapshot pendiente si existiera (replay puede llamar restore antes de _ready).
+	if _pending_snapshot != null:
+		_apply_snapshot(_pending_snapshot)
+		_pending_snapshot = null
 
-	var time_before = time_accumulator
+func _apply_snapshot(data: Dictionary) -> void:
+	# Restaurar posición inmediatamente desde el snapshot (corrige errores de punto flotante).
+	if data.has("pos"):
+		var p = data["pos"]
+		global_transform.origin = Vector3(p[0], p[1], p[2])
+		# Recalcular start_position y end_position basados en la posición restaurada y time.
+		if data.has("time") and data.has("movement_vector"):
+			var mv = data["movement_vector"]
+			movement_vector = Vector3(mv[0], mv[1], mv[2])
+			# Calcular start_position retroactivamente desde pos y time.
+			var t = data["time"]
+			if t <= 0:
+				start_position = Vector3(p[0], p[1], p[2])
+			else:
+				# Si t > 0, la posición restaurada es intermedia; calcular start desde ella.
+				var half_cycle = cycle_duration / 2.0 if cycle_duration > 0 else 1.0
+				var raw_progress = pingpong_logic(t, half_cycle) / half_cycle if half_cycle > 0 else 0.0
+				var cooked_progress = apply_easing(raw_progress)
+				if cooked_progress > 0 and cooked_progress < 1:
+					start_position = Vector3(p[0], p[1], p[2]) - movement_vector * cooked_progress
+				else:
+					start_position = Vector3(p[0], p[1], p[2])
+			end_position = start_position + movement_vector
 	if data.has("time"):
-		time_accumulator = data.time
+		time_accumulator = data["time"]
 	if data.has("vel"):
 		var v = data["vel"]
 		linear_velocity = Vector3(v[0], v[1], v[2])
@@ -69,39 +86,17 @@ func _apply_snapshot(data: Dictionary) -> void:
 		start_delay = data["start_delay"]
 	if data.has("ease_type"):
 		ease_type = data["ease_type"]
-	if data.has("movement_vector"):
-		var mv = data["movement_vector"]
-		movement_vector = Vector3(mv[0], mv[1], mv[2])
-		end_position = start_position + movement_vector
 	if data.has("debug_passengers"):
 		debug_passengers = data["debug_passengers"]
 
-	# Si se restauró time_accumulator, sincronizar posición a ese frame estado
-	_needs_sync = true
 
 
-
-func _sync_position_from_time() -> void:
-	# Sincronizar global_transform.origin a partir de time_accumulator
-	# sin modificar velocity (se restauró en _apply_snapshot si existía).
-	if time_accumulator < 0:
-		global_transform.origin = start_position
-		return
-
-	var half_cycle = cycle_duration / 2.0
-	var raw_progress = pingpong_logic(time_accumulator, half_cycle) / half_cycle
-	var cooked_progress = apply_easing(raw_progress)
-	var new_position = start_position.linear_interpolate(end_position, cooked_progress)
-	global_transform.origin = new_position
-
-func _step_physics(dt: float):
-	# Si se restauró un snapshot, sincronizamos la posición visual
-	# la primera vez que se ejecuta el step.
-	if _needs_sync:
-		_sync_position_from_time()
-		_needs_sync = false
+func _physics_process(delta: float):
+	# Guardar posición anterior para calcular velocidad.
 	var previous_position = global_transform.origin
-	time_accumulator += dt
+
+	# Avanzar tiempo de forma lineal (delta es constante en Godot 3.6).
+	time_accumulator += delta
 
 	# Si estamos en el periodo de delay, mantenemos la posición inicial.
 	if time_accumulator < 0:
@@ -109,12 +104,11 @@ func _step_physics(dt: float):
 		linear_velocity = Vector3.ZERO
 		return
 
-	# 1. Cálculo de progreso normalizado (0.0 a 1.0)
-	# Definimos el progreso en un viaje de ida y vuelta (ping-pong).
+	# 1. Cálculo de progreso normalizado (0.0 a 1.0) usando ping-pong.
 	var half_cycle = cycle_duration / 2.0
-	var raw_progress = pingpong_logic(time_accumulator, half_cycle) / half_cycle
-	
-	# 2. Aplicación de la "Curva" (Game Feel)
+	var raw_progress = pingpong_logic(time_accumulator, half_cycle) / half_cycle if half_cycle > 0 else 0.0
+
+	# 2. Aplicación de la "Curva" (Game Feel).
 	var cooked_progress = apply_easing(raw_progress)
 
 	# 3. Cálculo de la nueva posición global mediante interpolación.
@@ -122,10 +116,10 @@ func _step_physics(dt: float):
 
 	# 4. Actualización de posición global y cálculo de velocidad para el Player.
 	global_transform.origin = new_position
-	
-	if dt > 0:
-		# Esta velocidad es vital para que move_and_slide detecte el movimiento del suelo.
-		linear_velocity = (new_position - previous_position) / dt
+
+	# Calcular velocidad (vital para que move_and_slide detecte el movimiento del suelo).
+	if delta > 0:
+		linear_velocity = (new_position - previous_position) / delta
 
 	# Propagar velocidad a cuerpos pasajeros (jugador, etc.).
 	if passengers.size() > 0:
@@ -139,15 +133,16 @@ func _step_physics(dt: float):
 				if body.has_method("set_external_source_is_static"):
 					body.set_external_source_is_static(false)
 
-	# Debug periódico
+	# Debug periódico.
 	if debug_passengers:
-		_debug_accum += dt
+		_debug_accum += delta
 		if _debug_accum >= 0.5:
 			_debug_accum = 0.0
 			print("[MP2] passengers=", passengers.size(), " vel=", linear_velocity, " pos=", global_transform.origin)
 
 func step(dt: float):
-	_step_physics(dt)
+	# Alias para compatibilidad con SessionManager si lo usa.
+	_physics_process(dt)
 
 func apply_easing(t: float) -> float:
 	match ease_type:
@@ -171,6 +166,7 @@ func pingpong_logic(value: float, length: float) -> float:
 
 func get_snapshot() -> Dictionary:
 	return {
+		"pos": [global_transform.origin.x, global_transform.origin.y, global_transform.origin.z],
 		"time": time_accumulator,
 		"vel": [linear_velocity.x, linear_velocity.y, linear_velocity.z],
 		"cycle_duration": cycle_duration,
@@ -181,8 +177,10 @@ func get_snapshot() -> Dictionary:
 	}
 
 func restore_snapshot(data: Dictionary):
-	# El SessionManager se asegura de que el nodo esté en el árbol
-	# antes de llamar a esta función.
+	# Si no estamos en el árbol, guardar para aplicar en _ready.
+	if not is_inside_tree():
+		_pending_snapshot = data.duplicate(true)
+		return
 	_apply_snapshot(data)
 
 
