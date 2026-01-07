@@ -103,7 +103,11 @@ func _physics_process(_dt):
 			player.step(FIXED_DT, input_data)
 			# señalizamos para que PlayerController no vuelva a consumir el input este frame
 			player.external_input_provided = true
-		# NO step plataformas - se mueven con _physics_process() natural
+		# Step plataformas TAMBIÉN durante grabación para determinismo
+		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+		for node in sync_nodes:
+			if node != player and node.has_method("step"):
+				node.step(FIXED_DT)
 
 func start_recording():
 	if not is_instance_valid(player):
@@ -120,7 +124,10 @@ func start_recording():
 
 	# --- Resetear nodos replay_sync a estado inicial ---
 	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
-	# NO desactivar _physics_process durante grabación - debe ser igual que juego normal
+	# Desactivar _physics_process en plataformas durante grabación para usar step centralizado
+	for node in sync_nodes:
+		if node != player and node.has_method("step"):
+			node.set_physics_process(false)
 	
 	# --- Capturar estado inicial del mundo (nodos en 'replay_sync') ---
 	var world_start_state = {}

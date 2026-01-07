@@ -36,6 +36,7 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 		accel = friction
 	
 	horizontal_velocity = horizontal_velocity.move_toward(wish_dir, accel * dt)
+
 	
 	# Forzar a cero si está por debajo del threshold para evitar micro-movimientos
 	if horizontal_velocity.length() < stop_threshold:

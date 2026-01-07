@@ -109,6 +109,16 @@ func _apply_snapshot(data: Dictionary) -> void:
 		linear_velocity = Vector3(v[0], v[1], v[2])
 	if data.has("debug_passengers"):
 		debug_passengers = data["debug_passengers"]
+	
+	# Después de restaurar todo, recalcular y establecer posición global basándose en time y start_position
+	if time_accumulator >= 0:
+		var half_cycle = cycle_duration / 2.0
+		var raw_progress = pingpong_logic(time_accumulator, half_cycle) / half_cycle if half_cycle > 0 else 0.0
+		var cooked_progress = apply_easing(raw_progress)
+		global_transform.origin = start_position.linear_interpolate(end_position, cooked_progress)
+		print("[RESTORE] Calculated initial pos from time: ", global_transform.origin)
+	else:
+		global_transform.origin = start_position
 
 
 
@@ -117,7 +127,7 @@ func _physics_process(delta: float):
 	var previous_position = global_transform.origin
 
 	# Avanzar tiempo de forma lineal (delta es constante en Godot 3.6).
-	time_accumulator += delta
+	time_accumulator += 1.0 / 60.0  # Usar timestep fijo para determinismo
 
 	# Si estamos en el periodo de delay, mantenemos la posición inicial.
 	if time_accumulator < 0:
@@ -150,8 +160,7 @@ func _physics_process(delta: float):
 	global_transform.origin = new_position
 
 	# Calcular velocidad (vital para que move_and_slide detecte el movimiento del suelo).
-	if delta > 0:
-		linear_velocity = (new_position - previous_position) / delta
+	linear_velocity = (new_position - previous_position) / (1.0 / 60.0)
 
 	# Propagar velocidad a cuerpos pasajeros (jugador, etc.).
 	if passengers.size() > 0:
@@ -167,7 +176,7 @@ func _physics_process(delta: float):
 
 	# Debug periódico.
 	if debug_passengers:
-		_debug_accum += delta
+		_debug_accum += 1.0 / 60.0
 		if _debug_accum >= 0.5:
 			_debug_accum = 0.0
 			print("[MP2] passengers=", passengers.size(), " vel=", linear_velocity, " pos=", global_transform.origin)
