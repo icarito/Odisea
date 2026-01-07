@@ -1,4 +1,5 @@
 extends Node
+const FIXED_DT := 1.0 / 60.0
 
 var player: KinematicBody = null
 var _player_searched = false
@@ -47,6 +48,8 @@ func _on_tree_changed_for_replay(replay_path: String):
 	# Esta función se ejecuta una sola vez cuando la escena principal está lista.
 	# Ahora es seguro buscar al jugador y cargar el replay.
 	_find_player()
+	if player:
+		player.is_replay_mode = true
 	load_and_play(replay_path)
 
 func _unhandled_input(event):
@@ -75,6 +78,15 @@ func _physics_process(_dt):
 			stop_and_save_recording()
 
 	if is_replaying:
+		# Step player
+		if player and player.has_method("step"):
+			var input = player.input_provider.get_input()
+			player.step(FIXED_DT, input)
+		# Step plataformas
+		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+		for node in sync_nodes:
+			if node != player and node.has_method("step"):
+				node.step(FIXED_DT)
 		run_playback()
 	elif is_recording:
 		# Consumir input desde el provider una única vez y usar ese mismo input
@@ -86,13 +98,16 @@ func _physics_process(_dt):
 		if input_data == null:
 			input_data = InputDataV2.new()
 		buffer.append({"input": input_data.to_dict()})
-		# Ejecutar el step del jugador con el mismo input para mantener sincronía
+		# Step player
 		if player and player.has_method("step"):
-			# usamos el FIXED_DT del player si existe
-			var dt = player.FIXED_DT if "FIXED_DT" in player else 1.0/60.0
-			player.step(dt, input_data)
+			player.step(FIXED_DT, input_data)
 			# señalizamos para que PlayerController no vuelva a consumir el input este frame
 			player.external_input_provided = true
+		# Step plataformas
+		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+		for node in sync_nodes:
+			if node != player and node.has_method("step"):
+				node.step(FIXED_DT)
 
 func start_recording():
 	if not is_instance_valid(player):
@@ -107,15 +122,20 @@ func start_recording():
 		"world_snapshot": {}
 	}
 
-	# --- Capturar estado inicial del mundo (nodos en 'replay_sync') ---
-	var world_snapshot = {}
+	# --- Resetear nodos replay_sync a estado inicial ---
 	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
 	for node in sync_nodes:
+		if node != player:
+			node.set_physics_process(false)
+
+	# --- Capturar estado inicial del mundo (nodos en 'replay_sync') ---
+	var world_start_state = {}
+	for node in sync_nodes:
 		if node.has_method("get_snapshot"):
-			world_snapshot[node.get_path()] = node.get_snapshot()
+			world_start_state[node.get_path()] = node.get_snapshot()
 		else:
 			printerr("Node %s in group 'replay_sync' does not have get_snapshot() method." % node.name)
-	replay_meta["world_snapshot"] = world_snapshot
+	replay_meta["world_start_state"] = world_start_state
 
 	# Guardamos el estado inicial como primer elemento del buffer
 	buffer.append({"snapshot": player.get_full_snapshot()})
@@ -154,6 +174,17 @@ func load_and_play(path: String):
 	file.close()
 	if typeof(parsed.result) == TYPE_DICTIONARY and parsed.result.has("buffer"):
 		buffer = parsed.result["buffer"]
+		
+		# Restaurar estado inicial del mundo (nodos en 'replay_sync') ANTES del player
+		if typeof(parsed.result) == TYPE_DICTIONARY and parsed.result.has("meta") and parsed.result["meta"].has("world_start_state"):
+			var world_start_state = parsed.result["meta"]["world_start_state"]
+			for path in world_start_state.keys():
+				var node = get_tree().get_root().get_node(path)
+				if node and node.has_method("restore_snapshot"):
+					node.restore_snapshot(world_start_state[path])
+				else:
+					printerr("Node at path %s not found or does not have restore_snapshot() method." % path)
+		
 		if buffer.size() > 0 and buffer[0].has("snapshot"):
 			if player and player.has_method("restore_snapshot"):
 				player.restore_snapshot(buffer[0]["snapshot"])
@@ -163,6 +194,13 @@ func load_and_play(path: String):
 			else:
 				print("❌ El nodo player no tiene restore_snapshot() (tipo:", typeof(player), ")")
 			buffer.remove(0)
+		
+		# Desactivar _physics_process en plataformas durante replay para usar step centralizado
+		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+		for node in sync_nodes:
+			if node != player:
+				node.set_physics_process(false)
+		
 		# Inyectar buffer al input_provider en modo REPLAY
 		if player and "input_provider" in player and player.input_provider and player.input_provider.has_method("set_replay_data"):
 			var input_buffer = []

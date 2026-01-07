@@ -7,6 +7,8 @@ const PlayerMovementV2 = preload("PlayerMovementV2.gd")
 const FIXED_DT := 1.0 / 60.0
 const UP := Vector3.UP
 
+var is_replay_mode := false
+
 
 # --- EXPORTED TUNING ---
 export(float) var mouse_sensitivity := 0.005 setget set_mouse_sensitivity, get_mouse_sensitivity
@@ -160,16 +162,13 @@ func step(dt: float, input: InputDataV2) -> void:
 		animator.step_animator(dt, velocity)
 	
 func _physics_process(_delta):
-	# Si otro sistema (SessionManager) ya llamó a step() con el input de este frame,
-	# evitamos consumir el provider dos veces. Solo limpiamos el acumulador.
-	if external_input_provided:
-		external_input_provided = false
-		# acumulador ya fue limpiado por el provider en modo LIVE
+	if external_input_provided or is_replay_mode:
+		if external_input_provided:
+			external_input_provided = false
 		return
 
 	var input = input_provider.get_input()
 	step(FIXED_DT, input)
-	# Nota: el proveedor ya limpia `mouse_delta_accum` en _read_live_input()
 
 func get_wish_direction() -> Vector3:
 	"""
