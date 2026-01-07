@@ -103,11 +103,7 @@ func _physics_process(_dt):
 			player.step(FIXED_DT, input_data)
 			# señalizamos para que PlayerController no vuelva a consumir el input este frame
 			player.external_input_provided = true
-		# Step plataformas
-		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
-		for node in sync_nodes:
-			if node != player and node.has_method("step"):
-				node.step(FIXED_DT)
+		# NO step plataformas - se mueven con _physics_process() natural
 
 func start_recording():
 	if not is_instance_valid(player):
@@ -124,10 +120,8 @@ func start_recording():
 
 	# --- Resetear nodos replay_sync a estado inicial ---
 	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
-	for node in sync_nodes:
-		if node != player:
-			node.set_physics_process(false)
-
+	# NO desactivar _physics_process durante grabación - debe ser igual que juego normal
+	
 	# --- Capturar estado inicial del mundo (nodos en 'replay_sync') ---
 	var world_start_state = {}
 	for node in sync_nodes:
@@ -275,3 +269,88 @@ func run_playback():
 			var sz = prov.playback_buffer.size()
 			if idx >= sz and not _drift_validated:
 				_finish_and_validate()
+
+# Helper para tests: ejecuta la simulación desde un buffer
+# Asume que player ya está en el árbol y que las plataformas también están instanciadas
+func run_simulation_from_buffer(buffer_data: Array, world_start_state: Dictionary, player_controller: Node, yield_frames: int = 3) -> Dictionary:
+	var result = {
+		"final_pos": null,
+		"final_vel": null,
+		"final_yaw": null,
+		"final_pitch": null,
+		"drift": 0.0,
+		"passed": false
+	}
+	
+	if not player_controller:
+		printerr("SessionManager: player_controller is null")
+		return result
+	
+	# 0. Esperar a que el árbol registre todos los nodos en physics_server
+	for _i in range(yield_frames):
+		player_controller.get_tree().call_group("", "update")  # Update all nodes
+	
+	# 1. Restaurar estado inicial del mundo (plataformas, etc.)
+	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+	for node_path in world_start_state.keys():
+		var node = get_tree().get_root().get_node_or_null(node_path)
+		if node and node.has_method("restore_snapshot"):
+			node.restore_snapshot(world_start_state[node_path])
+		else:
+			print("Warning: Could not restore node at path ", node_path)
+	
+	# 2. Restaurar estado inicial del jugador si hay snapshot
+	var buffer_copy = buffer_data.duplicate(true)
+	if buffer_copy.size() > 0 and buffer_copy[0].has("snapshot"):
+		if player_controller.has_method("restore_snapshot"):
+			player_controller.restore_snapshot(buffer_copy[0]["snapshot"])
+		buffer_copy.remove(0)
+	
+	# 3. Crear InputProviderV2 en modo REPLAY
+	var InputProviderV2 = preload("res://core_v2/input/InputProviderV2.gd")
+	var input_provider = InputProviderV2.new()
+	var input_buffer = []
+	for entry in buffer_copy:
+		if entry.has("input"):
+			input_buffer.append(entry["input"])
+	input_provider.set_replay_data(input_buffer)
+	
+	# 4. Asignar provider al jugador
+	if "input_provider" in player_controller:
+		player_controller.input_provider = input_provider
+	player_controller.is_replay_mode = true
+	player_controller.set_physics_process(true)
+	
+	# 5. Desactivar _physics_process en plataformas (usaremos step centralizado)
+	for node in sync_nodes:
+		if node != player_controller:
+			node.set_physics_process(false)
+	
+	# 6. Ejecutar la simulación
+	var frame_count = 0
+	var max_frames = 4000
+	while frame_count < max_frames and input_provider.playback_index < input_provider.playback_buffer.size():
+		# Obtener input
+		var input = input_provider.get_input()
+		
+		# Step player
+		if player_controller.has_method("step"):
+			player_controller.step(FIXED_DT, input)
+		
+		# Step plataformas
+		for node in sync_nodes:
+			if node != player_controller and node.has_method("step"):
+				node.step(FIXED_DT)
+		
+		frame_count += 1
+	
+	# 7. Capturar estado final
+	result["final_pos"] = player_controller.global_transform.origin
+	result["final_vel"] = player_controller.velocity if "velocity" in player_controller else Vector3.ZERO
+	result["final_yaw"] = player_controller.yaw if "yaw" in player_controller else 0.0
+	result["final_pitch"] = player_controller.pitch if "pitch" in player_controller else 0.0
+	
+	# 8. Limpiar
+	player_controller.is_replay_mode = false
+	
+	return result

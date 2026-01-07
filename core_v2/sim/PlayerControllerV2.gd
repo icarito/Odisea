@@ -26,12 +26,19 @@ signal jumped
 
 ## --- SNAPSHOT SERIALIZACIÓN ---
 func get_full_snapshot() -> Dictionary:
-	return {
+	var snapshot = {
 		"position": [self.global_transform.origin.x, self.global_transform.origin.y, self.global_transform.origin.z],
 		"velocity": [velocity.x, velocity.y, velocity.z],
 		"yaw": yaw,
 		"pitch": pitch
 	}
+	# Incluir estado del jump logic si existe
+	if is_instance_valid(jump_logic):
+		snapshot["jump_state"] = {
+			"coyote_timer": jump_logic.coyote_timer,
+			"jump_buffer_timer": jump_logic.jump_buffer_timer
+		}
+	return snapshot
 
 func restore_snapshot(data: Dictionary) -> void:
 	if data.has("position"):
@@ -50,6 +57,13 @@ func restore_snapshot(data: Dictionary) -> void:
 		velocity = Vector3.ZERO
 	yaw = data.get("yaw", 0.0)
 	pitch = data.get("pitch", 0.0)
+	
+	# Restaurar estado del jump logic si existe
+	if data.has("jump_state"):
+		var jump_state = data["jump_state"]
+		if is_instance_valid(jump_logic):
+			jump_logic.coyote_timer = jump_state.get("coyote_timer", 0.0)
+			jump_logic.jump_buffer_timer = jump_state.get("jump_buffer_timer", 0.0)
 	
 	# APLICACIÓN: Unificamos la lógica de rotación con la de step() para garantizar determinismo.
 	if camera_rig:
