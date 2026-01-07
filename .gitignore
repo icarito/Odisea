@@ -5,7 +5,7 @@ port/third/third.pck
 export.cfg
 export_presets.cfg
 .import/
-*/*.import
+*.import
 .vscode/
 
 # Imported translations (automatically generated from CSV files)
