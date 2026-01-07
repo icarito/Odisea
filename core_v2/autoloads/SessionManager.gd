@@ -103,8 +103,20 @@ func start_recording():
 	replay_meta = {
 		"date": OS.get_datetime(),
 		"unix_time": OS.get_unix_time(),
-		"scene": get_tree().current_scene.filename
+		"scene": get_tree().current_scene.filename,
+		"world_snapshot": {}
 	}
+
+	# --- Capturar estado inicial del mundo (nodos en 'replay_sync') ---
+	var world_snapshot = {}
+	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+	for node in sync_nodes:
+		if node.has_method("get_snapshot"):
+			world_snapshot[node.get_path()] = node.get_snapshot()
+		else:
+			printerr("Node %s in group 'replay_sync' does not have get_snapshot() method." % node.name)
+	replay_meta["world_snapshot"] = world_snapshot
+
 	# Guardamos el estado inicial como primer elemento del buffer
 	buffer.append({"snapshot": player.get_full_snapshot()})
 	var cam = player.get_node_or_null("CameraRig")
