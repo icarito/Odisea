@@ -53,39 +53,60 @@ func _ready():
 		_pending_snapshot = null
 
 func _apply_snapshot(data: Dictionary) -> void:
-	# Restaurar posición inmediatamente desde el snapshot (corrige errores de punto flotante).
+	# Restaurar FIRST los parámetros de configuración (cycle_duration, ease_type, movement_vector, etc.)
+	# para que se usen correctamente en los cálculos posteriores
+	if data.has("cycle_duration"):
+		cycle_duration = data["cycle_duration"]
+	if data.has("ease_type"):
+		ease_type = data["ease_type"]
+	if data.has("start_delay"):
+		start_delay = data["start_delay"]
+	if data.has("movement_vector"):
+		var mv = data["movement_vector"]
+		movement_vector = Vector3(mv[0], mv[1], mv[2])
+	
+	# Restaurar posición inmediatamente desde el snapshot.
 	if data.has("pos"):
 		var p = data["pos"]
-		global_transform.origin = Vector3(p[0], p[1], p[2])
+		# NO restaurar posición directamente - dejar que se calcule desde start_position + time
+		# para evitar inconsistencias
+		# global_transform.origin = Vector3(p[0], p[1], p[2])
+		
 		# Recalcular start_position y end_position basados en la posición restaurada y time.
-		if data.has("time") and data.has("movement_vector"):
-			var mv = data["movement_vector"]
-			movement_vector = Vector3(mv[0], mv[1], mv[2])
+		if data.has("start_position"):
+			# Si start_position está en el snapshot, usar directamente
+			var sp = data["start_position"]
+			start_position = Vector3(sp[0], sp[1], sp[2])
+			end_position = start_position + movement_vector
+			print("[RESTORE] Using start_position from snapshot: ", start_position)
+			print("[RESTORE] Calculated end_position: ", end_position)
+			print("[RESTORE] movement_vector: ", movement_vector)
+			print("[RESTORE] snapshot pos (ignored): ", Vector3(p[0], p[1], p[2]))
+			print("[RESTORE] time: ", data.get("time", 0))
+		elif data.has("time") and data.has("movement_vector"):
+			# movement_vector ya fue restaurado arriba
 			# Calcular start_position retroactivamente desde pos y time.
 			var t = data["time"]
 			if t <= 0:
 				start_position = Vector3(p[0], p[1], p[2])
+				print("[RESTORE] t<=0, start_position = pos: ", start_position)
 			else:
 				# Si t > 0, la posición restaurada es intermedia; calcular start desde ella.
 				var half_cycle = cycle_duration / 2.0 if cycle_duration > 0 else 1.0
 				var raw_progress = pingpong_logic(t, half_cycle) / half_cycle if half_cycle > 0 else 0.0
 				var cooked_progress = apply_easing(raw_progress)
+				print("[RESTORE] t=", t, " raw=", raw_progress, " cooked=", cooked_progress, " half_cycle=", half_cycle)
 				if cooked_progress > 0 and cooked_progress < 1:
 					start_position = Vector3(p[0], p[1], p[2]) - movement_vector * cooked_progress
 				else:
 					start_position = Vector3(p[0], p[1], p[2])
+				print("[RESTORE] Calculated start_position: ", start_position)
 			end_position = start_position + movement_vector
 	if data.has("time"):
 		time_accumulator = data["time"]
 	if data.has("vel"):
 		var v = data["vel"]
 		linear_velocity = Vector3(v[0], v[1], v[2])
-	if data.has("cycle_duration"):
-		cycle_duration = data["cycle_duration"]
-	if data.has("start_delay"):
-		start_delay = data["start_delay"]
-	if data.has("ease_type"):
-		ease_type = data["ease_type"]
 	if data.has("debug_passengers"):
 		debug_passengers = data["debug_passengers"]
 
@@ -110,9 +131,20 @@ func _physics_process(delta: float):
 
 	# 2. Aplicación de la "Curva" (Game Feel).
 	var cooked_progress = apply_easing(raw_progress)
+	
+	# DEBUG frame 60
+	if time_accumulator >= 2.17 and time_accumulator <= 2.19:
+		print("[MP2] time=", time_accumulator, " raw=", raw_progress, " cos(raw*PI)=", cos(raw_progress * PI), " cooked=", cooked_progress)
 
 	# 3. Cálculo de la nueva posición global mediante interpolación.
 	var new_position = start_position.linear_interpolate(end_position, cooked_progress)
+
+	# DEBUG - primer frame después de restore
+	if time_accumulator >= 5.3 and time_accumulator <= 5.4:
+		print("[MP2] FIRST FRAME: time=", time_accumulator, " raw=", raw_progress, " cooked=", cooked_progress)
+		print("[MP2] start_pos=", start_position, " end_pos=", end_position)  
+		print("[MP2] calculated new_pos=", new_position)
+		print("[MP2] previous_pos=", previous_position)
 
 	# 4. Actualización de posición global y cálculo de velocidad para el Player.
 	global_transform.origin = new_position
@@ -145,17 +177,8 @@ func step(dt: float):
 	_physics_process(dt)
 
 func apply_easing(t: float) -> float:
-	match ease_type:
-		EaseType.SINE:
-			# Suavizado Senoidal matemático (aceleración y frenado suave).
-			return 0.5 - cos(t * PI) * 0.5
-		EaseType.CUSTOM_CURVE:
-			if custom_curve:
-				# Uso de tus recursos .tres (Exponential, Inverse_S, etc).
-				return custom_curve.interpolate(t)
-			return t
-		_:
-			return t
+	# MVP: Sin easing para determinismo perfecto. Solo interpolación linear.
+	return t
 
 func pingpong_logic(value: float, length: float) -> float:
 	if length == 0: return 0.0
@@ -173,6 +196,7 @@ func get_snapshot() -> Dictionary:
 		"start_delay": start_delay,
 		"ease_type": ease_type,
 		"movement_vector": [movement_vector.x, movement_vector.y, movement_vector.z],
+		"start_position": [start_position.x, start_position.y, start_position.z],
 		"debug_passengers": debug_passengers
 	}
 
