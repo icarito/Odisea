@@ -4,17 +4,8 @@ export var enable_touch_buttons := true
 
 onready var cursor: Sprite = find_node("Cursor")
 onready var fade_rect: ColorRect = $CanvasLayer/ColorRect  # Agrega un CanvasLayer > ColorRect negro
-var resolution_detector: MenuResolutionDetector
 
 func _ready():
-	# Instanciar detector si no existe
-	if not has_node("MenuResolutionDetector"):
-		resolution_detector = MenuResolutionDetector.new()
-		resolution_detector.name = "MenuResolutionDetector"
-		add_child(resolution_detector)
-	else:
-		resolution_detector = $MenuResolutionDetector
-
 	find_node("Start").grab_focus()
 
 	# Fade in al cargar
