@@ -1,0 +1,32 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://materials/reference/PrototypeGrey.tres" type="Material" id=1]
+[ext_resource path="res://core_v2/things/MovingPlatformV2.gd" type="Script" id=2]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 2.5, 0.1, 2.5 )
+
+[sub_resource type="BoxShape" id=2]
+extents = Vector3( 2.5, 1, 2.5 )
+
+[node name="MovingPlatformV2" type="KinematicBody"]
+collision_layer = 2
+script = ExtResource( 2 )
+passenger_area_path = NodePath("PassengerArea")
+debug_passengers = true
+
+[node name="Moving Platform" type="CSGBox" parent="."]
+width = 5.0
+height = 0.2
+depth = 5.0
+material = ExtResource( 1 )
+
+[node name="CollisionShape" type="CollisionShape" parent="."]
+shape = SubResource( 1 )
+
+[node name="PassengerArea" type="Area" parent="."]
+collision_layer = 0
+
+[node name="PassengerCollision" type="CollisionShape" parent="PassengerArea"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0 )
+shape = SubResource( 2 )

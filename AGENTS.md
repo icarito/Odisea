@@ -6,6 +6,7 @@ Propósito: fuente de verdad compacta para asistentes IA y desarrolladores sobre
 - Ternario: `a if cond else b`.
 - Declarar variables con `=` y preferir type hints: `var x: int = 0`.
 - Nunca pasar `nil` a funciones que esperan bool/Vector2/Vector3; usar valores por defecto seguros.
+- No existen "private" o "protected"; usar `_nombre` para indicar uso interno.
 
 ## Objetivo (MVP Acto I)
 - Juego 3D en Godot 3.6 (GLES2): 3ª persona, plataformas móviles/conveyors
