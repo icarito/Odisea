@@ -200,18 +200,10 @@ func step(dt: float, input: InputDataV2) -> void:
 	velocity += external_vel
 
 	# 5. Movimiento Final y Animación
-	if velocity.y > 0:
-		# Saltando: usar move_and_slide normal para no interferir con el salto
-		velocity = move_and_slide(velocity, UP)
-	else:
-		# En suelo o cayendo: usar snap solo si no hay external_velocity (plataformas móviles ya manejan el movimiento)
-		if external_velocity.length_squared() > 0.001 and not is_on_floor():
-			# Plataforma móvil (cayendo hacia ella): no usar snap, dejar que external_velocity maneje el movimiento
-			velocity = move_and_slide(velocity, UP)
-		else:
-			# Suelo normal o encima de plataforma: usar snap para estabilidad
-			var snap_vec = -get_floor_normal() * snap_length if is_on_floor() else Vector3.ZERO
-			velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true)
+	# El snap solo aplica cuando no estamos saltando (velocity.y <= 0)
+	# Usar Vector3.DOWN fijo para determinismo (no get_floor_normal())
+	var snap_vec = Vector3.DOWN * snap_length if velocity.y <= 0 else Vector3.ZERO
+	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true)
 	
 	if animator:
 		animator.step_animator(dt, velocity)
