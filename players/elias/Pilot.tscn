@@ -7,7 +7,7 @@
 [ext_resource path="res://data/Curves/Exponential.tres" type="Curve" id=5]
 [ext_resource path="res://materials/shadow/FakeShadow.tres" type="Material" id=52]
 [ext_resource path="res://scripts/PlayerMovement.gd" type="Script" id=53]
-[ext_resource path="res://scripts/multiplayer/PlayerInput.gd" type="Script" id=65]
+[ext_resource path="res://scripts/PlayerInput.gd" type="Script" id=65]
 
 [sub_resource type="CapsuleShape" id=48]
 radius = 0.3047
@@ -191,7 +191,6 @@ script = ExtResource( 1 )
 PlayerAnimationTree = NodePath("AnimationTree")
 PlayerCharacterMesh = NodePath("PilotMesh")
 gravity = 9.0
-jump_force = 12
 turn_speed = 1.2
 max_platform_up_follow = 30.0
 tank_turn_speed = 2.0
@@ -201,6 +200,8 @@ debug_interval = 1.12
 
 [node name="PlayerInput" type="Node" parent="."]
 script = ExtResource( 65 )
+mouse_sensitivity_x = 0.02
+mouse_sensitivity_y = 0.02
 debug_input = false
 acceleration_curve = ExtResource( 5 )
 
@@ -220,7 +221,6 @@ yaw_path = NodePath("Yaw")
 pitch_path = NodePath("Yaw/Pitch")
 springarm_path = NodePath("Yaw/Pitch/SpringArm")
 camera_path = NodePath("Yaw/Pitch/SpringArm/Camera")
-strafe_mode_timeout = 5.0
 yaw_sensitivity = 10.0
 pitch_sensitivity = 10.0
 pitch_limit_up_deg = 70.0

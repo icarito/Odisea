@@ -12,6 +12,7 @@ export var sprint_threshold := 0.7
 export var tank_turn_speed := 0.3
 export var analog_turn_multiplier := 1.0
 export var acceleration := 15.0
+export var air_acceleration_multiplier := 0.15
 export var friction := 60.0
 
 var _CURVE_RESOURCES = [
@@ -82,4 +83,9 @@ func process_input_vector(delta: float, cam_basis: Basis, input_vec: Vector2, is
 	movement_speed *= processed_mag
 
 	var target_velocity = direction * movement_speed
-	horizontal_velocity = horizontal_velocity.linear_interpolate(target_velocity, acceleration * delta)
+	# CRÍTICO: Restaurar la aceleración reducida en el aire para el modo LIVE.
+	var effective_accel = acceleration
+	if not is_on_floor:
+		effective_accel = acceleration * air_acceleration_multiplier
+		
+	horizontal_velocity = horizontal_velocity.linear_interpolate(target_velocity, effective_accel * delta)

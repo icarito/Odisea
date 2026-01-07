@@ -5,13 +5,15 @@ var death_screen: CanvasLayer
 signal player_killed(player)
 signal player_respawn_requested(player)
 
+onready var GameGlobals = preload("res://autoload/GameGlobals.gd")
+onready var PlayerManager = preload("res://autoload/PlayerManager.gd")
 
 func _ready() -> void:
 	print("[KillZone] _ready called, self:", self)
 	set_process_input(false)  # Deshabilitar input hasta que el jugador muera
 	call_deferred("setup_killzones")
 	# Conectar señales a PlayerManager si está disponible y no es COPILOT (single player)
-	if typeof(PlayerManager) != TYPE_NIL and GameGlobals.current_mode != GameGlobals.GAME_MODE.COPILOT:
+	if typeof(PlayerManager) != TYPE_NIL:
 		print("[KillZone] Connecting signals to PlayerManager:", PlayerManager)
 		connect("player_killed", PlayerManager, "kill_player_instant")
 		connect("player_respawn_requested", PlayerManager, "respawn_player")
@@ -32,15 +34,15 @@ func kill_player(player):
 		death_screen.show_death_screen()
 	emit_signal("player_killed", player)
 	# En single player, esperar input para respawn
-	if GameGlobals.current_mode != GameGlobals.GAME_MODE.COPILOT:
-		set_process_input(true)
+	#if GameGlobals.current_mode != GameGlobals.GAME_MODE.COPILOT:
+	#	set_process_input(true)
 
 func _input(event):
 	if death_screen and death_screen.is_showing and Input.is_action_pressed("jump"):
 		# Suponemos que solo hay un jugador afectado por esta KillZone
 		var player = null
-		if typeof(PlayerManager) != TYPE_NIL and PlayerManager.is_spawned():
-			player = PlayerManager.get_player()
+		#if typeof(PlayerManager) != TYPE_NIL and PlayerManager.is_spawned():
+		#	player = PlayerManager.get_player()
 		respawn(player)
 
 func respawn(player):
@@ -53,19 +55,25 @@ func respawn(player):
 		print("[KillZone] Enabling physics for player:", player)
 		player.set_physics_process(true)
 	# Emitir señal para que el receptor maneje el respawn
-	if GameGlobals.current_mode != GameGlobals.GAME_MODE.COPILOT:
-		emit_signal("player_respawn_requested")
-	else:
-		emit_signal("player_respawn_requested", player)
+	# if GameGlobals.current_mode != GameGlobals.GAME_MODE.COPILOT:
+	#	emit_signal("player_respawn_requested")
+	#else:
+	emit_signal("player_respawn_requested", player)
 
 func setup_killzones():
 	print("[KillZone] setup_killzones called. Adding to group and connecting body_entered.")
 	add_to_group("killzones")
 	connect("body_entered", self, "_on_body_entered")
 	# Instanciar DeathScreen solo en single player
-	if GameGlobals.current_mode != GameGlobals.GAME_MODE.COPILOT:
+	#if GameGlobals.current_mode != GameGlobals.GAME_MODE.COPILOT:
+	if death_screen == null:
 		death_screen = preload("res://scenes/ui/DeathScreen.tscn").instance()
 		get_tree().get_root().add_child(death_screen)
+		# Asegurar que no se muestre hasta que se llame show_death_screen()
+		if death_screen.has_method("hide_death_screen"):
+			death_screen.hide_death_screen()
+		else:
+			death_screen.hide()
 		death_screen.connect("respawn_requested", self, "_on_death_screen_respawn_requested")
 		print("[KillZone] DeathScreen instanced and added to root.")
 

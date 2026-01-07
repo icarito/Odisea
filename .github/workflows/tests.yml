@@ -1,0 +1,98 @@
+name: GDUnit3 Tests
+on: [push]
+
+jobs:
+  unit-test:
+    name: Run GDUnit3 Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Godot cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.godot/projects/odisea-project-cache
+          key: ${{ runner.os }}-godot-${{ hashFiles('**/project.godot') }}
+
+      - name: Install runner prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils xvfb xauth
+          echo "Installed xmllint and xvfb"
+
+      - name: Download Godot 3.6.2
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_linux_headless.64.zip
+          unzip Godot_v3.6.2-stable_linux_headless.64.zip
+          mv Godot_v3.6.2-stable_linux_headless.64 /usr/local/bin/godot
+          chmod +x /usr/local/bin/godot
+
+      - name: Verify Godot binary
+        run: |
+          if [ -x /usr/local/bin/godot ]; then
+            echo "/usr/local/bin/godot is present and executable"
+            /usr/local/bin/godot --version || true
+          else
+            echo "ERROR: /usr/local/bin/godot not found or not executable"
+            ls -l /usr/local/bin || true
+            exit 127
+          fi
+
+      - name: Import Resources
+        run: /usr/local/bin/godot --path . -e --quit --headless || true
+
+      - name: Run GDUnit3 Tests
+        env:
+          GODOT_BIN: /usr/local/bin/godot
+        run: |
+          chmod +x ./runtest.sh
+          xvfb-run ./runtest.sh -a res://core_v2/tests
+
+      - name: Publicar resumen de tests y drift
+        if: always()
+        run: |
+          # Buscar reportes XML y log de gdunit recursivamente
+          XML=$(find reports -type f -name '*.xml' -print -quit || find . -type f -name 'results.xml' -print -quit || true)
+          LOG=$(find reports -type f -name 'gdunit_runner.log' -print -quit || find . -type f -name 'gdunit_runner.log' -print -quit || true)
+          SUMMARY="$GITHUB_STEP_SUMMARY"
+
+          echo "## 🧪 Resultados de tests (GDUnit3)" > "$SUMMARY"
+          if [[ -n "$XML" && -f "$XML" ]]; then
+            echo "Reporte XML encontrado en: $XML" >> "$SUMMARY"
+            TESTS=$(xmllint --xpath "string(/testsuites/@tests)" "$XML" 2>/dev/null)
+            FAILURES=$(xmllint --xpath "string(/testsuites/@failures)" "$XML" 2>/dev/null)
+            ERRORS=$(xmllint --xpath "string(/testsuites/@errors)" "$XML" 2>/dev/null)
+            SKIPPED=$(xmllint --xpath "string(/testsuites/@skipped)" "$XML" 2>/dev/null)
+            TIME=$(xmllint --xpath "string(/testsuites/@time)" "$XML" 2>/dev/null)
+            echo "- Total: $TESTS" >> "$SUMMARY"
+            echo "- Fallidos: $FAILURES" >> "$SUMMARY"
+            echo "- Errores: $ERRORS" >> "$SUMMARY"
+            echo "- Saltados: $SKIPPED" >> "$SUMMARY"
+            echo "- Tiempo total: $TIME sec" >> "$SUMMARY"
+          else
+            echo "No se encontró reporte XML de GDUnit3. Buscado en: $XML" >> "$SUMMARY"
+          fi
+
+          # Drift: buscar en el log detectado (si existe)
+          if [[ -n "$LOG" && -f "$LOG" && $(grep -c "DRIFT_CHECK:" "$LOG") -gt 0 ]]; then
+            echo -e "\n### 🔍 Análisis de Drift" >> "$SUMMARY"
+            grep "DRIFT_CHECK:" "$LOG" >> "$SUMMARY"
+            grep "DRIFT_CHECK:" "$LOG" | while read -r line; do
+              echo "::warning title=Determinism Drift::$line"
+            done
+          else
+            echo "No se encontró DRIFT_CHECK en: $LOG" >> "$SUMMARY"
+          fi
+
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdunit-results
+          path: reports/

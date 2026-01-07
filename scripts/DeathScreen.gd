@@ -59,8 +59,8 @@ func show_death_screen():
 	tween.interpolate_property($BottomRect, "rect_position:y", vp_size.y, vp_size.y / 2, 1.0, Tween.TRANS_QUAD, Tween.EASE_IN)
 	tween.start()
 	# Cambiar música
-	if AudioSystem:
-		AudioSystem.play_bgm("res://assets/music/One Choice Remains.mp3", 0.0, false)
+	#if AudioSystem:
+	#	AudioSystem.play_bgm("res://assets/music/One Choice Remains.mp3", 0.0, false)
 
 func hide_death_screen():
 	if not is_showing:

@@ -8,7 +8,8 @@ signal overlay_shown
 signal overlay_hidden
 
 # --- Properties ---
-var main_menu_scene: PackedScene = preload("res://scenes/Menu.tscn") # Adjust path if needed
+var main_menu_scene_path := "res://scenes/Menu.tscn"
+var main_menu_scene: PackedScene = null
 var hud_instance: Node = null
 var modal_instance: AcceptDialog = null
 
@@ -25,7 +26,19 @@ func show_main_menu() -> void:
 	toggle_hud(false)
 	
 	# Instance and show the main menu
-	var menu = main_menu_scene.instance()
+	# Lazy-load main menu scene to avoid parse-time preload errors when assets are missing
+	if main_menu_scene == null:
+		if ResourceLoader.exists(main_menu_scene_path):
+			main_menu_scene = load(main_menu_scene_path)
+		else:
+			push_error("UIManager: main menu scene not found: %s" % main_menu_scene_path)
+			return
+	var menu = null
+	if typeof(main_menu_scene) == TYPE_OBJECT and main_menu_scene is PackedScene:
+		menu = main_menu_scene.instance()
+	else:
+		push_error("UIManager: loaded main_menu_scene is not a PackedScene: %s" % str(main_menu_scene))
+		return
 	get_tree().get_root().add_child(menu)
 	# The menu should handle its own lifecycle, including `queue_free()` on exit.
 

@@ -454,6 +454,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/core/GdUnitProperty.gd"
 }, {
+"base": "GdUnitTestSuite",
+"class": "GdUnitReplayPlaybackTestSuite",
+"language": "GDScript",
+"path": "res://tests/test_replay_playback.gd"
+}, {
 "base": "Resource",
 "class": "GdUnitReport",
 "language": "GDScript",
@@ -579,6 +584,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/network/GdUnitTcpServer.gd"
 }, {
+"base": "GdUnitTestSuite",
+"class": "GdUnitTestCameraDeterminism",
+"language": "GDScript",
+"path": "res://tests/test_camera_determinism.gd"
+}, {
 "base": "GdUnitResourceDto",
 "class": "GdUnitTestCaseDto",
 "language": "GDScript",
@@ -588,6 +598,11 @@ _global_script_classes=[ {
 "class": "GdUnitTestCaseReport",
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/report/GdUnitTestCaseReport.gd"
+}, {
+"base": "GdUnitTestSuite",
+"class": "GdUnitTestReplayDeterminism",
+"language": "GDScript",
+"path": "res://tests/test_replay_determinism.gd"
 }, {
 "base": "Node",
 "class": "GdUnitTestSuite",
@@ -669,6 +684,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/monitor/GodotGdErrorMonitor.gd"
 }, {
+"base": "Reference",
+"class": "InputDataV2",
+"language": "GDScript",
+"path": "res://core_v2/input/InputDataV2.gd"
+}, {
+"base": "Reference",
+"class": "InputProviderV2",
+"language": "GDScript",
+"path": "res://core_v2/input/InputProviderV2.gd"
+}, {
 "base": "Fuzzer",
 "class": "IntFuzzer",
 "language": "GDScript",
@@ -699,10 +724,15 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://scripts/ui/MenuResolutionDetector.gd"
 }, {
+"base": "Spatial",
+"class": "PilotAnimatorV2",
+"language": "GDScript",
+"path": "res://core_v2/view/PilotAnimatorV2.gd"
+}, {
 "base": "Node",
 "class": "PlayerInput",
 "language": "GDScript",
-"path": "res://scripts/multiplayer/PlayerInput.gd"
+"path": "res://scripts/PlayerInput.gd"
 }, {
 "base": "Node",
 "class": "PlayerJump",
@@ -914,6 +944,7 @@ _global_script_class_icons={
 "GdUnitPatch": "",
 "GdUnitPatcher": "",
 "GdUnitProperty": "",
+"GdUnitReplayPlaybackTestSuite": "",
 "GdUnitReport": "",
 "GdUnitReportCollector": "",
 "GdUnitReportConsumer": "",
@@ -939,8 +970,10 @@ _global_script_class_icons={
 "GdUnitTask": "",
 "GdUnitTcpClient": "",
 "GdUnitTcpServer": "",
+"GdUnitTestCameraDeterminism": "",
 "GdUnitTestCaseDto": "",
 "GdUnitTestCaseReport": "",
+"GdUnitTestReplayDeterminism": "",
 "GdUnitTestSuite": "",
 "GdUnitTestSuiteBuilder": "",
 "GdUnitTestSuiteDefaultTemplate": "",
@@ -957,12 +990,15 @@ _global_script_class_icons={
 "GdUnitVector3Assert": "",
 "GdUnitVector3AssertImpl": "",
 "GodotGdErrorMonitor": "",
+"InputDataV2": "",
+"InputProviderV2": "",
 "IntFuzzer": "",
 "JUnitXmlReport": "",
 "Joystick": "",
 "LocalMultiplayerManager": "",
 "LocalTime": "",
 "MenuResolutionDetector": "",
+"PilotAnimatorV2": "",
 "PlayerInput": "",
 "PlayerJump": "",
 "PlayerMovement": "",
@@ -1001,17 +1037,7 @@ boot_splash/minimum_display_time=3
 
 [autoload]
 
-GameGlobals="*res://autoload/GameGlobals.gd"
-PlayerManager="*res://autoload/PlayerManager.gd"
-SceneManager="*res://autoload/SceneManager.gd"
-AudioSystem="*res://autoload/AudioSystem.gd"
-UIManager="*res://autoload/UIManager.gd"
-TouchCounter="*res://autoload/TouchCounter.gd"
-ReplayManager="*res://scripts/replay/ReplayManager.gd"
-MouseCapture="*res://scripts/utils/MouseCapture.gd"
-ReplayUtils="*res://scripts/replay/ReplayUtils.gd"
-InputState="*res://autoload/InputState.gd"
-FixedPoint="*res://autoload/FixedPoint.gd"
+SessionManager="*res://core_v2/autoloads/SessionManager.gd"
 
 [debug]
 
@@ -1030,7 +1056,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray(  )
+enabled=PoolStringArray( "res://addons/gdUnit3/plugin.cfg" )
 
 [global]
 
@@ -1071,7 +1097,7 @@ move_forward={
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":87,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
  ]
 }
-move_back={
+move_backward={
 "deadzone": 0.5,
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":83,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
  ]
@@ -1155,6 +1181,11 @@ crouch={
 interact={
 "deadzone": 0.5,
 "events": [  ]
+}
+record-toggle={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":true,"meta":false,"command":true,"pressed":false,"scancode":82,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
+ ]
 }
 
 [input_devices]

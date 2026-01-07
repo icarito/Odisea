@@ -2,10 +2,11 @@ experimental/
 port/third/third.pck
 
 # Godot-specific ignores
-*.import
-.import/
 export.cfg
 export_presets.cfg
+.import/
+*.import
+.vscode/
 
 # Imported translations (automatically generated from CSV files)
 *.translation
@@ -17,6 +18,7 @@ mono_crash.*.json
 
 # Game specific
 replays/
+reports/
 
 pupeteer/.venv/
 *.pyc

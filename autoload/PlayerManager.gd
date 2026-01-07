@@ -1,5 +1,7 @@
 extends Node
 
+onready var GameGlobals = preload("res://autoload/GameGlobals.gd")
+
 # PlayerManager (autoload: "PlayerManager")
 # Responsibility: Centralizes the player's persistent state and interface,
 # decoupling the PlayerController from gameplay logic.
@@ -9,7 +11,8 @@ var player_health: int = 100
 var respawn_point: Transform setget set_respawn_point
 var player_reference: Node = null # Reference to the active PlayerController node
 
-var player_scene := preload("res://players/elias/Pilot.tscn")
+var player_scene_path := "res://players/elias/Pilot.tscn"
+var player_scene = null
 var _initial_spawn_transform := Transform()
 
 # --- Private properties for camera state reset ---
@@ -17,6 +20,8 @@ var _default_cam_h_deg = null
 var _default_cam_v_deg = null
 var _default_camrot_h = null
 var _default_camrot_v = null
+
+onready var ReplayUtils = load("res://scripts/replay/ReplayUtils.gd")
 
 # --- Signals ---
 signal player_died()
@@ -42,21 +47,26 @@ func kill_player_instant(_player = null) -> void:
 	# No llamar respawn_player() aquí; esperar señal de respawn
 
 func respawn_player() -> void:
-		print("[PlayerManager] respawn_player called")
-		var target_transform = _initial_spawn_transform
-		despawn()
-		var spawned_player = spawn(target_transform)
-		if spawned_player:
-			print("[PlayerManager] spawned_player: ", spawned_player)
-			spawned_player.set_physics_process(true)
-		emit_signal("player_respawned")
-		call_deferred("reset_mouse_capture")
+			   print("[PlayerManager] respawn_player called")
+			   # Prevenir respawn si estamos en modo replay playback
+			   if has_node("/root/ReplayManager"):
+				   var rm = get_node("/root/ReplayManager")
+				   if "mode" in rm and "ReplayMode" in rm:
+					   if rm.mode == rm.ReplayMode.PLAYBACK:
+						   print("[PlayerManager] Respawn bloqueado: modo PLAYBACK activo en ReplayManager")
+						   return
+			   var target_transform = _initial_spawn_transform
+			   despawn()
+			   var spawned_player = spawn(target_transform)
+			   if spawned_player:
+				   print("[PlayerManager] spawned_player: ", spawned_player)
+				   spawned_player.set_physics_process(true)
+			   emit_signal("player_respawned")
+			   call_deferred("reset_mouse_capture")
 		
 func reset_mouse_capture() -> void:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		# Reiniciar música del nivel al respawn
-		if typeof(AudioSystem) != TYPE_NIL and AudioSystem:
-			AudioSystem.play_bgm("res://assets/music/Override.mp3", 0.0, true)
 
 func set_respawn_point(new_respawn_point: Transform) -> void:
 	respawn_point = new_respawn_point
@@ -72,17 +82,60 @@ func get_player() -> Node:
 func spawn(initial_transform: Transform) -> Node:
 	print("[PlayerManager] spawn called with initial_transform: ", initial_transform.origin)
 	if is_spawned():
+		print("[PlayerManager] Bloqueando spawn duplicado")
 		return player_reference
-	player_reference = player_scene.instance()
+	# Lazy-load the player scene to avoid parse-time preload errors when assets are missing
+	if player_scene == null:
+		if ResourceLoader.exists(player_scene_path):
+			player_scene = load(player_scene_path)
+		else:
+			push_error("PlayerManager: player scene not found: %s" % player_scene_path)
+			return null
+	if typeof(player_scene) == TYPE_OBJECT and player_scene is PackedScene:
+		player_reference = player_scene.instance()
+	else:
+		push_error("PlayerManager: loaded player_scene is not a PackedScene: %s" % str(player_scene))
+		return null
 	player_reference.name = "Pilot"
-	call_deferred("_deferred_spawn", initial_transform)
+	# If we're in replay mode, spawn immediately so camera and child
+	# nodes exist before playback starts; otherwise defer to avoid
+	# blocking startup ordering in normal gameplay.
+	var replay_active := false
+	if typeof(GameGlobals) != TYPE_NIL and GameGlobals:
+		replay_active = GameGlobals.is_replaying
+	if not replay_active and has_node("/root/ReplayManager"):
+		var rm_check = get_node("/root/ReplayManager")
+		if rm_check:
+			if rm_check.has_method("get_playback_node"):
+				var pbtmp = rm_check.get_playback_node()
+				if pbtmp and pbtmp.current_replay:
+					replay_active = true
+			elif "mode" in rm_check and "ReplayMode" in rm_check:
+				if rm_check.mode == rm_check.ReplayMode.PLAYBACK:
+					replay_active = true
+	if replay_active:
+		# Synchronous spawn to ensure children (CameraRig/PlayerInput) exist
+		_deferred_spawn(initial_transform)
+	else:
+		call_deferred("_deferred_spawn", initial_transform)
 	_initial_spawn_transform = initial_transform
 	return player_reference
 
 func _deferred_spawn(initial_transform: Transform):
 	print("[PlayerManager] _deferred_spawn called with initial_transform: ", initial_transform.origin)
 	if not is_instance_valid(player_reference):
-		player_reference = player_scene.instance()
+		# Ensure player scene is loaded lazily here as well
+		if player_scene == null:
+			if ResourceLoader.exists(player_scene_path):
+				player_scene = load(player_scene_path)
+			else:
+				push_error("PlayerManager: player scene not found (deferred): %s" % player_scene_path)
+				return
+		if typeof(player_scene) == TYPE_OBJECT and player_scene is PackedScene:
+			player_reference = player_scene.instance()
+		else:
+			push_error("PlayerManager: loaded player_scene is not a PackedScene (deferred): %s" % str(player_scene))
+			return
 		
 	var scene = get_tree().get_current_scene()
 	if scene:
@@ -90,12 +143,202 @@ func _deferred_spawn(initial_transform: Transform):
 	else:
 		get_tree().get_root().add_child(player_reference)
 		
-	player_reference.global_transform = initial_transform
-	print("PlayerManager: Player spawned at: ", initial_transform.origin, " rotation: ", initial_transform.basis.get_euler())
+	# Determine if we're in replay mode early so we can avoid inheriting
+	# transforms from the spawn point or scene root which may differ
+	# from the recorded initial state. When replaying, reset local basis
+	# and only apply the recorded origin to avoid 'angle of death' issues.
+	var replay_active := false
+	if typeof(GameGlobals) != TYPE_NIL and GameGlobals:
+		replay_active = GameGlobals.is_replaying
+	# Also consult ReplayManager if GameGlobals not yet set
+	if not replay_active and has_node("/root/ReplayManager"):
+		var rm_check = get_node("/root/ReplayManager")
+		if rm_check:
+			if rm_check.has_method("get_playback_node"):
+				var pbtmp = rm_check.get_playback_node()
+				if pbtmp and pbtmp.current_replay:
+					replay_active = true
+			elif "mode" in rm_check and "ReplayMode" in rm_check:
+				if rm_check.mode == rm_check.ReplayMode.PLAYBACK:
+					replay_active = true
+
+	# When replaying, avoid applying any recorded basis that may have been
+	# modified by spawn transforms; set Basis.IDENTITY then apply origin.
+	if replay_active:
+		# If the caller provided a non-identity initial_transform (e.g. ReplayPlayback
+		# assembled a full basis+origin), prefer using it directly rather than
+		# forcing Basis.IDENTITY. This covers the common case where the
+		# playback code constructs an initial_transform and then calls spawn().
+		if initial_transform.basis != Basis.IDENTITY:
+			player_reference.global_transform = initial_transform
+			print("[PlayerManager] Replay-active spawn: applied caller initial_transform with basis and origin:", initial_transform.origin)
+			# Clear physics if present
+			if player_reference.has_method("reset_physics"):
+				player_reference.reset_physics()
+				if player_reference.get("velocity") != null:
+					player_reference.velocity = Vector3()
+				if player_reference.get("linear_velocity") != null:
+					player_reference.linear_velocity = Vector3()
+			return
+		# If the replay contains a recorded player state, prefer applying
+		# the recorded full transform (basis + origin) so the playback starts
+		# exactly at the captured orientation/position. Fallback to the
+		# previous behaviour (identity basis + origin) when no player state
+		# is available.
+		var applied_full_player_transform := false
+		if has_node("/root/ReplayManager"):
+			var rm_local = get_node("/root/ReplayManager")
+			if rm_local and rm_local.playback and rm_local.playback.current_replay:
+				var initials_local = rm_local.playback.current_replay.initial_states
+				if typeof(initials_local) == TYPE_STRING:
+					var parsed_local = parse_json(initials_local)
+					if typeof(parsed_local) == TYPE_DICTIONARY:
+						initials_local = ReplayUtils.from_json_safe(parsed_local)
+					else:
+						initials_local = {}
+				elif typeof(initials_local) == TYPE_DICTIONARY:
+					initials_local = ReplayUtils.from_json_safe(initials_local)
+					# If we have a recorded player snapshot, try several formats:
+					# - initials_local["player"] is a Dictionary containing a "global_transform"
+					# - initials_local["player"] already contains a Transform for global_transform
+					# - initials_local["player"] is itself a Transform (less likely)
+					if initials_local and typeof(initials_local) == TYPE_DICTIONARY and initials_local.has("player"):
+						var pstate = initials_local["player"]
+						# Case: pstate is a Dictionary with a nested global_transform
+						if typeof(pstate) == TYPE_DICTIONARY and pstate.has("global_transform"):
+							var gtf = pstate["global_transform"]
+							if typeof(gtf) != TYPE_NIL:
+								player_reference.global_transform = gtf
+								print("[PlayerManager] Replay-active spawn: applied recorded player global_transform: ", gtf.origin)
+								applied_full_player_transform = true
+						# Case: pstate itself is a Transform
+						elif pstate is Transform:
+							player_reference.global_transform = pstate
+							print("[PlayerManager] Replay-active spawn: applied recorded player Transform (direct)")
+							applied_full_player_transform = true
+						# Case: pstate is a raw JSON-like dict representing a Transform
+						elif typeof(pstate) == TYPE_DICTIONARY:
+							# Try to convert to Transform defensively
+							var try_gtf = ReplayUtils.from_json_safe(pstate)
+							if try_gtf is Transform:
+								player_reference.global_transform = try_gtf
+								print("[PlayerManager] Replay-active spawn: applied recorded player transform (converted)", try_gtf.origin)
+								applied_full_player_transform = true
+		# Fallback to previous behaviour when no recorded player transform available
+		if not applied_full_player_transform:
+			player_reference.global_transform = Transform(Basis.IDENTITY, initial_transform.origin)
+			print("[PlayerManager] Replay-active spawn: reset basis to IDENTITY and applied origin: ", initial_transform.origin)
+		# Ensure any pre-existing physics state is cleared so replay starts deterministic
+		if player_reference.has_method("reset_physics"):
+			player_reference.reset_physics()
+			print("[PlayerManager] FIX: reset_physics() called on player_reference to clear legacy velocities")
+		# Also zero common velocity properties if present
+			# Use safe property checks via get(..., null) because Object/Node
+			# don't implement a generic `has()` method in Godot 3.6.
+			if player_reference.get("velocity") != null:
+				player_reference.velocity = Vector3()
+			if player_reference.get("linear_velocity") != null:
+				player_reference.linear_velocity = Vector3()
+	else:
+		# Normal path: enforce initial transform provided by caller
+		player_reference.global_transform = initial_transform
+		print("PlayerManager: Player spawned at: ", initial_transform.origin, " rotation: ", initial_transform.basis.get_euler())
+
+	# Emergency: if there's an active replay with initial camera snapshot, apply it now
+	if has_node("/root/ReplayManager"):
+		var rm = get_node("/root/ReplayManager")
+		if rm and rm.playback and rm.playback.current_replay:
+			var initials = rm.playback.current_replay.initial_states
+			# If initials were serialized as a JSON string, try to parse them.
+			if typeof(initials) == TYPE_STRING:
+				var parsed = parse_json(initials)
+				if typeof(parsed) == TYPE_DICTIONARY:
+					initials = ReplayUtils.from_json_safe(parsed)
+				else:
+					print("[PlayerManager] Warning: could not parse initial_states string from replay")
+			# If it's already a dictionary, ensure Godot types are restored (Vector3/Transform)
+			elif typeof(initials) == TYPE_DICTIONARY:
+				initials = ReplayUtils.from_json_safe(initials)
+			# Prefer a full camera dict
+			if initials.has("camera"):
+				var cam_state = initials["camera"]
+				var cam = player_reference.get_node_or_null("CameraRig")
+				if cam and cam.has_method("set_replay_state"):
+					cam.set_replay_state(cam_state)
+					# Force camera into playback/passive mode to avoid internal smoothing
+					if cam and cam.has_method("set_is_playback"):
+						cam.set_is_playback(true)
+					if cam.has_method("update_camera_transform"):
+						cam.update_camera_transform()
+					print("[PlayerManager] Applied camera snapshot from replay on spawn")
+			# Fallback to top-level yaw/pitch shortcuts
+			elif initials.has("camera_yaw") and initials.has("camera_pitch"):
+				var cy = initials.get("camera_yaw", null)
+				var cp = initials.get("camera_pitch", null)
+				var cam2 = player_reference.get_node_or_null("CameraRig")
+				if cam2 and cam2.has_method("set_replay_state"):
+					cam2.set_replay_state({"yaw": cy, "pitch": cp})
+					# Force passive playback mode on camera
+					if cam2 and cam2.has_method("set_is_playback"):
+						cam2.set_is_playback(true)
+					if cam2.has_method("update_camera_transform"):
+						cam2.update_camera_transform()
+					print("[PlayerManager] Applied camera yaw/pitch from replay on spawn")
+	
+	# Set replay mode on PlayerInput if in replay
+	# Detect replay via GameGlobals or ReplayManager and mark player accordingly
+	var replay_marked := false
+	if GameGlobals.is_replaying:
+		var player_input = player_reference.find_node("PlayerInput", true, false)
+		if player_input and player_input.has_method("set"):
+			player_input.is_replay_mode = true
+			print("[PlayerManager] PlayerInput set to replay mode")
+		player_reference.set("is_replaying", true)
+		print("[PlayerManager] PlayerController is_replaying set to true on spawn (via set, GameGlobals)")
+		replay_marked = true
+		# Propagate to camera rig to ensure passive playback mode
+		var camnode = player_reference.get_node_or_null("CameraRig")
+		if camnode and camnode.has_method("set_is_playback"):
+			camnode.set_is_playback(true)
+
+	# Also check ReplayManager directly in case GameGlobals flag isn't set yet
+	if not replay_marked and has_node("/root/ReplayManager"):
+		var rm = get_node("/root/ReplayManager")
+		var is_playback := false
+		if rm:
+			if rm.has_method("get_playback_node"):
+				var pb = rm.get_playback_node()
+				if pb and pb.current_replay:
+					is_playback = true
+			elif "mode" in rm and "ReplayMode" in rm:
+				if rm.mode == rm.ReplayMode.PLAYBACK:
+					is_playback = true
+			# If we detect playback, mark player and PlayerInput
+			if is_playback:
+				var player_input2 = player_reference.find_node("PlayerInput", true, false)
+				if player_input2 and player_input2.has_method("set"):
+					player_input2.is_replay_mode = true
+				player_reference.set("is_replaying", true)
+				print("[PlayerManager] PlayerController is_replaying set to true on spawn (via ReplayManager)")
+				var camnode2 = player_reference.get_node_or_null("CameraRig")
+				if camnode2 and camnode2.has_method("set_is_playback"):
+					camnode2.set_is_playback(true)
 	
 	# Forzar alineación de cámara después de que el nodo esté en escena y transform aplicado.
 	# La función _align_camera_to_body() debe existir en el script del player.
-	player_reference.call_deferred("_align_camera_to_body")
+	# SOLO alinear si NO estamos en replay (para preservar la orientación grabada)
+	replay_active = false
+	if typeof(GameGlobals) != TYPE_NIL and GameGlobals:
+		replay_active = GameGlobals.is_replaying
+	# Also respect the player property if set
+	if not replay_active and player_reference.has_method("get"):
+		# if the property exists and is true, treat as replay
+		if player_reference.get("is_replaying"):
+			replay_active = true
+	if not replay_active:
+		player_reference.call_deferred("_check_and_align_camera")
+	else:
+		print("[PlayerManager] Skipping _check_and_align_camera due to active replay")
 
 	# Forzar captura de mouse tras spawn inicial (consistente con MouseCapture.gd)
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)

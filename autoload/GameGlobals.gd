@@ -17,6 +17,12 @@ var is_replaying: bool = false setget set_is_replaying
 # Global pause state of the game (get_tree().paused).
 var is_paused: bool = false setget set_is_paused
 
+# Test mode for determinism tests
+var is_test_mode: bool = false
+
+# Flag to prevent multiple processing of CLI --replay
+var cli_replay_processed := false
+
 # Application ID for canvas environments.
 var app_id: String = ""
 
