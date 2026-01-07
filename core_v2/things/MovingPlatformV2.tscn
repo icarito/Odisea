@@ -13,7 +13,6 @@ extents = Vector3( 2.5, 1, 2.5 )
 collision_layer = 2
 script = ExtResource( 2 )
 passenger_area_path = NodePath("PassengerArea")
-debug_passengers = true
 
 [node name="Moving Platform" type="CSGBox" parent="."]
 width = 5.0

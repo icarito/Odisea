@@ -2,6 +2,8 @@ extends KinematicBody
 
 # MovingPlatformV2.gd
 
+const FIXED_DT := 1.0 / 60.0
+
 enum EaseType { LINEAR, SINE, CUSTOM_CURVE }
 
 # --- Parámetros Exportables ---
@@ -20,11 +22,11 @@ export(bool) var debug_passengers := false
 var time_accumulator: float = 0.0
 var linear_velocity: Vector3 = Vector3.ZERO
 var start_position: Vector3
-var end_position: Vector3
-var _pending_snapshot = null
+var end_position: Vector3 
 var passengers := []
 onready var passenger_area: Area = null
 var _debug_accum := 0.0
+var _needs_sync := false
  
 
 func _ready():
@@ -43,37 +45,63 @@ func _ready():
 			print("[MP2] passenger area ready mask=", passenger_area.collision_mask, " layer=", passenger_area.collision_layer)
 
 
-	# Capturar posición inicial ya con el transform instanciado aplicado.
+	# La posición inicial se captura una sola vez al inicio.
 	start_position = global_transform.origin
 	end_position = start_position + movement_vector
 
 	time_accumulator = -start_delay
 
-	# Aplicar snapshot pendiente si existiera.
-	if _pending_snapshot != null:
-		_apply_snapshot(_pending_snapshot)
-		_pending_snapshot = null
-
- 
-
 func _apply_snapshot(data: Dictionary) -> void:
-	# Aplica snapshot suponiendo que ya estamos dentro del árbol.
+	# FIX: Asegurarse de que start_position esté inicializada antes de usarla.
+	# En un replay, restore_snapshot() puede ser llamado antes que _ready().
+	if start_position == Vector3.ZERO:
+		start_position = global_transform.origin
+
+	var time_before = time_accumulator
 	if data.has("time"):
 		time_accumulator = data.time
-	if data.has("start_pos"):
-		var sp = data["start_pos"]
-		start_position = Vector3(sp[0], sp[1], sp[2])
-		end_position = start_position + movement_vector
-	if data.has("pos"):
-		var p = data["pos"]
-		global_transform = Transform(global_transform.basis, Vector3(p[0], p[1], p[2]))
 	if data.has("vel"):
 		var v = data["vel"]
 		linear_velocity = Vector3(v[0], v[1], v[2])
+	if data.has("cycle_duration"):
+		cycle_duration = data["cycle_duration"]
+	if data.has("start_delay"):
+		start_delay = data["start_delay"]
+	if data.has("ease_type"):
+		ease_type = data["ease_type"]
+	if data.has("movement_vector"):
+		var mv = data["movement_vector"]
+		movement_vector = Vector3(mv[0], mv[1], mv[2])
+		end_position = start_position + movement_vector
+	if data.has("debug_passengers"):
+		debug_passengers = data["debug_passengers"]
 
-func _physics_process(delta: float):
+	# Si se restauró time_accumulator, sincronizar posición a ese frame estado
+	_needs_sync = true
+
+
+
+func _sync_position_from_time() -> void:
+	# Sincronizar global_transform.origin a partir de time_accumulator
+	# sin modificar velocity (se restauró en _apply_snapshot si existía).
+	if time_accumulator < 0:
+		global_transform.origin = start_position
+		return
+
+	var half_cycle = cycle_duration / 2.0
+	var raw_progress = pingpong_logic(time_accumulator, half_cycle) / half_cycle
+	var cooked_progress = apply_easing(raw_progress)
+	var new_position = start_position.linear_interpolate(end_position, cooked_progress)
+	global_transform.origin = new_position
+
+func _step_physics(dt: float):
+	# Si se restauró un snapshot, sincronizamos la posición visual
+	# la primera vez que se ejecuta el step.
+	if _needs_sync:
+		_sync_position_from_time()
+		_needs_sync = false
 	var previous_position = global_transform.origin
-	time_accumulator += delta
+	time_accumulator += dt
 
 	# Si estamos en el periodo de delay, mantenemos la posición inicial.
 	if time_accumulator < 0:
@@ -95,9 +123,9 @@ func _physics_process(delta: float):
 	# 4. Actualización de posición global y cálculo de velocidad para el Player.
 	global_transform.origin = new_position
 	
-	if delta > 0:
+	if dt > 0:
 		# Esta velocidad es vital para que move_and_slide detecte el movimiento del suelo.
-		linear_velocity = (new_position - previous_position) / delta
+		linear_velocity = (new_position - previous_position) / dt
 
 	# Propagar velocidad a cuerpos pasajeros (jugador, etc.).
 	if passengers.size() > 0:
@@ -113,10 +141,13 @@ func _physics_process(delta: float):
 
 	# Debug periódico
 	if debug_passengers:
-		_debug_accum += delta
+		_debug_accum += dt
 		if _debug_accum >= 0.5:
 			_debug_accum = 0.0
 			print("[MP2] passengers=", passengers.size(), " vel=", linear_velocity, " pos=", global_transform.origin)
+
+func step(dt: float):
+	_step_physics(dt)
 
 func apply_easing(t: float) -> float:
 	match ease_type:
@@ -141,20 +172,17 @@ func pingpong_logic(value: float, length: float) -> float:
 func get_snapshot() -> Dictionary:
 	return {
 		"time": time_accumulator,
-		"start_pos": [start_position.x, start_position.y, start_position.z],
-		"pos": [global_transform.origin.x, global_transform.origin.y, global_transform.origin.z],
-		"vel": [linear_velocity.x, linear_velocity.y, linear_velocity.z]
+		"vel": [linear_velocity.x, linear_velocity.y, linear_velocity.z],
+		"cycle_duration": cycle_duration,
+		"start_delay": start_delay,
+		"ease_type": ease_type,
+		"movement_vector": [movement_vector.x, movement_vector.y, movement_vector.z],
+		"debug_passengers": debug_passengers
 	}
 
 func restore_snapshot(data: Dictionary):
-	# Puede que el SessionManager intente restaurar el snapshot antes de que
-	# el nodo esté dentro del árbol (ej. reproducción desde CLI). En ese caso
-	# guardamos el snapshot y lo aplicamos cuando estemos listos.
-	if not is_inside_tree():
-		_pending_snapshot = data.duplicate(true)
-		return
-
-	# Si estamos en el árbol, aplicar inmediatamente.
+	# El SessionManager se asegura de que el nodo esté en el árbol
+	# antes de llamar a esta función.
 	_apply_snapshot(data)
 
 
