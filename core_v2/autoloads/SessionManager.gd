@@ -46,6 +46,10 @@ func _ready():
 
 func _on_tree_changed_for_replay(replay_path: String):
 	# Esta función se ejecuta una sola vez cuando la escena principal está lista.
+	# Esperamos un frame idle para que todos los nodos ejecuten _ready() y se agreguen a sus grupos
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	
 	# Ahora es seguro buscar al jugador y cargar el replay.
 	_find_player()
 	if player:
@@ -68,6 +72,9 @@ func _unhandled_input(event):
 			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
+var _replay_frame := 0
+var _total_replay_frames := 0
+
 func _physics_process(_dt):
 	_find_player()
 
@@ -78,15 +85,30 @@ func _physics_process(_dt):
 			stop_and_save_recording()
 
 	if is_replaying:
-		# Step player
-		if player and player.has_method("step"):
-			var input = player.input_provider.get_input()
-			player.step(FIXED_DT, input)
+		# Obtener input primero para verificar si hay más inputs disponibles
+		if not player or not player.has_method("step"):
+			run_playback()  # Solo para terminar replay si no hay player
+			_replay_frame += 1
+			return
+			
+		var input = player.input_provider.get_input()
+		
+		# Si no hay más inputs, terminar
+		if input == null:
+			run_playback()
+			return
+		
+		# Step player con el input
+		player.step(FIXED_DT, input)
+		
 		# Step plataformas
 		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
 		for node in sync_nodes:
 			if node != player and node.has_method("step"):
 				node.step(FIXED_DT)
+		
+		_replay_frame += 1
+		_total_replay_frames = _replay_frame
 		run_playback()
 	elif is_recording:
 		# Consumir input desde el provider una única vez y usar ese mismo input
@@ -129,6 +151,10 @@ func start_recording():
 		if node != player and node.has_method("step"):
 			node.set_physics_process(false)
 	
+	# Marcar player como "controlado externamente" para evitar doble step
+	if player:
+		player.is_replay_mode = true  # Usamos esta bandera para indicar control externo
+	
 	# --- Capturar estado inicial del mundo (nodos en 'replay_sync') ---
 	var world_start_state = {}
 	for node in sync_nodes:
@@ -148,6 +174,17 @@ func stop_and_save_recording():
 		printerr("SessionManager: No se puede detener la grabación, no se encontró al jugador.")
 		return
 	is_recording = false
+	
+	# Restaurar control normal del player
+	if player:
+		player.is_replay_mode = false
+	
+	# Reactivar _physics_process en plataformas
+	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+	for node in sync_nodes:
+		if node != player and node.has_method("step"):
+			node.set_physics_process(true)
+	
 	var cam = player.get_node_or_null("CameraRig")
 	print("GRAB_END\nrotation:", player.yaw, player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam.global_transform.origin)
 	var file_path = "user://replay_" + str(OS.get_unix_time()) + ".json"
@@ -198,8 +235,11 @@ func load_and_play(path: String):
 		
 		# Desactivar _physics_process en plataformas durante replay para usar step centralizado
 		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+		print("[SM] Found ", sync_nodes.size(), " nodes in replay_sync group")
 		for node in sync_nodes:
+			print("[SM] Node in group: ", node.name, " is player=", (node == player))
 			if node != player:
+				print("[SM] Disabling _physics_process for: ", node.name)
 				node.set_physics_process(false)
 		
 		# Inyectar buffer al input_provider en modo REPLAY
@@ -225,6 +265,8 @@ func load_and_play(path: String):
 func _finish_and_validate():
 	if _drift_validated: return
 	_drift_validated = true
+	
+	print("[SM] Total replay frames executed: ", _total_replay_frames)
 	
 	# 1. Imprimir estado final
 	if player:

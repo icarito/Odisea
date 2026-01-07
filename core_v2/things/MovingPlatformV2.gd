@@ -11,7 +11,7 @@ export var movement_vector: Vector3 = Vector3.RIGHT * 10.0
 export var cycle_duration: float = 4.0
 # Retraso antes de iniciar el movimiento.
 export var start_delay: float = 0.0
-export(EaseType) var ease_type = EaseType.SINE
+export(EaseType) var ease_type = EaseType.LINEAR
 export(Curve) var custom_curve: Curve # Arrastra tus archivos .tres aquí
 export(NodePath) var passenger_area_path
 export(bool) var debug_passengers := false
@@ -25,10 +25,21 @@ var passengers := []
 onready var passenger_area: Area = null
 var _debug_accum := 0.0
 var _pending_snapshot = null
+var _snapshot_applied := false  # Evita que _ready sobrescriba valores restaurados
  
 
 func _ready():
 	add_to_group("replay_sync")
+	
+	# Si estamos en modo CLI replay, desactivar _physics_process inmediatamente
+	# para evitar frames extra antes de que SessionManager tome control
+	# NOTA: NO desactivamos para GdUnit porque el test activará physics frames reales
+	var args = OS.get_cmdline_args()
+	for arg in args:
+		if arg == "--replay":
+			set_physics_process(false)
+			break
+	
 	# Resolver PassengerArea para propagar velocidad a pasajeros.
 	if passenger_area_path and has_node(passenger_area_path):
 		passenger_area = get_node(passenger_area_path)
@@ -43,9 +54,11 @@ func _ready():
 			print("[MP2] passenger area ready mask=", passenger_area.collision_mask, " layer=", passenger_area.collision_layer)
 
 	# Capturar posición inicial con global_transform.origin (única fuente de verdad).
-	start_position = global_transform.origin
-	end_position = start_position + movement_vector
-	time_accumulator = -start_delay
+	# Solo si no se ha aplicado un snapshot (para evitar sobrescribir valores restaurados)
+	if not _snapshot_applied:
+		start_position = global_transform.origin
+		end_position = start_position + movement_vector
+		time_accumulator = -start_delay
 
 	# Aplicar snapshot pendiente si existiera (replay puede llamar restore antes de _ready).
 	if _pending_snapshot != null:
@@ -53,6 +66,8 @@ func _ready():
 		_pending_snapshot = null
 
 func _apply_snapshot(data: Dictionary) -> void:
+	_snapshot_applied = true  # Marcar que se aplicó un snapshot
+	_step_count = 0  # Resetear contador de debug
 	# Restaurar FIRST los parámetros de configuración (cycle_duration, ease_type, movement_vector, etc.)
 	# para que se usen correctamente en los cálculos posteriores
 	if data.has("cycle_duration"):
@@ -121,13 +136,16 @@ func _apply_snapshot(data: Dictionary) -> void:
 		global_transform.origin = start_position
 
 
+var _step_count := 0
 
 func _physics_process(delta: float):
+	_step_count += 1
+	
 	# Guardar posición anterior para calcular velocidad.
 	var previous_position = global_transform.origin
 
-	# Avanzar tiempo de forma lineal (delta es constante en Godot 3.6).
-	time_accumulator += 1.0 / 60.0  # Usar timestep fijo para determinismo
+	# Avanzar tiempo usando delta
+	time_accumulator += delta
 
 	# Si estamos en el periodo de delay, mantenemos la posición inicial.
 	if time_accumulator < 0:
@@ -160,23 +178,30 @@ func _physics_process(delta: float):
 	global_transform.origin = new_position
 
 	# Calcular velocidad (vital para que move_and_slide detecte el movimiento del suelo).
-	linear_velocity = (new_position - previous_position) / (1.0 / 60.0)
+	if delta > 0:
+		linear_velocity = (new_position - previous_position) / delta
 
 	# Propagar velocidad a cuerpos pasajeros (jugador, etc.).
-	if passengers.size() > 0:
-		for i in range(passengers.size() - 1, -1, -1):
-			var body = passengers[i]
-			if not is_instance_valid(body):
-				passengers.remove(i)
-				continue
-			if body.has_method("set_external_velocity"):
-				body.set_external_velocity(linear_velocity)
-				if body.has_method("set_external_source_is_static"):
-					body.set_external_source_is_static(false)
+	# Usamos get_overlapping_bodies() que funciona con physics ticks reales del engine
+	var current_passengers = []
+	if passenger_area:
+		passenger_area.force_update_transform()
+		current_passengers = passenger_area.get_overlapping_bodies()
+	# Fallback a lista 'passengers' gestionada por señales
+	if current_passengers.size() == 0 and passengers.size() > 0:
+		current_passengers = passengers
+	
+	for body in current_passengers:
+		if body == self or body.get_parent() == self:
+			continue
+		if body.has_method("set_external_velocity"):
+			body.set_external_velocity(linear_velocity)
+			if body.has_method("set_external_source_is_static"):
+				body.set_external_source_is_static(false)
 
 	# Debug periódico.
 	if debug_passengers:
-		_debug_accum += 1.0 / 60.0
+		_debug_accum += delta
 		if _debug_accum >= 0.5:
 			_debug_accum = 0.0
 			print("[MP2] passengers=", passengers.size(), " vel=", linear_velocity, " pos=", global_transform.origin)
