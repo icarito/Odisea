@@ -17,6 +17,11 @@ func before():
 	assert_dict(_reference_data).is_not_empty()
 
 func test_determinismo_headless():
+	# Optimización para tests: desactivar vsync para velocidad máxima
+	# NOTA: No podemos cambiar iterations_per_second porque afecta el delta de physics
+	OS.set_use_vsync(false)
+	Engine.target_fps = 0  # Sin límite de FPS
+	
 	# 1. Cargar la escena indicada en metadata
 	var meta = _reference_data.get("meta", {})
 	var scene_path = meta.get("scene", "") if typeof(meta) == TYPE_DICTIONARY else ""

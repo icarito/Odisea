@@ -1,17 +1,20 @@
 #!/bin/sh
 
 if [ -z "$GODOT_BIN" ]; then
-    GODOT_BIN="godot3"
+    GODOT_BIN="godot3-bin"
 fi
 
-# we not use no-window because of issue https://github.com/godotengine/godot/issues/55379
+# Usar --no-window para tests headless (más rápido en CI)
+# El issue https://github.com/godotengine/godot/issues/55379 ya no aplica con nuestros tests actuales
+GODOT_OPTS="--no-window"
+
 # Ejecutamos el runner guardando la salida en un log para analizarla y decidir el exit code
 LOG_DIR="./reports"
 LOG_FILE="$LOG_DIR/gdunit_runner.log"
 mkdir -p "$LOG_DIR"
 
 # Ejecuta Godot y guarda stdout+stderr en el log, preservando el exit code
-$GODOT_BIN -s -d ./addons/gdUnit3/bin/GdUnitCmdTool.gd $* > "$LOG_FILE" 2>&1
+$GODOT_BIN $GODOT_OPTS -s -d ./addons/gdUnit3/bin/GdUnitCmdTool.gd $* > "$LOG_FILE" 2>&1
 exit_code=$?
 
 # Volcar log a la salida para que aparezca en los logs de CI
