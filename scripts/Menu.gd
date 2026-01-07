@@ -17,11 +17,6 @@ func _ready():
 
 	find_node("Start").grab_focus()
 
-	# BGM del menú
-	#if typeof(AudioSystem) != TYPE_NIL and AudioSystem:
-	#	var bgm_path := "res://assets/music/Orbital Descent.mp3"
-	#	AudioSystem.play_bgm(bgm_path, 0.0, true, -8.0)
-	
 	# Fade in al cargar
 	fade_rect.modulate.a = 1.0  # Empieza negro
 	var tween = Tween.new()
