@@ -33,7 +33,6 @@ glow_bloom = 1.0
 [node name="TestScene" type="Spatial"]
 
 [node name="CSGBox" type="CSGBox" parent="."]
-transform = Transform( 0.999998, 0.00179769, 0, -0.00179769, 0.999998, 0, 0, 0, 1, 0, 0, 0 )
 use_collision = true
 width = 100.0
 height = 0.2
