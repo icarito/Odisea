@@ -1,4 +1,3 @@
-
 extends Spatial
 
 func _ready():
@@ -11,6 +10,15 @@ func _ready():
 	var spawn := find_node("SpawnPoint")
 	print("[SceneSpawn] Found spawn:", spawn)
 
+	# Si estamos en modo replay, spawnear el player si no existe
+	if GameGlobals.is_replaying:
+		if not PlayerManager.is_spawned():
+			print("[SceneSpawn] Spawneando player en modo replay")
+			PlayerManager.spawn(spawn.global_transform if spawn else Transform())
+		else:
+			print("[SceneSpawn] Player ya spawneado en modo replay")
+		return
+
 	if spawn:
 		if typeof(PlayerManager) != TYPE_NIL:
 			print("[SceneSpawn] PlayerManager ref:", PlayerManager)
@@ -20,7 +28,10 @@ func _ready():
 				print("[SceneSpawn] PlayerManager.get_player():", p)
 				if is_instance_valid(p):
 					p.global_transform = spawn.global_transform
-					p.rotation.z = spawn.rotation.z
+					if spawn:
+						p.rotation.z = spawn.rotation.z
+					else:
+						print("[SceneSpawn] Warning: SpawnPoint is null, skipping rotation.z assignment")
 					print("[SceneSpawn] Player relocated to spawn")
 				else:
 					print("[SceneSpawn] Player not valid, spawning new")
@@ -39,7 +50,10 @@ func _ready():
 				print("[SceneSpawn] PlayerManager.get_player():", p)
 				if is_instance_valid(p):
 					p.global_transform = global_transform
-					p.rotation.z = spawn.rotation.z
+					if spawn:
+						p.rotation.z = spawn.rotation.z
+					else:
+						print("[SceneSpawn] Warning: SpawnPoint is null in fallback, skipping rotation.z assignment")
 					print("[SceneSpawn] Player relocated to origin")
 				else:
 					print("[SceneSpawn] Player not valid, spawning new")
@@ -48,4 +62,3 @@ func _ready():
 				print("[SceneSpawn] Player not spawned, spawning new")
 				PlayerManager.spawn(global_transform)
 
-	# (Conexión de señales movida a KillZone._ready)

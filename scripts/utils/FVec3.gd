@@ -3,6 +3,8 @@ extends Node
 # FVec3.gd - Utilidades para vectores 3D en punto fijo
 # Usa diccionarios para evitar problemas de memoria
 
+const FixedPoint = preload("res://autoload/FixedPoint.gd")
+
 static func zero() -> Dictionary:
 	return {"x": 0, "y": 0, "z": 0}
 

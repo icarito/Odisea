@@ -18,7 +18,7 @@ var TOKEN_FUNCTION_RETURN_TYPE := Token.new("->")
 var TOKEN_FUNCTION_END := Token.new("):")
 var TOKEN_ARGUMENT_ASIGNMENT := Token.new("=")
 var TOKEN_ARGUMENT_TYPE_ASIGNMENT := Token.new(":=")
-var TOKEN_ARGUMENT_FUZZER := FuzzerToken.new(prepare_regex("((?!(fuzzer_(seed|iterations)))fuzzer?\\w+)(=|:=|:Fuzzer=)"))
+var TOKEN_ARGUMENT_FUZZER := FuzzerToken.new(prepare_regex("((?!(fuzzer_(seed|iterations)))fuzzer?\\w+)( ?+= ?+| ?+:= ?+| ?+:Fuzzer ?+= ?+|)"))
 var TOKEN_ARGUMENT_TYPE := Token.new(":")
 var TOKEN_ARGUMENT_SEPARATOR := Token.new(",")
 var TOKEN_BRACKET_OPEN := Token.new("(")
@@ -63,6 +63,8 @@ var TOKENS := [
 ]
 
 var _regex_clazz_name :RegEx
+var _regex_func_args := prepare_regex("\\b[^()]+\\((.*)\\)")
+var _regex_argumentTags := prepare_regex("([^,]+\\(.+?\\))|([^,]+)");
 
 var _base_clazz :String
 var _scanned_inner_classes := PoolStringArray()
@@ -75,7 +77,7 @@ static func prepare_regex(pattern :String) -> RegEx:
 	return regex
 
 static func clean_up_row(row :String) -> String:
-	return to_unix_format(row.replace(" ", "").replace("	", ""))
+	return to_unix_format(row.replace(" ", "").replace("\t", ""))
 
 static func to_unix_format(input :String) -> String:
 	return input.replace("\r\n", "\n")
@@ -326,118 +328,143 @@ func parse_func_return_type(row: String) -> int:
 		return TYPE_NIL
 	return token.type()
 
-func parse_return_token(row: String) -> Token:
-	var input := clean_up_row(row)
-	var current_index := 0
-	var token :Token = null
-	var bracket := 0
-	while current_index < len(input):
-		token = next_token(input, current_index) as Token
-		current_index += token._consumed
-		if token == TOKEN_BRACKET_OPEN:
-			bracket += 1
-		if token == TOKEN_BRACKET_CLOSE:
-			bracket -= 1
-		# function end reached ?
-		if bracket == 0 and token == TOKEN_BRACKET_CLOSE:
-			token = next_token(input, current_index) as Token
-			current_index += token._consumed
-			if token == TOKEN_FUNCTION_RETURN_TYPE:
-				return next_token(input, current_index) as Token
-			else:
-				return TOKEN_NOT_MATCH
-	return TOKEN_NOT_MATCH
+func parse_return_token(input: String) -> Token:
+	var index := input.find_last(TOKEN_FUNCTION_RETURN_TYPE._token)
+	if index == -1:
+		return TOKEN_NOT_MATCH
+	index += TOKEN_FUNCTION_RETURN_TYPE._consumed
+	var token := next_token(input, index)
+	if token == TOKEN_SPACE:
+		index += TOKEN_SPACE._consumed
+		token = next_token(input, index)
+	return token
+
+const BRACKET_OPEN := 40
+const BRACKET_CLOSE := 41
+
+func _extract_arguments(input :String) -> String:
+	var bracket_count := 0
+	var start_index := 0
+	
+	for index in input.length():
+		var character = input.ord_at(index)
+		if character == BRACKET_OPEN:
+			bracket_count += 1
+			if bracket_count == 1:
+				start_index = index + 1
+		elif character == BRACKET_CLOSE:
+			bracket_count -= 1
+			if bracket_count == 0:
+				var length = index-start_index
+				return "" if length == 0 else input.substr(start_index, length)
+	return ""
 
 # Parses the argument into a argument signature
 # e.g. func foo(arg1 :int, arg2 = 20) -> [arg1, arg2]
-func parse_arguments(row: String) -> Array:
+func parse_arguments(input: String) -> Array:
+	var arguments := _extract_arguments(input)
+	if arguments.empty():
+		return []
+	arguments += ","
+	
 	var args := Array()
-	var input := clean_up_row(row)
 	var current_index := 0
-	var token :Token = null
 	var bracket := 0
-	var in_function := false
-	while current_index < len(input):
-		token = next_token(input, current_index)
-		current_index += token._consumed
-		if token == TOKEN_BRACKET_OPEN:
-			in_function = true
-			bracket += 1
-			continue
-		if token == TOKEN_BRACKET_CLOSE:
-			bracket -= 1
-		# if function end?
-		if in_function and bracket == 0:
-			return args
-		# is function
+	var arg_name :String
+	var arg_type :String
+	var arg_value :String
+	# parse type and default value
+	while current_index < len(arguments):
+		var token :Token = next_token(arguments, current_index)
 		if token == TOKEN_FUNCTION_DECLARATION:
-			token = next_token(input, current_index)
-			current_index += token._consumed
+			token = tokenize_value(arguments, current_index, token)
+		current_index += token._consumed
+		
+		if token.is_variable():
+			arg_name = token.plain_value()
+			arg_type = ""
+			arg_value = GdFunctionArgument.UNDEFINED
 			continue
+			
 		# is fuzzer argument
 		if token is FuzzerToken:
-			var arg_value = _parse_end_function(input.substr(current_index), true)
+			arg_name = token.name()
+			arg_type = token.type()
+			arg_value = _parse_end_function(arguments.substr(current_index), true)
 			current_index += arg_value.length()
-			args.append(GdFunctionArgument.new(token.name(), token.type(), arg_value))
 			continue
-		# is value argument
-		if in_function and token.is_variable():
-			var arg_name = token.plain_value()
-			var arg_type = ""
-			var arg_value = GdFunctionArgument.UNDEFINED
-			# parse type and default value
-			while current_index < len(input):
+			
+		match token:
+			TOKEN_SPACE:
+				continue
+			
+			TOKEN_ARGUMENT_TYPE:
+				token = next_token(arguments, current_index)
+				current_index += token._consumed
+				if token == TOKEN_SPACE:
+					token = next_token(arguments, current_index)
+					current_index += token._consumed
+				arg_type = token._token
+			
+			TOKEN_ARGUMENT_TYPE_ASIGNMENT:
+				arg_value = _parse_end_function(arguments.substr(current_index), true)
+				current_index += arg_value.length()
+			
+			TOKEN_ARGUMENT_ASIGNMENT:
+				arg_value = _parse_end_function(arguments.substr(current_index), true)
+				current_index += arg_value.length()
+			
+			TOKEN_FUNCTION_DECLARATION:
 				token = next_token(input, current_index)
 				current_index += token._consumed
-				match token:
-					TOKEN_ARGUMENT_TYPE:
-						token = next_token(input, current_index)
-						arg_type = token._token
-					TOKEN_ARGUMENT_TYPE_ASIGNMENT:
-						arg_value = _parse_end_function(input.substr(current_index), true)
-						current_index += arg_value.length()
-					TOKEN_ARGUMENT_ASIGNMENT:
-						arg_value = _parse_end_function(input.substr(current_index), true)
-						current_index += arg_value.length()
-					TOKEN_BRACKET_OPEN:
-						bracket += 1
-						# if value a function?
-						if bracket > 1:
-							# complete the argument value
-							var func_begin = input.substr(current_index-TOKEN_BRACKET_OPEN._consumed)
-							var func_body = _parse_end_function(func_begin)
-							arg_value += func_body
-							# fix parse index to end of value
-							current_index += func_body.length() - TOKEN_BRACKET_OPEN._consumed - TOKEN_BRACKET_CLOSE._consumed
-					TOKEN_BRACKET_CLOSE:
-						bracket -= 1
-						# end of function
-						if bracket == 0:
-							break
-					TOKEN_ARGUMENT_SEPARATOR:
-						if bracket <= 1:
-							break
-			if arg_type.empty() and arg_value != GdFunctionArgument.UNDEFINED:
-				var value_type := TYPE_STRING
-				if arg_value.begins_with("Color."):
-					value_type = TYPE_COLOR
-				elif arg_value.begins_with("Vector2."):
-					value_type = TYPE_VECTOR2
-				elif arg_value.begins_with("Vector3."):
-					value_type = TYPE_VECTOR3
-				elif arg_value.begins_with("AABB("):
-					value_type = TYPE_AABB
-				elif arg_value.begins_with("["):
-					value_type = TYPE_ARRAY
-				elif arg_value.begins_with("{"):
-					value_type = TYPE_DICTIONARY
-				else:
-					value_type = typeof(str2var(arg_value))
-					if value_type == TYPE_STRING and arg_value.find_last(")") == arg_value.length()-1:
-						value_type = GdObjects.TYPE_FUNC
-				arg_type = GdObjects.type_as_string(value_type)
-			args.append(GdFunctionArgument.new(arg_name, arg_type, arg_value))
+			
+			TOKEN_BRACKET_OPEN:
+				bracket += 1
+				# if value a function?
+				if bracket > 1:
+					# complete the argument value
+					var func_begin = arguments.substr(current_index-TOKEN_BRACKET_OPEN._consumed)
+					var func_body = _parse_end_function(func_begin)
+					arg_value += func_body
+					# fix parse index to end of value
+					current_index += func_body.length() - TOKEN_BRACKET_OPEN._consumed - TOKEN_BRACKET_CLOSE._consumed
+			
+			TOKEN_BRACKET_CLOSE:
+				bracket -= 1
+				# end of function
+				if bracket <= 0:
+					break
+			
+			TOKEN_ARGUMENT_SEPARATOR:
+				if bracket <= 1:
+					args.append(build_argument(arg_name, arg_type, arg_value))
 	return args
+
+
+func build_argument(arg_name, arg_type, arg_value) -> GdFunctionArgument:
+	arg_value = arg_value.lstrip(" ")
+	if arg_type.empty() and arg_value != GdFunctionArgument.UNDEFINED:
+		var value_type := TYPE_STRING
+		if arg_value.begins_with("Color."):
+			value_type = TYPE_COLOR
+		elif arg_value.begins_with("Vector2."):
+			value_type = TYPE_VECTOR2
+		elif arg_value.begins_with("Vector3."):
+			value_type = TYPE_VECTOR3
+		elif arg_value.begins_with("AABB("):
+			value_type = TYPE_AABB
+		elif arg_value.begins_with("["):
+			value_type = TYPE_ARRAY
+		elif arg_value.begins_with("{"):
+			value_type = TYPE_DICTIONARY
+		else:
+			value_type = typeof(str2var(arg_value))
+			if value_type == TYPE_STRING and arg_value.find_last(")") == arg_value.length()-1:
+				value_type = GdObjects.TYPE_FUNC
+		arg_type = GdObjects.type_as_string(value_type)
+	return GdFunctionArgument.new(arg_name, arg_type, arg_value)
+
+
 
 # Parse an string for an argument with given name <argument_name> and returns the value
 # if the argument not found the <default_value> is returned
@@ -522,10 +549,9 @@ func extract_source_code(script_path :PoolStringArray) -> PoolStringArray:
 func extract_func_signature(rows :PoolStringArray, index :int) -> String:
 	var signature = ""
 	for rowIndex in range(index, rows.size()):
-		var row :String = rows[rowIndex]
-		signature += row.trim_prefix("\t").trim_suffix("\t")
+		signature += rows[rowIndex].strip_edges().replace("\t", "")
 		if is_func_end(signature):
-			return clean_up_row(signature).replace("\n", "")
+			return signature
 	push_error("Can't fully extract function signature of '%s'" % rows[index])
 	return ""
 
@@ -562,11 +588,15 @@ func get_class_name(script :GDScript) -> String:
 
 func parse_func_name(row :String) -> String:
 	var input = clean_up_row(row)
-	var token := next_token(input, 0)
+	var current_index = 0
+	var token := next_token(input, current_index)
+	current_index += token._consumed
 	if token != TOKEN_FUNCTION_STATIC_DECLARATION and token != TOKEN_FUNCTION_DECLARATION:
 		return ""
-	var next := next_token(input, token._consumed)
-	return next._token
+	while not token is Variable:
+		token = next_token(input, current_index)
+		current_index += token._consumed
+	return token._token
 
 func parse_functions(rows :PoolStringArray, clazz_name :String, clazz_path :PoolStringArray, included_functions :PoolStringArray = []) -> Array:
 	var func_descriptors := Array()
@@ -642,22 +672,10 @@ func is_static_func(func_signature :String) -> bool:
 func is_inner_class(clazz_path :PoolStringArray) -> bool:
 	return clazz_path.size() > 1
 
+
 func is_func_end(row :String) -> bool:
-	var input := clean_up_row(row)
-	var current_index = 0
-	var token :Token = null
-	while current_index < len(input):
-		# function ends without return type definition
-		if TOKEN_FUNCTION_END.match(input, current_index):
-			return true
-		# function ends with return type definition
-		if TOKEN_FUNCTION_RETURN_TYPE.match(input, current_index):
-			return true
-		token = next_token(input, current_index) as Token
-		if token == TOKEN_NOT_MATCH:
-			return false
-		current_index += token._consumed
-	return false
+	return row.strip_edges(false, true).ends_with(":")
+
 
 func _patch_inner_class_names(value :String, clazz_name :String) -> String:
 	var patch := value
