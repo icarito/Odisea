@@ -1,16 +1,11 @@
-[gd_scene load_steps=14 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://scenes/common/Odisea.tscn" type="PackedScene" id=1]
-[ext_resource path="res://scenes/common/KillZone.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/scenes/Pilot_v2.tscn" type="PackedScene" id=2]
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=5]
-[ext_resource path="res://scenes/common/MovingPlatform.tscn" type="PackedScene" id=6]
 [ext_resource path="res://scenes/reference/InteriorLab.tscn" type="PackedScene" id=7]
-[ext_resource path="res://scenes/common/Conveyor.tscn" type="PackedScene" id=8]
-[ext_resource path="res://scenes/common/Tubería.tscn" type="PackedScene" id=9]
-[ext_resource path="res://data/Curves/Linear.tres" type="Curve" id=10]
 [ext_resource path="res://assets/Rooms/Command center.obj" type="ArrayMesh" id=11]
 [ext_resource path="res://scenes/common/BaseFloor.tscn" type="PackedScene" id=12]
-[ext_resource path="res://players/elias/Pilot.tscn" type="PackedScene" id=14]
 
 [sub_resource type="ArrayMesh" id=1]
 surfaces/0 = {
@@ -40,30 +35,11 @@ transform = Transform( -2.18557e-09, 0, -0.05, 0, 0.05, 0, 0.05, 0, -2.18557e-09
 mesh = ExtResource( 11 )
 skeleton = NodePath("../../..")
 
-[node name="Conveyor3" parent="SDE Odisea/CommandFloor" instance=ExtResource( 8 )]
-transform = Transform( -13.0029, 0.186464, -9.44261e-06, 2.46785, 0.982462, 2.23672e-06, 8.53065e-06, 2.90415e-08, -15.04, -191.514, 10.3455, -14.657 )
-push_velocity = Vector3( -3, 0, 0 )
-debug = false
-stripe_tiling = 40.0
-
-[node name="KillZone" parent="SDE Odisea" instance=ExtResource( 2 )]
-transform = Transform( 100, 0, 0, 0, 1, 0, 0, 0, 100, 9.82484, -435.871, 3474.75 )
-
 [node name="PuzzleZone" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 47.5841, -320, 3461.67 )
 
-[node name="Tubería" parent="PuzzleZone" instance=ExtResource( 9 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -120.464, 132.505, 56.4402 )
-
 [node name="PlatformTarget" type="Spatial" parent="PuzzleZone"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -120.544, 28.4869, 56.3997 )
-
-[node name="MovingPlatform_B" parent="PuzzleZone/PlatformTarget" instance=ExtResource( 6 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -14.9102, -84.1535, -2.28394 )
-speed = 20.0
-wait_time = 0.3
-acceleration_curve = ExtResource( 10 )
-target_node_path = NodePath("..")
 
 [node name="Criogenics Lab" type="CSGBox" parent="PuzzleZone"]
 transform = Transform( 1, 2.23517e-08, 0, -2.23517e-08, 1, 0, 0, 0, 1, 48.2943, -23.8945, 59.6316 )
@@ -74,18 +50,6 @@ collision_mask = 131
 width = 287.683
 depth = 484.852
 material = ExtResource( 5 )
-
-[node name="Conveyor2" parent="PuzzleZone/Criogenics Lab" instance=ExtResource( 8 )]
-transform = Transform( 4.41849, 0.189472, 0, -0.852626, 0.981886, 0, 0, 0, 0.791, -161.687, 4.5827, 6.29248 )
-push_velocity = Vector3( -3, 0, 0 )
-debug = false
-stripe_tiling = 40.0
-
-[node name="Conveyor" parent="PuzzleZone/Criogenics Lab" instance=ExtResource( 8 )]
-transform = Transform( 4.47257, 0.110255, 0, -0.496147, 0.993903, 0, 0, 0, 0.791, -161.788, 4.48691, 0 )
-push_velocity = Vector3( -3, 0, 0 )
-debug = false
-stripe_tiling = 40.0
 
 [node name="Middle Section" type="CSGBox" parent="PuzzleZone/Criogenics Lab"]
 transform = Transform( 1, -2.23517e-08, 0, 2.23517e-08, 1, 0, 0, 0, 1, -35.1339, 52.9207, 19.0562 )
@@ -107,6 +71,9 @@ skeleton = NodePath("")
 
 [node name="CollisionShape" type="CollisionShape" parent="PuzzleZone/Criogenics Lab/Middle Section/Pilar/StaticBody"]
 shape = SubResource( 5 )
+
+[node name="Pilot" parent="PuzzleZone/Criogenics Lab/Middle Section/Pilar" instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.42258, 0 )
 
 [node name="Pilar3" type="MeshInstance" parent="PuzzleZone/Criogenics Lab/Middle Section"]
 transform = Transform( 1, 0, 0, 0, 0.5, 0, 0, 0, 1, -36.2632, 2.21719, 30.0432 )
@@ -142,25 +109,3 @@ skeleton = NodePath("")
 shape = SubResource( 5 )
 
 [node name="InteriorWide" parent="." instance=ExtResource( 7 )]
-
-[node name="SpawnPortal" type="CSGBox" parent="."]
-transform = Transform( -1, 1.49012e-08, -8.74228e-08, 1.49012e-08, 1, 0, 8.74228e-08, 0, -1, -29.0772, -339.312, 3527.59 )
-use_in_baked_light = true
-use_collision = true
-collision_layer = 4
-collision_mask = 131
-width = 10.0
-height = 0.3
-depth = 10.0
-material = ExtResource( 5 )
-
-[node name="SpawnPoint" type="Spatial" parent="SpawnPortal"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -3 )
-
-[node name="Pilot" parent="SpawnPortal/SpawnPoint" instance=ExtResource( 14 )]
-transform = Transform( 1, 0, 0, -1.13886e-22, 1, 0, 0, 0, 1, 0, 0, 0 )
-
-[node name="SpawnPoint2" type="Spatial" parent="SpawnPortal/SpawnPoint"]
-transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 6 )
-
-[editable path="SDE Odisea/CommandFloor/Conveyor3"]
