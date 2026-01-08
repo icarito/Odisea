@@ -35,6 +35,14 @@
 - [ ] Ventanal gigante y nebulosa (escena final)
 - [ ] Diálogos narrativos con IA (DialogueManager, JSON, AudioStreamPlayer3D)
 - [ ] Integrar "Cargol" (`scenes/common/Cargol.tscn`)
+
+## Sesión 5: Documentación
+- [x] Crear `docs/STATE_OF_ODISEA_20260107.md` (estado post-refactor)
+- [x] Mover docs generales no-MVP a `docs/feature_misc/`
+- [x] Archivar docs obsoletos en `archive/orphans_20260107/`
+- [x] Actualizar `docs/refactor_spec_core_v2.md` (fases completadas)
+- [x] Añadir `docs/feature_multiplayer/README.md` (pendiente reimplementación)
+- [x] Añadir nota de referencia en `docs/missing_features_act1.md`
 ## Sesión 3: Integración y features MVP
 - [ ] Plataformas con barandas (`scenes/common/GuardrailSegment.tscn`)
 - [ ] Tubos conectores entre secciones (`scenes/common/TubeConnector.tscn`)
