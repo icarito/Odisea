@@ -1,6 +1,7 @@
+tool
 extends Area
 
-export(Vector3) var push_velocity := Vector3(2, 0, 0)
+export(Vector3) var push_velocity := Vector3(2, 0, 0) setget set_push_velocity
 export(bool) var require_on_floor := false
 export(float) var rigid_force_multiplier := 8.0
 export(bool) var debug := false
@@ -16,10 +17,14 @@ var _snapshot_applied := false
 
 func _ready():
 	add_to_group("replay_sync")
-	if has_node("Mesh"):
-		var mesh = $Mesh
-		if mesh and mesh.material and mesh.material is ShaderMaterial:
-			_update_shader_params(mesh.material)
+	if has_node("Belt"):
+		var mesh_instance = $Belt
+		var mat = mesh_instance.material_override
+		if not mat and mesh_instance.mesh:
+			mat = mesh_instance.mesh.surface_get_material(0)
+		
+		if mat and mat is ShaderMaterial:
+			_update_shader_params(mat)
 			if debug:
 				print("[Conveyor] Shader params updated dir=", Vector2(push_velocity.x, push_velocity.z), " speed=", push_velocity.length())
 	# Aplicar snapshot pendiente (restore puede haberse llamado antes de _ready)
@@ -33,9 +38,25 @@ func _update_shader_params(mat: ShaderMaterial) -> void:
 	var d = Vector2(push_velocity.x, push_velocity.z)
 	if d.length() > 0.001:
 		d = d.normalized()
-	var d_uv = Vector2(d.y, -d.x)
+	# The shader requires direction in UV space. Assuming U=X, V=Z mapping.
+	# The user reports the texture is rotated 90 degrees compared to motion.
+	# d is motion direction in XZ.
+	# To fix 90 degree rotation, we rotate d by 90 degrees in UV space.
+	# Vector2(d.y, -d.x) is -90 deg rotation. Vector2(-d.y, d.x) is +90 deg.
+	var d_uv = Vector2(-d.y, d.x)
+	# Negate because shader phase is 'dot(uv, d) + t'. Effective motion is opposite to d if +t.
+	# We want motion ALONG d.
+	# User reported direction is INVERSED. So we should NOT negate?
+	# Or maybe the shader logic implies something else.
+	# Let's try positive d_uv.
 	mat.set_shader_param("dir", d_uv)
-	mat.set_shader_param("speed", max(push_velocity.length() * stripe_tiling, 0.0))
+	
+	# Calcular largo para ajustar velocidad visual
+	# speed (shader) = (V_world / L_world) * tiling
+	var length = _get_conveyor_length()
+	var visible_speed = (push_velocity.length() / max(length, 0.001)) * stripe_tiling
+	
+	mat.set_shader_param("speed", max(visible_speed, 0.0))
 	mat.set_shader_param("color_a", stripe_dark_color)
 	mat.set_shader_param("color_b", stripe_light_color)
 	mat.set_shader_param("emission", stripe_emission)
@@ -44,8 +65,25 @@ func _update_shader_params(mat: ShaderMaterial) -> void:
 
 func set_push_velocity(v: Vector3) -> void:
 	push_velocity = v
-	if has_node("Mesh") and $Mesh.material and $Mesh.material is ShaderMaterial:
-		_update_shader_params($Mesh.material)
+	if has_node("Belt"):
+		var mesh_instance = $Belt
+		var mat = mesh_instance.material_override
+		if not mat and mesh_instance.mesh:
+			mat = mesh_instance.mesh.surface_get_material(0)
+			
+		if mat and mat is ShaderMaterial:
+			_update_shader_params(mat)
+
+
+func _get_conveyor_length() -> float:
+	var col = get_node_or_null("CollisionShape")
+	if col and col.shape is BoxShape:
+		var size = col.shape.extents * 2.0
+		var dir = push_velocity.normalized()
+		# Proyectar tamaño en la dirección del flujo. 
+		# (Funciona bien para flujos alineados a ejes, aceptable para diagonales en cajas)
+		return abs(dir.x * size.x) + abs(dir.y * size.y) + abs(dir.z * size.z)
+	return 1.0
 
 
 func get_snapshot() -> Dictionary:
@@ -81,8 +119,14 @@ func _apply_snapshot(data: Dictionary) -> void:
 	if data.has("stripe_fill"):
 		stripe_fill = data["stripe_fill"]
 	# Actualizar shader si existe
-	if has_node("Mesh") and $Mesh.material and $Mesh.material is ShaderMaterial:
-		_update_shader_params($Mesh.material)
+	if has_node("Belt"):
+		var mesh_instance = $Belt
+		var mat = mesh_instance.material_override
+		if not mat and mesh_instance.mesh:
+			mat = mesh_instance.mesh.surface_get_material(0)
+			
+		if mat and mat is ShaderMaterial:
+			_update_shader_params(mat)
 
 
 func restore_snapshot(data: Dictionary) -> void:

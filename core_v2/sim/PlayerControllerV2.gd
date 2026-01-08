@@ -96,7 +96,6 @@ func _integrate_external_velocity(delta: float) -> Vector3:
 		external_velocity = Vector3.ZERO
 		return Vector3.ZERO
 	external_velocity = external_velocity.linear_interpolate(Vector3.ZERO, external_decay_rate * delta)
-	external_velocity = external_velocity.linear_interpolate(Vector3.ZERO, external_decay_rate * delta)
 	return external_velocity
 
 var external_source_is_static := true
@@ -199,9 +198,13 @@ func step(dt: float, input: InputDataV2) -> void:
 	else:
 		velocity.y += jump_logic.get_gravity() * dt
 
-	# 4. Aplicar velocidad externa (plataformas móviles)
+	# 4. Aplicar velocidad externa (plataformas móviles y conveyors)
+	# Solo aplicamos cuando:
+	# - NO estamos en el suelo (plataformas móviles usan physics interno de Godot)
+	# - O la fuente es NO estática (conveyors empujan activamente)
 	var external_vel = Vector3.ZERO
-	external_vel = _integrate_external_velocity(dt)
+	if not is_on_floor() or not external_source_is_static:
+		external_vel = _integrate_external_velocity(dt)
 	velocity += external_vel
 
 	# 5. Movimiento Final y Animación

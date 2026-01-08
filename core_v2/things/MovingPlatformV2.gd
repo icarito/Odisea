@@ -183,8 +183,10 @@ func _physics_process(delta: float):
 			continue
 		if body.has_method("set_external_velocity"):
 			body.set_external_velocity(linear_velocity)
+			# Para plataformas móviles, usamos is_static=true para que Godot's physics
+			# maneje el "llevar" al jugador. Los conveyors usan is_static=false.
 			if body.has_method("set_external_source_is_static"):
-				body.set_external_source_is_static(false)
+				body.set_external_source_is_static(true)
 
 	# Debug periódico.
 	if debug_passengers:
