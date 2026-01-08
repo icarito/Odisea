@@ -12,8 +12,13 @@
 
 - Menú, UI y efectos visuales principales.
 - Optimizaciones de FPS y housekeeping inicial.
+- **Conveyor y Moving Platform Refactor (V2)**:
+  - Reimplementación determinista de cintas transportadoras (`Conveyor.gd`) con shaders sincronizados.
+  - Fix de regresión en plataformas móviles (`MovingPlatformV2.gd`) — el jugador ahora se mantiene sobre la plataforma sin deslizarse.
+  - Validación completa con test de determinismo: PASS (drift < 0.00001).
 
 ## Próximos pasos
 
 - Seguir con limpieza de assets y scripts no referenciados.
 - Avanzar con features y QA según el nuevo TODO.
+- Test para conveyor

@@ -11,14 +11,15 @@
 ## Sesión 2: Refactor y housekeeping (✅ Completada)
 - [x] Limpiar autoloads no usados (AudioSystem, GameGlobals, GameConfig, PlayerManager, InputState, FixedPoint, TouchCounter, UIManager)
 - [x] Eliminar assets, escenas y scripts no referenciados — scan completado, solo orphans confirmados archivados
-- [ ] Refactorizar código para consistencia y actualizar documentación en ./docs/
+- [x] Refactorizar código para consistencia y actualizar documentación en ./docs/
 
 ## Sesión 3: Integración y features MVP
 
 **SISTEMAS QUE REQUIEREN REIMPLEMENTACIÓN TRAS REFACTOR:**
 - [ ] Reimplementar BGM mínimo (`autoload/AudioManager.gd` en Menu y criogenia)
 - [ ] Reimplementar Kill/Respawn + Checkpoints (`KillZone.tscn`, `Checkpoint.tscn`, lógica de respawn)
-- [ ] Reimplementar Conveyor y WindZone (core_v2/sim y scenes/common)
+- [x] Reimplementar Conveyor (core_v2/sim) y validar (✅ Completada)
+- [ ] Reimplementar WindZone (scenes/common)
 - [ ] Reimplementar multiplayer split-screen (core_v2)
 
 **OBSTÁCULO IMPLEMENTADO Y VALIDADO (REFERENCIA):**
@@ -56,8 +57,8 @@
 - [ ] Integrar “Cargol” (`scenes/common/Cargol.tscn`)
 - [ ] Reimplementar BGM mínimo (`autoload/AudioManager.gd` en Menu y criogenia)
 - [ ] Reimplementar Kill/Respawn + Checkpoints (`KillZone.tscn`, `Checkpoint.tscn`, lógica de respawn)
-- [ ] Reimplementar Conveyor y WindZone (core_v2/sim y scenes/common)
-- [ ] Reimplementar Plataformas móviles (`MovingPlatformV2.gd` y test de determinismo)
+- [x] Reimplementar Conveyor y validar determinismo (✅ Completada)
+- [x] Reimplementar Plataformas móviles (`MovingPlatformV2.gd` y test de determinismo) (✅ Completada)
 - [ ] Reimplementar multiplayer split-screen (core_v2)
 
 ## Sesión 4: QA y balance
