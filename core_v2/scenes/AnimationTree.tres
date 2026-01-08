@@ -72,6 +72,7 @@ auto_advance = true
 xfade_time = 0.2
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=195]
+switch_mode = 1
 advance_condition = "on_floor"
 xfade_time = 0.1
 priority = 5
@@ -92,4 +93,4 @@ states/InAir/position = Vector2( 352.6, 386.203 )
 states/Jump/node = SubResource( 111 )
 states/Jump/position = Vector2( 153.4, 242.808 )
 transitions = [ "Grounded", "Jump", SubResource( 115 ), "Jump", "InAir", SubResource( 188 ), "InAir", "HardLand", SubResource( 192 ), "HardLand", "Grounded", SubResource( 194 ), "InAir", "Grounded", SubResource( 195 ), "Grounded", "InAir", SubResource( 196 ) ]
-graph_offset = Vector2( -29, 42.881 )
+graph_offset = Vector2( 216, 98.881 )

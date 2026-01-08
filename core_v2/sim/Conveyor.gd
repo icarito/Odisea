@@ -3,7 +3,7 @@ extends Area
 export(Vector3) var push_velocity := Vector3(2, 0, 0)
 export(bool) var require_on_floor := false
 export(float) var rigid_force_multiplier := 8.0
-export(bool) var debug := true
+export(bool) var debug := false
 export(Color) var stripe_dark_color = Color(0.18, 0.18, 0.18, 1.0)
 export(Color) var stripe_light_color = Color(0.32, 0.32, 0.30, 1.0)
 export(float) var stripe_emission = 0.04
