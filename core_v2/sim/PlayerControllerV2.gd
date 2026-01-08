@@ -96,10 +96,16 @@ func _integrate_external_velocity(delta: float) -> Vector3:
 		external_velocity = Vector3.ZERO
 		return Vector3.ZERO
 	external_velocity = external_velocity.linear_interpolate(Vector3.ZERO, external_decay_rate * delta)
+	external_velocity = external_velocity.linear_interpolate(Vector3.ZERO, external_decay_rate * delta)
 	return external_velocity
 
+var external_source_is_static := true
+
+func set_external_source_is_static(is_static: bool) -> void:
+	external_source_is_static = is_static
+
 # Nodos (Asegúrate de que los nombres coincidan con tu escena)
-onready var camera_rig = $CameraRig 
+onready var camera_rig = $CameraRig
 onready var animator = $Visual/Pivot
 
 var input_provider
@@ -150,7 +156,7 @@ func _input(event):
 func step(dt: float, input: InputDataV2) -> void:
 	# --- ROTATION ---
 	# Acumulamos los ángulos
-	yaw   -= input.mouse_delta.x * mouse_sensitivity
+	yaw -= input.mouse_delta.x * mouse_sensitivity
 	pitch -= input.mouse_delta.y * mouse_sensitivity
 	
 	# Limitamos el Pitch para no dar una voltereta (aprox -85 a 85 grados)
@@ -193,10 +199,9 @@ func step(dt: float, input: InputDataV2) -> void:
 	else:
 		velocity.y += jump_logic.get_gravity() * dt
 
-	# 4. Aplicar velocidad externa (plataformas móviles) - solo cuando NO estamos en el suelo
+	# 4. Aplicar velocidad externa (plataformas móviles)
 	var external_vel = Vector3.ZERO
-	if not is_on_floor():
-		external_vel = _integrate_external_velocity(dt)
+	external_vel = _integrate_external_velocity(dt)
 	velocity += external_vel
 
 	# 5. Movimiento Final y Animación
@@ -206,8 +211,16 @@ func step(dt: float, input: InputDataV2) -> void:
 	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true)
 	
 	if animator:
-		animator.step_animator(dt, velocity)
-	
+		# Si la fuente externa NO es estática (ej: cinta transportadora, plataforma móvil),
+		# restamos esa velocidad para que el animador "vea" solo el movimiento relativo del jugador.
+		var anim_vel = velocity
+		if not external_source_is_static:
+			anim_vel = velocity - external_velocity
+		animator.step_animator(dt, anim_vel)
+		
+	# Resetear asunción por defecto para el próximo frame
+	external_source_is_static = true
+
 func _physics_process(_delta):
 	if external_input_provided or is_replay_mode:
 		if external_input_provided:
