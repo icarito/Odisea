@@ -1,3 +1,7 @@
+# Split-Screen Ejecutable (Pendiente Reimplementación)
+
+Nota: Actualizar a `core_v2` (InputProviderV2 por `device_id`, SessionManager y tests de determinismo multi-jugador). Ver `docs/feature_multiplayer/README.md`.
+
 # Resumen Ejecutivo: Split-Screen para Odisea
 ## Guía de Ejecución para el Agente de Implementación
 
