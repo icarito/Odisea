@@ -16,8 +16,6 @@ var _snapshot_applied := false
 
 func _ready():
 	add_to_group("replay_sync")
-	connect("body_entered", self, "_on_body_entered")
-	connect("body_exited", self, "_on_body_exited")
 	if has_node("Mesh"):
 		var mesh = $Mesh
 		if mesh and mesh.material and mesh.material is ShaderMaterial:
@@ -36,8 +34,8 @@ func _update_shader_params(mat: ShaderMaterial) -> void:
 	if d.length() > 0.001:
 		d = d.normalized()
 	var d_uv = Vector2(d.y, -d.x)
-	mat.set_shader_param("dir", -d_uv)
-	mat.set_shader_param("speed", max(push_velocity.length(), 0.0))
+	mat.set_shader_param("dir", d_uv)
+	mat.set_shader_param("speed", max(push_velocity.length() * stripe_tiling, 0.0))
 	mat.set_shader_param("color_a", stripe_dark_color)
 	mat.set_shader_param("color_b", stripe_light_color)
 	mat.set_shader_param("emission", stripe_emission)
@@ -94,26 +92,11 @@ func restore_snapshot(data: Dictionary) -> void:
 		return
 	_apply_snapshot(data)
 
-func _on_body_entered(body):
-	if body in _bodies:
-		return
-	_bodies.append(body)
-	if debug:
-		print("[Conveyor] body_entered:", body, " total=", _bodies.size(), " has_set_external=", body.has_method("set_external_velocity"))
-
-func _on_body_exited(body):
-	if body in _bodies:
-		_bodies.erase(body)
-		if debug:
-			print("[Conveyor] body_exited:", body, " total=", _bodies.size())
-	if is_instance_valid(body) and body.has_method("set_external_velocity"):
-		body.set_external_velocity(Vector3.ZERO)
-		if body.has_method("set_external_source_is_static"):
-			body.set_external_source_is_static(false)
-		if debug:
-			print("[Conveyor] reset external velocity to ZERO for:", body)
 
 func _physics_process(_delta):
+	# Usar get_overlapping_bodies para determinismo (stateless per frame)
+	_bodies = get_overlapping_bodies()
+	
 	var basis := global_transform.basis.orthonormalized()
 	var world_push = basis.xform(push_velocity)
 	for body in _bodies:
@@ -121,10 +104,12 @@ func _physics_process(_delta):
 			continue
 		if require_on_floor and body.has_method("is_on_floor") and not body.is_on_floor():
 			continue
+		
+		# Aplicar velocidad externa y marcar como NO estática
 		if body.has_method("set_external_velocity"):
 			body.set_external_velocity(world_push)
 			if body.has_method("set_external_source_is_static"):
-				body.set_external_source_is_static(true)
+				body.set_external_source_is_static(false)
 			if debug:
 				print("[Conveyor] push to:", body.get_name() if body.has_method("get_name") else body, " vel:", world_push)
 		elif body is RigidBody:

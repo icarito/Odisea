@@ -1,9 +1,10 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://materials/reference/PrototypeGrey.tres" type="Material" id=1]
 [ext_resource path="res://addons/kenney_prototype_textures/dark/texture_01.png" type="Texture" id=2]
 [ext_resource path="res://core_v2/scenes/Pilot_v2.tscn" type="PackedScene" id=3]
 [ext_resource path="res://core_v2/things/MovingPlatformV2.tscn" type="PackedScene" id=4]
+[ext_resource path="res://core_v2/things/Conveyor.tscn" type="PackedScene" id=5]
 
 [sub_resource type="SpatialMaterial" id=3]
 albedo_texture = ExtResource( 2 )
@@ -71,3 +72,8 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.949169, 0 )
 [node name="MovingPlatformV2" parent="." instance=ExtResource( 4 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -18.0099, 6.62853, 17.1957 )
 movement_vector = Vector3( 10, 0, 10 )
+
+[node name="Conveyor" parent="." instance=ExtResource( 5 )]
+transform = Transform( 0.465476, 0, 0.885061, 0, 1, 0, -0.885061, 0, 0.465476, -7.29534, 1.61667, -2.81373 )
+require_on_floor = true
+debug = true
