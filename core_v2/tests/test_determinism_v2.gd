@@ -43,14 +43,10 @@ func test_determinismo_headless():
 	# 3. Esperar UN frame para que _ready() se ejecute y los nodos se agreguen a grupos
 	yield (get_tree(), "idle_frame")
 	
-	# 4. Obtener sync_nodes (plataformas) para debug
-	var early_sync_nodes = get_tree().get_nodes_in_group("replay_sync")
-
-
-	# 5. Esperar otro frame
+	# 4. Esperar otro frame
 	yield (get_tree(), "idle_frame")
 
-	# 6. Si no encontramos player antes, buscarlo ahora
+	# 5. Si no encontramos player antes, buscarlo ahora
 	if not player:
 		player = get_tree().get_root().find_node("Pilot", true, false)
 	if not player:
@@ -60,7 +56,7 @@ func test_determinismo_headless():
 		player.is_replay_mode = true
 		yield (get_tree(), "idle_frame")
 
-	# 7. Obtener datos del buffer y world_start_state
+	# 6. Obtener datos del buffer y world_start_state
 	var buffer = _reference_data.get("buffer", []).duplicate(true)
 	assert_array(buffer).is_not_empty()
 	
@@ -69,20 +65,20 @@ func test_determinismo_headless():
 
 	print("[REPORT] determinism: buffer_frames=", buffer.size(), ", has_world_start_state=", world_start_state.size() > 0)
 
-	# 8. Restaurar estado inicial del mundo (plataformas, etc.) - IGUAL QUE SessionManager
+	# 7. Restaurar estado inicial del mundo (plataformas, etc.) - IGUAL QUE SessionManager
 	for node_path in world_start_state.keys():
 		var node = get_tree().get_root().get_node_or_null(node_path)
 		if node and node.has_method("restore_snapshot"):
 			node.restore_snapshot(world_start_state[node_path])
 
-	# 7. Restaurar estado inicial del jugador desde el primer snapshot del buffer
+	# 8. Restaurar estado inicial del jugador desde el primer snapshot del buffer
 	if buffer.size() > 0 and buffer[0].has("snapshot"):
 		if player.has_method("restore_snapshot"):
 			player.restore_snapshot(buffer[0]["snapshot"])
 
 		buffer.remove(0)
 
-	# 8. Crear InputProviderV2 y cargar inputs
+	# 9. Crear InputProviderV2 y cargar inputs
 	var InputProviderV2 = preload("res://core_v2/input/InputProviderV2.gd")
 	var input_provider = InputProviderV2.new()
 	var input_buffer = []
@@ -91,11 +87,11 @@ func test_determinismo_headless():
 			input_buffer.append(entry["input"])
 	input_provider.set_replay_data(input_buffer)
 
-	# 9. Asignar provider al jugador
+	# 10. Asignar provider al jugador
 	if "input_provider" in player:
 		player.input_provider = input_provider
 
-	# 10. ACTIVAR physics en player y plataformas - usar el engine real de Godot
+	# 11. ACTIVAR physics en player y plataformas - usar el engine real de Godot
 	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
 
 	
@@ -108,7 +104,7 @@ func test_determinismo_headless():
 	player.set_physics_process(true)
 	player.is_replay_mode = false # Dejar que el player use su _physics_process normal
 
-	# 11. Ejecutar simulación usando physics frames REALES del engine
+	# 12. Ejecutar simulación usando physics frames REALES del engine
 	var frame_count = 0
 	var max_frames = 4000
 
@@ -119,7 +115,7 @@ func test_determinismo_headless():
 		frame_count += 1
 
 
-	# 11. Capturar y validar estado final
+	# 13. Capturar y validar estado final
 	var final_pos = player.global_transform.origin
 	var final_yaw = player.yaw if "yaw" in player else 0.0
 	var final_pitch = player.pitch if "pitch" in player else 0.0
@@ -140,10 +136,10 @@ func test_determinismo_headless():
 	print("expected_pos:", expected_pos)
 	print("DRIFT_CHECK: dist=", drift, ", yaw_diff=", yaw_diff, ", pitch_diff=", pitch_diff)
 
-	# 12. Assertion - Validación estricta de determinismo
+	# 14. Assertion - Validación estricta de determinismo
 	assert_vector3(final_pos).is_equal_approx(expected_pos, Vector3(0.0001, 0.0001, 0.0001))
 
-	# 13. Limpieza
+	# 15. Limpieza
 	world_scene.free()
 
 func after():
