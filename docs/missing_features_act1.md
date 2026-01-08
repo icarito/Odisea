@@ -23,6 +23,7 @@ Este documento recoge las funcionalidades prototipadas que deben reimplementarse
   - No depender de transformaciones no deterministas; usar `global_transform.basis.orthonormalized()` para convertir `push_velocity`.
 
 ## MovingPlatform (guía basada en `MovingPlatformV2.gd`)
+Nota: Actualmente es el único obstáculo implementado y validado; úsese como referencia para el resto de sistemas.
 Usar `MovingPlatformV2.gd` como referencia de comportamiento determinista. Implementación recomendada:
 
 - Conceptos clave:
