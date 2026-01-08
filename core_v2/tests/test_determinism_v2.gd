@@ -20,7 +20,7 @@ func test_determinismo_headless():
 	# Optimización para tests: desactivar vsync para velocidad máxima
 	# NOTA: No podemos cambiar iterations_per_second porque afecta el delta de physics
 	OS.set_use_vsync(false)
-	Engine.target_fps = 0  # Sin límite de FPS
+	Engine.target_fps = 0 # Sin límite de FPS
 	
 	# 1. Cargar la escena indicada en metadata
 	var meta = _reference_data.get("meta", {})
@@ -38,17 +38,17 @@ func test_determinismo_headless():
 	# 2. Buscar el player y ponerlo en replay mode temporalmente
 	var player = get_tree().get_root().find_node("Pilot", true, false)
 	if player:
-		player.is_replay_mode = true  # Evitar que consuma input live durante setup
+		player.is_replay_mode = true # Evitar que consuma input live durante setup
 	
 	# 3. Esperar UN frame para que _ready() se ejecute y los nodos se agreguen a grupos
-	yield(get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
 	
 	# 4. Obtener sync_nodes (plataformas) para debug
 	var early_sync_nodes = get_tree().get_nodes_in_group("replay_sync")
-	print("[TEST] Found ", early_sync_nodes.size(), " nodes in replay_sync after idle_frame")
+
 
 	# 5. Esperar otro frame
-	yield(get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
 
 	# 6. Si no encontramos player antes, buscarlo ahora
 	if not player:
@@ -58,7 +58,7 @@ func test_determinismo_headless():
 		player = load("res://core_v2/scenes/Pilot_v2.tscn").instance()
 		world_scene.add_child(player)
 		player.is_replay_mode = true
-		yield(get_tree(), "idle_frame")
+		yield (get_tree(), "idle_frame")
 
 	# 7. Obtener datos del buffer y world_start_state
 	var buffer = _reference_data.get("buffer", []).duplicate(true)
@@ -79,7 +79,7 @@ func test_determinismo_headless():
 	if buffer.size() > 0 and buffer[0].has("snapshot"):
 		if player.has_method("restore_snapshot"):
 			player.restore_snapshot(buffer[0]["snapshot"])
-			print("[TEST] Player restored to: ", player.global_transform.origin)
+
 		buffer.remove(0)
 
 	# 8. Crear InputProviderV2 y cargar inputs
@@ -97,17 +97,16 @@ func test_determinismo_headless():
 
 	# 10. ACTIVAR physics en player y plataformas - usar el engine real de Godot
 	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
-	print("[TEST] sync_nodes count: ", sync_nodes.size())
+
 	
 	# Activar _physics_process en plataformas (el engine las moverá)
 	for node in sync_nodes:
-		print("[TEST] sync_node: ", node.name, " has_step=", node.has_method("step"))
 		if node != player:
 			node.set_physics_process(true)
 	
 	# Activar physics en player también
 	player.set_physics_process(true)
-	player.is_replay_mode = false  # Dejar que el player use su _physics_process normal
+	player.is_replay_mode = false # Dejar que el player use su _physics_process normal
 
 	# 11. Ejecutar simulación usando physics frames REALES del engine
 	var frame_count = 0
@@ -115,11 +114,10 @@ func test_determinismo_headless():
 
 	while frame_count < max_frames and input_provider.playback_index < input_provider.playback_buffer.size():
 		# Esperar un physics frame real del engine
-		yield(get_tree(), "physics_frame")
+		yield (get_tree(), "physics_frame")
 
 		frame_count += 1
 
-	print("[TEST] Total frames executed: ", frame_count)
 
 	# 11. Capturar y validar estado final
 	var final_pos = player.global_transform.origin

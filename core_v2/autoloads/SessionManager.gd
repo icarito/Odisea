@@ -25,7 +25,7 @@ func _ready():
 		var arg = args[i]
 		if arg == "--replay" and i + 1 < args.size():
 			is_cli_mode = true
-			var replay_path = args[i+1]
+			var replay_path = args[i + 1]
 			# NO llamamos a load_and_play aquí. La escena aún no está lista.
 			# En su lugar, nos conectamos a la señal 'tree_changed'.
 			# Se disparará cuando la escena principal se cargue, y entonces ejecutaremos el replay.
@@ -47,8 +47,8 @@ func _ready():
 func _on_tree_changed_for_replay(replay_path: String):
 	# Esta función se ejecuta una sola vez cuando la escena principal está lista.
 	# Esperamos un frame idle para que todos los nodos ejecuten _ready() y se agreguen a sus grupos
-	yield(get_tree(), "idle_frame")
-	yield(get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
 	
 	# Ahora es seguro buscar al jugador y cargar el replay.
 	_find_player()
@@ -87,7 +87,7 @@ func _physics_process(_dt):
 	if is_replaying:
 		# Obtener input primero para verificar si hay más inputs disponibles
 		if not player or not player.has_method("step"):
-			run_playback()  # Solo para terminar replay si no hay player
+			run_playback() # Solo para terminar replay si no hay player
 			_replay_frame += 1
 			return
 			
@@ -153,7 +153,7 @@ func start_recording():
 	
 	# Marcar player como "controlado externamente" para evitar doble step
 	if player:
-		player.is_replay_mode = true  # Usamos esta bandera para indicar control externo
+		player.is_replay_mode = true # Usamos esta bandera para indicar control externo
 	
 	# --- Capturar estado inicial del mundo (nodos en 'replay_sync') ---
 	var world_start_state = {}
@@ -235,11 +235,8 @@ func load_and_play(path: String):
 		
 		# Desactivar _physics_process en plataformas durante replay para usar step centralizado
 		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
-		print("[SM] Found ", sync_nodes.size(), " nodes in replay_sync group")
 		for node in sync_nodes:
-			print("[SM] Node in group: ", node.name, " is player=", (node == player))
 			if node != player:
-				print("[SM] Disabling _physics_process for: ", node.name)
 				node.set_physics_process(false)
 		
 		# Inyectar buffer al input_provider en modo REPLAY
@@ -266,8 +263,7 @@ func _finish_and_validate():
 	if _drift_validated: return
 	_drift_validated = true
 	
-	print("[SM] Total replay frames executed: ", _total_replay_frames)
-	
+
 	# 1. Imprimir estado final
 	if player:
 		var cam = player.get_node_or_null("CameraRig")
@@ -337,7 +333,7 @@ func run_simulation_from_buffer(buffer_data: Array, world_start_state: Dictionar
 	
 	# 0. Esperar a que el árbol registre todos los nodos en physics_server
 	for _i in range(yield_frames):
-		player_controller.get_tree().call_group("", "update")  # Update all nodes
+		player_controller.get_tree().call_group("", "update") # Update all nodes
 	
 	# 1. Restaurar estado inicial del mundo (plataformas, etc.)
 	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
