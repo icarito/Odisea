@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://scenes/common/space_environment/PlayerTrail.gd" type="Script" id=1]
+[ext_resource path="res://scenes/common/space_environment/player_trail.shader" type="Shader" id=2]
+
+[node name="PlayerTrail" type="Line2D"]
+width = 4.0
+points = [ Vector2(0,0), Vector2(0,-20) ]
+material = ShaderMaterial {
+	shader = ExtResource( 2 )
+}
+script = ExtResource( 1 )
