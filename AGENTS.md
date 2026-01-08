@@ -15,6 +15,7 @@ Fuente de verdad sobre reglas y contratos del proyecto (Godot 3.6, GLES2) para I
 - **PlayerController**: `set_external_velocity(v: Vector3)` para fuerzas externas (plataformas). Usar `move_and_slide_with_snap()`. Implementar coyote time e input buffer.
 - **MovingPlatform**: Calcular y comunicar su velocidad a los pasajeros vía `set_external_velocity()`.
 - **Conveyor**: Aplicar velocidad a cuerpos en su área, usando `set_external_velocity()` para el jugador.
+- **Signals**: Las señales no deben usarse para lógica que afecte el estado físico (posición, velocidad). Su uso debe limitarse a efectos no deterministas (sonido, animaciones, UI). Por ejemplo, `PilotAnimatorV2` puede escuchar señales para disparar animaciones, pero no debe alterar el `state` del `PlayerController`.
 
 ## Normas de Trabajo
 - Commits pequeños y enfocados. Validar cambios en `TestScene_v2.tscn`.
