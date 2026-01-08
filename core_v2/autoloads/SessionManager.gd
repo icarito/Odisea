@@ -373,7 +373,7 @@ func run_simulation_from_buffer(buffer_data: Array, world_start_state: Dictionar
 	
 	# 6. Ejecutar la simulación
 	var frame_count = 0
-	var max_frames = 4000
+	var max_frames = 4000  # XXX: Why do we need this limit?
 	while frame_count < max_frames and input_provider.playback_index < input_provider.playback_buffer.size():
 		# Obtener input
 		var input = input_provider.get_input()
