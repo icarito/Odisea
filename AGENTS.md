@@ -2,7 +2,8 @@
 
 Fuente de verdad sobre reglas y contratos del proyecto (Godot 3.6, GLES2) para IA y desarrolladores.
 
-## Tips rápidos Godot 3.6
+## Notas sobre Godot
+- "Index 1 is out of bounds (count = 1)" aparece _siempre_ al arrancar, pero no es un problema con nuestro código.
 - Ternario: `a if cond else b`.
 - Declarar con type hints: `var x: int = 0`.
 - No usar `nil` donde se esperan tipos concretos (bool, Vector2); usar valores por defecto.

@@ -11,6 +11,7 @@ var replay_meta := {} # Metadatos del replay
 var final_expected_state = null
 var is_cli_mode := false
 var _drift_validated := false
+var _is_replaying_fail_loop := false # Flag para evitar loops infinitos si falla
 
 func _find_player():
 	if not is_instance_valid(player):
@@ -210,9 +211,11 @@ var _playback_printed_start := false
 var _playback_printed_end := false
 
 func load_and_play(path: String):
+	print("[SessionManager] load_and_play called with: ", path)
 	var file = File.new()
 	if not file.file_exists(path):
-		print("❌ Error: El archivo de replay no existe")
+		printerr("❌ Error: El archivo de replay no existe: ", path)
+		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
 		return
 	file.open(path, File.READ)
 	var parsed = JSON.parse(file.get_as_text())
@@ -220,6 +223,11 @@ func load_and_play(path: String):
 	if typeof(parsed.result) == TYPE_DICTIONARY and parsed.result.has("buffer"):
 		buffer = parsed.result["buffer"]
 		_find_player()
+		
+		if not is_instance_valid(player):
+			printerr("❌ SessionManager: Player no encontrado para iniciar replay.")
+			call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
+			return
 		
 		# Restaurar estado inicial del mundo (nodos en 'replay_sync') ANTES del player
 		if typeof(parsed.result) == TYPE_DICTIONARY and parsed.result.has("meta") and parsed.result["meta"].has("world_start_state"):
@@ -269,13 +277,13 @@ func load_and_play(path: String):
 			final_expected_state = null
 		_drift_validated = false
 		is_replaying = true
-		print("▶️ Reproduciendo replay desde CLI...")
+		print("▶️ Reproduciendo replay...")
 	else:
-		print("❌ Formato de replay inválido")
+		printerr("❌ Formato de replay inválido")
+		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
 
 func _finish_and_validate():
-	if _drift_validated: return
-	_drift_validated = true
+	var success = true
 	var dist = -1.0
 	var frames = _total_replay_frames
 
@@ -285,7 +293,6 @@ func _finish_and_validate():
 		print("PLAYBACK_END\nrotation:", player.yaw, ",", player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam.global_transform.origin)
 
 	# 2. Validar drift
-	var success = true
 	if final_expected_state == null:
 		print("⚠️ No hay final_expected_state para validar.")
 	else:
@@ -315,10 +322,12 @@ func _finish_and_validate():
 				print("✅ Rotational drift dentro del umbral")
 
 	# Emit signal for external listeners/tests
+	print("[SessionManager] EMITTING replay_finished: ", success, ", ", dist, ", ", frames)
 	emit_signal("replay_finished", success, dist, frames)
 
 	# 3. Salir si estamos en modo CLI
 	if is_cli_mode:
+		print("[SessionManager] Exiting CLI mode")
 		get_tree().quit(0 if success else 1)
 
 func run_playback():
