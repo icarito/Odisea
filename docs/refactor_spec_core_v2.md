@@ -17,7 +17,7 @@ Antes de mover al jugador, definiremos cómo se comunica la intención de movimi
 
 
 
-## 3. Fase 3: Movimiento Básico Determinista — En curso
+## 3. Fase 3: Movimiento Básico Determinista — Completada
 
 Implementar el `PlayerControllerV2.gd` en la copia de Elias.
 
