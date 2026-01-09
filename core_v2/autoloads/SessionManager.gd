@@ -1,5 +1,6 @@
 extends Node
 const FIXED_DT := 1.0 / 60.0
+signal replay_finished(success, drift, frames)
 
 var player: KinematicBody = null
 var _player_searched = false
@@ -12,11 +13,17 @@ var is_cli_mode := false
 var _drift_validated := false
 
 func _find_player():
-	if not is_instance_valid(player) and get_tree().current_scene:
-		# Busca al jugador en la escena actual. Asumimos que se llama 'Pilot_v2'.
+	if not is_instance_valid(player):
+		# Prioridad 1: Buscar en el árbol desde la raíz (más genérico)
 		player = get_tree().get_root().find_node("Pilot", true, false)
-		if not is_instance_valid(player):
-			player = null # Asegurarse de que sea nulo si no se encuentra.
+		# Prioridad 2: Buscar en la escena actual si la raíz falló o dio un nodo inválido
+		if not is_instance_valid(player) and get_tree().current_scene:
+			player = get_tree().current_scene.find_node("Pilot", true, false)
+		
+		if is_instance_valid(player):
+			print("[SessionManager] Player encontrado: ", player.get_path())
+		else:
+			player = null
 
 func _ready():
 	# Detección de parámetro --replay
@@ -212,25 +219,32 @@ func load_and_play(path: String):
 	file.close()
 	if typeof(parsed.result) == TYPE_DICTIONARY and parsed.result.has("buffer"):
 		buffer = parsed.result["buffer"]
+		_find_player()
 		
 		# Restaurar estado inicial del mundo (nodos en 'replay_sync') ANTES del player
 		if typeof(parsed.result) == TYPE_DICTIONARY and parsed.result.has("meta") and parsed.result["meta"].has("world_start_state"):
 			var world_start_state = parsed.result["meta"]["world_start_state"]
 			for path in world_start_state.keys():
-				var node = get_tree().get_root().get_node(path)
+				var node = get_tree().get_root().get_node_or_null(path)
+				if not node and get_tree().current_scene:
+					# Si el path absoluto falla (común en tests), intentamos buscar por nombre relativo al final del path
+					var node_name = str(path).get_file()
+					node = get_tree().current_scene.find_node(node_name, true, false)
+				
 				if node and node.has_method("restore_snapshot"):
 					node.restore_snapshot(world_start_state[path])
 				else:
-					printerr("Node at path %s not found or does not have restore_snapshot() method." % path)
+					printerr("[SessionManager] No se pudo restaurar el nodo en path/name: ", path)
 		
 		if buffer.size() > 0 and buffer[0].has("snapshot"):
 			if player and player.has_method("restore_snapshot"):
+				player.is_replay_mode = true
 				player.restore_snapshot(buffer[0]["snapshot"])
 				var cam = player.get_node_or_null("CameraRig")
-				print("PLAYBACK_START\nrotation:", player.yaw, ",", player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam.global_transform.origin)
+				print("PLAYBACK_START\nrotation:", player.yaw, ",", player.pitch, "\npos:", player.global_transform.origin, "\ncam:", (cam.global_transform.origin if cam else "null"))
 				_playback_printed_start = true
 			else:
-				print("❌ El nodo player no tiene restore_snapshot() (tipo:", typeof(player), ")")
+				print("❌ El nodo player no se encontró o no tiene restore_snapshot()")
 			buffer.remove(0)
 		
 		# Desactivar _physics_process en plataformas durante replay para usar step centralizado
@@ -262,7 +276,8 @@ func load_and_play(path: String):
 func _finish_and_validate():
 	if _drift_validated: return
 	_drift_validated = true
-	
+	var dist = -1.0
+	var frames = _total_replay_frames
 
 	# 1. Imprimir estado final
 	if player:
@@ -279,12 +294,12 @@ func _finish_and_validate():
 			print("⚠️ final_expected_state inválido (sin posición)")
 		else:
 			var expected_pos = Vector3(exp_pos_arr[0], exp_pos_arr[1], exp_pos_arr[2])
-			var current_pos = player.global_transform.origin
-			var dist = current_pos.distance_to(expected_pos)
+			var current_pos = player.global_transform.origin if player else Vector3()
+			dist = current_pos.distance_to(expected_pos)
 			var expected_yaw = final_expected_state.get("yaw", 0.0)
 			var expected_pitch = final_expected_state.get("pitch", 0.0)
-			var yaw_diff = abs(player.yaw - expected_yaw)
-			var pitch_diff = abs(player.pitch - expected_pitch)
+			var yaw_diff = abs(player.yaw - expected_yaw) if player else 0.0
+			var pitch_diff = abs(player.pitch - expected_pitch) if player else 0.0
 			print("DRIFT_CHECK: dist=", dist, ", yaw_diff=", yaw_diff, ", pitch_diff=", pitch_diff)
 			var pos_threshold = 0.0001
 			var ang_threshold = 0.0001
@@ -298,6 +313,9 @@ func _finish_and_validate():
 				success = false
 			else:
 				print("✅ Rotational drift dentro del umbral")
+
+	# Emit signal for external listeners/tests
+	emit_signal("replay_finished", success, dist, frames)
 
 	# 3. Salir si estamos en modo CLI
 	if is_cli_mode:
@@ -373,7 +391,7 @@ func run_simulation_from_buffer(buffer_data: Array, world_start_state: Dictionar
 	
 	# 6. Ejecutar la simulación
 	var frame_count = 0
-	var max_frames = 4000  # XXX: Why do we need this limit?
+	var max_frames = 4000 # XXX: Why do we need this limit?
 	while frame_count < max_frames and input_provider.playback_index < input_provider.playback_buffer.size():
 		# Obtener input
 		var input = input_provider.get_input()

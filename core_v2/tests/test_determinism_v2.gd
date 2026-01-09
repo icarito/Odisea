@@ -1,146 +1,111 @@
 # /core_v2/tests/test_determinism_v2.gd
-# Test de determinismo que usa SessionManager directamente (misma lógica que replay CLI)
+# Runner de replays universal: escanea res://core_v2/tests/ para archivos replay_test_*.json
 extends GdUnitTestSuite
 
-const REFERENCE_PATH = "res://core_v2/tests/reference.json"
-const FIXED_DT = 1.0 / 60.0
+const TESTS_ROOT = "res://core_v2/tests"
+const DRIFT_THRESHOLD = 0.0001
 
-var _reference_data: Dictionary
+# Helpers
+static func _describe_replay_path(path: String) -> String:
+	var fname = path.get_file()
+	# Eliminar prefijos comunes y extensión para legibilidad
+	return fname.replace("replay_test_", "").replace("test_replay_", "").replace(".json", "")
+
+static func _compute_drift(player, expected: Dictionary) -> Dictionary:
+	var ret = {"drift": - 1.0, "yaw_diff": 0.0, "pitch_diff": 0.0}
+	if expected == null:
+		return ret
+	var exp_pos_arr = expected.get("position", null)
+	if exp_pos_arr == null or typeof(exp_pos_arr) != TYPE_ARRAY:
+		return ret
+	if player:
+		var _expected_pos = Vector3(exp_pos_arr[0], exp_pos_arr[1], exp_pos_arr[2])
+		var final_pos = player.global_transform.origin
+		ret["drift"] = final_pos.distance_to(_expected_pos)
+		ret["yaw_diff"] = abs(player.yaw - expected.get("yaw", 0.0))
+		ret["pitch_diff"] = abs(player.pitch - expected.get("pitch", 0.0))
+	return ret
 
 func before():
-	var file = File.new()
-	if file.open(REFERENCE_PATH, File.READ) == OK:
-		var json_parsed = JSON.parse(file.get_as_text())
-		if json_parsed.error == OK:
-			_reference_data = json_parsed.result
-		file.close()
-	assert_dict(_reference_data).is_not_empty()
-
-func test_determinismo_headless():
 	# Optimización para tests: desactivar vsync para velocidad máxima
-	# NOTA: No podemos cambiar iterations_per_second porque afecta el delta de physics
 	OS.set_use_vsync(false)
 	Engine.target_fps = 0 # Sin límite de FPS
-	
-	# 1. Cargar la escena indicada en metadata
-	var meta = _reference_data.get("meta", {})
-	var scene_path = meta.get("scene", "") if typeof(meta) == TYPE_DICTIONARY else ""
-	assert_str(scene_path).is_not_empty()
 
-	var packed = load(scene_path)
-	if packed == null or not (packed is PackedScene):
-		fail("No se pudo cargar la escena: %s" % scene_path)
+# Data provider: devuelve un Array de parameter sets. Cada parameter set es un Array de argumentos para la prueba.
+static func _get_replay_paths() -> Array:
+	var results := []
+	var dir := Directory.new()
+	if dir.open(TESTS_ROOT) != OK:
+		printerr("No se pudo abrir TESTS_ROOT: ", TESTS_ROOT)
+		return results
+	_scan_dir(dir, TESTS_ROOT, results)
+	print("Replays encontrados: ", results)
+	return results
+
+static func _scan_dir(dir: Directory, current_path: String, results: Array) -> void:
+	# Usar list_dir_begin(true, true) para saltar "." y ".."
+	if dir.list_dir_begin(true, true) != OK:
 		return
+	var name = dir.get_next()
+	while name != "":
+		var full_path = current_path.plus_file(name)
+		if dir.current_is_dir():
+			var subdir := Directory.new()
+			if subdir.open(full_path) == OK:
+				_scan_dir(subdir, full_path, results)
+		else:
+			if (name.begins_with("replay_test_") or name.begins_with("test_replay_")) and name.ends_with(".json"):
+				# GDUnit3 espera un Array de Arrays. Cada subarray son los argumentos para el test.
+				results.append([full_path])
+		name = dir.get_next()
+	dir.list_dir_end()
 
-	var world_scene = packed.instance()
-	get_tree().get_root().add_child(world_scene)
+# Parametrized test: cada parameter set es [path]
+func test_replay(path: String, test_parameters=_get_replay_paths()) -> void:
+	var desc = _describe_replay_path(path)
 
-	# 2. Buscar el player y ponerlo en replay mode temporalmente
-	var player = get_tree().get_root().find_node("Pilot", true, false)
-	if player:
-		player.is_replay_mode = true # Evitar que consuma input live durante setup
+	# 1. Cargar la escena de test desde el JSON
+	var f = File.new()
+	var open_err = f.open(path, File.READ)
+	assert_int(open_err).is_equal(OK)
+	var parsed = JSON.parse(f.get_as_text())
+	assert_int(parsed.error).is_equal(OK)
+	var data = parsed.result
+	f.close()
+
+	var meta = data.get("meta", {})
+	var scene_path = meta.get("scene", "res://core_v2/scenes/TestScene_v2.tscn")
 	
-	# 3. Esperar UN frame para que _ready() se ejecute y los nodos se agreguen a grupos
-	yield (get_tree(), "idle_frame")
+	var err = get_tree().change_scene(scene_path)
+	assert_int(err).is_equal(OK)
 	
-	# 4. Esperar otro frame
-	yield (get_tree(), "idle_frame")
-
-	# 5. Si no encontramos player antes, buscarlo ahora
-	if not player:
-		player = get_tree().get_root().find_node("Pilot", true, false)
-	if not player:
-		# Si no hay Pilot en la escena, instanciar uno
-		player = load("res://core_v2/scenes/Pilot_v2.tscn").instance()
-		world_scene.add_child(player)
-		player.is_replay_mode = true
+	# 2. Esperar estabilización (importante para física y registro de grupos)
+	# Necesitamos que los nodos en 'replay_sync' estén listos.
+	for _i in range(10):
 		yield (get_tree(), "idle_frame")
+	yield (get_tree(), "physics_frame")
 
-	# 6. Obtener datos del buffer y world_start_state
-	var buffer = _reference_data.get("buffer", []).duplicate(true)
-	assert_array(buffer).is_not_empty()
+	# 3. Iniciar replay via SessionManager
+	assert_object(SessionManager).is_not_null()
+	SessionManager.load_and_play(path)
 	
-	var world_start_state = meta.get("world_start_state", {}) if meta.has("world_start_state") else {}
-	var final_expected = _reference_data.get("final_expected_state", {})
+	# 4. Esperar la señal replay_finished y validar resultado
+	var res = yield (SessionManager, "replay_finished")
+	var success = res[0]
+	var drift = res[1]
+	var frames = res[2]
 
-	print("[REPORT] determinism: buffer_frames=", buffer.size(), ", has_world_start_state=", world_start_state.size() > 0)
-
-	# 7. Restaurar estado inicial del mundo (plataformas, etc.) - IGUAL QUE SessionManager
-	for node_path in world_start_state.keys():
-		var node = get_tree().get_root().get_node_or_null(node_path)
-		if node and node.has_method("restore_snapshot"):
-			node.restore_snapshot(world_start_state[node_path])
-
-	# 8. Restaurar estado inicial del jugador desde el primer snapshot del buffer
-	if buffer.size() > 0 and buffer[0].has("snapshot"):
-		if player.has_method("restore_snapshot"):
-			player.restore_snapshot(buffer[0]["snapshot"])
-
-		buffer.remove(0)
-
-	# 9. Crear InputProviderV2 y cargar inputs
-	var InputProviderV2 = preload("res://core_v2/input/InputProviderV2.gd")
-	var input_provider = InputProviderV2.new()
-	var input_buffer = []
-	for entry in buffer:
-		if entry.has("input"):
-			input_buffer.append(entry["input"])
-	input_provider.set_replay_data(input_buffer)
-
-	# 10. Asignar provider al jugador
-	if "input_provider" in player:
-		player.input_provider = input_provider
-
-	# 11. ACTIVAR physics en player y plataformas - usar el engine real de Godot
-	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
-
+	if not success:
+		fail("Replay '%s' FAILED: drift=%.8f, frames=%d. Ver logs para detalles." % [desc, drift, frames])
 	
-	# Activar _physics_process en plataformas (el engine las moverá)
-	for node in sync_nodes:
-		if node != player:
-			node.set_physics_process(true)
-	
-	# Activar physics en player también
-	player.set_physics_process(true)
-	player.is_replay_mode = false # Dejar que el player use su _physics_process normal
-
-	# 12. Ejecutar simulación usando physics frames REALES del engine
-	var frame_count = 0
-	var max_frames = 4000
-
-	while frame_count < max_frames and input_provider.playback_index < input_provider.playback_buffer.size():
-		# Esperar un physics frame real del engine
-		yield (get_tree(), "physics_frame")
-
-		frame_count += 1
-
-
-	# 13. Capturar y validar estado final
-	var final_pos = player.global_transform.origin
-	var final_yaw = player.yaw if "yaw" in player else 0.0
-	var final_pitch = player.pitch if "pitch" in player else 0.0
-
-	var expected_pos_arr = final_expected.get("position", [0, 0, 0])
-	var expected_pos = Vector3(expected_pos_arr[0], expected_pos_arr[1], expected_pos_arr[2])
-	var expected_yaw = final_expected.get("yaw", 0.0)
-	var expected_pitch = final_expected.get("pitch", 0.0)
-
-	var drift = final_pos.distance_to(expected_pos)
-	var yaw_diff = abs(final_yaw - expected_yaw)
-	var pitch_diff = abs(final_pitch - expected_pitch)
-
-	print("[REPORT] determinism: final_pos=", final_pos, ", expected_pos=", expected_pos, ", drift=", drift)
-	print("PLAYBACK_END")
-	print("rotation:", final_yaw, ",", final_pitch)
-	print("pos:", final_pos)
-	print("expected_pos:", expected_pos)
-	print("DRIFT_CHECK: dist=", drift, ", yaw_diff=", yaw_diff, ", pitch_diff=", pitch_diff)
-
-	# 14. Assertion - Validación estricta de determinismo
-	assert_vector3(final_pos).is_equal_approx(expected_pos, Vector3(0.0001, 0.0001, 0.0001))
-
-	# 15. Limpieza
-	world_scene.free()
+	# 5. Limpieza post-test
+	var cs = get_tree().current_scene
+	if cs:
+		cs.free()
 
 func after():
-	pass
+	# Restablecer estado del SessionManager para evitar interferencias entre tests
+	SessionManager.is_replaying = false
+	SessionManager.buffer = []
+	SessionManager.final_expected_state = null
+	SessionManager.player = null
