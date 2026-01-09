@@ -86,4 +86,3 @@ require_on_floor = true
 transform = Transform( 0.886786, 0, 0.462182, 0, 1, 0, -0.462182, 0, 0.886786, -28.7122, 0.897293, -42.6298 )
 push_velocity = Vector3( 3, 0, 0 )
 require_on_floor = true
-debug = true

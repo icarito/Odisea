@@ -21,9 +21,7 @@ func _find_player():
 		if not is_instance_valid(player) and get_tree().current_scene:
 			player = get_tree().current_scene.find_node("Pilot", true, false)
 		
-		if is_instance_valid(player):
-			print("[SessionManager] Player encontrado: ", player.get_path())
-		else:
+		if not is_instance_valid(player):
 			player = null
 
 func _ready():
