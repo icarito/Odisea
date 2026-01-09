@@ -283,6 +283,9 @@ func load_and_play(path: String):
 		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
 
 func _finish_and_validate():
+	if _drift_validated:
+		return
+	_drift_validated = true
 	var success = true
 	var dist = -1.0
 	var frames = _total_replay_frames

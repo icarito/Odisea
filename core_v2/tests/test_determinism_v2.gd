@@ -67,6 +67,12 @@ func test_replay(path: String, test_parameters=_get_replay_paths()) -> void:
 	print("[test_replay] STARTED for: ", path)
 	var desc = _describe_replay_path(path)
 
+	# 0. Limpieza agresiva de escenas anteriores
+	for child in get_tree().root.get_children():
+		if child.name == "TestScene" or child.filename == "res://core_v2/scenes/TestScene_v2.tscn":
+			print("[test_replay] Removing existing scene: ", child.name)
+			child.free()
+
 	# 1. Cargar la escena de test desde el JSON
 	var f = File.new()
 	var open_err = f.open(path, File.READ)
