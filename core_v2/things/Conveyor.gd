@@ -17,20 +17,28 @@ var _snapshot_applied := false
 
 func _ready():
 	add_to_group("replay_sync")
-	if has_node("Belt"):
-		var mesh_instance = $Belt
-		var mat = mesh_instance.material_override
-		if not mat and mesh_instance.mesh:
-			mat = mesh_instance.mesh.surface_get_material(0)
-		
-		if mat and mat is ShaderMaterial:
-			_update_shader_params(mat)
-			if debug:
-				print("[Conveyor] Shader params updated dir=", Vector2(push_velocity.x, push_velocity.z), " speed=", push_velocity.length())
+	var mat = _ensure_unique_material()
+	if mat and mat is ShaderMaterial:
+		_update_shader_params(mat)
+		if debug:
+			print("[Conveyor] Shader params updated dir=", Vector2(push_velocity.x, push_velocity.z), " speed=", push_velocity.length())
 	# Aplicar snapshot pendiente (restore puede haberse llamado antes de _ready)
 	if _pending_snapshot != null:
 		_apply_snapshot(_pending_snapshot)
 		_pending_snapshot = null
+
+
+func _ensure_unique_material() -> Material:
+	if not has_node("Belt"):
+		return null
+	var mesh_instance = $Belt
+	var mat = mesh_instance.material_override
+	if not mat and mesh_instance.mesh:
+		var mesh_mat = mesh_instance.mesh.surface_get_material(0)
+		if mesh_mat:
+			mat = mesh_mat.duplicate()
+			mesh_instance.material_override = mat
+	return mat
 
 func _update_shader_params(mat: ShaderMaterial) -> void:
 	if not mat:
@@ -53,8 +61,9 @@ func _update_shader_params(mat: ShaderMaterial) -> void:
 	
 	# Calcular largo para ajustar velocidad visual
 	# speed (shader) = (V_world / L_world) * tiling
+	# Reduced multiplier slightly to match physics movement more accurately
 	var length = _get_conveyor_length()
-	var visible_speed = (push_velocity.length() / max(length, 0.001)) * stripe_tiling
+	var visible_speed = (push_velocity.length() / max(length, 0.001)) * stripe_tiling * 0.9
 	
 	mat.set_shader_param("speed", max(visible_speed, 0.0))
 	mat.set_shader_param("color_a", stripe_dark_color)
@@ -65,14 +74,9 @@ func _update_shader_params(mat: ShaderMaterial) -> void:
 
 func set_push_velocity(v: Vector3) -> void:
 	push_velocity = v
-	if has_node("Belt"):
-		var mesh_instance = $Belt
-		var mat = mesh_instance.material_override
-		if not mat and mesh_instance.mesh:
-			mat = mesh_instance.mesh.surface_get_material(0)
-			
-		if mat and mat is ShaderMaterial:
-			_update_shader_params(mat)
+	var mat = _ensure_unique_material()
+	if mat and mat is ShaderMaterial:
+		_update_shader_params(mat)
 
 
 func _get_conveyor_length() -> float:
@@ -119,14 +123,9 @@ func _apply_snapshot(data: Dictionary) -> void:
 	if data.has("stripe_fill"):
 		stripe_fill = data["stripe_fill"]
 	# Actualizar shader si existe
-	if has_node("Belt"):
-		var mesh_instance = $Belt
-		var mat = mesh_instance.material_override
-		if not mat and mesh_instance.mesh:
-			mat = mesh_instance.mesh.surface_get_material(0)
-			
-		if mat and mat is ShaderMaterial:
-			_update_shader_params(mat)
+	var mat = _ensure_unique_material()
+	if mat and mat is ShaderMaterial:
+		_update_shader_params(mat)
 
 
 func restore_snapshot(data: Dictionary) -> void:
