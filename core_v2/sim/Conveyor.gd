@@ -137,7 +137,7 @@ func restore_snapshot(data: Dictionary) -> void:
 	_apply_snapshot(data)
 
 
-func _physics_process(_delta):
+func step(_dt: float) -> void:
 	# Usar get_overlapping_bodies para determinismo (stateless per frame)
 	_bodies = get_overlapping_bodies()
 	
@@ -160,3 +160,6 @@ func _physics_process(_delta):
 			body.add_central_force(world_push * rigid_force_multiplier)
 			if debug:
 				print("[Conveyor] add_central_force ->", world_push * rigid_force_multiplier, " for:", body)
+
+func _physics_process(delta):
+	step(delta)

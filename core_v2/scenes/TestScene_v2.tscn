@@ -74,6 +74,16 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -18.0099, 6.62853, 17.1957 )
 movement_vector = Vector3( 10, 0, 10 )
 
 [node name="Conveyor" parent="." instance=ExtResource( 5 )]
-transform = Transform( 0.465476, 0, 0.885061, 0, 1, 0, -0.885061, 0, 0.465476, -7.29534, 1.61667, -2.81373 )
+transform = Transform( -0.234243, 0, 0.972179, 0, 1, 0, -0.972179, 0, -0.234243, -34.4401, 2.70033, -30.6287 )
+require_on_floor = true
+
+[node name="Conveyor2" parent="." instance=ExtResource( 5 )]
+transform = Transform( 0.465476, 0, 0.885061, 0, 1, 0, -0.885061, 0, 0.465476, -33.5293, 1.90767, -37.5432 )
+push_velocity = Vector3( 2, 0, 0 )
+require_on_floor = true
+
+[node name="Conveyor3" parent="." instance=ExtResource( 5 )]
+transform = Transform( 0.886786, 0, 0.462182, 0, 1, 0, -0.462182, 0, 0.886786, -28.7122, 0.897293, -42.6298 )
+push_velocity = Vector3( 3, 0, 0 )
 require_on_floor = true
 debug = true
