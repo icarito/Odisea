@@ -1,6 +1,6 @@
 [gd_scene load_steps=7 format=2]
 
-[ext_resource path="res://core_v2/sim/Conveyor.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/things/Conveyor.gd" type="Script" id=1]
 [ext_resource path="res://materials/conveyor/ConveyorStripe.tres" type="Material" id=2]
 [ext_resource path="res://scenes/common/GuardrailSegment.tscn" type="PackedScene" id=3]
 
