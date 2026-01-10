@@ -684,11 +684,6 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/report/JUnitXmlReport.gd"
 }, {
-"base": "Control",
-"class": "Joystick",
-"language": "GDScript",
-"path": "res://addons/virtual_joystick/Joystick/Joystick.gd"
-}, {
 "base": "Resource",
 "class": "LocalTime",
 "language": "GDScript",
@@ -940,7 +935,6 @@ _global_script_class_icons={
 "InputProviderV2": "",
 "IntFuzzer": "",
 "JUnitXmlReport": "",
-"Joystick": "",
 "LocalTime": "",
 "PilotAnimatorV2": "",
 "PluginButton": "",
