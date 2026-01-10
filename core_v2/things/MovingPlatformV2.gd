@@ -200,8 +200,15 @@ func step(dt: float):
 	_physics_process(dt)
 
 func apply_easing(t: float) -> float:
-	# MVP: Sin easing para determinismo perfecto. Solo interpolación linear.
-	return t
+	match ease_type:
+		EaseType.SINE:
+			return 0.5 - 0.5 * cos(PI * t)
+		EaseType.CUSTOM_CURVE:
+			if custom_curve:
+				return custom_curve.interpolate(t)
+			return t
+		_: # LINEAR
+			return t
 
 func pingpong_logic(value: float, length: float) -> float:
 	if length == 0: return 0.0
