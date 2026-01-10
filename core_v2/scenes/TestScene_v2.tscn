@@ -1,10 +1,11 @@
-[gd_scene load_steps=9 format=2]
+[gd_scene load_steps=10 format=2]
 
 [ext_resource path="res://materials/reference/PrototypeGrey.tres" type="Material" id=1]
 [ext_resource path="res://addons/kenney_prototype_textures/dark/texture_01.png" type="Texture" id=2]
 [ext_resource path="res://core_v2/scenes/Pilot_v2.tscn" type="PackedScene" id=3]
 [ext_resource path="res://core_v2/things/MovingPlatformV2.tscn" type="PackedScene" id=4]
 [ext_resource path="res://core_v2/things/Conveyor.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/things/SideScrollZone.tscn" type="PackedScene" id=6]
 
 [sub_resource type="SpatialMaterial" id=3]
 albedo_texture = ExtResource( 2 )
@@ -86,3 +87,6 @@ require_on_floor = true
 transform = Transform( 0.886786, 0, 0.462182, 0, 1, 0, -0.462182, 0, 0.886786, -28.7122, 0.897293, -42.6298 )
 push_velocity = Vector3( 3, 0, 0 )
 require_on_floor = true
+
+[node name="SideScrollZone" parent="Conveyor3" instance=ExtResource( 6 )]
+transform = Transform( 0.459735, 0, 0.888056, 0, 1, 0, -0.888056, 0, 0.459735, 70.8576, 0, 36.9301 )

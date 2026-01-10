@@ -14,6 +14,14 @@ var is_replay_mode := false
 export(float) var mouse_sensitivity := 0.005 setget set_mouse_sensitivity, get_mouse_sensitivity
 export(float) var snap_length := 0.5
 
+# 2.5D Mode State
+var is_in_25d_mode := false
+var lock_axis := 0 # 0: None, 1: X, 2: Z
+var lock_value := 0.0
+var invert_25d_side := false
+var camera_transition_alpha := 0.0
+const CAMERA_LERP_SPEED := 2.0 # Progress per second (deterministic)
+
 # Métodos de acceso para export (opcional, para Inspector)
 func set_mouse_sensitivity(v):
 	if v == null:
@@ -32,7 +40,12 @@ func get_full_snapshot() -> Dictionary:
 		"velocity": [velocity.x, velocity.y, velocity.z],
 		"external_velocity": [external_velocity.x, external_velocity.y, external_velocity.z],
 		"yaw": yaw,
-		"pitch": pitch
+		"pitch": pitch,
+		"is_in_25d": is_in_25d_mode,
+		"alpha_25d": camera_transition_alpha,
+		"lock_axis": lock_axis,
+		"lock_value": lock_value,
+		"invert_side": invert_25d_side
 	}
 	# Incluir estado del jump logic si existe
 	if is_instance_valid(jump_logic):
@@ -65,6 +78,12 @@ func restore_snapshot(data: Dictionary) -> void:
 		external_velocity = Vector3.ZERO
 	yaw = data.get("yaw", 0.0)
 	pitch = data.get("pitch", 0.0)
+	
+	is_in_25d_mode = data.get("is_in_25d", false)
+	camera_transition_alpha = data.get("alpha_25d", 0.0)
+	lock_axis = data.get("lock_axis", 0)
+	lock_value = data.get("lock_value", 0.0)
+	invert_25d_side = data.get("invert_side", false)
 	
 	# Restaurar estado del jump logic si existe
 	if data.has("jump_state"):
@@ -154,12 +173,13 @@ func _input(event):
 
 func step(dt: float, input: InputDataV2) -> void:
 	# --- ROTATION ---
-	# Acumulamos los ángulos
-	yaw -= input.mouse_delta.x * mouse_sensitivity
-	pitch -= input.mouse_delta.y * mouse_sensitivity
-	
-	# Limitamos el Pitch para no dar una voltereta (aprox -85 a 85 grados)
-	pitch = clamp(pitch, deg2rad(-85), deg2rad(85))
+	# Acumulamos los ángulos solo si NO estamos en modo 2.5D
+	if not is_in_25d_mode:
+		yaw -= input.mouse_delta.x * mouse_sensitivity
+		pitch -= input.mouse_delta.y * mouse_sensitivity
+		
+		# Limitamos el Pitch para no dar una voltereta (aprox -85 a 85 grados)
+		pitch = clamp(pitch, deg2rad(-85), deg2rad(85))
 
 	# APLICACIÓN:
 	# El cuerpo (self) ya NO rota. El CameraRig rota en AMBOS ejes para controlar la vista.
@@ -183,8 +203,24 @@ func step(dt: float, input: InputDataV2) -> void:
 		jump_logic.buffer_jump()
 
 	# 2. Delegar movimiento horizontal
+	# En modo 2.5D usamos la base objetivo final para que el movimiento sea estable
+	# e independiente de la transición de la cámara.
 	var basis = get_camera_basis()
-	movement_logic.process_movement(dt, input.move_vec, basis, input.sprint, is_on_floor())
+	if is_in_25d_mode:
+		basis = _get_target_25d_basis()
+	
+	var move_vec = input.move_vec
+	
+	if is_in_25d_mode:
+		# En modo 2.5D, move_vec.x es el movimiento lateral (A/D) y move_vec.y es la profundidad (W/S).
+		# Siempre bloqueamos la profundidad para mantenernos en el plano.
+		move_vec.y = 0
+		
+		# Ya no aplicamos inversiones manuales. 
+		# PlayerMovementV2 usa basis.x (screen right), que se orienta automáticamente 
+		# según la cámara, manejando tanto el eje bloqueado como la inversión (invert_side).
+
+	movement_logic.process_movement(dt, move_vec, basis, input.sprint, is_on_floor())
 	var h_vel = movement_logic.get_horizontal_velocity()
 
 	velocity.x = h_vel.x
@@ -197,6 +233,18 @@ func step(dt: float, input: InputDataV2) -> void:
 		emit_signal("jumped")
 	else:
 		velocity.y += jump_logic.get_gravity() * dt
+
+	# --- 2.5D AXIS CONSTRAINT ---
+	if is_in_25d_mode:
+		if lock_axis == 2: # LOCK Z
+			velocity.z = 0
+			global_transform.origin.z = lock_value
+		elif lock_axis == 1: # LOCK X
+			velocity.x = 0
+			global_transform.origin.x = lock_value
+
+	# --- CAMERA TRANSITION ---
+	_step_camera_logic(dt)
 
 	# 4. Aplicar velocidad externa (plataformas móviles y conveyors)
 	# Solo aplicamos cuando:
@@ -239,6 +287,64 @@ func get_wish_direction() -> Vector3:
 	Es usada por el animador para orientar el modelo visual.
 	"""
 	return movement_logic.wish_direction
+
+# --- 2.5D API ---
+
+func enter_25d_mode(axis: int, value: float, invert: bool = false):
+	is_in_25d_mode = true
+	lock_axis = axis
+	lock_value = value
+	invert_25d_side = invert
+
+func exit_25d_mode():
+	is_in_25d_mode = false
+	# No reseteamos lock_axis/value aquí para que la cámara pueda terminar de transicionar suavemente
+	# si es que usamos esos valores para el target de la cámara.
+
+func _step_camera_logic(dt: float):
+	if not camera_rig: return
+	
+	var target_alpha = 1.0 if is_in_25d_mode else 0.0
+	if camera_transition_alpha != target_alpha:
+		var step = CAMERA_LERP_SPEED * dt
+		if camera_transition_alpha < target_alpha:
+			camera_transition_alpha = min(camera_transition_alpha + step, target_alpha)
+		else:
+			camera_transition_alpha = max(camera_transition_alpha - step, target_alpha)
+	
+	if camera_transition_alpha > 0:
+		# Interpolación entre rotación libre (orbital) y rotación fija del plano
+		var orbital_basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		
+		# Definimos el target_basis según el eje bloqueado
+		var target_basis = _get_target_25d_basis()
+		
+		if camera_transition_alpha >= 1.0:
+			camera_rig.transform.basis = target_basis
+		else:
+			# Slerp determinista
+			var q_from = orbital_basis.get_rotation_quat()
+			var q_to = target_basis.get_rotation_quat()
+			camera_rig.transform.basis = Basis(q_from.slerp(q_to, camera_transition_alpha))
+	else:
+		# Modo 3D estándar
+		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+
+func _get_target_25d_basis() -> Basis:
+	"""Calcula la orientación de cámara ideal para el modo 2.5D actual."""
+	var target_basis = Basis.IDENTITY
+	
+	if lock_axis == 2: # Z bloqueado
+		# Por defecto mira hacia -Z (Basis.IDENTITY)
+		if invert_25d_side:
+			target_basis = target_basis.rotated(Vector3.UP, PI)
+	elif lock_axis == 1: # X bloqueado
+		# Mira hacia -X
+		target_basis = Basis(Vector3.UP, PI / 2.0)
+		if invert_25d_side:
+			target_basis = target_basis.rotated(Vector3.UP, PI)
+	
+	return target_basis
 
 #func _process(_delta):
 #	if Engine.get_frames_per_second() < 10: # Si baja de 60fps bruscamente
