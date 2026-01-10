@@ -199,6 +199,10 @@ min_jump_intensity = 0.6
 
 [node name="Movement" type="Node" parent="Logic"]
 script = ExtResource( 6 )
+move_speed = 2.0
+run_speed_multiplier = 3.5
+tank_turn_speed = 2.0
+tank_turn_transition_time = 0.5
 
 [node name="SideScroll" type="Node" parent="Logic"]
 script = ExtResource( 8 )
@@ -431,7 +435,7 @@ parameters/conditions/!on_floor = false
 parameters/conditions/is_jumping = false
 parameters/conditions/land_hard = false
 parameters/conditions/on_floor = false
-parameters/Grounded/blend_position = 0.0
+parameters/Grounded/blend_position = 1.99571
 parameters/InAir/Transition/current = 1
 parameters/Jump/Transition/current = 0
 
@@ -487,4 +491,4 @@ initial_velocity_random = 0.6
 color = Color( 0.172549, 0.607843, 0.615686, 1 )
 
 [node name="AnimationPlayer" parent="." instance=ExtResource( 5 )]
-playback_speed = 0.9
+playback_speed = 1.0

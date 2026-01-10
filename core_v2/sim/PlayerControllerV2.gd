@@ -23,6 +23,11 @@ var _cached_spring_arm: SpringArm = null
 var base_spring_length := 7.0
 var base_rig_y := 0.0
 
+# state
+var velocity := Vector3()
+var yaw := 0.0
+var pitch := 0.0
+
 # Métodos de acceso para export (opcional, para Inspector)
 func set_mouse_sensitivity(v):
 	if v == null:
@@ -39,9 +44,9 @@ func get_full_snapshot() -> Dictionary:
 	var snapshot = {
 		"position": [self.global_transform.origin.x, self.global_transform.origin.y, self.global_transform.origin.z],
 		"velocity": [velocity.x, velocity.y, velocity.z],
-		"external_velocity": [external_velocity.x, external_velocity.y, external_velocity.z],
 		"yaw": yaw,
 		"pitch": pitch,
+		"movement_state": movement_logic.get_full_snapshot() if is_instance_valid(movement_logic) else {},
 		"ss_logic": sidescroll_logic.get_full_snapshot() if is_instance_valid(sidescroll_logic) else {}
 	}
 	# Incluir estado del jump logic si existe
@@ -68,14 +73,11 @@ func restore_snapshot(data: Dictionary) -> void:
 		velocity = vel
 	else:
 		velocity = Vector3.ZERO
-	if data.has("external_velocity"):
-		var ext_vel = data["external_velocity"]
-		if typeof(ext_vel) == TYPE_ARRAY:
-			external_velocity = Vector3(ext_vel[0], ext_vel[1], ext_vel[2])
-	else:
-		external_velocity = Vector3.ZERO
 	yaw = data.get("yaw", 0.0)
 	pitch = data.get("pitch", 0.0)
+	
+	if data.has("movement_state") and is_instance_valid(movement_logic):
+		movement_logic.restore_snapshot(data["movement_state"])
 	
 	if data.has("ss_logic") and is_instance_valid(sidescroll_logic):
 		sidescroll_logic.restore_snapshot(data["ss_logic"])
@@ -92,32 +94,6 @@ func restore_snapshot(data: Dictionary) -> void:
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 
-# state
-var velocity := Vector3()
-var yaw := 0.0
-var pitch := 0.0
-
-# Sistema de velocidad externa (para plataformas móviles)
-var external_velocity := Vector3.ZERO
-export var external_decay_rate := 2.0
-
-func set_external_velocity(v: Vector3) -> void:
-	"""API para plataformas móviles: establece velocidad externa."""
-	external_velocity = v
-
-func _integrate_external_velocity(delta: float) -> Vector3:
-	"""Integra y aplica decaimiento a la velocidad externa."""
-	if external_velocity.length() < 0.001:
-		external_velocity = Vector3.ZERO
-		return Vector3.ZERO
-	external_velocity = external_velocity.linear_interpolate(Vector3.ZERO, external_decay_rate * delta)
-	return external_velocity
-
-var external_source_is_static := true
-
-func set_external_source_is_static(is_static: bool) -> void:
-	external_source_is_static = is_static
-
 # Nodos (Asegúrate de que los nombres coincidan con tu escena)
 onready var camera_rig = $CameraRig
 onready var animator = $Visual/Pivot
@@ -131,6 +107,15 @@ var _created_jump_logic := false
 var _created_movement_logic := false
 
 const SideScrollLogicV2 = preload("SideScrollLogicV2.gd")
+
+func set_external_velocity(v: Vector3) -> void:
+	"""API para plataformas móviles: establece velocidad externa."""
+	if is_instance_valid(movement_logic):
+		movement_logic.set_external_velocity(v)
+
+func set_external_source_is_static(is_static: bool) -> void:
+	if is_instance_valid(movement_logic):
+		movement_logic.set_external_source_is_static(is_static)
 
 func _ready():
 	input_provider = InputProviderV2.new()
@@ -214,26 +199,31 @@ func _input(event):
 			input_provider.mouse_delta_accum += event.relative
 
 func step(dt: float, input: InputDataV2) -> void:
-	# --- ROTATION ---
+	# 0. State Update
+	# velocity.y and rotation state
+	if is_on_floor() and velocity.y < 0:
+		velocity.y = 0
+
+	# --- ROTATION & TANK MODE ---
 	# Acumulamos los ángulos solo si NO estamos en modo 2.5D
 	if not sidescroll_logic.is_active:
+		# Update tank mode state in component
+		movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
+
+		# Update rotations
+		# mouse_delta always rotates the camera rig
 		yaw -= input.mouse_delta.x * mouse_sensitivity
 		pitch -= input.mouse_delta.y * mouse_sensitivity
 		
+		# If in tank mode, A/D (input.move_vec.x) also rotates the camera
+		yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
+
 		# Limitamos el Pitch para no dar una voltereta (aprox -85 a 85 grados)
 		pitch = clamp(pitch, deg2rad(-85), deg2rad(85))
 
 	# APLICACIÓN:
-	# El cuerpo (self) ya NO rota. El CameraRig rota en AMBOS ejes para controlar la vista.
-	# IMPORTANTE: No asignar yaw/pitch a rotation.y/x por separado, ya que puede causar
-	# problemas de Gimbal Lock. Es más robusto construir una nueva base de rotación.
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
-	
-	# --- GRAVITY CLEANUP ---
-	# Set velocity.y to 0 if on floor and not moving upwards to prevent gravity force accumulation.
-	if is_on_floor() and velocity.y < 0:
-		velocity.y = 0
 	
 	# 1. Actualizar timers de los componentes
 	if is_on_floor():
@@ -288,8 +278,8 @@ func step(dt: float, input: InputDataV2) -> void:
 	# - NO estamos en el suelo (plataformas móviles usan physics interno de Godot)
 	# - O la fuente es NO estática (conveyors empujan activamente)
 	var external_vel = Vector3.ZERO
-	if not is_on_floor() or not external_source_is_static:
-		external_vel = _integrate_external_velocity(dt)
+	if not is_on_floor() or not movement_logic.external_source_is_static:
+		external_vel = movement_logic.integrate_external_velocity(dt)
 	velocity += external_vel
 
 	# 5. Movimiento Final y Animación
@@ -302,12 +292,12 @@ func step(dt: float, input: InputDataV2) -> void:
 		# Si la fuente externa NO es estática (ej: cinta transportadora, plataforma móvil),
 		# restamos esa velocidad para que el animador "vea" solo el movimiento relativo del jugador.
 		var anim_vel = velocity
-		if not external_source_is_static:
-			anim_vel = velocity - external_velocity
+		if not movement_logic.external_source_is_static:
+			anim_vel = velocity - movement_logic.external_velocity
 		animator.step_animator(dt, anim_vel)
 		
 	# Resetear asunción por defecto para el próximo frame
-	external_source_is_static = true
+	movement_logic.external_source_is_static = true
 
 func _physics_process(_delta):
 	if external_input_provided or is_replay_mode:
