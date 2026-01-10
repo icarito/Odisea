@@ -1,4 +1,4 @@
-[gd_resource type="AnimationNodeStateMachine" load_steps=17 format=2]
+[gd_resource type="AnimationNodeStateMachine" load_steps=20 format=2]
 
 [sub_resource type="AnimationNodeAnimation" id=103]
 animation = "Idle_Loop"
@@ -48,18 +48,29 @@ nodes/Transition/position = Vector2( 288, 144 )
 nodes/output/position = Vector2( 528, 112 )
 node_connections = [ "Transition", 0, "Jumping", "Transition", 1, "Falling", "output", 0, "Transition" ]
 
-[sub_resource type="AnimationNodeAnimation" id=111]
+[sub_resource type="AnimationNodeAnimation" id=197]
+animation = "Jump_Land"
+
+[sub_resource type="AnimationNodeAnimation" id=198]
 animation = "Jump_Start"
 
-[sub_resource type="AnimationNodeStateMachineTransition" id=115]
-advance_condition = "is_jumping"
-xfade_time = 0.25
-priority = 2
+[sub_resource type="AnimationNodeTransition" id=199]
+input_count = 2
+input_0/name = "Start"
+input_0/auto_advance = false
+input_1/name = "Land"
+input_1/auto_advance = false
 
-[sub_resource type="AnimationNodeStateMachineTransition" id=188]
-switch_mode = 2
-auto_advance = true
-xfade_time = 0.3
+[sub_resource type="AnimationNodeBlendTree" id=200]
+graph_offset = Vector2( 253.6, -67 )
+nodes/Animation/node = SubResource( 198 )
+nodes/Animation/position = Vector2( 368, 32 )
+"nodes/Animation 2/node" = SubResource( 197 )
+"nodes/Animation 2/position" = Vector2( 368, 192 )
+nodes/Transition/node = SubResource( 199 )
+nodes/Transition/position = Vector2( 576, 80 )
+nodes/output/position = Vector2( 800, 80 )
+node_connections = [ "Transition", 0, "Animation", "Transition", 1, "Animation 2", "output", 0, "Transition" ]
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=192]
 advance_condition = "land_hard"
@@ -83,6 +94,15 @@ advance_condition = "!on_floor"
 xfade_time = 0.25
 priority = 5
 
+[sub_resource type="AnimationNodeStateMachineTransition" id=201]
+advance_condition = "is_jumping"
+xfade_time = 0.1
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=202]
+switch_mode = 2
+auto_advance = true
+xfade_time = 0.1
+
 [resource]
 states/Grounded/node = SubResource( 106 )
 states/Grounded/position = Vector2( 360.44, 104.6 )
@@ -90,7 +110,7 @@ states/HardLand/node = SubResource( 189 )
 states/HardLand/position = Vector2( 679, 274.241 )
 states/InAir/node = SubResource( 122 )
 states/InAir/position = Vector2( 352.6, 386.203 )
-states/Jump/node = SubResource( 111 )
-states/Jump/position = Vector2( 153.4, 242.808 )
-transitions = [ "Grounded", "Jump", SubResource( 115 ), "Jump", "InAir", SubResource( 188 ), "InAir", "HardLand", SubResource( 192 ), "HardLand", "Grounded", SubResource( 194 ), "InAir", "Grounded", SubResource( 195 ), "Grounded", "InAir", SubResource( 196 ) ]
-graph_offset = Vector2( 216, 98.881 )
+states/Jump/node = SubResource( 200 )
+states/Jump/position = Vector2( 118.8, 226.783 )
+transitions = [ "InAir", "HardLand", SubResource( 192 ), "HardLand", "Grounded", SubResource( 194 ), "InAir", "Grounded", SubResource( 195 ), "Grounded", "InAir", SubResource( 196 ), "Grounded", "Jump", SubResource( 201 ), "Jump", "InAir", SubResource( 202 ) ]
+graph_offset = Vector2( -48, 27.881 )
