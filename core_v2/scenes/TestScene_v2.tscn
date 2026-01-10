@@ -2,7 +2,7 @@
 
 [ext_resource path="res://materials/reference/PrototypeGrey.tres" type="Material" id=1]
 [ext_resource path="res://addons/kenney_prototype_textures/dark/texture_01.png" type="Texture" id=2]
-[ext_resource path="res://core_v2/scenes/Pilot_v2.tscn" type="PackedScene" id=3]
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=3]
 [ext_resource path="res://core_v2/things/MovingPlatformV2.tscn" type="PackedScene" id=4]
 [ext_resource path="res://core_v2/things/Conveyor.tscn" type="PackedScene" id=5]
 [ext_resource path="res://core_v2/things/SideScrollZone.tscn" type="PackedScene" id=6]
