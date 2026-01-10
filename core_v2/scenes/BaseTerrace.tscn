@@ -6,7 +6,7 @@
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=4]
 
 [node name="Terrace" type="CSGBox"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
 use_collision = true
 width = 80.0
 depth = 80.0
@@ -17,7 +17,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -22.9909, 0.98817, 22.6577 )
 
 [node name="InteriorWide" parent="." instance=ExtResource( 3 )]
 
-[node name="CSGBox" type="CSGBox" parent="."]
+[node name="Room1" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -21.47, 8, 27.059 )
 invert_faces = true
 width = 12.0
@@ -25,7 +25,7 @@ height = 14.0
 depth = 18.0
 material = ExtResource( 4 )
 
-[node name="CSGBox2" type="CSGBox" parent="CSGBox"]
+[node name="Interior" type="CSGBox" parent="Room1"]
 operation = 2
 width = 11.0
 height = 14.0
