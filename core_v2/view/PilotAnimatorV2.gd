@@ -16,6 +16,7 @@ const PARAM_CONDITIONS_USE_JUMP_LOOP = "parameters/conditions/use_jump_loop"
 const PARAM_GROUNDED_BLEND_POSITION = "parameters/Grounded/blend_position"
 const PARAM_GROUNDED_JUMP_ACTIVE = "parameters/Grounded/Jump/active"
 const PARAM_LAND_TRANSITION_CURRENT = "parameters/Land/Transition/current"
+const PARAM_JUMP_TRANSITION_CURRENT = "parameters/Jump/Transition/current"
 const PARAM_PLAYBACK_ACTIVE = "parameters/playback/active"
 
 # --- EXPORTS ---
@@ -170,14 +171,18 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	var use_jump_loop: bool = (time_since_jump < 0.25) or (move_vec_length > 0.3)
 	animation_tree.set(PARAM_CONDITIONS_USE_JUMP_LOOP, use_jump_loop)
 
+	# Lógica de transición de Salto (Start vs Land)
+	# Solo pasamos a Land (1) si tocamos el suelo antes de que termine el estado visual de salto.
+	# No pasamos a Land al soltar el botón (Short Jump), para mantener el arco visual en el aire.
+	var jump_transition = 1 if is_on_floor else 0
+	animation_tree.set(PARAM_JUMP_TRANSITION_CURRENT, jump_transition)
+
 
 func _on_controller_jumped() -> void:
 	"""Se ejecuta cuando el controlador emite la señal 'jumped'."""
 	# Usar ONE_SHOT_REQUEST_FIRE es la forma correcta y determinista de activar animaciones OneShot.
 	# NO NO NO NO ES ACTIVE 1
-	animation_tree.set(PARAM_GROUNDED_JUMP_ACTIVE, 1) ### NO TOCAR
+	animation_tree.set(PARAM_GROUNDED_JUMP_ACTIVE, 1) ## # NO TOCAR
 
 	# Activar buffer de salto para mantener `is_jumping` verdadero algunos ms
 	jumped_buffer_time = jump_buffer_duration
-
-

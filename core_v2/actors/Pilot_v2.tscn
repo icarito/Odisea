@@ -195,7 +195,7 @@ script = ExtResource( 2 )
 script = ExtResource( 4 )
 jump_force = 10.0
 gravity = -14.0
-short_jump_cut_multiplier = 0.15
+min_jump_intensity = 0.6
 
 [node name="Movement" type="Node" parent="Logic"]
 script = ExtResource( 6 )

@@ -4,7 +4,7 @@ extends Node
 
 export(float) var jump_force := 12.0
 export(float) var gravity := -24.0 # Más pesado para mejor feeling con salto variable
-export(float) var short_jump_cut_multiplier := 0.1 # Corte drástico al soltar
+export(float) var min_jump_intensity := 0.4
 
 const COYOTE_TIME := 0.15 # ~120-150 ms
 const JUMP_BUFFER_TIME := 0.1 # ~100-120 ms
@@ -62,14 +62,16 @@ func step(dt: float, input_jump: bool, current_vy: float, on_floor: bool) -> flo
 	if not on_floor and next_vy <= 0.0:
 		_is_jumping = false
 	
-	# Lógica de Salto Variable (Recorte Drástico)
+	# Lógica de Salto Variable (Recorte a Intensidad Mínima)
 	# Solo permitimos el recorte si:
 	# 1. No se está presionando el botón
 	# 2. Estamos saltando activamente (_is_jumping)
 	# 3. Vamos hacia arriba (next_vy > 0)
 	# 4. Ha pasado un tiempo mínimo de seguridad (para evitar glitcheos)
 	if not input_jump and _is_jumping and next_vy > 0.0 and _jump_time_tracker > MIN_JUMP_TIME:
-		next_vy *= short_jump_cut_multiplier
+		var min_v = jump_force * min_jump_intensity
+		if next_vy > min_v:
+			next_vy = min_v
 		_is_jumping = false
 		
 	return next_vy
