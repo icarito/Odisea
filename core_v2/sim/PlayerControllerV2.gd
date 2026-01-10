@@ -99,7 +99,7 @@ var pitch := 0.0
 
 # Sistema de velocidad externa (para plataformas móviles)
 var external_velocity := Vector3.ZERO
-export var external_decay_rate := 6.0
+export var external_decay_rate := 2.0
 
 func set_external_velocity(v: Vector3) -> void:
 	"""API para plataformas móviles: establece velocidad externa."""
