@@ -332,27 +332,38 @@ func _step_camera_logic(_dt: float):
 	var alpha = sidescroll_logic.transition_alpha
 	
 	if alpha > 0:
-		# Interpolación entre rotación libre (orbital) y rotación fija del plano
+		# 1. Rotación (Basis)
 		var orbital_basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		var target_basis = sidescroll_logic.get_target_basis()
-		
-		# Slerp determinista
 		var q_from = orbital_basis.get_rotation_quat()
 		var q_to = target_basis.get_rotation_quat()
 		camera_rig.transform.basis = Basis(q_from.slerp(q_to, alpha))
 		
-		# Interpolación de FOV, Y Offset y Spring Length
+		# 2. Posición (Deadzone + Smoothing + Transición)
+		# Calculamos el lagging center (global)
+		var lag_pos = sidescroll_logic.calculate_camera_pos(global_transform.origin, _dt)
+		
+		# Posición 3D "natural" (donde estaría el rig si fuera un child normal)
+		var pos_3d = global_transform.origin + Vector3(0, base_rig_y, 0)
+		
+		# Posición 2.5D "ideal" (basada en el lag_pos + altura base + offset Y adicional)
+		var pos_25d = lag_pos + Vector3(0, base_rig_y + sidescroll_logic.target_y_offset, 0)
+		
+		# Interpolamos globalmente para que la transición sea suave
+		camera_rig.global_transform.origin = pos_3d.linear_interpolate(pos_25d, alpha)
+		
+		# 3. Otros parámetros (FOV, Spring Length)
 		if _cached_cam:
 			_cached_cam.fov = lerp(base_fov, sidescroll_logic.target_fov, alpha)
 		
 		if _cached_spring_arm:
 			_cached_spring_arm.spring_length = lerp(base_spring_length, sidescroll_logic.target_spring_length, alpha)
-		
-		camera_rig.transform.origin.y = lerp(base_rig_y, base_rig_y + sidescroll_logic.target_y_offset, alpha)
 	else:
 		# Modo 3D estándar
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
-		camera_rig.transform.origin.y = base_rig_y
+		# Volver a la posición local relativa al player
+		camera_rig.transform.origin = Vector3(0, base_rig_y, 0)
+		
 		if _cached_cam:
 			_cached_cam.fov = base_fov
 		if _cached_spring_arm:
