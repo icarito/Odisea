@@ -1,4 +1,3 @@
-tool
 extends Area
 
 export(Vector3) var push_velocity := Vector3(2, 0, 0) setget set_push_velocity
