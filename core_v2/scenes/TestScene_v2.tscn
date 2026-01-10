@@ -73,6 +73,8 @@ environment = SubResource( 2 )
 [node name="MovingPlatformV2" parent="." instance=ExtResource( 4 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -18.0099, 6.62853, 17.1957 )
 movement_vector = Vector3( 10, 0, 10 )
+cycle_duration = 6.0
+ease_type = 1
 
 [node name="Conveyor" parent="." instance=ExtResource( 5 )]
 transform = Transform( -0.234243, 0, 0.972179, 0, 1, 0, -0.972179, 0, -0.234243, -34.4401, 2.70033, -30.6287 )
