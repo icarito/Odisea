@@ -48,7 +48,8 @@ func get_full_snapshot() -> Dictionary:
 	if is_instance_valid(jump_logic):
 		snapshot["jump_state"] = {
 			"coyote_timer": jump_logic.coyote_timer,
-			"jump_buffer_timer": jump_logic.jump_buffer_timer
+			"jump_buffer_timer": jump_logic.jump_buffer_timer,
+			"is_jumping": jump_logic._is_jumping
 		}
 	return snapshot
 
@@ -85,6 +86,7 @@ func restore_snapshot(data: Dictionary) -> void:
 		if is_instance_valid(jump_logic):
 			jump_logic.coyote_timer = jump_state.get("coyote_timer", 0.0)
 			jump_logic.jump_buffer_timer = jump_state.get("jump_buffer_timer", 0.0)
+			jump_logic._is_jumping = jump_state.get("is_jumping", false)
 	
 	# APLICACIÓN: Unificamos la lógica de rotación con la de step() para garantizar determinismo.
 	if camera_rig:
@@ -134,23 +136,29 @@ func _ready():
 	input_provider = InputProviderV2.new()
 
 	# Usar componentes existentes en la escena si están presentes, para evitar duplicados
-	if has_node("PlayerJumpV2"):
-		jump_logic = get_node("PlayerJumpV2")
+	if has_node("Logic/Jump"):
+		jump_logic = get_node("Logic/Jump")
 		_created_jump_logic = false
 	else:
 		jump_logic = PlayerJumpV2.new()
 		_created_jump_logic = true
-		jump_logic.name = "PlayerJumpV2"
-		add_child(jump_logic)
+		jump_logic.name = "Jump"
+		if has_node("Logic"):
+			get_node("Logic").add_child(jump_logic)
+		else:
+			add_child(jump_logic)
 
-	if has_node("PlayerMovementV2"):
-		movement_logic = get_node("PlayerMovementV2")
+	if has_node("Logic/Movement"):
+		movement_logic = get_node("Logic/Movement")
 		_created_movement_logic = false
 	else:
 		movement_logic = PlayerMovementV2.new()
 		_created_movement_logic = true
-		movement_logic.name = "PlayerMovementV2"
-		add_child(movement_logic)
+		movement_logic.name = "Movement"
+		if has_node("Logic"):
+			get_node("Logic").add_child(movement_logic)
+		else:
+			add_child(movement_logic)
 	
 	if has_node("Logic/SideScroll"):
 		sidescroll_logic = get_node("Logic/SideScroll")
@@ -174,7 +182,6 @@ func _ready():
 	
 	if camera_rig:
 		base_rig_y = camera_rig.transform.origin.y
-	# Ya no necesitamos copiar variables, los componentes tienen sus propios exports
 
 const DEFAULT_BASIS = Basis.IDENTITY
 
@@ -224,8 +231,8 @@ func step(dt: float, input: InputDataV2) -> void:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 	
 	# --- GRAVITY CLEANUP ---
-	# Set velocity.y to 0 if on floor to prevent gravity force accumulation against CSG/Physics collision.
-	if is_on_floor():
+	# Set velocity.y to 0 if on floor and not moving upwards to prevent gravity force accumulation.
+	if is_on_floor() and velocity.y < 0:
 		velocity.y = 0
 	
 	# 1. Actualizar timers de los componentes
@@ -262,13 +269,13 @@ func step(dt: float, input: InputDataV2) -> void:
 	velocity.x = h_vel.x
 	velocity.z = h_vel.z
 
-	# 3. Aplicar Salto o Gravedad
-	if jump_logic.can_jump(is_on_floor()):
-		velocity.y = jump_logic.get_jump_force()
-		jump_logic.consume_jump()
+	# 3. Aplicar Salto o Gravedad (Delegado al componente)
+	var old_vy = velocity.y
+	velocity.y = jump_logic.step(dt, input.jump, velocity.y, is_on_floor())
+	
+	# Emitir señal si se inició un salto en este frame
+	if velocity.y == jump_logic.jump_force and old_vy != jump_logic.jump_force:
 		emit_signal("jumped")
-	else:
-		velocity.y += jump_logic.get_gravity() * dt
 
 	# --- 2.5D AXIS CONSTRAINT ---
 	sidescroll_logic.apply_spatial_constraints(self)

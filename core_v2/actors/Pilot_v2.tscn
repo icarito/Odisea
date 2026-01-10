@@ -189,6 +189,23 @@ collision_layer = 3
 collision_mask = 254
 script = ExtResource( 2 )
 
+[node name="Logic" type="Node" parent="."]
+
+[node name="Jump" type="Node" parent="Logic"]
+script = ExtResource( 4 )
+jump_force = 10.0
+gravity = -14.0
+short_jump_cut_multiplier = 0.15
+
+[node name="Movement" type="Node" parent="Logic"]
+script = ExtResource( 6 )
+
+[node name="SideScroll" type="Node" parent="Logic"]
+script = ExtResource( 8 )
+target_pitch_deg = -10.0
+target_y_offset = -0.5
+target_spring_length = 12.0
+
 [node name="Visual" type="Spatial" parent="."]
 
 [node name="Pivot" type="Spatial" parent="Visual"]
@@ -416,6 +433,7 @@ parameters/conditions/land_hard = false
 parameters/conditions/on_floor = false
 parameters/Grounded/blend_position = 0.0
 parameters/InAir/Transition/current = 1
+parameters/Jump/Transition/current = 0
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
@@ -470,21 +488,3 @@ color = Color( 0.172549, 0.607843, 0.615686, 1 )
 
 [node name="AnimationPlayer" parent="." instance=ExtResource( 5 )]
 playback_speed = 0.9
-
-[node name="Logic" type="Node" parent="."]
-
-[node name="Jump" type="Node" parent="Logic"]
-script = ExtResource( 4 )
-
-[node name="Movement" type="Node" parent="Logic"]
-script = ExtResource( 6 )
-acceleration = 5.0
-friction = 50.0
-move_speed = 3.0
-stop_threshold = 0.2
-
-[node name="SideScroll" type="Node" parent="Logic"]
-script = ExtResource( 8 )
-target_pitch_deg = -10.0
-target_y_offset = -0.5
-target_spring_length = 12.0

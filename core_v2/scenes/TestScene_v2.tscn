@@ -34,6 +34,9 @@ glow_bloom = 1.0
 
 [node name="TestScene" type="Spatial"]
 
+[node name="Pilot" parent="." instance=ExtResource( 3 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.949169, 0 )
+
 [node name="CSGBox" type="CSGBox" parent="."]
 use_collision = true
 width = 100.0
@@ -66,9 +69,6 @@ material = SubResource( 3 )
 
 [node name="EnvironmentEffects" type="WorldEnvironment" parent="."]
 environment = SubResource( 2 )
-
-[node name="Pilot" parent="." instance=ExtResource( 3 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.949169, 0 )
 
 [node name="MovingPlatformV2" parent="." instance=ExtResource( 4 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -18.0099, 6.62853, 17.1957 )
