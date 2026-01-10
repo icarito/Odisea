@@ -14,13 +14,14 @@ var is_replay_mode := false
 export(float) var mouse_sensitivity := 0.005 setget set_mouse_sensitivity, get_mouse_sensitivity
 export(float) var snap_length := 0.5
 
-# 2.5D Mode State
-var is_in_25d_mode := false
-var lock_axis := 0 # 0: None, 1: X, 2: Z
-var lock_value := 0.0
-var invert_25d_side := false
-var camera_transition_alpha := 0.0
-const CAMERA_LERP_SPEED := 2.0 # Progress per second (deterministic)
+# 2.5D Mode State (Delegated to Component)
+var sidescroll_logic: Node # SideScrollLogicV2
+var _created_sidescroll_logic := false
+var base_fov := 75.0
+var _cached_cam: Camera = null
+var _cached_spring_arm: SpringArm = null
+var base_spring_length := 7.0
+var base_rig_y := 0.0
 
 # Métodos de acceso para export (opcional, para Inspector)
 func set_mouse_sensitivity(v):
@@ -41,11 +42,7 @@ func get_full_snapshot() -> Dictionary:
 		"external_velocity": [external_velocity.x, external_velocity.y, external_velocity.z],
 		"yaw": yaw,
 		"pitch": pitch,
-		"is_in_25d": is_in_25d_mode,
-		"alpha_25d": camera_transition_alpha,
-		"lock_axis": lock_axis,
-		"lock_value": lock_value,
-		"invert_side": invert_25d_side
+		"ss_logic": sidescroll_logic.get_full_snapshot() if is_instance_valid(sidescroll_logic) else {}
 	}
 	# Incluir estado del jump logic si existe
 	if is_instance_valid(jump_logic):
@@ -79,11 +76,8 @@ func restore_snapshot(data: Dictionary) -> void:
 	yaw = data.get("yaw", 0.0)
 	pitch = data.get("pitch", 0.0)
 	
-	is_in_25d_mode = data.get("is_in_25d", false)
-	camera_transition_alpha = data.get("alpha_25d", 0.0)
-	lock_axis = data.get("lock_axis", 0)
-	lock_value = data.get("lock_value", 0.0)
-	invert_25d_side = data.get("invert_side", false)
+	if data.has("ss_logic") and is_instance_valid(sidescroll_logic):
+		sidescroll_logic.restore_snapshot(data["ss_logic"])
 	
 	# Restaurar estado del jump logic si existe
 	if data.has("jump_state"):
@@ -134,6 +128,8 @@ var movement_logic: PlayerMovementV2
 var _created_jump_logic := false
 var _created_movement_logic := false
 
+const SideScrollLogicV2 = preload("SideScrollLogicV2.gd")
+
 func _ready():
 	input_provider = InputProviderV2.new()
 
@@ -144,9 +140,8 @@ func _ready():
 	else:
 		jump_logic = PlayerJumpV2.new()
 		_created_jump_logic = true
-		if jump_logic and jump_logic is Node:
-			jump_logic.name = "PlayerJumpV2"
-			add_child(jump_logic)
+		jump_logic.name = "PlayerJumpV2"
+		add_child(jump_logic)
 
 	if has_node("PlayerMovementV2"):
 		movement_logic = get_node("PlayerMovementV2")
@@ -154,12 +149,52 @@ func _ready():
 	else:
 		movement_logic = PlayerMovementV2.new()
 		_created_movement_logic = true
-		if movement_logic and movement_logic is Node:
-			movement_logic.name = "PlayerMovementV2"
-			add_child(movement_logic)
+		movement_logic.name = "PlayerMovementV2"
+		add_child(movement_logic)
+	
+	if has_node("Logic/SideScroll"):
+		sidescroll_logic = get_node("Logic/SideScroll")
+		_created_sidescroll_logic = false
+	else:
+		sidescroll_logic = SideScrollLogicV2.new()
+		_created_sidescroll_logic = true
+		sidescroll_logic.name = "SideScroll"
+		if has_node("Logic"):
+			get_node("Logic").add_child(sidescroll_logic)
+		else:
+			add_child(sidescroll_logic)
+	
+	_cached_cam = _find_camera(camera_rig)
+	if _cached_cam:
+		base_fov = _cached_cam.fov
+	
+	_cached_spring_arm = _find_spring_arm(camera_rig)
+	if _cached_spring_arm:
+		base_spring_length = _cached_spring_arm.spring_length
+	
+	if camera_rig:
+		base_rig_y = camera_rig.transform.origin.y
 	# Ya no necesitamos copiar variables, los componentes tienen sus propios exports
 
 const DEFAULT_BASIS = Basis.IDENTITY
+
+func _find_camera(node: Node) -> Camera:
+	if node is Camera:
+		return node as Camera
+	for i in range(node.get_child_count()):
+		var cam = _find_camera(node.get_child(i))
+		if cam:
+			return cam
+	return null
+
+func _find_spring_arm(node: Node) -> SpringArm:
+	if node is SpringArm:
+		return node as SpringArm
+	for i in range(node.get_child_count()):
+		var arm = _find_spring_arm(node.get_child(i))
+		if arm:
+			return arm
+	return null
 
 func get_camera_basis() -> Basis:
 	return camera_rig.transform.basis if camera_rig else DEFAULT_BASIS
@@ -174,7 +209,7 @@ func _input(event):
 func step(dt: float, input: InputDataV2) -> void:
 	# --- ROTATION ---
 	# Acumulamos los ángulos solo si NO estamos en modo 2.5D
-	if not is_in_25d_mode:
+	if not sidescroll_logic.is_active:
 		yaw -= input.mouse_delta.x * mouse_sensitivity
 		pitch -= input.mouse_delta.y * mouse_sensitivity
 		
@@ -206,12 +241,13 @@ func step(dt: float, input: InputDataV2) -> void:
 	# En modo 2.5D usamos la base objetivo final para que el movimiento sea estable
 	# e independiente de la transición de la cámara.
 	var basis = get_camera_basis()
-	if is_in_25d_mode:
-		basis = _get_target_25d_basis()
-	
 	var move_vec = input.move_vec
 	
-	if is_in_25d_mode:
+	sidescroll_logic.step(dt) # Actualizar alpha de transición
+	
+	if sidescroll_logic.is_active:
+		basis = sidescroll_logic.get_target_basis()
+		move_vec = sidescroll_logic.get_constrained_input(move_vec)
 		# En modo 2.5D, move_vec.x es el movimiento lateral (A/D) y move_vec.y es la profundidad (W/S).
 		# Siempre bloqueamos la profundidad para mantenernos en el plano.
 		move_vec.y = 0
@@ -219,7 +255,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		# Ya no aplicamos inversiones manuales. 
 		# PlayerMovementV2 usa basis.x (screen right), que se orienta automáticamente 
 		# según la cámara, manejando tanto el eje bloqueado como la inversión (invert_side).
-
+	
 	movement_logic.process_movement(dt, move_vec, basis, input.sprint, is_on_floor())
 	var h_vel = movement_logic.get_horizontal_velocity()
 
@@ -235,13 +271,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		velocity.y += jump_logic.get_gravity() * dt
 
 	# --- 2.5D AXIS CONSTRAINT ---
-	if is_in_25d_mode:
-		if lock_axis == 2: # LOCK Z
-			velocity.z = 0
-			global_transform.origin.z = lock_value
-		elif lock_axis == 1: # LOCK X
-			velocity.x = 0
-			global_transform.origin.x = lock_value
+	sidescroll_logic.apply_spatial_constraints(self)
 
 	# --- CAMERA TRANSITION ---
 	_step_camera_logic(dt)
@@ -291,65 +321,42 @@ func get_wish_direction() -> Vector3:
 # --- 2.5D API ---
 
 func enter_25d_mode(axis: int, value: float, invert: bool = false):
-	is_in_25d_mode = true
-	lock_axis = axis
-	lock_value = value
-	invert_25d_side = invert
+	sidescroll_logic.enter_mode(axis, value, invert)
 
 func exit_25d_mode():
-	is_in_25d_mode = false
-	# No reseteamos lock_axis/value aquí para que la cámara pueda terminar de transicionar suavemente
-	# si es que usamos esos valores para el target de la cámara.
+	sidescroll_logic.exit_mode()
 
-func _step_camera_logic(dt: float):
+func _step_camera_logic(_dt: float):
 	if not camera_rig: return
 	
-	var target_alpha = 1.0 if is_in_25d_mode else 0.0
-	if camera_transition_alpha != target_alpha:
-		var step = CAMERA_LERP_SPEED * dt
-		if camera_transition_alpha < target_alpha:
-			camera_transition_alpha = min(camera_transition_alpha + step, target_alpha)
-		else:
-			camera_transition_alpha = max(camera_transition_alpha - step, target_alpha)
+	var alpha = sidescroll_logic.transition_alpha
 	
-	if camera_transition_alpha > 0:
+	if alpha > 0:
 		# Interpolación entre rotación libre (orbital) y rotación fija del plano
 		var orbital_basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		var target_basis = sidescroll_logic.get_target_basis()
 		
-		# Definimos el target_basis según el eje bloqueado
-		var target_basis = _get_target_25d_basis()
+		# Slerp determinista
+		var q_from = orbital_basis.get_rotation_quat()
+		var q_to = target_basis.get_rotation_quat()
+		camera_rig.transform.basis = Basis(q_from.slerp(q_to, alpha))
 		
-		if camera_transition_alpha >= 1.0:
-			camera_rig.transform.basis = target_basis
-		else:
-			# Slerp determinista
-			var q_from = orbital_basis.get_rotation_quat()
-			var q_to = target_basis.get_rotation_quat()
-			camera_rig.transform.basis = Basis(q_from.slerp(q_to, camera_transition_alpha))
+		# Interpolación de FOV, Y Offset y Spring Length
+		if _cached_cam:
+			_cached_cam.fov = lerp(base_fov, sidescroll_logic.target_fov, alpha)
+		
+		if _cached_spring_arm:
+			_cached_spring_arm.spring_length = lerp(base_spring_length, sidescroll_logic.target_spring_length, alpha)
+		
+		camera_rig.transform.origin.y = lerp(base_rig_y, base_rig_y + sidescroll_logic.target_y_offset, alpha)
 	else:
 		# Modo 3D estándar
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
-
-func _get_target_25d_basis() -> Basis:
-	"""Calcula la orientación de cámara ideal para el modo 2.5D actual."""
-	var target_basis = Basis.IDENTITY
-	
-	if lock_axis == 2: # Z bloqueado
-		# Por defecto mira hacia -Z (Basis.IDENTITY)
-		if invert_25d_side:
-			target_basis = target_basis.rotated(Vector3.UP, PI)
-	elif lock_axis == 1: # X bloqueado
-		# Mira hacia -X
-		target_basis = Basis(Vector3.UP, PI / 2.0)
-		if invert_25d_side:
-			target_basis = target_basis.rotated(Vector3.UP, PI)
-	
-	return target_basis
-
-#func _process(_delta):
-#	if Engine.get_frames_per_second() < 10: # Si baja de 60fps bruscamente
-#		print("[PERF] Caída de frames detectada! Velocity: ", velocity, " OnFloor: ", is_on_floor())
-
+		camera_rig.transform.origin.y = base_rig_y
+		if _cached_cam:
+			_cached_cam.fov = base_fov
+		if _cached_spring_arm:
+			_cached_spring_arm.spring_length = base_spring_length
 
 func _exit_tree() -> void:
 	# Si el controlador creó los componentes dinámicamente, liberarlos explícitamente
@@ -358,3 +365,6 @@ func _exit_tree() -> void:
 
 	if _created_movement_logic and movement_logic and movement_logic.is_inside_tree():
 		movement_logic.queue_free()
+
+	if _created_sidescroll_logic and sidescroll_logic and sidescroll_logic.is_inside_tree():
+		sidescroll_logic.queue_free()

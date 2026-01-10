@@ -90,3 +90,4 @@ require_on_floor = true
 
 [node name="SideScrollZone" parent="Conveyor3" instance=ExtResource( 6 )]
 transform = Transform( 0.459735, 0, 0.888056, 0, 1, 0, -0.888056, 0, 0.459735, 70.8576, 0, 36.9301 )
+invert_side = true
