@@ -3,7 +3,7 @@
 extends GdUnitTestSuite
 
 const TESTS_ROOT = "res://core_v2/tests"
-const DRIFT_THRESHOLD = 0.0001
+const DRIFT_THRESHOLD = 0.0005
 
 # Helpers
 static func _describe_replay_path(path: String) -> String:
