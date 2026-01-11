@@ -94,6 +94,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/matchers/AnyClazzArgumentMatcher.gd"
 }, {
+"base": "Reference",
+"class": "ArrayUtils",
+"language": "GDScript",
+"path": "res://addons/SIsilicon.3d.text/array_utils.gd"
+}, {
 "base": "ValueProvider",
 "class": "CallBackValueProvider",
 "language": "GDScript",
@@ -817,6 +822,7 @@ _global_script_class_icons={
 "AnyArgumentMatcher": "",
 "AnyBuildInTypeArgumentMatcher": "",
 "AnyClazzArgumentMatcher": "",
+"ArrayUtils": "",
 "CallBackValueProvider": "",
 "CameraInspectorPlugin": "",
 "ChainedArgumentMatcher": "",
