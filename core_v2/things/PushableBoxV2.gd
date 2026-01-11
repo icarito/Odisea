@@ -1,4 +1,5 @@
 extends RigidBody
+tool
 
 # PushableBoxV2.gd - Hybrid Deterministic Object
 # Transitions between Rigid (physics) and Kinematic (resting) modes.
@@ -6,6 +7,7 @@ extends RigidBody
 export(float) var settle_threshold = 0.2
 export(int) var settle_frames = 15
 export(bool) var debug = false
+export(Vector3) var size = Vector3(2, 2, 2) setget set_size
 
 var _frames_below_threshold = 0
 var _pending_snapshot = null
@@ -16,6 +18,8 @@ func _ready():
 	mode = RigidBody.MODE_RIGID
 	contact_monitor = true
 	contacts_reported = 4
+	
+	_update_size()
 	
 	# Conectar señal para despertar si algo nos golpea
 	connect("body_entered", self, "_on_body_entered")
@@ -75,6 +79,23 @@ func _round_vec3(p_v, p_decimals):
 		round(p_v.z * multiplier) / multiplier
 	)
 
+func set_size(p_size):
+	size = p_size
+	if is_inside_tree():
+		_update_size()
+
+func _update_size():
+	var mesh = get_node_or_null("BoxMesh")
+	if mesh and mesh is CSGBox:
+		mesh.width = size.x
+		mesh.height = size.y
+		mesh.depth = size.z
+	
+	var col = get_node_or_null("CollisionShape")
+	if col and col.shape is BoxShape:
+		# Extents are half-size
+		col.shape.extents = size / 2.0
+
 # Interacción: Al ser golpeado por otro cuerpo
 func _on_body_entered(_body):
 	if mode == RigidBody.MODE_KINEMATIC:
@@ -84,9 +105,11 @@ func _on_body_entered(_body):
 func set_external_velocity(vel):
 	if vel.length() > 0.05:
 		wake_up()
-		# Si estamos en modo rígido, aplicamos un impulso proporcional
+		# Si estamos en modo rígido, aplicamos una fuerza para movernos con el flujo
 		if mode == RigidBody.MODE_RIGID:
-			apply_central_impulse(vel * 0.2)
+			# Usamos un multiplicador consistente con Conveyor.gd (8.0)
+			# add_central_force se aplica por frame y es integrado por el motor.
+			add_central_force(vel * 8.0)
 
 # --- Replay System (SessionManager) ---
 
@@ -98,7 +121,8 @@ func get_snapshot():
 		"vel": [linear_velocity.x, linear_velocity.y, linear_velocity.z],
 		"ang": [angular_velocity.x, angular_velocity.y, angular_velocity.z],
 		"mode": mode,
-		"fbt": _frames_below_threshold
+		"fbt": _frames_below_threshold,
+		"size": [size.x, size.y, size.z]
 	}
 
 func restore_snapshot(data):
@@ -129,6 +153,11 @@ func _apply_snapshot(data):
 	
 	if data.has("fbt"):
 		_frames_below_threshold = data["fbt"]
+	
+	if data.has("size"):
+		var s = data["size"]
+		size = Vector3(s[0], s[1], s[2])
+		_update_size()
 	
 	if mode == RigidBody.MODE_RIGID:
 		sleeping = false
