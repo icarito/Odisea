@@ -15,8 +15,12 @@ var _is_replaying_fail_loop := false # Flag para evitar loops infinitos si falla
 
 # Drift correction: checkpoint pendiente para guardar en el próximo frame
 var _pending_drift_checkpoint := false
+# Drift correction: frame en el que guardar un checkpoint "settle" (15 frames después del contacto)
+var _pending_settle_checkpoint_frame := -1
 # Drift correction en replay: diccionario {frame_index: position}
 var _drift_checkpoints := {}
+# Contador de frames durante grabación
+var _recording_frame := 0
 
 func _find_player():
 	if not is_instance_valid(player):
@@ -150,8 +154,18 @@ func _physics_process(_dt):
 				"position": var2str(player.global_transform.origin)
 			}
 			_pending_drift_checkpoint = false
+			# Programar un checkpoint "settle" 15 frames después
+			_pending_settle_checkpoint_frame = _recording_frame + 15
+		
+		# Guardar checkpoint "settle" si llegamos al frame programado
+		if _recording_frame == _pending_settle_checkpoint_frame:
+			frame_entry["drift_checkpoint"] = {
+				"position": var2str(player.global_transform.origin)
+			}
+			_pending_settle_checkpoint_frame = -1
 		
 		buffer.append(frame_entry)
+		_recording_frame += 1
 		# Step player
 		if player and player.has_method("step"):
 			player.step(FIXED_DT, input_data)
@@ -170,6 +184,8 @@ func start_recording():
 	buffer.clear()
 	is_recording = true
 	_pending_drift_checkpoint = false
+	_pending_settle_checkpoint_frame = -1
+	_recording_frame = 0
 	replay_meta = {
 		"date": OS.get_datetime(),
 		"unix_time": OS.get_unix_time(),
