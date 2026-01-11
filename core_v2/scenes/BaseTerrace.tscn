@@ -18,15 +18,24 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -22.9909, 0.98817, 22.6577 )
 [node name="InteriorWide" parent="." instance=ExtResource( 3 )]
 
 [node name="Room1" type="CSGBox" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -21.47, 8, 27.059 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -21.47, 6, 27.059 )
 invert_faces = true
 width = 12.0
 height = 14.0
 depth = 18.0
 material = ExtResource( 4 )
 
-[node name="Interior" type="CSGBox" parent="Room1"]
+[node name="CSGCombiner" type="CSGCombiner" parent="Room1"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4.76837e-07, 0 )
 operation = 2
+
+[node name="Door" type="CSGBox" parent="Room1/CSGCombiner"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.577, -2.04, -0.114 )
+height = 5.91477
+depth = 4.14174
+
+[node name="Interior" type="CSGBox" parent="Room1/CSGCombiner"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.76837e-07, 0 )
 width = 11.0
 height = 14.0
 depth = 17.0
