@@ -202,7 +202,6 @@ script = ExtResource( 6 )
 move_speed = 2.0
 run_speed_multiplier = 3.5
 tank_turn_speed = 2.0
-tank_turn_transition_time = 0.5
 
 [node name="SideScroll" type="Node" parent="Logic"]
 script = ExtResource( 8 )

@@ -13,6 +13,7 @@ var is_replay_mode := false
 # --- EXPORTED TUNING ---
 export(float) var mouse_sensitivity := 0.005 setget set_mouse_sensitivity, get_mouse_sensitivity
 export(float) var snap_length := 0.5
+export(float) var push_force := 1.0 # Fuerza base del jugador para empujar rígidos
 
 # 2.5D Mode State (Delegated to Component)
 var sidescroll_logic: Node # SideScrollLogicV2
@@ -284,10 +285,25 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	# 5. Movimiento Final y Animación
 	# El snap solo aplica cuando no estamos saltando (velocity.y <= 0)
-	# Usar Vector3.DOWN fijo para determinismo (no get_floor_normal())
+	# infinite_inertia = false para que los RigidBodies no sean atravesados ni ignorados por la masa
 	var snap_vec = Vector3.DOWN * snap_length if velocity.y <= 0 else Vector3.ZERO
-	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true)
+	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true, 4, deg2rad(45), false)
 	
+	# 6. Empuje Manual de Objetos (RigidBodies)
+	# Como desactivamos infinite_inertia, aplicamos el impulso manualmente basado en masa
+	for i in get_slide_count():
+		var collision = get_slide_collision(i)
+		var body = collision.collider
+		if is_instance_valid(body) and body is RigidBody:
+			if body.mode == RigidBody.MODE_RIGID:
+				# Solo empujamos si el choque es mayormente horizontal
+				if abs(collision.normal.y) < 0.5:
+					# Aplicamos impulso central: Fuerza * -Normal * dt
+					# Dividimos por la masa para que los objetos pesados se muevan menos
+					# (Godot apply_impulse ya tiene en cuenta la masa, pero nosotros limitamos la fuerza)
+					var impulse = - collision.normal * push_force * dt
+					body.apply_central_impulse(impulse)
+					
 	if animator:
 		# Si la fuente externa NO es estática (ej: cinta transportadora, plataforma móvil),
 		# restamos esa velocidad para que el animador "vea" solo el movimiento relativo del jugador.
