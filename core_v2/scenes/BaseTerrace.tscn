@@ -43,8 +43,8 @@ material = ExtResource( 1 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5209, -5.01183, -7.83869 )
 
 [node name="SideScrollZone" parent="." instance=ExtResource( 5 )]
-transform = Transform( 2, 0, 0, 0, 1, 0, 0, 0, 0.3, 34.3768, 0, -15.4035 )
+transform = Transform( 2, 0, 0, 0, 1, 0, 0, 0, 0.3, 34.3768, 0, -3.60587 )
 lock_axis = 1
 
 [node name="SideScrollZone2" parent="." instance=ExtResource( 5 )]
-transform = Transform( -8.74228e-08, 0, -0.3, 0, 1, 0, 2, 0, -1.31134e-08, 16.2735, 0, -33.9136 )
+transform = Transform( -8.74228e-08, 0, -0.3, 0, 1, 0, 2, 0, -1.31134e-08, 4.27248, 0, -33.9136 )
