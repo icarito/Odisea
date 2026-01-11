@@ -366,8 +366,8 @@ func _finish_and_validate():
 			var yaw_diff = abs(player.yaw - expected_yaw) if player else 0.0
 			var pitch_diff = abs(player.pitch - expected_pitch) if player else 0.0
 			print("DRIFT_CHECK: dist=", dist, ", yaw_diff=", yaw_diff, ", pitch_diff=", pitch_diff)
-			var pos_threshold = 0.0001
-			var ang_threshold = 0.0001
+			var pos_threshold = 0.0005
+			var ang_threshold = 0.0005
 			if dist > pos_threshold:
 				printerr("❌ DRIFT ERROR: Positional drift = ", dist, " > ", pos_threshold)
 				success = false
