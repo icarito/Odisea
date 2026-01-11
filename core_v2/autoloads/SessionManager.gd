@@ -13,6 +13,11 @@ var is_cli_mode := false
 var _drift_validated := false
 var _is_replaying_fail_loop := false # Flag para evitar loops infinitos si falla
 
+# Drift correction: checkpoint pendiente para guardar en el próximo frame
+var _pending_drift_checkpoint := false
+# Drift correction en replay: diccionario {frame_index: position}
+var _drift_checkpoints := {}
+
 func _find_player():
 	if not is_instance_valid(player):
 		# Prioridad 1: Buscar en el árbol desde la raíz (más genérico)
@@ -96,6 +101,17 @@ func _physics_process(_dt):
 			run_playback() # Solo para terminar replay si no hay player
 			_replay_frame += 1
 			return
+		
+		# Aplicar drift checkpoint si existe para este frame (ANTES del step)
+		if _drift_checkpoints.has(_replay_frame):
+			var checkpoint_pos = _drift_checkpoints[_replay_frame]
+			var current_pos = player.global_transform.origin
+			var drift = current_pos.distance_to(checkpoint_pos)
+			if drift > 0.001:
+				print("[DriftCorrection] Frame %d: Aplicando corrección. Drift=%.6f, Pos actual=%s -> %s" % [_replay_frame, drift, current_pos, checkpoint_pos])
+				var t = player.global_transform
+				t.origin = checkpoint_pos
+				player.global_transform = t
 			
 		var input = player.input_provider.get_input()
 		
@@ -125,7 +141,17 @@ func _physics_process(_dt):
 			input_data = null
 		if input_data == null:
 			input_data = InputDataV2.new()
-		buffer.append({"input": input_data.to_dict()})
+		
+		var frame_entry = {"input": input_data.to_dict()}
+		
+		# Guardar drift checkpoint si el player dejó de tocar un RigidBody
+		if _pending_drift_checkpoint:
+			frame_entry["drift_checkpoint"] = {
+				"position": var2str(player.global_transform.origin)
+			}
+			_pending_drift_checkpoint = false
+		
+		buffer.append(frame_entry)
 		# Step player
 		if player and player.has_method("step"):
 			player.step(FIXED_DT, input_data)
@@ -143,6 +169,7 @@ func start_recording():
 		return
 	buffer.clear()
 	is_recording = true
+	_pending_drift_checkpoint = false
 	replay_meta = {
 		"date": OS.get_datetime(),
 		"unix_time": OS.get_unix_time(),
@@ -160,6 +187,9 @@ func start_recording():
 	# Marcar player como "controlado externamente" para evitar doble step
 	if player:
 		player.is_replay_mode = true # Usamos esta bandera para indicar control externo
+		# Conectar señal de drift correction
+		if player.has_signal("rigid_contact_ended") and not player.is_connected("rigid_contact_ended", self, "_on_rigid_contact_ended"):
+			player.connect("rigid_contact_ended", self, "_on_rigid_contact_ended")
 	
 	# --- Capturar estado inicial del mundo (nodos en 'replay_sync') ---
 	var world_start_state = {}
@@ -174,6 +204,10 @@ func start_recording():
 	buffer.append({"snapshot": player.get_full_snapshot()})
 	var cam = player.get_node_or_null("CameraRig")
 	print("GRAB_START\nrotation:", player.yaw, player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam.global_transform.origin)
+
+func _on_rigid_contact_ended():
+	# Marcar que debemos guardar un checkpoint en el próximo frame del buffer
+	_pending_drift_checkpoint = true
 
 func stop_and_save_recording():
 	if not is_instance_valid(player):
@@ -262,9 +296,16 @@ func load_and_play(path: String):
 		# Inyectar buffer al input_provider en modo REPLAY
 		if player and "input_provider" in player and player.input_provider and player.input_provider.has_method("set_replay_data"):
 			var input_buffer = []
+			_drift_checkpoints.clear()
+			var input_idx = 0
 			for entry in buffer:
 				if entry.has("input"):
 					input_buffer.append(entry["input"])
+					# Guardar drift checkpoint si existe, indexado por frame de input
+					if entry.has("drift_checkpoint"):
+						_drift_checkpoints[input_idx] = str2var(entry["drift_checkpoint"]["position"])
+						print("[DriftCorrection] Checkpoint cargado en frame %d: %s" % [input_idx, _drift_checkpoints[input_idx]])
+					input_idx += 1
 			player.input_provider.set_replay_data(input_buffer)
 		else:
 			print("❌ No se pudo acceder a input_provider en player para replay.")

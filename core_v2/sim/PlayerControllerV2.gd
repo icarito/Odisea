@@ -10,6 +10,10 @@ const UP := Vector3.UP
 var is_replay_mode := false
 
 
+# State para drift correction
+var _was_touching_rigid := false
+signal rigid_contact_ended()  # Emitida cuando dejamos de tocar un RigidBody
+
 # --- EXPORTED TUNING ---
 export(float) var mouse_sensitivity := 0.005 setget set_mouse_sensitivity, get_mouse_sensitivity
 export(float) var snap_length := 0.5
@@ -291,10 +295,12 @@ func step(dt: float, input: InputDataV2) -> void:
 	
 	# 6. Empuje Manual de Objetos (RigidBodies)
 	# Como desactivamos infinite_inertia, aplicamos el impulso manualmente basado en masa
+	var touched_rigid = false
 	for i in get_slide_count():
 		var collision = get_slide_collision(i)
 		var body = collision.collider
 		if is_instance_valid(body) and body is RigidBody:
+			touched_rigid = true
 			if body.mode == RigidBody.MODE_RIGID:
 				# Solo empujamos si el choque es mayormente horizontal
 				if abs(collision.normal.y) < 0.5:
@@ -303,6 +309,12 @@ func step(dt: float, input: InputDataV2) -> void:
 					# (Godot apply_impulse ya tiene en cuenta la masa, pero nosotros limitamos la fuerza)
 					var impulse = - collision.normal * push_force * dt
 					body.apply_central_impulse(impulse)
+	
+	# 7. Drift Correction: detectar cuando dejamos de tocar RigidBodies
+	# Emitir señal para que SessionManager guarde un checkpoint de posición
+	if _was_touching_rigid and not touched_rigid:
+		emit_signal("rigid_contact_ended")
+	_was_touching_rigid = touched_rigid
 					
 	if animator:
 		# Si la fuente externa NO es estática (ej: cinta transportadora, plataforma móvil),
