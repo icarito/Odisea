@@ -1,10 +1,9 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://materials/reference/PrototypeGrey.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/things/PushableBoxV2.tscn" type="PackedScene" id=3]
 [ext_resource path="res://core_v2/things/Conveyor.tscn" type="PackedScene" id=4]
-[ext_resource path="res://core_v2/scenes/TestScene_PushableBox.gd" type="Script" id=7]
 
 [sub_resource type="ProceduralSky" id=1]
 
@@ -15,7 +14,6 @@ ambient_light_color = Color( 1, 1, 1, 1 )
 ambient_light_energy = 0.5
 
 [node name="TestScene_PushableBox" type="Spatial"]
-script = ExtResource( 7 )
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource( 2 )
