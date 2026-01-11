@@ -9,8 +9,14 @@ export(int) var settle_frames = 15
 export(bool) var debug = false
 export(Vector3) var size = Vector3(2, 2, 2) setget set_size
 
+# Configuración de Snap
+export(bool) var snap_rotation = true
+export(float) var rotation_snap_degrees = 90.0
+export(float) var settle_lerp_speed = 10.0
+
 var _frames_below_threshold = 0
 var _pending_snapshot = null
+var _target_basis = null
 
 func _ready():
 	add_to_group("replay_sync")
@@ -24,6 +30,11 @@ func _ready():
 	# Conectar señal para despertar si algo nos golpea
 	connect("body_entered", self, "_on_body_entered")
 	
+	# WakeArea para detectar presencia del jugador/otros y despertar
+	var wake_area = get_node_or_null("WakeArea")
+	if wake_area:
+		wake_area.connect("body_entered", self, "_on_body_entered")
+	
 	if _pending_snapshot != null:
 		_apply_snapshot(_pending_snapshot)
 		_pending_snapshot = null
@@ -31,6 +42,24 @@ func _ready():
 func step(dt):
 	if mode == RigidBody.MODE_RIGID:
 		_handle_rigid_logic(dt)
+	elif mode == RigidBody.MODE_KINEMATIC and _target_basis != null:
+		_handle_smooth_rotation(dt)
+
+func _handle_smooth_rotation(dt):
+	var current_q = global_transform.basis.get_rotation_quat()
+	var target_q = _target_basis.get_rotation_quat()
+	
+	if current_q.dot(target_q) > 0.9999: # Muy cerca
+		global_transform.basis = _target_basis
+		_target_basis = null
+		return
+		
+	var lerp_val = 10.0
+	if settle_lerp_speed != null:
+		lerp_val = settle_lerp_speed
+		
+	var next_q = current_q.slerp(target_q, lerp_val * dt)
+	global_transform.basis = Basis(next_q)
 
 func _handle_rigid_logic(_dt):
 	var vel = linear_velocity.length()
@@ -50,17 +79,31 @@ func _settle():
 	# Round position to 4 decimals for determinism
 	global_transform.origin = _round_vec3(global_transform.origin, 4)
 	
-	# Snap rotation to 90 degrees (PI/2)
-	var euler = global_transform.basis.get_euler()
-	euler.x = stepify(euler.x, PI / 2.0)
-	euler.y = stepify(euler.y, PI / 2.0)
-	euler.z = stepify(euler.z, PI / 2.0)
-	global_transform.basis = Basis(euler)
+	if snap_rotation:
+		# Calculate Target Basis
+		var euler = global_transform.basis.get_euler()
+		var snap_rad = deg2rad(rotation_snap_degrees)
+		if snap_rad > 0:
+			euler.x = stepify(euler.x, snap_rad)
+			euler.y = stepify(euler.y, snap_rad)
+			euler.z = stepify(euler.z, snap_rad)
+			
+			var target_b = Basis(euler)
+			var lerp_val = 10.0
+			if settle_lerp_speed != null:
+				lerp_val = settle_lerp_speed
+				
+			if lerp_val > 0:
+				_target_basis = target_b
+			else:
+				global_transform.basis = target_b
 	
 	mode = RigidBody.MODE_KINEMATIC
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	_frames_below_threshold = 0
+	
+	_refresh_wake_area()
 
 func wake_up():
 	if mode == RigidBody.MODE_KINEMATIC:
@@ -68,6 +111,7 @@ func wake_up():
 			print("[PushableBoxV2] Wake up!")
 		mode = RigidBody.MODE_RIGID
 		sleeping = false
+		_target_basis = null
 		# Dar un pequeño empujón o resetear frames para evitar re-settle inmediato
 		_frames_below_threshold = 0
 
@@ -92,24 +136,93 @@ func _update_size():
 		mesh.depth = size.z
 	
 	var col = get_node_or_null("CollisionShape")
-	if col and col.shape is BoxShape:
+	if col:
+		# Asegurar que el recurso de forma sea único
+		if not col.shape or col.shape.resource_local_to_scene == false:
+			col.shape = col.shape.duplicate() if col.shape else BoxShape.new()
+		
 		# Extents are half-size
 		col.shape.extents = size / 2.0
+		
+	_refresh_wake_area()
+
+func _refresh_wake_area():
+	var wake_col = get_node_or_null("WakeArea/WakeShape")
+	if not wake_col: return
+	
+	if not wake_col.shape or wake_col.shape.resource_local_to_scene == false:
+		wake_col.shape = wake_col.shape.duplicate() if wake_col.shape else BoxShape.new()
+	
+	# Base local extents
+	var extents = size / 2.0
+	
+	# Detectar qué eje local está alineado con el UP global
+	# Transformamos el Vector3.UP global al espacio local de la caja
+	var local_up = global_transform.basis.xform_inv(Vector3.UP).abs()
+	
+	var margin_side = 0.05
+	var margin_vertical = -0.1
+	
+	var final_extents = Vector3.ZERO
+	
+	# Si local_up.y es el valor preeminente, el eje Y local es el vertical global
+	if local_up.y > local_up.x and local_up.y > local_up.z:
+		final_extents = Vector3(extents.x + margin_side, max(0.01, extents.y + margin_vertical), extents.z + margin_side)
+	# Si local_up.x es el preeminente, el eje X local es el vertical global
+	elif local_up.x > local_up.y and local_up.x > local_up.z:
+		final_extents = Vector3(max(0.01, extents.x + margin_vertical), extents.y + margin_side, extents.z + margin_side)
+	# Si no, es el Z
+	else:
+		final_extents = Vector3(extents.x + margin_side, extents.y + margin_side, max(0.01, extents.z + margin_vertical))
+	
+	wake_col.shape.extents = final_extents
+
+# Obtiene la altura aproximada en el eje Y global
+func _get_global_height():
+	var local_up = global_transform.basis.xform_inv(Vector3.UP).abs()
+	if local_up.y > local_up.x and local_up.y > local_up.z:
+		return size.y
+	elif local_up.x > local_up.y and local_up.x > local_up.z:
+		return size.x
+	else:
+		return size.z
 
 # Interacción: Al ser golpeado por otro cuerpo
-func _on_body_entered(_body):
+func _on_body_entered(body):
 	if mode == RigidBody.MODE_KINEMATIC:
+		if is_instance_valid(body):
+			# Ignorar si el cuerpo está claramente arriba (prevención de pisotón)
+			var h = _get_global_height()
+			if body.global_transform.origin.y > global_transform.origin.y + (h * 0.4):
+				return
 		wake_up()
 
 # Soporte para plataforma/conveyor o empuje directo del jugador
 func set_external_velocity(vel):
-	if vel.length() > 0.05:
+	if mode == RigidBody.MODE_KINEMATIC:
 		wake_up()
-		# Si estamos en modo rígido, aplicamos una fuerza para movernos con el flujo
-		if mode == RigidBody.MODE_RIGID:
-			# Usamos un multiplicador consistente con Conveyor.gd (8.0)
-			# add_central_force se aplica por frame y es integrado por el motor.
-			add_central_force(vel * 8.0)
+	
+	if mode == RigidBody.MODE_RIGID:
+		# Queremos que la caja alcance la velocidad 'vel' pero no la supere.
+		# Usamos un controlador proporcional: Fuerza = ganancia * masa * (target_v - current_v)
+		var target_v = vel
+		var current_v = linear_velocity
+		
+		# Si el transportador es principalmente horizontal, ignoramos el eje Y
+		# para no pelear contra la gravedad o saltos.
+		if abs(vel.y) < 0.2:
+			target_v.y = 0
+			current_v.y = 0
+		
+		var diff = target_v - current_v
+		
+		# Usamos una ganancia de 20.0 para igualar la aceleración típica del jugador.
+		# Esto hace que la caja se pegue a la velocidad del transportador rápidamente.
+		var force = diff * mass * 20.0
+		add_central_force(force)
+		
+		if debug and force.length() > 0.1:
+			print("[PushableBoxV2] set_ext_vel: force=%s" % force)
 
 # --- Replay System (SessionManager) ---
 
@@ -122,7 +235,9 @@ func get_snapshot():
 		"ang": [angular_velocity.x, angular_velocity.y, angular_velocity.z],
 		"mode": mode,
 		"fbt": _frames_below_threshold,
-		"size": [size.x, size.y, size.z]
+		"size": [size.x, size.y, size.z],
+		"snap_rot": snap_rotation,
+		"snap_deg": rotation_snap_degrees
 	}
 
 func restore_snapshot(data):
@@ -158,6 +273,11 @@ func _apply_snapshot(data):
 		var s = data["size"]
 		size = Vector3(s[0], s[1], s[2])
 		_update_size()
+	
+	if data.has("snap_rot"):
+		snap_rotation = data["snap_rot"]
+	if data.has("snap_deg"):
+		rotation_snap_degrees = data["snap_deg"]
 	
 	if mode == RigidBody.MODE_RIGID:
 		sleeping = false
