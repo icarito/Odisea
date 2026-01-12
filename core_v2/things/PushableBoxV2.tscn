@@ -1,12 +1,12 @@
 [gd_scene load_steps=5 format=2]
 
-[ext_resource path="res://materials/reference/PrototypeGrey.tres" type="Material" id=1]
+[ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/things/PushableBoxV2.gd" type="Script" id=2]
 
 [sub_resource type="BoxShape" id=1]
 
 [sub_resource type="BoxShape" id=2]
-extents = Vector3( 1.05, 1.05, 1.05 )
+extents = Vector3( 1.05, 0.9, 1.05 )
 
 [node name="PushableBoxV2" type="RigidBody"]
 collision_layer = 4
