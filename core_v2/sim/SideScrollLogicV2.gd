@@ -65,9 +65,10 @@ func apply_spatial_constraints(body: KinematicBody):
 	
 	var pos = body.global_transform.origin
 	if lock_axis == 2: # LOCK Z
-		pos.z = lock_value
+		# Usamos lerp para que la entrada al eje sea suave
+		pos.z = lerp(pos.z, lock_value, transition_alpha)
 	elif lock_axis == 1: # LOCK X
-		pos.x = lock_value
+		pos.x = lerp(pos.x, lock_value, transition_alpha)
 	
 	body.global_transform.origin = pos
 

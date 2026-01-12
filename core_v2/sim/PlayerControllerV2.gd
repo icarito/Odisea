@@ -216,6 +216,17 @@ func _input(event):
 
 func step(dt: float, input: InputDataV2) -> void:
 	# 0. State Update
+	sidescroll_logic.step(dt) # Actualizar alpha al inicio para gating
+	var alpha = sidescroll_logic.transition_alpha
+	var in_transition = alpha > 0.0 and alpha < 1.0
+	
+	if in_transition:
+		input.move_vec = Vector2.ZERO
+		input.mouse_delta = Vector2.ZERO
+		input.jump = false
+		input.sprint = false
+		input.zoom_delta = 0.0
+
 	# velocity.y and rotation state
 	if is_on_floor() and velocity.y < 0:
 		velocity.y = 0
@@ -267,8 +278,6 @@ func step(dt: float, input: InputDataV2) -> void:
 	# e independiente de la transición de la cámara.
 	var basis = get_camera_basis()
 	var move_vec = input.move_vec
-	
-	sidescroll_logic.step(dt) # Actualizar alpha de transición
 	
 	if sidescroll_logic.is_active:
 		basis = sidescroll_logic.get_target_basis()
