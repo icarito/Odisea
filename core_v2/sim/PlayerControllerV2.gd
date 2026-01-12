@@ -12,7 +12,7 @@ var is_replay_mode := false
 
 # State para drift correction
 var _was_touching_rigid := false
-signal rigid_contact_ended()  # Emitida cuando dejamos de tocar un RigidBody
+signal rigid_contact_ended() # Emitida cuando dejamos de tocar un RigidBody
 
 # --- EXPORTED TUNING ---
 export(float) var mouse_sensitivity := 0.005 setget set_mouse_sensitivity, get_mouse_sensitivity
@@ -27,6 +27,7 @@ var _cached_cam: Camera = null
 var _cached_spring_arm: SpringArm = null
 var base_spring_length := 7.0
 var base_rig_y := 0.0
+var base_collision_mask := 0
 
 # state
 var velocity := Vector3()
@@ -169,6 +170,7 @@ func _ready():
 	_cached_spring_arm = _find_spring_arm(camera_rig)
 	if _cached_spring_arm:
 		base_spring_length = _cached_spring_arm.spring_length
+		base_collision_mask = _cached_spring_arm.collision_mask
 	
 	if camera_rig:
 		base_rig_y = camera_rig.transform.origin.y
@@ -200,8 +202,9 @@ func _input(event):
 	# La única responsabilidad en _input es acumular el delta del mouse
 	# para que el InputProvider lo consuma en el frame de física.
 	if event is InputEventMouseMotion:
-		if input_provider:
-			input_provider.mouse_delta_accum += event.relative
+		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+			if input_provider:
+				input_provider.mouse_delta_accum += event.relative
 
 func step(dt: float, input: InputDataV2) -> void:
 	# 0. State Update
@@ -209,22 +212,30 @@ func step(dt: float, input: InputDataV2) -> void:
 	if is_on_floor() and velocity.y < 0:
 		velocity.y = 0
 
-	# --- ROTATION & TANK MODE ---
-	# Acumulamos los ángulos solo si NO estamos en modo 2.5D
+	# --- ROTATION, PAN & ZOOM ---
+	
 	if not sidescroll_logic.is_active:
 		# Update tank mode state in component
 		movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
 
-		# Update rotations
-		# mouse_delta always rotates the camera rig
-		yaw -= input.mouse_delta.x * mouse_sensitivity
-		pitch -= input.mouse_delta.y * mouse_sensitivity
+		# Update rotations if mouse is captured
+		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+			yaw -= input.mouse_delta.x * mouse_sensitivity
+			pitch -= input.mouse_delta.y * mouse_sensitivity
 		
 		# If in tank mode, A/D (input.move_vec.x) also rotates the camera
 		yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
 
 		# Limitamos el Pitch para no dar una voltereta (aprox -85 a 85 grados)
 		pitch = clamp(pitch, deg2rad(-85), deg2rad(85))
+	else:
+		# En modo 2.5D el mouse hace "Lazy Pan"
+		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+			sidescroll_logic.apply_pan(input.mouse_delta)
+	
+	# ZOOM (Spring Length)
+	if abs(input.zoom_delta) > 0.01:
+		base_spring_length = clamp(base_spring_length + input.zoom_delta, 2.0, 20.0)
 
 	# APLICACIÓN:
 	if camera_rig:
@@ -349,6 +360,14 @@ func enter_25d_mode(axis: int, value: float, invert: bool = false):
 	sidescroll_logic.enter_mode(axis, value, invert)
 
 func exit_25d_mode():
+	# Al salir, "soltamos" el ángulo actual: actualizamos yaw/pitch para que coincidan con la vista actual
+	if is_instance_valid(camera_rig):
+		var b = camera_rig.transform.basis
+		# Extraer Euler del basis actual para que la cámara no salte al orbital anterior
+		var euler = b.get_euler()
+		yaw = euler.y
+		pitch = euler.x
+	
 	sidescroll_logic.exit_mode()
 
 func _step_camera_logic(_dt: float):
@@ -357,6 +376,10 @@ func _step_camera_logic(_dt: float):
 	var alpha = sidescroll_logic.transition_alpha
 	
 	if alpha > 0:
+		# Disable collision in 2.5D to avoid "zoom resets" or camera snapping
+		if _cached_spring_arm:
+			_cached_spring_arm.collision_mask = 0
+		
 		# 1. Rotación (Basis)
 		var orbital_basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		var target_basis = sidescroll_logic.get_target_basis()
@@ -385,6 +408,10 @@ func _step_camera_logic(_dt: float):
 			_cached_spring_arm.spring_length = lerp(base_spring_length, sidescroll_logic.target_spring_length, alpha)
 	else:
 		# Modo 3D estándar
+		# Restore collisions
+		if _cached_spring_arm:
+			_cached_spring_arm.collision_mask = base_collision_mask
+		
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		# Volver a la posición local relativa al player
 		camera_rig.transform.origin = Vector3(0, base_rig_y, 0)
