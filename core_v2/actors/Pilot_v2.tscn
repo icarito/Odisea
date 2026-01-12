@@ -201,13 +201,12 @@ tank_turn_speed = 2.0
 [node name="SideScroll" type="Node" parent="Logic"]
 script = ExtResource( 8 )
 target_pitch_deg = -10.0
-target_y_offset = -0.5
 target_spring_length = 12.0
-deadzone_x = 0.1
-camera_smoothing = 10.0
+deadzone_x = 0.5
 pan_sensitivity = 0.04
-pan_return_speed = 0.5
-min_rig_height = 0.0
+pan_max_offset = 3.0
+pan_return_speed = 0.0
+min_rig_height = -1.5
 
 [node name="Visual" type="Spatial" parent="."]
 

@@ -10,15 +10,15 @@ export(float) var target_y_offset := 0.0
 export(float) var target_spring_length := 7.0
 
 # Camera Dead Zone and Smoothing
-export(float) var deadzone_x := 0.2
-export(float) var deadzone_y := 0.5
+export(float) var deadzone_x := 1.5 # Shift for Look-Ahead
+export(float) var deadzone_y := 0.5 # More reactive
 export(float) var camera_smoothing := 5.0 # Weight factor
 
 # Mouse Pan Settings
 export(float) var pan_sensitivity := 0.05
 export(float) var pan_sensitivity_y_ratio := 0.5
 export(float) var pan_max_offset := 4.0
-export(float) var pan_return_speed := 2.0
+export(float) var pan_return_speed := 1.0 # Smoother return
 export(float) var min_rig_height := 0.5
 
 var is_active := false
@@ -31,6 +31,7 @@ var transition_alpha := 0.0
 var virtual_center := Vector3.ZERO
 var lagging_center := Vector3.ZERO
 var pan_offset := Vector2.ZERO
+var facing_sign := 1.0 # 1: Screen Right, -1: Screen Left
 var _first_frame := true
 
 func enter_mode(axis: int, value: float, invert: bool):
@@ -92,38 +93,30 @@ func calculate_camera_pos(player_pos: Vector3, dt: float) -> Vector3:
 		_first_frame = false
 		return lagging_center
 	
-	var diff_x = player_pos.x - virtual_center.x
-	var diff_z = player_pos.z - virtual_center.z
-	var diff_y = player_pos.y - virtual_center.y
+	# Horizontal tracking (Simple smoothed follow for the virtual center)
+	# We'll use the deadzone as a look-ahead offset instead of a gap.
+	virtual_center = virtual_center.linear_interpolate(player_pos, camera_smoothing * dt)
 	
-	# Horizontal tracking (depends on axis)
-	if lock_axis == 2: # Z blocked, X is horizontal
-		if abs(diff_x) > deadzone_x:
-			virtual_center.x += diff_x - (deadzone_x * sign(diff_x))
+	if lock_axis == 2:
 		virtual_center.z = lock_value
-	elif lock_axis == 1: # X blocked, Z is horizontal
-		if abs(diff_z) > deadzone_x:
-			virtual_center.z += diff_z - (deadzone_x * sign(diff_z))
+	elif lock_axis == 1:
 		virtual_center.x = lock_value
 	
-	# Vertical tracking
-	if abs(diff_y) > deadzone_y:
-		virtual_center.y += diff_y - (deadzone_y * sign(diff_y))
+	# Apply Pan Return towards the look-ahead side
+	# target_pan_x is 'deadzone_x' in the look direction
+	var target_pan_x = facing_sign * deadzone_x
+	pan_offset.x = lerp(pan_offset.x, target_pan_x, pan_return_speed * dt)
+	pan_offset.y = lerp(pan_offset.y, 0.0, pan_return_speed * dt)
 	
-	# Apply Pan Return (lazily goes back to center if no mouse input)
-	pan_offset = pan_offset.linear_interpolate(Vector2.ZERO, pan_return_speed * dt)
-	
-	# Final target includes pan offset
-	# Determinamos la dirección del pan basado en el eje
+	# Final target includes pan offset and look-ahead
 	var target_lag = virtual_center
-	if lock_axis == 2:
-		target_lag.x += pan_offset.x
-		target_lag.y += pan_offset.y
-	elif lock_axis == 1:
-		target_lag.z -= pan_offset.x # X del mouse -> Z del mundo si miramos desde X
-		target_lag.y += pan_offset.y
+	var basis = get_target_basis()
 	
-	# Smoothing (Deterministic lerp)
+	# El pan offset se aplica en el plano de la pantalla (Right/Up locales del target cam)
+	target_lag += basis.x * pan_offset.x
+	target_lag -= basis.y * pan_offset.y
+	
+	# Lagging center smoothes the final target
 	lagging_center = lagging_center.linear_interpolate(target_lag, camera_smoothing * dt)
 	
 	# Safety height check (prevent rig from going underground)
@@ -132,10 +125,19 @@ func calculate_camera_pos(player_pos: Vector3, dt: float) -> Vector3:
 	
 	return lagging_center
 
+func update_facing(move_x: float):
+	if abs(move_x) > 0.1:
+		facing_sign = sign(move_x)
+
 func apply_pan(mouse_delta: Vector2):
-	# Switching to += for both axes.
-	pan_offset.x += mouse_delta.x * pan_sensitivity
-	pan_offset.y += (mouse_delta.y * pan_sensitivity) * pan_sensitivity_y_ratio
+	# Negating input to match "pull" feel
+	pan_offset.x -= mouse_delta.x * pan_sensitivity
+	pan_offset.y -= (mouse_delta.y * pan_sensitivity) * pan_sensitivity_y_ratio
+	
+	# If mouse pan is significant, change facing direction
+	if abs(mouse_delta.x) > 2.0: # Threshold to avoid jitter
+		facing_sign = - sign(mouse_delta.x)
+	
 	pan_offset.x = clamp(pan_offset.x, -pan_max_offset, pan_max_offset)
 	pan_offset.y = clamp(pan_offset.y, -pan_max_offset, pan_max_offset)
 
@@ -149,6 +151,7 @@ func get_full_snapshot() -> Dictionary:
 		"vc": [virtual_center.x, virtual_center.y, virtual_center.z],
 		"lc": [lagging_center.x, lagging_center.y, lagging_center.z],
 		"po": [pan_offset.x, pan_offset.y],
+		"fs": facing_sign,
 		"ff": _first_frame
 	}
 
@@ -168,4 +171,5 @@ func restore_snapshot(data: Dictionary):
 	if data.has("po"):
 		var po = data["po"]
 		pan_offset = Vector2(po[0], po[1])
+	facing_sign = data.get("fs", 1.0)
 	_first_frame = data.get("ff", true)
