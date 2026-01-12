@@ -73,6 +73,10 @@ func _read_live_input() -> InputDataV2:
 		mouse_d += joy_look * JOY_LOOK_SENSITIVITY
 
 	d.mouse_delta = mouse_d
+	
+	# --- ZOOM ---
+	d.zoom_delta = Input.get_action_strength("zoom_out") - Input.get_action_strength("zoom_in")
+
 	# Limpiamos el acumulador de mouse real aquí
 	mouse_delta_accum = Vector2()
 
