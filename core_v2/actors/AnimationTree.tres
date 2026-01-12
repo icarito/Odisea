@@ -1,4 +1,4 @@
-[gd_resource type="AnimationNodeStateMachine" load_steps=20 format=2]
+[gd_resource type="AnimationNodeStateMachine" load_steps=24 format=2]
 
 [sub_resource type="AnimationNodeAnimation" id=103]
 animation = "Idle_Loop"
@@ -22,6 +22,9 @@ snap = 0.5
 
 [sub_resource type="AnimationNodeAnimation" id=189]
 animation = "Jump_Land"
+
+[sub_resource type="AnimationNodeAnimation" id=203]
+animation = "Hit_Head"
 
 [sub_resource type="AnimationNodeAnimation" id=123]
 animation = "Swim_Idle_Loop"
@@ -104,14 +107,30 @@ switch_mode = 2
 auto_advance = true
 xfade_time = 0.3
 
+[sub_resource type="AnimationNodeStateMachineTransition" id=204]
+advance_condition = "hit_head"
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=205]
+switch_mode = 2
+auto_advance = true
+xfade_time = 0.2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=206]
+auto_advance = true
+advance_condition = "hit_head"
+xfade_time = 0.2
+
 [resource]
 states/Grounded/node = SubResource( 106 )
 states/Grounded/position = Vector2( 360.44, 104.6 )
 states/HardLand/node = SubResource( 189 )
 states/HardLand/position = Vector2( 561.4, 227.474 )
+states/Hit_Head/node = SubResource( 203 )
+states/Hit_Head/position = Vector2( 204, 507.881 )
 states/InAir/node = SubResource( 122 )
 states/InAir/position = Vector2( 352.6, 386.203 )
 states/Jump/node = SubResource( 200 )
 states/Jump/position = Vector2( 118.8, 226.783 )
-transitions = [ "InAir", "HardLand", SubResource( 192 ), "HardLand", "Grounded", SubResource( 194 ), "InAir", "Grounded", SubResource( 195 ), "Grounded", "InAir", SubResource( 196 ), "Grounded", "Jump", SubResource( 201 ), "Jump", "InAir", SubResource( 202 ) ]
-graph_offset = Vector2( -43, 35.881 )
+transitions = [ "InAir", "HardLand", SubResource( 192 ), "HardLand", "Grounded", SubResource( 194 ), "InAir", "Grounded", SubResource( 195 ), "Grounded", "InAir", SubResource( 196 ), "Grounded", "Jump", SubResource( 201 ), "Jump", "InAir", SubResource( 202 ), "InAir", "Hit_Head", SubResource( 204 ), "Hit_Head", "InAir", SubResource( 205 ), "Jump", "Hit_Head", SubResource( 206 ) ]
+graph_offset = Vector2( -132, 200.881 )
