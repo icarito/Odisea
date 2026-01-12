@@ -1,10 +1,12 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=8 format=2]
 
-[ext_resource path="res://materials/reference/PrototypeGrey.tres" type="Material" id=1]
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
 [ext_resource path="res://scenes/reference/InteriorLab.tscn" type="PackedScene" id=3]
-[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=4]
+[ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=4]
 [ext_resource path="res://core_v2/things/SideScrollZone.tscn" type="PackedScene" id=5]
+[ext_resource path="res://assets/fonts/SixtyFour_Regular_20.tres" type="DynamicFont" id=6]
+[ext_resource path="res://core_v2/things/PushableBoxV2.tscn" type="PackedScene" id=7]
 
 [node name="Terrace" type="CSGBox"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
@@ -16,8 +18,7 @@ material = ExtResource( 1 )
 [node name="InteriorWide" parent="." instance=ExtResource( 3 )]
 
 [node name="Room1" type="CSGBox" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 14.3325, 6, 27.059 )
-invert_faces = true
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 14.3325, 8, 27.059 )
 width = 27.6165
 height = 14.0
 depth = 18.0
@@ -28,16 +29,24 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4.76837e-07, 0 )
 operation = 2
 
 [node name="Door" type="CSGBox" parent="Room1/CSGCombiner"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.3933, -2.04, -0.114 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.3933, -3.99261, -0.114 )
 height = 5.91477
 depth = 4.14174
+
+[node name="Label3D" type="Label3D" parent="Room1/CSGCombiner/Door"]
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -6.97714, 4.51159, 8.5111 )
+pixel_size = 0.04
+shaded = true
+modulate = Color( 0.286275, 0.298039, 0.321569, 1 )
+text = "Maintenance 07"
+font = ExtResource( 6 )
 
 [node name="Interior" type="CSGBox" parent="Room1/CSGCombiner"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.76837e-07, 0 )
 width = 26.3715
-height = 14.0
+height = 13.9
 depth = 17.0
-material = ExtResource( 1 )
+material = ExtResource( 4 )
 
 [node name="Pilot" parent="Room1" instance=ExtResource( 2 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5209, -5.01183, -7.83869 )
@@ -48,3 +57,7 @@ lock_axis = 1
 
 [node name="SideScrollZone2" parent="." instance=ExtResource( 5 )]
 transform = Transform( -8.74228e-08, 0, -0.3, 0, 1, 0, 2, 0, -1.31134e-08, 4.27248, 0, -33.9136 )
+
+[node name="PushableBoxV2" parent="." instance=ExtResource( 7 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 19.7757, 2.05, 33.1242 )
+mass = 0.1
