@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -7,6 +7,7 @@
 [ext_resource path="res://core_v2/things/SideScrollZone.tscn" type="PackedScene" id=5]
 [ext_resource path="res://assets/fonts/SixtyFour_Regular_20.tres" type="DynamicFont" id=6]
 [ext_resource path="res://core_v2/things/PushableBoxV2.tscn" type="PackedScene" id=7]
+[ext_resource path="res://core_v2/things/Conveyor.tscn" type="PackedScene" id=8]
 
 [node name="Terrace" type="CSGBox"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
@@ -61,3 +62,41 @@ transform = Transform( -8.74228e-08, 0, -0.3, 0, 1, 0, 2, 0, -1.31134e-08, 4.272
 [node name="PushableBoxV2" parent="." instance=ExtResource( 7 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 19.7757, 2.05, 33.1242 )
 mass = 0.1
+
+[node name="Conveyor" parent="." instance=ExtResource( 8 )]
+transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 1, 10.8816 )
+
+[node name="Conveyor2" parent="." instance=ExtResource( 8 )]
+transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 1, -1.1645 )
+push_velocity = Vector3( 2, 0, 0 )
+
+[node name="Conveyor3" parent="." instance=ExtResource( 8 )]
+transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 1, -12.9597 )
+push_velocity = Vector3( 3, 0, 0 )
+
+[node name="Conveyor4" parent="." instance=ExtResource( 8 )]
+transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 4.39135, -7.87267 )
+push_velocity = Vector3( -2, 0, 0 )
+
+[node name="Conveyor5" parent="." instance=ExtResource( 8 )]
+transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 4.39135, 5.00189 )
+push_velocity = Vector3( -2, 0, 0 )
+
+[node name="Conveyor6" parent="." instance=ExtResource( 8 )]
+transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 8.05347, 10.8816 )
+
+[node name="Conveyor7" parent="." instance=ExtResource( 8 )]
+transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 8.05347, -1.1645 )
+push_velocity = Vector3( 2, 0, 0 )
+
+[node name="Conveyor8" parent="." instance=ExtResource( 8 )]
+transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 8.05347, -12.9597 )
+push_velocity = Vector3( 3, 0, 0 )
+
+[node name="Conveyor9" parent="." instance=ExtResource( 8 )]
+transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 11.4448, -7.87267 )
+push_velocity = Vector3( -2, 0, 0 )
+
+[node name="Conveyor10" parent="." instance=ExtResource( 8 )]
+transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 11.4448, 5.00189 )
+push_velocity = Vector3( -2, 0, 0 )

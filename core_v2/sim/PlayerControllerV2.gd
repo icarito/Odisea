@@ -265,11 +265,16 @@ func step(dt: float, input: InputDataV2) -> void:
 		# Siempre bloqueamos la profundidad para mantenernos en el plano.
 		move_vec.y = 0
 		
-		# Ya no aplicamos inversiones manuales. 
-		# PlayerMovementV2 usa basis.x (screen right), que se orienta automáticamente 
-		# según la cámara, manejando tanto el eje bloqueado como la inversión (invert_side).
+		# Update camera facing from movement
+		if abs(move_vec.x) > 0.1:
+			sidescroll_logic.update_facing(move_vec.x)
 	
 	movement_logic.process_movement(dt, move_vec, basis, input.sprint, is_on_floor())
+	
+	# Override visual direction in 2.5D based on camera facing state
+	if sidescroll_logic.is_active:
+		movement_logic.wish_direction = basis.x * sidescroll_logic.facing_sign
+
 	var h_vel = movement_logic.get_horizontal_velocity()
 
 	velocity.x = h_vel.x
