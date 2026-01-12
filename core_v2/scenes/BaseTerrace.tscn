@@ -64,14 +64,14 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 19.7757, 2.05, 33.1242 )
 mass = 0.1
 
 [node name="Conveyor" parent="." instance=ExtResource( 8 )]
-transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 1, 10.8816 )
+transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 1, 16.9609 )
 
 [node name="Conveyor2" parent="." instance=ExtResource( 8 )]
 transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 1, -1.1645 )
 push_velocity = Vector3( 2, 0, 0 )
 
 [node name="Conveyor3" parent="." instance=ExtResource( 8 )]
-transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 1, -12.9597 )
+transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 1, -24.5791 )
 push_velocity = Vector3( 3, 0, 0 )
 
 [node name="Conveyor4" parent="." instance=ExtResource( 8 )]
@@ -90,7 +90,7 @@ transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 3
 push_velocity = Vector3( 2, 0, 0 )
 
 [node name="Conveyor8" parent="." instance=ExtResource( 8 )]
-transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 8.05347, -12.9597 )
+transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 8.05347, -15.9211 )
 push_velocity = Vector3( 3, 0, 0 )
 
 [node name="Conveyor9" parent="." instance=ExtResource( 8 )]

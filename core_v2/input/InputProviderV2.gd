@@ -10,6 +10,7 @@ var mode = Mode.LIVE
 var playback_buffer := []
 var playback_index := 0
 var mouse_delta_accum := Vector2()
+var zoom_delta_accum := 0.0
 
 const JOY_LOOK_SENSITIVITY := 15.0
 const JOY_DEADZONE := 0.2
@@ -75,10 +76,13 @@ func _read_live_input() -> InputDataV2:
 	d.mouse_delta = mouse_d
 	
 	# --- ZOOM ---
-	d.zoom_delta = Input.get_action_strength("zoom_out") - Input.get_action_strength("zoom_in")
+	# Combinamos el acumulador (wheel) con el strength (sticks/botones)
+	var digital_zoom = Input.get_action_strength("zoom_out") - Input.get_action_strength("zoom_in")
+	d.zoom_delta = zoom_delta_accum + digital_zoom
 
-	# Limpiamos el acumulador de mouse real aquí
+	# Limpiamos los acumuladores real aquí
 	mouse_delta_accum = Vector2()
+	zoom_delta_accum = 0.0
 
 	return d
 

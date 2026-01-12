@@ -8,11 +8,14 @@ export(float) var target_fov := 45.0
 export(float) var target_pitch_deg := 0.0
 export(float) var target_y_offset := 0.0
 export(float) var target_spring_length := 7.0
+export(float) var spring_min := 4.0
+export(float) var spring_max := 20.0
 
 # Camera Dead Zone and Smoothing
 export(float) var deadzone_x := 1.5 # Shift for Look-Ahead
 export(float) var deadzone_y := 0.5 # More reactive
 export(float) var camera_smoothing := 5.0 # Weight factor
+export(float) var zoom_smoothing := 4.0 # Smoothing for spring length changes
 
 # Mouse Pan Settings
 export(float) var pan_sensitivity := 0.05
@@ -148,6 +151,7 @@ func get_full_snapshot() -> Dictionary:
 		"axis": lock_axis,
 		"val": lock_value,
 		"inv": invert_side,
+		"tsl": target_spring_length,
 		"vc": [virtual_center.x, virtual_center.y, virtual_center.z],
 		"lc": [lagging_center.x, lagging_center.y, lagging_center.z],
 		"po": [pan_offset.x, pan_offset.y],
@@ -161,6 +165,7 @@ func restore_snapshot(data: Dictionary):
 	lock_axis = data.get("axis", 0)
 	lock_value = data.get("val", 0.0)
 	invert_side = data.get("inv", false)
+	target_spring_length = data.get("tsl", target_spring_length)
 	
 	if data.has("vc"):
 		var vc = data["vc"]
