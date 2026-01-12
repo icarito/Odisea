@@ -26,6 +26,7 @@ var base_fov := 75.0
 var _cached_cam: Camera = null
 var _cached_spring_arm: SpringArm = null
 var base_spring_length := 7.0
+var current_spring_length := 7.0
 var base_rig_y := 0.0
 var base_collision_mask := 0
 
@@ -205,6 +206,13 @@ func _input(event):
 		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 			if input_provider:
 				input_provider.mouse_delta_accum += event.relative
+	
+	if event.is_action_pressed("zoom_in"):
+		if input_provider:
+			input_provider.zoom_delta_accum -= 1.0 # Una unidad de zoom por click
+	elif event.is_action_pressed("zoom_out"):
+		if input_provider:
+			input_provider.zoom_delta_accum += 1.0
 
 func step(dt: float, input: InputDataV2) -> void:
 	# 0. State Update
@@ -235,7 +243,11 @@ func step(dt: float, input: InputDataV2) -> void:
 	
 	# ZOOM (Spring Length)
 	if abs(input.zoom_delta) > 0.01:
-		base_spring_length = clamp(base_spring_length + input.zoom_delta, 2.0, 20.0)
+		if sidescroll_logic.is_active:
+			base_spring_length = clamp(base_spring_length + input.zoom_delta, sidescroll_logic.spring_min, sidescroll_logic.spring_max)
+			sidescroll_logic.target_spring_length = base_spring_length
+		else:
+			base_spring_length = clamp(base_spring_length + input.zoom_delta, 2.0, 20.0)
 
 	# APLICACIÓN:
 	if camera_rig:
@@ -410,21 +422,30 @@ func _step_camera_logic(_dt: float):
 			_cached_cam.fov = lerp(base_fov, sidescroll_logic.target_fov, alpha)
 		
 		if _cached_spring_arm:
-			_cached_spring_arm.spring_length = lerp(base_spring_length, sidescroll_logic.target_spring_length, alpha)
+			# SMOOTH ZOOM
+			var target_len = lerp(base_spring_length, sidescroll_logic.target_spring_length, alpha)
+			current_spring_length = lerp(current_spring_length, target_len, sidescroll_logic.zoom_smoothing * _dt)
+			_cached_spring_arm.spring_length = current_spring_length
+			
+			# PERSPECTIVE SCALING:
+			# Si hacemos zoom-in (spring_length pequeño), el deadzone debe ser menor para que no se salga de pantalla.
+			# Usamos un ratio basado en la distancia actual vs la distancia base.
+			var zoom_factor = current_spring_length / 7.0 # 7.0 es la distancia de referencia
+			sidescroll_logic.deadzone_x = clamp(1.5 * zoom_factor, 0.2, 4.0)
 	else:
 		# Modo 3D estándar
+		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.transform.origin = Vector3(0, base_rig_y, 0)
+		
 		# Restore collisions
 		if _cached_spring_arm:
 			_cached_spring_arm.collision_mask = base_collision_mask
-		
-		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
-		# Volver a la posición local relativa al player
-		camera_rig.transform.origin = Vector3(0, base_rig_y, 0)
+			# Smooth zoom even in 3D
+			current_spring_length = lerp(current_spring_length, base_spring_length, sidescroll_logic.zoom_smoothing * _dt)
+			_cached_spring_arm.spring_length = current_spring_length
 		
 		if _cached_cam:
 			_cached_cam.fov = base_fov
-		if _cached_spring_arm:
-			_cached_spring_arm.spring_length = base_spring_length
 
 func _exit_tree() -> void:
 	# Si el controlador creó los componentes dinámicamente, liberarlos explícitamente
