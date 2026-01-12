@@ -45,6 +45,7 @@ func get_mouse_sensitivity(): return mouse_sensitivity
 
 # --- SEÑALES ---
 signal jumped
+signal hit_ceiling
 
 ## --- SNAPSHOT SERIALIZACIÓN ---
 func get_full_snapshot() -> Dictionary:
@@ -330,6 +331,11 @@ func step(dt: float, input: InputDataV2) -> void:
 	var snap_vec = Vector3.DOWN * snap_length if velocity.y <= 0 else Vector3.ZERO
 	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true, 4, deg2rad(45), false)
 	
+	# --- CEILING COLLISION ---
+	if is_on_ceiling() and velocity.y > 0:
+		velocity.y = 0
+		emit_signal("hit_ceiling")
+
 	# 6. Empuje Manual de Objetos (RigidBodies)
 	# Como desactivamos infinite_inertia, aplicamos el impulso manualmente basado en masa
 	var touched_rigid = false

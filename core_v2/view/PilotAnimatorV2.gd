@@ -10,6 +10,7 @@ const PARAM_CONDITIONS_IS_FALLING = "parameters/conditions/is_falling"
 const PARAM_CONDITIONS_IS_JUMPING = "parameters/conditions/is_jumping"
 const PARAM_CONDITIONS_IS_FLOATING = "parameters/conditions/is_floating"
 const PARAM_CONDITIONS_IS_FALLING_FAST = "parameters/conditions/is_falling_fast"
+const PARAM_CONDITIONS_HIT_HEAD = "parameters/conditions/hit_head"
 const PARAM_CONDITIONS_LAND_SOFT = "parameters/conditions/land_soft"
 const PARAM_CONDITIONS_LAND_HARD = "parameters/conditions/land_hard"
 const PARAM_CONDITIONS_USE_JUMP_LOOP = "parameters/conditions/use_jump_loop"
@@ -41,6 +42,7 @@ var time_since_jump: float = 0.0
 var time_since_input: float = 0.0
 var last_air_vertical_speed: float = 0.0 # Guarda la velocidad vertical del último frame en el aire
 var jumped_buffer_time: float = 0.0
+var hit_head_active: bool = false
 
 # --- LIFECYCLE ---
 func _ready() -> void:
@@ -59,6 +61,7 @@ func _ready() -> void:
 
 	# Conectar la señal de salto para manejar la animación de forma reactiva.
 	controller.connect("jumped", self, "_on_controller_jumped")
+	controller.connect("hit_ceiling", self, "_on_controller_hit_ceiling")
 
 	# Intentar obtener AnimationPlayer si existe
 	anim_player = get_node_or_null("AnimationPlayer")
@@ -152,6 +155,10 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	# is_jumping: true si acabamos de disparar el salto (buffer) o si estamos subiendo en aire
 	var is_jumping_param: bool = (jumped_buffer_time > 0.0) or (not is_on_floor and velocity.y > 1.0)
 	animation_tree.set(PARAM_CONDITIONS_IS_JUMPING, is_jumping_param)
+	
+	# Hit Head condition (one-shot, cleared after this frame)
+	animation_tree.set(PARAM_CONDITIONS_HIT_HEAD, hit_head_active)
+	hit_head_active = false
 
 	# Emitir land_soft / land_hard SOLO en el frame de aterrizaje (edge detect)
 	var landed_now: bool = is_on_floor and not was_on_floor_last_frame
@@ -186,3 +193,7 @@ func _on_controller_jumped() -> void:
 
 	# Activar buffer de salto para mantener `is_jumping` verdadero algunos ms
 	jumped_buffer_time = jump_buffer_duration
+
+func _on_controller_hit_ceiling() -> void:
+	"""Se ejecuta cuando el controlador emite la señal 'hit_ceiling'."""
+	hit_head_active = true
