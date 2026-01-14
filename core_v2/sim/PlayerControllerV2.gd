@@ -238,8 +238,8 @@ func step(dt: float, input: InputDataV2) -> void:
 		# Update tank mode state in component
 		movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
 
-		# Update rotations if mouse is captured
-		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+		# Update rotations if mouse is captured OR in replay mode (where mouse_delta comes from recorded data)
+		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED or is_replay_mode:
 			yaw -= input.mouse_delta.x * mouse_sensitivity
 			pitch -= input.mouse_delta.y * mouse_sensitivity
 		
@@ -250,7 +250,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		pitch = clamp(pitch, deg2rad(-85), deg2rad(85))
 	else:
 		# En modo 2.5D el mouse hace "Lazy Pan"
-		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED or is_replay_mode:
 			sidescroll_logic.apply_pan(input.mouse_delta)
 	
 	# ZOOM (Spring Length)
