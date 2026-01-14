@@ -1,0 +1,64 @@
+[gd_scene load_steps=21 format=3 uid="uid://dugvyjfyaa7ox"]
+
+[ext_resource type="PackedScene" uid="uid://by75n0jteolkb" path="res://Assets/sci-fi-like Asset/scenes/Props/cont_barrel.tscn" id="1_3rtqc"]
+[ext_resource type="PackedScene" uid="uid://caep6moatq4jc" path="res://Assets/sci-fi-like Asset/scenes/Props/cont_barrel_static.tscn" id="2_aid2m"]
+[ext_resource type="PackedScene" uid="uid://c2ay1f0h1i3sw" path="res://Assets/sci-fi-like Asset/scenes/Props/cont_box.tscn" id="3_tni1j"]
+[ext_resource type="PackedScene" uid="uid://cg4p53t3qnu5a" path="res://Assets/sci-fi-like Asset/scenes/Props/cont_box_static.tscn" id="4_3svwa"]
+[ext_resource type="PackedScene" uid="uid://dpjyjalsq2xow" path="res://Assets/sci-fi-like Asset/scenes/Props/cont_chest.tscn" id="5_4uoye"]
+[ext_resource type="PackedScene" uid="uid://dy6fscmvgb6gx" path="res://Assets/sci-fi-like Asset/scenes/Props/cont_chest_static.tscn" id="6_66man"]
+[ext_resource type="PackedScene" uid="uid://bobq2so44iq7d" path="res://Assets/sci-fi-like Asset/scenes/Props/cont_locker.tscn" id="7_bosol"]
+[ext_resource type="PackedScene" uid="uid://c3dp1wvkwr3xb" path="res://Assets/sci-fi-like Asset/scenes/Props/cont_locker_static.tscn" id="8_j1mjf"]
+[ext_resource type="PackedScene" uid="uid://cua23doef7lyk" path="res://Assets/sci-fi-like Asset/scenes/Props/cont_locker_group_static.tscn" id="9_p6r1t"]
+[ext_resource type="PackedScene" uid="uid://vkk30mmx0tpw" path="res://Assets/sci-fi-like Asset/scenes/Props/furn_chair.tscn" id="10_3hfh3"]
+[ext_resource type="PackedScene" uid="uid://c5n3wbtimuyat" path="res://Assets/sci-fi-like Asset/scenes/Props/furn_stool.tscn" id="11_esgjk"]
+[ext_resource type="PackedScene" uid="uid://llo60dmtxt06" path="res://Assets/sci-fi-like Asset/scenes/Props/furn_table_1.tscn" id="12_23afg"]
+[ext_resource type="PackedScene" uid="uid://c8r8r8n2u52fw" path="res://Assets/sci-fi-like Asset/scenes/Props/furn_table_2.tscn" id="13_0quua"]
+[ext_resource type="PackedScene" uid="uid://w8sc08sis044" path="res://Assets/sci-fi-like Asset/scenes/Props/cont_display_case_1.tscn" id="14_r6ldw"]
+[ext_resource type="PackedScene" uid="uid://dmjhp6alhdogo" path="res://Assets/sci-fi-like Asset/scenes/Props/cont_display_case_2.tscn" id="15_ju8sl"]
+[ext_resource type="PackedScene" uid="uid://b2c0siosi6ncc" path="res://Assets/sci-fi-like Asset/scenes/Props/furn_couch.tscn" id="16_yu3pm"]
+[ext_resource type="PackedScene" uid="uid://c0uv3uf1vqnrb" path="res://Assets/sci-fi-like Asset/scenes/Props/tool_tool_box.tscn" id="17_o6v2e"]
+[ext_resource type="PackedScene" uid="uid://b3u0kg1ap2rqf" path="res://Assets/sci-fi-like Asset/scenes/Props/tool_crow_bar.tscn" id="18_qxvjl"]
+[ext_resource type="PackedScene" uid="uid://w2861egpkhnk" path="res://Assets/sci-fi-like Asset/scenes/Props/tool_spanner.tscn" id="19_sv2r5"]
+[ext_resource type="PackedScene" uid="uid://c3g0uv1r1dqf5" path="res://Assets/sci-fi-like Asset/scenes/Props/tool_tray.tscn" id="20_pvkmu"]
+
+[node name="Generic_Props" type="Node3D"]
+
+[node name="Cont_Barrel" parent="." instance=ExtResource("1_3rtqc")]
+
+[node name="Cont_Barrel_static" parent="." instance=ExtResource("2_aid2m")]
+
+[node name="Cont_Box" parent="." instance=ExtResource("3_tni1j")]
+
+[node name="Cont_Box_Static" parent="." instance=ExtResource("4_3svwa")]
+
+[node name="Cont_Chest" parent="." instance=ExtResource("5_4uoye")]
+
+[node name="Cont_Chest_Static" parent="." instance=ExtResource("6_66man")]
+
+[node name="Cont_Locker" parent="." instance=ExtResource("7_bosol")]
+
+[node name="Cont_Locker_Static" parent="." instance=ExtResource("8_j1mjf")]
+
+[node name="Cont_LockerGroup_Static" parent="." instance=ExtResource("9_p6r1t")]
+
+[node name="Furn_Chair" parent="." instance=ExtResource("10_3hfh3")]
+
+[node name="Furn_Stool" parent="." instance=ExtResource("11_esgjk")]
+
+[node name="Furn_Table_1" parent="." instance=ExtResource("12_23afg")]
+
+[node name="Furn_Table_2" parent="." instance=ExtResource("13_0quua")]
+
+[node name="Cont_DisplayCase_1" parent="." instance=ExtResource("14_r6ldw")]
+
+[node name="Cont_DisplayCase_2" parent="." instance=ExtResource("15_ju8sl")]
+
+[node name="Furn_Couch" parent="." instance=ExtResource("16_yu3pm")]
+
+[node name="Tool_ToolBox" parent="." instance=ExtResource("17_o6v2e")]
+
+[node name="Tool_CrowBar" parent="." instance=ExtResource("18_qxvjl")]
+
+[node name="Tool_Spanner" parent="." instance=ExtResource("19_sv2r5")]
+
+[node name="Tool_Tray" parent="." instance=ExtResource("20_pvkmu")]

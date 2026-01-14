@@ -1,0 +1,17 @@
+[gd_resource type="StandardMaterial3D" load_steps=4 format=3 uid="uid://bbvmhlpig6wnq"]
+
+[ext_resource type="Texture2D" uid="uid://bpjh58th8hpig" path="res://Assets/sci-fi-like Asset/PropTextures/Chest/Base Color_Chest.png" id="1_2bo3y"]
+[ext_resource type="Texture2D" uid="uid://dy3j177jry84n" path="res://Assets/sci-fi-like Asset/PropTextures/Chest/MRAO_Chest.exr" id="2_3xkwy"]
+[ext_resource type="Texture2D" uid="uid://ckq85ycqq2tgq" path="res://Assets/sci-fi-like Asset/PropTextures/Chest/NORMAL_Chest.png" id="3_80yki"]
+
+[resource]
+albedo_texture = ExtResource("1_2bo3y")
+metallic = 1.0
+metallic_texture = ExtResource("2_3xkwy")
+roughness_texture = ExtResource("2_3xkwy")
+roughness_texture_channel = 1
+normal_enabled = true
+normal_texture = ExtResource("3_80yki")
+ao_enabled = true
+ao_texture = ExtResource("2_3xkwy")
+ao_texture_channel = 2

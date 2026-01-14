@@ -1,0 +1,115 @@
+[gd_scene load_steps=38 format=3 uid="uid://y4qi36ahvkhi"]
+
+[ext_resource type="PackedScene" uid="uid://bv2g7seb62v54" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_e.tscn" id="1_g1goi"]
+[ext_resource type="PackedScene" uid="uid://cb5lcibrg5eir" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_5.tscn" id="2_2f1qp"]
+[ext_resource type="PackedScene" uid="uid://dfb8yj6q187wx" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_gears.tscn" id="3_5ia4a"]
+[ext_resource type="PackedScene" uid="uid://c2iol2o44s1fi" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_caution.tscn" id="4_p4dqw"]
+[ext_resource type="PackedScene" uid="uid://dia48plig2ap0" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_light_strip.tscn" id="5_oj3kc"]
+[ext_resource type="PackedScene" uid="uid://c0feccwl38opy" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_paint_strip.tscn" id="6_btosw"]
+[ext_resource type="PackedScene" uid="uid://1yy6180p7bli" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_line.tscn" id="7_m23av"]
+[ext_resource type="PackedScene" uid="uid://boyuyq6kxay7r" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_0.tscn" id="8_sy4kp"]
+[ext_resource type="PackedScene" uid="uid://wcdmexvegd1s" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_enter.tscn" id="9_v16t7"]
+[ext_resource type="PackedScene" uid="uid://bt2c1phmcb7uw" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_exit.tscn" id="10_jikto"]
+[ext_resource type="PackedScene" uid="uid://dguk2rxk8j80h" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_cross.tscn" id="11_63hgt"]
+[ext_resource type="PackedScene" uid="uid://ba1qds0gdsje" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_elec.tscn" id="12_6notj"]
+[ext_resource type="PackedScene" uid="uid://747bj25pn0qf" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_fire.tscn" id="13_sjra4"]
+[ext_resource type="PackedScene" uid="uid://pgibo5kjytl5" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_9.tscn" id="14_4w1qd"]
+[ext_resource type="PackedScene" uid="uid://db753uj6swpp7" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_8.tscn" id="15_vamu8"]
+[ext_resource type="PackedScene" uid="uid://ckrhwu1wvs4ot" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_7.tscn" id="16_rad8h"]
+[ext_resource type="PackedScene" uid="uid://dfixw1s1bnoit" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_6.tscn" id="17_26xpk"]
+[ext_resource type="PackedScene" uid="uid://kj8poejxtcx8" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_4.tscn" id="18_g6inf"]
+[ext_resource type="PackedScene" uid="uid://bivo4egjc3m2p" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_3.tscn" id="19_tq1wo"]
+[ext_resource type="PackedScene" uid="uid://g10lsumpaywy" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_2.tscn" id="20_qy7pu"]
+[ext_resource type="PackedScene" uid="uid://c77mfdgnvvr2i" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_1.tscn" id="21_lelda"]
+[ext_resource type="PackedScene" uid="uid://c5y8c84n34faj" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_a.tscn" id="22_70onj"]
+[ext_resource type="PackedScene" uid="uid://bppqomjyvtarl" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_d.tscn" id="23_h6g2b"]
+[ext_resource type="PackedScene" uid="uid://cm0h2wmiqkhrm" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_c.tscn" id="24_v45c1"]
+[ext_resource type="PackedScene" uid="uid://h5q3timphmf7" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_b.tscn" id="25_8of0r"]
+[ext_resource type="PackedScene" uid="uid://csqnxiysek266" path="res://Assets/sci-fi-like Asset/scenes/Stickers/stickers_arrow.tscn" id="26_dp0h4"]
+[ext_resource type="PackedScene" uid="uid://cqx07x5p2e464" path="res://Assets/sci-fi-like Asset/scenes/GridMaps/room.tscn" id="27_qyvfi"]
+[ext_resource type="PackedScene" uid="uid://c7rg4is674efl" path="res://Assets/sci-fi-like Asset/scenes/GridMaps/posts.tscn" id="28_vwrgx"]
+[ext_resource type="PackedScene" uid="uid://cgn1iac0uqpqf" path="res://Assets/sci-fi-like Asset/scenes/GridMaps/walls.tscn" id="29_btuqk"]
+[ext_resource type="PackedScene" uid="uid://bueiu6e3et5of" path="res://Assets/sci-fi-like Asset/scenes/Doors/door_hallway.tscn" id="30_nwydp"]
+[ext_resource type="PackedScene" uid="uid://b0ek23nsc58xt" path="res://Assets/sci-fi-like Asset/scenes/Doors/door_fram.tscn" id="31_seolp"]
+[ext_resource type="PackedScene" uid="uid://bob1pco5v246y" path="res://Assets/sci-fi-like Asset/scenes/Doors/door_mtn_frame.tscn" id="32_psa2f"]
+[ext_resource type="PackedScene" uid="uid://cbvo02v832lpb" path="res://Assets/sci-fi-like Asset/scenes/Panels/panel_light.tscn" id="38_wtao8"]
+[ext_resource type="PackedScene" uid="uid://gwk84sahethg" path="res://Assets/sci-fi-like Asset/scenes/Panels/panel_keypad.tscn" id="39_7jo6o"]
+[ext_resource type="PackedScene" uid="uid://di22hgaphbs0u" path="res://Assets/sci-fi-like Asset/scenes/Panels/panel_switch.tscn" id="40_r7ot0"]
+[ext_resource type="PackedScene" uid="uid://bhniedmde47l" path="res://Assets/sci-fi-like Asset/scenes/Panels/panel_camera.tscn" id="41_6oa6x"]
+[ext_resource type="PackedScene" uid="uid://brr7av8bojutp" path="res://Assets/sci-fi-like Asset/scenes/Panels/panel_card_slider.tscn" id="42_8fad0"]
+
+[node name="SciFiLikeTiles" type="Node3D"]
+
+[node name="Stickers_E" parent="." instance=ExtResource("1_g1goi")]
+
+[node name="Stickers_5" parent="." instance=ExtResource("2_2f1qp")]
+
+[node name="Stickers_Gears" parent="." instance=ExtResource("3_5ia4a")]
+
+[node name="Stickers_Caution" parent="." instance=ExtResource("4_p4dqw")]
+
+[node name="Stickers_LightStrip" parent="." instance=ExtResource("5_oj3kc")]
+
+[node name="Stickers_PaintStrip" parent="." instance=ExtResource("6_btosw")]
+
+[node name="Stickers_Line" parent="." instance=ExtResource("7_m23av")]
+
+[node name="Stickers_0" parent="." instance=ExtResource("8_sy4kp")]
+
+[node name="Stickers_Enter" parent="." instance=ExtResource("9_v16t7")]
+
+[node name="Stickers_Exit" parent="." instance=ExtResource("10_jikto")]
+
+[node name="Stickers_Cross" parent="." instance=ExtResource("11_63hgt")]
+
+[node name="Stickers_Elec" parent="." instance=ExtResource("12_6notj")]
+
+[node name="Stickers_Fire" parent="." instance=ExtResource("13_sjra4")]
+
+[node name="Stickers_9" parent="." instance=ExtResource("14_4w1qd")]
+
+[node name="Stickers_8" parent="." instance=ExtResource("15_vamu8")]
+
+[node name="Stickers_7" parent="." instance=ExtResource("16_rad8h")]
+
+[node name="Stickers_6" parent="." instance=ExtResource("17_26xpk")]
+
+[node name="Stickers_4" parent="." instance=ExtResource("18_g6inf")]
+
+[node name="Stickers_3" parent="." instance=ExtResource("19_tq1wo")]
+
+[node name="Stickers_2" parent="." instance=ExtResource("20_qy7pu")]
+
+[node name="Stickers_1" parent="." instance=ExtResource("21_lelda")]
+
+[node name="Stickers_A" parent="." instance=ExtResource("22_70onj")]
+
+[node name="Stickers_D" parent="." instance=ExtResource("23_h6g2b")]
+
+[node name="Stickers_C" parent="." instance=ExtResource("24_v45c1")]
+
+[node name="Stickers_B" parent="." instance=ExtResource("25_8of0r")]
+
+[node name="Stickers_Arrow" parent="." instance=ExtResource("26_dp0h4")]
+
+[node name="Room" parent="." instance=ExtResource("27_qyvfi")]
+
+[node name="Posts" parent="." instance=ExtResource("28_vwrgx")]
+
+[node name="Walls" parent="." instance=ExtResource("29_btuqk")]
+
+[node name="Door_Hallway" parent="." instance=ExtResource("30_nwydp")]
+
+[node name="Door_Fram" parent="." instance=ExtResource("31_seolp")]
+
+[node name="Door_MTN_Frame" parent="." instance=ExtResource("32_psa2f")]
+
+[node name="Panel_Light" parent="." instance=ExtResource("38_wtao8")]
+
+[node name="Panel_Keypad" parent="." instance=ExtResource("39_7jo6o")]
+
+[node name="Panel_Switch" parent="." instance=ExtResource("40_r7ot0")]
+
+[node name="Panel_Camera" parent="." instance=ExtResource("41_6oa6x")]
+
+[node name="Panel_CardSlider" parent="." instance=ExtResource("42_8fad0")]

@@ -1,0 +1,13 @@
+[gd_scene load_steps=4 format=3 uid="uid://c7rg4is674efl"]
+
+[ext_resource type="PackedScene" uid="uid://cvqg61htsxi6o" path="res://Assets/sci-fi-like Asset/scenes/Posts/post_wide.tscn" id="1_s1uxq"]
+[ext_resource type="PackedScene" uid="uid://blnpjffygwt1h" path="res://Assets/sci-fi-like Asset/scenes/Posts/post_thin.tscn" id="2_uxyyy"]
+[ext_resource type="PackedScene" uid="uid://cpewjwfa3cpne" path="res://Assets/sci-fi-like Asset/scenes/Posts/post_weird.tscn" id="3_7ugpl"]
+
+[node name="Posts" type="Node3D"]
+
+[node name="Post_Wide" parent="." instance=ExtResource("1_s1uxq")]
+
+[node name="Post_Thin" parent="." instance=ExtResource("2_uxyyy")]
+
+[node name="Post_Weird" parent="." instance=ExtResource("3_7ugpl")]

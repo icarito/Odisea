@@ -1,0 +1,15 @@
+[gd_resource type="StandardMaterial3D" load_steps=4 format=3 uid="uid://c3fv2ys7o2jel"]
+
+[ext_resource type="Texture2D" uid="uid://coarefb70fb4t" path="res://Assets/sci-fi-like Asset/Textures/PanelStickers/PanelSitcker_albedoAlpha.png" id="1_auijq"]
+[ext_resource type="Texture2D" uid="uid://bhevgl3dk1bxc" path="res://Assets/sci-fi-like Asset/Textures/PanelStickers/PanelSitcker_Emit.png" id="2_id85y"]
+[ext_resource type="Texture2D" uid="uid://dtiro6cx55glt" path="res://Assets/sci-fi-like Asset/Textures/PanelStickers/PanelSitcker_normal.png" id="3_g8xh7"]
+
+[resource]
+transparency = 2
+alpha_scissor_threshold = 0.636
+alpha_antialiasing_mode = 0
+albedo_texture = ExtResource("1_auijq")
+emission_enabled = true
+emission_texture = ExtResource("2_id85y")
+normal_enabled = true
+normal_texture = ExtResource("3_g8xh7")

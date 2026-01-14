@@ -106,20 +106,20 @@ xfade_time = 0.1
 switch_mode = 2
 auto_advance = true
 xfade_time = 0.3
+priority = 5
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=204]
 advance_condition = "hit_head"
 xfade_time = 0.2
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=205]
-switch_mode = 2
+switch_mode = 1
 auto_advance = true
 xfade_time = 0.2
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=206]
-auto_advance = true
 advance_condition = "hit_head"
-xfade_time = 0.2
+xfade_time = 0.3
 
 [resource]
 states/Grounded/node = SubResource( 106 )
@@ -133,4 +133,4 @@ states/InAir/position = Vector2( 352.6, 386.203 )
 states/Jump/node = SubResource( 200 )
 states/Jump/position = Vector2( 118.8, 226.783 )
 transitions = [ "InAir", "HardLand", SubResource( 192 ), "HardLand", "Grounded", SubResource( 194 ), "InAir", "Grounded", SubResource( 195 ), "Grounded", "InAir", SubResource( 196 ), "Grounded", "Jump", SubResource( 201 ), "Jump", "InAir", SubResource( 202 ), "InAir", "Hit_Head", SubResource( 204 ), "Hit_Head", "InAir", SubResource( 205 ), "Jump", "Hit_Head", SubResource( 206 ) ]
-graph_offset = Vector2( -132, 200.881 )
+graph_offset = Vector2( -110, 297.881 )

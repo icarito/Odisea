@@ -1,0 +1,275 @@
+[gd_scene load_steps=40 format=3 uid="uid://fjgmieulnklt"]
+
+[ext_resource type="Material" uid="uid://bi62scg31jl3x" path="res://Assets/sci-fi-like Asset/materials/TilesMaterials/MT_Door_Mat.tres" id="1_pgo3r"]
+[ext_resource type="PackedScene" uid="uid://cysrc0a382ue5" path="res://Assets/sci-fi-like Asset/gltf/SciFiLikeTiles.gltf" id="1_rqlmt"]
+[ext_resource type="Material" uid="uid://stb6i23b14ed" path="res://Assets/sci-fi-like Asset/materials/TilesMaterials/MT_Floor_Mat.tres" id="2_gwemx"]
+[ext_resource type="Material" uid="uid://djvvict3u7qy5" path="res://Assets/sci-fi-like Asset/materials/TilesMaterials/MT_Wall_mat.tres" id="3_7oxyi"]
+[ext_resource type="Material" uid="uid://bvcqqdj8bnwhq" path="res://Assets/sci-fi-like Asset/materials/TilesMaterials/PanelFloor_Mat.tres" id="4_5nyeu"]
+[ext_resource type="Material" uid="uid://dim0q2qs8rx0f" path="res://Assets/sci-fi-like Asset/materials/TilesMaterials/PanelCeiling_Mat.tres" id="5_lbl80"]
+[ext_resource type="Material" uid="uid://dcijeoksw2skr" path="res://Assets/sci-fi-like Asset/materials/TilesMaterials/DoubleDoor_Mat.tres" id="6_2knks"]
+[ext_resource type="Material" uid="uid://slrra324af5h" path="res://Assets/sci-fi-like Asset/materials/TilesMaterials/Glass_Mat.tres" id="7_hd6vg"]
+[ext_resource type="Material" uid="uid://dwcxwvjvkxai2" path="res://Assets/sci-fi-like Asset/materials/TilesMaterials/PanelWall_mat.tres" id="8_3q54r"]
+[ext_resource type="Material" uid="uid://dmijl1xag0bfa" path="res://Assets/sci-fi-like Asset/materials/TilesMaterials/SingleDoor_mat.tres" id="9_gx3rm"]
+[ext_resource type="Material" uid="uid://bo0gxt7tmu6e3" path="res://Assets/sci-fi-like Asset/materials/TilesMaterials/PanelWall_2_mat.tres" id="10_wyq08"]
+[ext_resource type="Material" uid="uid://c3fv2ys7o2jel" path="res://Assets/sci-fi-like Asset/materials/TilesMaterials/PanelSticker_Mat.tres" id="11_rvrsh"]
+[ext_resource type="Material" uid="uid://q8qbbdouiwvy" path="res://Assets/sci-fi-like Asset/materials/TilesMaterials/PanelTrim_Mat.tres" id="12_ddm03"]
+[ext_resource type="Shader" uid="uid://cq3uvb4dcrf0r" path="res://Assets/sci-fi-like Asset/scenes/TestShader.tres" id="14_3hhnn"]
+[ext_resource type="Material" uid="uid://cpeilnjoelfqd" path="res://Assets/sci-fi-like Asset/materials/TilesMaterials/InstancedEmissionShader_Material.tres" id="14_ksx12"]
+[ext_resource type="Shader" uid="uid://bphnyabwmw0nr" path="res://Assets/sci-fi-like Asset/scenes/MatTest.tres" id="15_sea6q"]
+[ext_resource type="Material" uid="uid://2he8gxwalof1" path="res://Assets/sci-fi-like Asset/PropMaterials/Barrel_Mat.tres" id="15_ubgeh"]
+[ext_resource type="Material" uid="uid://dnt3orj4xjhyi" path="res://Assets/sci-fi-like Asset/PropMaterials/Box_Mat.tres" id="16_4qm7g"]
+[ext_resource type="Material" uid="uid://64b2t8dk5k5o" path="res://Assets/sci-fi-like Asset/PropMaterials/Chair_Mat.tres" id="17_ehe84"]
+[ext_resource type="Material" uid="uid://bbvmhlpig6wnq" path="res://Assets/sci-fi-like Asset/PropMaterials/Chest_Mat.tres" id="18_f7ecf"]
+[ext_resource type="Material" uid="uid://bx0y5lrh3irx5" path="res://Assets/sci-fi-like Asset/PropMaterials/Couch_Mat.tres" id="19_374oi"]
+[ext_resource type="Material" uid="uid://bdjqu6jpu2gvu" path="res://Assets/sci-fi-like Asset/PropMaterials/CrowBar_Mat.tres" id="20_co64q"]
+[ext_resource type="Material" uid="uid://cmy2j67jjpi17" path="res://Assets/sci-fi-like Asset/PropMaterials/Tray_Mat.tres" id="21_dxmwv"]
+[ext_resource type="Material" uid="uid://gi850a2vm6fc" path="res://Assets/sci-fi-like Asset/PropMaterials/ToolBox_Mat.tres" id="24_5l2v1"]
+[ext_resource type="Material" uid="uid://je53gdq76sna" path="res://Assets/sci-fi-like Asset/PropMaterials/Table2_Mat.tres" id="25_xcrqc"]
+[ext_resource type="Material" uid="uid://df21j5gat6vwq" path="res://Assets/sci-fi-like Asset/PropMaterials/Table1_Mat.tres" id="26_tuay8"]
+[ext_resource type="Material" uid="uid://ds7tvao7h8k7w" path="res://Assets/sci-fi-like Asset/PropMaterials/Spanner_Mat.tres" id="27_tm7l1"]
+[ext_resource type="Material" uid="uid://cxfbp1ugca55g" path="res://Assets/sci-fi-like Asset/PropMaterials/DisplayCase_1_Glass.tres" id="28_kcxml"]
+[ext_resource type="Material" uid="uid://defyg21thlulm" path="res://Assets/sci-fi-like Asset/PropMaterials/Locker_Mat.tres" id="28_w8iql"]
+[ext_resource type="Material" uid="uid://cdu2awyctrae8" path="res://Assets/sci-fi-like Asset/PropMaterials/DisplayCase_1.tres" id="29_ym0r5"]
+[ext_resource type="Material" uid="uid://cmegvgccg8dkp" path="res://Assets/sci-fi-like Asset/PropMaterials/DisplayCase_2_Mat.tres" id="30_42h1f"]
+[ext_resource type="PackedScene" uid="uid://ce71bt1lo8j30" path="res://Assets/sci-fi-like Asset/gltf/Generic_Props.gltf" id="31_j022d"]
+[ext_resource type="Material" uid="uid://45v7ss4ybamm" path="res://Assets/sci-fi-like Asset/PropMaterials/DisplayCase_2_Glass_Mat.tres" id="32_ajwa3"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_ad8w2"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_fegs5"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_susyx"]
+render_priority = 0
+shader = ExtResource("14_3hhnn")
+shader_parameter/BooleanParameter = true
+shader_parameter/ColorParameter = Color(0.364706, 0.486275, 0.419608, 1)
+shader_parameter/ColorParameter2 = Color(0.070691, 0.545105, 0.255451, 1)
+shader_parameter/ColorParameter3 = Color(0.320564, 0.334589, 1, 1)
+shader_parameter/ColorParameter4 = Color(0.556939, 0.601665, 0.626792, 1)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_u06m6"]
+render_priority = 0
+shader = ExtResource("15_sea6q")
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_otmub"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_nkv7p"]
+
+[node name="Node3D" type="Node3D"]
+
+[node name="SciFiLikeTiles" parent="." instance=ExtResource("1_rqlmt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.30162, 4.76837e-07, 0.392249)
+
+[node name="TilesMatTest" type="Node3D" parent="."]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.0616, 0.0156004, -10.5363)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("1_pgo3r")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.0616, 0, -8.20402)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("2_gwemx")
+
+[node name="MeshInstance3D3" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.0616, 0, -5.82057)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("3_7oxyi")
+
+[node name="MeshInstance3D7" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.0616, 0, -0.547983)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("4_5nyeu")
+
+[node name="MeshInstance3D4" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(0.999478, 0.0323178, 0, -0.0323178, 0.999478, 0, 0, 0, 1, 24.0616, 0, -3.48826)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("5_lbl80")
+
+[node name="MeshInstance3D5" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.0616, 0, -15.4208)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("6_2knks")
+
+[node name="MeshInstance3D6" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.0616, 0.744422, -13.0884)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("7_hd6vg")
+
+[node name="MeshInstance3D15" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.2999, 0.568761, -13.0884)
+mesh = SubResource("BoxMesh_fegs5")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("7_hd6vg")
+
+[node name="MeshInstance3D8" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.003, 0, -10.5363)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("8_3q54r")
+
+[node name="MeshInstance3D16" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.391, 0, -10.5363)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("10_wyq08")
+
+[node name="MeshInstance3D17" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.2485, 0, -10.5363)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = SubResource("ShaderMaterial_susyx")
+
+[node name="MeshInstance3D9" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.003, 0, -8.20402)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("9_gx3rm")
+
+[node name="MeshInstance3D10" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.003, 0, -5.82057)
+instance_shader_parameters/albedo = Color(0, 0.545098, 0.207843, 1)
+instance_shader_parameters/emission = Color(0.443137, 0.301961, 0, 1)
+instance_shader_parameters/emission_energy = 30.0
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("14_ksx12")
+
+[node name="MeshInstance3D11" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.003, 0, -0.547983)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = SubResource("ShaderMaterial_u06m6")
+
+[node name="MeshInstance3D12" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.003, 0, -3.48826)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+
+[node name="MeshInstance3D13" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.003, 0, -15.4208)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("11_rvrsh")
+
+[node name="MeshInstance3D14" type="MeshInstance3D" parent="TilesMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.003, 0, -13.0884)
+mesh = SubResource("PlaneMesh_ad8w2")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("12_ddm03")
+
+[node name="PropsMatTest" type="Node3D" parent="."]
+visible = false
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.77385, 0, -0.239937)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("15_ubgeh")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.77385, 0, 2.18187)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("16_4qm7g")
+
+[node name="MeshInstance3D3" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.77385, 0, 4.71974)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("17_ehe84")
+
+[node name="MeshInstance3D4" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.77385, 0, 7.15883)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("18_f7ecf")
+
+[node name="MeshInstance3D5" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.77385, 0, 9.58065)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("19_374oi")
+
+[node name="MeshInstance3D6" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.77385, 0, 12.1185)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("20_co64q")
+
+[node name="MeshInstance3D7" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.13322, 0, -0.287367)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("21_dxmwv")
+
+[node name="MeshInstance3D8" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.13322, 0, 2.13444)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("24_5l2v1")
+
+[node name="MeshInstance3D17" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.11891, 0, 2.61698)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = SubResource("StandardMaterial3D_nkv7p")
+
+[node name="MeshInstance3D9" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.13322, 0, 4.67232)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("25_xcrqc")
+
+[node name="MeshInstance3D10" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.13322, 0, 7.71263)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("26_tuay8")
+
+[node name="MeshInstance3D11" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.13322, 0, 10.1344)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("27_tm7l1")
+
+[node name="MeshInstance3D12" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.13322, 0, 12.6723)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("28_w8iql")
+
+[node name="MeshInstance3D13" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.77385, 0, 14.8655)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("29_ym0r5")
+
+[node name="MeshInstance3D15" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.77385, 0, 18.5563)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("28_kcxml")
+
+[node name="MeshInstance3D14" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.13322, 0, 15.4193)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("30_42h1f")
+
+[node name="MeshInstance3D16" type="MeshInstance3D" parent="PropsMatTest"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.64063, 0, 9.35226)
+mesh = SubResource("PlaneMesh_otmub")
+skeleton = NodePath("../..")
+surface_material_override/0 = ExtResource("32_ajwa3")
+
+[node name="Generic_Props" parent="." instance=ExtResource("31_j022d")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, -6)

@@ -1,0 +1,17 @@
+[gd_resource type="StandardMaterial3D" load_steps=4 format=3 uid="uid://bx0y5lrh3irx5"]
+
+[ext_resource type="Texture2D" uid="uid://bxsc5s35pr16k" path="res://Assets/sci-fi-like Asset/PropTextures/Couch/Base Color_Couch.png" id="1_p247g"]
+[ext_resource type="Texture2D" uid="uid://7ykkuyvbf76o" path="res://Assets/sci-fi-like Asset/PropTextures/Couch/MRAO_Couch.exr" id="2_n8tfi"]
+[ext_resource type="Texture2D" uid="uid://c4pyn2d3wfwrg" path="res://Assets/sci-fi-like Asset/PropTextures/Couch/NORMAL_Couch.png" id="3_ibjio"]
+
+[resource]
+albedo_texture = ExtResource("1_p247g")
+metallic = 1.0
+metallic_texture = ExtResource("2_n8tfi")
+roughness_texture = ExtResource("2_n8tfi")
+roughness_texture_channel = 1
+normal_enabled = true
+normal_texture = ExtResource("3_ibjio")
+ao_enabled = true
+ao_texture = ExtResource("2_n8tfi")
+ao_texture_channel = 2

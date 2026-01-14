@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" load_steps=2 format=3 uid="uid://slrra324af5h"]
+
+[ext_resource type="Texture2D" uid="uid://c051kcc1gm22p" path="res://Assets/sci-fi-like Asset/Textures/Glass/ROUGHNESS_Glass.png" id="1_0q64v"]
+
+[resource]
+transparency = 1
+albedo_color = Color(0.133333, 0.32549, 0.584314, 0.490196)
+roughness_texture = ExtResource("1_0q64v")

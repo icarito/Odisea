@@ -1,0 +1,17 @@
+[gd_resource type="StandardMaterial3D" load_steps=4 format=3 uid="uid://q8qbbdouiwvy"]
+
+[ext_resource type="Texture2D" uid="uid://ipxp6cumcnfr" path="res://Assets/sci-fi-like Asset/Textures/PanelTrim/BASE COLOR_PanelTrim.png" id="1_qklvi"]
+[ext_resource type="Texture2D" uid="uid://cwnbeunesbshb" path="res://Assets/sci-fi-like Asset/Textures/PanelTrim/MRAo_PanelTrim.exr" id="2_gbndu"]
+[ext_resource type="Texture2D" uid="uid://qb4gxu6ck8d" path="res://Assets/sci-fi-like Asset/Textures/PanelTrim/NORMAL_PanelTrim.png" id="3_3dodp"]
+
+[resource]
+albedo_texture = ExtResource("1_qklvi")
+metallic = 1.0
+metallic_texture = ExtResource("2_gbndu")
+roughness_texture = ExtResource("2_gbndu")
+roughness_texture_channel = 1
+normal_enabled = true
+normal_texture = ExtResource("3_3dodp")
+ao_enabled = true
+ao_texture = ExtResource("2_gbndu")
+ao_texture_channel = 2

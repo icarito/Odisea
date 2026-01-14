@@ -1,0 +1,17 @@
+[gd_resource type="StandardMaterial3D" load_steps=4 format=3 uid="uid://djvvict3u7qy5"]
+
+[ext_resource type="Texture2D" uid="uid://dak5rgcgxvs8m" path="res://Assets/sci-fi-like Asset/Textures/MT_Wall/BASE COLOR_MT_Wall.png" id="1_hfrvw"]
+[ext_resource type="Texture2D" uid="uid://8ksx3vsaxyua" path="res://Assets/sci-fi-like Asset/Textures/MT_Wall/MRAo_MT_Wall.exr" id="2_jqpcl"]
+[ext_resource type="Texture2D" uid="uid://j3e43cootwg7" path="res://Assets/sci-fi-like Asset/Textures/MT_Wall/NORMAL_MT_Wall.png" id="3_xg5c8"]
+
+[resource]
+albedo_texture = ExtResource("1_hfrvw")
+metallic = 1.0
+metallic_texture = ExtResource("2_jqpcl")
+roughness_texture = ExtResource("2_jqpcl")
+roughness_texture_channel = 1
+normal_enabled = true
+normal_texture = ExtResource("3_xg5c8")
+ao_enabled = true
+ao_texture = ExtResource("2_jqpcl")
+ao_texture_channel = 2
