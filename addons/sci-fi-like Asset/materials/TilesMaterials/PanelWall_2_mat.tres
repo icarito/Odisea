@@ -1,0 +1,35 @@
+[gd_resource type="ShaderMaterial" load_steps=6 format=3 uid="uid://bo0gxt7tmu6e3"]
+
+[ext_resource type="Shader" uid="uid://bvvyu28ylk1mo" path="res://Assets/sci-fi-like Asset/materials/RGB_MaskedShader.tres" id="1_lycuc"]
+[ext_resource type="Texture2D" uid="uid://pma4pvk7q6qf" path="res://Assets/sci-fi-like Asset/Textures/PanelWall/RGBMask_PanelWall.png" id="2_vaop2"]
+[ext_resource type="Texture2D" uid="uid://2iu02txy3l2s" path="res://Assets/sci-fi-like Asset/Textures/PanelWall/BASE COLOR_PanelWall.png" id="3_inmoc"]
+[ext_resource type="Texture2D" uid="uid://cowg37i4o604l" path="res://Assets/sci-fi-like Asset/Textures/PanelWall/MRAo_PanelWall.exr" id="4_eu5x1"]
+[ext_resource type="Texture2D" uid="uid://d3rsraax0kurd" path="res://Assets/sci-fi-like Asset/Textures/PanelWall/NORMAL_PanelWall.png" id="5_ckkkh"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_lycuc")
+shader_parameter/albedo = Color(0.694118, 0.0823529, 0.203922, 1)
+shader_parameter/RGBMASK = false
+shader_parameter/RedArea = Color(0.960784, 0.682353, 0.482353, 1)
+shader_parameter/GreenArea = Color(0.819608, 0.435294, 0.239216, 1)
+shader_parameter/BlueArea = Color(0.960784, 0.682353, 0.482353, 1)
+shader_parameter/WhiteArea = Color(0.529412, 0.529412, 0.529412, 1)
+shader_parameter/point_size = 1.0
+shader_parameter/roughness = 1.0
+shader_parameter/metallic_texture_channel = Plane(1, 0, 0, 0)
+shader_parameter/specular = 0.5
+shader_parameter/metallic = 1.0
+shader_parameter/normal_scale = 1.0
+shader_parameter/ao_texture_channel = Plane(0, 0, 1, 0)
+shader_parameter/ao_light_affect = 0.0
+shader_parameter/uv1_scale = Vector3(1, 1, 1)
+shader_parameter/uv1_offset = Vector3(0, 0, 0)
+shader_parameter/uv2_scale = Vector3(1, 1, 1)
+shader_parameter/uv2_offset = Vector3(0, 0, 0)
+shader_parameter/texture_albedo = ExtResource("3_inmoc")
+shader_parameter/texture_RgbMask = ExtResource("2_vaop2")
+shader_parameter/texture_metallic = ExtResource("4_eu5x1")
+shader_parameter/texture_roughness = ExtResource("4_eu5x1")
+shader_parameter/texture_normal = ExtResource("5_ckkkh")
+shader_parameter/texture_ambient_occlusion = ExtResource("4_eu5x1")

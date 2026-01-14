@@ -1,0 +1,37 @@
+[gd_scene load_steps=4 format=3 uid="uid://csqnxiysek266"]
+
+[ext_resource type="Material" uid="uid://c3fv2ys7o2jel" path="res://Assets/sci-fi-like Asset/materials/TilesMaterials/PanelSticker_Mat.tres" id="1_xw710"]
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_3ut37"]
+_surfaces = [{
+"aabb": AABB(-0.371684, -0.1935, 0.00199889, 0.743369, 0.386999, 1.00001e-05),
+"format": 4097,
+"index_count": 6,
+"index_data": PackedByteArray(0, 0, 3, 0, 1, 0, 0, 0, 2, 0, 3, 0),
+"name": "PanelSitcker_Mat",
+"primitive": 3,
+"vertex_count": 4,
+"vertex_data": PackedByteArray(103, 77, 190, 190, 203, 36, 70, 190, 220, 255, 2, 59, 103, 77, 190, 62, 203, 36, 70, 190, 220, 255, 2, 59, 103, 77, 190, 190, 191, 36, 70, 62, 36, 0, 3, 59, 103, 77, 190, 62, 191, 36, 70, 62, 36, 0, 3, 59)
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_fh0tj"]
+resource_name = "SciFiLikeTiles_Stickers_Arrow"
+_surfaces = [{
+"aabb": AABB(-0.371684, -0.1935, 0.00199889, 0.743369, 0.386999, 1.00001e-05),
+"attribute_data": PackedByteArray(233, 156, 208, 62, 20, 97, 183, 62, 9, 8, 8, 63, 20, 97, 183, 62, 231, 156, 208, 62, 68, 161, 106, 62, 8, 8, 8, 63, 68, 161, 106, 62),
+"format": 4119,
+"index_count": 6,
+"index_data": PackedByteArray(0, 0, 3, 0, 1, 0, 0, 0, 2, 0, 3, 0),
+"material": ExtResource("1_xw710"),
+"name": "PanelSitcker_Mat",
+"primitive": 3,
+"vertex_count": 4,
+"vertex_data": PackedByteArray(103, 77, 190, 190, 203, 36, 70, 190, 220, 255, 2, 59, 255, 127, 255, 127, 255, 255, 255, 191, 103, 77, 190, 62, 203, 36, 70, 190, 220, 255, 2, 59, 255, 127, 255, 127, 255, 255, 255, 191, 103, 77, 190, 190, 191, 36, 70, 62, 36, 0, 3, 59, 255, 127, 255, 127, 255, 255, 255, 191, 103, 77, 190, 62, 191, 36, 70, 62, 36, 0, 3, 59, 255, 127, 255, 127, 255, 255, 255, 191)
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_3ut37")
+
+[node name="Stickers_Arrow" type="MeshInstance3D"]
+mesh = SubResource("ArrayMesh_fh0tj")
+skeleton = NodePath("")

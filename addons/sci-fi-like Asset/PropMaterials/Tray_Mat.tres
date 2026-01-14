@@ -1,0 +1,15 @@
+[gd_resource type="StandardMaterial3D" load_steps=4 format=3 uid="uid://cmy2j67jjpi17"]
+
+[ext_resource type="Texture2D" uid="uid://c0ucpjq6lm2xf" path="res://Assets/sci-fi-like Asset/PropTextures/Tray/Base Color_Tray.png" id="1_yytkx"]
+[ext_resource type="Texture2D" uid="uid://bugis1ftdsyq7" path="res://Assets/sci-fi-like Asset/PropTextures/Tray/MRAO_Tray.exr" id="2_mom2t"]
+[ext_resource type="Texture2D" uid="uid://c16ee1y8hst2e" path="res://Assets/sci-fi-like Asset/PropTextures/Tray/NORMAL_Tray.png" id="3_1nebq"]
+
+[resource]
+albedo_texture = ExtResource("1_yytkx")
+metallic = 1.0
+roughness_texture = ExtResource("2_mom2t")
+roughness_texture_channel = 1
+normal_enabled = true
+normal_texture = ExtResource("3_1nebq")
+ao_enabled = true
+ao_texture = ExtResource("2_mom2t")

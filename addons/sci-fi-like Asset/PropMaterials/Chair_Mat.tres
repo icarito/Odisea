@@ -1,0 +1,16 @@
+[gd_resource type="StandardMaterial3D" load_steps=4 format=3 uid="uid://64b2t8dk5k5o"]
+
+[ext_resource type="Texture2D" uid="uid://7m4bm0rg0qng" path="res://Assets/sci-fi-like Asset/PropTextures/Chair/Base Color_Chair.png" id="1_fgkta"]
+[ext_resource type="Texture2D" uid="uid://ci2pl7yv4y2og" path="res://Assets/sci-fi-like Asset/PropTextures/Chair/MRAO_Chair.exr" id="2_ec3nx"]
+[ext_resource type="Texture2D" uid="uid://cptwjllpocjwg" path="res://Assets/sci-fi-like Asset/PropTextures/Chair/NORMAL_Chair.png" id="3_oyhdw"]
+
+[resource]
+albedo_texture = ExtResource("1_fgkta")
+metallic = 1.0
+metallic_texture = ExtResource("2_ec3nx")
+roughness_texture = ExtResource("2_ec3nx")
+roughness_texture_channel = 1
+normal_enabled = true
+normal_texture = ExtResource("3_oyhdw")
+ao_enabled = true
+ao_texture = ExtResource("2_ec3nx")

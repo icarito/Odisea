@@ -1,0 +1,237 @@
+[gd_resource type="Shader" format=3 uid="uid://bvvyu28ylk1mo"]
+
+[resource]
+code = "// NOTE: Shader automatically converted from Godot Engine 4.0.3.stable's StandardMaterial3D.
+
+shader_type spatial;
+render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx;
+uniform vec4 albedo : source_color;
+
+uniform bool RGBMASK;
+
+uniform vec4 RedArea : source_color;
+uniform vec4 GreenArea : source_color;
+uniform vec4 BlueArea : source_color;
+uniform vec4 WhiteArea : source_color;
+
+uniform sampler2D texture_albedo : source_color,filter_linear_mipmap,repeat_enable;
+
+uniform sampler2D texture_RgbMask : source_color,filter_linear_mipmap,repeat_enable;
+
+uniform float point_size : hint_range(0,128);
+uniform float roughness : hint_range(0,1);
+uniform sampler2D texture_metallic : hint_default_white,filter_linear_mipmap,repeat_enable;
+uniform vec4 metallic_texture_channel;
+uniform sampler2D texture_roughness : hint_roughness_g,filter_linear_mipmap,repeat_enable;
+uniform float specular;
+uniform float metallic;
+uniform sampler2D texture_normal : hint_roughness_normal,filter_linear_mipmap,repeat_enable;
+uniform float normal_scale : hint_range(-16,16);
+uniform sampler2D texture_ambient_occlusion : hint_default_white, filter_linear_mipmap,repeat_enable;
+uniform vec4 ao_texture_channel;
+uniform float ao_light_affect;
+uniform vec3 uv1_scale;
+uniform vec3 uv1_offset;
+uniform vec3 uv2_scale;
+uniform vec3 uv2_offset;
+
+
+void vertex() {
+	UV=UV*uv1_scale.xy+uv1_offset.xy;
+}
+
+
+
+
+
+
+void fragment() {
+	vec2 base_uv = UV;
+	vec4 albedo_tex = texture(texture_albedo,base_uv);
+	vec3 baseColor = albedo.rgb * albedo_tex.rgb;
+	
+	
+	
+	vec4 Mask_RGB = texture(texture_RgbMask,base_uv);
+	float red_mask = Mask_RGB.r;
+	float green_mask = Mask_RGB.g;
+	float blue_mask = Mask_RGB.b;
+	float white_mask = red_mask * green_mask;
+	
+	vec4 red_area = RedArea;
+	vec3 red_out;
+	{
+		float base = vec3(albedo_tex.xyz).x;
+		float blend = vec3(red_area.xyz).x;
+		if (base < 0.5){
+			red_out.x = 2.0 * base * blend;
+		}else{
+			red_out.x = 1.0 - 2.0 *(1.0 - blend) * (1.0 - base); 
+		}
+	}
+	{
+		float base = vec3(albedo_tex.xyz).y;
+		float blend = vec3(red_area.xyz).y;
+		if (base < 0.5){
+			red_out.y = 2.0 * base * blend;
+		}else{
+			red_out.y = 1.0 - 2.0 *(1.0 - blend) * (1.0 - base); 
+		}
+	}
+	{
+		float base = vec3(albedo_tex.xyz).z;
+		float blend = vec3(red_area.xyz).z;
+		if (base < 0.5){
+			red_out.z = 2.0 * base * blend;
+		}else{
+			red_out.z = 1.0 - 2.0 *(1.0 - blend) * (1.0 - base); 
+		}
+	}
+	vec4 blk = vec4(0.0,0.0,0.0,0.0);
+	vec4 red_mix = mix(blk,vec4(red_out,0.0),red_mask);
+	
+	
+	vec4 green_area = GreenArea;
+	vec3 green_out;
+	{
+		float base = vec3(albedo_tex.xyz).x;
+		float blend = vec3(green_area.xyz).x;
+		if (base < 0.5){
+			green_out.x = 2.0 * base * blend;
+		}else{
+			green_out.x = 1.0 - 2.0 *(1.0 - blend) * (1.0 - base); 
+		}
+	}
+	{
+		float base = vec3(albedo_tex.xyz).y;
+		float blend = vec3(green_area.xyz).y;
+		if (base < 0.5){
+			green_out.y = 2.0 * base * blend;
+		}else{
+			green_out.y = 1.0 - 2.0 *(1.0 - blend) * (1.0 - base); 
+		}
+	}
+	{
+		float base = vec3(albedo_tex.xyz).z;
+		float blend = vec3(green_area.xyz).z;
+		if (base < 0.5){
+			green_out.z = 2.0 * base * blend;
+		}else{
+			green_out.z = 1.0 - 2.0 *(1.0 - blend) * (1.0 - base); 
+		}
+	}
+
+	vec4 green_mix = mix(red_mix,vec4(green_out,0.0),green_mask);
+	
+	vec4 blue_area = BlueArea;
+	vec3 blue_out;
+	{
+		float base = vec3(albedo_tex.xyz).x;
+		float blend = vec3(blue_area.xyz).x;
+		if (base < 0.5){
+			blue_out.x = 2.0 * base * blend;
+		}else{
+			blue_out.x = 1.0 - 2.0 *(1.0 - blend) * (1.0 - base); 
+		}
+	}
+	{
+		float base = vec3(albedo_tex.xyz).y;
+		float blend = vec3(blue_area.xyz).y;
+		if (base < 0.5){
+			blue_out.y = 2.0 * base * blend;
+		}else{
+			blue_out.y = 1.0 - 2.0 *(1.0 - blend) * (1.0 - base); 
+		}
+	}
+	{
+		float base = vec3(albedo_tex.xyz).z;
+		float blend = vec3(blue_area.xyz).z;
+		if (base < 0.5){
+			blue_out.z = 2.0 * base * blend;
+		}else{
+			blue_out.z = 1.0 - 2.0 *(1.0 - blend) * (1.0 - base); 
+		}
+	}
+	
+	vec4 blue_mix = mix(green_mix,vec4(blue_out,0.0),blue_mask);
+	
+	vec4 white_area = WhiteArea;
+	vec3 white_out;
+	{
+		float base = vec3(albedo_tex.xyz).x;
+		float blend = vec3(white_area.xyz).x;
+		if (base < 0.5){
+			white_out.x = 2.0 * base * blend;
+		}else{
+			white_out.x = 1.0 - 2.0 *(1.0 - blend) * (1.0 - base); 
+		}
+	}
+	{
+		float base = vec3(albedo_tex.xyz).y;
+		float blend = vec3(white_area.xyz).y;
+		if (base < 0.5){
+			white_out.y = 2.0 * base * blend;
+		}else{
+			white_out.y = 1.0 - 2.0 *(1.0 - blend) * (1.0 - base); 
+		}
+	}
+	{
+		float base = vec3(albedo_tex.xyz).z;
+		float blend = vec3(white_area.xyz).z;
+		if (base < 0.5){
+			white_out.z = 2.0 * base * blend;
+		}else{
+			white_out.z = 1.0 - 2.0 *(1.0 - blend) * (1.0 - base); 
+		}
+	}
+	
+	vec4 white_mix = mix(blue_mix,vec4(white_out,0.0),white_mask);
+	
+	bool RgbMask = RGBMASK;
+	
+	
+	//ALBEDO = vec3(white_mix.xyz);
+	vec3 maskedColor;
+	maskedColor = mix(white_mix.rgb,baseColor,float(RgbMask));
+	
+
+	ALBEDO = maskedColor;
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	float metallic_tex = dot(texture(texture_metallic,base_uv),metallic_texture_channel);
+	METALLIC = metallic_tex * metallic;
+	vec4 roughness_texture_channel = vec4(0.0,1.0,0.0,0.0);
+	float roughness_tex = dot(texture(texture_roughness,base_uv),roughness_texture_channel);
+	ROUGHNESS = roughness_tex * roughness;
+	SPECULAR = specular;
+	NORMAL_MAP = texture(texture_normal,base_uv).rgb;
+	NORMAL_MAP_DEPTH = normal_scale;
+	AO = dot(texture(texture_ambient_occlusion,base_uv),ao_texture_channel);
+	AO_LIGHT_AFFECT = ao_light_affect;
+}
+"
