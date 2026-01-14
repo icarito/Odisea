@@ -1,8 +1,8 @@
 [gd_scene load_steps=11 format=2]
 
-[ext_resource path="res://addons/sci-fi-like Asset/PropTextures/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=1]
+[ext_resource path="res://addons/sci-fi-like Asset/PropTextures/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=1]
 [ext_resource path="res://addons/sci-fi-like Asset/PropTextures/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=2]
-[ext_resource path="res://addons/sci-fi-like Asset/PropTextures/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=3]
+[ext_resource path="res://addons/sci-fi-like Asset/PropTextures/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=3]
 [ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=4]
 
 [sub_resource type="SpatialMaterial" id=29]
@@ -28,17 +28,17 @@ surfaces/0 = {
 }
 
 [sub_resource type="SpatialMaterial" id=35]
-albedo_texture = ExtResource( 1 )
+albedo_texture = ExtResource( 3 )
 metallic = 1.0
-metallic_texture = ExtResource( 3 )
-roughness_texture = ExtResource( 3 )
+metallic_texture = ExtResource( 1 )
+roughness_texture = ExtResource( 1 )
 roughness_texture_channel = 1
 normal_enabled = true
 normal_scale = 1.0
 normal_texture = ExtResource( 2 )
 ao_enabled = true
 ao_light_affect = 0.0
-ao_texture = ExtResource( 3 )
+ao_texture = ExtResource( 1 )
 ao_on_uv2 = false
 ao_texture_channel = 2
 
@@ -67,14 +67,14 @@ surfaces/0 = {
 [sub_resource type="SpatialMaterial" id=36]
 flags_transparent = true
 albedo_color = Color( 0.290196, 0.509804, 0.611765, 0.494118 )
-albedo_texture = ExtResource( 1 )
+albedo_texture = ExtResource( 3 )
 metallic = 1.0
-metallic_texture = ExtResource( 3 )
-roughness_texture = ExtResource( 3 )
+metallic_texture = ExtResource( 1 )
+roughness_texture = ExtResource( 1 )
 roughness_texture_channel = 1
 ao_enabled = true
 ao_light_affect = 0.0
-ao_texture = ExtResource( 3 )
+ao_texture = ExtResource( 1 )
 ao_on_uv2 = false
 ao_texture_channel = 2
 refraction_enabled = true

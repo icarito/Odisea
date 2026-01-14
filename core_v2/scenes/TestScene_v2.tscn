@@ -7,7 +7,7 @@
 [ext_resource path="res://core_v2/things/Conveyor.tscn" type="PackedScene" id=5]
 [ext_resource path="res://core_v2/things/SideScrollZone.tscn" type="PackedScene" id=6]
 [ext_resource path="res://addons/mrminimal_flipbook_particles/assets/explosions/explosion_01/explosion_01.tscn" type="PackedScene" id=7]
-[ext_resource path="res://scenes/toys/Criopod_vert.tscn" type="PackedScene" id=8]
+[ext_resource path="res://core_v2/things/Criopod_vert.tscn" type="PackedScene" id=8]
 
 [sub_resource type="SpatialMaterial" id=3]
 albedo_texture = ExtResource( 2 )
