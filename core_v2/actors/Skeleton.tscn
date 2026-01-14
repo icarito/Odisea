@@ -17,7 +17,7 @@ surfaces/0 = {
 "vertex_count": 12300
 }
 
-[sub_resource type="Skin" id=110]
+[sub_resource type="Skin" id=2]
 resource_name = "Skin"
 bind_count = 39
 bind/0/name = "root"
@@ -340,6 +340,6 @@ bones/38/bound_children = [  ]
 
 [node name="Mesh_0001" type="MeshInstance" parent="."]
 mesh = SubResource( 1 )
-skin = SubResource( 110 )
+skin = SubResource( 2 )
 software_skinning_transform_normals = false
 material/0 = SubResource( 67 )

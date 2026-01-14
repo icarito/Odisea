@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=2]
+[gd_scene load_steps=11 format=2]
 
 [ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=1]
 [ext_resource path="res://addons/kenney_prototype_textures/dark/texture_01.png" type="Texture" id=2]
@@ -7,7 +7,6 @@
 [ext_resource path="res://core_v2/things/Conveyor.tscn" type="PackedScene" id=5]
 [ext_resource path="res://core_v2/things/SideScrollZone.tscn" type="PackedScene" id=6]
 [ext_resource path="res://addons/mrminimal_flipbook_particles/assets/explosions/explosion_01/explosion_01.tscn" type="PackedScene" id=7]
-[ext_resource path="res://core_v2/things/Criopod_vert.tscn" type="PackedScene" id=8]
 
 [sub_resource type="SpatialMaterial" id=3]
 albedo_texture = ExtResource( 2 )
@@ -95,6 +94,3 @@ invert_side = true
 
 [node name="Explosion_01" parent="." instance=ExtResource( 7 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8.49613, 6.84573, 8.053 )
-
-[node name="Cont_DisplayCase_2" parent="." instance=ExtResource( 8 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -4.47694, 0.0999985, -11.1388 )
