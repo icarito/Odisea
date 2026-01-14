@@ -3,17 +3,17 @@ extends Sprite
 export var debug = false
 
 #--- JOYSTICK CONTROL ---
-export (float, 0.0, 1.0) var joystick_deadzone = 0.02
-export (float) var joystick_sensitivity = 650.0
+export(float, 0.0, 1.0) var joystick_deadzone = 0.02
+export(float) var joystick_sensitivity = 650.0
 
-enum JoystickCurveType { LINEAR, EXPONENTIAL, INVERSE_S }
-export (JoystickCurveType) var joystick_curve_type = JoystickCurveType.EXPONENTIAL
+enum JoystickCurveType {LINEAR, EXPONENTIAL, INVERSE_S}
+export(JoystickCurveType) var joystick_curve_type = JoystickCurveType.EXPONENTIAL
 
 # This MUST be a var, not const, to avoid errors in Godot 3.5+
 var CURVE_RESOURCES = [
-	load("res://data/Curves/Linear.tres"),
-	load("res://data/Curves/Exponential.tres"),
-	load("res://data/Curves/Inverse_S.tres")
+	load("res://data/curves/Linear.tres"),
+	load("res://data/curves/Exponential.tres"),
+	load("res://data/curves/Inverse_S.tres")
 ]
 
 var _joy_vector = Vector2.ZERO

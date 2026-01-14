@@ -1,9 +1,8 @@
-[gd_scene load_steps=11 format=2]
+[gd_scene load_steps=10 format=2]
 
-[ext_resource path="res://addons/sci-fi-like Asset/PropTextures/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=1]
-[ext_resource path="res://addons/sci-fi-like Asset/PropTextures/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=2]
-[ext_resource path="res://addons/sci-fi-like Asset/PropTextures/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=3]
-[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=4]
+[ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=1]
+[ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=2]
+[ext_resource path="res://assets/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=3]
 
 [sub_resource type="SpatialMaterial" id=29]
 resource_name = "DisplayCase_2_mat"
@@ -66,6 +65,7 @@ surfaces/0 = {
 
 [sub_resource type="SpatialMaterial" id=36]
 flags_transparent = true
+params_cull_mode = 2
 albedo_color = Color( 0.290196, 0.509804, 0.611765, 0.494118 )
 albedo_texture = ExtResource( 3 )
 metallic = 1.0
@@ -82,16 +82,13 @@ refraction_scale = 0.01
 refraction_texture = ExtResource( 2 )
 refraction_texture_channel = 0
 
-[node name="Cont_DisplayCase_2" type="MeshInstance"]
+[node name="Criopod" type="MeshInstance"]
 use_in_baked_light = true
 mesh = SubResource( 30 )
 material/0 = SubResource( 35 )
 
-[node name="Cont_DisplayCase_2_Glass" type="MeshInstance" parent="."]
+[node name="Glass" type="MeshInstance" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.726291, 0.053448 )
 use_in_baked_light = true
 mesh = SubResource( 32 )
 material/0 = SubResource( 36 )
-
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-environment = ExtResource( 4 )

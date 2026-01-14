@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=2]
+[gd_scene load_steps=14 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -9,6 +9,8 @@
 [ext_resource path="res://core_v2/things/PushableBoxV2.tscn" type="PackedScene" id=7]
 [ext_resource path="res://core_v2/things/Conveyor.tscn" type="PackedScene" id=8]
 [ext_resource path="res://core_v2/things/TerraceSpiral.tscn" type="PackedScene" id=9]
+[ext_resource path="res://core_v2/things/Criopod_vert.tscn" type="PackedScene" id=10]
+[ext_resource path="res://assets/flipbook_particles/assets/clouds/cloud_03/cloud_03.tscn" type="PackedScene" id=11]
 
 [sub_resource type="CubeMesh" id=1]
 size = Vector3( 80, 2, 80 )
@@ -26,8 +28,12 @@ width = 80.0
 depth = 80.0
 material = ExtResource( 1 )
 
+[node name="CrioPod" parent="." instance=ExtResource( 10 )]
+transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 12.8116, 1.05, 19.2203 )
+skeleton = NodePath("../Pilot")
+
 [node name="Pilot" parent="." instance=ExtResource( 2 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12.8116, 1.03817, 19.2203 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12.8116, 2.29423, 19.2203 )
 
 [node name="InteriorWide" parent="." instance=ExtResource( 3 )]
 
@@ -114,3 +120,6 @@ push_velocity = Vector3( -2, 0, 0 )
 
 [node name="MultiMeshInstance" parent="." instance=ExtResource( 9 )]
 multimesh = SubResource( 2 )
+
+[node name="Cloud_03" parent="." instance=ExtResource( 11 )]
+transform = Transform( 5, 0, 0, 0, 5, 0, 0, 0, 5, 12.8464, 5.29399, 21.0715 )

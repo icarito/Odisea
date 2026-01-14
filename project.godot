@@ -1100,6 +1100,7 @@ port=false
 acum=false
 acc=false
 monit=false
+batch=false
 
 [gui]
 
@@ -1269,6 +1270,7 @@ common/enable_pause_aware_picking=true
 
 [rendering]
 
+quality/driver/driver_name="GLES2"
 quality/driver/fallback_to_gles2=true
 quality/intended_usage/framebuffer_allocation.mobile=2
 vram_compression/import_bptc=true
@@ -1280,6 +1282,8 @@ quality/reflections/high_quality_ggx=false
 quality/shading/force_lambert_over_burley=true
 quality/shading/force_blinn_over_ggx=true
 quality/depth_prepass/enable=false
+batching/options/use_batching=false
 batching/options/single_rect_fallback=true
+batching/parameters/batch_buffer_size=32768
 environment/default_clear_color=Color( 0.137255, 0.219608, 0.282353, 1 )
 quality/filters/anisotropic_filtering_level=0
