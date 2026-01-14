@@ -1,96 +1,126 @@
-[gd_scene load_steps=11 format=2]
+[gd_scene load_steps=13 format=2]
 
 [ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=1]
-[ext_resource path="res://addons/kenney_prototype_textures/dark/texture_01.png" type="Texture" id=2]
+[ext_resource path="res://addons/Prototype Textures/blue 2.png" type="Texture" id=2]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=3]
 [ext_resource path="res://core_v2/things/MovingPlatformV2.tscn" type="PackedScene" id=4]
 [ext_resource path="res://core_v2/things/Conveyor.tscn" type="PackedScene" id=5]
 [ext_resource path="res://core_v2/things/SideScrollZone.tscn" type="PackedScene" id=6]
-[ext_resource path="res://addons/mrminimal_flipbook_particles/assets/explosions/explosion_01/explosion_01.tscn" type="PackedScene" id=7]
+[ext_resource path="res://addons/Prototype Textures/Green 3.png" type="Texture" id=7]
+[ext_resource path="res://addons/Prototype Textures/purple 2.png" type="Texture" id=8]
+[ext_resource path="res://assets/fonts/Heading_Font.tres" type="DynamicFont" id=9]
+
+[sub_resource type="SpatialMaterial" id=2]
+albedo_color = Color( 0.486275, 0.486275, 0.486275, 1 )
+albedo_texture = ExtResource( 7 )
+uv1_scale = Vector3( 0.5, 0.5, 0.5 )
+uv1_triplanar = true
+uv1_triplanar_sharpness = 1.0
+
+[sub_resource type="SpatialMaterial" id=1]
+albedo_color = Color( 0.486275, 0.486275, 0.486275, 1 )
+albedo_texture = ExtResource( 2 )
+uv1_scale = Vector3( 0.5, 0.5, 0.5 )
+uv1_triplanar = true
+uv1_triplanar_sharpness = 1.0
 
 [sub_resource type="SpatialMaterial" id=3]
-albedo_texture = ExtResource( 2 )
-
-[sub_resource type="ProceduralSky" id=4]
-sky_top_color = Color( 0.152941, 0.752941, 0.752941, 1 )
-sky_horizon_color = Color( 0.282353, 0.0745098, 0.654902, 1 )
-
-[sub_resource type="Environment" id=2]
-background_mode = 2
-background_sky = SubResource( 4 )
-background_color = Color( 0.0352941, 0.0117647, 0.0627451, 1 )
-ambient_light_color = Color( 1, 1, 1, 1 )
-ambient_light_energy = 0.2
-ambient_light_sky_contribution = 0.0
-fog_enabled = true
-fog_color = Color( 0.14902, 0.14902, 0.14902, 1 )
-fog_sun_color = Color( 0.6, 0.55, 0.4, 1 )
-fog_sun_amount = 0.5
-fog_depth_end = 8000.0
-fog_depth_curve = 0.108924
-glow_enabled = true
-glow_intensity = 1.81
-glow_strength = 1.04
-glow_bloom = 1.0
+flags_world_triplanar = true
+albedo_color = Color( 0.486275, 0.486275, 0.486275, 1 )
+albedo_texture = ExtResource( 8 )
+uv1_scale = Vector3( 0.5, 0.5, 0.5 )
+uv1_triplanar = true
+uv1_triplanar_sharpness = 1.0
 
 [node name="TestScene" type="Spatial"]
 
 [node name="Pilot" parent="." instance=ExtResource( 3 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.949169, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 20.9471, 0.949169, -24.7554 )
 
-[node name="CSGBox" type="CSGBox" parent="."]
+[node name="SideScrollZone" parent="." instance=ExtResource( 6 )]
+transform = Transform( -0.00275692, 0, 0.999997, 0, 1, 0, -0.999997, 0, -0.00275692, 51.1918, 0.897293, -42.6298 )
+invert_side = true
+
+[node name="Conveyors" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 42, 0, 0 )
 use_collision = true
-width = 100.0
+width = 20.0
 height = 0.2
-depth = 100.0
-material = ExtResource( 1 )
+depth = 58.0
+material = SubResource( 2 )
 
-[node name="CSGSphere" type="CSGSphere" parent="CSGBox"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 2.00326, -0.165248 )
-smooth_faces = false
-material = SubResource( 3 )
-
-[node name="CSGCylinder" type="CSGCylinder" parent="CSGBox"]
-transform = Transform( 0.575062, -0.762666, -0.296048, 0, 0.361868, -0.932229, 0.81811, 0.53609, 0.208097, 8, 2.25816, -4.14032 )
-height = 10.0
-material = SubResource( 3 )
-
-[node name="CSGCylinder2" type="CSGCylinder" parent="CSGBox"]
-transform = Transform( 0.575062, -0.817837, 0.0211172, -2.25658e-09, -0.0258122, -0.999667, 0.81811, 0.574871, -0.0148436, -0.976865, 6.21022, 7.83127 )
-height = 10.0
-material = SubResource( 3 )
-
-[node name="CSGCylinder3" type="CSGCylinder" parent="CSGBox"]
-transform = Transform( 0.575062, -0.817837, 0.0211172, -2.25658e-09, -0.0258122, -0.999667, 0.81811, 0.574871, -0.0148436, -11.0019, 5.97788, 9.21641 )
-height = 7.73908
-material = SubResource( 3 )
-
-[node name="EnvironmentEffects" type="WorldEnvironment" parent="."]
-environment = SubResource( 2 )
-
-[node name="MovingPlatformV2" parent="." instance=ExtResource( 4 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -18.0099, 6.62853, 17.1957 )
-movement_vector = Vector3( 10, 0, 10 )
-cycle_duration = 6.0
-ease_type = 1
-
-[node name="Conveyor" parent="." instance=ExtResource( 5 )]
-transform = Transform( -0.234243, 0, 0.972179, 0, 1, 0, -0.972179, 0, -0.234243, -34.4401, 2.70033, -30.6287 )
+[node name="Conveyor" parent="Conveyors" instance=ExtResource( 5 )]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 2, 1.57839, -5.61312 )
 require_on_floor = true
 
-[node name="Conveyor2" parent="." instance=ExtResource( 5 )]
-transform = Transform( 0.465476, 0, 0.885061, 0, 1, 0, -0.885061, 0, 0.465476, -33.5293, 1.90767, -37.5432 )
+[node name="Conveyor2" parent="Conveyors" instance=ExtResource( 5 )]
+transform = Transform( -0.0269794, 0, 0.999636, 0, 1, 0, -0.999636, 0, -0.0269794, -2.57698, 2.2899, -0.307068 )
 push_velocity = Vector3( 2, 0, 0 )
 require_on_floor = true
 
-[node name="Conveyor3" parent="." instance=ExtResource( 5 )]
-transform = Transform( 0.886786, 0, 0.462182, 0, 1, 0, -0.462182, 0, 0.886786, -28.7122, 0.897293, -42.6298 )
+[node name="Conveyor3" parent="Conveyors" instance=ExtResource( 5 )]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -5.89307, 0.43415, 7.28599 )
 push_velocity = Vector3( 3, 0, 0 )
 require_on_floor = true
 
-[node name="SideScrollZone" parent="Conveyor3" instance=ExtResource( 6 )]
-transform = Transform( 0.459735, 0, 0.888056, 0, 1, 0, -0.888056, 0, 0.459735, 70.8576, 0, 36.9301 )
-invert_side = true
+[node name="Divider" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 31.5157, 0.4, 0 )
+use_collision = true
+width = 1.0
+height = 1.0
+depth = 58.0
+material = ExtResource( 1 )
 
-[node name="Explosion_01" parent="." instance=ExtResource( 7 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8.49613, 6.84573, 8.053 )
+[node name="Basic movement" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 21, 0, 0 )
+use_collision = true
+width = 20.0
+height = 0.2
+depth = 58.0
+material = SubResource( 1 )
+
+[node name="Totem" type="CSGBox" parent="Basic movement"]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -0.0665665, 0.7, -19.0216 )
+use_collision = true
+width = 0.4
+height = 1.2
+depth = 4.0
+material = ExtResource( 1 )
+
+[node name="Test Scene" type="Label3D" parent="Basic movement/Totem"]
+transform = Transform( -4.36813e-08, -0.0262118, 0.999656, -2.29151e-09, 0.999656, 0.0262118, -1, -1.14576e-09, -4.37264e-08, 0.222334, 0.124923, -0.0089817 )
+modulate = Color( 0.827451, 0.247059, 0.0431373, 1 )
+text = "Test Scene"
+font = ExtResource( 9 )
+
+[node name="MovingPlatforms" type="CSGBox" parent="."]
+use_collision = true
+width = 20.0
+height = 0.2
+depth = 58.0
+material = SubResource( 3 )
+
+[node name="MovingPlatform" parent="MovingPlatforms" instance=ExtResource( 4 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )
+movement_vector = Vector3( 0, -3, 0 )
+cycle_duration = 6.0
+ease_type = 1
+
+[node name="MovingPlatform2" parent="MovingPlatforms" instance=ExtResource( 4 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 8 )
+movement_vector = Vector3( -10, 0, 0 )
+cycle_duration = 6.0
+ease_type = 1
+
+[node name="MovingPlatform3" parent="MovingPlatforms" instance=ExtResource( 4 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 15 )
+cycle_duration = 6.0
+ease_type = 1
+
+[node name="Divider2" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.4973, 0.4, 0 )
+use_collision = true
+width = 1.0
+height = 1.0
+depth = 58.0
+material = ExtResource( 1 )
