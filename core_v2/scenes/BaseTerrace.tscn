@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=2]
+[gd_scene load_steps=18 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -11,6 +11,10 @@
 [ext_resource path="res://core_v2/things/TerraceSpiral.tscn" type="PackedScene" id=9]
 [ext_resource path="res://core_v2/things/Criopod_vert.tscn" type="PackedScene" id=10]
 [ext_resource path="res://assets/flipbook_particles/assets/clouds/cloud_03/cloud_03.tscn" type="PackedScene" id=11]
+[ext_resource path="res://addons/meshbuilder/mesh_builder/mesh_builder.gd" type="Script" id=12]
+[ext_resource path="res://addons/meshbuilder/mesh_builder_cylinder/mesh_builder_cylinder.gd" type="Script" id=13]
+[ext_resource path="res://addons/meshbuilder/mesh_builder_cone/mesh_builder_cone.gd" type="Script" id=14]
+[ext_resource path="res://addons/meshbuilder/mesh_builder_box/mesh_builder_box.gd" type="Script" id=15]
 
 [sub_resource type="CubeMesh" id=1]
 size = Vector3( 80, 2, 80 )
@@ -28,10 +32,6 @@ width = 80.0
 depth = 80.0
 material = ExtResource( 1 )
 
-[node name="CrioPod" parent="." instance=ExtResource( 10 )]
-transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 12.8116, 1.05, 19.2203 )
-skeleton = NodePath("../Pilot")
-
 [node name="Pilot" parent="." instance=ExtResource( 2 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12.8116, 2.29423, 19.2203 )
 
@@ -44,23 +44,64 @@ height = 14.0
 depth = 18.0
 material = ExtResource( 4 )
 
+[node name="Corridor" type="CSGBox" parent="Room1"]
+transform = Transform( 3.14711, 0, 0, 0, 2.35798, 0, 0, 0, 3.14711, -18.2591, -4.00993, -0.157639 )
+width = 3.2
+height = 2.66428
+depth = 1.4198
+script = ExtResource( 15 )
+
+[node name="MeshBuilder" type="CSGCombiner" parent="Room1"]
+transform = Transform( 14.121, 0, 0, 0, 2.35798, 0, 0, 0, 14.121, -34.628, -2, -5.20133 )
+layers = 524288
+script = ExtResource( 12 )
+
+[node name="Cylinder" type="CSGCylinder" parent="Room1/MeshBuilder"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.113631, 0 )
+height = 4.0
+sides = 28
+material = ExtResource( 4 )
+script = ExtResource( 13 )
+
+[node name="Cylinder2" type="CSGCylinder" parent="Room1/MeshBuilder/Cylinder"]
+operation = 2
+radius = 0.96
+height = 4.0
+sides = 28
+material = ExtResource( 4 )
+script = ExtResource( 13 )
+
+[node name="Cone" type="CSGCylinder" parent="Room1/MeshBuilder"]
+transform = Transform( 0.988805, 0, -0.149207, 0, 1, 0, 0.149207, 0, 0.988805, 0, 2.90572, 0 )
+radius = 1.05
+height = 2.0
+sides = 20
+cone = true
+smooth_faces = false
+material = ExtResource( 4 )
+script = ExtResource( 14 )
+
+[node name="Cone2" type="CSGCylinder" parent="Room1/MeshBuilder/Cone"]
+transform = Transform( 1, 0, 1.49012e-08, 0, 1, 0, -1.49012e-08, 0, 1, 0, -0.29527, 0 )
+operation = 2
+radius = 1.04
+height = 1.9
+sides = 20
+cone = true
+smooth_faces = false
+material = ExtResource( 4 )
+script = ExtResource( 14 )
+
 [node name="CSGCombiner" type="CSGCombiner" parent="Room1"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4.76837e-07, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.90735e-06, -4.76837e-07, 0 )
 operation = 2
 
 [node name="Door" type="CSGBox" parent="Room1/CSGCombiner"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.3933, -3.99261, -0.114 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5038, -3.99261, -0.114 )
+width = 0.702305
 height = 5.91477
 depth = 4.14174
 material = ExtResource( 4 )
-
-[node name="Label3D" type="Label3D" parent="Room1/CSGCombiner/Door"]
-transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -6.97714, 4.51159, 8.5111 )
-pixel_size = 0.04
-shaded = true
-modulate = Color( 0.286275, 0.298039, 0.321569, 1 )
-text = "Maintenance 07"
-font = ExtResource( 6 )
 
 [node name="Interior" type="CSGBox" parent="Room1/CSGCombiner"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.76837e-07, 0 )
@@ -69,19 +110,47 @@ height = 13.9
 depth = 17.0
 material = ExtResource( 4 )
 
+[node name="Door2" type="CSGBox" parent="Room1/CSGCombiner"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -17.9329, -3.99261, -0.113998 )
+width = 12.674
+height = 5.91477
+depth = 4.14174
+material = ExtResource( 4 )
+
+[node name="CrioPod" parent="Room1" instance=ExtResource( 10 )]
+transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, -1.5209, -6.95, -7.8387 )
+skeleton = NodePath("../../Pilot")
+
+[node name="Conveyor" parent="Room1" instance=ExtResource( 8 )]
+transform = Transform( -0.77, 0, -1.78814e-07, 0, 1, 0, 1.19209e-07, 0, -1.46047, -7.57587, 3, 6.07583 )
+push_velocity = Vector3( -1, 0, 0 )
+
+[node name="PushableBoxV2" parent="Room1/Conveyor" instance=ExtResource( 7 )]
+transform = Transform( -1.2987, 0, 1.59008e-07, 0, 1, 0, -1.06005e-07, 0, -0.684711, -0.102168, 1.3625, 0.0821171 )
+mass = 0.1
+
+[node name="PushableBoxV4" parent="Room1/Conveyor" instance=ExtResource( 7 )]
+transform = Transform( -1.2987, 0, 1.59008e-07, 0, 1, 0, -1.06005e-07, 0, -0.684711, 2.68978, 1.3625, 0.0821171 )
+mass = 0.1
+
+[node name="PushableBoxV3" parent="Room1/Conveyor" instance=ExtResource( 7 )]
+transform = Transform( -1.2987, 0, 1.59008e-07, 0, 1, 0, -1.06005e-07, 0, -0.684711, -2.9884, 1.3625, 0.0821133 )
+mass = 0.1
+
+[node name="Label3D" type="Label3D" parent="Room1"]
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 6.52668, 0.51898, 8.3971 )
+pixel_size = 0.04
+shaded = true
+modulate = Color( 0.286275, 0.298039, 0.321569, 1 )
+text = "Maintenance 07"
+font = ExtResource( 6 )
+
 [node name="SideScrollZone" parent="." instance=ExtResource( 5 )]
-transform = Transform( 2, 0, 0, 0, 1, 0, 0, 0, 0.3, 34.3768, 0, -3.60587 )
+transform = Transform( 2, 0, 0, 0, 0.553442, 0, 0, 0, 0.3, 34.3768, 0, -3.60587 )
 lock_axis = 1
 
 [node name="SideScrollZone2" parent="." instance=ExtResource( 5 )]
-transform = Transform( -8.74228e-08, 0, -0.3, 0, 1, 0, 2, 0, -1.31134e-08, 4.27248, 0, -33.9136 )
-
-[node name="PushableBoxV2" parent="." instance=ExtResource( 7 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 19.7757, 2.05, 33.1242 )
-mass = 0.1
-
-[node name="Conveyor" parent="." instance=ExtResource( 8 )]
-transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 1, 16.9609 )
+transform = Transform( -8.74228e-08, 0, -0.3, 0, 0.553442, 0, 2, 0, -1.31134e-08, 4.27248, 0, -33.9136 )
 
 [node name="Conveyor2" parent="." instance=ExtResource( 8 )]
 transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 1, -1.1645 )
@@ -118,7 +187,9 @@ push_velocity = Vector3( -2, 0, 0 )
 transform = Transform( -1.50932e-07, 0, 3.45292, 0, 1, 0, -1, 0, -4.37114e-08, 34.473, 11.4448, 5.00189 )
 push_velocity = Vector3( -2, 0, 0 )
 
-[node name="MultiMeshInstance" parent="." instance=ExtResource( 9 )]
+[node name="TerraceSpiral" parent="." instance=ExtResource( 9 )]
+transform = Transform( 0.986025, 0, 0.166597, 0, 1, 0, -0.166597, 0, 0.986025, -237.353, 37.8111, 76.7493 )
+visible = false
 multimesh = SubResource( 2 )
 
 [node name="Cloud_03" parent="." instance=ExtResource( 11 )]

@@ -16,6 +16,8 @@ export(float) var tank_turn_speed := 3.0
 export(float) var tank_turn_transition_time := 1.0
 export(Curve) var tank_turn_curve
 export(float) var tank_turn_ramp_time := 0.5
+export(Curve) var move_response_curve
+export(Curve) var camera_response_curve
 
 # State
 var horizontal_velocity := Vector3.ZERO
@@ -35,6 +37,18 @@ func _ready() -> void:
 		var curve_path = "res://data/curves/Exponential.tres"
 		if ResourceLoader.exists(curve_path):
 			tank_turn_curve = load(curve_path)
+			
+			tank_turn_curve = load(curve_path)
+			
+	if not move_response_curve:
+		var curve_path = "res://data/curves/Exponential.tres"
+		if ResourceLoader.exists(curve_path):
+			move_response_curve = load(curve_path)
+
+	if not camera_response_curve:
+		var curve_path = "res://data/curves/Exponential.tres"
+		if ResourceLoader.exists(curve_path):
+			camera_response_curve = load(curve_path)
 
 func set_external_velocity(v: Vector3) -> void:
 	external_velocity = v

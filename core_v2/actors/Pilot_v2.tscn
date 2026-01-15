@@ -45,6 +45,7 @@ size = Vector2( 0.1, 0.1 )
 collision_layer = 3
 collision_mask = 254
 script = ExtResource( 2 )
+max_pitch = 30.0
 
 [node name="Logic" type="Node" parent="."]
 
@@ -59,16 +60,23 @@ script = ExtResource( 6 )
 move_speed = 2.0
 run_speed_multiplier = 3.5
 tank_turn_speed = 2.0
+tank_turn_transition_time = 0.1
 tank_turn_curve = ExtResource( 10 )
+move_response_curve = ExtResource( 10 )
+camera_response_curve = ExtResource( 10 )
 
 [node name="SideScroll" type="Node" parent="Logic"]
 script = ExtResource( 8 )
 target_pitch_deg = -10.0
-target_spring_length = 12.0
+target_spring_length = 15.0
+spring_min = 10.0
+spring_max = 30.0
 deadzone_x = 0.5
-pan_sensitivity = 0.04
+camera_smoothing = 2.0
+zoom_smoothing = 2.0
+pan_sensitivity = 0.06
 pan_max_offset = 3.0
-pan_return_speed = 0.0
+pan_return_speed = 0.1
 min_rig_height = -1.5
 
 [node name="Visual" type="Spatial" parent="."]
@@ -102,7 +110,7 @@ parameters/Jump/Transition/current = 0
 
 [node name="OmniLight" type="OmniLight" parent="Visual"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )
-light_indirect_energy = 2.0
+light_energy = 0.342
 light_specular = 0.4
 omni_range = 80.0
 omni_attenuation = 0.517632
@@ -123,12 +131,13 @@ transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866,
 transform = Transform( -1, 0, -1.50996e-07, -2.37355e-08, 0.987568, 0.157193, 1.49119e-07, 0.157193, -0.987568, 0, -0.0616157, -0.17651 )
 collision_mask = 5
 shape = SubResource( 109 )
-spring_length = 5.0
+spring_length = 7.0
 
 [node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]
 transform = Transform( 1, -3.90799e-14, 8.52651e-14, 0, 1, 1.49012e-08, -1.42109e-14, -1.49012e-08, 1, 0, 0, 0 )
 environment = ExtResource( 9 )
 current = true
+fov = 75.0
 far = 10000.0
 
 [node name="GroundRay" type="RayCast" parent="."]
