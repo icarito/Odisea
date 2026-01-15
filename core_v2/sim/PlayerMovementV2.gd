@@ -65,17 +65,14 @@ func integrate_external_velocity(delta: float) -> Vector3:
 	external_velocity = external_velocity.linear_interpolate(Vector3.ZERO, external_decay_rate * delta)
 	return external_velocity
 
-func update_tank_mode(dt: float, mouse_delta: Vector2, move_vec: Vector2, jump: bool, sprint: bool) -> void:
+func update_tank_mode(dt: float, mouse_delta: Vector2, _move_vec: Vector2, _jump: bool, _sprint: bool) -> void:
 	if mouse_delta.length() > 0.1:
 		camera_input_timer = 0.0
 		is_tank_turn_mode = false
 	else:
-		# If in strafing mode, any active movement/action resets the timer
-		var is_input_active = move_vec.length() > 0.1 or jump or sprint
-		if not is_tank_turn_mode and is_input_active:
-			camera_input_timer = 0.0
-		else:
-			camera_input_timer += dt
+		# Timer counts up as long as mouse is still.
+		# This allows returning to tank mode even while moving.
+		camera_input_timer += dt
 		
 		if camera_input_timer >= tank_turn_transition_time:
 			is_tank_turn_mode = true

@@ -27,8 +27,9 @@ var _created_sidescroll_logic := false
 var base_fov := 75.0
 var _cached_cam: Camera = null
 var _cached_spring_arm: SpringArm = null
-var base_spring_length := 7.0
-var current_spring_length := 7.0
+var base_spring_length := 7.0 # Current world-target length (alpha-blended)
+var base_spring_length_3d := 7.0 # User's 3D preference
+var current_spring_length := 7.0 # Current ACTUAL length (smoothed)
 var base_rig_y := 0.0
 var base_collision_mask := 0
 
@@ -58,6 +59,7 @@ func get_full_snapshot() -> Dictionary:
 		"velocity": [velocity.x, velocity.y, velocity.z],
 		"yaw": yaw,
 		"pitch": pitch,
+		"base_spring_length_3d": base_spring_length_3d,
 		"movement_state": movement_logic.get_full_snapshot() if is_instance_valid(movement_logic) else {},
 		"ss_logic": sidescroll_logic.get_full_snapshot() if is_instance_valid(sidescroll_logic) else {}
 	}
@@ -92,6 +94,7 @@ func restore_snapshot(data: Dictionary) -> void:
 		velocity = Vector3.ZERO
 	yaw = data.get("yaw", 0.0)
 	pitch = data.get("pitch", 0.0)
+	base_spring_length_3d = data.get("base_spring_length_3d", base_spring_length_3d)
 	
 	if data.has("movement_state") and is_instance_valid(movement_logic):
 		movement_logic.restore_snapshot(data["movement_state"])
@@ -263,10 +266,15 @@ func step(dt: float, input: InputDataV2) -> void:
 	# ZOOM (Spring Length)
 	if abs(input.zoom_delta) > 0.01:
 		if sidescroll_logic.is_active:
-			base_spring_length = clamp(base_spring_length + input.zoom_delta, sidescroll_logic.spring_min, sidescroll_logic.spring_max)
-			sidescroll_logic.target_spring_length = base_spring_length
+			# Update 2.5D specific target
+			sidescroll_logic.target_spring_length = clamp(
+				sidescroll_logic.target_spring_length + input.zoom_delta,
+				sidescroll_logic.spring_min,
+				sidescroll_logic.spring_max
+			)
 		else:
-			base_spring_length = clamp(base_spring_length + input.zoom_delta, 2.0, 20.0)
+			# Update 3D preference
+			base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 20.0)
 
 	# APLICACIÓN:
 	if camera_rig:
@@ -452,9 +460,11 @@ func _check_forward_latch(axis: int):
 	else:
 		_forward_latch_active = false
 
-func enter_25d_mode(axis: int, value: float, invert: bool = false):
+func enter_25d_mode(axis: int, value: float, invert: bool = false, target_dist: float = 0.0):
 	_check_forward_latch(axis)
 	sidescroll_logic.enter_mode(axis, value, invert)
+	if target_dist > 0.1:
+		sidescroll_logic.target_spring_length = target_dist
 
 func exit_25d_mode():
 	# Al salir, "soltamos" el ángulo actual: actualizamos yaw/pitch para que coincidan con la vista actual
@@ -503,8 +513,8 @@ func _step_camera_logic(_dt: float):
 			_cached_cam.fov = lerp(base_fov, sidescroll_logic.target_fov, alpha)
 		
 		if _cached_spring_arm:
-			# SMOOTH ZOOM
-			var target_len = lerp(base_spring_length, sidescroll_logic.target_spring_length, alpha)
+			# SMOOTH ZOOM: Transition between 3D preference and 2.5D target
+			var target_len = lerp(base_spring_length_3d, sidescroll_logic.target_spring_length, alpha)
 			current_spring_length = lerp(current_spring_length, target_len, sidescroll_logic.zoom_smoothing * _dt)
 			_cached_spring_arm.spring_length = current_spring_length
 			
@@ -521,8 +531,8 @@ func _step_camera_logic(_dt: float):
 		# Restore collisions
 		if _cached_spring_arm:
 			_cached_spring_arm.collision_mask = base_collision_mask
-			# Smooth zoom even in 3D
-			current_spring_length = lerp(current_spring_length, base_spring_length, sidescroll_logic.zoom_smoothing * _dt)
+			# Smooth zoom even in 3D, returning to the stored 3D preference
+			current_spring_length = lerp(current_spring_length, base_spring_length_3d, sidescroll_logic.zoom_smoothing * _dt)
 			_cached_spring_arm.spring_length = current_spring_length
 		
 		if _cached_cam:

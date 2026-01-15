@@ -22,7 +22,7 @@ material = SubResource( 101 )
 [sub_resource type="AnimationNodeStateMachinePlayback" id=108]
 
 [sub_resource type="CapsuleShape" id=48]
-radius = 0.3047
+radius = 0.5
 height = 1.20199
 
 [sub_resource type="SphereShape" id=109]
@@ -88,6 +88,7 @@ min_rig_height = -1.5
 
 [node name="Pivot" type="Spatial" parent="Visual"]
 script = ExtResource( 3 )
+rotation_lerp_speed = 5.0
 
 [node name="Skeleton" parent="Visual/Pivot" instance=ExtResource( 1 )]
 
