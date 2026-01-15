@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=2]
+[gd_scene load_steps=21 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -15,6 +15,9 @@
 [ext_resource path="res://addons/meshbuilder/mesh_builder_cylinder/mesh_builder_cylinder.gd" type="Script" id=13]
 [ext_resource path="res://addons/meshbuilder/mesh_builder_cone/mesh_builder_cone.gd" type="Script" id=14]
 [ext_resource path="res://addons/meshbuilder/mesh_builder_box/mesh_builder_box.gd" type="Script" id=15]
+[ext_resource path="res://assets/flipbook_particles/assets/fireballs/fireball_02/fireball_02.tscn" type="PackedScene" id=16]
+[ext_resource path="res://assets/flipbook_particles/assets/smokes/smoke_02/smoke_02.tscn" type="PackedScene" id=17]
+[ext_resource path="res://materials/interior/Hallway.tres" type="Material" id=18]
 
 [sub_resource type="CubeMesh" id=1]
 size = Vector3( 80, 2, 80 )
@@ -44,11 +47,19 @@ height = 14.0
 depth = 18.0
 material = ExtResource( 4 )
 
+[node name="Fireball_02" parent="Room1" instance=ExtResource( 16 )]
+transform = Transform( 3, 0, 4.26326e-14, 0, 3, 0, 4.26326e-14, 0, 3, -3.40742, 3.13097, 5.31182 )
+skeleton = NodePath("../Conveyor/PushableBoxV3")
+
+[node name="Smoke_02" parent="Room1/Fireball_02" instance=ExtResource( 17 )]
+transform = Transform( 2, 0, 5.0822e-21, 0, 1, 0, 0, 0, 2, 0, 0.752, 0 )
+
 [node name="Corridor" type="CSGBox" parent="Room1"]
 transform = Transform( 3.14711, 0, 0, 0, 2.35798, 0, 0, 0, 3.14711, -18.2591, -4.00993, -0.157639 )
 width = 3.2
 height = 2.66428
 depth = 1.4198
+material = ExtResource( 1 )
 script = ExtResource( 15 )
 
 [node name="MeshBuilder" type="CSGCombiner" parent="Room1"]
@@ -115,7 +126,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -17.9329, -3.99261, -0.113998 
 width = 12.674
 height = 5.91477
 depth = 4.14174
-material = ExtResource( 4 )
+material = ExtResource( 18 )
 
 [node name="CrioPod" parent="Room1" instance=ExtResource( 10 )]
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, -1.5209, -6.95, -7.8387 )
@@ -189,7 +200,6 @@ push_velocity = Vector3( -2, 0, 0 )
 
 [node name="TerraceSpiral" parent="." instance=ExtResource( 9 )]
 transform = Transform( 0.986025, 0, 0.166597, 0, 1, 0, -0.166597, 0, 0.986025, -237.353, 37.8111, 76.7493 )
-visible = false
 multimesh = SubResource( 2 )
 
 [node name="Cloud_03" parent="." instance=ExtResource( 11 )]
