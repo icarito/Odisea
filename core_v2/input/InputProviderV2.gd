@@ -85,7 +85,7 @@ func _read_live_input() -> InputDataV2:
 	# Ejes 2 y 3 suelen ser el stick derecho en gamepads estándar
 	var joy_look = Vector2(
 		Input.get_joy_axis(0, JOY_AXIS_2),
-		Input.get_joy_axis(0, JOY_AXIS_3)
+		- Input.get_joy_axis(0, JOY_AXIS_3)
 	)
 	
 	if joy_look.length() > JOY_DEADZONE:
