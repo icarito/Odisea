@@ -18,6 +18,8 @@ signal rigid_contact_ended() # Emitida cuando dejamos de tocar un RigidBody
 export(float) var mouse_sensitivity := 0.005 setget set_mouse_sensitivity, get_mouse_sensitivity
 export(float) var snap_length := 0.5
 export(float) var push_force := 1.0 # Fuerza base del jugador para empujar rígidos
+export(float) var min_pitch := -85.0
+export(float) var max_pitch := 85.0
 
 # 2.5D Mode State (Delegated to Component)
 var sidescroll_logic: Node # SideScrollLogicV2
@@ -34,7 +36,8 @@ var base_collision_mask := 0
 var velocity := Vector3()
 var yaw := 0.0
 var pitch := 0.0
-var _transition_start_basis := Basis.IDENTITY
+var _forward_latch_active := false
+var _forward_latch_sign := 1.0
 
 # Métodos de acceso para export (opcional, para Inspector)
 func set_mouse_sensitivity(v):
@@ -66,9 +69,9 @@ func get_full_snapshot() -> Dictionary:
 			"is_jumping": jump_logic._is_jumping
 		}
 	
-	# Save Basis as Quat for compact storage
-	var q = _transition_start_basis.get_rotation_quat()
-	snapshot["ts_basis"] = [q.x, q.y, q.z, q.w]
+	
+	snapshot["fwd_latch_active"] = _forward_latch_active
+	snapshot["fwd_latch_sign"] = _forward_latch_sign
 	
 	return snapshot
 
@@ -104,12 +107,8 @@ func restore_snapshot(data: Dictionary) -> void:
 			jump_logic.jump_buffer_timer = jump_state.get("jump_buffer_timer", 0.0)
 			jump_logic._is_jumping = jump_state.get("is_jumping", false)
 	
-	if data.has("ts_basis"):
-		var q_arr = data["ts_basis"]
-		var q = Quat(q_arr[0], q_arr[1], q_arr[2], q_arr[3])
-		_transition_start_basis = Basis(q)
-	else:
-		_transition_start_basis = Basis.IDENTITY
+	_forward_latch_active = data.get("fwd_latch_active", false)
+	_forward_latch_sign = data.get("fwd_latch_sign", 1.0)
 	
 	# APLICACIÓN: Unificamos la lógica de rotación con la de step() para garantizar determinismo.
 	if camera_rig:
@@ -254,8 +253,8 @@ func step(dt: float, input: InputDataV2) -> void:
 		# If in tank mode, A/D (input.move_vec.x) also rotates the camera
 		yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
 
-		# Limitamos el Pitch para no dar una voltereta (aprox -85 a 85 grados)
-		pitch = clamp(pitch, deg2rad(-85), deg2rad(85))
+		# Limitamos el Pitch para no dar una voltereta
+		pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
 	else:
 		# En modo 2.5D el mouse hace "Lazy Pan"
 		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED or is_replay_mode:
@@ -283,23 +282,41 @@ func step(dt: float, input: InputDataV2) -> void:
 		jump_logic.buffer_jump()
 
 	# 2. Delegar movimiento horizontal
-	# En modo 2.5D usamos la base objetivo final para que el movimiento sea estable
-	# e independiente de la transición de la cámara.
+	
+	# 2. Delegar movimiento horizontal
+	
+	# Forward Latch Release Check
+	if input.move_vec.y >= -0.1: # Released "Forward"
+		_forward_latch_active = false
+		
 	var basis = get_camera_basis()
 	var move_vec = input.move_vec
 	
-	if in_transition:
-		# Use the frozen basis from start of transition to maintain input direction intent
-		basis = _transition_start_basis
-	
-	if sidescroll_logic.is_active and not in_transition:
+	if _forward_latch_active:
+		# FORWARD LATCH: Force controls to follow strict 2.5D path
+		basis = sidescroll_logic.get_target_basis()
+		
+		# Calculate input direction relative to the target basis
+		var target_right = basis.x
+		var world_dir = Vector3.ZERO
+		
+		# Assuming Axis 2 is Z Lock (Move X), Axis 1 is X Lock (Move Z)
+		# NOTE: This dependence on 'sidescroll_logic.lock_axis' assumes enter_mode set it correctly.
+		if sidescroll_logic.lock_axis == 2: world_dir.x = _forward_latch_sign
+		elif sidescroll_logic.lock_axis == 1: world_dir.z = _forward_latch_sign
+		
+		# Project world direction onto screen right to get input sign
+		var input_x = sign(world_dir.dot(target_right))
+		if abs(input_x) == 0: input_x = 1.0 # Fallback
+		
+		move_vec = Vector2(input_x, 0.0)
+		
+	elif sidescroll_logic.is_active and not in_transition:
+		# STRICT 2.5D: Use target basis + constraints
 		basis = sidescroll_logic.get_target_basis()
 		move_vec = sidescroll_logic.get_constrained_input(move_vec)
-		# En modo 2.5D, move_vec.x es el movimiento lateral (A/D) y move_vec.y es la profundidad (W/S).
-		# Siempre bloqueamos la profundidad para mantenernos en el plano.
 		move_vec.y = 0
 		
-		# Update camera facing from movement
 		if abs(move_vec.x) > 0.1:
 			sidescroll_logic.update_facing(move_vec.x)
 	
@@ -307,7 +324,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	
 	# Override visual direction in 2.5D based on camera facing state
 	# Only apply this strictly when fully in 2.5D mode
-	if sidescroll_logic.is_active and not in_transition:
+	if sidescroll_logic.is_active and not in_transition and not _forward_latch_active:
 		movement_logic.wish_direction = basis.x * sidescroll_logic.facing_sign
 
 	var h_vel = movement_logic.get_horizontal_velocity()
@@ -389,6 +406,11 @@ func _physics_process(_delta):
 			external_input_provided = false
 		return
 
+	# Update Input Provider config from Logic component (allows runtime tuning)
+	if is_instance_valid(movement_logic) and input_provider:
+		input_provider.move_response_curve = movement_logic.move_response_curve
+		input_provider.camera_response_curve = movement_logic.camera_response_curve
+
 	var input = input_provider.get_input()
 	step(FIXED_DT, input)
 
@@ -401,8 +423,24 @@ func get_wish_direction() -> Vector3:
 
 # --- 2.5D API ---
 
+func _check_forward_latch(axis: int):
+	# Determine projected velocity on the FREE axis
+	var projected_vel = 0.0
+	if axis == 2: # Lock Z, Move X
+		projected_vel = velocity.x
+	elif axis == 1: # Lock X, Move Z
+		projected_vel = velocity.z
+	
+	# If moving significantly and holding Forward
+	var input = input_provider.get_input()
+	if abs(projected_vel) > 1.0 and input.move_vec.y < -0.1:
+		_forward_latch_active = true
+		_forward_latch_sign = sign(projected_vel)
+	else:
+		_forward_latch_active = false
+
 func enter_25d_mode(axis: int, value: float, invert: bool = false):
-	_transition_start_basis = get_camera_basis()
+	_check_forward_latch(axis)
 	sidescroll_logic.enter_mode(axis, value, invert)
 
 func exit_25d_mode():
@@ -414,10 +452,7 @@ func exit_25d_mode():
 		yaw = euler.y
 		pitch = euler.x
 	
-		yaw = euler.y
-		pitch = euler.x
-	
-	_transition_start_basis = get_camera_basis()
+	_forward_latch_active = false
 	sidescroll_logic.exit_mode()
 
 func _step_camera_logic(_dt: float):

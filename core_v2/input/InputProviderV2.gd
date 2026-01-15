@@ -11,6 +11,8 @@ var playback_buffer := []
 var playback_index := 0
 var mouse_delta_accum := Vector2()
 var zoom_delta_accum := 0.0
+var move_response_curve: Curve
+var camera_response_curve: Curve
 
 const JOY_LOOK_SENSITIVITY := 15.0
 const JOY_DEADZONE := 0.2
@@ -32,6 +34,21 @@ func get_input() -> InputDataV2:
 func _q(v):
 	return round(v * 1000.0) / 1000.0
 
+func _apply_curve(v: Vector2, curve: Curve) -> Vector2:
+	if not curve:
+		return v
+	
+	var length = v.length()
+	if length < 0.001:
+		return Vector2.ZERO
+		
+	# Normalize input length 0-1 for curve lookup
+	# Assuming joystick input is roughly 0-1.
+	length = clamp(length, 0.0, 1.0)
+	var curved_length = curve.interpolate(length)
+	
+	return v.normalized() * curved_length
+
 
 func _read_live_input() -> InputDataV2:
 	var d = InputDataV2.new()
@@ -40,6 +57,9 @@ func _read_live_input() -> InputDataV2:
 		Input.get_action_strength("move_left") - Input.get_action_strength("move_right"),
 		Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward")
 	)
+
+	# Apply curve to raw move vector (affects analog stick)
+	d.move_vec = _apply_curve(d.move_vec, move_response_curve)
 
 	d.move_vec.x = _q(d.move_vec.x)
 	d.move_vec.y = _q(d.move_vec.y)
@@ -69,6 +89,9 @@ func _read_live_input() -> InputDataV2:
 	)
 	
 	if joy_look.length() > JOY_DEADZONE:
+		# Apply curve to look Stick
+		joy_look = _apply_curve(joy_look, camera_response_curve)
+		
 		# Aplicar curva o lineal. Aquí lineal simple post-deadzone.
 		# Multiplicamos por sensibilidad para equiparar a "pixeles de mouse"
 		mouse_d += joy_look * JOY_LOOK_SENSITIVITY
