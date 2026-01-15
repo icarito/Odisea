@@ -18,6 +18,8 @@ export(Curve) var tank_turn_curve
 export(float) var tank_turn_ramp_time := 0.5
 export(Curve) var move_response_curve
 export(Curve) var camera_response_curve
+export(float) var strafe_turn_multiplier := 0.4
+export(float) var strafe_speed_multiplier := 0.6
 
 # State
 var horizontal_velocity := Vector3.ZERO
@@ -77,7 +79,6 @@ func update_tank_mode(dt: float, mouse_delta: Vector2, move_vec: Vector2, jump: 
 		
 		if camera_input_timer >= tank_turn_transition_time:
 			is_tank_turn_mode = true
-
 func get_tank_yaw_delta(dt: float, move_vec: Vector2) -> float:
 	if is_tank_turn_mode:
 		# Acceleration curve logic
@@ -96,6 +97,10 @@ func get_tank_yaw_delta(dt: float, move_vec: Vector2) -> float:
 		# Invert rotation direction when moving backward (move_vec.y > 0)
 		if move_vec.y > 0.01:
 			multiplier = -1.0
+		elif abs(move_vec.y) < 0.01:
+			# If strafing (no forward/backward), turn slower and don't invert
+			multiplier = strafe_turn_multiplier
+			
 		return move_vec.x * tank_turn_speed * speed_factor * dt * multiplier
 	
 	current_turn_time = 0.0
@@ -128,7 +133,13 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 	
 	var right = basis.x
 	
-	var lateral_input = 0.0 if is_tank_turn_mode else move_vec.x
+	var lateral_input = 0.0
+	if not is_tank_turn_mode:
+		lateral_input = move_vec.x
+	elif abs(move_vec.y) < 0.01:
+		# If in tank mode and NOT moving forward/backward, allow slow strafing
+		lateral_input = move_vec.x * strafe_speed_multiplier
+		
 	var wish_dir = forward * move_vec.y + right * lateral_input
 	wish_direction = wish_dir.normalized() if wish_dir.length_squared() > 0.0 else Vector3.ZERO
 	wish_dir = wish_direction * target_speed

@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=2]
+[gd_scene load_steps=20 format=2]
 
 [ext_resource path="res://core_v2/actors/Skeleton.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/sim/PlayerControllerV2.gd" type="Script" id=2]
@@ -10,6 +10,7 @@
 [ext_resource path="res://core_v2/sim/SideScrollLogicV2.gd" type="Script" id=8]
 [ext_resource path="res://scenes/common/space_environment/Environment_InteriorLab.tres" type="Environment" id=9]
 [ext_resource path="res://data/curves/Inverse_S.tres" type="Curve" id=10]
+[ext_resource path="res://data/curves/Exponential.tres" type="Curve" id=11]
 [ext_resource path="res://materials/shadow/FakeShadow.tres" type="Material" id=52]
 
 [sub_resource type="SpatialMaterial" id=101]
@@ -57,11 +58,12 @@ min_jump_intensity = 0.6
 
 [node name="Movement" type="Node" parent="Logic"]
 script = ExtResource( 6 )
+air_friction = 5.0
 move_speed = 2.0
 run_speed_multiplier = 3.5
 tank_turn_transition_time = 0.1
 tank_turn_curve = ExtResource( 10 )
-move_response_curve = ExtResource( 10 )
+move_response_curve = ExtResource( 11 )
 camera_response_curve = ExtResource( 10 )
 
 [node name="SideScroll" type="Node" parent="Logic"]
