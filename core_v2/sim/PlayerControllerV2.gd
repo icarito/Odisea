@@ -283,7 +283,10 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	# 2. Delegar movimiento horizontal
 	
-	# 2. Delegar movimiento horizontal
+	if sidescroll_logic.is_active:
+		# REGLA DE ORO: En 2.5D NO puede haber Tank Turn, o el jugador se queda "atrapado" 
+		# al intentar moverse lateralmente si estaba quieto.
+		movement_logic.is_tank_turn_mode = false
 	
 	# Forward Latch Release Check
 	if input.move_vec.y >= -0.1: # Released "Forward"
@@ -431,11 +434,21 @@ func _check_forward_latch(axis: int):
 	elif axis == 1: # Lock X, Move Z
 		projected_vel = velocity.z
 	
-	# If moving significantly and holding Forward
-	var input = input_provider.get_input()
-	if abs(projected_vel) > 1.0 and input.move_vec.y < -0.1:
-		_forward_latch_active = true
-		_forward_latch_sign = sign(projected_vel)
+	# Use Input directly to avoid double get_input() call which clears mouse deltas
+	var forward_pressed = Input.is_action_pressed("move_forward")
+	
+	# If moving or facing significantly and holding Forward
+	if forward_pressed:
+		if abs(projected_vel) > 0.1:
+			_forward_latch_active = true
+			_forward_latch_sign = sign(projected_vel)
+		else:
+			# Fallback: Se basa en hacia dónde mira el personaje
+			var facing = - global_transform.basis.z
+			var free_axis_facing = facing.x if axis == 2 else facing.z
+			if abs(free_axis_facing) > 0.1:
+				_forward_latch_active = true
+				_forward_latch_sign = sign(free_axis_facing)
 	else:
 		_forward_latch_active = false
 
