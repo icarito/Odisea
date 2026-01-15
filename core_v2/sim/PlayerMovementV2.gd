@@ -14,6 +14,8 @@ export(float) var stop_threshold := 0.01 # Threshold para forzar velocidad a cer
 export(float) var external_decay_rate := 2.0
 export(float) var tank_turn_speed := 3.0
 export(float) var tank_turn_transition_time := 1.0
+export(Curve) var tank_turn_curve
+export(float) var tank_turn_ramp_time := 0.5
 
 # State
 var horizontal_velocity := Vector3.ZERO
@@ -26,6 +28,13 @@ var external_source_is_static := true
 # Tank Turn State
 var camera_input_timer := 0.0
 var is_tank_turn_mode := true
+var current_turn_time := 0.0
+
+func _ready() -> void:
+	if not tank_turn_curve:
+		var curve_path = "res://data/curves/Exponential.tres"
+		if ResourceLoader.exists(curve_path):
+			tank_turn_curve = load(curve_path)
 
 func set_external_velocity(v: Vector3) -> void:
 	external_velocity = v
@@ -57,11 +66,25 @@ func update_tank_mode(dt: float, mouse_delta: Vector2, move_vec: Vector2, jump: 
 
 func get_tank_yaw_delta(dt: float, move_vec: Vector2) -> float:
 	if is_tank_turn_mode:
+		# Acceleration curve logic
+		if abs(move_vec.x) > 0.01:
+			current_turn_time += dt
+		else:
+			current_turn_time = 0.0
+			
+		current_turn_time = clamp(current_turn_time, 0.0, tank_turn_ramp_time)
+		
+		var speed_factor := 1.0
+		if tank_turn_curve and tank_turn_ramp_time > 0:
+			speed_factor = tank_turn_curve.interpolate(current_turn_time / tank_turn_ramp_time)
+			
 		var multiplier = 1.0
 		# Invert rotation direction when moving backward (move_vec.y > 0)
 		if move_vec.y > 0.01:
 			multiplier = -1.0
-		return move_vec.x * tank_turn_speed * dt * multiplier
+		return move_vec.x * tank_turn_speed * speed_factor * dt * multiplier
+	
+	current_turn_time = 0.0
 	return 0.0
 
 func get_full_snapshot() -> Dictionary:
@@ -69,7 +92,8 @@ func get_full_snapshot() -> Dictionary:
 		"horizontal_velocity": [horizontal_velocity.x, horizontal_velocity.y, horizontal_velocity.z],
 		"external_velocity": [external_velocity.x, external_velocity.y, external_velocity.z],
 		"camera_input_timer": camera_input_timer,
-		"is_tank_turn_mode": is_tank_turn_mode
+		"is_tank_turn_mode": is_tank_turn_mode,
+		"current_turn_time": current_turn_time
 	}
 
 func restore_snapshot(data: Dictionary) -> void:
@@ -79,6 +103,7 @@ func restore_snapshot(data: Dictionary) -> void:
 	external_velocity = Vector3(ev[0], ev[1], ev[2])
 	camera_input_timer = data.get("camera_input_timer", 0.0)
 	is_tank_turn_mode = data.get("is_tank_turn_mode", true)
+	current_turn_time = data.get("current_turn_time", 0.0)
 
 func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, is_on_floor: bool) -> void:
 	var target_speed = move_speed * (run_speed_multiplier if sprint else 1.0)

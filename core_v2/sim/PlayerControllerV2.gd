@@ -34,6 +34,7 @@ var base_collision_mask := 0
 var velocity := Vector3()
 var yaw := 0.0
 var pitch := 0.0
+var _transition_start_basis := Basis.IDENTITY
 
 # Métodos de acceso para export (opcional, para Inspector)
 func set_mouse_sensitivity(v):
@@ -64,6 +65,11 @@ func get_full_snapshot() -> Dictionary:
 			"jump_buffer_timer": jump_logic.jump_buffer_timer,
 			"is_jumping": jump_logic._is_jumping
 		}
+	
+	# Save Basis as Quat for compact storage
+	var q = _transition_start_basis.get_rotation_quat()
+	snapshot["ts_basis"] = [q.x, q.y, q.z, q.w]
+	
 	return snapshot
 
 func restore_snapshot(data: Dictionary) -> void:
@@ -97,6 +103,13 @@ func restore_snapshot(data: Dictionary) -> void:
 			jump_logic.coyote_timer = jump_state.get("coyote_timer", 0.0)
 			jump_logic.jump_buffer_timer = jump_state.get("jump_buffer_timer", 0.0)
 			jump_logic._is_jumping = jump_state.get("is_jumping", false)
+	
+	if data.has("ts_basis"):
+		var q_arr = data["ts_basis"]
+		var q = Quat(q_arr[0], q_arr[1], q_arr[2], q_arr[3])
+		_transition_start_basis = Basis(q)
+	else:
+		_transition_start_basis = Basis.IDENTITY
 	
 	# APLICACIÓN: Unificamos la lógica de rotación con la de step() para garantizar determinismo.
 	if camera_rig:
@@ -221,12 +234,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	var alpha = sidescroll_logic.transition_alpha
 	var in_transition = alpha > 0.0 and alpha < 1.0
 	
-	if in_transition:
-		input.move_vec = Vector2.ZERO
-		input.mouse_delta = Vector2.ZERO
-		input.jump = false
-		input.sprint = false
-		input.zoom_delta = 0.0
+	# Removed input lockout during transition to preserve momentum and intent
 
 	# velocity.y and rotation state
 	if is_on_floor() and velocity.y < 0:
@@ -280,7 +288,11 @@ func step(dt: float, input: InputDataV2) -> void:
 	var basis = get_camera_basis()
 	var move_vec = input.move_vec
 	
-	if sidescroll_logic.is_active:
+	if in_transition:
+		# Use the frozen basis from start of transition to maintain input direction intent
+		basis = _transition_start_basis
+	
+	if sidescroll_logic.is_active and not in_transition:
 		basis = sidescroll_logic.get_target_basis()
 		move_vec = sidescroll_logic.get_constrained_input(move_vec)
 		# En modo 2.5D, move_vec.x es el movimiento lateral (A/D) y move_vec.y es la profundidad (W/S).
@@ -294,7 +306,8 @@ func step(dt: float, input: InputDataV2) -> void:
 	movement_logic.process_movement(dt, move_vec, basis, input.sprint, is_on_floor())
 	
 	# Override visual direction in 2.5D based on camera facing state
-	if sidescroll_logic.is_active:
+	# Only apply this strictly when fully in 2.5D mode
+	if sidescroll_logic.is_active and not in_transition:
 		movement_logic.wish_direction = basis.x * sidescroll_logic.facing_sign
 
 	var h_vel = movement_logic.get_horizontal_velocity()
@@ -389,6 +402,7 @@ func get_wish_direction() -> Vector3:
 # --- 2.5D API ---
 
 func enter_25d_mode(axis: int, value: float, invert: bool = false):
+	_transition_start_basis = get_camera_basis()
 	sidescroll_logic.enter_mode(axis, value, invert)
 
 func exit_25d_mode():
@@ -400,6 +414,10 @@ func exit_25d_mode():
 		yaw = euler.y
 		pitch = euler.x
 	
+		yaw = euler.y
+		pitch = euler.x
+	
+	_transition_start_basis = get_camera_basis()
 	sidescroll_logic.exit_mode()
 
 func _step_camera_logic(_dt: float):
