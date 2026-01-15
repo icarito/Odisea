@@ -1,6 +1,23 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=6 format=2]
 
-[ext_resource path="res://materials/guardrail/GuardrailTranslucent.tres" type="Material" id=1]
+[ext_resource path="res://RefractionShader.shader" type="Shader" id=1]
+
+[sub_resource type="OpenSimplexNoise" id=3]
+
+[sub_resource type="NoiseTexture" id=4]
+seamless = true
+as_normalmap = true
+noise = SubResource( 3 )
+
+[sub_resource type="ShaderMaterial" id=2]
+shader = ExtResource( 1 )
+shader_param/tint = Color( 1, 1, 1, 0.505882 )
+shader_param/specular = 0.9
+shader_param/roughness = 0.4
+shader_param/metallic = 0.5
+shader_param/strength = 1.0
+shader_param/use_normal_map = true
+shader_param/normalmap = SubResource( 4 )
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 2, 0.9, 0.2 )
@@ -9,11 +26,11 @@ extents = Vector3( 2, 0.9, 0.2 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
 
 [node name="Mesh" type="CSGBox" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1.01218, 0, 0.545912, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0 )
 width = 4.0
-height = 1.1
+height = 1.5
 depth = 0.05
-material = ExtResource( 1 )
+material = SubResource( 2 )
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.887523, -0.155551 )
