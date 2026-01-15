@@ -136,7 +136,7 @@ depth = 17.0
 material = ExtResource( 4 )
 
 [node name="Door2" type="CSGBox" parent="Room1/CSGCombiner"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -17.9329, -3.99261, -0.113998 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -17.933, -4, -0.114 )
 width = 12.674
 height = 5.91477
 depth = 4.14174
@@ -210,7 +210,6 @@ transform = Transform( -7.61393e-08, 0, -0.26128, 0, 0.553442, 0, 2, 0, -1.31134
 
 [node name="TerraceSpiral" parent="." instance=ExtResource( 9 )]
 transform = Transform( 0.986025, 0, 0.166597, 0, 1, 0, -0.166597, 0, 0.986025, -237.353, 37.8111, 76.7493 )
-visible = false
 multimesh = SubResource( 5 )
 
 [node name="GuardrailSegment" parent="." instance=ExtResource( 21 )]
