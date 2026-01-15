@@ -1,10 +1,9 @@
-[gd_scene load_steps=13 format=2]
+[gd_scene load_steps=12 format=2]
 
 [ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=1]
 [ext_resource path="res://assets/Prototype Textures/blue 2.png" type="Texture" id=2]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=3]
 [ext_resource path="res://core_v2/things/MovingPlatformV2.tscn" type="PackedScene" id=4]
-[ext_resource path="res://core_v2/things/Conveyor.tscn" type="PackedScene" id=5]
 [ext_resource path="res://core_v2/things/SideScrollZone.tscn" type="PackedScene" id=6]
 [ext_resource path="res://assets/Prototype Textures/Green 3.png" type="Texture" id=7]
 [ext_resource path="res://assets/Prototype Textures/purple 2.png" type="Texture" id=8]
@@ -48,20 +47,6 @@ width = 20.0
 height = 0.2
 depth = 58.0
 material = SubResource( 2 )
-
-[node name="Conveyor" parent="Conveyors" instance=ExtResource( 5 )]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 2, 1.57839, -5.61312 )
-require_on_floor = true
-
-[node name="Conveyor2" parent="Conveyors" instance=ExtResource( 5 )]
-transform = Transform( -0.0269794, 0, 0.999636, 0, 1, 0, -0.999636, 0, -0.0269794, -2.57698, 2.2899, -0.307068 )
-push_velocity = Vector3( 2, 0, 0 )
-require_on_floor = true
-
-[node name="Conveyor3" parent="Conveyors" instance=ExtResource( 5 )]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -5.89307, 0.43415, 7.28599 )
-push_velocity = Vector3( 3, 0, 0 )
-require_on_floor = true
 
 [node name="Divider" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 31.5157, 0.4, 0 )

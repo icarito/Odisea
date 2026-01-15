@@ -157,19 +157,19 @@ length = 10.0
 width = 3.0
 
 [node name="PushableBoxV2" parent="Room1/Conveyor" instance=ExtResource( 7 )]
-transform = Transform( -1, 0, 1.50996e-07, 0, 1, 0, -1.50996e-07, 0, -1, -0.545812, 1.36253, 0.0821266 )
+transform = Transform( -1, 0, 1.50996e-07, 0, 1, 0, -1.50996e-07, 0, -1, -0.54581, 1.36253, 0.0821304 )
 mass = 0.1
 
 [node name="PushableBoxV4" parent="Room1/Conveyor" instance=ExtResource( 7 )]
-transform = Transform( -1, 0, 1.50996e-07, 0, 1, 0, -1.50996e-07, 0, -1, 1.90069, 1.36253, 0.0821266 )
+transform = Transform( -1, 0, 1.50996e-07, 0, 1, 0, -1.50996e-07, 0, -1, 1.90069, 1.36253, 0.0821304 )
 mass = 0.1
 
 [node name="PushableBoxV3" parent="Room1/Conveyor" instance=ExtResource( 7 )]
-transform = Transform( -1, 0, 1.50996e-07, 0, 1, 0, -1.50996e-07, 0, -1, -2.98841, 1.36253, 0.0821266 )
+transform = Transform( -1, 0, 1.50996e-07, 0, 1, 0, -1.50996e-07, 0, -1, -2.98841, 1.36253, 0.0821304 )
 mass = 0.1
 
 [node name="PushableBoxV5" parent="Room1/Conveyor" instance=ExtResource( 7 )]
-transform = Transform( -1, 0, 1.50996e-07, 0, 1, 0, -1.50996e-07, 0, -1, 3.45119, 3.60483, 0.0780258 )
+transform = Transform( -1, 0, 1.50996e-07, 0, 1, 0, -1.50996e-07, 0, -1, 3.45119, 3.60483, 0.0780296 )
 mass = 0.1
 
 [node name="BoxHole" type="CSGBox" parent="Room1/Conveyor"]
@@ -194,16 +194,20 @@ text = "Maintenance 07"
 font = ExtResource( 6 )
 
 [node name="SideScrollZone" parent="." instance=ExtResource( 5 )]
-transform = Transform( 2, 0, 0, 0, 0.553442, 0, 0, 0, 0.265471, 34.3768, 0, 0.293436 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 34.3768, 0, 0.293436 )
 lock_axis = 1
+length = 5.0
+width = 40.0
+height = 20.0
+show_debug_mesh = false
 
 [node name="Conveyor2" parent="SideScrollZone" instance=ExtResource( 8 )]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1.13007, 0, -4.93968e-08, 0.0480995, 1.80687, -5.49188 )
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0.0480995, 1.80687, -5.49188 )
 speed_x = -5.0
 stripe_light_color = Color( 0.588235, 0.588235, 0.239216, 1 )
 stripe_emission = 2.0
 stripe_tiling = 1.0
-length = 80.0
+length = 40.0
 
 [node name="SideScrollZone2" parent="." instance=ExtResource( 5 )]
 transform = Transform( -7.61393e-08, 0, -0.26128, 0, 0.553442, 0, 2, 0, -1.31134e-08, 0.701706, 0, -33.9136 )
