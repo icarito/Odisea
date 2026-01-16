@@ -1,4 +1,4 @@
-[gd_scene load_steps=27 format=2]
+[gd_scene load_steps=28 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -22,6 +22,7 @@
 [ext_resource path="res://assets/kenney_prototype_textures/dark/texture_08.png" type="Texture" id=20]
 [ext_resource path="res://scenes/common/GuardrailSegment.tscn" type="PackedScene" id=21]
 [ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=22]
+[ext_resource path="res://addons/MultiMeshBatcher/Batcher_Node.gd" type="Script" id=23]
 
 [sub_resource type="SpatialMaterial" id=3]
 albedo_texture = ExtResource( 19 )
@@ -117,6 +118,13 @@ smooth_faces = false
 material = ExtResource( 4 )
 script = ExtResource( 14 )
 
+[node name="MeshBatcher" type="MultiMeshInstance" parent="Room1/MeshBuilder"]
+script = ExtResource( 23 )
+
+[node name="CrioPod" parent="Room1/MeshBuilder/MeshBatcher" instance=ExtResource( 10 )]
+transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0 )
+skeleton = NodePath("../../Pilot")
+
 [node name="CSGCombiner" type="CSGCombiner" parent="Room1"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.90735e-06, -4.76837e-07, 0 )
 operation = 2
@@ -206,7 +214,6 @@ transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0.04809
 speed_x = -5.0
 stripe_light_color = Color( 0.588235, 0.588235, 0.239216, 1 )
 stripe_emission = 2.0
-stripe_tiling = 1.0
 length = 40.0
 
 [node name="SideScrollZone2" parent="." instance=ExtResource( 5 )]
@@ -227,8 +234,15 @@ transform = Transform( -8.74228e-07, 0, 1, 0, 1, 0, -20, 0, -4.37114e-08, 40, 1,
 transform = Transform( 2.38498e-07, 0, -1, 0, 1, 0, 20, 0, 1.19249e-08, -40, 1, 0 )
 
 [node name="CornerFloor" type="CSGBox" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 30.4736, 1.83056, -29.847 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 29.7736, 1.83056, -29.847 )
 width = 20.0
-height = 1.6
+height = 1.0
 depth = 20.0
+material = ExtResource( 22 )
+
+[node name="CornerFloor2" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 34.234, 1.83056, 16.3679 )
+width = 11.0
+height = 1.2
+depth = 16.0
 material = ExtResource( 22 )
