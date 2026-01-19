@@ -20,6 +20,7 @@ export(float) var snap_length := 0.5
 export(float) var push_force := 1.0 # Fuerza base del jugador para empujar rígidos
 export(float) var min_pitch := -85.0
 export(float) var max_pitch := 85.0
+export(float) var interact_distance := 3.0
 
 # 2.5D Mode State (Delegated to Component)
 var sidescroll_logic: Node # SideScrollLogicV2
@@ -51,6 +52,12 @@ func get_mouse_sensitivity(): return mouse_sensitivity
 # --- SEÑALES ---
 signal jumped
 signal hit_ceiling
+signal interactable_in_range(text)
+signal interactable_out_of_range
+
+# --- INTERACTION ---
+var _interact_ray: RayCast = null
+var _current_interactable: Node = null
 
 ## --- SNAPSHOT SERIALIZACIÓN ---
 func get_full_snapshot() -> Dictionary:
@@ -191,6 +198,9 @@ func _ready():
 	
 	if camera_rig:
 		base_rig_y = camera_rig.transform.origin.y
+	
+	# Setup interaction area attached to visual
+	_setup_interact_area()
 
 const DEFAULT_BASIS = Basis.IDENTITY
 
@@ -215,6 +225,80 @@ func _find_spring_arm(node: Node) -> SpringArm:
 func get_camera_basis() -> Basis:
 	return camera_rig.transform.basis if camera_rig else DEFAULT_BASIS
 
+var _interact_area: Area = null
+
+func _setup_interact_area():
+	"""Find or create the interaction area attached to the visual model."""
+	if _interact_area:
+		return
+	
+	# Try to find existing area in animator (Visual/Pivot)
+	if animator and animator.has_node("InteractArea"):
+		_interact_area = animator.get_node("InteractArea")
+		return
+		
+	# Fallback: Create procedurally if not found (for robustness)
+	_interact_area = Area.new()
+	_interact_area.name = "InteractArea"
+	_interact_area.monitorable = false
+	_interact_area.monitoring = true
+	_interact_area.collision_mask = 1 # Match interactable layer
+	
+	var shape = CollisionShape.new()
+	var box = BoxShape.new()
+	# Box suitable for "in front of pilot"
+	# extend Z by interact_distance/2, and offset center by interact_distance/2
+	box.extents = Vector3(0.5, 1.0, interact_distance / 2.0)
+	shape.shape = box
+	# Offset forward (assuming -Z is forward for the model)
+	shape.transform.origin = Vector3(0, 1.0, -interact_distance / 2.0)
+	
+	_interact_area.add_child(shape)
+	
+	# Attach to animator (Visual/Pivot) so it rotates with the character
+	if animator:
+		animator.add_child(_interact_area)
+	else:
+		add_child(_interact_area)
+
+func _process_interaction(input: InputDataV2):
+	"""Check for interactables in range using Area and handle interaction input."""
+	if not _interact_area:
+		return
+	
+	var bodies = _interact_area.get_overlapping_bodies()
+	var best_target = null
+	var min_dist = 999.0
+	
+	for body in bodies:
+		if is_instance_valid(body) and body.is_in_group("interactable"):
+			var dist = global_transform.origin.distance_squared_to(body.global_transform.origin)
+			if dist < min_dist:
+				min_dist = dist
+				best_target = body
+				
+	if best_target:
+		# New interactable in range
+		if _current_interactable != best_target:
+			_current_interactable = best_target
+			print("Interactable in range (Area): ", best_target.name)
+			var text = best_target.interaction_text if best_target.get("interaction_text") else "Interact"
+			emit_signal("interactable_in_range", text)
+		
+		# Handle interaction
+		if input.interact:
+			print("Interact pressed on ", best_target.name)
+			if best_target.has_method("interact"):
+				best_target.interact()
+	else:
+		_clear_interactable()
+
+func _clear_interactable():
+	"""Clear current interactable and emit signal."""
+	if _current_interactable != null:
+		_current_interactable = null
+		emit_signal("interactable_out_of_range")
+
 func _input(event):
 	# La única responsabilidad en _input es acumular el delta del mouse
 	# para que el InputProvider lo consuma en el frame de física.
@@ -235,6 +319,9 @@ func step(dt: float, input: InputDataV2) -> void:
 	sidescroll_logic.step(dt) # Actualizar alpha al inicio para gating
 	var alpha = sidescroll_logic.transition_alpha
 	var in_transition = alpha > 0.0 and alpha < 1.0
+	
+	# 0.5. Interaction System
+	_process_interaction(input)
 	
 	# Removed input lockout during transition to preserve momentum and intent
 
