@@ -6,6 +6,7 @@ class_name InputDataV2
 var move_vec := Vector2() # rango -1..1
 var jump := false
 var sprint := false
+var interact := false
 var mouse_delta := Vector2()
 var zoom_delta := 0.0
 
@@ -16,7 +17,8 @@ func to_dict() -> Dictionary:
 		"mouse_delta": [mouse_delta.x, mouse_delta.y],
 		"zoom_delta": zoom_delta,
 		"jump": jump,
-		"sprint": sprint
+		"sprint": sprint,
+		"interact": interact
 	}
 
 # Deserialización desde Dictionary
@@ -31,3 +33,5 @@ func from_dict(d: Dictionary) -> void:
 		jump = d["jump"]
 	if d.has("sprint"):
 		sprint = d["sprint"]
+	if d.has("interact"):
+		interact = d["interact"]

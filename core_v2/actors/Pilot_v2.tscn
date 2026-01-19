@@ -8,7 +8,6 @@
 [ext_resource path="res://core_v2/sim/PlayerMovementV2.gd" type="Script" id=6]
 [ext_resource path="res://core_v2/actors/AnimationTree.tres" type="AnimationNodeStateMachine" id=7]
 [ext_resource path="res://core_v2/sim/SideScrollLogicV2.gd" type="Script" id=8]
-[ext_resource path="res://scenes/common/space_environment/Environment_InteriorLab.tres" type="Environment" id=9]
 [ext_resource path="res://data/curves/Inverse_S.tres" type="Curve" id=10]
 [ext_resource path="res://data/curves/Exponential.tres" type="Curve" id=11]
 [ext_resource path="res://materials/shadow/FakeShadow.tres" type="Material" id=52]
@@ -20,6 +19,9 @@ albedo_color = Color( 0, 0, 0, 1 )
 material = SubResource( 101 )
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=108]
+
+[sub_resource type="BoxShape" id=120]
+extents = Vector3( 0.5, 1.5, 1.5 )
 
 [sub_resource type="CapsuleShape" id=48]
 radius = 0.5
@@ -46,7 +48,7 @@ size = Vector2( 0.1, 0.1 )
 collision_layer = 3
 collision_mask = 254
 script = ExtResource( 2 )
-max_pitch = 30.0
+max_pitch = 60.0
 
 [node name="Logic" type="Node" parent="."]
 
@@ -114,6 +116,14 @@ parameters/Grounded/blend_position = 1.99571
 parameters/InAir/Transition/current = 1
 parameters/Jump/Transition/current = 0
 
+[node name="InteractArea" type="Area" parent="Visual/Pivot"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.50326 )
+monitorable = false
+
+[node name="CollisionShape" type="CollisionShape" parent="Visual/Pivot/InteractArea"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -1.5 )
+shape = SubResource( 120 )
+
 [node name="OmniLight" type="OmniLight" parent="Visual"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )
 light_energy = 0.342
@@ -141,7 +151,6 @@ spring_length = 7.0
 
 [node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]
 transform = Transform( 1, -3.90799e-14, 8.52651e-14, 0, 1, 1.49012e-08, -1.42109e-14, -1.49012e-08, 1, 0, 0, 0 )
-environment = ExtResource( 9 )
 current = true
 fov = 75.0
 far = 10000.0

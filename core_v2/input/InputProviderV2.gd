@@ -66,6 +66,7 @@ func _read_live_input() -> InputDataV2:
 
 	d.jump = Input.is_action_pressed("jump")
 	d.sprint = Input.is_action_pressed("run")
+	d.interact = Input.is_action_just_pressed("interact")
 	
 	# --- JOYSTICK SPRINT (Left Stick) ---
 	# Auto-sprint si el stick se empuja casi a fondo (> 0.8).
