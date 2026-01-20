@@ -16,7 +16,7 @@ var map_file := "" setget set_map_file
 var inverse_scale_factor := 16.0
 var entity_fgd := preload("res://addons/qodot/game_definitions/fgd/qodot_fgd.tres")
 var base_texture_dir := "res://textures"
-var texture_file_extensions := PoolStringArray(["png"])
+var texture_file_extensions := PoolStringArray(["bmp", "exr", "hdr", "jpeg", "jpg", "png", "tga", "webp"])
 
 var worldspawn_layers := [] setget set_worldspawn_layers
 
@@ -24,10 +24,12 @@ var brush_clip_texture := "special/clip"
 var face_skip_texture := "special/skip"
 var texture_wads := [] setget set_texture_wads
 var material_file_extension := "tres"
-var default_material := SpatialMaterial.new()
+var default_material_albedo_uniform := ""
+var default_material : Material = SpatialMaterial.new()
 var uv_unwrap_texel_size := 1.0
 var print_profiling_data := false
 var use_trenchbroom_group_hierarchy := false
+var block_until_complete := false
 var tree_attach_batch_size := 16
 var set_owner_batch_size := 16
 
@@ -105,7 +107,8 @@ func _get_property_list() -> Array:
 		QodotUtil.property_dict('texture_wads', TYPE_ARRAY, -1),
 		QodotUtil.category_dict('Materials'),
 		QodotUtil.property_dict('material_file_extension', TYPE_STRING),
-		QodotUtil.property_dict('default_material', TYPE_OBJECT, PROPERTY_HINT_RESOURCE_TYPE, 'SpatialMaterial'),
+		QodotUtil.property_dict('default_material_albedo_uniform', TYPE_STRING),
+		QodotUtil.property_dict('default_material', TYPE_OBJECT, PROPERTY_HINT_RESOURCE_TYPE, 'Material'),
 		QodotUtil.category_dict('UV Unwrap'),
 		QodotUtil.property_dict('uv_unwrap_texel_size', TYPE_REAL),
 		QodotUtil.category_dict('Build'),
@@ -249,7 +252,9 @@ func run_build_steps(post_attach := false) -> void:
 		emit_signal("build_progress", build_step[0], float(build_step_index + 1) / float(build_step_count))
 		build_step_index += 1
 
-		yield(get_tree().create_timer(YIELD_DURATION), YIELD_SIGNAL)
+		var scene_tree := get_tree()
+		if scene_tree and not block_until_complete:
+			yield(scene_tree.create_timer(YIELD_DURATION), YIELD_SIGNAL)
 
 	if post_attach:
 		build_complete()
@@ -348,7 +353,7 @@ func load_textures() -> Dictionary:
 	return texture_loader.load_textures(texture_list) as Dictionary
 
 func build_materials() -> Dictionary:
-	return texture_loader.create_materials(texture_list, material_file_extension, default_material)
+	return texture_loader.create_materials(texture_list, material_file_extension, default_material, default_material_albedo_uniform)
 
 func fetch_entity_definitions() -> Dictionary:
 	return entity_fgd.get_entity_definitions()
@@ -949,7 +954,10 @@ func add_children() -> void:
 			else:
 				add_children_complete()
 				return
-		yield(get_tree().create_timer(YIELD_DURATION), YIELD_SIGNAL)
+
+		var scene_tree := get_tree()
+		if scene_tree and not block_until_complete:
+			yield(scene_tree.create_timer(YIELD_DURATION), YIELD_SIGNAL)
 
 func add_children_complete():
 	stop_profile('add_children')
@@ -969,7 +977,10 @@ func set_owners():
 			else:
 				set_owners_complete()
 				return
-		yield(get_tree().create_timer(YIELD_DURATION), YIELD_SIGNAL)
+
+		var scene_tree := get_tree()
+		if scene_tree and not block_until_complete:
+			yield(scene_tree.create_timer(YIELD_DURATION), YIELD_SIGNAL)
 
 func set_owners_complete():
 	stop_profile('set_owners')
@@ -1018,6 +1029,11 @@ func apply_properties() -> void:
 							properties[property] = prop_string.to_int()
 						elif prop_default is Array:
 							properties[property] = prop_string.to_int()
+
+				# Assign properties not defined with defaults from the entity definition
+				for property in entity_definitions[classname].class_properties:
+					if not property in properties:
+						properties[property] = entity_definition.class_properties[property]
 
 		if 'properties' in entity_node:
 			entity_node.properties = properties
