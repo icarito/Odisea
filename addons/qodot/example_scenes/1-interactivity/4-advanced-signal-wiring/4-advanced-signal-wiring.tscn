@@ -216,6 +216,7 @@ brush_clip_texture = "special/clip"
 face_skip_texture = "special/skip"
 texture_wads = [  ]
 material_file_extension = "tres"
+default_material_albedo_uniform = ""
 default_material = SubResource( 51 )
 uv_unwrap_texel_size = 1.0
 print_profiling_data = false
@@ -228,8 +229,6 @@ set_owner_batch_size = 16
 [node name="entity_0_mesh_instance" type="MeshInstance" parent="QodotMap/entity_0_worldspawn"]
 use_in_baked_light = true
 mesh = SubResource( 54 )
-material/0 = null
-material/1 = null
 
 [node name="entity_0_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_0_worldspawn"]
 shape = SubResource( 55 )
@@ -300,7 +299,6 @@ properties = {
 
 [node name="entity_2_mesh_instance" type="MeshInstance" parent="QodotMap/entity_2_button"]
 mesh = SubResource( 72 )
-material/0 = null
 
 [node name="entity_2_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_2_button"]
 shape = SubResource( 73 )
@@ -317,7 +315,6 @@ properties = {
 
 [node name="entity_3_mesh_instance" type="MeshInstance" parent="QodotMap/entity_3_mover"]
 mesh = SubResource( 74 )
-material/0 = null
 
 [node name="entity_3_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_3_mover"]
 shape = SubResource( 75 )
@@ -332,7 +329,6 @@ properties = {
 
 [node name="entity_7_mesh_instance" type="MeshInstance" parent="QodotMap/entity_7_button"]
 mesh = SubResource( 76 )
-material/0 = null
 
 [node name="entity_7_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_7_button"]
 shape = SubResource( 77 )

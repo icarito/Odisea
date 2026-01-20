@@ -800,12 +800,13 @@ map_file = "P:/Personal/Godot/Qodot/qodot-example/addons/qodot/example_scenes/2-
 inverse_scale_factor = 16.0
 entity_fgd = ExtResource( 2 )
 base_texture_dir = "res://addons/qodot/textures"
-texture_file_extension = "png"
+texture_file_extensions = PoolStringArray( "bmp", "exr", "hdr", "jpeg", "jpg", "png", "tga", "webp" )
 worldspawn_layers = [  ]
 brush_clip_texture = "special/clip"
 face_skip_texture = "special/skip"
 texture_wads = [  ]
 material_file_extension = "tres"
+default_material_albedo_uniform = ""
 default_material = SubResource( 4 )
 uv_unwrap_texel_size = 1.0
 print_profiling_data = false
@@ -818,9 +819,6 @@ set_owner_batch_size = 16
 [node name="entity_0_mesh_instance" type="MeshInstance" parent="QodotMap/entity_0_worldspawn"]
 use_in_baked_light = true
 mesh = SubResource( 6 )
-material/0 = null
-material/1 = null
-material/2 = null
 
 [node name="entity_0_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_0_worldspawn"]
 shape = SubResource( 7 )
@@ -848,8 +846,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.54198e-17, 0.270832, 0.65393
 
 [node name="entity_2_mesh_instance" type="MeshInstance" parent="QodotMap/entity_3_rotate/entity_2_func_group"]
 mesh = SubResource( 11 )
-material/0 = null
-material/1 = null
 
 [node name="entity_2_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_3_rotate/entity_2_func_group"]
 shape = SubResource( 12 )
@@ -949,8 +945,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.54198e-17, 0.326389, 0.97800
 
 [node name="entity_4_mesh_instance" type="MeshInstance" parent="QodotMap/entity_5_rotate/entity_4_func_group"]
 mesh = SubResource( 40 )
-material/0 = null
-material/1 = null
 
 [node name="entity_4_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_5_rotate/entity_4_func_group"]
 shape = SubResource( 41 )
@@ -1059,8 +1053,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9.57543e-08, 0.270832, 0.32754
 
 [node name="entity_8_mesh_instance" type="MeshInstance" parent="QodotMap/entity_7_rotate/entity_9_rotate/entity_8_func_group"]
 mesh = SubResource( 69 )
-material/0 = null
-material/1 = null
 
 [node name="entity_8_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_7_rotate/entity_9_rotate/entity_8_func_group"]
 shape = SubResource( 70 )
@@ -1151,8 +1143,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.54198e-17, 0.381945, 1.48727
 
 [node name="entity_6_mesh_instance" type="MeshInstance" parent="QodotMap/entity_7_rotate/entity_6_func_group"]
 mesh = SubResource( 98 )
-material/0 = null
-material/1 = null
 
 [node name="entity_6_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_7_rotate/entity_6_func_group"]
 shape = SubResource( 99 )
@@ -1261,8 +1251,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9.57543e-08, 0.270832, 0.65161
 
 [node name="entity_11_mesh_instance" type="MeshInstance" parent="QodotMap/entity_13_rotate/entity_12_rotate/entity_11_func_group"]
 mesh = SubResource( 127 )
-material/0 = null
-material/1 = null
 
 [node name="entity_11_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_13_rotate/entity_12_rotate/entity_11_func_group"]
 shape = SubResource( 128 )
@@ -1353,8 +1341,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.54198e-17, 0.4375, 2.69097 )
 
 [node name="entity_10_mesh_instance" type="MeshInstance" parent="QodotMap/entity_13_rotate/entity_10_func_group"]
 mesh = SubResource( 156 )
-material/0 = null
-material/1 = null
 
 [node name="entity_10_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_13_rotate/entity_10_func_group"]
 shape = SubResource( 157 )
