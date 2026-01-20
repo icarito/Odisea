@@ -258,6 +258,7 @@ brush_clip_texture = "special/clip"
 face_skip_texture = "special/skip"
 texture_wads = [  ]
 material_file_extension = "tres"
+default_material_albedo_uniform = ""
 default_material = SubResource( 3 )
 uv_unwrap_texel_size = 1.0
 print_profiling_data = false
@@ -270,8 +271,6 @@ set_owner_batch_size = 16
 [node name="entity_0_mesh_instance" type="MeshInstance" parent="QodotMap/entity_0_worldspawn"]
 use_in_baked_light = true
 mesh = SubResource( 6 )
-material/0 = null
-material/1 = null
 
 [node name="entity_0_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_0_worldspawn"]
 shape = SubResource( 7 )
@@ -311,7 +310,6 @@ properties = {
 
 [node name="entity_2_mesh_instance" type="MeshInstance" parent="QodotMap/entity_2_physics"]
 mesh = SubResource( 16 )
-material/0 = null
 
 [node name="entity_2_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_2_physics"]
 shape = SubResource( 17 )
@@ -327,7 +325,6 @@ properties = {
 
 [node name="entity_3_mesh_instance" type="MeshInstance" parent="QodotMap/entity_3_physics"]
 mesh = SubResource( 18 )
-material/0 = null
 
 [node name="entity_3_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_3_physics"]
 shape = SubResource( 19 )
@@ -343,7 +340,6 @@ properties = {
 
 [node name="entity_4_mesh_instance" type="MeshInstance" parent="QodotMap/entity_4_physics"]
 mesh = SubResource( 20 )
-material/0 = null
 
 [node name="entity_4_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_4_physics"]
 shape = SubResource( 21 )
@@ -359,7 +355,6 @@ properties = {
 
 [node name="entity_5_mesh_instance" type="MeshInstance" parent="QodotMap/entity_5_physics"]
 mesh = SubResource( 22 )
-material/0 = null
 
 [node name="entity_5_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_5_physics"]
 shape = SubResource( 23 )
@@ -375,7 +370,6 @@ properties = {
 
 [node name="entity_6_mesh_instance" type="MeshInstance" parent="QodotMap/entity_6_physics"]
 mesh = SubResource( 24 )
-material/0 = null
 
 [node name="entity_6_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_6_physics"]
 shape = SubResource( 25 )
@@ -391,7 +385,6 @@ properties = {
 
 [node name="entity_7_mesh_instance" type="MeshInstance" parent="QodotMap/entity_7_physics"]
 mesh = SubResource( 26 )
-material/0 = null
 
 [node name="entity_7_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_7_physics"]
 shape = SubResource( 27 )
@@ -407,7 +400,6 @@ properties = {
 
 [node name="entity_8_mesh_instance" type="MeshInstance" parent="QodotMap/entity_8_physics"]
 mesh = SubResource( 28 )
-material/0 = null
 
 [node name="entity_8_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_8_physics"]
 shape = SubResource( 29 )
@@ -423,7 +415,6 @@ properties = {
 
 [node name="entity_10_mesh_instance" type="MeshInstance" parent="QodotMap/entity_10_physics"]
 mesh = SubResource( 31 )
-material/0 = null
 
 [node name="entity_10_brush_0_collision_shape" type="CollisionShape" parent="QodotMap/entity_10_physics"]
 shape = SubResource( 32 )

@@ -19,7 +19,7 @@ shader_param/tiling = 4.0
 shader_param/speed = 0.5
 shader_param/dir = Vector2( 0, 1 )
 shader_param/fill = 0.5
-shader_param/emission = 0.5
+shader_param/emission = 0.04
 
 [sub_resource type="ArrayMesh" id=4]
 surfaces/0 = {
@@ -40,7 +40,6 @@ collision_layer = 9
 script = ExtResource( 1 )
 speed_x = 1.0
 stripe_light_color = Color( 0.760784, 0.760784, 0.156863, 1 )
-stripe_emission = 0.5
 stripe_fill = 0.5
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
