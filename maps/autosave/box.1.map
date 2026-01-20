@@ -1,0 +1,53 @@
+// Game: Odisea
+// Format: Valve
+// entity 0
+{
+"mapversion" "220"
+"_tb_textures" "textures/kenney_prototype_textures/dark;textures/kenney_prototype_textures/green;textures/kenney_prototype_textures/light;textures/kenney_prototype_textures/orange;textures/kenney_prototype_textures/purple;textures/kenney_prototype_textures/red"
+"classname" "worldspawn"
+// brush 0
+{
+( 48 88 96 ) ( 48 -72 96 ) ( 48 88 -16 ) kenney_prototype_textures/dark/texture_10 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 56 -72 -16 ) ( 48 -72 -16 ) ( 56 -72 96 ) kenney_prototype_textures/dark/texture_10 [ 1 0 -0 0 ] [ 0 -0 -1 0 ] 0 0.1 0.1
+( 56 88 -16 ) ( 48 88 -16 ) ( 56 -72 -16 ) kenney_prototype_textures/dark/texture_10 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.1 0.1
+( 56 -72 96 ) ( 48 -72 96 ) ( 56 88 96 ) kenney_prototype_textures/dark/texture_10 [ 1 0 -0 0 ] [ 0 -1 -0 0 ] 0 0.1 0.1
+( 56 88 96 ) ( 48 88 96 ) ( 56 88 -16 ) kenney_prototype_textures/dark/texture_10 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 56 -72 96 ) ( 56 88 96 ) ( 56 -72 -16 ) kenney_prototype_textures/dark/texture_10 [ 0 1 -0 0 ] [ 0 -0 -1 0 ] 0 0.1 0.1
+}
+// brush 1
+{
+( -64 88 96 ) ( -64 80 96 ) ( -64 88 -16 ) kenney_prototype_textures/dark/texture_10 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 48 80 96 ) ( 48 80 -16 ) ( -64 80 96 ) kenney_prototype_textures/dark/texture_10 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( -64 88 -16 ) ( -64 80 -16 ) ( 48 88 -16 ) kenney_prototype_textures/dark/texture_10 [ -1 0 0 0 ] [ -0 -1 -0 0 ] 0 0.1 0.1
+( 48 88 96 ) ( 48 80 96 ) ( -64 88 96 ) kenney_prototype_textures/dark/texture_10 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.1 0.1
+( 48 88 96 ) ( -64 88 96 ) ( 48 88 -16 ) kenney_prototype_textures/dark/texture_10 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 48 88 -16 ) ( 48 80 -16 ) ( 48 88 96 ) kenney_prototype_textures/dark/texture_10 [ -0 1 0 0 ] [ -0 0 -1 0 ] 0 0.1 0.1
+}
+// brush 2
+{
+( -64 -72 -16 ) ( -64 -64 -16 ) ( -64 -72 96 ) kenney_prototype_textures/dark/texture_10 [ 0 -1 0 0 ] [ -0 -0 -1 0 ] 0 0.1 0.1
+( 48 -72 -16 ) ( -64 -72 -16 ) ( 48 -72 96 ) kenney_prototype_textures/dark/texture_10 [ 1 0 -0 0 ] [ 0 -0 -1 0 ] 0 0.1 0.1
+( 48 -72 -16 ) ( 48 -64 -16 ) ( -64 -72 -16 ) kenney_prototype_textures/dark/texture_10 [ -1 0 0 0 ] [ -0 -1 -0 0 ] 0 0.1 0.1
+( -64 -72 96 ) ( -64 -64 96 ) ( 48 -72 96 ) kenney_prototype_textures/dark/texture_10 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.1 0.1
+( -64 -64 -16 ) ( 48 -64 -16 ) ( -64 -64 96 ) kenney_prototype_textures/dark/texture_10 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 48 -72 96 ) ( 48 -64 96 ) ( 48 -72 -16 ) kenney_prototype_textures/dark/texture_10 [ 0 1 -0 0 ] [ 0 -0 -1 0 ] 0 0.1 0.1
+}
+// brush 3
+{
+( -64 -64 96 ) ( -64 -64 88 ) ( -64 80 96 ) kenney_prototype_textures/dark/texture_10 [ 0 -1 0 0 ] [ -0 -0 -1 0 ] 0 0.1 0.1
+( 48 -64 96 ) ( 48 -64 88 ) ( -64 -64 96 ) kenney_prototype_textures/dark/texture_10 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 48 80 88 ) ( -64 80 88 ) ( 48 -64 88 ) kenney_prototype_textures/dark/texture_10 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.1 0.1
+( 48 80 96 ) ( 48 -64 96 ) ( -64 80 96 ) kenney_prototype_textures/dark/texture_10 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.1 0.1
+( -64 80 96 ) ( -64 80 88 ) ( 48 80 96 ) kenney_prototype_textures/dark/texture_10 [ -1 -0 0 0 ] [ -0 0 -1 0 ] 0 0.1 0.1
+( 48 80 96 ) ( 48 80 88 ) ( 48 -64 96 ) kenney_prototype_textures/dark/texture_10 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+}
+// brush 4
+{
+( -64 80 -16 ) ( -64 80 -8 ) ( -64 -64 -16 ) kenney_prototype_textures/dark/texture_10 [ 0 -1 0 0 ] [ -0 -0 -1 0 ] 0 0.1 0.1
+( -64 -64 -16 ) ( -64 -64 -8 ) ( 48 -64 -16 ) kenney_prototype_textures/dark/texture_10 [ 1 0 -0 0 ] [ 0 -0 -1 0 ] 0 0.1 0.1
+( -64 80 -16 ) ( -64 -64 -16 ) ( 48 80 -16 ) kenney_prototype_textures/dark/texture_10 [ -1 0 0 0 ] [ -0 -1 -0 0 ] 0 0.1 0.1
+( -64 -64 -8 ) ( -64 80 -8 ) ( 48 -64 -8 ) kenney_prototype_textures/dark/texture_10 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.1 0.1
+( 48 80 -16 ) ( 48 80 -8 ) ( -64 80 -16 ) kenney_prototype_textures/dark/texture_10 [ -1 0 0 0 ] [ -0 0 -1 0 ] 0 0.1 0.1
+( 48 -64 -16 ) ( 48 -64 -8 ) ( 48 80 -16 ) kenney_prototype_textures/dark/texture_10 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+}
+}

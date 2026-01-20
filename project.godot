@@ -1005,12 +1005,12 @@ _global_script_classes=[ {
 "path": "res://addons/qodot/src/resources/game-definitions/trenchbroom/trenchbroom_face_attrib.gd"
 }, {
 "base": "Resource",
-"class": "TrenchBroomGameConfigFile",
+"class": "TrenchBroomFaceAttribDefaults",
 "language": "GDScript",
-"path": "res://addons/qodot/src/resources/game-definitions/trenchbroom/trenchbroom_game_config_file.gd"
+"path": "res://addons/qodot/src/resources/game-definitions/trenchbroom/trenchbroom_face_attrib_defaults.gd"
 }, {
 "base": "Resource",
-"class": "TrenchBroomGameConfigFolder",
+"class": "TrenchBroomGameConfig",
 "language": "GDScript",
 "path": "res://addons/qodot/src/resources/game-definitions/trenchbroom/trenchbroom_game_config_folder.gd"
 }, {
@@ -1259,8 +1259,8 @@ _global_script_class_icons={
 "StringFuzzer": "",
 "TimeUnit": "",
 "TrenchBroomFaceAttrib": "",
-"TrenchBroomGameConfigFile": "",
-"TrenchBroomGameConfigFolder": "",
+"TrenchBroomFaceAttribDefaults": "",
+"TrenchBroomGameConfig": "",
 "TrenchBroomTag": "",
 "ValueProvider": "",
 "Vector2Fuzzer": "",

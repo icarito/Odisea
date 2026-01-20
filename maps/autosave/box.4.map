@@ -1,0 +1,53 @@
+// Game: Odisea
+// Format: Valve
+// entity 0
+{
+"mapversion" "220"
+"_tb_textures" "textures/kenney_prototype_textures/dark;textures/kenney_prototype_textures/green;textures/kenney_prototype_textures/light;textures/kenney_prototype_textures/orange;textures/kenney_prototype_textures/purple;textures/kenney_prototype_textures/red"
+"classname" "worldspawn"
+"_tb_mod" "textures"
+// brush 0
+{
+( 16 88 96 ) ( 16 -72 96 ) ( 16 88 -16 ) kenney_prototype_textures/dark/texture_02 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 24 -72 -16 ) ( 16 -72 -16 ) ( 24 -72 96 ) kenney_prototype_textures/dark/texture_02 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 24 88 -16 ) ( 16 88 -16 ) ( 24 -72 -16 ) kenney_prototype_textures/dark/texture_02 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.1 0.1
+( 24 -72 96 ) ( 16 -72 96 ) ( 24 88 96 ) kenney_prototype_textures/dark/texture_02 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.1 0.1
+( 24 88 96 ) ( 16 88 96 ) ( 24 88 -16 ) kenney_prototype_textures/dark/texture_02 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 24 -72 96 ) ( 24 88 96 ) ( 24 -72 -16 ) kenney_prototype_textures/dark/texture_02 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+}
+// brush 1
+{
+( -96 88 96 ) ( -96 80 96 ) ( -96 88 -16 ) kenney_prototype_textures/dark/texture_02 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 16 80 96 ) ( 16 80 -16 ) ( -96 80 96 ) kenney_prototype_textures/dark/texture_02 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( -96 88 -16 ) ( -96 80 -16 ) ( 16 88 -16 ) kenney_prototype_textures/dark/texture_02 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.1 0.1
+( 16 88 96 ) ( 16 80 96 ) ( -96 88 96 ) kenney_prototype_textures/dark/texture_02 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.1 0.1
+( 16 88 96 ) ( -96 88 96 ) ( 16 88 -16 ) kenney_prototype_textures/dark/texture_02 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 16 88 -16 ) ( 16 80 -16 ) ( 16 88 96 ) kenney_prototype_textures/dark/texture_02 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+}
+// brush 2
+{
+( -96 -72 -16 ) ( -96 -64 -16 ) ( -96 -72 96 ) kenney_prototype_textures/dark/texture_02 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 16 -72 -16 ) ( -96 -72 -16 ) ( 16 -72 96 ) kenney_prototype_textures/dark/texture_02 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 16 -72 -16 ) ( 16 -64 -16 ) ( -96 -72 -16 ) kenney_prototype_textures/dark/texture_02 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.1 0.1
+( -96 -72 96 ) ( -96 -64 96 ) ( 16 -72 96 ) kenney_prototype_textures/dark/texture_02 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.1 0.1
+( -96 -64 -16 ) ( 16 -64 -16 ) ( -96 -64 96 ) kenney_prototype_textures/dark/texture_02 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 16 -72 96 ) ( 16 -64 96 ) ( 16 -72 -16 ) kenney_prototype_textures/dark/texture_02 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+}
+// brush 3
+{
+( -96 -64 96 ) ( -96 -64 88 ) ( -96 80 96 ) kenney_prototype_textures/dark/texture_02 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 16 -64 96 ) ( 16 -64 88 ) ( -96 -64 96 ) kenney_prototype_textures/dark/texture_02 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 16 80 88 ) ( -96 80 88 ) ( 16 -64 88 ) kenney_prototype_textures/dark/texture_02 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.1 0.1
+( 16 80 96 ) ( 16 -64 96 ) ( -96 80 96 ) kenney_prototype_textures/dark/texture_02 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.1 0.1
+( -96 80 96 ) ( -96 80 88 ) ( 16 80 96 ) kenney_prototype_textures/dark/texture_02 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+( 16 80 96 ) ( 16 80 88 ) ( 16 -64 96 ) kenney_prototype_textures/dark/texture_02 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.1 0.1
+}
+// brush 4
+{
+( -272 80 -16.470588235294116 ) ( 16 80 -8 ) ( 16 -64 -8 ) kenney_prototype_textures/orange/texture_09 [ 0.9995677544643532 -0 0.029399051601892736 0 ] [ -0 -1 0 0 ] 0 1 1
+( -272 -64 -16.470588235294116 ) ( 16 -64 -8 ) ( 16 -64 -16.470588235294116 ) kenney_prototype_textures/orange/texture_09 [ 1 0 -0 0 ] [ 0 -0 -1 0 ] 0 1 1
+( 16 -64 -16.470588235294116 ) ( 16 80 -16.470588235294116 ) ( -272 80 -16.470588235294116 ) kenney_prototype_textures/orange/texture_09 [ -1 0 0 0 ] [ -0 -1 -0 0 ] 0 1 1
+( 16 80 -16.470588235294116 ) ( 16 80 -8 ) ( -272 80 -16.470588235294116 ) kenney_prototype_textures/orange/texture_09 [ -1 0 0 0 ] [ -0 0 -1 0 ] 0 1 1
+( 16 -64 -8 ) ( 16 80 -8 ) ( 16 80 -16.470588235294116 ) kenney_prototype_textures/orange/texture_09 [ 0 1 -0 0 ] [ 0 -0 -1 0 ] 0 1 1
+}
+}
