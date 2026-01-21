@@ -1,0 +1,21 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=2]
+
+[sub_resource type="Shader" id=1]
+code = "shader_type spatial;
+render_mode blend_mix, depth_draw_never, cull_disabled, unshaded;
+
+void fragment() {
+	// Circular gradient
+	float dist = distance(UV, vec2(0.5));
+	// Pixel-Art / Hard Edge:
+	// Use step() for a sharp cutoff. 
+	// 0.5 is edge. slightly larger to ensure full coverage?
+	float alpha = 1.0 - step(0.5, dist);
+	
+	ALBEDO = vec3(0.0, 0.0, 0.0);
+	ALPHA = alpha * COLOR.a * 1.0; // Combine procedural soft circle with vertex alpha
+}
+"
+
+[resource]
+shader = SubResource( 1 )
