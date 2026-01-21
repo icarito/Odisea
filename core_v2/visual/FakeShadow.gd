@@ -4,12 +4,16 @@ extends MeshInstance
 # Generates a dynamic "blanket" shadow mesh using a grid of raycasts.
 # Drapes over obstacles and "tears" at steep cliffs to avoid walls.
 
-export(float) var size: float = 2.0 # Total width/length of the shadow area
-export(int) var grid_resolution: int = 8 # NxN rays (e.g. 5x5 = 25 rays)
+export(Texture) var shadow_texture: Texture
+export(float) var radius: float = 1.0 # Actual World Radius of the shadow blob
+export(float, 0.0, 1.0) var hardness: float = 0.5 # Edge softness
+export(int) var grid_resolution: int = 12 # NxN rays
 export(float) var max_distance: float = 6.0
 export(float, 0.0, 1.0) var base_opacity: float = 1.0
-export(float) var cliff_threshold: float = 0.5 # Max vertical difference before tearing
-export(float) var vertical_offset: float = 0.05
+export(float) var skirt_limit: float = 2.0 # Max height for skirts before we stop drawing them (avoid giant walls)
+export(float) var vertical_offset: float = 0.02
+export(float) var snap_amount: float = 0.25 # World Grid Size
+export(float) var smooth_speed: float = 10.0 # Lerp speed
 
 var _rays: Array = [] # Linear array of rays
 var _mesh_tool: SurfaceTool
@@ -18,9 +22,11 @@ var _actor_excluded = false
 func _ready() -> void:
 	_mesh_tool = SurfaceTool.new()
 	
-	# Load material manually
 	var mat = preload("res://materials/shadow/FakeShadowShader.tres")
 	material_override = mat
+	material_override.render_priority = -1
+	if shadow_texture:
+		material_override.set_shader_param("texture_albedo", shadow_texture)
 
 	# Create Ray Grid
 	_create_rays()
@@ -50,16 +56,83 @@ func _process(_delta: float) -> void:
 	if not parent: return
 	
 	var center_pos = parent.global_transform.origin
-	global_transform.origin = center_pos
 	
+	# Snap Position for Pixel Art / Stability
+	# We MUST snap the mesh to the grid to avoid "swimming" geometry.
+	if snap_amount > 0.0:
+		var snapped_pos = center_pos.snapped(Vector3(snap_amount, snap_amount, snap_amount))
+		global_transform.origin = snapped_pos
+		
+		# UV Sliding Technique:
+		# The mesh is snapped, but we want the shadow blob to follow the player smoothly.
+		# We calculate the difference and shift the UVs.
+		var diff = center_pos - snapped_pos
+		# Map world diff to UV space. 
+		# If UV scale is based on grid_width radius...
+		# Actually, simpler: Pass world offset to shader and let shader handle it?
+		# Or pre-calculate UV offset here.
+		# Let's pass Vector2 offset (x, z).
+		
+		if material_override:
+			# We need to scale this offset by the same factor used for UVs
+			# Grid width in world units:
+			var step = snap_amount
+			if step <= 0.001: step = 0.1
+			var grid_width = step * (grid_resolution - 1)
+			
+			# UV is 0..1 over grid_width.
+			# So 1 unit world move = 1.0/grid_width UV move.
+			var uv_off = Vector2(diff.x, diff.z) / grid_width
+			
+			# We need to subtract this offset because if player moves RIGHT (+X),
+			# the texture needs to move RIGHT. 
+			# In UV space, moving texture right means modifying UVs... how?
+			# uv = UV - offset. 
+			material_override.set_shader_param("uv_offset", uv_off)
+	else:
+		global_transform.origin = center_pos
+		
 	_handle_exclusions()
 
-	# Reset rotation
+	# Reset rotation (Mesh stays axis aligned)
 	global_transform.basis = Basis.IDENTITY
 
-	# Update Ray Positions in a Grid pattern centered on player
-	var start_offset = - size / 2.0
-	var step = size / (grid_resolution - 1)
+	# Update Ray Positions
+	# Perfect Pixel Alignment:
+	# Force the grid step to match the snap_amount (or a multiple)
+	# This ensures vertices always land on the "world grid", avoiding diagonal artifacts/beating.
+	
+	var step = snap_amount
+	if step <= 0.001: step = 0.1 # Fallback
+	
+	# Calculate effective size based on resolution and step
+	# We want the shadow to cover roughly 'radius' * 2
+	# But rigidly constrained to grid.
+	# Actually, let's keep 'resolution' fixed and 'step' fixed.
+	# size is derived.
+	
+	var grid_width = step * (grid_resolution - 1)
+	var start_offset = - grid_width / 2.0
+	
+	# Update Shader Params
+	if material_override:
+		# UV Scale logic:
+		# Mesh width is 'grid_width'. UV covers 0..1.
+		# We want shadow circle to have world diameter = radius * 2.
+		# Fraction of mesh covered = (radius * 2) / grid_width.
+		# UV Scale factor (inverse) = 1.0 / Fraction = grid_width / (radius * 2).
+		# Check div by zero
+		if radius < 0.01: radius = 0.01
+		var scale = grid_width / (radius * 2.0)
+		
+		material_override.set_shader_param("uv_scale", scale)
+		material_override.set_shader_param("hardness", hardness)
+		
+		# Rotation Logic
+		if parent:
+			var rot_y = parent.global_transform.basis.get_euler().y
+			# We might need to invert it depending on setup.
+			material_override.set_shader_param("texture_rotation", -rot_y)
 	
 	var ray_idx = 0
 	for z in range(grid_resolution):
@@ -92,85 +165,146 @@ func _handle_exclusions() -> void:
 		_actor_excluded = true
 
 func _generate_mesh() -> void:
-	# We need the hits first to decide validity
-	# Store hits in a 2D accessible way or just linear indexing
-	# Points array will store the geometry point for each ray
-	var points = []
-	var center_ray_idx = (grid_resolution * grid_resolution) / 2
-	var center_hit_y = -99999.0
-	
-	# First pass: collect points
-	for i in range(_rays.size()):
-		var r = _rays[i]
-		var p = Vector3.ZERO
-		if r.is_colliding():
-			p = to_local(r.get_collision_point())
-		else:
-			# Missed? Project valid height or hide?
-			# If we miss, we push it far down or keep at relative 0?
-			# Let's drop it to -max_distance
-			var local_origin = r.transform.origin
-			p = Vector3(local_origin.x, -max_distance, local_origin.z)
-		
-		points.append(p)
-		
-		# Find rough center height for basic opacity check if needed?
-		if i == center_ray_idx and r.is_colliding():
-			center_hit_y = p.y
-
-	# If center is wildly invalid, maybe hide?
-	# Nah, let partial shadows exist.
-	
+	# Voxel/Manhattan Meshing Strategy
+	# Treat each ray hit as the center of a flat horizontal tile.
+	# Connect adjacent tiles with vertical "skirts" to form a solid step-mesh.
+	# This ensures 0 diagonal slopes, perfect for pixel-art/voxel worlds.
 	_mesh_tool.clear()
 	_mesh_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 	
-	# Generate Quads
-	# Iterate grid cells (0..N-2)
-	for z in range(grid_resolution - 1):
-		for x in range(grid_resolution - 1):
-			# Indices
-			var i_tl = z * grid_resolution + x
-			var i_tr = z * grid_resolution + (x + 1)
-			var i_bl = (z + 1) * grid_resolution + x
-			var i_br = (z + 1) * grid_resolution + (x + 1)
+	var step = snap_amount
+	if step <= 0.001: step = 0.1
+	var half_size = step * 0.5
+	
+	# To make UVs work, we need to know the total grid bounds
+	# grid_resolution is N. Loop 0..N-1.
+	
+	for z in range(grid_resolution):
+		for x in range(grid_resolution):
+			var idx = z * grid_resolution + x
+			var r = _rays[idx]
 			
-			var p_tl = points[i_tl]
-			var p_tr = points[i_tr]
-			var p_bl = points[i_bl]
-			var p_br = points[i_br]
+			var center_pos = Vector3.ZERO
+			var is_gap = false
 			
-			# No Tearing: Connect everything to avoid gaps.
-			# High grid resolution makes walls less noticeable.
+			if r.is_colliding():
+				center_pos = to_local(r.get_collision_point())
+			else:
+				# Miss - Push down to max distance
+				# Or mark as gap? If we mark as gap, we might want to skip drawing
+				# But let's draw at bottom to be safe/consistent
+				var r_origin = r.transform.origin
+				center_pos = Vector3(r_origin.x, -max_distance, r_origin.z)
+				is_gap = true # Maybe fade it out?
+				
+			# 1. Draw Horizontal Tile
+			# TL, TR, BR, BL relative to center
+			var v_tl = center_pos + Vector3(-half_size, vertical_offset, -half_size)
+			var v_tr = center_pos + Vector3(half_size, vertical_offset, -half_size)
+			var v_br = center_pos + Vector3(half_size, vertical_offset, half_size)
+			var v_bl = center_pos + Vector3(-half_size, vertical_offset, half_size)
+			
+			var c = _get_vertex_color(center_pos)
+			# If gap/miss, make alpha 0?
+			if is_gap: c.a = 0.0
+			
+	# 2. Per-Vertex UVs for Smooth Gradients
+			# We need UVs for TL, TR, BR, BL based on their world position relative to grid
+			# To keep it simple, we interpolate from the 0..1 range
+			
+			var u_l = float(x) / (grid_resolution - 1)
+			var u_r = float(x + 1) / (grid_resolution - 1)
+			var v_t = float(z) / (grid_resolution - 1)
+			var v_b = float(z + 1) / (grid_resolution - 1)
+			
+			# If we are at the last index, u_r / v_b usually don't matter for the *loop* 
+			# but this loop goes to grid_resolution.
+			# Actually, we loop x in range(grid_resolution). 
+			# This implies we draw tiles centered on rays? 
+			# My prev logic: "Treat each ray hit as center of tile".
+			# So UV for center is x/res. 
+			# UV for TL is (x - 0.5)/res?
+			
+			# Let's retain "Center of Tile" logic but calculate corners.
+			# UV Scale is 1.0/res.
+			var uv_step = 1.0 / (grid_resolution - 1)
+			var half_uv = uv_step * 0.5
+			
+			var u_center = float(x) / (grid_resolution - 1)
+			var v_center = float(z) / (grid_resolution - 1)
+			
+			var uv__tl = Vector2(u_center - half_uv, v_center - half_uv)
+			var uv__tr = Vector2(u_center + half_uv, v_center - half_uv)
+			var uv__br = Vector2(u_center + half_uv, v_center + half_uv)
+			var uv__bl = Vector2(u_center - half_uv, v_center + half_uv)
+			
+			# Draw Floor
+			_add_quad(v_tl, v_tr, v_br, v_bl, c, uv__tl, uv__tr, uv__br, uv__bl)
+			
+			# 2. Draw Vertical Skirts
+			# Right Neighbor
+			if x < grid_resolution - 1:
+				var idx_right = z * grid_resolution + (x + 1)
+				var r_right = _rays[idx_right]
+				var pos_right = _get_hit_pos(r_right)
+				var dy = pos_right.y - center_pos.y
+				
+				if abs(dy) > 0.01 and abs(dy) < (skirt_limit + 0.1):
+					var bias = 0.01 # Push wall out slightly to avoid Z-fighting
+					var wall_x = center_pos.x + half_size + bias
+					var z_start = center_pos.z - half_size
+					var z_end = center_pos.z + half_size
+					
+					var w_tl = Vector3(wall_x, center_pos.y + vertical_offset, z_start)
+					var w_bl = Vector3(wall_x, center_pos.y + vertical_offset, z_end)
+					var w_tr = Vector3(wall_x, pos_right.y + vertical_offset, z_start)
+					var w_br = Vector3(wall_x, pos_right.y + vertical_offset, z_end)
+					
+					# Vertical Projection: Bottom vertices use same UVs as Top vertices
+					# Skirt is on Right side of tile. UVs are TR and BR.
+					# Top Edge: TR->BR. Bottom Edge: TR->BR.
+					_add_quad(w_tl, w_tr, w_br, w_bl, c, uv__tr, uv__tr, uv__br, uv__br)
 
-			# Calculate opacity (distance from player feet height 0?)
-			# Or distance of the point itself from origin?
-			# Let's simply use a constant black, but vertex alpha based on individual point depth?
-			# Or just let the Shader handle the radial fade?
-			# The shader handles Radial fade. We just handle base opacity?
-			# Actually, if we are far from ground, we want to fade out.
-			# Let's calculate alpha per vertex based on its Y depth relative to origin (0).
-			
-			var c_tl = _get_vertex_color(p_tl)
-			var c_tr = _get_vertex_color(p_tr)
-			var c_bl = _get_vertex_color(p_bl)
-			var c_br = _get_vertex_color(p_br)
-			
-			var uv_tl = _get_uv(x, z)
-			var uv_tr = _get_uv(x + 1, z)
-			var uv_bl = _get_uv(x, z + 1)
-			var uv_br = _get_uv(x + 1, z + 1)
-			
-			# Triangle 1: TL-TR-BL
-			_mesh_tool.add_color(c_tl); _mesh_tool.add_uv(uv_tl); _mesh_tool.add_vertex(p_tl + Vector3(0, vertical_offset, 0))
-			_mesh_tool.add_color(c_tr); _mesh_tool.add_uv(uv_tr); _mesh_tool.add_vertex(p_tr + Vector3(0, vertical_offset, 0))
-			_mesh_tool.add_color(c_bl); _mesh_tool.add_uv(uv_bl); _mesh_tool.add_vertex(p_bl + Vector3(0, vertical_offset, 0))
-
-			# Triangle 2: TR-BR-BL
-			_mesh_tool.add_color(c_tr); _mesh_tool.add_uv(uv_tr); _mesh_tool.add_vertex(p_tr + Vector3(0, vertical_offset, 0))
-			_mesh_tool.add_color(c_br); _mesh_tool.add_uv(uv_br); _mesh_tool.add_vertex(p_br + Vector3(0, vertical_offset, 0))
-			_mesh_tool.add_color(c_bl); _mesh_tool.add_uv(uv_bl); _mesh_tool.add_vertex(p_bl + Vector3(0, vertical_offset, 0))
+			# Bottom Neighbor
+			if z < grid_resolution - 1:
+				var idx_down = (z + 1) * grid_resolution + x
+				var r_down = _rays[idx_down]
+				var pos_down = _get_hit_pos(r_down)
+				var dy = pos_down.y - center_pos.y
+				
+				if abs(dy) > 0.01 and abs(dy) < (skirt_limit + 0.1):
+					var bias = 0.01 # Push wall out slightly to avoid Z-fighting
+					var wall_z = center_pos.z + half_size + bias
+					var x_start = center_pos.x - half_size
+					var x_end = center_pos.x + half_size
+					
+					var w_tl = Vector3(x_start, center_pos.y + vertical_offset, wall_z)
+					var w_tr = Vector3(x_end, center_pos.y + vertical_offset, wall_z)
+					var w_bl = Vector3(x_start, pos_down.y + vertical_offset, wall_z)
+					var w_br = Vector3(x_end, pos_down.y + vertical_offset, wall_z)
+					
+					# Vertical Projection: Bottom used Top UVs
+					# Skirt is on Bottom side. UVs are BL and BR.
+					_add_quad(w_tl, w_tr, w_br, w_bl, c, uv__bl, uv__br, uv__br, uv__bl)
 
 	self.mesh = _mesh_tool.commit()
+
+func _get_hit_pos(r: RayCast) -> Vector3:
+	if r.is_colliding():
+		return to_local(r.get_collision_point())
+	
+	var ro = r.transform.origin
+	return Vector3(ro.x, -max_distance, ro.z)
+
+
+func _add_quad(v1, v2, v3, v4, c, uv1, uv2, uv3, uv4):
+	_mesh_tool.add_color(c); _mesh_tool.add_uv(uv1); _mesh_tool.add_vertex(v1)
+	_mesh_tool.add_color(c); _mesh_tool.add_uv(uv2); _mesh_tool.add_vertex(v2)
+	_mesh_tool.add_color(c); _mesh_tool.add_uv(uv3); _mesh_tool.add_vertex(v3)
+	
+	_mesh_tool.add_color(c); _mesh_tool.add_uv(uv1); _mesh_tool.add_vertex(v1)
+	_mesh_tool.add_color(c); _mesh_tool.add_uv(uv3); _mesh_tool.add_vertex(v3)
+	_mesh_tool.add_color(c); _mesh_tool.add_uv(uv4); _mesh_tool.add_vertex(v4)
 
 func _get_vertex_color(p: Vector3) -> Color:
 	# p.y is local y (distance from player feet level)
@@ -179,4 +313,5 @@ func _get_vertex_color(p: Vector3) -> Color:
 	return Color(0, 0, 0, alpha)
 
 func _get_uv(x: int, z: int) -> Vector2:
+	# UVs span 0..1 across the grid
 	return Vector2(float(x) / (grid_resolution - 1), float(z) / (grid_resolution - 1))

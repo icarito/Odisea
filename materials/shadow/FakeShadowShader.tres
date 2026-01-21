@@ -4,18 +4,61 @@
 code = "shader_type spatial;
 render_mode blend_mix, depth_draw_never, cull_disabled, unshaded;
 
+uniform float deform_factor : hint_range(0.0, 2.0) = 1.0;
+uniform float uv_scale : hint_range(0.1, 5.0) = 1.0;
+uniform float hardness : hint_range(0.0, 1.0) = 0.5;
+uniform float texture_rotation : hint_range(0.0, 6.28) = 0.0;
+uniform vec2 uv_offset = vec2(0.0);
+
 void fragment() {
-	// Circular gradient
-	float dist = distance(UV, vec2(0.5));
-	// Pixel-Art / Hard Edge:
-	// Use step() for a sharp cutoff. 
-	// 0.5 is edge. slightly larger to ensure full coverage?
-	float alpha = 1.0 - step(0.5, dist);
+	// Center UV
+	vec2 uv = UV - 0.5;
+	
+	// Apply Sub-Pixel Offset (Smooth Sliding on Voxel Grid)
+	// UVs are 0..1. offset is calculated in GDScript.
+	// If player is +X from center, we want texture to be shifted.
+	uv -= uv_offset;
+	
+	// Apply Rotation
+	float s = sin(texture_rotation);
+	float c = cos(texture_rotation);
+	mat2 rot_mat = mat2(vec2(c, -s), vec2(s, c));
+	uv = rot_mat * uv;
+	
+	// Apply Logic Scale (Radius Control)
+	uv *= uv_scale;
+	
+	// 1. Oval Shape
+	// Stretch one axis. Let's make it slightly wider on X (or Z in world).
+	uv.x *= 0.6; // Stronger oval for visibility
+	
+	// 2. Height Deformation
+	// Range: Air (Alpha=0) -> Ground (Alpha=1)
+	// Air: Scale 4.0 (Small shadow)
+	// Ground: Scale 0.8 (Wide Splat)
+	float scale = mix(4.0, 0.8, COLOR.a); 
+	uv *= scale;
+	
+	// Circular (Elliptical) gradient
+	float dist_sq = dot(uv, uv); 
+	
+	// Soft Edge / Blur
+	// dist_sq limit is 0.25 (0.5 radius squared)
+	// We smoothstep around 0.25.
+	// Hardness 1.0 = Sharp. Hardness 0.0 = Very Blurred.
+	// We map hardness to a delta.
+	float edge_width = (1.0 - hardness) * 0.2; // Max blur width 0.2
+	float alpha = 1.0 - smoothstep(0.25 - edge_width, 0.25, dist_sq);
 	
 	ALBEDO = vec3(0.0, 0.0, 0.0);
-	ALPHA = alpha * COLOR.a * 1.0; // Combine procedural soft circle with vertex alpha
+	ALPHA = alpha * COLOR.a; 
 }
 "
 
 [resource]
 shader = SubResource( 1 )
+shader_param/deform_factor = 1.0
+shader_param/uv_scale = 1.0
+shader_param/hardness = 0.5
+shader_param/texture_rotation = 0.0
+shader_param/uv_offset = Vector2( 0, 0 )
