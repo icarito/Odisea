@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=2]
+[gd_scene load_steps=21 format=2]
 
 [ext_resource path="res://core_v2/actors/Skeleton.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/sim/PlayerControllerV2.gd" type="Script" id=2]
@@ -11,6 +11,7 @@
 [ext_resource path="res://data/curves/Inverse_S.tres" type="Curve" id=10]
 [ext_resource path="res://data/curves/Exponential.tres" type="Curve" id=11]
 [ext_resource path="res://materials/shadow/FakeShadow.tres" type="Material" id=52]
+[ext_resource path="res://core_v2/visual/FakeShadow.gd" type="Script" id=53]
 
 [sub_resource type="SpatialMaterial" id=101]
 albedo_color = Color( 0, 0, 0, 1 )
@@ -101,6 +102,9 @@ mesh = SubResource( 102 )
 skeleton = NodePath("../..")
 software_skinning_transform_normals = false
 material/0 = ExtResource( 52 )
+script = ExtResource( 53 )
+size = 1.0
+base_opacity = 0.742
 
 [node name="AnimationTree" type="AnimationTree" parent="Visual/Pivot"]
 tree_root = ExtResource( 7 )
