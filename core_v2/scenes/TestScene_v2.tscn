@@ -178,7 +178,7 @@ size = Vector3( 3, 2, 0.25 )
 [node name="RotatingLever" parent="Interactables" instance=ExtResource( 11 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 1, 0 )
 debug = true
-rotation_amount = 60.0
+rotation_amount = -60.0
 
 [node name="SlidingDrawer" parent="Interactables" instance=ExtResource( 10 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0.875, 0 )
@@ -190,6 +190,7 @@ easing_type = 3
 [node name="LeverConveyor" parent="Interactables" instance=ExtResource( 13 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 5 )
 speed_x = 3.0
+starts_active = false
 
 [node name="Label3D" type="Label3D" parent="Interactables"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )

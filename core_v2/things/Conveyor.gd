@@ -2,7 +2,7 @@ extends Area
 tool
 
 export(float) var speed_x := 2.0 setget set_speed_x
-export(bool) var is_active := true setget set_active
+export(bool) var starts_active := true setget set_starts_active
 export(float) var acceleration := 4.0 # Units per second^2
 export(bool) var require_on_floor := false
 export(float) var rigid_force_multiplier := 10.0
@@ -20,6 +20,7 @@ export(float) var visual_speed_multiplier := 1.0 setget set_visual_speed_multipl
 # Legacy property bridge for scenes saved with old version (Godot sets properties alphabetically)
 var push_velocity: Vector3 setget set_push_velocity
 var _speed_x_initialized := false
+var is_active := true # Runtime state
 
 var _bodies := []
 var _pending_snapshot = null
@@ -34,6 +35,7 @@ func _ready():
 		_update_shader_params(mat)
 		
 	_update_scaling()
+	is_active = starts_active
 	_internal_speed = speed_x if is_active else 0.0
 	
 	if debug and mat:
@@ -96,6 +98,13 @@ func set_speed_x(v: float) -> void:
 func set_active(v: bool) -> void:
 	is_active = v
 	_trigger_shader_update()
+
+func set_starts_active(v: bool) -> void:
+	starts_active = v
+	if Engine.editor_hint:
+		is_active = v
+		_internal_speed = speed_x if is_active else 0.0
+		_trigger_shader_update()
 
 func set_stripe_dark_color(v: Color) -> void:
 	stripe_dark_color = v
