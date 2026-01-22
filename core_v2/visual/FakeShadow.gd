@@ -7,12 +7,12 @@ extends MeshInstance
 export(Texture) var shadow_texture: Texture
 export(float) var radius: float = 1.0 # Actual World Radius of the shadow blob
 export(float, 0.0, 1.0) var hardness: float = 0.5 # Edge softness
-export(int) var grid_resolution: int = 12 # NxN rays
+export(int) var grid_resolution: int = 20 # NxN rays (Increased for better detail)
 export(float) var max_distance: float = 6.0
 export(float, 0.0, 1.0) var base_opacity: float = 1.0
-export(float) var skirt_limit: float = 2.0 # Max height for skirts before we stop drawing them (avoid giant walls)
+export(float) var skirt_limit: float = 5.0 # Max height for skirts before we stop drawing them (avoid giant walls)
 export(float) var vertical_offset: float = 0.02
-export(float) var snap_amount: float = 0.25 # World Grid Size
+export(float) var snap_amount: float = 0.125 # World Grid Size (12.5cm for finer detail)
 export(float) var smooth_speed: float = 10.0 # Lerp speed
 
 var _rays: Array = [] # Linear array of rays
@@ -46,7 +46,8 @@ func _create_rays() -> void:
 			var r = RayCast.new()
 			r.name = "Ray_%d_%d" % [x, z]
 			r.enabled = true
-			r.collision_mask = 1
+			# Match the Player GroundRay mask (bits 1-20 or just all)
+			r.collision_mask = 2147483647 # Scan EVERYTHING
 			r.cast_to = Vector3(0, -max_distance, 0)
 			add_child(r)
 			_rays.append(r)
@@ -174,7 +175,9 @@ func _generate_mesh() -> void:
 	
 	var step = snap_amount
 	if step <= 0.001: step = 0.1
-	var half_size = step * 0.5
+	
+	var bias = 0.0001 # Tiny bias for walls only
+	var half_size = step * 0.5 # Exact size, no overlapping floor tiles (Fixes Grid Lines)
 	
 	# To make UVs work, we need to know the total grid bounds
 	# grid_resolution is N. Loop 0..N-1.
@@ -191,22 +194,27 @@ func _generate_mesh() -> void:
 				center_pos = to_local(r.get_collision_point())
 			else:
 				# Miss - Push down to max distance
-				# Or mark as gap? If we mark as gap, we might want to skip drawing
-				# But let's draw at bottom to be safe/consistent
 				var r_origin = r.transform.origin
 				center_pos = Vector3(r_origin.x, -max_distance, r_origin.z)
-				is_gap = true # Maybe fade it out?
+				is_gap = true
 				
 			# 1. Draw Horizontal Tile
 			# TL, TR, BR, BL relative to center
+			# Note: We use the expanded half_size here
 			var v_tl = center_pos + Vector3(-half_size, vertical_offset, -half_size)
 			var v_tr = center_pos + Vector3(half_size, vertical_offset, -half_size)
 			var v_br = center_pos + Vector3(half_size, vertical_offset, half_size)
 			var v_bl = center_pos + Vector3(-half_size, vertical_offset, half_size)
 			
-			var c = _get_vertex_color(center_pos)
+			var c_tl = _get_vertex_color(v_tl)
+			var c_tr = _get_vertex_color(v_tr)
+			var c_br = _get_vertex_color(v_br)
+			var c_bl = _get_vertex_color(v_bl)
+			
 			# If gap/miss, make alpha 0?
-			if is_gap: c.a = 0.0
+			if is_gap:
+				var c_gap = Color(0, 0, 0, 0)
+				c_tl = c_gap; c_tr = c_gap; c_br = c_gap; c_bl = c_gap;
 			
 	# 2. Per-Vertex UVs for Smooth Gradients
 			# We need UVs for TL, TR, BR, BL based on their world position relative to grid
@@ -239,10 +247,14 @@ func _generate_mesh() -> void:
 			var uv__bl = Vector2(u_center - half_uv, v_center + half_uv)
 			
 			# Draw Floor
-			_add_quad(v_tl, v_tr, v_br, v_bl, c, uv__tl, uv__tr, uv__br, uv__bl)
+			_add_quad(v_tl, v_tr, v_br, v_bl, c_tl, c_tr, c_br, c_bl, uv__tl, uv__tr, uv__br, uv__bl)
 			
 			# 2. Draw Vertical Skirts
-			# Right Neighbor
+			
+			# Use the same bias as floor tiles
+			var grid_half = step * 0.5
+			
+			# Right Neighbor (X+)
 			if x < grid_resolution - 1:
 				var idx_right = z * grid_resolution + (x + 1)
 				var r_right = _rays[idx_right]
@@ -250,22 +262,53 @@ func _generate_mesh() -> void:
 				var dy = pos_right.y - center_pos.y
 				
 				if abs(dy) > 0.01 and abs(dy) < (skirt_limit + 0.1):
-					var bias = 0.01 # Push wall out slightly to avoid Z-fighting
-					var wall_x = center_pos.x + half_size + bias
+					# Bias Logic:
+					# If Drop (dy < 0), neighbour is lower. Wall is at X + half.
+					# If Step (dy > 0), neighbour is higher. Wall is at X + half.
+					# We want to push the wall slightly towards the "Open Air".
+					# Drop: Open Air is to the RIGHT (X+). So push +bias.
+					# Step: Open Air is to the LEFT (X-). So push -bias.
+					var wall_offset = bias if dy < 0 else -bias
+					var wall_x = center_pos.x + grid_half + wall_offset
+					
 					var z_start = center_pos.z - half_size
-					var z_end = center_pos.z + half_size
+					var z_end = center_pos.z + half_size # Match floor exact edge
 					
-					var w_tl = Vector3(wall_x, center_pos.y + vertical_offset, z_start)
-					var w_bl = Vector3(wall_x, center_pos.y + vertical_offset, z_end)
-					var w_tr = Vector3(wall_x, pos_right.y + vertical_offset, z_start)
-					var w_br = Vector3(wall_x, pos_right.y + vertical_offset, z_end)
+					# Extend Vertical Range slightly to prevent horizontal cracks
+					var y_bias = 0.01
+					var y_top = center_pos.y + vertical_offset + y_bias
+					var y_bot = pos_right.y + vertical_offset - y_bias
+					# Actually, we should just extend the 'High' side down and 'Low' side up?
+					# Or just extend both ends over the junction.
+					# Let's trust exact mesh for now, bias is tiny.
+					y_top = center_pos.y + vertical_offset
+					y_bot = pos_right.y + vertical_offset
 					
-					# Vertical Projection: Bottom vertices use same UVs as Top vertices
-					# Skirt is on Right side of tile. UVs are TR and BR.
-					# Top Edge: TR->BR. Bottom Edge: TR->BR.
-					_add_quad(w_tl, w_tr, w_br, w_bl, c, uv__tr, uv__tr, uv__br, uv__br)
+					var w_tl = Vector3(wall_x, y_top, z_start)
+					var w_bl = Vector3(wall_x, y_top, z_end)
+					var w_tr = Vector3(wall_x, y_bot, z_start)
+					var w_br = Vector3(wall_x, y_bot, z_end)
+					
+					var cw_tl = _get_vertex_color(w_tl)
+					var cw_bl = _get_vertex_color(w_bl)
+					var cw_tr = _get_vertex_color(w_tr)
+					var cw_br = _get_vertex_color(w_br)
+					
+					if dy < 0: # Drop to right (Faces +X)
+						# Top is center (High). Bottom is right (Low).
+						# w_tl (High Back) -> w_bl (High Front) -> w_br (Low Front) -> w_tr (Low Back)
+						_add_quad(w_tl, w_bl, w_br, w_tr, cw_tl, cw_bl, cw_br, cw_tr, uv__tr, uv__br, uv__br, uv__tr)
+					else: # Step up to right (Faces -X)
+						# Top is right (High). Bottom is center (Low).
+						# w_tl (Low Back) -> w_bl (Low Front) -> w_br (High Front) -> w_tr (High Back)
+						# We want Normal -X.
+						# LowBack -> LowFront -> HighFront -> HighBack creates -X normal.
+						# But wait, w_bl is Low Front? Yes center_pos is low.
+						# w_tl/w_bl are Low. w_tr/w_br are High.
+						# Low Back (w_tl) -> Low Front (w_bl) -> High Front (w_br) -> High Back (w_tr)
+						_add_quad(w_tl, w_bl, w_br, w_tr, cw_tl, cw_bl, cw_br, cw_tr, uv__tr, uv__br, uv__br, uv__tr)
 
-			# Bottom Neighbor
+			# Bottom Neighbor (Z+)
 			if z < grid_resolution - 1:
 				var idx_down = (z + 1) * grid_resolution + x
 				var r_down = _rays[idx_down]
@@ -273,8 +316,11 @@ func _generate_mesh() -> void:
 				var dy = pos_down.y - center_pos.y
 				
 				if abs(dy) > 0.01 and abs(dy) < (skirt_limit + 0.1):
-					var bias = 0.01 # Push wall out slightly to avoid Z-fighting
-					var wall_z = center_pos.z + half_size + bias
+					# If Drop (dy < 0), Open Air is Down (Z+). Push +bias.
+					# If Step (dy > 0), Open Air is Up (Z-). Push -bias.
+					var wall_offset = bias if dy < 0 else -bias
+					var wall_z = center_pos.z + grid_half + wall_offset
+					
 					var x_start = center_pos.x - half_size
 					var x_end = center_pos.x + half_size
 					
@@ -283,9 +329,22 @@ func _generate_mesh() -> void:
 					var w_bl = Vector3(x_start, pos_down.y + vertical_offset, wall_z)
 					var w_br = Vector3(x_end, pos_down.y + vertical_offset, wall_z)
 					
-					# Vertical Projection: Bottom used Top UVs
-					# Skirt is on Bottom side. UVs are BL and BR.
-					_add_quad(w_tl, w_tr, w_br, w_bl, c, uv__bl, uv__br, uv__br, uv__bl)
+					var cw_tl = _get_vertex_color(w_tl)
+					var cw_tr = _get_vertex_color(w_tr)
+					var cw_bl = _get_vertex_color(w_bl)
+					var cw_br = _get_vertex_color(w_br)
+					
+					if dy < 0: # Drop to bottom (Faces +Z)
+						# Top is center (High). Bottom is down (Low).
+						# Left-Low (w_bl) -> Right-Low (w_br) -> Right-High (w_tr) -> Left-High (w_tl)
+						_add_quad(w_bl, w_br, w_tr, w_tl, cw_bl, cw_br, cw_tr, cw_tl, uv__bl, uv__br, uv__br, uv__bl)
+					else: # Step up to bottom (Faces -Z)
+						# Top is down (High). Bottom is center (Low).
+						# Left-Low (w_tl) -> Right-Low (w_tr) -> Right-High (w_br) -> Left-High (w_bl)
+						# w_tl=LowLeft, w_tr=LowRight.
+						# w_bl=HighLeft, w_br=HighRight.
+						# CCW for -Z normal: LowLeft -> LowRight -> HighRight -> HighLeft
+						_add_quad(w_tl, w_tr, w_br, w_bl, cw_tl, cw_tr, cw_br, cw_bl, uv__bl, uv__br, uv__br, uv__bl)
 
 	self.mesh = _mesh_tool.commit()
 
@@ -297,14 +356,14 @@ func _get_hit_pos(r: RayCast) -> Vector3:
 	return Vector3(ro.x, -max_distance, ro.z)
 
 
-func _add_quad(v1, v2, v3, v4, c, uv1, uv2, uv3, uv4):
-	_mesh_tool.add_color(c); _mesh_tool.add_uv(uv1); _mesh_tool.add_vertex(v1)
-	_mesh_tool.add_color(c); _mesh_tool.add_uv(uv2); _mesh_tool.add_vertex(v2)
-	_mesh_tool.add_color(c); _mesh_tool.add_uv(uv3); _mesh_tool.add_vertex(v3)
+func _add_quad(v1, v2, v3, v4, c1, c2, c3, c4, uv1, uv2, uv3, uv4):
+	_mesh_tool.add_color(c1); _mesh_tool.add_uv(uv1); _mesh_tool.add_vertex(v1)
+	_mesh_tool.add_color(c2); _mesh_tool.add_uv(uv2); _mesh_tool.add_vertex(v2)
+	_mesh_tool.add_color(c3); _mesh_tool.add_uv(uv3); _mesh_tool.add_vertex(v3)
 	
-	_mesh_tool.add_color(c); _mesh_tool.add_uv(uv1); _mesh_tool.add_vertex(v1)
-	_mesh_tool.add_color(c); _mesh_tool.add_uv(uv3); _mesh_tool.add_vertex(v3)
-	_mesh_tool.add_color(c); _mesh_tool.add_uv(uv4); _mesh_tool.add_vertex(v4)
+	_mesh_tool.add_color(c1); _mesh_tool.add_uv(uv1); _mesh_tool.add_vertex(v1)
+	_mesh_tool.add_color(c3); _mesh_tool.add_uv(uv3); _mesh_tool.add_vertex(v3)
+	_mesh_tool.add_color(c4); _mesh_tool.add_uv(uv4); _mesh_tool.add_vertex(v4)
 
 func _get_vertex_color(p: Vector3) -> Color:
 	# p.y is local y (distance from player feet level)
