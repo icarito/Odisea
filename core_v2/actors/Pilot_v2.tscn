@@ -139,7 +139,7 @@ transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866,
 
 [node name="SpringArm" type="SpringArm" parent="CameraRig/Yaw/Pitch"]
 transform = Transform( -1, 0, -1.50996e-07, -2.37355e-08, 0.987568, 0.157193, 1.49119e-07, 0.157193, -0.987568, 0, -0.0616157, -0.17651 )
-collision_mask = 5
+collision_mask = 0
 shape = SubResource( 109 )
 spring_length = 7.0
 

@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=2]
+[gd_scene load_steps=22 format=2]
 
 [ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=1]
 [ext_resource path="res://assets/Prototype Textures/blue 2.png" type="Texture" id=2]
@@ -13,6 +13,8 @@
 [ext_resource path="res://core_v2/things/RotatingObjectV2.tscn" type="PackedScene" id=11]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_02.png" type="Texture" id=12]
 [ext_resource path="res://core_v2/things/Conveyor.tscn" type="PackedScene" id=13]
+[ext_resource path="res://materials/dither_hiding_material.tres" type="Material" id=14]
+[ext_resource path="res://core_v2/visual/WallManager.gd" type="Script" id=15]
 
 [sub_resource type="SpatialMaterial" id=2]
 albedo_color = Color( 0.486275, 0.486275, 0.486275, 1 )
@@ -20,8 +22,6 @@ albedo_texture = ExtResource( 7 )
 uv1_scale = Vector3( 0.5, 0.5, 0.5 )
 uv1_triplanar = true
 uv1_triplanar_sharpness = 1.0
-
-[sub_resource type="SpatialMaterial" id=4]
 
 [sub_resource type="SpatialMaterial" id=5]
 albedo_texture = ExtResource( 12 )
@@ -60,6 +60,13 @@ uv1_triplanar_sharpness = 1.0
 
 [node name="TestScene" type="Spatial"]
 
+[node name="WallManager" type="Node" parent="."]
+script = ExtResource( 15 )
+target_node_path = NodePath("../Conveyors/QodotMap")
+walls_material = ExtResource( 14 )
+hole_radius = 4.0
+softness = 3.0
+
 [node name="Pilot" parent="." instance=ExtResource( 3 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 21, 1, -24.75 )
 min_pitch = -60.0
@@ -73,7 +80,7 @@ depth = 58.0
 material = SubResource( 2 )
 
 [node name="QodotMap" type="Spatial" parent="Conveyors"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.125, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -24.2811, 4.29535, -1.5323 )
 script = ExtResource( 5 )
 map_file = "/run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/maps/box.map"
 inverse_scale_factor = 16.0
@@ -86,7 +93,7 @@ face_skip_texture = "special/skip"
 texture_wads = [  ]
 material_file_extension = "tres"
 default_material_albedo_uniform = ""
-default_material = SubResource( 4 )
+default_material = ExtResource( 14 )
 uv_unwrap_texel_size = 1.0
 print_profiling_data = false
 use_trenchbroom_group_hierarchy = false
