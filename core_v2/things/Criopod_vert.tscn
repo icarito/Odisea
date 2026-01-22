@@ -92,11 +92,11 @@ mesh = SubResource( 30 )
 material/0 = SubResource( 35 )
 
 [node name="RotatingObjectV2" type="KinematicBody" parent="."]
-transform = Transform( -1, 8.74228e-08, 8.74228e-08, -8.74228e-08, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
+transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
 collision_layer = 32
 script = ExtResource( 4 )
 anim_duration = 3.0
-rotation_amount = -90.0
+rotation_amount = -120.0
 
 [node name="Glass" type="MeshInstance" parent="RotatingObjectV2"]
 use_in_baked_light = true

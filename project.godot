@@ -809,6 +809,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/csgtomeshinstance/plugin_button.gd"
 }, {
+"base": "InteractableBaseV2",
+"class": "PressurePlateV2",
+"language": "GDScript",
+"path": "res://core_v2/things/PressurePlateV2.gd"
+}, {
+"base": "InteractableBaseV2",
+"class": "PushButtonV2",
+"language": "GDScript",
+"path": "res://core_v2/things/PushButtonV2.gd"
+}, {
 "base": "Reference",
 "class": "QodotDependencies",
 "language": "GDScript",
@@ -1220,6 +1230,8 @@ _global_script_class_icons={
 "PhysicsEntity": "",
 "PilotAnimatorV2": "",
 "PluginButton": "",
+"PressurePlateV2": "",
+"PushButtonV2": "",
 "QodotDependencies": "",
 "QodotEntity": "",
 "QodotFGDBaseClass": "",

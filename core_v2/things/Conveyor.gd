@@ -2,6 +2,8 @@ extends Area
 tool
 
 export(float) var speed_x := 2.0 setget set_speed_x
+export(bool) var is_active := true setget set_active
+export(float) var acceleration := 4.0 # Units per second^2
 export(bool) var require_on_floor := false
 export(float) var rigid_force_multiplier := 10.0
 export(bool) var debug := false
@@ -22,6 +24,8 @@ var _speed_x_initialized := false
 var _bodies := []
 var _pending_snapshot = null
 var _snapshot_applied := false
+var _internal_speed := 0.0 # Current smoothed speed
+var _visual_phase := 0.0 # Accumulated shader phase
 
 func _ready():
 	add_to_group("replay_sync")
@@ -30,6 +34,7 @@ func _ready():
 		_update_shader_params(mat)
 		
 	_update_scaling()
+	_internal_speed = speed_x if is_active else 0.0
 	
 	if debug and mat:
 		print("[Conveyor] Shader params updated speed_x=", speed_x)
@@ -71,11 +76,8 @@ func _update_shader_params(mat: ShaderMaterial) -> void:
 	# Patterns repeat every 1.0/tiling in UV space.
 	# In world space, one cycle is exactly (8.0 / stripe_tiling) meters, 
 	# because we scale 'tiling' linearly with 'length'.
-	# To move at speed_x m/s:
-	# speed (shader) = (speed_x / distance_per_cycle)
 	# speed (shader) = speed_x / (8.0 / stripe_tiling) = (speed_x * stripe_tiling) / 8.0
-	var visible_speed = (speed_x * stripe_tiling / 8.0) * visual_speed_multiplier
-	mat.set_shader_param("speed", visible_speed)
+	mat.set_shader_param("phase", _visual_phase)
 	mat.set_shader_param("color_a", stripe_dark_color)
 	mat.set_shader_param("color_b", stripe_light_color)
 	mat.set_shader_param("emission", stripe_emission)
@@ -89,6 +91,10 @@ func _update_shader_params(mat: ShaderMaterial) -> void:
 func set_speed_x(v: float) -> void:
 	speed_x = v
 	_speed_x_initialized = true
+	_trigger_shader_update()
+
+func set_active(v: bool) -> void:
+	is_active = v
 	_trigger_shader_update()
 
 func set_stripe_dark_color(v: Color) -> void:
@@ -191,7 +197,10 @@ func get_snapshot() -> Dictionary:
 		"stripe_light_color": [stripe_light_color.r, stripe_light_color.g, stripe_light_color.b, stripe_light_color.a],
 		"stripe_emission": stripe_emission,
 		"stripe_tiling": stripe_tiling,
-		"stripe_fill": stripe_fill
+		"stripe_fill": stripe_fill,
+		"is_active": is_active,
+		"internal_speed": _internal_speed,
+		"visual_phase": _visual_phase
 	}
 
 
@@ -229,6 +238,15 @@ func _apply_snapshot(data: Dictionary) -> void:
 		stripe_tiling = data["stripe_tiling"]
 	if data.has("stripe_fill"):
 		stripe_fill = data["stripe_fill"]
+	
+	if data.has("is_active"):
+		is_active = data["is_active"]
+	
+	if data.has("internal_speed"):
+		_internal_speed = data["internal_speed"]
+	
+	if data.has("visual_phase"):
+		_visual_phase = data["visual_phase"]
 		
 	# Snapshot forces a full update of all visual components
 	_update_scaling()
@@ -253,15 +271,31 @@ func _physics_process(delta):
 		return
 	step(delta)
 
-func step(_dt: float) -> void:
+func step(dt: float) -> void:
+	var target = speed_x if is_active else 0.0
+	
+	if abs(_internal_speed - target) > 0.001:
+		_internal_speed = move_toward(_internal_speed, target, acceleration * dt)
+	elif _internal_speed != target:
+		_internal_speed = target
+		
+	# Update phase for visual animation
+	# This avoids "jumps" when speed changes by integrating speed over time
+	var visible_speed = (_internal_speed * stripe_tiling / 8.0) * visual_speed_multiplier
+	_visual_phase = fmod(_visual_phase + visible_speed * dt, 100.0)
+	_trigger_shader_update()
+	
+	if _internal_speed <= 0.001:
+		return
+		
 	# Usar get_overlapping_bodies para determinismo (stateless per frame)
 	_bodies = get_overlapping_bodies()
 	
 	# Use normalized basis to ignore node scaling in physics calculation
-	var world_push = global_transform.basis.x.normalized() * speed_x
+	var world_push = global_transform.basis.x.normalized() * _internal_speed
 	
 	if debug and Engine.get_frames_drawn() % 120 == 0:
-		print("[Conveyor] ", name, " | speed_x:", speed_x, " | result:", world_push)
+		print("[Conveyor] ", name, " | speed:", _internal_speed, " | result:", world_push)
 		var mat = _ensure_unique_material()
 		if mat is ShaderMaterial:
 			print("  -> shader speed:", mat.get_shader_param("speed"), " emission:", mat.get_shader_param("emission"))
