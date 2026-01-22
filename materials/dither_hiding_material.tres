@@ -1,0 +1,14 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=2]
+
+[ext_resource path="res://shaders/dither_hiding.shader" type="Shader" id=1]
+
+[resource]
+render_priority = 4
+shader = ExtResource( 1 )
+shader_param/player_pos = null
+shader_param/camera_pos = null
+shader_param/hole_radius = 1.0
+shader_param/softness = 1.0
+shader_param/debug_mode = false
+shader_param/use_triplanar = true
+shader_param/uv_scale = 1.0
