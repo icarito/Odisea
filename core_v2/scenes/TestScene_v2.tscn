@@ -61,6 +61,7 @@ uv1_triplanar_sharpness = 1.0
 
 [node name="Pilot" parent="." instance=ExtResource( 3 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 20.9471, 0.949169, -24.7554 )
+min_pitch = -60.0
 
 [node name="Conveyors" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 42, 0, 0 )

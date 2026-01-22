@@ -1493,7 +1493,6 @@ quality/shadows/filter_mode=0
 quality/reflections/high_quality_ggx=false
 quality/shading/force_lambert_over_burley=true
 quality/shading/force_blinn_over_ggx=true
-quality/depth_prepass/enable=false
 batching/options/use_batching=false
 batching/options/single_rect_fallback=true
 batching/parameters/batch_buffer_size=32768
