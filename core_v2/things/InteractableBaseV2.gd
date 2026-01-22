@@ -8,8 +8,17 @@ class_name InteractableBaseV2
 # --- EXPORTED TUNING ---
 export(String) var interaction_text := "Interact"
 export(float) var anim_duration := 1.0 # Seconds to complete animation
+export(bool) var starts_active := false setget set_starts_active # Initial logical state
 export(bool) var auto_interact_once := false # If true, can only be used once
 export(bool) var debug := false
+
+func set_starts_active(v: bool) -> void:
+	starts_active = v
+	if Engine.editor_hint:
+		is_active = v
+		anim_progress = 1.0 if is_active else 0.0
+		target_progress = anim_progress
+		_update_visuals()
 
 # --- STATE VARIABLES ---
 # These are snapshotted for replay determinism
@@ -30,6 +39,11 @@ signal interaction_completed()
 func _ready():
 	add_to_group("interactable")
 	add_to_group("replay_sync")
+	
+	# Initial state setup
+	is_active = starts_active
+	anim_progress = 1.0 if is_active else 0.0
+	target_progress = anim_progress
 	
 	# Calculate speed from duration
 	if anim_duration > 0:
