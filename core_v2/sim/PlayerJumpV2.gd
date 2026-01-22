@@ -11,6 +11,7 @@ const JUMP_BUFFER_TIME := 0.1 # ~100-120 ms
 
 var coyote_timer := 0.0
 var jump_buffer_timer := 0.0
+var internal_velocity := 0.0
 var _is_jumping := false
 var _jump_time_tracker := 0.0
 
@@ -42,39 +43,40 @@ func consume_jump() -> void:
 	jump_buffer_timer = 0.0
 	_is_jumping = true
 
+func set_internal_velocity(v: float) -> void:
+	internal_velocity = v
+
 func step(dt: float, input_jump: bool, current_vy: float, on_floor: bool) -> float:
-	var next_vy = current_vy
-	
+	# If current_vy is significantly different from our internal expectation
+	# (e.g. forced by external scripted event or snap), we sync to it.
+	# But normally we stick to our simulated gravity.
+	# NOTE: We keep current_vy for compatibility in this signature, but 
+	# prefer internal_velocity.
 	# Actualizar tracker si estamos saltando
 	if _is_jumping:
 		_jump_time_tracker += dt
 	
 	# Aplicar Gravedad
-	next_vy += gravity * dt
+	internal_velocity += gravity * dt
 	
 	# Lógica de Salto (Inicio)
 	if can_jump(on_floor):
-		next_vy = jump_force
+		internal_velocity = jump_force
 		consume_jump()
 		_jump_time_tracker = 0.0
 	
 	# Si ya no estamos en el suelo y vamos cayendo, el salto terminó
-	if not on_floor and next_vy <= 0.0:
+	if not on_floor and internal_velocity <= 0.0:
 		_is_jumping = false
 	
 	# Lógica de Salto Variable (Recorte a Intensidad Mínima)
-	# Solo permitimos el recorte si:
-	# 1. No se está presionando el botón
-	# 2. Estamos saltando activamente (_is_jumping)
-	# 3. Vamos hacia arriba (next_vy > 0)
-	# 4. Ha pasado un tiempo mínimo de seguridad (para evitar glitcheos)
-	if not input_jump and _is_jumping and next_vy > 0.0 and _jump_time_tracker > MIN_JUMP_TIME:
+	if not input_jump and _is_jumping and internal_velocity > 0.0 and _jump_time_tracker > MIN_JUMP_TIME:
 		var min_v = jump_force * min_jump_intensity
-		if next_vy > min_v:
-			next_vy = min_v
+		if internal_velocity > min_v:
+			internal_velocity = min_v
 		_is_jumping = false
 		
-	return next_vy
+	return internal_velocity
 
 func get_jump_force() -> float:
 	return jump_force

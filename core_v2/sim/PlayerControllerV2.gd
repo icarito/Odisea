@@ -115,6 +115,7 @@ func restore_snapshot(data: Dictionary) -> void:
 		if is_instance_valid(jump_logic):
 			jump_logic.coyote_timer = jump_state.get("coyote_timer", 0.0)
 			jump_logic.jump_buffer_timer = jump_state.get("jump_buffer_timer", 0.0)
+			jump_logic.internal_velocity = jump_state.get("internal_velocity", 0.0)
 			jump_logic._is_jumping = jump_state.get("is_jumping", false)
 	
 	_forward_latch_active = data.get("fwd_latch_active", false)
@@ -328,6 +329,8 @@ func step(dt: float, input: InputDataV2) -> void:
 	# velocity.y and rotation state
 	if is_on_floor() and velocity.y < 0:
 		velocity.y = 0
+		if is_instance_valid(jump_logic):
+			jump_logic.set_internal_velocity(0.0)
 
 	# --- ROTATION, PAN & ZOOM ---
 	
@@ -432,6 +435,7 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	# 3. Aplicar Salto o Gravedad (Delegado al componente)
 	var old_vy = velocity.y
+	# Note: We pass velocity.y just in case, but JumpV2 now uses its internal state
 	velocity.y = jump_logic.step(dt, input.jump, velocity.y, is_on_floor())
 	
 	# Emitir señal si se inició un salto en este frame
@@ -462,6 +466,8 @@ func step(dt: float, input: InputDataV2) -> void:
 	# --- CEILING COLLISION ---
 	if is_on_ceiling() and velocity.y > 0:
 		velocity.y = 0
+		if is_instance_valid(jump_logic):
+			jump_logic.set_internal_velocity(0.0)
 		emit_signal("hit_ceiling")
 
 	# 6. Empuje Manual de Objetos (RigidBodies)
