@@ -113,8 +113,8 @@ shape = SubResource( 120 )
 [node name="FakeShadow" type="MeshInstance" parent="Visual/Pivot"]
 cast_shadow = 0
 script = ExtResource( 53 )
+radius = 0.7
 base_opacity = 0.7
-skirt_limit = 6.0
 
 [node name="OmniLight" type="OmniLight" parent="Visual"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )

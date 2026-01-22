@@ -176,7 +176,7 @@ func _generate_mesh() -> void:
 	var step = snap_amount
 	if step <= 0.001: step = 0.1
 	
-	var bias = 0.0001 # Tiny bias for walls only
+	var bias = 0.002 # Tight bias to prevent floating but allow Z-fighting safety
 	var half_size = step * 0.5 # Exact size, no overlapping floor tiles (Fixes Grid Lines)
 	
 	# To make UVs work, we need to know the total grid bounds
@@ -247,7 +247,7 @@ func _generate_mesh() -> void:
 			var uv__bl = Vector2(u_center - half_uv, v_center + half_uv)
 			
 			# Draw Floor
-			_add_quad(v_tl, v_tr, v_br, v_bl, c_tl, c_tr, c_br, c_bl, uv__tl, uv__tr, uv__br, uv__bl)
+			_add_quad(v_tl, v_tr, v_br, v_bl, c_tl, c_tr, c_br, c_bl, uv__tl, uv__tr, uv__br, uv__bl, Vector3.UP)
 			
 			# 2. Draw Vertical Skirts
 			
@@ -262,51 +262,119 @@ func _generate_mesh() -> void:
 				var dy = pos_right.y - center_pos.y
 				
 				if abs(dy) > 0.01 and abs(dy) < (skirt_limit + 0.1):
-					# Bias Logic:
-					# If Drop (dy < 0), neighbour is lower. Wall is at X + half.
-					# If Step (dy > 0), neighbour is higher. Wall is at X + half.
-					# We want to push the wall slightly towards the "Open Air".
-					# Drop: Open Air is to the RIGHT (X+). So push +bias.
-					# Step: Open Air is to the LEFT (X-). So push -bias.
-					var wall_offset = bias if dy < 0 else -bias
-					var wall_x = center_pos.x + grid_half + wall_offset
+					# Slanted Wall Logic:
+					# connect exact floor edge to biased Wall plane.
+					# Edge X = center_pos.x + grid_half
+					var edge_x = center_pos.x + grid_half
 					
 					var z_start = center_pos.z - half_size
-					var z_end = center_pos.z + half_size # Match floor exact edge
+					var z_end = center_pos.z + half_size
 					
-					# Extend Vertical Range slightly to prevent horizontal cracks
-					var y_bias = 0.01
-					var y_top = center_pos.y + vertical_offset + y_bias
-					var y_bot = pos_right.y + vertical_offset - y_bias
-					# Actually, we should just extend the 'High' side down and 'Low' side up?
-					# Or just extend both ends over the junction.
-					# Let's trust exact mesh for now, bias is tiny.
-					y_top = center_pos.y + vertical_offset
-					y_bot = pos_right.y + vertical_offset
+					# Extend Vertical Range slightly
+					var y_bias = 0.02
+					var y_my_floor = center_pos.y + vertical_offset
+					var y_neighbor = pos_right.y + vertical_offset
 					
-					var w_tl = Vector3(wall_x, y_top, z_start)
-					var w_bl = Vector3(wall_x, y_top, z_end)
-					var w_tr = Vector3(wall_x, y_bot, z_start)
-					var w_br = Vector3(wall_x, y_bot, z_end)
+					# Define Wall Top and Bottom Y
+					# Note: 'Top' and 'Bottom' here refer to visual Y, not logic.
+					# Let's use 'High' and 'Low'.
 					
-					var cw_tl = _get_vertex_color(w_tl)
-					var cw_bl = _get_vertex_color(w_bl)
-					var cw_tr = _get_vertex_color(w_tr)
-					var cw_br = _get_vertex_color(w_br)
+					var w_high_x # X at high Y
+					var w_low_x # X at low Y
+					
+					# Bias Logic:
+					# Drop (dy < 0): I am High. Neighbor is Low.
+					# Connection is at My Edge (High). Free end is at Neighbor (Low).
+					# High X = edge_x (Touch my floor).
+					# Low X = edge_x + bias (Push out over neighbor).
+					
+					# Step (dy > 0): I am Low. Neighbor is High.
+					# Connection is at Neighbor Edge (High). Free end is at Me (Low).
+					# High X = edge_x (Touch neighbor floor).
+					# Low X = edge_x - bias (Push in over me).
+					
+					if dy < 0: # Drop
+						w_high_x = edge_x
+						w_low_x = edge_x + bias
+					else: # Step
+						w_high_x = edge_x
+						w_low_x = edge_x - bias
+					
+					# Create Quad Vertices
+					# We need to map High/Low X to the correct Y levels.
+					# y_my_floor, y_neighbor.
+					
+					var v_my_tl = Vector3(0, y_my_floor + y_bias, z_start)
+					var v_my_bl = Vector3(0, y_my_floor + y_bias, z_end)
+					var v_ne_tl = Vector3(0, y_neighbor - y_bias, z_start)
+					var v_ne_bl = Vector3(0, y_neighbor - y_bias, z_end)
+					
+					# If Drop: My is Top. Neighbor is Bottom.
+					# w_tl/w_bl are at My Y. w_tr/w_br are at Neighbor Y.
+					# Wait, let's use explicit geometry vars.
+					var v_top_l: Vector3
+					var v_top_r: Vector3 # 'r' here means Z-end, not Right side
+					var v_bot_l: Vector3
+					var v_bot_r: Vector3
+					
+					if dy < 0: # My is High
+						v_top_l = Vector3(w_high_x, y_my_floor + y_bias, z_start)
+						v_top_r = Vector3(w_high_x, y_my_floor + y_bias, z_end)
+						v_bot_l = Vector3(w_low_x, y_neighbor - y_bias, z_start)
+						v_bot_r = Vector3(w_low_x, y_neighbor - y_bias, z_end)
+					else: # Neighbor is High
+						v_top_l = Vector3(w_high_x, y_neighbor + y_bias, z_start)
+						v_top_r = Vector3(w_high_x, y_neighbor + y_bias, z_end)
+						v_bot_l = Vector3(w_low_x, y_my_floor - y_bias, z_start)
+						v_bot_r = Vector3(w_low_x, y_my_floor - y_bias, z_end)
+					
+					# Calculate colors
+					var c_top_l = _get_vertex_color(v_top_l)
+					var c_top_r = _get_vertex_color(v_top_r)
+					var c_bot_l = _get_vertex_color(v_bot_l)
+					var c_bot_r = _get_vertex_color(v_bot_r)
 					
 					if dy < 0: # Drop to right (Faces +X)
-						# Top is center (High). Bottom is right (Low).
-						# w_tl (High Back) -> w_bl (High Front) -> w_br (Low Front) -> w_tr (Low Back)
-						_add_quad(w_tl, w_bl, w_br, w_tr, cw_tl, cw_bl, cw_br, cw_tr, uv__tr, uv__br, uv__br, uv__tr)
+						# Top is High. Bottom is Low.
+						# Top-Back (v_top_l) -> Top-Front (v_top_r) -> Bot-Front (v_bot_r) -> Bot-Back (v_bot_l)
+						# CCW for +X: v_top_l -> v_top_r -> v_bot_r -> v_bot_l ?
+						# Let's visualize +X face.
+						# Y ^
+						#   |  TL -- TR
+						#   |  |     |
+						#   |  BL -- BR
+						#   ---------> Z
+						# Normal +X (towards viewer).
+						# Winding: TL -> BL -> BR -> TR (ACW).
+						# TL=v_top_l, BL=v_bot_l, BR=v_bot_r, TR=v_top_r. Not quite.
+						# TL is High Back? No Z-start is Back (-Z).
+						# w_tl in my old code was High Back. 
+						# Let's stick to standard winding:
+						# Triangle 1: TL, BL, TR. Triangle 2: TR, BL, BR.
+						# My helper _add_quad takes v1, v2, v3, v4 as TL, TR, BR, BL relative to... the face.
+						# Let's map explicit vertices.
+						# Face +X:
+						# Top-Left (High Back): v_top_l
+						# Top-Right (High Front): v_top_r
+						# Bot-Right (Low Front): v_bot_r
+						# Bot-Left (Low Back): v_bot_l
+						# _add_quad expects: v1(TL), v2(TR), v3(BR), v4(BL).
+						# Note: My UVs are named uv__tr etc.
+						_add_quad(v_top_l, v_top_r, v_bot_r, v_bot_l, c_top_l, c_top_r, c_bot_r, c_bot_l, uv__tr, uv__br, uv__br, uv__tr, Vector3.RIGHT)
+						
 					else: # Step up to right (Faces -X)
-						# Top is right (High). Bottom is center (Low).
-						# w_tl (Low Back) -> w_bl (Low Front) -> w_br (High Front) -> w_tr (High Back)
-						# We want Normal -X.
-						# LowBack -> LowFront -> HighFront -> HighBack creates -X normal.
-						# But wait, w_bl is Low Front? Yes center_pos is low.
-						# w_tl/w_bl are Low. w_tr/w_br are High.
-						# Low Back (w_tl) -> Low Front (w_bl) -> High Front (w_br) -> High Back (w_tr)
-						_add_quad(w_tl, w_bl, w_br, w_tr, cw_tl, cw_bl, cw_br, cw_tr, uv__tr, uv__br, uv__br, uv__tr)
+						# Face -X (Looking LEFT)
+						# Top is High (Neighbor). Bottom is Low (My).
+						# Top-Right (High Back): v_top_l
+						# Top-Left (High Front): v_top_r
+						# Bot-Left (Low Front): v_bot_r
+						# Bot-Right (Low Back): v_bot_l
+						# _add_quad(TL, TR, BR, BL)
+						# TL = v_top_r (High Front)
+						# TR = v_top_l (High Back)
+						# BR = v_bot_l (Low Back)
+						# BL = v_bot_r (Low Front)
+						_add_quad(v_top_r, v_top_l, v_bot_l, v_bot_r, c_top_r, c_top_l, c_bot_l, c_bot_r, uv__br, uv__tr, uv__tr, uv__br, Vector3.LEFT)
 
 			# Bottom Neighbor (Z+)
 			if z < grid_resolution - 1:
@@ -316,35 +384,71 @@ func _generate_mesh() -> void:
 				var dy = pos_down.y - center_pos.y
 				
 				if abs(dy) > 0.01 and abs(dy) < (skirt_limit + 0.1):
-					# If Drop (dy < 0), Open Air is Down (Z+). Push +bias.
-					# If Step (dy > 0), Open Air is Up (Z-). Push -bias.
-					var wall_offset = bias if dy < 0 else -bias
-					var wall_z = center_pos.z + grid_half + wall_offset
+					# Slanted Wall Logic (Z-Axis)
+					# Edge Z = center_pos.z + grid_half
+					var edge_z = center_pos.z + grid_half
 					
 					var x_start = center_pos.x - half_size
 					var x_end = center_pos.x + half_size
 					
-					var w_tl = Vector3(x_start, center_pos.y + vertical_offset, wall_z)
-					var w_tr = Vector3(x_end, center_pos.y + vertical_offset, wall_z)
-					var w_bl = Vector3(x_start, pos_down.y + vertical_offset, wall_z)
-					var w_br = Vector3(x_end, pos_down.y + vertical_offset, wall_z)
+					var y_bias = 0.02
+					var y_my_floor = center_pos.y + vertical_offset
+					var y_neighbor = pos_down.y + vertical_offset
 					
-					var cw_tl = _get_vertex_color(w_tl)
-					var cw_tr = _get_vertex_color(w_tr)
-					var cw_bl = _get_vertex_color(w_bl)
-					var cw_br = _get_vertex_color(w_br)
+					var w_high_z
+					var w_low_z
+					
+					if dy < 0: # Drop (My is High)
+						w_high_z = edge_z
+						w_low_z = edge_z + bias
+					else: # Step (Neighbor is High)
+						w_high_z = edge_z
+						w_low_z = edge_z - bias
+						
+					var v_top_l: Vector3
+					var v_top_r: Vector3
+					var v_bot_l: Vector3
+					var v_bot_r: Vector3
+					
+					if dy < 0: # Drop (Faces +Z, Back) - My is Top
+						# v_tl/v_tr at My Y. v_bl/v_br at Neighbor Y.
+						v_top_l = Vector3(x_start, y_my_floor + y_bias, w_high_z)
+						v_top_r = Vector3(x_end, y_my_floor + y_bias, w_high_z)
+						v_bot_l = Vector3(x_start, y_neighbor - y_bias, w_low_z)
+						v_bot_r = Vector3(x_end, y_neighbor - y_bias, w_low_z)
+					else: # Step (Faces -Z, Forward) - Neighbor is Top
+						# v_tl/v_tr at Neighbor Y. v_bl/v_br at My Y.
+						v_top_l = Vector3(x_start, y_neighbor + y_bias, w_high_z)
+						v_top_r = Vector3(x_end, y_neighbor + y_bias, w_high_z)
+						v_bot_l = Vector3(x_start, y_my_floor - y_bias, w_low_z)
+						v_bot_r = Vector3(x_end, y_my_floor - y_bias, w_low_z)
+						
+					var c_top_l = _get_vertex_color(v_top_l)
+					var c_top_r = _get_vertex_color(v_top_r)
+					var c_bot_l = _get_vertex_color(v_bot_l)
+					var c_bot_r = _get_vertex_color(v_bot_r)
 					
 					if dy < 0: # Drop to bottom (Faces +Z)
-						# Top is center (High). Bottom is down (Low).
-						# Left-Low (w_bl) -> Right-Low (w_br) -> Right-High (w_tr) -> Left-High (w_tl)
-						_add_quad(w_bl, w_br, w_tr, w_tl, cw_bl, cw_br, cw_tr, cw_tl, uv__bl, uv__br, uv__br, uv__bl)
+						# Top is High. Bottom is Low.
+						# Top-Left (High Left): v_top_l
+						# Top-Right (High Right): v_top_r
+						# Bot-Left (Low Left): v_bot_l
+						# Bot-Right (Low Right): v_bot_r
+						# _add_quad(TL, TR, BR, BL) relative to face looking from +Z
+						# TL = v_top_r (Top Right in world, Top Left on Face)
+						# TR = v_top_l (Top Left in world, Top Right on Face)
+						# BR = v_bot_l
+						# BL = v_bot_r
+						_add_quad(v_top_r, v_top_l, v_bot_l, v_bot_r, c_top_r, c_top_l, c_bot_l, c_bot_r, uv__bl, uv__br, uv__br, uv__bl, Vector3.BACK)
+						
 					else: # Step up to bottom (Faces -Z)
-						# Top is down (High). Bottom is center (Low).
-						# Left-Low (w_tl) -> Right-Low (w_tr) -> Right-High (w_br) -> Left-High (w_bl)
-						# w_tl=LowLeft, w_tr=LowRight.
-						# w_bl=HighLeft, w_br=HighRight.
-						# CCW for -Z normal: LowLeft -> LowRight -> HighRight -> HighLeft
-						_add_quad(w_tl, w_tr, w_br, w_bl, cw_tl, cw_tr, cw_br, cw_bl, uv__bl, uv__br, uv__br, uv__bl)
+						# Face -Z (Looking Forward)
+						# Top is High (Neighbor). Bottom is Low (My).
+						# TL = v_top_l
+						# TR = v_top_r
+						# BR = v_bot_r
+						# BL = v_bot_l
+						_add_quad(v_top_l, v_top_r, v_bot_r, v_bot_l, c_top_l, c_top_r, c_bot_r, c_bot_l, uv__br, uv__bl, uv__bl, uv__br, Vector3.FORWARD)
 
 	self.mesh = _mesh_tool.commit()
 
@@ -356,14 +460,14 @@ func _get_hit_pos(r: RayCast) -> Vector3:
 	return Vector3(ro.x, -max_distance, ro.z)
 
 
-func _add_quad(v1, v2, v3, v4, c1, c2, c3, c4, uv1, uv2, uv3, uv4):
-	_mesh_tool.add_color(c1); _mesh_tool.add_uv(uv1); _mesh_tool.add_vertex(v1)
-	_mesh_tool.add_color(c2); _mesh_tool.add_uv(uv2); _mesh_tool.add_vertex(v2)
-	_mesh_tool.add_color(c3); _mesh_tool.add_uv(uv3); _mesh_tool.add_vertex(v3)
+func _add_quad(v1, v2, v3, v4, c1, c2, c3, c4, uv1, uv2, uv3, uv4, normal: Vector3):
+	_mesh_tool.add_normal(normal); _mesh_tool.add_color(c1); _mesh_tool.add_uv(uv1); _mesh_tool.add_vertex(v1)
+	_mesh_tool.add_normal(normal); _mesh_tool.add_color(c2); _mesh_tool.add_uv(uv2); _mesh_tool.add_vertex(v2)
+	_mesh_tool.add_normal(normal); _mesh_tool.add_color(c3); _mesh_tool.add_uv(uv3); _mesh_tool.add_vertex(v3)
 	
-	_mesh_tool.add_color(c1); _mesh_tool.add_uv(uv1); _mesh_tool.add_vertex(v1)
-	_mesh_tool.add_color(c3); _mesh_tool.add_uv(uv3); _mesh_tool.add_vertex(v3)
-	_mesh_tool.add_color(c4); _mesh_tool.add_uv(uv4); _mesh_tool.add_vertex(v4)
+	_mesh_tool.add_normal(normal); _mesh_tool.add_color(c1); _mesh_tool.add_uv(uv1); _mesh_tool.add_vertex(v1)
+	_mesh_tool.add_normal(normal); _mesh_tool.add_color(c3); _mesh_tool.add_uv(uv3); _mesh_tool.add_vertex(v3)
+	_mesh_tool.add_normal(normal); _mesh_tool.add_color(c4); _mesh_tool.add_uv(uv4); _mesh_tool.add_vertex(v4)
 
 func _get_vertex_color(p: Vector3) -> Color:
 	# p.y is local y (distance from player feet level)
