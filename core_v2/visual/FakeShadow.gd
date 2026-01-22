@@ -12,7 +12,7 @@ export(float) var max_distance: float = 6.0
 export(float, 0.0, 1.0) var base_opacity: float = 1.0
 export(float) var skirt_limit: float = 5.0 # Max height for skirts before we stop drawing them (avoid giant walls)
 export(float) var vertical_offset: float = 0.02
-export(float) var snap_amount: float = 0.125 # World Grid Size (12.5cm for finer detail)
+export(float) var snap_amount: float = 0.1 # World Grid Size (10cm matches your 0.2m floors)
 export(float) var smooth_speed: float = 10.0 # Lerp speed
 
 var _rays: Array = [] # Linear array of rays
@@ -246,8 +246,8 @@ func _generate_mesh() -> void:
 			var uv__br = Vector2(u_center + half_uv, v_center + half_uv)
 			var uv__bl = Vector2(u_center - half_uv, v_center + half_uv)
 			
-			# Draw Floor
-			_add_quad(v_tl, v_tr, v_br, v_bl, c_tl, c_tr, c_br, c_bl, uv__tl, uv__tr, uv__br, uv__bl, Vector3.UP)
+			# Draw Floor (CCW Winding: TL -> BL -> BR -> TR)
+			_add_quad(v_tl, v_bl, v_br, v_tr, c_tl, c_bl, c_br, c_tr, uv__tl, uv__bl, uv__br, uv__tr, Vector3.UP)
 			
 			# 2. Draw Vertical Skirts
 			
@@ -334,47 +334,11 @@ func _generate_mesh() -> void:
 					var c_bot_l = _get_vertex_color(v_bot_l)
 					var c_bot_r = _get_vertex_color(v_bot_r)
 					
-					if dy < 0: # Drop to right (Faces +X)
-						# Top is High. Bottom is Low.
-						# Top-Back (v_top_l) -> Top-Front (v_top_r) -> Bot-Front (v_bot_r) -> Bot-Back (v_bot_l)
-						# CCW for +X: v_top_l -> v_top_r -> v_bot_r -> v_bot_l ?
-						# Let's visualize +X face.
-						# Y ^
-						#   |  TL -- TR
-						#   |  |     |
-						#   |  BL -- BR
-						#   ---------> Z
-						# Normal +X (towards viewer).
-						# Winding: TL -> BL -> BR -> TR (ACW).
-						# TL=v_top_l, BL=v_bot_l, BR=v_bot_r, TR=v_top_r. Not quite.
-						# TL is High Back? No Z-start is Back (-Z).
-						# w_tl in my old code was High Back. 
-						# Let's stick to standard winding:
-						# Triangle 1: TL, BL, TR. Triangle 2: TR, BL, BR.
-						# My helper _add_quad takes v1, v2, v3, v4 as TL, TR, BR, BL relative to... the face.
-						# Let's map explicit vertices.
-						# Face +X:
-						# Top-Left (High Back): v_top_l
-						# Top-Right (High Front): v_top_r
-						# Bot-Right (Low Front): v_bot_r
-						# Bot-Left (Low Back): v_bot_l
-						# _add_quad expects: v1(TL), v2(TR), v3(BR), v4(BL).
-						# Note: My UVs are named uv__tr etc.
-						_add_quad(v_top_l, v_top_r, v_bot_r, v_bot_l, c_top_l, c_top_r, c_bot_r, c_bot_l, uv__tr, uv__br, uv__br, uv__tr, Vector3.RIGHT)
+					if dy < 0: # Drop to right (Faces +X, CCW: HighFront -> HighBack -> LowBack -> LowFront)
+						_add_quad(v_top_r, v_top_l, v_bot_l, v_bot_r, c_top_r, c_top_l, c_bot_l, c_bot_r, uv__br, uv__tr, uv__tr, uv__br, Vector3.RIGHT)
 						
-					else: # Step up to right (Faces -X)
-						# Face -X (Looking LEFT)
-						# Top is High (Neighbor). Bottom is Low (My).
-						# Top-Right (High Back): v_top_l
-						# Top-Left (High Front): v_top_r
-						# Bot-Left (Low Front): v_bot_r
-						# Bot-Right (Low Back): v_bot_l
-						# _add_quad(TL, TR, BR, BL)
-						# TL = v_top_r (High Front)
-						# TR = v_top_l (High Back)
-						# BR = v_bot_l (Low Back)
-						# BL = v_bot_r (Low Front)
-						_add_quad(v_top_r, v_top_l, v_bot_l, v_bot_r, c_top_r, c_top_l, c_bot_l, c_bot_r, uv__br, uv__tr, uv__tr, uv__br, Vector3.LEFT)
+					else: # Step up to right (Faces -X, CCW: HighBack -> HighFront -> LowFront -> LowBack)
+						_add_quad(v_top_l, v_top_r, v_bot_r, v_bot_l, c_top_l, c_top_r, c_bot_r, c_bot_l, uv__tr, uv__br, uv__br, uv__tr, Vector3.LEFT)
 
 			# Bottom Neighbor (Z+)
 			if z < grid_resolution - 1:
