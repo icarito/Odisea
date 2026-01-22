@@ -114,7 +114,6 @@ shape = SubResource( 120 )
 cast_shadow = 0
 script = ExtResource( 53 )
 radius = 0.7
-hardness = 0.268
 grid_resolution = 12
 base_opacity = 0.4
 skirt_limit = 6.0

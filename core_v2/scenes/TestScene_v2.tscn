@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=2]
+[gd_scene load_steps=21 format=2]
 
 [ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=1]
 [ext_resource path="res://assets/Prototype Textures/blue 2.png" type="Texture" id=2]
@@ -12,6 +12,7 @@
 [ext_resource path="res://core_v2/things/SlidingObjectV2.tscn" type="PackedScene" id=10]
 [ext_resource path="res://core_v2/things/RotatingObjectV2.tscn" type="PackedScene" id=11]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_02.png" type="Texture" id=12]
+[ext_resource path="res://core_v2/things/Conveyor.tscn" type="PackedScene" id=13]
 
 [sub_resource type="SpatialMaterial" id=2]
 albedo_color = Color( 0.486275, 0.486275, 0.486275, 1 )
@@ -186,9 +187,16 @@ slide_vector = Vector3( 0, 0, 1 )
 size = Vector3( 1, 1.5, 0.8 )
 easing_type = 3
 
+[node name="LeverConveyor" parent="Interactables" instance=ExtResource( 13 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 5 )
+speed_x = 3.0
+
 [node name="Label3D" type="Label3D" parent="Interactables"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )
 modulate = Color( 0.2, 0.8, 0.3, 1 )
 text = "Interactables Test Area
 Press E to interact"
 font = ExtResource( 9 )
+
+[connection signal="activated" from="Interactables/RotatingLever" to="Interactables/LeverConveyor" method="set_active" binds= [ true ]]
+[connection signal="deactivated" from="Interactables/RotatingLever" to="Interactables/LeverConveyor" method="set_active" binds= [ false ]]

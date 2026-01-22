@@ -39,7 +39,7 @@ length = 10.0
 width = 3.0
 
 [node name="PushableBoxV2" parent="Action/Conveyor" instance=ExtResource( 7 )]
-transform = Transform( -1, 0, 1.50996e-07, 0, 1, 0, -1.50996e-07, 0, -1, -0.545811, 1.36253, 0.0821342 )
+transform = Transform( -1, 0, 1.50996e-07, 0, 1, 0, -1.50996e-07, 0, -1, -0.54581, 1.36253, 0.0821342 )
 mass = 0.1
 
 [node name="PushableBoxV4" parent="Action/Conveyor" instance=ExtResource( 7 )]

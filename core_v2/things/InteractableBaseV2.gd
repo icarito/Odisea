@@ -8,11 +8,13 @@ class_name InteractableBaseV2
 # --- EXPORTED TUNING ---
 export(String) var interaction_text := "Interact"
 export(float) var anim_duration := 1.0 # Seconds to complete animation
+export(bool) var auto_interact_once := false # If true, can only be used once
 export(bool) var debug := false
 
 # --- STATE VARIABLES ---
 # These are snapshotted for replay determinism
 var is_active := false # Logical state (true = open/on, false = closed/off)
+var is_used := false # Has it been triggered if auto_interact_once is true?
 var anim_progress := 0.0 # Current visual position (0.0 to 1.0)
 var target_progress := 0.0 # Goal state (1.0 or 0.0)
 
@@ -42,13 +44,33 @@ func _ready():
 
 func interact() -> void:
 	"""Toggle the active state. Called by player interaction system."""
-	is_active = not is_active
+	if auto_interact_once and is_used:
+		if debug:
+			print("[%s] Already used, ignoring interaction." % name)
+		return
+		
+	set_active(not is_active)
+	
+	if auto_interact_once:
+		is_used = true
+
+func set_active(value: bool, immediate: bool = false) -> void:
+	"""Set the logical state and start/snap animation."""
+	if is_active == value and not immediate:
+		return
+		
+	is_active = value
 	target_progress = 1.0 if is_active else 0.0
 	
-	emit_signal("interaction_started")
+	if immediate:
+		anim_progress = target_progress
+		_update_visuals()
+		_on_animation_completed()
+	else:
+		emit_signal("interaction_started")
 	
 	if debug:
-		print("[%s] interact() -> is_active=%s, target=%s" % [name, is_active, target_progress])
+		print("[%s] set_active(%s) -> target=%s" % [name, is_active, target_progress])
 
 func step(dt: float) -> void:
 	"""Called during fixed physics step. Updates animation progress."""
@@ -112,6 +134,7 @@ func get_snapshot() -> Dictionary:
 	"""Return state dictionary for replay system."""
 	return {
 		"active": is_active,
+		"used": is_used,
 		"progress": anim_progress,
 		"target": target_progress
 	}
@@ -119,6 +142,7 @@ func get_snapshot() -> Dictionary:
 func restore_snapshot(data: Dictionary) -> void:
 	"""Restore state from snapshot dictionary."""
 	is_active = data.get("active", false)
+	is_used = data.get("used", false)
 	anim_progress = data.get("progress", 0.0)
 	target_progress = data.get("target", 0.0)
 	
