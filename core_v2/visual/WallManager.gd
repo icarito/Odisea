@@ -4,10 +4,17 @@ extends Node
 # Updates the 'player_pos' parameter in all relevant materials.
 # Now handles automatic conversion of SpatialMaterials to dithered ShaderMaterials.
 
+# --- TARGETING ---
 export(NodePath) var target_node_path
 export(Material) var walls_material # Optional: template material to update if used directly
+
+# --- OCCLUSION SETTINGS ---
 export(float) var hole_radius = 1.5
 export(float) var softness = 1.0
+export(float) var protect_radius = 1.0
+export(float) var cutoff_offset = 0.7
+
+# --- DEBUG ---
 export(bool) var debug_visualization = false
 
 var _player: Spatial
@@ -25,6 +32,10 @@ func _ready():
 		if r != null: hole_radius = r
 		var s = walls_material.get_shader_param("softness")
 		if s != null: softness = s
+		var pr = walls_material.get_shader_param("protect_radius")
+		if pr != null: protect_radius = pr
+		var co = walls_material.get_shader_param("cutoff_offset")
+		if co != null: cutoff_offset = co
 	_find_player()
 	_find_camera()
 	
@@ -115,6 +126,8 @@ func _process_material(mesh_instance: MeshInstance, index: int):
 		mat.set_shader_param("debug_mode", debug_visualization)
 		mat.set_shader_param("hole_radius", hole_radius)
 		mat.set_shader_param("softness", softness)
+		mat.set_shader_param("protect_radius", protect_radius)
+		mat.set_shader_param("cutoff_offset", cutoff_offset)
 		if _player:
 			mat.set_shader_param("player_pos", _player.global_transform.origin)
 		if _camera:
@@ -154,6 +167,8 @@ func _physics_process(_delta):
 				mat.set_shader_param("camera_pos", current_cam_pos)
 				mat.set_shader_param("hole_radius", hole_radius)
 				mat.set_shader_param("softness", softness)
+				mat.set_shader_param("protect_radius", protect_radius)
+				mat.set_shader_param("cutoff_offset", cutoff_offset)
 				mat.set_shader_param("debug_mode", debug_visualization)
 		_last_pos = current_pos
 		_last_cam_pos = current_cam_pos

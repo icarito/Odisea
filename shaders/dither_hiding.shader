@@ -9,6 +9,8 @@ uniform float softness = 1.5;
 uniform bool debug_mode = false;
 uniform bool use_triplanar = true;
 uniform float uv_scale = 1.0;
+uniform float cutoff_offset = 0.7;
+uniform float protect_radius = 1.0;
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -58,11 +60,24 @@ void fragment() {
     float t = dot(frag_to_cam, line_unit);
     
     // Proyectar fragmento sobre el segmento Cámara-Jugador
-    // Usamos clamp para que el efecto sea un cilindro que termina en el player
-    vec3 projection = camera_pos + clamp(t, 0.0, line_len) * line_unit;
+    vec3 projection = camera_pos + max(t, 0.0) * line_unit;
     float dist = distance(world_pos, projection);
     
+    // Máscara radial de ocultación (el "agujero")
     float mask = smoothstep(hole_radius, hole_radius + softness, dist);
+    
+    // --- MEJORAS PARA EVITAR TRANSPARENCIAS EN EL SUELO/FONDO ---
+    
+    // 1. Zona Sólida Protectora (burbuja alrededor del jugador)
+    // Protege el suelo bajo los pies y paredes que el jugador esté tocando.
+    float dist_to_player = distance(world_pos, player_pos);
+    float player_protection = smoothstep(protect_radius, protect_radius + softness, dist_to_player);
+    mask = mix(1.0, mask, player_protection); // Si está cerca del jugador, forzar opacidad (1.0)
+    
+    // 2. Corte de Plano Anticipado
+    // Cortamos el agujero un poco antes de llegar al plano del jugador
+    float plane_mask = smoothstep(line_len - cutoff_offset - softness, line_len - cutoff_offset, t);
+    mask = mix(mask, 1.0, plane_mask); // Si está más allá del corte, forzar opacidad (1.0)
     
     // Debug: Mostrar un tinte rojo si el dither descartaría el fragmento
     if (debug_mode && dither_pattern(FRAGCOORD.xy) > mask) {
