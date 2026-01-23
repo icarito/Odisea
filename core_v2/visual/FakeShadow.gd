@@ -142,7 +142,9 @@ func _process(_delta: float) -> void:
 			var local_z = start_offset + (z * step)
 			
 			var r = _rays[ray_idx]
-			r.transform.origin = Vector3(local_x, 0, local_z)
+			# Raise ray origin by 1.0m to handle cases where parent origin is floor-level or clipping
+			r.transform.origin = Vector3(local_x, 1.0, local_z)
+			r.cast_to = Vector3(0, -max_distance - 1.0, 0)
 			r.force_raycast_update()
 			ray_idx += 1
 
@@ -155,7 +157,7 @@ func _handle_exclusions() -> void:
 	if not actor and get_parent():
 		var p = get_parent()
 		while p:
-			if p is KinematicBody:
+			if p is PhysicsBody: # Catch KinematicBody, RigidBody, StaticBody
 				actor = p
 				break
 			p = p.get_parent()
