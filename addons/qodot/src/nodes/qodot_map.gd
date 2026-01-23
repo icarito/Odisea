@@ -25,7 +25,7 @@ var face_skip_texture := "special/skip"
 var texture_wads := [] setget set_texture_wads
 var material_file_extension := "tres"
 var default_material_albedo_uniform := ""
-var default_material : Material = SpatialMaterial.new()
+var default_material: Material = SpatialMaterial.new()
 var uv_unwrap_texel_size := 1.0
 var print_profiling_data := false
 var use_trenchbroom_group_hierarchy := false
@@ -61,6 +61,12 @@ var worldspawn_layer_mesh_instances := {}
 var entity_collision_shapes := []
 var worldspawn_layer_collision_shapes := []
 
+var auto_build := false
+var _last_map_mod_time := 0
+var _is_building := false
+var _qodot_lib: GDNativeLibrary = null
+var _qodot_script: NativeScript = null
+
 func set_map_file(new_map_file: String) -> void:
 	if map_file != new_map_file:
 		map_file = new_map_file
@@ -90,6 +96,10 @@ func _ready() -> void:
 	if not Engine.is_editor_hint():
 		if verify_parameters():
 			build_map()
+	
+	if not is_connected("build_complete", self, "_on_build_finished"):
+		connect("build_complete", self, "_on_build_finished")
+		connect("build_failed", self, "_on_build_finished")
 
 func _get_property_list() -> Array:
 	return [
@@ -115,7 +125,8 @@ func _get_property_list() -> Array:
 		QodotUtil.property_dict('print_profiling_data', TYPE_BOOL),
 		QodotUtil.property_dict('use_trenchbroom_group_hierarchy', TYPE_BOOL),
 		QodotUtil.property_dict('tree_attach_batch_size', TYPE_INT),
-		QodotUtil.property_dict('set_owner_batch_size', TYPE_INT)
+		QodotUtil.property_dict('set_owner_batch_size', TYPE_INT),
+		QodotUtil.property_dict('auto_build', TYPE_BOOL)
 	]
 
 # Utility
@@ -131,20 +142,20 @@ func manual_build():
 	verify_and_build()
 
 func verify_parameters():
-	if not qodot or DEBUG:
-		var qodot_lib = GDNativeLibrary.new()
-		qodot_lib.set("entry/OSX.64", "res://addons/qodot/bin/osx/libqodot.dylib")
-		qodot_lib.set("entry/Windows.64", "res://addons/qodot/bin/win64/libqodot.dll")
-		qodot_lib.set("entry/X11.64", "res://addons/qodot/bin/x11/libqodot.so")
-		qodot_lib.set("dependency/OSX.64", ["res://addons/qodot/bin/osx/libmap.dylib"])
-		qodot_lib.set("dependency/Windows.64", ["res://addons/qodot/bin/win64/libmap.dll"])
-		qodot_lib.set("dependency/X11.64", ["res://addons/qodot/bin/x11/libmap.so"])
+	if not qodot or not qodot.has_method("load_map") or DEBUG:
+		_qodot_lib = GDNativeLibrary.new()
+		_qodot_lib.set("entry/OSX.64", "res://addons/qodot/bin/osx/libqodot.dylib")
+		_qodot_lib.set("entry/Windows.64", "res://addons/qodot/bin/win64/libqodot.dll")
+		_qodot_lib.set("entry/X11.64", "res://addons/qodot/bin/x11/libqodot.so")
+		_qodot_lib.set("dependency/OSX.64", ["res://addons/qodot/bin/osx/libmap.dylib"])
+		_qodot_lib.set("dependency/Windows.64", ["res://addons/qodot/bin/win64/libmap.dll"])
+		_qodot_lib.set("dependency/X11.64", ["res://addons/qodot/bin/x11/libmap.so"])
 
-		var qodot_script = NativeScript.new()
-		qodot_script.set("class_name", "Qodot")
-		qodot_script.library = qodot_lib
+		_qodot_script = NativeScript.new()
+		_qodot_script.set("class_name", "Qodot")
+		_qodot_script.library = _qodot_lib
 
-		qodot = qodot_script.new()
+		qodot = _qodot_script.new()
 
 	if not qodot:
 		push_error("Error: Failed to load libqodot.")
@@ -254,7 +265,7 @@ func run_build_steps(post_attach := false) -> void:
 
 		var scene_tree := get_tree()
 		if scene_tree and not block_until_complete:
-			yield(scene_tree.create_timer(YIELD_DURATION), YIELD_SIGNAL)
+			yield (scene_tree.create_timer(YIELD_DURATION), YIELD_SIGNAL)
 
 	if post_attach:
 		build_complete()
@@ -306,6 +317,39 @@ func build_map() -> void:
 	register_post_attach_steps()
 
 	run_build_steps()
+
+func _process(_delta: float) -> void:
+	if not Engine.is_editor_hint() or not auto_build:
+		return
+
+	if map_file == "":
+		return
+
+	var file = File.new()
+	if not file.file_exists(map_file):
+		return
+
+	var mod_time = file.get_modified_time(map_file)
+	if _last_map_mod_time == 0:
+		_last_map_mod_time = mod_time
+		return
+
+	if mod_time > _last_map_mod_time:
+		_last_map_mod_time = mod_time
+		trigger_full_build()
+
+func trigger_full_build() -> void:
+	if _is_building:
+		return
+		
+	print("[Qodot] Auto-building map: ", map_file)
+	_is_building = true
+	should_add_children = true
+	should_set_owners = true
+	verify_and_build()
+
+func _on_build_finished():
+	_is_building = false
 
 func unwrap_uv2(node: Node = null) -> void:
 	var target_node = null
@@ -689,7 +733,7 @@ func build_entity_collision_shapes() -> void:
 			if classname in entity_definitions:
 				var entity_definition = entity_definitions[classname] as QodotFGDSolidClass
 				if entity_definition:
-					match(entity_definition.collision_shape_type):
+					match (entity_definition.collision_shape_type):
 						QodotFGDSolidClass.CollisionShapeType.NONE:
 							continue
 						QodotFGDSolidClass.CollisionShapeType.CONVEX:
@@ -750,7 +794,7 @@ func build_worldspawn_layer_collision_shapes() -> void:
 		var layer = worldspawn_layers[layer_idx]
 		var concave = false
 
-		match(layer.collision_shape_type):
+		match (layer.collision_shape_type):
 			QodotFGDSolidClass.CollisionShapeType.NONE:
 				continue
 			QodotFGDSolidClass.CollisionShapeType.CONVEX:
@@ -957,7 +1001,7 @@ func add_children() -> void:
 
 		var scene_tree := get_tree()
 		if scene_tree and not block_until_complete:
-			yield(scene_tree.create_timer(YIELD_DURATION), YIELD_SIGNAL)
+			yield (scene_tree.create_timer(YIELD_DURATION), YIELD_SIGNAL)
 
 func add_children_complete():
 	stop_profile('add_children')
@@ -980,7 +1024,7 @@ func set_owners():
 
 		var scene_tree := get_tree()
 		if scene_tree and not block_until_complete:
-			yield(scene_tree.create_timer(YIELD_DURATION), YIELD_SIGNAL)
+			yield (scene_tree.create_timer(YIELD_DURATION), YIELD_SIGNAL)
 
 func set_owners_complete():
 	stop_profile('set_owners')

@@ -19,7 +19,6 @@ extents = Vector3( 0.5, 1.5, 1.5 )
 
 [sub_resource type="CapsuleShape" id=48]
 radius = 0.5
-height = 1.20199
 
 [sub_resource type="SphereShape" id=109]
 radius = 0.3
@@ -113,7 +112,6 @@ shape = SubResource( 120 )
 [node name="FakeShadow" type="MeshInstance" parent="Visual/Pivot"]
 cast_shadow = 0
 script = ExtResource( 53 )
-radius = 0.7
 grid_resolution = 12
 base_opacity = 0.4
 skirt_limit = 6.0
@@ -126,7 +124,7 @@ omni_range = 20.0
 omni_attenuation = 2.21914
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
-transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.917525, 0 )
+transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.96, 0 )
 shape = SubResource( 48 )
 
 [node name="CameraRig" type="Spatial" parent="."]
