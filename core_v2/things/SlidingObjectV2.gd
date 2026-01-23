@@ -43,18 +43,36 @@ func _update_size():
 		if col.shape is BoxShape:
 			col.shape.extents = size / 2.0
 	
-	var mesh = get_node_or_null("MeshInstance")
-	if mesh:
+	var default_mesh = get_node_or_null("MeshInstance")
+	_update_mesh_visibility(default_mesh)
+		
+	if default_mesh:
 		# If using CSGBox, update dimensions
-		if mesh is CSGBox:
-			mesh.width = size.x
-			mesh.height = size.y
-			mesh.depth = size.z
+		if default_mesh is CSGBox:
+			default_mesh.width = size.x
+			default_mesh.height = size.y
+			default_mesh.depth = size.z
 		# If using CubeMesh, update size
-		elif mesh.mesh and mesh.mesh is CubeMesh:
-			if not mesh.mesh.resource_local_to_scene:
-				mesh.mesh = mesh.mesh.duplicate()
-			mesh.mesh.size = size
+		elif default_mesh.mesh and default_mesh.mesh is CubeMesh:
+			if not default_mesh.mesh.resource_local_to_scene:
+				default_mesh.mesh = default_mesh.mesh.duplicate()
+			default_mesh.mesh.size = size
+
+func _update_mesh_visibility(default_mesh: MeshInstance):
+	var custom_mesh_found = false
+	
+	# Check for other MeshInstances or visual nodes acting as custom visuals
+	for child in get_children():
+		if child is MeshInstance and child.name != "MeshInstance":
+			custom_mesh_found = true
+			break
+		if child is Spatial and not child is CollisionShape and not child is RayCast and child.name != "MeshInstance":
+			# Any other Spatial that isn't a known utility node might be a custom visual
+			custom_mesh_found = true
+			break
+			
+	if default_mesh:
+		default_mesh.visible = not custom_mesh_found
 
 func _update_visuals() -> void:
 	"""Interpolate position based on animation progress."""
@@ -95,3 +113,6 @@ func _process(_delta):
 		if not _initialized:
 			_start_position = translation
 			_initialized = true
+		
+		# Ensure placeholder hides immediately if user adds a custom mesh in the editor scene tree
+		_update_mesh_visibility(get_node_or_null("MeshInstance"))
