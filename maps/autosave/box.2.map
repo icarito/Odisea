@@ -8,47 +8,11 @@
 "_tb_mod" "textures"
 // brush 0
 {
-( 16 88 96 ) ( 16 -72 96 ) ( 16 88 -16 ) kenney_prototype_textures/dark/texture_01 [ 0 -1 0 550 ] [ 0 0 -1 -100 ] 0 0.1 0.1
-( 24 -72 -16 ) ( 16 -72 -16 ) ( 24 -72 96 ) kenney_prototype_textures/dark/texture_01 [ 1 0 0 550 ] [ 0 0 -1 -100 ] 0 0.1 0.1
-( 24 88 -16 ) ( 16 88 -16 ) ( 24 -72 -16 ) kenney_prototype_textures/dark/texture_01 [ -1 0 0 550 ] [ 0 -1 0 -100 ] 0 0.1 0.1
-( 24 -72 96 ) ( 16 -72 96 ) ( 24 88 96 ) kenney_prototype_textures/dark/texture_01 [ 1 0 0 550 ] [ 0 -1 0 -100 ] 0 0.1 0.1
-( 24 88 96 ) ( 16 88 96 ) ( 24 88 -16 ) kenney_prototype_textures/dark/texture_01 [ -1 0 0 550 ] [ 0 0 -1 -100 ] 0 0.1 0.1
-( 24 -72 96 ) ( 24 88 96 ) ( 24 -72 -16 ) kenney_prototype_textures/dark/texture_01 [ 0 1 0 550 ] [ 0 0 -1 -100 ] 0 0.1 0.1
-}
-// brush 1
-{
-( -96 88 96 ) ( -96 80 96 ) ( -96 88 -16 ) kenney_prototype_textures/dark/texture_01 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-( 16 80 96 ) ( 16 80 -16 ) ( -96 80 96 ) kenney_prototype_textures/dark/texture_01 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-( -96 88 -16 ) ( -96 80 -16 ) ( 16 88 -16 ) kenney_prototype_textures/dark/texture_01 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.01 0.01
-( 16 88 96 ) ( 16 80 96 ) ( -96 88 96 ) kenney_prototype_textures/dark/texture_01 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.01 0.01
-( 16 88 96 ) ( -96 88 96 ) ( 16 88 -16 ) kenney_prototype_textures/dark/texture_01 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-( 16 88 -16 ) ( 16 80 -16 ) ( 16 88 96 ) kenney_prototype_textures/dark/texture_01 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-}
-// brush 2
-{
-( -96 -72 -16 ) ( -96 -64 -16 ) ( -96 -72 96 ) kenney_prototype_textures/dark/texture_01 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-( 16 -72 -16 ) ( -96 -72 -16 ) ( 16 -72 96 ) kenney_prototype_textures/dark/texture_01 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-( 16 -72 -16 ) ( 16 -64 -16 ) ( -96 -72 -16 ) kenney_prototype_textures/dark/texture_01 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.01 0.01
-( -96 -72 96 ) ( -96 -64 96 ) ( 16 -72 96 ) kenney_prototype_textures/dark/texture_01 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.01 0.01
-( -96 -64 -16 ) ( 16 -64 -16 ) ( -96 -64 96 ) kenney_prototype_textures/dark/texture_01 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-( 16 -72 96 ) ( 16 -64 96 ) ( 16 -72 -16 ) kenney_prototype_textures/dark/texture_01 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-}
-// brush 3
-{
-( -96 -64 96 ) ( -96 -64 88 ) ( -96 80 96 ) kenney_prototype_textures/dark/texture_01 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-( 16 -64 96 ) ( 16 -64 88 ) ( -96 -64 96 ) kenney_prototype_textures/dark/texture_01 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-( 16 80 88 ) ( -96 80 88 ) ( 16 -64 88 ) kenney_prototype_textures/dark/texture_01 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.01 0.01
-( 16 80 96 ) ( 16 -64 96 ) ( -96 80 96 ) kenney_prototype_textures/dark/texture_01 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.01 0.01
-( -96 80 96 ) ( -96 80 88 ) ( 16 80 96 ) kenney_prototype_textures/dark/texture_01 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-( 16 80 96 ) ( 16 80 88 ) ( 16 -64 96 ) kenney_prototype_textures/dark/texture_01 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-}
-// brush 4
-{
-( -96 80 -16 ) ( -96 80 -8 ) ( -96 -64 -16 ) kenney_prototype_textures/dark/texture_01 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-( -96 -64 -16 ) ( -96 -64 -8 ) ( 16 -64 -16 ) kenney_prototype_textures/dark/texture_01 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-( -96 80 -16 ) ( -96 -64 -16 ) ( 16 80 -16 ) kenney_prototype_textures/dark/texture_01 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.01 0.01
-( -96 -64 -8 ) ( -96 80 -8 ) ( 16 -64 -8 ) kenney_prototype_textures/dark/texture_01 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.01 0.01
-( 16 80 -16 ) ( 16 80 -8 ) ( -96 80 -16 ) kenney_prototype_textures/dark/texture_01 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
-( 16 -64 -16 ) ( 16 -64 -8 ) ( 16 80 -16 ) kenney_prototype_textures/dark/texture_01 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.01 0.01
+( 0 512 0 ) ( 0 0 0 ) ( 0 0 -16 ) kenney_prototype_textures/dark/texture_09 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 0 0 0 ) ( 512 0 0 ) ( 512 0 -16 ) kenney_prototype_textures/dark/texture_09 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 512 0 -16 ) ( 512 512 -16 ) ( 0 512 -16 ) kenney_prototype_textures/dark/texture_09 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 0 512 96 ) ( 512 512 96 ) ( 512 0 96 ) kenney_prototype_textures/dark/texture_09 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 512 512 -16 ) ( 512 512 0 ) ( 0 512 0 ) kenney_prototype_textures/dark/texture_09 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 512 0 0 ) ( 512 512 0 ) ( 512 512 -16 ) kenney_prototype_textures/dark/texture_09 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 }
 }

@@ -3,7 +3,7 @@ extends QodotEntity
 tool
 
 func update_properties():
-	if not Engine.is_editor_hint:
+	if not Engine.is_editor_hint():
 		return
 
 	for child in get_children():
