@@ -97,7 +97,6 @@ show_debug_mesh = false
 
 [node name="TerraceSpiral" parent="." instance=ExtResource( 9 )]
 transform = Transform( 0.986025, 0, 0.166597, 0, 1, 0, -0.166597, 0, 0.986025, -237.353, 37.8111, 76.7493 )
-visible = false
 multimesh = SubResource( 2 )
 
 [node name="GuardrailSegment" parent="." instance=ExtResource( 21 )]
