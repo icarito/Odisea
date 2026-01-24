@@ -46,18 +46,22 @@ const BONE_MAP = {
 func post_import(scene_root):
     _bone_rename_map.clear() # Reset for this import run
 
-    # 1. Find the Skeleton
+    # --- 1. Find Nodes ---
     var skeleton = find_skeleton(scene_root)
     if skeleton == null:
-        print("Hunyuan Retargeter: No Skeleton node found in the scene.")
+        print("Hunyuan Retargeter: No Skeleton node found. Aborting.")
         return scene_root
+    var anim_player = find_animation_player(scene_root)
 
-    # 2. Rename Bones with prefix stripping and alias support
+    # --- 2. Sanitize Scale (Run first to prevent floating point errors) ---
+    if sanitize_scale:
+        sanitize_skeleton_scale(scene_root, skeleton)
+
+    # --- 3. Rename Bones and Store Map ---
     print("Hunyuan Retargeter: Starting bone renaming...")
     for i in range(skeleton.get_bone_count()):
         var old_name = skeleton.get_bone_name(i)
         var core_name = strip_prefix(old_name)
-
         if core_name in BONE_MAP:
             var new_name = BONE_MAP[core_name]
             if old_name != new_name:
@@ -65,24 +69,19 @@ func post_import(scene_root):
                 _bone_rename_map[old_name] = new_name
                 print("  - Renamed '" + old_name + "' -> '" + new_name + "'")
 
-    # 3. Sanitize Scale (Optional)
-    if sanitize_scale:
-        sanitize_skeleton_scale(scene_root, skeleton)
+    # --- 4. Repair Animation Tracks (Must run after renaming) ---
+    if anim_player and fix_animation_tracks:
+        fix_animation_tracks(anim_player, skeleton)
 
-    # 4. Force T-Pose (Optional)
+    # --- 5. Force T-Pose (Vectorial Correction) ---
     if force_tpose:
-        force_tpose_vectorial(skeleton) # Placeholder for the new V2 logic
+        force_tpose_vectorial(skeleton)
 
-    # 5. Fix Animation Tracks (Optional)
-    var anim_player = find_animation_player(scene_root)
-    if anim_player:
-        if fix_animation_tracks:
-            fix_animation_tracks(anim_player, skeleton)
+    # --- 6. Extract Root Motion ---
+    if anim_player and enable_root_motion:
+        extract_root_motion(skeleton, anim_player)
 
-        # 6. Extract Root Motion (Optional)
-        if enable_root_motion:
-            extract_root_motion(skeleton, anim_player)
-    else:
+    if not anim_player:
         print("Hunyuan Retargeter: No AnimationPlayer found. Skipping animation processing.")
 
     return scene_root
