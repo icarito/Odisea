@@ -3,6 +3,11 @@ extends EditorScenePostImport
 
 # --- CONFIGURATION ---
 export var enable_root_motion = true
+export var fix_animation_tracks = true
+export var force_tpose = true
+export var sanitize_scale = true
+
+var _bone_rename_map = {} # Stores the mapping of old_name -> new_name for this import run
 
 # A comprehensive map of potential source bone names to the Godot Humanoid standard.
 const BONE_MAP = {
@@ -39,6 +44,8 @@ const BONE_MAP = {
 
 
 func post_import(scene_root):
+    _bone_rename_map.clear() # Reset for this import run
+
     # 1. Find the Skeleton
     var skeleton = find_skeleton(scene_root)
     if skeleton == null:
@@ -55,18 +62,28 @@ func post_import(scene_root):
             var new_name = BONE_MAP[core_name]
             if old_name != new_name:
                 skeleton.set_bone_name(i, new_name)
+                _bone_rename_map[old_name] = new_name
                 print("  - Renamed '" + old_name + "' -> '" + new_name + "'")
 
-    # 3. Force T-Pose
-    force_tpose(skeleton)
+    # 3. Sanitize Scale (Optional)
+    if sanitize_scale:
+        sanitize_skeleton_scale(scene_root, skeleton)
 
-    # 4. Extract Root Motion (Optional)
-    if enable_root_motion:
-        var anim_player = find_animation_player(scene_root)
-        if anim_player:
+    # 4. Force T-Pose (Optional)
+    if force_tpose:
+        force_tpose_vectorial(skeleton) # Placeholder for the new V2 logic
+
+    # 5. Fix Animation Tracks (Optional)
+    var anim_player = find_animation_player(scene_root)
+    if anim_player:
+        if fix_animation_tracks:
+            fix_animation_tracks(anim_player, skeleton)
+
+        # 6. Extract Root Motion (Optional)
+        if enable_root_motion:
             extract_root_motion(skeleton, anim_player)
-        else:
-            print("Hunyuan Retargeter: No AnimationPlayer found. Cannot extract root motion.")
+    else:
+        print("Hunyuan Retargeter: No AnimationPlayer found. Skipping animation processing.")
 
     return scene_root
 
@@ -91,6 +108,28 @@ func find_animation_player(node):
         if res: return res
     return null
 
+# Rewrites animation track paths to reflect renamed bones.
+func fix_animation_tracks(anim_player, skeleton):
+    if _bone_rename_map.empty():
+        return # No bones were renamed, so no fixing is needed.
+
+    print("Hunyuan Retargeter: Fixing animation tracks for renamed bones...")
+    var skeleton_path_str = anim_player.get_parent().get_path_to(skeleton).get_concatenated_names()
+
+    for anim_name in anim_player.get_animation_list():
+        var anim = anim_player.get_animation(anim_name)
+        for i in range(anim.get_track_count()):
+            var path = anim.track_get_path(i)
+
+            # Expected format: "SkeletonNodeName:BoneName"
+            if path.get_subname_count() == 1:
+                var bone_name = path.get_subname(0)
+                if _bone_rename_map.has(bone_name):
+                    var new_bone_name = _bone_rename_map[bone_name]
+                    var new_path = NodePath(skeleton_path_str + ":" + new_bone_name)
+                    anim.track_set_path(i, new_path)
+                    print("  - Repathed track in '" + anim_name + "': " + bone_name + " -> " + new_bone_name)
+
 # Extracts horizontal motion from the Hips bone and applies it to the scene root.
 func extract_root_motion(skeleton, anim_player):
     print("Hunyuan Retargeter: Starting root motion extraction...")
@@ -114,9 +153,10 @@ func extract_root_motion(skeleton, anim_player):
 
         print("  - Processing animation '" + anim_name + "'...")
 
-        # Create new track for root motion on the scene's root spatial node
+        # Create new track for root motion on the scene's root spatial node.
+        # The path "." correctly targets the AnimationPlayer's root_node.
         var root_motion_track_idx = anim.add_track(Animation.TYPE_POSITION, 0)
-        anim.track_set_path(root_motion_track_idx, "..")
+        anim.track_set_path(root_motion_track_idx, ".")
 
         # Create a new track for the hips with cleared X/Z motion
         var new_hips_track_idx = anim.add_track(Animation.TYPE_POSITION, 0)
@@ -137,47 +177,92 @@ func extract_root_motion(skeleton, anim_player):
         anim.remove_track(track_idx)
 
 
-# Calculates and applies the necessary rotation to force the arms into a T-pose.
-func force_tpose(skeleton):
-    print("Hunyuan Retargeter: Attempting to force T-Pose...")
+# Aligns limbs to a target vector for a robust T-Pose.
+func force_tpose_vectorial(skeleton):
+    print("Hunyuan Retargeter: Applying V2 Vectorial T-Pose...")
 
-    var left_arm_idx = skeleton.find_bone("LeftUpperArm")
-    var right_arm_idx = skeleton.find_bone("RightUpperArm")
+    # Define bone pairs and their target vectors
+    var limbs_to_correct = [
+        # Arms
+        ["LeftUpperArm", "LeftLowerArm", Vector3(-1, 0, 0)],
+        ["RightUpperArm", "RightLowerArm", Vector3(1, 0, 0)],
+        # Legs
+        ["LeftUpperLeg", "LeftLowerLeg", Vector3(0, -1, 0)],
+        ["RightUpperLeg", "RightLowerLeg", Vector3(0, -1, 0)]
+    ]
 
-    if left_arm_idx != -1:
-        _correct_bone_rotation(skeleton, left_arm_idx, Vector3(1, 0, 0))
-        print("  - Corrected LeftUpperArm rotation.")
-    else:
-        print("  - WARNING: LeftUpperArm not found. Cannot apply T-Pose correction.")
+    for limb_info in limbs_to_correct:
+        var upper_bone = limb_info[0]
+        var lower_bone = limb_info[1]
+        var target_vec = limb_info[2]
 
-    if right_arm_idx != -1:
-        _correct_bone_rotation(skeleton, right_arm_idx, Vector3(-1, 0, 0))
-        print("  - Corrected RightUpperArm rotation.")
-    else:
-        print("  - WARNING: RightUpperArm not found. Cannot apply T-Pose correction.")
+        var upper_idx = skeleton.find_bone(upper_bone)
+        var lower_idx = skeleton.find_bone(lower_bone)
 
-# Helper function to apply rotation correction to a single bone.
-func _correct_bone_rotation(skeleton, bone_idx, target_world_dir):
-    var parent_idx = skeleton.get_bone_parent(bone_idx)
+        if upper_idx != -1 and lower_idx != -1:
+            _align_bone_vectorially(skeleton, upper_idx, lower_idx, target_vec)
+            print("  - Aligned " + upper_bone)
+        else:
+            print("  - WARNING: Could not find bones for " + upper_bone + ". Skipping alignment.")
+
+# Helper function to align a bone based on joint positions.
+func _align_bone_vectorially(skeleton, upper_idx, lower_idx, target_world_dir):
+    var parent_idx = skeleton.get_bone_parent(upper_idx)
     if parent_idx == -1:
-        print("  - WARNING: Arm bone has no parent, cannot T-Pose safely.")
+        print("  - WARNING: Limb bone '" + skeleton.get_bone_name(upper_idx) + "' has no parent. Cannot T-Pose safely.")
         return
 
-    var parent_global_pose = skeleton.get_bone_global_pose(parent_idx)
-    var bone_global_pose = skeleton.get_bone_global_pose(bone_idx)
+    # Get global poses to calculate the direction vector
+    var upper_global_pose = skeleton.get_bone_global_pose(upper_idx)
+    var lower_global_pose = skeleton.get_bone_global_pose(lower_idx)
 
-    # ASSUMPTION: The bone's local X-axis points down its length. This is a common
-    # convention in 3D modeling, but if a source skeleton uses a different axis
-    # (e.g., Y-axis), this line will need to be adjusted.
-    var current_world_dir = bone_global_pose.basis.xform(Vector3(1, 0, 0)).normalized()
+    # Calculate the actual vector from the upper joint to the lower joint
+    var current_world_dir = (lower_global_pose.origin - upper_global_pose.origin).normalized()
 
+    # Calculate the rotation needed to get from current to target
     var correction_quat = Quat(current_world_dir, target_world_dir)
 
+    # Transform the world-space correction into the parent's local space
+    var parent_global_pose = skeleton.get_bone_global_pose(parent_idx)
     var parent_global_basis_inv = parent_global_pose.basis.inverse()
     var local_correction_quat = parent_global_basis_inv * correction_quat * parent_global_pose.basis
 
-    var current_rest = skeleton.get_bone_rest(bone_idx)
-    var new_basis = current_rest.basis * Basis(local_correction_quat)
+    # Apply the local correction to the bone's rest transform.
+    # The order is crucial: apply the new rotation BEFORE the existing one.
+    var current_rest = skeleton.get_bone_rest(upper_idx)
+    var new_basis = Basis(local_correction_quat) * current_rest.basis
     var new_rest = Transform(new_basis, current_rest.origin)
 
-    skeleton.set_bone_rest(bone_idx, new_rest)
+    skeleton.set_bone_rest(upper_idx, new_rest)
+
+# Sanitizes the skeleton's scale to prevent "spaghetti effect" or giant models.
+func sanitize_skeleton_scale(scene_root, skeleton):
+    print("Hunyuan Retargeter: Sanitizing skeleton scale...")
+
+    # 1. Force the root node's scale to (1, 1, 1).
+    if scene_root is Spatial:
+        scene_root.scale = Vector3(1, 1, 1)
+        print("  - Scene root scale forced to (1, 1, 1).")
+
+    # 2. Calculate height based on Hips-to-Head distance.
+    var hips_idx = skeleton.find_bone("Hips")
+    var head_idx = skeleton.find_bone("Head")
+
+    if hips_idx == -1 or head_idx == -1:
+        print("  - WARNING: Cannot find Hips or Head bone. Skipping height check.")
+        return
+
+    # Use global pose to get positions in the same (skeleton) coordinate space.
+    var hips_pos = skeleton.get_bone_global_pose(hips_idx).origin
+    var head_pos = skeleton.get_bone_global_pose(head_idx).origin
+    var height = abs(head_pos.y - hips_pos.y)
+
+    print("  - Calculated skeleton height (Hips to Head): " + str(height))
+
+    # 3. If height is too small, scale up the bone positions.
+    if height < 0.5:
+        print("  - Height is less than 0.5. Scaling up bone positions by x100.")
+        for i in range(skeleton.get_bone_count()):
+            var rest = skeleton.get_bone_rest(i)
+            rest.origin *= 100
+            skeleton.set_bone_rest(i, rest)
