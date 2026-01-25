@@ -1,13 +1,12 @@
-[gd_scene load_steps=18 format=2]
+[gd_scene load_steps=17 format=2]
 
-[ext_resource path="res://core_v2/actors/Skeleton.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/sim/PlayerControllerV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/view/PilotAnimatorV2.gd" type="Script" id=3]
 [ext_resource path="res://core_v2/sim/PlayerJumpV2.gd" type="Script" id=4]
-[ext_resource path="res://core_v2/actors/AnimationPlayer.tscn" type="PackedScene" id=5]
 [ext_resource path="res://core_v2/sim/PlayerMovementV2.gd" type="Script" id=6]
 [ext_resource path="res://core_v2/actors/AnimationTree.tres" type="AnimationNodeStateMachine" id=7]
 [ext_resource path="res://core_v2/sim/SideScrollLogicV2.gd" type="Script" id=8]
+[ext_resource path="res://models/Pilot.glb" type="PackedScene" id=9]
 [ext_resource path="res://data/curves/Inverse_S.tres" type="Curve" id=10]
 [ext_resource path="res://data/curves/Exponential.tres" type="Curve" id=11]
 [ext_resource path="res://core_v2/visual/FakeShadow.gd" type="Script" id=53]
@@ -86,12 +85,11 @@ min_rig_height = -1.5
 script = ExtResource( 3 )
 rotation_lerp_speed = 5.0
 
-[node name="Skeleton" parent="Visual/Pivot" instance=ExtResource( 1 )]
+[node name="Skeleton" parent="Visual/Pivot" instance=ExtResource( 9 )]
 
 [node name="AnimationTree" type="AnimationTree" parent="Visual/Pivot"]
 tree_root = ExtResource( 7 )
-anim_player = NodePath("../../../AnimationPlayer")
-active = true
+anim_player = NodePath("../Skeleton/AnimationPlayer")
 parameters/playback = SubResource( 108 )
 parameters/conditions/!on_floor = false
 parameters/conditions/hit_head = false
@@ -168,4 +166,4 @@ initial_velocity = 0.5
 initial_velocity_random = 0.6
 color = Color( 0.172549, 0.607843, 0.615686, 1 )
 
-[node name="AnimationPlayer" parent="." instance=ExtResource( 5 )]
+[editable path="Visual/Pivot/Skeleton"]
