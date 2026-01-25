@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=2]
+[gd_scene load_steps=18 format=2]
 
 [ext_resource path="res://core_v2/sim/PlayerControllerV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/view/PilotAnimatorV2.gd" type="Script" id=3]
@@ -10,6 +10,10 @@
 [ext_resource path="res://data/curves/Inverse_S.tres" type="Curve" id=10]
 [ext_resource path="res://data/curves/Exponential.tres" type="Curve" id=11]
 [ext_resource path="res://core_v2/visual/FakeShadow.gd" type="Script" id=53]
+
+[sub_resource type="SpatialMaterial" id=121]
+albedo_color = Color( 1, 0.411765, 0.129412, 1 )
+roughness = 0.58
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=108]
 
@@ -87,9 +91,13 @@ rotation_lerp_speed = 5.0
 
 [node name="Skeleton" parent="Visual/Pivot" instance=ExtResource( 9 )]
 
+[node name="Mesh_0001" parent="Visual/Pivot/Skeleton/Node_40/Skinned_Mesh_0/Skeleton" index="0"]
+material/0 = SubResource( 121 )
+
 [node name="AnimationTree" type="AnimationTree" parent="Visual/Pivot"]
 tree_root = ExtResource( 7 )
 anim_player = NodePath("../Skeleton/AnimationPlayer")
+active = true
 parameters/playback = SubResource( 108 )
 parameters/conditions/!on_floor = false
 parameters/conditions/hit_head = false
