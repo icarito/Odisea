@@ -98,13 +98,16 @@ material/0 = SubResource( 121 )
 tree_root = ExtResource( 7 )
 anim_player = NodePath("../Skeleton/AnimationPlayer")
 active = true
+root_motion_track = NodePath("Node_40/Skinned_Mesh_0/Skeleton:root")
 parameters/playback = SubResource( 108 )
 parameters/conditions/!on_floor = false
 parameters/conditions/hit_head = false
+parameters/conditions/is_acrobatic = false
+parameters/conditions/is_falling = false
 parameters/conditions/is_jumping = false
 parameters/conditions/land_hard = false
 parameters/conditions/on_floor = false
-parameters/Grounded/blend_position = 1.99571
+parameters/Grounded/blend_position = 5.30719
 parameters/InAir/Transition/current = 1
 parameters/Jump/Transition/current = 0
 
