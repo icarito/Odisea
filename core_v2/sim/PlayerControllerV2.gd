@@ -56,10 +56,7 @@ signal hit_ceiling
 signal interactable_in_range(text)
 signal interactable_out_of_range
 
-# --- ACROBATIC BACKFLIP STATE (Frame-based for determinism) ---
-const ACROBATIC_WINDOW_FRAMES := 12 # ~200ms at 60fps
-export(float) var jump_impulse_acrobatic := 14.0 # Higher than normal jump
-export(float) var acrobatic_backward_factor := -0.5 # Optional inertial kick
+const ACROBATIC_WINDOW_FRAMES := 15 # increased leniency (~250ms)
 var frames_since_last_snap := ACROBATIC_WINDOW_FRAMES + 1 # Start expired
 var last_input_vector := Vector3.ZERO
 var is_acrobatic_ready := false
@@ -421,9 +418,16 @@ func step(dt: float, input: InputDataV2) -> void:
 	var current_input_3d = Vector3(input.move_vec.x, 0, input.move_vec.y).normalized()
 	if current_input_3d.length() > 0.1 and last_input_vector.length() > 0.1:
 		var dot_product = current_input_3d.dot(last_input_vector)
-		if dot_product < -0.7: # >135° direction change
-			frames_since_last_snap = 0
-			is_acrobatic_ready = true
+		if dot_product < -0.6: # Detección de giro 180°
+			if is_acrobatic_ready:
+				# Si ya estábamos listos y giramos OTRA VEZ (Double Snap), cancelamos.
+				# Esto evita el backflip "al revés" cuando rectificas la dirección muy rápido.
+				is_acrobatic_ready = false
+				frames_since_last_snap = ACROBATIC_WINDOW_FRAMES + 1
+			else:
+				# Primer snap detectado
+				frames_since_last_snap = 0
+				is_acrobatic_ready = true
 	
 	# Manage acrobatic window counter
 	frames_since_last_snap += 1
@@ -478,15 +482,30 @@ func step(dt: float, input: InputDataV2) -> void:
 	
 	# --- ACROBATIC JUMP CHECK (before normal jump) ---
 	if is_acrobatic_ready and is_on_floor() and jump_logic.jump_buffer_timer > 0:
-		velocity.y = jump_impulse_acrobatic
-		# Optional backward momentum based on last direction
+		var force = jump_logic.acrobatic_jump_force
+		velocity.y = force
+		
+		# 1. FRENADO EN SECO: Eliminamos la inercia actual para justificar el cambio de dirección
+		# Multiplicamos por acrobatic_brake_factor (usualmente 0.0 para frenado instantáneo)
+		velocity.x *= jump_logic.acrobatic_brake_factor
+		velocity.z *= jump_logic.acrobatic_brake_factor
+		
+		# 2. IMPULSO HACIA ATRÁS: Usamos el vector de intención actual.
 		if last_input_vector.length() > 0.1:
-			var back_dir = - last_input_vector.normalized()
-			velocity.x += back_dir.x * abs(velocity.x) * acrobatic_backward_factor
-			velocity.z += back_dir.z * abs(velocity.z) * acrobatic_backward_factor
+			var move_dir = last_input_vector.normalized()
+			# Kick: Base impulse + boost.
+			velocity.x += move_dir.x * jump_logic.acrobatic_backward_impulse
+			velocity.z += move_dir.z * jump_logic.acrobatic_backward_impulse
+			
+			# Camera Visual Impact
+			if is_instance_valid(sidescroll_logic) and sidescroll_logic.is_active:
+				var push_val = 0.0
+				if sidescroll_logic.lock_axis == 2: push_val = move_dir.x
+				elif sidescroll_logic.lock_axis == 1: push_val = move_dir.z
+				sidescroll_logic.pan_offset.x += push_val * jump_logic.acrobatic_camera_push
+		
 		jump_logic.consume_jump()
-		if is_instance_valid(jump_logic):
-			jump_logic.set_internal_velocity(jump_impulse_acrobatic)
+		jump_logic.set_internal_velocity(force)
 		is_acrobatic_ready = false
 		emit_signal("acrobatic_jumped")
 	else:

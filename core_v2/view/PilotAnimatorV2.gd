@@ -161,12 +161,11 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	animation_tree.set(PARAM_CONDITIONS_IS_FLOATING, is_floating)
 
 	# is_jumping: true si acabamos de disparar el salto (buffer) o si estamos subiendo en aire
-	# NOTA: Para el backflip, usamos un trigger separado, así que is_jumping no necesita activarse si es acrobático
-	# (depende de cómo configures las transiciones, pero tener is_jumping=true podría conflictos si ambas transiciones son válidas)
 	var is_jumping_param: bool = (jumped_buffer_time > 0.0) or (not is_on_floor and velocity.y > 1.0)
 	
-	# Si el latch acrobático está activo, forzamos is_jumping a false para evitar conflicto de transiciones
-	# Esto asegura que la StateMachine elija 'Acrobatic' en lugar de 'Jump'
+	# PRIORIDAD ABSOLUTA AL BACKFLIP:
+	# Si el latch acrobático está armado, forzamos is_jumping a false.
+	# Esto obliga a la StateMachine a ignorar el salto normal y tomar la transición 'is_acrobatic'.
 	if acrobatic_trigger_active:
 		is_jumping_param = false
 		
@@ -235,15 +234,20 @@ func _on_controller_acrobatic_jumped() -> void:
 		acrobatic_trigger_active = true
 		
 		# BLOQUEO DE ROTACIÓN:
-		# Queremos mirar hacia donde veníamos (el "frente" original).
+		# Miramos opuesto al movimiento para realizar el backflip hacia atrás
 		var move_dir = controller.get_wish_direction()
 		if move_dir.length_squared() > 0.01:
 			var look_dir = - move_dir
 			var target_angle = atan2(look_dir.x, look_dir.z)
 			
-			rotation.y = target_angle # Snap inmediato a la dirección correcta
-			is_rotation_locked = true # Bloquear hasta aterriza
-			print("PilotAnimator: Rotation LOCKED at ", target_angle)
+			# SOLO forzamos el snap si estamos mirando a más de 45 grados del objetivo
+			# Calculamos la diferencia de angulo manualmente (compatible con Godot 3)
+			var diff = fposmod(target_angle - rotation.y + PI, PI * 2) - PI
+			if abs(diff) > deg2rad(45):
+				rotation.y = target_angle
+				
+			is_rotation_locked = true # Bloquear hasta aterrizar
+			print("PilotAnimator: Backflip LOCKED orientation")
 		
 		# IMPORTANTE: NO configuramos jumped_buffer_time aquí para evitar que 'is_jumping' se active
 		# y compita con 'is_acrobatic'. Queremos ir SOLO al estado Acrobatic.

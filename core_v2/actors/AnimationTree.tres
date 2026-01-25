@@ -69,7 +69,7 @@ input_1/name = "Land"
 input_1/auto_advance = false
 
 [sub_resource type="AnimationNodeBlendTree" id=200]
-graph_offset = Vector2( 324, 10.6 )
+graph_offset = Vector2( 451.589, 17.8487 )
 nodes/Animation/node = SubResource( 198 )
 nodes/Animation/position = Vector2( 368, 32 )
 "nodes/Animation 2/node" = SubResource( 197 )
@@ -77,7 +77,7 @@ nodes/Animation/position = Vector2( 368, 32 )
 nodes/Transition/node = SubResource( 199 )
 nodes/Transition/position = Vector2( 624, 48 )
 nodes/output/position = Vector2( 800, 80 )
-node_connections = [ "Transition", 0, "Animation", "Transition", 1, "Animation 2" ]
+node_connections = [ "Transition", 0, "Animation", "Transition", 1, "Animation 2", "output", 0, "Transition" ]
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=192]
 advance_condition = "land_hard"
@@ -104,10 +104,10 @@ priority = 5
 [sub_resource type="AnimationNodeStateMachineTransition" id=201]
 advance_condition = "is_jumping"
 xfade_time = 0.1
+priority = 5
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=202]
-switch_mode = 2
-auto_advance = true
+advance_condition = "is_falling"
 xfade_time = 0.3
 priority = 5
 
@@ -127,7 +127,6 @@ xfade_time = 0.3
 [sub_resource type="AnimationNodeStateMachineTransition" id=208]
 advance_condition = "is_acrobatic"
 xfade_time = 0.3
-priority = 3
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=209]
 advance_condition = "is_falling"
