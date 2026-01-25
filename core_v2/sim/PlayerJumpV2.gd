@@ -9,6 +9,13 @@ export(float) var min_jump_intensity := 0.4
 const COYOTE_TIME := 0.15 # ~120-150 ms
 const JUMP_BUFFER_TIME := 0.1 # ~100-120 ms
 
+# --- ACROBATIC / BACKFLIP TUNING ---
+export(float) var acrobatic_jump_force := 14.0
+export(float) var acrobatic_backward_impulse := 12.0 # Más potente para compensar el frenado
+export(float) var acrobatic_backward_multiplier := 0.2 # Factor de inercia conservada
+export(float) var acrobatic_camera_push := 2.5
+export(float) var acrobatic_brake_factor := 0.0 # 0.0 = frenado total instantáneo
+
 var coyote_timer := 0.0
 var jump_buffer_timer := 0.0
 var internal_velocity := 0.0
