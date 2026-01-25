@@ -51,9 +51,18 @@ func get_mouse_sensitivity(): return mouse_sensitivity
 
 # --- SEÑALES ---
 signal jumped
+signal acrobatic_jumped
 signal hit_ceiling
 signal interactable_in_range(text)
 signal interactable_out_of_range
+
+# --- ACROBATIC BACKFLIP STATE (Frame-based for determinism) ---
+const ACROBATIC_WINDOW_FRAMES := 12 # ~200ms at 60fps
+export(float) var jump_impulse_acrobatic := 14.0 # Higher than normal jump
+export(float) var acrobatic_backward_factor := -0.5 # Optional inertial kick
+var frames_since_last_snap := ACROBATIC_WINDOW_FRAMES + 1 # Start expired
+var last_input_vector := Vector3.ZERO
+var is_acrobatic_ready := false
 
 # --- INTERACTION ---
 var _interact_ray: RayCast = null
@@ -78,6 +87,12 @@ func get_full_snapshot() -> Dictionary:
 			"is_jumping": jump_logic._is_jumping
 		}
 	
+	# Acrobatic Backflip state
+	snapshot["acrobatic_state"] = {
+		"frames_since_last_snap": frames_since_last_snap,
+		"last_input_vector": [last_input_vector.x, last_input_vector.y, last_input_vector.z],
+		"is_acrobatic_ready": is_acrobatic_ready
+	}
 	
 	snapshot["fwd_latch_active"] = _forward_latch_active
 	snapshot["fwd_latch_sign"] = _forward_latch_sign
@@ -120,6 +135,14 @@ func restore_snapshot(data: Dictionary) -> void:
 	
 	_forward_latch_active = data.get("fwd_latch_active", false)
 	_forward_latch_sign = data.get("fwd_latch_sign", 1.0)
+	
+	# Restore acrobatic state
+	if data.has("acrobatic_state"):
+		var acro = data["acrobatic_state"]
+		frames_since_last_snap = acro.get("frames_since_last_snap", ACROBATIC_WINDOW_FRAMES + 1)
+		var liv = acro.get("last_input_vector", [0, 0, 0])
+		last_input_vector = Vector3(liv[0], liv[1], liv[2])
+		is_acrobatic_ready = acro.get("is_acrobatic_ready", false)
 	
 	# APLICACIÓN: Unificamos la lógica de rotación con la de step() para garantizar determinismo.
 	if camera_rig:
@@ -378,7 +401,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		
 	if input.jump:
 		jump_logic.buffer_jump()
-
+	
 	# 2. Delegar movimiento horizontal
 	
 	if sidescroll_logic.is_active:
@@ -392,6 +415,23 @@ func step(dt: float, input: InputDataV2) -> void:
 		
 	var basis = get_camera_basis()
 	var move_vec = input.move_vec
+	
+	# --- ACROBATIC SNAP DETECTION (Frame-based for determinism) ---
+	# Uses input.move_vec directly to capture raw intent before processing
+	var current_input_3d = Vector3(input.move_vec.x, 0, input.move_vec.y).normalized()
+	if current_input_3d.length() > 0.1 and last_input_vector.length() > 0.1:
+		var dot_product = current_input_3d.dot(last_input_vector)
+		if dot_product < -0.7: # >135° direction change
+			frames_since_last_snap = 0
+			is_acrobatic_ready = true
+	
+	# Manage acrobatic window counter
+	frames_since_last_snap += 1
+	if frames_since_last_snap > ACROBATIC_WINDOW_FRAMES and is_acrobatic_ready:
+		is_acrobatic_ready = false
+	
+	if current_input_3d.length() > 0.1:
+		last_input_vector = current_input_3d
 	
 	if _forward_latch_active:
 		# FORWARD LATCH: Force controls to follow strict 2.5D path
@@ -435,12 +475,27 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	# 3. Aplicar Salto o Gravedad (Delegado al componente)
 	var old_vy = velocity.y
-	# Note: We pass velocity.y just in case, but JumpV2 now uses its internal state
-	velocity.y = jump_logic.step(dt, input.jump, velocity.y, is_on_floor())
 	
-	# Emitir señal si se inició un salto en este frame
-	if velocity.y == jump_logic.jump_force and old_vy != jump_logic.jump_force:
-		emit_signal("jumped")
+	# --- ACROBATIC JUMP CHECK (before normal jump) ---
+	if is_acrobatic_ready and is_on_floor() and jump_logic.jump_buffer_timer > 0:
+		velocity.y = jump_impulse_acrobatic
+		# Optional backward momentum based on last direction
+		if last_input_vector.length() > 0.1:
+			var back_dir = - last_input_vector.normalized()
+			velocity.x += back_dir.x * abs(velocity.x) * acrobatic_backward_factor
+			velocity.z += back_dir.z * abs(velocity.z) * acrobatic_backward_factor
+		jump_logic.consume_jump()
+		if is_instance_valid(jump_logic):
+			jump_logic.set_internal_velocity(jump_impulse_acrobatic)
+		is_acrobatic_ready = false
+		emit_signal("acrobatic_jumped")
+	else:
+		# Note: We pass velocity.y just in case, but JumpV2 now uses its internal state
+		velocity.y = jump_logic.step(dt, input.jump, velocity.y, is_on_floor())
+		
+		# Emitir señal si se inició un salto en este frame
+		if velocity.y == jump_logic.jump_force and old_vy != jump_logic.jump_force:
+			emit_signal("jumped")
 
 	# --- 2.5D AXIS CONSTRAINT ---
 	sidescroll_logic.apply_spatial_constraints(self)

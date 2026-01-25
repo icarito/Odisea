@@ -19,6 +19,7 @@ const PARAM_GROUNDED_JUMP_ACTIVE = "parameters/Grounded/Jump/active"
 const PARAM_LAND_TRANSITION_CURRENT = "parameters/Land/Transition/current"
 const PARAM_JUMP_TRANSITION_CURRENT = "parameters/Jump/Transition/current"
 const PARAM_PLAYBACK_ACTIVE = "parameters/playback/active"
+const PARAM_CONDITIONS_IS_ACROBATIC = "parameters/conditions/is_acrobatic"
 
 # --- EXPORTS ---
 # Velocidad de suavizado para la velocidad usada en el AnimationTree.
@@ -42,6 +43,8 @@ var time_since_jump: float = 0.0
 var time_since_input: float = 0.0
 var last_air_vertical_speed: float = 0.0 # Guarda la velocidad vertical del último frame en el aire
 var jumped_buffer_time: float = 0.0
+var acrobatic_trigger_active: bool = false # Latch para garantizar que la SM vea el trigger
+var is_rotation_locked: bool = false # Impide que el personaje rote durante maniobras (backflip)
 var hit_head_active: bool = false
 
 # --- LIFECYCLE ---
@@ -62,6 +65,8 @@ func _ready() -> void:
 	# Conectar la señal de salto para manejar la animación de forma reactiva.
 	controller.connect("jumped", self, "_on_controller_jumped")
 	controller.connect("hit_ceiling", self, "_on_controller_hit_ceiling")
+	if controller.has_signal("acrobatic_jumped"):
+		controller.connect("acrobatic_jumped", self, "_on_controller_acrobatic_jumped")
 
 	# Intentar obtener AnimationPlayer si existe
 	anim_player = get_node_or_null("AnimationPlayer")
@@ -119,17 +124,20 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 		visual_velocity = p_current_velocity
 
 	# 2. ROTACIÓN VISUAL SUAVE (YAW)
-	# Rota el pivote visual hacia la dirección de movimiento deseada (wish_direction).
-	# Esto solo ocurre si hay una intención de movimiento para evitar que el personaje
-	# vuelva a la rotación por defecto al detenerse.
-	var horizontal_wish_direction = wish_direction * Vector3(1, 0, 1)
-	if horizontal_wish_direction.length_squared() > 0.01:
-		# wish_direction ahora es siempre correcta, por lo que no necesitamos lógica condicional.
-		var target_angle = atan2(horizontal_wish_direction.x, horizontal_wish_direction.z)
-		if dt > 0: # Suavizado en modo LIVE.
-			rotation.y = lerp_angle(rotation.y, target_angle, rotation_lerp_speed * dt)
-		else: # Aplicación instantánea en modo REPLAY.
-			rotation.y = target_angle
+	# Solo rotamos si no estamos bloqueados (durante backflip)
+	if not is_rotation_locked:
+		var horizontal_wish_direction = wish_direction * Vector3(1, 0, 1)
+		if horizontal_wish_direction.length_squared() > 0.01:
+			# wish_direction ahora es siempre correcta, por lo que no necesitamos lógica condicional.
+			var target_angle = atan2(horizontal_wish_direction.x, horizontal_wish_direction.z)
+			if dt > 0: # Suavizado en modo LIVE.
+				rotation.y = lerp_angle(rotation.y, target_angle, rotation_lerp_speed * dt)
+			else: # Aplicación instantánea en modo REPLAY.
+				rotation.y = target_angle
+	
+	# Desbloquear rotación al aterrizar
+	if is_on_floor and is_rotation_locked and not acrobatic_trigger_active:
+		is_rotation_locked = false
 
 	# 3. APLICACIÓN DE ESTADO AL ANIMATIONTREE
 	update_animation_parameters(p_current_velocity, is_on_floor, controller.get_wish_direction().length())
@@ -153,8 +161,24 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	animation_tree.set(PARAM_CONDITIONS_IS_FLOATING, is_floating)
 
 	# is_jumping: true si acabamos de disparar el salto (buffer) o si estamos subiendo en aire
+	# NOTA: Para el backflip, usamos un trigger separado, así que is_jumping no necesita activarse si es acrobático
+	# (depende de cómo configures las transiciones, pero tener is_jumping=true podría conflictos si ambas transiciones son válidas)
 	var is_jumping_param: bool = (jumped_buffer_time > 0.0) or (not is_on_floor and velocity.y > 1.0)
+	
+	# Si el latch acrobático está activo, forzamos is_jumping a false para evitar conflicto de transiciones
+	# Esto asegura que la StateMachine elija 'Acrobatic' en lugar de 'Jump'
+	if acrobatic_trigger_active:
+		is_jumping_param = false
+		
 	animation_tree.set(PARAM_CONDITIONS_IS_JUMPING, is_jumping_param)
+	
+	# Resetear trigger acrobático usando el latch
+	if acrobatic_trigger_active:
+		print("PilotAnimator: Sending is_acrobatic = TRUE to AnimationTree")
+		animation_tree.set(PARAM_CONDITIONS_IS_ACROBATIC, true)
+		acrobatic_trigger_active = false # Consumimos el trigger
+	else:
+		animation_tree.set(PARAM_CONDITIONS_IS_ACROBATIC, false)
 	
 	# Hit Head condition (one-shot, cleared after this frame)
 	animation_tree.set(PARAM_CONDITIONS_HIT_HEAD, hit_head_active)
@@ -187,9 +211,14 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 
 func _on_controller_jumped() -> void:
 	"""Se ejecuta cuando el controlador emite la señal 'jumped'."""
+	# Activamos el salto normal.
+	# Aseguramos que la transición interna del estado Jump (si aún existe) esté en start
+	# O simplemente confiamos en el estado Jump por defecto.
+	# animation_tree.set(PARAM_JUMP_TRANSITION_TYPE, 0) # Opcional si limpiaste el nodo Jump
+	
 	# Usar ONE_SHOT_REQUEST_FIRE es la forma correcta y determinista de activar animaciones OneShot.
 	# NO NO NO NO ES ACTIVE 1
-	animation_tree.set(PARAM_GROUNDED_JUMP_ACTIVE, 1) ## # NO TOCAR
+	animation_tree.set(PARAM_GROUNDED_JUMP_ACTIVE, 1) ## # NO TOCAR (Legacy logic, mantener si es necesario para compatibilidad)
 
 	# Activar buffer de salto para mantener `is_jumping` verdadero algunos ms
 	jumped_buffer_time = jump_buffer_duration
@@ -197,3 +226,24 @@ func _on_controller_jumped() -> void:
 func _on_controller_hit_ceiling() -> void:
 	"""Se ejecuta cuando el controlador emite la señal 'hit_ceiling'."""
 	hit_head_active = true
+
+func _on_controller_acrobatic_jumped() -> void:
+	"""Trigger Backflip State via is_acrobatic condition."""
+	if animation_tree:
+		print("PilotAnimator: Controller signal received. Arming ACROBATIC latch.")
+		# Activamos el latch para que update_animation_parameters lo procese en el momento correcto
+		acrobatic_trigger_active = true
+		
+		# BLOQUEO DE ROTACIÓN:
+		# Queremos mirar hacia donde veníamos (el "frente" original).
+		var move_dir = controller.get_wish_direction()
+		if move_dir.length_squared() > 0.01:
+			var look_dir = - move_dir
+			var target_angle = atan2(look_dir.x, look_dir.z)
+			
+			rotation.y = target_angle # Snap inmediato a la dirección correcta
+			is_rotation_locked = true # Bloquear hasta aterriza
+			print("PilotAnimator: Rotation LOCKED at ", target_angle)
+		
+		# IMPORTANTE: NO configuramos jumped_buffer_time aquí para evitar que 'is_jumping' se active
+		# y compita con 'is_acrobatic'. Queremos ir SOLO al estado Acrobatic.

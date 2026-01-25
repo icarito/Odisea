@@ -347,6 +347,7 @@ print_profiling_data = false
 use_trenchbroom_group_hierarchy = true
 tree_attach_batch_size = 16
 set_owner_batch_size = 16
+auto_build = false
 
 [node name="entity_0_worldspawn" type="StaticBody" parent="Conveyors/QodotMap"]
 
