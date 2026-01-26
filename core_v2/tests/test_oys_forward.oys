@@ -1,0 +1,10 @@
+// OYS Test: Simple Forward Movement
+
+// Initial Setup
+SET pos (0, 1, 0)
+SET rot 0
+
+SECTION "Forward Movement Validation"
+    FW 1.0                 // Walk 1 second forward
+    ASSERT global_transform.origin.z < -1.0    // Verify we moved forward
+END
