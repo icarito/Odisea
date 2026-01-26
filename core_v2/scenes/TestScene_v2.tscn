@@ -317,7 +317,7 @@ cutoff_offset = 0.1
 
 [node name="Pilot" parent="." instance=ExtResource( 3 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 21, 1, -24.75 )
-min_pitch = -60.0
+min_pitch = -30.0
 
 [node name="Conveyors" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 42, 0, 0 )
