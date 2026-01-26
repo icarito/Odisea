@@ -14,8 +14,8 @@ LOG_FILE="$LOG_DIR/gdunit_runner.log"
 mkdir -p "$LOG_DIR"
 
 # Ejecuta Godot y guarda stdout+stderr en el log, preservando el exit code
-$GODOT_BIN $GODOT_OPTS -s -d ./addons/gdUnit3/bin/GdUnitCmdTool.gd $* > "$LOG_FILE" 2>&1
-exit_code=$?
+$GODOT_BIN $GODOT_OPTS -s -d ./addons/gdUnit3/bin/GdUnitCmdTool.gd -v $* | tee "$LOG_FILE"
+exit_code=${PIPESTATUS[0]}
 
 # Volcar log a la salida para que aparezca en los logs de CI
 cat "$LOG_FILE" || true

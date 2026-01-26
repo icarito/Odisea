@@ -268,74 +268,60 @@ func load_and_play(path: String):
 	file.open(path, File.READ)
 	var parsed = JSON.parse(file.get_as_text())
 	file.close()
-	if typeof(parsed.result) == TYPE_DICTIONARY and parsed.result.has("buffer"):
-		buffer = parsed.result["buffer"]
-		_find_player()
-		
-		if not is_instance_valid(player):
-			printerr("❌ SessionManager: Player no encontrado para iniciar replay.")
-			call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
-			return
-		
-		# Restaurar estado inicial del mundo (nodos en 'replay_sync') ANTES del player
-		if typeof(parsed.result) == TYPE_DICTIONARY and parsed.result.has("meta") and parsed.result["meta"].has("world_start_state"):
-			var world_start_state = parsed.result["meta"]["world_start_state"]
-			for path in world_start_state.keys():
-				var node = get_tree().get_root().get_node_or_null(path)
-				if not node and get_tree().current_scene:
-					# Si el path absoluto falla (común en tests), intentamos buscar por nombre relativo al final del path
-					var node_name = str(path).get_file()
-					node = get_tree().current_scene.find_node(node_name, true, false)
-				
-				if node and node.has_method("restore_snapshot"):
-					node.restore_snapshot(world_start_state[path])
-				else:
-					printerr("[SessionManager] No se pudo restaurar el nodo en path/name: ", path)
-		
-		if buffer.size() > 0 and buffer[0].has("snapshot"):
-			if player and player.has_method("restore_snapshot"):
-				player.is_replay_mode = true
-				player.restore_snapshot(buffer[0]["snapshot"])
-				var cam = player.get_node_or_null("CameraRig")
-				print("PLAYBACK_START\nrotation:", player.yaw, ",", player.pitch, "\npos:", player.global_transform.origin, "\ncam:", (cam.global_transform.origin if cam else "null"))
-				_playback_printed_start = true
-			else:
-				print("❌ El nodo player no se encontró o no tiene restore_snapshot()")
-			buffer.remove(0)
-		
-		# Desactivar _physics_process en plataformas durante replay para usar step centralizado
-		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
-		for node in sync_nodes:
-			if node != player:
-				node.set_physics_process(false)
-		
-		# Inyectar buffer al input_provider en modo REPLAY
-		if player and "input_provider" in player and player.input_provider and player.input_provider.has_method("set_replay_data"):
-			var input_buffer = []
-			_drift_checkpoints.clear()
-			var input_idx = 0
-			for entry in buffer:
-				if entry.has("input"):
-					input_buffer.append(entry["input"])
-					# Guardar drift checkpoint si existe, indexado por frame de input
-					if entry.has("drift_checkpoint"):
-						_drift_checkpoints[input_idx] = str2var(entry["drift_checkpoint"]["position"])
-						print("[DriftCorrection] Checkpoint cargado en frame %d: %s" % [input_idx, _drift_checkpoints[input_idx]])
-					input_idx += 1
-			player.input_provider.set_replay_data(input_buffer)
-		else:
-			print("❌ No se pudo acceder a input_provider en player para replay.")
-		# Cargar snapshot final esperado si existe
-		if typeof(parsed.result) == TYPE_DICTIONARY and parsed.result.has("final_expected_state"):
-			final_expected_state = parsed.result["final_expected_state"]
-		else:
-			final_expected_state = null
-		_drift_validated = false
-		is_replaying = true
-		print("▶️ Reproduciendo replay...")
-	else:
+
+	if typeof(parsed.result) != TYPE_DICTIONARY:
 		printerr("❌ Formato de replay inválido")
 		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
+		return
+
+	var data = parsed.result
+	var input_buffer_raw = data.get("buffer", [])
+
+	# Extract pure input from buffer entries
+	var input_buffer = []
+	for entry in input_buffer_raw:
+		if entry.has("input"):
+			input_buffer.append(entry["input"])
+
+	play_buffer(input_buffer, data)
+
+
+func play_buffer(input_buffer: Array, replay_data: Dictionary):
+	_find_player()
+
+	if not is_instance_valid(player):
+		printerr("❌ SessionManager: Player no encontrado para iniciar replay.")
+		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
+		return
+
+	var meta = replay_data.get("meta", {})
+
+	# Restaurar estado inicial del mundo ANTES del player
+	if meta.has("world_start_state"):
+		var world_start_state = meta["world_start_state"]
+		for path in world_start_state.keys():
+			var node = get_tree().get_root().get_node_or_null(path)
+			if node and node.has_method("restore_snapshot"):
+				node.restore_snapshot(world_start_state[path])
+
+	# Restaurar snapshot inicial del player si existe
+	if replay_data.get("buffer", [{}])[0].has("snapshot"):
+		player.restore_snapshot(replay_data["buffer"][0]["snapshot"])
+
+	# Desactivar _physics_process en plataformas
+	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+	for node in sync_nodes:
+		if node != player:
+			node.set_physics_process(false)
+
+	player.is_replay_mode = true
+	player.input_provider.set_replay_data(input_buffer)
+
+	final_expected_state = replay_data.get("final_expected_state", null)
+	_drift_validated = false
+	is_replaying = true
+	_replay_frame = 0 # Reset frame counter
+	print("▶️ Reproduciendo replay desde buffer...")
 
 func _finish_and_validate():
 	if _drift_validated:
