@@ -87,7 +87,6 @@ min_rig_height = -1.5
 
 [node name="Pivot" type="Spatial" parent="Visual"]
 script = ExtResource( 3 )
-rotation_lerp_speed = 5.0
 
 [node name="Skeleton" parent="Visual/Pivot" instance=ExtResource( 9 )]
 
