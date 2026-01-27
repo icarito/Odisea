@@ -383,7 +383,7 @@ func remove_children() -> void:
 		child.queue_free()
 
 func load_map() -> void:
-	var file: String = map_file
+	var file: String = ProjectSettings.globalize_path(map_file)
 	qodot.load_map(file)
 
 func fetch_texture_list() -> Array:
