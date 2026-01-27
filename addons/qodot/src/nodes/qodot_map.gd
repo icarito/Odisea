@@ -64,8 +64,6 @@ var worldspawn_layer_collision_shapes := []
 var auto_build := false
 var _last_map_mod_time := 0
 var _is_building := false
-var _qodot_lib: GDNativeLibrary = null
-var _qodot_script: NativeScript = null
 
 func set_map_file(new_map_file: String) -> void:
 	if map_file != new_map_file:
@@ -144,19 +142,23 @@ func manual_build():
 
 func verify_parameters():
 	if not qodot or not qodot.has_method("load_map") or DEBUG:
-		_qodot_lib = GDNativeLibrary.new()
-		_qodot_lib.set("entry/OSX.64", "res://addons/qodot/bin/osx/libqodot.dylib")
-		_qodot_lib.set("entry/Windows.64", "res://addons/qodot/bin/win64/libqodot.dll")
-		_qodot_lib.set("entry/X11.64", "res://addons/qodot/bin/x11/libqodot.so")
-		_qodot_lib.set("dependency/OSX.64", ["res://addons/qodot/bin/osx/libmap.dylib"])
-		_qodot_lib.set("dependency/Windows.64", ["res://addons/qodot/bin/win64/libmap.dll"])
-		_qodot_lib.set("dependency/X11.64", ["res://addons/qodot/bin/x11/libmap.so"])
+		var lib = GDNativeLibrary.new()
+		lib.set("entry/OSX.64", "res://addons/qodot/bin/osx/libqodot.dylib")
+		lib.set("entry/Windows.64", "res://addons/qodot/bin/win64/libqodot.dll")
+		lib.set("entry/X11.64", "res://addons/qodot/bin/x11/libqodot.so")
+		lib.set("dependency/OSX.64", ["res://addons/qodot/bin/osx/libmap.dylib"])
+		lib.set("dependency/Windows.64", ["res://addons/qodot/bin/win64/libmap.dll"])
+		lib.set("dependency/X11.64", ["res://addons/qodot/bin/x11/libmap.so"])
 
-		_qodot_script = NativeScript.new()
-		_qodot_script.set("class_name", "Qodot")
-		_qodot_script.library = _qodot_lib
+		var script = NativeScript.new()
+		if not script:
+			push_error("Error: Failed to create NativeScript for Qodot.")
+			return false
 
-		qodot = _qodot_script.new()
+		script.set("class_name", "Qodot")
+		script.library = lib
+
+		qodot = script.new()
 
 	if not qodot:
 		push_error("Error: Failed to load libqodot.")
