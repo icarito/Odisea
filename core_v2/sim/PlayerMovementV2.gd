@@ -91,8 +91,8 @@ func get_tank_yaw_delta(dt: float, move_vec: Vector2) -> float:
 			speed_factor = tank_turn_curve.interpolate(current_turn_time / tank_turn_ramp_time)
 			
 		var multiplier = 1.0
-		# Invert rotation direction when moving backward (move_vec.y > 0)
-		if move_vec.y > 0.01:
+		# Invert rotation direction when moving backward (move_vec.y < 0)
+		if move_vec.y < -0.01:
 			multiplier = -1.0
 		elif abs(move_vec.y) < 0.01:
 			# If strafing (no forward/backward), turn slower and don't invert

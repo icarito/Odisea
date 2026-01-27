@@ -785,7 +785,7 @@ _global_script_classes=[ {
 "path": "res://addons/meshbuilder/mesh_builder_torus/mesh_builder_torus.gd"
 }, {
 "base": "Reference",
-"class": "OYSResolver",
+"class": "OYS_Resolver",
 "language": "GDScript",
 "path": "res://core_v2/utils/OYS_Resolver.gd"
 }, {
@@ -1230,7 +1230,7 @@ _global_script_class_icons={
 "MeshBuilderRing": "",
 "MeshBuilderSphere": "",
 "MeshBuilderTorus": "",
-"OYSResolver": "",
+"OYS_Resolver": "",
 "OrbitArm": "",
 "PhysicsBall": "",
 "PhysicsEntity": "",
@@ -1320,7 +1320,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/gdUnit3/plugin.cfg", "res://addons/hunyuan_retargeter/plugin.cfg", "res://addons/qodot/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/gdUnit3/plugin.cfg", "res://addons/qodot/plugin.cfg" )
 
 [global]
 
