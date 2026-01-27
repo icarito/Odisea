@@ -141,9 +141,10 @@ func manual_build():
 	verify_and_build()
 
 func verify_parameters():
-	if not qodot or not qodot.has_method("load_map") or DEBUG:
+	if not is_instance_valid(qodot) or not qodot.has_method("load_map") or DEBUG:
 		if DEBUG: print("[Qodot] Initializing GDNative library and script...")
-		var q_lib = GDNativeLibrary.new()
+		
+		var q_lib: GDNativeLibrary = GDNativeLibrary.new()
 		q_lib.set("entry/OSX.64", "res://addons/qodot/bin/osx/libqodot.dylib")
 		q_lib.set("entry/Windows.64", "res://addons/qodot/bin/win64/libqodot.dll")
 		q_lib.set("entry/X11.64", "res://addons/qodot/bin/x11/libqodot.so")
@@ -151,28 +152,24 @@ func verify_parameters():
 		q_lib.set("dependency/Windows.64", ["res://addons/qodot/bin/win64/libmap.dll"])
 		q_lib.set("dependency/X11.64", ["res://addons/qodot/bin/x11/libmap.so"])
 
-		var q_script = NativeScript.new()
-		if not q_script:
-			push_error("[Qodot] Failed to create NativeScript resource.")
+		var q_script: NativeScript = NativeScript.new()
+		if not is_instance_valid(q_script):
 			return false
 
 		q_script.library = q_lib
 		q_script.set("class_name", "Qodot")
 
-		if q_script == null:
-			push_error("[Qodot] NativeScript became null before instantiation.")
+		if not is_instance_valid(q_script):
 			return false
 
 		var q_inst = q_script.new()
-		if not q_inst:
-			push_error("[Qodot] Failed to instantiate Qodot class from NativeScript.")
+		if not is_instance_valid(q_inst):
 			return false
 
 		qodot = q_inst
 		if DEBUG: print("[Qodot] GDNative initialized successfully.")
 
-	if not qodot:
-		push_error("Error: Failed to load libqodot.")
+	if not is_instance_valid(qodot):
 		return false
 
 	if map_file == "":
