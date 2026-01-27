@@ -124,7 +124,7 @@ func restore_snapshot(data: Dictionary) -> void:
 func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, is_on_floor: bool) -> void:
 	var target_speed = move_speed * (run_speed_multiplier if sprint else 1.0)
 	
-	var forward = - basis.z
+	var forward = basis.z
 	forward.y = 0.0
 	forward = forward.normalized()
 	

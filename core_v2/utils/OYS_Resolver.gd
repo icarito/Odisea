@@ -84,28 +84,81 @@ static func _parse_line(line: String, start_frame: int) -> Dictionary:
     var at_data = _extract_at_data(parts)
 
     match command:
-        "FW", "BW":
-            var duration_sec = parts[1].to_float()
-            var num_frames = int(duration_sec * FPS)
-            var move_vec = Vector2(0, 1) if command == "FW" else Vector2(0, -1)
-            for i in range(num_frames):
-                frames[start_frame + i] = {"move_vec": [move_vec.x, move_vec.y]}
-            next_frame = start_frame + num_frames
+        "FW", "BW", "WALK", "RUN", "LT", "RT", "LEFT", "RIGHT":
+            var is_walking = false
+            var is_running = true # Default for movement
+            var current_parts = parts
+            
+            # Handle modifiers
+            if command == "WALK":
+                is_walking = true
+                is_running = false
+                current_parts = parts.slice(1, parts.size())
+                command = current_parts[0].to_upper()
+            elif command == "RUN":
+                is_walking = false
+                is_running = true
+                current_parts = parts.slice(1, parts.size())
+                command = current_parts[0].to_upper()
 
-        "LT", "RT":
-            var degrees = parts[1].to_float()
-            var duration_sec = 0.5 # Default duration for turns
-            var num_frames = int(duration_sec * FPS)
-            var mouse_dx = -degrees / num_frames if command == "LT" else degrees / num_frames
-            for i in range(num_frames):
-                frames[start_frame + i] = {"mouse_delta": [mouse_dx, 0]}
-            next_frame = start_frame + num_frames
+            # Synonyms
+            if command == "LT": command = "LEFT"
+            if command == "RT": command = "RIGHT"
+
+            var value_str = current_parts[1]
+            var parsed_unit = _parse_value_with_unit(value_str)
+            var value = parsed_unit.value
+            var unit = parsed_unit.unit
+
+            match command:
+                "FW", "BW":
+                    var duration_sec = value
+                    if unit == "m":
+                        var speed = 5.0 # default move_speed
+                        if is_running: speed *= 1.8 # run_speed_multiplier
+                        duration_sec = value / speed
+                    
+                    var num_frames = int(duration_sec * FPS)
+                    var move_vec = Vector2(0, 1) if command == "FW" else Vector2(0, -1)
+                    for i in range(num_frames):
+                        frames[start_frame + i] = {
+                            "move_vec": [move_vec.x, move_vec.y],
+                            "sprint": is_running
+                        }
+                    next_frame = start_frame + num_frames
+
+                "LEFT", "RIGHT":
+                    if unit == "deg":
+                        # Turning behavior (synonym for LT/RT)
+                        var degrees = value
+                        var duration_sec = 0.5 # Default duration for turns
+                        var num_frames = int(duration_sec * FPS)
+                        var mouse_dx = - degrees / num_frames if command == "LEFT" else degrees / num_frames
+                        for i in range(num_frames):
+                            frames[start_frame + i] = {"mouse_delta": [mouse_dx, 0]}
+                        next_frame = start_frame + num_frames
+                    else:
+                        # Strafing behavior
+                        var duration_sec = value
+                        if unit == "m":
+                            var speed = 5.0
+                            if is_running: speed *= 1.8
+                            duration_sec = value / speed
+                        
+                        var num_frames = int(duration_sec * FPS)
+                        var move_vec = Vector2(1, 0) if command == "LEFT" else Vector2(-1, 0)
+                        for i in range(num_frames):
+                            frames[start_frame + i] = {
+                                "move_vec": [move_vec.x, move_vec.y],
+                                "sprint": is_running
+                            }
+                        next_frame = start_frame + num_frames
 
         "LOOK":
             var pitch = parts[1].to_float()
             var duration_sec = 0.5 # Default duration for look
             var num_frames = int(duration_sec * FPS)
-            var mouse_dy = -pitch / num_frames # Inverted mouse
+            var mouse_dy = - pitch / num_frames # Inverted mouse
             for i in range(num_frames):
                 frames[start_frame + i] = {"mouse_delta": [0, mouse_dy]}
             next_frame = start_frame + num_frames
@@ -194,3 +247,15 @@ static func _extract_at_data(parts: PoolStringArray) -> Dictionary:
         "time": parts[at_index + 1].to_float(),
         "action": " ".join(action_arr)
     }
+
+static func _parse_value_with_unit(s: String) -> Dictionary:
+    var unit = "deg" # Default for raw numbers
+    var value_str = s
+    if s.ends_with("s"):
+        unit = "s"
+        value_str = s.substr(0, s.length() - 1)
+    elif s.ends_with("m"):
+        unit = "m"
+        value_str = s.substr(0, s.length() - 1)
+    
+    return {"value": value_str.to_float(), "unit": unit}

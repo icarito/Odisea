@@ -1,0 +1,31 @@
+// OYS Test: Unit Disambiguation
+// Tests turning vs strafing with synonyms and units
+
+SET pos (0, 1, 0)
+SET rot 0
+
+SECTION "Turn Test"
+    LEFT 90            // Turn 90 degrees left
+    WAIT 0.1
+    ASSERT yaw > 1.5   // (PI/2 is ~1.57)
+END
+
+SECTION "Strafe Test (Seconds)"
+    SET rot 0
+    RIGHT 1.0s         // Strafe right for 1 second
+    ASSERT global_transform.origin.x < -1.0
+END
+
+SECTION "Strafe Test (Meters)"
+    SET pos (0, 1, 0)
+    SET rot 0
+    WALK LEFT 5m       // Walk left for 5 meters
+    ASSERT global_transform.origin.x > 4.5
+END
+
+SECTION "Forward Test (Meters)"
+    SET pos (0, 1, 0)
+    SET rot 0
+    FW 10m             // Run forward for 10 meters
+    ASSERT global_transform.origin.z > 9.5
+END

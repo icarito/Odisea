@@ -12,6 +12,8 @@ var final_expected_state = null
 var is_cli_mode := false
 var _drift_validated := false
 var _is_replaying_fail_loop := false # Flag para evitar loops infinitos si falla
+var _should_snapshot := false
+var _current_replay_path := ""
 
 # Drift correction: checkpoint pendiente para guardar en el próximo frame
 var _pending_drift_checkpoint := false
@@ -38,6 +40,8 @@ func _ready():
 	var args = OS.get_cmdline_args()
 	for i in range(args.size()):
 		var arg = args[i]
+		if arg == "--snapshot":
+			_should_snapshot = true
 		if arg == "--replay" and i + 1 < args.size():
 			is_cli_mode = true
 			var replay_path = args[i + 1]
@@ -260,6 +264,7 @@ var _playback_printed_end := false
 
 func load_and_play(path: String):
 	print("[SessionManager] load_and_play called with: ", path)
+	_current_replay_path = path
 	var ext = path.get_extension().to_lower()
 	if ext == "oys":
 		var file = File.new()
@@ -288,8 +293,8 @@ func load_and_play(path: String):
 				var inst = packed.instance()
 				get_tree().root.add_child(inst)
 				get_tree().current_scene = inst
-				yield(get_tree(), "idle_frame")
-				yield(get_tree(), "idle_frame")
+				yield (get_tree(), "idle_frame")
+				yield (get_tree(), "idle_frame")
 		# Aplicar setters antes de iniciar
 		_find_player()
 		if player:
@@ -350,7 +355,7 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 				node.restore_snapshot(world_start_state[path])
 
 	# Restaurar snapshot inicial del player si existe
-	if replay_data.get("buffer", [{}])[0].has("snapshot"):
+	if replay_data.get("buffer", [ {}])[0].has("snapshot"):
 		player.restore_snapshot(replay_data["buffer"][0]["snapshot"])
 
 	# Desactivar _physics_process en plataformas
@@ -409,6 +414,27 @@ func _finish_and_validate():
 				success = false
 			else:
 				print("✅ Rotational drift dentro del umbral")
+	
+	# 2.5 Snapshot override if requested
+	if _should_snapshot and player and _current_replay_path.ends_with(".json"):
+		print("[SessionManager] --snapshot focus: Updating final_expected_state in ", _current_replay_path)
+		var f = File.new()
+		if f.open(_current_replay_path, File.READ) == OK:
+			var p = JSON.parse(f.get_as_text())
+			f.close()
+			if p.error == OK and typeof(p.result) == TYPE_DICTIONARY:
+				var data = p.result
+				data["final_expected_state"] = player.get_full_snapshot()
+				if f.open(_current_replay_path, File.WRITE) == OK:
+					f.store_string(JSON.print(data, "  "))
+					f.close()
+					print("✅ final_expected_state updated successfully.")
+				else:
+					printerr("❌ Could not open file for writing: ", _current_replay_path)
+			else:
+				printerr("❌ Could not parse JSON from: ", _current_replay_path)
+		else:
+			printerr("❌ Could not open file for reading: ", _current_replay_path)
 
 	# Emit signal for external listeners/tests
 	print("[SessionManager] EMITTING replay_finished: ", success, ", ", dist, ", ", frames)
