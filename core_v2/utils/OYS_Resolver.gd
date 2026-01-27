@@ -1,5 +1,9 @@
 extends Reference
+
 class_name OYS_Resolver
+
+# Ensure InputDataV2 is preloaded for use in _default_input_dict
+const InputDataV2 = preload("res://core_v2/input/InputDataV2.gd")
 
 const FPS = 60.0
 
@@ -68,6 +72,7 @@ static func _default_input_dict() -> Dictionary:
 
 # Parses a single line of OYS script.
 static func _parse_line(line: String, start_frame: int) -> Dictionary:
+    print("[OYS_Resolver] _parse_line ENTRY: line=", line, ", start_frame=", start_frame)
     var parts = line.split(" ", false)
     var command = parts[0].to_upper()
 
@@ -126,12 +131,12 @@ static func _parse_line(line: String, start_frame: int) -> Dictionary:
             next_frame = start_frame + num_frames
 
         "ASSERT":
-            var condition = line.replace("ASSERT ", "", 1)
+            var condition = line.replace("ASSERT ", "")
             asserts.append({"frame": start_frame, "condition": condition})
 
         "SET":
             var prop = parts[1]
-            var value_str = line.replace("SET " + prop + " ", "", 1)
+            var value_str = line.replace("SET " + prop + " ", "")
             setters.append({"frame": start_frame, "property": prop, "value": value_str})
 
         "SECTION", "END":
@@ -141,24 +146,35 @@ static func _parse_line(line: String, start_frame: int) -> Dictionary:
 
         _:
             printerr("OYS_Resolver: Unknown command '", command, "'")
-            return null
+            # Always return a valid Dictionary, even for unknown commands
+            # This ensures the function never returns null
+            return {"frames": {}, "asserts": [], "setters": [], "next_frame": start_frame}
 
     # Handle AT modifier
-    if at_data:
+    if at_data.has("time") and at_data.has("action"):
         var at_frame = start_frame + int(at_data.time * FPS)
         var at_result = _parse_line(at_data.action, at_frame)
-        if at_result:
-             for frame_num in at_result.get("frames", {}):
-                if !frames.has(frame_num):
-                    frames[frame_num] = {}
-                frames[frame_num].merge(at_result.frames[frame_num], true)
+        if at_result == null or typeof(at_result) != TYPE_DICTIONARY:
+            at_result = {"frames": {}, "asserts": [], "setters": [], "next_frame": at_frame}
+        for frame_num in at_result.get("frames", {}):
+            if !frames.has(frame_num):
+                frames[frame_num] = {}
+            frames[frame_num].merge(at_result.frames[frame_num], true)
 
-    return {
-        "frames": frames,
-        "asserts": asserts,
-        "setters": setters,
-        "next_frame": next_frame
-    }
+    if frames.size() > 0 or asserts.size() > 0 or setters.size() > 0 or next_frame != start_frame:
+        var result = {
+            "frames": frames,
+            "asserts": asserts,
+            "setters": setters,
+            "next_frame": next_frame
+        }
+        print("[OYS_Resolver] _parse_line EXIT (normal): ", result)
+        return result
+
+    # Final fallback: always return a valid Dictionary, even if all logic is bypassed
+    var fallback = {"frames": {}, "asserts": [], "setters": [], "next_frame": start_frame}
+    print("[OYS_Resolver] _parse_line EXIT (fallback): ", fallback)
+    return fallback
 
 static func _extract_at_data(parts: PoolStringArray) -> Dictionary:
     var at_index = -1
@@ -168,9 +184,13 @@ static func _extract_at_data(parts: PoolStringArray) -> Dictionary:
             break
 
     if at_index == -1:
-        return null
+        return {} # Always return a Dictionary
 
+    var arr = []
+    for i in range(parts.size()):
+        arr.append(parts[i])
+    var action_arr = arr.slice(at_index + 2, arr.size())
     return {
         "time": parts[at_index + 1].to_float(),
-        "action": " ".join(parts.slice(at_index + 2, parts.size() -1))
+        "action": " ".join(action_arr)
     }

@@ -260,6 +260,56 @@ var _playback_printed_end := false
 
 func load_and_play(path: String):
 	print("[SessionManager] load_and_play called with: ", path)
+	var ext = path.get_extension().to_lower()
+	if ext == "oys":
+		var file = File.new()
+		if not file.file_exists(path):
+			printerr("❌ Error: El archivo OYS no existe: ", path)
+			call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
+			return
+		file.open(path, File.READ)
+		var script_content = file.get_as_text()
+		file.close()
+		var resolver = load("res://core_v2/utils/OYS_Resolver.gd")
+		var result = resolver.parse_script(script_content)
+		var scene_path = "res://core_v2/scenes/TestScene_v2.tscn"
+		# Buscar LEVEL en el script (línea que comience con LEVEL)
+		for line in script_content.split("\n"):
+			var l = line.strip_edges()
+			if l.begins_with("LEVEL"):
+				var parts = l.split(" ", false)
+				if parts.size() > 1:
+					scene_path = parts[1]
+				break
+		# Instanciar la escena si es necesario
+		if get_tree().current_scene == null or get_tree().current_scene.filename != scene_path:
+			var packed = load(scene_path)
+			if packed:
+				var inst = packed.instance()
+				get_tree().root.add_child(inst)
+				get_tree().current_scene = inst
+				yield(get_tree(), "idle_frame")
+				yield(get_tree(), "idle_frame")
+		# Aplicar setters antes de iniciar
+		_find_player()
+		if player:
+			for setter in result.get("setters", []):
+				match setter.property:
+					"pos":
+						var pos_str = setter.value.trim_prefix("(").trim_suffix(")").split(",")
+						var new_pos = Vector3(
+							pos_str[0].strip_edges().to_float(),
+							pos_str[1].strip_edges().to_float(),
+							pos_str[2].strip_edges().to_float()
+						)
+						var t = player.global_transform
+						t.origin = new_pos
+						player.global_transform = t
+					"rot":
+						player.rotation_degrees.y = setter.value.to_float()
+		play_buffer(result.buffer, result)
+		return
+	# JSON tradicional
 	var file = File.new()
 	if not file.file_exists(path):
 		printerr("❌ Error: El archivo de replay no existe: ", path)
@@ -268,21 +318,16 @@ func load_and_play(path: String):
 	file.open(path, File.READ)
 	var parsed = JSON.parse(file.get_as_text())
 	file.close()
-
 	if typeof(parsed.result) != TYPE_DICTIONARY:
 		printerr("❌ Formato de replay inválido")
 		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
 		return
-
 	var data = parsed.result
 	var input_buffer_raw = data.get("buffer", [])
-
-	# Extract pure input from buffer entries
 	var input_buffer = []
 	for entry in input_buffer_raw:
 		if entry.has("input"):
 			input_buffer.append(entry["input"])
-
 	play_buffer(input_buffer, data)
 
 
