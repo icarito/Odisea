@@ -2,10 +2,17 @@
 # Runner de replays universal: escanea res://core_v2/tests/ para archivos replay_test_*.json
 extends GdUnitTestSuite
 
+
 const TESTS_ROOT = "res://core_v2/tests"
 const DRIFT_THRESHOLD = 0.0005
 
-# Helpers
+## Helpers
+
+# Minimal assert_true helper for boolean assertions
+func assert_true(cond: bool, msg: String = ""):
+	if not cond:
+		push_error("Assertion failed: " + msg)
+		fail(msg)
 static func _describe_replay_path(path: String) -> String:
 	var fname = path.get_file()
 	# Eliminar prefijos comunes y extensión para legibilidad
@@ -31,19 +38,23 @@ func before():
 	OS.set_use_vsync(false)
 	Engine.target_fps = 0 # Sin límite de FPS
 
-# Data provider: devuelve un Array de parameter sets. Cada parameter set es un Array de argumentos para la prueba.
+# Data provider: devuelve un Array de parameter sets.
+
+# Unifica búsqueda de archivos .json y .oys
 static func _get_replay_paths() -> Array:
+	return _scan_for_files([".json"])
+
+static func _scan_for_files(extensions: Array) -> Array:
 	var results := []
 	var dir := Directory.new()
 	if dir.open(TESTS_ROOT) != OK:
 		printerr("No se pudo abrir TESTS_ROOT: ", TESTS_ROOT)
 		return results
-	_scan_dir(dir, TESTS_ROOT, results)
-	print("Replays encontrados: ", results)
+	_scan_dir(dir, TESTS_ROOT, results, extensions)
+	print("Test files encontrados: ", results)
 	return results
 
-static func _scan_dir(dir: Directory, current_path: String, results: Array) -> void:
-	# Usar list_dir_begin(true, true) para saltar "." y ".."
+static func _scan_dir(dir: Directory, current_path: String, results: Array, extensions: Array) -> void:
 	if dir.list_dir_begin(true, true) != OK:
 		return
 	var name = dir.get_next()
@@ -52,31 +63,100 @@ static func _scan_dir(dir: Directory, current_path: String, results: Array) -> v
 		if dir.current_is_dir():
 			var subdir := Directory.new()
 			if subdir.open(full_path) == OK:
-				_scan_dir(subdir, full_path, results)
+				_scan_dir(subdir, full_path, results, extensions)
 		else:
-			if (name.begins_with("replay_test_") or name.begins_with("test_replay_")) and name.ends_with(".json"):
-				# GDUnit3 espera un Array de Arrays. Cada subarray son los argumentos para el test.
-				results.append([full_path])
+			for ext in extensions:
+				if name.ends_with(ext):
+					results.append([full_path])
+					break
 		name = dir.get_next()
 	dir.list_dir_end()
+
 var _current_test_scene: Node = null
 
-# Parametrized test: cada parameter set es [path]
-func test_replay(path: String, test_parameters=_get_replay_paths()) -> void:
+# Parametrized test for JSON replays
+
+# Test único parametrizado para ambos formatos
+func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 	var _unused = test_parameters
-	print("[test_replay] STARTED for: ", path)
-	var desc = _describe_replay_path(path)
+	var desc = path.get_file()
+	_setup_scene_from_replay_file(path)
+	SessionManager.load_and_play(path)
+	var res = yield (SessionManager, "replay_finished")
+	var success = res[0]
+	var drift = res[1]
+	var frames = res[2]
+	if not success:
+		fail("Replay '%s' FAILED: drift=%.8f, frames=%d." % [desc, drift, frames])
+	print("[test_replay] Finalizado: ", desc)
 
-	# 0. Limpieza agresiva de escenas anteriores
-	for child in get_tree().root.get_children():
-		if child.name == "TestScene" or child.filename == "res://core_v2/scenes/TestScene_v2.tscn":
-			print("[test_replay] Removing existing scene: ", child.name)
-			child.free()
+func _apply_setter(player, setter):
+	if not is_instance_valid(player):
+		return
 
-	# 1. Cargar la escena de test desde el JSON
+	match setter.property:
+		"pos":
+			var pos_str = setter.value.trim_prefix("(").trim_suffix(")").split(",")
+			var new_pos = Vector3(
+				pos_str[0].strip_edges().to_float(),
+				pos_str[1].strip_edges().to_float(),
+				pos_str[2].strip_edges().to_float()
+			)
+			var t = player.global_transform
+			t.origin = new_pos
+			player.global_transform = t
+		"rot":
+			player.rotation_degrees.y = setter.value.to_float()
+
+func _validate_assertion(player, assertion):
+	if not is_instance_valid(player):
+		fail("Player instance is not valid for assertion.")
+		return
+
+	var condition = assertion.condition
+
+	# Split condition from optional message
+	var parts = condition.split("\"", 2)
+	var expression = parts[0].strip_edges()
+	var msg = parts[1] if parts.size() > 1 else "Assertion failed"
+
+	# Simple expression parsing
+	var expr_parts = expression.split(" ", false)
+	var prop_path = expr_parts[0]
+	var op = expr_parts[1]
+	var value_str = expr_parts[2]
+
+	var actual_value = _get_property(player, prop_path)
+	var expected_value = value_str.to_float() if value_str.is_valid_float() else value_str
+
+	if value_str == "true": expected_value = true
+	if value_str == "false": expected_value = false
+
+	match op:
+		">":
+			assert_true(actual_value > expected_value, "%s: %s not > %s" % [msg, actual_value, expected_value])
+		"<":
+			assert_true(actual_value < expected_value, "%s: %s not < %s" % [msg, actual_value, expected_value])
+		"==":
+			assert_object(actual_value).is_equal(expected_value)
+
+func _get_property(obj, prop_path):
+	var parts = prop_path.split(".")
+	var current = obj
+	for part in parts:
+		if current.has_method("get") and current.get(part) != null:
+			current = current.get(part)
+		else:
+			return null
+	return current
+
+
+func _setup_scene_from_replay_file(path: String):
+	# Limpieza de escena anterior
+	_cleanup_scene()
+
 	var f = File.new()
-	var open_err = f.open(path, File.READ)
-	assert_int(open_err).is_equal(OK)
+	assert_int(f.open(path, File.READ)).is_equal(OK)
 	var parsed = JSON.parse(f.get_as_text())
 	assert_int(parsed.error).is_equal(OK)
 	var data = parsed.result
@@ -85,40 +165,34 @@ func test_replay(path: String, test_parameters=_get_replay_paths()) -> void:
 	var meta = data.get("meta", {})
 	var scene_path = meta.get("scene", "res://core_v2/scenes/TestScene_v2.tscn")
 	
-	print("[test_replay] Instancing scene manually: ", scene_path)
+	_instance_and_prepare_scene(scene_path)
+	
+func _setup_scene_from_oys_result(result: Dictionary):
+	# Limpieza de escena anterior
+	_cleanup_scene()
+	# TODO: Use scene from OYS metadata if available
+	var scene_path = "res://core_v2/scenes/TestScene_v2.tscn"
+	_instance_and_prepare_scene(scene_path)
+
+func _cleanup_scene():
+	if is_instance_valid(_current_test_scene):
+		_current_test_scene.queue_free()
+		_current_test_scene = null
+	for child in get_tree().root.get_children():
+		if child.name == "TestScene" or child.filename == "res://core_v2/scenes/TestScene_v2.tscn":
+			child.free()
+
+func _instance_and_prepare_scene(scene_path: String):
 	var packed = load(scene_path)
 	assert_object(packed).is_not_null()
-	if packed:
-		_current_test_scene = packed.instance()
-		get_tree().root.add_child(_current_test_scene)
-		# Important: Set current_scene so SessionManager can find it if it relies on it
-		get_tree().current_scene = _current_test_scene
+	_current_test_scene = packed.instance()
+	get_tree().root.add_child(_current_test_scene)
+	get_tree().current_scene = _current_test_scene
 	
-	# 2. Esperar estabilización
-	print("[test_replay] Waiting for stabilization...")
+	# Esperar estabilización con timers para estabilidad en headless
 	for i in range(5):
-		yield (get_tree(), "idle_frame")
-		print("[test_replay] idle_frame ", i)
-	yield (get_tree(), "physics_frame")
-	print("[test_replay] Stabilization done.")
-
-	# 3. Iniciar replay via SessionManager
-	assert_object(SessionManager).is_not_null()
-	print("[test_replay] Calling SessionManager.load_and_play for: ", path)
-	SessionManager.load_and_play(path)
-	
-	# 4. Esperar la señal replay_finished y validar resultado
-	print("[test_replay] Yielding for replay_finished...")
-	var res = yield (SessionManager, "replay_finished")
-	print("[test_replay] Yield returned. Result: ", res)
-	var success = res[0]
-	var drift = res[1]
-	var frames = res[2]
-
-	if not success:
-		fail("Replay '%s' FAILED: drift=%.8f, frames=%d. Ver logs para detalles." % [desc, drift, frames])
-	
-	print("[test_replay] Finalizado: ", desc)
+		yield (get_tree().create_timer(0.02), "timeout")
+	yield (get_tree().create_timer(0.02), "timeout") # Simular espera de physics_frame
 
 func after():
 	# Restablecer estado del SessionManager para evitar interferencias entre tests
