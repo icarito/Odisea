@@ -784,6 +784,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/meshbuilder/mesh_builder_torus/mesh_builder_torus.gd"
 }, {
+"base": "Reference",
+"class": "OYSResolver",
+"language": "GDScript",
+"path": "res://core_v2/utils/OYS_Resolver.gd"
+}, {
 "base": "Spatial",
 "class": "OrbitArm",
 "language": "GDScript",
@@ -1225,6 +1230,7 @@ _global_script_class_icons={
 "MeshBuilderRing": "",
 "MeshBuilderSphere": "",
 "MeshBuilderTorus": "",
+"OYSResolver": "",
 "OrbitArm": "",
 "PhysicsBall": "",
 "PhysicsEntity": "",

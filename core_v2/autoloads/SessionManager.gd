@@ -12,6 +12,8 @@ var final_expected_state = null
 var is_cli_mode := false
 var _drift_validated := false
 var _is_replaying_fail_loop := false # Flag para evitar loops infinitos si falla
+var _should_snapshot := false
+var _current_replay_path := ""
 
 # Drift correction: checkpoint pendiente para guardar en el próximo frame
 var _pending_drift_checkpoint := false
@@ -38,6 +40,8 @@ func _ready():
 	var args = OS.get_cmdline_args()
 	for i in range(args.size()):
 		var arg = args[i]
+		if arg == "--snapshot":
+			_should_snapshot = true
 		if arg == "--replay" and i + 1 < args.size():
 			is_cli_mode = true
 			var replay_path = args[i + 1]
@@ -260,6 +264,57 @@ var _playback_printed_end := false
 
 func load_and_play(path: String):
 	print("[SessionManager] load_and_play called with: ", path)
+	_current_replay_path = path
+	var ext = path.get_extension().to_lower()
+	if ext == "oys":
+		var file = File.new()
+		if not file.file_exists(path):
+			printerr("❌ Error: El archivo OYS no existe: ", path)
+			call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
+			return
+		file.open(path, File.READ)
+		var script_content = file.get_as_text()
+		file.close()
+		var resolver = load("res://core_v2/utils/OYS_Resolver.gd")
+		var result = resolver.parse_script(script_content)
+		var scene_path = "res://core_v2/scenes/TestScene_v2.tscn"
+		# Buscar LEVEL en el script (línea que comience con LEVEL)
+		for line in script_content.split("\n"):
+			var l = line.strip_edges()
+			if l.begins_with("LEVEL"):
+				var parts = l.split(" ", false)
+				if parts.size() > 1:
+					scene_path = parts[1]
+				break
+		# Instanciar la escena si es necesario
+		if get_tree().current_scene == null or get_tree().current_scene.filename != scene_path:
+			var packed = load(scene_path)
+			if packed:
+				var inst = packed.instance()
+				get_tree().root.add_child(inst)
+				get_tree().current_scene = inst
+				yield (get_tree(), "idle_frame")
+				yield (get_tree(), "idle_frame")
+		# Aplicar setters antes de iniciar
+		_find_player()
+		if player:
+			for setter in result.get("setters", []):
+				match setter.property:
+					"pos":
+						var pos_str = setter.value.trim_prefix("(").trim_suffix(")").split(",")
+						var new_pos = Vector3(
+							pos_str[0].strip_edges().to_float(),
+							pos_str[1].strip_edges().to_float(),
+							pos_str[2].strip_edges().to_float()
+						)
+						var t = player.global_transform
+						t.origin = new_pos
+						player.global_transform = t
+					"rot":
+						player.rotation_degrees.y = setter.value.to_float()
+		play_buffer(result.buffer, result)
+		return
+	# JSON tradicional
 	var file = File.new()
 	if not file.file_exists(path):
 		printerr("❌ Error: El archivo de replay no existe: ", path)
@@ -268,74 +323,55 @@ func load_and_play(path: String):
 	file.open(path, File.READ)
 	var parsed = JSON.parse(file.get_as_text())
 	file.close()
-	if typeof(parsed.result) == TYPE_DICTIONARY and parsed.result.has("buffer"):
-		buffer = parsed.result["buffer"]
-		_find_player()
-		
-		if not is_instance_valid(player):
-			printerr("❌ SessionManager: Player no encontrado para iniciar replay.")
-			call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
-			return
-		
-		# Restaurar estado inicial del mundo (nodos en 'replay_sync') ANTES del player
-		if typeof(parsed.result) == TYPE_DICTIONARY and parsed.result.has("meta") and parsed.result["meta"].has("world_start_state"):
-			var world_start_state = parsed.result["meta"]["world_start_state"]
-			for path in world_start_state.keys():
-				var node = get_tree().get_root().get_node_or_null(path)
-				if not node and get_tree().current_scene:
-					# Si el path absoluto falla (común en tests), intentamos buscar por nombre relativo al final del path
-					var node_name = str(path).get_file()
-					node = get_tree().current_scene.find_node(node_name, true, false)
-				
-				if node and node.has_method("restore_snapshot"):
-					node.restore_snapshot(world_start_state[path])
-				else:
-					printerr("[SessionManager] No se pudo restaurar el nodo en path/name: ", path)
-		
-		if buffer.size() > 0 and buffer[0].has("snapshot"):
-			if player and player.has_method("restore_snapshot"):
-				player.is_replay_mode = true
-				player.restore_snapshot(buffer[0]["snapshot"])
-				var cam = player.get_node_or_null("CameraRig")
-				print("PLAYBACK_START\nrotation:", player.yaw, ",", player.pitch, "\npos:", player.global_transform.origin, "\ncam:", (cam.global_transform.origin if cam else "null"))
-				_playback_printed_start = true
-			else:
-				print("❌ El nodo player no se encontró o no tiene restore_snapshot()")
-			buffer.remove(0)
-		
-		# Desactivar _physics_process en plataformas durante replay para usar step centralizado
-		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
-		for node in sync_nodes:
-			if node != player:
-				node.set_physics_process(false)
-		
-		# Inyectar buffer al input_provider en modo REPLAY
-		if player and "input_provider" in player and player.input_provider and player.input_provider.has_method("set_replay_data"):
-			var input_buffer = []
-			_drift_checkpoints.clear()
-			var input_idx = 0
-			for entry in buffer:
-				if entry.has("input"):
-					input_buffer.append(entry["input"])
-					# Guardar drift checkpoint si existe, indexado por frame de input
-					if entry.has("drift_checkpoint"):
-						_drift_checkpoints[input_idx] = str2var(entry["drift_checkpoint"]["position"])
-						print("[DriftCorrection] Checkpoint cargado en frame %d: %s" % [input_idx, _drift_checkpoints[input_idx]])
-					input_idx += 1
-			player.input_provider.set_replay_data(input_buffer)
-		else:
-			print("❌ No se pudo acceder a input_provider en player para replay.")
-		# Cargar snapshot final esperado si existe
-		if typeof(parsed.result) == TYPE_DICTIONARY and parsed.result.has("final_expected_state"):
-			final_expected_state = parsed.result["final_expected_state"]
-		else:
-			final_expected_state = null
-		_drift_validated = false
-		is_replaying = true
-		print("▶️ Reproduciendo replay...")
-	else:
+	if typeof(parsed.result) != TYPE_DICTIONARY:
 		printerr("❌ Formato de replay inválido")
 		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
+		return
+	var data = parsed.result
+	var input_buffer_raw = data.get("buffer", [])
+	var input_buffer = []
+	for entry in input_buffer_raw:
+		if entry.has("input"):
+			input_buffer.append(entry["input"])
+	play_buffer(input_buffer, data)
+
+
+func play_buffer(input_buffer: Array, replay_data: Dictionary):
+	_find_player()
+
+	if not is_instance_valid(player):
+		printerr("❌ SessionManager: Player no encontrado para iniciar replay.")
+		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
+		return
+
+	var meta = replay_data.get("meta", {})
+
+	# Restaurar estado inicial del mundo ANTES del player
+	if meta.has("world_start_state"):
+		var world_start_state = meta["world_start_state"]
+		for path in world_start_state.keys():
+			var node = get_tree().get_root().get_node_or_null(path)
+			if node and node.has_method("restore_snapshot"):
+				node.restore_snapshot(world_start_state[path])
+
+	# Restaurar snapshot inicial del player si existe
+	if replay_data.get("buffer", [ {}])[0].has("snapshot"):
+		player.restore_snapshot(replay_data["buffer"][0]["snapshot"])
+
+	# Desactivar _physics_process en plataformas
+	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+	for node in sync_nodes:
+		if node != player:
+			node.set_physics_process(false)
+
+	player.is_replay_mode = true
+	player.input_provider.set_replay_data(input_buffer)
+
+	final_expected_state = replay_data.get("final_expected_state", null)
+	_drift_validated = false
+	is_replaying = true
+	_replay_frame = 0 # Reset frame counter
+	print("▶️ Reproduciendo replay desde buffer...")
 
 func _finish_and_validate():
 	if _drift_validated:
@@ -378,6 +414,27 @@ func _finish_and_validate():
 				success = false
 			else:
 				print("✅ Rotational drift dentro del umbral")
+	
+	# 2.5 Snapshot override if requested
+	if _should_snapshot and player and _current_replay_path.ends_with(".json"):
+		print("[SessionManager] --snapshot focus: Updating final_expected_state in ", _current_replay_path)
+		var f = File.new()
+		if f.open(_current_replay_path, File.READ) == OK:
+			var p = JSON.parse(f.get_as_text())
+			f.close()
+			if p.error == OK and typeof(p.result) == TYPE_DICTIONARY:
+				var data = p.result
+				data["final_expected_state"] = player.get_full_snapshot()
+				if f.open(_current_replay_path, File.WRITE) == OK:
+					f.store_string(JSON.print(data, "  "))
+					f.close()
+					print("✅ final_expected_state updated successfully.")
+				else:
+					printerr("❌ Could not open file for writing: ", _current_replay_path)
+			else:
+				printerr("❌ Could not parse JSON from: ", _current_replay_path)
+		else:
+			printerr("❌ Could not open file for reading: ", _current_replay_path)
 
 	# Emit signal for external listeners/tests
 	print("[SessionManager] EMITTING replay_finished: ", success, ", ", dist, ", ", frames)
