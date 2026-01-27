@@ -142,23 +142,34 @@ func manual_build():
 
 func verify_parameters():
 	if not qodot or not qodot.has_method("load_map") or DEBUG:
-		var lib = GDNativeLibrary.new()
-		lib.set("entry/OSX.64", "res://addons/qodot/bin/osx/libqodot.dylib")
-		lib.set("entry/Windows.64", "res://addons/qodot/bin/win64/libqodot.dll")
-		lib.set("entry/X11.64", "res://addons/qodot/bin/x11/libqodot.so")
-		lib.set("dependency/OSX.64", ["res://addons/qodot/bin/osx/libmap.dylib"])
-		lib.set("dependency/Windows.64", ["res://addons/qodot/bin/win64/libmap.dll"])
-		lib.set("dependency/X11.64", ["res://addons/qodot/bin/x11/libmap.so"])
+		if DEBUG: print("[Qodot] Initializing GDNative library and script...")
+		var q_lib = GDNativeLibrary.new()
+		q_lib.set("entry/OSX.64", "res://addons/qodot/bin/osx/libqodot.dylib")
+		q_lib.set("entry/Windows.64", "res://addons/qodot/bin/win64/libqodot.dll")
+		q_lib.set("entry/X11.64", "res://addons/qodot/bin/x11/libqodot.so")
+		q_lib.set("dependency/OSX.64", ["res://addons/qodot/bin/osx/libmap.dylib"])
+		q_lib.set("dependency/Windows.64", ["res://addons/qodot/bin/win64/libmap.dll"])
+		q_lib.set("dependency/X11.64", ["res://addons/qodot/bin/x11/libmap.so"])
 
-		var script = NativeScript.new()
-		if not script:
-			push_error("Error: Failed to create NativeScript for Qodot.")
+		var q_script = NativeScript.new()
+		if not q_script:
+			push_error("[Qodot] Failed to create NativeScript resource.")
 			return false
 
-		script.set("class_name", "Qodot")
-		script.library = lib
+		q_script.library = q_lib
+		q_script.set("class_name", "Qodot")
 
-		qodot = script.new()
+		if q_script == null:
+			push_error("[Qodot] NativeScript became null before instantiation.")
+			return false
+
+		var q_inst = q_script.new()
+		if not q_inst:
+			push_error("[Qodot] Failed to instantiate Qodot class from NativeScript.")
+			return false
+
+		qodot = q_inst
+		if DEBUG: print("[Qodot] GDNative initialized successfully.")
 
 	if not qodot:
 		push_error("Error: Failed to load libqodot.")
