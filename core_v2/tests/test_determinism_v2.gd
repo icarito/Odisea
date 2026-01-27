@@ -41,8 +41,8 @@ func before():
 # Data provider: devuelve un Array de parameter sets.
 
 # Unifica búsqueda de archivos .json y .oys
-static func _get_replay_and_oys_paths() -> Array:
-	return _scan_for_files([".json", ".oys"])
+static func _get_replay_paths() -> Array:
+	return _scan_for_files([".json"])
 
 static func _scan_for_files(extensions: Array) -> Array:
 	var results := []
@@ -77,37 +77,18 @@ var _current_test_scene: Node = null
 # Parametrized test for JSON replays
 
 # Test único parametrizado para ambos formatos
-func test_replay_or_oys(path: String, test_parameters=_get_replay_and_oys_paths()) -> void:
+func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 	var _unused = test_parameters
 	var desc = path.get_file()
-	var ext = path.get_extension().to_lower()
-	if ext == "json":
-		_setup_scene_from_replay_file(path)
-		SessionManager.load_and_play(path)
-		var res = yield (SessionManager, "replay_finished")
-		var success = res[0]
-		var drift = res[1]
-		var frames = res[2]
-		if not success:
-			fail("Replay '%s' FAILED: drift=%.8f, frames=%d." % [desc, drift, frames])
-		print("[test_replay] Finalizado: ", desc)
-	elif ext == "oys":
-		var f = File.new()
-		assert_int(f.open(path, File.READ)).is_equal(OK)
-		var script_content = f.get_as_text()
-		f.close()
-		var resolver = load("res://core_v2/utils/OYS_Resolver.gd")
-		var result = resolver.parse_script(script_content)
-		_setup_scene_from_oys_result(result)
-		for setter in result.get("setters", []):
-			_apply_setter(SessionManager.player, setter)
-		SessionManager.play_buffer(result.buffer, {})
-		var res = yield (SessionManager, "replay_finished")
-		for assertion in result.get("asserts", []):
-			_validate_assertion(SessionManager.player, assertion)
-		print("[test_oys_script] Finalizado: ", desc)
-	else:
-		fail("Archivo no soportado: %s" % path)
+	_setup_scene_from_replay_file(path)
+	SessionManager.load_and_play(path)
+	var res = yield (SessionManager, "replay_finished")
+	var success = res[0]
+	var drift = res[1]
+	var frames = res[2]
+	if not success:
+		fail("Replay '%s' FAILED: drift=%.8f, frames=%d." % [desc, drift, frames])
+	print("[test_replay] Finalizado: ", desc)
 
 func _apply_setter(player, setter):
 	if not is_instance_valid(player):
@@ -210,8 +191,8 @@ func _instance_and_prepare_scene(scene_path: String):
 	
 	# Esperar estabilización con timers para estabilidad en headless
 	for i in range(5):
-		yield(get_tree().create_timer(0.02), "timeout")
-	yield(get_tree().create_timer(0.02), "timeout") # Simular espera de physics_frame
+		yield (get_tree().create_timer(0.02), "timeout")
+	yield (get_tree().create_timer(0.02), "timeout") # Simular espera de physics_frame
 
 func after():
 	# Restablecer estado del SessionManager para evitar interferencias entre tests

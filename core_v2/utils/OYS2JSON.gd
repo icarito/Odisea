@@ -2,7 +2,7 @@
 # Uso: godot3-bin --script OYS2JSON.gd path/to/script.oys
 extends SceneTree
 
-const OYSResolver = preload("res://core_v2/utils/OYSResolver.gd")
+const OYS_Resolver = preload("res://core_v2/utils/OYS_Resolver.gd")
 const SessionManager = preload("res://core_v2/autoloads/SessionManager.gd")
 
 
@@ -15,7 +15,7 @@ func _run_oys_script(oys_path: String):
 	var script_content = file.get_as_text()
 	file.close()
 	print("[OYSRunner] Script content preview:\n", script_content.substr(0, 200))
-	var replay_data = OYSResolver.parse_script(script_content)
+	var replay_data = OYS_Resolver.parse_script(script_content)
 	if not replay_data:
 		printerr("Failed to parse OYS script: ", oys_path)
 		return false
