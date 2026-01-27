@@ -2,10 +2,17 @@
 # Runner de replays universal: escanea res://core_v2/tests/ para archivos replay_test_*.json
 extends GdUnitTestSuite
 
+
 const TESTS_ROOT = "res://core_v2/tests"
 const DRIFT_THRESHOLD = 0.0005
 
-# Helpers
+## Helpers
+
+# Minimal assert_true helper for boolean assertions
+func assert_true(cond: bool, msg: String = ""):
+	if not cond:
+		push_error("Assertion failed: " + msg)
+		fail(msg)
 static func _describe_replay_path(path: String) -> String:
 	var fname = path.get_file()
 	# Eliminar prefijos comunes y extensión para legibilidad
@@ -32,11 +39,10 @@ func before():
 	Engine.target_fps = 0 # Sin límite de FPS
 
 # Data provider: devuelve un Array de parameter sets.
-static func _get_replay_paths() -> Array:
-	return _scan_for_files([".json"])
 
-static func _get_oys_paths() -> Array:
-	return _scan_for_files([".oys"])
+# Unifica búsqueda de archivos .json y .oys
+static func _get_replay_and_oys_paths() -> Array:
+	return _scan_for_files([".json", ".oys"])
 
 static func _scan_for_files(extensions: Array) -> Array:
 	var results := []
@@ -69,54 +75,39 @@ static func _scan_dir(dir: Directory, current_path: String, results: Array, exte
 var _current_test_scene: Node = null
 
 # Parametrized test for JSON replays
-func test_replay(path: String, test_parameters=_get_replay_paths()) -> void:
-	var _unused = test_parameters
-	var desc = _describe_replay_path(path)
 
-	_setup_scene_from_replay_file(path)
-
-	# Iniciar replay via SessionManager
-	SessionManager.load_and_play(path)
-
-	var res = yield (SessionManager, "replay_finished")
-	var success = res[0]
-	var drift = res[1]
-	var frames = res[2]
-
-	if not success:
-		fail("Replay '%s' FAILED: drift=%.8f, frames=%d." % [desc, drift, frames])
-
-	print("[test_replay] Finalizado: ", desc)
-
-# Parametrized test for OYS scripts
-func test_oys_script(path: String, test_parameters=_get_oys_paths()) -> void:
+# Test único parametrizado para ambos formatos
+func test_replay_or_oys(path: String, test_parameters=_get_replay_and_oys_paths()) -> void:
 	var _unused = test_parameters
 	var desc = path.get_file()
-
-	var f = File.new()
-	assert_int(f.open(path, File.READ)).is_equal(OK)
-	var script_content = f.get_as_text()
-	f.close()
-
-	var resolver = load("res://core_v2/utils/OYS_Resolver.gd")
-	var result = resolver.parse_script(script_content)
-
-	_setup_scene_from_oys_result(result)
-
-	# Handle SET commands before starting
-	for setter in result.get("setters", []):
-		_apply_setter(SessionManager.player, setter)
-
-	# Iniciar replay con el buffer generado
-	SessionManager.play_buffer(result.buffer, {})
-
-	var res = yield (SessionManager, "replay_finished")
-
-	# Validate assertions
-	for assertion in result.get("asserts", []):
-		_validate_assertion(SessionManager.player, assertion)
-
-	print("[test_oys_script] Finalizado: ", desc)
+	var ext = path.get_extension().to_lower()
+	if ext == "json":
+		_setup_scene_from_replay_file(path)
+		SessionManager.load_and_play(path)
+		var res = yield (SessionManager, "replay_finished")
+		var success = res[0]
+		var drift = res[1]
+		var frames = res[2]
+		if not success:
+			fail("Replay '%s' FAILED: drift=%.8f, frames=%d." % [desc, drift, frames])
+		print("[test_replay] Finalizado: ", desc)
+	elif ext == "oys":
+		var f = File.new()
+		assert_int(f.open(path, File.READ)).is_equal(OK)
+		var script_content = f.get_as_text()
+		f.close()
+		var resolver = load("res://core_v2/utils/OYS_Resolver.gd")
+		var result = resolver.parse_script(script_content)
+		_setup_scene_from_oys_result(result)
+		for setter in result.get("setters", []):
+			_apply_setter(SessionManager.player, setter)
+		SessionManager.play_buffer(result.buffer, {})
+		var res = yield (SessionManager, "replay_finished")
+		for assertion in result.get("asserts", []):
+			_validate_assertion(SessionManager.player, assertion)
+		print("[test_oys_script] Finalizado: ", desc)
+	else:
+		fail("Archivo no soportado: %s" % path)
 
 func _apply_setter(player, setter):
 	if not is_instance_valid(player):
@@ -166,7 +157,7 @@ func _validate_assertion(player, assertion):
 		"<":
 			assert_true(actual_value < expected_value, "%s: %s not < %s" % [msg, actual_value, expected_value])
 		"==":
-			assert_object(actual_value).is_equal(expected_value, "%s: %s not == %s" % [msg, actual_value, expected_value])
+			assert_object(actual_value).is_equal(expected_value)
 
 func _get_property(obj, prop_path):
 	var parts = prop_path.split(".")

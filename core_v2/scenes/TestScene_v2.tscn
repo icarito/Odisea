@@ -287,14 +287,6 @@ uv1_scale = Vector3( 0.5, 0.5, 0.5 )
 uv1_triplanar = true
 uv1_triplanar_sharpness = 1.0
 
-[sub_resource type="SpatialMaterial" id=3]
-flags_world_triplanar = true
-albedo_color = Color( 0.486275, 0.486275, 0.486275, 1 )
-albedo_texture = ExtResource( 8 )
-uv1_scale = Vector3( 0.5, 0.5, 0.5 )
-uv1_triplanar = true
-uv1_triplanar_sharpness = 1.0
-
 [sub_resource type="ORMSpatialMaterial" id=87]
 albedo_texture = ExtResource( 14 )
 uv1_scale = Vector3( 3, 3, 3 )
@@ -307,19 +299,26 @@ size = Vector3( 8, 10, 0.2 )
 [sub_resource type="ConcavePolygonShape" id=88]
 data = PoolVector3Array( -4, 5, 0.1, 4, 5, 0.1, -4, -5, 0.1, 4, 5, 0.1, 4, -5, 0.1, -4, -5, 0.1, 4, 5, -0.1, -4, 5, -0.1, 4, -5, -0.1, -4, 5, -0.1, -4, -5, -0.1, 4, -5, -0.1, 4, 5, 0.1, 4, 5, -0.1, 4, -5, 0.1, 4, 5, -0.1, 4, -5, -0.1, 4, -5, 0.1, -4, 5, -0.1, -4, 5, 0.1, -4, -5, -0.1, -4, 5, 0.1, -4, -5, 0.1, -4, -5, -0.1, 4, 5, 0.1, -4, 5, 0.1, 4, 5, -0.1, -4, 5, 0.1, -4, 5, -0.1, 4, 5, -0.1, -4, -5, 0.1, 4, -5, 0.1, -4, -5, -0.1, 4, -5, 0.1, 4, -5, -0.1, -4, -5, -0.1 )
 
+[sub_resource type="SpatialMaterial" id=3]
+flags_world_triplanar = true
+albedo_color = Color( 0.486275, 0.486275, 0.486275, 1 )
+albedo_texture = ExtResource( 8 )
+uv1_scale = Vector3( 0.5, 0.5, 0.5 )
+uv1_triplanar = true
+uv1_triplanar_sharpness = 1.0
+
 [node name="TestScene" type="Spatial"]
 
 [node name="WallManager" type="Node" parent="."]
 script = ExtResource( 15 )
-target_node_path = NodePath("../Conveyors/QodotMap")
+target_node_path = NodePath("../Level/Conveyors/QodotMap")
 hole_radius = 3.0
 cutoff_offset = 0.1
 
-[node name="Pilot" parent="." instance=ExtResource( 3 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 21, 1, -24.75 )
-min_pitch = -60.0
+[node name="Level" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -49.5655, 0, 11.6603 )
 
-[node name="Conveyors" type="CSGBox" parent="."]
+[node name="Conveyors" type="CSGBox" parent="Level"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 42, 0, 0 )
 use_collision = true
 width = 20.0
@@ -327,7 +326,7 @@ height = 0.2
 depth = 58.0
 material = SubResource( 2 )
 
-[node name="QodotMap" type="Spatial" parent="Conveyors"]
+[node name="QodotMap" type="Spatial" parent="Level/Conveyors"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -7.84557, 0, -27.1689 )
 script = ExtResource( 5 )
 map_file = "/run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/maps/box.map"
@@ -349,253 +348,253 @@ tree_attach_batch_size = 16
 set_owner_batch_size = 16
 auto_build = false
 
-[node name="entity_0_worldspawn" type="StaticBody" parent="Conveyors/QodotMap"]
+[node name="entity_0_worldspawn" type="StaticBody" parent="Level/Conveyors/QodotMap"]
 
-[node name="entity_0_mesh_instance" type="MeshInstance" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_mesh_instance" type="MeshInstance" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 use_in_baked_light = true
 mesh = SubResource( 5 )
 
-[node name="entity_0_brush_0_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_0_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 6 )
 
-[node name="entity_0_brush_1_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_1_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 7 )
 
-[node name="entity_0_brush_2_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_2_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 8 )
 
-[node name="entity_0_brush_3_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_3_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 9 )
 
-[node name="entity_0_brush_4_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_4_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 10 )
 
-[node name="entity_0_brush_5_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_5_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 11 )
 
-[node name="entity_0_brush_6_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_6_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 12 )
 
-[node name="entity_0_brush_7_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_7_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 13 )
 
-[node name="entity_0_brush_8_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_8_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 14 )
 
-[node name="entity_0_brush_9_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_9_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 15 )
 
-[node name="entity_0_brush_10_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_10_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 16 )
 
-[node name="entity_0_brush_11_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_11_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 17 )
 
-[node name="entity_0_brush_12_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_12_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 18 )
 
-[node name="entity_0_brush_13_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_13_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 19 )
 
-[node name="entity_0_brush_14_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_14_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 20 )
 
-[node name="entity_0_brush_15_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_15_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 21 )
 
-[node name="entity_0_brush_16_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_16_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 22 )
 
-[node name="entity_0_brush_17_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_17_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 23 )
 
-[node name="entity_0_brush_18_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_18_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 24 )
 
-[node name="entity_0_brush_19_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_19_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 25 )
 
-[node name="entity_0_brush_20_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_20_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 26 )
 
-[node name="entity_0_brush_21_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_21_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 27 )
 
-[node name="entity_0_brush_22_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_22_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 28 )
 
-[node name="entity_0_brush_23_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_23_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 29 )
 
-[node name="entity_0_brush_24_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_24_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 30 )
 
-[node name="entity_0_brush_25_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_25_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 31 )
 
-[node name="entity_0_brush_26_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_26_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 32 )
 
-[node name="entity_0_brush_27_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_27_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 33 )
 
-[node name="entity_0_brush_28_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_28_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 34 )
 
-[node name="entity_0_brush_29_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_29_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 35 )
 
-[node name="entity_0_brush_30_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_30_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 36 )
 
-[node name="entity_0_brush_31_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_31_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 37 )
 
-[node name="entity_0_brush_32_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_32_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 38 )
 
-[node name="entity_0_brush_33_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_33_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 39 )
 
-[node name="entity_0_brush_34_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_34_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 40 )
 
-[node name="entity_0_brush_35_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_35_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 41 )
 
-[node name="entity_0_brush_36_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_36_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 42 )
 
-[node name="entity_0_brush_37_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_37_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 43 )
 
-[node name="entity_0_brush_38_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_38_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 44 )
 
-[node name="entity_0_brush_39_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_39_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 45 )
 
-[node name="entity_0_brush_40_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_40_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 46 )
 
-[node name="entity_0_brush_41_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_41_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 47 )
 
-[node name="entity_0_brush_42_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_42_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 48 )
 
-[node name="entity_0_brush_43_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_43_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 49 )
 
-[node name="entity_0_brush_44_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_44_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 50 )
 
-[node name="entity_0_brush_45_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_45_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 51 )
 
-[node name="entity_0_brush_46_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_46_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 52 )
 
-[node name="entity_0_brush_47_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_47_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 53 )
 
-[node name="entity_0_brush_48_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_48_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 54 )
 
-[node name="entity_0_brush_49_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_49_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 55 )
 
-[node name="entity_0_brush_50_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_50_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 56 )
 
-[node name="entity_0_brush_51_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_51_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 57 )
 
-[node name="entity_0_brush_52_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_52_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 58 )
 
-[node name="entity_0_brush_53_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_53_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 59 )
 
-[node name="entity_0_brush_54_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_54_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 60 )
 
-[node name="entity_0_brush_55_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_55_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 61 )
 
-[node name="entity_0_brush_56_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_56_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 62 )
 
-[node name="entity_0_brush_57_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_57_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 63 )
 
-[node name="entity_0_brush_58_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_58_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 64 )
 
-[node name="entity_0_brush_59_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_59_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 65 )
 
-[node name="entity_0_brush_60_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_60_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 66 )
 
-[node name="entity_0_brush_61_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_61_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 67 )
 
-[node name="entity_0_brush_62_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_62_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 68 )
 
-[node name="entity_0_brush_63_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_63_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 69 )
 
-[node name="entity_0_brush_64_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_64_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 70 )
 
-[node name="entity_0_brush_65_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_65_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 71 )
 
-[node name="entity_0_brush_66_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_66_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 72 )
 
-[node name="entity_0_brush_67_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_67_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 73 )
 
-[node name="entity_0_brush_68_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_68_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 74 )
 
-[node name="entity_0_brush_69_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_69_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 75 )
 
-[node name="entity_0_brush_70_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_70_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 76 )
 
-[node name="entity_0_brush_71_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_71_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 77 )
 
-[node name="entity_0_brush_72_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_72_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 78 )
 
-[node name="entity_0_brush_73_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_73_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 79 )
 
-[node name="entity_0_brush_74_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_74_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 80 )
 
-[node name="entity_0_brush_75_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_75_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 81 )
 
-[node name="entity_0_brush_76_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_76_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 82 )
 
-[node name="entity_0_brush_77_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_77_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 83 )
 
-[node name="entity_0_brush_78_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_78_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 84 )
 
-[node name="entity_0_brush_79_collision_shape" type="CollisionShape" parent="Conveyors/QodotMap/entity_0_worldspawn"]
+[node name="entity_0_brush_79_collision_shape" type="CollisionShape" parent="Level/Conveyors/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 85 )
 
-[node name="Divider" type="CSGBox" parent="."]
+[node name="Divider" type="CSGBox" parent="Level"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 31.5, 0.375, 0 )
 use_collision = true
 width = 1.0
@@ -603,7 +602,7 @@ height = 1.0
 depth = 58.0
 material = ExtResource( 1 )
 
-[node name="Basic movement" type="CSGBox" parent="."]
+[node name="Basic movement" type="CSGBox" parent="Level"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 21, 0, 0 )
 use_collision = true
 width = 20.0
@@ -611,7 +610,7 @@ height = 0.2
 depth = 58.0
 material = SubResource( 1 )
 
-[node name="Totem" type="CSGBox" parent="Basic movement"]
+[node name="Totem" type="CSGBox" parent="Level/Basic movement"]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -0.125, 0.75, -19 )
 use_collision = true
 width = 0.4
@@ -619,37 +618,72 @@ height = 1.2
 depth = 4.0
 material = ExtResource( 1 )
 
-[node name="Test Scene" type="Label3D" parent="Basic movement/Totem"]
+[node name="Test Scene" type="Label3D" parent="Level/Basic movement/Totem"]
 transform = Transform( -4.36813e-08, -0.0262118, 0.999656, -2.29151e-09, 0.999656, 0.0262118, -1, -1.14576e-09, -4.37264e-08, 0.25, 0.125, 0 )
 modulate = Color( 0.827451, 0.247059, 0.0431373, 1 )
 text = "Test Scene"
 font = ExtResource( 9 )
 
-[node name="MovingPlatforms" type="CSGBox" parent="."]
+[node name="Interactables" type="Spatial" parent="Level/Basic movement"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -15 )
+
+[node name="SlidingDoor" parent="Level/Basic movement/Interactables" instance=ExtResource( 10 )]
+transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 16.2387, 5.69305, 1.54971 )
+interaction_text = "Open Door"
+anim_duration = 0.8
+slide_vector = Vector3( 0, 4, 0 )
+size = Vector3( 3, 2, 0.25 )
+
+[node name="DoorMesh" type="MeshInstance" parent="Level/Basic movement/Interactables/SlidingDoor"]
+transform = Transform( 1, 0, -7.10543e-15, 0, 1, 0, 7.10543e-15, 0, 1, 0.310929, -0.59305, -0.0207176 )
+mesh = SubResource( 86 )
+
+[node name="CollisionShape2" type="CollisionShape" parent="Level/Basic movement/Interactables/SlidingDoor"]
+transform = Transform( 1, 0, -7.10543e-15, 0, 1, 0, 7.10543e-15, 0, 1, 0.310929, -0.59305, -0.0207176 )
+shape = SubResource( 88 )
+
+[node name="RotatingLever" parent="Level/Basic movement/Interactables" instance=ExtResource( 11 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 1, 0 )
+debug = true
+rotation_amount = -60.0
+
+[node name="SlidingDrawer" parent="Level/Basic movement/Interactables" instance=ExtResource( 10 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0.875, 0 )
+interaction_text = "Open Drawer"
+slide_vector = Vector3( 0, 0, 1 )
+size = Vector3( 1, 1.5, 0.8 )
+easing_type = 3
+
+[node name="LeverConveyor" parent="Level/Basic movement/Interactables" instance=ExtResource( 13 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 5 )
+speed_x = 3.0
+starts_active = false
+
+[node name="MovingPlatforms" type="CSGBox" parent="Level"]
 use_collision = true
 width = 20.0
 height = 0.2
 depth = 58.0
 material = SubResource( 3 )
 
-[node name="MovingPlatform" parent="MovingPlatforms" instance=ExtResource( 4 )]
+[node name="MovingPlatform" parent="Level/MovingPlatforms" instance=ExtResource( 4 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )
 movement_vector = Vector3( 0, -3, 0 )
 cycle_duration = 6.0
 ease_type = 1
 
-[node name="MovingPlatform2" parent="MovingPlatforms" instance=ExtResource( 4 )]
+[node name="MovingPlatform2" parent="Level/MovingPlatforms" instance=ExtResource( 4 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 8 )
 movement_vector = Vector3( -10, 0, 0 )
 cycle_duration = 6.0
 ease_type = 1
 
-[node name="MovingPlatform3" parent="MovingPlatforms" instance=ExtResource( 4 )]
+[node name="MovingPlatform3" parent="Level/MovingPlatforms" instance=ExtResource( 4 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 15 )
 cycle_duration = 6.0
 ease_type = 1
 
-[node name="Divider2" type="CSGBox" parent="."]
+[node name="Divider2" type="CSGBox" parent="Level"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 0.375, 0 )
 use_collision = true
 width = 1.0
@@ -657,40 +691,8 @@ height = 1.0
 depth = 58.0
 material = ExtResource( 1 )
 
-[node name="Interactables" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 21, 0, -15 )
+[node name="Pilot" parent="." instance=ExtResource( 3 )]
+min_pitch = -60.0
 
-[node name="SlidingDoor" parent="Interactables" instance=ExtResource( 10 )]
-transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 16.2387, 5.69305, 1.54971 )
-interaction_text = "Open Door"
-anim_duration = 0.8
-slide_vector = Vector3( 0, 4, 0 )
-size = Vector3( 3, 2, 0.25 )
-
-[node name="DoorMesh" type="MeshInstance" parent="Interactables/SlidingDoor"]
-transform = Transform( 1, 0, -7.10543e-15, 0, 1, 0, 7.10543e-15, 0, 1, 0.310929, -0.59305, -0.0207176 )
-mesh = SubResource( 86 )
-
-[node name="CollisionShape2" type="CollisionShape" parent="Interactables/SlidingDoor"]
-transform = Transform( 1, 0, -7.10543e-15, 0, 1, 0, 7.10543e-15, 0, 1, 0.310929, -0.59305, -0.0207176 )
-shape = SubResource( 88 )
-
-[node name="RotatingLever" parent="Interactables" instance=ExtResource( 11 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 1, 0 )
-debug = true
-rotation_amount = -60.0
-
-[node name="SlidingDrawer" parent="Interactables" instance=ExtResource( 10 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0.875, 0 )
-interaction_text = "Open Drawer"
-slide_vector = Vector3( 0, 0, 1 )
-size = Vector3( 1, 1.5, 0.8 )
-easing_type = 3
-
-[node name="LeverConveyor" parent="Interactables" instance=ExtResource( 13 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 5 )
-speed_x = 3.0
-starts_active = false
-
-[connection signal="activated" from="Interactables/RotatingLever" to="Interactables/LeverConveyor" method="set_active" binds= [ true ]]
-[connection signal="deactivated" from="Interactables/RotatingLever" to="Interactables/LeverConveyor" method="set_active" binds= [ false ]]
+[connection signal="activated" from="Level/Basic movement/Interactables/RotatingLever" to="Level/Basic movement/Interactables/LeverConveyor" method="set_active" binds= [ true ]]
+[connection signal="deactivated" from="Level/Basic movement/Interactables/RotatingLever" to="Level/Basic movement/Interactables/LeverConveyor" method="set_active" binds= [ false ]]
