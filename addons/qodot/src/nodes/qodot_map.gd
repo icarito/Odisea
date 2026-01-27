@@ -70,6 +70,7 @@ var _qodot_script: NativeScript = null
 func set_map_file(new_map_file: String) -> void:
 	if map_file != new_map_file:
 		map_file = new_map_file
+		_last_map_mod_time = 0
 
 func set_worldspawn_layers(new_worldspawn_layers: Array) -> void:
 	if worldspawn_layers != new_worldspawn_layers:
@@ -90,16 +91,16 @@ func set_texture_wads(new_texture_wads: Array) -> void:
 
 # Overrides
 func _ready() -> void:
+	if not is_connected("build_complete", self, "_on_build_finished"):
+		connect("build_complete", self, "_on_build_finished")
+		connect("build_failed", self, "_on_build_finished")
+
 	if not DEBUG:
 		return
 
 	if not Engine.is_editor_hint():
 		if verify_parameters():
 			build_map()
-	
-	if not is_connected("build_complete", self, "_on_build_finished"):
-		connect("build_complete", self, "_on_build_finished")
-		connect("build_failed", self, "_on_build_finished")
 
 func _get_property_list() -> Array:
 	return [
@@ -331,10 +332,12 @@ func _process(_delta: float) -> void:
 
 	var mod_time = file.get_modified_time(map_file)
 	if _last_map_mod_time == 0:
+		print("[Qodot] Monitoring map for changes: ", map_file)
 		_last_map_mod_time = mod_time
 		return
 
 	if mod_time > _last_map_mod_time:
+		print("[Qodot] Resource change detected: ", map_file)
 		_last_map_mod_time = mod_time
 		trigger_full_build()
 
