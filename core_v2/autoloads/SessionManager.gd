@@ -6,6 +6,7 @@ var player: KinematicBody = null
 var _player_searched = false
 var buffer := []
 var is_recording := false
+var is_manual_mode := false # Flag para tests (desactiva auto-scene loading)
 var is_replaying := false
 var replay_meta := {} # Metadatos del replay
 var final_expected_state = null
@@ -15,6 +16,9 @@ var _is_replaying_fail_loop := false # Flag para evitar loops infinitos si falla
 var _should_snapshot := false
 var _current_replay_path := ""
 var _current_replay_data := {} # To persist data from OYS or JSON during execution
+var _pending_asserts := []
+var _pending_setters := []
+var _peak_y := -999.0
 
 # Drift correction: checkpoint pendiente para guardar en el próximo frame
 var _pending_drift_checkpoint := false
@@ -105,10 +109,31 @@ func _physics_process(_dt):
 			stop_and_save_recording()
 
 	if is_replaying:
+		# Supresor de inercia mandatorio en Frame 0 para eliminar drift de preparación
+		if _replay_frame == 0 and "velocity" in player:
+			player.velocity = Vector3.ZERO
+
+		# Aplicación de Setters programados para este frame
+		_check_setters_for_frame(_replay_frame)
+
+		# Verificación de aserciones pendientes para este frame
+		_check_asserts_for_frame(_replay_frame)
+
+		# Log and Stats (ANTES del step para que el Frame N muestre el estado PRE-step N)
+		if _replay_frame < 5:
+			print("[SessionManager] DEBUG Frame %d (Pre-Step): pos=%s, vel=%s" % [_replay_frame, player.global_transform.origin, player.velocity if "velocity" in player else "N/A"])
+
+		if _replay_frame % 30 == 0 and _replay_frame >= 5:
+			print("[SessionManager] Frame %d: pos=%s" % [_replay_frame, player.global_transform.origin])
+
+		if player.global_transform.origin.y > _peak_y:
+			_peak_y = player.global_transform.origin.y
+
 		# Obtener input primero para verificar si hay más inputs disponibles
-		if not player or not player.has_method("step"):
-			run_playback() # Solo para terminar replay si no hay player
-			_replay_frame += 1
+		if not is_instance_valid(player) or not player.has_method("step"):
+			print("[SessionManager] Replay aborted: player lost or invalid.")
+			is_replaying = false
+			_finish_and_validate()
 			return
 		
 		# Aplicar drift checkpoint si existe para este frame (ANTES del step)
@@ -137,10 +162,9 @@ func _physics_process(_dt):
 		for node in sync_nodes:
 			if node != player and node.has_method("step"):
 				node.step(FIXED_DT)
-		
+
 		_replay_frame += 1
 		_total_replay_frames = _replay_frame
-		run_playback()
 	elif is_recording:
 		# Consumir input desde el provider una única vez y usar ese mismo input
 		var input_data = null
@@ -265,6 +289,13 @@ var _playback_printed_end := false
 
 func load_and_play(path: String):
 	print("[SessionManager] load_and_play called with: ", path)
+	is_replaying = false
+	_replay_frame = 0
+	_total_replay_frames = 0
+	_drift_validated = false
+	final_expected_state = null
+	_current_replay_data = {}
+	
 	_current_replay_path = path
 	var ext = path.get_extension().to_lower()
 	if ext == "oys":
@@ -287,21 +318,43 @@ func load_and_play(path: String):
 				if parts.size() > 1:
 					scene_path = parts[1]
 				break
-		# Instanciar la escena si es necesario
-		if get_tree().current_scene == null or get_tree().current_scene.filename != scene_path:
-			var packed = load(scene_path)
-			if packed:
-				var inst = packed.instance()
-				get_tree().root.add_child(inst)
-				get_tree().current_scene = inst
-				yield (get_tree(), "idle_frame")
-				yield (get_tree(), "idle_frame")
-		# Aplicar setters antes de iniciar
+		# --- Scene Management ---
+		# En entornos de test o modo manual, confiamos en que el runner ya instanció la escena.
 		_find_player()
-		if player:
-			_current_replay_data = result
-			_apply_setters(result.get("setters", []))
-		play_buffer(result.buffer, result)
+		if not is_manual_mode and player == null:
+			if get_tree().current_scene == null or get_tree().current_scene.filename != scene_path:
+				var packed = load(scene_path)
+				if packed:
+					var inst = packed.instance()
+					get_tree().root.add_child(inst)
+					get_tree().current_scene = inst
+					# Esperar a que el nuevo Pilot se registre
+					yield (get_tree(), "idle_frame")
+					_find_player()
+		# Unificar formato: OYS -> JSON-like buffer
+		var unified_data = {
+			"setters": result.get("setters", []),
+			"asserts": result.get("asserts", []),
+			"buffer": []
+		}
+		for raw_input in result.buffer:
+			unified_data.buffer.append({"input": raw_input})
+		
+		# Autocaptura de estado inicial si no hay SET explícito
+		var has_pos = false
+		var has_rot = false
+		for s in unified_data.setters:
+			if s.property == "pos": has_pos = true
+			if s.property == "rot": has_rot = true
+		
+		if not has_pos:
+			unified_data.setters.append({"frame": 0, "property": "pos", "value": "(0, 0.5, 0)"})
+		if not has_rot:
+			unified_data.setters.append({"frame": 0, "property": "rot", "value": "0"})
+		
+		_current_replay_data = unified_data
+		
+		play_buffer(unified_data.buffer, unified_data)
 		return
 	# JSON tradicional
 	var file = File.new()
@@ -328,7 +381,7 @@ func load_and_play(path: String):
 				input_buffer.append(entry)
 	_current_replay_data = data
 	
-	# Aplicar setters para JSON también (importante para determinismo si vienen de OYS)
+	# Restauramos el setter inicial simple
 	_apply_setters(data.get("setters", []))
 	
 	play_buffer(input_buffer, data)
@@ -338,6 +391,10 @@ func _apply_setters(setters: Array):
 	_find_player()
 	if not player:
 		return
+	
+	# --- RESET FOR DETERMISNIM ---
+	if player.has_method("full_reset"):
+		player.full_reset()
 		
 	for setter in setters:
 		match setter.property:
@@ -352,9 +409,59 @@ func _apply_setters(setters: Array):
 					var t = player.global_transform
 					t.origin = new_pos
 					player.global_transform = t
+					if "velocity" in player:
+						player.velocity = Vector3.ZERO
 			"rot":
 				player.rotation_degrees.y = setter.value.to_float()
 
+
+func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
+	_find_player()
+
+	if not is_instance_valid(player):
+		printerr("❌ SessionManager: Player no encontrado para iniciar replay.")
+		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
+		return
+
+	var meta = replay_data.get("meta", {})
+
+	# Restaurar estado inicial del mundo ANTES del player
+	if meta.has("world_start_state"):
+		var world_start_state = meta["world_start_state"]
+		for path in world_start_state.keys():
+			var node = get_tree().get_root().get_node_or_null(path)
+			if node and node.has_method("restore_snapshot"):
+				node.restore_snapshot(world_start_state[path])
+
+	# Restaurar snapshot inicial del player si existe
+	var replay_buffer = replay_data.get("buffer", [])
+	if replay_buffer.size() > 0 and replay_buffer[0].has("snapshot"):
+		player.restore_snapshot(replay_buffer[0]["snapshot"])
+
+	# Desactivar _physics_process en plataformas
+	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+	for node in sync_nodes:
+		if node != player:
+			node.set_physics_process(false)
+
+	player.is_replay_mode = true
+	player.input_provider.set_replay_data(input_buffer)
+	if "velocity" in player:
+		player.velocity = Vector3.ZERO
+
+	var b_size = input_buffer.size()
+	print("[SessionManager] Starting _play_buffer_internal with %d frames" % b_size)
+
+	_pending_asserts = replay_data.get("asserts", [])
+	_pending_setters = replay_data.get("setters", [])
+	_peak_y = player.global_transform.origin.y
+	final_expected_state = replay_data.get("final_expected_state", null)
+
+	_drift_validated = false
+	_replay_frame = 0
+	is_replaying = true
+	
+	print("▶️ Reproduciendo replay desde buffer...")
 
 func play_buffer(input_buffer: Array, replay_data: Dictionary):
 	_find_player()
@@ -388,19 +495,32 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 	player.is_replay_mode = true
 	player.input_provider.set_replay_data(input_buffer)
 
+	_pending_asserts = replay_data.get("asserts", [])
+	_pending_setters = replay_data.get("setters", [])
+	_peak_y = player.global_transform.origin.y
 	final_expected_state = replay_data.get("final_expected_state", null)
+
 	_drift_validated = false
+	_replay_frame = 0
 	is_replaying = true
-	_replay_frame = 0 # Reset frame counter
+	
 	print("▶️ Reproduciendo replay desde buffer...")
 
+
 func _finish_and_validate():
+	is_replaying = false
+	
+	# Una última comprobación de aserciones que puedan haber quedado en el último frame
+	_check_asserts_for_frame(_replay_frame)
+	
 	if _drift_validated:
 		return
 	_drift_validated = true
 	var success = true
 	var dist = -1.0
 	var frames = _total_replay_frames
+
+	print("[SessionManager] Peak Y reached during replay: %.4f" % _peak_y)
 
 	# 1. Imprimir estado final
 	if player:
@@ -470,6 +590,118 @@ func _finish_and_validate():
 	if is_cli_mode:
 		print("[SessionManager] Exiting CLI mode")
 		get_tree().quit(0 if success else 1)
+
+func _check_asserts_for_frame(frame_idx: int):
+	var still_pending = []
+	for a in _pending_asserts:
+		if a.frame <= frame_idx: # Permisivo: si nos saltamos el frame exacto, checkear igual
+			_validate_assertion(a)
+		else:
+			still_pending.append(a)
+	_pending_asserts = still_pending
+
+func _check_setters_for_frame(frame_idx: int):
+	var still_pending = []
+	var apply_now = []
+	for s in _pending_setters:
+		if s.frame <= frame_idx:
+			apply_now.append(s)
+		else:
+			still_pending.append(s)
+	
+	if apply_now.size() > 0:
+		_apply_setters(apply_now)
+	
+	_pending_setters = still_pending
+
+func _validate_assertion(assertion: Dictionary):
+	if not player: return
+	
+	var condition = assertion.get("condition", "")
+	print("[SessionManager] Evaluating ASSERT: ", condition, " at frame ", _replay_frame)
+	if condition == "": return
+	
+	# Basic Evaluator (Minimal version of test_determinism_v2 logic)
+	var parts = condition.split("\"", 2)
+	var expression = parts[0].strip_edges()
+	var msg = parts[1] if parts.size() > 1 else "Assertion failed"
+	
+	var expr_parts = expression.split(" ", false)
+	if expr_parts.size() < 3:
+		printerr("⚠️ Assertion malformed: ", expression)
+		return
+		
+	var prop_path = expr_parts[0]
+	var op = expr_parts[1]
+	var value_str = expr_parts[2]
+	
+	var actual_value = _get_nested_prop(player, prop_path)
+	if actual_value == null:
+		print("❌ ASSERT ERROR: Propiedad '%s' no encontrada en el player." % prop_path)
+		if is_cli_mode: get_tree().quit(1)
+		return
+
+	var expected_value = value_str.to_float() if value_str.is_valid_float() else value_str
+	
+	if value_str == "true": expected_value = true
+	if value_str == "false": expected_value = false
+	
+	var passed = false
+	match op:
+		">": passed = actual_value > expected_value
+		"<": passed = actual_value < expected_value
+		"==": passed = actual_value == expected_value
+		"!=": passed = actual_value != expected_value
+		">=": passed = actual_value >= expected_value
+		"<=": passed = actual_value <= expected_value
+	
+	if passed:
+		print("✅ ASSERT PASSED: %s (%s %s %s)" % [msg, prop_path, op, value_str])
+	else:
+		print("❌ ASSERT FAILED: %s (Actual %s: %s, Expected: %s %s)" % [msg, prop_path, actual_value, op, value_str])
+		# En CLI mode, esto debería idealmente fallar el test
+		if is_cli_mode:
+			get_tree().quit(1)
+
+func _get_nested_prop(obj, prop_path):
+	# Soporte para alias comunes
+	var real_path = prop_path
+	if prop_path == "pos" or prop_path.begins_with("pos."):
+		real_path = prop_path.replace("pos", "global_transform.origin")
+	
+	# Usar get_indexed de Godot que es mucho más robusto para esto
+	# Transforma "global_transform.origin.y" en "global_transform:origin:y" para get_indexed
+	
+	# Verificamos si existe antes de llamar (evita crashes)
+	# Nota: get_indexed no tiene una forma fácil de checkear existencia sin try-catch 
+	# (que no existe en GDScript). Usamos un enfoque híbrido.
+	
+	var parts = real_path.split(".")
+	var current = obj
+	for part in parts:
+		if typeof(current) == TYPE_OBJECT:
+			if part in current:
+				current = current.get(part)
+			else:
+				return null
+		elif typeof(current) == TYPE_VECTOR3:
+			if part == "x": current = current.x
+			elif part == "y": current = current.y
+			elif part == "z": current = current.z
+			else: return null
+		elif typeof(current) == TYPE_TRANSFORM:
+			if part == "origin": current = current.origin
+			elif part == "basis": current = current.basis
+			else: return null
+		elif typeof(current) == TYPE_BASIS:
+			if part == "x": current = current.x
+			elif part == "y": current = current.y
+			elif part == "z": current = current.z
+			else: return null
+		else:
+			return null
+			
+	return current
 
 func run_playback():
 	_find_player()

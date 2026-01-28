@@ -1,0 +1,12 @@
+// Test 3: Rotación de Cámara 90°
+// Verifica que la cámara gire correctamente sin afectar la posición del jugador.
+
+
+SECTION "Rotación Cámara"
+    RIGHT 90           // Gira la cámara 90° a la derecha (Y-rotation negativa en Godot)
+    WAIT 0.5
+    ASSERT yaw_deg < -85 "Cámara no giró suficiente"
+    ASSERT yaw_deg > -95 "Cámara giró demasiado"
+    ASSERT pos.z == 0 "El jugador se movió durante la rotación"
+    ASSERT pos.x == 0 "El jugador se movió lateralmente"
+END

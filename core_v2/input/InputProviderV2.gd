@@ -22,11 +22,15 @@ const JOY_DEADZONE := 0.2
 func get_input() -> InputDataV2:
 	if mode == Mode.REPLAY:
 		if playback_index < playback_buffer.size():
+			var entry = playback_buffer[playback_index]
 			var d = InputDataV2.new()
-			d.from_dict(playback_buffer[playback_index])
+			if typeof(entry) == TYPE_DICTIONARY and entry.has("input"):
+				d.from_dict(entry["input"])
+			else:
+				d.from_dict(entry)
 			playback_index += 1
 			return d
-		return InputDataV2.new() # Input neutro si se acaba el buffer
+		return null # INDICA FIN DE BUFFER real
 	else:
 		return _read_live_input()
 

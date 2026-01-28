@@ -1,0 +1,13 @@
+// Test 6: Salto con desplazamiento (Jump Forward)
+// Verifica la inercia horizontal durante un salto en carrera.
+
+
+SECTION "Salto en Carrera"
+    FW 0.5             // Acelerar primero
+    JUMP 0.2 AT 0.5 FW 1.5 // Saltar a los 0.5s y mantener avance
+    WAIT 1.5           // Dar tiempo para aterrizar
+    
+    // Esperamos un avance significativo en Z (> 3m)
+    ASSERT pos.z > 3.0 "ERROR: No hubo suficiente inercia horizontal en el salto"
+    ASSERT pos.y < 0.1 "El personaje no regresó al suelo"
+END

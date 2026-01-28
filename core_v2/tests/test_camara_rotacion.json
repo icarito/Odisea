@@ -1,0 +1,494 @@
+{
+  "setters": [
+    {
+      "frame": 0,
+      "property": "pos",
+      "value": "(0, 0.5, 0)"
+    },
+    {
+      "frame": 0,
+      "property": "rot",
+      "value": "0"
+    }
+  ],
+  "asserts": [
+    {
+      "frame": 60,
+      "condition": "yaw_deg < -85 \"Cámara no giró suficiente\""
+    },
+    {
+      "frame": 60,
+      "condition": "yaw_deg > -95 \"Cámara giró demasiado\""
+    },
+    {
+      "frame": 60,
+      "condition": "pos.z == 0 \"El jugador se movió durante la rotación\""
+    },
+    {
+      "frame": 60,
+      "condition": "pos.x == 0 \"El jugador se movió lateralmente\""
+    }
+  ],
+  "buffer": [
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+        "mouse_delta": [
+          10.471976,
+          0
+        ]
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    }
+  ],
+  "final_expected_state": {
+    "position": [
+      0,
+      0.0415,
+      0
+    ],
+    "velocity": [
+      0,
+      0,
+      0
+    ],
+    "yaw": -1.570796,
+    "pitch": 0,
+    "base_spring_length_3d": 7,
+    "movement_state": {
+      "horizontal_velocity": [
+        0,
+        0,
+        0
+      ],
+      "external_velocity": [
+        0,
+        0,
+        0
+      ],
+      "camera_input_timer": 0.5,
+      "is_tank_turn_mode": false,
+      "current_turn_time": 0
+    },
+    "ss_logic": {
+      "active": false,
+      "alpha": 0,
+      "axis": 0,
+      "val": 0,
+      "inv": false,
+      "tsl": 15,
+      "vc": [
+        0,
+        0,
+        0
+      ],
+      "lc": [
+        0,
+        0,
+        0
+      ],
+      "po": [
+        0,
+        0
+      ],
+      "fs": 1,
+      "ff": true
+    },
+    "jump_state": {
+      "coyote_timer": 0.15,
+      "jump_buffer_timer": 0,
+      "is_jumping": false
+    },
+    "acrobatic_state": {
+      "frames_since_last_snap": 76,
+      "last_input_vector": [
+        0,
+        0,
+        0
+      ],
+      "is_acrobatic_ready": false
+    },
+    "fwd_latch_active": false,
+    "fwd_latch_sign": 1
+  }
+}
