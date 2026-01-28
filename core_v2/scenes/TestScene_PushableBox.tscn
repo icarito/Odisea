@@ -36,7 +36,6 @@ mass = 100.0
 
 [node name="Conveyor" parent="Floor" instance=ExtResource( 4 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0.1, 0 )
-push_velocity = Vector3( 2, 0, 0 )
 
 [node name="BoxOnConveyor" parent="Floor" instance=ExtResource( 3 )]
 transform = Transform( 1, 0, 1.06581e-14, 0, 1, 0, -1.06581e-14, 0, 1, -12.1685, 2, 5.31902e-07 )
