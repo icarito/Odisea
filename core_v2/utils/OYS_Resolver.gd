@@ -93,12 +93,12 @@ static func _parse_line(line: String, start_frame: int) -> Dictionary:
             if command == "WALK":
                 is_walking = true
                 is_running = false
-                current_parts = parts.slice(1, parts.size())
+                current_parts = Array(parts).slice(1, parts.size())
                 command = current_parts[0].to_upper()
             elif command == "RUN":
                 is_walking = false
                 is_running = true
-                current_parts = parts.slice(1, parts.size())
+                current_parts = Array(parts).slice(1, parts.size())
                 command = current_parts[0].to_upper()
 
             # Synonyms

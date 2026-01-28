@@ -14,6 +14,7 @@ var _drift_validated := false
 var _is_replaying_fail_loop := false # Flag para evitar loops infinitos si falla
 var _should_snapshot := false
 var _current_replay_path := ""
+var _current_replay_data := {} # To persist data from OYS or JSON during execution
 
 # Drift correction: checkpoint pendiente para guardar en el próximo frame
 var _pending_drift_checkpoint := false
@@ -298,20 +299,8 @@ func load_and_play(path: String):
 		# Aplicar setters antes de iniciar
 		_find_player()
 		if player:
-			for setter in result.get("setters", []):
-				match setter.property:
-					"pos":
-						var pos_str = setter.value.trim_prefix("(").trim_suffix(")").split(",")
-						var new_pos = Vector3(
-							pos_str[0].strip_edges().to_float(),
-							pos_str[1].strip_edges().to_float(),
-							pos_str[2].strip_edges().to_float()
-						)
-						var t = player.global_transform
-						t.origin = new_pos
-						player.global_transform = t
-					"rot":
-						player.rotation_degrees.y = setter.value.to_float()
+			_current_replay_data = result
+			_apply_setters(result.get("setters", []))
 		play_buffer(result.buffer, result)
 		return
 	# JSON tradicional
@@ -331,9 +320,40 @@ func load_and_play(path: String):
 	var input_buffer_raw = data.get("buffer", [])
 	var input_buffer = []
 	for entry in input_buffer_raw:
-		if entry.has("input"):
-			input_buffer.append(entry["input"])
+		if typeof(entry) == TYPE_DICTIONARY:
+			if entry.has("input"):
+				input_buffer.append(entry["input"])
+			else:
+				# It is a raw input dictionary (e.g. from OYS)
+				input_buffer.append(entry)
+	_current_replay_data = data
+	
+	# Aplicar setters para JSON también (importante para determinismo si vienen de OYS)
+	_apply_setters(data.get("setters", []))
+	
 	play_buffer(input_buffer, data)
+
+
+func _apply_setters(setters: Array):
+	_find_player()
+	if not player:
+		return
+		
+	for setter in setters:
+		match setter.property:
+			"pos":
+				var pos_str = setter.value.trim_prefix("(").trim_suffix(")").split(",")
+				if pos_str.size() >= 3:
+					var new_pos = Vector3(
+						pos_str[0].strip_edges().to_float(),
+						pos_str[1].strip_edges().to_float(),
+						pos_str[2].strip_edges().to_float()
+					)
+					var t = player.global_transform
+					t.origin = new_pos
+					player.global_transform = t
+			"rot":
+				player.rotation_degrees.y = setter.value.to_float()
 
 
 func play_buffer(input_buffer: Array, replay_data: Dictionary):
@@ -355,8 +375,9 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 				node.restore_snapshot(world_start_state[path])
 
 	# Restaurar snapshot inicial del player si existe
-	if replay_data.get("buffer", [ {}])[0].has("snapshot"):
-		player.restore_snapshot(replay_data["buffer"][0]["snapshot"])
+	var replay_buffer = replay_data.get("buffer", [])
+	if replay_buffer.size() > 0 and replay_buffer[0].has("snapshot"):
+		player.restore_snapshot(replay_buffer[0]["snapshot"])
 
 	# Desactivar _physics_process en plataformas
 	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
@@ -416,25 +437,30 @@ func _finish_and_validate():
 				print("✅ Rotational drift dentro del umbral")
 	
 	# 2.5 Snapshot override if requested
-	if _should_snapshot and player and _current_replay_path.ends_with(".json"):
-		print("[SessionManager] --snapshot focus: Updating final_expected_state in ", _current_replay_path)
+	if _should_snapshot and player:
+		var target_save_path = _current_replay_path
+		if _current_replay_path.ends_with(".oys"):
+			target_save_path = _current_replay_path.get_basename() + ".json"
+		
+		print("[SessionManager] --snapshot focus: Saving/Updating final_expected_state in ", target_save_path)
+		
+		var final_data = _current_replay_data.duplicate(true)
+		final_data["final_expected_state"] = player.get_full_snapshot()
+		
+		# Ensure buffer is present if it's missing (e.g. from OYS data sometimes needing structure adjustment)
+		if not final_data.has("buffer") and _current_replay_data.has("buffer"):
+			final_data["buffer"] = _current_replay_data["buffer"]
+		
+		# If we found a JSON with different structure (e.g. nested buffer with 'input' keys), 
+		# we already have it in _current_replay_data because of how load_and_play works.
+		
 		var f = File.new()
-		if f.open(_current_replay_path, File.READ) == OK:
-			var p = JSON.parse(f.get_as_text())
+		if f.open(target_save_path, File.WRITE) == OK:
+			f.store_string(JSON.print(final_data, "  "))
 			f.close()
-			if p.error == OK and typeof(p.result) == TYPE_DICTIONARY:
-				var data = p.result
-				data["final_expected_state"] = player.get_full_snapshot()
-				if f.open(_current_replay_path, File.WRITE) == OK:
-					f.store_string(JSON.print(data, "  "))
-					f.close()
-					print("✅ final_expected_state updated successfully.")
-				else:
-					printerr("❌ Could not open file for writing: ", _current_replay_path)
-			else:
-				printerr("❌ Could not parse JSON from: ", _current_replay_path)
+			print("✅ Snapshot saved/updated successfully in ", target_save_path)
 		else:
-			printerr("❌ Could not open file for reading: ", _current_replay_path)
+			printerr("❌ Could not open file for writing: ", target_save_path)
 
 	# Emit signal for external listeners/tests
 	print("[SessionManager] EMITTING replay_finished: ", success, ", ", dist, ", ", frames)
