@@ -1,0 +1,10 @@
+// Test 5: Salto vertical simple (Refinado)
+// Verifica la altura máxima (apex) y el aterrizaje exitoso.
+
+
+SECTION "Salto Vertical Completo"
+    JUMP 0.5           // Mantenemos el salto para asegurar máxima fuerza
+    WAIT 2.0           // Tiempo extendido para asegurar aterrizaje post-apex
+    
+    ASSERT pos.y < 0.1 "El personaje no aterrizó después de 2.5 segundos"
+END

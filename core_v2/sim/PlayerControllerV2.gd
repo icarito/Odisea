@@ -38,6 +38,8 @@ var base_collision_mask := 0
 var velocity := Vector3()
 var yaw := 0.0
 var pitch := 0.0
+var yaw_deg := 0.0
+var pitch_deg := 0.0
 var _forward_latch_active := false
 var _forward_latch_sign := 1.0
 
@@ -113,6 +115,8 @@ func restore_snapshot(data: Dictionary) -> void:
 		velocity = Vector3.ZERO
 	yaw = data.get("yaw", 0.0)
 	pitch = data.get("pitch", 0.0)
+	yaw_deg = rad2deg(yaw)
+	pitch_deg = rad2deg(pitch)
 	base_spring_length_3d = data.get("base_spring_length_3d", base_spring_length_3d)
 	
 	if data.has("movement_state") and is_instance_valid(movement_logic):
@@ -144,6 +148,38 @@ func restore_snapshot(data: Dictionary) -> void:
 	# APLICACIÓN: Unificamos la lógica de rotación con la de step() para garantizar determinismo.
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+
+func full_reset() -> void:
+	"""Limpieza profunda de estado para determinismo absoluto en tests."""
+	velocity = Vector3.ZERO
+	frames_since_last_snap = ACROBATIC_WINDOW_FRAMES + 1
+	last_input_vector = Vector3.ZERO
+	is_acrobatic_ready = false
+	_forward_latch_active = false
+	_forward_latch_sign = 1.0
+	
+	yaw = 0.0
+	pitch = 0.0
+	yaw_deg = 0.0
+	pitch_deg = 0.0
+	rotation = Vector3.ZERO
+	
+	if is_instance_valid(movement_logic):
+		movement_logic.horizontal_velocity = Vector3.ZERO
+		movement_logic.wish_direction = Vector3.ZERO
+		movement_logic.external_velocity = Vector3.ZERO
+		movement_logic.camera_input_timer = 0.0
+		movement_logic.current_turn_time = 0.0
+		
+	if is_instance_valid(jump_logic):
+		jump_logic.internal_velocity = 0.0
+		jump_logic.coyote_timer = 0.0
+		jump_logic.jump_buffer_timer = 0.0
+		jump_logic._is_jumping = false
+		jump_logic._jump_time_tracker = 0.0
+	
+	if is_instance_valid(sidescroll_logic):
+		sidescroll_logic.pan_offset = Vector2.ZERO
 
 # Nodos (Asegúrate de que los nombres coincidan con tu escena)
 onready var camera_rig = $CameraRig
@@ -365,6 +401,9 @@ func step(dt: float, input: InputDataV2) -> void:
 		
 		# If in tank mode, A/D (input.move_vec.x) also rotates the camera
 		yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
+		
+		yaw_deg = rad2deg(yaw)
+		pitch_deg = rad2deg(pitch)
 
 		# Limitamos el Pitch para no dar una voltereta
 		pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
@@ -641,6 +680,8 @@ func exit_25d_mode():
 		var euler = b.get_euler()
 		yaw = euler.y
 		pitch = euler.x
+		yaw_deg = rad2deg(yaw)
+		pitch_deg = rad2deg(pitch)
 	
 	_forward_latch_active = false
 	sidescroll_logic.exit_mode()

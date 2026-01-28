@@ -1,8 +1,6 @@
 // Test 1: Caminata lineal hacia adelante
 // Recreado para investigar drift de 0.01m
 
-SET pos (0, 0.5, 0)
-SET rot 0
 
 SECTION "Caminata rectilínea"
     WALK FW 1.0

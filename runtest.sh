@@ -4,9 +4,8 @@ if [ -z "$GODOT_BIN" ]; then
     GODOT_BIN="godot3-bin"
 fi
 
-# Usar --no-window para tests headless (más rápido en CI)
-# El issue https://github.com/godotengine/godot/issues/55379 ya no aplica con nuestros tests actuales
-GODOT_OPTS="--no-window"
+# Usar ventana para visibilidad durante tests
+GODOT_OPTS=""
 
 # Ejecutamos el runner guardando la salida en un log para analizarla y decidir el exit code
 LOG_DIR="./reports"

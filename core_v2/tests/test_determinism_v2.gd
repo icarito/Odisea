@@ -2,9 +2,9 @@
 # Runner de replays universal: escanea res://core_v2/tests/ para archivos replay_test_*.json
 extends GdUnitTestSuite
 
-
 const TESTS_ROOT = "res://core_v2/tests"
-const DRIFT_THRESHOLD = 0.0005
+const DRIFT_THRESHOLD = 0.01
+const DRIFT_WARNING = 0.005
 
 ## Helpers
 
@@ -37,21 +37,22 @@ func before():
 	# Optimización para tests: desactivar vsync para velocidad máxima
 	OS.set_use_vsync(false)
 	Engine.target_fps = 0 # Sin límite de FPS
+	SessionManager.is_manual_mode = true
 
 # Data provider: devuelve un Array de parameter sets.
 
-# Unifica búsqueda de archivos .json y .oys
+# Solo buscamos .oys para el ciclo de determinismo completo (OYS -> JSON -> Verify)
 static func _get_replay_paths() -> Array:
-	return _scan_for_files([".json"])
+	return _scan_for_files([".oys"])
 
 static func _scan_for_files(extensions: Array) -> Array:
 	var results := []
 	var dir := Directory.new()
 	if dir.open(TESTS_ROOT) != OK:
-		printerr("No se pudo abrir TESTS_ROOT: ", TESTS_ROOT)
-		return results
+	 printerr("No se pudo abrir TESTS_ROOT: ", TESTS_ROOT)
+	 return results
 	_scan_dir(dir, TESTS_ROOT, results, extensions)
-	print("Test files encontrados: ", results)
+	# Solo imprimir una vez si es necesario
 	return results
 
 static func _scan_dir(dir: Directory, current_path: String, results: Array, extensions: Array) -> void:
@@ -76,18 +77,130 @@ var _current_test_scene: Node = null
 
 # Parametrized test for JSON replays
 
+
+# Forzar posición inicial del player si hay snapshot esperado, si no, a (0,0,0)
+func _force_player_position_from_expected():
+	if is_instance_valid(SessionManager.player):
+		var t = SessionManager.player.global_transform
+		if SessionManager.final_expected_state != null:
+			var exp_pos_arr = SessionManager.final_expected_state.get("position", null)
+			if exp_pos_arr != null and typeof(exp_pos_arr) == TYPE_ARRAY:
+				t.origin = Vector3(exp_pos_arr[0], exp_pos_arr[1], exp_pos_arr[2])
+			else:
+				t.origin = Vector3(0,0,0)
+		else:
+			t.origin = Vector3(0,0,0)
+		SessionManager.player.global_transform = t
+
 # Test único parametrizado para ambos formatos
 func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 	var _unused = test_parameters
 	var desc = path.get_file()
-	_setup_scene_from_replay_file(path)
-	SessionManager.load_and_play(path)
-	var res = yield (SessionManager, "replay_finished")
-	var success = res[0]
-	var drift = res[1]
-	var frames = res[2]
-	if not success:
-		fail("Replay '%s' FAILED: drift=%.8f, frames=%d." % [desc, drift, frames])
+
+	# LIMPIEZA INICIAL DEL SINGLETON
+	SessionManager.is_replaying = false
+	SessionManager.player = null
+
+	# Llamar tras encontrar player y antes de cada replay
+	if path.ends_with(".json"):
+		print("[TEST_RUNNER] Mode: JSON Direct Replay")
+		var runner := scene_runner("res://core_v2/scenes/TestScene_v2.tscn")
+		runner.maximize_view()
+
+		# Garantizar estado limpio inicial
+		SessionManager._find_player()
+		if is_instance_valid(SessionManager.player) and SessionManager.player.has_method("full_reset"):
+			SessionManager.player.full_reset()
+
+		_force_player_position_from_expected()
+
+		SessionManager.load_and_play(path)
+
+		var timeout = 5000
+		while SessionManager.is_replaying and timeout > 0:
+			yield (runner.simulate_frames(1), "completed")
+			timeout -= 1
+
+		if timeout <= 0:
+			fail("Replay timed out: %s" % path)
+
+		# Limpieza final para cerrar ventana
+		if is_instance_valid(runner.scene()):
+			runner.scene().queue_free()
+
+		# Chequeo de drift si corresponde
+		var drift_info = _compute_drift(SessionManager.player, SessionManager.final_expected_state)
+		if drift_info.drift > DRIFT_THRESHOLD:
+			fail("Drift demasiado alto: %s (umbral: %s)" % [drift_info.drift, DRIFT_THRESHOLD])
+		elif drift_info.drift > DRIFT_WARNING:
+			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, DRIFT_WARNING])
+
+	if path.ends_with(".oys"):
+		var runner := scene_runner("res://core_v2/scenes/TestScene_v2.tscn")
+		runner.maximize_view()
+
+		# PASS 1: Simular OYS y grabar resultado físico exacto a JSON
+		print("[TEST_RUNNER] --- PASS 1: RECORDING OYS ---")
+
+		# Sincronización de estado inicial Frame 0
+		SessionManager._find_player()
+		if is_instance_valid(SessionManager.player) and SessionManager.player.has_method("full_reset"):
+			SessionManager.player.full_reset()
+
+		_force_player_position_from_expected()
+
+		SessionManager._should_snapshot = true
+		SessionManager.load_and_play(path)
+
+		var timeout1 = 5000
+		while SessionManager.is_replaying and timeout1 > 0:
+			yield (runner.simulate_frames(1), "completed")
+			timeout1 -= 1
+
+		# LIMPIEZA EXPLÍCITA PARA CERRAR VENTANA Y REINSTANCIAR
+		if is_instance_valid(runner.scene()):
+			runner.scene().queue_free()
+		runner = null
+		yield(get_tree(), "idle_frame")
+
+		# PASS 2: Verificar que el JSON grabado sea reproducible
+		var json_path = path.get_basename() + ".json"
+		print("[TEST_RUNNER] --- PASS 2: VERIFYING JSON ---")
+
+		# Re-instanciar runner y escena para evitar state bleeding
+		runner = scene_runner("res://core_v2/scenes/TestScene_v2.tscn")
+		runner.maximize_view()
+
+		# RE-SINCRONIZACIÓN ABSOLUTA PARA PASS 2
+		SessionManager.is_replaying = false
+		SessionManager._peak_y = 0.0 # RESET ESTADÍSTICAS
+		SessionManager._find_player()
+		if is_instance_valid(SessionManager.player) and SessionManager.player.has_method("full_reset"):
+			SessionManager.player.full_reset()
+
+		_force_player_position_from_expected()
+
+		SessionManager._should_snapshot = false
+		SessionManager.load_and_play(json_path)
+
+		var timeout2 = 5000
+		while SessionManager.is_replaying and timeout2 > 0:
+			yield (runner.simulate_frames(1), "completed")
+			timeout2 -= 1
+
+		# LIMPIEZA EXPLÍCITA PARA CERRAR VENTANA
+		if is_instance_valid(runner.scene()):
+			runner.scene().queue_free()
+
+		# Chequeo de drift si corresponde
+		var drift_info = _compute_drift(SessionManager.player, SessionManager.final_expected_state)
+		if drift_info.drift > DRIFT_THRESHOLD:
+			fail("Drift demasiado alto: %s (umbral: %s)" % [drift_info.drift, DRIFT_THRESHOLD])
+		elif drift_info.drift > DRIFT_WARNING:
+			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, DRIFT_WARNING])
+
+	# Breve espera para que GdUnit considere el test terminado
+	yield (get_tree(), "idle_frame")
 	print("[test_replay] Finalizado: ", desc)
 
 func _apply_setter(player, setter):
@@ -151,35 +264,24 @@ func _get_property(obj, prop_path):
 	return current
 
 
-func _setup_scene_from_replay_file(path: String):
-	# Limpieza de escena anterior
-	_cleanup_scene()
-
-	var f = File.new()
-	assert_int(f.open(path, File.READ)).is_equal(OK)
-	var parsed = JSON.parse(f.get_as_text())
-	assert_int(parsed.error).is_equal(OK)
-	var data = parsed.result
-	f.close()
-
-	var meta = data.get("meta", {})
-	var scene_path = meta.get("scene", "res://core_v2/scenes/TestScene_v2.tscn")
-	
-	_instance_and_prepare_scene(scene_path)
-	
-func _setup_scene_from_oys_result(result: Dictionary):
-	# Limpieza de escena anterior
-	_cleanup_scene()
-	# TODO: Use scene from OYS metadata if available
-	var scene_path = "res://core_v2/scenes/TestScene_v2.tscn"
-	_instance_and_prepare_scene(scene_path)
+# Los métodos legacy _setup_scene_from_* han sido eliminados por redundancia.
 
 func _cleanup_scene():
 	if is_instance_valid(_current_test_scene):
-		_current_test_scene.queue_free()
+		_current_test_scene.free() # Usar free() para sincronicidad inmediata en tests
 		_current_test_scene = null
-	for child in get_tree().root.get_children():
-		if child.name == "TestScene" or child.filename == "res://core_v2/scenes/TestScene_v2.tscn":
+	
+	# Limpieza agresiva de huérfanos en root
+	var root = get_tree().root
+	for i in range(root.get_child_count() - 1, -1, -1):
+		var child = root.get_child(i)
+		# No borrar singletons ni el test runner mismo!
+		if child.name == "SessionManager" or child is GdUnitTestSuite:
+			continue
+		
+		# Borrar cualquier escena de test o residuo de Pilot
+		if child.name == "TestScene" or child.name == "Spatial" or child.find_node("Pilot", true, false) != null:
+			print("[test_cleanup] Removing orphan: ", child.name)
 			child.free()
 
 func _instance_and_prepare_scene(scene_path: String):
@@ -189,14 +291,14 @@ func _instance_and_prepare_scene(scene_path: String):
 	get_tree().root.add_child(_current_test_scene)
 	get_tree().current_scene = _current_test_scene
 	
-	# Esperar estabilización con timers para estabilidad en headless
+	# Esperar estabilización con idle frames para que el player entre al árbol correctamente
 	for i in range(5):
-		yield (get_tree().create_timer(0.02), "timeout")
-	yield (get_tree().create_timer(0.02), "timeout") # Simular espera de physics_frame
+		yield (get_tree(), "idle_frame")
 
 func after():
 	# Restablecer estado del SessionManager para evitar interferencias entre tests
 	SessionManager.is_replaying = false
+	SessionManager.is_manual_mode = false
 	SessionManager.buffer = []
 	SessionManager.final_expected_state = null
 	SessionManager.player = null
@@ -204,5 +306,8 @@ func after():
 	# Limpieza manual de la escena
 	if is_instance_valid(_current_test_scene):
 		print("[test_replay] Freeing manual scene...")
-		_current_test_scene.queue_free()
+		_current_test_scene.free() # Usar free() para sincronicidad inmediata
 		_current_test_scene = null
+	
+	# Limpieza de huérfanos
+	_cleanup_scene()

@@ -133,7 +133,11 @@ static func _parse_line(line: String, start_frame: int) -> Dictionary:
                         var degrees = value
                         var duration_sec = 0.5 # Default duration for turns
                         var num_frames = int(duration_sec * FPS)
-                        var mouse_dx = - degrees / num_frames if command == "LEFT" else degrees / num_frames
+                        # Conversion: radians = degrees * PI/180. Pixels = radians / sensitivity.
+                        # Using 0.005 as reference sensitivity. 1 deg approx 3.49 pixels.
+                        var sensitivity = 0.005
+                        var pixels_total = (degrees * PI / 180.0) / sensitivity
+                        var mouse_dx = - pixels_total / num_frames if command == "LEFT" else pixels_total / num_frames
                         for i in range(num_frames):
                             frames[start_frame + i] = {"mouse_delta": [mouse_dx, 0]}
                         next_frame = start_frame + num_frames

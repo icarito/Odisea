@@ -1,0 +1,14 @@
+// Test 4: Desplazamiento Lateral (Strafe)
+// Verifica que el personaje se mueva en el eje lateral relativo a la cámara.
+
+
+SECTION "Strafing"
+    // Deslizamos a la izquierda durante 1 segundo
+    LEFT 1.0s
+    WAIT 0.5
+    
+    // LEFT 1.0s mueve al personaje a la derecha (X+) del mundo si mira al frente (Z+).
+    ASSERT pos.x > 1.0 "Elías no hizo strafe a la derecha"
+    ASSERT pos.z > -0.5 "Desplazamiento excesivo en Z (min)"
+    ASSERT pos.z < 0.5 "Desplazamiento excesivo en Z (max)"
+END
