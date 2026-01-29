@@ -37,10 +37,53 @@ func teleport_to(transform: Transform):
 		print("[TeleportSystem] Llamando camera_controller.set_transform")
 		camera_controller.global_transform = transform
 
-# Aquí se mapearán las teclas y lógica de slots.
+
+# Atajos de teclado: trackback (Backspace) y reset
 func _input(event):
-	# Implementar lógica de teclas 0-9 y SHIFT+0-9
-	pass
+	if event.is_action_pressed("trackback"):
+		print("[TeleportSystem] Atajo 'trackback' presionado: respawn en último checkpoint (como morir)")
+		_on_player_killed()
+		get_tree().set_input_as_handled()
+	elif event.is_action_pressed("reset"):
+		print("[TeleportSystem] Atajo 'reset' presionado: respawn en spawn point o 0,0,0")
+		_respawn_at_spawn_or_zero()
+		get_tree().set_input_as_handled()
+
+# Respawn forzado en el spawn point o 0,0,0
+func _respawn_at_spawn_or_zero():
+	var target_transform = null
+	var target_yaw = null
+	var target_pitch = null
+	# Buscar SpawnPointV2
+	var spawn = get_tree().current_scene.find_node("SpawnPointV2", true, false) if get_tree().current_scene else null
+	if spawn:
+		target_transform = spawn.global_transform
+		print("[TeleportSystem] Reset usando SpawnPointV2.")
+	else:
+		target_transform = Transform()
+		print("[TeleportSystem] Reset usando Transform.ZERO.")
+	# Reinstanciar Pilot
+	if player_controller and player_controller.is_inside_tree():
+		var parent = player_controller.get_parent()
+		player_controller.queue_free()
+		yield(get_tree(), "idle_frame")
+		var pilot_scene = preload("res://core_v2/actors/Pilot_v2.tscn")
+		var new_pilot = pilot_scene.instance()
+		new_pilot.global_transform = target_transform
+		if target_yaw != null:
+			new_pilot.yaw = target_yaw
+			new_pilot.yaw_deg = rad2deg(target_yaw)
+		if target_pitch != null:
+			new_pilot.pitch = target_pitch
+			new_pilot.pitch_deg = rad2deg(target_pitch)
+		parent.add_child(new_pilot)
+		player_controller = new_pilot
+		var cam_rig = new_pilot.get_node_or_null("CameraRig")
+		if cam_rig:
+			camera_controller = cam_rig
+		print("[TeleportSystem] Nuevo Pilot instanciado por reset.")
+	else:
+		print("[TeleportSystem] No se pudo reinstanciar Pilot (reset)")
 
 func _on_player_killed():
 	print("[TeleportSystem] _on_player_killed ejecutado! (señal recibida)")
