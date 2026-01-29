@@ -15,8 +15,8 @@ mode = 3
 contacts_reported = 4
 contact_monitor = true
 script = ExtResource( 2 )
+settle_frames = 25
 rotation_snap_degrees = 1.0
-settle_lerp_speed = 5.0
 
 [node name="BoxMesh" type="CSGBox" parent="."]
 material = ExtResource( 1 )
