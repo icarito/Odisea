@@ -39,15 +39,62 @@ func teleport_to(transform: Transform):
 
 
 # Atajos de teclado: trackback (Backspace) y reset
+
 func _input(event):
+	# Atajos de input actions
 	if event.is_action_pressed("trackback"):
 		print("[TeleportSystem] Atajo 'trackback' presionado: respawn en último checkpoint (como morir)")
 		_on_player_killed()
 		get_tree().set_input_as_handled()
+		return
 	elif event.is_action_pressed("reset"):
 		print("[TeleportSystem] Atajo 'reset' presionado: respawn en spawn point o 0,0,0")
 		_respawn_at_spawn_or_zero()
 		get_tree().set_input_as_handled()
+		return
+
+	# Teclas directas [1-9] y SHIFT+[1-9] para slots
+	if event is InputEventKey and not event.echo:
+		var key_num = -1
+		# Godot keycodes: KEY_1 = 49 ... KEY_9 = 57
+		if event.scancode >= KEY_1 and event.scancode <= KEY_9:
+			key_num = event.scancode - KEY_0 # 1..9
+		if key_num >= 1 and key_num <= 9:
+			var pm = get_node_or_null("/root/PersistenceManager")
+			var scene_path = get_tree().current_scene.filename if get_tree().current_scene else ""
+			if pm and pm.has_method("get_checkpoint_resource"):
+				var checkpoint_res = pm.get_checkpoint_resource(scene_path)
+				if event.shift:
+					# SHIFT+[1-9]: Guardar posición y ángulo en slot
+					if checkpoint_res:
+						var checkpoint_data = {
+							"transform": player_controller.global_transform,
+							"yaw": player_controller.yaw if player_controller else 0.0,
+							"pitch": player_controller.pitch if player_controller else 0.0
+						}
+						checkpoint_res.slots[str(key_num)] = checkpoint_data
+						checkpoint_res.property_list_changed_notify()
+						print("[TeleportSystem] Guardado slot ", key_num, ": ", checkpoint_data)
+						if pm.has_method("save_checkpoint_resource"):
+							pm.save_checkpoint_resource(scene_path)
+							print("[TeleportSystem] Checkpoint persistido en disco (slot ", key_num, ")")
+						get_tree().set_input_as_handled()
+				else:
+					# [1-9]: Teletransportar a slot
+					if checkpoint_res and str(key_num) in checkpoint_res.slots:
+						var slot = checkpoint_res.slots[str(key_num)]
+						var t = slot.get("transform", null) if typeof(slot) == TYPE_DICTIONARY else slot
+						var yaw = slot.get("yaw", null) if typeof(slot) == TYPE_DICTIONARY else null
+						var pitch = slot.get("pitch", null) if typeof(slot) == TYPE_DICTIONARY else null
+						print("[TeleportSystem] Teleport a slot ", key_num, ": ", t)
+						teleport_to(t)
+						if yaw != null:
+							player_controller.yaw = yaw
+							player_controller.yaw_deg = rad2deg(yaw)
+						if pitch != null:
+							player_controller.pitch = pitch
+							player_controller.pitch_deg = rad2deg(pitch)
+						get_tree().set_input_as_handled()
 
 # Respawn forzado en el spawn point o 0,0,0
 func _respawn_at_spawn_or_zero():
