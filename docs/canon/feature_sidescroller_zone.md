@@ -58,28 +58,3 @@ The camera's behavior is the most prominent visual indicator of the mode transit
 
 3.4 Replay & Snapshot System Integration
 
-This is the most critical technical requirement of the feature. Failure to correctly integrate the new game states with the existing snapshot and replay system will violate the project's core architectural pillars and render the feature unusable.
-
-The following new key-value pairs must be added to the player's state snapshot Dictionary:
-
-Key	Data Type	Description
-is_in_25d_mode	bool	Determines if movement and camera logic should use 2.5D rules.
-camera_transition_alpha	float	A value from 0.0 to 1.0 representing the camera's interpolation progress. A value of 0.0 is full 3D, 1.0 is full 2.5D.
-active_2d_plane	Transform	The transform defining the origin and orientation of the current 2.5D plane. Can be null when not in 2.5D mode.
-
-The SessionManager and its associated playback logic will be updated to handle these new state variables:
-
-* get_snapshot(): This function must be modified to query and include the three new state variables from the player and camera systems in its returned dictionary.
-* restore_snapshot(): This function will be updated to read the new variables from a given snapshot. It will immediately force the PlayerControllerV2 and PlayerSpringCam into the exact state defined by the snapshot. This includes setting the camera's interpolation progress mid-transition, allowing for seamless session restoration at any point.
-* Determinism: The camera transition logic cannot rely on delta time. It must be based on a fixed frame count or a similar deterministic timer to ensure it plays back identically every single time, with zero drift.
-
-4.0 Validation and Testing Plan
-
-A rigorous testing plan is essential to validate both the qualitative gameplay feel and the strict technical requirement of deterministic purity. The following test cases will be added to the existing GDUnit regression suite.
-
-1. Entry/Exit Test: Verify that the player's controls are correctly constrained to two axes of movement upon entering a SideScrollTransitionZone and fully restored upon exiting.
-2. Replay Fidelity Test: Record a new replay file where the player enters a 2.5D zone, performs a series of platforming actions (e.g., jumping, moving along a conveyor), and then exits the zone. The test must load this replay, run the simulation from start to finish, and assert that the player's final global transform has a divergence of less than the established 0.0001 tolerance when compared to the final state recorded in the original session.
-3. Snapshot Restoration Test (In-Zone): Create a test that programmatically saves a snapshot while the player is fully inside a 2.5D zone (camera_transition_alpha = 1.0). The test must then restore the game from this snapshot and verify that the player's controls and the camera's state are immediately and correctly set to the 2.5D mode.
-4. Snapshot Restoration Test (Mid-Transition): Create a test that saves a snapshot while the camera is actively transitioning into 2.5D mode (camera_transition_alpha ≈ 0.5). The test must restore from this snapshot and verify that the camera smoothly resumes its transition from the correct point without any visual stuttering or state mismatch.
-
-This comprehensive test suite will provide robust coverage for all critical aspects of the feature, ensuring it is both functionally stable and architecturally sound.

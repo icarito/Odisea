@@ -58,28 +58,3 @@ END
 SECTION "Object Interaction"
     FW 2.0 AT 1.5 INTERACT // Walk toward an object and interact halfway
     ASSERT door_open == true "The door did not open"
-END
-
-
-
-5. Resolver Logic (Technical Implementation)
-
-The OYS Resolver transforms these lines into a Dictionary<int, InputFrame> where each int is the absolute frame number from the start of the test.
-
-Frame Calculation: If the engine runs at 60fps, FW 2.0 generates 120 frames with the 'W' key pressed.
-
-Camera Smoothing: Commands like LT 180 should distribute the rotation across multiple frames to avoid "snapping" that might break timing-dependent scripts, unless an INSTANT modifier is used.
-
-State Injection: The SET command must be applied directly to the character's Transform on the specified frame.
-
-Assert Verification: At the end of each line or section, the resolver queries the KinematicBody properties or global variables and compares them against the script condition.
-
-6. Integration with the Replay System
-
-The current Odisea replay system should be able to "record" the output of an OYS script. This allows:
-
-Writing the script (Human-readable).
-
-Generating the replay (Deterministic buffer).
-
-Using that replay for future regression comparisons.

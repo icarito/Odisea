@@ -1,4 +1,4 @@
-[gd_scene load_steps=184 format=2]
+[gd_scene load_steps=186 format=2]
 
 [ext_resource path="res://core_v2/components/SlidingObjectV2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -26,6 +26,8 @@
 [ext_resource path="res://addons/qodot/game_definitions/fgd/qodot_fgd.tres" type="Resource" id=24]
 [ext_resource path="res://core_v2/things/MovingPlatformV2.tscn" type="PackedScene" id=25]
 [ext_resource path="res://core_v2/things/Conveyor.tscn" type="PackedScene" id=26]
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=27]
+[ext_resource path="res://core_v2/things/VerticalDoor.tscn" type="PackedScene" id=28]
 
 [sub_resource type="SpatialMaterial" id=2]
 flags_world_triplanar = true
@@ -617,13 +619,13 @@ uv1_scale = Vector3( 0.5, 0.5, 0.5 )
 uv1_triplanar = true
 uv1_triplanar_sharpness = 1.0
 
-[sub_resource type="ORMSpatialMaterial" id=87]
+[sub_resource type="ORMSpatialMaterial" id=488]
 albedo_texture = ExtResource( 7 )
 uv1_scale = Vector3( 3, 3, 3 )
 uv1_offset = Vector3( 0, 0.5, 0 )
 
 [sub_resource type="CubeMesh" id=86]
-material = SubResource( 87 )
+material = SubResource( 488 )
 size = Vector3( 8, 10, 0.2 )
 
 [sub_resource type="ConcavePolygonShape" id=88]
@@ -1231,3 +1233,12 @@ script = ExtResource( 16 )
 [node name="CollisionShape" type="CollisionShape" parent="CheckZoneV3"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.00064, -0.5 )
 shape = SubResource( 338 )
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 27 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="WorldEnvironment"]
+transform = Transform( 0.945086, 8.85887e-08, -0.326822, 0.147311, -0.892657, 0.425985, -0.29174, -0.450737, -0.843637, 0, 0, 0 )
+
+[node name="VerticalDoor" parent="." instance=ExtResource( 28 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 57.6936, 6.07184, 29.067 )

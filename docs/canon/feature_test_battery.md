@@ -31,3 +31,4 @@ Para que las animaciones y la lógica no se peleen entre sí.
 
 * **Land Impact:** Verificar que al caer desde una gran altura, el estado pase correctamente de `falling` a `idle` o `running` sin saltarse frames.
 * **Interrupción de acciones:** ¿Qué pasa si Elías intenta saltar mientras está en medio de una animación de daño? El test debe confirmar cuál tiene prioridad.
+

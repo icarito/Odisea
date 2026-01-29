@@ -1,4 +1,3 @@
-
 # Uso de OdysseyScript y Replays en Odisea (2026)
 
 Odisea ahora soporta replays y pruebas de determinismo tanto desde scripts OdysseyScript (`.oys`) como desde buffers JSON (`.json`).
@@ -58,9 +57,3 @@ godot3-bin --main-pack project.pck --replay res://core_v2/tests/mi_test.json
 | Escribir test OYS             | Edita `.oys` en `core_v2/tests/`                                             |
 | Generar JSON (opcional)       | `godot3-bin --no-window --script ./core_v2/utils/OYSRunner.gd archivo.oys`   |
 | Ejecutar todos los tests      | `./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd`                     |
-| Replay en vivo desde OYS/JSON | `--replay res://core_v2/tests/archivo.oys` o `.json`                         |
-
----
-
-Para detalles de comandos OYS, ver `docs/feature_odyssey_script_usage.md`.
-Para detalles de integración, ver `AGENTS.md`.
