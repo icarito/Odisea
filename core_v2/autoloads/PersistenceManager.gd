@@ -1,6 +1,8 @@
 extends Node
 
+
 # Guarda y carga CheckpointResource por escena
+const CheckpointResource = preload("res://core_v2/systems/CheckpointResource.gd")
 var checkpoint_resource: Resource = null
 
 func _ready():
