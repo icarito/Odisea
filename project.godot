@@ -114,6 +114,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/matchers/ChainedArgumentMatcher.gd"
 }, {
+"base": "Area",
+"class": "CheckZoneV2",
+"language": "GDScript",
+"path": "res://core_v2/things/CheckZoneV2.gd"
+}, {
+"base": "Resource",
+"class": "CheckpointResource",
+"language": "GDScript",
+"path": "res://core_v2/utils/CheckpointResource.gd"
+}, {
 "base": "Reference",
 "class": "CmdArgumentParser",
 "language": "GDScript",
@@ -699,6 +709,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/report/JUnitXmlReport.gd"
 }, {
+"base": "Area",
+"class": "KillZoneV2",
+"language": "GDScript",
+"path": "res://core_v2/things/KillZoneV2.gd"
+}, {
 "base": "LiquidLayer",
 "class": "LavaLayer",
 "language": "GDScript",
@@ -1009,10 +1024,20 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/qodot/game_definitions/worldspawn_layers/liquid/slime.gd"
 }, {
+"base": "Position3D",
+"class": "SpawnPointV2",
+"language": "GDScript",
+"path": "res://core_v2/things/SpawnPointV2.gd"
+}, {
 "base": "Fuzzer",
 "class": "StringFuzzer",
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/fuzzers/StringFuzzer.gd"
+}, {
+"base": "Node",
+"class": "TeleportSystem",
+"language": "GDScript",
+"path": "res://core_v2/sim/TeleportSystem.gd"
 }, {
 "base": "Resource",
 "class": "TimeUnit",
@@ -1101,6 +1126,8 @@ _global_script_class_icons={
 "Callable": "",
 "CameraInspectorPlugin": "",
 "ChainedArgumentMatcher": "",
+"CheckZoneV2": "",
+"CheckpointResource": "",
 "CmdArgumentParser": "",
 "CmdCommand": "",
 "CmdCommandHandler": "",
@@ -1218,6 +1245,7 @@ _global_script_class_icons={
 "InteractableBaseV2": "",
 "InteractableBridge": "",
 "JUnitXmlReport": "",
+"KillZoneV2": "",
 "LavaLayer": "",
 "LiquidLayer": "",
 "LocalTime": "",
@@ -1280,7 +1308,9 @@ _global_script_class_icons={
 "SignalHandler": "",
 "SlidingObjectV2": "",
 "SlimeLayer": "",
+"SpawnPointV2": "",
 "StringFuzzer": "",
+"TeleportSystem": "",
 "TimeUnit": "",
 "TrenchBroomFaceAttrib": "",
 "TrenchBroomFaceAttribDefaults": "",
@@ -1308,6 +1338,7 @@ boot_splash/minimum_display_time=3
 [autoload]
 
 SessionManager="*res://core_v2/autoloads/SessionManager.gd"
+PersistenceManager="*res://core_v2/autoloads/PersistenceManager.gd"
 
 [debug]
 
@@ -1466,6 +1497,16 @@ interact={
 record-toggle={
 "deadzone": 0.5,
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":true,"meta":false,"command":true,"pressed":false,"scancode":82,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
+ ]
+}
+trackback={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":16777220,"unicode":0,"echo":false,"script":null)
+ ]
+}
+reset={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":48,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
  ]
 }
 

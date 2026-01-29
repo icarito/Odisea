@@ -56,6 +56,35 @@ func _ready():
 			get_tree().connect("tree_changed", self, "_on_tree_changed_for_replay", [replay_path], CONNECT_ONESHOT)
 			return
 
+	# --- Instanciar y conectar TeleportSystem ---
+	if not has_node("TeleportSystem"):
+		var TeleportSystem = preload("res://core_v2/sim/TeleportSystem.gd")
+		var teleport_system = TeleportSystem.new()
+		teleport_system.name = "TeleportSystem"
+		add_child(teleport_system)
+		# Buscar nodos relevantes tras un pequeño delay para asegurar que la escena está lista
+		call_deferred("_connect_teleport_system")
+
+
+# Conexión automática de TeleportSystem con Player, Camera y zonas
+func _connect_teleport_system():
+	var teleport_system = get_node_or_null("TeleportSystem")
+	print("[SessionManager] Nodo TeleportSystem:", teleport_system, " path=", teleport_system.get_path() if teleport_system else "null")
+	if not teleport_system:
+		return
+
+	# Buscar PlayerControllerV2 (Pilot)
+	var player_node = get_tree().get_root().find_node("Pilot", true, false)
+	print("[SessionManager] player_node (Pilot):", player_node, " path=", player_node.get_path() if player_node else "null")
+	teleport_system.player_controller = player_node
+	# Buscar CameraRig dentro del player
+	var camera_rig = player_node.get_node_or_null("CameraRig") if player_node else null
+	print("[SessionManager] camera_rig:", camera_rig, " path=", camera_rig.get_path() if camera_rig else "null")
+	if camera_rig:
+		teleport_system.camera_controller = camera_rig
+
+	# (Conexión de señales eliminada: ahora se realiza solo en _ready() de TeleportSystem)
+
 	
 	# Capturar el mouse solo si no estamos en un entorno de test.
 	# Hacemos la llamada de forma segura para evitar un error de compilación

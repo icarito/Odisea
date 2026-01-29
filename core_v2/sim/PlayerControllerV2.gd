@@ -205,6 +205,7 @@ func set_external_source_is_static(is_static: bool) -> void:
 		movement_logic.set_external_source_is_static(is_static)
 
 func _ready():
+	add_to_group("player")
 	input_provider = InputProviderV2.new()
 
 	# Usar componentes existentes en la escena si están presentes, para evitar duplicados
@@ -756,3 +757,17 @@ func _exit_tree() -> void:
 
 	if _created_sidescroll_logic and sidescroll_logic and sidescroll_logic.is_inside_tree():
 		sidescroll_logic.queue_free()
+
+# Teletransporte seguro (para checkpoints, killzones, etc)
+func teleport_to(target_transform: Transform) -> void:
+	print("[PlayerControllerV2] teleport_to llamado:", target_transform)
+	global_transform = target_transform
+	velocity = Vector3.ZERO
+	# Resetear cualquier input residual si aplica
+	if input_provider != null:
+		if input_provider.has_method("clear_buffer"):
+			input_provider.clear_buffer()
+	# Sincronizar cámara si existe
+	var cam_rig = get_node_or_null("CameraRig")
+	if cam_rig:
+		cam_rig.global_transform = target_transform
