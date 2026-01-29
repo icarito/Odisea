@@ -1,10 +1,20 @@
-extends KinematicBody
+extends Spatial
+tool
 
 # MovingPlatformV2.gd
 
 enum EaseType {LINEAR, SINE, CUSTOM_CURVE}
 
+# --- SIGNALS ---
+signal activated()
+signal deactivated()
+signal interaction_started()
+signal interaction_completed()
+
 # --- Parámetros Exportables ---
+export var starts_active := true setget set_starts_active
+# If true, it only travels to the other side then stops (good for elevators)
+export var is_one_shot := false
 # El vector de desplazamiento relativo a la posición inicial en el editor.
 export var movement_vector: Vector3 = Vector3.RIGHT * 10.0
 # Tiempo en segundos para un ciclo completo (ida y vuelta).
@@ -16,7 +26,9 @@ export(Curve) var custom_curve: Curve # Arrastra tus archivos .tres aquí
 export(NodePath) var passenger_area_path
 export(bool) var debug_passengers := false
 
+
 # --- Estado Interno ---
+var is_active: bool = true
 var time_accumulator: float = 0.0
 var linear_velocity: Vector3 = Vector3.ZERO
 var start_position: Vector3
@@ -29,17 +41,14 @@ var _snapshot_applied := false # Evita que _ready sobrescriba valores restaurado
  
 
 func _ready():
-	add_to_group("replay_sync")
+	is_active = starts_active
 	
 	# Si estamos en modo CLI replay, desactivar _physics_process inmediatamente
-	# para evitar frames extra antes de que SessionManager tome control
-	# NOTA: NO desactivamos para GdUnit porque el test activará physics frames reales
 	var args = OS.get_cmdline_args()
 	for arg in args:
 		if arg == "--replay":
 			set_physics_process(false)
 			break
-	
 	# Resolver PassengerArea para propagar velocidad a pasajeros.
 	if passenger_area_path and has_node(passenger_area_path):
 		passenger_area = get_node(passenger_area_path)
@@ -52,15 +61,10 @@ func _ready():
 			passenger_area.connect("body_exited", self, "_on_passenger_exited")
 		if debug_passengers:
 			print("[MP2] passenger area ready mask=", passenger_area.collision_mask, " layer=", passenger_area.collision_layer)
-
-	# Capturar posición inicial con global_transform.origin (única fuente de verdad).
-	# Solo si no se ha aplicado un snapshot (para evitar sobrescribir valores restaurados)
 	if not _snapshot_applied:
 		start_position = global_transform.origin
 		end_position = start_position + movement_vector
 		time_accumulator = - start_delay
-
-	# Aplicar snapshot pendiente si existiera (replay puede llamar restore antes de _ready).
 	if _pending_snapshot != null:
 		_apply_snapshot(_pending_snapshot)
 		_pending_snapshot = null
@@ -134,40 +138,47 @@ func _apply_snapshot(data: Dictionary) -> void:
 
 var _step_count := 0
 
+
 func _physics_process(delta: float):
 	_step_count += 1
 	
+	var half_cycle = cycle_duration / 2.0
+	var destination = half_cycle if is_active else 0.0
+	
+	# Early exit logic
+	if not is_one_shot:
+		if not is_active:
+			linear_velocity = Vector3.ZERO
+			return
+	else:
+		if abs(time_accumulator - destination) < 0.0001:
+			linear_velocity = Vector3.ZERO
+			return
+
 	# Guardar posición anterior para calcular velocidad.
 	var previous_position = global_transform.origin
-
+	
 	# Avanzar tiempo usando delta
-	time_accumulator += delta
-
+	if is_one_shot:
+		time_accumulator = move_toward(time_accumulator, destination, delta)
+	else:
+		time_accumulator += delta
 	# Si estamos en el periodo de delay, mantenemos la posición inicial.
 	if time_accumulator < 0:
 		global_transform.origin = start_position
 		linear_velocity = Vector3.ZERO
 		return
-
 	# 1. Cálculo de progreso normalizado (0.0 a 1.0) usando ping-pong.
-	var half_cycle = cycle_duration / 2.0
 	var raw_progress = pingpong_logic(time_accumulator, half_cycle) / half_cycle if half_cycle > 0 else 0.0
-
 	# 2. Aplicación de la "Curva" (Game Feel).
 	var cooked_progress = apply_easing(raw_progress)
-	
-
 	# 3. Cálculo de la nueva posición global mediante interpolación.
 	var new_position = start_position.linear_interpolate(end_position, cooked_progress)
-
-
 	# 4. Actualización de posición global y cálculo de velocidad para el Player.
 	global_transform.origin = new_position
-
 	# Calcular velocidad (vital para que move_and_slide detecte el movimiento del suelo).
 	if delta > 0:
 		linear_velocity = (new_position - previous_position) / delta
-
 	# Propagar velocidad a cuerpos pasajeros (jugador, etc.).
 	# Usamos get_overlapping_bodies() que funciona con physics ticks reales del engine
 	var current_passengers = []
@@ -177,7 +188,6 @@ func _physics_process(delta: float):
 	# Fallback a lista 'passengers' gestionada por señales
 	if current_passengers.size() == 0 and passengers.size() > 0:
 		current_passengers = passengers
-	
 	for body in current_passengers:
 		if body == self or body.get_parent() == self:
 			continue
@@ -187,13 +197,37 @@ func _physics_process(delta: float):
 			# maneje el "llevar" al jugador. Los conveyors usan is_static=false.
 			if body.has_method("set_external_source_is_static"):
 				body.set_external_source_is_static(true)
-
 	# Debug periódico.
 	if debug_passengers:
 		_debug_accum += delta
 		if _debug_accum >= 0.5:
 			_debug_accum = 0.0
 			print("[MP2] passengers=", passengers.size(), " vel=", linear_velocity, " pos=", global_transform.origin)
+
+func set_starts_active(v: bool) -> void:
+	starts_active = v
+	if Engine.editor_hint:
+		is_active = v
+
+func set_active(value: bool, immediate: bool = false) -> void:
+	if is_active == value and not immediate:
+		return
+	is_active = value
+	if not is_active:
+		linear_velocity = Vector3.ZERO
+	if immediate:
+		_on_animation_completed()
+	else:
+		emit_signal("interaction_started")
+	if debug_passengers:
+		print("[MP2] set_active(", is_active, ")")
+
+func _on_animation_completed() -> void:
+	emit_signal("interaction_completed")
+	if is_active:
+		emit_signal("activated")
+	else:
+		emit_signal("deactivated")
 
 func step(dt: float):
 	# Alias para compatibilidad con SessionManager si lo usa.
@@ -227,7 +261,9 @@ func get_snapshot() -> Dictionary:
 		"ease_type": ease_type,
 		"movement_vector": [movement_vector.x, movement_vector.y, movement_vector.z],
 		"start_position": [start_position.x, start_position.y, start_position.z],
-		"debug_passengers": debug_passengers
+		"debug_passengers": debug_passengers,
+		"is_one_shot": is_one_shot,
+		"is_active": is_active
 	}
 
 func restore_snapshot(data: Dictionary):
