@@ -73,11 +73,11 @@ END
     El test detecta y ejecuta automáticamente todos los `.oys` y `.json`.
 4. Para ver el replay en vivo:
     ```sh
-    godot3-bin ./core_v2/scenes/TestScene_v2.tscn --replay ./core_v2/tests/mi_test.oys
+    godot3-bin ./core_v2/levels/TestScene_v2.tscn --replay ./core_v2/tests/mi_test.oys
     ```
     O también puedes usar un `.json`:
     ```sh
-    godot3-bin ./core_v2/scenes/TestScene_v2.tscn --replay ./core_v2/tests/mi_test.json
+    godot3-bin ./core_v2/levels/TestScene_v2.tscn --replay ./core_v2/tests/mi_test.json
     ```
 
 Ambos formatos son soportados de forma transparente por el motor y los tests.

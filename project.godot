@@ -117,12 +117,12 @@ _global_script_classes=[ {
 "base": "Area",
 "class": "CheckZoneV2",
 "language": "GDScript",
-"path": "res://core_v2/things/CheckZoneV2.gd"
+"path": "res://core_v2/components/CheckZoneV2.gd"
 }, {
 "base": "Resource",
 "class": "CheckpointResource",
 "language": "GDScript",
-"path": "res://core_v2/utils/CheckpointResource.gd"
+"path": "res://core_v2/systems/CheckpointResource.gd"
 }, {
 "base": "Reference",
 "class": "CmdArgumentParser",
@@ -697,12 +697,12 @@ _global_script_classes=[ {
 "base": "KinematicBody",
 "class": "InteractableBaseV2",
 "language": "GDScript",
-"path": "res://core_v2/things/InteractableBaseV2.gd"
+"path": "res://core_v2/components/InteractableBaseV2.gd"
 }, {
 "base": "Spatial",
 "class": "InteractableBridge",
 "language": "GDScript",
-"path": "res://core_v2/things/InteractableBridge.gd"
+"path": "res://core_v2/components/InteractableBridge.gd"
 }, {
 "base": "Reference",
 "class": "JUnitXmlReport",
@@ -712,7 +712,7 @@ _global_script_classes=[ {
 "base": "Area",
 "class": "KillZoneV2",
 "language": "GDScript",
-"path": "res://core_v2/things/KillZoneV2.gd"
+"path": "res://core_v2/components/KillZoneV2.gd"
 }, {
 "base": "LiquidLayer",
 "class": "LavaLayer",
@@ -807,7 +807,7 @@ _global_script_classes=[ {
 "base": "Reference",
 "class": "OYS_Resolver",
 "language": "GDScript",
-"path": "res://core_v2/utils/OYS_Resolver.gd"
+"path": "res://core_v2/systems/OYS_Resolver.gd"
 }, {
 "base": "Spatial",
 "class": "OrbitArm",
@@ -827,7 +827,7 @@ _global_script_classes=[ {
 "base": "Spatial",
 "class": "PilotAnimatorV2",
 "language": "GDScript",
-"path": "res://core_v2/view/PilotAnimatorV2.gd"
+"path": "res://core_v2/actors/PilotAnimatorV2.gd"
 }, {
 "base": "Button",
 "class": "PluginButton",
@@ -837,12 +837,12 @@ _global_script_classes=[ {
 "base": "InteractableBaseV2",
 "class": "PressurePlateV2",
 "language": "GDScript",
-"path": "res://core_v2/things/PressurePlateV2.gd"
+"path": "res://core_v2/components/PressurePlateV2.gd"
 }, {
 "base": "InteractableBaseV2",
 "class": "PushButtonV2",
 "language": "GDScript",
-"path": "res://core_v2/things/PushButtonV2.gd"
+"path": "res://core_v2/components/PushButtonV2.gd"
 }, {
 "base": "Reference",
 "class": "QodotDependencies",
@@ -1002,7 +1002,7 @@ _global_script_classes=[ {
 "base": "InteractableBaseV2",
 "class": "RotatingObjectV2",
 "language": "GDScript",
-"path": "res://core_v2/things/RotatingObjectV2.gd"
+"path": "res://core_v2/components/RotatingObjectV2.gd"
 }, {
 "base": "VBoxContainer",
 "class": "ShapeCreationButton",
@@ -1017,7 +1017,7 @@ _global_script_classes=[ {
 "base": "InteractableBaseV2",
 "class": "SlidingObjectV2",
 "language": "GDScript",
-"path": "res://core_v2/things/SlidingObjectV2.gd"
+"path": "res://core_v2/components/SlidingObjectV2.gd"
 }, {
 "base": "LiquidLayer",
 "class": "SlimeLayer",
@@ -1027,7 +1027,7 @@ _global_script_classes=[ {
 "base": "Position3D",
 "class": "SpawnPointV2",
 "language": "GDScript",
-"path": "res://core_v2/things/SpawnPointV2.gd"
+"path": "res://core_v2/components/SpawnPointV2.gd"
 }, {
 "base": "Fuzzer",
 "class": "StringFuzzer",
@@ -1037,7 +1037,7 @@ _global_script_classes=[ {
 "base": "Node",
 "class": "TeleportSystem",
 "language": "GDScript",
-"path": "res://core_v2/sim/TeleportSystem.gd"
+"path": "res://core_v2/systems/TeleportSystem.gd"
 }, {
 "base": "Resource",
 "class": "TimeUnit",

@@ -104,7 +104,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 	# Llamar tras encontrar player y antes de cada replay
 	if path.ends_with(".json"):
 		print("[TEST_RUNNER] Mode: JSON Direct Replay")
-		var runner := scene_runner("res://core_v2/scenes/TestScene_v2.tscn")
+		var runner := scene_runner("res://core_v2/levels/TestScene_v2.tscn")
 		runner.maximize_view()
 
 		# Garantizar estado limpio inicial
@@ -136,7 +136,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, DRIFT_WARNING])
 
 	if path.ends_with(".oys"):
-		var runner := scene_runner("res://core_v2/scenes/TestScene_v2.tscn")
+		var runner := scene_runner("res://core_v2/levels/TestScene_v2.tscn")
 		runner.maximize_view()
 
 		# PASS 1: Simular OYS y grabar resultado físico exacto a JSON
@@ -168,7 +168,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		print("[TEST_RUNNER] --- PASS 2: VERIFYING JSON ---")
 
 		# Re-instanciar runner y escena para evitar state bleeding
-		runner = scene_runner("res://core_v2/scenes/TestScene_v2.tscn")
+		runner = scene_runner("res://core_v2/levels/TestScene_v2.tscn")
 		runner.maximize_view()
 
 		# RE-SINCRONIZACIÓN ABSOLUTA PARA PASS 2
