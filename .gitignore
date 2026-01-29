@@ -1,5 +1,6 @@
 experimental/
 port/third/third.pck
+maps/autosave/
 
 # Godot-specific ignores
 export.cfg
