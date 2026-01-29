@@ -2,7 +2,7 @@
 # Usage: Godot --script oys_runner.gd path/to/script.oys
 extends SceneTree
 
-const OYS_Resolver = preload("res://core_v2/utils/OYS_Resolver.gd")
+const OYS_Resolver = preload("res://core_v2/systems/OYS_Resolver.gd")
 const SessionManager = preload("res://core_v2/autoloads/SessionManager.gd")
 
 

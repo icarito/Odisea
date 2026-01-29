@@ -58,15 +58,3 @@ func get_snapshot() -> Dictionary:
     }
 
 func restore_snapshot(data: Dictionary):
-    mode = data["mode"]
-    var p = data["pos"]
-    global_transform.origin = Vector3(p[0], p[1], p[2])
-    var r = data["rot"]
-    global_transform.basis = Basis(Vector3(r[0], r[1], r[2]))
-    linear_velocity = Vector3(data["vel"][0], data["vel"][1], data["vel"][2])
-    angular_velocity = Vector3(data["ang"][0], data["ang"][1], data["ang"][2])
-
-
-6. Consideraciones de Diseño (Blockout)
-
-Threshold de Snap: Un valor de 0.05 para velocidad suele ser suficiente para detectar que una caja se ha detenido.

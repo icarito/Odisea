@@ -58,32 +58,3 @@ func get_snapshot() -> Dictionary:
         "progress": anim_progress,
         "target": target_progress
     }
-
-func restore_snapshot(data: Dictionary):
-    is_active = data.active
-    anim_progress = data.progress
-    target_progress = data.target
-    _update_visuals(0) # Immediate visual snap
-
-
-5. Interaction System (InteractionRayV2)
-
-The PlayerControllerV2 uses a RayCast to detect interactables:
-
-Detection: Checks if the collided object is in the interactable group.
-
-UI Feedback: Reads object.interaction_text to display on the HUD (e.g., "Pull Lever", "Open Drawer").
-
-Execution: On input action ("E"), calls object.interact().
-
-6. Sound & Visual Polish
-
-Synchronized Audio: Sounds are triggered within step(dt) when anim_progress hits thresholds (0.0 or 1.0) to ensure audio-visual sync during replays.
-
-Visual Tilt (Optional): Objects can implement the "Visual Tilt" logic from PushableBoxV2 if they are meant to feel loose or mechanical.
-
-7. Comparison with Cogito
-
-Cogito: Focuses on ease of use via Editor properties and Signal-based logic.
-
-Odisea V2: Focuses on State Persistence. While Cogito objects might reset or desync in a complex replay, Odisea objects are treated as "Physics-calculated" entities that always match the time_accumulator.

@@ -57,26 +57,3 @@ Validar también rotación (yaw, pitch) si están presentes.
 4. Reporte y Diagnóstico
 
 Si el test falla, el mensaje de error de GDUnit debe incluir:
-
-Nombre descriptivo del test.
-
-El valor de "Drift" detectado (distancia entre posición real y esperada).
-
-El frame exacto donde se detuvo la simulación.
-
-5. Integración con CLI
-
-El runner debe ser ejecutable vía comandos para CI, e.g.:
-./run_tests.sh -a ./core_v2/tests/test_determinism_v2.gd
-
-1. Consideraciones de Gamefeel
-
-Aunque el test es técnico (pass/fail), la organización por carpetas permitirá identificar si un cambio en el código de fricción afecta solo al movement o también a los obstacles.
-
-
-Notas adicionales:
-
-- Al grabar replays el recorder debería almacenar un checksum de la escena/nivel para determinar si ha cambiado desde que se grabó el replay.
-- El playback / test debería advertir sobre el checksum mismatch pero no fallar el test por eso.
-- El runner debería ser capaz de ejecutarse en paralelo para acelerar la suite de tests si es necesario
-- Ir pensando en cómo diseñar "asserts" especializados para validar no solo posición/rotación sino también estados específicos del juego (e.g. health, score) en futuras iteraciones.

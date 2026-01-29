@@ -1360,7 +1360,7 @@ window/stretch/aspect="keep"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/gdUnit3/plugin.cfg", "res://addons/qodot/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/qodot/plugin.cfg" )
 
 [global]
 
