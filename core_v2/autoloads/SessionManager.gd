@@ -58,7 +58,7 @@ func _ready():
 
 	# --- Instanciar y conectar TeleportSystem ---
 	if not has_node("TeleportSystem"):
-		var TeleportSystem = preload("res://core_v2/sim/TeleportSystem.gd")
+		var TeleportSystem = load("res://core_v2/systems/TeleportSystem.gd")
 		var teleport_system = TeleportSystem.new()
 		teleport_system.name = "TeleportSystem"
 		add_child(teleport_system)
@@ -93,8 +93,12 @@ func _connect_teleport_system():
 	if Engine.has_singleton("GdUnit3"):
 		is_testing = Engine.get_singleton("GdUnit3").is_test_suite()
 	
-	# Do not capture mouse in CLI mode or during tests.
-	if not is_testing and not is_cli_mode:
+	# Do not capture mouse in CLI mode, during tests, or in menú principal.
+	var current_scene = get_tree().current_scene
+	var is_menu = false
+	if current_scene and current_scene.filename.find("Menu.tscn") != -1:
+		is_menu = true
+	if not is_testing and not is_cli_mode and not is_menu:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func _on_tree_changed_for_replay(replay_path: String):
@@ -116,8 +120,12 @@ func _unhandled_input(event):
 	if Engine.has_singleton("GdUnit3"):
 		is_testing = Engine.get_singleton("GdUnit3").is_test_suite()
 
-	# Do not manage mouse input in CLI mode or during tests.
-	if not is_testing and not is_cli_mode:
+	# Do not manage mouse input in CLI mode, during tests, or in menú principal.
+	var current_scene = get_tree().current_scene
+	var is_menu = false
+	if current_scene and current_scene.filename.find("Menu.tscn") != -1:
+		is_menu = true
+	if not is_testing and not is_cli_mode and not is_menu:
 		if event.is_action_pressed("ui_cancel"):
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		# Re-capturar al hacer click en la pantalla, solo si el cursor está visible.
