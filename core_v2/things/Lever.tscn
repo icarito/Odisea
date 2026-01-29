@@ -1,8 +1,8 @@
 [gd_scene load_steps=5 format=2]
 
-[ext_resource path="res://core_v2/things/RotatingObjectV2.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/components/RotatingObjectV2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=2]
-[ext_resource path="res://core_v2/things/InteractableBridge.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/components/InteractableBridge.gd" type="Script" id=3]
 [ext_resource path="res://materials/things/interactable.tres" type="Material" id=4]
 
 [node name="Lever" type="Spatial"]

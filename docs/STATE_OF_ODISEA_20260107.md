@@ -21,7 +21,7 @@ Documento actualizado tras limpieza y refactor core_v2. Resume stack, arquitectu
 - **Sim**: `core_v2/sim/` — movimiento (PlayerControllerV2.gd, PlayerMovementV2.gd, PlayerJumpV2.gd, Conveyor.gd)
 - **Things**: `core_v2/things/MovingPlatformV2.gd` — plataformas móviles deterministas (✅ Referencia)
 - **View**: `core_v2/view/PilotAnimatorV2.gd` — animación
-- **Scenes**: `core_v2/scenes/TestScene_v2.tscn` — test harness
+- **Scenes**: `core_v2/levels/TestScene_v2.tscn` — test harness
 - **Tests**: `core_v2/tests/test_determinism_v2.gd` — validación de replay (PASS)
 - **Autoloads**: `core_v2/autoloads/SessionManager.gd` — session management
 - **Data**: `core_v2/replay/` — grabación y reproducción de replays

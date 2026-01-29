@@ -338,7 +338,7 @@ func load_and_play(path: String):
 		file.close()
 		var resolver = load("res://core_v2/utils/OYS_Resolver.gd")
 		var result = resolver.parse_script(script_content)
-		var scene_path = "res://core_v2/scenes/TestScene_v2.tscn"
+		var scene_path = "res://core_v2/levels/TestScene_v2.tscn"
 		# Buscar LEVEL en el script (línea que comience con LEVEL)
 		for line in script_content.split("\n"):
 			var l = line.strip_edges()
