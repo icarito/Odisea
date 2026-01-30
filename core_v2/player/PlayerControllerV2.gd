@@ -496,14 +496,31 @@ func step(dt: float, input: InputDataV2) -> void:
 		
 		move_vec = Vector2(input_x, 0.0)
 		
+		# FORCE FACING UPDATE based on the latch direction
+		sidescroll_logic.update_facing(input_x)
+		
 	elif sidescroll_logic.is_active and not in_transition:
 		# STRICT 2.5D: Use target basis + constraints
 		basis = sidescroll_logic.get_target_basis()
 		move_vec = sidescroll_logic.get_constrained_input(move_vec)
 		move_vec.y = 0
 		
+		# Determine actual move direction (could be different from input if restricted)
 		if abs(move_vec.x) > 0.1:
 			sidescroll_logic.update_facing(move_vec.x)
+			
+		# [NEW] Apply Local Camera Rotation (Yaw/Pitch) for Look-Ahead and Tilt
+		if _cached_cam:
+			var target_rot = sidescroll_logic.get_cam_rotation()
+			# Smoothly blend local rotation to avoid snapping on entry/exit or rapid changes
+			_cached_cam.rotation = _cached_cam.rotation.linear_interpolate(target_rot, 10.0 * dt)
+			
+	elif _cached_cam and not sidescroll_logic.is_active:
+		# Standard 3D: Ensure local camera rotation is reset (identity)
+		# The SpringArm handles the orbit, the camera should face forward (0,0,0) locally.
+		var current_rot = _cached_cam.rotation
+		if current_rot.length_squared() > 0.001:
+			_cached_cam.rotation = current_rot.linear_interpolate(Vector3.ZERO, 10.0 * dt)
 	
 	movement_logic.process_movement(dt, move_vec, basis, input.sprint, is_on_floor())
 	
@@ -723,8 +740,19 @@ func _step_camera_logic(_dt: float):
 		
 		if _cached_spring_arm:
 			# SMOOTH ZOOM: Transition between 3D preference and 2.5D target
-			var target_len = lerp(base_spring_length_3d, sidescroll_logic.target_spring_length, alpha)
-			current_spring_length = lerp(current_spring_length, target_len, sidescroll_logic.zoom_smoothing * _dt)
+			# Start with base target
+			var ss_target = sidescroll_logic.target_spring_length
+			
+			# Add Velocity Zoom if moving
+			# Calculate approximate speed for zoom (smoothed by the logic component or here)
+			var h_speed = Vector2(velocity.x, velocity.z).length()
+			ss_target += sidescroll_logic.get_zoom_offset(h_speed)
+			
+			var target_len = lerp(base_spring_length_3d, ss_target, alpha)
+			
+			# NOTE: We use target_len directly because 'alpha' is already smoothed over time by logic.step()
+			# Adding another lerp here creates a "double spring" effect during transitions.
+			current_spring_length = target_len
 			_cached_spring_arm.spring_length = current_spring_length
 			
 			# PERSPECTIVE SCALING:

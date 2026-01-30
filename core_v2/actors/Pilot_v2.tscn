@@ -78,11 +78,10 @@ spring_min = 10.0
 spring_max = 30.0
 deadzone_x = 0.5
 deadzone_y = 1.0
-camera_smoothing = 2.0
-zoom_smoothing = 2.0
 pan_sensitivity = 0.06
 pan_return_speed = 0.0
 min_rig_height = -1.5
+lookahead_yaw_degrees = 5.0
 
 [node name="Visual" type="Spatial" parent="."]
 
