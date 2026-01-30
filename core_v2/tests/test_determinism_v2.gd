@@ -87,9 +87,9 @@ func _force_player_position_from_expected():
 			if exp_pos_arr != null and typeof(exp_pos_arr) == TYPE_ARRAY:
 				t.origin = Vector3(exp_pos_arr[0], exp_pos_arr[1], exp_pos_arr[2])
 			else:
-				t.origin = Vector3(0,0,0)
+				t.origin = Vector3(0, 0, 0)
 		else:
-			t.origin = Vector3(0,0,0)
+			t.origin = Vector3(0, 0, 0)
 		SessionManager.player.global_transform = t
 
 # Test único parametrizado para ambos formatos
@@ -136,7 +136,21 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, DRIFT_WARNING])
 
 	if path.ends_with(".oys"):
-		var runner := scene_runner("res://core_v2/levels/TestScene_v2.tscn")
+		# Pre-parse scene path from OYS
+		var scene_path = "res://core_v2/levels/TestScene_v2.tscn"
+		var f = File.new()
+		if f.open(path, File.READ) == OK:
+			while not f.eof_reached():
+				var line = f.get_line().strip_edges()
+				if line.begins_with("LEVEL"):
+					var parts = line.split(" ", false)
+					if parts.size() > 1:
+						scene_path = parts[1]
+					break
+			f.close()
+		
+		print("[TEST_RUNNER] Using scene: ", scene_path)
+		var runner := scene_runner(scene_path)
 		runner.maximize_view()
 
 		# PASS 1: Simular OYS y grabar resultado físico exacto a JSON
@@ -161,14 +175,14 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		if is_instance_valid(runner.scene()):
 			runner.scene().queue_free()
 		runner = null
-		yield(get_tree(), "idle_frame")
+		yield (get_tree(), "idle_frame")
 
 		# PASS 2: Verificar que el JSON grabado sea reproducible
 		var json_path = path.get_basename() + ".json"
 		print("[TEST_RUNNER] --- PASS 2: VERIFYING JSON ---")
 
 		# Re-instanciar runner y escena para evitar state bleeding
-		runner = scene_runner("res://core_v2/levels/TestScene_v2.tscn")
+		runner = scene_runner(scene_path)
 		runner.maximize_view()
 
 		# RE-SINCRONIZACIÓN ABSOLUTA PARA PASS 2

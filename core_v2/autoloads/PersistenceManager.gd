@@ -1,12 +1,49 @@
 extends Node
 
-
 # Guarda y carga CheckpointResource por escena
 const CheckpointResource = preload("res://core_v2/systems/CheckpointResource.gd")
 var checkpoint_resource: Resource = null
 
+# Entity registration for dynamic prop lifecycle
+var registered_entities := {} # Maps instance_id to NodePath
+
+signal entity_registered(entity)
+signal entity_unregistered(entity)
+
 func _ready():
 	pass # Autoload, inicialización si es necesario
+
+func register_entity(entity: Node) -> void:
+	"""Register a dynamically spawned entity for tracking."""
+	if not is_instance_valid(entity):
+		return
+	
+	var id = entity.get_instance_id()
+	if not registered_entities.has(id):
+		registered_entities[id] = entity.get_path()
+		emit_signal("entity_registered", entity)
+
+func unregister_entity(entity: Node) -> void:
+	"""Unregister an entity when it's destroyed."""
+	if not is_instance_valid(entity):
+		return
+	
+	var id = entity.get_instance_id()
+	if registered_entities.has(id):
+		registered_entities.erase(id)
+		emit_signal("entity_unregistered", entity)
+
+func get_registered_entities() -> Array:
+	"""Get all currently registered entities."""
+	var entities = []
+	for id in registered_entities.keys():
+		var entity = instance_from_id(id)
+		if is_instance_valid(entity):
+			entities.append(entity)
+		else:
+			# Clean up invalid references
+			registered_entities.erase(id)
+	return entities
 
 func get_checkpoint_resource(scene_path: String) -> Resource:
 	# Carga o crea el recurso de checkpoint para la escena

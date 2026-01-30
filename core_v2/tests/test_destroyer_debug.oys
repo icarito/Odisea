@@ -1,0 +1,26 @@
+// Test: Destroyer Debug Test
+// Verifies if Destroyer correctly cleans up props
+
+LEVEL res://core_v2/levels/TestScene_PropEmitter.tscn
+
+SECTION "Reproduce Destroyer Issue"
+    // Wait for some props to spawn and fall
+    WAIT 2.0
+    
+    // Check if player is alive
+    ASSERT pos.y > -1.0 "Player fell"
+    
+    // We expect props to be destroyed if they touch the destroyer
+    // The destroyer is at (0, 2.1, -15)
+    // The emitter is at (0, 10.5, -15)
+    // So props fall exactly into the destroyer.
+    
+    WAIT 5.0
+    
+    // If the destroyer works, the number of active children in Emitter should be limited
+    // But OYS doesn't allow counting.
+    // However, if it doesn't work, maybe the props pile up or cause lag.
+    
+    // Let's check if we can verify destruction via a signal or property.
+    // For now, let's just make sure it doesn't crash.
+END
