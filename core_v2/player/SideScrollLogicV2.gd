@@ -35,6 +35,7 @@ export(float) var lookahead_yaw_degrees := 10.0 # Reduced from 15.0
 export(float) var velocity_lookahead_factor := 2.0
 export(float) var velocity_zoom_factor := 0.5
 export(float) var velocity_zoom_smoothing := 2.0
+export(float) var manual_input_decay_delay := 2.0 # Wait 2 seconds before returning manual cam
 
 
 var is_active := false
@@ -52,6 +53,7 @@ var manual_yaw := 0.0 # Separated manual input
 var manual_pitch := 0.0
 var facing_sign := 1.0
 var _time_since_turn := 0.0
+var _time_since_input := 0.0
 var _first_frame := true
 
 func enter_mode(axis: int, value: float, invert: bool):
@@ -60,6 +62,7 @@ func enter_mode(axis: int, value: float, invert: bool):
 	lock_value = value
 	invert_side = invert
 	_first_frame = true
+	_time_since_input = manual_input_decay_delay + 1.0 # Ensure decay is active on enter
 	
 	# Reset state to prevent "yanking" from previous offsets
 	pan_offset = Vector2.ZERO
@@ -160,9 +163,13 @@ func calculate_camera_pos(player_pos: Vector3, dt: float) -> Vector3:
 	# Smoothly interpolate auto-yaw
 	yaw_offset = lerp(yaw_offset, deg2rad(target_yaw_deg), current_return_speed * dt)
 	
-	# Decay Manual Yaw/Pitch
-	manual_yaw = lerp(manual_yaw, 0.0, yaw_return_speed * dt)
-	manual_pitch = lerp(manual_pitch, 0.0, pitch_return_speed * dt)
+	# Decay Manual Yaw/Pitch (Only if input inactive for a while)
+	_time_since_input += dt
+	if _time_since_input > manual_input_decay_delay:
+		# Use slightly faster return speed for the "release" phase so it's noticeable
+		var decay_speed = yaw_return_speed * 2.0
+		manual_yaw = lerp(manual_yaw, 0.0, decay_speed * dt)
+		manual_pitch = lerp(manual_pitch, 0.0, decay_speed * dt)
 	
 	# 3. Pan Logic (Deprecated for Lookahead, mostly zero)
 	pan_offset = Vector2.ZERO # Reset pan, we use rotation now
@@ -199,18 +206,20 @@ func update_facing(move_x: float):
 	# but for now we trust the facing sign which is derived from input/movement.
 
 func apply_pan(mouse_delta: Vector2):
+	if mouse_delta.length_squared() > 1.0: # Ignore noise
+		_time_since_input = 0.0 # valid input received
+	
 	# Proactive Manual Control: 
 	# X -> Yaw (Look Left/Right)
 	# Y -> Pitch (Look Up/Down)
 	# Manual Yaw
 	manual_yaw -= mouse_delta.x * pan_sensitivity * yaw_sensitivity
-	manual_yaw = clamp(manual_yaw, -1.0, 1.0)
+	var limit = deg2rad(15.0)
+	manual_yaw = clamp(manual_yaw, -limit, limit)
 	
-	# Manual Pitch (Inverted input usually feels natural for look: Up input -> Look Up -> Positive X rot?)
-	# Wait, standard look: Mouse Up (Negative Y delta) -> Pitch Up (Positive X rot).
-	# Let's try direct map first.
+	# Manual Pitch
 	manual_pitch -= mouse_delta.y * pan_sensitivity * pitch_sensitivity
-	manual_pitch = clamp(manual_pitch, -0.5, 0.5)
+	manual_pitch = clamp(manual_pitch, -limit, limit)
 	
 	# If mouse pan is significant, change facing direction to match look intent
 	if abs(mouse_delta.x) > 2.0:

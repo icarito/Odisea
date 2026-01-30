@@ -81,6 +81,7 @@ deadzone_y = 1.0
 pan_sensitivity = 0.06
 pan_return_speed = 0.0
 min_rig_height = -1.5
+turn_slowdown_duration = 2.0
 lookahead_yaw_degrees = 5.0
 
 [node name="Visual" type="Spatial" parent="."]
