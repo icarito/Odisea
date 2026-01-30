@@ -3,7 +3,7 @@ extends Node
 
 # Componente para manejar el estado y las restricciones del modo 2.5D
 
-export(float) var lerp_speed := 2.0
+export(float) var lerp_speed := 3.0 # Slower transition (was 5.0)
 export(float) var target_fov := 45.0
 export(float) var target_pitch_deg := 0.0
 export(float) var target_y_offset := 0.0
@@ -12,17 +12,30 @@ export(float) var spring_min := 4.0
 export(float) var spring_max := 20.0
 
 # Camera Dead Zone and Smoothing
-export(float) var deadzone_x := 1.5 # Shift for Look-Ahead
-export(float) var deadzone_y := 0.5 # More reactive
-export(float) var camera_smoothing := 5.0 # Weight factor
-export(float) var zoom_smoothing := 4.0 # Smoothing for spring length changes
+export(float) var deadzone_x := 1.5 # Reset to default (was 4.0)
+export(float) var deadzone_y := 0.5
+export(float) var camera_smoothing := 4.0 # Faster to keep up (was 2.0)
+export(float) var zoom_smoothing := 2.0
 
 # Mouse Pan Settings
 export(float) var pan_sensitivity := 0.05
 export(float) var pan_sensitivity_y_ratio := 0.5
-export(float) var pan_max_offset := 4.0
-export(float) var pan_return_speed := 1.0 # Smoother return
+export(float) var pan_max_offset := 10.0
+export(float) var pan_return_speed := 3.0
 export(float) var min_rig_height := 0.5
+
+# Refined Tuning
+export(float) var yaw_sensitivity := 0.2
+export(float) var yaw_return_speed := 2.0
+export(float) var turn_slowdown_duration := 0.6 # How long to move slow after turn
+export(float) var turn_slowdown_factor := 0.2 # Multiplier for speed during slowdown
+export(float) var pitch_sensitivity := 0.2
+export(float) var pitch_return_speed := 3.0
+export(float) var lookahead_yaw_degrees := 10.0 # Reduced from 15.0
+export(float) var velocity_lookahead_factor := 2.0
+export(float) var velocity_zoom_factor := 0.5
+export(float) var velocity_zoom_smoothing := 2.0
+
 
 var is_active := false
 var lock_axis := 0 # 0: None, 1: X, 2: Z
@@ -33,8 +46,12 @@ var transition_alpha := 0.0
 # State for deterministic camera tracking
 var virtual_center := Vector3.ZERO
 var lagging_center := Vector3.ZERO
-var pan_offset := Vector2.ZERO
-var facing_sign := 1.0 # 1: Screen Right, -1: Screen Left
+var pan_offset := Vector2.ZERO # Deprecated for manual control, but still used for velocity lookahead
+var yaw_offset := 0.0
+var manual_yaw := 0.0 # Separated manual input
+var manual_pitch := 0.0
+var facing_sign := 1.0
+var _time_since_turn := 0.0
 var _first_frame := true
 
 func enter_mode(axis: int, value: float, invert: bool):
@@ -43,6 +60,13 @@ func enter_mode(axis: int, value: float, invert: bool):
 	lock_value = value
 	invert_side = invert
 	_first_frame = true
+	
+	# Reset state to prevent "yanking" from previous offsets
+	pan_offset = Vector2.ZERO
+	yaw_offset = 0.0
+	manual_yaw = 0.0
+	manual_pitch = 0.0
+	facing_sign = 1.0 # Or detect from current velocity if possible? Defaulting to 1.0 is safe-ish.
 
 func exit_mode():
 	is_active = false
@@ -75,17 +99,22 @@ func apply_spatial_constraints(body: KinematicBody):
 func get_target_basis() -> Basis:
 	var target_basis = Basis.IDENTITY
 	
-	# Aplicar Pitch deseado
+	# Apply Pitch deseado (Base Rig Pitch) - MUST BE FIRST (Local X)
 	target_basis = target_basis.rotated(Vector3.RIGHT, deg2rad(target_pitch_deg))
-	
-	if lock_axis == 2: # Z bloqueado
+
+	# 1. Base Rotation (Profile Constraint)
+	if lock_axis == 2: # Z blocked
 		if invert_side:
 			target_basis = target_basis.rotated(Vector3.UP, PI)
-	elif lock_axis == 1: # X bloqueado
-		# Miramos hacia Z+ (Screen Right es Z+ si miramos desde X-) -> Rotamos 90 grados
+	elif lock_axis == 1: # X blocked
 		target_basis = Basis(Vector3.UP, -PI / 2.0) * target_basis
 		if invert_side:
 			target_basis = target_basis.rotated(Vector3.UP, PI)
+	
+	# 2. Manual Orbit (Rig Rotation)
+	# Applied ON TOP of the constrained profile basis
+	target_basis = target_basis.rotated(Vector3.UP, manual_yaw)
+	target_basis = target_basis.rotated(target_basis.x, manual_pitch) # Pitch locally relative to current yaw
 	
 	return target_basis
 
@@ -106,19 +135,40 @@ func calculate_camera_pos(player_pos: Vector3, dt: float) -> Vector3:
 	elif lock_axis == 1:
 		virtual_center.x = lock_value
 	
-	# Apply Pan Return towards the look-ahead side
-	# target_pan_x is 'deadzone_x' in the look direction
-	var target_pan_x = facing_sign * deadzone_x
-	pan_offset.x = lerp(pan_offset.x, target_pan_x, pan_return_speed * dt)
-	pan_offset.y = lerp(pan_offset.y, 0.0, pan_return_speed * dt)
+	# 1. Update Velocity-based Look-Ahead
+	var current_pos = player_pos
+	var est_velocity_x = (current_pos.x - virtual_center.x) / dt if dt > 0.001 else 0.0
+	var est_velocity_z = (current_pos.z - virtual_center.z) / dt if dt > 0.001 else 0.0
 	
-	# Final target includes pan offset and look-ahead
+	var speed_magnitude = Vector2(est_velocity_x, est_velocity_z).length()
+	
+	# 2. Rotational Look-Ahead (Yaw)
+	# Base Angle from Rule of Thirds
+	var target_yaw_deg = facing_sign * lookahead_yaw_degrees
+	
+	# Velocity affects yaw angle too (Add to the SAME direction)
+	var extra_yaw = min(speed_magnitude * velocity_lookahead_factor, 15.0)
+	target_yaw_deg += facing_sign * extra_yaw
+	
+	# Turn Delay Logic:
+	# If we just turned, use a MUCH slower speed to simulate "waiting" or weight
+	var current_return_speed = yaw_return_speed
+	if _time_since_turn < turn_slowdown_duration:
+		current_return_speed *= turn_slowdown_factor
+		_time_since_turn += dt
+	
+	# Smoothly interpolate auto-yaw
+	yaw_offset = lerp(yaw_offset, deg2rad(target_yaw_deg), current_return_speed * dt)
+	
+	# Decay Manual Yaw/Pitch
+	manual_yaw = lerp(manual_yaw, 0.0, yaw_return_speed * dt)
+	manual_pitch = lerp(manual_pitch, 0.0, pitch_return_speed * dt)
+	
+	# 3. Pan Logic (Deprecated for Lookahead, mostly zero)
+	pan_offset = Vector2.ZERO # Reset pan, we use rotation now
+	
+	# Final target includes pan offset
 	var target_lag = virtual_center
-	var basis = get_target_basis()
-	
-	# El pan offset se aplica en el plano de la pantalla (Right/Up locales del target cam)
-	target_lag += basis.x * pan_offset.x
-	target_lag -= basis.y * pan_offset.y
 	
 	# Lagging center smoothes the final target
 	lagging_center = lagging_center.linear_interpolate(target_lag, camera_smoothing * dt)
@@ -129,21 +179,42 @@ func calculate_camera_pos(player_pos: Vector3, dt: float) -> Vector3:
 	
 	return lagging_center
 
+func get_cam_rotation() -> Vector3:
+	# Returns Euler angles for Local Camera Rotation (relative to SpringArm/Rig)
+	# Y = Yaw (Auto Look-Ahead only)
+	# X = Pitch (None, manual pitch is now on Rig)
+	return Vector3(0.0, yaw_offset, 0.0)
+
+func get_zoom_offset(speed: float) -> float:
+	return speed * velocity_zoom_factor
+
 func update_facing(move_x: float):
 	if abs(move_x) > 0.1:
-		facing_sign = sign(move_x)
+		var new_sign = sign(move_x)
+		if new_sign != facing_sign:
+			facing_sign = new_sign
+			_time_since_turn = 0.0 # Reset turn timer
+	
+	# Velocity hook could be added here if we passed dt and calculated it, 
+	# but for now we trust the facing sign which is derived from input/movement.
 
 func apply_pan(mouse_delta: Vector2):
-	# Negating input to match "pull" feel
-	pan_offset.x -= mouse_delta.x * pan_sensitivity
-	pan_offset.y -= (mouse_delta.y * pan_sensitivity) * pan_sensitivity_y_ratio
+	# Proactive Manual Control: 
+	# X -> Yaw (Look Left/Right)
+	# Y -> Pitch (Look Up/Down)
+	# Manual Yaw
+	manual_yaw -= mouse_delta.x * pan_sensitivity * yaw_sensitivity
+	manual_yaw = clamp(manual_yaw, -1.0, 1.0)
 	
-	# If mouse pan is significant, change facing direction
-	if abs(mouse_delta.x) > 2.0: # Threshold to avoid jitter
-		facing_sign = - sign(mouse_delta.x)
+	# Manual Pitch (Inverted input usually feels natural for look: Up input -> Look Up -> Positive X rot?)
+	# Wait, standard look: Mouse Up (Negative Y delta) -> Pitch Up (Positive X rot).
+	# Let's try direct map first.
+	manual_pitch -= mouse_delta.y * pan_sensitivity * pitch_sensitivity
+	manual_pitch = clamp(manual_pitch, -0.5, 0.5)
 	
-	pan_offset.x = clamp(pan_offset.x, -pan_max_offset, pan_max_offset)
-	pan_offset.y = clamp(pan_offset.y, -pan_max_offset, pan_max_offset)
+	# If mouse pan is significant, change facing direction to match look intent
+	if abs(mouse_delta.x) > 2.0:
+		facing_sign = sign(mouse_delta.x)
 
 func get_full_snapshot() -> Dictionary:
 	return {
@@ -155,7 +226,9 @@ func get_full_snapshot() -> Dictionary:
 		"tsl": target_spring_length,
 		"vc": [virtual_center.x, virtual_center.y, virtual_center.z],
 		"lc": [lagging_center.x, lagging_center.y, lagging_center.z],
-		"po": [pan_offset.x, pan_offset.y],
+		"yo": yaw_offset,
+		"my": manual_yaw,
+		"mp": manual_pitch,
 		"fs": facing_sign,
 		"ff": _first_frame
 	}
@@ -175,7 +248,8 @@ func restore_snapshot(data: Dictionary):
 		var lc = data["lc"]
 		lagging_center = Vector3(lc[0], lc[1], lc[2])
 	if data.has("po"):
-		var po = data["po"]
-		pan_offset = Vector2(po[0], po[1])
+		yaw_offset = data.get("yo", 0.0)
+	manual_yaw = data.get("my", 0.0)
+	manual_pitch = data.get("mp", 0.0)
 	facing_sign = data.get("fs", 1.0)
 	_first_frame = data.get("ff", true)
