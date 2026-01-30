@@ -3,8 +3,6 @@ extends Reference
 
 class_name OYS_Interpreter
 
-signal wait_done
-
 var instructions: Array = []
 var pc: int = 0
 var variables: Dictionary = {}
@@ -122,14 +120,14 @@ func run(start_section: String = ""):
 	while pc < instructions.size() and not stop_requested and my_id == execution_id:
 		var inst = instructions[pc]
 		pc += 1
-		var result = _execute_instruction(inst)
+		var result = _execute_instruction(inst, my_id)
 		if result is GDScriptFunctionState:
 			yield(result, "completed")
 
 	if my_id == execution_id:
 		is_running = false
 
-func _execute_instruction(inst: Dictionary):
+func _execute_instruction(inst: Dictionary, my_id: int):
 	match inst.command:
 		"SECTION":
 			pass # Already indexed
@@ -163,7 +161,7 @@ func _execute_instruction(inst: Dictionary):
 				target = _resolve_node(target_path)
 
 			if target:
-				var success = yield(_wait_signal(target, inst.signal, inst.timeout), "completed")
+				var success = yield(_wait_signal(target, inst.signal, inst.timeout, my_id), "completed")
 				if not success:
 					printerr("[OYS] ASSERT_SIGNAL failed: ", inst.signal, " on ", target.name)
 		"SPAWN":
@@ -176,7 +174,10 @@ func _execute_instruction(inst: Dictionary):
 		"SET_TIME_SCALE":
 			Engine.time_scale = inst.value
 		"WAIT":
-			yield(host_node.get_tree().create_timer(inst.value), "timeout")
+			var t = host_node.get_tree().create_timer(inst.value)
+			while t.time_left > 0:
+				if stop_requested or my_id != execution_id: break
+				yield(host_node.get_tree(), "idle_frame")
 		"PRINT":
 			print("[OYS PRINT] ", inst.message)
 		"ASSERT":
@@ -198,13 +199,13 @@ func _resolve_node(path: String) -> Node:
 		node = host_node.get_tree().root.find_node(path, true, false)
 	return node
 
-func _wait_signal(target: Node, signal_name: String, timeout: float):
+func _wait_signal(target: Node, signal_name: String, timeout: float, my_id: int):
 	var observer = SignalObserver.new()
 	target.connect(signal_name, observer, "on_signal")
 
 	var timer = host_node.get_tree().create_timer(timeout)
 	while not observer.triggered and timer.time_left > 0:
-		if stop_requested: break
+		if stop_requested or my_id != execution_id: break
 		yield(host_node.get_tree(), "idle_frame")
 
 	var success = observer.triggered
