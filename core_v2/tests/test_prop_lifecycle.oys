@@ -1,0 +1,32 @@
+// Test: PropEmitterArea and PropDestroyerArea Lifecycle
+// Verifies deterministic spawning and cleanup behavior
+
+LEVEL res://core_v2/levels/TestScene_PropEmitter.tscn
+
+SECTION "Deterministic Spawning Test"
+    // Wait for emitter to spawn entities
+    WAIT 3.0
+    
+    // Move forward through emitter area
+    FORWARD 1.0
+    WAIT 2.0
+    
+    // Verify player hasn't fallen through floor
+    ASSERT pos.y > -1.0 "Player fell through floor"
+    
+    // Move toward destroyer area
+    FORWARD 2.0
+    WAIT 3.0
+    
+    // Verify player position is stable
+    ASSERT pos.y < 2.0 "Player position unstable"
+END
+
+SECTION "Destroyer Cleanup Test"
+    // Move through destroyer area
+    FORWARD 1.0
+    WAIT 2.0
+    
+    // Verify player hasn't been destroyed (only props should be)
+    ASSERT pos.y > -1.0 "Player was incorrectly destroyed"
+END

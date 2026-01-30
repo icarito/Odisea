@@ -6,7 +6,7 @@
 background_mode = 2
 background_sky = ExtResource( 1 )
 ambient_light_color = Color( 0.04, 0.08, 0.18, 1 )
-ambient_light_energy = 0.7
+ambient_light_energy = 1.88
 ssao_enabled = true
 ssao_radius = 4.0
 ssao_intensity = 2.0
@@ -15,6 +15,5 @@ glow_strength = 1.2
 glow_bloom = 0.18
 glow_blend_mode = 1
 adjustment_enabled = true
-adjustment_brightness = 1.1
 adjustment_contrast = 1.18
 adjustment_saturation = 1.15
