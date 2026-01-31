@@ -1,7 +1,11 @@
 # core_v2/systems/OYS_Interpreter.gd
+# Runtime interpreter: executes OYS scripts with coroutines and signal support
+# Used for in-game scripting, cutscenes, and interactive tests with ASSERT_SIGNAL
 extends Reference
 
 class_name OYS_Interpreter
+
+const OYS_Parser = preload("res://core_v2/systems/OYS_Parser.gd")
 
 var instructions: Array = []
 var pc: int = 0
@@ -22,84 +26,20 @@ func parse(script_content: String):
 	section_names.clear()
 	pc = 0
 
-	var lines = script_content.split("\n")
-	var processed_lines = []
-
+	var lines = OYS_Parser.preprocess(script_content)
+	
 	for i in range(lines.size()):
-		var line = lines[i].strip_edges()
-		if line == "" or line.begins_with("//"):
+		var line = lines[i]
+		var inst = OYS_Parser.parse_instruction(line)
+		if inst.empty():
 			continue
-		processed_lines.append(line)
-
-	for i in range(processed_lines.size()):
-		var line = processed_lines[i]
-		var inst = _parse_instruction(line)
-		if inst.empty(): continue
 
 		if inst.command == "SECTION":
-			var section_name = inst["name"]
-			sections[section_name] = i
+			var section_name = inst.get("name", "")
+			sections[section_name] = instructions.size()
 			section_names.append(section_name)
 
 		instructions.append(inst)
-
-func _parse_instruction(line: String) -> Dictionary:
-	var parts = line.split(" ", false)
-	var cmd = parts[0].to_upper()
-	var data = {"command": cmd, "raw": line}
-
-	match cmd:
-		"SECTION":
-			data["name"] = parts[1].replace("\"", "")
-		"GOTO":
-			data["target"] = parts[1].replace("\"", "")
-		"IF":
-			# IF $variable OP value GOTO "nombre"
-			data["left"] = parts[1]
-			data["op"] = parts[2]
-			data["right"] = parts[3]
-			# parts[4] should be "GOTO"
-			data["target"] = parts[5].replace("\"", "")
-		"PLAY_ANIM":
-			data["path"] = parts[1].replace("\"", "")
-			data["anim"] = parts[2].replace("\"", "")
-			if parts.size() > 3:
-				data["blend"] = parts[3].to_float()
-		"WAIT_ANIM":
-			data["path"] = parts[1].replace("\"", "")
-		"ASSERT_SIGNAL":
-			data["signal"] = parts[1].replace("\"", "")
-			data["timeout"] = parts[2].to_float()
-			# Optional: node path if not on host
-			if parts.size() > 3:
-				data["path"] = parts[3].replace("\"", "")
-		"SPAWN":
-			data["scene"] = parts[1].replace("\"", "")
-			# SPAWN "path" AT (x,y,z)
-			if parts.size() > 3 and parts[2].to_upper() == "AT":
-				data["pos"] = line.substr(line.find("("))
-		"SET_TIME_SCALE":
-			data["value"] = parts[1].to_float()
-		"WAIT":
-			data["value"] = parts[1].to_float()
-		"PRINT":
-			data["message"] = line.substr(line.find(" ") + 1).replace("\"", "")
-		"ASSERT":
-			data["condition"] = line.substr(line.find(" ") + 1)
-		"SET":
-			data["var"] = parts[1]
-			if parts.size() > 3:
-				data["func"] = parts[2]
-				var args_array = []
-				for j in range(3, parts.size()):
-					args_array.append(parts[j])
-				data["args"] = args_array
-			else:
-				data["value"] = parts[2]
-		"GET_NODES_IN_GROUP":
-			data["group"] = parts[1].replace("\"", "")
-			data["target"] = parts[3] # AS $var
-	return data
 
 func run(start_section: String = ""):
 	execution_id += 1
@@ -107,7 +47,7 @@ func run(start_section: String = ""):
 
 	if is_running:
 		stop_requested = true
-		yield(host_node.get_tree(), "idle_frame")
+		yield (host_node.get_tree(), "idle_frame")
 
 	is_running = true
 	stop_requested = false
@@ -122,38 +62,48 @@ func run(start_section: String = ""):
 		pc += 1
 		var result = _execute_instruction(inst, my_id)
 		if result is GDScriptFunctionState:
-			yield(result, "completed")
+			yield (result, "completed")
 
 	if my_id == execution_id:
 		is_running = false
 
 func _execute_instruction(inst: Dictionary, my_id: int):
-	match inst.command:
+	var cmd = inst.command
+	
+	match cmd:
 		"SECTION":
 			pass # Already indexed
+		
 		"GOTO":
-			if sections.has(inst.target):
-				pc = sections[inst.target]
+			var target = inst.get("target", "")
+			if sections.has(target):
+				pc = sections[target]
 			else:
-				printerr("[OYS] GOTO target not found: ", inst.target)
+				printerr("[OYS] GOTO target not found: ", target)
+		
 		"IF":
-			var left = _resolve_value(inst.left)
-			var right = _resolve_value(inst.right)
-			if _compare(left, inst.op, right):
-				if sections.has(inst.target):
-					pc = sections[inst.target]
+			var left = _resolve_value(inst.get("left", ""))
+			var right = _resolve_value(inst.get("right", ""))
+			var op = inst.get("op", "==")
+			var target = inst.get("target", "")
+			if _compare(left, op, right):
+				if sections.has(target):
+					pc = sections[target]
 				else:
-					printerr("[OYS] IF GOTO target not found: ", inst.target)
+					printerr("[OYS] IF GOTO target not found: ", target)
+		
 		"PLAY_ANIM":
-			var node = _resolve_node(inst.path)
+			var node = _resolve_node(inst.get("path", ""))
 			if node and node is AnimationPlayer:
 				var blend = inst.get("blend", -1.0)
-				node.play(inst.anim, blend)
+				node.play(inst.get("anim", ""), blend)
+		
 		"WAIT_ANIM":
-			var node = _resolve_node(inst.path)
+			var node = _resolve_node(inst.get("path", ""))
 			if node and node is AnimationPlayer:
 				if node.is_playing():
-					yield(node, "animation_finished")
+					yield (node, "animation_finished")
+		
 		"ASSERT_SIGNAL":
 			var target_path = inst.get("path", "")
 			var target = host_node
@@ -161,35 +111,166 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				target = _resolve_node(target_path)
 
 			if target:
-				var success = yield(_wait_signal(target, inst.signal, inst.timeout, my_id), "completed")
+				var timeout = inst.get("timeout", 5.0)
+				var signal_name = inst.get("signal", "")
+				var success = yield (_wait_signal(target, signal_name, timeout, my_id), "completed")
 				if not success:
-					printerr("[OYS] ASSERT_SIGNAL failed: ", inst.signal, " on ", target.name)
+					printerr("[OYS] ASSERT_SIGNAL failed: ", signal_name, " on ", target.name)
+		
 		"SPAWN":
-			var scene = load(inst.scene)
+			var scene_path = inst.get("scene", "")
+			var scene = load(scene_path)
 			if scene:
 				var obj = scene.instance()
 				host_node.get_tree().current_scene.add_child(obj)
 				if inst.has("pos") and obj is Spatial:
-					obj.global_transform.origin = _parse_vector3(inst.pos)
+					obj.global_transform.origin = OYS_Parser.parse_vector3(inst.pos)
+		
 		"SET_TIME_SCALE":
-			Engine.time_scale = inst.value
+			Engine.time_scale = inst.get("value", 1.0)
+		
 		"WAIT":
-			var t = host_node.get_tree().create_timer(inst.value)
+			var duration = inst.get("value", 0.0)
+			var t = host_node.get_tree().create_timer(duration)
 			while t.time_left > 0:
-				if stop_requested or my_id != execution_id: break
-				yield(host_node.get_tree(), "idle_frame")
+				if stop_requested or my_id != execution_id:
+					break
+				yield (host_node.get_tree(), "idle_frame")
+		
 		"PRINT":
-			print("[OYS PRINT] ", inst.message)
+			print("[OYS PRINT] ", inst.get("message", ""))
+		
 		"ASSERT":
-			_execute_assert(inst.condition)
+			_execute_assert(inst.get("condition", ""))
+		
 		"SET":
+			var var_name = inst.get("var", "")
 			if inst.has("func"):
-				variables[inst.var] = _call_func(inst.func, inst.args)
+				variables[var_name] = _call_func(inst.func, inst.args)
 			else:
-				variables[inst.var] = _resolve_value(inst.value)
+				variables[var_name] = _resolve_value(inst.get("value", ""))
+		
 		"GET_NODES_IN_GROUP":
-			variables[inst.target] = host_node.get_tree().get_nodes_in_group(inst.group).size()
+			var group = inst.get("group", "")
+			var target_var = inst.get("target", "")
+			variables[target_var] = host_node.get_tree().get_nodes_in_group(group).size()
+		
+		# Movement commands - apply to player's input provider
+		"FW", "BW", "LEFT", "RIGHT", "JUMP", "INTERACT":
+			yield (_execute_movement(inst, my_id), "completed")
+		
+		"LOOK":
+			yield (_execute_look(inst, my_id), "completed")
+		
+		# Markers - no action needed
+		"LEVEL", "END":
+			pass
+	
 	return null
+
+func _execute_movement(inst: Dictionary, my_id: int):
+	var cmd = inst.command
+	var player = _find_player()
+	if not player:
+		return
+	
+	var duration_sec = 0.0
+	var move_vec = Vector2.ZERO
+	var is_sprint = inst.get("is_running", true)
+	var is_jump = false
+	var is_interact = false
+	
+	match cmd:
+		"FW", "BW":
+			var value = inst.get("value", 0.0)
+			var unit = inst.get("unit", "s")
+			duration_sec = value
+			if unit == "m":
+				duration_sec = OYS_Parser.distance_to_duration(value, is_sprint)
+			move_vec = Vector2(0, 1) if cmd == "FW" else Vector2(0, -1)
+		
+		"LEFT", "RIGHT":
+			if inst.get("is_turning", false):
+				# For turning, we'll handle it separately
+				yield (_execute_turn(inst, my_id), "completed")
+				return
+			var value = inst.get("value", 0.0)
+			var unit = inst.get("unit", "s")
+			duration_sec = value
+			if unit == "m":
+				duration_sec = OYS_Parser.distance_to_duration(value, is_sprint)
+			move_vec = Vector2(1, 0) if cmd == "LEFT" else Vector2(-1, 0)
+		
+		"JUMP":
+			duration_sec = inst.get("duration", 0.1)
+			is_jump = true
+		
+		"INTERACT":
+			duration_sec = 1.0 / 60.0 # One frame
+			is_interact = true
+	
+	# Apply movement for duration
+	var num_frames = OYS_Parser.duration_to_frames(duration_sec)
+	for _i in range(num_frames):
+		if stop_requested or my_id != execution_id:
+			break
+		
+		# Inject input to player's provider
+		if player.has_method("inject_input"):
+			player.inject_input({
+				"move_vec": [move_vec.x, move_vec.y],
+				"sprint": is_sprint,
+				"jump": is_jump,
+				"interact": is_interact
+			})
+		
+		yield (host_node.get_tree(), "idle_frame")
+
+func _execute_turn(inst: Dictionary, my_id: int):
+	var value = inst.get("value", 0.0)
+	var direction = inst.get("direction", "LEFT")
+	var duration_sec = 0.5
+	var num_frames = OYS_Parser.duration_to_frames(duration_sec)
+	
+	var sensitivity = 0.005
+	var pixels_total = (value * PI / 180.0) / sensitivity
+	var mouse_dx = - pixels_total / num_frames if direction == "LEFT" else pixels_total / num_frames
+	
+	var player = _find_player()
+	if not player:
+		return
+	
+	for _i in range(num_frames):
+		if stop_requested or my_id != execution_id:
+			break
+		
+		if player.has_method("inject_input"):
+			player.inject_input({"mouse_delta": [mouse_dx, 0]})
+		
+		yield (host_node.get_tree(), "idle_frame")
+
+func _execute_look(inst: Dictionary, my_id: int):
+	var pitch = inst.get("pitch", 0.0)
+	var duration_sec = inst.get("duration", 0.5)
+	var num_frames = OYS_Parser.duration_to_frames(duration_sec)
+	var mouse_dy = - pitch / num_frames
+	
+	var player = _find_player()
+	if not player:
+		return
+	
+	for _i in range(num_frames):
+		if stop_requested or my_id != execution_id:
+			break
+		
+		if player.has_method("inject_input"):
+			player.inject_input({"mouse_delta": [0, mouse_dy]})
+		
+		yield (host_node.get_tree(), "idle_frame")
+
+func _find_player() -> Node:
+	var player = host_node.get_tree().get_root().find_node("Pilot", true, false)
+	return player
 
 func _resolve_node(path: String) -> Node:
 	var node = host_node.get_node_or_null(path)
@@ -205,8 +286,9 @@ func _wait_signal(target: Node, signal_name: String, timeout: float, my_id: int)
 
 	var timer = host_node.get_tree().create_timer(timeout)
 	while not observer.triggered and timer.time_left > 0:
-		if stop_requested or my_id != execution_id: break
-		yield(host_node.get_tree(), "idle_frame")
+		if stop_requested or my_id != execution_id:
+			break
+		yield (host_node.get_tree(), "idle_frame")
 
 	var success = observer.triggered
 	if is_instance_valid(target) and target.is_connected(signal_name, observer, "on_signal"):
@@ -215,19 +297,10 @@ func _wait_signal(target: Node, signal_name: String, timeout: float, my_id: int)
 	observer.free()
 	return success
 
-func _parse_vector3(s: String) -> Vector3:
-	var cleaned = s.replace("(", "").replace(")", "").strip_edges()
-	var components = cleaned.split(",")
-	if components.size() >= 3:
-		return Vector3(components[0].to_float(), components[1].to_float(), components[2].to_float())
-	return Vector3.ZERO
-
 func _execute_assert(condition: String):
-	# Very basic assert evaluation
 	var parts = condition.split(" ", false)
 	if parts.size() < 3:
-		# Maybe it's just a message? No, message comes after.
-		pass
+		return
 
 	var left = _resolve_value(parts[0])
 	var op = parts[1]
@@ -242,7 +315,7 @@ func _execute_assert(condition: String):
 
 class SignalObserver extends Object:
 	var triggered = false
-	func on_signal(a=null, b=null, c=null, d=null, e=null):
+	func on_signal(_a = null, _b = null, _c = null, _d = null, _e = null):
 		triggered = true
 
 func _resolve_value(val: String):
@@ -266,7 +339,6 @@ func _call_func(func_name: String, args: Array):
 func _compare(left, op, right) -> bool:
 	var l = left
 	var r = right
-	# Try to convert to float if possible for numeric comparison
 	if str(l).is_valid_float() and str(r).is_valid_float():
 		l = float(l)
 		r = float(r)
