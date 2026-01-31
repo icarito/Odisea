@@ -55,6 +55,12 @@ func _ready():
 			# Se disparará cuando la escena principal se cargue, y entonces ejecutaremos el replay.
 			get_tree().connect("tree_changed", self, "_on_tree_changed_for_replay", [replay_path], CONNECT_ONESHOT)
 			return
+		
+		if arg == "--run-script" and i + 1 < args.size():
+			is_cli_mode = true
+			var script_path = args[i + 1]
+			get_tree().connect("tree_changed", self, "_on_tree_changed_for_script", [script_path], CONNECT_ONESHOT)
+			return
 
 	# --- Instanciar y conectar TeleportSystem ---
 	if not has_node("TeleportSystem"):
@@ -112,6 +118,44 @@ func _on_tree_changed_for_replay(replay_path: String):
 	if player:
 		player.is_replay_mode = true
 	load_and_play(replay_path)
+
+func _on_tree_changed_for_script(script_path: String):
+	yield (get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
+	
+	print("[SessionManager] Running script: ", script_path)
+	
+	var file = File.new()
+	if not file.file_exists(script_path):
+		printerr("Script not found: ", script_path)
+		get_tree().quit(1)
+		return
+		
+	file.open(script_path, File.READ)
+	var content = file.get_as_text()
+	file.close()
+	
+	# Load scene if LEVEL command exists (simple parse)
+	for line in content.split("\n"):
+		if line.begins_with("LEVEL "):
+			var scene_path = line.replace("LEVEL ", "").strip_edges()
+			if get_tree().current_scene.filename != scene_path:
+				print("Loading scene: ", scene_path)
+				var scene = load(scene_path).instance()
+				get_tree().root.add_child(scene)
+				get_tree().current_scene.queue_free()
+				get_tree().current_scene = scene
+				yield (get_tree(), "idle_frame")
+				yield (get_tree(), "idle_frame")
+			break
+	
+	var OYS_Interpreter = load("res://core_v2/systems/OYS_Interpreter.gd")
+	var interpreter = OYS_Interpreter.new(self) # Use SessionManager as host
+	interpreter.parse(content)
+	yield (interpreter.run(), "completed")
+	
+	print("[SessionManager] Script finished.")
+	get_tree().quit(0)
 
 func _unhandled_input(event):
 	# Gestionamos la captura y liberación del mouse de forma centralizada.

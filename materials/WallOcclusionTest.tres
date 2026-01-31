@@ -1,0 +1,16 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=2]
+
+[ext_resource path="res://shaders/dither_hiding.shader" type="Shader" id=1]
+
+[resource]
+shader = ExtResource( 1 )
+shader_param/albedo = Color( 0.443137, 0.443137, 0.443137, 1 )
+shader_param/specular = 0.5
+shader_param/metallic = 0.0
+shader_param/roughness = 1.0
+shader_param/uv1_scale = Vector3( 1, 1, 1 )
+shader_param/uv1_offset = Vector3( 0, 0, 0 )
+shader_param/player_pos = Vector3( 0, 0, 0 )
+shader_param/camera_pos = Vector3( 0, 0, 0 )
+shader_param/hole_radius = 1.5
+shader_param/is_active = 0.0

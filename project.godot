@@ -1375,6 +1375,7 @@ boot_splash/minimum_display_time=3
 
 SessionManager="*res://core_v2/autoloads/SessionManager.gd"
 PersistenceManager="*res://core_v2/autoloads/PersistenceManager.gd"
+WallOcclusionManager="*res://core_v2/autoloads/WallOcclusionManager.gd"
 
 [debug]
 
@@ -1396,7 +1397,7 @@ window/stretch/aspect="keep"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/qodot/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/OcclusionSystem/plugin.cfg", "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/qodot/plugin.cfg" )
 
 [global]
 

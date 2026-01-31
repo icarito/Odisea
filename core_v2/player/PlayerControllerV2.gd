@@ -33,6 +33,10 @@ var base_spring_length_3d := 7.0 # User's 3D preference
 var current_spring_length := 7.0 # Current ACTUAL length (smoothed)
 var base_rig_y := 0.0
 var base_collision_mask := 0
+var _occlusion_mode_active := false
+
+func set_occlusion_mode(active: bool) -> void:
+	_occlusion_mode_active = active
 
 # state
 var velocity := Vector3()
@@ -767,7 +771,11 @@ func _step_camera_logic(_dt: float):
 		
 		# Restore collisions
 		if _cached_spring_arm:
-			_cached_spring_arm.collision_mask = base_collision_mask
+			if _occlusion_mode_active:
+				_cached_spring_arm.collision_mask = 0
+			else:
+				_cached_spring_arm.collision_mask = base_collision_mask
+			
 			# Smooth zoom even in 3D, returning to the stored 3D preference
 			current_spring_length = lerp(current_spring_length, base_spring_length_3d, sidescroll_logic.zoom_smoothing * _dt)
 			_cached_spring_arm.spring_length = current_spring_length
