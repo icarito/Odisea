@@ -127,13 +127,20 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	# Solo rotamos si no estamos bloqueados (durante backflip)
 	if not is_rotation_locked:
 		var horizontal_wish_direction = wish_direction * Vector3(1, 0, 1)
+		
+		# Validamos longitud en global para saber si hay intención
 		if horizontal_wish_direction.length_squared() > 0.01:
-			# wish_direction ahora es siempre correcta, por lo que no necesitamos lógica condicional.
-			var target_angle = atan2(horizontal_wish_direction.x, horizontal_wish_direction.z)
+			# Convertimos la dirección global deseada al espacio local del padre (Visual/Pilot)
+			# Esto corrige el bug donde el mesh rotaba usando coordenadas globales ignorando la rotación del Pilot node.
+			var parent_basis = get_parent().global_transform.basis
+			var local_wish = parent_basis.xform_inv(wish_direction)
+			
+			var target_angle = atan2(local_wish.x, local_wish.z)
 			if dt > 0: # Suavizado en modo LIVE.
 				rotation.y = lerp_angle(rotation.y, target_angle, rotation_lerp_speed * dt)
 			else: # Aplicación instantánea en modo REPLAY.
 				rotation.y = target_angle
+
 	
 	# Desbloquear rotación al aterrizar
 	if is_on_floor and is_rotation_locked and not acrobatic_trigger_active:
@@ -237,8 +244,13 @@ func _on_controller_acrobatic_jumped() -> void:
 		# Miramos opuesto al movimiento para realizar el backflip hacia atrás
 		var move_dir = controller.get_wish_direction()
 		if move_dir.length_squared() > 0.01:
-			var look_dir = - move_dir
-			var target_angle = atan2(look_dir.x, look_dir.z)
+			var look_dir = - move_dir # Global look direction
+			
+			# Convertir a espacio local del padre
+			var parent_basis = get_parent().global_transform.basis
+			var local_look = parent_basis.xform_inv(look_dir)
+			
+			var target_angle = atan2(local_look.x, local_look.z)
 			
 			# SOLO forzamos el snap si estamos mirando a más de 45 grados del objetivo
 			# Calculamos la diferencia de angulo manualmente (compatible con Godot 3)
