@@ -1,4 +1,4 @@
-[gd_scene load_steps=225 format=2]
+[gd_scene load_steps=224 format=2]
 
 [ext_resource path="res://core_v2/components/SlidingObjectV2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -30,7 +30,6 @@
 [ext_resource path="res://core_v2/things/VerticalDoor.tscn" type="PackedScene" id=28]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_05.png" type="Texture" id=29]
 [ext_resource path="res://textures/kenney_prototype_textures/orange/texture_08.png" type="Texture" id=31]
-[ext_resource path="res://core_v2/components/OcclusionEnforcer.gd" type="Script" id=5000]
 
 [sub_resource type="SpatialMaterial" id=2]
 flags_world_triplanar = true
@@ -1488,7 +1487,5 @@ script = ExtResource( 8 )
 debug_render = false
 enforce_occlusion_material = true
 
-
 [node name="CollisionShape" type="CollisionShape" parent="OcclusionArea"]
 shape = SubResource( 673 )
-

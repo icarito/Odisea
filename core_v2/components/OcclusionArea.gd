@@ -6,6 +6,7 @@ export(float) var camera_distance_override: float = -1.0 # -1 to ignore
 export(bool) var debug_render: bool = true setget set_debug_render
 # --- Material Enforcement ---
 export(bool) var enforce_occlusion_material: bool = false
+export(NodePath) var occlusion_target_path = @".."
 export(Shader) var custom_occlusion_shader
 
 
@@ -27,6 +28,8 @@ func _on_body_entered(body):
 		WallOcclusionManager.set_occlusion_params(true, cone_radius)
 		if body.has_method("set_occlusion_mode"):
 			body.set_occlusion_mode(true)
+		print("[OcclusionArea] Body entered: ", body.name, " Active count: ", WallOcclusionManager.registered_materials.size())
+
 
 func _on_body_exited(body):
 	if body.is_in_group("player"):
@@ -35,12 +38,23 @@ func _on_body_exited(body):
 			body.set_occlusion_mode(false)
 
 func _apply_enforcement():
+	var root = get_node_or_null(occlusion_target_path)
+	if not root:
+		print("[OcclusionArea] Target path invalid: ", occlusion_target_path)
+		return
+		
 	var shader_to_use = custom_occlusion_shader
 	if not shader_to_use:
 		shader_to_use = load("res://shaders/dither_hiding.shader")
-	_recursive_apply(self, shader_to_use)
+	print("[OcclusionArea] Applying enforcement starting from target: ", root.name)
+	_recursive_apply(root, shader_to_use)
+
 
 func _recursive_apply(node: Node, shader: Shader):
+	# SKIP PLAYER and the Area itself
+	if node.is_in_group("player") or node == self:
+		return
+		
 	if node is MeshInstance:
 		_process_mesh_instance(node, shader)
 	elif node is CSGShape:
@@ -57,13 +71,16 @@ func _process_mesh_instance(mesh: MeshInstance, shader: Shader):
 		if mesh.material_override is ShaderMaterial:
 			WallOcclusionManager.register_material(mesh.material_override)
 	
-	# Check active surface material (slot 0 usually)
-	var mat_surface = mesh.get_active_material(0)
-	if mat_surface:
-		var new_mat = _convert_material(mat_surface, shader)
-		mesh.set_surface_material(0, new_mat)
-		if new_mat is ShaderMaterial:
-			WallOcclusionManager.register_material(new_mat)
+	# Check all surface materials
+	var surface_count = mesh.get_surface_material_count()
+	for i in range(surface_count):
+		var mat_surface = mesh.get_active_material(i)
+		if mat_surface:
+			var new_mat = _convert_material(mat_surface, shader)
+			mesh.set_surface_material(i, new_mat)
+			if new_mat is ShaderMaterial:
+				WallOcclusionManager.register_material(new_mat)
+
 
 func _process_csg(csg: CSGShape, shader: Shader):
 	var mat = csg.material
@@ -97,6 +114,8 @@ func _convert_material(source_mat: Material, shader: Shader) -> Material:
 		if source_mat.flags_world_triplanar or source_mat.uv1_triplanar:
 			new_mat.set_shader_param("uv1_triplanar", true)
 			new_mat.set_shader_param("uv1_blend_sharpness", source_mat.uv1_triplanar_sharpness)
+		
+		print("[OcclusionArea] Converted SpatialMaterial to ShaderMaterial for mesh/shape.")
 		
 	return new_mat
 

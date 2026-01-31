@@ -10,6 +10,10 @@ func _process(_delta):
 	if registered_materials.empty():
 		return
 		
+	if is_occlusion_active and Engine.get_frames_drawn() % 60 == 0:
+		print("[WallOcclusionManager] Active. Materials: ", registered_materials.size(), " Player nodes: ", get_tree().get_nodes_in_group("player").size())
+
+		
 	if not is_instance_valid(player_node):
 		var players = get_tree().get_nodes_in_group("player")
 		if players.size() > 0:
@@ -37,8 +41,10 @@ func _process(_delta):
 func register_material(mat: ShaderMaterial):
 	if mat and not registered_materials.has(mat):
 		registered_materials.append(mat)
+		print("[WallOcclusionManager] Registered material: ", mat.resource_path if mat.resource_path else "Unsaved shader material")
 		# Immediate apply
 		mat.set_shader_param("hole_radius", hole_radius)
+
 
 func set_occlusion_params(active: bool, radius: float):
 	is_occlusion_active = active

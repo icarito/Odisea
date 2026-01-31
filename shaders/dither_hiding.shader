@@ -39,7 +39,7 @@ void vertex() {
 		BINORMAL = normalize(BINORMAL);
 		uv1_power_normal=pow(abs(NORMAL),vec3(uv1_blend_sharpness));
 		uv1_power_normal/=dot(uv1_power_normal,vec3(1.0));
-		uv1_triplanar_pos = VERTEX * uv1_scale + uv1_offset;
+		uv1_triplanar_pos = (WORLD_MATRIX * vec4(VERTEX, 1.0)).xyz * uv1_scale + uv1_offset;
 		uv1_triplanar_pos *= vec3(1.0,-1.0, 1.0);
 	}
 }
@@ -88,6 +88,7 @@ void fragment() {
 	}
 	ALBEDO = albedo.rgb * albedo_tex.rgb;
 	METALLIC = metallic;
+
 	ROUGHNESS = roughness;
 	SPECULAR = specular;
 	
