@@ -18,7 +18,7 @@ static func _describe_replay_path(path: String) -> String:
 	# Eliminar prefijos comunes y extensión para legibilidad
 	return fname.replace("replay_test_", "").replace("test_replay_", "").replace(".json", "")
 
-static func _compute_drift(player, expected: Dictionary) -> Dictionary:
+static func _compute_drift(player, expected) -> Dictionary:
 	var ret = {"drift": - 1.0, "yaw_diff": 0.0, "pitch_diff": 0.0}
 	if expected == null:
 		return ret
