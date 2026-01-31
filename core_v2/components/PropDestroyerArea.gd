@@ -150,7 +150,7 @@ func flush() -> void:
 		if _is_valid_target(body):
 			_destroy_entity(body)
 	
-	if debug:
+	if debug and bodies.size() > 0:
 		print("[PropDestroyerArea] Flushed %d entities" % bodies.size())
 
 func _sort_by_instance_id(a: Node, b: Node) -> bool:

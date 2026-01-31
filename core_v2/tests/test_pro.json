@@ -1,0 +1,136 @@
+{
+  "setters": [
+    {
+      "frame": 0,
+      "property": "$test_var",
+      "value": "10.0"
+    },
+    {
+      "frame": 0,
+      "property": "$pos_y",
+      "value": "GET_NODE_POS_Y \"Pilot\""
+    },
+    {
+      "frame": 0,
+      "property": "pos",
+      "value": "(0, 0.5, 0)"
+    },
+    {
+      "frame": 0,
+      "property": "rot",
+      "value": "0"
+    }
+  ],
+  "asserts": [
+    {
+      "frame": 0,
+      "condition": "1 == 0 \"Branching failed\""
+    },
+    {
+      "frame": 6,
+      "condition": "$player_count == 1 \"Player count should be 1\""
+    }
+  ],
+  "buffer": [
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    }
+  ],
+  "final_expected_state": {
+    "position": [
+      0,
+      0.418333,
+      0
+    ],
+    "velocity": [
+      0,
+      -1.4,
+      0
+    ],
+    "yaw": 0,
+    "pitch": 0,
+    "base_spring_length_3d": 7,
+    "movement_state": {
+      "horizontal_velocity": [
+        0,
+        0,
+        0
+      ],
+      "external_velocity": [
+        0,
+        0,
+        0
+      ],
+      "camera_input_timer": 0.1,
+      "is_tank_turn_mode": true,
+      "current_turn_time": 0
+    },
+    "ss_logic": {
+      "active": false,
+      "alpha": 0,
+      "axis": 0,
+      "val": 0,
+      "inv": false,
+      "tsl": 15,
+      "vc": [
+        0,
+        0,
+        0
+      ],
+      "lc": [
+        0,
+        0,
+        0
+      ],
+      "po": [
+        0,
+        0
+      ],
+      "fs": 1,
+      "ff": true
+    },
+    "jump_state": {
+      "coyote_timer": 0,
+      "jump_buffer_timer": 0,
+      "is_jumping": false
+    },
+    "acrobatic_state": {
+      "frames_since_last_snap": 22,
+      "last_input_vector": [
+        0,
+        0,
+        0
+      ],
+      "is_acrobatic_ready": false
+    },
+    "fwd_latch_active": false,
+    "fwd_latch_sign": 1
+  }
+}
