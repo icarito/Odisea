@@ -16,7 +16,7 @@ signal rigid_contact_ended() # Emitida cuando dejamos de tocar un RigidBody
 
 # --- EXPORTED TUNING ---
 export(float) var mouse_sensitivity := 0.005 setget set_mouse_sensitivity, get_mouse_sensitivity
-export(float) var snap_length := 0.5
+export(float) var snap_length := 0.25
 export(float) var push_force := 1.0 # Fuerza base del jugador para empujar rígidos
 export(float) var min_pitch := -85.0
 export(float) var max_pitch := 85.0
@@ -281,7 +281,7 @@ func _find_spring_arm(node: Node) -> SpringArm:
 	return null
 
 func get_camera_basis() -> Basis:
-	return camera_rig.transform.basis if camera_rig else DEFAULT_BASIS
+	return camera_rig.global_transform.basis if camera_rig else DEFAULT_BASIS
 
 var _interact_area: Area = null
 
@@ -591,7 +591,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	# 5. Movimiento Final y Animación
 	# El snap solo aplica cuando no estamos saltando (velocity.y <= 0)
 	# infinite_inertia = false para que los RigidBodies no sean atravesados ni ignorados por la masa
-	var snap_vec = Vector3.DOWN * snap_length if velocity.y <= 0 else Vector3.ZERO
+	var snap_vec = Vector3.DOWN * snap_length if (velocity.y <= 0 and not input.jump) else Vector3.ZERO
 	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true, 4, deg2rad(45), false)
 	
 	# --- CEILING COLLISION ---
