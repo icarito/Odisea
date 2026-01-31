@@ -163,7 +163,7 @@ func _physics_process(_dt):
 		if _replay_frame % 30 == 0 and _replay_frame >= 5:
 			print("[SessionManager] Frame %d: pos=%s" % [_replay_frame, player.global_transform.origin])
 
-		if player.global_transform.origin.y > _peak_y:
+		if is_instance_valid(player) and player.global_transform.origin.y > _peak_y:
 			_peak_y = player.global_transform.origin.y
 
 		# Obtener input primero para verificar si hay más inputs disponibles
@@ -175,14 +175,15 @@ func _physics_process(_dt):
 		
 		# Aplicar drift checkpoint si existe para este frame (ANTES del step)
 		if _drift_checkpoints.has(_replay_frame):
-			var checkpoint_pos = _drift_checkpoints[_replay_frame]
-			var current_pos = player.global_transform.origin
-			var drift = current_pos.distance_to(checkpoint_pos)
-			if drift > 0.001:
-				print("[DriftCorrection] Frame %d: Aplicando corrección. Drift=%.6f, Pos actual=%s -> %s" % [_replay_frame, drift, current_pos, checkpoint_pos])
-				var t = player.global_transform
-				t.origin = checkpoint_pos
-				player.global_transform = t
+			if is_instance_valid(player):
+				var checkpoint_pos = _drift_checkpoints[_replay_frame]
+				var current_pos = player.global_transform.origin
+				var drift = current_pos.distance_to(checkpoint_pos)
+				if drift > 0.001:
+					print("[DriftCorrection] Frame %d: Aplicando corrección. Drift=%.6f, Pos actual=%s -> %s" % [_replay_frame, drift, current_pos, checkpoint_pos])
+					var t = player.global_transform
+					t.origin = checkpoint_pos
+					player.global_transform = t
 			
 		var input = player.input_provider.get_input()
 		
@@ -215,7 +216,7 @@ func _physics_process(_dt):
 		var frame_entry = {"input": input_data.to_dict()}
 		
 		# Guardar drift checkpoint si el player dejó de tocar un RigidBody
-		if _pending_drift_checkpoint:
+		if _pending_drift_checkpoint and is_instance_valid(player):
 			frame_entry["drift_checkpoint"] = {
 				"position": var2str(player.global_transform.origin)
 			}
@@ -224,7 +225,7 @@ func _physics_process(_dt):
 			_pending_settle_checkpoint_frame = _recording_frame + 15
 		
 		# Guardar checkpoint "settle" si llegamos al frame programado
-		if _recording_frame == _pending_settle_checkpoint_frame:
+		if _recording_frame == _pending_settle_checkpoint_frame and is_instance_valid(player):
 			frame_entry["drift_checkpoint"] = {
 				"position": var2str(player.global_transform.origin)
 			}
@@ -283,9 +284,10 @@ func start_recording():
 	replay_meta["world_start_state"] = world_start_state
 
 	# Guardamos el estado inicial como primer elemento del buffer
-	buffer.append({"snapshot": player.get_full_snapshot()})
-	var cam = player.get_node_or_null("CameraRig")
-	print("GRAB_START\nrotation:", player.yaw, player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam.global_transform.origin)
+	if is_instance_valid(player):
+		buffer.append({"snapshot": player.get_full_snapshot()})
+		var cam = player.get_node_or_null("CameraRig")
+		print("GRAB_START\nrotation:", player.yaw, player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam.global_transform.origin if cam else "null")
 
 func _on_rigid_contact_ended():
 	# Marcar que debemos guardar un checkpoint en el próximo frame del buffer
@@ -491,7 +493,7 @@ func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
 
 	_pending_asserts = replay_data.get("asserts", [])
 	_pending_setters = replay_data.get("setters", [])
-	_peak_y = player.global_transform.origin.y
+	_peak_y = player.global_transform.origin.y if is_instance_valid(player) else 0.0
 	final_expected_state = replay_data.get("final_expected_state", null)
 
 	_drift_validated = false
@@ -534,7 +536,7 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 
 	_pending_asserts = replay_data.get("asserts", [])
 	_pending_setters = replay_data.get("setters", [])
-	_peak_y = player.global_transform.origin.y
+	_peak_y = player.global_transform.origin.y if is_instance_valid(player) else 0.0
 	final_expected_state = replay_data.get("final_expected_state", null)
 
 	_drift_validated = false
