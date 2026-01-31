@@ -1,0 +1,22 @@
+// Test script for OYS v2 Pro
+SECTION "Init"
+    PRINT "Starting OYS Pro Test"
+    SET $test_var 10.0
+    IF $test_var == 10.0 GOTO "Branch_OK"
+    PRINT "Error: Branching failed"
+    ASSERT 1 == 0 "Branching failed"
+
+SECTION "Branch_OK"
+    PRINT "Branching works"
+    SET $pos_y GET_NODE_POS_Y "Pilot"
+    // Note: GET_NODE_POS_Y returns a float
+
+    // Test WAIT
+    WAIT 0.1
+    PRINT "Wait finished"
+
+    // Test GET_NODES_IN_GROUP
+    GET_NODES_IN_GROUP "player" AS $player_count
+    ASSERT $player_count == 1 "Player count should be 1"
+
+    PRINT "Test completed successfully"

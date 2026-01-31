@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 if [ -z "$GODOT_BIN" ]; then
     GODOT_BIN="godot3-bin"
