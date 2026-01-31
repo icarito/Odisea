@@ -344,7 +344,7 @@ func load_and_play(path: String):
 		file.open(path, File.READ)
 		var script_content = file.get_as_text()
 		file.close()
-		var resolver = load("res://core_v2/utils/OYS_Resolver.gd")
+		var resolver = load("res://core_v2/systems/OYS_Resolver.gd")
 		var result = resolver.parse_script(script_content)
 		var scene_path = "res://core_v2/levels/TestScene_v2.tscn"
 		# Buscar LEVEL en el script (línea que comience con LEVEL)

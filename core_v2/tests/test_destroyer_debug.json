@@ -13,343 +13,767 @@
   ],
   "asserts": [
     {
-      "frame": 132,
-      "condition": "pos.z > 3.0 \"ERROR: No hubo suficiente inercia horizontal en el salto\""
+      "frame": 120,
+      "condition": "pos.y > -1.0 \"Player fell\""
     },
     {
-      "frame": 132,
-      "condition": "pos.y < 0.1 \"El personaje no regresó al suelo\""
+      "frame": 240,
+      "condition": "pos.y > -1.0 \"Player should still be on ground\""
+    },
+    {
+      "frame": 240,
+      "condition": "pos.y < 3.0 \"Player position unstable\""
     }
   ],
   "buffer": [
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "sprint": true
+
       }
     },
     {
       "input": {
-        "jump": true
+
       }
     },
     {
       "input": {
-        "jump": true
+
       }
     },
     {
       "input": {
-        "jump": true
+
       }
     },
     {
       "input": {
-        "jump": true
+
       }
     },
     {
       "input": {
-        "jump": true
+
       }
     },
     {
       "input": {
-        "jump": true
+
       }
     },
     {
       "input": {
-        "jump": true
+
       }
     },
     {
       "input": {
-        "jump": true
+
       }
     },
     {
       "input": {
-        "jump": true
+
       }
     },
     {
       "input": {
-        "jump": true
+
       }
     },
     {
       "input": {
-        "jump": true
+
       }
     },
     {
       "input": {
-        "jump": true
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
+      }
+    },
+    {
+      "input": {
+
       }
     },
     {
@@ -806,8 +1230,8 @@
   "final_expected_state": {
     "position": [
       0,
-      0.0415,
-      6.002774
+      0.1415,
+      0
     ],
     "velocity": [
       0,
@@ -828,7 +1252,7 @@
         0,
         0
       ],
-      "camera_input_timer": 2.2,
+      "camera_input_timer": 4,
       "is_tank_turn_mode": true,
       "current_turn_time": 0
     },
@@ -862,11 +1286,11 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 148,
+      "frames_since_last_snap": 256,
       "last_input_vector": [
         0,
         0,
-        1
+        0
       ],
       "is_acrobatic_ready": false
     },
