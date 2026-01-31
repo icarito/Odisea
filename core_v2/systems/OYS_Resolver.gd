@@ -163,7 +163,7 @@ static func _instruction_to_frames(inst: Dictionary, start_frame: int) -> Dictio
 
 		# These commands are markers or runtime-only - just pass through
 		"SECTION", "END", "LEVEL", "ASSERT_SIGNAL", "GOTO", "IF", \
-		"PLAY_ANIM", "WAIT_ANIM", "SPAWN", "SET_TIME_SCALE", "GET_NODES_IN_GROUP":
+		"PLAY_ANIM", "WAIT_ANIM", "SPAWN", "SET_TIME_SCALE", "GET_NODES_IN_GROUP", "SCREENSHOT":
 			pass
 
 	return {

@@ -15,7 +15,8 @@ enum Command {
 	SET, ASSERT, ASSERT_SIGNAL, PRINT,
 	GOTO, IF,
 	PLAY_ANIM, WAIT_ANIM, SPAWN,
-	SET_TIME_SCALE, GET_NODES_IN_GROUP
+	SET_TIME_SCALE, GET_NODES_IN_GROUP,
+	SCREENSHOT
 }
 
 # Command synonyms mapping
@@ -31,7 +32,7 @@ static func preprocess(script_content: String) -> PoolStringArray:
 	var lines = PoolStringArray()
 	for line in script_content.split("\n"):
 		var stripped = line.strip_edges()
-		if stripped.empty() or stripped.begins_with("//"):
+		if stripped.empty() or stripped.begins_with("//") or stripped.begins_with("#"):
 			continue
 		lines.append(stripped)
 	return lines
@@ -138,6 +139,9 @@ static func parse_instruction(line: String) -> Dictionary:
 		
 		"END":
 			pass # Marker only
+
+		"SCREENSHOT":
+			data["path"] = parts[1] if parts.size() > 1 else "res://screenshot.png"
 		
 		"WALK", "RUN":
 			# These are modifiers, handle them specially

@@ -139,6 +139,14 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		
 		"PRINT":
 			print("[OYS PRINT] ", inst.get("message", ""))
+			
+		"SCREENSHOT":
+			yield (VisualServer, "frame_post_draw")
+			var img = host_node.get_viewport().get_texture().get_data()
+			img.flip_y()
+			var path = inst.get("path", "res://screenshot.png")
+			img.save_png(path)
+			print("[OYS] Screenshot saved to: ", path)
 		
 		"ASSERT":
 			_execute_assert(inst.get("condition", ""))
