@@ -1417,13 +1417,9 @@ window/stretch/aspect="keep"
 
 enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/qodot/plugin.cfg" )
 
-[global]
+[gdunit3]
 
-port=false
-acum=false
-acc=false
-monit=false
-batch=false
+settings/test/test_root_folder="core_v2/tests"
 
 [gui]
 
