@@ -90,12 +90,9 @@ func get_handle_name(gizmo, index):
 
 func get_handle_value(gizmo, index):
 	var spatial = gizmo.get_spatial_node()
-	var extents = spatial.get("zone_extents")
-	if not extents is Vector3:
-		var shape_node = _get_target_shape(spatial)
-		if not shape_node: return 0.0
-		extents = shape_node.shape.extents
-	
+	var shape_node = _get_target_shape(spatial)
+	if not shape_node: return 0.0
+	var extents = shape_node.shape.extents
 	match index:
 		0, 1: return extents.x * 2.0
 		2, 3: return extents.y * 2.0
@@ -127,19 +124,16 @@ func set_handle(gizmo, index, camera, point):
 	var closest_points = Geometry.get_closest_points_between_segments(ray_from, ray_to, line_from, line_to)
 	var local_point = gt.affine_inverse().xform(closest_points[1])
 	
-	var extents = spatial.get("zone_extents")
-	if not extents is Vector3:
-		extents = shape_node.shape.extents
-	
+	var extents = shape_node.shape.extents
 	var new_extents = extents
 	
 	match index:
-		0: new_extents.x = local_point.x
-		1: new_extents.x = - local_point.x
-		2: new_extents.y = local_point.y
-		3: new_extents.y = - local_point.y
-		4: new_extents.z = local_point.z
-		5: new_extents.z = - local_point.z
+		0: new_extents.x = abs(local_point.x)
+		1: new_extents.x = abs(local_point.x)
+		2: new_extents.y = abs(local_point.y)
+		3: new_extents.y = abs(local_point.y)
+		4: new_extents.z = abs(local_point.z)
+		5: new_extents.z = abs(local_point.z)
 
 	# Apply Snapping
 	if Input.is_key_pressed(KEY_CONTROL):
@@ -151,14 +145,9 @@ func set_handle(gizmo, index, camera, point):
 		new_extents.y = stepify(new_extents.y, snap_step)
 		new_extents.z = stepify(new_extents.z, snap_step)
 
-	new_extents = Vector3(max(0.05, new_extents.x), max(0.05, new_extents.y), max(0.05, new_extents.z))
-	
-	if spatial.has_method("set_zone_extents"):
-		spatial.set_zone_extents(new_extents)
-	else:
-		shape_node.shape.extents = new_extents
+	shape_node.shape.extents = Vector3(max(0.05, new_extents.x), max(0.05, new_extents.y), max(0.05, new_extents.z))
 
-	# shape_node.property_list_changed_notify() # redundant with setter
+	shape_node.property_list_changed_notify()
 	redraw(gizmo)
 
 func commit_handle(gizmo, index, restore, cancel = false):

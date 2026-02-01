@@ -70,4 +70,23 @@ func _run_oys_on_body(body: Node, path: String):
 		body.add_child(comp)
 
 	comp.auto_pause_player = auto_pause_player
+	
+	# Posicionar el jugador en el centro XZ del trigger (mantener Y del jugador)
+	# para que las repeticiones sean idénticas
+	if body.is_in_group("player"):
+		var trigger_pos = global_transform.origin
+		var player_pos = body.global_transform.origin
+		
+		# Solo ajustar X y Z, mantener Y del jugador
+		var spawn_pos = Vector3(trigger_pos.x, player_pos.y, trigger_pos.z)
+		
+		# Preservar la rotación del jugador
+		var player_yaw = body.yaw if "yaw" in body else 0.0
+		var player_pitch = body.pitch if "pitch" in body else 0.0
+		
+		print("[OYSTrigger] Jugador será posicionado suavemente en: ", spawn_pos)
+		
+		# Pasar la posición al componente para corrección suave y snapshot inicial
+		comp.set_initial_position(spawn_pos, player_yaw, player_pitch)
+	
 	comp.load_and_start(path)

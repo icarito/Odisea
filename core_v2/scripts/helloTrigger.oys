@@ -1,4 +1,9 @@
 SECTION "Main"
-    PRINT "HELLO! OYSTrigger activated."
-    PRINT "Trigger sequence complete."
+    PRINT "Level 1 Golden Path"
+    RIGHT 126m
+    BW 9m
+    LEFT 56m
+    FW 46m
+    LEFT 90
+    FW 0.5s
     JUMP

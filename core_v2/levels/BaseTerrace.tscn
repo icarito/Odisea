@@ -1,4 +1,4 @@
-[gd_scene load_steps=205 format=2]
+[gd_scene load_steps=211 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -27,14 +27,30 @@
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_02.png" type="Texture" id=25]
 [ext_resource path="res://core_v2/things/VerticalDoor.tscn" type="PackedScene" id=26]
 [ext_resource path="res://core_v2/components/OcclusionZoneV2.gd" type="Script" id=27]
+[ext_resource path="res://core_v2/components/OYSTrigger.gd" type="Script" id=28]
+[ext_resource path="res://core_v2/things/CheckZoneV2.tscn" type="PackedScene" id=29]
 
-[sub_resource type="BoxShape" id=849]
-extents = Vector3( 9, 17, 5 )
+[sub_resource type="SpatialMaterial" id=849]
+flags_transparent = true
+flags_unshaded = true
+albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
+
+[sub_resource type="CubeMesh" id=850]
+
+[sub_resource type="BoxShape" id=853]
+
+[sub_resource type="SpatialMaterial" id=852]
+flags_transparent = true
+flags_unshaded = true
+albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
+
+[sub_resource type="BoxShape" id=854]
+extents = Vector3( 10, 17, 4.95 )
 
 [sub_resource type="CubeMesh" id=1]
 size = Vector3( 80, 2, 80 )
 
-[sub_resource type="MultiMesh" id=850]
+[sub_resource type="MultiMesh" id=855]
 transform_format = 1
 instance_count = 200
 mesh = SubResource( 1 )
@@ -704,7 +720,7 @@ size = Vector3( 8, 10, 0.2 )
 [sub_resource type="ConcavePolygonShape" id=675]
 data = PoolVector3Array( -4, 5, 0.1, 4, 5, 0.1, -4, -5, 0.1, 4, 5, 0.1, 4, -5, 0.1, -4, -5, 0.1, 4, 5, -0.1, -4, 5, -0.1, 4, -5, -0.1, -4, 5, -0.1, -4, -5, -0.1, 4, -5, -0.1, 4, 5, 0.1, 4, 5, -0.1, 4, -5, 0.1, 4, 5, -0.1, 4, -5, -0.1, 4, -5, 0.1, -4, 5, -0.1, -4, 5, 0.1, -4, -5, -0.1, -4, 5, 0.1, -4, -5, 0.1, -4, -5, -0.1, 4, 5, 0.1, -4, 5, 0.1, 4, 5, -0.1, -4, 5, 0.1, -4, 5, -0.1, 4, 5, -0.1, -4, -5, 0.1, 4, -5, 0.1, -4, -5, -0.1, 4, -5, 0.1, 4, -5, -0.1, -4, -5, -0.1 )
 
-[sub_resource type="BoxShape" id=851]
+[sub_resource type="BoxShape" id=856]
 extents = Vector3( 10, 40, 100 )
 
 [node name="Terrace" type="CSGBox"]
@@ -739,6 +755,40 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7687, 1.14, -6.01974 )
 [node name="Smoke" parent="CornerFloor2" instance=ExtResource( 11 )]
 transform = Transform( 4.99999, 0, 0, 0, 4.99999, 0, 0, 0, 4.99999, 0.803499, 4.66144, -3.98371 )
 skeleton = NodePath("../..")
+
+[node name="ExampleTrigger" type="Area" parent="CornerFloor2"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7687, 1.6, -0.0197392 )
+script = ExtResource( 28 )
+debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
+script_file = "res://core_v2/scripts/helloTrigger.oys"
+label_text = "OYSTrigger Example"
+trigger_once = false
+
+[node name="_ZoneDebugMesh2" type="MeshInstance" parent="CornerFloor2/ExampleTrigger"]
+material_override = SubResource( 849 )
+cast_shadow = 0
+mesh = SubResource( 850 )
+
+[node name="_TriggerLabel2" type="Label3D" parent="CornerFloor2/ExampleTrigger"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
+billboard = 1
+no_depth_test = true
+modulate = Color( 0.827451, 0.247059, 0.0431373, 1 )
+text = "OYSTrigger Example"
+
+[node name="CollisionShape" type="CollisionShape" parent="CornerFloor2/ExampleTrigger"]
+shape = SubResource( 853 )
+
+[node name="_ZoneDebugMesh3" type="MeshInstance" parent="CornerFloor2/ExampleTrigger"]
+material_override = SubResource( 852 )
+cast_shadow = 0
+
+[node name="_TriggerLabel3" type="Label3D" parent="CornerFloor2/ExampleTrigger"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
+billboard = 1
+no_depth_test = true
+modulate = Color( 0.827451, 0.247059, 0.0431373, 1 )
+text = "OYSTrigger Example"
 
 [node name="Action" type="Spatial" parent="."]
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 12.8116, 1.05, 19.2203 )
@@ -781,12 +831,12 @@ invert_side = true
 allow_depth_movement = true
 
 [node name="CollisionShape" parent="SideScrollZone4" index="1"]
-shape = SubResource( 849 )
+shape = SubResource( 854 )
 
 [node name="TerraceSpiral" parent="." instance=ExtResource( 9 )]
 transform = Transform( 0.986025, 0, 0.166597, 0, 1, 0, -0.166597, 0, 0.986025, -237.353, 37.8111, 76.7493 )
 visible = false
-multimesh = SubResource( 850 )
+multimesh = SubResource( 855 )
 
 [node name="GuardrailSegment" parent="." instance=ExtResource( 21 )]
 transform = Transform( -8.74228e-07, 0, 1, 0, 1, 0, -20, 0, -4.37114e-08, 40, 1, 0 )
@@ -1335,7 +1385,12 @@ enforce_occlusion_material = true
 occlusion_target_path = NodePath("../QodotMap")
 
 [node name="CollisionShape" type="CollisionShape" parent="Building/OcclusionArea"]
-shape = SubResource( 851 )
+shape = SubResource( 856 )
+
+[node name="CheckZoneV2" parent="." instance=ExtResource( 29 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -25.3912, 20.017, 32.3357 )
+debug_render = false
+zone_extents = Vector3( 2.2, 4, 1 )
 
 [editable path="CornerFloor2/CrioPod"]
 [editable path="SideScrollZone4"]
