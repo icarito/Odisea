@@ -522,6 +522,13 @@
     ],
     "was_on_platform": true,
     "step_grounded_timer": 0,
-    "just_stepped": false
+    "just_stepped": false,
+    "direction_latch_active": false,
+    "latched_world_direction": [
+      0,
+      0,
+      0
+    ],
+    "prev_sidescroll_active": false
   }
 }

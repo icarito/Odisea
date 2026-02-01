@@ -561,32 +561,32 @@
   ],
   "final_expected_state": {
     "position": [
-      -0.094937,
+      0,
       0.0415,
-      6.395262
+      5.438891
     ],
     "velocity": [
-      -0.475864,
+      0,
       -0.233333,
-      6.533032
+      7
     ],
-    "yaw": -0.001838,
+    "yaw": 0,
     "pitch": 0,
     "base_spring_length_3d": 7,
     "movement_state": {
       "horizontal_velocity": [
-        -0.475864,
-        -0.000013,
-        6.533032
+        0,
+        0,
+        7
       ],
       "external_velocity": [
         0,
         0,
         0
       ],
-      "camera_input_timer": 1.15,
+      "camera_input_timer": 1,
       "is_tank_turn_mode": true,
-      "current_turn_time": 0.016667
+      "current_turn_time": 0
     },
     "ss_logic": {
       "active": false,
@@ -620,11 +620,11 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 85,
+      "frames_since_last_snap": 76,
       "last_input_vector": [
-        -1,
         0,
-        0
+        0,
+        1
       ],
       "is_acrobatic_ready": false
     },
@@ -654,12 +654,19 @@
       ]
     },
     "platform_velocity": [
+      -0,
+      0,
+      -0.000057
+    ],
+    "was_on_platform": true,
+    "step_grounded_timer": 0,
+    "just_stepped": false,
+    "direction_latch_active": false,
+    "latched_world_direction": [
       0,
       0,
       0
     ],
-    "was_on_platform": true,
-    "step_grounded_timer": 0,
-    "just_stepped": false
+    "prev_sidescroll_active": false
   }
 }
