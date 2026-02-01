@@ -29,7 +29,7 @@
 [ext_resource path="res://core_v2/components/OcclusionZoneV2.gd" type="Script" id=27]
 [ext_resource path="res://core_v2/components/OYSTrigger.gd" type="Script" id=28]
 [ext_resource path="res://core_v2/things/CheckZoneV2.tscn" type="PackedScene" id=29]
-[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=30]
+[ext_resource path="res://scenes/reference/InteriorLab.tscn" type="PackedScene" id=30]
 
 [sub_resource type="SpatialMaterial" id=849]
 flags_transparent = true
@@ -845,6 +845,12 @@ transform = Transform( -8.74228e-07, 0, 1, 0, 1, 0, -20, 0, -4.37114e-08, 40, 1,
 [node name="GuardrailSegment3" parent="." instance=ExtResource( 21 )]
 transform = Transform( -8.74228e-07, 0, 1, 0, 1, 0, -20, 0, -4.37114e-08, -39.8813, 1, -0.118675 )
 
+[node name="GuardrailSegment4" parent="." instance=ExtResource( 21 )]
+transform = Transform( 20, 0, 2.38419e-07, 0, 1, 0, -4.76837e-06, 0, 1, 0.118689, 1, -40.1187 )
+
+[node name="GuardrailSegment5" parent="." instance=ExtResource( 21 )]
+transform = Transform( -20, 0, -1.50996e-07, 0, 1, 0, 3.01992e-06, 0, -1, 0.118704, 1, 39.8813 )
+
 [node name="GuardrailSegment2" parent="." instance=ExtResource( 21 )]
 transform = Transform( 2.38498e-07, 0, -1, 0, 1, 0, 20, 0, 1.19249e-08, -40, 1, 0 )
 
@@ -1394,17 +1400,12 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -25.3912, 20.017, 32.3357 )
 debug_render = false
 zone_extents = Vector3( 2.2, 4, 1 )
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-environment = ExtResource( 30 )
+[node name="InteriorWide" parent="." instance=ExtResource( 30 )]
 
-[node name="DirectionalLight" type="DirectionalLight" parent="WorldEnvironment"]
-transform = Transform( 0.996195, 3.82452e-09, 0.0871557, -0.0841859, 0.258819, 0.96225, -0.0225575, -0.965926, 0.257834, 30.8934, 69.3233, 18.402 )
-light_color = Color( 0.364706, 0.364706, 0.364706, 1 )
-light_energy = 0.627
-light_indirect_energy = 1.279
-light_bake_mode = 2
-shadow_enabled = true
-directional_shadow_mode = 2
+[node name="DirectionalLight" parent="InteriorWide" index="0"]
+transform = Transform( -0.0335842, 0.325821, -0.944835, -0.0968759, 0.939855, 0.327547, 0.99473, 0.102532, -7.47631e-08, 0.464873, 30.9615, 3.10425 )
+directional_shadow_fade_start = 0.04
 
 [editable path="CornerFloor2/CrioPod"]
 [editable path="SideScrollZone4"]
+[editable path="InteriorWide"]

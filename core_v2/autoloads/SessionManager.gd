@@ -533,9 +533,6 @@ func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
 	if "velocity" in player:
 		player.velocity = Vector3.ZERO
 
-	var b_size = input_buffer.size()
-	# print("[SessionManager] Starting _play_buffer_internal with %d frames" % b_size)
-
 	_pending_asserts = replay_data.get("asserts", [])
 	_pending_setters = replay_data.get("setters", [])
 	_peak_y = player.global_transform.origin.y if is_instance_valid(player) else 0.0
