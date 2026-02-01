@@ -71,8 +71,7 @@ strafe_speed_multiplier = 1.0
 
 [node name="SideScroll" type="Node" parent="Logic"]
 script = ExtResource( 8 )
-target_pitch_deg = -5.0
-target_y_offset = 2.0
+target_y_offset = 1.0
 target_spring_length = 15.0
 spring_min = 10.0
 spring_max = 30.0
@@ -145,7 +144,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.16982, 0 )
 transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866, 0, 0.309255, 0 )
 
 [node name="SpringArm" type="SpringArm" parent="CameraRig/Yaw/Pitch"]
-transform = Transform( -1, 0, -1.50996e-07, -2.37355e-08, 0.987568, 0.157193, 1.49119e-07, 0.157193, -0.987568, 0, -0.0616157, -0.17651 )
+transform = Transform( -1, -1.51808e-08, 8.60946e-08, 0, 0.984808, 0.173648, -8.74228e-08, 0.173648, -0.984808, 0, -0.062, 0 )
 shape = SubResource( 109 )
 spring_length = 7.0
 

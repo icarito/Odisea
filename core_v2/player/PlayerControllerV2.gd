@@ -347,6 +347,13 @@ func _process_interaction(input: InputDataV2):
 			print("Interactable in range (Area): ", best_target.name)
 			var text = best_target.interaction_text if best_target.get("interaction_text") else "Interact"
 			emit_signal("interactable_in_range", text)
+			
+			# Auto-activate if auto_interact_once is enabled and hasn't been auto-triggered yet
+			if best_target.get("auto_interact_once") and not best_target.get("_auto_triggered"):
+				if best_target.has_method("set_active"):
+					print("Auto-activating interactable: ", best_target.name)
+					best_target.set_active(true)
+					best_target._auto_triggered = true
 		
 		# Handle interaction
 		if input.interact:
