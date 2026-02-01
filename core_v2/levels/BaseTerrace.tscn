@@ -1378,7 +1378,7 @@ shape = SubResource( 672 )
 [node name="entity_0_brush_170_collision_shape" type="CollisionShape" parent="QodotMap/entity_0_worldspawn"]
 shape = SubResource( 673 )
 
-[node name="SlidingDoor" parent="QodotMap" instance=ExtResource( 20 )]
+[node name="SlidingDoor" parent="QodotMap" groups=["no_occlusion"] instance=ExtResource( 20 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 4.13815, 5.79305, 13.6371 )
 interaction_text = "Open Door"
 anim_duration = 0.8
@@ -1393,7 +1393,7 @@ mesh = SubResource( 674 )
 transform = Transform( 1, 0, -7.10543e-15, 0, 1, 0, 7.10543e-15, 0, 1, 0.310929, -0.59305, -0.0207176 )
 shape = SubResource( 675 )
 
-[node name="VerticalDoor" parent="QodotMap" instance=ExtResource( 26 )]
+[node name="VerticalDoor" parent="QodotMap" groups=["no_occlusion"] instance=ExtResource( 26 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 25.5873, 6.003, 31.0544 )
 
 [node name="OcclusionArea" type="Area" parent="QodotMap"]

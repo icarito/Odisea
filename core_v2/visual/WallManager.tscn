@@ -1,9 +1,0 @@
-[gd_scene load_steps=2 format=2]
-
-[ext_resource path="res://core_v2/visual/WallManager.gd" type="Script" id=1]
-
-[node name="WallManager" type="Node"]
-script = ExtResource( 1 )
-target_node_path = NodePath("../Level/Conveyors/QodotMap")
-hole_radius = 3.0
-cutoff_offset = 0.1

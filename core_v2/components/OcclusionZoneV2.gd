@@ -53,6 +53,10 @@ func _recursive_apply(node: Node, shader: Shader):
 	# Robust skip for player and its children
 	if node == self or node.is_in_group("player") or _is_part_of_player(node):
 		return
+	
+	# Skip nodes in the no_occlusion group
+	if node.is_in_group("no_occlusion"):
+		return
 		
 	if node is MeshInstance:
 		_process_mesh_instance(node, shader)
