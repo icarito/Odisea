@@ -4,6 +4,7 @@ const InputProviderV2 = preload("../input/InputProviderV2.gd")
 const InputDataV2 = preload("../input/InputDataV2.gd")
 const PlayerJumpV2 = preload("PlayerJumpV2.gd")
 const PlayerMovementV2 = preload("PlayerMovementV2.gd")
+const CinematicLogicV2 = preload("CinematicLogicV2.gd")
 
 const FIXED_DT := 1.0 / 60.0
 const UP := Vector3.UP
@@ -266,8 +267,10 @@ var external_input_provided := false
 
 var jump_logic: PlayerJumpV2
 var movement_logic: PlayerMovementV2
+var cinematic_logic: CinematicLogicV2
 var _created_jump_logic := false
 var _created_movement_logic := false
+var _created_cinematic_logic := false
 
 const SideScrollLogicV2 = preload("SideScrollLogicV2.gd")
 
@@ -321,6 +324,18 @@ func _ready():
 		else:
 			add_child(sidescroll_logic)
 	
+	if has_node("Logic/Cinematic"):
+		cinematic_logic = get_node("Logic/Cinematic")
+		_created_cinematic_logic = false
+	else:
+		cinematic_logic = CinematicLogicV2.new()
+		_created_cinematic_logic = true
+		cinematic_logic.name = "Cinematic"
+		if has_node("Logic"):
+			get_node("Logic").add_child(cinematic_logic)
+		else:
+			add_child(cinematic_logic)
+
 	_cached_cam = _find_camera(camera_rig)
 	if _cached_cam:
 		base_fov = _cached_cam.fov
@@ -545,6 +560,27 @@ func step(dt: float, input: InputDataV2) -> void:
 	var basis = get_camera_basis()
 	var move_vec = input.move_vec
 	
+	# --- CINEMATIC CONTROL MODE ---
+	var active_rig = CinematicManager.active_rig
+	if active_rig:
+		var mode = CinematicManager.get_control_mode()
+		if mode != CinematicManager.ControlMode.FREE:
+			var cam = CinematicManager.get_active_camera()
+			var world_dir = cinematic_logic.transform_input(input.move_vec, cam, mode)
+
+			# Transform world_dir back to basis-relative move_vec for process_movement
+			# or just provide a basis that aligns with world_dir
+			if world_dir.length() > 0.01:
+				# We use a fixed basis and put all magnitude in move_vec.y (forward)
+				basis = Basis.IDENTITY
+				move_vec = Vector2(0, world_dir.length())
+				# We calculate the horizontal direction
+				var h_dir = Vector3(world_dir.x, 0, world_dir.z).normalized()
+				if h_dir.length() > 0.01:
+					basis = Basis(Vector3.UP.cross(h_dir), Vector3.UP, h_dir)
+			else:
+				move_vec = Vector2.ZERO
+
 	# --- ACROBATIC SNAP DETECTION (Frame-based for determinism) ---
 	# Uses input.move_vec directly to capture raw intent before processing
 	var current_input_3d = Vector3(input.move_vec.x, 0, input.move_vec.y).normalized()
@@ -1074,6 +1110,9 @@ func _exit_tree() -> void:
 
 	if _created_sidescroll_logic and sidescroll_logic and sidescroll_logic.is_inside_tree():
 		sidescroll_logic.queue_free()
+
+	if _created_cinematic_logic and cinematic_logic and cinematic_logic.is_inside_tree():
+		cinematic_logic.queue_free()
 
 # Teletransporte seguro (para checkpoints, killzones, etc)
 func teleport_to(target_transform: Transform) -> void:

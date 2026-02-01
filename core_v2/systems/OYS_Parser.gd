@@ -16,7 +16,9 @@ enum Command {
 	GOTO, IF,
 	PLAY_ANIM, WAIT_ANIM, SPAWN,
 	SET_TIME_SCALE, GET_NODES_IN_GROUP,
-	SCREENSHOT
+	SCREENSHOT,
+	CINEMATIC_START, CINEMATIC_STOP,
+	RECORD_START, RECORD_STOP
 }
 
 # Command synonyms mapping
@@ -143,6 +145,19 @@ static func parse_instruction(line: String) -> Dictionary:
 		"SCREENSHOT":
 			data["path"] = parts[1] if parts.size() > 1 else "res://screenshot.png"
 		
+		"CINEMATIC_START":
+			data["rig_id"] = _extract_quoted(parts, 1)
+			data["mode"] = parts[2].to_upper() if parts.size() > 2 else "FREE"
+
+		"CINEMATIC_STOP":
+			pass
+
+		"RECORD_START":
+			pass
+
+		"RECORD_STOP":
+			pass
+
 		"WALK", "RUN":
 			# These are modifiers, handle them specially
 			var is_running = (cmd == "RUN")

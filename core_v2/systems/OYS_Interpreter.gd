@@ -179,6 +179,38 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			img.save_png(path)
 			print("[OYS] Screenshot saved to: ", path)
 		
+		"CINEMATIC_START":
+			var rig_id = inst.get("rig_id", "")
+			var mode_str = inst.get("mode", "FREE")
+			var mode = CinematicManager.ControlMode.FREE
+			match mode_str:
+				"FREE": mode = CinematicManager.ControlMode.FREE
+				"SIDESCROLL": mode = CinematicManager.ControlMode.SIDESCROLL
+				"LOCKED_VIEW": mode = CinematicManager.ControlMode.LOCKED_VIEW
+				"FIXED_AXIS": mode = CinematicManager.ControlMode.FIXED_AXIS
+
+			CinematicManager.activate_rig(rig_id, mode)
+
+		"CINEMATIC_STOP":
+			CinematicManager.deactivate_rig()
+
+		"RECORD_START":
+			var recorder = _find_recorder()
+			if recorder:
+				recorder.start_recording()
+			else:
+				# Instantiate one if not found
+				var FrameRecorder = load("res://core_v2/systems/FrameRecorder.gd")
+				var new_recorder = FrameRecorder.new()
+				new_recorder.name = "FrameRecorder"
+				host_node.get_tree().root.add_child(new_recorder)
+				new_recorder.start_recording()
+
+		"RECORD_STOP":
+			var recorder = _find_recorder()
+			if recorder:
+				recorder.stop_recording()
+
 		"ASSERT":
 			_execute_assert(inst.get("condition", ""))
 		
@@ -328,6 +360,11 @@ func _execute_look(inst: Dictionary, my_id: int):
 		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
 			break
 		yield (host_node.get_tree(), "physics_frame")
+
+func _find_recorder() -> Node:
+	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+		return null
+	return host_node.get_tree().root.find_node("FrameRecorder", true, false)
 
 func _find_player() -> Node:
 	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
