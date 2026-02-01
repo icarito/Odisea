@@ -58,8 +58,14 @@ func activate_rig_direct(target_rig: Spatial, control_mode: int = ControlMode.FR
 	var old_cam = get_viewport().get_camera()
 	current_control_mode = control_mode
 
+	# Si el rig maneja su propia transición, no usamos la del Manager
+	var rig_handles_transition = target_rig.has_method("_apply_transition_camera")
 	var trans_time = target_rig.transition_time if "transition_time" in target_rig else 0.0
-	if trans_time > 0 and old_cam and old_cam != _trans_camera:
+	
+	if rig_handles_transition:
+		# El rig (CinematicPathRig) maneja su propia transición
+		_apply_rig(target_rig)
+	elif trans_time > 0 and old_cam and old_cam != _trans_camera:
 		_start_transition(old_cam, new_cam, trans_time, target_rig)
 	else:
 		_apply_rig(target_rig)
@@ -69,8 +75,17 @@ func activate_rig_direct(target_rig: Spatial, control_mode: int = ControlMode.FR
 
 func deactivate_rig():
 	if active_rig:
+		# Si el rig maneja su propia restauración de cámara, dejarlo hacerlo
+		var rig_handles_restore = active_rig.has_method("_restore_player_camera")
 		active_rig.deactivate()
 		active_rig = null
+		
+		if rig_handles_restore:
+			# El rig restaura la cámara, no hacemos nada más
+			current_control_mode = ControlMode.FREE
+			_is_transitioning = false
+			emit_signal("cinematic_stopped")
+			return
 
 	current_control_mode = ControlMode.FREE
 	_is_transitioning = false

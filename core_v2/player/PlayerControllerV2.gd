@@ -66,6 +66,18 @@ var pitch_deg := 0.0
 var _forward_latch_active := false
 var _forward_latch_sign := 1.0
 
+# Direction Latch System - Evita cambios bruscos de dirección al entrar/salir de zonas
+# Guarda el CONTEXTO de interpretación de input cuando cambia la cámara
+var _direction_latch_active := false
+var _latched_camera_basis := Basis.IDENTITY  # Basis de cámara para interpretar input
+var _latched_sidescroll_active := false  # Si estábamos en modo sidescroll
+var _latched_sidescroll_basis := Basis.IDENTITY  # Basis del sidescroll para latched mode
+var _latched_cinematic_mode := -1  # Modo de control cinemático (-1 = no cinematic)
+var _latched_input_vec := Vector2.ZERO  # Input que activó el latch (para saber cuándo liberar)
+var _prev_sidescroll_active := false
+var _prev_cinematic_rig = null  # Referencia al rig cinemático anterior
+var _prev_camera_basis := Basis.IDENTITY  # Basis de cámara del frame anterior
+
 # Métodos de acceso para export (opcional, para Inspector)
 func set_mouse_sensitivity(v):
 	if v == null:
@@ -137,6 +149,28 @@ func get_full_snapshot() -> Dictionary:
 	snapshot["step_grounded_timer"] = _step_grounded_timer
 	snapshot["just_stepped"] = _just_stepped
 	
+	# Direction Latch state (para evitar cambios bruscos de dirección)
+	snapshot["direction_latch_active"] = _direction_latch_active
+	snapshot["latched_camera_basis"] = {
+		"x": [_latched_camera_basis.x.x, _latched_camera_basis.x.y, _latched_camera_basis.x.z],
+		"y": [_latched_camera_basis.y.x, _latched_camera_basis.y.y, _latched_camera_basis.y.z],
+		"z": [_latched_camera_basis.z.x, _latched_camera_basis.z.y, _latched_camera_basis.z.z]
+	}
+	snapshot["latched_sidescroll_active"] = _latched_sidescroll_active
+	snapshot["latched_sidescroll_basis"] = {
+		"x": [_latched_sidescroll_basis.x.x, _latched_sidescroll_basis.x.y, _latched_sidescroll_basis.x.z],
+		"y": [_latched_sidescroll_basis.y.x, _latched_sidescroll_basis.y.y, _latched_sidescroll_basis.y.z],
+		"z": [_latched_sidescroll_basis.z.x, _latched_sidescroll_basis.z.y, _latched_sidescroll_basis.z.z]
+	}
+	snapshot["latched_cinematic_mode"] = _latched_cinematic_mode
+	snapshot["latched_input_vec"] = [_latched_input_vec.x, _latched_input_vec.y]
+	snapshot["prev_sidescroll_active"] = _prev_sidescroll_active
+	snapshot["prev_camera_basis"] = {
+		"x": [_prev_camera_basis.x.x, _prev_camera_basis.x.y, _prev_camera_basis.x.z],
+		"y": [_prev_camera_basis.y.x, _prev_camera_basis.y.y, _prev_camera_basis.y.z],
+		"z": [_prev_camera_basis.z.x, _prev_camera_basis.z.y, _prev_camera_basis.z.z]
+	}
+	
 	return snapshot
 
 func restore_snapshot(data: Dictionary) -> void:
@@ -203,6 +237,52 @@ func restore_snapshot(data: Dictionary) -> void:
 	_step_grounded_timer = data.get("step_grounded_timer", 0.0)
 	_just_stepped = data.get("just_stepped", false)
 	
+	# Restore direction latch state
+	_direction_latch_active = data.get("direction_latch_active", false)
+	_prev_sidescroll_active = data.get("prev_sidescroll_active", false)
+	_latched_sidescroll_active = data.get("latched_sidescroll_active", false)
+	_latched_cinematic_mode = data.get("latched_cinematic_mode", -1)
+	
+	# Restore latched_camera_basis
+	if data.has("latched_camera_basis"):
+		var lcb = data["latched_camera_basis"]
+		_latched_camera_basis = Basis(
+			Vector3(lcb["x"][0], lcb["x"][1], lcb["x"][2]),
+			Vector3(lcb["y"][0], lcb["y"][1], lcb["y"][2]),
+			Vector3(lcb["z"][0], lcb["z"][1], lcb["z"][2])
+		)
+	else:
+		_latched_camera_basis = Basis.IDENTITY
+	
+	# Restore latched_sidescroll_basis
+	if data.has("latched_sidescroll_basis"):
+		var lsb = data["latched_sidescroll_basis"]
+		_latched_sidescroll_basis = Basis(
+			Vector3(lsb["x"][0], lsb["x"][1], lsb["x"][2]),
+			Vector3(lsb["y"][0], lsb["y"][1], lsb["y"][2]),
+			Vector3(lsb["z"][0], lsb["z"][1], lsb["z"][2])
+		)
+	else:
+		_latched_sidescroll_basis = Basis.IDENTITY
+	
+	# Restore latched_input_vec
+	if data.has("latched_input_vec"):
+		var liv = data["latched_input_vec"]
+		_latched_input_vec = Vector2(liv[0], liv[1])
+	else:
+		_latched_input_vec = Vector2.ZERO
+	
+	# Restore prev_camera_basis
+	if data.has("prev_camera_basis"):
+		var pcb = data["prev_camera_basis"]
+		_prev_camera_basis = Basis(
+			Vector3(pcb["x"][0], pcb["x"][1], pcb["x"][2]),
+			Vector3(pcb["y"][0], pcb["y"][1], pcb["y"][2]),
+			Vector3(pcb["z"][0], pcb["z"][1], pcb["z"][2])
+		)
+	else:
+		_prev_camera_basis = Basis.IDENTITY
+	
 	# Restore acrobatic state
 	if data.has("acrobatic_state"):
 		var acro = data["acrobatic_state"]
@@ -223,6 +303,17 @@ func full_reset() -> void:
 	is_acrobatic_ready = false
 	_forward_latch_active = false
 	_forward_latch_sign = 1.0
+	
+	# Reset direction latch
+	_direction_latch_active = false
+	_latched_camera_basis = Basis.IDENTITY
+	_latched_sidescroll_active = false
+	_latched_sidescroll_basis = Basis.IDENTITY
+	_latched_cinematic_mode = -1
+	_latched_input_vec = Vector2.ZERO
+	_prev_sidescroll_active = false
+	_prev_cinematic_rig = null
+	_prev_camera_basis = Basis.IDENTITY
 	
 	# Reset platform tracking
 	_platform_collider = null
@@ -347,6 +438,8 @@ func _ready():
 	
 	if camera_rig:
 		base_rig_y = camera_rig.transform.origin.y
+		# Inicializar la basis de cámara anterior para el direction latch
+		_prev_camera_basis = camera_rig.global_transform.basis
 	
 	# Setup interaction area attached to visual
 	_setup_interact_area()
@@ -598,13 +691,103 @@ func step(dt: float, input: InputDataV2) -> void:
 	# Forward Latch Release Check
 	if input.move_vec.y >= -0.1: # Released "Forward"
 		_forward_latch_active = false
+	
+	# --- DIRECTION LATCH SYSTEM ---
+	# Detectar cambios de contexto de cámara (entrada/salida de zonas)
+	# Solo activamos el latch al ENTRAR a una zona especial, no al SALIR
+	var active_rig = CinematicManager.active_rig
+	var entering_special_zone := false
+	
+	# Detectar ENTRADA a modo sidescroll (no salida)
+	if sidescroll_logic.is_active and not _prev_sidescroll_active:
+		entering_special_zone = true
+	
+	# Detectar ENTRADA a rig cinemático (no salida)
+	if active_rig != null and _prev_cinematic_rig == null:
+		entering_special_zone = true
+	
+	# Si hay input activo y ENTRAMOS a una zona especial, activar el latch con el contexto ANTERIOR
+	var has_movement_input = input.move_vec.length() > 0.1
+	if entering_special_zone and has_movement_input and not _direction_latch_active:
+		# Guardar el contexto ANTERIOR (capturado en el frame anterior)
+		_latched_camera_basis = _prev_camera_basis
+		_latched_sidescroll_active = _prev_sidescroll_active
+		if _latched_sidescroll_active:
+			_latched_sidescroll_basis = sidescroll_logic.get_target_basis()
+		if _prev_cinematic_rig:
+			_latched_cinematic_mode = CinematicManager.get_control_mode()
+		else:
+			_latched_cinematic_mode = -1
+		# Guardar qué teclas activaron el latch
+		_latched_input_vec = input.move_vec
+		_direction_latch_active = true
+	
+	# Actualizar las referencias "prev" para el próximo frame
+	_prev_sidescroll_active = sidescroll_logic.is_active
+	_prev_cinematic_rig = active_rig
+	_prev_camera_basis = get_camera_basis()  # Guardar basis actual para el próximo frame
+	
+	# Liberar el latch cuando las teclas ORIGINALES se suelten
+	# Comparamos el signo de cada eje: si la tecla original ya no está activa, liberar
+	if _direction_latch_active:
+		var should_release := false
+		# Si X estaba activo al entrar y ya no lo está (o cambió de signo)
+		if abs(_latched_input_vec.x) > 0.1:
+			if abs(input.move_vec.x) < 0.1 or sign(input.move_vec.x) != sign(_latched_input_vec.x):
+				should_release = true
+		# Si Y estaba activo al entrar y ya no lo está (o cambió de signo)
+		if abs(_latched_input_vec.y) > 0.1:
+			if abs(input.move_vec.y) < 0.1 or sign(input.move_vec.y) != sign(_latched_input_vec.y):
+				should_release = true
+		
+		if should_release:
+			_direction_latch_active = false
+			_latched_camera_basis = Basis.IDENTITY
+			_latched_sidescroll_active = false
+			_latched_sidescroll_basis = Basis.IDENTITY
+			_latched_cinematic_mode = -1
+			_latched_input_vec = Vector2.ZERO
 		
 	var basis = get_camera_basis()
 	var move_vec = input.move_vec
 	
+	# --- DIRECTION LATCH APPLICATION ---
+	# Si el latch está activo, interpretar TODO el input usando el contexto ANTERIOR guardado
+	if _direction_latch_active:
+		print("[LATCH] Active! sidescroll=", _latched_sidescroll_active, " cinematic=", _latched_cinematic_mode, " basis=", _latched_camera_basis.z, " input=", input.move_vec)
+		if _latched_sidescroll_active:
+			# Usar el modo sidescroll anterior con TODAS sus restricciones
+			basis = _latched_sidescroll_basis
+			# Aplicar las mismas restricciones que aplicaría sidescroll
+			# En sidescroll, solo permitimos movimiento lateral (X del input)
+			if not sidescroll_logic.allow_depth:
+				move_vec = Vector2(input.move_vec.x, 0)
+		elif _latched_cinematic_mode >= 0:
+			# Usar el modo cinemático anterior para TODAS las teclas
+			var world_dir = _get_move_direction(input.move_vec, _latched_cinematic_mode)
+			if world_dir.length() > 0.01:
+				basis = Basis.IDENTITY
+				move_vec = Vector2(0, world_dir.length())
+				var h_dir = Vector3(world_dir.x, 0, world_dir.z).normalized()
+				if h_dir.length() > 0.01:
+					basis = Basis(Vector3.UP.cross(h_dir), Vector3.UP, h_dir)
+			else:
+				move_vec = Vector2.ZERO
+		else:
+			# Usar la basis de cámara anterior (modo 3D normal)
+			# Transformar el input a world space usando la basis anterior
+			var forward = _latched_camera_basis.z
+			var right = _latched_camera_basis.x
+			forward.y = 0
+			right.y = 0
+			var world_dir = (right.normalized() * input.move_vec.x + forward.normalized() * input.move_vec.y)
+			move_vec = Vector2(0, world_dir.length())
+			if world_dir.length() > 0.01:
+				basis = Basis(Vector3.UP.cross(world_dir.normalized()), Vector3.UP, world_dir.normalized())
+			else:
+				basis = _latched_camera_basis
 	# --- CINEMATIC CONTROL MODE ---
-	var active_rig = CinematicManager.active_rig
-	if active_rig:
+	elif active_rig:
 		var mode = CinematicManager.get_control_mode()
 		var world_dir = _get_move_direction(input.move_vec, mode)
 		
@@ -688,6 +871,8 @@ func step(dt: float, input: InputDataV2) -> void:
 		if current_rot.length_squared() > 0.001:
 			_cached_cam.rotation = current_rot.linear_interpolate(Vector3.ZERO, 10.0 * dt)
 	
+	if _direction_latch_active:
+		print("[PRE-MOVE] basis.x=", basis.x, " basis.z=", basis.z, " move_vec=", move_vec)
 	movement_logic.process_movement(dt, move_vec, basis, input.sprint, is_on_floor())
 	
 	# Override visual direction in 2.5D based on camera facing state

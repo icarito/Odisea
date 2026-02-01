@@ -42,6 +42,8 @@ var _source_transform: Transform = Transform()
 var _source_fov: float = 70.0
 var _player_camera: Camera = null
 var _transition_camera: Camera = null  # Cámara temporal para transiciones
+var _last_deactivate_time := 0.0  # Para cooldown anti-jitter
+const REACTIVATION_COOLDOWN := 0.2  # Segundos antes de poder reactivar
 
 func _ready():
 	if not is_in_group("cinematic_rigs"):
@@ -68,7 +70,7 @@ func _physics_process(delta):
 	_step_transition(delta)
 	
 	var s_alpha = _get_smooth_alpha()
-	var in_transition = s_alpha > 0 and s_alpha < 1.0 and _player_camera and is_instance_valid(_player_camera)
+	var in_transition = s_alpha > 0 and s_alpha < 1.0
 	
 	# Buscar jugador si no lo tenemos
 	if not _player_node or not is_instance_valid(_player_node):
@@ -94,7 +96,14 @@ func _physics_process(delta):
 		# Durante la transición, usar una cámara de transición separada
 		_apply_transition_camera(s_alpha)
 	elif _is_active and camera:
-		# Transición completa - usar cámara del path directamente
+		# Transición completa - limpiar cámara de transición y usar la del path
+		if _transition_camera:
+			# IMPORTANTE: Desactivar la cámara de transición ANTES de liberar
+			# para evitar un frame donde ambas cámaras estén "current"
+			_transition_camera.current = false
+			_transition_camera.queue_free()
+			_transition_camera = null
+		
 		camera.current = true
 		
 		# La cámara está como hija de PathFollow, su posición local debe ser 0
@@ -107,53 +116,69 @@ func _physics_process(delta):
 			camera.look_at(target_pos, Vector3.UP)
 
 func _apply_transition_camera(alpha: float):
-	"""Aplica la transición usando una cámara temporal sin afectar la cámara del path."""
+	"""Aplica la transición de ENTRADA usando una cámara temporal."""
 	if not _transition_camera:
 		_transition_camera = Camera.new()
 		_transition_camera.name = "TransitionCamera"
 		add_child(_transition_camera)
 	
-	# Calcular posición objetivo (donde está la cámara del path según el PathFollow)
-	var target_transform = path_follow.global_transform if path_follow else global_transform
+	# Target: posición del PathFollow
+	var target_origin = path_follow.global_transform.origin if path_follow else global_transform.origin
 	var target_fov = fov
+	var target_basis: Basis
 	
-	# Interpolar desde la posición origen hacia el objetivo
-	var interp_transform = _source_transform.interpolate_with(target_transform, alpha)
+	if track_player and _player_node:
+		var target_pos = _player_node.global_transform.origin + player_offset
+		var direction = (target_pos - target_origin).normalized()
+		if direction.length_squared() > 0.001:
+			target_basis = _basis_looking_at(direction, Vector3.UP)
+		else:
+			target_basis = path_follow.global_transform.basis if path_follow else Basis()
+	else:
+		target_basis = path_follow.global_transform.basis if path_follow else Basis()
+	
+	# Si no tenemos fuente válida (no se capturó cámara del jugador), usar el target directamente
+	var source_origin = _source_transform.origin
+	var source_basis = _source_transform.basis
+	if source_origin == Vector3.ZERO and _source_transform == Transform():
+		source_origin = target_origin
+		source_basis = target_basis
+	
+	# Interpolar posición con lerp simple
+	var interp_origin = source_origin.linear_interpolate(target_origin, alpha)
+	
+	# Interpolar rotación con slerp
+	var source_quat = source_basis.get_rotation_quat()
+	var target_quat = target_basis.get_rotation_quat()
+	var interp_quat = source_quat.slerp(target_quat, alpha)
+	var interp_basis = Basis(interp_quat)
+	
 	var interp_fov = lerp(_source_fov, target_fov, alpha)
 	
-	_transition_camera.global_transform = interp_transform
+	_transition_camera.global_transform = Transform(interp_basis, interp_origin)
 	_transition_camera.fov = interp_fov
+	_transition_camera.near = near
+	_transition_camera.far = far
 	_transition_camera.current = true
 
+func _basis_looking_at(direction: Vector3, up: Vector3) -> Basis:
+	"""Crea una Basis que mira hacia direction (similar a look_at)."""
+	var z_axis = -direction.normalized()
+	var x_axis = up.cross(z_axis).normalized()
+	if x_axis.length_squared() < 0.001:
+		# direction es paralela a up, usar otro vector
+		x_axis = Vector3.RIGHT if abs(direction.y) > 0.9 else Vector3.UP.cross(z_axis).normalized()
+	var y_axis = z_axis.cross(x_axis).normalized()
+	return Basis(x_axis, y_axis, z_axis)
+
 func _step_transition(delta: float):
-	"""Actualiza el alpha de transición con interpolación suave."""
-	var target_alpha = 1.0 if _is_active else 0.0
-	if _transition_alpha != target_alpha:
-		var speed = 1.0 / max(transition_time, 0.01)
-		var step_val = speed * delta
-		if _transition_alpha < target_alpha:
-			_transition_alpha = min(_transition_alpha + step_val, target_alpha)
-		else:
-			_transition_alpha = max(_transition_alpha - step_val, target_alpha)
+	"""Actualiza el alpha de transición con interpolación suave (solo para entrada)."""
+	if not _is_active:
+		return
 	
-	# Si terminó de salir, devolver control a la cámara del jugador
-	if not _is_active and _transition_alpha <= 0:
-		# Limpiar cámara de transición
-		if _transition_camera:
-			_transition_camera.queue_free()
-			_transition_camera = null
-		
-		if _player_camera and is_instance_valid(_player_camera):
-			print("[CinematicPathRig] Restaurando cámara del jugador: ", _player_camera.get_path())
-			_player_camera.current = true
-		else:
-			# Buscar la cámara del jugador si no la tenemos
-			var player_cam = _find_player_camera()
-			if player_cam:
-				print("[CinematicPathRig] Buscando y restaurando cámara: ", player_cam.get_path())
-				player_cam.current = true
-		_player_camera = null
-		set_physics_process(false)  # Ya no necesitamos procesar
+	if _transition_alpha < 1.0:
+		var speed = 1.0 / max(transition_time, 0.01)
+		_transition_alpha = min(_transition_alpha + speed * delta, 1.0)
 
 func _get_smooth_alpha() -> float:
 	"""Cubic easing (smoothstep): 3t^2 - 2t^3"""
@@ -318,14 +343,16 @@ func activate(force_current: bool = true):
 	if _is_active:
 		return
 	
+	# Cooldown anti-jitter: evitar reactivar inmediatamente después de desactivar
+	var current_time = OS.get_ticks_msec() / 1000.0
+	if current_time - _last_deactivate_time < REACTIVATION_COOLDOWN:
+		return
+	
 	_is_active = true
 	
 	# Buscar específicamente la cámara del jugador (no usar get_viewport().get_camera() 
 	# porque puede devolver una cámara de transición del CinematicManager)
 	_player_camera = _find_player_camera()
-	print("[CinematicPathRig] activate() - player_camera capturada: ", _player_camera.get_path() if _player_camera else "null")
-	print("[CinematicPathRig] activate() - Path global_pos: ", global_transform.origin)
-	print("[CinematicPathRig] activate() - Camera global_pos: ", camera.global_transform.origin if camera else "no camera")
 	
 	if _player_camera and _player_camera != camera:
 		_source_transform = _player_camera.global_transform
@@ -340,10 +367,20 @@ func activate(force_current: bool = true):
 			_source_transform = camera.global_transform
 			_source_fov = camera.fov
 	
-	# Iniciar transición (no hacer current inmediatamente si hay transición)
+	# Iniciar transición
 	if transition_time > 0.01:
 		_transition_alpha = 0.0
-		camera.current = true  # Tomar control pero interpolar
+		# Crear la cámara de transición AHORA para evitar flash
+		# Empieza en la posición de la cámara del jugador
+		if not _transition_camera:
+			_transition_camera = Camera.new()
+			_transition_camera.name = "TransitionCamera"
+			add_child(_transition_camera)
+		_transition_camera.global_transform = _source_transform
+		_transition_camera.fov = _source_fov
+		_transition_camera.near = near
+		_transition_camera.far = far
+		_transition_camera.current = true
 	elif force_current:
 		_transition_alpha = 1.0
 		camera.current = true
@@ -355,11 +392,87 @@ func activate(force_current: bool = true):
 		play()
 
 func deactivate():
+	if not _is_active:
+		return
+	
 	_is_active = false
+	_last_deactivate_time = OS.get_ticks_msec() / 1000.0  # Registrar tiempo para cooldown
 	stop()
 	
-	# La transición de salida se maneja en _step_transition()
-	# No hacemos _player_camera.current = true aquí, lo hacemos cuando alpha llega a 0
+	# Ajustar la rotación de la cámara del jugador para que coincida con la del path
+	_align_player_camera_to_current()
+	
+	# Devolver control a la cámara del jugador (diferido para evitar flash)
+	call_deferred("_restore_player_camera")
+
+func _restore_player_camera():
+	"""Restaura la cámara del jugador (llamado diferido)."""
+	# Si se reactivó antes de restaurar, no hacer nada
+	if _is_active:
+		return
+	
+	# Verificar que estamos en el árbol
+	if not is_inside_tree():
+		_cleanup_transition_camera()
+		return
+	
+	if _player_camera and is_instance_valid(_player_camera) and _player_camera.is_inside_tree():
+		_player_camera.current = true
+	else:
+		var player_cam = _find_player_camera()
+		if player_cam and player_cam.is_inside_tree():
+			player_cam.current = true
+	
+	_cleanup_transition_camera()
+	_player_camera = null
+	_transition_alpha = 0.0
+	set_physics_process(false)
+
+func _cleanup_transition_camera():
+	"""Limpia la cámara de transición de forma segura."""
+	if _transition_camera and is_instance_valid(_transition_camera):
+		# Desactivar antes de liberar para evitar flash
+		_transition_camera.current = false
+		_transition_camera.queue_free()
+	_transition_camera = null
+
+func _align_player_camera_to_current():
+	"""Ajusta el PlayerController para que la cámara mire en la misma dirección que la cámara del path."""
+	if not camera or not is_instance_valid(camera) or not camera.is_inside_tree():
+		return
+	
+	if not is_inside_tree():
+		return
+	
+	# Obtener la dirección hacia donde mira la cámara (eje -Z en Godot)
+	var forward = -camera.global_transform.basis.z
+	
+	# Calcular yaw (rotación horizontal) desde la dirección forward proyectada en XZ
+	var forward_xz = Vector3(forward.x, 0, forward.z).normalized()
+	var new_yaw = atan2(forward_xz.x, forward_xz.z)
+	
+	# Calcular pitch (rotación vertical) desde la componente Y
+	var new_pitch = asin(clamp(-forward.y, -1.0, 1.0))
+	
+	# Buscar el PlayerController y ajustar sus variables yaw/pitch
+	var tree = get_tree()
+	if not tree:
+		return
+	var players = tree.get_nodes_in_group("player")
+	if players.size() == 0:
+		return
+	
+	var player = players[0]
+	
+	# El PlayerController usa variables internas yaw y pitch
+	if "yaw" in player and "pitch" in player:
+		player.yaw = new_yaw
+		player.pitch = new_pitch
+		# También actualizar las versiones en grados si existen
+		if "yaw_deg" in player:
+			player.yaw_deg = rad2deg(new_yaw)
+		if "pitch_deg" in player:
+			player.pitch_deg = rad2deg(new_pitch)
 
 func get_camera() -> Camera:
 	return camera
