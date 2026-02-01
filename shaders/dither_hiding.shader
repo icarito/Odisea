@@ -24,6 +24,9 @@ uniform float edge_fade : hint_range(0.1, 3.0) = 1.2; // Controls how soft the e
 uniform float wireframe_width : hint_range(0.5, 5.0) = 1.5; // Width of preserved wireframe edges
 uniform vec4 wireframe_color : hint_color = vec4(0.3, 0.5, 0.7, 1.0); // Color tint for wireframe
 uniform bool preserve_wireframe = true; // Toggle wireframe preservation
+uniform float transparency_min : hint_range(0.0, 1.0) = 0.3; // Min transparency at edge of cone
+uniform float transparency_max : hint_range(0.0, 1.0) = 0.95; // Max transparency at center of cone
+uniform float floor_protect_radius : hint_range(0.5, 5.0) = 2.0; // Radius to protect floor under player
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -186,31 +189,39 @@ void fragment() {
 				// --- FLOOR/CEILING EXCLUSION (only directly under/above player) ---
 				// Check if this surface is directly below or above the player
 				float horizontal_dist_to_player = length(world_pos.xz - player_pos.xz);
-				bool near_player_horizontally = horizontal_dist_to_player < hole_radius * 0.8;
+				bool near_player_horizontally = horizontal_dist_to_player < floor_protect_radius;
 				
-				// Floor: surface facing up, camera above, and surface is under player
-				bool is_floor = world_normal.y > 0.7;
+				// Floor: surface facing up (normal.y > 0.5), camera above surface, floor below player's feet
+				bool is_floor = world_normal.y > 0.5;
 				bool camera_above = camera_pos.y > world_pos.y;
-				bool floor_under_player = is_floor && camera_above && near_player_horizontally && world_pos.y < player_pos.y;
+				bool surface_below_player = world_pos.y < (player_pos.y - 0.5);
+				bool floor_under_player = is_floor && camera_above && near_player_horizontally && surface_below_player;
 				
-				// Ceiling: surface facing down, camera below, and surface is above player
-				bool is_ceiling = world_normal.y < -0.7;
+				// Ceiling: surface facing down (normal.y < -0.5), camera below surface, ceiling above player's head
+				bool is_ceiling = world_normal.y < -0.5;
 				bool camera_below = camera_pos.y < world_pos.y;
-				bool ceiling_above_player = is_ceiling && camera_below && near_player_horizontally && world_pos.y > player_pos.y;
+				bool surface_above_player = world_pos.y > (player_pos.y + 2.0);
+				bool ceiling_above_player = is_ceiling && camera_below && near_player_horizontally && surface_above_player;
 				
 				// Only skip occlusion for floor/ceiling directly at player's feet/head
 				if (floor_under_player || ceiling_above_player) {
 					// Don't discard - player is standing on this or it's right above their head
 				} else {
-					// Apply dreamy blur effect
+					// How deep into the cone: 0 = edge, 1 = center (line of sight)
 					float depth_in_cone = 1.0 - (dist_radial / cone_radius);
 					
+					// Add dreamy noise to the edge
 					vec2 noise_uv = FRAGCOORD.xy * 0.08 * blur_softness;
 					float noise = dreamy_noise(noise_uv, world_pos.x * 0.1 + world_pos.z * 0.1);
+					float noisy_depth = depth_in_cone + (noise - 0.5) * blur_softness * 0.3;
 					
-					float discard_threshold = depth_in_cone + (noise - 0.5) * blur_softness * 0.5;
+					// Dither gradient: center = high transparency, edge = low transparency
+					float dither = dither_pattern(FRAGCOORD.xy);
 					
-					if (discard_threshold > 0.2) {
+					// transparency from transparency_min (edge) to transparency_max (center)
+					float transparency = mix(transparency_min, transparency_max, noisy_depth);
+					
+					if (dither < transparency) {
 						discard;
 					}
 				}

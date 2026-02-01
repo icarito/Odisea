@@ -12,7 +12,25 @@ Fuente de verdad sobre reglas y contratos del proyecto (Godot 3.6, GLES2) para I
 
 Si algún test falla, corregirlo antes de considerar el trabajo terminado.
 
-### 📋 Leer el Output de los Tests
+### � Optimización: Correr Tests Selectivamente
+
+**Si sabes qué test es relevante para tu cambio, córrelo primero para agilizar:**
+
+```shell
+# Correr un archivo de test específico
+./runtest.sh -a ./core_v2/tests/test_mi_feature.gd
+
+# Correr solo los tests de un archivo
+./runtest.sh -a ./core_v2/tests/test_player_controller_v2.gd
+```
+
+**Solo corre TODOS los tests al final**, antes de entregar el trabajo completo:
+
+```shell
+./runtest.sh -a ./core_v2/tests/
+```
+
+### �📋 Leer el Output de los Tests
 
 **El output siempre se guarda en `./reports/gdunit_runner.log`**
 

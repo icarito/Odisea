@@ -4,6 +4,12 @@ class_name OcclusionZoneV2
 
 export(float) var cone_radius: float = 1.5
 export(float) var camera_distance_override: float = -1.0 # -1 to ignore
+# --- Shader Effect Controls ---
+export(float, 0.0, 2.0) var blur_softness: float = 0.8
+export(float, 0.1, 3.0) var edge_fade: float = 1.2
+export(float, 0.0, 1.0) var transparency_min: float = 0.3
+export(float, 0.0, 1.0) var transparency_max: float = 0.95
+export(float, 0.5, 5.0) var floor_protect_radius: float = 2.0
 # --- Material Enforcement ---
 export(bool) var enforce_occlusion_material: bool = false
 export(NodePath) var occlusion_target_path = @".."
@@ -19,13 +25,19 @@ func _ready():
 			_apply_enforcement()
 
 func _on_zone_entered(body: Node):
-	WallOcclusionManager.set_occlusion_params(true, cone_radius)
+	WallOcclusionManager.set_occlusion_params(true, cone_radius, {
+		"blur_softness": blur_softness,
+		"edge_fade": edge_fade,
+		"transparency_min": transparency_min,
+		"transparency_max": transparency_max,
+		"floor_protect_radius": floor_protect_radius
+	})
 	if body.has_method("set_occlusion_mode"):
 		body.set_occlusion_mode(true)
 	print("[OcclusionZoneV2] Body entered: ", body.name, " Active count: ", WallOcclusionManager.registered_materials.size())
 
 func _on_zone_exited(body: Node):
-	WallOcclusionManager.set_occlusion_params(false, cone_radius)
+	WallOcclusionManager.set_occlusion_params(false, cone_radius, {})
 	if body.has_method("set_occlusion_mode"):
 		body.set_occlusion_mode(false)
 
