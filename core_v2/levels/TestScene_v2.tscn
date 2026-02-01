@@ -238,7 +238,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -10, 0 )
 shape = SubResource( 188 )
 
 [node name="ExampleTrigger" type="Area" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 6 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 1, 10 )
 script = ExtResource( 6 )
 debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 script_file = "res://core_v2/scripts/helloTrigger.oys"
