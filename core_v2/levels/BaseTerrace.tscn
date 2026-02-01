@@ -725,6 +725,7 @@ material = ExtResource( 1 )
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0.7687, 0.41744, -5.8349 )
 
 [node name="RotatingObjectV2" parent="CornerFloor2/CrioPod" index="0"]
+transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
 auto_interact_once = true
 
 [node name="CSGBox" parent="CornerFloor2/CrioPod" index="1"]
