@@ -814,7 +814,7 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/OYSComponent.gd"
 }, {
-"base": "Area",
+"base": "BaseZoneV2",
 "class": "OYSTrigger",
 "language": "GDScript",
 "path": "res://core_v2/components/OYSTrigger.gd"

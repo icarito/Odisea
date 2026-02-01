@@ -56,6 +56,9 @@ var manual_yaw := 0.0 # Manual yaw offset (from mouse)
 var manual_pitch := 0.0 # Manual pitch offset (from mouse)
 var time_since_input := 0.0 # Time since last manual input
 
+# Depth zoom smoothing
+var current_depth_zoom := 0.0 # Current applied depth zoom (smoothed)
+
 var _first_frame := true
 
 func enter_mode(axis: int, value: float, invert: bool, current_pos_val: float = -1e9, depth_allowed: bool = false):
@@ -207,19 +210,25 @@ func calculate_camera_pos(player_pos: Vector3, dt: float) -> Vector3:
 
 func get_depth_zoom_offset(player_pos: Vector3) -> float:
 	"""Calculate zoom offset based on player distance from lock plane (depth motion areas)."""
-	if not allow_depth:
-		return 0.0
+	var target_zoom = 0.0
 	
-	# Calculate distance from lock plane
-	var depth_distance = 0.0
-	if lock_axis == 2: # Z locked, measure Z distance
-		depth_distance = abs(player_pos.z - lock_value)
-	elif lock_axis == 1: # X locked, measure X distance
-		depth_distance = abs(player_pos.x - lock_value)
+	if allow_depth:
+		# Calculate distance from lock plane
+		var depth_distance = 0.0
+		if lock_axis == 2: # Z locked, measure Z distance
+			depth_distance = abs(player_pos.z - lock_value)
+		elif lock_axis == 1: # X locked, measure X distance
+			depth_distance = abs(player_pos.x - lock_value)
+		
+		# Scale and clamp the zoom offset
+		target_zoom = min(depth_distance * depth_zoom_factor, depth_zoom_max)
 	
-	# Scale and clamp the zoom offset
-	var zoom_offset = depth_distance * depth_zoom_factor
-	return min(zoom_offset, depth_zoom_max)
+	# Smooth interpolation to avoid zoom jumps
+	var dt = get_physics_process_delta_time()
+	if dt > 0:
+		current_depth_zoom = lerp(current_depth_zoom, target_zoom, zoom_smoothing * dt)
+	
+	return current_depth_zoom
 
 func get_cam_rotation() -> Vector3:
 	"""Returns Euler angles for local camera rotation (look-ahead yaw)."""
@@ -290,6 +299,7 @@ func get_full_snapshot() -> Dictionary:
 		"my": manual_yaw,
 		"mp": manual_pitch,
 		"tsi": time_since_input,
+		"cdz": current_depth_zoom,
 		"ff": _first_frame
 	}
 
@@ -314,4 +324,5 @@ func restore_snapshot(data: Dictionary):
 	manual_yaw = data.get("my", 0.0)
 	manual_pitch = data.get("mp", 0.0)
 	time_since_input = data.get("tsi", 0.0)
+	current_depth_zoom = data.get("cdz", 0.0)
 	_first_frame = data.get("ff", true)

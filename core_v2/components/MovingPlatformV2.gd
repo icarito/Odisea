@@ -179,8 +179,9 @@ func _physics_process(delta: float):
 	# Calcular velocidad (vital para que move_and_slide detecte el movimiento del suelo).
 	if delta > 0:
 		linear_velocity = (new_position - previous_position) / delta
-	# Propagar velocidad a cuerpos pasajeros (jugador, etc.).
-	# Usamos get_overlapping_bodies() que funciona con physics ticks reales del engine
+	# Propagar velocidad a cuerpos pasajeros (cajas, NPCs, etc.).
+	# NOTA: El PlayerControllerV2 usa transform-delta tracking propio, así que
+	# NO le llamamos set_external_velocity() para evitar movimiento doble.
 	var current_passengers = []
 	if passenger_area:
 		passenger_area.force_update_transform()
@@ -191,10 +192,11 @@ func _physics_process(delta: float):
 	for body in current_passengers:
 		if body == self or body.get_parent() == self:
 			continue
+		# Skip PlayerControllerV2 - tiene su propio transform-delta tracking
+		if body.has_method("_update_platform_tracking"):
+			continue
 		if body.has_method("set_external_velocity"):
 			body.set_external_velocity(linear_velocity)
-			# Para plataformas móviles, usamos is_static=true para que Godot's physics
-			# maneje el "llevar" al jugador. Los conveyors usan is_static=false.
 			if body.has_method("set_external_source_is_static"):
 				body.set_external_source_is_static(true)
 	# Debug periódico.

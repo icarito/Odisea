@@ -30,9 +30,18 @@ func load_and_start(path: String, start_section: String = ""):
 		if auto_pause_player:
 			_set_player_pause(true)
 
-		interpreter.run(start_section)
+		call_deferred("_run_and_unpause", start_section)
 	else:
 		printerr("[OYSComponent] Could not open script: ", path)
+
+func _run_and_unpause(start_section: String) -> void:
+	var result = interpreter.run(start_section)
+	if result is GDScriptFunctionState:
+		yield(result, "completed")
+
+	# Auto-unpause when script finishes
+	if auto_pause_player:
+		_set_player_pause(false)
 
 func _process(_delta):
 	if _current_path != "" and (OS.is_debug_build() or Engine.is_editor_hint()):

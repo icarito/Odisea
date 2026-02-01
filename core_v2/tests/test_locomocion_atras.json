@@ -561,9 +561,9 @@
   ],
   "final_expected_state": {
     "position": [
-      0,
-      -0.333312,
-      -5.442117
+      -0,
+      -0.333297,
+      -5.442092
     ],
     "velocity": [
       0,
@@ -605,10 +605,13 @@
         0,
         0
       ],
-      "yo": 0,
+      "cam_yaw": 0,
+      "fs": 1,
+      "tst": 0,
       "my": 0,
       "mp": 0,
-      "fs": 1,
+      "tsi": 0,
+      "cdz": 0,
       "ff": true
     },
     "jump_state": {
@@ -626,6 +629,15 @@
       "is_acrobatic_ready": false
     },
     "fwd_latch_active": false,
-    "fwd_latch_sign": 1
+    "fwd_latch_sign": 1,
+    "platform_path": "",
+    "platform_velocity": [
+      0,
+      0,
+      0
+    ],
+    "was_on_platform": false,
+    "step_grounded_timer": 0,
+    "just_stepped": false
   }
 }

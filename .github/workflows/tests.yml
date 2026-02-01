@@ -90,6 +90,13 @@ jobs:
             echo "No se encontró DRIFT_CHECK en: $LOG" >> "$SUMMARY"
           fi
 
+          # Añadir tablita de resumen de runtest.sh
+          if [[ -n "$LOG" && -f "$LOG" ]]; then
+            echo -e "\n### 📊 Desglose de Tests" >> "$SUMMARY"
+            # Extraer solo la tabla del log (la que empieza con | Test Scenary)
+            grep -A 500 "| Test Scenary" "$LOG" | grep -vE "^(--|📋|🧪|Comando:|Analyz|Checking|Validat)" >> "$SUMMARY" || true
+          fi
+
       - name: Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4

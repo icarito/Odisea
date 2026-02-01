@@ -201,10 +201,11 @@ func _physics_process(_dt):
 		_check_asserts_for_frame(_replay_frame)
 
 		# Log and Stats (ANTES del step para que el Frame N muestre el estado PRE-step N)
-		if _replay_frame < 5:
-			print("[SessionManager] DEBUG Frame %d (Pre-Step): pos=%s, vel=%s" % [_replay_frame, player.global_transform.origin, player.velocity if "velocity" in player else "N/A"])
+		# Debug frame logging disabled for cleaner test output
+		# if _replay_frame < 5:
+		# 	print("[SessionManager] DEBUG Frame %d (Pre-Step): pos=%s, vel=%s" % [_replay_frame, player.global_transform.origin, player.velocity if "velocity" in player else "N/A"])
 
-		if _replay_frame % 30 == 0 and _replay_frame >= 5:
+		if _replay_frame % 120 == 0 and _replay_frame >= 5:
 			print("[SessionManager] Frame %d: pos=%s" % [_replay_frame, player.global_transform.origin])
 
 		if is_instance_valid(player) and player.global_transform.origin.y > _peak_y:
@@ -533,7 +534,7 @@ func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
 		player.velocity = Vector3.ZERO
 
 	var b_size = input_buffer.size()
-	print("[SessionManager] Starting _play_buffer_internal with %d frames" % b_size)
+	# print("[SessionManager] Starting _play_buffer_internal with %d frames" % b_size)
 
 	_pending_asserts = replay_data.get("asserts", [])
 	_pending_setters = replay_data.get("setters", [])

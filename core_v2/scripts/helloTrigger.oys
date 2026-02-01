@@ -1,0 +1,4 @@
+SECTION "Main"
+    PRINT "HELLO! OYSTrigger activated."
+    PRINT "Trigger sequence complete."
+    JUMP

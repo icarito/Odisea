@@ -21,8 +21,15 @@ export(Curve) var camera_response_curve
 export(float) var strafe_turn_multiplier := 0.4
 export(float) var strafe_speed_multiplier := 0.6
 
+# Slope Handling (inspired by Terrestrial Characters)
+export(float, 0, 90) var floor_max_angle_degrees := 45.0
+export var enable_slope_resistance := true
+export(float, 0, 1) var slope_resistance_factor := 0.4  # Reduced for agile character
+export(float, 0, 90) var min_resistance_angle_degrees := 25.0  # Only resist on steeper slopes
+
 # State
 var horizontal_velocity := Vector3.ZERO
+var _floor_normal := Vector3.UP  # Cached floor normal for alignment
 var wish_direction := Vector3.ZERO
 
 # External Velocity State
@@ -64,6 +71,54 @@ func integrate_external_velocity(delta: float) -> Vector3:
 		return Vector3.ZERO
 	external_velocity = external_velocity.linear_interpolate(Vector3.ZERO, external_decay_rate * delta)
 	return external_velocity
+
+# --- SLOPE HANDLING (from Terrestrial Characters) ---
+
+func set_floor_normal(normal: Vector3) -> void:
+	"""Called by PlayerControllerV2 after move_and_slide to update floor info."""
+	_floor_normal = normal
+
+func align_to_floor(vector: Vector3) -> Vector3:
+	"""Rotates a horizontal vector to lie along the floor plane.
+	Prevents lateral drift when moving sideways on slopes."""
+	if _floor_normal == Vector3.UP or _floor_normal.length_squared() < 0.9:
+		return vector
+	
+	# Cross product trick: project vector onto floor plane
+	var cross = Vector3.UP.cross(vector)
+	if cross.length_squared() < 0.001:
+		return vector
+	return cross.cross(_floor_normal).normalized() * vector.length()
+
+func apply_slope_resistance(velocity: Vector3) -> Vector3:
+	"""Slows movement when going uphill past min_resistance_angle."""
+	if not enable_slope_resistance:
+		return velocity
+	
+	# Only apply if moving uphill (velocity has upward component)
+	if velocity.dot(Vector3.UP) <= 0:
+		return velocity
+	
+	var floor_angle = _floor_normal.angle_to(Vector3.UP)
+	var min_angle = deg2rad(min_resistance_angle_degrees)
+	var max_angle = deg2rad(floor_max_angle_degrees)
+	
+	if floor_angle < min_angle:
+		return velocity
+	
+	# Calculate resistance based on how steep the slope is
+	var resistance = clamp(
+		(floor_angle - min_angle) / (max_angle - min_angle) * slope_resistance_factor,
+		0.0, 1.0
+	)
+	
+	# Slide out the uphill component proportionally
+	var cross_vector = Vector3.UP.cross(_floor_normal).normalized()
+	if cross_vector.length_squared() < 0.001:
+		return velocity
+	
+	var slided = velocity.slide(cross_vector)
+	return velocity - slided * resistance
 
 func update_tank_mode(dt: float, mouse_delta: Vector2, _move_vec: Vector2, _jump: bool, _sprint: bool) -> void:
 	if mouse_delta.length() > 0.1:
@@ -152,7 +207,11 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 		accel = ground_friction if is_on_floor else air_friction
 	
 	horizontal_velocity = horizontal_velocity.move_toward(wish_dir, accel * dt)
-
+	
+	# Apply floor alignment when on ground (prevents sideways drift on slopes)
+	if is_on_floor and horizontal_velocity.length_squared() > 0.001:
+		horizontal_velocity = align_to_floor(horizontal_velocity)
+		horizontal_velocity = apply_slope_resistance(horizontal_velocity)
 	
 	# Forzar a cero solo si no hay input y estamos muy lentos, para evitar micro-movimientos
 	if wish_dir.length_squared() == 0.0 and horizontal_velocity.length() < stop_threshold:

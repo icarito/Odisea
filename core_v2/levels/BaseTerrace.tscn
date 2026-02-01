@@ -29,7 +29,7 @@
 [ext_resource path="res://core_v2/components/OcclusionZoneV2.gd" type="Script" id=27]
 
 [sub_resource type="BoxShape" id=849]
-extents = Vector3( 10, 17, 5 )
+extents = Vector3( 9, 17, 5 )
 
 [sub_resource type="CubeMesh" id=1]
 size = Vector3( 80, 2, 80 )
@@ -773,9 +773,9 @@ invert_side = true
 allow_depth_movement = true
 
 [node name="SideScrollZone4" parent="." instance=ExtResource( 5 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -22, 7.53971, 28.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -22, 7.53971, 28 )
 debug_render = false
-zone_extents = Vector3( 10, 17, 5 )
+zone_extents = Vector3( 10, 17, 4.95 )
 lock_axis = 1
 invert_side = true
 allow_depth_movement = true
