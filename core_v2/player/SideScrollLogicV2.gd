@@ -13,6 +13,10 @@ export(float) var camera_smoothing := 4.0
 export(float) var zoom_smoothing := 2.0
 export(float) var min_rig_height := 0.5
 
+# --- DEPTH MOTION ZOOM ---
+export(float) var depth_zoom_factor := 0.5 # How much to zoom based on depth distance
+export(float) var depth_zoom_max := 3.0 # Max extra zoom from depth
+
 # --- LOOK-AHEAD (Rule of Thirds) ---
 export(float) var lookahead_angle := 15.0 # Camera yaw offset for rule of thirds
 export(float) var lookahead_speed := 2.0 # How fast camera rotates to look ahead
@@ -58,28 +62,36 @@ func enter_mode(axis: int, value: float, invert: bool, current_pos_val: float = 
 	var was_inactive = not is_active
 	var axis_changed = axis != lock_axis
 	var invert_changed = invert != invert_side
-	var depth_changed = allow_depth != depth_allowed
+	var entering_constrained = allow_depth and not depth_allowed # Going from depth to no-depth
 	
-	# Only do hard reset if truly changing mode (inactive -> active, or axis change)
-	# For smooth transitions between similar zones, keep camera state
+	# Hard reset ONLY when:
+	# - Entering from 3D mode (was_inactive)
+	# - Changing axis (X to Z or vice versa)
+	# - Flipping orientation (invert)
 	var needs_hard_reset = was_inactive or axis_changed or invert_changed
 	
 	if needs_hard_reset:
-		# Full reset only when necessary
+		# Full reset for clean state
 		if current_pos_val > -1e8:
 			current_target_lock_value = current_pos_val
-		virtual_center = Vector3.ZERO # Will be set in calculate_camera_pos
+		virtual_center = Vector3.ZERO
 		lagging_center = Vector3.ZERO
 		_first_frame = true
 		facing_sign = 1.0
-		time_since_turn = turn_delay # Start with delay expired
+		time_since_turn = turn_delay
 		manual_yaw = 0.0
 		manual_pitch = 0.0
 		time_since_input = manual_decay_delay + 1.0
-	elif depth_changed and current_pos_val > -1e8:
-		# Soft transition: just update lock value smoothly
+	elif entering_constrained and current_pos_val > -1e8:
+		# When going from depth-allowed to constrained,
+		# start the lock value from where the player IS now,
+		# so they don't get yanked to the new zone's lock value
 		current_target_lock_value = current_pos_val
 	
+	# Always update these
+	lock_axis = axis
+	lock_value = value
+	invert_side = invert
 	is_active = true
 	allow_depth = depth_allowed
 	lock_axis = axis
@@ -177,11 +189,12 @@ func calculate_camera_pos(player_pos: Vector3, dt: float) -> Vector3:
 	# Smooth follow player
 	virtual_center = virtual_center.linear_interpolate(player_pos, camera_smoothing * dt)
 	
-	# Apply axis lock
-	if lock_axis == 2:
-		virtual_center.z = current_target_lock_value
-	elif lock_axis == 1:
-		virtual_center.x = current_target_lock_value
+	# Apply axis lock (unless depth is allowed)
+	if not allow_depth:
+		if lock_axis == 2:
+			virtual_center.z = current_target_lock_value
+		elif lock_axis == 1:
+			virtual_center.x = current_target_lock_value
 	
 	# Lag for smoothness
 	lagging_center = lagging_center.linear_interpolate(virtual_center, camera_smoothing * dt)
@@ -191,6 +204,22 @@ func calculate_camera_pos(player_pos: Vector3, dt: float) -> Vector3:
 		lagging_center.y = min_rig_height
 	
 	return lagging_center
+
+func get_depth_zoom_offset(player_pos: Vector3) -> float:
+	"""Calculate zoom offset based on player distance from lock plane (depth motion areas)."""
+	if not allow_depth:
+		return 0.0
+	
+	# Calculate distance from lock plane
+	var depth_distance = 0.0
+	if lock_axis == 2: # Z locked, measure Z distance
+		depth_distance = abs(player_pos.z - lock_value)
+	elif lock_axis == 1: # X locked, measure X distance
+		depth_distance = abs(player_pos.x - lock_value)
+	
+	# Scale and clamp the zoom offset
+	var zoom_offset = depth_distance * depth_zoom_factor
+	return min(zoom_offset, depth_zoom_max)
 
 func get_cam_rotation() -> Vector3:
 	"""Returns Euler angles for local camera rotation (look-ahead yaw)."""

@@ -787,6 +787,11 @@ func _step_camera_logic(_dt: float):
 		if _cached_spring_arm:
 			# Smooth zoom: transition between 3D and 2.5D target spring length
 			var ss_target = sidescroll_logic.current_target_spring_length
+			
+			# Add depth zoom offset for smooth transitions in depth-motion areas
+			var depth_zoom = sidescroll_logic.get_depth_zoom_offset(global_transform.origin)
+			ss_target += depth_zoom
+			
 			var target_len = lerp(base_spring_length_3d, ss_target, s_alpha)
 			
 			current_spring_length = target_len
