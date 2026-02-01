@@ -13,6 +13,10 @@ export(float) var hole_radius = 1.5
 export(float) var softness = 1.0
 export(float) var cutoff_offset = 0.7
 
+# --- FILTERING ---
+export(bool) var target_parent_siblings = true
+export(Array, NodePath) var exclude_nodes = []
+
 # --- DEBUG ---
 export(bool) var debug_visualization = false
 
@@ -21,7 +25,6 @@ var _last_pos: Vector3 = Vector3.ZERO
 var _last_cam_pos: Vector3 = Vector3.ZERO
 var _threshold: float = 0.05 # Only update if moved more than 5cm
 var _materials: Array = []
-var _target_node: Node
 var _camera: Camera
 
 func _ready():
@@ -35,18 +38,6 @@ func _ready():
 		if co != null: cutoff_offset = co
 	_find_player()
 	_find_camera()
-	
-	if target_node_path:
-		if has_node(target_node_path):
-			_target_node = get_node(target_node_path)
-		else:
-			# Fallback search by name
-			var node_name = str(target_node_path).get_file()
-			_target_node = get_tree().current_scene.find_node(node_name, true, false)
-			if _target_node:
-				print("[WallManager] Target node not found at path, but found by name: ", _target_node.get_path())
-			else:
-				printerr("[WallManager] Could not find target node: ", target_node_path)
 	
 	# Delay material collection to ensure Qodot has built everything
 	yield (get_tree().create_timer(1.0), "timeout")
@@ -65,17 +56,34 @@ func _find_camera():
 	if not _camera:
 		# Fallback: search in scene
 		_camera = get_tree().current_scene.find_node("Camera", true, false)
-
+	
 func _collect_materials():
 	_materials.clear()
 	if walls_material:
 		if walls_material is ShaderMaterial:
 			_materials.append(walls_material)
 	
-	if _target_node:
+	var roots = []
+	if target_node_path:
+		if has_node(target_node_path):
+			roots.append(get_node(target_node_path))
+	elif target_parent_siblings:
+		var parent = get_parent()
+		if parent:
+			for child in parent.get_children():
+				if child != self:
+					roots.append(child)
+	
+	var excluded_resolved = []
+	for path in exclude_nodes:
+		var node = get_node_or_null(path)
+		if node:
+			excluded_resolved.append(node)
+
+	for root in roots:
 		var meshes = []
-		_find_all_meshes(_target_node, meshes)
-		print("[WallManager] Scanning ", meshes.size(), " meshes for materials...")
+		_find_all_meshes(root, meshes, excluded_resolved)
+		print("[WallManager] Scanning branch ", root.name, " (", meshes.size(), " meshes found)")
 		for mesh_instance in meshes:
 			# Check surface materials
 			for i in range(mesh_instance.get_surface_material_count()):
@@ -130,11 +138,15 @@ func _process_material(mesh_instance: MeshInstance, index: int):
 			mat.set_shader_param("camera_pos", _camera.global_transform.origin)
 		_materials.append(mat)
 
-func _find_all_meshes(node: Node, result: Array):
+func _find_all_meshes(node: Node, result: Array, excluded: Array):
+	if node in excluded:
+		return
+		
 	if node is MeshInstance:
 		result.append(node)
+	
 	for child in node.get_children():
-		_find_all_meshes(child, result)
+		_find_all_meshes(child, result, excluded)
 
 func _physics_process(_delta):
 	if not _player or not is_instance_valid(_player):
