@@ -374,6 +374,48 @@ func _find_spring_arm(node: Node) -> SpringArm:
 func get_camera_basis() -> Basis:
 	return camera_rig.global_transform.basis if camera_rig else DEFAULT_BASIS
 
+func _get_move_direction(input_vector: Vector2, control_mode: int) -> Vector3:
+	"""Calcula la dirección de movimiento basada en el modo de control cinemático."""
+	var camera = get_viewport().get_camera()
+	if not camera:
+		return Vector3.ZERO
+	
+	match control_mode:
+		CinematicManager.ControlMode.FREE:
+			# Movimiento relativo a la cámara (estándar)
+			var forward = camera.global_transform.basis.z
+			var right = camera.global_transform.basis.x
+			forward.y = 0
+			right.y = 0
+			return (-right.normalized() * input_vector.x + forward.normalized() * input_vector.y)
+		
+		CinematicManager.ControlMode.LOCKED_VIEW:
+			# "Arriba" en el stick siempre es "Hacia el fondo" de la cámara
+			var forward = -camera.global_transform.basis.z
+			var right = camera.global_transform.basis.x
+			forward.y = 0
+			right.y = 0
+			return (-right.normalized() * input_vector.x + forward.normalized() * input_vector.y)
+		
+		CinematicManager.ControlMode.FIXED_AXIS:
+			# Ignora la rotación de la cámara, usa ejes globales
+			return Vector3(-input_vector.x, 0, -input_vector.y)
+		
+		CinematicManager.ControlMode.SIDESCROLL:
+			# Restringe movimiento a un plano (X o Z según la orientación de la cámara)
+			var cam_right = camera.global_transform.basis.x
+			if abs(cam_right.x) > abs(cam_right.z):
+				# Movimiento a lo largo del eje global X
+				var sign_x = sign(cam_right.x)
+				return Vector3(-input_vector.x * sign_x, 0, 0)
+			else:
+				# Movimiento a lo largo del eje global Z
+				var sign_z = sign(cam_right.z)
+				return Vector3(0, 0, -input_vector.x * sign_z)
+		
+		_:
+			return Vector3.ZERO
+
 var _interact_area: Area = null
 
 func _setup_interact_area():
@@ -564,22 +606,19 @@ func step(dt: float, input: InputDataV2) -> void:
 	var active_rig = CinematicManager.active_rig
 	if active_rig:
 		var mode = CinematicManager.get_control_mode()
-		if mode != CinematicManager.ControlMode.FREE:
-			var cam = CinematicManager.get_active_camera()
-			var world_dir = cinematic_logic.transform_input(input.move_vec, cam, mode)
-
-			# Transform world_dir back to basis-relative move_vec for process_movement
-			# or just provide a basis that aligns with world_dir
-			if world_dir.length() > 0.01:
-				# We use a fixed basis and put all magnitude in move_vec.y (forward)
-				basis = Basis.IDENTITY
-				move_vec = Vector2(0, world_dir.length())
-				# We calculate the horizontal direction
-				var h_dir = Vector3(world_dir.x, 0, world_dir.z).normalized()
-				if h_dir.length() > 0.01:
-					basis = Basis(Vector3.UP.cross(h_dir), Vector3.UP, h_dir)
-			else:
-				move_vec = Vector2.ZERO
+		var world_dir = _get_move_direction(input.move_vec, mode)
+		
+		# Transform world_dir back to basis-relative move_vec for process_movement
+		if world_dir.length() > 0.01:
+			# We use a fixed basis and put all magnitude in move_vec.y (forward)
+			basis = Basis.IDENTITY
+			move_vec = Vector2(0, world_dir.length())
+			# We calculate the horizontal direction
+			var h_dir = Vector3(world_dir.x, 0, world_dir.z).normalized()
+			if h_dir.length() > 0.01:
+				basis = Basis(Vector3.UP.cross(h_dir), Vector3.UP, h_dir)
+		else:
+			move_vec = Vector2.ZERO
 
 	# --- ACROBATIC SNAP DETECTION (Frame-based for determinism) ---
 	# Uses input.move_vec directly to capture raw intent before processing

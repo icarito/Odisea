@@ -34,7 +34,7 @@ func activate_rig(rig_id: String, control_mode: int = ControlMode.FREE):
 	var rigs = get_tree().get_nodes_in_group("cinematic_rigs")
 	var target_rig = null
 	for rig in rigs:
-		if rig.rig_id == rig_id:
+		if rig.name == rig_id or (rig.has("rig_id") and rig.rig_id == rig_id):
 			target_rig = rig
 			break
 
@@ -42,17 +42,30 @@ func activate_rig(rig_id: String, control_mode: int = ControlMode.FREE):
 		printerr("[CinematicManager] Rig not found: ", rig_id)
 		return
 
-	var old_cam = get_viewport().get_camera()
-	var new_cam = target_rig.get_camera()
+	activate_rig_direct(target_rig, control_mode)
 
+func activate_rig_direct(target_rig: Spatial, control_mode: int = ControlMode.FREE):
+	"""Activa un rig directamente por referencia (preferido sobre string ID)."""
+	if not target_rig:
+		printerr("[CinematicManager] activate_rig_direct called with null rig")
+		return
+	
+	var new_cam = target_rig.get_camera() if target_rig.has_method("get_camera") else null
+	if not new_cam:
+		printerr("[CinematicManager] Rig has no camera: ", target_rig.name)
+		return
+
+	var old_cam = get_viewport().get_camera()
 	current_control_mode = control_mode
 
-	if target_rig.transition_time > 0 and old_cam and old_cam != _trans_camera:
-		_start_transition(old_cam, new_cam, target_rig.transition_time)
+	var trans_time = target_rig.transition_time if "transition_time" in target_rig else 0.0
+	if trans_time > 0 and old_cam and old_cam != _trans_camera:
+		_start_transition(old_cam, new_cam, trans_time, target_rig)
 	else:
 		_apply_rig(target_rig)
 
-	emit_signal("cinematic_started", rig_id)
+	var rig_name = target_rig.name
+	emit_signal("cinematic_started", rig_name)
 
 func deactivate_rig():
 	if active_rig:
@@ -88,8 +101,8 @@ func _search_camera(node: Node) -> Camera:
 			return cam
 	return null
 
-func _start_transition(from_cam: Camera, to_cam: Camera, duration: float):
-	active_rig = to_cam.get_parent() # Assuming parent is the rig
+func _start_transition(from_cam: Camera, to_cam: Camera, duration: float, rig: Spatial):
+	active_rig = rig
 	_source_transform = from_cam.global_transform
 	_source_fov = from_cam.fov
 	_transition_duration = duration
