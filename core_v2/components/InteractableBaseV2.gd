@@ -24,6 +24,7 @@ func set_starts_active(v: bool) -> void:
 # These are snapshotted for replay determinism
 var is_active := false # Logical state (true = open/on, false = closed/off)
 var is_used := false # Has it been triggered if auto_interact_once is true?
+var _auto_triggered := false # Has auto-trigger already happened?
 var anim_progress := 0.0 # Current visual position (0.0 to 1.0)
 var target_progress := 0.0 # Goal state (1.0 or 0.0)
 
@@ -149,6 +150,7 @@ func get_snapshot() -> Dictionary:
 	return {
 		"active": is_active,
 		"used": is_used,
+		"auto_triggered": _auto_triggered,
 		"progress": anim_progress,
 		"target": target_progress
 	}
@@ -157,6 +159,7 @@ func restore_snapshot(data: Dictionary) -> void:
 	"""Restore state from snapshot dictionary."""
 	is_active = data.get("active", false)
 	is_used = data.get("used", false)
+	_auto_triggered = data.get("auto_triggered", false)
 	anim_progress = data.get("progress", 0.0)
 	target_progress = data.get("target", 0.0)
 	
