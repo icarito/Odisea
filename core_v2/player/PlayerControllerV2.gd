@@ -509,7 +509,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		move_vec = Vector2(input_x, 0.0)
 		
 		# FORCE FACING UPDATE based on the latch direction
-		sidescroll_logic.update_facing(input_x)
+		sidescroll_logic.update_facing(input_x, dt)
 		
 	elif sidescroll_logic.is_active and not in_transition:
 		# STRICT 2.5D: Use target basis + constraints
@@ -518,7 +518,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		
 		# Determine actual move direction (could be different from input if restricted)
 		if abs(move_vec.x) > 0.1:
-			sidescroll_logic.update_facing(move_vec.x)
+			sidescroll_logic.update_facing(move_vec.x, dt)
 			
 		# [NEW] Apply Local Camera Rotation (Yaw/Pitch) for Look-Ahead and Tilt
 		if _cached_cam:
@@ -785,27 +785,12 @@ func _step_camera_logic(_dt: float):
 			_cached_cam.fov = lerp(base_fov, sidescroll_logic.current_target_fov, s_alpha)
 		
 		if _cached_spring_arm:
-			# SMOOTH ZOOM: Transition between 3D preference and 2.5D target
-			# Start with base target
+			# Smooth zoom: transition between 3D and 2.5D target spring length
 			var ss_target = sidescroll_logic.current_target_spring_length
-			
-			# Add Velocity Zoom if moving
-			# Calculate approximate speed for zoom (smoothed by the logic component or here)
-			var h_speed = Vector2(velocity.x, velocity.z).length()
-			ss_target += sidescroll_logic.get_zoom_offset(h_speed)
-			
 			var target_len = lerp(base_spring_length_3d, ss_target, s_alpha)
 			
-			# NOTE: We use target_len directly because 'alpha' is already smoothed over time by logic.step()
-			# Adding another lerp here creates a "double spring" effect during transitions.
 			current_spring_length = target_len
 			_cached_spring_arm.spring_length = current_spring_length
-			
-			# PERSPECTIVE SCALING:
-			# Si hacemos zoom-in (spring_length pequeño), el deadzone debe ser menor para que no se salga de pantalla.
-			# Usamos un ratio basado en la distancia actual vs la distancia base.
-			var zoom_factor = current_spring_length / 7.0 # 7.0 es la distancia de referencia
-			sidescroll_logic.deadzone_x = clamp(1.5 * zoom_factor, 0.2, 4.0)
 	else:
 		# Modo 3D estándar
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
