@@ -10,9 +10,9 @@ func _ready():
 func _register_material():
 	var mat = null
 	
-	if self is MeshInstance:
-		mat = self.get_active_material(0)
-	elif self is CSGShape:
+	if has_method("get_active_material"):
+		mat = call("get_active_material", 0)
+	elif "material" in self:
 		mat = self.material
 	
 	if mat and mat is ShaderMaterial:

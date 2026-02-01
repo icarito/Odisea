@@ -9,9 +9,10 @@ var registered_materials: Array = []
 func _process(_delta):
 	if registered_materials.empty():
 		return
-		
-	if is_occlusion_active and Engine.get_frames_drawn() % 60 == 0:
-		print("[WallOcclusionManager] Active. Materials: ", registered_materials.size(), " Player nodes: ", get_tree().get_nodes_in_group("player").size())
+	
+	## Disabled: Too noisy
+	# if is_occlusion_active and Engine.get_frames_drawn() % 60 == 0:
+	#	print("[WallOcclusionManager] Active. Materials: ", registered_materials.size(), " Player nodes: ", get_tree().get_nodes_in_group("player").size())
 
 		
 	if not is_instance_valid(player_node):
@@ -19,8 +20,8 @@ func _process(_delta):
 		if players.size() > 0:
 			player_node = players[0]
 			
-	if not is_instance_valid(camera_node):
-		camera_node = get_viewport().get_camera()
+	# Always update to current active camera
+	camera_node = get_viewport().get_camera()
 		
 	if is_instance_valid(player_node) and is_instance_valid(camera_node):
 		var p_pos = player_node.global_transform.origin + Vector3(0, 1.2, 0) # Head/torso focus

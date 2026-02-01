@@ -104,7 +104,7 @@ void fragment() {
 		float t = dot(cam_to_frag, dir_cam_player);
 		
 		// Check if fragment is BETWEEN camera and player (with margins)
-		if (t > 0.1 && t < (dist_cam_player - 0.1)) {
+		if (t > 0.1 && t < (dist_cam_player - 0.5)) {
 			
 			// Radial distance from line of sight
 			vec3 projection = camera_pos + dir_cam_player * t;

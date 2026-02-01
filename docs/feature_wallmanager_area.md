@@ -10,7 +10,7 @@ Modo Oclusión (Interiores/Pasillos): Al entrar en una OcclusionArea, la cámara
 
 2. Componentes del Sistema
 
-A. OcclusionArea.gd (Nuevo Nodo)
+A. OcclusionZoneV2.gd (Nuevo Nodo)
 
 Un área que define zonas donde la geometría debe volverse transparente.
 
@@ -106,7 +106,7 @@ Implementar un sistema híbrido de cámara para Odisea que resuelva la visibilid
     Modo Oclusión (Interiores/Pasillos): Al entrar en una OcclusionArea, la cámara ignora las colisiones (atraviesa muros) pero activa un Shader de Recorte Cónico que hace transparentes los obstáculos solo si están entre la cámara y el jugador.
 
 2. Componentes del Sistema
-A. OcclusionArea.gd (Nuevo Nodo)
+A. OcclusionZoneV2.gd (Nuevo Nodo)
 
 Un área que define zonas donde la geometría debe volverse transparente.
 

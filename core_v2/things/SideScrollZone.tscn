@@ -7,9 +7,7 @@ extents = Vector3( 5, 2.5, 1 )
 
 [node name="SideScrollZone" type="Area"]
 script = ExtResource( 1 )
-target_distance = 20.0
-length = 10.0
-height = 5.0
+debug_color = Color( 0.2, 0.5, 1, 0.3 )
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0 )

@@ -4,7 +4,7 @@ extends GdUnitTestSuite
 const OYSComponent = preload("res://core_v2/components/OYSComponent.gd")
 
 func test_oys_pro_execution() -> void:
-	var runner := scene_runner("res://core_v2/scenes/TestScene_PushableBox.tscn")
+	var runner := scene_runner("res://core_v2/levels/TestScene_PushableBox.tscn")
 
 	var player = runner.scene().find_node("Pilot", true, false)
 	assert_object(player).is_not_null()

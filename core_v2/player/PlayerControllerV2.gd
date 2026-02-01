@@ -34,6 +34,7 @@ var current_spring_length := 7.0 # Current ACTUAL length (smoothed)
 var base_rig_y := 0.0
 var base_collision_mask := 0
 var _occlusion_mode_active := false
+var active_25d_zones := [] # Stack of SideScrollZone nodes
 
 func set_occlusion_mode(active: bool) -> void:
 	_occlusion_mode_active = active
@@ -481,7 +482,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	if current_input_3d.length() > 0.1:
 		last_input_vector = current_input_3d
 	
-	if _forward_latch_active:
+	if _forward_latch_active and not sidescroll_logic.allow_depth:
 		# FORWARD LATCH: Force controls to follow strict 2.5D path
 		basis = sidescroll_logic.get_target_basis()
 		
@@ -507,7 +508,6 @@ func step(dt: float, input: InputDataV2) -> void:
 		# STRICT 2.5D: Use target basis + constraints
 		basis = sidescroll_logic.get_target_basis()
 		move_vec = sidescroll_logic.get_constrained_input(move_vec)
-		move_vec.y = 0
 		
 		# Determine actual move direction (could be different from input if restricted)
 		if abs(move_vec.x) > 0.1:
@@ -529,8 +529,8 @@ func step(dt: float, input: InputDataV2) -> void:
 	movement_logic.process_movement(dt, move_vec, basis, input.sprint, is_on_floor())
 	
 	# Override visual direction in 2.5D based on camera facing state
-	# Only apply this strictly when fully in 2.5D mode
-	if sidescroll_logic.is_active and not in_transition and not _forward_latch_active:
+	# Only apply this strictly when fully in 2.5D mode and NOT in depth-movement mode
+	if sidescroll_logic.is_active and not in_transition and not _forward_latch_active and not sidescroll_logic.allow_depth:
 		movement_logic.wish_direction = basis.x * sidescroll_logic.facing_sign
 
 	var h_vel = movement_logic.get_horizontal_velocity()
@@ -688,30 +688,65 @@ func _check_forward_latch(axis: int):
 	else:
 		_forward_latch_active = false
 
-func enter_25d_mode(axis: int, value: float, invert: bool = false, target_dist: float = 0.0):
+func enter_25d_mode(zone_ref: Node, axis: int, value: float, invert: bool = false, target_dist: float = 0.0, _depth_allowed: bool = false):
+	if not active_25d_zones.has(zone_ref):
+		active_25d_zones.push_back(zone_ref)
+	
 	_check_forward_latch(axis)
-	sidescroll_logic.enter_mode(axis, value, invert)
+	
+	var current_pos_val = global_transform.origin.z if axis == 2 else global_transform.origin.x
+	
+	# Determine if ANY active zone allows depth movement
+	var effective_depth = false
+	for zone in active_25d_zones:
+		if zone.get("allow_depth_movement"):
+			effective_depth = true
+			break
+			
+	sidescroll_logic.enter_mode(axis, value, invert, current_pos_val, effective_depth)
 	if target_dist > 0.1:
 		sidescroll_logic.target_spring_length = target_dist
 
-func exit_25d_mode():
-	# Al salir, "soltamos" el ángulo actual: actualizamos yaw/pitch para que coincidan con la vista actual
-	if is_instance_valid(camera_rig):
+func exit_25d_mode(zone_ref: Node):
+	active_25d_zones.erase(zone_ref)
+	
+	if active_25d_zones.empty():
+		# No more zones, exit 2.5D mode
+		_forward_latch_active = false
+		sidescroll_logic.exit_mode()
+	else:
+		# Fallback to the previous zone in the stack
+		var prev_zone = active_25d_zones.back()
+		# Re-trigger enter_mode with previous zone's parameters to transition smoothly
+		var coord = prev_zone.global_transform.origin.z if prev_zone.lock_axis == 0 else prev_zone.global_transform.origin.x
+		var axis_int = 2 if prev_zone.lock_axis == 0 else 1
+		var current_pos_val = global_transform.origin.z if axis_int == 2 else global_transform.origin.x
+		
+		# Determine if ANY remaining active zone allows depth movement
+		var effective_depth = false
+		for zone in active_25d_zones:
+			if zone.get("allow_depth_movement"):
+				effective_depth = true
+				break
+		
+		sidescroll_logic.enter_mode(axis_int, coord, prev_zone.invert_side, current_pos_val, effective_depth)
+		if prev_zone.target_distance > 0.1:
+			sidescroll_logic.target_spring_length = prev_zone.target_distance
+
+	# If exiting all zones, release the angle
+	if active_25d_zones.empty() and is_instance_valid(camera_rig):
 		var b = camera_rig.transform.basis
-		# Extraer Euler del basis actual para que la cámara no salte al orbital anterior
 		var euler = b.get_euler()
 		yaw = euler.y
 		pitch = euler.x
 		yaw_deg = rad2deg(yaw)
 		pitch_deg = rad2deg(pitch)
-	
-	_forward_latch_active = false
-	sidescroll_logic.exit_mode()
 
 func _step_camera_logic(_dt: float):
 	if not camera_rig: return
 	
 	var alpha = sidescroll_logic.transition_alpha
+	var s_alpha = sidescroll_logic.get_smooth_alpha()
 	
 	if alpha > 0:
 		# Disable collision in 2.5D to avoid "zoom resets" or camera snapping
@@ -723,7 +758,7 @@ func _step_camera_logic(_dt: float):
 		var target_basis = sidescroll_logic.get_target_basis()
 		var q_from = orbital_basis.get_rotation_quat()
 		var q_to = target_basis.get_rotation_quat()
-		camera_rig.transform.basis = Basis(q_from.slerp(q_to, alpha))
+		camera_rig.transform.basis = Basis(q_from.slerp(q_to, s_alpha))
 		
 		# 2. Posición (Deadzone + Smoothing + Transición)
 		# Calculamos el lagging center (global)
@@ -733,26 +768,26 @@ func _step_camera_logic(_dt: float):
 		var pos_3d = global_transform.origin + Vector3(0, base_rig_y, 0)
 		
 		# Posición 2.5D "ideal" (basada en el lag_pos + altura base + offset Y adicional)
-		var pos_25d = lag_pos + Vector3(0, base_rig_y + sidescroll_logic.target_y_offset, 0)
+		var pos_25d = lag_pos + Vector3(0, base_rig_y + sidescroll_logic.current_target_y_offset, 0)
 		
 		# Interpolamos globalmente para que la transición sea suave
-		camera_rig.global_transform.origin = pos_3d.linear_interpolate(pos_25d, alpha)
+		camera_rig.global_transform.origin = pos_3d.linear_interpolate(pos_25d, s_alpha)
 		
 		# 3. Otros parámetros (FOV, Spring Length)
 		if _cached_cam:
-			_cached_cam.fov = lerp(base_fov, sidescroll_logic.target_fov, alpha)
+			_cached_cam.fov = lerp(base_fov, sidescroll_logic.current_target_fov, s_alpha)
 		
 		if _cached_spring_arm:
 			# SMOOTH ZOOM: Transition between 3D preference and 2.5D target
 			# Start with base target
-			var ss_target = sidescroll_logic.target_spring_length
+			var ss_target = sidescroll_logic.current_target_spring_length
 			
 			# Add Velocity Zoom if moving
 			# Calculate approximate speed for zoom (smoothed by the logic component or here)
 			var h_speed = Vector2(velocity.x, velocity.z).length()
 			ss_target += sidescroll_logic.get_zoom_offset(h_speed)
 			
-			var target_len = lerp(base_spring_length_3d, ss_target, alpha)
+			var target_len = lerp(base_spring_length_3d, ss_target, s_alpha)
 			
 			# NOTE: We use target_len directly because 'alpha' is already smoothed over time by logic.step()
 			# Adding another lerp here creates a "double spring" effect during transitions.

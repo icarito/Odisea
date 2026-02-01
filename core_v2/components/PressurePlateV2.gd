@@ -12,10 +12,18 @@ export(bool) var is_latched := false # If true, stays active once pressed
 # --- INTERNAL STATE ---
 var _start_position := Vector3.ZERO
 var _initialized := false
+var _detection_area: Area = null
 
 func _ready():
 	_start_position = translation
 	_initialized = true
+	
+	# Find a child Area to use for weight detection
+	for child in get_children():
+		if child is Area:
+			_detection_area = child
+			break
+			
 	._ready()
 
 func _update_visuals() -> void:
@@ -27,7 +35,10 @@ func _update_visuals() -> void:
 
 func step(dt: float) -> void:
 	# Deterministic weighted detection
-	var bodies = get_overlapping_bodies()
+	var bodies = []
+	if _detection_area:
+		bodies = _detection_area.get_overlapping_bodies()
+	
 	var has_weight = false
 	
 	for body in bodies:

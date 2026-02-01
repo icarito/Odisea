@@ -3,7 +3,7 @@ extends Node
 
 # Componente para manejar el estado y las restricciones del modo 2.5D
 
-export(float) var lerp_speed := 3.0 # Slower transition (was 5.0)
+export(float) var lerp_speed := 2.5 # Even smoother (was 3.0)
 export(float) var target_fov := 45.0
 export(float) var target_pitch_deg := 0.0
 export(float) var target_y_offset := 0.0
@@ -43,33 +43,55 @@ var lock_axis := 0 # 0: None, 1: X, 2: Z
 var lock_value := 0.0
 var invert_side := false
 var transition_alpha := 0.0
+var allow_depth := false
+var current_target_lock_value := 0.0
+var current_target_spring_length := 7.0
+var current_target_fov := 70.0
+var current_target_y_offset := 0.0
 
 # State for deterministic camera tracking
 var virtual_center := Vector3.ZERO
 var lagging_center := Vector3.ZERO
-var pan_offset := Vector2.ZERO # Deprecated for manual control, but still used for velocity lookahead
+var pan_offset := Vector2.ZERO
 var yaw_offset := 0.0
-var manual_yaw := 0.0 # Separated manual input
+var manual_yaw := 0.0
 var manual_pitch := 0.0
 var facing_sign := 1.0
 var _time_since_turn := 0.0
 var _time_since_input := 0.0
 var _first_frame := true
 
-func enter_mode(axis: int, value: float, invert: bool):
+func enter_mode(axis: int, value: float, invert: bool, current_pos_val: float = -1e9, depth_allowed: bool = false):
+	var was_inactive = not is_active
+	var axis_changed = axis != lock_axis
+	
+	# If we're entering for the first time, switching axis, or moving from a depth-unconstrained state,
+	# start the lock value from where the player is currently to avoid "yanking".
+	var value_changed = abs(value - lock_value) > 0.001
+	var needs_reset = was_inactive or axis_changed or (allow_depth and not depth_allowed and value_changed)
+	
+	if needs_reset and current_pos_val > -1e8:
+		current_target_lock_value = current_pos_val
+		
+		# Reset state to prevent "yanking" from previous offsets ONLY if truly changing axis/mode
+		# If transitioning between similar depth zones, we keep the offsets.
+		pan_offset = Vector2.ZERO
+		yaw_offset = 0.0
+		manual_yaw = 0.0
+		manual_pitch = 0.0
+		facing_sign = 1.0
+	
 	is_active = true
+	allow_depth = depth_allowed
+	
 	lock_axis = axis
 	lock_value = value
 	invert_side = invert
-	_first_frame = true
-	_time_since_input = manual_input_decay_delay + 1.0 # Ensure decay is active on enter
 	
-	# Reset state to prevent "yanking" from previous offsets
-	pan_offset = Vector2.ZERO
-	yaw_offset = 0.0
-	manual_yaw = 0.0
-	manual_pitch = 0.0
-	facing_sign = 1.0 # Or detect from current velocity if possible? Defaulting to 1.0 is safe-ish.
+	current_target_spring_length = target_spring_length
+	current_target_fov = target_fov
+	current_target_y_offset = target_y_offset
+	_time_since_input = manual_input_decay_delay + 1.0 # Ensure decay is active on enter
 
 func exit_mode():
 	is_active = false
@@ -82,20 +104,39 @@ func step(dt: float):
 			transition_alpha = min(transition_alpha + step_val, target_alpha)
 		else:
 			transition_alpha = max(transition_alpha - step_val, target_alpha)
+	
+	# Smoothly transition internal parameters even when already active
+	if is_active:
+		current_target_lock_value = lerp(current_target_lock_value, lock_value, lerp_speed * dt)
+		current_target_spring_length = lerp(current_target_spring_length, target_spring_length, lerp_speed * dt)
+		current_target_fov = lerp(current_target_fov, target_fov, lerp_speed * dt)
+		current_target_y_offset = lerp(current_target_y_offset, target_y_offset, lerp_speed * dt)
+
+func get_smooth_alpha() -> float:
+	# Cubic easing (smoothstep): 3t^2 - 2t^3
+	return transition_alpha * transition_alpha * (3.0 - 2.0 * transition_alpha)
 
 func get_constrained_input(move_vec: Vector2) -> Vector2:
-	# Siempre bloqueamos la profundidad (Y del Vector2) para mantener el plano
-	return Vector2(move_vec.x, 0.0)
+	# Si permitimos profundidad, devolvemos el vector completo
+	if allow_depth:
+		return move_vec
+	
+	# Lo que bloqueamos es la profundidad (Y del Vector2) para mantener el plano.
+	# Pero lo hacemos gradualmente usando transition_alpha para evitar tirones.
+	var constrained = Vector2(move_vec.x, 0.0)
+	return move_vec.linear_interpolate(constrained, get_smooth_alpha())
 
 func apply_spatial_constraints(body: KinematicBody):
-	if transition_alpha <= 0: return
+	if transition_alpha <= 0 or allow_depth: return
 	
 	var pos = body.global_transform.origin
+	var s_alpha = get_smooth_alpha()
+	
 	if lock_axis == 2: # LOCK Z
 		# Usamos lerp para que la entrada al eje sea suave
-		pos.z = lerp(pos.z, lock_value, transition_alpha)
+		pos.z = lerp(pos.z, current_target_lock_value, s_alpha)
 	elif lock_axis == 1: # LOCK X
-		pos.x = lerp(pos.x, lock_value, transition_alpha)
+		pos.x = lerp(pos.x, current_target_lock_value, s_alpha)
 	
 	body.global_transform.origin = pos
 
@@ -126,7 +167,7 @@ func calculate_camera_pos(player_pos: Vector3, dt: float) -> Vector3:
 		virtual_center = player_pos
 		lagging_center = player_pos
 		pan_offset = Vector2.ZERO
-		_first_frame = false
+		# Note: current_target_lock_value is initialized in enter_mode
 		return lagging_center
 	
 	# Horizontal tracking (Simple smoothed follow for the virtual center)
@@ -134,9 +175,9 @@ func calculate_camera_pos(player_pos: Vector3, dt: float) -> Vector3:
 	virtual_center = virtual_center.linear_interpolate(player_pos, camera_smoothing * dt)
 	
 	if lock_axis == 2:
-		virtual_center.z = lock_value
+		virtual_center.z = current_target_lock_value
 	elif lock_axis == 1:
-		virtual_center.x = lock_value
+		virtual_center.x = current_target_lock_value
 	
 	# 1. Update Velocity-based Look-Ahead
 	var current_pos = player_pos
