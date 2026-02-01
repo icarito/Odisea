@@ -68,6 +68,7 @@ move_response_curve = ExtResource( 11 )
 camera_response_curve = ExtResource( 10 )
 strafe_turn_multiplier = 0.1
 strafe_speed_multiplier = 1.0
+slope_resistance_factor = 0.1
 
 [node name="SideScroll" type="Node" parent="Logic"]
 script = ExtResource( 8 )

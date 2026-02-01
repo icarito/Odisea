@@ -53,7 +53,7 @@ func consume_jump() -> void:
 func set_internal_velocity(v: float) -> void:
 	internal_velocity = v
 
-func step(dt: float, input_jump: bool, current_vy: float, on_floor: bool) -> float:
+func step(dt: float, input_jump: bool, _current_vy: float, on_floor: bool) -> float:
 	# If current_vy is significantly different from our internal expectation
 	# (e.g. forced by external scripted event or snap), we sync to it.
 	# But normally we stick to our simulated gravity.

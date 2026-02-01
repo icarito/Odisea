@@ -263,7 +263,7 @@ func _connect_to_checkzones():
 				print("[OYSComponent] Conectado a CheckZone: ", cz.name)
 
 # Callback cuando el player pasa por un CheckZone durante la ejecución del script
-func _on_checkpoint_reached(base_transform: Transform):
+func _on_checkpoint_reached(_base_transform: Transform):
 	if not interpreter or not interpreter.is_running:
 		return  # Solo guardar checkpoints mientras el script está corriendo
 	
