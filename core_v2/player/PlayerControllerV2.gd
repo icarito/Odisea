@@ -1,6 +1,7 @@
 extends KinematicBody
 
 const InputProviderV2 = preload("../input/InputProviderV2.gd")
+const InputDataV2 = preload("../input/InputDataV2.gd")
 const PlayerJumpV2 = preload("PlayerJumpV2.gd")
 const PlayerMovementV2 = preload("PlayerMovementV2.gd")
 
@@ -22,6 +23,22 @@ export(float) var min_pitch := -85.0
 export(float) var max_pitch := 85.0
 export(float) var interact_distance := 3.0
 
+# Stair-stepping Configuration
+export(float) var step_height := 0.4  # Max height to auto-climb (typical stair step)
+export(float) var step_depth := 0.5   # How far forward to probe for steps (increased for reliability)
+export var enable_step_up := true     # Toggle stair-stepping
+export(float) var step_grounded_grace := 0.15  # Seconds to stay "grounded" after stepping
+
+# Stair-stepping state
+var _step_grounded_timer := 0.0  # Grace period to keep grounded state for animations
+var _just_stepped := false       # Flag set when we step up
+
+# Platform Transform Tracking (replaces velocity-based approach)
+var _platform_collider: Spatial = null
+var _platform_last_transform: Transform = Transform.IDENTITY
+var _platform_velocity: Vector3 = Vector3.ZERO  # Calculated from transform delta
+var _was_on_platform := false
+
 # 2.5D Mode State (Delegated to Component)
 var sidescroll_logic: Node # SideScrollLogicV2
 var _created_sidescroll_logic := false
@@ -34,12 +51,14 @@ var current_spring_length := 7.0 # Current ACTUAL length (smoothed)
 var base_rig_y := 0.0
 var base_collision_mask := 0
 var _occlusion_mode_active := false
+var active_25d_zones := [] # Stack of SideScrollZone nodes
 
 func set_occlusion_mode(active: bool) -> void:
 	_occlusion_mode_active = active
 
 # state
 var velocity := Vector3()
+var wind_force := Vector3.ZERO
 var yaw := 0.0
 var pitch := 0.0
 var yaw_deg := 0.0
@@ -76,6 +95,7 @@ func get_full_snapshot() -> Dictionary:
 	var snapshot = {
 		"position": [self.global_transform.origin.x, self.global_transform.origin.y, self.global_transform.origin.z],
 		"velocity": [velocity.x, velocity.y, velocity.z],
+		"wind_force": [wind_force.x, wind_force.y, wind_force.z],
 		"yaw": yaw,
 		"pitch": pitch,
 		"base_spring_length_3d": base_spring_length_3d,
@@ -100,6 +120,24 @@ func get_full_snapshot() -> Dictionary:
 	snapshot["fwd_latch_active"] = _forward_latch_active
 	snapshot["fwd_latch_sign"] = _forward_latch_sign
 	
+	# Platform tracking state (store node path for deterministic restore)
+	if _platform_collider and is_instance_valid(_platform_collider):
+		snapshot["platform_path"] = _platform_collider.get_path()
+		snapshot["platform_last_transform"] = {
+			"origin": [_platform_last_transform.origin.x, _platform_last_transform.origin.y, _platform_last_transform.origin.z],
+			"basis_x": [_platform_last_transform.basis.x.x, _platform_last_transform.basis.x.y, _platform_last_transform.basis.x.z],
+			"basis_y": [_platform_last_transform.basis.y.x, _platform_last_transform.basis.y.y, _platform_last_transform.basis.y.z],
+			"basis_z": [_platform_last_transform.basis.z.x, _platform_last_transform.basis.z.y, _platform_last_transform.basis.z.z]
+		}
+	else:
+		snapshot["platform_path"] = ""
+	snapshot["platform_velocity"] = [_platform_velocity.x, _platform_velocity.y, _platform_velocity.z]
+	snapshot["was_on_platform"] = _was_on_platform
+
+	# Stair-stepping state
+	snapshot["step_grounded_timer"] = _step_grounded_timer
+	snapshot["just_stepped"] = _just_stepped
+
 	return snapshot
 
 func restore_snapshot(data: Dictionary) -> void:
@@ -117,6 +155,12 @@ func restore_snapshot(data: Dictionary) -> void:
 		velocity = vel
 	else:
 		velocity = Vector3.ZERO
+	if data.has("wind_force"):
+		var wf = data["wind_force"]
+		if typeof(wf) == TYPE_ARRAY:
+			wind_force = Vector3(wf[0], wf[1], wf[2])
+	else:
+		wind_force = Vector3.ZERO
 	yaw = data.get("yaw", 0.0)
 	pitch = data.get("pitch", 0.0)
 	yaw_deg = rad2deg(yaw)
@@ -141,6 +185,31 @@ func restore_snapshot(data: Dictionary) -> void:
 	_forward_latch_active = data.get("fwd_latch_active", false)
 	_forward_latch_sign = data.get("fwd_latch_sign", 1.0)
 	
+	# Restore platform tracking state
+	var platform_path = data.get("platform_path", "")
+	if platform_path != "" and has_node(platform_path):
+		_platform_collider = get_node(platform_path)
+		var pt = data.get("platform_last_transform", {})
+		if pt.has("origin"):
+			var o = pt["origin"]
+			var bx = pt.get("basis_x", [1, 0, 0])
+			var by = pt.get("basis_y", [0, 1, 0])
+			var bz = pt.get("basis_z", [0, 0, 1])
+			_platform_last_transform = Transform(
+				Basis(Vector3(bx[0], bx[1], bx[2]), Vector3(by[0], by[1], by[2]), Vector3(bz[0], bz[1], bz[2])),
+				Vector3(o[0], o[1], o[2])
+			)
+	else:
+		_platform_collider = null
+		_platform_last_transform = Transform.IDENTITY
+	var pv = data.get("platform_velocity", [0, 0, 0])
+	_platform_velocity = Vector3(pv[0], pv[1], pv[2])
+	_was_on_platform = data.get("was_on_platform", false)
+
+	# Restore stair-stepping state
+	_step_grounded_timer = data.get("step_grounded_timer", 0.0)
+	_just_stepped = data.get("just_stepped", false)
+
 	# Restore acrobatic state
 	if data.has("acrobatic_state"):
 		var acro = data["acrobatic_state"]
@@ -156,12 +225,23 @@ func restore_snapshot(data: Dictionary) -> void:
 func full_reset() -> void:
 	"""Limpieza profunda de estado para determinismo absoluto en tests."""
 	velocity = Vector3.ZERO
+	wind_force = Vector3.ZERO
 	frames_since_last_snap = ACROBATIC_WINDOW_FRAMES + 1
 	last_input_vector = Vector3.ZERO
 	is_acrobatic_ready = false
 	_forward_latch_active = false
 	_forward_latch_sign = 1.0
 	
+	# Reset platform tracking
+	_platform_collider = null
+	_platform_last_transform = Transform.IDENTITY
+	_platform_velocity = Vector3.ZERO
+	_was_on_platform = false
+
+	# Reset stair-stepping state
+	_step_grounded_timer = 0.0
+	_just_stepped = false
+
 	yaw = 0.0
 	pitch = 0.0
 	yaw_deg = 0.0
@@ -183,7 +263,8 @@ func full_reset() -> void:
 		jump_logic._jump_time_tracker = 0.0
 	
 	if is_instance_valid(sidescroll_logic):
-		sidescroll_logic.pan_offset = Vector2.ZERO
+		sidescroll_logic.manual_yaw = 0.0
+		sidescroll_logic.manual_pitch = 0.0
 
 # Nodos (Asegúrate de que los nombres coincidan con tu escena)
 onready var camera_rig = $CameraRig
@@ -207,6 +288,9 @@ func set_external_velocity(v: Vector3) -> void:
 func set_external_source_is_static(is_static: bool) -> void:
 	if is_instance_valid(movement_logic):
 		movement_logic.set_external_source_is_static(is_static)
+
+func apply_wind_force(force: Vector3) -> void:
+	wind_force += force
 
 func _ready():
 	add_to_group("player")
@@ -346,6 +430,13 @@ func _process_interaction(input: InputDataV2):
 			print("Interactable in range (Area): ", best_target.name)
 			var text = best_target.interaction_text if best_target.get("interaction_text") else "Interact"
 			emit_signal("interactable_in_range", text)
+
+			# Auto-activate if auto_interact_once is enabled and hasn't been auto-triggered yet
+			if best_target.get("auto_interact_once") and not best_target.get("_auto_triggered"):
+				if best_target.has_method("set_active"):
+					print("Auto-activating interactable: ", best_target.name)
+					best_target.set_active(true)
+					best_target._auto_triggered = true
 		
 		# Handle interaction
 		if input.interact:
@@ -375,6 +466,15 @@ func _input(event):
 	elif event.is_action_pressed("zoom_out"):
 		if input_provider:
 			input_provider.zoom_delta_accum += 1.0
+
+func inject_input(data: Dictionary) -> void:
+	if data == null:
+		return
+	var input = InputDataV2.new()
+	input.from_dict(data)
+	# Skip normal _physics_process for this frame to avoid double step
+	external_input_provided = true
+	step(FIXED_DT, input)
 
 func step(dt: float, input: InputDataV2) -> void:
 	# 0. State Update
@@ -465,11 +565,11 @@ func step(dt: float, input: InputDataV2) -> void:
 		if dot_product < -0.6: # Detección de giro 180°
 			if is_acrobatic_ready:
 				# Si ya estábamos listos y giramos OTRA VEZ (Double Snap), cancelamos.
-				# Esto evita el backflip "al revés" cuando rectificas la dirección muy rápido.
+				# Esto evita el backflip "al revés" when you rectify the direction very fast.
 				is_acrobatic_ready = false
 				frames_since_last_snap = ACROBATIC_WINDOW_FRAMES + 1
 			else:
-				# Primer snap detectado
+				# First snap detected
 				frames_since_last_snap = 0
 				is_acrobatic_ready = true
 	
@@ -481,7 +581,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	if current_input_3d.length() > 0.1:
 		last_input_vector = current_input_3d
 	
-	if _forward_latch_active:
+	if _forward_latch_active and not sidescroll_logic.allow_depth:
 		# FORWARD LATCH: Force controls to follow strict 2.5D path
 		basis = sidescroll_logic.get_target_basis()
 		
@@ -501,17 +601,16 @@ func step(dt: float, input: InputDataV2) -> void:
 		move_vec = Vector2(input_x, 0.0)
 		
 		# FORCE FACING UPDATE based on the latch direction
-		sidescroll_logic.update_facing(input_x)
+		sidescroll_logic.update_facing(input_x, dt)
 		
 	elif sidescroll_logic.is_active and not in_transition:
 		# STRICT 2.5D: Use target basis + constraints
 		basis = sidescroll_logic.get_target_basis()
 		move_vec = sidescroll_logic.get_constrained_input(move_vec)
-		move_vec.y = 0
 		
 		# Determine actual move direction (could be different from input if restricted)
 		if abs(move_vec.x) > 0.1:
-			sidescroll_logic.update_facing(move_vec.x)
+			sidescroll_logic.update_facing(move_vec.x, dt)
 			
 		# [NEW] Apply Local Camera Rotation (Yaw/Pitch) for Look-Ahead and Tilt
 		if _cached_cam:
@@ -526,11 +625,19 @@ func step(dt: float, input: InputDataV2) -> void:
 		if current_rot.length_squared() > 0.001:
 			_cached_cam.rotation = current_rot.linear_interpolate(Vector3.ZERO, 10.0 * dt)
 	
+	# Apply Wind Force (Deterministic integration) - Moved BEFORE process_movement to avoid lag
+	if wind_force.length_squared() > 0.0001:
+		movement_logic.horizontal_velocity += Vector3(wind_force.x, 0, wind_force.z) * dt
+		velocity.y += wind_force.y * dt
+		if is_instance_valid(jump_logic):
+			jump_logic.set_internal_velocity(velocity.y)
+		wind_force = Vector3.ZERO
+
 	movement_logic.process_movement(dt, move_vec, basis, input.sprint, is_on_floor())
 	
 	# Override visual direction in 2.5D based on camera facing state
-	# Only apply this strictly when fully in 2.5D mode
-	if sidescroll_logic.is_active and not in_transition and not _forward_latch_active:
+	# Only apply this strictly when fully in 2.5D mode and NOT in depth-movement mode
+	if sidescroll_logic.is_active and not in_transition and not _forward_latch_active and not sidescroll_logic.allow_depth:
 		movement_logic.wish_direction = basis.x * sidescroll_logic.facing_sign
 
 	var h_vel = movement_logic.get_horizontal_velocity()
@@ -563,7 +670,7 @@ func step(dt: float, input: InputDataV2) -> void:
 				var push_val = 0.0
 				if sidescroll_logic.lock_axis == 2: push_val = move_dir.x
 				elif sidescroll_logic.lock_axis == 1: push_val = move_dir.z
-				sidescroll_logic.pan_offset.x += push_val * jump_logic.acrobatic_camera_push
+				sidescroll_logic.manual_yaw += push_val * jump_logic.acrobatic_camera_push
 		
 		jump_logic.consume_jump()
 		jump_logic.set_internal_velocity(force)
@@ -592,12 +699,34 @@ func step(dt: float, input: InputDataV2) -> void:
 		external_vel = movement_logic.integrate_external_velocity(dt)
 	velocity += external_vel
 
+	# --- STAIR GROUNDED GRACE TIMER ---
+	if _step_grounded_timer > 0:
+		_step_grounded_timer -= dt
+	_just_stepped = false
+
 	# 5. Movimiento Final y Animación
 	# El snap solo aplica cuando no estamos saltando (velocity.y <= 0)
 	# infinite_inertia = false para que los RigidBodies no sean atravesados ni ignorados por la masa
 	var snap_vec = Vector3.DOWN * snap_length if (velocity.y <= 0 and not input.jump) else Vector3.ZERO
+
+	# --- STAIR-STEPPING (before move_and_slide) ---
+	# Use wish_direction (player intent) not velocity (which might be blocked by the step)
+	if enable_step_up and is_on_floor() and velocity.y <= 0:
+		var step_motion = movement_logic.wish_direction if movement_logic.wish_direction.length() > 0.1 else velocity
+		var step_result = _try_step_up(step_motion)
+		if step_result.stepped:
+			global_transform.origin = step_result.position
+			_just_stepped = true
+			_step_grounded_timer = step_grounded_grace  # Reset grace timer
+
 	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true, 4, deg2rad(45), false)
 	
+	# --- FLOOR INFO UPDATE (for slope alignment) ---
+	_update_floor_info()
+
+	# --- PLATFORM TRANSFORM TRACKING ---
+	_update_platform_tracking(dt)
+
 	# --- CEILING COLLISION ---
 	if is_on_ceiling() and velocity.y > 0:
 		velocity.y = 0
@@ -639,7 +768,155 @@ func step(dt: float, input: InputDataV2) -> void:
 	# Resetear asunción por defecto para el próximo frame
 	movement_logic.external_source_is_static = true
 
+# =============================================================================
+# SLOPE & PLATFORM HELPERS (inspired by Terrestrial Characters)
+# =============================================================================
+
+func _update_floor_info() -> void:
+	"""Update floor normal for slope alignment in PlayerMovementV2."""
+	if not is_on_floor():
+		movement_logic.set_floor_normal(Vector3.UP)
+		return
+
+	# Find the floor collision (normal pointing mostly upward)
+	for i in get_slide_count():
+		var collision = get_slide_collision(i)
+		if collision.normal.y > 0.7:  # Floor-like surface
+			movement_logic.set_floor_normal(collision.normal)
+			return
+
+	movement_logic.set_floor_normal(Vector3.UP)
+
+func is_effectively_grounded() -> bool:
+	"""Returns true if player is on floor OR within the stair-stepping grace period.
+	Use this for animations to avoid flickering during stair climbing."""
+	return is_on_floor() or _step_grounded_timer > 0
+
+func _update_platform_tracking(dt: float) -> void:
+	"""Track moving platforms for velocity inheritance when jumping off.
+
+	NOTE: We do NOT apply position deltas here because move_and_slide already
+	handles carrying the player with moving floors via collision response.
+	We only track the platform's velocity so we can inherit it when jumping."""
+
+	var new_platform: Spatial = null
+
+	# Find current floor platform
+	if is_on_floor():
+		for i in get_slide_count():
+			var collision = get_slide_collision(i)
+			if collision.normal.y > 0.7:  # Floor-like surface
+				var collider = collision.collider
+				if collider is Spatial and not collider is StaticBody:
+					new_platform = collider
+					break
+
+	# Platform changed or left
+	if new_platform != _platform_collider:
+		if _platform_collider != null and new_platform == null:
+			# Just stepped OFF a moving platform - inherit its velocity
+			if _platform_velocity.length() > 0.1:
+				velocity += _platform_velocity
+
+		_platform_collider = new_platform
+		if new_platform:
+			_platform_last_transform = new_platform.global_transform
+		_was_on_platform = new_platform != null
+
+	# Track current platform velocity (for inheritance when jumping)
+	# Do NOT move the player - move_and_slide already does that via collision
+	if _platform_collider != null and is_instance_valid(_platform_collider):
+		var current_transform = _platform_collider.global_transform
+
+		# Calculate platform velocity from transform delta
+		var old_local_pos = _platform_last_transform.affine_inverse().xform(global_transform.origin)
+		var new_global_pos = current_transform.xform(old_local_pos)
+		var delta_pos = new_global_pos - global_transform.origin
+
+		# Store velocity for inheritance (do NOT apply delta_pos - that causes double movement!)
+		_platform_velocity = delta_pos / dt if dt > 0 else Vector3.ZERO
+		_platform_last_transform = current_transform
+	else:
+		_platform_velocity = Vector3.ZERO
+
+# =============================================================================
+# STAIR-STEPPING HELPER
+# =============================================================================
+
+func _try_step_up(motion: Vector3) -> Dictionary:
+	"""Attempt to step up a small obstacle (stair step).
+	Returns { stepped: bool, position: Vector3 }
+
+	Algorithm:
+	1. Cast forward to detect obstacle at foot level
+	2. If obstacle found, check if we have headroom to step up
+	3. Cast down from elevated position to find the step surface
+	4. If valid floor found within step_height, return the stepped-up position
+	"""
+	var result = { "stepped": false, "position": global_transform.origin }
+
+	if motion.length_squared() < 0.0001:
+		return result
+
+	# Get horizontal direction of movement
+	var horizontal_motion = Vector3(motion.x, 0, motion.z)
+	if horizontal_motion.length_squared() < 0.0001:
+		return result
+
+	var move_dir = horizontal_motion.normalized()
+	var origin = global_transform.origin
+
+	# Use a fixed probe distance, not dependent on current speed
+	# This ensures stair detection works at any walking speed
+	var probe_distance = step_depth
+
+	# Step 1: Check if there's a wall/obstacle at foot level
+	var foot_collision = move_and_collide(move_dir * probe_distance, true, true, true)
+	if foot_collision == null:
+		# No obstacle, no need to step
+		return result
+
+	# Check if this is a wall (not a floor) - we want vertical-ish surfaces
+	if foot_collision.normal.y > 0.7:
+		# It's a slope, not a step
+		return result
+
+	# Step 2: Check clearance at step height (head room)
+	var head_collision = move_and_collide(Vector3.UP * step_height, true, true, true)
+	if head_collision != null:
+		# Not enough head room
+		return result
+
+	# Step 3: Move up and try to move forward at step height
+	var step_up_pos = origin + Vector3.UP * step_height
+	var old_pos = global_transform.origin
+	global_transform.origin = step_up_pos
+
+	# Try to move forward at the elevated position
+	var _forward_collision = move_and_collide(move_dir * probe_distance, true, true, true)
+
+	# Step 4: Cast down to find the step surface
+	var down_collision = move_and_collide(Vector3.DOWN * (step_height + 0.1), true, true, true)
+
+	# Restore position for now
+	global_transform.origin = old_pos
+
+	if down_collision != null:
+		# Check if we found a valid floor
+		if down_collision.normal.y > 0.7:
+			var step_surface_y = step_up_pos.y - down_collision.travel.length() + 0.02
+			var height_gain = step_surface_y - origin.y
+
+			# Only step if we're actually going UP and within step_height
+			# Lowered minimum threshold from 0.02 to 0.01 for smoother steps
+			if height_gain > 0.01 and height_gain <= step_height:
+				result.stepped = true
+				result.position = Vector3(origin.x, step_surface_y, origin.z)
+
+	return result
+
 func _physics_process(_delta):
+	# GUARD: avoid double-stepping during replays/recording when SessionManager is active
 	if external_input_provided or is_replay_mode:
 		if external_input_provided:
 			external_input_provided = false
@@ -688,30 +965,65 @@ func _check_forward_latch(axis: int):
 	else:
 		_forward_latch_active = false
 
-func enter_25d_mode(axis: int, value: float, invert: bool = false, target_dist: float = 0.0):
+func enter_25d_mode(zone_ref: Node, axis: int, value: float, invert: bool = false, target_dist: float = 0.0, _depth_allowed: bool = false):
+	if not active_25d_zones.has(zone_ref):
+		active_25d_zones.push_back(zone_ref)
+
 	_check_forward_latch(axis)
-	sidescroll_logic.enter_mode(axis, value, invert)
+
+	var current_pos_val = global_transform.origin.z if axis == 2 else global_transform.origin.x
+
+	# Determine if ANY active zone allows depth movement
+	var effective_depth = false
+	for zone in active_25d_zones:
+		if zone.get("allow_depth_movement"):
+			effective_depth = true
+			break
+
+	sidescroll_logic.enter_mode(axis, value, invert, current_pos_val, effective_depth)
 	if target_dist > 0.1:
 		sidescroll_logic.target_spring_length = target_dist
 
-func exit_25d_mode():
-	# Al salir, "soltamos" el ángulo actual: actualizamos yaw/pitch para que coincidan con la vista actual
-	if is_instance_valid(camera_rig):
+func exit_25d_mode(zone_ref: Node):
+	active_25d_zones.erase(zone_ref)
+
+	if active_25d_zones.empty():
+		# No more zones, exit 2.5D mode
+		_forward_latch_active = false
+		sidescroll_logic.exit_mode()
+	else:
+		# Fallback to the previous zone in the stack
+		var prev_zone = active_25d_zones.back()
+		# Re-trigger enter_mode with previous zone's parameters to transition smoothly
+		var coord = prev_zone.global_transform.origin.z if prev_zone.lock_axis == 0 else prev_zone.global_transform.origin.x
+		var axis_int = 2 if prev_zone.lock_axis == 0 else 1
+		var current_pos_val = global_transform.origin.z if axis_int == 2 else global_transform.origin.x
+
+		# Determine if ANY remaining active zone allows depth movement
+		var effective_depth = false
+		for zone in active_25d_zones:
+			if zone.get("allow_depth_movement"):
+				effective_depth = true
+				break
+
+		sidescroll_logic.enter_mode(axis_int, coord, prev_zone.invert_side, current_pos_val, effective_depth)
+		if prev_zone.target_distance > 0.1:
+			sidescroll_logic.target_spring_length = prev_zone.target_distance
+
+	# If exiting all zones, release the angle
+	if active_25d_zones.empty() and is_instance_valid(camera_rig):
 		var b = camera_rig.transform.basis
-		# Extraer Euler del basis actual para que la cámara no salte al orbital anterior
 		var euler = b.get_euler()
 		yaw = euler.y
 		pitch = euler.x
 		yaw_deg = rad2deg(yaw)
 		pitch_deg = rad2deg(pitch)
-	
-	_forward_latch_active = false
-	sidescroll_logic.exit_mode()
 
 func _step_camera_logic(_dt: float):
 	if not camera_rig: return
 	
 	var alpha = sidescroll_logic.transition_alpha
+	var s_alpha = sidescroll_logic.get_smooth_alpha()
 	
 	if alpha > 0:
 		# Disable collision in 2.5D to avoid "zoom resets" or camera snapping
@@ -723,7 +1035,7 @@ func _step_camera_logic(_dt: float):
 		var target_basis = sidescroll_logic.get_target_basis()
 		var q_from = orbital_basis.get_rotation_quat()
 		var q_to = target_basis.get_rotation_quat()
-		camera_rig.transform.basis = Basis(q_from.slerp(q_to, alpha))
+		camera_rig.transform.basis = Basis(q_from.slerp(q_to, s_alpha))
 		
 		# 2. Posición (Deadzone + Smoothing + Transición)
 		# Calculamos el lagging center (global)
@@ -733,37 +1045,27 @@ func _step_camera_logic(_dt: float):
 		var pos_3d = global_transform.origin + Vector3(0, base_rig_y, 0)
 		
 		# Posición 2.5D "ideal" (basada en el lag_pos + altura base + offset Y adicional)
-		var pos_25d = lag_pos + Vector3(0, base_rig_y + sidescroll_logic.target_y_offset, 0)
+		var pos_25d = lag_pos + Vector3(0, base_rig_y + sidescroll_logic.current_target_y_offset, 0)
 		
 		# Interpolamos globalmente para que la transición sea suave
-		camera_rig.global_transform.origin = pos_3d.linear_interpolate(pos_25d, alpha)
+		camera_rig.global_transform.origin = pos_3d.linear_interpolate(pos_25d, s_alpha)
 		
 		# 3. Otros parámetros (FOV, Spring Length)
 		if _cached_cam:
-			_cached_cam.fov = lerp(base_fov, sidescroll_logic.target_fov, alpha)
+			_cached_cam.fov = lerp(base_fov, sidescroll_logic.current_target_fov, s_alpha)
 		
 		if _cached_spring_arm:
-			# SMOOTH ZOOM: Transition between 3D preference and 2.5D target
-			# Start with base target
-			var ss_target = sidescroll_logic.target_spring_length
+			# Smooth zoom: transition between 3D and 2.5D target spring length
+			var ss_target = sidescroll_logic.current_target_spring_length
 			
-			# Add Velocity Zoom if moving
-			# Calculate approximate speed for zoom (smoothed by the logic component or here)
-			var h_speed = Vector2(velocity.x, velocity.z).length()
-			ss_target += sidescroll_logic.get_zoom_offset(h_speed)
+			# Add depth zoom offset for smooth transitions in depth-motion areas
+			var depth_zoom = sidescroll_logic.get_depth_zoom_offset(global_transform.origin)
+			ss_target += depth_zoom
 			
-			var target_len = lerp(base_spring_length_3d, ss_target, alpha)
+			var target_len = lerp(base_spring_length_3d, ss_target, s_alpha)
 			
-			# NOTE: We use target_len directly because 'alpha' is already smoothed over time by logic.step()
-			# Adding another lerp here creates a "double spring" effect during transitions.
 			current_spring_length = target_len
 			_cached_spring_arm.spring_length = current_spring_length
-			
-			# PERSPECTIVE SCALING:
-			# Si hacemos zoom-in (spring_length pequeño), el deadzone debe ser menor para que no se salga de pantalla.
-			# Usamos un ratio basado en la distancia actual vs la distancia base.
-			var zoom_factor = current_spring_length / 7.0 # 7.0 es la distancia de referencia
-			sidescroll_logic.deadzone_x = clamp(1.5 * zoom_factor, 0.2, 4.0)
 	else:
 		# Modo 3D estándar
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)

@@ -42,7 +42,18 @@ func before():
 # Data provider: devuelve un Array de parameter sets.
 
 # Solo buscamos .oys para el ciclo de determinismo completo (OYS -> JSON -> Verify)
+# Si OYS_FILTER está definido, solo retorna ese archivo
 static func _get_replay_paths() -> Array:
+	var filter = OS.get_environment("OYS_FILTER")
+	if filter != "":
+		var filtered_path = TESTS_ROOT.plus_file(filter)
+		if not filtered_path.ends_with(".oys"):
+			filtered_path += ".oys"
+		var f = File.new()
+		if f.file_exists(filtered_path):
+			return [[filtered_path]]
+		else:
+			printerr("OYS_FILTER: archivo no encontrado: ", filtered_path)
 	return _scan_for_files([".oys"])
 
 static func _scan_for_files(extensions: Array) -> Array:

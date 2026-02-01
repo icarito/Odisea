@@ -1,0 +1,57 @@
+[gd_scene load_steps=8 format=2]
+
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/things/WindTunnelV2.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=3]
+[ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=4]
+
+[sub_resource type="ProceduralSky" id=1]
+
+[sub_resource type="Environment" id=2]
+background_mode = 2
+background_sky = SubResource( 1 )
+ambient_light_color = Color( 0.5, 0.5, 0.5, 1 )
+
+[node name="WindTubeScene" type="Spatial"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource( 2 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( 0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 10, 0 )
+shadow_enabled = true
+
+[node name="Floor" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0 )
+use_collision = true
+width = 40.0
+height = 0.2
+depth = 40.0
+material = ExtResource( 4 )
+
+[node name="WindTube" type="CSGCombiner" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.1, 0 )
+use_collision = true
+
+[node name="Outer" type="CSGCylinder" parent="WindTube"]
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 5, 0, 0 )
+radius = 2.5
+height = 10.0
+sides = 24
+
+[node name="Inner" type="CSGCylinder" parent="WindTube"]
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 5, 0, 0 )
+operation = 2
+radius = 2.1
+height = 11.0
+sides = 24
+
+[node name="WindTunnelV2" parent="WindTube" instance=ExtResource( 2 )]
+wind_force = Vector3( 20, 0, 0 )
+
+[node name="Pilot" parent="." instance=ExtResource( 1 )]
+transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -5, 0.1, 0 )
+
+[node name="PushableBoxV2" parent="." instance=ExtResource( 3 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1, 0 )
+size = Vector3( 1, 1, 1 )

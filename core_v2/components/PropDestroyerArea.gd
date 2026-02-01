@@ -8,7 +8,7 @@ tool
 
 # --- EXPORTED PROPERTIES ---
 export(bool) var debug_render := true setget set_debug_render
-export(bool) var debug := true
+export(bool) var debug := false
 
 # --- SIGNALS ---
 signal entity_destroyed(entity)
@@ -81,8 +81,8 @@ func _on_body_entered(body: Node) -> void:
 	if not _is_valid_target(body):
 		return
 	
-	if debug:
-		print("[PropDestroyerArea] Body entered: %s" % body.name)
+	# if debug:
+	# 	print("[PropDestroyerArea] Body entered: %s" % body.name)
 	
 	# Destroy immediately (deterministic single-body handling)
 	_destroy_entity(body)
@@ -125,8 +125,8 @@ func _destroy_entity(entity: Node) -> void:
 	if teleport_system and teleport_system.has_method("untrack_entity"):
 		teleport_system.untrack_entity(entity)
 	
-	if debug:
-		print("[PropDestroyerArea] Destroying entity: %s" % entity.name)
+	# if debug:
+	# 	print("[PropDestroyerArea] Destroying entity: %s" % entity.name)
 	
 	# Handle pooled entities vs standard entities
 	var parent = entity.get_parent()
@@ -150,8 +150,8 @@ func flush() -> void:
 		if _is_valid_target(body):
 			_destroy_entity(body)
 	
-	if debug and bodies.size() > 0:
-		print("[PropDestroyerArea] Flushed %d entities" % bodies.size())
+	# if debug and bodies.size() > 0:
+	# 	print("[PropDestroyerArea] Flushed %d entities" % bodies.size())
 
 func _sort_by_instance_id(a: Node, b: Node) -> bool:
 	"""Sort comparator for deterministic iteration."""

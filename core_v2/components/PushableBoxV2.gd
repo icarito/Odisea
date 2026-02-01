@@ -17,6 +17,7 @@ export(float) var settle_lerp_speed = 10.0
 var _frames_below_threshold = 0
 var _pending_snapshot = null
 var _target_basis = null
+var _external_force := Vector3.ZERO
 
 func _ready():
 	add_to_group("replay_sync")
@@ -39,11 +40,19 @@ func _ready():
 		_apply_snapshot(_pending_snapshot)
 		_pending_snapshot = null
 
-func step(dt):
+func step(dt: float):
 	if mode == RigidBody.MODE_RIGID:
+		# Apply accumulated external forces (like wind) deterministically
+		if _external_force.length_squared() > 0.0001:
+			linear_velocity += (_external_force / mass) * dt
+			_external_force = Vector3.ZERO
+
 		_handle_rigid_logic(dt)
-	elif mode == RigidBody.MODE_KINEMATIC and _target_basis != null:
-		_handle_smooth_rotation(dt)
+	elif mode == RigidBody.MODE_KINEMATIC:
+		if _external_force.length_squared() > 0.0001:
+			wake_up()
+		elif _target_basis != null:
+			_handle_smooth_rotation(dt)
 
 func _handle_smooth_rotation(dt):
 	var current_q = global_transform.basis.get_rotation_quat()
@@ -188,6 +197,11 @@ func _get_global_height():
 		return size.z
 
 # Interacción: Al ser golpeado por otro cuerpo
+func apply_wind_force(force: Vector3) -> void:
+	_external_force += force
+	if mode == RigidBody.MODE_KINEMATIC:
+		wake_up()
+
 func _on_body_entered(body):
 	if mode == RigidBody.MODE_KINEMATIC:
 		if is_instance_valid(body):
@@ -237,7 +251,8 @@ func get_snapshot():
 		"fbt": _frames_below_threshold,
 		"size": [size.x, size.y, size.z],
 		"snap_rot": snap_rotation,
-		"snap_deg": rotation_snap_degrees
+		"snap_deg": rotation_snap_degrees,
+		"ext_force": [_external_force.x, _external_force.y, _external_force.z]
 	}
 
 func restore_snapshot(data):
@@ -279,8 +294,15 @@ func _apply_snapshot(data):
 	if data.has("snap_deg"):
 		rotation_snap_degrees = data["snap_deg"]
 	
+	if data.has("ext_force"):
+		var ef = data["ext_force"]
+		_external_force = Vector3(ef[0], ef[1], ef[2])
+
 	if mode == RigidBody.MODE_RIGID:
 		sleeping = false
 
 func _physics_process(delta):
+	# GUARD: avoid double-stepping during replays/recording when SessionManager is active
+	if SessionManager.is_replaying or SessionManager.is_recording:
+		return
 	step(delta)

@@ -94,6 +94,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/matchers/AnyClazzArgumentMatcher.gd"
 }, {
+"base": "Area",
+"class": "BaseZoneV2",
+"language": "GDScript",
+"path": "res://core_v2/components/BaseZoneV2.gd"
+}, {
 "base": "ValueProvider",
 "class": "CallBackValueProvider",
 "language": "GDScript",
@@ -114,7 +119,7 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/matchers/ChainedArgumentMatcher.gd"
 }, {
-"base": "Area",
+"base": "BaseZoneV2",
 "class": "CheckZoneV2",
 "language": "GDScript",
 "path": "res://core_v2/components/CheckZoneV2.gd"
@@ -709,7 +714,7 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/report/JUnitXmlReport.gd"
 }, {
-"base": "Area",
+"base": "BaseZoneV2",
 "class": "KillZoneV2",
 "language": "GDScript",
 "path": "res://core_v2/components/KillZoneV2.gd"
@@ -809,7 +814,7 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/OYSComponent.gd"
 }, {
-"base": "Area",
+"base": "BaseZoneV2",
 "class": "OYSTrigger",
 "language": "GDScript",
 "path": "res://core_v2/components/OYSTrigger.gd"
@@ -828,6 +833,11 @@ _global_script_classes=[ {
 "class": "OYS_Resolver",
 "language": "GDScript",
 "path": "res://core_v2/systems/OYS_Resolver.gd"
+}, {
+"base": "BaseZoneV2",
+"class": "OcclusionZoneV2",
+"language": "GDScript",
+"path": "res://core_v2/components/OcclusionZoneV2.gd"
 }, {
 "base": "Spatial",
 "class": "OrbitArm",
@@ -1039,6 +1049,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/meshbuilder/mesh_builder_panel/shape_creation_button.gd"
 }, {
+"base": "BaseZoneV2",
+"class": "SideScrollZoneV2",
+"language": "GDScript",
+"path": "res://core_v2/player/SideScrollZone.gd"
+}, {
 "base": "Resource",
 "class": "SignalHandler",
 "language": "GDScript",
@@ -1152,6 +1167,7 @@ _global_script_class_icons={
 "AnyArgumentMatcher": "",
 "AnyBuildInTypeArgumentMatcher": "",
 "AnyClazzArgumentMatcher": "",
+"BaseZoneV2": "",
 "CallBackValueProvider": "",
 "Callable": "",
 "CameraInspectorPlugin": "",
@@ -1299,6 +1315,7 @@ _global_script_class_icons={
 "OYS_Interpreter": "",
 "OYS_Parser": "",
 "OYS_Resolver": "",
+"OcclusionZoneV2": "",
 "OrbitArm": "",
 "PhysicsBall": "",
 "PhysicsEntity": "",
@@ -1341,6 +1358,7 @@ _global_script_class_icons={
 "RichTextLabelExt": "",
 "RotatingObjectV2": "",
 "ShapeCreationButton": "",
+"SideScrollZoneV2": "",
 "SignalHandler": "",
 "SlidingObjectV2": "",
 "SlimeLayer": "",
@@ -1397,15 +1415,11 @@ window/stretch/aspect="keep"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/OcclusionSystem/plugin.cfg", "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/qodot/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg" )
 
-[global]
+[gdunit3]
 
-port=false
-acum=false
-acc=false
-monit=false
-batch=false
+settings/test/test_root_folder="core_v2/tests"
 
 [gui]
 
@@ -1602,5 +1616,4 @@ batching/options/use_batching=false
 batching/options/single_rect_fallback=true
 batching/parameters/batch_buffer_size=32768
 environment/default_clear_color=Color( 0.137255, 0.219608, 0.282353, 1 )
-environment/default_environment="res://default_env.tres"
 quality/filters/anisotropic_filtering_level=0

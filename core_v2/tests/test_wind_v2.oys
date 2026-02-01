@@ -1,0 +1,12 @@
+LEVEL res://core_v2/scenes/WindTube.tscn
+
+# Start at the beginning of the tube
+SET pos (-4.0, 0.5, 0)
+SET rot 0
+
+# Wait for wind to act
+# Wind force is 20 in +X direction
+WAIT 1.0
+
+# Verify movement
+ASSERT pos.x > -2.0 "Player should be pushed by wind"

@@ -805,32 +805,32 @@
   ],
   "final_expected_state": {
     "position": [
-      0,
+      -0.506483,
       0.0415,
-      6.002774
+      6.102392
     ],
     "velocity": [
-      0,
-      0,
-      0
+      -0.333323,
+      -0.466667,
+      -0.002592
     ],
-    "yaw": 0,
+    "yaw": -0.007776,
     "pitch": 0,
     "base_spring_length_3d": 7,
     "movement_state": {
       "horizontal_velocity": [
-        0,
-        0,
-        0
+        -0.333323,
+        -0,
+        -0.002592
       ],
       "external_velocity": [
         0,
         0,
         0
       ],
-      "camera_input_timer": 2.2,
+      "camera_input_timer": 2.883333,
       "is_tank_turn_mode": true,
-      "current_turn_time": 0
+      "current_turn_time": 0.016667
     },
     "ss_logic": {
       "active": false,
@@ -849,10 +849,13 @@
         0,
         0
       ],
-      "yo": 0,
+      "cam_yaw": 0,
+      "fs": 1,
+      "tst": 0,
       "my": 0,
       "mp": 0,
-      "fs": 1,
+      "tsi": 0,
+      "cdz": 0,
       "ff": true
     },
     "jump_state": {
@@ -861,15 +864,46 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 148,
+      "frames_since_last_snap": 189,
       "last_input_vector": [
+        -1,
         0,
-        0,
-        1
+        0
       ],
       "is_acrobatic_ready": false
     },
     "fwd_latch_active": false,
-    "fwd_latch_sign": 1
+    "fwd_latch_sign": 1,
+    "platform_path": "/root/TestScene/Level/Basic movement",
+    "platform_last_transform": {
+      "origin": [
+        0.1817,
+        -0.1,
+        25.204599
+      ],
+      "basis_x": [
+        1,
+        0,
+        0
+      ],
+      "basis_y": [
+        0,
+        1,
+        0
+      ],
+      "basis_z": [
+        0,
+        0,
+        1
+      ]
+    },
+    "platform_velocity": [
+      0,
+      0,
+      0
+    ],
+    "was_on_platform": true,
+    "step_grounded_timer": 0,
+    "just_stepped": false
   }
 }

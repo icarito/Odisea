@@ -1,7 +1,7 @@
 [gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
-[ext_resource path="res://core_v2/components/OcclusionArea.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/components/OcclusionZoneV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/tests/TestOcclusionScene.gd" type="Script" id=4]
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=3]
