@@ -4,16 +4,11 @@ var player_node: Spatial
 var camera_node: Camera
 var is_occlusion_active: bool = false
 var hole_radius: float = 1.5
-var registered_materials: Array = []
+var registered_materials: Array = []  # Simple array of materials
 
 func _process(_delta):
 	if registered_materials.empty():
 		return
-	
-	## Disabled: Too noisy
-	# if is_occlusion_active and Engine.get_frames_drawn() % 60 == 0:
-	#	print("[WallOcclusionManager] Active. Materials: ", registered_materials.size(), " Player nodes: ", get_tree().get_nodes_in_group("player").size())
-
 		
 	if not is_instance_valid(player_node):
 		var players = get_tree().get_nodes_in_group("player")
@@ -39,7 +34,7 @@ func _process(_delta):
 				living_materials.append(mat)
 		registered_materials = living_materials
 
-func register_material(mat: ShaderMaterial):
+func register_material(mat: ShaderMaterial, _owner_node: Spatial = null):
 	if mat and not registered_materials.has(mat):
 		registered_materials.append(mat)
 		print("[WallOcclusionManager] Registered material: ", mat.resource_path if mat.resource_path else "Unsaved shader material")
@@ -48,5 +43,7 @@ func register_material(mat: ShaderMaterial):
 
 
 func set_occlusion_params(active: bool, radius: float):
+	is_occlusion_active = active
+	hole_radius = radius
 	is_occlusion_active = active
 	hole_radius = radius
