@@ -134,6 +134,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/CinematicCameraZone.gd"
 }, {
+"base": "Path",
+"class": "CinematicPathRig",
+"language": "GDScript",
+"path": "res://core_v2/visual/CinematicPathRig.gd"
+}, {
 "base": "Spatial",
 "class": "CinematicRigV2",
 "language": "GDScript",
@@ -1185,6 +1190,7 @@ _global_script_class_icons={
 "CheckZoneV2": "",
 "CheckpointResource": "",
 "CinematicCameraZoneV2": "",
+"CinematicPathRig": "",
 "CinematicRigV2": "",
 "CmdArgumentParser": "",
 "CmdCommand": "",
