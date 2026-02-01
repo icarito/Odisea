@@ -1381,9 +1381,10 @@ script = ExtResource( 27 )
 debug_color = Color( 1, 1, 0, 0.2 )
 debug_render = false
 zone_extents = Vector3( 10, 40, 100 )
-cone_radius = 2.0
+transparency_min = 0.294
+transparency_max = 0.678
+floor_protect_radius = 1.0
 enforce_occlusion_material = true
-occlusion_target_path = NodePath("../QodotMap")
 
 [node name="CollisionShape" type="CollisionShape" parent="Building/OcclusionArea"]
 shape = SubResource( 856 )
