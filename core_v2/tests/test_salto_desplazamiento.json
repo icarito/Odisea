@@ -849,10 +849,13 @@
         0,
         0
       ],
-      "yo": 0,
+      "cam_yaw": 0,
+      "fs": 1,
+      "tst": 0,
       "my": 0,
       "mp": 0,
-      "fs": 1,
+      "tsi": 0,
+      "cdz": 0,
       "ff": true
     },
     "jump_state": {
@@ -870,6 +873,37 @@
       "is_acrobatic_ready": false
     },
     "fwd_latch_active": false,
-    "fwd_latch_sign": 1
+    "fwd_latch_sign": 1,
+    "platform_path": "/root/TestScene/Level/Basic movement",
+    "platform_last_transform": {
+      "origin": [
+        0.1817,
+        -0.1,
+        25.204599
+      ],
+      "basis_x": [
+        1,
+        0,
+        0
+      ],
+      "basis_y": [
+        0,
+        1,
+        0
+      ],
+      "basis_z": [
+        0,
+        0,
+        1
+      ]
+    },
+    "platform_velocity": [
+      -0,
+      -0,
+      0.000057
+    ],
+    "was_on_platform": true,
+    "step_grounded_timer": 0,
+    "just_stepped": false
   }
 }

@@ -93,7 +93,9 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	Actualiza todos los aspectos visuales del personaje.
 	Debe ser llamado manualmente por el controlador después de cada 'step' de física.
 	"""
-	var is_on_floor: bool = controller.is_on_floor()
+	# Use is_effectively_grounded() to include stair-stepping grace period
+	# This prevents animation flickering when climbing stairs
+	var is_on_floor: bool = controller.is_effectively_grounded() if controller.has_method("is_effectively_grounded") else controller.is_on_floor()
 	var wish_direction: Vector3 = controller.get_wish_direction()
 
 	# Guardar la velocidad vertical mientras estamos en el aire para usarla al aterrizar

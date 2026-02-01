@@ -2,6 +2,36 @@
 
 Fuente de verdad sobre reglas y contratos del proyecto (Godot 3.6, GLES2) para IA y desarrolladores.
 
+## ⚠️ ANTES DE ENTREGAR CUALQUIER CAMBIO
+
+**Ejecutar los tests para verificar que no se rompió nada:**
+
+```shell
+./runtest.sh -a ./core_v2/tests/
+```
+
+Si algún test falla, corregirlo antes de considerar el trabajo terminado.
+
+### 📋 Leer el Output de los Tests
+
+**El output siempre se guarda en `./reports/gdunit_runner.log`**
+
+Si el terminal no muestra el output (problema común con agentes IA), leer el archivo:
+
+```shell
+# Ver las últimas 100 líneas del log
+cat ./reports/gdunit_runner.log | tail -100
+
+# O buscar solo el resumen (PASSED/FAILED/errores)
+grep -E "(PASSED|FAILED|ERROR|Total|Exit code|SCRIPT ERROR)" ./reports/gdunit_runner.log
+```
+
+### Ejecutar un Test OYS Específico
+
+```shell
+./runtest.sh --oys test_salto_vertical
+```
+
 ## Notas sobre Godot
 - "Index 1 is out of bounds (count = 1)" aparece _siempre_ al arrancar, pero no es un problema con nuestro código.
 - Ternario: `a if cond else b`.
@@ -13,9 +43,33 @@ Fuente de verdad sobre reglas y contratos del proyecto (Godot 3.6, GLES2) para I
 - Juego 3D en Godot 3.6 (GLES2): 3ª persona, plataformas móviles/conveyors
 
 ## Contratos Críticos
-- **PlayerController**: `set_external_velocity(v: Vector3)` para fuerzas externas (plataformas). Usar `move_and_slide_with_snap()`. Implementar coyote time e input buffer.
-- **MovingPlatform**: Calcular y comunicar su velocidad a los pasajeros vía `set_external_velocity()`.
-- **Conveyor**: Aplicar velocidad a cuerpos en su área, usando `set_external_velocity()` para el jugador.
+
+### PlayerController — Movimiento y Plataformas
+
+El `PlayerControllerV2` usa **Transform-Delta Tracking** para seguir plataformas móviles (inspirado en [Terrestrial Characters](https://github.com/Trokara)):
+
+1. **Tracking de Plataformas**: Almacena `_platform_collider` y `_platform_last_transform`. Cada frame calcula dónde *estaría* el jugador si siguiera perfectamente la plataforma:
+   ```gdscript
+   var old_local = platform_last_transform.affine_inverse().xform(player_pos)
+   var new_global = platform.global_transform.xform(old_local)
+   var delta = new_global - player_pos
+   player.global_transform.origin += delta
+   ```
+2. **Herencia de Velocidad**: Al saltar o salir de una plataforma, hereda `_platform_velocity` para conservar momentum.
+3. **Alineación a Pendientes**: `PlayerMovementV2.align_to_floor()` rota el vector de movimiento para que siga el plano del suelo, evitando drift lateral en rampas.
+4. **Resistencia en Pendientes**: Ralentiza el movimiento cuesta arriba según el ángulo (configurable via `slope_resistance_factor`).
+5. **Stair-Stepping**: `_try_step_up()` permite subir escalones automáticamente hasta `step_height` (default 0.4m).
+
+#### API Legacy: `set_external_velocity()`
+
+Se conserva `set_external_velocity(v: Vector3)` para:
+- **Conveyors**: Aplican fuerza continua sobre el jugador (necesitan `external_source_is_static = false`).
+- **Efectos especiales**: Knockback, viento, explosiones, etc.
+- **Objetos legacy**: Compatibilidad con sistemas antiguos.
+
+> **Nota**: Las plataformas móviles (`MovingPlatformV2`) ya NO necesitan llamar `set_external_velocity()` para el jugador. El tracking por transform lo hace automáticamente. Sin embargo, deben seguir llamándolo para otros cuerpos (cajas, NPCs) que no tengan tracking propio.
+
+- **Conveyor**: Aplicar velocidad a cuerpos en su área, usando `set_external_velocity()` para el jugador con `external_source_is_static = false`.
 - **Signals**: Las señales no deben usarse para lógica que afecte el estado físico (posición, velocidad). Su uso debe limitarse a efectos no deterministas (sonido, animaciones, UI). Por ejemplo, `PilotAnimatorV2` puede escuchar señales para disparar animaciones, pero no debe alterar el `state` del `PlayerController`.
 
 ## Normas de Trabajo

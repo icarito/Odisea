@@ -13,7 +13,7 @@ export(float) var emission_rate := 1.0 # Entities per second
 export(int) var random_seed := 0 # 0 = use SessionManager seed
 export(Vector3) var spawn_offset_range := Vector3(1, 0.5, 1)
 export(bool) var debug_render := true setget set_debug_render
-export(bool) var debug := true
+export(bool) var debug := false
 
 # --- SIGNALS ---
 signal entity_spawned(entity)
@@ -114,8 +114,8 @@ func _initialize_object_pool() -> void:
 		add_child(entity)
 		_deactivate_entity(entity)
 	
-	if debug:
-		print("[PropEmitterArea] Initialized object pool with %d entities" % spawn_limit)
+	# if debug:
+	# 	print("[PropEmitterArea] Initialized object pool with %d entities" % spawn_limit)
 
 func _deactivate_entity(entity: Node) -> void:
 	"""Deactivate entity and return to pool."""
@@ -175,8 +175,8 @@ func spawn_entity() -> Node:
 	
 	emit_signal("entity_spawned", entity)
 	
-	if debug:
-		print("[PropEmitterArea] Spawned entity at %s" % spawn_pos)
+	# if debug:
+	# 	print("[PropEmitterArea] Spawned entity at %s" % spawn_pos)
 	
 	return entity
 
@@ -205,8 +205,8 @@ func reset() -> void:
 	_active_entities.clear()
 	_spawn_timer = 0.0
 	
-	if debug:
-		print("[PropEmitterArea] Reset complete, pool size: %d" % _object_pool.size())
+	# if debug:
+	# 	print("[PropEmitterArea] Reset complete, pool size: %d" % _object_pool.size())
 
 func return_entity(entity: Node) -> void:
 	"""Return an entity to the pool and deactivate it."""
@@ -223,11 +223,11 @@ func return_entity(entity: Node) -> void:
 		if persistence_mgr and persistence_mgr.has_method("unregister_entity"):
 			persistence_mgr.unregister_entity(entity)
 			
-		if debug:
-			print("[PropEmitterArea] Entity returned to pool: %s" % entity.name)
+		# if debug:
+		# 	print("[PropEmitterArea] Entity returned to pool: %s" % entity.name)
 	else:
-		if debug:
-			print("[PropEmitterArea] Entity %s not found in active list, calling queue_free" % entity.name)
+		# if debug:
+		# 	print("[PropEmitterArea] Entity %s not found in active list, calling queue_free" % entity.name)
 		entity.queue_free()
 
 func step(dt: float) -> void:

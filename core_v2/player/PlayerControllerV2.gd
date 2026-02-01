@@ -1,6 +1,7 @@
 extends KinematicBody
 
 const InputProviderV2 = preload("../input/InputProviderV2.gd")
+const InputDataV2 = preload("../input/InputDataV2.gd")
 const PlayerJumpV2 = preload("PlayerJumpV2.gd")
 const PlayerMovementV2 = preload("PlayerMovementV2.gd")
 
@@ -21,6 +22,22 @@ export(float) var push_force := 1.0 # Fuerza base del jugador para empujar rígi
 export(float) var min_pitch := -85.0
 export(float) var max_pitch := 85.0
 export(float) var interact_distance := 3.0
+
+# Stair-stepping Configuration
+export(float) var step_height := 0.4  # Max height to auto-climb (typical stair step)
+export(float) var step_depth := 0.5   # How far forward to probe for steps (increased for reliability)
+export var enable_step_up := true     # Toggle stair-stepping
+export(float) var step_grounded_grace := 0.15  # Seconds to stay "grounded" after stepping
+
+# Stair-stepping state
+var _step_grounded_timer := 0.0  # Grace period to keep grounded state for animations
+var _just_stepped := false       # Flag set when we step up
+
+# Platform Transform Tracking (replaces velocity-based approach)
+var _platform_collider: Spatial = null
+var _platform_last_transform: Transform = Transform.IDENTITY
+var _platform_velocity: Vector3 = Vector3.ZERO  # Calculated from transform delta
+var _was_on_platform := false
 
 # 2.5D Mode State (Delegated to Component)
 var sidescroll_logic: Node # SideScrollLogicV2
@@ -101,6 +118,24 @@ func get_full_snapshot() -> Dictionary:
 	snapshot["fwd_latch_active"] = _forward_latch_active
 	snapshot["fwd_latch_sign"] = _forward_latch_sign
 	
+	# Platform tracking state (store node path for deterministic restore)
+	if _platform_collider and is_instance_valid(_platform_collider):
+		snapshot["platform_path"] = _platform_collider.get_path()
+		snapshot["platform_last_transform"] = {
+			"origin": [_platform_last_transform.origin.x, _platform_last_transform.origin.y, _platform_last_transform.origin.z],
+			"basis_x": [_platform_last_transform.basis.x.x, _platform_last_transform.basis.x.y, _platform_last_transform.basis.x.z],
+			"basis_y": [_platform_last_transform.basis.y.x, _platform_last_transform.basis.y.y, _platform_last_transform.basis.y.z],
+			"basis_z": [_platform_last_transform.basis.z.x, _platform_last_transform.basis.z.y, _platform_last_transform.basis.z.z]
+		}
+	else:
+		snapshot["platform_path"] = ""
+	snapshot["platform_velocity"] = [_platform_velocity.x, _platform_velocity.y, _platform_velocity.z]
+	snapshot["was_on_platform"] = _was_on_platform
+	
+	# Stair-stepping state
+	snapshot["step_grounded_timer"] = _step_grounded_timer
+	snapshot["just_stepped"] = _just_stepped
+	
 	return snapshot
 
 func restore_snapshot(data: Dictionary) -> void:
@@ -142,6 +177,31 @@ func restore_snapshot(data: Dictionary) -> void:
 	_forward_latch_active = data.get("fwd_latch_active", false)
 	_forward_latch_sign = data.get("fwd_latch_sign", 1.0)
 	
+	# Restore platform tracking state
+	var platform_path = data.get("platform_path", "")
+	if platform_path != "" and has_node(platform_path):
+		_platform_collider = get_node(platform_path)
+		var pt = data.get("platform_last_transform", {})
+		if pt.has("origin"):
+			var o = pt["origin"]
+			var bx = pt.get("basis_x", [1, 0, 0])
+			var by = pt.get("basis_y", [0, 1, 0])
+			var bz = pt.get("basis_z", [0, 0, 1])
+			_platform_last_transform = Transform(
+				Basis(Vector3(bx[0], bx[1], bx[2]), Vector3(by[0], by[1], by[2]), Vector3(bz[0], bz[1], bz[2])),
+				Vector3(o[0], o[1], o[2])
+			)
+	else:
+		_platform_collider = null
+		_platform_last_transform = Transform.IDENTITY
+	var pv = data.get("platform_velocity", [0, 0, 0])
+	_platform_velocity = Vector3(pv[0], pv[1], pv[2])
+	_was_on_platform = data.get("was_on_platform", false)
+	
+	# Restore stair-stepping state
+	_step_grounded_timer = data.get("step_grounded_timer", 0.0)
+	_just_stepped = data.get("just_stepped", false)
+	
 	# Restore acrobatic state
 	if data.has("acrobatic_state"):
 		var acro = data["acrobatic_state"]
@@ -162,6 +222,16 @@ func full_reset() -> void:
 	is_acrobatic_ready = false
 	_forward_latch_active = false
 	_forward_latch_sign = 1.0
+	
+	# Reset platform tracking
+	_platform_collider = null
+	_platform_last_transform = Transform.IDENTITY
+	_platform_velocity = Vector3.ZERO
+	_was_on_platform = false
+	
+	# Reset stair-stepping state
+	_step_grounded_timer = 0.0
+	_just_stepped = false
 	
 	yaw = 0.0
 	pitch = 0.0
@@ -184,7 +254,8 @@ func full_reset() -> void:
 		jump_logic._jump_time_tracker = 0.0
 	
 	if is_instance_valid(sidescroll_logic):
-		sidescroll_logic.pan_offset = Vector2.ZERO
+		sidescroll_logic.manual_yaw = 0.0
+		sidescroll_logic.manual_pitch = 0.0
 
 # Nodos (Asegúrate de que los nombres coincidan con tu escena)
 onready var camera_rig = $CameraRig
@@ -384,6 +455,15 @@ func _input(event):
 		if input_provider:
 			input_provider.zoom_delta_accum += 1.0
 
+func inject_input(data: Dictionary) -> void:
+	if data == null:
+		return
+	var input = InputDataV2.new()
+	input.from_dict(data)
+	# Skip normal _physics_process for this frame to avoid double step
+	external_input_provided = true
+	step(FIXED_DT, input)
+
 func step(dt: float, input: InputDataV2) -> void:
 	# 0. State Update
 	sidescroll_logic.step(dt) # Actualizar alpha al inicio para gating
@@ -570,7 +650,7 @@ func step(dt: float, input: InputDataV2) -> void:
 				var push_val = 0.0
 				if sidescroll_logic.lock_axis == 2: push_val = move_dir.x
 				elif sidescroll_logic.lock_axis == 1: push_val = move_dir.z
-				sidescroll_logic.pan_offset.x += push_val * jump_logic.acrobatic_camera_push
+				sidescroll_logic.manual_yaw += push_val * jump_logic.acrobatic_camera_push
 		
 		jump_logic.consume_jump()
 		jump_logic.set_internal_velocity(force)
@@ -599,11 +679,33 @@ func step(dt: float, input: InputDataV2) -> void:
 		external_vel = movement_logic.integrate_external_velocity(dt)
 	velocity += external_vel
 
+	# --- STAIR GROUNDED GRACE TIMER ---
+	if _step_grounded_timer > 0:
+		_step_grounded_timer -= dt
+	_just_stepped = false
+
 	# 5. Movimiento Final y Animación
 	# El snap solo aplica cuando no estamos saltando (velocity.y <= 0)
 	# infinite_inertia = false para que los RigidBodies no sean atravesados ni ignorados por la masa
 	var snap_vec = Vector3.DOWN * snap_length if (velocity.y <= 0 and not input.jump) else Vector3.ZERO
+	
+	# --- STAIR-STEPPING (before move_and_slide) ---
+	# Use wish_direction (player intent) not velocity (which might be blocked by the step)
+	if enable_step_up and is_on_floor() and velocity.y <= 0:
+		var step_motion = movement_logic.wish_direction if movement_logic.wish_direction.length() > 0.1 else velocity
+		var step_result = _try_step_up(step_motion)
+		if step_result.stepped:
+			global_transform.origin = step_result.position
+			_just_stepped = true
+			_step_grounded_timer = step_grounded_grace  # Reset grace timer
+	
 	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true, 4, deg2rad(45), false)
+	
+	# --- FLOOR INFO UPDATE (for slope alignment) ---
+	_update_floor_info()
+	
+	# --- PLATFORM TRANSFORM TRACKING ---
+	_update_platform_tracking(dt)
 	
 	# --- CEILING COLLISION ---
 	if is_on_ceiling() and velocity.y > 0:
@@ -645,6 +747,153 @@ func step(dt: float, input: InputDataV2) -> void:
 		
 	# Resetear asunción por defecto para el próximo frame
 	movement_logic.external_source_is_static = true
+
+# =============================================================================
+# SLOPE & PLATFORM HELPERS (inspired by Terrestrial Characters)
+# =============================================================================
+
+func _update_floor_info() -> void:
+	"""Update floor normal for slope alignment in PlayerMovementV2."""
+	if not is_on_floor():
+		movement_logic.set_floor_normal(Vector3.UP)
+		return
+	
+	# Find the floor collision (normal pointing mostly upward)
+	for i in get_slide_count():
+		var collision = get_slide_collision(i)
+		if collision.normal.y > 0.7:  # Floor-like surface
+			movement_logic.set_floor_normal(collision.normal)
+			return
+	
+	movement_logic.set_floor_normal(Vector3.UP)
+
+func is_effectively_grounded() -> bool:
+	"""Returns true if player is on floor OR within the stair-stepping grace period.
+	Use this for animations to avoid flickering during stair climbing."""
+	return is_on_floor() or _step_grounded_timer > 0
+
+func _update_platform_tracking(dt: float) -> void:
+	"""Track moving platforms for velocity inheritance when jumping off.
+	
+	NOTE: We do NOT apply position deltas here because move_and_slide already
+	handles carrying the player with moving floors via collision response.
+	We only track the platform's velocity so we can inherit it when jumping."""
+	
+	var new_platform: Spatial = null
+	
+	# Find current floor platform
+	if is_on_floor():
+		for i in get_slide_count():
+			var collision = get_slide_collision(i)
+			if collision.normal.y > 0.7:  # Floor-like surface
+				var collider = collision.collider
+				if collider is Spatial and not collider is StaticBody:
+					new_platform = collider
+					break
+	
+	# Platform changed or left
+	if new_platform != _platform_collider:
+		if _platform_collider != null and new_platform == null:
+			# Just stepped OFF a moving platform - inherit its velocity
+			if _platform_velocity.length() > 0.1:
+				velocity += _platform_velocity
+		
+		_platform_collider = new_platform
+		if new_platform:
+			_platform_last_transform = new_platform.global_transform
+		_was_on_platform = new_platform != null
+	
+	# Track current platform velocity (for inheritance when jumping)
+	# Do NOT move the player - move_and_slide already does that via collision
+	if _platform_collider != null and is_instance_valid(_platform_collider):
+		var current_transform = _platform_collider.global_transform
+		
+		# Calculate platform velocity from transform delta
+		var old_local_pos = _platform_last_transform.affine_inverse().xform(global_transform.origin)
+		var new_global_pos = current_transform.xform(old_local_pos)
+		var delta_pos = new_global_pos - global_transform.origin
+		
+		# Store velocity for inheritance (do NOT apply delta_pos - that causes double movement!)
+		_platform_velocity = delta_pos / dt if dt > 0 else Vector3.ZERO
+		_platform_last_transform = current_transform
+	else:
+		_platform_velocity = Vector3.ZERO
+
+# =============================================================================
+# STAIR-STEPPING HELPER
+# =============================================================================
+
+func _try_step_up(motion: Vector3) -> Dictionary:
+	"""Attempt to step up a small obstacle (stair step).
+	Returns { stepped: bool, position: Vector3 }
+	
+	Algorithm:
+	1. Cast forward to detect obstacle at foot level
+	2. If obstacle found, check if we have headroom to step up
+	3. Cast down from elevated position to find the step surface
+	4. If valid floor found within step_height, return the stepped-up position
+	"""
+	var result = { "stepped": false, "position": global_transform.origin }
+	
+	if motion.length_squared() < 0.0001:
+		return result
+	
+	# Get horizontal direction of movement
+	var horizontal_motion = Vector3(motion.x, 0, motion.z)
+	if horizontal_motion.length_squared() < 0.0001:
+		return result
+	
+	var move_dir = horizontal_motion.normalized()
+	var origin = global_transform.origin
+	
+	# Use a fixed probe distance, not dependent on current speed
+	# This ensures stair detection works at any walking speed
+	var probe_distance = step_depth
+	
+	# Step 1: Check if there's a wall/obstacle at foot level
+	var foot_collision = move_and_collide(move_dir * probe_distance, true, true, true)
+	if foot_collision == null:
+		# No obstacle, no need to step
+		return result
+	
+	# Check if this is a wall (not a floor) - we want vertical-ish surfaces
+	if foot_collision.normal.y > 0.7:
+		# It's a slope, not a step
+		return result
+	
+	# Step 2: Check clearance at step height (head room)
+	var head_collision = move_and_collide(Vector3.UP * step_height, true, true, true)
+	if head_collision != null:
+		# Not enough head room
+		return result
+	
+	# Step 3: Move up and try to move forward at step height
+	var step_up_pos = origin + Vector3.UP * step_height
+	var old_pos = global_transform.origin
+	global_transform.origin = step_up_pos
+	
+	# Try to move forward at the elevated position
+	var _forward_collision = move_and_collide(move_dir * probe_distance, true, true, true)
+	
+	# Step 4: Cast down to find the step surface
+	var down_collision = move_and_collide(Vector3.DOWN * (step_height + 0.1), true, true, true)
+	
+	# Restore position for now
+	global_transform.origin = old_pos
+	
+	if down_collision != null:
+		# Check if we found a valid floor
+		if down_collision.normal.y > 0.7:
+			var step_surface_y = step_up_pos.y - down_collision.travel.length() + 0.02
+			var height_gain = step_surface_y - origin.y
+			
+			# Only step if we're actually going UP and within step_height
+			# Lowered minimum threshold from 0.02 to 0.01 for smoother steps
+			if height_gain > 0.01 and height_gain <= step_height:
+				result.stepped = true
+				result.position = Vector3(origin.x, step_surface_y, origin.z)
+	
+	return result
 
 func _physics_process(_delta):
 	if external_input_provided or is_replay_mode:

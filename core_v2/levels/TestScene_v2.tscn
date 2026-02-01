@@ -5,9 +5,9 @@
 [ext_resource path="res://core_v2/components/KillZoneV2.gd" type="Script" id=3]
 [ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=4]
 [ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/components/OYSTrigger.gd" type="Script" id=6]
 [ext_resource path="res://assets/fonts/Heading_Font.tres" type="DynamicFont" id=9]
 [ext_resource path="res://core_v2/things/Lever.tscn" type="PackedScene" id=10]
-[ext_resource path="res://core_v2/components/CheckZoneV2.gd" type="Script" id=16]
 [ext_resource path="res://textures/prototype_textures/purple 2.png" type="Texture" id=20]
 [ext_resource path="res://textures/prototype_textures/Green 3.png" type="Texture" id=21]
 [ext_resource path="res://textures/prototype_textures/blue 2.png" type="Texture" id=22]
@@ -42,8 +42,7 @@ uv1_triplanar_sharpness = 1.0
 [sub_resource type="BoxShape" id=188]
 extents = Vector3( 500, 1, 500 )
 
-[sub_resource type="BoxShape" id=338]
-extents = Vector3( 3, 1, 2 )
+[sub_resource type="BoxShape" id=189]
 
 [node name="TestScene" type="Spatial"]
 
@@ -87,6 +86,75 @@ font = ExtResource( 9 )
 transform = Transform( 1.19249e-08, 0, -1, 0, 1, 0, 1, 0, 1.19249e-08, -0.260449, 0.125, 0 )
 modulate = Color( 0.827451, 0.247059, 0.0431373, 1 )
 text = "Test Scene"
+font = ExtResource( 9 )
+
+[node name="TestRamp" type="CSGBox" parent="Level/Basic movement"]
+transform = Transform( 0.965926, 0.258819, 0, -0.258819, 0.965926, 0, 0, 0, 1, -5, 0.7, -20 )
+use_collision = true
+width = 6.0
+height = 0.3
+depth = 4.0
+material = SubResource( 1 )
+
+[node name="RampLabel" type="Label3D" parent="Level/Basic movement/TestRamp"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0 )
+modulate = Color( 0.1, 0.6, 0.1, 1 )
+text = "Slope Test (15°)"
+font = ExtResource( 9 )
+
+[node name="SteepRamp" type="CSGBox" parent="Level/Basic movement"]
+transform = Transform( 0.866025, 0.5, 0, -0.5, 0.866025, 0, 0, 0, 1, -5, 1.5, -14 )
+use_collision = true
+width = 6.0
+height = 0.3
+depth = 4.0
+material = SubResource( 1 )
+
+[node name="SteepLabel" type="Label3D" parent="Level/Basic movement/SteepRamp"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0 )
+modulate = Color( 0.8, 0.4, 0.1, 1 )
+text = "Steep Slope (30°)"
+font = ExtResource( 9 )
+
+[node name="TestStairs" type="Spatial" parent="Level/Basic movement"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, -20 )
+
+[node name="Step1" type="CSGBox" parent="Level/Basic movement/TestStairs"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
+use_collision = true
+width = 3.0
+height = 0.2
+depth = 1.0
+material = SubResource( 1 )
+
+[node name="Step2" type="CSGBox" parent="Level/Basic movement/TestStairs"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, -1 )
+use_collision = true
+width = 3.0
+height = 0.2
+depth = 1.0
+material = SubResource( 1 )
+
+[node name="Step3" type="CSGBox" parent="Level/Basic movement/TestStairs"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -2 )
+use_collision = true
+width = 3.0
+height = 0.2
+depth = 1.0
+material = SubResource( 1 )
+
+[node name="Step4" type="CSGBox" parent="Level/Basic movement/TestStairs"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, -3 )
+use_collision = true
+width = 3.0
+height = 0.2
+depth = 1.0
+material = SubResource( 1 )
+
+[node name="StairsLabel" type="Label3D" parent="Level/Basic movement/TestStairs"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, -1.5 )
+modulate = Color( 0.1, 0.3, 0.8, 1 )
+text = "Stair Test (0.2m steps)"
 font = ExtResource( 9 )
 
 [node name="MovingPlatforms" type="CSGBox" parent="Level"]
@@ -169,21 +237,16 @@ script = ExtResource( 3 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -10, 0 )
 shape = SubResource( 188 )
 
-[node name="CheckZoneV2" type="Area" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 47.2282, 5.94239, 26.2304 )
-script = ExtResource( 16 )
+[node name="ExampleTrigger" type="Area" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 6 )
+script = ExtResource( 6 )
+debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
+script_file = "res://core_v2/scripts/helloTrigger.oys"
+label_text = "OYSTrigger Example"
+trigger_once = false
 
-[node name="CollisionShape" type="CollisionShape" parent="CheckZoneV2"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.00064, 0 )
-shape = SubResource( 338 )
-
-[node name="CheckZoneV3" type="Area" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 14.2076, 18.9402, 36.6006 )
-script = ExtResource( 16 )
-
-[node name="CollisionShape" type="CollisionShape" parent="CheckZoneV3"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.00064, -0.5 )
-shape = SubResource( 338 )
+[node name="CollisionShape" type="CollisionShape" parent="ExampleTrigger"]
+shape = SubResource( 189 )
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 27 )
