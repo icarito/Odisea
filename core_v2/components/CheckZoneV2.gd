@@ -1,4 +1,5 @@
 extends BaseZoneV2
+tool
 class_name CheckZoneV2
 
 signal checkpoint_reached(transform)

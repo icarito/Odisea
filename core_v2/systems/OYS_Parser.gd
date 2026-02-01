@@ -167,28 +167,33 @@ static func parse_instruction(line: String) -> Dictionary:
 	return data
 
 # Parse movement commands (FW/BW)
+# Sin unidad = segundos por defecto
 static func _parse_movement(parts: Array, direction: String) -> Dictionary:
 	var result = {"direction": direction}
 	if parts.size() > 1:
 		var parsed = _parse_value_with_unit(parts[1])
 		result["value"] = parsed.value
-		result["unit"] = parsed.unit
+		# Para FW/BW, "none" significa segundos
+		result["unit"] = "s" if parsed.unit == "none" else parsed.unit
 		result["is_running"] = true # Default
 	return result
 
 # Parse strafe/turn commands (LEFT/RIGHT)
+# Sin unidad = rotación en grados (ej: LEFT 90)
+# Con unidad m o s = strafe (ej: LEFT 5m, LEFT 2s)
 static func _parse_strafe_or_turn(parts: Array, direction: String) -> Dictionary:
 	var result = {"direction": direction}
 	if parts.size() > 1:
 		var parsed = _parse_value_with_unit(parts[1])
 		result["value"] = parsed.value
 		result["unit"] = parsed.unit
-		result["is_turning"] = (parsed.unit == "deg")
+		# Es rotación si: tiene unidad "deg" O no tiene unidad explícita (ni m ni s)
+		result["is_turning"] = (parsed.unit == "deg" or parsed.unit == "none")
 	return result
 
-# Parse value with unit suffix (e.g., "2.5s", "10m", "90deg")
+# Parse value with unit suffix (e.g., "2.5s", "10m", "90deg", "90")
 static func _parse_value_with_unit(s: String) -> Dictionary:
-	var unit = "s" # Default: seconds
+	var unit = "none" # Default: sin unidad (para LEFT/RIGHT significa grados)
 	var value_str = s
 	
 	if s.ends_with("deg"):

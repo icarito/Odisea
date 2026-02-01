@@ -47,7 +47,8 @@ func run(start_section: String = ""):
 
 	if is_running:
 		stop_requested = true
-		yield (host_node.get_tree(), "idle_frame")
+		if host_node and is_instance_valid(host_node) and host_node.is_inside_tree():
+			yield (host_node.get_tree(), "physics_frame")
 
 	is_running = true
 	stop_requested = false
@@ -58,6 +59,36 @@ func run(start_section: String = ""):
 		pc = 0
 
 	while pc < instructions.size() and not stop_requested and my_id == execution_id:
+		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+			break
+		var inst = instructions[pc]
+		pc += 1
+		var result = _execute_instruction(inst, my_id)
+		if result is GDScriptFunctionState:
+			yield (result, "completed")
+
+	if my_id == execution_id:
+		is_running = false
+
+# Ejecutar desde un program counter específico (para hot-reload con checkpoints)
+func run_from_pc(from_pc: int):
+	execution_id += 1
+	var my_id = execution_id
+
+	if is_running:
+		stop_requested = true
+		if host_node and is_instance_valid(host_node) and host_node.is_inside_tree():
+			yield (host_node.get_tree(), "physics_frame")
+
+	is_running = true
+	stop_requested = false
+	pc = from_pc
+
+	print("[OYS_Interpreter] Ejecutando desde pc=", pc)
+
+	while pc < instructions.size() and not stop_requested and my_id == execution_id:
+		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+			break
 		var inst = instructions[pc]
 		pc += 1
 		var result = _execute_instruction(inst, my_id)
@@ -135,7 +166,7 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			while t.time_left > 0:
 				if stop_requested or my_id != execution_id:
 					break
-				yield (host_node.get_tree(), "idle_frame")
+				yield (host_node.get_tree(), "physics_frame")
 		
 		"PRINT":
 			print("[OYS PRINT] ", inst.get("message", ""))
@@ -198,6 +229,7 @@ func _execute_movement(inst: Dictionary, my_id: int):
 			move_vec = Vector2(0, 1) if cmd == "FW" else Vector2(0, -1)
 		
 		"LEFT", "RIGHT":
+			print("[OYS_Interpreter] LEFT/RIGHT: is_turning=", inst.get("is_turning", false), " value=", inst.get("value", 0), " unit=", inst.get("unit", "?"))
 			if inst.get("is_turning", false):
 				# For turning, we'll handle it separately
 				yield (_execute_turn(inst, my_id), "completed")
@@ -223,6 +255,10 @@ func _execute_movement(inst: Dictionary, my_id: int):
 		if stop_requested or my_id != execution_id:
 			break
 		
+		# Verify player is still valid
+		if not is_instance_valid(player):
+			break
+		
 		# Inject input to player's provider
 		if player.has_method("inject_input"):
 			player.inject_input({
@@ -232,7 +268,10 @@ func _execute_movement(inst: Dictionary, my_id: int):
 				"interact": is_interact
 			})
 		
-		yield (host_node.get_tree(), "idle_frame")
+		# Verify host_node is still valid before yielding
+		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+			break
+		yield (host_node.get_tree(), "physics_frame")
 
 func _execute_turn(inst: Dictionary, my_id: int):
 	var value = inst.get("value", 0.0)
@@ -252,10 +291,17 @@ func _execute_turn(inst: Dictionary, my_id: int):
 		if stop_requested or my_id != execution_id:
 			break
 		
+		# Verify player is still valid
+		if not is_instance_valid(player):
+			break
+		
 		if player.has_method("inject_input"):
 			player.inject_input({"mouse_delta": [mouse_dx, 0]})
 		
-		yield (host_node.get_tree(), "idle_frame")
+		# Verify host_node is still valid before yielding
+		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+			break
+		yield (host_node.get_tree(), "physics_frame")
 
 func _execute_look(inst: Dictionary, my_id: int):
 	var pitch = inst.get("pitch", 0.0)
@@ -271,12 +317,21 @@ func _execute_look(inst: Dictionary, my_id: int):
 		if stop_requested or my_id != execution_id:
 			break
 		
+		# Verify player is still valid
+		if not is_instance_valid(player):
+			break
+		
 		if player.has_method("inject_input"):
 			player.inject_input({"mouse_delta": [0, mouse_dy]})
 		
-		yield (host_node.get_tree(), "idle_frame")
+		# Verify host_node is still valid before yielding
+		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+			break
+		yield (host_node.get_tree(), "physics_frame")
 
 func _find_player() -> Node:
+	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+		return null
 	var player = host_node.get_tree().get_root().find_node("Pilot", true, false)
 	return player
 
@@ -296,7 +351,7 @@ func _wait_signal(target: Node, signal_name: String, timeout: float, my_id: int)
 	while not observer.triggered and timer.time_left > 0:
 		if stop_requested or my_id != execution_id:
 			break
-		yield (host_node.get_tree(), "idle_frame")
+		yield (host_node.get_tree(), "physics_frame")
 
 	var success = observer.triggered
 	if is_instance_valid(target) and target.is_connected(signal_name, observer, "on_signal"):

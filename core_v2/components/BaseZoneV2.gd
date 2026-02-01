@@ -64,15 +64,49 @@ func set_debug_render(val: bool):
 
 func set_zone_extents(val: Vector3):
 	zone_extents = val
-	var shape_node = _find_collision_shape()
+	# En el editor, buscar el CollisionShape directamente sin depender de _host_area
+	var shape_node = _find_collision_shape_direct()
 	if shape_node and shape_node.shape is BoxShape:
-		shape_node.shape.extents = zone_extents
+		# Solo duplicar una vez si no es local_to_scene
+		if not shape_node.shape.resource_local_to_scene:
+			var new_shape = BoxShape.new()
+			new_shape.extents = zone_extents
+			new_shape.resource_local_to_scene = true
+			shape_node.shape = new_shape
+		else:
+			shape_node.shape.extents = zone_extents
 	_update_debug_mesh()
+
+# Busca CollisionShape directamente, sin depender de _host_area (para el editor)
+func _find_collision_shape_direct() -> CollisionShape:
+	# Primero buscar en self (si es Area)
+	if self is Area:
+		for child in get_children():
+			if child is CollisionShape:
+				return child
+	# Luego buscar en parent (si es Area)
+	var parent = get_parent()
+	if parent and parent is Area:
+		for child in parent.get_children():
+			if child is CollisionShape:
+				return child
+	# Fallback al método original
+	return _find_collision_shape()
 
 func _process(_delta):
 	if Engine.editor_hint:
 		_check_parent_sync()
+		_sync_extents_from_shape()
 		_update_debug_mesh()
+
+# Sincroniza zone_extents desde el CollisionShape (para cuando el usuario edita el shape directamente)
+func _sync_extents_from_shape():
+	var shape_node = _find_collision_shape_direct()
+	if shape_node and shape_node.shape is BoxShape:
+		var shape_extents = shape_node.shape.extents
+		if zone_extents != shape_extents:
+			zone_extents = shape_extents
+			property_list_changed_notify()
 
 func _check_parent_sync():
 	var parent = get_parent()
