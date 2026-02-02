@@ -57,6 +57,11 @@ func _on_zone_entered(_body: Node):
 func _on_zone_exited(_body: Node):
 	pass
 
+func is_body_in_zone(body: Node) -> bool:
+	if not _host_area:
+		return false
+	return _host_area.overlaps_body(body)
+
 # --- Debug Visualization ---
 
 func set_debug_color(val: Color):

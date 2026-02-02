@@ -6934,7 +6934,9 @@
         0,
         1
       ]
-    }
+    },
+    "prev_cinematic_rig_path": "",
+    "cinematic_rig_path": ""
   },
   "oys_variables": {
 
