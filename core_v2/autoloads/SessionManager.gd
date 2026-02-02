@@ -741,9 +741,10 @@ func _finish_and_validate():
 	print("[SessionManager] Peak Y reached during replay: %.4f" % _peak_y)
 
 	# 1. Imprimir estado final
-	if player:
-		var cam = player.get_node_or_null("CameraRig")
-		print("PLAYBACK_END\nrotation:", player.yaw, ",", player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam.global_transform.origin)
+	if is_instance_valid(player):
+		var cam = player.get_node_or_null("CameraRig") if is_instance_valid(player) else null
+		var cam_pos = cam.global_transform.origin if is_instance_valid(cam) else "null"
+		print("PLAYBACK_END\nrotation:", player.yaw, ",", player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam_pos)
 
 	# 2. Validar drift
 	if final_expected_state == null:
@@ -783,7 +784,11 @@ func _finish_and_validate():
 		print("[SessionManager] --snapshot focus: Saving/Updating final_expected_state in ", target_save_path)
 		
 		var final_data = _current_replay_data.duplicate(true)
-		final_data["final_expected_state"] = player.get_full_snapshot()
+		if is_instance_valid(player):
+			final_data["final_expected_state"] = player.get_full_snapshot()
+		else:
+			printerr("[SessionManager] ERROR: player instance is invalid/freed when saving final_expected_state!")
+			return
 		if not final_data.has("meta"):
 			final_data["meta"] = {}
 		if _oys_requested_scene != "":

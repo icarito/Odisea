@@ -483,12 +483,17 @@ func _resolve_value(val: String):
 			player = session.player
 		if not player:
 			player = host_node.get_tree().root.find_node("Pilot", true, false)
-		if player and player is Spatial:
+		if not is_instance_valid(player):
+			printerr("[OYS ERROR] Player instance is invalid or freed when resolving ", val)
+			test_failed = true
+			stop_requested = true
+			return null
+		if player is Spatial:
 			match val:
 				"pos.x": return player.global_transform.origin.x
 				"pos.y": return player.global_transform.origin.y
 				"pos.z": return player.global_transform.origin.z
-		elif player and player is Node2D:
+		elif player is Node2D:
 			match val:
 				"pos.x": return player.position.x
 				"pos.y": return player.position.y
@@ -502,8 +507,18 @@ func _resolve_value(val: String):
 			player = session.player
 		if not player:
 			player = host_node.get_tree().root.find_node("Pilot", true, false)
-		if player and player.has_node("CameraPivot"):
+		if not is_instance_valid(player):
+			printerr("[OYS ERROR] Player instance is invalid or freed when resolving yaw_deg")
+			test_failed = true
+			stop_requested = true
+			return null
+		if player.has_node("CameraPivot"):
 			var cam_pivot = player.get_node("CameraPivot")
+			if not is_instance_valid(cam_pivot):
+				printerr("[OYS ERROR] CameraPivot instance is invalid or freed when resolving yaw_deg")
+				test_failed = true
+				stop_requested = true
+				return null
 			# Suponemos que la rotación Y es el yaw en radianes
 			var yaw = cam_pivot.rotation.y if cam_pivot.has_method("rotation") else 0.0
 			return rad2deg(yaw)
