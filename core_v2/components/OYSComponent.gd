@@ -120,6 +120,12 @@ func _run_and_unpause(start_section: String) -> void:
 	if auto_pause_player:
 		_set_player_pause(false)
 
+	# Propagar fallo de test al runner
+	if interpreter.test_failed:
+		push_error("OYS ASSERT FAILED: El test OYS falló en una aserción.")
+		# Note: We don't call fail() here as this is not a GdUnitTestSuite.
+		# The test runner will detect interpreter.test_failed or the push_error.
+
 # Ejecutar script desde un pc específico (para hot-reload con checkpoint)
 func _run_from_pc(from_pc: int) -> void:
 	# DESACTIVAR corrección suave antes de ejecutar el script

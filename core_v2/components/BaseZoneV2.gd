@@ -26,7 +26,11 @@ func _find_and_setup_host():
 		for child in _host_area.get_children():
 			if child is CollisionShape and child.shape is BoxShape:
 				child.shape = child.shape.duplicate()
-				child.shape.extents = zone_extents
+				# If we are at default value and child has a different one, adopt it
+				if zone_extents == Vector3(1, 1, 1) and child.shape.extents != Vector3(1, 1, 1):
+					zone_extents = child.shape.extents
+				else:
+					child.shape.extents = zone_extents
 
 		if not Engine.editor_hint:
 			if not _host_area.is_connected("body_entered", self, "_on_host_body_entered"):
@@ -38,6 +42,7 @@ func _find_and_setup_host():
 			printerr("[BaseZoneV2] WARNING: ", name, " has no Area host (self or parent).")
 
 func _on_host_body_entered(body: Node):
+	print("[BaseZoneV2] host_body_entered: ", body.name, " in group player: ", body.is_in_group("player"))
 	if body.is_in_group("player"):
 		_on_zone_entered(body)
 
@@ -51,6 +56,11 @@ func _on_zone_entered(_body: Node):
 
 func _on_zone_exited(_body: Node):
 	pass
+
+func is_body_in_zone(body: Node) -> bool:
+	if not _host_area:
+		return false
+	return _host_area.overlaps_body(body)
 
 # --- Debug Visualization ---
 

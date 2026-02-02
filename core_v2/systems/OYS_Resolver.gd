@@ -14,8 +14,7 @@ const FPS = 60.0
 static func parse_script(script_content: String) -> Dictionary:
 	var lines = OYS_Parser.preprocess(script_content)
 	var frame_data = {}
-	var asserts = []
-	var setters = []
+	var events = {}
 	var current_frame = 0
 	var parse_errors = []
 
@@ -30,8 +29,7 @@ static func parse_script(script_content: String) -> Dictionary:
 			printerr("[OYS_Resolver] PARSE ERROR: ", inst.error)
 			return {
 				"buffer": [],
-				"asserts": [],
-				"setters": [],
+				"events": {},
 				"total_frames": 0,
 				"errors": parse_errors
 			}
@@ -39,22 +37,26 @@ static func parse_script(script_content: String) -> Dictionary:
 		# Convert instruction to frames
 		var result = _instruction_to_frames(inst, current_frame)
 		
-		# Merge frame data
+		# Merge frame data (inputs)
 		for frame_num in result.get("frames", {}):
 			if not frame_data.has(frame_num):
 				frame_data[frame_num] = {}
 			frame_data[frame_num].merge(result.frames[frame_num], true)
 		
-		asserts.append_array(result.get("asserts", []))
-		setters.append_array(result.get("setters", []))
+		# Merge events
+		var new_events = result.get("events", {})
+		for f in new_events:
+			if not events.has(f):
+				events[f] = []
+			events[f].append_array(new_events[f])
+
 		current_frame = result.get("next_frame", current_frame)
 
 	var input_buffer = _convert_frames_to_buffer(frame_data)
 
 	return {
 		"buffer": input_buffer,
-		"asserts": asserts,
-		"setters": setters,
+		"events": events,
 		"total_frames": current_frame,
 		"errors": parse_errors
 	}
@@ -62,8 +64,7 @@ static func parse_script(script_content: String) -> Dictionary:
 # Convert parsed instruction to frame data
 static func _instruction_to_frames(inst: Dictionary, start_frame: int) -> Dictionary:
 	var frames = {}
-	var asserts = []
-	var setters = []
+	var events = {}
 	var next_frame = start_frame
 	var cmd = inst.command
 
@@ -95,6 +96,10 @@ static func _instruction_to_frames(inst: Dictionary, start_frame: int) -> Dictio
 			if is_turning:
 				# Turning: degrees to mouse movement
 				var duration_sec = 0.5
+				# For precision turning, we might want to wait?
+				# For now, let's just simulate the input over frames.
+				# But WAIT! Turning consumes frames. Logic commands do not.
+				
 				var num_frames = OYS_Parser.duration_to_frames(duration_sec)
 				var sensitivity = 0.005
 				var pixels_total = (value * PI / 180.0) / sensitivity
@@ -145,31 +150,52 @@ static func _instruction_to_frames(inst: Dictionary, start_frame: int) -> Dictio
 			var duration_sec = inst.get("value", 0.0)
 			var num_frames = OYS_Parser.duration_to_frames(duration_sec)
 			
+			# No input, just wait (empty frames added by convert buffer logic if not present, 
+			# or we explicitely add empty dicts to ensure duration matches)
 			for i in range(num_frames):
 				frames[start_frame + i] = {}
 			next_frame = start_frame + num_frames
 
-		"ASSERT":
-			asserts.append({"frame": start_frame, "condition": inst.get("condition", "")})
+		"ASSERT", "SET", "MATH", "PRINT", "GET_NODES_IN_GROUP":
+			# Logic commands: executed at the START of the frame, do not consume time
+			if not events.has(start_frame):
+				events[start_frame] = []
+			events[start_frame].append(OYS_Parser.serialize_instruction(inst))
+		
+		"ASSERT_SIGNAL":
+			var timeout = inst.get("timeout", 5.0)
+			var num_frames = OYS_Parser.duration_to_frames(timeout)
+			
+			# Event START at start_frame
+			if not events.has(start_frame):
+				events[start_frame] = []
+			var start_evt = OYS_Parser.serialize_instruction(inst)
+			start_evt["phase"] = "start"
+			events[start_frame].append(start_evt)
+			
+			# Wait frames
+			for i in range(num_frames):
+				frames[start_frame + i] = {}
+				
+			# Event CHECK at end of wait
+			var end_frame = start_frame + num_frames
+			if not events.has(end_frame):
+				events[end_frame] = []
+			var check_evt = OYS_Parser.serialize_instruction(inst)
+			check_evt["phase"] = "check"
+			events[end_frame].append(check_evt)
+			
+			next_frame = end_frame
 
-		"SET":
-			var prop = inst.get("var", "")
-			var value_str = inst.raw.replace("SET " + prop + " ", "")
-			setters.append({"frame": start_frame, "property": prop, "value": value_str})
-
-		"PRINT":
-			# Log during parsing (for debugging)
-			print("[OYS PRINT] ", inst.get("message", ""))
-
-		# These commands are markers or runtime-only - just pass through
-		"SECTION", "END", "LEVEL", "ASSERT_SIGNAL", "GOTO", "IF", \
-		"PLAY_ANIM", "WAIT_ANIM", "SPAWN", "SET_TIME_SCALE", "GET_NODES_IN_GROUP", "SCREENSHOT":
+		# These commands are markers or runtime-only - just pass through or handle if needed
+		"SECTION", "END", "LEVEL", "GOTO", "IF", \
+		"PLAY_ANIM", "WAIT_ANIM", "SPAWN", "SET_TIME_SCALE", "SCREENSHOT", \
+		"CINEMATIC_START", "CINEMATIC_STOP", "RECORD_START", "RECORD_STOP":
 			pass
 
 	return {
 		"frames": frames,
-		"asserts": asserts,
-		"setters": setters,
+		"events": events,
 		"next_frame": next_frame
 	}
 

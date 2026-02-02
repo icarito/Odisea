@@ -1,0 +1,23 @@
+🧪 Ejecutando tests GdUnit3 (headless)...
+📋 Output guardado en: ./reports/gdunit_20260202_051301_1013831.log
+Comando: godot3-bin --no-window -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd -a ./core_v2/tests/test_determinism_v2.gd
+---
+Godot Engine v3.6.2.stable.official.3cd3caab6 - https://godotengine.org
+OpenGL ES 2.0 Renderer: Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)
+ 
+[TeleportSystem] _enter_tree. self=TeleportSystem:[Node:1790] path=/root/SessionManager/TeleportSystem
+[TeleportSystem] _ready. self=TeleportSystem:[Node:1790] path=/root/SessionManager/TeleportSystem
+[TeleportSystem] player_controller (en _ready)=Null
+[TeleportSystem] Buscando Pilot en _ready:[Object:null] path=null
+ERROR: NO GRAB
+   at: set_mouse_mode (platform/x11/os_x11.cpp:1010)
+[38;5;216m----------------------------------------------------------------------------------------------[0m
+[38;5;216m GdUnit3 Comandline Tool[0m
+
+[38;5;231mRun Test Suite res://./core_v2/tests/test_determinism_v2.gd [0m
+[38;5;231m	Run Test: res://./core_v2/tests/test_determinism_v2.gd > test_replay :[0m[38;5;34mSTARTED[0m
+[38;5;231m	Run Test: res://./core_v2/tests/test_determinism_v2.gd > test_replay:0 [res://core_v2/tests/test_salto_vertical.oys] :[0m[38;5;34mSTARTED[0m
+[TEST_RUNNER] Using scene: res://core_v2/levels/TestScene_v2.tscn
+[KillZoneV2] Señal player_killed conectada a TeleportSystem:TeleportSystem:[Node:1790]res=0
+[TEST_RUNNER] --- PASS 1: RECORDING OYS ---
+[SessionManager] load_and_play called with: res://core_v2/tests/test_salto_vertical.oys

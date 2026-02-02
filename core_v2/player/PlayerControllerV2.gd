@@ -4,12 +4,14 @@ const InputProviderV2 = preload("../input/InputProviderV2.gd")
 const InputDataV2 = preload("../input/InputDataV2.gd")
 const PlayerJumpV2 = preload("PlayerJumpV2.gd")
 const PlayerMovementV2 = preload("PlayerMovementV2.gd")
+const CinematicLogicV2 = preload("CinematicLogicV2.gd")
 
 const FIXED_DT := 1.0 / 60.0
 const UP := Vector3.UP
 
 var is_replay_mode := false
-
+var initial_transform: Transform
+var _frame_counter := 0 # Contador de frames para limitar logs
 
 # State para drift correction
 var _was_touching_rigid := false
@@ -24,19 +26,19 @@ export(float) var max_pitch := 85.0
 export(float) var interact_distance := 3.0
 
 # Stair-stepping Configuration
-export(float) var step_height := 0.4  # Max height to auto-climb (typical stair step)
-export(float) var step_depth := 0.5   # How far forward to probe for steps (increased for reliability)
-export var enable_step_up := true     # Toggle stair-stepping
-export(float) var step_grounded_grace := 0.15  # Seconds to stay "grounded" after stepping
+export(float) var step_height := 0.4 # Max height to auto-climb (typical stair step)
+export(float) var step_depth := 0.5 # How far forward to probe for steps (increased for reliability)
+export var enable_step_up := true # Toggle stair-stepping
+export(float) var step_grounded_grace := 0.15 # Seconds to stay "grounded" after stepping
 
 # Stair-stepping state
-var _step_grounded_timer := 0.0  # Grace period to keep grounded state for animations
-var _just_stepped := false       # Flag set when we step up
+var _step_grounded_timer := 0.0 # Grace period to keep grounded state for animations
+var _just_stepped := false # Flag set when we step up
 
 # Platform Transform Tracking (replaces velocity-based approach)
 var _platform_collider: Spatial = null
 var _platform_last_transform: Transform = Transform.IDENTITY
-var _platform_velocity: Vector3 = Vector3.ZERO  # Calculated from transform delta
+var _platform_velocity: Vector3 = Vector3.ZERO # Calculated from transform delta
 var _was_on_platform := false
 
 # 2.5D Mode State (Delegated to Component)
@@ -62,8 +64,23 @@ var yaw := 0.0
 var pitch := 0.0
 var yaw_deg := 0.0
 var pitch_deg := 0.0
+var external_input: InputDataV2 = null
+var external_input_provided := false
 var _forward_latch_active := false
 var _forward_latch_sign := 1.0
+
+# Direction Latch System - Evita cambios bruscos de dirección al entrar/salir de zonas
+# Guarda el CONTEXTO de interpretación de input cuando cambia la cámara
+var _direction_latch_active := false
+var _latched_camera_basis := Basis.IDENTITY # Basis de cámara para interpretar input
+var _latched_sidescroll_active := false # Si estábamos en modo sidescroll
+var _latched_sidescroll_basis := Basis.IDENTITY # Basis del sidescroll para latched mode
+var _latched_cinematic_mode := -1 # Modo de control cinemático (-1 = no cinematic)
+var _latched_input_vec := Vector2.ZERO # Input que activó el latch (para saber cuándo liberar)
+var _prev_sidescroll_active := false
+var _prev_cinematic_rig = null # Referencia al rig cinemático anterior
+var _cinematic_rig: Node = null # Referencia al rig cinemático actual
+var _prev_camera_basis := Basis.IDENTITY # Basis de cámara del frame anterior
 
 # Métodos de acceso para export (opcional, para Inspector)
 func set_mouse_sensitivity(v):
@@ -136,6 +153,37 @@ func get_full_snapshot() -> Dictionary:
 	snapshot["step_grounded_timer"] = _step_grounded_timer
 	snapshot["just_stepped"] = _just_stepped
 	
+	# Direction Latch state (para evitar cambios bruscos de dirección)
+	snapshot["direction_latch_active"] = _direction_latch_active
+	snapshot["latched_camera_basis"] = {
+		"x": [_latched_camera_basis.x.x, _latched_camera_basis.x.y, _latched_camera_basis.x.z],
+		"y": [_latched_camera_basis.y.x, _latched_camera_basis.y.y, _latched_camera_basis.y.z],
+		"z": [_latched_camera_basis.z.x, _latched_camera_basis.z.y, _latched_camera_basis.z.z]
+	}
+	snapshot["latched_sidescroll_active"] = _latched_sidescroll_active
+	snapshot["latched_sidescroll_basis"] = {
+		"x": [_latched_sidescroll_basis.x.x, _latched_sidescroll_basis.x.y, _latched_sidescroll_basis.x.z],
+		"y": [_latched_sidescroll_basis.y.x, _latched_sidescroll_basis.y.y, _latched_sidescroll_basis.y.z],
+		"z": [_latched_sidescroll_basis.z.x, _latched_sidescroll_basis.z.y, _latched_sidescroll_basis.z.z]
+	}
+	snapshot["latched_cinematic_mode"] = _latched_cinematic_mode
+	snapshot["latched_input_vec"] = [_latched_input_vec.x, _latched_input_vec.y]
+	snapshot["prev_sidescroll_active"] = _prev_sidescroll_active
+	snapshot["prev_camera_basis"] = {
+		"x": [_prev_camera_basis.x.x, _prev_camera_basis.x.y, _prev_camera_basis.x.z],
+		"y": [_prev_camera_basis.y.x, _prev_camera_basis.y.y, _prev_camera_basis.y.z],
+		"z": [_prev_camera_basis.z.x, _prev_camera_basis.z.y, _prev_camera_basis.z.z]
+	}
+	if _prev_cinematic_rig and is_instance_valid(_prev_cinematic_rig):
+		snapshot["prev_cinematic_rig_path"] = _prev_cinematic_rig.get_path()
+	else:
+		snapshot["prev_cinematic_rig_path"] = ""
+	
+	if _cinematic_rig and is_instance_valid(_cinematic_rig):
+		snapshot["cinematic_rig_path"] = _cinematic_rig.get_path()
+	else:
+		snapshot["cinematic_rig_path"] = ""
+	
 	return snapshot
 
 func restore_snapshot(data: Dictionary) -> void:
@@ -202,6 +250,66 @@ func restore_snapshot(data: Dictionary) -> void:
 	_step_grounded_timer = data.get("step_grounded_timer", 0.0)
 	_just_stepped = data.get("just_stepped", false)
 	
+	# Restore direction latch state
+	_direction_latch_active = data.get("direction_latch_active", false)
+	_prev_sidescroll_active = data.get("prev_sidescroll_active", false)
+	_latched_sidescroll_active = data.get("latched_sidescroll_active", false)
+	_latched_cinematic_mode = data.get("latched_cinematic_mode", -1)
+	
+	# Restore latched_camera_basis
+	if data.has("latched_camera_basis"):
+		var lcb = data["latched_camera_basis"]
+		_latched_camera_basis = Basis(
+			Vector3(lcb["x"][0], lcb["x"][1], lcb["x"][2]),
+			Vector3(lcb["y"][0], lcb["y"][1], lcb["y"][2]),
+			Vector3(lcb["z"][0], lcb["z"][1], lcb["z"][2])
+		)
+	else:
+		_latched_camera_basis = Basis.IDENTITY
+	
+	# Restore latched_sidescroll_basis
+	if data.has("latched_sidescroll_basis"):
+		var lsb = data["latched_sidescroll_basis"]
+		_latched_sidescroll_basis = Basis(
+			Vector3(lsb["x"][0], lsb["x"][1], lsb["x"][2]),
+			Vector3(lsb["y"][0], lsb["y"][1], lsb["y"][2]),
+			Vector3(lsb["z"][0], lsb["z"][1], lsb["z"][2])
+		)
+	else:
+		_latched_sidescroll_basis = Basis.IDENTITY
+	
+	# Restore latched_input_vec
+	if data.has("latched_input_vec"):
+		var liv = data["latched_input_vec"]
+		_latched_input_vec = Vector2(liv[0], liv[1])
+	else:
+		_latched_input_vec = Vector2.ZERO
+	
+	# Restore prev_camera_basis
+	if data.has("prev_camera_basis"):
+		var pcb = data["prev_camera_basis"]
+		_prev_camera_basis = Basis(
+			Vector3(pcb["x"][0], pcb["x"][1], pcb["x"][2]),
+			Vector3(pcb["y"][0], pcb["y"][1], pcb["y"][2]),
+			Vector3(pcb["z"][0], pcb["z"][1], pcb["z"][2])
+		)
+	else:
+		_prev_camera_basis = Basis.IDENTITY
+	
+	# Restore prev_cinematic_rig
+	var prev_rig_path = data.get("prev_cinematic_rig_path", "")
+	if prev_rig_path != "":
+		_prev_cinematic_rig = get_node(prev_rig_path)
+	else:
+		_prev_cinematic_rig = null
+	
+	# Restore cinematic_rig
+	var rig_path = data.get("cinematic_rig_path", "")
+	if rig_path != "":
+		_cinematic_rig = get_node(rig_path)
+	else:
+		_cinematic_rig = null
+	
 	# Restore acrobatic state
 	if data.has("acrobatic_state"):
 		var acro = data["acrobatic_state"]
@@ -222,6 +330,17 @@ func full_reset() -> void:
 	is_acrobatic_ready = false
 	_forward_latch_active = false
 	_forward_latch_sign = 1.0
+	
+	# Reset direction latch
+	_direction_latch_active = false
+	_latched_camera_basis = Basis.IDENTITY
+	_latched_sidescroll_active = false
+	_latched_sidescroll_basis = Basis.IDENTITY
+	_latched_cinematic_mode = -1
+	_latched_input_vec = Vector2.ZERO
+	_prev_sidescroll_active = false
+	_prev_cinematic_rig = null
+	_prev_camera_basis = Basis.IDENTITY
 	
 	# Reset platform tracking
 	_platform_collider = null
@@ -261,13 +380,27 @@ func full_reset() -> void:
 onready var camera_rig = $CameraRig
 onready var animator = $Visual/Pivot
 
+
+# Input reconnection and camera input lock
 var input_provider
-var external_input_provided := false
+var camera_input_locked := false
+
+# Llama esto para bloquear/desbloquear input de cámara (mouse) durante transiciones
+func set_camera_input_locked(locked: bool):
+	camera_input_locked = locked
+	if input_provider:
+		input_provider.hardware_input_enabled = not locked
+
+func ensure_input_provider():
+	if not input_provider or not is_instance_valid(input_provider):
+		input_provider = InputProviderV2.new()
 
 var jump_logic: PlayerJumpV2
 var movement_logic: PlayerMovementV2
+var cinematic_logic: CinematicLogicV2
 var _created_jump_logic := false
 var _created_movement_logic := false
+var _created_cinematic_logic := false
 
 const SideScrollLogicV2 = preload("SideScrollLogicV2.gd")
 
@@ -280,7 +413,12 @@ func set_external_source_is_static(is_static: bool) -> void:
 	if is_instance_valid(movement_logic):
 		movement_logic.set_external_source_is_static(is_static)
 
+func reconnect_input_provider():
+	if not input_provider:
+		ensure_input_provider()
+
 func _ready():
+	initial_transform = global_transform
 	add_to_group("player")
 	input_provider = InputProviderV2.new()
 
@@ -321,6 +459,18 @@ func _ready():
 		else:
 			add_child(sidescroll_logic)
 	
+	if has_node("Logic/Cinematic"):
+		cinematic_logic = get_node("Logic/Cinematic")
+		_created_cinematic_logic = false
+	else:
+		cinematic_logic = CinematicLogicV2.new()
+		_created_cinematic_logic = true
+		cinematic_logic.name = "Cinematic"
+		if has_node("Logic"):
+			get_node("Logic").add_child(cinematic_logic)
+		else:
+			add_child(cinematic_logic)
+
 	_cached_cam = _find_camera(camera_rig)
 	if _cached_cam:
 		base_fov = _cached_cam.fov
@@ -332,6 +482,8 @@ func _ready():
 	
 	if camera_rig:
 		base_rig_y = camera_rig.transform.origin.y
+		# Inicializar la basis de cámara anterior para el direction latch
+		_prev_camera_basis = camera_rig.global_transform.basis
 	
 	# Setup interaction area attached to visual
 	_setup_interact_area()
@@ -358,6 +510,57 @@ func _find_spring_arm(node: Node) -> SpringArm:
 
 func get_camera_basis() -> Basis:
 	return camera_rig.global_transform.basis if camera_rig else DEFAULT_BASIS
+
+func _get_move_direction(input_vector: Vector2, control_mode: int) -> Vector3:
+	"""Calcula la dirección de movimiento basada en el modo de control cinemático."""
+	var camera = get_viewport().get_camera()
+	if not camera:
+		# For headless tests or no camera, assume forward is +Z
+		if input_vector.y > 0:
+			return Vector3(0, 0, 1)
+		elif input_vector.y < 0:
+			return Vector3(0, 0, -1)
+		elif input_vector.x > 0:
+			return Vector3(1, 0, 0)
+		elif input_vector.x < 0:
+			return Vector3(-1, 0, 0)
+		return Vector3.ZERO
+	
+	match control_mode:
+		CinematicManager.ControlMode.FREE:
+			# Movimiento relativo a la cámara (estándar)
+			var forward = camera.global_transform.basis.z
+			var right = camera.global_transform.basis.x
+			forward.y = 0
+			right.y = 0
+			return (-right.normalized() * input_vector.x + forward.normalized() * input_vector.y)
+		
+		CinematicManager.ControlMode.LOCKED_VIEW:
+			# "Arriba" en el stick siempre es "Hacia el fondo" de la cámara
+			var forward = - camera.global_transform.basis.z
+			var right = camera.global_transform.basis.x
+			forward.y = 0
+			right.y = 0
+			return (-right.normalized() * input_vector.x + forward.normalized() * input_vector.y)
+		
+		CinematicManager.ControlMode.FIXED_AXIS:
+			# Ignora la rotación de la cámara, usa ejes globales
+			return Vector3(-input_vector.x, 0, -input_vector.y)
+		
+		CinematicManager.ControlMode.SIDESCROLL:
+			# Restringe movimiento a un plano (X o Z según la orientación de la cámara)
+			var cam_right = camera.global_transform.basis.x
+			if abs(cam_right.x) > abs(cam_right.z):
+				# Movimiento a lo largo del eje global X
+				var sign_x = sign(cam_right.x)
+				return Vector3(-input_vector.x * sign_x, 0, 0)
+			else:
+				# Movimiento a lo largo del eje global Z
+				var sign_z = sign(cam_right.z)
+				return Vector3(0, 0, -input_vector.x * sign_z)
+		
+		_:
+			return Vector3.ZERO
 
 var _interact_area: Area = null
 
@@ -441,13 +644,20 @@ func _clear_interactable():
 		emit_signal("interactable_out_of_range")
 
 func _input(event):
+	if is_replay_mode:
+		return
+
+	# Si el input de cámara está bloqueado, no acumular mouse/zoom
+	if camera_input_locked:
+		return
+
 	# La única responsabilidad en _input es acumular el delta del mouse
 	# para que el InputProvider lo consuma en el frame de física.
 	if event is InputEventMouseMotion:
 		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 			if input_provider:
 				input_provider.mouse_delta_accum += event.relative
-	
+
 	if event.is_action_pressed("zoom_in"):
 		if input_provider:
 			input_provider.zoom_delta_accum -= 1.0 # Una unidad de zoom por click
@@ -465,11 +675,14 @@ func inject_input(data: Dictionary) -> void:
 	step(FIXED_DT, input)
 
 func step(dt: float, input: InputDataV2) -> void:
+	if input == null:
+		return  # End of replay, no more input
+	
 	# 0. State Update
 	sidescroll_logic.step(dt) # Actualizar alpha al inicio para gating
 	var alpha = sidescroll_logic.transition_alpha
 	var in_transition = alpha > 0.0 and alpha < 1.0
-	
+
 	# 0.5. Interaction System
 	_process_interaction(input)
 	
@@ -482,69 +695,221 @@ func step(dt: float, input: InputDataV2) -> void:
 			jump_logic.set_internal_velocity(0.0)
 
 	# --- ROTATION, PAN & ZOOM ---
-	
 	if not sidescroll_logic.is_active:
-		# Update tank mode state in component
-		movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
+		if input and input.mouse_delta:
+			movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
 
-		# Update rotations if mouse is captured OR in replay mode (where mouse_delta comes from recorded data)
-		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED or is_replay_mode:
-			yaw -= input.mouse_delta.x * mouse_sensitivity
-			pitch -= input.mouse_delta.y * mouse_sensitivity
-		
-		# If in tank mode, A/D (input.move_vec.x) also rotates the camera
-		yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
-		
-		yaw_deg = rad2deg(yaw)
-		pitch_deg = rad2deg(pitch)
+			if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED or is_replay_mode:
+				yaw -= input.mouse_delta.x * mouse_sensitivity
+				pitch -= input.mouse_delta.y * mouse_sensitivity
+
+			# If in tank mode, A/D (input.move_vec.x) also rotates the camera
+			yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
+
+			yaw_deg = rad2deg(yaw)
+			pitch_deg = rad2deg(pitch)
+		# Removed unnecessary error print for zero mouse_delta during OYS override
 
 		# Limitamos el Pitch para no dar una voltereta
 		pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
 	else:
-		# En modo 2.5D el mouse hace "Lazy Pan"
 		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED or is_replay_mode:
 			sidescroll_logic.apply_pan(input.mouse_delta)
-	
+
 	# ZOOM (Spring Length)
 	if abs(input.zoom_delta) > 0.01:
 		if sidescroll_logic.is_active:
-			# Update 2.5D specific target
 			sidescroll_logic.target_spring_length = clamp(
 				sidescroll_logic.target_spring_length + input.zoom_delta,
 				sidescroll_logic.spring_min,
 				sidescroll_logic.spring_max
 			)
 		else:
-			# Update 3D preference
 			base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 20.0)
 
 	# APLICACIÓN:
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
-	
+
 	# 1. Actualizar timers de los componentes
 	if is_on_floor():
 		jump_logic.reset_on_floor()
 	else:
 		jump_logic.on_air_tick(dt)
-		
+
 	if input.jump:
 		jump_logic.buffer_jump()
-	
+
 	# 2. Delegar movimiento horizontal
-	
 	if sidescroll_logic.is_active:
-		# REGLA DE ORO: En 2.5D NO puede haber Tank Turn, o el jugador se queda "atrapado" 
-		# al intentar moverse lateralmente si estaba quieto.
 		movement_logic.is_tank_turn_mode = false
-	
+
 	# Forward Latch Release Check
 	if input.move_vec.y >= -0.1: # Released "Forward"
 		_forward_latch_active = false
+
+	# Assign cinematic rig based on zones
+	_cinematic_rig = null
+	for zone in get_tree().get_nodes_in_group("CinematicCameraZoneV2"):
+		var zone_node = zone as CinematicCameraZoneV2
+		if zone_node and zone_node.is_body_in_zone(self):
+			_cinematic_rig = zone_node._rig_node
+			break
+
+	# --- DIRECTION LATCH SYSTEM ---
+	# Detectar cambios de contexto de cámara (entrada/salida de zonas)
+	var active_rig = _cinematic_rig
+	var context_changed := false
+
+	# Detectar cambio en modo sidescroll
+	if sidescroll_logic.is_active != _prev_sidescroll_active:
+		context_changed = true
+
+	# Detectar cambio en rig cinemático
+	if active_rig != _prev_cinematic_rig:
+		context_changed = true
+
+	# ¿Es entrada o salida?
+	var entering = (sidescroll_logic.is_active and not _prev_sidescroll_active) or (active_rig != null and _prev_cinematic_rig == null)
+	var exiting = (not sidescroll_logic.is_active and _prev_sidescroll_active) or (active_rig == null and _prev_cinematic_rig != null)
+
+	# Si hay input activo y cambió el contexto, activar el latch según flags
+	var has_movement_input = input.move_vec.length() > 0.1
+	if context_changed and has_movement_input and not _direction_latch_active:
+		var zone_latch_on_enter := true # Por defecto true, la zona puede override
+		var zone_latch_on_exit := true # Por defecto true, la zona puede override
+		# Consultar zona activa para sidescroll
+		#if sidescroll_logic.is_active:
+		#	if "latch_on_enter" in sidescroll_logic.zone:
+		#		zone_latch_on_enter = sidescroll_logic.zone.latch_on_enter
+		#	if "latch_on_exit" in sidescroll_logic.zone:
+		#		zone_latch_on_exit = sidescroll_logic.zone.latch_on_exit
+		
+		# Para cinematic, buscar la zona que activó el rig
+		var cinematic_zone = null
+		if active_rig != null:
+			# print("DEBUG: Active rig: ", active_rig.get_path())
+			for zone in get_tree().get_nodes_in_group("CinematicCameraZoneV2"):
+				var zone_rig = zone.get_node_or_null(zone.cinematic_rig_path)
+				# print("DEBUG: Checking zone: ", zone.name, " with rig path: ", zone.cinematic_rig_path)
+				
+				if zone_rig == active_rig:
+					cinematic_zone = zone
+					# print("DEBUG: Match found: ", zone.name)
+					break
+		if cinematic_zone != null and cinematic_zone is Node:
+			if "latch_on_enter" in cinematic_zone:
+				zone_latch_on_enter = cinematic_zone.latch_on_enter
+				# print("DEBUG: Zone found. latch_on_enter override: ", zone_latch_on_enter)
+			if "latch_on_exit" in cinematic_zone:
+				zone_latch_on_exit = cinematic_zone.latch_on_exit
+		else:
+			# print("DEBUG: No cinematic zone found for rig. Using default latch=true")
+			pass
+			
+		# Si la zona activa define latch, usar esos flags
+		if (zone_latch_on_enter and entering) or (zone_latch_on_exit and exiting):
+			# Guardar el contexto ANTERIOR (capturado en el frame anterior)
+			_latched_camera_basis = _prev_camera_basis
+			_latched_sidescroll_active = _prev_sidescroll_active
+			if _latched_sidescroll_active:
+				_latched_sidescroll_basis = sidescroll_logic.get_target_basis()
+			if _prev_cinematic_rig:
+				_latched_cinematic_mode = CinematicManager.get_control_mode()
+			else:
+				_latched_cinematic_mode = -1
+			# Guardar qué teclas activaron el latch
+			_latched_input_vec = input.move_vec
+			_direction_latch_active = true
+			# print("DEBUG: LATCH ACTIVATED! Enter=", entering, " Exit=", exiting)
+
+	# Activate/deactivate rig if changed
+	if _cinematic_rig != _prev_cinematic_rig:
+		if _cinematic_rig:
+			CinematicManager.activate_rig_direct(_cinematic_rig)
+		else:
+			CinematicManager.deactivate_rig()
+
+	# Actualizar las referencias "prev" para el próximo frame
+	_prev_sidescroll_active = sidescroll_logic.is_active
+	_prev_cinematic_rig = _cinematic_rig
+	_prev_camera_basis = get_camera_basis() # Guardar basis actual para el próximo frame
+	
+	# Liberar el latch cuando las teclas ORIGINALES se suelten
+	# Comparamos el signo de cada eje: si la tecla original ya no está activa, liberar
+	if _direction_latch_active:
+		var should_release := false
+		# Si X estaba activo al entrar y ya no lo está (o cambió de signo)
+		if abs(_latched_input_vec.x) > 0.1:
+			if abs(input.move_vec.x) < 0.1 or sign(input.move_vec.x) != sign(_latched_input_vec.x):
+				should_release = true
+		# Si Y estaba activo al entrar y ya no lo está (o cambió de signo)
+		if abs(_latched_input_vec.y) > 0.1:
+			if abs(input.move_vec.y) < 0.1 or sign(input.move_vec.y) != sign(_latched_input_vec.y):
+				should_release = true
+		
+		if should_release:
+			_direction_latch_active = false
+			_latched_camera_basis = Basis.IDENTITY
+			_latched_sidescroll_active = false
+			_latched_sidescroll_basis = Basis.IDENTITY
+			_latched_cinematic_mode = -1
+			_latched_input_vec = Vector2.ZERO
 		
 	var basis = get_camera_basis()
 	var move_vec = input.move_vec
 	
+	# --- DIRECTION LATCH APPLICATION ---
+	# Si el latch está activo, interpretar TODO el input usando el contexto ANTERIOR guardado
+	if _direction_latch_active:
+		if _latched_sidescroll_active:
+			# Usar el modo sidescroll anterior con TODAS sus restricciones
+			basis = _latched_sidescroll_basis
+			# Aplicar las mismas restricciones que aplicaría sidescroll
+			# En sidescroll, solo permitimos movimiento lateral (X del input)
+			if not sidescroll_logic.allow_depth:
+				move_vec = Vector2(input.move_vec.x, 0)
+		elif _latched_cinematic_mode >= 0:
+			# Usar el modo cinemático anterior para TODAS las teclas
+			var world_dir = _get_move_direction(input.move_vec, _latched_cinematic_mode)
+			if world_dir.length() > 0.01:
+				basis = Basis.IDENTITY
+				move_vec = Vector2(0, world_dir.length())
+				var h_dir = Vector3(world_dir.x, 0, world_dir.z).normalized()
+				if h_dir.length() > 0.01:
+					basis = Basis(Vector3.UP.cross(h_dir), Vector3.UP, h_dir)
+			else:
+				move_vec = Vector2.ZERO
+		else:
+			# Usar la basis de cámara anterior (modo 3D normal)
+			# Transformar el input a world space usando la basis anterior
+			var forward = _latched_camera_basis.z
+			var right = _latched_camera_basis.x
+			forward.y = 0
+			right.y = 0
+			var world_dir = (right.normalized() * input.move_vec.x + forward.normalized() * input.move_vec.y)
+			move_vec = Vector2(0, world_dir.length())
+			if world_dir.length() > 0.01:
+				basis = Basis(Vector3.UP.cross(world_dir.normalized()), Vector3.UP, world_dir.normalized())
+			else:
+				basis = _latched_camera_basis
+	# --- CINEMATIC CONTROL MODE ---
+	elif active_rig:
+		var mode = CinematicManager.get_control_mode()
+		var world_dir = _get_move_direction(input.move_vec, mode)
+		
+		# Transform world_dir back to basis-relative move_vec for process_movement
+		if world_dir.length() > 0.01:
+			# We use a fixed basis and put all magnitude in move_vec.y (forward)
+			basis = Basis.IDENTITY
+			move_vec = Vector2(0, world_dir.length())
+			# We calculate the horizontal direction
+			var h_dir = Vector3(world_dir.x, 0, world_dir.z).normalized()
+			if h_dir.length() > 0.01:
+				basis = Basis(Vector3.UP.cross(h_dir), Vector3.UP, h_dir)
+		else:
+			move_vec = Vector2.ZERO
+
 	# --- ACROBATIC SNAP DETECTION (Frame-based for determinism) ---
 	# Uses input.move_vec directly to capture raw intent before processing
 	var current_input_3d = Vector3(input.move_vec.x, 0, input.move_vec.y).normalized()
@@ -697,7 +1062,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		if step_result.stepped:
 			global_transform.origin = step_result.position
 			_just_stepped = true
-			_step_grounded_timer = step_grounded_grace  # Reset grace timer
+			_step_grounded_timer = step_grounded_grace # Reset grace timer
 	
 	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true, 4, deg2rad(45), false)
 	
@@ -761,7 +1126,7 @@ func _update_floor_info() -> void:
 	# Find the floor collision (normal pointing mostly upward)
 	for i in get_slide_count():
 		var collision = get_slide_collision(i)
-		if collision.normal.y > 0.7:  # Floor-like surface
+		if collision.normal.y > 0.7: # Floor-like surface
 			movement_logic.set_floor_normal(collision.normal)
 			return
 	
@@ -785,7 +1150,7 @@ func _update_platform_tracking(dt: float) -> void:
 	if is_on_floor():
 		for i in get_slide_count():
 			var collision = get_slide_collision(i)
-			if collision.normal.y > 0.7:  # Floor-like surface
+			if collision.normal.y > 0.7: # Floor-like surface
 				var collider = collision.collider
 				if collider is Spatial and not collider is StaticBody:
 					new_platform = collider
@@ -833,7 +1198,7 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 	3. Cast down from elevated position to find the step surface
 	4. If valid floor found within step_height, return the stepped-up position
 	"""
-	var result = { "stepped": false, "position": global_transform.origin }
+	var result = {"stepped": false, "position": global_transform.origin}
 	
 	if motion.length_squared() < 0.0001:
 		return result
@@ -896,18 +1261,24 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 	return result
 
 func _physics_process(_delta):
-	if external_input_provided or is_replay_mode:
-		if external_input_provided:
-			external_input_provided = false
-		return
-
 	# Update Input Provider config from Logic component (allows runtime tuning)
 	if is_instance_valid(movement_logic) and input_provider:
 		input_provider.move_response_curve = movement_logic.move_response_curve
 		input_provider.camera_response_curve = movement_logic.camera_response_curve
 
-	var input = input_provider.get_input()
-	step(FIXED_DT, input)
+	# Bloquea input de cámara si está lockeado
+	if camera_input_locked and input_provider:
+		input_provider.hardware_input_enabled = false
+
+	if external_input_provided and external_input:
+		# Debug: log external input consumption to diagnose respawn race
+		external_input_provided = false
+		var input = external_input
+		var pos_before = global_transform.origin
+		step(FIXED_DT, input)
+	else:
+		var input = input_provider.get_input()
+		step(FIXED_DT, input)
 
 func get_wish_direction() -> Vector3:
 	"""
@@ -1075,11 +1446,15 @@ func _exit_tree() -> void:
 	if _created_sidescroll_logic and sidescroll_logic and sidescroll_logic.is_inside_tree():
 		sidescroll_logic.queue_free()
 
+	if _created_cinematic_logic and cinematic_logic and cinematic_logic.is_inside_tree():
+		cinematic_logic.queue_free()
+
 # Teletransporte seguro (para checkpoints, killzones, etc)
 func teleport_to(target_transform: Transform) -> void:
-	print("[PlayerControllerV2] teleport_to llamado:", target_transform)
 	global_transform = target_transform
 	velocity = Vector3.ZERO
+	ensure_input_provider()
+	set_camera_input_locked(false)
 	# Resetear cualquier input residual si aplica
 	if input_provider != null:
 		if input_provider.has_method("clear_buffer"):

@@ -1,0 +1,27 @@
+// Test: Transiciones de Cámara Cinemática
+// Verifica que las transiciones de entrada y salida sean suaves (sin flash)
+// Nivel: Se usa TestCinematicScene.tscn que contiene un CinematicCameraZone con CinematicPathRig
+
+LEVEL res://core_v2/tests/TestCinematicInputLatch.tscn
+
+SECTION "Input latch test"
+    PRINT "Iniciando test de transición cinemática..."
+    // Guarda la posición inicial en X del jugador
+    SET $start_x GET_NODE_POS_X "Pilot"
+
+    // El jugador inicia fuera de la zona cinemática
+    // Moverse hacia adelante
+    FW 37m
+    
+    // Guarda la posición final en X del jugador
+    SET $end_x GET_NODE_POS_X "Pilot"
+
+    PRINT "Posición inicial X: $start_x"
+    PRINT "Posición final X: $end_x"
+    SET $delta_x $end_x
+    MATH $delta_x - $start_x
+    PRINT "Delta X: $delta_x"
+    PRINT "Debería estar dentro de la zona cinemática"
+    // Verifica que el jugador se desvió
+    ASSERT $delta_x > 1
+END
