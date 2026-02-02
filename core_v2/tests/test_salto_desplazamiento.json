@@ -2458,7 +2458,7 @@
         "source_transform": {
           "origin": "(0, 0, 0)",
           "basis": {
-            "x": "(0, 0, 0)",
+            "x": "(0, 1, 0)",
             "y": "(0, 0, 0)",
             "z": "(0, 0, 0)"
           }
@@ -2474,7 +2474,7 @@
     "position": [
       0,
       0.0415,
-      5.863052
+      4.942874
     ],
     "velocity": [
       0,
@@ -2565,9 +2565,9 @@
       ]
     },
     "platform_velocity": [
+      0,
       -0,
-      -0,
-      0.000029
+      -0.000057
     ],
     "was_on_platform": true,
     "step_grounded_timer": 0,

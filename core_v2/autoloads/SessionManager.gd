@@ -277,8 +277,10 @@ func _physics_process(_dt):
 				player = pilot_node
 
 		if pilot_node and pilot_node.has_method("step"):
+			# Set external input for potential consumers but also step directly
 			pilot_node.external_input = input_data
 			pilot_node.external_input_provided = true
+			pilot_node.step(FIXED_DT, input_data)
 			player = pilot_node # keep SessionManager.player in sync
 		# Step plataformas TAMBIÉN durante grabación para determinismo
 		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
@@ -376,6 +378,7 @@ func start_recording():
 	# Marcar player como "controlado externamente" para evitar doble step
 	if player:
 		player.is_replay_mode = true # Usamos esta bandera para indicar control externo
+		player.set_physics_process(false)
 		# Conectar señal de drift correction
 		if player.has_signal("rigid_contact_ended") and not player.is_connected("rigid_contact_ended", self, "_on_rigid_contact_ended"):
 			player.connect("rigid_contact_ended", self, "_on_rigid_contact_ended")
@@ -424,6 +427,7 @@ func stop_and_save_recording():
 	# Restaurar control normal del player
 	if player:
 		player.is_replay_mode = false
+		player.set_physics_process(true)
 	
 	# Reactivar _physics_process en plataformas
 	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
@@ -516,6 +520,7 @@ func load_and_play(path: String):
 		# Enforce input inhibition for OYS live execution
 		if is_instance_valid(player):
 			player.is_replay_mode = true
+			player.set_physics_process(false)
 			if "input_provider" in player and is_instance_valid(player.input_provider):
 				player.input_provider.hardware_input_enabled = false
 		
@@ -697,6 +702,7 @@ func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
 			node.set_physics_process(false)
 
 	player.is_replay_mode = true
+	player.set_physics_process(false)
 	player.input_provider.set_replay_data(input_buffer)
 	if "velocity" in player:
 		player.velocity = Vector3.ZERO
@@ -754,6 +760,7 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 			node.set_physics_process(false)
 
 	player.is_replay_mode = true
+	player.set_physics_process(false)
 	player.input_provider.set_replay_data(input_buffer)
 
 	# Initialize Event Runtime
@@ -778,6 +785,9 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 
 func _finish_and_validate():
 	is_replaying = false
+	if is_instance_valid(player):
+		player.is_replay_mode = false
+		player.set_physics_process(true)
 	
 	# Una última comprobación de aserciones que puedan haber quedado en el último frame
 	_check_events_for_frame(_replay_frame)

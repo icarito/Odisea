@@ -53,12 +53,12 @@ func consume_jump() -> void:
 func set_internal_velocity(v: float) -> void:
 	internal_velocity = v
 
-func step(dt: float, input_jump: bool, _current_vy: float, on_floor: bool) -> float:
-	# If current_vy is significantly different from our internal expectation
-	# (e.g. forced by external scripted event or snap), we sync to it.
-	# But normally we stick to our simulated gravity.
-	# NOTE: We keep current_vy for compatibility in this signature, but 
-	# prefer internal_velocity.
+func step(dt: float, input_jump: bool, current_vy: float, on_floor: bool) -> float:
+	# Sync internal velocity with current_vy if we are on floor and NOT jumping
+	# This ensures we don't fight slope alignment or external vertical forces.
+	if on_floor and not _is_jumping:
+		internal_velocity = current_vy
+
 	# Actualizar tracker si estamos saltando
 	if _is_jumping:
 		_jump_time_tracker += dt

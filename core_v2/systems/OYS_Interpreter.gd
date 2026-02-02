@@ -239,6 +239,11 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				variables[var_name] = _call_func(inst.func, inst.args)
 			else:
 				variables[var_name] = _resolve_value(inst.get("value", ""))
+
+			# If it's a world property (like 'pos'), tell the host to handle it
+			if not var_name.begins_with("$"):
+				if host_node and host_node.has_method("_handle_set_command"):
+					host_node._handle_set_command(inst)
 		
 		"GET_NODES_IN_GROUP":
 			var group = inst.get("group", "")
