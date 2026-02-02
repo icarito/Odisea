@@ -63,17 +63,17 @@ func _read_live_input() -> InputDataV2:
 			Input.get_action_strength("move_left") - Input.get_action_strength("move_right"),
 			Input.get_action_strength("move_forward") - Input.get_action_strength("move_backward")
 		)
-	
+
 		# Apply curve to raw move vector (affects analog stick)
 		d.move_vec = _apply_curve(d.move_vec, move_response_curve)
-	
+
 		d.move_vec.x = _q(d.move_vec.x)
 		d.move_vec.y = _q(d.move_vec.y)
-	
+
 		d.jump = Input.is_action_pressed("jump")
 		d.sprint = Input.is_action_pressed("run")
 		d.interact = Input.is_action_just_pressed("interact")
-		
+
 		# --- JOYSTICK SPRINT (Left Stick) ---
 		var joy_move = Vector2(
 			Input.get_joy_axis(0, JOY_AXIS_0),
@@ -81,22 +81,21 @@ func _read_live_input() -> InputDataV2:
 		)
 		if joy_move.length() > 0.8:
 			d.sprint = true
-	
+
 		# Acumula y consume mouse_delta localmente
 		var mouse_d = Vector2(_q(mouse_delta_accum.x), _q(-mouse_delta_accum.y))
-		
+
 		# --- JOYSTICK CAMERA (Right Stick) ---
 		var joy_look = Vector2(
 			Input.get_joy_axis(0, JOY_AXIS_2),
 			- Input.get_joy_axis(0, JOY_AXIS_3)
 		)
-		
 		if joy_look.length() > JOY_DEADZONE:
 			joy_look = _apply_curve(joy_look, camera_response_curve)
 			mouse_d += joy_look * JOY_LOOK_SENSITIVITY
-	
+
 		d.mouse_delta = mouse_d
-		
+
 		# --- ZOOM ---
 		var digital_zoom = Input.get_action_strength("zoom_out") - Input.get_action_strength("zoom_in")
 		d.zoom_delta = zoom_delta_accum + digital_zoom

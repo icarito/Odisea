@@ -1293,14 +1293,14 @@
   },
   "final_expected_state": {
     "position": [
-      -0,
+      0,
       0.0415,
-      5.322225
+      5.148424
     ],
     "velocity": [
       0,
       -0.233333,
-      7
+      6.966667
     ],
     "yaw": 0,
     "pitch": 0,
@@ -1309,7 +1309,7 @@
       "horizontal_velocity": [
         0,
         0,
-        7
+        6.966667
       ],
       "external_velocity": [
         0,
@@ -1388,7 +1388,7 @@
     "platform_velocity": [
       0,
       0,
-      0.000057
+      0
     ],
     "was_on_platform": true,
     "step_grounded_timer": 0,

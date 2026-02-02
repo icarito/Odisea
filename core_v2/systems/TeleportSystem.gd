@@ -6,6 +6,7 @@ class_name TeleportSystem
 
 var player_controller = null
 var camera_controller = null
+var initial_spawn_transform = null # Cached absolute initial spawn transform for the scene
 
 func _enter_tree():
 	print("[TeleportSystem] _enter_tree. self=", self, " path=", get_path())
@@ -20,6 +21,27 @@ func _ready():
 		var pilot = get_tree().get_root().find_node("Pilot", true, false)
 		print("[TeleportSystem] Buscando Pilot en _ready:", pilot, " path=", pilot.get_path() if pilot else "null")
 		player_controller = pilot
+		# Cache the scene's original player spawn transform (only once)
+		if player_controller and initial_spawn_transform == null:
+			initial_spawn_transform = player_controller.global_transform
+			print("[TeleportSystem] Cached initial_spawn_transform=", initial_spawn_transform)
+			# If no checkpoint 'last' exists for this scene, persist this initial spawn as the 'last' checkpoint
+			var persistence_manager = get_node_or_null("/root/PersistenceManager")
+			if persistence_manager and persistence_manager.has_method("get_checkpoint_resource"):
+				var scene_path = get_tree().current_scene.filename if get_tree().current_scene else ""
+				var checkpoint_res = persistence_manager.get_checkpoint_resource(scene_path)
+				if checkpoint_res and not ("last" in checkpoint_res.slots):
+					var cp = {
+						"transform": initial_spawn_transform,
+						"yaw": player_controller.yaw if player_controller else 0.0,
+						"pitch": player_controller.pitch if player_controller else 0.0
+					}
+					checkpoint_res.slots["last"] = cp
+					checkpoint_res.property_list_changed_notify()
+					if persistence_manager.has_method("save_checkpoint_resource"):
+						persistence_manager.save_checkpoint_resource(scene_path)
+						print("[TeleportSystem] Initial spawn persisted as checkpoint 'last' for scene:", scene_path)
+		
 	if not camera_controller and player_controller:
 		var cam_rig = player_controller.get_node_or_null("CameraRig")
 		print("[TeleportSystem] Buscando CameraRig en _ready:", cam_rig, " path=", cam_rig.get_path() if cam_rig else "null")
@@ -60,10 +82,10 @@ func _input(event):
 		if event.scancode >= KEY_1 and event.scancode <= KEY_9:
 			key_num = event.scancode - KEY_0 # 1..9
 		if key_num >= 1 and key_num <= 9:
-			var pm = get_node_or_null("/root/PersistenceManager")
+			var persistence_manager = get_node_or_null("/root/PersistenceManager")
 			var scene_path = get_tree().current_scene.filename if get_tree().current_scene else ""
-			if pm and pm.has_method("get_checkpoint_resource"):
-				var checkpoint_res = pm.get_checkpoint_resource(scene_path)
+			if persistence_manager and persistence_manager.has_method("get_checkpoint_resource"):
+				var checkpoint_res = persistence_manager.get_checkpoint_resource(scene_path)
 				if event.shift:
 					# SHIFT+[1-9]: Guardar posición y ángulo en slot
 					if checkpoint_res:
@@ -75,8 +97,8 @@ func _input(event):
 						checkpoint_res.slots[str(key_num)] = checkpoint_data
 						checkpoint_res.property_list_changed_notify()
 						print("[TeleportSystem] Guardado slot ", key_num, ": ", checkpoint_data)
-						if pm.has_method("save_checkpoint_resource"):
-							pm.save_checkpoint_resource(scene_path)
+						if persistence_manager.has_method("save_checkpoint_resource"):
+							persistence_manager.save_checkpoint_resource(scene_path)
 							print("[TeleportSystem] Checkpoint persistido en disco (slot ", key_num, ")")
 						get_tree().set_input_as_handled()
 				else:
@@ -98,14 +120,25 @@ func _input(event):
 
 # Respawn forzado en el spawn point o 0,0,0
 func _respawn_at_spawn_or_zero():
+	# Buscar player_controller si es null
+	if not player_controller:
+		var pilot = get_tree().get_root().find_node("Pilot", true, false)
+		if pilot:
+			player_controller = pilot
+			print("[TeleportSystem] Player_controller encontrado y asignado en _respawn_at_spawn_or_zero:", player_controller)
+		else:
+			print("[TeleportSystem] No se pudo encontrar Pilot en el árbol en _respawn_at_spawn_or_zero")
+	
 	var target_transform = null
 	var target_yaw = null
 	var target_pitch = null
-	# Buscar SpawnPointV2
-	var spawn = get_tree().current_scene.find_node("SpawnPointV2", true, false) if get_tree().current_scene else null
-	if spawn:
-		target_transform = spawn.global_transform
-		print("[TeleportSystem] Reset usando SpawnPointV2.")
+	# Usar el spawn inicial absoluto cached si existe, si no usar player_controller.initial_transform
+	if initial_spawn_transform != null:
+		target_transform = initial_spawn_transform
+		print("[TeleportSystem] Reset usando cached initial_spawn_transform.")
+	elif player_controller:
+		target_transform = player_controller.initial_transform
+		print("[TeleportSystem] Reset usando posición inicial del player (player_controller.initial_transform).")
 	else:
 		target_transform = Transform()
 		print("[TeleportSystem] Reset usando Transform.ZERO.")
@@ -116,19 +149,38 @@ func _respawn_at_spawn_or_zero():
 		yield(get_tree(), "idle_frame")
 		var pilot_scene = preload("res://core_v2/actors/Pilot_v2.tscn")
 		var new_pilot = pilot_scene.instance()
+		parent.add_child(new_pilot)
+		yield(get_tree(), "idle_frame")
+		if new_pilot.has_method("full_reset"):
+			new_pilot.full_reset()
 		new_pilot.global_transform = target_transform
+		new_pilot.initial_transform = target_transform
+		yield(get_tree(), "physics_frame")
+		if new_pilot.has_method("set_external_velocity"):
+			new_pilot.set_external_velocity(Vector3.ZERO)
+		new_pilot.velocity = Vector3.ZERO
 		if target_yaw != null:
 			new_pilot.yaw = target_yaw
 			new_pilot.yaw_deg = rad2deg(target_yaw)
 		if target_pitch != null:
 			new_pilot.pitch = target_pitch
 			new_pilot.pitch_deg = rad2deg(target_pitch)
-		parent.add_child(new_pilot)
+		# Refuerza input provider tras respawn
+		if new_pilot.has_method("ensure_input_provider"):
+			new_pilot.ensure_input_provider()
 		player_controller = new_pilot
+		# Ensure SessionManager knows about the new player instance (so recording/input overrides keep working)
+		var sm = get_node_or_null("/root/SessionManager")
+		if sm:
+			if sm.has_method("_find_player"):
+				sm._find_player()
+			else:
+				sm.player = new_pilot
+			print("[TeleportSystem] SessionManager player refreshed: ", sm.player)
 		var cam_rig = new_pilot.get_node_or_null("CameraRig")
 		if cam_rig:
 			camera_controller = cam_rig
-		print("[TeleportSystem] Nuevo Pilot instanciado por reset.")
+		print("[TeleportSystem] Nuevo Pilot instanciado por reset. enforced transform and reset state:", new_pilot.initial_transform)
 	else:
 		print("[TeleportSystem] No se pudo reinstanciar Pilot (reset)")
 
@@ -136,14 +188,27 @@ func _on_player_killed():
 	print("[TeleportSystem] _on_player_killed ejecutado! (señal recibida)")
 	print("[TeleportSystem] self:", self, " path=", get_path())
 	print("[TeleportSystem] player_controller:", player_controller, " path=", player_controller.get_path() if player_controller else "null")
+	
+	# Buscar player_controller si es null
+	if not player_controller:
+		var pilot = get_tree().get_root().find_node("Pilot", true, false)
+		if pilot:
+			player_controller = pilot
+			print("[TeleportSystem] Player_controller encontrado y asignado:", player_controller)
+		else:
+			print("[TeleportSystem] No se pudo encontrar Pilot en el árbol")
+	
+	if player_controller:
+		print("[TeleportSystem] player_controller.global_transform=", player_controller.global_transform)
+		print("[TeleportSystem] player_controller.initial_transform=", player_controller.initial_transform)
 
 	# 1. Intentar cargar el último checkpoint guardado (PersistenceManager)
-	var pm = get_node_or_null("/root/PersistenceManager")
-	print("[TeleportSystem] Buscando PersistenceManager en /root/PersistenceManager:", pm)
+	var persistence_manager = get_node_or_null("/root/PersistenceManager")
+	print("[TeleportSystem] Buscando PersistenceManager en /root/PersistenceManager:", persistence_manager)
 	var checkpoint_res = null
 	var scene_path = get_tree().current_scene.filename if get_tree().current_scene else ""
-	if pm and pm.has_method("get_checkpoint_resource"):
-		checkpoint_res = pm.get_checkpoint_resource(scene_path)
+	if persistence_manager and persistence_manager.has_method("get_checkpoint_resource"):
+		checkpoint_res = persistence_manager.get_checkpoint_resource(scene_path)
 		print("[TeleportSystem] CheckpointResource para escena:", checkpoint_res)
 
 	var target_transform = null
@@ -166,10 +231,21 @@ func _on_player_killed():
 		if spawn:
 			target_transform = spawn.global_transform
 			print("[TeleportSystem] Respawn usando SpawnPointV2.")
-	# 4. Si no hay nada, usar Transform en 0,0,0
+	# 4. Si no hay nada, usar el spawn inicial absoluto cacheado o la posición inicial del player (fallback)
 	if not target_transform:
-		target_transform = Transform()
-		print("[TeleportSystem] Respawn usando Transform.ZERO.")
+		if initial_spawn_transform != null:
+			target_transform = initial_spawn_transform
+			target_yaw = 0
+			target_pitch = 0
+			print("[TeleportSystem] Respawn usando cached initial_spawn_transform.")
+		elif player_controller:
+			target_transform = player_controller.initial_transform
+			target_yaw = 0  # Asumir yaw inicial 0, o si hay, pero por ahora 0
+			target_pitch = 0
+			print("[TeleportSystem] Respawn usando posición inicial del player.")
+		else:
+			target_transform = Transform()
+			print("[TeleportSystem] Respawn usando Transform.ZERO.")
 
 	print("[TeleportSystem] Reinstanciando Pilot en:", target_transform)
 	# Eliminar el Pilot actual
@@ -180,31 +256,56 @@ func _on_player_killed():
 		# Instanciar nuevo Pilot
 		var pilot_scene = preload("res://core_v2/actors/Pilot_v2.tscn")
 		var new_pilot = pilot_scene.instance()
+		# Add to scene first so _ready runs, then apply absolute transform
+		parent.add_child(new_pilot)
+		yield(get_tree(), "idle_frame")
+		# Ensure camera is current if it exists
+		var cam = new_pilot.get_node_or_null("CameraRig/Camera")
+		if cam:
+			cam.current = true
+			print("[TeleportSystem] Camera set as current for new player")
+		# Deep reset to avoid inheriting any previous state
+		if new_pilot.has_method("full_reset"):
+			new_pilot.full_reset()
+		# Enforce absolute transform and zero velocities
 		new_pilot.global_transform = target_transform
+		new_pilot.initial_transform = target_transform
+		# Allow physics to process so Areas will detect overlap and emit signals
+		yield(get_tree(), "physics_frame")
+		if new_pilot.has_method("set_external_velocity"):
+			new_pilot.set_external_velocity(Vector3.ZERO)
+		new_pilot.velocity = Vector3.ZERO
 		if target_yaw != null:
 			new_pilot.yaw = target_yaw
 			new_pilot.yaw_deg = rad2deg(target_yaw)
 		if target_pitch != null:
 			new_pilot.pitch = target_pitch
 			new_pilot.pitch_deg = rad2deg(target_pitch)
-		parent.add_child(new_pilot)
 		# Actualizar referencias
 		player_controller = new_pilot
+		# Ensure SessionManager knows about the new player instance (so recording/input overrides keep working)
+		var sm = get_node_or_null("/root/SessionManager")
+		if sm:
+			if sm.has_method("_find_player"):
+				sm._find_player()
+			else:
+				sm.player = new_pilot
+			print("[TeleportSystem] SessionManager player refreshed: ", sm.player)
 		# Actualizar camera_controller si existe
 		var cam_rig = new_pilot.get_node_or_null("CameraRig")
 		if cam_rig:
 			camera_controller = cam_rig
-		print("[TeleportSystem] Nuevo Pilot instanciado y referenciado.")
+		print("[TeleportSystem] Nuevo Pilot instanciado y referenciado. enforced transform and reset state:", new_pilot.initial_transform)
 	else:
 		print("[TeleportSystem] No se pudo reinstanciar Pilot (no estaba en árbol)")
 
 func _on_checkpoint_reached(transform):
 	print("[TeleportSystem] Señal recibida: checkpoint_reached, transform=", transform)
 	# Guardar el checkpoint en el slot 'last' y persistirlo, incluyendo rotación
-	var pm = get_node_or_null("/root/PersistenceManager")
+	var persistence_manager = get_node_or_null("/root/PersistenceManager")
 	var scene_path = get_tree().current_scene.filename if get_tree().current_scene else ""
-	if pm and pm.has_method("get_checkpoint_resource"):
-		var checkpoint_res = pm.get_checkpoint_resource(scene_path)
+	if persistence_manager and persistence_manager.has_method("get_checkpoint_resource"):
+		var checkpoint_res = persistence_manager.get_checkpoint_resource(scene_path)
 		if checkpoint_res:
 			var checkpoint_data = {
 				"transform": transform,
@@ -214,6 +315,6 @@ func _on_checkpoint_reached(transform):
 			checkpoint_res.slots["last"] = checkpoint_data
 			checkpoint_res.property_list_changed_notify() # Forzar a Godot a marcar el recurso como modificado
 			print("[TeleportSystem] Checkpoint guardado en slot 'last' (con rotación).", checkpoint_data)
-			if pm.has_method("save_checkpoint_resource"):
-				pm.save_checkpoint_resource(scene_path)
+			if persistence_manager.has_method("save_checkpoint_resource"):
+				persistence_manager.save_checkpoint_resource(scene_path)
 				print("[TeleportSystem] Checkpoint persistido en disco.")

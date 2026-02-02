@@ -92,6 +92,16 @@ func _connect_teleport_system():
 	var player_node = get_tree().get_root().find_node("Pilot", true, false)
 	print("[SessionManager] player_node (Pilot):", player_node, " path=", player_node.get_path() if player_node else "null")
 	teleport_system.player_controller = player_node
+	player = player_node  # Also set SessionManager.player for OYS input routing
+
+	# Validar y reconectar InputProviderV2
+	if is_instance_valid(player_node):
+		var input_provider = player_node.get_node_or_null("InputProviderV2")
+		if input_provider:
+			print("[SessionManager] InputProviderV2 encontrado y asignado: ", input_provider)
+		else:
+			print("[SessionManager] Advertencia: InputProviderV2 no encontrado en el jugador.")
+
 	# Buscar CameraRig dentro del player
 	var camera_rig = player_node.get_node_or_null("CameraRig") if player_node else null
 	print("[SessionManager] camera_rig:", camera_rig, " path=", camera_rig.get_path() if camera_rig else "null")
@@ -470,7 +480,7 @@ func load_and_play(path: String):
 			if not _current_replay_data.has("meta"): _current_replay_data["meta"] = {}
 			_current_replay_data["meta"]["world_start_state"] = _get_world_state_snapshot()
 		
-		# Desactivar _physics_process en plataformas para control manual
+		# Desactivar _physics_process en plataformas durante grabación
 		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
 		for node in sync_nodes:
 			if node != player:
@@ -502,7 +512,9 @@ func load_and_play(path: String):
 				_on_oys_instruction_executed({"command": "SET", "var": "pos", "value": "(0, 0.5, 0)"}, {})
 
 		# Start the run
-		yield (interpreter.run(), "completed")
+		var run_state = interpreter.run()
+		if run_state is GDScriptFunctionState:
+			yield (run_state, "completed")
 		if interpreter.test_failed:
 			oys_assert_failed = true
 		

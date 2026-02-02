@@ -223,10 +223,8 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				recorder.stop_recording()
 
 		"ASSERT":
-			var condition = inst.get("condition", false)
-			var message = inst.get("message", "")
-			if not condition:
-				printerr("[OYS_Interpreter] ASSERT FAILED: ", message)
+			_execute_assert(inst.get("condition", ""))
+			if not is_running:
 				test_failed = true  # Mark the test as failed
 				stop_requested = true
 				return  # Stop execution immediately on ASSERT failure
@@ -245,10 +243,14 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		
 		# Movement commands - apply to player's input provider
 		"FW", "BW", "LEFT", "RIGHT", "JUMP", "INTERACT":
-			yield (_execute_movement(inst, my_id), "completed")
+			var __state = _execute_movement(inst, my_id)
+			if __state is GDScriptFunctionState:
+				yield(__state, "completed")
 		
 		"LOOK":
-			yield (_execute_look(inst, my_id), "completed")
+			var __state_look = _execute_look(inst, my_id)
+			if __state_look is GDScriptFunctionState:
+				yield(__state_look, "completed")
 		
 		# Markers - no action needed
 		"LEVEL", "END":
@@ -281,7 +283,9 @@ func _execute_movement(inst: Dictionary, my_id: int):
 			print("[OYS_Interpreter] LEFT/RIGHT: is_turning=", inst.get("is_turning", false), " value=", inst.get("value", 0), " unit=", inst.get("unit", "?"))
 			if inst.get("is_turning", false):
 				# For turning, we'll handle it separately
-				yield (_execute_turn(inst, my_id), "completed")
+				var __state_turn = _execute_turn(inst, my_id)
+				if __state_turn is GDScriptFunctionState:
+					yield(__state_turn, "completed")
 				return
 			var value = inst.get("value", 0.0)
 			var unit = inst.get("unit", "s")
@@ -405,26 +409,27 @@ func _find_player() -> Node:
 	return player
 
 func _post_oys_input(data: Dictionary):
+	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+		return
 	var session = host_node.get_node_or_null("/root/SessionManager")
-	if session and session.get("is_recording"):
+	if session and is_instance_valid(session) and session.get("is_recording"):
 		# Merge with existing override if any
 		if not session.get("_oys_input_override"):
 			session.set("_oys_input_override", {})
-		
 		var override = session.get("_oys_input_override")
 		for key in data:
 			override[key] = data[key]
 	else:
 		# Fallback to direct injection if no session manager/recording found
 		var player = _find_player()
-		if player and player.has_method("inject_input"):
+		if player and is_instance_valid(player) and player.has_method("inject_input"):
 			player.inject_input(data)
 
 func _resolve_node(path: String) -> Node:
 	var node = host_node.get_node_or_null(path)
-	if not node and host_node.is_inside_tree() and host_node.get_tree().current_scene:
+	if not is_instance_valid(node) and host_node.is_inside_tree() and host_node.get_tree().current_scene:
 		node = host_node.get_tree().current_scene.find_node(path, true, false)
-	if not node and host_node.is_inside_tree():
+	if not is_instance_valid(node) and host_node.is_inside_tree():
 		node = host_node.get_tree().root.find_node(path, true, false)
 	return node
 
@@ -475,7 +480,7 @@ func _resolve_value(val: String):
 
 func _call_func(func_name: String, args: Array):
 	match func_name:
-		"get_node_pos_x":
+		"GET_NODE_POS_X":
 			var node = host_node.get_tree().root.find_node(args[0], true, false)
 			if node:
 				return node.global_transform.origin.x
@@ -487,7 +492,18 @@ func _call_func(func_name: String, args: Array):
 				return node.global_transform.origin.y
 			elif node and node is Node2D:
 				return node.position.y
-	return 0.0
+			return 0.0
+		"GET_NODE_Z", "GET_NODE_POS_Z":
+			var path = args[0].replace("\"", "")
+			var node = _resolve_node(path)
+			if node and node is Spatial:
+				return node.global_transform.origin.z
+			return 0.0
+		_:
+			printerr("[OYS] Unknown function called: ", func_name)
+			test_failed = true
+			stop_requested = true
+			return null
 
 func _compare(left, op, right) -> bool:
 	var l = left

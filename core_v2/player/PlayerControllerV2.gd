@@ -10,7 +10,8 @@ const FIXED_DT := 1.0 / 60.0
 const UP := Vector3.UP
 
 var is_replay_mode := false
-
+var initial_transform: Transform
+var _frame_counter := 0 # Contador de frames para limitar logs
 
 # State para drift correction
 var _was_touching_rigid := false
@@ -353,8 +354,21 @@ func full_reset() -> void:
 onready var camera_rig = $CameraRig
 onready var animator = $Visual/Pivot
 
+
+# Input reconnection and camera input lock
 var input_provider
 var external_input_provided := false
+var camera_input_locked := false
+
+# Llama esto para bloquear/desbloquear input de cámara (mouse) durante transiciones
+func set_camera_input_locked(locked: bool):
+	camera_input_locked = locked
+	if input_provider:
+		input_provider.hardware_input_enabled = not locked
+
+func ensure_input_provider():
+	if not input_provider or not is_instance_valid(input_provider):
+		input_provider = InputProviderV2.new()
 
 var jump_logic: PlayerJumpV2
 var movement_logic: PlayerMovementV2
@@ -374,7 +388,13 @@ func set_external_source_is_static(is_static: bool) -> void:
 	if is_instance_valid(movement_logic):
 		movement_logic.set_external_source_is_static(is_static)
 
+func reconnect_input_provider():
+	if not input_provider:
+		ensure_input_provider()
+
 func _ready():
+	initial_transform = global_transform
+	print("[PlayerControllerV2] _ready: initial_transform=", initial_transform)
 	add_to_group("player")
 	input_provider = InputProviderV2.new()
 
@@ -471,6 +491,15 @@ func _get_move_direction(input_vector: Vector2, control_mode: int) -> Vector3:
 	"""Calcula la dirección de movimiento basada en el modo de control cinemático."""
 	var camera = get_viewport().get_camera()
 	if not camera:
+		# For headless tests or no camera, assume forward is +Z
+		if input_vector.y > 0:
+			return Vector3(0, 0, 1)
+		elif input_vector.y < 0:
+			return Vector3(0, 0, -1)
+		elif input_vector.x > 0:
+			return Vector3(1, 0, 0)
+		elif input_vector.x < 0:
+			return Vector3(-1, 0, 0)
 		return Vector3.ZERO
 	
 	match control_mode:
@@ -593,14 +622,18 @@ func _clear_interactable():
 func _input(event):
 	if is_replay_mode:
 		return
-		
+
+	# Si el input de cámara está bloqueado, no acumular mouse/zoom
+	if camera_input_locked:
+		return
+
 	# La única responsabilidad en _input es acumular el delta del mouse
 	# para que el InputProvider lo consuma en el frame de física.
 	if event is InputEventMouseMotion:
 		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 			if input_provider:
 				input_provider.mouse_delta_accum += event.relative
-	
+
 	if event.is_action_pressed("zoom_in"):
 		if input_provider:
 			input_provider.zoom_delta_accum -= 1.0 # Una unidad de zoom por click
@@ -622,7 +655,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	sidescroll_logic.step(dt) # Actualizar alpha al inicio para gating
 	var alpha = sidescroll_logic.transition_alpha
 	var in_transition = alpha > 0.0 and alpha < 1.0
-	
+
 	# 0.5. Interaction System
 	_process_interaction(input)
 	
@@ -635,66 +668,57 @@ func step(dt: float, input: InputDataV2) -> void:
 			jump_logic.set_internal_velocity(0.0)
 
 	# --- ROTATION, PAN & ZOOM ---
-	
 	if not sidescroll_logic.is_active:
-		# Update tank mode state in component
 		movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
 
-		# Update rotations if mouse is captured OR in replay mode (where mouse_delta comes from recorded data)
 		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED or is_replay_mode:
 			yaw -= input.mouse_delta.x * mouse_sensitivity
 			pitch -= input.mouse_delta.y * mouse_sensitivity
-		
+
 		# If in tank mode, A/D (input.move_vec.x) also rotates the camera
 		yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
-		
+
 		yaw_deg = rad2deg(yaw)
 		pitch_deg = rad2deg(pitch)
 
 		# Limitamos el Pitch para no dar una voltereta
 		pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
 	else:
-		# En modo 2.5D el mouse hace "Lazy Pan"
 		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED or is_replay_mode:
 			sidescroll_logic.apply_pan(input.mouse_delta)
-	
+
 	# ZOOM (Spring Length)
 	if abs(input.zoom_delta) > 0.01:
 		if sidescroll_logic.is_active:
-			# Update 2.5D specific target
 			sidescroll_logic.target_spring_length = clamp(
 				sidescroll_logic.target_spring_length + input.zoom_delta,
 				sidescroll_logic.spring_min,
 				sidescroll_logic.spring_max
 			)
 		else:
-			# Update 3D preference
 			base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 20.0)
 
 	# APLICACIÓN:
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
-	
+
 	# 1. Actualizar timers de los componentes
 	if is_on_floor():
 		jump_logic.reset_on_floor()
 	else:
 		jump_logic.on_air_tick(dt)
-		
+
 	if input.jump:
 		jump_logic.buffer_jump()
-	
+
 	# 2. Delegar movimiento horizontal
-	
 	if sidescroll_logic.is_active:
-		# REGLA DE ORO: En 2.5D NO puede haber Tank Turn, o el jugador se queda "atrapado" 
-		# al intentar moverse lateralmente si estaba quieto.
 		movement_logic.is_tank_turn_mode = false
-	
+
 	# Forward Latch Release Check
 	if input.move_vec.y >= -0.1: # Released "Forward"
 		_forward_latch_active = false
-	
+
 	# --- DIRECTION LATCH SYSTEM ---
 	# Detectar cambios de contexto de cámara (entrada/salida de zonas)
 	var active_rig = CinematicManager.active_rig
@@ -1203,6 +1227,10 @@ func _physics_process(_delta):
 		input_provider.move_response_curve = movement_logic.move_response_curve
 		input_provider.camera_response_curve = movement_logic.camera_response_curve
 
+	# Bloquea input de cámara si está lockeado
+	if camera_input_locked and input_provider:
+		input_provider.hardware_input_enabled = false
+
 	var input = input_provider.get_input()
 	step(FIXED_DT, input)
 
@@ -1380,6 +1408,8 @@ func teleport_to(target_transform: Transform) -> void:
 	print("[PlayerControllerV2] teleport_to llamado:", target_transform)
 	global_transform = target_transform
 	velocity = Vector3.ZERO
+	ensure_input_provider()
+	set_camera_input_locked(false)
 	# Resetear cualquier input residual si aplica
 	if input_provider != null:
 		if input_provider.has_method("clear_buffer"):
