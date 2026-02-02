@@ -12,6 +12,8 @@ export(float) var target_spring_length := 7.0
 export(float) var camera_smoothing := 4.0
 export(float) var zoom_smoothing := 2.0
 export(float) var min_rig_height := 0.5
+export(float) var spring_min := 2.0
+export(float) var spring_max := 20.0
 
 # --- DEPTH MOTION ZOOM ---
 export(float) var depth_zoom_factor := 0.5 # How much to zoom based on depth distance
