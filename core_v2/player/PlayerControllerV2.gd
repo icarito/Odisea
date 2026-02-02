@@ -64,6 +64,8 @@ var yaw := 0.0
 var pitch := 0.0
 var yaw_deg := 0.0
 var pitch_deg := 0.0
+var external_input: InputDataV2 = null
+var external_input_provided := false
 var _forward_latch_active := false
 var _forward_latch_sign := 1.0
 
@@ -357,7 +359,6 @@ onready var animator = $Visual/Pivot
 
 # Input reconnection and camera input lock
 var input_provider
-var external_input_provided := false
 var camera_input_locked := false
 
 # Llama esto para bloquear/desbloquear input de cámara (mouse) durante transiciones
@@ -1217,11 +1218,6 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 	return result
 
 func _physics_process(_delta):
-	if external_input_provided or is_replay_mode:
-		if external_input_provided:
-			external_input_provided = false
-		return
-
 	# Update Input Provider config from Logic component (allows runtime tuning)
 	if is_instance_valid(movement_logic) and input_provider:
 		input_provider.move_response_curve = movement_logic.move_response_curve
@@ -1231,8 +1227,17 @@ func _physics_process(_delta):
 	if camera_input_locked and input_provider:
 		input_provider.hardware_input_enabled = false
 
-	var input = input_provider.get_input()
-	step(FIXED_DT, input)
+	if external_input_provided and external_input:
+		# Debug: log external input consumption to diagnose respawn race
+		print("[PlayerControllerV2] external_input_provided BEFORE consume:", external_input_provided, " input=", external_input.to_dict() if external_input and external_input.has_method("to_dict") else external_input)
+		external_input_provided = false
+		var input = external_input
+		var pos_before = global_transform.origin
+		step(FIXED_DT, input)
+		print("[PlayerControllerV2] consumed external_input; pos_before=", pos_before, " pos_after=", global_transform.origin)
+	else:
+		var input = input_provider.get_input()
+		step(FIXED_DT, input)
 
 func get_wish_direction() -> Vector3:
 	"""

@@ -52,6 +52,6 @@ SECTION "Respawn InputProviderTest"
     PRINT "Delta z: $delta_z"
     PRINT "Debería haberse movido después del respawn"
     // Verifica que el jugador se movió
-    ASSERT $delta_z < 1
+    ASSERT $delta_z > 0
     
 END

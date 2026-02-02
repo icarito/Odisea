@@ -3417,7 +3417,7 @@
   },
   "oys_variables": {
     "$start_x": 0,
-    "$end_x": 0,
-    "$delta_x": 0
+    "$end_x": 4.727054,
+    "$delta_x": 4.727054
   }
 }

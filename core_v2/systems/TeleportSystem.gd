@@ -176,7 +176,38 @@ func _respawn_at_spawn_or_zero():
 				sm._find_player()
 			else:
 				sm.player = new_pilot
+			# If we are currently recording or replaying, mark the new pilot as externally-controlled
+			if sm.is_recording or sm.is_replaying:
+				new_pilot.is_replay_mode = true
+			# Ensure the pilot has an input provider so external_input is consumed safely
+			if new_pilot.has_method("ensure_input_provider"):
+				new_pilot.ensure_input_provider()
 			print("[TeleportSystem] SessionManager player refreshed: ", sm.player)
+			# Debug: dump SessionManager recording state and current OYS override
+			var cur_override = null
+			if sm.has_method("get"):
+				cur_override = sm.get("_oys_input_override")
+			print("[TeleportSystem] SessionManager state: is_recording=", sm.is_recording, " is_replaying=", sm.is_replaying, " _oys_input_override=", cur_override)
+			# If the session's OYS override exists but only contains no-op input (zeros),
+			# clear it so subsequent OYS commands can post fresh inputs after respawn.
+			if sm.has_method("get") and sm.get("_oys_input_override"):
+				var od_check = sm.get("_oys_input_override")
+				var only_noop = true
+				if od_check.has("move_vec"):
+					var mv = od_check.get("move_vec")
+					if typeof(mv) == TYPE_ARRAY and (mv.size() >= 2) and (float(mv[0]) != 0.0 or float(mv[1]) != 0.0):
+						only_noop = false
+				if od_check.has("jump") and od_check.get("jump"):
+					only_noop = false
+				if od_check.has("interact") and od_check.get("interact"):
+					only_noop = false
+				if only_noop:
+					sm.set("_oys_input_override", {})
+					print("[TeleportSystem] Cleared noop OYS override after respawn")
+					# Debug: confirm cleared
+					print("[TeleportSystem] SessionManager _oys_input_override now=", sm.get("_oys_input_override"))
+			# Let one physics frame run so the new pilot can process input and areas
+			yield(get_tree(), "physics_frame")
 		var cam_rig = new_pilot.get_node_or_null("CameraRig")
 		if cam_rig:
 			camera_controller = cam_rig
@@ -286,11 +317,54 @@ func _on_player_killed():
 		# Ensure SessionManager knows about the new player instance (so recording/input overrides keep working)
 		var sm = get_node_or_null("/root/SessionManager")
 		if sm:
-			if sm.has_method("_find_player"):
-				sm._find_player()
-			else:
-				sm.player = new_pilot
-			print("[TeleportSystem] SessionManager player refreshed: ", sm.player)
+					sm.player = new_pilot
+					print("[TeleportSystem] SessionManager player refreshed: ", sm.player)
+					# If the session's OYS override exists but only contains no-op input (zeros),
+					# clear it so subsequent OYS commands can post fresh inputs after respawn.
+					if sm.has_method("get") and sm.get("_oys_input_override"):
+						var od_check2 = sm.get("_oys_input_override")
+						var only_noop2 = true
+						if od_check2.has("move_vec"):
+							var mv2 = od_check2.get("move_vec")
+							if typeof(mv2) == TYPE_ARRAY and (mv2.size() >= 2) and (float(mv2[0]) != 0.0 or float(mv2[1]) != 0.0):
+								only_noop2 = false
+						if od_check2.has("jump") and od_check2.get("jump"):
+							only_noop2 = false
+						if od_check2.has("interact") and od_check2.get("interact"):
+							only_noop2 = false
+						if only_noop2:
+							sm.set("_oys_input_override", {})
+							print("[TeleportSystem] Cleared noop OYS override after respawn")
+					# If we are recording/replaying, mark the pilot as externally-controlled and ensure input provider
+					if sm.is_recording or sm.is_replaying:
+						new_pilot.is_replay_mode = true
+						if new_pilot.has_method("ensure_input_provider"):
+							new_pilot.ensure_input_provider()
+					# If there is an active OYS input override that contains meaningful input,
+					# apply it immediately to the new player. This avoids applying only-zero/no-op
+					# overrides which can mask subsequent OYS inputs.
+					if sm.has_method("get") and sm.get("_oys_input_override") and not sm.get("_oys_input_override").empty():
+						var od = sm.get("_oys_input_override")
+						var has_active = false
+						if od.has("move_vec"):
+							var mv = od.get("move_vec")
+							if typeof(mv) == TYPE_ARRAY and (mv.size() >= 2) and (float(mv[0]) != 0.0 or float(mv[1]) != 0.0):
+								has_active = true
+						if od.has("jump") and od.get("jump"):
+							has_active = true
+						if od.has("interact") and od.get("interact"):
+							has_active = true
+						if has_active:
+							var InputDataV2 = preload("res://core_v2/input/InputDataV2.gd")
+							var idata = InputDataV2.new()
+							idata.from_dict(od)
+							sm.player.external_input = idata
+							sm.player.external_input_provided = true
+							print("[TeleportSystem] Applied existing OYS override to new player:", od)
+							# Debug: show override retained in session
+							print("[TeleportSystem] SessionManager _oys_input_override after apply=", sm.get("_oys_input_override"))
+							# Give pilot a chance to consume the injected external input before OYS measures
+							yield(get_tree(), "physics_frame")
 		# Actualizar camera_controller si existe
 		var cam_rig = new_pilot.get_node_or_null("CameraRig")
 		if cam_rig:
