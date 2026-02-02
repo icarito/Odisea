@@ -395,7 +395,6 @@ func reconnect_input_provider():
 
 func _ready():
 	initial_transform = global_transform
-	print("[PlayerControllerV2] _ready: initial_transform=", initial_transform)
 	add_to_group("player")
 	input_provider = InputProviderV2.new()
 
@@ -1229,12 +1228,10 @@ func _physics_process(_delta):
 
 	if external_input_provided and external_input:
 		# Debug: log external input consumption to diagnose respawn race
-		print("[PlayerControllerV2] external_input_provided BEFORE consume:", external_input_provided, " input=", external_input.to_dict() if external_input and external_input.has_method("to_dict") else external_input)
 		external_input_provided = false
 		var input = external_input
 		var pos_before = global_transform.origin
 		step(FIXED_DT, input)
-		print("[PlayerControllerV2] consumed external_input; pos_before=", pos_before, " pos_after=", global_transform.origin)
 	else:
 		var input = input_provider.get_input()
 		step(FIXED_DT, input)
@@ -1410,7 +1407,6 @@ func _exit_tree() -> void:
 
 # Teletransporte seguro (para checkpoints, killzones, etc)
 func teleport_to(target_transform: Transform) -> void:
-	print("[PlayerControllerV2] teleport_to llamado:", target_transform)
 	global_transform = target_transform
 	velocity = Vector3.ZERO
 	ensure_input_provider()

@@ -2520,23 +2520,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
           0
-        ],
-        "mouse_delta": [
-          0,
-          -0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2552,7 +2536,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2568,7 +2552,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2584,7 +2568,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2600,7 +2584,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2616,7 +2600,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2632,7 +2616,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2648,7 +2632,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2664,7 +2648,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2680,7 +2664,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2696,7 +2680,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2712,7 +2696,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2728,7 +2712,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2744,7 +2728,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2760,7 +2744,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2776,7 +2760,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2792,7 +2776,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2808,7 +2792,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2824,7 +2808,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2840,7 +2824,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2856,7 +2840,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2872,7 +2856,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5480,7 +5464,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5496,7 +5480,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5512,7 +5496,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5528,7 +5512,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5544,7 +5528,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5560,7 +5544,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5576,7 +5560,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5592,7 +5576,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5608,7 +5592,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5624,7 +5608,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5640,7 +5624,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5656,7 +5640,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5672,7 +5656,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5688,7 +5672,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5704,7 +5688,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5720,7 +5704,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5736,7 +5720,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5752,7 +5736,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5768,7 +5752,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -6099,10 +6083,10 @@
         "message": "Moving player to fall into killzone..."
       }
     ],
-    "180": [
+    "179": [
 
     ],
-    "300": [
+    "299": [
       {
         "command": "SET",
         "var": "$moved_Z2",
@@ -6120,10 +6104,10 @@
         "message": "Moving player to fall into killzone..."
       }
     ],
-    "361": [
+    "360": [
 
     ],
-    "379": [
+    "378": [
       {
         "command": "SET",
         "var": "$final_Z",
@@ -6181,14 +6165,14 @@
   },
   "final_expected_state": {
     "position": [
-      -0,
-      0.0415,
-      0.690473
+      0,
+      -140.04631,
+      32.608852
     ],
     "velocity": [
       0,
-      -0.233333,
-      3.801281
+      -62.533333,
+      6.116661
     ],
     "yaw": 0,
     "pitch": 0,
@@ -6196,15 +6180,15 @@
     "movement_state": {
       "horizontal_velocity": [
         0,
-        -0.000003,
-        3.801281
+        0,
+        6.116661
       ],
       "external_velocity": [
         0,
         0,
         0
       ],
-      "camera_input_timer": 0.616667,
+      "camera_input_timer": 6.3,
       "is_tank_turn_mode": true,
       "current_turn_time": 0
     },
@@ -6235,12 +6219,12 @@
       "ff": true
     },
     "jump_state": {
-      "coyote_timer": 0.15,
+      "coyote_timer": 0,
       "jump_buffer_timer": 0,
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 53,
+      "frames_since_last_snap": 394,
       "last_input_vector": [
         0,
         0,
@@ -6250,35 +6234,13 @@
     },
     "fwd_latch_active": false,
     "fwd_latch_sign": 1,
-    "platform_path": "/root/TestScene_KillZone/Floor",
-    "platform_last_transform": {
-      "origin": [
-        0,
-        -0.1,
-        0
-      ],
-      "basis_x": [
-        1,
-        0,
-        0
-      ],
-      "basis_y": [
-        0,
-        1,
-        0
-      ],
-      "basis_z": [
-        0,
-        0,
-        1
-      ]
-    },
+    "platform_path": "",
     "platform_velocity": [
       0,
       0,
       0
     ],
-    "was_on_platform": true,
+    "was_on_platform": false,
     "step_grounded_timer": 0,
     "just_stepped": false,
     "direction_latch_active": false,
@@ -6344,9 +6306,9 @@
   "oys_variables": {
     "$start_Z": 0,
     "$moved_Z": 11.285215,
-    "$moved_Z2": 10.820577,
-    "$final_Z": 0.690473,
-    "$end_z": 0.690473,
-    "$delta_z": 0.690473
+    "$moved_Z2": 26.87858,
+    "$final_Z": 32.608852,
+    "$end_z": 32.608852,
+    "$delta_z": 32.608852
   }
 }
