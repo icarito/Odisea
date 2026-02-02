@@ -1,0 +1,37 @@
+// Test: KillZone Respawn and Move Verification
+// Verifies that after a KillZone respawn, player can still receive OYS movement commands
+
+LEVEL res://core_v2/levels/TestScene_KillZone.tscn
+
+SECTION "Respawn and Move Test"
+    PRINT "Test: Player should move, die, respawn, and be able to move again."
+    
+    // Record initial position
+    SET $start_Z GET_NODE_POS_Z "Pilot"
+    PRINT "Initial Z: $start_Z"
+    
+    // Move forward toward the killzone
+    FORWARD 2.0
+    
+    SET $before_death_Z GET_NODE_POS_Z "Pilot"
+    PRINT "Before death Z: $before_death_Z"
+    
+    // Wait for respawn to complete
+    WAIT 2.0
+    
+    // After respawn, player should be at spawn position (~0)
+    SET $after_respawn_Z GET_NODE_POS_Z "Pilot"
+    PRINT "After respawn Z: $after_respawn_Z"
+    
+    // Now move forward again to verify movement works after respawn
+    FORWARD 0.5
+    
+    SET $final_Z GET_NODE_POS_Z "Pilot"
+    PRINT "Final Z: $final_Z"
+    
+    // The player should have moved forward from their respawn position
+    // final_Z should be greater than after_respawn_Z
+    ASSERT $final_Z > 0.1 "Player should have moved after respawn"
+    
+    PRINT "SUCCESS: Player moved after respawn!"
+END

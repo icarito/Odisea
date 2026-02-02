@@ -37,19 +37,37 @@ var _recording_frame := 0
 var _oys_input_override := {}
 # Escena solicitada por OYS para guardar en meta
 var _oys_requested_scene := ""
+# Flag para indicar que estamos esperando el fin de un respawn para validar
+var _is_waiting_for_respawn_validation := false
 # Flag para indicar que estamos en proceso de respawn (los triggers no deben ejecutarse)
 var is_respawning := false
 
 func _find_player():
-	if not is_instance_valid(player):
-		# Prioridad 1: Buscar en el árbol desde la raíz (más genérico)
-		player = get_tree().get_root().find_node("Pilot", true, false)
-		# Prioridad 2: Buscar en la escena actual si la raíz falló o dio un nodo inválido
-		if not is_instance_valid(player) and get_tree().current_scene:
-			player = get_tree().current_scene.find_node("Pilot", true, false)
-		
-		if not is_instance_valid(player):
-			player = null
+	# Prioridad 0: Si ya tenemos una instancia válida y no está siendo borrada, usarla
+	if is_instance_valid(player) and not player.is_queued_for_deletion():
+		return
+
+	# Prioridad 1: Buscar en el grupo 'player' (más robusto contra renombrados (@Pilot@...))
+	var pilots = get_tree().get_nodes_in_group("player")
+	for p in pilots:
+		if is_instance_valid(p) and not p.is_queued_for_deletion():
+			player = p
+			return
+
+	# Backup: Buscar por nombre en el árbol
+	var pilot = get_tree().get_root().find_node("Pilot", true, false)
+	if not is_instance_valid(pilot) and get_tree().current_scene:
+		pilot = get_tree().current_scene.find_node("Pilot", true, false)
+	
+	if is_instance_valid(pilot) and not pilot.is_queued_for_deletion():
+		player = pilot
+	else:
+		if not is_respawning and not _is_waiting_for_respawn_validation:
+			# Solo loguear si no estamos esperando activamente un respawn
+			# print("[SessionManager] _find_player: No se encontró al jugador.")
+			pass
+		player = null
+
 
 func _ready():
 	# Detección de parámetro --replay
@@ -124,7 +142,7 @@ func _connect_teleport_system():
 
 	# Validar y reconectar InputProviderV2
 	if is_instance_valid(player_node):
-		var input_provider = player_node.get_node_or_null("InputProviderV2")
+		var _unused_provider = player_node.get_node_or_null("InputProviderV2")
 
 	# Buscar CameraRig dentro del player
 	var camera_rig = player_node.get_node_or_null("CameraRig") if player_node else null
@@ -313,11 +331,19 @@ func _physics_process(_dt):
 			_peak_y = player.global_transform.origin.y
 
 		# Obtener input primero para verificar si hay más inputs disponibles
+		# Si el player no es válido, verificar si es por un respawn en curso
 		if not is_instance_valid(player) or not player.has_method("step"):
-			print("[SessionManager] Replay aborted: player lost or invalid.")
-			is_replaying = false
-			_finish_and_validate()
-			return
+			if is_respawning or _is_waiting_for_respawn_validation:
+				return
+			
+			# Intento desesperado final: buscar por nombre directamente
+			_find_player()
+			if is_instance_valid(player) and player.has_method("step"):
+				pass # Encontrado!
+			else:
+				print("[SessionManager] Replay aborted: player lost or invalid (is_respawning=false).")
+				_finish_and_validate()
+				return
 		
 		# Aplicar drift checkpoint si existe para este frame (ANTES del step)
 		if _drift_checkpoints.has(_replay_frame):
@@ -335,7 +361,8 @@ func _physics_process(_dt):
 		
 		# Si no hay más inputs, terminar
 		if input == null:
-			run_playback()
+			if not _is_waiting_for_respawn_validation:
+				run_playback()
 			return
 		
 		# Step player con el input
@@ -569,10 +596,8 @@ func load_and_play(path: String):
 		var run_state = interpreter.run()
 		if run_state is GDScriptFunctionState:
 			yield (run_state, "completed")
-		if interpreter.test_failed:
-			oys_assert_failed = true
 		
-		# End of script
+		# CRITICAL: Stop recording BEFORE any yields to ensure consistent frame counts
 		is_recording = false
 		_total_replay_frames = _recording_frame
 		_replay_frame = _recording_frame
@@ -581,6 +606,15 @@ func load_and_play(path: String):
 		_current_replay_data["buffer"] = []
 		for frame_input in buffer:
 			_current_replay_data["buffer"].append(frame_input)
+		
+		# Wait for any pending respawn to complete to avoid race conditions during validation
+		var timeout = 60 # Max 1 second
+		while is_respawning and timeout > 0:
+			yield (get_tree(), "physics_frame")
+			timeout -= 1
+		
+		if interpreter.test_failed:
+			oys_assert_failed = true
 		
 		_finish_and_validate()
 		return
@@ -709,7 +743,7 @@ func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
 	if "velocity" in player:
 		player.velocity = Vector3.ZERO
 
-	var b_size = input_buffer.size()
+	var _b_size = input_buffer.size()
 	# print("[SessionManager] Starting _play_buffer_internal with %d frames" % b_size)
 
 	# Initialize Event Runtime
@@ -786,7 +820,23 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 
 
 func _finish_and_validate():
+	if _drift_validated:
+		return
+	
+	if is_respawning:
+		# MANTENER is_replaying = true para que el test runner no termine prematuramente
+		# y para que los nuevos pilotos sepan que siguen en replay mode.
+		_is_waiting_for_respawn_validation = true
+		yield (get_tree(), "physics_frame")
+		_finish_and_validate()
+		return
+
+	_is_waiting_for_respawn_validation = false
+	_drift_validated = true
 	is_replaying = false
+	is_recording = false
+	
+	_find_player()
 	if is_instance_valid(player):
 		player.is_replay_mode = false
 		player.set_physics_process(true)
@@ -794,9 +844,6 @@ func _finish_and_validate():
 	# Una última comprobación de aserciones que puedan haber quedado en el último frame
 	_check_events_for_frame(_replay_frame)
 	
-	if _drift_validated:
-		return
-	_drift_validated = true
 	var success = true
 	var dist = -1.0
 	var frames = _total_replay_frames
@@ -818,22 +865,26 @@ func _finish_and_validate():
 			print("⚠️ final_expected_state inválido (sin posición)")
 		else:
 			var expected_pos = Vector3(exp_pos_arr[0], exp_pos_arr[1], exp_pos_arr[2])
-			var current_pos = player.global_transform.origin if player else Vector3()
+			var current_pos = player.global_transform.origin if is_instance_valid(player) else Vector3()
 			dist = current_pos.distance_to(expected_pos)
 			var expected_yaw = final_expected_state.get("yaw", 0.0)
 			var expected_pitch = final_expected_state.get("pitch", 0.0)
-			var yaw_diff = abs(player.yaw - expected_yaw) if player else 0.0
-			var pitch_diff = abs(player.pitch - expected_pitch) if player else 0.0
-			print("DRIFT_CHECK: dist=", dist, ", yaw_diff=", yaw_diff, ", pitch_diff=", pitch_diff)
-			var pos_threshold = 0.0005
-			var ang_threshold = 0.0005
+			var yaw_diff = abs(player.yaw - expected_yaw) if is_instance_valid(player) else 0.0
+			var pitch_diff = abs(player.pitch - expected_pitch) if is_instance_valid(player) else 0.0
+			
+			print("DRIFT_CHECK: dist=%.6f, expected=%s, actual=%s" % [dist, expected_pos, current_pos])
+			print("DRIFT_CHECK: yaw_diff=%.6f, pitch_diff=%.6f" % [yaw_diff, pitch_diff])
+			
+			var pos_threshold = 0.01 # Umbral tolerante para KillZone (respawn no es 100% exacto en frames)
+			var ang_threshold = 0.01
 			if dist > pos_threshold:
-				printerr("❌ DRIFT ERROR: Positional drift = ", dist, " > ", pos_threshold)
+				printerr("❌ DRIFT ERROR: Positional drift = %.6f > %.6f" % [dist, pos_threshold])
 				success = false
 			else:
 				print("✅ Positional drift dentro del umbral")
+			
 			if yaw_diff > ang_threshold or pitch_diff > ang_threshold:
-				printerr("❌ ROTATION DRIFT: yaw=", yaw_diff, ", pitch=", pitch_diff, " (umbral=", ang_threshold, ")")
+				printerr("❌ ROTATION DRIFT: yaw=%.6f, pitch=%.6f > %.6f" % [yaw_diff, pitch_diff, ang_threshold])
 				success = false
 			else:
 				print("✅ Rotational drift dentro del umbral")

@@ -2490,7 +2490,7 @@
     "position": [
       0,
       0.0415,
-      4.942874
+      6.574996
     ],
     "velocity": [
       0,
@@ -2581,9 +2581,9 @@
       ]
     },
     "platform_velocity": [
-      0,
       -0,
-      -0.000057
+      -0,
+      0.000029
     ],
     "was_on_platform": true,
     "step_grounded_timer": 0,

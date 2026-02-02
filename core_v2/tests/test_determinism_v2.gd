@@ -45,20 +45,42 @@ func before():
 # Si OYS_FILTER está definido, solo retorna ese archivo
 static func _get_replay_paths() -> Array:
 	var filter = OS.get_environment("OYS_FILTER")
-	var skip_json = OS.get_environment("OYS_NODET") != ""  # Check for OYS_NODET environment variable
+	var skip_json = OS.get_environment("OYS_NODET") != "" # Check for OYS_NODET environment variable
+	var raw_files = []
+	
 	if filter != "":
 		var filtered_path = TESTS_ROOT.plus_file(filter)
 		if not filtered_path.ends_with(".oys"):
 			filtered_path += ".oys"
 		var f = File.new()
 		if f.file_exists(filtered_path):
-			return [[filtered_path]]
+			raw_files = [[filtered_path]]
 		else:
 			printerr("OYS_FILTER: archivo no encontrado: ", filtered_path)
-	if skip_json:
-		return _scan_for_files([".oys"])
+			return []
 	else:
-		return _scan_for_files([".oys", ".json"])
+		if skip_json:
+			raw_files = _scan_for_files([".oys"])
+		else:
+			raw_files = _scan_for_files([".oys", ".json"])
+	
+	# Filtrar redundancia: si existe un .oys, ignorar el .json
+	var oys_files = {}
+	for pair in raw_files:
+		var path = pair[0]
+		if path.ends_with(".oys"):
+			oys_files[path.get_basename()] = true
+	
+	var final_results = []
+	for pair in raw_files:
+		var path = pair[0]
+		if path.ends_with(".json"):
+			if oys_files.has(path.get_basename()):
+				# Saltar JSON si existe OYS (ya se prueba en PASS 2 del OYS)
+				continue
+		final_results.append(pair)
+		
+	return final_results
 
 static func _scan_for_files(extensions: Array) -> Array:
 	var results := []
@@ -345,8 +367,8 @@ func _cleanup_scene():
 	
 	# Limpieza agresiva de huérfanos en root
 	var root = get_tree().root
-	for i in range(root.get_child_count() - 1, -1, -1):
-		var child = root.get_child(i)
+	for _i in range(root.get_child_count() - 1, -1, -1):
+		var child = root.get_child(_i)
 		# No borrar singletons ni el test runner mismo!
 		if child.name == "SessionManager" or child is GdUnitTestSuite:
 			continue
@@ -364,7 +386,7 @@ func _instance_and_prepare_scene(scene_path: String):
 	get_tree().current_scene = _current_test_scene
 	
 	# Esperar estabilización con idle frames para que el player entre al árbol correctamente
-	for i in range(5):
+	for _i in range(5):
 		yield (get_tree(), "idle_frame")
 
 func after():

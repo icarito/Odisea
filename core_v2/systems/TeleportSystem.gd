@@ -16,8 +16,8 @@ func _ready():
 	print("[TeleportSystem] _ready. self=", self, " path=", get_path())
 	print("[TeleportSystem] player_controller (en _ready)=", player_controller)
 
-	# Si player_controller no está asignado, buscarlo ahora
-	if not player_controller:
+	# Si player_controller no está asignado o ha sido liberado, buscarlo ahora
+	if not is_instance_valid(player_controller):
 		var pilot = get_tree().get_root().find_node("Pilot", true, false)
 		print("[TeleportSystem] Buscando Pilot en _ready:", pilot, " path=", pilot.get_path() if pilot else "null")
 		player_controller = pilot
@@ -125,10 +125,10 @@ func _respawn_at_spawn_or_zero():
 	if session_mgr:
 		session_mgr.is_respawning = true
 	
-	# Buscar player_controller si es null
-	if not player_controller:
+	# Buscar player_controller si es null o inválido
+	if not is_instance_valid(player_controller):
 		var pilot = get_tree().get_root().find_node("Pilot", true, false)
-		if pilot:
+		if is_instance_valid(pilot):
 			player_controller = pilot
 			print("[TeleportSystem] Player_controller encontrado y asignado en _respawn_at_spawn_or_zero:", player_controller)
 		else:
@@ -182,7 +182,7 @@ func _respawn_at_spawn_or_zero():
 			else:
 				sm.player = new_pilot
 			# If we are currently recording or replaying, mark the new pilot as externally-controlled
-			if sm.is_recording or sm.is_replaying:
+			if sm.is_recording or sm.is_replaying or sm.get("_is_waiting_for_respawn_validation"):
 				new_pilot.is_replay_mode = true
 			# Ensure the pilot has an input provider so external_input is consumed safely
 			if new_pilot.has_method("ensure_input_provider"):
@@ -234,10 +234,10 @@ func _on_player_killed():
 	if session_mgr:
 		session_mgr.is_respawning = true
 	
-	# Buscar player_controller si es null
-	if not player_controller:
+	# Buscar player_controller si es null o inválido
+	if not is_instance_valid(player_controller):
 		var pilot = get_tree().get_root().find_node("Pilot", true, false)
-		if pilot:
+		if is_instance_valid(pilot):
 			player_controller = pilot
 			print("[TeleportSystem] Player_controller encontrado y asignado:", player_controller)
 		else:
@@ -354,7 +354,7 @@ func _on_player_killed():
 							sm.set("_oys_input_override", {})
 							print("[TeleportSystem] Cleared noop OYS override after respawn")
 					# If we are recording/replaying, mark the pilot as externally-controlled and ensure input provider
-					if sm.is_recording or sm.is_replaying:
+					if sm.is_recording or sm.is_replaying or sm.get("_is_waiting_for_respawn_validation"):
 						new_pilot.is_replay_mode = true
 						if new_pilot.has_method("ensure_input_provider"):
 							new_pilot.ensure_input_provider()

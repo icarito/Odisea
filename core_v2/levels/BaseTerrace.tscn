@@ -819,7 +819,6 @@ debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 script_file = "res://core_v2/scripts/helloTrigger.oys"
 label_text = "OYSTrigger Example"
 trigger_once = false
-auto_pause_player = false
 center_player_on_enter = null
 
 [node name="_ZoneDebugMesh2" type="MeshInstance" parent="CornerFloor2/ExampleTrigger"]
@@ -1483,7 +1482,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 0 )
 debug_color = Color( 1, 0.5, 0, 0.3 )
 zone_extents = Vector3( 10, 3, 10 )
 cinematic_rig_path = NodePath("CinematicPathRig")
-control_mode = 2
+latch_on_enter = false
 latch_on_exit = false
 
 [node name="CinematicPathRig" type="Path" parent="CornerFloor/CinematicCameraZone"]

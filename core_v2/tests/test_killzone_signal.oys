@@ -19,5 +19,8 @@ SECTION "KillZone Signal Test"
     // The KillZoneV2 is at y=-5, player will fall and trigger it
     ASSERT_SIGNAL "player_killed" 5.0 "KillZoneV2"
     
+    // Safety wait to allow respawn to finish and player to land
+    WAIT 1.0
+    
     PRINT "SUCCESS: player_killed signal was emitted!"
 END
