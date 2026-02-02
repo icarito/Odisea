@@ -819,6 +819,8 @@ debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 script_file = "res://core_v2/scripts/helloTrigger.oys"
 label_text = "OYSTrigger Example"
 trigger_once = false
+auto_pause_player = false
+center_player_on_enter = null
 
 [node name="_ZoneDebugMesh2" type="MeshInstance" parent="CornerFloor2/ExampleTrigger"]
 material_override = SubResource( 849 )

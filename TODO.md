@@ -1,3 +1,34 @@
+🛠️ Backlog de Correcciones - Fin de Semana
+
+A continuación se detallan los problemas críticos detectados en las últimas pruebas de estrés y tests deterministas.
+
+1. Odyssey Script (OYS) - Error de Gravedad
+
+Problema: Los scripts de OYS parecen estar inyectando una fuerza descendente anómala en el jugador.
+
+Observación: El jugador no mantiene su altura o cae más rápido de lo normal durante la ejecución de comandos WAIT o FW.
+
+Tarea: Revisar la integración de SessionManager con el motor de física cuando el input viene del buffer OYS.
+
+2. Desplazamiento en Pendientes (Slopes)
+
+Problema: El sistema de "snap" o el manejo de pendientes está fallando.
+
+Observación: El personaje se queda trabado o no sube rampas que antes funcionaban.
+
+Tarea: Verificar floor_max_angle en el controlador y el vector de movimiento en superficies inclinadas.
+
+3. Resistencia al Movimiento
+
+Problema: Sensación de pesadez o fricción excesiva "fantasma".
+
+Observación: No se han tocado los valores de velocidad, pero el movimiento es lento.
+
+Tarea: Revisar si hay algún Lerp de velocidad mal calculado o si la fricción de los PhysicsMaterial globales ha cambiado.
+
+Nota: Priorizar la corrección de OYS, ya que impide validar los demás sistemas de forma automática.
+
+
 # TODO — MVP Odisea (2026-01-29)
 
 ## Pendientes principales

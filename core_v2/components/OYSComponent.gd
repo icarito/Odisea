@@ -6,22 +6,21 @@ class_name OYSComponent
 const OYS_Interpreter = preload("../systems/OYS_Interpreter.gd")
 
 export(String, FILE, "*.oys") var script_file
-export(bool) var auto_pause_player = false
 
 var interpreter: OYS_Interpreter
 var last_modified_time: int = 0
 var _current_path: String = ""
 var _player_snapshot: Dictionary = {}
-var _initial_snapshot: Dictionary = {}  # Snapshot al momento de activar el trigger
-var _checkpoint_snapshot: Dictionary = {}  # Snapshot del último CheckZone
-var _checkpoint_pc: int = -1  # Program counter al pasar por el CheckZone
+var _initial_snapshot: Dictionary = {} # Snapshot al momento de activar el trigger
+var _checkpoint_snapshot: Dictionary = {} # Snapshot del último CheckZone
+var _checkpoint_pc: int = -1 # Program counter al pasar por el CheckZone
 var _initial_position: Vector3 = Vector3.ZERO
 var _initial_yaw: float = 0.0
 var _initial_pitch: float = 0.0
 var _has_initial_position: bool = false
 var _smooth_correction_target: Vector3 = Vector3.ZERO
 var _smooth_correction_active: bool = false
-const SMOOTH_CORRECTION_SPEED: float = 10.0  # Unidades por segundo
+const SMOOTH_CORRECTION_SPEED: float = 10.0 # Unidades por segundo
 
 func _ready():
 	interpreter = OYS_Interpreter.new(self)
@@ -38,10 +37,21 @@ func set_initial_position(pos: Vector3, yaw: float, pitch: float):
 	_initial_pitch = pitch
 	_has_initial_position = true
 	
-	# Activar corrección suave hacia la posición inicial
-	_smooth_correction_target = pos
-	_smooth_correction_active = true
-	print("[OYSComponent] Posición inicial establecida: ", pos)
+	# Forzar posición inmediatamente para snapshot determinista
+	var player = get_parent()
+	if not player or not player.is_in_group("player"):
+		player = get_tree().get_root().find_node("Pilot", true, false)
+	if player:
+		var t = player.global_transform
+		t.origin.x = pos.x
+		t.origin.z = pos.z
+		player.global_transform = t
+		if "velocity" in player:
+			player.velocity = Vector3.ZERO
+	
+	# Desactivar corrección suave ya que forzamos posición
+	_smooth_correction_active = false
+	print("[OYSComponent] Posición inicial forzada: ", pos)
 
 func load_and_start(path: String, start_section: String = ""):
 	_current_path = path
@@ -70,9 +80,6 @@ func load_and_start(path: String, start_section: String = ""):
 				
 				print("[OYSComponent] Snapshot INICIAL guardado: pos=", _initial_snapshot.get("position", []))
 
-		if auto_pause_player:
-			_set_player_pause(true)
-
 		call_deferred("_run_and_unpause", start_section)
 	else:
 		printerr("[OYSComponent] Could not open script: ", path)
@@ -96,14 +103,14 @@ func _run_and_unpause(start_section: String) -> void:
 			# Forzar posición por varios frames más
 			for _i in range(5):
 				if not is_inside_tree():
-					return  # Nodo eliminado
-				yield(get_tree(), "physics_frame")
+					return # Nodo eliminado
+				yield (get_tree(), "physics_frame")
 				if not is_instance_valid(player):
-					return  # Player eliminado
+					return # Player eliminado
 				player.restore_snapshot(_player_snapshot)
 			
 			print("[OYSComponent] ✅ Pos restaurada: ", player.global_transform.origin)
-		_player_snapshot = {}  # Limpiar para no restaurar de nuevo
+		_player_snapshot = {} # Limpiar para no restaurar de nuevo
 	
 	if not is_inside_tree():
 		return
@@ -114,11 +121,7 @@ func _run_and_unpause(start_section: String) -> void:
 	
 	var result = interpreter.run(start_section)
 	if result is GDScriptFunctionState:
-		yield(result, "completed")
-
-	# Auto-unpause when script finishes
-	if auto_pause_player:
-		_set_player_pause(false)
+		yield (result, "completed")
 
 	# Propagar fallo de test al runner
 	if interpreter.test_failed:
@@ -145,10 +148,10 @@ func _run_from_pc(from_pc: int) -> void:
 			# Forzar posición por varios frames más
 			for _i in range(5):
 				if not is_inside_tree():
-					return  # Nodo eliminado
-				yield(get_tree(), "physics_frame")
+					return # Nodo eliminado
+				yield (get_tree(), "physics_frame")
 				if not is_instance_valid(player):
-					return  # Player eliminado
+					return # Player eliminado
 				player.restore_snapshot(_player_snapshot)
 			
 			print("[OYSComponent] ✅ Pos restaurada: ", player.global_transform.origin)
@@ -162,11 +165,7 @@ func _run_from_pc(from_pc: int) -> void:
 	
 	var result = interpreter.run_from_pc(from_pc)
 	if result is GDScriptFunctionState:
-		yield(result, "completed")
-
-	# Auto-unpause when script finishes
-	if auto_pause_player:
-		_set_player_pause(false)
+		yield (result, "completed")
 
 func _process(_delta):
 	# Hot-reload detection
@@ -212,9 +211,6 @@ func _process(_delta):
 							start_section = sname
 					print("[OYSComponent] Continuando desde pc=", resume_pc, " (sección: ", start_section, ")")
 				
-				if auto_pause_player:
-					_set_player_pause(true)
-				
 				# Usar call_deferred para ejecutar después de restaurar
 				call_deferred("_run_from_pc", resume_pc)
 
@@ -231,7 +227,7 @@ func _physics_process(delta):
 			var target = Vector3(_smooth_correction_target.x, current_pos.y, _smooth_correction_target.z)
 			var distance = Vector2(current_pos.x - target.x, current_pos.z - target.z).length()
 			
-			if distance < 0.05:  # Llegamos al destino
+			if distance < 0.05: # Llegamos al destino
 				_smooth_correction_active = false
 				# Posición final exacta
 				var t = player.global_transform
@@ -258,9 +254,9 @@ func _set_player_pause(paused: bool):
 func _connect_to_checkzones():
 	if not is_inside_tree():
 		return
-	yield(get_tree(), "physics_frame")  # Esperar a que todos los nodos estén listos
+	yield (get_tree(), "physics_frame") # Esperar a que todos los nodos estén listos
 	if not is_inside_tree():
-		return  # El nodo fue eliminado mientras esperábamos
+		return # El nodo fue eliminado mientras esperábamos
 	var checkzones = get_tree().get_nodes_in_group("CheckZoneV2")
 	for cz in checkzones:
 		if cz and is_instance_valid(cz) and cz.has_signal("checkpoint_reached"):
@@ -271,7 +267,7 @@ func _connect_to_checkzones():
 # Callback cuando el player pasa por un CheckZone durante la ejecución del script
 func _on_checkpoint_reached(_base_transform: Transform):
 	if not interpreter or not interpreter.is_running:
-		return  # Solo guardar checkpoints mientras el script está corriendo
+		return # Solo guardar checkpoints mientras el script está corriendo
 	
 	var player = get_parent()
 	if not player or not player.is_in_group("player"):
@@ -290,3 +286,10 @@ func _clear_state():
 	_checkpoint_pc = -1
 	_has_initial_position = false
 	_smooth_correction_active = false
+
+func on_trigger_exit():
+	# Called by OYSTrigger when player exits the trigger area
+	_smooth_correction_active = false
+	# Optionally, stop the script/interpreter if desired:
+	# interpreter.stop_requested = true
+	# _set_player_pause(false)

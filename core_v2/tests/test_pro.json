@@ -514,9 +514,9 @@
         "source_transform": {
           "origin": "(0, 0, 0)",
           "basis": {
-            "x": "(1, 0, 0)",
-            "y": "(0, 1, 0)",
-            "z": "(0, 0, 1)"
+            "x": "(0, 0, 0)",
+            "y": "(0, 0, 0)",
+            "z": "(0, 0, 0)"
           }
         },
         "source_fov": 0,
@@ -669,6 +669,8 @@
     "cinematic_rig_path": ""
   },
   "oys_variables": {
-    "pos": null
+    "$test_var": 10,
+    "$pos_y": 0.5,
+    "$player_count": 1
   }
 }

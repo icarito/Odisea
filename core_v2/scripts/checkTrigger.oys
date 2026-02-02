@@ -1,0 +1,3 @@
+SECTION "Main"
+    PRINT "Successfully called checkTrigger"
+    FW 3s
