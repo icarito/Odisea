@@ -4815,22 +4815,6 @@
         "sprint": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -4847,10 +4831,10 @@
     "240": [
 
     ],
-    "301": [
+    "300": [
 
     ],
-    "302": [
+    "301": [
 
     ]
   },
@@ -4879,13 +4863,13 @@
   "final_expected_state": {
     "position": [
       -0,
-      -33.63512,
-      22.785887
+      -33.125675,
+      22.755331
     ],
     "velocity": [
       0,
-      -30.566668,
-      1.83333
+      -30.333334,
+      1.916663
     ],
     "yaw": 0,
     "pitch": 0,
@@ -4894,7 +4878,7 @@
       "horizontal_velocity": [
         0,
         0,
-        1.83333
+        1.916663
       ],
       "external_velocity": [
         0,
@@ -4937,7 +4921,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 318,
+      "frames_since_last_snap": 317,
       "last_input_vector": [
         0,
         0,
@@ -5014,7 +4998,9 @@
         0,
         1
       ]
-    }
+    },
+    "prev_cinematic_rig_path": "",
+    "cinematic_rig_path": ""
   },
   "oys_variables": {
 

@@ -2095,22 +2095,6 @@
         "sprint": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -2127,7 +2111,7 @@
     "41": [
 
     ],
-    "132": [
+    "131": [
       {
         "command": "ASSERT",
         "condition": "pos.z > 3.0 \"ERROR: No hubo suficiente inercia horizontal en el salto\""
@@ -2474,7 +2458,7 @@
         "source_transform": {
           "origin": "(0, 0, 0)",
           "basis": {
-            "x": "(0, 1, 0)",
+            "x": "(0, 0, 0)",
             "y": "(0, 0, 0)",
             "z": "(0, 0, 0)"
           }
@@ -2547,7 +2531,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 148,
+      "frames_since_last_snap": 147,
       "last_input_vector": [
         0,
         0,
@@ -2646,7 +2630,9 @@
         0,
         1
       ]
-    }
+    },
+    "prev_cinematic_rig_path": "",
+    "cinematic_rig_path": ""
   },
   "oys_variables": {
 

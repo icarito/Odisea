@@ -79,6 +79,7 @@ var _latched_cinematic_mode := -1 # Modo de control cinemático (-1 = no cinemat
 var _latched_input_vec := Vector2.ZERO # Input que activó el latch (para saber cuándo liberar)
 var _prev_sidescroll_active := false
 var _prev_cinematic_rig = null # Referencia al rig cinemático anterior
+var _cinematic_rig: Node = null # Referencia al rig cinemático actual
 var _prev_camera_basis := Basis.IDENTITY # Basis de cámara del frame anterior
 
 # Métodos de acceso para export (opcional, para Inspector)
@@ -173,6 +174,15 @@ func get_full_snapshot() -> Dictionary:
 		"y": [_prev_camera_basis.y.x, _prev_camera_basis.y.y, _prev_camera_basis.y.z],
 		"z": [_prev_camera_basis.z.x, _prev_camera_basis.z.y, _prev_camera_basis.z.z]
 	}
+	if _prev_cinematic_rig and is_instance_valid(_prev_cinematic_rig):
+		snapshot["prev_cinematic_rig_path"] = _prev_cinematic_rig.get_path()
+	else:
+		snapshot["prev_cinematic_rig_path"] = ""
+	
+	if _cinematic_rig and is_instance_valid(_cinematic_rig):
+		snapshot["cinematic_rig_path"] = _cinematic_rig.get_path()
+	else:
+		snapshot["cinematic_rig_path"] = ""
 	
 	return snapshot
 
@@ -285,6 +295,20 @@ func restore_snapshot(data: Dictionary) -> void:
 		)
 	else:
 		_prev_camera_basis = Basis.IDENTITY
+	
+	# Restore prev_cinematic_rig
+	var prev_rig_path = data.get("prev_cinematic_rig_path", "")
+	if prev_rig_path != "":
+		_prev_cinematic_rig = get_node(prev_rig_path)
+	else:
+		_prev_cinematic_rig = null
+	
+	# Restore cinematic_rig
+	var rig_path = data.get("cinematic_rig_path", "")
+	if rig_path != "":
+		_cinematic_rig = get_node(rig_path)
+	else:
+		_cinematic_rig = null
 	
 	# Restore acrobatic state
 	if data.has("acrobatic_state"):
@@ -724,9 +748,17 @@ func step(dt: float, input: InputDataV2) -> void:
 	if input.move_vec.y >= -0.1: # Released "Forward"
 		_forward_latch_active = false
 
+	# Assign cinematic rig based on zones
+	_cinematic_rig = null
+	for zone in get_tree().get_nodes_in_group("CinematicCameraZoneV2"):
+		var zone_node = zone as CinematicCameraZoneV2
+		if zone_node and zone_node.is_body_in_zone(self):
+			_cinematic_rig = zone_node._rig_node
+			break
+
 	# --- DIRECTION LATCH SYSTEM ---
 	# Detectar cambios de contexto de cámara (entrada/salida de zonas)
-	var active_rig = CinematicManager.active_rig
+	var active_rig = _cinematic_rig
 	var context_changed := false
 
 	# Detectar cambio en modo sidescroll
@@ -791,9 +823,16 @@ func step(dt: float, input: InputDataV2) -> void:
 			_direction_latch_active = true
 			# print("DEBUG: LATCH ACTIVATED! Enter=", entering, " Exit=", exiting)
 
+	# Activate/deactivate rig if changed
+	if _cinematic_rig != _prev_cinematic_rig:
+		if _cinematic_rig:
+			CinematicManager.activate_rig_direct(_cinematic_rig)
+		else:
+			CinematicManager.deactivate_rig()
+
 	# Actualizar las referencias "prev" para el próximo frame
 	_prev_sidescroll_active = sidescroll_logic.is_active
-	_prev_cinematic_rig = active_rig
+	_prev_cinematic_rig = _cinematic_rig
 	_prev_camera_basis = get_camera_basis() # Guardar basis actual para el próximo frame
 	
 	# Liberar el latch cuando las teclas ORIGINALES se suelten

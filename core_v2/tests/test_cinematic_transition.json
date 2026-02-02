@@ -3302,8 +3302,8 @@
       -0.233333,
       5.445673
     ],
-    "yaw": -2.184038,
-    "pitch": 0.60172,
+    "yaw": -2.184034,
+    "pitch": 0.601719,
     "base_spring_length_3d": 7,
     "movement_state": {
       "horizontal_velocity": [
@@ -3437,21 +3437,23 @@
     "prev_sidescroll_active": false,
     "prev_camera_basis": {
       "x": [
-        -0.575521,
+        -0.575518,
         0,
-        0.817787
+        0.817789
       ],
       "y": [
         -0.462918,
         0.824363,
-        -0.32578
+        -0.325778
       ],
       "z": [
-        -0.674153,
+        -0.674155,
         -0.566061,
-        -0.474438
+        -0.474436
       ]
-    }
+    },
+    "prev_cinematic_rig_path": "",
+    "cinematic_rig_path": ""
   },
   "oys_variables": {
     "$start_x": 0,
