@@ -4815,6 +4815,22 @@
         "sprint": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -4831,29 +4847,45 @@
     "240": [
 
     ],
-    "300": [
+    "301": [
 
     ],
-    "301": [
+    "302": [
 
     ]
   },
   "meta": {
     "world_start_state": {
-
+      "CinematicManager": {
+        "current_control_mode": 0,
+        "is_transitioning": false,
+        "transition_timer": 0,
+        "transition_duration": 0,
+        "source_transform": {
+          "origin": "(0, 0, 0)",
+          "basis": {
+            "x": "(0, 0, 0)",
+            "y": "(0, 0, 0)",
+            "z": "(0, 0, 0)"
+          }
+        },
+        "source_fov": 0,
+        "active_rig_path": "",
+        "current_camera_path": "/root/TestOcclusionScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
+      }
     },
     "scene_path": "res://core_v2/tests/test_occlusion_debug.tscn"
   },
   "final_expected_state": {
     "position": [
       -0,
-      -33.125675,
-      22.755331
+      -33.63512,
+      22.785887
     ],
     "velocity": [
       0,
-      -30.333334,
-      1.916663
+      -30.566668,
+      1.83333
     ],
     "yaw": 0,
     "pitch": 0,
@@ -4862,7 +4894,7 @@
       "horizontal_velocity": [
         0,
         0,
-        1.916663
+        1.83333
       ],
       "external_velocity": [
         0,
@@ -4905,7 +4937,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 317,
+      "frames_since_last_snap": 318,
       "last_input_vector": [
         0,
         0,

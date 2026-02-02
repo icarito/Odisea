@@ -2868,6 +2868,22 @@
       "input": {
         "move_vec": [
           0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
           1
         ],
         "mouse_delta": [
@@ -4781,6 +4797,22 @@
         "zoom_delta": 0,
         "jump": false,
         "sprint": true,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
         "interact": false
       }
     },
@@ -6067,10 +6099,10 @@
         "message": "Moving player to fall into killzone..."
       }
     ],
-    "179": [
+    "180": [
 
     ],
-    "299": [
+    "300": [
       {
         "command": "SET",
         "var": "$moved_Z2",
@@ -6088,10 +6120,10 @@
         "message": "Moving player to fall into killzone..."
       }
     ],
-    "359": [
+    "361": [
 
     ],
-    "377": [
+    "379": [
       {
         "command": "SET",
         "var": "$final_Z",
@@ -6143,20 +6175,36 @@
   },
   "meta": {
     "world_start_state": {
-
+      "CinematicManager": {
+        "current_control_mode": 0,
+        "is_transitioning": false,
+        "transition_timer": 0,
+        "transition_duration": 0,
+        "source_transform": {
+          "origin": "(0, 0, 0)",
+          "basis": {
+            "x": "(0, 1, 0)",
+            "y": "(0, 0, 0)",
+            "z": "(0, 0, 0)"
+          }
+        },
+        "source_fov": 0,
+        "active_rig_path": "",
+        "current_camera_path": "/root/TestScene_KillZone/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
+      }
     },
     "scene_path": "res://core_v2/levels/TestScene_KillZone.tscn"
   },
   "final_expected_state": {
     "position": [
       0,
-      -139.004105,
-      32.601906
+      -141.092407,
+      32.611629
     ],
     "velocity": [
       0,
-      -62.299999,
-      6.199994
+      -62.766666,
+      6.116661
     ],
     "yaw": 0,
     "pitch": 0,
@@ -6165,7 +6213,7 @@
       "horizontal_velocity": [
         0,
         0,
-        6.199994
+        6.116661
       ],
       "external_velocity": [
         0,
@@ -6208,7 +6256,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 393,
+      "frames_since_last_snap": 395,
       "last_input_vector": [
         0,
         0,
@@ -6290,9 +6338,9 @@
   "oys_variables": {
     "$start_Z": 0,
     "$moved_Z": 11.285215,
-    "$moved_Z2": 26.87858,
-    "$final_Z": 32.601906,
-    "$end_z": 32.601906,
-    "$delta_z": 32.601906
+    "$moved_Z2": 26.881359,
+    "$final_Z": 32.611629,
+    "$end_z": 32.611629,
+    "$delta_z": 32.611629
   }
 }

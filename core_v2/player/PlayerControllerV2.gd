@@ -651,6 +651,9 @@ func inject_input(data: Dictionary) -> void:
 	step(FIXED_DT, input)
 
 func step(dt: float, input: InputDataV2) -> void:
+	if input == null:
+		return  # End of replay, no more input
+	
 	# 0. State Update
 	sidescroll_logic.step(dt) # Actualizar alpha al inicio para gating
 	var alpha = sidescroll_logic.transition_alpha

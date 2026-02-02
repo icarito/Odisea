@@ -27,7 +27,7 @@ func _ready():
 	
 	# Auto-setup: crear CollisionShape si no existe (también en editor para visualización)
 	_ensure_collision_shape()
-	_cache_rig()
+	# _cache_rig() moved to on-demand in _on_zone_entered
 
 func _ensure_collision_shape():
 	"""Crea un CollisionShape automáticamente si la zona no tiene uno."""
@@ -83,6 +83,8 @@ func _cache_rig():
 		print("[CinematicCameraZone] Linked single cinematic rig in scene: ", _rig_node.name)
 
 func _on_zone_entered(_body: Node):
+	if _rig_node == null:
+		_cache_rig()
 	if _rig_node and _rig_node.has_method("get_camera"):
 		CinematicManager.activate_rig_direct(_rig_node as Spatial, control_mode)
 	elif cinematic_rig_path and not cinematic_rig_path.is_empty():
