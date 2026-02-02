@@ -2383,6 +2383,22 @@
         "sprint": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -2396,7 +2412,7 @@
     "29": [
 
     ],
-    "149": [
+    "150": [
       {
         "command": "ASSERT",
         "condition": "pos.y < 0.1 \"El personaje no aterrizó después de 2.5 segundos\""
@@ -2759,7 +2775,7 @@
         0,
         0
       ],
-      "camera_input_timer": 2.483333,
+      "camera_input_timer": 2.5,
       "is_tank_turn_mode": true,
       "current_turn_time": 0
     },
@@ -2795,7 +2811,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 165,
+      "frames_since_last_snap": 166,
       "last_input_vector": [
         0,
         0,

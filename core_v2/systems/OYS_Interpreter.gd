@@ -88,8 +88,6 @@ func run_from_pc(from_pc: int):
 	stop_requested = false
 	pc = from_pc
 
-	print("[OYS_Interpreter] Ejecutando desde pc=", pc)
-
 	while pc < instructions.size() and not stop_requested and my_id == execution_id:
 		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
 			break
@@ -243,7 +241,6 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		
 		# Movement commands - apply to player's input provider
 		"FW", "BW", "LEFT", "RIGHT", "JUMP", "INTERACT":
-			print("[OYS_Interpreter] EXEC_INSTR_MOVEMENT cmd=", inst.command, " inst=", inst)
 			var __state = _execute_movement(inst, my_id)
 			if __state is GDScriptFunctionState:
 				yield(__state, "completed")
@@ -281,7 +278,6 @@ func _execute_movement(inst: Dictionary, my_id: int):
 			move_vec = Vector2(0, 1) if cmd == "FW" else Vector2(0, -1)
 		
 		"LEFT", "RIGHT":
-			print("[OYS_Interpreter] LEFT/RIGHT: is_turning=", inst.get("is_turning", false), " value=", inst.get("value", 0), " unit=", inst.get("unit", "?"))
 			if inst.get("is_turning", false):
 				# For turning, we'll handle it separately
 				var __state_turn = _execute_turn(inst, my_id)
@@ -303,61 +299,22 @@ func _execute_movement(inst: Dictionary, my_id: int):
 			duration_sec = 1.0 / 60.0 # One frame
 			is_interact = true
 	
-	# Log movement start for debugging timing around respawn
-	print("[OYS_Interpreter] START_MOVEMENT cmd=", cmd, " args=", inst)
-	# Apply movement for duration
 	var num_frames = OYS_Parser.duration_to_frames(duration_sec)
 	for _i in range(num_frames):
 		if stop_requested or my_id != execution_id:
 			break
-		
-		# Verify player is still valid
-		# If player is missing (e.g. during respawn), wait until it appears (with timeout)
 		if not is_instance_valid(player):
-			var waited = 0
-			var max_wait = 300 # frames (~5s) timeout to avoid infinite hang
-			while (not is_instance_valid(player)) and waited < max_wait and host_node and is_instance_valid(host_node) and host_node.is_inside_tree() and not stop_requested and my_id == execution_id:
-				yield (host_node.get_tree(), "physics_frame")
-				player = _find_player()
-				waited += 1
-			if not is_instance_valid(player):
-				break
-			# If we waited for the player to appear, allow one extra physics frame
-			# so SessionManager and the new PlayerController can complete their _ready
-			# and initial physics processing before we post the first input.
-			if waited > 0:
-				if host_node and is_instance_valid(host_node) and host_node.is_inside_tree():
-					yield (host_node.get_tree(), "physics_frame")
-					# Also wait briefly for SessionManager to refresh its player reference
-					# and re-enable recording, if present. This reduces the race where the
-					# interpreter posts input before SessionManager starts consuming it.
-					var sm_wait = 0
-					var sm_max_wait = 6
-					while sm_wait < sm_max_wait and host_node and is_instance_valid(host_node) and host_node.is_inside_tree():
-						var sm = host_node.get_node_or_null("/root/SessionManager")
-						if sm and is_instance_valid(sm):
-							var rec = sm.get("is_recording") if sm.has_method("get") else false
-							var p = sm.get("player") if sm.has_method("get") else null
-							if rec and p and is_instance_valid(p):
-								break
-						# yield one physics frame and retry
-						yield (host_node.get_tree(), "physics_frame")
-						sm_wait += 1
-		
-		# Post input for SessionManager to consume in next _physics_process
+			break
 		_post_oys_input({
 			"move_vec": [move_vec.x, move_vec.y],
 			"sprint": is_sprint,
 			"jump": is_jump,
 			"interact": is_interact
 		})
-		
-		# Verify host_node is still valid before yielding
 		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
 			break
 		yield (host_node.get_tree(), "physics_frame")
-	
-	# Clear inputs after movement finishes
+
 	_post_oys_input({
 		"move_vec": [0.0, 0.0],
 		"sprint": false,
@@ -453,33 +410,15 @@ func _post_oys_input(data: Dictionary):
 	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
 		return
 	var session = host_node.get_node_or_null("/root/SessionManager")
-	# Always log that we attempted to post OYS input to help debug timing/race issues
-	var session_present = session and is_instance_valid(session)
-	var session_recording = false
-	if session_present:
-		session_recording = session.get("is_recording")
-	print("[OYS_Interpreter] POST_OYS_INPUT called data=", data, " session_present=", session_present, " is_recording=", session_recording)
-	if session_present and session_recording:
-		# Merge with existing override if any
+	if session and is_instance_valid(session) and session.get("is_recording"):
 		if not session.get("_oys_input_override"):
 			session.set("_oys_input_override", {})
 		var override = session.get("_oys_input_override")
-		# Debug: log when non-zero movement is posted
-		if data.has("move_vec"):
-			var mv_dbg = data.get("move_vec")
-			if typeof(mv_dbg) == TYPE_ARRAY and (float(mv_dbg[0]) != 0.0 or float(mv_dbg[1]) != 0.0):
-				print("[OYS_Interpreter] POST_OYS_INPUT posting active move_vec=", mv_dbg)
-		# Snapshot override before and after
-		var before = override.duplicate(true)
 		for key in data:
 			override[key] = data[key]
-		var after = override
-		print("[OYS_Interpreter] POST_OYS_INPUT override before=", before, " after=", after)
 	else:
-		# Fallback to direct injection if no session manager/recording found
 		var player = _find_player()
 		if player and is_instance_valid(player) and player.has_method("inject_input"):
-			print("[OYS_Interpreter] POST_OYS_INPUT fallback inject to player=", player, " data=", data)
 			player.inject_input(data)
 
 func _resolve_node(path: String) -> Node:
@@ -512,6 +451,7 @@ func _execute_assert(condition: String):
 	if parts.size() < 3:
 		return
 
+	yield (host_node.get_tree(), "physics_frame")
 	var left = _resolve_value(parts[0])
 	var op = parts[1]
 	var right = _resolve_value(parts[2])
@@ -519,9 +459,11 @@ func _execute_assert(condition: String):
 	if condition.find("\"") != -1:
 		msg = condition.substr(condition.find("\"")).replace("\"", "")
 
-	if not _compare(left, op, right):
-		printerr("[OYS ASSERT] FAILED: ", msg, " (", left, " ", op, " ", right, ")")
-		is_running = false
+		if not _compare(left, op, right):
+			printerr("[OYS ASSERT] FAILED: ", msg, " (", left, " ", op, " ", right, ")")
+			test_failed = true
+			stop_requested = true
+			is_running = false
 
 class SignalObserver extends Object:
 	var triggered = false
@@ -533,6 +475,39 @@ func _resolve_value(val: String):
 		return variables.get(val, 0)
 	if val.is_valid_float():
 		return val.to_float()
+	if val in ["pos.y", "pos.x", "pos.z"]:
+		# Obtener el nodo jugador principal
+		var player = null
+		var session = host_node.get_node_or_null("/root/SessionManager")
+		if session and session.player:
+			player = session.player
+		if not player:
+			player = host_node.get_tree().root.find_node("Pilot", true, false)
+		if player and player is Spatial:
+			match val:
+				"pos.x": return player.global_transform.origin.x
+				"pos.y": return player.global_transform.origin.y
+				"pos.z": return player.global_transform.origin.z
+		elif player and player is Node2D:
+			match val:
+				"pos.x": return player.position.x
+				"pos.y": return player.position.y
+				"pos.z": return 0.0
+		return 0.0
+	if val == "yaw_deg":
+		# Buscar la cámara principal del jugador
+		var player = null
+		var session = host_node.get_node_or_null("/root/SessionManager")
+		if session and session.player:
+			player = session.player
+		if not player:
+			player = host_node.get_tree().root.find_node("Pilot", true, false)
+		if player and player.has_node("CameraPivot"):
+			var cam_pivot = player.get_node("CameraPivot")
+			# Suponemos que la rotación Y es el yaw en radianes
+			var yaw = cam_pivot.rotation.y if cam_pivot.has_method("rotation") else 0.0
+			return rad2deg(yaw)
+		return 0.0
 	return val.replace("\"", "")
 
 func _call_func(func_name: String, args: Array):
@@ -573,10 +548,6 @@ func _call_func(func_name: String, args: Array):
 					var p = session.get("player")
 					if p and is_instance_valid(p):
 						node = p
-			if node:
-				print("[OYS_Interpreter] GET_NODE_POS_Z resolving path=", path, " -> node=", node, " path=", node.get_path())
-			else:
-				print("[OYS_Interpreter] GET_NODE_POS_Z resolving path=", path, " -> node=NULL")
 			if node and node is Spatial:
 				return node.global_transform.origin.z
 			return 0.0
@@ -587,20 +558,25 @@ func _call_func(func_name: String, args: Array):
 			return null
 
 func _compare(left, op, right) -> bool:
-	var l = left
-	var r = right
-	if str(l).is_valid_float() and str(r).is_valid_float():
-		l = float(l)
-		r = float(r)
+	       var l = left
+	       var r = right
+	       var l_is_float = str(l).is_valid_float()
+	       var r_is_float = str(r).is_valid_float()
+	       if l_is_float and r_is_float:
+		       l = float(l)
+		       r = float(r)
+	       else:
+		       l = str(l)
+		       r = str(r)
 
-	match op:
-		"==": return l == r
-		"!=": return l != r
-		">": return l > r
-		"<": return l < r
-		">=": return l >= r
-		"<=": return l <= r
-	return false
+	       match op:
+		       "==": return l == r
+		       "!=": return l != r
+		       ">": return l > r
+		       "<": return l < r
+		       ">=": return l >= r
+		       "<=": return l <= r
+	       return false
 
 func _substitute_variables(message: String) -> String:
 	var result = message

@@ -84,27 +84,20 @@ func _ready():
 # Conexión automática de TeleportSystem con Player, Camera y zonas
 func _connect_teleport_system():
 	var teleport_system = get_node_or_null("TeleportSystem")
-	print("[SessionManager] Nodo TeleportSystem:", teleport_system, " path=", teleport_system.get_path() if teleport_system else "null")
 	if not teleport_system:
 		return
 
 	# Buscar PlayerControllerV2 (Pilot)
 	var player_node = get_tree().get_root().find_node("Pilot", true, false)
-	print("[SessionManager] player_node (Pilot):", player_node, " path=", player_node.get_path() if player_node else "null")
 	teleport_system.player_controller = player_node
 	player = player_node  # Also set SessionManager.player for OYS input routing
 
 	# Validar y reconectar InputProviderV2
 	if is_instance_valid(player_node):
 		var input_provider = player_node.get_node_or_null("InputProviderV2")
-		if input_provider:
-			print("[SessionManager] InputProviderV2 encontrado y asignado: ", input_provider)
-		else:
-			print("[SessionManager] Advertencia: InputProviderV2 no encontrado en el jugador.")
 
 	# Buscar CameraRig dentro del player
 	var camera_rig = player_node.get_node_or_null("CameraRig") if player_node else null
-	print("[SessionManager] camera_rig:", camera_rig, " path=", camera_rig.get_path() if camera_rig else "null")
 	if camera_rig:
 		teleport_system.camera_controller = camera_rig
 
@@ -215,8 +208,6 @@ func _physics_process(_dt):
 		if not _oys_input_override.empty():
 			input_data = InputDataV2.new()
 			input_data.from_dict(_oys_input_override)
-			print("[SessionManager] Usando OYS override input en frame ", _recording_frame, ":", _oys_input_override)
-			# NOT clearing override here - OYS Interpreter is now responsible for clearing its inputs
 		elif player and "input_provider" in player and player.input_provider:
 			input_data = player.input_provider.get_input()
 		else:
@@ -261,7 +252,6 @@ func _physics_process(_dt):
 			pilot_node.external_input = input_data
 			pilot_node.external_input_provided = true
 			player = pilot_node # keep SessionManager.player in sync
-			print("[SessionManager] Applied external_input to pilot_node:", pilot_node, " provided=", pilot_node.external_input_provided)
 		# Step plataformas TAMBIÉN durante grabación para determinismo
 		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
 		for node in sync_nodes:
@@ -516,7 +506,7 @@ func load_and_play(path: String):
 					break # Stop looking after first time-consuming command
 			
 			if not has_initial_setup:
-				print("[SessionManager] No initial 'SET pos' found, applying default (0, 0.5, 0)")
+				# print("[SessionManager] No initial 'SET pos' found, applying default (0, 0.5, 0)")
 				player.teleport_to(Transform(Basis.IDENTITY, Vector3(0, 0.5, 0)))
 				# Record this as an event too so it's in the JSON
 				_on_oys_instruction_executed({"command": "SET", "var": "pos", "value": "(0, 0.5, 0)"}, {})

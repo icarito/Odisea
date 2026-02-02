@@ -1440,6 +1440,14 @@
       {
         "command": "ASSERT",
         "condition": "pos.x > 1.0 \"Elías no hizo strafe a la derecha\""
+      },
+      {
+        "command": "ASSERT",
+        "condition": "pos.z > -0.5 \"Desplazamiento excesivo en Z (min)\""
+      },
+      {
+        "command": "ASSERT",
+        "condition": "pos.z < 0.5 \"Desplazamiento excesivo en Z (max)\""
       }
     ]
   },
