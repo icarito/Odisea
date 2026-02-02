@@ -16,9 +16,11 @@ var _is_replaying_fail_loop := false # Flag para evitar loops infinitos si falla
 var _should_snapshot := false
 var _current_replay_path := ""
 var _current_replay_data := {} # To persist data from OYS or JSON during execution
-var _pending_asserts := []
-var _pending_setters := []
+var event_timeline := {}
+var oys_variables := {}
 var _peak_y := -999.0
+var oys_interpreter = null
+var oys_assert_failed = false
 
 # Drift correction: checkpoint pendiente para guardar en el próximo frame
 var _pending_drift_checkpoint := false
@@ -152,6 +154,7 @@ func _on_tree_changed_for_script(script_path: String):
 	var OYS_Interpreter = load("res://core_v2/systems/OYS_Interpreter.gd")
 	var interpreter = OYS_Interpreter.new(self) # Use SessionManager as host
 	interpreter.parse(content)
+	oys_interpreter = interpreter
 	yield (interpreter.run(), "completed")
 	
 	print("[SessionManager] Script finished.")
@@ -194,11 +197,8 @@ func _physics_process(_dt):
 		if _replay_frame == 0 and "velocity" in player:
 			player.velocity = Vector3.ZERO
 
-		# Aplicación de Setters programados para este frame
-		_check_setters_for_frame(_replay_frame)
-
-		# Verificación de aserciones pendientes para este frame
-		_check_asserts_for_frame(_replay_frame)
+		# Execute Logic Events (SET, MATH, ASSERT) for this frame
+		_check_events_for_frame(_replay_frame)
 
 		# Log and Stats (ANTES del step para que el Frame N muestre el estado PRE-step N)
 		# Debug frame logging disabled for cleaner test output
@@ -234,6 +234,10 @@ func _physics_process(_dt):
 		
 		# Si no hay más inputs, terminar
 		if input == null:
+			# Check if we have events pending beyond the input buffer?
+			# Probably not, but maybe at the very end.
+			# Execute any events scheduled for the last frame or beyond if necessary
+			# But current design links events to frames.
 			run_playback()
 			return
 		
@@ -416,25 +420,30 @@ func load_and_play(path: String):
 					yield (get_tree(), "idle_frame")
 					_find_player()
 		# Unificar formato: OYS -> JSON-like buffer
+		# result now contains "events"
 		var unified_data = {
-			"setters": result.get("setters", []),
-			"asserts": result.get("asserts", []),
+			"events": result.get("events", {}),
 			"buffer": []
 		}
-		for raw_input in result.buffer:
+		for raw_input in result.get("buffer", []):
 			unified_data.buffer.append({"input": raw_input})
 		
-		# Autocaptura de estado inicial si no hay SET explícito
+		# Handle initial state via SET/Math/Events in Frame 0
+		# If there are no initial pos/rot events, add defaults.
+		if not unified_data.events.has(0):
+			unified_data.events[0] = []
+		
+		# Check for existing pos/rot sets
 		var has_pos = false
 		var has_rot = false
-		for s in unified_data.setters:
-			if s.property == "pos": has_pos = true
-			if s.property == "rot": has_rot = true
+		for e in unified_data.events[0]:
+			if e.command == "SET" and e.get("var") == "pos": has_pos = true
+			if e.command == "SET" and e.get("var") == "rot": has_rot = true
 		
 		if not has_pos:
-			unified_data.setters.append({"frame": 0, "property": "pos", "value": "(0, 0.5, 0)"})
+			unified_data.events[0].append({"command": "SET", "var": "pos", "value": "(0, 0.5, 0)"})
 		if not has_rot:
-			unified_data.setters.append({"frame": 0, "property": "rot", "value": "0"})
+			unified_data.events[0].append({"command": "SET", "var": "rot", "value": "0"})
 		
 		_current_replay_data = unified_data
 		
@@ -465,41 +474,38 @@ func load_and_play(path: String):
 				input_buffer.append(entry)
 	_current_replay_data = data
 	
-	# Restauramos el setter inicial simple
-	_apply_setters(data.get("setters", []))
+	# Migrate legacy setup if necessary (SETTERS/ASSERTS to EVENTS)
+	if not data.has("events"):
+		data["events"] = {}
+		
+		for s in data.get("setters", []):
+			var f = int(s.get("frame", 0))
+			if not data.events.has(f): data.events[f] = []
+			var cmd = s.duplicate()
+			cmd["command"] = "SET"
+			cmd["var"] = s.get("property")
+			data.events[f].append(cmd)
+			
+		for a in data.get("asserts", []):
+			var f = int(a.get("frame", 0))
+			if not data.events.has(f): data.events[f] = []
+			var cmd = a.duplicate()
+			cmd["command"] = "ASSERT"
+			data.events[f].append(cmd)
 	
 	play_buffer(input_buffer, data)
 
 
 func _apply_setters(setters: Array):
-	_find_player()
-	if not player:
-		return
-	
-	# --- RESET FOR DETERMISNIM ---
-	if player.has_method("full_reset"):
-		player.full_reset()
-		
-	for setter in setters:
-		match setter.property:
-			"pos":
-				var pos_str = setter.value.trim_prefix("(").trim_suffix(")").split(",")
-				if pos_str.size() >= 3:
-					var new_pos = Vector3(
-						pos_str[0].strip_edges().to_float(),
-						pos_str[1].strip_edges().to_float(),
-						pos_str[2].strip_edges().to_float()
-					)
-					var t = player.global_transform
-					t.origin = new_pos
-					player.global_transform = t
-					if "velocity" in player:
-						player.velocity = Vector3.ZERO
-			"rot":
-				player.rotation_degrees.y = setter.value.to_float()
-
+	# Legacy helper, kept for compatibility if called directly, but prefer generic event system
+	for s in setters:
+		var cmd = s.duplicate()
+		cmd["command"] = "SET"
+		cmd["var"] = s.get("property")
+		_execute_event(cmd)
 
 func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
+	# Internal call often used by tests directly
 	_find_player()
 
 	if not is_instance_valid(player):
@@ -536,8 +542,15 @@ func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
 	var b_size = input_buffer.size()
 	# print("[SessionManager] Starting _play_buffer_internal with %d frames" % b_size)
 
-	_pending_asserts = replay_data.get("asserts", [])
-	_pending_setters = replay_data.get("setters", [])
+	# Initialize Event Runtime
+	event_timeline = {}
+	oys_variables = {}
+	
+	var raw_events = replay_data.get("events", {})
+	# Ensure integer keys
+	for f in raw_events:
+		event_timeline[int(f)] = raw_events[f]
+
 	_peak_y = player.global_transform.origin.y if is_instance_valid(player) else 0.0
 	final_expected_state = replay_data.get("final_expected_state", null)
 
@@ -579,8 +592,15 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 	player.is_replay_mode = true
 	player.input_provider.set_replay_data(input_buffer)
 
-	_pending_asserts = replay_data.get("asserts", [])
-	_pending_setters = replay_data.get("setters", [])
+	# Initialize Event Runtime
+	event_timeline = {}
+	oys_variables = {}
+	
+	var raw_events = replay_data.get("events", {})
+	# Ensure integer keys
+	for f in raw_events:
+		event_timeline[int(f)] = raw_events[f]
+
 	_peak_y = player.global_transform.origin.y if is_instance_valid(player) else 0.0
 	final_expected_state = replay_data.get("final_expected_state", null)
 
@@ -595,7 +615,7 @@ func _finish_and_validate():
 	is_replaying = false
 	
 	# Una última comprobación de aserciones que puedan haber quedado en el último frame
-	_check_asserts_for_frame(_replay_frame)
+	_check_events_for_frame(_replay_frame)
 	
 	if _drift_validated:
 		return
@@ -650,6 +670,8 @@ func _finish_and_validate():
 		
 		var final_data = _current_replay_data.duplicate(true)
 		final_data["final_expected_state"] = player.get_full_snapshot()
+		if oys_interpreter:
+			final_data["oys_variables"] = oys_interpreter.variables
 		
 		# Ensure buffer is present if it's missing (e.g. from OYS data sometimes needing structure adjustment)
 		if not final_data.has("buffer") and _current_replay_data.has("buffer"):
@@ -675,37 +697,120 @@ func _finish_and_validate():
 		print("[SessionManager] Exiting CLI mode")
 		get_tree().quit(0 if success else 1)
 
-func _check_asserts_for_frame(frame_idx: int):
-	var still_pending = []
-	for a in _pending_asserts:
-		if a.frame <= frame_idx: # Permisivo: si nos saltamos el frame exacto, checkear igual
-			_validate_assertion(a)
-		else:
-			still_pending.append(a)
-	_pending_asserts = still_pending
+func _check_events_for_frame(frame_idx: int):
+	if event_timeline.has(frame_idx):
+		var commands = event_timeline[frame_idx]
+		for cmd in commands:
+			_execute_event(cmd)
 
-func _check_setters_for_frame(frame_idx: int):
-	var still_pending = []
-	var apply_now = []
-	for s in _pending_setters:
-		if s.frame <= frame_idx:
-			apply_now.append(s)
-		else:
-			still_pending.append(s)
-	
-	if apply_now.size() > 0:
-		_apply_setters(apply_now)
-	
-	_pending_setters = still_pending
+func _execute_event(cmd: Dictionary):
+	var type = cmd.get("command", "")
+	match type:
+		"SET":
+			_handle_set_command(cmd)
+		"MATH":
+			_handle_math_command(cmd)
+		"ASSERT":
+			_handle_assert_command(cmd)
+		"PRINT":
+			var msg = cmd.get("message", "")
+			# Simple variable substitution
+			msg = _resolve_variables_in_string(msg)
+			print("[OYS] ", msg)
 
-func _validate_assertion(assertion: Dictionary):
+func _resolve_variables_in_string(msg: String) -> String:
+	if "$" in msg:
+		for key in oys_variables:
+			var placeholder = key # e.g. "$start_x"
+			if placeholder in msg:
+				msg = msg.replace(placeholder, str(oys_variables[key]))
+	return msg
+
+func _handle_set_command(cmd: Dictionary):
+	var target_var = cmd.get("var", "")
+	var value = null
+	
+	# Determine value (Literal, Variable, or Function Call)
+	if cmd.has("func"):
+		var func_name = cmd.get("func")
+		var args = cmd.get("args", [])
+		value = _execute_helper_func(func_name, args)
+	elif cmd.has("value"):
+		value = _resolve_value(cmd.get("value"))
+	
+	if target_var.begins_with("$"):
+		# Runtime variable
+		oys_variables[target_var] = value
+		# print("SET VAR ", target_var, " = ", value)
+	else:
+		# Player property (Legacy/Standard property set)
+		_set_player_prop(target_var, value)
+
+func _execute_helper_func(func_name: String, args: Array):
+	match func_name:
+		"GET_NODE_POS_X":
+			var node_name = args[0] if args.size() > 0 else ""
+			var node = _find_node_recursive(node_name)
+			if node: return node.global_transform.origin.x
+			return 0.0
+		"GET_NODE_POS_Y":
+			var node_name = args[0] if args.size() > 0 else ""
+			var node = _find_node_recursive(node_name)
+			if node: return node.global_transform.origin.y
+			return 0.0
+		"GET_NODE_POS_Z":
+			var node_name = args[0] if args.size() > 0 else ""
+			var node = _find_node_recursive(node_name)
+			if node: return node.global_transform.origin.z
+			return 0.0
+	return 0.0
+
+func _find_node_recursive(name: String) -> Node:
+	if name == "Pilot" or name == "Player":
+		_find_player()
+		return player
+	
+	if get_tree().current_scene:
+		return get_tree().current_scene.find_node(name, true, false)
+	else:
+		# Fallback: Search from root
+		return get_tree().get_root().find_node(name, true, false)
+
+func _handle_math_command(cmd: Dictionary):
+	var target_var = cmd.get("var", "")
+	var op = cmd.get("op", "+")
+	var val_right = _resolve_value(cmd.get("value"))
+	
+	if not oys_variables.has(target_var):
+		printerr("MATH Error: Variable not found ", target_var)
+		return
+	
+	var val_left = oys_variables[target_var]
+	
+	# Ensure floats
+	val_left = float(val_left)
+	val_right = float(val_right)
+	
+	match op:
+		"+": oys_variables[target_var] = val_left + val_right
+		"-": oys_variables[target_var] = val_left - val_right
+		"*": oys_variables[target_var] = val_left * val_right
+		"/": 
+			if val_right != 0:
+				oys_variables[target_var] = val_left / val_right
+			else:
+				printerr("MATH Error: Division by zero")
+
+func _handle_assert_command(cmd: Dictionary):
 	if not player: return
 	
-	var condition = assertion.get("condition", "")
-	print("[SessionManager] Evaluating ASSERT: ", condition, " at frame ", _replay_frame)
+	var condition = cmd.get("condition", "")
+	# print("[SessionManager] Evaluating ASSERT: ", condition, " at frame ", _replay_frame)
 	if condition == "": return
 	
-	# Basic Evaluator (Minimal version of test_determinism_v2 logic)
+	# Basic parse: "$var OP value" OR "prop OP value"
+	# condition string example: "$delta_x < 0.05 \"Message\""
+	
 	var parts = condition.split("\"", 2)
 	var expression = parts[0].strip_edges()
 	var msg = parts[1] if parts.size() > 1 else "Assertion failed"
@@ -715,37 +820,89 @@ func _validate_assertion(assertion: Dictionary):
 		printerr("⚠️ Assertion malformed: ", expression)
 		return
 		
-	var prop_path = expr_parts[0]
+	var left_key = expr_parts[0]
 	var op = expr_parts[1]
-	var value_str = expr_parts[2]
+	var right_val_str = expr_parts[2]
 	
-	var actual_value = _get_nested_prop(player, prop_path)
-	if actual_value == null:
-		print("❌ ASSERT ERROR: Propiedad '%s' no encontrada en el player." % prop_path)
-		if is_cli_mode: get_tree().quit(1)
-		return
-
-	var expected_value = value_str.to_float() if value_str.is_valid_float() else value_str
+	var left_val = _resolve_value(left_key)
+	var right_val = _resolve_value(right_val_str)
 	
-	if value_str == "true": expected_value = true
-	if value_str == "false": expected_value = false
-	
+	# Compare
 	var passed = false
-	match op:
-		">": passed = actual_value > expected_value
-		"<": passed = actual_value < expected_value
-		"==": passed = actual_value == expected_value
-		"!=": passed = actual_value != expected_value
-		">=": passed = actual_value >= expected_value
-		"<=": passed = actual_value <= expected_value
+	
+	# Use float comparison if numbers
+	if typeof(left_val) in [TYPE_REAL, TYPE_INT] and typeof(right_val) in [TYPE_REAL, TYPE_INT]:
+		left_val = float(left_val)
+		right_val = float(right_val)
+		match op:
+			">": passed = left_val > right_val
+			"<": passed = left_val < right_val
+			"==": passed = left_val == right_val
+			"!=": passed = left_val != right_val
+			">=": passed = left_val >= right_val
+			"<=": passed = left_val <= right_val
+	else:
+		# String/Bool comparison
+		match op:
+			"==": passed = str(left_val) == str(right_val)
+			"!=": passed = str(left_val) != str(right_val)
 	
 	if passed:
-		print("✅ ASSERT PASSED: %s (%s %s %s)" % [msg, prop_path, op, value_str])
+		pass
+		# print("✅ ASSERT PASSED: %s" % msg)
 	else:
-		print("❌ ASSERT FAILED: %s (Actual %s: %s, Expected: %s %s)" % [msg, prop_path, actual_value, op, value_str])
-		# En CLI mode, esto debería idealmente fallar el test
+		print("❌ ASSERT FAILED: %s (Actual: %s %s %s)" % [msg, left_val, op, right_val])
+		oys_assert_failed = true
 		if is_cli_mode:
 			get_tree().quit(1)
+
+func _resolve_value(key_or_val):
+	if typeof(key_or_val) == TYPE_STRING:
+		if key_or_val.begins_with("$"):
+			return oys_variables.get(key_or_val, 0.0)
+		if key_or_val.is_valid_float():
+			return key_or_val.to_float()
+		if key_or_val == "true": return true
+		if key_or_val == "false": return false
+		
+		# Could be a player property?
+		# Try to fetch from player if it looks like a property path
+		if player and not key_or_val.begins_with("\""):
+			var prop_val = _get_nested_prop(player, key_or_val)
+			if prop_val != null:
+				return prop_val
+				
+	return key_or_val
+
+func _set_player_prop(prop, val):
+	if not player: return
+	# Support basic pos/rot shortcuts
+	if prop == "pos":
+		var pos_vec = val
+		if typeof(val) == TYPE_STRING:
+			pos_vec = _parse_vector3(val)
+		elif typeof(val) == TYPE_VECTOR3:
+			pos_vec = val
+		
+		if typeof(pos_vec) == TYPE_VECTOR3:
+			player.global_transform.origin = pos_vec
+			if "velocity" in player: player.velocity = Vector3.ZERO
+	elif prop == "rot":
+		player.rotation_degrees.y = float(val)
+	else:
+		# Generic property set not fully implemented safely, assume standard props
+		pass
+
+func _parse_vector3(s: String) -> Vector3:
+	var cleaned = s.replace("(", "").replace(")", "").strip_edges()
+	var components = cleaned.split(",")
+	if components.size() >= 3:
+		return Vector3(
+			components[0].strip_edges().to_float(),
+			components[1].strip_edges().to_float(),
+			components[2].strip_edges().to_float()
+		)
+	return Vector3.ZERO
 
 func _get_nested_prop(obj, prop_path):
 	# Soporte para alias comunes

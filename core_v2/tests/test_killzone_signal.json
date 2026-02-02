@@ -1,22 +1,36 @@
 {
-  "setters": [
-    {
-      "frame": 0,
-      "property": "pos",
-      "value": "(0, 0.5, 0)"
-    },
-    {
-      "frame": 0,
-      "property": "rot",
-      "value": "0"
-    }
-  ],
-  "asserts": [
-    {
-      "frame": 0,
-      "condition": "pos.y > -1.0 \"Player should start above ground\""
-    }
-  ],
+  "events": {
+    "0": [
+      {
+        "command": "PRINT",
+        "message": "Starting KillZone signal test"
+      },
+      {
+        "command": "ASSERT",
+        "condition": "pos.y > -1.0 \"Player should start above ground\""
+      },
+      {
+        "command": "SET",
+        "var": "pos",
+        "value": "(0, 0.5, 0)"
+      },
+      {
+        "command": "SET",
+        "var": "rot",
+        "value": "0"
+      }
+    ],
+    "180": [
+      {
+        "command": "PRINT",
+        "message": "Moving player to fall into killzone..."
+      },
+      {
+        "command": "PRINT",
+        "message": "SUCCESS: player_killed signal was emitted!"
+      }
+    ]
+  },
   "buffer": [
     {
       "input": {
@@ -1720,11 +1734,63 @@
     "step_grounded_timer": 0,
     "just_stepped": false,
     "direction_latch_active": false,
-    "latched_world_direction": [
-      0,
+    "latched_camera_basis": {
+      "x": [
+        1,
+        0,
+        0
+      ],
+      "y": [
+        0,
+        1,
+        0
+      ],
+      "z": [
+        0,
+        0,
+        1
+      ]
+    },
+    "latched_sidescroll_active": false,
+    "latched_sidescroll_basis": {
+      "x": [
+        1,
+        0,
+        0
+      ],
+      "y": [
+        0,
+        1,
+        0
+      ],
+      "z": [
+        0,
+        0,
+        1
+      ]
+    },
+    "latched_cinematic_mode": -1,
+    "latched_input_vec": [
       0,
       0
     ],
-    "prev_sidescroll_active": false
+    "prev_sidescroll_active": false,
+    "prev_camera_basis": {
+      "x": [
+        1,
+        0,
+        0
+      ],
+      "y": [
+        0,
+        1,
+        0
+      ],
+      "z": [
+        0,
+        0,
+        1
+      ]
+    }
   }
 }

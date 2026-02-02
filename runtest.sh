@@ -9,6 +9,7 @@
 # Opciones:
 #   --show    Mostrar ventana de Godot (por defecto es headless)
 #   --oys     Ejecutar un test OYS específico por nombre
+#   --nodet   Saltar tests de determinism
 #
 # NOTA PARA AGENTES IA:
 #   El output siempre se guarda en ./reports/gdunit_runner.log
@@ -119,6 +120,11 @@ if [ "$1" = "--oys" ]; then
         echo "❌ Test OYS '$OYS_NAME' falló con código: $exit_code"
     fi
     exit $exit_code
+fi
+
+if [[ "$1" == "--nodet" ]]; then
+    echo "Skipping JSON replays (--nodet flag detected)"
+    export OYS_NODET=1
 fi
 
 echo "🧪 Ejecutando tests GdUnit3 ${HEADLESS:+(headless)}..."

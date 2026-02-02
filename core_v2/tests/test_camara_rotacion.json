@@ -1,34 +1,36 @@
 {
-  "setters": [
-    {
-      "frame": 0,
-      "property": "pos",
-      "value": "(0, 0.5, 0)"
-    },
-    {
-      "frame": 0,
-      "property": "rot",
-      "value": "0"
-    }
-  ],
-  "asserts": [
-    {
-      "frame": 60,
-      "condition": "yaw_deg < -85 \"Cámara no giró suficiente\""
-    },
-    {
-      "frame": 60,
-      "condition": "yaw_deg > -95 \"Cámara giró demasiado\""
-    },
-    {
-      "frame": 60,
-      "condition": "pos.z == 0 \"El jugador se movió durante la rotación\""
-    },
-    {
-      "frame": 60,
-      "condition": "pos.x == 0 \"El jugador se movió lateralmente\""
-    }
-  ],
+  "events": {
+    "60": [
+      {
+        "command": "ASSERT",
+        "condition": "yaw_deg < -85 \"Cámara no giró suficiente\""
+      },
+      {
+        "command": "ASSERT",
+        "condition": "yaw_deg > -95 \"Cámara giró demasiado\""
+      },
+      {
+        "command": "ASSERT",
+        "condition": "pos.z == 0 \"El jugador se movió durante la rotación\""
+      },
+      {
+        "command": "ASSERT",
+        "condition": "pos.x == 0 \"El jugador se movió lateralmente\""
+      }
+    ],
+    "0": [
+      {
+        "command": "SET",
+        "var": "pos",
+        "value": "(0, 0.5, 0)"
+      },
+      {
+        "command": "SET",
+        "var": "rot",
+        "value": "0"
+      }
+    ]
+  },
   "buffer": [
     {
       "input": {
@@ -524,11 +526,63 @@
     "step_grounded_timer": 0,
     "just_stepped": false,
     "direction_latch_active": false,
-    "latched_world_direction": [
-      0,
+    "latched_camera_basis": {
+      "x": [
+        1,
+        0,
+        0
+      ],
+      "y": [
+        0,
+        1,
+        0
+      ],
+      "z": [
+        0,
+        0,
+        1
+      ]
+    },
+    "latched_sidescroll_active": false,
+    "latched_sidescroll_basis": {
+      "x": [
+        1,
+        0,
+        0
+      ],
+      "y": [
+        0,
+        1,
+        0
+      ],
+      "z": [
+        0,
+        0,
+        1
+      ]
+    },
+    "latched_cinematic_mode": -1,
+    "latched_input_vec": [
       0,
       0
     ],
-    "prev_sidescroll_active": false
+    "prev_sidescroll_active": false,
+    "prev_camera_basis": {
+      "x": [
+        0,
+        0,
+        1
+      ],
+      "y": [
+        0,
+        1,
+        0
+      ],
+      "z": [
+        -1,
+        0,
+        0
+      ]
+    }
   }
 }

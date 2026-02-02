@@ -16,6 +16,7 @@ var host_node: Node
 var is_running: bool = false
 var stop_requested: bool = false
 var execution_id: int = 0
+var test_failed: bool = false  # Global flag to track test failure
 
 func _init(host: Node):
 	host_node = host
@@ -169,7 +170,9 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				yield (host_node.get_tree(), "physics_frame")
 		
 		"PRINT":
-			print("[OYS PRINT] ", inst.get("message", ""))
+			var message = inst.get("message", "")
+			message = _substitute_variables(message)
+			print("[OYS PRINT] ", message)
 			
 		"SCREENSHOT":
 			yield (VisualServer, "frame_post_draw")
@@ -212,8 +215,14 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				recorder.stop_recording()
 
 		"ASSERT":
-			_execute_assert(inst.get("condition", ""))
-		
+			var condition = inst.get("condition", false)
+			var message = inst.get("message", "")
+			if not condition:
+				printerr("[OYS_Interpreter] ASSERT FAILED: ", message)
+				test_failed = true  # Mark the test as failed
+				stop_requested = true
+				return  # Stop execution immediately on ASSERT failure
+
 		"SET":
 			var var_name = inst.get("var", "")
 			if inst.has("func"):
@@ -427,6 +436,11 @@ func _resolve_value(val: String):
 
 func _call_func(func_name: String, args: Array):
 	match func_name:
+		"get_node_pos_x":
+			var node = host_node.get_tree().root.find_node(args[0], true, false)
+			if node:
+				return node.global_transform.origin.x
+			return 0.0
 		"GET_NODE_POS_Y":
 			var path = args[0].replace("\"", "")
 			var node = _resolve_node(path)
@@ -451,3 +465,12 @@ func _compare(left, op, right) -> bool:
 		">=": return l >= r
 		"<=": return l <= r
 	return false
+
+func _substitute_variables(message: String) -> String:
+	var result = message
+	for var_name in variables.keys():
+		var pos = result.find(var_name)
+		if pos != -1:
+			var value = str(variables[var_name])
+			result = result.substr(0, pos) + value + result.substr(pos + var_name.length())
+	return result

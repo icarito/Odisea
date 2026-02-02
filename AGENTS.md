@@ -51,6 +51,7 @@ grep -E "(PASSED|FAILED|ERROR|Total|Exit code|SCRIPT ERROR)" ./reports/gdunit_ru
 ```
 
 ## Notas sobre Godot
+- **IMPORTANTE:** Usar siempre el alias `godot3-bin` para ejecutar Godot 3.6. El comando `godot` puede apuntar a Godot 4, lo que causará errores de sintaxis (ej. `yield` vs `await`).
 - "Index 1 is out of bounds (count = 1)" aparece _siempre_ al arrancar, pero no es un problema con nuestro código.
 - Ternario: `a if cond else b`.
 - Declarar con type hints: `var x: int = 0`.

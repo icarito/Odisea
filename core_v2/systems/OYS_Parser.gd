@@ -100,7 +100,7 @@ static func parse_instruction(line: String) -> Dictionary:
 				data["func"] = parts[2]
 				var args = []
 				for j in range(3, parts.size()):
-					args.append(parts[j])
+					args.append(parts[j].replace("\"", ""))
 				data["args"] = args
 			elif parts.size() > 2:
 				data["value"] = parts[2]
@@ -176,10 +176,28 @@ static func parse_instruction(line: String) -> Dictionary:
 					var parsed = _parse_strafe_or_turn(sub_parts, sub_cmd)
 					data.merge(parsed, true)
 		
+		"MATH":
+			# MATH <var> <op> <value>
+			if parts.size() >= 4:
+				data["var"] = parts[1]
+				data["op"] = parts[2]
+				data["value"] = parts[3]
+			else:
+				printerr("[OYS_Parser] Invalid MATH command: ", line)
+		
 		_:
 			data["error"] = "Unknown command: " + cmd
 	
 	return data
+
+# Serialize instruction data for JSON storage
+static func serialize_instruction(data: Dictionary) -> Dictionary:
+	# Create a clean copy
+	var clean = data.duplicate()
+	# Remove internal parser fields if any
+	clean.erase("raw")
+	clean.erase("parts")
+	return clean
 
 # Parse movement commands (FW/BW)
 # Sin unidad = segundos por defecto
