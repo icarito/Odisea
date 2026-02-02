@@ -100,69 +100,88 @@ validate_logs() {
     return $code
 }
 
-# Verificar si es un test OYS específico
-if [ "$1" = "--oys" ]; then
-    OYS_NAME="$2"
-    shift 2
-    
-    if [ -z "$OYS_NAME" ]; then
-        echo "ERROR: Especifica el nombre del test OYS (sin extensión)"
-        echo "Uso: ./runtest.sh --oys test_salto_vertical"
-        echo ""
-        echo "Tests OYS disponibles:"
-        ls -1 ./core_v2/tests/*.oys 2>/dev/null | sed 's|.*/||; s|\.oys$||'
-        exit 1
-    fi
-    
-    # Buscar el archivo OYS
-    OYS_FILE="./core_v2/tests/${OYS_NAME}.oys"
-    if [ ! -f "$OYS_FILE" ]; then
-        echo "ERROR: No se encontró $OYS_FILE"
-        echo ""
-        echo "Tests OYS disponibles:"
-        ls -1 ./core_v2/tests/*.oys 2>/dev/null | sed 's|.*/||; s|\.oys$||'
-        exit 1
-    fi
-    
-    echo "▶️ Ejecutando test OYS: $OYS_NAME ${HEADLESS:+(headless)}"
-    echo "📋 Output guardado en: $LOG_FILE"
-    echo "---"
-    
-    # Usar variable de entorno OYS_FILTER para filtrar el test
-    export OYS_FILTER="${OYS_NAME}"
-    $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd \
-        -a "./core_v2/tests/test_determinism_v2.gd" "$@" 2>&1 | tee "$LOG_FILE"
-    exit_code=${PIPESTATUS[0]}
-    
-    echo "---"
-    print_summary_table
-    
-    # Validar logs para detectar SCRIPT ERROR que GdUnit no ve como fail
-    validate_logs $exit_code
-    exit_code=$?
+# Parse arguments
+ARGS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --show)
+            HEADLESS=""
+            shift
+            ;;
+        --nodet)
+            echo "Skipping JSON replays (--nodet flag detected)"
+            export OYS_NODET=1
+            shift
+            ;;
+        --oys)
+            OYS_NAME="$2"
+            shift 2
+            
+            if [ -z "$OYS_NAME" ]; then
+                echo "ERROR: Especifica el nombre del test OYS (sin extensión)"
+                echo "Uso: ./runtest.sh --oys test_salto_vertical"
+                echo ""
+                echo "Tests OYS disponibles:"
+                ls -1 ./core_v2/tests/*.oys 2>/dev/null | sed 's|.*/||; s|\.oys$||'
+                exit 1
+            fi
+            
+            # Buscar el archivo OYS
+            OYS_FILE="./core_v2/tests/${OYS_NAME}.oys"
+            if [ ! -f "$OYS_FILE" ]; then
+                echo "ERROR: No se encontró $OYS_FILE"
+                echo ""
+                echo "Tests OYS disponibles:"
+                ls -1 ./core_v2/tests/*.oys 2>/dev/null | sed 's|.*/||; s|\.oys$||'
+                exit 1
+            fi
+            
+            echo "▶️ Ejecutando test OYS: $OYS_NAME ${HEADLESS:+(headless)}"
+            echo "📋 Output guardado en: $LOG_FILE"
+            echo "---"
+            
+            # Usar variable de entorno OYS_FILTER para filtrar el test
+            export OYS_FILTER="${OYS_NAME}"
+            $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd \
+                -a "./core_v2/tests/test_determinism_v2.gd" "$@" 2>&1 | tee "$LOG_FILE"
+            exit_code=${PIPESTATUS[0]}
+            
+            echo "---"
+            print_summary_table
+            
+            # Validar logs para detectar SCRIPT ERROR que GdUnit no ve como fail
+            validate_logs $exit_code
+            exit_code=$?
 
-    echo ""
-    echo "📋 Output completo en: $LOG_FILE"
-    if [ $exit_code -eq 0 ]; then
-        echo "✅ Test OYS '$OYS_NAME' pasó"
-    else
-        echo "❌ Test OYS '$OYS_NAME' falló con código: $exit_code"
-    fi
-    exit $exit_code
-fi
+            echo ""
+            echo "📋 Output completo en: $LOG_FILE"
+            if [ $exit_code -eq 0 ]; then
+                echo "✅ Test OYS '$OYS_NAME' pasó"
+            else
+                echo "❌ Test OYS '$OYS_NAME' falló con código: $exit_code"
+            fi
+            exit $exit_code
+            ;;
+        *)
+            # Collect other arguments
+            ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
 
-if [[ "$1" == "--nodet" ]]; then
-    echo "Skipping JSON replays (--nodet flag detected)"
-    export OYS_NODET=1
+# If no arguments provided, default to all tests
+if [ ${#ARGS[@]} -eq 0 ]; then
+    ARGS=("-a" "./core_v2/tests/")
 fi
 
 echo "🧪 Ejecutando tests GdUnit3 ${HEADLESS:+(headless)}..."
 echo "📋 Output guardado en: $LOG_FILE"
-echo "Comando: $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd $*"
+echo "Comando: $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd ${ARGS[*]}"
 echo "---"
 
 # Ejecuta Godot con unbuffered output para ver resultados en tiempo real
-$GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd "$@" 2>&1 | tee "$LOG_FILE"
+$GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd "${ARGS[@]}" 2>&1 | tee "$LOG_FILE"
 exit_code=${PIPESTATUS[0]}
 
 echo "---"

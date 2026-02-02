@@ -226,6 +226,11 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		yield (get_tree(), "idle_frame")
 
 		# PASS 2: Verificar que el JSON grabado sea reproducible
+		var skip_json = OS.get_environment("OYS_NODET") != ""
+		if skip_json:
+			print("[TEST_RUNNER] Skipping --- PASS 2: VERIFYING JSON --- (OYS_NODET detected)")
+			return
+
 		var json_path = path.get_basename() + ".json"
 		print("[TEST_RUNNER] --- PASS 2: VERIFYING JSON ---")
 
