@@ -862,12 +862,11 @@ debug_render = false
 zone_extents = Vector3( 2.5, 16, 50.95 )
 lock_axis = 1
 invert_side = true
-allow_depth_movement = true
 latch_on_enter = false
 latch_on_exit = false
 
-[node name="SideScrollZone2" parent="SideScrollZone" instance=ExtResource( 5 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -4.79904, 0, 0 )
+[node name="SideScrollZone2" parent="." instance=ExtResource( 5 )]
+transform = Transform( 1.667, 0, 0, 0, 1.667, 0, 0, 0, 1, -26, 16, 16 )
 debug_render = false
 zone_extents = Vector3( 2.5, 16, 50.95 )
 lock_axis = 1

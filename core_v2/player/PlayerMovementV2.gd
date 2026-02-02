@@ -83,42 +83,28 @@ func align_to_floor(vector: Vector3) -> Vector3:
 	Prevents lateral drift when moving sideways on slopes."""
 	if _floor_normal == Vector3.UP or _floor_normal.length_squared() < 0.9:
 		return vector
-	
-	# Cross product trick: project vector onto floor plane
+
 	var cross = Vector3.UP.cross(vector)
 	if cross.length_squared() < 0.001:
 		return vector
-	return cross.cross(_floor_normal).normalized() * vector.length()
+
+	var aligned_vector = cross.cross(_floor_normal).normalized() * vector.length()
+	return aligned_vector
 
 func apply_slope_resistance(velocity: Vector3) -> Vector3:
 	"""Slows movement when going uphill past min_resistance_angle."""
 	if not enable_slope_resistance:
 		return velocity
-	
-	# Only apply if moving uphill (velocity has upward component)
+
 	if velocity.dot(Vector3.UP) <= 0:
 		return velocity
-	
-	var floor_angle = _floor_normal.angle_to(Vector3.UP)
-	var min_angle = deg2rad(min_resistance_angle_degrees)
-	var max_angle = deg2rad(floor_max_angle_degrees)
-	
-	if floor_angle < min_angle:
+
+	var angle = rad2deg(acos(velocity.normalized().dot(Vector3.UP)))
+	if angle < min_resistance_angle_degrees:
 		return velocity
-	
-	# Calculate resistance based on how steep the slope is
-	var resistance = clamp(
-		(floor_angle - min_angle) / (max_angle - min_angle) * slope_resistance_factor,
-		0.0, 1.0
-	)
-	
-	# Slide out the uphill component proportionally
-	var cross_vector = Vector3.UP.cross(_floor_normal).normalized()
-	if cross_vector.length_squared() < 0.001:
-		return velocity
-	
-	var slided = velocity.slide(cross_vector)
-	return velocity - slided * resistance
+
+	var resistance = velocity * (1.0 - slope_resistance_factor)
+	return resistance
 
 func update_tank_mode(dt: float, mouse_delta: Vector2, _move_vec: Vector2, _jump: bool, _sprint: bool) -> void:
 	if mouse_delta.length() > 0.1:
