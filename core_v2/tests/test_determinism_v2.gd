@@ -45,6 +45,7 @@ func before():
 # Si OYS_FILTER está definido, solo retorna ese archivo
 static func _get_replay_paths() -> Array:
 	var filter = OS.get_environment("OYS_FILTER")
+	var skip_json = OS.get_environment("OYS_NODET") != ""  # Check for OYS_NODET environment variable
 	if filter != "":
 		var filtered_path = TESTS_ROOT.plus_file(filter)
 		if not filtered_path.ends_with(".oys"):
@@ -54,7 +55,10 @@ static func _get_replay_paths() -> Array:
 			return [[filtered_path]]
 		else:
 			printerr("OYS_FILTER: archivo no encontrado: ", filtered_path)
-	return _scan_for_files([".oys"])
+	if skip_json:
+		return _scan_for_files([".oys"])
+	else:
+		return _scan_for_files([".oys", ".json"])
 
 static func _scan_for_files(extensions: Array) -> Array:
 	var results := []
@@ -111,6 +115,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 	# LIMPIEZA INICIAL DEL SINGLETON
 	SessionManager.is_replaying = false
 	SessionManager.player = null
+	SessionManager.oys_assert_failed = false
 
 	# Llamar tras encontrar player y antes de cada replay
 	if path.ends_with(".json"):
@@ -181,6 +186,11 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		while SessionManager.is_replaying and timeout1 > 0:
 			yield (runner.simulate_frames(1), "completed")
 			timeout1 -= 1
+
+		# Verificar si algún ASSERT de OYS falló
+		if SessionManager.oys_assert_failed:
+			fail("OYS ASSERT FAILED: El test OYS falló en una aserción.")
+			return
 
 		# LIMPIEZA EXPLÍCITA PARA CERRAR VENTANA Y REINSTANCIAR
 		if is_instance_valid(runner.scene()):

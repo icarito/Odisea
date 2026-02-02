@@ -9,12 +9,17 @@ class_name CinematicCameraZoneV2
 export(NodePath) var cinematic_rig_path: NodePath
 export(CinematicManager.ControlMode) var control_mode = CinematicManager.ControlMode.FREE
 
+# --- Direction Latch Control ---
+export(bool) var latch_on_enter := true # Si true, activa el latch de dirección al entrar a la zona
+export(bool) var latch_on_exit := true  # Si true, activa el latch de dirección al salir de la zona
+
 # Cached reference (may be any Node; CinematicRigV2 is a Spatial)
 var _rig_node: Node = null
 
 func _ready():
 	# Llamar primero a la lógica base de BaseZoneV2
 	._ready()
+	add_to_group("CinematicCameraZoneV2")
 	
 	# Color naranja para zonas cinemáticas
 	if debug_color == Color(0, 1, 0, 0.2):

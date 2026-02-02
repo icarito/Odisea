@@ -1,30 +1,50 @@
 {
-  "setters": [
-    {
-      "frame": 0,
-      "property": "pos",
-      "value": "(0, 0.5, 0)"
-    },
-    {
-      "frame": 0,
-      "property": "rot",
-      "value": "0"
-    }
-  ],
-  "asserts": [
-    {
-      "frame": 120,
-      "condition": "pos.y > -1.0 \"Player fell\""
-    },
-    {
-      "frame": 240,
-      "condition": "pos.y > -1.0 \"Player should still be on ground\""
-    },
-    {
-      "frame": 240,
-      "condition": "pos.y < 3.0 \"Player position unstable\""
-    }
-  ],
+  "events": {
+    "0": [
+      {
+        "command": "PRINT",
+        "message": "Starting destroyer signal test"
+      },
+      {
+        "command": "SET",
+        "var": "pos",
+        "value": "(0, 0.5, 0)"
+      },
+      {
+        "command": "SET",
+        "var": "rot",
+        "value": "0"
+      }
+    ],
+    "120": [
+      {
+        "command": "ASSERT",
+        "condition": "pos.y > -1.0 \"Player fell\""
+      },
+      {
+        "command": "PRINT",
+        "message": "Waiting for entity_destroyed signal..."
+      },
+      {
+        "command": "PRINT",
+        "message": "SUCCESS: entity_destroyed signal was emitted!"
+      }
+    ],
+    "240": [
+      {
+        "command": "ASSERT",
+        "condition": "pos.y > -1.0 \"Player should still be on ground\""
+      },
+      {
+        "command": "ASSERT",
+        "condition": "pos.y < 3.0 \"Player position unstable\""
+      },
+      {
+        "command": "PRINT",
+        "message": "Test completed successfully"
+      }
+    ]
+  },
   "buffer": [
     {
       "input": {
@@ -1330,11 +1350,63 @@
     "step_grounded_timer": 0,
     "just_stepped": false,
     "direction_latch_active": false,
-    "latched_world_direction": [
-      0,
+    "latched_camera_basis": {
+      "x": [
+        1,
+        0,
+        0
+      ],
+      "y": [
+        0,
+        1,
+        0
+      ],
+      "z": [
+        0,
+        0,
+        1
+      ]
+    },
+    "latched_sidescroll_active": false,
+    "latched_sidescroll_basis": {
+      "x": [
+        1,
+        0,
+        0
+      ],
+      "y": [
+        0,
+        1,
+        0
+      ],
+      "z": [
+        0,
+        0,
+        1
+      ]
+    },
+    "latched_cinematic_mode": -1,
+    "latched_input_vec": [
       0,
       0
     ],
-    "prev_sidescroll_active": false
+    "prev_sidescroll_active": false,
+    "prev_camera_basis": {
+      "x": [
+        1,
+        0,
+        0
+      ],
+      "y": [
+        0,
+        1,
+        0
+      ],
+      "z": [
+        0,
+        0,
+        1
+      ]
+    }
   }
 }

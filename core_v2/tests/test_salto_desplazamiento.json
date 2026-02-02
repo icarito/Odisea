@@ -1,26 +1,28 @@
 {
-  "setters": [
-    {
-      "frame": 0,
-      "property": "pos",
-      "value": "(0, 0.5, 0)"
-    },
-    {
-      "frame": 0,
-      "property": "rot",
-      "value": "0"
-    }
-  ],
-  "asserts": [
-    {
-      "frame": 132,
-      "condition": "pos.z > 3.0 \"ERROR: No hubo suficiente inercia horizontal en el salto\""
-    },
-    {
-      "frame": 132,
-      "condition": "pos.y < 0.1 \"El personaje no regresó al suelo\""
-    }
-  ],
+  "events": {
+    "132": [
+      {
+        "command": "ASSERT",
+        "condition": "pos.z > 3.0 \"ERROR: No hubo suficiente inercia horizontal en el salto\""
+      },
+      {
+        "command": "ASSERT",
+        "condition": "pos.y < 0.1 \"El personaje no regresó al suelo\""
+      }
+    ],
+    "0": [
+      {
+        "command": "SET",
+        "var": "pos",
+        "value": "(0, 0.5, 0)"
+      },
+      {
+        "command": "SET",
+        "var": "rot",
+        "value": "0"
+      }
+    ]
+  },
   "buffer": [
     {
       "input": {
@@ -906,11 +908,63 @@
     "step_grounded_timer": 0,
     "just_stepped": false,
     "direction_latch_active": false,
-    "latched_world_direction": [
-      0,
+    "latched_camera_basis": {
+      "x": [
+        1,
+        0,
+        0
+      ],
+      "y": [
+        0,
+        1,
+        0
+      ],
+      "z": [
+        0,
+        0,
+        1
+      ]
+    },
+    "latched_sidescroll_active": false,
+    "latched_sidescroll_basis": {
+      "x": [
+        1,
+        0,
+        0
+      ],
+      "y": [
+        0,
+        1,
+        0
+      ],
+      "z": [
+        0,
+        0,
+        1
+      ]
+    },
+    "latched_cinematic_mode": -1,
+    "latched_input_vec": [
       0,
       0
     ],
-    "prev_sidescroll_active": false
+    "prev_sidescroll_active": false,
+    "prev_camera_basis": {
+      "x": [
+        1,
+        0,
+        0
+      ],
+      "y": [
+        0,
+        1,
+        0
+      ],
+      "z": [
+        0,
+        0,
+        1
+      ]
+    }
   }
 }

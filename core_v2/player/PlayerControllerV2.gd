@@ -694,34 +694,71 @@ func step(dt: float, input: InputDataV2) -> void:
 	
 	# --- DIRECTION LATCH SYSTEM ---
 	# Detectar cambios de contexto de cámara (entrada/salida de zonas)
-	# Solo activamos el latch al ENTRAR a una zona especial, no al SALIR
 	var active_rig = CinematicManager.active_rig
-	var entering_special_zone := false
-	
-	# Detectar ENTRADA a modo sidescroll (no salida)
-	if sidescroll_logic.is_active and not _prev_sidescroll_active:
-		entering_special_zone = true
-	
-	# Detectar ENTRADA a rig cinemático (no salida)
-	if active_rig != null and _prev_cinematic_rig == null:
-		entering_special_zone = true
-	
-	# Si hay input activo y ENTRAMOS a una zona especial, activar el latch con el contexto ANTERIOR
+	var context_changed := false
+
+	# Detectar cambio en modo sidescroll
+	if sidescroll_logic.is_active != _prev_sidescroll_active:
+		context_changed = true
+
+	# Detectar cambio en rig cinemático
+	if active_rig != _prev_cinematic_rig:
+		context_changed = true
+
+	# ¿Es entrada o salida?
+	var entering = (sidescroll_logic.is_active and not _prev_sidescroll_active) or (active_rig != null and _prev_cinematic_rig == null)
+	var exiting = (not sidescroll_logic.is_active and _prev_sidescroll_active) or (active_rig == null and _prev_cinematic_rig != null)
+
+	# Si hay input activo y cambió el contexto, activar el latch según flags
 	var has_movement_input = input.move_vec.length() > 0.1
-	if entering_special_zone and has_movement_input and not _direction_latch_active:
-		# Guardar el contexto ANTERIOR (capturado en el frame anterior)
-		_latched_camera_basis = _prev_camera_basis
-		_latched_sidescroll_active = _prev_sidescroll_active
-		if _latched_sidescroll_active:
-			_latched_sidescroll_basis = sidescroll_logic.get_target_basis()
-		if _prev_cinematic_rig:
-			_latched_cinematic_mode = CinematicManager.get_control_mode()
+	if context_changed and has_movement_input and not _direction_latch_active:
+		var zone_latch_on_enter := true  # Por defecto true, la zona puede override
+		var zone_latch_on_exit := true   # Por defecto true, la zona puede override
+		# Consultar zona activa para sidescroll
+		if sidescroll_logic.is_active and sidescroll_logic.zone != null and sidescroll_logic.zone is Node:
+			if "latch_on_enter" in sidescroll_logic.zone:
+				zone_latch_on_enter = sidescroll_logic.zone.latch_on_enter
+			if "latch_on_exit" in sidescroll_logic.zone:
+				zone_latch_on_exit = sidescroll_logic.zone.latch_on_exit
+		
+		# Para cinematic, buscar la zona que activó el rig
+		var cinematic_zone = null
+		if active_rig != null:
+			# print("DEBUG: Active rig: ", active_rig.get_path())
+			for zone in get_tree().get_nodes_in_group("CinematicCameraZoneV2"):
+				var zone_rig = zone.get_node_or_null(zone.cinematic_rig_path)
+				# print("DEBUG: Checking zone: ", zone.name, " with rig path: ", zone.cinematic_rig_path)
+				
+				if zone_rig == active_rig:
+					cinematic_zone = zone
+					# print("DEBUG: Match found: ", zone.name)
+					break
+		if cinematic_zone != null and cinematic_zone is Node:
+			if "latch_on_enter" in cinematic_zone:
+				zone_latch_on_enter = cinematic_zone.latch_on_enter
+				# print("DEBUG: Zone found. latch_on_enter override: ", zone_latch_on_enter)
+			if "latch_on_exit" in cinematic_zone:
+				zone_latch_on_exit = cinematic_zone.latch_on_exit
 		else:
-			_latched_cinematic_mode = -1
-		# Guardar qué teclas activaron el latch
-		_latched_input_vec = input.move_vec
-		_direction_latch_active = true
-	
+			# print("DEBUG: No cinematic zone found for rig. Using default latch=true")
+			pass
+			
+		# Si la zona activa define latch, usar esos flags
+		if (zone_latch_on_enter and entering) or (zone_latch_on_exit and exiting):
+			# Guardar el contexto ANTERIOR (capturado en el frame anterior)
+			_latched_camera_basis = _prev_camera_basis
+			_latched_sidescroll_active = _prev_sidescroll_active
+			if _latched_sidescroll_active:
+				_latched_sidescroll_basis = sidescroll_logic.get_target_basis()
+			if _prev_cinematic_rig:
+				_latched_cinematic_mode = CinematicManager.get_control_mode()
+			else:
+				_latched_cinematic_mode = -1
+			# Guardar qué teclas activaron el latch
+			_latched_input_vec = input.move_vec
+			_direction_latch_active = true
+			# print("DEBUG: LATCH ACTIVATED! Enter=", entering, " Exit=", exiting)
+
 	# Actualizar las referencias "prev" para el próximo frame
 	_prev_sidescroll_active = sidescroll_logic.is_active
 	_prev_cinematic_rig = active_rig
@@ -754,7 +791,6 @@ func step(dt: float, input: InputDataV2) -> void:
 	# --- DIRECTION LATCH APPLICATION ---
 	# Si el latch está activo, interpretar TODO el input usando el contexto ANTERIOR guardado
 	if _direction_latch_active:
-		print("[LATCH] Active! sidescroll=", _latched_sidescroll_active, " cinematic=", _latched_cinematic_mode, " basis=", _latched_camera_basis.z, " input=", input.move_vec)
 		if _latched_sidescroll_active:
 			# Usar el modo sidescroll anterior con TODAS sus restricciones
 			basis = _latched_sidescroll_basis
@@ -871,8 +907,6 @@ func step(dt: float, input: InputDataV2) -> void:
 		if current_rot.length_squared() > 0.001:
 			_cached_cam.rotation = current_rot.linear_interpolate(Vector3.ZERO, 10.0 * dt)
 	
-	if _direction_latch_active:
-		print("[PRE-MOVE] basis.x=", basis.x, " basis.z=", basis.z, " move_vec=", move_vec)
 	movement_logic.process_movement(dt, move_vec, basis, input.sprint, is_on_floor())
 	
 	# Override visual direction in 2.5D based on camera facing state
