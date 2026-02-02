@@ -17,6 +17,8 @@ var is_running: bool = false
 var stop_requested: bool = false
 var execution_id: int = 0
 var test_failed: bool = false  # Global flag to track test failure
+signal instruction_executed(inst, variables)
+signal instruction_completed(inst, variables)
 
 func _init(host: Node):
 	host_node = host
@@ -67,6 +69,7 @@ func run(start_section: String = ""):
 		var result = _execute_instruction(inst, my_id)
 		if result is GDScriptFunctionState:
 			yield (result, "completed")
+		emit_signal("instruction_completed", inst, variables)
 
 	if my_id == execution_id:
 		is_running = false
@@ -95,12 +98,14 @@ func run_from_pc(from_pc: int):
 		var result = _execute_instruction(inst, my_id)
 		if result is GDScriptFunctionState:
 			yield (result, "completed")
+		emit_signal("instruction_completed", inst, variables)
 
 	if my_id == execution_id:
 		is_running = false
 
 func _execute_instruction(inst: Dictionary, my_id: int):
 	var cmd = inst.command
+	emit_signal("instruction_executed", inst, variables)
 	
 	match cmd:
 		"SECTION":
@@ -148,6 +153,9 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				var success = yield (_wait_signal(target, signal_name, timeout, my_id), "completed")
 				if not success:
 					printerr("[OYS] ASSERT_SIGNAL failed: ", signal_name, " on ", target.name)
+					test_failed = true
+					stop_requested = true
+					return
 		
 		"SPAWN":
 			var scene_path = inst.get("scene", "")
@@ -300,19 +308,26 @@ func _execute_movement(inst: Dictionary, my_id: int):
 		if not is_instance_valid(player):
 			break
 		
-		# Inject input to player's provider
-		if player.has_method("inject_input"):
-			player.inject_input({
-				"move_vec": [move_vec.x, move_vec.y],
-				"sprint": is_sprint,
-				"jump": is_jump,
-				"interact": is_interact
-			})
+		# Post input for SessionManager to consume in next _physics_process
+		_post_oys_input({
+			"move_vec": [move_vec.x, move_vec.y],
+			"sprint": is_sprint,
+			"jump": is_jump,
+			"interact": is_interact
+		})
 		
 		# Verify host_node is still valid before yielding
 		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
 			break
 		yield (host_node.get_tree(), "physics_frame")
+	
+	# Clear inputs after movement finishes
+	_post_oys_input({
+		"move_vec": [0.0, 0.0],
+		"sprint": false,
+		"jump": false,
+		"interact": false
+	})
 
 func _execute_turn(inst: Dictionary, my_id: int):
 	var value = inst.get("value", 0.0)
@@ -336,13 +351,17 @@ func _execute_turn(inst: Dictionary, my_id: int):
 		if not is_instance_valid(player):
 			break
 		
-		if player.has_method("inject_input"):
-			player.inject_input({"mouse_delta": [mouse_dx, 0]})
+		_post_oys_input({"mouse_delta": [mouse_dx, 0]})
 		
 		# Verify host_node is still valid before yielding
 		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
 			break
 		yield (host_node.get_tree(), "physics_frame")
+	
+	# Clear turn input after finishing
+	_post_oys_input({
+		"mouse_delta": [0.0, 0.0]
+	})
 
 func _execute_look(inst: Dictionary, my_id: int):
 	var pitch = inst.get("pitch", 0.0)
@@ -362,13 +381,17 @@ func _execute_look(inst: Dictionary, my_id: int):
 		if not is_instance_valid(player):
 			break
 		
-		if player.has_method("inject_input"):
-			player.inject_input({"mouse_delta": [0, mouse_dy]})
+		_post_oys_input({"mouse_delta": [0, mouse_dy]})
 		
 		# Verify host_node is still valid before yielding
 		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
 			break
 		yield (host_node.get_tree(), "physics_frame")
+	
+	# Clear look input after finishing
+	_post_oys_input({
+		"mouse_delta": [0.0, 0.0]
+	})
 
 func _find_recorder() -> Node:
 	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
@@ -380,6 +403,22 @@ func _find_player() -> Node:
 		return null
 	var player = host_node.get_tree().get_root().find_node("Pilot", true, false)
 	return player
+
+func _post_oys_input(data: Dictionary):
+	var session = host_node.get_node_or_null("/root/SessionManager")
+	if session and session.get("is_recording"):
+		# Merge with existing override if any
+		if not session.get("_oys_input_override"):
+			session.set("_oys_input_override", {})
+		
+		var override = session.get("_oys_input_override")
+		for key in data:
+			override[key] = data[key]
+	else:
+		# Fallback to direct injection if no session manager/recording found
+		var player = _find_player()
+		if player and player.has_method("inject_input"):
+			player.inject_input(data)
 
 func _resolve_node(path: String) -> Node:
 	var node = host_node.get_node_or_null(path)

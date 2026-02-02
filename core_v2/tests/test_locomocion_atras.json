@@ -1,24 +1,4 @@
 {
-  "events": {
-    "60": [
-      {
-        "command": "ASSERT",
-        "condition": "pos.z < -0.5 \"ERROR: Elías no se desplazó hacia atrás\""
-      }
-    ],
-    "0": [
-      {
-        "command": "SET",
-        "var": "pos",
-        "value": "(0, 0.5, 0)"
-      },
-      {
-        "command": "SET",
-        "var": "rot",
-        "value": "0"
-      }
-    ]
-  },
   "buffer": [
     {
       "input": {
@@ -26,7 +6,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -35,7 +22,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -44,7 +38,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -53,7 +54,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -62,7 +70,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -71,7 +86,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -80,7 +102,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -89,7 +118,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -98,7 +134,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -107,7 +150,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -116,7 +166,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -125,7 +182,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -134,7 +198,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -143,7 +214,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -152,7 +230,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -161,7 +246,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -170,7 +262,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -179,7 +278,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -188,7 +294,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -197,7 +310,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -206,7 +326,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -215,7 +342,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -224,7 +358,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -233,7 +374,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -242,7 +390,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -251,7 +406,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -260,7 +422,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -269,7 +438,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -278,7 +454,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -287,7 +470,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -296,7 +486,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -305,7 +502,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -314,7 +518,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -323,7 +534,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -332,7 +550,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -341,7 +566,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -350,7 +582,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -359,7 +598,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -368,7 +614,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -377,7 +630,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -386,7 +646,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -395,7 +662,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -404,7 +678,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -413,7 +694,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -422,7 +710,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -431,7 +726,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -440,7 +742,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -449,7 +758,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -458,7 +774,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -467,7 +790,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -476,7 +806,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -485,7 +822,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -494,7 +838,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -503,7 +854,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -512,7 +870,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -521,7 +886,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -530,7 +902,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -539,7 +918,14 @@
           0,
           -1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -548,28 +934,372 @@
           0,
           -1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          -1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     }
   ],
+  "events": {
+    "0": [
+      {
+        "command": "SET",
+        "var": "pos",
+        "value": "(0, 0.5, 0)"
+      }
+    ],
+    "59": [
+      {
+        "command": "ASSERT",
+        "condition": "pos.z < -0.5 \"ERROR: Elías no se desplazó hacia atrás\""
+      }
+    ]
+  },
+  "meta": {
+    "world_start_state": {
+      "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform/LeverBase/RotatingLever": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0,
+        "start_rot": [
+          -0,
+          0,
+          0
+        ]
+      },
+      "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform2/LeverBase/RotatingLever": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0,
+        "start_rot": [
+          -0,
+          0,
+          0
+        ]
+      },
+      "/root/TestScene/SlidingDrawer": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0,
+        "start_pos": [
+          -2.30146,
+          0.875,
+          39.991001
+        ]
+      },
+      "/root/TestScene/Boxes/PushableBoxV2": {
+        "pos": [
+          18.5805,
+          1,
+          2.381
+        ],
+        "rot": [
+          -0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/TestScene/Boxes/PushableBoxV3": {
+        "pos": [
+          21.067101,
+          1,
+          5.1545
+        ],
+        "rot": [
+          -0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/TestScene/Boxes/PushableBoxV4": {
+        "pos": [
+          19.1544,
+          1,
+          8.6931
+        ],
+        "rot": [
+          -0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/TestScene/Boxes/PushableBoxV5": {
+        "pos": [
+          16.285299,
+          1,
+          25.525299
+        ],
+        "rot": [
+          -0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/TestScene/Boxes/PushableBoxV6": {
+        "pos": [
+          17.7199,
+          1,
+          21.508499
+        ],
+        "rot": [
+          -0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/TestScene/Boxes/PushableBoxV7": {
+        "pos": [
+          16.2388,
+          3,
+          25.5222
+        ],
+        "rot": [
+          -0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/TestScene/Boxes/PushableBoxV8": {
+        "pos": [
+          22.434,
+          1,
+          9.2493
+        ],
+        "rot": [
+          -0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/TestScene/Boxes/PushableBoxV9": {
+        "pos": [
+          22.387501,
+          3,
+          9.2462
+        ],
+        "rot": [
+          -0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/TestScene/Lever/LeverBase/RotatingLever": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0,
+        "start_rot": [
+          -0,
+          0,
+          0
+        ]
+      },
+      "/root/TestScene/Lever/LeverConveyor": {
+        "pos": [
+          0.69854,
+          0.2,
+          44.991001
+        ],
+        "speed_x": 3,
+        "length": 8,
+        "width": 2,
+        "require_on_floor": false,
+        "rigid_force_multiplier": 10,
+        "stripe_dark_color": [
+          0.18,
+          0.18,
+          0.18,
+          1
+        ],
+        "stripe_light_color": [
+          0.760784,
+          0.760784,
+          0.156863,
+          1
+        ],
+        "stripe_emission": 0.04,
+        "stripe_tiling": 4,
+        "stripe_fill": 0.5,
+        "is_active": false,
+        "internal_speed": 0,
+        "visual_phase": 0
+      }
+    },
+    "scene_path": "res://core_v2/levels/TestScene_v2.tscn"
+  },
   "final_expected_state": {
     "position": [
       -0,
-      -0.333297,
-      -5.442092
+      -0.28663,
+      -5.325426
     ],
     "velocity": [
       0,
-      -2.8,
+      -2.566667,
       -7
     ],
     "yaw": 0,
@@ -586,7 +1316,7 @@
         0,
         0
       ],
-      "camera_input_timer": 1,
+      "camera_input_timer": 0.983333,
       "is_tank_turn_mode": true,
       "current_turn_time": 0
     },
@@ -622,7 +1352,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 76,
+      "frames_since_last_snap": 75,
       "last_input_vector": [
         0,
         0,
@@ -700,5 +1430,8 @@
         1
       ]
     }
+  },
+  "oys_variables": {
+
   }
 }

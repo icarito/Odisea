@@ -123,7 +123,8 @@ func _run_and_unpause(start_section: String) -> void:
 	# Propagar fallo de test al runner
 	if interpreter.test_failed:
 		push_error("OYS ASSERT FAILED: El test OYS falló en una aserción.")
-		fail("OYS ASSERT FAILED: El test OYS falló en una aserción.")
+		# Note: We don't call fail() here as this is not a GdUnitTestSuite.
+		# The test runner will detect interpreter.test_failed or the push_error.
 
 # Ejecutar script desde un pc específico (para hot-reload con checkpoint)
 func _run_from_pc(from_pc: int) -> void:

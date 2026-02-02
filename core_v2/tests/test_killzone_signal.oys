@@ -11,7 +11,7 @@ SECTION "KillZone Signal Test"
     
     // Move forward toward the gap in the floor
     // The floor is at z=0-10, gap at z=10-15, killzone at y=-5
-    FORWARD 3.0
+    FORWARD 2.0
     
     PRINT "Moving player to fall into killzone..."
     

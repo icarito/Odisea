@@ -49,6 +49,8 @@ debug_color = Color( 1, 0.5, 0, 0.3 )
 zone_extents = Vector3( 4, 3, 10 )
 cinematic_rig_path = NodePath("CinematicPathRig")
 control_mode = 2
+latch_on_enter = false
+latch_on_exit = false
 
 [node name="CinematicPathRig" type="Path" parent="Floor/CinematicCameraZone"]
 transform = Transform( 1, 0, 2.98023e-08, 0, 1, 0, -2.98023e-08, 0, 1, -1.55174, 5.80567, -33.4807 )

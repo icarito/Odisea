@@ -90,6 +90,29 @@ static func _scan_dir(dir: Directory, current_path: String, results: Array, exte
 
 var _current_test_scene: Node = null
 
+func _get_scene_for_test(path: String) -> String:
+	var scene_path = "res://core_v2/levels/TestScene_v2.tscn"
+	if path.ends_with(".oys"):
+		var f = File.new()
+		if f.open(path, File.READ) == OK:
+			while not f.eof_reached():
+				var line = f.get_line().strip_edges()
+				if line.begins_with("LEVEL"):
+					var parts = line.split(" ", false)
+					if parts.size() > 1:
+						scene_path = parts[1]
+					break
+			f.close()
+	elif path.ends_with(".json"):
+		var f = File.new()
+		if f.open(path, File.READ) == OK:
+			var parsed = JSON.parse(f.get_as_text())
+			f.close()
+			if typeof(parsed.result) == TYPE_DICTIONARY:
+				var meta = parsed.result.get("meta", {})
+				scene_path = meta.get("scene_path", scene_path)
+	return scene_path
+
 # Parametrized test for JSON replays
 
 
@@ -120,7 +143,9 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 	# Llamar tras encontrar player y antes de cada replay
 	if path.ends_with(".json"):
 		print("[TEST_RUNNER] Mode: JSON Direct Replay")
-		var runner := scene_runner("res://core_v2/levels/TestScene_v2.tscn")
+		var scene_path = _get_scene_for_test(path)
+		print("[TEST_RUNNER] Using scene: ", scene_path)
+		var runner := scene_runner(scene_path)
 		runner.maximize_view()
 
 		# Garantizar estado limpio inicial
@@ -131,6 +156,11 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		_force_player_position_from_expected()
 
 		SessionManager.load_and_play(path)
+
+		var timeout_setup = 100
+		while not SessionManager.is_replaying and timeout_setup > 0:
+			yield (runner.simulate_frames(1), "completed")
+			timeout_setup -= 1
 
 		var timeout = 5000
 		while SessionManager.is_replaying and timeout > 0:
@@ -143,6 +173,11 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		# Limpieza final para cerrar ventana
 		if is_instance_valid(runner.scene()):
 			runner.scene().queue_free()
+		
+		# Verificar aserciones lógicas grabadas
+		if SessionManager.oys_assert_failed:
+			fail("OYS ASSERT FAILED durante replay JSON.")
+			return
 
 		# Chequeo de drift si corresponde
 		var drift_info = _compute_drift(SessionManager.player, SessionManager.final_expected_state)
@@ -152,18 +187,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, DRIFT_WARNING])
 
 	if path.ends_with(".oys"):
-		# Pre-parse scene path from OYS
-		var scene_path = "res://core_v2/levels/TestScene_v2.tscn"
-		var f = File.new()
-		if f.open(path, File.READ) == OK:
-			while not f.eof_reached():
-				var line = f.get_line().strip_edges()
-				if line.begins_with("LEVEL"):
-					var parts = line.split(" ", false)
-					if parts.size() > 1:
-						scene_path = parts[1]
-					break
-			f.close()
+		var scene_path = _get_scene_for_test(path)
 		
 		print("[TEST_RUNNER] Using scene: ", scene_path)
 		var runner := scene_runner(scene_path)
@@ -172,15 +196,18 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		# PASS 1: Simular OYS y grabar resultado físico exacto a JSON
 		print("[TEST_RUNNER] --- PASS 1: RECORDING OYS ---")
 
-		# Sincronización de estado inicial Frame 0
+		# Garantizar estado limpio inicial
 		SessionManager._find_player()
 		if is_instance_valid(SessionManager.player) and SessionManager.player.has_method("full_reset"):
 			SessionManager.player.full_reset()
-
-		_force_player_position_from_expected()
-
+			
 		SessionManager._should_snapshot = true
 		SessionManager.load_and_play(path)
+
+		var timeout_setup1 = 100
+		while not SessionManager.is_replaying and timeout_setup1 > 0:
+			yield (runner.simulate_frames(1), "completed")
+			timeout_setup1 -= 1
 
 		var timeout1 = 5000
 		while SessionManager.is_replaying and timeout1 > 0:
@@ -218,10 +245,15 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		SessionManager._should_snapshot = false
 		SessionManager.load_and_play(json_path)
 
-		var timeout2 = 5000
-		while SessionManager.is_replaying and timeout2 > 0:
+		var timeout_setup = 100
+		while not SessionManager.is_replaying and timeout_setup > 0:
 			yield (runner.simulate_frames(1), "completed")
-			timeout2 -= 1
+			timeout_setup -= 1
+
+		var timeout = 5000
+		while SessionManager.is_replaying and timeout > 0:
+			yield (runner.simulate_frames(1), "completed")
+			timeout -= 1
 
 		# LIMPIEZA EXPLÍCITA PARA CERRAR VENTANA
 		if is_instance_valid(runner.scene()):
