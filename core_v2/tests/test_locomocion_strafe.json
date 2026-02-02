@@ -1801,7 +1801,7 @@
   },
   "final_expected_state": {
     "position": [
-      4.777177,
+      5.701473,
       0.0415,
       -0
     ],
@@ -1896,7 +1896,7 @@
     "platform_velocity": [
       0,
       0,
-      0.000002
+      0.000001
     ],
     "was_on_platform": true,
     "step_grounded_timer": 0,

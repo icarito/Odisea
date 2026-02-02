@@ -120,6 +120,11 @@ func _input(event):
 
 # Respawn forzado en el spawn point o 0,0,0
 func _respawn_at_spawn_or_zero():
+	# Activar flag de respawn para que los triggers no ejecuten scripts
+	var session_mgr = get_node_or_null("/root/SessionManager")
+	if session_mgr:
+		session_mgr.is_respawning = true
+	
 	# Buscar player_controller si es null
 	if not player_controller:
 		var pilot = get_tree().get_root().find_node("Pilot", true, false)
@@ -146,16 +151,16 @@ func _respawn_at_spawn_or_zero():
 	if player_controller and player_controller.is_inside_tree():
 		var parent = player_controller.get_parent()
 		player_controller.queue_free()
-		yield(get_tree(), "idle_frame")
+		yield (get_tree(), "idle_frame")
 		var pilot_scene = preload("res://core_v2/actors/Pilot_v2.tscn")
 		var new_pilot = pilot_scene.instance()
 		parent.add_child(new_pilot)
-		yield(get_tree(), "idle_frame")
+		yield (get_tree(), "idle_frame")
 		if new_pilot.has_method("full_reset"):
 			new_pilot.full_reset()
 		new_pilot.global_transform = target_transform
 		new_pilot.initial_transform = target_transform
-		yield(get_tree(), "physics_frame")
+		yield (get_tree(), "physics_frame")
 		if new_pilot.has_method("set_external_velocity"):
 			new_pilot.set_external_velocity(Vector3.ZERO)
 		new_pilot.velocity = Vector3.ZERO
@@ -207,19 +212,27 @@ func _respawn_at_spawn_or_zero():
 					# Debug: confirm cleared
 					print("[TeleportSystem] SessionManager _oys_input_override now=", sm.get("_oys_input_override"))
 			# Let one physics frame run so the new pilot can process input and areas
-			yield(get_tree(), "physics_frame")
+			yield (get_tree(), "physics_frame")
 		var cam_rig = new_pilot.get_node_or_null("CameraRig")
 		if cam_rig:
 			camera_controller = cam_rig
 		print("[TeleportSystem] Nuevo Pilot instanciado por reset. enforced transform and reset state:", new_pilot.initial_transform)
+		# Desactivar flag de respawn después de algunos frames para permitir que las zonas detecten al player
+		call_deferred("_clear_respawn_flag")
 	else:
 		print("[TeleportSystem] No se pudo reinstanciar Pilot (reset)")
+		_clear_respawn_flag()
 
 func _on_player_killed():
 	print("[TeleportSystem] _on_player_killed ejecutado! (señal recibida)")
 	print("[TeleportSystem] self:", self, " path=", get_path())
 	var pc_path = player_controller.get_path() if is_instance_valid(player_controller) else "null"
 	print("[TeleportSystem] player_controller:", player_controller, " path=", pc_path)
+	
+	# Activar flag de respawn para que los triggers no ejecuten scripts
+	var session_mgr = get_node_or_null("/root/SessionManager")
+	if session_mgr:
+		session_mgr.is_respawning = true
 	
 	# Buscar player_controller si es null
 	if not player_controller:
@@ -274,7 +287,7 @@ func _on_player_killed():
 			print("[TeleportSystem] Respawn usando cached initial_spawn_transform.")
 		elif is_instance_valid(player_controller):
 			target_transform = player_controller.initial_transform
-			target_yaw = 0  # Asumir yaw inicial 0, o si hay, pero por ahora 0
+			target_yaw = 0 # Asumir yaw inicial 0, o si hay, pero por ahora 0
 			target_pitch = 0
 			print("[TeleportSystem] Respawn usando posición inicial del player.")
 		elif player_controller:
@@ -288,13 +301,13 @@ func _on_player_killed():
 	if is_instance_valid(player_controller) and player_controller.is_inside_tree():
 		var parent = player_controller.get_parent()
 		player_controller.queue_free()
-		yield(get_tree(), "idle_frame")
+		yield (get_tree(), "idle_frame")
 		# Instanciar nuevo Pilot
 		var pilot_scene = preload("res://core_v2/actors/Pilot_v2.tscn")
 		var new_pilot = pilot_scene.instance()
 		# Add to scene first so _ready runs, then apply absolute transform
 		parent.add_child(new_pilot)
-		yield(get_tree(), "idle_frame")
+		yield (get_tree(), "idle_frame")
 		# Ensure camera is current if it exists
 		var cam = new_pilot.get_node_or_null("CameraRig/Camera")
 		if cam:
@@ -307,7 +320,7 @@ func _on_player_killed():
 		new_pilot.global_transform = target_transform
 		new_pilot.initial_transform = target_transform
 		# Allow physics to process so Areas will detect overlap and emit signals
-		yield(get_tree(), "physics_frame")
+		yield (get_tree(), "physics_frame")
 		if new_pilot.has_method("set_external_velocity"):
 			new_pilot.set_external_velocity(Vector3.ZERO)
 		new_pilot.velocity = Vector3.ZERO
@@ -369,14 +382,17 @@ func _on_player_killed():
 							# Debug: show override retained in session
 							print("[TeleportSystem] SessionManager _oys_input_override after apply=", sm.get("_oys_input_override"))
 							# Give pilot a chance to consume the injected external input before OYS measures
-							yield(get_tree(), "physics_frame")
+							yield (get_tree(), "physics_frame")
 		# Actualizar camera_controller si existe
 		var cam_rig = new_pilot.get_node_or_null("CameraRig")
 		if cam_rig:
 			camera_controller = cam_rig
 		print("[TeleportSystem] Nuevo Pilot instanciado y referenciado. enforced transform and reset state:", new_pilot.initial_transform)
+		# Desactivar flag de respawn después de algunos frames para permitir que las zonas detecten al player
+		call_deferred("_clear_respawn_flag")
 	else:
 		print("[TeleportSystem] No se pudo reinstanciar Pilot (no estaba en árbol)")
+		_clear_respawn_flag()
 
 func _on_checkpoint_reached(transform):
 	print("[TeleportSystem] Señal recibida: checkpoint_reached, transform=", transform)
@@ -397,3 +413,13 @@ func _on_checkpoint_reached(transform):
 			if persistence_manager.has_method("save_checkpoint_resource"):
 				persistence_manager.save_checkpoint_resource(scene_path)
 				print("[TeleportSystem] Checkpoint persistido en disco.")
+
+func _clear_respawn_flag():
+	# Esperar algunos frames antes de limpiar el flag para asegurar que las zonas
+	# hayan procesado la entrada del player
+	yield (get_tree(), "physics_frame")
+	yield (get_tree(), "physics_frame")
+	var sm = get_node_or_null("/root/SessionManager")
+	if sm:
+		sm.is_respawning = false
+		print("[TeleportSystem] Flag is_respawning desactivado")

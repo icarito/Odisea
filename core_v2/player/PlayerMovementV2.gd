@@ -2,8 +2,8 @@ extends Node
 
 # PlayerMovementV2.gd - Componente para movimiento horizontal suavizado
 
-export(float) var acceleration := 20.0
-export(float) var ground_friction := 40.0
+export(float) var acceleration := 30.0
+export(float) var ground_friction := 30.0
 export(float) var air_friction := 10.0
 export(float) var move_speed := 5.0
 export(float) var run_speed_multiplier := 1.8
@@ -24,7 +24,7 @@ export(float) var strafe_speed_multiplier := 0.6
 # Slope Handling (inspired by Terrestrial Characters)
 export(float, 0, 90) var floor_max_angle_degrees := 45.0
 export var enable_slope_resistance := true
-export(float, 0, 1) var slope_resistance_factor := 0.4  # Reduced for agile character
+export(float, 0, 1) var slope_resistance_factor := 0.2  # Reduced for agile character
 export(float, 0, 90) var min_resistance_angle_degrees := 25.0  # Only resist on steeper slopes
 
 # State

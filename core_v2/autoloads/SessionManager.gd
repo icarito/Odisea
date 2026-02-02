@@ -37,6 +37,8 @@ var _recording_frame := 0
 var _oys_input_override := {}
 # Escena solicitada por OYS para guardar en meta
 var _oys_requested_scene := ""
+# Flag para indicar que estamos en proceso de respawn (los triggers no deben ejecutarse)
+var is_respawning := false
 
 func _find_player():
 	if not is_instance_valid(player):
@@ -91,7 +93,7 @@ func _ready():
 					teleport_system.set_script(ts_res)
 			else:
 				# Attempt to instance or new with defensive checks
-				if ts_res.has_method("instance" ):
+				if ts_res.has_method("instance"):
 					teleport_system = ts_res.instance()
 				elif ts_res.has_method("new"):
 					teleport_system = ts_res.new()
@@ -118,7 +120,7 @@ func _connect_teleport_system():
 	# Buscar PlayerControllerV2 (Pilot)
 	var player_node = get_tree().get_root().find_node("Pilot", true, false)
 	teleport_system.player_controller = player_node
-	player = player_node  # Also set SessionManager.player for OYS input routing
+	player = player_node # Also set SessionManager.player for OYS input routing
 
 	# Validar y reconectar InputProviderV2
 	if is_instance_valid(player_node):
@@ -277,8 +279,10 @@ func _physics_process(_dt):
 				player = pilot_node
 
 		if pilot_node and pilot_node.has_method("step"):
+			# Set external input for potential consumers but also step directly
 			pilot_node.external_input = input_data
 			pilot_node.external_input_provided = true
+			pilot_node.step(FIXED_DT, input_data)
 			player = pilot_node # keep SessionManager.player in sync
 		# Step plataformas TAMBIÉN durante grabación para determinismo
 		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
@@ -376,6 +380,7 @@ func start_recording():
 	# Marcar player como "controlado externamente" para evitar doble step
 	if player:
 		player.is_replay_mode = true # Usamos esta bandera para indicar control externo
+		player.set_physics_process(false)
 		# Conectar señal de drift correction
 		if player.has_signal("rigid_contact_ended") and not player.is_connected("rigid_contact_ended", self, "_on_rigid_contact_ended"):
 			player.connect("rigid_contact_ended", self, "_on_rigid_contact_ended")
@@ -424,6 +429,7 @@ func stop_and_save_recording():
 	# Restaurar control normal del player
 	if player:
 		player.is_replay_mode = false
+		player.set_physics_process(true)
 	
 	# Reactivar _physics_process en plataformas
 	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
@@ -516,6 +522,7 @@ func load_and_play(path: String):
 		# Enforce input inhibition for OYS live execution
 		if is_instance_valid(player):
 			player.is_replay_mode = true
+			player.set_physics_process(false)
 			if "input_provider" in player and is_instance_valid(player.input_provider):
 				player.input_provider.hardware_input_enabled = false
 		
@@ -697,6 +704,7 @@ func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
 			node.set_physics_process(false)
 
 	player.is_replay_mode = true
+	player.set_physics_process(false)
 	player.input_provider.set_replay_data(input_buffer)
 	if "velocity" in player:
 		player.velocity = Vector3.ZERO
@@ -754,6 +762,7 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 			node.set_physics_process(false)
 
 	player.is_replay_mode = true
+	player.set_physics_process(false)
 	player.input_provider.set_replay_data(input_buffer)
 
 	# Initialize Event Runtime
@@ -778,6 +787,9 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 
 func _finish_and_validate():
 	is_replaying = false
+	if is_instance_valid(player):
+		player.is_replay_mode = false
+		player.set_physics_process(true)
 	
 	# Una última comprobación de aserciones que puedan haber quedado en el último frame
 	_check_events_for_frame(_replay_frame)
@@ -947,7 +959,7 @@ func _handle_get_nodes_in_group(cmd: Dictionary):
 		oys_variables[target_var] = count
 		print("[OYS] GET_NODES_IN_GROUP '%s' -> %d (saved to %s)" % [group, count, target_var])
 
-func _on_monitored_signal(p1=null, p2=null, p3=null, p4=null, p5=null):
+func _on_monitored_signal(p1 = null, p2 = null, p3 = null, p4 = null, p5 = null):
 	var args = [p1, p2, p3, p4, p5]
 	var key = ""
 	# Find the LAST non-null argument which is likely our bound key
@@ -1030,7 +1042,7 @@ func _handle_math_command(cmd: Dictionary):
 		"+": oys_variables[target_var] = val_left + val_right
 		"-": oys_variables[target_var] = val_left - val_right
 		"*": oys_variables[target_var] = val_left * val_right
-		"/": 
+		"/":
 			if val_right != 0:
 				oys_variables[target_var] = val_left / val_right
 			else:

@@ -670,14 +670,29 @@ func inject_input(data: Dictionary) -> void:
 		return
 	var input = InputDataV2.new()
 	input.from_dict(data)
-	# Skip normal _physics_process for this frame to avoid double step
+	# Ensure external input is stored for the next _physics_process
+	# or for manual step calls.
+	external_input = input
 	external_input_provided = true
-	step(FIXED_DT, input)
+
+	# If physics process is disabled (replay mode), we must step manually
+	if not is_physics_processing():
+		step(FIXED_DT, input)
 
 func step(dt: float, input: InputDataV2) -> void:
 	if input == null:
 		return  # End of replay, no more input
 	
+	# --- CONFIGURATION SYNC ---
+	# Update Input Provider config from Logic component (allows runtime tuning)
+	if is_instance_valid(movement_logic) and input_provider:
+		input_provider.move_response_curve = movement_logic.move_response_curve
+		input_provider.camera_response_curve = movement_logic.camera_response_curve
+
+	# Bloquea input de cámara si está lockeado
+	if camera_input_locked and input_provider:
+		input_provider.hardware_input_enabled = false
+
 	# 0. State Update
 	sidescroll_logic.step(dt) # Actualizar alpha al inicio para gating
 	var alpha = sidescroll_logic.transition_alpha
@@ -690,9 +705,11 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	# velocity.y and rotation state
 	if is_on_floor() and velocity.y < 0:
-		velocity.y = 0
-		if is_instance_valid(jump_logic):
-			jump_logic.set_internal_velocity(0.0)
+		# Only reset if we are not moving upwards due to slope alignment
+		if movement_logic.get_horizontal_velocity().y <= 0:
+			velocity.y = 0
+			if is_instance_valid(jump_logic):
+				jump_logic.set_internal_velocity(0.0)
 
 	# --- ROTATION, PAN & ZOOM ---
 	if not sidescroll_logic.is_active:
@@ -990,6 +1007,11 @@ func step(dt: float, input: InputDataV2) -> void:
 	velocity.x = h_vel.x
 	velocity.z = h_vel.z
 
+	# If on floor, preserve aligned Y component from movement logic
+	# (Prevents speed loss on slopes)
+	if is_on_floor():
+		velocity.y = h_vel.y
+
 	# 3. Aplicar Salto o Gravedad (Delegado al componente)
 	var old_vy = velocity.y
 	
@@ -1261,20 +1283,13 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 	return result
 
 func _physics_process(_delta):
-	# Update Input Provider config from Logic component (allows runtime tuning)
-	if is_instance_valid(movement_logic) and input_provider:
-		input_provider.move_response_curve = movement_logic.move_response_curve
-		input_provider.camera_response_curve = movement_logic.camera_response_curve
-
-	# Bloquea input de cámara si está lockeado
-	if camera_input_locked and input_provider:
-		input_provider.hardware_input_enabled = false
+	# If we are in replay mode, SessionManager is responsible for calling step()
+	if is_replay_mode:
+		return
 
 	if external_input_provided and external_input:
-		# Debug: log external input consumption to diagnose respawn race
 		external_input_provided = false
 		var input = external_input
-		var pos_before = global_transform.origin
 		step(FIXED_DT, input)
 	else:
 		var input = input_provider.get_input()

@@ -9,7 +9,7 @@ export(String, FILE, "*.oys") var script_file
 export(String, FILE, "*.oys") var exit_script_file
 export(String) var label_text: String = "" setget set_label_text
 export(bool) var trigger_once = true
-export(bool) var auto_pause_player = true
+export(bool) var center_player_on_enter = false
 
 func _ready():
 	add_to_group("OYSTrigger")
@@ -45,7 +45,16 @@ func _update_label():
 
 func _on_zone_entered(body: Node):
 	emit_signal("trigger_activated", body)
-	if script_file != "":
+	
+	# Durante JSON replay puro (is_replaying && !is_recording), NO ejecutar scripts
+	# porque sus efectos ya están capturados en el input buffer.
+	# Durante respawn, NO ejecutar scripts (el player está volviendo a un checkpoint)
+	# Solo ejecutar durante OYS recording o gameplay normal.
+	var session = get_node_or_null("/root/SessionManager")
+	var is_json_replay = session and session.is_replaying and not session.is_recording
+	var is_respawning = session and session.is_respawning
+	
+	if script_file != "" and not is_json_replay and not is_respawning:
 		_run_oys_on_body(body, script_file)
 	
 	if trigger_once:
@@ -56,7 +65,15 @@ func _on_zone_entered(body: Node):
 		script_file = ""
 
 func _on_zone_exited(body: Node):
-	if exit_script_file != "":
+	var comp = body.get_node_or_null("OYSComponent")
+	if comp and comp.has_method("on_trigger_exit"):
+		comp.on_trigger_exit()
+	
+	# Durante JSON replay puro (is_replaying && !is_recording), NO ejecutar scripts
+	var session = get_node_or_null("/root/SessionManager")
+	var is_json_replay = session and session.is_replaying and not session.is_recording
+	
+	if exit_script_file != "" and not is_json_replay:
 		_run_oys_on_body(body, exit_script_file)
 		if trigger_once:
 			exit_script_file = ""
@@ -68,12 +85,10 @@ func _run_oys_on_body(body: Node, path: String):
 		comp = OYSComponentClass.new()
 		comp.name = "OYSComponent"
 		body.add_child(comp)
-
-	comp.auto_pause_player = auto_pause_player
 	
 	# Posicionar el jugador en el centro XZ del trigger (mantener Y del jugador)
 	# para que las repeticiones sean idénticas
-	if body.is_in_group("player"):
+	if body.is_in_group("player") and center_player_on_enter:
 		var trigger_pos = global_transform.origin
 		var player_pos = body.global_transform.origin
 		
@@ -84,9 +99,9 @@ func _run_oys_on_body(body: Node, path: String):
 		var player_yaw = body.yaw if "yaw" in body else 0.0
 		var player_pitch = body.pitch if "pitch" in body else 0.0
 		
-		print("[OYSTrigger] Jugador será posicionado suavemente en: ", spawn_pos)
+		print("[OYSTrigger] Jugador posicionado en: ", spawn_pos)
 		
-		# Pasar la posición al componente para corrección suave y snapshot inicial
+		# Pasar la posición al componente para forzar posición y snapshot inicial
 		comp.set_initial_position(spawn_pos, player_yaw, player_pitch)
 	
 	comp.load_and_start(path)
