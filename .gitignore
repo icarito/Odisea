@@ -8,7 +8,7 @@ export.cfg
 # NOTE: CI requires Godot import metadata (.import/) to be present so headless runs can load resources.
 # If you prefer to track import metadata for deterministic CI, remove/comment the following entries
 # or commit the relevant .import files manually.
-# .import/
+.import/*.stex
 # *.import
 .vscode/
 
