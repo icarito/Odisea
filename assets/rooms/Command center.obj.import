@@ -1,0 +1,21 @@
+[remap]
+
+importer="wavefront_obj"
+type="Mesh"
+path="res://.import/Command center.obj-713a5b2262a6c943f8a14e213932adff.mesh"
+
+[deps]
+
+files=[ "res://.import/Command center.obj-713a5b2262a6c943f8a14e213932adff.mesh" ]
+
+source_file="res://assets/rooms/Command center.obj"
+dest_files=[ "res://.import/Command center.obj-713a5b2262a6c943f8a14e213932adff.mesh", "res://.import/Command center.obj-713a5b2262a6c943f8a14e213932adff.mesh" ]
+
+[params]
+
+scale_mesh=Vector3( 1, 1, 1 )
+offset_mesh=Vector3( 0, 0, 0 )
+optimize_mesh_flags=4286
+generate_tangents=true
+vertex_cache_optimization=true
+octahedral_compression=true

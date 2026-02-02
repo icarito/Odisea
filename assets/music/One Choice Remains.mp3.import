@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/One Choice Remains.mp3-65cfe8285714e3ddd879f6fcbcc6a276.mp3str"
+
+[deps]
+
+source_file="res://assets/music/One Choice Remains.mp3"
+dest_files=[ "res://.import/One Choice Remains.mp3-65cfe8285714e3ddd879f6fcbcc6a276.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0

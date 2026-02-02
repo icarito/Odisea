@@ -1,0 +1,35 @@
+[remap]
+
+importer="texture"
+type="StreamTexture"
+path="res://.import/texture_07.png-5bf6ca45910c2a82a4ea1e8378f34f54.stex"
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+source_file="res://textures/kenney_prototype_textures/dark/texture_07.png"
+dest_files=[ "res://.import/texture_07.png-5bf6ca45910c2a82a4ea1e8378f34f54.stex" ]
+
+[params]
+
+compress/mode=3
+compress/lossy_quality=0.7
+compress/hdr_mode=0
+compress/bptc_ldr=0
+compress/normal_map=0
+flags/repeat=true
+flags/filter=false
+flags/mipmaps=true
+flags/anisotropic=false
+flags/srgb=2
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/HDR_as_SRGB=false
+process/invert_color=false
+process/normal_map_invert_y=false
+stream=false
+size_limit=0
+detect_3d=false
+svg/scale=1.0

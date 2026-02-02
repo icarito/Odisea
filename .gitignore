@@ -2,10 +2,14 @@ experimental/
 port/third/third.pck
 maps/autosave/
 
+.gitignore: keep local generated imports out by default; CI requires imports present.
 # Godot-specific ignores
 export.cfg
-.import/
-*.import
+# NOTE: CI requires Godot import metadata (.import/) to be present so headless runs can load resources.
+# If you prefer to track import metadata for deterministic CI, remove/comment the following entries
+# or commit the relevant .import files manually.
+# .import/
+# *.import
 .vscode/
 
 # Imported translations (automatically generated from CSV files)
