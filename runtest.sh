@@ -31,9 +31,9 @@ if [ "$1" = "--show" ]; then
     shift
 fi
 
-# Configuración de logging - SIEMPRE guardar output
+# Configuración de logging - Generar nombre único para soporte concurrente
 LOG_DIR="./reports"
-LOG_FILE="$LOG_DIR/gdunit_runner.log"
+LOG_FILE="$LOG_DIR/gdunit_$(date +%Y%m%d_%H%M%S)_$$.log"
 mkdir -p "$LOG_DIR"
 
 # Limpiar OYS_FILTER de ejecuciones anteriores
@@ -76,6 +76,30 @@ print_summary_table() {
     done
 }
 
+# Función para validar logs y detectar errores silenciosos (como SCRIPT ERROR)
+validate_logs() {
+    local code=$1
+    if [ $code -eq 0 ]; then
+        # Si no se encontraron suites de tests, antes GdUnit devolvía 0; forzamos error
+        if grep -q "No test suites found, abort test run!" "$LOG_FILE" || grep -q "No test suites found" "$LOG_FILE"; then
+            echo "❌ ERROR: No test suites found. Failing run."
+            code=2
+        fi
+        # Detectar errores de carga de recursos que indican proyecto mal configurado
+        if grep -qi "Failed to load resource" "$LOG_FILE" || grep -qi "referenced nonexistent resource" "$LOG_FILE"; then
+            echo "❌ ERROR: Resource loading errors detected in Godot logs. Failing run."
+            code=3
+        fi
+        # Detectar SCRIPT ERROR que indica bugs en el código
+        if grep -q "SCRIPT ERROR:" "$LOG_FILE"; then
+            echo "❌ ERROR: Script errors detected. Failing run."
+            grep -A 5 "SCRIPT ERROR:" "$LOG_FILE" | head -n 20
+            code=4
+        fi
+    fi
+    return $code
+}
+
 # Verificar si es un test OYS específico
 if [ "$1" = "--oys" ]; then
     OYS_NAME="$2"
@@ -106,12 +130,17 @@ if [ "$1" = "--oys" ]; then
     
     # Usar variable de entorno OYS_FILTER para filtrar el test
     export OYS_FILTER="${OYS_NAME}"
-    $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd -v \
+    $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd \
         -a "./core_v2/tests/test_determinism_v2.gd" "$@" 2>&1 | tee "$LOG_FILE"
     exit_code=${PIPESTATUS[0]}
     
     echo "---"
     print_summary_table
+    
+    # Validar logs para detectar SCRIPT ERROR que GdUnit no ve como fail
+    validate_logs $exit_code
+    exit_code=$?
+
     echo ""
     echo "📋 Output completo en: $LOG_FILE"
     if [ $exit_code -eq 0 ]; then
@@ -129,11 +158,11 @@ fi
 
 echo "🧪 Ejecutando tests GdUnit3 ${HEADLESS:+(headless)}..."
 echo "📋 Output guardado en: $LOG_FILE"
-echo "Comando: $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd -v $*"
+echo "Comando: $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd $*"
 echo "---"
 
 # Ejecuta Godot con unbuffered output para ver resultados en tiempo real
-$GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd -v "$@" 2>&1 | tee "$LOG_FILE"
+$GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd "$@" 2>&1 | tee "$LOG_FILE"
 exit_code=${PIPESTATUS[0]}
 
 echo "---"
@@ -143,24 +172,8 @@ echo "📋 Log guardado en: $LOG_FILE"
 print_summary_table
 
 # Analizar la salida para detectar condiciones que deberían hacer fallar el job
-if [ $exit_code -eq 0 ]; then
-    # Si no se encontraron suites de tests, antes GdUnit devolvía 0; forzamos error
-    if grep -q "No test suites found, abort test run!" "$LOG_FILE" || grep -q "No test suites found" "$LOG_FILE"; then
-        echo "❌ ERROR: No test suites found. Failing CI run."
-        exit_code=2
-    fi
-    # Detectar errores de carga de recursos que indican proyecto mal configurado en CI
-    if grep -qi "Failed to load resource" "$LOG_FILE" || grep -qi "referenced nonexistent resource" "$LOG_FILE"; then
-        echo "❌ ERROR: Resource loading errors detected in Godot logs. Failing CI run."
-        exit_code=3
-    fi
-    # Detectar SCRIPT ERROR que indica bugs en el código
-    if grep -q "SCRIPT ERROR:" "$LOG_FILE"; then
-        echo "❌ ERROR: Script errors detected. Failing CI run."
-        grep "SCRIPT ERROR:" "$LOG_FILE" | head -5
-        exit_code=4
-    fi
-fi
+validate_logs $exit_code
+exit_code=$?
 
 if [ $exit_code -eq 0 ]; then
     echo "✅ Todos los tests pasaron"

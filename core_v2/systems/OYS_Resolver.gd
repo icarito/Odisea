@@ -161,9 +161,34 @@ static func _instruction_to_frames(inst: Dictionary, start_frame: int) -> Dictio
 			if not events.has(start_frame):
 				events[start_frame] = []
 			events[start_frame].append(OYS_Parser.serialize_instruction(inst))
+		
+		"ASSERT_SIGNAL":
+			var timeout = inst.get("timeout", 5.0)
+			var num_frames = OYS_Parser.duration_to_frames(timeout)
+			
+			# Event START at start_frame
+			if not events.has(start_frame):
+				events[start_frame] = []
+			var start_evt = OYS_Parser.serialize_instruction(inst)
+			start_evt["phase"] = "start"
+			events[start_frame].append(start_evt)
+			
+			# Wait frames
+			for i in range(num_frames):
+				frames[start_frame + i] = {}
+				
+			# Event CHECK at end of wait
+			var end_frame = start_frame + num_frames
+			if not events.has(end_frame):
+				events[end_frame] = []
+			var check_evt = OYS_Parser.serialize_instruction(inst)
+			check_evt["phase"] = "check"
+			events[end_frame].append(check_evt)
+			
+			next_frame = end_frame
 
 		# These commands are markers or runtime-only - just pass through or handle if needed
-		"SECTION", "END", "LEVEL", "ASSERT_SIGNAL", "GOTO", "IF", \
+		"SECTION", "END", "LEVEL", "GOTO", "IF", \
 		"PLAY_ANIM", "WAIT_ANIM", "SPAWN", "SET_TIME_SCALE", "SCREENSHOT", \
 		"CINEMATIC_START", "CINEMATIC_STOP", "RECORD_START", "RECORD_STOP":
 			pass

@@ -1,36 +1,4 @@
 {
-  "events": {
-    "0": [
-      {
-        "command": "PRINT",
-        "message": "Starting KillZone signal test"
-      },
-      {
-        "command": "ASSERT",
-        "condition": "pos.y > -1.0 \"Player should start above ground\""
-      },
-      {
-        "command": "SET",
-        "var": "pos",
-        "value": "(0, 0.5, 0)"
-      },
-      {
-        "command": "SET",
-        "var": "rot",
-        "value": "0"
-      }
-    ],
-    "180": [
-      {
-        "command": "PRINT",
-        "message": "Moving player to fall into killzone..."
-      },
-      {
-        "command": "PRINT",
-        "message": "SUCCESS: player_killed signal was emitted!"
-      }
-    ]
-  },
   "buffer": [
     {
       "input": {
@@ -38,16 +6,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -56,16 +22,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -74,16 +38,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -92,16 +54,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -110,16 +70,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -128,16 +86,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -146,16 +102,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -164,16 +118,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -182,16 +134,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -200,16 +150,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -218,16 +166,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -236,16 +182,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -254,16 +198,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -272,16 +214,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -290,16 +230,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -308,16 +246,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -326,16 +262,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -344,16 +278,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -362,16 +294,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -380,16 +310,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -398,16 +326,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -416,16 +342,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -434,16 +358,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -452,16 +374,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -470,16 +390,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -488,16 +406,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -506,16 +422,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -524,16 +438,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -542,16 +454,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -560,16 +470,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -578,16 +486,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -596,16 +502,14 @@
           0,
           1
         ],
-        "sprint": true
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
+        "mouse_delta": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -613,8 +517,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -622,8 +533,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -631,8 +549,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -640,8 +565,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -650,7 +582,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -658,8 +597,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -668,7 +614,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -676,8 +629,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -685,8 +645,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -694,8 +661,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -703,8 +677,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -713,7 +694,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -721,8 +709,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -731,7 +726,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -739,8 +741,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -749,7 +758,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -757,8 +773,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -767,7 +790,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -775,8 +805,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -784,8 +821,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -793,8 +837,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -802,8 +853,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -812,7 +870,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -820,8 +885,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -830,7 +902,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -838,8 +917,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -847,8 +933,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -856,8 +949,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -865,8 +965,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -875,7 +982,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -883,8 +997,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -893,7 +1014,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -901,8 +1029,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -910,8 +1045,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -919,8 +1061,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -928,8 +1077,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -938,7 +1094,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -946,8 +1109,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -956,7 +1126,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -964,8 +1141,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -973,8 +1157,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -982,8 +1173,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -991,8 +1189,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1001,7 +1206,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1009,8 +1221,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1019,7 +1238,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1027,8 +1253,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1036,8 +1269,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1045,8 +1285,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1054,8 +1301,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1064,7 +1318,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1072,8 +1333,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1082,7 +1350,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1090,8 +1365,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1099,8 +1381,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1108,8 +1397,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1117,8 +1413,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1127,7 +1430,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1135,8 +1445,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1145,7 +1462,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1153,8 +1477,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1162,8 +1493,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1171,8 +1509,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1180,8 +1525,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1190,7 +1542,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1198,8 +1557,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1208,7 +1574,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1216,8 +1589,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1225,8 +1605,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1234,8 +1621,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1243,8 +1637,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1252,8 +1653,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1261,8 +1669,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1270,8 +1685,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1279,8 +1701,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1289,7 +1718,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1297,8 +1733,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1307,7 +1750,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1315,8 +1765,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1324,8 +1781,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1333,8 +1797,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1342,8 +1813,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1352,7 +1830,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1360,8 +1845,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1370,7 +1862,14 @@
           0,
           1
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1378,8 +1877,15 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
@@ -1387,282 +1893,541 @@
         "move_vec": [
           0,
           1
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": true,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
         ],
-        "sprint": true
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     },
     {
       "input": {
         "move_vec": [
           0,
-          1
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
         ],
-        "sprint": true
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
       }
     }
   ],
+  "events": {
+    "0": [
+      {
+        "command": "SET",
+        "var": "pos",
+        "value": "(0, 0.5, 0)"
+      },
+      {
+        "command": "PRINT",
+        "message": "Starting KillZone signal test"
+      },
+      {
+        "command": "ASSERT",
+        "condition": "pos.y > -1.0 \"Player should start above ground\""
+      }
+    ],
+    "119": [
+      {
+        "command": "PRINT",
+        "message": "Moving player to fall into killzone..."
+      },
+      {
+        "command": "ASSERT_SIGNAL",
+        "signal": "player_killed",
+        "timeout": 5,
+        "path": "KillZoneV2",
+        "phase": "start"
+      }
+    ],
+    "148": [
+      {
+        "command": "ASSERT_SIGNAL",
+        "signal": "player_killed",
+        "timeout": 5,
+        "path": "KillZoneV2",
+        "phase": "check"
+      },
+      {
+        "command": "PRINT",
+        "message": "SUCCESS: player_killed signal was emitted!"
+      }
+    ]
+  },
+  "meta": {
+    "world_start_state": {
+
+    },
+    "scene_path": "res://core_v2/levels/TestScene_KillZone.tscn"
+  },
   "final_expected_state": {
     "position": [
-      -0,
-      -12.116905,
-      17.007406
+      -0.000001,
+      -4.203289,
+      12.825832
     ],
     "velocity": [
       0,
-      -18.433332,
-      7
+      -10.966666,
+      4.583329
     ],
     "yaw": 0,
     "pitch": 0,
@@ -1671,14 +2436,14 @@
       "horizontal_velocity": [
         0,
         0,
-        7
+        4.583329
       ],
       "external_velocity": [
         0,
         0,
         0
       ],
-      "camera_input_timer": 3,
+      "camera_input_timer": 2.466667,
       "is_tank_turn_mode": true,
       "current_turn_time": 0
     },
@@ -1714,7 +2479,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 196,
+      "frames_since_last_snap": 164,
       "last_input_vector": [
         0,
         0,
@@ -1792,5 +2557,8 @@
         1
       ]
     }
+  },
+  "oys_variables": {
+
   }
 }

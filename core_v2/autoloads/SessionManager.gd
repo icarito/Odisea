@@ -21,6 +21,7 @@ var oys_variables := {}
 var _peak_y := -999.0
 var oys_interpreter = null
 var oys_assert_failed = false
+var _monitored_signals = {}
 
 # Drift correction: checkpoint pendiente para guardar en el próximo frame
 var _pending_drift_checkpoint := false
@@ -30,6 +31,10 @@ var _pending_settle_checkpoint_frame := -1
 var _drift_checkpoints := {}
 # Contador de frames durante grabación
 var _recording_frame := 0
+# Sobrecarga de input para OYS Live execution
+var _oys_input_override := {}
+# Escena solicitada por OYS para guardar en meta
+var _oys_requested_scene := ""
 
 func _find_player():
 	if not is_instance_valid(player):
@@ -192,18 +197,66 @@ func _physics_process(_dt):
 		else:
 			stop_and_save_recording()
 
-	if is_replaying:
+	if is_recording:
+		# Consumir input desde el provider una única vez y usar ese mismo input
+		var input_data = null
+		if not _oys_input_override.empty():
+			input_data = InputDataV2.new()
+			input_data.from_dict(_oys_input_override)
+			# print("[SessionManager] Usando OYS override input en frame ", _recording_frame)
+			# NOT clearing override here - OYS Interpreter is now responsible for clearing its inputs
+		elif player and "input_provider" in player and player.input_provider:
+			input_data = player.input_provider.get_input()
+		else:
+			input_data = null
+		if input_data == null:
+			input_data = InputDataV2.new()
+		
+		var frame_entry = {"input": input_data.to_dict()}
+		
+		# Guardar drift checkpoint si el player dejó de tocar un RigidBody
+		if _pending_drift_checkpoint and is_instance_valid(player):
+			frame_entry["drift_checkpoint"] = {
+				"position": var2str(player.global_transform.origin)
+			}
+			_pending_drift_checkpoint = false
+			# Programar un checkpoint "settle" 15 frames después
+			_pending_settle_checkpoint_frame = _recording_frame + 15
+		
+		# Guardar checkpoint "settle" si llegamos al frame programado
+		if _recording_frame == _pending_settle_checkpoint_frame and is_instance_valid(player):
+			frame_entry["drift_checkpoint"] = {
+				"position": var2str(player.global_transform.origin)
+			}
+			_pending_settle_checkpoint_frame = -1
+		
+		buffer.append(frame_entry)
+		_recording_frame += 1
+		
+		if is_instance_valid(player) and player.global_transform.origin.y > _peak_y:
+			_peak_y = player.global_transform.origin.y
+		# Step player
+		if player and player.has_method("step"):
+			player.step(FIXED_DT, input_data)
+			# señalizamos para que PlayerController no vuelva a consumir el input este frame
+			player.external_input_provided = true
+		# Step plataformas TAMBIÉN durante grabación para determinismo
+		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+		for node in sync_nodes:
+			if node != player and node.has_method("step"):
+				node.step(FIXED_DT)
+		
+		# Sync total frames if we are also in "replaying" mode (for tests)
+		if is_replaying:
+			_total_replay_frames = _recording_frame
+
+	elif is_replaying:
 		# Supresor de inercia mandatorio en Frame 0 para eliminar drift de preparación
 		if _replay_frame == 0 and "velocity" in player:
 			player.velocity = Vector3.ZERO
 
-		# Execute Logic Events (SET, MATH, ASSERT) for this frame
+		# Execute Logic Events (SET, MATH, ASSERT) for this frame (PRE-STEP)
 		_check_events_for_frame(_replay_frame)
-
-		# Log and Stats (ANTES del step para que el Frame N muestre el estado PRE-step N)
-		# Debug frame logging disabled for cleaner test output
-		# if _replay_frame < 5:
-		# 	print("[SessionManager] DEBUG Frame %d (Pre-Step): pos=%s, vel=%s" % [_replay_frame, player.global_transform.origin, player.velocity if "velocity" in player else "N/A"])
 
 		if _replay_frame % 120 == 0 and _replay_frame >= 5:
 			print("[SessionManager] Frame %d: pos=%s" % [_replay_frame, player.global_transform.origin])
@@ -234,10 +287,6 @@ func _physics_process(_dt):
 		
 		# Si no hay más inputs, terminar
 		if input == null:
-			# Check if we have events pending beyond the input buffer?
-			# Probably not, but maybe at the very end.
-			# Execute any events scheduled for the last frame or beyond if necessary
-			# But current design links events to frames.
 			run_playback()
 			return
 		
@@ -252,46 +301,6 @@ func _physics_process(_dt):
 
 		_replay_frame += 1
 		_total_replay_frames = _replay_frame
-	elif is_recording:
-		# Consumir input desde el provider una única vez y usar ese mismo input
-		var input_data = null
-		if player and "input_provider" in player and player.input_provider:
-			input_data = player.input_provider.get_input()
-		else:
-			input_data = null
-		if input_data == null:
-			input_data = InputDataV2.new()
-		
-		var frame_entry = {"input": input_data.to_dict()}
-		
-		# Guardar drift checkpoint si el player dejó de tocar un RigidBody
-		if _pending_drift_checkpoint and is_instance_valid(player):
-			frame_entry["drift_checkpoint"] = {
-				"position": var2str(player.global_transform.origin)
-			}
-			_pending_drift_checkpoint = false
-			# Programar un checkpoint "settle" 15 frames después
-			_pending_settle_checkpoint_frame = _recording_frame + 15
-		
-		# Guardar checkpoint "settle" si llegamos al frame programado
-		if _recording_frame == _pending_settle_checkpoint_frame and is_instance_valid(player):
-			frame_entry["drift_checkpoint"] = {
-				"position": var2str(player.global_transform.origin)
-			}
-			_pending_settle_checkpoint_frame = -1
-		
-		buffer.append(frame_entry)
-		_recording_frame += 1
-		# Step player
-		if player and player.has_method("step"):
-			player.step(FIXED_DT, input_data)
-			# señalizamos para que PlayerController no vuelva a consumir el input este frame
-			player.external_input_provided = true
-		# Step plataformas TAMBIÉN durante grabación para determinismo
-		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
-		for node in sync_nodes:
-			if node != player and node.has_method("step"):
-				node.step(FIXED_DT)
 
 func start_recording():
 	if not is_instance_valid(player):
@@ -324,12 +333,7 @@ func start_recording():
 			player.connect("rigid_contact_ended", self, "_on_rigid_contact_ended")
 	
 	# --- Capturar estado inicial del mundo (nodos en 'replay_sync') ---
-	var world_start_state = {}
-	for node in sync_nodes:
-		if node.has_method("get_snapshot"):
-			world_start_state[node.get_path()] = node.get_snapshot()
-		else:
-			printerr("Node %s in group 'replay_sync' does not have get_snapshot() method." % node.name)
+	var world_start_state = _get_world_state_snapshot()
 	replay_meta["world_start_state"] = world_start_state
 
 	# Guardamos el estado inicial como primer elemento del buffer
@@ -337,6 +341,16 @@ func start_recording():
 		buffer.append({"snapshot": player.get_full_snapshot()})
 		var cam = player.get_node_or_null("CameraRig")
 		print("GRAB_START\nrotation:", player.yaw, player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam.global_transform.origin if cam else "null")
+
+func _get_world_state_snapshot() -> Dictionary:
+	var snapshot = {}
+	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+	for node in sync_nodes:
+		if node.has_method("get_snapshot"):
+			snapshot[node.get_path()] = node.get_snapshot()
+		else:
+			print("Warning: Node %s in group 'replay_sync' does not have get_snapshot() method." % node.name)
+	return snapshot
 
 func _on_rigid_contact_ended():
 	# Marcar que debemos guardar un checkpoint en el próximo frame del buffer
@@ -378,11 +392,24 @@ var _playback_printed_end := false
 func load_and_play(path: String):
 	print("[SessionManager] load_and_play called with: ", path)
 	is_replaying = false
+	is_recording = false
+	oys_assert_failed = false
+	event_timeline = {}
+	oys_variables = {}
 	_replay_frame = 0
+	_recording_frame = 0
 	_total_replay_frames = 0
 	_drift_validated = false
+	_oys_input_override = {}
 	final_expected_state = null
 	_current_replay_data = {}
+	_oys_requested_scene = ""
+	_peak_y = -999.0
+	Engine.time_scale = 1.0
+	
+	_find_player()
+	if is_instance_valid(player) and player.has_method("full_reset"):
+		player.full_reset()
 	
 	_current_replay_path = path
 	var ext = path.get_extension().to_lower()
@@ -395,10 +422,17 @@ func load_and_play(path: String):
 		file.open(path, File.READ)
 		var script_content = file.get_as_text()
 		file.close()
-		var resolver = load("res://core_v2/systems/OYS_Resolver.gd")
-		var result = resolver.parse_script(script_content)
+
+		# Initialize for Live Script Execution (SETUP MODE)
+		_recording_frame = 0
+		_current_replay_data = {"buffer": [], "events": {}}
+		buffer.clear()
+		oys_variables = {}
+		_monitored_signals = {}
+		oys_assert_failed = false
+
+		# Find/Load Level
 		var scene_path = "res://core_v2/levels/TestScene_v2.tscn"
-		# Buscar LEVEL en el script (línea que comience con LEVEL)
 		for line in script_content.split("\n"):
 			var l = line.strip_edges()
 			if l.begins_with("LEVEL"):
@@ -406,8 +440,9 @@ func load_and_play(path: String):
 				if parts.size() > 1:
 					scene_path = parts[1]
 				break
-		# --- Scene Management ---
-		# En entornos de test o modo manual, confiamos en que el runner ya instanció la escena.
+		
+		_oys_requested_scene = scene_path
+		
 		_find_player()
 		if not is_manual_mode and player == null:
 			if get_tree().current_scene == null or get_tree().current_scene.filename != scene_path:
@@ -416,39 +451,72 @@ func load_and_play(path: String):
 					var inst = packed.instance()
 					get_tree().root.add_child(inst)
 					get_tree().current_scene = inst
-					# Esperar a que el nuevo Pilot se registre
 					yield (get_tree(), "idle_frame")
 					_find_player()
-		# Unificar formato: OYS -> JSON-like buffer
-		# result now contains "events"
-		var unified_data = {
-			"events": result.get("events", {}),
-			"buffer": []
-		}
-		for raw_input in result.get("buffer", []):
-			unified_data.buffer.append({"input": raw_input})
 		
-		# Handle initial state via SET/Math/Events in Frame 0
-		# If there are no initial pos/rot events, add defaults.
-		if not unified_data.events.has(0):
-			unified_data.events[0] = []
+		# Enforce input inhibition for OYS live execution
+		if is_instance_valid(player):
+			player.is_replay_mode = true
+			if "input_provider" in player and is_instance_valid(player.input_provider):
+				player.input_provider.hardware_input_enabled = false
 		
-		# Check for existing pos/rot sets
-		var has_pos = false
-		var has_rot = false
-		for e in unified_data.events[0]:
-			if e.command == "SET" and e.get("var") == "pos": has_pos = true
-			if e.command == "SET" and e.get("var") == "rot": has_rot = true
+		# NOW start the run
+		is_replaying = true
+		is_recording = true
 		
-		if not has_pos:
-			unified_data.events[0].append({"command": "SET", "var": "pos", "value": "(0, 0.5, 0)"})
-		if not has_rot:
-			unified_data.events[0].append({"command": "SET", "var": "rot", "value": "0"})
+		if _should_snapshot:
+			if not _current_replay_data.has("meta"): _current_replay_data["meta"] = {}
+			_current_replay_data["meta"]["world_start_state"] = _get_world_state_snapshot()
 		
-		_current_replay_data = unified_data
+		# Desactivar _physics_process en plataformas para control manual
+		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+		for node in sync_nodes:
+			if node != player:
+				node.set_physics_process(false)
+
+		# Run Interpreter
+		var OYS_Interpreter = load("res://core_v2/systems/OYS_Interpreter.gd")
+		var interpreter = OYS_Interpreter.new(self)
+		interpreter.parse(script_content)
+		interpreter.connect("instruction_executed", self, "_on_oys_instruction_executed")
+		interpreter.connect("instruction_completed", self, "_on_oys_instruction_completed")
+		oys_interpreter = interpreter
+
+		# Default initial state if player exists
+		if player:
+			# Check if script has a SET pos at the very beginning (simplistic)
+			var has_initial_setup = false
+			for inst in interpreter.instructions:
+				if inst.command == "SET" and inst.get("var") == "pos":
+					has_initial_setup = true
+					break
+				if inst.command in ["FW", "BW", "LEFT", "RIGHT", "WAIT", "JUMP"]:
+					break # Stop looking after first time-consuming command
+			
+			if not has_initial_setup:
+				print("[SessionManager] No initial 'SET pos' found, applying default (0, 0.5, 0)")
+				player.teleport_to(Transform(Basis.IDENTITY, Vector3(0, 0.5, 0)))
+				# Record this as an event too so it's in the JSON
+				_on_oys_instruction_executed({"command": "SET", "var": "pos", "value": "(0, 0.5, 0)"}, {})
+
+		# Start the run
+		yield (interpreter.run(), "completed")
+		if interpreter.test_failed:
+			oys_assert_failed = true
 		
-		play_buffer(unified_data.buffer, unified_data)
+		# End of script
+		is_recording = false
+		_total_replay_frames = _recording_frame
+		_replay_frame = _recording_frame
+		
+		# Transfer recorded buffer to replay data for saving
+		_current_replay_data["buffer"] = []
+		for frame_input in buffer:
+			_current_replay_data["buffer"].append(frame_input)
+		
+		_finish_and_validate()
 		return
+
 	# JSON tradicional
 	var file = File.new()
 	if not file.file_exists(path):
@@ -481,19 +549,48 @@ func load_and_play(path: String):
 		for s in data.get("setters", []):
 			var f = int(s.get("frame", 0))
 			if not data.events.has(f): data.events[f] = []
-			var cmd = s.duplicate()
-			cmd["command"] = "SET"
-			cmd["var"] = s.get("property")
-			data.events[f].append(cmd)
+			var c = s.duplicate()
+			c["command"] = "SET"
+			c["var"] = s.get("property")
+			data.events[f].append(c)
 			
 		for a in data.get("asserts", []):
 			var f = int(a.get("frame", 0))
 			if not data.events.has(f): data.events[f] = []
-			var cmd = a.duplicate()
-			cmd["command"] = "ASSERT"
-			data.events[f].append(cmd)
+			var c = a.duplicate()
+			c["command"] = "ASSERT"
+			data.events[f].append(c)
 	
 	play_buffer(input_buffer, data)
+
+func _on_oys_instruction_executed(inst: Dictionary, _vars: Dictionary):
+	if not is_recording: return
+	
+	var frame = _recording_frame
+	if not _current_replay_data["events"].has(frame):
+		_current_replay_data["events"][frame] = []
+	
+	var cmd = inst.get("command", "")
+	match cmd:
+		"ASSERT", "SET", "MATH", "PRINT", "GET_NODES_IN_GROUP":
+			_current_replay_data["events"][frame].append(OYS_Parser.serialize_instruction(inst))
+		"ASSERT_SIGNAL":
+			var start_evt = OYS_Parser.serialize_instruction(inst)
+			start_evt["phase"] = "start"
+			_current_replay_data["events"][frame].append(start_evt)
+
+func _on_oys_instruction_completed(inst: Dictionary, _vars: Dictionary):
+	if not is_recording: return
+	
+	var cmd = inst.get("command", "")
+	if cmd == "ASSERT_SIGNAL":
+		var frame = _recording_frame
+		if not _current_replay_data["events"].has(frame):
+			_current_replay_data["events"][frame] = []
+		
+		var check_evt = OYS_Parser.serialize_instruction(inst)
+		check_evt["phase"] = "check"
+		_current_replay_data["events"][frame].append(check_evt)
 
 
 func _apply_setters(setters: Array):
@@ -595,6 +692,7 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 	# Initialize Event Runtime
 	event_timeline = {}
 	oys_variables = {}
+	_monitored_signals = {}
 	
 	var raw_events = replay_data.get("events", {})
 	# Ensure integer keys
@@ -670,6 +768,11 @@ func _finish_and_validate():
 		
 		var final_data = _current_replay_data.duplicate(true)
 		final_data["final_expected_state"] = player.get_full_snapshot()
+		if not final_data.has("meta"):
+			final_data["meta"] = {}
+		if _oys_requested_scene != "":
+			final_data["meta"]["scene_path"] = _oys_requested_scene
+		
 		if oys_interpreter:
 			final_data["oys_variables"] = oys_interpreter.variables
 		
@@ -717,6 +820,10 @@ func _execute_event(cmd: Dictionary):
 			# Simple variable substitution
 			msg = _resolve_variables_in_string(msg)
 			print("[OYS] ", msg)
+		"ASSERT_SIGNAL":
+			_handle_assert_signal(cmd)
+		"GET_NODES_IN_GROUP":
+			_handle_get_nodes_in_group(cmd)
 
 func _resolve_variables_in_string(msg: String) -> String:
 	if "$" in msg:
@@ -725,6 +832,62 @@ func _resolve_variables_in_string(msg: String) -> String:
 			if placeholder in msg:
 				msg = msg.replace(placeholder, str(oys_variables[key]))
 	return msg
+
+func _handle_assert_signal(cmd: Dictionary):
+	var phase = cmd.get("phase", "start")
+	var signal_name = cmd.get("signal", "")
+	var target_name = cmd.get("path", "")
+	
+	if signal_name == "": return
+
+	var key = target_name + "::" + signal_name
+
+	if phase == "start":
+		# Reset state
+		_monitored_signals[key] = false
+		
+		# Find target node
+		var target_node = _find_node_recursive(target_name)
+		
+		if target_node:
+			if not target_node.is_connected(signal_name, self, "_on_monitored_signal"):
+				target_node.connect(signal_name, self, "_on_monitored_signal", [key])
+			print("[OYS] Listening for signal '%s' on %s" % [signal_name, target_node.name])
+		else:
+			printerr("[OYS] ASSERT_SIGNAL ERROR: Could not find node '%s'" % target_name)
+			
+	elif phase == "check":
+		if _monitored_signals.get(key, false):
+			print("[OYS] ✅ ASSERT_SIGNAL SUCCESS: '%s' was emitted." % signal_name)
+		else:
+			printerr("❌ [OYS] ASSERT_SIGNAL FAILED: '%s' was NOT emitted on '%s' within timeout." % [signal_name, target_name])
+			oys_assert_failed = true
+
+func _handle_get_nodes_in_group(cmd: Dictionary):
+	var group = cmd.get("group", "")
+	var target_var = cmd.get("target", "")
+	if group == "": return
+	
+	var nodes = get_tree().get_nodes_in_group(group)
+	var count = nodes.size()
+	
+	if target_var != "":
+		oys_variables[target_var] = count
+		print("[OYS] GET_NODES_IN_GROUP '%s' -> %d (saved to %s)" % [group, count, target_var])
+
+func _on_monitored_signal(p1=null, p2=null, p3=null, p4=null, p5=null):
+	var args = [p1, p2, p3, p4, p5]
+	var key = ""
+	# Find the LAST non-null argument which is likely our bound key
+	for i in range(4, -1, -1):
+		if args[i] != null:
+			if typeof(args[i]) == TYPE_STRING and "::" in args[i]:
+				key = args[i]
+				break
+	
+	if key != "":
+		_monitored_signals[key] = true
+
 
 func _handle_set_command(cmd: Dictionary):
 	var target_var = cmd.get("var", "")

@@ -591,6 +591,9 @@ func _clear_interactable():
 		emit_signal("interactable_out_of_range")
 
 func _input(event):
+	if is_replay_mode:
+		return
+		
 	# La única responsabilidad en _input es acumular el delta del mouse
 	# para que el InputProvider lo consuma en el frame de física.
 	if event is InputEventMouseMotion:
