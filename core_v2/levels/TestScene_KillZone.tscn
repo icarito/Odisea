@@ -31,6 +31,8 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
 [node name="KillZoneV2" type="Area" parent="."]
 collision_layer = 2
 script = ExtResource( 3 )
+debug_color = Color( 1, 0, 0, 0.3 )
+zone_extents = Vector3( 20, 1, 20 )
 
 [node name="CollisionShape" type="CollisionShape" parent="KillZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0 )

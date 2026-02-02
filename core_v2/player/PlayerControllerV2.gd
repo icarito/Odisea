@@ -25,19 +25,19 @@ export(float) var max_pitch := 85.0
 export(float) var interact_distance := 3.0
 
 # Stair-stepping Configuration
-export(float) var step_height := 0.4  # Max height to auto-climb (typical stair step)
-export(float) var step_depth := 0.5   # How far forward to probe for steps (increased for reliability)
-export var enable_step_up := true     # Toggle stair-stepping
-export(float) var step_grounded_grace := 0.15  # Seconds to stay "grounded" after stepping
+export(float) var step_height := 0.4 # Max height to auto-climb (typical stair step)
+export(float) var step_depth := 0.5 # How far forward to probe for steps (increased for reliability)
+export var enable_step_up := true # Toggle stair-stepping
+export(float) var step_grounded_grace := 0.15 # Seconds to stay "grounded" after stepping
 
 # Stair-stepping state
-var _step_grounded_timer := 0.0  # Grace period to keep grounded state for animations
-var _just_stepped := false       # Flag set when we step up
+var _step_grounded_timer := 0.0 # Grace period to keep grounded state for animations
+var _just_stepped := false # Flag set when we step up
 
 # Platform Transform Tracking (replaces velocity-based approach)
 var _platform_collider: Spatial = null
 var _platform_last_transform: Transform = Transform.IDENTITY
-var _platform_velocity: Vector3 = Vector3.ZERO  # Calculated from transform delta
+var _platform_velocity: Vector3 = Vector3.ZERO # Calculated from transform delta
 var _was_on_platform := false
 
 # 2.5D Mode State (Delegated to Component)
@@ -69,14 +69,14 @@ var _forward_latch_sign := 1.0
 # Direction Latch System - Evita cambios bruscos de dirección al entrar/salir de zonas
 # Guarda el CONTEXTO de interpretación de input cuando cambia la cámara
 var _direction_latch_active := false
-var _latched_camera_basis := Basis.IDENTITY  # Basis de cámara para interpretar input
-var _latched_sidescroll_active := false  # Si estábamos en modo sidescroll
-var _latched_sidescroll_basis := Basis.IDENTITY  # Basis del sidescroll para latched mode
-var _latched_cinematic_mode := -1  # Modo de control cinemático (-1 = no cinematic)
-var _latched_input_vec := Vector2.ZERO  # Input que activó el latch (para saber cuándo liberar)
+var _latched_camera_basis := Basis.IDENTITY # Basis de cámara para interpretar input
+var _latched_sidescroll_active := false # Si estábamos en modo sidescroll
+var _latched_sidescroll_basis := Basis.IDENTITY # Basis del sidescroll para latched mode
+var _latched_cinematic_mode := -1 # Modo de control cinemático (-1 = no cinematic)
+var _latched_input_vec := Vector2.ZERO # Input que activó el latch (para saber cuándo liberar)
 var _prev_sidescroll_active := false
-var _prev_cinematic_rig = null  # Referencia al rig cinemático anterior
-var _prev_camera_basis := Basis.IDENTITY  # Basis de cámara del frame anterior
+var _prev_cinematic_rig = null # Referencia al rig cinemático anterior
+var _prev_camera_basis := Basis.IDENTITY # Basis de cámara del frame anterior
 
 # Métodos de acceso para export (opcional, para Inspector)
 func set_mouse_sensitivity(v):
@@ -484,7 +484,7 @@ func _get_move_direction(input_vector: Vector2, control_mode: int) -> Vector3:
 		
 		CinematicManager.ControlMode.LOCKED_VIEW:
 			# "Arriba" en el stick siempre es "Hacia el fondo" de la cámara
-			var forward = -camera.global_transform.basis.z
+			var forward = - camera.global_transform.basis.z
 			var right = camera.global_transform.basis.x
 			forward.y = 0
 			right.y = 0
@@ -715,14 +715,14 @@ func step(dt: float, input: InputDataV2) -> void:
 	# Si hay input activo y cambió el contexto, activar el latch según flags
 	var has_movement_input = input.move_vec.length() > 0.1
 	if context_changed and has_movement_input and not _direction_latch_active:
-		var zone_latch_on_enter := true  # Por defecto true, la zona puede override
-		var zone_latch_on_exit := true   # Por defecto true, la zona puede override
+		var zone_latch_on_enter := true # Por defecto true, la zona puede override
+		var zone_latch_on_exit := true # Por defecto true, la zona puede override
 		# Consultar zona activa para sidescroll
-		if sidescroll_logic.is_active and sidescroll_logic.zone != null and sidescroll_logic.zone is Node:
-			if "latch_on_enter" in sidescroll_logic.zone:
-				zone_latch_on_enter = sidescroll_logic.zone.latch_on_enter
-			if "latch_on_exit" in sidescroll_logic.zone:
-				zone_latch_on_exit = sidescroll_logic.zone.latch_on_exit
+		#if sidescroll_logic.is_active:
+		#	if "latch_on_enter" in sidescroll_logic.zone:
+		#		zone_latch_on_enter = sidescroll_logic.zone.latch_on_enter
+		#	if "latch_on_exit" in sidescroll_logic.zone:
+		#		zone_latch_on_exit = sidescroll_logic.zone.latch_on_exit
 		
 		# Para cinematic, buscar la zona que activó el rig
 		var cinematic_zone = null
@@ -765,7 +765,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	# Actualizar las referencias "prev" para el próximo frame
 	_prev_sidescroll_active = sidescroll_logic.is_active
 	_prev_cinematic_rig = active_rig
-	_prev_camera_basis = get_camera_basis()  # Guardar basis actual para el próximo frame
+	_prev_camera_basis = get_camera_basis() # Guardar basis actual para el próximo frame
 	
 	# Liberar el latch cuando las teclas ORIGINALES se suelten
 	# Comparamos el signo de cada eje: si la tecla original ya no está activa, liberar
@@ -994,7 +994,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		if step_result.stepped:
 			global_transform.origin = step_result.position
 			_just_stepped = true
-			_step_grounded_timer = step_grounded_grace  # Reset grace timer
+			_step_grounded_timer = step_grounded_grace # Reset grace timer
 	
 	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true, 4, deg2rad(45), false)
 	
@@ -1058,7 +1058,7 @@ func _update_floor_info() -> void:
 	# Find the floor collision (normal pointing mostly upward)
 	for i in get_slide_count():
 		var collision = get_slide_collision(i)
-		if collision.normal.y > 0.7:  # Floor-like surface
+		if collision.normal.y > 0.7: # Floor-like surface
 			movement_logic.set_floor_normal(collision.normal)
 			return
 	
@@ -1082,7 +1082,7 @@ func _update_platform_tracking(dt: float) -> void:
 	if is_on_floor():
 		for i in get_slide_count():
 			var collision = get_slide_collision(i)
-			if collision.normal.y > 0.7:  # Floor-like surface
+			if collision.normal.y > 0.7: # Floor-like surface
 				var collider = collision.collider
 				if collider is Spatial and not collider is StaticBody:
 					new_platform = collider
@@ -1130,7 +1130,7 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 	3. Cast down from elevated position to find the step surface
 	4. If valid floor found within step_height, return the stepped-up position
 	"""
-	var result = { "stepped": false, "position": global_transform.origin }
+	var result = {"stepped": false, "position": global_transform.origin}
 	
 	if motion.length_squared() < 0.0001:
 		return result
