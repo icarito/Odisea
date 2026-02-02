@@ -21,6 +21,8 @@ var oys_variables := {}
 var _peak_y := -999.0
 var oys_interpreter = null
 var oys_assert_failed = false
+var _pending_asserts := []
+var _pending_setters := []
 var _monitored_signals = {}
 
 # Drift correction: checkpoint pendiente para guardar en el próximo frame
@@ -648,6 +650,8 @@ func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
 	for f in raw_events:
 		event_timeline[int(f)] = raw_events[f]
 
+	_pending_asserts = replay_data.get("asserts", [])
+	_pending_setters = replay_data.get("setters", [])
 	_peak_y = player.global_transform.origin.y if is_instance_valid(player) else 0.0
 	final_expected_state = replay_data.get("final_expected_state", null)
 

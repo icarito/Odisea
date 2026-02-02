@@ -31,6 +31,7 @@
 [ext_resource path="res://core_v2/things/CheckZoneV2.tscn" type="PackedScene" id=29]
 [ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=30]
 [ext_resource path="res://core_v2/components/CinematicCameraZone.tscn" type="PackedScene" id=31]
+[ext_resource path="res://scenes/reference/InteriorLab.tscn" type="PackedScene" id=32]
 [ext_resource path="res://textures/kenney_prototype_textures/green/texture_11.png" type="Texture" id=33]
 [ext_resource path="res://core_v2/visual/CinematicPathRig.gd" type="Script" id=34]
 
@@ -918,6 +919,12 @@ transform = Transform( -8.74228e-07, 0, 1, 0, 1, 0, -20, 0, -4.37114e-08, 40, 1,
 [node name="GuardrailSegment3" parent="." instance=ExtResource( 21 )]
 transform = Transform( -8.74228e-07, 0, 1, 0, 1, 0, -20, 0, -4.37114e-08, -39.8813, 1, -0.118675 )
 
+[node name="GuardrailSegment4" parent="." instance=ExtResource( 21 )]
+transform = Transform( 20, 0, 2.38419e-07, 0, 1, 0, -4.76837e-06, 0, 1, 0.118689, 1, -40.1187 )
+
+[node name="GuardrailSegment5" parent="." instance=ExtResource( 21 )]
+transform = Transform( -20, 0, -1.50996e-07, 0, 1, 0, 3.01992e-06, 0, -1, 0.118704, 1, 39.8813 )
+
 [node name="GuardrailSegment2" parent="." instance=ExtResource( 21 )]
 transform = Transform( 2.38498e-07, 0, -1, 0, 1, 0, 20, 0, 1.19249e-08, -40, 1, 0 )
 
@@ -1506,5 +1513,12 @@ far = 1000.0
 [node name="AnimationPlayer" type="AnimationPlayer" parent="CornerFloor/CinematicCameraZone/CinematicPathRig"]
 anims/dolly = SubResource( 1037 )
 
+[node name="InteriorWide" parent="." instance=ExtResource( 32 )]
+
+[node name="DirectionalLight" parent="InteriorWide" index="0"]
+transform = Transform( -0.315579, 0.252033, -0.914757, -0.125866, 0.951167, 0.30541, 0.940509, 0.211516, -0.265529, 0.464873, 30.9615, 3.10425 )
+directional_shadow_fade_start = 0.04
+
 [editable path="CornerFloor2/CrioPod"]
 [editable path="SideScrollZone4"]
+[editable path="InteriorWide"]
