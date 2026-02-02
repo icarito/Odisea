@@ -1,4 +1,5 @@
 extends BaseZoneV2
+tool
 class_name KillZoneV2
 
 signal player_killed

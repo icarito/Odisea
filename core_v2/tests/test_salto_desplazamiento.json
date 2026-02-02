@@ -2095,22 +2095,6 @@
         "sprint": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -2127,7 +2111,7 @@
     "41": [
 
     ],
-    "132": [
+    "131": [
       {
         "command": "ASSERT",
         "condition": "pos.z > 3.0 \"ERROR: No hubo suficiente inercia horizontal en el salto\""
@@ -2494,7 +2478,7 @@
         0,
         0
       ],
-      "camera_input_timer": 2.2,
+      "camera_input_timer": 2.183333,
       "is_tank_turn_mode": true,
       "current_turn_time": 0
     },
@@ -2530,7 +2514,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 148,
+      "frames_since_last_snap": 147,
       "last_input_vector": [
         0,
         0,

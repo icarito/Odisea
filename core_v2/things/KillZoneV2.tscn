@@ -3,12 +3,11 @@
 [ext_resource path="res://core_v2/components/KillZoneV2.gd" type="Script" id=1]
 
 [sub_resource type="BoxShape" id=1]
-extents = Vector3( 1, 1, 1 )
 
 [node name="KillZoneV2" type="Area"]
 script = ExtResource( 1 )
 debug_color = Color( 1, 0, 0, 0.3 )
-zone_extents = Vector3( 1, 1, 1 )
+debug_render = false
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 shape = SubResource( 1 )

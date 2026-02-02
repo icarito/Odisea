@@ -4815,6 +4815,22 @@
         "sprint": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -4831,10 +4847,10 @@
     "240": [
 
     ],
-    "300": [
+    "301": [
 
     ],
-    "301": [
+    "302": [
 
     ]
   },
@@ -4847,13 +4863,13 @@
   "final_expected_state": {
     "position": [
       -0,
-      -40.086159,
-      24.327827
+      -40.64616,
+      24.358383
     ],
     "velocity": [
       0,
-      -33.366665,
-      1.916663
+      -33.599998,
+      1.83333
     ],
     "yaw": 0,
     "pitch": 0,
@@ -4862,14 +4878,14 @@
       "horizontal_velocity": [
         0,
         0,
-        1.916663
+        1.83333
       ],
       "external_velocity": [
         0,
         0,
         0
       ],
-      "camera_input_timer": 5.016667,
+      "camera_input_timer": 5.033333,
       "is_tank_turn_mode": true,
       "current_turn_time": 0
     },
@@ -4905,7 +4921,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 317,
+      "frames_since_last_snap": 318,
       "last_input_vector": [
         0,
         0,
