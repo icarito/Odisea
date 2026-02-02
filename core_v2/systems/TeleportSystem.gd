@@ -218,7 +218,8 @@ func _respawn_at_spawn_or_zero():
 func _on_player_killed():
 	print("[TeleportSystem] _on_player_killed ejecutado! (señal recibida)")
 	print("[TeleportSystem] self:", self, " path=", get_path())
-	print("[TeleportSystem] player_controller:", player_controller, " path=", player_controller.get_path() if player_controller else "null")
+	var pc_path = player_controller.get_path() if is_instance_valid(player_controller) else "null"
+	print("[TeleportSystem] player_controller:", player_controller, " path=", pc_path)
 	
 	# Buscar player_controller si es null
 	if not player_controller:
@@ -229,9 +230,11 @@ func _on_player_killed():
 		else:
 			print("[TeleportSystem] No se pudo encontrar Pilot en el árbol")
 	
-	if player_controller:
+	if is_instance_valid(player_controller):
 		print("[TeleportSystem] player_controller.global_transform=", player_controller.global_transform)
 		print("[TeleportSystem] player_controller.initial_transform=", player_controller.initial_transform)
+	else:
+		printerr("[TeleportSystem] ERROR: player_controller is invalid/freed in _on_player_killed!")
 
 	# 1. Intentar cargar el último checkpoint guardado (PersistenceManager)
 	var persistence_manager = get_node_or_null("/root/PersistenceManager")
@@ -269,18 +272,20 @@ func _on_player_killed():
 			target_yaw = 0
 			target_pitch = 0
 			print("[TeleportSystem] Respawn usando cached initial_spawn_transform.")
-		elif player_controller:
+		elif is_instance_valid(player_controller):
 			target_transform = player_controller.initial_transform
 			target_yaw = 0  # Asumir yaw inicial 0, o si hay, pero por ahora 0
 			target_pitch = 0
 			print("[TeleportSystem] Respawn usando posición inicial del player.")
+		elif player_controller:
+			printerr("[TeleportSystem] ERROR: player_controller is not valid when accessing initial_transform!")
 		else:
 			target_transform = Transform()
 			print("[TeleportSystem] Respawn usando Transform.ZERO.")
 
 	print("[TeleportSystem] Reinstanciando Pilot en:", target_transform)
 	# Eliminar el Pilot actual
-	if player_controller and player_controller.is_inside_tree():
+	if is_instance_valid(player_controller) and player_controller.is_inside_tree():
 		var parent = player_controller.get_parent()
 		player_controller.queue_free()
 		yield(get_tree(), "idle_frame")
