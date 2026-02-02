@@ -3253,7 +3253,41 @@
   },
   "meta": {
     "world_start_state": {
-
+      "/root/TestCinematicScene/Floor/CinematicCameraZone/CinematicPathRig": {
+        "is_active": false,
+        "transition_alpha": 0,
+        "target_offset": 0,
+        "last_deactivate_time": 0,
+        "source_transform": {
+          "origin": "(0, 0, 0)",
+          "basis": {
+            "x": "(1, 0, 0)",
+            "y": "(0, 1, 0)",
+            "z": "(0, 0, 1)"
+          }
+        },
+        "source_fov": 70,
+        "unit_offset": 0,
+        "current_animation": "",
+        "playback_position": 0
+      },
+      "CinematicManager": {
+        "current_control_mode": 0,
+        "is_transitioning": false,
+        "transition_timer": 0,
+        "transition_duration": 0,
+        "source_transform": {
+          "origin": "(0, 0, 0)",
+          "basis": {
+            "x": "(0, 0, 0)",
+            "y": "(0, 0, 0)",
+            "z": "(0, 0, 0)"
+          }
+        },
+        "source_fov": 0,
+        "active_rig_path": "",
+        "current_camera_path": "/root/TestCinematicScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
+      }
     },
     "scene_path": "res://core_v2/tests/TestCinematicScene.tscn"
   },

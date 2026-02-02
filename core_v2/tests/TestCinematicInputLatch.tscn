@@ -57,7 +57,7 @@ transform = Transform( 1, 0, 2.98023e-08, 0, 1, 0, -2.98023e-08, 0, 1, -1.55174,
 curve = SubResource( 3 )
 script = ExtResource( 3 )
 track_player = true
-follow_player_on_path = true
+follow_player_on_path = false
 
 [node name="PathFollow" type="PathFollow" parent="Floor/CinematicCameraZone/CinematicPathRig"]
 transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, -1.12776, 0.512028, 0.776176 )

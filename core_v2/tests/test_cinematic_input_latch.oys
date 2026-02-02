@@ -11,7 +11,7 @@ SECTION "Input latch test"
 
     // El jugador inicia fuera de la zona cinemática
     // Moverse hacia adelante
-    FW 30m
+    FW 37m
     
     // Guarda la posición final en X del jugador
     SET $end_x GET_NODE_POS_X "Pilot"

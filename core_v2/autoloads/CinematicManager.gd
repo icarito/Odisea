@@ -44,7 +44,7 @@ func activate_rig(rig_id: String, control_mode: int = ControlMode.FREE):
 
 	activate_rig_direct(target_rig, control_mode)
 
-func activate_rig_direct(target_rig: Spatial, control_mode: int = ControlMode.FREE):
+func activate_rig_direct(target_rig: Spatial, control_mode: int = ControlMode.FREE, old_camera: Camera = null):
 	"""Activa un rig directamente por referencia (preferido sobre string ID)."""
 	if not target_rig:
 		printerr("[CinematicManager] activate_rig_direct called with null rig")
@@ -55,7 +55,9 @@ func activate_rig_direct(target_rig: Spatial, control_mode: int = ControlMode.FR
 		printerr("[CinematicManager] Rig has no camera: ", target_rig.name)
 		return
 
-	var old_cam = get_viewport().get_camera()
+	# Use provided old_camera or find player camera deterministically
+	if old_camera == null:
+		old_camera = _find_player_camera()
 	current_control_mode = control_mode
 
 	# Si el rig maneja su propia transición, no usamos la del Manager
@@ -65,8 +67,8 @@ func activate_rig_direct(target_rig: Spatial, control_mode: int = ControlMode.FR
 	if rig_handles_transition:
 		# El rig (CinematicPathRig) maneja su propia transición
 		_apply_rig(target_rig)
-	elif trans_time > 0 and old_cam and old_cam != _trans_camera:
-		_start_transition(old_cam, new_cam, trans_time, target_rig)
+	elif trans_time > 0 and old_camera and old_camera != _trans_camera:
+		_start_transition(old_camera, new_cam, trans_time, target_rig)
 	else:
 		_apply_rig(target_rig)
 
@@ -142,6 +144,10 @@ func _apply_rig(rig):
 	_is_transitioning = false
 
 func _process(delta):
+	# Only handle non-transition logic here, transitions are now in step()
+	pass
+
+func step(delta: float):
 	if _is_transitioning and active_rig:
 		_transition_timer += delta
 		var t = clamp(_transition_timer / _transition_duration, 0.0, 1.0)
@@ -167,3 +173,68 @@ func get_active_camera() -> Camera:
 
 func get_control_mode() -> int:
 	return current_control_mode
+
+func is_active() -> bool:
+	return _is_transitioning or active_rig != null
+
+func get_full_snapshot() -> Dictionary:
+	var snapshot = {
+		"current_control_mode": current_control_mode,
+		"is_transitioning": _is_transitioning,
+		"transition_timer": _transition_timer,
+		"transition_duration": _transition_duration,
+		"source_transform": {
+			"origin": _source_transform.origin,
+			"basis": {
+				"x": _source_transform.basis.x,
+				"y": _source_transform.basis.y,
+				"z": _source_transform.basis.z
+			}
+		},
+		"source_fov": _source_fov,
+	}
+	if active_rig:
+		snapshot["active_rig_path"] = active_rig.get_path()
+	else:
+		snapshot["active_rig_path"] = ""
+	
+	# Include current camera path for deterministic restoration
+	var current_cam = get_viewport().get_camera()
+	if current_cam:
+		snapshot["current_camera_path"] = current_cam.get_path()
+	else:
+		snapshot["current_camera_path"] = ""
+	
+	return snapshot
+
+func restore_snapshot(data: Dictionary) -> void:
+	current_control_mode = data.get("current_control_mode", ControlMode.FREE)
+	_is_transitioning = data.get("is_transitioning", false)
+	_transition_timer = data.get("transition_timer", 0.0)
+	_transition_duration = data.get("transition_duration", 0.0)
+	var source_trans_data = data.get("source_transform", {"origin": [0,0,0], "basis": {"x": [1,0,0], "y": [0,1,0], "z": [0,0,1]}})
+	var basis_data = source_trans_data["basis"]
+	var x = Vector3(basis_data["x"][0], basis_data["x"][1], basis_data["x"][2])
+	var y = Vector3(basis_data["y"][0], basis_data["y"][1], basis_data["y"][2])
+	var z = Vector3(basis_data["z"][0], basis_data["z"][1], basis_data["z"][2])
+	var basis = Basis(x, y, z)
+	var origin = Vector3(source_trans_data["origin"][0], source_trans_data["origin"][1], source_trans_data["origin"][2])
+	_source_transform = Transform(basis, origin)
+	_source_fov = data.get("source_fov", 70.0)
+	
+	var rig_path = data.get("active_rig_path", "")
+	if rig_path != "":
+		active_rig = get_node(rig_path)
+		if active_rig:
+			var cam = active_rig.get_camera()
+			if cam:
+				cam.current = true
+	else:
+		active_rig = null
+	
+	# Restore current camera
+	var cam_path = data.get("current_camera_path", "")
+	if cam_path != "":
+		var cam = get_node(cam_path)
+		if cam and cam is Camera:
+			cam.current = true

@@ -258,6 +258,10 @@ func _physics_process(_dt):
 			if node != player and node.has_method("step"):
 				node.step(FIXED_DT)
 		
+		# Step CinematicManager if active
+		if CinematicManager.is_active():
+			CinematicManager.step(FIXED_DT)
+		
 		# Sync total frames if we are also in "replaying" mode (for tests)
 		if is_replaying:
 			_total_replay_frames = _recording_frame
@@ -310,6 +314,10 @@ func _physics_process(_dt):
 		for node in sync_nodes:
 			if node != player and node.has_method("step"):
 				node.step(FIXED_DT)
+		
+		# Step CinematicManager if active
+		if CinematicManager.is_active():
+			CinematicManager.step(FIXED_DT)
 
 		_replay_frame += 1
 		_total_replay_frames = _replay_frame
@@ -362,7 +370,18 @@ func _get_world_state_snapshot() -> Dictionary:
 			snapshot[node.get_path()] = node.get_snapshot()
 		else:
 			print("Warning: Node %s in group 'replay_sync' does not have get_snapshot() method." % node.name)
+	# Include CinematicManager
+	snapshot["CinematicManager"] = CinematicManager.get_full_snapshot()
 	return snapshot
+
+func _restore_world_state_snapshot(snapshot: Dictionary) -> void:
+	for path in snapshot:
+		if path == "CinematicManager":
+			CinematicManager.restore_snapshot(snapshot[path])
+			continue
+		var node = get_node(path)
+		if node and node.has_method("restore_snapshot"):
+			node.restore_snapshot(snapshot[path])
 
 func _on_rigid_contact_ended():
 	# Marcar que debemos guardar un checkpoint en el próximo frame del buffer
@@ -555,6 +574,10 @@ func load_and_play(path: String):
 				# It is a raw input dictionary (e.g. from OYS)
 				input_buffer.append(entry)
 	_current_replay_data = data
+	
+	# Restore world state for JSON replays
+	if data.has("world_snapshot"):
+		_restore_world_state_snapshot(data.world_snapshot)
 	
 	# Migrate legacy setup if necessary (SETTERS/ASSERTS to EVENTS)
 	if not data.has("events"):

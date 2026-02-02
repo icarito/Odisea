@@ -31,7 +31,9 @@ func get_input() -> InputDataV2:
 				d.from_dict(entry)
 			playback_index += 1
 			return d
-		return null # INDICA FIN DE BUFFER real
+		else:
+			# Buffer ended, return null to signal end of replay
+			return null
 	else:
 		return _read_live_input()
 

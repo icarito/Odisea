@@ -48,6 +48,8 @@ const REACTIVATION_COOLDOWN := 0.2  # Segundos antes de poder reactivar
 func _ready():
 	if not is_in_group("cinematic_rigs"):
 		add_to_group("cinematic_rigs")
+	if not is_in_group("replay_sync"):
+		add_to_group("replay_sync")
 	
 	_ensure_nodes()
 	_setup_animation()
@@ -491,3 +493,54 @@ func _process(_delta):
 				camera.near = near
 			if camera.far != far:
 				camera.far = far
+
+func get_snapshot() -> Dictionary:
+	var snapshot = {
+		"is_active": _is_active,
+		"transition_alpha": _transition_alpha,
+		"target_offset": _target_offset,
+		"last_deactivate_time": _last_deactivate_time,
+		"source_transform": {
+			"origin": _source_transform.origin,
+			"basis": {
+				"x": _source_transform.basis.x,
+				"y": _source_transform.basis.y,
+				"z": _source_transform.basis.z
+			}
+		},
+		"source_fov": _source_fov
+	}
+	if path_follow:
+		snapshot["unit_offset"] = path_follow.unit_offset
+	if anim_player:
+		if anim_player.is_playing():
+			snapshot["current_animation"] = anim_player.current_animation
+			snapshot["playback_position"] = anim_player.current_animation_position
+		else:
+			snapshot["current_animation"] = ""
+			snapshot["playback_position"] = 0.0
+	return snapshot
+
+func restore_snapshot(data: Dictionary) -> void:
+	_is_active = data.get("is_active", false)
+	_transition_alpha = data.get("transition_alpha", 0.0)
+	_target_offset = data.get("target_offset", 0.0)
+	_last_deactivate_time = data.get("last_deactivate_time", 0.0)
+	var source_trans_data = data.get("source_transform", {"origin": [0,0,0], "basis": {"x": [1,0,0], "y": [0,1,0], "z": [0,0,1]}})
+	var basis_data = source_trans_data["basis"]
+	var x = Vector3(basis_data["x"][0], basis_data["x"][1], basis_data["x"][2])
+	var y = Vector3(basis_data["y"][0], basis_data["y"][1], basis_data["y"][2])
+	var z = Vector3(basis_data["z"][0], basis_data["z"][1], basis_data["z"][2])
+	var basis = Basis(x, y, z)
+	var origin = Vector3(source_trans_data["origin"][0], source_trans_data["origin"][1], source_trans_data["origin"][2])
+	_source_transform = Transform(basis, origin)
+	_source_fov = data.get("source_fov", 70.0)
+	if path_follow:
+		path_follow.unit_offset = data.get("unit_offset", 0.0)
+	if anim_player:
+		var anim = data.get("current_animation", "")
+		if anim != "":
+			anim_player.current_animation = anim
+			anim_player.seek(data.get("playback_position", 0.0))
+		else:
+			anim_player.stop()
