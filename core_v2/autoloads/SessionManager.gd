@@ -71,14 +71,33 @@ func _ready():
 			get_tree().connect("tree_changed", self, "_on_tree_changed_for_script", [script_path], CONNECT_ONESHOT)
 			return
 
-	# --- Instanciar y conectar TeleportSystem ---
+	# --- Instanciar y conectar TeleportSystem (instanciación robusta) ---
 	if not has_node("TeleportSystem"):
-		var TeleportSystem = load("res://core_v2/systems/TeleportSystem.gd")
-		var teleport_system = TeleportSystem.new()
-		teleport_system.name = "TeleportSystem"
-		add_child(teleport_system)
-		# Buscar nodos relevantes tras un pequeño delay para asegurar que la escena está lista
-		call_deferred("_connect_teleport_system")
+		var ts_res = load("res://core_v2/systems/TeleportSystem.gd")
+		if ts_res == null:
+			printerr("SessionManager: Could not load TeleportSystem resource: res://core_v2/systems/TeleportSystem.gd")
+		else:
+			var teleport_system = null
+			# If it's a PackedScene, instance it; if it's a Script, call new(); otherwise try both safely
+			if ts_res is PackedScene:
+				teleport_system = ts_res.instance()
+			elif ts_res is GDScript or ts_res is Script:
+				# Some Godot versions return GDScript; handle both
+				teleport_system = ts_res.new()
+			else:
+				# Attempt to instance or new with defensive checks
+				if ts_res.has_method("instance" ):
+					teleport_system = ts_res.instance()
+				elif ts_res.has_method("new"):
+					teleport_system = ts_res.new()
+
+			if teleport_system == null:
+				printerr("SessionManager: Failed to instantiate TeleportSystem (resource type: ", typeof(ts_res), ").")
+			else:
+				teleport_system.name = "TeleportSystem"
+				add_child(teleport_system)
+				# Buscar nodos relevantes tras un pequeño delay para asegurar que la escena está lista
+				call_deferred("_connect_teleport_system")
 
 
 # Conexión automática de TeleportSystem con Player, Camera y zonas
