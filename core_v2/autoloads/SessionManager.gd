@@ -82,14 +82,23 @@ func _ready():
 			if ts_res is PackedScene:
 				teleport_system = ts_res.instance()
 			elif ts_res is GDScript or ts_res is Script:
-				# Some Godot versions return GDScript; handle both
-				teleport_system = ts_res.new()
+				# Some Godot versions return GDScript; handle both.
+				# Attempt to call new(), but if it's not available, attach the script to a plain Node.
+				if ts_res.has_method("new"):
+					teleport_system = ts_res.new()
+				else:
+					teleport_system = Node.new()
+					teleport_system.set_script(ts_res)
 			else:
 				# Attempt to instance or new with defensive checks
 				if ts_res.has_method("instance" ):
 					teleport_system = ts_res.instance()
 				elif ts_res.has_method("new"):
 					teleport_system = ts_res.new()
+				else:
+					# Last resort: attach script to a generic Node
+					teleport_system = Node.new()
+					teleport_system.set_script(ts_res)
 
 			if teleport_system == null:
 				printerr("SessionManager: Failed to instantiate TeleportSystem (resource type: ", typeof(ts_res), ").")
