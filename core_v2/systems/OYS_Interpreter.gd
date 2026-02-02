@@ -73,6 +73,9 @@ func run(start_section: String = ""):
 
 	if my_id == execution_id:
 		is_running = false
+		var session = host_node.get_node_or_null("/root/SessionManager")
+		if session and is_instance_valid(session):
+			session.set("_oys_input_override", {})
 
 # Ejecutar desde un program counter específico (para hot-reload con checkpoints)
 func run_from_pc(from_pc: int):
@@ -100,6 +103,9 @@ func run_from_pc(from_pc: int):
 
 	if my_id == execution_id:
 		is_running = false
+		var session = host_node.get_node_or_null("/root/SessionManager")
+		if session and is_instance_valid(session):
+			session.set("_oys_input_override", {})
 
 func _execute_instruction(inst: Dictionary, my_id: int):
 	var cmd = inst.command
@@ -573,25 +579,25 @@ func _call_func(func_name: String, args: Array):
 			return null
 
 func _compare(left, op, right) -> bool:
-	       var l = left
-	       var r = right
-	       var l_is_float = str(l).is_valid_float()
-	       var r_is_float = str(r).is_valid_float()
-	       if l_is_float and r_is_float:
-		       l = float(l)
-		       r = float(r)
-	       else:
-		       l = str(l)
-		       r = str(r)
+		   var l = left
+		   var r = right
+		   var l_is_float = str(l).is_valid_float()
+		   var r_is_float = str(r).is_valid_float()
+		   if l_is_float and r_is_float:
+			   l = float(l)
+			   r = float(r)
+		   else:
+			   l = str(l)
+			   r = str(r)
 
-	       match op:
-		       "==": return l == r
-		       "!=": return l != r
-		       ">": return l > r
-		       "<": return l < r
-		       ">=": return l >= r
-		       "<=": return l <= r
-	       return false
+		   match op:
+			   "==": return l == r
+			   "!=": return l != r
+			   ">": return l > r
+			   "<": return l < r
+			   ">=": return l >= r
+			   "<=": return l <= r
+		   return false
 
 func _substitute_variables(message: String) -> String:
 	var result = message

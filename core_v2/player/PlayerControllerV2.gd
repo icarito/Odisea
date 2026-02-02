@@ -669,17 +669,19 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	# --- ROTATION, PAN & ZOOM ---
 	if not sidescroll_logic.is_active:
-		movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
+		if input and input.mouse_delta:
+			movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
 
-		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED or is_replay_mode:
-			yaw -= input.mouse_delta.x * mouse_sensitivity
-			pitch -= input.mouse_delta.y * mouse_sensitivity
+			if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED or is_replay_mode:
+				yaw -= input.mouse_delta.x * mouse_sensitivity
+				pitch -= input.mouse_delta.y * mouse_sensitivity
 
-		# If in tank mode, A/D (input.move_vec.x) also rotates the camera
-		yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
+			# If in tank mode, A/D (input.move_vec.x) also rotates the camera
+			yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
 
-		yaw_deg = rad2deg(yaw)
-		pitch_deg = rad2deg(pitch)
+			yaw_deg = rad2deg(yaw)
+			pitch_deg = rad2deg(pitch)
+		# Removed unnecessary error print for zero mouse_delta during OYS override
 
 		# Limitamos el Pitch para no dar una voltereta
 		pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))

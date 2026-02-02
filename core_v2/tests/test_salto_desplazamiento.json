@@ -2478,7 +2478,7 @@
         0,
         0
       ],
-      "camera_input_timer": 2.183333,
+      "camera_input_timer": 0,
       "is_tank_turn_mode": true,
       "current_turn_time": 0
     },
