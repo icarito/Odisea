@@ -48,11 +48,13 @@ func _on_zone_entered(body: Node):
 	
 	# Durante JSON replay puro (is_replaying && !is_recording), NO ejecutar scripts
 	# porque sus efectos ya están capturados en el input buffer.
+	# Durante respawn, NO ejecutar scripts (el player está volviendo a un checkpoint)
 	# Solo ejecutar durante OYS recording o gameplay normal.
 	var session = get_node_or_null("/root/SessionManager")
 	var is_json_replay = session and session.is_replaying and not session.is_recording
+	var is_respawning = session and session.is_respawning
 	
-	if script_file != "" and not is_json_replay:
+	if script_file != "" and not is_json_replay and not is_respawning:
 		_run_oys_on_body(body, script_file)
 	
 	if trigger_once:

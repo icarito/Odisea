@@ -37,6 +37,8 @@ var _recording_frame := 0
 var _oys_input_override := {}
 # Escena solicitada por OYS para guardar en meta
 var _oys_requested_scene := ""
+# Flag para indicar que estamos en proceso de respawn (los triggers no deben ejecutarse)
+var is_respawning := false
 
 func _find_player():
 	if not is_instance_valid(player):
@@ -91,7 +93,7 @@ func _ready():
 					teleport_system.set_script(ts_res)
 			else:
 				# Attempt to instance or new with defensive checks
-				if ts_res.has_method("instance" ):
+				if ts_res.has_method("instance"):
 					teleport_system = ts_res.instance()
 				elif ts_res.has_method("new"):
 					teleport_system = ts_res.new()
@@ -118,7 +120,7 @@ func _connect_teleport_system():
 	# Buscar PlayerControllerV2 (Pilot)
 	var player_node = get_tree().get_root().find_node("Pilot", true, false)
 	teleport_system.player_controller = player_node
-	player = player_node  # Also set SessionManager.player for OYS input routing
+	player = player_node # Also set SessionManager.player for OYS input routing
 
 	# Validar y reconectar InputProviderV2
 	if is_instance_valid(player_node):
@@ -957,7 +959,7 @@ func _handle_get_nodes_in_group(cmd: Dictionary):
 		oys_variables[target_var] = count
 		print("[OYS] GET_NODES_IN_GROUP '%s' -> %d (saved to %s)" % [group, count, target_var])
 
-func _on_monitored_signal(p1=null, p2=null, p3=null, p4=null, p5=null):
+func _on_monitored_signal(p1 = null, p2 = null, p3 = null, p4 = null, p5 = null):
 	var args = [p1, p2, p3, p4, p5]
 	var key = ""
 	# Find the LAST non-null argument which is likely our bound key
@@ -1040,7 +1042,7 @@ func _handle_math_command(cmd: Dictionary):
 		"+": oys_variables[target_var] = val_left + val_right
 		"-": oys_variables[target_var] = val_left - val_right
 		"*": oys_variables[target_var] = val_left * val_right
-		"/": 
+		"/":
 			if val_right != 0:
 				oys_variables[target_var] = val_left / val_right
 			else:
