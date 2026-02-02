@@ -30,6 +30,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
 
 [node name="KillZoneV2" type="Area" parent="."]
 collision_layer = 2
+collision_mask = 4
 script = ExtResource( 3 )
 debug_color = Color( 1, 0, 0, 0.3 )
 zone_extents = Vector3( 20, 1, 20 )

@@ -215,7 +215,7 @@ func _physics_process(_dt):
 		if not _oys_input_override.empty():
 			input_data = InputDataV2.new()
 			input_data.from_dict(_oys_input_override)
-			# print("[SessionManager] Usando OYS override input en frame ", _recording_frame)
+			print("[SessionManager] Usando OYS override input en frame ", _recording_frame, ":", _oys_input_override)
 			# NOT clearing override here - OYS Interpreter is now responsible for clearing its inputs
 		elif player and "input_provider" in player and player.input_provider:
 			input_data = player.input_provider.get_input()
@@ -247,11 +247,21 @@ func _physics_process(_dt):
 		
 		if is_instance_valid(player) and player.global_transform.origin.y > _peak_y:
 			_peak_y = player.global_transform.origin.y
-		# Step player
-		if player and player.has_method("step"):
-			player.step(FIXED_DT, input_data)
-			# señalizamos para que PlayerController no vuelva a consumir el input este frame
-			player.external_input_provided = true
+		# Step player: prefer SessionManager.player (set by TeleportSystem) to avoid
+		# timing races with name-based lookup. Fall back to find_node if needed.
+		var pilot_node = null
+		if is_instance_valid(player):
+			pilot_node = player
+		else:
+			pilot_node = get_tree().get_root().find_node("Pilot", true, false)
+			if pilot_node and is_instance_valid(pilot_node):
+				player = pilot_node
+
+		if pilot_node and pilot_node.has_method("step"):
+			pilot_node.external_input = input_data
+			pilot_node.external_input_provided = true
+			player = pilot_node # keep SessionManager.player in sync
+			print("[SessionManager] Applied external_input to pilot_node:", pilot_node, " provided=", pilot_node.external_input_provided)
 		# Step plataformas TAMBIÉN durante grabación para determinismo
 		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
 		for node in sync_nodes:

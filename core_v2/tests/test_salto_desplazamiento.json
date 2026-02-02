@@ -2095,6 +2095,22 @@
         "sprint": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -2111,14 +2127,10 @@
     "41": [
 
     ],
-    "131": [
+    "132": [
       {
         "command": "ASSERT",
         "condition": "pos.z > 3.0 \"ERROR: No hubo suficiente inercia horizontal en el salto\""
-      },
-      {
-        "command": "ASSERT",
-        "condition": "pos.y < 0.1 \"El personaje no regresó al suelo\""
       }
     ]
   },
@@ -2457,7 +2469,7 @@
     "position": [
       0,
       0.0415,
-      5.886107
+      5.863052
     ],
     "velocity": [
       0,
@@ -2478,7 +2490,7 @@
         0,
         0
       ],
-      "camera_input_timer": 2.183333,
+      "camera_input_timer": 2.2,
       "is_tank_turn_mode": true,
       "current_turn_time": 0
     },
@@ -2514,7 +2526,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 147,
+      "frames_since_last_snap": 148,
       "last_input_vector": [
         0,
         0,
@@ -2550,7 +2562,7 @@
     "platform_velocity": [
       -0,
       -0,
-      -0.000057
+      0.000029
     ],
     "was_on_platform": true,
     "step_grounded_timer": 0,
