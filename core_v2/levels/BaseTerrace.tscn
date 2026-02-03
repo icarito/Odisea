@@ -1,4 +1,4 @@
-[gd_scene load_steps=224 format=2]
+[gd_scene load_steps=221 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -35,19 +35,8 @@
 [ext_resource path="res://textures/kenney_prototype_textures/green/texture_11.png" type="Texture" id=33]
 [ext_resource path="res://core_v2/visual/CinematicPathRig.gd" type="Script" id=34]
 
-[sub_resource type="SpatialMaterial" id=849]
-flags_transparent = true
-flags_unshaded = true
-albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
-
-[sub_resource type="CubeMesh" id=850]
-
 [sub_resource type="BoxShape" id=1038]
-
-[sub_resource type="SpatialMaterial" id=852]
-flags_transparent = true
-flags_unshaded = true
-albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
+extents = Vector3( 1, 0.5, 1 )
 
 [sub_resource type="BoxShape" id=1039]
 extents = Vector3( 10, 17, 4.95 )
@@ -812,40 +801,18 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7687, 1.14, -6.01974 )
 transform = Transform( 4.99999, 0, 0, 0, 4.99999, 0, 0, 0, 4.99999, 0.803499, 4.66144, -3.98371 )
 skeleton = NodePath("../..")
 
-[node name="ExampleTrigger" type="Area" parent="CornerFloor2"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7687, 1.6, -0.0197392 )
+[node name="ReplayTrigger" type="Area" parent="CornerFloor2"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7687, 1.1, -0.0197392 )
 script = ExtResource( 28 )
 debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
+zone_extents = Vector3( 1, 0.5, 1 )
 script_file = "res://core_v2/scripts/helloTrigger.oys"
-label_text = "OYSTrigger Example"
+label_text = "Replay"
 trigger_once = false
 center_player_on_enter = null
 
-[node name="_ZoneDebugMesh2" type="MeshInstance" parent="CornerFloor2/ExampleTrigger"]
-material_override = SubResource( 849 )
-cast_shadow = 0
-mesh = SubResource( 850 )
-
-[node name="_TriggerLabel2" type="Label3D" parent="CornerFloor2/ExampleTrigger"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
-billboard = 1
-no_depth_test = true
-modulate = Color( 0.827451, 0.247059, 0.0431373, 1 )
-text = "OYSTrigger Example"
-
-[node name="CollisionShape" type="CollisionShape" parent="CornerFloor2/ExampleTrigger"]
+[node name="CollisionShape" type="CollisionShape" parent="CornerFloor2/ReplayTrigger"]
 shape = SubResource( 1038 )
-
-[node name="_ZoneDebugMesh3" type="MeshInstance" parent="CornerFloor2/ExampleTrigger"]
-material_override = SubResource( 852 )
-cast_shadow = 0
-
-[node name="_TriggerLabel3" type="Label3D" parent="CornerFloor2/ExampleTrigger"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
-billboard = 1
-no_depth_test = true
-modulate = Color( 0.827451, 0.247059, 0.0431373, 1 )
-text = "OYSTrigger Example"
 
 [node name="Action" type="Spatial" parent="."]
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 12.8116, 1.05, 19.2203 )
@@ -863,6 +830,7 @@ debug_render = false
 zone_extents = Vector3( 2.5, 16, 50.95 )
 lock_axis = 1
 invert_side = true
+target_distance = 25.0
 latch_on_enter = false
 latch_on_exit = false
 
