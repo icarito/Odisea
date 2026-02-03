@@ -21,6 +21,15 @@ func _ready():
 	# Initial state update
 	_update_visuals()
 
+	# Fix ViewportTexture path issue by explicit assignment
+	var screen_mesh = $ScreenContainer/ScreenMesh
+	var viewport = $Viewport
+	if screen_mesh and viewport:
+		var mat = screen_mesh.material
+		if mat is ShaderMaterial:
+			mat.set_shader_param("texture_albedo", viewport.get_texture())
+
+
 func _update_visuals() -> void:
 	# 2. Apply Movement (Visuals)
 	if has_node("ScreenContainer"):

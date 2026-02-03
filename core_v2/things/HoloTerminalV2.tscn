@@ -1,53 +1,59 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://core_v2/things/HoloTerminalV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/things/TerminalUI.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/visual/HoloGlass.shader" type="Shader" id=3]
 
 [sub_resource type="BoxShape" id=1]
-extents = Vector3( 0.5, 0.5, 0.25 )
+extents = Vector3( 0.5, 0.45, 0.25 )
 
-[sub_resource type="ViewportTexture" id=2]
-viewport_path = NodePath("Viewport")
+[sub_resource type="SpatialMaterial" id=6]
+albedo_color = Color( 0.8, 0.8, 0.8, 1 )
+metallic = 1.0
+roughness = 0.4
 
-[sub_resource type="SpatialMaterial" id=3]
+[sub_resource type="ShaderMaterial" id=7]
 resource_local_to_scene = true
-flags_transparent = true
-flags_unshaded = true
-albedo_texture = SubResource( 2 )
+shader = ExtResource( 3 )
+shader_param/albedo = Color( 0, 0.882353, 1, 0.627451 )
+shader_param/emission_energy = 3.0
+shader_param/alpha_scissor_threshold = 0.0
 
 [node name="HoloTerminalV2" type="KinematicBody"]
 script = ExtResource( 1 )
+anim_duration = 3.0
+slide_speed = 0.5
+slide_height = 0.2
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0 )
 shape = SubResource( 1 )
 
 [node name="BaseMesh" type="CSGBox" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0 )
 width = 1.0
-height = 1.0
+height = 0.9
 depth = 0.5
+material = SubResource( 6 )
 
 [node name="ScreenContainer" type="Spatial" parent="."]
 
 [node name="ScreenMesh" type="CSGBox" parent="ScreenContainer"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
-width = 0.9
-height = 0.6
-depth = 0.05
-material = SubResource( 3 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.9, 0 )
+invert_faces = true
+width = 2.7
+height = 1.8
+depth = 0.02
+material = SubResource( 7 )
 
 [node name="Viewport" type="Viewport" parent="."]
-size = Vector2( 400, 300 )
+size = Vector2( 1200, 900 )
 transparent_bg = true
-render_target_v_flip = true
 
 [node name="TerminalUI" parent="Viewport" instance=ExtResource( 2 )]
 
 [node name="InteractableEntity" type="Area" parent="."]
-monitoring = true
-monitorable = true
 
 [node name="CollisionShape" type="CollisionShape" parent="InteractableEntity"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0 )
 shape = SubResource( 1 )
