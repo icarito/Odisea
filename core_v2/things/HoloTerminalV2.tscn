@@ -1,16 +1,37 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=11 format=2]
 
 [ext_resource path="res://core_v2/things/HoloTerminalV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/things/TerminalUI.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/visual/HoloGlass.shader" type="Shader" id=3]
 
 [sub_resource type="BoxShape" id=1]
-extents = Vector3( 0.5, 0.45, 0.25 )
+extents = Vector3( 0.5, 0.35, 0.25 )
 
 [sub_resource type="SpatialMaterial" id=6]
 albedo_color = Color( 0.8, 0.8, 0.8, 1 )
 metallic = 1.0
 roughness = 0.4
+
+[sub_resource type="SpatialMaterial" id=8]
+flags_transparent = true
+albedo_color = Color( 0, 1, 1, 0.5 )
+emission_enabled = true
+emission = Color( 0, 1, 1, 1 )
+emission_energy = 2.0
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="SpatialMaterial" id=9]
+flags_transparent = true
+params_billboard_mode = 1
+albedo_color = Color( 0, 0.890196, 1, 1 )
+
+[sub_resource type="QuadMesh" id=10]
+material = SubResource( 9 )
+size = Vector2( 0.01, 0.05 )
+
+[sub_resource type="ViewportTexture" id=11]
+flags = 4
 
 [sub_resource type="ShaderMaterial" id=7]
 resource_local_to_scene = true
@@ -18,23 +39,46 @@ shader = ExtResource( 3 )
 shader_param/albedo = Color( 0, 0.882353, 1, 0.627451 )
 shader_param/emission_energy = 3.0
 shader_param/alpha_scissor_threshold = 0.0
+shader_param/texture_albedo = SubResource( 11 )
 
 [node name="HoloTerminalV2" type="KinematicBody"]
 script = ExtResource( 1 )
-anim_duration = 3.0
-slide_speed = 0.5
+interaction_text = "Toggle Terminal"
 slide_height = 0.2
+active = true
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0 )
 shape = SubResource( 1 )
 
 [node name="BaseMesh" type="CSGBox" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0 )
 width = 1.0
-height = 0.9
+height = 0.7
 depth = 0.5
 material = SubResource( 6 )
+
+[node name="ProjectorMesh" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0 )
+width = 0.9
+height = 0.02
+depth = 0.05
+material = SubResource( 8 )
+
+[node name="HoloParticles" type="CPUParticles" parent="ProjectorMesh"]
+amount = 12
+randomness = 1.0
+lifetime_randomness = 1.0
+mesh = SubResource( 10 )
+emission_shape = 2
+emission_box_extents = Vector3( 0.5, 0, 0.005 )
+direction = Vector3( 0, 1, 0 )
+spread = 0.0
+gravity = Vector3( 0, 0, 0 )
+initial_velocity = 0.5
+radial_accel = 1.0
+scale_amount = 0.5
+color = Color( 0, 1, 1, 0.501961 )
 
 [node name="ScreenContainer" type="Spatial" parent="."]
 
@@ -47,7 +91,7 @@ depth = 0.02
 material = SubResource( 7 )
 
 [node name="Viewport" type="Viewport" parent="."]
-size = Vector2( 1200, 900 )
+size = Vector2( 800, 600 )
 transparent_bg = true
 
 [node name="TerminalUI" parent="Viewport" instance=ExtResource( 2 )]

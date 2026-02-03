@@ -1,3 +1,4 @@
+tool
 extends InteractableBaseV2
 class_name HoloTerminalV2
 
@@ -5,10 +6,14 @@ class_name HoloTerminalV2
 # Inherits InteractableBaseV2 for replay determinism.
 
 export(float) var slide_speed := 2.0
+
 export(float) var slide_height := 0.8
+export(bool) var active setget set_active_debug
+
 
 func _ready():
-	interaction_text = "Access Terminal"
+	interaction_text = "Toggle Terminal"
+
 
 	# Configure base class speed
 	if slide_speed > 0:
@@ -28,15 +33,36 @@ func _ready():
 		var mat = screen_mesh.material
 		if mat is ShaderMaterial:
 			mat.set_shader_param("texture_albedo", viewport.get_texture())
+	
+	# Initial toggle logic (ensure correct state)
+	if not is_active:
+		$ProjectorMesh/HoloParticles.emitting = false
+		if has_node("ScreenContainer"):
+			$ScreenContainer.scale = Vector3.ZERO
+
+func _on_interact(_actor: Node) -> void:
+	# Toggle open/close (override base behavior if needed, or rely on base if it toggles)
+	# InteractableBaseV2 usually just opens. We want toggle.
+	if is_active:
+		set_active(false)
+	else:
+		set_active(true)
 
 
 func _update_visuals() -> void:
 	# 2. Apply Movement (Visuals)
 	if has_node("ScreenContainer"):
-		# Interpolate the Y position of the ScreenContainer
-		# using cubic ease out as per spec
-		var y_pos = lerp(0.0, slide_height, _ease_out_cubic(anim_progress))
-		$ScreenContainer.translation.y = y_pos
+		# Interpolate the Y position of the ScreenContainer (existing logic, maybe adjust)
+		# Actually, user wants "size up from center". 
+		# We'll Scale it up instead of just moving it, or both.
+		var progress = _ease_out_cubic(anim_progress)
+		var scale_val = lerp(Vector3.ZERO, Vector3.ONE, progress)
+		$ScreenContainer.scale = scale_val
+		
+		# Also manage Projector Particles
+		if has_node("ProjectorMesh/HoloParticles"):
+			$ProjectorMesh/HoloParticles.emitting = is_active
+
 
 	# 3. Update UI State (Optimization)
 	if has_node("Viewport"):
@@ -51,5 +77,6 @@ func _ease_out_cubic(t: float) -> float:
 func get_is_open() -> bool:
 	return is_active
 
-func get_slide_progress() -> float:
-	return anim_progress
+func set_active_debug(val: bool) -> void:
+	active = val
+	set_active(val, true) # Immediate update for editor
