@@ -34,13 +34,7 @@
 [ext_resource path="res://scenes/reference/InteriorLab.tscn" type="PackedScene" id=32]
 [ext_resource path="res://textures/kenney_prototype_textures/green/texture_11.png" type="Texture" id=33]
 [ext_resource path="res://core_v2/visual/CinematicPathRig.gd" type="Script" id=34]
-
-[sub_resource type="SpatialMaterial" id=849]
-flags_transparent = true
-flags_unshaded = true
-albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
-
-[sub_resource type="CubeMesh" id=850]
+[ext_resource path="res://core_v2/things/HoloTerminalV2.tscn" type="PackedScene" id=35]
 
 [sub_resource type="BoxShape" id=1038]
 
@@ -780,6 +774,9 @@ extents = Vector3( 10, 40, 100 )
 [sub_resource type="BoxShape" id=1042]
 extents = Vector3( 104, 1, 141.5 )
 
+[sub_resource type="BoxShape" id=1043]
+extents = Vector3( 1.5, 2, 1.5 )
+
 [node name="Terrace" type="CSGBox"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
 use_collision = true
@@ -793,7 +790,6 @@ skeleton = NodePath("../CornerFloor2")
 
 [node name="RotatingObjectV2" parent="CrioPod START" index="0"]
 transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
-auto_interact_once = true
 
 [node name="CSGBox" parent="CrioPod START" index="1"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.349264, 0 )
@@ -804,25 +800,13 @@ height = 0.5
 transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0.000200272, 0.721707, -0.123402 )
 
 [node name="AutomationTrigger" type="Area" parent="CrioPod START"]
-transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0, 0.788374, 3.87677 )
+transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0, 4.10154, 3.87677 )
 script = ExtResource( 28 )
 debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 script_file = "res://core_v2/scripts/helloTrigger.oys"
-label_text = "OYSTrigger Example"
+label_text = "Automate"
 trigger_once = false
 center_player_on_enter = null
-
-[node name="_ZoneDebugMesh2" type="MeshInstance" parent="CrioPod START/AutomationTrigger"]
-material_override = SubResource( 849 )
-cast_shadow = 0
-mesh = SubResource( 850 )
-
-[node name="_TriggerLabel2" type="Label3D" parent="CrioPod START/AutomationTrigger"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
-billboard = 1
-no_depth_test = true
-modulate = Color( 0.827451, 0.247059, 0.0431373, 1 )
-text = "OYSTrigger Example"
 
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/AutomationTrigger"]
 shape = SubResource( 1038 )
@@ -830,13 +814,6 @@ shape = SubResource( 1038 )
 [node name="_ZoneDebugMesh3" type="MeshInstance" parent="CrioPod START/AutomationTrigger"]
 material_override = SubResource( 852 )
 cast_shadow = 0
-
-[node name="_TriggerLabel3" type="Label3D" parent="CrioPod START/AutomationTrigger"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
-billboard = 1
-no_depth_test = true
-modulate = Color( 0.827451, 0.247059, 0.0431373, 1 )
-text = "OYSTrigger Example"
 
 [node name="CornerFloor" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 29.7736, 1.83056, -29.847 )
@@ -1470,7 +1447,6 @@ shape = SubResource( 1031 )
 transform = Transform( -1, 0, 3.17865e-08, 0, 1, 0, -3.17865e-08, 0, -1, 6.4097, 5.79305, 7.19635 )
 interaction_text = "Open Door"
 anim_duration = 0.8
-slide_vector = Vector3( 0, 4, 0 )
 size = Vector3( 3, 2, 0.25 )
 
 [node name="DoorMesh" type="MeshInstance" parent="Building/SlidingDoor"]
@@ -1521,6 +1497,23 @@ zone_extents = Vector3( 104, 1, 141.5 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0 )
 shape = SubResource( 1042 )
 
+[node name="HoloTerminalV2" parent="." instance=ExtResource( 35 )]
+transform = Transform( 0.565816, 0, 0.824531, 0, 1, 0, -0.824531, 0, 0.565816, -16.6215, 2.43056, -25.8581 )
+auto_interact = true
+one_off = true
+
+[node name="CollisionShape" parent="HoloTerminalV2/InteractableEntity" index="0"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.11705, 0.45, 0 )
+
+[node name="CameraZone" parent="HoloTerminalV2/CinematicSetup" index="1"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.90735e-06, 2, -1.5 )
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape" parent="HoloTerminalV2/CinematicSetup/CameraZone" index="1"]
+shape = SubResource( 1043 )
+
 [editable path="CrioPod START"]
 [editable path="SideScrollZone4"]
 [editable path="InteriorWide"]
+[editable path="HoloTerminalV2"]
