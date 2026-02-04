@@ -1,8 +1,10 @@
-[gd_scene load_steps=11 format=2]
+[gd_scene load_steps=14 format=2]
 
 [ext_resource path="res://core_v2/things/HoloTerminalV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/things/TerminalUI.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/visual/HoloGlass.shader" type="Shader" id=3]
+[ext_resource path="res://core_v2/visual/CinematicRig.gd" type="Script" id=4]
+[ext_resource path="res://core_v2/components/CinematicCameraZone.gd" type="Script" id=5]
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 0.5, 0.35, 0.25 )
@@ -30,6 +32,8 @@ emission_energy = 2.0
 emission_operator = 0
 emission_on_uv2 = false
 
+[sub_resource type="ViewportTexture" id=11]
+
 [sub_resource type="ShaderMaterial" id=7]
 shader = ExtResource( 3 )
 shader_param/albedo = Color( 0.643137, 0.933333, 1, 0.14902 )
@@ -39,7 +43,10 @@ shader_param/flip_h = false
 shader_param/flip_v = true
 shader_param/back_flip_h = false
 shader_param/back_flip_v = false
-shader_param/texture_albedo = null
+shader_param/texture_albedo = SubResource( 11 )
+
+[sub_resource type="BoxShape" id=12]
+extents = Vector3( 1.5, 2, 1.5 )
 
 [node name="HoloTerminalV2" type="KinematicBody"]
 script = ExtResource( 1 )
@@ -106,3 +113,27 @@ render_target_update_mode = 0
 [node name="CollisionShape" type="CollisionShape" parent="InteractableEntity"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0 )
 shape = SubResource( 1 )
+
+[node name="CinematicSetup" type="Spatial" parent="."]
+
+[node name="TerminalCamRig" type="Spatial" parent="CinematicSetup" groups=["cinematic_rigs"]]
+transform = Transform( -1, 0, 8.74228e-08, 1.51808e-08, 0.984808, 0.173648, -8.60946e-08, 0.173648, -0.984808, 0, 2.5, -4.5 )
+script = ExtResource( 4 )
+transition_time = 0.3
+
+[node name="Camera" type="Camera" parent="CinematicSetup/TerminalCamRig"]
+
+[node name="CameraZone" type="Area" parent="CinematicSetup"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -1.5 )
+collision_layer = 0
+collision_mask = 2
+script = ExtResource( 5 )
+debug_color = Color( 0, 0.835294, 1, 0.109804 )
+zone_extents = Vector3( 1.5, 2, 1.5 )
+cinematic_rig_path = NodePath("../TerminalCamRig")
+
+[node name="CollisionShape" type="CollisionShape" parent="CinematicSetup/CameraZone"]
+shape = SubResource( 12 )
+
+[connection signal="body_entered" from="CinematicSetup/CameraZone" to="." method="_on_camera_zone_body_entered"]
+[connection signal="body_exited" from="CinematicSetup/CameraZone" to="." method="_on_camera_zone_body_exited"]

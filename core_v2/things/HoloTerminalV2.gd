@@ -4,16 +4,25 @@ class_name HoloTerminalV2
 
 # HoloTerminalV2.gd - Interactive Holographic Screen
 # Inherits InteractableBaseV2 for replay determinism.
+# V2.2: Integrated local Cinematic Camera System
 
+# --- Terminal Configuration ---
 export(float) var slide_speed := 2.0
-
 export(float) var slide_height := 0.8
 export(bool) var active setget set_active_debug
+
+# --- Cinematic Camera Configuration ---
+export(bool) var use_cinematic_view := true
+export(bool) var close_on_exit_zone := true
+
+# --- Internal Camera References ---
+var _camera_zone: Area = null
+var _cinematic_rig = null # CinematicRigV2
+var _in_cinematic_view := false
 
 
 func _ready():
 	interaction_text = "Toggle Terminal"
-
 
 	# Configure base class speed
 	if slide_speed > 0:
@@ -35,6 +44,30 @@ func _ready():
 		var screen_container = get_node_or_null("ScreenContainer")
 		if screen_container:
 			screen_container.scale = Vector3.ZERO
+	
+	# --- Cinematic Camera Auto-Wiring ---
+	_setup_cinematic_camera()
+
+
+func _setup_cinematic_camera() -> void:
+	"""Find and cache references to the local CinematicSetup children.
+	Signal connections are defined in the .tscn file for editor visibility."""
+	if Engine.editor_hint:
+		return # Don't run in editor
+	
+	# Find child nodes
+	_camera_zone = get_node_or_null("CinematicSetup/CameraZone")
+	_cinematic_rig = get_node_or_null("CinematicSetup/TerminalCamRig")
+	
+	if not _camera_zone:
+		if use_cinematic_view:
+			print("[HoloTerminalV2] Warning: CameraZone not found in CinematicSetup")
+		return
+	
+	if not _cinematic_rig:
+		if use_cinematic_view:
+			print("[HoloTerminalV2] Warning: TerminalCamRig not found in CinematicSetup")
+
 
 func _setup_viewport_texture() -> void:
 	# Fix ViewportTexture path issue by explicit assignment in code.
@@ -48,6 +81,7 @@ func _setup_viewport_texture() -> void:
 			# In Godot 3.x, this is the most reliable way to handle ViewportTextures.
 			mat.set_shader_param("texture_albedo", viewport.get_texture())
 
+
 func _on_interact(_actor: Node) -> void:
 	# Toggle open/close (override base behavior if needed, or rely on base if it toggles)
 	# InteractableBaseV2 usually just opens. We want toggle.
@@ -55,6 +89,72 @@ func _on_interact(_actor: Node) -> void:
 		set_active(false)
 	else:
 		set_active(true)
+
+
+# Override set_active to manage cinematic camera on state changes
+func set_active(value: bool, immediate: bool = false) -> void:
+	var was_active = is_active
+	
+	# Call base implementation
+	.set_active(value, immediate)
+	
+	# --- Cinematic Camera Management ---
+	if use_cinematic_view:
+		if is_active and not was_active:
+			# Terminal opening: check if player is already in zone
+			call_deferred("_check_player_in_zone")
+		elif not is_active and was_active:
+			# Terminal closing: deactivate cinematic if active
+			if _in_cinematic_view:
+				_deactivate_cinematic()
+
+
+func _check_player_in_zone() -> void:
+	"""Manual physics check when terminal is activated (player may already be in zone)."""
+	if not _camera_zone or not use_cinematic_view or not is_active:
+		return
+	
+	var players = get_tree().get_nodes_in_group("player")
+	if players.size() > 0:
+		var player = players[0]
+		if _camera_zone.overlaps_body(player):
+			_activate_cinematic()
+
+
+# --- Camera Zone Signal Handlers ---
+
+func _on_camera_zone_body_entered(body: Node) -> void:
+	if not use_cinematic_view or not is_active:
+		return
+	if body.is_in_group("player"):
+		_activate_cinematic()
+
+
+func _on_camera_zone_body_exited(body: Node) -> void:
+	if not body.is_in_group("player"):
+		return
+	
+	_deactivate_cinematic()
+	
+	if close_on_exit_zone and is_active:
+		# Defer to avoid modifying zone monitoring during signal callback
+		call_deferred("set_active", false)
+
+
+func _activate_cinematic() -> void:
+	"""Mark terminal as in cinematic view.
+	Note: Rig activation is handled by PlayerController which detects zones each frame."""
+	if _in_cinematic_view:
+		return # Already active
+	_in_cinematic_view = true
+
+
+func _deactivate_cinematic() -> void:
+	"""Mark terminal as exited cinematic view.
+	Note: Rig deactivation is handled by PlayerController when player leaves zone."""
+	if not _in_cinematic_view:
+		return # Already inactive
+	_in_cinematic_view = false
 
 
 func _update_visuals() -> void:
@@ -81,12 +181,15 @@ func _update_visuals() -> void:
 		var mode = Viewport.UPDATE_WHEN_VISIBLE if anim_progress > 0 else Viewport.UPDATE_DISABLED
 		viewport.render_target_update_mode = mode
 
+
 func _ease_out_cubic(t: float) -> float:
 	return 1.0 - pow(1.0 - t, 3.0)
+
 
 # Property aliases for spec compliance (read-only access to state)
 func get_is_open() -> bool:
 	return is_active
+
 
 func set_active_debug(val: bool) -> void:
 	active = val

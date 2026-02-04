@@ -681,7 +681,7 @@ func inject_input(data: Dictionary) -> void:
 
 func step(dt: float, input: InputDataV2) -> void:
 	if input == null:
-		return  # End of replay, no more input
+		return # End of replay, no more input
 	
 	# --- CONFIGURATION SYNC ---
 	# Update Input Provider config from Logic component (allows runtime tuning)
@@ -767,11 +767,19 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	# Assign cinematic rig based on zones
 	_cinematic_rig = null
+	var _active_cinematic_zone = null
+	var _zone_count = 0
 	for zone in get_tree().get_nodes_in_group("CinematicCameraZoneV2"):
+		_zone_count += 1
 		var zone_node = zone as CinematicCameraZoneV2
-		if zone_node and zone_node.is_body_in_zone(self):
-			_cinematic_rig = zone_node._rig_node
-			break
+		if zone_node:
+			var in_zone = zone_node.is_body_in_zone(self)
+			var rig = zone_node._rig_node
+			if in_zone:
+				print("[PlayerController] Zone ", zone_node.name, " in_zone=", in_zone, " _rig_node=", rig)
+				_cinematic_rig = rig
+				_active_cinematic_zone = zone_node
+				break
 
 	# --- DIRECTION LATCH SYSTEM ---
 	# Detectar cambios de contexto de cámara (entrada/salida de zonas)
@@ -843,7 +851,8 @@ func step(dt: float, input: InputDataV2) -> void:
 	# Activate/deactivate rig if changed
 	if _cinematic_rig != _prev_cinematic_rig:
 		if _cinematic_rig:
-			CinematicManager.activate_rig_direct(_cinematic_rig)
+			var control_mode = _active_cinematic_zone.control_mode if _active_cinematic_zone and "control_mode" in _active_cinematic_zone else CinematicManager.ControlMode.FREE
+			CinematicManager.activate_rig_direct(_cinematic_rig, control_mode)
 		else:
 			CinematicManager.deactivate_rig()
 

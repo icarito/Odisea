@@ -380,6 +380,11 @@ func _physics_process(_dt):
 
 		_replay_frame += 1
 		_total_replay_frames = _replay_frame
+	
+	else:
+		# Normal gameplay (Not recording, Not replaying)
+		if CinematicManager.is_active():
+			CinematicManager.step(FIXED_DT)
 
 func start_recording():
 	if not is_instance_valid(player):
