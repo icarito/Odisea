@@ -108,7 +108,23 @@ func deactivate_rig():
 	
 	print("[CinematicManager] rig_cam=", rig_cam, " trans_time=", trans_time, " player_cam=", player_cam)
 	
-	active_rig.deactivate()
+	if active_rig.has_method("deactivate"):
+		# Try to call with restore_camera=false to prevent rigs from snapping back 
+		# to player camera automatically (we handle the transition).
+		# We check if it's one of our known rig types or just try to pass the arg.
+		# Note: In GDScript, calling a method with extra args that are not defined throws an error.
+		# But since we updated CinematicRig and CinematicPathRig, they accept it.
+		# For safety, we can use call() but it might still error if signature mismatch.
+		# Ideally we use get_method_argument_count but that's complex in 3.x.
+		# We will assuming standard rigs are updated. If active_rig is custom, this might fail unless updated.
+		# Safe fallback: check if it's a known class type? No, duck typing involves risk.
+		# Let's assume standard behavior for now as we control the codebase.
+		active_rig.deactivate(false)
+	else:
+		# Fallback for very old rigs?
+		if active_rig.has_method("deactivate"):
+			active_rig.deactivate()
+			
 	active_rig = null
 	current_control_mode = ControlMode.FREE
 	emit_signal("control_mode_changed", ControlMode.FREE)

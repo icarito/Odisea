@@ -9,13 +9,13 @@ class_name CinematicPathRig
 export(float, 0.1, 60.0) var duration := 5.0 setget set_duration
 export(bool) var loop := false
 export(bool) var auto_play := false
-export(bool) var look_ahead := true  # La cámara mira hacia adelante del path
+export(bool) var look_ahead := true # La cámara mira hacia adelante del path
 
 # --- SEGUIMIENTO DE JUGADOR ---
-export(bool) var track_player := false  # La cámara siempre mira al jugador
-export(bool) var follow_player_on_path := false  # La cámara se mueve a lo largo del path para estar cerca del jugador
-export(float, 0.1, 20.0) var follow_speed := 5.0  # Velocidad de seguimiento suave
-export(Vector3) var player_offset := Vector3(0, 1.5, 0)  # Offset para apuntar (altura del pecho)
+export(bool) var track_player := false # La cámara siempre mira al jugador
+export(bool) var follow_player_on_path := false # La cámara se mueve a lo largo del path para estar cerca del jugador
+export(float, 0.1, 20.0) var follow_speed := 5.0 # Velocidad de seguimiento suave
+export(Vector3) var player_offset := Vector3(0, 1.5, 0) # Offset para apuntar (altura del pecho)
 
 # --- CONFIGURACIÓN DE CÁMARA ---
 export(float, 10.0, 120.0) var fov := 70.0 setget set_fov
@@ -33,7 +33,7 @@ var path_follow: PathFollow = null
 var camera: Camera = null
 var anim_player: AnimationPlayer = null
 var _player_node: Spatial = null
-var _target_offset := 0.0  # Offset objetivo para seguimiento suave
+var _target_offset := 0.0 # Offset objetivo para seguimiento suave
 
 # Estado de transición (similar a SideScrollLogicV2)
 var _is_active := false
@@ -41,9 +41,9 @@ var _transition_alpha := 0.0
 var _source_transform: Transform = Transform()
 var _source_fov: float = 70.0
 var _player_camera: Camera = null
-var _transition_camera: Camera = null  # Cámara temporal para transiciones
-var _last_deactivate_time := 0.0  # Para cooldown anti-jitter
-const REACTIVATION_COOLDOWN := 0.2  # Segundos antes de poder reactivar
+var _transition_camera: Camera = null # Cámara temporal para transiciones
+var _last_deactivate_time := 0.0 # Para cooldown anti-jitter
+const REACTIVATION_COOLDOWN := 0.2 # Segundos antes de poder reactivar
 
 func _ready():
 	if not is_in_group("cinematic_rigs"):
@@ -165,7 +165,7 @@ func _apply_transition_camera(alpha: float):
 
 func _basis_looking_at(direction: Vector3, up: Vector3) -> Basis:
 	"""Crea una Basis que mira hacia direction (similar a look_at)."""
-	var z_axis = -direction.normalized()
+	var z_axis = - direction.normalized()
 	var x_axis = up.cross(z_axis).normalized()
 	if x_axis.length_squared() < 0.001:
 		# direction es paralela a up, usar otro vector
@@ -393,19 +393,27 @@ func activate(force_current: bool = true):
 	if auto_play:
 		play()
 
-func deactivate():
+func deactivate(restore_camera: bool = true):
 	if not _is_active:
 		return
 	
 	_is_active = false
-	_last_deactivate_time = OS.get_ticks_msec() / 1000.0  # Registrar tiempo para cooldown
+	_last_deactivate_time = OS.get_ticks_msec() / 1000.0 # Registrar tiempo para cooldown
 	stop()
 	
 	# Ajustar la rotación de la cámara del jugador para que coincida con la del path
+	# (Esto es útil incluso si CinematicManager maneja la transición)
 	_align_player_camera_to_current()
 	
-	# Devolver control a la cámara del jugador (diferido para evitar flash)
-	call_deferred("_restore_player_camera")
+	if restore_camera:
+		# Devolver control a la cámara del jugador (diferido para evitar flash)
+		call_deferred("_restore_player_camera")
+	else:
+		# Limpieza inmediata sin restaurar cámara (CinematicManager toma el control)
+		_cleanup_transition_camera()
+		_player_camera = null
+		_transition_alpha = 0.0
+		set_physics_process(false)
 
 func _restore_player_camera():
 	"""Restaura la cámara del jugador (llamado diferido)."""
@@ -447,7 +455,7 @@ func _align_player_camera_to_current():
 		return
 	
 	# Obtener la dirección hacia donde mira la cámara (eje -Z en Godot)
-	var forward = -camera.global_transform.basis.z
+	var forward = - camera.global_transform.basis.z
 	
 	# Calcular yaw (rotación horizontal) desde la dirección forward proyectada en XZ
 	var forward_xz = Vector3(forward.x, 0, forward.z).normalized()
@@ -526,7 +534,7 @@ func restore_snapshot(data: Dictionary) -> void:
 	_transition_alpha = data.get("transition_alpha", 0.0)
 	_target_offset = data.get("target_offset", 0.0)
 	_last_deactivate_time = data.get("last_deactivate_time", 0.0)
-	var source_trans_data = data.get("source_transform", {"origin": [0,0,0], "basis": {"x": [1,0,0], "y": [0,1,0], "z": [0,0,1]}})
+	var source_trans_data = data.get("source_transform", {"origin": [0, 0, 0], "basis": {"x": [1, 0, 0], "y": [0, 1, 0], "z": [0, 0, 1]}})
 	var basis_data = source_trans_data["basis"]
 	var x = Vector3(basis_data["x"][0], basis_data["x"][1], basis_data["x"][2])
 	var y = Vector3(basis_data["y"][0], basis_data["y"][1], basis_data["y"][2])
