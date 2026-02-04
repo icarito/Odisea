@@ -7,11 +7,11 @@ class_name CinematicCameraZoneV2
 
 # Referencia directa al rig (arrastra el nodo desde el árbol)
 export(NodePath) var cinematic_rig_path: NodePath
-export(CinematicManager.ControlMode) var control_mode = CinematicManager.ControlMode.FREE
+export(CinematicManager.ControlMode) var control_mode = CinematicManager.ControlMode.LOCKED_VIEW
 
 # --- Direction Latch Control ---
 export(bool) var latch_on_enter := true # Si true, activa el latch de dirección al entrar a la zona
-export(bool) var latch_on_exit := true  # Si true, activa el latch de dirección al salir de la zona
+export(bool) var latch_on_exit := true # Si true, activa el latch de dirección al salir de la zona
 
 # Cached reference (may be any Node; CinematicRigV2 is a Spatial)
 var _rig_node: Node = null

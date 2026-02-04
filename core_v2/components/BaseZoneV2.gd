@@ -10,6 +10,9 @@ export(Vector3) var zone_extents: Vector3 = Vector3(1, 1, 1) setget set_zone_ext
 # Internal reference to the Area node providing collision
 var _host_area: Area = null
 
+# Track bodies currently in zone (more reliable than overlaps_body during physics sync)
+var _bodies_in_zone: Dictionary = {}
+
 func _ready():
 	_find_and_setup_host()
 	if Engine.editor_hint or OS.is_debug_build():
@@ -43,10 +46,12 @@ func _find_and_setup_host():
 
 func _on_host_body_entered(body: Node):
 	print("[BaseZoneV2] host_body_entered: ", body.name, " in group player: ", body.is_in_group("player"))
+	_bodies_in_zone[body.get_instance_id()] = body
 	if body.is_in_group("player"):
 		_on_zone_entered(body)
 
 func _on_host_body_exited(body: Node):
+	_bodies_in_zone.erase(body.get_instance_id())
 	if body.is_in_group("player"):
 		_on_zone_exited(body)
 
@@ -58,9 +63,8 @@ func _on_zone_exited(_body: Node):
 	pass
 
 func is_body_in_zone(body: Node) -> bool:
-	if not _host_area:
-		return false
-	return _host_area.overlaps_body(body)
+	# Use signal-tracked dictionary for reliability (overlaps_body has timing issues)
+	return _bodies_in_zone.has(body.get_instance_id())
 
 # --- Debug Visualization ---
 
