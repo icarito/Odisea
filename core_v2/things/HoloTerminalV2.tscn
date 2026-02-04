@@ -40,6 +40,10 @@ shader_param/albedo = Color( 0, 0.882353, 1, 0.627451 )
 shader_param/emission_energy = 3.0
 shader_param/alpha_scissor_threshold = 0.0
 shader_param/texture_albedo = SubResource( 11 )
+shader_param/flip_h = false
+shader_param/flip_v = true
+shader_param/back_flip_h = false
+shader_param/back_flip_v = false
 
 [node name="HoloTerminalV2" type="KinematicBody"]
 script = ExtResource( 1 )
