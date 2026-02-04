@@ -31,23 +31,23 @@ material = SubResource( 9 )
 size = Vector2( 0.01, 0.05 )
 
 [sub_resource type="ViewportTexture" id=11]
-flags = 4
 
 [sub_resource type="ShaderMaterial" id=7]
 resource_local_to_scene = true
 shader = ExtResource( 3 )
-shader_param/albedo = Color( 0, 0.882353, 1, 0.627451 )
+shader_param/albedo = Color( 0.643137, 0.933333, 1, 0.14902 )
 shader_param/emission_energy = 3.0
 shader_param/alpha_scissor_threshold = 0.0
-shader_param/texture_albedo = SubResource( 11 )
 shader_param/flip_h = false
 shader_param/flip_v = true
 shader_param/back_flip_h = false
 shader_param/back_flip_v = false
+shader_param/texture_albedo = SubResource( 11 )
 
 [node name="HoloTerminalV2" type="KinematicBody"]
 script = ExtResource( 1 )
 interaction_text = "Toggle Terminal"
+anim_duration = 0.5
 slide_height = 0.2
 active = true
 
@@ -91,7 +91,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.9, 0 )
 invert_faces = true
 width = 2.7
 height = 1.8
-depth = 0.02
+depth = 0.01
 material = SubResource( 7 )
 
 [node name="Viewport" type="Viewport" parent="."]

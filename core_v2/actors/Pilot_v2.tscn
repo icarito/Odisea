@@ -45,6 +45,7 @@ collision_layer = 3
 collision_mask = 254
 script = ExtResource( 2 )
 push_force = 15.0
+min_pitch = -45.0
 max_pitch = 60.0
 
 [node name="Logic" type="Node" parent="."]
@@ -76,9 +77,9 @@ script = ExtResource( 8 )
 target_y_offset = 1.0
 target_spring_length = 15.0
 min_rig_height = -1.5
-lookahead_speed = 3.0
+lookahead_speed = 1.5
 turn_delay = 1.0
-mouse_sensitivity = 0.04
+mouse_sensitivity = 0.002
 manual_return_speed = 3.0
 
 [node name="Visual" type="Spatial" parent="."]
