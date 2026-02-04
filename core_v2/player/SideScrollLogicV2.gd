@@ -25,7 +25,7 @@ export(float) var lookahead_speed := 2.0 # How fast camera rotates to look ahead
 export(float) var turn_delay := 2.0 # Delay in seconds before camera follows turn
 
 # --- MANUAL CAMERA CONTROL ---
-export(float) var mouse_sensitivity := 0.05 # Sensitivity for manual camera control
+export(float) var mouse_sensitivity := 0.002 # Sensitivity for manual camera control (radians per pixel)
 export(float) var manual_yaw_limit := 15.0 # Max manual yaw offset in degrees
 export(float) var manual_pitch_limit := 15.0 # Max manual pitch offset in degrees
 export(float) var manual_return_speed := 2.0 # Speed to return to auto position
@@ -271,8 +271,8 @@ func update_facing(move_x: float, dt: float):
 
 func apply_pan(mouse_delta: Vector2):
 	"""Apply manual camera control from mouse input."""
-	if mouse_delta.length_squared() < 1.0:
-		return # Ignore noise
+	if mouse_delta.length_squared() < 0.01:
+		return # Ignore extremely small noise
 	
 	# Reset input timer
 	time_since_input = 0.0
