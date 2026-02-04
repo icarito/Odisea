@@ -191,7 +191,6 @@ ease_type = 1
 [node name="SlidingDrawer" parent="." instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.30146, 0.875, 39.991 )
 interaction_text = "Open Drawer"
-slide_vector = Vector3( 0, 0, 1 )
 size = Vector3( 1, 1.5, 0.8 )
 easing_type = 3
 
@@ -266,4 +265,4 @@ directional_shadow_mode = 2
 
 [node name="HoloTerminalV2" parent="." instance=ExtResource( 7 )]
 transform = Transform( 0.714143, 0, 0.7, 0, 1, 0, -0.7, 0, 0.714143, 3.74335, 2.38419e-07, 7.4683 )
-active = false
+auto_interact = true

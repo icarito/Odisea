@@ -1,10 +1,11 @@
-[gd_scene load_steps=14 format=2]
+[gd_scene load_steps=17 format=2]
 
 [ext_resource path="res://core_v2/things/HoloTerminalV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/things/TerminalUI.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/visual/HoloGlass.shader" type="Shader" id=3]
 [ext_resource path="res://core_v2/visual/CinematicRig.gd" type="Script" id=4]
 [ext_resource path="res://core_v2/components/CinematicCameraZone.gd" type="Script" id=5]
+[ext_resource path="res://core_v2/visual/CinematicPathRig.gd" type="Script" id=6]
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 0.5, 0.35, 0.25 )
@@ -32,7 +33,7 @@ emission_energy = 2.0
 emission_operator = 0
 emission_on_uv2 = false
 
-[sub_resource type="ViewportTexture" id=11]
+[sub_resource type="ViewportTexture" id=18]
 
 [sub_resource type="ShaderMaterial" id=7]
 shader = ExtResource( 3 )
@@ -43,17 +44,37 @@ shader_param/flip_h = false
 shader_param/flip_v = true
 shader_param/back_flip_h = false
 shader_param/back_flip_v = false
-shader_param/texture_albedo = SubResource( 11 )
+shader_param/texture_albedo = SubResource( 18 )
 
-[sub_resource type="BoxShape" id=12]
+[sub_resource type="BoxShape" id=17]
 extents = Vector3( 1.5, 2, 1.5 )
+
+[sub_resource type="Curve3D" id=14]
+_data = {
+"points": PoolVector3Array( 0, 0, 0, 0, 0, 0, -1.374, 0.19433, 0.639461, 0, 0, 0, 0, 0, 0, 2.626, 0.19433, 0.639461 ),
+"tilts": PoolRealArray( 0, 0 )
+}
+
+[sub_resource type="Animation" id=15]
+length = 5.0
+tracks/0/type = "value"
+tracks/0/path = NodePath("PathFollow:unit_offset")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 5 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 0,
+"values": [ 0.0, 1.0 ]
+}
 
 [node name="HoloTerminalV2" type="KinematicBody"]
 script = ExtResource( 1 )
 interaction_text = "Toggle Terminal"
 anim_duration = 0.5
 slide_height = 0.2
-active = true
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0 )
@@ -129,11 +150,32 @@ collision_layer = 0
 collision_mask = 2
 script = ExtResource( 5 )
 debug_color = Color( 0, 0.835294, 1, 0.109804 )
+debug_render = false
 zone_extents = Vector3( 1.5, 2, 1.5 )
-cinematic_rig_path = NodePath("../TerminalCamRig")
+cinematic_rig_path = NodePath("../CinematicPathRig")
 
 [node name="CollisionShape" type="CollisionShape" parent="CinematicSetup/CameraZone"]
-shape = SubResource( 12 )
+shape = SubResource( 17 )
+
+[node name="CinematicPathRig" type="Path" parent="CinematicSetup"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.626, 1.40493, -5.63946 )
+curve = SubResource( 14 )
+script = ExtResource( 6 )
+track_player = true
+follow_player_on_path = true
+
+[node name="PathFollow" type="PathFollow" parent="CinematicSetup/CinematicPathRig"]
+transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 0.626089, 0.19433, 0.639461 )
+offset = 2.00097
+rotation_mode = 0
+
+[node name="Camera" type="Camera" parent="CinematicSetup/CinematicPathRig/PathFollow"]
+transform = Transform( -0.310552, -0.0331862, 0.949978, -0.0542569, 0.99838, 0.0171402, -0.949014, -0.0462202, -0.311851, 0, 0, 0 )
+near = 0.1
+far = 1000.0
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="CinematicSetup/CinematicPathRig"]
+anims/dolly = SubResource( 15 )
 
 [connection signal="body_entered" from="CinematicSetup/CameraZone" to="." method="_on_camera_zone_body_entered"]
 [connection signal="body_exited" from="CinematicSetup/CameraZone" to="." method="_on_camera_zone_body_exited"]

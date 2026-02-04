@@ -16,6 +16,9 @@ export(bool) var latch_on_exit := true # Si true, activa el latch de dirección 
 # Cached reference (may be any Node; CinematicRigV2 is a Spatial)
 var _rig_node: Node = null
 
+# Runtime control: allows external systems (like HoloTerminal) to enable/disable this zone
+var is_zone_active: bool = true
+
 func _ready():
 	# Llamar primero a la lógica base de BaseZoneV2
 	._ready()

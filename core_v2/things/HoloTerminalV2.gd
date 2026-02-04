@@ -12,14 +12,12 @@ export(float) var slide_height := 0.8
 export(bool) var active setget set_active_debug
 
 # --- Cinematic Camera Configuration ---
-export(bool) var use_cinematic_view := true
+export(bool) var use_cinematic_zone := true
 export(bool) var close_on_exit_zone := true
 
 # --- Internal Camera References ---
 var _camera_zone: Area = null
 var _cinematic_rig = null # CinematicRigV2
-var _in_cinematic_view := false
-
 
 func _ready():
 	interaction_text = "Toggle Terminal"
@@ -60,12 +58,16 @@ func _setup_cinematic_camera() -> void:
 	_cinematic_rig = get_node_or_null("CinematicSetup/TerminalCamRig")
 	
 	if not _camera_zone:
-		if use_cinematic_view:
+		if use_cinematic_zone:
 			print("[HoloTerminalV2] Warning: CameraZone not found in CinematicSetup")
 		return
 	
+	# Configure initial zone state
+	if _camera_zone and "is_zone_active" in _camera_zone:
+		_camera_zone.is_zone_active = use_cinematic_zone
+	
 	if not _cinematic_rig:
-		if use_cinematic_view:
+		if use_cinematic_zone:
 			print("[HoloTerminalV2] Warning: TerminalCamRig not found in CinematicSetup")
 
 
@@ -93,68 +95,27 @@ func _on_interact(_actor: Node) -> void:
 
 # Override set_active to manage cinematic camera on state changes
 func set_active(value: bool, immediate: bool = false) -> void:
-	var was_active = is_active
-	
 	# Call base implementation
 	.set_active(value, immediate)
 	
 	# --- Cinematic Camera Management ---
-	if use_cinematic_view:
-		if is_active and not was_active:
-			# Terminal opening: check if player is already in zone
-			call_deferred("_check_player_in_zone")
-		elif not is_active and was_active:
-			# Terminal closing: deactivate cinematic if active
-			if _in_cinematic_view:
-				_deactivate_cinematic()
+	# If NOT using cinematic zone by default, we toggle it based on interaction
+	if not use_cinematic_zone and _camera_zone and "is_zone_active" in _camera_zone:
+		 _camera_zone.is_zone_active = value
 
 
-func _check_player_in_zone() -> void:
-	"""Manual physics check when terminal is activated (player may already be in zone)."""
-	if not _camera_zone or not use_cinematic_view or not is_active:
-		return
-	
-	var players = get_tree().get_nodes_in_group("player")
-	if players.size() > 0:
-		var player = players[0]
-		if _camera_zone.overlaps_body(player):
-			_activate_cinematic()
-
-
-# --- Camera Zone Signal Handlers ---
-
-func _on_camera_zone_body_entered(body: Node) -> void:
-	if not use_cinematic_view or not is_active:
-		return
-	if body.is_in_group("player"):
-		_activate_cinematic()
+func _on_camera_zone_body_entered(_body: Node) -> void:
+	# No logic needed here anymore - PlayerController polls active zones
+	pass
 
 
 func _on_camera_zone_body_exited(body: Node) -> void:
 	if not body.is_in_group("player"):
 		return
 	
-	_deactivate_cinematic()
-	
 	if close_on_exit_zone and is_active:
 		# Defer to avoid modifying zone monitoring during signal callback
 		call_deferred("set_active", false)
-
-
-func _activate_cinematic() -> void:
-	"""Mark terminal as in cinematic view.
-	Note: Rig activation is handled by PlayerController which detects zones each frame."""
-	if _in_cinematic_view:
-		return # Already active
-	_in_cinematic_view = true
-
-
-func _deactivate_cinematic() -> void:
-	"""Mark terminal as exited cinematic view.
-	Note: Rig deactivation is handled by PlayerController when player leaves zone."""
-	if not _in_cinematic_view:
-		return # Already inactive
-	_in_cinematic_view = false
 
 
 func _update_visuals() -> void:

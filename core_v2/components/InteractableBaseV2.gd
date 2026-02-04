@@ -9,7 +9,8 @@ class_name InteractableBaseV2
 export(String) var interaction_text := "Interact"
 export(float) var anim_duration := 1.0 # Seconds to complete animation
 export(bool) var starts_active := false setget set_starts_active # Initial logical state
-export(bool) var auto_interact_once := false # If true, can only be used once
+export(bool) var auto_interact := false # If true, automatically triggers when player is in range
+export(bool) var one_off := false # If true, can only be used once (manually or automatically)
 export(bool) var debug := false
 
 func set_starts_active(v: bool) -> void:
@@ -23,7 +24,7 @@ func set_starts_active(v: bool) -> void:
 # --- STATE VARIABLES ---
 # These are snapshotted for replay determinism
 var is_active := false # Logical state (true = open/on, false = closed/off)
-var is_used := false # Has it been triggered if auto_interact_once is true?
+var is_used := false # Has it been triggered if one_off is true?
 var _auto_triggered := false # Has auto-trigger already happened?
 var anim_progress := 0.0 # Current visual position (0.0 to 1.0)
 var target_progress := 0.0 # Goal state (1.0 or 0.0)
@@ -59,14 +60,14 @@ func _ready():
 
 func interact() -> void:
 	"""Toggle the active state. Called by player interaction system."""
-	if auto_interact_once and is_used:
+	if one_off and is_used:
 		if debug:
-			print("[%s] Already used, ignoring interaction." % name)
+			print("[%s] Already used (one_off), ignoring interaction." % name)
 		return
 		
 	set_active(not is_active)
 	
-	if auto_interact_once:
+	if one_off:
 		is_used = true
 
 func set_active(value: bool, immediate: bool = false) -> void:

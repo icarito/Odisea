@@ -622,8 +622,8 @@ func _process_interaction(input: InputDataV2):
 			var text = best_target.interaction_text if best_target.get("interaction_text") else "Interact"
 			emit_signal("interactable_in_range", text)
 			
-			# Auto-activate if auto_interact_once is enabled and hasn't been auto-triggered yet
-			if best_target.get("auto_interact_once") and not best_target.get("_auto_triggered"):
+			# Auto-activate if auto_interact is enabled and hasn't been auto-triggered yet
+			if best_target.get("auto_interact") and not best_target.get("_auto_triggered"):
 				if best_target.has_method("set_active"):
 					print("Auto-activating interactable: ", best_target.name)
 					best_target.set_active(true)
@@ -772,11 +772,10 @@ func step(dt: float, input: InputDataV2) -> void:
 	for zone in get_tree().get_nodes_in_group("CinematicCameraZoneV2"):
 		_zone_count += 1
 		var zone_node = zone as CinematicCameraZoneV2
-		if zone_node:
+		if zone_node and zone_node.is_zone_active: # Check active flag!
 			var in_zone = zone_node.is_body_in_zone(self)
 			var rig = zone_node._rig_node
 			if in_zone:
-				print("[PlayerController] Zone ", zone_node.name, " in_zone=", in_zone, " _rig_node=", rig)
 				_cinematic_rig = rig
 				_active_cinematic_zone = zone_node
 				break
