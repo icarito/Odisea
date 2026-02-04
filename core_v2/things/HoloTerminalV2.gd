@@ -25,20 +25,28 @@ func _ready():
 
 	# Initial state update
 	_update_visuals()
-
-	# Fix ViewportTexture path issue by explicit assignment
-	var screen_mesh = $ScreenContainer/ScreenMesh
-	var viewport = $Viewport
-	if screen_mesh and viewport:
-		var mat = screen_mesh.material
-		if mat is ShaderMaterial:
-			mat.set_shader_param("texture_albedo", viewport.get_texture())
+	_setup_viewport_texture()
 	
 	# Initial toggle logic (ensure correct state)
 	if not is_active:
-		$ProjectorMesh/HoloParticles.emitting = false
-		if has_node("ScreenContainer"):
-			$ScreenContainer.scale = Vector3.ZERO
+		var particles = get_node_or_null("HoloParticles")
+		if particles:
+			particles.emitting = false
+		var screen_container = get_node_or_null("ScreenContainer")
+		if screen_container:
+			screen_container.scale = Vector3.ZERO
+
+func _setup_viewport_texture() -> void:
+	# Fix ViewportTexture path issue by explicit assignment in code.
+	# This avoids load-time errors from invalid paths in the .tscn file.
+	var screen_mesh = get_node_or_null("ScreenContainer/ScreenMesh")
+	var viewport = get_node_or_null("Viewport")
+	if screen_mesh and viewport:
+		var mat = screen_mesh.material
+		if mat is ShaderMaterial:
+			# Assign the texture from the Viewport directly. 
+			# In Godot 3.x, this is the most reliable way to handle ViewportTextures.
+			mat.set_shader_param("texture_albedo", viewport.get_texture())
 
 func _on_interact(_actor: Node) -> void:
 	# Toggle open/close (override base behavior if needed, or rely on base if it toggles)
@@ -51,24 +59,27 @@ func _on_interact(_actor: Node) -> void:
 
 func _update_visuals() -> void:
 	# 2. Apply Movement (Visuals)
-	if has_node("ScreenContainer"):
+	var screen_container = get_node_or_null("ScreenContainer")
+	if screen_container:
 		# Interpolate the Y position of the ScreenContainer (existing logic, maybe adjust)
 		# Actually, user wants "size up from center". 
 		# We'll Scale it up instead of just moving it, or both.
 		var progress = _ease_out_cubic(anim_progress)
 		var scale_val = lerp(Vector3.ZERO, Vector3.ONE, progress)
-		$ScreenContainer.scale = scale_val
+		screen_container.scale = scale_val
 		
 		# Also manage Projector Particles
-		if has_node("ProjectorMesh/HoloParticles"):
-			$ProjectorMesh/HoloParticles.emitting = is_active
+		var particles = get_node_or_null("HoloParticles")
+		if particles:
+			particles.emitting = is_active
 
 
 	# 3. Update UI State (Optimization)
-	if has_node("Viewport"):
+	var viewport = get_node_or_null("Viewport")
+	if viewport:
 		# Only render the viewport if the screen is at least partially visible
 		var mode = Viewport.UPDATE_WHEN_VISIBLE if anim_progress > 0 else Viewport.UPDATE_DISABLED
-		$Viewport.render_target_update_mode = mode
+		viewport.render_target_update_mode = mode
 
 func _ease_out_cubic(t: float) -> float:
 	return 1.0 - pow(1.0 - t, 3.0)
