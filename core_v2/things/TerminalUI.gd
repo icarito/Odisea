@@ -5,6 +5,7 @@ class_name TerminalUIV2
 # The cursor is a sprite rendered inside the viewport, controlled by mouse delta
 
 signal button_pressed(button_name)
+signal key_pressed(event)
 
 # Cursor configuration
 export(Texture) var cursor_texture: Texture
@@ -139,6 +140,36 @@ func set_cursor_position(pos: Vector2):
 	"""Set cursor position programmatically."""
 	_cursor_position = pos
 	_update_cursor_position()
+
+
+func process_key_event(event: InputEventKey):
+	"""Process keyboard input forwarded from HoloTerminal in focus mode."""
+	if not _ui_mode_active:
+		return
+	
+	# Emit signal for custom handling by child controls
+	emit_signal("key_pressed", event)
+	
+	# WASD navigation: move cursor in discrete steps
+	if event.pressed:
+		var cursor_step := 20.0
+		match event.scancode:
+			KEY_W, KEY_UP:
+				_cursor_position.y -= cursor_step
+			KEY_S, KEY_DOWN:
+				_cursor_position.y += cursor_step
+			KEY_A, KEY_LEFT:
+				_cursor_position.x -= cursor_step
+			KEY_D, KEY_RIGHT:
+				_cursor_position.x += cursor_step
+			KEY_ENTER, KEY_SPACE:
+				# Simulate click at current cursor position
+				_handle_click()
+		
+		# Clamp cursor after movement
+		_cursor_position.x = clamp(_cursor_position.x, 0, _viewport_size.x)
+		_cursor_position.y = clamp(_cursor_position.y, 0, _viewport_size.y)
+		_update_cursor_position()
 
 
 func _on_Button_pressed():

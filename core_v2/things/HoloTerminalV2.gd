@@ -15,12 +15,15 @@ export(bool) var active setget set_active_debug
 export(bool) var use_cinematic_zone := true
 export(bool) var close_on_exit_zone := true
 export(bool) var enable_ui_interaction := true
+export(bool) var allow_focus_mode := true # If true, pressing 'focus' key transitions to FocusedRig
 
 # --- Internal Camera References ---
 var _camera_zone: Area = null
-var _cinematic_rig = null # CinematicRigV2
+var _cinematic_rig = null # CinematicPathRig reference
+var _focused_rig = null # FocusedRig reference for focus mode
 var _terminal_ui = null # TerminalUIV2 reference
 var _player_in_zone := false
+var _is_focused := false # True when in focus mode (close-up camera, keyboard to UI)
 
 func _ready():
 	interaction_text = "Toggle Terminal"
@@ -61,7 +64,8 @@ func _setup_cinematic_camera() -> void:
 	
 	# Find child nodes
 	_camera_zone = get_node_or_null("CinematicSetup/CameraZone")
-	_cinematic_rig = get_node_or_null("CinematicSetup/TerminalCamRig")
+	_cinematic_rig = get_node_or_null("CinematicSetup/CinematicPathRig")
+	_focused_rig = get_node_or_null("CinematicSetup/FocusedRig")
 	
 	if not _camera_zone:
 		if use_cinematic_zone:
@@ -71,10 +75,11 @@ func _setup_cinematic_camera() -> void:
 	# Configure initial zone state
 	if _camera_zone and "is_zone_active" in _camera_zone:
 		_camera_zone.is_zone_active = use_cinematic_zone
+		print("[HoloTerminalV2] Zone is_zone_active set to: ", use_cinematic_zone)
 	
 	if not _cinematic_rig:
 		if use_cinematic_zone:
-			print("[HoloTerminalV2] Warning: TerminalCamRig not found in CinematicSetup")
+			print("[HoloTerminalV2] Warning: CinematicPathRig not found in CinematicSetup")
 
 
 func _setup_viewport_texture() -> void:
@@ -192,10 +197,33 @@ func is_ui_interactive() -> bool:
 
 
 func _input(event):
-	"""Forward mouse input to TerminalUI when in UI interaction mode."""
+	"""Handle focus mode toggling and forward input to TerminalUI."""
 	if Engine.editor_hint:
 		return
 	
+	# Handle focus mode toggle
+	if is_ui_interactive() and allow_focus_mode:
+		if event.is_action_pressed("focus") and not _is_focused:
+			print("[HoloTerminalV2] Focus key pressed, entering focus mode")
+			_enter_focus_mode()
+			get_tree().set_input_as_handled()
+			return
+		elif event.is_action_pressed("ui_cancel") and _is_focused:
+			print("[HoloTerminalV2] Cancel key pressed, exiting focus mode")
+			_exit_focus_mode()
+			get_tree().set_input_as_handled()
+			return
+	
+	# When focused, forward all relevant input to terminal
+	if _is_focused and _terminal_ui:
+		# Forward WASD/movement keys as key events
+		if event is InputEventKey:
+			if _terminal_ui.has_method("process_key_event"):
+				_terminal_ui.process_key_event(event)
+			get_tree().set_input_as_handled()
+			return
+	
+	# Standard UI mode (not focused): forward mouse input
 	if not is_ui_interactive():
 		return
 	
@@ -214,3 +242,44 @@ func _input(event):
 			if _terminal_ui.has_method("process_mouse_click"):
 				_terminal_ui.process_mouse_click()
 			get_tree().set_input_as_handled()
+
+
+func _enter_focus_mode():
+	"""Switch to FocusedRig camera for close-up terminal interaction."""
+	if not _focused_rig:
+		print("[HoloTerminalV2] Cannot enter focus mode: FocusedRig not found")
+		return
+	
+	_is_focused = true
+	print("[HoloTerminalV2] Entering focus mode, activating FocusedRig")
+	
+	# Switch camera zone to point at FocusedRig
+	if _camera_zone and "cinematic_rig_path" in _camera_zone:
+		_camera_zone.cinematic_rig_path = _camera_zone.get_path_to(_focused_rig)
+		_camera_zone._cache_rig()
+	
+	# Activate the focused rig via CinematicManager
+	CinematicManager.activate_rig_direct(_focused_rig, CinematicManager.ControlMode.LOCKED_VIEW)
+
+
+func _exit_focus_mode():
+	"""Return to CinematicPathRig camera."""
+	if not _cinematic_rig:
+		print("[HoloTerminalV2] Cannot exit focus mode: CinematicPathRig not found")
+		return
+	
+	_is_focused = false
+	print("[HoloTerminalV2] Exiting focus mode, activating CinematicPathRig")
+	
+	# Switch camera zone back to CinematicPathRig
+	if _camera_zone and "cinematic_rig_path" in _camera_zone:
+		_camera_zone.cinematic_rig_path = _camera_zone.get_path_to(_cinematic_rig)
+		_camera_zone._cache_rig()
+	
+	# Activate the path rig via CinematicManager
+	CinematicManager.activate_rig_direct(_cinematic_rig, CinematicManager.ControlMode.LOCKED_VIEW)
+
+
+func is_focused() -> bool:
+	"""Returns true if terminal is in focus mode."""
+	return _is_focused

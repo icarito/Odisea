@@ -435,6 +435,9 @@ func _ready():
 			get_node("Logic").add_child(jump_logic)
 		else:
 			add_child(jump_logic)
+			
+	# Removed _check_initial_zones as it interfered with native body_entered timing
+	# and caused the camera to start in 3D mode incorrectly.
 
 	if has_node("Logic/Movement"):
 		movement_logic = get_node("Logic/Movement")
@@ -699,6 +702,9 @@ func step(dt: float, input: InputDataV2) -> void:
 		input_provider.hardware_input_enabled = false
 
 	# 0. State Update
+	if not is_instance_valid(sidescroll_logic):
+		return
+		
 	sidescroll_logic.step(dt) # Actualizar alpha al inicio para gating
 	var alpha = sidescroll_logic.transition_alpha
 	var in_transition = alpha > 0.0 and alpha < 1.0
@@ -870,6 +876,16 @@ func step(dt: float, input: InputDataV2) -> void:
 	# Activate/deactivate rig if changed
 	if _cinematic_rig != _prev_cinematic_rig:
 		if _cinematic_rig:
+			# Force update our camera transform so the transition starts from exactly where we are
+			# If we are in SideScroll mode, we MUST manually apply the 2.5D camera logic
+			# because _step_camera_logic hasn't run yet for this frame.
+			if sidescroll_logic.is_active:
+				_force_snap_to_sidescroll_camera()
+			
+			if camera_rig: camera_rig.force_update_transform()
+			var viewport_cam = get_viewport().get_camera()
+			if viewport_cam: viewport_cam.force_update_transform()
+
 			var control_mode = _active_cinematic_zone.control_mode if _active_cinematic_zone and "control_mode" in _active_cinematic_zone else CinematicManager.ControlMode.FREE
 			CinematicManager.activate_rig_direct(_cinematic_rig, control_mode)
 		else:
@@ -892,68 +908,10 @@ func step(dt: float, input: InputDataV2) -> void:
 		if abs(_latched_input_vec.y) > 0.1:
 			if abs(input.move_vec.y) < 0.1 or sign(input.move_vec.y) != sign(_latched_input_vec.y):
 				should_release = true
-		
-		if should_release:
-			_direction_latch_active = false
-			_latched_camera_basis = Basis.IDENTITY
-			_latched_sidescroll_active = false
-			_latched_sidescroll_basis = Basis.IDENTITY
-			_latched_cinematic_mode = -1
-			_latched_input_vec = Vector2.ZERO
-		
+
+
 	var basis = get_camera_basis()
 	var move_vec = input.move_vec
-	
-	# --- DIRECTION LATCH APPLICATION ---
-	# Si el latch está activo, interpretar TODO el input usando el contexto ANTERIOR guardado
-	if _direction_latch_active:
-		if _latched_sidescroll_active:
-			# Usar el modo sidescroll anterior con TODAS sus restricciones
-			basis = _latched_sidescroll_basis
-			# Aplicar las mismas restricciones que aplicaría sidescroll
-			# En sidescroll, solo permitimos movimiento lateral (X del input)
-			if not sidescroll_logic.allow_depth:
-				move_vec = Vector2(input.move_vec.x, 0)
-		elif _latched_cinematic_mode >= 0:
-			# Usar el modo cinemático anterior para TODAS las teclas
-			var world_dir = _get_move_direction(input.move_vec, _latched_cinematic_mode)
-			if world_dir.length() > 0.01:
-				basis = Basis.IDENTITY
-				move_vec = Vector2(0, world_dir.length())
-				var h_dir = Vector3(world_dir.x, 0, world_dir.z).normalized()
-				if h_dir.length() > 0.01:
-					basis = Basis(Vector3.UP.cross(h_dir), Vector3.UP, h_dir)
-			else:
-				move_vec = Vector2.ZERO
-		else:
-			# Usar la basis de cámara anterior (modo 3D normal)
-			# Transformar el input a world space usando la basis anterior
-			var forward = _latched_camera_basis.z
-			var right = _latched_camera_basis.x
-			forward.y = 0
-			right.y = 0
-			var world_dir = (right.normalized() * input.move_vec.x + forward.normalized() * input.move_vec.y)
-			move_vec = Vector2(0, world_dir.length())
-			if world_dir.length() > 0.01:
-				basis = Basis(Vector3.UP.cross(world_dir.normalized()), Vector3.UP, world_dir.normalized())
-			else:
-				basis = _latched_camera_basis
-	# --- CINEMATIC CONTROL MODE ---
-	elif active_rig:
-		var mode = CinematicManager.get_control_mode()
-		var world_dir = _get_move_direction(input.move_vec, mode)
-		
-		# Transform world_dir back to basis-relative move_vec for process_movement
-		if world_dir.length() > 0.01:
-			# We use a fixed basis and put all magnitude in move_vec.y (forward)
-			basis = Basis.IDENTITY
-			move_vec = Vector2(0, world_dir.length())
-			# We calculate the horizontal direction
-			var h_dir = Vector3(world_dir.x, 0, world_dir.z).normalized()
-			if h_dir.length() > 0.01:
-				basis = Basis(Vector3.UP.cross(h_dir), Vector3.UP, h_dir)
-		else:
-			move_vec = Vector2.ZERO
 
 	# --- ACROBATIC SNAP DETECTION (Frame-based for determinism) ---
 	# Uses input.move_vec directly to capture raw intent before processing
@@ -979,7 +937,8 @@ func step(dt: float, input: InputDataV2) -> void:
 	if current_input_3d.length() > 0.1:
 		last_input_vector = current_input_3d
 	
-	if _forward_latch_active and not sidescroll_logic.allow_depth:
+	# Skip sidescroll constraints when a cinematic rig is active
+	if _forward_latch_active and not sidescroll_logic.allow_depth and not active_rig:
 		# FORWARD LATCH: Force controls to follow strict 2.5D path
 		basis = sidescroll_logic.get_target_basis()
 		
@@ -1001,7 +960,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		# FORCE FACING UPDATE based on the latch direction
 		sidescroll_logic.update_facing(input_x, dt)
 		
-	elif sidescroll_logic.is_active and not in_transition:
+	elif sidescroll_logic.is_active and not in_transition and not active_rig:
 		# STRICT 2.5D: Use target basis + constraints
 		basis = sidescroll_logic.get_target_basis()
 		move_vec = sidescroll_logic.get_constrained_input(move_vec)
@@ -1027,7 +986,8 @@ func step(dt: float, input: InputDataV2) -> void:
 	
 	# Override visual direction in 2.5D based on camera facing state
 	# Only apply this strictly when fully in 2.5D mode and NOT in depth-movement mode
-	if sidescroll_logic.is_active and not in_transition and not _forward_latch_active and not sidescroll_logic.allow_depth:
+	# Skip when a cinematic rig is active (cinematic zones take full control)
+	if sidescroll_logic.is_active and not in_transition and not _forward_latch_active and not sidescroll_logic.allow_depth and not active_rig:
 		movement_logic.wish_direction = basis.x * sidescroll_logic.facing_sign
 
 	var h_vel = movement_logic.get_horizontal_velocity()
@@ -1080,7 +1040,9 @@ func step(dt: float, input: InputDataV2) -> void:
 			emit_signal("jumped")
 
 	# --- 2.5D AXIS CONSTRAINT ---
-	sidescroll_logic.apply_spatial_constraints(self)
+	# Skip spatial constraints when a cinematic rig is active (inner zone takes priority)
+	if not active_rig:
+		sidescroll_logic.apply_spatial_constraints(self)
 
 	# --- CAMERA TRANSITION ---
 	_step_camera_logic(dt)
@@ -1373,9 +1335,10 @@ func enter_25d_mode(zone_ref: Node, axis: int, value: float, invert: bool = fals
 			effective_depth = true
 			break
 			
-	sidescroll_logic.enter_mode(axis, value, invert, current_pos_val, effective_depth)
-	if target_dist > 0.1:
-		sidescroll_logic.target_spring_length = target_dist
+	if is_instance_valid(sidescroll_logic):
+		sidescroll_logic.enter_mode(axis, value, invert, current_pos_val, effective_depth)
+		if target_dist > 0.1:
+			sidescroll_logic.target_spring_length = target_dist
 
 func exit_25d_mode(zone_ref: Node):
 	active_25d_zones.erase(zone_ref)
@@ -1383,7 +1346,8 @@ func exit_25d_mode(zone_ref: Node):
 	if active_25d_zones.empty():
 		# No more zones, exit 2.5D mode
 		_forward_latch_active = false
-		sidescroll_logic.exit_mode()
+		if is_instance_valid(sidescroll_logic):
+			sidescroll_logic.exit_mode()
 	else:
 		# Fallback to the previous zone in the stack
 		var prev_zone = active_25d_zones.back()
@@ -1399,9 +1363,10 @@ func exit_25d_mode(zone_ref: Node):
 				effective_depth = true
 				break
 		
-		sidescroll_logic.enter_mode(axis_int, coord, prev_zone.invert_side, current_pos_val, effective_depth)
-		if prev_zone.target_distance > 0.1:
-			sidescroll_logic.target_spring_length = prev_zone.target_distance
+		if is_instance_valid(sidescroll_logic):
+			sidescroll_logic.enter_mode(axis_int, coord, prev_zone.invert_side, current_pos_val, effective_depth)
+			if prev_zone.target_distance > 0.1:
+				sidescroll_logic.target_spring_length = prev_zone.target_distance
 
 	# If exiting all zones, release the angle
 	if active_25d_zones.empty() and is_instance_valid(camera_rig):
@@ -1414,6 +1379,12 @@ func exit_25d_mode(zone_ref: Node):
 
 func _step_camera_logic(_dt: float):
 	if not camera_rig: return
+	
+	# CRITICAL: If a cinematic rig is active, DO NOT apply sidescroll camera logic.
+	# CinematicManager has full control. If we apply logic here, we might snap the camera
+	# back to the scroll path for 1 frame, causing a "yank" at the start of transitions.
+	if _cinematic_rig:
+		return
 	
 	var alpha = sidescroll_logic.transition_alpha
 	var s_alpha = sidescroll_logic.get_smooth_alpha()
@@ -1513,3 +1484,37 @@ func _compare_zone_volume(a, b) -> bool:
 	var vol_a = a.get_volume() if a.has_method("get_volume") else INF
 	var vol_b = b.get_volume() if b.has_method("get_volume") else INF
 	return vol_a < vol_b
+
+func _force_snap_to_sidescroll_camera():
+	"""Helper to manually apply 2.5D camera transform immediately."""
+	sidescroll_logic.step(0.0) # Ensure logic internal state is fresh
+	
+	# Force alpha to 1.0 if we assume we are fully in 2.5D
+	var s_alpha = 1.0
+	if sidescroll_logic.transition_alpha < 1.0:
+		s_alpha = sidescroll_logic.get_smooth_alpha()
+		
+	# 1. Rotación (Basis)
+	var orbital_basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+	var target_basis = sidescroll_logic.get_target_basis()
+	var q_from = orbital_basis.get_rotation_quat()
+	var q_to = target_basis.get_rotation_quat()
+	camera_rig.transform.basis = Basis(q_from.slerp(q_to, s_alpha))
+	
+	# 2. Posición
+	# Use small dt=0.016 to simulate one frame of lag catching up
+	var lag_pos = sidescroll_logic.calculate_camera_pos(global_transform.origin, 0.016)
+	
+	var pos_3d = global_transform.origin + Vector3(0, base_rig_y, 0)
+	var pos_25d = lag_pos + Vector3(0, base_rig_y + sidescroll_logic.current_target_y_offset, 0)
+	
+	camera_rig.global_transform.origin = pos_3d.linear_interpolate(pos_25d, s_alpha)
+	
+	# 3. Params
+	if _cached_cam:
+		_cached_cam.fov = lerp(base_fov, sidescroll_logic.current_target_fov, s_alpha)
+	if _cached_spring_arm:
+		var ss_target = sidescroll_logic.current_target_spring_length
+		var depth_zoom = sidescroll_logic.get_depth_zoom_offset(global_transform.origin)
+		_cached_spring_arm.spring_length = lerp(base_spring_length_3d, ss_target - depth_zoom, s_alpha)
+		_cached_spring_arm.collision_mask = 0

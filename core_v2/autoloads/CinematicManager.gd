@@ -24,6 +24,8 @@ var _transition_duration := 0.0
 var _trans_camera: Camera = null
 var _source_transform: Transform
 var _source_fov: float
+var _source_near: float
+var _source_far: float
 var _exit_target_cam: Camera = null
 
 func _ready():
@@ -146,17 +148,35 @@ func deactivate_rig():
 
 func _start_exit_transition(from_cam: Camera, to_cam: Camera, duration: float):
 	"""Start transition FROM rig camera TO player camera (current position)."""
-	_source_transform = from_cam.global_transform
-	_source_fov = from_cam.fov
+	# CRITICAL: Capture from the VIEWPORT's current camera first (what's actually being rendered)
+	var viewport_cam = get_viewport().get_camera()
+	if viewport_cam:
+		_force_update_camera_transform(viewport_cam)
+		_source_transform = viewport_cam.global_transform
+		_source_fov = viewport_cam.fov
+		_source_near = viewport_cam.near
+		_source_far = viewport_cam.far
+	else:
+		_force_update_camera_transform(from_cam)
+		_source_transform = from_cam.global_transform
+		_source_fov = from_cam.fov
+		_source_near = from_cam.near
+		_source_far = from_cam.far
+	
 	_exit_target_cam = to_cam
 	_transition_duration = duration
 	_transition_timer = 0.0
 	_is_transitioning = true
 	_is_exit_transition = true
 	
+	# Set trans_camera to SOURCE and make it current IMMEDIATELY
 	_trans_camera.global_transform = _source_transform
 	_trans_camera.fov = _source_fov
+	_trans_camera.near = _source_near
+	_trans_camera.far = _source_far
 	_trans_camera.current = true
+	
+	print("[CinematicManager] EXIT START: Source=", _source_transform.origin, " Target (initial)=", to_cam.global_transform.origin)
 
 func _find_player_camera() -> Camera:
 	var players = get_tree().get_nodes_in_group("player")
@@ -177,23 +197,42 @@ func _search_camera(node: Node) -> Camera:
 			return cam
 	return null
 
-func _start_transition(from_cam: Camera, _to_cam: Camera, duration: float, rig: Spatial):
+func _start_transition(from_cam: Camera, to_cam: Camera, duration: float, rig: Spatial):
 	active_rig = rig
-	_source_transform = from_cam.global_transform
-	_source_fov = from_cam.fov
+	
+	# CRITICAL: Capture from the VIEWPORT's current camera first (what's actually being rendered)
+	var viewport_cam = get_viewport().get_camera()
+	if viewport_cam:
+		_force_update_camera_transform(viewport_cam)
+		_source_transform = viewport_cam.global_transform
+		_source_fov = viewport_cam.fov
+		_source_near = viewport_cam.near
+		_source_far = viewport_cam.far
+	else:
+		_force_update_camera_transform(from_cam)
+		_source_transform = from_cam.global_transform
+		_source_fov = from_cam.fov
+		_source_near = from_cam.near
+		_source_far = from_cam.far
+	
+	# THEN activate the rig so it snaps to correct position
+	if active_rig.has_method("activate"):
+		active_rig.activate(false) # Don't set camera current yet
+	
 	_transition_duration = duration
 	_transition_timer = 0.0
 	_is_transitioning = true
-	_is_exit_transition = false # Ensure this is an ENTER transition
-
+	_is_exit_transition = false
+	
+	# Set trans_camera to SOURCE and make it current IMMEDIATELY
 	_trans_camera.global_transform = _source_transform
 	_trans_camera.fov = _source_fov
+	_trans_camera.near = _source_near
+	_trans_camera.far = _source_far
+	_trans_camera.force_update_transform() # CRITICAL: Ensure Godot sees the new transform before render
 	_trans_camera.current = true
-
-	# We don't activate the rig's camera yet to avoid jumping
-	if active_rig.has_method("activate"):
-		# Pass false to NOT set its camera as current yet
-		active_rig.activate(false)
+	
+	print("[CinematicManager] ENTER START: Source=", _source_transform.origin, " Target (initial)=", to_cam.global_transform.origin)
 
 func _apply_rig(rig):
 	if active_rig and active_rig != rig:
@@ -218,38 +257,100 @@ func step(delta: float):
 	# Simple ease in-out (smoothstep)
 	var weight = t * t * (3.0 - 2.0 * t)
 	
+	# CRITICAL FIX: "First Frame Lock"
+	# If this is the very first step of the transition, force weight to 0.
+	# The source transform is a snapshot of the viewport from BEFORE the physics step.
+	# But we are running AFTER the physics step, so the target has already moved.
+	# If we interpolate even a tiny bit (weight > 0), we immediately jump towards the new target position.
+	# By forcing weight=0 for the first frame, we hold the visual state for 1 frame to match previous frame,
+	# essentially "hiding" the physics jump that just occurred.
+	if _transition_timer <= delta * 1.01:
+		weight = 0.0
+	
 	# print("[CinematicManager] step: t=", t, " weight=", weight, " exit=", _is_exit_transition)
 	
 	if _is_exit_transition:
 		# Exit transition: interpolate toward CURRENT player camera position
 		if _exit_target_cam and is_instance_valid(_exit_target_cam):
+			# Force update of target to eliminate 1-frame lag
+			_force_update_camera_transform(_exit_target_cam)
+			
 			var target_transform = _exit_target_cam.global_transform
 			var target_fov = _exit_target_cam.fov
+			var target_near = _exit_target_cam.near
+			var target_far = _exit_target_cam.far
+			
 			_trans_camera.global_transform = _source_transform.interpolate_with(target_transform, weight)
 			_trans_camera.fov = lerp(_source_fov, target_fov, weight)
+			_trans_camera.near = lerp(_source_near, target_near, weight)
+			_trans_camera.far = lerp(_source_far, target_far, weight)
+			
+			if weight < 0.1 or weight > 0.9:
+				print("[CinematicManager] EXIT STEP: weight=", weight, " trans_pos=", _trans_camera.global_transform.origin, " player_cam_pos=", target_transform.origin)
 			
 			if t >= 1.0:
-				print("[CinematicManager] Exit transition COMPLETE. Switching to player cam.")
+				print("[CinematicManager] EXIT COMPLETE. Trans_pos=", _trans_camera.global_transform.origin, " Player_cam_pos=", target_transform.origin)
 				_is_transitioning = false
 				_is_exit_transition = false
 				_exit_target_cam.current = true
 				_exit_target_cam = null
 	else:
-		# Enter transition: interpolate toward rig camera
+		# Enter transition: interpolate toward LIVE rig camera
 		if active_rig:
+			# CRITICAL: Force update the rig logic FIRST to ensure it tracks the player's CURRENT position
+			# This is necessary because CinematicManager.step() might run before the rig's _physics_process
+			if active_rig.has_method("_update_rig"):
+				# Determine delta to use. If it's the first frame (weight=0), use 0 to snap?
+				# No, we want valid motion. Use the passed delta.
+				active_rig._update_rig(delta)
+				if active_rig.has_method("get_path_follow"):
+					var pf = active_rig.get_path_follow()
+					if pf: pf.force_update_transform()
+				active_rig.force_update_transform()
+
+				# Also force transform propagation!
+				if active_rig.has_method("get_camera"):
+					_force_update_camera_transform(active_rig.get_camera())
+				
 			var target_cam = active_rig.get_camera()
 			if target_cam:
-				# Debug stuck camera: check transforms
-				# var t_orig = _trans_camera.global_transform.origin
-				# var t_targ = target_cam.global_transform.origin
-				# print("Trans from ", t_orig, " to ", t_targ)
-				_trans_camera.global_transform = _source_transform.interpolate_with(target_cam.global_transform, weight)
-				_trans_camera.fov = lerp(_source_fov, target_cam.fov, weight)
+				# Force update of target to eliminate 1-frame lag
+				_force_update_camera_transform(target_cam)
+				
+				var target_transform = target_cam.global_transform
+				var target_fov = target_cam.fov
+				var target_near = target_cam.near
+				var target_far = target_cam.far
+				
+				var new_transform = _source_transform.interpolate_with(target_transform, weight)
+				_trans_camera.global_transform = new_transform
+				_trans_camera.fov = lerp(_source_fov, target_fov, weight)
+				_trans_camera.near = lerp(_source_near, target_near, weight)
+				_trans_camera.far = lerp(_source_far, target_far, weight)
+				
+				# Trace prints for first and last frames
+				if weight < 0.1 or weight > 0.9:
+					print("[CinematicManager] ENTER STEP: weight=", weight, " trans_pos=", _trans_camera.global_transform.origin, " target_pos=", target_transform.origin)
 				
 				if t >= 1.0:
-					print("[CinematicManager] Enter transition COMPLETE. Switching to rig cam.")
+					print("[CinematicManager] ENTER COMPLETE. Trans_pos=", _trans_camera.global_transform.origin, " Rig_cam_pos=", target_transform.origin)
 					_is_transitioning = false
 					target_cam.current = true
+
+func _force_update_camera_transform(cam: Camera):
+	"""Forces immediate transform propagation for a camera and its parents."""
+	if not cam: return
+	
+	# Force update from root down to avoid stale world transforms
+	var path = []
+	var curr = cam
+	while curr and curr is Spatial:
+		path.push_front(curr)
+		curr = curr.get_parent()
+		if curr == get_tree().root: break
+	
+	for node in path:
+		node.force_update_transform()
 
 func get_active_camera() -> Camera:
 	if _is_transitioning:
