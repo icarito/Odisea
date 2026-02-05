@@ -56,6 +56,7 @@ func set_ui_mode(active: bool):
 	if _cursor_sprite:
 		_cursor_sprite.visible = active
 	
+	set_process(active) # Enable analog stick processing
 	if active:
 		# Center cursor when activating
 		_viewport_size = get_viewport_rect().size
@@ -64,6 +65,31 @@ func set_ui_mode(active: bool):
 		print("[TerminalUI] UI mode ACTIVATED, viewport size: ", _viewport_size)
 	else:
 		print("[TerminalUI] UI mode DEACTIVATED")
+
+func _process(delta: float):
+	if not _ui_mode_active:
+		set_process(false)
+		return
+
+	# Analog Stick / Directional Action Support
+	# Uses "cursor_*" actions (mapped to Right Stick / Arrows) logic
+	var input_dir = Vector2(
+		Input.get_action_strength("cursor_right") - Input.get_action_strength("cursor_left"),
+		Input.get_action_strength("cursor_down") - Input.get_action_strength("cursor_up")
+	)
+
+	if input_dir.length() > 0.1:
+		# Analog movement
+		var speed = 300.0 * cursor_sensitivity # Pixels per second
+		if Input.is_key_pressed(KEY_SHIFT): # Optional fast cursor
+			speed *= 2.0
+			
+		_cursor_position += input_dir * speed * delta
+		
+		# Clamp to viewport bounds
+		_cursor_position.x = clamp(_cursor_position.x, 0, _viewport_size.x)
+		_cursor_position.y = clamp(_cursor_position.y, 0, _viewport_size.y)
+		_update_cursor_position()
 
 func process_mouse_motion(relative: Vector2):
 	"""Process mouse motion forwarded from HoloTerminal."""
@@ -147,29 +173,17 @@ func process_key_event(event: InputEventKey):
 	if not _ui_mode_active:
 		return
 	
-	# Emit signal for custom handling by child controls
+	# Emit signal for custom handling by child controls (e.g. TextEdit)
 	emit_signal("key_pressed", event)
 	
-	# WASD navigation: move cursor in discrete steps
-	if event.pressed:
-		var cursor_step := 20.0
-		match event.scancode:
-			KEY_W, KEY_UP:
-				_cursor_position.y -= cursor_step
-			KEY_S, KEY_DOWN:
-				_cursor_position.y += cursor_step
-			KEY_A, KEY_LEFT:
-				_cursor_position.x -= cursor_step
-			KEY_D, KEY_RIGHT:
-				_cursor_position.x += cursor_step
-			KEY_ENTER, KEY_SPACE:
-				# Simulate click at current cursor position
-				_handle_click()
-		
-		# Clamp cursor after movement
-		_cursor_position.x = clamp(_cursor_position.x, 0, _viewport_size.x)
-		_cursor_position.y = clamp(_cursor_position.y, 0, _viewport_size.y)
-		_update_cursor_position()
+	# WASD Navigation Removed!
+	# Cursor control is now handled by _process via 'cursor_*' actions (Analog Stick/Arrows)
+	
+	if event.is_action_pressed("ui_accept"):
+		# Simulate click at current cursor position
+		_handle_click()
+				# Note: If a TextEdit is focused, we might not want this?
+				# Ideally, _handle_click finds the control. If it's a Button, it presses.
 
 
 func _on_Button_pressed():

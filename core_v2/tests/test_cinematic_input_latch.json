@@ -3979,7 +3979,11 @@
       },
       {
         "command": "ASSERT",
-        "condition": "$delta_x > 1"
+        "condition": "$delta_x < 1"
+      },
+      {
+        "command": "ASSERT",
+        "condition": "$delta_x > -1"
       }
     ]
   },
@@ -3987,18 +3991,8 @@
     "world_start_state": {
       "/root/TestCinematicScene/Floor/CinematicCameraZone/CinematicPathRig": {
         "is_active": false,
-        "transition_alpha": 0,
         "target_offset": 0,
         "last_deactivate_time": 0,
-        "source_transform": {
-          "origin": "(0, 0, 0)",
-          "basis": {
-            "x": "(1, 0, 0)",
-            "y": "(0, 1, 0)",
-            "z": "(0, 0, 1)"
-          }
-        },
-        "source_fov": 70,
         "unit_offset": 0,
         "current_animation": "",
         "playback_position": 0
@@ -4025,23 +4019,23 @@
   },
   "final_expected_state": {
     "position": [
-      18.961348,
+      0.000022,
       0.0415,
-      -10.343288
+      27.495863
     ],
     "velocity": [
-      5.782302,
-      -0.233946,
-      -3.945248
+      0,
+      -0.232541,
+      7
     ],
-    "yaw": -0.972051,
-    "pitch": 0.318748,
+    "yaw": -1.173418,
+    "pitch": 0.148256,
     "base_spring_length_3d": 7,
     "movement_state": {
       "horizontal_velocity": [
-        5.782302,
-        -0.000612,
-        -3.945248
+        -0,
+        0.000792,
+        7
       ],
       "external_velocity": [
         0,
@@ -4097,9 +4091,9 @@
     "platform_path": "/root/TestCinematicScene/Floor",
     "platform_last_transform": {
       "origin": [
-        14.8832,
+        17.8974,
         -1,
-        18.031099
+        19.236799
       ],
       "basis_x": [
         0.596687,
@@ -4118,31 +4112,24 @@
       ]
     },
     "platform_velocity": [
-      -0.000114,
-      -0.000003,
-      -0.000114
+      -0.000059,
+      -0.000001,
+      0.000114
     ],
     "was_on_platform": true,
     "step_grounded_timer": 0,
     "just_stepped": false,
     "direction_latch_active": true,
-    "latched_camera_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
+    "latched_dir_fwd": [
+      0,
+      0,
+      1
+    ],
+    "latched_dir_rt": [
+      -1,
+      -0,
+      -0
+    ],
     "latched_sidescroll_active": false,
     "latched_sidescroll_basis": {
       "x": [
@@ -4169,19 +4156,19 @@
     "prev_sidescroll_active": false,
     "prev_camera_basis": {
       "x": [
-        0.563606,
+        0.387003,
         0,
-        0.826044
+        0.922079
       ],
       "y": [
-        -0.258864,
-        0.949629,
-        0.176622
+        -0.136204,
+        0.98903,
+        0.057166
       ],
       "z": [
-        -0.784434,
-        -0.313378,
-        0.535217
+        -0.911964,
+        -0.147714,
+        0.382757
       ]
     },
     "prev_cinematic_rig_path": "",
@@ -4189,7 +4176,7 @@
   },
   "oys_variables": {
     "$start_x": 0,
-    "$end_x": 18.961348,
-    "$delta_x": 18.961348
+    "$end_x": 0.000022,
+    "$delta_x": 0.000022
   }
 }

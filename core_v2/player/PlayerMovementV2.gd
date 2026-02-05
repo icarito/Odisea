@@ -24,12 +24,12 @@ export(float) var strafe_speed_multiplier := 0.6
 # Slope Handling (inspired by Terrestrial Characters)
 export(float, 0, 90) var floor_max_angle_degrees := 45.0
 export var enable_slope_resistance := true
-export(float, 0, 1) var slope_resistance_factor := 0.2  # Reduced for agile character
-export(float, 0, 90) var min_resistance_angle_degrees := 25.0  # Only resist on steeper slopes
+export(float, 0, 1) var slope_resistance_factor := 0.2 # Reduced for agile character
+export(float, 0, 90) var min_resistance_angle_degrees := 25.0 # Only resist on steeper slopes
 
 # State
 var horizontal_velocity := Vector3.ZERO
-var _floor_normal := Vector3.UP  # Cached floor normal for alignment
+var _floor_normal := Vector3.UP # Cached floor normal for alignment
 var wish_direction := Vector3.ZERO
 
 # External Velocity State

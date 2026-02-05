@@ -2466,23 +2466,22 @@
         "internal_speed": 0,
         "visual_phase": 0
       },
-      "CinematicManager": {
-        "current_control_mode": 0,
-        "is_transitioning": false,
-        "transition_timer": 0,
-        "transition_duration": 0,
-        "source_transform": {
-          "origin": "(0, 0, 0)",
-          "basis": {
-            "x": "(0, 0, 0)",
-            "y": "(0, 0, 0)",
-            "z": "(0, 0, 0)"
-          }
-        },
-        "source_fov": 0,
-        "active_rig_path": "",
-        "current_camera_path": "/root/TestScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
-      }
+      "/root/TestScene/HoloTerminalV2": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0
+      },
+      "/root/TestScene/HoloTerminalV2/CinematicSetup/CinematicPathRig": {
+        "is_active": false,
+        "target_offset": 0,
+        "last_deactivate_time": 0,
+        "unit_offset": 0.5,
+        "current_animation": "",
+        "playback_position": 0
+      },
+      "CinematicManager": null
     },
     "scene_path": "res://core_v2/levels/TestScene_v2.tscn"
   },
