@@ -16,7 +16,7 @@ enum Command {
 	GOTO, IF,
 	PLAY_ANIM, WAIT_ANIM, SPAWN,
 	SET_TIME_SCALE, GET_NODES_IN_GROUP,
-	SCREENSHOT,
+	SCREENSHOT, CALL,
 	CINEMATIC_START, CINEMATIC_STOP,
 	RECORD_START, RECORD_STOP
 }
@@ -94,6 +94,22 @@ static func parse_instruction(line: String) -> Dictionary:
 			data["pitch"] = parts[1].to_float() if parts.size() > 1 else 0.0
 			data["duration"] = 0.5
 		
+		"CALL":
+			if parts.size() > 1:
+				var target = parts[1]
+				if "." in target:
+					var p = target.split(".")
+					data["node"] = p[0]
+					data["method"] = p[1]
+				else:
+					data["method"] = target
+
+				if parts.size() > 2:
+					var args = []
+					for j in range(2, parts.size()):
+						args.append(parts[j].replace("\"", ""))
+					data["args"] = args
+
 		"SET":
 			data["var"] = parts[1] if parts.size() > 1 else ""
 			if parts.size() > 3:

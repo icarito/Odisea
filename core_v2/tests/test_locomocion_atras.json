@@ -1309,11 +1309,11 @@
         "transition_timer": 0.516667,
         "transition_duration": 0.5,
         "source_transform": {
-          "origin": "(44.922146, 8.817698, -5.591619)",
+          "origin": "(0, 0, 0)",
           "basis": {
-            "x": "(-0.387003, 0, -0.922079)",
-            "y": "(-0.136204, 0.98903, 0.057166)",
-            "z": "(0.911964, 0.147714, -0.382757)"
+            "x": "(0, 0, 0)",
+            "y": "(0, 0, 0)",
+            "z": "(0, 0, 0)"
           }
         },
         "source_fov": 70,
@@ -1336,6 +1336,11 @@
     ],
     "yaw": 0,
     "pitch": 0,
+    "wind_force": [
+      0,
+      0,
+      0
+    ],
     "base_spring_length_3d": 7,
     "movement_state": {
       "horizontal_velocity": [

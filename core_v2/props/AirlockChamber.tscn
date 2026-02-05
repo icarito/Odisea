@@ -1,0 +1,61 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://core_v2/components/AirlockControllerV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/components/SlidingObjectV2.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/components/BaseZoneV2.gd" type="Script" id=3]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 2, 2, 2 )
+
+[sub_resource type="CubeMesh" id=2]
+size = Vector3( 4, 4, 0.2 )
+
+[sub_resource type="SpatialMaterial" id=3]
+flags_transparent = true
+albedo_color = Color( 1, 0.5, 0, 0.1 )
+
+[node name="AirlockChamber" type="Spatial"]
+
+[node name="AirlockController" type="Node" parent="."]
+script = ExtResource( 1 )
+outer_door_path = NodePath("../OuterDoor")
+inner_door_path = NodePath("../InnerDoor")
+cycle_zone_path = NodePath("../CycleZone")
+
+[node name="OuterDoor" parent="." instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 3 )
+interaction_text = "Outer Airlock Control"
+slide_vector = Vector3( 0, 3, 0 )
+
+[node name="InnerDoor" parent="." instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -3 )
+interaction_text = "Inner Airlock Control"
+slide_vector = Vector3( 0, 3, 0 )
+
+[node name="CycleZone" type="Area" parent="."]
+script = ExtResource( 3 )
+debug_color = Color( 1, 0.501961, 0, 0.1 )
+zone_extents = Vector3( 2, 2, 2 )
+
+[node name="CollisionShape" type="CollisionShape" parent="CycleZone"]
+shape = SubResource( 1 )
+
+[node name="Walls" type="Spatial" parent="."]
+
+[node name="WallLeft" type="CSGBox" parent="Walls"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 1, 0 )
+width = 0.2
+height = 4.0
+depth = 6.0
+
+[node name="WallRight" type="CSGBox" parent="Walls"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1, 0 )
+width = 0.2
+height = 4.0
+depth = 6.0
+
+[node name="Ceiling" type="CSGBox" parent="Walls"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )
+width = 4.0
+height = 0.2
+depth = 6.0

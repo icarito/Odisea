@@ -66,6 +66,22 @@ func is_body_in_zone(body: Node) -> bool:
 	# Use signal-tracked dictionary for reliability (overlaps_body has timing issues)
 	return _bodies_in_zone.has(body.get_instance_id())
 
+func step(_dt: float):
+	# Headless robust check: if player is not tracked but is inside, trigger enter
+	if not Engine.editor_hint:
+		var player = SessionManager.player
+		if is_instance_valid(player):
+			var pid = player.get_instance_id()
+			var actually_inside = overlaps_body(player)
+			if actually_inside and not _bodies_in_zone.has(pid):
+				_on_host_body_entered(player)
+			elif not actually_inside and _bodies_in_zone.has(pid):
+				_on_host_body_exited(player)
+
+func _physics_process(delta: float):
+	if not SessionManager.is_manual_mode:
+		step(delta)
+
 func get_volume() -> float:
 	"""Returns the volume of the zone for priority comparison. Smaller = innermost."""
 	return zone_extents.x * zone_extents.y * zone_extents.z * 8.0 # *8 for full box volume

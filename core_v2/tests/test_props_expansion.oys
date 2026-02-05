@@ -1,0 +1,65 @@
+# core_v2/tests/test_props_expansion.oys
+LEVEL res://core_v2/levels/TestProps_v2.tscn
+
+# Test 1: Heavy Blast Door via Proximity Trigger
+SECTION "Proximity Door"
+    # Move towards the proximity trigger
+    WAIT 0.5
+    SET pos (0,1,5)
+    WAIT 0.5
+    # Move into trigger at (0, 1, 10)
+    SET pos (0,1,10)
+    WAIT 1.5
+    # Door should be active/opening
+    ASSERT HeavyBlastDoor.is_active == true "HeavyBlastDoor should be active via proximity trigger"
+
+    # Move out of trigger
+    SET pos (0,1,5)
+    WAIT 2.5 # Wait for animation + potential exit delay
+    ASSERT HeavyBlastDoor.is_active == false "HeavyBlastDoor should deactivate on exit"
+
+# Test 2: Ventilation Turbine and Wind
+SECTION "Turbine Wind"
+    # Move in front of turbine
+    SET pos (10,1,-2)
+    WAIT 0.5
+    # Interact with lever
+    INTERACT Lever_Turbine
+    WAIT 1.0
+    ASSERT TurbineRotator.is_active == true "Turbine should be active"
+
+    # Check if wind is applied (player should be pushed)
+    # Wind force is (0, 0, 15), so player should move in +Z
+    SET $start_z pos.z
+    WAIT 2.0
+    ASSERT pos.z > $start_z "Player should be pushed by turbine wind"
+
+# Test 3: Airlock Chamber
+SECTION "Airlock"
+    SET pos (20,1,6)
+    WAIT 0.5
+    # Interact with outer door panel
+    CALL AirlockController.interact_outer
+    WAIT 1.0
+    ASSERT OuterDoor.is_active == true "Outer door should open"
+
+    # Enter airlock
+    SET pos (20,1,0)
+    WAIT 1.5
+    ASSERT OuterDoor.is_active == false "Outer door should close automatically"
+    WAIT 2.5 # Pressurize duration + safety
+    ASSERT InnerDoor.is_active == true "Inner door should open after pressurization"
+
+# Test 4: Plasma Generator Looping
+SECTION "Plasma Generator"
+    SET pos (-10,1,-10)
+    WAIT 0.5
+    ASSERT PlasmaGenerator.is_active == true "Plasma generator starts active"
+
+    # Check if it cycles (anim_progress should change)
+    SET $p1 PlasmaGenerator.anim_progress
+    WAIT 0.5
+    ASSERT PlasmaGenerator.anim_progress != $p1 "Plasma generator should be looping"
+
+SECTION "End"
+    WAIT 1.0

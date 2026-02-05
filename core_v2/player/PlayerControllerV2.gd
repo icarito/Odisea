@@ -64,6 +64,7 @@ var yaw := 0.0
 var pitch := 0.0
 var yaw_deg := 0.0
 var pitch_deg := 0.0
+var wind_force := Vector3.ZERO
 var external_input: InputDataV2 = null
 var external_input_provided := false
 var _forward_latch_active := false
@@ -115,6 +116,7 @@ func get_full_snapshot() -> Dictionary:
 		"velocity": [velocity.x, velocity.y, velocity.z],
 		"yaw": yaw,
 		"pitch": pitch,
+		"wind_force": [wind_force.x, wind_force.y, wind_force.z],
 		"base_spring_length_3d": base_spring_length_3d,
 		"movement_state": movement_logic.get_full_snapshot() if is_instance_valid(movement_logic) else {},
 		"ss_logic": sidescroll_logic.get_full_snapshot() if is_instance_valid(sidescroll_logic) else {}
@@ -202,6 +204,8 @@ func restore_snapshot(data: Dictionary) -> void:
 		velocity = Vector3.ZERO
 	yaw = data.get("yaw", 0.0)
 	pitch = data.get("pitch", 0.0)
+	var wf = data.get("wind_force", [0, 0, 0])
+	wind_force = Vector3(wf[0], wf[1], wf[2])
 	yaw_deg = rad2deg(yaw)
 	pitch_deg = rad2deg(pitch)
 	base_spring_length_3d = data.get("base_spring_length_3d", base_spring_length_3d)
@@ -319,6 +323,7 @@ func restore_snapshot(data: Dictionary) -> void:
 func full_reset() -> void:
 	"""Limpieza profunda de estado para determinismo absoluto en tests."""
 	velocity = Vector3.ZERO
+	wind_force = Vector3.ZERO
 	frames_since_last_snap = ACROBATIC_WINDOW_FRAMES + 1
 	last_input_vector = Vector3.ZERO
 	is_acrobatic_ready = false
@@ -407,6 +412,10 @@ func set_external_velocity(v: Vector3) -> void:
 func set_external_source_is_static(is_static: bool) -> void:
 	if is_instance_valid(movement_logic):
 		movement_logic.set_external_source_is_static(is_static)
+
+func apply_wind_force(force: Vector3) -> void:
+	"""API for external forces (WindTunnelV2). Accumulated until step()."""
+	wind_force += force
 
 func reconnect_input_provider():
 	if not input_provider:
@@ -1125,6 +1134,11 @@ func step(dt: float, input: InputDataV2) -> void:
 	if not is_on_floor() or not movement_logic.external_source_is_static:
 		external_vel = movement_logic.integrate_external_velocity(dt)
 	velocity += external_vel
+
+	# Apply accumulated wind force
+	if wind_force.length_squared() > 0.001:
+		velocity += wind_force * dt
+		wind_force = Vector3.ZERO
 
 	# --- STAIR GROUNDED GRACE TIMER ---
 	if _step_grounded_timer > 0:

@@ -1172,12 +1172,22 @@ func _resolve_value(key_or_val):
 		if key_or_val == "true": return true
 		if key_or_val == "false": return false
 		
-		# Could be a player property?
-		# Try to fetch from player if it looks like a property path
-		if player and not key_or_val.begins_with("\""):
-			var prop_val = _get_nested_prop(player, key_or_val)
-			if prop_val != null:
-				return prop_val
+		# Could be a player property or other node property?
+		if not key_or_val.begins_with("\""):
+			if "." in key_or_val:
+				var p = key_or_val.split(".")
+				var node_name = p[0]
+				var prop_path = key_or_val.substr(node_name.length() + 1)
+
+				var node = _find_node_recursive(node_name)
+				if node:
+					return _get_nested_prop(node, prop_path)
+
+			# Try to fetch from player if it looks like a property path
+			if player:
+				var prop_val = _get_nested_prop(player, key_or_val)
+				if prop_val != null:
+					return prop_val
 				
 	return key_or_val
 

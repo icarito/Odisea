@@ -11,6 +11,10 @@ export(NodePath) var target_node: NodePath
 export(String) var target_method := "set_active"
 export(bool) var debug := false
 
+# --- SIGNALS ---
+signal activated()
+signal deactivated()
+
 # --- VISUAL HELPERS (Compatibility with Lever prefab) ---
 export(Material) var base_material setget set_base_material
 export(Color) var lever_color := Color(1, 0.5, 0.1) setget set_lever_color
@@ -91,17 +95,25 @@ func _is_source(node: Node) -> bool:
 	# Sources must have signals and usually have 'interact'
 	return node and node.has_signal("activated") and node.has_method("interact")
 
+func interact():
+	"""Forwards interaction to all sources (triggers)."""
+	for s in _sources:
+		if is_instance_valid(s) and s.has_method("interact"):
+			s.interact()
+
 # --- SIGNAL HANDLERS ---
 
 func _on_source_activated():
 	if _is_syncing: return
 	_sync_sources(true)
 	_call_target(true)
+	emit_signal("activated")
 
 func _on_source_deactivated():
 	if _is_syncing: return
 	_sync_sources(false)
 	_call_target(false)
+	emit_signal("deactivated")
 
 func _sync_sources(value: bool):
 	_is_syncing = true

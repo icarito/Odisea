@@ -1,0 +1,34 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://core_v2/components/DualSlidingObjectV2.gd" type="Script" id=1]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 2, 2, 0.5 )
+
+[sub_resource type="CubeMesh" id=2]
+size = Vector3( 2, 4, 1 )
+
+[sub_resource type="CubeMesh" id=3]
+size = Vector3( 2, 4, 1 )
+
+[node name="HeavyBlastDoor" type="KinematicBody"]
+script = ExtResource( 1 )
+interaction_text = "Operate Blast Door"
+anim_duration = 2.0
+node_a_path = NodePath("DoorLeft")
+node_b_path = NodePath("DoorRight")
+slide_vector_a = Vector3( -2, 0, 0 )
+slide_vector_b = Vector3( 2, 0, 0 )
+
+[node name="CollisionShape" type="CollisionShape" parent="."]
+shape = SubResource( 1 )
+
+[node name="DoorLeft" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0, 0 )
+mesh = SubResource( 2 )
+material/0 = null
+
+[node name="DoorRight" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0 )
+mesh = SubResource( 3 )
+material/0 = null

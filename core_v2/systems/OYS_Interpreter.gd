@@ -173,6 +173,23 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		"SET_TIME_SCALE":
 			Engine.time_scale = inst.get("value", 1.0)
 		
+		"CALL":
+			var node = host_node
+			if inst.has("node"):
+				node = _resolve_node(inst.node)
+
+			if node and inst.has("method"):
+				var args = inst.get("args", [])
+				# Resolve args
+				var resolved_args = []
+				for a in args:
+					resolved_args.append(_resolve_value(a))
+
+				if node.has_method(inst.method):
+					node.callv(inst.method, resolved_args)
+				else:
+					printerr("[OYS] CALL failed: Method %s not found on %s" % [inst.method, node.name])
+
 		"WAIT":
 			var duration = inst.get("value", 0.0)
 			var t = host_node.get_tree().create_timer(duration)
@@ -434,11 +451,21 @@ func _post_oys_input(data: Dictionary):
 
 func _resolve_node(path: String) -> Node:
 	var node = host_node.get_node_or_null(path)
-	if not is_instance_valid(node) and host_node.is_inside_tree() and host_node.get_tree().current_scene:
-		node = host_node.get_tree().current_scene.find_node(path, true, false)
-	if not is_instance_valid(node) and host_node.is_inside_tree():
+	if is_instance_valid(node): return node
+
+	if host_node.is_inside_tree():
+		var scene = host_node.get_tree().current_scene
+		if scene:
+			node = scene.get_node_or_null(path)
+			if is_instance_valid(node): return node
+
+			node = scene.find_node(path, true, false)
+			if is_instance_valid(node): return node
+
 		node = host_node.get_tree().root.find_node(path, true, false)
-	return node
+		if is_instance_valid(node): return node
+
+	return null
 
 func _wait_signal(target: Node, signal_name: String, timeout: float, my_id: int):
 	var observer = SignalObserver.new()
@@ -486,6 +513,21 @@ func _resolve_value(val: String):
 		return variables.get(val, 0)
 	if val.is_valid_float():
 		return val.to_float()
+
+	if "." in val and not val.is_valid_float():
+		var parts = val.split(".")
+		var node_name = parts[0]
+		if node_name in ["pos", "yaw_deg"]:
+			pass # Handle later in player section
+		else:
+			var prop_path = val.substr(node_name.length() + 1)
+			var node = _resolve_node(node_name)
+			if node:
+				var res = node.get_indexed(prop_path.replace(".", ":"))
+				return res
+			else:
+				pass
+
 	if val in ["pos.y", "pos.x", "pos.z"]:
 		# Obtener el nodo jugador principal
 		var player = null
@@ -510,6 +552,8 @@ func _resolve_value(val: String):
 				"pos.y": return player.position.y
 				"pos.z": return 0.0
 		return 0.0
+	if val == "true": return true
+	if val == "false": return false
 	if val == "yaw_deg":
 		# Buscar variable yaw_deg en el jugador
 		var player = null

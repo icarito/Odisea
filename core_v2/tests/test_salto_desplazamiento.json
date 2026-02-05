@@ -2095,22 +2095,6 @@
         "sprint": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -2127,7 +2111,7 @@
     "41": [
 
     ],
-    "132": [
+    "131": [
       {
         "command": "ASSERT",
         "condition": "pos.z > 3.0 \"ERROR: No hubo suficiente inercia horizontal en el salto\""
@@ -2487,11 +2471,11 @@
         "transition_timer": 0.516667,
         "transition_duration": 0.5,
         "source_transform": {
-          "origin": "(28.454899, 12.167052, 30.221134)",
+          "origin": "(0, 0, 0)",
           "basis": {
-            "x": "(0.619448, 0, -0.785038)",
-            "y": "(-0.194085, 0.968957, -0.153146)",
-            "z": "(0.760668, 0.24723, 0.600218)"
+            "x": "(0, 0, 0)",
+            "y": "(0, 0, 0)",
+            "z": "(0, 0, 0)"
           }
         },
         "source_fov": 70,
@@ -2514,6 +2498,11 @@
     ],
     "yaw": 0,
     "pitch": 0,
+    "wind_force": [
+      0,
+      0,
+      0
+    ],
     "base_spring_length_3d": 7,
     "movement_state": {
       "horizontal_velocity": [
@@ -2562,7 +2551,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 148,
+      "frames_since_last_snap": 147,
       "last_input_vector": [
         0,
         0,

@@ -11,6 +11,7 @@ export(float) var anim_duration := 1.0 # Seconds to complete animation
 export(bool) var starts_active := false setget set_starts_active # Initial logical state
 export(bool) var auto_interact := false # If true, automatically triggers when player is in range
 export(bool) var one_off := false # If true, can only be used once (manually or automatically)
+export(bool) var is_looping := false # If true, cycles between 0 and 1
 export(bool) var debug := false
 
 func set_starts_active(v: bool) -> void:
@@ -90,6 +91,14 @@ func set_active(value: bool, immediate: bool = false) -> void:
 
 func step(dt: float) -> void:
 	"""Called during fixed physics step. Updates animation progress."""
+	if is_looping and is_active:
+		# Ping-pong animation logic
+		anim_progress += anim_speed * dt
+		var pingponged = 1.0 - abs(fmod(anim_progress, 2.0) - 1.0)
+		# We use a temporary variable for visuals to keep anim_progress increasing for fmod
+		_update_visuals_with_value(pingponged)
+		return
+
 	if abs(anim_progress - target_progress) < 0.001:
 		# Already at target
 		if anim_progress != target_progress:
@@ -110,6 +119,13 @@ func step(dt: float) -> void:
 		_on_animation_completed()
 	
 	_update_visuals()
+
+func _update_visuals_with_value(val: float) -> void:
+	"""Internal helper to allow looping to override progress value."""
+	var old_progress = anim_progress
+	anim_progress = val
+	_update_visuals()
+	anim_progress = old_progress
 
 func _on_animation_completed() -> void:
 	"""Called when animation reaches target. Override for sound triggers."""

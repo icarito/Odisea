@@ -1,0 +1,43 @@
+[gd_scene load_steps=6 format=2]
+
+[ext_resource path="res://core_v2/components/RotatingObjectV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/components/SlidingObjectV2.gd" type="Script" id=2]
+
+[sub_resource type="CylinderMesh" id=1]
+top_radius = 0.5
+bottom_radius = 0.5
+height = 0.1
+
+[sub_resource type="CubeMesh" id=2]
+size = Vector3( 2, 0.1, 2 )
+
+[sub_resource type="BoxShape" id=3]
+extents = Vector3( 1, 0.05, 1 )
+
+[node name="FloorHatch" type="Spatial"]
+
+[node name="Wheel" type="KinematicBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 0.1, 0 )
+script = ExtResource( 1 )
+interaction_text = "Turn Valve"
+rotation_axis = Vector3( 0, 1, 0 )
+rotation_amount = 180.0
+
+[node name="MeshInstance" type="MeshInstance" parent="Wheel"]
+mesh = SubResource( 1 )
+material/0 = null
+
+[node name="HatchDoor" type="KinematicBody" parent="."]
+script = ExtResource( 2 )
+starts_active = false
+slide_vector = Vector3( 0, 0, 2 )
+
+[node name="MeshInstance" type="MeshInstance" parent="HatchDoor"]
+mesh = SubResource( 2 )
+material/0 = null
+
+[node name="CollisionShape" type="CollisionShape" parent="HatchDoor"]
+shape = SubResource( 3 )
+
+[connection signal="activated" from="Wheel" to="HatchDoor" method="set_active" binds= [ true ]]
+[connection signal="deactivated" from="Wheel" to="HatchDoor" method="set_active" binds= [ false ]]
