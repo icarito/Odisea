@@ -79,7 +79,7 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/simplified_flightsim/aircraft_modules/Steering/Steering.gd"
 }, {
-"base": "Node",
+"base": "Spatial",
 "class": "AirlockControllerV2",
 "language": "GDScript",
 "path": "res://core_v2/components/AirlockControllerV2.gd"
@@ -184,7 +184,7 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/Comparator.gd"
 }, {
-"base": "KinematicBody",
+"base": "Spatial",
 "class": "ContinuousRotatorV2",
 "language": "GDScript",
 "path": "res://core_v2/components/ContinuousRotatorV2.gd"
@@ -1179,7 +1179,7 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/qodot/game_definitions/worldspawn_layers/liquid/water.gd"
 }, {
-"base": "BaseZoneV2",
+"base": "Area",
 "class": "WindTunnelV2",
 "language": "GDScript",
 "path": "res://core_v2/components/WindTunnelV2.gd"

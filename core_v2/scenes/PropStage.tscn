@@ -1,0 +1,33 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://core_v2/scenes/PropStage.gd" type="Script" id=1]
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=2]
+
+[sub_resource type="Environment" id=1]
+background_mode = 1
+background_color = Color( 0.1, 0.1, 0.1, 1 )
+ambient_light_color = Color( 0.5, 0.5, 0.5, 1 )
+
+[node name="PropStage" type="Spatial"]
+script = ExtResource( 1 )
+dev_prop_path = "res://core_v2/props/VentilationTurbine.tscn"
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource( 1 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="WorldEnvironment"]
+transform = Transform( 0.974303, 0.0369505, 0.222189, -0.22524, 0.159834, 0.961104, 0, -0.986452, 0.164049, 0, 10.3203, 0 )
+
+[node name="Platform" type="CSGBox" parent="."]
+use_collision = true
+width = 5.0
+height = 0.2
+depth = 5.0
+material = ExtResource( 2 )
+
+[node name="PropAnchor" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.992278, 0.124035, 0, -0.124035, 0.992278, 0, 2.5, 4 )
+current = true

@@ -17,8 +17,8 @@ var accumulated_rotation := Vector3.ZERO
 func _ready():
 	add_to_group("replay_sync")
 
-	if Engine.editor_hint:
-		return
+	# if Engine.editor_hint:
+	# 	return
 
 	# Initialize speed scale
 	if is_active:
@@ -32,9 +32,8 @@ func set_is_active(val):
 	is_active = val
 
 func step(dt: float):
-	if Engine.editor_hint:
-		return
-
+	# if Engine.editor_hint:
+	# 	return
 	# Update speed scale
 	var target_scale = 1.0 if is_active else 0.0
 

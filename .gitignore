@@ -9,7 +9,8 @@ export.cfg
 # If you prefer to track import metadata for deterministic CI, remove/comment the following entries
 # or commit the relevant .import files manually.
 .import/*
-# *.import
+*.import
+*.stex
 .vscode/
 
 # Imported translations (automatically generated from CSV files)

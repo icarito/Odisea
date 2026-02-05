@@ -160,7 +160,57 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 					test_failed = true
 					stop_requested = true
 					return
+
+		"LOAD_PROP":
+			var path = inst.get("path", "")
+			var result = null
+			if host_node.has_method("load_prop"):
+				result = host_node.load_prop(path)
+			elif host_node.is_inside_tree():
+				var stage = host_node.get_tree().current_scene
+				if not stage or not stage.has_method("load_prop"):
+					# Fallback search for PropStage
+					var root = host_node.get_tree().root
+					for i in range(root.get_child_count()):
+						var c = root.get_child(i)
+						if (c.name == "PropStage" or c.name == "PropStage.tscn") and c.has_method("load_prop"):
+							stage = c
+							break
+				
+				if stage and stage.has_method("load_prop"):
+					result = stage.load_prop(path)
+				else:
+					printerr("[OYS_Interpreter] Could not find valid stage with load_prop")
+			else:
+				printerr("[OYS] LOAD_PROP called but host_node '%s' lacks 'load_prop' method and current_scene doesn't support it either." % host_node.name)
+			
+			if result is GDScriptFunctionState:
+				yield (result, "completed")
 		
+		"CALL":
+			var method = inst.get("method", "")
+			var args = inst.get("args", [])
+			var resolved_args = []
+			for a in args:
+				resolved_args.append(_resolve_value(a))
+			
+			var target = _resolve_prop() # Try prop first
+			if not target or not target.has_method(method):
+				# Try PropStage / Current Scene
+				var stage = _resolve_stage()
+				if stage and stage.has_method(method):
+					target = stage
+				else:
+					target = host_node # Fallback to host
+			
+			if target.has_method(method):
+				var result = target.callv(method, resolved_args)
+				if result is GDScriptFunctionState:
+					yield (result, "completed")
+			else:
+				# Don't fail the test immediately, just warn
+				printerr("[OYS] CALL failed: Method '%s' not found on %s" % [method, target.name])
+
 		"SPAWN":
 			var scene_path = inst.get("scene", "")
 			var scene = load(scene_path)
@@ -190,9 +240,30 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			yield (VisualServer, "frame_post_draw")
 			var img = host_node.get_viewport().get_texture().get_data()
 			img.flip_y()
-			var path = inst.get("path", "res://screenshot.png")
+			
+			var label = inst.get("label", "screenshot")
+			var prop_name = "unknown"
+			
+			var prop = _resolve_prop()
+			if prop:
+				prop_name = prop.name
+				
+			var dir = Directory.new()
+			var base_dir = "res://test_output/props/"
+			if not dir.dir_exists(base_dir):
+				dir.make_dir_recursive(base_dir)
+			
+			var path = base_dir + "%s_%s.png" % [prop_name, label]
 			img.save_png(path)
 			print("[OYS] Screenshot saved to: ", path)
+			
+			# Read back and convert to Base64 for chat output
+			var f = File.new()
+			if f.open(path, File.READ) == OK:
+				var buffer = f.get_buffer(f.get_len())
+				f.close()
+				var b64 = Marshalls.raw_to_base64(buffer)
+				print("![%s](data:image/png;base64,%s)" % [label, b64])
 		
 		"CINEMATIC_START":
 			var rig_id = inst.get("rig_id", "")
@@ -481,6 +552,36 @@ class SignalObserver extends Object:
 	func on_signal(_a = null, _b = null, _c = null, _d = null, _e = null):
 		triggered = true
 
+func _resolve_stage() -> Node:
+	if host_node.has_method("load_prop"):
+		return host_node
+		
+	# Try current scene (PropStage)
+	var scene = host_node.get_tree().current_scene
+	if not scene:
+		# Fallback: try finding PropStage in root children
+		var root = host_node.get_tree().root
+		for i in range(root.get_child_count()):
+			var c = root.get_child(i)
+			if c.name == "PropStage" or c.name == "PropStage.tscn":
+				scene = c
+				break
+	return scene
+
+func _resolve_prop() -> Node:
+	# Try host_node first
+	if host_node.get("current_prop") and is_instance_valid(host_node.current_prop):
+		return host_node.current_prop
+		
+	var scene = _resolve_stage()
+	
+	if scene:
+		var prop = scene.get("current_prop")
+		if prop and is_instance_valid(prop):
+			return prop
+			
+	return null
+
 func _resolve_value(val: String):
 	if val.begins_with("$"):
 		return variables.get(val, 0)
@@ -538,6 +639,8 @@ func _resolve_value(val: String):
 			var yaw = cam_pivot.rotation.y
 			return rad2deg(yaw)
 		return 0.0
+	if val == "true": return true
+	if val == "false": return false
 	return val.replace("\"", "")
 
 func _call_func(func_name: String, args: Array):

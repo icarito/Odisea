@@ -1,0 +1,22 @@
+LEVEL res://core_v2/scenes/PropStage.tscn
+LOAD_PROP "res://core_v2/props/VentilationTurbine.tscn"
+
+SECTION "Validation"
+    # Ensure physics is ON (default) so animation runs
+    # CALL set_physics_process true 
+    
+    # 1. Start Closed (Immediate)
+    CALL set_active false true
+    WAIT 0.1
+    SCREENSHOT "0.0_start"
+
+    # 2. Trigger Activation (Normal speed)
+    CALL set_active true false
+    
+    # Wait for visual midpoint automatically
+    CALL wait_visual_midpoint
+    SCREENSHOT "0.5_mid"
+
+    # Wait for completion automatically
+    CALL wait_anim_completion
+    SCREENSHOT "1.0_end"
