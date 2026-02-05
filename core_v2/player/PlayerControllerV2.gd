@@ -81,6 +81,7 @@ var _prev_sidescroll_active := false
 var _prev_cinematic_rig = null # Referencia al rig cinemático anterior
 var _cinematic_rig: Node = null # Referencia al rig cinemático actual
 var _prev_camera_basis := Basis.IDENTITY # Basis de cámara del frame anterior
+var _terminal_ui_active := false # True when HoloTerminal UI is in interaction mode
 
 # Métodos de acceso para export (opcional, para Inspector)
 func set_mouse_sensitivity(v):
@@ -650,6 +651,10 @@ func _input(event):
 	# Si el input de cámara está bloqueado, no acumular mouse/zoom
 	if camera_input_locked:
 		return
+	
+	# Skip camera mouse input when terminal UI is active (cursor controls hologram)
+	if _terminal_ui_active:
+		return
 
 	# La única responsabilidad en _input es acumular el delta del mouse
 	# para que el InputProvider lo consuma en el frame de física.
@@ -765,20 +770,35 @@ func step(dt: float, input: InputDataV2) -> void:
 	if input.move_vec.y >= -0.1: # Released "Forward"
 		_forward_latch_active = false
 
-	# Assign cinematic rig based on zones
+	# Assign cinematic rig based on zones - prioritize INNERMOST (smallest volume)
 	_cinematic_rig = null
 	var _active_cinematic_zone = null
-	var _zone_count = 0
+	var _candidate_zones := []
+	
 	for zone in get_tree().get_nodes_in_group("CinematicCameraZoneV2"):
-		_zone_count += 1
 		var zone_node = zone as CinematicCameraZoneV2
 		if zone_node and zone_node.is_zone_active: # Check active flag!
 			var in_zone = zone_node.is_body_in_zone(self)
-			var rig = zone_node._rig_node
-			if in_zone:
-				_cinematic_rig = rig
-				_active_cinematic_zone = zone_node
-				break
+			if in_zone and zone_node._rig_node:
+				_candidate_zones.append(zone_node)
+	
+	# Sort candidates by volume (smallest first = innermost priority)
+	if _candidate_zones.size() > 1:
+		_candidate_zones.sort_custom(self, "_compare_zone_volume")
+	
+	# Pick the innermost zone
+	if _candidate_zones.size() > 0:
+		_active_cinematic_zone = _candidate_zones[0]
+		_cinematic_rig = _active_cinematic_zone._rig_node
+	
+	# Check if active cinematic zone belongs to a HoloTerminal in UI mode
+	_terminal_ui_active = false
+	if _active_cinematic_zone:
+		var terminal = _active_cinematic_zone.get_parent()
+		if terminal and terminal.get_parent():
+			terminal = terminal.get_parent() # CameraZone -> CinematicSetup -> HoloTerminal
+		if terminal and terminal.has_method("is_ui_interactive"):
+			_terminal_ui_active = terminal.is_ui_interactive()
 
 	# --- DIRECTION LATCH SYSTEM ---
 	# Detectar cambios de contexto de cámara (entrada/salida de zonas)
@@ -1486,3 +1506,10 @@ func teleport_to(target_transform: Transform) -> void:
 	var cam_rig = get_node_or_null("CameraRig")
 	if cam_rig:
 		cam_rig.global_transform = target_transform
+
+# --- Zone Priority Comparison ---
+func _compare_zone_volume(a, b) -> bool:
+	"""Compare zones by volume for sorting. Smaller volume = higher priority (innermost)."""
+	var vol_a = a.get_volume() if a.has_method("get_volume") else INF
+	var vol_b = b.get_volume() if b.has_method("get_volume") else INF
+	return vol_a < vol_b

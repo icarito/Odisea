@@ -1,4 +1,4 @@
-[gd_scene load_steps=224 format=2]
+[gd_scene load_steps=223 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -37,11 +37,6 @@
 [ext_resource path="res://core_v2/things/HoloTerminalV2.tscn" type="PackedScene" id=35]
 
 [sub_resource type="BoxShape" id=1038]
-
-[sub_resource type="SpatialMaterial" id=852]
-flags_transparent = true
-flags_unshaded = true
-albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 
 [sub_resource type="Curve3D" id=1036]
 _data = {
@@ -790,6 +785,7 @@ skeleton = NodePath("../CornerFloor2")
 
 [node name="RotatingObjectV2" parent="CrioPod START" index="0"]
 transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
+auto_interact = true
 
 [node name="CSGBox" parent="CrioPod START" index="1"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.349264, 0 )
@@ -810,10 +806,6 @@ center_player_on_enter = null
 
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/AutomationTrigger"]
 shape = SubResource( 1038 )
-
-[node name="_ZoneDebugMesh3" type="MeshInstance" parent="CrioPod START/AutomationTrigger"]
-material_override = SubResource( 852 )
-cast_shadow = 0
 
 [node name="CornerFloor" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 29.7736, 1.83056, -29.847 )
@@ -1501,11 +1493,12 @@ shape = SubResource( 1042 )
 transform = Transform( 0.565816, 0, 0.824531, 0, 1, 0, -0.824531, 0, 0.565816, -16.6215, 2.43056, -25.8581 )
 auto_interact = true
 one_off = true
+enable_ui_interaction = true
 
 [node name="CollisionShape" parent="HoloTerminalV2/InteractableEntity" index="0"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.11705, 0.45, 0 )
 
-[node name="CameraZone" parent="HoloTerminalV2/CinematicSetup" index="1"]
+[node name="CameraZone" parent="HoloTerminalV2/CinematicSetup" index="0"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.90735e-06, 2, -1.5 )
 monitoring = false
 monitorable = false

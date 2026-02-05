@@ -66,6 +66,10 @@ func is_body_in_zone(body: Node) -> bool:
 	# Use signal-tracked dictionary for reliability (overlaps_body has timing issues)
 	return _bodies_in_zone.has(body.get_instance_id())
 
+func get_volume() -> float:
+	"""Returns the volume of the zone for priority comparison. Smaller = innermost."""
+	return zone_extents.x * zone_extents.y * zone_extents.z * 8.0 # *8 for full box volume
+
 # --- Debug Visualization ---
 
 func set_debug_color(val: Color):

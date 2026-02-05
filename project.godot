@@ -1104,6 +1104,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/systems/TeleportSystem.gd"
 }, {
+"base": "Control",
+"class": "TerminalUIV2",
+"language": "GDScript",
+"path": "res://core_v2/things/TerminalUI.gd"
+}, {
 "base": "Resource",
 "class": "TimeUnit",
 "language": "GDScript",
@@ -1389,6 +1394,7 @@ _global_script_class_icons={
 "SpawnPointV2": "",
 "StringFuzzer": "",
 "TeleportSystem": "",
+"TerminalUIV2": "",
 "TimeUnit": "",
 "TrenchBroomFaceAttrib": "",
 "TrenchBroomFaceAttribDefaults": "",
