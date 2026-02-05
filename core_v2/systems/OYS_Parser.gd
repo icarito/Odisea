@@ -11,12 +11,12 @@ enum Command {
 	UNKNOWN,
 	SECTION, END, LEVEL,
 	FW, BW, LEFT, RIGHT, JUMP, INTERACT,
-	WAIT, LOOK,
+	WAIT, LOOK, CALL,
 	SET, ASSERT, ASSERT_SIGNAL, PRINT,
 	GOTO, IF,
 	PLAY_ANIM, WAIT_ANIM, SPAWN,
 	SET_TIME_SCALE, GET_NODES_IN_GROUP,
-	SCREENSHOT,
+	SCREENSHOT, LOAD_PROP,
 	CINEMATIC_START, CINEMATIC_STOP,
 	RECORD_START, RECORD_STOP
 }
@@ -94,6 +94,13 @@ static func parse_instruction(line: String) -> Dictionary:
 			data["pitch"] = parts[1].to_float() if parts.size() > 1 else 0.0
 			data["duration"] = 0.5
 		
+		"CALL":
+			data["method"] = parts[1]
+			var args = []
+			for j in range(2, parts.size()):
+				args.append(parts[j].replace("\"", ""))
+			data["args"] = args
+		
 		"SET":
 			data["var"] = parts[1] if parts.size() > 1 else ""
 			if parts.size() > 3:
@@ -143,7 +150,10 @@ static func parse_instruction(line: String) -> Dictionary:
 			pass # Marker only
 
 		"SCREENSHOT":
-			data["path"] = parts[1] if parts.size() > 1 else "res://screenshot.png"
+			data["label"] = _extract_quoted(parts, 1)
+		
+		"LOAD_PROP":
+			data["path"] = _extract_quoted(parts, 1)
 		
 		"CINEMATIC_START":
 			data["rig_id"] = _extract_quoted(parts, 1)

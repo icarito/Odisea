@@ -114,6 +114,7 @@ material = SubResource( 8 )
 
 [node name="ScreenContainer" type="Spatial" parent="."]
 transform = Transform( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
+visible = false
 
 [node name="ScreenMesh" type="CSGBox" parent="ScreenContainer"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.9, 0 )

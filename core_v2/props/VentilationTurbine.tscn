@@ -1,27 +1,28 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=5 format=2]
 
 [ext_resource path="res://core_v2/components/ContinuousRotatorV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/WindTunnelV2.gd" type="Script" id=2]
 
 [sub_resource type="GDScript" id=3]
 script/source = "extends Spatial
-func set_active(val):
+func set_active(val, _immediate = false):
 	$FanBlades.is_active = val
 	$WindTunnel.is_active = val
 "
 
 [sub_resource type="CylinderShape" id=1]
-radius = 2.0
 height = 8.0
+radius = 2.0
 
 [node name="VentilationTurbine" type="Spatial"]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 1.75112, 0 )
 script = SubResource( 3 )
 
 [node name="Frame" type="CSGCombiner" parent="."]
 use_collision = true
 
 [node name="OuterShell" type="CSGCylinder" parent="Frame"]
-transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 0, 0, 0 )
+transform = Transform( 1.91069e-15, 4.37114e-08, -1, 1, -4.37114e-08, 0, -4.37114e-08, -1, -4.37114e-08, 0, 0, 0 )
 radius = 2.2
 height = 2.0
 sides = 16
@@ -33,6 +34,7 @@ height = 2.2
 sides = 16
 
 [node name="FanBlades" type="Spatial" parent="."]
+transform = Transform( 1, -2.66316e-06, 0, 2.66316e-06, 1, 0, 0, 0, 1, 0, 0, 0 )
 script = ExtResource( 1 )
 rotation_speed_degrees = Vector3( 0, 0, 360 )
 
@@ -48,7 +50,7 @@ height = 0.5
 depth = 0.1
 
 [node name="WindTunnel" type="Area" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4 )
+transform = Transform( 1, -4.37114e-08, 4.37114e-08, 4.37114e-08, -4.37114e-08, -1, 4.37114e-08, 1, -4.37114e-08, 0, 0, 4 )
 script = ExtResource( 2 )
 wind_velocity = Vector3( 0, 0, 20 )
 

@@ -138,16 +138,24 @@ func _on_camera_zone_body_exited(body: Node) -> void:
 
 
 func _update_visuals() -> void:
+	# DEBUG PRINT
+	print("[HoloTerminalV2] _update_visuals: anim_progress=", anim_progress)
+
 	# 2. Apply Movement (Visuals)
 	var screen_container = get_node_or_null("ScreenContainer")
 	if screen_container:
-		# Interpolate the Y position of the ScreenContainer (existing logic, maybe adjust)
-		# Actually, user wants "size up from center". 
-		# We'll Scale it up instead of just moving it, or both.
 		var progress = _ease_out_cubic(anim_progress)
-		var scale_val = lerp(Vector3.ZERO, Vector3.ONE, progress)
-		screen_container.scale = scale_val
 		
+		# Slide + Scale animation:
+		var start_y = -1.2
+		var end_y = 0.0
+		var new_y = lerp(start_y, end_y, progress)
+		var new_scale = lerp(Vector3.ZERO, Vector3.ONE, progress)
+		
+		screen_container.translation.y = new_y
+		screen_container.scale = new_scale
+		screen_container.visible = new_scale.length_squared() > 0.001
+				
 		# Also manage Projector Particles
 		var particles = get_node_or_null("HoloParticles")
 		if particles:
