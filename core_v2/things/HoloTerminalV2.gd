@@ -14,10 +14,13 @@ export(bool) var active setget set_active_debug
 # --- Cinematic Camera Configuration ---
 export(bool) var use_cinematic_zone := true
 export(bool) var close_on_exit_zone := true
+export(bool) var enable_ui_interaction := true
 
 # --- Internal Camera References ---
 var _camera_zone: Area = null
 var _cinematic_rig = null # CinematicRigV2
+var _terminal_ui = null # TerminalUIV2 reference
+var _player_in_zone := false
 
 func _ready():
 	interaction_text = "Toggle Terminal"
@@ -45,6 +48,9 @@ func _ready():
 	
 	# --- Cinematic Camera Auto-Wiring ---
 	_setup_cinematic_camera()
+	
+	# Cache TerminalUI reference
+	_terminal_ui = get_node_or_null("Viewport/TerminalUI")
 
 
 func _setup_cinematic_camera() -> void:
@@ -102,16 +108,24 @@ func set_active(value: bool, immediate: bool = false) -> void:
 	# If NOT using cinematic zone by default, we toggle it based on interaction
 	if not use_cinematic_zone and _camera_zone and "is_zone_active" in _camera_zone:
 		 _camera_zone.is_zone_active = value
+	
+	# Update UI interaction mode
+	_update_ui_mode()
 
 
-func _on_camera_zone_body_entered(_body: Node) -> void:
-	# No logic needed here anymore - PlayerController polls active zones
-	pass
+func _on_camera_zone_body_entered(body: Node) -> void:
+	if not body.is_in_group("player"):
+		return
+	_player_in_zone = true
+	_update_ui_mode()
 
 
 func _on_camera_zone_body_exited(body: Node) -> void:
 	if not body.is_in_group("player"):
 		return
+	
+	_player_in_zone = false
+	_update_ui_mode()
 	
 	if close_on_exit_zone and is_active:
 		# Defer to avoid modifying zone monitoring during signal callback
@@ -155,3 +169,48 @@ func get_is_open() -> bool:
 func set_active_debug(val: bool) -> void:
 	active = val
 	set_active(val, true) # Immediate update for editor
+
+
+# --- UI Mode Management ---
+func _update_ui_mode() -> void:
+	"""Update TerminalUI cursor based on terminal state and player position."""
+	if Engine.editor_hint:
+		return
+	
+	var should_be_active = is_active and _player_in_zone and enable_ui_interaction
+	
+	if _terminal_ui and _terminal_ui.has_method("set_ui_mode"):
+		_terminal_ui.set_ui_mode(should_be_active)
+	
+	# Enable/disable input processing based on UI mode
+	set_process_input(should_be_active)
+
+
+func is_ui_interactive() -> bool:
+	"""Returns true if the terminal is in interactive UI mode."""
+	return is_active and _player_in_zone and enable_ui_interaction
+
+
+func _input(event):
+	"""Forward mouse input to TerminalUI when in UI interaction mode."""
+	if Engine.editor_hint:
+		return
+	
+	if not is_ui_interactive():
+		return
+	
+	if not _terminal_ui:
+		return
+	
+	# Forward mouse motion to terminal UI
+	if event is InputEventMouseMotion:
+		if _terminal_ui.has_method("process_mouse_motion"):
+			_terminal_ui.process_mouse_motion(event.relative)
+		get_tree().set_input_as_handled()
+	
+	# Forward mouse clicks to terminal UI
+	elif event is InputEventMouseButton:
+		if event.button_index == BUTTON_LEFT and event.pressed:
+			if _terminal_ui.has_method("process_mouse_click"):
+				_terminal_ui.process_mouse_click()
+			get_tree().set_input_as_handled()

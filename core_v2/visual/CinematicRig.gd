@@ -89,7 +89,7 @@ func activate(set_current: bool = true):
 	emit_signal("activated")
 
 
-func deactivate(restore_camera: bool = true):
+func deactivate(_restore_camera: bool = true):
 	"""Deactivate this rig. Exit transitions are handled by CinematicManager."""
 	_is_active = false
 	
