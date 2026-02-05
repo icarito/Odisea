@@ -60,4 +60,4 @@ margin_right = 129.0
 margin_bottom = 158.0
 text = "OK"
 
-[connection signal="pressed" from="Panel/CenterContainer/VBoxContainer/Button" to="." method="_on_Button_pressed"]
+

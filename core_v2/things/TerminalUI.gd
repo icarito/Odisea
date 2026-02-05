@@ -4,19 +4,23 @@ class_name TerminalUIV2
 # TerminalUI.gd - Manages the terminal UI with projected cursor support
 # The cursor is a sprite rendered inside the viewport, controlled by mouse delta
 
-signal button_pressed(button_name)
+
 signal key_pressed(event)
 
 # Cursor configuration
 export(Texture) var cursor_texture: Texture
 export(Vector2) var cursor_hotspot := Vector2(7, 10) # Offset from cursor origin to click point
 export(float) var cursor_sensitivity := 1.0
+export(Curve) var acceleration_curve: Curve
+export(float) var acceleration_ramp_time := 2.0
+export(float) var base_speed := 400.0
 
 # Internal state
 var _cursor_sprite: Sprite = null
 var _cursor_position := Vector2()
 var _ui_mode_active := false
 var _viewport_size := Vector2()
+var _input_duration := 0.0
 
 func _ready():
 	_setup_cursor()
@@ -62,6 +66,7 @@ func set_ui_mode(active: bool):
 		_viewport_size = get_viewport_rect().size
 		_cursor_position = _viewport_size / 2.0
 		_update_cursor_position()
+		_input_duration = 0.0 # Reset ramp
 		print("[TerminalUI] UI mode ACTIVATED, viewport size: ", _viewport_size)
 	else:
 		print("[TerminalUI] UI mode DEACTIVATED")
@@ -79,8 +84,17 @@ func _process(delta: float):
 	)
 
 	if input_dir.length() > 0.1:
+		# Ramp up acceleration
+		_input_duration += delta
+		var speed_multiplier = 1.0
+		
+		if acceleration_curve:
+			var t = clamp(_input_duration / acceleration_ramp_time, 0.0, 1.0)
+			speed_multiplier = acceleration_curve.interpolate(t)
+			
 		# Analog movement
-		var speed = 300.0 * cursor_sensitivity # Pixels per second
+		var speed = base_speed * cursor_sensitivity * speed_multiplier # Pixels per second
+		
 		if Input.is_key_pressed(KEY_SHIFT): # Optional fast cursor
 			speed *= 2.0
 			
@@ -90,6 +104,9 @@ func _process(delta: float):
 		_cursor_position.x = clamp(_cursor_position.x, 0, _viewport_size.x)
 		_cursor_position.y = clamp(_cursor_position.y, 0, _viewport_size.y)
 		_update_cursor_position()
+	else:
+		_input_duration = 0.0
+
 
 func process_mouse_motion(relative: Vector2):
 	"""Process mouse motion forwarded from HoloTerminal."""
@@ -106,67 +123,36 @@ func process_mouse_click():
 	"""Process mouse click forwarded from HoloTerminal."""
 	if not _ui_mode_active:
 		return
-	_handle_click()
+	# Inject a full click (Press + Release) at the current position
+	# This ensures standard Button 'pressed' signals are fired by the engine.
+	_inject_mouse_button(_cursor_position, true)
+	_inject_mouse_button(_cursor_position, false)
+	
+	# Optional: Keep _handle_click if custom signals are strictly needed,
+	# but for standard UI behavior, injection is preferred.
+	# _handle_click() 
 
 func _update_cursor_position():
-	"""Update cursor sprite position."""
+	"""Update cursor sprite position and inject mouse motion."""
 	if _cursor_sprite:
 		_cursor_sprite.position = _cursor_position
-
-func _handle_click():
-	"""Process a click at the current cursor position."""
-	# Find clickable control at cursor position
-	var clicked_control = _find_control_at_position(_cursor_position)
 	
-	if clicked_control:
-		# Emit signal for external handling
-		if clicked_control.name:
-			emit_signal("button_pressed", clicked_control.name)
-		
-		# Trigger button press if it's a Button
-		if clicked_control is BaseButton:
-			clicked_control.emit_signal("pressed")
+	# Inject motion event so UI controls detect hover
+	_inject_mouse_motion(_cursor_position)
 
-func _find_control_at_position(pos: Vector2) -> Control:
-	"""Find the topmost clickable control at the given position."""
-	return _find_control_recursive(self, pos)
+func _inject_mouse_motion(pos: Vector2):
+	var evt = InputEventMouseMotion.new()
+	evt.position = pos
+	evt.global_position = pos # In SubViewport, global usually matches local
+	get_viewport().input(evt)
 
-func _find_control_recursive(node: Node, pos: Vector2) -> Control:
-	"""Recursively search for control under position (reverse child order = topmost first)."""
-	# Check children in reverse order (last added = rendered on top)
-	for i in range(node.get_child_count() - 1, -1, -1):
-		var child = node.get_child(i)
-		if child == _cursor_sprite:
-			continue # Skip cursor itself
-		
-		var result = _find_control_recursive(child, pos)
-		if result:
-			return result
-	
-	# Check this node if it's a Control
-	if node is Control and node != self:
-		var control = node as Control
-		if control.visible and _is_point_in_control(control, pos):
-			# Check if it's clickable (Button, etc)
-			if control is BaseButton:
-				return control
-	
-	return null
-
-func _is_point_in_control(control: Control, global_pos: Vector2) -> bool:
-	"""Check if a point is within a control's rect."""
-	var rect = control.get_global_rect()
-	return rect.has_point(global_pos)
-
-func get_cursor_position() -> Vector2:
-	"""Get current cursor position for external use."""
-	return _cursor_position
-
-func set_cursor_position(pos: Vector2):
-	"""Set cursor position programmatically."""
-	_cursor_position = pos
-	_update_cursor_position()
-
+func _inject_mouse_button(pos: Vector2, pressed: bool):
+	var evt = InputEventMouseButton.new()
+	evt.button_index = BUTTON_LEFT
+	evt.pressed = pressed
+	evt.position = pos
+	evt.global_position = pos
+	get_viewport().input(evt)
 
 func process_key_event(event: InputEventKey):
 	"""Process keyboard input forwarded from HoloTerminal in focus mode."""
@@ -176,15 +162,7 @@ func process_key_event(event: InputEventKey):
 	# Emit signal for custom handling by child controls (e.g. TextEdit)
 	emit_signal("key_pressed", event)
 	
-	# WASD Navigation Removed!
-	# Cursor control is now handled by _process via 'cursor_*' actions (Analog Stick/Arrows)
-	
 	if event.is_action_pressed("ui_accept"):
 		# Simulate click at current cursor position
-		_handle_click()
-				# Note: If a TextEdit is focused, we might not want this?
-				# Ideally, _handle_click finds the control. If it's a Button, it presses.
-
-
-func _on_Button_pressed():
-	print("Hello from terminal")
+		_inject_mouse_button(_cursor_position, true)
+		_inject_mouse_button(_cursor_position, false)
