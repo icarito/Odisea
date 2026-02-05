@@ -1,0 +1,25 @@
+// Test: Plasma Generator
+// Verify presence and collision.
+
+LEVEL res://core_v2/levels/TestPropsScene.tscn
+
+SECTION "Plasma Generator Collision"
+    // Generator at (0, 0, 10).
+    // Start (0,1,0).
+
+    // Face +Z (Backwards relative to start).
+    RIGHT 180
+
+    // Move towards generator.
+    FW 8m
+
+    // Try to walk through it.
+    FW 4m
+
+    // Should be blocked.
+    // Center is 10. Radius approx 0.5-2.0.
+    // If blocked, pos.z should be < 10 (approx 9.5 or 8).
+
+    ASSERT pos.z < 9.8 "Walked through plasma generator"
+
+END
