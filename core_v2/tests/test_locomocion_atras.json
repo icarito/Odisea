@@ -1309,11 +1309,11 @@
         "transition_timer": 0.516667,
         "transition_duration": 0.5,
         "source_transform": {
-          "origin": "(25.514095, 8.817698, -14.812008)",
+          "origin": "(44.922146, 8.817698, -5.591619)",
           "basis": {
-            "x": "(-0.634434, 0, -0.772977)",
-            "y": "(-0.127921, 0.986211, 0.104993)",
-            "z": "(0.762319, 0.165491, -0.625686)"
+            "x": "(-0.387003, 0, -0.922079)",
+            "y": "(-0.136204, 0.98903, 0.057166)",
+            "z": "(0.911964, 0.147714, -0.382757)"
           }
         },
         "source_fov": 70,
@@ -1404,23 +1404,16 @@
     "step_grounded_timer": 0,
     "just_stepped": false,
     "direction_latch_active": false,
-    "latched_camera_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
+    "latched_dir_fwd": [
+      0,
+      0,
+      -1
+    ],
+    "latched_dir_rt": [
+      -1,
+      0,
+      0
+    ],
     "latched_sidescroll_active": false,
     "latched_sidescroll_basis": {
       "x": [

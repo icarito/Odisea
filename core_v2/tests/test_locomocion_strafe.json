@@ -1802,9 +1802,9 @@
         "source_transform": {
           "origin": "(0, 0, 0)",
           "basis": {
-            "x": "(0, 0, 0)",
-            "y": "(0, 0, 0)",
-            "z": "(0, 0, 0)"
+            "x": "(1, 0, 0)",
+            "y": "(0, 1, 0)",
+            "z": "(0, 0, 1)"
           }
         },
         "source_fov": 0,
@@ -1917,23 +1917,16 @@
     "step_grounded_timer": 0,
     "just_stepped": false,
     "direction_latch_active": false,
-    "latched_camera_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
+    "latched_dir_fwd": [
+      0,
+      0,
+      -1
+    ],
+    "latched_dir_rt": [
+      -1,
+      0,
+      0
+    ],
     "latched_sidescroll_active": false,
     "latched_sidescroll_basis": {
       "x": [

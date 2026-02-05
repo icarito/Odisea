@@ -854,6 +854,10 @@ func _finish_and_validate():
 	var frames = _total_replay_frames
 
 	print("[SessionManager] Peak Y reached during replay: %.4f" % _peak_y)
+	
+	if oys_assert_failed:
+		success = false
+		printerr("❌ REPLAY VALIDATION FAILED: OYS Assertions failed during execution.")
 
 	# 1. Imprimir estado final
 	if is_instance_valid(player):

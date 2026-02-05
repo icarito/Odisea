@@ -2481,7 +2481,23 @@
         "current_animation": "",
         "playback_position": 0
       },
-      "CinematicManager": null
+      "CinematicManager": {
+        "current_control_mode": 0,
+        "is_transitioning": false,
+        "transition_timer": 0.516667,
+        "transition_duration": 0.5,
+        "source_transform": {
+          "origin": "(28.454899, 12.167052, 30.221134)",
+          "basis": {
+            "x": "(0.619448, 0, -0.785038)",
+            "y": "(-0.194085, 0.968957, -0.153146)",
+            "z": "(0.760668, 0.24723, 0.600218)"
+          }
+        },
+        "source_fov": 70,
+        "active_rig_path": "",
+        "current_camera_path": "/root/TestScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
+      }
     },
     "scene_path": "res://core_v2/levels/TestScene_v2.tscn"
   },
@@ -2588,23 +2604,16 @@
     "step_grounded_timer": 0,
     "just_stepped": false,
     "direction_latch_active": false,
-    "latched_camera_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
+    "latched_dir_fwd": [
+      0,
+      0,
+      -1
+    ],
+    "latched_dir_rt": [
+      -1,
+      0,
+      0
+    ],
     "latched_sidescroll_active": false,
     "latched_sidescroll_basis": {
       "x": [
