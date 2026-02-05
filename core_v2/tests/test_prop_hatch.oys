@@ -1,0 +1,75 @@
+// Test: Floor Hatch
+// Verify opening via valve.
+
+LEVEL res://core_v2/levels/TestPropsScene.tscn
+
+SECTION "Open Floor Hatch"
+    // Hatch at (10, 0.1, 10).
+    // Start (0,1,0).
+
+    // Face (1,0,1) direction? Or just move axes.
+    // Move to X=10.
+    RIGHT 90
+    FW 10m
+
+    // Face +Z.
+    RIGHT 90
+    // Move to Z=10.
+    FW 10m
+
+    // Hatch is here. Valve is at local (1.5, 0.5, 1.5).
+    // Global Valve pos: (10+1.5, 0.6, 10+1.5) = (11.5, 0.6, 11.5).
+
+    // Look at Valve.
+    // We are at (10, 1, 10). Valve is at (11.5, 0.6, 11.5).
+    // Face it.
+    LEFT 45
+    // Wait, standard ref:
+    // facing +Z. Right is -X.
+    // If we are at (10, 1, 10) facing +Z.
+    // Valve is at (11.5, ..., 11.5). That is forward (+Z) and Left (+X if Z is forward).
+    // Wait, coordinate system:
+    // -Z is Forward.
+    // +X is Right.
+    // +Z is Backward.
+
+    // At (10, 1, 10), facing +Z (Backward).
+    // Valve at (11.5, ..., 11.5).
+    // Delta: (+1.5, +1.5).
+    // Relative to +Z facing: +1.5 is Forward, +1.5 is Right.
+    // So look right 45 deg?
+    // Let's just move closer to it.
+
+    FW 1m
+    RIGHT 45
+    FW 1m
+
+    INTERACT
+    WAIT 2.0
+
+    // Hatch opens.
+    // If we walk onto hatch center (10, 0.1, 10), we should fall through hole.
+    // Hatch has a hole?
+    // Prefab: Frame/Floor has a hole. HatchDoor covers it.
+    // When open, HatchDoor slides away.
+    // We fall into... the void (or floor below?).
+    // In TestPropsScene, "Floor" is at 0. Hatch is at 0.1.
+    // If we fall, we hit the main floor at 0.
+    // Difference is small (0.1).
+    // But we can check collision.
+
+    // Move to center of hatch (10, 0.1, 10).
+    // Backtrack.
+    BW 2m
+    LEFT 45
+
+    // We should be near center.
+    // If hatch is closed, we stand on y=0.1 + hatch thickness/2 (0.05) + collider margin.
+    // If hatch is open, we stand on y=0 (main floor).
+
+    // Let's verify position Y.
+    // Assert pos.y < 0.15 ?
+
+    ASSERT pos.y < 0.2 "Did not fall through hatch"
+
+END

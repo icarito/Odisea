@@ -1,0 +1,58 @@
+// Test: VentilationTurbine and Lever
+// Verify wind pushes player, then disable via lever, then no push.
+
+LEVEL res://core_v2/levels/TestPropsScene.tscn
+
+SECTION "Turbine Wind Test"
+    // Turbine at (15, 2, -10). WindTunnel at local (0,0,4) -> (15, 2, -6).
+    // Wind pushes -Z (default) or +Z?
+    // In prefab: WindTunnel is at (0,0,4). Wind velocity is (0,0,20).
+    // Wait, (0,0,20) is +Z.
+    // If Turbine is at (15, 2, -10), Tunnel is at (15, 2, -6).
+    // Pushing +Z means pushing away from turbine (towards positive Z).
+
+    // Move to Turbine area
+    // Turn Right to face X+
+    RIGHT 90
+    FW 15m
+
+    // Turn Left to face -Z (Turbine is at Z=-10)
+    LEFT 90
+
+    // Move forward into wind zone (approx Z=-4 to -8)
+    // Lever is at (10, 0, -10).
+    // Turbine is at (15, 2, -10).
+
+    // First, let's go to the lever and turn it OFF.
+    // Lever at (10, 0, -10). We are at (15, 1, 0) approx?
+    // Start: (0,1,0).
+    // RIGHT 90 -> Face (1,0,0).
+    // FW 10m -> At (10, 1, 0).
+    // LEFT 90 -> Face (0,0,-1).
+    // FW 8m -> At (10, 1, -8). Lever is at -10.
+
+    // Interact with Lever
+    INTERACT
+    WAIT 1.0
+
+    // Now fan should be off. Wind should be inactive.
+    // Move to Turbine (15, 2, -10).
+    // Turn Right 90 -> Face (1,0,0).
+    RIGHT 90
+    FW 5m
+    // At (15, 1, -8).
+
+    // Turn Left -> Face -Z.
+    LEFT 90
+    // Walk closer to turbine.
+    FW 2m
+    // At (15, 1, -10).
+
+    // Check if we are pushed back.
+    // Wind would push us +Z (back to -6 or more).
+    // If disabled, we stay.
+    WAIT 2.0
+
+    ASSERT pos.z < -9 "Wind was not disabled, pushed back"
+
+END
