@@ -1,0 +1,56 @@
+[gd_scene load_steps=6 format=2]
+
+[ext_resource path="res://core_v2/components/ContinuousRotatorV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/components/WindTunnelV2.gd" type="Script" id=2]
+
+[sub_resource type="GDScript" id=3]
+script/source = "extends Spatial
+func set_active(val):
+	$FanBlades.is_active = val
+	$WindTunnel.is_active = val
+"
+
+[sub_resource type="CylinderShape" id=1]
+radius = 2.0
+height = 8.0
+
+[node name="VentilationTurbine" type="Spatial"]
+script = SubResource( 3 )
+
+[node name="Frame" type="CSGCombiner" parent="."]
+use_collision = true
+
+[node name="OuterShell" type="CSGCylinder" parent="Frame"]
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 0, 0, 0 )
+radius = 2.2
+height = 2.0
+sides = 16
+
+[node name="InnerHole" type="CSGCylinder" parent="Frame/OuterShell"]
+operation = 2
+radius = 2.0
+height = 2.2
+sides = 16
+
+[node name="FanBlades" type="Spatial" parent="."]
+script = ExtResource( 1 )
+rotation_speed_degrees = Vector3( 0, 0, 360 )
+
+[node name="Blade1" type="CSGBox" parent="FanBlades"]
+width = 3.8
+height = 0.5
+depth = 0.1
+
+[node name="Blade2" type="CSGBox" parent="FanBlades"]
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 0, 0, 0 )
+width = 3.8
+height = 0.5
+depth = 0.1
+
+[node name="WindTunnel" type="Area" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4 )
+script = ExtResource( 2 )
+wind_velocity = Vector3( 0, 0, 20 )
+
+[node name="CollisionShape" type="CollisionShape" parent="WindTunnel"]
+shape = SubResource( 1 )
