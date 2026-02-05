@@ -4815,6 +4815,22 @@
         "sprint": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -4831,10 +4847,10 @@
     "240": [
 
     ],
-    "300": [
+    "301": [
 
     ],
-    "301": [
+    "302": [
 
     ]
   },
@@ -4848,9 +4864,9 @@
         "source_transform": {
           "origin": "(0, 0, 0)",
           "basis": {
-            "x": "(0, 0, 0)",
-            "y": "(0, 0, 0)",
-            "z": "(0, 0, 0)"
+            "x": "(1, 0, 0)",
+            "y": "(0, 1, 0)",
+            "z": "(0, 0, 1)"
           }
         },
         "source_fov": 0,
@@ -4863,13 +4879,13 @@
   "final_expected_state": {
     "position": [
       -0,
-      -41.831379,
-      24.740713
+      -42.403046,
+      24.771269
     ],
     "velocity": [
       0,
-      -34.066666,
-      1.916663
+      -34.299999,
+      1.83333
     ],
     "yaw": 0,
     "pitch": 0,
@@ -4878,7 +4894,7 @@
       "horizontal_velocity": [
         0,
         0,
-        1.916663
+        1.83333
       ],
       "external_velocity": [
         0,
@@ -4921,7 +4937,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 317,
+      "frames_since_last_snap": 318,
       "last_input_vector": [
         0,
         0,
@@ -4941,23 +4957,16 @@
     "step_grounded_timer": 0,
     "just_stepped": false,
     "direction_latch_active": false,
-    "latched_camera_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
+    "latched_dir_fwd": [
+      0,
+      0,
+      -1
+    ],
+    "latched_dir_rt": [
+      -1,
+      0,
+      0
+    ],
     "latched_sidescroll_active": false,
     "latched_sidescroll_basis": {
       "x": [

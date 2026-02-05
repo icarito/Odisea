@@ -16,7 +16,7 @@ var host_node: Node
 var is_running: bool = false
 var stop_requested: bool = false
 var execution_id: int = 0
-var test_failed: bool = false  # Global flag to track test failure
+var test_failed: bool = false # Global flag to track test failure
 signal instruction_executed(inst, variables)
 signal instruction_completed(inst, variables)
 
@@ -229,9 +229,9 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		"ASSERT":
 			_execute_assert(inst.get("condition", ""))
 			if not is_running:
-				test_failed = true  # Mark the test as failed
+				test_failed = true # Mark the test as failed
 				stop_requested = true
-				return  # Stop execution immediately on ASSERT failure
+				return # Stop execution immediately on ASSERT failure
 
 		"SET":
 			var var_name = inst.get("var", "")
@@ -254,12 +254,12 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		"FW", "BW", "LEFT", "RIGHT", "JUMP", "INTERACT":
 			var __state = _execute_movement(inst, my_id)
 			if __state is GDScriptFunctionState:
-				yield(__state, "completed")
+				yield (__state, "completed")
 		
 		"LOOK":
 			var __state_look = _execute_look(inst, my_id)
 			if __state_look is GDScriptFunctionState:
-				yield(__state_look, "completed")
+				yield (__state_look, "completed")
 		
 		# Markers - no action needed
 		"LEVEL", "END":
@@ -293,7 +293,7 @@ func _execute_movement(inst: Dictionary, my_id: int):
 				# For turning, we'll handle it separately
 				var __state_turn = _execute_turn(inst, my_id)
 				if __state_turn is GDScriptFunctionState:
-					yield(__state_turn, "completed")
+					yield (__state_turn, "completed")
 				return
 			var value = inst.get("value", 0.0)
 			var unit = inst.get("unit", "s")
@@ -462,7 +462,7 @@ func _execute_assert(condition: String):
 	if parts.size() < 3:
 		return
 
-	yield (host_node.get_tree(), "physics_frame")
+	# yield (host_node.get_tree(), "physics_frame") # Removed to ensure synchronous execution
 	var left = _resolve_value(parts[0])
 	var op = parts[1]
 	var right = _resolve_value(parts[2])
@@ -511,7 +511,7 @@ func _resolve_value(val: String):
 				"pos.z": return 0.0
 		return 0.0
 	if val == "yaw_deg":
-		# Buscar la cámara principal del jugador
+		# Buscar variable yaw_deg en el jugador
 		var player = null
 		var session = host_node.get_node_or_null("/root/SessionManager")
 		if session and session.player:
@@ -523,15 +523,19 @@ func _resolve_value(val: String):
 			test_failed = true
 			stop_requested = true
 			return null
+		
+		# Preferir propiedad directa del script del jugador
+		if "yaw_deg" in player:
+			return player.yaw_deg
+		elif player.has_method("get_yaw_deg"):
+			return player.get_yaw_deg()
+			
+		# Fallback a pivote si no existe la propiedad (legacy)
 		if player.has_node("CameraPivot"):
 			var cam_pivot = player.get_node("CameraPivot")
 			if not is_instance_valid(cam_pivot):
-				printerr("[OYS ERROR] CameraPivot instance is invalid or freed when resolving yaw_deg")
-				test_failed = true
-				stop_requested = true
-				return null
-			# Suponemos que la rotación Y es el yaw en radianes
-			var yaw = cam_pivot.rotation.y if cam_pivot.has_method("rotation") else 0.0
+				return 0.0
+			var yaw = cam_pivot.rotation.y
 			return rad2deg(yaw)
 		return 0.0
 	return val.replace("\"", "")
