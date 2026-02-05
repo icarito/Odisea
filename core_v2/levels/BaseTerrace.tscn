@@ -1,4 +1,4 @@
-[gd_scene load_steps=223 format=2]
+[gd_scene load_steps=222 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -769,9 +769,6 @@ extents = Vector3( 10, 40, 100 )
 [sub_resource type="BoxShape" id=1042]
 extents = Vector3( 104, 1, 141.5 )
 
-[sub_resource type="BoxShape" id=1043]
-extents = Vector3( 1.5, 2, 1.5 )
-
 [node name="Terrace" type="CSGBox"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
 use_collision = true
@@ -1490,32 +1487,13 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0 )
 shape = SubResource( 1042 )
 
 [node name="HoloTerminalV2" parent="." instance=ExtResource( 35 )]
-transform = Transform( 0.565816, 0, 0.824531, 0, 1, 0, -0.824531, 0, 0.565816, -16.6215, 2.43056, -25.8581 )
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -16.6215, 2.43056, -25.8581 )
 auto_interact = true
 one_off = true
-
-[node name="HoloParticles" parent="HoloTerminalV2" index="2"]
-emitting = false
-
-[node name="ScreenContainer" parent="HoloTerminalV2" index="4"]
-transform = Transform( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-
-[node name="Viewport" parent="HoloTerminalV2" index="5"]
-render_target_update_mode = 0
-
-[node name="CollisionShape" parent="HoloTerminalV2/InteractableEntity" index="0"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.11705, 0.45, 0 )
-
-[node name="CameraZone" parent="HoloTerminalV2/CinematicSetup" index="0"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.90735e-06, 2, -1.5 )
-
-[node name="CollisionShape" parent="HoloTerminalV2/CinematicSetup/CameraZone" index="1"]
-shape = SubResource( 1043 )
-
-[node name="PathFollow" parent="HoloTerminalV2/CinematicSetup/CinematicPathRig" index="0"]
-transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 0.626091, 0.19433, 0.639461 )
+use_cinematic_zone = false
+enable_ui_interaction = false
+allow_focus_mode = false
 
 [editable path="CrioPod START"]
 [editable path="SideScrollZone4"]
 [editable path="InteriorWide"]
-[editable path="HoloTerminalV2"]

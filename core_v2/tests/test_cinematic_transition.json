@@ -3255,18 +3255,8 @@
     "world_start_state": {
       "/root/TestCinematicScene/Floor/CinematicCameraZone/CinematicPathRig": {
         "is_active": false,
-        "transition_alpha": 0,
         "target_offset": 0,
         "last_deactivate_time": 0,
-        "source_transform": {
-          "origin": "(0, 0, 0)",
-          "basis": {
-            "x": "(1, 0, 0)",
-            "y": "(0, 1, 0)",
-            "z": "(0, 0, 1)"
-          }
-        },
-        "source_fov": 70,
         "unit_offset": 0,
         "current_animation": "",
         "playback_position": 0
@@ -3279,9 +3269,9 @@
         "source_transform": {
           "origin": "(0, 0, 0)",
           "basis": {
-            "x": "(0, 0, 0)",
-            "y": "(0, 0, 0)",
-            "z": "(0, 0, 0)"
+            "x": "(1, 0, 0)",
+            "y": "(0, 1, 0)",
+            "z": "(0, 0, 1)"
           }
         },
         "source_fov": 0,
@@ -3293,23 +3283,23 @@
   },
   "final_expected_state": {
     "position": [
-      -0.000006,
+      -14.663893,
       0.0415,
-      22.129164
+      -6.788948
     ],
     "velocity": [
-      0,
-      -0.232561,
-      7
+      -5.313416,
+      -0.232579,
+      -4.557149
     ],
-    "yaw": -2.175085,
-    "pitch": 0.599313,
+    "yaw": -2.279726,
+    "pitch": 0.393745,
     "base_spring_length_3d": 7,
     "movement_state": {
       "horizontal_velocity": [
-        -0,
-        0.000772,
-        7
+        -5.313416,
+        0.000755,
+        -4.557149
       ],
       "external_velocity": [
         0,
@@ -3386,14 +3376,14 @@
       ]
     },
     "platform_velocity": [
-      -0.000212,
+      -0.000229,
       0.000002,
       0
     ],
     "was_on_platform": true,
     "step_grounded_timer": 0,
     "just_stepped": false,
-    "direction_latch_active": true,
+    "direction_latch_active": false,
     "latched_camera_basis": {
       "x": [
         1,
@@ -3432,24 +3422,24 @@
     "latched_cinematic_mode": -1,
     "latched_input_vec": [
       0,
-      1
+      0
     ],
     "prev_sidescroll_active": false,
     "prev_camera_basis": {
       "x": [
-        -0.568177,
+        -0.651021,
         0,
-        0.822907
+        0.759059
       ],
       "y": [
-        -0.464182,
-        0.825723,
-        -0.320495
+        -0.291213,
+        0.923479,
+        -0.249764
       ],
       "z": [
-        -0.679493,
-        -0.564076,
-        -0.469156
+        -0.700975,
+        -0.38365,
+        -0.601204
       ]
     },
     "prev_cinematic_rig_path": "",
@@ -3457,7 +3447,7 @@
   },
   "oys_variables": {
     "$start_x": 0,
-    "$end_x": -0.000006,
-    "$delta_x": -0.000006
+    "$end_x": -14.663893,
+    "$delta_x": -14.663893
   }
 }

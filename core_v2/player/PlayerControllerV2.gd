@@ -72,7 +72,8 @@ var _forward_latch_sign := 1.0
 # Direction Latch System - Evita cambios bruscos de dirección al entrar/salir de zonas
 # Guarda el CONTEXTO de interpretación de input cuando cambia la cámara
 var _direction_latch_active := false
-var _latched_camera_basis := Basis.IDENTITY # Basis de cámara para interpretar input
+var _latched_dir_fwd := Vector3.FORWARD # World forward for the latched context
+var _latched_dir_rt := Vector3.LEFT # World right (already signed) for latched context
 var _latched_sidescroll_active := false # Si estábamos en modo sidescroll
 var _latched_sidescroll_basis := Basis.IDENTITY # Basis del sidescroll para latched mode
 var _latched_cinematic_mode := -1 # Modo de control cinemático (-1 = no cinematic)
@@ -156,11 +157,8 @@ func get_full_snapshot() -> Dictionary:
 	
 	# Direction Latch state (para evitar cambios bruscos de dirección)
 	snapshot["direction_latch_active"] = _direction_latch_active
-	snapshot["latched_camera_basis"] = {
-		"x": [_latched_camera_basis.x.x, _latched_camera_basis.x.y, _latched_camera_basis.x.z],
-		"y": [_latched_camera_basis.y.x, _latched_camera_basis.y.y, _latched_camera_basis.y.z],
-		"z": [_latched_camera_basis.z.x, _latched_camera_basis.z.y, _latched_camera_basis.z.z]
-	}
+	snapshot["latched_dir_fwd"] = [_latched_dir_fwd.x, _latched_dir_fwd.y, _latched_dir_fwd.z]
+	snapshot["latched_dir_rt"] = [_latched_dir_rt.x, _latched_dir_rt.y, _latched_dir_rt.z]
 	snapshot["latched_sidescroll_active"] = _latched_sidescroll_active
 	snapshot["latched_sidescroll_basis"] = {
 		"x": [_latched_sidescroll_basis.x.x, _latched_sidescroll_basis.x.y, _latched_sidescroll_basis.x.z],
@@ -257,16 +255,11 @@ func restore_snapshot(data: Dictionary) -> void:
 	_latched_sidescroll_active = data.get("latched_sidescroll_active", false)
 	_latched_cinematic_mode = data.get("latched_cinematic_mode", -1)
 	
-	# Restore latched_camera_basis
-	if data.has("latched_camera_basis"):
-		var lcb = data["latched_camera_basis"]
-		_latched_camera_basis = Basis(
-			Vector3(lcb["x"][0], lcb["x"][1], lcb["x"][2]),
-			Vector3(lcb["y"][0], lcb["y"][1], lcb["y"][2]),
-			Vector3(lcb["z"][0], lcb["z"][1], lcb["z"][2])
-		)
-	else:
-		_latched_camera_basis = Basis.IDENTITY
+	# Restore latched directional vectors
+	var ldf = data.get("latched_dir_fwd", [0, 0, 1])
+	_latched_dir_fwd = Vector3(ldf[0], ldf[1], ldf[2])
+	var ldr = data.get("latched_dir_rt", [1, 0, 0])
+	_latched_dir_rt = Vector3(ldr[0], ldr[1], ldr[2])
 	
 	# Restore latched_sidescroll_basis
 	if data.has("latched_sidescroll_basis"):
@@ -334,7 +327,8 @@ func full_reset() -> void:
 	
 	# Reset direction latch
 	_direction_latch_active = false
-	_latched_camera_basis = Basis.IDENTITY
+	_latched_dir_fwd = Vector3.FORWARD
+	_latched_dir_rt = Vector3.LEFT
 	_latched_sidescroll_active = false
 	_latched_sidescroll_basis = Basis.IDENTITY
 	_latched_cinematic_mode = -1
@@ -701,6 +695,12 @@ func step(dt: float, input: InputDataV2) -> void:
 	if camera_input_locked and input_provider:
 		input_provider.hardware_input_enabled = false
 
+	# Block all movement input if Terminal UI is active (focused)
+	if _terminal_ui_active:
+		input.move_vec = Vector2.ZERO
+		input.jump = false
+		input.sprint = false
+
 	# 0. State Update
 	if not is_instance_valid(sidescroll_logic):
 		return
@@ -781,18 +781,19 @@ func step(dt: float, input: InputDataV2) -> void:
 	var _active_cinematic_zone = null
 	var _candidate_zones := []
 	
-	for zone in get_tree().get_nodes_in_group("CinematicCameraZoneV2"):
+	var all_zones = get_tree().get_nodes_in_group("CinematicCameraZoneV2")
+	# print("DEBUG: Total Cinematic Zones in Group: ", all_zones.size())
+	
+	for zone in all_zones:
 		var zone_node = zone as CinematicCameraZoneV2
 		if zone_node and zone_node.is_zone_active: # Check active flag!
+			# print("DEBUG: Found Active Zone: ", zone_node.name)
 			var in_zone = zone_node.is_body_in_zone(self)
 			if in_zone and zone_node._rig_node:
 				_candidate_zones.append(zone_node)
+		# else:
+			# print("DEBUG: Zone Inactive or Invalid: ", zone.name, " active=", zone_node.is_zone_active)
 	
-	# Sort candidates by volume (smallest first = innermost priority)
-	if _candidate_zones.size() > 1:
-		_candidate_zones.sort_custom(self, "_compare_zone_volume")
-	
-	# Pick the innermost zone
 	if _candidate_zones.size() > 0:
 		_active_cinematic_zone = _candidate_zones[0]
 		_cinematic_rig = _active_cinematic_zone._rig_node
@@ -800,15 +801,19 @@ func step(dt: float, input: InputDataV2) -> void:
 	# Check if active cinematic zone belongs to a HoloTerminal in UI mode
 	_terminal_ui_active = false
 	if _active_cinematic_zone:
+		# print("DEBUG: Active Cinematic Zone Detected: ", _active_cinematic_zone.name)
 		var terminal = _active_cinematic_zone.get_parent()
 		if terminal and terminal.get_parent():
 			terminal = terminal.get_parent() # CameraZone -> CinematicSetup -> HoloTerminal
-		if terminal and terminal.has_method("is_ui_interactive"):
-			_terminal_ui_active = terminal.is_ui_interactive()
+		if terminal and terminal.has_method("is_focused"):
+			# Only block movement if we are actually FOCUSED (keyboard input captured)
+			_terminal_ui_active = terminal.is_focused()
 
 	# --- DIRECTION LATCH SYSTEM ---
 	# Detectar cambios de contexto de cámara (entrada/salida de zonas)
-	var active_rig = _cinematic_rig
+	# Fallback to CinematicManager's active rig if we didn't detect one via zones
+	# This ensures we respect rigs activated by HoloTerminals or other scripts
+	var active_rig = _cinematic_rig if _cinematic_rig else CinematicManager.active_rig
 	var context_changed := false
 
 	# Detectar cambio en modo sidescroll
@@ -822,10 +827,14 @@ func step(dt: float, input: InputDataV2) -> void:
 	# ¿Es entrada o salida?
 	var entering = (sidescroll_logic.is_active and not _prev_sidescroll_active) or (active_rig != null and _prev_cinematic_rig == null)
 	var exiting = (not sidescroll_logic.is_active and _prev_sidescroll_active) or (active_rig == null and _prev_cinematic_rig != null)
+	
+	if context_changed:
+		print("DEBUG CONTEXT: entering=", entering, " exiting=", exiting, " active_rig=", active_rig, " _prev_rig=", _prev_cinematic_rig, " _cine_rig=", _cinematic_rig)
 
 	# Si hay input activo y cambió el contexto, activar el latch según flags
+	# Allow re-activation on EXIT even if latch is currently active (update direction)
 	var has_movement_input = input.move_vec.length() > 0.1
-	if context_changed and has_movement_input and not _direction_latch_active:
+	if context_changed and has_movement_input and (not _direction_latch_active or exiting):
 		var zone_latch_on_enter := true # Por defecto true, la zona puede override
 		var zone_latch_on_exit := true # Por defecto true, la zona puede override
 		# Consultar zona activa para sidescroll
@@ -859,21 +868,41 @@ func step(dt: float, input: InputDataV2) -> void:
 			
 		# Si la zona activa define latch, usar esos flags
 		if (zone_latch_on_enter and entering) or (zone_latch_on_exit and exiting):
-			# Guardar el contexto ANTERIOR (capturado en el frame anterior)
-			_latched_camera_basis = _prev_camera_basis
-			_latched_sidescroll_active = _prev_sidescroll_active
-			if _latched_sidescroll_active:
-				_latched_sidescroll_basis = sidescroll_logic.get_target_basis()
-			if _prev_cinematic_rig:
-				_latched_cinematic_mode = CinematicManager.get_control_mode()
+			if exiting and _direction_latch_active:
+				# Si ya estábamos latched al salir, MANTENEMOS el contexto anterior
+				# Esto permite que el jugador siga en línea recta sin que el rig cinemático
+				# (que puede estar en ángulo) ensucie la nueva interpretación.
+				pass
 			else:
-				_latched_cinematic_mode = -1
+				# Nueva activación (o re-activación limpia en salida si no estábamos latched)
+				var active_mode = CinematicManager.get_control_mode() if _prev_cinematic_rig else CinematicManager.ControlMode.FREE
+				
+				# Obtener fwd/rt usando el mismo signo que el modo de control original
+				var fwd := Vector3.ZERO
+				var rt := Vector3.ZERO
+				
+				if active_mode == CinematicManager.ControlMode.LOCKED_VIEW:
+					fwd = - _prev_camera_basis.z
+					rt = _prev_camera_basis.x
+				else: # FREE and others
+					fwd = _prev_camera_basis.z
+					rt = _prev_camera_basis.x
+				
+				fwd.y = 0
+				rt.y = 0
+				_latched_dir_fwd = fwd.normalized()
+				_latched_dir_rt = - rt.normalized() # Match the -right in standard movement
+				_latched_cinematic_mode = active_mode
+				
 			# Guardar qué teclas activaron el latch
 			_latched_input_vec = input.move_vec
 			_direction_latch_active = true
-			# print("DEBUG: LATCH ACTIVATED! Enter=", entering, " Exit=", exiting)
-
-	# Activate/deactivate rig if changed
+			
+			_latched_sidescroll_active = _prev_sidescroll_active
+			if _latched_sidescroll_active:
+				_latched_sidescroll_basis = sidescroll_logic.get_target_basis()
+				
+			# print("DEBUG LATCH: Activated! Fwd=", _latched_dir_fwd, " Rt=", _latched_dir_rt, " Exiting=", exiting)
 	if _cinematic_rig != _prev_cinematic_rig:
 		if _cinematic_rig:
 			# Force update our camera transform so the transition starts from exactly where we are
@@ -900,14 +929,32 @@ func step(dt: float, input: InputDataV2) -> void:
 	# Comparamos el signo de cada eje: si la tecla original ya no está activa, liberar
 	if _direction_latch_active:
 		var should_release := false
-		# Si X estaba activo al entrar y ya no lo está (o cambió de signo)
-		if abs(_latched_input_vec.x) > 0.1:
-			if abs(input.move_vec.x) < 0.1 or sign(input.move_vec.x) != sign(_latched_input_vec.x):
+		# Robust Release Logic:
+		# 1. Full Release: If player stops input, release.
+		if input.move_vec.length() < 0.1:
+			should_release = true
+		
+		# 2. Direction Change: If input deviates significantly from latched direction
+		# (Dot product comparison handles diagonals better than axis checks)
+		else:
+			var latched_dir = _latched_input_vec.normalized()
+			var current_dir = input.move_vec.normalized()
+			var dot = latched_dir.dot(current_dir)
+			
+			# If dot is low (e.g. < 0.7, approx 45 degrees), considered a change in intent
+			if dot < 0.7:
 				should_release = true
-		# Si Y estaba activo al entrar y ya no lo está (o cambió de signo)
-		if abs(_latched_input_vec.y) > 0.1:
-			if abs(input.move_vec.y) < 0.1 or sign(input.move_vec.y) != sign(_latched_input_vec.y):
-				should_release = true
+		
+		# print("DEBUG: LATCH CHECK: Active=", _direction_latch_active, " Input=", input.move_vec, " Should=", should_release)
+
+		if should_release:
+			_direction_latch_active = false
+			_latched_dir_fwd = Vector3.FORWARD
+			_latched_dir_rt = Vector3.LEFT
+			_latched_sidescroll_active = false
+			_latched_sidescroll_basis = Basis.IDENTITY
+			_latched_cinematic_mode = -1
+			_latched_input_vec = Vector2.ZERO
 
 
 	var basis = get_camera_basis()
@@ -938,7 +985,30 @@ func step(dt: float, input: InputDataV2) -> void:
 		last_input_vector = current_input_3d
 	
 	# Skip sidescroll constraints when a cinematic rig is active
-	if _forward_latch_active and not sidescroll_logic.allow_depth and not active_rig:
+	# --- CINEMATIC CONTROL MODE ---
+	if active_rig or _direction_latch_active:
+		var mode = CinematicManager.get_control_mode() # Usually LOCKED_VIEW or FREE
+		
+		if _direction_latch_active:
+			# LATCHED: Use the stored forward/right vectors computed at latch activation
+			# We construct a basis where Z=Forward and X=Right (relative to the latched context)
+			# This allows process_movement to interpret raw input correctly against that context.
+			basis = Basis(-_latched_dir_rt, Vector3.UP, _latched_dir_fwd)
+			move_vec = input.move_vec
+		else:
+			# UNLATCHED: Use current camera basis (rotates with camera)
+			var world_dir = _get_move_direction(input.move_vec, mode)
+			
+			if world_dir.length() > 0.01:
+				basis = Basis(Vector3.UP.cross(world_dir.normalized()), Vector3.UP, world_dir.normalized())
+				move_vec = Vector2(0, world_dir.length())
+			# Override sidescroll facing
+			if sidescroll_logic.is_active:
+				# Project world_dir onto scroll Plane?
+				# For now, just trust 3D movement logic.
+				pass
+	
+	elif _forward_latch_active and not sidescroll_logic.allow_depth and not active_rig:
 		# FORWARD LATCH: Force controls to follow strict 2.5D path
 		basis = sidescroll_logic.get_target_basis()
 		

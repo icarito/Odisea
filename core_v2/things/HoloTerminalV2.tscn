@@ -90,6 +90,7 @@ material = SubResource( 6 )
 
 [node name="HoloParticles" type="CPUParticles" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0 )
+emitting = false
 amount = 12
 randomness = 1.0
 lifetime_randomness = 1.0
@@ -112,6 +113,7 @@ depth = 0.05
 material = SubResource( 8 )
 
 [node name="ScreenContainer" type="Spatial" parent="."]
+transform = Transform( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
 
 [node name="ScreenMesh" type="CSGBox" parent="ScreenContainer"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.9, 0 )
@@ -124,6 +126,7 @@ material = SubResource( 7 )
 [node name="Viewport" type="Viewport" parent="."]
 size = Vector2( 800, 600 )
 transparent_bg = true
+render_target_update_mode = 0
 
 [node name="TerminalUI" parent="Viewport" instance=ExtResource( 2 )]
 
@@ -157,7 +160,7 @@ follow_player_on_path = true
 preview_position = 0.5
 
 [node name="PathFollow" type="PathFollow" parent="CinematicSetup/CinematicPathRig"]
-transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 0.626089, 0.19433, 0.639461 )
+transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 0.626091, 0.19433, 0.639461 )
 offset = 2.00097
 rotation_mode = 0
 

@@ -37,21 +37,22 @@ albedo_color = Color( 1, 0.5, 0, 0.3 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -5 )
 
 [node name="Floor" type="CSGBox" parent="."]
-transform = Transform( 0.596687, 0, -0.802474, 0, 1, 0, 0.802474, 0, 0.596687, 14.8832, -1, 18.0311 )
+transform = Transform( 0.596687, 0, -0.802474, 0, 1, 0, 0.802474, 0, 0.596687, 17.8974, -1, 19.2368 )
 use_collision = true
 width = 1000.0
 depth = 1000.0
 material = ExtResource( 4 )
 
 [node name="CinematicCameraZone" parent="Floor" instance=ExtResource( 2 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -17.3347, 3.5, 4.57544 )
+transform = Transform( 0.869141, 0, -0.494564, 0, 1, 0, 0.494564, 0, 0.869141, -17.3347, 3.5, 4.57544 )
 debug_color = Color( 1, 0.5, 0, 0.3 )
 zone_extents = Vector3( 4, 3, 10 )
 cinematic_rig_path = NodePath("CinematicPathRig")
-control_mode = 2
+latch_on_enter = false
+latch_on_exit = false
 
 [node name="CinematicPathRig" type="Path" parent="Floor/CinematicCameraZone"]
-transform = Transform( 1, 0, 2.98023e-08, 0, 1, 0, -2.98023e-08, 0, 1, -1.55174, 5.80567, -33.4807 )
+transform = Transform( 0.910813, 0, 0.412818, 0, 1, 0, -0.412818, 0, 0.910813, -7.84397, 5.80567, -43.5685 )
 curve = SubResource( 3 )
 script = ExtResource( 3 )
 track_player = true

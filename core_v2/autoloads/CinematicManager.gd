@@ -57,12 +57,12 @@ func activate_rig_direct(target_rig: Spatial, control_mode: int = ControlMode.FR
 	
 	# Guard: skip if this rig is already active or we're transitioning to it
 	if active_rig == target_rig:
-		print("[CinematicManager] Skipping - rig already active: ", target_rig.name)
+		# print("[CinematicManager] Skipping - rig already active: ", target_rig.name)
 		return
 	
 	# Guard: if we're in an enter transition, don't interrupt it
 	if _is_transitioning and not _is_exit_transition:
-		print("[CinematicManager] Skipping - enter transition in progress")
+		# print("[CinematicManager] Skipping - enter transition in progress")
 		return
 	
 	var new_cam = target_rig.get_camera() if target_rig.has_method("get_camera") else null
@@ -74,7 +74,7 @@ func activate_rig_direct(target_rig: Spatial, control_mode: int = ControlMode.FR
 	if old_camera == null:
 		old_camera = _find_player_camera()
 	
-	print("[CinematicManager] ACTIVATE rig=", target_rig.name, " old_cam=", old_camera, " trans_camera=", _trans_camera)
+	# print("[CinematicManager] ACTIVATE rig=", target_rig.name, " old_cam=", old_camera, " trans_camera=", _trans_camera)
 	
 	current_control_mode = control_mode
 	emit_signal("control_mode_changed", control_mode)
@@ -82,23 +82,22 @@ func activate_rig_direct(target_rig: Spatial, control_mode: int = ControlMode.FR
 	# CinematicManager handles all transitions
 	var trans_time = target_rig.transition_time if "transition_time" in target_rig else 0.0
 	
-	print("[CinematicManager] trans_time=", trans_time, " old_camera!=trans=", old_camera != _trans_camera)
+	# print("[CinematicManager] trans_time=", trans_time, " old_camera!=trans=", old_camera != _trans_camera)
 	
 	if trans_time > 0 and old_camera and old_camera != _trans_camera:
-		print("[CinematicManager] Starting ENTER transition")
+		# print("[CinematicManager] Starting ENTER transition")
 		_start_transition(old_camera, new_cam, trans_time, target_rig)
 	else:
-		print("[CinematicManager] Applying rig directly (no transition)")
+		# print("[CinematicManager] Applying rig directly (no transition)")
 		_apply_rig(target_rig)
 
 	emit_signal("cinematic_started", target_rig.name)
 
 func deactivate_rig():
-	print("[CinematicManager] DEACTIVATE called, active_rig=", active_rig, " _is_exit_transition=", _is_exit_transition)
-	
+	# print("[CinematicManager] DEACTIVATE called, active_rig=", active_rig, " _is_exit_transition=", _is_exit_transition)
 	# Guard: if we're already in an exit transition, don't interrupt it
 	if _is_exit_transition:
-		print("[CinematicManager] Skipping - exit transition already in progress")
+		# print("[CinematicManager] Skipping - exit transition already in progress")
 		return
 	
 	if not active_rig:
@@ -108,7 +107,7 @@ func deactivate_rig():
 	var trans_time = active_rig.transition_time if "transition_time" in active_rig else 0.0
 	var player_cam = _find_player_camera()
 	
-	print("[CinematicManager] rig_cam=", rig_cam, " trans_time=", trans_time, " player_cam=", player_cam)
+	# print("[CinematicManager] rig_cam=", rig_cam, " trans_time=", trans_time, " player_cam=", player_cam)
 	
 	if active_rig.has_method("deactivate"):
 		# Try to call with restore_camera=false to prevent rigs from snapping back 
@@ -133,10 +132,10 @@ func deactivate_rig():
 	
 	# Start exit transition if we have valid cameras and transition time
 	if trans_time > 0 and rig_cam and player_cam:
-		print("[CinematicManager] Starting EXIT transition")
+		# print("[CinematicManager] Starting EXIT transition")
 		_start_exit_transition(rig_cam, player_cam, trans_time)
 	else:
-		print("[CinematicManager] Immediate switch to player cam")
+		# print("[CinematicManager] Immediate switch to player cam")
 		# Immediate switch
 		if player_cam:
 			player_cam.current = true
@@ -176,7 +175,7 @@ func _start_exit_transition(from_cam: Camera, to_cam: Camera, duration: float):
 	_trans_camera.far = _source_far
 	_trans_camera.current = true
 	
-	print("[CinematicManager] EXIT START: Source=", _source_transform.origin, " Target (initial)=", to_cam.global_transform.origin)
+	# print("[CinematicManager] EXIT START: Source=", _source_transform.origin, " Target (initial)=", to_cam.global_transform.origin)
 
 func _find_player_camera() -> Camera:
 	var players = get_tree().get_nodes_in_group("player")
@@ -232,8 +231,6 @@ func _start_transition(from_cam: Camera, to_cam: Camera, duration: float, rig: S
 	_trans_camera.force_update_transform() # CRITICAL: Ensure Godot sees the new transform before render
 	_trans_camera.current = true
 	
-	print("[CinematicManager] ENTER START: Source=", _source_transform.origin, " Target (initial)=", to_cam.global_transform.origin)
-
 func _apply_rig(rig):
 	if active_rig and active_rig != rig:
 		active_rig.deactivate()
@@ -286,10 +283,11 @@ func step(delta: float):
 			_trans_camera.far = lerp(_source_far, target_far, weight)
 			
 			if weight < 0.1 or weight > 0.9:
-				print("[CinematicManager] EXIT STEP: weight=", weight, " trans_pos=", _trans_camera.global_transform.origin, " player_cam_pos=", target_transform.origin)
+				pass
+				# print("[CinematicManager] EXIT STEP: weight=", weight, " trans_pos=", _trans_camera.global_transform.origin, " player_cam_pos=", target_transform.origin)
 			
 			if t >= 1.0:
-				print("[CinematicManager] EXIT COMPLETE. Trans_pos=", _trans_camera.global_transform.origin, " Player_cam_pos=", target_transform.origin)
+				# print("[CinematicManager] EXIT COMPLETE. Trans_pos=", _trans_camera.global_transform.origin, " Player_cam_pos=", target_transform.origin)
 				_is_transitioning = false
 				_is_exit_transition = false
 				_exit_target_cam.current = true
@@ -329,11 +327,11 @@ func step(delta: float):
 				_trans_camera.far = lerp(_source_far, target_far, weight)
 				
 				# Trace prints for first and last frames
-				if weight < 0.1 or weight > 0.9:
-					print("[CinematicManager] ENTER STEP: weight=", weight, " trans_pos=", _trans_camera.global_transform.origin, " target_pos=", target_transform.origin)
+				# if weight < 0.1 or weight > 0.9:
+				# 	print("[CinematicManager] ENTER STEP: weight=", weight, " trans_pos=", _trans_camera.global_transform.origin, " target_pos=", target_transform.origin)
 				
 				if t >= 1.0:
-					print("[CinematicManager] ENTER COMPLETE. Trans_pos=", _trans_camera.global_transform.origin, " Rig_cam_pos=", target_transform.origin)
+					# print("[CinematicManager] ENTER COMPLETE. Trans_pos=", _trans_camera.global_transform.origin, " Rig_cam_pos=", target_transform.origin)
 					_is_transitioning = false
 					target_cam.current = true
 
