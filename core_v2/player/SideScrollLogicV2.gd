@@ -254,6 +254,7 @@ func get_cam_rotation() -> Vector3:
 		manual_pitch = lerp(manual_pitch, 0.0, manual_return_speed * dt)
 	
 	return Vector3(0.0, camera_yaw, 0.0)
+	# return Vector3.ZERO # DEBUG: Disable lookahead to test yank issue
 
 func get_zoom_offset(_speed: float) -> float:
 	return 0.0 # Simplified: no velocity-based zoom
