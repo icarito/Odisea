@@ -1,0 +1,61 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://core_v2/components/AirlockControllerV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/components/SlidingObjectV2.gd" type="Script" id=2]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 1, 2, 0.1 )
+
+[sub_resource type="BoxShape" id=2]
+extents = Vector3( 1.5, 1.5, 1.5 )
+
+[node name="AirlockChamber" type="Spatial"]
+script = ExtResource( 1 )
+outer_door_path = NodePath("OuterDoor")
+inner_door_path = NodePath("InnerDoor")
+chamber_zone_path = NodePath("ChamberZone")
+
+[node name="ChamberGeometry" type="CSGBox" parent="."]
+use_collision = true
+width = 4.0
+height = 4.0
+depth = 4.0
+
+[node name="Hollow" type="CSGBox" parent="ChamberGeometry"]
+operation = 2
+width = 3.0
+height = 3.0
+depth = 3.0
+
+[node name="OuterDoor" type="KinematicBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.5 )
+script = ExtResource( 2 )
+slide_vector = Vector3( 0, 2.5, 0 )
+size = Vector3( 2, 4, 0.2 )
+
+[node name="CollisionShape" type="CollisionShape" parent="OuterDoor"]
+shape = SubResource( 1 )
+
+[node name="MeshInstance" type="CSGBox" parent="OuterDoor"]
+width = 2.0
+height = 4.0
+depth = 0.2
+
+[node name="InnerDoor" type="KinematicBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.5 )
+script = ExtResource( 2 )
+slide_vector = Vector3( 0, 2.5, 0 )
+size = Vector3( 2, 4, 0.2 )
+
+[node name="CollisionShape" type="CollisionShape" parent="InnerDoor"]
+shape = SubResource( 1 )
+
+[node name="MeshInstance" type="CSGBox" parent="InnerDoor"]
+width = 2.0
+height = 4.0
+depth = 0.2
+
+[node name="ChamberZone" type="Area" parent="."]
+
+[node name="CollisionShape" type="CollisionShape" parent="ChamberZone"]
+shape = SubResource( 2 )
