@@ -16,9 +16,10 @@ signal entity_destroyed(entity)
 # --- INTERNAL STATE ---
 var _debug_mesh: CSGBox
 
-func _ready():
+func _init():
 	add_to_group("replay_sync")
-	
+
+func _ready():
 	# Configure collision detection
 	collision_layer = 0
 	collision_mask = 4 # Layer 3 = "NPC-Friendly" (PushableBoxV2)

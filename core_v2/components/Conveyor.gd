@@ -28,8 +28,10 @@ var _snapshot_applied := false
 var _internal_speed := 0.0 # Current smoothed speed
 var _visual_phase := 0.0 # Accumulated shader phase
 
-func _ready():
+func _init():
 	add_to_group("replay_sync")
+
+func _ready():
 	var mat = _ensure_unique_material()
 	if mat and mat is ShaderMaterial:
 		_update_shader_params(mat)

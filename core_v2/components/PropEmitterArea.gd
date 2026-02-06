@@ -25,9 +25,10 @@ var _spawn_timer := 0.0
 var _rng: RandomNumberGenerator
 var _debug_mesh: CSGBox
 
-func _ready():
+func _init():
 	add_to_group("replay_sync")
-	
+
+func _ready():
 	# Initialize RNG with seed
 	_rng = RandomNumberGenerator.new()
 	if random_seed != 0:

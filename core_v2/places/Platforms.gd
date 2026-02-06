@@ -17,8 +17,10 @@ export(float, 0.0, 1.0) var manual_blend: float = 0.0 # 0 = Axial, 1 = Centrífu
 export var cycle_duration: float = 10.0
 var time_accumulator: float = 0.0
 
-func _ready():
+func _init():
 	add_to_group("replay_sync")
+
+func _ready():
 	_setup_multimesh()
 
 func _setup_multimesh():

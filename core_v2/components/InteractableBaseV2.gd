@@ -38,10 +38,11 @@ signal deactivated()
 signal interaction_started()
 signal interaction_completed()
 
-func _ready():
+func _init():
 	add_to_group("interactable")
 	add_to_group("replay_sync")
-	
+
+func _ready():
 	# Initial state setup
 	is_active = starts_active
 	anim_progress = 1.0 if is_active else 0.0

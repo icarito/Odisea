@@ -25,6 +25,10 @@ var _pending_asserts := []
 var _pending_setters := []
 var _monitored_signals = {}
 
+# Optimization: Cache for replay_sync group
+var _replay_sync_cache := []
+var _replay_sync_cache_dirty := true
+
 # Drift correction: checkpoint pendiente para guardar en el próximo frame
 var _pending_drift_checkpoint := false
 # Drift correction: frame en el que guardar un checkpoint "settle" (15 frames después del contacto)
@@ -41,6 +45,20 @@ var _oys_requested_scene := ""
 var _is_waiting_for_respawn_validation := false
 # Flag para indicar que estamos en proceso de respawn (los triggers no deben ejecutarse)
 var is_respawning := false
+
+func _get_replay_sync_nodes() -> Array:
+	if _replay_sync_cache_dirty:
+		_replay_sync_cache = get_tree().get_nodes_in_group("replay_sync")
+		_replay_sync_cache_dirty = false
+	return _replay_sync_cache
+
+func _on_node_added(node: Node):
+	if node.is_in_group("replay_sync"):
+		_replay_sync_cache_dirty = true
+
+func _on_node_removed(node: Node):
+	if node.is_in_group("replay_sync"):
+		_replay_sync_cache_dirty = true
 
 func _find_player():
 	# Prioridad 0: Si ya tenemos una instancia válida y no está siendo borrada, usarla
@@ -70,6 +88,10 @@ func _find_player():
 
 
 func _ready():
+	# Listen for node additions to update cached group
+	get_tree().connect("node_added", self, "_on_node_added")
+	get_tree().connect("node_removed", self, "_on_node_removed")
+
 	# Detección de parámetro --replay
 	var args = OS.get_cmdline_args()
 	for i in range(args.size()):
@@ -303,7 +325,7 @@ func _physics_process(_dt):
 			pilot_node.step(FIXED_DT, input_data)
 			player = pilot_node # keep SessionManager.player in sync
 		# Step plataformas TAMBIÉN durante grabación para determinismo
-		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+		var sync_nodes = _get_replay_sync_nodes()
 		for node in sync_nodes:
 			if node != player and node.has_method("step"):
 				node.step(FIXED_DT)
@@ -369,7 +391,7 @@ func _physics_process(_dt):
 		player.step(FIXED_DT, input)
 		
 		# Step plataformas
-		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+		var sync_nodes = _get_replay_sync_nodes()
 		for node in sync_nodes:
 			if node != player and node.has_method("step"):
 				node.step(FIXED_DT)
@@ -403,7 +425,7 @@ func start_recording():
 	}
 
 	# --- Resetear nodos replay_sync a estado inicial ---
-	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+	var sync_nodes = _get_replay_sync_nodes()
 	# Desactivar _physics_process en plataformas durante grabación para usar step centralizado
 	for node in sync_nodes:
 		if node != player and node.has_method("step"):
@@ -429,7 +451,7 @@ func start_recording():
 
 func _get_world_state_snapshot() -> Dictionary:
 	var snapshot = {}
-	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+	var sync_nodes = _get_replay_sync_nodes()
 	for node in sync_nodes:
 		if node.has_method("get_snapshot"):
 			snapshot[node.get_path()] = node.get_snapshot()
@@ -464,7 +486,7 @@ func stop_and_save_recording():
 		player.set_physics_process(true)
 	
 	# Reactivar _physics_process en plataformas
-	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+	var sync_nodes = _get_replay_sync_nodes()
 	for node in sync_nodes:
 		if node != player and node.has_method("step"):
 			node.set_physics_process(true)
@@ -567,7 +589,7 @@ func load_and_play(path: String):
 			_current_replay_data["meta"]["world_start_state"] = _get_world_state_snapshot()
 		
 		# Desactivar _physics_process en plataformas durante grabación
-		var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+		var sync_nodes = _get_replay_sync_nodes()
 		for node in sync_nodes:
 			if node != player:
 				node.set_physics_process(false)
@@ -737,7 +759,7 @@ func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
 		player.restore_snapshot(replay_buffer[0]["snapshot"])
 
 	# Desactivar _physics_process en plataformas
-	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+	var sync_nodes = _get_replay_sync_nodes()
 	for node in sync_nodes:
 		if node != player:
 			node.set_physics_process(false)
@@ -795,7 +817,7 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 		player.restore_snapshot(replay_buffer[0]["snapshot"])
 
 	# Desactivar _physics_process en plataformas
-	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+	var sync_nodes = _get_replay_sync_nodes()
 	for node in sync_nodes:
 		if node != player:
 			node.set_physics_process(false)
@@ -1284,7 +1306,7 @@ func run_simulation_from_buffer(buffer_data: Array, world_start_state: Dictionar
 		player_controller.get_tree().call_group("", "update") # Update all nodes
 	
 	# 1. Restaurar estado inicial del mundo (plataformas, etc.)
-	var sync_nodes = get_tree().get_nodes_in_group("replay_sync")
+	var sync_nodes = _get_replay_sync_nodes()
 	for node_path in world_start_state.keys():
 		var node = get_tree().get_root().get_node_or_null(node_path)
 		if node and node.has_method("restore_snapshot"):

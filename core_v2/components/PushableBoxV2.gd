@@ -18,8 +18,10 @@ var _frames_below_threshold = 0
 var _pending_snapshot = null
 var _target_basis = null
 
-func _ready():
+func _init():
 	add_to_group("replay_sync")
+
+func _ready():
 	# Configuración inicial: empezamos como rígido para que caiga
 	mode = RigidBody.MODE_RIGID
 	contact_monitor = true

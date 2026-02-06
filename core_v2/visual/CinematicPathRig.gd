@@ -40,12 +40,13 @@ var _is_active := false
 var _last_deactivate_time := 0.0 # Para cooldown anti-jitter
 const REACTIVATION_COOLDOWN := 0.2 # Segundos antes de poder reactivar
 
-func _ready():
+func _init():
 	if not is_in_group("cinematic_rigs"):
 		add_to_group("cinematic_rigs")
 	if not is_in_group("replay_sync"):
 		add_to_group("replay_sync")
-	
+
+func _ready():
 	_ensure_nodes()
 	_setup_animation()
 	
