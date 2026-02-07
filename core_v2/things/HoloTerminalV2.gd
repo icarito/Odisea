@@ -95,13 +95,23 @@ func _setup_viewport_texture() -> void:
 			mat.set_shader_param("texture_albedo", viewport.get_texture())
 
 
-func _on_interact(_actor: Node) -> void:
-	# Toggle open/close (override base behavior if needed, or rely on base if it toggles)
-	# InteractableBaseV2 usually just opens. We want toggle.
+func interact() -> void:
+	# If auto-interact is on, we don't toggle the terminal open/closed.
+	# Instead, 'interact' focuses the terminal directly if it's already active.
+	if auto_interact:
+		if is_active and not _is_focused and allow_focus_mode:
+			_enter_focus_mode()
+		return
+
+	# Toggle open/close (Standard behavior)
 	if is_active:
 		set_active(false)
 	else:
 		set_active(true)
+		
+		# If cinematic zone is disabled, go straight to focus mode
+		if not use_cinematic_zone and allow_focus_mode:
+			_enter_focus_mode()
 
 
 # Override set_active to manage cinematic camera on state changes
@@ -109,10 +119,18 @@ func set_active(value: bool, immediate: bool = false) -> void:
 	# Call base implementation
 	.set_active(value, immediate)
 	
+	# Ensure we exit focus mode when closing terminal
+	if not value and _is_focused:
+		_exit_focus_mode()
+	
 	# --- Cinematic Camera Management ---
-	# If NOT using cinematic zone by default, we toggle it based on interaction
+	# If NOT using cinematic zone by default, it remains inactive until focused.
+	# If using it, it stays active while terminal is open.
 	if not use_cinematic_zone and _camera_zone and "is_zone_active" in _camera_zone:
-		 _camera_zone.is_zone_active = value
+		 # Only activate zone if we are focused (handled in _enter/_exit)
+		 # or if we are just closing it.
+		 if not value:
+			 _camera_zone.is_zone_active = false
 	
 	# Update UI interaction mode
 	_update_ui_mode()
@@ -190,18 +208,36 @@ func _update_ui_mode() -> void:
 	if Engine.editor_hint:
 		return
 	
-	var should_be_active = is_active and _player_in_zone and enable_ui_interaction
+	# UI should be interactive if:
+	# 1. Logic is active (terminal open)
+	# 2. UI interaction is enabled in config
+	# 3. Player is either in the zone OR explicitly focused
+	var base_interactive = is_active and enable_ui_interaction and (_player_in_zone or _is_focused)
+	var should_be_active = base_interactive
+	
+	# If cinematic zone is off, UI interaction is strictly limited to focus mode
+	if not use_cinematic_zone and not _is_focused:
+		should_be_active = false
 	
 	if _terminal_ui and _terminal_ui.has_method("set_ui_mode"):
 		_terminal_ui.set_ui_mode(should_be_active)
 	
-	# Enable/disable input processing based on UI mode
-	set_process_input(should_be_active)
+	# Update interaction text based on auto_interact and focus state
+	if base_interactive and auto_interact:
+		interaction_text = "Focus Terminal" if not _is_focused else "Interacting..."
+	else:
+		interaction_text = "Toggle Terminal"
+	
+	# Enable/disable input processing based on UI mode (either zone interaction or focus)
+	set_process_input(base_interactive)
 
 
 func is_ui_interactive() -> bool:
 	"""Returns true if the terminal is in interactive UI mode."""
-	return is_active and _player_in_zone and enable_ui_interaction
+	var base_interactive = is_active and enable_ui_interaction and (_player_in_zone or _is_focused)
+	if not use_cinematic_zone:
+		return base_interactive and _is_focused
+	return base_interactive
 
 
 func _input(event):
@@ -232,6 +268,7 @@ func _input(event):
 			return
 	
 	# Standard UI mode (not focused): forward mouse input
+	# Only forward mouse if is_ui_interactive (which handles the cinematic zone check)
 	if not is_ui_interactive():
 		return
 	
@@ -265,18 +302,33 @@ func _enter_focus_mode():
 	if _camera_zone and "cinematic_rig_path" in _camera_zone:
 		_camera_zone.cinematic_rig_path = _camera_zone.get_path_to(_focused_rig)
 		_camera_zone._cache_rig()
+		
+		# If cinematic zone was disabled, we enable it now to "own" the focus rig
+		if not use_cinematic_zone and "is_zone_active" in _camera_zone:
+			_camera_zone.is_zone_active = true
 	
 	# Activate the focused rig via CinematicManager
 	CinematicManager.activate_rig_direct(_focused_rig, CinematicManager.ControlMode.LOCKED_VIEW)
+	
+	# Ensure UI state is updated (showing cursor, etc)
+	_update_ui_mode()
 
 
 func _exit_focus_mode():
-	"""Return to CinematicPathRig camera."""
+	"""Return to CinematicPathRig camera or regular player camera."""
+	_is_focused = false
+	
+	if not use_cinematic_zone:
+		print("[HoloTerminalV2] Exiting focus mode, returning to regular camera")
+		if _camera_zone and "is_zone_active" in _camera_zone:
+			_camera_zone.is_zone_active = false
+		CinematicManager.deactivate_rig()
+		return
+
 	if not _cinematic_rig:
 		print("[HoloTerminalV2] Cannot exit focus mode: CinematicPathRig not found")
 		return
 	
-	_is_focused = false
 	print("[HoloTerminalV2] Exiting focus mode, activating CinematicPathRig")
 	
 	# Switch camera zone back to CinematicPathRig
@@ -286,6 +338,9 @@ func _exit_focus_mode():
 	
 	# Activate the path rig via CinematicManager
 	CinematicManager.activate_rig_direct(_cinematic_rig, CinematicManager.ControlMode.LOCKED_VIEW)
+	
+	# Ensure UI state is updated (hiding cursor if zone is disabled, etc)
+	_update_ui_mode()
 
 
 func is_focused() -> bool:

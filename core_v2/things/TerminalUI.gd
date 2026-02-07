@@ -109,23 +109,40 @@ func process_mouse_click():
 	_handle_click()
 
 func _update_cursor_position():
-	"""Update cursor sprite position."""
+	"""Update cursor sprite position and inject mouse event for hover effects."""
 	if _cursor_sprite:
 		_cursor_sprite.position = _cursor_position
+	
+	# Inject mouse motion event for Godot UI hover/focus system
+	var motion = InputEventMouseMotion.new()
+	motion.position = _cursor_position
+	motion.global_position = _cursor_position # In this viewport, global is local
+	get_viewport().input(motion)
 
 func _handle_click():
-	"""Process a click at the current cursor position."""
-	# Find clickable control at cursor position
-	var clicked_control = _find_control_at_position(_cursor_position)
+	"""Process a click at the current cursor position via event injection."""
+	# 1. Native Godot UI event injection (for hover/pressed states)
+	var mouse_event = InputEventMouseButton.new()
+	mouse_event.button_index = BUTTON_LEFT
+	mouse_event.pressed = true
+	mouse_event.position = _cursor_position
+	mouse_event.global_position = _cursor_position
+	get_viewport().input(mouse_event)
 	
+	# Release IMMEDIATELY to avoid stuck buttons
+	# In a more advanced version we'd track the button state from the real input
+	mouse_event.pressed = false
+	get_viewport().input(mouse_event)
+
+	# 2. Legacy manual search (keeping for signals/backward compatibility)
+	var clicked_control = _find_control_at_position(_cursor_position)
 	if clicked_control:
-		# Emit signal for external handling
+		if clicked_control.has_signal("pressed") and not clicked_control is BaseButton:
+			# BaseButtons are already handled by the injected events above
+			clicked_control.emit_signal("pressed")
+		
 		if clicked_control.name:
 			emit_signal("button_pressed", clicked_control.name)
-		
-		# Trigger button press if it's a Button
-		if clicked_control is BaseButton:
-			clicked_control.emit_signal("pressed")
 
 func _find_control_at_position(pos: Vector2) -> Control:
 	"""Find the topmost clickable control at the given position."""

@@ -620,8 +620,10 @@ func _process_interaction(input: InputDataV2):
 			var text = best_target.interaction_text if best_target.get("interaction_text") else "Interact"
 			emit_signal("interactable_in_range", text)
 			
-			# Auto-activate if auto_interact is enabled and hasn't been auto-triggered yet
-			if best_target.get("auto_interact") and not best_target.get("_auto_triggered"):
+			# Auto-activate if auto_interact is enabled
+			# We trigger it if it's inactive AND (either it hasn't been triggered yet OR it's not a one-off)
+			var can_auto_trigger = not best_target.get("_auto_triggered") or not best_target.get("one_off")
+			if best_target.get("auto_interact") and not best_target.is_active and can_auto_trigger:
 				if best_target.has_method("set_active"):
 					print("Auto-activating interactable: ", best_target.name)
 					best_target.set_active(true)
@@ -638,6 +640,10 @@ func _process_interaction(input: InputDataV2):
 func _clear_interactable():
 	"""Clear current interactable and emit signal."""
 	if _current_interactable != null:
+		# Reset auto-trigger state if it's not a one-off, allowing it to re-trigger next time
+		if not _current_interactable.get("one_off"):
+			_current_interactable._auto_triggered = false
+			
 		_current_interactable = null
 		emit_signal("interactable_out_of_range")
 
