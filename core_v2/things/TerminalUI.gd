@@ -140,6 +140,7 @@ func _update_cursor_position():
 	# Inject motion event so UI controls detect hover
 	_inject_mouse_motion(_cursor_position)
 
+
 func _inject_mouse_motion(pos: Vector2):
 	var evt = InputEventMouseMotion.new()
 	evt.position = pos
