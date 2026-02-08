@@ -46,9 +46,13 @@ func _update_visuals() -> void:
 
 	if _mesh_a:
 		_mesh_a.translation = _start_pos_a.linear_interpolate(_start_pos_a + slide_vector_a, eased)
+		if _mesh_a is CollisionObject: _mesh_a.force_update_transform()
+		elif _mesh_a is CSGShape: _mesh_a.force_update_transform()
 
 	if _mesh_b:
 		_mesh_b.translation = _start_pos_b.linear_interpolate(_start_pos_b + slide_vector_b, eased)
+		if _mesh_b is CollisionObject: _mesh_b.force_update_transform()
+		elif _mesh_b is CSGShape: _mesh_b.force_update_transform()
 
 func _apply_easing(t: float) -> float:
 	match easing_type:

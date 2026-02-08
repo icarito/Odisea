@@ -271,16 +271,6 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				path = base_dir + "%s_%s.png" % [prop_name, label]
 				img.save_png(path)
 				print("[OYS] Screenshot saved to: ", path)
-			
-			# Read back and convert to Base64 for chat output
-			
-			# Read back and convert to Base64 for chat output
-			var f = File.new()
-			if f.open(path, File.READ) == OK:
-				var buffer = f.get_buffer(f.get_len())
-				f.close()
-				var b64 = Marshalls.raw_to_base64(buffer)
-				print("![%s](data:image/png;base64,%s)" % [label, b64])
 		
 		"CINEMATIC_START":
 			var rig_id = inst.get("rig_id", "")
