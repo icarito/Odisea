@@ -38,7 +38,20 @@ static func preprocess(script_content: String) -> PoolStringArray:
 	var lines = PoolStringArray()
 	for line in script_content.split("\n"):
 		var stripped = line.strip_edges()
-		if stripped.empty() or stripped.begins_with("//") or stripped.begins_with("#"):
+		if stripped.empty(): continue
+
+		# Handle comments: strip everything after #
+		# This also handles shebangs (lines starting with #!)
+		var comment_idx = stripped.find("#")
+		if comment_idx != -1:
+			stripped = stripped.substr(0, comment_idx).strip_edges()
+
+		# Handle // comments (legacy support)
+		var slash_idx = stripped.find("//")
+		if slash_idx != -1:
+			stripped = stripped.substr(0, slash_idx).strip_edges()
+
+		if stripped.empty():
 			continue
 		lines.append(stripped)
 	return lines
@@ -251,6 +264,58 @@ static func parse_instruction(line: String) -> Dictionary:
 			if parts.size() > 1: data["x"] = parts[1]
 			if parts.size() > 2: data["y"] = parts[2]
 			if parts.size() > 3: data["z"] = parts[3]
+
+		"FOR":
+			data["iterations"] = parts[1] if parts.size() > 1 else "1"
+
+		"ENDFOR":
+			pass
+
+		"WHILE":
+			# Use custom tokenizer to respect quotes (e.g. target with spaces)
+			# Skip command "WHILE"
+			var first_space = line.find(" ")
+			if first_space == -1:
+				pass # No args
+			else:
+				var args_str = line.substr(first_space).strip_edges()
+				var tokens = []
+				var current = ""
+				var in_quote = false
+
+				for i in range(args_str.length()):
+					var c = args_str[i]
+					if c == '"':
+						in_quote = !in_quote
+						# Store quote as part of token to handle it later
+						current += c
+					elif c == " " and !in_quote:
+						if current != "":
+							tokens.append(current)
+							current = ""
+					else:
+						current += c
+				if current != "":
+					tokens.append(current)
+
+				if tokens.size() > 0:
+					var type = tokens[0].to_upper()
+					if type == "PROP":
+						if tokens.size() >= 5:
+							data["prop_type"] = "PROP"
+							data["target"] = tokens[1].replace("\"", "")
+							data["property"] = tokens[2]
+							data["op"] = tokens[3]
+							data["value"] = tokens[4].replace("\"", "")
+					else:
+						# Generic condition
+						if tokens.size() >= 3:
+							data["left"] = tokens[0].replace("\"", "")
+							data["op"] = tokens[1]
+							data["right"] = tokens[2].replace("\"", "")
+
+		"ENDWHILE":
+			pass
 		
 		_:
 			data["error"] = "Unknown command: " + cmd
