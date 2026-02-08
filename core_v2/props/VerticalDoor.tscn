@@ -5,7 +5,7 @@
 [ext_resource path="res://core_v2/components/SlidingObjectV2.tscn" type="PackedScene" id=3]
 [ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=4]
 
-[sub_resource type="ORMSpatialMaterial" id=87]
+[sub_resource type="SpatialMaterial" id=87]
 albedo_color = Color( 0.231373, 0.231373, 0.231373, 1 )
 albedo_texture = ExtResource( 1 )
 uv1_scale = Vector3( 1.5, 1.5, 1.5 )

@@ -3640,17 +3640,17 @@
       "CinematicManager": {
         "current_control_mode": 0,
         "is_transitioning": false,
-        "transition_timer": 0.516667,
-        "transition_duration": 0.5,
+        "transition_timer": 0,
+        "transition_duration": 0,
         "source_transform": {
-          "origin": "(0, 4, 4)",
+          "origin": "(0, 0, 0)",
           "basis": {
-            "x": "(0, -0, 0)",
-            "y": "(0, -0, 0)",
+            "x": "(0, 0, 0)",
+            "y": "(0, 0, 0)",
             "z": "(0, 0, 0)"
           }
         },
-        "source_fov": 70,
+        "source_fov": 0,
         "active_rig_path": "",
         "current_camera_path": "/root/TestCinematicScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
@@ -3659,7 +3659,7 @@
   },
   "final_expected_state": {
     "position": [
-      -15.033291,
+      -15.03329,
       0.0415,
       -6.68725
     ],
@@ -3753,8 +3753,8 @@
       ]
     },
     "platform_velocity": [
-      -0.000229,
-      0.000003,
+      -0.000286,
+      0.000002,
       -0.000114
     ],
     "was_on_platform": true,
@@ -3819,7 +3819,7 @@
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
     "$start_x": 0,
-    "$end_x": -15.033291,
-    "$delta_x": -15.033291
+    "$end_x": -15.03329,
+    "$delta_x": -15.03329
   }
 }

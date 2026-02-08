@@ -5133,7 +5133,7 @@
         "message": "Starting destroyer signal test"
       }
     ],
-    "120": [
+    "119": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -1.0 \"Player fell\""
@@ -6744,11 +6744,11 @@
         "transition_timer": 0.516667,
         "transition_duration": 0.5,
         "source_transform": {
-          "origin": "(28.567024, 12.145114, 30.129566)",
+          "origin": "(0, 0, 0)",
           "basis": {
-            "x": "(0.645169, 0, -0.76404)",
-            "y": "(-0.194533, 0.967043, -0.164267)",
-            "z": "(0.73886, 0.254611, 0.623907)"
+            "x": "(0, 0, 0)",
+            "y": "(0, 0, 0)",
+            "z": "(0, 0, 0)"
           }
         },
         "source_fov": 70,

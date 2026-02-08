@@ -2383,22 +2383,6 @@
         "sprint": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -2412,7 +2396,7 @@
     "29": [
 
     ],
-    "150": [
+    "149": [
       {
         "command": "ASSERT",
         "condition": "pos.y < 0.1 \"El personaje no aterrizó después de 2.5 segundos\""
@@ -2752,7 +2736,8 @@
         "used": false,
         "auto_triggered": false,
         "progress": 0,
-        "target": 0
+        "target": 0,
+        "focused": false
       },
       "/root/TestScene/HoloTerminalV2/CinematicSetup/CinematicPathRig": {
         "is_active": false,
@@ -2765,17 +2750,17 @@
       "CinematicManager": {
         "current_control_mode": 0,
         "is_transitioning": false,
-        "transition_timer": 0,
-        "transition_duration": 0,
+        "transition_timer": 0.516667,
+        "transition_duration": 0.5,
         "source_transform": {
-          "origin": "(0, 0, 0)",
+          "origin": "(0, 2, 8)",
           "basis": {
-            "x": "(1, 0, 0)",
-            "y": "(0, 1, 0)",
-            "z": "(0, 0, 1)"
+            "x": "(0, 0, 0)",
+            "y": "(0, -0, 0)",
+            "z": "(0, 0, 0)"
           }
         },
-        "source_fov": 0,
+        "source_fov": 70,
         "active_rig_path": "",
         "current_camera_path": "/root/TestScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
@@ -2844,7 +2829,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 166,
+      "frames_since_last_snap": 165,
       "last_input_vector": [
         0,
         0,

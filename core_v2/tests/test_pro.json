@@ -511,7 +511,8 @@
         "used": false,
         "auto_triggered": false,
         "progress": 0,
-        "target": 0
+        "target": 0,
+        "focused": false
       },
       "/root/TestScene/HoloTerminalV2/CinematicSetup/CinematicPathRig": {
         "is_active": false,
@@ -529,9 +530,9 @@
         "source_transform": {
           "origin": "(0, 0, 0)",
           "basis": {
-            "x": "(0, 0, 0)",
-            "y": "(0, 0, 0)",
-            "z": "(0, 0, 0)"
+            "x": "(1, 0, 0)",
+            "y": "(0, 1, 0)",
+            "z": "(0, 0, 1)"
           }
         },
         "source_fov": 0,

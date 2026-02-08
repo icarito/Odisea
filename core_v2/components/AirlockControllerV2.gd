@@ -23,9 +23,10 @@ var _outer_door: Node = null
 var _inner_door: Node = null
 var _chamber_zone: Area = null
 
-func _ready():
+func _init():
 	add_to_group("replay_sync")
 
+func _ready():
 	if outer_door_path: _outer_door = get_node(outer_door_path)
 	if inner_door_path: _inner_door = get_node(inner_door_path)
 

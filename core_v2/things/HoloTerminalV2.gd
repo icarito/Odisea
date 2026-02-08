@@ -343,3 +343,15 @@ func _exit_focus_mode():
 func is_focused() -> bool:
 	"""Returns true if terminal is in focus mode."""
 	return _is_focused
+
+# --- SNAPSHOT OVERRIDE ---
+
+func get_snapshot() -> Dictionary:
+	var snap = .get_snapshot()
+	snap["focused"] = _is_focused
+	return snap
+
+func restore_snapshot(data: Dictionary) -> void:
+	if data.has("focused"):
+		_is_focused = data["focused"]
+	.restore_snapshot(data)

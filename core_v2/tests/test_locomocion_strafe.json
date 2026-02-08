@@ -1784,7 +1784,8 @@
         "used": false,
         "auto_triggered": false,
         "progress": 0,
-        "target": 0
+        "target": 0,
+        "focused": false
       },
       "/root/TestScene/HoloTerminalV2/CinematicSetup/CinematicPathRig": {
         "is_active": false,
@@ -1797,17 +1798,17 @@
       "CinematicManager": {
         "current_control_mode": 0,
         "is_transitioning": false,
-        "transition_timer": 0,
-        "transition_duration": 0,
+        "transition_timer": 0.516667,
+        "transition_duration": 0.5,
         "source_transform": {
-          "origin": "(0, 0, 0)",
+          "origin": "(44.922146, 8.817698, -5.591619)",
           "basis": {
-            "x": "(0, 0, 0)",
-            "y": "(0, 0, 0)",
-            "z": "(0, 0, 0)"
+            "x": "(-0.387003, 0, -0.922079)",
+            "y": "(-0.136204, 0.98903, 0.057166)",
+            "z": "(0.911963, 0.147714, -0.382757)"
           }
         },
-        "source_fov": 0,
+        "source_fov": 70,
         "active_rig_path": "",
         "current_camera_path": "/root/TestScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }

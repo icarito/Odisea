@@ -3315,17 +3315,17 @@
       "CinematicManager": {
         "current_control_mode": 0,
         "is_transitioning": false,
-        "transition_timer": 0,
-        "transition_duration": 0,
+        "transition_timer": 0.516667,
+        "transition_duration": 0.5,
         "source_transform": {
-          "origin": "(0, 0, 0)",
+          "origin": "(28.567024, 12.145114, 30.129566)",
           "basis": {
-            "x": "(0, 0, 0)",
-            "y": "(0, 0, 0)",
-            "z": "(0, 0, 0)"
+            "x": "(0.645169, 0, -0.76404)",
+            "y": "(-0.194533, 0.967044, -0.164267)",
+            "z": "(0.73886, 0.254611, 0.623907)"
           }
         },
-        "source_fov": 0,
+        "source_fov": 70,
         "active_rig_path": "",
         "current_camera_path": "/root/TestScene_KillZone/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }

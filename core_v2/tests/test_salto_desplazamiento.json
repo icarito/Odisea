@@ -2095,6 +2095,22 @@
         "sprint": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -2111,7 +2127,7 @@
     "41": [
 
     ],
-    "131": [
+    "132": [
       {
         "command": "ASSERT",
         "condition": "pos.z > 3.0 \"ERROR: No hubo suficiente inercia horizontal en el salto\""
@@ -2455,7 +2471,8 @@
         "used": false,
         "auto_triggered": false,
         "progress": 0,
-        "target": 0
+        "target": 0,
+        "focused": false
       },
       "/root/TestScene/HoloTerminalV2/CinematicSetup/CinematicPathRig": {
         "is_active": false,
@@ -2471,10 +2488,10 @@
         "transition_timer": 0.516667,
         "transition_duration": 0.5,
         "source_transform": {
-          "origin": "(0, 2, 8)",
+          "origin": "(0, 0, 0)",
           "basis": {
             "x": "(0, 0, 0)",
-            "y": "(0, -0, 0)",
+            "y": "(0, 0, 0)",
             "z": "(0, 0, 0)"
           }
         },
@@ -2547,7 +2564,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 147,
+      "frames_since_last_snap": 148,
       "last_input_vector": [
         0,
         0,
