@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://core_v2/components/ContinuousRotatorV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/WindTunnelV2.gd" type="Script" id=2]
@@ -12,10 +12,21 @@ radius = 2.2
 height = 8.0
 radius = 2.0
 
+[sub_resource type="SpatialMaterial" id=4]
+flags_transparent = true
+flags_unshaded = true
+params_billboard_mode = 1
+albedo_color = Color( 1, 1, 1, 0.156863 )
+
+[sub_resource type="QuadMesh" id=3]
+material = SubResource( 4 )
+size = Vector2( 0.2, 0.2 )
+
 [node name="VentilationTurbine" type="Spatial"]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 1.75112, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75112, 0 )
 script = ExtResource( 3 )
-visual_parts_paths = [ NodePath("FanBlades"), NodePath("WindTunnel") ]
+is_interactable = false
+visual_parts_paths = [ NodePath("FanBlades"), NodePath("WindTunnel"), NodePath("WindTunnel/WindParticles") ]
 
 [node name="InteractionShape" type="KinematicBody" parent="."]
 script = ExtResource( 4 )
@@ -28,7 +39,7 @@ shape = SubResource( 2 )
 use_collision = true
 
 [node name="OuterShell" type="CSGCylinder" parent="Frame"]
-transform = Transform( 1.91069e-15, 4.37114e-08, -1, 1, -4.37114e-08, 0, -4.37114e-08, -1, -4.37114e-08, 0, 0, 0 )
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
 radius = 2.2
 height = 2.0
 sides = 16
@@ -40,7 +51,7 @@ height = 2.2
 sides = 16
 
 [node name="FanBlades" type="Spatial" parent="."]
-transform = Transform( 0.99863, 0.052336, 0, -0.052336, 0.99863, 0, 0, 0, 1, 0, 0, 0 )
+transform = Transform( -0.669131, -0.743145, 0, 0.743145, -0.669131, 0, 0, 0, 1, 0, 0, 0 )
 script = ExtResource( 1 )
 rotation_speed_degrees = Vector3( 0, 0, 360 )
 is_active = false
@@ -57,10 +68,24 @@ height = 0.5
 depth = 0.1
 
 [node name="WindTunnel" type="Area" parent="."]
-transform = Transform( 1, -4.37114e-08, 4.37114e-08, 4.37114e-08, -4.37114e-08, -1, 4.37114e-08, 1, -4.37114e-08, 1.74846e-07, 0, 7.64275e-15 )
 script = ExtResource( 2 )
-wind_velocity = Vector3( 0, 0, 20 )
+wind_velocity = Vector3( 0, 0, 5 )
 is_active = false
 
 [node name="CollisionShape" type="CollisionShape" parent="WindTunnel"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
 shape = SubResource( 1 )
+
+[node name="WindParticles" type="CPUParticles" parent="WindTunnel"]
+amount = 20
+mesh = SubResource( 3 )
+emission_shape = 1
+emission_sphere_radius = 2.0
+spread = 5.0
+gravity = Vector3( 0, 4, 0 )
+initial_velocity = 8.0
+initial_velocity_random = 0.2
+tangential_accel = -2.79
+tangential_accel_random = 0.09
+scale_amount = 0.5
+color = Color( 0.8, 0.9, 1, 0.3 )

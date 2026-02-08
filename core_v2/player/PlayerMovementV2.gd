@@ -165,7 +165,7 @@ func restore_snapshot(data: Dictionary) -> void:
 func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, is_on_floor: bool) -> void:
 	var target_speed = move_speed * (run_speed_multiplier if sprint else 1.0)
 	
-	var forward = basis.z
+	var forward = - basis.z
 	forward.y = 0.0
 	forward = forward.normalized()
 	
@@ -178,7 +178,7 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 		# If in tank mode and NOT moving forward/backward, allow slow strafing
 		lateral_input = move_vec.x * strafe_speed_multiplier
 		
-	var wish_dir = forward * move_vec.y + right * lateral_input
+	var wish_dir = forward * (-move_vec.y) + right * move_vec.x
 	wish_direction = wish_dir.normalized() if wish_dir.length_squared() > 0.0 else Vector3.ZERO
 	wish_dir = wish_direction * target_speed
 	

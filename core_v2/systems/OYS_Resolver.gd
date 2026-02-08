@@ -78,7 +78,7 @@ static func _instruction_to_frames(inst: Dictionary, start_frame: int) -> Dictio
 				duration_sec = OYS_Parser.distance_to_duration(inst.value, is_running)
 			
 			var num_frames = OYS_Parser.duration_to_frames(duration_sec)
-			var move_y = 1 if cmd == "FW" else -1
+			var move_y = -1 if cmd == "FW" else 1
 			
 			for i in range(num_frames):
 				frames[start_frame + i] = {
@@ -115,7 +115,7 @@ static func _instruction_to_frames(inst: Dictionary, start_frame: int) -> Dictio
 					duration_sec = OYS_Parser.distance_to_duration(value, is_running)
 				
 				var num_frames = OYS_Parser.duration_to_frames(duration_sec)
-				var move_x = 1 if cmd == "LEFT" else -1
+				var move_x = -1 if cmd == "LEFT" else 1
 				
 				for i in range(num_frames):
 					frames[start_frame + i] = {
@@ -156,7 +156,7 @@ static func _instruction_to_frames(inst: Dictionary, start_frame: int) -> Dictio
 				frames[start_frame + i] = {}
 			next_frame = start_frame + num_frames
 
-		"ASSERT", "SET", "MATH", "PRINT", "GET_NODES_IN_GROUP":
+		"ASSERT", "SET", "MATH", "PRINT", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "PLAY_ANIM", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP":
 			# Logic commands: executed at the START of the frame, do not consume time
 			if not events.has(start_frame):
 				events[start_frame] = []

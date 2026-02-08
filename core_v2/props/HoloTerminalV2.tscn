@@ -115,11 +115,10 @@ depth = 0.05
 material = SubResource( 8 )
 
 [node name="ScreenContainer" type="Spatial" parent="."]
-transform = Transform( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1.2, 0 )
-visible = false
+transform = Transform( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0 )
 
 [node name="ScreenMesh" type="CSGBox" parent="ScreenContainer"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.9, 0 )
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 1.9, 0 )
 invert_faces = true
 width = 2.7
 height = 1.8

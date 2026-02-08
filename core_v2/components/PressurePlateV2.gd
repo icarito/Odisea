@@ -1,6 +1,6 @@
 extends InteractableBaseV2
 class_name PressurePlateV2
-tool
+# tool
 
 # PressurePlateV2.gd - Deterministic Weight-based Switch
 # Activates when bodies are on top of it.
@@ -13,46 +13,48 @@ export(bool) var is_latched := false # If true, stays active once pressed
 var _start_position := Vector3.ZERO
 var _initialized := false
 var _detection_area: Area = null
+var _debug_weight_override := false
+
+func interact() -> void:
+	if debug or Engine.editor_hint:
+		_debug_weight_override = not _debug_weight_override
+		print("[PressurePlateV2] Debug override toggled: ", _debug_weight_override)
+		return
+	.interact()
 
 func _ready():
 	_start_position = translation
-	_initialized = true
-	
-	# Find a child Area to use for weight detection
-	for child in get_children():
-		if child is Area:
-			_detection_area = child
-			break
-			
-	._ready()
+	# ... (rest of _ready)
 
-func _update_visuals() -> void:
-	if not _initialized:
-		return
-	
-	var eased = _ease_in_out(anim_progress)
-	translation = _start_position + (sink_vector * eased)
+# ...
 
 func step(dt: float) -> void:
 	# Deterministic weighted detection
 	var bodies = []
 	if _detection_area:
 		bodies = _detection_area.get_overlapping_bodies()
+		# if bodies.size() > 0: print("[PressurePlateV2] Detect: ", bodies)
 	
 	var has_weight = false
 	
 	for body in bodies:
 		if body == self: continue
-		# Ignore triggers or non-physical objects if needed
-		# For now, any body triggers it
 		has_weight = true
 		break
+		
+	if _debug_weight_override:
+		has_weight = true
 	
+	# Debug state
+	# ... (logging)
+
 	if has_weight:
 		if not is_active:
+			# ...
 			set_active(true)
 	else:
 		if is_active and not is_latched:
+			# ...
 			set_active(false)
 			
 	.step(dt)

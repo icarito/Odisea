@@ -39,6 +39,7 @@ surfaces/0 = {
 collision_layer = 9
 script = ExtResource( 1 )
 speed_x = 1.0
+starts_active = false
 stripe_light_color = Color( 0.760784, 0.760784, 0.156863, 1 )
 stripe_fill = 0.5
 

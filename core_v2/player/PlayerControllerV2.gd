@@ -514,24 +514,24 @@ func _get_move_direction(input_vector: Vector2, control_mode: int) -> Vector3:
 	var camera = get_viewport().get_camera()
 	if not camera:
 		# For headless tests or no camera, assume forward is +Z
-		if input_vector.y > 0:
-			return Vector3(0, 0, 1)
-		elif input_vector.y < 0:
+		if input_vector.y < 0:
 			return Vector3(0, 0, -1)
-		elif input_vector.x > 0:
-			return Vector3(1, 0, 0)
+		elif input_vector.y > 0:
+			return Vector3(0, 0, 1)
 		elif input_vector.x < 0:
 			return Vector3(-1, 0, 0)
+		elif input_vector.x > 0:
+			return Vector3(1, 0, 0)
 		return Vector3.ZERO
 	
 	match control_mode:
 		CinematicManager.ControlMode.FREE:
 			# Movimiento relativo a la cámara (estándar)
-			var forward = camera.global_transform.basis.z
-			var right = camera.global_transform.basis.x
-			forward.y = 0
-			right.y = 0
-			return (-right.normalized() * input_vector.x + forward.normalized() * input_vector.y)
+			var fwd = - camera.global_transform.basis.z
+			var rt = camera.global_transform.basis.x
+			fwd.y = 0
+			rt.y = 0
+			return (fwd.normalized() * (-input_vector.y) + rt.normalized() * input_vector.x)
 		
 		CinematicManager.ControlMode.LOCKED_VIEW:
 			# "Arriba" en el stick siempre es "Hacia el fondo" de la cámara
@@ -539,11 +539,13 @@ func _get_move_direction(input_vector: Vector2, control_mode: int) -> Vector3:
 			var right = camera.global_transform.basis.x
 			forward.y = 0
 			right.y = 0
-			return (-right.normalized() * input_vector.x + forward.normalized() * input_vector.y)
+			return (right.normalized() * input_vector.x + forward.normalized() * (-input_vector.y))
 		
 		CinematicManager.ControlMode.FIXED_AXIS:
 			# Ignora la rotación de la cámara, usa ejes globales
-			return Vector3(-input_vector.x, 0, -input_vector.y)
+			# move_vec.y = -1 (W) -> (0, 0, -1) Forward
+			# move_vec.x = 1 (D) -> (1, 0, 0) Right
+			return Vector3(input_vector.x, 0, input_vector.y)
 		
 		CinematicManager.ControlMode.SIDESCROLL:
 			# Restringe movimiento a un plano (X o Z según la orientación de la cámara)
@@ -551,11 +553,11 @@ func _get_move_direction(input_vector: Vector2, control_mode: int) -> Vector3:
 			if abs(cam_right.x) > abs(cam_right.z):
 				# Movimiento a lo largo del eje global X
 				var sign_x = sign(cam_right.x)
-				return Vector3(-input_vector.x * sign_x, 0, 0)
+				return Vector3(input_vector.x * sign_x, 0, 0)
 			else:
 				# Movimiento a lo largo del eje global Z
 				var sign_z = sign(cam_right.z)
-				return Vector3(0, 0, -input_vector.x * sign_z)
+				return Vector3(0, 0, input_vector.x * sign_z)
 		
 		_:
 			return Vector3.ZERO
@@ -616,7 +618,6 @@ func _process_interaction(input: InputDataV2):
 		# New interactable in range
 		if _current_interactable != best_target:
 			_current_interactable = best_target
-			print("Interactable in range (Area): ", best_target.name)
 			var text = best_target.interaction_text if best_target.get("interaction_text") else "Interact"
 			emit_signal("interactable_in_range", text)
 			
@@ -625,13 +626,11 @@ func _process_interaction(input: InputDataV2):
 			var can_auto_trigger = not best_target.get("_auto_triggered") or not best_target.get("one_off")
 			if best_target.get("auto_interact") and not best_target.is_active and can_auto_trigger:
 				if best_target.has_method("set_active"):
-					print("Auto-activating interactable: ", best_target.name)
 					best_target.set_active(true)
 					best_target._auto_triggered = true
 		
 		# Handle interaction
 		if input.interact:
-			print("Interact pressed on ", best_target.name)
 			if best_target.has_method("interact"):
 				best_target.interact()
 	else:
@@ -735,7 +734,7 @@ func step(dt: float, input: InputDataV2) -> void:
 
 			if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED or is_replay_mode:
 				yaw -= input.mouse_delta.x * mouse_sensitivity
-				pitch -= input.mouse_delta.y * mouse_sensitivity
+				pitch += input.mouse_delta.y * mouse_sensitivity
 
 			# If in tank mode, A/D (input.move_vec.x) also rotates the camera
 			yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
@@ -834,8 +833,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	var entering = (sidescroll_logic.is_active and not _prev_sidescroll_active) or (active_rig != null and _prev_cinematic_rig == null)
 	var exiting = (not sidescroll_logic.is_active and _prev_sidescroll_active) or (active_rig == null and _prev_cinematic_rig != null)
 	
-	if context_changed:
-		print("DEBUG CONTEXT: entering=", entering, " exiting=", exiting, " active_rig=", active_rig, " _prev_rig=", _prev_cinematic_rig, " _cine_rig=", _cinematic_rig)
+	# Context change handled in latch logic below
 
 	# Si hay input activo y cambió el contexto, activar el latch según flags
 	# Allow re-activation on EXIT even if latch is currently active (update direction)
@@ -999,15 +997,17 @@ func step(dt: float, input: InputDataV2) -> void:
 			# LATCHED: Use the stored forward/right vectors computed at latch activation
 			# We construct a basis where Z=Forward and X=Right (relative to the latched context)
 			# This allows process_movement to interpret raw input correctly against that context.
-			basis = Basis(-_latched_dir_rt, Vector3.UP, _latched_dir_fwd)
+			var rt = _latched_dir_fwd.cross(Vector3.UP)
+			basis = Basis(rt, Vector3.UP, -_latched_dir_fwd)
 			move_vec = input.move_vec
 		else:
 			# UNLATCHED: Use current camera basis (rotates with camera)
 			var world_dir = _get_move_direction(input.move_vec, mode)
 			
 			if world_dir.length() > 0.01:
-				basis = Basis(Vector3.UP.cross(world_dir.normalized()), Vector3.UP, world_dir.normalized())
-				move_vec = Vector2(0, world_dir.length())
+				var b_z = - world_dir.normalized()
+				basis = Basis(Vector3.UP.cross(b_z), Vector3.UP, b_z)
+				move_vec = Vector2(0, -world_dir.length())
 			# Override sidescroll facing
 			if sidescroll_logic.is_active:
 				# Project world_dir onto scroll Plane?

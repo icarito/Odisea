@@ -206,12 +206,12 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			if not target or not target.has_method(method):
 				# Try PropStage / Current Scene
 				var stage = _resolve_stage()
-				if stage and stage.has_method(method):
+				if stage and stage != target and stage.has_method(method):
 					target = stage
 				else:
 					target = host_node # Fallback to host
 			
-			if target.has_method(method):
+			if target and target.has_method(method):
 				var result = target.callv(method, resolved_args)
 				if result is GDScriptFunctionState:
 					yield (result, "completed")
@@ -342,6 +342,26 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		# Markers - no action needed
 		"LEVEL", "END":
 			pass
+		
+		"MATH":
+			var var_name = inst.get("var", "")
+			var expression = inst.get("expression", "")
+			var result = 0.0
+			
+			var expr_parts = expression.split(" ", false)
+			if expr_parts.size() == 1:
+				result = _resolve_value(expr_parts[0])
+			elif expr_parts.size() == 3:
+				var left = _resolve_value(expr_parts[0])
+				var inner_op = expr_parts[1]
+				var right = _resolve_value(expr_parts[2])
+				match inner_op:
+					"+": result = float(left) + float(right)
+					"-": result = float(left) - float(right)
+					"*": result = float(left) * float(right)
+					"/": if float(right) != 0: result = float(left) / float(right)
+			
+			variables[var_name] = result
 	
 	return null
 
@@ -366,7 +386,8 @@ func _execute_movement(inst: Dictionary, my_id: int):
 			duration_sec = value
 			if unit == "m":
 				duration_sec = OYS_Parser.distance_to_duration(value, is_sprint)
-			move_vec = Vector2(0, 1) if cmd == "FW" else Vector2(0, -1)
+			# Normalized move_vec.y: -1 is Forward, 1 is Backward
+			move_vec = Vector2(0, -1) if cmd == "FW" else Vector2(0, 1)
 		
 		"LEFT", "RIGHT":
 			if inst.get("is_turning", false):
@@ -380,7 +401,8 @@ func _execute_movement(inst: Dictionary, my_id: int):
 			duration_sec = value
 			if unit == "m":
 				duration_sec = OYS_Parser.distance_to_duration(value, is_sprint)
-			move_vec = Vector2(1, 0) if cmd == "LEFT" else Vector2(-1, 0)
+			# Normalized move_vec.x: -1 is Left, 1 is Right
+			move_vec = Vector2(-1, 0) if cmd == "LEFT" else Vector2(1, 0)
 		
 		"JUMP":
 			duration_sec = inst.get("duration", 0.1)
@@ -591,53 +613,30 @@ class SignalObserver extends Object:
 		triggered = true
 
 func _resolve_stage() -> Node:
-	if host_node.has_method("load_prop"):
+	# Try identifying PropStage explicitly in the tree first
+	var root = host_node.get_tree().root
+	var stage = root.find_node("PropStage", true, false)
+	if stage:
+		return stage
+		
+	# Try current scene
+	stage = host_node.get_tree().current_scene
+	if stage and (stage.name == "PropStage" or stage.has_method("load_prop")):
+		return stage
+
+	# If host_node is a stage/host itself
+	if host_node.has_method("load_prop") and host_node.name != "SessionManager":
 		return host_node
 		
-	# Try current scene (PropStage)
-	var scene = host_node.get_tree().current_scene
-	if not scene:
-		# Fallback: try finding PropStage in root children
-		var root = host_node.get_tree().root
-		for i in range(root.get_child_count()):
-			var c = root.get_child(i)
-			if c.name == "PropStage" or c.name == "PropStage.tscn":
-				scene = c
-				break
-	return scene
-
-func _resolve_prop() -> Node:
-	# 1. Try host_node first (if it is PropStage)
-	if "current_prop" in host_node and is_instance_valid(host_node.current_prop):
-		return host_node.current_prop
-		
-	# 2. Try identifying PropStage explicitly in the tree
-	var stage = host_node.get_tree().current_scene
-	if stage:
-		if "current_prop" in stage:
-			if is_instance_valid(stage.current_prop):
-				return stage.current_prop
-			else:
-				print("[OYS DEBUG] Stage has current_prop but invalid instance.")
-		else:
-			print("[OYS DEBUG] current_scene (", stage.name, ") does not have 'current_prop'.")
-	else:
-		print("[OYS DEBUG] No current_scene found.")
-		
-	# 3. Fallback search for PropStage
-	var root = host_node.get_tree().root
-	var fallback_stage = root.find_node("PropStage", true, false)
-	if fallback_stage:
-		if "current_prop" in fallback_stage and is_instance_valid(fallback_stage.current_prop):
-			return fallback_stage.current_prop
-		else:
-			print("[OYS DEBUG] Fallback PropStage found but no valid current_prop.")
-	else:
-		print("[OYS DEBUG] Fallback search for PropStage failed.")
-
-	print("[OYS DEBUG] _resolve_prop FAILED.")
 	return null
 
+func _resolve_prop() -> Node:
+	var stage = _resolve_stage()
+	if stage and "current_prop" in stage:
+		if is_instance_valid(stage.current_prop):
+			return stage.current_prop
+		
+	return null
 func _resolve_value(val: String):
 	if val.begins_with("$"):
 		return variables.get(val, 0)

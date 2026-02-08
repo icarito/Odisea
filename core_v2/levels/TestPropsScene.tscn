@@ -6,7 +6,7 @@
 [ext_resource path="res://core_v2/props/AirlockChamber.tscn" type="PackedScene" id=4]
 [ext_resource path="res://core_v2/props/PlasmaGenerator.tscn" type="PackedScene" id=5]
 [ext_resource path="res://core_v2/props/FloorHatch.tscn" type="PackedScene" id=6]
-[ext_resource path="res://core_v2/things/Lever.tscn" type="PackedScene" id=7]
+[ext_resource path="res://core_v2/props/Lever.tscn" type="PackedScene" id=7]
 [ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=8]
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=9]
 

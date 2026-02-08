@@ -95,5 +95,8 @@ func _update_visuals() -> void:
 	var active = (anim_progress > 0.01)
 	
 	for part in _visual_parts:
-		if part and "is_active" in part:
-			part.is_active = active
+		if part:
+			if "is_active" in part:
+				part.set("is_active", active)
+			elif part is CPUParticles or part is Particles:
+				part.emitting = active

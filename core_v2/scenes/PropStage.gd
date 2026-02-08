@@ -78,6 +78,36 @@ func _process(_delta):
 		if camera and not camera.current:
 			camera.make_current()
 		
+		# Continuously suppress focus mode logic on current prop
+		if current_prop:
+			# 0. Disable capability entirely if supported
+			if "allow_focus_mode" in current_prop:
+				current_prop.set("allow_focus_mode", false)
+
+			# 1. Generic input mode suppression
+			if current_prop.has_method("set_input_mode_enabled"):
+				current_prop.set_input_mode_enabled(false)
+			
+			# 2. Specific HoloTerminalV2 suppression
+			var is_focused = false
+			if current_prop.has_method("is_focused"):
+				is_focused = current_prop.is_focused()
+			elif "is_focused" in current_prop: # unlikely for method-based
+				is_focused = current_prop.get("is_focused")
+			elif "_is_focused" in current_prop:
+				is_focused = current_prop.get("_is_focused")
+				
+			if is_focused:
+				# Try calling clean exit first
+				if current_prop.has_method("_exit_focus_mode"):
+					current_prop.call("_exit_focus_mode")
+				elif current_prop.has_method("cancel_interaction"):
+					current_prop.cancel_interaction()
+				else:
+					# Fallback to hard set
+					current_prop.set("_is_focused", false)
+					if current_prop.has_method("_update_ui_mode"):
+						current_prop.call("_update_ui_mode")
 
 func _run_validation_oys():
 	print("[PropStage] Starting OYS Validation...")

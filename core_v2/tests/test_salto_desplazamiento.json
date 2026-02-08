@@ -4,7 +4,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -20,7 +20,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -36,7 +36,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -52,7 +52,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -68,7 +68,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -84,7 +84,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -100,7 +100,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -116,7 +116,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -132,7 +132,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -148,7 +148,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -164,7 +164,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -180,7 +180,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -196,7 +196,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -212,7 +212,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -228,7 +228,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -244,7 +244,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -260,7 +260,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -276,7 +276,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -292,7 +292,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -308,7 +308,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -324,7 +324,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -340,7 +340,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -356,7 +356,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -372,7 +372,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -388,7 +388,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -404,7 +404,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -420,7 +420,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -436,7 +436,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -452,7 +452,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -653,22 +653,6 @@
         "zoom_delta": 0,
         "jump": true,
         "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
         "interact": false
       }
     },
@@ -2127,10 +2111,10 @@
     "41": [
 
     ],
-    "132": [
+    "131": [
       {
         "command": "ASSERT",
-        "condition": "pos.z > 3.0 \"ERROR: No hubo suficiente inercia horizontal en el salto\""
+        "condition": "pos.z < -3.0 \"ERROR: No hubo suficiente inercia horizontal en el salto\""
       },
       {
         "command": "ASSERT",
@@ -2481,35 +2465,19 @@
         "current_animation": "",
         "playback_position": 0
       },
-      "CinematicManager": {
-        "current_control_mode": 0,
-        "is_transitioning": false,
-        "transition_timer": 0.516667,
-        "transition_duration": 0.5,
-        "source_transform": {
-          "origin": "(28.454899, 12.167052, 30.221134)",
-          "basis": {
-            "x": "(0.619448, 0, -0.785038)",
-            "y": "(-0.194085, 0.968957, -0.153146)",
-            "z": "(0.760668, 0.24723, 0.600218)"
-          }
-        },
-        "source_fov": 70,
-        "active_rig_path": "",
-        "current_camera_path": "/root/TestScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
-      }
+      "CinematicManager": null
     },
     "scene_path": "res://core_v2/levels/TestScene_v2.tscn"
   },
   "final_expected_state": {
     "position": [
-      0,
-      0.0415,
-      6.574996
+      -0,
+      -4.790167,
+      -6.574997
     ],
     "velocity": [
       0,
-      0,
+      -14.766666,
       0
     ],
     "yaw": 0,
@@ -2536,6 +2504,7 @@
       "axis": 0,
       "val": 0,
       "inv": false,
+      "allow_depth": false,
       "tsl": 15,
       "vc": [
         0,
@@ -2557,50 +2526,28 @@
       "ff": true
     },
     "jump_state": {
-      "coyote_timer": 0.15,
+      "coyote_timer": 0,
       "jump_buffer_timer": 0,
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 148,
+      "frames_since_last_snap": 147,
       "last_input_vector": [
         0,
         0,
-        1
+        -1
       ],
       "is_acrobatic_ready": false
     },
     "fwd_latch_active": false,
     "fwd_latch_sign": 1,
-    "platform_path": "/root/TestScene/Level/Basic movement",
-    "platform_last_transform": {
-      "origin": [
-        0.1817,
-        -0.1,
-        25.204599
-      ],
-      "basis_x": [
-        1,
-        0,
-        0
-      ],
-      "basis_y": [
-        0,
-        1,
-        0
-      ],
-      "basis_z": [
-        0,
-        0,
-        1
-      ]
-    },
+    "platform_path": "",
     "platform_velocity": [
-      -0,
-      -0,
-      0.000029
+      0,
+      0,
+      0
     ],
-    "was_on_platform": true,
+    "was_on_platform": false,
     "step_grounded_timer": 0,
     "just_stepped": false,
     "direction_latch_active": false,
@@ -2659,6 +2606,7 @@
     "cinematic_rig_path": ""
   },
   "oys_variables": {
-
+    "$sys_env_prop_path": "",
+    "$sys_env_auto_run": ""
   }
 }

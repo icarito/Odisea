@@ -293,6 +293,7 @@ func get_full_snapshot() -> Dictionary:
 		"axis": lock_axis,
 		"val": lock_value,
 		"inv": invert_side,
+		"allow_depth": allow_depth,
 		"tsl": target_spring_length,
 		"vc": [virtual_center.x, virtual_center.y, virtual_center.z],
 		"lc": [lagging_center.x, lagging_center.y, lagging_center.z],
@@ -312,6 +313,7 @@ func restore_snapshot(data: Dictionary):
 	lock_axis = data.get("axis", 0)
 	lock_value = data.get("val", 0.0)
 	invert_side = data.get("inv", false)
+	allow_depth = data.get("allow_depth", true)
 	target_spring_length = data.get("tsl", target_spring_length)
 	
 	if data.has("vc"):

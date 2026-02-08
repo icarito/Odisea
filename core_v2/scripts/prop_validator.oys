@@ -22,9 +22,8 @@ SECTION "StartValidation"
     # Trigger Activation
     # PropBaseV2 handles logic, visuals update automatically
     INTERACT target=prop
-    WAIT 0.5
+    WAIT 0.25
     
-    WAIT 0.5
     SCREENSHOT 1_mid
     PRINT "State 1: Mid captured"
 

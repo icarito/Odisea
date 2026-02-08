@@ -1,8 +1,8 @@
 // Test 2: Movimiento hacia atrás
-// Verifica que el personaje se desplace correctamente en el eje Z negativo.
+// Verifica que el personaje se desplace correctamente en el eje Z positivo.
 
 
 SECTION "Movimiento atrás"
     BW 1.0
-    ASSERT pos.z < -0.5 "ERROR: Elías no se desplazó hacia atrás"
+    ASSERT pos.z > 0.5 "ERROR: Elías no se desplazó hacia atrás (+Z)"
 END
