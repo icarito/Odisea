@@ -16,12 +16,16 @@ export(String, FILE, "*.tscn") var dev_prop_path setget _set_dev_prop_path
 export(bool) var dev_take_screenshots setget _set_dev_take_screenshots
 export(bool) var dev_snap_to_floor = true
 export(int) var dev_tween_interval = 20
+export(bool) var dev_force_local_camera = false setget _set_dev_force_local_camera
 
 func _ready():
 	# Allow manual camera placement in the scene if desired.
 	# Only force current if it exists.
 	if camera:
 		camera.make_current()
+
+	if dev_force_local_camera:
+		_enforce_local_camera()
 
 	
 	# If prop path set (Editor or Runtime), load it
@@ -45,6 +49,35 @@ func _set_dev_take_screenshots(value):
 		_run_validation_oys()
 		# Reset toggle after starting (or let it stay, but usually buttons reset)
 		dev_take_screenshots = false
+
+func _set_dev_force_local_camera(value):
+	dev_force_local_camera = value
+	if value and is_inside_tree():
+		_enforce_local_camera()
+
+func _enforce_local_camera():
+	if camera and not camera.current:
+		camera.make_current()
+	
+	# Attempt to disable CinematicManager if present
+	if has_node("/root/CinematicManager"):
+		var cm = get_node("/root/CinematicManager")
+		if cm.has_method("deactivate_rig"):
+			cm.deactivate_rig()
+
+	# Attempt to inhibit prop input modes (e.g. HoloTerminal focus)
+	if current_prop and current_prop.has_method("set_input_mode_enabled"):
+		current_prop.set_input_mode_enabled(false)
+	elif current_prop and "is_focused" in current_prop:
+		current_prop.set("is_focused", false)
+
+
+func _process(_delta):
+	# Continuous enforcement if enabled
+	if dev_force_local_camera:
+		if camera and not camera.current:
+			camera.make_current()
+		
 
 func _run_validation_oys():
 	print("[PropStage] Starting OYS Validation...")

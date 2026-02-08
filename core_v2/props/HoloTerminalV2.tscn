@@ -33,7 +33,7 @@ emission_energy = 2.0
 emission_operator = 0
 emission_on_uv2 = false
 
-[sub_resource type="ViewportTexture" id=18]
+[sub_resource type="ViewportTexture" id=16]
 
 [sub_resource type="ShaderMaterial" id=7]
 shader = ExtResource( 3 )
@@ -44,7 +44,7 @@ shader_param/flip_h = false
 shader_param/flip_v = true
 shader_param/back_flip_h = false
 shader_param/back_flip_v = false
-shader_param/texture_albedo = SubResource( 18 )
+shader_param/texture_albedo = SubResource( 16 )
 
 [sub_resource type="BoxShape" id=17]
 extents = Vector3( 1.5, 2, 1.5 )
@@ -71,11 +71,13 @@ tracks/0/keys = {
 }
 
 [node name="HoloTerminalV2" type="KinematicBody"]
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 0 )
 script = ExtResource( 1 )
 interaction_text = "Toggle Terminal"
 anim_duration = 0.5
 slide_height = 0.2
-active = true
+use_cinematic_zone = false
+close_on_exit_zone = false
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0 )
@@ -113,7 +115,7 @@ depth = 0.05
 material = SubResource( 8 )
 
 [node name="ScreenContainer" type="Spatial" parent="."]
-transform = Transform( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
+transform = Transform( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1.2, 0 )
 visible = false
 
 [node name="ScreenMesh" type="CSGBox" parent="ScreenContainer"]
@@ -138,6 +140,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0 )
 shape = SubResource( 1 )
 
 [node name="CinematicSetup" type="Spatial" parent="."]
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 0 )
 
 [node name="CameraZone" type="Area" parent="CinematicSetup"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -1.5 )

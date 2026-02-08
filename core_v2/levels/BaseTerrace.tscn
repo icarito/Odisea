@@ -32,7 +32,7 @@
 [ext_resource path="res://scenes/reference/InteriorLab.tscn" type="PackedScene" id=32]
 [ext_resource path="res://textures/kenney_prototype_textures/green/texture_11.png" type="Texture" id=33]
 [ext_resource path="res://core_v2/visual/CinematicPathRig.gd" type="Script" id=34]
-[ext_resource path="res://core_v2/things/HoloTerminalV2.tscn" type="PackedScene" id=35]
+[ext_resource path="res://core_v2/props/HoloTerminalV2.tscn" type="PackedScene" id=35]
 
 [sub_resource type="BoxShape" id=1226]
 extents = Vector3( 1, 0.5, 1 )
