@@ -1494,3 +1494,79 @@ func _resolve_prop() -> Node:
 		if is_instance_valid(stage.current_prop):
 			return stage.current_prop
 	return null
+
+# --- DRONE API BRIDGE ---
+
+func CargolDrone(method_name: String, a1=null, a2=null, a3=null, a4=null, a5=null):
+	# OYS Helper to dispatch commands to CargolDrone
+	# Reconstruct arguments from potentially split strings (e.g. "[10,", "5,", "-20]")
+
+	var raw_args = []
+	if a1 != null: raw_args.append(a1)
+	if a2 != null: raw_args.append(a2)
+	if a3 != null: raw_args.append(a3)
+	if a4 != null: raw_args.append(a4)
+	if a5 != null: raw_args.append(a5)
+
+	var final_args = []
+	var i = 0
+	while i < raw_args.size():
+		var val = raw_args[i]
+
+		# Detect split vector "[x, y, z]"
+		if typeof(val) == TYPE_STRING and val.begins_with("[") and not val.ends_with("]"):
+			var built = val
+			var j = i + 1
+			var completed = false
+			while j < raw_args.size():
+				built += "" + str(raw_args[j]) # No space needed if split by comma? OYS splits by space.
+				# "[10," "5," "-20]" -> "10,5,-20]"
+				if str(raw_args[j]).ends_with("]"):
+					completed = true
+					i = j
+					break
+				j += 1
+
+			if completed:
+				final_args.append(_parse_vector3_flexible(built))
+			else:
+				final_args.append(val)
+
+		# Detect single string vector "[x,y,z]"
+		elif typeof(val) == TYPE_STRING and val.begins_with("[") and val.ends_with("]"):
+			final_args.append(_parse_vector3_flexible(val))
+		else:
+			# Auto-convert numbers? OYS usually passes strings for args unless parsed.
+			# But method_name arg is definitely string.
+			if typeof(val) == TYPE_STRING and val.is_valid_float():
+				final_args.append(val.to_float())
+			else:
+				final_args.append(val)
+
+		i += 1
+
+	# Find Drone
+	var drone = _find_node_recursive("CargolDrone")
+	if not drone:
+		# Try group search
+		var drones = get_tree().get_nodes_in_group("cargol_drone")
+		if drones.size() > 0:
+			drone = drones[0]
+
+	if not drone:
+		printerr("[SessionManager] CargolDrone not found for OYS command.")
+		return
+
+	if not drone.has_method(method_name):
+		printerr("[SessionManager] CargolDrone has no method: ", method_name)
+		return
+
+	# Call it
+	drone.callv(method_name, final_args)
+
+func _parse_vector3_flexible(s: String) -> Vector3:
+	var cleaned = s.replace("[", "").replace("]", "").replace("(", "").replace(")", "").strip_edges()
+	var parts = cleaned.split(",")
+	if parts.size() >= 3:
+		return Vector3(parts[0].to_float(), parts[1].to_float(), parts[2].to_float())
+	return Vector3.ZERO
