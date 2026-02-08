@@ -4511,9 +4511,9 @@
       -1
     ],
     "latched_dir_rt": [
-      -1,
-      -0,
-      -0
+      1,
+      0,
+      0
     ],
     "latched_sidescroll_active": false,
     "latched_sidescroll_basis": {

@@ -8,23 +8,14 @@ var player_controller = null
 var camera_controller = null
 var initial_spawn_transform = null # Cached absolute initial spawn transform for the scene
 
-func _enter_tree():
-	print("[TeleportSystem] _enter_tree. self=", self, " path=", get_path())
-	# (Conexión de señales player_killed y checkpoint_reached eliminada: ahora la realiza cada zona)
-
 func _ready():
-	print("[TeleportSystem] _ready. self=", self, " path=", get_path())
-	print("[TeleportSystem] player_controller (en _ready)=", player_controller)
-
 	# Si player_controller no está asignado o ha sido liberado, buscarlo ahora
 	if not is_instance_valid(player_controller):
 		var pilot = get_tree().get_root().find_node("Pilot", true, false)
-		print("[TeleportSystem] Buscando Pilot en _ready:", pilot, " path=", pilot.get_path() if pilot else "null")
 		player_controller = pilot
 		# Cache the scene's original player spawn transform (only once)
 		if player_controller and initial_spawn_transform == null:
 			initial_spawn_transform = player_controller.global_transform
-			print("[TeleportSystem] Cached initial_spawn_transform=", initial_spawn_transform)
 			# If no checkpoint 'last' exists for this scene, persist this initial spawn as the 'last' checkpoint
 			var persistence_manager = get_node_or_null("/root/PersistenceManager")
 			if persistence_manager and persistence_manager.has_method("get_checkpoint_resource"):
@@ -40,23 +31,18 @@ func _ready():
 					checkpoint_res.property_list_changed_notify()
 					if persistence_manager.has_method("save_checkpoint_resource"):
 						persistence_manager.save_checkpoint_resource(scene_path)
-						print("[TeleportSystem] Initial spawn persisted as checkpoint 'last' for scene:", scene_path)
 		
 	if not camera_controller and player_controller:
 		var cam_rig = player_controller.get_node_or_null("CameraRig")
-		print("[TeleportSystem] Buscando CameraRig en _ready:", cam_rig, " path=", cam_rig.get_path() if cam_rig else "null")
 		camera_controller = cam_rig
 
 func teleport_to(transform: Transform):
-	print("[TeleportSystem] teleport_to llamado:", transform)
-	print("[TeleportSystem] player_controller:", player_controller)
 	if player_controller:
 		print("[TeleportSystem] Llamando player_controller.teleport_to")
 		player_controller.teleport_to(transform)
 	else:
 		print("[TeleportSystem] player_controller es null, no se puede teletransportar")
 	if camera_controller and camera_controller != player_controller:
-		print("[TeleportSystem] Llamando camera_controller.set_transform")
 		camera_controller.global_transform = transform
 
 
