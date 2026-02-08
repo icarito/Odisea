@@ -3,12 +3,7 @@
 [ext_resource path="res://core_v2/components/ContinuousRotatorV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/WindTunnelV2.gd" type="Script" id=2]
 
-[sub_resource type="GDScript" id=3]
-script/source = "extends Spatial
-func set_active(val, _immediate = false):
-	$FanBlades.is_active = val
-	$WindTunnel.is_active = val
-"
+[ext_resource path="res://core_v2/components/PropBaseV2.gd" type="Script" id=3]
 
 [sub_resource type="CylinderShape" id=1]
 height = 8.0
@@ -16,7 +11,10 @@ radius = 2.0
 
 [node name="VentilationTurbine" type="Spatial"]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 1.75112, 0 )
-script = SubResource( 3 )
+script = ExtResource( 3 )
+linked_switch_path = NodePath("")
+visual_parts_paths = [ NodePath("FanBlades"), NodePath("WindTunnel") ]
+debug_draw = false
 
 [node name="Frame" type="CSGCombiner" parent="."]
 use_collision = true

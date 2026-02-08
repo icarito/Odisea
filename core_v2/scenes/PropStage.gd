@@ -5,7 +5,7 @@ extends Spatial
 # Specialized environment for validating props functionality and visuals.
 # Used by OYS commands LOAD_PROP and SCREENSHOT.
 
-onready var prop_anchor = $PropAnchor
+onready var spawn_point = $SpawnPoint
 onready var camera = $Camera
 
 
@@ -18,14 +18,14 @@ export(bool) var dev_snap_to_floor = true
 export(int) var dev_tween_interval = 20
 
 func _ready():
+	# Allow manual camera placement in the scene if desired.
+	# Only force current if it exists.
 	if camera:
-		camera.transform.origin = Vector3(0, 2.5, 4.0)
-		camera.look_at(Vector3(0, 2.0, 0), Vector3.UP)
 		camera.make_current()
 
 	
-	# If running in editor and prop path set, load it
-	if Engine.editor_hint and dev_prop_path != "" and current_prop == null:
+	# If prop path set (Editor or Runtime), load it
+	if dev_prop_path != "" and current_prop == null:
 		load_prop(dev_prop_path)
 		
 	# Ensure environment is set up for neutral lighting
@@ -42,15 +42,53 @@ func _set_dev_prop_path(value):
 func _set_dev_take_screenshots(value):
 	dev_take_screenshots = value
 	if value and is_inside_tree():
-		_dev_take_screenshots_sequence()
-
-func _dev_take_screenshots_sequence():
-	if not current_prop:
-		printerr("[PropStage] No prop loaded!")
+		_run_validation_oys()
+		# Reset toggle after starting (or let it stay, but usually buttons reset)
 		dev_take_screenshots = false
+
+func _run_validation_oys():
+	print("[PropStage] Starting OYS Validation...")
+	if dev_prop_path == "" and current_prop == null:
+		printerr("[PropStage] No prop to validate.")
 		return
 
-	print("[PropStage] Starting editor screenshot sequence...")
+	# Determine prop path (resolve from current_prop if strict OYS path needed?)
+	# The OYS script uses $sys_env_prop_path.
+	var prop_path = dev_prop_path
+	if prop_path == "" and current_prop:
+		prop_path = current_prop.filename
+	
+	if prop_path == "":
+		printerr("[PropStage] Cannot determine prop path.")
+		return
+		
+	var interpreter_script = load("res://core_v2/systems/OYS_Interpreter.gd")
+	if not interpreter_script:
+		printerr("[PropStage] Could not load OYS_Interpreter.gd")
+		return
+		
+	var interpreter = interpreter_script.new(self)
+	# interpreter.host_node = self # Handling in _init now
+	interpreter.variables["$sys_env_prop_path"] = prop_path
+	
+	# Load validator script
+	var f = File.new()
+	var script_path = "res://core_v2/tests/prop_validator.oys"
+	if f.open(script_path, File.READ) != OK:
+		printerr("[PropStage] Could not load validator script: ", script_path)
+		return
+		
+	var content = f.get_as_text()
+	f.close()
+	
+	interpreter.parse(content)
+	interpreter.run() # Async run
+
+# Hook called by OYSInterpreter SCREENSHOT command
+func take_oys_screenshot(label: String, prop_named_prefix: String) -> String:
+	yield (get_tree(), "idle_frame") # Ensure sync
+	
+	print("[PropStage] Capturing clean screenshot: ", label)
 	
 	# Create temporary viewport for deterministic capture
 	var vp = Viewport.new()
@@ -58,13 +96,14 @@ func _dev_take_screenshots_sequence():
 	vp.own_world = true
 	vp.transparent_bg = true
 	vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
+	# We must add VP to tree to render
 	add_child(vp)
 	
 	# Clone Scene Content (Environment, Lights, Platform)
 	for c in get_children():
 		if c == vp: continue # Skip the viewport itself
 		if c.name == "Camera": continue # Handled separately
-		if c.name == "PropAnchor": continue # Handled separately
+		if c.name == "SpawnPoint": continue # Handled separately
 		if c is Viewport: continue
 		
 		# We want VisualInstances (Meshes, Lights), WorldEnvironment
@@ -79,108 +118,58 @@ func _dev_take_screenshots_sequence():
 		cam.projection = $Camera.projection
 		cam.size = $Camera.size
 		cam.fov = $Camera.fov
+		cam.near = $Camera.near
+		cam.far = $Camera.far
 	else:
 		cam.transform = Transform(Basis(), Vector3(0, 2.0, 4.5))
 		cam.look_at(Vector3(0, 0.5, 0), Vector3.UP)
 	vp.add_child(cam)
 	
-	# Add Prop Copy
-	var prop_name = "Prop"
-	var p_copy = null
-	
-	if dev_prop_path != "":
-		p_copy = load(dev_prop_path).instance()
-		prop_name = dev_prop_path.get_file().get_basename()
-	elif current_prop:
-		# Try duplicating existing
-		p_copy = current_prop.duplicate()
-		prop_name = current_prop.name
-	
-	if not p_copy:
-		printerr("[PropStage] Could not create prop copy.")
-		vp.queue_free()
-		dev_take_screenshots = false
-		return
+	# Add Current Prop Clone
+	# We clone the *current state* of the prop
+	if current_prop:
+		var p_copy = current_prop.duplicate()
+		vp.add_child(p_copy)
+		# Ensure transform matches if it's not at origin?
+		# PropStage logic places prop at SpawnPoint.
+		# If we duplicate, it keeps transform relative to parent?
+		# current_prop parent is SpawnPoint. p_copy parent is Viewport.
+		# We need to apply SpawnPoint transform + prop transform?
+		# SpawnPoint is usually at (0,0,0).
 		
-	# Center it
-	if p_copy is Spatial:
-		p_copy.transform = Transform.IDENTITY
-		# PropAnchor logic: PropAnchor is at 0, 0.5, 0 usually.
-		# But here we put it directly in VP.
-		# If PropAnchor existed, we should match its offset?
-		# PropAnchor y=0.5.
-		# Physical placement
-		if dev_snap_to_floor:
-			var offset = _get_bottom_offset(p_copy)
-			p_copy.transform.origin = Vector3(0, offset, 0)
-		else:
-			# Default legacy offset
-			p_copy.transform.origin = Vector3(0, 0.5, 0)
-		
-	vp.add_child(p_copy)
+		if p_copy is Spatial:
+			# Apply global transform of original to copy
+			p_copy.global_transform = current_prop.global_transform
 	
-	var states = {
-		"0.0_start": 0.0,
-		"0.5_mid": 0.5,
-		"1.0_end": 1.0
-	}
+	# Wait for render
+	yield (VisualServer, "frame_post_draw")
+	yield (VisualServer, "frame_post_draw")
+	
+	var tex = vp.get_texture()
+	var img = tex.get_data()
+	img.flip_y()
 	
 	var dir = Directory.new()
 	var base_dir = "res://test_output/props/"
 	if not dir.dir_exists(base_dir):
 		dir.make_dir_recursive(base_dir)
 	
-	# Allow nodes to ready
-	yield (get_tree(), "idle_frame")
-	yield (get_tree(), "idle_frame")
-	
-	for label in states.keys():
-		var progress = states[label]
-		# 1. Update State
-		if "anim_progress" in p_copy:
-			p_copy.anim_progress = progress
-			
-		if "is_active" in p_copy:
-			# If we want to simulate activation
-			if progress > 0.0:
-				p_copy.is_active = true
-			else:
-				p_copy.is_active = false
-			
-		if p_copy.has_method("_update_visuals"):
-			p_copy._update_visuals()
-			
-		# 2. Wait for physics/animation
-		# If state is > 0.0, we probably want to see some elapsed time effect?
-		if progress > 0.0:
-			for _i in range(dev_tween_interval):
-				yield (get_tree(), "idle_frame")
-			
-		yield (VisualServer, "frame_post_draw")
-		yield (VisualServer, "frame_post_draw")
-		
-		# 3. Capture
-		var tex = vp.get_texture()
-		var img = tex.get_data()
-		
-		img.flip_y()
-		var path = base_dir + "%s_%s.png" % [prop_name, label]
-		img.save_png(path)
-		print("[PropStage] Saved: ", path)
-	
-	print("[PropStage] Screenshot sequence finished.")
+	# Use prop_named_prefix passed from OYS (resolved from prop.name)
+	var path = base_dir + "%s_%s.png" % [prop_named_prefix, label]
+	img.save_png(path)
+	print("[PropStage] Saved: ", path)
 	
 	# Cleanup
-	p_copy.queue_free()
 	vp.queue_free()
-	dev_take_screenshots = false
+	
+	return path
 
 	
 func unload_prop():
-	if not prop_anchor:
+	if not spawn_point:
 		return
-	for c in prop_anchor.get_children():
-		prop_anchor.remove_child(c)
+	for c in spawn_point.get_children():
+		spawn_point.remove_child(c)
 		c.queue_free()
 	current_prop = null
 	_accumulated_wait_time = 0.0
@@ -188,15 +177,15 @@ func unload_prop():
 func load_prop(path: String) -> void:
 	unload_prop() # Ensure clean slate
 	
-	if not prop_anchor:
-		printerr("[PropStage] PropAnchor node missing!")
+	if not spawn_point:
+		printerr("[PropStage] SpawnPoint node missing!")
 		return
 	
 	_accumulated_wait_time = 0.0
 
 	# Clear existing props (redundant but safe)
-	for c in prop_anchor.get_children():
-		prop_anchor.remove_child(c)
+	for c in spawn_point.get_children():
+		spawn_point.remove_child(c)
 		c.queue_free()
 	
 	# yield (get_tree(), "physics_frame") # Wait for cleanup
@@ -207,7 +196,7 @@ func load_prop(path: String) -> void:
 		return
 		
 	var instance = scene.instance()
-	prop_anchor.add_child(instance)
+	spawn_point.add_child(instance)
 	current_prop = instance
 	
 	# Center and reset

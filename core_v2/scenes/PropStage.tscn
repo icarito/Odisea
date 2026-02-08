@@ -1,16 +1,21 @@
-[gd_scene load_steps=4 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://core_v2/scenes/PropStage.gd" type="Script" id=1]
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=2]
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=3]
+[ext_resource path="res://core_v2/player/SideScrollZone.gd" type="Script" id=4]
 
 [sub_resource type="Environment" id=1]
 background_mode = 1
 background_color = Color( 0.1, 0.1, 0.1, 1 )
 ambient_light_color = Color( 0.5, 0.5, 0.5, 1 )
 
+[sub_resource type="BoxShape" id=2]
+extents = Vector3( 13, 8, 13 )
+
 [node name="PropStage" type="Spatial"]
 script = ExtResource( 1 )
-dev_prop_path = "res://core_v2/props/VentilationTurbine.tscn"
+dev_prop_path = ""
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource( 1 )
@@ -20,14 +25,30 @@ transform = Transform( 0.974303, 0.0369505, 0.222189, -0.22524, 0.159834, 0.9611
 
 [node name="Platform" type="CSGBox" parent="."]
 use_collision = true
-width = 5.0
+width = 25.0
 height = 0.2
-depth = 5.0
+depth = 25.0
 material = ExtResource( 2 )
 
-[node name="PropAnchor" type="Spatial" parent="."]
+[node name="SpawnPoint" type="Position3D" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
 
 [node name="Camera" type="Camera" parent="."]
-transform = Transform( 1, 0, 0, 0, 0.992278, 0.124035, 0, -0.124035, 0.992278, 0, 2.5, 4 )
+transform = Transform( 1, 0, 0, 0, 0.932658, 0.360762, 0, -0.360762, 0.932658, 0, 6.18853, 12 )
 current = true
+fov = 50.0
+
+[node name="Pilot" parent="." instance=ExtResource( 3 )]
+transform = Transform( 0.406944, 0, 0.913453, 0, 1, 0, -0.913453, 0, 0.406944, -3.67278, 7.0879, -2.94282 )
+
+[node name="SideScrollZoneV2" type="Area" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7, 0 )
+script = ExtResource( 4 )
+debug_color = Color( 0.2, 0.5, 1, 0.3 )
+debug_render = false
+zone_extents = Vector3( 13, 8, 13 )
+invert_side = true
+allow_depth_movement = true
+
+[node name="CollisionShape" type="CollisionShape" parent="SideScrollZoneV2"]
+shape = SubResource( 2 )

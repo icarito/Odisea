@@ -33,6 +33,7 @@ depth = 4.60245
 [node name="OuterDoor" type="KinematicBody" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.5 )
 script = ExtResource( 2 )
+manual_toggle = false
 slide_vector = Vector3( 0, 2.5, 0 )
 size = Vector3( 2, 4, 0.2 )
 
@@ -46,6 +47,7 @@ depth = 0.2
 [node name="InnerDoor" type="KinematicBody" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.5 )
 script = ExtResource( 2 )
+manual_toggle = false
 slide_vector = Vector3( 0, 2.5, 0 )
 size = Vector3( 2, 4, 0.2 )
 
@@ -61,3 +63,6 @@ visible = false
 
 [node name="CollisionShape" type="CollisionShape" parent="ChamberZone"]
 shape = SubResource( 2 )
+
+[connection signal="interaction_requested" from="OuterDoor" to="." method="interact_outer"]
+[connection signal="interaction_requested" from="InnerDoor" to="." method="interact_inner"]

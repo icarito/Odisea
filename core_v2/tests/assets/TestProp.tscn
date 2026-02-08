@@ -1,0 +1,22 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://core_v2/components/PropBaseV2.gd" type="Script" id=1]
+
+[sub_resource type="CubeMesh" id=1]
+size = Vector3( 1, 1, 1 )
+
+[node name="TestProp" type="KinematicBody"]
+script = ExtResource( 1 )
+interaction_text = "Interact"
+anim_duration = 1.0
+starts_active = false
+auto_interact = false
+one_off = false
+debug = true
+linked_switch_path = NodePath("")
+visual_parts_paths = [  ]
+
+[node name="MeshInstance" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
+mesh = SubResource( 1 )
+material/0 = null

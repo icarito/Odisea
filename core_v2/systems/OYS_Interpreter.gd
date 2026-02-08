@@ -163,6 +163,14 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 
 		"LOAD_PROP":
 			var path = inst.get("path", "")
+			# Resolve variable if path starts with $
+			if path.begins_with("$"):
+				var resolved = _resolve_value(path)
+				if typeof(resolved) == TYPE_STRING:
+					path = resolved
+				else:
+					printerr("[OYS ERROR] LOAD_PROP path variable resolved to non-string: ", resolved)
+			
 			var result = null
 			if host_node.has_method("load_prop"):
 				result = host_node.load_prop(path)
@@ -237,25 +245,34 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			print("[OYS PRINT] ", message)
 			
 		"SCREENSHOT":
-			yield (VisualServer, "frame_post_draw")
-			var img = host_node.get_viewport().get_texture().get_data()
-			img.flip_y()
-			
 			var label = inst.get("label", "screenshot")
 			var prop_name = "unknown"
-			
 			var prop = _resolve_prop()
 			if prop:
 				prop_name = prop.name
+
+			# Hook for custom screenshot logic (e.g. Editor PropStage)
+			var path = ""
+			if host_node.has_method("take_oys_screenshot"):
+				var result = yield (host_node.take_oys_screenshot(label, prop_name), "completed")
+				if result and result is String:
+					path = result
+			else:
+				# Default Runtime Logic
+				yield (VisualServer, "frame_post_draw")
+				var img = host_node.get_viewport().get_texture().get_data()
+				img.flip_y()
 				
-			var dir = Directory.new()
-			var base_dir = "res://test_output/props/"
-			if not dir.dir_exists(base_dir):
-				dir.make_dir_recursive(base_dir)
+				var dir = Directory.new()
+				var base_dir = "res://test_output/props/"
+				if not dir.dir_exists(base_dir):
+					dir.make_dir_recursive(base_dir)
+				
+				path = base_dir + "%s_%s.png" % [prop_name, label]
+				img.save_png(path)
+				print("[OYS] Screenshot saved to: ", path)
 			
-			var path = base_dir + "%s_%s.png" % [prop_name, label]
-			img.save_png(path)
-			print("[OYS] Screenshot saved to: ", path)
+			# Read back and convert to Base64 for chat output
 			
 			# Read back and convert to Base64 for chat output
 			var f = File.new()
@@ -348,6 +365,8 @@ func _execute_movement(inst: Dictionary, my_id: int):
 	var move_vec = Vector2.ZERO
 	var is_sprint = inst.get("is_running", true)
 	var is_jump = false
+
+	
 	var is_interact = false
 	
 	match cmd:
@@ -378,8 +397,37 @@ func _execute_movement(inst: Dictionary, my_id: int):
 			is_jump = true
 		
 		"INTERACT":
-			duration_sec = 1.0 / 60.0 # One frame
-			is_interact = true
+			var target_name = inst.get("target", "")
+			if target_name != "":
+				# Direct interaction with a specific named prop/node
+				# This bypasses player input injection validation
+				var target_node = null
+				
+				# Try resolving as prop first if it matches "prop" or similar keyword, 
+				# otherwise find by name
+				if target_name == "prop" or target_name == "current_prop":
+					target_node = _resolve_prop()
+				else:
+					# Try to find part of the prop? or just a global search
+					# For now, let's assume it's a node name in the scene
+					target_node = host_node.find_node(target_name, true, false)
+				
+				if target_node:
+					if target_node.has_method("interact"):
+						print("[OYS] Direct INTERACT with ", target_node.name)
+						target_node.interact()
+					else:
+						print("[OYS WARNING] Target ", target_node.name, " has no interact() method.")
+				else:
+					print("[OYS WARNING] Could not find target '", target_name, "' for INTERACT.")
+				
+				# Wait one frame and return (no input injection)
+				yield (host_node.get_tree(), "physics_frame")
+				return
+			else:
+				# Default: Inject Input to Player
+				duration_sec = 1.0 / 60.0
+				is_interact = true
 	
 	var num_frames = OYS_Parser.duration_to_frames(duration_sec)
 	for _i in range(num_frames):
@@ -569,17 +617,35 @@ func _resolve_stage() -> Node:
 	return scene
 
 func _resolve_prop() -> Node:
-	# Try host_node first
-	if host_node.get("current_prop") and is_instance_valid(host_node.current_prop):
+	# 1. Try host_node first (if it is PropStage)
+	if "current_prop" in host_node and is_instance_valid(host_node.current_prop):
 		return host_node.current_prop
 		
-	var scene = _resolve_stage()
-	
-	if scene:
-		var prop = scene.get("current_prop")
-		if prop and is_instance_valid(prop):
-			return prop
-			
+	# 2. Try identifying PropStage explicitly in the tree
+	var stage = host_node.get_tree().current_scene
+	if stage:
+		if "current_prop" in stage:
+			if is_instance_valid(stage.current_prop):
+				return stage.current_prop
+			else:
+				print("[OYS DEBUG] Stage has current_prop but invalid instance.")
+		else:
+			print("[OYS DEBUG] current_scene (", stage.name, ") does not have 'current_prop'.")
+	else:
+		print("[OYS DEBUG] No current_scene found.")
+		
+	# 3. Fallback search for PropStage
+	var root = host_node.get_tree().root
+	var fallback_stage = root.find_node("PropStage", true, false)
+	if fallback_stage:
+		if "current_prop" in fallback_stage and is_instance_valid(fallback_stage.current_prop):
+			return fallback_stage.current_prop
+		else:
+			print("[OYS DEBUG] Fallback PropStage found but no valid current_prop.")
+	else:
+		print("[OYS DEBUG] Fallback search for PropStage failed.")
+
+	print("[OYS DEBUG] _resolve_prop FAILED.")
 	return null
 
 func _resolve_value(val: String):
