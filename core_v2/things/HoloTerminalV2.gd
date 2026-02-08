@@ -156,9 +156,6 @@ func _on_camera_zone_body_exited(body: Node) -> void:
 
 
 func _update_visuals() -> void:
-	# DEBUG PRINT
-	print("[HoloTerminalV2] _update_visuals: anim_progress=", anim_progress)
-
 	# 2. Apply Movement (Visuals)
 	var screen_container = get_node_or_null("ScreenContainer")
 	if screen_container:

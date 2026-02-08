@@ -8,11 +8,11 @@
 [ext_resource path="res://core_v2/components/OYSTrigger.gd" type="Script" id=6]
 [ext_resource path="res://core_v2/props/HoloTerminalV2.tscn" type="PackedScene" id=7]
 [ext_resource path="res://assets/fonts/Heading_Font.tres" type="DynamicFont" id=9]
-[ext_resource path="res://core_v2/things/Lever.tscn" type="PackedScene" id=10]
+[ext_resource path="res://core_v2/props/Lever.tscn" type="PackedScene" id=10]
 [ext_resource path="res://textures/prototype_textures/purple 2.png" type="Texture" id=20]
 [ext_resource path="res://textures/prototype_textures/Green 3.png" type="Texture" id=21]
 [ext_resource path="res://textures/prototype_textures/blue 2.png" type="Texture" id=22]
-[ext_resource path="res://core_v2/things/MovingPlatformV2.tscn" type="PackedScene" id=25]
+[ext_resource path="res://core_v2/props/MovingPlatformV2.tscn" type="PackedScene" id=25]
 [ext_resource path="res://core_v2/props/Conveyor.tscn" type="PackedScene" id=26]
 [ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=27]
 
@@ -172,10 +172,8 @@ lever_color = Color( 0.8, 0.6, 0.1, 1 )
 
 [node name="MovingPlatform" parent="Level/MovingPlatforms/Lever_MovingPlatform" instance=ExtResource( 25 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 5.64695, 0 )
-starts_active = false
 movement_vector = Vector3( 0, -3, 0 )
 cycle_duration = 6.0
-ease_type = 1
 
 [node name="Lever_MovingPlatform2" parent="Level/MovingPlatforms" instance=ExtResource( 10 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 8 )
@@ -183,10 +181,8 @@ lever_color = Color( 0.1, 0.6, 0.8, 1 )
 
 [node name="MovingPlatform2" parent="Level/MovingPlatforms/Lever_MovingPlatform2" instance=ExtResource( 25 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 3, 0 )
-starts_active = false
 movement_vector = Vector3( -10, 0, 0 )
 cycle_duration = 6.0
-ease_type = 1
 
 [node name="SlidingDrawer" parent="." instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.30146, 0.875, 39.991 )
@@ -227,7 +223,6 @@ lever_color = Color( 0.0745098, 0.4, 0.0862745, 1 )
 [node name="LeverConveyor" parent="Lever" instance=ExtResource( 26 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.93389, 0.2, 3.5559 )
 speed_x = 3.0
-starts_active = false
 
 [node name="KillZoneV2" type="Area" parent="."]
 collision_layer = 2
@@ -266,4 +261,3 @@ directional_shadow_mode = 2
 [node name="HoloTerminalV2" parent="." instance=ExtResource( 7 )]
 transform = Transform( 0.714143, 0, 0.7, 0, 1, 0, -0.7, 0, 0.714143, 3.74335, 2.38419e-07, 7.4683 )
 auto_interact = true
-use_cinematic_zone = false

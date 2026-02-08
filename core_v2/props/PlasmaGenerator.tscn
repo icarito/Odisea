@@ -1,23 +1,17 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=3 format=2]
 
 [ext_resource path="res://core_v2/components/MovingPlatformV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/PlasmaGenerator.gd" type="Script" id=2]
-
-[sub_resource type="CylinderShape" id=1]
-radius = 0.5
-height = 2.0
 
 [node name="PlasmaGenerator" type="Spatial"]
 script = ExtResource( 2 )
 
 [node name="Base" type="CSGBox" parent="."]
 use_collision = true
-width = 2.0
 height = 0.5
-depth = 2.0
 
 [node name="Core" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.40594, 0 )
 script = ExtResource( 1 )
 movement_vector = Vector3( 0, 1.5, 0 )
 cycle_duration = 3.0
@@ -27,10 +21,7 @@ ease_type = 1
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 radius = 0.4
 height = 2.0
-material = null
 
 [node name="OmniLight" type="OmniLight" parent="Core"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 light_color = Color( 0, 0.8, 1, 1 )
-light_energy = 1.0
-omni_range = 5.0

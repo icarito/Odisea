@@ -8,23 +8,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
           0
-        ],
-        "mouse_delta": [
-          0,
-          -0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -40,7 +24,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -56,7 +40,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -72,7 +56,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -88,7 +72,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -104,7 +88,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -120,7 +104,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -136,7 +120,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -152,7 +136,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -168,7 +152,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -184,7 +168,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -200,7 +184,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -216,7 +200,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -232,7 +216,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -248,7 +232,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -264,7 +248,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -280,7 +264,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -296,7 +280,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -312,7 +296,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -328,7 +312,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -344,7 +328,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -360,7 +344,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -376,7 +360,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -392,7 +376,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -408,7 +392,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -424,7 +408,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -440,7 +424,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -456,7 +440,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -472,7 +456,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -488,7 +472,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -504,7 +488,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -520,7 +504,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -536,7 +520,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -552,7 +536,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -568,7 +552,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -584,7 +568,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -600,7 +584,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -616,7 +600,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -632,7 +616,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -648,7 +632,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -664,7 +648,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -680,7 +664,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -696,7 +680,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -712,7 +696,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -728,7 +712,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -744,7 +728,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -760,7 +744,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -776,7 +760,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -792,7 +776,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -808,7 +792,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -824,7 +808,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -840,7 +824,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -856,7 +840,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -872,7 +856,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -888,7 +872,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -904,7 +888,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -920,7 +904,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -936,7 +920,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -952,7 +936,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -968,7 +952,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -984,7 +968,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1000,7 +984,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1016,7 +1000,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1032,7 +1016,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1048,7 +1032,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1064,7 +1048,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1080,7 +1064,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1096,7 +1080,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1112,7 +1096,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1128,7 +1112,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1144,7 +1128,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1160,7 +1144,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1176,7 +1160,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1192,7 +1176,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1208,7 +1192,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1224,7 +1208,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1240,7 +1224,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1256,7 +1240,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1272,7 +1256,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1288,7 +1272,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1304,7 +1288,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1320,7 +1304,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1336,7 +1320,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1352,7 +1336,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1368,7 +1352,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1384,7 +1368,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1400,7 +1384,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1416,7 +1400,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1432,7 +1416,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1448,7 +1432,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1464,7 +1448,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1480,7 +1464,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1496,7 +1480,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1512,7 +1496,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1528,7 +1512,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1544,7 +1528,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1560,7 +1544,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1576,7 +1560,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1592,7 +1576,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1608,7 +1592,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1624,7 +1608,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1640,7 +1624,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1656,7 +1640,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1672,7 +1656,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1688,7 +1672,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1704,7 +1688,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1720,7 +1704,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1736,7 +1720,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1752,7 +1736,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1768,7 +1752,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1784,7 +1768,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1800,7 +1784,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1816,7 +1800,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1832,7 +1816,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1848,7 +1832,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1864,7 +1848,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1880,7 +1864,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1896,7 +1880,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1912,7 +1896,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1928,7 +1912,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1944,7 +1928,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1960,7 +1944,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1976,7 +1960,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -1992,7 +1976,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2008,7 +1992,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2024,7 +2008,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2040,7 +2024,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2056,7 +2040,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2072,7 +2056,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2088,7 +2072,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2104,7 +2088,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2120,7 +2104,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2136,7 +2120,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2152,7 +2136,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2168,7 +2152,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2184,7 +2168,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2200,7 +2184,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2216,7 +2200,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2232,7 +2216,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2248,7 +2232,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2264,7 +2248,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2280,7 +2264,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2296,7 +2280,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2312,7 +2296,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2328,7 +2312,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2344,7 +2328,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2360,7 +2344,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2376,7 +2360,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2392,7 +2376,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2408,7 +2392,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2424,7 +2408,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2440,7 +2424,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2456,7 +2440,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2472,7 +2456,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2488,7 +2472,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2504,7 +2488,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2520,7 +2504,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2536,7 +2520,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2552,7 +2536,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2568,7 +2552,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2584,7 +2568,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2600,7 +2584,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2616,7 +2600,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2632,7 +2616,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2648,7 +2632,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2664,7 +2648,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2680,7 +2664,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2696,7 +2680,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2712,7 +2696,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2728,7 +2712,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2744,7 +2728,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2760,7 +2744,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2776,7 +2760,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2792,7 +2776,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2808,7 +2792,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2824,7 +2808,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2840,7 +2824,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2856,7 +2840,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2872,7 +2856,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2888,7 +2872,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2904,7 +2888,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2920,7 +2904,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2936,7 +2920,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2952,7 +2936,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2968,7 +2952,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -2984,7 +2968,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3000,7 +2984,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3016,7 +3000,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3032,7 +3016,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3048,7 +3032,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3064,7 +3048,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3080,7 +3064,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3096,7 +3080,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3112,7 +3096,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3128,7 +3112,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3144,7 +3128,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3160,7 +3144,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3176,7 +3160,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3192,7 +3176,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3208,7 +3192,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3224,7 +3208,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3240,7 +3224,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3256,7 +3240,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3272,7 +3256,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3288,7 +3272,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3304,7 +3288,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3320,7 +3304,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3336,7 +3320,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3352,7 +3336,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3368,7 +3352,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3384,7 +3368,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3400,7 +3384,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3416,7 +3400,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3432,7 +3416,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3448,7 +3432,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3464,7 +3448,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3480,7 +3464,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3496,7 +3480,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3512,7 +3496,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3528,7 +3512,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3544,7 +3528,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3560,7 +3544,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3576,7 +3560,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3592,7 +3576,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3608,7 +3592,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3624,7 +3608,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3640,7 +3624,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3656,7 +3640,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3672,7 +3656,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3688,7 +3672,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3704,7 +3688,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3720,7 +3704,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3736,7 +3720,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3752,7 +3736,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3768,7 +3752,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3784,7 +3768,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3800,7 +3784,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3816,7 +3800,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3832,7 +3816,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3848,7 +3832,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3864,7 +3848,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3880,7 +3864,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3896,7 +3880,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3912,7 +3896,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3928,7 +3912,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3944,7 +3928,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3960,7 +3944,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3976,7 +3960,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -3992,7 +3976,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4008,7 +3992,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4024,7 +4008,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4040,7 +4024,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4056,7 +4040,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4072,7 +4056,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4088,7 +4072,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4104,7 +4088,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4120,7 +4104,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4136,7 +4120,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4152,7 +4136,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4168,7 +4152,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4184,7 +4168,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4200,7 +4184,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4216,7 +4200,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4232,7 +4216,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4248,7 +4232,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4264,7 +4248,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4280,7 +4264,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4296,7 +4280,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4312,7 +4296,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4328,7 +4312,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4344,7 +4328,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4360,7 +4344,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4376,7 +4360,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4392,7 +4376,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4408,7 +4392,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4424,7 +4408,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4440,7 +4424,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4456,7 +4440,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4472,7 +4456,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4488,7 +4472,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4504,7 +4488,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4520,7 +4504,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4536,7 +4520,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4552,7 +4536,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4568,7 +4552,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4584,7 +4568,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4600,7 +4584,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4616,7 +4600,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4632,7 +4616,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4648,7 +4632,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4664,7 +4648,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4680,7 +4664,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4696,7 +4680,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4712,7 +4696,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4728,7 +4712,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4744,7 +4728,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4760,7 +4744,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4776,7 +4760,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4792,7 +4776,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4808,7 +4792,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4824,7 +4808,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4840,7 +4824,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4856,7 +4840,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4872,7 +4856,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4888,7 +4872,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4904,7 +4888,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4920,7 +4904,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4936,7 +4920,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4952,7 +4936,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4968,7 +4952,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -4984,7 +4968,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5000,7 +4984,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5016,7 +5000,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5032,7 +5016,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5048,7 +5032,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5064,7 +5048,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5080,7 +5064,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5096,7 +5080,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5112,7 +5096,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5128,7 +5112,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "jump": false,
@@ -5179,7 +5163,7 @@
         "message": "SUCCESS: entity_destroyed signal was emitted!"
       }
     ],
-    "321": [
+    "320": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -1.0 \"Player should still be on ground\""
@@ -6754,23 +6738,7 @@
       "/root/TestScene_PropEmitter/PropDestroyerArea": {
         "active": true
       },
-      "CinematicManager": {
-        "current_control_mode": 0,
-        "is_transitioning": false,
-        "transition_timer": 0.516667,
-        "transition_duration": 0.5,
-        "source_transform": {
-          "origin": "(28.454899, 12.167052, 30.221134)",
-          "basis": {
-            "x": "(0.619448, 0, -0.785038)",
-            "y": "(-0.194085, 0.968957, -0.153146)",
-            "z": "(0.760668, 0.24723, 0.600218)"
-          }
-        },
-        "source_fov": 70,
-        "active_rig_path": "",
-        "current_camera_path": "/root/TestScene_PropEmitter/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
-      }
+      "CinematicManager": null
     },
     "scene_path": "res://core_v2/levels/TestScene_PropEmitter.tscn"
   },
@@ -6809,6 +6777,7 @@
       "axis": 0,
       "val": 0,
       "inv": false,
+      "allow_depth": false,
       "tsl": 15,
       "vc": [
         0,
@@ -6835,7 +6804,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 337,
+      "frames_since_last_snap": 336,
       "last_input_vector": [
         0,
         0,
@@ -6932,6 +6901,7 @@
     "cinematic_rig_path": ""
   },
   "oys_variables": {
-
+    "$sys_env_prop_path": "",
+    "$sys_env_auto_run": ""
   }
 }

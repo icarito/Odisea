@@ -41,7 +41,7 @@ current = true
 fov = 50.0
 
 [node name="Pilot" parent="." instance=ExtResource( 3 )]
-transform = Transform( 0.406944, 0, 0.913453, 0, 1, 0, -0.913453, 0, 0.406944, -3.67278, 7.0879, -2.94282 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 5 )
 
 [node name="SideScrollZoneV2" type="Area" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7, 0 )

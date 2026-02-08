@@ -724,12 +724,23 @@ func _on_oys_instruction_executed(inst: Dictionary, _vars: Dictionary):
 	
 	var cmd = inst.get("command", "")
 	match cmd:
-		"ASSERT", "SET", "MATH", "PRINT", "GET_NODES_IN_GROUP":
+		"ASSERT", "SET", "MATH", "PRINT", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "PLAY_ANIM", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP":
 			_current_replay_data["events"][frame].append(OYS_Parser.serialize_instruction(inst))
 		"ASSERT_SIGNAL":
 			var start_evt = OYS_Parser.serialize_instruction(inst)
 			start_evt["phase"] = "start"
 			_current_replay_data["events"][frame].append(start_evt)
+
+func record_event(inst: Dictionary):
+	if not is_recording: return
+	
+	var frame = _recording_frame
+	if not _current_replay_data.has("events"):
+		_current_replay_data["events"] = {}
+	if not _current_replay_data["events"].has(frame):
+		_current_replay_data["events"][frame] = []
+	
+	_current_replay_data["events"][frame].append(inst)
 
 func _on_oys_instruction_completed(inst: Dictionary, _vars: Dictionary):
 	if not is_recording: return
@@ -1009,6 +1020,20 @@ func _execute_event(cmd: Dictionary):
 			_handle_assert_signal(cmd)
 		"GET_NODES_IN_GROUP":
 			_handle_get_nodes_in_group(cmd)
+		"CALL":
+			_handle_call_command(cmd)
+		"LOAD_PROP":
+			var path = cmd.get("path", "")
+			if path != "":
+				load_prop(path)
+			else:
+				printerr("[SessionManager] Replay Error: LOAD_PROP with empty path")
+		"SPAWN":
+			_handle_spawn_command(cmd)
+		"PLAY_ANIM":
+			_handle_play_anim(cmd)
+		"SET_TIME_SCALE":
+			Engine.time_scale = float(cmd.get("value", 1.0))
 
 func _resolve_variables_in_string(msg: String) -> String:
 	if "$" in msg:
@@ -1126,28 +1151,25 @@ func _find_node_recursive(name: String) -> Node:
 
 func _handle_math_command(cmd: Dictionary):
 	var target_var = cmd.get("var", "")
-	var op = cmd.get("op", "+")
-	var val_right = _resolve_value(cmd.get("value"))
+	var expression = cmd.get("expression", "")
+	var result = 0.0
 	
-	if not oys_variables.has(target_var):
-		printerr("MATH Error: Variable not found ", target_var)
-		return
+	if target_var == "": return
 	
-	var val_left = oys_variables[target_var]
+	var expr_parts = expression.split(" ", false)
+	if expr_parts.size() == 1:
+		result = _resolve_value(expr_parts[0])
+	elif expr_parts.size() == 3:
+		var left = _resolve_value(expr_parts[0])
+		var inner_op = expr_parts[1]
+		var right = _resolve_value(expr_parts[2])
+		match inner_op:
+			"+": result = float(left) + float(right)
+			"-": result = float(left) - float(right)
+			"*": result = float(left) * float(right)
+			"/": if float(right) != 0: result = float(left) / float(right)
 	
-	# Ensure floats
-	val_left = float(val_left)
-	val_right = float(val_right)
-	
-	match op:
-		"+": oys_variables[target_var] = val_left + val_right
-		"-": oys_variables[target_var] = val_left - val_right
-		"*": oys_variables[target_var] = val_left * val_right
-		"/":
-			if val_right != 0:
-				oys_variables[target_var] = val_left / val_right
-			else:
-				printerr("MATH Error: Division by zero")
+	oys_variables[target_var] = result
 
 func _handle_assert_command(cmd: Dictionary):
 	if not player: return
@@ -1395,10 +1417,63 @@ func load_prop(path: String) -> void:
 	
 	var prop_stage = get_tree().current_scene
 	if not prop_stage or not prop_stage.has_method("load_prop"):
-		# Try fallback search
+		# Try fallback search for a node named PropStage specifically
 		prop_stage = get_tree().root.find_node("PropStage", true, false)
 		
 	if prop_stage and prop_stage.has_method("load_prop"):
 		prop_stage.load_prop(path)
 	else:
 		printerr("[SessionManager] Error: LOAD_PROP called but PropStage not found or invalid.")
+
+func _handle_call_command(cmd: Dictionary):
+	var method = cmd.get("method", "")
+	var args = cmd.get("args", [])
+	var resolved_args = []
+	for a in args:
+		resolved_args.append(_resolve_value(a))
+	
+	var target = _resolve_prop() # Try prop first
+	if not target or not target.has_method(method):
+		var stage = _resolve_stage()
+		if stage and stage != target and stage.has_method(method):
+			target = stage
+		else:
+			target = self # Fallback to SessionManager
+			
+	if target and target.has_method(method):
+		target.callv(method, resolved_args)
+	else:
+		printerr("[OYS Replay] CALL failed: Method '%s' not found" % method)
+
+func _handle_spawn_command(cmd: Dictionary):
+	var scene_path = cmd.get("scene", "")
+	var scene = load(scene_path)
+	if scene:
+		var obj = scene.instance()
+		get_tree().current_scene.add_child(obj)
+		if cmd.has("pos"):
+			obj.global_transform.origin = _parse_vector3(cmd.get("pos"))
+
+func _handle_play_anim(cmd: Dictionary):
+	var path = cmd.get("path", "")
+	var anim = cmd.get("anim", "")
+	var blend = float(cmd.get("blend", -1.0))
+	var node = _find_node_recursive(path)
+	if node and node is AnimationPlayer:
+		node.play(anim, blend)
+
+func _resolve_stage() -> Node:
+	var root = get_tree().root
+	var stage = root.find_node("PropStage", true, false)
+	if stage: return stage
+	stage = get_tree().current_scene
+	if stage and (stage.name == "PropStage" or stage.has_method("load_prop")):
+		return stage
+	return null
+
+func _resolve_prop() -> Node:
+	var stage = _resolve_stage()
+	if stage and "current_prop" in stage:
+		if is_instance_valid(stage.current_prop):
+			return stage.current_prop
+	return null

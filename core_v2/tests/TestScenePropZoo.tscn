@@ -1,0 +1,40 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://core_v2/tests/TestScenePropZoo.gd" type="Script" id=1]
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=2]
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=3]
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=4]
+
+[node name="TestScenePropZoo" type="Spatial"]
+script = ExtResource( 1 )
+columns = 3
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 12, 15, 20 )
+current = true
+far = 500.0
+
+[node name="Exhibits" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0 )
+
+[node name="Platform" type="CSGBox" parent="."]
+use_collision = true
+width = 380.0
+height = 0.2
+depth = 312.0
+material = ExtResource( 2 )
+
+[node name="Pilot" parent="Platform" instance=ExtResource( 3 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, -12 )
+
+[node name="WorldEnvironment2" type="WorldEnvironment" parent="."]
+environment = ExtResource( 4 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="WorldEnvironment2"]
+transform = Transform( 0.996195, 3.82452e-09, 0.0871557, -0.0841859, 0.258819, 0.96225, -0.0225575, -0.965926, 0.257834, 30.8934, 69.3233, 18.402 )
+light_color = Color( 0.364706, 0.364706, 0.364706, 1 )
+light_energy = 0.627
+light_indirect_energy = 1.279
+light_bake_mode = 2
+shadow_enabled = true
+directional_shadow_mode = 2

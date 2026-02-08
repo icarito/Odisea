@@ -11,7 +11,7 @@ RETURN_BASE64=false
 GODOT_BIN="godot3-bin" 
 PROJECT_PATH="$(pwd)"
 OUTPUT_DIR="$PROJECT_PATH/test_output/props"
-VALIDATOR_SCRIPT="res://core_v2/tests/prop_validator.oys"
+VALIDATOR_SCRIPT="res://core_v2/scripts/prop_validator.oys"
 PROP_DIR="./core_v2/props"
 
 # 1. Parse Arguments
@@ -20,6 +20,7 @@ while [ "$1" != "" ]; do
         --target=* )   TARGET_PROP="${1#*=}" ;;
         --base64 )        RETURN_BASE64=true ;;
         --editor-path=*) GODOT_BIN="${1#*=}" ;;
+        --script=* )   VALIDATOR_SCRIPT="${1#*=}" ;;
         -* )           echo "Unknown option: $1"; exit 1 ;;
         * )            TARGET_PROP="$1" ;;
     esac

@@ -97,22 +97,44 @@ static func parse_instruction(line: String) -> Dictionary:
 			data["duration"] = 0.5
 		
 		"CALL":
-			data["method"] = parts[1]
+			data["method"] = ""
 			var args = []
-			for j in range(2, parts.size()):
-				args.append(parts[j].replace("\"", ""))
+			for j in range(1, parts.size()):
+				var p = parts[j]
+				if p.begins_with("method="):
+					data["method"] = p.split("=")[1].replace("\"", "")
+				elif p.begins_with("args="):
+					# Very basic JSON-like array parsing [a,b,c]
+					var arr_str = p.split("=")[1].replace("[", "").replace("]", "").replace("\"", "")
+					if arr_str != "":
+						for a in arr_str.split(","):
+							args.append(a.strip_edges())
+				else:
+					# Legacy positional argument or method name without method=
+					if data["method"] == "":
+						data["method"] = p.replace("\"", "")
+					else:
+						args.append(p.replace("\"", ""))
 			data["args"] = args
 		
 		"SET":
 			data["var"] = parts[1] if parts.size() > 1 else ""
-			if parts.size() > 3:
+			if parts.size() > 3 and parts[2].to_upper() != "AS" and not parts[2].begins_with("("):
 				data["func"] = parts[2]
 				var args = []
 				for j in range(3, parts.size()):
 					args.append(parts[j].replace("\"", ""))
 				data["args"] = args
-			elif parts.size() > 2:
-				data["value"] = parts[2]
+			else:
+				var start_idx = 2
+				if parts.size() > 2 and parts[2].to_upper() == "AS":
+					start_idx = 3
+				
+				if parts.size() > start_idx:
+					var value = ""
+					for j in range(start_idx, parts.size()):
+						value += parts[j] + " "
+					data["value"] = value.strip_edges()
 		
 		"ASSERT":
 			data["condition"] = line.substr(line.find(" ") + 1)
@@ -183,17 +205,20 @@ static func parse_instruction(line: String) -> Dictionary:
 				var sub_parts = Array(parts).slice(1, parts.size())
 				if sub_cmd == "FW" or sub_cmd == "BW":
 					var parsed = _parse_movement(sub_parts, sub_cmd)
+					# DO NOT overwrite is_running if we are in a modifier
+					parsed.erase("is_running")
 					data.merge(parsed, true)
 				elif sub_cmd == "LEFT" or sub_cmd == "RIGHT":
 					var parsed = _parse_strafe_or_turn(sub_parts, sub_cmd)
 					data.merge(parsed, true)
 		
 		"MATH":
-			# MATH <var> <op> <value>
 			if parts.size() >= 4:
 				data["var"] = parts[1]
 				data["op"] = parts[2]
-				data["value"] = parts[3]
+				# Store the rest of the line as expression
+				var start_pos = line.find(parts[2]) + parts[2].length()
+				data["expression"] = line.substr(start_pos).strip_edges()
 			else:
 				printerr("[OYS_Parser] Invalid MATH command: ", line)
 		
@@ -220,7 +245,6 @@ static func _parse_movement(parts: Array, direction: String) -> Dictionary:
 		result["value"] = parsed.value
 		# Para FW/BW, "none" significa segundos
 		result["unit"] = "s" if parsed.unit == "none" else parsed.unit
-		result["is_running"] = true # Default
 	return result
 
 # Parse strafe/turn commands (LEFT/RIGHT)
@@ -280,4 +304,5 @@ static func distance_to_duration(distance_m: float, is_running: bool = true) -> 
 	var speed = 5.0 # base move_speed
 	if is_running:
 		speed *= 1.8 # run_speed_multiplier
-	return distance_m / speed
+	# Add a small buffer for acceleration ramp-up (approx 0.4s)
+	return (distance_m / speed) + 0.4
