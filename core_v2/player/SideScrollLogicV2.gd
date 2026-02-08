@@ -20,7 +20,7 @@ export(float) var depth_zoom_factor := 0.5 # How much to zoom based on depth dis
 export(float) var depth_zoom_max := 3.0 # Max extra zoom from depth
 
 # --- LOOK-AHEAD (Rule of Thirds) ---
-export(float) var lookahead_angle := 15.0 # Camera yaw offset for rule of thirds
+export(float) var lookahead_angle := 0.0 # Camera yaw offset for rule of thirds
 export(float) var lookahead_speed := 2.0 # How fast camera rotates to look ahead
 export(float) var turn_delay := 2.0 # Delay in seconds before camera follows turn
 
@@ -160,14 +160,16 @@ func get_target_basis() -> Basis:
 	# Apply base pitch (rig pitch)
 	target_basis = target_basis.rotated(Vector3.RIGHT, deg2rad(target_pitch_deg))
 
-	# Apply profile constraint rotation
+	# Apply profile constraint rotation (Inverted for "outside-in" view)
 	if lock_axis == 2: # Z blocked
+		# Default: Facing -Z (Standard Front View)
+		# No extra rotation needed for identity (-Z)
 		if invert_side:
-			target_basis = target_basis.rotated(Vector3.UP, PI)
+			target_basis = target_basis.rotated(Vector3.UP, PI) # Facing +Z (Back View)
 	elif lock_axis == 1: # X blocked
-		target_basis = Basis(Vector3.UP, -PI / 2.0) * target_basis
+		target_basis = Basis(Vector3.UP, PI / 2.0) * target_basis # Facing +X by default
 		if invert_side:
-			target_basis = target_basis.rotated(Vector3.UP, PI)
+			target_basis = target_basis.rotated(Vector3.UP, PI) # Back to -PI/2 (-X)
 	
 	# Apply manual control (from mouse) on top
 	target_basis = target_basis.rotated(Vector3.UP, manual_yaw)

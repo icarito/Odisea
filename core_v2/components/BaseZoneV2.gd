@@ -45,14 +45,16 @@ func _find_and_setup_host():
 			printerr("[BaseZoneV2] WARNING: ", name, " has no Area host (self or parent).")
 
 func _on_host_body_entered(body: Node):
-	_bodies_in_zone[body.get_instance_id()] = body
 	if body.is_in_group("player"):
+		print("DEBUG BASEZONE: Body Entered: ", body.name, " Zone: ", self.name)
 		_on_zone_entered(body)
+	_bodies_in_zone[body.get_instance_id()] = body
 
 func _on_host_body_exited(body: Node):
-	_bodies_in_zone.erase(body.get_instance_id())
 	if body.is_in_group("player"):
+		print("DEBUG BASEZONE: Body Exited: ", body.name, " Zone: ", self.name)
 		_on_zone_exited(body)
+	_bodies_in_zone.erase(body.get_instance_id())
 
 # Virtual methods to be overridden by subclasses
 func _on_zone_entered(_body: Node):
