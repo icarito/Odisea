@@ -1089,6 +1089,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/RotatingObjectV2.gd"
 }, {
+"base": "KinematicBody",
+"class": "SciFiFloatingLightV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/SciFiFloatingLightV2.gd"
+}, {
+"base": "StaticBody",
+"class": "SciFiFloorPanelV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/SciFiFloorPanelV2.gd"
+}, {
 "base": "VBoxContainer",
 "class": "ShapeCreationButton",
 "language": "GDScript",
@@ -1421,6 +1431,8 @@ _global_script_class_icons={
 "RichTextEffectBackground": "",
 "RichTextLabelExt": "",
 "RotatingObjectV2": "",
+"SciFiFloatingLightV2": "",
+"SciFiFloorPanelV2": "",
 "ShapeCreationButton": "",
 "SideScrollZoneV2": "",
 "SignalHandler": "",
@@ -1571,13 +1583,13 @@ cursor_right={
 zoom_in={
 "deadzone": 0.5,
 "events": [ Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":12,"pressure":0.0,"pressed":false,"script":null)
-, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":4,"canceled":false,"pressed":false,"doubleclick":false,"script":null)
+, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":4,"pressed":false,"doubleclick":false,"script":null)
  ]
 }
 zoom_out={
 "deadzone": 0.5,
 "events": [ Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":13,"pressure":0.0,"pressed":false,"script":null)
-, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":5,"canceled":false,"pressed":false,"doubleclick":false,"script":null)
+, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":5,"pressed":false,"doubleclick":false,"script":null)
  ]
 }
 roll={

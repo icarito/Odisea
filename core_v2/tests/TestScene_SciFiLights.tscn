@@ -1,0 +1,18 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://core_v2/props/scifi_lights/SciFiFloatingLightV2.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/props/scifi_lights/SciFiStaticLightV2.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/scifi_lights/SciFiFloorPanelV2.tscn" type="PackedScene" id=3]
+
+[node name="TestScene" type="Spatial"]
+
+[node name="SciFiFloatingLightV2" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
+
+[node name="SciFiStaticLightV2" parent="." instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 2, 0 )
+
+[node name="SciFiFloorPanelV2" parent="." instance=ExtResource( 3 )]
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 4 )
