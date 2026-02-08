@@ -1,0 +1,4 @@
+LEVEL res://core_v2/tests/TestDDC.tscn
+WAIT 60
+ASSERT_SIGNAL DDC "state_changed"
+WAIT 120

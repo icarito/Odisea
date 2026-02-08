@@ -1,0 +1,36 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://core_v2/props/ddc/DDC.gd" type="Script" id=1]
+
+[sub_resource type="CubeMesh" id=1]
+size = Vector3( 0.5, 0.5, 0.5 )
+
+[sub_resource type="SpatialMaterial" id=2]
+flags_unshaded = true
+albedo_color = Color( 1, 0.5, 0, 1 )
+
+[node name="DDC" type="Spatial"]
+script = ExtResource( 1 )
+
+[node name="Body" type="MeshInstance" parent="."]
+mesh = SubResource( 1 )
+material/0 = null
+
+[node name="Head" type="Spatial" parent="."]
+
+[node name="RayCast" type="RayCast" parent="Head"]
+enabled = true
+cast_to = Vector3( 0, 0, -15 )
+collision_mask = 3
+
+[node name="LaserBeam" type="ImmediateGeometry" parent="Head"]
+
+[node name="WarningLight" type="OmniLight" parent="Head"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2, -0.3 )
+light_energy = 1.0
+omni_range = 10.0
+
+[node name="ImpactMarker" type="CSGSphere" parent="Head"]
+visible = false
+radius = 0.1
+material = SubResource( 2 )
