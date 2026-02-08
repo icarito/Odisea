@@ -108,11 +108,12 @@ material/0 = SubResource( 36 )
 shape = SubResource( 37 )
 
 [node name="CSGBox" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0 )
 visible = false
 use_collision = true
 collision_layer = 32
 width = 0.8
-height = 1.0
+height = 0.5
 depth = 0.8
 
 [node name="CSGBox2" type="CSGBox" parent="."]

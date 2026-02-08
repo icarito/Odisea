@@ -26,6 +26,10 @@ const PARAM_CONDITIONS_IS_ACROBATIC = "parameters/conditions/is_acrobatic"
 export var velocity_lerp_speed: float = 5.0
 # Velocidad de suavizado para la rotación visual del personaje.
 export var rotation_lerp_speed: float = 10.0
+# Velocidad de suavizado para la inclinación (tilt) vertical.
+export var tilt_lerp_speed: float = 5.0
+# Ángulo máximo de inclinación en grados.
+export var max_tilt_angle: float = 25.0
 # Duración en segundos durante la cual consideramos que el salto acaba de iniciarse (buffer)
 export var jump_buffer_duration: float = 0.18
 
@@ -96,6 +100,9 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	# Use is_effectively_grounded() to include stair-stepping grace period
 	# This prevents animation flickering when climbing stairs
 	var is_on_floor: bool = controller.is_effectively_grounded() if controller.has_method("is_effectively_grounded") else controller.is_on_floor()
+	# if is_on_floor != was_on_floor_last_frame:
+	# 	print("DEBUG: Animator Grounded Shift: ", is_on_floor, " Controller on_floor: ", controller.is_on_floor())
+	
 	var wish_direction: Vector3 = controller.get_wish_direction()
 
 	# Guardar la velocidad vertical mientras estamos en el aire para usarla al aterrizar
@@ -143,7 +150,23 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 			else: # Aplicación instantánea en modo REPLAY.
 				rotation.y = target_angle
 
+	# 3. INCLINACIÓN (TILT) BASADA EN PENDIENTE/ESCALERAS
+	# Calculamos el ángulo de inclinación basado en la relación entre velocidad vertical y horizontal
+	var horz_speed = Vector2(visual_velocity.x, visual_velocity.z).length()
+	var target_pitch = 0.0
 	
+	# Solo calculamos tilt si estamos "efectivamente en el suelo" y moviéndonos
+	if is_on_floor and horz_speed > 0.1:
+		# atan2(y, x) nos da el ángulo de la pendiente. 
+		# Limitamos el ángulo para evitar poses extremas.
+		target_pitch = - clamp(atan2(visual_velocity.y, horz_speed), deg2rad(-max_tilt_angle), deg2rad(max_tilt_angle))
+	
+	if dt > 0:
+		rotation.x = lerp_angle(rotation.x, target_pitch, tilt_lerp_speed * dt)
+	else:
+		rotation.x = target_pitch
+
+
 	# Desbloquear rotación al aterrizar
 	if is_on_floor and is_rotation_locked and not acrobatic_trigger_active:
 		is_rotation_locked = false
@@ -162,15 +185,17 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	animation_tree.set(PARAM_CONDITIONS_ON_FLOOR, is_on_floor)
 	animation_tree.set(PARAM_CONDITIONS_NOT_ON_FLOOR, not is_on_floor)
 
-	# Estados de salto/caída usando la velocidad registrada en el último frame en aire
-	var is_falling: bool = last_air_vertical_speed < -1.0
-	var is_floating: bool = last_air_vertical_speed >= -1.0 and last_air_vertical_speed < 0.0
+	# Estados de salto/caída usando la velocidad registrada en el último frame en aire.
+	# IMPORTANTE: Forzamos false si estamos en el suelo (evita flickering en escaleras).
+	var is_falling: bool = last_air_vertical_speed < -1.0 and not is_on_floor
+	var is_floating: bool = last_air_vertical_speed >= -1.0 and last_air_vertical_speed < 0.0 and not is_on_floor
 
 	animation_tree.set(PARAM_CONDITIONS_IS_FALLING, is_falling)
 	animation_tree.set(PARAM_CONDITIONS_IS_FLOATING, is_floating)
 
 	# is_jumping: true si acabamos de disparar el salto (buffer) o si estamos subiendo en aire
-	var is_jumping_param: bool = (jumped_buffer_time > 0.0) or (not is_on_floor and velocity.y > 1.0)
+	# IMPORTANTE: También forzamos false si estamos en el suelo para evitar saltos visuales en escaleras.
+	var is_jumping_param: bool = ((jumped_buffer_time > 0.0) or (not is_on_floor and velocity.y > 1.0)) and not is_on_floor
 	
 	# PRIORIDAD ABSOLUTA AL BACKFLIP:
 	# Si el latch acrobático está armado, forzamos is_jumping a false.
@@ -213,6 +238,7 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	# Lógica de transición de Salto (Start vs Land)
 	# Solo pasamos a Land (1) si tocamos el suelo antes de que termine el estado visual de salto.
 	# No pasamos a Land al soltar el botón (Short Jump), para mantener el arco visual en el aire.
+	# IMPORTANTE: Forzamos 1 (Land/Grounded) si estamos en el suelo.
 	var jump_transition = 1 if is_on_floor else 0
 	animation_tree.set(PARAM_JUMP_TRANSITION_CURRENT, jump_transition)
 

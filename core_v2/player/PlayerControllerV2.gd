@@ -825,8 +825,28 @@ func step(dt: float, input: InputDataV2) -> void:
 			# Only block movement if we are actually FOCUSED (keyboard input captured)
 			_terminal_ui_active = terminal.is_focused()
 
-	# --- DIRECTION LATCH SYSTEM ---
 	# Detectar cambios de contexto de cámara (entrada/salida de zonas)
+	
+	# [FIX] Move Rig Activation BEFORE Latch Detection
+	# This ensures CinematicManager.active_rig is updated for the current frame
+	# before we use it as a fallback for 'active_rig' below.
+	if _cinematic_rig != _prev_cinematic_rig:
+		if _cinematic_rig:
+			# Force update our camera transform so the transition starts from exactly where we are
+			# If we are in SideScroll mode, we MUST manually apply the 2.5D camera logic
+			# because _step_camera_logic hasn't run yet for this frame.
+			if sidescroll_logic.is_active:
+				_force_snap_to_sidescroll_camera()
+			
+			if camera_rig: camera_rig.force_update_transform()
+			var viewport_cam = get_viewport().get_camera()
+			if viewport_cam: viewport_cam.force_update_transform()
+
+			var control_mode = _active_cinematic_zone.control_mode if _active_cinematic_zone and "control_mode" in _active_cinematic_zone else CinematicManager.ControlMode.FREE
+			CinematicManager.activate_rig_direct(_cinematic_rig, control_mode)
+		else:
+			CinematicManager.deactivate_rig()
+
 	# Fallback to CinematicManager's active rig if we didn't detect one via zones
 	# This ensures we respect rigs activated by HoloTerminals or other scripts
 	var active_rig = _cinematic_rig if _cinematic_rig else CinematicManager.active_rig
@@ -861,13 +881,19 @@ func step(dt: float, input: InputDataV2) -> void:
 		
 		# Para cinematic, buscar la zona que activó el rig
 		var cinematic_zone = null
-		if active_rig != null:
-			# print("DEBUG: Active rig: ", active_rig.get_path())
+		
+		# Si estamos saliendo, el active_rig ya es null, así que usamos el anterior
+		var rig_to_check = active_rig
+		if rig_to_check == null and exiting:
+			rig_to_check = _prev_cinematic_rig
+			
+		if rig_to_check != null:
+			# print("DEBUG: Checking rig: ", rig_to_check.get_path())
 			for zone in get_tree().get_nodes_in_group("CinematicCameraZoneV2"):
 				var zone_rig = zone.get_node_or_null(zone.cinematic_rig_path)
 				# print("DEBUG: Checking zone: ", zone.name, " with rig path: ", zone.cinematic_rig_path)
 				
-				if zone_rig == active_rig:
+				if zone_rig == rig_to_check:
 					cinematic_zone = zone
 					# print("DEBUG: Match found: ", zone.name)
 					break
@@ -918,23 +944,7 @@ func step(dt: float, input: InputDataV2) -> void:
 				_latched_sidescroll_basis = sidescroll_logic.get_target_basis()
 				
 			# print("DEBUG LATCH: Activated! Fwd=", _latched_dir_fwd, " Rt=", _latched_dir_rt, " Exiting=", exiting)
-	if _cinematic_rig != _prev_cinematic_rig:
-		if _cinematic_rig:
-			# Force update our camera transform so the transition starts from exactly where we are
-			# If we are in SideScroll mode, we MUST manually apply the 2.5D camera logic
-			# because _step_camera_logic hasn't run yet for this frame.
-			if sidescroll_logic.is_active:
-				_force_snap_to_sidescroll_camera()
-			
-			if camera_rig: camera_rig.force_update_transform()
-			var viewport_cam = get_viewport().get_camera()
-			if viewport_cam: viewport_cam.force_update_transform()
-
-			var control_mode = _active_cinematic_zone.control_mode if _active_cinematic_zone and "control_mode" in _active_cinematic_zone else CinematicManager.ControlMode.FREE
-			CinematicManager.activate_rig_direct(_cinematic_rig, control_mode)
-		else:
-			CinematicManager.deactivate_rig()
-
+	
 	# Actualizar las referencias "prev" para el próximo frame
 	_prev_sidescroll_active = sidescroll_logic.is_active
 	_prev_cinematic_rig = _cinematic_rig
@@ -1001,6 +1011,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	
 	# Skip sidescroll constraints when a cinematic rig is active
 	# --- CINEMATIC CONTROL MODE ---
+	
 	if active_rig or _direction_latch_active:
 		var mode = CinematicManager.get_control_mode() # Usually LOCKED_VIEW or FREE
 		
