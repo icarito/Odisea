@@ -350,7 +350,24 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			
 			var expr_parts = expression.split(" ", false)
 			if expr_parts.size() == 1:
-				result = _resolve_value(expr_parts[0])
+				var right_val = _resolve_value(expr_parts[0])
+				var op = inst.get("op", "")
+				
+				# Support in-place modification: MATH $x + 5
+				if op in ["+", "-", "*", "/"]:
+					var left_val = variables.get(var_name, 0.0)
+					match op:
+						"+": result = float(left_val) + float(right_val)
+						"-": result = float(left_val) - float(right_val)
+						"*": result = float(left_val) * float(right_val)
+						"/": if float(right_val) != 0: result = float(left_val) / float(right_val)
+				else:
+					# Simple assignment: MATH $x 5 (Wait, parser treats 2nd arg as OP?)
+					# If op is not a math op, treat strictly as assignment?
+					# But Parser logic puts 3rd token as OP. 
+					# MATH $x = 5 -> op="=".
+					result = right_val
+			
 			elif expr_parts.size() == 3:
 				var left = _resolve_value(expr_parts[0])
 				var inner_op = expr_parts[1]
@@ -362,6 +379,19 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 					"/": if float(right) != 0: result = float(left) / float(right)
 			
 			variables[var_name] = result
+		
+		"GET_POS":
+			var player = _find_player()
+			if player and is_instance_valid(player):
+				var pos = Vector3.ZERO
+				if player is Spatial:
+					pos = player.global_transform.origin
+				elif player is Node2D:
+					pos = Vector3(player.position.x, player.position.y, 0)
+				
+				if inst.has("x"): variables[inst.x] = pos.x
+				if inst.has("y"): variables[inst.y] = pos.y
+				if inst.has("z"): variables[inst.z] = pos.z
 	
 	return null
 
@@ -386,8 +416,8 @@ func _execute_movement(inst: Dictionary, my_id: int):
 			duration_sec = value
 			if unit == "m":
 				duration_sec = OYS_Parser.distance_to_duration(value, is_sprint)
-			# Normalized move_vec.y: -1 is Forward, 1 is Backward
-			move_vec = Vector2(0, -1) if cmd == "FW" else Vector2(0, 1)
+			# Working convention: 1 is Forward, -1 is Backward
+			move_vec = Vector2(0, 1) if cmd == "FW" else Vector2(0, -1)
 		
 		"LEFT", "RIGHT":
 			if inst.get("is_turning", false):
@@ -401,8 +431,8 @@ func _execute_movement(inst: Dictionary, my_id: int):
 			duration_sec = value
 			if unit == "m":
 				duration_sec = OYS_Parser.distance_to_duration(value, is_sprint)
-			# Normalized move_vec.x: -1 is Left, 1 is Right
-			move_vec = Vector2(-1, 0) if cmd == "LEFT" else Vector2(1, 0)
+			# Working convention: 1 is Left, -1 is Right
+			move_vec = Vector2(1, 0) if cmd == "LEFT" else Vector2(-1, 0)
 		
 		"JUMP":
 			duration_sec = inst.get("duration", 0.1)

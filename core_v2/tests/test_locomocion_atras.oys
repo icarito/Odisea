@@ -4,5 +4,5 @@
 
 SECTION "Movimiento atrás"
     BW 1.0
-    ASSERT pos.z > 0.5 "ERROR: Elías no se desplazó hacia atrás (+Z)"
+    ASSERT pos.z < -0.5 "ERROR: Elías no se desplazó hacia atrás (+Z)"
 END

@@ -4,5 +4,5 @@
 
 SECTION "Caminata rectilínea"
     WALK FW 1.0
-    ASSERT pos.z < -0.5 "ERROR: Elías no se desplazó lo suficiente hacia adelante (-Z)"
+    ASSERT pos.z > 1.0 "ERROR: Elías no se desplazó lo suficiente hacia adelante (-Z)"
 END

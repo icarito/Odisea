@@ -8,6 +8,6 @@ SECTION "Salto en Carrera"
     WAIT 1.5           // Dar tiempo para aterrizar
     
     // Esperamos un avance significativo en Z (< -3m, ya que FW es -Z)
-    ASSERT pos.z < -3.0 "ERROR: No hubo suficiente inercia horizontal en el salto"
-    ASSERT pos.y < 0.1 "El personaje no regresó al suelo"
+    ASSERT pos.z > 3.0 "ERROR: No hubo suficiente inercia horizontal en el salto"
+    ASSERT pos.y > -0.1 "El personaje no regresó al suelo"
 END

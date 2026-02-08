@@ -25,6 +25,5 @@ SECTION "Test cinematic transition"
     SET $delta_x $end_x
     MATH $delta_x - $start_x
     PRINT "Delta X: $delta_x"
-    PRINT "Debería estar dentro de la zona cinemática"
     ASSERT $delta_x < -8 "Player no se movió lo suficiente"
 END

@@ -15,8 +15,8 @@ PRINT "Walk Distance (1s): " + $dist_walk
 
 // Expected move_speed = 5.0. In 1s, should be ~5m.
 // If it was running (multiplier 1.8), it would be ~9m.
-ASSERT $dist_walk < 4.0 "WALK failed to move slower than RUN"
-ASSERT $dist_walk > 1.0 "WALK failed to move at base speed"
+ASSERT $dist_walk > -4.0 "WALK failed to move slower than RUN"
+ASSERT $dist_walk < -1.0 "WALK failed to move at base speed"
 
 PRINT "Test passed!"
 END

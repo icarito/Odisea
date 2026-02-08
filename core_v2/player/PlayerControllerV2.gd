@@ -509,18 +509,23 @@ func _find_spring_arm(node: Node) -> SpringArm:
 func get_camera_basis() -> Basis:
 	return camera_rig.global_transform.basis if camera_rig else DEFAULT_BASIS
 
-func _get_move_direction(input_vector: Vector2, control_mode: int) -> Vector3:
+func _get_move_direction(input_vector: Vector2, control_mode: int, ref_camera: Camera = null) -> Vector3:
 	"""Calcula la dirección de movimiento basada en el modo de control cinemático."""
-	var camera = get_viewport().get_camera()
+	var camera = ref_camera
 	if not camera:
-		# For headless tests or no camera, assume forward is +Z
-		if input_vector.y < 0:
+		camera = get_viewport().get_camera()
+	
+	if not camera:
+		# For headless tests or no camera, assume forward is -Z (Godot standard)
+		# input.y > 0 (W pressed) -> move forward (-Z)
+		# input.x > 0 (D pressed) -> move right (+X), but input is (Left - Right), so D=-1
+		if input_vector.y > 0:
 			return Vector3(0, 0, -1)
-		elif input_vector.y > 0:
+		elif input_vector.y < 0:
 			return Vector3(0, 0, 1)
-		elif input_vector.x < 0:
-			return Vector3(-1, 0, 0)
 		elif input_vector.x > 0:
+			return Vector3(-1, 0, 0)
+		elif input_vector.x < 0:
 			return Vector3(1, 0, 0)
 		return Vector3.ZERO
 	
@@ -539,7 +544,8 @@ func _get_move_direction(input_vector: Vector2, control_mode: int) -> Vector3:
 			var right = camera.global_transform.basis.x
 			forward.y = 0
 			right.y = 0
-			return (right.normalized() * input_vector.x + forward.normalized() * (-input_vector.y))
+			# NOTE: Changed from -input_vector.y to input_vector.y to behave as "Walk Away from Camera"
+			return (right.normalized() * input_vector.x + forward.normalized() * input_vector.y)
 		
 		CinematicManager.ControlMode.FIXED_AXIS:
 			# Ignora la rotación de la cámara, usa ejes globales
@@ -734,7 +740,7 @@ func step(dt: float, input: InputDataV2) -> void:
 
 			if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED or is_replay_mode:
 				yaw -= input.mouse_delta.x * mouse_sensitivity
-				pitch += input.mouse_delta.y * mouse_sensitivity
+				pitch -= input.mouse_delta.y * mouse_sensitivity
 
 			# If in tank mode, A/D (input.move_vec.x) also rotates the camera
 			yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
@@ -889,7 +895,7 @@ func step(dt: float, input: InputDataV2) -> void:
 					fwd = - _prev_camera_basis.z
 					rt = _prev_camera_basis.x
 				else: # FREE and others
-					fwd = _prev_camera_basis.z
+					fwd = - _prev_camera_basis.z
 					rt = _prev_camera_basis.x
 				
 				fwd.y = 0
@@ -993,26 +999,29 @@ func step(dt: float, input: InputDataV2) -> void:
 	if active_rig or _direction_latch_active:
 		var mode = CinematicManager.get_control_mode() # Usually LOCKED_VIEW or FREE
 		
+		# Determine reference camera for input calculation
+		var ref_cam = null
+		if active_rig and active_rig.has_method("get_camera"):
+			ref_cam = active_rig.get_camera()
+		
 		if _direction_latch_active:
 			# LATCHED: Use the stored forward/right vectors computed at latch activation
-			# We construct a basis where Z=Forward and X=Right (relative to the latched context)
-			# This allows process_movement to interpret raw input correctly against that context.
 			var rt = _latched_dir_fwd.cross(Vector3.UP)
 			basis = Basis(rt, Vector3.UP, -_latched_dir_fwd)
 			move_vec = input.move_vec
 		else:
-			# UNLATCHED: Use current camera basis (rotates with camera)
-			var world_dir = _get_move_direction(input.move_vec, mode)
+			# UNLATCHED: Use target camera basis (rotates with camera)
+			var world_dir = _get_move_direction(input.move_vec, mode, ref_cam)
 			
 			if world_dir.length() > 0.01:
 				var b_z = - world_dir.normalized()
 				basis = Basis(Vector3.UP.cross(b_z), Vector3.UP, b_z)
 				move_vec = Vector2(0, -world_dir.length())
+			
 			# Override sidescroll facing
 			if sidescroll_logic.is_active:
-				# Project world_dir onto scroll Plane?
-				# For now, just trust 3D movement logic.
 				pass
+
 	
 	elif _forward_latch_active and not sidescroll_logic.allow_depth and not active_rig:
 		# FORWARD LATCH: Force controls to follow strict 2.5D path
