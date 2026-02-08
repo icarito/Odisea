@@ -734,7 +734,7 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/fuzzers/IntFuzzer.gd"
 }, {
-"base": "KinematicBody",
+"base": "Spatial",
 "class": "InteractableBaseV2",
 "language": "GDScript",
 "path": "res://core_v2/components/InteractableBaseV2.gd"

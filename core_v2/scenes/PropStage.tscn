@@ -15,7 +15,6 @@ extents = Vector3( 13, 8, 13 )
 
 [node name="PropStage" type="Spatial"]
 script = ExtResource( 1 )
-dev_prop_path = ""
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource( 1 )
