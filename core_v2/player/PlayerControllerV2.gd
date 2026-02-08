@@ -540,12 +540,17 @@ func _get_move_direction(input_vector: Vector2, control_mode: int, ref_camera: C
 		
 		CinematicManager.ControlMode.LOCKED_VIEW:
 			# "Arriba" en el stick siempre es "Hacia el fondo" de la cámara
+			# Usar el basis de la cámara directamente (omitiendo Y para movimiento en suelo)
 			var forward = - camera.global_transform.basis.z
-			var right = camera.global_transform.basis.x
 			forward.y = 0
+			forward = forward.normalized()
+			var right = camera.global_transform.basis.x
 			right.y = 0
-			# NOTE: Changed from -input_vector.y to input_vector.y to behave as "Walk Away from Camera"
-			return (right.normalized() * input_vector.x + forward.normalized() * input_vector.y)
+			right = right.normalized()
+			
+			# Horizontal: Invertimos para que Right=-1 mueva a la Derecha
+			# Vertical: Mantenemos signo para que Forward=1 mueva Al Fondo
+			return (right * (-input_vector.x) + forward * input_vector.y)
 		
 		CinematicManager.ControlMode.FIXED_AXIS:
 			# Ignora la rotación de la cámara, usa ejes globales
@@ -901,7 +906,7 @@ func step(dt: float, input: InputDataV2) -> void:
 				fwd.y = 0
 				rt.y = 0
 				_latched_dir_fwd = fwd.normalized()
-				_latched_dir_rt = - rt.normalized() # Match the -right in standard movement
+				_latched_dir_rt = rt.normalized() # Match the right in standard movement
 				_latched_cinematic_mode = active_mode
 				
 			# Guardar qué teclas activaron el latch
@@ -1006,8 +1011,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		
 		if _direction_latch_active:
 			# LATCHED: Use the stored forward/right vectors computed at latch activation
-			var rt = _latched_dir_fwd.cross(Vector3.UP)
-			basis = Basis(rt, Vector3.UP, -_latched_dir_fwd)
+			basis = Basis(_latched_dir_rt, Vector3.UP, -_latched_dir_fwd)
 			move_vec = input.move_vec
 		else:
 			# UNLATCHED: Use target camera basis (rotates with camera)

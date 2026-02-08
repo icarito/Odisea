@@ -261,3 +261,5 @@ directional_shadow_mode = 2
 [node name="HoloTerminalV2" parent="." instance=ExtResource( 7 )]
 transform = Transform( 0.714143, 0, 0.7, 0, 1, 0, -0.7, 0, 0.714143, 3.74335, 2.38419e-07, 7.4683 )
 auto_interact = true
+use_cinematic_zone = true
+close_on_exit_zone = true

@@ -33,7 +33,7 @@ emission_energy = 2.0
 emission_operator = 0
 emission_on_uv2 = false
 
-[sub_resource type="ViewportTexture" id=16]
+[sub_resource type="ViewportTexture" id=18]
 
 [sub_resource type="ShaderMaterial" id=7]
 shader = ExtResource( 3 )
@@ -44,7 +44,7 @@ shader_param/flip_h = false
 shader_param/flip_v = true
 shader_param/back_flip_h = false
 shader_param/back_flip_v = false
-shader_param/texture_albedo = SubResource( 16 )
+shader_param/texture_albedo = SubResource( 18 )
 
 [sub_resource type="BoxShape" id=17]
 extents = Vector3( 1.5, 2, 1.5 )
@@ -115,10 +115,11 @@ depth = 0.05
 material = SubResource( 8 )
 
 [node name="ScreenContainer" type="Spatial" parent="."]
-transform = Transform( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0 )
+transform = Transform( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1.2, 0 )
+visible = false
 
 [node name="ScreenMesh" type="CSGBox" parent="ScreenContainer"]
-transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 1.9, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.9, 0 )
 invert_faces = true
 width = 2.7
 height = 1.8
@@ -139,7 +140,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0 )
 shape = SubResource( 1 )
 
 [node name="CinematicSetup" type="Spatial" parent="."]
-transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 0 )
+transform = Transform( 1, 0, 1.74846e-07, 0, 1, 0, -1.74846e-07, 0, 1, 0, 0, 0 )
 
 [node name="CameraZone" type="Area" parent="CinematicSetup"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -1.5 )
@@ -160,6 +161,7 @@ curve = SubResource( 14 )
 script = ExtResource( 6 )
 track_player = true
 follow_player_on_path = true
+invert_input_x = null
 preview_position = 0.5
 
 [node name="PathFollow" type="PathFollow" parent="CinematicSetup/CinematicPathRig"]

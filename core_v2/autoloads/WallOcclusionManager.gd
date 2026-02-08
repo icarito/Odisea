@@ -4,7 +4,7 @@ var player_node: Spatial
 var camera_node: Camera
 var is_occlusion_active: bool = false
 var hole_radius: float = 1.5
-var registered_materials: Array = []  # Simple array of materials
+var registered_materials: Array = [] # Simple array of materials
 
 # Shader effect parameters
 var shader_params: Dictionary = {
@@ -49,7 +49,6 @@ func _process(_delta):
 func register_material(mat: ShaderMaterial, _owner_node: Spatial = null):
 	if mat and not registered_materials.has(mat):
 		registered_materials.append(mat)
-		print("[WallOcclusionManager] Registered material: ", mat.resource_path if mat.resource_path else "Unsaved shader material")
 		# Immediate apply
 		mat.set_shader_param("hole_radius", hole_radius)
 
