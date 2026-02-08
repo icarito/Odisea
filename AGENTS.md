@@ -12,7 +12,7 @@ Fuente de verdad sobre reglas y contratos del proyecto (Godot 3.6, GLES2) para I
 
 Si algún test falla, corregirlo antes de considerar el trabajo terminado.
 
-### � Optimización: Correr Tests Selectivamente
+###  Optimización: Correr Tests Selectivamente
 
 **Si sabes qué test es relevante para tu cambio, córrelo primero para agilizar:**
 
@@ -30,7 +30,7 @@ Si algún test falla, corregirlo antes de considerar el trabajo terminado.
 ./runtest.sh -a ./core_v2/tests/
 ```
 
-### �📋 Leer el Output de los Tests
+### 📋 Leer el Output de los Tests
 
 **El output siempre se guarda en `./reports/gdunit_runner.log`**
 
@@ -114,3 +114,10 @@ Para garantizar replays determinísticos, todo agente sincronizado debe:
 ```
 
 Este comando utiliza el script `runtest.sh` para lanzar Godot en modo headless y ejecutar la suite de tests especificada. Si el `drift` (desviación) entre la posición final del replay y la esperada supera un umbral mínimo, el test fallará, indicando una ruptura en el determinismo.
+
+## Nota para Agentes: Verificación de Assets
+
+Al trabajar con Props o Elementos Interactuables, sigue este procedimiento recurrente:
+1.  **Ejecución**: Usa `./test_prop.sh --target="NombreDelProp" --base64` para capturar los estados visuales.
+2.  **Reporte**: Muestra los resultados (imágenes/base64) al usuario inmediatamente después de cualquier cambio en el asset.
+3.  **Iteración**: No consideres un asset terminado hasta que el usuario confirme que las capturas de pantalla son correctas.

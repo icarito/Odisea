@@ -37,24 +37,68 @@ Para validar determinismo y replays:
 ```
 Consulta los features canonizados en `docs/canon/` para ejemplos de scripts y tests.
 
-### Validación de Props (Pipeline)
-Para validar una Prop (visuales, estados y lógica) usa el script de automatización:
-```bash
-./test_prop.sh --target="VentilationTurbine"
-```
-Esto generará capturas de pantalla de los estados (Idle, Mid, Active) en `test_output/props/`.
-Para uso en agentes o CI, puedes obtener el resultado en base64:
-```bash
-./test_prop.sh --target="VentilationTurbine" --base64
-```
-./test_prop.sh --target="VentilationTurbine" --base64
-```
-Refierete a `docs/feature_props_v2.md` para más detalles sobre el contrato `PropBaseV2`.
+### Validación de Props (Pipeline de Activos)
+
+El proyecto cuenta con un pipeline automatizado para que agentes IA y desarrolladores validen visualmente los props sin abrir el editor gráfico.
+
+1.  **Ejecución**:
+    ```bash
+    ./test_prop.sh --target="NombreDelProp" --base64
+    ```
+    *   Busca `NombreDelProp.tscn` en `core_v2/props/`.
+    *   Ejecuta Godot en modo headless usando `PropStage.tscn`.
+    *   Corre el script de validación `prop_validator.oys` (Idle -> Interact -> Active -> Off).
+
+2.  **Resultado**:
+    *   Genera capturas de pantalla de cada estado en `test_output/props/`.
+    *   Si se usa `--base64`, imprime las imágenes codificadas en la terminal.
+    *   **Propósito**: El agente debe examinar estas imágenes para confirmar que la animación, posición y escalas son correctas. Si hay clipping o errores visuales, el agente debe corregir el `.tscn` o script y re-ejecutar el test.
 
 ### Validación en Editor (GUI)
-Puedes validar props directamente en el editor:
-1. Abre la escena `core_v2/scenes/PropStage.tscn`.
-2. Selecciona el nodo raiz `PropStage`.
-3. En el inspector, asigna un prop a `Dev Prop Path` (ej: `res://core_v2/props/VentilationTurbine.tscn`).
-4. Activa la casilla `Dev Take Screenshots`.
-5. El script ejecutará la validación y guardará las capturas en `test_output/props/`.
+Para depuración manual:
+1. Abre `core_v2/scenes/PropStage.tscn`.
+2. Asigna tu prop a `Dev Prop Path` en el inspector del nodo raíz (`PropStage`).
+3. Activa `Dev Take Screenshots` para correr la secuencia una vez.
+
+## Sistema de Interactuables y Activación
+
+La arquitectura de `core_v2` separa estrictamente la **Lógica de Estado** (Determinista) de la **Representación Visual** (Interpolada), fundamental para el sistema de Replays.
+
+### Contrato `InteractableBaseV2`
+Todo objeto interactuable (Puertas, Palancas, Válvulas) debe heredar de `InteractableBaseV2` o sus hijos.
+
+*   **Estado Lógico**: `is_active` (bool). Definido por la simulación.
+*   **Estado Visual**: `anim_progress` (float 0.0 - 1.0). Avanza en `_physics_process` mediante `step(dt)`.
+*   **Determinismo**: `_update_visuals()` es una función pura de `anim_progress`. Nunca usar `Tween` o `AnimationPlayer` para lógica de juego; usar solo para efectos visuales cosméticos no-físicos.
+
+### Primitivas Disponibles
+No reinventar la rueda. Usar estas clases base cuando sea posible:
+
+*   **`DualSlidingObjectV2`**: Para puertas o compuertas.
+    *   Exporta `mesh_a_path`, `mesh_b_path`.
+    *   Vectores de deslizamiento independientes `slide_vector_a/b`.
+    *   Ejemplo: `HeavyBlastDoor`.
+*   **`RotatingObjectV2`**: Para válvulas, palancas o puertas giratorias.
+    *   Exporta `rotation_axis` y `rotation_amount`.
+    *   Usa interpolación angular determinista.
+    *   Ejemplo: `VentilationTurbine` (si aplica).
+
+### Conectividad y Controladores
+Los sistemas complejos se construyen componiendo nodos simples:
+
+1.  **Controladores (e.g., `AirlockControllerV2`)**:
+    *   No heredan necesariamente de `Interactable`.
+    *   Orquestan múltiples interactuables (`outer_door`, `inner_door`).
+    *   Se conectan vía `NodePath` exports (`outer_door_path`).
+    *   Llaman explícitamente a `set_active(bool)` en sus hijos.
+2.  **Señales**:
+    *   Interactables emiten `interaction_started`, `interaction_completed`, `activated`, `deactivated`.
+    *   Útil para efectos de sonido, partículas o UI (`Observer` pattern).
+
+## Flujo de Trabajo con Agentes (Nota)
+
+Para implementar un nuevo prop:
+1.  **Definir**: Crear escena heredando de la Primitiva adecuada.
+2.  **Configurar**: Ajustar meshes y vectores en el Inspector.
+3.  **Validar**: Ejecutar `./test_prop.sh ... --base64`.
+4.  **Iterar**: El agente analiza la imagen. ¿La puerta traspasa el suelo? Ajustar. ¿Se abre al revés? Ajustar vector. Repetir hasta éxito.
