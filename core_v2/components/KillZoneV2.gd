@@ -15,7 +15,6 @@ func _ready():
 	if teleport_system:
 		if not is_connected("player_killed", teleport_system, "_on_player_killed"):
 			var res = connect("player_killed", teleport_system, "_on_player_killed")
-			print("[KillZoneV2] Señal player_killed conectada a TeleportSystem:", teleport_system, "res=", res)
 	else:
 		# TeleportSystem aún no disponible; intentar conectar en el siguiente frame
 		print("[KillZoneV2] TeleportSystem no encontrado en _ready(), intentando conexión diferida")

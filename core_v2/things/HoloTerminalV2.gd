@@ -75,7 +75,6 @@ func _setup_cinematic_camera() -> void:
 	# Configure initial zone state
 	if _camera_zone and "is_zone_active" in _camera_zone:
 		_camera_zone.is_zone_active = use_cinematic_zone
-		print("[HoloTerminalV2] Zone is_zone_active set to: ", use_cinematic_zone)
 	
 	if not _cinematic_rig:
 		if use_cinematic_zone:
