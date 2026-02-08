@@ -1,0 +1,39 @@
+LEVEL res://core_v2/scenes/PropStage.tscn
+WAIT 1.0
+
+# --- Validation Sequence for VentilationTurbine ---
+# In a real CI runner, $sys_env_prop_path would be used.
+# Here we default to the real prop if no env var is set.
+
+SECTION "Setup"
+    IF $sys_env_prop_path == "" GOTO LoadDefault
+    LOAD_PROP $sys_env_prop_path
+    GOTO StartValidation
+
+SECTION "LoadDefault"
+    PRINT "No env prop path set, loading default: VentilationTurbine"
+    LOAD_PROP "res://core_v2/props/VentilationTurbine.tscn"
+
+SECTION "StartValidation"
+    WAIT 1.0
+    SCREENSHOT 0_idle
+    PRINT "State 0: Idle captured"
+
+    # Trigger Activation
+    # PropBaseV2 handles logic, visuals update automatically
+    INTERACT target=prop
+    WAIT 0.5
+    
+    WAIT 0.5
+    SCREENSHOT 1_mid
+    PRINT "State 1: Mid captured"
+
+    WAIT 0.6
+    SCREENSHOT 2_active
+    PRINT "State 2: Active captured"
+
+    # Optional: Deactivate
+    INTERACT
+    WAIT 1.0
+    SCREENSHOT 3_off
+    PRINT "State 3: Off captured"

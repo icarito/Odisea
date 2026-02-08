@@ -12,11 +12,12 @@ mesh_b_path = NodePath("DoorRight")
 slide_vector_a = Vector3( -2, 0, 0 )
 slide_vector_b = Vector3( 2, 0, 0 )
 anim_duration = 2.0
+debug = true
 
 [node name="InteractionShape" type="CollisionShape" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
 shape = SubResource( 1 )
-disabled = true
+disabled = false
 
 [node name="DoorLeft" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 2, 0 )

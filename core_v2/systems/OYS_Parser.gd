@@ -85,7 +85,9 @@ static func parse_instruction(line: String) -> Dictionary:
 				data["duration"] = parts[1].to_float()
 		
 		"INTERACT":
-			pass # No additional data needed
+			for i in range(1, parts.size()):
+				if parts[i].begins_with("target="):
+					data["target"] = parts[i].split("=")[1]
 		
 		"WAIT":
 			data["value"] = parts[1].to_float() if parts.size() > 1 else 0.0

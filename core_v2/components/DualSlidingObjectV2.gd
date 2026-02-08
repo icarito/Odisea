@@ -61,7 +61,7 @@ func _apply_easing(t: float) -> float:
 # --- SNAPSHOT OVERRIDE ---
 
 func get_snapshot() -> Dictionary:
-	var snap = .get_snapshot()
+	var snap =.get_snapshot()
 	# Include start positions for full restoration
 	snap["start_pos_a"] = [_start_pos_a.x, _start_pos_a.y, _start_pos_a.z]
 	snap["start_pos_b"] = [_start_pos_b.x, _start_pos_b.y, _start_pos_b.z]

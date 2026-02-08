@@ -24,6 +24,8 @@ var oys_assert_failed = false
 var _pending_asserts := []
 var _pending_setters := []
 var _monitored_signals = {}
+var _env_vars := {}
+
 
 # Drift correction: checkpoint pendiente para guardar en el próximo frame
 var _pending_drift_checkpoint := false
@@ -70,6 +72,10 @@ func _find_player():
 
 
 func _ready():
+	# --- Environment Variables (Prop Validation Pipeline) ---
+	_env_vars["$sys_env_prop_path"] = OS.get_environment("OYS_PROP_PATH")
+	_env_vars["$sys_env_auto_run"] = OS.get_environment("OYS_AUTO_RUN")
+
 	# Detección de parámetro --replay
 	var args = OS.get_cmdline_args()
 	for i in range(args.size()):
@@ -127,6 +133,12 @@ func _ready():
 				add_child(teleport_system)
 				# Buscar nodos relevantes tras un pequeño delay para asegurar que la escena está lista
 				call_deferred("_connect_teleport_system")
+
+	# --- Auto Run (Prop Validation Pipeline) ---
+	if _env_vars["$sys_env_auto_run"] != "":
+		var script_path = _env_vars["$sys_env_auto_run"]
+		is_cli_mode = true
+		get_tree().connect("tree_changed", self, "_on_tree_changed_for_script", [script_path], CONNECT_ONESHOT)
 
 
 # Conexión automática de TeleportSystem con Player, Camera y zonas
@@ -212,6 +224,10 @@ func _on_tree_changed_for_script(script_path: String):
 	var OYS_Interpreter = load("res://core_v2/systems/OYS_Interpreter.gd")
 	var interpreter = OYS_Interpreter.new(self) # Use SessionManager as host
 	interpreter.parse(content)
+	# Inject environment variables
+	for k in _env_vars:
+		interpreter.variables[k] = _env_vars[k]
+		
 	oys_interpreter = interpreter
 	yield (interpreter.run(), "completed")
 	
@@ -578,6 +594,10 @@ func load_and_play(path: String):
 		interpreter.parse(script_content)
 		interpreter.connect("instruction_executed", self, "_on_oys_instruction_executed")
 		interpreter.connect("instruction_completed", self, "_on_oys_instruction_completed")
+		# Inject environment variables
+		for k in _env_vars:
+			interpreter.variables[k] = _env_vars[k]
+
 		oys_interpreter = interpreter
 
 		# Default initial state if player exists
@@ -1347,3 +1367,17 @@ func run_simulation_from_buffer(buffer_data: Array, world_start_state: Dictionar
 	player_controller.is_replay_mode = false
 	
 	return result
+
+func load_prop(path: String) -> void:
+	# OYS command: LOAD_PROP
+	print("[SessionManager] load_prop called: ", path)
+	
+	var prop_stage = get_tree().current_scene
+	if not prop_stage or not prop_stage.has_method("load_prop"):
+		# Try fallback search
+		prop_stage = get_tree().root.find_node("PropStage", true, false)
+		
+	if prop_stage and prop_stage.has_method("load_prop"):
+		prop_stage.load_prop(path)
+	else:
+		printerr("[SessionManager] Error: LOAD_PROP called but PropStage not found or invalid.")

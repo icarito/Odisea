@@ -36,3 +36,25 @@ Para validar determinismo y replays:
 ./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd
 ```
 Consulta los features canonizados en `docs/canon/` para ejemplos de scripts y tests.
+
+### Validación de Props (Pipeline)
+Para validar una Prop (visuales, estados y lógica) usa el script de automatización:
+```bash
+./test_prop.sh --target="VentilationTurbine"
+```
+Esto generará capturas de pantalla de los estados (Idle, Mid, Active) en `test_output/props/`.
+Para uso en agentes o CI, puedes obtener el resultado en base64:
+```bash
+./test_prop.sh --target="VentilationTurbine" --base64
+```
+./test_prop.sh --target="VentilationTurbine" --base64
+```
+Refierete a `docs/feature_props_v2.md` para más detalles sobre el contrato `PropBaseV2`.
+
+### Validación en Editor (GUI)
+Puedes validar props directamente en el editor:
+1. Abre la escena `core_v2/scenes/PropStage.tscn`.
+2. Selecciona el nodo raiz `PropStage`.
+3. En el inspector, asigna un prop a `Dev Prop Path` (ej: `res://core_v2/props/VentilationTurbine.tscn`).
+4. Activa la casilla `Dev Take Screenshots`.
+5. El script ejecutará la validación y guardará las capturas en `test_output/props/`.

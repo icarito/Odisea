@@ -1,32 +1,14 @@
 [gd_scene load_steps=5 format=2]
 
 [ext_resource path="res://core_v2/components/MovingPlatformV2.gd" type="Script" id=1]
-
-[sub_resource type="GDScript" id=2]
-script/source = "extends Spatial
-func _process(_delta):
-	var core = $Core
-	var light = $Core/OmniLight
-	if core and light and core.get(\"start_position\") != null:
-		# Calculate height ratio (0 to 1) relative to movement
-		var start_y = core.start_position.y
-		var end_y = core.end_position.y
-		var current_y = core.global_transform.origin.y
-		var range_y = end_y - start_y
-
-		# Avoid div by zero
-		if abs(range_y) > 0.001:
-			var t = (current_y - start_y) / range_y
-			# Pulse intensity
-			light.light_energy = 1.0 + abs(t) * 3.0
-"
+[ext_resource path="res://core_v2/props/PlasmaGenerator.gd" type="Script" id=2]
 
 [sub_resource type="CylinderShape" id=1]
 radius = 0.5
 height = 2.0
 
 [node name="PlasmaGenerator" type="Spatial"]
-script = SubResource( 2 )
+script = ExtResource( 2 )
 
 [node name="Base" type="CSGBox" parent="."]
 use_collision = true

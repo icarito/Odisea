@@ -11,6 +11,8 @@ export(float) var anim_duration := 1.0 # Seconds to complete animation
 export(bool) var starts_active := false setget set_starts_active # Initial logical state
 export(bool) var auto_interact := false # If true, automatically triggers when player is in range
 export(bool) var one_off := false # If true, can only be used once (manually or automatically)
+export(bool) var is_interactable := true # If false, ignore player interaction
+export(bool) var manual_toggle := true # If false, emit signal but don't toggle state automatically
 export(bool) var debug := false
 
 func set_starts_active(v: bool) -> void:
@@ -35,6 +37,7 @@ var anim_speed := 1.0 # Progress increment per second
 # --- SIGNALS ---
 signal activated()
 signal deactivated()
+signal interaction_requested()
 signal interaction_started()
 signal interaction_completed()
 
@@ -60,12 +63,18 @@ func _ready():
 
 func interact() -> void:
 	"""Toggle the active state. Called by player interaction system."""
+	if not is_interactable:
+		return
+
 	if one_off and is_used:
 		if debug:
 			print("[%s] Already used (one_off), ignoring interaction." % name)
 		return
-		
-	set_active(not is_active)
+	
+	emit_signal("interaction_requested")
+	
+	if manual_toggle:
+		set_active(not is_active)
 	
 	if one_off:
 		is_used = true
@@ -123,6 +132,7 @@ func _on_animation_completed() -> void:
 	if debug:
 		print("[%s] Animation completed: progress=%s" % [name, anim_progress])
 
+
 # --- VIRTUAL METHODS (Override in subclasses) ---
 
 func _update_visuals() -> void:
@@ -170,4 +180,5 @@ func restore_snapshot(data: Dictionary) -> void:
 # --- PHYSICS PROCESS ---
 
 func _physics_process(delta: float) -> void:
+	# print("DEBUG: _physics_process called on ", name)
 	step(delta)

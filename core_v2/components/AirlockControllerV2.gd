@@ -5,7 +5,7 @@ tool
 # AirlockControllerV2.gd - Deterministic Airlock Logic
 # Manages a sequence of doors and pressurization state.
 
-enum State { IDLE, ENTRY_OPEN, PRESSURIZING, EXIT_OPEN }
+enum State {IDLE, ENTRY_OPEN, PRESSURIZING, EXIT_OPEN}
 
 # --- EXPORTS ---
 export(NodePath) var outer_door_path
@@ -43,6 +43,9 @@ func _ready():
 			_chamber_zone.connect("body_entered", self, "_on_body_entered")
 
 # --- INTERACTION API ---
+
+func interact():
+	interact_outer()
 
 func interact_outer():
 	if state == State.IDLE:
