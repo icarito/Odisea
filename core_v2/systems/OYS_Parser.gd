@@ -18,7 +18,8 @@ enum Command {
 	SET_TIME_SCALE, GET_NODES_IN_GROUP,
 	SCREENSHOT, LOAD_PROP,
 	CINEMATIC_START, CINEMATIC_STOP,
-	RECORD_START, RECORD_STOP
+	RECORD_START, RECORD_STOP,
+	GET_POS,
 }
 
 # Command synonyms mapping
@@ -221,6 +222,11 @@ static func parse_instruction(line: String) -> Dictionary:
 				data["expression"] = line.substr(start_pos).strip_edges()
 			else:
 				printerr("[OYS_Parser] Invalid MATH command: ", line)
+		
+		"GET_POS":
+			if parts.size() > 1: data["x"] = parts[1]
+			if parts.size() > 2: data["y"] = parts[2]
+			if parts.size() > 3: data["z"] = parts[3]
 		
 		_:
 			data["error"] = "Unknown command: " + cmd
