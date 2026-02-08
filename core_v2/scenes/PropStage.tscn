@@ -15,8 +15,9 @@ extents = Vector3( 13, 8, 13 )
 
 [node name="PropStage" type="Spatial"]
 script = ExtResource( 1 )
-dev_prop_path = "res://core_v2/props/VentilationTurbine.tscn"
+dev_prop_path = "res://core_v2/props/HoloTerminalV2.tscn"
 dev_snap_to_floor = false
+dev_force_local_camera = true
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource( 1 )

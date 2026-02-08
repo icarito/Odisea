@@ -304,8 +304,8 @@ func _enter_focus_mode():
 		_camera_zone._cache_rig()
 		
 		# If cinematic zone was disabled, we enable it now to "own" the focus rig
-		if not use_cinematic_zone and "is_zone_active" in _camera_zone:
-			_camera_zone.is_zone_active = true
+		# if not use_cinematic_zone and "is_zone_active" in _camera_zone:
+		# 	_camera_zone.is_zone_active = true
 	
 	# Activate the focused rig via CinematicManager
 	CinematicManager.activate_rig_direct(_focused_rig, CinematicManager.ControlMode.LOCKED_VIEW)
