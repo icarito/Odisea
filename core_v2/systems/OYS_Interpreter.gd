@@ -17,6 +17,7 @@ var is_running: bool = false
 var stop_requested: bool = false
 var execution_id: int = 0
 var test_failed: bool = false # Global flag to track test failure
+var loop_runtime_stack: Array = [] # Runtime stack for loops
 signal instruction_executed(inst, variables)
 signal instruction_completed(inst, variables)
 
@@ -30,6 +31,7 @@ func parse(script_content: String):
 	pc = 0
 
 	var lines = OYS_Parser.preprocess(script_content)
+	var loop_stack = [] # Stack of indices for open loops
 	
 	for i in range(lines.size()):
 		var line = lines[i]
@@ -42,7 +44,38 @@ func parse(script_content: String):
 			sections[section_name] = instructions.size()
 			section_names.append(section_name)
 
+		# Loop linking logic
+		if inst.command == "FOR" or inst.command == "WHILE":
+			loop_stack.push_back(instructions.size())
+
+		elif inst.command == "ENDFOR":
+			if loop_stack.empty():
+				printerr("[OYS_Interpreter] ENDFOR without matching FOR at line ", i)
+			else:
+				var start_idx = loop_stack.pop_back()
+				var start_inst = instructions[start_idx]
+				if start_inst.command != "FOR":
+					printerr("[OYS_Interpreter] Mismatched loop: ENDFOR matched with ", start_inst.command)
+				else:
+					start_inst["end_index"] = instructions.size()
+					inst["start_index"] = start_idx
+
+		elif inst.command == "ENDWHILE":
+			if loop_stack.empty():
+				printerr("[OYS_Interpreter] ENDWHILE without matching WHILE at line ", i)
+			else:
+				var start_idx = loop_stack.pop_back()
+				var start_inst = instructions[start_idx]
+				if start_inst.command != "WHILE":
+					printerr("[OYS_Interpreter] Mismatched loop: ENDWHILE matched with ", start_inst.command)
+				else:
+					start_inst["end_index"] = instructions.size()
+					inst["start_index"] = start_idx
+
 		instructions.append(inst)
+
+	if not loop_stack.empty():
+		printerr("[OYS_Interpreter] Unclosed loops at end of script: ", loop_stack.size())
 
 func run(start_section: String = ""):
 	execution_id += 1
@@ -55,6 +88,7 @@ func run(start_section: String = ""):
 
 	is_running = true
 	stop_requested = false
+	loop_runtime_stack.clear()
 
 	if start_section != "" and sections.has(start_section):
 		pc = sections[start_section]
@@ -392,6 +426,91 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				if inst.has("x"): variables[inst.x] = pos.x
 				if inst.has("y"): variables[inst.y] = pos.y
 				if inst.has("z"): variables[inst.z] = pos.z
+
+		"FOR":
+			var current_pc = pc - 1
+			var iterations = int(inst.get("iterations", 1))
+
+			if loop_runtime_stack.empty() or loop_runtime_stack.back().get("start_pc") != current_pc:
+				# Start new loop
+				if iterations > 0:
+					loop_runtime_stack.push_back({
+						"type": "FOR",
+						"start_pc": current_pc,
+						"remaining": iterations - 1
+					})
+				else:
+					# Skip loop entirely
+					var end_index = inst.get("end_index", -1)
+					if end_index != -1:
+						pc = end_index + 1
+			else:
+				# Continue existing loop
+				var context = loop_runtime_stack.back()
+				if context.remaining > 0:
+					context.remaining -= 1
+				else:
+					# Finished
+					loop_runtime_stack.pop_back()
+					var end_index = inst.get("end_index", -1)
+					if end_index != -1:
+						pc = end_index + 1
+
+		"ENDFOR":
+			# Jump back to start
+			var start_index = inst.get("start_index", -1)
+			if start_index != -1:
+				pc = start_index
+
+		"WHILE":
+			# Check condition
+			var condition_met = false
+
+			if inst.has("prop_type") and inst.prop_type == "PROP":
+				# WHILE PROP "Door" is_active == false
+				var target_name = inst.get("target", "")
+				var prop_name = inst.get("property", "")
+				var op = inst.get("op", "==")
+				var expected_val = _resolve_value(inst.get("value", ""))
+
+				# Find prop
+				var prop = null
+				if target_name == "current_prop":
+					prop = _resolve_prop()
+				else:
+					prop = _resolve_node(target_name)
+
+				if prop:
+					var actual_val = null
+					if prop_name in prop:
+						actual_val = prop.get(prop_name)
+					elif prop.has_method("get_" + prop_name):
+						actual_val = prop.call("get_" + prop_name)
+
+					condition_met = _compare(actual_val, op, expected_val)
+				else:
+					printerr("[OYS_Interpreter] WHILE PROP: Target not found: ", target_name)
+					condition_met = false
+			else:
+				# Generic condition
+				var left = _resolve_value(inst.get("left", ""))
+				var right = _resolve_value(inst.get("right", ""))
+				var op = inst.get("op", "==")
+				condition_met = _compare(left, op, right)
+
+			if not condition_met:
+				# Jump to end
+				var end_index = inst.get("end_index", -1)
+				if end_index != -1:
+					pc = end_index + 1
+				else:
+					printerr("[OYS_Interpreter] WHILE without ENDWHILE linked")
+
+		"ENDWHILE":
+			# Jump back to start
+			var start_index = inst.get("start_index", -1)
+			if start_index != -1:
+				pc = start_index
 	
 	return null
 
