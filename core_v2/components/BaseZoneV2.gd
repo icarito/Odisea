@@ -45,7 +45,6 @@ func _find_and_setup_host():
 			printerr("[BaseZoneV2] WARNING: ", name, " has no Area host (self or parent).")
 
 func _on_host_body_entered(body: Node):
-	print("[BaseZoneV2] host_body_entered: ", body.name, " in group player: ", body.is_in_group("player"))
 	_bodies_in_zone[body.get_instance_id()] = body
 	if body.is_in_group("player"):
 		_on_zone_entered(body)

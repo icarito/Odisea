@@ -1292,12 +1292,6 @@ func _update_platform_tracking(dt: float) -> void:
 func _try_step_up(motion: Vector3) -> Dictionary:
 	"""Attempt to step up a small obstacle (stair step).
 	Returns { stepped: bool, position: Vector3 }
-	
-	Algorithm:
-	1. Cast forward to detect obstacle at foot level
-	2. If obstacle found, check if we have headroom to step up
-	3. Cast down from elevated position to find the step surface
-	4. If valid floor found within step_height, return the stepped-up position
 	"""
 	var result = {"stepped": false, "position": global_transform.origin}
 	
@@ -1312,25 +1306,21 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 	var move_dir = horizontal_motion.normalized()
 	var origin = global_transform.origin
 	
-	# Use a fixed probe distance, not dependent on current speed
-	# This ensures stair detection works at any walking speed
-	var probe_distance = step_depth
-	
 	# Step 1: Check if there's a wall/obstacle at foot level
+	# Use a probe distance that ensures we hit the step face
+	var probe_distance = clamp(motion.length(), 0.05, step_depth)
 	var foot_collision = move_and_collide(move_dir * probe_distance, true, true, true)
 	if foot_collision == null:
 		# No obstacle, no need to step
 		return result
 	
-	# Check if this is a wall (not a floor) - we want vertical-ish surfaces
+	# Check if this is a wall (not a floor)
 	if foot_collision.normal.y > 0.7:
-		# It's a slope, not a step
 		return result
 	
 	# Step 2: Check clearance at step height (head room)
 	var head_collision = move_and_collide(Vector3.UP * step_height, true, true, true)
 	if head_collision != null:
-		# Not enough head room
 		return result
 	
 	# Step 3: Move up and try to move forward at step height
@@ -1338,26 +1328,34 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 	var old_pos = global_transform.origin
 	global_transform.origin = step_up_pos
 	
-	# Try to move forward at the elevated position
-	var _forward_collision = move_and_collide(move_dir * probe_distance, true, true, true)
+	# Try to move forward at the elevated position to clear the ledge lip
+	# We move by the same probe distance we hit earlier
+	var forward_test = move_and_collide(move_dir * probe_distance, true, true, true)
 	
-	# Step 4: Cast down to find the step surface
+	# Calculate advanced horizontal position
+	var advanced_x = move_dir * probe_distance
+	if forward_test:
+		advanced_x = forward_test.travel
+	
+	# Final check position: Up + Forward
+	var check_pos = step_up_pos + advanced_x
+	global_transform.origin = check_pos
+	
+	# Step 4: Cast down to find the actual step surface
 	var down_collision = move_and_collide(Vector3.DOWN * (step_height + 0.1), true, true, true)
 	
-	# Restore position for now
+	# Restore position
 	global_transform.origin = old_pos
 	
 	if down_collision != null:
-		# Check if we found a valid floor
 		if down_collision.normal.y > 0.7:
-			var step_surface_y = step_up_pos.y - down_collision.travel.length() + 0.02
+			var step_surface_y = check_pos.y - down_collision.travel.length()
 			var height_gain = step_surface_y - origin.y
 			
-			# Only step if we're actually going UP and within step_height
-			# Lowered minimum threshold from 0.02 to 0.01 for smoother steps
 			if height_gain > 0.01 and height_gain <= step_height:
 				result.stepped = true
-				result.position = Vector3(origin.x, step_surface_y, origin.z)
+				# New position is the advanced horizontal position at the correct height
+				result.position = Vector3(origin.x + advanced_x.x, step_surface_y, origin.z + advanced_x.z)
 	
 	return result
 
