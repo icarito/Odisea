@@ -123,3 +123,10 @@ Para garantizar replays determinísticos, todo agente sincronizado debe:
 ```
 
 Este comando utiliza el script `runtest.sh` para lanzar Godot en modo headless y ejecutar la suite de tests especificada. Si el `drift` (desviación) entre la posición final del replay y la esperada supera un umbral mínimo, el test fallará, indicando una ruptura en el determinismo.
+
+## Nota para Agentes: Verificación de Assets
+
+Al trabajar con Props o Elementos Interactuables, sigue este procedimiento recurrente:
+1.  **Ejecución**: Usa `./test_prop.sh --target="NombreDelProp" --base64` para capturar los estados visuales.
+2.  **Reporte**: Muestra los resultados (imágenes/base64) al usuario inmediatamente después de cualquier cambio en el asset.
+3.  **Iteración**: No consideres un asset terminado hasta que el usuario confirme que las capturas de pantalla son correctas.
