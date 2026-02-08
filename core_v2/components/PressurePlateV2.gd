@@ -24,9 +24,16 @@ func interact() -> void:
 
 func _ready():
 	_start_position = translation
-	# ... (rest of _ready)
-
-# ...
+	# Find the detector area
+	# Ensure the scene tree path matches the structure in PressurePlate.tscn
+	if has_node("Detector"):
+		_detection_area = $Detector
+	else:
+		# Fallback or error logging
+		printerr("[PressurePlateV2] Error: 'Detector' Area node not found! Collision logic will fail.")
+	
+	_initialized = true
+	_update_visuals()
 
 func step(dt: float) -> void:
 	# Deterministic weighted detection
@@ -71,3 +78,9 @@ func restore_snapshot(data: Dictionary) -> void:
 		var sp = data["start_pos"]
 		_start_position = Vector3(sp[0], sp[1], sp[2])
 	.restore_snapshot(data)
+
+func _update_visuals() -> void:
+	# Move the plate towards sink target based on animation progress
+	# InteractableBase handles the progress interpolation (0.0 to 1.0)
+	var offset = sink_vector * anim_progress
+	translation = _start_position + offset
