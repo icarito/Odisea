@@ -27,7 +27,10 @@ func _ready():
 	for path in visual_parts_paths:
 		var node = get_node_or_null(path)
 		if node:
+			print("[PropBaseV2] Caching visual part: ", node.name, " (", node.get_path(), ")")
 			_visual_parts.append(node)
+		else:
+			print("[PropBaseV2] WARNING: Visual part not found at path: ", path)
 
 	# Initial visual update
 	_update_visuals()
@@ -86,11 +89,9 @@ func _on_switch_toggled(state: bool):
 # --- VIRTUAL METHODS ---
 
 func _update_visuals() -> void:
-	# VentilationTurbine specific logic
-	# We iterate over _visual_parts, but we know what we added in the scene:
-	# 0 -> FanBlades, 1 -> WindTunnel
-	# Simple logic: If progress > 0, they should be active. 
-	# Or we can map progress to rotation speed or wind strength if they supported it.
+	if debug:
+		print("[PropBaseV2] _update_visuals: anim_progress=", anim_progress, " is_active=", is_active)
+
 	var active = (anim_progress > 0.01)
 	
 	for part in _visual_parts:
