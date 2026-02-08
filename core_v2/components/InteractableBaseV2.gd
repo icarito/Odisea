@@ -1,4 +1,4 @@
-extends KinematicBody
+extends Spatial
 class_name InteractableBaseV2
 
 # InteractableBaseV2.gd - Abstract Base Class for Deterministic Interactables

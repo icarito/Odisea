@@ -86,13 +86,13 @@ func _on_switch_toggled(state: bool):
 # --- VIRTUAL METHODS ---
 
 func _update_visuals() -> void:
-    # VentilationTurbine specific logic
-    # We iterate over _visual_parts, but we know what we added in the scene:
-    # 0 -> FanBlades, 1 -> WindTunnel
-    # Simple logic: If progress > 0, they should be active. 
-    # Or we can map progress to rotation speed or wind strength if they supported it.
-    var active = (anim_progress > 0.01)
-    
-    for part in _visual_parts:
-        if part and "is_active" in part:
-            part.is_active = active
+	# VentilationTurbine specific logic
+	# We iterate over _visual_parts, but we know what we added in the scene:
+	# 0 -> FanBlades, 1 -> WindTunnel
+	# Simple logic: If progress > 0, they should be active. 
+	# Or we can map progress to rotation speed or wind strength if they supported it.
+	var active = (anim_progress > 0.01)
+	
+	for part in _visual_parts:
+		if part and "is_active" in part:
+			part.is_active = active
