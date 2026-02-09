@@ -95,12 +95,26 @@ func _warmup_animations() -> void:
 
 	
 func play_override_animation(anim_name: String) -> void:
-	"""Plays an animation directly on the AnimationPlayer, temporarily bypassing the AnimationTree."""
+	"""Plays an animation. If it's a State in the AnimationTree, travels to it. Otherwise plays directly on AnimationPlayer."""
+	
+	# 1. Try AnimationTree State Machine first (Clean blending)
+	if animation_tree and animation_tree.active:
+		var root = animation_tree.tree_root
+		if root is AnimationNodeStateMachine and root.has_node(anim_name):
+			print("PilotAnimator: Traveling to AnimationTree State: ", anim_name)
+			var playback = animation_tree.get(PARAM_PLAYBACK)
+			if playback:
+				# Use start() to force the state even if no transition path exists
+				# This handles "isolated" states like Confused that might not have incoming connections
+				playback.start(anim_name)
+				return
+
+	# 2. Fallback: Direct AnimationPlayer playback (Rigid, disables tree)
 	if not anim_player or not anim_player.has_animation(anim_name):
-		printerr("PilotAnimator: Animation not found: ", anim_name)
+		printerr("PilotAnimator: Animation/State not found: ", anim_name)
 		return
 
-	print("PilotAnimator: Playing override animation: ", anim_name)
+	print("PilotAnimator: Playing override animation (Direct): ", anim_name)
 	
 	# Disable Tree to allow direct playback
 	if animation_tree:

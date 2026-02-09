@@ -1,24 +1,32 @@
 SECTION "Intro"
     PRINT "Iniciando intro..."
     
-    WAIT 1.5
-
-    TIME_SCALE 0.01
-
+    SET_TIME_SCALE 0.5
+    
+    CINEMATIC
+    
     RIGHT 140
+    
+    PLAY_ANIM "Confused"
 
     LOOK -130
 
-    PLAY_ANIM "Confused"
+    WAIT 0.2
+
+    RIGHT 90
+    
+    SET_TIME_SCALE 0.6
 
     WAIT_ANIM "Confused"
 
-    WAIT 7s.0
+    WAIT 5.0s
 
-    TIME_SCALE 1
+    LEFT 40
 
-    RIGHT 40
+    LOOK 130
 
-    WAIT 0.5
+    TIME_SCALE 1.0
 
     PRINT "Intro terminado."
+
+    INTERACTIVE

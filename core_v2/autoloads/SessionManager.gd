@@ -281,6 +281,17 @@ var _total_replay_frames := 0
 func _physics_process(_dt):
 	_find_player()
 
+	# Check for Skip Cinematic (Fast Forward)
+	if is_instance_valid(oys_interpreter) and oys_interpreter.is_running:
+		if Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("jump") or Input.is_action_just_pressed("interact"):
+			# Only fast forward if player input is actually disabled (Cinematic Mode)
+			# We check hardware_input_enabled on input_provider
+			if is_instance_valid(player) and "input_provider" in player and player.input_provider:
+				if not player.input_provider.hardware_input_enabled:
+					# print("[SessionManager] Input detected during CINEMATIC. Requesting Fast Forward.")
+					oys_interpreter.request_fast_forward()
+					CinematicManager.force_finish_transition()
+
 	if Input.is_action_just_pressed("record-toggle"):
 		if not is_recording:
 			start_recording()
@@ -333,21 +344,24 @@ func _physics_process(_dt):
 			if pilot_node and is_instance_valid(pilot_node):
 				player = pilot_node
 
+		# Apply Time Scale to our manual fixed step
+		var step_dt = FIXED_DT * Engine.time_scale
+
 		if pilot_node and pilot_node.has_method("step"):
 			# Set external input for potential consumers but also step directly
 			pilot_node.external_input = input_data
 			pilot_node.external_input_provided = true
-			pilot_node.step(FIXED_DT, input_data)
+			pilot_node.step(step_dt, input_data)
 			player = pilot_node # keep SessionManager.player in sync
 		# Step plataformas TAMBIÉN durante grabación para determinismo
 		var sync_nodes = _get_replay_sync_nodes()
 		for node in sync_nodes:
 			if node != player and node.has_method("step"):
-				node.step(FIXED_DT)
+				node.step(step_dt)
 		
 		# Step CinematicManager if active
 		if CinematicManager.is_active():
-			CinematicManager.step(FIXED_DT)
+			CinematicManager.step(step_dt)
 		
 		# Sync total frames if we are also in "replaying" mode (for tests)
 		if is_replaying:
