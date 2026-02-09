@@ -9,6 +9,7 @@ var sprint := false
 var interact := false
 var mouse_delta := Vector2()
 var zoom_delta := 0.0
+var fov_override := -1.0 # -1 means no override
 
 # Serialización a Dictionary
 func to_dict() -> Dictionary:
@@ -16,6 +17,7 @@ func to_dict() -> Dictionary:
 		"move_vec": [move_vec.x, move_vec.y],
 		"mouse_delta": [mouse_delta.x, mouse_delta.y],
 		"zoom_delta": zoom_delta,
+		"fov_override": fov_override,
 		"jump": jump,
 		"sprint": sprint,
 		"interact": interact
@@ -29,6 +31,8 @@ func from_dict(d: Dictionary) -> void:
 		mouse_delta = Vector2(d["mouse_delta"][0], d["mouse_delta"][1])
 	if d.has("zoom_delta"):
 		zoom_delta = d["zoom_delta"]
+	if d.has("fov_override"):
+		fov_override = d["fov_override"]
 	if d.has("jump"):
 		jump = d["jump"]
 	if d.has("sprint"):

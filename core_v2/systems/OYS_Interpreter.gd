@@ -207,11 +207,6 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 					# we are fine.
 					# Debug print to see progress
 					# print("Blend running: ", elapsed, "/", duration)
-					# Debug states
-					var debug_states = []
-					for s in running_states:
-						debug_states.append(s.is_valid())
-					print("[OYS DEBUG] BLEND tick: ", elapsed, " States: ", debug_states)
 		
 		"SECTION":
 			pass # Already indexed
@@ -501,6 +496,16 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			if __state_look is GDScriptFunctionState:
 				yield (__state_look, "completed")
 		
+		"ZOOM":
+			var __state_zoom = _execute_zoom(inst, my_id)
+			if __state_zoom is GDScriptFunctionState:
+				yield (__state_zoom, "completed")
+		
+		"FOV":
+			var __state_fov = _execute_fov(inst, my_id)
+			if __state_fov is GDScriptFunctionState:
+				yield (__state_fov, "completed")
+		
 		# Markers - no action needed
 		"LEVEL", "END":
 			pass
@@ -679,7 +684,10 @@ func _execute_movement(inst: Dictionary, my_id: int):
 			if unit == "m":
 				duration_sec = OYS_Parser.distance_to_duration(value, is_sprint)
 			# Working convention: 1 is Left, -1 is Right
-			move_vec = Vector2(1, 0) if cmd == "LEFT" else Vector2(-1, 0)
+			# CORRECTION: Standard Input map: Left (-1), Right (+1).
+			# Assuming OYS 'LEFT' means "Press Left Key" -> -1.
+			# 'RIGHT' means "Press Right Key" -> +1.
+			move_vec = Vector2(-1, 0) if cmd == "LEFT" else Vector2(1, 0)
 		
 		"JUMP":
 			duration_sec = inst.get("duration", 0.1)
@@ -751,7 +759,7 @@ func _execute_movement(inst: Dictionary, my_id: int):
 func _execute_turn(inst: Dictionary, my_id: int):
 	var value = inst.get("value", 0.0)
 	var direction = inst.get("direction", "LEFT")
-	var duration_sec = 0.5
+	var duration_sec = inst.get("duration", 0.5)
 	
 	# Scale duration by TimeScale
 	var time_scale = Engine.time_scale
@@ -826,6 +834,73 @@ func _execute_look(inst: Dictionary, my_id: int):
 		"mouse_delta": [0.0, 0.0]
 	})
 
+func _execute_zoom(inst: Dictionary, my_id: int):
+	var amount = inst.get("amount", 0.0)
+	var duration_sec = inst.get("duration", 0.5)
+	
+	# Scale by TimeScale
+	var time_scale = Engine.time_scale
+	if time_scale <= 0.001: time_scale = 1.0
+	var real_duration = duration_sec / time_scale
+	
+	var num_frames = OYS_Parser.duration_to_frames(real_duration)
+	if num_frames <= 0: num_frames = 1
+	var delta_per_frame = amount / num_frames
+	
+	var player = _find_player()
+	if not player:
+		return
+	
+	for _i in range(num_frames):
+		if stop_requested or my_id != execution_id:
+			break
+		if not is_instance_valid(player):
+			break
+		
+		_post_oys_input({"zoom_delta": delta_per_frame})
+		
+		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+			break
+		yield (host_node.get_tree(), "physics_frame")
+	
+	_post_oys_input({"zoom_delta": 0.0})
+
+func _execute_fov(inst: Dictionary, my_id: int):
+	var target_fov = inst.get("fov", 75.0)
+	var duration_sec = inst.get("duration", 0.5)
+	
+	# Scale by TimeScale
+	var time_scale = Engine.time_scale
+	if time_scale <= 0.001: time_scale = 1.0
+	var real_duration = duration_sec / time_scale
+	
+	var num_frames = OYS_Parser.duration_to_frames(real_duration)
+	if num_frames <= 0: num_frames = 1
+	
+	var player = _find_player()
+	if not player:
+		return
+	
+	var start_fov = 75.0
+	if "base_fov" in player:
+		start_fov = player.base_fov
+	
+	for i in range(num_frames):
+		if stop_requested or my_id != execution_id:
+			break
+		if not is_instance_valid(player):
+			break
+		
+		var t = float(i + 1) / float(num_frames)
+		var current_fov = lerp(start_fov, target_fov, t)
+		_post_oys_input({"fov_override": current_fov})
+		
+		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+			break
+		yield (host_node.get_tree(), "physics_frame")
+	
+	_post_oys_input({"fov_override": target_fov})
+
 func _find_recorder() -> Node:
 	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
 		return null
@@ -855,11 +930,21 @@ func _post_oys_input(data: Dictionary):
 			session.set("_oys_input_override", {})
 		var override = session.get("_oys_input_override")
 		for key in data:
-			override[key] = data[key]
+			var val = data[key]
+			if key == "mouse_delta" or key == "move_vec":
+				if not override.has(key):
+					override[key] = [0.0, 0.0]
+				override[key][0] += val[0]
+				override[key][1] += val[1]
+			else:
+				override[key] = val
 	else:
 		var player = _find_player()
 		if player and is_instance_valid(player) and player.has_method("inject_input"):
+			# print("[OYS] Posting input: ", data)
 			player.inject_input(data)
+		else:
+			print("[OYS WARNING] Could not find player to inject input: ", data)
 
 func _resolve_node(path: String) -> Node:
 	var node = host_node.get_node_or_null(path)

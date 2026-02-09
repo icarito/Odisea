@@ -11,7 +11,7 @@ enum Command {
 	UNKNOWN,
 	SECTION, END, LEVEL,
 	FW, BW, LEFT, RIGHT, JUMP, INTERACT,
-	WAIT, LOOK, CALL,
+	WAIT, LOOK, CALL, ZOOM, FOV,
 	SET, ASSERT, ASSERT_SIGNAL, PRINT,
 	GOTO, IF,
 	PLAY_ANIM, WAIT_ANIM, SPAWN,
@@ -112,7 +112,15 @@ static func parse_instruction(line: String) -> Dictionary:
 		
 		"LOOK":
 			data["pitch"] = parts[1].to_float() if parts.size() > 1 else 0.0
-			data["duration"] = 0.5
+			data["duration"] = parts[2].to_float() if parts.size() > 2 else 0.5
+		
+		"ZOOM":
+			data["amount"] = parts[1].to_float() if parts.size() > 1 else 0.0
+			data["duration"] = parts[2].to_float() if parts.size() > 2 else 0.5
+		
+		"FOV":
+			data["fov"] = parts[1].to_float() if parts.size() > 1 else 75.0
+			data["duration"] = parts[2].to_float() if parts.size() > 2 else 0.5
 		
 		"CALL":
 			data["method"] = ""
@@ -357,6 +365,13 @@ static func _parse_strafe_or_turn(parts: Array, direction: String) -> Dictionary
 		result["unit"] = parsed.unit
 		# Es rotación si: tiene unidad "deg" O no tiene unidad explícita (ni m ni s)
 		result["is_turning"] = (parsed.unit == "deg" or parsed.unit == "none")
+		
+		# If it's turning, check for optional duration argument
+		if result["is_turning"] and parts.size() > 2:
+			# Parse duration similar to movement duration logic
+			var dur_parsed = _parse_value_with_unit(parts[2])
+			if dur_parsed.unit == "s" or dur_parsed.unit == "none":
+				result["duration"] = dur_parsed.value
 	return result
 
 # Parse value with unit suffix (e.g., "2.5s", "10m", "90deg", "90")

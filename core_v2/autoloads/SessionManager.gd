@@ -367,6 +367,9 @@ func _physics_process(_dt):
 		if is_replaying:
 			_total_replay_frames = _recording_frame
 
+		# Clear override after use to allow OYS commands to accumulate fresh each frame
+		_oys_input_override.clear()
+
 	elif is_replaying:
 		# Supresor de inercia mandatorio en Frame 0 para eliminar drift de preparación
 		if _replay_frame == 0 and "velocity" in player:

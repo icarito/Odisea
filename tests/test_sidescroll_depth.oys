@@ -1,0 +1,44 @@
+# Test SideScroll Depth Movement (Inversion Check)
+# Uses TestSideScrollInversion.tscn (Lock X, Invert Side)
+
+SECTION "Setup"
+    # Wait for scene load and zone entry
+    WAIT 1.0
+    # Scene TestSideScrollInversion.tscn already has allow_depth_movement = true
+    PRINT "Depth Movement Enabled via Scene"
+    
+SECTION "Test Depth Forward"
+    # In Lock X mode:
+    # Camera is looking along X axis (roughly).
+    # Horizontal is Z.
+    # Depth should be X.
+    
+    GET_POS $FstartX $FstartY $FstartZ
+    PRINT "Start Position X: " $FstartX
+    
+    # Move Forward (Into Screen / Away from Camera)
+    FW 1.0
+    
+    GET_POS $FendX $FendY $FendZ
+    PRINT "End Position X: " $FendX
+    
+    # Calc Delta
+    MATH $fdiffX $FendX - $FstartX
+    
+    PRINT "Forward Depth Delta X: " $fdiffX
+    
+    WAIT 0.5
+
+SECTION "Test Depth Backward"
+    GET_POS $BstartX $startBY $startBZ
+    PRINT "Backward Start X: " $BstartX
+    
+    # Move Backward (Towards Screen / Camera)
+    BW 1.0
+    
+    GET_POS $BendX $endBY $endBZ
+    PRINT "Backward End X: " $BendX
+    
+    MATH $bdiffX $BendX - $BstartX
+    
+    PRINT "Backward Depth Delta X: " $bdiffX

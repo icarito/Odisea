@@ -104,9 +104,8 @@ func play_override_animation(anim_name: String) -> void:
 			print("PilotAnimator: Traveling to AnimationTree State: ", anim_name)
 			var playback = animation_tree.get(PARAM_PLAYBACK)
 			if playback:
-				# Use start() to force the state even if no transition path exists
-				# This handles "isolated" states like Confused that might not have incoming connections
-				playback.start(anim_name)
+				# Use travel() for smooth blending via established transitions
+				playback.travel(anim_name)
 				return
 
 	# 2. Fallback: Direct AnimationPlayer playback (Rigid, disables tree)

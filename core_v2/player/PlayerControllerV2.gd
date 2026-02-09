@@ -698,14 +698,143 @@ func inject_input(data: Dictionary) -> void:
 		return
 	var input = InputDataV2.new()
 	input.from_dict(data)
-	# Ensure external input is stored for the next _physics_process
-	# or for manual step calls.
-	external_input = input
-	external_input_provided = true
+	
+	# If input was already provided this frame (e.g. from BLEND parallel commands),
+	# accumulate the new input into the existing one.
+	if external_input_provided and external_input != null:
+		_accumulate_input(external_input, input)
+	else:
+		external_input = input
+		external_input_provided = true
 
 	# If physics process is disabled (replay mode), we must step manually
 	if not is_physics_processing():
-		step(FIXED_DT, input)
+		# OYS BLEND fix: Only step ONCE per frame.
+		# If we receive multiple inputs in the same frame (parallel commands),
+		# we accumulate them (above), and only the FIRST call triggers the step?
+		# NO, we need to step AFTER all inputs are received.
+		# But we don't know when the last input is.
+		# However, OYS Interpreter runs in physics_process (or yields to it).
+		#
+		# Actually, if we step immediately, we consume the input and advance physics state.
+		# If we step 2 times in one frame, we advance 2 * dt. That is "skipping" or "fast forwarding".
+		#
+		# We should ideally rely on `_physics_process` even in replay mode if we want consistent timing?
+		# But `is_replay_mode` disables `_physics_process` to allow manual control by SessionManager.
+		#
+		# SessionManager usually drives the replay by calling `step`.
+		# OYS Interpreter calls `inject_input`.
+		#
+		# If we just buffer the input here, and let SessionManager call `step`?
+		# But `OYS_Interpreter` IS the one driving the session when running a script.
+		# OYS Interpreter effectively replaces the User Input.
+		#
+		# If OYS Interpreter yields to `physics_frame`, it means we are in a new frame.
+		# The `_post_oys_input` is called before yield.
+		#
+		# Solution: 
+		# If we are in the SAME frame as the last step, do NOT step again. Just accumulate.
+		# But WHO calls step then?
+		# The first call calls step. The second call accumulates but... the step already happened!
+		# That means the second input is applied AFTER the physics step of this frame?
+		# Or the first input is applied, physics advances.
+		# Then second input arrives... it waits for NEXT frame?
+		#
+		# This is tricky without a centralized "End of Input Frame" signal.
+		#
+		# Alternative:
+		# If OYS Interpreter is running, it controls `stop_requested`.
+		#
+		# Let's try a heuristic: 
+		# If `is_inside_tree()` and `Engine.get_frames_drawn() == _last_step_frame`,
+		# then we have already stepped this frame. We should NOT step again.
+		# But we already simulated this frame!
+		# So the new input is effectively for the NEXT frame?
+		# Or we should have applied it before stepping.
+		#
+		# If OYS calls:
+		# cmd1 -> inject -> step (frame N processed)
+		# cmd2 -> inject -> step (frame N processed AGAIN??) -> This is the bug.
+		#
+		# We need to PREVENT the first step if more inputs are coming.
+		# But we don't know.
+		#
+		# CHECK: OYS_Interpreter calls `_post_oys_input` inside a loop?
+		# No, `BLEND` launches coroutines. They run sequentially in the main thread.
+		# So:
+		# Coroutine 1 resumes -> calls inject -> yields
+		# Coroutine 2 resumes -> calls inject -> yields
+		#
+		# Wait, if Coroutine 1 yields, it returns control to...?
+		# `BLEND` main loop:
+		# while elapsed < duration:
+		#   yield(tree, "physics_frame")
+		#
+		# The sub-coroutines are `GDFS` states. They are NOT resumed by the engine,
+		# they are resumed by `BLEND` loop? 
+		# NO, I fixed that. They are resumed by `yield(tree, physics_frame)`.
+		#
+		# So:
+		# Frame Start.
+		# Coroutine 1 resumes (after yield). Runs code. Calls `_post_oys_input`.
+		# Inside `inject_input`: Steps physics.
+		# Coroutine 1 yields.
+		# Coroutine 2 resumes. Runs code. Calls `_post_oys_input`.
+		# Inside `inject_input`: Steps physics (AGAIN).
+		#
+		# Yes, this causes double physics steps per frame.
+		#
+		# FIX: `inject_input` should NOT call `step()` if `is_replay_mode` is managed by OYS.
+		# Instead, `OYS_Interpreter` should call a `flush_input_and_step()` ONCE per frame?
+		#
+		# But `OYS_Interpreter` is generic.
+		#
+		# Better Fix in PlayerController:
+		# Store input in `external_input`.
+		# Do NOT step in `inject_input`.
+		# Enable `_physics_process` but make it ONLY consume `external_input` if `is_replay_mode`.
+		#
+		# Currently:
+		# func _physics_process(_delta):
+		#   if is_replay_mode: return
+		#
+		# Change to:
+		# func _physics_process(_delta):
+		#   if is_replay_mode:
+		#       if external_input_provided:
+		#           step(FIXED_DT, external_input)
+		#           external_input_provided = false
+		#       return
+		#
+		#   ... normal input ...
+		#
+		# AND remove `step()` from `inject_input`.
+		# 
+		# This ensures `step` happens exactly once per physics frame, using the accumulated input.
+		# Removing the manual step here.
+		# We will modify _physics_process to handle replay steps.
+		pass
+
+var _last_step_frame: int = -1
+
+func _accumulate_input(target: InputDataV2, source: InputDataV2) -> void:
+	# Merge basic inputs
+	target.move_vec += source.move_vec
+	# Clamp move_vec? Usually circular length <= 1.0. 
+	if target.move_vec.length() > 1.0:
+		target.move_vec = target.move_vec.normalized()
+		
+	target.mouse_delta += source.mouse_delta
+	target.zoom_delta += source.zoom_delta
+	
+	if source.fov_override > 0.0:
+		target.fov_override = source.fov_override
+	
+	# Booleans: OR logic
+	target.jump = target.jump or source.jump
+	target.sprint = target.sprint or source.sprint
+	target.interact = target.interact or source.interact
+
 
 func step(dt: float, input: InputDataV2) -> void:
 	if input == null:
@@ -780,6 +909,10 @@ func step(dt: float, input: InputDataV2) -> void:
 			)
 		else:
 			base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 20.0)
+
+	# FOV (Override)
+	if input.fov_override > 0.0:
+		base_fov = input.fov_override
 
 	# APLICACIÓN:
 	if camera_rig:
@@ -1088,12 +1221,16 @@ func step(dt: float, input: InputDataV2) -> void:
 		sidescroll_logic.update_facing(input_x, dt)
 		
 	elif sidescroll_logic.is_active and not in_transition and not active_rig:
-		print("DEBUG SS: Basis=", sidescroll_logic.get_target_basis().get_euler(), " Lock=", sidescroll_logic.lock_axis, " Invert=", sidescroll_logic.invert_side)
 		# STRICT 2.5D: Use target basis + constraints
 		basis = sidescroll_logic.get_target_basis()
 		move_vec = sidescroll_logic.get_constrained_input(move_vec)
-		print("DEBUG SS: Input=", input.move_vec, " Constrained=", move_vec)
 		
+		# [FIX] Invert Depth (Forward/Backward) movement in SideScroll mode
+		# Standard PlayerMovementV2 uses forward * (-y). 
+		# If (+1) is Forward in OYS/Input, it maps to (-forward) = Backward.
+		# We invert it here to align with visual intent.
+		move_vec.y = - move_vec.y
+
 		# Fix for standard 2.5D view (Lock Z) having inverted Horizontal Input (Left-Right convention)
 		# [REVERTED] This was causing double inversion in BaseTerrace.
 		# if sidescroll_logic.lock_axis == 2 and not sidescroll_logic.invert_side:
@@ -1416,8 +1553,16 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 	return result
 
 func _physics_process(_delta):
-	# If we are in replay mode, SessionManager is responsible for calling step()
+	# If we are in replay mode, SessionManager OR OYS usually drives step().
+	# BUT, for OYS BLEND (Parallel) support, we need to batch inputs and step once.
+	# So we allow _physics_process to consuming cached external_input.
 	if is_replay_mode:
+		if external_input_provided and external_input:
+			external_input_provided = false
+			# We use the accumulated input
+			step(FIXED_DT, external_input)
+			# Clear for next frame accumulation
+			external_input = null
 		return
 
 	if external_input_provided and external_input:
