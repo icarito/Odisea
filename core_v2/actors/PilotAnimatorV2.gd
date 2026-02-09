@@ -41,10 +41,8 @@ var anim_player: AnimationPlayer = null
 # --- STATE ---
 # Almacena la velocidad suavizada para el blend tree de animación.
 var visual_velocity: Vector3 = Vector3.ZERO
-var is_initialized := false
 var was_on_floor_last_frame: bool = true
 var time_since_jump: float = 0.0
-var time_since_input: float = 0.0
 var last_air_vertical_speed: float = 0.0 # Guarda la velocidad vertical del último frame en el aire
 var jumped_buffer_time: float = 0.0
 var acrobatic_trigger_active: bool = false # Latch para garantizar que la SM vea el trigger
@@ -57,14 +55,14 @@ func _ready() -> void:
 	controller = get_parent().get_parent() if get_parent() and get_parent().get_parent() else null
 	# Validaciones para asegurar la correcta configuración de la escena.
 	if not controller or not controller.has_method("get_wish_direction"):
-		 push_error("PilotAnimatorV2 debe ser hijo de un PlayerControllerV2 válido.")
-		 set_process(false)
-		 return
+		push_error("PilotAnimatorV2 debe ser hijo de un PlayerControllerV2 válido.")
+		set_process(false)
+		return
 		 
 	if not animation_tree:
-		 push_error("No se encontró un nodo AnimationTree como hijo del Pivot.")
-		 set_process(false)
-		 return
+		push_error("No se encontró un nodo AnimationTree como hijo del Pivot.")
+		set_process(false)
+		return
 
 	# Conectar la señal de salto para manejar la animación de forma reactiva.
 	controller.connect("jumped", self, "_on_controller_jumped")
@@ -80,10 +78,8 @@ func _ready() -> void:
 	var playback = animation_tree.get(PARAM_PLAYBACK) if animation_tree else null
 	if playback:
 		playback.start("Grounded")
-	# activar el AnimationTree de forma segura
+	# Activating the AnimationTree safely
 	animation_tree.active = true
-	
-	is_initialized = true
 
 	# Warmup animations to cache blends
 	_warmup_animations()
@@ -150,17 +146,12 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	# Lógica de tiempo para flotación
 	if is_on_floor:
 		time_since_jump = 0.0
-		time_since_input = 0.0
 	else:
 		time_since_jump += dt
-		time_since_input += dt
 
 	# Actualizar buffer de salto (permite que is_jumping sea true por unos ms)
 	if jumped_buffer_time > 0.0:
 		jumped_buffer_time = max(0.0, jumped_buffer_time - dt)
-
-	if controller.get_wish_direction().length() > 0.1:
-		time_since_input = 0.0
 
 	# 1. SUAVIZADO DE VELOCIDAD PARA ANIMACIÓN
 	# Usamos la velocidad del controlador para el movimiento, pero una versión
@@ -290,7 +281,7 @@ func _on_controller_jumped() -> void:
 	
 	# Usar ONE_SHOT_REQUEST_FIRE es la forma correcta y determinista de activar animaciones OneShot.
 	# NO NO NO NO ES ACTIVE 1
-	animation_tree.set(PARAM_GROUNDED_JUMP_ACTIVE, 1) ## # NO TOCAR (Legacy logic, mantener si es necesario para compatibilidad)
+	animation_tree.set(PARAM_GROUNDED_JUMP_ACTIVE, 1) # NO TOCAR (Legacy logic, mantener si es necesario para compatibilidad)
 
 	# Activar buffer de salto para mantener `is_jumping` verdadero algunos ms
 	jumped_buffer_time = jump_buffer_duration

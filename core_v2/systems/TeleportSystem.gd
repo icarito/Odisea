@@ -24,8 +24,8 @@ func _ready():
 				if checkpoint_res and not ("last" in checkpoint_res.slots):
 					var cp = {
 						"transform": initial_spawn_transform,
-						"yaw": player_controller.yaw if player_controller else 0.0,
-						"pitch": player_controller.pitch if player_controller else 0.0
+						"yaw": player_controller.get("yaw") if player_controller and "yaw" in player_controller else 0.0,
+						"pitch": player_controller.get("pitch") if player_controller and "pitch" in player_controller else 0.0
 					}
 					checkpoint_res.slots["last"] = cp
 					checkpoint_res.property_list_changed_notify()
@@ -77,8 +77,8 @@ func _input(event):
 					if checkpoint_res:
 						var checkpoint_data = {
 							"transform": player_controller.global_transform,
-							"yaw": player_controller.yaw if player_controller else 0.0,
-							"pitch": player_controller.pitch if player_controller else 0.0
+							"yaw": player_controller.get("yaw") if "yaw" in player_controller else 0.0,
+							"pitch": player_controller.get("pitch") if "pitch" in player_controller else 0.0
 						}
 						checkpoint_res.slots[str(key_num)] = checkpoint_data
 						checkpoint_res.property_list_changed_notify()
@@ -96,12 +96,14 @@ func _input(event):
 						var pitch = slot.get("pitch", null) if typeof(slot) == TYPE_DICTIONARY else null
 						print("[TeleportSystem] Teleport a slot ", key_num, ": ", t)
 						teleport_to(t)
-						if yaw != null:
+						if yaw != null and "yaw" in player_controller:
 							player_controller.yaw = yaw
-							player_controller.yaw_deg = rad2deg(yaw)
-						if pitch != null:
+							if "yaw_deg" in player_controller:
+								player_controller.yaw_deg = rad2deg(yaw)
+						if pitch != null and "pitch" in player_controller:
 							player_controller.pitch = pitch
-							player_controller.pitch_deg = rad2deg(pitch)
+							if "pitch_deg" in player_controller:
+								player_controller.pitch_deg = rad2deg(pitch)
 						get_tree().set_input_as_handled()
 
 # Respawn forzado en el spawn point o 0,0,0
@@ -127,7 +129,7 @@ func _respawn_at_spawn_or_zero():
 	if initial_spawn_transform != null:
 		target_transform = initial_spawn_transform
 		print("[TeleportSystem] Reset usando cached initial_spawn_transform.")
-	elif player_controller:
+	elif player_controller and "initial_transform" in player_controller:
 		target_transform = player_controller.initial_transform
 		print("[TeleportSystem] Reset usando posición inicial del player (player_controller.initial_transform).")
 	else:
@@ -231,7 +233,10 @@ func _on_player_killed():
 	
 	if is_instance_valid(player_controller):
 		print("[TeleportSystem] player_controller.global_transform=", player_controller.global_transform)
-		print("[TeleportSystem] player_controller.initial_transform=", player_controller.initial_transform)
+		if "initial_transform" in player_controller:
+			print("[TeleportSystem] player_controller.initial_transform=", player_controller.initial_transform)
+		else:
+			print("[TeleportSystem] player_controller.initial_transform=MISSING")
 	else:
 		printerr("[TeleportSystem] ERROR: player_controller is invalid/freed in _on_player_killed!")
 
@@ -271,7 +276,7 @@ func _on_player_killed():
 			target_yaw = 0
 			target_pitch = 0
 			print("[TeleportSystem] Respawn usando cached initial_spawn_transform.")
-		elif is_instance_valid(player_controller):
+		elif is_instance_valid(player_controller) and "initial_transform" in player_controller:
 			target_transform = player_controller.initial_transform
 			target_yaw = 0 # Asumir yaw inicial 0, o si hay, pero por ahora 0
 			target_pitch = 0
@@ -390,8 +395,8 @@ func _on_checkpoint_reached(transform):
 		if checkpoint_res:
 			var checkpoint_data = {
 				"transform": transform,
-				"yaw": player_controller.yaw if player_controller else 0.0,
-				"pitch": player_controller.pitch if player_controller else 0.0
+				"yaw": player_controller.get("yaw") if "yaw" in player_controller else 0.0,
+				"pitch": player_controller.get("pitch") if "pitch" in player_controller else 0.0
 			}
 			checkpoint_res.slots["last"] = checkpoint_data
 			checkpoint_res.property_list_changed_notify() # Forzar a Godot a marcar el recurso como modificado

@@ -10,12 +10,11 @@ const FIXED_DT := 1.0 / 60.0
 const UP := Vector3.UP
 
 var is_replay_mode := false
-var initial_transform: Transform
-var _frame_counter := 0 # Contador de frames para limitar logs
 
 # State para drift correction
 var _was_touching_rigid := false
 signal rigid_contact_ended() # Emitida cuando dejamos de tocar un RigidBody
+var initial_transform: Transform # Missing property used by TeleportSystem
 
 # --- EXPORTED TUNING ---
 export(float) var mouse_sensitivity := 0.005 setget set_mouse_sensitivity, get_mouse_sensitivity
@@ -62,8 +61,8 @@ func set_occlusion_mode(active: bool) -> void:
 var velocity := Vector3()
 var yaw := 0.0
 var pitch := 0.0
-var yaw_deg := 0.0
-var pitch_deg := 0.0
+var yaw_deg := 0.0 # Degrees, synced in step()
+var pitch_deg := 0.0 # Degrees, synced in step()
 var external_input: InputDataV2 = null
 var external_input_provided := false
 var _forward_latch_active := false
@@ -105,8 +104,6 @@ var frames_since_last_snap := ACROBATIC_WINDOW_FRAMES + 1 # Start expired
 var last_input_vector := Vector3.ZERO
 var is_acrobatic_ready := false
 
-# --- INTERACTION ---
-var _interact_ray: RayCast = null
 var _current_interactable: Node = null
 
 ## --- SNAPSHOT SERIALIZACIÓN ---
@@ -203,8 +200,6 @@ func restore_snapshot(data: Dictionary) -> void:
 		velocity = Vector3.ZERO
 	yaw = data.get("yaw", 0.0)
 	pitch = data.get("pitch", 0.0)
-	yaw_deg = rad2deg(yaw)
-	pitch_deg = rad2deg(pitch)
 	base_spring_length_3d = data.get("base_spring_length_3d", base_spring_length_3d)
 	
 	if data.has("movement_state") and is_instance_valid(movement_logic):
@@ -350,8 +345,6 @@ func full_reset() -> void:
 	
 	yaw = 0.0
 	pitch = 0.0
-	yaw_deg = 0.0
-	pitch_deg = 0.0
 	rotation = Vector3.ZERO
 	
 	if is_instance_valid(movement_logic):
@@ -889,8 +882,6 @@ func step(dt: float, input: InputDataV2) -> void:
 			# If in tank mode, A/D (input.move_vec.x) also rotates the camera
 			yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
 
-			yaw_deg = rad2deg(yaw)
-			pitch_deg = rad2deg(pitch)
 		# Removed unnecessary error print for zero mouse_delta during OYS override
 
 		# Limitamos el Pitch para no dar una voltereta
@@ -917,6 +908,10 @@ func step(dt: float, input: InputDataV2) -> void:
 	# APLICACIÓN:
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+	
+	# Sync OYS-friendly degree values
+	yaw_deg = rad2deg(yaw)
+	pitch_deg = rad2deg(pitch)
 
 	# 1. Actualizar timers de los componentes
 	if is_on_floor():
@@ -1225,6 +1220,10 @@ func step(dt: float, input: InputDataV2) -> void:
 		basis = sidescroll_logic.get_target_basis()
 		move_vec = sidescroll_logic.get_constrained_input(move_vec)
 		
+		# [FIX] Invert Horizontal movement for Lock X mode
+		if sidescroll_logic.lock_axis == 1:
+			move_vec.x = - move_vec.x
+			
 		# [FIX] Invert Depth (Forward/Backward) movement in SideScroll mode
 		# Standard PlayerMovementV2 uses forward * (-y). 
 		# If (+1) is Forward in OYS/Input, it maps to (-forward) = Backward.
@@ -1662,8 +1661,6 @@ func exit_25d_mode(zone_ref: Node):
 		var euler = b.get_euler()
 		yaw = euler.y
 		pitch = euler.x
-		yaw_deg = rad2deg(yaw)
-		pitch_deg = rad2deg(pitch)
 
 func _step_camera_logic(_dt: float):
 	if not camera_rig: return

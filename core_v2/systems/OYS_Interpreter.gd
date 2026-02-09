@@ -371,7 +371,6 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		"WAIT":
 			var duration = inst.get("value", 0.0)
 			# If fast_forward, execute at least 1 frame but skip the rest
-			var _frames = 1 if fast_forward else 0
 			
 			if not fast_forward:
 				var t = host_node.get_tree().create_timer(duration)
@@ -419,17 +418,21 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		"CINEMATIC_START":
 			var rig_id = inst.get("rig_id", "")
 			var mode_str = inst.get("mode", "FREE")
-			var mode = CinematicManager.ControlMode.FREE
+			var mode = 0 # FREE
 			match mode_str:
-				"FREE": mode = CinematicManager.ControlMode.FREE
-				"SIDESCROLL": mode = CinematicManager.ControlMode.SIDESCROLL
-				"LOCKED_VIEW": mode = CinematicManager.ControlMode.LOCKED_VIEW
-				"FIXED_AXIS": mode = CinematicManager.ControlMode.FIXED_AXIS
+				"FREE": mode = 0
+				"SIDESCROLL": mode = 1
+				"LOCKED_VIEW": mode = 2
+				"FIXED_AXIS": mode = 3
 
-			CinematicManager.activate_rig(rig_id, mode)
+			var manager = host_node.get_node_or_null("/root/CinematicManager")
+			if manager:
+				manager.activate_rig(rig_id, mode)
 
 		"CINEMATIC_STOP":
-			CinematicManager.deactivate_rig()
+			var manager = host_node.get_node_or_null("/root/CinematicManager")
+			if manager:
+				manager.deactivate_rig()
 
 		"CINEMATIC":
 			# Disable player input
@@ -683,11 +686,8 @@ func _execute_movement(inst: Dictionary, my_id: int):
 			duration_sec = value
 			if unit == "m":
 				duration_sec = OYS_Parser.distance_to_duration(value, is_sprint)
-			# Working convention: 1 is Left, -1 is Right
-			# CORRECTION: Standard Input map: Left (-1), Right (+1).
-			# Assuming OYS 'LEFT' means "Press Left Key" -> -1.
-			# 'RIGHT' means "Press Right Key" -> +1.
-			move_vec = Vector2(-1, 0) if cmd == "LEFT" else Vector2(1, 0)
+			# Project Convention: Left (+1), Right (-1).
+			move_vec = Vector2(1, 0) if cmd == "LEFT" else Vector2(-1, 0)
 		
 		"JUMP":
 			duration_sec = inst.get("duration", 0.1)
@@ -909,16 +909,26 @@ func _find_recorder() -> Node:
 func _find_player() -> Node:
 	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
 		return null
-	# Prefer SessionManager.player if available (avoids stale/name-based lookups)
+	
+	# Priority 1: Prefer SessionManager.player (primary source of truth)
 	var session = host_node.get_node_or_null("/root/SessionManager")
 	if session and is_instance_valid(session):
 		if session.has_method("get"):
 			var p = session.get("player")
 			if p and is_instance_valid(p):
 				return p
+		# Fallback for older SessionManager versions using property directly
+		elif "player" in session and is_instance_valid(session.player):
+			return session.player
 
-	# Fallback: find by name in the scene tree
-	var player = host_node.get_tree().get_root().find_node("Pilot", true, false)
+	# Priority 2: Standard group lookup
+	var players = host_node.get_tree().get_nodes_in_group("player")
+	for p in players:
+		if is_instance_valid(p) and not p.is_queued_for_deletion():
+			return p
+
+	# Priority 3: Global name lookup
+	var player = host_node.get_tree().root.find_node("Pilot", true, false)
 	return player
 
 func _post_oys_input(data: Dictionary):
@@ -1026,18 +1036,13 @@ func _resolve_value(val: String):
 	if val.is_valid_float():
 		return val.to_float()
 	if val in ["pos.y", "pos.x", "pos.z"]:
-		# Obtener el nodo jugador principal
-		var player = null
-		var session = host_node.get_node_or_null("/root/SessionManager")
-		if session and session.player:
-			player = session.player
-		if not player:
-			player = host_node.get_tree().root.find_node("Pilot", true, false)
+		var player = _find_player()
 		if not is_instance_valid(player):
 			printerr("[OYS ERROR] Player instance is invalid or freed when resolving ", val)
 			test_failed = true
 			stop_requested = true
 			return null
+		
 		if player is Spatial:
 			match val:
 				"pos.x": return player.global_transform.origin.x
@@ -1049,33 +1054,44 @@ func _resolve_value(val: String):
 				"pos.y": return player.position.y
 				"pos.z": return 0.0
 		return 0.0
-	if val == "yaw_deg":
-		# Buscar variable yaw_deg en el jugador
-		var player = null
-		var session = host_node.get_node_or_null("/root/SessionManager")
-		if session and session.player:
-			player = session.player
-		if not player:
-			player = host_node.get_tree().root.find_node("Pilot", true, false)
+
+	if val == "yaw_deg" or val == "pitch_deg":
+		var player = _find_player()
 		if not is_instance_valid(player):
-			printerr("[OYS ERROR] Player instance is invalid or freed when resolving yaw_deg")
+			printerr("[OYS ERROR] Player instance is invalid or freed when resolving ", val)
 			test_failed = true
 			stop_requested = true
 			return null
 		
-		# Preferir propiedad directa del script del jugador
-		if "yaw_deg" in player:
-			return player.yaw_deg
-		elif player.has_method("get_yaw_deg"):
-			return player.get_yaw_deg()
+		# Priority 1: Direct property (synced in PlayerControllerV2)
+		if val in player:
+			return player.get(val)
+		
+		# Priority 2: Method-based access
+		var method = "get_" + val
+		if player.has_method(method):
+			return player.call(method)
 			
-		# Fallback a pivote si no existe la propiedad (legacy)
-		if player.has_node("CameraPivot"):
-			var cam_pivot = player.get_node("CameraPivot")
-			if not is_instance_valid(cam_pivot):
-				return 0.0
-			var yaw = cam_pivot.rotation.y
-			return rad2deg(yaw)
+		# Fallback: Legacy/Calculation for yaw
+		if val == "yaw_deg":
+			if "yaw" in player: # rads
+				return rad2deg(player.yaw)
+			
+			if player.has_node("CameraRig"):
+				return rad2deg(player.get_node("CameraRig").rotation.y)
+			elif player.has_node("CameraPivot"):
+				return rad2deg(player.get_node("CameraPivot").rotation.y)
+		
+		# Fallback: Legacy/Calculation for pitch
+		if val == "pitch_deg":
+			if "pitch" in player: # rads
+				return rad2deg(player.pitch)
+				
+			if player.has_node("CameraRig"):
+				return rad2deg(player.get_node("CameraRig").rotation.x)
+			elif player.has_node("CameraPivot"):
+				return rad2deg(player.get_node("CameraPivot").rotation.x)
+
 		return 0.0
 	if val == "true": return true
 	if val == "false": return false

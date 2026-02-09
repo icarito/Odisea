@@ -17,7 +17,6 @@ func _register_recursive(node: Node):
 		if mat is ShaderMaterial:
 			var owner = _find_collision_owner(node)
 			WallOcclusionManager.register_material(mat, owner if owner else node)
-			print(": Registered MeshInstance material: ", node.name)
 
 	elif node is CSGShape:
 		var mat = node.material

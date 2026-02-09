@@ -4,13 +4,14 @@
       "input": {
         "move_vec": [
           0,
-          1
+          2
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -27,6 +28,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -43,6 +45,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -59,6 +62,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -75,6 +79,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -91,6 +96,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -107,6 +113,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -123,6 +130,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -139,6 +147,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -155,6 +164,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -171,6 +181,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -187,6 +198,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -203,6 +215,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -219,6 +232,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -235,6 +249,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -251,6 +266,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -267,6 +283,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -283,6 +300,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -299,6 +317,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -315,6 +334,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -331,6 +351,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -347,6 +368,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -363,6 +385,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -379,6 +402,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -395,6 +419,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -411,6 +436,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -427,6 +453,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -443,6 +470,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -459,6 +487,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -475,6 +504,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -491,6 +521,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -507,6 +538,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -523,6 +555,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -539,6 +572,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -555,6 +589,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -571,6 +606,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -587,6 +623,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -603,6 +640,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -619,6 +657,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -635,6 +674,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -651,6 +691,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -667,6 +708,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -683,6 +725,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -699,6 +742,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -715,6 +759,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -731,6 +776,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -747,6 +793,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -763,6 +810,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -779,6 +827,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -795,6 +844,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -811,6 +861,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -827,6 +878,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -843,6 +895,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -859,6 +912,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -875,6 +929,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -891,6 +946,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -907,6 +963,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -923,6 +980,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -939,6 +997,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -955,6 +1014,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -971,6 +1031,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -987,6 +1048,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1003,6 +1065,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1019,6 +1082,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1035,6 +1099,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1051,6 +1116,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1067,6 +1133,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1083,6 +1150,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1099,6 +1167,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1115,6 +1184,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1131,6 +1201,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1147,6 +1218,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1163,6 +1235,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1179,6 +1252,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1195,6 +1269,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1211,6 +1286,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1227,6 +1303,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1243,6 +1320,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1259,6 +1337,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1275,6 +1354,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1291,6 +1371,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1307,6 +1388,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1323,6 +1405,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1339,6 +1422,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1355,6 +1439,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1371,6 +1456,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1387,6 +1473,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1403,6 +1490,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1419,6 +1507,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1435,6 +1524,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1451,6 +1541,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1467,6 +1558,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1483,6 +1575,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1499,6 +1592,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1515,6 +1609,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -1531,104 +1626,9 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
         "interact": false
       }
     },
@@ -1636,15 +1636,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1652,15 +1653,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1668,15 +1670,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1684,15 +1687,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1700,15 +1704,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1716,15 +1721,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1732,15 +1738,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1748,15 +1755,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1764,15 +1772,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1780,15 +1789,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1796,15 +1806,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1812,15 +1823,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1828,15 +1840,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1844,15 +1857,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1860,15 +1874,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1876,15 +1891,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1892,15 +1908,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1908,15 +1925,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1924,15 +1942,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1940,15 +1959,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1956,15 +1976,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1972,15 +1993,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -1988,15 +2010,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2004,15 +2027,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2020,15 +2044,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2036,15 +2061,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2052,15 +2078,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2068,15 +2095,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2084,15 +2112,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2100,15 +2129,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2116,15 +2146,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2132,15 +2163,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2148,15 +2180,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2164,15 +2197,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2180,15 +2214,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2196,15 +2231,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2212,15 +2248,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2228,15 +2265,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2244,15 +2282,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2260,15 +2299,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2276,15 +2316,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2292,15 +2333,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2308,15 +2350,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2324,15 +2367,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2340,15 +2384,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2356,15 +2401,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2372,15 +2418,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2388,15 +2435,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2404,15 +2452,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2420,15 +2469,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2436,15 +2486,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2452,15 +2503,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2468,15 +2520,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2484,15 +2537,16 @@
       "input": {
         "move_vec": [
           0,
-          0
+          1
         ],
         "mouse_delta": [
           0,
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
-        "sprint": false,
+        "sprint": true,
         "interact": false
       }
     },
@@ -2507,6 +2561,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2523,6 +2578,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2539,6 +2595,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2555,6 +2612,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2571,6 +2629,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2587,6 +2646,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2603,6 +2663,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2619,6 +2680,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2635,6 +2697,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2651,6 +2714,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2667,6 +2731,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2683,6 +2748,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2699,6 +2765,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2715,6 +2782,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2731,6 +2799,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2747,6 +2816,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2763,6 +2833,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2779,6 +2850,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2795,6 +2867,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2811,6 +2884,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2827,6 +2901,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2843,6 +2918,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2859,6 +2935,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2875,6 +2952,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2891,6 +2969,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2907,6 +2986,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2923,6 +3003,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2939,6 +3020,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2955,6 +3037,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2971,6 +3054,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -2987,6 +3071,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3003,6 +3088,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3019,6 +3105,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3035,6 +3122,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3051,6 +3139,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3067,6 +3156,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3083,6 +3173,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3099,6 +3190,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3115,6 +3207,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3131,6 +3224,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3147,6 +3241,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3163,6 +3258,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3179,6 +3275,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3195,6 +3292,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3211,6 +3309,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3227,6 +3326,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3243,6 +3343,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3259,6 +3360,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3275,6 +3377,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3291,6 +3394,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3307,6 +3411,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3323,6 +3428,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3339,6 +3445,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3355,6 +3462,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3371,6 +3479,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3387,6 +3496,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3403,6 +3513,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3419,6 +3530,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3435,6 +3547,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3451,6 +3564,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3467,6 +3581,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3483,6 +3598,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3499,6 +3615,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3515,6 +3632,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3531,6 +3649,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3547,6 +3666,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3563,6 +3683,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3579,6 +3700,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3595,6 +3717,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3611,6 +3734,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3627,6 +3751,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3643,6 +3768,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3659,6 +3785,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3675,6 +3802,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3691,6 +3819,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3707,6 +3836,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3723,6 +3853,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3739,6 +3870,7 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
         "interact": false
@@ -3755,904 +3887,9 @@
           0
         ],
         "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": true,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
         "interact": false
       }
     }
@@ -4667,15 +3904,6 @@
       {
         "command": "PRINT",
         "message": "Iniciando test de SALIDA cinemática..."
-      }
-    ],
-    "96": [
-
-    ],
-    "156": [
-      {
-        "command": "PRINT",
-        "message": "Dentro de la zona. Preparando salida..."
       },
       {
         "command": "SET",
@@ -4686,10 +3914,7 @@
         ]
       }
     ],
-    "260": [
-
-    ],
-    "291": [
+    "229": [
       {
         "command": "SET",
         "var": "$pos_end_x",
@@ -4725,25 +3950,17 @@
   },
   "meta": {
     "world_start_state": {
-      "/root/TestCinematicScene/Floor/CinematicCameraZone/CinematicPathRig": {
-        "is_active": false,
-        "target_offset": 0,
-        "last_deactivate_time": 0,
-        "unit_offset": 0,
-        "current_animation": "",
-        "playback_position": 0
-      },
       "CinematicManager": {
         "current_control_mode": 0,
         "is_transitioning": false,
         "transition_timer": 0.516667,
         "transition_duration": 0.5,
         "source_transform": {
-          "origin": "(0, 4, 4)",
+          "origin": "(44.922146, 8.817698, -5.591619)",
           "basis": {
-            "x": "(0, -0, 0)",
-            "y": "(0, -0, 0)",
-            "z": "(0, 0, 0)"
+            "x": "(-0.387003, 0, -0.922079)",
+            "y": "(-0.136204, 0.98903, 0.057166)",
+            "z": "(0.911964, 0.147714, -0.382757)"
           }
         },
         "source_fov": 70,
@@ -4751,27 +3968,27 @@
         "current_camera_path": "/root/TestCinematicScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
     },
-    "scene_path": "res://core_v2/tests/TestCinematicInputLatch.tscn"
+    "scene_path": "res://core_v2/tests/TestSidescrollInputExitLatch.tscn"
   },
   "final_expected_state": {
     "position": [
-      -8.145758,
+      0.000021,
       0.0415,
-      8.358979
+      25.629194
     ],
     "velocity": [
       0,
-      0,
-      0
+      -0.232836,
+      7
     ],
-    "yaw": -1.592833,
-    "pitch": 0.138049,
+    "yaw": 1.570796,
+    "pitch": -0,
     "base_spring_length_3d": 7,
     "movement_state": {
       "horizontal_velocity": [
-        0,
-        0,
-        0
+        -0,
+        0.000497,
+        7
       ],
       "external_velocity": [
         0,
@@ -4779,35 +3996,35 @@
         0
       ],
       "camera_input_timer": 0,
-      "is_tank_turn_mode": true,
+      "is_tank_turn_mode": false,
       "current_turn_time": 0
     },
     "ss_logic": {
       "active": false,
       "alpha": 0,
-      "axis": 0,
-      "val": 0,
+      "axis": 1,
+      "val": 3.88234,
       "inv": false,
-      "allow_depth": false,
+      "allow_depth": true,
       "tsl": 15,
       "vc": [
-        0,
-        0,
-        0
+        0.000018,
+        0.0415,
+        22.829205
       ],
       "lc": [
-        0,
-        0,
-        0
+        0.000018,
+        0.0415,
+        21.195883
       ],
       "cam_yaw": 0,
       "fs": 1,
-      "tst": 0,
+      "tst": 1,
       "my": 0,
       "mp": 0,
-      "tsi": 0,
-      "cdz": 0,
-      "ff": true
+      "tsi": 3,
+      "cdz": 1.9393,
+      "ff": false
     },
     "jump_state": {
       "coyote_timer": 0.15,
@@ -4815,7 +4032,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 307,
+      "frames_since_last_snap": 245,
       "last_input_vector": [
         0,
         0,
@@ -4849,30 +4066,30 @@
       ]
     },
     "platform_velocity": [
-      -0.000114,
-      -0.000001,
-      0
+      -0,
+      0.000001,
+      0.000114
     ],
     "was_on_platform": true,
     "step_grounded_timer": 0,
     "just_stepped": false,
-    "direction_latch_active": false,
+    "direction_latch_active": true,
     "latched_dir_fwd": [
-      0,
+      -0,
       0,
       -1
     ],
     "latched_dir_rt": [
-      -1,
+      1,
       0,
       0
     ],
-    "latched_sidescroll_active": false,
+    "latched_sidescroll_active": true,
     "latched_sidescroll_basis": {
       "x": [
-        1,
+        -0,
         0,
-        0
+        -1
       ],
       "y": [
         0,
@@ -4880,32 +4097,32 @@
         0
       ],
       "z": [
+        1,
         0,
-        0,
-        1
+        -0
       ]
     },
-    "latched_cinematic_mode": -1,
+    "latched_cinematic_mode": 0,
     "latched_input_vec": [
       0,
-      0
+      1
     ],
     "prev_sidescroll_active": false,
     "prev_camera_basis": {
       "x": [
-        -0.022035,
+        -0,
         0,
-        0.999757
+        -1
       ],
       "y": [
-        -0.137578,
-        0.990486,
-        -0.003032
+        0,
+        1,
+        0
       ],
       "z": [
-        -0.990246,
-        -0.137611,
-        -0.021825
+        1,
+        0,
+        -0
       ]
     },
     "prev_cinematic_rig_path": "",
@@ -4914,8 +4131,8 @@
   "oys_variables": {
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
-    "$pos_start_x": 0.000011,
-    "$pos_end_x": -8.145758,
-    "$diff_x": -8.145769
+    "$pos_start_x": 0,
+    "$pos_end_x": 0.000021,
+    "$diff_x": 0.000021
   }
 }

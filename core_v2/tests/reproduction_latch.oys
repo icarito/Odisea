@@ -1,22 +1,15 @@
 // Test: Cinematic Exit Input Latch (Recreation)
 // Verifica que al SALIR de una zona cinemática, el input se "enganche" (latch)
 
-LEVEL res://core_v2/tests/TestCinematicInputLatch.tscn
+LEVEL res://core_v2/tests/TestSidescrollInputExitLatch.tscn
 
 SECTION "Exit latch test"
     PRINT "Iniciando test de SALIDA cinemática..."
     
-    // 1. Entrar
-    FW 11m
-    WAIT 1s 
-    
-    // 2. Salir
-    print "Dentro de la zona. Preparando salida..."
     
     SET $pos_start_x GET_NODE_POS_X "Pilot"
+    FW 31m
     
-    FW 12m
-    WAIT 0.5s    
     SET $pos_end_x GET_NODE_POS_X "Pilot"
     
     SET $diff_x $pos_end_x
