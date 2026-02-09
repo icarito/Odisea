@@ -1,0 +1,9 @@
+LEVEL res://core_v2/tests/TestDDC.tscn
+WAIT 30
+# Frame 30: Patrol State
+CALL DDC set_state "suspicion"
+WAIT 30
+# Frame 60: Suspicion State
+CALL DDC set_state "alert"
+WAIT 30
+# Frame 90: Alert State

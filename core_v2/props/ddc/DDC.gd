@@ -39,16 +39,16 @@ var _raycast: RayCast
 var _laser_geo: ImmediateGeometry
 var _light: OmniLight
 var _impact_marker: Spatial
+var _audio_alarm: AudioStreamPlayer3D
 
 func _ready():
-	._ready() # Call parent _ready
-
 	_head = get_node_or_null("Head")
 	if _head:
 		_raycast = _head.get_node_or_null("RayCast")
 		_laser_geo = _head.get_node_or_null("LaserBeam")
 		_light = _head.get_node_or_null("WarningLight")
 		_impact_marker = _head.get_node_or_null("ImpactMarker")
+		_audio_alarm = _head.get_node_or_null("AlarmSound")
 
 	if not starts_active:
 		set_state(State.OFFLINE)
@@ -212,6 +212,19 @@ func _update_visuals() -> void:
 	if _light:
 		_light.light_color = color
 		_light.light_energy = energy
+
+	# Audio Feedback (Pitch/Volume based on detection)
+	if _audio_alarm:
+		if current_state == State.SUSPICION:
+			if not _audio_alarm.playing: _audio_alarm.play()
+			_audio_alarm.pitch_scale = 1.0 + detection_progress
+			_audio_alarm.unit_db = linear2db(detection_progress)
+		elif current_state == State.ALERT:
+			if not _audio_alarm.playing: _audio_alarm.play()
+			_audio_alarm.pitch_scale = 2.0 + (sin(state_time * 10.0) * 0.2)
+			_audio_alarm.unit_db = 0.0
+		else:
+			if _audio_alarm.playing: _audio_alarm.stop()
 
 	# Update Laser Geometry
 	if _laser_geo and _raycast:

@@ -1462,6 +1462,45 @@ func _handle_play_anim(cmd: Dictionary):
 	if node and node is AnimationPlayer:
 		node.play(anim, blend)
 
+# --- GLOBAL OYS DISPATCHERS ---
+
+func DDC(target_method: String, arg1 = null, arg2 = null, arg3 = null):
+	# Global OYS dispatcher for DDC commands
+	# CALL DDC set_state alert -> SessionManager.DDC("set_state", "alert")
+	print("[SessionManager] OYS Dispatch DDC: ", target_method, " args: ", arg1, ", ", arg2)
+
+	# Find DDC instances
+	var ddcs = get_tree().get_nodes_in_group("interactable")
+	# Filter for DDC class if possible, or name match
+	var found = false
+	for node in ddcs:
+		if node.filename.ends_with("DDC.tscn") or node.get_script().resource_path.ends_with("DDC.gd") or node.name.begins_with("DDC"):
+			if node.has_method(target_method):
+				# Construct args array for callv based on provided non-nulls
+				var args = []
+				if arg1 != null: args.append(arg1)
+				if arg2 != null: args.append(arg2)
+				if arg3 != null: args.append(arg3)
+
+				node.callv(target_method, args)
+				found = true
+			else:
+				printerr("[SessionManager] DDC node found but method '%s' missing." % target_method)
+
+	if not found:
+		# Fallback search by name if not in group
+		var node = _find_node_recursive("DDC")
+		if node and node.has_method(target_method):
+			var args = []
+			if arg1 != null: args.append(arg1)
+			if arg2 != null: args.append(arg2)
+			if arg3 != null: args.append(arg3)
+			node.callv(target_method, args)
+			found = true
+
+	if not found:
+		printerr("[SessionManager] DDC dispatch failed: No valid DDC nodes found or method missing.")
+
 func _resolve_stage() -> Node:
 	var root = get_tree().root
 	var stage = root.find_node("PropStage", true, false)

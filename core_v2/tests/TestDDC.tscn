@@ -1,6 +1,7 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://core_v2/props/ddc/DDC.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/tests/DummyPilot.gd" type="Script" id=2]
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 10, 1, 10 )
@@ -36,6 +37,7 @@ scan_angle = 60.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -5 )
 collision_layer = 2
 collision_mask = 1
+script = ExtResource( 2 )
 
 [node name="CollisionShape" type="CollisionShape" parent="Pilot"]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
