@@ -42,7 +42,7 @@ SECTION "Test"
 CALL CargolDrone "move_to" [5, 2, 0]
 WAIT 1.5
 # Pickup
-CALL CargolDrone "pickup" "Cargo"
+CALL CargolDrone "pickup" "../Cargo"
 WAIT 0.5
 # Move back to origin
 CALL CargolDrone "move_to" [0, 5, 0]
@@ -60,7 +60,7 @@ WAIT 0.5
 	# Simulate execution
 	var timeout = 600 # 600 frames = ~10 seconds at 60fps
 	while comp.interpreter.is_running and timeout > 0:
-		runner.simulate_frames(1)
+		yield(runner.simulate_frames(1), "completed")
 		timeout -= 1
 
 	# Script should have finished

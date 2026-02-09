@@ -21,7 +21,7 @@ signal goal_reached
 var velocity := Vector3.ZERO
 var target_position := Vector3.ZERO
 var is_moving := false
-var cargo_uid := "" # Path of attached cargo
+var cargo_uid := "" # Path of attached cargo (original path)
 var command_index := 0 # Current step in script/mission queue
 
 # Internal state for path following
@@ -33,8 +33,12 @@ var _is_following_path := false
 var _intended_velocity := Vector3.ZERO
 var _has_intended_velocity := false
 
+# Parenting Logic State
+var _original_parent_path := ""
+var _attached_node: Spatial = null
+
 # --- NODES ---
-onready var cargo_anchor: RemoteTransform = null
+onready var cargo_anchor: Position3D = null
 
 func _init():
 	add_to_group("replay_sync")
@@ -46,7 +50,7 @@ func _ready():
 		cargo_anchor = get_node("CargoAnchor")
 	else:
 		# Create anchor if not present in scene (fallback)
-		var anchor = RemoteTransform.new()
+		var anchor = Position3D.new()
 		anchor.name = "CargoAnchor"
 		add_child(anchor)
 		cargo_anchor = anchor
@@ -63,7 +67,7 @@ func move_to(position: Vector3) -> void:
 	is_moving = true
 	_is_following_path = false
 	_has_intended_velocity = false
-	# print("[Cargol] Moving to: ", target_position)
+	print("[Cargol] Moving to: ", target_position, " from ", global_transform.origin)
 
 func follow_path(path_nodepath: NodePath) -> void:
 	var node = get_node_or_null(path_nodepath)
@@ -99,6 +103,12 @@ func pickup(target_node_path) -> void:
 		if get_tree().current_scene:
 			target = get_tree().current_scene.find_node(path_str, true, false)
 
+	if not target:
+		# Fallback: search in parent (common for siblings)
+		var p = get_parent()
+		if p:
+			target = p.find_node(path_str, true, false)
+
 	if target and target is Spatial:
 		if target == self:
 			return
@@ -108,49 +118,74 @@ func pickup(target_node_path) -> void:
 				printerr("[Cargol] Cargo too heavy: ", target.mass)
 				return
 
-			# Align transform to anchor
-			target.global_transform = cargo_anchor.global_transform
+			# -- Parenting Logic --
+			var original_parent = target.get_parent()
+			_original_parent_path = original_parent.get_path()
+			cargo_uid = str(target.get_path()) # Path before move
 
-			# Set to "Managed" state
+			# Align transform to anchor globally BEFORE reparenting?
+			# No, we want to snap it to anchor.
+
+			original_parent.remove_child(target)
+			cargo_anchor.add_child(target)
+			target.transform = Transform.IDENTITY # Snap to anchor local 0,0,0
+
+			# Set to "Managed" state (Kinematic + No Collision)
 			target.mode = RigidBody.MODE_KINEMATIC
 			target.collision_layer = 0
 			target.collision_mask = 0
 
-			cargo_anchor.remote_path = target.get_path()
-			cargo_uid = str(target.get_path())
+			_attached_node = target
 
-			# print("[Cargol] Picked up: ", target.name)
+			print("[Cargol] Picked up: ", target.name, " (Reparented to Anchor)")
 	else:
 		printerr("[Cargol] Pickup failed, invalid target: ", path_str)
 
 func release(impulse: Vector3) -> void:
-	if cargo_uid != "":
-		var target = get_node_or_null(cargo_uid)
-		if target and target is RigidBody:
-			cargo_anchor.remote_path = ""
+	if _attached_node:
+		var target = _attached_node
 
+		# -- Restore Parent --
+		cargo_anchor.remove_child(target)
+
+		var original_parent = get_node_or_null(_original_parent_path)
+		if not original_parent:
+			# Fallback to current scene if original parent lost
+			original_parent = get_tree().current_scene
+
+		if original_parent:
+			original_parent.add_child(target)
+			# Restore global transform to match release point
+			target.global_transform = cargo_anchor.global_transform
+
+		if target is RigidBody:
 			# Restore physics
 			target.mode = RigidBody.MODE_RIGID
 			target.collision_layer = 1
 			target.collision_mask = 1
 
+			# Apply momentum
 			target.apply_central_impulse(impulse)
 			target.linear_velocity += velocity
 
-			# print("[Cargol] Released: ", target.name)
+		print("[Cargol] Released: ", target.name)
 
+		_attached_node = null
 		cargo_uid = ""
+		_original_parent_path = ""
 
 func query_cargo() -> Dictionary:
-	if cargo_uid != "":
-		var target = get_node_or_null(cargo_uid)
-		if target and target is RigidBody:
-			return {
-				"attached": true,
-				"mass": target.mass,
-				"name": target.name,
-				"type": "RigidBody"
-			}
+	if _attached_node:
+		var target = _attached_node
+		var mass = 0.0
+		if target is RigidBody:
+			mass = target.mass
+		return {
+			"attached": true,
+			"mass": mass,
+			"name": target.name,
+			"type": "RigidBody"
+		}
 	return {"attached": false}
 
 # --- PHYSICS / DETERMINISM ---
@@ -206,6 +241,7 @@ func step(dt: float) -> void:
 				arrived = true
 				is_moving = false
 				velocity = Vector3.ZERO
+				print("[Cargol] Reached goal: ", global_transform.origin)
 				emit_signal("goal_reached")
 			else:
 				var desired_speed = max_speed
@@ -264,7 +300,8 @@ func get_snapshot() -> Dictionary:
 		"has_intent": _has_intended_velocity,
 		"intent_vel": var2str(_intended_velocity),
 		"path_off": _path_offset,
-		"path_follow": _is_following_path
+		"path_follow": _is_following_path,
+		"orig_parent": _original_parent_path
 	}
 
 func restore_snapshot(data: Dictionary) -> void:
@@ -285,5 +322,10 @@ func restore_snapshot(data: Dictionary) -> void:
 	_path_offset = data.get("path_off", 0.0)
 	_is_following_path = data.get("path_follow", false)
 
-	if cargo_anchor:
-		cargo_anchor.remote_path = cargo_uid
+	_original_parent_path = data.get("orig_parent", "")
+
+	# Restoring _attached_node is tricky in replay if hierarchy changed.
+	# Usually we re-resolve cargo_uid.
+	# If parenting is used, the node is now a child of cargo_anchor.
+	if cargo_anchor.get_child_count() > 0:
+		_attached_node = cargo_anchor.get_child(0) as Spatial
