@@ -447,19 +447,6 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				player.input_provider.hardware_input_enabled = true
 			fast_forward = false
 
-		"CINEMATIC":
-			# Disable player input
-			var player = _find_player()
-			if player and "input_provider" in player and player.input_provider:
-				player.input_provider.hardware_input_enabled = false
-				
-		"INTERACTIVE":
-			# Enable player input and stop fast forward
-			var player = _find_player()
-			if player and "input_provider" in player and player.input_provider:
-				player.input_provider.hardware_input_enabled = true
-			fast_forward = false
-
 		"RECORD_START":
 			var recorder = _find_recorder()
 			if recorder:
