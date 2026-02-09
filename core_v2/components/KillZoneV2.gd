@@ -14,7 +14,7 @@ func _ready():
 	var teleport_system = get_tree().get_root().find_node("TeleportSystem", true, false)
 	if teleport_system:
 		if not is_connected("player_killed", teleport_system, "_on_player_killed"):
-			var res = connect("player_killed", teleport_system, "_on_player_killed")
+			var _res = connect("player_killed", teleport_system, "_on_player_killed")
 	else:
 		# TeleportSystem aún no disponible; intentar conectar en el siguiente frame
 		print("[KillZoneV2] TeleportSystem no encontrado en _ready(), intentando conexión diferida")
@@ -24,8 +24,8 @@ func _deferred_connect():
 	var teleport_system = get_tree().get_root().find_node("TeleportSystem", true, false)
 	if teleport_system:
 		if not is_connected("player_killed", teleport_system, "_on_player_killed"):
-			var res = connect("player_killed", teleport_system, "_on_player_killed")
-			print("[KillZoneV2] (deferred) Señal player_killed conectada a TeleportSystem:", teleport_system, "res=", res)
+			var _res = connect("player_killed", teleport_system, "_on_player_killed")
+			print("[KillZoneV2] (deferred) Señal player_killed conectada a TeleportSystem:", teleport_system, "res=", _res)
 	else:
 		print("[KillZoneV2] (deferred) TeleportSystem aún no encontrado; la conexión fallará hasta que exista.")
 

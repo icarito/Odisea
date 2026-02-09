@@ -222,10 +222,10 @@ func _generate_mesh() -> void:
 			# We need UVs for TL, TR, BR, BL based on their world position relative to grid
 			# To keep it simple, we interpolate from the 0..1 range
 			
-			var u_l = float(x) / (grid_resolution - 1)
-			var u_r = float(x + 1) / (grid_resolution - 1)
-			var v_t = float(z) / (grid_resolution - 1)
-			var v_b = float(z + 1) / (grid_resolution - 1)
+			var _u_l = float(x) / (grid_resolution - 1)
+			var _u_r = float(x + 1) / (grid_resolution - 1)
+			var _v_t = float(z) / (grid_resolution - 1)
+			var _v_b = float(z + 1) / (grid_resolution - 1)
 			
 			# If we are at the last index, u_r / v_b usually don't matter for the *loop* 
 			# but this loop goes to grid_resolution.
@@ -306,10 +306,10 @@ func _generate_mesh() -> void:
 					# We need to map High/Low X to the correct Y levels.
 					# y_my_floor, y_neighbor.
 					
-					var v_my_tl = Vector3(0, y_my_floor + y_bias, z_start)
-					var v_my_bl = Vector3(0, y_my_floor + y_bias, z_end)
-					var v_ne_tl = Vector3(0, y_neighbor - y_bias, z_start)
-					var v_ne_bl = Vector3(0, y_neighbor - y_bias, z_end)
+					var _v_my_tl = Vector3(0, y_my_floor + y_bias, z_start)
+					var _v_my_bl = Vector3(0, y_my_floor + y_bias, z_end)
+					var _v_ne_tl = Vector3(0, y_neighbor - y_bias, z_start)
+					var _v_ne_bl = Vector3(0, y_neighbor - y_bias, z_end)
 					
 					# If Drop: My is Top. Neighbor is Bottom.
 					# w_tl/w_bl are at My Y. w_tr/w_br are at Neighbor Y.

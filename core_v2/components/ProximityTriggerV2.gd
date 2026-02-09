@@ -20,7 +20,7 @@ func _ready():
 	# Enable physics process for the delay timer
 	set_physics_process(true)
 
-func _on_zone_entered(body: Node):
+func _on_zone_entered(_body: Node):
 	if _target and _target.has_method("set_active"):
 		# Cancel any pending exit
 		_pending_exit = false
@@ -29,7 +29,7 @@ func _on_zone_entered(body: Node):
 		# Activate immediately
 		_target.set_active(true)
 
-func _on_zone_exited(body: Node):
+func _on_zone_exited(_body: Node):
 	# Check if any players remain in the zone
 	var players_remaining = 0
 	for b_id in _bodies_in_zone:

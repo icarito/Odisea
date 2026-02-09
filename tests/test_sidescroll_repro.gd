@@ -41,7 +41,7 @@ func _init():
 	
 	# Step Physics
 	var start_pos = player.global_transform.origin
-	for i in range(10):
+	for _i in range(10):
 		player.step(0.1, player.external_input)
 		
 	var end_pos = player.global_transform.origin

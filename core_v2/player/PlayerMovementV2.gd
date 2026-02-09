@@ -171,12 +171,12 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 	
 	var right = basis.x
 	
-	var lateral_input = 0.0
+	var _lateral_input = 0.0
 	if not is_tank_turn_mode:
-		lateral_input = move_vec.x
+		_lateral_input = move_vec.x
 	elif abs(move_vec.y) < 0.01:
 		# If in tank mode and NOT moving forward/backward, allow slow strafing
-		lateral_input = move_vec.x * strafe_speed_multiplier
+		_lateral_input = move_vec.x * strafe_speed_multiplier
 		
 	var wish_dir = forward * (-move_vec.y) + right * move_vec.x
 	wish_direction = wish_dir.normalized() if wish_dir.length_squared() > 0.0 else Vector3.ZERO

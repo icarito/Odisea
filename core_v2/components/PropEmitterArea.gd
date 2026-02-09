@@ -54,7 +54,7 @@ func set_prop_scene(scene: PackedScene) -> void:
 		property_list_changed_notify()
 
 func set_spawn_limit(limit: int) -> void:
-	spawn_limit = max(1, limit)
+	spawn_limit = int(max(1, limit))
 
 func set_debug_render(value: bool) -> void:
 	debug_render = value

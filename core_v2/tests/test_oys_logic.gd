@@ -77,7 +77,7 @@ func test_interpreter_for_loop():
 	"""
 	interpreter.parse(script)
 	# Mock yield to simulate run
-	yield(interpreter.run(), "completed")
+	yield (interpreter.run(), "completed")
 
 	var count = interpreter.variables.get("$count", 0)
 	assert_float(count).is_equal(3.0)
@@ -99,7 +99,7 @@ func test_interpreter_nested_loop():
 	ENDFOR
 	"""
 	interpreter.parse(script)
-	yield(interpreter.run(), "completed")
+	yield (interpreter.run(), "completed")
 
 	var count = interpreter.variables.get("$count", 0)
 	assert_float(count).is_equal(6.0) # 2 * 3 = 6
@@ -119,7 +119,7 @@ func test_interpreter_while_loop():
 	ENDWHILE
 	"""
 	interpreter.parse(script)
-	yield(interpreter.run(), "completed")
+	yield (interpreter.run(), "completed")
 
 	var count = interpreter.variables.get("$counter", 0)
 	assert_float(count).is_equal(3.0)
@@ -133,14 +133,14 @@ class MockProp extends Node:
 
 class MockHostForWhile extends Node:
 	var prop
-	var current_prop setget ,_get_current_prop
+	var current_prop setget , _get_current_prop
 	func _init():
 		prop = MockProp.new()
 		prop.name = "Door"
 		add_child(prop)
 	func _get_current_prop():
 		return prop
-	func load_prop(path):
+	func load_prop(_path):
 		return prop
 	func get_tree():
 		return Engine.get_main_loop()
@@ -165,7 +165,7 @@ func test_interpreter_while_prop():
 	ENDWHILE
 	"""
 	interpreter.parse(script)
-	yield(interpreter.run(), "completed")
+	yield (interpreter.run(), "completed")
 
 	var ran = interpreter.variables.get("$ran", 0)
 	assert_float(ran).is_equal(1.0)

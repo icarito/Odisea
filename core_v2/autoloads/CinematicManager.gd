@@ -199,7 +199,7 @@ func _search_camera(node: Node) -> Camera:
 			return cam
 	return null
 
-func _start_transition(from_cam: Camera, to_cam: Camera, duration: float, rig: Spatial):
+func _start_transition(from_cam: Camera, _to_cam: Camera, duration: float, rig: Spatial):
 	active_rig = rig
 	
 	# CRITICAL: Capture from the VIEWPORT's current camera first (what's actually being rendered)
