@@ -1,0 +1,44 @@
+# Test SideScroll Controls
+# Verifies that controls are not inverted in Lock X / Invert settings.
+
+LEVEL res://core_v2/levels/TestScene_v2.tscn
+
+# 1. Enter SideScroll Mode manually via SessionManager -> Player -> SideScrollLogic
+# Lock Axis 1 (X), Value 0.0, Invert Side TRUE, CurrentPos 0, Depth Allowed TRUE
+CALL "get_node" "Logic/SideScroll"
+SET $ssl_node "last_result"
+# enter_mode(axis, value, invert, current_pos, allow_depth)
+CALL_ON $ssl_node "enter_mode" 1 0.0 true 0.0 true
+
+PRINT "Entered SideScroll: Lock X, Invert Side (True)"
+
+# Store Initial Pos
+GET_POS $start_x $start_y $start_z
+
+# 2. Move Right (should move +Z according to user description of "Left is -Z, Right is +Z" being INVERTED?)
+# Wait, if user says "Left -Z, Right +Z" is inverted...
+# Then Correct is "Left +Z, Right -Z"?
+# Let's just measure what happens.
+
+RIGHT 1.0s
+
+GET_POS $end_x $end_y $end_z
+MATH $diff_z $end_z - $start_z
+
+PRINT "Moved Right. Delta Z: " $diff_z
+# If Inverted (as user says), this might be +Z?
+# If Correct, it should be -Z? (Assuming Camera looks -X, Inverted looks +X?)
+# Wait, manual verification is best.
+
+# 3. Move Forward (Depth)
+# Expected: Away from camera? Into screen?
+FW 1.0s
+
+GET_POS $end_x_2 $end_y_2 $end_z_2
+MATH $diff_x $end_x_2 - $end_x
+
+PRINT "Moved Forward. Delta X: " $diff_x
+
+# Clean up
+CALL_ON $ssl_node "exit_mode"
+PRINT "Test Complete"

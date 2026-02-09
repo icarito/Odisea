@@ -15,8 +15,8 @@ SECTION "Exit latch test"
     
     SET $pos_start_x GET_NODE_POS_X "Pilot"
     
-    FW 10m
-    
+    FW 12m
+    WAIT 0.5s    
     SET $pos_end_x GET_NODE_POS_X "Pilot"
     
     SET $diff_x $pos_end_x

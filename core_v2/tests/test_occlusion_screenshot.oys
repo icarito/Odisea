@@ -5,7 +5,7 @@ WAIT 1s
 
 # Walk forward into the occlusion area and behind the wall
 # Speed 2.0m/s. Distance to -6.0 is 6m. Duration 3s.
-FW 3.0s
+FW 3.0m
 
 # Wait a bit for everything to settle
 WAIT 1s

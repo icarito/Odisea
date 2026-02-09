@@ -1039,9 +1039,9 @@ transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0.0002002
 transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0, 4.10154, 3.87677 )
 script = ExtResource( 28 )
 debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
+debug_render = false
 zone_extents = Vector3( 1, 0.5, 1 )
 script_file = "res://core_v2/scripts/helloTrigger.oys"
-label_text = "Automate"
 trigger_once = false
 center_player_on_enter = null
 

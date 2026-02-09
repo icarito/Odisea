@@ -1088,9 +1088,11 @@ func step(dt: float, input: InputDataV2) -> void:
 		sidescroll_logic.update_facing(input_x, dt)
 		
 	elif sidescroll_logic.is_active and not in_transition and not active_rig:
+		print("DEBUG SS: Basis=", sidescroll_logic.get_target_basis().get_euler(), " Lock=", sidescroll_logic.lock_axis, " Invert=", sidescroll_logic.invert_side)
 		# STRICT 2.5D: Use target basis + constraints
 		basis = sidescroll_logic.get_target_basis()
 		move_vec = sidescroll_logic.get_constrained_input(move_vec)
+		print("DEBUG SS: Input=", input.move_vec, " Constrained=", move_vec)
 		
 		# Fix for standard 2.5D view (Lock Z) having inverted Horizontal Input (Left-Right convention)
 		# [REVERTED] This was causing double inversion in BaseTerrace.
@@ -1106,6 +1108,17 @@ func step(dt: float, input: InputDataV2) -> void:
 			var target_rot = sidescroll_logic.get_cam_rotation()
 			# Smoothly blend local rotation to avoid snapping on entry/exit or rapid changes
 			_cached_cam.rotation = _cached_cam.rotation.linear_interpolate(target_rot, 10.0 * dt)
+			
+		# [FIX] Apply Global Camera Rig Rotation to match SideScroll Axis definition
+		# This ensures that when we Invert Side, the camera actually rotates to face the new forward,
+		# aligning controls (Input Basis) with View (Camera Basis).
+		var target_rig_basis = sidescroll_logic.get_target_basis()
+		# We only want the Y-rotation part (Orientation), preserving Up vector
+		# But get_target_basis() includes manual pitch/yaw. 
+		# SideScrollLogic.get_target_basis() is the full basis.
+		# Note: sidescroll_logic controls the whole rig basis in this mode.
+		if camera_rig:
+			camera_rig.transform.basis = camera_rig.transform.basis.slerp(target_rig_basis, 10.0 * dt)
 			
 	elif _cached_cam and not sidescroll_logic.is_active:
 		# Standard 3D: Ensure local camera rotation is reset (identity)

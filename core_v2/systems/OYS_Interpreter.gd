@@ -73,6 +73,17 @@ func parse(script_content: String):
 					start_inst["end_index"] = instructions.size()
 					inst["start_index"] = start_idx
 
+		elif inst.command == "BLEND":
+			loop_stack.push_back(instructions.size())
+		
+		elif inst.command == "END":
+			if not loop_stack.empty():
+				var start_idx = loop_stack.back()
+				var start_inst = instructions[start_idx]
+				if start_inst.command == "BLEND":
+					loop_stack.pop_back()
+					start_inst["end_index"] = instructions.size()
+
 		instructions.append(inst)
 
 	if not loop_stack.empty():
@@ -149,6 +160,59 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 	emit_signal("instruction_executed", inst, variables)
 	
 	match cmd:
+		"BLEND":
+			var duration = inst.get("duration", 1.0)
+			var end_index = inst.get("end_index", -1)
+			
+			if end_index != -1:
+				# Skip the block in the main loop
+				var start_pc = pc # Next instruction
+				pc = end_index + 1
+				
+				# Launch sub-instructions in parallel
+				var running_states = []
+				for i in range(start_pc, end_index):
+					var sub_inst = instructions[i]
+					# Recurse or execute directly
+					# Note: sub-instructions like WAIT or GOTO might be problematic in parallel
+					# For now we assume only movement/action commands
+					var state = _execute_instruction(sub_inst, my_id)
+					if state is GDScriptFunctionState:
+						running_states.append(state)
+				
+				# Wait for duration or completion
+				# Strategy: Run for 'duration' seconds. Stop if all done.
+				var elapsed = 0.0
+				while elapsed < duration:
+					if stop_requested or my_id != execution_id:
+						break
+					
+					var all_done = true
+					for s in running_states:
+						if s.is_valid():
+							all_done = false
+							break
+					
+					if all_done:
+						break
+					
+					elapsed += host_node.get_physics_process_delta_time()
+					yield (host_node.get_tree(), "physics_frame")
+					
+					# Important: Manually resume sub-coroutines if they are valid
+					# This is typically not needed if they yield on the same signal,
+					# but if they yield on OTHER signals, we just wait.
+					# If they yield on physics_frame of the SAME tree, they should auto-resume.
+					# But if they depend on `resume()` being called (unlikely for yield(tree, signal)),
+					# we are fine.
+					# Debug print to see progress
+					# print("Blend running: ", elapsed, "/", duration)
+					# Debug states
+					var debug_states = []
+					for s in running_states:
+						debug_states.append(s.is_valid())
+					print("[OYS DEBUG] BLEND tick: ", elapsed, " States: ", debug_states)
+		
 		"SECTION":
 			pass # Already indexed
 		
@@ -734,7 +798,9 @@ func _execute_look(inst: Dictionary, my_id: int):
 	var real_duration = duration_sec / time_scale
 	
 	var num_frames = OYS_Parser.duration_to_frames(real_duration)
-	var mouse_dy = - pitch / num_frames
+	var sensitivity = 0.005
+	var pixels_total = (pitch * PI / 180.0) / sensitivity
+	var mouse_dy = - pixels_total / num_frames
 	
 	var player = _find_player()
 	if not player:

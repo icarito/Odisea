@@ -1,0 +1,49 @@
+# Test SideScroll Inversion (Lock X + Invert)
+# Requirement: Lock X + Invert -> Right maps to +Z, Forward maps to +X
+
+LEVEL res://core_v2/levels/TestScene_v2.tscn
+
+# Find Pilot and SideScroll
+CALL "find_node" "Pilot" true false
+SET $pilot "last_result"
+
+# Ensure Logic/SideScroll exists
+CALL_ON $pilot "get_node" "Logic/SideScroll"
+SET $ssl "last_result"
+
+# Ensure Camera exists and make it current
+CALL_ON $pilot "get_node" "CameraRig/Camera"
+SET $cam "last_result"
+CALL_ON $cam "make_current"
+
+WAIT 0.5
+
+# Enter SideScroll Mode: Lock X (1), Val 0, Invert TRUE, Pos 0, Depth TRUE
+CALL_ON $ssl "enter_mode" 1 0.0 true 0.0 true
+
+PRINT "Entered SideScroll: Lock X, Invert TRUE"
+
+# 1. Test Horizontal (Rights)
+GET_POS $startX $startY $startZ
+RIGHT 1.0s
+GET_POS $endX $endY $endZ
+MATH $deltaZ $endZ - $startZ
+
+PRINT "Right Input Delta Z: " $deltaZ
+
+# Verify Right -> +Z
+# Allow small tolerance
+ASSERT $deltaZ > 0.1 "Right Input should move +Z in Lock X Invert (DeltaZ was " $deltaZ ")"
+
+# 2. Test Depth (Forward)
+GET_POS $startX2 $startY2 $startZ2
+FW 1.0s
+GET_POS $endX2 $endY2 $endZ2
+MATH $deltaX $endX2 - $startX2
+
+PRINT "Forward Input Delta X: " $deltaX
+
+# Verify Forward -> +X
+ASSERT $deltaX > 0.1 "Forward Input should move +X in Lock X Invert (DeltaX was " $deltaX ")"
+
+PRINT "Test Passed: Controls are correct."

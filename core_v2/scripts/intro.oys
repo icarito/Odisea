@@ -5,11 +5,9 @@ SECTION "Intro"
     
     CINEMATIC
     
-    RIGHT 140
+    RIGHT 140 AT 0.5 LOOK -130
     
     PLAY_ANIM "Confused"
-
-    LOOK -130
 
     WAIT 0.2
 

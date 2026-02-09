@@ -1,0 +1,54 @@
+# Test SideScroll Inversion (using scene setup)
+# This test loads a scene with a pre-configured SideScrollZone (Lock X, Invert Side)
+# and verifies that inputs are correctly mapped.
+
+LEVEL res://tests/TestSideScrollInversion.tscn
+
+PRINT "Running SideScroll Inversion Test (Scene-based)..."
+WAIT 0.5
+
+# Find Pilot and SideScroll Logic
+CALL "find_node" "Pilot" true false
+SET $pilot "last_result"
+
+# Ensure Logic/SideScroll exists
+CALL_ON $pilot "get_node" "Logic/SideScroll"
+SET $ssl "last_result"
+
+# Ensure Camera exists and make it current
+CALL_ON $pilot "get_node" "CameraRig/Camera"
+SET $cam "last_result"
+CALL_ON $cam "make_current"
+
+PRINT "Waiting for zone activation..."
+WAIT 1.0
+
+
+# 1. Test Horizontal Input (Right)
+# In Lock X + Invert, Right input should move +Z in world space
+GET_POS $start_x $start_y $start_z
+
+RIGHT 1.0s
+
+GET_POS $end_x $end_y $end_z
+MATH $delta_z $end_z - $start_z
+PRINT "Right Input Delta Z: " $delta_z
+
+ASSERT $delta_z > 0.1 "Right Input should create +Z movement."
+
+# 2. Test Depth Input (Forward)
+# In Lock X + Invert, Forward input should move +X in world space (away/towards?)
+# Standard Forward is -Z. Inverted is +Z. Locked X is...
+# Forward moves along the Locked Axis (Depth).
+# Lock Axis is X. So Forward moves along X.
+GET_POS $start_x2 $start_y2 $start_z2
+
+FW 1.0s
+
+GET_POS $end_x2 $end_y2 $end_z2
+MATH $delta_x $end_x2 - $start_x2
+PRINT "Forward Input Delta X: " $delta_x
+
+ASSERT abs($delta_x) > 0.1 "Forward Input should create movement along X (Depth)."
+
+PRINT "Test Passed!"

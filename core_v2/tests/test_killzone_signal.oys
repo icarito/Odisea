@@ -11,16 +11,16 @@ SECTION "KillZone Signal Test"
     
     // Move forward toward the gap in the floor
     // The floor is at z=0-10, gap at z=10-15, killzone at y=-5
-    FORWARD 2.0
+    FORWARD 11.0m
     
     PRINT "Moving player to fall into killzone..."
     
     // Now wait for the player_killed signal to be emitted
     // The KillZoneV2 is at y=-5, player will fall and trigger it
-    ASSERT_SIGNAL "player_killed" 5.0 "KillZoneV2"
+    ASSERT_SIGNAL "player_killed" 4.0 "KillZoneV2"
     
     // Safety wait to allow respawn to finish and player to land
-    WAIT 1.0
-    
+    WAIT 0.8
+
     PRINT "SUCCESS: player_killed signal was emitted!"
 END

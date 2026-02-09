@@ -22,6 +22,7 @@ enum Command {
 	GET_POS,
 	CINEMATIC,
 	INTERACTIVE,
+	BLEND,
 }
 
 # Command synonyms mapping
@@ -229,6 +230,9 @@ static func parse_instruction(line: String) -> Dictionary:
 		
 		"INTERACTIVE":
 			pass
+
+		"BLEND":
+			data["duration"] = parts[1].to_float() if parts.size() > 1 else 1.0
 
 		"WALK", "RUN":
 			# These are modifiers, handle them specially

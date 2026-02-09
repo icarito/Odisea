@@ -1,0 +1,11 @@
+SECTION "TEST_BLEND"
+# This script tests the new BLEND command
+# Expected behavior: FW and LOOK run in parallel for 1.0 second.
+
+PRINT "Starting BLEND test..."
+BLEND 1.0
+    FW 1.0
+    LOOK 45
+END
+
+PRINT "BLEND finished."
