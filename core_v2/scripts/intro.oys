@@ -14,13 +14,17 @@ SECTION "Intro"
     PLAY_ANIM "Confused"
 
     WAIT 1.0
-
-    RIGHT 90
     
+    BLEND 1.0
+        ZOOM +4.0 1.0
+        LOOK +20 1.0
+        RIGHT 90 1.0
+    END
+    
+    WAIT 1.0
+
     SET_TIME_SCALE 0.6
 
-    ZOOM +4.0 1.0
-    
     WAIT_ANIM "Confused"
 
     BLEND 2.0
