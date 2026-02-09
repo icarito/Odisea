@@ -335,26 +335,54 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		"CALL":
 			var method = inst.get("method", "")
 			var args = inst.get("args", [])
-			var resolved_args = []
-			for a in args:
-				resolved_args.append(_resolve_value(a))
 			
-			var target = _resolve_prop() # Try prop first
-			if not target or not target.has_method(method):
-				# Try PropStage / Current Scene
-				var stage = _resolve_stage()
-				if stage and stage != target and stage.has_method(method):
-					target = stage
+			# Check for Registered OYS Actor in SessionManager (Global)
+			var sm = _find_session_manager()
+			var actor = null
+			if sm and sm.has_method("get_oys_actor"):
+				actor = sm.get_oys_actor(method)
+			
+			if actor:
+				# ACTOR CALL: The first argument is the method name, the rest are arguments
+				# CALL CargolDrone "move_to" [10, 20, 30]
+				# -> method="CargolDrone", args=["move_to", "[10,", "20,", "30]"]
+				if args.size() > 0:
+					var real_method = _resolve_value(args[0]) # Resolve method name from var if needed
+					var call_args_raw = []
+					if args.size() > 1:
+						call_args_raw = args.duplicate()
+						call_args_raw.pop_front() # Remove method name
+
+					var resolved_call_args = _resolve_complex_args(call_args_raw)
+
+					if actor.has_method(real_method):
+						var result = actor.callv(real_method, resolved_call_args)
+						if result is GDScriptFunctionState:
+							yield (result, "completed")
+					else:
+						printerr("[OYS] CALL Actor Error: Actor '%s' has no method '%s'" % [method, real_method])
 				else:
-					target = host_node # Fallback to host
-			
-			if target and target.has_method(method):
-				var result = target.callv(method, resolved_args)
-				if result is GDScriptFunctionState:
-					yield (result, "completed")
+					printerr("[OYS] CALL Actor Error: Missing method name for actor '%s'" % method)
 			else:
-				# Don't fail the test immediately, just warn
-				printerr("[OYS] CALL failed: Method '%s' not found on %s" % [method, target.name])
+				# STANDARD CALL (Legacy/Host/Prop)
+				# Use generic complex arg resolution for standard calls too, improving flexibility
+				var resolved_args = _resolve_complex_args(args)
+
+				var target = _resolve_prop() # Try prop first
+				if not target or not target.has_method(method):
+					# Try PropStage / Current Scene
+					var stage = _resolve_stage()
+					if stage and stage != target and stage.has_method(method):
+						target = stage
+					else:
+						target = host_node # Fallback to host
+
+				if target and target.has_method(method):
+					var result = target.callv(method, resolved_args)
+					if result is GDScriptFunctionState:
+						yield (result, "completed")
+				else:
+					printerr("[OYS] CALL failed: Method '%s' not found on %s" % [method, target.name])
 
 		"SPAWN":
 			var scene_path = inst.get("scene", "")
@@ -905,6 +933,66 @@ func _find_recorder() -> Node:
 	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
 		return null
 	return host_node.get_tree().root.find_node("FrameRecorder", true, false)
+
+func _find_session_manager() -> Node:
+	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+		return null
+	return host_node.get_node_or_null("/root/SessionManager")
+
+func _resolve_complex_args(raw_args: Array) -> Array:
+	var final_args = []
+	var i = 0
+	while i < raw_args.size():
+		var val = raw_args[i]
+
+		# Resolve variables first if needed, but Vector construction needs strings
+		var resolved_val = _resolve_value(val)
+
+		# If it resolved to a non-string (e.g. number from variable), use it directly
+		if typeof(resolved_val) != TYPE_STRING:
+			final_args.append(resolved_val)
+			i += 1
+			continue
+
+		val = resolved_val # It's a string
+
+		# Detect split vector "[x, y, z]" start
+		if val.begins_with("[") and not val.ends_with("]"):
+			var built = val
+			var j = i + 1
+			var completed = false
+			while j < raw_args.size():
+				var next_val = raw_args[j]
+				# Resolve next parts too if they are variables? usually vectors are literal in OYS
+				# But let's assume literal for vector components for now to keep simple
+				built += "" + str(next_val)
+				if str(next_val).ends_with("]"):
+					completed = true
+					i = j
+					break
+				j += 1
+
+			if completed:
+				final_args.append(_parse_vector3_flexible(built))
+			else:
+				final_args.append(val)
+
+		# Detect single string vector "[x,y,z]"
+		elif val.begins_with("[") and val.ends_with("]"):
+			final_args.append(_parse_vector3_flexible(val))
+		else:
+			# It's a regular string value
+			final_args.append(val)
+
+		i += 1
+	return final_args
+
+func _parse_vector3_flexible(s: String) -> Vector3:
+	var cleaned = s.replace("[", "").replace("]", "").replace("(", "").replace(")", "").strip_edges()
+	var parts = cleaned.split(",")
+	if parts.size() >= 3:
+		return Vector3(parts[0].to_float(), parts[1].to_float(), parts[2].to_float())
+	return Vector3.ZERO
 
 func _find_player() -> Node:
 	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():

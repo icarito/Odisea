@@ -6,11 +6,22 @@ const OYSComponent = preload("res://core_v2/components/OYSComponent.gd")
 func test_cargol_drone_logic() -> void:
 	var runner := scene_runner("res://core_v2/tests/TestScene_Cargol.tscn")
 
+	# Ensure SessionManager exists for Actor Registration
+	var sm = runner.scene().get_tree().root.get_node_or_null("SessionManager")
+	if not sm:
+		sm = Node.new()
+		sm.name = "SessionManager"
+		sm.set_script(load("res://core_v2/autoloads/SessionManager.gd"))
+		runner.scene().get_tree().root.add_child(sm)
+
 	var drone = runner.scene().find_node("CargolDrone", true, false)
 	var cargo = runner.scene().find_node("Cargo", true, false)
 
 	assert_object(drone).is_not_null()
 	assert_object(cargo).is_not_null()
+
+	# Manually register if auto-register failed due to missing SM at _ready
+	sm.register_oys_actor("CargolDrone", drone)
 
 	# Verify drone is in group
 	assert_bool(drone.is_in_group("cargol_drone")).is_true()

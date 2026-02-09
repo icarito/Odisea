@@ -51,6 +51,11 @@ func _ready():
 		add_child(anchor)
 		cargo_anchor = anchor
 
+	# Register as OYS Actor
+	var sm = get_node_or_null("/root/SessionManager")
+	if sm and sm.has_method("register_oys_actor"):
+		sm.register_oys_actor("CargolDrone", self)
+
 # --- CORE API (Programmable Interface) ---
 
 func move_to(position: Vector3) -> void:
