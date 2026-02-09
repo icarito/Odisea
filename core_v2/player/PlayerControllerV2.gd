@@ -80,6 +80,7 @@ var _latched_cinematic_mode := -1 # Modo de control cinemático (-1 = no cinemat
 var _latched_input_vec := Vector2.ZERO # Input que activó el latch (para saber cuándo liberar)
 var _prev_sidescroll_active := false
 var _prev_cinematic_rig = null # Referencia al rig cinemático anterior
+var _prev_sidescroll_zone: Node = null # Added for Latch On Exit logic
 var _cinematic_rig: Node = null # Referencia al rig cinemático actual
 var _prev_camera_basis := Basis.IDENTITY # Basis de cámara del frame anterior
 var _terminal_ui_active := false # True when HoloTerminal UI is in interaction mode
@@ -683,6 +684,15 @@ func _input(event):
 		if input_provider:
 			input_provider.zoom_delta_accum += 1.0
 
+# --- OYS HOOKS ---
+func play_anim(anim_name: String):
+	"""OYS Hook: Plays a cinematic/override animation on the visual animator."""
+	# In Pilot_v2.tscn, the animator script is on Visual/Pivot
+	if has_node("Visual/Pivot"):
+		get_node("Visual/Pivot").play_override_animation(anim_name)
+	else:
+		printerr("PlayerControllerV2: Could not find PilotAnimator (Visual/Pivot) for play_anim")
+
 func inject_input(data: Dictionary) -> void:
 	if data == null:
 		return
@@ -873,11 +883,21 @@ func step(dt: float, input: InputDataV2) -> void:
 		var zone_latch_on_enter := true # Por defecto true, la zona puede override
 		var zone_latch_on_exit := true # Por defecto true, la zona puede override
 		# Consultar zona activa para sidescroll
-		#if sidescroll_logic.is_active:
-		#	if "latch_on_enter" in sidescroll_logic.zone:
-		#		zone_latch_on_enter = sidescroll_logic.zone.latch_on_enter
-		#	if "latch_on_exit" in sidescroll_logic.zone:
-		#		zone_latch_on_exit = sidescroll_logic.zone.latch_on_exit
+		if sidescroll_logic.is_active:
+			# Entering SideScroll: Check the NEW active zone
+			if not active_25d_zones.empty():
+				var new_zone = active_25d_zones.back()
+				if "latch_on_enter" in new_zone:
+					zone_latch_on_enter = new_zone.latch_on_enter
+				if "latch_on_exit" in new_zone:
+					zone_latch_on_exit = new_zone.latch_on_exit
+		elif exiting and _prev_sidescroll_active:
+			# Exiting SideScroll: Check the PREVIOUS active zone
+			if _prev_sidescroll_zone:
+				if "latch_on_enter" in _prev_sidescroll_zone:
+					zone_latch_on_enter = _prev_sidescroll_zone.latch_on_enter
+				if "latch_on_exit" in _prev_sidescroll_zone:
+					zone_latch_on_exit = _prev_sidescroll_zone.latch_on_exit
 		
 		# Para cinematic, buscar la zona que activó el rig
 		var cinematic_zone = null
@@ -947,6 +967,13 @@ func step(dt: float, input: InputDataV2) -> void:
 	
 	# Actualizar las referencias "prev" para el próximo frame
 	_prev_sidescroll_active = sidescroll_logic.is_active
+	
+	# Update prev zone tracking
+	if sidescroll_logic.is_active and not active_25d_zones.empty():
+		_prev_sidescroll_zone = active_25d_zones.back()
+	elif not sidescroll_logic.is_active:
+		_prev_sidescroll_zone = null
+
 	_prev_cinematic_rig = _cinematic_rig
 	_prev_camera_basis = get_camera_basis() # Guardar basis actual para el próximo frame
 	
@@ -1064,6 +1091,11 @@ func step(dt: float, input: InputDataV2) -> void:
 		# STRICT 2.5D: Use target basis + constraints
 		basis = sidescroll_logic.get_target_basis()
 		move_vec = sidescroll_logic.get_constrained_input(move_vec)
+		
+		# Fix for standard 2.5D view (Lock Z) having inverted Horizontal Input (Left-Right convention)
+		# [REVERTED] This was causing double inversion in BaseTerrace.
+		# if sidescroll_logic.lock_axis == 2 and not sidescroll_logic.invert_side:
+		# 	move_vec.x = - move_vec.x
 		
 		# Determine actual move direction (could be different from input if restricted)
 		if abs(move_vec.x) > 0.1:

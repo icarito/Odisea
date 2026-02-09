@@ -67,5 +67,14 @@ func save_checkpoint_resource(scene_path: String):
 			print("[PersistenceManager] Error al guardar checkpoint en ", save_path, ": ", err)
 
 func hash_scene_path(scene_path: String) -> String:
-	# Simple hash, puede mejorarse
-	return String(scene_path.md5_text())
+	# Use file content MD5 to invalidate checkpoints on level change
+	var file = File.new()
+	if file.file_exists(scene_path):
+		var md5 = file.get_md5(scene_path)
+		if md5.empty():
+			# Fallback if MD5 fails (e.g. empty file or access issue)
+			return String(scene_path.md5_text())
+		return md5
+	else:
+		# Fallback for non-existent files (e.g. dynamic/unsaved scenes)
+		return String(scene_path.md5_text())

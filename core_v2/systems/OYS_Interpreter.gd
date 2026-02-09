@@ -134,13 +134,44 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 					printerr("[OYS] IF GOTO target not found: ", target)
 		
 		"PLAY_ANIM":
-			var node = _resolve_node(inst.get("path", ""))
-			if node and node is AnimationPlayer:
-				var blend = inst.get("blend", -1.0)
-				node.play(inst.get("anim", ""), blend)
+			# 1. Try to find a high-level handler (play_anim) on the Player first
+			# This is crucial because PlayerAnimator needs to disable AnimationTree
+			var player = _find_player()
+			var handled = false
+			
+			if inst.get("path", "") == "" and player and player.has_method("play_anim"):
+				player.play_anim(inst.get("anim", ""))
+				handled = true
+			
+			if not handled:
+				# 2. Fallback: Resolve node path directly (e.g. for props or direct anim player access)
+				var node = _resolve_node(inst.get("path", ""))
+				
+				# 3. Last Resort: If no path and player didn't handle it (maybe no play_anim method), 
+				# try finding AnimationPlayer on player manually
+				if not (node and node is AnimationPlayer) and inst.get("path", "") == "":
+					if player:
+						var anim = player.find_node("AnimationPlayer", true, false)
+						if anim: node = anim
+
+				if node and node is AnimationPlayer:
+					var blend = inst.get("blend", -1.0)
+					node.play(inst.get("anim", ""), blend)
+				else:
+					var p = inst.get("path", "")
+					var n_name = node.name if node else "null"
+					printerr("[OYS WARNING] PLAY_ANIM: Target is not an AnimationPlayer. Path='%s', Resolved='%s'" % [p, n_name])
 		
 		"WAIT_ANIM":
 			var node = _resolve_node(inst.get("path", ""))
+			
+			# Fallback: If no path specified, try to find the Player's AnimationPlayer
+			if not (node and node is AnimationPlayer) and inst.get("path", "") == "":
+				var player = _find_player()
+				if player:
+					var anim = player.find_node("AnimationPlayer", true, false)
+					if anim: node = anim
+			
 			if node and node is AnimationPlayer:
 				if node.is_playing():
 					yield (node, "animation_finished")
