@@ -20,6 +20,8 @@ enum Command {
 	CINEMATIC_START, CINEMATIC_STOP,
 	RECORD_START, RECORD_STOP,
 	GET_POS,
+	CINEMATIC,
+	INTERACTIVE,
 }
 
 # Command synonyms mapping
@@ -27,7 +29,8 @@ const SYNONYMS = {
 	"FORWARD": "FW",
 	"BACKWARD": "BW",
 	"LT": "LEFT",
-	"RT": "RIGHT"
+	"RT": "RIGHT",
+	"TIME_SCALE": "SET_TIME_SCALE"
 }
 
 # Preprocess script: remove comments and empty lines
@@ -203,6 +206,15 @@ static func parse_instruction(line: String) -> Dictionary:
 			pass
 
 		"RECORD_STOP":
+			pass
+
+		"RECORD_STOP":
+			pass
+
+		"CINEMATIC":
+			pass
+		
+		"INTERACTIVE":
 			pass
 
 		"WALK", "RUN":

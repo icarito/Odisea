@@ -39,7 +39,10 @@ func activate_rig(rig_id: String, control_mode: int = ControlMode.FREE):
 	var rigs = get_tree().get_nodes_in_group("cinematic_rigs")
 	var target_rig = null
 	for rig in rigs:
-		if rig.name == rig_id or (rig.has("rig_id") and rig.rig_id == rig_id):
+		if rig.name == rig_id:
+			target_rig = rig
+			break
+		if rig.get("rig_id") == rig_id:
 			target_rig = rig
 			break
 
@@ -243,6 +246,17 @@ func _apply_rig(rig):
 func _process(_delta):
 	# Only handle non-transition logic here, transitions are now in step()
 	pass
+
+func force_finish_transition():
+	if _is_transitioning:
+		# Force timer to end
+		_transition_timer = _transition_duration
+		# Calculate final step to apply state
+		step(0)
+		# Ensure flags are cleared (step might do it, but to be safe)
+		_is_transitioning = false
+		_is_exit_transition = false
+
 
 func step(delta: float):
 	if not _is_transitioning:

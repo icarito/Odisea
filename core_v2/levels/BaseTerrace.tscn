@@ -1055,9 +1055,8 @@ debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 debug_render = false
 zone_extents = Vector3( 1, 0.5, 1 )
 script_file = "res://core_v2/scripts/intro.oys"
-label_text = "Intro"
 trigger_once = false
-center_player_on_enter = null
+center_player_on_enter = true
 
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/CinematicSequence"]
 shape = SubResource( 1500 )
@@ -1108,7 +1107,6 @@ invert_side = true
 allow_depth_movement = true
 target_distance = 25.0
 latch_on_enter = true
-latch_on_exit = false
 
 [node name="SideScrollZone2" parent="." instance=ExtResource( 5 )]
 transform = Transform( 1.667, 0, 0, 0, 1.667, 0, 0, 0, 1, -26, 16, 16 )

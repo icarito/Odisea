@@ -15,6 +15,7 @@ var section_names: Array = []
 var host_node: Node
 var is_running: bool = false
 var stop_requested: bool = false
+var fast_forward: bool = false
 var execution_id: int = 0
 var test_failed: bool = false # Global flag to track test failure
 signal instruction_executed(inst, variables)
@@ -78,6 +79,8 @@ func run(start_section: String = ""):
 			session.set("_oys_input_override", {})
 
 # Ejecutar desde un program counter específico (para hot-reload con checkpoints)
+func request_fast_forward():
+	fast_forward = true
 func run_from_pc(from_pc: int):
 	execution_id += 1
 	var my_id = execution_id
@@ -174,7 +177,17 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			
 			if node and node is AnimationPlayer:
 				if node.is_playing():
-					yield (node, "animation_finished")
+					if fast_forward:
+						# If fast forwarding, we can either seek to end or just skip waiting.
+						# Seeking to end is safer for state consistency.
+						var anim_name = node.current_animation
+						if anim_name != "":
+							var anim = node.get_animation(anim_name)
+							if anim:
+								node.seek(anim.length, true)
+						yield (host_node.get_tree(), "physics_frame")
+					else:
+						yield (node, "animation_finished")
 		
 		"ASSERT_SIGNAL":
 			var target_path = inst.get("path", "")
@@ -264,10 +277,17 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		
 		"WAIT":
 			var duration = inst.get("value", 0.0)
-			var t = host_node.get_tree().create_timer(duration)
-			while t.time_left > 0:
-				if stop_requested or my_id != execution_id:
-					break
+			# If fast_forward, execute at least 1 frame but skip the rest
+			var _frames = 1 if fast_forward else 0
+			
+			if not fast_forward:
+				var t = host_node.get_tree().create_timer(duration)
+				while t.time_left > 0:
+					if stop_requested or my_id != execution_id:
+						break
+					if fast_forward: break # Break immediately if FF requested during wait
+					yield (host_node.get_tree(), "physics_frame")
+			else:
 				yield (host_node.get_tree(), "physics_frame")
 		
 		"PRINT":
@@ -317,6 +337,19 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 
 		"CINEMATIC_STOP":
 			CinematicManager.deactivate_rig()
+
+		"CINEMATIC":
+			# Disable player input
+			var player = _find_player()
+			if player and "input_provider" in player and player.input_provider:
+				player.input_provider.hardware_input_enabled = false
+				
+		"INTERACTIVE":
+			# Enable player input and stop fast forward
+			var player = _find_player()
+			if player and "input_provider" in player and player.input_provider:
+				player.input_provider.hardware_input_enabled = true
+			fast_forward = false
 
 		"RECORD_START":
 			var recorder = _find_recorder()
@@ -502,7 +535,14 @@ func _execute_movement(inst: Dictionary, my_id: int):
 				duration_sec = 1.0 / 60.0
 				is_interact = true
 	
-	var num_frames = OYS_Parser.duration_to_frames(duration_sec)
+	# Scale duration by TimeScale so movements are slower in slow-mo
+	var time_scale = Engine.time_scale
+	if time_scale <= 0.001: time_scale = 1.0 # Avoid divide by zero
+	
+	# Real duration = Game Duration / Scale (e.g. 0.5s / 0.1 = 5.0s real time)
+	var real_duration = duration_sec / time_scale
+	
+	var num_frames = OYS_Parser.duration_to_frames(real_duration)
 	for _i in range(num_frames):
 		if stop_requested or my_id != execution_id:
 			break
@@ -529,7 +569,13 @@ func _execute_turn(inst: Dictionary, my_id: int):
 	var value = inst.get("value", 0.0)
 	var direction = inst.get("direction", "LEFT")
 	var duration_sec = 0.5
-	var num_frames = OYS_Parser.duration_to_frames(duration_sec)
+	
+	# Scale duration by TimeScale
+	var time_scale = Engine.time_scale
+	if time_scale <= 0.001: time_scale = 1.0
+	var real_duration = duration_sec / time_scale
+	
+	var num_frames = OYS_Parser.duration_to_frames(real_duration)
 	
 	var sensitivity = 0.005
 	var pixels_total = (value * PI / 180.0) / sensitivity
@@ -562,7 +608,13 @@ func _execute_turn(inst: Dictionary, my_id: int):
 func _execute_look(inst: Dictionary, my_id: int):
 	var pitch = inst.get("pitch", 0.0)
 	var duration_sec = inst.get("duration", 0.5)
-	var num_frames = OYS_Parser.duration_to_frames(duration_sec)
+	
+	# Scale by TimeScale
+	var time_scale = Engine.time_scale
+	if time_scale <= 0.001: time_scale = 1.0
+	var real_duration = duration_sec / time_scale
+	
+	var num_frames = OYS_Parser.duration_to_frames(real_duration)
 	var mouse_dy = - pitch / num_frames
 	
 	var player = _find_player()
