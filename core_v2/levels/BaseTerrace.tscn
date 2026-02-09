@@ -1,4 +1,4 @@
-[gd_scene load_steps=290 format=2]
+[gd_scene load_steps=291 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -43,6 +43,9 @@
 [sub_resource type="BoxShape" id=1499]
 extents = Vector3( 1, 0.5, 1 )
 
+[sub_resource type="BoxShape" id=1500]
+extents = Vector3( 1, 0.5, 1 )
+
 [sub_resource type="Curve3D" id=1036]
 _data = {
 "points": PoolVector3Array( 0, 0, 0, 0, 0, 0, -1.12776, 0.512028, 0.776176, 0, 0, 0, 0, 0, 0, 17.8518, 0.512025, 11.5882, 0, 0, 0, 0, 0, 0, 20.8778, 3.86377, 33.4963 ),
@@ -64,14 +67,14 @@ tracks/0/keys = {
 "values": [ 0.0, 1.0 ]
 }
 
-[sub_resource type="BoxShape" id=1500]
+[sub_resource type="BoxShape" id=1501]
 extents = Vector3( 10, 17, 4.95 )
 
 [sub_resource type="CubeMesh" id=1]
 material = ExtResource( 1 )
 size = Vector3( 80, 2, 80 )
 
-[sub_resource type="MultiMesh" id=1501]
+[sub_resource type="MultiMesh" id=1502]
 transform_format = 1
 instance_count = 200
 mesh = SubResource( 1 )
@@ -960,10 +963,10 @@ size = Vector3( 8, 10, 0.2 )
 [sub_resource type="ConcavePolygonShape" id=675]
 data = PoolVector3Array( -4, 5, 0.1, 4, 5, 0.1, -4, -5, 0.1, 4, 5, 0.1, 4, -5, 0.1, -4, -5, 0.1, 4, 5, -0.1, -4, 5, -0.1, 4, -5, -0.1, -4, 5, -0.1, -4, -5, -0.1, 4, -5, -0.1, 4, 5, 0.1, 4, 5, -0.1, 4, -5, 0.1, 4, 5, -0.1, 4, -5, -0.1, 4, -5, 0.1, -4, 5, -0.1, -4, 5, 0.1, -4, -5, -0.1, -4, 5, 0.1, -4, -5, 0.1, -4, -5, -0.1, 4, 5, 0.1, -4, 5, 0.1, 4, 5, -0.1, -4, 5, 0.1, -4, 5, -0.1, 4, 5, -0.1, -4, -5, 0.1, 4, -5, 0.1, -4, -5, -0.1, 4, -5, 0.1, 4, -5, -0.1, -4, -5, -0.1 )
 
-[sub_resource type="BoxShape" id=1502]
+[sub_resource type="BoxShape" id=1503]
 extents = Vector3( 63, 40, 100 )
 
-[sub_resource type="BoxShape" id=1503]
+[sub_resource type="BoxShape" id=1504]
 extents = Vector3( 104, 1, 141.5 )
 
 [sub_resource type="MultiMesh" id=1491]
@@ -1045,6 +1048,20 @@ center_player_on_enter = null
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/AutomationTrigger"]
 shape = SubResource( 1499 )
 
+[node name="CinematicSequence" type="Area" parent="CrioPod START"]
+transform = Transform( 0.666667, 0, 2.84217e-14, 0, 0.666667, 0, -2.84217e-14, 0, 0.666667, 2.14577e-06, 0.823144, -0.12323 )
+script = ExtResource( 28 )
+debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
+debug_render = false
+zone_extents = Vector3( 1, 0.5, 1 )
+script_file = "res://core_v2/scripts/intro.oys"
+label_text = "Intro"
+trigger_once = false
+center_player_on_enter = null
+
+[node name="CollisionShape" type="CollisionShape" parent="CrioPod START/CinematicSequence"]
+shape = SubResource( 1500 )
+
 [node name="Smoke" parent="CrioPod START" instance=ExtResource( 11 )]
 transform = Transform( 3.33333, 0, 0, 0, 3.33333, 0, 0, 0, 3.33333, 0.0232, 2.82933, 1.23413 )
 visible = false
@@ -1088,8 +1105,9 @@ debug_render = false
 zone_extents = Vector3( 2.5, 16, 50.95 )
 lock_axis = 1
 invert_side = true
+allow_depth_movement = true
 target_distance = 25.0
-latch_on_enter = false
+latch_on_enter = true
 latch_on_exit = false
 
 [node name="SideScrollZone2" parent="." instance=ExtResource( 5 )]
@@ -1099,7 +1117,7 @@ zone_extents = Vector3( 2.5, 16, 50.95 )
 lock_axis = 1
 invert_side = true
 allow_depth_movement = true
-latch_on_enter = false
+latch_on_enter = true
 latch_on_exit = false
 
 [node name="SideScrollZone3" parent="." instance=ExtResource( 5 )]
@@ -1109,7 +1127,7 @@ zone_extents = Vector3( 8.15, 8, 5 )
 lock_axis = 1
 invert_side = true
 allow_depth_movement = true
-latch_on_enter = false
+latch_on_enter = true
 latch_on_exit = false
 
 [node name="SideScrollZone4" parent="." instance=ExtResource( 5 )]
@@ -1119,16 +1137,16 @@ zone_extents = Vector3( 10, 17, 4.95 )
 lock_axis = 1
 invert_side = true
 allow_depth_movement = true
-latch_on_enter = false
+latch_on_enter = true
 latch_on_exit = false
 
 [node name="CollisionShape" parent="SideScrollZone4" index="1"]
-shape = SubResource( 1500 )
+shape = SubResource( 1501 )
 
 [node name="TerraceSpiral" parent="." instance=ExtResource( 9 )]
 transform = Transform( 0.986025, 0, 0.166597, 0, 1, 0, -0.166597, 0, 0.986025, -237.353, 37.8111, 76.7493 )
 visible = false
-multimesh = SubResource( 1501 )
+multimesh = SubResource( 1502 )
 
 [node name="GuardrailSegment" parent="." instance=ExtResource( 21 )]
 transform = Transform( -8.74228e-07, 0, 1, 0, 1, 0, -20, 0, -4.37114e-08, 40, 1, 0 )
@@ -1866,7 +1884,7 @@ floor_protect_radius = 1.0
 enforce_occlusion_material = true
 
 [node name="CollisionShape" type="CollisionShape" parent="Building/OcclusionArea"]
-shape = SubResource( 1502 )
+shape = SubResource( 1503 )
 
 [node name="CheckZoneV2" parent="." instance=ExtResource( 29 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -25.3912, 20.017, 32.3357 )
@@ -1889,7 +1907,7 @@ zone_extents = Vector3( 104, 1, 141.5 )
 
 [node name="CollisionShape" type="CollisionShape" parent="KillZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0 )
-shape = SubResource( 1503 )
+shape = SubResource( 1504 )
 
 [node name="HoloTerminalV2" parent="." instance=ExtResource( 35 )]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -2.26866, 13.9952, -10.9147 )

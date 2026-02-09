@@ -150,13 +150,25 @@ static func parse_instruction(line: String) -> Dictionary:
 			data["message"] = line.substr(line.find(" ") + 1).replace("\"", "")
 		
 		"PLAY_ANIM":
-			data["path"] = _extract_quoted(parts, 1)
-			data["anim"] = _extract_quoted(parts, 2)
-			if parts.size() > 3:
-				data["blend"] = parts[3].to_float()
+			# OYS Spec: PLAY_ANIM [path] "anim_name" [blend]
+			# If only one argument, assume it is the animation name for the default target (Player)
+			if parts.size() == 2:
+				data["anim"] = _extract_quoted(parts, 1)
+				data["path"] = ""
+			else:
+				data["path"] = _extract_quoted(parts, 1)
+				data["anim"] = _extract_quoted(parts, 2)
+				if parts.size() > 3:
+					data["blend"] = parts[3].to_float()
 		
 		"WAIT_ANIM":
-			data["path"] = _extract_quoted(parts, 1)
+			var arg1 = _extract_quoted(parts, 1)
+			# If it looks like a path (has / or is $var), treat as path.
+			# Otherwise, if it's just a name, it might be an implicit wait on player?
+			# Actually WAIT_ANIM usually waits for a node to finish.
+			# If we want WAIT_ANIM "Confused", that's harder because we wait on a Node, not an Anim.
+			# For now, let's keep WAIT_ANIM taking a NODE path.
+			data["path"] = arg1
 		
 		"SPAWN":
 			data["scene"] = _extract_quoted(parts, 1)

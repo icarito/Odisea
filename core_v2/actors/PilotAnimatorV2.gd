@@ -72,8 +72,10 @@ func _ready() -> void:
 	if controller.has_signal("acrobatic_jumped"):
 		controller.connect("acrobatic_jumped", self, "_on_controller_acrobatic_jumped")
 
-	# Intentar obtener AnimationPlayer si existe
+	# Intentar obtener AnimationPlayer si existe (puede estar dentro de Skeleton)
 	anim_player = get_node_or_null("AnimationPlayer")
+	if not anim_player:
+		anim_player = find_node("AnimationPlayer", true, false)
  
 	var playback = animation_tree.get(PARAM_PLAYBACK) if animation_tree else null
 	if playback:
@@ -92,6 +94,29 @@ func _warmup_animations() -> void:
 		animation_tree.advance(0.001)
 
 	
+func play_override_animation(anim_name: String) -> void:
+	"""Plays an animation directly on the AnimationPlayer, temporarily bypassing the AnimationTree."""
+	if not anim_player or not anim_player.has_animation(anim_name):
+		printerr("PilotAnimator: Animation not found: ", anim_name)
+		return
+
+	print("PilotAnimator: Playing override animation: ", anim_name)
+	
+	# Disable Tree to allow direct playback
+	if animation_tree:
+		animation_tree.active = false
+	
+	anim_player.play(anim_name)
+	
+	# Wait for finish and restore
+	yield (anim_player, "animation_finished")
+	
+	if animation_tree:
+		animation_tree.active = true
+		# Force reset to grounded/idle to avoid T-pose flicker
+		var playback = animation_tree.get(PARAM_PLAYBACK)
+		if playback: playback.start("Grounded")
+
 func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	"""
 	Actualiza todos los aspectos visuales del personaje.

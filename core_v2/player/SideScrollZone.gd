@@ -9,8 +9,8 @@ export(bool) var allow_depth_movement = false
 export(float) var target_distance = 0.0 # 0.0 means use default 2.5D distance
 
 # --- Direction Latch Control ---
-export(bool) var latch_on_enter := true # Si true, activa el latch de dirección al entrar a la zona
-export(bool) var latch_on_exit := true  # Si true, activa el latch de dirección al salir de la zona
+export(bool) var latch_on_enter := false # Si true, activa el latch de dirección al entrar a la zona
+export(bool) var latch_on_exit := true # Si true, activa el latch de dirección al salir de la zona
 
 func _ready():
 	add_to_group("SideScrollZoneV2")
