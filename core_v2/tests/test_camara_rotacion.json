@@ -1032,7 +1032,7 @@
     "29": [
 
     ],
-    "60": [
+    "59": [
       {
         "command": "ASSERT",
         "condition": "yaw_deg < -85 \"Cámara no giró suficiente\""
@@ -1476,7 +1476,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 76,
+      "frames_since_last_snap": 75,
       "last_input_vector": [
         0,
         0,

@@ -1,5 +1,6 @@
-[gd_scene load_steps=18 format=2]
+[gd_scene load_steps=19 format=2]
 
+[ext_resource path="res://models/Pilot/Confused.anim" type="Animation" id=1]
 [ext_resource path="res://core_v2/player/PlayerControllerV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/actors/PilotAnimatorV2.gd" type="Script" id=3]
 [ext_resource path="res://core_v2/player/PlayerJumpV2.gd" type="Script" id=4]

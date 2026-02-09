@@ -3863,8 +3863,8 @@
       "CinematicManager": {
         "current_control_mode": 0,
         "is_transitioning": false,
-        "transition_timer": 0.516667,
-        "transition_duration": 0.5,
+        "transition_timer": 0,
+        "transition_duration": 0,
         "source_transform": {
           "origin": "(44.922146, 8.817698, -5.591619)",
           "basis": {
@@ -3873,7 +3873,7 @@
             "z": "(0.911964, 0.147714, -0.382757)"
           }
         },
-        "source_fov": 70,
+        "source_fov": 0,
         "active_rig_path": "",
         "current_camera_path": "/root/TestCinematicScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }

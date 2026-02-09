@@ -5439,6 +5439,22 @@
         "sprint": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -5483,7 +5499,7 @@
         "message": "SUCCESS: entity_destroyed signal was emitted!"
       }
     ],
-    "320": [
+    "321": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -1.0 \"Player should still be on ground\""
@@ -7140,7 +7156,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 336,
+      "frames_since_last_snap": 337,
       "last_input_vector": [
         0,
         0,
