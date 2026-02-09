@@ -7,7 +7,7 @@
 
 [node name="TestScenePropZoo" type="Spatial"]
 script = ExtResource( 1 )
-columns = 3
+columns = 7
 
 [node name="Camera" type="Camera" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 12, 15, 20 )
@@ -15,7 +15,7 @@ current = true
 far = 500.0
 
 [node name="Exhibits" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.11, 0 )
 
 [node name="Platform" type="CSGBox" parent="."]
 use_collision = true

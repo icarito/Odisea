@@ -199,6 +199,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/DualSlidingObjectV2.gd"
 }, {
+"base": "PropBaseV2",
+"class": "EmergencyBeaconV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/EmergencyBeaconV2.gd"
+}, {
 "base": "GdUnitArgumentMatcher",
 "class": "EqualsArgumentMatcher",
 "language": "GDScript",
@@ -1089,15 +1094,45 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/RotatingObjectV2.gd"
 }, {
+"base": "PropBaseV2",
+"class": "SciFiBoxLightV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/SciFiBoxLightV2.gd"
+}, {
 "base": "KinematicBody",
 "class": "SciFiFloatingLightV2",
 "language": "GDScript",
 "path": "res://core_v2/props/scifi_lights/SciFiFloatingLightV2.gd"
 }, {
-"base": "StaticBody",
+"base": "PropBaseV2",
 "class": "SciFiFloorPanelV2",
 "language": "GDScript",
 "path": "res://core_v2/props/scifi_lights/SciFiFloorPanelV2.gd"
+}, {
+"base": "PropBaseV2",
+"class": "SciFiHangingLightV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/SciFiHangingLightV2.gd"
+}, {
+"base": "PropBaseV2",
+"class": "SciFiLightPathV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/SciFiLightPathV2.gd"
+}, {
+"base": "PropBaseV2",
+"class": "SciFiShieldV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/SciFiShieldV2.gd"
+}, {
+"base": "PropBaseV2",
+"class": "SciFiSphereLightV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/SciFiSphereLightV2.gd"
+}, {
+"base": "PropBaseV2",
+"class": "SciFiStaticLightV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/SciFiStaticLightV2.gd"
 }, {
 "base": "VBoxContainer",
 "class": "ShapeCreationButton",
@@ -1253,6 +1288,7 @@ _global_script_class_icons={
 "ContinuousRotatorV2": "",
 "DefaultValueProvider": "",
 "DualSlidingObjectV2": "",
+"EmergencyBeaconV2": "",
 "EqualsArgumentMatcher": "",
 "Fuzzer": "",
 "FuzzerTool": "",
@@ -1431,8 +1467,14 @@ _global_script_class_icons={
 "RichTextEffectBackground": "",
 "RichTextLabelExt": "",
 "RotatingObjectV2": "",
+"SciFiBoxLightV2": "",
 "SciFiFloatingLightV2": "",
 "SciFiFloorPanelV2": "",
+"SciFiHangingLightV2": "",
+"SciFiLightPathV2": "",
+"SciFiShieldV2": "",
+"SciFiSphereLightV2": "",
+"SciFiStaticLightV2": "",
 "ShapeCreationButton": "",
 "SideScrollZoneV2": "",
 "SignalHandler": "",
@@ -1583,13 +1625,13 @@ cursor_right={
 zoom_in={
 "deadzone": 0.5,
 "events": [ Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":12,"pressure":0.0,"pressed":false,"script":null)
-, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":4,"pressed":false,"doubleclick":false,"script":null)
+, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":4,"canceled":false,"pressed":false,"doubleclick":false,"script":null)
  ]
 }
 zoom_out={
 "deadzone": 0.5,
 "events": [ Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":13,"pressure":0.0,"pressed":false,"script":null)
-, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":5,"pressed":false,"doubleclick":false,"script":null)
+, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":5,"canceled":false,"pressed":false,"doubleclick":false,"script":null)
  ]
 }
 roll={
