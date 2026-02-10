@@ -119,9 +119,11 @@ func _run_and_unpause(start_section: String) -> void:
 	# (run() lo hace internamente, pero por seguridad)
 	interpreter.stop_requested = false
 	
+	_set_player_pause(true)
 	var result = interpreter.run(start_section)
 	if result is GDScriptFunctionState:
 		yield (result, "completed")
+	_set_player_pause(false)
 
 	# Propagar fallo de test al runner
 	if interpreter.test_failed:
@@ -163,9 +165,11 @@ func _run_from_pc(from_pc: int) -> void:
 	# IMPORTANTE: Resetear stop_requested ANTES de llamar run_from_pc()
 	interpreter.stop_requested = false
 	
+	_set_player_pause(true)
 	var result = interpreter.run_from_pc(from_pc)
 	if result is GDScriptFunctionState:
 		yield (result, "completed")
+	_set_player_pause(false)
 
 func _process(_delta):
 	# Hot-reload detection
