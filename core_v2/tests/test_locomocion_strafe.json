@@ -1512,6 +1512,23 @@
         "sprint": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -1525,7 +1542,7 @@
     "59": [
 
     ],
-    "89": [
+    "90": [
       {
         "command": "ASSERT",
         "condition": "pos.x > 1.0 \"Elías no hizo strafe a la izquierda (-X)\""
@@ -1965,7 +1982,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 105,
+      "frames_since_last_snap": 106,
       "last_input_vector": [
         1,
         0,

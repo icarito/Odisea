@@ -55,11 +55,13 @@ func init(player, sidescroll_logic) -> void:
 
 # =========================================================================
 # MAIN UPDATE — Called once per physics frame from PlayerControllerV2.step()
+# Replaces the inline zone-detection + context-change + latch blocks.
 # =========================================================================
 
 func update(_dt: float, input, camera_basis: Basis) -> void:
 	"""
-	Runs zone detection, context change detection, latch activation/release.
+	Runs forward latch release, zone detection, rig activation,
+	context change detection, latch activation/release, prev-frame updates.
 	Must be called AFTER sidescroll_logic.step(dt) but BEFORE input interpretation.
 	"""
 	# --- Forward Latch Release ---
@@ -69,15 +71,21 @@ func update(_dt: float, input, camera_basis: Basis) -> void:
 	# --- Cinematic Zone Detection ---
 	_detect_cinematic_zones()
 
+	# --- Rig Activation (BEFORE latch detection) ---
+	_activate_rig_if_changed()
+
 	# --- Context Change Detection + Latch Logic ---
-	_update_context_and_latch(input, camera_basis)
+	_update_context_and_latch(input)
 
 	# --- Latch Release Check ---
 	_check_latch_release(input)
 
+	# --- Update prev-frame references ---
+	_update_prev_frame_state(camera_basis)
+
 
 # =========================================================================
-# CINEMATIC ZONE DETECTION (extracted from PlayerControllerV2 lines 933-964)
+# CINEMATIC ZONE DETECTION (extracted from PlayerControllerV2 lines 879-910)
 # =========================================================================
 
 func _detect_cinematic_zones() -> void:
@@ -108,18 +116,16 @@ func _detect_cinematic_zones() -> void:
 
 
 # =========================================================================
-# CONTEXT CHANGE + LATCH LOGIC (extracted from PlayerControllerV2 lines 966-1137)
+# RIG ACTIVATION (extracted from PlayerControllerV2 lines 914-932)
 # =========================================================================
 
-func _update_context_and_latch(input, camera_basis: Basis) -> void:
-	var ss_active = _sidescroll_logic.is_active if is_instance_valid(_sidescroll_logic) else false
-
-	# --- Rig Activation (BEFORE latch detection) ---
+func _activate_rig_if_changed() -> void:
 	if cinematic_rig != _prev_cinematic_rig:
 		if cinematic_rig:
-			# Force camera update for smooth transition start
-			if ss_active:
+			# Force camera update so transition starts from current position
+			if _sidescroll_logic.is_active:
 				_player._force_snap_to_sidescroll_camera()
+
 			if _player.camera_rig:
 				_player.camera_rig.force_update_transform()
 			var viewport_cam = _player.get_viewport().get_camera()
@@ -131,11 +137,19 @@ func _update_context_and_latch(input, camera_basis: Basis) -> void:
 		else:
 			CinematicManager.deactivate_rig()
 
-	# Fallback to CinematicManager's active rig if none detected via zones
+
+# =========================================================================
+# CONTEXT CHANGE + LATCH LOGIC (extracted from PlayerControllerV2 lines 934-1041)
+# =========================================================================
+
+func _update_context_and_latch(input) -> void:
+	var ss_active = _sidescroll_logic.is_active if is_instance_valid(_sidescroll_logic) else false
+
+	# Fallback to CinematicManager's active rig
 	var active_rig = cinematic_rig if cinematic_rig else CinematicManager.active_rig
 
-	# --- Context Change Detection ---
 	var context_changed := false
+
 	if ss_active != _prev_sidescroll_active:
 		context_changed = true
 	if active_rig != _prev_cinematic_rig:
@@ -144,13 +158,12 @@ func _update_context_and_latch(input, camera_basis: Basis) -> void:
 	var entering = (ss_active and not _prev_sidescroll_active) or (active_rig != null and _prev_cinematic_rig == null)
 	var exiting = (not ss_active and _prev_sidescroll_active) or (active_rig == null and _prev_cinematic_rig != null)
 
-	# --- Latch Activation ---
 	var has_movement_input = input.move_vec.length() > 0.1
 	if context_changed and has_movement_input and (not _direction_latch_active or exiting):
 		var zone_latch_on_enter := true
 		var zone_latch_on_exit := true
 
-		# Query zone for latch overrides
+		# Query zone for latch overrides (sidescroll)
 		if ss_active:
 			if not _player.active_25d_zones.empty():
 				var new_zone = _player.active_25d_zones.back()
@@ -170,6 +183,7 @@ func _update_context_and_latch(input, camera_basis: Basis) -> void:
 		var rig_to_check = active_rig
 		if rig_to_check == null and exiting:
 			rig_to_check = _prev_cinematic_rig
+
 		if rig_to_check != null:
 			for zone in _player.get_tree().get_nodes_in_group("CinematicCameraZoneV2"):
 				var zone_rig = zone.get_node_or_null(zone.cinematic_rig_path)
@@ -211,8 +225,16 @@ func _update_context_and_latch(input, camera_basis: Basis) -> void:
 			if _latched_sidescroll_active and is_instance_valid(_sidescroll_logic):
 				_latched_sidescroll_basis = _sidescroll_logic.get_target_basis()
 
-	# --- Update prev-frame references ---
+
+# =========================================================================
+# PREV-FRAME STATE UPDATE (extracted from PlayerControllerV2 lines 1042-1052)
+# =========================================================================
+
+func _update_prev_frame_state(camera_basis: Basis) -> void:
+	var ss_active = _sidescroll_logic.is_active if is_instance_valid(_sidescroll_logic) else false
+
 	_prev_sidescroll_active = ss_active
+
 	if ss_active and not _player.active_25d_zones.empty():
 		_prev_sidescroll_zone = _player.active_25d_zones.back()
 	elif not ss_active:
@@ -221,7 +243,8 @@ func _update_context_and_latch(input, camera_basis: Basis) -> void:
 	_prev_cinematic_rig = cinematic_rig
 	_prev_camera_basis = camera_basis
 
-	# --- Update current mode ---
+	# Update current mode
+	var active_rig = cinematic_rig if cinematic_rig else CinematicManager.active_rig
 	if active_rig:
 		current_mode = Mode.CINEMATIC
 	elif ss_active:
@@ -231,7 +254,7 @@ func _update_context_and_latch(input, camera_basis: Basis) -> void:
 
 
 # =========================================================================
-# LATCH RELEASE (extracted from PlayerControllerV2 lines 1108-1137)
+# LATCH RELEASE (extracted from PlayerControllerV2 lines 1054-1083)
 # =========================================================================
 
 func _check_latch_release(input) -> void:
@@ -240,11 +263,9 @@ func _check_latch_release(input) -> void:
 
 	var should_release := false
 
-	# Full release: player stopped input
 	if input.move_vec.length() < 0.1:
 		should_release = true
 	else:
-		# Direction change: input deviates > ~45° from latched direction
 		var latched_dir = _latched_input_vec.normalized()
 		var current_dir = input.move_vec.normalized()
 		var dot = latched_dir.dot(current_dir)
@@ -262,20 +283,18 @@ func _check_latch_release(input) -> void:
 
 
 # =========================================================================
-# INPUT INTERPRETATION (extracted from PlayerControllerV2 lines 1170-1264)
+# INPUT INTERPRETATION (extracted from PlayerControllerV2 lines 1113-1210)
+# Returns { basis: Basis, move_vec: Vector2 } for use in step().
 # =========================================================================
 
-func interpret_input(move_vec: Vector2, camera_basis: Basis, input_move_vec: Vector2) -> Dictionary:
+func interpret_input(dt: float, input, basis: Basis, move_vec: Vector2, in_transition: bool) -> Dictionary:
 	"""
-	Returns { basis: Basis, move_vec: Vector2 } for PlayerMovementV2.process_movement().
-	Replaces the if/elif cascade in step().
+	Determines the correct basis and move_vec based on the current input mode.
+	Returns { "basis": Basis, "move_vec": Vector2 } to pass to process_movement().
+	Also applies camera rig rotation and facing updates for sidescroll mode.
 	"""
 	var active_rig = cinematic_rig if cinematic_rig else CinematicManager.active_rig
-	var ss_active = _sidescroll_logic.is_active if is_instance_valid(_sidescroll_logic) else false
-	var alpha = _sidescroll_logic.transition_alpha if is_instance_valid(_sidescroll_logic) else 0.0
-	var in_transition = alpha > 0.0 and alpha < 1.0
-
-	var result_basis = camera_basis
+	var result_basis = basis
 	var result_move = move_vec
 
 	if active_rig or _direction_latch_active:
@@ -286,20 +305,26 @@ func interpret_input(move_vec: Vector2, camera_basis: Basis, input_move_vec: Vec
 			ref_cam = active_rig.get_camera()
 
 		if _direction_latch_active:
-			# LATCHED: Use stored forward/right vectors
+			# LATCHED: Use the stored forward/right vectors
 			result_basis = Basis(_latched_dir_rt, Vector3.UP, -_latched_dir_fwd)
-			result_move = input_move_vec
+			result_move = input.move_vec
 		else:
 			# UNLATCHED: Use target camera basis
-			var world_dir = _player._get_move_direction(input_move_vec, mode, ref_cam)
+			var world_dir = _player._get_move_direction(input.move_vec, mode, ref_cam)
+
 			if world_dir.length() > 0.01:
 				var b_z = - world_dir.normalized()
 				result_basis = Basis(Vector3.UP.cross(b_z), Vector3.UP, b_z)
 				result_move = Vector2(0, -world_dir.length())
 
+			# Override sidescroll facing
+			if _sidescroll_logic.is_active:
+				pass
+
 	elif _forward_latch_active and not _sidescroll_logic.allow_depth and not active_rig:
 		# FORWARD LATCH: Force controls to follow strict 2.5D path
 		result_basis = _sidescroll_logic.get_target_basis()
+
 		var target_right = result_basis.x
 		var world_dir = Vector3.ZERO
 
@@ -314,7 +339,10 @@ func interpret_input(move_vec: Vector2, camera_basis: Basis, input_move_vec: Vec
 
 		result_move = Vector2(input_x, 0.0)
 
-	elif ss_active and not in_transition and not active_rig:
+		# FORCE FACING UPDATE
+		_sidescroll_logic.update_facing(input_x, dt)
+
+	elif _sidescroll_logic.is_active and not in_transition and not active_rig:
 		# STRICT 2.5D: Use target basis + constraints
 		result_basis = _sidescroll_logic.get_target_basis()
 		result_move = _sidescroll_logic.get_constrained_input(result_move)
@@ -326,11 +354,31 @@ func interpret_input(move_vec: Vector2, camera_basis: Basis, input_move_vec: Vec
 		# Invert Depth (Forward/Backward) in SideScroll mode
 		result_move.y = - result_move.y
 
+		# Determine facing
+		if abs(result_move.x) > 0.1:
+			_sidescroll_logic.update_facing(result_move.x, dt)
+
+		# Apply Local Camera Rotation (Yaw/Pitch) for Look-Ahead and Tilt
+		if _player._cached_cam:
+			var target_rot = _sidescroll_logic.get_cam_rotation()
+			_player._cached_cam.rotation = _player._cached_cam.rotation.linear_interpolate(target_rot, 10.0 * dt)
+
+		# Apply Global Camera Rig Rotation to match SideScroll Axis definition
+		var target_rig_basis = _sidescroll_logic.get_target_basis()
+		if _player.camera_rig:
+			_player.camera_rig.transform.basis = _player.camera_rig.transform.basis.slerp(target_rig_basis, 10.0 * dt)
+
+	elif _player._cached_cam and not _sidescroll_logic.is_active:
+		# Standard 3D: Reset local camera rotation
+		var current_rot = _player._cached_cam.rotation
+		if current_rot.length_squared() > 0.001:
+			_player._cached_cam.rotation = current_rot.linear_interpolate(Vector3.ZERO, 10.0 * dt)
+
 	return {"basis": result_basis, "move_vec": result_move}
 
 
 # =========================================================================
-# FORWARD LATCH CHECK (extracted from PlayerControllerV2 lines 1584-1608)
+# FORWARD LATCH CHECK (from PlayerControllerV2._check_forward_latch)
 # =========================================================================
 
 func check_forward_latch(axis: int) -> void:
