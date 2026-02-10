@@ -555,14 +555,50 @@ func _get_move_direction(input_vector: Vector2, control_mode: int, ref_camera: C
 		CinematicManager.ControlMode.SIDESCROLL:
 			# Restringe movimiento a un plano (X o Z según la orientación de la cámara)
 			var cam_right = camera.global_transform.basis.x
+			var cam_fwd = -camera.global_transform.basis.z
+			var allow_depth = false
+
+			var rig = CinematicManager.active_rig
+			if rig and "allow_depth_movement" in rig and rig.allow_depth_movement:
+				allow_depth = true
+
 			if abs(cam_right.x) > abs(cam_right.z):
-				# Movimiento a lo largo del eje global X
+				# Movimiento a lo largo del eje global X (Horizontal)
 				var sign_x = sign(cam_right.x)
-				return Vector3(input_vector.x * sign_x, 0, 0)
+				var move_dir = Vector3(input_vector.x * sign_x, 0, 0)
+				if allow_depth:
+					# Map input.y (Forward/Backward) to Z (Depth)
+					# If camera looks -Z (Standard), cam_fwd.z < 0.
+					# Input.y: -1 is Forward. Forward should go "Into Screen" (Z-).
+					# sign(cam_fwd.z) is -1.
+					# move.z = -1 * -1 = +1 (Wrong?)
+					# If I press W (-1), I want to go Z-.
+					# So move.z = input.y (if looking -Z).
+
+					# If Camera looks +Z (Inverted View). cam_fwd.z > 0.
+					# Right is -X. sign_x is -1. Input X+ (Right) -> World X-. Correct.
+					# Input Y- (Forward) -> Should go Z+ (Into Screen).
+					# move.z = input.y * -1.
+
+					# General formula: move_dir += cam_fwd.normalized() * input.y?
+					# But we want strict axis alignment.
+					var sign_depth = sign(cam_fwd.z)
+					if sign_depth == 0: sign_depth = 1.0 # Should not happen if perpendicular
+					# If looking -Z (sign -1): Input -1 -> Z -1. (Mult = 1)
+					# If looking +Z (sign +1): Input -1 -> Z +1. (Mult = -1)
+					move_dir.z = input_vector.y * ( -1.0 * sign_depth )
+				return move_dir
 			else:
-				# Movimiento a lo largo del eje global Z
+				# Movimiento a lo largo del eje global Z (Horizontal)
 				var sign_z = sign(cam_right.z)
-				return Vector3(0, 0, input_vector.x * sign_z)
+				var move_dir = Vector3(0, 0, input_vector.x * sign_z)
+				if allow_depth:
+					# Map input.y to X (Depth)
+					# If looking -X (sign -1): Forward (-1) -> X -1.
+					var sign_depth = sign(cam_fwd.x)
+					if sign_depth == 0: sign_depth = 1.0
+					move_dir.x = input_vector.y * ( -1.0 * sign_depth )
+				return move_dir
 		
 		_:
 			return Vector3.ZERO

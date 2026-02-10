@@ -7,6 +7,7 @@ class_name SideScrollRig
 export(Vector3) var constraint_axis := Vector3(1, 1, 0) # Default: Follow X and Y, Lock Z (Standard SideScroll)
 export(Vector3) var offset := Vector3(0, 5, 10) # Relative to tracked position
 export(float) var smoothing_speed := 5.0
+export(bool) var allow_depth_movement := false
 
 var _target: Spatial = null
 

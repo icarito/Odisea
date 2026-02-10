@@ -30,6 +30,17 @@ func _init():
 
 	print("SideScrollRig found. Default constraint: ", rig.constraint_axis)
 
+	# Verify allow_depth_movement property
+	if not "allow_depth_movement" in rig:
+		print("ERROR: allow_depth_movement property missing!")
+		quit(1)
+		return
+	print("allow_depth_movement exists. Default: ", rig.allow_depth_movement)
+	if rig.allow_depth_movement != false:
+		print("ERROR: Default should be false")
+		quit(1)
+		return
+
 	# Create Mock Player
 	var player = Spatial.new()
 	player.name = "Player"
