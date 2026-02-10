@@ -2394,9 +2394,9 @@
         "source_transform": {
           "origin": "(0, 0, 0)",
           "basis": {
-            "x": "(1, 0, 0)",
-            "y": "(0, 1, 0)",
-            "z": "(0, 0, 1)"
+            "x": "(0, 0, 0)",
+            "y": "(0, 0, 0)",
+            "z": "(0, 0, 0)"
           }
         },
         "source_fov": 0,
@@ -2476,8 +2476,65 @@
       ],
       "is_acrobatic_ready": false
     },
-    "fwd_latch_active": false,
-    "fwd_latch_sign": 1,
+    "input_mode_fsm": {
+      "current_mode": 0,
+      "direction_latch_active": false,
+      "latched_dir_fwd": [
+        0,
+        0,
+        -1
+      ],
+      "latched_dir_rt": [
+        -1,
+        0,
+        0
+      ],
+      "latched_sidescroll_active": false,
+      "latched_sidescroll_basis": {
+        "x": [
+          1,
+          0,
+          0
+        ],
+        "y": [
+          0,
+          1,
+          0
+        ],
+        "z": [
+          0,
+          0,
+          1
+        ]
+      },
+      "latched_cinematic_mode": -1,
+      "latched_input_vec": [
+        0,
+        0
+      ],
+      "prev_sidescroll_active": false,
+      "prev_camera_basis": {
+        "x": [
+          -0.766044,
+          0,
+          0.642788
+        ],
+        "y": [
+          0.55667,
+          0.5,
+          0.663414
+        ],
+        "z": [
+          -0.321394,
+          0.866025,
+          -0.383022
+        ]
+      },
+      "fwd_latch_active": false,
+      "fwd_latch_sign": 1,
+      "prev_cinematic_rig_path": "",
+      "cinematic_rig_path": ""
+    },
     "platform_path": "/root/TestScene/Level/Basic movement",
     "platform_last_transform": {
       "origin": [
@@ -2508,61 +2565,7 @@
     ],
     "was_on_platform": true,
     "step_grounded_timer": 0,
-    "just_stepped": false,
-    "direction_latch_active": false,
-    "latched_dir_fwd": [
-      0,
-      0,
-      -1
-    ],
-    "latched_dir_rt": [
-      -1,
-      0,
-      0
-    ],
-    "latched_sidescroll_active": false,
-    "latched_sidescroll_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
-    "latched_cinematic_mode": -1,
-    "latched_input_vec": [
-      0,
-      0
-    ],
-    "prev_sidescroll_active": false,
-    "prev_camera_basis": {
-      "x": [
-        -0.766044,
-        0,
-        0.642788
-      ],
-      "y": [
-        0.55667,
-        0.5,
-        0.663414
-      ],
-      "z": [
-        -0.321394,
-        0.866025,
-        -0.383022
-      ]
-    },
-    "prev_cinematic_rig_path": "",
-    "cinematic_rig_path": ""
+    "just_stepped": false
   },
   "oys_variables": {
     "$sys_env_prop_path": "",

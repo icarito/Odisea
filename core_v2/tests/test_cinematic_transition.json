@@ -3863,17 +3863,17 @@
       "CinematicManager": {
         "current_control_mode": 0,
         "is_transitioning": false,
-        "transition_timer": 0,
-        "transition_duration": 0,
+        "transition_timer": 0.516667,
+        "transition_duration": 0.5,
         "source_transform": {
-          "origin": "(44.922146, 8.817698, -5.591619)",
+          "origin": "(0, 0, 0)",
           "basis": {
-            "x": "(-0.387003, 0, -0.922079)",
-            "y": "(-0.136204, 0.98903, 0.057166)",
-            "z": "(0.911964, 0.147714, -0.382757)"
+            "x": "(0, 0, 0)",
+            "y": "(0, 0, 0)",
+            "z": "(0, 0, 0)"
           }
         },
-        "source_fov": 0,
+        "source_fov": 70,
         "active_rig_path": "",
         "current_camera_path": "/root/TestCinematicScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
@@ -3950,8 +3950,65 @@
       ],
       "is_acrobatic_ready": false
     },
-    "fwd_latch_active": false,
-    "fwd_latch_sign": 1,
+    "input_mode_fsm": {
+      "current_mode": 0,
+      "direction_latch_active": false,
+      "latched_dir_fwd": [
+        0,
+        0,
+        -1
+      ],
+      "latched_dir_rt": [
+        -1,
+        0,
+        0
+      ],
+      "latched_sidescroll_active": false,
+      "latched_sidescroll_basis": {
+        "x": [
+          1,
+          0,
+          0
+        ],
+        "y": [
+          0,
+          1,
+          0
+        ],
+        "z": [
+          0,
+          0,
+          1
+        ]
+      },
+      "latched_cinematic_mode": -1,
+      "latched_input_vec": [
+        0,
+        0
+      ],
+      "prev_sidescroll_active": false,
+      "prev_camera_basis": {
+        "x": [
+          -0.645169,
+          0,
+          0.76404
+        ],
+        "y": [
+          -0.194533,
+          0.967044,
+          -0.164267
+        ],
+        "z": [
+          -0.73886,
+          -0.254611,
+          -0.623907
+        ]
+      },
+      "fwd_latch_active": false,
+      "fwd_latch_sign": 1,
+      "prev_cinematic_rig_path": "",
+      "cinematic_rig_path": ""
+    },
     "platform_path": "/root/TestCinematicScene/Floor",
     "platform_last_transform": {
       "origin": [
@@ -3982,61 +4039,7 @@
     ],
     "was_on_platform": true,
     "step_grounded_timer": 0,
-    "just_stepped": false,
-    "direction_latch_active": false,
-    "latched_dir_fwd": [
-      0,
-      0,
-      -1
-    ],
-    "latched_dir_rt": [
-      -1,
-      0,
-      0
-    ],
-    "latched_sidescroll_active": false,
-    "latched_sidescroll_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
-    "latched_cinematic_mode": -1,
-    "latched_input_vec": [
-      0,
-      0
-    ],
-    "prev_sidescroll_active": false,
-    "prev_camera_basis": {
-      "x": [
-        -0.645169,
-        0,
-        0.76404
-      ],
-      "y": [
-        -0.194533,
-        0.967044,
-        -0.164267
-      ],
-      "z": [
-        -0.73886,
-        -0.254611,
-        -0.623907
-      ]
-    },
-    "prev_cinematic_rig_path": "",
-    "cinematic_rig_path": ""
+    "just_stepped": false
   },
   "oys_variables": {
     "$sys_env_prop_path": "",

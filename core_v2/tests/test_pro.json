@@ -529,20 +529,6 @@
         "current_animation": "",
         "playback_position": 0
       },
-      "/root/TestScene/CargolDrone": {
-        "tf_origin": "Vector3( -5.69271, -2.38419e-07, 0.33726 )",
-        "tf_basis": "Basis( 1, 0, 0, 0, 1, 0, 0, 0, 1 )",
-        "velocity": "Vector3( 0, 0, 0 )",
-        "target_pos": "Vector3( 0, 0, 0 )",
-        "is_moving": false,
-        "cargo_uid": "",
-        "cmd_idx": 0,
-        "has_intent": false,
-        "intent_vel": "Vector3( 0, 0, 0 )",
-        "path_off": 0,
-        "path_follow": false,
-        "orig_parent": ""
-      },
       "CinematicManager": {
         "current_control_mode": 0,
         "is_transitioning": false,
@@ -551,9 +537,9 @@
         "source_transform": {
           "origin": "(0, 0, 0)",
           "basis": {
-            "x": "(1, 0, 0)",
-            "y": "(0, 1, 0)",
-            "z": "(0, 0, 1)"
+            "x": "(0, 0, 0)",
+            "y": "(0, 0, 0)",
+            "z": "(0, 0, 0)"
           }
         },
         "source_fov": 0,
@@ -633,8 +619,65 @@
       ],
       "is_acrobatic_ready": false
     },
-    "fwd_latch_active": false,
-    "fwd_latch_sign": 1,
+    "input_mode_fsm": {
+      "current_mode": 0,
+      "direction_latch_active": false,
+      "latched_dir_fwd": [
+        0,
+        0,
+        -1
+      ],
+      "latched_dir_rt": [
+        -1,
+        0,
+        0
+      ],
+      "latched_sidescroll_active": false,
+      "latched_sidescroll_basis": {
+        "x": [
+          1,
+          0,
+          0
+        ],
+        "y": [
+          0,
+          1,
+          0
+        ],
+        "z": [
+          0,
+          0,
+          1
+        ]
+      },
+      "latched_cinematic_mode": -1,
+      "latched_input_vec": [
+        0,
+        0
+      ],
+      "prev_sidescroll_active": false,
+      "prev_camera_basis": {
+        "x": [
+          1,
+          0,
+          0
+        ],
+        "y": [
+          0,
+          1,
+          0
+        ],
+        "z": [
+          0,
+          0,
+          1
+        ]
+      },
+      "fwd_latch_active": false,
+      "fwd_latch_sign": 1,
+      "prev_cinematic_rig_path": "",
+      "cinematic_rig_path": ""
+    },
     "platform_path": "",
     "platform_velocity": [
       0,
@@ -643,61 +686,7 @@
     ],
     "was_on_platform": false,
     "step_grounded_timer": 0,
-    "just_stepped": false,
-    "direction_latch_active": false,
-    "latched_dir_fwd": [
-      0,
-      0,
-      -1
-    ],
-    "latched_dir_rt": [
-      -1,
-      0,
-      0
-    ],
-    "latched_sidescroll_active": false,
-    "latched_sidescroll_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
-    "latched_cinematic_mode": -1,
-    "latched_input_vec": [
-      0,
-      0
-    ],
-    "prev_sidescroll_active": false,
-    "prev_camera_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
-    "prev_cinematic_rig_path": "",
-    "cinematic_rig_path": ""
+    "just_stepped": false
   },
   "oys_variables": {
     "$sys_env_prop_path": "",

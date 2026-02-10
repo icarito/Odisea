@@ -5439,38 +5439,6 @@
         "sprint": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -5485,7 +5453,7 @@
         "message": "Starting destroyer signal test"
       }
     ],
-    "119": [
+    "120": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -1.0 \"Player fell\""
@@ -5515,7 +5483,7 @@
         "message": "SUCCESS: entity_destroyed signal was emitted!"
       }
     ],
-    "321": [
+    "320": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -1.0 \"Player should still be on ground\""
@@ -7172,7 +7140,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 337,
+      "frames_since_last_snap": 336,
       "last_input_vector": [
         0,
         0,
@@ -7180,8 +7148,65 @@
       ],
       "is_acrobatic_ready": false
     },
-    "fwd_latch_active": false,
-    "fwd_latch_sign": 1,
+    "input_mode_fsm": {
+      "current_mode": 0,
+      "direction_latch_active": false,
+      "latched_dir_fwd": [
+        0,
+        0,
+        -1
+      ],
+      "latched_dir_rt": [
+        -1,
+        0,
+        0
+      ],
+      "latched_sidescroll_active": false,
+      "latched_sidescroll_basis": {
+        "x": [
+          1,
+          0,
+          0
+        ],
+        "y": [
+          0,
+          1,
+          0
+        ],
+        "z": [
+          0,
+          0,
+          1
+        ]
+      },
+      "latched_cinematic_mode": -1,
+      "latched_input_vec": [
+        0,
+        0
+      ],
+      "prev_sidescroll_active": false,
+      "prev_camera_basis": {
+        "x": [
+          1,
+          0,
+          0
+        ],
+        "y": [
+          0,
+          1,
+          0
+        ],
+        "z": [
+          0,
+          0,
+          1
+        ]
+      },
+      "fwd_latch_active": false,
+      "fwd_latch_sign": 1,
+      "prev_cinematic_rig_path": "",
+      "cinematic_rig_path": ""
+    },
     "platform_path": "/root/TestScene_PropEmitter/Floor",
     "platform_last_transform": {
       "origin": [
@@ -7212,61 +7237,7 @@
     ],
     "was_on_platform": true,
     "step_grounded_timer": 0,
-    "just_stepped": false,
-    "direction_latch_active": false,
-    "latched_dir_fwd": [
-      0,
-      0,
-      -1
-    ],
-    "latched_dir_rt": [
-      -1,
-      0,
-      0
-    ],
-    "latched_sidescroll_active": false,
-    "latched_sidescroll_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
-    "latched_cinematic_mode": -1,
-    "latched_input_vec": [
-      0,
-      0
-    ],
-    "prev_sidescroll_active": false,
-    "prev_camera_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
-    "prev_cinematic_rig_path": "",
-    "cinematic_rig_path": ""
+    "just_stepped": false
   },
   "oys_variables": {
     "$sys_env_prop_path": "",
