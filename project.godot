@@ -119,6 +119,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/qol-camera/inspector_plugin.gd"
 }, {
+"base": "KinematicBody",
+"class": "CargolDroneV2",
+"language": "GDScript",
+"path": "res://core_v2/actors/CargolDroneV2.gd"
+}, {
 "base": "GdUnitArgumentMatcher",
 "class": "ChainedArgumentMatcher",
 "language": "GDScript",
@@ -1272,6 +1277,7 @@ _global_script_class_icons={
 "CallBackValueProvider": "",
 "Callable": "",
 "CameraInspectorPlugin": "",
+"CargolDroneV2": "",
 "ChainedArgumentMatcher": "",
 "CheckZoneV2": "",
 "CheckpointResource": "",

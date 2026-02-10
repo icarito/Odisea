@@ -1,23 +1,21 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=4 format=2]
 
 [ext_resource path="res://core_v2/components/RotatingObjectV2.tscn" type="PackedScene" id=1]
-[ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=2]
 [ext_resource path="res://core_v2/components/InteractableBridge.gd" type="Script" id=3]
 [ext_resource path="res://materials/things/interactable.tres" type="Material" id=4]
 
 [node name="Lever" type="Spatial"]
 script = ExtResource( 3 )
 base_material = ExtResource( 4 )
-lever_color = Color( 1, 0.101961, 0.101961, 1 )
+lever_color = Color( 0.705882, 0.0117647, 0.0117647, 1 )
 
 [node name="LeverBase" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
 width = 1.2
 height = 1.0
 depth = 0.5
-material = ExtResource( 2 )
+material = ExtResource( 4 )
 
 [node name="RotatingLever" parent="LeverBase" instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
-debug = true
 rotation_amount = -60.0

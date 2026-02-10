@@ -9,11 +9,8 @@ radius = 0.5
 size = Vector3( 1, 1, 1 )
 
 [node name="CargolDrone" type="KinematicBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 script = ExtResource( 1 )
-max_speed = 15.0
-acceleration = 20.0
-braking_distance = 2.5
-max_lift_capacity = 500.0
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 shape = SubResource( 1 )

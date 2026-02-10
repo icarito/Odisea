@@ -252,15 +252,19 @@ func step(dt: float) -> void:
 
 	# Acceleration / Deceleration
 	var current_vel = velocity
-	var diff = wish_velocity - current_vel
-	var max_delta = acceleration * dt
-
-	if diff.length() > max_delta:
-		current_vel += diff.normalized() * max_delta
-	else:
-		current_vel = wish_velocity
-
+	# Use lerp for smoother, less brusque movement
+	var lerp_weight = clamp(acceleration * dt * 0.1, 0.05, 1.0)
+	current_vel = current_vel.linear_interpolate(wish_velocity, lerp_weight)
+	
 	velocity = current_vel
+
+func _process(_delta):
+	# Ensure registration persists (hack for replay mode re-registration)
+	if not get_tree().get_nodes_in_group("oys_actor").has(self):
+		add_to_group("oys_actor")
+		var sm = get_node_or_null("/root/SessionManager")
+		if sm and sm.has_method("register_oys_actor"):
+			sm.register_oys_actor("CargolDrone", self)
 
 	# Move and Slide
 	if velocity.length() > 0.001:
@@ -277,7 +281,6 @@ func step(dt: float) -> void:
 		# Only rotate if moving significantly
 		var horiz_vel = Vector3(velocity.x, 0, velocity.z)
 		if horiz_vel.length() > 0.1:
-			var look_dir = -horiz_vel.normalized() # Look at checks -Z, so -velocity? No, look_at target.
 			# look_at points -Z towards target.
 			# If we want front (+Z or -Z?) to face movement.
 			# Usually models face -Z (Godot standard).

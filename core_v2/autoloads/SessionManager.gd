@@ -1445,22 +1445,99 @@ func load_prop(path: String) -> void:
 func _handle_call_command(cmd: Dictionary):
 	var method = cmd.get("method", "")
 	var args = cmd.get("args", [])
-	var resolved_args = []
-	for a in args:
-		resolved_args.append(_resolve_value(a))
 	
-	var target = _resolve_prop() # Try prop first
-	if not target or not target.has_method(method):
-		var stage = _resolve_stage()
-		if stage and stage != target and stage.has_method(method):
-			target = stage
-		else:
-			target = self # Fallback to SessionManager
+	# Detect if 'method' is actually a registered OYS Actor
+	var actor = get_oys_actor(method)
+	
+	if actor:
+		# ACTOR CALL: Command was CALL ActorName "MethodName" [Args...]
+		if args.size() > 0:
+			var real_method = _resolve_value(args[0])
+			var call_args_raw = []
+			if args.size() > 1:
+				call_args_raw = args.duplicate()
+				call_args_raw.pop_front()
+				
+			var resolved_call_args = _resolve_complex_args(call_args_raw)
 			
-	if target and target.has_method(method):
-		target.callv(method, resolved_args)
+			if actor.has_method(real_method):
+				actor.callv(real_method, resolved_call_args)
+			else:
+				printerr("[OYS Replay] CALL Actor Error: Actor '%s' has no method '%s'" % [method, real_method])
+		else:
+			printerr("[OYS Replay] CALL Actor Error: Missing method name for actor '%s'" % method)
 	else:
-		printerr("[OYS Replay] CALL failed: Method '%s' not found" % method)
+		# LEGACY/PROP CALL
+		var resolved_args = _resolve_complex_args(args)
+	
+		var target = _resolve_prop() # Try prop first
+		if not target or not target.has_method(method):
+			var stage = _resolve_stage()
+			if stage and stage != target and stage.has_method(method):
+				target = stage
+			else:
+				target = self # Fallback to SessionManager
+				
+		if target and target.has_method(method):
+			target.callv(method, resolved_args)
+		else:
+			printerr("[OYS Replay] CALL failed: Method '%s' not found" % method)
+
+func _resolve_complex_args(raw_args: Array) -> Array:
+	var final_args = []
+	var i = 0
+	while i < raw_args.size():
+		var val = raw_args[i]
+		var resolved_val = _resolve_value(val)
+		
+		# If non-string, use directly
+		if typeof(resolved_val) != TYPE_STRING:
+			final_args.append(resolved_val)
+			i += 1
+			continue
+			
+		val = resolved_val
+		
+		# Validar strings vacíos para evitar crashes en accessos [0]
+		if val.empty():
+			final_args.append(val)
+			i += 1
+			continue
+
+		# Detect split vector "[x, y, z]" start
+		if val.begins_with("[") and not val.ends_with("]"):
+			var built = val
+			var j = i + 1
+			var completed = false
+			while j < raw_args.size():
+				var next_val = raw_args[j]
+				built += "" + str(next_val)
+				if str(next_val).ends_with("]"):
+					completed = true
+					i = j
+					break
+				j += 1
+			
+			if completed:
+				final_args.append(_parse_vector3_flexible(built))
+			else:
+				final_args.append(val)
+				
+		# Detect single string vector "[x,y,z]"
+		elif val.begins_with("[") and val.ends_with("]"):
+			final_args.append(_parse_vector3_flexible(val))
+		else:
+			final_args.append(val)
+			
+		i += 1
+	return final_args
+
+func _parse_vector3_flexible(s: String) -> Vector3:
+	var cleaned = s.replace("[", "").replace("]", "").replace("(", "").replace(")", "").strip_edges()
+	var parts = cleaned.split(",")
+	if parts.size() >= 3:
+		return Vector3(parts[0].to_float(), parts[1].to_float(), parts[2].to_float())
+	return Vector3.ZERO
 
 func _handle_spawn_command(cmd: Dictionary):
 	var scene_path = cmd.get("scene", "")
