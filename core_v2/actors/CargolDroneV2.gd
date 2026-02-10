@@ -29,6 +29,11 @@ var _current_path_node: Path = null
 var _path_offset := 0.0
 var _is_following_path := false
 
+# Follow Target state
+var _follow_target: Node = null
+var _follow_distance := 3.0
+var _is_following_target := false
+
 # Deterministic input buffer from agents
 var _intended_velocity := Vector3.ZERO
 var _has_intended_velocity := false
@@ -86,12 +91,38 @@ func set_velocity(vector: Vector3) -> void:
 	_has_intended_velocity = true
 	is_moving = true # Active movement state
 	_is_following_path = false
+	_is_following_target = false
+
+func follow_target(target: Node, distance: float = 3.0) -> void:
+	"""Enter follow-target mode. The drone will continuously track the target."""
+	if not target or not is_instance_valid(target):
+		printerr("[Cargol] follow_target: Invalid target")
+		return
+	_follow_target = target
+	_follow_distance = distance
+	_is_following_target = true
+	_is_following_path = false
+	_has_intended_velocity = false
+	is_moving = true
+	_update_led(Color(0.2, 0.4, 1.0)) # Blue LED = following
+	print("[Cargol] Following target: ", target.name, " at distance ", distance)
+
+func return_to(position: Vector3) -> void:
+	"""Clear follow state and move to a specific position (home)."""
+	_is_following_target = false
+	_follow_target = null
+	_update_led(Color(0.2, 1.0, 0.4)) # Green LED = returning
+	move_to(position)
+	print("[Cargol] Returning to home: ", position)
 
 func stop() -> void:
 	is_moving = false
 	_is_following_path = false
+	_is_following_target = false
+	_follow_target = null
 	_has_intended_velocity = false
 	velocity = Vector3.ZERO
+	_update_led(Color(0.2, 1.0, 0.4)) # Green LED = idle
 
 func pickup(target_node_path) -> void:
 	# Support string or NodePath
@@ -202,6 +233,23 @@ func step(dt: float) -> void:
 
 	if _has_intended_velocity:
 		wish_velocity = _intended_velocity
+	elif _is_following_target and _follow_target and is_instance_valid(_follow_target):
+		# Follow Target Logic: move toward target keeping follow_distance
+		var target_pos = _follow_target.global_transform.origin
+		var my_pos = global_transform.origin
+		var to_target = target_pos - my_pos
+		var dist = to_target.length()
+		
+		if dist > _follow_distance + 0.5:
+			# Too far — move toward target
+			var desired_speed = max_speed
+			if dist < braking_distance + _follow_distance:
+				desired_speed = max_speed * ((dist - _follow_distance) / braking_distance)
+			wish_velocity = to_target.normalized() * max(desired_speed, 0.5)
+		elif dist < _follow_distance - 0.5:
+			# Too close — back away slightly
+			wish_velocity = - to_target.normalized() * max_speed * 0.3
+		# else: within deadzone, hover in place (wish_velocity stays ZERO)
 	elif is_moving:
 		if _is_following_path and _current_path_node:
 			# Path Following Logic
@@ -289,6 +337,23 @@ func _process(_delta):
 			if not target_look.is_equal_approx(global_transform.origin):
 				look_at(target_look, Vector3.UP)
 
+# --- VISUAL FEEDBACK ---
+
+func _update_led(color: Color) -> void:
+	"""Update the drone's mesh color to indicate current mode."""
+	var mesh = get_node_or_null("MeshInstance")
+	if mesh and mesh is MeshInstance:
+		var mat = mesh.get_surface_material(0)
+		if not mat or not mat is SpatialMaterial:
+			mat = SpatialMaterial.new()
+			mat.resource_local_to_scene = true
+			mesh.set_surface_material(0, mat)
+		if mat is SpatialMaterial:
+			mat.albedo_color = color
+			mat.emission_enabled = true
+			mat.emission = color
+			mat.emission_energy = 0.5
+
 # --- REPLAY SYSTEM ---
 
 func get_snapshot() -> Dictionary:
@@ -304,7 +369,9 @@ func get_snapshot() -> Dictionary:
 		"intent_vel": var2str(_intended_velocity),
 		"path_off": _path_offset,
 		"path_follow": _is_following_path,
-		"orig_parent": _original_parent_path
+		"orig_parent": _original_parent_path,
+		"follow_target": _is_following_target,
+		"follow_dist": _follow_distance
 	}
 
 func restore_snapshot(data: Dictionary) -> void:
@@ -326,6 +393,10 @@ func restore_snapshot(data: Dictionary) -> void:
 	_is_following_path = data.get("path_follow", false)
 
 	_original_parent_path = data.get("orig_parent", "")
+
+	_is_following_target = data.get("follow_target", false)
+	_follow_distance = data.get("follow_dist", 3.0)
+	# Note: _follow_target node ref can't be serialized; must be re-established externally
 
 	# Restoring _attached_node is tricky in replay if hierarchy changed.
 	# Usually we re-resolve cargo_uid.

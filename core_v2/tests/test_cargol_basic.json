@@ -4045,6 +4045,108 @@
         "sprint": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -4065,7 +4167,7 @@
         ]
       }
     ],
-    "87": [
+    "90": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -4075,7 +4177,7 @@
         ]
       }
     ],
-    "117": [
+    "120": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -4087,7 +4189,7 @@
         ]
       }
     ],
-    "208": [
+    "211": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -4099,7 +4201,7 @@
         ]
       }
     ],
-    "238": [
+    "244": [
       {
         "command": "SET",
         "var": "$cargo_x",
@@ -4136,7 +4238,21 @@
         "intent_vel": "Vector3( 0, 0, 0 )",
         "path_off": 0,
         "path_follow": false,
-        "orig_parent": ""
+        "orig_parent": "",
+        "follow_target": false,
+        "follow_dist": 3
+      },
+      "/root/TestScene_Cargol/ControlLever/LeverBase/RotatingLever": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0,
+        "start_rot": [
+          -0,
+          0,
+          0
+        ]
       },
       "CinematicManager": {
         "current_control_mode": 0,
@@ -4220,7 +4336,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 254,
+      "frames_since_last_snap": 260,
       "last_input_vector": [
         0,
         0,
@@ -4319,6 +4435,6 @@
   "oys_variables": {
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
-    "$cargo_x": 0.066876
+    "$cargo_x": 0.115166
   }
 }
