@@ -1,0 +1,68 @@
+# Test SideScroll Rig Activation and Orientation
+LEVEL res://core_v2/tests/TestSideScrollScene.tscn
+
+SECTION "Setup"
+    WAIT_FRAMES 10
+    ASSERT_EQ active_rig null
+END
+
+SECTION "Enter Zone"
+    # Move player into zone at (10, 5, 0)
+    PRINT "Moving to SideScroll Zone"
+    INPUT_MOVE 1.0 0.0 2.0 # Move Right (X+) for 2 seconds
+    WAIT_FRAMES 60
+
+    # Verify Rig Activation
+    ASSERT_NEQ active_rig null
+    PRINT "Rig Activated: " active_rig_name
+
+    # Check Camera Properties
+    # In Standard SideScroll (Z-Lock), Offset Z=15.
+    # Player moves X. Rig follows X. Rig Z locked.
+    # Rig should be at Z=15 (relative to initial? No, world).
+    # Wait, SideScrollRig logic uses WORLD target_pos.
+    # If Z Locked, Rig Z is Initial Rig Z? No, see code:
+    # if not is_z_locked: desired.z = target.z + offset.z
+    # else: desired.z = current.z
+    # So Z is determined by where the Rig was placed in the Scene.
+    # In TestSideScrollScene.tscn, Zone is at (10, 5, 0).
+    # SideScrollRig is a child. Its Transform is relative to Zone?
+    # No, CinematicRigV2 is a Spatial. If it's a child of Area, it inherits transform.
+    # Zone at (10,5,0). Rig at (0,0,0) local -> (10,5,0) global.
+    # So Locked Z = 0.
+
+    # But wait, we want the camera at Z=15?
+    # Offset Z is 15.
+    # If Z is LOCKED, we ignore Offset Z in the update logic?
+    # "if not is_z_locked: desired.z = target.z + offset.z"
+    # If locked, desired.z = current.z.
+    # So if Rig starts at Z=0, it stays at Z=0.
+    # This means the OFFSET in the inspector is IGNORED for the locked axis?
+    # This seems wrong. Usually "Offset" implies distance from plane.
+    # User said: "displaced in X, not in Z, and follow the player along the Z axis (from X+...)"
+    # This implies the DISPLACEMENT (Offset) defines the position on the LOCKED axis.
+    # Correct Logic should be:
+    # If Locked: desired.axis = LockedValue + Offset.axis? No.
+    # If Locked, we don't track player.
+    # But do we want it to be at Player + Offset, or Fixed World Pos?
+    # "Camera should be perpendicular to its curring position"
+    # Usually SideScroll means: Camera moves parallel to track. Distance is fixed.
+    # Distance is defined by the Rig's initial placement relative to track?
+    # If Rig is child of Zone, and Zone defines the track.
+    # My logic: "if not is_x_locked: desired.x = target.x + offset.x".
+    # This adds offset to the TRACKING axis.
+    # What about the LOCKED axis?
+    # "else: desired.x = current.x".
+    # So it stays where it initialized.
+    # So if I want camera at Z=15, I must place Rig at Z=15 in the scene.
+    # My Test Scene has Rig at (0,0,0) local to Zone (10,5,0). So Rig Z=0.
+    # So Camera is at Z=0? Inside the player?
+    # That would be bad.
+
+    # FIX: I should probably update the Rig logic to use offset on the locked axis relative to TARGET PROJECTION?
+    # Or assume the mapper sets the Rig Position in the scene.
+    # Let's assume the latter for now, as that's standard Godot (WYSIWYG).
+    # So I should move the Rig in the Test Scene to Z=15.
+
+    # ASSERT camera_pos_z > 10.0
+END

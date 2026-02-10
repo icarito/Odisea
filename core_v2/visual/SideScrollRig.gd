@@ -32,14 +32,16 @@ func _update_rig(dt: float):
 		var desired_pos = current_pos
 
 		# If constraint_axis component > 0.5, we TRACK (Follow) that axis.
-		# Otherwise we keep the current rig position (Lock) relative to world start,
-		# effectively staying on the "Track Line" defined by the initial position.
+		# Otherwise we keep the current rig position (Lock) relative to world start.
 
-		if constraint_axis.x > 0.5:
+		var is_z_locked = (constraint_axis.z < 0.5)
+		var is_x_locked = (constraint_axis.x < 0.5)
+
+		if not is_x_locked:
 			desired_pos.x = target_pos.x + offset.x
 		if constraint_axis.y > 0.5:
 			desired_pos.y = target_pos.y + offset.y
-		if constraint_axis.z > 0.5:
+		if not is_z_locked:
 			desired_pos.z = target_pos.z + offset.z
 
 		# Smoothing
@@ -49,5 +51,38 @@ func _update_rig(dt: float):
 		else:
 			global_transform.origin = desired_pos
 
-		# Ensure perpendicular viewing angle by looking at the target
-		look_at(Vector3(target_pos.x, target_pos.y, target_pos.z), Vector3.UP)
+		# Strict Orthogonal Rotation Logic
+		# We orient the rig to face PERPENDICULAR to the locked plane.
+		# Default Forward is -Z.
+
+		var look_dir = Vector3(0, 0, -1) # Default
+		var up_dir = Vector3.UP
+
+		if is_x_locked:
+			# Z-Scroll (Player moves Z). Lock X.
+			# We view from Offset.X.
+			# If Offset.X > 0, we are at Right, Look Left (-X).
+			# If Offset.X < 0, we are at Left, Look Right (+X).
+			# If Offset.X == 0, we look -X (default assumption).
+			if offset.x >= 0:
+				look_dir = Vector3(-1, 0, 0)
+			else:
+				look_dir = Vector3(1, 0, 0)
+
+		elif is_z_locked:
+			# Standard SideScroll (Player moves X). Lock Z.
+			# We view from Offset.Z.
+			# If Offset.Z > 0 (Standard), we are Front, Look Back (-Z).
+			# If Offset.Z < 0, we are Back, Look Front (+Z).
+			if offset.z >= 0:
+				look_dir = Vector3(0, 0, -1)
+			else:
+				look_dir = Vector3(0, 0, 1)
+
+		# Apply Rotation
+		# We construct a Basis looking at look_dir
+		# look_at(pos + look_dir) works, but manual basis is cleaner
+		var b_z = -look_dir.normalized() # Godot Z is backward
+		var b_x = up_dir.cross(b_z).normalized()
+		var b_y = b_z.cross(b_x).normalized()
+		global_transform.basis = Basis(b_x, b_y, b_z)

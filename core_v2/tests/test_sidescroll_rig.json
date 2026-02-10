@@ -1,0 +1,184 @@
+{
+  "buffer": [
+
+  ],
+  "events": {
+    "0": [
+      {
+        "command": "SET",
+        "var": "pos",
+        "value": "(0, 0.5, 0)"
+      },
+      {
+        "command": "PRINT",
+        "message": "Moving to SideScroll Zone"
+      },
+      {
+        "command": "PRINT",
+        "message": "Rig Activated:  active_rig_name"
+      }
+    ]
+  },
+  "meta": {
+    "world_start_state": {
+      "CinematicManager": {
+        "current_control_mode": 0,
+        "is_transitioning": false,
+        "transition_timer": 0,
+        "transition_duration": 0,
+        "source_transform": {
+          "origin": "(0, 0, 0)",
+          "basis": {
+            "x": "(1, 0, 0)",
+            "y": "(0, 1, 0)",
+            "z": "(0, 0, 1)"
+          }
+        },
+        "source_fov": 0,
+        "active_rig_path": "",
+        "current_camera_path": "/root/TestSideScrollScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
+      }
+    },
+    "scene_path": "res://core_v2/tests/TestSideScrollScene.tscn"
+  },
+  "final_expected_state": {
+    "position": [
+      0,
+      0.5,
+      0
+    ],
+    "velocity": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "pitch": 0,
+    "base_spring_length_3d": 7,
+    "movement_state": {
+      "horizontal_velocity": [
+        0,
+        0,
+        0
+      ],
+      "external_velocity": [
+        0,
+        0,
+        0
+      ],
+      "camera_input_timer": 0,
+      "is_tank_turn_mode": true,
+      "current_turn_time": 0
+    },
+    "ss_logic": {
+      "active": false,
+      "alpha": 0,
+      "axis": 0,
+      "val": 0,
+      "inv": false,
+      "allow_depth": false,
+      "tsl": 15,
+      "vc": [
+        0,
+        0,
+        0
+      ],
+      "lc": [
+        0,
+        0,
+        0
+      ],
+      "cam_yaw": 0,
+      "fs": 1,
+      "tst": 0,
+      "my": 0,
+      "mp": 0,
+      "tsi": 0,
+      "cdz": 0,
+      "ff": true
+    },
+    "jump_state": {
+      "coyote_timer": 0,
+      "jump_buffer_timer": 0,
+      "is_jumping": false
+    },
+    "acrobatic_state": {
+      "frames_since_last_snap": 16,
+      "last_input_vector": [
+        0,
+        0,
+        0
+      ],
+      "is_acrobatic_ready": false
+    },
+    "fwd_latch_active": false,
+    "fwd_latch_sign": 1,
+    "platform_path": "",
+    "platform_velocity": [
+      0,
+      0,
+      0
+    ],
+    "was_on_platform": false,
+    "step_grounded_timer": 0,
+    "just_stepped": false,
+    "direction_latch_active": false,
+    "latched_dir_fwd": [
+      0,
+      0,
+      -1
+    ],
+    "latched_dir_rt": [
+      -1,
+      0,
+      0
+    ],
+    "latched_sidescroll_active": false,
+    "latched_sidescroll_basis": {
+      "x": [
+        1,
+        0,
+        0
+      ],
+      "y": [
+        0,
+        1,
+        0
+      ],
+      "z": [
+        0,
+        0,
+        1
+      ]
+    },
+    "latched_cinematic_mode": -1,
+    "latched_input_vec": [
+      0,
+      0
+    ],
+    "prev_sidescroll_active": false,
+    "prev_camera_basis": {
+      "x": [
+        1,
+        0,
+        0
+      ],
+      "y": [
+        0,
+        1,
+        0
+      ],
+      "z": [
+        0,
+        0,
+        1
+      ]
+    },
+    "prev_cinematic_rig_path": "",
+    "cinematic_rig_path": ""
+  },
+  "oys_variables": {
+    "$sys_env_prop_path": "",
+    "$sys_env_auto_run": ""
+  }
+}
