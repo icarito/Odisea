@@ -43,6 +43,7 @@ func _update_rig(dt: float):
 
 		# Smoothing
 		if dt > 0:
-			global_transform.origin = global_transform.origin.linear_interpolate(desired_pos, smoothing_speed * dt)
+			var weight = clamp(smoothing_speed * dt, 0.0, 1.0)
+			global_transform.origin = global_transform.origin.linear_interpolate(desired_pos, weight)
 		else:
 			global_transform.origin = desired_pos
