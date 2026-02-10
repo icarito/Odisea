@@ -48,3 +48,6 @@ func _update_rig(dt: float):
 			global_transform.origin = global_transform.origin.linear_interpolate(desired_pos, weight)
 		else:
 			global_transform.origin = desired_pos
+
+		# Ensure perpendicular viewing angle by looking at the target
+		look_at(Vector3(target_pos.x, target_pos.y, target_pos.z), Vector3.UP)

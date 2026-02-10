@@ -93,5 +93,64 @@ func _init():
 		quit(1)
 		return
 
+	# Verify Rotation (Case 1: Standard, Tracks X,Y. Looks -Z)
+	var forward = -rig.global_transform.basis.z
+	print("Rig Forward: ", forward)
+	# Expected: Rig at (100, 55, 50), Player at (100, 50, 200)
+	# Vector To Player: (0, -5, 150). Normalized: (0, -0.03, 0.999) -> Almost +Z
+	# Wait, Player Z is 200. Rig Z is 50.
+	# If we Lock Z (constraint_axis.z=0), Rig stays at 50.
+	# Vector = Player(200) - Rig(50) = 150.
+	# So Forward should be roughly (0, 0, 1) (+Z).
+
+	if forward.z < 0.9:
+		print("ERROR: Rotation incorrect for Standard Mode. Expected +Z (looking at player), got ", forward)
+		quit(1)
+		return
+
+	# Case 2: Z-Scroll (Tracks Y,Z. Locks X)
+	print("Testing Z-Scroll Mode...")
+	rig.constraint_axis = Vector3(0, 1, 1) # Follow Y, Z. Lock X.
+	rig.offset = Vector3(10, 5, 0) # Displaced X
+
+	# Reset positions
+	rig.global_transform.origin = Vector3(50, 0, 0) # Initial X=50
+	player.global_transform.origin = Vector3(200, 50, 100)
+
+	# Update
+	rig._update_rig(1.0)
+
+	rig_pos = rig.global_transform.origin
+	print("Player Pos 2: ", player.global_transform.origin)
+	print("Rig Pos 2: ", rig_pos)
+
+	# Expected:
+	# X = Locked (50) (Constraint X=0) -> 50.
+	# Y = Player.y (50) + Offset.y (5) = 55.
+	# Z = Player.z (100) + Offset.z (0) = 100.
+
+	if abs(rig_pos.x - 50.0) > 0.1:
+		print("ERROR: X lock failed. Expected 50, got ", rig_pos.x)
+		quit(1)
+		return
+
+	if abs(rig_pos.z - 100.0) > 0.1:
+		print("ERROR: Z tracking failed. Expected 100, got ", rig_pos.z)
+		quit(1)
+		return
+
+	# Verify Rotation (Should look along X axis)
+	# Rig at (50, 55, 100). Player at (200, 50, 100).
+	# Vector To Player: (150, -5, 0).
+	# Forward should be approx (+1, 0, 0) (+X).
+
+	forward = -rig.global_transform.basis.z
+	print("Rig Forward 2: ", forward)
+
+	if forward.x < 0.9:
+		print("ERROR: Rotation incorrect for Z-Scroll Mode. Expected +X, got ", forward)
+		quit(1)
+		return
+
 	print("Verification Successful!")
 	quit()
