@@ -1517,6 +1517,7 @@ boot_splash/minimum_display_time=3
 
 [autoload]
 
+AudioManager="*res://core_v2/autoloads/AudioManager.gd"
 SessionManager="*res://core_v2/autoloads/SessionManager.gd"
 PersistenceManager="*res://core_v2/autoloads/PersistenceManager.gd"
 WallOcclusionManager="*res://core_v2/autoloads/WallOcclusionManager.gd"
