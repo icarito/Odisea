@@ -62,6 +62,12 @@ var _active_cinematic_zone: Node = null
 var _prev_active_cinematic_zone: Node = null
 var _terminal_ui_active := false
 
+# Direction Latch State
+var _direction_latch_active := false
+var _latched_fwd := Vector3.FORWARD
+var _latched_rt := Vector3.RIGHT
+var _latched_input_vec := Vector2.ZERO
+
 # Signals
 signal jumped
 signal acrobatic_jumped
@@ -226,6 +232,10 @@ func _find_spring_arm(node: Node) -> SpringArm:
 	return null
 
 func _get_move_direction(input_vector: Vector2) -> Vector3:
+	# Latch Override
+	if _direction_latch_active:
+		return (_latched_fwd * input_vector.y - _latched_rt * input_vector.x)
+
 	var mode = CinematicManager.get_control_mode()
 	var camera = CinematicManager.get_active_camera()
 	
@@ -236,11 +246,12 @@ func _get_move_direction(input_vector: Vector2) -> Vector3:
 	match mode:
 		CinematicManager.ControlMode.FREE:
 			# Relative to camera (Standard Third Person)
+			# FIXED: Inverted inputs. Forward (Y=1) should move along fwd. Left (X=1) should move along -rt.
 			var fwd = - camera.global_transform.basis.z
 			var rt = camera.global_transform.basis.x
 			fwd.y = 0
 			rt.y = 0
-			return (fwd.normalized() * (-input_vector.y) + rt.normalized() * input_vector.x)
+			return (fwd.normalized() * input_vector.y - rt.normalized() * input_vector.x)
 		
 		CinematicManager.ControlMode.LOCKED_VIEW:
 			# Relative to camera depth (Up = Into screen)
@@ -411,7 +422,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		jump_logic.buffer_jump()
 
 	# --- CINEMATIC ZONE DETECTION ---
-	_update_cinematic_zone_detection()
+	_update_cinematic_zone_detection(input)
 	
 	# --- MOVEMENT ---
 	var move_vec = input.move_vec
@@ -501,7 +512,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		current_spring_length = lerp(current_spring_length, base_spring_length_3d, 4.0 * dt)
 		_cached_spring_arm.spring_length = current_spring_length
 
-func _update_cinematic_zone_detection():
+func _update_cinematic_zone_detection(input: InputDataV2):
 	var all_zones = get_tree().get_nodes_in_group("CinematicCameraZoneV2")
 	var best_zone = null
 	var min_volume = INF
@@ -524,9 +535,46 @@ func _update_cinematic_zone_detection():
 				CinematicManager.activate_rig_direct(rig, _active_cinematic_zone.control_mode)
 		else:
 			# Exit Zone (Return to Player Camera)
+			# Engage Latch if moving
+			if input.move_vec.length() > 0.1:
+				var cam = CinematicManager.get_active_camera()
+				if cam:
+					var basis = cam.global_transform.basis
+					# Capture the context we were using
+					var mode = CinematicManager.get_control_mode()
+
+					if mode == CinematicManager.ControlMode.LOCKED_VIEW:
+						var fwd = -basis.z
+						fwd.y = 0
+						_latched_fwd = fwd.normalized()
+						var rt = basis.x
+						rt.y = 0
+						_latched_rt = rt.normalized()
+						_direction_latch_active = true
+						_latched_input_vec = input.move_vec
+					elif mode == CinematicManager.ControlMode.FIXED_AXIS:
+						_latched_fwd = Vector3(0, 0, 1) # Standard input Y
+						_latched_rt = Vector3(1, 0, 0)  # Standard input X (Right=-1 so -rt)
+						# Actually FIXED_AXIS returns (x, 0, y).
+						# Formula is (fwd * y - rt * x).
+						# To get (x, 0, y): fwd=(0,0,1), rt=(-1,0,0) -> (0,0,1)*y - (-1,0,0)*x = (x, 0, y). Correct.
+						_latched_fwd = Vector3(0, 0, 1)
+						_latched_rt = Vector3(-1, 0, 0)
+						_direction_latch_active = true
+						_latched_input_vec = input.move_vec
+
 			CinematicManager.deactivate_rig()
 
 	_prev_active_cinematic_zone = _active_cinematic_zone
+
+	# Update/Release Latch
+	if _direction_latch_active:
+		if input.move_vec.length() < 0.1:
+			_direction_latch_active = false
+		else:
+			# Release if direction changed significantly (> 90 degrees)
+			if input.move_vec.dot(_latched_input_vec) < 0:
+				_direction_latch_active = false
 
 	# Update Terminal UI active state
 	_terminal_ui_active = false
