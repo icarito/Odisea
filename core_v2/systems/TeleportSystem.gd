@@ -138,6 +138,7 @@ func _respawn_at_spawn_or_zero():
 	# Reinstanciar Pilot
 	if player_controller and player_controller.is_inside_tree():
 		var parent = player_controller.get_parent()
+		var old_input_provider = player_controller.input_provider if "input_provider" in player_controller else null
 		player_controller.queue_free()
 		yield (get_tree(), "idle_frame")
 		var pilot_scene = preload("res://core_v2/actors/Pilot_v2.tscn")
@@ -159,6 +160,8 @@ func _respawn_at_spawn_or_zero():
 			new_pilot.pitch = target_pitch
 			new_pilot.pitch_deg = rad2deg(target_pitch)
 		# Refuerza input provider tras respawn
+		if old_input_provider and is_instance_valid(old_input_provider):
+			new_pilot.input_provider = old_input_provider
 		if new_pilot.has_method("ensure_input_provider"):
 			new_pilot.ensure_input_provider()
 		player_controller = new_pilot
@@ -291,6 +294,7 @@ func _on_player_killed():
 	# Eliminar el Pilot actual
 	if is_instance_valid(player_controller) and player_controller.is_inside_tree():
 		var parent = player_controller.get_parent()
+		var old_input_provider = player_controller.input_provider if "input_provider" in player_controller else null
 		player_controller.queue_free()
 		yield (get_tree(), "idle_frame")
 		# Instanciar nuevo Pilot
@@ -322,6 +326,8 @@ func _on_player_killed():
 			new_pilot.pitch = target_pitch
 			new_pilot.pitch_deg = rad2deg(target_pitch)
 		# Actualizar referencias
+		if old_input_provider and is_instance_valid(old_input_provider):
+			new_pilot.input_provider = old_input_provider
 		player_controller = new_pilot
 		# Ensure SessionManager knows about the new player instance (so recording/input overrides keep working)
 		var sm = get_node_or_null("/root/SessionManager")
@@ -404,6 +410,27 @@ func _on_checkpoint_reached(transform):
 			if persistence_manager.has_method("save_checkpoint_resource"):
 				persistence_manager.save_checkpoint_resource(scene_path)
 				print("[TeleportSystem] Checkpoint persistido en disco.")
+	
+func force_initial_spawn(tf: Transform, yaw: float = 0.0, pitch: float = 0.0):
+	"""Manually overrides the initial spawn point for the current scene."""
+	initial_spawn_transform = tf
+	print("[TeleportSystem] force_initial_spawn: initial_spawn_transform updated to %s" % tf.origin)
+	
+	var persistence_manager = get_node_or_null("/root/PersistenceManager")
+	var scene_path = get_tree().current_scene.filename if get_tree().current_scene else ""
+	if persistence_manager and persistence_manager.has_method("get_checkpoint_resource"):
+		var checkpoint_res = persistence_manager.get_checkpoint_resource(scene_path)
+		if checkpoint_res:
+			var checkpoint_data = {
+				"transform": tf,
+				"yaw": yaw,
+				"pitch": pitch
+			}
+			checkpoint_res.slots["last"] = checkpoint_data
+			checkpoint_res.property_list_changed_notify()
+			print("[TeleportSystem] Checkpoint 'last' updated via force_initial_spawn.")
+			if persistence_manager.has_method("save_checkpoint_resource"):
+				persistence_manager.save_checkpoint_resource(scene_path)
 
 func _clear_respawn_flag():
 	# Esperar algunos frames antes de limpiar el flag para asegurar que las zonas

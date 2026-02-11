@@ -19,6 +19,7 @@ var _current_replay_data := {} # To persist data from OYS or JSON during executi
 var event_timeline := {}
 var oys_variables := {}
 var _peak_y := -999.0
+var _active_input_provider = null
 var oys_interpreter = null
 var oys_assert_failed = false
 var _pending_asserts := []
@@ -387,33 +388,12 @@ func _physics_process(_dt):
 			_peak_y = player.global_transform.origin.y
 
 		# Obtener input primero para verificar si hay más inputs disponibles
-		# Si el player no es válido, verificar si es por un respawn en curso
-		if not is_instance_valid(player) or not player.has_method("step"):
-			if is_respawning or _is_waiting_for_respawn_validation:
-				return
-			
-			# Intento desesperado final: buscar por nombre directamente
-			_find_player()
-			if is_instance_valid(player) and player.has_method("step"):
-				pass # Encontrado!
-			else:
-				print("[SessionManager] Replay aborted: player lost or invalid (is_respawning=false).")
-				_finish_and_validate()
-				return
-		
-		# Aplicar drift checkpoint si existe para este frame (ANTES del step)
-		if _drift_checkpoints.has(_replay_frame):
-			if is_instance_valid(player):
-				var checkpoint_pos = _drift_checkpoints[_replay_frame]
-				var current_pos = player.global_transform.origin
-				var drift = current_pos.distance_to(checkpoint_pos)
-				if drift > 0.001:
-					print("[DriftCorrection] Frame %d: Aplicando corrección. Drift=%.6f, Pos actual=%s -> %s" % [_replay_frame, drift, current_pos, checkpoint_pos])
-					var t = player.global_transform
-					t.origin = checkpoint_pos
-					player.global_transform = t
-			
-		var input = player.input_provider.get_input()
+		var input = null
+		if is_instance_valid(player) and player.input_provider:
+			input = player.input_provider.get_input()
+			_active_input_provider = player.input_provider
+		elif is_instance_valid(_active_input_provider):
+			input = _active_input_provider.get_input()
 		
 		# Si no hay más inputs, terminar
 		if input == null:
@@ -421,8 +401,9 @@ func _physics_process(_dt):
 				run_playback()
 			return
 		
-		# Step player con el input
-		player.step(FIXED_DT, input)
+		# Step player con el input si es válido
+		if is_instance_valid(player) and player.has_method("step"):
+			player.step(FIXED_DT, input)
 		
 		# Step plataformas
 		var sync_nodes = _get_replay_sync_nodes()
@@ -436,6 +417,11 @@ func _physics_process(_dt):
 
 		_replay_frame += 1
 		_total_replay_frames = _replay_frame
+		
+		# Proactiva validación de fin de buffer para evitar desfase de 1 frame en el reporte
+		if is_instance_valid(_active_input_provider) and _active_input_provider.playback_buffer.empty():
+			if not _is_waiting_for_respawn_validation:
+				run_playback()
 	
 	else:
 		# Normal gameplay (Not recording, Not replaying)
@@ -448,6 +434,7 @@ func start_recording():
 		return
 	buffer.clear()
 	is_recording = true
+	_active_input_provider = player.input_provider if is_instance_valid(player) else null
 	_pending_drift_checkpoint = false
 	_pending_settle_checkpoint_frame = -1
 	_recording_frame = 0
@@ -545,6 +532,8 @@ var _playback_printed_end := false
 func load_and_play(path: String):
 	print("[SessionManager] load_and_play called with: ", path)
 	CinematicManager.reset()
+	if oys_interpreter:
+		oys_interpreter.stop_requested = true
 	is_replaying = false
 	is_recording = false
 	oys_assert_failed = false
@@ -654,7 +643,11 @@ func load_and_play(path: String):
 			
 			if not has_initial_setup:
 				# print("[SessionManager] No initial 'SET pos' found, applying default (0, 0.5, 0)")
-				player.teleport_to(Transform(Basis.IDENTITY, Vector3(0, 0.5, 0)))
+				var start_tf = Transform(Basis.IDENTITY, Vector3(0, 0.5, 0))
+				player.teleport_to(start_tf)
+				var ts = get_node_or_null("TeleportSystem")
+				if ts and ts.has_method("force_initial_spawn"):
+					ts.force_initial_spawn(start_tf)
 				# Record this as an event too so it's in the JSON
 				_on_oys_instruction_executed({"command": "SET", "var": "pos", "value": "(0, 0.5, 0)"}, {})
 			
@@ -925,7 +918,8 @@ func _finish_and_validate():
 		player.set_physics_process(true)
 	
 	# Una última comprobación de aserciones que puedan haber quedado en el último frame
-	_check_events_for_frame(_replay_frame)
+	# Prevenir doble ejecución de eventos en el frame final
+	# _check_events_for_frame(_replay_frame)
 	
 	var success = true
 	var dist = -1.0
@@ -1313,6 +1307,10 @@ func _set_player_prop(prop, val):
 		if typeof(pos_vec) == TYPE_VECTOR3:
 			player.global_transform.origin = pos_vec
 			if "velocity" in player: player.velocity = Vector3.ZERO
+			
+			var ts = get_node_or_null("TeleportSystem")
+			if ts and ts.has_method("force_initial_spawn"):
+				ts.force_initial_spawn(player.global_transform)
 	elif prop == "rot":
 		var r = float(val)
 		player.rotation_degrees.y = r

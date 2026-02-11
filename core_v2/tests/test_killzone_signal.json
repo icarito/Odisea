@@ -3390,12 +3390,12 @@
   "final_expected_state": {
     "position": [
       0,
-      -0.038889,
-      20
+      0.0415,
+      0
     ],
     "velocity": [
       0,
-      -0.933333,
+      0,
       0
     ],
     "yaw": 0,
@@ -3417,7 +3417,7 @@
       "current_turn_time": 0
     },
     "jump_state": {
-      "coyote_timer": 0,
+      "coyote_timer": 0.15,
       "jump_buffer_timer": 0,
       "is_jumping": false
     }

@@ -1,4 +1,4 @@
-[gd_scene load_steps=294 format=2]
+[gd_scene load_steps=295 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -41,6 +41,7 @@
 [ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=39]
 [ext_resource path="res://assets/music/Fingers Trace the Stars ext v2.mp3" type="AudioStream" id=40]
 [ext_resource path="res://core_v2/components/BGMZoneV2.gd" type="Script" id=41]
+[ext_resource path="res://addons/zylann.scatter/scatter3d.gd" type="Script" id=42]
 
 [sub_resource type="BoxShape" id=1499]
 extents = Vector3( 1, 0.5, 1 )
@@ -2056,6 +2057,10 @@ use_in_baked_light = true
 mesh = SubResource( 1497 )
 skeleton = NodePath("../../..")
 material/0 = SubResource( 1498 )
+
+[node name="Scatter3D" type="Spatial" parent="."]
+transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 8.42406, 5.63353, -19.4895 )
+script = ExtResource( 42 )
 
 [editable path="CrioPod START"]
 [editable path="SideScrollZone4"]
