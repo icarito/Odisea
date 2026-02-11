@@ -2804,6 +2804,23 @@
         "sprint": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -2820,10 +2837,10 @@
     "104": [
 
     ],
-    "164": [
+    "165": [
 
     ],
-    "165": [
+    "166": [
 
     ]
   },
@@ -2911,7 +2928,7 @@
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 181,
+      "frames_since_last_snap": 182,
       "last_input_vector": [
         0,
         0,

@@ -5451,22 +5451,7 @@
           -0
         ],
         "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
+        "fov_override": -1,
         "jump": false,
         "sprint": false,
         "interact": false
@@ -5485,7 +5470,7 @@
         "message": "Starting destroyer signal test"
       }
     ],
-    "119": [
+    "120": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -1.0 \"Player fell\""

@@ -3263,39 +3263,6 @@
         "sprint": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -3336,7 +3303,7 @@
         "phase": "check"
       }
     ],
-    "193": [
+    "192": [
       {
         "command": "PRINT",
         "message": "SUCCESS: player_killed signal was emitted!"
@@ -3368,12 +3335,12 @@
   "final_expected_state": {
     "position": [
       0,
-      0.0415,
-      0
+      -0.023333,
+      20
     ],
     "velocity": [
       0,
-      0,
+      -0.7,
       0
     ],
     "yaw": 0,
@@ -3422,12 +3389,12 @@
       "ff": true
     },
     "jump_state": {
-      "coyote_timer": 0.15,
+      "coyote_timer": 0,
       "jump_buffer_timer": 0,
       "is_jumping": false
     },
     "acrobatic_state": {
-      "frames_since_last_snap": 114,
+      "frames_since_last_snap": 19,
       "last_input_vector": [
         0,
         0,
@@ -3437,35 +3404,13 @@
     },
     "fwd_latch_active": false,
     "fwd_latch_sign": 1,
-    "platform_path": "/root/TestScene_KillZone/Floor",
-    "platform_last_transform": {
-      "origin": [
-        0,
-        -0.1,
-        0
-      ],
-      "basis_x": [
-        1,
-        0,
-        0
-      ],
-      "basis_y": [
-        0,
-        1,
-        0
-      ],
-      "basis_z": [
-        0,
-        0,
-        1
-      ]
-    },
+    "platform_path": "",
     "platform_velocity": [
       0,
-      -0,
+      0,
       0
     ],
-    "was_on_platform": true,
+    "was_on_platform": false,
     "step_grounded_timer": 0,
     "just_stepped": false,
     "direction_latch_active": false,
