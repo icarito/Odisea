@@ -1,7 +1,6 @@
 tool
 extends EditorSpatialGizmoPlugin
 
-const SideScrollZone = preload("res://core_v2/player/SideScrollZone.gd")
 const OcclusionArea = preload("res://core_v2/components/OcclusionZoneV2.gd")
 
 var undo_redo: UndoRedo
