@@ -182,6 +182,9 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 	wish_direction = wish_dir.normalized() if wish_dir.length_squared() > 0.0 else Vector3.ZERO
 	wish_dir = wish_direction * target_speed
 	
+	# print("[PlayerMovementV2] move_vec=%s forward=%s wish_dir=%s" % [move_vec, forward, wish_dir])
+
+	
 	# Aplicar fricción más agresiva cuando no hay input
 	var accel: float
 	if wish_dir.length_squared() > 0.0:
@@ -193,6 +196,8 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 		accel = ground_friction if is_on_floor else air_friction
 	
 	horizontal_velocity = horizontal_velocity.move_toward(wish_dir, accel * dt)
+	# print("[PlayerMovementV2] h_vel=%s" % horizontal_velocity)
+
 	
 	# Apply floor alignment when on ground (prevents sideways drift on slopes)
 	if is_on_floor and horizontal_velocity.length_squared() > 0.001:

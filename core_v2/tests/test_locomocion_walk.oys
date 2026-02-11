@@ -4,12 +4,12 @@
 SET pos AS (0, 0, 0)
 PRINT "Testing WALK speed..."
 
-// Pass 1: WALK 1s
+# Pass 1: WALK 1s
 SET $start_z AS pos.z
 WALK FW 1.0s
 WAIT 0.5
 SET $end_z_walk AS pos.z
-MATH $dist_walk = $start_z - $end_z_walk
+MATH $dist_walk $start_z - $end_z_walk
 
 PRINT "Walk Distance (1s): " + $dist_walk
 

@@ -1,20 +1,40 @@
 {
   "buffer": [
     {
-      "input": {
-        "move_vec": [
+      "snapshot": {
+        "position": [
+          0,
+          0.5,
+          0
+        ],
+        "velocity": [
+          0,
           0,
           0
         ],
-        "mouse_delta": [
-          20.943951,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "interact": false
+        "yaw": 0,
+        "pitch": -0,
+        "base_spring_length_3d": 7,
+        "movement_state": {
+          "horizontal_velocity": [
+            0,
+            0,
+            0
+          ],
+          "external_velocity": [
+            0,
+            0,
+            0
+          ],
+          "camera_input_timer": 0,
+          "is_tank_turn_mode": true,
+          "current_turn_time": 0
+        },
+        "jump_state": {
+          "coyote_timer": 0,
+          "jump_buffer_timer": 0,
+          "is_jumping": false
+        }
       }
     },
     {
@@ -500,7 +520,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          10.471975,
           0
         ],
         "zoom_delta": 0,
@@ -518,7 +538,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1032,7 +1052,7 @@
     "29": [
 
     ],
-    "60": [
+    "59": [
       {
         "command": "ASSERT",
         "condition": "yaw_deg < -85 \"Cámara no giró suficiente\""
@@ -1396,6 +1416,19 @@
       },
       "CinematicManager": {
         "current_control_mode": 0,
+        "latched_camera_basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        "latched_control_mode": 0,
+        "latch_active": false,
         "active_rig_path": "",
         "current_camera_path": "/root/TestScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
@@ -1413,8 +1446,8 @@
       0,
       0
     ],
-    "yaw": -1.570796,
-    "pitch": 0,
+    "yaw": -1.518436,
+    "pitch": -0,
     "base_spring_length_3d": 7,
     "movement_state": {
       "horizontal_velocity": [

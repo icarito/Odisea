@@ -1,10 +1,47 @@
 {
   "buffer": [
     {
+      "snapshot": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "velocity": [
+          0,
+          0,
+          0
+        ],
+        "yaw": 0,
+        "pitch": 0,
+        "base_spring_length_3d": 7,
+        "movement_state": {
+          "horizontal_velocity": [
+            0,
+            0,
+            0
+          ],
+          "external_velocity": [
+            0,
+            0,
+            0
+          ],
+          "camera_input_timer": 0,
+          "is_tank_turn_mode": true,
+          "current_turn_time": 0
+        },
+        "jump_state": {
+          "coyote_timer": 0,
+          "jump_buffer_timer": 0,
+          "is_jumping": false
+        }
+      }
+    },
+    {
       "input": {
         "move_vec": [
           0,
-          2
+          -1
         ],
         "mouse_delta": [
           0,
@@ -21,7 +58,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -38,7 +75,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -55,7 +92,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -72,7 +109,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -89,7 +126,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -106,7 +143,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -123,7 +160,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -140,7 +177,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -157,7 +194,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -174,7 +211,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -191,7 +228,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -208,7 +245,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -225,7 +262,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -242,7 +279,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -259,7 +296,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -276,7 +313,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -293,7 +330,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -310,7 +347,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -327,7 +364,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -344,7 +381,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -361,7 +398,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -378,7 +415,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -395,7 +432,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -412,7 +449,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -429,7 +466,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -446,7 +483,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -463,7 +500,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -480,7 +517,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -497,7 +534,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -514,7 +551,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -531,7 +568,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -548,7 +585,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -565,7 +602,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -582,7 +619,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -599,7 +636,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -616,7 +653,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -633,7 +670,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -650,7 +687,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -667,7 +704,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -684,7 +721,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -701,7 +738,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -718,7 +755,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -735,7 +772,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -752,7 +789,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -769,7 +806,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -786,7 +823,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -803,7 +840,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -820,7 +857,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -837,7 +874,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -854,7 +891,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -871,7 +908,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -888,7 +925,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -905,7 +942,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -922,7 +959,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -939,7 +976,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -956,7 +993,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -973,7 +1010,7 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
         ],
         "mouse_delta": [
           0,
@@ -990,7 +1027,24 @@
       "input": {
         "move_vec": [
           0,
-          1
+          -1
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
         ],
         "mouse_delta": [
           0,
@@ -1534,7 +1588,7 @@
     "59": [
 
     ],
-    "89": [
+    "90": [
       {
         "command": "SET",
         "var": "$end_z_walk",
@@ -1543,7 +1597,6 @@
       {
         "command": "MATH",
         "var": "$dist_walk",
-        "op": "=",
         "expression": "$start_z - $end_z_walk"
       },
       {
@@ -1557,6 +1610,10 @@
       {
         "command": "ASSERT",
         "condition": "$dist_walk < -1.0 \"WALK failed to move at base speed\""
+      },
+      {
+        "command": "PRINT",
+        "message": "Test passed!"
       }
     ]
   },
@@ -1905,6 +1962,19 @@
       },
       "CinematicManager": {
         "current_control_mode": 0,
+        "latched_camera_basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        "latched_control_mode": 0,
+        "latch_active": false,
         "active_rig_path": "",
         "current_camera_path": "/root/TestScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
@@ -1913,9 +1983,9 @@
   },
   "final_expected_state": {
     "position": [
-      0,
+      -0,
       0.0415,
-      -1.956666
+      1.956666
     ],
     "velocity": [
       0,
@@ -1951,7 +2021,7 @@
     "$sys_env_auto_run": "",
     "pos": "(0, 0, 0)",
     "$start_z": 0,
-    "$end_z_walk": -1.956666,
-    "$dist_walk": 1.956666
+    "$end_z_walk": 1.956666,
+    "$dist_walk": -1.956666
   }
 }

@@ -330,7 +330,6 @@ func _physics_process(_dt):
 			_pending_settle_checkpoint_frame = -1
 		
 		buffer.append(frame_entry)
-		_recording_frame += 1
 		
 		if is_instance_valid(player) and player.global_transform.origin.y > _peak_y:
 			_peak_y = player.global_transform.origin.y
@@ -353,6 +352,9 @@ func _physics_process(_dt):
 			pilot_node.external_input_provided = true
 			pilot_node.step(step_dt, input_data)
 			player = pilot_node # keep SessionManager.player in sync
+		
+		_recording_frame += 1
+		
 		# Step plataformas TAMBIÉN durante grabación para determinismo
 		var sync_nodes = _get_replay_sync_nodes()
 		for node in sync_nodes:
@@ -542,6 +544,7 @@ var _playback_printed_end := false
 
 func load_and_play(path: String):
 	print("[SessionManager] load_and_play called with: ", path)
+	CinematicManager.reset()
 	is_replaying = false
 	is_recording = false
 	oys_assert_failed = false
@@ -654,6 +657,10 @@ func load_and_play(path: String):
 				player.teleport_to(Transform(Basis.IDENTITY, Vector3(0, 0.5, 0)))
 				# Record this as an event too so it's in the JSON
 				_on_oys_instruction_executed({"command": "SET", "var": "pos", "value": "(0, 0.5, 0)"}, {})
+			
+			# Capture initial player state
+			buffer.append({"snapshot": player.get_full_snapshot()})
+			print("[SessionManager] OYS Initial Snapshot captured at pos=%s" % player.global_transform.origin)
 
 		# Start the run
 		var run_state = interpreter.run()
@@ -700,6 +707,9 @@ func load_and_play(path: String):
 	var input_buffer = []
 	for entry in input_buffer_raw:
 		if typeof(entry) == TYPE_DICTIONARY:
+			if entry.has("snapshot"):
+				continue # Skip initial snapshot, it's used elsewhere
+			
 			if entry.has("input"):
 				input_buffer.append(entry["input"])
 			else:
@@ -710,7 +720,6 @@ func load_and_play(path: String):
 	# Restore world state for JSON replays
 	if data.has("world_snapshot"):
 		_restore_world_state_snapshot(data.world_snapshot)
-	
 	# Migrate legacy setup if necessary (SETTERS/ASSERTS to EVENTS)
 	if not data.has("events"):
 		data["events"] = {}
@@ -1051,6 +1060,27 @@ func _execute_event(cmd: Dictionary):
 			_handle_play_anim(cmd)
 		"SET_TIME_SCALE":
 			Engine.time_scale = float(cmd.get("value", 1.0))
+		"LATCH_BASIS":
+			var b_arr = cmd.get("basis")
+			if b_arr and b_arr.size() == 3:
+				var bx = Vector3(b_arr[0][0], b_arr[0][1], b_arr[0][2])
+				var by = Vector3(b_arr[1][0], b_arr[1][1], b_arr[1][2])
+				var bz = Vector3(b_arr[2][0], b_arr[2][1], b_arr[2][2])
+				CinematicManager.latched_camera_basis = Basis(bx, by, bz)
+				CinematicManager.latched_control_mode = int(cmd.get("mode", 0))
+				CinematicManager.latch_active = true
+				print("[SessionManager] RESTORED LATCHED BASIS from Event")
+
+func record_custom_event(cmd_name: String, data: Dictionary):
+	if not is_recording: return
+	var frame = _recording_frame
+	if not _current_replay_data["events"].has(frame):
+		_current_replay_data["events"][frame] = []
+	
+	var evt = data.duplicate(true)
+	evt["command"] = cmd_name
+	_current_replay_data["events"][frame].append(evt)
+	print("[SessionManager] RECORDED Custom Event: ", cmd_name, " at frame ", frame)
 
 func _resolve_variables_in_string(msg: String) -> String:
 	if "$" in msg:
@@ -1176,6 +1206,15 @@ func _handle_math_command(cmd: Dictionary):
 	var expr_parts = expression.split(" ", false)
 	if expr_parts.size() == 1:
 		result = _resolve_value(expr_parts[0])
+	elif expr_parts.size() == 2:
+		var left = oys_variables.get(target_var, 0.0)
+		var inner_op = expr_parts[0]
+		var right = _resolve_value(expr_parts[1])
+		match inner_op:
+			"+": result = float(left) + float(right)
+			"-": result = float(left) - float(right)
+			"*": result = float(left) * float(right)
+			"/": if float(right) != 0: result = float(left) / float(right)
 	elif expr_parts.size() == 3:
 		var left = _resolve_value(expr_parts[0])
 		var inner_op = expr_parts[1]
@@ -1275,7 +1314,10 @@ func _set_player_prop(prop, val):
 			player.global_transform.origin = pos_vec
 			if "velocity" in player: player.velocity = Vector3.ZERO
 	elif prop == "rot":
-		player.rotation_degrees.y = float(val)
+		var r = float(val)
+		player.rotation_degrees.y = r
+		if "yaw" in player:
+			player.yaw = deg2rad(r)
 	else:
 		# Generic property set not fully implemented safely, assume standard props
 		pass

@@ -1,20 +1,40 @@
 {
   "buffer": [
     {
-      "input": {
-        "move_vec": [
+      "snapshot": {
+        "position": [
+          0,
+          0.5,
+          0
+        ],
+        "velocity": [
+          0,
           0,
           0
         ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "interact": false
+        "yaw": 0,
+        "pitch": -0,
+        "base_spring_length_3d": 7,
+        "movement_state": {
+          "horizontal_velocity": [
+            0,
+            0,
+            0
+          ],
+          "external_velocity": [
+            0,
+            0,
+            0
+          ],
+          "camera_input_timer": 0,
+          "is_tank_turn_mode": true,
+          "current_turn_time": 0
+        },
+        "jump_state": {
+          "coyote_timer": 0,
+          "jump_buffer_timer": 0,
+          "is_jumping": false
+        }
       }
     },
     {
@@ -5500,7 +5520,7 @@
         "message": "SUCCESS: entity_destroyed signal was emitted!"
       }
     ],
-    "321": [
+    "320": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -1.0 \"Player should still be on ground\""
@@ -7077,18 +7097,19 @@
       },
       "CinematicManager": {
         "current_control_mode": 0,
-        "is_transitioning": false,
-        "transition_timer": 0.516667,
-        "transition_duration": 0.5,
-        "source_transform": {
-          "origin": "(28.567024, 12.145114, 30.129566)",
-          "basis": {
-            "x": "(0.645169, 0, -0.76404)",
-            "y": "(-0.194533, 0.967043, -0.164267)",
-            "z": "(0.73886, 0.254611, 0.623907)"
-          }
-        },
-        "source_fov": 70,
+        "latched_camera_basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        "latched_control_mode": 0,
+        "latch_active": false,
         "active_rig_path": "",
         "current_camera_path": "/root/TestScene_PropEmitter/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
@@ -7107,7 +7128,7 @@
       0
     ],
     "yaw": 0,
-    "pitch": 0,
+    "pitch": -0,
     "base_spring_length_3d": 7,
     "movement_state": {
       "horizontal_velocity": [
@@ -7124,134 +7145,11 @@
       "is_tank_turn_mode": true,
       "current_turn_time": 0
     },
-    "ss_logic": {
-      "active": false,
-      "alpha": 0,
-      "axis": 0,
-      "val": 0,
-      "inv": false,
-      "allow_depth": false,
-      "tsl": 15,
-      "vc": [
-        0,
-        0,
-        0
-      ],
-      "lc": [
-        0,
-        0,
-        0
-      ],
-      "cam_yaw": 0,
-      "fs": 1,
-      "tst": 0,
-      "my": 0,
-      "mp": 0,
-      "tsi": 0,
-      "cdz": 0,
-      "ff": true
-    },
     "jump_state": {
       "coyote_timer": 0.15,
       "jump_buffer_timer": 0,
       "is_jumping": false
-    },
-    "acrobatic_state": {
-      "frames_since_last_snap": 337,
-      "last_input_vector": [
-        0,
-        0,
-        0
-      ],
-      "is_acrobatic_ready": false
-    },
-    "fwd_latch_active": false,
-    "fwd_latch_sign": 1,
-    "platform_path": "/root/TestScene_PropEmitter/Floor",
-    "platform_last_transform": {
-      "origin": [
-        0,
-        0,
-        0
-      ],
-      "basis_x": [
-        -0,
-        0,
-        1
-      ],
-      "basis_y": [
-        0,
-        1,
-        0
-      ],
-      "basis_z": [
-        -1,
-        0,
-        -0
-      ]
-    },
-    "platform_velocity": [
-      0,
-      0,
-      0
-    ],
-    "was_on_platform": true,
-    "step_grounded_timer": 0,
-    "just_stepped": false,
-    "direction_latch_active": false,
-    "latched_dir_fwd": [
-      0,
-      0,
-      -1
-    ],
-    "latched_dir_rt": [
-      -1,
-      0,
-      0
-    ],
-    "latched_sidescroll_active": false,
-    "latched_sidescroll_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
-    "latched_cinematic_mode": -1,
-    "latched_input_vec": [
-      0,
-      0
-    ],
-    "prev_sidescroll_active": false,
-    "prev_camera_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
-    "prev_cinematic_rig_path": "",
-    "cinematic_rig_path": ""
+    }
   },
   "oys_variables": {
     "$sys_env_prop_path": "",

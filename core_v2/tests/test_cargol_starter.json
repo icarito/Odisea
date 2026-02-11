@@ -1,6 +1,43 @@
 {
   "buffer": [
     {
+      "snapshot": {
+        "position": [
+          0,
+          0.5,
+          0
+        ],
+        "velocity": [
+          0,
+          0,
+          0
+        ],
+        "yaw": 0,
+        "pitch": -0,
+        "base_spring_length_3d": 7,
+        "movement_state": {
+          "horizontal_velocity": [
+            0,
+            0,
+            0
+          ],
+          "external_velocity": [
+            0,
+            0,
+            0
+          ],
+          "camera_input_timer": 0,
+          "is_tank_turn_mode": true,
+          "current_turn_time": 0
+        },
+        "jump_state": {
+          "coyote_timer": 0,
+          "jump_buffer_timer": 0,
+          "is_jumping": false
+        }
+      }
+    },
+    {
       "input": {
         "move_vec": [
           0,
@@ -2095,6 +2132,19 @@
       },
       "CinematicManager": {
         "current_control_mode": 0,
+        "latched_camera_basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        "latched_control_mode": 0,
+        "latch_active": false,
         "active_rig_path": "",
         "current_camera_path": "/root/TestScene_Cargol/Platform/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
@@ -2113,7 +2163,7 @@
       0
     ],
     "yaw": 0,
-    "pitch": 0,
+    "pitch": -0,
     "base_spring_length_3d": 7,
     "movement_state": {
       "horizontal_velocity": [

@@ -57,10 +57,13 @@ var pitch_deg := 0.0
 var external_input: InputDataV2 = null
 var external_input_provided := false
 
+
 # Cinematic Zone State
 var _active_cinematic_zone: Node = null
 var _prev_active_cinematic_zone: Node = null
 var _terminal_ui_active := false
+var _restore_spring_length: float = -1.0
+var _restore_fov: float = -1.0
 var _exit_log_frames := 0
 
 # Signals
@@ -300,19 +303,18 @@ func snap_rig_to_camera_orbit(target_cam_pos: Vector3, target_fov: float = 70.0)
 	yaw_deg = rad2deg(yaw)
 	pitch_deg = rad2deg(pitch)
 
-func _get_move_direction(input_vector: Vector2, override_mode: int = -1, override_basis: Basis = Basis.IDENTITY) -> Vector3:
-	var mode = override_mode if override_mode != -1 else CinematicManager.get_control_mode()
-	var camera_basis: Basis
-	
-	if override_mode != -1:
-		camera_basis = override_basis
-	else:
+func _get_move_direction(input_vector: Vector2, mode = -1, camera_basis = null) -> Vector3:
+	if mode == -1:
+		mode = CinematicManager.get_control_mode()
+		
+	if camera_basis == null:
 		var camera = CinematicManager.get_active_camera()
-		if not camera:
-			# Fallback to absolute
+		if camera == null:
+			# Fallback if no camera found
 			return Vector3(input_vector.x, 0, input_vector.y)
 		camera_basis = camera.global_transform.basis
 	
+	var res = Vector3.ZERO
 	match mode:
 		CinematicManager.ControlMode.FREE:
 			# Relative to camera (Standard Third Person)
@@ -321,7 +323,7 @@ func _get_move_direction(input_vector: Vector2, override_mode: int = -1, overrid
 			fwd.y = 0
 			rt.y = 0
 			# mapping: Right (+X), Forward (-Y)
-			return (rt.normalized() * input_vector.x + fwd.normalized() * (-input_vector.y))
+			res = (rt.normalized() * input_vector.x + fwd.normalized() * (-input_vector.y))
 		
 		CinematicManager.ControlMode.LOCKED_VIEW:
 			# Relative to camera depth (Up = Into screen)
@@ -333,14 +335,20 @@ func _get_move_direction(input_vector: Vector2, override_mode: int = -1, overrid
 			right = right.normalized()
 			
 			# mapping: Right (+X), Forward (-Y)
-			return (right * input_vector.x + forward * (-input_vector.y))
+			res = (right * input_vector.x + forward * (-input_vector.y))
 
 		CinematicManager.ControlMode.FIXED_AXIS:
 			# Absolute World Axis
-			return Vector3(input_vector.x, 0, input_vector.y)
-
+			res = Vector3(input_vector.x, 0, input_vector.y)
+		
 		_:
-			return Vector3(input_vector.x, 0, input_vector.y)
+			res = Vector3(input_vector.x, 0, input_vector.y)
+
+	if res.length_squared() > 0.001:
+		var raw_fwd = - camera_basis.z
+		raw_fwd.y = 0
+		# print("[MoveDir] mode=%d in_y=%.3f fwd_basis_z=%s raw_fwd=%s fwd_norm=%s res=%s" % [mode, input_vector.y, camera_basis.z, raw_fwd, raw_fwd.normalized(), res])
+	return res
 
 var _interact_area: Area = null
 
@@ -442,6 +450,14 @@ func _accumulate_input(target: InputDataV2, source: InputDataV2) -> void:
 func step(dt: float, input: InputDataV2) -> void:
 	if input == null: return
 	
+	if input.move_vec.length_squared() > 0.001:
+		var mode = CinematicManager.get_control_mode()
+		var rig = CinematicManager.active_rig.name if CinematicManager.active_rig else "null"
+		# print("[Step] frame=%d pos=%s yaw=%.4f mode=%d rig=%s input=%s" % [
+			# SessionManager._recording_frame if SessionManager.is_recording else SessionManager._replay_frame,
+			# global_transform.origin, yaw, mode, rig, input.move_vec
+		# ])
+	
 	if is_instance_valid(movement_logic) and input_provider:
 		input_provider.move_response_curve = movement_logic.move_response_curve
 		input_provider.camera_response_curve = movement_logic.camera_response_curve
@@ -481,6 +497,10 @@ func step(dt: float, input: InputDataV2) -> void:
 	# Update Rig (Player's Rig)
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.force_update_transform()
+		# Also force update children (SpringArm and Camera) if possible
+		# They should be updated by parent force_update_transform() though.
+
 	
 	yaw_deg = rad2deg(yaw)
 	pitch_deg = rad2deg(pitch)
@@ -494,7 +514,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		jump_logic.buffer_jump()
 
 	# --- CINEMATIC ZONE DETECTION ---
-	_update_cinematic_zone_detection()
+	_update_cinematic_zone_detection(input)
 	
 	# --- MOVEMENT ---
 	var move_vec = input.move_vec
@@ -508,6 +528,30 @@ func step(dt: float, input: InputDataV2) -> void:
 			world_dir = _get_move_direction(move_vec, CinematicManager.latched_control_mode, CinematicManager.latched_camera_basis)
 	else:
 		world_dir = _get_move_direction(move_vec)
+
+	# --- ACROBATIC SNAP DETECTION (Legacy) ---
+	# Uses input.move_vec directly to capture raw intent before processing
+	var current_input_3d = Vector3(input.move_vec.x, 0, input.move_vec.y).normalized()
+	if current_input_3d.length() > 0.1 and last_input_vector.length() > 0.1:
+		var dot_product = current_input_3d.dot(last_input_vector)
+		if dot_product < -0.6: # Detección de giro 180°
+			if is_acrobatic_ready:
+				# Si ya estábamos listos y giramos OTRA VEZ (Double Snap), cancelamos.
+				# Esto evita el backflip "al revés" cuando rectificas la dirección muy rápido.
+				is_acrobatic_ready = false
+				frames_since_last_snap = ACROBATIC_WINDOW_FRAMES + 1
+			else:
+				# Primer snap detectado
+				frames_since_last_snap = 0
+				is_acrobatic_ready = true
+	
+	# Manage acrobatic window counter
+	frames_since_last_snap += 1
+	if frames_since_last_snap > ACROBATIC_WINDOW_FRAMES and is_acrobatic_ready:
+		is_acrobatic_ready = false
+	
+	if current_input_3d.length() > 0.1:
+		last_input_vector = current_input_3d
 	
 	var basis = Basis.IDENTITY
 	
@@ -526,11 +570,40 @@ func step(dt: float, input: InputDataV2) -> void:
 	if is_on_floor():
 		velocity.y = h_vel.y
 
-	# --- JUMP ---
-	var old_vy = velocity.y
-	velocity.y = jump_logic.step(dt, input.jump, velocity.y, is_on_floor())
-	if velocity.y == jump_logic.jump_force and old_vy != jump_logic.jump_force:
-		emit_signal("jumped")
+	# --- ACROBATIC JUMP CHECK (before normal jump) ---
+	if is_acrobatic_ready and is_on_floor() and jump_logic.jump_buffer_timer > 0 and not CinematicManager.latch_active:
+		var force = jump_logic.acrobatic_jump_force
+		velocity.y = force
+		
+		# 1. FRENADO EN SECO: Eliminamos la inercia actual para justificar el cambio de dirección
+		velocity.x *= jump_logic.acrobatic_brake_factor
+		velocity.z *= jump_logic.acrobatic_brake_factor
+		
+		# 2. IMPULSO HACIA ATRÁS: Usamos el vector de intención actual.
+		if last_input_vector.length() > 0.1:
+			var move_dir = last_input_vector.normalized()
+			# Kick: Base impulse + boost.
+			velocity.x += move_dir.x * jump_logic.acrobatic_backward_impulse
+			velocity.z += move_dir.z * jump_logic.acrobatic_backward_impulse
+			
+			# Camera Visual Impact
+			# (Skipped: sidescroll_logic not available in V2 controller yet)
+			# if is_instance_valid(sidescroll_logic) and sidescroll_logic.is_active:
+			# 	var push_val = 0.0
+			# 	if sidescroll_logic.lock_axis == 2: push_val = move_dir.x
+			# 	elif sidescroll_logic.lock_axis == 1: push_val = move_dir.z
+			# 	sidescroll_logic.manual_yaw += push_val * jump_logic.acrobatic_camera_push
+		
+		jump_logic.consume_jump()
+		jump_logic.set_internal_velocity(force)
+		is_acrobatic_ready = false
+		emit_signal("acrobatic_jumped")
+	else:
+		# --- JUMP ---
+		var old_vy = velocity.y
+		velocity.y = jump_logic.step(dt, input.jump, velocity.y, is_on_floor())
+		if velocity.y == jump_logic.jump_force and old_vy != jump_logic.jump_force:
+			emit_signal("jumped")
 
 	# --- EXTERNAL VELOCITY ---
 	var external_vel = Vector3.ZERO
@@ -592,8 +665,11 @@ func step(dt: float, input: InputDataV2) -> void:
 	if _cached_spring_arm:
 		current_spring_length = lerp(current_spring_length, base_spring_length_3d, 4.0 * dt)
 		_cached_spring_arm.spring_length = current_spring_length
+	
+	if _cached_cam and abs(_cached_cam.fov - base_fov) > 0.01:
+		_cached_cam.fov = lerp(_cached_cam.fov, base_fov, 4.0 * dt)
 
-func _update_cinematic_zone_detection():
+func _update_cinematic_zone_detection(input: InputDataV2):
 	var all_zones = get_tree().get_nodes_in_group("CinematicCameraZoneV2")
 	var best_zone = null
 	var min_volume = INF
@@ -613,10 +689,17 @@ func _update_cinematic_zone_detection():
 		var prev_cam = CinematicManager.get_active_camera()
 		var p_basis = prev_cam.global_transform.basis if prev_cam else Basis.IDENTITY
 		var p_mode = CinematicManager.get_control_mode()
-		var has_input = input_provider.get_input().move_vec.length() > 0.1 if input_provider else false
+		var has_input = input.move_vec.length() > 0.1 if input else false
 
 		if _active_cinematic_zone:
 			# Enter Zone
+			# Enter Zone
+			# Save current camera state for restore on exit (only if we haven't saved it yet or we just fully exited)
+			# We check _restore_spring_length < 0 to ensure we capture the *original* player state, not an intermediate one if switching zones immediately.
+			if _restore_spring_length < 0.0:
+				_restore_spring_length = base_spring_length_3d
+				_restore_fov = base_fov
+
 			var rig = _active_cinematic_zone._rig_node
 			if rig:
 				CinematicManager.activate_rig_direct(rig, _active_cinematic_zone.control_mode)
@@ -625,6 +708,17 @@ func _update_cinematic_zone_detection():
 				CinematicManager.latched_camera_basis = p_basis
 				CinematicManager.latched_control_mode = p_mode
 				CinematicManager.latch_active = true
+				print("[PlayerController] LATCHED Basis on ENTER: ", p_basis)
+				
+				# Record for determinism!
+				SessionManager.record_custom_event("LATCH_BASIS", {
+						"basis": [
+								[p_basis.x.x, p_basis.x.y, p_basis.x.z],
+								[p_basis.y.x, p_basis.y.y, p_basis.y.z],
+								[p_basis.z.x, p_basis.z.y, p_basis.z.z]
+						],
+						"mode": p_mode
+				})
 		else:
 			# Exit Zone (Return to Player Camera)
 			var cur_cam = CinematicManager.get_active_camera()
@@ -635,15 +729,26 @@ func _update_cinematic_zone_detection():
 				snap_rig_to_camera_orbit(cur_cam.global_transform.origin, cur_cam.fov)
 				# 2. Deactivate cinematic rig
 				CinematicManager.deactivate_rig()
+				
+				# 3. Restore intended player settings (smooth transition will handle the rest in _physics_process)
+				if _restore_spring_length > 0.0:
+					base_spring_length_3d = _restore_spring_length
+					base_fov = _restore_fov
+					# Reset backup so next time we capture fresh
+					_restore_spring_length = -1.0
+					_restore_fov = -1.0
+				
 				print("[CameraExit] SNAP DONE: yaw=", yaw, " pitch=", pitch, " dist=", base_spring_length_3d, " fov=", base_fov)
 			else:
 				CinematicManager.deactivate_rig()
 			
 			if _prev_active_cinematic_zone and _prev_active_cinematic_zone.get("latch_on_exit") and has_input:
-				CinematicManager.latched_camera_basis = p_basis
-				CinematicManager.latched_control_mode = p_mode
-				CinematicManager.latch_active = true
-
+				# Only latch if not ALREADY latched (e.g. from entry, maintaining continuity)
+				if not CinematicManager.latch_active:
+					CinematicManager.latched_camera_basis = p_basis
+					CinematicManager.latched_control_mode = p_mode
+					CinematicManager.latch_active = true
+	
 	_prev_active_cinematic_zone = _active_cinematic_zone
 
 	# Update Terminal UI active state
@@ -775,12 +880,19 @@ func get_camera_basis() -> Basis:
 func teleport_to(target_transform: Transform) -> void:
 	global_transform = target_transform
 	velocity = Vector3.ZERO
+	
+	# Reset yaw/pitch to match target orientation to avoid state bleeding
+	var euler = target_transform.basis.get_euler()
+	yaw = euler.y
+	pitch = euler.x
+	yaw_deg = rad2deg(yaw)
+	pitch_deg = rad2deg(pitch)
+	
+	if camera_rig:
+		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.force_update_transform()
+
 	ensure_input_provider()
 	set_camera_input_locked(false)
 	if input_provider and input_provider.has_method("clear_buffer"):
 		input_provider.clear_buffer()
-	var cam_rig = get_node_or_null("CameraRig")
-	if cam_rig:
-		var target_rig_transform = target_transform
-		target_rig_transform.origin.y += base_rig_y
-		cam_rig.global_transform = target_rig_transform

@@ -32,6 +32,8 @@ SECTION "Intro"
         LOOK 20 2.0
     END
 
+    WAIT 2.0
+
     TIME_SCALE 1.0
 
     PRINT "Intro terminado."

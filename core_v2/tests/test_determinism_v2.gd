@@ -138,18 +138,11 @@ func _get_scene_for_test(path: String) -> String:
 # Parametrized test for JSON replays
 
 
-# Forzar posición inicial del player si hay snapshot esperado, si no, a (0,0,0)
+# Forzar posición inicial del player a (0,0,0) si no hay snapshot explícito
 func _force_player_position_from_expected():
 	if is_instance_valid(SessionManager.player):
 		var t = SessionManager.player.global_transform
-		if SessionManager.final_expected_state != null:
-			var exp_pos_arr = SessionManager.final_expected_state.get("position", null)
-			if exp_pos_arr != null and typeof(exp_pos_arr) == TYPE_ARRAY:
-				t.origin = Vector3(exp_pos_arr[0], exp_pos_arr[1], exp_pos_arr[2])
-			else:
-				t.origin = Vector3(0, 0, 0)
-		else:
-			t.origin = Vector3(0, 0, 0)
+		t.origin = Vector3(0, 0, 0)
 		SessionManager.player.global_transform = t
 
 # Test único parametrizado para ambos formatos

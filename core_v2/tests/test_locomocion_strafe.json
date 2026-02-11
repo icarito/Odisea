@@ -1,9 +1,46 @@
 {
   "buffer": [
     {
+      "snapshot": {
+        "position": [
+          0,
+          0.5,
+          0
+        ],
+        "velocity": [
+          0,
+          0,
+          0
+        ],
+        "yaw": 0,
+        "pitch": -0,
+        "base_spring_length_3d": 7,
+        "movement_state": {
+          "horizontal_velocity": [
+            0,
+            0,
+            0
+          ],
+          "external_velocity": [
+            0,
+            0,
+            0
+          ],
+          "camera_input_timer": 0,
+          "is_tank_turn_mode": true,
+          "current_turn_time": 0
+        },
+        "jump_state": {
+          "coyote_timer": 0,
+          "jump_buffer_timer": 0,
+          "is_jumping": false
+        }
+      }
+    },
+    {
       "input": {
         "move_vec": [
-          2,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -20,7 +57,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -37,7 +74,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -54,7 +91,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -71,7 +108,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -88,7 +125,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -105,7 +142,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -122,7 +159,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -139,7 +176,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -156,7 +193,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -173,7 +210,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -190,7 +227,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -207,7 +244,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -224,7 +261,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -241,7 +278,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -258,7 +295,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -275,7 +312,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -292,7 +329,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -309,7 +346,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -326,7 +363,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -343,7 +380,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -360,7 +397,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -377,7 +414,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -394,7 +431,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -411,7 +448,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -428,7 +465,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -445,7 +482,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -462,7 +499,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -479,7 +516,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -496,7 +533,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -513,7 +550,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -530,7 +567,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -547,7 +584,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -564,7 +601,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -581,7 +618,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -598,7 +635,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -615,7 +652,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -632,7 +669,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -649,7 +686,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -666,7 +703,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -683,7 +720,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -700,7 +737,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -717,7 +754,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -734,7 +771,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -751,7 +788,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -768,7 +805,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -785,7 +822,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -802,7 +839,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -819,7 +856,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -836,7 +873,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -853,7 +890,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -870,7 +907,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -887,7 +924,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -904,7 +941,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -921,7 +958,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -938,7 +975,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -955,7 +992,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -972,7 +1009,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -989,7 +1026,7 @@
     {
       "input": {
         "move_vec": [
-          1,
+          -1,
           0
         ],
         "mouse_delta": [
@@ -1012,6 +1049,23 @@
         "mouse_delta": [
           0,
           0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1525,10 +1579,18 @@
     "59": [
 
     ],
-    "89": [
+    "90": [
       {
         "command": "ASSERT",
         "condition": "pos.x > 1.0 \"Elías no hizo strafe a la izquierda (-X)\""
+      },
+      {
+        "command": "ASSERT",
+        "condition": "pos.z < 0.5 \"Desplazamiento excesivo en Z (min)\""
+      },
+      {
+        "command": "ASSERT",
+        "condition": "pos.z > -0.5 \"Desplazamiento excesivo en Z (max)\""
       }
     ]
   },
@@ -1877,6 +1939,19 @@
       },
       "CinematicManager": {
         "current_control_mode": 0,
+        "latched_camera_basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        "latched_control_mode": 0,
+        "latch_active": false,
         "active_rig_path": "",
         "current_camera_path": "/root/TestScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
@@ -1885,9 +1960,9 @@
   },
   "final_expected_state": {
     "position": [
-      -6.55417,
+      6.55417,
       0.0415,
-      0
+      0.000001
     ],
     "velocity": [
       0,
@@ -1895,7 +1970,7 @@
       0
     ],
     "yaw": 0,
-    "pitch": 0,
+    "pitch": -0,
     "base_spring_length_3d": 7,
     "movement_state": {
       "horizontal_velocity": [

@@ -699,8 +699,8 @@ func _execute_movement(inst: Dictionary, my_id: int):
 			duration_sec = value
 			if unit == "m":
 				duration_sec = OYS_Parser.distance_to_duration(value, is_sprint)
-			# Working convention: 1 is Forward, -1 is Backward
-			move_vec = Vector2(0, 1) if cmd == "FW" else Vector2(0, -1)
+			# Standard Godot Convention: -1 is Forward, 1 is Backward
+			move_vec = Vector2(0, -1) if cmd == "FW" else Vector2(0, 1)
 		
 		"LEFT", "RIGHT":
 			if inst.get("is_turning", false):
@@ -714,8 +714,8 @@ func _execute_movement(inst: Dictionary, my_id: int):
 			duration_sec = value
 			if unit == "m":
 				duration_sec = OYS_Parser.distance_to_duration(value, is_sprint)
-			# Project Convention: Left (+1), Right (-1).
-			move_vec = Vector2(1, 0) if cmd == "LEFT" else Vector2(-1, 0)
+			# Standard Godot Convention: -1 is Left, 1 is Right
+			move_vec = Vector2(-1, 0) if cmd == "LEFT" else Vector2(1, 0)
 		
 		"JUMP":
 			duration_sec = inst.get("duration", 0.1)
@@ -1020,26 +1020,22 @@ func _find_player() -> Node:
 	return player
 
 func _post_oys_input(data: Dictionary):
-	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
-		return
+	if not host_node: return
 	var session = host_node.get_node_or_null("/root/SessionManager")
-	if session and is_instance_valid(session) and session.get("is_recording"):
+	if not session: return
+	
+	if session.get("is_recording"):
 		if not session.get("_oys_input_override"):
 			session.set("_oys_input_override", {})
 		var override = session.get("_oys_input_override")
 		for key in data:
 			var val = data[key]
-			if key == "mouse_delta" or key == "move_vec":
-				if not override.has(key):
-					override[key] = [0.0, 0.0]
-				override[key][0] += val[0]
-				override[key][1] += val[1]
-			else:
-				override[key] = val
+			# Overwrite, don't accumulate, to avoid double-processing if Interpreter skips frames
+			override[key] = val
 	else:
+		# Compatibility logic for other host types if any
 		var player = _find_player()
 		if player and is_instance_valid(player) and player.has_method("inject_input"):
-			# print("[OYS] Posting input: ", data)
 			player.inject_input(data)
 		else:
 			print("[OYS WARNING] Could not find player to inject input: ", data)

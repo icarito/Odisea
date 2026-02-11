@@ -70,6 +70,13 @@ func activate_rig_direct(target_rig: Spatial, control_mode: int = ControlMode.FR
 	current_control_mode = control_mode
 	emit_signal("control_mode_changed", control_mode)
 	
+	var cam_basis = ""
+	var current_cam = get_viewport().get_camera()
+	if current_cam:
+		cam_basis = str(current_cam.global_transform.basis)
+
+	print("[CinematicManager] activate_rig_direct: ", target_rig.name, " mode=", control_mode, " current_cam_basis=", cam_basis)
+	
 	# Handle transition
 	var trans_time = target_rig.transition_time if "transition_time" in target_rig else 0.0
 	
@@ -260,3 +267,13 @@ func restore_snapshot(data: Dictionary) -> void:
 		var cam = get_node(cam_path)
 		if cam and cam is Camera:
 			cam.current = true
+
+func reset():
+	active_rig = null
+	current_control_mode = ControlMode.FREE
+	latched_camera_basis = Basis.IDENTITY
+	latched_control_mode = ControlMode.FREE
+	latch_active = false
+	_transition_active = false
+	_transition_from_cam = null
+	_transition_to_cam = null

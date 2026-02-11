@@ -265,9 +265,8 @@ static func parse_instruction(line: String) -> Dictionary:
 		"MATH":
 			if parts.size() >= 4:
 				data["var"] = parts[1]
-				data["op"] = parts[2]
-				# Store the rest of the line as expression
-				var start_pos = line.find(parts[2]) + parts[2].length()
+				# Store the rest of the line as expression (including the operator)
+				var start_pos = line.find(parts[1]) + parts[1].length()
 				data["expression"] = line.substr(start_pos).strip_edges()
 			else:
 				printerr("[OYS_Parser] Invalid MATH command: ", line)

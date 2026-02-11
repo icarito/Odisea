@@ -290,10 +290,10 @@ func activate(make_current: bool = true):
 
 func snap_to_target():
 	"""Force immediate update of rig position to player target"""
-	if not _player_node:
+	if not _player_node or not is_instance_valid(_player_node):
 		_find_player()
 	
-	if _player_node and curve and path_follow:
+	if _player_node and is_instance_valid(_player_node) and curve and path_follow:
 		var player_pos = _player_node.global_transform.origin
 		var local_pos = global_transform.affine_inverse().xform(player_pos)
 		var closest_offset = curve.get_closest_offset(local_pos)

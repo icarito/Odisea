@@ -78,7 +78,7 @@ static func _instruction_to_frames(inst: Dictionary, start_frame: int) -> Dictio
 				duration_sec = OYS_Parser.distance_to_duration(inst.value, is_running)
 			
 			var num_frames = OYS_Parser.duration_to_frames(duration_sec)
-			var move_y = 1 if cmd == "FW" else -1
+			var move_y = -1 if cmd == "FW" else 1
 			
 			for i in range(num_frames):
 				frames[start_frame + i] = {
