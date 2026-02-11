@@ -6,7 +6,6 @@
 [ext_resource path="res://core_v2/player/PlayerJumpV2.gd" type="Script" id=4]
 [ext_resource path="res://core_v2/player/PlayerMovementV2.gd" type="Script" id=6]
 [ext_resource path="res://core_v2/actors/AnimationTree.tres" type="AnimationNodeStateMachine" id=7]
-[ext_resource path="res://core_v2/player/SideScrollLogicV2.gd" type="Script" id=8]
 [ext_resource path="res://models/Pilot.glb" type="PackedScene" id=9]
 [ext_resource path="res://data/curves/Inverse_S.tres" type="Curve" id=10]
 [ext_resource path="res://data/curves/Exponential.tres" type="Curve" id=11]
@@ -74,15 +73,6 @@ strafe_turn_multiplier = 0.1
 strafe_speed_multiplier = 1.0
 enable_slope_resistance = false
 slope_resistance_factor = 0.1
-
-[node name="SideScroll" type="Node" parent="Logic"]
-script = ExtResource( 8 )
-target_y_offset = 1.0
-target_spring_length = 15.0
-min_rig_height = -1.5
-lookahead_speed = 1.5
-turn_delay = 1.0
-manual_return_speed = 3.0
 
 [node name="Visual" type="Spatial" parent="."]
 
