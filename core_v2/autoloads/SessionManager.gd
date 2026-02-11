@@ -660,7 +660,7 @@ func load_and_play(path: String):
 			
 			# Capture initial player state
 			buffer.append({"snapshot": player.get_full_snapshot()})
-			print("[SessionManager] OYS Initial Snapshot captured at pos=%s" % player.global_transform.origin)
+			print("[SessionManager] OYS Initial Snapshot captured at pos=%s yaw=%.4f" % [player.global_transform.origin, player.yaw])
 
 		# Start the run
 		var run_state = interpreter.run()

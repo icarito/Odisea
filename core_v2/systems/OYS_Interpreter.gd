@@ -707,6 +707,7 @@ func _execute_movement(inst: Dictionary, my_id: int):
 				duration_sec = OYS_Parser.distance_to_duration(value, is_sprint)
 			# Standard Godot Convention: -1 is Forward, 1 is Backward
 			move_vec = Vector2(0, -1) if cmd == "FW" else Vector2(0, 1)
+			print("[OYS_Interpreter] Executing ", cmd, ". Move Vec: ", move_vec)
 		
 		"LEFT", "RIGHT":
 			if inst.get("is_turning", false):

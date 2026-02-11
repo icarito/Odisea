@@ -304,6 +304,7 @@ func snap_rig_to_camera_orbit(target_cam_pos: Vector3, target_fov: float = 70.0)
 	pitch_deg = rad2deg(pitch)
 
 func _get_move_direction(input_vector: Vector2, mode = -1, camera_basis = null) -> Vector3:
+	# print("[PlayerController] _get_move_direction called with mode: %d" % mode)
 	if mode == -1:
 		mode = CinematicManager.get_control_mode()
 		
@@ -313,17 +314,23 @@ func _get_move_direction(input_vector: Vector2, mode = -1, camera_basis = null) 
 			# Fallback if no camera found
 			return Vector3(input_vector.x, 0, input_vector.y)
 		camera_basis = camera.global_transform.basis
+
 	
 	var res = Vector3.ZERO
 	match mode:
 		CinematicManager.ControlMode.FREE:
 			# Relative to camera (Standard Third Person)
 			var fwd = - camera_basis.z
+			fwd.y = 0.0
+			fwd = fwd.normalized()
+			
 			var rt = camera_basis.x
-			fwd.y = 0
-			rt.y = 0
+			rt.y = 0.0
+			rt = rt.normalized()
+			
 			# mapping: Right (+X), Forward (-Y)
 			res = (rt.normalized() * input_vector.x + fwd.normalized() * (-input_vector.y))
+
 		
 		CinematicManager.ControlMode.LOCKED_VIEW:
 			# Relative to camera depth (Up = Into screen)
@@ -452,11 +459,10 @@ func step(dt: float, input: InputDataV2) -> void:
 	
 	if input.move_vec.length_squared() > 0.001:
 		var mode = CinematicManager.get_control_mode()
-		var rig = CinematicManager.active_rig.name if CinematicManager.active_rig else "null"
-		# print("[Step] frame=%d pos=%s yaw=%.4f mode=%d rig=%s input=%s" % [
-			# SessionManager._recording_frame if SessionManager.is_recording else SessionManager._replay_frame,
-			# global_transform.origin, yaw, mode, rig, input.move_vec
-		# ])
+		var cam = CinematicManager.get_active_camera()
+		var cam_name = cam.name if cam else "null"
+		var cam_basis_z = cam.global_transform.basis.z if cam else Vector3.ZERO
+		print("[PlayerController] step: move_vec=%s yaw=%.4f actual_cam=%s basis.z=%s mode=%d" % [input.move_vec, yaw, cam_name, cam_basis_z, mode])
 	
 	if is_instance_valid(movement_logic) and input_provider:
 		input_provider.move_response_curve = movement_logic.move_response_curve
@@ -878,6 +884,7 @@ func get_camera_basis() -> Basis:
 	return camera_rig.global_transform.basis if camera_rig else Basis.IDENTITY
 
 func teleport_to(target_transform: Transform) -> void:
+	print("[PlayerController] teleport_to called. Target: ", target_transform.origin, " Rot: ", target_transform.basis.get_euler())
 	global_transform = target_transform
 	velocity = Vector3.ZERO
 	
@@ -887,6 +894,7 @@ func teleport_to(target_transform: Transform) -> void:
 	pitch = euler.x
 	yaw_deg = rad2deg(yaw)
 	pitch_deg = rad2deg(pitch)
+	print("[PlayerController] teleport_to finished. Yaw: ", yaw, " Pitch: ", pitch)
 	
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)

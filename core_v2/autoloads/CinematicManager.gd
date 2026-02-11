@@ -241,14 +241,14 @@ func get_full_snapshot() -> Dictionary:
 	return snapshot
 
 func restore_snapshot(data: Dictionary) -> void:
-	current_control_mode = data.get("current_control_mode", ControlMode.FREE)
+	current_control_mode = int(data.get("current_control_mode", ControlMode.FREE))
 	var lb = data.get("latched_camera_basis", [1, 0, 0, 0, 1, 0, 0, 0, 1])
 	latched_camera_basis = Basis(
 		Vector3(lb[0], lb[1], lb[2]),
 		Vector3(lb[3], lb[4], lb[5]),
 		Vector3(lb[6], lb[7], lb[8])
 	)
-	latched_control_mode = data.get("latched_control_mode", ControlMode.FREE)
+	latched_control_mode = int(data.get("latched_control_mode", ControlMode.FREE))
 	latch_active = data.get("latch_active", false)
 	
 	var rig_path = data.get("active_rig_path", "")
