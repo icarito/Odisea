@@ -317,9 +317,6 @@ func deactivate(restore_camera: bool = true):
 	_last_deactivate_time = OS.get_ticks_msec() / 1000.0
 	stop()
 	
-	# Ajustar rotación del jugador para coincidir
-	_align_player_camera_to_current()
-	
 	if restore_camera:
 		# Restaurar cámara del jugador
 		var player_cam = _find_player_camera()
@@ -328,44 +325,6 @@ func deactivate(restore_camera: bool = true):
 	
 	set_physics_process(false)
 
-
-func _align_player_camera_to_current():
-	"""Ajusta el PlayerController para que la cámara mire en la misma dirección que la cámara del path."""
-	if not camera or not is_instance_valid(camera) or not camera.is_inside_tree():
-		return
-	
-	if not is_inside_tree():
-		return
-	
-	# Obtener la dirección hacia donde mira la cámara (eje -Z en Godot)
-	var forward = - camera.global_transform.basis.z
-	
-	# Calcular yaw (rotación horizontal) desde la dirección forward proyectada en XZ
-	var forward_xz = Vector3(forward.x, 0, forward.z).normalized()
-	var new_yaw = atan2(forward_xz.x, forward_xz.z)
-	
-	# Calcular pitch (rotación vertical) desde la componente Y
-	var new_pitch = asin(clamp(-forward.y, -1.0, 1.0))
-	
-	# Buscar el PlayerController y ajustar sus variables yaw/pitch
-	var tree = get_tree()
-	if not tree:
-		return
-	var players = tree.get_nodes_in_group("player")
-	if players.size() == 0:
-		return
-	
-	var player = players[0]
-	
-	# El PlayerController usa variables internas yaw y pitch
-	if "yaw" in player and "pitch" in player:
-		player.yaw = new_yaw
-		player.pitch = new_pitch
-		# También actualizar las versiones en grados si existen
-		if "yaw_deg" in player:
-			player.yaw_deg = rad2deg(new_yaw)
-		if "pitch_deg" in player:
-			player.pitch_deg = rad2deg(new_pitch)
 
 func get_camera() -> Camera:
 	return camera

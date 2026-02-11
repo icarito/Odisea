@@ -61,6 +61,7 @@ var external_input_provided := false
 var _active_cinematic_zone: Node = null
 var _prev_active_cinematic_zone: Node = null
 var _terminal_ui_active := false
+var _exit_log_frames := 0
 
 # Signals
 signal jumped
@@ -225,32 +226,114 @@ func _find_spring_arm(node: Node) -> SpringArm:
 			return arm
 	return null
 
-func _get_move_direction(input_vector: Vector2) -> Vector3:
-	var mode = CinematicManager.get_control_mode()
-	var camera = CinematicManager.get_active_camera()
+func _get_camera_to_rig_basis() -> Basis:
+	if not camera_rig or not _cached_cam: return Basis.IDENTITY
+	var b = Basis.IDENTITY
+	var curr = _cached_cam
+	while curr and curr != camera_rig and curr != self:
+		b = curr.transform.basis * b
+		curr = curr.get_parent()
+	return b
+
+func _get_rig_child_offset() -> Vector3:
+	# Returns the local translation from CameraRig node to the start of the SpringArm
+	if not camera_rig: return Vector3.ZERO
+	var l_pos = Vector3.ZERO
+	var arm = _find_spring_arm(camera_rig)
+	var curr = arm
+	while curr and curr != camera_rig:
+		l_pos = curr.transform.basis * l_pos + curr.transform.origin
+		curr = curr.get_parent()
+	return l_pos
+
+func snap_rig_to_camera_orbit(target_cam_pos: Vector3, target_fov: float = 70.0) -> void:
+	"""
+	Robustly calculates and sets yaw/pitch to place the player camera at target_cam_pos.
+	Also synchronizes FOV and SpringArm length.
+	"""
+	# 1. Clean mouse buffer
+	if input_provider and input_provider.has_method("clear_buffer"):
+		input_provider.clear_buffer()
+
+	# 2. Sync FOV
+	base_fov = target_fov
 	
-	if not camera:
-		# Fallback to absolute
-		return Vector3(input_vector.x, 0, input_vector.y)
+	# 3. Find the pivot center (the world position of the SpringArm root)
+	var rig_origin = camera_rig.global_transform.origin if camera_rig else global_transform.origin + Vector3.UP * base_rig_y
+	var l_pivot = _get_rig_child_offset()
+	var pivot_world_pos = rig_origin + global_transform.basis.xform(l_pivot)
+	
+	var dir_to_cam = (target_cam_pos - pivot_world_pos)
+	var dist = dir_to_cam.length()
+	if dist < 0.01: return
+	dir_to_cam /= dist
+	
+	# 3. Calculate desired WORLD basis (Z points to camera)
+	var z_axis = dir_to_cam
+	var x_axis = Vector3.UP.cross(z_axis).normalized()
+	if x_axis.length_squared() < 0.001: x_axis = Vector3.RIGHT
+	var y_axis = z_axis.cross(x_axis).normalized()
+	var desired_world_basis = Basis(x_axis, y_axis, z_axis)
+	
+	# 4. Convert World Basis to local Rig Basis (Target = GlobalPlayer * Rig * Children)
+	# RigTarget = Player.inv * Target * Children.inv
+	var inherent_b = _get_camera_to_rig_basis()
+	var rig_local_basis = global_transform.basis.inverse() * desired_world_basis * inherent_b.inverse()
+	
+	# 5. Extract Yaw and Pitch using Godot's Euler YXZ (which matches our R_y * R_x)
+	var euler = rig_local_basis.get_euler()
+	yaw = euler.y
+	pitch = euler.x
+	
+	# 6. Apply immediately to prevent ANY discrepancy in Frame 1
+	if camera_rig:
+		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		var arm = _find_spring_arm(camera_rig)
+		if arm:
+			arm.spring_length = clamp(dist, 1.0, 50.0)
+			base_spring_length_3d = arm.spring_length
+			current_spring_length = arm.spring_length
+		camera_rig.force_update_transform()
+		if _cached_cam:
+			_cached_cam.fov = base_fov
+
+	yaw_deg = rad2deg(yaw)
+	pitch_deg = rad2deg(pitch)
+
+func _get_move_direction(input_vector: Vector2, override_mode: int = -1, override_basis: Basis = Basis.IDENTITY) -> Vector3:
+	var mode = override_mode if override_mode != -1 else CinematicManager.get_control_mode()
+	var camera_basis: Basis
+	
+	if override_mode != -1:
+		camera_basis = override_basis
+	else:
+		var camera = CinematicManager.get_active_camera()
+		if not camera:
+			# Fallback to absolute
+			return Vector3(input_vector.x, 0, input_vector.y)
+		camera_basis = camera.global_transform.basis
 	
 	match mode:
 		CinematicManager.ControlMode.FREE:
 			# Relative to camera (Standard Third Person)
-			var fwd = - camera.global_transform.basis.z
-			var rt = camera.global_transform.basis.x
+			var fwd = - camera_basis.z
+			var rt = camera_basis.x
 			fwd.y = 0
 			rt.y = 0
-			return (fwd.normalized() * (-input_vector.y) + rt.normalized() * input_vector.x)
+			# mapping: Right (+X), Forward (-Y)
+			return (rt.normalized() * input_vector.x + fwd.normalized() * (-input_vector.y))
 		
 		CinematicManager.ControlMode.LOCKED_VIEW:
 			# Relative to camera depth (Up = Into screen)
-			var forward = - camera.global_transform.basis.z
+			var forward = - camera_basis.z
 			forward.y = 0
 			forward = forward.normalized()
-			var right = camera.global_transform.basis.x
+			var right = camera_basis.x
 			right.y = 0
 			right = right.normalized()
-			return (right * (-input_vector.x) + forward * input_vector.y)
+			
+			# mapping: Right (+X), Forward (-Y)
+			return (right * input_vector.x + forward * (-input_vector.y))
 
 		CinematicManager.ControlMode.FIXED_AXIS:
 			# Absolute World Axis
@@ -390,7 +473,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
 
 	if abs(input.zoom_delta) > 0.01:
-		base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 20.0)
+		base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 50.0)
 
 	if input.fov_override > 0.0:
 		base_fov = input.fov_override
@@ -415,12 +498,21 @@ func step(dt: float, input: InputDataV2) -> void:
 	
 	# --- MOVEMENT ---
 	var move_vec = input.move_vec
-	# Calculate World Direction based on Control Mode
-	var world_dir = _get_move_direction(move_vec)
+	# Calculate World Direction based on Control Mode (or Latch)
+	var world_dir: Vector3
+	if CinematicManager.latch_active:
+		if move_vec.length() < 0.1:
+			CinematicManager.latch_active = false
+			world_dir = _get_move_direction(move_vec)
+		else:
+			world_dir = _get_move_direction(move_vec, CinematicManager.latched_control_mode, CinematicManager.latched_camera_basis)
+	else:
+		world_dir = _get_move_direction(move_vec)
+	
 	var basis = Basis.IDENTITY
 	
 	if world_dir.length() > 0.01:
-		var b_z = -world_dir.normalized()
+		var b_z = - world_dir.normalized()
 		# Construct basis looking at the movement direction
 		basis = Basis(Vector3.UP.cross(b_z), Vector3.UP, b_z)
 		# Simplify input to just "forward" magnitude for the logic
@@ -517,14 +609,40 @@ func _update_cinematic_zone_detection():
 	_active_cinematic_zone = best_zone
 
 	if _active_cinematic_zone != _prev_active_cinematic_zone:
+		# Capture PREVIOUS camera state for Latch
+		var prev_cam = CinematicManager.get_active_camera()
+		var p_basis = prev_cam.global_transform.basis if prev_cam else Basis.IDENTITY
+		var p_mode = CinematicManager.get_control_mode()
+		var has_input = input_provider.get_input().move_vec.length() > 0.1 if input_provider else false
+
 		if _active_cinematic_zone:
 			# Enter Zone
 			var rig = _active_cinematic_zone._rig_node
 			if rig:
 				CinematicManager.activate_rig_direct(rig, _active_cinematic_zone.control_mode)
+			
+			if _active_cinematic_zone.get("latch_on_enter") and has_input:
+				CinematicManager.latched_camera_basis = p_basis
+				CinematicManager.latched_control_mode = p_mode
+				CinematicManager.latch_active = true
 		else:
 			# Exit Zone (Return to Player Camera)
-			CinematicManager.deactivate_rig()
+			var cur_cam = CinematicManager.get_active_camera()
+			if cur_cam:
+				_exit_log_frames = 60 # Log first 60 frames (~1s) of exit to capture full transition
+				print("[CameraExit] STARTING EXIT at cam_pos=", cur_cam.global_transform.origin, " fov=", cur_cam.fov)
+				# 1. Snap player camera
+				snap_rig_to_camera_orbit(cur_cam.global_transform.origin, cur_cam.fov)
+				# 2. Deactivate cinematic rig
+				CinematicManager.deactivate_rig()
+				print("[CameraExit] SNAP DONE: yaw=", yaw, " pitch=", pitch, " dist=", base_spring_length_3d, " fov=", base_fov)
+			else:
+				CinematicManager.deactivate_rig()
+			
+			if _prev_active_cinematic_zone and _prev_active_cinematic_zone.get("latch_on_exit") and has_input:
+				CinematicManager.latched_camera_basis = p_basis
+				CinematicManager.latched_control_mode = p_mode
+				CinematicManager.latch_active = true
 
 	_prev_active_cinematic_zone = _active_cinematic_zone
 
@@ -613,6 +731,15 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 	return result
 
 func _physics_process(_delta):
+	if _exit_log_frames > 0:
+		_exit_log_frames -= 1
+		var view_cam = get_viewport().get_camera()
+		var rig_cam = _cached_cam
+		if view_cam and rig_cam:
+			print("[CameraExit] Frame ", 60 - _exit_log_frames,
+				" VIEW=", view_cam.global_transform.origin,
+				" RIG=", rig_cam.global_transform.origin,
+				" DELTA=", view_cam.global_transform.origin.distance_to(rig_cam.global_transform.origin))
 	if is_replay_mode:
 		if external_input_provided and external_input:
 			external_input_provided = false
@@ -654,4 +781,6 @@ func teleport_to(target_transform: Transform) -> void:
 		input_provider.clear_buffer()
 	var cam_rig = get_node_or_null("CameraRig")
 	if cam_rig:
-		cam_rig.global_transform = target_transform
+		var target_rig_transform = target_transform
+		target_rig_transform.origin.y += base_rig_y
+		cam_rig.global_transform = target_rig_transform

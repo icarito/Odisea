@@ -12,6 +12,7 @@ export(CinematicManager.ControlMode) var control_mode = CinematicManager.Control
 # --- Direction Latch Control ---
 export(bool) var latch_on_enter := true # Si true, activa el latch de dirección al entrar a la zona
 export(bool) var latch_on_exit := true # Si true, activa el latch de dirección al salir de la zona
+export(Vector3) var track_axis := Vector3.RIGHT # Eje principal de movimiento 2.5D
 
 # Cached reference (may be any Node; CinematicRigV2 is a Spatial)
 var _rig_node: Node = null

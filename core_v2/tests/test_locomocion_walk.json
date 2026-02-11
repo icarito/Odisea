@@ -1512,23 +1512,6 @@
         "sprint": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -1551,7 +1534,7 @@
     "59": [
 
     ],
-    "90": [
+    "89": [
       {
         "command": "SET",
         "var": "$end_z_walk",
@@ -1574,10 +1557,6 @@
       {
         "command": "ASSERT",
         "condition": "$dist_walk < -1.0 \"WALK failed to move at base speed\""
-      },
-      {
-        "command": "PRINT",
-        "message": "Test passed!"
       }
     ]
   },
@@ -1926,18 +1905,6 @@
       },
       "CinematicManager": {
         "current_control_mode": 0,
-        "is_transitioning": false,
-        "transition_timer": 0,
-        "transition_duration": 0,
-        "source_transform": {
-          "origin": "(0, 0, 0)",
-          "basis": {
-            "x": "(1, 0, 0)",
-            "y": "(0, 1, 0)",
-            "z": "(0, 0, 1)"
-          }
-        },
-        "source_fov": 0,
         "active_rig_path": "",
         "current_camera_path": "/root/TestScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
@@ -1946,9 +1913,9 @@
   },
   "final_expected_state": {
     "position": [
-      -0,
+      0,
       0.0415,
-      1.956666
+      -1.956666
     ],
     "velocity": [
       0,
@@ -1973,141 +1940,18 @@
       "is_tank_turn_mode": true,
       "current_turn_time": 0
     },
-    "ss_logic": {
-      "active": false,
-      "alpha": 0,
-      "axis": 0,
-      "val": 0,
-      "inv": false,
-      "allow_depth": false,
-      "tsl": 15,
-      "vc": [
-        0,
-        0,
-        0
-      ],
-      "lc": [
-        0,
-        0,
-        0
-      ],
-      "cam_yaw": 0,
-      "fs": 1,
-      "tst": 0,
-      "my": 0,
-      "mp": 0,
-      "tsi": 0,
-      "cdz": 0,
-      "ff": true
-    },
     "jump_state": {
       "coyote_timer": 0.15,
       "jump_buffer_timer": 0,
       "is_jumping": false
-    },
-    "acrobatic_state": {
-      "frames_since_last_snap": 106,
-      "last_input_vector": [
-        0,
-        0,
-        1
-      ],
-      "is_acrobatic_ready": false
-    },
-    "fwd_latch_active": false,
-    "fwd_latch_sign": 1,
-    "platform_path": "/root/TestScene/Level/Basic movement",
-    "platform_last_transform": {
-      "origin": [
-        0.1817,
-        -0.1,
-        25.204599
-      ],
-      "basis_x": [
-        1,
-        0,
-        0
-      ],
-      "basis_y": [
-        0,
-        1,
-        0
-      ],
-      "basis_z": [
-        0,
-        0,
-        1
-      ]
-    },
-    "platform_velocity": [
-      -0,
-      0,
-      -0.00005
-    ],
-    "was_on_platform": true,
-    "step_grounded_timer": 0,
-    "just_stepped": false,
-    "direction_latch_active": false,
-    "latched_dir_fwd": [
-      0,
-      0,
-      -1
-    ],
-    "latched_dir_rt": [
-      -1,
-      0,
-      0
-    ],
-    "latched_sidescroll_active": false,
-    "latched_sidescroll_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
-    "latched_cinematic_mode": -1,
-    "latched_input_vec": [
-      0,
-      0
-    ],
-    "prev_sidescroll_active": false,
-    "prev_camera_basis": {
-      "x": [
-        1,
-        0,
-        0
-      ],
-      "y": [
-        0,
-        1,
-        0
-      ],
-      "z": [
-        0,
-        0,
-        1
-      ]
-    },
-    "prev_cinematic_rig_path": "",
-    "cinematic_rig_path": ""
+    }
   },
   "oys_variables": {
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
     "pos": "(0, 0, 0)",
     "$start_z": 0,
-    "$end_z_walk": 1.956666,
-    "$dist_walk": -1.956666
+    "$end_z_walk": -1.956666,
+    "$dist_walk": 1.956666
   }
 }

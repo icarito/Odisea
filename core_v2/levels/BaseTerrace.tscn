@@ -1,4 +1,4 @@
-[gd_scene load_steps=291 format=2]
+[gd_scene load_steps=294 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -39,6 +39,8 @@
 [ext_resource path="res://assets/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=37]
 [ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=38]
 [ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=39]
+[ext_resource path="res://assets/music/One Choice Remains.mp3" type="AudioStream" id=40]
+[ext_resource path="res://core_v2/components/BGMZoneV2.gd" type="Script" id=41]
 
 [sub_resource type="BoxShape" id=1499]
 extents = Vector3( 1, 0.5, 1 )
@@ -964,9 +966,14 @@ size = Vector3( 8, 10, 0.2 )
 data = PoolVector3Array( -4, 5, 0.1, 4, 5, 0.1, -4, -5, 0.1, 4, 5, 0.1, 4, -5, 0.1, -4, -5, 0.1, 4, 5, -0.1, -4, 5, -0.1, 4, -5, -0.1, -4, 5, -0.1, -4, -5, -0.1, 4, -5, -0.1, 4, 5, 0.1, 4, 5, -0.1, 4, -5, 0.1, 4, 5, -0.1, 4, -5, -0.1, 4, -5, 0.1, -4, 5, -0.1, -4, 5, 0.1, -4, -5, -0.1, -4, 5, 0.1, -4, -5, 0.1, -4, -5, -0.1, 4, 5, 0.1, -4, 5, 0.1, 4, 5, -0.1, -4, 5, 0.1, -4, 5, -0.1, 4, 5, -0.1, -4, -5, 0.1, 4, -5, 0.1, -4, -5, -0.1, 4, -5, 0.1, 4, -5, -0.1, -4, -5, -0.1 )
 
 [sub_resource type="BoxShape" id=1503]
-extents = Vector3( 63, 40, 100 )
+resource_local_to_scene = true
+extents = Vector3( 63, 40, 33.7563 )
 
 [sub_resource type="BoxShape" id=1504]
+resource_local_to_scene = true
+extents = Vector3( 63, 40, 33.7563 )
+
+[sub_resource type="BoxShape" id=1505]
 extents = Vector3( 104, 1, 141.5 )
 
 [sub_resource type="MultiMesh" id=1491]
@@ -1050,6 +1057,8 @@ shape = SubResource( 1499 )
 
 [node name="CinematicSequence" type="Area" parent="CrioPod START"]
 transform = Transform( 0.666667, 0, 2.84217e-14, 0, 0.666667, 0, -2.84217e-14, 0, 0.666667, 2.14577e-06, 0.823144, -0.12323 )
+monitoring = false
+monitorable = false
 script = ExtResource( 28 )
 debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 debug_render = false
@@ -1101,41 +1110,21 @@ anims/dolly = SubResource( 1037 )
 transform = Transform( 1.667, 0, 0, 0, 1.667, 0, 0, 0, 1, -18, 16, 16 )
 debug_render = false
 zone_extents = Vector3( 2.5, 16, 50.95 )
-lock_axis = 1
-invert_side = true
-allow_depth_movement = true
-target_distance = 25.0
-latch_on_enter = true
 
 [node name="SideScrollZone2" parent="." instance=ExtResource( 5 )]
 transform = Transform( 1.667, 0, 0, 0, 1.667, 0, 0, 0, 1, -26, 16, 16 )
 debug_render = false
 zone_extents = Vector3( 2.5, 16, 50.95 )
-lock_axis = 1
-invert_side = true
-allow_depth_movement = true
-latch_on_enter = true
-latch_on_exit = false
 
 [node name="SideScrollZone3" parent="." instance=ExtResource( 5 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -22, 11, 71.5 )
 debug_render = false
 zone_extents = Vector3( 8.15, 8, 5 )
-lock_axis = 1
-invert_side = true
-allow_depth_movement = true
-latch_on_enter = true
-latch_on_exit = false
 
 [node name="SideScrollZone4" parent="." instance=ExtResource( 5 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -22, 7.53971, 28 )
 debug_render = false
 zone_extents = Vector3( 10, 17, 4.95 )
-lock_axis = 1
-invert_side = true
-allow_depth_movement = true
-latch_on_enter = true
-latch_on_exit = false
 
 [node name="CollisionShape" parent="SideScrollZone4" index="1"]
 shape = SubResource( 1501 )
@@ -1868,12 +1857,22 @@ shape = SubResource( 675 )
 [node name="VerticalDoor" parent="Building" groups=["no_occlusion"] instance=ExtResource( 26 )]
 transform = Transform( 1.19249e-08, 0, -1, 0, 1, 0, 1, 0, 1.19249e-08, -11.0076, 6.003, 28.6455 )
 
+[node name="BGMZoneV2" type="Area" parent="Building"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 0.6, -22, 0, 8.46188 )
+script = ExtResource( 41 )
+debug_render = false
+zone_extents = Vector3( 63, 40, 33.7563 )
+bgm_stream = ExtResource( 40 )
+
+[node name="CollisionShape2" type="CollisionShape" parent="Building/BGMZoneV2"]
+shape = SubResource( 1503 )
+
 [node name="OcclusionArea" type="Area" parent="Building"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 0.6, -22, 0, 20.5809 )
 script = ExtResource( 27 )
 debug_color = Color( 1, 1, 0, 0.2 )
 debug_render = false
-zone_extents = Vector3( 63, 40, 100 )
+zone_extents = Vector3( 63, 40, 33.7563 )
 cone_radius = 2.5
 transparency_min = 0.294
 transparency_max = 0.678
@@ -1881,7 +1880,7 @@ floor_protect_radius = 1.0
 enforce_occlusion_material = true
 
 [node name="CollisionShape" type="CollisionShape" parent="Building/OcclusionArea"]
-shape = SubResource( 1503 )
+shape = SubResource( 1504 )
 
 [node name="CheckZoneV2" parent="." instance=ExtResource( 29 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -25.3912, 20.017, 32.3357 )
@@ -1904,7 +1903,7 @@ zone_extents = Vector3( 104, 1, 141.5 )
 
 [node name="CollisionShape" type="CollisionShape" parent="KillZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0 )
-shape = SubResource( 1504 )
+shape = SubResource( 1505 )
 
 [node name="HoloTerminalV2" parent="." instance=ExtResource( 35 )]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -2.26866, 13.9952, -10.9147 )

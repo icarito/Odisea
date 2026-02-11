@@ -62,8 +62,8 @@ func _read_live_input() -> InputDataV2:
 
 	if hardware_input_enabled:
 		d.move_vec = Vector2(
-			Input.get_action_strength("move_left") - Input.get_action_strength("move_right"),
-			Input.get_action_strength("move_forward") - Input.get_action_strength("move_backward")
+			Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
+			Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward")
 		)
 
 		# Apply curve to raw move vector (affects analog stick)

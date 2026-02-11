@@ -12,6 +12,16 @@ enum ControlMode {
 
 var active_rig = null
 var current_control_mode = ControlMode.FREE
+var latched_camera_basis = Basis.IDENTITY
+var latched_control_mode = ControlMode.FREE
+var latch_active := false
+var _transition_active := false
+var _transition_start_time := 0.0
+var _transition_duration := 0.0
+var _transition_from_cam: Camera = null
+var _transition_to_cam: Camera = null
+var _transition_start_transform: Transform
+var _transition_start_fov: float
 
 signal cinematic_started(rig_id)
 signal cinematic_stopped
@@ -84,7 +94,12 @@ func deactivate_rig():
 		return
 	
 	var rig_cam = active_rig.get_camera() if active_rig.has_method("get_camera") else null
-	var trans_time = active_rig.transition_time if "transition_time" in active_rig else 0.0
+	var trans_time = 0.5 # Default exit transition time
+	if active_rig.has_method("get_transition_time"):
+		trans_time = active_rig.get_transition_time()
+	elif "transition_time" in active_rig:
+		trans_time = active_rig.transition_time
+	
 	var player_cam = _find_player_camera()
 	
 	if active_rig.has_method("deactivate"):
@@ -95,7 +110,8 @@ func deactivate_rig():
 	emit_signal("control_mode_changed", ControlMode.FREE)
 	
 	if trans_time > 0 and rig_cam and player_cam:
-		CameraTransition.transition_camera3D(rig_cam, player_cam, trans_time)
+		# Use our custom dynamic transition
+		_start_dynamic_transition(rig_cam, player_cam, trans_time)
 	else:
 		if player_cam:
 			player_cam.current = true
@@ -136,12 +152,73 @@ func force_finish_transition():
 	# CameraTransition doesn't easily support force finish, but it's fine for now.
 	pass
 
+func _start_dynamic_transition(from: Camera, to: Camera, duration: float):
+	_transition_active = true
+	_transition_start_time = OS.get_ticks_msec() / 1000.0
+	_transition_duration = duration
+	_transition_from_cam = from
+	_transition_to_cam = to
+	_transition_start_transform = from.global_transform
+	_transition_start_fov = from.fov
+	
+	# Ensure the 'to' camera is NOT current yet, but we need a camera to render
+	# We can use the 'from' camera or a temporary one. 
+	# Actually, CameraTransition uses a dedicated internal camera. 
+	# Here we will manipulate the 'to' camera but keep it 'current' from the start?
+	# No, if we make 'to' current, it will jump to its position unless we override its transform.
+	# Better approach: Use CameraTransition's camera3D but control it ourselves?
+	# Or clearer: We hijack the 'from' camera (if possible) or just use the Viewport's current.
+	
+	# Let's use CameraTransition's singleton camera for the blend
+	if CameraTransition.camera3D:
+		CameraTransition.camera3D.current = true
+		CameraTransition.camera3D.global_transform = _start_dynamic_transform()
+		CameraTransition.camera3D.fov = _transition_start_fov
+
+func _start_dynamic_transform() -> Transform:
+	return _transition_start_transform
+
+func _process(delta: float):
+	if _transition_active:
+		var now = OS.get_ticks_msec() / 1000.0
+		var elapsed = now - _transition_start_time
+		if elapsed >= _transition_duration:
+			_finish_dynamic_transition()
+		else:
+			var t = elapsed / _transition_duration
+			# Ease InOut Cubic
+			t = -0.5 * (cos(PI * t) - 1)
+			
+			if is_instance_valid(_transition_to_cam) and CameraTransition.camera3D:
+				# Interpolate from Fixed Start to Moving Target
+				var target_tx = _transition_to_cam.global_transform
+				var target_fov = _transition_to_cam.fov
+				
+				var new_tx = _transition_start_transform.interpolate_with(target_tx, t)
+				var new_fov = lerp(_transition_start_fov, target_fov, t)
+				
+				CameraTransition.camera3D.global_transform = new_tx
+				CameraTransition.camera3D.fov = new_fov
+
+func _finish_dynamic_transition():
+	_transition_active = false
+	if is_instance_valid(_transition_to_cam):
+		_transition_to_cam.current = true
+	emit_signal("cinematic_stopped")
+
 func step(_delta: float):
 	pass
 
 func get_full_snapshot() -> Dictionary:
 	var snapshot = {
-		"current_control_mode": current_control_mode
+		"current_control_mode": current_control_mode,
+		"latched_camera_basis": [
+			latched_camera_basis.x.x, latched_camera_basis.x.y, latched_camera_basis.x.z,
+			latched_camera_basis.y.x, latched_camera_basis.y.y, latched_camera_basis.y.z,
+			latched_camera_basis.z.x, latched_camera_basis.z.y, latched_camera_basis.z.z
+		],
+		"latched_control_mode": latched_control_mode,
+		"latch_active": latch_active
 	}
 	if active_rig:
 		snapshot["active_rig_path"] = active_rig.get_path()
@@ -158,6 +235,14 @@ func get_full_snapshot() -> Dictionary:
 
 func restore_snapshot(data: Dictionary) -> void:
 	current_control_mode = data.get("current_control_mode", ControlMode.FREE)
+	var lb = data.get("latched_camera_basis", [1, 0, 0, 0, 1, 0, 0, 0, 1])
+	latched_camera_basis = Basis(
+		Vector3(lb[0], lb[1], lb[2]),
+		Vector3(lb[3], lb[4], lb[5]),
+		Vector3(lb[6], lb[7], lb[8])
+	)
+	latched_control_mode = data.get("latched_control_mode", ControlMode.FREE)
+	latch_active = data.get("latch_active", false)
 	
 	var rig_path = data.get("active_rig_path", "")
 	if rig_path != "":

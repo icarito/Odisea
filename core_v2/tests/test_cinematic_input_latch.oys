@@ -11,7 +11,11 @@ SECTION "Input latch test"
 
     // El jugador inicia fuera de la zona cinemática
     // Moverse hacia adelante
-    FW 37m
+    FW 10.0m
+    
+    WAIT 0.5
+
+    LEFT 20.0m
     
     // Guarda la posición final en X del jugador
     SET $end_x GET_NODE_POS_X "Pilot"
@@ -21,9 +25,8 @@ SECTION "Input latch test"
     SET $delta_x $end_x
     MATH $delta_x - $start_x
     PRINT "Delta X: $delta_x"
-    PRINT "Debería estar dentro de la zona cinemática"
-    // Verifica que el jugador MANTUVO su dirección (Latch activo)
-    // Al entrar con Latch, el input Z debe seguir siendo Z world, sin desvío en X aunque la cámara gire.
-    ASSERT $delta_x < 1
-    ASSERT $delta_x > -1
+    PRINT "Debería estar fuera de la zona cinemática y haberse movido a la izquierda"
+    // Verifica que el Latch de input se desactivó al salir de la zona.
+    // El piloto debería haberse movido hacia la izquierda (X negativo)
+    ASSERT $delta_x < -1
 END
