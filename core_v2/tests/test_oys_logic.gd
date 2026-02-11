@@ -171,3 +171,22 @@ func test_interpreter_while_prop():
 	assert_float(ran).is_equal(1.0)
 
 	host.queue_free()
+
+func test_math_complex_assignment():
+	var host = MockHost.new()
+	add_child(host)
+	
+	var interpreter = OYS_Interpreter.new(host)
+	var script = """
+	SET $a 10
+	SET $b 4
+	WAIT 0.01
+	MATH $c = $a - $b
+	"""
+	interpreter.parse(script)
+	yield (interpreter.run(), "completed")
+	
+	var c = interpreter.variables.get("$c", 0)
+	assert_float(c).is_equal(6.0)
+	
+	host.queue_free()

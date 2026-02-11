@@ -546,12 +546,21 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			var expression = inst.get("expression", "")
 			var result = 0.0
 			
-			var expr_parts = expression.split(" ", false)
+			var expr_parts = Array(expression.split(" ", false))
+			
+			# Handle optional "=" assignment prefix (e.g. MATH $x = 5)
+			if expr_parts.size() > 0 and expr_parts[0] == "=":
+				expr_parts.pop_front()
+			
 			if expr_parts.size() == 1:
-				var right_val = _resolve_value(expr_parts[0])
-				var op = inst.get("op", "")
+				# Simple assignment: MATH $x 5  OR  MATH $x = 5
+				result = _resolve_value(expr_parts[0])
+			
+			elif expr_parts.size() == 2:
+				# In-place modification: MATH $x + 1
+				var op = expr_parts[0]
+				var right_val = _resolve_value(expr_parts[1])
 				
-				# Support in-place modification: MATH $x + 5
 				if op in ["+", "-", "*", "/"]:
 					var left_val = variables.get(var_name, 0.0)
 					match op:
@@ -559,14 +568,9 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 						"-": result = float(left_val) - float(right_val)
 						"*": result = float(left_val) * float(right_val)
 						"/": if float(right_val) != 0: result = float(left_val) / float(right_val)
-				else:
-					# Simple assignment: MATH $x 5 (Wait, parser treats 2nd arg as OP?)
-					# If op is not a math op, treat strictly as assignment?
-					# But Parser logic puts 3rd token as OP. 
-					# MATH $x = 5 -> op="=".
-					result = right_val
 			
 			elif expr_parts.size() == 3:
+				# Full expression: MATH $z = $x + $y
 				var left = _resolve_value(expr_parts[0])
 				var inner_op = expr_parts[1]
 				var right = _resolve_value(expr_parts[2])
@@ -575,6 +579,8 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 					"-": result = float(left) - float(right)
 					"*": result = float(left) * float(right)
 					"/": if float(right) != 0: result = float(left) / float(right)
+			
+			variables[var_name] = result
 			
 			variables[var_name] = result
 		
