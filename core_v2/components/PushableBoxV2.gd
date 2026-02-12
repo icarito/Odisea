@@ -1,4 +1,5 @@
 extends RigidBody
+class_name PushableBoxV2
 tool
 
 # PushableBoxV2.gd - Hybrid Deterministic Object
