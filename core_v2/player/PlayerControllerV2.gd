@@ -23,6 +23,11 @@ export(float) var min_pitch := -85.0
 export(float) var max_pitch := 85.0
 export(float) var interact_distance := 3.0
 
+# Crouch Configuration
+export(float) var capsule_height_standing := 2.0
+export(float) var capsule_height_crouch := 1.0
+export(float) var crouch_transition_speed := 10.0
+
 # Stair-stepping Configuration
 export(float) var step_height := 0.4
 export(float) var step_depth := 0.5
@@ -80,6 +85,9 @@ var last_input_vector := Vector3.ZERO
 var is_acrobatic_ready := false
 
 var _current_interactable: Node = null
+
+var is_crouching := false
+var _collision_shape: CollisionShape = null
 
 # Input
 var input_provider
@@ -171,6 +179,19 @@ onready var animator = $Visual/Pivot
 func _ready():
 	initial_transform = global_transform
 	add_to_group("player")
+
+	# Find CollisionShape
+	_collision_shape = get_node_or_null("CollisionShape")
+	if not _collision_shape:
+		# Fallback search
+		for i in range(get_child_count()):
+			if get_child(i) is CollisionShape:
+				_collision_shape = get_child(i)
+				break
+
+	if _collision_shape and _collision_shape.shape:
+		_collision_shape.shape = _collision_shape.shape.duplicate()
+
 	input_provider = InputProviderV2.new()
 
 	if has_node("Logic/Jump"):
@@ -568,7 +589,36 @@ func step(dt: float, input: InputDataV2) -> void:
 		# Simplify input to just "forward" magnitude for the logic
 		move_vec = Vector2(0, -world_dir.length())
 	
-	movement_logic.process_movement(dt, move_vec, basis, input.sprint, is_on_floor())
+	# --- CROUCH LOGIC ---
+	var wish_crouch = input.crouch and is_on_floor()
+
+	# Ceiling check when trying to stand up
+	if is_crouching and not wish_crouch:
+		# Raycast upwards from center (approx)
+		var space_state = get_world().direct_space_state
+		# We use the full standing height for the check
+		var result = space_state.intersect_ray(global_transform.origin, global_transform.origin + Vector3.UP * capsule_height_standing, [self], collision_mask)
+		if not result.empty():
+			wish_crouch = true # Forced crouch
+
+	is_crouching = wish_crouch
+
+	# Physics Interpolation
+	if _collision_shape and _collision_shape.shape is CapsuleShape:
+		var radius = _collision_shape.shape.radius
+		var target_total_height = capsule_height_crouch if is_crouching else capsule_height_standing
+		var target_shape_height = max(0.01, target_total_height - 2.0 * radius)
+
+		var current_shape_height = _collision_shape.shape.height
+		var new_shape_height = lerp(current_shape_height, target_shape_height, crouch_transition_speed * dt)
+		_collision_shape.shape.height = new_shape_height
+
+		_collision_shape.transform.origin.y = radius + new_shape_height * 0.5
+
+	# Priority: Crouch cancels sprint
+	var effective_sprint = input.sprint and not is_crouching
+
+	movement_logic.process_movement(dt, move_vec, basis, effective_sprint, is_on_floor(), is_crouching)
 	
 	var h_vel = movement_logic.get_horizontal_velocity()
 	velocity.x = h_vel.x

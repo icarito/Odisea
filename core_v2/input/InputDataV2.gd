@@ -6,6 +6,7 @@ class_name InputDataV2
 var move_vec := Vector2() # rango -1..1
 var jump := false
 var sprint := false
+var crouch := false
 var interact := false
 var mouse_delta := Vector2()
 var zoom_delta := 0.0
@@ -20,6 +21,7 @@ func to_dict() -> Dictionary:
 		"fov_override": fov_override,
 		"jump": jump,
 		"sprint": sprint,
+		"crouch": crouch,
 		"interact": interact
 	}
 
@@ -37,5 +39,7 @@ func from_dict(d: Dictionary) -> void:
 		jump = d["jump"]
 	if d.has("sprint"):
 		sprint = d["sprint"]
+	if d.has("crouch"):
+		crouch = d["crouch"]
 	if d.has("interact"):
 		interact = d["interact"]

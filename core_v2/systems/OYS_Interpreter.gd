@@ -537,6 +537,24 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			if __state_fov is GDScriptFunctionState:
 				yield (__state_fov, "completed")
 		
+		"INPUT_PRESS":
+			var action = inst.get("action", "")
+			if action != "":
+				var session = host_node.get_node_or_null("/root/SessionManager")
+				if session:
+					if not session.get("_oys_input_override"):
+						session.set("_oys_input_override", {})
+					session.get("_oys_input_override")[action] = true
+					print("[OYS] INPUT_PRESS ", action)
+
+		"INPUT_RELEASE":
+			var action = inst.get("action", "")
+			if action != "":
+				var session = host_node.get_node_or_null("/root/SessionManager")
+				if session and session.get("_oys_input_override"):
+					session.get("_oys_input_override")[action] = false
+					print("[OYS] INPUT_RELEASE ", action)
+
 		# Markers - no action needed
 		"LEVEL", "END":
 			pass
@@ -1126,6 +1144,24 @@ func _resolve_value(val: String):
 		return variables.get(val, 0)
 	if val.is_valid_float():
 		return val.to_float()
+	if val == "pilot_height":
+		var player = _find_player()
+		if player and is_instance_valid(player):
+			# Try finding CollisionShape to get current height
+			var shape_node = player.get_node_or_null("CollisionShape")
+			if not shape_node:
+				# Fallback
+				shape_node = player.find_node("CollisionShape", true, false)
+
+			if shape_node and shape_node.shape:
+				if shape_node.shape is CapsuleShape:
+					return shape_node.shape.height
+				elif shape_node.shape is CylinderShape:
+					return shape_node.shape.height
+				# BoxShape?
+				return 0.0
+		return 0.0
+
 	if val in ["pos.y", "pos.x", "pos.z"]:
 		var player = _find_player()
 		if not is_instance_valid(player):

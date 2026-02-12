@@ -1,0 +1,30 @@
+SECTION "CrouchTest"
+    # Basic Setup: Move to safe spot
+    SET pos (0, 10, 0)
+    WAIT 1.0
+
+    # Assert Standing Height (Capsule Height ~ 1.0)
+    PRINT "Checking standing height..."
+    PRINT "Current Height: $pilot_height"
+    ASSERT pilot_height > 0.8
+
+    # Crouch
+    PRINT "Pressing crouch..."
+    INPUT_PRESS "crouch"
+    WAIT 1.0
+
+    # Assert Crouched Height (Capsule Height ~ 0.0)
+    PRINT "Checking crouched height..."
+    PRINT "Current Height: $pilot_height"
+    ASSERT pilot_height < 0.2
+
+    # Release
+    PRINT "Releasing crouch..."
+    INPUT_RELEASE "crouch"
+    WAIT 1.0
+
+    # Assert Standing Again
+    PRINT "Checking return to standing..."
+    PRINT "Current Height: $pilot_height"
+    ASSERT pilot_height > 0.8
+END

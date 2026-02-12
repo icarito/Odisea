@@ -20,6 +20,8 @@ const PARAM_LAND_TRANSITION_CURRENT = "parameters/Land/Transition/current"
 const PARAM_JUMP_TRANSITION_CURRENT = "parameters/Jump/Transition/current"
 const PARAM_PLAYBACK_ACTIVE = "parameters/playback/active"
 const PARAM_CONDITIONS_IS_ACROBATIC = "parameters/conditions/is_acrobatic"
+const PARAM_CONDITIONS_IS_CROUCHING = "parameters/conditions/is_crouching"
+const PARAM_CONDITIONS_NOT_CROUCHING = "parameters/conditions/!is_crouching"
 
 # --- EXPORTS ---
 # Velocidad de suavizado para la velocidad usada en el AnimationTree.
@@ -213,6 +215,11 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	# Actualizar condiciones básicas
 	animation_tree.set(PARAM_CONDITIONS_ON_FLOOR, is_on_floor)
 	animation_tree.set(PARAM_CONDITIONS_NOT_ON_FLOOR, not is_on_floor)
+
+	# Crouch State
+	var is_crouching = controller.is_crouching if "is_crouching" in controller else false
+	animation_tree.set(PARAM_CONDITIONS_IS_CROUCHING, is_crouching)
+	animation_tree.set(PARAM_CONDITIONS_NOT_CROUCHING, not is_crouching)
 
 	# Estados de salto/caída usando la velocidad registrada en el último frame en aire.
 	# IMPORTANTE: Forzamos false si estamos en el suelo (evita flickering en escaleras).
