@@ -1,8 +1,7 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=5 format=2]
 
 [ext_resource path="res://models/Pilot.glb" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/ui/Spin.gd" type="Script" id=2]
-[ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=3]
 
 [sub_resource type="SpatialMaterial" id=4]
 albedo_color = Color( 0.14902, 0.901961, 0.839216, 1 )
@@ -33,9 +32,6 @@ current = true
 [node name="PilotModel" parent="." instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 
-[node name="Mesh_0001" parent="PilotModel/Node_40/Skinned_Mesh_0/Skeleton" index="0"]
-material/0 = ExtResource( 3 )
-
 [node name="CPUParticles" type="CPUParticles" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
 amount = 50
@@ -47,5 +43,3 @@ gravity = Vector3( 0, -0.6, 0 )
 initial_velocity = 0.5
 initial_velocity_random = 0.6
 color = Color( 0.172549, 0.607843, 0.615686, 1 )
-
-[editable path="PilotModel"]

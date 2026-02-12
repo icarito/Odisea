@@ -21,16 +21,13 @@ const PARAM_JUMP_TRANSITION_CURRENT = "parameters/Jump/Transition/current"
 const PARAM_PLAYBACK_ACTIVE = "parameters/playback/active"
 const PARAM_CONDITIONS_IS_ACROBATIC = "parameters/conditions/is_acrobatic"
 const PARAM_CONDITIONS_IS_PUSHING = "parameters/conditions/is_pushing"
+const PARAM_CONDITIONS_NOT_PUSHING = "parameters/conditions/!is_pushing"
 
 # --- EXPORTS ---
 # Velocidad de suavizado para la velocidad usada en el AnimationTree.
 export var velocity_lerp_speed: float = 5.0
 # Velocidad de suavizado para la rotación visual del personaje.
 export var rotation_lerp_speed: float = 10.0
-# Velocidad de suavizado para la inclinación (tilt) vertical.
-export var tilt_lerp_speed: float = 5.0
-# Ángulo máximo de inclinación en grados.
-export var max_tilt_angle: float = 25.0
 # Duración en segundos durante la cual consideramos que el salto acaba de iniciarse (buffer)
 export var jump_buffer_duration: float = 0.18
 
@@ -169,7 +166,7 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 			# ALINEACIÓN DE EMPUJE (Soft Snap)
 			# Miramos opuesto a la normal de la superficie (hacia la caja)
 			var push_normal = controller.get("push_normal")
-			var look_dir = -push_normal
+			var look_dir = - push_normal
 			var parent_basis = get_parent().global_transform.basis
 			var local_look = parent_basis.xform_inv(look_dir)
 			
@@ -195,22 +192,6 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 					rotation.y = lerp_angle(rotation.y, target_angle, rotation_lerp_speed * dt)
 				else: # Aplicación instantánea en modo REPLAY.
 					rotation.y = target_angle
-
-	# 3. INCLINACIÓN (TILT) BASADA EN PENDIENTE/ESCALERAS
-	# Calculamos el ángulo de inclinación basado en la relación entre velocidad vertical y horizontal
-	var horz_speed = Vector2(visual_velocity.x, visual_velocity.z).length()
-	var target_pitch = 0.0
-	
-	# Solo calculamos tilt si estamos "efectivamente en el suelo" y moviéndonos
-	if is_on_floor and horz_speed > 0.1:
-		# atan2(y, x) nos da el ángulo de la pendiente. 
-		# Limitamos el ángulo para evitar poses extremas.
-		target_pitch = - clamp(atan2(visual_velocity.y, horz_speed), deg2rad(-max_tilt_angle), deg2rad(max_tilt_angle))
-	
-	if dt > 0:
-		rotation.x = lerp_angle(rotation.x, target_pitch, tilt_lerp_speed * dt)
-	else:
-		rotation.x = target_pitch
 
 
 	# Desbloquear rotación al aterrizar
@@ -239,6 +220,10 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	animation_tree.set(PARAM_CONDITIONS_IS_FALLING, is_falling)
 	animation_tree.set(PARAM_CONDITIONS_IS_FLOATING, is_floating)
 
+	# Falling Fast
+	var is_falling_fast: bool = last_air_vertical_speed < -12.0 and not is_on_floor
+	animation_tree.set(PARAM_CONDITIONS_IS_FALLING_FAST, is_falling_fast)
+
 	# is_jumping: true si acabamos de disparar el salto (buffer) o si estamos subiendo en aire
 	# IMPORTANTE: También forzamos false si estamos en el suelo para evitar saltos visuales en escaleras.
 	var is_jumping_param: bool = ((jumped_buffer_time > 0.0) or (not is_on_floor and velocity.y > 1.0)) and not is_on_floor
@@ -262,6 +247,7 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	# Pushing Condition
 	var is_pushing = controller.get("is_pushing") if controller else false
 	animation_tree.set(PARAM_CONDITIONS_IS_PUSHING, is_pushing)
+	animation_tree.set(PARAM_CONDITIONS_NOT_PUSHING, not is_pushing)
 
 	# Hit Head condition (one-shot, cleared after this frame)
 	animation_tree.set(PARAM_CONDITIONS_HIT_HEAD, hit_head_active)

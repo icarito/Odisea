@@ -1,4 +1,4 @@
-[gd_resource type="AnimationNodeStateMachine" load_steps=32 format=2]
+[gd_resource type="AnimationNodeStateMachine" load_steps=35 format=2]
 
 [sub_resource type="AnimationNodeAnimation" id=207]
 animation = "Backflip001"
@@ -82,6 +82,9 @@ nodes/Transition/position = Vector2( 624, 48 )
 nodes/output/position = Vector2( 800, 80 )
 node_connections = [ "Transition", 0, "Animation", "Transition", 1, "Animation 2", "output", 0, "Transition" ]
 
+[sub_resource type="AnimationNodeAnimation" id=215]
+animation = "Push_Loop"
+
 [sub_resource type="AnimationNodeAnimation" id=211]
 animation = "Tired"
 
@@ -152,22 +155,33 @@ xfade_time = 0.5
 switch_mode = 1
 xfade_time = 0.3
 
+[sub_resource type="AnimationNodeStateMachineTransition" id=216]
+advance_condition = "is_pushing"
+xfade_time = 0.1
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=217]
+switch_mode = 1
+advance_condition = "!is_pushing"
+xfade_time = 0.3
+
 [resource]
 states/Acrobatic/node = SubResource( 207 )
 states/Acrobatic/position = Vector2( 178.6, 247.081 )
 states/Confused/node = SubResource( 210 )
-states/Confused/position = Vector2( 705, 146.881 )
+states/Confused/position = Vector2( 862.143, 311.452 )
 states/Grounded/node = SubResource( 106 )
-states/Grounded/position = Vector2( 263.64, 134.2 )
+states/Grounded/position = Vector2( 513.354, 134.962 )
 states/HardLand/node = SubResource( 189 )
-states/HardLand/position = Vector2( 605.4, 278.674 )
+states/HardLand/position = Vector2( 607.686, 415.245 )
 states/Hit_Head/node = SubResource( 203 )
 states/Hit_Head/position = Vector2( 73.6, 590.281 )
 states/InAir/node = SubResource( 122 )
 states/InAir/position = Vector2( 422.2, 537.403 )
 states/Jump/node = SubResource( 200 )
 states/Jump/position = Vector2( -46.4, 205.983 )
+states/Push/node = SubResource( 215 )
+states/Push/position = Vector2( 852.143, 457.595 )
 states/Tired/node = SubResource( 211 )
-states/Tired/position = Vector2( 501, 122.881 )
-transitions = [ "InAir", "HardLand", SubResource( 192 ), "HardLand", "Grounded", SubResource( 194 ), "InAir", "Grounded", SubResource( 195 ), "Grounded", "InAir", SubResource( 196 ), "Grounded", "Jump", SubResource( 201 ), "Jump", "InAir", SubResource( 202 ), "InAir", "Hit_Head", SubResource( 204 ), "Hit_Head", "InAir", SubResource( 205 ), "Jump", "Hit_Head", SubResource( 206 ), "Grounded", "Acrobatic", SubResource( 208 ), "Acrobatic", "InAir", SubResource( 209 ), "Tired", "Grounded", SubResource( 212 ), "Confused", "Tired", SubResource( 213 ), "Grounded", "Confused", SubResource( 214 ) ]
-graph_offset = Vector2( -256, 68.881 )
+states/Tired/position = Vector2( 751.857, 135.961 )
+transitions = [ "InAir", "HardLand", SubResource( 192 ), "HardLand", "Grounded", SubResource( 194 ), "InAir", "Grounded", SubResource( 195 ), "Grounded", "InAir", SubResource( 196 ), "Grounded", "Jump", SubResource( 201 ), "Jump", "InAir", SubResource( 202 ), "InAir", "Hit_Head", SubResource( 204 ), "Hit_Head", "InAir", SubResource( 205 ), "Jump", "Hit_Head", SubResource( 206 ), "Grounded", "Acrobatic", SubResource( 208 ), "Acrobatic", "InAir", SubResource( 209 ), "Tired", "Grounded", SubResource( 212 ), "Confused", "Tired", SubResource( 213 ), "Grounded", "Confused", SubResource( 214 ), "Grounded", "Push", SubResource( 216 ), "Push", "Grounded", SubResource( 217 ) ]
+graph_offset = Vector2( 629, 297.881 )

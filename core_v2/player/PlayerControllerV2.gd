@@ -63,6 +63,8 @@ var external_input_provided := false
 # Cinematic Zone State
 var _active_cinematic_zone: Node = null
 var _prev_active_cinematic_zone: Node = null
+const PushableBoxV2Script = preload("res://core_v2/components/PushableBoxV2.gd")
+
 var _terminal_ui_active := false
 var _restore_spring_length: float = -1.0
 var _restore_fov: float = -1.0
@@ -456,7 +458,7 @@ func _accumulate_input(target: InputDataV2, source: InputDataV2) -> void:
 	target.sprint = target.sprint or source.sprint
 	target.interact = target.interact or source.interact
 
-func _update_push_state(dt: float, input: InputDataV2):
+func _update_push_state(_dt: float, input: InputDataV2):
 	is_pushing = false
 	if not _interact_area: return
 
@@ -465,7 +467,7 @@ func _update_push_state(dt: float, input: InputDataV2):
 	var min_dist = 999.0
 
 	for body in bodies:
-		if is_instance_valid(body) and body is PushableBoxV2:
+		if is_instance_valid(body) and body is PushableBoxV2Script:
 			var dist = global_transform.origin.distance_squared_to(body.global_transform.origin)
 			if dist < min_dist:
 				min_dist = dist
@@ -493,20 +495,19 @@ func _update_push_state(dt: float, input: InputDataV2):
 					push_normal = result.normal
 				else:
 					# Fallback: Directional approximate
-					push_normal = -dir_to_box
+					push_normal = - dir_to_box
 
 func step(dt: float, input: InputDataV2) -> void:
 	if input == null: return
 	
 	_update_push_state(dt, input)
 
-	if input.move_vec.length_squared() > 0.001:
-		var mode = CinematicManager.get_control_mode()
-		var cam = CinematicManager.get_active_camera()
-		var cam_name = cam.name if cam else "null"
-		var cam_basis_z = cam.global_transform.basis.z if cam else Vector3.ZERO
+	# if input.move_vec.length_squared() > 0.001:
+		# var mode = CinematicManager.get_control_mode()
+		# var cam = CinematicManager.get_active_camera()
+		# var cam_name = cam.name if cam else "null"
+		# var cam_basis_z = cam.global_transform.basis.z if cam else Vector3.ZERO
 		# print("[PlayerController] step: move_vec=%s yaw=%.4f actual_cam=%s basis.z=%s mode=%d" % [input.move_vec, yaw, cam_name, cam_basis_z, mode])
-	
 	if is_instance_valid(movement_logic) and input_provider:
 		input_provider.move_response_curve = movement_logic.move_response_curve
 		input_provider.camera_response_curve = movement_logic.camera_response_curve
