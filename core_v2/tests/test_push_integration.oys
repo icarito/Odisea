@@ -1,0 +1,51 @@
+SCENE core_v2/levels/TestScene_v2.tscn
+
+# Setup: Ensure we have a box in front of the player
+# Player usually starts at (0,0,0) or (0,1,0) in TestScene_v2
+PRINT "Starting Push Integration Test"
+
+# Spawn a box at (0, 1, -3). Player faces -Z by default.
+SPAWN scene="core_v2/components/PushableBoxV2.tscn" pos=[0, 1, -3]
+
+# Wait for physics to settle (box falling/settling)
+WAIT 1.0
+
+# Initialize vars
+MATH $count = 0
+
+# Move Forward until Pushing
+PRINT "Moving forward to engage push..."
+WHILE PROP "Pilot" is_pushing == false
+    WALK FW 0.1
+    MATH $count = $count + 1
+    ASSERT $count < 50 "Timeout: Failed to enter pushing state"
+ENDWHILE
+
+PRINT "Pilot entered pushing state!"
+
+# Continue pushing for a bit to stabilize
+WALK FW 0.5
+
+# Verify Alignment (Soft Snap)
+# Player should be facing -Z (Yaw 0)
+# We allow some tolerance
+PRINT "Verifying alignment..."
+ASSERT $yaw_deg < 5.0 "Alignment Error: Yaw too positive"
+ASSERT $yaw_deg > -5.0 "Alignment Error: Yaw too negative"
+
+# Stop Movement
+WALK FW 0.0
+WAIT 0.5
+
+# Verify Exit State
+PRINT "Verifying exit state..."
+# We expect is_pushing to be false now.
+# If it is true, enter loop and fail.
+WHILE PROP "Pilot" is_pushing == true
+    ASSERT 1 == 0 "Error: Pilot stuck in pushing state after stopping"
+    # Break to avoid infinite loop if assert didn't kill it (though it should)
+    MATH $count = 1000
+ENDWHILE
+
+PRINT "Test Passed: Push Integration Success"
+END

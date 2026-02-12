@@ -20,6 +20,7 @@ const PARAM_LAND_TRANSITION_CURRENT = "parameters/Land/Transition/current"
 const PARAM_JUMP_TRANSITION_CURRENT = "parameters/Jump/Transition/current"
 const PARAM_PLAYBACK_ACTIVE = "parameters/playback/active"
 const PARAM_CONDITIONS_IS_ACROBATIC = "parameters/conditions/is_acrobatic"
+const PARAM_CONDITIONS_IS_PUSHING = "parameters/conditions/is_pushing"
 
 # --- EXPORTS ---
 # Velocidad de suavizado para la velocidad usada en el AnimationTree.
@@ -164,20 +165,36 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	# 2. ROTACIÓN VISUAL SUAVE (YAW)
 	# Solo rotamos si no estamos bloqueados (durante backflip)
 	if not is_rotation_locked:
-		var horizontal_wish_direction = wish_direction * Vector3(1, 0, 1)
-		
-		# Validamos longitud en global para saber si hay intención
-		if horizontal_wish_direction.length_squared() > 0.01:
-			# Convertimos la dirección global deseada al espacio local del padre (Visual/Pilot)
-			# Esto corrige el bug donde el mesh rotaba usando coordenadas globales ignorando la rotación del Pilot node.
+		if controller.get("is_pushing"):
+			# ALINEACIÓN DE EMPUJE (Soft Snap)
+			# Miramos opuesto a la normal de la superficie (hacia la caja)
+			var push_normal = controller.get("push_normal")
+			var look_dir = -push_normal
 			var parent_basis = get_parent().global_transform.basis
-			var local_wish = parent_basis.xform_inv(wish_direction)
+			var local_look = parent_basis.xform_inv(look_dir)
 			
-			var target_angle = atan2(local_wish.x, local_wish.z)
-			if dt > 0: # Suavizado en modo LIVE.
-				rotation.y = lerp_angle(rotation.y, target_angle, rotation_lerp_speed * dt)
-			else: # Aplicación instantánea en modo REPLAY.
+			var target_angle = atan2(local_look.x, local_look.z)
+			# Usamos un lerp speed específico para el snap de empuje (12.0 según spec)
+			if dt > 0:
+				rotation.y = lerp_angle(rotation.y, target_angle, 12.0 * dt)
+			else:
 				rotation.y = target_angle
+
+		else:
+			var horizontal_wish_direction = wish_direction * Vector3(1, 0, 1)
+
+			# Validamos longitud en global para saber si hay intención
+			if horizontal_wish_direction.length_squared() > 0.01:
+				# Convertimos la dirección global deseada al espacio local del padre (Visual/Pilot)
+				# Esto corrige el bug donde el mesh rotaba usando coordenadas globales ignorando la rotación del Pilot node.
+				var parent_basis = get_parent().global_transform.basis
+				var local_wish = parent_basis.xform_inv(wish_direction)
+
+				var target_angle = atan2(local_wish.x, local_wish.z)
+				if dt > 0: # Suavizado en modo LIVE.
+					rotation.y = lerp_angle(rotation.y, target_angle, rotation_lerp_speed * dt)
+				else: # Aplicación instantánea en modo REPLAY.
+					rotation.y = target_angle
 
 	# 3. INCLINACIÓN (TILT) BASADA EN PENDIENTE/ESCALERAS
 	# Calculamos el ángulo de inclinación basado en la relación entre velocidad vertical y horizontal
@@ -242,6 +259,10 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	else:
 		animation_tree.set(PARAM_CONDITIONS_IS_ACROBATIC, false)
 	
+	# Pushing Condition
+	var is_pushing = controller.get("is_pushing") if controller else false
+	animation_tree.set(PARAM_CONDITIONS_IS_PUSHING, is_pushing)
+
 	# Hit Head condition (one-shot, cleared after this frame)
 	animation_tree.set(PARAM_CONDITIONS_HIT_HEAD, hit_head_active)
 	hit_head_active = false

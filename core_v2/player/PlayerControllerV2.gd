@@ -50,6 +50,8 @@ var base_collision_mask := 0
 
 # State
 var velocity := Vector3()
+var is_pushing: bool = false
+var push_normal: Vector3 = Vector3.BACK
 var yaw := 0.0
 var pitch := 0.0
 var yaw_deg := 0.0
@@ -454,9 +456,50 @@ func _accumulate_input(target: InputDataV2, source: InputDataV2) -> void:
 	target.sprint = target.sprint or source.sprint
 	target.interact = target.interact or source.interact
 
+func _update_push_state(dt: float, input: InputDataV2):
+	is_pushing = false
+	if not _interact_area: return
+
+	var bodies = _interact_area.get_overlapping_bodies()
+	var best_target = null
+	var min_dist = 999.0
+
+	for body in bodies:
+		if is_instance_valid(body) and body is PushableBoxV2:
+			var dist = global_transform.origin.distance_squared_to(body.global_transform.origin)
+			if dist < min_dist:
+				min_dist = dist
+				best_target = body
+
+	if best_target:
+		# Check intention: Are we trying to move towards it?
+		var world_input = _get_move_direction(input.move_vec)
+		var dir_to_box = (best_target.global_transform.origin - global_transform.origin)
+		dir_to_box.y = 0 # Ignore vertical diff
+		dir_to_box = dir_to_box.normalized()
+
+		if world_input.length_squared() > 0.01:
+			var dot = world_input.normalized().dot(dir_to_box)
+			if dot > 0.5: # Approx 45 degrees
+				is_pushing = true
+
+				# Raycast for normal
+				var space_state = get_world().direct_space_state
+				var from = global_transform.origin + Vector3(0, 1.0, 0)
+				var to = best_target.global_transform.origin
+				# Simple raycast
+				var result = space_state.intersect_ray(from, to, [self])
+				if result and result.collider == best_target:
+					push_normal = result.normal
+				else:
+					# Fallback: Directional approximate
+					push_normal = -dir_to_box
+
 func step(dt: float, input: InputDataV2) -> void:
 	if input == null: return
 	
+	_update_push_state(dt, input)
+
 	if input.move_vec.length_squared() > 0.001:
 		var mode = CinematicManager.get_control_mode()
 		var cam = CinematicManager.get_active_camera()
