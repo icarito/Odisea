@@ -1,0 +1,41 @@
+# TestPushClipping
+# Verifies that Pilot hands do not clip into PushableBox when pushing
+LEVEL res://core_v2/tests/TestPush.tscn
+
+# Setup: Player is at 0,0,0. Box is at 0,0,-2.5 (Forward is -Z)
+# Wait for physics to settle
+RIGHT 90
+LOOK +90
+TIMESCALE 0.5
+# Box is at 0.0, 1.0, -2.5 (2.5m ahead)
+# Just move to engage
+
+# Move for 3.5 seconds to ensure contact and push state
+# Use BLEND to push AND check clipping simultaneously
+BLEND 2.5
+	LEFT 2.5m
+	ASSERT_NO_HAND_CLIPPING PushableBox 0.05 MONITOR 1.25
+END
+
+WAIT 1.5
+
+BLEND 2.5
+	BW 2.5m
+	ASSERT_NO_HAND_CLIPPING PushableBox 0.05 MONITOR 1.25
+END
+
+WAIT 1.5
+
+BLEND 3.5
+	FW 4.5m
+	ASSERT_NO_HAND_CLIPPING PushableBox 0.05 MONITOR 2.0
+END
+
+WAIT 1.5
+
+BLEND 3.5
+	RIGHT 4.5m
+	ASSERT_NO_HAND_CLIPPING PushableBox 0.05 MONITOR 2.0
+END
+
+WAIT 1.5

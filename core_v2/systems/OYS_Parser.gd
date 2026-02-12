@@ -23,6 +23,7 @@ enum Command {
 	CINEMATIC,
 	INTERACTIVE,
 	BLEND,
+	ASSERT_NO_HAND_CLIPPING,
 }
 
 # Command synonyms mapping
@@ -324,6 +325,16 @@ static func parse_instruction(line: String) -> Dictionary:
 							data["left"] = tokens[0].replace("\"", "")
 							data["op"] = tokens[1]
 							data["right"] = tokens[2].replace("\"", "")
+
+		"ASSERT_NO_HAND_CLIPPING":
+			# ASSERT_NO_HAND_CLIPPING BoxName [0.05] [MONITOR 1.0]
+			data["box"] = _extract_quoted(parts, 1)
+			data["max_penetration"] = parts[2].to_float() if parts.size() > 2 else 0.05
+			
+			if parts.size() > 4 and parts[3] == "MONITOR":
+				data["monitor_duration"] = parts[4].to_float()
+			else:
+				data["monitor_duration"] = 0.0
 
 		"ENDWHILE":
 			pass

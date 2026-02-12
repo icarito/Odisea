@@ -24,6 +24,10 @@ signal instruction_completed(inst, variables)
 
 func _init(host: Node):
 	host_node = host
+	if not host_node:
+		printerr("[OYS_Interpreter] Initialized with NULL host node!")
+	else:
+		print("[OYS_Interpreter] Initialized with host: ", host.name)
 
 func parse(script_content: String):
 	instructions.clear()
@@ -127,6 +131,7 @@ func run(start_section: String = ""):
 func request_fast_forward():
 	fast_forward = true
 func run_from_pc(from_pc: int):
+	var _from_pc = from_pc
 	execution_id += 1
 	var my_id = execution_id
 
@@ -137,7 +142,15 @@ func run_from_pc(from_pc: int):
 
 	is_running = true
 	stop_requested = false
-	pc = from_pc
+	if my_id == execution_id:
+		is_running = false
+		var session = null
+		if is_instance_valid(host_node) and host_node.is_inside_tree():
+			session = host_node.get_node_or_null("/root/SessionManager")
+		
+		if session:
+			if session.has_method("set"):
+				session.set("_oys_input_override", {})
 
 	while pc < instructions.size() and not stop_requested and my_id == execution_id:
 		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
@@ -498,13 +511,125 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				test_failed = true # Mark the test as failed
 				stop_requested = true
 				return # Stop execution immediately on ASSERT failure
+				
+		"ASSERT_NO_HAND_CLIPPING":
+			var box_name = inst.get("box", "")
+			var _max_pen = inst.get("max_penetration", 0.05)
+			var monitor_duration = inst.get("monitor_duration", 0.0)
+			
+			var box = host_node.find_node(box_name, true, false)
+			var player = _find_player()
+			
+			if not box:
+				printerr("[OYS] ASSERT_NO_HAND_CLIPPING failed: Box '%s' not found" % box_name)
+				test_failed = true
+				stop_requested = true
+				return
+				
+			if not player:
+				printerr("[OYS] ASSERT_NO_HAND_CLIPPING failed: Player not found")
+				test_failed = true
+				stop_requested = true
+				return
+
+			# Find Skeleton and Bones
+			var skeleton = player.find_node("Skeleton", true, false)
+			if not skeleton:
+				printerr("[OYS] ASSERT_NO_HAND_CLIPPING failed: Skeleton node not found on player")
+				test_failed = true
+				stop_requested = true
+				return
+			
+			if not (skeleton is Skeleton):
+				var real_skeleton = null
+				for c in skeleton.get_children():
+					if c is Skeleton:
+						real_skeleton = c
+						break
+				if not real_skeleton:
+					real_skeleton = _find_node_by_type(player, Skeleton)
+				if real_skeleton:
+					skeleton = real_skeleton
+				else:
+					printerr("[OYS] ASSERT_NO_HAND_CLIPPING failed: Node 'Skeleton' not a Skeleton instance.")
+					test_failed = true
+					stop_requested = true
+					return
+				
+			var left_hand_idx = 1
+			var right_hand_idx = 2
+			
+			var lh_bone = skeleton.find_bone("Hand.L")
+			var rh_bone = skeleton.find_bone("Hand.R")
+			if lh_bone != -1: left_hand_idx = lh_bone
+			else: left_hand_idx = 12
+			if rh_bone != -1: right_hand_idx = rh_bone
+			else: right_hand_idx = 22
+			
+			# Monitor Loop
+			var time_monitored = 0.0
+			# If monitor_duration > 0, we loop. If 0, we run once.
+			# But to simplify structure, we can treat 0 as "run once loop" or just a single pass.
+			# BLEND usually expects a yieldable function state or return null if done immediately.
+			# If monitor_duration > 0, we MUST yield.
+			
+			var _iterations = 1
+			var is_monitoring = (monitor_duration > 0.0)
+			
+			while true:
+				if not is_instance_valid(skeleton) or not is_instance_valid(box):
+					break
+
+				var lh_transform = skeleton.get_bone_global_pose(left_hand_idx)
+				var rh_transform = skeleton.get_bone_global_pose(right_hand_idx)
+				
+				var lh_world_pos = skeleton.global_transform.xform(lh_transform.origin)
+				var rh_world_pos = skeleton.global_transform.xform(rh_transform.origin)
+				
+				# Box Check
+				var _box_shape_owner = box.shape_find_owner(0)
+				var col_shape = box.find_node("CollisionShape", true, false)
+				if col_shape and col_shape.shape:
+					var shape = col_shape.shape
+					var lh_local = box.global_transform.xform_inv(lh_world_pos)
+					var rh_local = box.global_transform.xform_inv(rh_world_pos)
+					
+					var is_clipping = false
+					
+					if shape is BoxShape:
+						var extents = shape.extents
+						var bounds = AABB(-extents, extents * 2.0)
+						
+						if bounds.has_point(lh_local):
+							print("[OYS FAILURE] Left Hand Clipping! LocalPos: ", lh_local)
+							is_clipping = true
+						if bounds.has_point(rh_local):
+							print("[OYS FAILURE] Right Hand Clipping! LocalPos: ", rh_local)
+							is_clipping = true
+						
+					if is_clipping:
+						test_failed = true
+						stop_requested = true
+						printerr("[OYS] ASSERT_NO_HAND_CLIPPING Failed: Hands are inside the box.")
+						return
+				
+				if not is_monitoring:
+					break
+				
+				time_monitored += host_node.get_physics_process_delta_time()
+				if time_monitored >= monitor_duration:
+					break
+				
+				yield (host_node.get_tree(), "physics_frame")
+			
+			print("[OYS] ASSERT_NO_HAND_CLIPPING PASSED (Duration: %.2fs)" % time_monitored)
 
 		"SET":
 			var var_name = inst.get("var", "")
-			if inst.has("func"):
-				variables[var_name] = _call_func(inst.func, inst.args)
-			else:
-				variables[var_name] = _resolve_value(inst.get("value", ""))
+			var val_raw = inst.get("value", null)
+
+			var value = _resolve_value(val_raw)
+			variables[var_name] = value
 
 			# If it's a world property (like 'pos'), tell the host to handle it
 			if not var_name.begins_with("$"):
@@ -1236,25 +1361,37 @@ func _call_func(func_name: String, args: Array):
 			return null
 
 func _compare(left, op, right) -> bool:
-		   var l = left
-		   var r = right
-		   var l_is_float = str(l).is_valid_float()
-		   var r_is_float = str(r).is_valid_float()
-		   if l_is_float and r_is_float:
-			   l = float(l)
-			   r = float(r)
-		   else:
-			   l = str(l)
-			   r = str(r)
+	var l = left
+	var r = right
+	var l_is_float = str(l).is_valid_float()
+	var r_is_float = str(r).is_valid_float()
+	
+	if l_is_float and r_is_float:
+		var fl = float(l)
+		var fr = float(r)
+		match op:
+			"==": return fl == fr
+			"!=": return fl != fr
+			">": return fl > fr
+			"<": return fl < fr
+			">=": return fl >= fr
+			"<=": return fl <= fr
+			
+	# String comparison fallback
+	var sl = str(l)
+	var sr = str(r)
+	match op:
+		"==": return sl == sr
+		"!=": return sl != sr
+	return false
 
-		   match op:
-			   "==": return l == r
-			   "!=": return l != r
-			   ">": return l > r
-			   "<": return l < r
-			   ">=": return l >= r
-			   "<=": return l <= r
-		   return false
+func _find_node_by_type(root: Node, type) -> Node:
+	if is_instance_valid(root) and root is type:
+		return root
+	for i in range(root.get_child_count()):
+		var res = _find_node_by_type(root.get_child(i), type)
+		if res: return res
+	return null
 
 func _substitute_variables(message: String) -> String:
 	var result = message
@@ -1262,5 +1399,5 @@ func _substitute_variables(message: String) -> String:
 		var pos = result.find(var_name)
 		if pos != -1:
 			var value = str(variables[var_name])
-			result = result.substr(0, pos) + value + result.substr(pos + var_name.length())
+			result = result.replace(var_name, value)
 	return result

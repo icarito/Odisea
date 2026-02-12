@@ -620,7 +620,10 @@ func load_and_play(path: String):
 
 		# Run Interpreter
 		var OYS_Interpreter = load("res://core_v2/systems/OYS_Interpreter.gd")
-		var interpreter = OYS_Interpreter.new(self)
+		var host = get_tree().current_scene
+		if not host:
+			host = get_tree().root
+		var interpreter = OYS_Interpreter.new(host)
 		interpreter.parse(script_content)
 		interpreter.connect("instruction_executed", self, "_on_oys_instruction_executed")
 		interpreter.connect("instruction_completed", self, "_on_oys_instruction_completed")

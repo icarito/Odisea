@@ -22,7 +22,7 @@ export(float) var push_force := 1.0
 export(float) var min_pitch := -85.0
 export(float) var max_pitch := 85.0
 export(float) var interact_distance := 3.0
-
+export(float) var push_offset := 0.9 # Aligned with arm reach (0.9m) for perfect contact and zero clipping.
 # Stair-stepping Configuration
 export(float) var step_height := 0.4
 export(float) var step_depth := 0.5
@@ -51,13 +51,16 @@ var base_collision_mask := 0
 # State
 var velocity := Vector3()
 var is_pushing: bool = false
+var _was_pushing: bool = false
 var push_normal: Vector3 = Vector3.BACK
 var yaw := 0.0
 var pitch := 0.0
 var yaw_deg := 0.0
 var pitch_deg := 0.0
-var external_input: InputDataV2 = null
+var external_input = null
 var external_input_provided := false
+
+var _push_target: Spatial = null
 
 
 # Cinematic Zone State
@@ -376,7 +379,7 @@ func _setup_interact_area():
 	_interact_area.collision_mask = 1
 	var shape = CollisionShape.new()
 	var box = BoxShape.new()
-	box.extents = Vector3(0.5, 1.0, interact_distance / 2.0)
+	box.extents = Vector3(1.5, 1.0, interact_distance / 2.0) # Widened to maintain contact when off-center
 	shape.shape = box
 	shape.transform.origin = Vector3(0, 1.0, -interact_distance / 2.0)
 	_interact_area.add_child(shape)
@@ -459,7 +462,9 @@ func _accumulate_input(target: InputDataV2, source: InputDataV2) -> void:
 	target.interact = target.interact or source.interact
 
 func _update_push_state(_dt: float, input: InputDataV2):
+	_was_pushing = is_pushing
 	is_pushing = false
+	_push_target = null
 	if not _interact_area: return
 
 	var bodies = _interact_area.get_overlapping_bodies()
@@ -483,19 +488,79 @@ func _update_push_state(_dt: float, input: InputDataV2):
 		if world_input.length_squared() > 0.01:
 			var dot = world_input.normalized().dot(dir_to_box)
 			if dot > 0.5: # Approx 45 degrees
-				is_pushing = true
-
-				# Raycast for normal
 				var space_state = get_world().direct_space_state
 				var from = global_transform.origin + Vector3(0, 1.0, 0)
-				var to = best_target.global_transform.origin
-				# Simple raycast
-				var result = space_state.intersect_ray(from, to, [self])
+				var input_dir = world_input.normalized()
+				var to_input = from + input_dir * 2.0
+				var result = space_state.intersect_ray(from, to_input, [self])
+				
+				if not result or result.collider != best_target:
+					var to_center = best_target.global_transform.origin
+					result = space_state.intersect_ray(from, to_center, [self])
+				
 				if result and result.collider == best_target:
 					push_normal = result.normal
+					var p_pos = global_transform.origin * Vector3(1, 0, 1)
+					var h_pos = result.position * Vector3(1, 0, 1)
+					var surf_dist = p_pos.distance_to(h_pos)
+					
+					# Contact Gate: Only apply force/animation if visually touching (within 0.95m)
+					# This prevents "The Force" and ensuring alignment before movement starts.
+					if surf_dist < (push_offset + 0.05):
+						is_pushing = true
+						if not _was_pushing:
+							if best_target.has_method("wake_up"):
+								best_target.wake_up()
+						
+						if best_target.has_method("apply_central_impulse"):
+							# Natural magnitude from stable baseline (push_force * dt)
+							best_target.apply_central_impulse(-push_normal * push_force * _dt)
 				else:
-					# Fallback: Directional approximate
 					push_normal = - dir_to_box
+				
+				_push_target = best_target
+
+func _apply_push_constraint():
+	if not is_pushing or not is_instance_valid(_push_target):
+		return
+
+	# Enforce Push Offset (Anti-Clipping)
+	# Check distance to target relative to push normal
+	
+	# Raycast to find exact surface point
+	var space_state = get_world().direct_space_state
+	var from = global_transform.origin + Vector3(0, 1.0, 0)
+	var _to = _push_target.global_transform.origin
+	# Or better: raycast along the push_normal (inverted) to find where we touch?
+	# Actually, we want to know the distance to the surface in the direction we are pushing.
+	# But push_normal points OUT.
+	
+	# Raycast exactly in the direction opposite to the surface normal (towards the box)
+	# This gives us the point closest to us on that specific face.
+	var ray_dir = - push_normal
+	var cast_to = from + ray_dir * (interact_distance + 0.5)
+	var result = space_state.intersect_ray(from, cast_to, [self])
+	
+	if result and result.collider == _push_target:
+		# Calculate distance ignoring Y axis (horizontal gap only)
+		var p_pos = global_transform.origin * Vector3(1, 0, 1)
+		var h_pos = result.position * Vector3(1, 0, 1)
+		var dist = p_pos.distance_to(h_pos)
+		if dist < push_offset:
+			var pen = push_offset - dist
+			# Soft correction away from box (+push_normal)
+			# push_normal logic:
+			# If we approach box from -Z, Normal is -Z? No, Normal is -Z (pointing back at us).
+			# We want to move Back (-Z)? 
+			# push_normal is the surface normal. It points AWAY from the box.
+			
+			var correction = push_normal * pen * 10.0
+			velocity += correction
+			
+			# Cancel velocity into box
+			var v_dot = velocity.dot(push_normal)
+			if v_dot < 0:
+				velocity -= push_normal * v_dot
 
 func step(dt: float, input: InputDataV2) -> void:
 	if input == null: return
@@ -619,6 +684,8 @@ func step(dt: float, input: InputDataV2) -> void:
 	velocity.z = h_vel.z
 	if is_on_floor():
 		velocity.y = h_vel.y
+
+	_apply_push_constraint()
 
 	# --- ACROBATIC JUMP CHECK (before normal jump) ---
 	if is_acrobatic_ready and is_on_floor() and jump_logic.jump_buffer_timer > 0 and not CinematicManager.latch_active:

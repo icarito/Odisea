@@ -27,7 +27,13 @@ const PARAM_CONDITIONS_NOT_PUSHING = "parameters/conditions/!is_pushing"
 # Velocidad de suavizado para la velocidad usada en el AnimationTree.
 export var velocity_lerp_speed: float = 5.0
 # Velocidad de suavizado para la rotación visual del personaje.
+# Velocidad de suavizado para la rotación visual del personaje.
 export var rotation_lerp_speed: float = 10.0
+
+# --- Variables de Calibración de Empuje ---
+export(float) var push_arm_length_offset = 0.0 # Standard reach (0.9m) matches 0.9m offset.
+export(float) var push_start_delay = 0.2
+export(float) var push_lerp_speed = 10.0
 # Duración en segundos durante la cual consideramos que el salto acaba de iniciarse (buffer)
 export var jump_buffer_duration: float = 0.18
 
@@ -46,6 +52,7 @@ var jumped_buffer_time: float = 0.0
 var acrobatic_trigger_active: bool = false # Latch para garantizar que la SM vea el trigger
 var is_rotation_locked: bool = false # Impide que el personaje rote durante maniobras (backflip)
 var hit_head_active: bool = false
+var current_push_time: float = 0.0
 
 # --- LIFECYCLE ---
 func _ready() -> void:
@@ -163,7 +170,7 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	# Solo rotamos si no estamos bloqueados (durante backflip)
 	if not is_rotation_locked:
 		if controller.get("is_pushing"):
-			# ALINEACIÓN DE EMPUJE (Soft Snap)
+			# ALINEACIÓN DE EMPUJE (Soft Snap -> Strict Snap)
 			# Miramos opuesto a la normal de la superficie (hacia la caja)
 			var push_normal = controller.get("push_normal")
 			var look_dir = - push_normal
@@ -171,9 +178,10 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 			var local_look = parent_basis.xform_inv(look_dir)
 			
 			var target_angle = atan2(local_look.x, local_look.z)
-			# Usamos un lerp speed específico para el snap de empuje (12.0 según spec)
+			# Usamos un lerp speed muy alto para asegurar alineación estricta
+			# o snap directo si dt=0 (replay) O si estamos comenzando a empujar
 			if dt > 0:
-				rotation.y = lerp_angle(rotation.y, target_angle, 12.0 * dt)
+				rotation.y = lerp_angle(rotation.y, target_angle, 25.0 * dt)
 			else:
 				rotation.y = target_angle
 
@@ -197,6 +205,19 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	# Desbloquear rotación al aterrizar
 	if is_on_floor and is_rotation_locked and not acrobatic_trigger_active:
 		is_rotation_locked = false
+
+	# 4. PUSH COMPENSATION (Arm Offset + Foot Sliding Fix)
+	var is_pushing = controller.get("is_pushing") if controller else false
+	var push_direction = Vector3.ZERO
+	# Si estamos empujando, asumimos que es hacia adelante relativo a nuestra rotación actual
+	if is_pushing:
+		push_direction = global_transform.basis.z # Z is forward in Godot Spatial? No, -Z is forward. But let's check basis.
+		# Actually, PilotAnimatorV2 rotates the Spatial. 
+		# If the character faces the box, the push direction is the direction the character is facing.
+		# In Godot -Z is forward.
+		push_direction = - global_transform.basis.z
+
+	_update_push_animation_offset(dt, is_pushing, push_direction)
 
 	# 3. APLICACIÓN DE ESTADO AL ANIMATIONTREE
 	update_animation_parameters(p_current_velocity, is_on_floor, controller.get_wish_direction().length())
@@ -327,3 +348,18 @@ func _on_controller_acrobatic_jumped() -> void:
 		
 		# IMPORTANTE: NO configuramos jumped_buffer_time aquí para evitar que 'is_jumping' se active
 		# y compita con 'is_acrobatic'. Queremos ir SOLO al estado Acrobatic.
+
+func _update_push_animation_offset(dt: float, is_pushing: bool, _push_direction: Vector3) -> void:
+	# Note: translation.z is safe because we align rotation to face the box.
+	if is_pushing:
+		current_push_time += dt
+		var delay_denom = push_start_delay if push_start_delay > 0.001 else 0.001
+		var delay_factor = clamp(current_push_time / delay_denom, 0.0, 1.0)
+		
+		var target_local_z = push_arm_length_offset
+		var current_speed = push_lerp_speed * (0.2 + 0.8 * delay_factor)
+		
+		translation.z = target_local_z + (translation.z - target_local_z) * exp(-current_speed * dt)
+	else:
+		current_push_time = 0.0
+		translation.z = 0.0 + (translation.z - 0.0) * exp(-push_lerp_speed * dt)
