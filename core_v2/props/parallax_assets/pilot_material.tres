@@ -1,0 +1,22 @@
+[gd_resource type="ShaderMaterial" load_steps=4 format=2]
+
+[ext_resource path="res://core_v2/props/parallax_assets/card_parallax.shader" type="Shader" id=1]
+[ext_resource path="res://core_v2/props/parallax_assets/pilot_parallax.png" type="Texture" id=2]
+[ext_resource path="res://core_v2/props/parallax_assets/layer2.png" type="Texture" id=3]
+
+[resource]
+shader = ExtResource( 1 )
+shader_param/roughnessInside = 0.657
+shader_param/roughnessOutside = 0.345
+shader_param/specularInside = 0.539
+shader_param/specularOutside = 0.614
+shader_param/metallicInside = 0.211
+shader_param/metallicOutside = 0.0
+shader_param/uvFlip = Vector2( -0.952, -2.726 )
+shader_param/aspectRatio = Vector2( 1.491, 0.591 )
+shader_param/alphaThreshold = 0.216
+shader_param/depth1 = 0.05
+shader_param/depth2 = 0.121
+shader_param/depth3 = 0.093
+shader_param/texture2 = ExtResource( 3 )
+shader_param/texture3 = ExtResource( 2 )

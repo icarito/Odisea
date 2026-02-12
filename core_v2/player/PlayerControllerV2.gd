@@ -505,7 +505,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		var cam = CinematicManager.get_active_camera()
 		var cam_name = cam.name if cam else "null"
 		var cam_basis_z = cam.global_transform.basis.z if cam else Vector3.ZERO
-		print("[PlayerController] step: move_vec=%s yaw=%.4f actual_cam=%s basis.z=%s mode=%d" % [input.move_vec, yaw, cam_name, cam_basis_z, mode])
+		# print("[PlayerController] step: move_vec=%s yaw=%.4f actual_cam=%s basis.z=%s mode=%d" % [input.move_vec, yaw, cam_name, cam_basis_z, mode])
 	
 	if is_instance_valid(movement_logic) and input_provider:
 		input_provider.move_response_curve = movement_logic.move_response_curve
@@ -757,7 +757,7 @@ func _update_cinematic_zone_detection(input: InputDataV2):
 				CinematicManager.latched_camera_basis = p_basis
 				CinematicManager.latched_control_mode = p_mode
 				CinematicManager.latch_active = true
-				print("[PlayerController] LATCHED Basis on ENTER: ", p_basis)
+				# print("[PlayerController] LATCHED Basis on ENTER: ", p_basis)
 				
 				# Record for determinism!
 				SessionManager.record_custom_event("LATCH_BASIS", {
@@ -927,7 +927,7 @@ func get_camera_basis() -> Basis:
 	return camera_rig.global_transform.basis if camera_rig else Basis.IDENTITY
 
 func teleport_to(target_transform: Transform) -> void:
-	print("[PlayerController] teleport_to called. Target: ", target_transform.origin, " Rot: ", target_transform.basis.get_euler())
+	# print("[PlayerController] teleport_to called. Target: ", target_transform.origin, " Rot: ", target_transform.basis.get_euler())
 	global_transform = target_transform
 	velocity = Vector3.ZERO
 	
@@ -937,7 +937,7 @@ func teleport_to(target_transform: Transform) -> void:
 	pitch = euler.x
 	yaw_deg = rad2deg(yaw)
 	pitch_deg = rad2deg(pitch)
-	print("[PlayerController] teleport_to finished. Yaw: ", yaw, " Pitch: ", pitch)
+	# print("[PlayerController] teleport_to finished. Yaw: ", yaw, " Pitch: ", pitch)
 	
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
