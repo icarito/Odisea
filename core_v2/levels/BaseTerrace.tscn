@@ -1,4 +1,4 @@
-[gd_scene load_steps=295 format=2]
+[gd_scene load_steps=298 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -39,9 +39,12 @@
 [ext_resource path="res://assets/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=37]
 [ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=38]
 [ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=39]
-[ext_resource path="res://assets/music/Fingers Trace the Stars ext v2.mp3" type="AudioStream" id=40]
+[ext_resource path="res://assets/music/Escalating Dread.mp3" type="AudioStream" id=40]
 [ext_resource path="res://core_v2/components/BGMZoneV2.gd" type="Script" id=41]
 [ext_resource path="res://addons/zylann.scatter/scatter3d.gd" type="Script" id=42]
+[ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=43]
+[ext_resource path="res://core_v2/components/PushableBoxV2.gd" type="Script" id=44]
+[ext_resource path="res://core_v2/props/EmergencyBeaconV2.tscn" type="PackedScene" id=45]
 
 [sub_resource type="BoxShape" id=1499]
 extents = Vector3( 1, 0.5, 1 )
@@ -966,10 +969,6 @@ size = Vector3( 8, 10, 0.2 )
 [sub_resource type="ConcavePolygonShape" id=675]
 data = PoolVector3Array( -4, 5, 0.1, 4, 5, 0.1, -4, -5, 0.1, 4, 5, 0.1, 4, -5, 0.1, -4, -5, 0.1, 4, 5, -0.1, -4, 5, -0.1, 4, -5, -0.1, -4, 5, -0.1, -4, -5, -0.1, 4, -5, -0.1, 4, 5, 0.1, 4, 5, -0.1, 4, -5, 0.1, 4, 5, -0.1, 4, -5, -0.1, 4, -5, 0.1, -4, 5, -0.1, -4, 5, 0.1, -4, -5, -0.1, -4, 5, 0.1, -4, -5, 0.1, -4, -5, -0.1, 4, 5, 0.1, -4, 5, 0.1, 4, 5, -0.1, -4, 5, 0.1, -4, 5, -0.1, 4, 5, -0.1, -4, -5, 0.1, 4, -5, 0.1, -4, -5, -0.1, 4, -5, 0.1, 4, -5, -0.1, -4, -5, -0.1 )
 
-[sub_resource type="BoxShape" id=1503]
-resource_local_to_scene = true
-extents = Vector3( 19, 15, 29 )
-
 [sub_resource type="BoxShape" id=1504]
 resource_local_to_scene = true
 extents = Vector3( 63, 40, 33.7563 )
@@ -1020,6 +1019,10 @@ refraction_enabled = true
 refraction_scale = 0.01
 refraction_texture = ExtResource( 38 )
 refraction_texture_channel = 0
+
+[sub_resource type="BoxShape" id=1503]
+resource_local_to_scene = true
+extents = Vector3( 18.9, 15, 25 )
 
 [node name="Terrace" type="CSGBox"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
@@ -1855,18 +1858,6 @@ shape = SubResource( 675 )
 [node name="VerticalDoor" parent="Building" groups=["no_occlusion"] instance=ExtResource( 26 )]
 transform = Transform( 1.19249e-08, 0, -1, 0, 1, 0, 1, 0, 1.19249e-08, -11.0076, 6.003, 28.6455 )
 
-[node name="BGMZoneV2" type="Area" parent="Building"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 0.6, -22, 0, 8.46188 )
-script = ExtResource( 41 )
-debug_color = Color( 0, 1, 0, 0.0901961 )
-debug_render = false
-zone_extents = Vector3( 19, 15, 29 )
-bgm_stream = ExtResource( 40 )
-
-[node name="CollisionShape2" type="CollisionShape" parent="Building/BGMZoneV2"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 27.1999, 13.8186, -50.4772 )
-shape = SubResource( 1503 )
-
 [node name="OcclusionArea" type="Area" parent="Building"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 0.6, -22, 0, 20.5809 )
 script = ExtResource( 27 )
@@ -2059,8 +2050,201 @@ skeleton = NodePath("../../..")
 material/0 = SubResource( 1498 )
 
 [node name="Scatter3D" type="Spatial" parent="."]
-transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 8.42406, 5.63353, -19.4895 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.00882, 0 )
 script = ExtResource( 42 )
+_scenes = [ ExtResource( 43 ) ]
+
+[node name="PushableBoxV2" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( -0.898794, 0, 0.438371, 0, 1, 0, -0.438371, 0, -0.898794, 12.4374, 1.04348, -11.8282 )
+
+[node name="PushableBoxV3" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( -0.866025, 0, -0.5, 0, 1, 0, 0.5, 0, -0.866025, 1.7899, 1.04148, -21.3385 )
+
+[node name="PushableBoxV4" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( 0.994522, 0, 0.104528, 0, 1, 0, -0.104528, 0, 0.994522, 4.4294, 1.03998, -22.3999 )
+
+[node name="PushableBoxV5" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( 0.173648, 0, 0.984808, 0, 1, 0, -0.984808, 0, 0.173648, 5.8728, 1.04198, -19.8964 )
+
+[node name="PushableBoxV6" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( -0.694658, 0, 0.71934, 0, 1, 0, -0.71934, 0, -0.694658, 4.1189, 1.03998, -17.701 )
+
+[node name="PushableBoxV7" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( -0.891006, 0, -0.453991, 0, 1, 0, 0.453991, 0, -0.891006, 4.6753, 1.04108, -14.9867 )
+
+[node name="PushableBoxV8" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( 0.961262, 0, -0.275637, 0, 1, 0, 0.275637, 0, 0.961262, 7.5443, 1.04108, -15.4211 )
+
+[node name="PushableBoxV9" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( -0.325568, 0, 0.945519, 0, 1, 0, -0.945519, 0, -0.325568, 9.7608, 1.04198, -17.1007 )
+
+[node name="PushableBoxV10" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( 0.559193, 0, -0.829038, 0, 1, 0, 0.829038, 0, 0.559193, 11.419, 1.04338, -19.3991 )
+
+[node name="PushableBoxV11" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( 0.34202, 0, 0.939693, 0, 1, 0, -0.939693, 0, 0.34202, 12.3368, 1.04388, -22.0613 )
+
+[node name="PushableBoxV12" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( -0.951056, 0, 0.309017, 0, 1, 0, -0.309017, 0, -0.951056, 11.6772, 1.03998, -24.8047 )
+
+[node name="PushableBoxV13" type="RigidBody" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( 0.62932, 0, 0.777146, 0, 1, 0, -0.777146, 0, 0.62932, 1.6292, 1.04018, -27.9233 )
+collision_layer = 4
+collision_mask = 7
+mode = 3
+contacts_reported = 4
+contact_monitor = true
+script = ExtResource( 44 )
+settle_frames = 25
+rotation_snap_degrees = 1.0
+
+[node name="PushableBoxV14" type="RigidBody" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( 0.62932, 0, 0.777146, 0, 1, 0, -0.777146, 0, 0.62932, 1.6292, 3.04898, -27.9233 )
+collision_layer = 4
+collision_mask = 7
+mode = 3
+contacts_reported = 4
+contact_monitor = true
+script = ExtResource( 44 )
+settle_frames = 25
+rotation_snap_degrees = 1.0
+
+[node name="PushableBoxV15" type="RigidBody" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( 0.62932, 0, 0.777146, 0, 1, 0, -0.777146, 0, 0.62932, 1.6292, 5.05778, -27.9233 )
+collision_layer = 4
+collision_mask = 7
+mode = 3
+contacts_reported = 4
+contact_monitor = true
+script = ExtResource( 44 )
+settle_frames = 25
+rotation_snap_degrees = 1.0
+
+[node name="PushableBoxV16" type="RigidBody" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( 0.62932, 0, 0.777146, 0, 1, 0, -0.777146, 0, 0.62932, 1.6292, 7.06658, -27.9233 )
+collision_layer = 4
+collision_mask = 7
+mode = 3
+contacts_reported = 4
+contact_monitor = true
+script = ExtResource( 44 )
+settle_frames = 25
+rotation_snap_degrees = 1.0
+
+[node name="PushableBoxV17" type="RigidBody" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( -0.0348995, 0, -0.999391, 0, 1, 0, 0.999391, 0, -0.0348995, 4.8366, 1.04058, -29.0899 )
+collision_layer = 4
+collision_mask = 7
+mode = 3
+contacts_reported = 4
+contact_monitor = true
+script = ExtResource( 44 )
+settle_frames = 25
+rotation_snap_degrees = 1.0
+
+[node name="PushableBoxV18" type="RigidBody" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( -0.0348995, 0, -0.999391, 0, 1, 0, 0.999391, 0, -0.0348995, 4.8366, 3.04938, -29.0899 )
+collision_layer = 4
+collision_mask = 7
+mode = 3
+contacts_reported = 4
+contact_monitor = true
+script = ExtResource( 44 )
+settle_frames = 25
+rotation_snap_degrees = 1.0
+
+[node name="PushableBoxV19" type="RigidBody" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( -0.0348995, 0, -0.999391, 0, 1, 0, 0.999391, 0, -0.0348995, 4.8366, 5.05818, -29.0899 )
+collision_layer = 4
+collision_mask = 7
+mode = 3
+contacts_reported = 4
+contact_monitor = true
+script = ExtResource( 44 )
+settle_frames = 25
+rotation_snap_degrees = 1.0
+
+[node name="PushableBoxV20" type="RigidBody" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( -0.0348995, 0, -0.999391, 0, 1, 0, 0.999391, 0, -0.0348995, 4.8366, 7.06698, -29.0899 )
+collision_layer = 4
+collision_mask = 7
+mode = 3
+contacts_reported = 4
+contact_monitor = true
+script = ExtResource( 44 )
+settle_frames = 25
+rotation_snap_degrees = 1.0
+
+[node name="PushableBoxV21" type="RigidBody" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( 0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 9.6214, 1.64218, -31.0786 )
+collision_layer = 4
+collision_mask = 7
+mode = 3
+contacts_reported = 4
+contact_monitor = true
+script = ExtResource( 44 )
+settle_frames = 25
+rotation_snap_degrees = 1.0
+
+[node name="PushableBoxV22" type="RigidBody" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( 0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 9.6214, 3.65098, -31.0786 )
+collision_layer = 4
+collision_mask = 7
+mode = 3
+contacts_reported = 4
+contact_monitor = true
+script = ExtResource( 44 )
+settle_frames = 25
+rotation_snap_degrees = 1.0
+
+[node name="PushableBoxV23" type="RigidBody" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( 0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 9.6214, 5.65978, -31.0786 )
+collision_layer = 4
+collision_mask = 7
+mode = 3
+contacts_reported = 4
+contact_monitor = true
+script = ExtResource( 44 )
+settle_frames = 25
+rotation_snap_degrees = 1.0
+
+[node name="PushableBoxV24" type="RigidBody" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( 0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 9.6214, 7.66858, -31.0786 )
+collision_layer = 4
+collision_mask = 7
+mode = 3
+contacts_reported = 4
+contact_monitor = true
+script = ExtResource( 44 )
+settle_frames = 25
+rotation_snap_degrees = 1.0
+
+[node name="BGMZoneV2" type="Area" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 0.6, -22, 2, 8.46188 )
+script = ExtResource( 41 )
+debug_color = Color( 0, 1, 0, 0.0901961 )
+debug_render = false
+zone_extents = Vector3( 18.9, 15, 25 )
+bgm_stream = ExtResource( 40 )
+fade_time = 5.0
+
+[node name="CollisionShape2" type="CollisionShape" parent="BGMZoneV2"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 27.1999, 13.8186, -47.3105 )
+shape = SubResource( 1503 )
+
+[node name="EmergencyBeaconV2" parent="." instance=ExtResource( 45 )]
+transform = Transform( -4.37114e-08, 1, 8.74228e-08, 1, 4.37114e-08, 3.82137e-15, 0, 8.74228e-08, -1, -5.95378, 8.0297, -8.15047 )
+starts_active = true
+is_interactable = false
+beacon_color = Color( 1, 0.0705882, 0, 1 )
+light_range = 10.0
+
+[node name="EmergencyBeaconV3" parent="." instance=ExtResource( 45 )]
+transform = Transform( 1.91069e-15, 4.37114e-08, -1, 1, 4.37114e-08, 3.82137e-15, 4.37114e-08, -1, -4.37114e-08, 9.04622, 8.0297, -5.95047 )
+starts_active = true
+is_interactable = false
+beacon_color = Color( 1, 0.0705882, 0, 1 )
+light_range = 10.0
 
 [editable path="CrioPod START"]
 [editable path="SideScrollZone4"]
