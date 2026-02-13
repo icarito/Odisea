@@ -476,6 +476,9 @@ func _update_push_state(_dt: float, input: InputDataV2):
 	is_pushing = false
 	visual_push_correction = 0.0
 	_push_target = null
+	# Push is strictly grounded-only. Never activate or persist while airborne.
+	if not is_on_floor() or velocity.y > 0.05:
+		return
 	if not _interact_area: return
 
 	var bodies = _interact_area.get_overlapping_bodies()
