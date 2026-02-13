@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=2]
 
-[ext_resource path="res://core_v2/props/CriopodParallax.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core/props/CriopodParallax.tscn" type="PackedScene" id=1]
 
 [node name="TestScene" type="Spatial"]
 

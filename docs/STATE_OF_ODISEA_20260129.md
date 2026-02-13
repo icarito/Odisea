@@ -2,7 +2,7 @@
 
 ## Estado general (29 de enero de 2026)
 
-- Proyecto Odisea migrado a estructura modular en `core_v2` (componentes, sistemas, player_controller, UI, autoloads, simulación, utilidades, tests).
+- Proyecto Odisea migrado a estructura modular en `core` (componentes, sistemas, player_controller, UI, autoloads, simulación, utilidades, tests).
 - Features fundacionales implementadas y documentadas en `docs/canon/` (OdysseyScript, interactuables, PushableBox, gamefeel, sidescroller, test battery, test runner, etc).
 - Features legacy y descartadas archivadas en `docs/archived/`.
 - Contratos de determinismo, snapshot y normas de trabajo centralizados en `AGENTS.md`.
@@ -14,7 +14,7 @@
 - Reimplementar BGM mínimo (`autoload/AudioManager.gd` en Menu y criogenia)
 - Reimplementar Kill/Respawn + Checkpoints (`KillZone.tscn`, `Checkpoint.tscn`, lógica de respawn)
 - Reimplementar WindZone (scenes/common)
-- Reimplementar multiplayer split-screen (core_v2)
+- Reimplementar multiplayer split-screen (core)
 - Plataformas con barandas, tubos conectores, objetivo de alto contraste, spawn cinematográfico, obstáculos ambientales, drones, ventanal final, diálogos IA, integración de "Cargol" (ver TODO.md)
 
 ## QA y balance

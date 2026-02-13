@@ -1,9 +1,9 @@
 # DONE — Odisea MVP Acto I (2026-01-29)
 
 ## Logros clave
-- Migración completa a estructura modular en `core_v2`.
+- Migración completa a estructura modular en `core`.
 - Limpieza de archivos legacy, tests antiguos y autoloads no usados.
-- Validación de determinismo y funcionamiento base (`./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd`).
+- Validación de determinismo y funcionamiento base (`./runtest.sh -a ./core/tests/test_determinism.gd`).
 - Features fundacionales implementadas y documentadas en `docs/canon/` (OdysseyScript, interactuables, PushableBox, gamefeel, sidescroller, test battery, test runner, etc).
 - Contratos y normas centralizados en `AGENTS.md`.
 - Proyecto listo para avanzar en features y QA según el nuevo TODO.

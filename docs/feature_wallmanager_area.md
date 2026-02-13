@@ -10,7 +10,7 @@ Modo Oclusión (Interiores/Pasillos): Al entrar en una OcclusionArea, la cámara
 
 2. Componentes del Sistema
 
-A. OcclusionZoneV2.gd (Nuevo Nodo)
+A. OcclusionZone.gd (Nuevo Nodo)
 
 Un área que define zonas donde la geometría debe volverse transparente.
 
@@ -106,7 +106,7 @@ Implementar un sistema híbrido de cámara para Odisea que resuelva la visibilid
     Modo Oclusión (Interiores/Pasillos): Al entrar en una OcclusionArea, la cámara ignora las colisiones (atraviesa muros) pero activa un Shader de Recorte Cónico que hace transparentes los obstáculos solo si están entre la cámara y el jugador.
 
 2. Componentes del Sistema
-A. OcclusionZoneV2.gd (Nuevo Nodo)
+A. OcclusionZone.gd (Nuevo Nodo)
 
 Un área que define zonas donde la geometría debe volverse transparente.
 
@@ -211,7 +211,7 @@ void fragment() {
 
     Paso 2 (Manager): Crea el script WallManager.gd. Debe buscar todos los MeshInstance que sean hijos del mapa (QodotMap) y, si comparten el material, actualizar sus parámetros player_pos y camera_pos en cada frame.
 
-    Paso 3 (Area): Implementa OcclusionArea.gd. Al entrar el cuerpo Pilot_v2:
+    Paso 3 (Area): Implementa OcclusionArea.gd. Al entrar el cuerpo Pilot:
 
         Llamar a PlayerSpringCam.set_occlusion_mode(true).
 
@@ -246,7 +246,7 @@ Paso 1 (Shader): Crea un Wall.shader que incluya la lógica matemática descrita
 
 Paso 2 (Manager): Crea el script WallManager.gd. Debe buscar todos los MeshInstance que sean hijos del mapa (QodotMap) y, si comparten el material, actualizar sus parámetros player_pos y camera_pos en cada frame.
 
-Paso 3 (Area): Implementa OcclusionArea.gd. Al entrar el cuerpo Pilot_v2:
+Paso 3 (Area): Implementa OcclusionArea.gd. Al entrar el cuerpo Pilot:
 
 Llamar a PlayerSpringCam.set_occlusion_mode(true).
 

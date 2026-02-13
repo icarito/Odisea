@@ -34,7 +34,7 @@ Nota: Priorizar la corrección de OYS, ya que impide validar los demás sistemas
 ## Pendientes principales
 - Reimplementar BGM mínimo (`autoload/AudioManager.gd` en Menu y criogenia)
 - Reimplementar WindZone (scenes/common)
-- Reimplementar multiplayer split-screen (core_v2)
+- Reimplementar multiplayer split-screen (core)
 - Plataformas con barandas (`scenes/common/GuardrailSegment.tscn`)
 - Tubos conectores entre secciones (`scenes/common/TubeConnector.tscn`)
 - Objetivo de alto contraste (`scenes/common/GoalBeacon.tscn`)

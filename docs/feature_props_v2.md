@@ -4,9 +4,9 @@ Odisea Prop Pipeline & Validation Specification (V2)
 
 This document defines the standard for creating, testing, and validating interactive props in "Odisea". It establishes a strict "Prop Contract" to ensure determinism for the Replay System and introduces an automated CLI workflow (test_prop.sh) to allow AI Agents and Developers to validate assets headlesssly.
 
-2. The Prop Contract (PropBaseV2)
+2. The Prop Contract (PropBase)
 
-All interactive objects (doors, levers, fans) must inherit from InteractableBaseV2.
+All interactive objects (doors, levers, fans) must inherit from InteractableBase.
 
 2.1 Core Principles
 
@@ -19,8 +19,8 @@ Tooling: Scripts must use the tool keyword to preview logic in the Editor withou
 2.2 GDScript Specification
 
 tool
-extends InteractableBaseV2
-class_name PropBaseV2
+extends InteractableBase
+class_name PropBase
 
 # --- COMPOSABILITY EXPORTS ---
 # Automatic linking: If null, checks for parent/children in _ready
@@ -52,7 +52,7 @@ Designers must be able to link switches (Interactors) to Props (Receivers) easil
 
 3.1 Hierarchy-Based Linking (Implicit)
 
-If a PropBaseV2 is a child of a Switch (or vice-versa, depending on scene tree preference), or they share a common LogicGroup parent, they should auto-connect on _ready().
+If a PropBase is a child of a Switch (or vice-versa, depending on scene tree preference), or they share a common LogicGroup parent, they should auto-connect on _ready().
 
 3.2 Direct Export Linking (Explicit)
 
@@ -79,7 +79,7 @@ We introduce a shell wrapper to interface between the AI Agent and the Godot Eng
 
 Input: User/Agent invokes test_prop.sh --target="AirlockDoor" --base64.
 
-Search: Script finds AirlockDoor.tscn in res://core_v2/props/.
+Search: Script finds AirlockDoor.tscn in res://core/props/.
 
 Execution: Runs Godot with PropStage.tscn and injects env vars.
 

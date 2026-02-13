@@ -1,6 +1,6 @@
 # Missing Features for Act 1 MVP — Especificación ampliada
 
-Este documento recoge las funcionalidades prototipadas que deben reimplementarse en `core_v2` y proporciona notas de implementación concretas (suficientes para que un agente/implementador las lleve a código).
+Este documento recoge las funcionalidades prototipadas que deben reimplementarse en `core` y proporciona notas de implementación concretas (suficientes para que un agente/implementador las lleve a código).
 
 ## Reglas generales de determinismo
 - Todos los agentes sincronizables deben pertenecer al grupo `replay_sync`.
@@ -22,9 +22,9 @@ Este documento recoge las funcionalidades prototipadas que deben reimplementarse
   - En `restore_snapshot`, si el nodo no está en el árbol, almacenar el snapshot y aplicarlo en `_ready`.
   - No depender de transformaciones no deterministas; usar `global_transform.basis.orthonormalized()` para convertir `push_velocity`.
 
-## MovingPlatform (guía basada en `MovingPlatformV2.gd`)
+## MovingPlatform (guía basada en `MovingPlatform.gd`)
 Nota: Actualmente es el único obstáculo implementado y validado; úsese como referencia para el resto de sistemas.
-Usar `MovingPlatformV2.gd` como referencia de comportamiento determinista. Implementación recomendada:
+Usar `MovingPlatform.gd` como referencia de comportamiento determinista. Implementación recomendada:
 
 - Conceptos clave:
   - `movement_vector` o `start_pos` + `end_pos` como fuente única de verdad de la trayectoria.
@@ -65,7 +65,7 @@ Usar `MovingPlatformV2.gd` como referencia de comportamiento determinista. Imple
   - Toggle para mostrar colisiones, áreas y rutas de plataforma (debug visualization).
 
 - Integración técnica:
-  - Implementar como escena `Control` en `core_v2/view/ui/ReplayOverlay.tscn` con script `ReplayOverlay.gd` que use `SessionManager`/`ReplayManager` si existe.
+  - Implementar como escena `Control` en `core/view/ui/ReplayOverlay.tscn` con script `ReplayOverlay.gd` que use `SessionManager`/`ReplayManager` si existe.
   - Los botones deben emitir señales que el `SessionManager` consuma (`play`, `pause`, `step`, `rewind`, `record`).
   - El overlay debe poder activarse vía `ProjectSetting` o `Env var` para que los tests headless lo ignoren.
 
@@ -116,26 +116,26 @@ Usar `MovingPlatformV2.gd` como referencia de comportamiento determinista. Imple
   - `meta`: { screen_anchor, scale_mode }
 - Implementación:
   - Parser que valida y normaliza coordenadas en DPI-independiente.
-  - Emisión de eventos equivalentes a acciones de teclado/gamepad para `InputProviderV2`.
+  - Emisión de eventos equivalentes a acciones de teclado/gamepad para `InputProvider`.
 
 ## Local Multiplayer (alcance MVP)
 - Implementación mínima:
-  - Soportar múltiples `InputProviderV2` vinculables a diferentes players (PlayerManager debe poder crear instancias con un `device_id` diferente).
+  - Soportar múltiples `InputProvider` vinculables a diferentes players (PlayerManager debe poder crear instancias con un `device_id` diferente).
   - Cada player debe pertenecer a `replay_sync` y exponer su `get_snapshot`/`restore_snapshot` para poder validar replays en modo local.
 
 ## Tests y validación de determinismo
-- Casos inmediatos a añadir en `core_v2/tests`:
+- Casos inmediatos a añadir en `core/tests`:
   - Movimiento básico del jugador (salto, short jump, walking) — comparar snapshot vs replay final.
-  - Interacción con `MovingPlatformV2` (subir, permanecer y bajarse) — comprobar drift < threshold.
+  - Interacción con `MovingPlatform` (subir, permanecer y bajarse) — comprobar drift < threshold.
   - `Conveyor` empujando `RigidBody` y `Player` — comprobar que `set_external_velocity` y fuerzas producen el mismo resultado.
   - `WindZone` application/clear gravity override.
 - Ejecución de tests (headless):
-  - Usar `./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd` y recolectar `drift`/logs.
+  - Usar `./runtest.sh -a ./core/tests/test_determinism.gd` y recolectar `drift`/logs.
 
 ## Checklist para el implementador (acciones concretas)
-1. Revisar `core_v2/things/MovingPlatformV2.gd` y extraer las funciones `pingpong_logic`, `apply_easing`, `get_snapshot`, `restore_snapshot` como plantilla.
-2. Implementar `Conveyor` con `get_snapshot`/`restore_snapshot` (ya añadido en `core_v2/sim/Conveyor.gd`).
-3. Reimplementar `WindZone` en `core_v2/sim` siguiendo el patrón `get_snapshot`/`restore_snapshot` y `Area`-based body management.
-4. Añadir `short_jump` y separar `air_friction` / `movement_friction` en `Player` core (`core_v2` input/player modules).
+1. Revisar `core/things/MovingPlatform.gd` y extraer las funciones `pingpong_logic`, `apply_easing`, `get_snapshot`, `restore_snapshot` como plantilla.
+2. Implementar `Conveyor` con `get_snapshot`/`restore_snapshot` (ya añadido en `core/sim/Conveyor.gd`).
+3. Reimplementar `WindZone` en `core/sim` siguiendo el patrón `get_snapshot`/`restore_snapshot` y `Area`-based body management.
+4. Añadir `short_jump` y separar `air_friction` / `movement_friction` en `Player` core (`core` input/player modules).
 5. Reintroducir `Tank Turn` como estado determinista y añadirlo al snapshot del player.
-6. Escribir tests unitarios y determinismo para cada caso (ver `core_v2/tests`).
+6. Escribir tests unitarios y determinismo para cada caso (ver `core/tests`).

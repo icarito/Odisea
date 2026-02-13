@@ -1,7 +1,7 @@
 # Test SideScroll Controls
 # Verifies that controls are not inverted in Lock X / Invert settings.
 
-LEVEL res://core_v2/levels/TestScene_v2.tscn
+LEVEL res://core/levels/TestScene.tscn
 
 # 1. Enter SideScroll Mode manually via SessionManager -> Player -> SideScrollLogic
 # Lock Axis 1 (X), Value 0.0, Invert Side TRUE, CurrentPos 0, Depth Allowed TRUE

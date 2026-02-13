@@ -22,7 +22,7 @@ fi
 SCENE=$(grep -m1 "^LEVEL" "$OYS_FILE" | sed 's/LEVEL //')
 
 if [ -z "$SCENE" ]; then
-    SCENE="res://core_v2/levels/TestScene_v2.tscn"
+    SCENE="res://core/levels/TestScene.tscn"
     echo "No LEVEL found, using default: $SCENE"
 fi
 

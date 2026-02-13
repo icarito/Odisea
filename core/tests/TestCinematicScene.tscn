@@ -1,0 +1,75 @@
+[gd_scene load_steps=8 format=2]
+
+[ext_resource path="res://core/actors/Pilot.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core/components/CinematicCameraZone.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core/visual/CinematicPathRig.gd" type="Script" id=3]
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=4]
+
+[sub_resource type="Curve3D" id=3]
+_data = {
+"points": PoolVector3Array( 0, 0, 0, 0, 0, 0, -1.12776, 0.512028, 0.776176, 0, 0, 0, 0, 0, 0, 17.8518, 0.512025, 11.5882, 0, 0, 0, 0, 0, 0, 20.8778, 3.86377, 33.4963 ),
+"tilts": PoolRealArray( 0, 0, 0 )
+}
+
+[sub_resource type="Animation" id=4]
+length = 5.0
+tracks/0/type = "value"
+tracks/0/path = NodePath("PathFollow:unit_offset")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 5 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 0,
+"values": [ 0.0, 1.0 ]
+}
+
+[sub_resource type="SpatialMaterial" id=5]
+flags_transparent = true
+flags_unshaded = true
+albedo_color = Color( 1, 0.5, 0, 0.3 )
+
+[node name="TestCinematicScene" type="Spatial"]
+
+[node name="Pilot" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -17.3, 0.5, 4.5 )
+
+[node name="Floor" type="CSGBox" parent="."]
+transform = Transform( 0.596687, 0, -0.802474, 0, 1, 0, 0.802474, 0, 0.596687, 17.8974, -1, 19.2368 )
+use_collision = true
+width = 1000.0
+depth = 1000.0
+material = ExtResource( 4 )
+
+[node name="CinematicCameraZone" parent="Floor" instance=ExtResource( 2 )]
+transform = Transform( 0.869141, 0, -0.494564, 0, 1, 0, 0.494564, 0, 0.869141, -17.3347, 3.5, 4.57544 )
+debug_color = Color( 1, 0.5, 0, 0.3 )
+zone_extents = Vector3( 4, 3, 10 )
+cinematic_rig_path = NodePath("CinematicPathRig")
+latch_on_enter = false
+latch_on_exit = false
+
+[node name="CinematicPathRig" type="Path" parent="Floor/CinematicCameraZone"]
+transform = Transform( 0.910813, 0, 0.412818, 0, 1, 0, -0.412818, 0, 0.910813, -7.84397, 5.80567, -43.5685 )
+curve = SubResource( 3 )
+script = ExtResource( 3 )
+track_player = true
+follow_player_on_path = true
+
+[node name="PathFollow" type="PathFollow" parent="Floor/CinematicCameraZone/CinematicPathRig"]
+transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, -1.12776, 0.512028, 0.776176 )
+rotation_mode = 0
+
+[node name="Camera" type="Camera" parent="Floor/CinematicCameraZone/CinematicPathRig/PathFollow"]
+transform = Transform( -0.304267, -0.260234, 0.916352, 0, 0.961961, 0.273187, -0.952592, 0.0831221, -0.292694, 0, 0, 0 )
+near = 0.1
+far = 1000.0
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Floor/CinematicCameraZone/CinematicPathRig"]
+anims/dolly = SubResource( 4 )
+
+[node name="_ZoneDebugMesh3" type="MeshInstance" parent="Floor/CinematicCameraZone"]
+material_override = SubResource( 5 )
+cast_shadow = 0

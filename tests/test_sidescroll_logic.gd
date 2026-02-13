@@ -4,7 +4,7 @@ func _init():
 	print("Running SideScroll Control Test...")
 	
 	# 1. Load Pilot
-	var Pilot = load("res://core_v2/actors/Pilot_v2.tscn")
+	var Pilot = load("res://core/actors/Pilot.tscn")
 	var player = Pilot.instance()
 	root.add_child(player)
 	

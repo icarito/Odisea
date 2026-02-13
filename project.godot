@@ -80,9 +80,9 @@ _global_script_classes=[ {
 "path": "res://addons/simplified_flightsim/aircraft_modules/Steering/Steering.gd"
 }, {
 "base": "Spatial",
-"class": "AirlockControllerV2",
+"class": "AirlockController",
 "language": "GDScript",
-"path": "res://core_v2/components/AirlockControllerV2.gd"
+"path": "res://core/components/AirlockController.gd"
 }, {
 "base": "GdUnitArgumentMatcher",
 "class": "AnyArgumentMatcher",
@@ -100,14 +100,14 @@ _global_script_classes=[ {
 "path": "res://addons/gdUnit3/src/matchers/AnyClazzArgumentMatcher.gd"
 }, {
 "base": "Area",
-"class": "BGMZoneV2",
+"class": "BGMZone",
 "language": "GDScript",
-"path": "res://core_v2/components/BGMZoneV2.gd"
+"path": "res://core/components/BGMZone.gd"
 }, {
 "base": "Area",
-"class": "BaseZoneV2",
+"class": "BaseZone",
 "language": "GDScript",
-"path": "res://core_v2/components/BaseZoneV2.gd"
+"path": "res://core/components/BaseZone.gd"
 }, {
 "base": "ValueProvider",
 "class": "CallBackValueProvider",
@@ -125,39 +125,39 @@ _global_script_classes=[ {
 "path": "res://addons/qol-camera/inspector_plugin.gd"
 }, {
 "base": "KinematicBody",
-"class": "CargolDroneV2",
+"class": "CargolDrone",
 "language": "GDScript",
-"path": "res://core_v2/actors/CargolDroneV2.gd"
+"path": "res://core/actors/CargolDrone.gd"
 }, {
 "base": "GdUnitArgumentMatcher",
 "class": "ChainedArgumentMatcher",
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/matchers/ChainedArgumentMatcher.gd"
 }, {
-"base": "BaseZoneV2",
-"class": "CheckZoneV2",
+"base": "BaseZone",
+"class": "CheckZone",
 "language": "GDScript",
-"path": "res://core_v2/components/CheckZoneV2.gd"
+"path": "res://core/components/CheckZone.gd"
 }, {
 "base": "Resource",
 "class": "CheckpointResource",
 "language": "GDScript",
-"path": "res://core_v2/systems/CheckpointResource.gd"
+"path": "res://core/systems/CheckpointResource.gd"
 }, {
-"base": "BaseZoneV2",
-"class": "CinematicCameraZoneV2",
+"base": "BaseZone",
+"class": "CinematicCameraZone",
 "language": "GDScript",
-"path": "res://core_v2/components/CinematicCameraZone.gd"
+"path": "res://core/components/CinematicCameraZone.gd"
 }, {
 "base": "Path",
 "class": "CinematicPathRig",
 "language": "GDScript",
-"path": "res://core_v2/visual/CinematicPathRig.gd"
+"path": "res://core/visual/CinematicPathRig.gd"
 }, {
 "base": "Spatial",
-"class": "CinematicRigV2",
+"class": "CinematicRig",
 "language": "GDScript",
-"path": "res://core_v2/visual/CinematicRig.gd"
+"path": "res://core/visual/CinematicRig.gd"
 }, {
 "base": "Reference",
 "class": "CmdArgumentParser",
@@ -195,24 +195,24 @@ _global_script_classes=[ {
 "path": "res://addons/gdUnit3/src/Comparator.gd"
 }, {
 "base": "Spatial",
-"class": "ContinuousRotatorV2",
+"class": "ContinuousRotator",
 "language": "GDScript",
-"path": "res://core_v2/components/ContinuousRotatorV2.gd"
+"path": "res://core/components/ContinuousRotator.gd"
 }, {
 "base": "ValueProvider",
 "class": "DefaultValueProvider",
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/asserts/DefaultValueProvider.gd"
 }, {
-"base": "InteractableBaseV2",
-"class": "DualSlidingObjectV2",
+"base": "InteractableBase",
+"class": "DualSlidingObject",
 "language": "GDScript",
-"path": "res://core_v2/components/DualSlidingObjectV2.gd"
+"path": "res://core/components/DualSlidingObject.gd"
 }, {
-"base": "PropBaseV2",
-"class": "EmergencyBeaconV2",
+"base": "PropBase",
+"class": "EmergencyBeacon",
 "language": "GDScript",
-"path": "res://core_v2/props/scifi_lights/EmergencyBeaconV2.gd"
+"path": "res://core/props/scifi_lights/EmergencyBeacon.gd"
 }, {
 "base": "GdUnitArgumentMatcher",
 "class": "EqualsArgumentMatcher",
@@ -729,20 +729,20 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/monitor/GodotGdErrorMonitor.gd"
 }, {
-"base": "InteractableBaseV2",
-"class": "HoloTerminalV2",
+"base": "InteractableBase",
+"class": "HoloTerminal",
 "language": "GDScript",
-"path": "res://core_v2/things/HoloTerminalV2.gd"
+"path": "res://core/things/HoloTerminal.gd"
 }, {
 "base": "Reference",
-"class": "InputDataV2",
+"class": "InputData",
 "language": "GDScript",
-"path": "res://core_v2/input/InputDataV2.gd"
+"path": "res://core/input/InputData.gd"
 }, {
 "base": "Reference",
-"class": "InputProviderV2",
+"class": "InputProvider",
 "language": "GDScript",
-"path": "res://core_v2/input/InputProviderV2.gd"
+"path": "res://core/input/InputProvider.gd"
 }, {
 "base": "Fuzzer",
 "class": "IntFuzzer",
@@ -750,29 +750,29 @@ _global_script_classes=[ {
 "path": "res://addons/gdUnit3/src/fuzzers/IntFuzzer.gd"
 }, {
 "base": "Spatial",
-"class": "InteractableBaseV2",
+"class": "InteractableBase",
 "language": "GDScript",
-"path": "res://core_v2/components/InteractableBaseV2.gd"
+"path": "res://core/components/InteractableBase.gd"
 }, {
 "base": "Spatial",
 "class": "InteractableBridge",
 "language": "GDScript",
-"path": "res://core_v2/components/InteractableBridge.gd"
+"path": "res://core/components/InteractableBridge.gd"
 }, {
-"base": "InteractableBaseV2",
-"class": "IrisDoorV2",
+"base": "InteractableBase",
+"class": "IrisDoor",
 "language": "GDScript",
-"path": "res://core_v2/components/IrisDoorV2.gd"
+"path": "res://core/components/IrisDoor.gd"
 }, {
 "base": "Reference",
 "class": "JUnitXmlReport",
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/report/JUnitXmlReport.gd"
 }, {
-"base": "BaseZoneV2",
-"class": "KillZoneV2",
+"base": "BaseZone",
+"class": "KillZone",
 "language": "GDScript",
-"path": "res://core_v2/components/KillZoneV2.gd"
+"path": "res://core/components/KillZone.gd"
 }, {
 "base": "LiquidLayer",
 "class": "LavaLayer",
@@ -867,32 +867,32 @@ _global_script_classes=[ {
 "base": "Node",
 "class": "OYSComponent",
 "language": "GDScript",
-"path": "res://core_v2/components/OYSComponent.gd"
+"path": "res://core/components/OYSComponent.gd"
 }, {
-"base": "BaseZoneV2",
+"base": "BaseZone",
 "class": "OYSTrigger",
 "language": "GDScript",
-"path": "res://core_v2/components/OYSTrigger.gd"
+"path": "res://core/components/OYSTrigger.gd"
 }, {
 "base": "Reference",
 "class": "OYS_Interpreter",
 "language": "GDScript",
-"path": "res://core_v2/systems/OYS_Interpreter.gd"
+"path": "res://core/systems/OYS_Interpreter.gd"
 }, {
 "base": "Reference",
 "class": "OYS_Parser",
 "language": "GDScript",
-"path": "res://core_v2/systems/OYS_Parser.gd"
+"path": "res://core/systems/OYS_Parser.gd"
 }, {
 "base": "Reference",
 "class": "OYS_Resolver",
 "language": "GDScript",
-"path": "res://core_v2/systems/OYS_Resolver.gd"
+"path": "res://core/systems/OYS_Resolver.gd"
 }, {
-"base": "BaseZoneV2",
-"class": "OcclusionZoneV2",
+"base": "BaseZone",
+"class": "OcclusionZone",
 "language": "GDScript",
-"path": "res://core_v2/components/OcclusionZoneV2.gd"
+"path": "res://core/components/OcclusionZone.gd"
 }, {
 "base": "Spatial",
 "class": "OrbitArm",
@@ -910,49 +910,49 @@ _global_script_classes=[ {
 "path": "res://addons/qodot/game_definitions/fgd/solid_classes/physics.gd"
 }, {
 "base": "Spatial",
-"class": "PilotAnimatorV2",
+"class": "PilotAnimator",
 "language": "GDScript",
-"path": "res://core_v2/actors/PilotAnimatorV2.gd"
+"path": "res://core/actors/PilotAnimator.gd"
 }, {
 "base": "Button",
 "class": "PluginButton",
 "language": "GDScript",
 "path": "res://addons/csgtomeshinstance/plugin_button.gd"
 }, {
-"base": "InteractableBaseV2",
-"class": "PressurePlateV2",
+"base": "InteractableBase",
+"class": "PressurePlate",
 "language": "GDScript",
-"path": "res://core_v2/components/PressurePlateV2.gd"
+"path": "res://core/components/PressurePlate.gd"
 }, {
-"base": "InteractableBaseV2",
-"class": "PropBaseV2",
+"base": "InteractableBase",
+"class": "PropBase",
 "language": "GDScript",
-"path": "res://core_v2/components/PropBaseV2.gd"
+"path": "res://core/components/PropBase.gd"
 }, {
 "base": "Area",
 "class": "PropDestroyerArea",
 "language": "GDScript",
-"path": "res://core_v2/components/PropDestroyerArea.gd"
+"path": "res://core/components/PropDestroyerArea.gd"
 }, {
 "base": "Area",
 "class": "PropEmitterArea",
 "language": "GDScript",
-"path": "res://core_v2/components/PropEmitterArea.gd"
+"path": "res://core/components/PropEmitterArea.gd"
 }, {
-"base": "BaseZoneV2",
-"class": "ProximityTriggerV2",
+"base": "BaseZone",
+"class": "ProximityTrigger",
 "language": "GDScript",
-"path": "res://core_v2/components/ProximityTriggerV2.gd"
+"path": "res://core/components/ProximityTrigger.gd"
 }, {
-"base": "InteractableBaseV2",
-"class": "PushButtonV2",
+"base": "InteractableBase",
+"class": "PushButton",
 "language": "GDScript",
-"path": "res://core_v2/components/PushButtonV2.gd"
+"path": "res://core/components/PushButton.gd"
 }, {
 "base": "RigidBody",
-"class": "PushableBoxV2",
+"class": "PushableBox",
 "language": "GDScript",
-"path": "res://core_v2/components/PushableBoxV2.gd"
+"path": "res://core/components/PushableBox.gd"
 }, {
 "base": "Reference",
 "class": "QodotDependencies",
@@ -1109,55 +1109,55 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/ui/parts/RichTextLabelExt.gd"
 }, {
-"base": "InteractableBaseV2",
-"class": "RotatingObjectV2",
+"base": "InteractableBase",
+"class": "RotatingObject",
 "language": "GDScript",
-"path": "res://core_v2/components/RotatingObjectV2.gd"
+"path": "res://core/components/RotatingObject.gd"
 }, {
 "base": "Spatial",
-"class": "SFXComponentV2",
+"class": "SFXComponent",
 "language": "GDScript",
-"path": "res://core_v2/components/SFXComponentV2.gd"
+"path": "res://core/components/SFXComponent.gd"
 }, {
-"base": "PropBaseV2",
-"class": "SciFiBoxLightV2",
+"base": "PropBase",
+"class": "SciFiBoxLight",
 "language": "GDScript",
-"path": "res://core_v2/props/scifi_lights/SciFiBoxLightV2.gd"
+"path": "res://core/props/scifi_lights/SciFiBoxLight.gd"
 }, {
 "base": "KinematicBody",
-"class": "SciFiFloatingLightV2",
+"class": "SciFiFloatingLight",
 "language": "GDScript",
-"path": "res://core_v2/props/scifi_lights/SciFiFloatingLightV2.gd"
+"path": "res://core/props/scifi_lights/SciFiFloatingLight.gd"
 }, {
-"base": "PropBaseV2",
-"class": "SciFiFloorPanelV2",
+"base": "PropBase",
+"class": "SciFiFloorPanel",
 "language": "GDScript",
-"path": "res://core_v2/props/scifi_lights/SciFiFloorPanelV2.gd"
+"path": "res://core/props/scifi_lights/SciFiFloorPanel.gd"
 }, {
-"base": "PropBaseV2",
-"class": "SciFiHangingLightV2",
+"base": "PropBase",
+"class": "SciFiHangingLight",
 "language": "GDScript",
-"path": "res://core_v2/props/scifi_lights/SciFiHangingLightV2.gd"
+"path": "res://core/props/scifi_lights/SciFiHangingLight.gd"
 }, {
-"base": "PropBaseV2",
-"class": "SciFiLightPathV2",
+"base": "PropBase",
+"class": "SciFiLightPath",
 "language": "GDScript",
-"path": "res://core_v2/props/scifi_lights/SciFiLightPathV2.gd"
+"path": "res://core/props/scifi_lights/SciFiLightPath.gd"
 }, {
-"base": "PropBaseV2",
-"class": "SciFiShieldV2",
+"base": "PropBase",
+"class": "SciFiShield",
 "language": "GDScript",
-"path": "res://core_v2/props/scifi_lights/SciFiShieldV2.gd"
+"path": "res://core/props/scifi_lights/SciFiShield.gd"
 }, {
-"base": "PropBaseV2",
-"class": "SciFiSphereLightV2",
+"base": "PropBase",
+"class": "SciFiSphereLight",
 "language": "GDScript",
-"path": "res://core_v2/props/scifi_lights/SciFiSphereLightV2.gd"
+"path": "res://core/props/scifi_lights/SciFiSphereLight.gd"
 }, {
-"base": "PropBaseV2",
-"class": "SciFiStaticLightV2",
+"base": "PropBase",
+"class": "SciFiStaticLight",
 "language": "GDScript",
-"path": "res://core_v2/props/scifi_lights/SciFiStaticLightV2.gd"
+"path": "res://core/props/scifi_lights/SciFiStaticLight.gd"
 }, {
 "base": "VBoxContainer",
 "class": "ShapeCreationButton",
@@ -1169,10 +1169,10 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/core/event/SignalHandler.gd"
 }, {
-"base": "InteractableBaseV2",
-"class": "SlidingObjectV2",
+"base": "InteractableBase",
+"class": "SlidingObject",
 "language": "GDScript",
-"path": "res://core_v2/components/SlidingObjectV2.gd"
+"path": "res://core/components/SlidingObject.gd"
 }, {
 "base": "LiquidLayer",
 "class": "SlimeLayer",
@@ -1180,9 +1180,9 @@ _global_script_classes=[ {
 "path": "res://addons/qodot/game_definitions/worldspawn_layers/liquid/slime.gd"
 }, {
 "base": "Position3D",
-"class": "SpawnPointV2",
+"class": "SpawnPoint",
 "language": "GDScript",
-"path": "res://core_v2/components/SpawnPointV2.gd"
+"path": "res://core/components/SpawnPoint.gd"
 }, {
 "base": "Fuzzer",
 "class": "StringFuzzer",
@@ -1192,12 +1192,12 @@ _global_script_classes=[ {
 "base": "Node",
 "class": "TeleportSystem",
 "language": "GDScript",
-"path": "res://core_v2/systems/TeleportSystem.gd"
+"path": "res://core/systems/TeleportSystem.gd"
 }, {
 "base": "Control",
-"class": "TerminalUIV2",
+"class": "TerminalUI",
 "language": "GDScript",
-"path": "res://core_v2/things/TerminalUI.gd"
+"path": "res://core/things/TerminalUI.gd"
 }, {
 "base": "Resource",
 "class": "TimeUnit",
@@ -1250,9 +1250,9 @@ _global_script_classes=[ {
 "path": "res://addons/qodot/game_definitions/worldspawn_layers/liquid/water.gd"
 }, {
 "base": "Area",
-"class": "WindTunnelV2",
+"class": "WindTunnel",
 "language": "GDScript",
-"path": "res://core_v2/components/WindTunnelV2.gd"
+"path": "res://core/components/WindTunnel.gd"
 }, {
 "base": "Reference",
 "class": "XmlElement",
@@ -1284,22 +1284,22 @@ _global_script_class_icons={
 "AircraftModule_InstrumentAttitude": "",
 "AircraftModule_LandingGear": "",
 "AircraftModule_Steering": "",
-"AirlockControllerV2": "",
+"AirlockController": "",
 "AnyArgumentMatcher": "",
 "AnyBuildInTypeArgumentMatcher": "",
 "AnyClazzArgumentMatcher": "",
-"BGMZoneV2": "",
-"BaseZoneV2": "",
+"BGMZone": "",
+"BaseZone": "",
 "CallBackValueProvider": "",
 "Callable": "",
 "CameraInspectorPlugin": "",
-"CargolDroneV2": "",
+"CargolDrone": "",
 "ChainedArgumentMatcher": "",
-"CheckZoneV2": "",
+"CheckZone": "",
 "CheckpointResource": "",
-"CinematicCameraZoneV2": "",
+"CinematicCameraZone": "",
 "CinematicPathRig": "",
-"CinematicRigV2": "",
+"CinematicRig": "",
 "CmdArgumentParser": "",
 "CmdCommand": "",
 "CmdCommandHandler": "",
@@ -1307,10 +1307,10 @@ _global_script_class_icons={
 "CmdOption": "",
 "CmdOptions": "",
 "Comparator": "",
-"ContinuousRotatorV2": "",
+"ContinuousRotator": "",
 "DefaultValueProvider": "",
-"DualSlidingObjectV2": "",
-"EmergencyBeaconV2": "",
+"DualSlidingObject": "",
+"EmergencyBeacon": "",
 "EqualsArgumentMatcher": "",
 "Fuzzer": "",
 "FuzzerTool": "",
@@ -1414,15 +1414,15 @@ _global_script_class_icons={
 "GdUnitVector3Assert": "",
 "GdUnitVector3AssertImpl": "",
 "GodotGdErrorMonitor": "",
-"HoloTerminalV2": "",
-"InputDataV2": "",
-"InputProviderV2": "",
+"HoloTerminal": "",
+"InputData": "",
+"InputProvider": "",
 "IntFuzzer": "",
-"InteractableBaseV2": "",
+"InteractableBase": "",
 "InteractableBridge": "",
-"IrisDoorV2": "",
+"IrisDoor": "",
 "JUnitXmlReport": "",
-"KillZoneV2": "",
+"KillZone": "",
 "LavaLayer": "",
 "LiquidLayer": "",
 "LocalTime": "",
@@ -1446,19 +1446,19 @@ _global_script_class_icons={
 "OYS_Interpreter": "",
 "OYS_Parser": "",
 "OYS_Resolver": "",
-"OcclusionZoneV2": "",
+"OcclusionZone": "",
 "OrbitArm": "",
 "PhysicsBall": "",
 "PhysicsEntity": "",
-"PilotAnimatorV2": "",
+"PilotAnimator": "",
 "PluginButton": "",
-"PressurePlateV2": "",
-"PropBaseV2": "",
+"PressurePlate": "",
+"PropBase": "",
 "PropDestroyerArea": "",
 "PropEmitterArea": "",
-"ProximityTriggerV2": "",
-"PushButtonV2": "",
-"PushableBoxV2": "",
+"ProximityTrigger": "",
+"PushButton": "",
+"PushableBox": "",
 "QodotDependencies": "",
 "QodotEntity": "",
 "QodotFGDBaseClass": "",
@@ -1490,24 +1490,24 @@ _global_script_class_icons={
 "Result": "",
 "RichTextEffectBackground": "",
 "RichTextLabelExt": "",
-"RotatingObjectV2": "",
-"SFXComponentV2": "",
-"SciFiBoxLightV2": "",
-"SciFiFloatingLightV2": "",
-"SciFiFloorPanelV2": "",
-"SciFiHangingLightV2": "",
-"SciFiLightPathV2": "",
-"SciFiShieldV2": "",
-"SciFiSphereLightV2": "",
-"SciFiStaticLightV2": "",
+"RotatingObject": "",
+"SFXComponent": "",
+"SciFiBoxLight": "",
+"SciFiFloatingLight": "",
+"SciFiFloorPanel": "",
+"SciFiHangingLight": "",
+"SciFiLightPath": "",
+"SciFiShield": "",
+"SciFiSphereLight": "",
+"SciFiStaticLight": "",
 "ShapeCreationButton": "",
 "SignalHandler": "",
-"SlidingObjectV2": "",
+"SlidingObject": "",
 "SlimeLayer": "",
-"SpawnPointV2": "",
+"SpawnPoint": "",
 "StringFuzzer": "",
 "TeleportSystem": "",
-"TerminalUIV2": "",
+"TerminalUI": "",
 "TimeUnit": "",
 "TrenchBroomFaceAttrib": "",
 "TrenchBroomFaceAttribDefaults": "",
@@ -1518,7 +1518,7 @@ _global_script_class_icons={
 "Vector3Fuzzer": "",
 "ViewLockProperty": "",
 "WaterLayer": "",
-"WindTunnelV2": "",
+"WindTunnel": "",
 "XmlElement": "",
 "_TestCase": "",
 "_TestSuiteScanner": ""
@@ -1535,11 +1535,11 @@ boot_splash/minimum_display_time=3
 
 [autoload]
 
-AudioManager="*res://core_v2/autoloads/AudioManager.gd"
-SessionManager="*res://core_v2/autoloads/SessionManager.gd"
-PersistenceManager="*res://core_v2/autoloads/PersistenceManager.gd"
-WallOcclusionManager="*res://core_v2/autoloads/WallOcclusionManager.gd"
-CinematicManager="*res://core_v2/autoloads/CinematicManager.gd"
+AudioManager="*res://core/autoloads/AudioManager.gd"
+SessionManager="*res://core/autoloads/SessionManager.gd"
+PersistenceManager="*res://core/autoloads/PersistenceManager.gd"
+WallOcclusionManager="*res://core/autoloads/WallOcclusionManager.gd"
+CinematicManager="*res://core/autoloads/CinematicManager.gd"
 CameraTransition="*res://addons/camera_transition/camera_transition.tscn"
 
 [debug]
@@ -1562,11 +1562,11 @@ window/stretch/aspect="keep"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/qol-camera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/qol-camera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
 
 [gdunit3]
 
-settings/test/test_root_folder="core_v2/tests"
+settings/test/test_root_folder="core/tests"
 
 [gui]
 
@@ -1651,13 +1651,13 @@ cursor_right={
 zoom_in={
 "deadzone": 0.5,
 "events": [ Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":12,"pressure":0.0,"pressed":false,"script":null)
-, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":4,"canceled":false,"pressed":false,"doubleclick":false,"script":null)
+, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":4,"pressed":false,"doubleclick":false,"script":null)
  ]
 }
 zoom_out={
 "deadzone": 0.5,
 "events": [ Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":13,"pressure":0.0,"pressed":false,"script":null)
-, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":5,"canceled":false,"pressed":false,"doubleclick":false,"script":null)
+, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":5,"pressed":false,"doubleclick":false,"script":null)
  ]
 }
 roll={

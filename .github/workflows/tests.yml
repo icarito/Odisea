@@ -52,7 +52,7 @@ jobs:
           GODOT_BIN: /usr/local/bin/godot
         run: |
           chmod +x ./runtest.sh
-          xvfb-run ./runtest.sh -a res://core_v2/tests
+          xvfb-run ./runtest.sh -a res://core/tests
 
       - name: Publicar resumen de tests y drift
         if: always()

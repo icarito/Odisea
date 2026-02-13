@@ -6,7 +6,7 @@ Create a base framework for objects that toggle states (Open/Closed, On/Off, Act
 
 2. Core Architecture
 
-A. InteractableBaseV2.gd (Abstract Class)
+A. InteractableBase.gd (Abstract Class)
 
 Inherits from KinematicBody (preferred for floor velocity inheritance) or Spatial.
 
@@ -28,7 +28,7 @@ step(dt): Calculated during the fixed physics step. Updates anim_progress toward
 
 3. Implementation Types
 
-1. Sliding Door / Drawers (SlidingObjectV2)
+1. Sliding Door / Drawers (SlidingObject)
 
 Similar to Cogito_Door.gd but using relative translation.
 
@@ -36,7 +36,7 @@ Logic: translation = start_pos.linear_interpolate(start_pos + slide_vector, _eas
 
 Generalization: Drawers are simply sliding objects with a restricted axis and specific sound triggers.
 
-2. Rotational Levers / Valves (RotatingObjectV2)
+2. Rotational Levers / Valves (RotatingObject)
 
 Logic: Applies lerp to a specific axis of rotation.
 

@@ -1,0 +1,42 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://core/actors/Pilot.tscn" type="PackedScene" id=1]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 20, 1, 20 )
+
+[sub_resource type="BoxShape" id=2]
+extents = Vector3( 1.5, 0.225, 0.6 )
+
+[node name="TestStairBlend" type="Spatial"]
+
+[node name="Floor" type="StaticBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
+
+[node name="CollisionShape" type="CollisionShape" parent="Floor"]
+shape = SubResource( 1 )
+
+[node name="Pilot" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0 )
+
+[node name="Stairs" type="StaticBody" parent="."]
+
+[node name="Step1" type="CollisionShape" parent="Stairs"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.225, 2.0 )
+shape = SubResource( 2 )
+
+[node name="Step2" type="CollisionShape" parent="Stairs"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.675, 3.2 )
+shape = SubResource( 2 )
+
+[node name="Step3" type="CollisionShape" parent="Stairs"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.125, 4.4 )
+shape = SubResource( 2 )
+
+[node name="Step4" type="CollisionShape" parent="Stairs"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.575, 5.6 )
+shape = SubResource( 2 )
+
+[node name="Step5" type="CollisionShape" parent="Stairs"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.025, 6.8 )
+shape = SubResource( 2 )

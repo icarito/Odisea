@@ -1,15 +1,15 @@
-🔍 Searching for 'IrisDoorV2'...
+🔍 Searching for 'IrisDoor'...
 ----------------------------------------------------------------
-🚀 Validating: IrisDoorV2
+🚀 Validating: IrisDoor
 Godot Engine v3.6.2.stable.official.3cd3caab6 - https://godotengine.org
 OpenGL ES 2.0 Renderer: Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)
  
-[IrisDoorV2] Found 0 blades.
-[IrisDoorV2] Found 0 blades.
-[IrisDoorV2] Warning: No blades found for setup.
-[IrisDoorV2] Warning: No blades found for setup.
-[IrisDoorV2] Found 8 blades.
-[IrisDoorV2] Rebuilding mathematical positions. Radius: 1.8 Count: 8
+[IrisDoor] Found 0 blades.
+[IrisDoor] Found 0 blades.
+[IrisDoor] Warning: No blades found for setup.
+[IrisDoor] Warning: No blades found for setup.
+[IrisDoor] Found 8 blades.
+[IrisDoor] Rebuilding mathematical positions. Radius: 1.8 Count: 8
   - Blade 0: pos=(0, 0, 0) rot=90
   - Blade 1: pos=(0, 0, 0.01) rot=135
   - Blade 2: pos=(0, 0, 0.02) rot=180
@@ -19,16 +19,16 @@ OpenGL ES 2.0 Renderer: Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)
   - Blade 6: pos=(0, 0, 0.06) rot=360
   - Blade 7: pos=(0, 0, 0.07) rot=405
 [AudioManager] MixingDeskMusic NOT found. Using internal AudioStreamPlayers.
-DEBUG BASEZONE: Body Entered: Pilot Zone: CinematicCameraZoneV2
-[SessionManager] Running script: res://core_v2/scripts/prop_validator.oys
+DEBUG BASEZONE: Body Entered: Pilot Zone: CinematicCameraZone
+[SessionManager] Running script: res://core/scripts/prop_validator.oys
 [OYS_Interpreter] Initialized with host: SessionManager
-[SessionManager] load_prop called: res://core_v2/props/IrisDoorV2.tscn
-[IrisDoorV2] Found 0 blades.
-[IrisDoorV2] Found 0 blades.
-[IrisDoorV2] Warning: No blades found for setup.
-[IrisDoorV2] Warning: No blades found for setup.
-[IrisDoorV2] Found 8 blades.
-[IrisDoorV2] Rebuilding mathematical positions. Radius: 1.8 Count: 8
+[SessionManager] load_prop called: res://core/props/IrisDoor.tscn
+[IrisDoor] Found 0 blades.
+[IrisDoor] Found 0 blades.
+[IrisDoor] Warning: No blades found for setup.
+[IrisDoor] Warning: No blades found for setup.
+[IrisDoor] Found 8 blades.
+[IrisDoor] Rebuilding mathematical positions. Radius: 1.8 Count: 8
   - Blade 0: pos=(0, 0, 0) rot=90
   - Blade 1: pos=(0, 0, 0.01) rot=135
   - Blade 2: pos=(0, 0, 0.02) rot=180
@@ -39,7 +39,7 @@ DEBUG BASEZONE: Body Entered: Pilot Zone: CinematicCameraZoneV2
   - Blade 7: pos=(0, 0, 0.07) rot=405
 [OYS] Screenshot saved to: res://test_output/props/IrisDoorV2_0_idle.png
 [OYS PRINT] State 0: Idle captured
-[OYS] Direct INTERACT with IrisDoorV2
+[OYS] Direct INTERACT with IrisDoor
 [OYS] Screenshot saved to: res://test_output/props/IrisDoorV2_1_mid.png
 [OYS PRINT] State 1: Mid captured
 [OYS] Screenshot saved to: res://test_output/props/IrisDoorV2_2_active.png
@@ -47,8 +47,8 @@ DEBUG BASEZONE: Body Entered: Pilot Zone: CinematicCameraZoneV2
 [OYS] Screenshot saved to: res://test_output/props/IrisDoorV2_3_off.png
 [OYS PRINT] State 3: Off captured
 [SessionManager] Script finished.
-DEBUG BASEZONE: Body Exited: Pilot Zone: CinematicCameraZoneV2
-✅ Success: 4 screenshots generated for IrisDoorV2
+DEBUG BASEZONE: Body Exited: Pilot Zone: CinematicCameraZone
+✅ Success: 4 screenshots generated for IrisDoor
   ✅ Delta idle→mid: 6.94% pixels changed (>= 0.5%)
   ✅ Delta idle→active: 1.36% pixels changed (>= 0.5%)
 ================================================================

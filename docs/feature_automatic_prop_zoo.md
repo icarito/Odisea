@@ -2,7 +2,7 @@ Specification: Automated Prop Zoo (TestScenePropZoo)
 
 1. Overview
 
-The Prop Zoo is a diagnostic and preview scene that automatically discovers and displays all interactive props located in res://core_v2/props/. Each prop is placed in an isolated "exhibit" cell equipped with an activation lever to test states (Active/Inactive) and deterministic animations.
+The Prop Zoo is a diagnostic and preview scene that automatically discovers and displays all interactive props located in res://core/props/. Each prop is placed in an isolated "exhibit" cell equipped with an activation lever to test states (Active/Inactive) and deterministic animations.
 
 2. Scene Structure
 
@@ -28,7 +28,7 @@ Label3D: Displays the filename of the prop.
 
 PropAnchor (Spatial): The position where the discovered prop is instantiated.
 
-Lever (RotatingObjectV2):
+Lever (RotatingObject):
 
 A predefined lever that signals the prop.
 
@@ -38,11 +38,11 @@ Logic: Connected via code to the set_active() or _on_interact() method of the sp
 
 A. Directory Scanning
 
-Use the Directory class to crawl res://core_v2/props/.
+Use the Directory class to crawl res://core/props/.
 
 Filter for .tscn files.
 
-Exclude base classes (e.g., InteractableBaseV2.tscn).
+Exclude base classes (e.g., InteractableBase.tscn).
 
 B. Instantiation Flow
 
@@ -54,7 +54,7 @@ Instance the Prop and child it to PropAnchor.
 
 Wire Connections:
 
-If the Prop is a subclass of InteractableBaseV2, connect the Lever's activated signal to the Prop's set_active(true).
+If the Prop is a subclass of InteractableBase, connect the Lever's activated signal to the Prop's set_active(true).
 
 Update the Label3D with the prop's name.
 
@@ -62,7 +62,7 @@ Update the Label3D with the prop's name.
 
 extends Spatial
 
-export(String, DIR) var props_path = "res://core_v2/props/"
+export(String, DIR) var props_path = "res://core/props/"
 export(PackedScene) var exhibit_scene # Preload Exhibit.tscn
 
 func _ready():

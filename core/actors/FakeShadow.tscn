@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://core/visual/FakeShadow.gd" type="Script" id=1]
+
+[node name="FakeShadow" type="MeshInstance"]
+cast_shadow = 0
+script = ExtResource( 1 )
+grid_resolution = 12
+base_opacity = 0.4
+skirt_limit = 6.0

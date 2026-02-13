@@ -3,7 +3,7 @@
 # ==============================================================================
 # ODISEA PROP VALIDATION RUNNER
 # Usage: ./test_prop.sh [--target="DoorName"] [--base64] [--editor-path="/path/to/godot"]
-# If --target is omitted, ALL props in core_v2/props/ will be validated.
+# If --target is omitted, ALL props in core/props/ will be validated.
 # Validates that screenshots differ between states (minimum pixel delta).
 # ==============================================================================
 
@@ -12,8 +12,8 @@ RETURN_BASE64=false
 GODOT_BIN="godot3-bin" 
 PROJECT_PATH="$(pwd)"
 OUTPUT_DIR="$PROJECT_PATH/test_output/props"
-VALIDATOR_SCRIPT="res://core_v2/scripts/prop_validator.oys"
-PROP_DIR="./core_v2/props"
+VALIDATOR_SCRIPT="res://core/scripts/prop_validator.oys"
+PROP_DIR="./core/props"
 MIN_DELTA_PERCENT=0.5  # Minimum % of pixels that must differ between screenshots
 
 # 1. Parse Arguments
@@ -95,7 +95,7 @@ run_validation() {
     export OYS_AUTO_RUN="$VALIDATOR_SCRIPT"
 
     # Run Godot
-    $GODOT_BIN --path "$PROJECT_PATH" "res://core_v2/scenes/PropStage.tscn" --no-window --quit-after 200
+    $GODOT_BIN --path "$PROJECT_PATH" "res://core/scenes/PropStage.tscn" --no-window --quit-after 200
     
     # Check results
     COUNT=$(ls "$OUTPUT_DIR"/${PROP_NAME}_*.png 2>/dev/null | wc -l)

@@ -11,7 +11,7 @@
 **Ejecutar los tests para verificar que no se rompió nada:**
 
 ```shell
-./runtest.sh -a ./core_v2/tests/
+./runtest.sh -a ./core/tests/
 ```
 
 Si algún test falla, corregirlo antes de considerar el trabajo terminado.
@@ -22,16 +22,16 @@ Si algún test falla, corregirlo antes de considerar el trabajo terminado.
 
 ```shell
 # Correr un archivo de test específico
-./runtest.sh -a ./core_v2/tests/test_mi_feature.gd
+./runtest.sh -a ./core/tests/test_mi_feature.gd
 
 # Correr solo los tests de un archivo
-./runtest.sh -a ./core_v2/tests/test_player_controller_v2.gd
+./runtest.sh -a ./core/tests/test_determinism.gd
 ```
 
 **Solo corre TODOS los tests al final**, antes de entregar el trabajo completo:
 
 ```shell
-./runtest.sh -a ./core_v2/tests/
+./runtest.sh -a ./core/tests/
 ```
 
 ### 📋 Leer el Output de los Tests
@@ -78,7 +78,7 @@ sudo apt-get update && sudo apt-get install -y godot3
 
 ### PlayerController — Movimiento y Plataformas
 
-El `PlayerControllerV2` usa **Transform-Delta Tracking** para seguir plataformas móviles (inspirado en [Terrestrial Characters](https://github.com/Trokara)):
+El `PlayerController` usa **Transform-Delta Tracking** para seguir plataformas móviles (inspirado en [Terrestrial Characters](https://github.com/Trokara)):
 
 1. **Tracking de Plataformas**: Almacena `_platform_collider` y `_platform_last_transform`. Cada frame calcula dónde *estaría* el jugador si siguiera perfectamente la plataforma:
    ```gdscript
@@ -88,7 +88,7 @@ El `PlayerControllerV2` usa **Transform-Delta Tracking** para seguir plataformas
    player.global_transform.origin += delta
    ```
 2. **Herencia de Velocidad**: Al saltar o salir de una plataforma, hereda `_platform_velocity` para conservar momentum.
-3. **Alineación a Pendientes**: `PlayerMovementV2.align_to_floor()` rota el vector de movimiento para que siga el plano del suelo, evitando drift lateral en rampas.
+3. **Alineación a Pendientes**: `PlayerMovement.align_to_floor()` rota el vector de movimiento para que siga el plano del suelo, evitando drift lateral en rampas.
 4. **Resistencia en Pendientes**: Ralentiza el movimiento cuesta arriba según el ángulo (configurable via `slope_resistance_factor`).
 5. **Stair-Stepping**: `_try_step_up()` permite subir escalones automáticamente hasta `step_height` (default 0.4m).
 
@@ -99,16 +99,16 @@ Se conserva `set_external_velocity(v: Vector3)` para:
 - **Efectos especiales**: Knockback, viento, explosiones, etc.
 - **Objetos legacy**: Compatibilidad con sistemas antiguos.
 
-> **Nota**: Las plataformas móviles (`MovingPlatformV2`) ya NO necesitan llamar `set_external_velocity()` para el jugador. El tracking por transform lo hace automáticamente. Sin embargo, deben seguir llamándolo para otros cuerpos (cajas, NPCs) que no tengan tracking propio.
+> **Nota**: Las plataformas móviles (`MovingPlatform`) ya NO necesitan llamar `set_external_velocity()` para el jugador. El tracking por transform lo hace automáticamente. Sin embargo, deben seguir llamándolo para otros cuerpos (cajas, NPCs) que no tengan tracking propio.
 
 - **Conveyor**: Aplicar velocidad a cuerpos en su área, usando `set_external_velocity()` para el jugador con `external_source_is_static = false`.
-- **Signals**: Las señales no deben usarse para lógica que afecte el estado físico (posición, velocidad). Su uso debe limitarse a efectos no deterministas (sonido, animaciones, UI). Por ejemplo, `PilotAnimatorV2` puede escuchar señales para disparar animaciones, pero no debe alterar el `state` del `PlayerController`.
+- **Signals**: Las señales no deben usarse para lógica que afecte el estado físico (posición, velocidad). Su uso debe limitarse a efectos no deterministas (sonido, animaciones, UI). Por ejemplo, `PilotAnimator` puede escuchar señales para disparar animaciones, pero no debe alterar el `state` del `PlayerController`.
 
 ## Normas de Trabajo
-- Commits pequeños y enfocados. Validar cambios en `TestScene_v2.tscn`.
+- Commits pequeños y enfocados. Validar cambios en `TestScene.tscn`.
 - Documentar `export var` en el Inspector.
 - Usar GdUnit3 para tests.
-- **Todo el código nuevo o refactorizado debe ir en `src/core_v2`**.
+- **Todo el código nuevo o refactorizado debe ir en `core/`**.
 
 ## Contrato de Replay Determinístico
 
@@ -117,13 +117,13 @@ Para garantizar replays determinísticos, todo agente sincronizado debe:
 1.  Pertenecer al grupo `replay_sync`.
 2.  Implementar `restore_snapshot(data: Dictionary)`.
 3.  Ejecutar toda la lógica de movimiento/simulación en `_physics_process(delta)`. **Nunca en `_process(delta)`**.
-4.  Consumir input a través de `InputProviderV2` (jugador) o basarse solo en estado interno (NPCs).
+4.  Consumir input a través de `InputProvider` (jugador) o basarse solo en estado interno (NPCs).
 
 ### Ejecución de Tests de Determinismo
 
 ```shell
-# Ejecutar el test de determinismo para core_v2
-./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd
+# Ejecutar el test de determinismo para core
+./runtest.sh -a ./core/tests/test_determinism.gd
 ```
 
 Este comando utiliza el script `runtest.sh` para lanzar Godot en modo headless y ejecutar la suite de tests especificada. Si el `drift` (desviación) entre la posición final del replay y la esperada supera un umbral mínimo, el test fallará, indicando una ruptura en el determinismo.

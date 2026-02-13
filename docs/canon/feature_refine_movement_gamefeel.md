@@ -6,7 +6,7 @@ Para mejorar el control, el jugador debe poder controlar la altura del salto seg
 
 Lógica: Si el jugador suelta el botón de salto (!input.jump) y la velocidad vertical es mayor a un umbral (ej. jump_velocity * 0.5), se debe aplicar una fuerza de frenado o recortar la velocidad vertical inmediatamente.
 
-Determinismo: Esta comprobación debe ocurrir exclusivamente dentro del step(dt, input) del PlayerJumpV2.
+Determinismo: Esta comprobación debe ocurrir exclusivamente dentro del step(dt, input) del PlayerJump.
 
 2. Fricción Diferenciada (Air vs Ground)
 
@@ -18,7 +18,7 @@ movement_friction: Usada cuando is_on_floor().
 
 air_friction: Usada cuando !is_on_floor() (típicamente un valor menor para permitir inercia, o mayor para restringir control).
 
-Implementación: El PlayerMovementV2 debe seleccionar la fricción basada en el estado de colisión del frame anterior.
+Implementación: El PlayerMovement debe seleccionar la fricción basada en el estado de colisión del frame anterior.
 
 3. Curvas de Aceleración y Suavizado
 
@@ -46,7 +46,7 @@ Estado: Debe ser un booleano use_tank_controls conmutable y capturable en el sna
 
 Mecánica: Al presionar el input de agachado, se reduce la altura de la CollisionShape y se penaliza la max_speed (ej. 50%).
 
-Visual: El PilotAnimatorV2 debe recibir la señal o el estado para cambiar a la animación de crouch_idle_loop o crouch_fwd_loop (el usuario puede editar el AnimationTree de acuerdo a tus instrucciones).
+Visual: El PilotAnimator debe recibir la señal o el estado para cambiar a la animación de crouch_idle_loop o crouch_fwd_loop (el usuario puede editar el AnimationTree de acuerdo a tus instrucciones).
 
 Importante: La reducción de la colisión debe hacerse hacia arriba para evitar que el jugador caiga a través del suelo o se quede atrapado en techos bajos.
 

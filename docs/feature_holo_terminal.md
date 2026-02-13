@@ -1,13 +1,13 @@
 Technical Specification: HoloTerminal V2.2 (Cinematic Integration)
 1. Objective
 
-Upgrade the HoloTerminalV2 to include an integrated Cinematic Camera System. The terminal should automatically capture the player's camera view when activated and entered, providing a clear view of the UI. Additionally, it must manage the visibility of the holographic mesh to prevent visual obstruction during the close-up shot.
+Upgrade the HoloTerminal to include an integrated Cinematic Camera System. The terminal should automatically capture the player's camera view when activated and entered, providing a clear view of the UI. Additionally, it must manage the visibility of the holographic mesh to prevent visual obstruction during the close-up shot.
 2. Architecture Updates
 A. New Node Hierarchy
 
-We will extend the existing HoloTerminalV2.tscn to include the camera infrastructure as children. This keeps the prefab self-contained.
+We will extend the existing HoloTerminal.tscn to include the camera infrastructure as children. This keeps the prefab self-contained.
 
-HoloTerminalV2 (InteractableBaseV2)
+HoloTerminal (InteractableBase)
 ├── BaseMesh
 ├── ScreenContainer
 │   └── ScreenMesh (The "Halo"/Hologram Volume)
@@ -23,7 +23,7 @@ HoloTerminalV2 (InteractableBaseV2)
         └── CollisionShape (Defining the "sweet spot" area)
 
 
-B. New Exported Variables (HoloTerminalV2.gd)
+B. New Exported Variables (HoloTerminal.gd)
 
 Add these variables to control the new behavior via the Inspector:
 
@@ -35,7 +35,7 @@ Add these variables to control the new behavior via the Inspector:
 
 3. Logic Implementation Details
 
-The HoloTerminalV2.gd script needs to manage the CameraZone based on its own state (is_active).
+The HoloTerminal.gd script needs to manage the CameraZone based on its own state (is_active).
 A. State Synchronization (_update_visuals / step)
 
 The CameraZone should only trigger the camera if the terminal is fully open.
@@ -90,7 +90,7 @@ To make this easy to edit without hardcoding paths in script:
 
     Best Approach: Instead of IDs, since they are in the same scene, the script can assign them dynamically.
 
-        In _ready(), HoloTerminalV2 finds the child CinematicRig.
+        In _ready(), HoloTerminal finds the child CinematicRig.
 
         It assigns that rig's path to the child CameraZone.cinematic_rig_path.
 

@@ -1,7 +1,7 @@
 tool
 extends EditorSpatialGizmoPlugin
 
-const OcclusionArea = preload("res://core_v2/components/OcclusionZoneV2.gd")
+const OcclusionArea = preload("res://core/components/OcclusionZone.gd")
 
 var undo_redo: UndoRedo
 
@@ -13,10 +13,10 @@ func get_name():
 	return "AreaResizeGizmo"
 
 func has_gizmo(spatial):
-	return spatial is BaseZoneV2
+	return spatial is BaseZone
 
 func _get_target_shape(spatial):
-	if not spatial is BaseZoneV2: return null
+	if not spatial is BaseZone: return null
 	
 	var host = null
 	var raw_host = spatial.get("_host_area")

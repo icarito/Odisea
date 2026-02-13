@@ -15,17 +15,17 @@ This specification will now detail the core architectural components and data fl
 
 2.0 Core System Architecture & Data Flow
 
-A clear architectural plan is critical to ensure this feature integrates cleanly with existing systems without compromising stability or determinism. This section outlines the high-level interactions between established components like PlayerControllerV2 and ReplayManager, and the new components required for the 2.5D mode transition.
+A clear architectural plan is critical to ensure this feature integrates cleanly with existing systems without compromising stability or determinism. This section outlines the high-level interactions between established components like PlayerController and ReplayManager, and the new components required for the 2.5D mode transition.
 
 The event and data flow upon the player character entering a SideScrollTransitionZone will proceed as follows:
 
 1. Detection: A SideScrollTransitionZone, implemented as an Area3D node, detects the player character's body_entered signal.
 2. State Update: The zone emits a signal to the ReplayManager singleton, which then updates the global player state. This signal includes the specific Transform of the 2.5D plane. This state change must be captured as a discrete event in the replay stream to ensure it is reproduced deterministically.
-3. Controller Constraint: The PlayerControllerV2.step() function, which reads the player's state each frame, detects the new is_in_25d_mode flag. It then deliberately ignores any depth-axis input from the input object and constrains all physics calculations to the newly defined 2.5D plane.
+3. Controller Constraint: The PlayerController.step() function, which reads the player's state each frame, detects the new is_in_25d_mode flag. It then deliberately ignores any depth-axis input from the input object and constrains all physics calculations to the newly defined 2.5D plane.
 4. Camera Transition: The PlayerSpringCam script, also listening for the global state change, is notified. It calculates a target side-scroller transform and begins a smooth, time-based interpolation from its current 3D position to the new fixed perspective.
 5. Snapshot Integration: At every frame, the SessionManager's snapshotting process queries the player's state. It queries, serializes, and stores the new data fields essential for this feature: is_in_25d_mode, camera_transition_alpha, and the active_2d_plane_transform.
 
-This event-driven approach is critical for maintaining determinism and simplifying unit testing. It ensures the core PlayerControllerV2 remains pure, reacting only to state changes managed by singletons. This avoids the "marioneta basada en estados" (state-based puppeteering) anti-pattern identified during previous replay system analysis, where physics are incorrectly overwritten frame-by-frame, and instead adheres to our established 'pure input replay' architecture.
+This event-driven approach is critical for maintaining determinism and simplifying unit testing. It ensures the core PlayerController remains pure, reacting only to state changes managed by singletons. This avoids the "marioneta basada en estados" (state-based puppeteering) anti-pattern identified during previous replay system analysis, where physics are incorrectly overwritten frame-by-frame, and instead adheres to our established 'pure input replay' architecture.
 
 3.0 Component Implementation Details
 
@@ -39,9 +39,9 @@ This component serves as the catalyst for the entire feature. It will be impleme
   * On body_entered, it will call ReplayManager.enter_25d_zone(plane_transform) to broadcast the state change globally.
   * On body_exited, it will call the corresponding ReplayManager.exit_25d_zone() method to revert the player and camera back to the standard 3D mode.
 
-3.2 PlayerControllerV2 Modifications
+3.2 PlayerController Modifications
 
-All modifications to the core PlayerControllerV2 will be minimal and non-invasive to protect its deterministic integrity. The changes will be focused entirely on reacting to a new state read from the snapshot, not on adding new complex logic or environmental detection.
+All modifications to the core PlayerController will be minimal and non-invasive to protect its deterministic integrity. The changes will be focused entirely on reacting to a new state read from the snapshot, not on adding new complex logic or environmental detection.
 
 * New State Variables: Expand the player's state Dictionary to include is_in_25d_mode (a bool) and active_2d_plane (a Transform).
 * Input Handling: Within the step() function, the existing input processing logic will be wrapped in a conditional check. If is_in_25d_mode is true, the component of the input vector corresponding to the plane's local Z-axis (depth) will be zeroed out.

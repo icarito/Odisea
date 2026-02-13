@@ -1,0 +1,50 @@
+[gd_scene load_steps=10 format=2]
+
+[ext_resource path="res://core/actors/Pilot.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core/props/HeavyBlastDoor.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core/props/VentilationTurbine.tscn" type="PackedScene" id=3]
+[ext_resource path="res://core/props/AirlockChamber.tscn" type="PackedScene" id=4]
+[ext_resource path="res://core/props/PlasmaGenerator.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core/props/FloorHatch.tscn" type="PackedScene" id=6]
+[ext_resource path="res://core/props/Lever.tscn" type="PackedScene" id=7]
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=8]
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=9]
+
+[node name="TestPropsScene" type="Spatial"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 8 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="WorldEnvironment"]
+transform = Transform( 0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 10, 0 )
+shadow_enabled = true
+
+[node name="Floor" type="CSGBox" parent="."]
+use_collision = true
+width = 100.0
+height = 0.2
+depth = 100.0
+material = ExtResource( 9 )
+
+[node name="Pilot" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
+
+[node name="HeavyBlastDoor" parent="." instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, -10 )
+
+[node name="VentilationTurbine" parent="." instance=ExtResource( 3 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 2, -10 )
+
+[node name="Lever_Turbine" parent="." instance=ExtResource( 7 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, -10 )
+target_node = NodePath("../VentilationTurbine")
+lever_color = Color( 0, 0.8, 0, 1 )
+
+[node name="AirlockChamber" parent="." instance=ExtResource( 4 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 2, -10 )
+
+[node name="PlasmaGenerator" parent="." instance=ExtResource( 5 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 10 )
+
+[node name="FloorHatch" parent="." instance=ExtResource( 6 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0.1, 10 )

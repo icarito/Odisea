@@ -1,7 +1,7 @@
 # Test SideScroll Inversion (Lock X + Invert)
 # Requirement: Lock X + Invert -> Right maps to +Z, Forward maps to +X
 
-LEVEL res://core_v2/levels/TestScene_v2.tscn
+LEVEL res://core/levels/TestScene.tscn
 
 # Find Pilot and SideScroll
 CALL "find_node" "Pilot" true false

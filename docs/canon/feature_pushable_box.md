@@ -1,4 +1,4 @@
-Especificación: PushableBoxV2 (Objeto Híbrido Determinista)
+Especificación: PushableBox (Objeto Híbrido Determinista)
 
 1. Objetivo
 

@@ -4,7 +4,7 @@ func _init():
 	print("Running SideScroll Inversion Test (GDScript)...")
 	
 	# 1. Load Scene (Ensures CameraRig and environment exist)
-	var Level = load("res://core_v2/levels/TestScene_v2.tscn")
+	var Level = load("res://core/levels/TestScene.tscn")
 	var level_instance = Level.instance()
 	root.add_child(level_instance)
 	

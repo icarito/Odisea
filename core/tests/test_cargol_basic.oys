@@ -1,0 +1,43 @@
+LEVEL res://core/tests/TestScene_Cargol.tscn
+
+// Test: Basic Cargol Cargo Pickup and Movement
+// This test verifies that Cargol can:
+// 1. Move to a target position
+// 2. Pick up cargo
+// 3. Transport it to a new location
+// 4. Release the cargo
+
+SECTION "Cargo Transport Test"
+    // Drone starts at (0, 5, 0)
+    // Cargo starts at (5, 1, 0)
+    
+    // Move above cargo
+    CALL CargolDrone "move_to" [5, 2, 0]
+    WAIT 1.5
+    
+    // Pickup cargo
+    CALL CargolDrone "pickup" "../Cargo"
+    WAIT 0.5
+    
+    // Move back to origin area
+    CALL CargolDrone "move_to" [0, 5, 0]
+    WAIT 1.5
+    
+    // Release cargo
+    CALL CargolDrone "release" [0, 0, 0]
+    WAIT 0.5
+    
+    // Verify results
+    // Cargo should have moved from (5, 1, 0) to roughly (0, 5, 0) then released/fallen.
+    
+    // Check Cargo X position using helper to get value into variable
+    SET $cargo_x GET_NODE_POS_X "Cargo"
+    
+    // Should be near 0 (allow some drift)
+    ASSERT $cargo_x < 2.0 "Cargo didn't move to target X (< 2.0)"
+    ASSERT $cargo_x > -2.0 "Cargo didn't move to target X (> -2.0)"
+    
+    // Check Cargo moved from original spot (5.0)
+    ASSERT $cargo_x < 4.0 "Cargo should have moved away from start (5.0)"
+
+END

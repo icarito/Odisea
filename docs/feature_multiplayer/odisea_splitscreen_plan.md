@@ -1,6 +1,6 @@
 # Plan Split-Screen (Pendiente Reimplementación)
 
-Nota: Este plan debe actualizarse a `core_v2` usando `InputProviderV2` y `SessionManager` multi-dispositivo. Ver `docs/feature_multiplayer/README.md`.
+Nota: Este plan debe actualizarse a `core` usando `InputProvider` y `SessionManager` multi-dispositivo. Ver `docs/feature_multiplayer/README.md`.
 
 # Plan de Implementación: Split-Screen Local Multiplayer + Netplay
 ## Godot 3.6.2 | Arquitectura Modular para Odisea

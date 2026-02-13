@@ -1,0 +1,8 @@
+LEVEL res://core/tests/test_oys_trigger.tscn
+
+
+SECTION "Walk to trigger"
+    FW 1s
+    WAIT 3s
+    ASSERT pos.y < 1 "Player should keep walking and fall"
+END

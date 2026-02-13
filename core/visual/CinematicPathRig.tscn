@@ -1,0 +1,28 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://core/visual/CinematicPathRig.gd" type="Script" id=1]
+
+[sub_resource type="Curve3D" id=1]
+_data = {
+"points": PoolVector3Array( 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 5, 2, -5, 0, 0, 0, 0, 0, 0, 10, 2, 0, 0, 0, 0, 0, 0, 0, 5, 2, 5 ),
+"tilts": PoolRealArray( 0, 0, 0, 0 )
+}
+
+[node name="CinematicPathRig" type="Path" groups=["cinematic_rigs"]]
+curve = SubResource( 1 )
+script = ExtResource( 1 )
+duration = 5.0
+loop = false
+auto_play = false
+look_ahead = true
+fov = 70.0
+near = 0.1
+far = 1000.0
+transition_time = 0.5
+
+[node name="PathFollow" type="PathFollow" parent="."]
+rotation_mode = 3
+
+[node name="Camera" type="Camera" parent="PathFollow"]
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]

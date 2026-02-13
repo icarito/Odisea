@@ -1,12 +1,12 @@
 # Estado Técnico — Odisea (2026-01-07)
 
-Documento actualizado tras limpieza y refactor core_v2. Resume stack, arquitectura actual, sistemas implementados y roadmap MVP.
+Documento actualizado tras limpieza y refactor core. Resume stack, arquitectura actual, sistemas implementados y roadmap MVP.
 
 ## Resumen Ejecutivo
 - **Motor**: Godot 3.6.2 (GLES2)
 - **Render**: GLES2 (compatibilidad máxima)
-- **Núcleo Jugable**: Tercera persona determinista con `core_v2` (KinematicBody, AnimationTree, replay)
-- **Sistema Pivote**: `MovingPlatformV2.gd` — plataformas móviles deterministas con snapshots y replay validado
+- **Núcleo Jugable**: Tercera persona determinista con `core` (KinematicBody, AnimationTree, replay)
+- **Sistema Pivote**: `MovingPlatform.gd` — plataformas móviles deterministas con snapshots y replay validado
 - **Estado**: Proyecto limpio, tests pasando (drift < 0.000009), listo para reimplementar sistemas y features MVP
 
 ## Stack y Configuración
@@ -17,14 +17,14 @@ Documento actualizado tras limpieza y refactor core_v2. Resume stack, arquitectu
 - **Input**: Acciones (forward/backward/left/right, jump, sprint, aim, etc.) + soporte joystick virtual
 
 ## Arquitectura Cleanslate (Core_V2)
-- **Input**: `core_v2/input/InputDataV2.gd` + `InputProviderV2.gd` — abstracción de input para LIVE/REPLAY
-- **Sim**: `core_v2/sim/` — movimiento (PlayerControllerV2.gd, PlayerMovementV2.gd, PlayerJumpV2.gd, Conveyor.gd)
-- **Things**: `core_v2/things/MovingPlatformV2.gd` — plataformas móviles deterministas (✅ Referencia)
-- **View**: `core_v2/view/PilotAnimatorV2.gd` — animación
-- **Scenes**: `core_v2/levels/TestScene_v2.tscn` — test harness
-- **Tests**: `core_v2/tests/test_determinism_v2.gd` — validación de replay (PASS)
-- **Autoloads**: `core_v2/autoloads/SessionManager.gd` — session management
-- **Data**: `core_v2/replay/` — grabación y reproducción de replays
+- **Input**: `core/input/InputData.gd` + `InputProvider.gd` — abstracción de input para LIVE/REPLAY
+- **Sim**: `core/sim/` — movimiento (PlayerController.gd, PlayerMovement.gd, PlayerJump.gd, Conveyor.gd)
+- **Things**: `core/things/MovingPlatform.gd` — plataformas móviles deterministas (✅ Referencia)
+- **View**: `core/view/PilotAnimator.gd` — animación
+- **Scenes**: `core/levels/TestScene.tscn` — test harness
+- **Tests**: `core/tests/test_determinism.gd` — validación de replay (PASS)
+- **Autoloads**: `core/autoloads/SessionManager.gd` — session management
+- **Data**: `core/replay/` — grabación y reproducción de replays
 
 ## Sistemas Integrados
 - Menú principal (`scenes/Menu.tscn`)
@@ -51,8 +51,8 @@ Documento actualizado tras limpieza y refactor core_v2. Resume stack, arquitectu
 - Todos los sistemas sincronizables deben pertenecer a grupo `replay_sync`
 - Implementar `get_snapshot()` / `restore_snapshot()`
 - Lógica de simulación solo en `_physics_process(delta)`
-- Input consumido vía `InputProviderV2` (LIVE) o desde estado interno (NPCs)
-- Tests ejecutados con `./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd`
+- Input consumido vía `InputProvider` (LIVE) o desde estado interno (NPCs)
+- Tests ejecutados con `./runtest.sh -a ./core/tests/test_determinism.gd`
 
 ## Archivos Legacy Archivados
 - legacy_archive/ — removed

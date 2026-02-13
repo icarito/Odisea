@@ -6,7 +6,7 @@ Implementar un sistema de pruebas automatizadas utilizando GDUnit3 que recorra r
 
 2. Convenciones de Archivos
 
-Ubicación Base: res://core_v2/tests/
+Ubicación Base: res://core/tests/
 
 Patrón de Nombre: replay_test_[description].json
 
@@ -24,7 +24,7 @@ A. Escaneo de Datos (Data Provider)
 
 El test debe implementar una función estática o interna que actúe como DataSource.
 
-Lógica: Utilizar Directory para caminar recursivamente por res://core_v2/tests/.
+Lógica: Utilizar Directory para caminar recursivamente por res://core/tests/.
 
 Filtro: Solo procesar archivos que comiencen con replay_test_ y terminen en .json.
 
@@ -34,7 +34,7 @@ B. Ciclo de Ejecución por Test
 
 Para cada archivo path entregado por el Data Provider:
 
-Instanciación: Cargar la escena de pruebas estándar (TestScene_v2.tscn).
+Instanciación: Cargar la escena de pruebas estándar (TestScene.tscn).
 
 Preparación: - Llamar a SessionManager.load_and_play(path).
 

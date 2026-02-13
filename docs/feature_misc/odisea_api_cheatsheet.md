@@ -1,6 +1,6 @@
 # Odisea API Cheatsheet (Archivado / Referencia)
 
-Nota: Documento no-MVP; referencias pueden no aplicar tras refactor `core_v2`. Consultar `docs/STATE_OF_ODISEA_20260107.md` y `docs/missing_features_act1.md` para las APIs vigentes.
+Nota: Documento no-MVP; referencias pueden no aplicar tras refactor `core`. Consultar `docs/STATE_OF_ODISEA_20260107.md` y `docs/missing_features_act1.md` para las APIs vigentes.
 
 # Odisea MVP: Índice de APIs y Referencias Rápidas
 ## Godot 3.x | Cheat Sheet para Desarrollo

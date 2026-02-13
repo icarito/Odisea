@@ -1,0 +1,30 @@
+[gd_resource type="ShaderMaterial" load_steps=8 format=2]
+
+[ext_resource path="res://core/props/parallax_assets/card_parallax.shader" type="Shader" id=1]
+[ext_resource path="res://assets/odisea_icon.png" type="Texture" id=2]
+[ext_resource path="res://core/props/parallax_assets/layer2.png" type="Texture" id=3]
+[ext_resource path="res://core/props/parallax_assets/layer3.png" type="Texture" id=4]
+[ext_resource path="res://core/props/parallax_assets/mask.png" type="Texture" id=5]
+[ext_resource path="res://core/props/parallax_assets/main.png" type="Texture" id=6]
+[ext_resource path="res://core/props/parallax_assets/back.png" type="Texture" id=7]
+
+[resource]
+shader = ExtResource( 1 )
+shader_param/roughnessInside = 0.471
+shader_param/roughnessOutside = 0.37
+shader_param/specularInside = 0.486
+shader_param/specularOutside = 0.052
+shader_param/metallicInside = 0.418
+shader_param/metallicOutside = 0.418
+shader_param/uvFlip = Vector2( -0.717, -1.163 )
+shader_param/aspectRatio = Vector2( 0.858, 1.086 )
+shader_param/alphaThreshold = 0.229
+shader_param/depth1 = 0.061
+shader_param/depth2 = 0.164
+shader_param/depth3 = 0.293
+shader_param/mainTexture = ExtResource( 6 )
+shader_param/backTexture = ExtResource( 7 )
+shader_param/maskTexture = ExtResource( 5 )
+shader_param/texture1 = ExtResource( 2 )
+shader_param/texture2 = ExtResource( 3 )
+shader_param/texture3 = ExtResource( 4 )

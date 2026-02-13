@@ -5,14 +5,14 @@ Odisea es un juego de plataformas 3D en tercera persona ambientado en una nave e
 
 ## Estructura del Proyecto (2026)
 
-- **src/core_v2/**: Todo el código fuente activo y refactorizado (componentes, sistemas, player_controller, UI, autoloads, simulación, utilidades, tests).
+- **src/core/**: Todo el código fuente activo y refactorizado (componentes, sistemas, player_controller, UI, autoloads, simulación, utilidades, tests).
 - **docs/canon/**: Especificaciones y features fundacionales implementados (OdysseyScript, interactuables, pushable box, gamefeel, sidescroller, test battery, test runner, etc).
 - **docs/archived/**: Features descartados o legacy (ver notas en cada archivo).
 - **AGENTS.md**: Contratos de desarrollo, determinismo y normas de trabajo.
 
 ## Contratos y Normas
 
-Consulta **AGENTS.md** para reglas de determinismo, contratos de agentes, y normas de desarrollo (commits pequeños, tests con GdUnit3, todo en core_v2, etc).
+Consulta **AGENTS.md** para reglas de determinismo, contratos de agentes, y normas de desarrollo (commits pequeños, tests con GdUnit3, todo en core, etc).
 
 ## Features Fundacionales (Canon)
 
@@ -33,7 +33,7 @@ Las siguientes features están implementadas y documentadas en `docs/canon/`:
 ### Testing determinista
 Para validar determinismo y replays:
 ```sh
-./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd
+./runtest.sh -a ./core/tests/test_determinism.gd
 ```
 Consulta los features canonizados en `docs/canon/` para ejemplos de scripts y tests.
 
@@ -45,7 +45,7 @@ El proyecto cuenta con un pipeline automatizado para que agentes IA y desarrolla
     ```bash
     ./test_prop.sh --target="NombreDelProp" --base64
     ```
-    *   Busca `NombreDelProp.tscn` en `core_v2/props/`.
+    *   Busca `NombreDelProp.tscn` en `core/props/`.
     *   Ejecuta Godot en modo headless usando `PropStage.tscn`.
     *   Corre el script de validación `prop_validator.oys` (Idle -> Interact -> Active -> Off).
 
@@ -56,16 +56,16 @@ El proyecto cuenta con un pipeline automatizado para que agentes IA y desarrolla
 
 ### Validación en Editor (GUI)
 Para depuración manual:
-1. Abre `core_v2/scenes/PropStage.tscn`.
+1. Abre `core/scenes/PropStage.tscn`.
 2. Asigna tu prop a `Dev Prop Path` en el inspector del nodo raíz (`PropStage`).
 3. Activa `Dev Take Screenshots` para correr la secuencia una vez.
 
 ## Sistema de Interactuables y Activación
 
-La arquitectura de `core_v2` separa estrictamente la **Lógica de Estado** (Determinista) de la **Representación Visual** (Interpolada), fundamental para el sistema de Replays.
+La arquitectura de `core` separa estrictamente la **Lógica de Estado** (Determinista) de la **Representación Visual** (Interpolada), fundamental para el sistema de Replays.
 
-### Contrato `InteractableBaseV2`
-Todo objeto interactuable (Puertas, Palancas, Válvulas) debe heredar de `InteractableBaseV2` o sus hijos.
+### Contrato `InteractableBase`
+Todo objeto interactuable (Puertas, Palancas, Válvulas) debe heredar de `InteractableBase` o sus hijos.
 
 *   **Estado Lógico**: `is_active` (bool). Definido por la simulación.
 *   **Estado Visual**: `anim_progress` (float 0.0 - 1.0). Avanza en `_physics_process` mediante `step(dt)`.
@@ -74,11 +74,11 @@ Todo objeto interactuable (Puertas, Palancas, Válvulas) debe heredar de `Intera
 ### Primitivas Disponibles
 No reinventar la rueda. Usar estas clases base cuando sea posible:
 
-*   **`DualSlidingObjectV2`**: Para puertas o compuertas.
+*   **`DualSlidingObject`**: Para puertas o compuertas.
     *   Exporta `mesh_a_path`, `mesh_b_path`.
     *   Vectores de deslizamiento independientes `slide_vector_a/b`.
     *   Ejemplo: `HeavyBlastDoor`.
-*   **`RotatingObjectV2`**: Para válvulas, palancas o puertas giratorias.
+*   **`RotatingObject`**: Para válvulas, palancas o puertas giratorias.
     *   Exporta `rotation_axis` y `rotation_amount`.
     *   Usa interpolación angular determinista.
     *   Ejemplo: `VentilationTurbine` (si aplica).
@@ -86,7 +86,7 @@ No reinventar la rueda. Usar estas clases base cuando sea posible:
 ### Conectividad y Controladores
 Los sistemas complejos se construyen componiendo nodos simples:
 
-1.  **Controladores (e.g., `AirlockControllerV2`)**:
+1.  **Controladores (e.g., `AirlockController`)**:
     *   No heredan necesariamente de `Interactable`.
     *   Orquestan múltiples interactuables (`outer_door`, `inner_door`).
     *   Se conectan vía `NodePath` exports (`outer_door_path`).

@@ -2,8 +2,8 @@
 
 # runtest.sh - Ejecuta tests de GdUnit3 para Odisea
 # Uso:
-#   ./runtest.sh -a ./core_v2/tests/           # Ejecutar todos los tests (headless)
-#   ./runtest.sh --show -a ./core_v2/tests/    # Con ventana visible
+#   ./runtest.sh -a ./core/tests/           # Ejecutar todos los tests (headless)
+#   ./runtest.sh --show -a ./core/tests/    # Con ventana visible
 #   ./runtest.sh --oys test_salto_vertical     # Ejecutar test OYS específico
 #
 # Opciones:
@@ -174,17 +174,17 @@ while [[ $# -gt 0 ]]; do
                 echo "Uso: ./runtest.sh --oys test_salto_vertical"
                 echo ""
                 echo "Tests OYS disponibles:"
-                ls -1 ./core_v2/tests/*.oys 2>/dev/null | sed 's|.*/||; s|\.oys$||'
+                ls -1 ./core/tests/*.oys 2>/dev/null | sed 's|.*/||; s|\.oys$||'
                 exit 1
             fi
             
             # Buscar el archivo OYS
-            OYS_FILE="./core_v2/tests/${OYS_NAME}.oys"
+            OYS_FILE="./core/tests/${OYS_NAME}.oys"
             if [ ! -f "$OYS_FILE" ]; then
                 echo "ERROR: No se encontró $OYS_FILE"
                 echo ""
                 echo "Tests OYS disponibles:"
-                ls -1 ./core_v2/tests/*.oys 2>/dev/null | sed 's|.*/||; s|\.oys$||'
+                ls -1 ./core/tests/*.oys 2>/dev/null | sed 's|.*/||; s|\.oys$||'
                 exit 1
             fi
             
@@ -195,7 +195,7 @@ while [[ $# -gt 0 ]]; do
             # Usar variable de entorno OYS_FILTER para filtrar el test
             export OYS_FILTER="${OYS_NAME}"
             run_and_capture $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd \
-                -a "./core_v2/tests/test_determinism_v2.gd" "$@"
+                -a "./core/tests/test_determinism.gd" "$@"
             exit_code=$?
             
             echo "---"
@@ -225,7 +225,7 @@ done
 
 # If no arguments provided, default to all tests
 if [ ${#ARGS[@]} -eq 0 ]; then
-    ARGS=("-a" "./core_v2/tests/")
+    ARGS=("-a" "./core/tests/")
 fi
 
 echo "🧪 Ejecutando tests GdUnit3 ${HEADLESS:+(headless)}..."

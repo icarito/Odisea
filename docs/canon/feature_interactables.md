@@ -10,8 +10,8 @@ This unifies interaction logic for static objects (terminals) and dynamic object
 
 A. The Sensor (InteractionSensor.gd)
 
-Location: core_v2/Components/Player/InteractionSensor.gd
-Node: Area (Child of PlayerControllerV2).
+Location: core/Components/Player/InteractionSensor.gd
+Node: Area (Child of PlayerController).
 Responsibilities:
 
 Candidate Tracking: Maintain a list of overlapping Interactable objects.
@@ -28,7 +28,7 @@ Focus Management: Emit signals when the "Best Candidate" changes.
 
 B. The Interactable (InteractableEntity.gd)
 
-Location: core_v2/Components/Shared/InteractableEntity.gd
+Location: core/Components/Shared/InteractableEntity.gd
 Inheritance: Base class for all interactive objects.
 Core Data:
 
@@ -42,7 +42,7 @@ requirements: AttributeResource (e.g., "Strength > 5").
 
 The goal is to refactor current prototypes (MovingPlatform, Conveyor, Drawer) into this unified system.
 
-A. Moving Platforms (MovingPlatformV2)
+A. Moving Platforms (MovingPlatform)
 
 Current Status: Deterministic KinematicBody with time_accumulator.
 
@@ -54,7 +54,7 @@ Current Status: Physics area applying force.
 
 UIF Integration: Generally passive. However, a "Conveyor Switch" object would be an InteractableEntity that toggles the Conveyor.active state deterministically.
 
-C. Pushable Boxes (PushableBoxV2)
+C. Pushable Boxes (PushableBox)
 
 Current Status: Hybrid Rigid/Kinematic body.
 

@@ -1,4 +1,4 @@
-TEST_SCENE core_v2/levels/TestScene_AcrobaticJump.tscn
+TEST_SCENE core/levels/TestScene_AcrobaticJump.tscn
 
 # 1. Start moving forward
 INPUT_MOVE 0 -1.0
