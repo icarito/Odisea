@@ -88,7 +88,8 @@ filter_noisy_output() {
     sed -E \
         -e '/^[[:space:]]*\[[^]]+\]/d' \
         -e '/^[[:space:]]*$/d' \
-        -e '/^DEBUG BASEZONE:/d'
+        -e '/^DEBUG BASEZONE:/d' \
+        -e '/VisualServer attempted to free a NULL RID/d'
 }
 
 run_and_capture() {
