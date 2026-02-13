@@ -1,0 +1,7 @@
+[tool.pytest.ini_options]
+addopts = "-v -s"
+testpaths = ["tests", "core_v2/tests"]
+python_files = ["test_*.py", "*_test.py"]
+markers = [
+    "oys: Odyssey Script Tests",
+]
