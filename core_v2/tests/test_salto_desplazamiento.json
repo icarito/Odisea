@@ -2423,37 +2423,6 @@
   },
   "meta": {
     "world_start_state": {
-      "/root/PushableBoxV2": {
-        "pos": [
-          0.025419,
-          -2445.133789,
-          93.677788
-        ],
-        "rot": [
-          0.562388,
-          0.198754,
-          0.208927
-        ],
-        "vel": [
-          -0.000079,
-          -94.939102,
-          0.275307
-        ],
-        "ang": [
-          0.00061,
-          0.000416,
-          0.000614
-        ],
-        "mode": 0,
-        "fbt": 0,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
       "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform/LeverBase/RotatingLever": {
         "active": false,
         "used": false,

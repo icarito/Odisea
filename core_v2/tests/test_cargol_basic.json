@@ -4392,24 +4392,6 @@
         "crouch": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -4430,7 +4412,7 @@
         ]
       }
     ],
-    "91": [
+    "90": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -4440,7 +4422,7 @@
         ]
       }
     ],
-    "122": [
+    "121": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -4452,7 +4434,7 @@
         ]
       }
     ],
-    "213": [
+    "211": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -4464,7 +4446,7 @@
         ]
       }
     ],
-    "243": [
+    "242": [
       {
         "command": "SET",
         "var": "$cargo_x",
@@ -4576,6 +4558,6 @@
   "oys_variables": {
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
-    "$cargo_x": 0.146451
+    "$cargo_x": 0
   }
 }

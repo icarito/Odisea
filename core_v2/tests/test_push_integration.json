@@ -2736,24 +2736,6 @@
         "crouch": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -2857,7 +2839,7 @@
         "condition": "$yaw_deg > -5.0 \"Alignment Error: Yaw too negative\""
       }
     ],
-    "151": [
+    "150": [
       {
         "command": "PRINT",
         "message": "Verifying exit state..."
@@ -3234,9 +3216,9 @@
   },
   "final_expected_state": {
     "position": [
-      -0.00008,
+      -0.000359,
       0.0415,
-      1.661565
+      1.663955
     ],
     "velocity": [
       0,

@@ -26,6 +26,7 @@ var _pending_asserts := []
 var _pending_setters := []
 var _monitored_signals = {}
 var _env_vars := {}
+var _session_spawned_nodes := []
 
 
 # Optimization: Cache for replay_sync group
@@ -51,7 +52,15 @@ var is_respawning := false
 
 func _get_replay_sync_nodes() -> Array:
 	if _replay_sync_cache_dirty:
-		_replay_sync_cache = get_tree().get_nodes_in_group("replay_sync")
+		var all_nodes = get_tree().get_nodes_in_group("replay_sync")
+		var active_scene = _get_active_scene_root()
+		var filtered = []
+		for node in all_nodes:
+			if not is_instance_valid(node):
+				continue
+			if not is_instance_valid(active_scene) or active_scene.is_a_parent_of(node):
+				filtered.append(node)
+		_replay_sync_cache = filtered
 		_replay_sync_cache_dirty = false
 	return _replay_sync_cache
 
@@ -65,14 +74,16 @@ func _on_node_removed(node: Node):
 
 func _find_player():
 	# Prioridad 0: Si ya tenemos una instancia válida y no está siendo borrada, usarla
-	if is_instance_valid(player) and not player.is_queued_for_deletion():
+	if _is_player_candidate_valid(player):
+		_initialize_player_for_session(player)
 		return
 
 	# Prioridad 1: Buscar en el grupo 'player' (más robusto contra renombrados (@Pilot@...))
 	var pilots = get_tree().get_nodes_in_group("player")
 	for p in pilots:
-		if is_instance_valid(p) and not p.is_queued_for_deletion():
+		if _is_player_candidate_valid(p):
 			player = p
+			_initialize_player_for_session(player)
 			return
 
 	# Backup: Buscar por nombre en el árbol
@@ -80,14 +91,34 @@ func _find_player():
 	if not is_instance_valid(pilot) and get_tree().current_scene:
 		pilot = get_tree().current_scene.find_node("Pilot", true, false)
 	
-	if is_instance_valid(pilot) and not pilot.is_queued_for_deletion():
+	if _is_player_candidate_valid(pilot):
 		player = pilot
+		_initialize_player_for_session(player)
 	else:
 		if not is_respawning and not _is_waiting_for_respawn_validation:
 			# Solo loguear si no estamos esperando activamente un respawn
 			# print("[SessionManager] _find_player: No se encontró al jugador.")
 			pass
 		player = null
+
+func _is_player_candidate_valid(p) -> bool:
+	if not is_instance_valid(p):
+		return false
+	if p.is_queued_for_deletion():
+		return false
+	if not p.is_inside_tree():
+		return false
+	var scene = get_tree().current_scene
+	if is_instance_valid(scene) and not scene.is_a_parent_of(p):
+		return false
+	return true
+
+func _initialize_player_for_session(p):
+	if is_recording or is_replaying:
+		if not p.is_replay_mode:
+			p.is_replay_mode = true
+			print("[SessionManager] Player initialized for session: is_replay_mode=true")
+		p.set_physics_process(false)
 
 
 func _ready():
@@ -536,6 +567,8 @@ func load_and_play(path: String):
 		oys_interpreter.stop_requested = true
 	is_replaying = false
 	is_recording = false
+	is_respawning = false
+	_is_waiting_for_respawn_validation = false
 	oys_assert_failed = false
 	event_timeline = {}
 	oys_variables = {}
@@ -548,11 +581,20 @@ func load_and_play(path: String):
 	_current_replay_data = {}
 	_oys_requested_scene = ""
 	_peak_y = -999.0
+	_oys_actors = {}
+	_cleanup_session_spawned_nodes()
 	Engine.time_scale = 1.0
 	
+	var _ts = get_node_or_null("TeleportSystem")
+	if _ts and _ts.has_method("reset"):
+		_ts.reset()
+	
 	_find_player()
-	if is_instance_valid(player) and player.has_method("full_reset"):
-		player.full_reset()
+	if is_instance_valid(player):
+		if player.has_method("full_reset"):
+			player.full_reset()
+		if player.has_method("force_camera_current"):
+			player.force_camera_current()
 	
 	_current_replay_path = path
 	var ext = path.get_extension().to_lower()
@@ -938,7 +980,7 @@ func _finish_and_validate():
 	if is_instance_valid(player):
 		var cam = player.get_node_or_null("CameraRig") if is_instance_valid(player) else null
 		var cam_pos = cam.global_transform.origin if is_instance_valid(cam) else "null"
-		print("Snapshot: rotation=(%s,%s) pos=%s cam=%s" % [str(player.yaw), str(player.pitch), str(player.global_transform.origin), str(cam_pos)])
+		print("[SessionManager] Replay snapshot: rotation=(%s,%s) pos=%s cam=%s" % [str(player.yaw), str(player.pitch), str(player.global_transform.origin), str(cam_pos)])
 
 	# 2. Validar drift
 	if final_expected_state == null:
@@ -1585,12 +1627,40 @@ func _parse_vector3_flexible(s: String) -> Vector3:
 
 func _handle_spawn_command(cmd: Dictionary):
 	var scene_path = cmd.get("scene", "")
+	if scene_path == "":
+		printerr("[SessionManager] SPAWN failed: empty scene path")
+		return
+
 	var scene = load(scene_path)
-	if scene:
-		var obj = scene.instance()
-		get_tree().current_scene.add_child(obj)
-		if cmd.has("pos"):
-			obj.global_transform.origin = _parse_vector3(cmd.get("pos"))
+	if scene == null:
+		printerr("[SessionManager] SPAWN failed: cannot load scene ", scene_path)
+		return
+
+	var obj = scene.instance()
+	if obj == null:
+		printerr("[SessionManager] SPAWN failed: cannot instance scene ", scene_path)
+		return
+
+	var parent = _get_active_scene_root()
+	if not is_instance_valid(parent):
+		parent = _resolve_stage()
+	if not is_instance_valid(parent):
+		parent = get_tree().root
+	if not is_instance_valid(parent):
+		printerr("[SessionManager] SPAWN failed: no valid parent for ", scene_path)
+		return
+
+	parent.add_child(obj)
+	_register_spawned_node(obj)
+	_prepare_spawned_node_for_determinism(obj)
+	if cmd.has("pos") and obj is Spatial:
+		var raw_pos = cmd.get("pos")
+		var parsed_pos = Vector3.ZERO
+		if typeof(raw_pos) == TYPE_VECTOR3:
+			parsed_pos = raw_pos
+		else:
+			parsed_pos = _parse_vector3_flexible(str(raw_pos))
+		(obj as Spatial).global_transform.origin = parsed_pos
 
 func _handle_play_anim(cmd: Dictionary):
 	var path = cmd.get("path", "")
@@ -1608,6 +1678,56 @@ func _resolve_stage() -> Node:
 	if stage and (stage.name == "PropStage" or stage.has_method("load_prop")):
 		return stage
 	return null
+
+func _get_active_scene_root() -> Node:
+	var scene = get_tree().current_scene
+	if is_instance_valid(scene):
+		return scene
+
+	_find_player()
+	if is_instance_valid(player):
+		var n: Node = player
+		while n.get_parent() and n.get_parent() != get_tree().root:
+			n = n.get_parent()
+		return n
+
+	return null
+
+func _register_spawned_node(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+	_session_spawned_nodes.append(weakref(node))
+
+func _cleanup_session_spawned_nodes() -> void:
+	var is_testing = false
+	if Engine.has_singleton("GdUnit3"):
+		is_testing = Engine.get_singleton("GdUnit3").is_test_suite()
+
+	for wr in _session_spawned_nodes:
+		if wr == null:
+			continue
+		var node = wr.get_ref()
+		if is_instance_valid(node) and not node.is_queued_for_deletion():
+			if is_testing:
+				node.free()
+			else:
+				node.queue_free()
+	_session_spawned_nodes.clear()
+	_replay_sync_cache_dirty = true
+
+func _prepare_spawned_node_for_determinism(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+
+	# If the node supports snapshot restore but is missing group membership, add it.
+	if node.has_method("get_snapshot") and node.has_method("restore_snapshot") and not node.is_in_group("replay_sync"):
+		node.add_to_group("replay_sync")
+
+	# During recording/replay we must centralize simulation stepping.
+	if (is_recording or is_replaying) and node.has_method("step"):
+		node.set_physics_process(false)
+
+	_replay_sync_cache_dirty = true
 
 func _resolve_prop() -> Node:
 	var stage = _resolve_stage()

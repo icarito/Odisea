@@ -2222,37 +2222,6 @@
   },
   "meta": {
     "world_start_state": {
-      "/root/PushableBoxV2": {
-        "pos": [
-          0.0017,
-          0.9999,
-          3.2696
-        ],
-        "rot": [
-          -0,
-          0,
-          0
-        ],
-        "vel": [
-          0,
-          0,
-          0
-        ],
-        "ang": [
-          0,
-          0,
-          0
-        ],
-        "mode": 3,
-        "fbt": 0,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
       "/root/TestScene_Cargol/CargolDrone": {
         "tf_origin": "Vector3( 0, 5, 0 )",
         "tf_basis": "Basis( 1, 0, 0, 0, 1, 0, 0, 0, 1 )",

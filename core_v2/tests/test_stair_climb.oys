@@ -1,0 +1,25 @@
+// test_stair_climb.oys
+// Verifica que el personaje puede subir escaleras sin disparar animaciones de caída/salto.
+
+LEVEL res://core_v2/tests/TestStairBlend.tscn
+
+WAIT 1.0
+
+SECTION "Subida de Escaleras"
+    GET_POS $x $y $z
+    PRINT "Inicio: x=$x y=$y z=$z"
+    
+    // Caminar hacia adelante (que resulta ser +Z por la cámara)
+    FW 2.5m
+    
+    GET_POS $x $y $z
+    PRINT "Fin: x=$x y=$y z=$z"
+    
+    // Altura mínima esperada al final de la escalera
+    ASSERT pos.y > 0.9 "El personaje no subió lo suficiente (pos.y < 0.9)"
+    
+    // Verificación opcional de animaciones (ahora que soportamos acceso profundo)
+    // No deberían haber disparado triggers de salto o caída
+    ASSERT "Visual/Pivot/AnimationTree:parameters/conditions/is_jumping" == false "Se disparó animación de salto en escaleras"
+    ASSERT "Visual/Pivot/AnimationTree:parameters/conditions/is_falling" == false "Se disparó animación de caída en escaleras"
+END

@@ -1863,37 +1863,6 @@
   },
   "meta": {
     "world_start_state": {
-      "/root/PushableBoxV2": {
-        "pos": [
-          0.0017,
-          0.9999,
-          3.2696
-        ],
-        "rot": [
-          -0,
-          0,
-          0
-        ],
-        "vel": [
-          0,
-          0,
-          0
-        ],
-        "ang": [
-          0,
-          0,
-          0
-        ],
-        "mode": 3,
-        "fbt": 0,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
       "CinematicManager": {
         "current_control_mode": 0,
         "latched_camera_basis": [

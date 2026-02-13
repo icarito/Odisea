@@ -450,8 +450,8 @@ static func duration_to_frames(duration_sec: float) -> int:
 
 # Calculate duration from distance and speed
 static func distance_to_duration(distance_m: float, is_running: bool = true) -> float:
-	var speed = 5.0 # base move_speed
+	var speed = 2.0 # matches Pilot_v2 move_speed
 	if is_running:
-		speed *= 1.8 # run_speed_multiplier
+		speed *= 3.5 # matches Pilot_v2 run_speed_multiplier
 	# Add a small buffer for acceleration ramp-up (approx 0.4s)
 	return (distance_m / speed) + 0.4
