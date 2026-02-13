@@ -1,0 +1,63 @@
+name: Odyssey Pytest Runner
+on: [push]
+
+jobs:
+  pytest-runner:
+    name: Run Pytest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Godot cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.godot/projects/odisea-project-cache
+          key: ${{ runner.os }}-godot-${{ hashFiles('**/project.godot') }}
+
+      - name: Install runner prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils xvfb xauth
+          echo "Installed xmllint and xvfb"
+
+      - name: Download Godot 3.6.2
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_linux_headless.64.zip
+          unzip Godot_v3.6.2-stable_linux_headless.64.zip
+          mv Godot_v3.6.2-stable_linux_headless.64 /usr/local/bin/godot
+          chmod +x /usr/local/bin/godot
+
+      - name: Verify Godot binary
+        run: |
+          if [ -x /usr/local/bin/godot ]; then
+            echo "/usr/local/bin/godot is present and executable"
+            /usr/local/bin/godot --version || true
+          else
+            echo "ERROR: /usr/local/bin/godot not found or not executable"
+            ls -l /usr/local/bin || true
+            exit 127
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Pytest
+        run: |
+          pip install pytest pytest-xdist
+
+      - name: Import Resources
+        run: /usr/local/bin/godot --path . -e --quit --headless || true
+
+      - name: Run Pytest
+        env:
+          GODOT_BIN: /usr/local/bin/godot
+        run: |
+          xvfb-run pytest

@@ -52,6 +52,10 @@ class OysItem(pytest.Item):
             if not line and process.poll() is not None:
                 break
             if line:
+                # Filter out known headless spam
+                if "VisualServer attempted to free a NULL RID" in line:
+                    continue
+
                 # Clean ANSI codes
                 clean_line = re.sub(r'\x1b\[[0-9;]*m', '', line).rstrip()
                 print(clean_line) # Print to pytest stdout
