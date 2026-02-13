@@ -49,7 +49,8 @@ class OysItem(pytest.Item):
         # Track errors found in logs
         found_script_error = False
         found_resource_error = False
-        captured_output = []
+        found_no_suite_error = False
+        captured_failed_asserts = []
 
         # Stream output
         while True:
@@ -57,13 +58,18 @@ class OysItem(pytest.Item):
             if not line and process.poll() is not None:
                 break
             if line:
-                captured_output.append(line)
-
                 # Check for critical errors (ported from runtest.sh validate_logs)
                 if "SCRIPT ERROR:" in line:
                     found_script_error = True
                 if "Failed to load resource" in line or "referenced nonexistent resource" in line:
                     found_resource_error = True
+                if "No test suites found" in line:
+                    found_no_suite_error = True
+
+                # Capture assertion failures for report
+                if "ASSERT FAILED" in line or "Assertion failed" in line:
+                    clean_assert = re.sub(r'\x1b\[[0-9;]*m', '', line).strip()
+                    captured_failed_asserts.append(clean_assert)
 
                 # Filter out known headless spam
                 if "VisualServer attempted to free a NULL RID" in line or \
@@ -87,7 +93,10 @@ class OysItem(pytest.Item):
         if returncode != 0:
             if returncode == 1:
                 # 1 = Assertion Failed -> pytest.fail (Failure)
-                pytest.fail(f"Test failed with return code {returncode}. Check logs for [ERROR].", pytrace=False)
+                failure_msg = f"Test failed with return code {returncode}. Check logs for [ERROR]."
+                if captured_failed_asserts:
+                    failure_msg += "\nCaptured Failures:\n" + "\n".join(captured_failed_asserts)
+                pytest.fail(failure_msg, pytrace=False)
             else:
                 # Other = Crash or script error -> Exception (Error)
                 raise OysCrashError(f"Test crashed/error with return code {returncode}.")
@@ -97,6 +106,8 @@ class OysItem(pytest.Item):
              raise OysCrashError("SCRIPT ERROR detected in logs (failing run).")
         if found_resource_error:
              raise OysCrashError("Resource loading error detected in logs (failing run).")
+        if found_no_suite_error:
+             raise OysCrashError("No test suites found (failing run).")
 
     def repr_failure(self, excinfo):
         """Called when self.runtest() raises an exception."""
