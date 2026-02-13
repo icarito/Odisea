@@ -598,7 +598,16 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 					
 					if shape is BoxShape:
 						var extents = shape.extents
-						var bounds = AABB(-extents, extents * 2.0)
+						# Shrink bounds by max_penetration to allow some leeway
+						# If point is inside the ORIGINAL box but outside the SHRUNK box, it is within tolerance.
+						# We only fail if it is inside the SHRUNK box (too deep).
+						var safe_extents = extents - Vector3(_max_pen, _max_pen, _max_pen)
+						# Ensure we don't invert shapes if they are thinner than tolerance
+						safe_extents.x = max(0.0, safe_extents.x)
+						safe_extents.y = max(0.0, safe_extents.y)
+						safe_extents.z = max(0.0, safe_extents.z)
+						
+						var bounds = AABB(-safe_extents, safe_extents * 2.0)
 						
 						if bounds.has_point(lh_local):
 							print("[OYS FAILURE] Left Hand Clipping! LocalPos: ", lh_local)

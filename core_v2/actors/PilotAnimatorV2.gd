@@ -36,11 +36,16 @@ export(float) var push_start_delay = 0.2
 export(float) var push_lerp_speed = 10.0
 # Duración en segundos durante la cual consideramos que el salto acaba de iniciarse (buffer)
 export var jump_buffer_duration: float = 0.18
+export var debug_push_gizmo: bool = false
 
 # --- NODES ---
 var controller: Node = null
 onready var animation_tree: AnimationTree = get_node_or_null("AnimationTree")
 var anim_player: AnimationPlayer = null
+var _debug_sphere: MeshInstance = null
+var _hand_l_gizmo: MeshInstance = null
+var _hand_r_gizmo: MeshInstance = null
+var _skeleton: Skeleton = null
 
 # --- STATE ---
 # Almacena la velocidad suavizada para el blend tree de animación.
@@ -58,6 +63,10 @@ var current_push_time: float = 0.0
 func _ready() -> void:
 	# Asignar controller de forma segura (dos niveles arriba: Pivot -> Visual -> Pilot)
 	controller = get_parent().get_parent() if get_parent() and get_parent().get_parent() else null
+	
+	# DEBUG: Setup Gizmo
+	_setup_debug_gizmo()
+	
 	# Validaciones para asegurar la correcta configuración de la escena.
 	if not controller or not controller.has_method("get_wish_direction"):
 		push_error("PilotAnimatorV2 debe ser hijo de un PlayerControllerV2 válido.")
@@ -178,12 +187,9 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 			var local_look = parent_basis.xform_inv(look_dir)
 			
 			var target_angle = atan2(local_look.x, local_look.z)
-			# Usamos un lerp speed muy alto para asegurar alineación estricta
-			# o snap directo si dt=0 (replay) O si estamos comenzando a empujar
-			if dt > 0:
-				rotation.y = lerp_angle(rotation.y, target_angle, 25.0 * dt)
-			else:
-				rotation.y = target_angle
+			# STRICT ALIGNMENT: Force snap immediately when pushing to ensure Z-axis aligns with push normal.
+			# Any misalignment causes the Z-offset to slide sideways instead of pulling back.
+			rotation.y = target_angle
 
 		else:
 			var horizontal_wish_direction = wish_direction * Vector3(1, 0, 1)
@@ -356,10 +362,122 @@ func _update_push_animation_offset(dt: float, is_pushing: bool, _push_direction:
 		var delay_denom = push_start_delay if push_start_delay > 0.001 else 0.001
 		var delay_factor = clamp(current_push_time / delay_denom, 0.0, 1.0)
 		
-		var target_local_z = push_arm_length_offset
-		var current_speed = push_lerp_speed * (0.2 + 0.8 * delay_factor)
+		# Visual Anchoring: Add correction to Z (move backwards)
+		var correction = 0.0
+		if controller and "visual_push_correction" in controller:
+			correction = controller.visual_push_correction
+			
+		var target_dist = push_arm_length_offset + correction
 		
-		translation.z = target_local_z + (translation.z - target_local_z) * exp(-current_speed * dt)
+		# GEOMETRIC FIX: Use the actual push normal to determine the pullback direction in LOCAL space.
+		# This ensures we move backwards relative to the BOX, regardless of Parent rotation.
+		var push_normal = controller.push_normal if controller.get("push_normal") else -controller.global_transform.basis.z
+		# push_normal points OUT of the box (towards player). This is our desired "Backwards" direction.
+		
+		# Convert global push_normal to Parent's (Visual) local space to apply translation
+		var parent_basis = get_parent().global_transform.basis
+		var local_back_dir = parent_basis.xform_inv(push_normal).normalized()
+		
+		var target_pos = local_back_dir * target_dist
+		
+		# DEBUG: Update Gizmo
+		if _debug_sphere:
+			_debug_sphere.visible = debug_push_gizmo
+			_debug_sphere.visible = debug_push_gizmo
+			_debug_sphere.translation = target_pos
+		
+		_update_hand_gizmos()
+		
+		# If we have a significant correction, snap immediately to prevent clipping
+		# otherwise use the smooth transition for the arm extension
+		if correction > 0.01:
+			translation = target_pos
+		else:
+			var current_speed = push_lerp_speed * (0.2 + 0.8 * delay_factor)
+			translation = translation.linear_interpolate(target_pos, clamp(current_speed * dt, 0.0, 1.0))
 	else:
 		current_push_time = 0.0
-		translation.z = 0.0 + (translation.z - 0.0) * exp(-push_lerp_speed * dt)
+		if _debug_sphere: _debug_sphere.visible = false
+		if _hand_l_gizmo: _hand_l_gizmo.visible = false
+		if _hand_r_gizmo: _hand_r_gizmo.visible = false
+		# Reset to origin smoothly
+		translation = translation.linear_interpolate(Vector3.ZERO, clamp(push_lerp_speed * dt, 0.0, 1.0))
+
+func _setup_debug_gizmo():
+	# Create a visual marker for the anchor point
+	_debug_sphere = MeshInstance.new()
+	var sphere = SphereMesh.new()
+	sphere.radius = 0.05
+	sphere.height = 0.1
+	_debug_sphere.mesh = sphere
+	var mat = SpatialMaterial.new()
+	mat.albedo_color = Color(1, 0, 1) # Magenta for visibility
+	mat.flags_unshaded = true
+	mat.flags_no_depth_test = true # Always visible on top
+	_debug_sphere.material_override = mat
+	add_child(_debug_sphere)
+	_debug_sphere.visible = false
+	
+	# Hand Gizmos
+	_hand_l_gizmo = MeshInstance.new()
+	_hand_l_gizmo.mesh = sphere
+	_hand_l_gizmo.material_override = mat
+	add_child(_hand_l_gizmo)
+	_hand_l_gizmo.visible = false
+	
+	_hand_r_gizmo = MeshInstance.new()
+	_hand_r_gizmo.mesh = sphere
+	_hand_r_gizmo.material_override = mat
+	add_child(_hand_r_gizmo)
+	_hand_r_gizmo.visible = false
+	
+	# Find Skeleton
+	var found_node = find_node("Skeleton", true, false)
+	if found_node is Skeleton:
+		_skeleton = found_node
+	else:
+		# Try looking in children of children indiscriminately for ANY Skeleton
+		_skeleton = null # Reset
+		# Breadth-first search for a Skeleton node
+		var queue = [self]
+		while not queue.empty():
+			var curr = queue.pop_front()
+			if curr is Skeleton:
+				_skeleton = curr
+				break
+			# Add children to queue
+			for child in curr.get_children():
+				if child != _debug_sphere and child != _hand_l_gizmo and child != _hand_r_gizmo:
+					queue.push_back(child)
+
+func _update_hand_gizmos():
+	if not _skeleton or not debug_push_gizmo:
+		if _hand_l_gizmo: _hand_l_gizmo.visible = false
+		if _hand_r_gizmo: _hand_r_gizmo.visible = false
+		return
+		
+	_hand_l_gizmo.visible = true
+	_hand_r_gizmo.visible = true
+	
+	# Try mixamo/standard bone names
+	var l_idx = _skeleton.find_bone("LeftHand")
+	if l_idx == -1: l_idx = _skeleton.find_bone("Hand.L")
+	if l_idx == -1: l_idx = _skeleton.find_bone("mixamorig:LeftHand")
+	if l_idx == -1: l_idx = 12 # Fallback to standard index 12 (OYS default)
+	
+	var r_idx = _skeleton.find_bone("RightHand")
+	if r_idx == -1: r_idx = _skeleton.find_bone("Hand.R")
+	if r_idx == -1: r_idx = _skeleton.find_bone("mixamorig:RightHand")
+	if r_idx == -1: r_idx = 22 # Fallback to standard index 22 (OYS default)
+	
+	if l_idx != -1 and l_idx < _skeleton.get_bone_count():
+		# Get bone global pose relative to Skeleton
+		var bone_pose = _skeleton.get_bone_global_pose(l_idx)
+		# Transform to world space
+		var global_bone = _skeleton.global_transform * bone_pose
+		_hand_l_gizmo.global_transform.origin = global_bone.origin
+		
+	if r_idx != -1 and r_idx < _skeleton.get_bone_count():
+		var bone_pose = _skeleton.get_bone_global_pose(r_idx)
+		var global_bone = _skeleton.global_transform * bone_pose
+		_hand_r_gizmo.global_transform.origin = global_bone.origin

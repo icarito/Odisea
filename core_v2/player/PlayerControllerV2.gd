@@ -22,7 +22,7 @@ export(float) var push_force := 1.0
 export(float) var min_pitch := -85.0
 export(float) var max_pitch := 85.0
 export(float) var interact_distance := 3.0
-export(float) var push_offset := 0.9 # Aligned with arm reach (0.9m) for perfect contact and zero clipping.
+export(float) var push_offset := 0.71 # Relaxed to 0.71m to close visual gap (User Request).
 # Stair-stepping Configuration
 export(float) var step_height := 0.4
 export(float) var step_depth := 0.5
@@ -59,6 +59,9 @@ var yaw_deg := 0.0
 var pitch_deg := 0.0
 var external_input = null
 var external_input_provided := false
+# Visual Anchoring (Hysteresis)
+# Stores strictly visual offset to keep hands aligned when physics collider is closer than 0.9m
+var visual_push_correction: float = 0.0
 
 var _push_target: Spatial = null
 
@@ -464,6 +467,7 @@ func _accumulate_input(target: InputDataV2, source: InputDataV2) -> void:
 func _update_push_state(_dt: float, input: InputDataV2):
 	_was_pushing = is_pushing
 	is_pushing = false
+	visual_push_correction = 0.0
 	_push_target = null
 	if not _interact_area: return
 
@@ -500,15 +504,23 @@ func _update_push_state(_dt: float, input: InputDataV2):
 				
 				if result and result.collider == best_target:
 					push_normal = result.normal
-					var p_pos = global_transform.origin * Vector3(1, 0, 1)
-					var h_pos = result.position * Vector3(1, 0, 1)
-					var surf_dist = p_pos.distance_to(h_pos)
+					var p_pos = global_transform.origin
+					var h_pos = result.position
+					# Project distance onto the push normal for consistent depth check (handles corners/edges)
+					# surf_dist is the distance along the push axis
+					var rel_vec = h_pos - p_pos
+					var surf_dist = rel_vec.dot(-push_normal)
 					
 					# Contact Gate: Only apply animation if visually touching (within 0.95m)
 					if surf_dist < (push_offset + 0.05):
 						is_pushing = true
+						# Visual Anchoring: Calculate how much we are "too close"
+						visual_push_correction = max(0.0, push_offset - surf_dist)
+					else:
+						visual_push_correction = 0.0
 				else:
 					push_normal = - dir_to_box
+					visual_push_correction = 0.0
 				
 				_push_target = best_target
 
@@ -735,6 +747,10 @@ func step(dt: float, input: InputDataV2) -> void:
 	
 	if _cached_cam and abs(_cached_cam.fov - base_fov) > 0.01:
 		_cached_cam.fov = lerp(_cached_cam.fov, base_fov, 4.0 * dt)
+		
+	# Update Animator
+	if animator and animator.has_method("step_animator"):
+		animator.step_animator(dt, velocity)
 
 func _update_cinematic_zone_detection(input: InputDataV2):
 	var all_zones = get_tree().get_nodes_in_group("CinematicCameraZoneV2")
