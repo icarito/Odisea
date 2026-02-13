@@ -29,6 +29,7 @@ var _pending_setters := []
 var _monitored_signals = {}
 var _env_vars := {}
 var _session_spawned_nodes := []
+const SESSION_SPAWN_GROUP := "_oys_session_spawned"
 
 
 # Optimization: Cache for replay_sync group
@@ -1161,9 +1162,11 @@ func _finish_and_validate():
 		else:
 			printerr("❌ Could not open file for writing: ", target_save_path)
 
-	# Emit signal for external listeners/tests
-	print("[SessionManager] EMITTING replay_finished: ", success, ", ", dist, ", ", frames)
-	emit_signal("replay_finished", success, dist, frames)
+		# Emit signal for external listeners/tests
+		# Final defensive cleanup: make sure no session SPAWN nodes bleed into next run.
+		_cleanup_session_spawned_nodes()
+		print("[SessionManager] EMITTING replay_finished: ", success, ", ", dist, ", ", frames)
+		emit_signal("replay_finished", success, dist, frames)
 
 	# 3. Salir si estamos en modo CLI
 	if is_cli_mode:
@@ -1866,6 +1869,8 @@ func _get_active_scene_root() -> Node:
 func _register_spawned_node(node: Node) -> void:
 	if not is_instance_valid(node):
 		return
+	if not node.is_in_group(SESSION_SPAWN_GROUP):
+		node.add_to_group(SESSION_SPAWN_GROUP)
 	_session_spawned_nodes.append(weakref(node))
 
 func _cleanup_session_spawned_nodes() -> void:
@@ -1883,6 +1888,19 @@ func _cleanup_session_spawned_nodes() -> void:
 			else:
 				node.queue_free()
 	_session_spawned_nodes.clear()
+
+	# Defensive cleanup: remove any lingering SPAWN nodes that weren't tracked
+	# (e.g. after scene transitions/reloads in batch mode).
+	var group_nodes = get_tree().get_nodes_in_group(SESSION_SPAWN_GROUP)
+	for node in group_nodes:
+		if not is_instance_valid(node):
+			continue
+		if node.is_queued_for_deletion():
+			continue
+		if is_testing:
+			node.free()
+		else:
+			node.queue_free()
 	_replay_sync_cache_dirty = true
 
 func _prepare_spawned_node_for_determinism(node: Node) -> void:

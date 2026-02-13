@@ -410,16 +410,26 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 					printerr("[OYS] CALL failed: Method '%s' not found on %s" % [method, target.name])
 
 		"SPAWN":
-			var scene_path = inst.get("scene", "")
-			var scene = load(scene_path)
-			if scene:
-				var obj = scene.instance()
-				var parent = host_node.get_tree().current_scene
-				if not parent:
-					parent = host_node
-				parent.add_child(obj)
-				if inst.has("pos") and obj is Spatial:
-					obj.global_transform.origin = OYS_Parser.parse_vector3(inst.pos)
+			# Route SPAWN through SessionManager/host so deterministic bookkeeping,
+			# replay_sync registration and cleanup use a single code path.
+			var sm = null
+			if host_node and host_node.has_method("get_node_or_null"):
+				sm = host_node.get_node_or_null("/root/SessionManager")
+			if sm and sm.has_method("_handle_spawn_command"):
+				sm.call("_handle_spawn_command", inst)
+			elif host_node and host_node.has_method("_handle_spawn_command"):
+				host_node.call("_handle_spawn_command", inst)
+			else:
+				var scene_path = inst.get("scene", "")
+				var scene = load(scene_path)
+				if scene:
+					var obj = scene.instance()
+					var parent = host_node.get_tree().current_scene
+					if not parent:
+						parent = host_node
+					parent.add_child(obj)
+					if inst.has("pos") and obj is Spatial:
+						obj.global_transform.origin = OYS_Parser.parse_vector3(inst.pos)
 		
 		"SET_TIME_SCALE":
 			Engine.time_scale = inst.get("value", 1.0)
