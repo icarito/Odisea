@@ -1709,6 +1709,37 @@
   },
   "meta": {
     "world_start_state": {
+      "/root/PushableBoxV2": {
+        "pos": [
+          -0.653968,
+          -483.642822,
+          68.756569
+        ],
+        "rot": [
+          0.535474,
+          -2.819633,
+          -2.168829
+        ],
+        "vel": [
+          -0.041209,
+          -68.197166,
+          2.602722
+        ],
+        "ang": [
+          0.085897,
+          -0.045742,
+          0.003794
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
       "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform/LeverBase/RotatingLever": {
         "active": false,
         "used": false,

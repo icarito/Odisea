@@ -51,6 +51,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -68,6 +69,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -85,6 +87,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -102,6 +105,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -119,6 +123,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -136,6 +141,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -153,6 +159,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -170,6 +177,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -187,6 +195,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -204,6 +213,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -221,6 +231,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -238,6 +249,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -255,6 +267,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -272,6 +285,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -289,6 +303,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -306,6 +321,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -323,6 +339,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -340,6 +357,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -357,6 +375,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -374,6 +393,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -391,6 +411,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -408,6 +429,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -425,6 +447,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -442,6 +465,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -459,6 +483,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -476,6 +501,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -493,6 +519,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -510,6 +537,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -527,6 +555,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -544,23 +573,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -578,6 +591,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -595,6 +609,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -612,6 +627,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -629,6 +645,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -646,6 +663,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -663,6 +681,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -680,6 +699,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -697,6 +717,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -714,6 +735,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -731,6 +753,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -748,6 +771,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -765,6 +789,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -782,6 +807,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -799,6 +825,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -816,6 +843,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -833,6 +861,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -850,6 +879,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -867,6 +897,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -884,6 +915,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -901,6 +933,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -918,6 +951,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -935,6 +969,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -952,6 +987,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -969,6 +1005,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -986,6 +1023,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1003,6 +1041,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1020,6 +1059,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1037,6 +1077,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1054,6 +1095,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     }
@@ -1069,7 +1111,7 @@
     "29": [
 
     ],
-    "60": [
+    "59": [
       {
         "command": "ASSERT",
         "condition": "yaw_deg < -85 \"Cámara no giró suficiente\""
@@ -1090,6 +1132,37 @@
   },
   "meta": {
     "world_start_state": {
+      "/root/PushableBoxV2": {
+        "pos": [
+          0.0039,
+          1,
+          3.3392
+        ],
+        "rot": [
+          -0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 3,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
       "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform/LeverBase/RotatingLever": {
         "active": false,
         "used": false,

@@ -51,6 +51,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -68,6 +69,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -85,6 +87,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -102,6 +105,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -119,6 +123,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -136,6 +141,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -153,6 +159,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -170,6 +177,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     }
@@ -225,6 +233,37 @@
   },
   "meta": {
     "world_start_state": {
+      "/root/PushableBoxV2": {
+        "pos": [
+          -0.711317,
+          -588.939087,
+          72.378693
+        ],
+        "rot": [
+          0.422053,
+          -2.90318,
+          -2.211761
+        ],
+        "vel": [
+          -0.035464,
+          -72.210594,
+          2.239904
+        ],
+        "ang": [
+          0.073923,
+          -0.039366,
+          0.003265
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
       "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform/LeverBase/RotatingLever": {
         "active": false,
         "used": false,

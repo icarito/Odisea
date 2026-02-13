@@ -51,6 +51,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -68,6 +69,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -85,6 +87,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -102,6 +105,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -119,6 +123,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -136,6 +141,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -153,6 +159,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -170,6 +177,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -187,6 +195,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -204,6 +213,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -221,6 +231,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -238,6 +249,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -255,6 +267,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -272,6 +285,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -289,6 +303,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -306,6 +321,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -323,6 +339,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -340,6 +357,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -357,6 +375,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -374,6 +393,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -391,6 +411,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -408,6 +429,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -425,6 +447,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -442,6 +465,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -459,6 +483,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -476,6 +501,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -493,6 +519,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -510,6 +537,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -527,6 +555,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -544,6 +573,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -561,6 +591,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -578,6 +609,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -595,6 +627,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -612,6 +645,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -629,6 +663,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -646,6 +681,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -663,6 +699,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -680,6 +717,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -697,6 +735,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -714,6 +753,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -731,6 +771,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -748,6 +789,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -765,6 +807,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -782,6 +825,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -799,6 +843,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -816,6 +861,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -833,6 +879,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -850,6 +897,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -867,6 +915,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -884,6 +933,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -901,6 +951,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -918,6 +969,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -935,6 +987,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -952,6 +1005,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -969,6 +1023,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -986,6 +1041,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1003,6 +1059,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1020,6 +1077,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1037,6 +1095,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1054,6 +1113,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1071,6 +1131,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1088,6 +1149,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1105,6 +1167,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1122,6 +1185,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1139,6 +1203,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1156,6 +1221,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1173,6 +1239,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1190,6 +1257,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1207,6 +1275,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1224,6 +1293,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1241,6 +1311,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1258,6 +1329,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1275,6 +1347,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1292,6 +1365,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1309,6 +1383,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1326,6 +1401,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1343,6 +1419,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1360,6 +1437,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1377,6 +1455,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1394,6 +1473,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1411,6 +1491,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1428,6 +1509,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1445,6 +1527,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1462,6 +1545,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1479,6 +1563,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1496,6 +1581,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1513,6 +1599,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1530,6 +1617,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1547,6 +1635,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1564,6 +1653,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1581,6 +1671,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1598,6 +1689,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1615,6 +1707,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1632,6 +1725,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1649,6 +1743,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1666,6 +1761,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1683,6 +1779,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1700,6 +1797,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1717,6 +1815,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1734,6 +1833,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1751,6 +1851,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1768,6 +1869,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1785,6 +1887,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1802,6 +1905,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1819,6 +1923,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1836,6 +1941,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1853,6 +1959,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1870,6 +1977,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1887,6 +1995,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1904,6 +2013,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1921,6 +2031,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1938,6 +2049,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1955,6 +2067,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1972,6 +2085,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -1989,6 +2103,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2006,6 +2121,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2023,6 +2139,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2040,6 +2157,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2057,6 +2175,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2074,6 +2193,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2091,6 +2211,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2108,6 +2229,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2125,6 +2247,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2142,6 +2265,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2159,6 +2283,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2176,6 +2301,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2193,6 +2319,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2210,6 +2337,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2227,6 +2355,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2244,6 +2373,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2261,6 +2391,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2278,6 +2409,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2295,6 +2427,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2312,6 +2445,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2329,6 +2463,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2346,6 +2481,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2363,6 +2499,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2380,6 +2517,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2397,6 +2535,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2414,6 +2553,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2431,6 +2571,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2448,6 +2589,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2465,6 +2607,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2482,6 +2625,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2499,6 +2643,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2516,6 +2661,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2533,6 +2679,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2550,6 +2697,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2567,6 +2715,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2584,6 +2733,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2601,6 +2751,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2618,6 +2769,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2635,6 +2787,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2652,6 +2805,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2669,6 +2823,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2686,6 +2841,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2703,6 +2859,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2720,6 +2877,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2737,6 +2895,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2754,6 +2913,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2771,6 +2931,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2788,6 +2949,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2805,6 +2967,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2822,6 +2985,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2839,6 +3003,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2856,6 +3021,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2873,6 +3039,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2890,6 +3057,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2907,6 +3075,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2924,6 +3093,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2941,6 +3111,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2958,6 +3129,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2975,6 +3147,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -2992,6 +3165,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3009,6 +3183,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3026,6 +3201,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3043,6 +3219,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3060,6 +3237,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3077,6 +3255,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3094,6 +3273,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3111,6 +3291,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3128,6 +3309,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3145,6 +3327,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3162,6 +3345,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3179,6 +3363,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3196,6 +3381,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3213,6 +3399,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3230,6 +3417,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3247,6 +3435,25 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3264,6 +3471,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3281,6 +3489,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3298,6 +3507,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3315,6 +3525,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3332,6 +3543,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3349,6 +3561,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3366,6 +3579,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3383,6 +3597,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3400,6 +3615,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3417,6 +3633,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3434,6 +3651,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3451,6 +3669,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3468,6 +3687,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3485,6 +3705,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3502,6 +3723,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3519,6 +3741,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3536,6 +3759,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3553,6 +3777,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3570,6 +3795,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3587,6 +3813,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3604,6 +3831,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3621,6 +3849,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3638,6 +3867,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3655,6 +3885,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3672,6 +3903,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3689,6 +3921,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3706,6 +3939,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3723,6 +3957,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3740,6 +3975,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3757,6 +3993,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3774,6 +4011,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3791,6 +4029,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3808,6 +4047,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3825,6 +4065,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3842,6 +4083,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3859,6 +4101,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3876,6 +4119,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3893,6 +4137,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3910,6 +4155,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3927,6 +4173,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3944,6 +4191,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3961,6 +4209,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3978,6 +4227,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -3995,6 +4245,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4012,6 +4263,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4029,6 +4281,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4046,6 +4299,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4063,6 +4317,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4080,6 +4335,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4097,6 +4353,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4114,6 +4371,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4131,6 +4389,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4148,6 +4407,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4165,6 +4425,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4182,6 +4443,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4199,6 +4461,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4216,6 +4479,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4233,6 +4497,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4250,6 +4515,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4267,6 +4533,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4284,6 +4551,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4301,6 +4569,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4318,6 +4587,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4335,6 +4605,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4352,6 +4623,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4369,6 +4641,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4386,6 +4659,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4403,6 +4677,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4420,6 +4695,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4437,6 +4713,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4454,6 +4731,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4471,6 +4749,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4488,6 +4767,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4505,6 +4785,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4522,6 +4803,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4539,6 +4821,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4556,6 +4839,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4573,6 +4857,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4590,6 +4875,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4607,6 +4893,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4624,6 +4911,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4641,6 +4929,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4658,6 +4947,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4675,6 +4965,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4692,6 +4983,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4709,6 +5001,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4726,6 +5019,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4743,6 +5037,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4760,6 +5055,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4777,6 +5073,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4794,6 +5091,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4811,6 +5109,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4828,6 +5127,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4845,6 +5145,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4862,6 +5163,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4879,6 +5181,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4896,6 +5199,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4913,6 +5217,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4930,6 +5235,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4947,6 +5253,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4964,6 +5271,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4981,6 +5289,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -4998,6 +5307,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5015,6 +5325,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5032,6 +5343,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5049,6 +5361,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5066,6 +5379,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5083,6 +5397,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5100,6 +5415,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5117,6 +5433,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5134,6 +5451,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5151,6 +5469,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5168,6 +5487,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5185,6 +5505,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5202,6 +5523,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5219,6 +5541,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5236,6 +5559,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5253,6 +5577,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5270,6 +5595,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5287,6 +5613,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5304,6 +5631,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5321,6 +5649,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5338,6 +5667,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5355,6 +5685,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5372,6 +5703,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5389,6 +5721,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5406,6 +5739,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5423,6 +5757,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5440,6 +5775,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5457,6 +5793,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5474,6 +5811,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5491,6 +5829,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5508,6 +5847,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5525,6 +5865,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5542,6 +5883,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5559,6 +5901,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5576,6 +5919,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5593,6 +5937,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5610,6 +5955,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5627,6 +5973,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5644,6 +5991,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5661,6 +6009,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5678,6 +6027,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5695,6 +6045,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5712,6 +6063,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5729,6 +6081,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5746,6 +6099,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5763,6 +6117,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5780,6 +6135,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5797,6 +6153,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5814,6 +6171,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5831,6 +6189,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5848,6 +6207,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5865,6 +6225,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5882,6 +6243,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5899,6 +6261,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5916,6 +6279,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5933,6 +6297,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5950,6 +6315,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5967,6 +6333,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -5984,6 +6351,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6001,6 +6369,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6018,6 +6387,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6035,6 +6405,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6052,6 +6423,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6069,6 +6441,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6086,6 +6459,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6103,6 +6477,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6120,6 +6495,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6137,6 +6513,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6154,6 +6531,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6171,6 +6549,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6188,6 +6567,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6205,6 +6585,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6222,6 +6603,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6239,6 +6621,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6256,6 +6639,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6273,6 +6657,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6290,6 +6675,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6307,6 +6693,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6324,6 +6711,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6341,6 +6729,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6358,6 +6747,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6375,6 +6765,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6392,6 +6783,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6409,6 +6801,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6426,6 +6819,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6443,6 +6837,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6460,6 +6855,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6477,6 +6873,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6494,6 +6891,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6511,6 +6909,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6528,6 +6927,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6545,6 +6945,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6562,6 +6963,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6579,6 +6981,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6596,6 +6999,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6613,6 +7017,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6630,6 +7035,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6647,6 +7053,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6664,6 +7071,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6681,6 +7089,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6698,6 +7107,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6715,6 +7125,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6732,6 +7143,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6749,6 +7161,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6766,6 +7179,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6783,6 +7197,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6800,6 +7215,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6817,6 +7233,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6834,6 +7251,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6851,6 +7269,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6868,6 +7287,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6885,6 +7305,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6902,6 +7323,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6919,6 +7341,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6936,6 +7359,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6953,6 +7377,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6970,6 +7395,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -6987,6 +7413,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7004,6 +7431,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7021,6 +7449,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7038,6 +7467,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7055,6 +7485,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7072,6 +7503,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7089,6 +7521,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7106,6 +7539,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7123,6 +7557,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7140,6 +7575,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7157,6 +7593,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7174,6 +7611,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7191,6 +7629,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7208,6 +7647,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7225,6 +7665,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7242,6 +7683,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7259,6 +7701,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7276,6 +7719,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7293,6 +7737,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7310,6 +7755,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7327,6 +7773,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7344,6 +7791,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7361,6 +7809,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7378,6 +7827,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7395,6 +7845,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7412,6 +7863,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7429,6 +7881,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7446,6 +7899,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7463,6 +7917,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7480,6 +7935,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7497,6 +7953,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7514,6 +7971,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7531,6 +7989,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7548,6 +8007,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7565,6 +8025,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7582,6 +8043,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7599,6 +8061,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7616,6 +8079,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7633,6 +8097,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7650,6 +8115,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7667,6 +8133,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7684,6 +8151,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7701,6 +8169,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7718,6 +8187,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7735,6 +8205,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7752,6 +8223,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7769,6 +8241,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7786,6 +8259,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7803,6 +8277,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7820,6 +8295,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7837,6 +8313,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7854,6 +8331,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7871,6 +8349,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7888,6 +8367,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7905,6 +8385,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7922,6 +8403,25 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7939,6 +8439,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7956,6 +8457,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7973,6 +8475,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -7990,6 +8493,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8007,6 +8511,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8024,6 +8529,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8041,6 +8547,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8058,6 +8565,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8075,6 +8583,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8092,6 +8601,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8109,6 +8619,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8126,6 +8637,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8143,6 +8655,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8160,6 +8673,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8177,6 +8691,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8194,6 +8709,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8211,6 +8727,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8228,6 +8745,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8245,6 +8763,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8262,6 +8781,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8279,6 +8799,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8296,6 +8817,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8313,6 +8835,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8330,6 +8853,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8347,6 +8871,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8364,6 +8889,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8381,6 +8907,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8398,6 +8925,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8415,6 +8943,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8432,6 +8961,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8449,6 +8979,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8466,6 +8997,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8483,6 +9015,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8500,6 +9033,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8517,6 +9051,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8534,6 +9069,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8551,6 +9087,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8568,6 +9105,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8585,6 +9123,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8602,6 +9141,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8619,6 +9159,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8636,6 +9177,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8653,6 +9195,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8670,6 +9213,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8687,6 +9231,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8704,6 +9249,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8721,6 +9267,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8738,6 +9285,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8755,6 +9303,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8772,6 +9321,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8789,6 +9339,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8806,6 +9357,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8823,6 +9375,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8840,6 +9393,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": true,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8857,6 +9411,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8874,6 +9429,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8891,6 +9447,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8908,6 +9465,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8925,6 +9483,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8942,6 +9501,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8959,6 +9519,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8976,6 +9537,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -8993,6 +9555,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9010,6 +9573,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9027,6 +9591,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9044,6 +9609,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9061,6 +9627,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9078,6 +9645,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9095,6 +9663,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9112,6 +9681,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9129,6 +9699,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9146,6 +9717,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9163,6 +9735,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9180,6 +9753,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9197,6 +9771,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9214,6 +9789,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9231,6 +9807,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9248,6 +9825,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9265,6 +9843,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9282,6 +9861,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9299,6 +9879,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9316,6 +9897,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9333,6 +9915,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9350,6 +9933,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9367,6 +9951,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9384,6 +9969,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9401,6 +9987,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9418,6 +10005,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9435,6 +10023,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9452,6 +10041,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9469,6 +10059,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9486,6 +10077,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9503,6 +10095,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9520,6 +10113,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9537,6 +10131,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9554,6 +10149,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9571,6 +10167,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9588,6 +10185,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9605,6 +10203,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9622,6 +10221,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9639,6 +10239,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9656,6 +10257,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9673,6 +10275,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9690,6 +10293,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9707,6 +10311,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9724,6 +10329,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9741,6 +10347,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9758,6 +10365,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9775,6 +10383,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9792,6 +10401,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9809,6 +10419,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9826,6 +10437,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9843,6 +10455,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9860,6 +10473,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9877,6 +10491,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9894,6 +10509,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9911,6 +10527,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9928,6 +10545,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9945,6 +10563,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9962,6 +10581,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9979,6 +10599,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -9996,6 +10617,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10013,6 +10635,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10030,6 +10653,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10047,6 +10671,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10064,6 +10689,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10081,6 +10707,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10098,6 +10725,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10115,6 +10743,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10132,6 +10761,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10149,6 +10779,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10166,6 +10797,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10183,6 +10815,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10200,6 +10833,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10217,6 +10851,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10234,6 +10869,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10251,6 +10887,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10268,6 +10905,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10285,6 +10923,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10302,6 +10941,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10319,6 +10959,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10336,6 +10977,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10353,6 +10995,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
+        "crouch": false,
         "interact": false
       }
     },
@@ -10370,23 +11013,7 @@
         "fov_override": -1,
         "jump": false,
         "sprint": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
+        "crouch": false,
         "interact": false
       }
     }
@@ -10408,27 +11035,58 @@
     "99": [
 
     ],
-    "189": [
+    "190": [
 
     ],
-    "229": [
+    "230": [
 
     ],
-    "320": [
+    "321": [
 
     ],
-    "374": [
+    "375": [
 
     ],
-    "464": [
+    "466": [
 
     ],
-    "518": [
+    "520": [
 
     ]
   },
   "meta": {
     "world_start_state": {
+      "/root/PushableBoxV2": {
+        "pos": [
+          0.072699,
+          -12.841655,
+          22.861006
+        ],
+        "rot": [
+          0.655454,
+          -0.516479,
+          -0.293803
+        ],
+        "vel": [
+          -0.113997,
+          -15.719699,
+          7.199932
+        ],
+        "ang": [
+          0.237615,
+          -0.126537,
+          0.010496
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
       "/root/TestScenePropZoo/PushableBox": {
         "pos": [
           0.3534,
@@ -10576,9 +11234,9 @@
   },
   "final_expected_state": {
     "position": [
-      -1.552495,
+      -1.544089,
       0.1415,
-      -1.061629
+      -1.05015
     ],
     "velocity": [
       0,
