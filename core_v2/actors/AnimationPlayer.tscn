@@ -5,6 +5,7 @@
 [sub_resource type="Animation" id=115]
 resource_name = "Crouch_Fwd_Loop"
 length = 2.0
+loop = true
 tracks/0/type = "transform"
 tracks/0/path = NodePath("Pivot/OLD:DEF-headtip")
 tracks/0/interp = 1
@@ -559,6 +560,7 @@ tracks/38/keys = PoolRealArray( 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 1, 0, 0, 
 [sub_resource type="Animation" id=117]
 resource_name = "Crouch_Idle_Loop"
 length = 2.91667
+loop = true
 tracks/0/type = "transform"
 tracks/0/path = NodePath("Pivot/OLD:DEF-headtip")
 tracks/0/interp = 1

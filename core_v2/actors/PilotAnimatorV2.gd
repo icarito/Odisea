@@ -58,6 +58,7 @@ var time_since_jump: float = 0.0
 var last_air_vertical_speed: float = 0.0 # Guarda la velocidad vertical del último frame en el aire
 var jumped_buffer_time: float = 0.0
 var acrobatic_trigger_active: bool = false # Latch para garantizar que la SM vea el trigger
+var acrobatic_trigger_frames_left: int = 0 # Hold trigger to survive frame ordering between controller and animator.
 var is_rotation_locked: bool = false # Impide que el personaje rote durante maniobras (backflip)
 var hit_head_active: bool = false
 var current_push_time: float = 0.0
@@ -242,10 +243,20 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	animation_tree.set(PARAM_CONDITIONS_ON_FLOOR, is_on_floor)
 	animation_tree.set(PARAM_CONDITIONS_NOT_ON_FLOOR, not is_on_floor)
 
+	# Push State (highest priority over crouch)
+	var is_pushing = controller.get("is_pushing") if controller else false
+	animation_tree.set(PARAM_CONDITIONS_IS_PUSHING, is_pushing)
+	animation_tree.set(PARAM_CONDITIONS_NOT_PUSHING, not is_pushing)
+
+	# Keep acrobatic trigger alive for a couple of frames.
+	acrobatic_trigger_active = acrobatic_trigger_frames_left > 0
+
 	# Crouch State
-	var is_crouching: bool = controller.is_crouching
+	# If acrobatic is armed this frame, force crouch off to avoid competing transitions.
+	var is_crouching: bool = true if controller and controller.get("is_crouching") and not is_pushing and not acrobatic_trigger_active else false
 	animation_tree.set(PARAM_CONDITIONS_IS_CROUCHED, is_crouching)
 	animation_tree.set(PARAM_CONDITIONS_NOT_CROUCHED, not is_crouching)
+
 	# Estados de salto/caída usando la velocidad registrada en el último frame en aire.
 	# IMPORTANTE: Forzamos false si estamos en el suelo (evita flickering en escaleras).
 	var is_falling: bool = last_air_vertical_speed < -1.0 and not is_on_floor
@@ -274,15 +285,12 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	if acrobatic_trigger_active:
 		print("PilotAnimator: Sending is_acrobatic = TRUE to AnimationTree")
 		animation_tree.set(PARAM_CONDITIONS_IS_ACROBATIC, true)
-		acrobatic_trigger_active = false # Consumimos el trigger
+		acrobatic_trigger_frames_left -= 1
+		if acrobatic_trigger_frames_left <= 0:
+			acrobatic_trigger_active = false
 	else:
 		animation_tree.set(PARAM_CONDITIONS_IS_ACROBATIC, false)
 	
-	# Pushing Condition
-	var is_pushing = controller.get("is_pushing") if controller else false
-	animation_tree.set(PARAM_CONDITIONS_IS_PUSHING, is_pushing)
-	animation_tree.set(PARAM_CONDITIONS_NOT_PUSHING, not is_pushing)
-
 	# Hit Head condition (one-shot, cleared after this frame)
 	animation_tree.set(PARAM_CONDITIONS_HIT_HEAD, hit_head_active)
 	hit_head_active = false
@@ -338,6 +346,7 @@ func _on_controller_acrobatic_jumped() -> void:
 		print("PilotAnimator: Controller signal received. Arming ACROBATIC latch.")
 		# Activamos el latch para que update_animation_parameters lo procese en el momento correcto
 		acrobatic_trigger_active = true
+		acrobatic_trigger_frames_left = 2
 		
 		# BLOQUEO DE ROTACIÓN:
 		# Miramos opuesto al movimiento para realizar el backflip hacia atrás

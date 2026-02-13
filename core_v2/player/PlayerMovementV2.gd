@@ -7,6 +7,7 @@ export(float) var ground_friction := 30.0
 export(float) var air_friction := 10.0
 export(float) var move_speed := 5.0
 export(float) var run_speed_multiplier := 1.8
+export(float) var crouch_speed_multiplier := 0.5
 export(float) var air_control_multiplier := 0.5 # Reducir aceleración en el aire
 export(float) var stop_threshold := 0.01 # Threshold para forzar velocidad a cero
 
@@ -162,8 +163,14 @@ func restore_snapshot(data: Dictionary) -> void:
 	is_tank_turn_mode = data.get("is_tank_turn_mode", true)
 	current_turn_time = data.get("current_turn_time", 0.0)
 
-func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, is_on_floor: bool) -> void:
-	var target_speed = move_speed * (run_speed_multiplier if sprint else 1.0)
+func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, is_on_floor: bool, crouch: bool = false) -> void:
+	var speed_multiplier = 1.0
+	if crouch:
+		speed_multiplier = crouch_speed_multiplier
+	elif sprint:
+		speed_multiplier = run_speed_multiplier
+
+	var target_speed = move_speed * speed_multiplier
 	
 	var forward = - basis.z
 	forward.y = 0.0

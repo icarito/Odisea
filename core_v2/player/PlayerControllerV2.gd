@@ -51,6 +51,7 @@ var base_collision_mask := 0
 # State
 var velocity := Vector3()
 var is_pushing: bool = false
+var is_crouching: bool = false
 var _was_pushing: bool = false
 var push_normal: Vector3 = Vector3.BACK
 var yaw := 0.0
@@ -462,6 +463,7 @@ func _accumulate_input(target: InputDataV2, source: InputDataV2) -> void:
 	if source.fov_override > 0.0: target.fov_override = source.fov_override
 	target.jump = target.jump or source.jump
 	target.sprint = target.sprint or source.sprint
+	target.crouch = target.crouch or source.crouch
 	target.interact = target.interact or source.interact
 
 func _update_push_state(_dt: float, input: InputDataV2):
@@ -642,7 +644,10 @@ func step(dt: float, input: InputDataV2) -> void:
 		# Simplify input to just "forward" magnitude for the logic
 		move_vec = Vector2(0, -world_dir.length())
 	
-	movement_logic.process_movement(dt, move_vec, basis, input.sprint, is_on_floor())
+	is_crouching = input.crouch and is_on_floor()
+	var effective_sprint = input.sprint and not is_crouching
+
+	movement_logic.process_movement(dt, move_vec, basis, effective_sprint, is_on_floor(), is_crouching)
 	
 	var h_vel = movement_logic.get_horizontal_velocity()
 	velocity.x = h_vel.x

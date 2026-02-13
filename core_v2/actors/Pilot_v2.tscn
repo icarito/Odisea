@@ -103,7 +103,7 @@ parameters/conditions/is_pushing = false
 parameters/conditions/land_hard = false
 parameters/conditions/on_floor = false
 parameters/Crouched/blend_position = 0
-parameters/Grounded/blend_position = 3.2663
+parameters/Grounded/blend_position = 5.30719
 parameters/InAir/Transition/current = 1
 parameters/Jump/Transition/current = 0
 
