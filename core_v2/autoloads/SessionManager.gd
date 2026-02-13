@@ -938,11 +938,12 @@ func _finish_and_validate():
 	if is_instance_valid(player):
 		var cam = player.get_node_or_null("CameraRig") if is_instance_valid(player) else null
 		var cam_pos = cam.global_transform.origin if is_instance_valid(cam) else "null"
-		print("PLAYBACK_END\nrotation:", player.yaw, ",", player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam_pos)
+		print("Snapshot: rotation=(%s,%s) pos=%s cam=%s" % [str(player.yaw), str(player.pitch), str(player.global_transform.origin), str(cam_pos)])
 
 	# 2. Validar drift
 	if final_expected_state == null:
-		print("⚠️ No hay final_expected_state para validar.")
+		# No-op: avoid noisy warning logs when expected state is intentionally absent.
+		pass
 	else:
 		var exp_pos_arr = final_expected_state.get("position", null)
 		if exp_pos_arr == null or typeof(exp_pos_arr) != TYPE_ARRAY:

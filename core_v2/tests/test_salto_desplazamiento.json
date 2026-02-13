@@ -2394,24 +2394,6 @@
         "crouch": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -2428,7 +2410,7 @@
     "41": [
 
     ],
-    "132": [
+    "131": [
       {
         "command": "ASSERT",
         "condition": "pos.z > 3.0 \"ERROR: No hubo suficiente inercia horizontal en el salto\""
@@ -2443,24 +2425,24 @@
     "world_start_state": {
       "/root/PushableBoxV2": {
         "pos": [
-          -1.02002,
-          -2367.512939,
-          91.87616
+          0.025419,
+          -2445.133789,
+          93.677788
         ],
         "rot": [
-          -0.215667,
-          3.018097,
-          -2.275979
+          0.562388,
+          0.198754,
+          0.208927
         ],
         "vel": [
-          -0.004543,
-          -94.306351,
-          0.286903
+          -0.000079,
+          -94.939102,
+          0.275307
         ],
         "ang": [
-          0.009468,
-          -0.005042,
-          0.000418
+          0.00061,
+          0.000416,
+          0.000614
         ],
         "mode": 0,
         "fbt": 0,

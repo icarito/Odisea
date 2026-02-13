@@ -84,12 +84,11 @@ strip_ansi() {
 
 filter_noisy_output() {
     # Mantiene limpio el output por defecto, pero conserva logs completos en $LOG_FILE.
+    # Filtra cualquier línea de log con prefijo estilo [Algo].
     sed -E \
-        -e '/^\[STAIR\]/d' \
-        -e '/^\[STAIR_BLEND\]/d' \
-        -e '/^DEBUG BASEZONE:/d' \
-        -e '/^\[OcclusionZoneV2\]/d' \
-        -e '/^\[CheckZoneV2\]/d'
+        -e '/^[[:space:]]*\[[^]]+\]/d' \
+        -e '/^[[:space:]]*$/d' \
+        -e '/^DEBUG BASEZONE:/d'
 }
 
 run_and_capture() {

@@ -638,9 +638,15 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 
 		"SET":
 			var var_name = inst.get("var", "")
-			var val_raw = inst.get("value", null)
-
-			var value = _resolve_value(val_raw)
+			var value = null
+			if inst.has("func"):
+				var func_name = str(inst.get("func", ""))
+				var raw_args = inst.get("args", [])
+				var resolved_args = _resolve_complex_args(raw_args if raw_args is Array else [])
+				value = _call_func(func_name, resolved_args)
+			else:
+				var val_raw = inst.get("value", null)
+				value = _resolve_value(val_raw)
 			variables[var_name] = value
 
 			# If it's a world property (like 'pos'), tell the host to handle it
@@ -701,10 +707,13 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				if op in ["+", "-", "*", "/"]:
 					var left_val = variables.get(var_name, 0.0)
 					match op:
-						"+": result = float(left_val) + float(right_val)
-						"-": result = float(left_val) - float(right_val)
-						"*": result = float(left_val) * float(right_val)
-						"/": if float(right_val) != 0: result = float(left_val) / float(right_val)
+						"+": result = _to_number(left_val) + _to_number(right_val)
+						"-": result = _to_number(left_val) - _to_number(right_val)
+						"*": result = _to_number(left_val) * _to_number(right_val)
+						"/":
+							var right_num = _to_number(right_val)
+							if right_num != 0.0:
+								result = _to_number(left_val) / right_num
 			
 			elif expr_parts.size() == 3:
 				# Full expression: MATH $z = $x + $y
@@ -712,12 +721,13 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				var inner_op = expr_parts[1]
 				var right = _resolve_value(expr_parts[2])
 				match inner_op:
-					"+": result = float(left) + float(right)
-					"-": result = float(left) - float(right)
-					"*": result = float(left) * float(right)
-					"/": if float(right) != 0: result = float(left) / float(right)
-			
-			variables[var_name] = result
+					"+": result = _to_number(left) + _to_number(right)
+					"-": result = _to_number(left) - _to_number(right)
+					"*": result = _to_number(left) * _to_number(right)
+					"/":
+						var right_num = _to_number(right)
+						if right_num != 0.0:
+							result = _to_number(left) / right_num
 			
 			variables[var_name] = result
 		
@@ -1063,7 +1073,7 @@ func _execute_fov(inst: Dictionary, my_id: int):
 		if not is_instance_valid(player):
 			break
 		
-		var t = float(i + 1) / float(num_frames)
+		var t = (i + 1.0) / (num_frames + 0.0)
 		var current_fov = lerp(start_fov, target_fov, t)
 		_post_oys_input({"fov_override": current_fov})
 		
@@ -1258,7 +1268,13 @@ func _resolve_prop() -> Node:
 			return stage.current_prop
 		
 	return null
-func _resolve_value(val: String):
+func _resolve_value(val):
+	if val == null:
+		return null
+
+	if typeof(val) != TYPE_STRING:
+		return val
+
 	if val.begins_with("$"):
 		return variables.get(val, 0)
 	if val.is_valid_float():
@@ -1379,8 +1395,8 @@ func _compare(left, op, right) -> bool:
 	var r_is_float = str(r).is_valid_float()
 	
 	if l_is_float and r_is_float:
-		var fl = float(l)
-		var fr = float(r)
+		var fl = _to_number(l)
+		var fr = _to_number(r)
 		match op:
 			"==": return fl == fr
 			"!=": return fl != fr
@@ -1396,6 +1412,19 @@ func _compare(left, op, right) -> bool:
 		"==": return sl == sr
 		"!=": return sl != sr
 	return false
+
+func _to_number(value) -> float:
+	match typeof(value):
+		TYPE_REAL:
+			return value
+		TYPE_INT:
+			return value
+		TYPE_BOOL:
+			return 1.0 if value else 0.0
+		TYPE_STRING:
+			return value.to_float() if value.is_valid_float() else 0.0
+		_:
+			return str(value).to_float() if str(value).is_valid_float() else 0.0
 
 func _find_node_by_type(root: Node, type) -> Node:
 	if is_instance_valid(root) and root is type:

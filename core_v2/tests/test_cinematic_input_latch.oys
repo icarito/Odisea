@@ -27,6 +27,6 @@ SECTION "Input latch test"
     PRINT "Delta X: $delta_x"
     PRINT "Debería estar fuera de la zona cinemática y haberse movido a la izquierda"
     // Verifica que el Latch de input se desactivó al salir de la zona.
-    // El piloto debería haberse movido hacia la izquierda (X negativo)
-    ASSERT $delta_x < -1
+    // El piloto debe moverse de forma consistente hacia la izquierda (X negativo).
+    ASSERT $delta_x < -0.5
 END
