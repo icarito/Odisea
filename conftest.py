@@ -53,7 +53,8 @@ class OysItem(pytest.Item):
                 break
             if line:
                 # Filter out known headless spam
-                if "VisualServer attempted to free a NULL RID" in line:
+                if "VisualServer attempted to free a NULL RID" in line or \
+                   "at: free (servers/visual/visual_server_raster.cpp:69)" in line:
                     continue
 
                 # Clean ANSI codes
