@@ -4889,8 +4889,6 @@
   "oys_variables": {
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
-    "$start_x": 0,
-    "$end_x": -0.687669,
-    "$delta_x": -0.687669
+    "$delta_x": 0
   }
 }

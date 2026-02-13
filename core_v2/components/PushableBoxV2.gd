@@ -20,6 +20,7 @@ var _pending_snapshot = null
 var _target_basis = null
 
 func _init():
+	add_to_group("pushable")
 	add_to_group("replay_sync")
 
 func _ready():

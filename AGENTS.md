@@ -1,6 +1,10 @@
 # AGENTS.md — Guía de Desarrollo (Odisea)
 
-Fuente de verdad sobre reglas y contratos del proyecto (Godot 3.6, GLES2) para IA y desarrolladores.
+
+> [!WARNING] INVERTED COORDINATE SYSTEM
+> This project uses an unorthodox coordinate system where **+Z is BACK** (Camera Direction) and **-Z is FORWARD**.
+> Consequently, spawning an object "in front" of the player often involves placing it at **positive Z** (e.g. `(0, 1, 3)`) as seen in `test_push_integration.oys`.
+> **ALWAYS verify direction visually** or via small test steps. Do not assume standard conventions apply universally without checking.
 
 ## ⚠️ ANTES DE ENTREGAR CUALQUIER CAMBIO
 

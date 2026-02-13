@@ -1617,9 +1617,9 @@
       },
       "/root/TestScene/Boxes/PushableBoxV2": {
         "pos": [
-          18.5805,
+          6.365,
           1,
-          2.381
+          -0.2596
         ],
         "rot": [
           -0,
@@ -1943,9 +1943,9 @@
   },
   "final_expected_state": {
     "position": [
-      6.55417,
+      5.085753,
       0.0415,
-      0.000001
+      0.00019
     ],
     "velocity": [
       0,

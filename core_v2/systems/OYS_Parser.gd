@@ -197,9 +197,34 @@ static func parse_instruction(line: String) -> Dictionary:
 			data["path"] = arg1
 		
 		"SPAWN":
-			data["scene"] = _extract_quoted(parts, 1)
-			if parts.size() > 3 and parts[2].to_upper() == "AT":
-				data["pos"] = line.substr(line.find("("))
+			# Support both legacy SPAWN "path" AT (x,y,z) and named args SPAWN scene="path" pos=[x,y,z]
+			for i in range(1, parts.size()):
+				var p = parts[i]
+				if p.begins_with("scene="):
+					data["scene"] = _extract_quoted([p.split("=")[1]], 0)
+				elif p.begins_with("pos="):
+					# Handle pos=[x, y, z] potentially split by spaces
+					var val_start = line.find("pos=") + 4
+					# Find end of vector ] or )
+					var val_end = -1
+					var open_char = line[val_start]
+					var close_char = ""
+					if open_char == "[": close_char = "]"
+					elif open_char == "(": close_char = ")"
+					
+					if close_char != "":
+						val_end = line.find(close_char, val_start)
+						if val_end != -1:
+							data["pos"] = line.substr(val_start, val_end - val_start + 1)
+					else:
+						# Simple value?
+						data["pos"] = p.split("=")[1]
+			
+			# Legacy Fallback
+			if not data.has("scene") and parts.size() > 1 and not parts[1].begins_with("scene="):
+				data["scene"] = _extract_quoted(parts, 1)
+				if parts.size() > 3 and parts[2].to_upper() == "AT":
+					data["pos"] = line.substr(line.find("("))
 		
 		"SET_TIME_SCALE":
 			data["value"] = parts[1].to_float() if parts.size() > 1 else 1.0
@@ -409,7 +434,7 @@ static func _extract_quoted(parts: Array, index: int) -> String:
 
 # Parse a Vector3 from string "(x, y, z)"
 static func parse_vector3(s: String) -> Vector3:
-	var cleaned = s.replace("(", "").replace(")", "").strip_edges()
+	var cleaned = s.replace("(", "").replace(")", "").replace("[", "").replace("]", "").strip_edges()
 	var components = cleaned.split(",")
 	if components.size() >= 3:
 		return Vector3(

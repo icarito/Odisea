@@ -3300,23 +3300,6 @@
         "sprint": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -3357,7 +3340,7 @@
         "phase": "check"
       }
     ],
-    "193": [
+    "192": [
       {
         "command": "PRINT",
         "message": "SUCCESS: player_killed signal was emitted!"

@@ -5,7 +5,7 @@ SCENE core_v2/levels/TestScene_v2.tscn
 PRINT "Starting Push Integration Test"
 
 # Spawn a box at (0, 1, -3). Player faces -Z by default.
-SPAWN scene="core_v2/components/PushableBoxV2.tscn" pos=[0, 1, -3]
+SPAWN scene="core_v2/components/PushableBoxV2.tscn" pos=[0, 1, +3]
 
 # Wait for physics to settle (box falling/settling)
 WAIT 1.0

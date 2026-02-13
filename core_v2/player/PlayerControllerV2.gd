@@ -511,10 +511,13 @@ func _update_push_state(_dt: float, input: InputDataV2):
 					var rel_vec = h_pos - p_pos
 					var surf_dist = rel_vec.dot(-push_normal)
 					
-					# Contact Gate: Only apply animation if visually touching (within 0.95m)
-					if surf_dist < (push_offset + 0.05):
+					# Contact Gate: Apply animation if within reasonable reach (1.25m)
+					# We decouple the LOGICAL push state from the VISUAL anchor point.
+					if surf_dist < 1.25:
 						is_pushing = true
-						# Visual Anchoring: Calculate how much we are "too close"
+						# Visual Anchoring: Calculate discrepancy from ideal push_offset (0.71m)
+						# Positive = Too Close (Move Back)
+						# Negative = Too Far (e.g. just starting contact), clamp to 0 for now.
 						visual_push_correction = max(0.0, push_offset - surf_dist)
 					else:
 						visual_push_correction = 0.0

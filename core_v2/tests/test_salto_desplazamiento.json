@@ -2263,23 +2263,6 @@
         "sprint": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -2296,7 +2279,7 @@
     "41": [
 
     ],
-    "132": [
+    "131": [
       {
         "command": "ASSERT",
         "condition": "pos.z > 3.0 \"ERROR: No hubo suficiente inercia horizontal en el salto\""
@@ -2347,9 +2330,9 @@
       },
       "/root/TestScene/Boxes/PushableBoxV2": {
         "pos": [
-          18.5805,
+          6.365,
           1,
-          2.381
+          -0.2596
         ],
         "rot": [
           -0,

@@ -402,7 +402,10 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			var scene = load(scene_path)
 			if scene:
 				var obj = scene.instance()
-				host_node.get_tree().current_scene.add_child(obj)
+				var parent = host_node.get_tree().current_scene
+				if not parent:
+					parent = host_node
+				parent.add_child(obj)
 				if inst.has("pos") and obj is Spatial:
 					obj.global_transform.origin = OYS_Parser.parse_vector3(inst.pos)
 		

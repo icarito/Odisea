@@ -263,9 +263,9 @@
       },
       "/root/TestScene/Boxes/PushableBoxV2": {
         "pos": [
-          18.5805,
+          6.365,
           1,
-          2.381
+          -0.2596
         ],
         "rot": [
           -0,
@@ -626,7 +626,6 @@
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
     "$test_var": 10,
-    "$pos_y": 0.5,
     "$player_count": 1
   }
 }
