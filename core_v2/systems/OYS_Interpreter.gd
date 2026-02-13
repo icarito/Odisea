@@ -91,7 +91,19 @@ func parse(script_content: String):
 		instructions.append(inst)
 
 	if not loop_stack.empty():
-		printerr("[OYS_Interpreter] Unclosed loops at end of script: ", loop_stack.size())
+		var unclosed_non_blend := []
+		while not loop_stack.empty():
+			var start_idx = loop_stack.pop_back()
+			if start_idx < 0 or start_idx >= instructions.size():
+				continue
+			var start_inst = instructions[start_idx]
+			if start_inst.command == "BLEND":
+				# Auto-close trailing BLEND blocks at EOF so scripts don't require a final END marker.
+				start_inst["end_index"] = instructions.size()
+			else:
+				unclosed_non_blend.append(start_inst.command)
+		if not unclosed_non_blend.empty():
+			printerr("[OYS_Interpreter] Unclosed loops at end of script: ", unclosed_non_blend.size(), " -> ", unclosed_non_blend)
 
 func run(start_section: String = ""):
 	execution_id += 1

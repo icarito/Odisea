@@ -20,12 +20,15 @@ var event_timeline := {}
 var oys_variables := {}
 var _peak_y := -999.0
 var _active_input_provider = null
+var _replay_input_provider = null
+var _replay_input_buffer := []
 var oys_interpreter = null
 var oys_assert_failed = false
 var _pending_asserts := []
 var _pending_setters := []
 var _monitored_signals = {}
 var _env_vars := {}
+var _session_spawned_nodes := []
 
 
 # Optimization: Cache for replay_sync group
@@ -48,12 +51,29 @@ var _oys_requested_scene := ""
 var _is_waiting_for_respawn_validation := false
 # Flag para indicar que estamos en proceso de respawn (los triggers no deben ejecutarse)
 var is_respawning := false
+var _session_run_id := 0
 
 func _get_replay_sync_nodes() -> Array:
 	if _replay_sync_cache_dirty:
-		_replay_sync_cache = get_tree().get_nodes_in_group("replay_sync")
+		var all_nodes = get_tree().get_nodes_in_group("replay_sync")
+		var active_scene = _get_active_scene_root()
+		var filtered = []
+		for node in all_nodes:
+			if not is_instance_valid(node):
+				continue
+			if not is_instance_valid(active_scene) or active_scene.is_a_parent_of(node):
+				filtered.append(node)
+		filtered.sort_custom(self, "_sort_nodes_by_path")
+		_replay_sync_cache = filtered
 		_replay_sync_cache_dirty = false
 	return _replay_sync_cache
+
+func _sort_nodes_by_path(a: Node, b: Node) -> bool:
+	if not is_instance_valid(a):
+		return false
+	if not is_instance_valid(b):
+		return true
+	return str(a.get_path()) < str(b.get_path())
 
 func _on_node_added(node: Node):
 	if node.is_in_group("replay_sync"):
@@ -65,14 +85,16 @@ func _on_node_removed(node: Node):
 
 func _find_player():
 	# Prioridad 0: Si ya tenemos una instancia válida y no está siendo borrada, usarla
-	if is_instance_valid(player) and not player.is_queued_for_deletion():
+	if _is_player_candidate_valid(player):
+		_initialize_player_for_session(player)
 		return
 
 	# Prioridad 1: Buscar en el grupo 'player' (más robusto contra renombrados (@Pilot@...))
 	var pilots = get_tree().get_nodes_in_group("player")
 	for p in pilots:
-		if is_instance_valid(p) and not p.is_queued_for_deletion():
+		if _is_player_candidate_valid(p):
 			player = p
+			_initialize_player_for_session(player)
 			return
 
 	# Backup: Buscar por nombre en el árbol
@@ -80,14 +102,34 @@ func _find_player():
 	if not is_instance_valid(pilot) and get_tree().current_scene:
 		pilot = get_tree().current_scene.find_node("Pilot", true, false)
 	
-	if is_instance_valid(pilot) and not pilot.is_queued_for_deletion():
+	if _is_player_candidate_valid(pilot):
 		player = pilot
+		_initialize_player_for_session(player)
 	else:
 		if not is_respawning and not _is_waiting_for_respawn_validation:
 			# Solo loguear si no estamos esperando activamente un respawn
 			# print("[SessionManager] _find_player: No se encontró al jugador.")
 			pass
 		player = null
+	
+func _is_player_candidate_valid(p) -> bool:
+	if not is_instance_valid(p):
+		return false
+	if p.is_queued_for_deletion():
+		return false
+	if not p.is_inside_tree():
+		return false
+	var scene = get_tree().current_scene
+	if is_instance_valid(scene) and not scene.is_a_parent_of(p):
+		return false
+	return true
+
+func _initialize_player_for_session(p):
+	if is_recording or is_replaying:
+		if not p.is_replay_mode:
+			p.is_replay_mode = true
+			print("[SessionManager] Player initialized for session: is_replay_mode=true")
+		p.set_physics_process(false)
 
 
 func _ready():
@@ -280,7 +322,11 @@ var _replay_frame := 0
 var _total_replay_frames := 0
 
 func _physics_process(_dt):
-	_find_player()
+	if is_recording or is_replaying:
+		if not _is_player_candidate_valid(player):
+			_find_player()
+	else:
+		_find_player()
 
 	# Check for Skip Cinematic (Fast Forward)
 	if is_instance_valid(oys_interpreter) and oys_interpreter.is_running:
@@ -375,7 +421,7 @@ func _physics_process(_dt):
 
 	elif is_replaying:
 		# Supresor de inercia mandatorio en Frame 0 para eliminar drift de preparación
-		if _replay_frame == 0 and "velocity" in player:
+		if _replay_frame == 0 and is_instance_valid(player) and "velocity" in player:
 			player.velocity = Vector3.ZERO
 
 		# Execute Logic Events (SET, MATH, ASSERT) for this frame (PRE-STEP)
@@ -389,18 +435,43 @@ func _physics_process(_dt):
 
 		# Obtener input primero para verificar si hay más inputs disponibles
 		var input = null
-		if is_instance_valid(player) and player.input_provider:
-			input = player.input_provider.get_input()
-			_active_input_provider = player.input_provider
+		var provider = null
+		if is_instance_valid(_replay_input_provider):
+			provider = _replay_input_provider
+		elif is_instance_valid(player) and "input_provider" in player and is_instance_valid(player.input_provider):
+			provider = player.input_provider
 		elif is_instance_valid(_active_input_provider):
-			input = _active_input_provider.get_input()
+			provider = _active_input_provider
+
+		if is_instance_valid(provider):
+			input = provider.get_input()
+			_active_input_provider = provider
+			if is_instance_valid(player) and "input_provider" in player and player.input_provider != provider:
+				player.input_provider = provider
+
+		# Intermittent guard: if frame 0 starts with a cleared replay provider,
+		# rearm from the cached input buffer once before terminating playback.
+		if input == null and _replay_frame == 0 and not _replay_input_buffer.empty():
+			var rearm_provider = provider
+			if not is_instance_valid(rearm_provider) and is_instance_valid(player):
+				if player.has_method("ensure_input_provider"):
+					player.ensure_input_provider()
+				if "input_provider" in player and is_instance_valid(player.input_provider):
+					rearm_provider = player.input_provider
+			if is_instance_valid(rearm_provider) and rearm_provider.has_method("set_replay_data"):
+				rearm_provider.set_replay_data(_replay_input_buffer)
+				_replay_input_provider = rearm_provider
+				_active_input_provider = rearm_provider
+				if is_instance_valid(player) and "input_provider" in player and player.input_provider != rearm_provider:
+					player.input_provider = rearm_provider
+				input = rearm_provider.get_input()
 		
 		# Si no hay más inputs, terminar
 		if input == null:
 			if not _is_waiting_for_respawn_validation:
 				run_playback()
 			return
-		
+
 		# Step player con el input si es válido
 		if is_instance_valid(player) and player.has_method("step"):
 			player.step(FIXED_DT, input)
@@ -531,11 +602,15 @@ var _playback_printed_end := false
 
 func load_and_play(path: String):
 	print("[SessionManager] load_and_play called with: ", path)
+	_session_run_id += 1
+	var my_run_id = _session_run_id
 	CinematicManager.reset()
 	if oys_interpreter:
 		oys_interpreter.stop_requested = true
 	is_replaying = false
 	is_recording = false
+	is_respawning = false
+	_is_waiting_for_respawn_validation = false
 	oys_assert_failed = false
 	event_timeline = {}
 	oys_variables = {}
@@ -548,18 +623,32 @@ func load_and_play(path: String):
 	_current_replay_data = {}
 	_oys_requested_scene = ""
 	_peak_y = -999.0
+	_oys_actors = {}
+	_replay_input_provider = null
+	_replay_input_buffer.clear()
+	_cleanup_session_spawned_nodes()
 	Engine.time_scale = 1.0
 	
+	var _ts = get_node_or_null("TeleportSystem")
+	if _ts and _ts.has_method("reset"):
+		_ts.reset()
+	
 	_find_player()
-	if is_instance_valid(player) and player.has_method("full_reset"):
-		player.full_reset()
+	if is_instance_valid(player):
+		if player.has_method("full_reset"):
+			player.full_reset()
+		if player.has_method("force_camera_current"):
+			player.force_camera_current()
 	
 	_current_replay_path = path
 	var ext = path.get_extension().to_lower()
+	if ext == "oys" or ext == "json":
+		is_replaying = true
 	if ext == "oys":
 		var file = File.new()
 		if not file.file_exists(path):
 			printerr("❌ Error: El archivo OYS no existe: ", path)
+			is_replaying = false
 			call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
 			return
 		file.open(path, File.READ)
@@ -595,6 +684,8 @@ func load_and_play(path: String):
 					get_tree().root.add_child(inst)
 					get_tree().current_scene = inst
 					yield (get_tree(), "idle_frame")
+					if my_run_id != _session_run_id:
+						return
 					_find_player()
 		
 		# Enforce input inhibition for OYS live execution
@@ -605,7 +696,6 @@ func load_and_play(path: String):
 				player.input_provider.hardware_input_enabled = false
 		
 		# NOW start the run
-		is_replaying = true
 		is_recording = true
 		
 		if _should_snapshot:
@@ -662,6 +752,8 @@ func load_and_play(path: String):
 		var run_state = interpreter.run()
 		if run_state is GDScriptFunctionState:
 			yield (run_state, "completed")
+			if my_run_id != _session_run_id:
+				return
 		
 		# CRITICAL: Stop recording BEFORE any yields to ensure consistent frame counts
 		is_recording = false
@@ -677,11 +769,38 @@ func load_and_play(path: String):
 		var timeout = 60 # Max 1 second
 		while is_respawning and timeout > 0:
 			yield (get_tree(), "physics_frame")
+			if my_run_id != _session_run_id:
+				return
 			timeout -= 1
 		
 		if interpreter.test_failed:
 			oys_assert_failed = true
+
+		# Defensive snapshot save for OYS runs to avoid stale JSON if finish validation
+		# is skipped by edge conditions in test harness.
+		if _should_snapshot and is_instance_valid(player):
+			var target_save_path = _current_replay_path.get_basename() + ".json"
+			var final_data = _current_replay_data.duplicate(true)
+			final_data["final_expected_state"] = player.get_full_snapshot()
+			if not final_data.has("meta"):
+				final_data["meta"] = {}
+			if _oys_requested_scene != "":
+				final_data["meta"]["scene_path"] = _oys_requested_scene
+			if oys_interpreter:
+				final_data["oys_variables"] = oys_interpreter.variables
+				if oys_interpreter.variables.has("$drift_threshold"):
+					final_data["meta"]["drift_threshold"] = float(oys_interpreter.variables["$drift_threshold"])
+				elif oys_interpreter.variables.has("$sys_drift_threshold"):
+					final_data["meta"]["drift_threshold"] = float(oys_interpreter.variables["$sys_drift_threshold"])
+			if not final_data.has("buffer") and _current_replay_data.has("buffer"):
+				final_data["buffer"] = _current_replay_data["buffer"]
+			var sf = File.new()
+			if sf.open(target_save_path, File.WRITE) == OK:
+				sf.store_string(JSON.print(final_data, "  "))
+				sf.close()
 		
+		if my_run_id != _session_run_id:
+			return
 		_finish_and_validate()
 		return
 
@@ -689,6 +808,7 @@ func load_and_play(path: String):
 	var file = File.new()
 	if not file.file_exists(path):
 		printerr("❌ Error: El archivo de replay no existe: ", path)
+		is_replaying = false
 		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
 		return
 	file.open(path, File.READ)
@@ -696,6 +816,7 @@ func load_and_play(path: String):
 	file.close()
 	if typeof(parsed.result) != TYPE_DICTIONARY:
 		printerr("❌ Formato de replay inválido")
+		is_replaying = false
 		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
 		return
 	var data = parsed.result
@@ -818,7 +939,16 @@ func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
 
 	player.is_replay_mode = true
 	player.set_physics_process(false)
+	if player.has_method("ensure_input_provider"):
+		player.ensure_input_provider()
+	if not ("input_provider" in player) or not is_instance_valid(player.input_provider):
+		printerr("❌ SessionManager: Player sin input_provider válido para replay interno.")
+		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
+		return
 	player.input_provider.set_replay_data(input_buffer)
+	_active_input_provider = player.input_provider
+	_replay_input_provider = player.input_provider
+	_replay_input_buffer = input_buffer.duplicate(true)
 	if "velocity" in player:
 		player.velocity = Vector3.ZERO
 
@@ -876,7 +1006,16 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 
 	player.is_replay_mode = true
 	player.set_physics_process(false)
+	if player.has_method("ensure_input_provider"):
+		player.ensure_input_provider()
+	if not ("input_provider" in player) or not is_instance_valid(player.input_provider):
+		printerr("❌ SessionManager: Player sin input_provider válido para replay.")
+		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
+		return
 	player.input_provider.set_replay_data(input_buffer)
+	_active_input_provider = player.input_provider
+	_replay_input_provider = player.input_provider
+	_replay_input_buffer = input_buffer.duplicate(true)
 
 	# Initialize Event Runtime
 	event_timeline = {}
@@ -901,12 +1040,15 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 func _finish_and_validate():
 	if _drift_validated:
 		return
+	var run_id = _session_run_id
 	
 	if is_respawning:
 		# MANTENER is_replaying = true para que el test runner no termine prematuramente
 		# y para que los nuevos pilotos sepan que siguen en replay mode.
 		_is_waiting_for_respawn_validation = true
 		yield (get_tree(), "physics_frame")
+		if run_id != _session_run_id:
+			return
 		_finish_and_validate()
 		return
 
@@ -914,6 +1056,10 @@ func _finish_and_validate():
 	_drift_validated = true
 	is_replaying = false
 	is_recording = false
+	Engine.time_scale = 1.0
+	CinematicManager.reset()
+	_replay_input_provider = null
+	_replay_input_buffer.clear()
 	
 	_find_player()
 	if is_instance_valid(player):
@@ -938,7 +1084,7 @@ func _finish_and_validate():
 	if is_instance_valid(player):
 		var cam = player.get_node_or_null("CameraRig") if is_instance_valid(player) else null
 		var cam_pos = cam.global_transform.origin if is_instance_valid(cam) else "null"
-		print("Snapshot: rotation=(%s,%s) pos=%s cam=%s" % [str(player.yaw), str(player.pitch), str(player.global_transform.origin), str(cam_pos)])
+		print("[SessionManager] Replay snapshot: rotation=(%s,%s) pos=%s cam=%s" % [str(player.yaw), str(player.pitch), str(player.global_transform.origin), str(cam_pos)])
 
 	# 2. Validar drift
 	if final_expected_state == null:
@@ -960,7 +1106,7 @@ func _finish_and_validate():
 			print("DRIFT_CHECK: dist=%.6f, expected=%s, actual=%s" % [dist, expected_pos, current_pos])
 			print("DRIFT_CHECK: yaw_diff=%.6f, pitch_diff=%.6f" % [yaw_diff, pitch_diff])
 			
-			var pos_threshold = 0.01 # Umbral tolerante para KillZone (respawn no es 100% exacto en frames)
+			var pos_threshold = _get_runtime_drift_threshold()
 			var ang_threshold = 0.01
 			if dist > pos_threshold:
 				printerr("❌ DRIFT ERROR: Positional drift = %.6f > %.6f" % [dist, pos_threshold])
@@ -995,6 +1141,10 @@ func _finish_and_validate():
 		
 		if oys_interpreter:
 			final_data["oys_variables"] = oys_interpreter.variables
+			if oys_interpreter.variables.has("$drift_threshold"):
+				final_data["meta"]["drift_threshold"] = float(oys_interpreter.variables["$drift_threshold"])
+			elif oys_interpreter.variables.has("$sys_drift_threshold"):
+				final_data["meta"]["drift_threshold"] = float(oys_interpreter.variables["$sys_drift_threshold"])
 		
 		# Ensure buffer is present if it's missing (e.g. from OYS data sometimes needing structure adjustment)
 		if not final_data.has("buffer") and _current_replay_data.has("buffer"):
@@ -1025,6 +1175,35 @@ func _check_events_for_frame(frame_idx: int):
 		var commands = event_timeline[frame_idx]
 		for cmd in commands:
 			_execute_event(cmd)
+
+func _get_runtime_drift_threshold() -> float:
+	var fallback = 0.01
+	if typeof(_current_replay_data) != TYPE_DICTIONARY:
+		return fallback
+	
+	if _current_replay_data.has("drift_threshold"):
+		var top = float(_current_replay_data.get("drift_threshold", fallback))
+		if top > 0.0:
+			return top
+	
+	var meta = _current_replay_data.get("meta", {})
+	if typeof(meta) == TYPE_DICTIONARY and meta.has("drift_threshold"):
+		var meta_v = float(meta.get("drift_threshold", fallback))
+		if meta_v > 0.0:
+			return meta_v
+	
+	var vars = _current_replay_data.get("oys_variables", {})
+	if typeof(vars) == TYPE_DICTIONARY:
+		if vars.has("$drift_threshold"):
+			var v = float(vars.get("$drift_threshold", fallback))
+			if v > 0.0:
+				return v
+		if vars.has("$sys_drift_threshold"):
+			var sv = float(vars.get("$sys_drift_threshold", fallback))
+			if sv > 0.0:
+				return sv
+	
+	return fallback
 
 func _execute_event(cmd: Dictionary):
 	var type = cmd.get("command", "")
@@ -1241,7 +1420,10 @@ func _handle_assert_command(cmd: Dictionary):
 	
 	var expr_parts = expression.split(" ", false)
 	if expr_parts.size() < 3:
-		printerr("⚠️ Assertion malformed: ", expression)
+		printerr("❌ Assertion malformed at frame %d: %s" % [_replay_frame, condition])
+		oys_assert_failed = true
+		if is_cli_mode:
+			get_tree().quit(1)
 		return
 		
 	var left_key = expr_parts[0]
@@ -1379,13 +1561,19 @@ func run_playback():
 	_find_player()
 
 	# Detectar cuando el provider llega al final del buffer y validar
-	if player and "input_provider" in player and player.input_provider:
-		var prov = player.input_provider
-		if prov.mode == prov.Mode.REPLAY:
-			var idx = prov.playback_index
-			var sz = prov.playback_buffer.size()
-			if idx >= sz and not _drift_validated:
-				_finish_and_validate()
+	var prov = null
+	if is_instance_valid(_replay_input_provider):
+		prov = _replay_input_provider
+	elif player and "input_provider" in player and player.input_provider:
+		prov = player.input_provider
+	elif is_instance_valid(_active_input_provider):
+		prov = _active_input_provider
+	
+	if prov and prov.mode == prov.Mode.REPLAY:
+		var idx = prov.playback_index
+		var sz = prov.playback_buffer.size()
+		if idx >= sz and not _drift_validated:
+			_finish_and_validate()
 
 # Helper para tests: ejecuta la simulación desde un buffer
 # Asume que player ya está en el árbol y que las plataformas también están instanciadas
@@ -1585,12 +1773,64 @@ func _parse_vector3_flexible(s: String) -> Vector3:
 
 func _handle_spawn_command(cmd: Dictionary):
 	var scene_path = cmd.get("scene", "")
+	if scene_path == "":
+		printerr("[SessionManager] SPAWN failed: empty scene path")
+		return
+
 	var scene = load(scene_path)
-	if scene:
-		var obj = scene.instance()
-		get_tree().current_scene.add_child(obj)
-		if cmd.has("pos"):
-			obj.global_transform.origin = _parse_vector3(cmd.get("pos"))
+	if scene == null:
+		printerr("[SessionManager] SPAWN failed: cannot load scene ", scene_path)
+		return
+
+	var obj = scene.instance()
+	if obj == null:
+		printerr("[SessionManager] SPAWN failed: cannot instance scene ", scene_path)
+		return
+
+	var has_pos = cmd.has("pos") and obj is Spatial
+	var parsed_pos = Vector3.ZERO
+	if has_pos:
+		var raw_pos = cmd.get("pos")
+		if typeof(raw_pos) == TYPE_VECTOR3:
+			parsed_pos = raw_pos
+		else:
+			parsed_pos = _parse_vector3_flexible(str(raw_pos))
+
+	var parent = _get_active_scene_root()
+	if not is_instance_valid(parent):
+		parent = _resolve_stage()
+	if not is_instance_valid(parent):
+		parent = get_tree().root
+	if not is_instance_valid(parent):
+		printerr("[SessionManager] SPAWN failed: no valid parent for ", scene_path)
+		return
+
+	# Pre-position before entering tree to avoid one-frame collisions at origin.
+	if has_pos:
+		var s = obj as Spatial
+		if parent is Spatial:
+			var local_pos = (parent as Spatial).to_local(parsed_pos)
+			var local_t = s.transform
+			local_t.origin = local_pos
+			s.transform = local_t
+		else:
+			var global_t = s.global_transform
+			global_t.origin = parsed_pos
+			s.global_transform = global_t
+
+	parent.add_child(obj)
+	_register_spawned_node(obj)
+	_prepare_spawned_node_for_determinism(obj)
+	if has_pos:
+		var s = obj as Spatial
+		var final_t = s.global_transform
+		final_t.origin = parsed_pos
+		s.global_transform = final_t
+	if obj is RigidBody:
+		var rb = obj as RigidBody
+		rb.linear_velocity = Vector3.ZERO
+		rb.angular_velocity = Vector3.ZERO
+		rb.sleeping = false
 
 func _handle_play_anim(cmd: Dictionary):
 	var path = cmd.get("path", "")
@@ -1608,6 +1848,56 @@ func _resolve_stage() -> Node:
 	if stage and (stage.name == "PropStage" or stage.has_method("load_prop")):
 		return stage
 	return null
+
+func _get_active_scene_root() -> Node:
+	var scene = get_tree().current_scene
+	if is_instance_valid(scene):
+		return scene
+
+	_find_player()
+	if is_instance_valid(player):
+		var n: Node = player
+		while n.get_parent() and n.get_parent() != get_tree().root:
+			n = n.get_parent()
+		return n
+
+	return null
+
+func _register_spawned_node(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+	_session_spawned_nodes.append(weakref(node))
+
+func _cleanup_session_spawned_nodes() -> void:
+	var is_testing = false
+	if Engine.has_singleton("GdUnit3"):
+		is_testing = Engine.get_singleton("GdUnit3").is_test_suite()
+
+	for wr in _session_spawned_nodes:
+		if wr == null:
+			continue
+		var node = wr.get_ref()
+		if is_instance_valid(node) and not node.is_queued_for_deletion():
+			if is_testing:
+				node.free()
+			else:
+				node.queue_free()
+	_session_spawned_nodes.clear()
+	_replay_sync_cache_dirty = true
+
+func _prepare_spawned_node_for_determinism(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+
+	# If the node supports snapshot restore but is missing group membership, add it.
+	if node.has_method("get_snapshot") and node.has_method("restore_snapshot") and not node.is_in_group("replay_sync"):
+		node.add_to_group("replay_sync")
+
+	# During recording/replay we must centralize simulation stepping.
+	if (is_recording or is_replaying) and node.has_method("step"):
+		node.set_physics_process(false)
+
+	_replay_sync_cache_dirty = true
 
 func _resolve_prop() -> Node:
 	var stage = _resolve_stage()

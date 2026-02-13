@@ -5,6 +5,7 @@ extends GdUnitTestSuite
 const TESTS_ROOT = "res://core_v2/tests"
 const DRIFT_THRESHOLD = 0.01
 const DRIFT_WARNING = 0.005
+var _drift_threshold_cache := {}
 
 ## Helpers
 
@@ -33,11 +34,73 @@ static func _compute_drift(player, expected) -> Dictionary:
 		ret["pitch_diff"] = abs(player.pitch - expected.get("pitch", 0.0))
 	return ret
 
+func _extract_drift_threshold_from_data(data: Dictionary) -> float:
+	var fallback = DRIFT_THRESHOLD
+	if typeof(data) != TYPE_DICTIONARY:
+		return fallback
+	
+	if data.has("drift_threshold"):
+		var top_val = float(data.get("drift_threshold", fallback))
+		if top_val > 0.0:
+			return top_val
+	
+	var meta = data.get("meta", {})
+	if typeof(meta) == TYPE_DICTIONARY and meta.has("drift_threshold"):
+		var meta_val = float(meta.get("drift_threshold", fallback))
+		if meta_val > 0.0:
+			return meta_val
+	
+	var vars = data.get("oys_variables", {})
+	if typeof(vars) == TYPE_DICTIONARY:
+		if vars.has("$drift_threshold"):
+			var v = float(vars.get("$drift_threshold", fallback))
+			if v > 0.0:
+				return v
+		if vars.has("$sys_drift_threshold"):
+			var sv = float(vars.get("$sys_drift_threshold", fallback))
+			if sv > 0.0:
+				return sv
+	
+	return fallback
+
+func _get_drift_threshold_for_path(path: String) -> float:
+	if _drift_threshold_cache.has(path):
+		return _drift_threshold_cache[path]
+	
+	var replay_path = path
+	if path.ends_with(".oys"):
+		replay_path = path.get_basename() + ".json"
+	
+	var f = File.new()
+	if not f.file_exists(replay_path):
+		_drift_threshold_cache[path] = DRIFT_THRESHOLD
+		return DRIFT_THRESHOLD
+	
+	if f.open(replay_path, File.READ) != OK:
+		_drift_threshold_cache[path] = DRIFT_THRESHOLD
+		return DRIFT_THRESHOLD
+	
+	var parsed = JSON.parse(f.get_as_text())
+	f.close()
+	
+	if typeof(parsed.result) != TYPE_DICTIONARY:
+		_drift_threshold_cache[path] = DRIFT_THRESHOLD
+		return DRIFT_THRESHOLD
+	
+	var threshold = _extract_drift_threshold_from_data(parsed.result)
+	_drift_threshold_cache[path] = threshold
+	return threshold
+
+func _get_drift_warning_for_path(path: String) -> float:
+	var threshold = _get_drift_threshold_for_path(path)
+	return max(DRIFT_WARNING, threshold * 0.5)
+
 func before():
 	# Optimización para tests: desactivar vsync para velocidad máxima
 	OS.set_use_vsync(false)
 	Engine.target_fps = 0 # Sin límite de FPS
 	SessionManager.is_manual_mode = true
+	_drift_threshold_cache.clear()
 
 # Data provider: devuelve un Array de parameter sets.
 
@@ -138,13 +201,6 @@ func _get_scene_for_test(path: String) -> String:
 # Parametrized test for JSON replays
 
 
-# Forzar posición inicial del player a (0,0,0) si no hay snapshot explícito
-func _force_player_position_from_expected():
-	if is_instance_valid(SessionManager.player):
-		var t = SessionManager.player.global_transform
-		t.origin = Vector3(0, 0, 0)
-		SessionManager.player.global_transform = t
-
 # Test único parametrizado para ambos formatos
 func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 	var _unused = test_parameters
@@ -168,9 +224,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		if is_instance_valid(SessionManager.player) and SessionManager.player.has_method("full_reset"):
 			SessionManager.player.full_reset()
 
-		_force_player_position_from_expected()
-
-		SessionManager.load_and_play(path)
+			SessionManager.load_and_play(path)
 
 		var timeout_setup = 100
 		while not SessionManager.is_replaying and timeout_setup > 0:
@@ -196,10 +250,12 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 
 		# Chequeo de drift si corresponde
 		var drift_info = _compute_drift(SessionManager.player, SessionManager.final_expected_state)
-		if drift_info.drift > DRIFT_THRESHOLD:
-			fail("Drift demasiado alto: %s (umbral: %s)" % [drift_info.drift, DRIFT_THRESHOLD])
-		elif drift_info.drift > DRIFT_WARNING:
-			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, DRIFT_WARNING])
+		var drift_threshold = _get_drift_threshold_for_path(path)
+		var drift_warning = _get_drift_warning_for_path(path)
+		if drift_info.drift > drift_threshold:
+			fail("Drift demasiado alto: %s (umbral: %s)" % [drift_info.drift, drift_threshold])
+		elif drift_info.drift > drift_warning:
+			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, drift_warning])
 
 	if path.ends_with(".oys"):
 		var scene_path = _get_scene_for_test(path)
@@ -260,8 +316,6 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		if is_instance_valid(SessionManager.player) and SessionManager.player.has_method("full_reset"):
 			SessionManager.player.full_reset()
 
-		_force_player_position_from_expected()
-
 		SessionManager._should_snapshot = false
 		SessionManager.load_and_play(json_path)
 
@@ -269,22 +323,33 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		while not SessionManager.is_replaying and timeout_setup > 0:
 			yield (runner.simulate_frames(1), "completed")
 			timeout_setup -= 1
-
+		
 		var timeout = 5000
 		while SessionManager.is_replaying and timeout > 0:
 			yield (runner.simulate_frames(1), "completed")
 			timeout -= 1
-
-		# LIMPIEZA EXPLÍCITA PARA CERRAR VENTANA
-		if is_instance_valid(runner.scene()):
-			runner.scene().queue_free()
+		
+		if timeout <= 0:
+			fail("Replay timed out en PASS 2: %s" % json_path)
+			return
+		
+		# Verificar aserciones lógicas grabadas también en PASS 2 (JSON replay)
+		if SessionManager.oys_assert_failed:
+			fail("OYS ASSERT FAILED durante replay JSON (PASS 2).")
+			return
+			
+			# LIMPIEZA EXPLÍCITA PARA CERRAR VENTANA
+			if is_instance_valid(runner.scene()):
+				runner.scene().queue_free()
 
 		# Chequeo de drift si corresponde
 		var drift_info = _compute_drift(SessionManager.player, SessionManager.final_expected_state)
-		if drift_info.drift > DRIFT_THRESHOLD:
-			fail("Drift demasiado alto: %s (umbral: %s)" % [drift_info.drift, DRIFT_THRESHOLD])
-		elif drift_info.drift > DRIFT_WARNING:
-			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, DRIFT_WARNING])
+		var drift_threshold = _get_drift_threshold_for_path(path)
+		var drift_warning = _get_drift_warning_for_path(path)
+		if drift_info.drift > drift_threshold:
+			fail("Drift demasiado alto: %s (umbral: %s)" % [drift_info.drift, drift_threshold])
+		elif drift_info.drift > drift_warning:
+			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, drift_warning])
 
 	# Breve espera para que GdUnit considere el test terminado
 	yield (get_tree(), "idle_frame")
@@ -386,6 +451,7 @@ func after():
 	# Restablecer estado del SessionManager para evitar interferencias entre tests
 	SessionManager.is_replaying = false
 	SessionManager.is_manual_mode = false
+	Engine.time_scale = 1.0
 	SessionManager.buffer = []
 	SessionManager.final_expected_state = null
 	SessionManager.player = null

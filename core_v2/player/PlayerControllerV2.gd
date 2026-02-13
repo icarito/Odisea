@@ -106,6 +106,10 @@ func set_camera_input_locked(locked: bool):
 	if input_provider:
 		input_provider.hardware_input_enabled = not locked
 
+func force_camera_current(_reset_orientation := false):
+	if _cached_cam:
+		_cached_cam.current = true
+
 func ensure_input_provider():
 	if not input_provider or not is_instance_valid(input_provider):
 		input_provider = InputProviderV2.new()
@@ -166,6 +170,8 @@ func full_reset() -> void:
 	is_acrobatic_ready = false
 	yaw = 0.0
 	pitch = 0.0
+	yaw_deg = 0.0
+	pitch_deg = 0.0
 	rotation = Vector3.ZERO
 	
 	if is_instance_valid(movement_logic):
@@ -178,8 +184,14 @@ func full_reset() -> void:
 		jump_logic.jump_buffer_timer = 0.0
 		jump_logic._is_jumping = false
 
+	if is_instance_valid(animator) and animator.has_method("reset_state"):
+		animator.reset_state()
+
 	_active_cinematic_zone = null
 	_prev_active_cinematic_zone = null
+	if camera_rig:
+		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.force_update_transform()
 
 onready var camera_rig = $CameraRig
 onready var animator = $Visual/Pivot
@@ -187,7 +199,8 @@ onready var animator = $Visual/Pivot
 func _ready():
 	initial_transform = global_transform
 	add_to_group("player")
-	input_provider = InputProviderV2.new()
+	if not is_instance_valid(input_provider):
+		input_provider = InputProviderV2.new()
 
 	if has_node("Logic/Jump"):
 		jump_logic = get_node("Logic/Jump")
@@ -841,7 +854,6 @@ func _update_cinematic_zone_detection(input: InputDataV2):
 			var cur_cam = CinematicManager.get_active_camera()
 			if cur_cam:
 				_exit_log_frames = 60 # Log first 60 frames (~1s) of exit to capture full transition
-				print("[CameraExit] STARTING EXIT at cam_pos=", cur_cam.global_transform.origin, " fov=", cur_cam.fov)
 				# 1. Snap player camera
 				snap_rig_to_camera_orbit(cur_cam.global_transform.origin, cur_cam.fov)
 				# 2. Deactivate cinematic rig
@@ -855,7 +867,6 @@ func _update_cinematic_zone_detection(input: InputDataV2):
 					_restore_spring_length = -1.0
 					_restore_fov = -1.0
 				
-				print("[CameraExit] SNAP DONE: yaw=", yaw, " pitch=", pitch, " dist=", base_spring_length_3d, " fov=", base_fov)
 			else:
 				CinematicManager.deactivate_rig()
 			
@@ -971,19 +982,15 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 func _physics_process(_delta):
 	if _exit_log_frames > 0:
 		_exit_log_frames -= 1
-		var view_cam = get_viewport().get_camera()
-		var rig_cam = _cached_cam
-		if view_cam and rig_cam:
-			print("[CameraExit] Frame ", 60 - _exit_log_frames,
-				" VIEW=", view_cam.global_transform.origin,
-				" RIG=", rig_cam.global_transform.origin,
-				" DELTA=", view_cam.global_transform.origin.distance_to(rig_cam.global_transform.origin))
 	if is_replay_mode:
-		if external_input_provided and external_input:
-			external_input_provided = false
-			step(FIXED_DT, external_input)
-			external_input = null
-		return
+		# During SessionManager-driven recording/replay, physics stepping is centralized there.
+		# For standalone tests with manual external_input, keep local stepping enabled.
+		var sm = get_node_or_null("/root/SessionManager")
+		if sm and sm.player == self:
+			if sm.is_recording:
+				return
+			if sm.is_replaying and not external_input_provided:
+				return
 
 	if external_input_provided and external_input:
 		external_input_provided = false
