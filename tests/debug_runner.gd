@@ -4,6 +4,8 @@ var _test_file: String = ""
 var _exit_code: int = 0
 var _session_manager = null
 var _first_frame: bool = true
+var _pending_start: bool = false
+var _frames_waited: int = 0
 
 func _init():
 	print("[INFO]: Test initialization, Godot version: %s" % Engine.get_version_info().string)
@@ -59,24 +61,65 @@ func _add_autoload(name: String, path: String) -> Node:
 	get_root().add_child(node)
 	return node
 
+func _extract_scene_path(file_path: String) -> String:
+	# Default fallback
+	var scene_path = "res://core_v2/levels/TestScene_v2.tscn"
+
+	var f = File.new()
+	if not f.file_exists(file_path):
+		return scene_path
+
+	if f.open(file_path, File.READ) == OK:
+		if file_path.ends_with(".oys"):
+			# Simple line scan for LEVEL command
+			var content = f.get_as_text()
+			for line in content.split("\n"):
+				var l = line.strip_edges()
+				if l.begins_with("LEVEL"):
+					var parts = l.split(" ", false)
+					if parts.size() > 1:
+						scene_path = parts[1]
+					break
+		elif file_path.ends_with(".json"):
+			var content = f.get_as_text()
+			var parsed = JSON.parse(content)
+			if parsed.error == OK and typeof(parsed.result) == TYPE_DICTIONARY:
+				var meta = parsed.result.get("meta", {})
+				# Prioritize explicit meta scene path
+				if meta.has("scene_path"):
+					scene_path = meta["scene_path"]
+				# Fallback to scene key in meta if present
+				elif meta.has("scene"):
+					scene_path = meta["scene"]
+		f.close()
+
+	return scene_path
+
 func _start_test():
 	if _session_manager:
 		# Disable CLI mode in SessionManager so we control the exit
 		_session_manager.is_cli_mode = false
 
-		# Depending on the file type, SessionManager handles loading the scene.
-		# .oys files usually contain a LEVEL command.
-		# .json files usually contain meta.scene_path.
+		# Proactively load the scene to ensure the tree is populated
+		var scene_path = _extract_scene_path(_test_file)
+		print("[DEBUG]: Pre-loading scene: %s" % scene_path)
 
-		# We must ensure we are in a valid state.
-		# SessionManager.load_and_play expects to be able to find the player and such.
-		# It handles scene loading if LEVEL is present.
+		var packed_scene = load(scene_path)
+		if packed_scene:
+			var current = packed_scene.instance()
+			get_root().add_child(current)
+			# Important: Set current_scene so SessionManager finds it
+			current_scene = current
 
-		print("[DEBUG]: Invoking SessionManager.load_and_play with %s" % _test_file)
-		_session_manager.load_and_play(_test_file)
+			# Wait for _ready and group registration
+			_pending_start = true
+		else:
+			printerr("[ERROR]: Could not load scene: %s" % scene_path)
+			quit(4)
 	else:
 		printerr("[ERROR]: SessionManager not initialized.")
 		quit(3)
+
 
 func _on_replay_finished(success: bool, drift: float, frames: int):
 	if success:
@@ -92,4 +135,14 @@ func _idle(delta):
 	if _first_frame:
 		_first_frame = false
 		_start_test()
+		return false
+
+	if _pending_start:
+		_frames_waited += 1
+		# Wait a few frames for nodes to register in groups (Player, etc.)
+		if _frames_waited > 10: # Increased wait time slightly for safety
+			_pending_start = false
+			print("[DEBUG]: Invoking SessionManager.load_and_play with %s" % _test_file)
+			_session_manager.load_and_play(_test_file)
+
 	return false # return false to NOT quit the application, keep running loop
