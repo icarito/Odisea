@@ -136,7 +136,7 @@ func _run_validation_oys():
 	
 	# Load validator script
 	var f = File.new()
-	var script_path = "res://core_v2/tests/prop_validator.oys"
+	var script_path = "res://core_v2/scripts/prop_validator.oys"
 	if f.open(script_path, File.READ) != OK:
 		printerr("[PropStage] Could not load validator script: ", script_path)
 		return

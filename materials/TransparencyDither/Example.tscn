@@ -1,8 +1,8 @@
 [gd_scene load_steps=8 format=2]
 
-[ext_resource path="res://TransparencyDither/transparency_dither.gdshader" type="Shader" id=1]
-[ext_resource path="res://TransparencyDither/ExampleDitherRamp.png" type="Texture" id=2]
-[ext_resource path="res://TransparencyDither/test.png" type="Texture" id=3]
+[ext_resource path="res://materials/TransparencyDither/transparency_dither.gdshader" type="Shader" id=1]
+[ext_resource path="res://materials/TransparencyDither/ExampleDitherRamp.png" type="Texture" id=2]
+[ext_resource path="res://materials/TransparencyDither/test.png" type="Texture" id=3]
 
 [sub_resource type="ShaderMaterial" id=1]
 shader = ExtResource( 1 )

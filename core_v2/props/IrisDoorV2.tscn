@@ -1,60 +1,155 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://core_v2/components/InteractableBridge.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/IrisDoorV2.gd" type="Script" id=2]
-[ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=3]
+[ext_resource path="res://materials/things/StainlessSteel.tres" type="Material" id=3]
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=4]
 
 [sub_resource type="CubeMesh" id=1]
 material = ExtResource( 3 )
-size = Vector3( 3.0, 0.5, 0.1 )
+size = Vector3( 1.8, 1.35, 0.05 )
 
-[node name="IrisDoor" type="Spatial"]
+[sub_resource type="BoxShape" id=2]
+extents = Vector3( 0.9, 0.675, 0.025 )
+
+[node name="IrisDoorV2" type="Spatial"]
 script = ExtResource( 1 )
 target_node = NodePath("IrisMechanism")
 
 [node name="IrisMechanism" type="Spatial" parent="."]
 script = ExtResource( 2 )
-rotation_angle = 60.0
-rotation_axis = Vector3( 0, 0, 1 )
+starts_active = true
+rotation_angle = 90.0
+iris_radius = 1.7
 
 [node name="BladePivot1" type="Spatial" parent="IrisMechanism"]
-transform = Transform( 1.0, -0.0, 0, 0.0, 1.0, 0, 0, 0, 1, 1.8, 0.0, 0 )
+transform = Transform( 1.19249e-08, 1, 0, -1, 1.19249e-08, 0, 0, 0, 1, 1.7, 0, 0 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot1"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 0, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 mesh = SubResource( 1 )
+
+[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot1"]
+
+[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot1/StaticBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
+shape = SubResource( 2 )
 
 [node name="BladePivot2" type="Spatial" parent="IrisMechanism"]
-transform = Transform( 0.5000000000000001, -0.8660254037844386, 0, 0.8660254037844386, 0.5000000000000001, 0, 0, 0, 1, 0.9000000000000002, 1.5588457268119895, 0 )
+transform = Transform( 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 0, 0, 1, 1.20208, 1.20208, 0.005 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot2"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 0, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 mesh = SubResource( 1 )
+
+[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot2"]
+
+[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot2/StaticBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
+shape = SubResource( 2 )
 
 [node name="BladePivot3" type="Spatial" parent="IrisMechanism"]
-transform = Transform( -0.4999999999999998, -0.8660254037844387, 0, 0.8660254037844387, -0.4999999999999998, 0, 0, 0, 1, -0.8999999999999996, 1.5588457268119897, 0 )
+transform = Transform( 1, -1.74846e-07, 0, 1.74846e-07, 1, 0, 0, 0, 1, 1.04095e-16, 1.7, 0.01 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot3"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 0, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 mesh = SubResource( 1 )
+
+[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot3"]
+
+[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot3/StaticBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
+shape = SubResource( 2 )
 
 [node name="BladePivot4" type="Spatial" parent="IrisMechanism"]
-transform = Transform( -1.0, -1.2246467991473532e-16, 0, 1.2246467991473532e-16, -1.0, 0, 0, 0, 1, -1.8, 2.2043642384652358e-16, 0 )
+transform = Transform( 0.707107, -0.707107, 0, 0.707107, 0.707107, 0, 0, 0, 1, -1.20208, 1.20208, 0.015 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot4"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 0, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 mesh = SubResource( 1 )
+
+[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot4"]
+
+[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot4/StaticBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
+shape = SubResource( 2 )
 
 [node name="BladePivot5" type="Spatial" parent="IrisMechanism"]
-transform = Transform( -0.5000000000000004, 0.8660254037844384, 0, -0.8660254037844384, -0.5000000000000004, 0, 0, 0, 1, -0.9000000000000008, -1.558845726811989, 0 )
+transform = Transform( 1.39071e-07, -1, 0, 1, 1.39071e-07, 0, 0, 0, 1, -1.7, 2.0819e-16, 0.02 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot5"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 0, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 mesh = SubResource( 1 )
+
+[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot5"]
+
+[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot5/StaticBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
+shape = SubResource( 2 )
 
 [node name="BladePivot6" type="Spatial" parent="IrisMechanism"]
-transform = Transform( 0.5000000000000001, 0.8660254037844386, 0, -0.8660254037844386, 0.5000000000000001, 0, 0, 0, 1, 0.9000000000000002, -1.5588457268119895, 0 )
+transform = Transform( -0.707107, -0.707107, 0, 0.707107, -0.707107, 0, 0, 0, 1, -1.20208, -1.20208, 0.025 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot6"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 0, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 mesh = SubResource( 1 )
+
+[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot6"]
+
+[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot6/StaticBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
+shape = SubResource( 2 )
+
+[node name="BladePivot7" type="Spatial" parent="IrisMechanism"]
+transform = Transform( -1, 2.38498e-08, 0, -2.38498e-08, -1, 0, 0, 0, 1, -3.12285e-16, -1.7, 0.03 )
+
+[node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot7"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
+mesh = SubResource( 1 )
+
+[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot7"]
+
+[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot7/StaticBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
+shape = SubResource( 2 )
+
+[node name="BladePivot8" type="Spatial" parent="IrisMechanism"]
+transform = Transform( -0.707108, 0.707107, 0, -0.707107, -0.707108, 0, 0, 0, 1, 1.20208, -1.20208, 0.035 )
+
+[node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot8"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
+mesh = SubResource( 1 )
+
+[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot8"]
+
+[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot8/StaticBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1.75, 0 )
+shape = SubResource( 2 )
+
+[node name="Frame" type="CSGCombiner" parent="."]
+use_collision = true
+
+[node name="OuterShell" type="CSGCylinder" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
+radius = 3.6
+sides = 24
+material = ExtResource( 3 )
+
+[node name="InnerHole" type="CSGCylinder" parent="Frame/OuterShell"]
+operation = 2
+radius = 1.72
+height = 1.2
+sides = 32
+material = ExtResource( 3 )
+
+[node name="WorldEnvironment2" type="WorldEnvironment" parent="."]
+environment = ExtResource( 4 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="WorldEnvironment2"]
+transform = Transform( 0.996195, 3.82452e-09, 0.0871557, -0.0841859, 0.258819, 0.96225, -0.0225575, -0.965926, 0.257834, 30.8934, 69.3233, 18.402 )
+light_color = Color( 0.364706, 0.364706, 0.364706, 1 )
+light_energy = 0.627
+light_indirect_energy = 1.279
+light_bake_mode = 2
+shadow_enabled = true
+directional_shadow_mode = 2
