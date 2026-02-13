@@ -10,6 +10,7 @@
 #   --show    Mostrar ventana de Godot (por defecto es headless)
 #   --oys     Ejecutar un test OYS específico por nombre
 #   --nodet   Saltar tests de determinism
+#   --debug   Mostrar output completo sin filtrar logs de debug
 #
 # NOTA PARA AGENTES IA:
 #   El output siempre se guarda en ./reports/gdunit_runner.log
@@ -24,6 +25,7 @@ fi
 
 # Por defecto, ejecutar en modo headless (más rápido)
 HEADLESS="--no-window"
+DEBUG_OUTPUT=0
 
 # Procesar --show antes que otros argumentos
 if [ "$1" = "--show" ]; then
@@ -76,6 +78,53 @@ print_summary_table() {
     done
 }
 
+strip_ansi() {
+    sed -E 's/\x1b\[[0-9;]*m//g'
+}
+
+filter_noisy_output() {
+    # Mantiene limpio el output por defecto, pero conserva logs completos en $LOG_FILE.
+    sed -E \
+        -e '/^\[STAIR\]/d' \
+        -e '/^\[STAIR_BLEND\]/d' \
+        -e '/^DEBUG BASEZONE:/d' \
+        -e '/^\[OcclusionZoneV2\]/d' \
+        -e '/^\[CheckZoneV2\]/d'
+}
+
+run_and_capture() {
+    local cmd=("$@")
+    if [ $DEBUG_OUTPUT -eq 1 ]; then
+        "${cmd[@]}" 2>&1 | tee "$LOG_FILE"
+    else
+        "${cmd[@]}" 2>&1 | tee "$LOG_FILE" | filter_noisy_output
+    fi
+    return ${PIPESTATUS[0]}
+}
+
+print_failed_asserts() {
+    local cleaned
+    cleaned=$(mktemp)
+    strip_ansi < "$LOG_FILE" > "$cleaned"
+
+    mapfile -t failed_asserts < <(
+        grep -E "❌ ASSERT FAILED:|\[OYS ASSERT\] FAILED:|ASSERT_SIGNAL FAILED|OYS ASSERT FAILED|Assertion failed \(" "$cleaned" \
+        | awk '!seen[$0]++'
+    )
+
+    if [ ${#failed_asserts[@]} -gt 0 ]; then
+        echo ""
+        echo "🚨 ASSERTS FALLIDOS DETECTADOS:"
+        local i=1
+        for line in "${failed_asserts[@]}"; do
+            printf "%d. %s\n" "$i" "$line"
+            i=$((i + 1))
+        done
+    fi
+
+    rm -f "$cleaned"
+}
+
 # Función para validar logs y detectar errores silenciosos (como SCRIPT ERROR)
 validate_logs() {
     local code=$1
@@ -113,6 +162,10 @@ while [[ $# -gt 0 ]]; do
             export OYS_NODET=1
             shift
             ;;
+        --debug)
+            DEBUG_OUTPUT=1
+            shift
+            ;;
         --oys)
             OYS_NAME="$2"
             shift 2
@@ -142,9 +195,9 @@ while [[ $# -gt 0 ]]; do
             
             # Usar variable de entorno OYS_FILTER para filtrar el test
             export OYS_FILTER="${OYS_NAME}"
-            $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd \
-                -a "./core_v2/tests/test_determinism_v2.gd" "$@" 2>&1 | tee "$LOG_FILE"
-            exit_code=${PIPESTATUS[0]}
+            run_and_capture $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd \
+                -a "./core_v2/tests/test_determinism_v2.gd" "$@"
+            exit_code=$?
             
             echo "---"
             print_summary_table
@@ -152,6 +205,7 @@ while [[ $# -gt 0 ]]; do
             # Validar logs para detectar SCRIPT ERROR que GdUnit no ve como fail
             validate_logs $exit_code
             exit_code=$?
+            print_failed_asserts
 
             echo ""
             echo "📋 Output completo en: $LOG_FILE"
@@ -178,11 +232,16 @@ fi
 echo "🧪 Ejecutando tests GdUnit3 ${HEADLESS:+(headless)}..."
 echo "📋 Output guardado en: $LOG_FILE"
 echo "Comando: $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd ${ARGS[*]}"
+if [ $DEBUG_OUTPUT -eq 0 ]; then
+    echo "Modo salida: limpio (usa --debug para ver logs completos)"
+else
+    echo "Modo salida: debug completo"
+fi
 echo "---"
 
-# Ejecuta Godot con unbuffered output para ver resultados en tiempo real
-$GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd "${ARGS[@]}" 2>&1 | tee "$LOG_FILE"
-exit_code=${PIPESTATUS[0]}
+# Ejecuta Godot con output en tiempo real (filtrado o completo según modo)
+run_and_capture $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd "${ARGS[@]}"
+exit_code=$?
 
 echo "---"
 echo "📋 Log guardado en: $LOG_FILE"
@@ -193,6 +252,7 @@ print_summary_table
 # Analizar la salida para detectar condiciones que deberían hacer fallar el job
 validate_logs $exit_code
 exit_code=$?
+print_failed_asserts
 
 if [ $exit_code -eq 0 ]; then
     echo "✅ Todos los tests pasaron"
