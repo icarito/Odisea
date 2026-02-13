@@ -84,18 +84,59 @@ jobs:
             # Normalizar ANSI para parsing confiable
             sed -E 's/\x1b\[[0-9;]*m//g' "$LOG" > "$CLEAN_LOG"
 
-            # Tabla completa como en terminal
+            # Tabla completa basada en líneas "Run Test" (más robusto que reusar la tabla impresa)
+            TEST_ROWS=$(awk '
+              /Run Test:/ {
+                line=$0
+                if (line !~ /:(PASSED|FAILED|ERROR)[[:space:]]/) next
+                status=""
+                if (line ~ /:PASSED[[:space:]]/) status="PASSED"
+                else if (line ~ /:FAILED[[:space:]]/) status="FAILED"
+                else if (line ~ /:ERROR[[:space:]]/) status="ERROR"
+                else next
+
+                # Extraer tiempo (todo lo que va después de :STATUS )
+                sub(/^.*:(PASSED|FAILED|ERROR)[[:space:]]/, "", line)
+                time=line
+
+                # Extraer nombre de test preferentemente desde [path]
+                src=$0
+                test_name=""
+                if (match(src, /\[[^]]+\]/)) {
+                  test_name=substr(src, RSTART+1, RLENGTH-2)
+                  gsub(/^.*\//, "", test_name)
+                } else {
+                  if (match(src, />[[:space:]]*[^:]+[[:space:]]*:/)) {
+                    test_name=substr(src, RSTART+1, RLENGTH-2)
+                    gsub(/^[[:space:]]+|[[:space:]]+$/, "", test_name)
+                  } else {
+                    next
+                  }
+                }
+
+                # Excluir agregado de método parametrizado (no es un caso de test real)
+                if (test_name == "test_replay") next
+
+                # Deduplicar por nombre+status+time
+                key=test_name "|" status "|" time
+                if (seen[key]++) next
+
+                icon=(status=="PASSED" ? "✅ PASSED" : (status=="FAILED" ? "❌ FAILED" : "💥 ERROR"))
+                print "| " test_name " | " icon " | " time " |"
+              }
+            ' "$CLEAN_LOG")
+
             echo -e "\n### 📊 Desglose de Tests" >> "$SUMMARY"
-            awk '
-              /\| Test Scenary/ {in_table=1}
-              in_table {print}
-              in_table && /^🚨 ASSERTS FALLIDOS DETECTADOS:/ {in_table=0}
-              in_table && /^✅ Todos los tests pasaron/ {in_table=0}
-              in_table && /^❌ Tests fallaron con código:/ {in_table=0}
-            ' "$CLEAN_LOG" >> "$SUMMARY"
+            echo "| Test Scenary | Status | Time |" >> "$SUMMARY"
+            echo "|:-------------|:-------|:-----|" >> "$SUMMARY"
+            if [[ -n "$TEST_ROWS" ]]; then
+              echo "$TEST_ROWS" >> "$SUMMARY"
+            else
+              echo "| (sin filas parseables) | - | - |" >> "$SUMMARY"
+            fi
 
             echo -e "\n### ❌ Tests que fallaron" >> "$SUMMARY"
-            FAILED_TESTS=$(grep -E '^\| .* \| ❌ FAILED \| ' "$CLEAN_LOG" || true)
+            FAILED_TESTS=$(echo "$TEST_ROWS" | grep -E '\| ❌ FAILED \| |\| 💥 ERROR \| ' || true)
             if [[ -n "$FAILED_TESTS" ]]; then
               echo '```text' >> "$SUMMARY"
               echo "$FAILED_TESTS" >> "$SUMMARY"
