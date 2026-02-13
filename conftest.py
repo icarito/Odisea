@@ -46,12 +46,25 @@ class OysItem(pytest.Item):
             universal_newlines=True
         )
 
+        # Track errors found in logs
+        found_script_error = False
+        found_resource_error = False
+        captured_output = []
+
         # Stream output
         while True:
             line = process.stdout.readline()
             if not line and process.poll() is not None:
                 break
             if line:
+                captured_output.append(line)
+
+                # Check for critical errors (ported from runtest.sh validate_logs)
+                if "SCRIPT ERROR:" in line:
+                    found_script_error = True
+                if "Failed to load resource" in line or "referenced nonexistent resource" in line:
+                    found_resource_error = True
+
                 # Filter out known headless spam
                 if "VisualServer attempted to free a NULL RID" in line or \
                    "at: free (servers/visual/visual_server_raster.cpp:69)" in line:
@@ -70,7 +83,7 @@ class OysItem(pytest.Item):
 
         returncode = process.poll()
 
-        # Check exit code
+        # Check exit code and log errors
         if returncode != 0:
             if returncode == 1:
                 # 1 = Assertion Failed -> pytest.fail (Failure)
@@ -78,6 +91,12 @@ class OysItem(pytest.Item):
             else:
                 # Other = Crash or script error -> Exception (Error)
                 raise OysCrashError(f"Test crashed/error with return code {returncode}.")
+
+        # Even if exit code is 0, check for critical errors found in logs
+        if found_script_error:
+             raise OysCrashError("SCRIPT ERROR detected in logs (failing run).")
+        if found_resource_error:
+             raise OysCrashError("Resource loading error detected in logs (failing run).")
 
     def repr_failure(self, excinfo):
         """Called when self.runtest() raises an exception."""
@@ -105,3 +124,34 @@ def _which(program):
             if is_exe(exe_file):
                 return exe_file
     return None
+
+# Hook to generate GitHub Job Summary
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    if os.environ.get("GITHUB_STEP_SUMMARY"):
+        summary_file = os.environ["GITHUB_STEP_SUMMARY"]
+        with open(summary_file, "a", encoding="utf-8") as f:
+            f.write(f"## 🧪 Pytest Results (OYS)\n")
+            f.write(f"**Exit Status:** {exitstatus}\n\n")
+
+            stats = terminalreporter.stats
+            passed = len(stats.get('passed', []))
+            failed = len(stats.get('failed', []))
+            errors = len(stats.get('error', []))
+            skipped = len(stats.get('skipped', []))
+
+            f.write(f"| Status | Count |\n")
+            f.write(f"| :--- | :--- |\n")
+            f.write(f"| ✅ Passed | {passed} |\n")
+            f.write(f"| ❌ Failed | {failed} |\n")
+            f.write(f"| 💥 Errors | {errors} |\n")
+            f.write(f"| ⏭️ Skipped | {skipped} |\n\n")
+
+            if failed > 0 or errors > 0:
+                f.write("### 🚨 Failures & Errors\n")
+
+                for rep in stats.get('failed', []):
+                    f.write(f"- ❌ **FAILED:** `{rep.nodeid}`\n")
+                    # Ideally we'd extract the message here but rep.longrepr might be complex
+
+                for rep in stats.get('error', []):
+                    f.write(f"- 💥 **ERROR:** `{rep.nodeid}`\n")
