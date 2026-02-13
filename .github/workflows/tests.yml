@@ -58,8 +58,8 @@ jobs:
         if: always()
         run: |
           # Buscar reportes XML y log de gdunit recursivamente
-          XML=$(find reports -type f -name '*.xml' -print -quit || find . -type f -name 'results.xml' -print -quit || true)
-          LOG=$(find reports -type f -name 'gdunit_runner.log' -print -quit || find . -type f -name 'gdunit_runner.log' -print -quit || true)
+          XML=$(find reports -type f -name '*.xml' | head -n1 || true)
+          LOG=$(ls -1t reports/gdunit_*.log 2>/dev/null | head -n1 || true)
           SUMMARY="$GITHUB_STEP_SUMMARY"
 
           echo "## 🧪 Resultados de tests (GDUnit3)" > "$SUMMARY"
@@ -95,7 +95,42 @@ jobs:
             echo -e "\n### 📊 Desglose de Tests" >> "$SUMMARY"
             # Extraer solo la tabla del log (la que empieza con | Test Scenary)
             grep -A 500 "| Test Scenary" "$LOG" | grep -vE "^(--|📋|🧪|Comando:|Analyz|Checking|Validat)" >> "$SUMMARY" || true
+
+            echo -e "\n### ❌ Causas de fallo detectadas" >> "$SUMMARY"
+            FAIL_LINES=$( \
+              grep -E "OYS ASSERT FAILED|❌ ASSERT FAILED:|SCRIPT ERROR:|Parse Error:|Drift demasiado alto|Replay timed out|No test suites found" "$LOG" \
+              | grep -v "ERROR: VisualServer attempted to free a NULL RID" \
+              | awk '!seen[$0]++' \
+              | head -n 50 || true \
+            )
+            if [[ -n "$FAIL_LINES" ]]; then
+              echo '```text' >> "$SUMMARY"
+              echo "$FAIL_LINES" >> "$SUMMARY"
+              echo '```' >> "$SUMMARY"
+            else
+              echo "No se detectaron líneas de causa raíz (revisar log adjunto)." >> "$SUMMARY"
+            fi
+
+            echo -e "\n### 📎 Log principal" >> "$SUMMARY"
+            echo "- \`$LOG\`" >> "$SUMMARY"
           fi
+
+      - name: Export test log path
+        if: always()
+        run: |
+          LOG=$(ls -1t reports/gdunit_*.log 2>/dev/null | head -n1 || true)
+          if [[ -n "$LOG" ]]; then
+            echo "TEST_LOG=$LOG" >> "$GITHUB_ENV"
+          else
+            echo "TEST_LOG=" >> "$GITHUB_ENV"
+          fi
+
+      - name: Upload Test Log Artifact
+        if: always() && env.TEST_LOG != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdunit-test-log
+          path: ${{ env.TEST_LOG }}
 
       - name: Upload Artifacts
         if: always()
