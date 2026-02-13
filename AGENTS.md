@@ -108,7 +108,7 @@ Se conserva `set_external_velocity(v: Vector3)` para:
 - Commits pequeños y enfocados. Validar cambios en `TestScene.tscn`.
 - Documentar `export var` en el Inspector.
 - Usar GdUnit3 para tests.
-- **Todo el código nuevo o refactorizado debe ir en `core/`**.
+- **Todo el código nuevo o refactorizado debe ir en `src/core`**.
 
 ## Contrato de Replay Determinístico
 

@@ -4320,6 +4320,42 @@
         "crouch": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -4333,7 +4369,7 @@
     "59": [
 
     ],
-    "238": [
+    "240": [
       {
         "command": "ASSERT",
         "condition": "pos.y < 1 \"Player should keep walking and fall\""
@@ -4344,9 +4380,9 @@
     "world_start_state": {
       "/root/PushableBox": {
         "pos": [
-          0.0065,
+          0.0022,
           1.0999,
-          3.3404
+          3.2704
         ],
         "rot": [
           -0,
@@ -4396,14 +4432,14 @@
   },
   "final_expected_state": {
     "position": [
-      -0.098594,
-      -18.152874,
-      20.095951
+      -0.002814,
+      -20.047054,
+      20.503685
     ],
     "velocity": [
       -0,
-      -22.4,
-      3.333328
+      -23.566668,
+      3.166662
     ],
     "yaw": 0,
     "pitch": -0,
@@ -4412,7 +4448,7 @@
       "horizontal_velocity": [
         -0,
         0,
-        3.333328
+        3.166662
       ],
       "external_velocity": [
         0,

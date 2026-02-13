@@ -5796,150 +5796,6 @@
         "crouch": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -5984,7 +5840,7 @@
         "message": "SUCCESS: entity_destroyed signal was emitted!"
       }
     ],
-    "328": [
+    "320": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -1.0 \"Player should still be on ground\""
@@ -6003,27 +5859,27 @@
     "world_start_state": {
       "/root/PushableBox": {
         "pos": [
-          0.004377,
-          0.983654,
-          3.344441
+          0.025983,
+          -1937.833252,
+          91.70768
         ],
         "rot": [
-          -0.000282,
-          0.000149,
-          -0.000526
+          0.558962,
+          0.192537,
+          0.202833
         ],
         "vel": [
-          0.001979,
-          -0.480685,
-          -0.01169
+          -0.000135,
+          -92.746422,
+          0.472641
         ],
         "ang": [
-          -0.010302,
-          -0.000171,
-          -0.00261
+          0.001047,
+          0.000714,
+          0.001055
         ],
         "mode": 0,
-        "fbt": 1,
+        "fbt": 0,
         "size": [
           2,
           2,

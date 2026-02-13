@@ -1117,37 +1117,6 @@
   },
   "meta": {
     "world_start_state": {
-      "/root/PushableBox": {
-        "pos": [
-          0.003516,
-          0.983683,
-          3.339269
-        ],
-        "rot": [
-          0.000001,
-          0.001409,
-          -0.000003
-        ],
-        "vel": [
-          -0.000001,
-          -0.489176,
-          -0.000295
-        ],
-        "ang": [
-          -0.000001,
-          -0.000002,
-          0.000003
-        ],
-        "mode": 0,
-        "fbt": 20,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
       "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform/LeverBase/RotatingLever": {
         "active": false,
         "used": false,
@@ -1514,12 +1483,12 @@
     "position": [
       -0,
       0.0415,
-      1.835796
+      1.887499
     ],
     "velocity": [
-      -0.000001,
-      -0.233334,
-      0
+      -0,
+      -0.233329,
+      2
     ],
     "yaw": 0,
     "pitch": -0,
@@ -1527,7 +1496,7 @@
     "movement_state": {
       "horizontal_velocity": [
         -0,
-        0,
+        0.000004,
         2
       ],
       "external_velocity": [
