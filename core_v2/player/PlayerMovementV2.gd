@@ -203,11 +203,7 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 		accel = ground_friction if is_on_floor else air_friction
 	
 	horizontal_velocity = horizontal_velocity.move_toward(wish_dir, accel * dt)
-	if wish_dir.length_squared() > 0.01:
-		var _pos = Vector3.ZERO
-		if is_instance_valid(owner) and "global_transform" in owner:
-			_pos = owner.global_transform.origin
-		print("[MOVEMENT_DEBUG] dt=%f accel=%f wish=%s v=%s pos=%s" % [dt, accel, wish_dir, horizontal_velocity, _pos])
+	# print("[PlayerMovementV2] h_vel=%s" % horizontal_velocity)
 
 	
 	# Apply floor alignment when on ground (prevents sideways drift on slopes)

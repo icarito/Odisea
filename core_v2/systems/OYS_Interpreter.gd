@@ -398,20 +398,16 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 					printerr("[OYS] CALL failed: Method '%s' not found on %s" % [method, target.name])
 
 		"SPAWN":
-			var sm = _find_session_manager()
-			if sm and sm.has_method("_handle_spawn_command"):
-				sm._handle_spawn_command(inst)
-			else:
-				var scene_path = inst.get("scene", "")
-				var scene = load(scene_path)
-				if scene:
-					var obj = scene.instance()
-					var parent = host_node.get_tree().current_scene
-					if not parent:
-						parent = host_node
-					parent.add_child(obj)
-					if inst.has("pos") and obj is Spatial:
-						obj.global_transform.origin = OYS_Parser.parse_vector3(inst.pos)
+			var scene_path = inst.get("scene", "")
+			var scene = load(scene_path)
+			if scene:
+				var obj = scene.instance()
+				var parent = host_node.get_tree().current_scene
+				if not parent:
+					parent = host_node
+				parent.add_child(obj)
+				if inst.has("pos") and obj is Spatial:
+					obj.global_transform.origin = OYS_Parser.parse_vector3(inst.pos)
 		
 		"SET_TIME_SCALE":
 			Engine.time_scale = inst.get("value", 1.0)
@@ -1259,6 +1255,7 @@ func _resolve_stage() -> Node:
 	if stage and (stage.name == "PropStage" or stage.has_method("load_prop")):
 		return stage
 
+	# If host_node is a stage/host itself
 	if host_node.has_method("load_prop") and host_node.name != "SessionManager":
 		return host_node
 		
@@ -1271,62 +1268,6 @@ func _resolve_prop() -> Node:
 			return stage.current_prop
 		
 	return null
-
-func _get_property(obj, prop_path):
-	if not is_instance_valid(obj):
-		return null
-		
-	var target = obj
-	var property = prop_path
-	
-	# Handle NodePath:PropertyName syntax
-	if prop_path.find(":") != -1:
-		var parts = prop_path.split(":", true, 1)
-		var node_path = parts[0]
-		property = parts[1]
-		
-		if obj is Node and obj.has_node(node_path):
-			target = obj.get_node(node_path)
-		else:
-			return null
-
-	if not is_instance_valid(target):
-		return null
-		
-	# Handle AnimationTree parameters or paths with slashes
-	if property.find("/") != -1:
-		if target.has_method("get"):
-			return target.get(property)
-		return null
-		
-	# Handle dot-notation for nested properties or dictionaries
-	var parts = property.split(".")
-	var current = target
-	for part in parts:
-		if current == null: return null
-		
-		# Handle specific known components shorthand
-		if part == "animator" and "animator" in current:
-			current = current.animator
-			continue
-			
-		if typeof(current) == TYPE_OBJECT and is_instance_valid(current):
-			if part in current:
-				current = current.get(part)
-			elif current.has_method("get"):
-				var val = current.get(part)
-				# If get() returns null, it might just not exist or be null.
-				# But for objects, we check has_method/has_node too? 
-				# Let's stick to get() for now as it covers most exports and params.
-				current = val
-			else:
-				return null
-		elif typeof(current) == TYPE_DICTIONARY:
-			current = current.get(part)
-		else:
-			return null
-			
-	return current
 func _resolve_value(val):
 	if val == null:
 		return null
@@ -1396,22 +1337,9 @@ func _resolve_value(val):
 				return rad2deg(player.get_node("CameraPivot").rotation.x)
 
 		return 0.0
-
-	# --- EXTENDED PROPERTY ACCESS ---
-	# Usage: "$player.visual_velocity.y" or just "movement_logic.speed"
-	# Also supports reading animation tree parameters: "parameters/conditions/on_floor"
-	var clean_val = val.replace("\"", "")
-	if clean_val.find(".") != -1 or clean_val.find("/") != -1 or clean_val.find(":") != -1:
-		var player = _find_player()
-		if is_instance_valid(player):
-			var actual_val = _get_property(player, clean_val)
-			if actual_val != null:
-				return actual_val
-
-	var l_val = clean_val.to_lower()
-	if l_val == "true": return true
-	if l_val == "false": return false
-	return clean_val
+	if val == "true": return true
+	if val == "false": return false
+	return val.replace("\"", "")
 
 func _call_func(func_name: String, args: Array):
 	match func_name:
@@ -1463,15 +1391,6 @@ func _call_func(func_name: String, args: Array):
 func _compare(left, op, right) -> bool:
 	var l = left
 	var r = right
-	
-	# Direct equality for any type (including booleans)
-	if op == "==":
-		if typeof(l) == typeof(r):
-			if l == r: return true
-		# Case-insensitive boolean comparison if one side is string and other is bool
-		if (typeof(l) == TYPE_BOOL and typeof(r) == TYPE_STRING) or (typeof(l) == TYPE_STRING and typeof(r) == TYPE_BOOL):
-			return str(l).to_lower() == str(r).to_lower()
-			
 	var l_is_float = str(l).is_valid_float()
 	var r_is_float = str(r).is_valid_float()
 	
@@ -1490,7 +1409,7 @@ func _compare(left, op, right) -> bool:
 	var sl = str(l)
 	var sr = str(r)
 	match op:
-		"==": return sl.to_lower() == sr.to_lower() if (sl in ["True", "False"] or sr in ["True", "False"]) else sl == sr
+		"==": return sl == sr
 		"!=": return sl != sr
 	return false
 

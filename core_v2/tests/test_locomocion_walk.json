@@ -1638,24 +1638,6 @@
         "crouch": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -1678,7 +1660,7 @@
     "59": [
 
     ],
-    "90": [
+    "89": [
       {
         "command": "SET",
         "var": "$end_z_walk",
@@ -1709,6 +1691,37 @@
   },
   "meta": {
     "world_start_state": {
+      "/root/PushableBoxV2": {
+        "pos": [
+          0.032049,
+          -505.686768,
+          70.517403
+        ],
+        "rot": [
+          0.520164,
+          0.128056,
+          0.139696
+        ],
+        "vel": [
+          -0.000743,
+          -69.16185,
+          2.595206
+        ],
+        "ang": [
+          0.005748,
+          0.003921,
+          0.005791
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
       "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform/LeverBase/RotatingLever": {
         "active": false,
         "used": false,

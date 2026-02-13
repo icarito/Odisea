@@ -88,9 +88,7 @@ filter_noisy_output() {
     sed -E \
         -e '/^[[:space:]]*\[[^]]+\]/d' \
         -e '/^[[:space:]]*$/d' \
-        -e '/^DEBUG BASEZONE:/d' \
-        -e '/^ERROR: VisualServer attempted to free a NULL RID\.$/d' \
-        -e '/^[[:space:]]+at: free \(servers\/visual\/visual_server_raster\.cpp:69\)$/d'
+        -e '/^DEBUG BASEZONE:/d'
 }
 
 run_and_capture() {

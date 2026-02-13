@@ -118,7 +118,7 @@ func play_override_animation(anim_name: String) -> void:
 	if animation_tree and animation_tree.active:
 		var root = animation_tree.tree_root
 		if root is AnimationNodeStateMachine and root.has_node(anim_name):
-			print("[PilotAnimator]: Traveling to AnimationTree State: ", anim_name)
+			print("PilotAnimator: Traveling to AnimationTree State: ", anim_name)
 			var playback = animation_tree.get(PARAM_PLAYBACK)
 			if playback:
 				# Use travel() for smooth blending via established transitions
@@ -127,10 +127,10 @@ func play_override_animation(anim_name: String) -> void:
 
 	# 2. Fallback: Direct AnimationPlayer playback (Rigid, disables tree)
 	if not anim_player or not anim_player.has_animation(anim_name):
-		printerr("[PilotAnimator]: Animation/State not found: ", anim_name)
+		printerr("PilotAnimator: Animation/State not found: ", anim_name)
 		return
 
-	print("[PilotAnimator]: Playing override animation (Direct): ", anim_name)
+	print("PilotAnimator: Playing override animation (Direct): ", anim_name)
 	
 	# Disable Tree to allow direct playback
 	if animation_tree:
@@ -146,18 +146,6 @@ func play_override_animation(anim_name: String) -> void:
 		# Force reset to grounded/idle to avoid T-pose flicker
 		var playback = animation_tree.get(PARAM_PLAYBACK)
 		if playback: playback.start("Grounded")
-
-func reset_state() -> void:
-	"""Resets internal animation state to default."""
-	airborne_time = 0.0
-	time_since_jump = 0.0
-	jumped_buffer_time = 0.0
-	last_air_vertical_speed = 0.0
-	visual_velocity = Vector3.ZERO
-	was_on_floor_last_frame = true
-	acrobatic_trigger_active = false
-	acrobatic_trigger_frames_left = 0
-	# print("[PilotAnimatorV2] State reset.")
 
 func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	"""
@@ -302,7 +290,7 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	
 	# Resetear trigger acrobático usando el latch
 	if acrobatic_trigger_active:
-		print("[PilotAnimator]: Sending is_acrobatic = TRUE to AnimationTree")
+		print("PilotAnimator: Sending is_acrobatic = TRUE to AnimationTree")
 		animation_tree.set(PARAM_CONDITIONS_IS_ACROBATIC, true)
 		acrobatic_trigger_frames_left -= 1
 		if acrobatic_trigger_frames_left <= 0:
@@ -365,7 +353,7 @@ func _on_controller_hit_ceiling() -> void:
 func _on_controller_acrobatic_jumped() -> void:
 	"""Trigger Backflip State via is_acrobatic condition."""
 	if animation_tree:
-		print("[PilotAnimator]: Controller signal received. Arming ACROBATIC latch.")
+		print("PilotAnimator: Controller signal received. Arming ACROBATIC latch.")
 		# Activamos el latch para que update_animation_parameters lo procese en el momento correcto
 		acrobatic_trigger_active = true
 		acrobatic_trigger_frames_left = 2
@@ -389,7 +377,7 @@ func _on_controller_acrobatic_jumped() -> void:
 				rotation.y = target_angle
 				
 			is_rotation_locked = true # Bloquear hasta aterrizar
-			print("[PilotAnimator]: Backflip LOCKED orientation")
+			print("PilotAnimator: Backflip LOCKED orientation")
 		
 		# IMPORTANTE: NO configuramos jumped_buffer_time aquí para evitar que 'is_jumping' se active
 		# y compita con 'is_acrobatic'. Queremos ir SOLO al estado Acrobatic.

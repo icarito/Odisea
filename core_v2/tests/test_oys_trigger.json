@@ -4338,6 +4338,24 @@
         "crouch": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -4351,7 +4369,7 @@
     "59": [
 
     ],
-    "239": [
+    "240": [
       {
         "command": "ASSERT",
         "condition": "pos.y < 1 \"Player should keep walking and fall\""
@@ -4360,6 +4378,37 @@
   },
   "meta": {
     "world_start_state": {
+      "/root/PushableBoxV2": {
+        "pos": [
+          0.0022,
+          1.0999,
+          3.2704
+        ],
+        "rot": [
+          -0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 3,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
       "CinematicManager": {
         "current_control_mode": 0,
         "latched_camera_basis": [
@@ -4383,14 +4432,14 @@
   },
   "final_expected_state": {
     "position": [
-      -0.000002,
-      -39.50486,
-      25.36091
+      -0.002814,
+      -20.047054,
+      20.503685
     ],
     "velocity": [
       -0,
-      -33.133335,
-      3.249995
+      -23.566668,
+      3.166662
     ],
     "yaw": 0,
     "pitch": -0,
@@ -4399,7 +4448,7 @@
       "horizontal_velocity": [
         -0,
         0,
-        3.249995
+        3.166662
       ],
       "external_velocity": [
         0,

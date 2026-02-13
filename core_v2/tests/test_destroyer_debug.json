@@ -5796,24 +5796,6 @@
         "crouch": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -5858,7 +5840,7 @@
         "message": "SUCCESS: entity_destroyed signal was emitted!"
       }
     ],
-    "321": [
+    "320": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -1.0 \"Player should still be on ground\""
@@ -5875,6 +5857,37 @@
   },
   "meta": {
     "world_start_state": {
+      "/root/PushableBoxV2": {
+        "pos": [
+          0.025983,
+          -1937.833252,
+          91.70768
+        ],
+        "rot": [
+          0.558962,
+          0.192537,
+          0.202833
+        ],
+        "vel": [
+          -0.000135,
+          -92.746422,
+          0.472641
+        ],
+        "ang": [
+          0.001047,
+          0.000714,
+          0.001055
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
       "/root/TestScene_PropEmitter/PropEmitterArea": {
         "spawn_timer": 0,
         "active_count": 0,

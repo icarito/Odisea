@@ -1103,114 +1103,6 @@
       "input": {
         "move_vec": [
           0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          -1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": true,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          -1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": true,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          -1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": true,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          -1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": true,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          -1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": true,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
           -1
         ],
         "mouse_delta": [
@@ -3106,21 +2998,52 @@
         "value": "(0, 0.5, 0)"
       }
     ],
-    "60": [
+    "59": [
 
     ],
-    "109": [
+    "103": [
 
     ],
-    "169": [
+    "163": [
 
     ],
-    "170": [
+    "164": [
 
     ]
   },
   "meta": {
     "world_start_state": {
+      "/root/PushableBoxV2": {
+        "pos": [
+          0.028313,
+          -1046.665771,
+          83.567825
+        ],
+        "rot": [
+          0.544474,
+          0.167252,
+          0.178061
+        ],
+        "vel": [
+          -0.000369,
+          -83.686806,
+          1.287991
+        ],
+        "ang": [
+          0.002853,
+          0.001946,
+          0.002874
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
       "CinematicManager": {
         "current_control_mode": 0,
         "latched_camera_basis": [
@@ -3146,7 +3069,7 @@
     "position": [
       -0.000001,
       0.0415,
-      5.716669
+      5.133335
     ],
     "velocity": [
       0,

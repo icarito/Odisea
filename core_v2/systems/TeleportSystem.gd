@@ -441,10 +441,3 @@ func _clear_respawn_flag():
 	if sm:
 		sm.is_respawning = false
 		print("[TeleportSystem] Flag is_respawning desactivado")
-
-func reset():
-	"""Resets the system for a new test or session."""
-	initial_spawn_transform = null
-	player_controller = null
-	camera_controller = null
-	print("[TeleportSystem] System reset.")
