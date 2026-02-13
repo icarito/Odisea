@@ -15,6 +15,7 @@ const PARAM_CONDITIONS_LAND_SOFT = "parameters/conditions/land_soft"
 const PARAM_CONDITIONS_LAND_HARD = "parameters/conditions/land_hard"
 const PARAM_CONDITIONS_USE_JUMP_LOOP = "parameters/conditions/use_jump_loop"
 const PARAM_GROUNDED_BLEND_POSITION = "parameters/Grounded/blend_position"
+const PARAM_CROUCHED_BLEND_POSITION = "parameters/Crouched/blend_position"
 const PARAM_GROUNDED_JUMP_ACTIVE = "parameters/Grounded/Jump/active"
 const PARAM_LAND_TRANSITION_CURRENT = "parameters/Land/Transition/current"
 const PARAM_JUMP_TRANSITION_CURRENT = "parameters/Jump/Transition/current"
@@ -22,6 +23,8 @@ const PARAM_PLAYBACK_ACTIVE = "parameters/playback/active"
 const PARAM_CONDITIONS_IS_ACROBATIC = "parameters/conditions/is_acrobatic"
 const PARAM_CONDITIONS_IS_PUSHING = "parameters/conditions/is_pushing"
 const PARAM_CONDITIONS_NOT_PUSHING = "parameters/conditions/!is_pushing"
+const PARAM_CONDITIONS_IS_CROUCHED = "parameters/conditions/is_crouched"
+const PARAM_CONDITIONS_NOT_CROUCHED = "parameters/conditions/!is_crouched"
 
 # --- EXPORTS ---
 # Velocidad de suavizado para la velocidad usada en el AnimationTree.
@@ -239,6 +242,10 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	animation_tree.set(PARAM_CONDITIONS_ON_FLOOR, is_on_floor)
 	animation_tree.set(PARAM_CONDITIONS_NOT_ON_FLOOR, not is_on_floor)
 
+	# Crouch State
+	var is_crouching: bool = controller.is_crouching
+	animation_tree.set(PARAM_CONDITIONS_IS_CROUCHED, is_crouching)
+	animation_tree.set(PARAM_CONDITIONS_NOT_CROUCHED, not is_crouching)
 	# Estados de salto/caída usando la velocidad registrada en el último frame en aire.
 	# IMPORTANTE: Forzamos false si estamos en el suelo (evita flickering en escaleras).
 	var is_falling: bool = last_air_vertical_speed < -1.0 and not is_on_floor
@@ -292,6 +299,7 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	# Usa la magnitud de la velocidad horizontal suavizada.
 	var blend_pos = Vector2(visual_velocity.x, visual_velocity.z).length()
 	animation_tree.set(PARAM_GROUNDED_BLEND_POSITION, blend_pos)
+	animation_tree.set(PARAM_CROUCHED_BLEND_POSITION, blend_pos)
 
 	# Selección entre JumpLoop y FloatLoop: usar JumpLoop si saltamos recientemente
 	# o si hay entrada de movimiento significativa.
