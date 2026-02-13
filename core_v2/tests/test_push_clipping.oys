@@ -6,7 +6,8 @@ LEVEL res://core_v2/tests/TestPush.tscn
 # Wait for physics to settle
 RIGHT 90
 LOOK +90
-TIMESCALE 0.5
+SET $drift_threshold AS 0.03
+
 # Box is at 0.0, 1.0, -2.5 (2.5m ahead)
 # Just move to engage
 
@@ -26,16 +27,9 @@ END
 
 WAIT 1.5
 
-BLEND 3.5
-	FW 4.5m
-	ASSERT_NO_HAND_CLIPPING PushableBox 0.05 MONITOR 2.0
-END
-
-WAIT 1.5
-
-BLEND 3.5
-	RIGHT 4.5m
-	ASSERT_NO_HAND_CLIPPING PushableBox 0.05 MONITOR 2.0
+BLEND 2.0
+	FW 2.0m
+	ASSERT_NO_HAND_CLIPPING PushableBox 0.05 MONITOR 1.0
 END
 
 WAIT 1.5

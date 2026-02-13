@@ -48,4 +48,5 @@ WHILE PROP "Pilot" is_pushing == true
 ENDWHILE
 
 PRINT "Test Passed: Push Integration Success"
+WAIT 1.0
 END

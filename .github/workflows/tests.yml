@@ -61,6 +61,7 @@ jobs:
           XML=$(find reports -type f -name '*.xml' | head -n1 || true)
           LOG=$(ls -1t reports/gdunit_*.log 2>/dev/null | head -n1 || true)
           SUMMARY="$GITHUB_STEP_SUMMARY"
+          CLEAN_LOG=$(mktemp)
 
           echo "## 🧪 Resultados de tests (GDUnit3)" > "$SUMMARY"
           if [[ -n "$XML" && -f "$XML" ]]; then
@@ -79,26 +80,33 @@ jobs:
             echo "No se encontró reporte XML de GDUnit3. Buscado en: $XML" >> "$SUMMARY"
           fi
 
-          # Drift: buscar en el log detectado (si existe)
-          if [[ -n "$LOG" && -f "$LOG" && $(grep -c "DRIFT_CHECK:" "$LOG") -gt 0 ]]; then
-            echo -e "\n### 🔍 Análisis de Drift" >> "$SUMMARY"
-            grep "DRIFT_CHECK:" "$LOG" >> "$SUMMARY"
-            grep "DRIFT_CHECK:" "$LOG" | while read -r line; do
-              echo "::warning title=Determinism Drift::$line"
-            done
-          else
-            echo "No se encontró DRIFT_CHECK en: $LOG" >> "$SUMMARY"
-          fi
-
-          # Añadir tablita de resumen de runtest.sh
           if [[ -n "$LOG" && -f "$LOG" ]]; then
+            # Normalizar ANSI para parsing confiable
+            sed -E 's/\x1b\[[0-9;]*m//g' "$LOG" > "$CLEAN_LOG"
+
+            # Tabla completa como en terminal
             echo -e "\n### 📊 Desglose de Tests" >> "$SUMMARY"
-            # Extraer solo la tabla del log (la que empieza con | Test Scenary)
-            grep -A 500 "| Test Scenary" "$LOG" | grep -vE "^(--|📋|🧪|Comando:|Analyz|Checking|Validat)" >> "$SUMMARY" || true
+            awk '
+              /\| Test Scenary/ {in_table=1}
+              in_table {print}
+              in_table && /^🚨 ASSERTS FALLIDOS DETECTADOS:/ {in_table=0}
+              in_table && /^✅ Todos los tests pasaron/ {in_table=0}
+              in_table && /^❌ Tests fallaron con código:/ {in_table=0}
+            ' "$CLEAN_LOG" >> "$SUMMARY"
+
+            echo -e "\n### ❌ Tests que fallaron" >> "$SUMMARY"
+            FAILED_TESTS=$(grep -E '^\| .* \| ❌ FAILED \| ' "$CLEAN_LOG" || true)
+            if [[ -n "$FAILED_TESTS" ]]; then
+              echo '```text' >> "$SUMMARY"
+              echo "$FAILED_TESTS" >> "$SUMMARY"
+              echo '```' >> "$SUMMARY"
+            else
+              echo "No hubo tests marcados como FAILED en la tabla." >> "$SUMMARY"
+            fi
 
             echo -e "\n### ❌ Causas de fallo detectadas" >> "$SUMMARY"
             FAIL_LINES=$( \
-              grep -E "OYS ASSERT FAILED|❌ ASSERT FAILED:|SCRIPT ERROR:|Parse Error:|Drift demasiado alto|Replay timed out|No test suites found" "$LOG" \
+              grep -E "OYS ASSERT FAILED|❌ ASSERT FAILED:|SCRIPT ERROR:|Parse Error:|Drift demasiado alto|Replay timed out|No test suites found|Assertion malformed" "$CLEAN_LOG" \
               | grep -v "ERROR: VisualServer attempted to free a NULL RID" \
               | awk '!seen[$0]++' \
               | head -n 50 || true \
@@ -111,9 +119,27 @@ jobs:
               echo "No se detectaron líneas de causa raíz (revisar log adjunto)." >> "$SUMMARY"
             fi
 
+            # Drift compacto (sin repetir cada frame)
+            echo -e "\n### 🔍 Análisis de Drift (compacto)" >> "$SUMMARY"
+            DRIFT_COUNT=$(grep -c "DRIFT_CHECK: dist=" "$CLEAN_LOG" || true)
+            if [[ "$DRIFT_COUNT" -gt 0 ]]; then
+              MAX_DRIFT=$(grep "DRIFT_CHECK: dist=" "$CLEAN_LOG" | sed -E 's/.*dist=([0-9.]+).*/\1/' | sort -nr | head -n1)
+              echo "- Muestras de drift: $DRIFT_COUNT" >> "$SUMMARY"
+              echo "- Drift máximo observado: $MAX_DRIFT" >> "$SUMMARY"
+              DRIFT_ERRORS=$(grep -E "DRIFT ERROR|Drift demasiado alto" "$CLEAN_LOG" | awk '!seen[$0]++' | head -n 20 || true)
+              if [[ -n "$DRIFT_ERRORS" ]]; then
+                echo '```text' >> "$SUMMARY"
+                echo "$DRIFT_ERRORS" >> "$SUMMARY"
+                echo '```' >> "$SUMMARY"
+              fi
+            else
+              echo "No se encontraron líneas DRIFT_CHECK." >> "$SUMMARY"
+            fi
+
             echo -e "\n### 📎 Log principal" >> "$SUMMARY"
             echo "- \`$LOG\`" >> "$SUMMARY"
           fi
+          rm -f "$CLEAN_LOG"
 
       - name: Export test log path
         if: always()
