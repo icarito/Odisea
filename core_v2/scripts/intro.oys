@@ -21,7 +21,7 @@ SECTION "Intro"
         RIGHT 90 1.0
     END
     
-    WAIT 1.0
+    WAIT 2.0
 
     SET_TIME_SCALE 0.6
 

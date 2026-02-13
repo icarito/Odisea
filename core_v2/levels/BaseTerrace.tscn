@@ -39,7 +39,7 @@
 [ext_resource path="res://assets/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=37]
 [ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=38]
 [ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=39]
-[ext_resource path="res://assets/music/Override.mp3" type="AudioStream" id=40]
+[ext_resource path="res://assets/music/Shadow Code.mp3" type="AudioStream" id=40]
 [ext_resource path="res://core_v2/components/BGMZoneV2.gd" type="Script" id=41]
 [ext_resource path="res://addons/zylann.scatter/scatter3d.gd" type="Script" id=42]
 [ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=43]
