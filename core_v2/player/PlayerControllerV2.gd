@@ -24,13 +24,18 @@ export(float) var max_pitch := 85.0
 export(float) var interact_distance := 3.0
 export(float) var push_offset := 0.71 # Relaxed to 0.71m to close visual gap (User Request).
 # Stair-stepping Configuration
-export(float) var step_height := 0.4
-export(float) var step_depth := 0.5
+export(float) var step_height := 0.5
+export(float) var step_depth := 0.6
 export(bool) var enable_step_up := true
-export(float) var step_grounded_grace := 0.15
+export(float) var step_grounded_grace := 0.22
+export(float) var stair_ground_probe_extra := 0.2
+export(bool) var debug_stair_state := false
 
 var _step_grounded_timer := 0.0
 var _just_stepped := false
+var _ground_contact_grace_timer := 0.0
+var _last_debug_effective_grounded := true
+var _last_debug_on_floor := true
 
 # Platform Transform Tracking
 var _platform_collider: Spatial = null
@@ -533,6 +538,20 @@ func step(dt: float, input: InputDataV2) -> void:
 	if input == null: return
 	
 	_update_push_state(dt, input)
+	var motion_grounded := is_effectively_grounded()
+	var physics_grounded := is_on_floor() or _just_stepped or _step_grounded_timer > 0.0
+	if debug_stair_state:
+		var on_floor_now := is_on_floor()
+		if motion_grounded != _last_debug_effective_grounded or on_floor_now != _last_debug_on_floor:
+			print("[STAIR] floor=", on_floor_now,
+				" effective=", motion_grounded,
+				" vy=", String(velocity.y),
+				" stepped=", _just_stepped,
+				" step_timer=", String(step_grounded_grace),
+				" step_grace_left=", String(_step_grounded_timer),
+				" contact_grace_left=", String(_ground_contact_grace_timer))
+		_last_debug_effective_grounded = motion_grounded
+		_last_debug_on_floor = on_floor_now
 
 	# if input.move_vec.length_squared() > 0.001:
 		# var mode = CinematicManager.get_control_mode()
@@ -553,7 +572,7 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	_process_interaction(input)
 
-	if is_on_floor() and velocity.y < 0 and movement_logic.get_horizontal_velocity().y <= 0:
+	if physics_grounded and velocity.y < 0 and movement_logic.get_horizontal_velocity().y <= 0:
 		velocity.y = 0
 		if is_instance_valid(jump_logic):
 			jump_logic.set_internal_velocity(0.0)
@@ -644,15 +663,15 @@ func step(dt: float, input: InputDataV2) -> void:
 		# Simplify input to just "forward" magnitude for the logic
 		move_vec = Vector2(0, -world_dir.length())
 	
-	is_crouching = input.crouch and is_on_floor()
+	is_crouching = input.crouch and physics_grounded
 	var effective_sprint = input.sprint and not is_crouching
 
-	movement_logic.process_movement(dt, move_vec, basis, effective_sprint, is_on_floor(), is_crouching)
+	movement_logic.process_movement(dt, move_vec, basis, effective_sprint, physics_grounded, is_crouching)
 	
 	var h_vel = movement_logic.get_horizontal_velocity()
 	velocity.x = h_vel.x
 	velocity.z = h_vel.z
-	if is_on_floor():
+	if physics_grounded:
 		velocity.y = h_vel.y
 
 	# _apply_push_constraint() # Removed for legacy physics restoration
@@ -711,11 +730,19 @@ func step(dt: float, input: InputDataV2) -> void:
 			global_transform.origin = step_result.position
 			_just_stepped = true
 			_step_grounded_timer = step_grounded_grace
+			if debug_stair_state:
+				print("[STAIR] step_up success: pos=", step_result.position, " vy=", velocity.y)
 	
 	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true, 4, deg2rad(45), false)
 	
 	_update_floor_info()
 	_update_platform_tracking(dt)
+
+	# Keep a short ground-contact grace to avoid false air states on tiny stair gaps.
+	if is_on_floor():
+		_ground_contact_grace_timer = step_grounded_grace
+	else:
+		_ground_contact_grace_timer = max(0.0, _ground_contact_grace_timer - dt)
 	
 	if is_on_ceiling() and velocity.y > 0:
 		velocity.y = 0
@@ -738,7 +765,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	if _was_touching_rigid and not touched_rigid:
 		emit_signal("rigid_contact_ended")
 	_was_touching_rigid = touched_rigid
-					
+
 	if animator:
 		var anim_vel = velocity
 		if not movement_logic.external_source_is_static:
@@ -756,10 +783,6 @@ func step(dt: float, input: InputDataV2) -> void:
 	if _cached_cam and abs(_cached_cam.fov - base_fov) > 0.01:
 		_cached_cam.fov = lerp(_cached_cam.fov, base_fov, 4.0 * dt)
 		
-	# Update Animator
-	if animator and animator.has_method("step_animator"):
-		animator.step_animator(dt, velocity)
-
 func _update_cinematic_zone_detection(input: InputDataV2):
 	var all_zones = get_tree().get_nodes_in_group("CinematicCameraZoneV2")
 	var best_zone = null
@@ -863,6 +886,21 @@ func _update_floor_info() -> void:
 			return
 	movement_logic.set_floor_normal(Vector3.UP)
 
+func is_effectively_grounded() -> bool:
+	# Stair stepping can lose floor contact for one frame; keep grounded briefly to avoid air-state flicker.
+	var jump_in_progress := false
+	if is_instance_valid(jump_logic):
+		jump_in_progress = jump_logic._is_jumping
+	var recent_floor_contact := _ground_contact_grace_timer > 0.0 and not jump_in_progress
+	var near_ground := false
+	if not jump_in_progress:
+		var space_state = get_world().direct_space_state
+		var from = global_transform.origin + Vector3.UP * 0.05
+		var to = from + Vector3.DOWN * (step_height + stair_ground_probe_extra)
+		var hit = space_state.intersect_ray(from, to, [self], collision_mask)
+		near_ground = not hit.empty()
+	return is_on_floor() or _just_stepped or _step_grounded_timer > 0.0 or recent_floor_contact or near_ground
+
 func _update_platform_tracking(dt: float) -> void:
 	var new_platform: Spatial = null
 	if is_on_floor():
@@ -921,7 +959,8 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 		if down_collision.normal.y > 0.7:
 			var step_surface_y = check_pos.y - down_collision.travel.length()
 			var height_gain = step_surface_y - origin.y
-			if height_gain > 0.01 and height_gain <= step_height:
+			# Allow a tiny tolerance for collision rounding around configured step height.
+			if height_gain > 0.01 and height_gain <= step_height + 0.02:
 				result.stepped = true
 				result.position = Vector3(origin.x + advanced_x.x, step_surface_y, origin.z + advanced_x.z)
 	return result

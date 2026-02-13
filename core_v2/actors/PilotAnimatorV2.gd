@@ -40,6 +40,8 @@ export(float) var push_lerp_speed = 10.0
 # Duración en segundos durante la cual consideramos que el salto acaba de iniciarse (buffer)
 export var jump_buffer_duration: float = 0.18
 export var debug_push_gizmo: bool = false
+export var stair_air_time_threshold: float = 0.25
+export var debug_stair_blend: bool = false
 
 # --- NODES ---
 var controller: Node = null
@@ -56,6 +58,7 @@ var visual_velocity: Vector3 = Vector3.ZERO
 var was_on_floor_last_frame: bool = true
 var time_since_jump: float = 0.0
 var last_air_vertical_speed: float = 0.0 # Guarda la velocidad vertical del último frame en el aire
+var airborne_time: float = 0.0
 var jumped_buffer_time: float = 0.0
 var acrobatic_trigger_active: bool = false # Latch para garantizar que la SM vea el trigger
 var acrobatic_trigger_frames_left: int = 0 # Hold trigger to survive frame ordering between controller and animator.
@@ -160,10 +163,13 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	# Guardar la velocidad vertical mientras estamos en el aire para usarla al aterrizar
 	if not is_on_floor:
 		last_air_vertical_speed = p_current_velocity.y
+		airborne_time += dt
 
 	# Lógica de tiempo para flotación
 	if is_on_floor:
 		time_since_jump = 0.0
+		if not was_on_floor_last_frame and airborne_time > 0.0 and airborne_time < stair_air_time_threshold and debug_stair_blend:
+			print("[STAIR_BLEND] short_air suppressed: air_time=", airborne_time, " vy=", p_current_velocity.y)
 	else:
 		time_since_jump += dt
 
@@ -259,19 +265,20 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 
 	# Estados de salto/caída usando la velocidad registrada en el último frame en aire.
 	# IMPORTANTE: Forzamos false si estamos en el suelo (evita flickering en escaleras).
-	var is_falling: bool = last_air_vertical_speed < -1.0 and not is_on_floor
-	var is_floating: bool = last_air_vertical_speed >= -1.0 and last_air_vertical_speed < 0.0 and not is_on_floor
+	var effective_airborne: bool = (not is_on_floor) and airborne_time >= stair_air_time_threshold
+	var is_falling: bool = last_air_vertical_speed < -1.0 and effective_airborne
+	var is_floating: bool = last_air_vertical_speed >= -1.0 and last_air_vertical_speed < 0.0 and effective_airborne
 
 	animation_tree.set(PARAM_CONDITIONS_IS_FALLING, is_falling)
 	animation_tree.set(PARAM_CONDITIONS_IS_FLOATING, is_floating)
 
 	# Falling Fast
-	var is_falling_fast: bool = last_air_vertical_speed < -12.0 and not is_on_floor
+	var is_falling_fast: bool = last_air_vertical_speed < -12.0 and effective_airborne
 	animation_tree.set(PARAM_CONDITIONS_IS_FALLING_FAST, is_falling_fast)
 
 	# is_jumping: true si acabamos de disparar el salto (buffer) o si estamos subiendo en aire
 	# IMPORTANTE: También forzamos false si estamos en el suelo para evitar saltos visuales en escaleras.
-	var is_jumping_param: bool = ((jumped_buffer_time > 0.0) or (not is_on_floor and velocity.y > 1.0)) and not is_on_floor
+	var is_jumping_param: bool = ((jumped_buffer_time > 0.0) or (effective_airborne and velocity.y > 1.0)) and effective_airborne
 	
 	# PRIORIDAD ABSOLUTA AL BACKFLIP:
 	# Si el latch acrobático está armado, forzamos is_jumping a false.
@@ -296,7 +303,7 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	hit_head_active = false
 
 	# Emitir land_soft / land_hard SOLO en el frame de aterrizaje (edge detect)
-	var landed_now: bool = is_on_floor and not was_on_floor_last_frame
+	var landed_now: bool = is_on_floor and not was_on_floor_last_frame and airborne_time >= stair_air_time_threshold
 	var land_soft: bool = landed_now and last_air_vertical_speed >= -1.0
 	var land_hard: bool = landed_now and last_air_vertical_speed < -1.0
 
@@ -320,6 +327,9 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	# IMPORTANTE: Forzamos 1 (Land/Grounded) si estamos en el suelo.
 	var jump_transition = 1 if is_on_floor else 0
 	animation_tree.set(PARAM_JUMP_TRANSITION_CURRENT, jump_transition)
+
+	if is_on_floor:
+		airborne_time = 0.0
 
 
 func _on_controller_jumped() -> void:
