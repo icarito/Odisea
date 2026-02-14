@@ -201,6 +201,15 @@ def _chart_y_max(values, minimum):
     return int(math.ceil(v / 10.0) * 10)
 
 
+def _worst_tag(metrics, tags, metric_key, mode):
+    values = [(tag, to_num(metrics.get(tag, {}).get(metric_key))) for tag in tags if tag in metrics]
+    if not values:
+        return "unknown"
+    if mode == "min":
+        return min(values, key=lambda x: x[1])[0]
+    return max(values, key=lambda x: x[1])[0]
+
+
 def print_mermaid_trends(history, tags):
     if len(history) < 2:
         print("\n## Historic Trend")
@@ -225,11 +234,15 @@ def print_mermaid_trends(history, tags):
     fps_max = _chart_y_max(fps_min_series, 60)
     cpu_max = _chart_y_max(cpu_max_series, 10)
     physics_max = _chart_y_max(physics_max_series, 10)
+    latest_metrics = history[-1].get("metrics", {}) if history else {}
+    worst_fps_tag = _worst_tag(latest_metrics, tags, "fps", "min")
+    worst_cpu_tag = _worst_tag(latest_metrics, tags, "process_time_ms", "max")
+    worst_phy_tag = _worst_tag(latest_metrics, tags, "physics_time_ms", "max")
 
     print(f"\n## Historic Trend (Last {len(history)} Runs)")
     print("```mermaid")
     print("xychart-beta")
-    print('  title "Worst-Case FPS Trend (minimum FPS across scenarios)"')
+    print(f'  title "Worst-Case FPS Trend (current worst: {worst_fps_tag})"')
     print(f"  x-axis [{label_list}]")
     print(f'  y-axis "FPS" 0 --> {fps_max}')
     joined = ", ".join(f"{v:.1f}" for v in fps_min_series)
@@ -239,7 +252,7 @@ def print_mermaid_trends(history, tags):
 
     print("```mermaid")
     print("xychart-beta")
-    print('  title "Worst-Case CPU Trend (max process ms across scenarios)"')
+    print(f'  title "Worst-Case CPU Trend (current worst: {worst_cpu_tag})"')
     print(f"  x-axis [{label_list}]")
     print(f'  y-axis "Process ms" 0 --> {cpu_max}')
     joined = ", ".join(f"{v:.2f}" for v in cpu_max_series)
@@ -249,7 +262,7 @@ def print_mermaid_trends(history, tags):
 
     print("```mermaid")
     print("xychart-beta")
-    print('  title "Worst-Case Physics Trend (max physics ms across scenarios)"')
+    print(f'  title "Worst-Case Physics Trend (current worst: {worst_phy_tag})"')
     print(f"  x-axis [{label_list}]")
     print(f'  y-axis "Physics ms" 0 --> {physics_max}')
     joined = ", ".join(f"{v:.2f}" for v in physics_max_series)

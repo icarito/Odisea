@@ -209,22 +209,21 @@ jobs:
             return f"{h:02d}:{m:02d}:{s:02d}"
 
           print("")
-          print(f"### Gantt (Top {top_n} Slowest, Ordered by Runtime)")
+          print(f"### Gantt (Top {top_n} Slowest, Parallel View)")
+          print("All bars start at `00:00:00`; width is each test runtime.")
           print("```mermaid")
           print("gantt")
-          print(f"  title Pytest {suite} - slowest tests")
+          print(f"  title Pytest {suite} - slowest tests (parallel durations)")
           print("  dateFormat HH:mm:ss")
           print("  axisFormat %M:%S")
           print("  section Tests")
 
-          cursor = 0
           for i, (full, t, _status) in enumerate(sorted_cases[:top_n], start=1):
             label = full.replace(":", "_").replace("|", "_")
             if len(label) > 64:
               label = label[:61] + "..."
             dur = max(1, int(math.ceil(t)))
-            print(f"  {label} :t{i}, {fmt_hms(cursor)}, {dur}s")
-            cursor += dur
+            print(f"  {label} :t{i}, {fmt_hms(0)}, {dur}s")
 
           print("```")
           PY
