@@ -9,6 +9,8 @@ export(float) var settle_threshold = 0.2
 export(int) var settle_frames = 15
 export(bool) var debug = false
 export(Vector3) var size = Vector3(2, 2, 2) setget set_size
+export(float) var impact_min_speed = 1.4
+export(float) var impact_cooldown = 0.12
 
 # Configuración de Snap
 export(bool) var snap_rotation = true
@@ -18,6 +20,9 @@ export(float) var settle_lerp_speed = 10.0
 var _frames_below_threshold = 0
 var _pending_snapshot = null
 var _target_basis = null
+var _impact_cooldown_left = 0.0
+var _impact_sound_index = 0
+var _impact_players = []
 
 func _init():
 	add_to_group("pushable")
@@ -30,6 +35,7 @@ func _ready():
 	contacts_reported = 4
 	
 	_update_size()
+	_setup_impact_players()
 	
 	# Conectar señal para despertar si algo nos golpea
 	connect("body_entered", self, "_on_body_entered")
@@ -193,6 +199,8 @@ func _get_global_height():
 
 # Interacción: Al ser golpeado por otro cuerpo
 func _on_body_entered(body):
+	_try_play_impact_sfx(body)
+
 	if mode == RigidBody.MODE_KINEMATIC:
 		if is_instance_valid(body):
 			# Ignorar si el cuerpo está claramente arriba (prevención de pisotón)
@@ -200,6 +208,35 @@ func _on_body_entered(body):
 			if body.global_transform.origin.y > global_transform.origin.y + (h * 0.4):
 				return
 		wake_up()
+
+func _setup_impact_players():
+	_impact_players = [
+		get_node_or_null("ImpactSfx1"),
+		get_node_or_null("ImpactSfx2"),
+		get_node_or_null("ImpactSfx3")
+	]
+
+func _try_play_impact_sfx(body):
+	if _impact_cooldown_left > 0.0:
+		return
+	if _impact_players.empty():
+		return
+
+	var other_velocity = Vector3.ZERO
+	if is_instance_valid(body):
+		var candidate_velocity = body.get("linear_velocity")
+		if candidate_velocity is Vector3:
+			other_velocity = candidate_velocity
+
+	var relative_speed = (linear_velocity - other_velocity).length()
+	if relative_speed < impact_min_speed:
+		return
+
+	var player = _impact_players[_impact_sound_index % _impact_players.size()]
+	_impact_sound_index += 1
+	_impact_cooldown_left = impact_cooldown
+	if player and player.has_method("play"):
+		player.play()
 
 # Soporte para plataforma/conveyor o empuje directo del jugador
 func set_external_velocity(vel):
@@ -287,4 +324,6 @@ func _apply_snapshot(data):
 		sleeping = false
 
 func _physics_process(delta):
+	if _impact_cooldown_left > 0.0:
+		_impact_cooldown_left = max(0.0, _impact_cooldown_left - delta)
 	step(delta)

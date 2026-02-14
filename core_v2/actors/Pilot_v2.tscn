@@ -136,6 +136,9 @@ omni_attenuation = 2.21914
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.96, 0 )
 shape = SubResource( 48 )
 
+[node name="AudioListener" type="Listener" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0 )
+
 [node name="CameraRig" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.16982, 0 )
 

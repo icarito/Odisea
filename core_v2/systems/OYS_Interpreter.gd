@@ -1060,13 +1060,12 @@ func _execute_zoom(inst: Dictionary, my_id: int):
 			break
 		if not is_instance_valid(player):
 			break
-		
 		_post_oys_input({"zoom_delta": delta_per_frame})
 		
 		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
 			break
 		yield (host_node.get_tree(), "physics_frame")
-	
+
 	_post_oys_input({"zoom_delta": 0.0})
 
 func _execute_fov(inst: Dictionary, my_id: int):

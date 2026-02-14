@@ -1,4 +1,4 @@
-[gd_scene load_steps=310 format=2]
+[gd_scene load_steps=309 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -39,7 +39,6 @@
 [ext_resource path="res://assets/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=37]
 [ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=38]
 [ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=39]
-[ext_resource path="res://assets/music/Shadow Code.mp3" type="AudioStream" id=40]
 [ext_resource path="res://core_v2/components/BGMZoneV2.gd" type="Script" id=41]
 [ext_resource path="res://addons/zylann.scatter/scatter3d.gd" type="Script" id=42]
 [ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=43]
@@ -1074,12 +1073,7 @@ transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 3
 skeleton = NodePath("")
 
 [node name="RotatingObjectV2" parent="CrioPod START" index="0"]
-transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
 auto_interact = true
-
-[node name="CSGBox" parent="CrioPod START" index="1"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.349264, 0 )
-visible = true
 
 [node name="Pilot" parent="CrioPod START" instance=ExtResource( 2 )]
 transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0.000200272, 0.721707, -0.123402 )
@@ -1099,6 +1093,8 @@ shape = SubResource( 1519 )
 
 [node name="CinematicSequence" type="Area" parent="CrioPod START"]
 transform = Transform( 0.666667, 0, 2.84217e-14, 0, 0.666667, 0, -2.84217e-14, 0, 0.666667, 2.14577e-06, 0.823144, -0.12323 )
+monitoring = false
+monitorable = false
 script = ExtResource( 28 )
 debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 debug_render = false
@@ -2233,7 +2229,6 @@ script = ExtResource( 41 )
 debug_color = Color( 0, 1, 0, 0.0901961 )
 debug_render = false
 zone_extents = Vector3( 18.9, 15, 25 )
-bgm_stream = ExtResource( 40 )
 fade_time = 0.2
 
 [node name="CollisionShape2" type="CollisionShape" parent="BGMZoneV2"]

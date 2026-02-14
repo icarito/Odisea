@@ -1,7 +1,11 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://materials/things/interactable.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/components/PushableBoxV2.gd" type="Script" id=2]
+[ext_resource path="res://addons/mixing-desk/sound/3d/multi_sound.gd" type="Script" id=3]
+[ext_resource path="res://assets/sfx/metal1.wav" type="AudioStream" id=4]
+[ext_resource path="res://assets/sfx/metal2.wav" type="AudioStream" id=5]
+[ext_resource path="res://assets/sfx/metal3.wav" type="AudioStream" id=6]
 
 [sub_resource type="BoxShape" id=1]
 
@@ -30,3 +34,33 @@ collision_mask = 5
 
 [node name="WakeShape" type="CollisionShape" parent="WakeArea"]
 shape = SubResource( 2 )
+
+[node name="ImpactSfx1" type="Spatial" parent="."]
+script = ExtResource( 3 )
+
+[node name="Metal1" type="AudioStreamPlayer3D" parent="ImpactSfx1"]
+stream = ExtResource( 4 )
+unit_db = -8.0
+unit_size = 1.0
+max_distance = 16.0
+bus = "SFX"
+
+[node name="ImpactSfx2" type="Spatial" parent="."]
+script = ExtResource( 3 )
+
+[node name="Metal2" type="AudioStreamPlayer3D" parent="ImpactSfx2"]
+stream = ExtResource( 5 )
+unit_db = -8.0
+unit_size = 1.0
+max_distance = 16.0
+bus = "SFX"
+
+[node name="ImpactSfx3" type="Spatial" parent="."]
+script = ExtResource( 3 )
+
+[node name="Metal3" type="AudioStreamPlayer3D" parent="ImpactSfx3"]
+stream = ExtResource( 6 )
+unit_db = -8.0
+unit_size = 1.0
+max_distance = 16.0
+bus = "SFX"

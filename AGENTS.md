@@ -6,12 +6,16 @@
 > Consequently, spawning an object "in front" of the player often involves placing it at **positive Z** (e.g. `(0, 1, 3)`) as seen in `test_push_integration.oys`.
 > **ALWAYS verify direction visually** or via small test steps. Do not assume standard conventions apply universally without checking.
 
-## ⚠️ ANTES DE ENTREGAR CUALQUIER CAMBIO
+## ⚠️ ANTES DE HACER MERGE
 
 **Ejecutar los tests para verificar que no se rompió nada:**
 
 ```shell
-./runtest.sh -a ./core_v2/tests/
+# Recomendado (debería correr en paralelo)
+./runtests.sh
+
+# Equivalente explícito para core_v2
+./runtests.sh -a ./core_v2/tests//
 ```
 
 Si algún test falla, corregirlo antes de considerar el trabajo terminado.
@@ -22,16 +26,18 @@ Si algún test falla, corregirlo antes de considerar el trabajo terminado.
 
 ```shell
 # Correr un archivo de test específico
-./runtest.sh -a ./core_v2/tests/test_mi_feature.gd
+./runtests.sh -a ./core_v2/tests/test_mi_feature.gd
 
 # Correr solo los tests de un archivo
-./runtest.sh -a ./core_v2/tests/test_player_controller_v2.gd
+./runtests.sh -a ./core_v2/tests/test_player_controller_v2.gd
 ```
 
-**Solo corre TODOS los tests al final**, antes de entregar el trabajo completo:
+**Solo corre TODOS los tests al final**, justo antes de hacer merge:
 
 ```shell
-./runtest.sh -a ./core_v2/tests/
+./runtests.sh
+# o
+./runtests.sh -a ./core_v2/tests//
 ```
 
 ### 📋 Leer el Output de los Tests
@@ -51,7 +57,7 @@ grep -E "(PASSED|FAILED|ERROR|Total|Exit code|SCRIPT ERROR)" ./reports/gdunit_ru
 ### Ejecutar un Test OYS Específico
 
 ```shell
-./runtest.sh --oys test_salto_vertical
+./runtests.sh --oys test_salto_vertical
 ```
 
 ## Setup Testing Environment
@@ -123,10 +129,10 @@ Para garantizar replays determinísticos, todo agente sincronizado debe:
 
 ```shell
 # Ejecutar el test de determinismo para core_v2
-./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd
+./runtests.sh -a ./core_v2/tests/test_determinism_v2.gd
 ```
 
-Este comando utiliza el script `runtest.sh` para lanzar Godot en modo headless y ejecutar la suite de tests especificada. Si el `drift` (desviación) entre la posición final del replay y la esperada supera un umbral mínimo, el test fallará, indicando una ruptura en el determinismo.
+Este comando utiliza el script `runtests.sh` para lanzar Godot en modo headless y ejecutar la suite de tests especificada. Si el `drift` (desviación) entre la posición final del replay y la esperada supera un umbral mínimo, el test fallará, indicando una ruptura en el determinismo.
 
 ## Nota para Agentes: Verificación de Assets
 

@@ -23,6 +23,11 @@ export(float) var min_pitch := -85.0
 export(float) var max_pitch := 85.0
 export(float) var interact_distance := 3.0
 export(float) var push_offset := 0.71 # Relaxed to 0.71m to close visual gap (User Request).
+export(bool) var enable_cinematic_zoom := true
+export(float) var cinematic_zoom_speed := 1.0
+export(float) var cinematic_zoom_lerp_speed := 8.0
+export(float) var cinematic_zoom_min_fov := 20.0
+export(float) var cinematic_zoom_max_fov := 110.0
 # Stair-stepping Configuration
 export(float) var step_height := 0.5
 export(float) var step_depth := 0.6
@@ -52,6 +57,8 @@ var base_spring_length_3d := 7.0
 var current_spring_length := 7.0
 var base_rig_y := 0.0
 var base_collision_mask := 0
+var _cinematic_zoom_target_fov := -1.0
+var _cinematic_zoom_target_cam: Camera = null
 
 # State
 var velocity := Vector3()
@@ -81,6 +88,7 @@ var _terminal_ui_active := false
 var _restore_spring_length: float = -1.0
 var _restore_fov: float = -1.0
 var _exit_log_frames := 0
+var _occlusion_mode_active := false
 
 # Signals
 signal jumped
@@ -109,6 +117,11 @@ func set_camera_input_locked(locked: bool):
 func force_camera_current(_reset_orientation := false):
 	if _cached_cam:
 		_cached_cam.current = true
+
+func set_occlusion_mode(active: bool) -> void:
+	_occlusion_mode_active = active
+	if _cached_spring_arm:
+		_cached_spring_arm.collision_mask = 0 if active else base_collision_mask
 
 func ensure_input_provider():
 	if not input_provider or not is_instance_valid(input_provider):
@@ -189,16 +202,19 @@ func full_reset() -> void:
 
 	_active_cinematic_zone = null
 	_prev_active_cinematic_zone = null
+	set_occlusion_mode(false)
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		camera_rig.force_update_transform()
 
 onready var camera_rig = $CameraRig
 onready var animator = $Visual/Pivot
+onready var _audio_listener = get_node_or_null("AudioListener")
 
 func _ready():
 	initial_transform = global_transform
 	add_to_group("player")
+	_ensure_player_audio_listener()
 	if not is_instance_valid(input_provider):
 		input_provider = InputProviderV2.new()
 
@@ -239,6 +255,15 @@ func _ready():
 		base_rig_y = camera_rig.transform.origin.y
 	
 	_setup_interact_area()
+
+func _ensure_player_audio_listener() -> void:
+	if not (_audio_listener and is_instance_valid(_audio_listener)):
+		_audio_listener = Listener.new()
+		_audio_listener.name = "AudioListener"
+		_audio_listener.transform.origin = Vector3(0, 1.6, 0)
+		add_child(_audio_listener)
+	if _audio_listener.has_method("make_current"):
+		_audio_listener.make_current()
 
 func _find_camera(node: Node) -> Camera:
 	if node is Camera:
@@ -605,8 +630,27 @@ func step(dt: float, input: InputDataV2) -> void:
 			yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
 		pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
 
-	if abs(input.zoom_delta) > 0.01:
-		base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 50.0)
+	var active_cam = CinematicManager.get_active_camera()
+	var can_zoom_cinematic = enable_cinematic_zoom and active_cam and is_instance_valid(active_cam) and active_cam != _cached_cam
+	if can_zoom_cinematic:
+		if _cinematic_zoom_target_cam != active_cam:
+			_cinematic_zoom_target_cam = active_cam
+			_cinematic_zoom_target_fov = active_cam.fov
+
+		if abs(input.zoom_delta) > 0.01:
+			_cinematic_zoom_target_fov = clamp(
+				_cinematic_zoom_target_fov + (input.zoom_delta * cinematic_zoom_speed),
+				cinematic_zoom_min_fov,
+				cinematic_zoom_max_fov
+			)
+
+		var zoom_t = clamp(cinematic_zoom_lerp_speed * dt, 0.0, 1.0)
+		active_cam.fov = lerp(active_cam.fov, _cinematic_zoom_target_fov, zoom_t)
+	else:
+		_cinematic_zoom_target_cam = null
+		_cinematic_zoom_target_fov = -1.0
+		if abs(input.zoom_delta) > 0.01:
+			base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 50.0)
 
 	if input.fov_override > 0.0:
 		base_fov = input.fov_override
@@ -815,6 +859,13 @@ func _update_cinematic_zone_detection(input: InputDataV2):
 	_active_cinematic_zone = best_zone
 
 	if _active_cinematic_zone != _prev_active_cinematic_zone:
+		if _prev_active_cinematic_zone and _prev_active_cinematic_zone.has_method("set_zone_occlusion_for_body"):
+			_prev_active_cinematic_zone.set_zone_occlusion_for_body(self, false)
+		if _active_cinematic_zone and _active_cinematic_zone.has_method("set_zone_occlusion_for_body"):
+			_active_cinematic_zone.set_zone_occlusion_for_body(self, true)
+		elif _occlusion_mode_active:
+			set_occlusion_mode(false)
+
 		# Capture PREVIOUS camera state for Latch
 		var prev_cam = CinematicManager.get_active_camera()
 		var p_basis = prev_cam.global_transform.basis if prev_cam else Basis.IDENTITY

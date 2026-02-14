@@ -1620,24 +1620,6 @@
         "crouch": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -1651,7 +1633,7 @@
     "59": [
 
     ],
-    "89": [
+    "88": [
       {
         "command": "ASSERT",
         "condition": "pos.x > 1.0 \"Elías no hizo strafe a la izquierda (-X)\""
@@ -1668,73 +1650,6 @@
   },
   "meta": {
     "world_start_state": {
-      "/root/PushableBoxV2": {
-        "pos": [
-          0.0274,
-          -1290.503174,
-          86.75882
-        ],
-        "rot": [
-          0.550216,
-          0.177087,
-          0.187694
-        ],
-        "vel": [
-          -0.000277,
-          -87.23838,
-          0.968357
-        ],
-        "ang": [
-          0.002145,
-          0.001463,
-          0.002161
-        ],
-        "mode": 0,
-        "fbt": 0,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
-      "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform/LeverBase/RotatingLever": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0,
-        "start_rot": [
-          -0,
-          0,
-          0
-        ]
-      },
-      "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform2/LeverBase/RotatingLever": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0,
-        "start_rot": [
-          -0,
-          0,
-          0
-        ]
-      },
-      "/root/TestScene/SlidingDrawer": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0,
-        "start_pos": [
-          -2.30146,
-          0.875,
-          39.991001
-        ]
-      },
       "/root/TestScene/Boxes/PushableBoxV2": {
         "pos": [
           6.365,
@@ -1983,6 +1898,45 @@
         "snap_rot": true,
         "snap_deg": 1
       },
+      "/root/TestScene/HoloTerminalV2": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0
+      },
+      "/root/TestScene/HoloTerminalV2/CinematicSetup/CinematicPathRig": {
+        "is_active": false,
+        "target_offset": 0,
+        "last_deactivate_time": 0,
+        "unit_offset": 0.5,
+        "current_animation": "",
+        "playback_position": 0
+      },
+      "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform/LeverBase/RotatingLever": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0,
+        "start_rot": [
+          -0,
+          0,
+          0
+        ]
+      },
+      "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform2/LeverBase/RotatingLever": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0,
+        "start_rot": [
+          -0,
+          0,
+          0
+        ]
+      },
       "/root/TestScene/Lever/LeverBase/RotatingLever": {
         "active": false,
         "used": false,
@@ -2025,20 +1979,17 @@
         "internal_speed": 0,
         "visual_phase": 0
       },
-      "/root/TestScene/HoloTerminalV2": {
+      "/root/TestScene/SlidingDrawer": {
         "active": false,
         "used": false,
         "auto_triggered": false,
         "progress": 0,
-        "target": 0
-      },
-      "/root/TestScene/HoloTerminalV2/CinematicSetup/CinematicPathRig": {
-        "is_active": false,
-        "target_offset": 0,
-        "last_deactivate_time": 0,
-        "unit_offset": 0.5,
-        "current_animation": "",
-        "playback_position": 0
+        "target": 0,
+        "start_pos": [
+          -2.30146,
+          0.875,
+          39.991001
+        ]
       },
       "CinematicManager": {
         "current_control_mode": 0,
