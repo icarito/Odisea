@@ -40,8 +40,8 @@ jobs:
       - name: Install runner prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxml2-utils xvfb xauth
-          echo "Installed xmllint and xvfb"
+          sudo apt-get install -y libxml2-utils
+          echo "Installed xmllint"
 
       - name: Setup Godot 3.6.2
         run: |
@@ -82,7 +82,7 @@ jobs:
           ODISEA_SHELL_RUNNER: gdunit
         run: |
           chmod +x ./runtest.sh
-          xvfb-run ./runtest.sh --runner gdunit -a res://core_v2/tests
+          ./runtest.sh --runner gdunit -a res://core_v2/tests
 
       - name: Publicar resumen de tests y drift
         if: always()

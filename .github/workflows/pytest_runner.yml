@@ -47,12 +47,6 @@ jobs:
             ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-
             ${{ runner.os }}-godot-bin-
 
-      - name: Install runner prerequisites
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libxml2-utils xvfb xauth
-          echo "Installed xmllint and xvfb"
-
       - name: Setup Godot 3.6.2
         run: |
           set -euo pipefail
@@ -115,7 +109,7 @@ jobs:
         env:
           GODOT_BIN: /usr/local/bin/godot
         run: |
-          xvfb-run ./.venv/bin/pytest --odisea-runner gdunit -n auto
+          ./.venv/bin/pytest --odisea-runner gdunit -n auto
 
   pytest-raw-oys:
     name: Run Pytest (raw-oys)
@@ -131,11 +125,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Install runner prerequisites
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb xauth
 
       - name: Cache Godot binary
         id: godot_bin_cache_raw
@@ -194,4 +183,4 @@ jobs:
         env:
           GODOT_BIN: /usr/local/bin/godot
         run: |
-          xvfb-run ./.venv/bin/pytest --odisea-runner raw-oys -n auto
+          ./.venv/bin/pytest --odisea-runner raw-oys -n auto
