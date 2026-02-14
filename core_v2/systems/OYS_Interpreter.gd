@@ -356,7 +356,50 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			
 			if result is GDScriptFunctionState:
 				yield (result, "completed")
-		
+
+		"OPEN":
+			var scene_path = _resolve_value(inst.get("path", ""))
+			if typeof(scene_path) != TYPE_STRING or String(scene_path).strip_edges() == "":
+				printerr("[OYS] OPEN failed: invalid path: ", scene_path)
+			else:
+				var open_state = _open_scene(String(scene_path))
+				if open_state is GDScriptFunctionState:
+					yield (open_state, "completed")
+
+		"CLICK":
+			var selector = String(_resolve_value(inst.get("selector", "")))
+			if not _click_selector(selector):
+				printerr("[OYS] CLICK failed for selector: ", selector)
+
+		"FILL":
+			var fill_selector = String(_resolve_value(inst.get("selector", "")))
+			var fill_value = String(_resolve_value(inst.get("value", "")))
+			if not _fill_selector(fill_selector, fill_value, false):
+				printerr("[OYS] FILL failed for selector: ", fill_selector)
+
+		"TYPE":
+			var type_selector = String(_resolve_value(inst.get("selector", "")))
+			var type_value = String(_resolve_value(inst.get("value", "")))
+			if not _fill_selector(type_selector, type_value, true):
+				printerr("[OYS] TYPE failed for selector: ", type_selector)
+
+		"PRESS":
+			var press_selector = String(_resolve_value(inst.get("selector", "")))
+			var press_value = String(_resolve_value(inst.get("value", "")))
+			if not _press_selector(press_selector, press_value):
+				printerr("[OYS] PRESS failed for selector=%s key=%s" % [press_selector, press_value])
+
+		"ASSERT_TEXT":
+			var text_selector = String(_resolve_value(inst.get("selector", "")))
+			var expected_text = String(_resolve_value(inst.get("value", "")))
+			var node = _resolve_selector_node(text_selector)
+			var actual = _extract_control_text(node)
+			if actual.find(expected_text) == -1:
+				printerr("[OYS ASSERT_TEXT] FAILED selector=%s expected~=\"%s\" actual=\"%s\"" % [text_selector, expected_text, actual])
+				test_failed = true
+				stop_requested = true
+				return
+
 		"CALL":
 			var method = inst.get("method", "")
 			var args = inst.get("args", [])
@@ -474,9 +517,16 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				
 				var dir = Directory.new()
 				var base_dir = "res://test_output/props/"
+				if not prop:
+					base_dir = "res://test_output/ui/"
 				if not dir.dir_exists(base_dir):
 					dir.make_dir_recursive(base_dir)
-				
+				if not prop:
+					var cs = host_node.get_tree().current_scene
+					if cs and cs.filename != "":
+						prop_name = cs.filename.get_file().get_basename().to_lower()
+					else:
+						prop_name = "ui"
 				path = base_dir + "%s_%s.png" % [prop_name, label]
 				img.save_png(path)
 				print("[OYS] Screenshot saved to: ", path)
@@ -1469,6 +1519,210 @@ func _find_node_by_type(root: Node, type) -> Node:
 		var res = _find_node_by_type(root.get_child(i), type)
 		if res: return res
 	return null
+
+func _open_scene(path: String):
+	if not host_node or not host_node.is_inside_tree():
+		return null
+	var packed = load(path)
+	if packed == null:
+		printerr("[OYS] OPEN failed, scene not found: ", path)
+		return null
+	var inst = packed.instance()
+	if inst == null:
+		printerr("[OYS] OPEN failed, could not instance: ", path)
+		return null
+	var tree = host_node.get_tree()
+	var old_scene = tree.current_scene
+	tree.root.add_child(inst)
+	if is_instance_valid(old_scene):
+		old_scene.queue_free()
+	tree.current_scene = inst
+	yield (tree, "idle_frame")
+	yield (tree, "idle_frame")
+	return null
+
+func _resolve_selector_node(selector: String) -> Node:
+	if not host_node or not host_node.is_inside_tree():
+		return null
+	var current_scene = host_node.get_tree().current_scene
+	if not is_instance_valid(current_scene):
+		return null
+	var s = selector.strip_edges()
+	if s == "":
+		return null
+
+	if s.begins_with("path="):
+		var p = s.substr(5, s.length())
+		return current_scene.get_node_or_null(p)
+
+	if s.begins_with("name="):
+		var name = s.substr(5, s.length())
+		return current_scene.find_node(name, true, false)
+
+	if s.begins_with("text="):
+		var target_text = s.substr(5, s.length())
+		return _find_control_by_text(current_scene, target_text)
+
+	# Default: try as path first, then by name.
+	var node = current_scene.get_node_or_null(s)
+	if node:
+		return node
+	return current_scene.find_node(s, true, false)
+
+func _find_control_by_text(root: Node, target_text: String) -> Node:
+	if not is_instance_valid(root):
+		return null
+	if root is Label and String(root.text).find(target_text) != -1:
+		return root
+	if root is Button and String(root.text).find(target_text) != -1:
+		return root
+	for child in root.get_children():
+		var hit = _find_control_by_text(child, target_text)
+		if hit:
+			return hit
+	return null
+
+func _click_selector(selector: String) -> bool:
+	var node = _resolve_selector_node(selector)
+	if not node:
+		return false
+	if node is BaseButton:
+		node.emit_signal("pressed")
+		return true
+	if node is Control:
+		var ctrl = node as Control
+		ctrl.grab_focus()
+		var center = ctrl.get_global_rect().position + (ctrl.get_global_rect().size * 0.5)
+		return _inject_mouse_click(center)
+	return false
+
+func _fill_selector(selector: String, value: String, append: bool) -> bool:
+	var node = _resolve_selector_node(selector)
+	if not node:
+		return false
+	if node is LineEdit:
+		var line = node as LineEdit
+		line.text = line.text + value if append else value
+		line.caret_position = line.text.length()
+		return true
+	if node is TextEdit:
+		var te = node as TextEdit
+		te.text = te.text + value if append else value
+		return true
+	if node.has_method("set_text"):
+		if append and "text" in node:
+			node.call("set_text", str(node.get("text")) + value)
+		else:
+			node.call("set_text", value)
+		return true
+	return false
+
+func _press_selector(selector: String, key_name: String) -> bool:
+	var node = _resolve_selector_node(selector)
+	if not node:
+		return false
+	if node is Control:
+		(node as Control).grab_focus()
+	if node is LineEdit:
+		var line = node as LineEdit
+		var key_upper = key_name.strip_edges().to_upper()
+		if key_upper == "ENTER" or key_upper == "RETURN":
+			line.emit_signal("text_entered", line.text)
+			return true
+		if key_upper == "BACKSPACE":
+			if line.text.length() > 0:
+				line.text = line.text.substr(0, line.text.length() - 1)
+				line.caret_position = line.text.length()
+			return true
+	return _inject_key(key_name)
+
+func _extract_control_text(node: Node) -> String:
+	if not node:
+		return ""
+	if node is Label:
+		return String((node as Label).text)
+	if node is Button:
+		return String((node as Button).text)
+	if node is LineEdit:
+		return String((node as LineEdit).text)
+	if node is TextEdit:
+		return String((node as TextEdit).text)
+	if node is RichTextLabel:
+		var rt = node as RichTextLabel
+		if rt.bbcode_enabled:
+			return String(rt.bbcode_text)
+		return String(rt.text)
+	if "text" in node:
+		return String(node.get("text"))
+	return ""
+
+func _inject_mouse_click(global_pos: Vector2) -> bool:
+	if not host_node or not host_node.is_inside_tree():
+		return false
+	var viewport = host_node.get_viewport()
+	if not viewport:
+		return false
+	var motion = InputEventMouseMotion.new()
+	motion.position = global_pos
+	motion.global_position = global_pos
+	viewport.input(motion)
+	var press = InputEventMouseButton.new()
+	press.button_index = BUTTON_LEFT
+	press.pressed = true
+	press.position = global_pos
+	press.global_position = global_pos
+	viewport.input(press)
+	var release = InputEventMouseButton.new()
+	release.button_index = BUTTON_LEFT
+	release.pressed = false
+	release.position = global_pos
+	release.global_position = global_pos
+	viewport.input(release)
+	return true
+
+func _inject_key(key_name: String) -> bool:
+	if not host_node or not host_node.is_inside_tree():
+		return false
+	var viewport = host_node.get_viewport()
+	if not viewport:
+		return false
+	var key = key_name.strip_edges().to_upper()
+	var scancode = _key_name_to_scancode(key)
+	if scancode == 0:
+		return false
+	var press = InputEventKey.new()
+	press.pressed = true
+	press.scancode = scancode
+	viewport.input(press)
+	var release = InputEventKey.new()
+	release.pressed = false
+	release.scancode = scancode
+	viewport.input(release)
+	return true
+
+func _key_name_to_scancode(key_name: String) -> int:
+	match key_name:
+		"ENTER", "RETURN":
+			return KEY_ENTER
+		"TAB":
+			return KEY_TAB
+		"UP":
+			return KEY_UP
+		"DOWN":
+			return KEY_DOWN
+		"LEFT":
+			return KEY_LEFT
+		"RIGHT":
+			return KEY_RIGHT
+		"BACKSPACE":
+			return KEY_BACKSPACE
+		"ESC", "ESCAPE":
+			return KEY_ESCAPE
+		_:
+			if key_name.length() == 1:
+				var maybe = OS.find_scancode_from_string(key_name)
+				return maybe
+	return 0
 
 func _substitute_variables(message: String) -> String:
 	var result = message

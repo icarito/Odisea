@@ -1,0 +1,175 @@
+extends Control
+class_name OYSShell
+
+const MAX_RENDER_LINES := 5000
+const OYSConsoleScript = preload("res://core_v2/ui/retro/OYS_Console.gd")
+
+var _console = null
+var _history_index := -1
+
+onready var _output: RichTextLabel = $VBox/Output
+onready var _input: LineEdit = $VBox/CommandRow/CommandInput
+onready var _status: Label = $VBox/Status
+
+func _ready() -> void:
+	_ensure_console_singleton()
+	_connect_console()
+	connect("gui_input", self, "_on_shell_gui_input")
+	if _output:
+		_output.connect("gui_input", self, "_on_shell_gui_input")
+	if _input:
+		_input.connect("text_entered", self, "_on_text_entered")
+		_input.connect("gui_input", self, "_on_input_gui")
+		focus_command_input()
+	_render_full_output()
+	set_process(true)
+
+func _process(_delta: float) -> void:
+	if _console == null:
+		_connect_console()
+		if _console != null:
+			_render_full_output()
+
+func _connect_console() -> void:
+	var root = get_tree().root
+	if not root:
+		return
+	_console = root.get_node_or_null("OYS_Console")
+	if not _console:
+		_status.text = "Console not found"
+		return
+	if not _console.is_connected("log_added", self, "_on_log_added"):
+		_console.connect("log_added", self, "_on_log_added")
+	if not _console.is_connected("logs_cleared", self, "_on_logs_cleared"):
+		_console.connect("logs_cleared", self, "_on_logs_cleared")
+	if not _console.is_connected("command_executed", self, "_on_command_executed"):
+		_console.connect("command_executed", self, "_on_command_executed")
+	_status.text = "READY"
+
+func _ensure_console_singleton() -> void:
+	var root = get_tree().root
+	if not root:
+		return
+	var existing = root.get_node_or_null("OYS_Console")
+	if existing:
+		return
+	var console = OYSConsoleScript.new()
+	console.name = "OYS_Console"
+	root.call_deferred("add_child", console)
+
+func _on_text_entered(text: String) -> void:
+	if not _console:
+		return
+	var line = text.strip_edges()
+	if line == "":
+		return
+	_append_line("SYS", ">_ " + line, "#00FF00") # High contrast green
+	_console.enqueue_command(line)
+	_history_index = -1
+	_input.text = ""
+
+func _on_input_gui(event: InputEvent) -> void:
+	if not (event is InputEventKey):
+		return
+	var key = event as InputEventKey
+	if not key.pressed or key.echo:
+		return
+	if key.scancode == KEY_TAB:
+		accept_event()
+		_apply_autocomplete()
+	elif key.scancode == KEY_UP:
+		accept_event()
+		_apply_history(-1)
+	elif key.scancode == KEY_DOWN:
+		accept_event()
+		_apply_history(1)
+
+func _on_shell_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == BUTTON_LEFT and event.pressed:
+		focus_command_input()
+
+func focus_command_input() -> void:
+	if not _input:
+		return
+	_input.grab_focus()
+	_input.caret_position = _input.text.length()
+
+func _apply_autocomplete() -> void:
+	if not _console:
+		return
+	var current = _input.text
+	var candidates = _console.get_autocomplete_candidates(current)
+	if candidates.empty():
+		_status.text = "No suggestions"
+		return
+	if candidates.size() == 1:
+		_input.text = _replace_last_token(current, candidates[0])
+		_input.caret_position = _input.text.length()
+		_status.text = "Autocomplete: " + candidates[0]
+		return
+	_status.text = "%d suggestions" % candidates.size()
+	_append_line("SYS", "Suggestions: " + ", ".join(candidates.slice(0, min(10, candidates.size()))), "#88CCFF")
+
+func _apply_history(direction: int) -> void:
+	if not _console:
+		return
+	var hist = _console.get_history()
+	if hist.empty():
+		return
+	if _history_index == -1:
+		_history_index = hist.size()
+	_history_index = clamp(_history_index + direction, 0, hist.size())
+	if _history_index == hist.size():
+		_input.text = ""
+	else:
+		_input.text = hist[_history_index]
+	_input.caret_position = _input.text.length()
+
+func _replace_last_token(source: String, replacement: String) -> String:
+	if source.strip_edges() == "":
+		return replacement + " "
+	var ends_with_space = source.ends_with(" ")
+	if ends_with_space:
+		return source + replacement + " "
+	var idx = source.rfind(" ")
+	if idx == -1:
+		return replacement + " "
+	return source.substr(0, idx + 1) + replacement + " "
+
+func _render_full_output() -> void:
+	if not _console:
+		return
+	_output.clear()
+	for entry in _console.get_logs():
+		_append_log_entry(entry)
+
+func _on_log_added(entry: Dictionary) -> void:
+	if not _console:
+		return
+	if _console.get_filter_tag() != "" and entry.get("tag", "") != _console.get_filter_tag():
+		return
+	_append_log_entry(entry)
+
+func _on_logs_cleared() -> void:
+	_output.clear()
+
+func _on_command_executed(_command: String, success: bool, message: String) -> void:
+	_status.text = "OK" if success else "ERR: %s" % message
+
+func _append_log_entry(entry: Dictionary) -> void:
+	var tag = str(entry.get("tag", "SYS"))
+	var text = _escape_bbcode(str(entry.get("text", "")))
+	var color = str(entry.get("color", "#FFFFFF"))
+	_append_line(tag, text, color)
+
+func _append_line(tag: String, text: String, color: String) -> void:
+	_output.append_bbcode("[color=%s][%s][/color] %s\n" % [color, tag, text])
+	# RichTextLabel line index is 0-based.
+	var lc = _output.get_line_count()
+	if lc > 0:
+		_output.scroll_to_line(max(0, lc - 2))
+	if lc > MAX_RENDER_LINES:
+		_render_full_output()
+
+func _escape_bbcode(text: String) -> String:
+	return text.replace("[", "\\[").replace("]", "\\]")

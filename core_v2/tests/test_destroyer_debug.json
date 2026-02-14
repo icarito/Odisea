@@ -4176,6 +4176,24 @@
         "crouch": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -4190,7 +4208,7 @@
         "message": "Starting destroyer signal test"
       }
     ],
-    "53": [
+    "58": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -1.0 \"Player fell\""
@@ -4220,7 +4238,7 @@
         "message": "SUCCESS: entity_destroyed signal was emitted!"
       }
     ],
-    "230": [
+    "231": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -1.0 \"Player should still be on ground\""

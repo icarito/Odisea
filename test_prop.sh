@@ -13,6 +13,7 @@ GODOT_BIN="godot3-bin"
 PROJECT_PATH="$(pwd)"
 OUTPUT_DIR="$PROJECT_PATH/test_output/props"
 VALIDATOR_SCRIPT="res://core_v2/scripts/prop_validator.oys"
+CUSTOM_SCRIPT=false
 PROP_DIR="./core_v2/props"
 MIN_DELTA_PERCENT=0.5  # Minimum % of pixels that must differ between screenshots
 
@@ -22,7 +23,7 @@ while [ "$1" != "" ]; do
         --target=* )   TARGET_PROP="${1#*=}" ;;
         --base64 )        RETURN_BASE64=true ;;
         --editor-path=*) GODOT_BIN="${1#*=}" ;;
-        --script=* )   VALIDATOR_SCRIPT="${1#*=}" ;;
+        --script=* )   VALIDATOR_SCRIPT="${1#*=}"; CUSTOM_SCRIPT=true ;;
         --min-delta=* ) MIN_DELTA_PERCENT="${1#*=}" ;;
         -* )           echo "Unknown option: $1"; exit 1 ;;
         * )            TARGET_PROP="$1" ;;
@@ -78,6 +79,34 @@ check_image_delta() {
     fi
 }
 
+to_res_path() {
+    local local_path="$1"
+    local clean="${local_path#./}"
+    echo "res://${clean}"
+}
+
+resolve_oys_script_for_prop() {
+    local prop_file="$1"
+    local prop_base="${prop_file%.tscn}"
+    local prop_name
+    prop_name=$(basename "$prop_base")
+
+    local candidates=(
+        "${prop_base}.oys"
+        "./core_v2/scripts/${prop_name}.oys"
+        "./core_v2/tests/${prop_name}.oys"
+    )
+
+    for c in "${candidates[@]}"; do
+        if [ -f "$c" ]; then
+            to_res_path "$c"
+            return 0
+        fi
+    done
+
+    echo "$VALIDATOR_SCRIPT"
+}
+
 run_validation() {
     local PROP_NAME=$1
     local PROP_FILE=$2
@@ -92,7 +121,12 @@ run_validation() {
     RES_PATH="res://$CLEAN_PATH"
     
     export OYS_PROP_PATH="$RES_PATH"
-    export OYS_AUTO_RUN="$VALIDATOR_SCRIPT"
+    local selected_script="$VALIDATOR_SCRIPT"
+    if [ "$CUSTOM_SCRIPT" = false ]; then
+        selected_script=$(resolve_oys_script_for_prop "$PROP_FILE")
+    fi
+    echo "🧪 OYS script: $selected_script"
+    export OYS_AUTO_RUN="$selected_script"
 
     # Run Godot
     $GODOT_BIN --path "$PROJECT_PATH" "res://core_v2/scenes/PropStage.tscn" --no-window --quit-after 200

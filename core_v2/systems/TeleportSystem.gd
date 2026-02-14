@@ -49,6 +49,9 @@ func teleport_to(transform: Transform):
 # Atajos de teclado: trackback (Backspace) y reset
 
 func _input(event):
+	if _is_ui_focus_active():
+		return
+
 	# Atajos de input actions
 	if event.is_action_pressed("trackback"):
 		print("[TeleportSystem] Atajo 'trackback' presionado: respawn en último checkpoint (como morir)")
@@ -68,13 +71,24 @@ func _input(event):
 		if event.scancode >= KEY_1 and event.scancode <= KEY_9:
 			key_num = event.scancode - KEY_0 # 1..9
 		if key_num >= 1 and key_num <= 9:
+			var is_save_shortcut = event.control or event.command
+			var has_other_modifiers = event.shift or event.alt or event.meta
+			if has_other_modifiers and not is_save_shortcut:
+				return
+
 			var persistence_manager = get_node_or_null("/root/PersistenceManager")
 			var scene_path = get_tree().current_scene.filename if get_tree().current_scene else ""
 			if persistence_manager and persistence_manager.has_method("get_checkpoint_resource"):
 				var checkpoint_res = persistence_manager.get_checkpoint_resource(scene_path)
-				if event.shift:
-					# SHIFT+[1-9]: Guardar posición y ángulo en slot
+				if is_save_shortcut:
+					# CTRL/CMD+[1-9]: Guardar posición y ángulo en slot
+					if not is_instance_valid(player_controller):
+						var pilot = get_tree().get_root().find_node("Pilot", true, false)
+						if is_instance_valid(pilot):
+							player_controller = pilot
 					if checkpoint_res:
+						if not is_instance_valid(player_controller):
+							return
 						var checkpoint_data = {
 							"transform": player_controller.global_transform,
 							"yaw": player_controller.get("yaw") if "yaw" in player_controller else 0.0,
@@ -87,7 +101,7 @@ func _input(event):
 							persistence_manager.save_checkpoint_resource(scene_path)
 							print("[TeleportSystem] Checkpoint persistido en disco (slot ", key_num, ")")
 						get_tree().set_input_as_handled()
-				else:
+				elif not has_other_modifiers:
 					# [1-9]: Teletransportar a slot
 					if checkpoint_res and str(key_num) in checkpoint_res.slots:
 						var slot = checkpoint_res.slots[str(key_num)]
@@ -105,6 +119,32 @@ func _input(event):
 							if "pitch_deg" in player_controller:
 								player_controller.pitch_deg = rad2deg(pitch)
 						get_tree().set_input_as_handled()
+
+func _is_ui_focus_active() -> bool:
+	var root = get_tree().root
+	if root == null:
+		return false
+	return _viewport_has_ui_focus(root)
+
+func _viewport_has_ui_focus(vp: Viewport) -> bool:
+	if vp == null:
+		return false
+	for child in vp.get_children():
+		if child is Control and _control_tree_has_focus(child):
+			return true
+		if child is Viewport and _viewport_has_ui_focus(child):
+			return true
+	return false
+
+func _control_tree_has_focus(node: Control) -> bool:
+	if node == null:
+		return false
+	if node.visible and node.has_focus():
+		return true
+	for child in node.get_children():
+		if child is Control and _control_tree_has_focus(child):
+			return true
+	return false
 
 # Respawn forzado en el spawn point o 0,0,0
 func _respawn_at_spawn_or_zero():

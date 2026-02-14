@@ -1,0 +1,13 @@
+WAIT 0.10
+SCREENSHOT 0_boot
+
+WAIT 2.60
+SCREENSHOT 1_desktop
+
+CLICK "name=CommandInput"
+FILL "name=CommandInput" "help"
+PRESS "name=CommandInput" "ENTER"
+WAIT 0.20
+
+ASSERT_TEXT "name=Status" "OK"
+SCREENSHOT 2_terminal

@@ -1,0 +1,131 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://core_v2/ui/retro/DebugOverlay.gd" type="Script" id=1]
+[ext_resource path="res://assets/DotGothic16.ttf" type="DynamicFontData" id=2]
+[ext_resource path="res://core_v2/ui/retro/RetroWindow.tscn" type="PackedScene" id=3]
+[ext_resource path="res://core_v2/ui/retro/RetroOS.tres" type="Theme" id=4]
+
+[node name="DebugOverlay" type="CanvasLayer"]
+layer = 100
+script = ExtResource( 1 )
+retro_theme = ExtResource( 4 )
+pixel_font_data = ExtResource( 2 )
+
+[node name="Desktop" type="Control" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="DesktopContents" type="Control" parent="Desktop"]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+
+[node name="TaskBar" type="Panel" parent="Desktop/DesktopContents"]
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_top = -36.0
+mouse_filter = 1
+
+[node name="TaskRow" type="HBoxContainer" parent="Desktop/DesktopContents/TaskBar"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+custom_constants/separation = 8
+
+[node name="StartButton" type="Button" parent="Desktop/DesktopContents/TaskBar/TaskRow"]
+margin_right = 82.0
+margin_bottom = 37.0
+rect_min_size = Vector2( 82, 24 )
+text = "SYSTEM"
+
+[node name="ActiveTasks" type="HBoxContainer" parent="Desktop/DesktopContents/TaskBar/TaskRow"]
+margin_left = 90.0
+margin_right = 584.0
+margin_bottom = 37.0
+size_flags_horizontal = 3
+custom_constants/separation = 6
+
+[node name="Clock" type="Label" parent="Desktop/DesktopContents/TaskBar/TaskRow"]
+margin_left = 592.0
+margin_top = 2.0
+margin_right = 640.0
+margin_bottom = 35.0
+text = "00:00"
+
+[node name="WindowArea" type="Control" parent="Desktop/DesktopContents"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_bottom = -38.0
+mouse_filter = 2
+
+[node name="Window_NodeExplorer" parent="Desktop/DesktopContents/WindowArea" instance=ExtResource( 3 )]
+margin_left = 24.0
+margin_top = 22.0
+margin_right = 384.0
+margin_bottom = 292.0
+window_title = "Node Explorer"
+
+[node name="Window_Inspector" parent="Desktop/DesktopContents/WindowArea" instance=ExtResource( 3 )]
+margin_left = 404.0
+margin_top = 44.0
+margin_right = 724.0
+margin_bottom = 294.0
+window_title = "Inspector"
+
+[node name="Window_Terminal" parent="Desktop/DesktopContents/WindowArea" instance=ExtResource( 3 )]
+margin_left = 178.0
+margin_top = 296.0
+margin_right = 738.0
+margin_bottom = 516.0
+window_title = "OYS Shell"
+
+[node name="BootScreen" type="ColorRect" parent="Desktop"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color( 0, 0, 0, 1 )
+
+[node name="BootMargin" type="MarginContainer" parent="Desktop/BootScreen"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+custom_constants/margin_right = 18
+custom_constants/margin_top = 18
+custom_constants/margin_left = 18
+custom_constants/margin_bottom = 18
+
+[node name="BootVBox" type="VBoxContainer" parent="Desktop/BootScreen/BootMargin"]
+margin_left = 18.0
+margin_top = 18.0
+margin_right = 622.0
+margin_bottom = 462.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+custom_constants/separation = 10
+
+[node name="BootText" type="RichTextLabel" parent="Desktop/BootScreen/BootMargin/BootVBox"]
+margin_right = 604.0
+margin_bottom = 444.0
+size_flags_vertical = 3
+custom_colors/default_color = Color( 1, 1, 1, 1 )
+bbcode_enabled = true
+scroll_following = true
+
+[node name="OdiseaLogo" type="Label" parent="Desktop/BootScreen/BootMargin/BootVBox"]
+visible = false
+margin_top = 497.0
+margin_right = 988.0
+margin_bottom = 531.0
+custom_colors/font_color = Color( 1, 1, 1, 1 )
+text = "ODISEA OS"
+align = 1
+
+[node name="BootProgress" type="ProgressBar" parent="Desktop/BootScreen/BootMargin/BootVBox"]
+visible = false
+margin_top = 541.0
+margin_right = 988.0
+margin_bottom = 562.0

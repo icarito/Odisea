@@ -138,5 +138,26 @@ Este comando utiliza el script `runtests.sh` para lanzar Godot en modo headless 
 
 Al trabajar con Props o Elementos Interactuables, sigue este procedimiento recurrente:
 1.  **Ejecución**: Usa `./test_prop.sh --target="NombreDelProp" --base64` para capturar los estados visuales.
+    Si existe `NombreDelProp.oys` junto al `.tscn` (o en `core_v2/scripts/` / `core_v2/tests/`), se ejecuta automáticamente.
 2.  **Reporte**: Muestra los resultados (imágenes/base64) al usuario inmediatamente después de cualquier cambio en el asset.
 3.  **Iteración**: No consideres un asset terminado hasta que el usuario confirme que las capturas de pantalla son correctas.
+
+## Nota para Agentes: Pipeline de UI (DebugOverlay / Workbench)
+
+Al iterar UI retro (Workbench, ventanas, terminal), usar pipeline dedicado de capturas:
+1. **Ejecución base**: `./test_ui.sh --scene=DebugOverlay`
+2. **Con salida para revisión en chat**: `./test_ui.sh --scene=DebugOverlay --base64`
+3. **Escena explícita**: `./test_ui.sh --scene="res://core_v2/ui/retro/DebugOverlay.tscn"`
+
+Detalles del pipeline:
+- El runner usa `OYS_AUTO_RUN` sobre la escena UI objetivo (sin escena intermedia).
+- Si existe un `.oys` con el mismo basename que el `.tscn` (ej: `DebugOverlay.tscn` + `DebugOverlay.oys`), se usa automáticamente.
+- Si no existe script por nombre, fallback a `core_v2/scripts/ui_validator.oys`.
+- La secuencia de validación captura al menos:
+  - `*_0_boot.png` (boot inicial)
+  - `*_1_desktop.png` (desktop con taskbar)
+  - `*_2_terminal.png` (terminal tras comandos de prueba)
+- Los artefactos quedan en `test_output/ui/`.
+
+Regla de trabajo:
+- Después de cambios de UI, correr `test_ui.sh` y compartir capturas antes de dar por cerrada la iteración visual.

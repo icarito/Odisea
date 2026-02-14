@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=2]
+[gd_scene load_steps=18 format=2]
 
 [ext_resource path="res://core_v2/things/HoloTerminalV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/things/TerminalUI.tscn" type="PackedScene" id=2]
@@ -6,6 +6,7 @@
 [ext_resource path="res://core_v2/visual/CinematicRig.gd" type="Script" id=4]
 [ext_resource path="res://core_v2/components/CinematicCameraZone.gd" type="Script" id=5]
 [ext_resource path="res://core_v2/visual/CinematicPathRig.gd" type="Script" id=6]
+[ext_resource path="res://core_v2/things/HoloTerminalViewportInput.gd" type="Script" id=7]
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 0.5, 0.35, 0.25 )
@@ -130,6 +131,11 @@ material = SubResource( 7 )
 size = Vector2( 800, 600 )
 transparent_bg = true
 render_target_update_mode = 0
+script = ExtResource( 7 )
+cursor_hotspot = null
+cursor_sensitivity = null
+acceleration_ramp_time = null
+base_speed = null
 
 [node name="TerminalUI" parent="Viewport" instance=ExtResource( 2 )]
 
@@ -161,7 +167,6 @@ curve = SubResource( 14 )
 script = ExtResource( 6 )
 track_player = true
 follow_player_on_path = true
-invert_input_x = null
 preview_position = 0.5
 
 [node name="PathFollow" type="PathFollow" parent="CinematicSetup/CinematicPathRig"]
@@ -171,6 +176,7 @@ rotation_mode = 0
 
 [node name="Camera" type="Camera" parent="CinematicSetup/CinematicPathRig/PathFollow"]
 transform = Transform( -0.500003, 0, 0.866028, 0, 1, 0, -0.86603, 0, -0.500001, 0, 0.5, 0 )
+current = true
 near = 0.1
 far = 1000.0
 

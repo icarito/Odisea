@@ -6,6 +6,7 @@ class_name TerminalUIV2
 
 
 signal key_pressed(event)
+signal debug_button_pressed
 
 # Cursor configuration
 export(Texture) var cursor_texture: Texture
@@ -28,6 +29,12 @@ func _ready():
 	# Center cursor initially
 	_cursor_position = _viewport_size / 2.0
 	set_process_input(false) # Disabled until UI mode activated
+	var debug_button = get_node_or_null("Panel/CenterContainer/VBoxContainer/Button")
+	if debug_button:
+		debug_button.connect("pressed", self, "_on_debug_button_pressed")
+
+func _on_debug_button_pressed() -> void:
+	emit_signal("debug_button_pressed")
 
 func _setup_cursor():
 	"""Create and configure the cursor sprite."""

@@ -6,9 +6,13 @@ class_name HoloTerminalV2
 # Inherits InteractableBaseV2 for replay determinism.
 # V2.2: Integrated local Cinematic Camera System
 
+const DebugOverlayScene = preload("res://core_v2/ui/retro/DebugOverlay.tscn")
+
 # --- Terminal Configuration ---
 export(float) var slide_speed := 2.0
 export(float) var slide_height := 0.8
+export(Vector2) var screen_resolution := Vector2(800, 600)
+export(int, 12, 48) var debug_overlay_font_size := 22
 export(bool) var active setget set_active_debug
 
 # --- Cinematic Camera Configuration ---
@@ -22,6 +26,7 @@ var _camera_zone: Area = null
 var _cinematic_rig = null # CinematicPathRig reference
 var _focused_rig = null # FocusedRig reference for focus mode
 var _terminal_ui = null # TerminalUIV2 reference
+var _viewport_input = null # Viewport input bridge
 var _player_in_zone := false
 var _is_focused := false # True when in focus mode (close-up camera, keyboard to UI)
 
@@ -39,6 +44,7 @@ func _ready():
 	# Initial state update
 	_update_visuals()
 	_setup_viewport_texture()
+	_apply_viewport_settings()
 	
 	# Initial toggle logic (ensure correct state)
 	if not is_active:
@@ -52,8 +58,11 @@ func _ready():
 	# --- Cinematic Camera Auto-Wiring ---
 	_setup_cinematic_camera()
 	
+	_viewport_input = get_node_or_null("Viewport")
 	# Cache TerminalUI reference
 	_terminal_ui = get_node_or_null("Viewport/TerminalUI")
+	if _terminal_ui and not _terminal_ui.is_connected("debug_button_pressed", self, "_on_terminal_debug_requested"):
+		_terminal_ui.connect("debug_button_pressed", self, "_on_terminal_debug_requested")
 
 
 func _setup_cinematic_camera() -> void:
@@ -187,6 +196,28 @@ func _update_visuals() -> void:
 func _ease_out_cubic(t: float) -> float:
 	return 1.0 - pow(1.0 - t, 3.0)
 
+func _on_terminal_debug_requested() -> void:
+	var viewport = get_node_or_null("Viewport")
+	if not viewport:
+		return
+	for child in viewport.get_children():
+		child.queue_free()
+	var overlay = DebugOverlayScene.instance()
+	if "pixel_font_size" in overlay:
+		overlay.set("pixel_font_size", debug_overlay_font_size)
+	viewport.add_child(overlay)
+	_terminal_ui = overlay
+	_update_ui_mode()
+
+func _apply_viewport_settings() -> void:
+	var viewport = get_node_or_null("Viewport")
+	if not viewport:
+		return
+	var target_size = Vector2(max(320.0, screen_resolution.x), max(240.0, screen_resolution.y))
+	viewport.size = target_size
+	# Avoid duplicated events: viewport input is injected explicitly via HoloTerminalViewportInput.
+	viewport.gui_disable_input = true
+
 
 # Property aliases for spec compliance (read-only access to state)
 func get_is_open() -> bool:
@@ -217,6 +248,8 @@ func _update_ui_mode() -> void:
 	
 	if _terminal_ui and _terminal_ui.has_method("set_ui_mode"):
 		_terminal_ui.set_ui_mode(should_be_active)
+	if _viewport_input and _viewport_input.has_method("set_ui_mode"):
+		_viewport_input.set_ui_mode(should_be_active)
 	
 	# Update interaction text based on auto_interact and focus state
 	if base_interactive and auto_interact:
@@ -237,7 +270,7 @@ func is_ui_interactive() -> bool:
 
 
 func _input(event):
-	"""Handle focus mode toggling and forward input to TerminalUI."""
+	"""Handle focus mode toggling and forward input to viewport-driven UI."""
 	if Engine.editor_hint:
 		return
 	
@@ -254,12 +287,16 @@ func _input(event):
 			get_tree().set_input_as_handled()
 			return
 	
-	# When focused, forward all relevant input to terminal
-	if _is_focused and _terminal_ui:
-		# Forward WASD/movement keys as key events
-		if event is InputEventKey:
-			if _terminal_ui.has_method("process_key_event"):
-				_terminal_ui.process_key_event(event)
+	# When focused, forward key events to viewport input bridge first.
+	if _is_focused and event is InputEventKey:
+		if _viewport_input and _viewport_input.has_method("process_key_event"):
+			if _viewport_input.has_method("focus_command_input"):
+				_viewport_input.focus_command_input()
+			_viewport_input.process_key_event(event)
+			get_tree().set_input_as_handled()
+			return
+		if _terminal_ui and _terminal_ui.has_method("process_key_event"):
+			_terminal_ui.process_key_event(event)
 			get_tree().set_input_as_handled()
 			return
 	
@@ -268,21 +305,29 @@ func _input(event):
 	if not is_ui_interactive():
 		return
 	
-	if not _terminal_ui:
+	if not _viewport_input and not _terminal_ui:
 		return
 	
-	# Forward mouse motion to terminal UI
+	# Forward mouse motion to viewport input bridge.
 	if event is InputEventMouseMotion:
-		if _terminal_ui.has_method("process_mouse_motion"):
+		if _viewport_input and _viewport_input.has_method("process_mouse_motion"):
+			_viewport_input.process_mouse_motion(event.relative)
+			get_tree().set_input_as_handled()
+			return
+		if _terminal_ui and _terminal_ui.has_method("process_mouse_motion"):
 			_terminal_ui.process_mouse_motion(event.relative)
 		get_tree().set_input_as_handled()
 	
-	# Forward mouse clicks to terminal UI
+	# Forward mouse clicks to viewport input bridge.
 	elif event is InputEventMouseButton:
-		if event.button_index == BUTTON_LEFT and event.pressed:
-			if _terminal_ui.has_method("process_mouse_click"):
+		if event.button_index == BUTTON_LEFT:
+			if _viewport_input and _viewport_input.has_method("process_mouse_click"):
+				_viewport_input.process_mouse_click(event.button_index, event.pressed)
+				get_tree().set_input_as_handled()
+				return
+			if event.pressed and _terminal_ui and _terminal_ui.has_method("process_mouse_click"):
 				_terminal_ui.process_mouse_click()
-			get_tree().set_input_as_handled()
+				get_tree().set_input_as_handled()
 
 
 func _enter_focus_mode():

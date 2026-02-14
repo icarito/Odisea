@@ -24,6 +24,7 @@ enum Command {
 	INTERACTIVE,
 	BLEND,
 	ASSERT_NO_HAND_CLIPPING,
+	UI_OPEN, UI_CLICK, UI_FILL, UI_TYPE, UI_PRESS, UI_WAIT, UI_SCREENSHOT, UI_ASSERT_TEXT,
 }
 
 # Command synonyms mapping
@@ -32,7 +33,14 @@ const SYNONYMS = {
 	"BACKWARD": "BW",
 	"LT": "LEFT",
 	"RT": "RIGHT",
-	"TIME_SCALE": "SET_TIME_SCALE"
+	"TIME_SCALE": "SET_TIME_SCALE",
+	"UI_OPEN": "OPEN",
+	"UI_CLICK": "CLICK",
+	"UI_FILL": "FILL",
+	"UI_TYPE": "TYPE",
+	"UI_PRESS": "PRESS",
+	"UI_WAIT": "WAIT",
+	"UI_ASSERT_TEXT": "ASSERT_TEXT"
 }
 
 # Preprocess script: remove comments and empty lines
@@ -239,7 +247,33 @@ static func parse_instruction(line: String) -> Dictionary:
 
 		"SCREENSHOT":
 			data["label"] = _extract_quoted(parts, 1)
-		
+
+		"OPEN":
+			data["path"] = _extract_quoted(parts, 1)
+			if data["path"] == "" and parts.size() > 1:
+				data["path"] = parts[1]
+
+		"CLICK":
+			data["selector"] = _extract_quoted(parts, 1)
+			if data["selector"] == "" and parts.size() > 1:
+				data["selector"] = parts[1]
+
+		"FILL", "TYPE", "PRESS", "ASSERT_TEXT":
+			var quoted = _extract_quoted_values(line)
+			if quoted.size() >= 2:
+				data["selector"] = quoted[0]
+				data["value"] = quoted[1]
+			else:
+				data["selector"] = _extract_quoted(parts, 1)
+				if data["selector"] == "" and parts.size() > 1:
+					data["selector"] = parts[1]
+				if parts.size() > 2:
+					var idx = line.find(parts[2])
+					if idx != -1:
+						data["value"] = line.substr(idx).replace("\"", "")
+					else:
+						data["value"] = parts[2]
+
 		"LOAD_PROP":
 			data["path"] = _extract_quoted(parts, 1)
 		
@@ -431,6 +465,21 @@ static func _extract_quoted(parts: Array, index: int) -> String:
 	if index >= parts.size():
 		return ""
 	return parts[index].replace("\"", "")
+
+static func _extract_quoted_values(line: String) -> Array:
+	var values := []
+	var in_quote := false
+	var current := ""
+	for i in range(line.length()):
+		var ch = line[i]
+		if ch == "\"":
+			if in_quote:
+				values.append(current)
+				current = ""
+			in_quote = !in_quote
+		elif in_quote:
+			current += ch
+	return values
 
 # Parse a Vector3 from string "(x, y, z)"
 static func parse_vector3(s: String) -> Vector3:
