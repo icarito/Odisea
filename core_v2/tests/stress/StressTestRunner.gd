@@ -4,7 +4,6 @@ extends Node
 # Helper to execute stress tests via OYS commands
 
 const DRONE_SCENE = preload("res://core_v2/actors/CargolDroneV2.tscn")
-const BOX_SCENE = preload("res://core_v2/components/PushableBoxV2.tscn")
 
 var _active_test := ""
 var _spawned_drones := []
@@ -17,6 +16,11 @@ func _ready():
 	if sm and sm.has_method("register_oys_actor"):
 		sm.register_oys_actor("StressTestRunner", self)
 	print("[StressTestRunner] Ready. Use OYS CALL to run tests.")
+
+func _exit_tree():
+	var sm = get_node_or_null("/root/SessionManager")
+	if sm and sm.has_method("unregister_oys_actor"):
+		sm.unregister_oys_actor("StressTestRunner")
 
 func _process(delta):
 	if _active_test == "spawning":
@@ -151,13 +155,13 @@ func run_hierarchy_test(depth: int):
 func run_physics_box_test(count: int):
 	_cleanup()
 	print("[StressTestRunner] Starting Physics Box Test (RigidBody interaction)...")
+	var box_scene = load("res://core_v2/components/PushableBoxV2.tscn")
+	if box_scene == null:
+		printerr("[StressTestRunner] Failed to load PushableBoxV2.tscn")
+		return
 
 	for i in range(count):
-		if BOX_SCENE == null:
-			printerr("[StressTestRunner] Failed to load PushableBoxV2.tscn")
-			return
-
-		var box = BOX_SCENE.instance()
+		var box = box_scene.instance()
 		add_child(box)
 		box.translation = Vector3(rand_range(-5, 5), 5 + (i * 2.5), rand_range(-5, 5))
 
@@ -169,6 +173,10 @@ func run_physics_box_test(count: int):
 func stop_test():
 	_cleanup()
 	print("[StressTestRunner] Test Stopped.")
+
+func finish():
+	stop_test()
+	queue_free()
 
 func _cleanup():
 	# Save snapshot before cleaning up

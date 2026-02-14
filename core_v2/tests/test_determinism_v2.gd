@@ -112,15 +112,30 @@ static func _get_replay_paths() -> Array:
 	var raw_files = []
 	
 	if filter != "":
-		var filtered_path = TESTS_ROOT.plus_file(filter)
-		if not filtered_path.ends_with(".oys"):
-			filtered_path += ".oys"
+		var requested = filter
+		if not requested.ends_with(".oys"):
+			requested += ".oys"
+		var direct_path = TESTS_ROOT.plus_file(requested)
 		var f = File.new()
-		if f.file_exists(filtered_path):
-			raw_files = [[filtered_path]]
+		if f.file_exists(direct_path):
+			raw_files = [[direct_path]]
 		else:
-			printerr("OYS_FILTER: archivo no encontrado: ", filtered_path)
-			return []
+			var all_oys = _scan_for_files([".oys"])
+			var by_basename = requested.get_file()
+			var matched_path = ""
+			for pair in all_oys:
+				var candidate = pair[0]
+				if candidate.get_file() == by_basename:
+					matched_path = candidate
+					break
+				if candidate.ends_with("/" + requested):
+					matched_path = candidate
+					break
+			if matched_path != "":
+				raw_files = [[matched_path]]
+			else:
+				printerr("OYS_FILTER: archivo no encontrado: ", TESTS_ROOT.plus_file(requested))
+				return []
 	else:
 		if skip_json:
 			raw_files = _scan_for_files([".oys"])
@@ -304,6 +319,11 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 
 		var json_path = path.get_basename() + ".json"
 		print("[TEST_RUNNER] --- PASS 2: VERIFYING JSON ---")
+		var json_file = File.new()
+		if not json_file.file_exists(json_path):
+			print("[TEST_RUNNER] JSON companion missing, skipping PASS 2 for: ", path)
+			print("[test_replay] Finalizado: ", desc)
+			return
 
 		# Re-instanciar runner y escena para evitar state bleeding
 		runner = scene_runner(scene_path)

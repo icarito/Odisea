@@ -1,6 +1,6 @@
 # Stress Test Execution Script
 
-LEVEL res://core_v2/levels/TestScene_v2.tscn
+LEVEL res://core_v2/tests/TestScene_Cargol.tscn
 
 # Spawn the runner
 SPAWN scene="res://core_v2/tests/stress/StressTestRunner.tscn" pos=[0, 0, 0]
@@ -44,3 +44,5 @@ CALL StressTestRunner "stop_test"
 WAIT 1.0
 
 PRINT ">>> [STRESS] All Tests Completed Successfully"
+CALL StressTestRunner "finish"
+WAIT 0.2

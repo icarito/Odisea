@@ -1943,3 +1943,7 @@ func get_oys_actor(name: String) -> Node:
 		else:
 			_oys_actors.erase(name) # Clean up invalid ref
 	return null
+
+func unregister_oys_actor(name: String) -> void:
+	if _oys_actors.has(name):
+		_oys_actors.erase(name)
