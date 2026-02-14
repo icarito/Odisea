@@ -10,6 +10,17 @@ export.cfg
 # or commit the relevant .import files manually.
 .import/*
 *.import
+!.import/
+# Required import metadata for CI/runtime audio loading in PushableBoxV2.
+!assets/sfx/metal1.wav.import
+!assets/sfx/metal2.wav.import
+!assets/sfx/metal3.wav.import
+!.import/metal1.wav-*.md5
+!.import/metal1.wav-*.sample
+!.import/metal2.wav-*.md5
+!.import/metal2.wav-*.sample
+!.import/metal3.wav-*.md5
+!.import/metal3.wav-*.sample
 *.stex
 .vscode/
 
