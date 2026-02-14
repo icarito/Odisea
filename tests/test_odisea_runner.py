@@ -103,12 +103,15 @@ def _collect_raw_oys_files(repo_root: Path):
 
 
 @pytest.mark.parametrize("suite_path", _collect_gdunit_suites(Path(__file__).resolve().parents[1]), ids=lambda p: p.name)
-def test_gdunit_suite(suite_path: Path, selected_runner: str, repo_root: Path):
+def test_gdunit_suite(suite_path: Path, selected_runner: str, repo_root: Path, odisea_debug: bool):
     if selected_runner != "gdunit":
         pytest.skip("gdunit runner not selected")
 
     rel_suite = suite_path.relative_to(repo_root)
-    cmd = ["./runtest.sh", "-a", str(rel_suite)]
+    cmd = ["./runtest.sh"]
+    if odisea_debug:
+        cmd += ["--show", "--debug"]
+    cmd += ["-a", str(rel_suite)]
     print(f"[INFO] Executing: {' '.join(cmd)}")
 
     returncode, _ = _stream_process(cmd, file_hint=rel_suite)
@@ -117,11 +120,14 @@ def test_gdunit_suite(suite_path: Path, selected_runner: str, repo_root: Path):
 
 
 @pytest.mark.parametrize("oys_name", _collect_determinism_oys_cases(Path(__file__).resolve().parents[1]))
-def test_determinism_batched_case(oys_name: str, selected_runner: str):
+def test_determinism_batched_case(oys_name: str, selected_runner: str, odisea_debug: bool):
     if selected_runner != "gdunit":
         pytest.skip("gdunit runner not selected")
 
-    cmd = ["./runtest.sh", "--oys", oys_name]
+    cmd = ["./runtest.sh"]
+    if odisea_debug:
+        cmd += ["--show", "--debug"]
+    cmd += ["--oys", oys_name]
     print(f"[INFO] Executing: {' '.join(cmd)}")
 
     returncode, _ = _stream_process(cmd)
@@ -130,7 +136,7 @@ def test_determinism_batched_case(oys_name: str, selected_runner: str):
 
 
 @pytest.mark.parametrize("test_file", _collect_raw_oys_files(Path(__file__).resolve().parents[1]), ids=lambda p: p.name)
-def test_raw_oys_file(test_file: Path, selected_runner: str, repo_root: Path):
+def test_raw_oys_file(test_file: Path, selected_runner: str, repo_root: Path, odisea_debug: bool):
     if selected_runner != "raw-oys":
         pytest.skip("raw-oys runner not selected")
 
@@ -139,15 +145,10 @@ def test_raw_oys_file(test_file: Path, selected_runner: str, repo_root: Path):
         godot_bin = "godot"
 
     rel_file = test_file.relative_to(repo_root)
-    cmd = [
-        godot_bin,
-        "--headless",
-        "--no-window",
-        "-s",
-        "tests/debug_runner.gd",
-        "--test-file",
-        str(rel_file),
-    ]
+    cmd = [godot_bin]
+    if not odisea_debug:
+        cmd += ["--headless", "--no-window"]
+    cmd += ["-s", "tests/debug_runner.gd", "--test-file", str(rel_file)]
     print(f"[INFO] Executing: {' '.join(cmd)}")
 
     returncode, failed_asserts = _stream_process(cmd, file_hint=rel_file, filter_visualserver=True)

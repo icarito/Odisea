@@ -1,6 +1,7 @@
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -17,16 +18,58 @@ def pytest_addoption(parser):
             "GdUnit .gd suites) or 'raw-oys' (.oys/.json via debug_runner)."
         ),
     )
+    parser.addoption(
+        "--odisea-debug",
+        action="store_true",
+        default=False,
+        help="Debug mode for Odisea runner: run tests with visible window (non-headless).",
+    )
+
+
+def _is_debugger_attached() -> bool:
+    gettrace = getattr(sys, "gettrace", None)
+    if gettrace is None:
+        return False
+    return gettrace() is not None
+
+
+def _odisea_debug_enabled(config) -> bool:
+    if os.environ.get("ODISEA_DEBUG", "").lower() in {"1", "true", "yes", "on"}:
+        return True
+    if bool(config.getoption("--odisea-debug")):
+        return True
+    # --pdb / IDE debug session should behave as non-headless automatically.
+    if bool(getattr(config.option, "usepdb", False)):
+        return True
+    if _is_debugger_attached():
+        return True
+    # VSCode/PyDev debug adapters often expose these env vars even without --pdb.
+    if any(
+        key in os.environ
+        for key in (
+            "DEBUGPY_LAUNCHER_PORT",
+            "PYDEVD_LOAD_VALUES_ASYNC",
+            "PYDEVD_USE_FRAME_EVAL",
+            "PYCHARM_HOSTED",
+        )
+    ):
+        return True
+    return False
 
 
 def pytest_configure(config):
+    debug_enabled = _odisea_debug_enabled(config)
+
     # Auto-enable xdist when available unless the user explicitly set a worker value.
     if (
         config.pluginmanager.hasplugin("xdist")
         and hasattr(config.option, "numprocesses")
-        and config.option.numprocesses is None
     ):
-        config.option.numprocesses = "auto"
+        if debug_enabled:
+            # Debug sessions work best in a single local process.
+            config.option.numprocesses = 0
+        elif config.option.numprocesses is None:
+            config.option.numprocesses = "auto"
 
 
 @pytest.fixture(scope="session")
@@ -37,6 +80,11 @@ def repo_root() -> Path:
 @pytest.fixture(scope="session")
 def selected_runner(pytestconfig) -> str:
     return pytestconfig.getoption("--odisea-runner")
+
+
+@pytest.fixture(scope="session")
+def odisea_debug(pytestconfig) -> bool:
+    return _odisea_debug_enabled(pytestconfig)
 
 
 class RunnerError(Exception):
