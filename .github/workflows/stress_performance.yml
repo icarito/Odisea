@@ -41,13 +41,17 @@ jobs:
           mkdir -p ~/.local/share/godot/app_userdata/Odisea/
           export GODOT_BIN=godot
 
-      - name: Cache/Restore Performance Baseline
-        uses: actions/cache@v4
+      - name: Restore Performance Cache
+        id: perf_cache_restore
+        uses: actions/cache/restore@v4
         with:
-          path: performance_baseline.json
-          key: performance-baseline-${{ runner.os }}-${{ github.ref_name }}
+          path: |
+            performance_baseline.json
+            performance_history.json
+          key: performance-cache-${{ runner.os }}-${{ github.ref_name }}-${{ github.run_id }}
           restore-keys: |
-            performance-baseline-${{ runner.os }}-main
+            performance-cache-${{ runner.os }}-${{ github.ref_name }}-
+            performance-cache-${{ runner.os }}-main-
 
       - name: Run Stress Tests (Headless)
         run: |
@@ -61,22 +65,30 @@ jobs:
 
       - name: Check for Regressions
         run: |
-          # Use python installed in container or install it
-          # The image is Alpine based usually? Or Ubuntu? barichello/godot-ci is usually based on mono or standard
-          # Let's assume python3 is available
-          if [ -f performance_baseline.json ]; then
-            python3 scripts/check_regression.py performance_current.json performance_baseline.json >> $GITHUB_STEP_SUMMARY
-          else
-            python3 scripts/check_regression.py performance_current.json performance_current.json >> $GITHUB_STEP_SUMMARY
-          fi
+          python3 scripts/check_regression.py \
+            performance_current.json \
+            performance_baseline.json \
+            performance_history.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Update Baseline (Main Only)
         if: github.ref == 'refs/heads/main'
         run: |
           cp performance_current.json performance_baseline.json
 
+      - name: Save Performance Cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            performance_baseline.json
+            performance_history.json
+          key: performance-cache-${{ runner.os }}-${{ github.ref_name }}-${{ github.run_id }}
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: performance-report
-          path: performance_current.json
+          path: |
+            performance_current.json
+            performance_history.json
+            performance_baseline.json
