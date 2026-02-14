@@ -178,7 +178,7 @@ run_pytest_delegate() {
         cmd+=("--odisea-debug")
     fi
     if [ "${OYS_NODET:-0}" = "1" ]; then
-        cmd+=("-k" "not test_determinism_batched_case")
+        cmd+=("-k" "not test_det and not test_determinism_batched_case")
     fi
 
     echo "🐍 Delegando ejecución a pytest (runner gdunit)..."
