@@ -1206,8 +1206,23 @@ func _post_oys_input(data: Dictionary):
 		var override = session.get("_oys_input_override")
 		for key in data:
 			var val = data[key]
-			# Overwrite, don't accumulate, to avoid double-processing if Interpreter skips frames
-			override[key] = val
+			if key == "mouse_delta":
+				# BLEND can run turn + look in parallel; combine both axes instead of overwriting.
+				var current = override.get("mouse_delta", [0.0, 0.0])
+				var cur_x = 0.0
+				var cur_y = 0.0
+				if typeof(current) == TYPE_ARRAY and current.size() >= 2:
+					cur_x = float(current[0])
+					cur_y = float(current[1])
+				var inc_x = 0.0
+				var inc_y = 0.0
+				if typeof(val) == TYPE_ARRAY and val.size() >= 2:
+					inc_x = float(val[0])
+					inc_y = float(val[1])
+				override[key] = [cur_x + inc_x, cur_y + inc_y]
+			else:
+				# Overwrite for non-vector fields.
+				override[key] = val
 	else:
 		# Compatibility logic for other host types if any
 		var player = _find_player()

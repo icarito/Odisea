@@ -1,6 +1,7 @@
+LEVEL res://core_v2/levels/TestScene_v2.tscn
+
 SECTION "TEST_BLEND"
-# This script tests the new BLEND command with explicit durations
-# Expected behavior: turn RIGHT and LOOK DOWN simultaneously for 2.0s.
+# Validate BLEND executes RIGHT turn + LOOK down in parallel.
 
 PRINT "Starting BLEND test with RIGHT and LOOK..."
 BLEND 2.0
@@ -9,3 +10,16 @@ BLEND 2.0
 END
 
 PRINT "BLEND finished 2.0s."
+
+# Both components should be applied.
+ASSERT yaw_deg < -100 "BLEND should rotate yaw to the right"
+ASSERT yaw_deg > -170 "BLEND right rotation overshot expected range"
+ASSERT pitch_deg < -40 "BLEND should apply LOOK pitch down"
+ASSERT pitch_deg > -85 "BLEND pitch overshot expected range"
+
+# No movement command was issued; position should remain near origin.
+ASSERT pos.x < 0.05 "Unexpected X drift during camera-only BLEND"
+ASSERT pos.x > -0.05 "Unexpected X drift during camera-only BLEND"
+ASSERT pos.z < 0.05 "Unexpected Z drift during camera-only BLEND"
+ASSERT pos.z > -0.05 "Unexpected Z drift during camera-only BLEND"
+END
