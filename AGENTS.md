@@ -60,6 +60,43 @@ grep -E "(PASSED|FAILED|ERROR|Total|Exit code|SCRIPT ERROR)" ./reports/gdunit_ru
 ./runtests.sh --oys test_salto_vertical
 ```
 
+## Performance Monitoring & Regression Testing
+
+The project includes a telemetry system (`PerformanceMonitor`) and a stress testing harness to prevent performance regressions.
+
+### PerformanceMonitor (Autoload)
+- **Singleton:** `core_v2/autoloads/PerformanceMonitor.gd`
+- **Metrics:** Tracks FPS, Process/Physics Time, Draw Calls, Node Count.
+- **Lag Detection:** Logs a report (`user://performance_log.json`) if FPS drops > 20 instantly or CPU usage exceeds 70% budget.
+- **Snapshots:** Can save manual snapshots to `user://performance_snapshots.json` for regression comparison.
+
+### Stress Test Suite
+Located in `core_v2/tests/stress/`.
+- **Runner:** `StressTestRunner.gd` (OYS Actor).
+- **Script:** `run_stress.oys` executes 5 scenarios:
+  1.  **Saturation:** Spawns 100-1000 entities.
+  2.  **Spawning:** High-frequency create/destroy loop.
+  3.  **Pathfinding:** Blocking test with unreachable goals.
+  4.  **Hierarchy:** Deep node nesting test.
+  5.  **Physics:** RigidBody interaction with `PushableBoxV2`.
+
+### Regression Testing Workflow
+A GitHub Actions workflow (`stress_performance.yml`) runs on PRs to `main`.
+1.  Downloads baseline performance data (`performance_snapshots.json`) from cache.
+2.  Runs `run_stress.oys` in headless mode.
+3.  Compares current results against baseline using `scripts/check_regression.py`.
+4.  Fails the build if FPS drops > 10% or CPU usage increases > 20% compared to baseline.
+
+### Running Stress Tests Locally
+To execute the stress test suite and generate a report:
+
+```bash
+# Ensure you have a valid Godot binary (godot3-bin)
+./runtest.sh --oys stress/run_stress --show
+```
+
+Results will be saved to `~/.local/share/godot/app_userdata/Odisea/performance_snapshots.json` (Linux).
+
 ## Setup Testing Environment
 
 To execute tests, you need to have Godot 3 installed (binary named `godot3` or set `GODOT_BIN` env var).
