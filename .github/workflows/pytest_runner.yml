@@ -18,9 +18,19 @@ concurrency:
 
 jobs:
   pytest-gdunit:
-    name: Run Pytest (gdunit)
+    name: Run Pytest (gdunit-${{ matrix.suite }})
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: core
+            include_determinism: "0"
+            pytest_filter: "not test_det__"
+          - suite: determinism
+            include_determinism: "1"
+            pytest_filter: "test_det__"
     env:
       GODOT_VERSION: 3.6.2-stable
       GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
@@ -118,8 +128,9 @@ jobs:
       - name: Run Pytest (gdunit)
         env:
           GODOT_BIN: /usr/local/bin/godot
+          ODISEA_INCLUDE_DETERMINISM: ${{ matrix.include_determinism }}
         run: |
-          ./.venv/bin/pytest --odisea-runner gdunit -n auto
+          ./.venv/bin/pytest --odisea-runner gdunit -k "${{ matrix.pytest_filter }}" -n auto
 
   pytest-raw-oys:
     name: Run Pytest (raw-oys)
