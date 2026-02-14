@@ -1162,11 +1162,11 @@ func _finish_and_validate():
 		else:
 			printerr("❌ Could not open file for writing: ", target_save_path)
 
-		# Emit signal for external listeners/tests
-		# Final defensive cleanup: make sure no session SPAWN nodes bleed into next run.
-		_cleanup_session_spawned_nodes()
-		print("[SessionManager] EMITTING replay_finished: ", success, ", ", dist, ", ", frames)
-		emit_signal("replay_finished", success, dist, frames)
+	# Emit signal for external listeners/tests regardless of snapshot mode.
+	# Final defensive cleanup: make sure no session SPAWN nodes bleed into next run.
+	_cleanup_session_spawned_nodes()
+	print("[SessionManager] EMITTING replay_finished: ", success, ", ", dist, ", ", frames)
+	emit_signal("replay_finished", success, dist, frames)
 
 	# 3. Salir si estamos en modo CLI
 	if is_cli_mode:

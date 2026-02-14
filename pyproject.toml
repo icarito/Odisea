@@ -1,5 +1,5 @@
 [tool.pytest.ini_options]
-addopts = "-v -s"
+addopts = "-v -s -n auto"
 testpaths = ["tests", "core_v2/tests"]
 python_files = ["test_*.py", "*_test.py"]
 markers = [
