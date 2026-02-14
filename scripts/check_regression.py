@@ -201,21 +201,6 @@ def _chart_y_max(values, minimum):
     return int(math.ceil(v / 10.0) * 10)
 
 
-def _series_groups(history, tags, metric_key, precision=3):
-    groups = {}
-    for tag in tags:
-        vals = tuple(round(to_num(entry.get("metrics", {}).get(tag, {}).get(metric_key)), precision) for entry in history)
-        groups.setdefault(vals, []).append(tag)
-    ordered = sorted(groups.items(), key=lambda item: (len(item[1]), item[1][0]))
-    return ordered
-
-
-def _compact_tag_label(group_tags):
-    if len(group_tags) <= 2:
-        return "+".join(group_tags)
-    return f"{group_tags[0]}+{len(group_tags)-1}more"
-
-
 def print_mermaid_trends(history, tags):
     if len(history) < 2:
         print("\n## Historic Trend")
@@ -225,80 +210,51 @@ def print_mermaid_trends(history, tags):
     labels = [short_sha(entry.get("sha")) for entry in history]
     label_list = ", ".join(f'"{label}"' for label in labels)
 
-    all_fps = []
-    all_cpu = []
-    all_physics = []
+    fps_min_series = []
+    cpu_max_series = []
+    physics_max_series = []
     for entry in history:
         metrics = entry.get("metrics", {})
-        for tag in tags:
-            if tag in metrics:
-                all_fps.append(to_num(metrics[tag].get("fps")))
-                all_cpu.append(to_num(metrics[tag].get("process_time_ms")))
-                all_physics.append(to_num(metrics[tag].get("physics_time_ms")))
+        fps_vals = [to_num(metrics.get(tag, {}).get("fps")) for tag in tags if tag in metrics]
+        cpu_vals = [to_num(metrics.get(tag, {}).get("process_time_ms")) for tag in tags if tag in metrics]
+        phy_vals = [to_num(metrics.get(tag, {}).get("physics_time_ms")) for tag in tags if tag in metrics]
+        fps_min_series.append(min(fps_vals) if fps_vals else 0.0)
+        cpu_max_series.append(max(cpu_vals) if cpu_vals else 0.0)
+        physics_max_series.append(max(phy_vals) if phy_vals else 0.0)
 
-    fps_max = _chart_y_max(all_fps, 60)
-    cpu_max = _chart_y_max(all_cpu, 10)
-    physics_max = _chart_y_max(all_physics, 10)
-    fps_groups = _series_groups(history, tags, "fps", precision=2)
-    cpu_groups = _series_groups(history, tags, "process_time_ms", precision=3)
-    phy_groups = _series_groups(history, tags, "physics_time_ms", precision=3)
+    fps_max = _chart_y_max(fps_min_series, 60)
+    cpu_max = _chart_y_max(cpu_max_series, 10)
+    physics_max = _chart_y_max(physics_max_series, 10)
 
     print(f"\n## Historic Trend (Last {len(history)} Runs)")
     print("```mermaid")
     print("xychart-beta")
-    print('  title "FPS Trend by Commit"')
+    print('  title "Worst-Case FPS Trend (minimum FPS across scenarios)"')
     print(f"  x-axis [{label_list}]")
     print(f'  y-axis "FPS" 0 --> {fps_max}')
-    for i, (vals_tuple, group_tags) in enumerate(fps_groups, start=1):
-        vals = list(vals_tuple)
-        if any(v > 0 for v in vals):
-            joined = ", ".join(f"{v:.1f}" for v in vals)
-            print(f'  line "L{i}:{_compact_tag_label(group_tags)}" [{joined}]')
+    joined = ", ".join(f"{v:.1f}" for v in fps_min_series)
+    print(f'  line "min_fps" [{joined}]')
     print("```")
     print("\n---\n")
 
     print("```mermaid")
     print("xychart-beta")
-    print('  title "CPU Process Time Trend by Commit (lower is better)"')
+    print('  title "Worst-Case CPU Trend (max process ms across scenarios)"')
     print(f"  x-axis [{label_list}]")
     print(f'  y-axis "Process ms" 0 --> {cpu_max}')
-    for i, (vals_tuple, group_tags) in enumerate(cpu_groups, start=1):
-        vals = list(vals_tuple)
-        if any(v > 0 for v in vals):
-            joined = ", ".join(f"{v:.2f}" for v in vals)
-            print(f'  line "L{i}:{_compact_tag_label(group_tags)}" [{joined}]')
+    joined = ", ".join(f"{v:.2f}" for v in cpu_max_series)
+    print(f'  line "max_process_ms" [{joined}]')
     print("```")
     print("\n---\n")
 
     print("```mermaid")
     print("xychart-beta")
-    print('  title "Physics Time Trend by Commit (lower is better)"')
+    print('  title "Worst-Case Physics Trend (max physics ms across scenarios)"')
     print(f"  x-axis [{label_list}]")
     print(f'  y-axis "Physics ms" 0 --> {physics_max}')
-    for i, (vals_tuple, group_tags) in enumerate(phy_groups, start=1):
-        vals = list(vals_tuple)
-        if any(v > 0 for v in vals):
-            joined = ", ".join(f"{v:.2f}" for v in vals)
-            print(f'  line "L{i}:{_compact_tag_label(group_tags)}" [{joined}]')
+    joined = ", ".join(f"{v:.2f}" for v in physics_max_series)
+    print(f'  line "max_physics_ms" [{joined}]')
     print("```")
-
-
-def print_series_legend(history, tags):
-    print("\n## Series Labels")
-    print("Lines are labeled directly in each chart as `L#:label` and identical trends are merged to avoid overlap.")
-    print("| Chart | Line Label | Scenarios Included |")
-    print("|---|---|---|")
-
-    for chart_name, metric_key, precision in [
-        ("FPS", "fps", 2),
-        ("CPU", "process_time_ms", 3),
-        ("Physics", "physics_time_ms", 3),
-    ]:
-        groups = _series_groups(history, tags, metric_key, precision=precision)
-        for i, (_vals, group_tags) in enumerate(groups, start=1):
-            line_label = f"L{i}:{_compact_tag_label(group_tags)}"
-            scenarios = ", ".join(f"`{tag}`" for tag in group_tags)
-            print(f"| {chart_name} | `{line_label}` | {scenarios} |")
 
 
 def print_offender_summary(offenders):
@@ -424,7 +380,6 @@ def main():
 
     if history:
         print_mermaid_trends(history, tags)
-        print_series_legend(history, tags)
     else:
         print("\n## Historic Trend")
         print("History update skipped for this run (simulation mode).")
