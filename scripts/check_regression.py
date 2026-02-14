@@ -218,11 +218,11 @@ def print_mermaid_trends(history, tags):
     print('  title "FPS Trend by Commit"')
     print(f"  x-axis [{label_list}]")
     print(f'  y-axis "FPS" 0 --> {fps_max}')
-    for tag in tags:
+    for i, tag in enumerate(tags, start=1):
         vals = [to_num(entry.get("metrics", {}).get(tag, {}).get("fps")) for entry in history]
         if any(v > 0 for v in vals):
             joined = ", ".join(f"{v:.1f}" for v in vals)
-            print(f'  line "{tag}" [{joined}]')
+            print(f'  bar "{i}:{tag}" [{joined}]')
     print("```")
     print("\n---\n")
 
@@ -231,11 +231,11 @@ def print_mermaid_trends(history, tags):
     print('  title "CPU Process Time Trend by Commit (lower is better)"')
     print(f"  x-axis [{label_list}]")
     print(f'  y-axis "Process ms" 0 --> {cpu_max}')
-    for tag in tags:
+    for i, tag in enumerate(tags, start=1):
         vals = [to_num(entry.get("metrics", {}).get(tag, {}).get("process_time_ms")) for entry in history]
         if any(v > 0 for v in vals):
             joined = ", ".join(f"{v:.2f}" for v in vals)
-            print(f'  line "{tag}" [{joined}]')
+            print(f'  bar "{i}:{tag}" [{joined}]')
     print("```")
     print("\n---\n")
 
@@ -244,11 +244,11 @@ def print_mermaid_trends(history, tags):
     print('  title "Physics Time Trend by Commit (lower is better)"')
     print(f"  x-axis [{label_list}]")
     print(f'  y-axis "Physics ms" 0 --> {physics_max}')
-    for tag in tags:
+    for i, tag in enumerate(tags, start=1):
         vals = [to_num(entry.get("metrics", {}).get(tag, {}).get("physics_time_ms")) for entry in history]
         if any(v > 0 for v in vals):
             joined = ", ".join(f"{v:.2f}" for v in vals)
-            print(f'  line "{tag}" [{joined}]')
+            print(f'  bar "{i}:{tag}" [{joined}]')
     print("```")
 
 
@@ -256,7 +256,7 @@ def print_line_legend(tags):
     # Mermaid xychart assigns colors by series order and active theme.
     markers = ["🔵", "🟢", "🟠", "🟣", "🔴", "🟤", "⚫", "⚪"]
     print("\n## Line Legend")
-    print("Color note: GitHub/Mermaid chooses exact line colors from the current theme. The order below matches chart series order.")
+    print("Color note: GitHub/Mermaid chooses exact colors from the current theme. Use the numbered series labels (`N:scenario`) as the source of truth.")
     print("| Series | Color | Scenario | Component |")
     print("|---:|---|---|---|")
     for i, tag in enumerate(tags, start=1):
