@@ -40,8 +40,12 @@ func _process(delta):
 	var fps = Performance.get_monitor(Performance.TIME_FPS)
 	var process_time = Performance.get_monitor(Performance.TIME_PROCESS)
 	var physics_time = Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
-	var draw_calls = Performance.get_monitor(Performance.RENDER_DRAW_CALLS)
-	var node_count = Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
+	var draw_calls = 0
+	if Performance.get("RENDER_DRAW_CALLS") != null:
+		draw_calls = Performance.get_monitor(Performance.RENDER_DRAW_CALLS)
+	var node_count = 0
+	if Performance.get("OBJECT_NODE_COUNT") != null:
+		node_count = Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
 
 	# 2. Lag Spike Detection
 	if _last_fps - fps > LAG_SPIKE_THRESHOLD_FPS:
@@ -82,8 +86,12 @@ func save_performance_snapshot(tag: String):
 	var fps = Performance.get_monitor(Performance.TIME_FPS)
 	var process_t = Performance.get_monitor(Performance.TIME_PROCESS)
 	var physics_t = Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
-	var draw_c = Performance.get_monitor(Performance.RENDER_DRAW_CALLS)
-	var node_c = Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
+	var draw_c = 0
+	if Performance.get("RENDER_DRAW_CALLS") != null:
+		draw_c = Performance.get_monitor(Performance.RENDER_DRAW_CALLS)
+	var node_c = 0
+	if Performance.get("OBJECT_NODE_COUNT") != null:
+		node_c = Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
 
 	var entry = {
 		"tag": tag,

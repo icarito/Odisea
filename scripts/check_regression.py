@@ -27,7 +27,10 @@ def main():
     baseline_data = load_snapshots(baseline_path)
 
     if not current_data:
-        print("No current data found. Failing.")
+        print("No current data found. (Empty JSON or missing file).")
+        # In CI, if the stress test failed (exit code 1), we might have empty JSON.
+        # But if the file exists and is empty, it means no snapshots were saved.
+        # We should fail if we expected data.
         sys.exit(1)
 
     if not baseline_data:
