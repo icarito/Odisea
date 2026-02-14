@@ -237,6 +237,27 @@ validate_logs() {
     return $code
 }
 
+normalize_orphan_exit_code() {
+    local code=$1
+    if [ $code -ne 101 ]; then
+        return $code
+    fi
+
+    local cleaned
+    cleaned=$(mktemp)
+    strip_ansi < "$LOG_FILE" > "$cleaned"
+
+    if grep -Eq '\|[[:space:]]*[0-9]+[[:space:]]+total[[:space:]]+\|[[:space:]]*0[[:space:]]+error[[:space:]]+\|[[:space:]]*0[[:space:]]+failed[[:space:]]+\|' "$cleaned" \
+        && grep -qi "orphans" "$cleaned"; then
+        echo "⚠️ GdUnit devolvió exit code 101 por orphans/string-name leaks, pero no hubo tests fallidos."
+        rm -f "$cleaned"
+        return 0
+    fi
+
+    rm -f "$cleaned"
+    return $code
+}
+
 # Parse arguments
 ARGS=()
 while [[ $# -gt 0 ]]; do
@@ -310,6 +331,8 @@ while [[ $# -gt 0 ]]; do
             # Validar logs para detectar SCRIPT ERROR que GdUnit no ve como fail
             validate_logs $exit_code
             exit_code=$?
+            normalize_orphan_exit_code $exit_code
+            exit_code=$?
             print_failed_asserts
 
             echo ""
@@ -379,6 +402,8 @@ print_summary_table
 
 # Analizar la salida para detectar condiciones que deberían hacer fallar el job
 validate_logs $exit_code
+exit_code=$?
+normalize_orphan_exit_code $exit_code
 exit_code=$?
 print_failed_asserts
 

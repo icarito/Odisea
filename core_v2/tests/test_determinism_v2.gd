@@ -252,14 +252,15 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 			timeout -= 1
 
 		if timeout <= 0:
+			_cleanup_runner_scene(runner)
 			fail("Replay timed out: %s" % path)
 
 		# Limpieza final para cerrar ventana
-		if is_instance_valid(runner.scene()):
-			runner.scene().queue_free()
+		_cleanup_runner_scene(runner)
 		
 		# Verificar aserciones lógicas grabadas
 		if SessionManager.oys_assert_failed:
+			_cleanup_runner_scene(runner)
 			fail("OYS ASSERT FAILED durante replay JSON.")
 			return
 
@@ -268,9 +269,11 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		var drift_threshold = _get_drift_threshold_for_path(path)
 		var drift_warning = _get_drift_warning_for_path(path)
 		if drift_info.drift > drift_threshold:
+			_cleanup_runner_scene(runner)
 			fail("Drift demasiado alto: %s (umbral: %s)" % [drift_info.drift, drift_threshold])
 		elif drift_info.drift > drift_warning:
 			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, drift_warning])
+		_cleanup_runner_scene(runner)
 
 	if path.ends_with(".oys"):
 		var scene_path = _get_scene_for_test(path)
@@ -302,12 +305,12 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 
 		# Verificar si algún ASSERT de OYS falló
 		if SessionManager.oys_assert_failed:
+			_cleanup_runner_scene(runner)
 			fail("OYS ASSERT FAILED: El test OYS falló en una aserción.")
 			return
 
 		# LIMPIEZA EXPLÍCITA PARA CERRAR VENTANA Y REINSTANCIAR
-		if is_instance_valid(runner.scene()):
-			runner.scene().queue_free()
+		_cleanup_runner_scene(runner)
 		runner = null
 		yield (get_tree(), "idle_frame")
 
@@ -350,26 +353,26 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 			timeout -= 1
 		
 		if timeout <= 0:
+			_cleanup_runner_scene(runner)
 			fail("Replay timed out en PASS 2: %s" % json_path)
 			return
 		
 		# Verificar aserciones lógicas grabadas también en PASS 2 (JSON replay)
 		if SessionManager.oys_assert_failed:
+			_cleanup_runner_scene(runner)
 			fail("OYS ASSERT FAILED durante replay JSON (PASS 2).")
 			return
-			
-			# LIMPIEZA EXPLÍCITA PARA CERRAR VENTANA
-			if is_instance_valid(runner.scene()):
-				runner.scene().queue_free()
 
 		# Chequeo de drift si corresponde
 		var drift_info = _compute_drift(SessionManager.player, SessionManager.final_expected_state)
 		var drift_threshold = _get_drift_threshold_for_path(path)
 		var drift_warning = _get_drift_warning_for_path(path)
 		if drift_info.drift > drift_threshold:
+			_cleanup_runner_scene(runner)
 			fail("Drift demasiado alto: %s (umbral: %s)" % [drift_info.drift, drift_threshold])
 		elif drift_info.drift > drift_warning:
 			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, drift_warning])
+		_cleanup_runner_scene(runner)
 
 	# Breve espera para que GdUnit considere el test terminado
 	yield (get_tree(), "idle_frame")
@@ -455,6 +458,14 @@ func _cleanup_scene():
 		if child.name == "TestScene" or child.name == "Spatial" or child.find_node("Pilot", true, false) != null:
 			print("[test_cleanup] Removing orphan: ", child.name)
 			child.free()
+
+func _cleanup_runner_scene(runner) -> void:
+	if runner and runner.has_method("scene"):
+		var s = runner.scene()
+		if is_instance_valid(s):
+			if get_tree().current_scene == s:
+				get_tree().current_scene = null
+			s.free()
 
 func _instance_and_prepare_scene(scene_path: String):
 	var packed = load(scene_path)

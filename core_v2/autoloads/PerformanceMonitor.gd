@@ -70,6 +70,7 @@ func _process(delta):
 	# 6. Cleanup Dead References
 	if Engine.get_frames_drawn() % 600 == 0: # Every ~10 seconds
 		_cleanup_monitored_nodes()
+		_cleanup_measurement_cache()
 
 # --- Instrumentation API ---
 
@@ -130,6 +131,14 @@ func _cleanup_monitored_nodes():
 			valid_nodes.append(wr)
 	_monitored_nodes = valid_nodes
 
+func _cleanup_measurement_cache():
+	var stale_keys := []
+	for node in _node_measurement_start.keys():
+		if not is_instance_valid(node):
+			stale_keys.append(node)
+	for key in stale_keys:
+		_node_measurement_start.erase(key)
+
 func measure_start(node: Object, _tag: String = ""):
 	# Store start time for this node instance
 	_node_measurement_start[node] = OS.get_ticks_usec()
@@ -148,6 +157,12 @@ func measure_end(node: Object, _tag: String = ""):
 	_node_profiling_accumulators[node] += duration
 	_node_profiling_calls[node] += 1
 	_node_measurement_start.erase(node)
+
+func _exit_tree():
+	_monitored_nodes.clear()
+	_node_profiling_accumulators.clear()
+	_node_profiling_calls.clear()
+	_node_measurement_start.clear()
 
 # --- Debug Actions ---
 
