@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+import hashlib
 import os
 import re
 import subprocess
@@ -102,9 +103,15 @@ def _collect_raw_oys_files(repo_root: Path):
     return files
 
 
-@pytest.mark.odisea_gdunit
-@pytest.mark.parametrize("suite_path", _collect_gdunit_suites(Path(__file__).resolve().parents[1]), ids=lambda p: p.name)
-def test_gdunit_suite(suite_path: Path, selected_runner: str, repo_root: Path, odisea_debug: bool):
+def _safe_id(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_]+", "_", value).strip("_")
+
+
+def _stable_suffix(value: str) -> str:
+    return hashlib.sha1(value.encode("utf-8")).hexdigest()[:8]
+
+
+def _run_gdunit_suite(suite_path: Path, selected_runner: str, repo_root: Path, odisea_debug: bool):
     if selected_runner != "gdunit":
         pytest.skip("gdunit runner not selected")
 
@@ -120,9 +127,7 @@ def test_gdunit_suite(suite_path: Path, selected_runner: str, repo_root: Path, o
         raise RunnerError(f"runtest.sh failed for {rel_suite} with return code {returncode}.")
 
 
-@pytest.mark.odisea_gdunit
-@pytest.mark.parametrize("oys_name", _collect_determinism_oys_cases(Path(__file__).resolve().parents[1]))
-def test_determinism_batched_case(oys_name: str, selected_runner: str, odisea_debug: bool):
+def _run_determinism_case(oys_name: str, selected_runner: str, odisea_debug: bool):
     if selected_runner != "gdunit":
         pytest.skip("gdunit runner not selected")
 
@@ -137,9 +142,7 @@ def test_determinism_batched_case(oys_name: str, selected_runner: str, odisea_de
         raise RunnerError(f"runtest.sh failed for OYS case '{oys_name}' with return code {returncode}.")
 
 
-@pytest.mark.odisea_raw_oys
-@pytest.mark.parametrize("test_file", _collect_raw_oys_files(Path(__file__).resolve().parents[1]), ids=lambda p: p.name)
-def test_raw_oys_file(test_file: Path, selected_runner: str, repo_root: Path, odisea_debug: bool):
+def _run_raw_oys_file(test_file: Path, selected_runner: str, repo_root: Path, odisea_debug: bool):
     if selected_runner != "raw-oys":
         pytest.skip("raw-oys runner not selected")
 
@@ -162,3 +165,48 @@ def test_raw_oys_file(test_file: Path, selected_runner: str, repo_root: Path, od
         pytest.fail(message, pytrace=False)
     if returncode != 0:
         raise RunnerError(f"Godot Engine Crash: test crashed/error with return code {returncode}.")
+
+
+def _make_gdunit_test(suite_path: Path):
+    @pytest.mark.odisea_gdunit
+    def _test(selected_runner: str, repo_root: Path, odisea_debug: bool):
+        _run_gdunit_suite(suite_path, selected_runner, repo_root, odisea_debug)
+
+    test_name = f"test_gdunit_suite__{_safe_id(suite_path.name)}__{_stable_suffix(str(suite_path))}"
+    _test.__name__ = test_name
+    _test.__qualname__ = test_name
+    return _test
+
+
+def _make_determinism_test(oys_name: str):
+    @pytest.mark.odisea_gdunit
+    def _test(selected_runner: str, odisea_debug: bool):
+        _run_determinism_case(oys_name, selected_runner, odisea_debug)
+
+    test_name = f"test_determinism_batched_case__{_safe_id(oys_name)}__{_stable_suffix(oys_name)}"
+    _test.__name__ = test_name
+    _test.__qualname__ = test_name
+    return _test
+
+
+def _make_raw_oys_test(test_file: Path):
+    @pytest.mark.odisea_raw_oys
+    def _test(selected_runner: str, repo_root: Path, odisea_debug: bool):
+        _run_raw_oys_file(test_file, selected_runner, repo_root, odisea_debug)
+
+    test_name = f"test_raw_oys_file__{_safe_id(test_file.name)}__{_stable_suffix(str(test_file))}"
+    _test.__name__ = test_name
+    _test.__qualname__ = test_name
+    return _test
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
+for _suite_path in _collect_gdunit_suites(_REPO_ROOT):
+    globals()[f"test_gdunit_suite__{_safe_id(_suite_path.name)}__{_stable_suffix(str(_suite_path))}"] = _make_gdunit_test(_suite_path)
+
+for _oys_name in _collect_determinism_oys_cases(_REPO_ROOT):
+    globals()[f"test_determinism_batched_case__{_safe_id(_oys_name)}__{_stable_suffix(_oys_name)}"] = _make_determinism_test(_oys_name)
+
+for _test_file in _collect_raw_oys_files(_REPO_ROOT):
+    globals()[f"test_raw_oys_file__{_safe_id(_test_file.name)}__{_stable_suffix(str(_test_file))}"] = _make_raw_oys_test(_test_file)
