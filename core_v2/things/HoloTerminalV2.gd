@@ -448,7 +448,9 @@ func _bind_console_events() -> void:
 	if _console == null:
 		_console = OYSConsoleScript.new()
 		_console.name = "OYS_Console"
-		root.add_child(_console)
+		root.call_deferred("add_child", _console)
+		call_deferred("_bind_console_events")
+		return
 	if _console and not _console.is_connected("quit_requested", self, "_on_console_quit_requested"):
 		_console.connect("quit_requested", self, "_on_console_quit_requested")
 

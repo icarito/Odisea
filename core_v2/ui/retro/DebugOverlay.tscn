@@ -5,7 +5,7 @@
 [ext_resource path="res://assets/themes/retro_scifi.tres" type="Theme" id=4]
 
 [sub_resource type="DynamicFontData" id=1]
-font_path = "res://assets/fonts/Doto-VariableFont_ROND,wght.ttf"
+font_path = "res://assets/fonts/SyneMono-Regular.ttf"
 
 [node name="DebugOverlay" type="CanvasLayer"]
 layer = 100

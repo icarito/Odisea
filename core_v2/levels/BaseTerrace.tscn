@@ -1930,8 +1930,9 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0 )
 shape = SubResource( 1524 )
 
 [node name="HoloTerminalV2" parent="." instance=ExtResource( 35 )]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -2.26866, 13.9952, -10.9147 )
+transform = Transform( -0.0577035, 0, -0.998334, 0, 1, 0, 0.998334, 0, -0.0577035, -2.26866, 12.0404, -10.9147 )
 auto_interact = true
+screen_resolution = Vector2( 800, 600 )
 allow_focus_mode = false
 
 [node name="CrioBatch" type="MultiMeshInstance" parent="."]
