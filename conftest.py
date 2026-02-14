@@ -43,13 +43,11 @@ def _odisea_debug_enabled(config) -> bool:
         return True
     if _is_debugger_attached():
         return True
-    # VSCode/PyDev debug adapters often expose these env vars even without --pdb.
+    # Debug adapters expose these env vars when an actual debug session is active.
     if any(
         key in os.environ
         for key in (
             "DEBUGPY_LAUNCHER_PORT",
-            "PYDEVD_LOAD_VALUES_ASYNC",
-            "PYDEVD_USE_FRAME_EVAL",
             "PYCHARM_HOSTED",
         )
     ):
@@ -59,16 +57,27 @@ def _odisea_debug_enabled(config) -> bool:
 
 def pytest_configure(config):
     debug_enabled = _odisea_debug_enabled(config)
+    is_collect_only = bool(getattr(config.option, "collectonly", False))
+    invocation_args = list(getattr(config.invocation_params, "args", ()))
+    explicit_numprocesses = any(
+        arg == "-n"
+        or arg.startswith("-n")
+        or arg.startswith("--numprocesses")
+        for arg in invocation_args
+    )
 
     # Auto-enable xdist when available unless the user explicitly set a worker value.
     if (
         config.pluginmanager.hasplugin("xdist")
         and hasattr(config.option, "numprocesses")
     ):
-        if debug_enabled:
+        if is_collect_only:
+            # VSCode discovery is more stable without xdist workers.
+            config.option.numprocesses = 0
+        elif debug_enabled and not explicit_numprocesses:
             # Debug sessions work best in a single local process.
             config.option.numprocesses = 0
-        elif config.option.numprocesses is None:
+        elif (not debug_enabled) and (not is_collect_only) and (not explicit_numprocesses):
             config.option.numprocesses = "auto"
 
 

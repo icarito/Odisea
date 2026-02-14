@@ -145,6 +145,10 @@ has_pytest_runner() {
     return 1
 }
 
+pytest_supports_xdist() {
+    "$PYTEST_BIN" --help 2>/dev/null | grep -q -- "--numprocesses"
+}
+
 # True when target corresponds to "run all core_v2 tests".
 is_full_core_suite_target() {
     local i=0
@@ -165,6 +169,9 @@ is_full_core_suite_target() {
 
 run_pytest_delegate() {
     local cmd=("$PYTEST_BIN" tests/test_odisea_runner.py --odisea-runner gdunit)
+    if pytest_supports_xdist; then
+        cmd+=("-n" "auto")
+    fi
     if [ -z "$HEADLESS" ]; then
         cmd+=("--odisea-debug")
     fi
