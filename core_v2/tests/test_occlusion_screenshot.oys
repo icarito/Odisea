@@ -10,7 +10,4 @@ FW 3.0m
 # Wait a bit for everything to settle
 WAIT 0.2s
 
-# Take screenshot
-SCREENSHOT res://occlusion_test_result.png
-
 END
