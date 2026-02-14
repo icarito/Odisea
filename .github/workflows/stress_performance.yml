@@ -56,6 +56,54 @@ jobs:
           mkdir -p ~/.local/share/godot/app_userdata/Odisea/
           export GODOT_BIN=godot
 
+      - name: Capture Host Environment
+        run: |
+          set -euo pipefail
+          CPU_MODEL="$(awk -F: '/model name/ {gsub(/^ +/, "", $2); print $2; exit}' /proc/cpuinfo || true)"
+          CPU_CORES="$(nproc || true)"
+          MEM_TOTAL_GB="$(awk '/MemTotal/ {printf "%.2f", $2/1024/1024}' /proc/meminfo || echo unknown)"
+          KERNEL="$(uname -srmo || true)"
+          GPU_INFO="$(lspci 2>/dev/null | grep -Ei 'vga|3d|display' | head -n 1 || true)"
+          if [ -z "${GPU_INFO}" ]; then
+            if [ -d /dev/dri ]; then
+              GPU_INFO="Detected /dev/dri devices: $(ls /dev/dri 2>/dev/null | tr '\n' ' ')"
+            else
+              GPU_INFO="No GPU device detected (headless/virtualized runner likely)."
+            fi
+          fi
+
+          {
+            echo "## Host Environment"
+            echo "| Key | Value |"
+            echo "|---|---|"
+            echo "| Runner | \`${RUNNER_OS:-unknown}\` \`${RUNNER_ARCH:-unknown}\` |"
+            echo "| Kernel | \`${KERNEL}\` |"
+            echo "| CPU Model | ${CPU_MODEL:-unknown} |"
+            echo "| CPU Logical Cores | ${CPU_CORES:-unknown} |"
+            echo "| RAM Total (GiB) | ${MEM_TOTAL_GB:-unknown} |"
+            echo "| GPU / Display Device | ${GPU_INFO} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          export RUNNER_OS="${RUNNER_OS:-unknown}"
+          export RUNNER_ARCH="${RUNNER_ARCH:-unknown}"
+          export KERNEL CPU_MODEL CPU_CORES MEM_TOTAL_GB GPU_INFO
+          python3 - <<'PY'
+          import json
+          import os
+          data = {
+            "runner_os": os.environ.get("RUNNER_OS", "unknown"),
+            "runner_arch": os.environ.get("RUNNER_ARCH", "unknown"),
+            "kernel": os.environ.get("KERNEL", "unknown"),
+            "cpu_model": os.environ.get("CPU_MODEL", "unknown"),
+            "cpu_logical_cores": os.environ.get("CPU_CORES", "unknown"),
+            "ram_total_gib": os.environ.get("MEM_TOTAL_GB", "unknown"),
+            "gpu_info": os.environ.get("GPU_INFO", "unknown"),
+          }
+          with open("performance_host_info.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+            f.write("\n")
+          PY
+
       - name: Restore Performance Cache
         id: perf_cache_restore
         uses: actions/cache/restore@v4
@@ -110,3 +158,4 @@ jobs:
             performance_current.json
             performance_history.json
             performance_baseline.json
+            performance_host_info.json
