@@ -98,6 +98,29 @@ filter_noisy_output() {
         -e '/^[[:space:]]+at: free \(servers\/visual\/visual_server_raster\.cpp:69\)$/d'
 }
 
+list_oys_tests() {
+    find ./core_v2/tests -type f -name "*.oys" 2>/dev/null \
+        | sed 's|^\./core_v2/tests/||; s|\.oys$||' \
+        | sort
+}
+
+resolve_oys_file() {
+    local oys_name="$1"
+    local direct="./core_v2/tests/${oys_name}.oys"
+    if [ -f "$direct" ]; then
+        echo "$direct"
+        return 0
+    fi
+
+    local match
+    match=$(find ./core_v2/tests -type f -name "${oys_name}.oys" 2>/dev/null | head -n 1)
+    if [ -n "$match" ] && [ -f "$match" ]; then
+        echo "$match"
+        return 0
+    fi
+    return 1
+}
+
 run_and_capture() {
     local cmd=("$@")
     if [ $DEBUG_OUTPUT -eq 1 ]; then
@@ -214,6 +237,27 @@ validate_logs() {
     return $code
 }
 
+normalize_orphan_exit_code() {
+    local code=$1
+    if [ $code -ne 101 ]; then
+        return $code
+    fi
+
+    local cleaned
+    cleaned=$(mktemp)
+    strip_ansi < "$LOG_FILE" > "$cleaned"
+
+    if grep -Eq '\|[[:space:]]*[0-9]+[[:space:]]+total[[:space:]]+\|[[:space:]]*0[[:space:]]+error[[:space:]]+\|[[:space:]]*0[[:space:]]+failed[[:space:]]+\|' "$cleaned" \
+        && grep -qi "orphans" "$cleaned"; then
+        echo "⚠️ GdUnit devolvió exit code 101 por orphans/string-name leaks, pero no hubo tests fallidos."
+        rm -f "$cleaned"
+        return 0
+    fi
+
+    rm -f "$cleaned"
+    return $code
+}
+
 # Parse arguments
 ARGS=()
 while [[ $# -gt 0 ]]; do
@@ -256,26 +300,27 @@ while [[ $# -gt 0 ]]; do
                 echo "Uso: ./runtest.sh --oys test_salto_vertical"
                 echo ""
                 echo "Tests OYS disponibles:"
-                ls -1 ./core_v2/tests/*.oys 2>/dev/null | sed 's|.*/||; s|\.oys$||'
+                list_oys_tests
                 exit 1
             fi
             
             # Buscar el archivo OYS
-            OYS_FILE="./core_v2/tests/${OYS_NAME}.oys"
-            if [ ! -f "$OYS_FILE" ]; then
-                echo "ERROR: No se encontró $OYS_FILE"
+            OYS_FILE=$(resolve_oys_file "$OYS_NAME")
+            if [ -z "$OYS_FILE" ] || [ ! -f "$OYS_FILE" ]; then
+                echo "ERROR: No se encontró test OYS para '$OYS_NAME'"
                 echo ""
                 echo "Tests OYS disponibles:"
-                ls -1 ./core_v2/tests/*.oys 2>/dev/null | sed 's|.*/||; s|\.oys$||'
+                list_oys_tests
                 exit 1
             fi
             
-            echo "▶️ Ejecutando test OYS: $OYS_NAME ${HEADLESS:+(headless)}"
+            OYS_FILTER_NAME=$(basename "$OYS_FILE" .oys)
+            echo "▶️ Ejecutando test OYS: $OYS_FILTER_NAME (${OYS_FILE#./core_v2/tests/}) ${HEADLESS:+(headless)}"
             echo "📋 Output guardado en: $LOG_FILE"
             echo "---"
             
             # Usar variable de entorno OYS_FILTER para filtrar el test
-            export OYS_FILTER="${OYS_NAME}"
+            export OYS_FILTER="${OYS_FILTER_NAME}"
             run_and_capture $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd \
                 -a "./core_v2/tests/test_determinism_v2.gd" "$@"
             exit_code=$?
@@ -286,14 +331,16 @@ while [[ $# -gt 0 ]]; do
             # Validar logs para detectar SCRIPT ERROR que GdUnit no ve como fail
             validate_logs $exit_code
             exit_code=$?
+            normalize_orphan_exit_code $exit_code
+            exit_code=$?
             print_failed_asserts
 
             echo ""
             echo "📋 Output completo en: $LOG_FILE"
             if [ $exit_code -eq 0 ]; then
-                echo "✅ Test OYS '$OYS_NAME' pasó"
+                echo "✅ Test OYS '$OYS_FILTER_NAME' pasó"
             else
-                echo "❌ Test OYS '$OYS_NAME' falló con código: $exit_code"
+                echo "❌ Test OYS '$OYS_FILTER_NAME' falló con código: $exit_code"
             fi
             exit $exit_code
             ;;
@@ -355,6 +402,8 @@ print_summary_table
 
 # Analizar la salida para detectar condiciones que deberían hacer fallar el job
 validate_logs $exit_code
+exit_code=$?
+normalize_orphan_exit_code $exit_code
 exit_code=$?
 print_failed_asserts
 

@@ -44,6 +44,7 @@ var _attached_node: Spatial = null
 
 # --- NODES ---
 onready var cargo_anchor: Position3D = null
+var _perf_monitor = null
 
 func _init():
 	add_to_group("replay_sync")
@@ -64,6 +65,12 @@ func _ready():
 	var sm = get_node_or_null("/root/SessionManager")
 	if sm and sm.has_method("register_oys_actor"):
 		sm.register_oys_actor("CargolDrone", self)
+
+	# Register with Performance Monitor
+	if Engine.has_singleton("PerformanceMonitor") or has_node("/root/PerformanceMonitor"):
+		_perf_monitor = get_node("/root/PerformanceMonitor")
+		if _perf_monitor and _perf_monitor.has_method("register_monitored_node"):
+			_perf_monitor.register_monitored_node(self)
 
 # --- CORE API (Programmable Interface) ---
 
@@ -228,6 +235,9 @@ func _physics_process(delta: float) -> void:
 	step(delta)
 
 func step(dt: float) -> void:
+	if _perf_monitor and _perf_monitor.has_method("measure_start"):
+		_perf_monitor.measure_start(self, "step")
+
 	var wish_velocity := Vector3.ZERO
 	var arrived := false
 
@@ -305,6 +315,9 @@ func step(dt: float) -> void:
 	current_vel = current_vel.linear_interpolate(wish_velocity, lerp_weight)
 	
 	velocity = current_vel
+
+	if _perf_monitor and _perf_monitor.has_method("measure_end"):
+		_perf_monitor.measure_end(self, "step")
 
 func _process(_delta):
 	# Ensure registration persists (hack for replay mode re-registration)

@@ -50,21 +50,31 @@ static func preprocess(script_content: String) -> PoolStringArray:
 		var stripped = line.strip_edges()
 		if stripped.empty(): continue
 
-		# Handle comments: strip everything after #
-		# This also handles shebangs (lines starting with #!)
-		var comment_idx = stripped.find("#")
-		if comment_idx != -1:
-			stripped = stripped.substr(0, comment_idx).strip_edges()
-
-		# Handle // comments (legacy support)
-		var slash_idx = stripped.find("//")
-		if slash_idx != -1:
-			stripped = stripped.substr(0, slash_idx).strip_edges()
+		stripped = _strip_inline_comments(stripped).strip_edges()
 
 		if stripped.empty():
 			continue
 		lines.append(stripped)
 	return lines
+
+static func _strip_inline_comments(line: String) -> String:
+	var in_quote := false
+	for i in range(line.length()):
+		var ch = line[i]
+		if ch == "\"":
+			in_quote = !in_quote
+			continue
+		if in_quote:
+			continue
+		if ch == "#":
+			return line.substr(0, i)
+		if ch == "/" and i + 1 < line.length() and line[i + 1] == "/":
+			var prev = line[i - 1] if i > 0 else ""
+			# Keep URI-like schemes (e.g. res://, http://)
+			if prev == ":":
+				continue
+			return line.substr(0, i)
+	return line
 
 # Parse a single line into an instruction dictionary
 static func parse_instruction(line: String) -> Dictionary:

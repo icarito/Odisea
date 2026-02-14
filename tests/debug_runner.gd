@@ -35,6 +35,7 @@ func _setup_autoloads():
 	_add_autoload("WallOcclusionManager", "res://core_v2/autoloads/WallOcclusionManager.gd")
 	_add_autoload("CinematicManager", "res://core_v2/autoloads/CinematicManager.gd")
 	_add_autoload("CameraTransition", "res://addons/camera_transition/camera_transition.tscn")
+	_add_autoload("PerformanceMonitor", "res://core_v2/autoloads/PerformanceMonitor.gd")
 
 	# SessionManager is last as it might depend on others
 	_session_manager = _add_autoload("SessionManager", "res://core_v2/autoloads/SessionManager.gd")

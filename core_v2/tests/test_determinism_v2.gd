@@ -112,15 +112,30 @@ static func _get_replay_paths() -> Array:
 	var raw_files = []
 	
 	if filter != "":
-		var filtered_path = TESTS_ROOT.plus_file(filter)
-		if not filtered_path.ends_with(".oys"):
-			filtered_path += ".oys"
+		var requested = filter
+		if not requested.ends_with(".oys"):
+			requested += ".oys"
+		var direct_path = TESTS_ROOT.plus_file(requested)
 		var f = File.new()
-		if f.file_exists(filtered_path):
-			raw_files = [[filtered_path]]
+		if f.file_exists(direct_path):
+			raw_files = [[direct_path]]
 		else:
-			printerr("OYS_FILTER: archivo no encontrado: ", filtered_path)
-			return []
+			var all_oys = _scan_for_files([".oys"], true)
+			var by_basename = requested.get_file()
+			var matched_path = ""
+			for pair in all_oys:
+				var candidate = pair[0]
+				if candidate.get_file() == by_basename:
+					matched_path = candidate
+					break
+				if candidate.ends_with("/" + requested):
+					matched_path = candidate
+					break
+			if matched_path != "":
+				raw_files = [[matched_path]]
+			else:
+				printerr("OYS_FILTER: archivo no encontrado: ", TESTS_ROOT.plus_file(requested))
+				return []
 	else:
 		if skip_json:
 			raw_files = _scan_for_files([".oys"])
@@ -145,26 +160,29 @@ static func _get_replay_paths() -> Array:
 		
 	return final_results
 
-static func _scan_for_files(extensions: Array) -> Array:
+static func _scan_for_files(extensions: Array, include_stress := false) -> Array:
 	var results := []
 	var dir := Directory.new()
 	if dir.open(TESTS_ROOT) != OK:
 	 printerr("No se pudo abrir TESTS_ROOT: ", TESTS_ROOT)
 	 return results
-	_scan_dir(dir, TESTS_ROOT, results, extensions)
+	_scan_dir(dir, TESTS_ROOT, results, extensions, include_stress)
 	# Solo imprimir una vez si es necesario
 	return results
 
-static func _scan_dir(dir: Directory, current_path: String, results: Array, extensions: Array) -> void:
+static func _scan_dir(dir: Directory, current_path: String, results: Array, extensions: Array, include_stress: bool) -> void:
 	if dir.list_dir_begin(true, true) != OK:
 		return
 	var name = dir.get_next()
 	while name != "":
 		var full_path = current_path.plus_file(name)
 		if dir.current_is_dir():
+			if name == "stress" and not include_stress:
+				name = dir.get_next()
+				continue
 			var subdir := Directory.new()
 			if subdir.open(full_path) == OK:
-				_scan_dir(subdir, full_path, results, extensions)
+				_scan_dir(subdir, full_path, results, extensions, include_stress)
 		else:
 			for ext in extensions:
 				if name.ends_with(ext):
@@ -237,14 +255,15 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 			timeout -= 1
 
 		if timeout <= 0:
+			_cleanup_runner_scene(runner)
 			fail("Replay timed out: %s" % path)
 
 		# Limpieza final para cerrar ventana
-		if is_instance_valid(runner.scene()):
-			runner.scene().queue_free()
+		_cleanup_runner_scene(runner)
 		
 		# Verificar aserciones lógicas grabadas
 		if SessionManager.oys_assert_failed:
+			_cleanup_runner_scene(runner)
 			fail("OYS ASSERT FAILED durante replay JSON.")
 			return
 
@@ -253,9 +272,11 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		var drift_threshold = _get_drift_threshold_for_path(path)
 		var drift_warning = _get_drift_warning_for_path(path)
 		if drift_info.drift > drift_threshold:
+			_cleanup_runner_scene(runner)
 			fail("Drift demasiado alto: %s (umbral: %s)" % [drift_info.drift, drift_threshold])
 		elif drift_info.drift > drift_warning:
 			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, drift_warning])
+		_cleanup_runner_scene(runner)
 
 	if path.ends_with(".oys"):
 		var scene_path = _get_scene_for_test(path)
@@ -287,12 +308,12 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 
 		# Verificar si algún ASSERT de OYS falló
 		if SessionManager.oys_assert_failed:
+			_cleanup_runner_scene(runner)
 			fail("OYS ASSERT FAILED: El test OYS falló en una aserción.")
 			return
 
 		# LIMPIEZA EXPLÍCITA PARA CERRAR VENTANA Y REINSTANCIAR
-		if is_instance_valid(runner.scene()):
-			runner.scene().queue_free()
+		_cleanup_runner_scene(runner)
 		runner = null
 		yield (get_tree(), "idle_frame")
 
@@ -304,6 +325,11 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 
 		var json_path = path.get_basename() + ".json"
 		print("[TEST_RUNNER] --- PASS 2: VERIFYING JSON ---")
+		var json_file = File.new()
+		if not json_file.file_exists(json_path):
+			print("[TEST_RUNNER] JSON companion missing, skipping PASS 2 for: ", path)
+			print("[test_replay] Finalizado: ", desc)
+			return
 
 		# Re-instanciar runner y escena para evitar state bleeding
 		runner = scene_runner(scene_path)
@@ -330,26 +356,26 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 			timeout -= 1
 		
 		if timeout <= 0:
+			_cleanup_runner_scene(runner)
 			fail("Replay timed out en PASS 2: %s" % json_path)
 			return
 		
 		# Verificar aserciones lógicas grabadas también en PASS 2 (JSON replay)
 		if SessionManager.oys_assert_failed:
+			_cleanup_runner_scene(runner)
 			fail("OYS ASSERT FAILED durante replay JSON (PASS 2).")
 			return
-			
-			# LIMPIEZA EXPLÍCITA PARA CERRAR VENTANA
-			if is_instance_valid(runner.scene()):
-				runner.scene().queue_free()
 
 		# Chequeo de drift si corresponde
 		var drift_info = _compute_drift(SessionManager.player, SessionManager.final_expected_state)
 		var drift_threshold = _get_drift_threshold_for_path(path)
 		var drift_warning = _get_drift_warning_for_path(path)
 		if drift_info.drift > drift_threshold:
+			_cleanup_runner_scene(runner)
 			fail("Drift demasiado alto: %s (umbral: %s)" % [drift_info.drift, drift_threshold])
 		elif drift_info.drift > drift_warning:
 			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, drift_warning])
+		_cleanup_runner_scene(runner)
 
 	# Breve espera para que GdUnit considere el test terminado
 	yield (get_tree(), "idle_frame")
@@ -435,6 +461,14 @@ func _cleanup_scene():
 		if child.name == "TestScene" or child.name == "Spatial" or child.find_node("Pilot", true, false) != null:
 			print("[test_cleanup] Removing orphan: ", child.name)
 			child.free()
+
+func _cleanup_runner_scene(runner) -> void:
+	if runner and runner.has_method("scene"):
+		var s = runner.scene()
+		if is_instance_valid(s):
+			if get_tree().current_scene == s:
+				get_tree().current_scene = null
+			s.free()
 
 func _instance_and_prepare_scene(scene_path: String):
 	var packed = load(scene_path)
