@@ -1,9 +1,12 @@
 name: Odyssey Pytest Runner
-on: [push]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
 
 jobs:
-  pytest-runner:
-    name: Run Pytest
+  pytest-gdunit:
+    name: Run Pytest (gdunit)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -56,8 +59,8 @@ jobs:
       - name: Import Resources
         run: /usr/local/bin/godot --path . -e --quit --headless || true
 
-      - name: Run Pytest
+      - name: Run Pytest (gdunit)
         env:
           GODOT_BIN: /usr/local/bin/godot
         run: |
-          xvfb-run pytest
+          xvfb-run pytest --odisea-runner gdunit
