@@ -12,6 +12,11 @@ on:
         required: false
         default: false
         type: boolean
+      fps_tolerance:
+        description: "Minimum FPS ratio vs baseline (e.g. 0.97 = max 3% drop)"
+        required: false
+        default: "0.97"
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -27,6 +32,7 @@ jobs:
     timeout-minutes: 8
     env:
       SIMULATE_REGRESSION: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_regression || 'false' }}
+      FPS_TOLERANCE: ${{ github.event_name == 'workflow_dispatch' && inputs.fps_tolerance || '0.97' }}
 
     steps:
       - name: Checkout
@@ -75,6 +81,7 @@ jobs:
       - name: Check for Regressions
         env:
           ODISEA_SIMULATE_REGRESSION: ${{ env.SIMULATE_REGRESSION }}
+          ODISEA_FPS_TOLERANCE: ${{ env.FPS_TOLERANCE }}
         run: |
           python3 scripts/check_regression.py \
             performance_current.json \

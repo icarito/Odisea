@@ -5,8 +5,8 @@ import os
 import sys
 from datetime import datetime, timezone
 
-FPS_TOLERANCE = 0.90  # Current FPS must be at least 90% of baseline
-CPU_TOLERANCE = 1.20  # Current CPU time must be at most 120% of baseline
+DEFAULT_FPS_TOLERANCE = 0.97  # Max allowed FPS drop: 3%
+DEFAULT_CPU_TOLERANCE = 1.20  # Current CPU time must be at most 120% of baseline
 MAX_HISTORY_ENTRIES = 20
 
 SCENARIO_EXPLANATIONS = {
@@ -91,6 +91,16 @@ def to_num(value, default=0.0):
         return default
 
 
+def _env_float(name, default):
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
 def short_sha(value):
     if not value:
         return "unknown"
@@ -114,7 +124,10 @@ def print_current_snapshot_table(current_data, tags):
 def print_comparison_table(current_data, baseline_data, tags):
     failed = False
     offenders = []
+    fps_tolerance = _env_float("ODISEA_FPS_TOLERANCE", DEFAULT_FPS_TOLERANCE)
+    cpu_tolerance = _env_float("ODISEA_CPU_TOLERANCE", DEFAULT_CPU_TOLERANCE)
     print("\n## Performance Comparison")
+    print(f"Thresholds: FPS >= {fps_tolerance * 100:.1f}% of baseline, CPU <= {cpu_tolerance * 100:.1f}% of baseline.")
     print("| Scenario | Metric | Current | Baseline | Diff | Status |")
     print("|---|---|---:|---:|---:|---|")
 
@@ -128,7 +141,7 @@ def print_comparison_table(current_data, baseline_data, tags):
         fps_curr = to_num(curr.get("fps"))
         fps_base = to_num(base.get("fps"), 1.0)
         fps_ratio = fps_curr / max(fps_base, 0.001)
-        fps_ok = fps_ratio >= FPS_TOLERANCE
+        fps_ok = fps_ratio >= fps_tolerance
         failed = failed or not fps_ok
         if not fps_ok:
             offenders.append(
@@ -136,7 +149,7 @@ def print_comparison_table(current_data, baseline_data, tags):
                     "scenario": tag,
                     "component": SCENARIO_COMPONENTS.get(tag, "Unknown"),
                     "metric": "FPS",
-                    "breach_pct": (FPS_TOLERANCE - fps_ratio) * 100.0,
+                    "breach_pct": (fps_tolerance - fps_ratio) * 100.0,
                     "current": fps_curr,
                     "baseline": fps_base,
                 }
@@ -149,7 +162,7 @@ def print_comparison_table(current_data, baseline_data, tags):
         proc_curr = to_num(curr.get("process_time_ms"))
         proc_base = to_num(base.get("process_time_ms"), 0.001)
         proc_ratio = proc_curr / max(proc_base, 0.001)
-        proc_ok = proc_ratio <= CPU_TOLERANCE
+        proc_ok = proc_ratio <= cpu_tolerance
         failed = failed or not proc_ok
         if not proc_ok:
             offenders.append(
@@ -157,7 +170,7 @@ def print_comparison_table(current_data, baseline_data, tags):
                     "scenario": tag,
                     "component": SCENARIO_COMPONENTS.get(tag, "Unknown"),
                     "metric": "CPU (process ms)",
-                    "breach_pct": (proc_ratio - CPU_TOLERANCE) * 100.0,
+                    "breach_pct": (proc_ratio - cpu_tolerance) * 100.0,
                     "current": proc_curr,
                     "baseline": proc_base,
                 }
