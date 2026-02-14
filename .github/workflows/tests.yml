@@ -20,7 +20,9 @@ jobs:
       - name: Setup Godot cache
         uses: actions/cache@v4
         with:
-          path: ~/.godot/projects/odisea-project-cache
+          path: |
+            ${{ github.workspace }}/.import
+            ${{ github.workspace }}/.godot
           key: ${{ runner.os }}-godot-${{ hashFiles('**/project.godot') }}
           restore-keys: |
             ${{ runner.os }}-godot-

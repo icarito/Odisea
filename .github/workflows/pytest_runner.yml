@@ -27,18 +27,24 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Godot cache
+        id: godot_project_cache
         uses: actions/cache@v4
         with:
-          path: ~/.godot/projects/odisea-project-cache
+          path: |
+            ${{ github.workspace }}/.import
+            ${{ github.workspace }}/.godot
           key: ${{ runner.os }}-godot-${{ hashFiles('**/project.godot') }}
           restore-keys: |
             ${{ runner.os }}-godot-
 
       - name: Cache Godot binary
+        id: godot_bin_cache
         uses: actions/cache@v4
         with:
           path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
           key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}
+          restore-keys: |
+            ${{ runner.os }}-godot-bin-
 
       - name: Install runner prerequisites
         run: |
@@ -75,7 +81,7 @@ jobs:
         id: setup_python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.14.3'
           cache: 'pip'
           cache-dependency-path: requirements-pytest.txt
 
@@ -84,15 +90,22 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .venv
-          key: ${{ runner.os }}-venv-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements-pytest.txt') }}
+          key: ${{ runner.os }}-venv-pytest-v1-${{ hashFiles('requirements-pytest.txt') }}
           restore-keys: |
-            ${{ runner.os }}-venv-${{ steps.setup_python.outputs.python-version }}-
+            ${{ runner.os }}-venv-pytest-v1-
 
       - name: Install Pytest
         if: steps.venv_cache.outputs.cache-hit != 'true'
         run: |
           python -m venv .venv
           ./.venv/bin/pip install -r requirements-pytest.txt
+
+      - name: Cache Diagnostics
+        run: |
+          echo "godot_project_cache_hit=${{ steps.godot_project_cache.outputs.cache-hit }}"
+          echo "godot_bin_cache_hit=${{ steps.godot_bin_cache.outputs.cache-hit }}"
+          echo "venv_cache_hit=${{ steps.venv_cache.outputs.cache-hit }}"
+          ls -la "${GODOT_CACHE_DIR}/${GODOT_VERSION}" || true
 
       - name: Import Resources
         run: /usr/local/bin/godot --path . -e --quit --headless || true
@@ -124,10 +137,13 @@ jobs:
           sudo apt-get install -y xvfb xauth
 
       - name: Cache Godot binary
+        id: godot_bin_cache_raw
         uses: actions/cache@v4
         with:
           path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
           key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}
+          restore-keys: |
+            ${{ runner.os }}-godot-bin-
 
       - name: Setup Godot 3.6.2
         run: |
@@ -147,7 +163,7 @@ jobs:
         id: setup_python_raw
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.14.3'
           cache: 'pip'
           cache-dependency-path: requirements-pytest.txt
 
@@ -156,15 +172,21 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .venv
-          key: ${{ runner.os }}-venv-${{ steps.setup_python_raw.outputs.python-version }}-${{ hashFiles('requirements-pytest.txt') }}
+          key: ${{ runner.os }}-venv-pytest-v1-${{ hashFiles('requirements-pytest.txt') }}
           restore-keys: |
-            ${{ runner.os }}-venv-${{ steps.setup_python_raw.outputs.python-version }}-
+            ${{ runner.os }}-venv-pytest-v1-
 
       - name: Install Pytest
         if: steps.venv_cache_raw.outputs.cache-hit != 'true'
         run: |
           python -m venv .venv
           ./.venv/bin/pip install -r requirements-pytest.txt
+
+      - name: Cache Diagnostics
+        run: |
+          echo "godot_bin_cache_hit=${{ steps.godot_bin_cache_raw.outputs.cache-hit }}"
+          echo "venv_cache_hit=${{ steps.venv_cache_raw.outputs.cache-hit }}"
+          ls -la "${GODOT_CACHE_DIR}/${GODOT_VERSION}" || true
 
       - name: Run Pytest (raw-oys)
         env:
