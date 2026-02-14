@@ -201,6 +201,21 @@ def _chart_y_max(values, minimum):
     return int(math.ceil(v / 10.0) * 10)
 
 
+def _series_groups(history, tags, metric_key, precision=3):
+    groups = {}
+    for tag in tags:
+        vals = tuple(round(to_num(entry.get("metrics", {}).get(tag, {}).get(metric_key)), precision) for entry in history)
+        groups.setdefault(vals, []).append(tag)
+    ordered = sorted(groups.items(), key=lambda item: (len(item[1]), item[1][0]))
+    return ordered
+
+
+def _compact_tag_label(group_tags):
+    if len(group_tags) <= 2:
+        return "+".join(group_tags)
+    return f"{group_tags[0]}+{len(group_tags)-1}more"
+
+
 def print_mermaid_trends(history, tags):
     if len(history) < 2:
         print("\n## Historic Trend")
@@ -224,6 +239,9 @@ def print_mermaid_trends(history, tags):
     fps_max = _chart_y_max(all_fps, 60)
     cpu_max = _chart_y_max(all_cpu, 10)
     physics_max = _chart_y_max(all_physics, 10)
+    fps_groups = _series_groups(history, tags, "fps", precision=2)
+    cpu_groups = _series_groups(history, tags, "process_time_ms", precision=3)
+    phy_groups = _series_groups(history, tags, "physics_time_ms", precision=3)
 
     print(f"\n## Historic Trend (Last {len(history)} Runs)")
     print("```mermaid")
@@ -231,11 +249,11 @@ def print_mermaid_trends(history, tags):
     print('  title "FPS Trend by Commit"')
     print(f"  x-axis [{label_list}]")
     print(f'  y-axis "FPS" 0 --> {fps_max}')
-    for i, tag in enumerate(tags, start=1):
-        vals = [to_num(entry.get("metrics", {}).get(tag, {}).get("fps")) for entry in history]
+    for i, (vals_tuple, group_tags) in enumerate(fps_groups, start=1):
+        vals = list(vals_tuple)
         if any(v > 0 for v in vals):
             joined = ", ".join(f"{v:.1f}" for v in vals)
-            print(f'  bar "{i}:{tag}" [{joined}]')
+            print(f'  line "L{i}:{_compact_tag_label(group_tags)}" [{joined}]')
     print("```")
     print("\n---\n")
 
@@ -244,11 +262,11 @@ def print_mermaid_trends(history, tags):
     print('  title "CPU Process Time Trend by Commit (lower is better)"')
     print(f"  x-axis [{label_list}]")
     print(f'  y-axis "Process ms" 0 --> {cpu_max}')
-    for i, tag in enumerate(tags, start=1):
-        vals = [to_num(entry.get("metrics", {}).get(tag, {}).get("process_time_ms")) for entry in history]
+    for i, (vals_tuple, group_tags) in enumerate(cpu_groups, start=1):
+        vals = list(vals_tuple)
         if any(v > 0 for v in vals):
             joined = ", ".join(f"{v:.2f}" for v in vals)
-            print(f'  bar "{i}:{tag}" [{joined}]')
+            print(f'  line "L{i}:{_compact_tag_label(group_tags)}" [{joined}]')
     print("```")
     print("\n---\n")
 
@@ -257,25 +275,30 @@ def print_mermaid_trends(history, tags):
     print('  title "Physics Time Trend by Commit (lower is better)"')
     print(f"  x-axis [{label_list}]")
     print(f'  y-axis "Physics ms" 0 --> {physics_max}')
-    for i, tag in enumerate(tags, start=1):
-        vals = [to_num(entry.get("metrics", {}).get(tag, {}).get("physics_time_ms")) for entry in history]
+    for i, (vals_tuple, group_tags) in enumerate(phy_groups, start=1):
+        vals = list(vals_tuple)
         if any(v > 0 for v in vals):
             joined = ", ".join(f"{v:.2f}" for v in vals)
-            print(f'  bar "{i}:{tag}" [{joined}]')
+            print(f'  line "L{i}:{_compact_tag_label(group_tags)}" [{joined}]')
     print("```")
 
 
-def print_line_legend(tags):
-    # Mermaid xychart assigns colors by series order and active theme.
-    markers = ["🔵", "🟢", "🟠", "🟣", "🔴", "🟤", "⚫", "⚪"]
-    print("\n## Line Legend")
-    print("Color note: GitHub/Mermaid chooses exact colors from the current theme. Use the numbered series labels (`N:scenario`) as the source of truth.")
-    print("| Series | Color | Scenario | Component |")
-    print("|---:|---|---|---|")
-    for i, tag in enumerate(tags, start=1):
-        marker = markers[(i - 1) % len(markers)]
-        component = SCENARIO_COMPONENTS.get(tag, "Unknown")
-        print(f"| {i} | {marker} | `{tag}` | {component} |")
+def print_series_legend(history, tags):
+    print("\n## Series Labels")
+    print("Lines are labeled directly in each chart as `L#:label` and identical trends are merged to avoid overlap.")
+    print("| Chart | Line Label | Scenarios Included |")
+    print("|---|---|---|")
+
+    for chart_name, metric_key, precision in [
+        ("FPS", "fps", 2),
+        ("CPU", "process_time_ms", 3),
+        ("Physics", "physics_time_ms", 3),
+    ]:
+        groups = _series_groups(history, tags, metric_key, precision=precision)
+        for i, (_vals, group_tags) in enumerate(groups, start=1):
+            line_label = f"L{i}:{_compact_tag_label(group_tags)}"
+            scenarios = ", ".join(f"`{tag}`" for tag in group_tags)
+            print(f"| {chart_name} | `{line_label}` | {scenarios} |")
 
 
 def print_offender_summary(offenders):
@@ -401,7 +424,7 @@ def main():
 
     if history:
         print_mermaid_trends(history, tags)
-        print_line_legend(tags)
+        print_series_legend(history, tags)
     else:
         print("\n## Historic Trend")
         print("History update skipped for this run (simulation mode).")
