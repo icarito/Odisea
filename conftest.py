@@ -49,8 +49,15 @@ def _odisea_debug_enabled(config) -> bool:
         key in os.environ
         for key in (
             "DEBUGPY_LAUNCHER_PORT",
+            "VSCODE_DEBUGPY_ADAPTER_ENDPOINTS",
             "PYCHARM_HOSTED",
         )
+    ):
+        return True
+    # Fallback: some debug sessions export generic DEBUGPY_/PYDEVD_ variables.
+    if any(
+        key.startswith("DEBUGPY_") or key.startswith("PYDEVD_")
+        for key in os.environ
     ):
         return True
     return False
@@ -67,7 +74,11 @@ def pytest_configure(config):
         for arg in invocation_args
     )
 
-    # Auto-enable xdist when available unless the user explicitly set a worker value.
+    # Propagate debug mode to subprocesses (runtest.sh, child pytest runs).
+    if debug_enabled:
+        os.environ["ODISEA_DEBUG"] = "1"
+
+    # Auto-enable xdist when available. In debug we always force single process.
     if (
         config.pluginmanager.hasplugin("xdist")
         and hasattr(config.option, "numprocesses")
@@ -75,8 +86,8 @@ def pytest_configure(config):
         if is_collect_only:
             # VSCode discovery is more stable without xdist workers.
             config.option.numprocesses = 0
-        elif debug_enabled and not explicit_numprocesses:
-            # Debug sessions work best in a single local process.
+        elif debug_enabled:
+            # Debug sessions must be single-process; xdist workers lose debug context.
             config.option.numprocesses = 0
         elif (not debug_enabled) and (not is_collect_only) and (not explicit_numprocesses):
             config.option.numprocesses = "auto"
