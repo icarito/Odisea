@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GODOT_VERSION: 3.6.2-stable
-      GODOT_CACHE_DIR: ~/.cache/odisea/godot
+      GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
     permissions:
       contents: read
       checks: write
@@ -72,15 +72,27 @@ jobs:
           fi
 
       - name: Set up Python
+        id: setup_python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
           cache: 'pip'
           cache-dependency-path: requirements-pytest.txt
 
+      - name: Cache virtualenv
+        id: venv_cache
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements-pytest.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-venv-${{ steps.setup_python.outputs.python-version }}-
+
       - name: Install Pytest
+        if: steps.venv_cache.outputs.cache-hit != 'true'
         run: |
-          pip install -r requirements-pytest.txt
+          python -m venv .venv
+          ./.venv/bin/pip install -r requirements-pytest.txt
 
       - name: Import Resources
         run: /usr/local/bin/godot --path . -e --quit --headless || true
@@ -89,7 +101,7 @@ jobs:
         env:
           GODOT_BIN: /usr/local/bin/godot
         run: |
-          xvfb-run pytest --odisea-runner gdunit -n auto
+          xvfb-run ./.venv/bin/pytest --odisea-runner gdunit -n auto
 
   pytest-raw-oys:
     name: Run Pytest (raw-oys)
@@ -98,7 +110,7 @@ jobs:
     continue-on-error: true
     env:
       GODOT_VERSION: 3.6.2-stable
-      GODOT_CACHE_DIR: ~/.cache/odisea/godot
+      GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
     permissions:
       contents: read
 
@@ -132,18 +144,30 @@ jobs:
           sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
 
       - name: Set up Python
+        id: setup_python_raw
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
           cache: 'pip'
           cache-dependency-path: requirements-pytest.txt
 
+      - name: Cache virtualenv
+        id: venv_cache_raw
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ steps.setup_python_raw.outputs.python-version }}-${{ hashFiles('requirements-pytest.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-venv-${{ steps.setup_python_raw.outputs.python-version }}-
+
       - name: Install Pytest
+        if: steps.venv_cache_raw.outputs.cache-hit != 'true'
         run: |
-          pip install -r requirements-pytest.txt
+          python -m venv .venv
+          ./.venv/bin/pip install -r requirements-pytest.txt
 
       - name: Run Pytest (raw-oys)
         env:
           GODOT_BIN: /usr/local/bin/godot
         run: |
-          xvfb-run pytest --odisea-runner raw-oys -n auto
+          xvfb-run ./.venv/bin/pytest --odisea-runner raw-oys -n auto

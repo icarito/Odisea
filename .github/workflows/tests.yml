@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GODOT_VERSION: 3.6.2-stable
-      GODOT_CACHE_DIR: ~/.cache/odisea/godot
+      GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
     permissions:
       contents: read
       checks: write
@@ -26,10 +26,13 @@ jobs:
             ${{ runner.os }}-godot-
 
       - name: Cache Godot binary
+        id: godot_bin_cache
         uses: actions/cache@v4
         with:
           path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
           key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}
+          restore-keys: |
+            ${{ runner.os }}-godot-bin-
 
       - name: Install runner prerequisites
         run: |
@@ -50,6 +53,11 @@ jobs:
             chmod +x "$TARGET_BIN"
           fi
           sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
+
+      - name: Cache Diagnostics
+        run: |
+          echo "godot_bin_cache_hit=${{ steps.godot_bin_cache.outputs.cache-hit }}"
+          ls -la "${GODOT_CACHE_DIR}/${GODOT_VERSION}" || true
 
       - name: Verify Godot binary
         run: |
