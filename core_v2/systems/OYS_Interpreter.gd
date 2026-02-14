@@ -495,6 +495,10 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			var message = inst.get("message", "")
 			message = _substitute_variables(message)
 			print("[OYS PRINT] ", message)
+			_show_subtitle(message, Color.white, 2.5)
+
+		"CLS":
+			_clear_subtitles(false)
 			
 		"SCREENSHOT":
 			var label = inst.get("label", "screenshot")
@@ -581,11 +585,24 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				recorder.stop_recording()
 
 		"ASSERT":
-			_execute_assert(inst.get("condition", ""))
-			if not is_running:
-				test_failed = true # Mark the test as failed
+			var assert_result = _execute_assert(inst.get("condition", ""))
+			if assert_result.get("evaluated", false):
+				var msg = String(assert_result.get("message", "Assertion"))
+				if bool(assert_result.get("passed", false)):
+					_show_subtitle("ASSERT OK: %s" % msg, Color(0.35, 1.0, 0.35), 2.5)
+				else:
+					var fail_text = "ASSERT FAIL: %s (%s %s %s)" % [
+						msg,
+						str(assert_result.get("left")),
+						str(assert_result.get("op")),
+						str(assert_result.get("right"))
+					]
+					_show_subtitle(fail_text, Color(1.0, 0.35, 0.35), 3.0)
+			if not bool(assert_result.get("passed", true)):
+				test_failed = true
 				stop_requested = true
-				return # Stop execution immediately on ASSERT failure
+				is_running = false
+				return
 				
 		"ASSERT_NO_HAND_CLIPPING":
 			var box_name = inst.get("box", "")
@@ -1305,12 +1322,11 @@ func _wait_signal(target: Node, signal_name: String, timeout: float, my_id: int)
 	observer.free()
 	return success
 
-func _execute_assert(condition: String):
+func _execute_assert(condition: String) -> Dictionary:
 	var parts = condition.split(" ", false)
 	if parts.size() < 3:
-		return
+		return {"evaluated": false, "passed": true, "message": "Malformed assertion"}
 
-	# yield (host_node.get_tree(), "physics_frame") # Removed to ensure synchronous execution
 	var left = _resolve_value(parts[0])
 	var op = parts[1]
 	var right = _resolve_value(parts[2])
@@ -1318,11 +1334,33 @@ func _execute_assert(condition: String):
 	if condition.find("\"") != -1:
 		msg = condition.substr(condition.find("\"")).replace("\"", "")
 
-		if not _compare(left, op, right):
-			printerr("[OYS ASSERT] FAILED: ", msg, " (", left, " ", op, " ", right, ")")
-			test_failed = true
-			stop_requested = true
-			is_running = false
+	var passed = _compare(left, op, right)
+	if not passed:
+		printerr("[OYS ASSERT] FAILED: ", msg, " (", left, " ", op, " ", right, ")")
+
+	return {
+		"evaluated": true,
+		"passed": passed,
+		"message": msg,
+		"left": left,
+		"op": op,
+		"right": right
+	}
+
+func _get_subtitles_manager() -> Node:
+	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+		return null
+	return host_node.get_node_or_null("/root/SubtitlesOverlayManager")
+
+func _show_subtitle(text: String, color: Color = Color.white, duration: float = 2.5) -> void:
+	var manager = _get_subtitles_manager()
+	if manager and manager.has_method("show_subtitle"):
+		manager.show_subtitle(text, color, duration)
+
+func _clear_subtitles(immediate: bool = false) -> void:
+	var manager = _get_subtitles_manager()
+	if manager and manager.has_method("clear_subtitles"):
+		manager.clear_subtitles(immediate)
 
 class SignalObserver extends Object:
 	var triggered = false

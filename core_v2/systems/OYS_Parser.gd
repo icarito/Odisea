@@ -12,7 +12,7 @@ enum Command {
 	SECTION, END, LEVEL,
 	FW, BW, LEFT, RIGHT, JUMP, INTERACT,
 	WAIT, LOOK, CALL, ZOOM, FOV,
-	SET, ASSERT, ASSERT_SIGNAL, PRINT,
+	SET, ASSERT, ASSERT_SIGNAL, PRINT, CLS,
 	GOTO, IF,
 	PLAY_ANIM, WAIT_ANIM, SPAWN,
 	SET_TIME_SCALE, GET_NODES_IN_GROUP,
@@ -192,6 +192,9 @@ static func parse_instruction(line: String) -> Dictionary:
 		
 		"PRINT":
 			data["message"] = line.substr(line.find(" ") + 1).replace("\"", "")
+
+		"CLS":
+			pass
 		
 		"PLAY_ANIM":
 			# OYS Spec: PLAY_ANIM [path] "anim_name" [blend]

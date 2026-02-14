@@ -78,6 +78,10 @@ def pytest_configure(config):
     if debug_enabled:
         os.environ["ODISEA_DEBUG"] = "1"
 
+    # Ensure OYS determinism tests are collected by default in pytest runs.
+    if os.environ.get("ODISEA_INCLUDE_DETERMINISM") is None:
+        os.environ["ODISEA_INCLUDE_DETERMINISM"] = "1"
+
     # Auto-enable xdist when available. In debug we always force single process.
     if (
         config.pluginmanager.hasplugin("xdist")

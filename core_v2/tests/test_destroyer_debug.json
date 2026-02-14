@@ -4208,7 +4208,7 @@
         "message": "Starting destroyer signal test"
       }
     ],
-    "58": [
+    "54": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -1.0 \"Player fell\""

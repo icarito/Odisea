@@ -3,6 +3,8 @@ extends GdUnitTestSuite
 
 const OYS_Parser = preload("res://core_v2/systems/OYS_Parser.gd")
 const OYS_Interpreter = preload("res://core_v2/systems/OYS_Interpreter.gd")
+const OYS_Resolver = preload("res://core_v2/systems/OYS_Resolver.gd")
+const SubtitlesOverlayManager = preload("res://core_v2/autoloads/SubtitlesOverlayManager.gd")
 
 func test_preprocess_comments():
 	var script = """
@@ -57,11 +59,49 @@ func test_parse_while_spaces_and_case():
 	assert_str(inst.target).is_equal("My Door")
 	assert_str(inst.property).is_equal("is_active")
 
+func test_parse_cls_command():
+	var inst = OYS_Parser.parse_instruction("CLS")
+	assert_str(inst.command).is_equal("CLS")
+
+func test_resolver_cls_generates_event():
+	var script = """
+	CLS
+	WAIT 0.5
+	CLS
+	"""
+	var replay = OYS_Resolver.parse_script(script)
+	var events = replay.get("events", {})
+	assert_bool(events.has(0)).is_true()
+	assert_bool(events.has(30)).is_true()
+	assert_str(events[0][0].get("command", "")).is_equal("CLS")
+	assert_str(events[30][0].get("command", "")).is_equal("CLS")
+
 class MockHost extends Node:
 	func _init():
 		pass
 	func get_tree():
 		return Engine.get_main_loop()
+
+class RecordingInterpreter extends OYS_Interpreter:
+	var subtitles := []
+	var clears := []
+	func _init(host = null).(host):
+		pass
+	func _show_subtitle(text: String, color: Color = Color.white, duration: float = 2.5) -> void:
+		subtitles.append({"text": text, "color": color, "duration": duration})
+	func _clear_subtitles(immediate: bool = false) -> void:
+		clears.append(immediate)
+
+class DisabledSubtitlesManager extends SubtitlesOverlayManager:
+	func is_enabled() -> bool:
+		return false
+
+func _run_interpreter(interpreter) -> void:
+	var state = interpreter.run()
+	if state is GDScriptFunctionState:
+		yield (state, "completed")
+	else:
+		yield (get_tree(), "idle_frame")
 
 func test_interpreter_for_loop():
 	var host = MockHost.new()
@@ -190,3 +230,51 @@ func test_math_complex_assignment():
 	assert_float(c).is_equal(6.0)
 	
 	host.queue_free()
+
+func test_interpreter_print_calls_subtitle():
+	var host = MockHost.new()
+	add_child(host)
+	var interpreter = RecordingInterpreter.new(host)
+	interpreter.parse('PRINT "Hola mundo"')
+	yield (_run_interpreter(interpreter), "completed")
+
+	assert_int(interpreter.subtitles.size()).is_equal(1)
+	assert_str(interpreter.subtitles[0].get("text", "")).is_equal("Hola mundo")
+	host.queue_free()
+
+func test_interpreter_cls_calls_clear_with_fade():
+	var host = MockHost.new()
+	add_child(host)
+	var interpreter = RecordingInterpreter.new(host)
+	interpreter.parse("CLS")
+	yield (_run_interpreter(interpreter), "completed")
+
+	assert_int(interpreter.clears.size()).is_equal(1)
+	assert_bool(interpreter.clears[0]).is_false()
+	host.queue_free()
+
+func test_interpreter_assert_subtitles_ok_and_fail():
+	var host = MockHost.new()
+	add_child(host)
+	var interpreter = RecordingInterpreter.new(host)
+	var script = """
+	ASSERT 1 == 1 "ok"
+	ASSERT 1 == 0 "bad"
+	"""
+	interpreter.parse(script)
+	yield (_run_interpreter(interpreter), "completed")
+
+	assert_int(interpreter.subtitles.size()).is_equal(2)
+	assert_bool(String(interpreter.subtitles[0].get("text", "")).begins_with("ASSERT OK")).is_true()
+	assert_bool(String(interpreter.subtitles[1].get("text", "")).begins_with("ASSERT FAIL")).is_true()
+	assert_bool(interpreter.test_failed).is_true()
+	host.queue_free()
+
+func test_subtitles_manager_warn_once_when_unavailable():
+	var manager = DisabledSubtitlesManager.new()
+	assert_bool(manager.get("_warned_unavailable")).is_false()
+	manager.show_subtitle("linea 1")
+	assert_bool(manager.get("_warned_unavailable")).is_true()
+	manager.clear_subtitles(false)
+	assert_bool(manager.get("_warned_unavailable")).is_true()
+	manager.free()

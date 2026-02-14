@@ -1560,6 +1560,7 @@ WallOcclusionManager="*res://core_v2/autoloads/WallOcclusionManager.gd"
 CinematicManager="*res://core_v2/autoloads/CinematicManager.gd"
 CameraTransition="*res://addons/camera_transition/camera_transition.tscn"
 PerformanceMonitor="*res://core_v2/autoloads/PerformanceMonitor.gd"
+SubtitlesOverlayManager="*res://core_v2/autoloads/SubtitlesOverlayManager.gd"
 
 [debug]
 

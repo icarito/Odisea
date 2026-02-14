@@ -1073,6 +1073,7 @@ transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 3
 skeleton = NodePath("")
 
 [node name="RotatingObjectV2" parent="CrioPod START" index="0"]
+transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
 auto_interact = true
 
 [node name="Pilot" parent="CrioPod START" instance=ExtResource( 2 )]
@@ -1080,21 +1081,20 @@ transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0.0002002
 
 [node name="AutomationTrigger" type="Area" parent="CrioPod START"]
 transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0, 4.10154, 3.87677 )
+monitoring = false
+monitorable = false
 script = ExtResource( 28 )
 debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 debug_render = false
 zone_extents = Vector3( 1, 0.5, 1 )
 script_file = "res://core_v2/scripts/helloTrigger.oys"
-trigger_once = false
-center_player_on_enter = null
+center_player_on_enter = true
 
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/AutomationTrigger"]
 shape = SubResource( 1519 )
 
 [node name="CinematicSequence" type="Area" parent="CrioPod START"]
 transform = Transform( 0.666667, 0, 2.84217e-14, 0, 0.666667, 0, -2.84217e-14, 0, 0.666667, 2.14577e-06, 0.823144, -0.12323 )
-monitoring = false
-monitorable = false
 script = ExtResource( 28 )
 debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 debug_render = false

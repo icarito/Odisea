@@ -1836,24 +1836,6 @@
         "crouch": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -1870,7 +1852,7 @@
     "41": [
 
     ],
-    "101": [
+    "100": [
       {
         "command": "ASSERT",
         "condition": "pos.z > 3.0 \"ERROR: No hubo suficiente inercia horizontal en el salto\""
@@ -2248,13 +2230,13 @@
   "final_expected_state": {
     "position": [
       -0.000001,
-      0.9015,
-      6.545831
+      1.030945,
+      6.536108
     ],
     "velocity": [
       -0,
-      -7.766667,
-      0.58333
+      -7.533333,
+      0.666664
     ],
     "yaw": 0,
     "pitch": -0,
@@ -2263,7 +2245,7 @@
       "horizontal_velocity": [
         -0,
         -0.000001,
-        0.58333
+        0.666664
       ],
       "external_velocity": [
         0,

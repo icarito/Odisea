@@ -868,7 +868,7 @@ func _on_oys_instruction_executed(inst: Dictionary, _vars: Dictionary):
 	
 	var cmd = inst.get("command", "")
 	match cmd:
-		"ASSERT", "SET", "MATH", "PRINT", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "PLAY_ANIM", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP":
+		"ASSERT", "SET", "MATH", "PRINT", "CLS", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "PLAY_ANIM", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP":
 			_current_replay_data["events"][frame].append(OYS_Parser.serialize_instruction(inst))
 		"ASSERT_SIGNAL":
 			var start_evt = OYS_Parser.serialize_instruction(inst)
@@ -1047,11 +1047,16 @@ func _finish_and_validate():
 		# MANTENER is_replaying = true para que el test runner no termine prematuramente
 		# y para que los nuevos pilotos sepan que siguen en replay mode.
 		_is_waiting_for_respawn_validation = true
-		yield (get_tree(), "physics_frame")
-		if run_id != _session_run_id:
-			return
-		_finish_and_validate()
-		return
+		var timeout_frames = 300 # ~5 segundos a 60fps
+		while is_respawning and timeout_frames > 0:
+			yield (get_tree(), "physics_frame")
+			timeout_frames -= 1
+			if run_id != _session_run_id:
+				return
+		
+		if timeout_frames <= 0:
+			printerr("[SessionManager] WARNING: Timeout esperando a que is_respawning se limpie en _finish_and_validate!")
+			is_respawning = false # Forzar limpieza para permitir que el test termine
 
 	_is_waiting_for_respawn_validation = false
 	_drift_validated = true
@@ -1222,6 +1227,9 @@ func _execute_event(cmd: Dictionary):
 			# Simple variable substitution
 			msg = _resolve_variables_in_string(msg)
 			print("[OYS] ", msg)
+			_show_subtitle(msg, Color.white, 2.5)
+		"CLS":
+			_clear_subtitles(false)
 		"ASSERT_SIGNAL":
 			_handle_assert_signal(cmd)
 		"GET_NODES_IN_GROUP":
@@ -1269,6 +1277,16 @@ func _resolve_variables_in_string(msg: String) -> String:
 			if placeholder in msg:
 				msg = msg.replace(placeholder, str(oys_variables[key]))
 	return msg
+
+func _show_subtitle(text: String, color: Color = Color.white, duration: float = 2.5) -> void:
+	var subtitles = get_node_or_null("/root/SubtitlesOverlayManager")
+	if subtitles and subtitles.has_method("show_subtitle"):
+		subtitles.show_subtitle(text, color, duration)
+
+func _clear_subtitles(immediate: bool = false) -> void:
+	var subtitles = get_node_or_null("/root/SubtitlesOverlayManager")
+	if subtitles and subtitles.has_method("clear_subtitles"):
+		subtitles.clear_subtitles(immediate)
 
 func _handle_assert_signal(cmd: Dictionary):
 	var phase = cmd.get("phase", "start")
@@ -1424,6 +1442,7 @@ func _handle_assert_command(cmd: Dictionary):
 	var expr_parts = expression.split(" ", false)
 	if expr_parts.size() < 3:
 		printerr("❌ Assertion malformed at frame %d: %s" % [_replay_frame, condition])
+		_show_subtitle("ASSERT FAIL: malformed assertion", Color(1.0, 0.35, 0.35), 3.0)
 		oys_assert_failed = true
 		if is_cli_mode:
 			get_tree().quit(1)
@@ -1457,10 +1476,10 @@ func _handle_assert_command(cmd: Dictionary):
 			"!=": passed = str(left_val) != str(right_val)
 	
 	if passed:
-		pass
-		# print("✅ ASSERT PASSED: %s" % msg)
+		_show_subtitle("ASSERT OK: %s" % msg, Color(0.35, 1.0, 0.35), 2.5)
 	else:
 		print("❌ ASSERT FAILED: %s (Actual: %s %s %s)" % [msg, left_val, op, right_val])
+		_show_subtitle("ASSERT FAIL: %s (%s %s %s)" % [msg, left_val, op, right_val], Color(1.0, 0.35, 0.35), 3.0)
 		oys_assert_failed = true
 		if is_cli_mode:
 			get_tree().quit(1)
