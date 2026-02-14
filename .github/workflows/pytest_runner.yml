@@ -14,6 +14,9 @@ jobs:
   pytest-gdunit:
     name: Run Pytest (gdunit)
     runs-on: ubuntu-latest
+    env:
+      GODOT_VERSION: 3.6.2-stable
+      GODOT_CACHE_DIR: ~/.cache/odisea/godot
     permissions:
       contents: read
       checks: write
@@ -28,6 +31,14 @@ jobs:
         with:
           path: ~/.godot/projects/odisea-project-cache
           key: ${{ runner.os }}-godot-${{ hashFiles('**/project.godot') }}
+          restore-keys: |
+            ${{ runner.os }}-godot-
+
+      - name: Cache Godot binary
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
+          key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}
 
       - name: Install runner prerequisites
         run: |
@@ -35,12 +46,19 @@ jobs:
           sudo apt-get install -y libxml2-utils xvfb xauth
           echo "Installed xmllint and xvfb"
 
-      - name: Download Godot 3.6.2
+      - name: Setup Godot 3.6.2
         run: |
-          wget -q https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_linux_headless.64.zip
-          unzip Godot_v3.6.2-stable_linux_headless.64.zip
-          mv Godot_v3.6.2-stable_linux_headless.64 /usr/local/bin/godot
-          chmod +x /usr/local/bin/godot
+          set -euo pipefail
+          TARGET_DIR="${GODOT_CACHE_DIR}/${GODOT_VERSION}"
+          TARGET_BIN="${TARGET_DIR}/godot"
+          mkdir -p "$TARGET_DIR"
+          if [ ! -x "$TARGET_BIN" ]; then
+            wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux_headless.64.zip"
+            unzip -q "Godot_v${GODOT_VERSION}_linux_headless.64.zip"
+            mv "Godot_v${GODOT_VERSION}_linux_headless.64" "$TARGET_BIN"
+            chmod +x "$TARGET_BIN"
+          fi
+          sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
 
       - name: Verify Godot binary
         run: |
@@ -54,14 +72,15 @@ jobs:
           fi
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
           cache: 'pip'
+          cache-dependency-path: requirements-pytest.txt
 
       - name: Install Pytest
         run: |
-          pip install pytest pytest-xdist
+          pip install -r requirements-pytest.txt
 
       - name: Import Resources
         run: /usr/local/bin/godot --path . -e --quit --headless || true
@@ -77,6 +96,9 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_raw_oys == true }}
     runs-on: ubuntu-latest
     continue-on-error: true
+    env:
+      GODOT_VERSION: 3.6.2-stable
+      GODOT_CACHE_DIR: ~/.cache/odisea/godot
     permissions:
       contents: read
 
@@ -89,22 +111,36 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb xauth
 
-      - name: Download Godot 3.6.2
+      - name: Cache Godot binary
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
+          key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}
+
+      - name: Setup Godot 3.6.2
         run: |
-          wget -q https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_linux_headless.64.zip
-          unzip Godot_v3.6.2-stable_linux_headless.64.zip
-          mv Godot_v3.6.2-stable_linux_headless.64 /usr/local/bin/godot
-          chmod +x /usr/local/bin/godot
+          set -euo pipefail
+          TARGET_DIR="${GODOT_CACHE_DIR}/${GODOT_VERSION}"
+          TARGET_BIN="${TARGET_DIR}/godot"
+          mkdir -p "$TARGET_DIR"
+          if [ ! -x "$TARGET_BIN" ]; then
+            wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux_headless.64.zip"
+            unzip -q "Godot_v${GODOT_VERSION}_linux_headless.64.zip"
+            mv "Godot_v${GODOT_VERSION}_linux_headless.64" "$TARGET_BIN"
+            chmod +x "$TARGET_BIN"
+          fi
+          sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
           cache: 'pip'
+          cache-dependency-path: requirements-pytest.txt
 
       - name: Install Pytest
         run: |
-          pip install pytest pytest-xdist
+          pip install -r requirements-pytest.txt
 
       - name: Run Pytest (raw-oys)
         env:

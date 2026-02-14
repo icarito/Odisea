@@ -3,6 +3,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -221,8 +222,11 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         failed = len(stats.get("failed", []))
         errors = len(stats.get("error", []))
         skipped = len(stats.get("skipped", []))
+        xfailed = len(stats.get("xfailed", []))
+        xpassed = len(stats.get("xpassed", []))
         deselected = len(stats.get("deselected", []))
-        total_executed = passed + failed + errors + skipped
+        total_executed = passed + failed + errors + skipped + xfailed + xpassed
+        non_passed_total = failed + errors + skipped + xfailed + xpassed
 
         f.write("| Status | Count |\n")
         f.write("| :--- | :--- |\n")
@@ -230,26 +234,119 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         f.write(f"| Failed | {failed} |\n")
         f.write(f"| Errors | {errors} |\n")
         f.write(f"| Skipped | {skipped} |\n")
+        f.write(f"| XFailed | {xfailed} |\n")
+        f.write(f"| XPassed | {xpassed} |\n")
         f.write(f"| Deselected | {deselected} |\n\n")
         f.write(f"**Executed tests:** {total_executed}\n\n")
 
-        if failed > 0 or errors > 0:
-            f.write("### Failures & Errors\n")
-            for rep in stats.get("failed", []):
-                f.write(f"- FAILED: `{rep.nodeid}`\n")
-            for rep in stats.get("error", []):
-                f.write(f"- ERROR: `{rep.nodeid}`\n")
+        status_order = [
+            ("error", "ERROR"),
+            ("failed", "FAILED"),
+            ("xpassed", "XPASSED"),
+            ("skipped", "SKIPPED"),
+            ("xfailed", "XFAILED"),
+            ("passed", "PASSED"),
+        ]
+        status_icon = {
+            "PASSED": "✅",
+            "FAILED": "❌",
+            "ERROR": "💥",
+            "SKIPPED": "⏭️",
+            "XFAILED": "🧪",
+            "XPASSED": "⚠️",
+        }
+        status_rank = {
+            "ERROR": 0,
+            "FAILED": 1,
+            "XPASSED": 2,
+            "SKIPPED": 3,
+            "XFAILED": 4,
+            "PASSED": 5,
+        }
 
-        if skipped > 0:
-            reasons = {}
-            for rep in stats.get("skipped", []):
-                reason = "unknown"
-                if isinstance(rep.longrepr, tuple) and len(rep.longrepr) >= 3:
-                    reason = str(rep.longrepr[2]).strip()
-                elif hasattr(rep, "longreprtext"):
-                    reason = rep.longreprtext.splitlines()[-1].strip()
-                reasons[reason] = reasons.get(reason, 0) + 1
+        def _sanitize(text: str) -> str:
+            return re.sub(r"\s+", " ", text).strip()
 
-            f.write("\n### Skip Reasons\n")
-            for reason, count in sorted(reasons.items(), key=lambda entry: entry[1], reverse=True):
-                f.write(f"- {count}x {reason}\n")
+        def _first_reason(report: Any) -> str:
+            if isinstance(getattr(report, "longrepr", None), tuple):
+                longrepr = report.longrepr
+                if len(longrepr) >= 3 and longrepr[2]:
+                    return _sanitize(str(longrepr[2]))
+            longreprtext = getattr(report, "longreprtext", "") or ""
+            lines = [line.strip() for line in longreprtext.splitlines() if line.strip()]
+            if lines:
+                return _sanitize(lines[-1])
+            return getattr(report, "outcome", "unknown")
+
+        cases_by_nodeid: dict[str, dict[str, Any]] = {}
+        for key, status in status_order:
+            for rep in stats.get(key, []):
+                nodeid = getattr(rep, "nodeid", "")
+                if not nodeid:
+                    continue
+                duration = float(getattr(rep, "duration", 0.0) or 0.0)
+                entry = {
+                    "nodeid": nodeid,
+                    "status": status,
+                    "duration": duration,
+                    "reason": _first_reason(rep),
+                }
+                prev = cases_by_nodeid.get(nodeid)
+                if prev is None:
+                    cases_by_nodeid[nodeid] = entry
+                    continue
+                prev_rank = status_rank.get(prev["status"], 99)
+                new_rank = status_rank.get(status, 99)
+                if new_rank < prev_rank:
+                    cases_by_nodeid[nodeid] = entry
+                elif new_rank == prev_rank and duration > prev["duration"]:
+                    cases_by_nodeid[nodeid] = entry
+
+        ordered_cases = sorted(
+            cases_by_nodeid.values(),
+            key=lambda case: (-case["duration"], status_rank.get(case["status"], 99), case["nodeid"]),
+        )
+
+        if ordered_cases:
+            f.write("### Execution Table (Slowest First)\n")
+            f.write("| # | Test | Status | Duration (s) |\n")
+            f.write("|---:|:-----|:-------|-------------:|\n")
+            for idx, case in enumerate(ordered_cases, start=1):
+                icon = status_icon.get(case["status"], "•")
+                f.write(
+                    f"| {idx} | `{case['nodeid']}` | {icon} {case['status']} | {case['duration']:.2f} |\n"
+                )
+            f.write("\n")
+
+        if non_passed_total > 0:
+            non_passed = [case for case in ordered_cases if case["status"] != "PASSED"]
+            f.write("### Non-Passed Summary\n")
+            f.write("| # | Test | Status | Duration (s) | Reason |\n")
+            f.write("|---:|:-----|:-------|-------------:|:-------|\n")
+            for idx, case in enumerate(non_passed, start=1):
+                icon = status_icon.get(case["status"], "•")
+                reason = case["reason"].replace("|", "\\|")
+                f.write(
+                    f"| {idx} | `{case['nodeid']}` | {icon} {case['status']} | {case['duration']:.2f} | {reason} |\n"
+                )
+            f.write("\n")
+
+            grouped_reasons: dict[str, dict[str, Any]] = {}
+            for case in non_passed:
+                reason = case["reason"] or "unknown"
+                grouped = grouped_reasons.setdefault(
+                    reason, {"count": 0, "max_duration": 0.0, "sample": case["nodeid"]}
+                )
+                grouped["count"] += 1
+                grouped["max_duration"] = max(grouped["max_duration"], case["duration"])
+            f.write("#### Root Causes (Deduplicated)\n")
+            f.write("| Count | Max Duration (s) | Reason | Example Test |\n")
+            f.write("|------:|-----------------:|:-------|:-------------|\n")
+            for reason, data in sorted(
+                grouped_reasons.items(),
+                key=lambda item: (-item[1]["count"], -item[1]["max_duration"], item[0]),
+            ):
+                safe_reason = reason.replace("|", "\\|")
+                f.write(
+                    f"| {data['count']} | {data['max_duration']:.2f} | {safe_reason} | `{data['sample']}` |\n"
+                )
