@@ -209,6 +209,9 @@ def has_executable(program: str) -> bool:
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
     if not os.environ.get("GITHUB_STEP_SUMMARY"):
         return
+    # In xdist, workers also execute hooks; only controller should write summary.
+    if hasattr(config, "workerinput"):
+        return
 
     summary_file = os.environ["GITHUB_STEP_SUMMARY"]
     runner = config.getoption("--odisea-runner")
@@ -267,6 +270,12 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         def _sanitize(text: str) -> str:
             return re.sub(r"\s+", " ", text).strip()
 
+        def _display_test_name(nodeid: str) -> str:
+            # Keep only the changing part: test id without full path and generated hash suffix.
+            short = nodeid.split("::")[-1]
+            short = re.sub(r"__[0-9a-f]{8}$", "", short)
+            return short
+
         def _first_reason(report: Any) -> str:
             if isinstance(getattr(report, "longrepr", None), tuple):
                 longrepr = report.longrepr
@@ -287,6 +296,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 duration = float(getattr(rep, "duration", 0.0) or 0.0)
                 entry = {
                     "nodeid": nodeid,
+                    "display_name": _display_test_name(nodeid),
                     "status": status,
                     "duration": duration,
                     "reason": _first_reason(rep),
@@ -314,7 +324,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             for idx, case in enumerate(ordered_cases, start=1):
                 icon = status_icon.get(case["status"], "•")
                 f.write(
-                    f"| {idx} | `{case['nodeid']}` | {icon} {case['status']} | {case['duration']:.2f} |\n"
+                    f"| {idx} | `{case['display_name']}` | {icon} {case['status']} | {case['duration']:.2f} |\n"
                 )
             f.write("\n")
 
@@ -327,7 +337,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 icon = status_icon.get(case["status"], "•")
                 reason = case["reason"].replace("|", "\\|")
                 f.write(
-                    f"| {idx} | `{case['nodeid']}` | {icon} {case['status']} | {case['duration']:.2f} | {reason} |\n"
+                    f"| {idx} | `{case['display_name']}` | {icon} {case['status']} | {case['duration']:.2f} | {reason} |\n"
                 )
             f.write("\n")
 
@@ -335,7 +345,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             for case in non_passed:
                 reason = case["reason"] or "unknown"
                 grouped = grouped_reasons.setdefault(
-                    reason, {"count": 0, "max_duration": 0.0, "sample": case["nodeid"]}
+                    reason, {"count": 0, "max_duration": 0.0, "sample": case["display_name"]}
                 )
                 grouped["count"] += 1
                 grouped["max_duration"] = max(grouped["max_duration"], case["duration"])
