@@ -86,6 +86,8 @@ def to_num(value, default=0.0):
 def short_sha(value):
     if not value:
         return "unknown"
+    if value == "baseline":
+        return value
     return value[:7]
 
 
@@ -241,6 +243,18 @@ def main():
         sys.exit(1)
 
     history = update_history(history, current_data)
+    if len(history) == 1 and baseline_data:
+        history.insert(
+            0,
+            {
+                "sha": "baseline",
+                "ref_name": os.environ.get("GITHUB_REF_NAME", ""),
+                "run_id": "baseline-seed",
+                "timestamp_utc": "baseline",
+                "metrics": baseline_data,
+            },
+        )
+        history = history[-MAX_HISTORY_ENTRIES:]
     save_history(history_path, history)
 
     tags = ordered_tags(current_data)
