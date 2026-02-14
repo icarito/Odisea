@@ -87,6 +87,9 @@ jobs:
           cache: 'pip'
           cache-dependency-path: requirements-pytest.txt
 
+      - name: Ensure pip cache dir exists
+        run: mkdir -p ~/.cache/pip
+
       - name: Cache virtualenv
         id: venv_cache
         uses: actions/cache@v4
@@ -165,6 +168,9 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
           cache-dependency-path: requirements-pytest.txt
+
+      - name: Ensure pip cache dir exists (raw-oys)
+        run: mkdir -p ~/.cache/pip
 
       - name: Cache virtualenv
         id: venv_cache_raw
