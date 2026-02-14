@@ -1,10 +1,20 @@
 name: GDUnit3 Tests
-on: [push]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unit-test:
     name: Run GDUnit3 Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     env:
       GODOT_VERSION: 3.6.2-stable
       GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot

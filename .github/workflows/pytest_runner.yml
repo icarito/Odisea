@@ -1,7 +1,9 @@
 name: Odyssey Pytest Runner
 on:
   push:
+    branches: [ main ]
   pull_request:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       run_raw_oys:
@@ -10,10 +12,15 @@ on:
         default: false
         type: boolean
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pytest-gdunit:
     name: Run Pytest (gdunit)
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     env:
       GODOT_VERSION: 3.6.2-stable
       GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
@@ -76,7 +83,7 @@ jobs:
         id: setup_python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.14.3'
+          python-version: '3.11'
           cache: 'pip'
           cache-dependency-path: requirements-pytest.txt
 
@@ -115,6 +122,7 @@ jobs:
     name: Run Pytest (raw-oys)
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_raw_oys == true }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     continue-on-error: true
     env:
       GODOT_VERSION: 3.6.2-stable
@@ -154,7 +162,7 @@ jobs:
         id: setup_python_raw
         uses: actions/setup-python@v5
         with:
-          python-version: '3.14.3'
+          python-version: '3.11'
           cache: 'pip'
           cache-dependency-path: requirements-pytest.txt
 

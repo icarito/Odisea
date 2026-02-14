@@ -120,7 +120,7 @@ static func _get_replay_paths() -> Array:
 		if f.file_exists(direct_path):
 			raw_files = [[direct_path]]
 		else:
-			var all_oys = _scan_for_files([".oys"])
+			var all_oys = _scan_for_files([".oys"], true)
 			var by_basename = requested.get_file()
 			var matched_path = ""
 			for pair in all_oys:
@@ -160,26 +160,29 @@ static func _get_replay_paths() -> Array:
 		
 	return final_results
 
-static func _scan_for_files(extensions: Array) -> Array:
+static func _scan_for_files(extensions: Array, include_stress := false) -> Array:
 	var results := []
 	var dir := Directory.new()
 	if dir.open(TESTS_ROOT) != OK:
 	 printerr("No se pudo abrir TESTS_ROOT: ", TESTS_ROOT)
 	 return results
-	_scan_dir(dir, TESTS_ROOT, results, extensions)
+	_scan_dir(dir, TESTS_ROOT, results, extensions, include_stress)
 	# Solo imprimir una vez si es necesario
 	return results
 
-static func _scan_dir(dir: Directory, current_path: String, results: Array, extensions: Array) -> void:
+static func _scan_dir(dir: Directory, current_path: String, results: Array, extensions: Array, include_stress: bool) -> void:
 	if dir.list_dir_begin(true, true) != OK:
 		return
 	var name = dir.get_next()
 	while name != "":
 		var full_path = current_path.plus_file(name)
 		if dir.current_is_dir():
+			if name == "stress" and not include_stress:
+				name = dir.get_next()
+				continue
 			var subdir := Directory.new()
 			if subdir.open(full_path) == OK:
-				_scan_dir(subdir, full_path, results, extensions)
+				_scan_dir(subdir, full_path, results, extensions, include_stress)
 		else:
 			for ext in extensions:
 				if name.ends_with(ext):
