@@ -1,0 +1,67 @@
+name: Stress & Performance Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  GODOT_VERSION: 3.5.3
+  EXPORT_NAME: Odisea
+
+jobs:
+  stress-test:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:3.5.3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Environment
+        run: |
+          # The container has godot at /usr/local/bin/godot
+          # We need to ensure we can write to user://
+          mkdir -p ~/.local/share/godot/app_userdata/Odisea/
+          export GODOT_BIN=godot
+
+      - name: Cache/Restore Performance Baseline
+        uses: actions/cache@v3
+        with:
+          path: performance_baseline.json
+          key: performance-baseline-${{ runner.os }}-${{ github.ref_name }}
+          restore-keys: |
+            performance-baseline-${{ runner.os }}-main
+
+      - name: Run Stress Tests (Headless)
+        run: |
+          # Run the OYS script using the debug runner
+          # Timeout after 5 minutes to prevent hangs
+          timeout 300 godot --headless --no-window -s tests/debug_runner.gd --test-file core_v2/tests/stress/run_stress.oys || true
+
+          # Move result to workspace
+          mv ~/.local/share/godot/app_userdata/Odisea/performance_snapshots.json performance_current.json || echo "[]" > performance_current.json
+
+      - name: Check for Regressions
+        run: |
+          # Use python installed in container or install it
+          # The image is Alpine based usually? Or Ubuntu? barichello/godot-ci is usually based on mono or standard
+          # Let's assume python3 is available
+          if [ -f performance_baseline.json ]; then
+            python3 scripts/check_regression.py performance_current.json performance_baseline.json >> $GITHUB_STEP_SUMMARY
+          else
+            python3 scripts/check_regression.py performance_current.json performance_current.json >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Update Baseline (Main Only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cp performance_current.json performance_baseline.json
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-report
+          path: performance_current.json

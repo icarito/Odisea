@@ -171,6 +171,12 @@ func stop_test():
 	print("[StressTestRunner] Test Stopped.")
 
 func _cleanup():
+	# Save snapshot before cleaning up
+	if _active_test != "":
+		var pm = get_node_or_null("/root/PerformanceMonitor")
+		if pm:
+			pm.save_performance_snapshot(_active_test + "_end")
+
 	for n in _spawned_drones:
 		if is_instance_valid(n):
 			n.queue_free()

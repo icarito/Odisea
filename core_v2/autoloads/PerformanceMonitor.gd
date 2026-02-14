@@ -5,6 +5,7 @@ extends Node
 # Part of OdiseaOS Telemetry System
 
 const LOG_FILE_PATH := "user://performance_log.json"
+const SNAPSHOT_FILE_PATH := "user://performance_snapshots.json"
 const LAG_SPIKE_THRESHOLD_FPS := 20.0
 const CPU_BUDGET_MS := 16.6
 const LOG_TRIGGER_PERCENT := 0.70 # 70% of CPU Budget
@@ -75,6 +76,44 @@ func register_monitored_node(node: Node):
 	if node.name.match("*Drone*") or node.name.match("*Enemy*") or node.name.match("*AI*"):
 		if not node.is_in_group("ai_agents"):
 			node.add_to_group("ai_agents")
+
+func save_performance_snapshot(tag: String):
+	# Save current average metrics to a list
+	var fps = Performance.get_monitor(Performance.TIME_FPS)
+	var process_t = Performance.get_monitor(Performance.TIME_PROCESS)
+	var physics_t = Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
+	var draw_c = Performance.get_monitor(Performance.RENDER_DRAW_CALLS)
+	var node_c = Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
+
+	var entry = {
+		"tag": tag,
+		"timestamp": OS.get_unix_time(),
+		"fps": fps,
+		"process_time_ms": process_t * 1000.0,
+		"physics_time_ms": physics_t * 1000.0,
+		"draw_calls": draw_c,
+		"node_count": node_c
+	}
+
+	_append_snapshot(entry)
+
+func _append_snapshot(entry: Dictionary):
+	var data = []
+	var file = File.new()
+	if file.file_exists(SNAPSHOT_FILE_PATH):
+		file.open(SNAPSHOT_FILE_PATH, File.READ)
+		var content = file.get_as_text()
+		var p = JSON.parse(content)
+		if p.error == OK and typeof(p.result) == TYPE_ARRAY:
+			data = p.result
+		file.close()
+
+	data.append(entry)
+
+	file.open(SNAPSHOT_FILE_PATH, File.WRITE)
+	file.store_string(JSON.print(data, "  "))
+	file.close()
+	print("[PerformanceMonitor] Snapshot saved for tag '%s'" % entry["tag"])
 
 func _cleanup_monitored_nodes():
 	var valid_nodes = []
