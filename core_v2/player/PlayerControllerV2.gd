@@ -433,7 +433,7 @@ func _setup_interact_area():
 	_interact_area.name = "InteractArea"
 	_interact_area.monitorable = false
 	_interact_area.monitoring = true
-	_interact_area.collision_mask = 1
+	_interact_area.collision_mask = 255
 	var shape = CollisionShape.new()
 	var box = BoxShape.new()
 	box.extents = Vector3(1.5, 1.0, interact_distance / 2.0) # Widened to maintain contact when off-center
