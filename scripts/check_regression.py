@@ -252,6 +252,19 @@ def print_mermaid_trends(history, tags):
     print("```")
 
 
+def print_line_legend(tags):
+    # Mermaid xychart assigns colors by series order and active theme.
+    markers = ["🔵", "🟢", "🟠", "🟣", "🔴", "🟤", "⚫", "⚪"]
+    print("\n## Line Legend")
+    print("Color note: GitHub/Mermaid chooses exact line colors from the current theme. The order below matches chart series order.")
+    print("| Series | Color | Scenario | Component |")
+    print("|---:|---|---|---|")
+    for i, tag in enumerate(tags, start=1):
+        marker = markers[(i - 1) % len(markers)]
+        component = SCENARIO_COMPONENTS.get(tag, "Unknown")
+        print(f"| {i} | {marker} | `{tag}` | {component} |")
+
+
 def print_offender_summary(offenders):
     print("\n## Likely Offending Components")
     if not offenders:
@@ -365,6 +378,7 @@ def main():
 
     if history:
         print_mermaid_trends(history, tags)
+        print_line_legend(tags)
     else:
         print("\n## Historic Trend")
         print("History update skipped for this run (simulation mode).")
