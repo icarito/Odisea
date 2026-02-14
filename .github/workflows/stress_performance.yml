@@ -39,7 +39,8 @@ jobs:
         run: |
           # Run the OYS script using the debug runner
           # Timeout after 5 minutes to prevent hangs
-          timeout 300 godot --headless --no-window -s tests/debug_runner.gd --test-file core_v2/tests/stress/run_stress.oys || true
+          # We use xvfb-run even with headless mode to ensure visual server initializes for viewports/captures if needed
+          timeout 300 xvfb-run godot --headless --no-window -s tests/debug_runner.gd --test-file core_v2/tests/stress/run_stress.oys || true
 
           # Move result to workspace
           mv ~/.local/share/godot/app_userdata/Odisea/performance_snapshots.json performance_current.json || echo "[]" > performance_current.json
