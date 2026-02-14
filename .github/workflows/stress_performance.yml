@@ -13,17 +13,25 @@ env:
 jobs:
   stress-test:
     runs-on: ubuntu-latest
-    container:
-      image: barichello/godot-ci:3.5.3
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Godot
+        run: |
+          # Install Godot 3.5.3 manually
+          wget -q https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_linux_headless.64.zip
+          unzip -q Godot_v3.5.3-stable_linux_headless.64.zip
+          sudo mv Godot_v3.5.3-stable_linux_headless.64 /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+
+          # Install runtime dependencies for xvfb/godot
+          sudo apt-get update
+          sudo apt-get install -y xvfb libxcursor1 libxinerama1 libxrandr2 libxi6 libasound2 libpulse0 libgl1 mesa-utils
+
       - name: Setup Environment
         run: |
-          # The container has godot at /usr/local/bin/godot
-          # We need to ensure we can write to user://
           mkdir -p ~/.local/share/godot/app_userdata/Odisea/
           export GODOT_BIN=godot
 
