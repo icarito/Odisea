@@ -347,6 +347,7 @@ def main():
     current_data = load_snapshots(current_path)
     baseline_data = load_snapshots(baseline_path)
     history = load_history(history_path)
+    baseline_source = "baseline file"
 
     if not current_data:
         print("No current data found. (Empty JSON or missing file).")
@@ -360,7 +361,15 @@ def main():
         print(f"\n> Regression simulation enabled for scenario `{simulated_scenario}`.")
         if not baseline_data:
             baseline_data = pristine_current_data
+            baseline_source = "pre-simulation snapshot"
             print("> Baseline was missing, using pre-simulation snapshot to force a validation failure.")
+    elif not baseline_data and history:
+        # PR runs may not have a persisted baseline file; use latest historical run as moving baseline.
+        previous = history[-1]
+        prev_metrics = previous.get("metrics", {}) if isinstance(previous, dict) else {}
+        if isinstance(prev_metrics, dict) and prev_metrics:
+            baseline_data = prev_metrics
+            baseline_source = f"history run {short_sha(previous.get('sha', 'unknown'))}"
 
     if not simulate_regression:
         history = update_history(history, current_data)
@@ -386,6 +395,7 @@ def main():
     if not baseline_data:
         print("\nNo baseline data found. Skipping regression check (first run or cache miss).")
     else:
+        print(f"\nBaseline source: {baseline_source}.")
         failed, offenders = print_comparison_table(current_data, baseline_data, tags)
         print_offender_summary(offenders)
 
