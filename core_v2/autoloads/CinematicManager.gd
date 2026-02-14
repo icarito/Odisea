@@ -112,6 +112,16 @@ func deactivate_rig():
 	if active_rig.has_method("deactivate"):
 		active_rig.deactivate(false)
 			
+	if player_cam:
+		player_cam.current = true
+		# Find the controller and sync to restore base FOV and spring length
+		var parent = player_cam.get_parent()
+		while parent != null:
+			if parent.has_method("sync_camera_to_rig"):
+				parent.call("sync_camera_to_rig")
+				break
+			parent = parent.get_parent()
+			
 	active_rig = null
 	current_control_mode = ControlMode.FREE
 	emit_signal("control_mode_changed", ControlMode.FREE)
@@ -279,7 +289,26 @@ func restore_snapshot(data: Dictionary) -> void:
 
 func reset():
 	if active_rig:
+		# Stop any active transition immediately
+		_transition_active = false
+		_transition_from_cam = null
+		_transition_to_cam = null
+
+		# Ensure player camera is active and sync properties if we were transitioning
+		var player_cam = _find_player_camera()
+		if player_cam:
+			player_cam.current = true
+			# If the player controller has the synchronization method, call it
+			var controller = player_cam.get_parent().get_parent().get_parent().get_parent().get_parent() # Camera <- SpringArm <- Pitch <- Yaw <- CameraRig <- Player
+			if not (controller and controller.has_method("sync_camera_to_rig")):
+				# Fallback if hierarchy changes
+				controller = player_cam.get_tree().get_nodes_in_group("player")[0] if player_cam.get_tree().get_nodes_in_group("player").size() > 0 else null
+			
+			if controller and controller.has_method("sync_camera_to_rig"):
+				controller.call("sync_camera_to_rig")
+
 		deactivate_rig()
+	
 	active_rig = null
 	current_control_mode = ControlMode.FREE
 	latched_camera_basis = Basis.IDENTITY

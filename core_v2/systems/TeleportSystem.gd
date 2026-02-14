@@ -235,7 +235,12 @@ func _respawn_at_spawn_or_zero():
 		yield (get_tree(), "idle_frame")
 		var pilot_scene = preload("res://core_v2/actors/Pilot_v2.tscn")
 		var new_pilot = pilot_scene.instance()
-		parent.add_child(new_pilot)
+		if is_instance_valid(parent):
+			parent.add_child(new_pilot)
+		else:
+			print("[TeleportSystem] WARNING: parent was freed during reset, fallback to root")
+			var root_node = get_tree().current_scene if get_tree().current_scene else get_tree().root
+			root_node.add_child(new_pilot)
 		yield (get_tree(), "idle_frame")
 		if new_pilot.has_method("full_reset"):
 			new_pilot.full_reset()
@@ -393,7 +398,12 @@ func _on_player_killed():
 		var pilot_scene = preload("res://core_v2/actors/Pilot_v2.tscn")
 		var new_pilot = pilot_scene.instance()
 		# Add to scene first so _ready runs, then apply absolute transform
-		parent.add_child(new_pilot)
+		if is_instance_valid(parent):
+			parent.add_child(new_pilot)
+		else:
+			print("[TeleportSystem] WARNING: parent was freed during respawn, fallback to root")
+			var root_node = get_tree().current_scene if get_tree().current_scene else get_tree().root
+			root_node.add_child(new_pilot)
 		yield (get_tree(), "idle_frame")
 		# Ensure camera is current if it exists
 		var cam = new_pilot.get_node_or_null("CameraRig/Camera")

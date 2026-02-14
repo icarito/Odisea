@@ -123,6 +123,14 @@ func set_occlusion_mode(active: bool) -> void:
 	if _cached_spring_arm:
 		_cached_spring_arm.collision_mask = 0 if active else base_collision_mask
 
+func sync_camera_to_rig() -> void:
+	if _cached_spring_arm:
+		_cached_spring_arm.spring_length = base_spring_length_3d
+		current_spring_length = base_spring_length_3d
+	if _cached_cam:
+		_cached_cam.fov = base_fov
+	_cinematic_zoom_target_fov = -1.0
+
 func ensure_input_provider():
 	if not input_provider or not is_instance_valid(input_provider):
 		input_provider = InputProviderV2.new()
@@ -929,6 +937,17 @@ func _update_cinematic_zone_detection(input: InputDataV2):
 					CinematicManager.latched_camera_basis = p_basis
 					CinematicManager.latched_control_mode = p_mode
 					CinematicManager.latch_active = true
+		
+	# --- CINEMATIC RECOVERY FALLBACK ---
+	# If no zone is current, but CinematicManager is still active, it means we missed an exit event
+	# (e.g. zone was disabled or removed). We force return to Player Camera.
+	if _active_cinematic_zone == null and CinematicManager.is_active():
+		var sm = CinematicManager
+		# Safety: Only deactivate if the rig being managed by CinematicManager is NOT owned by someone else
+		# In this case, we trust the PlayerController to own the camera if no global cinematic is running.
+		print("[PlayerController] Recovery: No active zone detected but Rig active. Forcing deactivation.")
+		sm.deactivate_rig()
+		sync_camera_to_rig() # Ensure smooth return
 	
 	_prev_active_cinematic_zone = _active_cinematic_zone
 

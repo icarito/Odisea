@@ -1,4 +1,4 @@
-[gd_scene load_steps=310 format=2]
+[gd_scene load_steps=309 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -34,7 +34,6 @@
 [ext_resource path="res://scenes/reference/InteriorLab.tscn" type="PackedScene" id=32]
 [ext_resource path="res://textures/kenney_prototype_textures/green/texture_11.png" type="Texture" id=33]
 [ext_resource path="res://core_v2/visual/CinematicPathRig.gd" type="Script" id=34]
-[ext_resource path="res://core_v2/props/HoloTerminalV2.tscn" type="PackedScene" id=35]
 [ext_resource path="res://core_v2/things/Criopod_vert.tres" type="ArrayMesh" id=36]
 [ext_resource path="res://assets/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=37]
 [ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=38]
@@ -1138,7 +1137,6 @@ rotation_mode = 0
 
 [node name="Camera" type="Camera" parent="CornerFloor/CinematicCameraZone/CinematicPathRig/PathFollow"]
 transform = Transform( -0.304267, -0.260234, 0.916352, 0, 0.961961, 0.273187, -0.952592, 0.0831221, -0.292694, 0, 0, 0 )
-current = true
 near = 0.1
 far = 1000.0
 
@@ -1933,12 +1931,6 @@ zone_extents = Vector3( 104, 1, 141.5 )
 [node name="CollisionShape" type="CollisionShape" parent="KillZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0 )
 shape = SubResource( 1524 )
-
-[node name="HoloTerminalV2" parent="." instance=ExtResource( 35 )]
-transform = Transform( -0.0577035, 0, -0.998334, 0, 1, 0, 0.998334, 0, -0.0577035, -2.26866, 12.0404, -10.9147 )
-auto_interact = true
-screen_resolution = Vector2( 800, 600 )
-allow_focus_mode = false
 
 [node name="CrioBatch" type="MultiMeshInstance" parent="."]
 transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 8.42406, 5.63353, -19.4895 )

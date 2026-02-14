@@ -228,6 +228,11 @@ func _connect_teleport_system():
 	var camera_rig = player_node.get_node_or_null("CameraRig") if player_node else null
 	if camera_rig:
 		teleport_system.camera_controller = camera_rig
+		# Force player camera to be the current one at startup
+		if player_node.has_method("force_camera_current"):
+			player_node.force_camera_current()
+		if player_node.has_method("sync_camera_to_rig"):
+			player_node.sync_camera_to_rig()
 
 	# (Conexión de señales eliminada: ahora se realiza solo en _ready() de TeleportSystem)
 
