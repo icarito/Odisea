@@ -12,6 +12,7 @@
 #   --nodet   Saltar tests de determinism
 #   --debug   Mostrar output completo sin filtrar logs de debug
 #   --runner  Selecciona backend: auto|gdunit|pytest (default: auto)
+#   --workers Cantidad de workers para pytest-xdist (numero o "auto")
 #
 # NOTA PARA AGENTES IA:
 #   El output siempre se guarda en ./reports/gdunit_runner.log
@@ -28,6 +29,7 @@ fi
 HEADLESS="--no-window"
 DEBUG_OUTPUT=0
 RUNNER_MODE="${ODISEA_SHELL_RUNNER:-auto}"
+PYTEST_WORKERS="${ODISEA_PYTEST_WORKERS:-auto}"
 PYTEST_BIN=""
 
 # Procesar --show antes que otros argumentos
@@ -170,7 +172,7 @@ is_full_core_suite_target() {
 run_pytest_delegate() {
     local cmd=("$PYTEST_BIN" tests/test_odisea_runner.py --odisea-runner gdunit)
     if pytest_supports_xdist; then
-        cmd+=("-n" "auto")
+        cmd+=("-n" "$PYTEST_WORKERS")
     fi
     if [ -z "$HEADLESS" ]; then
         cmd+=("--odisea-debug")
@@ -233,6 +235,14 @@ while [[ $# -gt 0 ]]; do
             RUNNER_MODE="$2"
             if [[ -z "$RUNNER_MODE" || ! "$RUNNER_MODE" =~ ^(auto|gdunit|pytest)$ ]]; then
                 echo "ERROR: --runner debe ser uno de: auto, gdunit, pytest"
+                exit 1
+            fi
+            shift 2
+            ;;
+        --workers)
+            PYTEST_WORKERS="$2"
+            if [[ -z "$PYTEST_WORKERS" || ! "$PYTEST_WORKERS" =~ ^(auto|[0-9]+)$ ]]; then
+                echo "ERROR: --workers debe ser un numero entero o 'auto'"
                 exit 1
             fi
             shift 2
