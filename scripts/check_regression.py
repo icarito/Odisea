@@ -17,6 +17,14 @@ SCENARIO_EXPLANATIONS = {
     "physics_box_end": "Physics-heavy interactions/collisions with many rigid bodies.",
 }
 
+SCENARIO_COMPONENTS = {
+    "saturation_end": "Mixed systems / frame budget",
+    "spawning_end": "Entity/scene instantiation pipeline",
+    "pathfinding_end": "Navigation/pathfinding system",
+    "hierarchy_end": "Scene tree / transform propagation",
+    "physics_box_end": "Physics broadphase + solver",
+}
+
 PREFERRED_ORDER = [
     "saturation_end",
     "spawning_end",
@@ -105,6 +113,7 @@ def print_current_snapshot_table(current_data, tags):
 
 def print_comparison_table(current_data, baseline_data, tags):
     failed = False
+    offenders = []
     print("\n## Performance Comparison")
     print("| Scenario | Metric | Current | Baseline | Diff | Status |")
     print("|---|---|---:|---:|---:|---|")
@@ -121,6 +130,17 @@ def print_comparison_table(current_data, baseline_data, tags):
         fps_ratio = fps_curr / max(fps_base, 0.001)
         fps_ok = fps_ratio >= FPS_TOLERANCE
         failed = failed or not fps_ok
+        if not fps_ok:
+            offenders.append(
+                {
+                    "scenario": tag,
+                    "component": SCENARIO_COMPONENTS.get(tag, "Unknown"),
+                    "metric": "FPS",
+                    "breach_pct": (FPS_TOLERANCE - fps_ratio) * 100.0,
+                    "current": fps_curr,
+                    "baseline": fps_base,
+                }
+            )
         print(
             f"| `{tag}` | FPS | {fps_curr:.1f} | {fps_base:.1f} | {(fps_ratio - 1.0) * 100:+.1f}% | "
             f"{'✅' if fps_ok else '❌'} |"
@@ -131,11 +151,22 @@ def print_comparison_table(current_data, baseline_data, tags):
         proc_ratio = proc_curr / max(proc_base, 0.001)
         proc_ok = proc_ratio <= CPU_TOLERANCE
         failed = failed or not proc_ok
+        if not proc_ok:
+            offenders.append(
+                {
+                    "scenario": tag,
+                    "component": SCENARIO_COMPONENTS.get(tag, "Unknown"),
+                    "metric": "CPU (process ms)",
+                    "breach_pct": (proc_ratio - CPU_TOLERANCE) * 100.0,
+                    "current": proc_curr,
+                    "baseline": proc_base,
+                }
+            )
         print(
             f"| `{tag}` | CPU (ms) | {proc_curr:.2f} | {proc_base:.2f} | {(proc_ratio - 1.0) * 100:+.1f}% | "
             f"{'✅' if proc_ok else '❌'} |"
         )
-    return failed
+    return failed, offenders
 
 
 def print_scenario_guide(tags):
@@ -168,15 +199,18 @@ def print_mermaid_trends(history, tags):
 
     all_fps = []
     all_cpu = []
+    all_physics = []
     for entry in history:
         metrics = entry.get("metrics", {})
         for tag in tags:
             if tag in metrics:
                 all_fps.append(to_num(metrics[tag].get("fps")))
                 all_cpu.append(to_num(metrics[tag].get("process_time_ms")))
+                all_physics.append(to_num(metrics[tag].get("physics_time_ms")))
 
     fps_max = _chart_y_max(all_fps, 60)
     cpu_max = _chart_y_max(all_cpu, 10)
+    physics_max = _chart_y_max(all_physics, 10)
 
     print(f"\n## Historic Trend (Last {len(history)} Runs)")
     print("```mermaid")
@@ -190,6 +224,7 @@ def print_mermaid_trends(history, tags):
             joined = ", ".join(f"{v:.1f}" for v in vals)
             print(f'  line "{tag}" [{joined}]')
     print("```")
+    print("\n---\n")
 
     print("```mermaid")
     print("xychart-beta")
@@ -202,6 +237,55 @@ def print_mermaid_trends(history, tags):
             joined = ", ".join(f"{v:.2f}" for v in vals)
             print(f'  line "{tag}" [{joined}]')
     print("```")
+    print("\n---\n")
+
+    print("```mermaid")
+    print("xychart-beta")
+    print('  title "Physics Time Trend by Commit (lower is better)"')
+    print(f"  x-axis [{label_list}]")
+    print(f'  y-axis "Physics ms" 0 --> {physics_max}')
+    for tag in tags:
+        vals = [to_num(entry.get("metrics", {}).get(tag, {}).get("physics_time_ms")) for entry in history]
+        if any(v > 0 for v in vals):
+            joined = ", ".join(f"{v:.2f}" for v in vals)
+            print(f'  line "{tag}" [{joined}]')
+    print("```")
+
+
+def print_offender_summary(offenders):
+    print("\n## Likely Offending Components")
+    if not offenders:
+        print("No offending component detected from threshold checks.")
+        return
+
+    offenders = sorted(offenders, key=lambda x: x["breach_pct"], reverse=True)
+    print("| Scenario | Component | Metric | Threshold Breach | Current | Baseline |")
+    print("|---|---|---|---:|---:|---:|")
+    for item in offenders:
+        print(
+            f"| `{item['scenario']}` | {item['component']} | {item['metric']} | "
+            f"{item['breach_pct']:+.1f}% | {item['current']:.2f} | {item['baseline']:.2f} |"
+        )
+
+    top = offenders[0]
+    print(
+        f"\nPrimary suspect: **{top['component']}** (`{top['scenario']}`, {top['metric']}, "
+        f"{top['breach_pct']:+.1f}% over threshold)."
+    )
+
+
+def apply_simulated_regression(current_data):
+    scenario = os.environ.get("ODISEA_SIM_REGRESSION_SCENARIO", "spawning_end")
+    if scenario not in current_data and current_data:
+        scenario = sorted(current_data.keys())[0]
+
+    if scenario in current_data:
+        target = current_data[scenario]
+        target["fps"] = max(1.0, to_num(target.get("fps")) * 0.55)
+        target["process_time_ms"] = to_num(target.get("process_time_ms")) * 1.9
+        target["physics_time_ms"] = to_num(target.get("physics_time_ms")) * 1.6
+
+    return current_data, scenario
 
 
 def update_history(history, current_data):
@@ -242,20 +326,31 @@ def main():
         print("No current data found. (Empty JSON or missing file).")
         sys.exit(1)
 
-    history = update_history(history, current_data)
-    if len(history) == 1 and baseline_data:
-        history.insert(
-            0,
-            {
-                "sha": "baseline",
-                "ref_name": os.environ.get("GITHUB_REF_NAME", ""),
-                "run_id": "baseline-seed",
-                "timestamp_utc": "baseline",
-                "metrics": baseline_data,
-            },
-        )
-        history = history[-MAX_HISTORY_ENTRIES:]
-    save_history(history_path, history)
+    pristine_current_data = json.loads(json.dumps(current_data))
+    simulate_regression = os.environ.get("ODISEA_SIMULATE_REGRESSION", "").strip().lower() in {"1", "true", "yes", "on"}
+    simulated_scenario = ""
+    if simulate_regression:
+        current_data, simulated_scenario = apply_simulated_regression(current_data)
+        print(f"\n> Regression simulation enabled for scenario `{simulated_scenario}`.")
+        if not baseline_data:
+            baseline_data = pristine_current_data
+            print("> Baseline was missing, using pre-simulation snapshot to force a validation failure.")
+
+    if not simulate_regression:
+        history = update_history(history, current_data)
+        if len(history) == 1 and baseline_data:
+            history.insert(
+                0,
+                {
+                    "sha": "baseline",
+                    "ref_name": os.environ.get("GITHUB_REF_NAME", ""),
+                    "run_id": "baseline-seed",
+                    "timestamp_utc": "baseline",
+                    "metrics": baseline_data,
+                },
+            )
+            history = history[-MAX_HISTORY_ENTRIES:]
+        save_history(history_path, history)
 
     tags = ordered_tags(current_data)
 
@@ -265,9 +360,14 @@ def main():
     if not baseline_data:
         print("\nNo baseline data found. Skipping regression check (first run or cache miss).")
     else:
-        failed = print_comparison_table(current_data, baseline_data, tags)
+        failed, offenders = print_comparison_table(current_data, baseline_data, tags)
+        print_offender_summary(offenders)
 
-    print_mermaid_trends(history, tags)
+    if history:
+        print_mermaid_trends(history, tags)
+    else:
+        print("\n## Historic Trend")
+        print("History update skipped for this run (simulation mode).")
     print_scenario_guide(tags)
 
     if failed:

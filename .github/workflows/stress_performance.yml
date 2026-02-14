@@ -5,6 +5,13 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      simulate_regression:
+        description: "Inject a synthetic regression to validate failure/reporting"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -18,6 +25,8 @@ jobs:
   stress-test:
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    env:
+      SIMULATE_REGRESSION: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_regression || 'false' }}
 
     steps:
       - name: Checkout
@@ -64,6 +73,8 @@ jobs:
           mv ~/.local/share/godot/app_userdata/Odisea/performance_snapshots.json performance_current.json || echo "[]" > performance_current.json
 
       - name: Check for Regressions
+        env:
+          ODISEA_SIMULATE_REGRESSION: ${{ env.SIMULATE_REGRESSION }}
         run: |
           python3 scripts/check_regression.py \
             performance_current.json \
@@ -71,12 +82,12 @@ jobs:
             performance_history.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Update Baseline (Main Only)
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && env.SIMULATE_REGRESSION != 'true'
         run: |
           cp performance_current.json performance_baseline.json
 
       - name: Save Performance Cache
-        if: always()
+        if: always() && env.SIMULATE_REGRESSION != 'true'
         uses: actions/cache/save@v4
         with:
           path: |
