@@ -13,7 +13,7 @@ SECTION "Input latch test"
     // Moverse hacia adelante
     FW 10.0m
     
-    WAIT 0.5
+    WAIT 0.2
 
     LEFT 20.0m
     

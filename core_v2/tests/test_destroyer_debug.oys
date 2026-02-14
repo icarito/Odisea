@@ -7,7 +7,7 @@ SECTION "Reproduce Destroyer Issue"
     PRINT "Starting destroyer signal test"
     
     // Wait for some props to spawn and fall
-    WAIT 2.0
+    WAIT 1.0
     
     // Check if player is alive
     ASSERT pos.y > -1.0 "Player fell"
@@ -21,11 +21,11 @@ SECTION "Reproduce Destroyer Issue"
     
     // Use ASSERT_SIGNAL to verify the PropDestroyerArea emits entity_destroyed
     // Props should fall into the destroyer within 5 seconds
-    ASSERT_SIGNAL "entity_destroyed" 5.0 "PropDestroyerArea"
+    ASSERT_SIGNAL "entity_destroyed" 3.0 "PropDestroyerArea"
     
     PRINT "SUCCESS: entity_destroyed signal was emitted!"
     
-    WAIT 2.0
+    WAIT 0.5
     
     // Verify player position is still stable
     ASSERT pos.y > -1.0 "Player should still be on ground"
