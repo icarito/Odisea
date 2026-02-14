@@ -5,7 +5,7 @@ WAIT 2.60
 SCREENSHOT 1_desktop
 
 CLICK "name=CommandInput"
-FILL "name=CommandInput" "help"
+FILL "name=CommandInput" "fastfetch"
 PRESS "name=CommandInput" "ENTER"
 WAIT 0.20
 

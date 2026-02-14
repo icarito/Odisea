@@ -31,16 +31,10 @@ size_flags_vertical = 3
 
 [node name="TitleLabel" type="Label" parent="VBox/TitleBar/TitleRow"]
 margin_top = 2.0
-margin_right = 64.0
-margin_bottom = 35.0
-text = "Window"
-
-[node name="Spacer" type="Control" parent="VBox/TitleBar/TitleRow"]
-margin_left = 68.0
 margin_right = 294.0
-margin_bottom = 37.0
-mouse_filter = 1
+margin_bottom = 35.0
 size_flags_horizontal = 3
+text = "Window"
 
 [node name="BtnMax" type="Button" parent="VBox/TitleBar/TitleRow"]
 margin_left = 298.0

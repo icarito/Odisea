@@ -1,0 +1,31 @@
+WAIT 0.10
+SCREENSHOT 0_boot
+
+WAIT 2.60
+SCREENSHOT 1_desktop
+
+# Focus command line and run fastfetch
+CLICK "name=CommandInput"
+FILL "name=CommandInput" "fastfetch"
+PRESS "name=CommandInput" "ENTER"
+WAIT 0.20
+ASSERT_TEXT "name=Status" "OK"
+SCREENSHOT 2_fastfetch
+
+# Playwright-like typing flow: append + backspace + submit
+CLICK "name=CommandInput"
+FILL "name=CommandInput" "echo Odisea_ROX"
+PRESS "name=CommandInput" "BACKSPACE"
+TYPE "name=CommandInput" "!"
+PRESS "name=CommandInput" "ENTER"
+WAIT 0.20
+ASSERT_TEXT "name=Status" "OK"
+SCREENSHOT 3_type_and_backspace
+
+# VFS-like command to validate new shell features
+CLICK "name=CommandInput"
+FILL "name=CommandInput" "ls /bin"
+PRESS "name=CommandInput" "ENTER"
+WAIT 0.20
+ASSERT_TEXT "name=Status" "OK"
+SCREENSHOT 4_ls_bin

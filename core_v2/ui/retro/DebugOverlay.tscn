@@ -1,15 +1,18 @@
 [gd_scene load_steps=5 format=2]
 
 [ext_resource path="res://core_v2/ui/retro/DebugOverlay.gd" type="Script" id=1]
-[ext_resource path="res://assets/DotGothic16.ttf" type="DynamicFontData" id=2]
 [ext_resource path="res://core_v2/ui/retro/RetroWindow.tscn" type="PackedScene" id=3]
-[ext_resource path="res://core_v2/ui/retro/RetroOS.tres" type="Theme" id=4]
+[ext_resource path="res://assets/themes/retro_scifi.tres" type="Theme" id=4]
+
+[sub_resource type="DynamicFontData" id=1]
+font_path = "res://assets/fonts/Doto-VariableFont_ROND,wght.ttf"
 
 [node name="DebugOverlay" type="CanvasLayer"]
 layer = 100
 script = ExtResource( 1 )
 retro_theme = ExtResource( 4 )
-pixel_font_data = ExtResource( 2 )
+pixel_font_data = SubResource( 1 )
+pixel_font_size = 15
 
 [node name="Desktop" type="Control" parent="."]
 anchor_right = 1.0
@@ -64,25 +67,11 @@ anchor_bottom = 1.0
 margin_bottom = -38.0
 mouse_filter = 2
 
-[node name="Window_NodeExplorer" parent="Desktop/DesktopContents/WindowArea" instance=ExtResource( 3 )]
-margin_left = 24.0
-margin_top = 22.0
-margin_right = 384.0
-margin_bottom = 292.0
-window_title = "Node Explorer"
-
-[node name="Window_Inspector" parent="Desktop/DesktopContents/WindowArea" instance=ExtResource( 3 )]
-margin_left = 404.0
-margin_top = 44.0
-margin_right = 724.0
-margin_bottom = 294.0
-window_title = "Inspector"
-
 [node name="Window_Terminal" parent="Desktop/DesktopContents/WindowArea" instance=ExtResource( 3 )]
-margin_left = 178.0
-margin_top = 296.0
-margin_right = 738.0
-margin_bottom = 516.0
+margin_left = 140.0
+margin_top = 170.0
+margin_right = 840.0
+margin_bottom = 560.0
 window_title = "OYS Shell"
 
 [node name="BootScreen" type="ColorRect" parent="Desktop"]

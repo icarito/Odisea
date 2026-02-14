@@ -1,22 +1,34 @@
 extends Viewport
 
 export(float) var cursor_sensitivity := 1.0
+export(Texture) var cursor_texture = preload("res://assets/cursor_none.svg")
+export(Vector2) var cursor_hotspot := Vector2(7, 10)
 
 var _ui_mode_active := false
 var _cursor_position := Vector2.ZERO
+var _cursor_layer: CanvasLayer = null
+var _cursor_visual: Sprite = null
+var _mouse_button_mask := 0
 
 func _ready() -> void:
 	_cursor_position = get_visible_rect().size * 0.5
+	_ensure_cursor_visual()
+	_update_cursor_visual()
 
 func set_ui_mode(active: bool) -> void:
 	_ui_mode_active = active
 	if active:
 		_cursor_position = get_visible_rect().size * 0.5
 		call_deferred("focus_command_input")
+	_ensure_cursor_visual()
+	if _cursor_visual:
+		_cursor_visual.visible = active
+	_update_cursor_visual()
 
 func process_mouse_motion(relative: Vector2) -> void:
 	if not _ui_mode_active:
 		return
+	_ensure_cursor_visual()
 	_cursor_position += relative * cursor_sensitivity
 	var size = get_visible_rect().size
 	_cursor_position.x = clamp(_cursor_position.x, 0.0, size.x)
@@ -26,31 +38,98 @@ func process_mouse_motion(relative: Vector2) -> void:
 	evt.position = _cursor_position
 	evt.global_position = _cursor_position
 	evt.relative = relative * cursor_sensitivity
+	evt.button_mask = _mouse_button_mask
 	input(evt)
+	_update_cursor_visual()
 
-func process_mouse_click(button_index: int = BUTTON_LEFT, pressed: bool = true) -> void:
+func process_mouse_click(button_index: int = BUTTON_LEFT, pressed: bool = true, is_doubleclick: bool = false) -> void:
 	if not _ui_mode_active:
 		return
+	_ensure_cursor_visual()
 	var evt = InputEventMouseButton.new()
 	evt.button_index = button_index
 	evt.pressed = pressed
+	evt.doubleclick = is_doubleclick and pressed
 	evt.position = _cursor_position
 	evt.global_position = _cursor_position
+	var bit = int(1 << (button_index - 1))
+	if pressed:
+		_mouse_button_mask |= bit
+	else:
+		_mouse_button_mask &= ~bit
+	evt.button_mask = _mouse_button_mask
 	input(evt)
+	_update_cursor_visual()
 
 func process_key_event(event: InputEventKey) -> void:
 	if not _ui_mode_active:
 		return
-	if not event.pressed or event.echo:
+	if not event.pressed:
 		return
 	focus_command_input()
+	if event.scancode == KEY_BACKSPACE:
+		if _apply_backspace_to_line_edit():
+			return
 	input(event)
 
 func focus_command_input() -> void:
 	var shell = find_node("OYSShell", true, false)
 	if shell and shell.has_method("focus_command_input"):
-		shell.call_deferred("focus_command_input")
+		shell.call("focus_command_input")
 		return
 	var line = find_node("CommandInput", true, false)
 	if line and line is LineEdit:
-		(line as LineEdit).call_deferred("grab_focus")
+		(line as LineEdit).grab_focus()
+
+func _apply_backspace_to_line_edit() -> bool:
+	var line = _find_focused_line_edit(self)
+	if line == null:
+		var fallback = find_node("CommandInput", true, false)
+		if fallback and fallback is LineEdit:
+			line = fallback as LineEdit
+	if line == null:
+		return false
+
+	var text = String(line.text)
+	var caret = int(line.caret_position)
+	if caret <= 0 or text.length() <= 0:
+		return true
+
+	var left = text.substr(0, caret - 1)
+	var right = text.substr(caret, text.length() - caret)
+	line.text = left + right
+	line.caret_position = caret - 1
+	return true
+
+func _find_focused_line_edit(node: Node) -> LineEdit:
+	for child in node.get_children():
+		if child is LineEdit and (child as LineEdit).has_focus():
+			return child as LineEdit
+		var found = _find_focused_line_edit(child)
+		if found:
+			return found
+	return null
+
+func _ensure_cursor_visual() -> void:
+	if _cursor_visual and is_instance_valid(_cursor_visual):
+		return
+	if not _cursor_layer or not is_instance_valid(_cursor_layer):
+		_cursor_layer = CanvasLayer.new()
+		_cursor_layer.name = "VirtualCursorLayer"
+		_cursor_layer.layer = 4096
+		_cursor_layer.set_meta("persistent_viewport_cursor", true)
+		add_child(_cursor_layer)
+	_cursor_visual = Sprite.new()
+	_cursor_visual.name = "VirtualCursor"
+	_cursor_visual.texture = cursor_texture if cursor_texture else preload("res://assets/cursor_none.svg")
+	_cursor_visual.centered = false
+	_cursor_visual.offset = -cursor_hotspot
+	_cursor_visual.z_index = 100
+	_cursor_visual.set_meta("persistent_viewport_cursor", true)
+	_cursor_visual.visible = _ui_mode_active
+	_cursor_layer.add_child(_cursor_visual)
+
+func _update_cursor_visual() -> void:
+	if not _cursor_visual or not is_instance_valid(_cursor_visual):
+		return
+	_cursor_visual.position = _cursor_position

@@ -7,11 +7,12 @@ class_name HoloTerminalV2
 # V2.2: Integrated local Cinematic Camera System
 
 const DebugOverlayScene = preload("res://core_v2/ui/retro/DebugOverlay.tscn")
+const OYSConsoleScript = preload("res://core_v2/ui/retro/OYS_Console.gd")
 
 # --- Terminal Configuration ---
 export(float) var slide_speed := 2.0
 export(float) var slide_height := 0.8
-export(Vector2) var screen_resolution := Vector2(800, 600)
+export(Vector2) var screen_resolution := Vector2(1024, 768)
 export(int, 12, 48) var debug_overlay_font_size := 22
 export(bool) var active setget set_active_debug
 
@@ -29,6 +30,9 @@ var _terminal_ui = null # TerminalUIV2 reference
 var _viewport_input = null # Viewport input bridge
 var _player_in_zone := false
 var _is_focused := false # True when in focus mode (close-up camera, keyboard to UI)
+var _locked_player: Node = null
+var _prev_hardware_input_enabled := true
+var _console = null
 
 func _ready():
 	interaction_text = "Toggle Terminal"
@@ -57,12 +61,14 @@ func _ready():
 	
 	# --- Cinematic Camera Auto-Wiring ---
 	_setup_cinematic_camera()
+	_deactivate_terminal_cameras()
 	
 	_viewport_input = get_node_or_null("Viewport")
 	# Cache TerminalUI reference
 	_terminal_ui = get_node_or_null("Viewport/TerminalUI")
 	if _terminal_ui and not _terminal_ui.is_connected("debug_button_pressed", self, "_on_terminal_debug_requested"):
 		_terminal_ui.connect("debug_button_pressed", self, "_on_terminal_debug_requested")
+	_bind_console_events()
 
 
 func _setup_cinematic_camera() -> void:
@@ -89,6 +95,15 @@ func _setup_cinematic_camera() -> void:
 		if use_cinematic_zone:
 			print("[HoloTerminalV2] Warning: CinematicPathRig not found in CinematicSetup")
 
+func _deactivate_terminal_cameras() -> void:
+	# Defensive: terminal cameras must never steal scene camera at load time.
+	var path_cam = get_node_or_null("CinematicSetup/CinematicPathRig/PathFollow/Camera")
+	if path_cam and path_cam is Camera:
+		(path_cam as Camera).current = false
+	var focus_cam = get_node_or_null("CinematicSetup/FocusedRig/Camera")
+	if focus_cam and focus_cam is Camera:
+		(focus_cam as Camera).current = false
+
 
 func _setup_viewport_texture() -> void:
 	# Fix ViewportTexture path issue by explicit assignment in code.
@@ -105,10 +120,12 @@ func _setup_viewport_texture() -> void:
 
 func interact() -> void:
 	# If auto-interact is on, we don't toggle the terminal open/closed.
-	# Instead, 'interact' focuses the terminal directly if it's already active.
+	# Use 'interact' only to open/close; focus is handled by the dedicated focus action.
 	if auto_interact:
-		if is_active and not _is_focused and allow_focus_mode:
-			_enter_focus_mode()
+		if is_active:
+			set_active(false)
+		else:
+			set_active(true)
 		return
 
 	# Toggle open/close (Standard behavior)
@@ -201,6 +218,8 @@ func _on_terminal_debug_requested() -> void:
 	if not viewport:
 		return
 	for child in viewport.get_children():
+		if child.has_meta("persistent_viewport_cursor") and bool(child.get_meta("persistent_viewport_cursor")):
+			continue
 		child.queue_free()
 	var overlay = DebugOverlayScene.instance()
 	if "pixel_font_size" in overlay:
@@ -273,17 +292,24 @@ func _input(event):
 	"""Handle focus mode toggling and forward input to viewport-driven UI."""
 	if Engine.editor_hint:
 		return
+
+	if _is_focused:
+		if event is InputEventKey and event.pressed and event.scancode == KEY_ESCAPE:
+			print("[HoloTerminalV2] ESC pressed, exiting focus mode")
+			_exit_focus_mode()
+			get_tree().set_input_as_handled()
+			return
+		if event.is_action_pressed("ui_cancel"):
+			print("[HoloTerminalV2] ui_cancel pressed, exiting focus mode")
+			_exit_focus_mode()
+			get_tree().set_input_as_handled()
+			return
 	
 	# Handle focus mode toggle
 	if is_ui_interactive() and allow_focus_mode:
 		if event.is_action_pressed("focus") and not _is_focused:
 			print("[HoloTerminalV2] Focus key pressed, entering focus mode")
 			_enter_focus_mode()
-			get_tree().set_input_as_handled()
-			return
-		elif event.is_action_pressed("ui_cancel") and _is_focused:
-			print("[HoloTerminalV2] Cancel key pressed, exiting focus mode")
-			_exit_focus_mode()
 			get_tree().set_input_as_handled()
 			return
 	
@@ -320,14 +346,13 @@ func _input(event):
 	
 	# Forward mouse clicks to viewport input bridge.
 	elif event is InputEventMouseButton:
-		if event.button_index == BUTTON_LEFT:
-			if _viewport_input and _viewport_input.has_method("process_mouse_click"):
-				_viewport_input.process_mouse_click(event.button_index, event.pressed)
-				get_tree().set_input_as_handled()
-				return
-			if event.pressed and _terminal_ui and _terminal_ui.has_method("process_mouse_click"):
-				_terminal_ui.process_mouse_click()
-				get_tree().set_input_as_handled()
+		if _viewport_input and _viewport_input.has_method("process_mouse_click"):
+			_viewport_input.process_mouse_click(event.button_index, event.pressed, event.doubleclick)
+			get_tree().set_input_as_handled()
+			return
+		if event.button_index == BUTTON_LEFT and event.pressed and _terminal_ui and _terminal_ui.has_method("process_mouse_click"):
+			_terminal_ui.process_mouse_click()
+			get_tree().set_input_as_handled()
 
 
 func _enter_focus_mode():
@@ -337,6 +362,7 @@ func _enter_focus_mode():
 		return
 	
 	_is_focused = true
+	_set_player_input_blocked(true)
 	print("[HoloTerminalV2] Entering focus mode, activating FocusedRig")
 	
 	# Switch camera zone to point at FocusedRig
@@ -358,6 +384,7 @@ func _enter_focus_mode():
 func _exit_focus_mode():
 	"""Return to CinematicPathRig camera or regular player camera."""
 	_is_focused = false
+	_set_player_input_blocked(false)
 	
 	if not use_cinematic_zone:
 		print("[HoloTerminalV2] Exiting focus mode, returning to regular camera")
@@ -387,3 +414,45 @@ func _exit_focus_mode():
 func is_focused() -> bool:
 	"""Returns true if terminal is in focus mode."""
 	return _is_focused
+
+func _set_player_input_blocked(blocked: bool) -> void:
+	var player = _find_player()
+	if player == null:
+		return
+	if blocked:
+		_locked_player = player
+		if "input_provider" in player and player.input_provider:
+			_prev_hardware_input_enabled = bool(player.input_provider.hardware_input_enabled)
+		else:
+			_prev_hardware_input_enabled = true
+		if player.has_method("set_camera_input_locked"):
+			player.call("set_camera_input_locked", true)
+	elif _locked_player and is_instance_valid(_locked_player):
+		if _locked_player.has_method("set_camera_input_locked"):
+			_locked_player.call("set_camera_input_locked", false)
+		if "input_provider" in _locked_player and _locked_player.input_provider:
+			_locked_player.input_provider.hardware_input_enabled = _prev_hardware_input_enabled
+		_locked_player = null
+
+func _find_player() -> Node:
+	var players = get_tree().get_nodes_in_group("player")
+	if players.size() > 0:
+		return players[0]
+	return null
+
+func _bind_console_events() -> void:
+	var root = get_tree().root
+	if root == null:
+		return
+	_console = root.get_node_or_null("OYS_Console")
+	if _console == null:
+		_console = OYSConsoleScript.new()
+		_console.name = "OYS_Console"
+		root.add_child(_console)
+	if _console and not _console.is_connected("quit_requested", self, "_on_console_quit_requested"):
+		_console.connect("quit_requested", self, "_on_console_quit_requested")
+
+func _on_console_quit_requested() -> void:
+	if _is_focused:
+		_exit_focus_mode()
+	set_active(false)

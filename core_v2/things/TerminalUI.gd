@@ -24,7 +24,8 @@ var _viewport_size := Vector2()
 var _input_duration := 0.0
 
 func _ready():
-	_setup_cursor()
+	# Cursor rendering is now owned by HoloTerminalViewportInput.
+	_cursor_sprite = null
 	_viewport_size = get_viewport_rect().size
 	# Center cursor initially
 	_cursor_position = _viewport_size / 2.0
@@ -37,25 +38,7 @@ func _on_debug_button_pressed() -> void:
 	emit_signal("debug_button_pressed")
 
 func _setup_cursor():
-	"""Create and configure the cursor sprite."""
-	_cursor_sprite = Sprite.new()
-	_cursor_sprite.name = "HoloCursor"
-	_cursor_sprite.centered = false
-	_cursor_sprite.offset = - cursor_hotspot
-	
-	# Load cursor texture
-	if cursor_texture:
-		_cursor_sprite.texture = cursor_texture
-	else:
-		# Fallback: try to load default cursor
-		var default_cursor = load("res://assets/cursor_none.svg")
-		if default_cursor:
-			_cursor_sprite.texture = default_cursor
-	
-	# Add cursor as top-level child (renders on top of everything)
-	add_child(_cursor_sprite)
-	_cursor_sprite.visible = false
-	_cursor_sprite.z_index = 100 # Ensure on top
+	pass
 
 func set_ui_mode(active: bool):
 	"""Enable or disable UI interaction mode."""
@@ -63,9 +46,6 @@ func set_ui_mode(active: bool):
 		return
 	
 	_ui_mode_active = active
-	
-	if _cursor_sprite:
-		_cursor_sprite.visible = active
 	
 	set_process(active) # Enable analog stick processing
 	if active:

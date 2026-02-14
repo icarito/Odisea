@@ -76,9 +76,7 @@ func _seed_windows() -> void:
 	if _window_area.get_child_count() > 0:
 		return
 	var specs = [
-		{"title": "Node Explorer", "pos": Vector2(24, 20), "size": Vector2(420, 320), "text": "Tree View\n- Pilot\n- Interactables\n- replay_sync"},
-		{"title": "Inspector", "pos": Vector2(460, 36), "size": Vector2(380, 320), "text": "Variable          Valor\nglobal_transform  (0,0,0)\nstate             idle"},
-		{"title": "OYS Shell", "pos": Vector2(120, 150), "size": Vector2(760, 430), "text": ">_ run test_salto_vertical\nReady."}
+		{"title": "OYS Shell", "pos": Vector2(140, 170), "size": Vector2(700, 390), "text": ">_ fastfetch\nReady."}
 	]
 	for spec in specs:
 		var w = RetroWindowScene.instance()
@@ -96,11 +94,29 @@ func _register_windows() -> void:
 	_windows.clear()
 	for child in _window_area.get_children():
 		if child is RetroWindow:
+			var title = String(child.window_title)
+			if title == "Node Explorer" or title == "Inspector":
+				child.queue_free()
+				continue
 			_windows.append(child)
 			child.connect("window_focused", self, "_on_window_focused")
 			child.connect("close_requested", self, "_on_window_closed")
+			child.connect("window_clicked", self, "_on_window_any_click")
 	_refresh_task_buttons()
 	_minimize_non_terminal_windows()
+
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey):
+		return
+	var key = event as InputEventKey
+	if not key.pressed or key.echo:
+		return
+	if (key.control or key.command) and key.scancode == KEY_W:
+		if is_instance_valid(_focused_window):
+			_focused_window.hide()
+			_on_window_closed(_focused_window)
+			_focus_first_visible_window()
+			get_tree().set_input_as_handled()
 
 func _refresh_task_buttons() -> void:
 	for n in _active_tasks.get_children():
@@ -129,6 +145,7 @@ func _on_task_button_pressed(window: RetroWindow) -> void:
 
 func _on_window_focused(window: RetroWindow) -> void:
 	_focus_window(window)
+	_focus_shell_command_input(window)
 
 func _on_window_closed(_window: RetroWindow) -> void:
 	_refresh_task_buttons()
@@ -144,6 +161,13 @@ func _focus_window(target: RetroWindow) -> void:
 			w.set_focused(w == target)
 	_focus_shell_command_input(target)
 	_refresh_task_buttons()
+
+func _on_window_any_click(window: RetroWindow, event: InputEvent) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mb = event as InputEventMouseButton
+	if mb.button_index == BUTTON_LEFT and mb.pressed:
+		_focus_shell_command_input(window)
 
 func _focus_first_visible_window() -> void:
 	for w in _windows:
@@ -190,12 +214,13 @@ func _open_new_terminal() -> void:
 	var w = RetroWindowScene.instance()
 	_terminal_count += 1
 	w.window_title = "OYS Shell %d" % _terminal_count
-	w.rect_size = Vector2(760, 430)
+	w.rect_size = Vector2(700, 390)
 	w.rect_position = Vector2(80 + (_terminal_count * 16) % 120, 70 + (_terminal_count * 20) % 120)
 	_window_area.add_child(w)
 	_windows.append(w)
 	w.connect("window_focused", self, "_on_window_focused")
 	w.connect("close_requested", self, "_on_window_closed")
+	w.connect("window_clicked", self, "_on_window_any_click")
 	var content = w.get_node_or_null("VBox/Content")
 	if content:
 		for child in content.get_children():
@@ -214,6 +239,7 @@ func _open_about_window() -> void:
 	_windows.append(w)
 	w.connect("window_focused", self, "_on_window_focused")
 	w.connect("close_requested", self, "_on_window_closed")
+	w.connect("window_clicked", self, "_on_window_any_click")
 	var content = w.get_node_or_null("VBox/Content")
 	if content:
 		for child in content.get_children():

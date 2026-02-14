@@ -128,8 +128,17 @@ func deactivate_rig():
 func _find_player_camera() -> Camera:
 	var players = get_tree().get_nodes_in_group("player")
 	for p in players:
+		# Primary PlayerControllerV2 camera path.
+		if p.has_node("CameraRig/Yaw/Pitch/SpringArm/Camera"):
+			return p.get_node("CameraRig/Yaw/Pitch/SpringArm/Camera") as Camera
+		# Legacy path fallback.
 		if p.has_node("CameraRig/SpringArm/Camera"):
 			return p.get_node("CameraRig/SpringArm/Camera") as Camera
+		var rig = p.get_node_or_null("CameraRig")
+		if rig:
+			var rig_cam = _search_camera(rig)
+			if rig_cam:
+				return rig_cam
 		var cam = _search_camera(p)
 		if cam: return cam
 	return null

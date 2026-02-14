@@ -49,16 +49,21 @@ func teleport_to(transform: Transform):
 # Atajos de teclado: trackback (Backspace) y reset
 
 func _input(event):
-	if _is_ui_focus_active():
+	if _any_control_has_focus(get_tree().root):
+		return
+	if event is InputEventKey and event.pressed and event.scancode == KEY_BACKSPACE:
+		if _any_line_edit_has_focus(get_tree().root):
+			return
+	if _is_ui_focus_active() or _is_terminal_ui_active():
 		return
 
 	# Atajos de input actions
-	if event.is_action_pressed("trackback"):
+	if event.is_action_pressed("trackback") and _can_handle_shortcut_key(event):
 		print("[TeleportSystem] Atajo 'trackback' presionado: respawn en último checkpoint (como morir)")
 		_on_player_killed()
 		get_tree().set_input_as_handled()
 		return
-	elif event.is_action_pressed("reset"):
+	elif event.is_action_pressed("reset") and _can_handle_shortcut_key(event):
 		print("[TeleportSystem] Atajo 'reset' presionado: respawn en spawn point o 0,0,0")
 		_respawn_at_spawn_or_zero()
 		get_tree().set_input_as_handled()
@@ -143,6 +148,53 @@ func _control_tree_has_focus(node: Control) -> bool:
 		return true
 	for child in node.get_children():
 		if child is Control and _control_tree_has_focus(child):
+			return true
+	return false
+
+func _is_terminal_ui_active() -> bool:
+	var root = get_tree().current_scene
+	if root == null:
+		return false
+	return _node_tree_has_terminal_ui_active(root)
+
+func _node_tree_has_terminal_ui_active(node: Node) -> bool:
+	if node == null:
+		return false
+	if node.has_method("is_ui_interactive"):
+		if bool(node.call("is_ui_interactive")):
+			return true
+	for child in node.get_children():
+		if _node_tree_has_terminal_ui_active(child):
+			return true
+	return false
+
+func _can_handle_shortcut_key(event: InputEvent) -> bool:
+	if not (event is InputEventKey):
+		return true
+	var key = event as InputEventKey
+	if key.echo:
+		return false
+	if key.control or key.command or key.alt or key.meta:
+		return false
+	return true
+
+func _any_line_edit_has_focus(node: Node) -> bool:
+	if node == null:
+		return false
+	if node is LineEdit and (node as LineEdit).has_focus():
+		return true
+	for child in node.get_children():
+		if _any_line_edit_has_focus(child):
+			return true
+	return false
+
+func _any_control_has_focus(node: Node) -> bool:
+	if node == null:
+		return false
+	if node is Control and (node as Control).has_focus():
+		return true
+	for child in node.get_children():
+		if _any_control_has_focus(child):
 			return true
 	return false
 

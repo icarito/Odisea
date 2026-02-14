@@ -7,6 +7,7 @@ signal cvar_changed(name, value)
 signal command_executed(command, success, message)
 signal run_oys_requested(path)
 signal core_command_requested(command)
+signal quit_requested
 
 const FLAG_ARCHIVE := 1
 const FLAG_CHEAT := 2
@@ -52,6 +53,8 @@ func _ready() -> void:
 	discover_commands()
 	_load_cfg()
 	add_log("SYS", "OYS-Shell initialized. Type 'help' for commands.")
+	add_log("SYS", ">_ fastfetch")
+	_cmd_fastfetch([], "fastfetch")
 
 func _process(_delta: float) -> void:
 	var budget = 8
@@ -182,6 +185,11 @@ func get_autocomplete_candidates(input_text: String) -> Array:
 		return _filter_prefix(_sorted_unique(_commands.keys() + _cvars.keys() + _aliases.keys()), current.to_lower())
 
 	var cmd = String(tokens[0]).to_lower()
+	var argc = tokens.size() - 1
+
+	if cmd == "help":
+		return _filter_prefix(_commands.keys(), current.to_lower())
+
 	if cmd == "set" or cmd == "get":
 		if tokens.size() <= 1:
 			return _filter_prefix(_cvars.keys(), current.to_lower())
@@ -199,11 +207,28 @@ func get_autocomplete_candidates(input_text: String) -> Array:
 	if cmd == "exec":
 		return _filter_prefix(_find_cfg_files(), current)
 
-	# If nothing specific matches and token looks like a node path, suggest scene nodes.
-	if current.begins_with("/") or current.find("/") != -1:
-		return _filter_prefix(_collect_scene_node_paths(), current)
+	# Context-aware VFS path suggestions for filesystem-like commands.
+	if cmd in ["cd", "ls", "cat", "rm"]:
+		return _autocomplete_vfs_paths(current)
+	if cmd == "cp":
+		if argc <= 1:
+			return _autocomplete_vfs_paths(current)
+		return _autocomplete_vfs_paths(current)
+	if cmd == "mv":
+		return _autocomplete_vfs_paths(current)
+	if cmd == "echo" and input_text.find(">") != -1:
+		return _autocomplete_vfs_paths(current)
 
+	# Do not suggest top-level commands while typing subcommand arguments.
 	return []
+
+func _autocomplete_vfs_paths(prefix: String) -> Array:
+	var suggestions := [".", "..", "/root", "/bin", "/scripts", "/proc"]
+	var ls_result = _vfs_ls(".")
+	if bool(ls_result.get("ok", false)):
+		for entry in ls_result.get("lines", []):
+			suggestions.append(str(entry))
+	return _filter_prefix(_sorted_unique(suggestions), prefix)
 
 func discover_commands() -> void:
 	var root = get_tree().current_scene
@@ -299,6 +324,7 @@ func _register_builtin_commands() -> void:
 	register_command("clear", self, "_cmd_clear", "Limpia salida.", "clear")
 	register_command("history", self, "_cmd_history", "Muestra historial.", "history")
 	register_command("echo", self, "_cmd_echo", "Imprime texto.", "echo <mensaje>")
+	register_command("fastfetch", self, "_cmd_fastfetch", "Muestra resumen del sistema OdiseaOS.", "fastfetch")
 	register_command("pwd", self, "_cmd_pwd", "Muestra directorio actual VFS.", "pwd")
 	register_command("ls", self, "_cmd_ls", "Lista entradas VFS.", "ls [ruta|glob]")
 	register_command("cd", self, "_cmd_cd", "Cambia directorio VFS.", "cd [ruta]")
@@ -314,6 +340,7 @@ func _register_builtin_commands() -> void:
 	register_command("alias", self, "_cmd_alias", "Crea alias.", "alias <nombre> <comando>")
 	register_command("filter", self, "_cmd_filter", "Filtra por canal.", "filter <AI|SYS|CORE|WARN|ERR|off>")
 	register_command("run", self, "_cmd_run", "Ejecuta script OYS.", "run <archivo.oys>")
+	register_command("quit", self, "_cmd_quit", "Cierra la holoterminal.", "quit")
 
 func _register_builtin_cvars() -> void:
 	register_cvar("allow_cheats", TYPE_BOOL, false, "Habilita comandos cheat.", null, null, FLAG_ARCHIVE, self, "_on_allow_cheats_changed")
@@ -478,6 +505,30 @@ func _cmd_echo(argv: Array, _raw: String) -> Dictionary:
 	add_log("SYS", _join_tokens(argv))
 	return {"ok": true}
 
+func _cmd_fastfetch(_argv: Array, _raw: String) -> Dictionary:
+	var fps = str(Engine.get_frames_per_second())
+	var mem_mb = "%.1f MB" % (float(OS.get_static_memory_usage()) / (1024.0 * 1024.0))
+	var scene_name = "none"
+	if get_tree() and get_tree().current_scene:
+		scene_name = get_tree().current_scene.name
+	var lines = [
+		"   ____      _ _                     ____  ____",
+		"  / __ \\____(_) |___  ________ _    / __ \\/ __/",
+		" / / / / __/ / / __ \\/ ___/ _ `/   / / / /\\ \\  ",
+		"/ /_/ / /_/ / / /_/ (__  )  __/   / /_/ /__/ / ",
+		"\\____/\\__/_/_/\\____/____/\\___/    \\____/____/  ",
+		"",
+		"OS        : OdiseaOS Workbench",
+		"Engine    : Godot 3.6",
+		"Scene     : %s" % scene_name,
+		"Shell     : OYS-Shell v2",
+		"FPS       : %s" % fps,
+		"Memory    : %s" % mem_mb
+	]
+	for line in lines:
+		add_log("CORE", line)
+	return {"ok": true}
+
 func _cmd_cvars(_argv: Array, _raw: String) -> Dictionary:
 	var keys = _cvars.keys()
 	keys.sort()
@@ -597,6 +648,11 @@ func _cmd_run(argv: Array, _raw: String) -> Dictionary:
 
 	emit_signal("run_oys_requested", path)
 	add_log("CORE", "Running OYS script: %s" % path)
+	return {"ok": true}
+
+func _cmd_quit(_argv: Array, _raw: String) -> Dictionary:
+	add_log("SYS", "Closing HoloTerminal...")
+	emit_signal("quit_requested")
 	return {"ok": true}
 
 func _push_history(line: String) -> void:
