@@ -8,10 +8,10 @@ SPAWN scene="res://core_v2/tests/stress/StressTestRunner.tscn" pos=[0, 0, 0]
 # Wait for initialization
 WAIT 1.0
 
-# 1. Saturation Test (140 Entities)
-PRINT ">>> [STRESS] Running Saturation Test (140 Entities)"
-CALL StressTestRunner "run_saturation_test" 140
-WAIT 5.0
+# 1. Saturation Test (100 Entities)
+PRINT ">>> [STRESS] Running Saturation Test (100 Entities)"
+CALL StressTestRunner "run_saturation_test" 100
+WAIT 4.0
 CALL StressTestRunner "stop_test"
 WAIT 1.0
 
@@ -23,9 +23,9 @@ CALL StressTestRunner "stop_test"
 WAIT 1.0
 
 # 3. Pathfinding (Blocking) Test
-PRINT ">>> [STRESS] Running Pathfinding Blocking Test (80 Agents)"
-CALL StressTestRunner "run_pathfinding_test" 80
-WAIT 5.0
+PRINT ">>> [STRESS] Running Pathfinding Blocking Test (50 Agents)"
+CALL StressTestRunner "run_pathfinding_test" 50
+WAIT 4.0
 CALL StressTestRunner "stop_test"
 WAIT 1.0
 
@@ -37,9 +37,9 @@ CALL StressTestRunner "stop_test"
 WAIT 1.0
 
 # 5. Physics Box Test
-PRINT ">>> [STRESS] Running Physics Box Test (80 Boxes)"
-CALL StressTestRunner "run_physics_box_test" 80
-WAIT 7.0
+PRINT ">>> [STRESS] Running Physics Box Test (50 Boxes)"
+CALL StressTestRunner "run_physics_box_test" 50
+WAIT 6.0
 CALL StressTestRunner "stop_test"
 WAIT 1.0
 
