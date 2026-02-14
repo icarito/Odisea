@@ -4,7 +4,7 @@
 
 SECTION "Salto Vertical Completo"
     JUMP 0.5           // Mantenemos el salto para asegurar máxima fuerza
-    WAIT 2.0           // Tiempo extendido para asegurar aterrizaje post-apex
+    WAIT 1.2           // Tiempo suficiente para aterrizaje post-apex
     
     ASSERT pos.y < 0.1 "El personaje no aterrizó después de 2.5 segundos"
 END

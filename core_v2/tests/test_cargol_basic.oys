@@ -13,19 +13,19 @@ SECTION "Cargo Transport Test"
     
     // Move above cargo
     CALL CargolDrone "move_to" [5, 2, 0]
-    WAIT 1.5
+    WAIT 1.0
     
     // Pickup cargo
     CALL CargolDrone "pickup" "../Cargo"
-    WAIT 0.5
+    WAIT 0.2
     
     // Move back to origin area
     CALL CargolDrone "move_to" [0, 5, 0]
-    WAIT 1.5
+    WAIT 1.0
     
     // Release cargo
     CALL CargolDrone "release" [0, 0, 0]
-    WAIT 0.5
+    WAIT 0.2
     
     // Verify results
     // Cargo should have moved from (5, 1, 0) to roughly (0, 5, 0) then released/fallen.

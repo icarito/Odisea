@@ -3492,24 +3492,6 @@
         "crouch": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -3550,7 +3532,7 @@
         "phase": "check"
       }
     ],
-    "193": [
+    "192": [
       {
         "command": "PRINT",
         "message": "SUCCESS: player_killed signal was emitted!"
@@ -3559,37 +3541,6 @@
   },
   "meta": {
     "world_start_state": {
-      "/root/PushableBoxV2": {
-        "pos": [
-          0.029745,
-          -780.48822,
-          78.56546
-        ],
-        "rot": [
-          0.535309,
-          0.152034,
-          0.16316
-        ],
-        "vel": [
-          -0.000512,
-          -78.119232,
-          1.789059
-        ],
-        "ang": [
-          0.003963,
-          0.002703,
-          0.003992
-        ],
-        "mode": 0,
-        "fbt": 0,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
       "CinematicManager": {
         "current_control_mode": 0,
         "latched_camera_basis": [

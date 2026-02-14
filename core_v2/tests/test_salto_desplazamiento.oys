@@ -5,7 +5,7 @@
 SECTION "Salto en Carrera"
     FW 0.5             // Acelerar primero
     JUMP 0.2 AT 0.5 FW 1.5 // Saltar a los 0.5s y mantener avance
-    WAIT 1.5           // Dar tiempo para aterrizar
+    WAIT 1.0           // Dar tiempo para aterrizar
     
     // Esperamos un avance significativo en Z (< -3m, ya que FW es -Z)
     ASSERT pos.z > 3.0 "ERROR: No hubo suficiente inercia horizontal en el salto"

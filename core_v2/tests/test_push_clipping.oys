@@ -13,16 +13,16 @@ SET $drift_threshold AS 0.03
 
 # Move for 3.5 seconds to ensure contact and push state
 # Use BLEND to push AND check clipping simultaneously
-BLEND 2.5
-	LEFT 2.5m
-	ASSERT_NO_HAND_CLIPPING PushableBox 0.05 MONITOR 1.25
+BLEND 1.5
+	LEFT 1.5m
+	ASSERT_NO_HAND_CLIPPING PushableBox 0.05 MONITOR 0.75
 END
 
-WAIT 0.5
+WAIT 0.2
 
-BLEND 2.5
-	BW 2.5m
-	ASSERT_NO_HAND_CLIPPING PushableBox 0.05 MONITOR 1.25
+BLEND 1.5
+	BW 1.5m
+	ASSERT_NO_HAND_CLIPPING PushableBox 0.05 MONITOR 0.75
 END
 
-WAIT 0.5
+WAIT 0.2

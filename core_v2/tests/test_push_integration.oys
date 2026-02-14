@@ -8,7 +8,7 @@ PRINT "Starting Push Integration Test"
 SPAWN scene="core_v2/components/PushableBoxV2.tscn" pos=[0, 1, +3]
 
 # Wait for physics to settle (box falling/settling)
-WAIT 1.0
+WAIT 0.3
 
 # Initialize vars
 MATH $count = 0
@@ -35,7 +35,7 @@ ASSERT $yaw_deg > -5.0 "Alignment Error: Yaw too negative"
 
 # Stop Movement
 WALK FW 0.0
-WAIT 0.5
+WAIT 0.2
 
 # Verify Exit State
 PRINT "Verifying exit state..."
@@ -48,5 +48,5 @@ WHILE PROP "Pilot" is_pushing == true
 ENDWHILE
 
 PRINT "Test Passed: Push Integration Success"
-WAIT 1.0
+WAIT 0.2
 END
