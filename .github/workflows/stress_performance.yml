@@ -28,7 +28,8 @@ jobs:
 
           # Install runtime dependencies for xvfb/godot
           sudo apt-get update
-          sudo apt-get install -y xvfb libxcursor1 libxinerama1 libxrandr2 libxi6 libasound2 libpulse0 libgl1 mesa-utils
+          # libasound2 is libasound2t64 on Ubuntu 24.04 (Noble)
+          sudo apt-get install -y xvfb libxcursor1 libxinerama1 libxrandr2 libxi6 libasound2t64 libpulse0 libgl1 mesa-utils
 
       - name: Setup Environment
         run: |
