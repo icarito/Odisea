@@ -64,7 +64,8 @@ func _ready():
 	# Register with Performance Monitor
 	if Engine.has_singleton("PerformanceMonitor") or has_node("/root/PerformanceMonitor"):
 		_perf_monitor = get_node("/root/PerformanceMonitor")
-		if _perf_monitor: _perf_monitor.register_monitored_node(self)
+		if _perf_monitor and _perf_monitor.has_method("register_monitored_node"):
+			_perf_monitor.register_monitored_node(self)
 
 # --- CORE API ---
 
@@ -105,7 +106,8 @@ func set_active(value: bool, immediate: bool = false) -> void:
 		print("[%s] set_active(%s) -> target=%s" % [name, is_active, target_progress])
 
 func step(dt: float) -> void:
-	if _perf_monitor: _perf_monitor.measure_start(self, "step")
+	if _perf_monitor and _perf_monitor.has_method("measure_start"):
+		_perf_monitor.measure_start(self, "step")
 
 	"""Called during fixed physics step. Updates animation progress."""
 	if abs(anim_progress - target_progress) < 0.001:
@@ -129,7 +131,8 @@ func step(dt: float) -> void:
 	
 	_update_visuals()
 
-	if _perf_monitor: _perf_monitor.measure_end(self, "step")
+	if _perf_monitor and _perf_monitor.has_method("measure_end"):
+		_perf_monitor.measure_end(self, "step")
 
 func _on_animation_completed() -> void:
 	"""Called when animation reaches target. Override for sound triggers."""
