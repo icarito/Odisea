@@ -25,6 +25,7 @@ enum Command {
 	BLEND,
 	ASSERT_NO_HAND_CLIPPING,
 	UI_OPEN, UI_CLICK, UI_FILL, UI_TYPE, UI_PRESS, UI_WAIT, UI_SCREENSHOT, UI_ASSERT_TEXT,
+	LOG
 }
 
 # Command synonyms mapping
@@ -192,6 +193,20 @@ static func parse_instruction(line: String) -> Dictionary:
 		
 		"PRINT":
 			data["message"] = line.substr(line.find(" ") + 1).replace("\"", "")
+		"LOG":
+			var quoted = _extract_quoted_values(line)
+			if quoted.size() >= 2:
+				data["tag"] = quoted[0]
+				data["message"] = quoted[1]
+				if quoted.size() >= 3:
+					data["color"] = quoted[2]
+			else:
+				data["tag"] = parts[1] if parts.size() > 1 else "OYS"
+				if parts.size() > 2:
+					var first_space = line.find(" ")
+					var second_space = line.find(" ", first_space + 1)
+					if second_space != -1:
+						data["message"] = line.substr(second_space + 1).replace("\"", "")
 
 		"CLS":
 			pass

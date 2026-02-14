@@ -1,0 +1,18 @@
+----------------------------------------------------------------
+🚀 Validating UI scene: res://core_v2/ui/retro/OYSShell.tscn
+🧹 Cleaning previous screenshots for 'oysshell'...
+🧪 OYS script: res://core_v2/scripts/repro_colors_v2.oys
+Godot Engine v3.6.2.stable.official.3cd3caab6 - https://godotengine.org
+OpenGL ES 2.0 Renderer: Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)
+ 
+[PerformanceMonitor] Initialized
+[AudioManager] MixingDeskMusic NOT found. Using internal AudioStreamPlayers.
+[PerformanceMonitor] LAG SPIKE DETECTED! FPS dropped from 60.0 to 1.0
+[PerformanceMonitor] Report saved to user://performance_log.json
+[SessionManager] Running script: res://core_v2/scripts/repro_colors_v2.oys
+[OYS_Interpreter] Initialized with host: SessionManager
+[OYS PRINT] Reproducing colored asserts v2...
+[OYS PRINT] Checking failing assert color...
+[OYS ASSERT] FAILED: This should be RED (FAIL) (10 == 99)
+[SessionManager] Script finished.
+❌ Failure: No UI screenshots found for 'oysshell'

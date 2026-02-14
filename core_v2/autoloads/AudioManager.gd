@@ -137,6 +137,21 @@ func _crossfade_to(stream, pitch, vol, time):
 			_tween.interpolate_callback(_active_player, time, "stop")
 			_tween.start()
 			_active_player = null
+	
+func reset():
+	_active_zones.clear()
+	if _mdm_instance and _mdm_instance.has_method("stop"):
+		_mdm_instance.call("stop")
+	
+	if _active_player:
+		_active_player.stop()
+		_active_player = null
+	
+	if _bgm_player_1: _bgm_player_1.stop()
+	if _bgm_player_2: _bgm_player_2.stop()
+	
+	if _tween:
+		_tween.stop_all()
 
 # SFX Integration
 func play_sound(sound_name: String, _pos: Vector3 = Vector3.ZERO):

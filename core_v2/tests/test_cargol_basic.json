@@ -14,7 +14,7 @@
         ],
         "yaw": 0,
         "pitch": -0,
-        "base_spring_length_3d": 7,
+        "base_spring_length_3d": 10,
         "movement_state": {
           "horizontal_velocity": [
             0,
@@ -2568,7 +2568,7 @@
         ]
       }
     ],
-    "66": [
+    "65": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -2580,7 +2580,7 @@
         ]
       }
     ],
-    "127": [
+    "126": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -2669,17 +2669,17 @@
   "final_expected_state": {
     "position": [
       0,
-      0.284833,
+      0.238167,
       0
     ],
     "velocity": [
       0,
-      -2.566667,
+      -2.8,
       0
     ],
     "yaw": 0,
     "pitch": -0,
-    "base_spring_length_3d": 7,
+    "base_spring_length_3d": 10,
     "movement_state": {
       "horizontal_velocity": [
         0,

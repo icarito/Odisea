@@ -1,5 +1,8 @@
 extends Node
 const FIXED_DT := 1.0 / 60.0
+var _is_validating := false # Re-entry protection
+var _replay_watchdog_frames := 0 # Safety counter for tests
+
 signal replay_finished(success, drift, frames)
 
 var player: KinematicBody = null
@@ -294,7 +297,9 @@ func _on_tree_changed_for_script(script_path: String):
 		interpreter.variables[k] = _env_vars[k]
 		
 	oys_interpreter = interpreter
-	yield (interpreter.run(), "completed")
+	var run_state = interpreter.run()
+	if run_state is GDScriptFunctionState:
+		yield (run_state, "completed")
 	
 	print("[SessionManager] Script finished.")
 	get_tree().quit(0)
@@ -338,7 +343,8 @@ func _physics_process(_dt):
 				if not player.input_provider.hardware_input_enabled:
 					# print("[SessionManager] Input detected during CINEMATIC. Requesting Fast Forward.")
 					oys_interpreter.request_fast_forward()
-					CinematicManager.force_finish_transition()
+					if is_instance_valid(CinematicManager) and CinematicManager.has_method("force_finish_transition"):
+						CinematicManager.force_finish_transition()
 
 	if Input.is_action_just_pressed("record-toggle"):
 		if not is_recording:
@@ -410,7 +416,7 @@ func _physics_process(_dt):
 				node.step(step_dt)
 		
 		# Step CinematicManager if active
-		if CinematicManager.is_active():
+		if is_instance_valid(CinematicManager) and CinematicManager.has_method("is_active") and CinematicManager.is_active():
 			CinematicManager.step(step_dt)
 		
 		# Sync total frames if we are also in "replaying" mode (for tests)
@@ -449,6 +455,12 @@ func _physics_process(_dt):
 			_active_input_provider = provider
 			if is_instance_valid(player) and "input_provider" in player and player.input_provider != provider:
 				player.input_provider = provider
+		
+		if input == null:
+			# Log once per second
+			if _replay_frame % 60 == 0:
+				print("[SessionManager] Frame %d: input is null. is_replaying=%s is_respawning=%s waiting_validation=%s" %
+					[_replay_frame, is_replaying, is_respawning, _is_waiting_for_respawn_validation])
 
 		# Intermittent guard: if frame 0 starts with a cleared replay provider,
 		# rearm from the cached input buffer once before terminating playback.
@@ -470,6 +482,7 @@ func _physics_process(_dt):
 		# Si no hay más inputs, terminar
 		if input == null:
 			if not _is_waiting_for_respawn_validation:
+				print("[SessionManager] No more inputs, calling run_playback")
 				run_playback()
 			return
 
@@ -484,7 +497,7 @@ func _physics_process(_dt):
 				node.step(FIXED_DT)
 		
 		# Step CinematicManager if active
-		if CinematicManager.is_active():
+		if is_instance_valid(CinematicManager) and CinematicManager.has_method("is_active") and CinematicManager.is_active():
 			CinematicManager.step(FIXED_DT)
 
 		_replay_frame += 1
@@ -494,10 +507,17 @@ func _physics_process(_dt):
 		if is_instance_valid(_active_input_provider) and _active_input_provider.playback_buffer.empty():
 			if not _is_waiting_for_respawn_validation:
 				run_playback()
+				
+		# WATCHDOG: Si el replay se queda atascado por más de 15 segundos sin terminar, forzamos fin.
+		# Esto previene el timeout infinito del test runner si algo falla silenciosamente.
+		_replay_watchdog_frames += 1
+		if _replay_watchdog_frames > 900: # 15 segundos a 60fps
+			printerr("[SessionManager] WATCHDOG: Replay hung detected. Forcing termination.")
+			_finish_and_validate()
 	
 	else:
 		# Normal gameplay (Not recording, Not replaying)
-		if CinematicManager.is_active():
+		if is_instance_valid(CinematicManager) and CinematicManager.has_method("is_active") and CinematicManager.is_active():
 			CinematicManager.step(FIXED_DT)
 
 func start_recording():
@@ -551,13 +571,15 @@ func _get_world_state_snapshot() -> Dictionary:
 		else:
 			print("Warning: Node %s in group 'replay_sync' does not have get_snapshot() method." % node.name)
 	# Include CinematicManager
-	snapshot["CinematicManager"] = CinematicManager.get_full_snapshot()
+	if is_instance_valid(CinematicManager) and CinematicManager.has_method("get_full_snapshot"):
+		snapshot["CinematicManager"] = CinematicManager.get_full_snapshot()
 	return snapshot
 
 func _restore_world_state_snapshot(snapshot: Dictionary) -> void:
 	for path in snapshot:
 		if path == "CinematicManager":
-			CinematicManager.restore_snapshot(snapshot[path])
+			if is_instance_valid(CinematicManager) and CinematicManager.has_method("restore_snapshot"):
+				CinematicManager.restore_snapshot(snapshot[path])
 			continue
 		var node = get_node(path)
 		if node and node.has_method("restore_snapshot"):
@@ -605,10 +627,14 @@ func load_and_play(path: String):
 	print("[SessionManager] load_and_play called with: ", path)
 	_session_run_id += 1
 	var my_run_id = _session_run_id
-	CinematicManager.reset()
+	if is_instance_valid(CinematicManager) and CinematicManager.has_method("reset"):
+		CinematicManager.reset()
 	if oys_interpreter:
 		oys_interpreter.stop_requested = true
 	is_replaying = false
+	_is_waiting_for_respawn_validation = false
+	_is_validating = false
+	_replay_watchdog_frames = 0
 	is_recording = false
 	is_respawning = false
 	_is_waiting_for_respawn_validation = false
@@ -859,6 +885,14 @@ func load_and_play(path: String):
 	
 	play_buffer(input_buffer, data)
 
+func _log_to_oys_console(tag: String, text: String, color: String = ""):
+	var root = get_tree().root
+	if not root: return
+	
+	var console = root.get_node_or_null("OYS_Console")
+	if console and console.has_method("add_log"):
+		console.add_log(tag, text, color)
+
 func _on_oys_instruction_executed(inst: Dictionary, _vars: Dictionary):
 	if not is_recording: return
 	
@@ -1039,9 +1073,11 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 
 
 func _finish_and_validate():
-	if _drift_validated:
+	if _is_validating or _drift_validated:
 		return
+	_is_validating = true
 	var run_id = _session_run_id
+	print("[SessionManager] Starting _finish_and_validate. run_id=", run_id)
 	
 	if is_respawning:
 		# MANTENER is_replaying = true para que el test runner no termine prematuramente
@@ -1051,19 +1087,25 @@ func _finish_and_validate():
 		while is_respawning and timeout_frames > 0:
 			yield (get_tree(), "physics_frame")
 			timeout_frames -= 1
+			
+			# Si otro test empezó, abortamos esta validación silenciosamente
 			if run_id != _session_run_id:
+				print("[SessionManager] _finish_and_validate aborted: run_id changed")
 				return
-		
-		if timeout_frames <= 0:
-			printerr("[SessionManager] WARNING: Timeout esperando a que is_respawning se limpie en _finish_and_validate!")
-			is_respawning = false # Forzar limpieza para permitir que el test termine
+			
+			if timeout_frames <= 0:
+				printerr("[SessionManager] WARNING: Timeout esperando a que is_respawning se limpie en _finish_and_validate!")
+				is_respawning = false # Forzar limpieza para permitir que el test termine
 
 	_is_waiting_for_respawn_validation = false
 	_drift_validated = true
 	is_replaying = false
 	is_recording = false
 	Engine.time_scale = 1.0
-	CinematicManager.reset()
+	
+	if is_instance_valid(CinematicManager) and CinematicManager.has_method("reset"):
+		CinematicManager.reset()
+		
 	_replay_input_provider = null
 	_replay_input_buffer.clear()
 	
@@ -1071,6 +1113,9 @@ func _finish_and_validate():
 	if is_instance_valid(player):
 		player.is_replay_mode = false
 		player.set_physics_process(true)
+	
+	_is_validating = false
+	print("[SessionManager] _finish_and_validate COMPLETED. is_replaying set to false.")
 	
 	# Una última comprobación de aserciones que puedan haber quedado en el último frame
 	# Prevenir doble ejecución de eventos en el frame final
@@ -1254,10 +1299,11 @@ func _execute_event(cmd: Dictionary):
 				var bx = Vector3(b_arr[0][0], b_arr[0][1], b_arr[0][2])
 				var by = Vector3(b_arr[1][0], b_arr[1][1], b_arr[1][2])
 				var bz = Vector3(b_arr[2][0], b_arr[2][1], b_arr[2][2])
-				CinematicManager.latched_camera_basis = Basis(bx, by, bz)
-				CinematicManager.latched_control_mode = int(cmd.get("mode", 0))
-				CinematicManager.latch_active = true
-				print("[SessionManager] RESTORED LATCHED BASIS from Event")
+				if is_instance_valid(CinematicManager):
+					CinematicManager.latched_camera_basis = Basis(bx, by, bz)
+					CinematicManager.latched_control_mode = int(cmd.get("mode", 0))
+					CinematicManager.latch_active = true
+					print("[SessionManager] RESTORED LATCHED BASIS from Event")
 
 func record_custom_event(cmd_name: String, data: Dictionary):
 	if not is_recording: return
@@ -1313,9 +1359,15 @@ func _handle_assert_signal(cmd: Dictionary):
 			
 	elif phase == "check":
 		if _monitored_signals.get(key, false):
-			print("[OYS] ✅ ASSERT_SIGNAL SUCCESS: '%s' was emitted." % signal_name)
+			var msg = "Signal '%s' was emitted." % signal_name
+			print("[OYS] ✅ ASSERT_SIGNAL SUCCESS: ", msg)
+			_log_to_oys_console("ASSERT_OK", msg)
+			_show_subtitle("ASSERT OK: %s" % msg, Color(0.35, 1.0, 0.35), 2.5)
 		else:
-			printerr("❌ [OYS] ASSERT_SIGNAL FAILED: '%s' was NOT emitted on '%s' within timeout." % [signal_name, target_name])
+			var fail_msg = "'%s' was NOT emitted on '%s' within timeout." % [signal_name, target_name]
+			printerr("❌ [OYS] ASSERT_SIGNAL FAILED: ", fail_msg)
+			_log_to_oys_console("ASSERT_FAIL", "ASSERT_SIGNAL FAILED: " + fail_msg)
+			_show_subtitle("ASSERT FAIL: " + fail_msg, Color(1.0, 0.35, 0.35), 3.0)
 			oys_assert_failed = true
 
 func _handle_get_nodes_in_group(cmd: Dictionary):
@@ -1476,10 +1528,13 @@ func _handle_assert_command(cmd: Dictionary):
 			"!=": passed = str(left_val) != str(right_val)
 	
 	if passed:
+		_log_to_oys_console("ASSERT_OK", msg)
 		_show_subtitle("ASSERT OK: %s" % msg, Color(0.35, 1.0, 0.35), 2.5)
 	else:
-		print("❌ ASSERT FAILED: %s (Actual: %s %s %s)" % [msg, left_val, op, right_val])
-		_show_subtitle("ASSERT FAIL: %s (%s %s %s)" % [msg, left_val, op, right_val], Color(1.0, 0.35, 0.35), 3.0)
+		var fail_text = "ASSERT FAILED: %s (Actual: %s %s %s)" % [msg, left_val, op, right_val]
+		print("❌ ", fail_text)
+		_log_to_oys_console("ASSERT_FAIL", fail_text)
+		_show_subtitle(fail_text, Color(1.0, 0.35, 0.35), 3.0)
 		oys_assert_failed = true
 		if is_cli_mode:
 			get_tree().quit(1)
@@ -1966,3 +2021,29 @@ func get_oys_actor(name: String) -> Node:
 func unregister_oys_actor(name: String) -> void:
 	if _oys_actors.has(name):
 		_oys_actors.erase(name)
+
+func take_oys_screenshot(label: String, _extra = ""):
+	# Wait for draw to complete
+	yield (get_tree(), "idle_frame")
+	yield (VisualServer, "frame_post_draw")
+	
+	var dir_path = "res://test_output/ui"
+	var dir = Directory.new()
+	if not dir.dir_exists(dir_path):
+		dir.make_dir_recursive(dir_path)
+		
+	var scene_name = "oysshell"
+	if get_tree().current_scene:
+		scene_name = get_tree().current_scene.filename.get_file().get_basename().to_lower()
+		
+	var path = "%s/%s_%s.png" % [dir_path, scene_name, label]
+	var img = get_tree().root.get_texture().get_data()
+	img.flip_y()
+	var err = img.save_png(path)
+	if err != OK:
+		printerr("[SessionManager] Failed to save screenshot: ", path, " err=", err)
+	else:
+		print("[SessionManager] Screenshot saved: ", path)
+	
+	yield (get_tree(), "idle_frame")
+	return path

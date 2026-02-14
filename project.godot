@@ -1764,6 +1764,7 @@ toggle_replay_menu={
 3d_physics/layer_4="NPC-Hostile"
 3d_physics/layer_5="Trigger"
 3d_physics/layer_6="Vehicle"
+3d_physics/layer_7="Prop"
 
 [physics]
 

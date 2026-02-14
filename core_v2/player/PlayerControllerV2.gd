@@ -249,6 +249,8 @@ func _ready():
 	_cached_spring_arm = _find_spring_arm(camera_rig)
 	if _cached_spring_arm:
 		base_spring_length = _cached_spring_arm.spring_length
+		base_spring_length_3d = _cached_spring_arm.spring_length
+		current_spring_length = _cached_spring_arm.spring_length
 		base_collision_mask = _cached_spring_arm.collision_mask
 	
 	if camera_rig:
@@ -962,7 +964,7 @@ func is_effectively_grounded() -> bool:
 		var space_state = get_world().direct_space_state
 		var from = global_transform.origin + Vector3.UP * 0.05
 		var to = from + Vector3.DOWN * (step_height + stair_ground_probe_extra)
-		var hit = space_state.intersect_ray(from, to, [self], collision_mask)
+		var hit = space_state.intersect_ray(from, to, [self], 1) # Terrain only (Mask 1)
 		near_ground = not hit.empty()
 	return is_on_floor() or _just_stepped or _step_grounded_timer > 0.0 or recent_floor_contact or near_ground
 
@@ -998,6 +1000,9 @@ func _update_platform_tracking(dt: float) -> void:
 		_platform_velocity = Vector3.ZERO
 
 func _try_step_up(motion: Vector3) -> Dictionary:
+	var old_mask = collision_mask
+	collision_mask = 1 # Force terrain-only detection (Mask 1)
+	
 	var result = {"stepped": false, "position": global_transform.origin}
 	if motion.length_squared() < 0.0001: return result
 	var horizontal_motion = Vector3(motion.x, 0, motion.z)
@@ -1028,6 +1033,8 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 			if height_gain > 0.01 and height_gain <= step_height + 0.02:
 				result.stepped = true
 				result.position = Vector3(origin.x + advanced_x.x, step_surface_y, origin.z + advanced_x.z)
+	
+	collision_mask = old_mask # Restore original mask
 	return result
 
 func _physics_process(_delta):

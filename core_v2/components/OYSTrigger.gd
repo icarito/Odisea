@@ -11,11 +11,18 @@ export(String) var label_text: String = "" setget set_label_text
 export(bool) var trigger_once = true
 export(bool) var center_player_on_enter = false
 
+func _init():
+	# Pausar el procesamiento hasta que el arbol de la escena este completamente listo.
+	# Esto es crucial para los tests, para evitar race conditions al cargar la escena.
+	set_physics_process(false)
+
 func _ready():
 	add_to_group("OYSTrigger")
 	if debug_color == Color(0, 1, 0, 0.2): # Default Green
 		set_debug_color(Color(0.8, 0.2, 0.8, 0.3)) # Magenta/Purple
 	_update_label()
+	yield(get_tree(), "idle_frame")
+	set_physics_process(true)
 
 func set_label_text(val: String):
 	label_text = val

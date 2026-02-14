@@ -278,6 +278,8 @@ func restore_snapshot(data: Dictionary) -> void:
 			cam.current = true
 
 func reset():
+	if active_rig:
+		deactivate_rig()
 	active_rig = null
 	current_control_mode = ControlMode.FREE
 	latched_camera_basis = Basis.IDENTITY
@@ -286,3 +288,7 @@ func reset():
 	_transition_active = false
 	_transition_from_cam = null
 	_transition_to_cam = null
+	
+	var player_cam = _find_player_camera()
+	if player_cam:
+		player_cam.current = true

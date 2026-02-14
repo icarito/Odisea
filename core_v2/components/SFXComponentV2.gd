@@ -48,7 +48,7 @@ func _ready():
 	if trigger_mode == "Active" and loop and parent.get("is_active"):
 		_play_sfx()
 
-func _play_sfx():
+func play_sfx():
 	# Priority 1: Mixing Desk Sound via name
 	if sound_name != "" and AudioManager.has_method("play_sound"):
 		AudioManager.play_sound(sound_name, global_transform.origin)
@@ -58,6 +58,10 @@ func _play_sfx():
 	if _player.stream:
 		if not _player.playing:
 			_player.play()
+
+func _play_sfx():
+	# Backward compatibility / internal use
+	play_sfx()
 
 func _stop_sfx():
 	# Mixing Desk stops are tricky unless we hold a reference to the specific voice instance.

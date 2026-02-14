@@ -495,7 +495,16 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			var message = inst.get("message", "")
 			message = _substitute_variables(message)
 			print("[OYS PRINT] ", message)
+			_log_to_console("OYS", message)
 			_show_subtitle(message, Color.white, 2.5)
+
+		"LOG":
+			var tag = inst.get("tag", "OYS")
+			var message = inst.get("message", "")
+			var color = inst.get("color", "")
+			message = _substitute_variables(message)
+			_log_to_console(tag, message, color)
+
 
 		"CLS":
 			_clear_subtitles(false)
@@ -589,6 +598,8 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			if assert_result.get("evaluated", false):
 				var msg = String(assert_result.get("message", "Assertion"))
 				if bool(assert_result.get("passed", false)):
+					print("[OYS ASSERT] OK: %s" % msg)
+					_log_to_console("ASSERT_OK", msg)
 					_show_subtitle("ASSERT OK: %s" % msg, Color(0.35, 1.0, 0.35), 2.5)
 				else:
 					var fail_text = "ASSERT FAIL: %s (%s %s %s)" % [
@@ -597,6 +608,7 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 						str(assert_result.get("op")),
 						str(assert_result.get("right"))
 					]
+					_log_to_console("ASSERT_FAIL", fail_text)
 					_show_subtitle(fail_text, Color(1.0, 0.35, 0.35), 3.0)
 			if not bool(assert_result.get("passed", true)):
 				test_failed = true
@@ -1356,6 +1368,17 @@ func _show_subtitle(text: String, color: Color = Color.white, duration: float = 
 	var manager = _get_subtitles_manager()
 	if manager and manager.has_method("show_subtitle"):
 		manager.show_subtitle(text, color, duration)
+
+func _log_to_console(tag: String, message: String, color_override: String = "") -> void:
+	var root = _find_root()
+	if not root: return
+	var console = root.get_node_or_null("OYS_Console")
+	if console and console.has_method("add_log"):
+		console.add_log(tag, message, color_override)
+
+func _find_root() -> Node:
+	if not host_node: return null
+	return host_node.get_tree().root
 
 func _clear_subtitles(immediate: bool = false) -> void:
 	var manager = _get_subtitles_manager()

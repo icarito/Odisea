@@ -1,4 +1,4 @@
-[gd_scene load_steps=309 format=2]
+[gd_scene load_steps=310 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -39,6 +39,7 @@
 [ext_resource path="res://assets/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=37]
 [ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=38]
 [ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=39]
+[ext_resource path="res://assets/music/(loreley...).mp3" type="AudioStream" id=40]
 [ext_resource path="res://core_v2/components/BGMZoneV2.gd" type="Script" id=41]
 [ext_resource path="res://addons/zylann.scatter/scatter3d.gd" type="Script" id=42]
 [ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=43]
@@ -1076,6 +1077,9 @@ skeleton = NodePath("")
 transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
 auto_interact = true
 
+[node name="SFX Open sound" parent="CrioPod START/RotatingObjectV2" index="3"]
+volume_db = 0.0
+
 [node name="Pilot" parent="CrioPod START" instance=ExtResource( 2 )]
 transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0.000200272, 0.721707, -0.123402 )
 
@@ -1134,6 +1138,7 @@ rotation_mode = 0
 
 [node name="Camera" type="Camera" parent="CornerFloor/CinematicCameraZone/CinematicPathRig/PathFollow"]
 transform = Transform( -0.304267, -0.260234, 0.916352, 0, 0.961961, 0.273187, -0.952592, 0.0831221, -0.292694, 0, 0, 0 )
+current = true
 near = 0.1
 far = 1000.0
 
@@ -2230,6 +2235,7 @@ script = ExtResource( 41 )
 debug_color = Color( 0, 1, 0, 0.0901961 )
 debug_render = false
 zone_extents = Vector3( 18.9, 15, 25 )
+bgm_stream = ExtResource( 40 )
 fade_time = 0.2
 
 [node name="CollisionShape2" type="CollisionShape" parent="BGMZoneV2"]

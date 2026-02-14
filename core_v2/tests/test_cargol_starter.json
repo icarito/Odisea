@@ -14,7 +14,7 @@
         ],
         "yaw": 0,
         "pitch": -0,
-        "base_spring_length_3d": 7,
+        "base_spring_length_3d": 10,
         "movement_state": {
           "horizontal_velocity": [
             0,
@@ -2070,42 +2070,6 @@
         "crouch": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -2126,7 +2090,7 @@
         ]
       }
     ],
-    "115": [
+    "113": [
 
     ]
   },
@@ -2194,7 +2158,7 @@
     ],
     "yaw": 0,
     "pitch": -0,
-    "base_spring_length_3d": 7,
+    "base_spring_length_3d": 10,
     "movement_state": {
       "horizontal_velocity": [
         0,

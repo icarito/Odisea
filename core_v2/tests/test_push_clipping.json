@@ -14,7 +14,7 @@
         ],
         "yaw": 0,
         "pitch": -0,
-        "base_spring_length_3d": 7,
+        "base_spring_length_3d": 10,
         "movement_state": {
           "horizontal_velocity": [
             0,
@@ -1931,24 +1931,6 @@
       "input": {
         "move_vec": [
           0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
           1
         ],
         "mouse_delta": [
@@ -2813,10 +2795,10 @@
     "93": [
 
     ],
-    "106": [
+    "105": [
 
     ],
-    "140": [
+    "139": [
 
     ]
   },
@@ -2970,22 +2952,22 @@
   },
   "final_expected_state": {
     "position": [
-      1.855405,
+      1.835413,
       0.1415,
-      2.106768
+      2.152882
     ],
     "velocity": [
       0.5,
-      -0.233341,
+      -0.233327,
       0
     ],
     "yaw": -1.570796,
     "pitch": 1.047198,
-    "base_spring_length_3d": 7,
+    "base_spring_length_3d": 10,
     "movement_state": {
       "horizontal_velocity": [
         0.5,
-        -0.000007,
+        0.000006,
         0
       ],
       "external_velocity": [

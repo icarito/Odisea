@@ -40,27 +40,18 @@ script = ExtResource( 3 )
 
 [node name="Metal1" type="AudioStreamPlayer3D" parent="ImpactSfx1"]
 stream = ExtResource( 4 )
-unit_db = -8.0
-unit_size = 1.0
-max_distance = 16.0
-bus = "SFX"
+max_distance = 30.0
 
 [node name="ImpactSfx2" type="Spatial" parent="."]
 script = ExtResource( 3 )
 
 [node name="Metal2" type="AudioStreamPlayer3D" parent="ImpactSfx2"]
 stream = ExtResource( 5 )
-unit_db = -8.0
-unit_size = 1.0
-max_distance = 16.0
-bus = "SFX"
+max_distance = 30.0
 
 [node name="ImpactSfx3" type="Spatial" parent="."]
 script = ExtResource( 3 )
 
 [node name="Metal3" type="AudioStreamPlayer3D" parent="ImpactSfx3"]
 stream = ExtResource( 6 )
-unit_db = -8.0
-unit_size = 1.0
-max_distance = 16.0
-bus = "SFX"
+max_distance = 30.0

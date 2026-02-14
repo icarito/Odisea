@@ -51,6 +51,7 @@ var _debug_sphere: MeshInstance = null
 var _hand_l_gizmo: MeshInstance = null
 var _hand_r_gizmo: MeshInstance = null
 var _skeleton: Skeleton = null
+onready var jump_sfx: SFXComponentV2 = get_node_or_null("JumpSFX")
 
 # --- STATE ---
 # Almacena la velocidad suavizada para el blend tree de animación.
@@ -346,6 +347,9 @@ func _on_controller_jumped() -> void:
 	# Activar buffer de salto para mantener `is_jumping` verdadero algunos ms
 	jumped_buffer_time = jump_buffer_duration
 
+	if jump_sfx:
+		jump_sfx.play_sfx()
+
 func _on_controller_hit_ceiling() -> void:
 	"""Se ejecuta cuando el controlador emite la señal 'hit_ceiling'."""
 	hit_head_active = true
@@ -378,6 +382,9 @@ func _on_controller_acrobatic_jumped() -> void:
 				
 			is_rotation_locked = true # Bloquear hasta aterrizar
 			print("PilotAnimator: Backflip LOCKED orientation")
+		
+		if jump_sfx:
+			jump_sfx.play_sfx()
 		
 		# IMPORTANTE: NO configuramos jumped_buffer_time aquí para evitar que 'is_jumping' se active
 		# y compita con 'is_acrobatic'. Queremos ir SOLO al estado Acrobatic.

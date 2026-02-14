@@ -2,7 +2,7 @@ extends Node
 
 const SubtitlesOverlayScene = preload("res://core_v2/ui/retro/SubtitlesOverlay.tscn")
 
-var _overlay: Node = null
+var _overlay: Control = null
 var _warned_unavailable := false
 
 func show_subtitle(text: String, color: Color = Color.white, duration: float = 2.5) -> void:
@@ -41,7 +41,6 @@ func _ensure_overlay() -> bool:
 	if not is_instance_valid(_overlay):
 		return false
 	_overlay.name = "SubtitlesOverlay"
-	# Always add to root to ensure it stays across scene changes
 	get_tree().root.add_child(_overlay)
 	return true
 

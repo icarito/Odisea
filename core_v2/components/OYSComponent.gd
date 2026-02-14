@@ -19,6 +19,7 @@ var _initial_yaw: float = 0.0
 var _initial_pitch: float = 0.0
 var _has_initial_position: bool = false
 var _smooth_correction_target: Vector3 = Vector3.ZERO
+var _player: KinematicBody = null # Referencia cacheada al jugador
 var _smooth_correction_active: bool = false
 const SMOOTH_CORRECTION_SPEED: float = 10.0 # Unidades por segundo
 
@@ -30,24 +31,43 @@ func _ready():
 	# Conectar a CheckZones para guardar checkpoints durante el script
 	_connect_to_checkzones()
 
+# Función centralizada para obtener y cachear la referencia al jugador.
+# Esto evita múltiples yields y búsquedas, previniendo condiciones de carrera.
+func _get_player() -> KinematicBody:
+	if is_instance_valid(_player):
+		yield (get_tree(), "idle_frame")
+		return _player
+	
+	# Esperar que el árbol de escenas esté completamente listo
+	yield (get_tree(), "idle_frame")
+	
+	var p = get_parent()
+	if not p or not p.is_in_group("player"):
+		p = get_tree().get_root().find_node("Pilot", true, false)
+	
+	if is_instance_valid(p):
+		_player = p
+	return _player
+
 # Llamado por OYSTrigger para establecer la posición inicial exacta
 func set_initial_position(pos: Vector3, yaw: float, pitch: float):
 	_initial_position = pos
 	_initial_yaw = yaw
 	_initial_pitch = pitch
 	_has_initial_position = true
-	
-	# Forzar posición inmediatamente para snapshot determinista
-	var player = get_parent()
-	if not player or not player.is_in_group("player"):
-		player = get_tree().get_root().find_node("Pilot", true, false)
+	var player = yield (_get_player(), "completed")
 	if player:
+		print("[OYSComponent] Forzando posición inicial en player: ", player.name)
+		# Resetear estado físico completamente para evitar herencia de momento
+		if "velocity" in player:
+			player.velocity = Vector3.ZERO
+		if player.has_method("set_external_velocity"):
+			player.set_external_velocity(Vector3.ZERO)
+
 		var t = player.global_transform
 		t.origin.x = pos.x
 		t.origin.z = pos.z
 		player.global_transform = t
-		if "velocity" in player:
-			player.velocity = Vector3.ZERO
 	
 	# Desactivar corrección suave ya que forzamos posición
 	_smooth_correction_active = false
@@ -65,10 +85,9 @@ func load_and_start(path: String, start_section: String = ""):
 
 		# Guardar snapshot INICIAL con la posición del trigger
 		if _initial_snapshot.empty():
-			var player = get_parent()
-			if not player or not player.is_in_group("player"):
-				player = get_tree().get_root().find_node("Pilot", true, false)
+			var player = yield (_get_player(), "completed")
 			if player and player.has_method("get_full_snapshot"):
+				print("[OYSComponent] Generando snapshot inicial desde player: ", player.name)
 				_initial_snapshot = player.get_full_snapshot()
 				
 				# Si tenemos posición inicial del trigger, usarla
@@ -90,25 +109,18 @@ func _run_and_unpause(start_section: String) -> void:
 	
 	# Restaurar snapshot ANTES de ejecutar el script (para hot-reload)
 	if not _player_snapshot.empty():
-		var player = get_parent()
-		if not player or not player.is_in_group("player"):
-			player = get_tree().get_root().find_node("Pilot", true, false)
-		
+		var player = yield (_get_player(), "completed")
 		if player and player.has_method("restore_snapshot"):
+			print("[OYSComponent] Restaurando snapshot en player: ", player.name)
 			print("[OYSComponent] Restaurando snapshot ANTES de ejecutar script...")
 			
-			# Ahora restaurar el snapshot
 			player.restore_snapshot(_player_snapshot)
 			
-			# Forzar posición por varios frames más
-			for _i in range(5):
-				if not is_inside_tree():
-					return # Nodo eliminado
-				yield (get_tree(), "physics_frame")
-				if not is_instance_valid(player):
-					return # Player eliminado
-				player.restore_snapshot(_player_snapshot)
+			# Esperar un frame de física para que la restauración se asiente
+			# antes de que el script comience a ejecutarse.
+			yield (get_tree(), "physics_frame")
 			
+			if not is_instance_valid(player): return
 			print("[OYSComponent] ✅ Pos restaurada: ", player.global_transform.origin)
 		_player_snapshot = {} # Limpiar para no restaurar de nuevo
 	
@@ -123,7 +135,10 @@ func _run_and_unpause(start_section: String) -> void:
 	var result = interpreter.run(start_section)
 	if result is GDScriptFunctionState:
 		yield (result, "completed")
-	_set_player_pause(false)
+	
+	# Solo desactivar pausa si no se solicitó una detención (ej. por hot-reload)
+	if not interpreter.stop_requested:
+		_set_player_pause(false)
 
 	# Propagar fallo de test al runner
 	if interpreter.test_failed:
@@ -138,24 +153,19 @@ func _run_from_pc(from_pc: int) -> void:
 	
 	# Restaurar snapshot ANTES de ejecutar el script
 	if not _player_snapshot.empty():
-		var player = get_parent()
-		if not player or not player.is_in_group("player"):
-			player = get_tree().get_root().find_node("Pilot", true, false)
-		
+		var player = yield (_get_player(), "completed")
 		if player and player.has_method("restore_snapshot"):
+			print("[OYSComponent] Restaurando snapshot (hot-reload) en player: ", player.name)
+
 			print("[OYSComponent] Restaurando snapshot para hot-reload...")
 			
 			player.restore_snapshot(_player_snapshot)
 			
-			# Forzar posición por varios frames más
-			for _i in range(5):
-				if not is_inside_tree():
-					return # Nodo eliminado
-				yield (get_tree(), "physics_frame")
-				if not is_instance_valid(player):
-					return # Player eliminado
-				player.restore_snapshot(_player_snapshot)
+			# Esperar un frame de física para que la restauración se asiente
+			# antes de que el script comience a ejecutarse.
+			yield (get_tree(), "physics_frame")
 			
+			if not is_instance_valid(player): return
 			print("[OYSComponent] ✅ Pos restaurada: ", player.global_transform.origin)
 		_player_snapshot = {}
 	
@@ -169,11 +179,18 @@ func _run_from_pc(from_pc: int) -> void:
 	var result = interpreter.run_from_pc(from_pc)
 	if result is GDScriptFunctionState:
 		yield (result, "completed")
-	_set_player_pause(false)
+	
+	# Solo desactivar pausa si no se solicitó una detención (ej. por hot-reload)
+	if not interpreter.stop_requested:
+		_set_player_pause(false)
 
 func _process(_delta):
 	# Hot-reload detection
-	if _current_path != "" and (OS.is_debug_build() or Engine.is_editor_hint()):
+	# Desactivado durante test runs para evitar reloads accidentales.
+	var is_test_runner_active = get_tree().get_root().has_node("GdUnitRunner")
+	var can_hot_reload = (OS.is_debug_build() or Engine.is_editor_hint()) and not is_test_runner_active
+	
+	if _current_path != "" and can_hot_reload:
 		var f = File.new()
 		if f.file_exists(_current_path):
 			var mtime = f.get_modified_time(_current_path)
@@ -207,6 +224,9 @@ func _process(_delta):
 				
 				interpreter.parse(content)
 				
+				# REALIZAR HARD RESET antes de relanzar
+				hard_reset()
+				
 				# Si tenemos checkpoint, establecer el pc directamente
 				if resume_pc > 0 and resume_pc < interpreter.instructions.size():
 					# Buscar la sección que contiene este pc para logging
@@ -221,10 +241,7 @@ func _process(_delta):
 func _physics_process(delta):
 	# Corrección suave de posición hacia el centro del trigger
 	if _smooth_correction_active:
-		var player = get_parent()
-		if not player or not player.is_in_group("player"):
-			player = get_tree().get_root().find_node("Pilot", true, false)
-		
+		var player = _player # Usar la referencia cacheada
 		if player:
 			var current_pos = player.global_transform.origin
 			# Solo corregir X y Z, mantener Y del jugador
@@ -246,12 +263,10 @@ func _physics_process(delta):
 				player.global_transform = t
 
 func _set_player_pause(paused: bool):
-	var player = get_parent()
-	# Try to find player if parent is not it (e.g. if we are a child of a Logic node)
-	if not player or not player.is_in_group("player"):
-		player = get_tree().get_root().find_node("Pilot", true, false)
-
+	# Usar referencia cacheada. Si no existe, no hacer nada.
+	var player = _player
 	if player and "is_replay_mode" in player:
+		print("[OYSComponent] Setting is_replay_mode=", paused, " en player: ", player.name)
 		player.is_replay_mode = paused
 
 # Conectar a todos los CheckZones para capturar checkpoints durante el script
@@ -273,14 +288,59 @@ func _on_checkpoint_reached(_base_transform: Transform):
 	if not interpreter or not interpreter.is_running:
 		return # Solo guardar checkpoints mientras el script está corriendo
 	
-	var player = get_parent()
-	if not player or not player.is_in_group("player"):
-		player = get_tree().get_root().find_node("Pilot", true, false)
-	
+	var player = yield (_get_player(), "completed")
 	if player and player.has_method("get_full_snapshot"):
+		print("[OYSComponent] Guardando checkpoint desde player: ", player.name)
 		_checkpoint_snapshot = player.get_full_snapshot()
 		_checkpoint_pc = interpreter.pc
 		print("[OYSComponent] 📍 Checkpoint guardado en pc=", _checkpoint_pc, " pos=", _checkpoint_snapshot.get("position", []))
+
+# Realiza un reset completo de sistemas globales y estado del jugador
+func hard_reset():
+	print("[OYSComponent] Executing HARD RESET...")
+	
+	# 1. Detener intérprete inmediatamente
+	if interpreter:
+		interpreter.stop_requested = true
+	
+	# 2. Resetear Audio
+	var am = get_node_or_null("/root/AudioManager")
+	if am and am.has_method("reset"):
+		am.reset()
+	
+	# 3. Resetear Cinemáticas
+	var cm = get_node_or_null("/root/CinematicManager")
+	if cm and cm.has_method("reset"):
+		cm.reset()
+	
+	# 4. Resetear Animaciones del Jugador
+	var player = _player
+	if not is_instance_valid(player):
+		# Intentar obtenerlo si no es válido
+		# Nota: No podemos usar yield aquí porque hard_reset debe ser síncrono para el hot-reload call_deferred
+		player = get_tree().get_root().find_node("Pilot", true, false)
+	
+	if is_instance_valid(player):
+		print("[OYSComponent] Reseteando animaciones de: ", player.name)
+		var anim = player.find_node("AnimationPlayer", true, false)
+		if anim:
+			anim.stop()
+			if anim.has_animation("Idle"):
+				anim.play("Idle")
+		
+		# Forzar reset de estados de animación si usa AnimationTree
+		var tree = player.find_node("AnimationTree", true, false)
+		if tree:
+			tree.active = false
+			tree.active = true
+	
+	# 5. Resetear escala de tiempo
+	Engine.time_scale = 1.0
+	
+	# 6. Limpiar subtítulos
+	var sub = get_node_or_null("/root/SubtitlesOverlayManager")
+	if sub and sub.has_method("clear_all"):
+		sub.clear_all()
 
 # Limpiar estado para un nuevo script
 func _clear_state():
@@ -290,6 +350,7 @@ func _clear_state():
 	_checkpoint_pc = -1
 	_has_initial_position = false
 	_smooth_correction_active = false
+	_player = null
 
 func on_trigger_exit():
 	# Called by OYSTrigger when player exits the trigger area

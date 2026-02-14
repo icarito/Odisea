@@ -27,7 +27,9 @@ const CHANNEL_COLORS := {
 	"CORE": "#33FF33",
 	"WARN": "#FFFF00",
 	"ERR": "#FF3333",
-	"AI": "#FF33FF"
+	"AI": "#FF33FF",
+	"ASSERT_OK": "#00FF00",
+	"ASSERT_FAIL": "#FF3333"
 }
 
 var allow_cheats := false
@@ -76,14 +78,20 @@ func enqueue_command(line: String) -> void:
 	_queue.append(clean)
 	_push_history(clean)
 
-func add_log(tag: String, message: String) -> void:
+func add_log(tag: String, message: String, color_override: String = "") -> void:
 	var t = tag.to_upper()
-	if not CHANNEL_COLORS.has(t):
-		t = "SYS"
+	var final_color = color_override
+	if final_color == "":
+		if CHANNEL_COLORS.has(t):
+			final_color = CHANNEL_COLORS[t]
+		else:
+			t = "SYS"
+			final_color = CHANNEL_COLORS["SYS"]
+	
 	var entry = {
 		"tag": t,
 		"text": message,
-		"color": CHANNEL_COLORS[t]
+		"color": final_color
 	}
 	_logs.append(entry)
 	while _logs.size() > MAX_LOG_LINES:

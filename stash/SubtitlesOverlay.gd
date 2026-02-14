@@ -1,4 +1,4 @@
-extends CanvasLayer
+extends Control
 
 export(float) var default_duration := 2.5
 export(float) var fade_in_sec := 0.2
@@ -13,15 +13,14 @@ export(float) var panel_alpha := 0.62
 
 var _entries := []
 var _layout_tween: Tween = null
-var _cached_font: DynamicFont = null
 
 onready var _layer: Control = $Layer
-var _stack: VBoxContainer = null
 
 func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	set_process(true)
 	if is_instance_valid(_layer):
 		_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	set_process(true)
 
 func _process(_delta: float) -> void:
 	var now = OS.get_ticks_msec() / 1000.0
@@ -78,30 +77,19 @@ func _build_line(text: String, color: Color) -> PanelContainer:
 	label.align = Label.ALIGN_CENTER
 	label.valign = Label.VALIGN_CENTER
 	label.text = text
-	label.add_color_override("font_color", Color.white)
-	var font = _get_subtitle_font()
-	label.add_font_override("font", font)
+	label.add_color_override("font_color", color)
+	label.add_font_override("font", _build_font())
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(label)
 
-	# Calculate required width based on text
-	var text_w = font.get_string_size(text).x
-	if text_w <= 10.0: text_w = text.length() * 12.0 # Fallback
-	
-	var v_size = _layer.get_viewport_rect().size
-	if v_size.x <= 0: v_size = Vector2(1024, 600)
-	var max_w = min(600.0, v_size.x * 0.8)
-	var req_w = clamp(text_w + 64.0, 240.0, max_w)
-	
-	panel.rect_min_size = Vector2(req_w, 0.0)
-	panel.rect_size = panel.rect_min_size
-	
-	label.rect_min_size = Vector2(req_w - 48.0, 0.0)
-	label.rect_size = label.rect_min_size
-	
-	var min_h = max(40.0, label.get_combined_minimum_size().y + 24.0)
-	panel.rect_min_size = Vector2(req_w, min_h)
-	panel.rect_size = panel.rect_min_size
+	var max_width = max(240.0, rect_size.x * max_width_ratio)
+	panel.rect_size = Vector2(max_width, 0.0)
+	margin.rect_size = panel.rect_size
+	label.rect_size = Vector2(max_width - 36.0, 0.0)
+	var min_h = max(36.0, label.get_minimum_size().y + 20.0)
+	panel.rect_size = Vector2(max_width, min_h)
+	margin.rect_size = panel.rect_size
+	label.rect_size = Vector2(max_width - 36.0, min_h - 20.0)
 	return panel
 
 func _build_stylebox() -> StyleBoxFlat:
@@ -116,34 +104,31 @@ func _build_stylebox() -> StyleBoxFlat:
 	sb.shadow_offset = Vector2(0, 1)
 	return sb
 
-func _get_subtitle_font() -> DynamicFont:
-	if _cached_font:
-		return _cached_font
-	_cached_font = DynamicFont.new()
-	var font_data = load("res://assets/fonts/SyneMono-Regular.ttf")
-	if not font_data: font_data = load("res://core_v2/ui/fonts/SyneMono-Regular.ttf")
-	if font_data: _cached_font.font_data = font_data
-	_cached_font.size = 20
-	_cached_font.use_filter = true
-	_cached_font.use_mipmaps = true
-	return _cached_font
-
 func _build_font() -> DynamicFont:
-	return _get_subtitle_font()
+	var font := DynamicFont.new()
+	var font_data := load("res://assets/fonts/SyneMono-Regular.ttf")
+	if font_data:
+		font.font_data = font_data
+	font.size = 20
+	font.use_filter = true
+	font.use_mipmaps = true
+	return font
 
 func _reflow(animated: bool) -> void:
 	_cleanup_stale_entries()
-	var v_size = _layer.get_viewport_rect().size
-	if v_size.x <= 0.0: v_size = Vector2(1024, 600)
+	var viewport_size = rect_size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		viewport_size = get_viewport_rect().size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return
 
-	var cursor_y = v_size.y - bottom_margin
+	var cursor_y = viewport_size.y - bottom_margin
 	for i in range(_entries.size() - 1, -1, -1):
 		var entry = _entries[i]
 		var node = entry.get("node", null)
 		if not is_instance_valid(node):
 			continue
-		var node_size = node.rect_min_size
-		var pos = Vector2((v_size.x - node_size.x) * 0.5, cursor_y - node_size.y)
+		var pos = Vector2((viewport_size.x - node.rect_size.x) * 0.5, cursor_y - node.rect_size.y)
 		entry["target_pos"] = pos
 		_entries[i] = entry
 		cursor_y = pos.y - line_spacing
@@ -212,7 +197,6 @@ func _remove_entry(entry: Dictionary) -> void:
 		if node == target_node:
 			_entries.remove(i)
 			return
-	_cleanup_stale_entries()
 
 func _cleanup_stale_entries() -> void:
 	for i in range(_entries.size() - 1, -1, -1):
