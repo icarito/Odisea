@@ -23,6 +23,7 @@ var _target_basis = null
 var _impact_cooldown_left = 0.0
 var _impact_sound_index = 0
 var _impact_players = []
+var _perf_monitor = null
 
 func _init():
 	add_to_group("pushable")
@@ -49,11 +50,20 @@ func _ready():
 		_apply_snapshot(_pending_snapshot)
 		_pending_snapshot = null
 
+	# Register with Performance Monitor
+	if Engine.has_singleton("PerformanceMonitor") or has_node("/root/PerformanceMonitor"):
+		_perf_monitor = get_node("/root/PerformanceMonitor")
+		if _perf_monitor: _perf_monitor.register_monitored_node(self)
+
 func step(dt):
+	if _perf_monitor: _perf_monitor.measure_start(self, "step")
+
 	if mode == RigidBody.MODE_RIGID:
 		_handle_rigid_logic(dt)
 	elif mode == RigidBody.MODE_KINEMATIC and _target_basis != null:
 		_handle_smooth_rotation(dt)
+
+	if _perf_monitor: _perf_monitor.measure_end(self, "step")
 
 func _handle_smooth_rotation(dt):
 	var current_q = global_transform.basis.get_rotation_quat()

@@ -1,0 +1,46 @@
+# Stress Test Execution Script
+
+LEVEL res://core_v2/levels/TestScene_v2.tscn
+
+# Spawn the runner
+SPAWN scene="res://core_v2/tests/stress/StressTestRunner.tscn" pos=[0, 0, 0]
+
+# Wait for initialization
+WAIT 1.0
+
+# 1. Saturation Test (100 Entities)
+PRINT ">>> [STRESS] Running Saturation Test (100 Entities)"
+CALL StressTestRunner "run_saturation_test" 100
+WAIT 4.0
+CALL StressTestRunner "stop_test"
+WAIT 1.0
+
+# 2. Spawning Test (Creation/Destruction Loop)
+PRINT ">>> [STRESS] Running Spawning Test (Create/Destroy Loop)"
+CALL StressTestRunner "run_spawning_test"
+WAIT 4.0
+CALL StressTestRunner "stop_test"
+WAIT 1.0
+
+# 3. Pathfinding (Blocking) Test
+PRINT ">>> [STRESS] Running Pathfinding Blocking Test (50 Agents)"
+CALL StressTestRunner "run_pathfinding_test" 50
+WAIT 4.0
+CALL StressTestRunner "stop_test"
+WAIT 1.0
+
+# 4. Hierarchy Test (Deep Nodes)
+PRINT ">>> [STRESS] Running Hierarchy Test (Depth 50)"
+CALL StressTestRunner "run_hierarchy_test" 50
+WAIT 4.0
+CALL StressTestRunner "stop_test"
+WAIT 1.0
+
+# 5. Physics Box Test
+PRINT ">>> [STRESS] Running Physics Box Test (50 Boxes)"
+CALL StressTestRunner "run_physics_box_test" 50
+WAIT 6.0
+CALL StressTestRunner "stop_test"
+WAIT 1.0
+
+PRINT ">>> [STRESS] All Tests Completed Successfully"
