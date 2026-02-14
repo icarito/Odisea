@@ -32,8 +32,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
-          key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}
+          key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-${{ github.workflow }}-${{ github.job }}
           restore-keys: |
+            ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-
             ${{ runner.os }}-godot-bin-
 
       - name: Install runner prerequisites
