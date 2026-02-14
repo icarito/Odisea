@@ -72,6 +72,54 @@ def pytest_configure(config):
             config.option.numprocesses = "auto"
 
 
+def _is_github_actions() -> bool:
+    return os.environ.get("GITHUB_ACTIONS") == "true"
+
+
+def _gha_escape(value: str) -> str:
+    return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def pytest_collection_modifyitems(config, items):
+    runner = config.getoption("--odisea-runner")
+    deselected = []
+    selected = []
+    for item in items:
+        is_gdunit = "odisea_gdunit" in item.keywords
+        is_raw_oys = "odisea_raw_oys" in item.keywords
+
+        if is_gdunit and runner != "gdunit":
+            deselected.append(item)
+            continue
+        if is_raw_oys and runner != "raw-oys":
+            deselected.append(item)
+            continue
+        selected.append(item)
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = selected
+
+
+def pytest_runtest_logreport(report):
+    if not _is_github_actions():
+        return
+    if report.when != "call":
+        return
+    if not (report.failed or report.skipped):
+        return
+
+    path, line_no, _ = report.location
+    title = "Pytest Failure" if report.failed else "Pytest Skipped"
+    level = "error" if report.failed else "notice"
+    details = getattr(report, "longreprtext", "") or report.outcome
+    message = _gha_escape(details.splitlines()[0][:400])
+    nodeid = _gha_escape(report.nodeid)
+    print(
+        f"::{level} file={path},line={line_no + 1},title={title}::{nodeid} | {message}"
+    )
+
+
 @pytest.fixture(scope="session")
 def repo_root() -> Path:
     return Path(__file__).resolve().parent
@@ -126,7 +174,7 @@ def stream_process(cmd, file_hint: Path | None = None, filter_visualserver: bool
         if "ASSERT FAILED" in clean or "Assertion failed" in clean:
             captured_failed_asserts.append(clean)
 
-        if os.environ.get("GITHUB_ACTIONS") == "true" and file_hint is not None:
+        if _is_github_actions() and file_hint is not None:
             if "[ERROR]" in clean:
                 print(f"::error file={file_hint}::{clean}")
             elif "[WARNING]" in clean:
@@ -164,13 +212,17 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         failed = len(stats.get("failed", []))
         errors = len(stats.get("error", []))
         skipped = len(stats.get("skipped", []))
+        deselected = len(stats.get("deselected", []))
+        total_executed = passed + failed + errors + skipped
 
         f.write("| Status | Count |\n")
         f.write("| :--- | :--- |\n")
         f.write(f"| Passed | {passed} |\n")
         f.write(f"| Failed | {failed} |\n")
         f.write(f"| Errors | {errors} |\n")
-        f.write(f"| Skipped | {skipped} |\n\n")
+        f.write(f"| Skipped | {skipped} |\n")
+        f.write(f"| Deselected | {deselected} |\n\n")
+        f.write(f"**Executed tests:** {total_executed}\n\n")
 
         if failed > 0 or errors > 0:
             f.write("### Failures & Errors\n")
@@ -178,3 +230,17 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 f.write(f"- FAILED: `{rep.nodeid}`\n")
             for rep in stats.get("error", []):
                 f.write(f"- ERROR: `{rep.nodeid}`\n")
+
+        if skipped > 0:
+            reasons = {}
+            for rep in stats.get("skipped", []):
+                reason = "unknown"
+                if isinstance(rep.longrepr, tuple) and len(rep.longrepr) >= 3:
+                    reason = str(rep.longrepr[2]).strip()
+                elif hasattr(rep, "longreprtext"):
+                    reason = rep.longreprtext.splitlines()[-1].strip()
+                reasons[reason] = reasons.get(reason, 0) + 1
+
+            f.write("\n### Skip Reasons\n")
+            for reason, count in sorted(reasons.items(), key=lambda entry: entry[1], reverse=True):
+                f.write(f"- {count}x {reason}\n")

@@ -50,9 +50,10 @@ jobs:
       - name: Run GDUnit3 Tests
         env:
           GODOT_BIN: /usr/local/bin/godot
+          ODISEA_SHELL_RUNNER: gdunit
         run: |
           chmod +x ./runtest.sh
-          xvfb-run ./runtest.sh -a res://core_v2/tests
+          xvfb-run ./runtest.sh --runner gdunit -a res://core_v2/tests
 
       - name: Publicar resumen de tests y drift
         if: always()

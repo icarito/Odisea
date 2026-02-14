@@ -102,6 +102,7 @@ def _collect_raw_oys_files(repo_root: Path):
     return files
 
 
+@pytest.mark.odisea_gdunit
 @pytest.mark.parametrize("suite_path", _collect_gdunit_suites(Path(__file__).resolve().parents[1]), ids=lambda p: p.name)
 def test_gdunit_suite(suite_path: Path, selected_runner: str, repo_root: Path, odisea_debug: bool):
     if selected_runner != "gdunit":
@@ -119,6 +120,7 @@ def test_gdunit_suite(suite_path: Path, selected_runner: str, repo_root: Path, o
         raise RunnerError(f"runtest.sh failed for {rel_suite} with return code {returncode}.")
 
 
+@pytest.mark.odisea_gdunit
 @pytest.mark.parametrize("oys_name", _collect_determinism_oys_cases(Path(__file__).resolve().parents[1]))
 def test_determinism_batched_case(oys_name: str, selected_runner: str, odisea_debug: bool):
     if selected_runner != "gdunit":
@@ -135,6 +137,7 @@ def test_determinism_batched_case(oys_name: str, selected_runner: str, odisea_de
         raise RunnerError(f"runtest.sh failed for OYS case '{oys_name}' with return code {returncode}.")
 
 
+@pytest.mark.odisea_raw_oys
 @pytest.mark.parametrize("test_file", _collect_raw_oys_files(Path(__file__).resolve().parents[1]), ids=lambda p: p.name)
 def test_raw_oys_file(test_file: Path, selected_runner: str, repo_root: Path, odisea_debug: bool):
     if selected_runner != "raw-oys":

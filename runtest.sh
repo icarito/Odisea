@@ -11,6 +11,7 @@
 #   --oys     Ejecutar un test OYS específico por nombre
 #   --nodet   Saltar tests de determinism
 #   --debug   Mostrar output completo sin filtrar logs de debug
+#   --runner  Selecciona backend: auto|gdunit|pytest (default: auto)
 #
 # NOTA PARA AGENTES IA:
 #   El output siempre se guarda en ./reports/gdunit_runner.log
@@ -26,6 +27,8 @@ fi
 # Por defecto, ejecutar en modo headless (más rápido)
 HEADLESS="--no-window"
 DEBUG_OUTPUT=0
+RUNNER_MODE="${ODISEA_SHELL_RUNNER:-auto}"
+PYTEST_BIN=""
 
 # Procesar --show antes que otros argumentos
 if [ "$1" = "--show" ]; then
@@ -126,6 +129,58 @@ print_failed_asserts() {
     rm -f "$cleaned"
 }
 
+# Check if pytest is available for delegated execution.
+has_pytest_runner() {
+    if [ ! -f "./tests/test_odisea_runner.py" ]; then
+        return 1
+    fi
+    if command -v pytest >/dev/null 2>&1; then
+        PYTEST_BIN="$(command -v pytest)"
+        return 0
+    fi
+    if [ -x "./.venv/bin/pytest" ]; then
+        PYTEST_BIN="./.venv/bin/pytest"
+        return 0
+    fi
+    return 1
+}
+
+# True when target corresponds to "run all core_v2 tests".
+is_full_core_suite_target() {
+    local i=0
+    while [ $i -lt ${#ARGS[@]} ]; do
+        if [ "${ARGS[$i]}" = "-a" ]; then
+            local next_index=$((i + 1))
+            local target="${ARGS[$next_index]}"
+            case "$target" in
+                "./core_v2/tests"|"./core_v2/tests/"|"core_v2/tests"|"core_v2/tests/"|"res://core_v2/tests"|"res://core_v2/tests/")
+                    return 0
+                    ;;
+            esac
+        fi
+        i=$((i + 1))
+    done
+    return 1
+}
+
+run_pytest_delegate() {
+    local cmd=("$PYTEST_BIN" tests/test_odisea_runner.py --odisea-runner gdunit)
+    if [ -z "$HEADLESS" ]; then
+        cmd+=("--odisea-debug")
+    fi
+    if [ "${OYS_NODET:-0}" = "1" ]; then
+        cmd+=("-k" "not test_determinism_batched_case")
+    fi
+
+    echo "🐍 Delegando ejecución a pytest (runner gdunit)..."
+    echo "📋 Output guardado en: $LOG_FILE"
+    echo "Comando: ${cmd[*]}"
+    echo "---"
+
+    "${cmd[@]}" 2>&1 | tee "$LOG_FILE"
+    return ${PIPESTATUS[0]}
+}
+
 # Función para validar logs y detectar errores silenciosos (como SCRIPT ERROR)
 validate_logs() {
     local code=$1
@@ -166,6 +221,14 @@ while [[ $# -gt 0 ]]; do
         --debug)
             DEBUG_OUTPUT=1
             shift
+            ;;
+        --runner)
+            RUNNER_MODE="$2"
+            if [[ -z "$RUNNER_MODE" || ! "$RUNNER_MODE" =~ ^(auto|gdunit|pytest)$ ]]; then
+                echo "ERROR: --runner debe ser uno de: auto, gdunit, pytest"
+                exit 1
+            fi
+            shift 2
             ;;
         --oys)
             OYS_NAME="$2"
@@ -228,6 +291,29 @@ done
 # If no arguments provided, default to all tests
 if [ ${#ARGS[@]} -eq 0 ]; then
     ARGS=("-a" "./core_v2/tests/")
+fi
+
+# Try pytest delegation only for full-suite runs.
+if is_full_core_suite_target; then
+    if [ "$RUNNER_MODE" = "pytest" ]; then
+        if ! has_pytest_runner; then
+            echo "ERROR: --runner pytest solicitado, pero pytest o tests/test_odisea_runner.py no está disponible."
+            exit 127
+        fi
+        run_pytest_delegate
+        exit_code=$?
+        echo "---"
+        echo "📋 Log guardado en: $LOG_FILE"
+        exit $exit_code
+    fi
+
+    if [ "$RUNNER_MODE" = "auto" ] && has_pytest_runner; then
+        run_pytest_delegate
+        exit_code=$?
+        echo "---"
+        echo "📋 Log guardado en: $LOG_FILE"
+        exit $exit_code
+    fi
 fi
 
 echo "🧪 Ejecutando tests GdUnit3 ${HEADLESS:+(headless)}..."
