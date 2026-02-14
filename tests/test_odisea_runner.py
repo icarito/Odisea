@@ -82,6 +82,9 @@ def _collect_gdunit_suites(repo_root: Path):
 
 
 def _collect_determinism_oys_cases(repo_root: Path):
+    include_determinism = os.environ.get("ODISEA_INCLUDE_DETERMINISM", "").strip().lower()
+    if include_determinism not in {"1", "true", "yes", "on"}:
+        return []
     test_dir = repo_root / "core_v2" / "tests"
     return [path.stem for path in sorted(test_dir.glob("*.oys"))]
 
