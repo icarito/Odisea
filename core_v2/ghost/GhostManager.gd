@@ -1,0 +1,259 @@
+extends Node
+
+# GhostManager.gd
+# Handles Ghost Recording, Playback, and Sync Analysis.
+
+const GhostDummyScene = preload("res://core_v2/ghost/GhostDummy.tscn")
+
+var is_ghost_recording := false
+var is_playing_ghost := false
+var ghost_name := ""
+var ghost_buffer := []
+var ghost_dummy: Spatial = null
+var current_playback_index := 0
+var playback_accum_time := 0.0
+
+# Sync Analysis State
+var diff_threshold := 0.5
+var last_diff_distance := 0.0
+var last_checksum_match := true
+var diverging_vars := []
+
+func _ready():
+	name = "GhostManager"
+	# Register as OYS Actor
+	var session = get_node_or_null("/root/SessionManager")
+	if session and session.has_method("register_oys_actor"):
+		session.register_oys_actor("GhostManager", self)
+	print("[GhostManager] Initialized and registered.")
+
+# --- CONSOLE COMMANDS (OYS) ---
+
+func ghost_record(name_str: String):
+	var session = get_node_or_null("/root/SessionManager")
+	if not session:
+		printerr("[GhostManager] SessionManager not found!")
+		return
+
+	ghost_name = name_str
+	is_ghost_recording = true
+	is_playing_ghost = false
+
+	# Start SessionManager recording
+	# We rely on SessionManager to manage the loop and call us back via capture_frame
+	session.start_recording()
+	print("[GhostManager] Started recording ghost: ", ghost_name)
+
+func ghost_play(name_str: String):
+	ghost_name = name_str
+	var path = "user://captures/" + ghost_name + ".ghost"
+
+	var file = File.new()
+	if not file.file_exists(path):
+		printerr("[GhostManager] Ghost file not found: ", path)
+		return
+
+	file.open(path, File.READ)
+	var content = file.get_as_text()
+	file.close()
+
+	var parse_result = JSON.parse(content)
+	if parse_result.error != OK:
+		printerr("[GhostManager] Failed to parse ghost file!")
+		return
+
+	var data = parse_result.result
+	if not data.has("buffer"):
+		printerr("[GhostManager] Invalid ghost file format (missing buffer).")
+		return
+
+	ghost_buffer = data["buffer"]
+	current_playback_index = 0
+	playback_accum_time = 0.0
+	is_playing_ghost = true
+	is_ghost_recording = false
+
+	_spawn_dummy()
+	print("[GhostManager] Started playing ghost: ", ghost_name)
+
+func ghost_stop():
+	is_ghost_recording = false
+	is_playing_ghost = false
+	var session = get_node_or_null("/root/SessionManager")
+	if session and session.is_recording:
+		session.stop_and_save_recording()
+
+	if is_instance_valid(ghost_dummy):
+		ghost_dummy.queue_free()
+		ghost_dummy = null
+	print("[GhostManager] Stopped.")
+
+func ghost_diff():
+	# Explicit diff check request
+	if not is_playing_ghost:
+		print("[GhostManager] Not playing ghost.")
+		return
+
+	print("[GhostManager] Diff Status: Dist=%.4f ChecksumMatch=%s" % [last_diff_distance, last_checksum_match])
+	if not last_checksum_match:
+		print("  Diverging Vars: ", diverging_vars)
+		print("[GhostManager] PAUSING GAME due to diff.")
+		get_tree().paused = true
+
+# --- INTEGRATION HOOKS ---
+
+func capture_frame(player: Node) -> Dictionary:
+	if not is_ghost_recording:
+		return {}
+
+	var snapshot = {}
+	if player.has_method("get_full_snapshot"):
+		snapshot = player.get_full_snapshot()
+
+	var checksum = _generate_checksum(snapshot)
+
+	return {
+		"pos": var2str(player.global_transform.origin),
+		"rot": var2str(player.rotation), # Euler or Quat? Using rotation property for simplicity
+		"checksum": checksum,
+		"snapshot_subset": {
+			# Store key vars for debug diff
+			"hp": player.get("hp") if "hp" in player else 100,
+			"energy": player.get("energy") if "energy" in player else 100,
+			"pos": player.global_transform.origin
+		}
+	}
+
+func step(dt: float):
+	if not is_playing_ghost:
+		return
+
+	if current_playback_index >= ghost_buffer.size():
+		print("[GhostManager] Ghost playback finished.")
+		is_playing_ghost = false
+		return
+
+	var frame_data = ghost_buffer[current_playback_index]
+	current_playback_index += 1
+
+	if frame_data.has("ghost_data"):
+		var g_data = frame_data["ghost_data"]
+		_update_dummy(g_data)
+		_check_sync(g_data)
+
+func save_recording_override(buffer: Array, meta: Dictionary):
+	# Called by SessionManager when saving, if we intercepted the save path logic
+	# But simpler: we just let SessionManager save to its path, and we define our own save logic
+	# ACTUALLY, SessionManager saves to user://replay_... .
+	# We want to save to user://captures/name.ghost.
+
+	var path = "user://captures/" + ghost_name + ".ghost"
+	var dir = Directory.new()
+	if not dir.dir_exists("user://captures"):
+		dir.make_dir_recursive("user://captures")
+
+	var out_data = {
+		"meta": meta,
+		"buffer": buffer # Contains ghost_data in each frame
+	}
+
+	var file = File.new()
+	file.open(path, File.WRITE)
+	file.store_string(JSON.print(out_data))
+	file.close()
+	print("[GhostManager] Saved ghost recording to: ", path)
+
+# --- INTERNAL LOGIC ---
+
+func _spawn_dummy():
+	if is_instance_valid(ghost_dummy):
+		ghost_dummy.queue_free()
+
+	var scene = GhostDummyScene.instance()
+	get_tree().current_scene.add_child(scene)
+	ghost_dummy = scene
+
+func _update_dummy(data: Dictionary):
+	if not is_instance_valid(ghost_dummy):
+		return
+
+	var pos = str2var(data.get("pos", "Vector3(0,0,0)"))
+	var rot = str2var(data.get("rot", "Vector3(0,0,0)"))
+
+	ghost_dummy.global_transform.origin = pos
+	ghost_dummy.rotation = rot
+
+func _check_sync(recorded_data: Dictionary):
+	var session = get_node_or_null("/root/SessionManager")
+	if not session or not is_instance_valid(session.player):
+		return
+
+	var player = session.player
+	var current_pos = player.global_transform.origin
+	var recorded_pos = str2var(recorded_data.get("pos", "Vector3(0,0,0)"))
+
+	var dist = current_pos.distance_to(recorded_pos)
+	last_diff_distance = dist
+
+	# Checksum
+	var current_snapshot = {}
+	if player.has_method("get_full_snapshot"):
+		current_snapshot = player.get_full_snapshot()
+	var current_checksum = _generate_checksum(current_snapshot)
+	var recorded_checksum = recorded_data.get("checksum", "")
+
+	last_checksum_match = (current_checksum == recorded_checksum)
+
+	# Visual Feedback
+	_update_dummy_visuals(dist > diff_threshold or not last_checksum_match)
+
+	if not last_checksum_match:
+		# Compare snapshot subsets if available
+		var rec_subset = recorded_data.get("snapshot_subset", {})
+		diverging_vars.clear()
+		for k in rec_subset:
+			var rec_val = rec_subset[k]
+			var cur_val = null
+			if k == "pos": cur_val = player.global_transform.origin
+			elif k == "hp": cur_val = player.get("hp") if "hp" in player else null
+			elif k == "energy": cur_val = player.get("energy") if "energy" in player else null
+
+			# Simple string compare for diff
+			if str(rec_val) != str(cur_val):
+				diverging_vars.append("%s: %s vs %s" % [k, str(cur_val), str(rec_val)])
+
+func _update_dummy_visuals(is_desync: bool):
+	if not is_instance_valid(ghost_dummy):
+		return
+
+	var mesh_inst = ghost_dummy.get_node("GhostDummy")
+	if mesh_inst:
+		var mat = mesh_inst.get_surface_material(0)
+		if not mat:
+			mat = mesh_inst.material_override
+
+		if mat and mat is SpatialMaterial:
+			if is_desync:
+				mat.albedo_color = Color(1, 0, 0, 0.5) # RED
+				# Optionally add a flare or particle effect here
+			else:
+				mat.albedo_color = Color(0, 1, 0, 0.5) # GREEN
+
+func _generate_checksum(state: Dictionary) -> String:
+	# Deterministic string representation
+	# We rely on JSON print to be somewhat stable, but key order might vary.
+	# Better to hash specific keys sorted.
+	var keys = state.keys()
+	keys.sort()
+	var s = ""
+	for k in keys:
+		var v = state[k]
+		if typeof(v) == TYPE_VECTOR3:
+			# Round to avoid float jitter
+			s += "%s:%.2f,%.2f,%.2f;" % [k, v.x, v.y, v.z]
+		elif typeof(v) == TYPE_REAL:
+			s += "%s:%.3f;" % [k, v]
+		else:
+			s += "%s:%s;" % [k, str(v)]
+
+	return s.md5_text()

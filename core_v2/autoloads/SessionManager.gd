@@ -34,6 +34,7 @@ var _env_vars := {}
 var _session_spawned_nodes := []
 const SESSION_SPAWN_GROUP := "_oys_session_spawned"
 
+var ghost_manager = null
 
 # Optimization: Cache for replay_sync group
 var _replay_sync_cache := []
@@ -137,6 +138,12 @@ func _initialize_player_for_session(p):
 
 
 func _ready():
+	# Initialize Ghost Manager
+	var ghost_script = load("res://core_v2/ghost/GhostManager.gd")
+	if ghost_script:
+		ghost_manager = ghost_script.new()
+		add_child(ghost_manager)
+
 	# Listen for node additions to update cached group
 	get_tree().connect("node_added", self, "_on_node_added")
 	get_tree().connect("node_removed", self, "_on_node_removed")
@@ -371,6 +378,11 @@ func _physics_process(_dt):
 			input_data = InputDataV2.new()
 		
 		var frame_entry = {"input": input_data.to_dict()}
+
+		if ghost_manager and ghost_manager.is_ghost_recording:
+			var g_data = ghost_manager.capture_frame(player)
+			if not g_data.empty():
+				frame_entry["ghost_data"] = g_data
 		
 		# Guardar drift checkpoint si el player dejó de tocar un RigidBody
 		if _pending_drift_checkpoint and is_instance_valid(player):
@@ -525,6 +537,9 @@ func _physics_process(_dt):
 		if is_instance_valid(CinematicManager) and CinematicManager.has_method("is_active") and CinematicManager.is_active():
 			CinematicManager.step(FIXED_DT)
 
+		if ghost_manager and ghost_manager.is_playing_ghost:
+			ghost_manager.step(FIXED_DT)
+
 func start_recording():
 	if not is_instance_valid(player):
 		printerr("SessionManager: No se puede iniciar la grabación, no se encontró al jugador.")
@@ -613,17 +628,21 @@ func stop_and_save_recording():
 	
 	var cam = player.get_node_or_null("CameraRig")
 	print("GRAB_END\nrotation:", player.yaw, player.pitch, "\npos:", player.global_transform.origin, "\ncam:", cam.global_transform.origin)
-	var file_path = "user://replay_" + str(OS.get_unix_time()) + ".json"
-	var file = File.new()
-	file.open(file_path, File.WRITE)
-	var out = {
-		"meta": replay_meta,
-		"buffer": buffer,
-		"final_expected_state": player.get_full_snapshot()
-	}
-	file.store_string(JSON.print(out))
-	file.close()
-	print("💾 Replay guardado en: ", file_path)
+
+	if ghost_manager and ghost_manager.is_ghost_recording:
+		ghost_manager.save_recording_override(buffer, replay_meta)
+	else:
+		var file_path = "user://replay_" + str(OS.get_unix_time()) + ".json"
+		var file = File.new()
+		file.open(file_path, File.WRITE)
+		var out = {
+			"meta": replay_meta,
+			"buffer": buffer,
+			"final_expected_state": player.get_full_snapshot()
+		}
+		file.store_string(JSON.print(out))
+		file.close()
+		print("💾 Replay guardado en: ", file_path)
 
 var _playback_printed_start := false
 var _playback_printed_end := false
