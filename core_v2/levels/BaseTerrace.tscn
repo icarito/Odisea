@@ -1034,6 +1034,7 @@ transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 3
 skeleton = NodePath("")
 
 [node name="RotatingObjectV2" parent="CrioPod START" index="0"]
+transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
 auto_interact = true
 
 [node name="SFX Open sound" parent="CrioPod START/RotatingObjectV2" index="3"]

@@ -184,7 +184,7 @@ func _refresh_wake_area():
 	var local_up = global_transform.basis.xform_inv(Vector3.UP).abs()
 	
 	var margin_side = 0.05
-	var margin_vertical = -0.1
+	var margin_vertical = 0.05
 	
 	var final_extents = Vector3.ZERO
 	
@@ -217,10 +217,8 @@ func _on_body_entered(body):
 	if mode == RigidBody.MODE_KINEMATIC:
 		if is_instance_valid(body):
 			# Ignorar si el cuerpo está claramente arriba (prevención de pisotón)
-			var h = _get_global_height()
-			if body.global_transform.origin.y > global_transform.origin.y + (h * 0.4):
-				return
-		wake_up()
+			# Ya no ignoramos si está arriba (permitir despertar por pisotón o puerta)
+			wake_up()
 
 func _setup_impact_players():
 	_impact_players = [
