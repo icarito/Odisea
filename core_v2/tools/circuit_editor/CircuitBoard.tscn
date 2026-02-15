@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://core_v2/tools/circuit_editor/CircuitBoard.gd" type="Script" id=1]
+
+[node name="CircuitBoard" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+rect_min_size = Vector2( 0, 200 )
+script = ExtResource( 1 )
+
+[node name="GraphEdit" type="GraphEdit" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+right_disconnects = true
+scroll_offset = Vector2( 0, 0 )
+snap_distance = 20
+use_snap = true
+zoom = 1.0
