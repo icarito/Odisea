@@ -1,0 +1,25 @@
+// Test: BaseTerrace KillZone Verification
+// Verifies that the KillZone in the actual BaseTerrace level functions correctly.
+
+LEVEL res://core_v2/levels/BaseTerrace.tscn
+
+SECTION "BaseTerrace KillZone Test"
+    PRINT "Starting BaseTerrace KillZone test"
+    
+    // Player starts at CrioPod (-25, 20, 33)
+    // We want to move them to fall off the floor
+    
+    // Teleport to a spot directly above the KillZone center (1, 21)
+    // Starting height is 20, so we go to Y=20.
+    CALL root:SessionManager._set_player_prop pos (1.0, 20.0, 21.0)
+    
+    PRINT "Teleported via SessionManager. Player should be falling now..."
+    
+    // Wait for the KillZone at Y=-24 to be hit
+    // Y drops from 20 to -24, distance ~44m. 
+    // gravity is approx -14, t = sqrt(2 * 44 / 14) approx 2.5s.
+    ASSERT_SIGNAL "player_killed" 5.0 "KillZoneV2"
+    
+    WAIT 1.0
+    PRINT "SUCCESS: KillZone caught the player in BaseTerrace!"
+END

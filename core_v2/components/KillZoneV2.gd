@@ -5,6 +5,7 @@ class_name KillZoneV2
 signal player_killed
 
 func _ready():
+	._ready() # Call parent BaseZoneV2 to connect signals and setup host
 	add_to_group("KillZoneV2")
 	# Set default debug color for KillZone
 	if debug_color == Color(0, 1, 0, 0.2): # Only if default
@@ -31,6 +32,7 @@ func _deferred_connect():
 
 # Al entrar el jugador, dispara la señal de muerte.
 func _on_zone_entered(body: Node):
+	print("[KillZoneV2] _on_zone_entered called for body: ", body.name)
 	print("[KillZoneV2] body_entered:", body)
 	print("[KillZoneV2] Player detected, emitting player_killed")
 	# Prefer using the connected signal, but if for any reason the TeleportSystem

@@ -1,4 +1,4 @@
-[gd_scene load_steps=311 format=2]
+[gd_scene load_steps=310 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -34,7 +34,6 @@
 [ext_resource path="res://scenes/reference/InteriorLab.tscn" type="PackedScene" id=32]
 [ext_resource path="res://textures/kenney_prototype_textures/green/texture_11.png" type="Texture" id=33]
 [ext_resource path="res://core_v2/visual/CinematicPathRig.gd" type="Script" id=34]
-[ext_resource path="res://core_v2/props/IrisDoorV2.tscn" type="PackedScene" id=35]
 [ext_resource path="res://core_v2/things/Criopod_vert.tres" type="ArrayMesh" id=36]
 [ext_resource path="res://assets/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=37]
 [ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=38]
@@ -1061,7 +1060,7 @@ points = PoolVector3Array( -0.484276, 0.106015, -0.484276, 0.484276, 0.106015, -
 
 [sub_resource type="BoxShape" id=1525]
 resource_local_to_scene = true
-extents = Vector3( 18.9, 15, 25 )
+extents = Vector3( 88.5928, 15, 199.103 )
 
 [node name="Terrace" type="CSGBox"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
@@ -1101,8 +1100,6 @@ shape = SubResource( 1519 )
 [node name="CinematicSequence" type="Area" parent="CrioPod START"]
 transform = Transform( 0.666667, 0, 2.84217e-14, 0, 0.666667, 0, -2.84217e-14, 0, 0.666667, 2.14577e-06, 0.823144, -0.12323 )
 collision_mask = 2
-monitoring = false
-monitorable = false
 script = ExtResource( 28 )
 debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 debug_render = false
@@ -1900,7 +1897,7 @@ shape = SubResource( 675 )
 transform = Transform( 1.19249e-08, 0, -1, 0, 1, 0, 1, 0, 1.19249e-08, -11.0076, 6.003, 28.6455 )
 
 [node name="OcclusionArea" type="Area" parent="Building"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 0.6, -22, 0, 20.5809 )
+transform = Transform( 1.80496, 0, 0, 0, 1.80717, 0, 0, 0, 3.52709, -22, 0, 20.5809 )
 collision_mask = 2
 script = ExtResource( 27 )
 debug_color = Color( 1, 1, 0, 0.2 )
@@ -1929,8 +1926,10 @@ directional_shadow_fade_start = 0.04
 [node name="KillZoneV2" type="Area" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, -19.1113, 21 )
 collision_layer = 2
+collision_mask = 2
 script = ExtResource( 30 )
 debug_color = Color( 0.843137, 0.054902, 0.054902, 0.580392 )
+debug_render = false
 zone_extents = Vector3( 104, 1, 141.5 )
 
 [node name="CollisionShape" type="CollisionShape" parent="KillZoneV2"]
@@ -2181,7 +2180,7 @@ collision_mask = 2
 script = ExtResource( 41 )
 debug_color = Color( 0, 1, 0, 0.0901961 )
 debug_render = false
-zone_extents = Vector3( 18.9, 15, 25 )
+zone_extents = Vector3( 88.5928, 15, 199.103 )
 bgm_stream = ExtResource( 40 )
 fade_time = 0.2
 
@@ -2202,9 +2201,6 @@ starts_active = true
 is_interactable = false
 beacon_color = Color( 1, 0.0705882, 0, 1 )
 light_range = 10.0
-
-[node name="IrisDoorV2" parent="." instance=ExtResource( 35 )]
-transform = Transform( 2.437, 0, 0, 0, -1.06525e-07, -2.437, 0, 2.437, -1.06525e-07, 9.40998, 3.34242, -17.9555 )
 
 [node name="InnerHole" type="CSGCylinder" parent="."]
 transform = Transform( 2.437, 0, 0, 0, -2.437, 2.1305e-07, 0, -2.1305e-07, -2.437, 9.40998, 3.34242, -17.9555 )

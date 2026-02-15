@@ -17,11 +17,12 @@ func _init():
 	set_physics_process(false)
 
 func _ready():
+	._ready()
 	add_to_group("OYSTrigger")
 	if debug_color == Color(0, 1, 0, 0.2): # Default Green
 		set_debug_color(Color(0.8, 0.2, 0.8, 0.3)) # Magenta/Purple
 	_update_label()
-	yield(get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
 	set_physics_process(true)
 
 func set_label_text(val: String):

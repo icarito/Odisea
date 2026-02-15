@@ -5,6 +5,7 @@ class_name CheckZoneV2
 signal checkpoint_reached(transform)
 
 func _ready():
+	._ready()
 	add_to_group("CheckZoneV2")
 	# Set default debug color for CheckZone
 	if debug_color == Color(0, 1, 0, 0.2): # Only if default

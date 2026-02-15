@@ -16,6 +16,7 @@ export(NodePath) var occlusion_target_path = @".."
 export(Shader) var custom_occlusion_shader
 
 func _ready():
+	._ready()
 	add_to_group("OcclusionZoneV2")
 	if not Engine.editor_hint:
 		push_warning("[DEPRECATED] OcclusionZoneV2 está deprecada. Usa CinematicCameraZoneV2 con use_occlusion=true.")
