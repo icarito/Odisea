@@ -2439,7 +2439,43 @@
         ],
         "mouse_delta": [
           0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
           0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -5128,14 +5164,14 @@
         "phase": "check"
       }
     ],
-    "161": [
+    "163": [
       {
         "command": "SET",
         "var": "pos",
         "value": "(-28, 20, 33)"
       }
     ],
-    "281": [
+    "283": [
       {
         "command": "PRINT",
         "message": "SUCCESS: KillZone caught the player in BaseTerrace!"
@@ -5203,6 +5239,67 @@
         "progress": 1,
         "target": 1,
         "beacon_time": 0
+      },
+      "/root/Terrace/Lever/IrisDoorV2/IrisMechanism": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0,
+        "start_rots": [
+          [
+            0,
+            0,
+            180
+          ],
+          [
+            0,
+            0,
+            224.999985
+          ],
+          [
+            0,
+            0,
+            270
+          ],
+          [
+            0,
+            0,
+            315
+          ],
+          [
+            0,
+            0,
+            360
+          ],
+          [
+            0,
+            0,
+            404.999969
+          ],
+          [
+            0,
+            0,
+            449.999969
+          ],
+          [
+            0,
+            0,
+            494.999939
+          ]
+        ]
+      },
+      "/root/Terrace/Lever/LeverBase/RotatingLever": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0,
+        "start_rot": [
+          -0,
+          0,
+          0
+        ]
       },
       "/root/Terrace/Scatter3D/PushableBoxV13": {
         "pos": [
@@ -5417,8 +5514,8 @@
   "final_expected_state": {
     "position": [
       -28.00009,
-      16.868298,
-      33.599819
+      16.868294,
+      33.599834
     ],
     "velocity": [
       0,

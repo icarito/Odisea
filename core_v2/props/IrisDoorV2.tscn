@@ -1,10 +1,8 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://core_v2/components/InteractableBridge.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/IrisDoorV2.gd" type="Script" id=2]
 [ext_resource path="res://materials/things/StainlessSteel.tres" type="Material" id=3]
-[ext_resource path="res://assets/sfx/sfx100v2_door_03.ogg" type="AudioStream" id=4]
-[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=5]
 
 [sub_resource type="CubeMesh" id=1]
 material = ExtResource( 3 )
@@ -19,12 +17,11 @@ target_node = NodePath("IrisMechanism")
 
 [node name="IrisMechanism" type="Spatial" parent="."]
 script = ExtResource( 2 )
-starts_active = true
 rotation_angle = 90.0
-iris_radius = 2.4
+iris_radius = 1.7
 
 [node name="BladePivot1" type="Spatial" parent="IrisMechanism"]
-transform = Transform( 1.19249e-08, 1, 0, -1, 1.19249e-08, 0, 0, 0, 1, 2.4, 0, 0 )
+transform = Transform( -1, 8.74228e-08, 0, -8.74228e-08, -1, 0, 0, 0, 1, 1.7, 0, 0 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot1"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
@@ -37,7 +34,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 shape = SubResource( 2 )
 
 [node name="BladePivot2" type="Spatial" parent="IrisMechanism"]
-transform = Transform( 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 0, 0, 1, 1.69706, 1.69706, 0.005 )
+transform = Transform( -0.707107, 0.707107, 0, -0.707107, -0.707107, 0, 0, 0, 1, 1.20208, 1.20208, 0.005 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
@@ -50,7 +47,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 shape = SubResource( 2 )
 
 [node name="BladePivot3" type="Spatial" parent="IrisMechanism"]
-transform = Transform( 1, -1.74846e-07, 0, 1.74846e-07, 1, 0, 0, 0, 1, 1.46958e-16, 2.4, 0.01 )
+transform = Transform( 1.19249e-08, 1, 0, -1, 1.19249e-08, 0, 0, 0, 1, 1.04095e-16, 1.7, 0.01 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot3"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
@@ -63,7 +60,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 shape = SubResource( 2 )
 
 [node name="BladePivot4" type="Spatial" parent="IrisMechanism"]
-transform = Transform( 0.707107, -0.707107, 0, 0.707107, 0.707107, 0, 0, 0, 1, -1.69706, 1.69706, 0.015 )
+transform = Transform( 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 0, 0, 1, -1.20208, 1.20208, 0.015 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot4"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
@@ -76,7 +73,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 shape = SubResource( 2 )
 
 [node name="BladePivot5" type="Spatial" parent="IrisMechanism"]
-transform = Transform( 1.39071e-07, -1, 0, 1, 1.39071e-07, 0, 0, 0, 1, -2.4, 2.93915e-16, 0.02 )
+transform = Transform( 1, -1.74846e-07, 0, 1.74846e-07, 1, 0, 0, 0, 1, -1.7, 2.0819e-16, 0.02 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot5"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
@@ -89,7 +86,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 shape = SubResource( 2 )
 
 [node name="BladePivot6" type="Spatial" parent="IrisMechanism"]
-transform = Transform( -0.707107, -0.707107, 0, 0.707107, -0.707107, 0, 0, 0, 1, -1.69706, -1.69706, 0.025 )
+transform = Transform( 0.707107, -0.707107, 0, 0.707107, 0.707107, 0, 0, 0, 1, -1.20208, -1.20208, 0.025 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot6"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
@@ -102,7 +99,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 shape = SubResource( 2 )
 
 [node name="BladePivot7" type="Spatial" parent="IrisMechanism"]
-transform = Transform( -1, 2.38498e-08, 0, -2.38498e-08, -1, 0, 0, 0, 1, -4.40873e-16, -2.4, 0.03 )
+transform = Transform( 1.39071e-07, -1, 0, 1, 1.39071e-07, 0, 0, 0, 1, -3.12285e-16, -1.7, 0.03 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot7"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
@@ -115,7 +112,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 shape = SubResource( 2 )
 
 [node name="BladePivot8" type="Spatial" parent="IrisMechanism"]
-transform = Transform( -0.707108, 0.707107, 0, -0.707107, -0.707108, 0, 0, 0, 1, 1.69706, -1.69706, 0.035 )
+transform = Transform( -0.707107, -0.707108, 0, 0.707108, -0.707107, 0, 0, 0, 1, 1.20208, -1.20208, 0.035 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot8"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
@@ -124,30 +121,21 @@ mesh = SubResource( 1 )
 [node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot8"]
 
 [node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot8/StaticBody"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1.75, 0 )
 shape = SubResource( 2 )
-
-[node name="SFX Iris" type="AudioStreamPlayer3D" parent="IrisMechanism"]
-stream = ExtResource( 4 )
-max_distance = 30.0
-script = ExtResource( 5 )
-audio_stream = ExtResource( 4 )
-max_distance = 30.0
-trigger_mode = "OneShotActive"
 
 [node name="Frame" type="CSGCombiner" parent="."]
 use_collision = true
 
 [node name="OuterShell" type="CSGCylinder" parent="Frame"]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
-radius = 4.5
+radius = 3.6
 sides = 24
 material = ExtResource( 3 )
 
-[node name="InnerHole" type="CSGCylinder" parent="Frame"]
-transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
+[node name="InnerHole" type="CSGCylinder" parent="Frame/OuterShell"]
 operation = 2
-radius = 2.4
-height = 5.0
+radius = 1.72
+height = 1.2
 sides = 32
 material = ExtResource( 3 )
