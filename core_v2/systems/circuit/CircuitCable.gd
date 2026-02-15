@@ -147,7 +147,6 @@ func _setup_hurtbox():
 			var center = (prev + curr) / 2.0
 			col.transform.origin = center
 			col.look_at(curr, Vector3.UP)
-			col.rotate_object_local(Vector3.RIGHT, deg2rad(90))
 
 			_hurtbox.add_child(col)
 

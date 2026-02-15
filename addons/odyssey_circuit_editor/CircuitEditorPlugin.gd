@@ -4,7 +4,7 @@ extends EditorPlugin
 var panel_instance
 
 func _enter_tree():
-	panel_instance = preload("res://core_v2/tools/circuit_editor/CircuitBoard.tscn").instance()
+	panel_instance = preload("res://addons/odyssey_circuit_editor/CircuitBoard.tscn").instance()
 	add_control_to_bottom_panel(panel_instance, "Circuit Board")
 	panel_instance.hide()
 

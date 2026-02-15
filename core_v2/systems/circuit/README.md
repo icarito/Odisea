@@ -4,16 +4,22 @@ The Odyssey Logic Circuit System (OLCS) is a node-based visual scripting environ
 
 ## Quick Start
 
-1.  **Add the Manager:** Create a `LogicCircuitManager` node in your scene root.
-2.  **Create a Graph:** Assign a new `CircuitGraphResource` to the `circuit_data` property of the manager.
-3.  **Open the Editor:** Select the `LogicCircuitManager` node. The "Circuit Board" panel will appear in the bottom dock.
-4.  **Add Nodes:**
+1.  **Activate Plugin:** Go to Project Settings -> Plugins and enable "Odyssey Logic Circuit Editor".
+2.  **Add the Manager:** Create a `LogicCircuitManager` node in your scene root.
+3.  **Create a Graph:** Assign a new `CircuitGraphResource` to the `circuit_data` property of the manager.
+4.  **Open the Editor:** Select the `LogicCircuitManager` node. The "Circuit Board" panel will appear in the bottom dock.
+5.  **Add Nodes:**
     *   **Props:** Use the editor to add references to scene objects (must inherit `InteractableV2`).
     *   **Gates:** Add logic gates (AND, OR, XOR, NOT, DELAY) to process signals.
-5.  **Connect:** Drag connections between ports.
+6.  **Connect:** Drag connections between ports.
     *   **Green Port:** Activate/Input.
     *   **Red Port:** Output (Activated/Deactivated).
     *   **Blue Port:** Logic Gate Input.
+
+## Example Scene
+
+An example scene demonstrating basic prop connection and cable generation is available at:
+`core_v2/systems/circuit/examples/CircuitExample.tscn`
 
 ## Core Components
 
@@ -40,7 +46,7 @@ A procedurally generated cable connecting two objects.
 
 ## Editor Plugin
 
-The custom editor plugin (`core_v2/tools/circuit_editor/`) provides a visual graph interface.
+The custom editor plugin is located in `addons/odyssey_circuit_editor/`.
 *   **Drag & Drop:** Move nodes around the board.
 *   **Connections:** Click and drag from output ports to input ports.
 *   **Properties:** (Planned) Inspect and modify node properties (like Delay time) directly in the graph.
