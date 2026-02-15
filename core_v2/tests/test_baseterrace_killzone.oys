@@ -10,8 +10,7 @@ SECTION "BaseTerrace KillZone Test"
     // We want to move them to fall off the floor
     
     // Teleport to a spot directly above the KillZone center (1, 21)
-    // Starting height is 20, so we go to Y=20.
-    CALL root:SessionManager._set_player_prop pos (1.0, 20.0, 21.0)
+    SET pos (100, 10, 100)
     
     PRINT "Teleported via SessionManager. Player should be falling now..."
     
