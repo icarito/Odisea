@@ -45,6 +45,7 @@ func _ready():
 	var wake_area = get_node_or_null("WakeArea")
 	if wake_area:
 		wake_area.connect("body_entered", self, "_on_body_entered")
+		wake_area.connect("body_exited", self, "_on_body_exited")
 	
 	if _pending_snapshot != null:
 		_apply_snapshot(_pending_snapshot)
@@ -62,8 +63,10 @@ func step(dt):
 
 	if mode == RigidBody.MODE_RIGID:
 		_handle_rigid_logic(dt)
-	elif mode == RigidBody.MODE_KINEMATIC and _target_basis != null:
-		_handle_smooth_rotation(dt)
+	elif mode == RigidBody.MODE_KINEMATIC:
+		_check_kinematic_wakeup()
+		if _target_basis != null:
+			_handle_smooth_rotation(dt)
 
 	if _perf_monitor and _perf_monitor.has_method("measure_end"):
 		_perf_monitor.measure_end(self, "step")
@@ -215,10 +218,44 @@ func _on_body_entered(body):
 	_try_play_impact_sfx(body)
 
 	if mode == RigidBody.MODE_KINEMATIC:
-		if is_instance_valid(body):
-			# Ignorar si el cuerpo está claramente arriba (prevención de pisotón)
-			# Ya no ignoramos si está arriba (permitir despertar por pisotón o puerta)
+		# Despertar ante cualquier colisión si estamos asentados
+		wake_up()
+
+func _on_body_exited(_body):
+	if mode == RigidBody.MODE_KINEMATIC:
+		if debug:
+			print("[PushableBoxV2] Body exited, waking up to check gravity.")
+		wake_up()
+
+func _check_kinematic_wakeup():
+	var wake_area = get_node_or_null("WakeArea")
+	if not wake_area: return
+	
+	for body in wake_area.get_overlapping_bodies():
+		if body == self: continue
+		if not is_instance_valid(body): continue
+		
+		# 1. Detectar movimiento del jugador u otros RigidBodies
+		var vel = body.get("linear_velocity")
+		if vel is Vector3 and vel.length_squared() > 0.01:
 			wake_up()
+			return
+			
+		# 2. Detectar interactuables en movimiento (Puertas, etc)
+		var potential_interactable = body
+		# Buscamos hacia arriba en la jerarquía (StaticBody -> BladePivot -> IrisMechanism)
+		for _i in range(3):
+			if not potential_interactable: break
+			if potential_interactable.has_method("get_snapshot") and potential_interactable.get("target_progress") != null:
+				var prog = potential_interactable.get("anim_progress")
+				var target = potential_interactable.get("target_progress")
+				if prog != null and target != null and abs(prog - target) > 0.001:
+					if debug:
+						print("[PushableBoxV2] Waking up because supporting interactable %s is moving." % potential_interactable.name)
+					wake_up()
+					return
+				break
+			potential_interactable = potential_interactable.get_parent()
 
 func _setup_impact_players():
 	_impact_players = [
