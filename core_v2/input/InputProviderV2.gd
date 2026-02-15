@@ -15,7 +15,9 @@ var move_response_curve: Curve
 var camera_response_curve: Curve
 var hardware_input_enabled := true
 
-const JOY_LOOK_SENSITIVITY := 15.0
+var joy_look_sensitivity := 15.0
+var joy_move_sensitivity := 1.0
+var hardware_look_sensitivity := 1.0 # Multiplier for mouse
 const JOY_DEADZONE := 0.2
 
 
@@ -68,6 +70,7 @@ func _read_live_input() -> InputDataV2:
 
 		# Apply curve to raw move vector (affects analog stick)
 		d.move_vec = _apply_curve(d.move_vec, move_response_curve)
+		d.move_vec *= joy_move_sensitivity
 
 		d.move_vec.x = _q(d.move_vec.x)
 		d.move_vec.y = _q(d.move_vec.y)
@@ -87,6 +90,7 @@ func _read_live_input() -> InputDataV2:
 
 		# Acumula y consume mouse_delta localmente
 		var mouse_d = Vector2(_q(mouse_delta_accum.x), _q(-mouse_delta_accum.y))
+		mouse_d *= hardware_look_sensitivity
 
 		# --- JOYSTICK CAMERA (Right Stick) ---
 		var joy_look = Vector2(
@@ -95,7 +99,7 @@ func _read_live_input() -> InputDataV2:
 		)
 		if joy_look.length() > JOY_DEADZONE:
 			joy_look = _apply_curve(joy_look, camera_response_curve)
-			mouse_d += joy_look * JOY_LOOK_SENSITIVITY
+			mouse_d += joy_look * joy_look_sensitivity
 
 		d.mouse_delta = mouse_d
 

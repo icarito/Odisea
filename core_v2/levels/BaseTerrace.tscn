@@ -1075,7 +1075,6 @@ transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 3
 skeleton = NodePath("")
 
 [node name="RotatingObjectV2" parent="CrioPod START" index="0"]
-transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
 auto_interact = true
 
 [node name="SFX Open sound" parent="CrioPod START/RotatingObjectV2" index="3"]
@@ -1086,6 +1085,7 @@ transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0.0002002
 
 [node name="AutomationTrigger" type="Area" parent="CrioPod START"]
 transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0, 4.10154, 3.87677 )
+collision_mask = 2
 monitoring = false
 monitorable = false
 script = ExtResource( 28 )
@@ -1100,6 +1100,9 @@ shape = SubResource( 1519 )
 
 [node name="CinematicSequence" type="Area" parent="CrioPod START"]
 transform = Transform( 0.666667, 0, 2.84217e-14, 0, 0.666667, 0, -2.84217e-14, 0, 0.666667, 2.14577e-06, 0.823144, -0.12323 )
+collision_mask = 2
+monitoring = false
+monitorable = false
 script = ExtResource( 28 )
 debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 debug_render = false
@@ -1898,6 +1901,7 @@ transform = Transform( 1.19249e-08, 0, -1, 0, 1, 0, 1, 0, 1.19249e-08, -11.0076,
 
 [node name="OcclusionArea" type="Area" parent="Building"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 0.6, -22, 0, 20.5809 )
+collision_mask = 2
 script = ExtResource( 27 )
 debug_color = Color( 1, 1, 0, 0.2 )
 debug_render = false
@@ -1927,7 +1931,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, -19.1113, 21 )
 collision_layer = 2
 script = ExtResource( 30 )
 debug_color = Color( 0.843137, 0.054902, 0.054902, 0.580392 )
-debug_render = false
 zone_extents = Vector3( 104, 1, 141.5 )
 
 [node name="CollisionShape" type="CollisionShape" parent="KillZoneV2"]
@@ -2174,6 +2177,7 @@ transform = Transform( 0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 9
 
 [node name="BGMZoneV2" type="Area" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 0.6, -22, 2, 8.46188 )
+collision_mask = 2
 script = ExtResource( 41 )
 debug_color = Color( 0, 1, 0, 0.0901961 )
 debug_render = false

@@ -17,6 +17,8 @@ var initial_transform: Transform
 
 # --- EXPORTED TUNING ---
 export(float) var mouse_sensitivity := 0.005
+export(float) var joy_look_sensitivity := 15.0
+export(float) var joy_move_sensitivity := 1.0
 export(float) var snap_length := 0.25
 export(float) var push_force := 1.0
 export(float) var min_pitch := -85.0
@@ -615,6 +617,9 @@ func step(dt: float, input: InputDataV2) -> void:
 	if is_instance_valid(movement_logic) and input_provider:
 		input_provider.move_response_curve = movement_logic.move_response_curve
 		input_provider.camera_response_curve = movement_logic.camera_response_curve
+		input_provider.joy_look_sensitivity = joy_look_sensitivity
+		input_provider.joy_move_sensitivity = joy_move_sensitivity
+		# hardware_look_sensitivity can be 1.0 or tied to mouse_sensitivity if needed
 
 	if camera_input_locked and input_provider:
 		input_provider.hardware_input_enabled = false
