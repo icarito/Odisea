@@ -40,6 +40,9 @@ func _on_zone_entered(body: Node):
 	# in headless/test environments.
 	emit_signal("player_killed")
 	var teleport_system = get_tree().get_root().find_node("TeleportSystem", true, false)
+	if not teleport_system:
+		teleport_system = get_node_or_null("/root/SessionManager/TeleportSystem")
+	
 	if teleport_system:
 		if not is_connected("player_killed", teleport_system, "_on_player_killed"):
 			print("[KillZoneV2] TeleportSystem found but not connected — calling handler directly")

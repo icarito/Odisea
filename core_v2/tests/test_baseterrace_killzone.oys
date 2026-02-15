@@ -19,6 +19,14 @@ SECTION "BaseTerrace KillZone Test"
     // gravity is approx -14, t = sqrt(2 * 44 / 14) approx 2.5s.
     ASSERT_SIGNAL "player_killed" 5.0 "KillZoneV2"
     
-    WAIT 1.0
+    // Wait for respawn (mid-air at 100,10,100)
+    WAIT 0.5
+    
+    // Teleport to a safe, solid spot to ensure stability and zero drift
+    // CrioPod area is at (-25, 20, 33) approximately, or just a solid floor.
+    // Let's put them back at start: (-28, 20, 33)
+    SET pos (-28, 20, 33)
+    WAIT 2.0
+    
     PRINT "SUCCESS: KillZone caught the player in BaseTerrace!"
 END

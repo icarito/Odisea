@@ -25,7 +25,8 @@ enum Command {
 	BLEND,
 	ASSERT_NO_HAND_CLIPPING,
 	UI_OPEN, UI_CLICK, UI_FILL, UI_TYPE, UI_PRESS, UI_WAIT, UI_SCREENSHOT, UI_ASSERT_TEXT,
-	LOG
+	LOG,
+	TELEPORT
 }
 
 # Command synonyms mapping
@@ -422,6 +423,18 @@ static func parse_instruction(line: String) -> Dictionary:
 				data["monitor_duration"] = parts[4].to_float()
 			else:
 				data["monitor_duration"] = 0.0
+
+		"TELEPORT":
+			# TELEPORT (x, y, z) or TELEPORT pos=(x, y, z)
+			if parts.size() > 1:
+				if parts[1].begins_with("pos="):
+					data["pos"] = parts[1].split("=")[1]
+				else:
+					# Join remaining parts to handle spaces in vector (x, y, z)
+					var val = ""
+					for i in range(1, parts.size()):
+						val += parts[i]
+					data["pos"] = val.strip_edges()
 
 		"ENDWHILE":
 			pass

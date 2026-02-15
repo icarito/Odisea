@@ -199,6 +199,7 @@ func _ready():
 			else:
 				teleport_system.name = "TeleportSystem"
 				add_child(teleport_system)
+				print("[SessionManager] TeleportSystem created at: ", teleport_system.get_path())
 				# Buscar nodos relevantes tras un pequeño delay para asegurar que la escena está lista
 				call_deferred("_connect_teleport_system")
 
@@ -275,6 +276,16 @@ func _on_tree_changed_for_script(script_path: String):
 		printerr("Script not found: ", script_path)
 		get_tree().quit(1)
 		return
+
+	# Ensure TeleportSystem is available in CLI mode
+	if not has_node("TeleportSystem"):
+		print("[SessionManager] Creating TeleportSystem for CLI script execution...")
+		var ts_res = load("res://core_v2/systems/TeleportSystem.gd")
+		if ts_res:
+			var teleport_system = ts_res.new()
+			teleport_system.name = "TeleportSystem"
+			add_child(teleport_system)
+			call_deferred("_connect_teleport_system")
 		
 	file.open(script_path, File.READ)
 	var content = file.get_as_text()
@@ -629,6 +640,15 @@ var _playback_printed_start := false
 var _playback_printed_end := false
 
 func load_and_play(path: String):
+	# Ensure TeleportSystem is available for Replay/Test modes where it might not have been created by _ready
+	if not has_node("TeleportSystem"):
+		print("[SessionManager] Creating TeleportSystem for load_and_play...")
+		var ts_res = load("res://core_v2/systems/TeleportSystem.gd")
+		if ts_res:
+			var teleport_system = ts_res.new()
+			teleport_system.name = "TeleportSystem"
+			add_child(teleport_system)
+			call_deferred("_connect_teleport_system")
 	print("[SessionManager] load_and_play called with: ", path)
 	_session_run_id += 1
 	var my_run_id = _session_run_id
@@ -1573,8 +1593,15 @@ func _set_player_prop(prop, val):
 			pos_vec = val
 		
 		if typeof(pos_vec) == TYPE_VECTOR3:
-			player.global_transform.origin = pos_vec
-			if "velocity" in player: player.velocity = Vector3.ZERO
+			var tf = player.global_transform
+			tf.origin = pos_vec
+			
+			if player.has_method("teleport_to"):
+				player.teleport_to(tf)
+				print("[SessionManager] SET pos executed via player.teleport_to: ", pos_vec)
+			else:
+				player.global_transform.origin = pos_vec
+				if "velocity" in player: player.velocity = Vector3.ZERO
 			
 			var ts = get_node_or_null("TeleportSystem")
 			if ts and ts.has_method("force_initial_spawn"):

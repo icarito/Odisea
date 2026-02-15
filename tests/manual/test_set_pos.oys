@@ -1,0 +1,21 @@
+LEVEL res://core_v2/levels/BaseTerrace.tscn
+# Test SET pos functionality
+LOG "Testing SET pos..."
+SET pos (0, 10, 0)
+WAIT 0.5
+LOG "Position set to (0, 10, 0)"
+WAIT 0.5
+SET pos (10, 5, 10)
+WAIT 0.5
+LOG "Position set to (10, 5, 10)"
+WAIT 0.5
+
+# Test TELEPORT command
+LOG "Testing TELEPORT command..."
+TELEPORT (5, 15, 5)
+WAIT 0.5
+LOG "Teleported to (5, 15, 5)"
+WAIT 0.5
+TELEPORT (0, 2, 0)
+LOG "Teleported back to start (0, 2, 0)"
+WAIT 0.5

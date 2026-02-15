@@ -752,8 +752,15 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 
 			# If it's a world property (like 'pos'), tell the host to handle it
 			if not var_name.begins_with("$"):
+				var handled = false
 				if host_node and host_node.has_method("_handle_set_command"):
 					host_node._handle_set_command(inst)
+					handled = true
+				
+				if not handled:
+					var sm = _find_session_manager()
+					if sm and sm != host_node and sm.has_method("_handle_set_command"):
+						sm._handle_set_command(inst)
 		
 		"GET_NODES_IN_GROUP":
 			var group = inst.get("group", "")
@@ -780,6 +787,34 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			var __state_fov = _execute_fov(inst, my_id)
 			if __state_fov is GDScriptFunctionState:
 				yield (__state_fov, "completed")
+				
+		"TELEPORT":
+			var pos_val = inst.get("pos", "")
+			var pos_vec = _resolve_value(pos_val)
+			
+			# If resolved value is a string (e.g. "(1,2,3)"), parse it as Vector3
+			if typeof(pos_vec) == TYPE_STRING:
+				pos_vec = OYS_Parser.parse_vector3(pos_vec)
+			
+			var sm = _find_session_manager()
+			var player = _find_player()
+			
+			if typeof(pos_vec) == TYPE_VECTOR3 and player:
+				print("[OYS TELEPORT] Teleporting player to: ", pos_vec)
+				if player.has_method("teleport_to"):
+					var tf = player.global_transform
+					tf.origin = pos_vec
+					player.teleport_to(tf)
+				else:
+					player.global_transform.origin = pos_vec
+					if "velocity" in player: player.velocity = Vector3.ZERO
+				
+				# Update SessionManager tracking if possible
+				if sm and sm.has_method("force_initial_spawn"):
+					# Note: teleport_to usually handles this internally via TeleportSystem
+					pass
+			else:
+				printerr("[OYS TELEPORT] Failed: Invalid position or no player found. Pos: ", pos_vec)
 		
 		# Markers - no action needed
 		"LEVEL", "END":
