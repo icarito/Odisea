@@ -48,11 +48,26 @@ LEVEL res://core_v2/tests/TestScene_Cargol.tscn
 
 
 SECTION "Custom Cargol Program"
-    // TODO: Program Cargol here!
-    // Example: Move to cargo location
+    // 1. Move to cargo location (above it)
     CALL CargolDrone "move_to" [5, 2, 0]
     WAIT 2.0
+
+    // 2. Pick up the cargo
+    // Note: The drone must be close enough to the cargo object.
+    CALL CargolDrone "pickup" "../Cargo"
+    WAIT 1.0
+
+    // 3. Move to a new location with the cargo
+    // Let's bring it back to the center and up high
+    CALL CargolDrone "move_to" [0, 8, 0]
+    WAIT 3.0
+
+    // 4. Release the cargo
+    // Applying a small forward impulse [0, 0, -2]
+    CALL CargolDrone "release" [0, 0, -2]
+    WAIT 2.0
     
-    // TODO: Add your commands below
-    
+    // 5. Return to home position
+    CALL CargolDrone "move_to" [0, 5, 0]
+    WAIT 2.0
 END
