@@ -1,6 +1,8 @@
-[gd_scene load_steps=10 format=2]
+[gd_scene load_steps=12 format=2]
 
 [ext_resource path="res://core_v2/props/scifi_lights/EmergencyBeaconV2.gd" type="Script" id=1]
+[ext_resource path="res://assets/sfx/sfx100v2_misc_01.ogg" type="AudioStream" id=2]
+[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=3]
 
 [sub_resource type="CylinderMesh" id=1]
 top_radius = 0.12
@@ -80,3 +82,12 @@ omni_attenuation = 1.5
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0 )
 shape = SubResource( 7 )
+
+[node name="SFX Alarm" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource( 2 )
+max_distance = 30.0
+script = ExtResource( 3 )
+audio_stream = ExtResource( 2 )
+max_distance = 30.0
+loop = true
+trigger_mode = "Active"

@@ -1,7 +1,9 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/components/MovingPlatformV2.gd" type="Script" id=2]
+[ext_resource path="res://assets/sfx/sfx100v2_loop_machine_03.ogg" type="AudioStream" id=3]
+[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=4]
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 2.5, 0.1, 2.5 )
@@ -33,3 +35,13 @@ collision_layer = 0
 [node name="PassengerCollision" type="CollisionShape" parent="PassengerArea"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0 )
 shape = SubResource( 2 )
+
+[node name="SFX Motor" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource( 3 )
+max_distance = 35.0
+script = ExtResource( 4 )
+audio_stream = ExtResource( 3 )
+volume_db = -6.0
+max_distance = 35.0
+loop = true
+trigger_mode = "Active"

@@ -1,9 +1,12 @@
-[gd_scene load_steps=9 format=2]
+[gd_scene load_steps=12 format=2]
 
 [ext_resource path="res://core_v2/components/ContinuousRotatorV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/WindTunnelV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/components/PropBaseV2.gd" type="Script" id=3]
 [ext_resource path="res://core_v2/components/ForwardInteract.gd" type="Script" id=4]
+[ext_resource path="res://assets/sfx/sfx100v2_loop_machine_01.ogg" type="AudioStream" id=5]
+[ext_resource path="res://assets/sfx/sfx100v2_air_01.ogg" type="AudioStream" id=6]
+[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=7]
 
 [sub_resource type="CylinderShape" id=2]
 radius = 2.2
@@ -67,6 +70,16 @@ width = 3.8
 height = 0.5
 depth = 0.1
 
+[node name="SFX Motor" type="AudioStreamPlayer3D" parent="FanBlades"]
+stream = ExtResource( 5 )
+max_distance = 40.0
+script = ExtResource( 7 )
+audio_stream = ExtResource( 5 )
+volume_db = -3.0
+max_distance = 40.0
+loop = true
+trigger_mode = "Active"
+
 [node name="WindTunnel" type="Area" parent="."]
 script = ExtResource( 2 )
 wind_velocity = Vector3( 0, 0, 5 )
@@ -90,3 +103,13 @@ tangential_accel = -2.79
 tangential_accel_random = 0.09
 scale_amount = 0.5
 color = Color( 0.8, 0.9, 1, 0.3 )
+
+[node name="SFX Wind" type="AudioStreamPlayer3D" parent="WindTunnel"]
+stream = ExtResource( 6 )
+max_distance = 35.0
+script = ExtResource( 7 )
+audio_stream = ExtResource( 6 )
+volume_db = -6.0
+max_distance = 35.0
+loop = true
+trigger_mode = "Active"

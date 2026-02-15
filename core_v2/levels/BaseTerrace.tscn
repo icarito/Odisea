@@ -1,4 +1,4 @@
-[gd_scene load_steps=310 format=2]
+[gd_scene load_steps=311 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -43,6 +43,7 @@
 [ext_resource path="res://core_v2/components/BGMZoneV2.gd" type="Script" id=41]
 [ext_resource path="res://addons/zylann.scatter/scatter3d.gd" type="Script" id=42]
 [ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=43]
+[ext_resource path="res://materials/things/StainlessSteel.tres" type="Material" id=44]
 [ext_resource path="res://core_v2/props/EmergencyBeaconV2.tscn" type="PackedScene" id=45]
 
 [sub_resource type="BoxShape" id=1519]
@@ -2199,7 +2200,15 @@ beacon_color = Color( 1, 0.0705882, 0, 1 )
 light_range = 10.0
 
 [node name="IrisDoorV2" parent="." instance=ExtResource( 35 )]
-transform = Transform( 2.437, 0, 0, 0, -1.06525e-07, -2.437, 0, 2.437, -1.06525e-07, 9.40998, 2.04242, -17.9555 )
+transform = Transform( 2.437, 0, 0, 0, -1.06525e-07, -2.437, 0, 2.437, -1.06525e-07, 9.40998, 3.34242, -17.9555 )
+
+[node name="InnerHole" type="CSGCylinder" parent="."]
+transform = Transform( 2.437, 0, 0, 0, -2.437, 2.1305e-07, 0, -2.1305e-07, -2.437, 9.40998, 3.34242, -17.9555 )
+operation = 2
+radius = 2.4
+height = 8.18744
+sides = 32
+material = ExtResource( 44 )
 
 [editable path="CrioPod START"]
 [editable path="SideScrollZone4"]

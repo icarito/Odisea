@@ -1,7 +1,9 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://core_v2/components/PressurePlateV2.gd" type="Script" id=1]
 [ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=2]
+[ext_resource path="res://assets/sfx/sfx100v2_switch_01.ogg" type="AudioStream" id=3]
+[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=4]
 
 [sub_resource type="CylinderMesh" id=2]
 bottom_radius = 1.2
@@ -26,3 +28,11 @@ material/0 = ExtResource( 2 )
 [node name="CollisionShape" type="CollisionShape" parent="Detector"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
 shape = SubResource( 1 )
+
+[node name="SFX Click" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource( 3 )
+max_distance = 20.0
+script = ExtResource( 4 )
+audio_stream = ExtResource( 3 )
+max_distance = 20.0
+trigger_mode = "OneShotActive"

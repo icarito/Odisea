@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=2]
+[gd_scene load_steps=11 format=2]
 
 [ext_resource path="res://materials/things/interactable.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/components/PushableBoxV2.gd" type="Script" id=2]
@@ -6,6 +6,8 @@
 [ext_resource path="res://assets/sfx/metal1.wav" type="AudioStream" id=4]
 [ext_resource path="res://assets/sfx/metal2.wav" type="AudioStream" id=5]
 [ext_resource path="res://assets/sfx/metal3.wav" type="AudioStream" id=6]
+[ext_resource path="res://assets/sfx/sfx100v2_loop_machine_02.ogg" type="AudioStream" id=7]
+[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=8]
 
 [sub_resource type="BoxShape" id=1]
 
@@ -55,3 +57,13 @@ script = ExtResource( 3 )
 [node name="Metal3" type="AudioStreamPlayer3D" parent="ImpactSfx3"]
 stream = ExtResource( 6 )
 max_distance = 30.0
+
+[node name="SFX Drag" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource( 7 )
+max_distance = 30.0
+script = ExtResource( 8 )
+audio_stream = ExtResource( 7 )
+volume_db = -6.0
+max_distance = 30.0
+loop = true
+trigger_mode = "Active"
