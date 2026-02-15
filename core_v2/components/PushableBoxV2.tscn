@@ -30,7 +30,7 @@ shape = SubResource( 1 )
 
 [node name="WakeArea" type="Area" parent="."]
 collision_layer = 0
-collision_mask = 5
+collision_mask = 7
 
 [node name="WakeShape" type="CollisionShape" parent="WakeArea"]
 shape = SubResource( 2 )

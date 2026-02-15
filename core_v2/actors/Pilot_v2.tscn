@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=2]
+[gd_scene load_steps=19 format=2]
 
 [ext_resource path="res://core_v2/player/PlayerControllerV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/actors/PilotAnimatorV2.gd" type="Script" id=3]
@@ -8,9 +8,9 @@
 [ext_resource path="res://models/Pilot.glb" type="PackedScene" id=9]
 [ext_resource path="res://data/curves/Inverse_S.tres" type="Curve" id=10]
 [ext_resource path="res://data/curves/Exponential.tres" type="Curve" id=11]
-[ext_resource path="res://core_v2/visual/FakeShadow.gd" type="Script" id=53]
 [ext_resource path="res://assets/sfx/jump.wav" type="AudioStream" id=13]
 [ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=14]
+[ext_resource path="res://core_v2/visual/FakeShadow.gd" type="Script" id=53]
 
 [sub_resource type="SpatialMaterial" id=121]
 albedo_color = Color( 1, 0.411765, 0.129412, 1 )
@@ -158,7 +158,7 @@ transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866,
 
 [node name="SpringArm" type="SpringArm" parent="CameraRig/Yaw/Pitch"]
 transform = Transform( -1, -1.51808e-08, 8.60946e-08, 0, 0.984808, 0.173648, -8.74228e-08, 0.173648, -0.984808, 0, -0.062, 0 )
-collision_mask = 1
+collision_mask = 0
 shape = SubResource( 109 )
 spring_length = 10.0
 

@@ -573,9 +573,11 @@ func _update_push_state(_dt: float, input: InputDataV2):
 					# We decouple the LOGICAL push state from the VISUAL anchor point.
 					if surf_dist < 1.25:
 						is_pushing = true
+						# Pro-actively wake up the box if it has settled into Kinematic mode
+						if best_target.has_method("wake_up"):
+							best_target.wake_up()
+							
 						# Visual Anchoring: Calculate discrepancy from ideal push_offset (0.71m)
-						# Positive = Too Close (Move Back)
-						# Negative = Too Far (e.g. just starting contact), clamp to 0 for now.
 						visual_push_correction = max(0.0, push_offset - surf_dist)
 					else:
 						visual_push_correction = 0.0
@@ -827,7 +829,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		var body = collision.collider
 		if is_instance_valid(body) and body is RigidBody:
 			touched_rigid = true
-			if body.mode == RigidBody.MODE_RIGID:
+			if body is RigidBody:
 				if abs(collision.normal.y) < 0.5:
 					var impulse = - collision.normal * push_force * dt
 					body.apply_central_impulse(impulse)
