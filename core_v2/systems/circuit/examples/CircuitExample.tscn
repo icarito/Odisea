@@ -1,0 +1,64 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://core_v2/systems/circuit/LogicCircuitManager.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/systems/circuit/CircuitGraphResource.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/components/InteractableBaseV2.gd" type="Script" id=3]
+
+[sub_resource type="Resource" id=1]
+script = ExtResource( 2 )
+nodes = {
+"Source": {
+"position": Vector2( 0, 0 ),
+"scene_path": NodePath("../SourceProp"),
+"type": "PROP"
+},
+"Target": {
+"position": Vector2( 300, 0 ),
+"scene_path": NodePath("../TargetProp"),
+"type": "PROP"
+}
+}
+connections = [ {
+"from": "Source",
+"from_port": 0,
+"to": "Target",
+"to_port": 0,
+"type": "WIRED",
+"points": []
+} ]
+
+[node name="CircuitExample" type="Spatial"]
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5 )
+
+[node name="LogicCircuitManager" type="Spatial" parent="."]
+script = ExtResource( 1 )
+circuit_data = SubResource( 1 )
+auto_build_cables = true
+
+[node name="SourceProp" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
+script = ExtResource( 3 )
+interaction_text = "Toggle Source"
+
+[node name="Visual" type="CSGBox" parent="SourceProp"]
+width = 1.0
+height = 1.0
+depth = 1.0
+
+[node name="CableAnchor" type="Position3D" parent="SourceProp"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
+
+[node name="TargetProp" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0 )
+script = ExtResource( 3 )
+interaction_text = "Target"
+
+[node name="Visual" type="CSGBox" parent="TargetProp"]
+width = 1.0
+height = 1.0
+depth = 1.0
+
+[node name="CableAnchor" type="Position3D" parent="TargetProp"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
