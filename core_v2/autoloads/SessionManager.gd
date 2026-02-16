@@ -144,6 +144,17 @@ func _ready():
 	_env_vars["$sys_env_prop_path"] = OS.get_environment("OYS_PROP_PATH")
 	_env_vars["$sys_env_auto_run"] = OS.get_environment("OYS_AUTO_RUN")
 
+	# --- Project A.N.N.A Integration ---
+	if OS.get_environment("ANNA_ENABLED") == "1":
+		print("[SessionManager] Enabling A.N.N.A Agent Interface...")
+		var bridge_res = load("res://core_v2/anna/AnnaBridge.gd")
+		if bridge_res:
+			var bridge = bridge_res.new()
+			bridge.name = "AnnaBridge"
+			add_child(bridge)
+		else:
+			printerr("[SessionManager] Failed to load AnnaBridge.")
+
 	# Detección de parámetro --replay
 	var args = OS.get_cmdline_args()
 	for i in range(args.size()):
