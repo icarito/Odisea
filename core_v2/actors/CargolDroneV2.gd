@@ -63,8 +63,11 @@ func _ready():
 
 	# Register as OYS Actor
 	var sm = get_node_or_null("/root/SessionManager")
-	if sm and sm.has_method("register_oys_actor"):
-		sm.register_oys_actor("CargolDrone", self)
+	if sm:
+		if sm.has_method("register_oys_actor"):
+			sm.register_oys_actor("CargolDrone", self)
+		if sm.has_signal("oys_registry_reset"):
+			sm.connect("oys_registry_reset", self, "_on_oys_registry_reset")
 
 	# Register with Performance Monitor
 	if Engine.has_singleton("PerformanceMonitor") or has_node("/root/PerformanceMonitor"):
@@ -320,13 +323,6 @@ func step(dt: float) -> void:
 		_perf_monitor.measure_end(self, "step")
 
 func _process(_delta):
-	# Ensure registration persists (hack for replay mode re-registration)
-	if not get_tree().get_nodes_in_group("oys_actor").has(self):
-		add_to_group("oys_actor")
-		var sm = get_node_or_null("/root/SessionManager")
-		if sm and sm.has_method("register_oys_actor"):
-			sm.register_oys_actor("CargolDrone", self)
-
 	# Move and Slide
 	if velocity.length() > 0.001:
 		velocity = move_and_slide(velocity, Vector3.UP)
@@ -349,6 +345,11 @@ func _process(_delta):
 			var target_look = global_transform.origin + horiz_vel.normalized()
 			if not target_look.is_equal_approx(global_transform.origin):
 				look_at(target_look, Vector3.UP)
+
+func _on_oys_registry_reset() -> void:
+	var sm = get_node_or_null("/root/SessionManager")
+	if sm and sm.has_method("register_oys_actor"):
+		sm.register_oys_actor("CargolDrone", self)
 
 # --- VISUAL FEEDBACK ---
 
