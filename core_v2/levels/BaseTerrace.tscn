@@ -1,4 +1,4 @@
-[gd_scene load_steps=294 format=2]
+[gd_scene load_steps=285 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -12,7 +12,7 @@
 [ext_resource path="res://core_v2/props/Criopod_vert.tscn" type="PackedScene" id=10]
 [ext_resource path="res://core_v2/props/IrisDoorV2.tscn" type="PackedScene" id=11]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_01.png" type="Texture" id=12]
-[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_11.png" type="Texture" id=13]
+[ext_resource path="res://addons/gd-shader-cache/src/ShaderCache.gd" type="Script" id=13]
 [ext_resource path="res://textures/kenney_prototype_textures/light/texture_06.png" type="Texture" id=14]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_08.png" type="Texture" id=15]
 [ext_resource path="res://textures/kenney_prototype_textures/purple/texture_08.png" type="Texture" id=16]
@@ -25,13 +25,10 @@
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_05.png" type="Texture" id=23]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_07.png" type="Texture" id=24]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_02.png" type="Texture" id=25]
-[ext_resource path="res://core_v2/props/VerticalDoor.tscn" type="PackedScene" id=26]
-[ext_resource path="res://core_v2/components/OcclusionZoneV2.gd" type="Script" id=27]
 [ext_resource path="res://core_v2/components/OYSTrigger.gd" type="Script" id=28]
 [ext_resource path="res://core_v2/things/CheckZoneV2.tscn" type="PackedScene" id=29]
 [ext_resource path="res://core_v2/components/KillZoneV2.gd" type="Script" id=30]
 [ext_resource path="res://core_v2/components/CinematicCameraZone.tscn" type="PackedScene" id=31]
-[ext_resource path="res://scenes/reference/InteriorLab.tscn" type="PackedScene" id=32]
 [ext_resource path="res://textures/kenney_prototype_textures/green/texture_11.png" type="Texture" id=33]
 [ext_resource path="res://core_v2/visual/CinematicPathRig.gd" type="Script" id=34]
 [ext_resource path="res://textures/kenney_prototype_textures/red/texture_09.png" type="Texture" id=35]
@@ -39,12 +36,9 @@
 [ext_resource path="res://assets/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=37]
 [ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=38]
 [ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=39]
-[ext_resource path="res://assets/music/(loreley...).mp3" type="AudioStream" id=40]
-[ext_resource path="res://core_v2/components/BGMZoneV2.gd" type="Script" id=41]
 [ext_resource path="res://addons/zylann.scatter/scatter3d.gd" type="Script" id=42]
 [ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=43]
 [ext_resource path="res://materials/things/StainlessSteel.tres" type="Material" id=44]
-[ext_resource path="res://core_v2/props/EmergencyBeaconV2.tscn" type="PackedScene" id=45]
 [ext_resource path="res://core_v2/props/Lever.tscn" type="PackedScene" id=46]
 
 [sub_resource type="BoxShape" id=1965]
@@ -916,23 +910,13 @@ points = PoolVector3Array( -37, 19, 21, -37, 18, 21, -34, 18, 21, -34, 19, 21, -
 [sub_resource type="ConvexPolygonShape" id=1964]
 points = PoolVector3Array( -16, 0, -3, -16, -1, -3, -9, -1, -3, -9, 0, -3, -16, 0, 26, -16, -1, 26, -9, -1, 26, -9, 0, 26 )
 
-[sub_resource type="ORMSpatialMaterial" id=488]
-albedo_texture = ExtResource( 13 )
-uv1_scale = Vector3( 3, 3, 3 )
-uv1_offset = Vector3( 0, 0.5, 0 )
-
 [sub_resource type="CubeMesh" id=674]
-material = SubResource( 488 )
 size = Vector3( 8, 10, 0.2 )
 
 [sub_resource type="ConcavePolygonShape" id=675]
 data = PoolVector3Array( -4, 5, 0.1, 4, 5, 0.1, -4, -5, 0.1, 4, 5, 0.1, 4, -5, 0.1, -4, -5, 0.1, 4, 5, -0.1, -4, 5, -0.1, 4, -5, -0.1, -4, 5, -0.1, -4, -5, -0.1, 4, -5, -0.1, 4, 5, 0.1, 4, 5, -0.1, 4, -5, 0.1, 4, 5, -0.1, 4, -5, -0.1, 4, -5, 0.1, -4, 5, -0.1, -4, 5, 0.1, -4, -5, -0.1, -4, 5, 0.1, -4, -5, 0.1, -4, -5, -0.1, 4, 5, 0.1, -4, 5, 0.1, 4, 5, -0.1, -4, 5, 0.1, -4, 5, -0.1, 4, 5, -0.1, -4, -5, 0.1, 4, -5, 0.1, -4, -5, -0.1, 4, -5, 0.1, 4, -5, -0.1, -4, -5, -0.1 )
 
 [sub_resource type="BoxShape" id=1969]
-resource_local_to_scene = true
-extents = Vector3( 63, 40, 33.7563 )
-
-[sub_resource type="BoxShape" id=1970]
 extents = Vector3( 104, 1, 141.5 )
 
 [sub_resource type="MultiMesh" id=1491]
@@ -1018,10 +1002,6 @@ points = PoolVector3Array( -0.484276, 0.106015, -0.484276, 0.484276, 0.106015, -
 [sub_resource type="ConvexPolygonShape" id=1518]
 points = PoolVector3Array( -0.484276, 0.106015, -0.484276, 0.484276, 0.106015, -0.484276, -0.439053, 0, -0.439053, -0.484276, 0.106015, 0.291817, -0.484276, 2.34289, -0.484276, 0.484276, 0.106015, 0.291817, 0.438958, 0, -0.439053, 0.484276, 2.34289, -0.484276, -0.439053, 0, 0.273045, -0.291912, 0.106015, 0.484276, -0.484276, 2.34289, 0.291817, -0.403216, 2.39614, -0.484276, 0.291817, 0.106015, 0.484276, 0.438958, 0, 0.273045, 0.484276, 2.34289, 0.291817, 0.403121, 2.39614, -0.484276, -0.27314, 0, 0.438958, -0.291912, 2.34289, 0.484276, -0.403216, 2.39614, 0.25816, 0.273045, 0, 0.438958, 0.291817, 2.34289, 0.484276, 0.403121, 2.39614, 0.25816, -0.258255, 2.39614, 0.403121, 0.25816, 2.39614, 0.403121 )
 
-[sub_resource type="BoxShape" id=1971]
-resource_local_to_scene = true
-extents = Vector3( 88.5928, 15, 199.103 )
-
 [node name="Terrace" type="CSGBox"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
 use_collision = true
@@ -1061,6 +1041,8 @@ shape = SubResource( 1965 )
 [node name="CinematicSequence" type="Area" parent="CrioPod START"]
 transform = Transform( 0.666667, 0, 2.84217e-14, 0, 0.666667, 0, -2.84217e-14, 0, 0.666667, 2.14577e-06, 0.823144, -0.12323 )
 collision_mask = 2
+monitoring = false
+monitorable = false
 script = ExtResource( 28 )
 debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 debug_render = false
@@ -1070,6 +1052,10 @@ center_player_on_enter = true
 
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/CinematicSequence"]
 shape = SubResource( 1966 )
+
+[node name="ShaderCache" type="Spatial" parent="CrioPod START"]
+transform = Transform( 1, 0, 1.42109e-14, 0, 1, 0, -1.42109e-14, 0, 1, 1.19209e-06, 1.33333, 1.33333 )
+script = ExtResource( 13 )
 
 [node name="CornerFloor" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 29.7736, 1.83056, -29.847 )
@@ -1793,35 +1779,10 @@ mesh = SubResource( 674 )
 transform = Transform( 1, 0, -7.10543e-15, 0, 1, 0, 7.10543e-15, 0, 1, 0.310929, -0.59305, -0.0207176 )
 shape = SubResource( 675 )
 
-[node name="VerticalDoor" parent="Building" groups=["no_occlusion"] instance=ExtResource( 26 )]
-transform = Transform( 1.19249e-08, 0, -1, 0, 1, 0, 1, 0, 1.19249e-08, -11.0076, 6.003, 28.6455 )
-
-[node name="OcclusionArea" type="Area" parent="Building"]
-transform = Transform( 1.80496, 0, 0, 0, 1.80717, 0, 0, 0, 3.52709, -22, 0, 20.5809 )
-collision_mask = 2
-script = ExtResource( 27 )
-debug_color = Color( 1, 1, 0, 0.2 )
-debug_render = false
-zone_extents = Vector3( 63, 40, 33.7563 )
-cone_radius = 2.5
-transparency_min = 0.294
-transparency_max = 0.678
-floor_protect_radius = 1.0
-enforce_occlusion_material = true
-
-[node name="CollisionShape" type="CollisionShape" parent="Building/OcclusionArea"]
-shape = SubResource( 1969 )
-
 [node name="CheckZoneV2" parent="." instance=ExtResource( 29 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -25.3912, 20.017, 32.3357 )
 debug_render = false
 zone_extents = Vector3( 2.2, 4, 1 )
-
-[node name="InteriorWide" parent="." instance=ExtResource( 32 )]
-
-[node name="DirectionalLight" parent="InteriorWide" index="0"]
-transform = Transform( -0.315579, 0.252033, -0.914757, -0.125866, 0.951167, 0.30541, 0.940509, 0.211516, -0.265529, 0.464873, 30.9615, 3.10425 )
-directional_shadow_fade_start = 0.04
 
 [node name="KillZoneV2" type="Area" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, -19.1113, 21 )
@@ -1834,7 +1795,7 @@ zone_extents = Vector3( 104, 1, 141.5 )
 
 [node name="CollisionShape" type="CollisionShape" parent="KillZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0 )
-shape = SubResource( 1970 )
+shape = SubResource( 1969 )
 
 [node name="CrioBatch" type="MultiMeshInstance" parent="."]
 transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 8.42406, 5.63353, -19.4895 )
@@ -2056,99 +2017,17 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.04532, 0 )
 script = ExtResource( 42 )
 _scenes = [ ExtResource( 43 ) ]
 
-[node name="PushableBoxV20" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.0871558, 0, 0.996195, 0, 1, 0, -0.996195, 0, -0.0871558, 11.8642, 0.55998, -23.3153 )
-
-[node name="PushableBoxV21" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.0523359, 0, 0.99863, 0, 1, 0, -0.99863, 0, -0.0523359, 7.767, 0.55998, -19.6823 )
-
-[node name="PushableBoxV22" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.788011, 0, -0.615661, 0, 1, 0, 0.615661, 0, -0.788011, 4.0169, 0.55998, -19.4936 )
-
-[node name="PushableBoxV23" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.999848, 0, 0.0174525, 0, 1, 0, -0.0174525, 0, -0.999848, 11.5733, 0.55998, -20.7082 )
-
-[node name="PushableBoxV24" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.999848, 0, 0.0174525, 0, 1, 0, -0.0174525, 0, -0.999848, 11.5733, 3.70528, -20.7082 )
-
 [node name="PushableBoxV2" parent="Scatter3D" instance=ExtResource( 43 )]
 transform = Transform( -0.857167, 0, 0.515038, 0, 1, 0, -0.515038, 0, -0.857167, 6.0203, 0.55998, -30.9897 )
 
 [node name="PushableBoxV3" parent="Scatter3D" instance=ExtResource( 43 )]
 transform = Transform( 0.999848, 0, -0.0174524, 0, 1, 0, 0.0174524, 0, 0.999848, 3.385, 0.55998, -27.7067 )
 
-[node name="PushableBoxV4" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.956305, 0, 0.292372, 0, 1, 0, -0.292372, 0, -0.956305, 3.6921, 0.55998, -23.3992 )
-
-[node name="PushableBoxV5" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.798635, 0, -0.601815, 0, 1, 0, 0.601815, 0, -0.798635, 6.1763, 0.55998, -22.1258 )
-
 [node name="PushableBoxV6" parent="Scatter3D" instance=ExtResource( 43 )]
 transform = Transform( -0.951056, 0, -0.309017, 0, 1, 0, 0.309017, 0, -0.951056, 10.1098, 0.55998, -30.8476 )
 
-[node name="PushableBoxV7" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.951056, 0, -0.309017, 0, 1, 0, 0.309017, 0, -0.951056, 10.1098, 3.70528, -30.8476 )
-
-[node name="PushableBoxV8" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.951056, 0, -0.309017, 0, 1, 0, 0.309017, 0, -0.951056, 10.1098, 6.85058, -30.8476 )
-
-[node name="PushableBoxV9" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.951056, 0, -0.309017, 0, 1, 0, 0.309017, 0, -0.951056, 10.1098, 9.99588, -30.8476 )
-
-[node name="PushableBoxV10" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.809017, 0, 0.587785, 0, 1, 0, -0.587785, 0, -0.809017, 11.2965, 0.08498, -28.8057 )
-
-[node name="PushableBoxV11" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.809017, 0, 0.587785, 0, 1, 0, -0.587785, 0, -0.809017, 11.2965, 3.23028, -28.8057 )
-
-[node name="PushableBoxV12" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.809017, 0, 0.587785, 0, 1, 0, -0.587785, 0, -0.809017, 11.2965, 6.37558, -28.8057 )
-
-[node name="PushableBoxV13" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.809017, 0, 0.587785, 0, 1, 0, -0.587785, 0, -0.809017, 11.2965, 9.52088, -28.8057 )
-
-[node name="PushableBoxV14" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( -0.809017, 0, 0.587785, 0, 1, 0, -0.587785, 0, -0.809017, 11.2965, 12.6662, -28.8057 )
-
 [node name="PushableBoxV15" parent="Scatter3D" instance=ExtResource( 43 )]
 transform = Transform( 0.156434, 0, 0.987688, 0, 1, 0, -0.987688, 0, 0.156434, 0.91, 0.55998, -25.8902 )
-
-[node name="PushableBoxV16" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( 0.156434, 0, 0.987688, 0, 1, 0, -0.987688, 0, 0.156434, 0.91, 3.70528, -25.8902 )
-
-[node name="PushableBoxV17" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( 0.156434, 0, 0.987688, 0, 1, 0, -0.987688, 0, 0.156434, 0.91, 6.85058, -25.8902 )
-
-[node name="PushableBoxV18" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( 0.156434, 0, 0.987688, 0, 1, 0, -0.987688, 0, 0.156434, 0.91, 9.99588, -25.8902 )
-
-[node name="BGMZoneV2" type="Area" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 0.6, -22, 2, 8.46188 )
-collision_mask = 2
-script = ExtResource( 41 )
-debug_color = Color( 0, 1, 0, 0.0901961 )
-debug_render = false
-zone_extents = Vector3( 88.5928, 15, 199.103 )
-bgm_stream = ExtResource( 40 )
-fade_time = 0.2
-
-[node name="CollisionShape2" type="CollisionShape" parent="BGMZoneV2"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 27.1999, 13.8186, -47.3105 )
-shape = SubResource( 1971 )
-
-[node name="EmergencyBeaconV2" parent="." instance=ExtResource( 45 )]
-transform = Transform( -4.37114e-08, 1, 8.74228e-08, 1, 4.37114e-08, 3.82137e-15, 0, 8.74228e-08, -1, -5.95378, 8.0297, -8.15047 )
-starts_active = true
-is_interactable = false
-beacon_color = Color( 1, 0.0705882, 0, 1 )
-light_range = 10.0
-
-[node name="EmergencyBeaconV3" parent="." instance=ExtResource( 45 )]
-transform = Transform( 1.91069e-15, 4.37114e-08, -1, 1, 4.37114e-08, 3.82137e-15, 4.37114e-08, -1, -4.37114e-08, 9.04622, 8.0297, -5.95047 )
-starts_active = true
-is_interactable = false
-beacon_color = Color( 1, 0.0705882, 0, 1 )
-light_range = 10.0
 
 [node name="InnerHole" type="CSGCylinder" parent="."]
 transform = Transform( 2.437, 0, 0, 0, -2.437, 2.1305e-07, 0, -2.1305e-07, -2.437, 7.99303, 3.34242, -26.982 )
@@ -2166,4 +2045,3 @@ transform = Transform( 2.56, 0, 0, 0, -4.37114e-08, -1, 0, 2.56, -1.11901e-07, 7
 
 [editable path="CrioPod START"]
 [editable path="SideScrollZone4"]
-[editable path="InteriorWide"]

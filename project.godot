@@ -1561,6 +1561,7 @@ CinematicManager="*res://core_v2/autoloads/CinematicManager.gd"
 CameraTransition="*res://addons/camera_transition/camera_transition.tscn"
 PerformanceMonitor="*res://core_v2/autoloads/PerformanceMonitor.gd"
 SubtitlesOverlayManager="*res://core_v2/autoloads/SubtitlesOverlayManager.gd"
+ShaderCacheManager="*res://addons/gd-shader-cache/src/ShaderCacheManager.gd"
 
 [debug]
 
@@ -1582,7 +1583,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/qol-camera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/qol-camera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
 
 [gdunit3]
 
@@ -1795,6 +1796,7 @@ quality/shadows/filter_mode=0
 quality/reflections/high_quality_ggx=false
 quality/shading/force_lambert_over_burley=true
 quality/shading/force_blinn_over_ggx=true
+quality/filters/anisotropic_filter_level=1
 batching/options/use_batching=false
 batching/options/single_rect_fallback=true
 batching/parameters/batch_buffer_size=32768
