@@ -4208,7 +4208,7 @@
         "message": "Starting destroyer signal test"
       }
     ],
-    "55": [
+    "54": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -1.0 \"Player fell\""
@@ -5858,22 +5858,6 @@
         0,
         0,
         0
-      ],
-      "camera_input_timer": 0,
-      "is_tank_turn_mode": true,
-      "current_turn_time": 0
-    },
-    "jump_state": {
-      "coyote_timer": 0.15,
-      "jump_buffer_timer": 0,
-      "is_jumping": false
-    }
-  },
-  "oys_variables": {
-    "$sys_env_prop_path": "",
-    "$sys_env_auto_run": ""
-  }
-}0
       ],
       "camera_input_timer": 0,
       "is_tank_turn_mode": true,

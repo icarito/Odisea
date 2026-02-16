@@ -322,7 +322,7 @@ while [[ $# -gt 0 ]]; do
             # Usar variable de entorno OYS_FILTER para filtrar el test
             export OYS_FILTER="${OYS_FILTER_NAME}"
             run_and_capture $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd \
-                -a "./core_v2/tests/test_determinism_v2.gd" "$@"
+                -a "./core_v2/tests/test_determinism_v2.gd" "${ARGS[@]}"
             exit_code=$?
             
             echo "---"

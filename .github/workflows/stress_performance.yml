@@ -2,9 +2,9 @@ name: Stress & Performance Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, low-end ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, low-end ]
   workflow_dispatch:
     inputs:
       simulate_regression:

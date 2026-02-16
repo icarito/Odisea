@@ -44,5 +44,6 @@ CALL StressTestRunner "stop_test"
 WAIT 1.0
 
 PRINT ">>> [STRESS] All Tests Completed Successfully"
+CALL StressTestRunner "report_summary"
 CALL StressTestRunner "finish"
 WAIT 0.2

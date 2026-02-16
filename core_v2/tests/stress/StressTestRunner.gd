@@ -53,7 +53,7 @@ func run_saturation_test(count: int):
 
 		# Yield occasionally to prevent freeze during spawn
 		if i % 50 == 0:
-			yield(get_tree(), "idle_frame")
+			yield (get_tree(), "idle_frame")
 
 	_active_test = "saturation"
 	print("[StressTestRunner] Saturation Test Running. Check PerformanceMonitor.")
@@ -124,7 +124,7 @@ func run_pathfinding_test(count: int):
 			drone.move_to(Vector3(0, 2.5, 0))
 
 		_spawned_drones.append(drone)
-		if i % 20 == 0: yield(get_tree(), "idle_frame")
+		if i % 20 == 0: yield (get_tree(), "idle_frame")
 
 	_active_test = "pathfinding"
 
@@ -166,9 +166,29 @@ func run_physics_box_test(count: int):
 		box.translation = Vector3(rand_range(-5, 5), 5 + (i * 2.5), rand_range(-5, 5))
 
 		_spawned_drones.append(box)
-		if i % 10 == 0: yield(get_tree(), "idle_frame")
+		if i % 10 == 0: yield (get_tree(), "idle_frame")
 
 	_active_test = "physics_box"
+
+func report_summary():
+	var pm = get_node_or_null("/root/PerformanceMonitor")
+	if not pm:
+		print("[StressTestRunner] PerformanceMonitor not found.")
+		return
+	
+	var snapshots = pm.get("snapshots") if "snapshots" in pm else []
+	if snapshots.empty():
+		print("[StressTestRunner] No performance snapshots found.")
+		return
+		
+	print("\n--- STRESS TEST SUMMARY ---")
+	for s in snapshots:
+		var tag = s.get("tag", "unknown")
+		var fps = s.get("fps", 0.0)
+		var proc = s.get("process_time_ms", 0.0)
+		var nodes = s.get("node_count", 0)
+		print("- %s: FPS: %.1f, CPU: %.2fms, Nodes: %d" % [tag, fps, proc, nodes])
+	print("---------------------------\n")
 
 func stop_test():
 	_cleanup()

@@ -5130,6 +5130,60 @@
         "crouch": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -5164,14 +5218,14 @@
         "phase": "check"
       }
     ],
-    "163": [
+    "166": [
       {
         "command": "SET",
         "var": "pos",
         "value": "(-28, 20, 33)"
       }
     ],
-    "283": [
+    "286": [
       {
         "command": "PRINT",
         "message": "SUCCESS: KillZone caught the player in BaseTerrace!"
@@ -5190,18 +5244,6 @@
           6.4097,
           5.79305,
           7.19635
-        ]
-      },
-      "/root/Terrace/Building/VerticalDoor/SlidingDoor": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0,
-        "start_pos": [
-          0,
-          2.5,
-          0
         ]
       },
       "/root/Terrace/CornerFloor/CinematicCameraZone/CinematicPathRig": {
@@ -5223,22 +5265,6 @@
           0.000005,
           -179.999985
         ]
-      },
-      "/root/Terrace/EmergencyBeaconV2": {
-        "active": true,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 1,
-        "target": 1,
-        "beacon_time": 0
-      },
-      "/root/Terrace/EmergencyBeaconV3": {
-        "active": true,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 1,
-        "target": 1,
-        "beacon_time": 0
       },
       "/root/Terrace/Lever/IrisDoorV2/IrisMechanism": {
         "active": false,
@@ -5301,15 +5327,15 @@
           0
         ]
       },
-      "/root/Terrace/Scatter3D/PushableBoxV13": {
+      "/root/Terrace/Scatter3D/PushableBoxV15": {
         "pos": [
-          1.6292,
-          6.049,
-          -27.9233
+          0.91,
+          1.6053,
+          -25.8902
         ],
         "rot": [
           -0,
-          0.890118,
+          1.413717,
           0
         ],
         "vel": [
@@ -5332,15 +5358,15 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/Terrace/Scatter3D/PushableBoxV17": {
+      "/root/Terrace/Scatter3D/PushableBoxV2": {
         "pos": [
-          4.8366,
-          6.0494,
-          -29.089899
+          6.0203,
+          1.6053,
+          -30.9897
         ],
         "rot": [
           -0,
-          -1.605703,
+          2.60054,
           0
         ],
         "vel": [
@@ -5363,15 +5389,15 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/Terrace/Scatter3D/PushableBoxV18": {
+      "/root/Terrace/Scatter3D/PushableBoxV3": {
         "pos": [
-          4.8366,
-          8.0582,
-          -29.089899
+          3.385,
+          1.6053,
+          -27.706699
         ],
         "rot": [
           -0,
-          -1.605703,
+          -0.017453,
           0
         ],
         "vel": [
@@ -5394,77 +5420,15 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/Terrace/Scatter3D/PushableBoxV19": {
+      "/root/Terrace/Scatter3D/PushableBoxV6": {
         "pos": [
-          4.8366,
-          10.066999,
-          -29.089899
+          10.1098,
+          1.6053,
+          -30.847601
         ],
         "rot": [
           -0,
-          -1.605703,
-          0
-        ],
-        "vel": [
-          0,
-          0,
-          0
-        ],
-        "ang": [
-          0,
-          0,
-          0
-        ],
-        "mode": 0,
-        "fbt": 0,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
-      "/root/Terrace/Scatter3D/PushableBoxV20": {
-        "pos": [
-          4.8366,
-          12.0758,
-          -29.089899
-        ],
-        "rot": [
-          -0,
-          -1.605703,
-          0
-        ],
-        "vel": [
-          0,
-          0,
-          0
-        ],
-        "ang": [
-          0,
-          0,
-          0
-        ],
-        "mode": 0,
-        "fbt": 0,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
-      "/root/Terrace/Scatter3D/PushableBoxV24": {
-        "pos": [
-          9.6214,
-          12.677401,
-          -31.0786
-        ],
-        "rot": [
-          -0,
-          0.261799,
+          -2.827433,
           0
         ],
         "vel": [
@@ -5515,7 +5479,7 @@
     "position": [
       -28.00009,
       16.868294,
-      33.599834
+      33.599838
     ],
     "velocity": [
       0,

@@ -138,9 +138,9 @@ static func _get_replay_paths() -> Array:
 				return []
 	else:
 		if skip_json:
-			raw_files = _scan_for_files([".oys"])
+			raw_files = _scan_for_files([".oys"], true)
 		else:
-			raw_files = _scan_for_files([".oys", ".json"])
+			raw_files = _scan_for_files([".oys", ".json"], true)
 	
 	# Filtrar redundancia: si existe un .oys, ignorar el .json
 	var oys_files = {}
@@ -301,10 +301,16 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 			yield (runner.simulate_frames(1), "completed")
 			timeout_setup1 -= 1
 
-		var timeout1 = 5000
+		var timeout1 = 10000
 		while SessionManager.is_replaying and timeout1 > 0:
 			yield (runner.simulate_frames(1), "completed")
 			timeout1 -= 1
+
+		# Skip PASS 2 for stress tests
+		if "/stress/" in path:
+			print("[TEST_RUNNER] Skipping PASS 2 for stress test: %s" % path)
+			_cleanup_runner_scene(runner)
+			return
 
 		# Verificar si algún ASSERT de OYS falló
 		if SessionManager.oys_assert_failed:

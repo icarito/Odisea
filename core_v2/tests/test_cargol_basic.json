@@ -2556,6 +2556,60 @@
         "crouch": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -2576,7 +2630,7 @@
         ]
       }
     ],
-    "53": [
+    "58": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -2586,7 +2640,7 @@
         ]
       }
     ],
-    "65": [
+    "71": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -2598,7 +2652,7 @@
         ]
       }
     ],
-    "127": [
+    "131": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -2610,7 +2664,7 @@
         ]
       }
     ],
-    "140": [
+    "143": [
       {
         "command": "SET",
         "var": "$cargo_x",
@@ -2687,12 +2741,12 @@
   "final_expected_state": {
     "position": [
       0,
-      0.238167,
+      0.284833,
       0
     ],
     "velocity": [
       0,
-      -2.8,
+      -2.566667,
       0
     ],
     "yaw": 0,

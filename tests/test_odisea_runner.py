@@ -86,7 +86,7 @@ def _collect_determinism_oys_cases(repo_root: Path):
     if include_determinism not in {"1", "true", "yes", "on"}:
         return []
     test_dir = repo_root / "core_v2" / "tests"
-    return [path.stem for path in sorted(test_dir.glob("*.oys"))]
+    return [str(path.relative_to(test_dir).with_suffix("")) for path in sorted(test_dir.rglob("*.oys"))]
 
 
 def _collect_raw_oys_files(repo_root: Path):
@@ -186,7 +186,7 @@ def _make_determinism_test(oys_name: str):
     def _test(selected_runner: str, odisea_debug: bool):
         _run_determinism_case(oys_name, selected_runner, odisea_debug)
 
-    test_name = f"test_det__{_safe_id(oys_name)}__{_stable_suffix(oys_name)}"
+    test_name = f"test_det__{_safe_id(oys_name.split('/')[-1])}__{_stable_suffix(oys_name)}"
     _test.__name__ = test_name
     _test.__qualname__ = test_name
     return _test
