@@ -1799,7 +1799,6 @@ quality/reflections/high_quality_ggx=false
 quality/shading/force_lambert_over_burley=true
 quality/shading/force_blinn_over_ggx=true
 quality/filters/anisotropic_filter_level=1
-batching/options/use_batching=true
 batching/options/single_rect_fallback=true
 batching/parameters/batch_buffer_size=32768
 environment/default_clear_color=Color( 0.137255, 0.219608, 0.282353, 1 )
