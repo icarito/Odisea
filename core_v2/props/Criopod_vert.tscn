@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=2]
+[gd_scene load_steps=16 format=2]
 
 [ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=1]
 [ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=2]
@@ -7,7 +7,6 @@
 [ext_resource path="res://assets/sfx/sfx100v2_loop_ambient_04.ogg" type="AudioStream" id=5]
 [ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=6]
 [ext_resource path="res://assets/sfx/steam hiss.wav" type="AudioStream" id=7]
-[ext_resource path="res://assets/flipbook_particles/assets/clouds/cloud_03/cloud_03.tscn" type="PackedScene" id=8]
 
 [sub_resource type="SpatialMaterial" id=29]
 resource_name = "DisplayCase_2_mat"
@@ -137,7 +136,3 @@ trigger_mode = "Interact"
 
 [node name="CollisionShape" type="CollisionShape" parent="StaticBody"]
 shape = SubResource( 38 )
-
-[node name="Smoke" parent="." instance=ExtResource( 8 )]
-transform = Transform( 3, 0, 8.31764e-09, 0, 2.90486, 0, 8.31702e-09, 0, 2.90486, 0.0232027, 1.07434, 1.46156 )
-skeleton = NodePath("../..")
