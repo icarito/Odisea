@@ -101,20 +101,14 @@ func _find_player():
 			_initialize_player_for_session(player)
 			return
 
-	# Backup: Buscar por nombre en el árbol
-	var pilot = get_tree().get_root().find_node("Pilot", true, false)
-	if not is_instance_valid(pilot) and get_tree().current_scene:
-		pilot = get_tree().current_scene.find_node("Pilot", true, false)
-	
-	if _is_player_candidate_valid(pilot):
-		player = pilot
-		_initialize_player_for_session(player)
-	else:
-		if not is_respawning and not _is_waiting_for_respawn_validation:
-			# Solo loguear si no estamos esperando activamente un respawn
-			# print("[SessionManager] _find_player: No se encontró al jugador.")
-			pass
-		player = null
+	# Backup recursive search removed for performance.
+	# Rely on 'player' group registration.
+
+	if not is_respawning and not _is_waiting_for_respawn_validation:
+		# Solo loguear si no estamos esperando activamente un respawn
+		# print("[SessionManager] _find_player: No se encontró al jugador.")
+		pass
+	player = null
 	
 func _is_player_candidate_valid(p) -> bool:
 	if not is_instance_valid(p):
@@ -216,9 +210,9 @@ func _connect_teleport_system():
 		return
 
 	# Buscar PlayerControllerV2 (Pilot)
-	var player_node = get_tree().get_root().find_node("Pilot", true, false)
+	_find_player()
+	var player_node = player
 	teleport_system.player_controller = player_node
-	player = player_node # Also set SessionManager.player for OYS input routing
 
 	# Validar y reconectar InputProviderV2
 	if is_instance_valid(player_node):
@@ -393,14 +387,14 @@ func _physics_process(_dt):
 		if is_instance_valid(player) and player.global_transform.origin.y > _peak_y:
 			_peak_y = player.global_transform.origin.y
 		# Step player: prefer SessionManager.player (set by TeleportSystem) to avoid
-		# timing races with name-based lookup. Fall back to find_node if needed.
+		# timing races with name-based lookup. Fall back to _find_player if needed.
 		var pilot_node = null
 		if is_instance_valid(player):
 			pilot_node = player
 		else:
-			pilot_node = get_tree().get_root().find_node("Pilot", true, false)
-			if pilot_node and is_instance_valid(pilot_node):
-				player = pilot_node
+			_find_player()
+			if is_instance_valid(player):
+				pilot_node = player
 
 		# Apply Time Scale to our manual fixed step
 		var step_dt = FIXED_DT * Engine.time_scale
