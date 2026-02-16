@@ -12,8 +12,8 @@ const LOG_TRIGGER_PERCENT := 0.70 # 70% of CPU Budget
 
 # --- Debug Flags ---
 var debug_freeze_logic := false setget set_debug_freeze_logic
-var debug_cull_distance_enabled := false
-var debug_cull_radius := 50.0
+var debug_cull_distance_enabled := true
+var debug_cull_radius := 40.0
 var debug_step_mode := false # Managed via freeze logic + manual step
 var debug_disable_ai := false setget set_debug_disable_ai
 var debug_collision_shapes := false setget set_debug_collision_shapes
@@ -174,7 +174,7 @@ func set_debug_freeze_logic(value: bool):
 func step_frame():
 	if get_tree().paused:
 		get_tree().paused = false
-		yield(get_tree(), "idle_frame")
+		yield (get_tree(), "idle_frame")
 		get_tree().paused = true
 		print("[PerformanceMonitor] Stepped 1 frame")
 
