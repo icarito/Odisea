@@ -4,6 +4,7 @@ var _is_validating := false # Re-entry protection
 var _replay_watchdog_frames := 0 # Safety counter for tests
 
 signal replay_finished(success, drift, frames)
+signal oys_registry_reset
 
 var player: KinematicBody = null
 var _player_searched = false
@@ -676,6 +677,7 @@ func load_and_play(path: String):
 	_oys_requested_scene = ""
 	_peak_y = -999.0
 	_oys_actors = {}
+	emit_signal("oys_registry_reset")
 	_replay_input_provider = null
 	_replay_input_buffer.clear()
 	_cleanup_session_spawned_nodes()
@@ -2039,6 +2041,8 @@ func register_oys_actor(name: String, node: Node) -> void:
 		printerr("[SessionManager] Attempted to register invalid actor: ", name)
 		return
 	_oys_actors[name] = node
+	if not node.is_in_group("oys_actor"):
+		node.add_to_group("oys_actor")
 	print("[SessionManager] OYS Actor Registered: ", name, " -> ", node.name)
 
 func get_oys_actor(name: String) -> Node:
@@ -2052,6 +2056,9 @@ func get_oys_actor(name: String) -> Node:
 
 func unregister_oys_actor(name: String) -> void:
 	if _oys_actors.has(name):
+		var node = _oys_actors[name]
+		if is_instance_valid(node) and node.is_in_group("oys_actor"):
+			node.remove_from_group("oys_actor")
 		_oys_actors.erase(name)
 
 func take_oys_screenshot(label: String, _extra = ""):
