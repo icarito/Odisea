@@ -121,13 +121,21 @@ func apply_action(action: Dictionary):
 			vx = float(move_data[0])
 			vy = float(move_data[1])
 
+		# Look / Rotation
+		var look_data = action.get("look", [0.0, 0.0])
+		var lx = 0.0
+		var ly = 0.0
+		if typeof(look_data) == TYPE_ARRAY and look_data.size() >= 2:
+			lx = float(look_data[0])
+			ly = float(look_data[1])
+
 		var input_dict = {
 			"move_vec": Vector2(vx, vy),
 			"jump": bool(jump),
 			"interact": bool(interact),
 			"sprint": bool(sprint),
 			"crouch": bool(crouch),
-			"mouse_delta": Vector2.ZERO,
+			"mouse_delta": Vector2(lx, ly),
 			"zoom_delta": 0.0,
 			"fov_override": -1.0
 		}

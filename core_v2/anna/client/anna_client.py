@@ -47,8 +47,14 @@ def main():
                     random.uniform(-1, 1) if random.random() > 0.5 else 0.0
                 ]
 
+                look_vec = [
+                    random.uniform(-5, 5) if random.random() > 0.7 else 0.0,
+                    random.uniform(-2, 2) if random.random() > 0.8 else 0.0
+                ]
+
                 action = {
                     "move": move_vec,
+                    "look": look_vec,
                     "jump": random.random() > 0.98,
                     "interact": random.random() > 0.99
                 }
