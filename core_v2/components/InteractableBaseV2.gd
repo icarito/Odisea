@@ -14,6 +14,10 @@ export(bool) var one_off := false # If true, can only be used once (manually or 
 export(bool) var is_interactable := true # If false, ignore player interaction
 export(bool) var manual_toggle := true # If false, emit signal but don't toggle state automatically
 export(bool) var debug := false
+export(Color) var highlight_color := Color(1.0, 0.5, 0.0) # Orange default
+export(float) var highlight_width := 8.0 # Thicker default
+export(float) var pulse_speed_highlight := 4.0 # Faster default
+
 
 func set_starts_active(v: bool) -> void:
 	starts_active = v
@@ -36,9 +40,9 @@ var anim_speed := 1.0 # Progress increment per second
 var _perf_monitor = null
 
 # --- HIGHLIGHT SYSTEM ---
-var _highlight_mesh: MeshInstance = null
-var _original_materials: Array = []
-const HIGHLIGHT_SHADER_PATH = "res://shaders/interactable_highlight.shader"
+var _highlight_meshes: Array = []
+const HIGHLIGHT_SHADER_PATH = "res://core_v2/visual/outline.shader"
+const SCANLINE_SHADER_PATH = "res://core_v2/visual/scanlines.shader"
 
 # --- SIGNALS ---
 signal activated()
@@ -171,72 +175,75 @@ func set_highlighted(enabled: bool) -> void:
 		_clear_highlight()
 
 func _apply_highlight() -> void:
-	"""Create and apply highlight overlay mesh."""
-	if _highlight_mesh != null:
+	"""Create and apply highlight overlay meshes to all eligible children."""
+	if _highlight_meshes.size() > 0:
 		return # Already highlighted
 	
-	# Store original materials for all mesh children
-	_original_materials.clear()
-	for child in _get_all_meshes(self):
-		if child is MeshInstance:
-			_original_materials.append({"mesh": child, "material": child.get_surface_material(0)})
+	# Load the highlight shader once
+	var shader = load(HIGHLIGHT_SHADER_PATH)
+	var scanline_shader = load(SCANLINE_SHADER_PATH)
 	
-	# Create highlight mesh as an outline overlay
-	_highlight_mesh = _create_highlight_mesh()
-	if _highlight_mesh:
-		add_child(_highlight_mesh)
+	if not shader or not scanline_shader:
+		return
+
+	# Create a shared material (base outline)
+	var mat = ShaderMaterial.new()
+	mat.shader = shader
+	mat.set_shader_param("highlight_color", highlight_color)
+	mat.set_shader_param("outline_width", highlight_width)
+	mat.set_shader_param("pulse_speed", pulse_speed_highlight)
+	
+	# Create scanline overlay (next pass)
+	var scanline_mat = ShaderMaterial.new()
+	scanline_mat.shader = scanline_shader
+	scanline_mat.set_shader_param("highlight_color", highlight_color)
+	scanline_mat.set_shader_param("pulse_speed", pulse_speed_highlight)
+	scanline_mat.set_shader_param("scanline_count", 150.0) # Finer lines
+	
+	mat.next_pass = scanline_mat
+
+	# Find all MeshInstances and create overlays
+	for mesh_instance in _get_all_meshes(self):
+		if mesh_instance.mesh == null:
+			continue
+			
+		var highlight_instance = MeshInstance.new()
+		highlight_instance.name = "_highlight_overlay_" + mesh_instance.name
+		highlight_instance.mesh = mesh_instance.mesh
+		
+		# Match transform relative to parent (since we'll add as child of the mesh_instance)
+		# Actually, adding as child of mesh_instance is simplest to inherit transform
+		mesh_instance.add_child(highlight_instance)
+		highlight_instance.transform = Transform.IDENTITY # Local identity
+		
+		# Apply highlight material
+		# Using override material on the instance is safer than surface material
+		highlight_instance.material_override = mat
+		
+		_highlight_meshes.append(highlight_instance)
 
 func _clear_highlight() -> void:
-	"""Remove highlight overlay and restore original materials."""
-	if _highlight_mesh != null:
-		_highlight_mesh.queue_free()
-		_highlight_mesh = null
-	
-	# Restore original materials
-	for item in _original_materials:
-		var mesh: MeshInstance = item.get("mesh")
-		var material = item.get("material")
-		if mesh and is_instance_valid(mesh):
-			mesh.set_surface_material(0, material)
-	_original_materials.clear()
+	"""Remove highlight overlays."""
+	for mesh in _highlight_meshes:
+		if is_instance_valid(mesh):
+			mesh.queue_free()
+	_highlight_meshes.clear()
 
 func _get_all_meshes(node: Node) -> Array:
 	"""Recursively get all MeshInstance children."""
 	var meshes: Array = []
 	for child in node.get_children():
+		# Avoid highlighting our own highlight meshes
+		if child.name.begins_with("_highlight_overlay"):
+			continue
+			
 		if child is MeshInstance:
 			meshes.append(child)
 		meshes.append_array(_get_all_meshes(child))
 	return meshes
 
-func _create_highlight_mesh() -> MeshInstance:
-	"""Create a slightly scaled mesh with the highlight shader."""
-	# Find the first mesh to use as template
-	var template_mesh: Mesh = null
-	for child in _get_all_meshes(self):
-		if child is MeshInstance and child.mesh != null:
-			template_mesh = child.mesh
-			break
-	
-	if template_mesh == null:
-		return null
-	
-	var highlight_instance = MeshInstance.new()
-	highlight_instance.name = "_highlight_overlay"
-	highlight_instance.mesh = template_mesh
-	
-	# Load and apply the highlight shader
-	var shader = load(HIGHLIGHT_SHADER_PATH)
-	if shader:
-		var mat = ShaderMaterial.new()
-		mat.shader = shader
-		mat.set_shader_param("highlight_color", Color(1, 1, 0, 0.3))
-		highlight_instance.set_surface_material(0, mat)
-	
-	# Slightly scale up to create outline effect
-	highlight_instance.scale = Vector3(1.02, 1.02, 1.02)
-	
-	return highlight_instance
+	pass # Deprecated by multi-mesh support
+
 
 # --- EASING UTILITIES ---
 
