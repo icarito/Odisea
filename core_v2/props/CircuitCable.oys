@@ -1,0 +1,36 @@
+# CircuitCable OYS Test Script
+# Tests the cable energy visualization using INTERACT
+
+LEVEL res://core_v2/scenes/PropStage.tscn
+WAIT 1.0
+
+SECTION "Setup"
+    IF $sys_env_prop_path == "" GOTO LoadDefault
+    LOAD_PROP $sys_env_prop_path
+    GOTO StartValidation
+
+SECTION "LoadDefault"
+    PRINT "No env prop path set, loading default: CircuitCable"
+    LOAD_PROP "res://core_v2/props/CircuitCable.tscn"
+
+SECTION "StartValidation"
+    WAIT 1.0
+    SCREENSHOT 0_idle
+    
+    # Interact to toggle the cable (toggle on)
+    INTERACT target=prop
+    # Wait shorter to capture transition mid-animation
+    WAIT 0.3
+    SCREENSHOT 1_transitioning
+    
+    # Wait for full activation
+    WAIT 0.5
+    SCREENSHOT 2_active
+    
+    # Toggle off
+    INTERACT target=prop
+    WAIT 0.3
+    SCREENSHOT 3_transitioning_off
+    
+    WAIT 0.5
+    SCREENSHOT 4_off

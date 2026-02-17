@@ -461,9 +461,17 @@ func _process_interaction(input: InputDataV2):
 
 	if best_target:
 		if _current_interactable != best_target:
+			# Clear highlight from previous target
+			if _current_interactable and is_instance_valid(_current_interactable):
+				_current_interactable.set_highlighted(false)
+			
 			_current_interactable = best_target
 			var text = best_target.interaction_text if best_target.get("interaction_text") else "Interact"
 			emit_signal("interactable_in_range", text)
+			
+			# Apply highlight to new target
+			best_target.set_highlighted(true)
+			
 			var can_auto_trigger = not best_target.get("_auto_triggered") or not best_target.get("one_off")
 			if best_target.get("auto_interact") and not best_target.is_active and can_auto_trigger:
 				if best_target.has_method("set_active"):
@@ -478,6 +486,10 @@ func _clear_interactable():
 	if _current_interactable != null:
 		if not _current_interactable.get("one_off"):
 			_current_interactable._auto_triggered = false
+		
+		# Remove highlight when going out of range
+		_current_interactable.set_highlighted(false)
+		
 		_current_interactable = null
 		emit_signal("interactable_out_of_range")
 

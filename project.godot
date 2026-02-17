@@ -159,6 +159,26 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/visual/CinematicRig.gd"
 }, {
+"base": "PropBaseV2",
+"class": "CircuitCable",
+"language": "GDScript",
+"path": "res://core_v2/systems/circuit/CircuitCable.gd"
+}, {
+"base": "PropBaseV2",
+"class": "CircuitExampleProp",
+"language": "GDScript",
+"path": "res://core_v2/props/CircuitExampleProp.gd"
+}, {
+"base": "Resource",
+"class": "CircuitGraphResource",
+"language": "GDScript",
+"path": "res://core_v2/systems/circuit/CircuitGraphResource.gd"
+}, {
+"base": "Spatial",
+"class": "CircuitTestScene",
+"language": "GDScript",
+"path": "res://core_v2/props/CircuitTestScene.gd"
+}, {
 "base": "Reference",
 "class": "CmdArgumentParser",
 "language": "GDScript",
@@ -789,6 +809,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/core/LocalTime.gd"
 }, {
+"base": "Spatial",
+"class": "LogicCircuitManager",
+"language": "GDScript",
+"path": "res://core_v2/systems/circuit/LogicCircuitManager.gd"
+}, {
 "base": "CSGCombiner",
 "class": "MeshBuilder",
 "language": "GDScript",
@@ -1315,6 +1340,10 @@ _global_script_class_icons={
 "CinematicCameraZoneV2": "",
 "CinematicPathRig": "",
 "CinematicRigV2": "",
+"CircuitCable": "",
+"CircuitExampleProp": "",
+"CircuitGraphResource": "",
+"CircuitTestScene": "",
 "CmdArgumentParser": "",
 "CmdCommand": "",
 "CmdCommandHandler": "",
@@ -1441,6 +1470,7 @@ _global_script_class_icons={
 "LavaLayer": "",
 "LiquidLayer": "",
 "LocalTime": "",
+"LogicCircuitManager": "",
 "MeshBuilder": "",
 "MeshBuilderBox": "",
 "MeshBuilderBuckyball": "",
@@ -1582,7 +1612,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/qol-camera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/qol-camera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
 
 [gdunit3]
 
@@ -1799,5 +1829,4 @@ batching/options/use_batching=false
 batching/options/single_rect_fallback=true
 batching/parameters/batch_buffer_size=32768
 environment/default_clear_color=Color( 0.137255, 0.219608, 0.282353, 1 )
-environment/default_environment="res://default_env.tres"
 quality/filters/anisotropic_filtering_level=0

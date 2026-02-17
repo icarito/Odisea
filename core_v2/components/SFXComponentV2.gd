@@ -50,8 +50,11 @@ func _ready():
 
 func play_sfx():
 	# Priority 1: Mixing Desk Sound via name
-	if sound_name != "" and AudioManager.has_method("play_sound"):
-		AudioManager.play_sound(sound_name, global_transform.origin)
+	var audio_manager = null
+	if Engine.has_singleton("AudioManager"):
+		audio_manager = Engine.get_singleton("AudioManager")
+	if audio_manager and sound_name != "" and audio_manager.has_method("play_sound"):
+		audio_manager.play_sound(sound_name, global_transform.origin)
 		return
 
 	# Priority 2: Local AudioStreamPlayer3D

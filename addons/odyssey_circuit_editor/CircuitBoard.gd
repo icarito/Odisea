@@ -44,7 +44,13 @@ func _refresh_graph():
 
 	# Add Connections
 	for conn in data.connections:
-		graph_edit.connect_node(conn.from, conn.from_port, conn.to, conn.to_port)
+		if data.nodes.has(conn.from) and data.nodes.has(conn.to):
+			if graph_edit.has_node(conn.from) and graph_edit.has_node(conn.to):
+				graph_edit.connect_node(conn.from, conn.from_port, conn.to, conn.to_port)
+			else:
+				print("GraphNode Error: One or both nodes are missing in the editor.", conn.from, conn.to)
+		else:
+			print("CircuitGraphResource Error: One or both nodes are invalid.", conn.from, conn.to)
 
 func _create_graph_node(id: String, data: Dictionary):
 	var node = GraphNode.new()

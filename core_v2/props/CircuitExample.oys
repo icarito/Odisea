@@ -1,0 +1,37 @@
+# CircuitExample OYS Test Script
+# Tests the circuit with switches, cables, and light
+# XOR logic: Light ON when exactly ONE switch is active
+
+LEVEL res://core_v2/scenes/PropStage.tscn
+WAIT 1.0
+
+SECTION "Setup"
+    IF $sys_env_prop_path == "" GOTO LoadDefault
+    LOAD_PROP $sys_env_prop_path
+    GOTO StartValidation
+
+SECTION "LoadDefault"
+    PRINT "No env prop path set, loading default: CircuitExample"
+    LOAD_PROP "res://core_v2/props/CircuitExample.tscn"
+
+SECTION "StartValidation"
+    WAIT 1.0
+    SCREENSHOT 0_idle
+    
+    # Trigger Activation (toggle switch)
+    INTERACT target=prop
+    # Shorter wait to capture transition at ~0.3s (middle of typical 0.5-0.6s animation)
+    WAIT 0.3
+    SCREENSHOT 1_transitioning
+    
+    # Continue waiting for full activation
+    WAIT 0.5
+    SCREENSHOT 2_active
+    
+    # Deactivate
+    INTERACT
+    WAIT 0.3
+    SCREENSHOT 3_transitioning_off
+    
+    WAIT 0.7
+    SCREENSHOT 4_off

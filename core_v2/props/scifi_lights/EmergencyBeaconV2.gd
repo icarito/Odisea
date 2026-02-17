@@ -63,13 +63,19 @@ func _physics_process(delta: float) -> void:
 func _update_visuals() -> void:
 	._update_visuals()
 	var t = anim_progress
-	if not is_active and _dome_mesh:
-		# When off, stop rotation at current angle
-		pass
+	# When off (anim_progress near 0), dim the light significantly
 	if _omni_light:
-		_omni_light.light_energy = t * light_energy_max
+		# When fully off (t < 0.1), turn off light completely
+		if t < 0.1:
+			_omni_light.light_energy = 0.0
+		else:
+			_omni_light.light_energy = t * light_energy_max
 	if _dome_mesh and _dome_mesh.material_override is SpatialMaterial:
-		_dome_mesh.material_override.emission_energy = t * 3.0
+		# When fully off (t < 0.1), dim emission significantly
+		if t < 0.1:
+			_dome_mesh.material_override.emission_energy = 0.1
+		else:
+			_dome_mesh.material_override.emission_energy = t * 3.0
 
 func get_snapshot() -> Dictionary:
 	var snap =.get_snapshot()

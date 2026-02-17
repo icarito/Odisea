@@ -312,7 +312,7 @@ func _respawn_at_spawn_or_zero():
 		_clear_respawn_flag()
 
 func _on_player_killed():
-	print("[TeleportSystem] _on_player_killed ejecutado! (señal recibida)")
+	print("[TeleportSystem] _on_player_killed ejecutado! Señal recibida. Verificando estado inicial...")
 	print("[TeleportSystem] self:", self, " path=", get_path())
 	var pc_path = player_controller.get_path() if is_instance_valid(player_controller) else "null"
 	print("[TeleportSystem] player_controller:", player_controller, " path=", pc_path)

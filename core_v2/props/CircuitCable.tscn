@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://core_v2/systems/circuit/CircuitCable.gd" type="Script" id=1]
+[ext_resource path="res://models/CableVisible.tres" type="Material" id=2]
+
+[node name="CircuitCable" type="Spatial"]
+script = ExtResource( 1 )
+cable_material = ExtResource( 2 )
+cable_radius = 0.03
