@@ -291,7 +291,12 @@ func init_from_curve(curve: Curve3D) -> void:
 
 func _update_visuals() -> void:
 	"""Override from PropBaseV2 to react to energy (is_active state)."""
-	var t = anim_progress
+	# Use target_progress if anim_progress hasn't started (animation pending)
+	# This ensures immediate visual feedback when set_active is called
+	# Fix: Use target_progress whenever anim_progress is at initial value (0), regardless of direction
+	var t = target_progress if anim_progress < 0.01 else anim_progress
+	
+	print("[CircuitCable] _update_visuals: t=", t, " target_progress=", target_progress, " anim_progress=", anim_progress)
 	
 	# Update legacy state for test compatibility
 	# Map anim_progress to state: idle (0-0.3), mid (0.3-0.7), active (0.7-1.0)
@@ -301,6 +306,8 @@ func _update_visuals() -> void:
 		circuit_state = "mid"
 	else:
 		circuit_state = "active"
+	
+	print("[CircuitCable] circuit_state now: ", circuit_state)
 	
 	# Get the cable visual mesh
 	var mesh_inst = get_node_or_null("CableVis")
@@ -339,6 +346,14 @@ func _update_visuals() -> void:
 		mat.albedo_color = Color(0.05, 0.05, 0.05)  # Very dark
 
 # --- Interaction (for manual testing) ---
+
+func set_active(value: bool, immediate: bool = false) -> void:
+	"""Override set_active to update state property when called by Lever."""
+	print("[CircuitCable] set_active called with value:", value)
+	# Call parent implementation
+	.set_active(value, immediate)
+	# Force update the state immediately
+	_update_visuals()
 
 func interact(_from = null) -> void:
 	"""Toggle energy state. Called by player interaction or pipeline."""

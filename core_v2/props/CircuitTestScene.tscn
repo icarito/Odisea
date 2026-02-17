@@ -42,6 +42,7 @@ cable_scene = ExtResource( 2 )
 [node name="Lever" instance=ExtResource(1) parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
 target_node = NodePath("../EmergencyBeacon")
+debug = true
 
 [node name="CableAnchor" type="Position3D" parent="Lever"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )

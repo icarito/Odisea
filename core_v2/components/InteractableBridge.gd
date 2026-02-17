@@ -21,6 +21,7 @@ var _is_syncing := false
 
 func interact() -> void:
 	"""Manual interaction trigger (for testing/validation)."""
+	print("[%s] interact() called - DEBUG ENABLED." % name)
 	if debug:
 		print("[%s] Manual interact() called." % name)
 	# Simulate a toggle or activation
@@ -139,17 +140,18 @@ func _sync_sources(value: bool):
 	_is_syncing = false
 
 func _call_target(value: bool):
+	print("[%s] _call_target(%s) called, _targets.size=%d" % [name, value, _targets.size()])
 	if _targets.empty():
 		if not Engine.editor_hint and not target_node.is_empty():
 			push_error("[%s] target_node not found: %s" % [name, target_node])
 		return
 		
 	for target in _targets:
+		print("[%s] Checking target: %s" % [name, target.name])
 		if not is_instance_valid(target): continue
 		
 		if target.has_method(target_method):
-			if debug:
-				print("[%s] Calling %s(%s) on %s" % [name, target_method, value, target.name])
+			print("[%s] Calling %s(%s) on %s" % [name, target_method, value, target.name])
 			target.call(target_method, value)
 		else:
 			push_error("[%s] Target node %s does not have method %s" % [name, target.name, target_method])

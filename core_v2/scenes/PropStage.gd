@@ -403,8 +403,12 @@ func _handle_set_command(inst: Dictionary) -> void:
         current_prop.set(var_name, val_to_set)
 
 func _start_interaction():
+    print("[PropStage] _start_interaction called, current_prop=", current_prop)
     if current_prop and current_prop.has_method("interact"):
+        print("[PropStage] Calling interact on current_prop")
         current_prop.interact()
+    else:
+        print("[PropStage] current_prop has no interact method!")
 
 # --- Internal Screenshot Helpers ---
 

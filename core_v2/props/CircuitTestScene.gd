@@ -6,8 +6,11 @@ class_name CircuitTestScene
 
 func interact() -> void:
 	"""OYS INTERACT command target - delegates to Lever child"""
+	print("[CircuitTestScene] interact() called!")
 	var lever = get_node_or_null("Lever")
+	print("[CircuitTestScene] Lever node: ", lever)
 	if lever and lever.has_method("interact"):
+		print("[CircuitTestScene] Calling lever.interact()")
 		lever.interact()
 	else:
 		push_warning("[CircuitTestScene] No Lever with interact() method found")

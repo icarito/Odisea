@@ -2612,7 +2612,7 @@
         ]
       }
     ],
-    "57": [
+    "56": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -2634,7 +2634,7 @@
         ]
       }
     ],
-    "130": [
+    "129": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -2723,12 +2723,12 @@
   "final_expected_state": {
     "position": [
       0,
-      0.284833,
+      0.238167,
       0
     ],
     "velocity": [
       0,
-      -2.566667,
+      -2.8,
       0
     ],
     "yaw": 0,
