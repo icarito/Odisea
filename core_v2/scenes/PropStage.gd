@@ -164,6 +164,7 @@ func take_oys_screenshot(label: String, prop_named_prefix: String) -> String:
         if c == vp: continue
         if c.name == "Camera": continue
         if c.name == "SpawnPoint": continue
+        if c.name == "Pilot": continue
         if c is Viewport: continue
         
         if c is WorldEnvironment or c is VisualInstance or c is Light:
@@ -185,14 +186,23 @@ func take_oys_screenshot(label: String, prop_named_prefix: String) -> String:
     
     var prop_original_parent: Node = null
     var prop_original_transform: Transform = Transform()
+    var pilot_original_parent: Node = null
+    var pilot_original_transform: Transform = Transform()
+    var pilot_node: Node = get_node_or_null("Pilot")
     
     if current_prop:
         prop_original_parent = current_prop.get_parent()
         prop_original_transform = current_prop.global_transform
-        
         if prop_original_parent:
             prop_original_parent.remove_child(current_prop)
         vp.add_child(current_prop)
+    
+    if pilot_node:
+        pilot_original_parent = pilot_node.get_parent()
+        pilot_original_transform = pilot_node.global_transform
+        if pilot_original_parent:
+            pilot_original_parent.remove_child(pilot_node)
+        vp.add_child(pilot_node)
     
     yield (VisualServer, "frame_post_draw")
     yield (VisualServer, "frame_post_draw")
@@ -205,6 +215,11 @@ func take_oys_screenshot(label: String, prop_named_prefix: String) -> String:
         vp.remove_child(current_prop)
         prop_original_parent.add_child(current_prop)
         current_prop.global_transform = prop_original_transform
+    
+    if pilot_node and pilot_original_parent:
+        vp.remove_child(pilot_node)
+        pilot_original_parent.add_child(pilot_node)
+        pilot_node.global_transform = pilot_original_transform
     
     var dir = Directory.new()
     var res_base = "res://test_output/props/"

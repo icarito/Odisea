@@ -23,6 +23,11 @@ func set_active(val):
 	if p and p.has_method("set_active"):
 		p.set_active(val)
 
+func set_highlighted(enabled: bool):
+	var p = get_parent()
+	if p and p.has_method("set_highlighted"):
+		p.set_highlighted(enabled)
+
 func is_in_group(group: String) -> bool:
 	if group == "interactable": return true
 	return.is_in_group(group)

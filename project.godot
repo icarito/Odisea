@@ -1612,7 +1612,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/qol-camera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/qol-camera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
 
 [gdunit3]
 
