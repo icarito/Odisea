@@ -9,14 +9,13 @@ SECTION "Setup"
 
 SECTION "StartValidation"
     WAIT 1.0
-    SCREENSHOT 0_idle
+    SCREENSHOT 0_off
     
     # Trigger Lever activation (Lever controls EmergencyBeacon via InteractableBridge)
     INTERACT target=prop
-    WAIT 1.5
-    SCREENSHOT 1_active
+    WAIT 0.3
+    SCREENSHOT 1_transitioning
     
-    # Deactivate
-    INTERACT target=prop
-    WAIT 1.0
-    SCREENSHOT 2_off
+    # Give time for active visual effects to settle
+    WAIT 1.5
+    SCREENSHOT 2_on

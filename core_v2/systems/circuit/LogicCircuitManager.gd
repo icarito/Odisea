@@ -465,26 +465,45 @@ func _get_anchor_pos(node: Spatial) -> Vector3:
 	return node.global_transform.origin
 
 func _generate_catenary(curve: Curve3D, start: Vector3, end: Vector3, slack: float = 0.5):
-	# Simplified Catenary: Parabola or Bezier with gravity sag
+	# Cable routing: go from start anchor, down to floor, across, up to end anchor
+	# This simulates how a real builder would run cables along surfaces
 	# Convert global points to local to Manager (as cables are children of Manager)
 	var local_start = to_local(start)
 	var local_end = to_local(end)
-
-	# Check if cable should hang (both points above floor level)
-	# If both points are above Y=1.0 and there's significant distance, add sag
-	var height_threshold = 1.0  # Minimum height above ground to consider "hanging"
-	var dist = local_start.distance_to(local_end)
 	
-	# Only add sag if both endpoints are above the height threshold
-	if local_start.y > height_threshold and local_end.y > height_threshold and dist > 1.0:
-		# Hanging cable - add catenary sag
-		var sag = dist * 0.2 + slack
-		curve.add_point(local_start, Vector3.ZERO, Vector3(0, -sag, 0))
-		curve.add_point(local_end, Vector3(0, -sag, 0), Vector3.ZERO)
-	else:
-		# Straight cable - no sag
-		curve.add_point(local_start, Vector3.ZERO, Vector3.ZERO)
-		curve.add_point(local_end, Vector3.ZERO, Vector3.ZERO)
+	# Floor level (Y=0 by default in this project)
+	var floor_y = 0.0
+	
+	# Add point at start anchor
+	curve.add_point(local_start, Vector3.ZERO, Vector3.ZERO)
+	
+	# If start is above floor, go down to floor
+	if local_start.y > floor_y:
+		var floor_point = Vector3(local_start.x, floor_y, local_start.z)
+		curve.add_point(floor_point, Vector3.ZERO, Vector3.ZERO)
+	
+	# Go across at floor level
+	# Create intermediate points along the floor
+	var x_dist = local_end.x - local_start.x
+	var z_dist = local_end.z - local_start.z
+	
+	# Add intermediate points at floor level for horizontal routing
+	if abs(x_dist) > 0.5 or abs(z_dist) > 0.5:
+		# Mid point on floor
+		var mid_floor = Vector3(
+			(local_start.x + local_end.x) / 2.0,
+			floor_y,
+			(local_start.z + local_end.z) / 2.0
+		)
+		curve.add_point(mid_floor, Vector3.ZERO, Vector3.ZERO)
+	
+	# If end is above floor, go up from floor to end anchor
+	if local_end.y > floor_y:
+		var floor_to_end = Vector3(local_end.x, floor_y, local_end.z)
+		curve.add_point(floor_to_end, Vector3.ZERO, Vector3.ZERO)
+	
+	# Add final point at end anchor
+	curve.add_point(local_end, Vector3.ZERO, Vector3.ZERO)
 
 func _on_cable_broken(conn: Dictionary):
 	# Cut connection logically
