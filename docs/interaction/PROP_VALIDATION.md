@@ -83,41 +83,66 @@ The script searches for validation scripts in this order:
 3. **Tests directory**: `core_v2/tests/PropName.oys`
 4. **Fallback**: `core_v2/scripts/prop_validator.oys`
 
-## Writing Custom Validators
+## Writing Custom Validators (OYS DSL)
 
-Create a `.oys` file to customize validation:
+Create a `.oys` file alongside your prop to customize validation. The OYS DSL is a simple command-based language:
 
-```gdscript
+```oys
 # core_v2/props/AirlockDoor.oys
-extends "res://core_v2/scripts/prop_validator.oys"
+LEVEL res://core_v2/scenes/PropStage.tscn
+WAIT 1.0
 
-# Override default behavior
-func _custom_validation():
-    var prop = get_prop()
-    
-    # Wait for initial state
-    yield(wait_frames(10), "completed")
-    capture("idle")
-    
-    # Activate
-    prop.set_active(true)
-    yield(wait_for_animation(prop), "completed")
-    capture("open")
-    
-    # Test with delay
-    yield(wait_seconds(2.0), "completed")
-    capture("settled")
+# Load the prop
+LOAD_PROP res://core_v2/props/AirlockDoor.tscn
+WAIT 1.0
+
+# Capture initial state
+SCREENSHOT 0_idle
+
+# Activate the prop
+INTERACT target=prop
+WAIT 2.0
+SCREENSHOT 1_mid
+
+# Wait for full animation
+WAIT 1.5
+SCREENSHOT 2_active
+
+# Deactivate
+INTERACT target=prop
+WAIT 2.0
+SCREENSHOT 3_off
 ```
 
-### Available Helper Functions
+### OYS DSL Commands
 
-| Function | Purpose |
-|----------|---------|
-| `get_prop()` | Returns the loaded prop instance |
-| `capture(label: String)` | Saves screenshot with label |
-| `wait_frames(n: int)` | Yields for n frames |
-| `wait_seconds(t: float)` | Yields for t seconds |
-| `wait_for_animation(prop)` | Yields until animation completes |
+| Command | Syntax | Purpose |
+|---------|--------|---------|
+| `LEVEL` | `LEVEL res://path/to/scene.tscn` | Load the test stage |
+| `LOAD_PROP` | `LOAD_PROP res://path/to/prop.tscn` | Instantiate the prop |
+| `WAIT` | `WAIT <seconds>` | Pause execution |
+| `SCREENSHOT` | `SCREENSHOT <label>` | Capture frame with label |
+| `INTERACT` | `INTERACT target=prop` | Trigger interaction on prop |
+| `PRINT` | `PRINT "message"` | Log to console |
+| `SECTION` | `SECTION "name"` | Group commands |
+| `IF` / `GOTO` | `IF $var == "" GOTO Label` | Control flow |
+
+### Environment Variables
+
+Access shell environment variables with `$sys_env_` prefix:
+
+```oys
+# Use prop path from environment
+IF $sys_env_prop_path == "" GOTO LoadDefault
+LOAD_PROP $sys_env_prop_path
+GOTO StartValidation
+```
+
+### Full OYS Documentation
+
+For the complete OYS DSL specification, see:
+- [`docs/canon/feature_odisea_script.md`](../canon/feature_odisea_script.md) - Input and Testing DSL Specification
+- [`docs/canon/feature_odyssey_script_usage.md`](../canon/feature_odyssey_script_usage.md) - Usage guide with examples
 
 ## Agent Workflow
 

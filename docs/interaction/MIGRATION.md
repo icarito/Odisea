@@ -2,22 +2,21 @@
 
 This document tracks the consolidation of scattered interaction-related documentation into the unified `docs/interaction/` directory.
 
-## Current State
+## Migration Status: ✅ COMPLETE
 
-### Files to Migrate
+### Files Migrated
 
 | Source File | Content | Status | Destination |
 |-------------|---------|--------|-------------|
-| `docs/feature_odyssey_logic_circuit_system.md` | OLCS technical spec | 🔄 Partial | `docs/interaction/OLCS.md` |
-| `docs/feature_props_v2.md` | Prop pipeline & validation | 🔄 Partial | `docs/interaction/PROP_VALIDATION.md` |
-| `docs/canon/feature_interactables.md` | Unified Interaction Framework | 🔄 Partial | `docs/interaction/CONTRACT.md` |
-| `docs/canon/feature_interact.md` | Deterministic Interactable System | 🔄 Partial | `docs/interaction/CONTRACT.md` |
+| `docs/feature_odyssey_logic_circuit_system.md` | OLCS technical spec | ✅ Archived | `docs/interaction/OLCS.md` |
+| `docs/feature_props_v2.md` | Prop pipeline & validation | ✅ Archived | `docs/interaction/PROP_VALIDATION.md` |
+| `docs/canon/feature_interactables.md` | Unified Interaction Framework | ✅ Archived | `docs/interaction/CONTRACT.md` |
+| `docs/canon/feature_interact.md` | Deterministic Interactable System | ✅ Archived | `docs/interaction/CONTRACT.md` |
 | `docs/feature_automatic_prop_zoo.md` | Prop Zoo testing | ⏳ Pending | `docs/interaction/PROP_ZOO.md` |
-| `core_v2/systems/circuit/README.md` | OLCS user guide | 🔄 Partial | `docs/interaction/OLCS.md` |
+| `core_v2/systems/circuit/README.md` | OLCS user guide | ✅ Enhanced | `docs/interaction/OLCS.md` |
 
 ### Status Legend
 - ⏳ Pending - Not yet migrated
-- 🔄 Partial - Content extracted and enhanced, source can be archived
 - ✅ Complete - Source archived or deleted
 
 ## New Documentation Structure
