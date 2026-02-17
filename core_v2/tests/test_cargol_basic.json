@@ -2592,6 +2592,24 @@
         "crouch": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -2622,7 +2640,7 @@
         ]
       }
     ],
-    "69": [
+    "70": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -2634,7 +2652,7 @@
         ]
       }
     ],
-    "129": [
+    "130": [
       {
         "command": "CALL",
         "method": "CargolDrone",
@@ -2646,7 +2664,7 @@
         ]
       }
     ],
-    "142": [
+    "143": [
       {
         "command": "SET",
         "var": "$cargo_x",
