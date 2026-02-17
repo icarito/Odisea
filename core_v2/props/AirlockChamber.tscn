@@ -18,8 +18,10 @@ outer_door_path = NodePath("OuterDoor")
 inner_door_path = NodePath("InnerDoor")
 chamber_zone_path = NodePath("ChamberZone")
 
-[node name="ChamberGeometry" type="CSGBox" parent="."]
+[node name="ChamberGeometry" type="CSGCombiner" parent="."]
 use_collision = true
+
+[node name="OuterBox" type="CSGBox" parent="ChamberGeometry"]
 width = 4.0
 height = 4.0
 depth = 4.0

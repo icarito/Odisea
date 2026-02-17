@@ -38,7 +38,7 @@ var _perf_monitor = null
 # --- HIGHLIGHT SYSTEM ---
 var _highlight_mesh: MeshInstance = null
 var _original_materials: Array = []
-const HIGHLIGHT_SHADER_PATH = "res://shaders/interactable_highlight.shader"
+const HIGHLIGHT_SHADER_PATH = "res://shaders/dither_hiding.shader"
 
 # --- SIGNALS ---
 signal activated()

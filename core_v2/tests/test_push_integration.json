@@ -275,11 +275,11 @@
       "input": {
         "move_vec": [
           0,
-          -1
+          0
         ],
         "mouse_delta": [
           0,
-          0
+          -0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1355,11 +1355,47 @@
       "input": {
         "move_vec": [
           0,
+          -1
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
           0
         ],
         "mouse_delta": [
           0,
           0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1819,7 +1855,7 @@
         "pos": "[0, 1, +3]"
       }
     ],
-    "13": [
+    "14": [
       {
         "command": "MATH",
         "var": "$count",
@@ -1830,7 +1866,7 @@
         "message": "Moving forward to engage push..."
       }
     ],
-    "19": [
+    "20": [
       {
         "command": "MATH",
         "var": "$count",
@@ -1841,7 +1877,7 @@
         "condition": "$count < 50 \"Timeout: Failed to enter pushing state\""
       }
     ],
-    "25": [
+    "26": [
       {
         "command": "MATH",
         "var": "$count",
@@ -1852,7 +1888,7 @@
         "condition": "$count < 50 \"Timeout: Failed to enter pushing state\""
       }
     ],
-    "31": [
+    "32": [
       {
         "command": "MATH",
         "var": "$count",
@@ -1863,7 +1899,7 @@
         "condition": "$count < 50 \"Timeout: Failed to enter pushing state\""
       }
     ],
-    "37": [
+    "38": [
       {
         "command": "MATH",
         "var": "$count",
@@ -1874,7 +1910,7 @@
         "condition": "$count < 50 \"Timeout: Failed to enter pushing state\""
       }
     ],
-    "43": [
+    "44": [
       {
         "command": "MATH",
         "var": "$count",
@@ -1889,7 +1925,7 @@
         "message": "Pilot entered pushing state!"
       }
     ],
-    "73": [
+    "74": [
       {
         "command": "PRINT",
         "message": "Verifying alignment..."
@@ -1903,7 +1939,7 @@
         "condition": "$yaw_deg > -5.0 \"Alignment Error: Yaw too negative\""
       }
     ],
-    "85": [
+    "87": [
       {
         "command": "PRINT",
         "message": "Verifying exit state..."
@@ -1913,7 +1949,7 @@
         "message": "Test Passed: Push Integration Success"
       }
     ],
-    "98": [
+    "100": [
 
     ]
   },
@@ -2304,9 +2340,9 @@
   },
   "final_expected_state": {
     "position": [
-      0.000557,
+      0.000181,
       0.0415,
-      1.603555
+      1.626807
     ],
     "velocity": [
       0,
