@@ -63,46 +63,22 @@ This document identifies missing and incomplete components in the interaction sy
    - [ ] Show connection lines in 3D view
    - [ ] Gizmo for CableAnchor position
 
-### Phase 2: Interaction Sensor (Priority: MEDIUM)
+### Phase 2: Interaction Sensor (Priority: MEDIUM) ✅ ALREADY EXISTS
 
-**Goal:** Replace raycast interaction with volume-based detection.
+**Status:** Volume-based detection already implemented in `PlayerControllerV2.gd`
 
-```mermaid
-flowchart TB
-    subgraph Player
-        PC[PlayerControllerV2]
-        IS[InteractionSensor - Area]
-    end
-    
-    subgraph Detection
-        IC[Candidates Array]
-        EV[Evaluation Loop]
-        FT[Focus Target]
-    end
-    
-    PC --> IS
-    IS --> IC
-    IC --> EV
-    EV --> FT
-    FT --> UI[Interaction Prompt]
-```
+The existing implementation includes:
+- `_interact_area`: Area node with BoxShape for volume detection
+- `_process_interaction()`: Candidate evaluation with distance scoring
+- `interactable_in_range` / `interactable_out_of_range` signals
+- Highlight system via `set_highlighted()`
 
-#### Tasks
+**Location:** `core_v2/player/PlayerControllerV2.gd:426-494`
 
-1. **Create InteractionSensor.tscn**
-   - [ ] Area node with BoxShape/CollisionShape
-   - [ ] Configurable detection range
-   - [ ] Attach as child of PlayerControllerV2
-
-2. **Candidate Evaluation**
-   - [ ] Track overlapping InteractableBaseV2 nodes
-   - [ ] Score by: distance, angle to camera, line of sight
-   - [ ] Emit `focus_changed(old, new)` signal
-
-3. **UI Integration**
-   - [ ] Show interaction prompt for focused target
-   - [ ] Display `interaction_text` from prop
-   - [ ] Highlight focused prop's mesh
+#### Potential Enhancements (Optional)
+- [ ] Add angle-to-camera scoring for better target selection
+- [ ] Add line-of-sight check to prevent through-wall interaction
+- [ ] Extract as separate component for reusability
 
 ### Phase 3: Visual Editor Enhancement (Priority: LOW)
 
@@ -178,19 +154,22 @@ addons/
 
 ## Effort Estimates
 
-| Phase | Complexity | Dependencies | Priority |
-|-------|------------|--------------|----------|
-| Phase 1: PropBaseV2 | Low | None | HIGH |
-| Phase 2: Interaction Sensor | Medium | None | MEDIUM |
-| Phase 3: Visual Editor | High | None | LOW |
+| Phase | Complexity | Status |
+|-------|------------|--------|
+| Phase 1: PropBaseV2 | Low | ✅ COMPLETE |
+| Phase 2: Interaction Sensor | - | ✅ ALREADY EXISTS |
+| Phase 3: Visual Editor | High | ⏳ Pending |
 
-**Recommended Order:** Phase 1 → Phase 2 → Phase 3
+## Summary
 
-This order prioritizes fixing existing functionality before adding new features.
+The interaction system is more complete than initially assessed:
+
+1. **PropBaseV2** - Enhanced with multi-switch support and child discovery
+2. **InteractionSensor** - Already implemented in PlayerControllerV2
+3. **Visual Editor** - Basic functionality exists, enhancement is optional
 
 ## Next Steps
 
-1. **Immediate:** Commit documentation changes
-2. **Short-term:** Implement Phase 1 (PropBaseV2 fixes)
-3. **Medium-term:** Implement Phase 2 (Interaction Sensor)
-4. **Long-term:** Implement Phase 3 (Visual Editor enhancement)
+1. **Complete:** PropBaseV2 improvements committed
+2. **Documented:** Interaction sensor already works
+3. **Optional:** Visual Editor enhancement (low priority)
