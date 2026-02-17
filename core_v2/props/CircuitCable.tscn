@@ -6,4 +6,4 @@
 [node name="CircuitCable" type="Spatial"]
 script = ExtResource( 1 )
 cable_material = ExtResource( 2 )
-cable_radius = 0.4
+cable_radius = 0.03

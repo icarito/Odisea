@@ -1,0 +1,22 @@
+LEVEL res://core_v2/scenes/PropStage.tscn
+WAIT 1.0
+
+# --- Validation Sequence for CircuitTestScene ---
+# This scene has a Lever that controls an EmergencyBeacon and CircuitCable
+
+SECTION "Setup"
+    LOAD_PROP "res://core_v2/props/CircuitTestScene.tscn"
+
+SECTION "StartValidation"
+    WAIT 1.0
+    SCREENSHOT 0_idle
+    
+    # Trigger Lever activation (Lever controls EmergencyBeacon via InteractableBridge)
+    INTERACT target=prop
+    WAIT 1.5
+    SCREENSHOT 1_active
+    
+    # Deactivate
+    INTERACT target=prop
+    WAIT 1.0
+    SCREENSHOT 2_off

@@ -24,9 +24,10 @@ func _ready():
 	if not path_curve:
 		print("[CircuitCable] path_curve is null; creating default Curve3D for tests/editor.")
 		var default_curve = Curve3D.new()
-		# Make the default cable longer so it's visible in prop captures
+		# Make the default cable along X axis (horizontal) for typical circuit layout
+		# In this project +Z is backward (camera direction), so X is horizontal left-right
 		default_curve.add_point(Vector3(0, 0, 0))
-		default_curve.add_point(Vector3(0, 0, 3))
+		default_curve.add_point(Vector3(3, 0, 0))
 		path_curve = default_curve
 
 	if path_curve:
@@ -80,16 +81,21 @@ func _build_mesh():
 	var mesh_inst = MeshInstance.new()
 	mesh_inst.mesh = _generate_tube_mesh(path_curve, cable_radius, cable_sides)
 	print("[CircuitCable] MeshInstance mesh generated. cable_radius:", cable_radius)
+	
+	# Create a unique material per instance (duplicate the assigned material or create new)
+	var unique_material = null
 	if cable_material:
-		print("[CircuitCable] cable_material assigned.")
-		mesh_inst.material_override = cable_material
+		unique_material = cable_material.duplicate()
 	else:
-		# Force a visible fallback material so props aren't invisible in headless runs
-		var fallback = SpatialMaterial.new()
-		fallback.emission_enabled = true
-		fallback.emission = Color(1, 1, 0)
-		fallback.albedo_color = Color(1, 1, 0.2)
-		mesh_inst.material_override = fallback
+		unique_material = SpatialMaterial.new()
+	mesh_inst.material_override = unique_material
+	
+	# If no material was assigned, create a visible fallback
+	if not cable_material:
+		unique_material.emission_enabled = true
+		unique_material.emission = Color(1, 1, 0)
+		unique_material.albedo_color = Color(1, 1, 0.2)
+	
 	mesh_inst.name = "CableVis"
 	add_child(mesh_inst)
 	print("[CircuitCable] MeshInstance CableVis added.")

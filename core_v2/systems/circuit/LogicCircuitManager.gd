@@ -9,6 +9,7 @@ class_name LogicCircuitManager
 export(Resource) var circuit_data
 export(bool) var auto_build_cables := false
 export(PackedScene) var cable_scene # Optional custom cable scene, defaults to script
+export(bool) var show_debug_meshes := false # Toggle debug spheres at cable anchors
 
 # Runtime state
 var _runtime_nodes = {} # Map node_id -> RuntimeData
@@ -294,23 +295,24 @@ func generate_cables():
         print("[Debug] LogicCircuitManager::Cable Position Debug --> Start Position: ", start_pos, " End Position: ", end_pos) # Ensure DEBUG'able positions.
         print("[LogicCircuitManager] Generating cable for connection:", conn)
 
-        # Debug spheres at anchors for visibility
-        var s1 = CSGSphere.new()
-        s1.radius = 0.5
-        s1.material = SpatialMaterial.new()
-        s1.material.emission_enabled = true
-        s1.material.emission = Color(1.0,0,0)
-        s1.material.albedo_color = Color(1.0,0,0)
-        s1.global_transform.origin = start_pos
-        add_child(s1)
-        var s2 = CSGSphere.new()
-        s2.radius = 0.5
-        s2.material = SpatialMaterial.new()
-        s2.material.emission_enabled = true
-        s2.material.emission = Color(0,1.0,0)
-        s2.material.albedo_color = Color(0,1.0,0)
-        s2.global_transform.origin = end_pos
-        add_child(s2)
+        # Debug spheres at anchors for visibility (only if show_debug_meshes is true)
+        if show_debug_meshes and is_inside_tree():
+            var s1 = CSGSphere.new()
+            s1.radius = 0.5
+            s1.material = SpatialMaterial.new()
+            s1.material.emission_enabled = true
+            s1.material.emission = Color(1.0,0,0)
+            s1.material.albedo_color = Color(1.0,0,0)
+            add_child(s1)
+            s1.global_transform.origin = start_pos
+            var s2 = CSGSphere.new()
+            s2.radius = 0.5
+            s2.material = SpatialMaterial.new()
+            s2.material.emission_enabled = true
+            s2.material.emission = Color(0,1.0,0)
+            s2.material.albedo_color = Color(0,1.0,0)
+            add_child(s2)
+            s2.global_transform.origin = end_pos
 
         var cable = _spawn_cable()
         print("[LogicCircuitManager] cable node type: ", typeof(cable), cable)
@@ -468,14 +470,21 @@ func _generate_catenary(curve: Curve3D, start: Vector3, end: Vector3, slack: flo
 	var local_start = to_local(start)
 	var local_end = to_local(end)
 
-	# Start point
-	# Control points: in, out
-	# For hanging cable, out vector points down/forward
+	# Check if cable should hang (both points above floor level)
+	# If both points are above Y=1.0 and there's significant distance, add sag
+	var height_threshold = 1.0  # Minimum height above ground to consider "hanging"
 	var dist = local_start.distance_to(local_end)
-	var sag = dist * 0.2 + slack
-
-	curve.add_point(local_start, Vector3.ZERO, Vector3(0, -sag, 0))
-	curve.add_point(local_end, Vector3(0, -sag, 0), Vector3.ZERO)
+	
+	# Only add sag if both endpoints are above the height threshold
+	if local_start.y > height_threshold and local_end.y > height_threshold and dist > 1.0:
+		# Hanging cable - add catenary sag
+		var sag = dist * 0.2 + slack
+		curve.add_point(local_start, Vector3.ZERO, Vector3(0, -sag, 0))
+		curve.add_point(local_end, Vector3(0, -sag, 0), Vector3.ZERO)
+	else:
+		# Straight cable - no sag
+		curve.add_point(local_start, Vector3.ZERO, Vector3.ZERO)
+		curve.add_point(local_end, Vector3.ZERO, Vector3.ZERO)
 
 func _on_cable_broken(conn: Dictionary):
 	# Cut connection logically
