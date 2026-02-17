@@ -78,9 +78,17 @@ func _create_graph_node(id: String, data: Dictionary):
 	var type = data.get("type", "PROP")
 	if type == "PROP":
 		node.title = "PROP: " + str(data.get("scene_path", "Unassigned"))
+		# Add a label for the slot
+		var label = Label.new()
+		label.text = "Input → Output"
+		node.add_child(label)
+		# Set slot on the label's index (0)
 		node.set_slot(0, true, 0, Color.green, true, 0, Color.red)
 	elif type == "GATE":
 		node.title = "GATE: " + data.get("gate_type", "AND")
+		var label = Label.new()
+		label.text = "In → Out"
+		node.add_child(label)
 		node.set_slot(0, true, 0, Color.blue, true, 0, Color.red)
 
 	graph_edit.add_child(node)

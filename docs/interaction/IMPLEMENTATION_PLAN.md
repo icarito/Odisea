@@ -80,16 +80,16 @@ The existing implementation includes:
 - [ ] Add line-of-sight check to prevent through-wall interaction
 - [ ] Extract as separate component for reusability
 
-### Phase 3: Visual Editor Enhancement (Priority: LOW)
+### Phase 3: Visual Editor Enhancement (Priority: LOW) ✅ PARTIAL
 
 **Goal:** Make the Circuit Board usable for designers.
 
 #### Tasks
 
-1. **Add Node Palette**
-   - [ ] Create sidebar with draggable node types
-   - [ ] PROP node: Drag scene nodes from Scene dock
-   - [ ] GATE nodes: AND, OR, XOR, NOT, DELAY buttons
+1. **Add Node Palette** ✅
+   - Toolbar with Add Prop button
+   - Gate dropdown: AND, OR, XOR, NOT, DELAY
+   - Refresh and Clear buttons
 
 2. **Property Inspector**
    - [ ] Selecting a node shows properties in dock
