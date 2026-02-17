@@ -1,5 +1,5 @@
 experimental/
-port/third/third.pck
+ports/
 maps/autosave/
 
 .gitignore: keep local generated imports out by default; CI requires imports present.

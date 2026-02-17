@@ -1,0 +1,101 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://core_v2/systems/circuit/LogicCircuitManager.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/systems/circuit/CircuitGraphResource.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/components/InteractableBaseV2.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/props/CircuitExampleProp.gd" type="Script" id=4]
+
+[sub_resource type="Resource" id=1]
+script = ExtResource( 2 )
+nodes = {
+"Light": {
+"position": Vector2( 175, 150 ),
+"scene_path": NodePath("../Light"),
+"type": "PROP"
+},
+"SwitchA": {
+"position": Vector2( 0, 0 ),
+"scene_path": NodePath("../SwitchA"),
+"type": "PROP"
+},
+"SwitchB": {
+"position": Vector2( 300, 0 ),
+"scene_path": NodePath("../SwitchB"),
+"type": "PROP"
+},
+"XORGATE": {
+"gate_type": "XOR",
+"position": Vector2( 175, 0 ),
+"type": "GATE"
+}
+}
+connections = [ {
+"from": "SwitchA",
+"from_port": 0,
+"to": "XORGATE",
+"to_port": 0,
+"type": "WIRED"
+}, {
+"from": "SwitchB",
+"from_port": 0,
+"to": "XORGATE",
+"to_port": 1,
+"type": "WIRED"
+}, {
+"from": "XORGATE",
+"from_port": 0,
+"to": "Light",
+"to_port": 0,
+"type": "WIRED"
+} ]
+
+[ext_resource path="res://core_v2/props/CircuitCable.tscn" type="PackedScene" id=2]
+
+[node name="CircuitExample" type="Spatial"]
+script = ExtResource( 4 )
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5 )
+
+[node name="LogicCircuitManager" type="Spatial" parent="."]
+script = ExtResource( 1 )
+circuit_data = SubResource( 1 )
+auto_build_cables = true
+cable_scene = ExtResource( 2 )
+
+[node name="SwitchA" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
+script = ExtResource( 3 )
+interaction_text = "Switch A"
+
+[node name="Visual" type="CSGBox" parent="SwitchA"]
+width = 1.0
+height = 1.0
+depth = 1.0
+
+[node name="CableAnchor" type="Position3D" parent="SwitchA"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
+
+[node name="SwitchB" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0 )
+script = ExtResource( 3 )
+interaction_text = "Switch B"
+
+[node name="Visual" type="CSGBox" parent="SwitchB"]
+width = 1.0
+height = 1.0
+depth = 1.0
+
+[node name="CableAnchor" type="Position3D" parent="SwitchB"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
+
+[node name="Light" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0 )
+
+[node name="Visual" type="CSGBox" parent="Light"]
+width = 1.0
+height = 1.0
+depth = 1.0
+
+[node name="CableAnchor" type="Position3D" parent="Light"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )

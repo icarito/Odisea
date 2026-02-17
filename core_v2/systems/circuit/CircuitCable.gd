@@ -8,7 +8,7 @@ class_name CircuitCable
 signal connection_broken
 
 export(Curve3D) var path_curve: Curve3D
-export(bool) var use_csg := true
+export(bool) var use_csg := false
 export(Material) var cable_material: Material
 export(float) var health := 10.0
 export(float) var cable_radius := 0.05
@@ -17,10 +17,29 @@ export(int) var cable_sides := 8
 var _hurtbox: Area
 
 func _ready():
+	print("[CircuitCable] _ready fired: instance ", self)
+
+	# If no Curve3D is assigned (common in props/tests), create a tiny default
+	# curve so that build() can produce visible geometry for validation.
+	if not path_curve:
+		print("[CircuitCable] path_curve is null; creating default Curve3D for tests/editor.")
+		var default_curve = Curve3D.new()
+		# Make the default cable longer so it's visible in prop captures
+		default_curve.add_point(Vector3(0, 0, 0))
+		default_curve.add_point(Vector3(0, 0, 3))
+		path_curve = default_curve
+
 	if path_curve:
-		build()
+		print("[CircuitCable] _ready sees path_curve, scheduling build.")
+		call_deferred("build")
 
 func build():
+	print("[CircuitCable] build called. instance:", self, " curve: ", path_curve, " points: ", path_curve.get_point_count())
+	print("[CircuitCable] cable_radius:", cable_radius)
+	if path_curve == null:
+		print("[CircuitCable] WARNING: path_curve is null in build.")
+	elif path_curve.get_point_count() < 2:
+		print("[CircuitCable] WARNING: curve has <2 points.")
 	# Clear previous children
 	for child in get_children():
 		child.queue_free()
@@ -36,88 +55,77 @@ func build():
 	_setup_hurtbox()
 
 func _build_csg():
+	print("[CircuitCable] _build_csg with curve points: ", path_curve.get_point_count())
 	var path_node = Path.new()
 	path_node.curve = path_curve
 	path_node.name = "Path"
 	add_child(path_node)
-
+	print("[CircuitCable] Path node added.")
 	var csg = CSGPolygon.new()
 	csg.mode = CSGPolygon.MODE_PATH
 	csg.path_node = path_node.get_path()
 	csg.polygon = _generate_circle_polygon(cable_radius, cable_sides)
+	if cable_material:
+		print("[CircuitCable] cable_material assigned.")
 	csg.material = cable_material
-	csg.use_collision = true # Enable collision for damage detection
+	csg.use_collision = true
 	csg.name = "CableVis"
 	add_child(csg)
+	print("[CircuitCable] CSGPolygon CableVis added.")
+
+
 
 func _build_mesh():
+	print("[CircuitCable] _build_mesh with curve points: ", path_curve.get_point_count())
 	var mesh_inst = MeshInstance.new()
 	mesh_inst.mesh = _generate_tube_mesh(path_curve, cable_radius, cable_sides)
+	print("[CircuitCable] MeshInstance mesh generated. cable_radius:", cable_radius)
 	if cable_material:
+		print("[CircuitCable] cable_material assigned.")
 		mesh_inst.material_override = cable_material
+	else:
+		# Force a visible fallback material so props aren't invisible in headless runs
+		var fallback = SpatialMaterial.new()
+		fallback.emission_enabled = true
+		fallback.emission = Color(1, 1, 0)
+		fallback.albedo_color = Color(1, 1, 0.2)
+		mesh_inst.material_override = fallback
 	mesh_inst.name = "CableVis"
 	add_child(mesh_inst)
-
-	# Generate collision for the mesh
+	print("[CircuitCable] MeshInstance CableVis added.")
 	mesh_inst.create_trimesh_collision()
+
+
 	# The collision sibling created by create_trimesh_collision is a StaticBody.
 	# We might want to move its shape to our Hurtbox or keep it as physical barrier.
 	# For destructibility, we need an Area.
 
 func _setup_hurtbox():
-	# Create a Hurtbox Area to detect damage
+	# Create an Area named Hurtbox and populate it with capsule CollisionShapes
+	if _hurtbox and is_instance_valid(_hurtbox):
+		_hurtbox.queue_free()
+
 	_hurtbox = Area.new()
 	_hurtbox.name = "Hurtbox"
-	_hurtbox.collision_layer = 1 # Logic/World layer
-	_hurtbox.collision_mask = 0 # Doesn't scan, only detects entering
+	_hurtbox.collision_layer = 1
+	_hurtbox.collision_mask = 0
 	add_child(_hurtbox)
 
-	# If CSG, it handles its own collision (StaticBody), so we might need to duplicate it for Area?
-	# CSGPolygon.use_collision creates a StaticBody. To receive damage, we usually need an Area or a body script.
-	# If we want the cable to be physical, StaticBody is good.
-	# But we need to handle "take_damage".
-
-	# We can attach a script to the generated StaticBody or Area to forward damage.
-	# Or, simply, if we use Mesh generation, `create_trimesh_collision` makes a StaticBody.
-
-	# Let's try to make the Hurtbox wrap the curve.
-	# This is hard to do perfectly without duplicating geometry.
-	# A simple approximation: multiple capsules along the path.
+	if not path_curve:
+		return
 
 	var points = path_curve.get_baked_points()
 	if points.size() < 2:
 		return
 
-	# Create segments
-	for i in range(points.size() - 1):
-		var p1 = points[i]
-		var p2 = points[i+1]
-		var dist = p1.distance_to(p2)
-		if dist < 0.01: continue
+	points = path_curve.get_baked_points()
+	if points.size() < 2:
+		return
 
-		var col = CollisionShape.new()
-		var capsule = CapsuleShape.new()
-		capsule.radius = cable_radius * 1.5 # Slightly larger for hit detection
-		capsule.height = dist
-		col.shape = capsule
-
-		# Position and Orient
-		var center = (p1 + p2) / 2.0
-		col.transform.origin = center
-		col.look_at(p2, Vector3.UP)
-		# Capsule is Z-aligned? No, Capsule height is usually Y-aligned or Z-aligned depending on engine.
-		# In Godot, CapsuleShape is usually height along Z (or Y?).
-		# Wait, Godot 3 CapsuleShape is height along Z axis in Spatial?
-		# Actually, `look_at` aligns -Z to target.
-		# Check Godot docs/memory: "Standard Godot 3.5...".
-		# Godot 3 CapsuleShape is upright (Y-axis) usually.
-		# So if we look_at, Z is forward. We need to rotate X 90 deg?
-		# Let's verify Capsule orientation.
-
-		# Better approach: Use the mesh collision for hit detection if possible.
-		# But `create_trimesh_collision` makes a StaticBody.
-		# We can change that StaticBody to an Area if we want, or just add a script to it.
-		pass
+	# Create segments (deprecated simple loop removed). We use a more robust
+	# accumulation loop below that batches capsule shapes and parents them to
+	# the Hurtbox before calling Spatial methods that require being inside
+	# the scene tree (e.g. look_at()).
 
 	# For this implementation, I will assume the caller (Projectile/Explosion) checks for `take_damage` on the collider.
 	# If I use `create_trimesh_collision`, I get a StaticBody. I can attach a script to it.
@@ -145,10 +153,24 @@ func _setup_hurtbox():
 			col.shape = capsule
 
 			var center = (prev + curr) / 2.0
-			col.transform.origin = center
-			col.look_at(curr, Vector3.UP)
 
+			# Parent to the hurtbox first so we can compute local transforms
+			# relative to it without calling Spatial methods that may depend
+			# on being in the tree. Then set a stable basis oriented along
+			# the segment direction.
 			_hurtbox.add_child(col)
+
+			var local_center = _hurtbox.to_local(center)
+			col.transform.origin = local_center
+
+			var dir = (curr - prev).normalized()
+			var right = dir.cross(Vector3.UP)
+			if right.length_squared() < 0.0001:
+				right = dir.cross(Vector3.RIGHT)
+			right = right.normalized()
+			var up_vec = right.cross(dir).normalized()
+			var basis = Basis(right, up_vec, -dir)
+			col.transform.basis = basis
 
 			prev = curr
 			dist_acc = 0.0
@@ -223,7 +245,15 @@ func _generate_tube_mesh(curve: Curve3D, radius: float, sides: int) -> ArrayMesh
 			st.add_index(upper_next)
 
 	st.generate_normals()
-	return st.commit()
+	var mesh = st.commit()
+	# Diagnostic: print surface AABB/vertex count if possible
+	if mesh:
+		var aabb = mesh.get_aabb()
+		print("[CircuitCable] generated mesh AABB: ", aabb)
+		# If ArrayMesh, attempt to get face count
+		var surfaces = mesh.get_surface_count()
+		print("[CircuitCable] mesh surface_count: ", surfaces)
+	return mesh
 
 func take_damage(amount: float) -> void:
 	health -= amount
@@ -237,3 +267,34 @@ func damage(amount: float) -> void:
 
 func hit(amount: float) -> void:
 	take_damage(amount)
+
+func is_broken() -> bool:
+	return health <= 0
+
+func init_from_curve(curve: Curve3D) -> void:
+	# Initialize the cable from a Curve3D and build geometry
+	path_curve = curve
+	build()
+
+
+var current_state := "idle" # idle, mid, active
+
+func interact(_from = null) -> void:
+	print("[CircuitCable] interact() called. Current State:", current_state)
+	if current_state == "idle":
+		current_state = "mid"
+		set_cable_visuals(1.0, Color(1, 0.5, 0))  # Increase emission/red hue
+	elif current_state == "mid":
+		current_state = "active"
+		set_cable_visuals(1.5, Color(1, 0, 0))  # Stronger emission/more red
+	else:
+		current_state = "idle"
+		set_cable_visuals(0.0, Color(1, 1, 1))  # No emission/neutral
+
+func set_cable_visuals(emission: float, color: Color):
+	if not cable_material:
+		cable_material = SpatialMaterial.new()
+		$CableVis.material_override = cable_material
+	cable_material.emission_enabled = true
+	cable_material.emission = color * emission
+	cable_material.albedo_color = color

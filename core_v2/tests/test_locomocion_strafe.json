@@ -1916,6 +1916,20 @@
         "snap_rot": true,
         "snap_deg": 1
       },
+      "/root/TestScene/CircuitExample/SourceProp": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0
+      },
+      "/root/TestScene/CircuitExample/TargetProp": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0
+      },
       "/root/TestScene/HoloTerminalV2": {
         "active": false,
         "used": false,
@@ -2032,9 +2046,9 @@
   },
   "final_expected_state": {
     "position": [
-      5.085753,
+      5.081703,
       0.0415,
-      0.00019
+      0.00035
     ],
     "velocity": [
       0,

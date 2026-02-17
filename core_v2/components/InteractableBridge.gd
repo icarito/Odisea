@@ -20,29 +20,30 @@ var _targets := []
 var _is_syncing := false
 
 func interact() -> void:
-    """Manual interaction trigger (for testing/validation)."""
-    if debug:
-        print("[%s] Manual interact() called." % name)
-    # Simulate a toggle or activation
-    # Bridges usually sync state. If we don't have a state, we can try to toggle the target.
-    # But usually bridges just forward. Let's assume we want to Activate.
-    # Or better, check if we can read the target's state and flip it.
-    
-    var current_state = false
-     # Best guess logic: Check first target
-    if not _targets.empty() and _targets[0].has_method("get_is_active"):
-         current_state = _targets[0].get_is_active()
-    elif not _targets.empty() and "is_active" in _targets[0]:
-         current_state = _targets[0].is_active
+	"""Manual interaction trigger (for testing/validation)."""
+	if debug:
+		print("[%s] Manual interact() called." % name)
+	# Simulate a toggle or activation
+	# Bridges usually sync state. If we don't have a state, we can try to toggle the target.
+	# But usually bridges just forward. Let's assume we want to Activate.
+	# Or better, check if we can read the target's state and flip it.
 
-    # Bridge logic: Forward the NEW state
-    var new_state = not current_state
-    
-    if debug:
-        print("[%s] Bridge interact: Toggling targets to %s" % [name, new_state])
-        
-    _sync_sources(new_state)
-    _call_target(new_state)
+	var current_state = false
+	# Best guess logic: Check first target
+	if not _targets.empty() and _targets[0].has_method("get_is_active"):
+		current_state = _targets[0].get_is_active()
+	elif not _targets.empty() and "is_active" in _targets[0]:
+		current_state = _targets[0].is_active
+
+	# Bridge logic: Forward the NEW state
+	var new_state = not current_state
+	if debug:
+		print("[InteractableBridge] State from Lever: %s" % new_state)
+	if debug:
+		print("[%s] Bridge interact: Toggling targets to %s" % [name, new_state])
+	_sync_sources(new_state)
+	_call_target(new_state)
+
 
 func _ready():
 	_find_and_connect_source()

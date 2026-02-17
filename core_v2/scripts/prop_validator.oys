@@ -17,22 +17,20 @@ SECTION "LoadDefault"
 SECTION "StartValidation"
     WAIT 1.0
     SCREENSHOT 0_idle
-    PRINT "State 0: Idle captured"
-
+    
     # Trigger Activation
     # PropBaseV2 handles logic, visuals update automatically
     INTERACT target=prop
-    WAIT 0.25
-    
-    SCREENSHOT 1_mid
-    PRINT "State 1: Mid captured"
-
+    # Increased waits to capture slower visual transitions (was 0.25)
     WAIT 0.6
+    SCREENSHOT 1_mid
+    
+    # Give longer time for active visual effects to settle (was 0.6)
+    WAIT 1.2
     SCREENSHOT 2_active
-    PRINT "State 2: Active captured"
-
+    
     # Optional: Deactivate
     INTERACT
     WAIT 1.0
     SCREENSHOT 3_off
-    PRINT "State 3: Off captured"
+    

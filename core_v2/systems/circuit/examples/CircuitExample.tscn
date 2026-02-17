@@ -1,8 +1,9 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://core_v2/systems/circuit/LogicCircuitManager.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/systems/circuit/CircuitGraphResource.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/components/InteractableBaseV2.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/props/CircuitExampleProp.gd" type="Script" id=4]
 
 [sub_resource type="Resource" id=1]
 script = ExtResource( 2 )
@@ -21,13 +22,27 @@ nodes = {
 connections = [ {
 "from": "Source",
 "from_port": 0,
+"points": [  ],
 "to": "Target",
 "to_port": 0,
-"type": "WIRED",
-"points": []
+"type": "WIRED"
 } ]
 
+[sub_resource type="PackedScene" id=2]
+_bundled = {
+"conn_count": 0,
+"conns": PoolIntArray(  ),
+"editable_instances": [  ],
+"names": PoolStringArray(  ),
+"node_count": 0,
+"node_paths": [  ],
+"nodes": PoolIntArray(  ),
+"variants": [  ],
+"version": 2
+}
+
 [node name="CircuitExample" type="Spatial"]
+script = ExtResource( 4 )
 
 [node name="Camera" type="Camera" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5 )
@@ -36,6 +51,7 @@ transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5 )
 script = ExtResource( 1 )
 circuit_data = SubResource( 1 )
 auto_build_cables = true
+cable_scene = SubResource( 2 )
 
 [node name="SourceProp" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )

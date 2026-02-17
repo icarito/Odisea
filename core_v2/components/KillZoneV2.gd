@@ -34,7 +34,7 @@ func _deferred_connect():
 func _on_zone_entered(body: Node):
 	print("[KillZoneV2] _on_zone_entered called for body: ", body.name)
 	print("[KillZoneV2] body_entered:", body)
-	print("[KillZoneV2] Player detected, emitting player_killed")
+	print("[KillZoneV2] Player detected, emitting player_killed. Signal connected to TeleportSystem? ", is_connected("player_killed", get_tree().get_root().find_node("TeleportSystem", true, false), "_on_player_killed"))
 	# Prefer using the connected signal, but if for any reason the TeleportSystem
 	# wasn't connected, call its handler directly to guarantee a respawn occurs
 	# in headless/test environments.
