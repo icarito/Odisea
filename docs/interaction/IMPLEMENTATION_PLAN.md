@@ -44,39 +44,20 @@ This document identifies missing and incomplete components in the interaction sy
 
 ## Implementation Roadmap
 
-### Phase 1: PropBaseV2 Improvements (Priority: HIGH)
+### Phase 1: PropBaseV2 Improvements (Priority: HIGH) ✅ COMPLETE
 
 **Goal:** Robust auto-wiring for all hierarchy patterns.
 
 #### Tasks
 
-1. **Fix Child Discovery**
-   ```gdscript
-   # Current: Only checks parent
-   # Fix: Also check children recursively
-   
-   func _auto_wire_switches():
-       # 1. Explicit export
-       if linked_switch_path:
-           _connect_to(get_node(linked_switch_path))
-           return
-       
-       # 2. Parent check
-       if _is_valid_source(get_parent()):
-           _connect_to(get_parent())
-           return
-       
-       # 3. Children check (NEW)
-       for child in get_children():
-           if _is_valid_source(child):
-               _connect_to(child)
-               return
-   ```
+1. **Fix Child Discovery** ✅
+   - Added child discovery in `_auto_wire_switches()`
+   - Props now check: explicit path → multi-switch paths → parent → children
 
-2. **Add Multi-Switch Support**
-   - [ ] `export(Array, NodePath) var linked_switch_paths`
-   - [ ] Connect to all switches in array
-   - [ ] OR logic: any switch activates prop
+2. **Add Multi-Switch Support** ✅
+   - Added `export(Array, NodePath) var linked_switch_paths`
+   - Connects to all switches in array
+   - OR logic: any switch activates prop
 
 3. **Editor Preview**
    - [ ] Show connection lines in 3D view
