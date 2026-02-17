@@ -38,7 +38,7 @@ var _perf_monitor = null
 # --- HIGHLIGHT SYSTEM ---
 var _highlight_mesh: MeshInstance = null
 var _original_materials: Array = []
-const HIGHLIGHT_SHADER_PATH = "res://shaders/dither_hiding.shader"
+const HIGHLIGHT_SHADER_PATH = "res://shaders/interactable_highlight.shader"
 
 # --- SIGNALS ---
 signal activated()
@@ -121,6 +121,8 @@ func step(dt: float) -> void:
 			anim_progress = target_progress
 			_on_animation_completed()
 		return
+	
+	print("[InteractableBaseV2] ", name, " step: anim_progress=", anim_progress, " target=", target_progress)
 	
 	# Move towards target
 	var direction = sign(target_progress - anim_progress)

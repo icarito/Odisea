@@ -2036,12 +2036,19 @@ func take_oys_screenshot(label: String, _extra = ""):
 	var dir = Directory.new()
 	if not dir.dir_exists(dir_path):
 		dir.make_dir_recursive(dir_path)
-		
-	var scene_name = "oysshell"
-	if get_tree().current_scene:
-		scene_name = get_tree().current_scene.filename.get_file().get_basename().to_lower()
-		
-	var path = "%s/%s_%s.png" % [dir_path, scene_name, label]
+	
+	# Try to get prop name from OYS environment variable, otherwise use scene name
+	var file_prefix = "oysshell"
+	var oys_prop_path = OS.get_environment("OYS_PROP_PATH")
+	if oys_prop_path != "":
+		# Extract basename from path like "res://core_v2/props/AirlockChamber.tscn"
+		var prop_name = oys_prop_path.get_file().get_basename()
+		if prop_name != "":
+			file_prefix = prop_name
+	elif get_tree().current_scene:
+		file_prefix = get_tree().current_scene.filename.get_file().get_basename().to_lower()
+	
+	var path = "%s/%s_%s.png" % [dir_path, file_prefix, label]
 	var img = get_tree().root.get_texture().get_data()
 	img.flip_y()
 	var err = img.save_png(path)

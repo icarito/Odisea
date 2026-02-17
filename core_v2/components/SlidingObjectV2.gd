@@ -80,7 +80,10 @@ func _update_visuals() -> void:
 		return
 	
 	var eased = _apply_easing(anim_progress)
-	translation = _start_position.linear_interpolate(_start_position + slide_vector, eased)
+	var new_pos = _start_position.linear_interpolate(_start_position + slide_vector, eased)
+	if translation != new_pos:
+		print("[SlidingObjectV2] ", name, " anim_progress=", anim_progress, " target=", target_progress, " pos: ", translation, " -> ", new_pos)
+	translation = new_pos
 
 func _apply_easing(t: float) -> float:
 	match easing_type:

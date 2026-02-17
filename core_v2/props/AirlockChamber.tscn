@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://core_v2/components/AirlockControllerV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/SlidingObjectV2.gd" type="Script" id=2]
@@ -11,6 +11,9 @@ extents = Vector3( 1, 2, 0.1 )
 
 [sub_resource type="BoxShape" id=2]
 extents = Vector3( 1.5, 1.5, 1.5 )
+
+[sub_resource type="SpatialMaterial" id=5]
+albedo_color = Color( 0.8, 0.2, 0.2, 1 )
 
 [node name="AirlockChamber" type="Spatial"]
 script = ExtResource( 1 )
@@ -36,7 +39,7 @@ depth = 4.60245
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.5 )
 script = ExtResource( 2 )
 manual_toggle = false
-slide_vector = Vector3( 0, 2.5, 0 )
+slide_vector = Vector3( 0, 0, 2.5 )
 size = Vector3( 2, 4, 0.2 )
 
 [node name="CollisionShape" type="CollisionShape" parent="OuterDoor"]
@@ -45,12 +48,13 @@ shape = SubResource( 3 )
 [node name="MeshInstance" type="CSGBox" parent="OuterDoor"]
 height = 4.0
 depth = 0.2
+material = SubResource( 5 )
 
 [node name="InnerDoor" type="KinematicBody" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.5 )
 script = ExtResource( 2 )
 manual_toggle = false
-slide_vector = Vector3( 0, 2.5, 0 )
+slide_vector = Vector3( 0, 0, 2.5 )
 size = Vector3( 2, 4, 0.2 )
 
 [node name="CollisionShape" type="CollisionShape" parent="InnerDoor"]
@@ -59,6 +63,7 @@ shape = SubResource( 4 )
 [node name="MeshInstance" type="CSGBox" parent="InnerDoor"]
 height = 4.0
 depth = 0.2
+material = SubResource( 5 )
 
 [node name="ChamberZone" type="Area" parent="."]
 visible = false

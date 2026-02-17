@@ -49,9 +49,16 @@ func _ready():
 # --- INTERACTION API ---
 
 func interact():
+	print("[AirlockControllerV2] interact() called, _outer_door=", _outer_door)
+	# Reset state to IDLE to ensure interaction works (handles stale replay state)
+	if state != State.IDLE:
+		state = State.IDLE
+		if _outer_door and _outer_door.has_method("set_active"):
+			_outer_door.set_active(false, true)  # Immediate reset to closed
 	interact_outer()
 
 func interact_outer():
+	print("[AirlockControllerV2] interact_outer() called, state=", state)
 	if state == State.IDLE:
 		_is_cycling_in = true
 		_start_entry()
@@ -62,12 +69,15 @@ func interact_inner():
 		_start_entry()
 
 func _start_entry():
+	print("[AirlockControllerV2] _start_entry() called, _outer_door=", _outer_door)
 	state = State.ENTRY_OPEN
 	if _is_cycling_in:
 		if _outer_door and _outer_door.has_method("set_active"):
+			print("[AirlockControllerV2] Calling _outer_door.set_active(true)")
 			_outer_door.set_active(true)
 	else:
 		if _inner_door and _inner_door.has_method("set_active"):
+			print("[AirlockControllerV2] Calling _inner_door.set_active(true)")
 			_inner_door.set_active(true)
 
 func _on_body_entered(body):
