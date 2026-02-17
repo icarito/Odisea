@@ -159,6 +159,9 @@ func _apply_output_change(source_id: String, value: bool):
 				var cable = _cables[conn_hash]
 				if not is_instance_valid(cable) or (cable.has_method("is_broken") and cable.is_broken()):
 					continue
+				# Set cable energy state (if cable supports set_active from PropBaseV2)
+				if cable.has_method("set_active"):
+					cable.set_active(value)
 
 			# Queue input update
 			_input_queue.append({ "target": conn.to, "input": source_id, "value": value })

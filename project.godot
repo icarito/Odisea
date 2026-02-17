@@ -159,10 +159,15 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/visual/CinematicRig.gd"
 }, {
-"base": "Spatial",
+"base": "PropBaseV2",
 "class": "CircuitCable",
 "language": "GDScript",
 "path": "res://core_v2/systems/circuit/CircuitCable.gd"
+}, {
+"base": "PropBaseV2",
+"class": "CircuitExampleProp",
+"language": "GDScript",
+"path": "res://core_v2/props/CircuitExampleProp.gd"
 }, {
 "base": "Resource",
 "class": "CircuitGraphResource",
@@ -1336,6 +1341,7 @@ _global_script_class_icons={
 "CinematicPathRig": "",
 "CinematicRigV2": "",
 "CircuitCable": "",
+"CircuitExampleProp": "",
 "CircuitGraphResource": "",
 "CircuitTestScene": "",
 "CmdArgumentParser": "",

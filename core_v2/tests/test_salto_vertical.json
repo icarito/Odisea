@@ -1854,24 +1854,6 @@
         "crouch": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -1885,7 +1867,7 @@
     "29": [
 
     ],
-    "102": [
+    "101": [
       {
         "command": "ASSERT",
         "condition": "pos.y < 0.1 \"El personaje no aterrizó después de 2.5 segundos\""
@@ -2141,6 +2123,13 @@
         ],
         "snap_rot": true,
         "snap_deg": 1
+      },
+      "/root/TestScene/CircuitExample": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0
       },
       "/root/TestScene/CircuitExample/SourceProp": {
         "active": false,

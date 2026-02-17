@@ -1,4 +1,4 @@
-extends Spatial
+extends PropBaseV2
 class_name CircuitCable
 
 # CircuitCable.gd
@@ -19,6 +19,10 @@ var _hurtbox: Area
 func _ready():
 	print("[CircuitCable] _ready fired: instance ", self)
 
+	# FIRST call parent class _ready() to ensure set_active and other methods are available
+	# This sets is_active, anim_progress, target_progress, and calls _update_visuals()
+	._ready()
+
 	# If no Curve3D is assigned (common in props/tests), create a tiny default
 	# curve so that build() can produce visible geometry for validation.
 	if not path_curve:
@@ -31,8 +35,9 @@ func _ready():
 		path_curve = default_curve
 
 	if path_curve:
-		print("[CircuitCable] _ready sees path_curve, scheduling build.")
-		call_deferred("build")
+		print("[CircuitCable] _ready sees path_curve, building now.")
+		# Build synchronously so _update_visuals() can access the mesh
+		build()
 
 func build():
 	print("[CircuitCable] build called. instance:", self, " curve: ", path_curve, " points: ", path_curve.get_point_count())
@@ -282,34 +287,84 @@ func init_from_curve(curve: Curve3D) -> void:
 	path_curve = curve
 	build()
 
+# --- Energy Reactivity ---
 
-var current_state := "idle" # idle, mid, active
+func _update_visuals() -> void:
+	"""Override from PropBaseV2 to react to energy (is_active state)."""
+	var t = anim_progress
+	
+	# Update legacy state for test compatibility
+	# Map anim_progress to state: idle (0-0.3), mid (0.3-0.7), active (0.7-1.0)
+	if t < 0.3:
+		circuit_state = "idle"
+	elif t < 0.7:
+		circuit_state = "mid"
+	else:
+		circuit_state = "active"
+	
+	# Get the cable visual mesh
+	var mesh_inst = get_node_or_null("CableVis")
+	if not mesh_inst:
+		return
+	
+	# ALWAYS create a fresh material for energy visualization
+	# This ensures we don't modify the assigned cable_material (CableVisible.tres)
+	var mat = SpatialMaterial.new()
+	mesh_inst.material_override = mat
+	
+	# Energy states: inactive (dim gray), active (glowing cyan/electric blue)
+	var inactive_color = Color(0.1, 0.1, 0.1)  # Very dark gray (almost black)
+	var active_color = Color(0.0, 1.0, 0.8)     # Bright electric cyan
+	
+	# Add dramatic pulse effect based on time when active
+	var pulse = 1.0
+	if t > 0.5:
+		# Pulse effect when more than 50% active
+		pulse = 1.0 + 0.3 * sin(OS.get_ticks_msec() * 0.01)
+	
+	# Interpolate based on animation progress
+	var current_color = inactive_color.linear_interpolate(active_color, t)
+	
+	# Set albedo
+	mat.albedo_color = current_color
+	
+	# Enable emission for strong glow effect when active
+	mat.emission_enabled = true
+	mat.emission = current_color
+	mat.emission_energy = t * 5.0 * pulse  # Very strong glow!
+	
+	# Make it really obvious when off - no glow at all
+	if t < 0.1:
+		mat.emission_energy = 0.0
+		mat.albedo_color = Color(0.05, 0.05, 0.05)  # Very dark
+
+# --- Interaction (for manual testing) ---
+
+func interact(_from = null) -> void:
+	"""Toggle energy state. Called by player interaction or pipeline."""
+	print("[CircuitCable] interact() called. Current is_active:", is_active)
+	# Use the base class toggle via set_active
+	.set_active(not is_active)
+
+# Legacy state handling for backward compatibility with tests
+var circuit_state: String = "idle" # idle, mid, active
 
 # Alias for test compatibility
 func get_state() -> String:
-	return current_state
+	return circuit_state
 
 func set_state(value: String) -> void:
-	current_state = value
+	circuit_state = value
 
-var state: = "idle" setget set_state, get_state
+var state: String = "idle" setget set_state, get_state
 
-func interact(_from = null) -> void:
-	print("[CircuitCable] interact() called. Current State:", current_state)
-	if current_state == "idle":
-		current_state = "mid"
-		set_cable_visuals(1.0, Color(1, 0.5, 0))  # Increase emission/red hue
-	elif current_state == "mid":
-		current_state = "active"
-		set_cable_visuals(1.5, Color(1, 0, 0))  # Stronger emission/more red
-	else:
-		current_state = "idle"
-		set_cable_visuals(0.0, Color(1, 1, 1))  # No emission/neutral
-
+# Legacy method - now calls set_active
 func set_cable_visuals(emission: float, color: Color):
 	if not cable_material:
 		cable_material = SpatialMaterial.new()
-		$CableVis.material_override = cable_material
+		var mesh_inst = get_node_or_null("CableVis")
+		if mesh_inst:
+			mesh_inst.material_override = cable_material
 	cable_material.emission_enabled = true
 	cable_material.emission = color * emission
 	cable_material.albedo_color = color

@@ -1,9 +1,11 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://core_v2/systems/circuit/LogicCircuitManager.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/systems/circuit/CircuitGraphResource.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/components/InteractableBaseV2.gd" type="Script" id=3]
 [ext_resource path="res://core_v2/props/CircuitExampleProp.gd" type="Script" id=4]
+[ext_resource path="res://core_v2/props/Lever.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/props/SciFiHangingLightV2.tscn" type="PackedScene" id=6]
 
 [sub_resource type="Resource" id=1]
 script = ExtResource( 2 )
@@ -63,39 +65,22 @@ circuit_data = SubResource( 1 )
 auto_build_cables = true
 cable_scene = ExtResource( 2 )
 
-[node name="SwitchA" type="Spatial" parent="."]
+[node name="SwitchA" parent="." instance=ExtResource( 5 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
-script = ExtResource( 3 )
 interaction_text = "Switch A"
-
-[node name="Visual" type="CSGBox" parent="SwitchA"]
-width = 1.0
-height = 1.0
-depth = 1.0
 
 [node name="CableAnchor" type="Position3D" parent="SwitchA"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
 
-[node name="SwitchB" type="Spatial" parent="."]
+[node name="SwitchB" parent="." instance=ExtResource( 5 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0 )
-script = ExtResource( 3 )
 interaction_text = "Switch B"
-
-[node name="Visual" type="CSGBox" parent="SwitchB"]
-width = 1.0
-height = 1.0
-depth = 1.0
 
 [node name="CableAnchor" type="Position3D" parent="SwitchB"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
 
-[node name="Light" type="Spatial" parent="."]
+[node name="Light" parent="." instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0 )
 
-[node name="Visual" type="CSGBox" parent="Light"]
-width = 1.0
-height = 1.0
-depth = 1.0
-
 [node name="CableAnchor" type="Position3D" parent="Light"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0 )
