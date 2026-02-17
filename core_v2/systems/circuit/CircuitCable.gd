@@ -279,6 +279,15 @@ func init_from_curve(curve: Curve3D) -> void:
 
 var current_state := "idle" # idle, mid, active
 
+# Alias for test compatibility
+func get_state() -> String:
+	return current_state
+
+func set_state(value: String) -> void:
+	current_state = value
+
+var state: = "idle" setget set_state, get_state
+
 func interact(_from = null) -> void:
 	print("[CircuitCable] interact() called. Current State:", current_state)
 	if current_state == "idle":
