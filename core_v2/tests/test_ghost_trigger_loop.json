@@ -296,7 +296,7 @@
           0
         ],
         "mouse_delta": [
-          -10.471975,
+          0,
           0
         ],
         "zoom_delta": 0,
@@ -314,25 +314,7 @@
           0
         ],
         "mouse_delta": [
-          -10.471975,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
           0,
-          0
-        ],
-        "mouse_delta": [
-          -10.471975,
           0
         ],
         "zoom_delta": 0,
@@ -833,10 +815,46 @@
       "input": {
         "move_vec": [
           0,
-          -1
+          0
         ],
         "mouse_delta": [
+          -10.471975,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
           0,
+          0
+        ],
+        "mouse_delta": [
+          -10.471975,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -10.471975,
           0
         ],
         "zoom_delta": 0,
@@ -1680,6 +1698,60 @@
         "move_vec": [
           0,
           -1
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          -1
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
         ],
         "mouse_delta": [
           0,
@@ -3830,19 +3902,19 @@
         "value": "(-8, 1, 6)"
       }
     ],
-    "14": [
+    "16": [
       {
         "command": "PRINT",
         "message": "E2E: Move while recording"
       }
     ],
-    "44": [
+    "46": [
 
     ],
-    "92": [
+    "94": [
 
     ],
-    "106": [
+    "107": [
       {
         "command": "PRINT",
         "message": "E2E: Enter stop+loop trigger"
@@ -3853,7 +3925,7 @@
         "value": "(-2, 1, 6)"
       }
     ],
-    "197": [
+    "198": [
       {
         "command": "PRINT",
         "message": "E2E: Stop loop and finish"
@@ -3866,7 +3938,7 @@
         ]
       }
     ],
-    "210": [
+    "214": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -5.0 \"Player should remain valid during trigger-loop flow\""
