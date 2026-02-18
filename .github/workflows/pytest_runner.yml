@@ -112,6 +112,19 @@ jobs:
           echo "venv_cache_hit=${{ steps.venv_cache.outputs.cache-hit }}"
           ls -la "${GODOT_CACHE_DIR}/${GODOT_VERSION}" || true
 
+      - name: Guard added assets size (<=50MB)
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+          if [ -z "${BASE_SHA}" ] || [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="$(git rev-list --max-count=1 HEAD^)"
+          fi
+          scripts/check_added_file_sizes.sh "${BASE_SHA}" "${GITHUB_SHA}"
+
       - name: Import + Smoke (self-healing)
         run: |
           set -euo pipefail
