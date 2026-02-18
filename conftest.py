@@ -3,7 +3,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 import pytest
 
@@ -109,9 +109,9 @@ def _gha_escape(value: str) -> str:
 # VSCode Test Explorer: Collect .oys and .json files directly
 # This makes clicking on a test in VSCode open the .oys file
 # ============================================================================
+
 def pytest_collect_file(parent, file_path: Path):
     """Collect .oys and .json test files for VSCode Test Explorer."""
-    # Only collect from tests/ and core_v2/tests/ directories
     if "tests" not in file_path.parts:
         return None
     
@@ -137,8 +137,8 @@ class OysItem(pytest.Item):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Add marker for raw-oys runner
         self.add_marker("odisea_raw_oys")
+        self._oys_path = self.path
     
     def runtest(self):
         """Execute the OYS test using runtest.sh or godot directly."""
@@ -148,7 +148,6 @@ class OysItem(pytest.Item):
         
         oys_name = self.path.stem
         
-        # Use runtest.sh if available, otherwise direct godot
         if os.path.exists("./runtest.sh"):
             cmd = ["./runtest.sh", "--oys", oys_name]
         else:
@@ -173,23 +172,25 @@ class OysItem(pytest.Item):
             raise OysTestFailure(f"Assertions failed:\n" + "\n".join(failed_asserts))
     
     def repr_failure(self, excinfo, style="long"):
-        """Called when the test fails."""
         if isinstance(excinfo.value, OysTestFailure):
             return str(excinfo.value)
         return super().repr_failure(excinfo, style=style)
     
     def reportinfo(self):
-        """Return location for VSCode Test Explorer - this is the key!"""
-        return (self.path, 0, f"OYS: {self.path.name}")
+        """Return location for VSCode Test Explorer."""
+        return (self._oys_path, 0, f"OYS: {self.name}")
 
 
 class OysTestFailure(Exception):
-    """Custom exception for OYS test failures."""
     pass
 
 
-def pytest_collection_modifyitems(config, items):
+# Hook to flatten test hierarchy in VSCode
+def pytest_collection_modifyitems(session, config, items):
+    """Flatten OYS tests and remap their locations for VSCode."""
     runner = config.getoption("--odisea-runner")
+    
+    # Filter by runner
     deselected = []
     selected = []
     for item in items:
