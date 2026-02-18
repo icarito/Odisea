@@ -17,20 +17,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pytest-gdunit:
-    name: Run Pytest (gdunit-${{ matrix.suite }})
+  pytest-core:
+    name: Run Tests (core)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - suite: core
-            include_determinism: "0"
-            pytest_filter: "not test_det__"
-          - suite: determinism
-            include_determinism: "1"
-            pytest_filter: "test_det__"
+    timeout-minutes: 10
     env:
       GODOT_VERSION: 3.6.2-stable
       GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
@@ -129,65 +119,117 @@ jobs:
           echo "Import complete."
           ls -la .import/ 2>/dev/null | head -10 || echo "No .import directory"
 
-      - name: Run Tests
+      - name: Run Core Tests
         env:
           GODOT_BIN: /usr/local/bin/godot
-          ODISEA_INCLUDE_DETERMINISM: ${{ matrix.include_determinism }}
         run: |
           mkdir -p reports
-          if [ "${{ matrix.suite }}" = "determinism" ]; then
-            # TEMPORARY: Determinism tests hang in CI (issue #64)
-            # Run with per-test timeout to prevent hanging
-            echo "⚠️ Determinism tests temporarily limited due to CI hanging (issue #64)"
-            passed=0
-            failed=0
-            for oys_file in core_v2/tests/*.oys; do
-              oys_name=$(basename "$oys_file" .oys)
-              echo "Running OYS test with 60s timeout: $oys_name"
-              if timeout 60 ./runtest.sh --oys "$oys_name" > "reports/${oys_name}.log" 2>&1; then
-                if grep -q "✅ Test OYS" "reports/${oys_name}.log" 2>/dev/null; then
-                  echo "✅ $oys_name passed"
-                  passed=$((passed + 1))
-                else
-                  echo "❌ $oys_name failed (no success marker)"
-                  failed=$((failed + 1))
-                fi
-              else
-                echo "❌ $oys_name failed or timed out"
-                failed=$((failed + 1))
-              fi
-              cat "reports/${oys_name}.log"
-            done
-            echo ""
-            echo "Determinism tests: $passed passed, $failed failed/timed out"
-            # Don't fail the build for determinism tests temporarily
-            exit 0
-          else
-            # Run core tests via runtest.sh
-            ./runtest.sh -a ./core_v2/tests/ 2>&1 | tee reports/core_tests.log
-          fi
+          ./runtest.sh -a ./core_v2/tests/ 2>&1 | tee reports/core_tests.log
 
       - name: Publish Test Summary
         if: always()
         run: |
-          echo "## Test Results (${{ matrix.suite }})" >> $GITHUB_STEP_SUMMARY
+          echo "## Core Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ matrix.suite }}" = "determinism" ]; then
-            for log in reports/*.log; do
-              if [ -f "$log" ]; then
-                name=$(basename "$log" .log)
-                if grep -q "✅ Test OYS" "$log" 2>/dev/null; then
-                  echo "- ✅ $name" >> $GITHUB_STEP_SUMMARY
-                else
-                  echo "- ❌ $name" >> $GITHUB_STEP_SUMMARY
-                fi
-              fi
-            done
-          else
-            if [ -f reports/core_tests.log ]; then
-              grep -E "PASSED|FAILED|ERROR" reports/core_tests.log | tail -20 >> $GITHUB_STEP_SUMMARY || echo "No results found" >> $GITHUB_STEP_SUMMARY
-            fi
+          if [ -f reports/core_tests.log ]; then
+            grep -E "PASSED|FAILED|ERROR|✅|❌" reports/core_tests.log | tail -30 >> $GITHUB_STEP_SUMMARY || echo "No results found" >> $GITHUB_STEP_SUMMARY
           fi
+
+  # Determinism tests run in parallel, don't block deploy
+  pytest-determinism:
+    name: Run Tests (determinism)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    env:
+      GODOT_VERSION: 3.6.2-stable
+      GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Godot cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/.import
+            ${{ github.workspace }}/.godot
+          key: ${{ runner.os }}-godot-${{ hashFiles('**/project.godot') }}-${{ hashFiles('assets/**') }}
+          restore-keys: |
+            ${{ runner.os }}-godot-
+
+      - name: Cache Godot binary
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
+          key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-determinism
+          restore-keys: |
+            ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-
+
+      - name: Setup Godot 3.6.2
+        run: |
+          set -euo pipefail
+          TARGET_DIR="${GODOT_CACHE_DIR}/${GODOT_VERSION}"
+          TARGET_BIN="${TARGET_DIR}/godot"
+          mkdir -p "$TARGET_DIR"
+          if [ ! -x "$TARGET_BIN" ]; then
+            wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux_headless.64.zip"
+            unzip -q "Godot_v${GODOT_VERSION}_linux_headless.64.zip"
+            mv "Godot_v${GODOT_VERSION}_linux_headless.64" "$TARGET_BIN"
+            chmod +x "$TARGET_BIN"
+          fi
+          sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
+
+      - name: Import Resources
+        run: |
+          echo "Importing Godot resources..."
+          /usr/local/bin/godot --path . -e --quit --headless 2>&1 | head -30
+
+      - name: Run Determinism Tests
+        env:
+          GODOT_BIN: /usr/local/bin/godot
+        run: |
+          mkdir -p reports
+          echo "⚠️ Determinism tests run with 60s timeout per test (issue #64)"
+          passed=0
+          failed=0
+          for oys_file in core_v2/tests/*.oys; do
+            oys_name=$(basename "$oys_file" .oys)
+            echo "Running OYS test: $oys_name"
+            if timeout 60 ./runtest.sh --oys "$oys_name" > "reports/${oys_name}.log" 2>&1; then
+              if grep -q "✅ Test OYS" "reports/${oys_name}.log" 2>/dev/null; then
+                echo "✅ $oys_name"
+                passed=$((passed + 1))
+              else
+                echo "❌ $oys_name (no success)"
+                failed=$((failed + 1))
+              fi
+            else
+              echo "❌ $oys_name (timeout/fail)"
+              failed=$((failed + 1))
+            fi
+          done
+          echo ""
+          echo "Determinism tests: $passed passed, $failed failed/timed out"
+
+      - name: Publish Test Summary
+        if: always()
+        run: |
+          echo "## Determinism Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          for log in reports/*.log; do
+            if [ -f "$log" ]; then
+              name=$(basename "$log" .log)
+              if grep -q "✅ Test OYS" "$log" 2>/dev/null; then
+                echo "- ✅ $name" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "- ❌ $name" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          done
 
   pytest-raw-oys:
     name: Run Pytest (raw-oys)
@@ -268,10 +310,11 @@ jobs:
           ./.venv/bin/pytest --odisea-runner raw-oys -n 2
 
   # Summary job that other workflows can depend on
+  # Only depends on core tests - determinism is optional
   tests-passed:
-    name: All Tests Passed
-    needs: [pytest-gdunit]
-    if: always() && !contains(needs.*.result, 'failure')
+    name: Core Tests Passed
+    needs: [pytest-core]
+    if: always() && needs.pytest-core.result == 'success'
     runs-on: ubuntu-latest
     outputs:
       success: ${{ steps.check.outputs.success }}
@@ -279,11 +322,7 @@ jobs:
       - name: Check Test Results
         id: check
         run: |
-          if [ "${{ needs.pytest-gdunit.result }}" == "success" ]; then
-            echo "success=true" >> $GITHUB_OUTPUT
-            echo "✅ All tests passed!"
-          else
-            echo "success=false" >> $GITHUB_OUTPUT
-            echo "❌ Some tests failed"
-            exit 1
-          fi
+          echo "success=true" >> $GITHUB_OUTPUT
+          echo "✅ Core tests passed!"
+          echo ""
+          echo "Note: Determinism tests run in parallel and don't block this check."
