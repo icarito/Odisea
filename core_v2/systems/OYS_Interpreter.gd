@@ -13,6 +13,7 @@ var variables: Dictionary = {}
 var sections: Dictionary = {}
 var section_names: Array = []
 var host_node: Node
+var _node_cache: Dictionary = {}
 var is_running: bool = false
 var stop_requested: bool = false
 var fast_forward: bool = false
@@ -1345,11 +1346,22 @@ func _post_oys_input(data: Dictionary):
 			print("[OYS WARNING] Could not find player to inject input: ", data)
 
 func _resolve_node(path: String) -> Node:
+	if _node_cache.has(path):
+		var cached = _node_cache[path]
+		if is_instance_valid(cached) and cached.is_inside_tree():
+			return cached
+		else:
+			_node_cache.erase(path)
+
 	var node = host_node.get_node_or_null(path)
 	if not is_instance_valid(node) and host_node.is_inside_tree() and host_node.get_tree().current_scene:
 		node = host_node.get_tree().current_scene.find_node(path, true, false)
 	if not is_instance_valid(node) and host_node.is_inside_tree():
 		node = host_node.get_tree().root.find_node(path, true, false)
+
+	if is_instance_valid(node):
+		_node_cache[path] = node
+
 	return node
 
 func _wait_signal(target: Node, signal_name: String, timeout: float, my_id: int):
