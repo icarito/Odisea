@@ -6,8 +6,10 @@
     },
     "godotTools.editorPath.godot3": "/usr/bin/godot3-bin",
     "python.testing.pytestArgs": [
-        "core_v2/tests/",
-        "--odisea-runner=raw-oys"
+        "tests/test_odisea_runner.py",
+        "--odisea-runner=gdunit",
+        "-n",
+        "auto"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
