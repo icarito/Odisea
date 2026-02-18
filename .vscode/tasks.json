@@ -84,6 +84,26 @@
             "detail": "Ejecuta todos los tests de core_v2"
         },
         {
+            "label": "Run Stress Profile",
+            "type": "shell",
+            "command": "./runtest.sh",
+            "args": ["--stress"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "detail": "Ejecuta el perfil de stress (odisea_stress) explícitamente"
+        },
+        {
             "label": "Run GdUnit Test File",
             "type": "shell",
             "command": "./runtest.sh",

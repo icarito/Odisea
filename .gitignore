@@ -2,26 +2,18 @@ experimental/
 ports/
 maps/autosave/
 
-.gitignore: keep local generated imports out by default; CI requires imports present.
 # Godot-specific ignores
 export.cfg
-# NOTE: CI requires Godot import metadata (.import/) to be present so headless runs can load resources.
-# If you prefer to track import metadata for deterministic CI, remove/comment the following entries
-# or commit the relevant .import files manually.
+# Keep generated import metadata out of normal commits.
+# CI restores cache and re-imports incrementally when needed.
 .import/*
 *.import
-!.import/
-# Required import metadata for CI/runtime audio loading in PushableBoxV2.
-!assets/sfx/metal1.wav.import
-!assets/sfx/metal2.wav.import
-!assets/sfx/metal3.wav.import
-!.import/metal1.wav-*.md5
-!.import/metal1.wav-*.sample
-!.import/metal2.wav-*.md5
-!.import/metal2.wav-*.sample
-!.import/metal3.wav-*.md5
-!.import/metal3.wav-*.sample
+**/.import/
 *.stex
+
+# Test snapshots are generated artifacts and should not be committed by default.
+core_v2/tests/*.json
+
 .vscode/
 
 # Imported translations (automatically generated from CSV files)

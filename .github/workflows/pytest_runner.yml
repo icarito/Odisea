@@ -114,10 +114,15 @@ jobs:
 
       - name: Import Resources
         run: |
+          mkdir -p reports
           echo "Importing Godot resources..."
-          /usr/local/bin/godot --path . -e --quit --headless 2>&1 | head -50
+          /usr/local/bin/godot --path . -e --quit --headless 2>&1 | tee reports/import_resources.log
           echo "Import complete."
           ls -la .import/ 2>/dev/null | head -10 || echo "No .import directory"
+
+      - name: Smoke Check Critical Resources
+        run: |
+          /usr/local/bin/godot --headless --no-window --audio-driver Dummy -s tests/ci_resource_smoke.gd 2>&1 | tee reports/resource_smoke.log
 
       - name: Run Core Tests
         env:
@@ -133,6 +138,16 @@ jobs:
         run: |
           echo "## Core Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f reports/import_resources.log ]; then
+            echo "### Import Diagnostics" >> $GITHUB_STEP_SUMMARY
+            grep -E "ERROR:|Failed to load resource|referenced nonexistent resource|Unrecognized binary resource file" reports/import_resources.log | tail -20 >> $GITHUB_STEP_SUMMARY || echo "No import errors detected." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f reports/resource_smoke.log ]; then
+            echo "### Resource Smoke Check" >> $GITHUB_STEP_SUMMARY
+            grep -E "\\[CI_SMOKE\\]" reports/resource_smoke.log | tail -20 >> $GITHUB_STEP_SUMMARY || echo "No smoke output found." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
           if [ -f reports/core_tests.log ]; then
             grep -E "PASSED|FAILED|ERROR|✅|❌" reports/core_tests.log | tail -30 >> $GITHUB_STEP_SUMMARY || echo "No results found" >> $GITHUB_STEP_SUMMARY
           fi

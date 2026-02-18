@@ -78,8 +78,13 @@ jobs:
           echo "Issue #64: Some tests may hang or fail in CI"
           passed=0
           failed=0
+          timed_out=0
+          last_test=""
+          failed_cases=""
+          timeout_cases=""
           for oys_file in core_v2/tests/*.oys; do
             oys_name=$(basename "$oys_file" .oys)
+            last_test="$oys_name"
             echo "Running: $oys_name"
             if timeout 60 ./runtest.sh --oys "$oys_name" > "reports/${oys_name}.log" 2>&1; then
               if grep -q "✅ Test OYS" "reports/${oys_name}.log" 2>/dev/null; then
@@ -88,18 +93,39 @@ jobs:
               else
                 echo "❌ $oys_name (no success)"
                 failed=$((failed + 1))
+                failed_cases="${failed_cases}\n- ${oys_name} (no success marker)"
               fi
             else
-              echo "❌ $oys_name (timeout/fail)"
-              failed=$((failed + 1))
+              exit_code=$?
+              if [ "$exit_code" -eq 124 ]; then
+                echo "⏱️ $oys_name (timeout)"
+                timed_out=$((timed_out + 1))
+                timeout_cases="${timeout_cases}\n- ${oys_name}"
+              else
+                echo "❌ $oys_name (exit $exit_code)"
+                failed=$((failed + 1))
+                failed_cases="${failed_cases}\n- ${oys_name} (exit $exit_code)"
+              fi
             fi
           done
           echo ""
           echo "## Determinism Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Passed:** $passed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Failed/Timed out:** $failed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Failed:** $failed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timed out:** $timed_out" >> $GITHUB_STEP_SUMMARY
+          echo "- **Last executed test:** ${last_test:-none}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$failed_cases" ]; then
+            echo "### Failed Cases" >> $GITHUB_STEP_SUMMARY
+            printf "%b\n" "$failed_cases" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -n "$timeout_cases" ]; then
+            echo "### Timed Out Cases" >> $GITHUB_STEP_SUMMARY
+            printf "%b\n" "$timeout_cases" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
           for log in reports/*.log; do
             if [ -f "$log" ]; then
               name=$(basename "$log" .log)
@@ -111,4 +137,4 @@ jobs:
             fi
           done
           echo ""
-          echo "Determinism tests: $passed passed, $failed failed/timed out"
+          echo "Determinism tests: $passed passed, $failed failed, $timed_out timed out"

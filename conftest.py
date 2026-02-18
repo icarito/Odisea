@@ -25,6 +25,12 @@ def pytest_addoption(parser):
         default=False,
         help="Debug mode for Odisea runner: run tests with visible window (non-headless).",
     )
+    parser.addoption(
+        "--odisea-include-stress",
+        action="store_true",
+        default=False,
+        help="Include odisea_stress tests in execution (they are skipped by default).",
+    )
 
 
 def _is_debugger_attached() -> bool:
@@ -114,6 +120,9 @@ def pytest_collection_modifyitems(config, items):
     """Remap OYS test locations for VSCode IDE navigation."""
     runner = config.getoption("--odisea-runner")
     rootpath = Path(config.rootpath)
+    include_stress = bool(config.getoption("--odisea-include-stress")) or os.environ.get(
+        "ODISEA_INCLUDE_STRESS", ""
+    ).strip().lower() in {"1", "true", "yes", "on"}
 
     deselected = []
     selected = []
@@ -138,6 +147,11 @@ def pytest_collection_modifyitems(config, items):
         if is_raw_oys and runner != "raw-oys":
             deselected.append(item)
             continue
+
+        if "odisea_stress" in item.keywords and not include_stress:
+            item.add_marker(
+                pytest.mark.skip(reason="stress profile disabled by default (use --odisea-include-stress)")
+            )
         selected.append(item)
 
     if deselected:

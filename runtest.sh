@@ -9,9 +9,10 @@
 # Opciones:
 #   --show    Mostrar ventana de Godot (por defecto es headless)
 #   --oys     Ejecutar un test OYS específico por nombre
+#   --stress  Ejecutar perfil de stress (pytest marker odisea_stress)
 #   --nodet   Saltar tests de determinism
 #   --debug   Mostrar output completo sin filtrar logs de debug
-#   --runner  Selecciona backend: auto|gdunit|pytest (default: auto)
+#   --runner  Selecciona backend: auto|gdunit|pytest (default: pytest)
 #   --workers Cantidad de workers para pytest-xdist (numero o "auto")
 #
 # NOTA PARA AGENTES IA:
@@ -26,11 +27,12 @@ if [ -z "$GODOT_BIN" ]; then
 fi
 
 # Por defecto, ejecutar en modo headless (más rápido)
-HEADLESS="--no-window"
+HEADLESS="--headless --no-window"
 DEBUG_OUTPUT=0
-RUNNER_MODE="${ODISEA_SHELL_RUNNER:-auto}"
+RUNNER_MODE="${ODISEA_SHELL_RUNNER:-pytest}"
 PYTEST_WORKERS="${ODISEA_PYTEST_WORKERS:-auto}"
 PYTEST_BIN=""
+RUN_STRESS_ONLY=0
 
 # Procesar --show antes que otros argumentos
 if [ "$1" = "--show" ]; then
@@ -193,7 +195,12 @@ is_full_core_suite_target() {
 }
 
 run_pytest_delegate() {
-    local cmd=("$PYTEST_BIN" tests/test_odisea_runner.py --odisea-runner gdunit)
+    local cmd=("$PYTEST_BIN")
+    if [ $RUN_STRESS_ONLY -eq 1 ]; then
+        cmd+=("tests/test_stress_profile.py" "-m" "odisea_stress" "--odisea-include-stress")
+    else
+        cmd+=("tests/test_odisea_runner.py" "--odisea-runner" "gdunit" "-m" "not odisea_stress")
+    fi
     if pytest_supports_xdist; then
         cmd+=("-n" "$PYTEST_WORKERS")
     fi
@@ -204,7 +211,7 @@ run_pytest_delegate() {
         cmd+=("-k" "not test_det and not test_determinism_batched_case")
     fi
 
-    echo "🐍 Delegando ejecución a pytest (runner gdunit)..."
+    echo "🐍 Delegando ejecución a pytest..."
     echo "📋 Output guardado en: $LOG_FILE"
     echo "Comando: ${cmd[*]}"
     echo "---"
@@ -275,6 +282,11 @@ while [[ $# -gt 0 ]]; do
             DEBUG_OUTPUT=1
             shift
             ;;
+        --stress)
+            RUN_STRESS_ONLY=1
+            RUNNER_MODE="pytest"
+            shift
+            ;;
         --runner)
             RUNNER_MODE="$2"
             if [[ -z "$RUNNER_MODE" || ! "$RUNNER_MODE" =~ ^(auto|gdunit|pytest)$ ]]; then
@@ -321,7 +333,7 @@ while [[ $# -gt 0 ]]; do
             
             # Usar variable de entorno OYS_FILTER para filtrar el test
             export OYS_FILTER="${OYS_FILTER_NAME}"
-            run_and_capture $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd \
+            run_and_capture $GODOT_BIN $HEADLESS ${HEADLESS:+--audio-driver Dummy} -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd \
                 -a "./core_v2/tests/test_determinism_v2.gd" "$@"
             exit_code=$?
             
@@ -357,8 +369,8 @@ if [ ${#ARGS[@]} -eq 0 ]; then
     ARGS=("-a" "./core_v2/tests/")
 fi
 
-# Try pytest delegation only for full-suite runs.
-if is_full_core_suite_target; then
+# Try pytest delegation for full-suite runs and stress profile.
+if [ $RUN_STRESS_ONLY -eq 1 ] || is_full_core_suite_target; then
     if [ "$RUNNER_MODE" = "pytest" ]; then
         if ! has_pytest_runner; then
             echo "ERROR: --runner pytest solicitado, pero pytest o tests/test_odisea_runner.py no está disponible."
@@ -380,9 +392,14 @@ if is_full_core_suite_target; then
     fi
 fi
 
+HEADLESS_AUDIO_ARGS=""
+if [ -n "$HEADLESS" ]; then
+    HEADLESS_AUDIO_ARGS="--audio-driver Dummy"
+fi
+
 echo "🧪 Ejecutando tests GdUnit3 ${HEADLESS:+(headless)}..."
 echo "📋 Output guardado en: $LOG_FILE"
-echo "Comando: $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd ${ARGS[*]}"
+echo "Comando: $GODOT_BIN $HEADLESS $HEADLESS_AUDIO_ARGS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd ${ARGS[*]}"
 if [ $DEBUG_OUTPUT -eq 0 ]; then
     echo "Modo salida: limpio (usa --debug para ver logs completos)"
 else
@@ -391,7 +408,7 @@ fi
 echo "---"
 
 # Ejecuta Godot con output en tiempo real (filtrado o completo según modo)
-run_and_capture $GODOT_BIN $HEADLESS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd "${ARGS[@]}"
+run_and_capture $GODOT_BIN $HEADLESS $HEADLESS_AUDIO_ARGS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd "${ARGS[@]}"
 exit_code=$?
 
 echo "---"

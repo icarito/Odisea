@@ -156,7 +156,7 @@ def _run_raw_oys_file(test_file: Path, selected_runner: str, repo_root: Path, od
     rel_file = test_file.relative_to(repo_root)
     cmd = [godot_bin]
     if not odisea_debug:
-        cmd += ["--headless", "--no-window"]
+        cmd += ["--headless", "--no-window", "--audio-driver", "Dummy"]
     cmd += ["-s", "tests/debug_runner.gd", "--test-file", str(rel_file)]
     print(f"[INFO] Executing: {' '.join(cmd)}")
 
@@ -194,9 +194,15 @@ def _make_determinism_test(oys_name: str, repo_root: Path):
 
 
 def _make_raw_oys_test(test_file: Path):
-    @pytest.mark.odisea_raw_oys
+    marks = [pytest.mark.odisea_raw_oys]
+    if "stress" in test_file.parts:
+        marks.append(pytest.mark.odisea_stress)
+
     def _test(selected_runner: str, repo_root: Path, odisea_debug: bool):
         _run_raw_oys_file(test_file, selected_runner, repo_root, odisea_debug)
+
+    for mark in marks:
+        _test = mark(_test)
 
     test_name = f"test_raw__{_safe_id(test_file.name)}__{_stable_suffix(str(test_file))}"
     _test.__name__ = test_name
