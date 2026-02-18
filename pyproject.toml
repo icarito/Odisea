@@ -7,4 +7,5 @@ markers = [
     "odisea_gdunit: Tests executed by the gdunit-compatible pytest runner.",
     "odisea_raw_oys: Tests executed by the raw OYS/json pytest runner.",
     "odisea_stress: Stress profile tests, listed by default but skipped unless explicitly enabled.",
+    "odisea_determinism: Determinism replay tests (expensive, optional in editor flow).",
 ]

@@ -5,6 +5,7 @@ import pytest
 import hashlib
 import os
 import re
+import selectors
 import subprocess
 
 
@@ -24,14 +25,21 @@ def _stream_process(cmd, file_hint: Path | None = None, filter_visualserver: boo
         text=True,
         bufsize=1,
         universal_newlines=True,
+        start_new_session=True,
     )
 
     captured_failed_asserts = []
 
-    while True:
+    sel = selectors.DefaultSelector()
+    if proc.stdout is not None:
+        sel.register(proc.stdout, selectors.EVENT_READ)
+
+    while proc.poll() is None:
+        events = sel.select(timeout=0.2)
+        if not events:
+            continue
+
         line = proc.stdout.readline()
-        if not line and proc.poll() is not None:
-            break
         if not line:
             continue
 
@@ -52,6 +60,13 @@ def _stream_process(cmd, file_hint: Path | None = None, filter_visualserver: boo
                 print(f"::error file={file_hint}::{clean}")
             elif "[WARNING]" in clean:
                 print(f"::warning file={file_hint}::{clean}")
+
+    # Drain remaining buffered output.
+    if proc.stdout is not None:
+        for line in proc.stdout:
+            clean = _strip_ansi(line)
+            if clean:
+                print(clean)
 
     return proc.poll(), captured_failed_asserts
 
@@ -82,8 +97,9 @@ def _collect_gdunit_suites(repo_root: Path):
 
 
 def _collect_determinism_oys_cases(repo_root: Path):
-    include_determinism = os.environ.get("ODISEA_INCLUDE_DETERMINISM", "").strip().lower()
-    if include_determinism not in {"1", "true", "yes", "on"}:
+    include_determinism_raw = os.environ.get("ODISEA_INCLUDE_DETERMINISM")
+    include_determinism = True if include_determinism_raw is None else include_determinism_raw.strip().lower() in {"1", "true", "yes", "on"}
+    if not include_determinism:
         return []
     test_dir = repo_root / "core_v2" / "tests"
     return [path.stem for path in sorted(test_dir.glob("*.oys"))]
@@ -130,13 +146,18 @@ def _run_gdunit_suite(suite_path: Path, selected_runner: str, repo_root: Path, o
         raise RunnerError(f"runtest.sh failed for {rel_suite} with return code {returncode}.")
 
 
-def _run_determinism_case(oys_name: str, selected_runner: str, odisea_debug: bool):
+def _run_determinism_case(
+    oys_name: str, selected_runner: str, odisea_debug: bool, odisea_editor: bool
+):
     if selected_runner != "gdunit":
         pytest.skip("gdunit runner not selected")
 
     cmd = ["./runtest.sh"]
     if odisea_debug:
         cmd += ["--show", "--debug"]
+    if odisea_editor:
+        # Editor profile: run OYS pass 1 only to avoid heavy determinism second pass.
+        cmd += ["--nodet"]
     cmd += ["--oys", oys_name]
     print(f"[INFO] Executing: {' '.join(cmd)}")
 
@@ -170,7 +191,7 @@ def _run_raw_oys_file(test_file: Path, selected_runner: str, repo_root: Path, od
         raise RunnerError(f"Godot Engine Crash: test crashed/error with return code {returncode}.")
 
 
-def _make_gdunit_test(suite_path: Path):
+def _make_gdunit_test(suite_path: Path, repo_root: Path):
     @pytest.mark.odisea_gdunit
     def _test(selected_runner: str, repo_root: Path, odisea_debug: bool):
         _run_gdunit_suite(suite_path, selected_runner, repo_root, odisea_debug)
@@ -178,13 +199,17 @@ def _make_gdunit_test(suite_path: Path):
     test_name = f"test_gd__{_safe_id(suite_path.name)}__{_stable_suffix(str(suite_path))}"
     _test.__name__ = test_name
     _test.__qualname__ = test_name
+    # Prefer paired OYS DSL file for editor navigation; fallback to suite source.
+    paired_oys = suite_path.with_suffix(".oys")
+    _test._oys_source = paired_oys if paired_oys.exists() else suite_path
     return _test
 
 
 def _make_determinism_test(oys_name: str, repo_root: Path):
     @pytest.mark.odisea_gdunit
-    def _test(selected_runner: str, odisea_debug: bool):
-        _run_determinism_case(oys_name, selected_runner, odisea_debug)
+    @pytest.mark.odisea_determinism
+    def _test(selected_runner: str, odisea_debug: bool, odisea_editor: bool):
+        _run_determinism_case(oys_name, selected_runner, odisea_debug, odisea_editor)
 
     test_name = f"test_det__{_safe_id(oys_name)}__{_stable_suffix(oys_name)}"
     _test.__name__ = test_name
@@ -214,7 +239,7 @@ def _make_raw_oys_test(test_file: Path):
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
 for _suite_path in _collect_gdunit_suites(_REPO_ROOT):
-    globals()[f"test_gd__{_safe_id(_suite_path.name)}__{_stable_suffix(str(_suite_path))}"] = _make_gdunit_test(_suite_path)
+    globals()[f"test_gd__{_safe_id(_suite_path.name)}__{_stable_suffix(str(_suite_path))}"] = _make_gdunit_test(_suite_path, _REPO_ROOT)
 
 for _oys_name in _collect_determinism_oys_cases(_REPO_ROOT):
     globals()[f"test_det__{_safe_id(_oys_name)}__{_stable_suffix(_oys_name)}"] = _make_determinism_test(_oys_name, _REPO_ROOT)

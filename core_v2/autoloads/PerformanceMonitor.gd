@@ -25,13 +25,22 @@ var _monitored_nodes := [] # Array of WeakRef
 var _node_profiling_accumulators := {} # { node_ref: accumulated_usec }
 var _node_profiling_calls := {} # { node_ref: call_count }
 var _node_measurement_start := {} # { node_ref: start_usec }
+var _suppress_runtime_logs := false
 
 # --- Signals ---
 signal lag_spike_detected(fps, drop)
 
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS # Always run, even when tree is paused
+	_suppress_runtime_logs = _is_test_environment()
 	print("[PerformanceMonitor] Initialized")
+
+func _is_test_environment() -> bool:
+	if OS.get_environment("ODISEA_QUIET_PERFMON").to_lower() in ["1", "true", "yes", "on"]:
+		return true
+	if Engine.has_singleton("GdUnit3"):
+		return Engine.get_singleton("GdUnit3").is_test_suite()
+	return false
 
 func _process(delta):
 	_frame_start_time = OS.get_ticks_usec()
@@ -56,7 +65,7 @@ func _process(delta):
 	if process_time > (CPU_BUDGET_MS * LOG_TRIGGER_PERCENT * 0.001):
 		# Trigger logging if sustainable budget is exceeded
 		# We throttle this to avoid spamming logs every frame
-		if Engine.get_frames_drawn() % 60 == 0:
+		if (not _suppress_runtime_logs) and Engine.get_frames_drawn() % 60 == 0:
 			print("[PerformanceMonitor] WARNING: CPU Budget > 70%% (%.4f ms)" % (process_time * 1000.0))
 
 	# 4. Debug Logic: Cull Distance
@@ -233,7 +242,8 @@ func _restore_visibility():
 			if node.has_method("set_physics_process"): node.set_physics_process(true)
 
 func _report_lag_spike(fps, prev_fps, process_t, physics_t, draw_c, node_c):
-	print("[PerformanceMonitor] LAG SPIKE DETECTED! FPS dropped from %.1f to %.1f" % [prev_fps, fps])
+	if not _suppress_runtime_logs:
+		print("[PerformanceMonitor] LAG SPIKE DETECTED! FPS dropped from %.1f to %.1f" % [prev_fps, fps])
 	emit_signal("lag_spike_detected", fps, prev_fps - fps)
 
 	var report = {

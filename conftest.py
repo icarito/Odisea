@@ -31,6 +31,18 @@ def pytest_addoption(parser):
         default=False,
         help="Include odisea_stress tests in execution (they are skipped by default).",
     )
+    parser.addoption(
+        "--odisea-editor",
+        action="store_true",
+        default=False,
+        help="Enable IDE-friendly behavior (stable discovery and single-process execution).",
+    )
+    parser.addoption(
+        "--odisea-include-determinism",
+        action="store_true",
+        default=False,
+        help="Include odisea_determinism tests in editor mode (disabled by default for speed).",
+    )
 
 
 def _is_debugger_attached() -> bool:
@@ -71,6 +83,13 @@ def _odisea_debug_enabled(config) -> bool:
 
 def pytest_configure(config):
     debug_enabled = _odisea_debug_enabled(config)
+    editor_mode = bool(config.getoption("--odisea-editor"))
+    editor_serial = os.environ.get("ODISEA_EDITOR_SERIAL", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     is_collect_only = bool(getattr(config.option, "collectonly", False))
     invocation_args = list(getattr(config.invocation_params, "args", ()))
     explicit_numprocesses = any(
@@ -96,6 +115,9 @@ def pytest_configure(config):
         if is_collect_only:
             # VSCode discovery is more stable without xdist workers.
             config.option.numprocesses = 0
+        elif editor_mode and editor_serial:
+            # Optional fallback when local machine cannot handle parallel Godot runs.
+            config.option.numprocesses = 0
         elif debug_enabled:
             # Debug sessions must be single-process; xdist workers lose debug context.
             config.option.numprocesses = 0
@@ -111,6 +133,90 @@ def _gha_escape(value: str) -> str:
     return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
 
 
+def _is_direct_external_target_run(config) -> bool:
+    args = [str(arg) for arg in getattr(config.invocation_params, "args", ())]
+    return any(arg.endswith((".oys", ".gd")) for arg in args)
+
+
+def _to_oys_selector(target_path: Path, rootpath: Path) -> str:
+    try:
+        rel = target_path.relative_to(rootpath / "core_v2" / "tests")
+    except ValueError:
+        return target_path.stem
+    return str(rel.with_suffix(""))
+
+
+class OdiseaExternalTargetFile(pytest.File):
+    def collect(self):
+        target_path = Path(str(self.path))
+        test_name = f"test_external__{target_path.stem}"
+        item = OdiseaExternalTargetItem.from_parent(
+            self,
+            name=test_name,
+            target_path=target_path,
+        )
+        item._oys_source = target_path
+        return [item]
+
+
+class OdiseaExternalTargetItem(pytest.Item):
+    def __init__(self, *, target_path: Path, **kwargs):
+        super().__init__(**kwargs)
+        self.target_path = target_path
+
+    def runtest(self):
+        selected_runner = self.config.getoption("--odisea-runner")
+        if selected_runner != "gdunit":
+            pytest.skip("gdunit runner not selected")
+
+        rootpath = Path(self.config.rootpath)
+        rel_target = self.target_path
+        try:
+            rel_target = self.target_path.relative_to(rootpath)
+        except ValueError:
+            pass
+
+        cmd = ["./runtest.sh"]
+        if _odisea_debug_enabled(self.config):
+            cmd += ["--show", "--debug"]
+
+        if self.target_path.suffix == ".oys":
+            if bool(self.config.getoption("--odisea-editor")):
+                cmd += ["--nodet"]
+            cmd += ["--oys", _to_oys_selector(self.target_path, rootpath)]
+            returncode, _ = stream_process(cmd, file_hint=Path(str(rel_target)))
+            if returncode != 0:
+                raise RunnerError(
+                    f"runtest.sh failed for OYS case '{self.target_path}' with return code {returncode}."
+                )
+            return
+
+        # .gd execution path
+        cmd += ["-a", str(rel_target)]
+        returncode, _ = stream_process(cmd, file_hint=Path(str(rel_target)))
+        if returncode != 0:
+            raise RunnerError(
+                f"runtest.sh failed for GdUnit suite '{self.target_path}' with return code {returncode}."
+            )
+
+    def reportinfo(self):
+        return self.path, 0, self.name
+
+
+def pytest_collect_file(file_path: Path, parent):
+    if file_path.suffix not in {".oys", ".gd"}:
+        return None
+    config = parent.config
+    if not _is_direct_external_target_run(config):
+        return None
+    rootpath = Path(config.rootpath)
+    try:
+        file_path.relative_to(rootpath / "core_v2" / "tests")
+    except ValueError:
+        return None
+    return OdiseaExternalTargetFile.from_parent(parent, path=file_path)
+
+
 # ============================================================================
 # VSCode Test Explorer: Location remapping for OYS tests
 # Tests in test_odisea_runner.py have _oys_source attribute pointing to .oys file
@@ -120,8 +226,12 @@ def pytest_collection_modifyitems(config, items):
     """Remap OYS test locations for VSCode IDE navigation."""
     runner = config.getoption("--odisea-runner")
     rootpath = Path(config.rootpath)
+    editor_mode = bool(config.getoption("--odisea-editor"))
     include_stress = bool(config.getoption("--odisea-include-stress")) or os.environ.get(
         "ODISEA_INCLUDE_STRESS", ""
+    ).strip().lower() in {"1", "true", "yes", "on"}
+    include_determinism = bool(config.getoption("--odisea-include-determinism")) or os.environ.get(
+        "ODISEA_RUN_DETERMINISM", ""
     ).strip().lower() in {"1", "true", "yes", "on"}
 
     deselected = []
@@ -135,8 +245,11 @@ def pytest_collection_modifyitems(config, items):
                     rel_path = source_path.relative_to(rootpath)
                 except ValueError:
                     rel_path = source_path
-                # Update location for IDE navigation
-                item.location = (str(rel_path), 0, item.name)
+                # Update location for IDE navigation.
+                # Different VSCode pytest adapters read different pytest fields.
+                mapped_location = (str(rel_path), 0, item.name)
+                item.location = mapped_location
+                item._location = mapped_location
 
         is_gdunit = "odisea_gdunit" in item.keywords
         is_raw_oys = "odisea_raw_oys" in item.keywords
@@ -151,6 +264,12 @@ def pytest_collection_modifyitems(config, items):
         if "odisea_stress" in item.keywords and not include_stress:
             item.add_marker(
                 pytest.mark.skip(reason="stress profile disabled by default (use --odisea-include-stress)")
+            )
+        if "odisea_determinism" in item.keywords and editor_mode and not include_determinism:
+            item.add_marker(
+                pytest.mark.skip(
+                    reason="determinism disabled in editor mode (use --odisea-include-determinism)"
+                )
             )
         selected.append(item)
 
@@ -191,6 +310,11 @@ def selected_runner(pytestconfig) -> str:
 @pytest.fixture(scope="session")
 def odisea_debug(pytestconfig) -> bool:
     return _odisea_debug_enabled(pytestconfig)
+
+
+@pytest.fixture(scope="session")
+def odisea_editor(pytestconfig) -> bool:
+    return bool(pytestconfig.getoption("--odisea-editor"))
 
 
 class RunnerError(Exception):

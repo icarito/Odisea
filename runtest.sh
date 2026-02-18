@@ -26,8 +26,12 @@ if [ -z "$GODOT_BIN" ]; then
     GODOT_BIN="godot3-bin"
 fi
 
-# Por defecto, ejecutar en modo headless (más rápido)
-HEADLESS="--headless --no-window"
+# Por defecto: en sesión gráfica usar solo --no-window; sin DISPLAY forzar headless.
+if [ -n "${DISPLAY:-}" ]; then
+    HEADLESS="--no-window"
+else
+    HEADLESS="--headless --no-window"
+fi
 DEBUG_OUTPUT=0
 RUNNER_MODE="${ODISEA_SHELL_RUNNER:-pytest}"
 PYTEST_WORKERS="${ODISEA_PYTEST_WORKERS:-auto}"
