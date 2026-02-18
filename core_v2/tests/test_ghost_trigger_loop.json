@@ -3762,6 +3762,60 @@
         "crouch": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -3799,7 +3853,7 @@
         "value": "(-2, 1, 6)"
       }
     ],
-    "195": [
+    "196": [
       {
         "command": "PRINT",
         "message": "E2E: Stop loop and finish"
@@ -3812,7 +3866,7 @@
         ]
       }
     ],
-    "207": [
+    "210": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -5.0 \"Player should remain valid during trigger-loop flow\""
