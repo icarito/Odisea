@@ -1,0 +1,22 @@
+LEVEL res://core_v2/levels/TestSceneGhost.tscn
+
+SECTION "Ghost Trigger Loop"
+    PRINT "E2E: Enter record trigger"
+    SET pos (-8, 1, 6)
+    WAIT 0.3s
+
+    PRINT "E2E: Move while recording"
+    LEFT 90 0.5
+    WALK FW 0.8s
+    WAIT 0.2s
+
+    PRINT "E2E: Enter stop+loop trigger"
+    SET pos (-2, 1, 6)
+    WAIT 1.5s
+
+    PRINT "E2E: Stop loop and finish"
+    CALL GhostManager "ghost_stop"
+    WAIT 0.2s
+
+    ASSERT pos.y > -5.0 "Player should remain valid during trigger-loop flow"
+END

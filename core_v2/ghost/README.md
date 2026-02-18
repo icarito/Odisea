@@ -41,6 +41,26 @@ El `GhostManager` se instancia dinámicamente en `SessionManager` (`core_v2/auto
 
 ## 6. Prueba Rápida Local
 
+### 6.0 Ejemplo Integrado En Juego (TestSceneGhost)
+
+Existe un ejemplo listo para usar dentro de la escena:
+- Escena: `res://core_v2/levels/TestSceneGhost.tscn`
+- Triggers:
+  - `GhostRecordTrigger` -> `res://core_v2/scripts/ghost_record_start.oys`
+  - `GhostLoopTrigger` -> `res://core_v2/scripts/ghost_stop_and_loop.oys`
+  - Ambos con `trigger_once = false` (modo loop/reusable).
+
+Cómo usarlo:
+1. Abre `TestSceneGhost.tscn` y ejecuta la escena.
+2. Entra a `GhostRecordTrigger` para iniciar grabación.
+3. Muévete libremente y graba el recorrido que quieras.
+4. Entra a `GhostLoopTrigger` para:
+   - detener grabación
+   - iniciar replay en loop continuo (`ghost_play_loop`)
+5. Resultado esperado:
+   - Se crea `user://captures/ghost_props_demo_loop.ghost`
+   - Ves el dummy/cápsula ghost repitiendo el replay una y otra vez.
+
 ### 6.1 En escena (manual)
 1. Ejecuta una escena jugable con piloto (por ejemplo `TestScene_v2.tscn`).
 2. Abre la consola OYS y ejecuta:
@@ -70,4 +90,43 @@ CALL GhostManager ghost_stop
 CALL GhostManager ghost_play "ghost_smoke"
 WAIT 1s
 CALL GhostManager ghost_diff
+```
+
+### 6.4 Smoke Test Automático (recomendado)
+
+Para una validación rápida y visual del flujo completo:
+
+```bash
+./test_ghost.sh
+```
+
+Para correrlo headless:
+
+```bash
+./test_ghost.sh --headless
+```
+
+Este smoke script (`core_v2/scripts/test_ghost_smoke.oys`) ejecuta:
+0. `ghost_record`
+1. rotación visible de cámara con `LEFT 90` (validada por delta de yaw)
+2. movimiento corto del jugador
+3. `ghost_stop`
+4. movimiento de separación del jugador
+5. `ghost_play`
+6. `ghost_stop`
+
+Por defecto corre en `res://core_v2/levels/TestSceneGhost.tscn` para mejor visibilidad del ghost durante la validación visual.
+
+### 6.5 Test OYS Full (Runner Debug)
+
+Para ver el flujo completo con triggers (`record` -> `stop+loop`) en runner debug:
+
+```bash
+godot3-bin -s tests/debug_runner.gd --test-file core_v2/tests/test_ghost_trigger_loop.oys
+```
+
+O vía pytest raw-oys:
+
+```bash
+pytest tests/test_odisea_runner.py --odisea-runner raw-oys -k test_ghost_trigger_loop
 ```

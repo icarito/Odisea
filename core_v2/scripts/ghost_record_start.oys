@@ -1,0 +1,6 @@
+SECTION "Ghost Record Start"
+    PRINT "Ghost: start recording (ghost_props_demo_loop)"
+    CALL GhostManager "ghost_stop"
+    WAIT 0.1s
+    CALL GhostManager "ghost_record" "ghost_props_demo_loop"
+END

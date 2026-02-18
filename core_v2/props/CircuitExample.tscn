@@ -1,33 +1,33 @@
 [gd_scene load_steps=8 format=2]
 
 [ext_resource path="res://core_v2/systems/circuit/LogicCircuitManager.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/props/CircuitCable.tscn" type="PackedScene" id=2]
-[ext_resource path="res://core_v2/systems/circuit/CircuitGraphResource.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/systems/circuit/CircuitGraphResource.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/props/CircuitCable.tscn" type="PackedScene" id=3]
 [ext_resource path="res://core_v2/props/CircuitExampleProp.gd" type="Script" id=4]
 [ext_resource path="res://core_v2/props/Lever.tscn" type="PackedScene" id=5]
 [ext_resource path="res://core_v2/props/SciFiHangingLightV2.tscn" type="PackedScene" id=6]
 
 [sub_resource type="Resource" id=1]
-script = ExtResource( 3 )
+script = ExtResource( 2 )
 nodes = {
 "Light": {
-"position": Vector2( 660, 130 ),
+"position": Vector2( 175, 150 ),
 "scene_path": NodePath("../Light"),
 "type": "PROP"
 },
 "SwitchA": {
-"position": Vector2( 60, 110 ),
+"position": Vector2( 0, 0 ),
 "scene_path": NodePath("../SwitchA"),
 "type": "PROP"
 },
 "SwitchB": {
-"position": Vector2( 50, 240 ),
+"position": Vector2( 300, 0 ),
 "scene_path": NodePath("../SwitchB"),
 "type": "PROP"
 },
 "XORGATE": {
 "gate_type": "XOR",
-"position": Vector2( 380, 190 ),
+"position": Vector2( 175, 0 ),
 "type": "GATE"
 }
 }
@@ -61,7 +61,7 @@ transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5 )
 script = ExtResource( 1 )
 circuit_data = SubResource( 1 )
 auto_build_cables = true
-cable_scene = ExtResource( 2 )
+cable_scene = ExtResource( 3 )
 
 [node name="SwitchA" parent="." instance=ExtResource( 5 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
@@ -77,7 +77,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
 
 [node name="Light" parent="." instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0 )
-highlight_color = Color( 1, 0, 1, 1 )
 
 [node name="CableAnchor" type="Position3D" parent="Light"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0 )

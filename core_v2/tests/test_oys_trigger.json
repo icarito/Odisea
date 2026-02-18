@@ -3798,6 +3798,24 @@
         "crouch": false,
         "interact": false
       }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
     }
   ],
   "events": {
@@ -3811,7 +3829,7 @@
     "59": [
 
     ],
-    "209": [
+    "210": [
       {
         "command": "ASSERT",
         "condition": "pos.y < 1 \"Player should keep walking and fall\""
@@ -3844,13 +3862,13 @@
   "final_expected_state": {
     "position": [
       -0.000002,
-      -24.62986,
-      23.131746
+      -25.069304,
+      23.226191
     ],
     "velocity": [
       -0.000001,
-      -26.133333,
-      5.749998
+      -26.366667,
+      5.666664
     ],
     "yaw": 0,
     "pitch": -0,
@@ -3859,7 +3877,7 @@
       "horizontal_velocity": [
         -0.000001,
         0,
-        5.749998
+        5.666664
       ],
       "external_velocity": [
         0,

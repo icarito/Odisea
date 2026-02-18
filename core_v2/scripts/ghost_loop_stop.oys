@@ -1,0 +1,4 @@
+SECTION "Ghost Loop Stop"
+    PRINT "Ghost: stop replay/record"
+    CALL GhostManager "ghost_stop"
+END

@@ -1,0 +1,33 @@
+LEVEL res://core_v2/levels/TestSceneGhost.tscn
+
+// Ghost smoke script for manual/automated visual validation.
+// Run via SessionManager --run-script (see test_ghost.sh).
+
+SECTION "Ghost Smoke"
+    CALL GhostManager "ghost_record" "ghost_smoke_auto"
+    WAIT 0.1s
+    // Rotate with input-driven turn while recording/replay mode is active.
+    SET $yaw_before yaw_deg
+    LEFT 90 0.6
+    WAIT 0.2s
+    SET $yaw_after yaw_deg
+    MATH $yaw_delta = $yaw_after - $yaw_before
+    ASSERT $yaw_delta > 80 "Camera did not rotate left enough"
+    ASSERT $yaw_delta < 100 "Camera rotated left too much"
+
+    WALK FW 0.8s
+    WAIT 0.5s
+
+    CALL GhostManager "ghost_stop"
+    WAIT 0.2s
+
+    // Move player away from the recorded end position so the ghost is clearly visible.
+    BW 1.2s
+    WAIT 0.2s
+
+    CALL GhostManager "ghost_play" "ghost_smoke_auto"
+    WAIT 1.2s
+    CALL GhostManager "ghost_stop"
+
+    ASSERT pos.y > -10.0 "Player should remain valid during ghost smoke flow"
+END

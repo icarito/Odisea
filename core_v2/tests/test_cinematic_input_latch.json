@@ -1390,6 +1390,24 @@
     {
       "input": {
         "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
           -1,
           0
         ],
@@ -3054,10 +3072,10 @@
     "63": [
 
     ],
-    "75": [
+    "76": [
 
     ],
-    "165": [
+    "166": [
       {
         "command": "SET",
         "var": "$end_x",
@@ -3131,23 +3149,23 @@
   },
   "final_expected_state": {
     "position": [
-      -0.613868,
+      -0.611803,
       0.0415,
-      16.930733
+      16.83963
     ],
     "velocity": [
-      -0.218917,
-      -0.234118,
-      6.996577
+      -0.212386,
+      -0.234622,
+      6.996778
     ],
-    "yaw": -1.602255,
-    "pitch": -0.025332,
+    "yaw": -1.601321,
+    "pitch": -0.025381,
     "base_spring_length_3d": 10,
     "movement_state": {
       "horizontal_velocity": [
-        -0.218917,
-        -0.000785,
-        6.996577
+        -0.212386,
+        -0.001288,
+        6.996778
       ],
       "external_velocity": [
         0,
@@ -3168,7 +3186,7 @@
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
     "$start_x": 0,
-    "$end_x": -0.613868,
-    "$delta_x": -0.613868
+    "$end_x": -0.611803,
+    "$delta_x": -0.611803
   }
 }

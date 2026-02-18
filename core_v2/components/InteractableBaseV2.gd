@@ -14,10 +14,6 @@ export(bool) var one_off := false # If true, can only be used once (manually or 
 export(bool) var is_interactable := true # If false, ignore player interaction
 export(bool) var manual_toggle := true # If false, emit signal but don't toggle state automatically
 export(bool) var debug := false
-export(Color) var highlight_color := Color(1.0, 0.5, 0.0) # Orange default
-export(float) var highlight_width := 8.0 # Thicker default
-export(float) var pulse_speed_highlight := 4.0 # Faster default
-
 
 func set_starts_active(v: bool) -> void:
 	starts_active = v
@@ -41,8 +37,7 @@ var _perf_monitor = null
 
 # --- HIGHLIGHT SYSTEM ---
 var _highlight_meshes: Array = []
-const HIGHLIGHT_SHADER_PATH = "res://core_v2/visual/outline.shader"
-const SCANLINE_SHADER_PATH = "res://core_v2/visual/scanlines.shader"
+const HIGHLIGHT_SHADER_PATH = "res://shaders/scanlines.shader"
 
 # --- SIGNALS ---
 signal activated()
@@ -126,8 +121,6 @@ func step(dt: float) -> void:
 			_on_animation_completed()
 		return
 	
-	print("[InteractableBaseV2] ", name, " step: anim_progress=", anim_progress, " target=", target_progress)
-	
 	# Move towards target
 	var direction = sign(target_progress - anim_progress)
 	anim_progress += direction * anim_speed * dt
@@ -175,75 +168,50 @@ func set_highlighted(enabled: bool) -> void:
 		_clear_highlight()
 
 func _apply_highlight() -> void:
-	"""Create and apply highlight overlay meshes to all eligible children."""
+	"""Create and apply highlight overlays for all meshes in this interactable."""
 	if _highlight_meshes.size() > 0:
 		return # Already highlighted
-	
-	# Load the highlight shader once
+
 	var shader = load(HIGHLIGHT_SHADER_PATH)
-	var scanline_shader = load(SCANLINE_SHADER_PATH)
-	
-	if not shader or not scanline_shader:
+	if shader == null:
 		return
 
-	# Create a shared material (base outline)
-	var mat = ShaderMaterial.new()
-	mat.shader = shader
-	mat.set_shader_param("highlight_color", highlight_color)
-	mat.set_shader_param("outline_width", highlight_width)
-	mat.set_shader_param("pulse_speed", pulse_speed_highlight)
-	
-	# Create scanline overlay (next pass)
-	var scanline_mat = ShaderMaterial.new()
-	scanline_mat.shader = scanline_shader
-	scanline_mat.set_shader_param("highlight_color", highlight_color)
-	scanline_mat.set_shader_param("pulse_speed", pulse_speed_highlight)
-	scanline_mat.set_shader_param("scanline_count", 150.0) # Finer lines
-	
-	mat.next_pass = scanline_mat
-
-	# Find all MeshInstances and create overlays
-	for mesh_instance in _get_all_meshes(self):
-		if mesh_instance.mesh == null:
+	for child in _get_all_meshes(self):
+		if not (child is MeshInstance):
 			continue
-			
-		var highlight_instance = MeshInstance.new()
-		highlight_instance.name = "_highlight_overlay_" + mesh_instance.name
-		highlight_instance.mesh = mesh_instance.mesh
-		
-		# Match transform relative to parent (since we'll add as child of the mesh_instance)
-		# Actually, adding as child of mesh_instance is simplest to inherit transform
-		mesh_instance.add_child(highlight_instance)
-		highlight_instance.transform = Transform.IDENTITY # Local identity
-		
-		# Apply highlight material
-		# Using override material on the instance is safer than surface material
-		highlight_instance.material_override = mat
-		
-		_highlight_meshes.append(highlight_instance)
+		var base_mesh := child as MeshInstance
+		if base_mesh.mesh == null:
+			continue
+
+		var overlay := MeshInstance.new()
+		overlay.name = "_highlight_overlay"
+		overlay.mesh = base_mesh.mesh
+		overlay.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+		overlay.scale = Vector3(1.02, 1.02, 1.02)
+
+		var mat := ShaderMaterial.new()
+		mat.shader = shader
+		mat.set_shader_param("highlight_color", Color(1, 1, 0, 0.3))
+		overlay.material_override = mat
+
+		base_mesh.add_child(overlay)
+		_highlight_meshes.append(overlay)
 
 func _clear_highlight() -> void:
 	"""Remove highlight overlays."""
-	for mesh in _highlight_meshes:
-		if is_instance_valid(mesh):
-			mesh.queue_free()
+	for overlay in _highlight_meshes:
+		if is_instance_valid(overlay):
+			overlay.queue_free()
 	_highlight_meshes.clear()
 
 func _get_all_meshes(node: Node) -> Array:
 	"""Recursively get all MeshInstance children."""
 	var meshes: Array = []
 	for child in node.get_children():
-		# Avoid highlighting our own highlight meshes
-		if child.name.begins_with("_highlight_overlay"):
-			continue
-			
 		if child is MeshInstance:
 			meshes.append(child)
 		meshes.append_array(_get_all_meshes(child))
 	return meshes
-
-	pass # Deprecated by multi-mesh support
-
 
 # --- EASING UTILITIES ---
 

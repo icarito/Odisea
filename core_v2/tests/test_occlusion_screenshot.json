@@ -1296,24 +1296,6 @@
         "crouch": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -1330,7 +1312,7 @@
     "58": [
 
     ],
-    "71": [
+    "70": [
 
     ]
   },
@@ -1361,12 +1343,12 @@
     "position": [
       -0.000001,
       0.0415,
-      5.098335
+      5.090002
     ],
     "velocity": [
       -0,
       -0.233333,
-      0.5
+      1
     ],
     "yaw": 0,
     "pitch": -0,
@@ -1375,7 +1357,7 @@
       "horizontal_velocity": [
         -0,
         -0,
-        0.5
+        1
       ],
       "external_velocity": [
         0,

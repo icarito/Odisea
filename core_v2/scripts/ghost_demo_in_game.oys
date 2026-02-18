@@ -1,0 +1,24 @@
+SECTION "Ghost Demo In-Game"
+    PRINT "Ghost demo: recording..."
+    CALL GhostManager "ghost_record" "ghost_props_demo"
+    WAIT 0.1s
+
+    PRINT "Ghost demo: moving player path..."
+    LEFT 90 0.6
+    FW 0.8s
+    WAIT 0.3s
+
+    PRINT "Ghost demo: stopping recording..."
+    CALL GhostManager "ghost_stop"
+    WAIT 0.2s
+
+    PRINT "Ghost demo: separating player from ghost..."
+    BW 1.0s
+    WAIT 0.2s
+
+    PRINT "Ghost demo: playback + sync diff"
+    CALL GhostManager "ghost_play" "ghost_props_demo"
+    WAIT 1.2s
+    CALL GhostManager "ghost_diff"
+    CALL GhostManager "ghost_stop"
+END

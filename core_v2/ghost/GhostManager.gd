@@ -12,6 +12,9 @@ var ghost_buffer := []
 var ghost_dummy: Spatial = null
 var current_playback_index := 0
 var playback_accum_time := 0.0
+var loop_playback := false
+var _session_recording_owned := false
+var _start_buffer_index := 0
 
 # Sync Analysis State
 var diff_threshold := 0.5
@@ -21,11 +24,19 @@ var diverging_vars := []
 
 func _ready():
 	name = "GhostManager"
-	# Register as OYS Actor
+	# Register as OYS Actor and survive registry resets during replay/load cycles.
+	var session = get_node_or_null("/root/SessionManager")
+	if session:
+		if session.has_method("register_oys_actor"):
+			session.register_oys_actor("GhostManager", self)
+		if session.has_signal("oys_registry_reset"):
+			session.connect("oys_registry_reset", self, "_on_oys_registry_reset")
+	print("[GhostManager] Initialized and registered.")
+
+func _on_oys_registry_reset() -> void:
 	var session = get_node_or_null("/root/SessionManager")
 	if session and session.has_method("register_oys_actor"):
 		session.register_oys_actor("GhostManager", self)
-	print("[GhostManager] Initialized and registered.")
 
 # --- CONSOLE COMMANDS (OYS) ---
 
@@ -34,17 +45,34 @@ func ghost_record(name_str: String):
 	if not session:
 		printerr("[GhostManager] SessionManager not found!")
 		return
+	# In replay mode, avoid starting nested recordings that interfere with determinism runner.
+	if "is_replaying" in session and session.is_replaying:
+		print("[GhostManager] ghost_record ignored during replay mode.")
+		return
 
 	ghost_name = name_str
 	is_ghost_recording = true
 	is_playing_ghost = false
+	_start_buffer_index = int(session.buffer.size()) if "buffer" in session else 0
 
-	# Start SessionManager recording
-	# We rely on SessionManager to manage the loop and call us back via capture_frame
-	session.start_recording()
+	# If SessionManager is already recording (e.g. determinism runner), piggyback on it.
+	# Otherwise start/own a dedicated recording session.
+	if session.is_recording:
+		_session_recording_owned = false
+	else:
+		_session_recording_owned = true
+		session.start_recording()
 	print("[GhostManager] Started recording ghost: ", ghost_name)
 
 func ghost_play(name_str: String):
+	loop_playback = false
+	_play_ghost_internal(name_str)
+
+func ghost_play_loop(name_str: String):
+	loop_playback = true
+	_play_ghost_internal(name_str)
+
+func _play_ghost_internal(name_str: String):
 	ghost_name = name_str
 	var path = "user://captures/" + ghost_name + ".ghost"
 
@@ -74,14 +102,37 @@ func ghost_play(name_str: String):
 	is_ghost_recording = false
 
 	_spawn_dummy()
-	print("[GhostManager] Started playing ghost: ", ghost_name)
+	if loop_playback:
+		print("[GhostManager] Started LOOP playback ghost: ", ghost_name)
+	else:
+		print("[GhostManager] Started playing ghost: ", ghost_name)
 
 func ghost_stop():
-	is_ghost_recording = false
-	is_playing_ghost = false
+	if not is_ghost_recording and not is_playing_ghost:
+		return
+
 	var session = get_node_or_null("/root/SessionManager")
-	if session and session.is_recording:
-		session.stop_and_save_recording()
+	if session:
+		if _session_recording_owned:
+			if session.is_recording:
+				# Keep is_ghost_recording=true until SessionManager save path runs,
+				# so save_recording_override() writes user://captures/<name>.ghost.
+				session.stop_and_save_recording()
+			is_ghost_recording = false
+		else:
+			# Piggyback mode: save only the segment recorded between ghost_record/ghost_stop.
+			if session.is_recording and "buffer" in session and "replay_meta" in session:
+				var full_buffer: Array = session.buffer
+				var segment := []
+				for i in range(_start_buffer_index, full_buffer.size()):
+					segment.append(full_buffer[i])
+				is_ghost_recording = false
+				save_recording_override(segment, session.replay_meta)
+			else:
+				is_ghost_recording = false
+	_session_recording_owned = false
+	is_playing_ghost = false
+	loop_playback = false
 
 	if is_instance_valid(ghost_dummy):
 		ghost_dummy.queue_free()
@@ -104,6 +155,8 @@ func ghost_diff():
 
 func capture_frame(player: Node) -> Dictionary:
 	if not is_ghost_recording:
+		return {}
+	if not is_instance_valid(player):
 		return {}
 
 	var snapshot = {}
@@ -129,8 +182,11 @@ func step(dt: float):
 		return
 
 	if current_playback_index >= ghost_buffer.size():
-		print("[GhostManager] Ghost playback finished.")
-		is_playing_ghost = false
+		if loop_playback and ghost_buffer.size() > 0:
+			current_playback_index = 0
+		else:
+			print("[GhostManager] Ghost playback finished.")
+			is_playing_ghost = false
 		return
 
 	var frame_data = ghost_buffer[current_playback_index]
@@ -170,7 +226,10 @@ func _spawn_dummy():
 		ghost_dummy.queue_free()
 
 	var scene = GhostDummyScene.instance()
-	get_tree().current_scene.add_child(scene)
+	var parent = get_tree().current_scene
+	if parent == null:
+		parent = get_tree().get_root()
+	parent.add_child(scene)
 	ghost_dummy = scene
 
 func _update_dummy(data: Dictionary):
@@ -257,3 +316,8 @@ func _generate_checksum(state: Dictionary) -> String:
 			s += "%s:%s;" % [k, str(v)]
 
 	return s.md5_text()
+
+func _exit_tree() -> void:
+	if is_instance_valid(ghost_dummy):
+		ghost_dummy.queue_free()
+		ghost_dummy = null

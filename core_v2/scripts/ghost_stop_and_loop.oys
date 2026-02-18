@@ -1,0 +1,6 @@
+SECTION "Ghost Stop And Loop"
+    PRINT "Ghost: stop recording + start replay loop"
+    CALL GhostManager "ghost_stop"
+    WAIT 0.1s
+    CALL GhostManager "ghost_play_loop" "ghost_props_demo_loop"
+END
