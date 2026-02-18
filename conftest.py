@@ -110,23 +110,23 @@ def _gha_escape(value: str) -> str:
 # Tests in test_odisea_runner.py have _oys_source attribute pointing to .oys file
 # ============================================================================
 
-def pytest_collection_modifyitems(session, config, items):
+def pytest_collection_modifyitems(config, items):
     """Remap OYS test locations for VSCode IDE navigation."""
     runner = config.getoption("--odisea-runner")
-    rootpath = Path(config.rootpath)
     
     deselected = []
     selected = []
     for item in items:
         # Patch location for OYS tests to point to source .oys file
-        if hasattr(item, "obj") and hasattr(item.obj, "_oys_source"):
-            source_path = item.obj._oys_source
-            try:
-                rel_path = source_path.relative_to(rootpath)
-            except ValueError:
-                rel_path = source_path
-            # Update location for IDE navigation
-            item.location = (str(rel_path), 0, item.name)
+        if hasattr(item, "obj") and item.obj is not None:
+            if hasattr(item.obj, "_oys_source"):
+                source_path = item.obj._oys_source
+                try:
+                    rel_path = source_path.relative_to(config.rootpath)
+                except ValueError:
+                    rel_path = source_path
+                # Update location for IDE navigation
+                item.location = (str(rel_path), 0, item.name)
 
         is_gdunit = "odisea_gdunit" in item.keywords
         is_raw_oys = "odisea_raw_oys" in item.keywords
