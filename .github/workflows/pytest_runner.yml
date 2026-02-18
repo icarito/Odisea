@@ -135,7 +135,7 @@ jobs:
           ODISEA_INCLUDE_DETERMINISM: ${{ matrix.include_determinism }}
         run: |
           mkdir -p reports
-          ./.venv/bin/pytest --odisea-runner gdunit -k "${{ matrix.pytest_filter }}" -n auto --junitxml="reports/pytest_${{ matrix.suite }}.xml"
+          ./.venv/bin/pytest -k "${{ matrix.pytest_filter }}" -n auto --junitxml="reports/pytest_${{ matrix.suite }}.xml"
 
       - name: Publish Pytest Timing Summary
         if: always()
