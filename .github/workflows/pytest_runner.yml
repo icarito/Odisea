@@ -149,7 +149,15 @@ jobs:
           import_once() {
             local log_file="$1"
             echo "Importing Godot resources..."
-            /usr/local/bin/godot --path . -e --quit --headless --no-window --audio-driver Dummy 2>&1 | tee "$log_file"
+            # Let editor scan/import finish; --quit aborts scanner too early in CI.
+            set +e
+            timeout 45s /usr/local/bin/godot --path . -e --headless --no-window --audio-driver Dummy 2>&1 | tee "$log_file"
+            local godot_rc="${PIPESTATUS[0]}"
+            set -e
+            if [ "$godot_rc" -ne 0 ] && [ "$godot_rc" -ne 124 ]; then
+              echo "Godot import command failed with exit code $godot_rc"
+              return "$godot_rc"
+            fi
             echo "Import complete."
             ls -la .import/ 2>/dev/null | head -10 || echo "No .import directory"
             ls .import/*Pilot.glb-*.scn >/dev/null 2>&1 || echo "WARN: Pilot.glb import artifact not found yet"
