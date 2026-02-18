@@ -3,7 +3,7 @@ extends SceneTree
 const CRITICAL_RESOURCES := [
 	"res://core_v2/ui/retro/RetroOS.tres",
 	"res://core_v2/components/PushableBoxV2.tscn",
-	"res://core_v2/levels/TestScene_v2.tscn",
+	"res://core_v2/components/SlidingObjectV2.tscn",
 ]
 
 func _init() -> void:
