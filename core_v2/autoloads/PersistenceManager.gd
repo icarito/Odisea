@@ -7,6 +7,9 @@ var checkpoint_resource: Resource = null
 # Entity registration for dynamic prop lifecycle
 var registered_entities := {} # Maps instance_id to NodePath
 
+# Cache for scene hashes to avoid repeated disk I/O
+var _scene_hash_cache: Dictionary = {}
+
 signal entity_registered(entity)
 signal entity_unregistered(entity)
 
@@ -67,14 +70,24 @@ func save_checkpoint_resource(scene_path: String):
 			print("[PersistenceManager] Error al guardar checkpoint en ", save_path, ": ", err)
 
 func hash_scene_path(scene_path: String) -> String:
+	# Return cached hash if available
+	if _scene_hash_cache.has(scene_path):
+		return _scene_hash_cache[scene_path]
+
 	# Use file content MD5 to invalidate checkpoints on level change
+	var final_hash: String
 	var file = File.new()
 	if file.file_exists(scene_path):
 		var md5 = file.get_md5(scene_path)
 		if md5.empty():
 			# Fallback if MD5 fails (e.g. empty file or access issue)
-			return String(scene_path.md5_text())
-		return md5
+			final_hash = String(scene_path.md5_text())
+		else:
+			final_hash = md5
 	else:
 		# Fallback for non-existent files (e.g. dynamic/unsaved scenes)
-		return String(scene_path.md5_text())
+		final_hash = String(scene_path.md5_text())
+
+	# Cache the result
+	_scene_hash_cache[scene_path] = final_hash
+	return final_hash
