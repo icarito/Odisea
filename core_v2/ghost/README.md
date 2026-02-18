@@ -38,3 +38,36 @@ El sistema se integra como un Actor OYS llamado `GhostManager`. Puedes invocar e
 
 ## 5. Integración Técnica
 El `GhostManager` se instancia dinámicamente en `SessionManager` (`core_v2/autoloads/SessionManager.gd`). No requiere configuración adicional en la escena.
+
+## 6. Prueba Rápida Local
+
+### 6.1 En escena (manual)
+1. Ejecuta una escena jugable con piloto (por ejemplo `TestScene_v2.tscn`).
+2. Abre la consola OYS y ejecuta:
+   - `CALL GhostManager ghost_record "ghost_smoke"`
+3. Muévete unos segundos con el personaje.
+4. Detén la grabación:
+   - `CALL GhostManager ghost_stop`
+5. Vuelve al punto inicial (o recarga la escena para repetir condiciones).
+6. Reproduce el ghost:
+   - `CALL GhostManager ghost_play "ghost_smoke"`
+7. Consulta estado de sincronización:
+   - `CALL GhostManager ghost_diff`
+
+### 6.2 Resultado esperado
+- Se crea un archivo en `user://captures/ghost_smoke.ghost`.
+- Aparece un dummy ghost durante `ghost_play`.
+- El dummy permanece verde cuando está en sync.
+- Si hay desync significativo, cambia a rojo y puede pausar para inspección.
+
+### 6.3 Prueba desde script OYS
+Puedes invocar los mismos comandos dentro de un `.oys`:
+
+```oys
+CALL GhostManager ghost_record "ghost_smoke"
+WAIT 2s
+CALL GhostManager ghost_stop
+CALL GhostManager ghost_play "ghost_smoke"
+WAIT 1s
+CALL GhostManager ghost_diff
+```
