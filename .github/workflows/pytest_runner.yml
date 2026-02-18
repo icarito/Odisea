@@ -167,7 +167,18 @@ jobs:
 
           smoke_once() {
             local log_file="$1"
-            /usr/local/bin/godot --headless --no-window --audio-driver Dummy -s tests/ci_resource_smoke.gd 2>&1 | tee "$log_file"
+            set +e
+            timeout 30s /usr/local/bin/godot --headless --no-window --audio-driver Dummy -s tests/ci_resource_smoke.gd 2>&1 | tee "$log_file"
+            local smoke_rc="${PIPESTATUS[0]}"
+            set -e
+            if [ "$smoke_rc" -ne 0 ] && [ "$smoke_rc" -ne 124 ]; then
+              echo "Resource smoke failed with exit code $smoke_rc"
+              return "$smoke_rc"
+            fi
+            if [ "$smoke_rc" -eq 124 ]; then
+              echo "Resource smoke timed out."
+              return 1
+            fi
             if grep -q "\[CI_SMOKE\] Missing resources count:" "$log_file"; then
               return 1
             fi
