@@ -125,6 +125,22 @@ jobs:
           fi
           scripts/check_added_file_sizes.sh "${BASE_SHA}" "${GITHUB_SHA}"
 
+      - name: Disable editor plugins for CI import
+        run: |
+          set -euo pipefail
+          cp project.godot project.godot.ci.bak
+          awk '
+            BEGIN { in_editor_plugins = 0 }
+            /^\[editor_plugins\]$/ { in_editor_plugins = 1; print; next }
+            in_editor_plugins == 1 && /^enabled=/ {
+              print "enabled=PoolStringArray( )"
+              in_editor_plugins = 0
+              next
+            }
+            { print }
+          ' project.godot.ci.bak > project.godot
+          echo "Editor plugins disabled for CI import pass."
+
       - name: Import + Smoke (self-healing)
         run: |
           set -euo pipefail
@@ -136,6 +152,9 @@ jobs:
             /usr/local/bin/godot --path . -e --quit --headless --no-window --audio-driver Dummy 2>&1 | tee "$log_file"
             echo "Import complete."
             ls -la .import/ 2>/dev/null | head -10 || echo "No .import directory"
+            ls .import/*Pilot.glb-*.scn >/dev/null 2>&1 || echo "WARN: Pilot.glb import artifact not found yet"
+            ls .import/*metal1.wav-*.sample >/dev/null 2>&1 || echo "WARN: metal1.wav import artifact not found yet"
+            ls .import/*sfx100v2_door_01.ogg-*.oggstr >/dev/null 2>&1 || echo "WARN: sfx100v2_door_01.ogg import artifact not found yet"
           }
 
           smoke_once() {
