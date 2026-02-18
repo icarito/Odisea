@@ -114,6 +114,7 @@ jobs:
 
       - name: Import Resources
         run: |
+          set -euo pipefail
           mkdir -p reports
           echo "Importing Godot resources..."
           /usr/local/bin/godot --path . -e --quit --headless 2>&1 | tee reports/import_resources.log
@@ -122,6 +123,7 @@ jobs:
 
       - name: Smoke Check Critical Resources
         run: |
+          set -euo pipefail
           /usr/local/bin/godot --headless --no-window --audio-driver Dummy -s tests/ci_resource_smoke.gd 2>&1 | tee reports/resource_smoke.log
 
       - name: Run Core Tests
@@ -129,6 +131,7 @@ jobs:
           GODOT_BIN: /usr/local/bin/godot
           OYS_NODET: "1"
         run: |
+          set -euo pipefail
           mkdir -p reports
           # OYS_NODET=1 skips determinism tests
           ./runtest.sh -a ./core_v2/tests/ 2>&1 | tee reports/core_tests.log
