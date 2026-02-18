@@ -105,6 +105,89 @@ def _gha_escape(value: str) -> str:
     return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
 
 
+# ============================================================================
+# VSCode Test Explorer: Collect .oys and .json files directly
+# This makes clicking on a test in VSCode open the .oys file
+# ============================================================================
+def pytest_collect_file(parent, file_path: Path):
+    """Collect .oys and .json test files for VSCode Test Explorer."""
+    # Only collect from tests/ and core_v2/tests/ directories
+    if "tests" not in file_path.parts:
+        return None
+    
+    if file_path.suffix in [".oys", ".json"]:
+        # Skip JSON files that have a corresponding .oys (they're paired)
+        if file_path.suffix == ".json":
+            oys_path = file_path.with_suffix(".oys")
+            if oys_path.exists():
+                return None
+        return OysFile.from_parent(parent, path=file_path)
+    return None
+
+
+class OysFile(pytest.File):
+    """A pytest.File that collects one test per .oys/.json file."""
+    
+    def collect(self):
+        yield OysItem.from_parent(self, name=self.path.name)
+
+
+class OysItem(pytest.Item):
+    """A pytest.Item that runs an OYS test file."""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Add marker for raw-oys runner
+        self.add_marker("odisea_raw_oys")
+    
+    def runtest(self):
+        """Execute the OYS test using runtest.sh or godot directly."""
+        godot_bin = os.environ.get("GODOT_BIN", "godot3-bin")
+        if not has_executable(godot_bin):
+            godot_bin = "godot"
+        
+        oys_name = self.path.stem
+        
+        # Use runtest.sh if available, otherwise direct godot
+        if os.path.exists("./runtest.sh"):
+            cmd = ["./runtest.sh", "--oys", oys_name]
+        else:
+            cmd = [
+                godot_bin,
+                "--headless",
+                "--no-window",
+                "-s", "tests/debug_runner.gd",
+                "--test-file", str(self.path)
+            ]
+        
+        print(f"[OYS] Running: {' '.join(cmd)}")
+        returncode, failed_asserts = stream_process(
+            cmd, 
+            file_hint=self.path, 
+            filter_visualserver=True
+        )
+        
+        if returncode != 0:
+            raise OysTestFailure(f"Test failed with return code {returncode}")
+        if failed_asserts:
+            raise OysTestFailure(f"Assertions failed:\n" + "\n".join(failed_asserts))
+    
+    def repr_failure(self, excinfo, style="long"):
+        """Called when the test fails."""
+        if isinstance(excinfo.value, OysTestFailure):
+            return str(excinfo.value)
+        return super().repr_failure(excinfo, style=style)
+    
+    def reportinfo(self):
+        """Return location for VSCode Test Explorer - this is the key!"""
+        return (self.path, 0, f"OYS: {self.path.name}")
+
+
+class OysTestFailure(Exception):
+    """Custom exception for OYS test failures."""
+    pass
+
+
 def pytest_collection_modifyitems(config, items):
     runner = config.getoption("--odisea-runner")
     deselected = []
