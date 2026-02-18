@@ -296,42 +296,6 @@
           0
         ],
         "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
           -10.471975,
           0
         ],
@@ -1716,6 +1680,24 @@
         "move_vec": [
           0,
           -1
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
         ],
         "mouse_delta": [
           0,
@@ -3848,19 +3830,19 @@
         "value": "(-8, 1, 6)"
       }
     ],
-    "16": [
+    "14": [
       {
         "command": "PRINT",
         "message": "E2E: Move while recording"
       }
     ],
-    "46": [
+    "44": [
 
     ],
-    "94": [
+    "92": [
 
     ],
-    "107": [
+    "106": [
       {
         "command": "PRINT",
         "message": "E2E: Enter stop+loop trigger"
@@ -3871,7 +3853,7 @@
         "value": "(-2, 1, 6)"
       }
     ],
-    "198": [
+    "197": [
       {
         "command": "PRINT",
         "message": "E2E: Stop loop and finish"
@@ -3884,7 +3866,7 @@
         ]
       }
     ],
-    "211": [
+    "210": [
       {
         "command": "ASSERT",
         "condition": "pos.y > -5.0 \"Player should remain valid during trigger-loop flow\""

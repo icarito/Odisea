@@ -30672,96 +30672,6 @@
         "crouch": false,
         "interact": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
     }
   ],
   "events": {
@@ -30777,7 +30687,7 @@
         "pos": "[0, 0, 0]"
       }
     ],
-    "58": [
+    "56": [
       {
         "command": "PRINT",
         "message": ">>> [STRESS] Running Saturation Test (100 Entities)"
@@ -30791,10 +30701,10 @@
         ]
       }
     ],
-    "70": [
+    "57": [
 
     ],
-    "307": [
+    "297": [
       {
         "command": "CALL",
         "method": "StressTestRunner",
@@ -30803,7 +30713,7 @@
         ]
       }
     ],
-    "368": [
+    "357": [
       {
         "command": "PRINT",
         "message": ">>> [STRESS] Running Spawning Test (Create/Destroy Loop)"
@@ -30816,7 +30726,7 @@
         ]
       }
     ],
-    "610": [
+    "599": [
       {
         "command": "CALL",
         "method": "StressTestRunner",
@@ -30825,7 +30735,7 @@
         ]
       }
     ],
-    "670": [
+    "659": [
       {
         "command": "PRINT",
         "message": ">>> [STRESS] Running Pathfinding Blocking Test (50 Agents)"
@@ -30839,10 +30749,10 @@
         ]
       }
     ],
-    "672": [
+    "662": [
 
     ],
-    "911": [
+    "900": [
       {
         "command": "CALL",
         "method": "StressTestRunner",
@@ -30851,7 +30761,7 @@
         ]
       }
     ],
-    "971": [
+    "960": [
       {
         "command": "PRINT",
         "message": ">>> [STRESS] Running Hierarchy Test (Depth 50)"
@@ -30865,7 +30775,7 @@
         ]
       }
     ],
-    "1211": [
+    "1201": [
       {
         "command": "CALL",
         "method": "StressTestRunner",
@@ -30874,7 +30784,7 @@
         ]
       }
     ],
-    "1271": [
+    "1262": [
       {
         "command": "PRINT",
         "message": ">>> [STRESS] Running Physics Box Test (50 Boxes)"
@@ -30888,10 +30798,10 @@
         ]
       }
     ],
-    "1275": [
+    "1269": [
 
     ],
-    "1634": [
+    "1628": [
       {
         "command": "CALL",
         "method": "StressTestRunner",
@@ -30900,7 +30810,7 @@
         ]
       }
     ],
-    "1695": [
+    "1689": [
       {
         "command": "PRINT",
         "message": ">>> [STRESS] All Tests Completed Successfully"
@@ -30967,9 +30877,9 @@
   },
   "final_expected_state": {
     "position": [
-      -1.117908,
+      -0.484717,
       0.1415,
-      -1.665655
+      -1.576746
     ],
     "velocity": [
       0,
