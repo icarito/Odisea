@@ -3,7 +3,7 @@ extends Node
 var _optional_enabled: bool = true
 var _config_loaded: bool = false
 
-signal optional_nodes_toggled(enabled: bool)
+signal optional_nodes_toggled(enabled)
 
 func _ready() -> void:
 	_load_config()
@@ -11,8 +11,10 @@ func _ready() -> void:
 	_apply_initial_state()
 
 func _load_config() -> void:
-	var config = ProjectSettings.get_setting("application/config/optional_nodes_enabled", true)
-	_optional_enabled = config
+	if ProjectSettings.has_setting("application/config/optional_nodes_enabled"):
+		_optional_enabled = ProjectSettings.get_setting("application/config/optional_nodes_enabled")
+	else:
+		_optional_enabled = true
 	_config_loaded = true
 
 func _register_input_actions() -> void:
