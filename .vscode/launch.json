@@ -22,7 +22,6 @@
             "project": "",
             "additional_options": ""
         },
-
         {
             "name": "GDScript: Launch Pinned File",
             "type": "godot",
@@ -40,6 +39,34 @@
             "debug_paths": false,
             "debug_navigation": false,
             "additional_options": ""
+        },
+        {
+            "name": "OYS: Run Current Test (headless)",
+            "type": "godot",
+            "request": "launch",
+            "project": "${workspaceFolder}",
+            "debug_collisions": false,
+            "debug_paths": false,
+            "debug_navigation": false,
+            "additional_options": "--headless --no-window -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd -a ./core_v2/tests/test_determinism_v2.gd",
+            "env": {
+                "OYS_FILTER": "${fileBasenameNoExtension}"
+            },
+            "preLaunchTask": "echo-oys-filter"
+        },
+        {
+            "name": "OYS: Run Current Test (visible)",
+            "type": "godot",
+            "request": "launch",
+            "project": "${workspaceFolder}",
+            "debug_collisions": false,
+            "debug_paths": false,
+            "debug_navigation": false,
+            "additional_options": "-s ./addons/gdUnit3/bin/GdUnitCmdTool.gd -a ./core_v2/tests/test_determinism_v2.gd",
+            "env": {
+                "OYS_FILTER": "${fileBasenameNoExtension}"
+            },
+            "preLaunchTask": "echo-oys-filter"
         }
     ]
 }

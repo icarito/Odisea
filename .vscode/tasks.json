@@ -1,0 +1,107 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "echo-oys-filter",
+            "type": "shell",
+            "command": "echo",
+            "args": ["Running OYS test: ${fileBasenameNoExtension}"],
+            "problemMatcher": [],
+            "detail": "Muestra el nombre del test OYS a ejecutar"
+        },
+        {
+            "label": "Run OYS Test (headless)",
+            "type": "shell",
+            "command": "./runtest.sh",
+            "args": ["--oys", "${fileBasenameNoExtension}"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": {
+                "owner": "oys",
+                "fileLocation": ["relative", "${workspaceFolder}"],
+                "pattern": {
+                    "regexp": "^(.*):(\\d+):(\\d+):\\s*(error|warning|info):\\s*(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "severity": 4,
+                    "message": 5
+                }
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "detail": "Ejecuta el test OYS actual en modo headless"
+        },
+        {
+            "label": "Run OYS Test (visible)",
+            "type": "shell",
+            "command": "./runtest.sh",
+            "args": ["--show", "--oys", "${fileBasenameNoExtension}"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "detail": "Ejecuta el test OYS actual con ventana visible"
+        },
+        {
+            "label": "Run All Tests",
+            "type": "shell",
+            "command": "./runtest.sh",
+            "args": ["-a", "./core_v2/tests/"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "detail": "Ejecuta todos los tests de core_v2"
+        },
+        {
+            "label": "Run GdUnit Test File",
+            "type": "shell",
+            "command": "./runtest.sh",
+            "args": ["-a", "${relativeFile}"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "detail": "Ejecuta el archivo .gd de test actual"
+        }
+    ]
+}
