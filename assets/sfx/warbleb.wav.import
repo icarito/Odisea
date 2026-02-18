@@ -1,0 +1,23 @@
+[remap]
+
+importer="wav"
+type="AudioStreamSample"
+path="res://.import/warbleb.wav-242b99d256cb5f64fa71b2b2e61f70e8.sample"
+
+[deps]
+
+source_file="res://assets/sfx/warbleb.wav"
+dest_files=[ "res://.import/warbleb.wav-242b99d256cb5f64fa71b2b2e61f70e8.sample" ]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=0

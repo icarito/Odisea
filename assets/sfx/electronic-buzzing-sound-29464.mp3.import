@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/electronic-buzzing-sound-29464.mp3-28bbbc5e4cd66f681bca8106d813e48e.mp3str"
+
+[deps]
+
+source_file="res://assets/sfx/electronic-buzzing-sound-29464.mp3"
+dest_files=[ "res://.import/electronic-buzzing-sound-29464.mp3-28bbbc5e4cd66f681bca8106d813e48e.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0
