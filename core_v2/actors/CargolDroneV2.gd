@@ -195,9 +195,13 @@ func release(impulse: Vector3) -> void:
 			original_parent = get_tree().current_scene
 
 		if original_parent:
+			# Capture launch point from anchor (which is where we are)
+			var launch_transform = cargo_anchor.global_transform
+			
 			original_parent.add_child(target)
-			# Restore global transform to match release point
-			target.global_transform = cargo_anchor.global_transform
+			
+			# Force transform update
+			target.global_transform = launch_transform
 
 		if target is RigidBody:
 			# Restore physics
@@ -205,9 +209,12 @@ func release(impulse: Vector3) -> void:
 			target.collision_layer = 1
 			target.collision_mask = 1
 
-			# Apply momentum
-			target.apply_central_impulse(impulse)
-			target.linear_velocity += velocity
+			# Reset physics state to avoid inherited momentum from kinematic mode or weirdness
+			target.linear_velocity = Vector3.ZERO
+			target.angular_velocity = Vector3.ZERO
+			
+			# Apply drone velocity + throw impulse
+			target.apply_central_impulse(impulse + velocity)
 
 		print("[Cargol] Released: ", target.name)
 
@@ -272,7 +279,7 @@ func step(dt: float) -> void:
 			# Determine look-ahead point
 			var look_ahead = 1.0
 			var target_offset = _path_offset + look_ahead
-
+			
 			if target_offset > path_length:
 				target_offset = path_length
 				if _path_offset >= path_length - 0.1:
@@ -321,8 +328,11 @@ func step(dt: float) -> void:
 
 	if _perf_monitor and _perf_monitor.has_method("measure_end"):
 		_perf_monitor.measure_end(self, "step")
+	
+	_apply_movement_and_rotation()
 
-func _process(_delta):
+
+func _apply_movement_and_rotation() -> void:
 	# Move and Slide
 	if velocity.length() > 0.001:
 		velocity = move_and_slide(velocity, Vector3.UP)
@@ -339,9 +349,6 @@ func _process(_delta):
 		var horiz_vel = Vector3(velocity.x, 0, velocity.z)
 		if horiz_vel.length() > 0.1:
 			# look_at points -Z towards target.
-			# If we want front (+Z or -Z?) to face movement.
-			# Usually models face -Z (Godot standard).
-			# So we look at (pos + velocity).
 			var target_look = global_transform.origin + horiz_vel.normalized()
 			if not target_look.is_equal_approx(global_transform.origin):
 				look_at(target_look, Vector3.UP)

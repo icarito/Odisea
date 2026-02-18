@@ -58,14 +58,14 @@ SECTION "Custom Cargol Program"
     WAIT 1.0
 
     // 3. Move to a new location with the cargo
-    // Let's bring it back to the center and up high
-    CALL CargolDrone "move_to" [0, 8, 0]
+    // Lower altitude, away from player (who is at 12, 0, -12)
+    CALL CargolDrone "move_to" [-5, 3, 0]
     WAIT 3.0
 
     // 4. Release the cargo
-    // Applying a small forward impulse [0, 0, -2]
-    CALL CargolDrone "release" [0, 0, -2]
-    WAIT 2.0
+    // Release gently (no impulse) to minimize bouncing
+    CALL CargolDrone "release" [0, 0, 0]
+    WAIT 3.0
     
     // 5. Return to home position
     CALL CargolDrone "move_to" [0, 5, 0]
