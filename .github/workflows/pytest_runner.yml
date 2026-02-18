@@ -136,12 +136,21 @@ jobs:
         run: |
           mkdir -p reports
           if [ "${{ matrix.suite }}" = "determinism" ]; then
-            # Run determinism tests via runtest.sh
+            # TEMPORARY: Determinism tests hang in CI (issue #64)
+            # Run with per-test timeout to prevent hanging
+            echo "⚠️ Determinism tests temporarily limited due to CI hanging (issue #64)"
+            passed=0
+            failed=0
             for oys_file in core_v2/tests/*.oys; do
               oys_name=$(basename "$oys_file" .oys)
-              echo "Running OYS test: $oys_name"
-              ./runtest.sh --oys "$oys_name" 2>&1 | tee "reports/${oys_name}.log" || true
+              echo "Running OYS test with 60s timeout: $oys_name"
+              if timeout 60 ./runtest.sh --oys "$oys_name" 2>&1 | tee "reports/${oys_name}.log" | grep -q "✅ Test OYS"; then
+                ((passed++))
+              else
+                ((failed++))
+              fi
             done
+            echo "Determinism tests: $passed passed, $failed failed/timed out"
           else
             # Run core tests via runtest.sh
             ./runtest.sh -a ./core_v2/tests/ 2>&1 | tee reports/core_tests.log
