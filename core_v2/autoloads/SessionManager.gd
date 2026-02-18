@@ -101,20 +101,14 @@ func _find_player():
 			_initialize_player_for_session(player)
 			return
 
-	# Backup: Buscar por nombre en el árbol
-	var pilot = get_tree().get_root().find_node("Pilot", true, false)
-	if not is_instance_valid(pilot) and get_tree().current_scene:
-		pilot = get_tree().current_scene.find_node("Pilot", true, false)
-	
-	if _is_player_candidate_valid(pilot):
-		player = pilot
-		_initialize_player_for_session(player)
-	else:
-		if not is_respawning and not _is_waiting_for_respawn_validation:
-			# Solo loguear si no estamos esperando activamente un respawn
-			# print("[SessionManager] _find_player: No se encontró al jugador.")
-			pass
-		player = null
+	# Backup recursive search removed for performance.
+	# Rely on 'player' group registration.
+
+	if not is_respawning and not _is_waiting_for_respawn_validation:
+		# Solo loguear si no estamos esperando activamente un respawn
+		# print("[SessionManager] _find_player: No se encontró al jugador.")
+		pass
+	player = null
 	
 func _is_player_candidate_valid(p) -> bool:
 	if not is_instance_valid(p):
@@ -199,7 +193,6 @@ func _ready():
 			else:
 				teleport_system.name = "TeleportSystem"
 				add_child(teleport_system)
-				print("[SessionManager] TeleportSystem created at: ", teleport_system.get_path())
 				# Buscar nodos relevantes tras un pequeño delay para asegurar que la escena está lista
 				call_deferred("_connect_teleport_system")
 
@@ -217,9 +210,9 @@ func _connect_teleport_system():
 		return
 
 	# Buscar PlayerControllerV2 (Pilot)
-	var player_node = get_tree().get_root().find_node("Pilot", true, false)
+	_find_player()
+	var player_node = player
 	teleport_system.player_controller = player_node
-	player = player_node # Also set SessionManager.player for OYS input routing
 
 	# Validar y reconectar InputProviderV2
 	if is_instance_valid(player_node):
@@ -276,16 +269,6 @@ func _on_tree_changed_for_script(script_path: String):
 		printerr("Script not found: ", script_path)
 		get_tree().quit(1)
 		return
-
-	# Ensure TeleportSystem is available in CLI mode
-	if not has_node("TeleportSystem"):
-		print("[SessionManager] Creating TeleportSystem for CLI script execution...")
-		var ts_res = load("res://core_v2/systems/TeleportSystem.gd")
-		if ts_res:
-			var teleport_system = ts_res.new()
-			teleport_system.name = "TeleportSystem"
-			add_child(teleport_system)
-			call_deferred("_connect_teleport_system")
 		
 	file.open(script_path, File.READ)
 	var content = file.get_as_text()
@@ -404,14 +387,14 @@ func _physics_process(_dt):
 		if is_instance_valid(player) and player.global_transform.origin.y > _peak_y:
 			_peak_y = player.global_transform.origin.y
 		# Step player: prefer SessionManager.player (set by TeleportSystem) to avoid
-		# timing races with name-based lookup. Fall back to find_node if needed.
+		# timing races with name-based lookup. Fall back to _find_player if needed.
 		var pilot_node = null
 		if is_instance_valid(player):
 			pilot_node = player
 		else:
-			pilot_node = get_tree().get_root().find_node("Pilot", true, false)
-			if pilot_node and is_instance_valid(pilot_node):
-				player = pilot_node
+			_find_player()
+			if is_instance_valid(player):
+				pilot_node = player
 
 		# Apply Time Scale to our manual fixed step
 		var step_dt = FIXED_DT * Engine.time_scale
@@ -640,15 +623,6 @@ var _playback_printed_start := false
 var _playback_printed_end := false
 
 func load_and_play(path: String):
-	# Ensure TeleportSystem is available for Replay/Test modes where it might not have been created by _ready
-	if not has_node("TeleportSystem"):
-		print("[SessionManager] Creating TeleportSystem for load_and_play...")
-		var ts_res = load("res://core_v2/systems/TeleportSystem.gd")
-		if ts_res:
-			var teleport_system = ts_res.new()
-			teleport_system.name = "TeleportSystem"
-			add_child(teleport_system)
-			call_deferred("_connect_teleport_system")
 	print("[SessionManager] load_and_play called with: ", path)
 	_session_run_id += 1
 	var my_run_id = _session_run_id
@@ -1593,15 +1567,8 @@ func _set_player_prop(prop, val):
 			pos_vec = val
 		
 		if typeof(pos_vec) == TYPE_VECTOR3:
-			var tf = player.global_transform
-			tf.origin = pos_vec
-			
-			if player.has_method("teleport_to"):
-				player.teleport_to(tf)
-				print("[SessionManager] SET pos executed via player.teleport_to: ", pos_vec)
-			else:
-				player.global_transform.origin = pos_vec
-				if "velocity" in player: player.velocity = Vector3.ZERO
+			player.global_transform.origin = pos_vec
+			if "velocity" in player: player.velocity = Vector3.ZERO
 			
 			var ts = get_node_or_null("TeleportSystem")
 			if ts and ts.has_method("force_initial_spawn"):
@@ -2055,10 +2022,7 @@ func unregister_oys_actor(name: String) -> void:
 		_oys_actors.erase(name)
 
 func take_oys_screenshot(label: String, _extra = ""):
-	var stage = _resolve_stage()
-	if stage and stage.has_method("take_oys_screenshot"):
-		return yield(stage.take_oys_screenshot(label, _extra), "completed")
-	
+	# Wait for draw to complete
 	yield (get_tree(), "idle_frame")
 	yield (VisualServer, "frame_post_draw")
 	
@@ -2066,17 +2030,12 @@ func take_oys_screenshot(label: String, _extra = ""):
 	var dir = Directory.new()
 	if not dir.dir_exists(dir_path):
 		dir.make_dir_recursive(dir_path)
-	
-	var file_prefix = "oysshell"
-	var oys_prop_path = OS.get_environment("OYS_PROP_PATH")
-	if oys_prop_path != "":
-		var prop_name = oys_prop_path.get_file().get_basename()
-		if prop_name != "":
-			file_prefix = prop_name
-	elif get_tree().current_scene:
-		file_prefix = get_tree().current_scene.filename.get_file().get_basename().to_lower()
-	
-	var path = "%s/%s_%s.png" % [dir_path, file_prefix, label]
+		
+	var scene_name = "oysshell"
+	if get_tree().current_scene:
+		scene_name = get_tree().current_scene.filename.get_file().get_basename().to_lower()
+		
+	var path = "%s/%s_%s.png" % [dir_path, scene_name, label]
 	var img = get_tree().root.get_texture().get_data()
 	img.flip_y()
 	var err = img.save_png(path)
