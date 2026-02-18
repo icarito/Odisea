@@ -137,6 +137,31 @@ run_and_capture() {
     return ${PIPESTATUS[0]}
 }
 
+run_import_preflight() {
+    local preflight_log="$LOG_DIR/import_preflight_$(date +%Y%m%d_%H%M%S)_$$.log"
+    echo "🧩 Preflight import de recursos..."
+    echo "📋 Preflight log: $preflight_log"
+
+    # In CI, let scan/import complete for a bounded time.
+    # Locally, keep it fast with --quit.
+    if [ "${CI:-}" = "true" ] || [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+        set +e
+        timeout 45s $GODOT_BIN $HEADLESS ${HEADLESS:+--audio-driver Dummy} -e 2>&1 | tee "$preflight_log" >/dev/null
+        local rc="${PIPESTATUS[0]}"
+        set -e
+        if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ]; then
+            echo "❌ Preflight import falló (exit $rc)."
+            return "$rc"
+        fi
+    else
+        $GODOT_BIN $HEADLESS ${HEADLESS:+--audio-driver Dummy} -e --quit 2>&1 | tee "$preflight_log" >/dev/null
+    fi
+
+    # Señales tempranas de recursos críticos aún no importados.
+    ls .import/*sfx100v2_loop_machine_02.ogg-*.oggstr >/dev/null 2>&1 || echo "⚠️ Falta import de sfx100v2_loop_machine_02.ogg"
+    ls .import/*phase.wav-*.sample >/dev/null 2>&1 || echo "⚠️ Falta import de phase.wav"
+}
+
 print_failed_asserts() {
     local cleaned
     cleaned=$(mktemp)
@@ -375,6 +400,7 @@ fi
 
 # Try pytest delegation for full-suite runs and stress profile.
 if [ $RUN_STRESS_ONLY -eq 1 ] || is_full_core_suite_target; then
+    run_import_preflight || exit $?
     if [ "$RUNNER_MODE" = "pytest" ]; then
         if ! has_pytest_runner; then
             echo "ERROR: --runner pytest solicitado, pero pytest o tests/test_odisea_runner.py no está disponible."
@@ -410,6 +436,8 @@ else
     echo "Modo salida: debug completo"
 fi
 echo "---"
+
+run_import_preflight || exit $?
 
 # Ejecuta Godot con output en tiempo real (filtrado o completo según modo)
 run_and_capture $GODOT_BIN $HEADLESS $HEADLESS_AUDIO_ARGS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd "${ARGS[@]}"
