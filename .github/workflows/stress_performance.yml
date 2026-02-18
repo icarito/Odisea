@@ -1,10 +1,10 @@
 name: Stress & Performance Tests
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_run:
+    workflows: ["Odyssey Pytest Runner"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       simulate_regression:
@@ -29,6 +29,7 @@ env:
 jobs:
   stress-test:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     timeout-minutes: 8
     env:
       SIMULATE_REGRESSION: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_regression || 'false' }}
