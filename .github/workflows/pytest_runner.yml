@@ -112,19 +112,35 @@ jobs:
           echo "venv_cache_hit=${{ steps.venv_cache.outputs.cache-hit }}"
           ls -la "${GODOT_CACHE_DIR}/${GODOT_VERSION}" || true
 
-      - name: Import Resources
+      - name: Import + Smoke (self-healing)
         run: |
           set -euo pipefail
           mkdir -p reports
-          echo "Importing Godot resources..."
-          /usr/local/bin/godot --path . -e --quit --headless 2>&1 | tee reports/import_resources.log
-          echo "Import complete."
-          ls -la .import/ 2>/dev/null | head -10 || echo "No .import directory"
 
-      - name: Smoke Check Critical Resources
-        run: |
-          set -euo pipefail
-          /usr/local/bin/godot --headless --no-window --audio-driver Dummy -s tests/ci_resource_smoke.gd 2>&1 | tee reports/resource_smoke.log
+          import_once() {
+            local log_file="$1"
+            echo "Importing Godot resources..."
+            /usr/local/bin/godot --path . -e --quit --headless --no-window --audio-driver Dummy 2>&1 | tee "$log_file"
+            echo "Import complete."
+            ls -la .import/ 2>/dev/null | head -10 || echo "No .import directory"
+          }
+
+          smoke_once() {
+            local log_file="$1"
+            /usr/local/bin/godot --headless --no-window --audio-driver Dummy -s tests/ci_resource_smoke.gd 2>&1 | tee "$log_file"
+            if grep -q "\[CI_SMOKE\] Missing resources count:" "$log_file"; then
+              return 1
+            fi
+            return 0
+          }
+
+          import_once reports/import_resources.log
+          if ! smoke_once reports/resource_smoke.log; then
+            echo "Smoke check failed after cached import. Cleaning import cache and retrying..."
+            rm -rf .import .godot/imported
+            import_once reports/import_resources_retry.log
+            smoke_once reports/resource_smoke_retry.log
+          fi
 
       - name: Run Core Tests
         env:
@@ -146,9 +162,19 @@ jobs:
             grep -E "ERROR:|Failed to load resource|referenced nonexistent resource|Unrecognized binary resource file" reports/import_resources.log | tail -20 >> $GITHUB_STEP_SUMMARY || echo "No import errors detected." >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
+          if [ -f reports/import_resources_retry.log ]; then
+            echo "### Import Diagnostics (Retry)" >> $GITHUB_STEP_SUMMARY
+            grep -E "ERROR:|Failed to load resource|referenced nonexistent resource|Unrecognized binary resource file" reports/import_resources_retry.log | tail -20 >> $GITHUB_STEP_SUMMARY || echo "No import errors detected on retry." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
           if [ -f reports/resource_smoke.log ]; then
             echo "### Resource Smoke Check" >> $GITHUB_STEP_SUMMARY
             grep -E "\\[CI_SMOKE\\]" reports/resource_smoke.log | tail -20 >> $GITHUB_STEP_SUMMARY || echo "No smoke output found." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f reports/resource_smoke_retry.log ]; then
+            echo "### Resource Smoke Check (Retry)" >> $GITHUB_STEP_SUMMARY
+            grep -E "\\[CI_SMOKE\\]" reports/resource_smoke_retry.log | tail -20 >> $GITHUB_STEP_SUMMARY || echo "No retry smoke output found." >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
           if [ -f reports/core_tests.log ]; then
