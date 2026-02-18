@@ -1,0 +1,23 @@
+{
+    "chat.mcp.serverSampling": {
+        "src/.vscode/mcp.json: mcp-godot": {
+            "allowedModels": []
+        }
+    },
+    "godotTools.editorPath.godot3": "/usr/bin/godot3-bin",
+    "python.testing.pytestArgs": [
+        "tests/test_odisea_runner.py",
+        "--odisea-runner=gdunit",
+        "-n",
+        "auto"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "files.associations": {
+        "*.oys": "gdscript"
+    },
+    "godotTools.sceneFileExtensions": [
+        ".tscn",
+        ".oys"
+    ]
+}
