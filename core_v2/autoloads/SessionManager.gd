@@ -41,6 +41,9 @@ var ghost_manager = null
 var _replay_sync_cache := []
 var _replay_sync_cache_dirty := true
 
+# Optimization: Cache for node lookups
+var _node_cache := {}
+
 # Drift correction: checkpoint pendiente para guardar en el próximo frame
 var _pending_drift_checkpoint := false
 # Drift correction: frame en el que guardar un checkpoint "settle" (15 frames después del contacto)
@@ -673,6 +676,7 @@ func load_and_play(path: String):
 	emit_signal("oys_registry_reset")
 	_replay_input_provider = null
 	_replay_input_buffer.clear()
+	_node_cache.clear()
 	_cleanup_session_spawned_nodes()
 	Engine.time_scale = 1.0
 	
@@ -1460,11 +1464,24 @@ func _find_node_recursive(name: String) -> Node:
 		_find_player()
 		return player
 	
+	if _node_cache.has(name):
+		var cached_node = _node_cache[name]
+		if is_instance_valid(cached_node) and cached_node.is_inside_tree() and cached_node.name == name:
+			return cached_node
+		else:
+			_node_cache.erase(name)
+
+	var found_node = null
 	if get_tree().current_scene:
-		return get_tree().current_scene.find_node(name, true, false)
+		found_node = get_tree().current_scene.find_node(name, true, false)
 	else:
 		# Fallback: Search from root
-		return get_tree().get_root().find_node(name, true, false)
+		found_node = get_tree().get_root().find_node(name, true, false)
+
+	if found_node:
+		_node_cache[name] = found_node
+
+	return found_node
 
 func _handle_math_command(cmd: Dictionary):
 	var target_var = cmd.get("var", "")
