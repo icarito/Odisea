@@ -1580,6 +1580,7 @@ boot_splash/image="res://assets/splash.png"
 boot_splash/use_filter=false
 config/icon="res://assets/odisea_icon.png"
 boot_splash/minimum_display_time=3
+config/optional_nodes_enabled=true
 
 [autoload]
 
@@ -1591,6 +1592,8 @@ CinematicManager="*res://core_v2/autoloads/CinematicManager.gd"
 CameraTransition="*res://addons/camera_transition/camera_transition.tscn"
 PerformanceMonitor="*res://core_v2/autoloads/PerformanceMonitor.gd"
 SubtitlesOverlayManager="*res://core_v2/autoloads/SubtitlesOverlayManager.gd"
+OptionalNodeManager="*res://core_v2/autoloads/OptionalNodeManager.gd"
+ShaderCacheManager="*res://addons/gd-shader-cache/src/ShaderCacheManager.gd"
 
 [debug]
 
@@ -1612,7 +1615,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/qol-camera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/qol-camera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
 
 [gdunit3]
 
@@ -1794,6 +1797,11 @@ cursor_click_secondary={
 toggle_replay_menu={
 "deadzone": 0.5,
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777249,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
+ ]
+}
+toggle_optional_nodes={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777275,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
  ]
 }
 

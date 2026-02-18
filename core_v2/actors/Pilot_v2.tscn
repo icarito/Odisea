@@ -123,7 +123,7 @@ monitorable = false
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -1.5 )
 shape = SubResource( 120 )
 
-[node name="FakeShadow" type="MeshInstance" parent="Visual/Pivot"]
+[node name="FakeShadow" type="MeshInstance" parent="Visual/Pivot" groups=["optional"]]
 cast_shadow = 0
 script = ExtResource( 53 )
 grid_resolution = 12
@@ -135,7 +135,7 @@ script = ExtResource( 14 )
 audio_stream = ExtResource( 13 )
 trigger_mode = "OneShotActive"
 
-[node name="OmniLight" type="OmniLight" parent="Visual"]
+[node name="OmniLight" type="OmniLight" parent="Visual" groups=["optional"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )
 light_energy = 0.342
 light_specular = 0.4
