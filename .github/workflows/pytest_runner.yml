@@ -201,7 +201,15 @@ jobs:
           set -euo pipefail
           mkdir -p reports
           # OYS_NODET=1 skips determinism tests
-          ./runtest.sh -a ./core_v2/tests/ 2>&1 | tee reports/core_tests.log
+          set +e
+          timeout 420s ./runtest.sh -a ./core_v2/tests/ 2>&1 | tee reports/core_tests.log
+          test_rc="${PIPESTATUS[0]}"
+          set -e
+          if [ "$test_rc" -eq 124 ]; then
+            echo "Core tests timed out after 420s."
+            exit 124
+          fi
+          exit "$test_rc"
 
       - name: Publish Test Summary
         if: always()
