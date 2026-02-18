@@ -1,191 +1,323 @@
+tool
 extends PropBaseV2
 class_name CircuitCable
 
 # CircuitCable.gd
 # Procedurally generated cable that connects circuit nodes.
 # Supports both CSG and direct Mesh generation.
+# Updated for OLCS v2: Procedural Physical Cables (Verlet Integration)
 
 signal connection_broken
 
+# --- Configuration ---
 export(Curve3D) var path_curve: Curve3D
-export(bool) var use_csg := false
-export(Material) var cable_material: Material
+export(bool) var use_csg := false # Legacy mode
+export(Material) var cable_material: Material # Fallback / Base material
 export(float) var health := 10.0
 export(float) var cable_radius := 0.05
-export(int) var cable_sides := 8
+export(int) var cable_sides := 6
 
+# --- Physics Parameters ---
+export(bool) var simulation_enabled := true
+export(float) var segment_length := 0.5
+export(Vector3) var gravity := Vector3(0, -9.8, 0)
+export(float) var wind_scale := 0.5
+export(float) var damping := 0.95
+export(int) var stiffness := 4 # Solver iterations
+
+# --- Internal ---
+var _particles = []
+var _constraints = [] # Array of [p1_idx, p2_idx, rest_length]
+var _wind_noise = OpenSimplexNoise.new()
+var _time := 0.0
 var _hurtbox: Area
+var _mesh_instance: MeshInstance
+var _shader_mat: ShaderMaterial
+var _collision_update_timer := 0
+
+# --- Inner Class ---
+class Particle:
+	var pos: Vector3
+	var old_pos: Vector3
+	var pinned: bool = false
+
+	func _init(p: Vector3, pin: bool = false):
+		pos = p
+		old_pos = p
+		pinned = pin
 
 func _ready():
-	print("[CircuitCable] _ready fired: instance ", self)
+	# Configure noise
+	_wind_noise.seed = randi()
+	_wind_noise.period = 20.0
 
-	# FIRST call parent class _ready() to ensure set_active and other methods are available
-	# This sets is_active, anim_progress, target_progress, and calls _update_visuals()
+	# Load shader
+	if not Engine.editor_hint:
+		var shader_res = load("res://core_v2/systems/circuit/Cable.shader")
+		if shader_res:
+			_shader_mat = ShaderMaterial.new()
+			_shader_mat.shader = shader_res
+			# Set default colors
+			_shader_mat.set_shader_param("color_active", Color(0.0, 1.0, 0.8))
+			_shader_mat.set_shader_param("color_inactive", Color(0.1, 0.1, 0.1))
+
 	._ready()
 
-	# If no Curve3D is assigned (common in props/tests), create a tiny default
-	# curve so that build() can produce visible geometry for validation.
-	if not path_curve:
-		print("[CircuitCable] path_curve is null; creating default Curve3D for tests/editor.")
+	# Default curve for editor visualization
+	if not path_curve and Engine.editor_hint:
 		var default_curve = Curve3D.new()
-		# Make the default cable along X axis (horizontal) for typical circuit layout
-		# In this project +Z is backward (camera direction), so X is horizontal left-right
 		default_curve.add_point(Vector3(0, 0, 0))
 		default_curve.add_point(Vector3(3, 0, 0))
 		path_curve = default_curve
 
 	if path_curve:
-		print("[CircuitCable] _ready sees path_curve, building now.")
-		# Build synchronously so _update_visuals() can access the mesh
 		build()
 
 func build():
-	print("[CircuitCable] build called. instance:", self, " curve: ", path_curve, " points: ", path_curve.get_point_count())
-	print("[CircuitCable] cable_radius:", cable_radius)
-	if path_curve == null:
-		print("[CircuitCable] WARNING: path_curve is null in build.")
-	elif path_curve.get_point_count() < 2:
-		print("[CircuitCable] WARNING: curve has <2 points.")
-	# Clear previous children
+	# Clean up previous
 	for child in get_children():
-		child.queue_free()
+		if child.name == "CableVis" or child.name == "Hurtbox":
+			child.queue_free()
+	_particles.clear()
+	_constraints.clear()
 
 	if not path_curve or path_curve.get_point_count() < 2:
 		return
 
 	if use_csg:
-		_build_csg()
-	else:
-		_build_mesh()
+		_build_csg() # Legacy path
+		_setup_hurtbox_static()
+		return
 
-	_setup_hurtbox()
-
-func _build_csg():
-	print("[CircuitCable] _build_csg with curve points: ", path_curve.get_point_count())
-	var path_node = Path.new()
-	path_node.curve = path_curve
-	path_node.name = "Path"
-	add_child(path_node)
-	print("[CircuitCable] Path node added.")
-	var csg = CSGPolygon.new()
-	csg.mode = CSGPolygon.MODE_PATH
-	csg.path_node = path_node.get_path()
-	csg.polygon = _generate_circle_polygon(cable_radius, cable_sides)
-	if cable_material:
-		print("[CircuitCable] cable_material assigned.")
-	csg.material = cable_material
-	csg.use_collision = true
-	csg.name = "CableVis"
-	add_child(csg)
-	print("[CircuitCable] CSGPolygon CableVis added.")
-
-
-
-func _build_mesh():
-	print("[CircuitCable] _build_mesh with curve points: ", path_curve.get_point_count())
-	var mesh_inst = MeshInstance.new()
-	mesh_inst.mesh = _generate_tube_mesh(path_curve, cable_radius, cable_sides)
-	print("[CircuitCable] MeshInstance mesh generated. cable_radius:", cable_radius)
+	# Build Physics Particles
+	var total_len = path_curve.get_baked_length()
+	var segment_count = max(2, int(total_len / segment_length))
 	
-	# Create a unique material per instance (duplicate the assigned material or create new)
-	var unique_material = null
-	if cable_material:
-		unique_material = cable_material.duplicate()
-	else:
-		unique_material = SpatialMaterial.new()
-	mesh_inst.material_override = unique_material
+	for i in range(segment_count + 1):
+		var t = float(i) / float(segment_count)
+		var offset = t * total_len
+		var pos = path_curve.interpolate_baked(offset)
+
+		var pinned = (i == 0 or i == segment_count) # Pin start and end
+		var p = Particle.new(pos, pinned)
+		_particles.append(p)
+
+		if i > 0:
+			var prev_p = _particles[i-1]
+			var dist = prev_p.pos.distance_to(p.pos)
+			_constraints.append([i-1, i, dist])
+
+	# Initial Mesh
+	_mesh_instance = MeshInstance.new()
+	_mesh_instance.name = "CableVis"
+	add_child(_mesh_instance)
 	
-	# If no material was assigned, create a visible fallback
-	if not cable_material:
-		unique_material.emission_enabled = true
-		unique_material.emission = Color(1, 1, 0)
-		unique_material.albedo_color = Color(1, 1, 0.2)
-	
-	mesh_inst.name = "CableVis"
-	add_child(mesh_inst)
-	print("[CircuitCable] MeshInstance CableVis added.")
-	mesh_inst.create_trimesh_collision()
+	if _shader_mat:
+		_mesh_instance.material_override = _shader_mat
+	elif cable_material:
+		_mesh_instance.material_override = cable_material
 
+	_update_mesh()
+	_setup_hurtbox_dynamic()
 
-	# The collision sibling created by create_trimesh_collision is a StaticBody.
-	# We might want to move its shape to our Hurtbox or keep it as physical barrier.
-	# For destructibility, we need an Area.
+func _physics_process(delta):
+	if Engine.editor_hint: return
+	if not simulation_enabled or use_csg or _particles.empty():
+		return
 
-func _setup_hurtbox():
-	# Create an Area named Hurtbox and populate it with capsule CollisionShapes
-	if _hurtbox and is_instance_valid(_hurtbox):
-		_hurtbox.queue_free()
+	# Optimization: Skip if not visible, but keep simulation running?
+	# For correct physics when coming back into view, we should simulate.
+	# But we can skip mesh update if not visible.
 
+	_time += delta
+
+	# 1. Verlet Integration
+	for p in _particles:
+		if p.pinned:
+			continue
+
+		var vel = (p.pos - p.old_pos) * damping
+		p.old_pos = p.pos
+
+		# Forces
+		var force = gravity
+		# Wind
+		var noise_val = _wind_noise.get_noise_3d(p.pos.x, p.pos.y, _time * 10.0)
+		var wind_dir = Vector3(noise_val, 0, noise_val * 0.5).normalized() # Simple wind
+		force += wind_dir * wind_scale * noise_val
+
+		p.pos += vel + force * delta * delta
+
+	# 2. Constraints
+	for i in range(stiffness):
+		for c in _constraints:
+			var p1 = _particles[c[0]]
+			var p2 = _particles[c[1]]
+			var rest = c[2]
+
+			var delta_pos = p2.pos - p1.pos
+			var dist = delta_pos.length()
+			if dist < 0.0001: continue
+
+			var diff = (dist - rest) / dist
+			# var correction = delta_pos * 0.5 * diff
+
+			if p1.pinned and not p2.pinned:
+				p2.pos -= delta_pos * diff
+			elif p2.pinned and not p1.pinned:
+				p1.pos += delta_pos * diff
+			elif not p1.pinned and not p2.pinned:
+				p1.pos += delta_pos * 0.5 * diff
+				p2.pos -= delta_pos * 0.5 * diff
+
+	# 3. Update Visuals
+	if is_visible_in_tree():
+		_update_mesh()
+
+	# 4. Update Collision (throttled)
+	_collision_update_timer += 1
+	if _collision_update_timer >= 10:
+		_collision_update_timer = 0
+		_update_hurtbox_dynamic()
+
+func _update_mesh():
+	if not _mesh_instance: return
+
+	# Re-generate mesh using SurfaceTool
+	var st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	# Generate tube geometry
+	var sides = cable_sides
+	var up = Vector3.UP
+
+	for i in range(_particles.size()):
+		var p = _particles[i].pos
+
+		# Calculate tangent
+		var tangent = Vector3.FORWARD
+		if i < _particles.size() - 1:
+			tangent = (_particles[i+1].pos - p).normalized()
+		elif i > 0:
+			tangent = (p - _particles[i-1].pos).normalized()
+
+		# Make basis
+		var right = tangent.cross(up).normalized()
+		if right.length_squared() < 0.001:
+			right = tangent.cross(Vector3.RIGHT).normalized()
+		up = right.cross(tangent).normalized()
+
+		# Generate ring
+		for j in range(sides + 1):
+			var angle = (j / float(sides)) * TAU
+			var local_pos = Vector2(cos(angle), sin(angle)) * cable_radius
+			var pos_3d = p + (right * local_pos.x) + (up * local_pos.y)
+
+			var uv_x = j / float(sides)
+			var uv_y = i / float(_particles.size() - 1) # Normalized length
+
+			st.add_uv(Vector2(uv_x, uv_y))
+			st.add_vertex(pos_3d)
+
+	# Indices
+	var ring_v_count = sides + 1
+	for i in range(_particles.size() - 1):
+		for j in range(sides):
+			var curr = i * ring_v_count + j
+			var next = curr + 1
+			var upper_curr = (i + 1) * ring_v_count + j
+			var upper_next = upper_curr + 1
+
+			st.add_index(curr)
+			st.add_index(upper_curr)
+			st.add_index(next)
+
+			st.add_index(next)
+			st.add_index(upper_curr)
+			st.add_index(upper_next)
+
+	st.generate_normals()
+	_mesh_instance.mesh = st.commit()
+
+func _setup_hurtbox_static():
+	# Legacy static collision setup
+	if _hurtbox: _hurtbox.queue_free()
+	_hurtbox = Area.new()
+	_hurtbox.name = "Hurtbox"
+	add_child(_hurtbox)
+
+	var points = path_curve.get_baked_points()
+	if points.size() < 2: return
+
+	for i in range(points.size() - 1):
+		var p1 = points[i]
+		var p2 = points[i+1]
+		var mid = (p1 + p2) * 0.5
+		var length = p1.distance_to(p2)
+
+		var col = CollisionShape.new()
+		var capsule = CapsuleShape.new()
+		capsule.radius = cable_radius * 2.0
+		capsule.height = length
+		col.shape = capsule
+		_hurtbox.add_child(col)
+		col.transform.origin = mid
+		col.look_at(p2, Vector3.UP)
+
+func _setup_hurtbox_dynamic():
+	if _hurtbox: _hurtbox.queue_free()
 	_hurtbox = Area.new()
 	_hurtbox.name = "Hurtbox"
 	_hurtbox.collision_layer = 1
 	_hurtbox.collision_mask = 0
 	add_child(_hurtbox)
 
-	if not path_curve:
-		return
+	# Create pool of collision shapes
+	# We use fewer shapes for physics (e.g. one every 2 segments)
+	for i in range(_particles.size() - 1):
+		var col = CollisionShape.new()
+		var capsule = CapsuleShape.new()
+		capsule.radius = cable_radius * 2.0
+		capsule.height = segment_length # Initial approximation
+		col.shape = capsule
+		col.name = "Col_%d" % i
+		_hurtbox.add_child(col)
 
-	var points = path_curve.get_baked_points()
-	if points.size() < 2:
-		return
+func _update_hurtbox_dynamic():
+	if not _hurtbox: return
 
-	points = path_curve.get_baked_points()
-	if points.size() < 2:
-		return
+	for i in range(_particles.size() - 1):
+		var col = _hurtbox.get_child(i) as CollisionShape
+		if not col: continue
 
-	# Create segments (deprecated simple loop removed). We use a more robust
-	# accumulation loop below that batches capsule shapes and parents them to
-	# the Hurtbox before calling Spatial methods that require being inside
-	# the scene tree (e.g. look_at()).
+		var p1 = _particles[i].pos
+		var p2 = _particles[i+1].pos
+		var mid = (p1 + p2) * 0.5
 
-	# For this implementation, I will assume the caller (Projectile/Explosion) checks for `take_damage` on the collider.
-	# If I use `create_trimesh_collision`, I get a StaticBody. I can attach a script to it.
+		col.transform.origin = mid
+		# look_at requires target != origin.
+		if p1.distance_squared_to(p2) > 0.0001:
+			col.look_at(p2, Vector3.UP)
+			# Re-adjust height if segments stretch significantly (they shouldn't due to constraints)
+			# (col.shape as CapsuleShape).height = p1.distance_to(p2)
+			# Updating resource (Shape) every frame is bad if shared.
+			# Since we created unique shapes, it's okay, but maybe unnecessary if constraints hold.
 
-	# However, to be robust, I will manually create an Area with simplified collision (Capsules) as planned above.
-	# Capsule in Godot 3 is Height along Z? No, it's usually Y.
-	# If I look_at(p2), the local -Z points to p2.
-	# I need to align the capsule (Y-axis) with the Z-axis.
-	# Rotate X -90 degrees.
+func _build_csg():
+	# Legacy implementation
+	var path_node = Path.new()
+	path_node.curve = path_curve
+	path_node.name = "Path"
+	add_child(path_node)
 
-	var prev = points[0]
-	var interval = 0.5 # Generate collision every 0.5 units to reduce count
-	var dist_acc = 0.0
-
-	for i in range(1, points.size()):
-		var curr = points[i]
-		var seg_len = prev.distance_to(curr)
-		dist_acc += seg_len
-
-		if dist_acc >= interval or i == points.size() - 1:
-			var col = CollisionShape.new()
-			var capsule = CapsuleShape.new()
-			capsule.radius = cable_radius * 2.0
-			capsule.height = dist_acc
-			col.shape = capsule
-
-			var center = (prev + curr) / 2.0
-
-			# Parent to the hurtbox first so we can compute local transforms
-			# relative to it without calling Spatial methods that may depend
-			# on being in the tree. Then set a stable basis oriented along
-			# the segment direction.
-			_hurtbox.add_child(col)
-
-			var local_center = _hurtbox.to_local(center)
-			col.transform.origin = local_center
-
-			var dir = (curr - prev).normalized()
-			var right = dir.cross(Vector3.UP)
-			if right.length_squared() < 0.0001:
-				right = dir.cross(Vector3.RIGHT)
-			right = right.normalized()
-			var up_vec = right.cross(dir).normalized()
-			var basis = Basis(right, up_vec, -dir)
-			col.transform.basis = basis
-
-			prev = curr
-			dist_acc = 0.0
-
+	var csg = CSGPolygon.new()
+	csg.mode = CSGPolygon.MODE_PATH
+	csg.path_node = path_node.get_path()
+	csg.polygon = _generate_circle_polygon(cable_radius, cable_sides)
+	csg.material = cable_material
+	csg.use_collision = true
+	csg.name = "CableVis"
+	add_child(csg)
 
 func _generate_circle_polygon(radius: float, sides: int) -> PoolVector2Array:
 	var arr = PoolVector2Array()
@@ -194,85 +326,12 @@ func _generate_circle_polygon(radius: float, sides: int) -> PoolVector2Array:
 		arr.append(Vector2(cos(angle), sin(angle)) * radius)
 	return arr
 
-func _generate_tube_mesh(curve: Curve3D, radius: float, sides: int) -> ArrayMesh:
-	var st = SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-
-	var baked_points = curve.get_baked_points()
-	var baked_tilts = curve.get_baked_tilts()
-	# Up vector logic needed. Curve3D uses tilts.
-	# Simple Frenet frame or similar.
-
-	# For simplicity, I'll rely on a basic up vector that rotates if direction changes up.
-	# Or just use `curve.interpolate_baked_up_vectors` if available in 3.5? No.
-
-	var up = Vector3.UP
-
-	for i in range(baked_points.size()):
-		var p = baked_points[i]
-		var tangent = Vector3.FORWARD
-		if i < baked_points.size() - 1:
-			tangent = (baked_points[i+1] - p).normalized()
-		elif i > 0:
-			tangent = (p - baked_points[i-1]).normalized()
-
-		# Make a basis
-		var right = tangent.cross(up).normalized()
-		if right.length_squared() < 0.001:
-			right = tangent.cross(Vector3.RIGHT).normalized()
-		up = right.cross(tangent).normalized()
-
-		var basis = Basis(right, up, -tangent) # -Z is forward in basis?
-		# Actually we just need a rotation to place the ring.
-
-		# Generate ring
-		for j in range(sides + 1): # +1 to close loop
-			var angle = (j / float(sides)) * TAU
-			var local_pos = Vector2(cos(angle), sin(angle)) * radius
-			var pos_3d = p + (right * local_pos.x) + (up * local_pos.y)
-
-			var uv_x = j / float(sides)
-			var uv_y = i / float(baked_points.size())
-			st.add_uv(Vector2(uv_x, uv_y))
-			st.add_vertex(pos_3d)
-
-	# Indices
-	var ring_v_count = sides + 1
-	for i in range(baked_points.size() - 1):
-		for j in range(sides):
-			var curr = i * ring_v_count + j
-			var next = curr + 1
-			var upper_curr = (i + 1) * ring_v_count + j
-			var upper_next = upper_curr + 1
-
-			# Tri 1
-			st.add_index(curr)
-			st.add_index(upper_curr)
-			st.add_index(next)
-
-			# Tri 2
-			st.add_index(next)
-			st.add_index(upper_curr)
-			st.add_index(upper_next)
-
-	st.generate_normals()
-	var mesh = st.commit()
-	# Diagnostic: print surface AABB/vertex count if possible
-	if mesh:
-		var aabb = mesh.get_aabb()
-		print("[CircuitCable] generated mesh AABB: ", aabb)
-		# If ArrayMesh, attempt to get face count
-		var surfaces = mesh.get_surface_count()
-		print("[CircuitCable] mesh surface_count: ", surfaces)
-	return mesh
-
 func take_damage(amount: float) -> void:
 	health -= amount
 	if health <= 0:
 		emit_signal("connection_broken")
 		queue_free()
 
-# Compatibility for other damage systems
 func damage(amount: float) -> void:
 	take_damage(amount)
 
@@ -283,103 +342,32 @@ func is_broken() -> bool:
 	return health <= 0
 
 func init_from_curve(curve: Curve3D) -> void:
-	# Initialize the cable from a Curve3D and build geometry
 	path_curve = curve
 	build()
 
 # --- Energy Reactivity ---
 
 func _update_visuals() -> void:
-	"""Override from PropBaseV2 to react to energy (is_active state)."""
-	# Use target_progress if anim_progress hasn't started (animation pending)
-	# This ensures immediate visual feedback when set_active is called
-	# Fix: Use target_progress whenever anim_progress is at initial value (0), regardless of direction
+	._update_visuals() # Call parent
+	
 	var t = target_progress if anim_progress < 0.01 else anim_progress
 	
-	print("[CircuitCable] _update_visuals: t=", t, " target_progress=", target_progress, " anim_progress=", anim_progress)
-	
-	# Update legacy state for test compatibility
-	# Map anim_progress to state: idle (0-0.3), mid (0.3-0.7), active (0.7-1.0)
-	if t < 0.3:
-		circuit_state = "idle"
-	elif t < 0.7:
-		circuit_state = "mid"
-	else:
-		circuit_state = "active"
-	
-	print("[CircuitCable] circuit_state now: ", circuit_state)
-	
-	# Get the cable visual mesh
-	var mesh_inst = get_node_or_null("CableVis")
-	if not mesh_inst:
-		return
-	
-	# ALWAYS create a fresh material for energy visualization
-	# This ensures we don't modify the assigned cable_material (CableVisible.tres)
-	var mat = SpatialMaterial.new()
-	mesh_inst.material_override = mat
-	
-	# Energy states: inactive (dim gray), active (glowing cyan/electric blue)
-	var inactive_color = Color(0.1, 0.1, 0.1)  # Very dark gray (almost black)
-	var active_color = Color(0.0, 1.0, 0.8)     # Bright electric cyan
-	
-	# Add dramatic pulse effect based on time when active
-	var pulse = 1.0
-	if t > 0.5:
-		# Pulse effect when more than 50% active
-		pulse = 1.0 + 0.3 * sin(OS.get_ticks_msec() * 0.01)
-	
-	# Interpolate based on animation progress
-	var current_color = inactive_color.linear_interpolate(active_color, t)
-	
-	# Set albedo
-	mat.albedo_color = current_color
-	
-	# Enable emission for strong glow effect when active
-	mat.emission_enabled = true
-	mat.emission = current_color
-	mat.emission_energy = t * 5.0 * pulse  # Very strong glow!
-	
-	# Make it really obvious when off - no glow at all
-	if t < 0.1:
-		mat.emission_energy = 0.0
-		mat.albedo_color = Color(0.05, 0.05, 0.05)  # Very dark
-
-# --- Interaction (for manual testing) ---
-
-func set_active(value: bool, immediate: bool = false) -> void:
-	"""Override set_active to update state property when called by Lever."""
-	print("[CircuitCable] set_active called with value:", value)
-	# Call parent implementation
-	.set_active(value, immediate)
-	# Force update the state immediately
-	_update_visuals()
+	if _shader_mat:
+		_shader_mat.set_shader_param("activation_level", t)
+	elif cable_material:
+		# Legacy
+		var color = Color(0.1, 0.1, 0.1).linear_interpolate(Color(0.0, 1.0, 0.8), t)
+		cable_material.albedo_color = color
+		cable_material.emission = color * t * 5.0
 
 func interact(_from = null) -> void:
-	"""Toggle energy state. Called by player interaction or pipeline."""
-	print("[CircuitCable] interact() called. Current is_active:", is_active)
-	# Use the base class toggle via set_active
 	.set_active(not is_active)
 
-# Legacy state handling for backward compatibility with tests
-var circuit_state: String = "idle" # idle, mid, active
+func set_active(value: bool, immediate: bool = false) -> void:
+	.set_active(value, immediate)
+	_update_visuals()
 
-# Alias for test compatibility
-func get_state() -> String:
-	return circuit_state
-
-func set_state(value: String) -> void:
-	circuit_state = value
-
-var state: String = "idle" setget set_state, get_state
-
-# Legacy method - now calls set_active
-func set_cable_visuals(emission: float, color: Color):
-	if not cable_material:
-		cable_material = SpatialMaterial.new()
-		var mesh_inst = get_node_or_null("CableVis")
-		if mesh_inst:
-			mesh_inst.material_override = cable_material
-	cable_material.emission_enabled = true
-	cable_material.emission = color * emission
-	cable_material.albedo_color = color
+# Legacy compatibility
+var circuit_state: String = "idle"
+func get_state() -> String: return circuit_state
+func set_state(value: String) -> void: circuit_state = value
