@@ -9,6 +9,7 @@ class_name PropBaseV2
 # --- EXPORTS ---
 # Automatic linking: If null, checks for parent/children in _ready
 export(NodePath) var linked_switch_path
+export(Array, NodePath) var linked_switch_paths = []  # Multi-switch support (OR logic)
 export(Array, NodePath) var visual_parts_paths = []
 
 # --- DEBUG & VALIDATION ---
@@ -16,6 +17,7 @@ export(bool) var debug_draw = false
 
 # --- PRIVATE VARS ---
 var _linked_switch: Node = null
+var _linked_switches: Array = []  # Multi-switch support
 var _visual_parts: Array = []
 
 func _ready():
@@ -36,18 +38,48 @@ func _ready():
 	_update_visuals()
 
 func _auto_wire_switches():
+	# 1. Explicit single switch path (legacy)
 	if linked_switch_path:
 		_linked_switch = get_node_or_null(linked_switch_path)
 		if _linked_switch:
 			_connect_switch_signals(_linked_switch)
 		return
-
-	# Fallback: Check parent
+	
+	# 2. Multi-switch paths (OR logic - any switch activates)
+	if not linked_switch_paths.empty():
+		for path in linked_switch_paths:
+			var switch = get_node_or_null(path)
+			if switch and _is_valid_switch(switch):
+				_linked_switches.append(switch)
+				_connect_switch_signals(switch)
+		if not _linked_switches.empty():
+			return
+	
+	# 3. Check parent
 	var parent = get_parent()
-	if parent:
-		if parent.has_signal("state_changed") or parent.has_signal("activated"):
-			_linked_switch = parent
-			_connect_switch_signals(parent)
+	if parent and _is_valid_switch(parent):
+		_linked_switch = parent
+		_connect_switch_signals(parent)
+		return
+	
+	# 4. Check children (NEW - was missing)
+	for child in get_children():
+		if _is_valid_switch(child):
+			_linked_switch = child
+			_connect_switch_signals(child)
+			return
+
+func _is_valid_switch(node: Node) -> bool:
+	"""Check if a node can act as a switch source."""
+	if node.has_signal("activated"):
+		return true
+	if node.has_signal("deactivated"):
+		return true
+	if node.has_signal("state_changed"):
+		return true
+	if node.has_signal("toggled"):
+		return true
+	return false
 
 func _connect_switch_signals(node: Node):
 	# Spec preferred signal

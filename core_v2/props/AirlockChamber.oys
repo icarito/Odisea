@@ -1,0 +1,29 @@
+LEVEL res://core_v2/scenes/PropStage.tscn
+WAIT 1.0
+
+# Load the AirlockChamber prop
+LOAD_PROP res://core_v2/props/AirlockChamber.tscn
+WAIT 1.0
+
+# Take initial screenshot
+SCREENSHOT 0_idle
+
+# Interact to trigger the door opening
+INTERACT target=prop
+WAIT 2.5
+
+# Take screenshot after door has opened (mid point in animation)
+SCREENSHOT 1_mid
+
+# Wait for animation to complete
+WAIT 1.0
+
+# Final screenshot when fully open
+SCREENSHOT 2_active
+
+# Close the door
+INTERACT target=prop
+WAIT 2.5
+
+# Take final screenshot
+SCREENSHOT 3_off

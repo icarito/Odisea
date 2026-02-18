@@ -149,32 +149,28 @@ func _run_validation_oys():
 
 # Hook called by OYSInterpreter SCREENSHOT command
 func take_oys_screenshot(label: String, prop_named_prefix: String) -> String:
-    yield (get_tree(), "idle_frame") # Ensure sync
+    yield (get_tree(), "idle_frame")
     
     print("[PropStage] Capturing clean screenshot: ", label)
     
-    # Create temporary viewport for deterministic capture
     var vp = Viewport.new()
     vp.size = Vector2(1280, 720)
     vp.own_world = true
     vp.transparent_bg = true
     vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
-    # We must add VP to tree to render
     add_child(vp)
     
-    # Clone Scene Content (Environment, Lights, Platform)
     for c in get_children():
-        if c == vp: continue # Skip the viewport itself
-        if c.name == "Camera": continue # Handled separately
-        if c.name == "SpawnPoint": continue # Handled separately
+        if c == vp: continue
+        if c.name == "Camera": continue
+        if c.name == "SpawnPoint": continue
+        if c.name == "Pilot": continue
         if c is Viewport: continue
         
-        # We want VisualInstances (Meshes, Lights), WorldEnvironment
         if c is WorldEnvironment or c is VisualInstance or c is Light:
             var dup = c.duplicate()
             vp.add_child(dup)
             
-    # Add Camera
     var cam = Camera.new()
     if $Camera:
         cam.transform = $Camera.transform
@@ -188,29 +184,42 @@ func take_oys_screenshot(label: String, prop_named_prefix: String) -> String:
         cam.look_at(Vector3(0, 0.5, 0), Vector3.UP)
     vp.add_child(cam)
     
-    # Add Current Prop Clone
-    # We clone the *current state* of the prop
-    if current_prop:
-        var p_copy = current_prop.duplicate()
-        vp.add_child(p_copy)
-        # Ensure transform matches if it's not at origin?
-        # PropStage logic places prop at SpawnPoint.
-        # If we duplicate, it keeps transform relative to parent?
-        # current_prop parent is SpawnPoint. p_copy parent is Viewport.
-        # We need to apply SpawnPoint transform + prop transform?
-        # SpawnPoint is usually at (0,0,0).
-        
-        if p_copy is Spatial:
-            # Apply global transform of original to copy
-            p_copy.global_transform = current_prop.global_transform
+    var prop_original_parent: Node = null
+    var prop_original_transform: Transform = Transform()
+    var pilot_original_parent: Node = null
+    var pilot_original_transform: Transform = Transform()
+    var pilot_node: Node = get_node_or_null("Pilot")
     
-    # Wait for render
+    if current_prop:
+        prop_original_parent = current_prop.get_parent()
+        prop_original_transform = current_prop.global_transform
+        if prop_original_parent:
+            prop_original_parent.remove_child(current_prop)
+        vp.add_child(current_prop)
+    
+    if pilot_node:
+        pilot_original_parent = pilot_node.get_parent()
+        pilot_original_transform = pilot_node.global_transform
+        if pilot_original_parent:
+            pilot_original_parent.remove_child(pilot_node)
+        vp.add_child(pilot_node)
+    
     yield (VisualServer, "frame_post_draw")
     yield (VisualServer, "frame_post_draw")
     
     var tex = vp.get_texture()
     var img = tex.get_data()
     img.flip_y()
+    
+    if current_prop and prop_original_parent:
+        vp.remove_child(current_prop)
+        prop_original_parent.add_child(current_prop)
+        current_prop.global_transform = prop_original_transform
+    
+    if pilot_node and pilot_original_parent:
+        vp.remove_child(pilot_node)
+        pilot_original_parent.add_child(pilot_node)
+        pilot_node.global_transform = pilot_original_transform
     
     var dir = Directory.new()
     var res_base = "res://test_output/props/"
@@ -247,7 +256,7 @@ func take_oys_screenshot(label: String, prop_named_prefix: String) -> String:
     
     var fs_res_path = ""
     if fs_res_base != "":
-        if not fs_res_base.endswith("/"):
+        if not fs_res_base.ends_with("/"):
             fs_res_base += "/"
         fs_res_path = fs_res_base + "%s_%s.png" % [prefix, label]
 
@@ -298,23 +307,18 @@ func unload_prop():
         return
     for c in spawn_point.get_children():
         spawn_point.remove_child(c)
-        c.queue_free()
+        c.free()
     current_prop = null
     _accumulated_wait_time = 0.0
 
 func load_prop(path: String) -> void:
-    unload_prop() # Ensure clean slate
+    unload_prop()
     
     if not spawn_point:
         printerr("[PropStage] SpawnPoint node missing!")
         return
     
     _accumulated_wait_time = 0.0
-
-    # Clear existing props (redundant but safe)
-    for c in spawn_point.get_children():
-        spawn_point.remove_child(c)
-        c.queue_free()
     
     # yield (get_tree(), "physics_frame") # Wait for cleanup
     

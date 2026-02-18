@@ -22,11 +22,11 @@ SECTION "StartValidation"
     # PropBaseV2 handles logic, visuals update automatically
     INTERACT target=prop
     # Increased waits to capture slower visual transitions (was 0.25)
-    WAIT 0.6
+    WAIT 2.0
     SCREENSHOT 1_mid
     
     # Give longer time for active visual effects to settle (was 0.6)
-    WAIT 1.2
+    WAIT 3.0
     SCREENSHOT 2_active
     
     # Optional: Deactivate

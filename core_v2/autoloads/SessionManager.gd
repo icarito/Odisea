@@ -2055,7 +2055,10 @@ func unregister_oys_actor(name: String) -> void:
 		_oys_actors.erase(name)
 
 func take_oys_screenshot(label: String, _extra = ""):
-	# Wait for draw to complete
+	var stage = _resolve_stage()
+	if stage and stage.has_method("take_oys_screenshot"):
+		return yield(stage.take_oys_screenshot(label, _extra), "completed")
+	
 	yield (get_tree(), "idle_frame")
 	yield (VisualServer, "frame_post_draw")
 	
@@ -2063,12 +2066,17 @@ func take_oys_screenshot(label: String, _extra = ""):
 	var dir = Directory.new()
 	if not dir.dir_exists(dir_path):
 		dir.make_dir_recursive(dir_path)
-		
-	var scene_name = "oysshell"
-	if get_tree().current_scene:
-		scene_name = get_tree().current_scene.filename.get_file().get_basename().to_lower()
-		
-	var path = "%s/%s_%s.png" % [dir_path, scene_name, label]
+	
+	var file_prefix = "oysshell"
+	var oys_prop_path = OS.get_environment("OYS_PROP_PATH")
+	if oys_prop_path != "":
+		var prop_name = oys_prop_path.get_file().get_basename()
+		if prop_name != "":
+			file_prefix = prop_name
+	elif get_tree().current_scene:
+		file_prefix = get_tree().current_scene.filename.get_file().get_basename().to_lower()
+	
+	var path = "%s/%s_%s.png" % [dir_path, file_prefix, label]
 	var img = get_tree().root.get_texture().get_data()
 	img.flip_y()
 	var err = img.save_png(path)

@@ -17,7 +17,6 @@ extents = Vector3( 13, 8, 13 )
 
 [node name="PropStage" type="Spatial"]
 script = ExtResource( 1 )
-dev_prop_path = "res://core_v2/props/Lever.tscn"
 dev_force_local_camera = true
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
