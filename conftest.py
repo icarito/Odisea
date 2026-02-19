@@ -332,6 +332,7 @@ def pytest_collection_modifyitems(config, items):
 
     deselected = []
     selected = []
+    seen_source_tests: set[str] = set()
     for item in items:
         # Patch location for tests generated from OYS/GD sources to avoid
         # navigation to tests/test_odisea_runner.py in IDE explorers.
@@ -354,6 +355,11 @@ def pytest_collection_modifyitems(config, items):
             item.location = mapped_location
             item._location = mapped_location
             item._nodeid = f"{rel_path_str}::{item.name}"
+            dedupe_key = item._nodeid
+            if dedupe_key in seen_source_tests:
+                deselected.append(item)
+                continue
+            seen_source_tests.add(dedupe_key)
 
         is_gdunit = "odisea_gdunit" in item.keywords
         is_raw_oys = "odisea_raw_oys" in item.keywords
