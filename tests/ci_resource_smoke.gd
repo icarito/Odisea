@@ -4,6 +4,8 @@ const CRITICAL_RESOURCES := [
 	"res://core_v2/ui/retro/RetroOS.tres",
 	"res://core_v2/components/PushableBoxV2.tscn",
 	"res://core_v2/components/SlidingObjectV2.tscn",
+	# Fails early when the GLB import pipeline is still incomplete.
+	"res://core_v2/actors/Pilot_v2.tscn",
 ]
 
 func _init() -> void:

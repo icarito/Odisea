@@ -151,7 +151,7 @@ jobs:
             echo "Importing Godot resources..."
             # Let editor scan/import finish; --quit aborts scanner too early in CI.
             set +e
-            timeout 45s /usr/local/bin/godot --path . -e --headless --no-window --audio-driver Dummy 2>&1 | tee "$log_file"
+            timeout 90s /usr/local/bin/godot --path . -e --headless --no-window --audio-driver Dummy 2>&1 | tee "$log_file"
             local godot_rc="${PIPESTATUS[0]}"
             set -e
             if [ "$godot_rc" -ne 0 ] && [ "$godot_rc" -ne 124 ]; then
@@ -159,10 +159,15 @@ jobs:
               return "$godot_rc"
             fi
             echo "Import complete."
-            ls -la .import/ 2>/dev/null | head -10 || echo "No .import directory"
-            ls .import/*Pilot.glb-*.scn >/dev/null 2>&1 || echo "WARN: Pilot.glb import artifact not found yet"
-            ls .import/*metal1.wav-*.sample >/dev/null 2>&1 || echo "WARN: metal1.wav import artifact not found yet"
-            ls .import/*sfx100v2_door_01.ogg-*.oggstr >/dev/null 2>&1 || echo "WARN: sfx100v2_door_01.ogg import artifact not found yet"
+            ls -la .import/ 2>/dev/null | head -10 || true
+            local missing=0
+            # Critical artifacts needed by autoloads/scenes during test bootstrap.
+            ls .import/*Pilot.glb-*.scn >/dev/null 2>&1 || { echo "ERROR: Pilot.glb import artifact not found yet"; missing=1; }
+            ls .import/*metal1.wav-*.sample >/dev/null 2>&1 || { echo "ERROR: metal1.wav import artifact not found yet"; missing=1; }
+            ls .import/*sfx100v2_door_01.ogg-*.oggstr >/dev/null 2>&1 || { echo "ERROR: sfx100v2_door_01.ogg import artifact not found yet"; missing=1; }
+            if [ "$missing" -ne 0 ]; then
+              return 1
+            fi
           }
 
           smoke_once() {
@@ -182,12 +187,15 @@ jobs:
             if grep -q "\[CI_SMOKE\] Missing resources count:" "$log_file"; then
               return 1
             fi
+            # Treat script/parse/import bootstrap errors as smoke failures.
+            if grep -E -q "SCRIPT ERROR:|Parse Error:|referenced nonexistent resource|Failed loading resource: res://core_v2/actors/Pilot_v2.tscn|Failed loading resource: res://models/Pilot\\.glb" "$log_file"; then
+              return 1
+            fi
             return 0
           }
 
-          import_once reports/import_resources.log
-          if ! smoke_once reports/resource_smoke.log; then
-            echo "Smoke check failed after cached import. Cleaning import cache and retrying..."
+          if ! import_once reports/import_resources.log || ! smoke_once reports/resource_smoke.log; then
+            echo "Import/smoke failed after cached import. Cleaning import cache and retrying..."
             rm -rf .import .godot/imported
             import_once reports/import_resources_retry.log
             smoke_once reports/resource_smoke_retry.log
