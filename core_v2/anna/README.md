@@ -103,6 +103,23 @@ Ejecutar comandos OYS de forma controlada:
 
 `once_id` evita repetir acciones one-shot si el mismo payload se retransmite.
 
+Desde OYS tambien se puede disparar clientes externos con la nueva funcion helper:
+
+```oys
+SET $pid SYSTEM python3 core_v2/anna/client/anna_scene_visual_driver.py --frames 72
+ASSERT $pid > 0 "No se pudo lanzar driver TCP"
+```
+
+Sintaxis:
+
+```oys
+SET $var SYSTEM [sync|async] <programa> [args...]
+```
+
+- `async` (default): retorna PID (> 0).
+- `sync`: retorna exit code del proceso.
+- En error retorna `-1`.
+
 Controlar el circuito OLCS desde ANNA:
 
 ```json
@@ -144,12 +161,20 @@ python3 core_v2/anna/client/anna_client.py
 
 - Escena especial: `res://core_v2/tests/TestScene_ANNA.tscn`
 - Tests: `res://core_v2/tests/test_anna_interface.gd`
-- Captura visual: `res://core_v2/tests/test_anna_scene_visual.oys`
+- Validacion visual TCP: `res://core_v2/tests/test_anna_scene_visual.oys`
+- Driver determinista: `res://core_v2/anna/client/anna_scene_visual_driver.py`
 
 ```bash
 ./runtest.sh -a ./core_v2/tests/test_anna_interface.gd
 ./runtest.sh --oys test_anna_scene_visual
 ```
+
+`test_anna_scene_visual.oys` usa:
+
+- `# REQUIRE_ANNA=1` para auto-instanciar `AnnaBridge` si falta en runtime.
+- `# OYS_NODET=1` para saltar solo PASS 2 de determinismo (replay JSON) en este caso con agente externo.
+
+El test valida movimiento real del `Pilot` via TCP con `ASSERT` (sin `SCREENSHOT`).
 
 Documentacion canon:
 

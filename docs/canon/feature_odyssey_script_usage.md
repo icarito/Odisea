@@ -36,6 +36,7 @@ END
 - `SET <propiedad> <valor>`: Fija estado inicial.
 - `ASSERT <condición> "mensaje"`: Verifica condición al final.
 - `SECTION "nombre" ... END`: Agrupa acciones y asserts.
+- `SET $var SYSTEM [sync|async] <programa> [args...]`: Ejecuta comando del SO y guarda PID/exit code.
 
 ## Modificadores de Velocidad
 - `WALK <acción>`: Fuerza a caminar (ej: `WALK FW 2s`).
@@ -56,4 +57,15 @@ SECTION "Salto y avance"
     WAIT 0.3
     ASSERT pos.z > 1.5 "No avanzó lo suficiente"
 END
+```
+
+## Ejecucion de comandos del sistema (`SYSTEM`)
+```oys
+# Async por defecto: retorna PID
+SET $pid SYSTEM python3 core_v2/anna/client/anna_scene_visual_driver.py --frames 32
+ASSERT $pid > 0 "No se pudo lanzar el driver"
+
+# Sync: retorna exit code
+SET $code SYSTEM sync python3 --version
+ASSERT $code == 0 "python3 --version falló"
 ```

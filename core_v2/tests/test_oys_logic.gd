@@ -92,6 +92,26 @@ class RecordingInterpreter extends OYS_Interpreter:
 	func _clear_subtitles(immediate: bool = false) -> void:
 		clears.append(immediate)
 
+class SystemMockInterpreter extends OYS_Interpreter:
+	var system_calls := []
+	var async_pid := 4242
+	var sync_exit_code := 7
+
+	func _init(host = null).(host):
+		pass
+
+	func _run_system_command(exec_path: String, exec_args: Array, blocking: bool) -> Dictionary:
+		system_calls.append({
+			"exec": exec_path,
+			"args": exec_args.duplicate(),
+			"blocking": blocking
+		})
+		return {
+			"ok": true,
+			"value": sync_exit_code if blocking else async_pid,
+			"blocking": blocking
+		}
+
 class DisabledSubtitlesManager extends SubtitlesOverlayManager:
 	func is_enabled() -> bool:
 		return false
@@ -229,6 +249,44 @@ func test_math_complex_assignment():
 	var c = interpreter.variables.get("$c", 0)
 	assert_float(c).is_equal(6.0)
 	
+	host.queue_free()
+
+func test_system_helper_async_default_returns_pid():
+	var host = MockHost.new()
+	add_child(host)
+
+	var interpreter = SystemMockInterpreter.new(host)
+	var script = """
+	SET $pid SYSTEM python3 core_v2/anna/client/anna_scene_visual_driver.py --frames 8
+	"""
+	interpreter.parse(script)
+	yield (_run_interpreter(interpreter), "completed")
+
+	assert_int(interpreter.system_calls.size()).is_equal(1)
+	var call = interpreter.system_calls[0]
+	assert_bool(bool(call.get("blocking", true))).is_false()
+	assert_str(String(call.get("exec", ""))).is_equal("python3")
+	assert_int(int(interpreter.variables.get("$pid", -1))).is_equal(4242)
+
+	host.queue_free()
+
+func test_system_helper_sync_mode_returns_exit_code():
+	var host = MockHost.new()
+	add_child(host)
+
+	var interpreter = SystemMockInterpreter.new(host)
+	var script = """
+	SET $exit SYSTEM sync python3 --version
+	"""
+	interpreter.parse(script)
+	yield (_run_interpreter(interpreter), "completed")
+
+	assert_int(interpreter.system_calls.size()).is_equal(1)
+	var call = interpreter.system_calls[0]
+	assert_bool(bool(call.get("blocking", false))).is_true()
+	assert_str(String(call.get("exec", ""))).is_equal("python3")
+	assert_int(int(interpreter.variables.get("$exit", -1))).is_equal(7)
+
 	host.queue_free()
 
 func test_interpreter_print_calls_subtitle():

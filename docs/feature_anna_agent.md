@@ -70,6 +70,25 @@ ANNA puede coordinar tres capas en un mismo ciclo:
 
 Para evitar repeticion involuntaria en acciones discretas, `oys` y `olcs/ocls` soportan `once_id`.
 
+Adicionalmente, OYS soporta una funcion `SYSTEM` para lanzar comandos externos desde `SET`:
+
+```oys
+SET $pid SYSTEM python3 core_v2/anna/client/anna_scene_visual_driver.py --frames 72
+ASSERT $pid > 0 "No se pudo iniciar driver ANNA TCP"
+```
+
+Sintaxis:
+
+```oys
+SET $var SYSTEM [sync|async] <programa> [args...]
+```
+
+- `async` (default): retorna PID.
+- `sync`: retorna exit code.
+- error: retorna `-1`.
+
+Para replays deterministas, los eventos `SYSTEM` se omiten en PASS 2 (replay JSON), evitando side-effects externos.
+
 ## 3) Rendimiento: estrategia GDScript vs C++ (GDExtension)
 
 Para MVP se mantiene orquestacion en GDScript (menor costo de iteracion), bajo la regla:
@@ -122,11 +141,11 @@ Validacion visual de la escena especial:
 ./runtest.sh --oys test_anna_scene_visual
 ```
 
-Artefactos esperados en `test_output/ui/`:
+`test_anna_scene_visual.oys` ahora valida ANNA por TCP con `ASSERT` (sin screenshots), usando:
 
-- `ui_0_spawn_overview.png`
-- `ui_1_far_beacon_angle.png`
-- `ui_2_near_wall_focus.png`
+- `# REQUIRE_ANNA=1` para auto-enable de bridge.
+- `# OYS_NODET=1` para saltar PASS 2 (replay JSON) de ese script.
+- `SYSTEM` para lanzar `core_v2/anna/client/anna_scene_visual_driver.py`.
 
 Leyenda visual de `TestScene_ANNA.tscn`:
 

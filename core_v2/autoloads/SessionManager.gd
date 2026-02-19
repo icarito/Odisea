@@ -61,6 +61,7 @@ var _is_waiting_for_respawn_validation := false
 # Flag para indicar que estamos en proceso de respawn (los triggers no deben ejecutarse)
 var is_respawning := false
 var _session_run_id := 0
+var _system_launch_counter := 1000
 
 func _get_replay_sync_nodes() -> Array:
 	if _replay_sync_cache_dirty:
@@ -151,14 +152,7 @@ func _ready():
 
 	# --- Project A.N.N.A Integration ---
 	if OS.get_environment("ANNA_ENABLED") == "1":
-		print("[SessionManager] Enabling A.N.N.A Agent Interface...")
-		var bridge_res = load("res://core_v2/anna/AnnaBridge.gd")
-		if bridge_res:
-			var bridge = bridge_res.new()
-			bridge.name = "AnnaBridge"
-			add_child(bridge)
-		else:
-			printerr("[SessionManager] Failed to load AnnaBridge.")
+		_ensure_anna_bridge_enabled("ANNA_ENABLED=1")
 
 	# Detección de parámetro --replay
 	var args = OS.get_cmdline_args()
@@ -223,6 +217,31 @@ func _ready():
 		var script_path = _env_vars["$sys_env_auto_run"]
 		is_cli_mode = true
 		get_tree().connect("tree_changed", self, "_on_tree_changed_for_script", [script_path], CONNECT_ONESHOT)
+
+func _ensure_anna_bridge_enabled(reason: String = "") -> Node:
+	var existing = get_node_or_null("AnnaBridge")
+	if existing and is_instance_valid(existing):
+		return existing
+
+	print("[SessionManager] Enabling A.N.N.A Agent Interface...", (" reason=%s" % reason) if reason != "" else "")
+	var bridge_res = load("res://core_v2/anna/AnnaBridge.gd")
+	if bridge_res == null:
+		printerr("[SessionManager] Failed to load AnnaBridge.")
+		return null
+
+	var bridge = bridge_res.new()
+	bridge.name = "AnnaBridge"
+	add_child(bridge)
+	return bridge
+
+func _script_requires_anna(script_content: String) -> bool:
+	for raw_line in script_content.split("\n"):
+		var line = raw_line.strip_edges()
+		if line == "":
+			continue
+		if (line.begins_with("#") or line.begins_with("//")) and line.findn("REQUIRE_ANNA=1") != -1:
+			return true
+	return false
 
 
 # Conexión automática de TeleportSystem con Player, Camera y zonas
@@ -716,6 +735,8 @@ func load_and_play(path: String):
 		file.open(path, File.READ)
 		var script_content = file.get_as_text()
 		file.close()
+		if _script_requires_anna(script_content):
+			_ensure_anna_bridge_enabled("REQUIRE_ANNA=1 in %s" % path)
 
 		# Initialize for Live Script Execution (SETUP MODE)
 		_recording_frame = 0
@@ -1468,7 +1489,76 @@ func _execute_helper_func(func_name: String, args: Array):
 			var node = _find_node_recursive(node_name)
 			if node: return node.global_transform.origin.z
 			return 0.0
+		"SYSTEM":
+			var parsed = _parse_system_helper_args(args)
+			if not bool(parsed.get("ok", false)):
+				printerr("[SessionManager][OYS SYSTEM] Invalid args: ", parsed.get("error", "unknown"))
+				return -1
+			if is_replaying and not is_recording:
+				print("[SessionManager][OYS SYSTEM] Skipped during deterministic replay: %s %s" % [
+					str(parsed.get("exec", "")),
+					str(parsed.get("args", []))
+				])
+				return 0
+			var result = _run_system_helper_command(
+				str(parsed.get("exec", "")),
+				parsed.get("args", []),
+				bool(parsed.get("blocking", false))
+			)
+			if not bool(result.get("ok", false)):
+				printerr("[SessionManager][OYS SYSTEM] Command failed: ", result.get("error", "unknown"))
+				return -1
+			return int(result.get("value", -1))
 	return 0.0
+
+func _parse_system_helper_args(args: Array) -> Dictionary:
+	var tokens := []
+	for raw in args:
+		tokens.append(str(raw).strip_edges())
+	if tokens.empty():
+		return {"ok": false, "error": "missing command"}
+
+	var blocking := false
+	var mode = tokens[0].to_lower()
+	if mode == "sync":
+		blocking = true
+		tokens.pop_front()
+	elif mode == "async":
+		blocking = false
+		tokens.pop_front()
+
+	if tokens.empty():
+		return {"ok": false, "error": "missing executable"}
+
+	var exec_path = String(tokens[0]).strip_edges()
+	if exec_path == "":
+		return {"ok": false, "error": "empty executable"}
+	tokens.pop_front()
+
+	return {
+		"ok": true,
+		"exec": exec_path,
+		"args": tokens,
+		"blocking": blocking
+	}
+
+func _run_system_helper_command(exec_path: String, exec_args: Array, blocking: bool) -> Dictionary:
+	if exec_path.strip_edges() == "":
+		return {"ok": false, "error": "empty executable", "value": -1, "blocking": blocking}
+
+	var output := []
+	var ret = OS.execute(exec_path, exec_args, blocking, output, true)
+
+	if blocking:
+		return {"ok": true, "value": int(ret), "blocking": true}
+
+	if int(ret) >= 0:
+		var pid = int(ret)
+		if pid <= 0:
+			_system_launch_counter += 1
+			pid = _system_launch_counter
+		return {"ok": true, "value": pid, "blocking": false}
+	return {"ok": false, "error": "could not start process", "value": -1, "blocking": false}
 
 func _find_node_recursive(name: String) -> Node:
 	if name == "Pilot" or name == "Player":

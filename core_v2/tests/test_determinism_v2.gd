@@ -199,6 +199,24 @@ static func _scan_dir(dir: Directory, current_path: String, results: Array, exte
 		name = dir.get_next()
 	dir.list_dir_end()
 
+static func _oys_has_directive(path: String, directive: String) -> bool:
+	if not path.ends_with(".oys"):
+		return false
+	var f := File.new()
+	if not f.file_exists(path):
+		return false
+	if f.open(path, File.READ) != OK:
+		return false
+	while not f.eof_reached():
+		var line = f.get_line().strip_edges()
+		if line == "":
+			continue
+		if (line.begins_with("#") or line.begins_with("//")) and line.findn(directive) != -1:
+			f.close()
+			return true
+	f.close()
+	return false
+
 var _current_test_scene: Node = null
 
 func _get_scene_for_test(path: String) -> String:
@@ -330,6 +348,9 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 
 		# PASS 2: Verificar que el JSON grabado sea reproducible
 		var skip_json = OS.get_environment("OYS_NODET") != ""
+		if not skip_json and _oys_has_directive(path, "OYS_NODET=1"):
+			skip_json = true
+			print("[TEST_RUNNER] Script directive detected: OYS_NODET=1")
 		if skip_json:
 			print("[TEST_RUNNER] Skipping --- PASS 2: VERIFYING JSON --- (OYS_NODET detected)")
 			return

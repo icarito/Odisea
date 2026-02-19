@@ -20,6 +20,7 @@ var fast_forward: bool = false
 var execution_id: int = 0
 var test_failed: bool = false # Global flag to track test failure
 var loop_runtime_stack: Array = [] # Runtime stack for loops
+var _system_launch_counter: int = 1000
 signal instruction_executed(inst, variables)
 signal instruction_completed(inst, variables)
 
@@ -1576,11 +1577,77 @@ func _call_func(func_name: String, args: Array):
 			if node and node is Spatial:
 				return node.global_transform.origin.z
 			return 0.0
+		"SYSTEM":
+			var parsed = _parse_system_args(args)
+			if not bool(parsed.get("ok", false)):
+				printerr("[OYS SYSTEM] Invalid args: ", parsed.get("error", "unknown"))
+				return -1
+			var result = _run_system_command(
+				str(parsed.get("exec", "")),
+				parsed.get("args", []),
+				bool(parsed.get("blocking", false))
+			)
+			if not bool(result.get("ok", false)):
+				printerr("[OYS SYSTEM] Command failed: ", result.get("error", "unknown"))
+				return -1
+			return int(result.get("value", -1))
 		_:
 			printerr("[OYS] Unknown function called: ", func_name)
 			test_failed = true
 			stop_requested = true
 			return null
+
+func _parse_system_args(args: Array) -> Dictionary:
+	var tokens := []
+	for raw in args:
+		tokens.append(str(raw).strip_edges())
+
+	if tokens.empty():
+		return {"ok": false, "error": "missing command"}
+
+	var blocking := false
+	var mode = tokens[0].to_lower()
+	if mode == "sync":
+		blocking = true
+		tokens.pop_front()
+	elif mode == "async":
+		blocking = false
+		tokens.pop_front()
+
+	if tokens.empty():
+		return {"ok": false, "error": "missing executable"}
+
+	var exec_path = String(tokens[0]).strip_edges()
+	if exec_path == "":
+		return {"ok": false, "error": "empty executable"}
+	tokens.pop_front()
+
+	return {
+		"ok": true,
+		"exec": exec_path,
+		"args": tokens,
+		"blocking": blocking
+	}
+
+func _run_system_command(exec_path: String, exec_args: Array, blocking: bool) -> Dictionary:
+	if exec_path.strip_edges() == "":
+		return {"ok": false, "error": "empty executable", "value": -1, "blocking": blocking}
+
+	var output := []
+	var ret = OS.execute(exec_path, exec_args, blocking, output, true)
+
+	if blocking:
+		# In blocking mode OS.execute returns the child exit code.
+		return {"ok": true, "value": int(ret), "blocking": true}
+
+	# In Godot 3.x non-blocking execute may return 0 on success depending on platform.
+	if int(ret) >= 0:
+		var pid = int(ret)
+		if pid <= 0:
+			_system_launch_counter += 1
+			pid = _system_launch_counter
+		return {"ok": true, "value": pid, "blocking": false}
+	return {"ok": false, "error": "could not start process", "value": -1, "blocking": false}
 
 func _compare(left, op, right) -> bool:
 	var l = left
