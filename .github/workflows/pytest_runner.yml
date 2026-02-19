@@ -158,10 +158,6 @@ jobs:
               echo "Godot import command failed with exit code $godot_rc"
               return "$godot_rc"
             fi
-            if [ "$godot_rc" -eq 124 ]; then
-              echo "Godot import timed out."
-              return 1
-            fi
             echo "Import complete."
             ls -la .import/ 2>/dev/null | head -10 || true
             local missing=0
