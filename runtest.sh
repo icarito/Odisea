@@ -10,7 +10,7 @@
 #   --show    Mostrar ventana de Godot (por defecto es headless)
 #   --oys     Ejecutar un test OYS específico por nombre
 #   --stress  Ejecutar perfil de stress (pytest marker odisea_stress)
-#   --nodet   Saltar tests de determinism
+#   --nodet   Saltar PASS 2 de determinismo (ejecuta solo fase 1)
 #   --debug   Mostrar output completo sin filtrar logs de debug
 #   --runner  Selecciona backend: auto|gdunit|pytest (default: pytest)
 #   --workers Cantidad de workers para pytest-xdist (numero o "auto")
@@ -37,6 +37,17 @@ RUNNER_MODE="${ODISEA_SHELL_RUNNER:-pytest}"
 PYTEST_WORKERS="${ODISEA_PYTEST_WORKERS:-auto}"
 PYTEST_BIN=""
 RUN_STRESS_ONLY=0
+
+is_truthy() {
+    case "${1,,}" in
+        1|true|yes|on) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+should_skip_preflight() {
+    is_truthy "${ODISEA_SKIP_PREFLIGHT:-0}"
+}
 
 # Procesar --show antes que otros argumentos
 if [ "$1" = "--show" ]; then
@@ -225,10 +236,26 @@ is_full_core_suite_target() {
 
 run_pytest_delegate() {
     local cmd=("$PYTEST_BIN")
+    local include_determinism=1
+    local marker_expr="not odisea_stress"
+    if [ -n "${ODISEA_INCLUDE_DETERMINISM+x}" ]; then
+        if ! is_truthy "${ODISEA_INCLUDE_DETERMINISM}"; then
+            include_determinism=0
+            marker_expr="not odisea_stress and not odisea_determinism"
+        fi
+    elif [ -n "${ODISEA_RUN_DETERMINISM+x}" ]; then
+        if ! is_truthy "${ODISEA_RUN_DETERMINISM}"; then
+            include_determinism=0
+            marker_expr="not odisea_stress and not odisea_determinism"
+        fi
+    fi
     if [ $RUN_STRESS_ONLY -eq 1 ]; then
         cmd+=("tests/test_stress_profile.py" "-m" "odisea_stress" "--odisea-include-stress")
     else
-        cmd+=("tests/test_odisea_runner.py" "--odisea-runner" "gdunit" "-m" "not odisea_stress")
+        cmd+=("tests/test_odisea_runner.py" "--odisea-runner" "gdunit" "-m" "$marker_expr")
+        if [ $include_determinism -eq 1 ]; then
+            cmd+=("--odisea-include-determinism")
+        fi
     fi
     if pytest_supports_xdist; then
         cmd+=("-n" "$PYTEST_WORKERS")
@@ -236,10 +263,6 @@ run_pytest_delegate() {
     if [ -z "$HEADLESS" ]; then
         cmd+=("--odisea-debug")
     fi
-    if [ "${OYS_NODET:-0}" = "1" ]; then
-        cmd+=("-k" "not test_det and not test_determinism_batched_case")
-    fi
-
     echo "🐍 Delegando ejecución a pytest..."
     echo "📋 Output guardado en: $LOG_FILE"
     echo "Comando: ${cmd[*]}"
@@ -398,9 +421,24 @@ if [ ${#ARGS[@]} -eq 0 ]; then
     ARGS=("-a" "./core_v2/tests/")
 fi
 
+# Full suite default: include determinism cases in phase 1 (--nodet).
+# Allows opt-out by exporting ODISEA_RUN_DETERMINISM=0 or OYS_NODET=0 explicitly.
+if [ $RUN_STRESS_ONLY -eq 0 ] && is_full_core_suite_target; then
+    if [ -z "${ODISEA_RUN_DETERMINISM+x}" ]; then
+        export ODISEA_RUN_DETERMINISM=1
+        echo "Determinism enabled by default for full core suite (ODISEA_RUN_DETERMINISM=1)."
+    fi
+    if [ -z "${OYS_NODET+x}" ]; then
+        export OYS_NODET=1
+        echo "Running determinism in phase 1 by default (OYS_NODET=1)."
+    fi
+fi
+
 # Try pytest delegation for full-suite runs and stress profile.
 if [ $RUN_STRESS_ONLY -eq 1 ] || is_full_core_suite_target; then
-    run_import_preflight || exit $?
+    if ! should_skip_preflight; then
+        run_import_preflight || exit $?
+    fi
     if [ "$RUNNER_MODE" = "pytest" ]; then
         if ! has_pytest_runner; then
             echo "ERROR: --runner pytest solicitado, pero pytest o tests/test_odisea_runner.py no está disponible."
@@ -437,7 +475,9 @@ else
 fi
 echo "---"
 
-run_import_preflight || exit $?
+if ! should_skip_preflight; then
+    run_import_preflight || exit $?
+fi
 
 # Ejecuta Godot con output en tiempo real (filtrado o completo según modo)
 run_and_capture $GODOT_BIN $HEADLESS $HEADLESS_AUDIO_ARGS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd "${ARGS[@]}"

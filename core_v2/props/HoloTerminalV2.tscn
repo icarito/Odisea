@@ -179,6 +179,7 @@ rotation_mode = 0
 
 [node name="Camera" type="Camera" parent="CinematicSetup/CinematicPathRig/PathFollow"]
 transform = Transform( -0.500003, 0, 0.866028, 0, 1, 0, -0.86603, 0, -0.500001, 0, 0.5, 0 )
+current = true
 near = 0.1
 far = 1000.0
 
@@ -191,10 +192,6 @@ script = ExtResource( 4 )
 transition_time = 0.3
 
 [node name="Camera" type="Camera" parent="CinematicSetup/FocusedRig"]
-current = true
-
-[connection signal="body_entered" from="CinematicSetup/CameraZone" to="." method="_on_camera_zone_body_entered"]
-[connection signal="body_exited" from="CinematicSetup/CameraZone" to="." method="_on_camera_zone_body_exited"]
 
 [node name="SFX PowerUp" type="AudioStreamPlayer3D" parent="."]
 stream = ExtResource( 8 )
@@ -212,4 +209,6 @@ audio_stream = ExtResource( 9 )
 volume_db = -6.0
 max_distance = 15.0
 loop = true
-trigger_mode = "Active"
+
+[connection signal="body_entered" from="CinematicSetup/CameraZone" to="." method="_on_camera_zone_body_entered"]
+[connection signal="body_exited" from="CinematicSetup/CameraZone" to="." method="_on_camera_zone_body_exited"]

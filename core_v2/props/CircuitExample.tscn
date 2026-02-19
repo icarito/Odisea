@@ -11,23 +11,23 @@
 script = ExtResource( 2 )
 nodes = {
 "Light": {
-"position": Vector2( 175, 150 ),
+"position": Vector2( 600, 150 ),
 "scene_path": NodePath("../Light"),
 "type": "PROP"
 },
 "SwitchA": {
-"position": Vector2( 0, 0 ),
+"position": Vector2( 150, 160 ),
 "scene_path": NodePath("../SwitchA"),
 "type": "PROP"
 },
 "SwitchB": {
-"position": Vector2( 300, 0 ),
+"position": Vector2( 140, 310 ),
 "scene_path": NodePath("../SwitchB"),
 "type": "PROP"
 },
 "XORGATE": {
 "gate_type": "XOR",
-"position": Vector2( 175, 0 ),
+"position": Vector2( 350, 190 ),
 "type": "GATE"
 }
 }

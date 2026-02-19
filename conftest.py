@@ -8,6 +8,13 @@ from typing import Any
 import pytest
 
 
+def _env_truthy(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--odisea-runner",
@@ -40,8 +47,8 @@ def pytest_addoption(parser):
     parser.addoption(
         "--odisea-include-determinism",
         action="store_true",
-        default=False,
-        help="Include odisea_determinism tests in editor mode (disabled by default for speed).",
+        default=_env_truthy("ODISEA_INCLUDE_DETERMINISM", True),
+        help="Include odisea_determinism tests (enabled by default; set ODISEA_INCLUDE_DETERMINISM=0 to disable).",
     )
 
 
@@ -103,9 +110,12 @@ def pytest_configure(config):
     if debug_enabled:
         os.environ["ODISEA_DEBUG"] = "1"
 
-    # Ensure OYS determinism tests are collected by default in pytest runs.
+    # Propagate determinism collection mode to dynamic test discovery.
+    # VSCode/editor can opt-in via --odisea-include-determinism.
     if os.environ.get("ODISEA_INCLUDE_DETERMINISM") is None:
-        os.environ["ODISEA_INCLUDE_DETERMINISM"] = "1"
+        os.environ["ODISEA_INCLUDE_DETERMINISM"] = (
+            "1" if bool(config.getoption("--odisea-include-determinism")) else "0"
+        )
 
     # Auto-enable xdist when available. In debug we always force single process.
     if (
@@ -138,6 +148,11 @@ def _is_direct_external_target_run(config) -> bool:
     return any(arg.endswith((".oys", ".gd")) for arg in args)
 
 
+def _is_core_tests_target_run(config) -> bool:
+    args = [str(arg).replace("\\", "/").rstrip("/") for arg in getattr(config.invocation_params, "args", ())]
+    return any(arg.endswith("core_v2/tests") for arg in args)
+
+
 def _to_oys_selector(target_path: Path, rootpath: Path) -> str:
     try:
         rel = target_path.relative_to(rootpath / "core_v2" / "tests")
@@ -149,7 +164,10 @@ def _to_oys_selector(target_path: Path, rootpath: Path) -> str:
 class OdiseaExternalTargetFile(pytest.File):
     def collect(self):
         target_path = Path(str(self.path))
-        test_name = f"test_external__{target_path.stem}"
+        if target_path.suffix == ".oys":
+            test_name = f"test_det__{target_path.stem}"
+        else:
+            test_name = f"test_gd__{target_path.stem}"
         item = OdiseaExternalTargetItem.from_parent(
             self,
             name=test_name,
@@ -157,6 +175,50 @@ class OdiseaExternalTargetFile(pytest.File):
         )
         item._oys_source = target_path
         return [item]
+
+
+class OdiseaExternalTargetDirectory(pytest.Directory):
+    def collect(self):
+        rootpath = Path(self.config.rootpath)
+        tests_root = rootpath / "core_v2" / "tests"
+        include_stress = bool(self.config.getoption("--odisea-include-stress")) or os.environ.get(
+            "ODISEA_INCLUDE_STRESS", ""
+        ).strip().lower() in {"1", "true", "yes", "on"}
+
+        items = []
+        for target_path in sorted(tests_root.rglob("*")):
+            if not target_path.is_file():
+                continue
+            if target_path.suffix not in {".oys", ".gd"}:
+                continue
+            if "stress" in target_path.parts and not include_stress:
+                continue
+
+            if target_path.suffix == ".gd":
+                try:
+                    text = target_path.read_text(encoding="utf-8", errors="ignore")
+                except OSError:
+                    continue
+                if "GdUnitTestSuite" not in text:
+                    continue
+                if target_path.name == "test_determinism_v2.gd":
+                    continue
+                test_name = f"test_gd__{target_path.stem}"
+            else:
+                test_name = f"test_det__{target_path.stem}"
+
+            item = OdiseaExternalTargetItem.from_parent(
+                self,
+                name=test_name,
+                target_path=target_path,
+            )
+            item._oys_source = target_path
+            item.add_marker(pytest.mark.odisea_gdunit)
+            if "stress" in target_path.parts:
+                item.add_marker(pytest.mark.odisea_stress)
+            items.append(item)
+
+        return items
 
 
 class OdiseaExternalTargetItem(pytest.Item):
@@ -200,20 +262,54 @@ class OdiseaExternalTargetItem(pytest.Item):
             )
 
     def reportinfo(self):
-        return self.path, 0, self.name
+        return self.target_path, 0, self.name
+
+
+def pytest_collect_directory(path: Path, parent):
+    config = parent.config
+    if not bool(config.getoption("--odisea-editor")):
+        return None
+    if not _is_core_tests_target_run(config):
+        return None
+    root_tests = Path(config.rootpath) / "core_v2" / "tests"
+    if Path(path) != root_tests:
+        return None
+    return OdiseaExternalTargetDirectory.from_parent(parent, path=path)
 
 
 def pytest_collect_file(file_path: Path, parent):
     if file_path.suffix not in {".oys", ".gd"}:
         return None
     config = parent.config
-    if not _is_direct_external_target_run(config):
+    editor_native_collect = bool(config.getoption("--odisea-editor")) and _is_core_tests_target_run(config)
+    if editor_native_collect:
+        # Directory-level collector handles this mode to keep tests flat in IDE.
+        return None
+    if not (_is_direct_external_target_run(config) or editor_native_collect):
         return None
     rootpath = Path(config.rootpath)
     try:
-        file_path.relative_to(rootpath / "core_v2" / "tests")
+        rel_path = file_path.relative_to(rootpath / "core_v2" / "tests")
     except ValueError:
         return None
+
+    include_stress = bool(config.getoption("--odisea-include-stress")) or os.environ.get(
+        "ODISEA_INCLUDE_STRESS", ""
+    ).strip().lower() in {"1", "true", "yes", "on"}
+    if "stress" in rel_path.parts and not include_stress:
+        return None
+
+    if file_path.suffix == ".gd":
+        try:
+            text = file_path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            return None
+        if "GdUnitTestSuite" not in text:
+            return None
+        # Determinism replay suite is exposed as OYS entries in editor mode.
+        if file_path.name == "test_determinism_v2.gd":
+            return None
+
     return OdiseaExternalTargetFile.from_parent(parent, path=file_path)
 
 
@@ -237,19 +333,27 @@ def pytest_collection_modifyitems(config, items):
     deselected = []
     selected = []
     for item in items:
-        # Patch location for OYS tests to point to source .oys file
-        if hasattr(item, "obj") and item.obj is not None:
-            if hasattr(item.obj, "_oys_source"):
-                source_path = item.obj._oys_source
-                try:
-                    rel_path = source_path.relative_to(rootpath)
-                except ValueError:
-                    rel_path = source_path
-                # Update location for IDE navigation.
-                # Different VSCode pytest adapters read different pytest fields.
-                mapped_location = (str(rel_path), 0, item.name)
-                item.location = mapped_location
-                item._location = mapped_location
+        # Patch location for tests generated from OYS/GD sources to avoid
+        # navigation to tests/test_odisea_runner.py in IDE explorers.
+        source_path = getattr(item, "_oys_source", None)
+        if source_path is None and hasattr(item, "obj") and item.obj is not None:
+            source_path = getattr(item.obj, "_oys_source", None)
+        if source_path is None and item.name.startswith("test_det__"):
+            # Determinism tests are always derived from core_v2/tests/*.oys.
+            oys_name = item.name.replace("test_det__", "", 1)
+            source_path = rootpath / "core_v2" / "tests" / f"{oys_name}.oys"
+
+        if source_path is not None:
+            source_path = Path(source_path)
+            try:
+                rel_path = source_path.relative_to(rootpath)
+            except ValueError:
+                rel_path = source_path
+            rel_path_str = str(rel_path).replace("\\", "/")
+            mapped_location = (rel_path_str, 0, item.name)
+            item.location = mapped_location
+            item._location = mapped_location
+            item._nodeid = f"{rel_path_str}::{item.name}"
 
         is_gdunit = "odisea_gdunit" in item.keywords
         is_raw_oys = "odisea_raw_oys" in item.keywords
@@ -265,11 +369,12 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(
                 pytest.mark.skip(reason="stress profile disabled by default (use --odisea-include-stress)")
             )
-        if "odisea_determinism" in item.keywords and editor_mode and not include_determinism:
+        if "odisea_determinism" in item.keywords and not include_determinism:
+            reason = "determinism disabled by configuration (use --odisea-include-determinism or ODISEA_INCLUDE_DETERMINISM=1)"
+            if editor_mode:
+                reason = "determinism disabled in editor mode by configuration (use --odisea-include-determinism)"
             item.add_marker(
-                pytest.mark.skip(
-                    reason="determinism disabled in editor mode (use --odisea-include-determinism)"
-                )
+                pytest.mark.skip(reason=reason)
             )
         selected.append(item)
 

@@ -19,6 +19,11 @@ func _ready():
 	# Ensure stream is set if available
 	if audio_stream:
 		_player.stream = audio_stream
+		# Configure loop on the stream itself (Godot 3 requirement)
+		# For AudioStreamSample (WAV), loop_mode must be set on the stream
+		if loop and audio_stream is AudioStreamSample:
+			audio_stream.loop_mode = AudioStreamSample.LOOP_FORWARD
+			# Note: loop_begin=0 and loop_end=0 means loop the entire sample
 
 	_player.unit_db = volume_db
 	_player.pitch_scale = pitch_scale
