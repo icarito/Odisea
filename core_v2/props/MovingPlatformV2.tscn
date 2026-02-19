@@ -38,10 +38,8 @@ shape = SubResource( 2 )
 
 [node name="SFX Motor" type="AudioStreamPlayer3D" parent="."]
 stream = ExtResource( 3 )
+unit_db = -6.0
 max_distance = 35.0
 script = ExtResource( 4 )
-audio_stream = ExtResource( 3 )
-volume_db = -6.0
-max_distance = 35.0
-loop = true
+loop_sample = true
 trigger_mode = "Active"

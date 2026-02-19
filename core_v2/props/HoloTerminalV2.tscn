@@ -197,18 +197,14 @@ transition_time = 0.3
 stream = ExtResource( 8 )
 max_distance = 25.0
 script = ExtResource( 10 )
-audio_stream = ExtResource( 8 )
-max_distance = 25.0
 trigger_mode = "OneShotActive"
 
 [node name="SFX Hum" type="AudioStreamPlayer3D" parent="."]
 stream = ExtResource( 9 )
+unit_db = -6.0
 max_distance = 15.0
 script = ExtResource( 10 )
-audio_stream = ExtResource( 9 )
-volume_db = -6.0
-max_distance = 15.0
-loop = true
+loop_sample = true
 
 [connection signal="body_entered" from="CinematicSetup/CameraZone" to="." method="_on_camera_zone_body_entered"]
 [connection signal="body_exited" from="CinematicSetup/CameraZone" to="." method="_on_camera_zone_body_exited"]

@@ -1037,8 +1037,13 @@ skeleton = NodePath("")
 transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
 auto_interact = true
 
+[node name="SFX Steam Leak" parent="CrioPod START/RotatingObjectV2" index="2"]
+fade_in_time = null
+fade_out_time = null
+
 [node name="SFX Open sound" parent="CrioPod START/RotatingObjectV2" index="3"]
-volume_db = 0.0
+fade_in_time = null
+fade_out_time = null
 
 [node name="Pilot" parent="CrioPod START" instance=ExtResource( 2 )]
 transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0.000200272, 0.721707, -0.123402 )

@@ -16,6 +16,7 @@ export(float, 0.0, 1.0) var pulse_min := 0.3 # Minimum pulse brightness (0 = ful
 var _dome_mesh: MeshInstance = null
 var _base_mesh: MeshInstance = null
 var _omni_light: OmniLight = null
+var _sfx_alarm: SFXComponentV2 = null
 var _time_accumulator := 0.0
 
 func _ready():
@@ -23,7 +24,12 @@ func _ready():
 	_dome_mesh = get_node_or_null("DomeMesh")
 	_base_mesh = get_node_or_null("BaseMesh")
 	_omni_light = get_node_or_null("OmniLight")
+	_sfx_alarm = get_node_or_null("SFX Alarm")
 	_apply_color()
+	
+	# Initial sound state check
+	if is_active and _sfx_alarm:
+		_sfx_alarm.play_sfx()
 
 func set_beacon_color(v: Color) -> void:
 	beacon_color = v
@@ -34,6 +40,16 @@ func set_light_range(v: float) -> void:
 	light_range = v
 	if _omni_light:
 		_omni_light.omni_range = v
+
+func set_active(value: bool, immediate: bool = false) -> void:
+	var was_active = is_active
+	.set_active(value, immediate)
+	
+	if _sfx_alarm:
+		if value and not was_active:
+			_sfx_alarm.play_sfx()
+		elif not value and was_active:
+			_sfx_alarm.stop_sfx()
 
 func _apply_color():
 	if _omni_light:

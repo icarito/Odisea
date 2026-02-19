@@ -1159,7 +1159,7 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/RotatingObjectV2.gd"
 }, {
-"base": "Spatial",
+"base": "AudioStreamPlayer3D",
 "class": "SFXComponentV2",
 "language": "GDScript",
 "path": "res://core_v2/components/SFXComponentV2.gd"

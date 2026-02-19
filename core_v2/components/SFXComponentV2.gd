@@ -1,36 +1,29 @@
 tool
-extends Spatial
+extends AudioStreamPlayer3D
 class_name SFXComponentV2
 
 export(String) var sound_name = "" # For Mixing Desk Sound integration
-export(AudioStream) var audio_stream
-export(float, -80, 24) var volume_db = 0.0 setget _set_volume_db
-export(float, 0.1, 4.0) var pitch_scale = 1.0 setget _set_pitch_scale
-export(float, 0, 100) var max_distance = 20.0 setget _set_max_distance
-export(bool) var loop = false
+export(bool) var loop_sample = false # Renamed to avoid loop conflict if any
+export(float) var fade_in_time = 0.0
+export(float) var fade_out_time = 0.0
 export(String, "Active", "Interact", "OneShotActive", "OneShotInteract") var trigger_mode = "Active"
 
-var _player: AudioStreamPlayer3D
 var _mds_node: Node # Reference to MixingDeskSound (if available)
+var _tween: Tween = null
+var _base_unit_db = 0.0
 
 func _ready():
-	_player = AudioStreamPlayer3D.new()
-	_player.name = "SFXPlayer"
-	# Ensure stream is set if available
-	if audio_stream:
-		_player.stream = audio_stream
-		# Configure loop on the stream itself (Godot 3 requirement)
-		# For AudioStreamSample (WAV), loop_mode must be set on the stream
-		if loop and audio_stream is AudioStreamSample:
-			audio_stream.loop_mode = AudioStreamSample.LOOP_FORWARD
-			# Note: loop_begin=0 and loop_end=0 means loop the entire sample
+	_base_unit_db = unit_db
+	_tween = Tween.new()
+	add_child(_tween)
+	
+	# Configure loop on the stream itself if needed
+	if stream and loop_sample and stream is AudioStreamSample:
+		stream.loop_mode = AudioStreamSample.LOOP_FORWARD
+	
+	unit_size = 1.0
+	bus = "Master"
 
-	_player.unit_db = volume_db
-	_player.pitch_scale = pitch_scale
-	_player.max_distance = max_distance
-	_player.unit_size = 1.0
-	_player.bus = "Master"
-	add_child(_player)
 
 	# Try to find MixingDeskSound globally or in the tree
 	if sound_name != "":
@@ -50,7 +43,7 @@ func _ready():
 		parent.connect("interaction_started", self, "_on_interaction")
 
 	# Initial state check
-	if trigger_mode == "Active" and loop and parent.get("is_active"):
+	if trigger_mode == "Active" and loop_sample and parent.get("is_active"):
 		_play_sfx()
 
 func play_sfx():
@@ -63,20 +56,34 @@ func play_sfx():
 		return
 
 	# Priority 2: Local AudioStreamPlayer3D
-	if _player.stream:
-		if not _player.playing:
-			_player.play()
+	if stream:
+		if not playing:
+			if fade_in_time > 0 and _tween:
+				unit_db = -80.0
+				play()
+				_tween.stop_all()
+				_tween.interpolate_property(self, "unit_db", -80.0, _base_unit_db, fade_in_time, Tween.TRANS_LINEAR, Tween.EASE_IN_OUT)
+				_tween.start()
+			else:
+				unit_db = _base_unit_db
+				play()
+
+func stop_sfx():
+	# Mixing Desk stops are tricky unless we hold a reference to the specific voice instance.
+	# For now, we only support stopping on the local player.
+	# If using Mixing Desk for looping sounds, we'd need more complex integration.
+	if playing:
+		if fade_out_time > 0 and _tween:
+			_tween.stop_all()
+			_tween.interpolate_property(self, "unit_db", unit_db, -80.0, fade_out_time, Tween.TRANS_LINEAR, Tween.EASE_IN_OUT)
+			_tween.start()
+			_tween.interpolate_callback(self, fade_out_time, "stop")
+		else:
+			stop()
 
 func _play_sfx():
 	# Backward compatibility / internal use
 	play_sfx()
-
-func _stop_sfx():
-	# Mixing Desk stops are tricky unless we hold a reference to the specific voice instance.
-	# For now, we only support stopping on the local player.
-	# If using Mixing Desk for looping sounds, we'd need more complex integration.
-	if _player.playing:
-		_player.stop()
 
 func _on_activated():
 	if trigger_mode == "Active":
@@ -85,22 +92,9 @@ func _on_activated():
 		_play_sfx()
 
 func _on_deactivated():
-	if trigger_mode == "Active" and loop:
-		_stop_sfx()
+	if trigger_mode == "Active" and loop_sample:
+		stop_sfx()
 
 func _on_interaction():
 	if trigger_mode == "Interact" or trigger_mode == "OneShotInteract":
 		_play_sfx()
-
-# Setters for editor
-func _set_volume_db(v):
-	volume_db = v
-	if _player: _player.unit_db = v
-
-func _set_pitch_scale(v):
-	pitch_scale = v
-	if _player: _player.pitch_scale = v
-
-func _set_max_distance(v):
-	max_distance = v
-	if _player: _player.max_distance = v

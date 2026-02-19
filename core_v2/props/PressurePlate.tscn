@@ -33,6 +33,4 @@ shape = SubResource( 1 )
 stream = ExtResource( 3 )
 max_distance = 20.0
 script = ExtResource( 4 )
-audio_stream = ExtResource( 3 )
-max_distance = 20.0
 trigger_mode = "OneShotActive"

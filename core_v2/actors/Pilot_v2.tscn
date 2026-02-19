@@ -130,9 +130,9 @@ grid_resolution = 12
 base_opacity = 0.4
 skirt_limit = 6.0
 
-[node name="JumpSFX" type="Spatial" parent="Visual/Pivot"]
+[node name="JumpSFX" type="AudioStreamPlayer3D" parent="Visual/Pivot"]
+stream = ExtResource( 13 )
 script = ExtResource( 14 )
-audio_stream = ExtResource( 13 )
 trigger_mode = "OneShotActive"
 
 [node name="OmniLight" type="OmniLight" parent="Visual" groups=["optional"]]

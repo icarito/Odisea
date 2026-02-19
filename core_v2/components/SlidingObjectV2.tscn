@@ -27,6 +27,4 @@ mesh = SubResource( 2 )
 stream = ExtResource( 4 )
 max_distance = 30.0
 script = ExtResource( 5 )
-audio_stream = ExtResource( 4 )
-max_distance = 30.0
 trigger_mode = "OneShotActive"

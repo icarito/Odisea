@@ -23,6 +23,7 @@ var _target_basis = null
 var _impact_cooldown_left = 0.0
 var _impact_sound_index = 0
 var _impact_players = []
+var _sfx_drag = null
 var _perf_monitor = null
 
 func _init():
@@ -40,6 +41,9 @@ func _ready():
 	
 	# Conectar señal para despertar si algo nos golpea
 	connect("body_entered", self, "_on_body_entered")
+	
+	_sfx_drag = get_node_or_null("SFX Drag")
+	print("[PushableBoxV2] _ready. SFX Drag found: ", _sfx_drag)
 	
 	# WakeArea para detectar presencia del jugador/otros y despertar
 	var wake_area = get_node_or_null("WakeArea")
@@ -91,6 +95,19 @@ func _handle_rigid_logic(_dt):
 	var vel = linear_velocity.length()
 	var ang = angular_velocity.length()
 	
+	if _sfx_drag:
+		# print("[PushableBoxV2] Rigid Logic. Vel: ", vel)
+		# Play drag sound if moving fast enough and on the ground (approx)
+		# We use a simple check; for more accuracy we could check collision normals
+		if vel > 0.1:
+			if not _sfx_drag.playing:
+				print("[PushableBoxV2] Start Drag Sound. Vel: ", vel)
+				_sfx_drag.play_sfx()
+		else:
+			if _sfx_drag.playing:
+				print("[PushableBoxV2] Stop Drag Sound. Vel: ", vel)
+				_sfx_drag.stop_sfx()
+
 	if vel < settle_threshold and ang < (settle_threshold * 2.0):
 		_frames_below_threshold += 1
 		if _frames_below_threshold >= settle_frames:
@@ -129,6 +146,9 @@ func _settle():
 	angular_velocity = Vector3.ZERO
 	_frames_below_threshold = 0
 	
+	if _sfx_drag and _sfx_drag.playing:
+		_sfx_drag.stop_sfx()
+		
 	_refresh_wake_area()
 
 func wake_up():
@@ -261,7 +281,8 @@ func _setup_impact_players():
 	_impact_players = [
 		get_node_or_null("ImpactSfx1"),
 		get_node_or_null("ImpactSfx2"),
-		get_node_or_null("ImpactSfx3")
+		get_node_or_null("ImpactSfx3"),
+		get_node_or_null("ImpactSfx4")
 	]
 
 func _try_play_impact_sfx(body):
@@ -372,6 +393,7 @@ func _apply_snapshot(data):
 		sleeping = false
 
 func _physics_process(delta):
+	# print("[PushableBoxV2] physics step. Mode: ", mode)
 	if _impact_cooldown_left > 0.0:
 		_impact_cooldown_left = max(0.0, _impact_cooldown_left - delta)
 	step(delta)
