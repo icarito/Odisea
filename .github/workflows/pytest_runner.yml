@@ -158,6 +158,10 @@ jobs:
               echo "Godot import command failed with exit code $godot_rc"
               return "$godot_rc"
             fi
+            if [ "$godot_rc" -eq 124 ]; then
+              echo "Godot import timed out."
+              return 1
+            fi
             echo "Import complete."
             ls -la .import/ 2>/dev/null | head -10 || true
             local missing=0
@@ -195,8 +199,7 @@ jobs:
           }
 
           if ! import_once reports/import_resources.log || ! smoke_once reports/resource_smoke.log; then
-            echo "Import/smoke failed after cached import. Cleaning import cache and retrying..."
-            rm -rf .import .godot/imported
+            echo "Import/smoke failed after cached import. Retrying once without clearing caches..."
             import_once reports/import_resources_retry.log
             smoke_once reports/resource_smoke_retry.log
           fi
