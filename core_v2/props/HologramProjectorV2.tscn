@@ -1,0 +1,55 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://core_v2/props/scifi_lights/HologramProjectorV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/scifi_lights/shaders/hologram.shader" type="Shader" id=2]
+
+[sub_resource type="ShaderMaterial" id=1]
+resource_local_to_scene = true
+shader = ExtResource( 2 )
+shader_param/hologram_color = Color( 0, 1, 0.5, 1 )
+shader_param/scanline_speed = 2.0
+shader_param/scanline_density = 20.0
+shader_param/flicker_speed = 5.0
+shader_param/alpha = 0.7
+
+[sub_resource type="CylinderMesh" id=2]
+top_radius = 0.0
+bottom_radius = 0.5
+height = 1.5
+radial_segments = 24
+rings = 1
+
+[sub_resource type="SpatialMaterial" id=3]
+albedo_color = Color( 0.15, 0.15, 0.2, 1 )
+metallic = 0.8
+roughness = 0.3
+
+[sub_resource type="CylinderMesh" id=4]
+top_radius = 0.3
+bottom_radius = 0.3
+height = 0.1
+radial_segments = 16
+
+[node name="HologramProjectorV2" type="Spatial"]
+script = ExtResource( 1 )
+hologram_color = Color( 0, 1, 0.5, 1 )
+scanline_speed = 2.0
+scanline_density = 20.0
+flicker_speed = 5.0
+base_alpha = 0.7
+active = true
+
+[node name="HologramMesh" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0 )
+material_override = SubResource( 1 )
+mesh = SubResource( 2 )
+
+[node name="Base" type="MeshInstance" parent="."]
+material_override = SubResource( 3 )
+mesh = SubResource( 4 )
+
+[node name="OmniLight" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
+light_color = Color( 0, 1, 0.5, 1 )
+light_energy = 0.8
+omni_range = 3.0

@@ -297,27 +297,6 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/TestScene/CircuitExample": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0
-      },
-      "/root/TestScene/CircuitExample/SourceProp": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0
-      },
-      "/root/TestScene/CircuitExample/TargetProp": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0
-      },
       "/root/TestScene/HoloTerminalV2": {
         "active": false,
         "used": false,

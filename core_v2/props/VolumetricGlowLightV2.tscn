@@ -1,0 +1,44 @@
+[gd_scene load_steps=6 format=2]
+
+[ext_resource path="res://core_v2/props/scifi_lights/VolumetricGlowLightV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/scifi_lights/shaders/volumetric_glow.shader" type="Shader" id=2]
+
+[sub_resource type="ShaderMaterial" id=1]
+resource_local_to_scene = true
+shader = ExtResource( 2 )
+shader_param/glow_color = Color( 1, 0.5, 0, 1 )
+shader_param/intensity = 3.0
+shader_param/pulse_speed = 1.0
+shader_param/pulse_amount = 0.3
+
+[sub_resource type="SphereMesh" id=2]
+radius = 0.15
+height = 0.3
+radial_segments = 16
+rings = 8
+
+[sub_resource type="SphereShape" id=3]
+radius = 0.2
+
+[node name="VolumetricGlowLightV2" type="StaticBody"]
+collision_layer = 4
+collision_mask = 3
+script = ExtResource( 1 )
+glow_color = Color( 1, 0.5, 0, 1 )
+glow_intensity = 3.0
+pulse_speed = 1.0
+pulse_amount = 0.3
+light_range = 4.0
+light_energy = 2.0
+
+[node name="GlowMesh" type="MeshInstance" parent="."]
+material_override = SubResource( 1 )
+mesh = SubResource( 2 )
+
+[node name="OmniLight" type="OmniLight" parent="."]
+light_color = Color( 1, 0.5, 0, 1 )
+light_energy = 2.0
+omni_range = 4.0
+
+[node name="CollisionShape" type="CollisionShape" parent="."]
+shape = SubResource( 3 )

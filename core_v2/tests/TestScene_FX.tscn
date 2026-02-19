@@ -1,0 +1,69 @@
+[gd_scene load_steps=9 format=2]
+
+[ext_resource path="res://core_v2/props/VolumetricGlowLightV2.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/props/SparkEmitterV2.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/HologramProjectorV2.tscn" type="PackedScene" id=3]
+[ext_resource path="res://core_v2/props/SciFiFloatingLightV2.tscn" type="PackedScene" id=4]
+[ext_resource path="res://core_v2/props/SciFiStaticLightV2.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=6]
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=7]
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=8]
+
+[node name="TestScene" type="Spatial"]
+
+[node name="VolumetricGlowLightV2_Orange" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 1.5, 2 )
+
+[node name="VolumetricGlowLightV2_Cyan" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 1.5, 2 )
+glow_color = Color( 0, 1, 1, 1 )
+
+[node name="VolumetricGlowLightV2_Magenta" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, -2 )
+glow_color = Color( 1, 0, 0.8, 1 )
+pulse_speed = 3.0
+pulse_amount = 0.5
+
+[node name="SparkEmitterV2" parent="." instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0.5, -4 )
+
+[node name="SparkEmitterV2_Green" parent="." instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0.5, -4 )
+spark_color = Color( 0.886275, 0.00392157, 0.00392157, 1 )
+
+[node name="HologramProjectorV2_Green" parent="." instance=ExtResource( 3 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0, 0 )
+
+[node name="HologramProjectorV2_Blue" parent="." instance=ExtResource( 3 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, 0 )
+hologram_color = Color( 0.2, 0.5, 1, 1 )
+
+[node name="SciFiFloatingLightV2" parent="." instance=ExtResource( 4 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 2, 5 )
+
+[node name="SciFiStaticLightV2" parent="." instance=ExtResource( 5 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 2, 5 )
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 4, 8 )
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 7 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="WorldEnvironment"]
+transform = Transform( 0.996195, 3.82452e-09, 0.0871557, -0.0841859, 0.258819, 0.96225, -0.0225575, -0.965926, 0.257834, 30.8934, 69.3233, 18.402 )
+light_color = Color( 0.364706, 0.364706, 0.364706, 1 )
+light_energy = 0.6
+shadow_enabled = true
+directional_shadow_mode = 2
+
+[node name="Platform" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0 )
+use_collision = true
+width = 20.0
+height = 0.2
+depth = 15.0
+material = ExtResource( 8 )
+
+[node name="Pilot" parent="Platform" instance=ExtResource( 6 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3 )
