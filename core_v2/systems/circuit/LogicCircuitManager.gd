@@ -31,6 +31,8 @@ var _output_queue = [] # Array of { source: String, value: bool, delay: float }
 const MAX_LOGIC_STEPS = 100
 
 func _ready():
+    if not is_in_group("olcs_manager"):
+        add_to_group("olcs_manager")
     if circuit_data:
         _build_runtime_logic()
         if auto_build_cables:
@@ -245,6 +247,80 @@ func _evaluate_gate(type: String, inputs: Dictionary) -> bool:
 				return not values[0]
 			return true
 	return false
+
+# --- ANNA Bridge API ---
+
+func anna_get_snapshot(max_entries := 64) -> Dictionary:
+	var snapshot = {
+		"available": true,
+		"manager": name,
+		"nodes": [],
+		"connections": []
+	}
+
+	var runtime_ids = _runtime_nodes.keys()
+	runtime_ids.sort()
+	var nodes_limit = min(int(max_entries), runtime_ids.size())
+	for i in range(nodes_limit):
+		var node_id = runtime_ids[i]
+		var r = _runtime_nodes[node_id]
+		snapshot["nodes"].append({
+			"id": String(node_id),
+			"type": String(r.get("type", "")),
+			"state": bool(r.get("state", false)),
+			"gate_type": String(r.get("gate_type", "")),
+			"has_ref": is_instance_valid(r.get("ref", null))
+		})
+
+	if circuit_data and "connections" in circuit_data:
+		var connections = circuit_data.connections
+		var conn_limit = min(int(max_entries), connections.size())
+		for i in range(conn_limit):
+			var conn = connections[i]
+			if typeof(conn) != TYPE_DICTIONARY:
+				continue
+			var conn_hash = _get_connection_hash(conn)
+			var broken = false
+			if _cables.has(conn_hash):
+				var cable = _cables[conn_hash]
+				if not is_instance_valid(cable):
+					broken = true
+				elif cable.has_method("is_broken"):
+					broken = bool(cable.call("is_broken"))
+			snapshot["connections"].append({
+				"from": String(conn.get("from", "")),
+				"to": String(conn.get("to", "")),
+				"type": String(conn.get("type", conn.get("connection_type", "WIRED"))),
+				"broken": broken
+			})
+
+	return snapshot
+
+func anna_inject_input(target_id: String, input_id: String, value: bool) -> bool:
+	if not _runtime_nodes.has(target_id):
+		return false
+	_input_queue.append({
+		"target": target_id,
+		"input": input_id,
+		"value": bool(value)
+	})
+	return true
+
+func anna_set_output(source_id: String, value: bool) -> bool:
+	if not _runtime_nodes.has(source_id):
+		return false
+	_output_queue.append({
+		"source": source_id,
+		"value": bool(value),
+		"delay": 0.0
+	})
+	return true
+
+func anna_rebuild_cables() -> bool:
+	if not circuit_data:
+		return false
+	generate_cables()
+	return true
 
 # --- Cable Generation ---
 

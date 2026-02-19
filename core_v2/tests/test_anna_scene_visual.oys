@@ -1,0 +1,14 @@
+LEVEL res://core_v2/tests/TestScene_ANNA.tscn
+
+SECTION "ANNA Scene Visual Validation"
+    WAIT 0.3s
+    SCREENSHOT 0_spawn_overview
+
+    LEFT 45 0.25
+    WAIT 0.2s
+    SCREENSHOT 1_far_beacon_angle
+
+    WALK FW 0.6s
+    WAIT 0.2s
+    SCREENSHOT 2_near_wall_focus
+END

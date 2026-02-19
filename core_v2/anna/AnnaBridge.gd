@@ -1,6 +1,7 @@
 extends Node
 
 const PORT = 5000
+const MAX_READ_BYTES_PER_TICK = 16384
 var _server: TCP_Server
 var _peers := []
 var _interface: Node
@@ -23,10 +24,11 @@ func _ready():
 		print("[ANNA] Listening on port %d" % port)
 
 func _physics_process(_delta):
-	if _server.is_connection_available():
+	while _server != null and _server.is_connection_available():
 		var peer = _server.take_connection()
-		_peers.append(peer)
-		print("[ANNA] Client connected: %s" % peer.get_connected_host())
+		if peer:
+			_peers.append(peer)
+			print("[ANNA] Client connected: %s" % peer.get_connected_host())
 
 	# Process peers
 	var active_peers = []
@@ -41,17 +43,26 @@ func _physics_process(_delta):
 				_peer_buffers.erase(pid)
 	_peers = active_peers
 
+func _exit_tree():
+	for peer in _peers:
+		if peer and peer.get_status() == StreamPeerTCP.STATUS_CONNECTED:
+			peer.disconnect_from_host()
+	_peers.clear()
+	_peer_buffers.clear()
+	if _server:
+		_server.stop()
+
 func _handle_peer(peer: StreamPeerTCP):
 	# Send Observation
-	var obs = _interface.get_observation()
+	var obs = _build_observation_payload()
 	var json_str = JSON.print(obs)
 	# Append newline for delimiter
-	peer.put_utf8_string(json_str + "\n")
+	peer.put_data((json_str + "\n").to_utf8())
 
 	# Receive Action (Buffering)
 	var bytes = peer.get_available_bytes()
 	if bytes > 0:
-		var chunk = peer.get_utf8_string(bytes)
+		var chunk = peer.get_utf8_string(min(bytes, MAX_READ_BYTES_PER_TICK))
 		var pid = peer.get_instance_id()
 
 		if not _peer_buffers.has(pid):
@@ -70,3 +81,14 @@ func _handle_peer(peer: StreamPeerTCP):
 					_interface.apply_action(parse.result)
 				else:
 					print("[ANNA] Malformed JSON action received: ", line.substr(0, 50))
+
+func _build_observation_payload() -> Dictionary:
+	var obs = _interface.get_observation()
+	if typeof(obs) != TYPE_DICTIONARY:
+		obs = {}
+	var anna_meta = obs.get("anna", {})
+	if typeof(anna_meta) != TYPE_DICTIONARY:
+		anna_meta = {}
+	anna_meta["peer_count"] = _peers.size()
+	obs["anna"] = anna_meta
+	return obs

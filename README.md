@@ -24,6 +24,13 @@ Las siguientes features están implementadas y documentadas en `docs/canon/`:
 - Transición 2.5D sidescroller
 - Test battery y runner de regresión determinista
 
+## Integración de Agentes (ANNA)
+
+La integración de agente externo A.N.N.A (bridge TCP + interfaz de observación/acción) está documentada en:
+
+- `docs/feature_anna_agent.md`
+- `core_v2/anna/README.md`
+
 ## Descarga e Instalación
 
 ### Requisitos y Ejecución

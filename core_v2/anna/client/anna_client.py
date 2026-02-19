@@ -2,9 +2,10 @@ import socket
 import json
 import time
 import random
+import os
 
 HOST = '127.0.0.1'
-PORT = 5000
+PORT = int(os.getenv("ANNA_PORT", "5000"))
 
 def main():
     try:
@@ -32,10 +33,13 @@ def main():
                 try:
                     obs = json.loads(line.decode('utf-8'))
                     # Print summary to avoid flooding console
+                    anna = obs.get('anna', {})
                     metrics = obs.get('metrics', {})
                     fps = metrics.get('fps', 0)
                     proximity_count = len(obs.get('proximity', []))
-                    print(f"FPS: {fps:.1f} | Prox: {proximity_count} | Collisions: {len(obs.get('collisions', []))}")
+                    frame = anna.get('physics_frame', 0)
+                    proto = anna.get('protocol', '?')
+                    print(f"[{proto}] frame={frame} | FPS={fps:.1f} | Prox={proximity_count} | Collisions={len(obs.get('collisions', []))}")
 
                 except json.JSONDecodeError:
                     print(f"JSON Decode Error: {line[:50]}...")
