@@ -8,9 +8,8 @@
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
     "python.testing.pytestArgs": [
         "-q",
-        "-n",
-        "6",
-        "tests/test_odisea_runner.py",
+        "core_v2/tests",
+        "--odisea-editor",
         "--odisea-runner",
         "gdunit",
         "--odisea-include-determinism"
