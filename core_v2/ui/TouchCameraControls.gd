@@ -82,7 +82,7 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 		var delta = event.position - _last_touch_pos
 		_last_touch_pos = event.position
 		if delta.length_squared() > 0.1:
-			emit_signal("camera_drag", Vector2(-delta.x, -delta.y) * sensitivity)
+			emit_signal("camera_drag", Vector2(-delta.x, delta.y) * sensitivity)
 
 func _start_pinch() -> void:
 	_pinch_active = true
