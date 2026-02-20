@@ -1,8 +1,13 @@
 extends Control
 class_name TouchCameraControls
 
-export(float) var sensitivity := 2.0
+export(float) var sensitivity := 3.5
 export(float) var zoom_sensitivity := 0.05
+export(bool) var invert_x := true
+export(bool) var invert_y := false
+export(bool) var tap_to_jump := true
+export(float) var tap_max_duration := 0.3
+export(float) var tap_max_distance := 20.0
 
 var _touch_index := -1
 var _last_touch_pos := Vector2.ZERO
@@ -11,6 +16,9 @@ var _pinch_active := false
 var _pinch_start_distance := 0.0
 var _touch_controls_cache := []
 var _cache_valid := false
+
+var _tap_start_time := 0
+var _tap_start_pos := Vector2.ZERO
 
 signal camera_drag(delta)
 signal camera_zoom(delta)
@@ -58,6 +66,8 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		if _touch_index == -1:
 			_touch_index = event.index
 			_last_touch_pos = event.position
+			_tap_start_time = OS.get_ticks_msec()
+			_tap_start_pos = event.position
 		
 		if _pinch_touches.size() == 2:
 			_start_pinch()
@@ -65,10 +75,23 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		_pinch_touches.erase(event.index)
 		
 		if event.index == _touch_index:
+			_check_tap(event.position)
 			_touch_index = -1
 		
 		if _pinch_touches.size() < 2:
 			_pinch_active = false
+
+func _check_tap(end_pos: Vector2) -> void:
+	if not tap_to_jump:
+		return
+	
+	var duration = (OS.get_ticks_msec() - _tap_start_time) / 1000.0
+	var distance = end_pos.distance_to(_tap_start_pos)
+	
+	if duration <= tap_max_duration and distance <= tap_max_distance:
+		Input.action_press("jump")
+		yield(get_tree().create_timer(0.05), "timeout")
+		Input.action_release("jump")
 
 func _handle_drag(event: InputEventScreenDrag) -> void:
 	if event.index in _pinch_touches:
@@ -82,7 +105,9 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 		var delta = event.position - _last_touch_pos
 		_last_touch_pos = event.position
 		if delta.length_squared() > 0.1:
-			emit_signal("camera_drag", Vector2(-delta.x, delta.y) * sensitivity)
+			var x_mult = -1.0 if invert_x else 1.0
+			var y_mult = -1.0 if invert_y else 1.0
+			emit_signal("camera_drag", Vector2(delta.x * x_mult, delta.y * y_mult) * sensitivity)
 
 func _start_pinch() -> void:
 	_pinch_active = true

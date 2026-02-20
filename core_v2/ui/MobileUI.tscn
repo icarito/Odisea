@@ -1,21 +1,9 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://addons/virtual_joystick/virtual_joystick.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/ui/TouchCameraControls.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/ui/MobileUI.gd" type="Script" id=3]
 [ext_resource path="res://core_v2/ui/TouchActionButton.gd" type="Script" id=4]
-
-[sub_resource type="StyleBoxFlat" id=2]
-bg_color = Color( 0.15, 0.15, 0.15, 0.6 )
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color( 0.4, 0.4, 0.4, 0.8 )
-corner_radius_top_left = 12
-corner_radius_top_right = 12
-corner_radius_bottom_right = 12
-corner_radius_bottom_left = 12
 
 [sub_resource type="StyleBoxFlat" id=3]
 bg_color = Color( 0.3, 0.5, 0.7, 0.7 )
@@ -29,6 +17,18 @@ corner_radius_top_right = 12
 corner_radius_bottom_right = 12
 corner_radius_bottom_left = 12
 
+[sub_resource type="StyleBoxFlat" id=2]
+bg_color = Color( 0.15, 0.15, 0.15, 0.6 )
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color( 0.4, 0.4, 0.4, 0.8 )
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
 [node name="MobileUI" type="CanvasLayer"]
 layer = 10
 script = ExtResource( 3 )
@@ -36,7 +36,6 @@ script = ExtResource( 3 )
 [node name="Container" type="Control" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
-mouse_filter = 0
 __meta__ = {
 "_edit_use_anchors_": false
 }
@@ -46,29 +45,19 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource( 2 )
-sensitivity = 1.0
-deadzone_radius = 5.0
+sensitivity = 3.5
+zoom_sensitivity = 0.05
+invert_x = true
+invert_y = false
+tap_to_jump = true
+tap_max_duration = 0.3
+tap_max_distance = 20.0
 
 [node name="MoveJoystick" parent="Container" instance=ExtResource( 1 )]
 modulate = Color( 1, 1, 1, 0.6 )
-anchor_left = 0.0
-anchor_top = 1.0
-anchor_right = 0.0
-anchor_bottom = 1.0
-margin_left = 50.0
-margin_top = -250.0
-margin_right = 250.0
-margin_bottom = -50.0
 rect_scale = Vector2( 0.9, 0.9 )
 deadzone_size = 15.0
 clampzone_size = 80.0
-joystick_mode = 1
-visibility_mode = 0
-use_input_actions = true
-action_left = "move_left"
-action_right = "move_right"
-action_up = "move_forward"
-action_down = "move_backward"
 
 [node name="ActionButtons" type="VBoxContainer" parent="Container"]
 anchor_left = 1.0
@@ -76,53 +65,47 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 margin_left = -180.0
-margin_top = -195.0
+margin_top = -460.0
 margin_right = -20.0
-margin_bottom = -20.0
+margin_bottom = -280.0
 grow_horizontal = 0
 grow_vertical = 0
 custom_constants/separation = 15
-__meta__ = {
-"_edit_use_anchors_": false
-}
 
 [node name="InteractButton" type="Button" parent="Container/ActionButtons"]
 margin_right = 160.0
 margin_bottom = 50.0
 rect_min_size = Vector2( 0, 50 )
-mouse_filter = 0
-custom_styles/normal = SubResource( 2 )
 custom_styles/pressed = SubResource( 3 )
+custom_styles/normal = SubResource( 2 )
 toggle_mode = true
 action_mode = 0
 text = "ACT"
 script = ExtResource( 4 )
 action_name = "interact"
 
-[node name="JumpButton" type="Button" parent="Container/ActionButtons"]
+[node name="CrouchButton" type="Button" parent="Container/ActionButtons"]
 margin_top = 65.0
 margin_right = 160.0
 margin_bottom = 115.0
 rect_min_size = Vector2( 0, 50 )
-mouse_filter = 0
-custom_styles/normal = SubResource( 2 )
 custom_styles/pressed = SubResource( 3 )
-toggle_mode = true
-action_mode = 0
-text = "JUMP"
-script = ExtResource( 4 )
-action_name = "jump"
-
-[node name="CrouchButton" type="Button" parent="Container/ActionButtons"]
-margin_top = 130.0
-margin_right = 160.0
-margin_bottom = 180.0
-rect_min_size = Vector2( 0, 50 )
-mouse_filter = 0
 custom_styles/normal = SubResource( 2 )
-custom_styles/pressed = SubResource( 3 )
 toggle_mode = true
 action_mode = 0
 text = "CROUCH"
 script = ExtResource( 4 )
 action_name = "crouch"
+
+[node name="JumpButton" type="Button" parent="Container/ActionButtons"]
+margin_top = 130.0
+margin_right = 160.0
+margin_bottom = 180.0
+rect_min_size = Vector2( 0, 50 )
+custom_styles/pressed = SubResource( 3 )
+custom_styles/normal = SubResource( 2 )
+toggle_mode = true
+action_mode = 0
+text = "JUMP"
+script = ExtResource( 4 )
+action_name = "jump"
