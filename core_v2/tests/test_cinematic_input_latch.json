@@ -1408,60 +1408,6 @@
     {
       "input": {
         "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
           -1,
           0
         ],
@@ -3103,10 +3049,10 @@
     "63": [
 
     ],
-    "79": [
+    "76": [
 
     ],
-    "169": [
+    "166": [
       {
         "command": "SET",
         "var": "$end_x",
@@ -3180,23 +3126,23 @@
   },
   "final_expected_state": {
     "position": [
-      -4.101026,
+      -4.156133,
       0.0415,
-      13.157014
+      13.139232
     ],
     "velocity": [
-      0.244627,
-      -0.232715,
-      6.995725
+      0.240196,
+      -0.234701,
+      6.995878
     ],
     "yaw": 0,
     "pitch": -0,
     "base_spring_length_3d": 10,
     "movement_state": {
       "horizontal_velocity": [
-        0.244627,
-        0.000618,
-        6.995725
+        0.240196,
+        -0.001367,
+        6.995878
       ],
       "external_velocity": [
         0,
@@ -3217,7 +3163,7 @@
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
     "$start_x": 0,
-    "$end_x": -4.101026,
-    "$delta_x": -4.101026
+    "$end_x": -4.156133,
+    "$delta_x": -4.156133
   }
 }
