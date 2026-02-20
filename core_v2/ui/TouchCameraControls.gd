@@ -13,8 +13,8 @@ var _pinch_active := false
 var _pinch_start_distance := 0.0
 var _pinch_touches := {}
 
-signal camera_drag(delta: Vector2)
-signal camera_zoom(delta: float)
+signal camera_drag(delta)
+signal camera_zoom(delta)
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE

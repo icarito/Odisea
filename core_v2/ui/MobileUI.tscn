@@ -24,6 +24,7 @@ __meta__ = {
 }
 
 [node name="MoveJoystick" parent="Container" instance=ExtResource( 1 )]
+modulate = Color( 1, 1, 1, 0.5 )
 anchor_left = 0.0
 anchor_top = 1.0
 anchor_right = 0.0
@@ -33,7 +34,7 @@ margin_top = -250.0
 margin_right = 250.0
 margin_bottom = -50.0
 rect_scale = Vector2( 0.8, 0.8 )
-joystick_mode = 0
+joystick_mode = 1
 visibility_mode = 0
 use_input_actions = true
 action_left = "move_left"
@@ -56,6 +57,7 @@ sensitivity = 0.8
 deadzone_radius = 5.0
 
 [node name="JumpButton" type="TouchScreenButton" parent="Container"]
+modulate = Color( 1, 1, 1, 0.5 )
 anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
@@ -89,6 +91,7 @@ __meta__ = {
 }
 
 [node name="SprintButton" type="TouchScreenButton" parent="Container"]
+modulate = Color( 1, 1, 1, 0.5 )
 anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
@@ -122,6 +125,7 @@ __meta__ = {
 }
 
 [node name="CrouchButton" type="TouchScreenButton" parent="Container"]
+modulate = Color( 1, 1, 1, 0.5 )
 anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
@@ -155,6 +159,7 @@ __meta__ = {
 }
 
 [node name="InteractButton" type="TouchScreenButton" parent="Container"]
+modulate = Color( 1, 1, 1, 0.5 )
 anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
