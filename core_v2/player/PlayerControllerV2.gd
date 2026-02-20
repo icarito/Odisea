@@ -84,6 +84,7 @@ var _push_target: Spatial = null
 # Cinematic Zone State
 var _active_cinematic_zone: Node = null
 var _prev_active_cinematic_zone: Node = null
+var _current_zone_request_id: int = -1
 const PushableBoxV2Script = preload("res://core_v2/components/PushableBoxV2.gd")
 
 var _terminal_ui_active := false
@@ -372,16 +373,15 @@ func snap_rig_to_camera_orbit(target_cam_pos: Vector3, target_fov: float = 70.0)
 func _get_move_direction(input_vector: Vector2, mode = -1, camera_basis = null) -> Vector3:
 	# print("[PlayerController] _get_move_direction called with mode: %d" % mode)
 	if mode == -1:
-		mode = CinematicManager.get_control_mode()
+		if CinematicManager.is_input_latched():
+			mode = CinematicManager.latched_control_mode
+		else:
+			mode = CinematicManager.get_control_mode()
 		
 	if camera_basis == null:
-		var camera = CinematicManager.get_active_camera()
-		if camera == null:
-			# Fallback if no camera found
-			return Vector3(input_vector.x, 0, input_vector.y)
-		camera_basis = camera.global_transform.basis
+		# Pass input magnitude to allow Latch release check
+		camera_basis = CinematicManager.get_movement_basis(input_vector.length())
 
-	
 	var res = Vector3.ZERO
 	match mode:
 		CinematicManager.ControlMode.FREE:
@@ -709,15 +709,8 @@ func step(dt: float, input: InputDataV2) -> void:
 	# --- MOVEMENT ---
 	var move_vec = input.move_vec
 	# Calculate World Direction based on Control Mode (or Latch)
-	var world_dir: Vector3
-	if CinematicManager.latch_active:
-		if move_vec.length() < 0.1:
-			CinematicManager.latch_active = false
-			world_dir = _get_move_direction(move_vec)
-		else:
-			world_dir = _get_move_direction(move_vec, CinematicManager.latched_control_mode, CinematicManager.latched_camera_basis)
-	else:
-		world_dir = _get_move_direction(move_vec)
+	# Logic delegated to CinematicManager (FSM)
+	var world_dir: Vector3 = _get_move_direction(move_vec)
 
 	# --- ACROBATIC SNAP DETECTION (Legacy) ---
 	# Uses input.move_vec directly to capture raw intent before processing
@@ -895,78 +888,44 @@ func _update_cinematic_zone_detection(input: InputDataV2):
 		elif _occlusion_mode_active:
 			set_occlusion_mode(false)
 
-		# Capture PREVIOUS camera state for Latch
-		var prev_cam = CinematicManager.get_active_camera()
-		var p_basis = prev_cam.global_transform.basis if prev_cam else Basis.IDENTITY
-		var p_mode = CinematicManager.get_control_mode()
-		var has_input = input.move_vec.length() > 0.1 if input else false
-
+		# FSM-based Transition Logic
 		if _active_cinematic_zone:
 			# Enter Zone
-			# Enter Zone
-			# Save current camera state for restore on exit (only if we haven't saved it yet or we just fully exited)
-			# We check _restore_spring_length < 0 to ensure we capture the *original* player state, not an intermediate one if switching zones immediately.
-			if _restore_spring_length < 0.0:
-				_restore_spring_length = base_spring_length_3d
-				_restore_fov = base_fov
-
 			var rig = _active_cinematic_zone._rig_node
 			if rig:
-				CinematicManager.activate_rig_direct(rig, _active_cinematic_zone.control_mode)
-			
-			if _active_cinematic_zone.get("latch_on_enter") and has_input:
-				CinematicManager.latched_camera_basis = p_basis
-				CinematicManager.latched_control_mode = p_mode
-				CinematicManager.latch_active = true
-				# print("[PlayerController] LATCHED Basis on ENTER: ", p_basis)
-				
-				# Record for determinism!
-				SessionManager.record_custom_event("LATCH_BASIS", {
-						"basis": [
-								[p_basis.x.x, p_basis.x.y, p_basis.x.z],
-								[p_basis.y.x, p_basis.y.y, p_basis.y.z],
-								[p_basis.z.x, p_basis.z.y, p_basis.z.z]
-						],
-						"mode": p_mode
-				})
+				var trans_time = rig.transition_time if "transition_time" in rig else 0.0
+				var payload = {
+					"rig": rig,
+					"transition_time": trans_time,
+					"latch_on_enter": _active_cinematic_zone.get("latch_on_enter"),
+					"latch_on_exit": _active_cinematic_zone.get("latch_on_exit")
+				}
+				_current_zone_request_id = CinematicManager.request_camera_mode(
+					_active_cinematic_zone.control_mode,
+					payload,
+					"zone_" + _active_cinematic_zone.name,
+					5
+				)
 		else:
-			# Exit Zone (Return to Player Camera)
-			var cur_cam = CinematicManager.get_active_camera()
-			if cur_cam:
-				_exit_log_frames = 60 # Log first 60 frames (~1s) of exit to capture full transition
-				# 1. Snap player camera
-				snap_rig_to_camera_orbit(cur_cam.global_transform.origin, cur_cam.fov)
-				# 2. Deactivate cinematic rig
-				CinematicManager.deactivate_rig()
-				
-				# 3. Restore intended player settings (smooth transition will handle the rest in _physics_process)
-				if _restore_spring_length > 0.0:
-					base_spring_length_3d = _restore_spring_length
-					base_fov = _restore_fov
-					# Reset backup so next time we capture fresh
-					_restore_spring_length = -1.0
-					_restore_fov = -1.0
-				
-			else:
-				CinematicManager.deactivate_rig()
+			# Exit Zone
+			if _current_zone_request_id != -1:
+				CinematicManager.release_camera_request(_current_zone_request_id)
+				_current_zone_request_id = -1
 			
-			if _prev_active_cinematic_zone and _prev_active_cinematic_zone.get("latch_on_exit") and has_input:
-				# Only latch if not ALREADY latched (e.g. from entry, maintaining continuity)
-				if not CinematicManager.latch_active:
-					CinematicManager.latched_camera_basis = p_basis
-					CinematicManager.latched_control_mode = p_mode
-					CinematicManager.latch_active = true
+			# Recovery of local spring/fov state
+			if _restore_spring_length > 0.0:
+				base_spring_length_3d = _restore_spring_length
+				base_fov = _restore_fov
+				_restore_spring_length = -1.0
+				_restore_fov = -1.0
 		
 	# --- CINEMATIC RECOVERY FALLBACK ---
-	# If no zone is current, but CinematicManager is still active, it means we missed an exit event
-	# (e.g. zone was disabled or removed). We force return to Player Camera.
-	if _active_cinematic_zone == null and CinematicManager.is_active():
-		var sm = CinematicManager
-		# Safety: Only deactivate if the rig being managed by CinematicManager is NOT owned by someone else
-		# In this case, we trust the PlayerController to own the camera if no global cinematic is running.
-		print("[PlayerController] Recovery: No active zone detected but Rig active. Forcing deactivation.")
-		sm.deactivate_rig()
-		sync_camera_to_rig() # Ensure smooth return
+	# If no zone is current, but CinematicManager is still active (and we don't have a request),
+	# it means something else (script/system) is controlling it, OR we are in a bad state.
+	# We only force deactivate if WE think we should be in control (FREE mode) but CinematicManager is stuck.
+	# With the new Request system, this fallback is less critical as releasing requests handles it.
+	# We retain a basic check: If we have no active zone request, and CinematicManager is active,
+	# we assume it's valid (another system). We don't force deactivate anymore.
 	
 	_prev_active_cinematic_zone = _active_cinematic_zone
 
