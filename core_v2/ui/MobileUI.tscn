@@ -3,6 +3,7 @@
 [ext_resource path="res://addons/virtual_joystick/virtual_joystick.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/ui/TouchCameraControls.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/ui/MobileUI.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/ui/TouchActionButton.gd" type="Script" id=4]
 
 [sub_resource type="StyleBoxFlat" id=2]
 bg_color = Color( 0.15, 0.15, 0.15, 0.6 )
@@ -95,6 +96,8 @@ custom_styles/pressed = SubResource( 3 )
 toggle_mode = true
 action_mode = 0
 text = "ACT"
+script = ExtResource( 4 )
+action_name = "interact"
 
 [node name="JumpButton" type="Button" parent="Container/ActionButtons"]
 margin_top = 65.0
@@ -107,6 +110,8 @@ custom_styles/pressed = SubResource( 3 )
 toggle_mode = true
 action_mode = 0
 text = "JUMP"
+script = ExtResource( 4 )
+action_name = "jump"
 
 [node name="SprintButton" type="Button" parent="Container/ActionButtons"]
 margin_top = 130.0
@@ -119,6 +124,8 @@ custom_styles/pressed = SubResource( 3 )
 toggle_mode = true
 action_mode = 0
 text = "SPRINT"
+script = ExtResource( 4 )
+action_name = "run"
 
 [node name="CrouchButton" type="Button" parent="Container/ActionButtons"]
 margin_top = 195.0
@@ -131,3 +138,5 @@ custom_styles/pressed = SubResource( 3 )
 toggle_mode = true
 action_mode = 0
 text = "CROUCH"
+script = ExtResource( 4 )
+action_name = "crouch"
