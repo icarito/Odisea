@@ -2,19 +2,31 @@ extends Control
 class_name TouchCameraControls
 
 export(float) var sensitivity := 2.0
-export(float) var zoom_sensitivity := 0.1
+export(float) var zoom_sensitivity := 0.05
 
 var _touch_index := -1
 var _last_touch_pos := Vector2.ZERO
 var _pinch_touches := {}
 var _pinch_active := false
 var _pinch_start_distance := 0.0
+var _touch_controls_cache := []
+var _cache_valid := false
 
 signal camera_drag(delta)
 signal camera_zoom(delta)
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	get_tree().connect("node_added", self, "_on_node_added")
+	get_tree().connect("node_removed", self, "_on_node_removed")
+
+func _on_node_added(node: Node) -> void:
+	if node.is_in_group("touch_control"):
+		_cache_valid = false
+
+func _on_node_removed(node: Node) -> void:
+	if node.is_in_group("touch_control"):
+		_cache_valid = false
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
@@ -22,9 +34,14 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventScreenDrag:
 		_handle_drag(event)
 
+func _get_touch_controls() -> Array:
+	if not _cache_valid:
+		_touch_controls_cache = get_tree().get_nodes_in_group("touch_control")
+		_cache_valid = true
+	return _touch_controls_cache
+
 func _is_over_control(pos: Vector2) -> bool:
-	var controls = get_tree().get_nodes_in_group("touch_control")
-	for ctrl in controls:
+	for ctrl in _get_touch_controls():
 		if is_instance_valid(ctrl) and ctrl.is_inside_tree():
 			var rect = ctrl.get_global_rect()
 			if rect.has_point(pos):
@@ -65,7 +82,7 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 		var delta = event.position - _last_touch_pos
 		_last_touch_pos = event.position
 		if delta.length_squared() > 0.1:
-			emit_signal("camera_drag", Vector2(delta.x, -delta.y) * sensitivity)
+			emit_signal("camera_drag", Vector2(-delta.x, -delta.y) * sensitivity)
 
 func _start_pinch() -> void:
 	_pinch_active = true
