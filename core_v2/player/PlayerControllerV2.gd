@@ -84,6 +84,11 @@ var _push_target: Spatial = null
 # Cinematic Zone State
 var _active_cinematic_zone: Node = null
 var _prev_active_cinematic_zone: Node = null
+var _current_zone_request_id: int = -1
+const CINEMATIC_ZONE_EXIT_GRACE_TIME := 0.12
+var _cinematic_zone_exit_grace_left := 0.0
+const CINEMATIC_ZONE_SWITCH_GRACE_TIME := 0.18
+var _cinematic_zone_switch_grace_left := 0.0
 const PushableBoxV2Script = preload("res://core_v2/components/PushableBoxV2.gd")
 
 var _terminal_ui_active := false
@@ -212,6 +217,9 @@ func full_reset() -> void:
 
 	_active_cinematic_zone = null
 	_prev_active_cinematic_zone = null
+	_current_zone_request_id = -1
+	_cinematic_zone_exit_grace_left = 0.0
+	_cinematic_zone_switch_grace_left = 0.0
 	set_occlusion_mode(false)
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
@@ -369,19 +377,59 @@ func snap_rig_to_camera_orbit(target_cam_pos: Vector3, target_fov: float = 70.0)
 	yaw_deg = rad2deg(yaw)
 	pitch_deg = rad2deg(pitch)
 
+
+func align_exit_from_cinematic(target_cam: Camera) -> void:
+	"""
+	Aligns player rig heading from the cinematic camera but restores the
+	player's pitch and zoom (FOV/spring) to third-person defaults.
+	"""
+	if not target_cam or not is_instance_valid(target_cam):
+		return
+
+	var preserved_pitch := pitch
+	var preserved_base_fov := base_fov
+	var preserved_base_spring := base_spring_length_3d
+
+	# Reuse robust yaw solving from orbit snap.
+	snap_rig_to_camera_orbit(target_cam.global_transform.origin, target_cam.fov)
+
+	# Restore player defaults (prefer explicitly saved pre-cinematic values when available).
+	var restored_spring := preserved_base_spring
+	var restored_fov := preserved_base_fov
+	if _restore_spring_length > 0.0:
+		restored_spring = _restore_spring_length
+	if _restore_fov > 0.0:
+		restored_fov = _restore_fov
+
+	base_spring_length_3d = restored_spring
+	base_fov = restored_fov
+
+	# Keep cinematic-aligned yaw, but restore player's vertical look.
+	pitch = preserved_pitch
+	if camera_rig:
+		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.force_update_transform()
+	if _cached_spring_arm:
+		current_spring_length = base_spring_length_3d
+		_cached_spring_arm.spring_length = base_spring_length_3d
+	if _cached_cam:
+		_cached_cam.fov = base_fov
+
+	yaw_deg = rad2deg(yaw)
+	pitch_deg = rad2deg(pitch)
+
 func _get_move_direction(input_vector: Vector2, mode = -1, camera_basis = null) -> Vector3:
 	# print("[PlayerController] _get_move_direction called with mode: %d" % mode)
 	if mode == -1:
-		mode = CinematicManager.get_control_mode()
+		if CinematicManager.is_input_latched():
+			mode = CinematicManager.latched_control_mode
+		else:
+			mode = CinematicManager.get_control_mode()
 		
 	if camera_basis == null:
-		var camera = CinematicManager.get_active_camera()
-		if camera == null:
-			# Fallback if no camera found
-			return Vector3(input_vector.x, 0, input_vector.y)
-		camera_basis = camera.global_transform.basis
+		# Pass input magnitude to allow Latch release check
+		camera_basis = CinematicManager.get_movement_basis(input_vector.length())
 
-	
 	var res = Vector3.ZERO
 	match mode:
 		CinematicManager.ControlMode.FREE:
@@ -704,20 +752,13 @@ func step(dt: float, input: InputDataV2) -> void:
 		jump_logic.buffer_jump()
 
 	# --- CINEMATIC ZONE DETECTION ---
-	_update_cinematic_zone_detection(input)
+	_update_cinematic_zone_detection(input, dt)
 	
 	# --- MOVEMENT ---
 	var move_vec = input.move_vec
 	# Calculate World Direction based on Control Mode (or Latch)
-	var world_dir: Vector3
-	if CinematicManager.latch_active:
-		if move_vec.length() < 0.1:
-			CinematicManager.latch_active = false
-			world_dir = _get_move_direction(move_vec)
-		else:
-			world_dir = _get_move_direction(move_vec, CinematicManager.latched_control_mode, CinematicManager.latched_camera_basis)
-	else:
-		world_dir = _get_move_direction(move_vec)
+	# Logic delegated to CinematicManager (FSM)
+	var world_dir: Vector3 = _get_move_direction(move_vec)
 
 	# --- ACROBATIC SNAP DETECTION (Legacy) ---
 	# Uses input.move_vec directly to capture raw intent before processing
@@ -872,10 +913,11 @@ func step(dt: float, input: InputDataV2) -> void:
 	if _cached_cam and abs(_cached_cam.fov - base_fov) > 0.01:
 		_cached_cam.fov = lerp(_cached_cam.fov, base_fov, 4.0 * dt)
 		
-func _update_cinematic_zone_detection(input: InputDataV2):
-	var all_zones = get_tree().get_nodes_in_group("CinematicCameraZoneV2")
-	var best_zone = null
+func _update_cinematic_zone_detection(input: InputDataV2, dt: float = 1.0 / 60.0):
+	var all_zones = get_tree().get_nodes_in_group("CameraZoneV2")
+	var best_zone: Node = null
 	var min_volume = INF
+	var current_zone: Node = _active_cinematic_zone
 
 	for zone in all_zones:
 		if zone.is_zone_active and zone.is_body_in_zone(self):
@@ -884,8 +926,46 @@ func _update_cinematic_zone_detection(input: InputDataV2):
 			if vol < min_volume:
 				min_volume = vol
 				best_zone = zone
+			elif abs(vol - min_volume) <= 0.0001:
+				# Deterministic tie-break: prefer current zone if still valid,
+				# then stable lexical NodePath (instance_id is not deterministic across reloads).
+				if zone == current_zone and best_zone != current_zone:
+					best_zone = zone
+				elif best_zone != current_zone:
+					var zone_path = str(zone.get_path()) if zone.is_inside_tree() else zone.name
+					var best_path = str(best_zone.get_path()) if best_zone and best_zone.is_inside_tree() else (best_zone.name if best_zone else "")
+					if zone_path < best_path:
+						best_zone = zone
 
-	_active_cinematic_zone = best_zone
+	var resolved_zone: Node = best_zone
+	if resolved_zone != null:
+		_cinematic_zone_exit_grace_left = CINEMATIC_ZONE_EXIT_GRACE_TIME
+		var current_still_inside: bool = (
+			current_zone != null
+			and is_instance_valid(current_zone)
+			and current_zone.is_zone_active
+			and current_zone.is_body_in_zone(self)
+		)
+		if current_still_inside and resolved_zone != current_zone:
+			# Hold current zone briefly to avoid ping-pong between overlapping boundaries.
+			if _cinematic_zone_switch_grace_left > 0.0:
+				_cinematic_zone_switch_grace_left = max(0.0, _cinematic_zone_switch_grace_left - dt)
+				resolved_zone = current_zone
+			else:
+				# Allow switch now, and prime grace for next border crossing.
+				_cinematic_zone_switch_grace_left = CINEMATIC_ZONE_SWITCH_GRACE_TIME
+		else:
+			_cinematic_zone_switch_grace_left = CINEMATIC_ZONE_SWITCH_GRACE_TIME
+	elif _active_cinematic_zone != null and _cinematic_zone_exit_grace_left > 0.0:
+		# Keep the previous zone briefly to prevent enter/exit flicker near bounds.
+		_cinematic_zone_exit_grace_left = max(0.0, _cinematic_zone_exit_grace_left - dt)
+		resolved_zone = _active_cinematic_zone
+		_cinematic_zone_switch_grace_left = max(0.0, _cinematic_zone_switch_grace_left - dt)
+	else:
+		_cinematic_zone_exit_grace_left = 0.0
+		_cinematic_zone_switch_grace_left = 0.0
+
+	_active_cinematic_zone = resolved_zone
 
 	if _active_cinematic_zone != _prev_active_cinematic_zone:
 		if _prev_active_cinematic_zone and _prev_active_cinematic_zone.has_method("set_zone_occlusion_for_body"):
@@ -895,78 +975,44 @@ func _update_cinematic_zone_detection(input: InputDataV2):
 		elif _occlusion_mode_active:
 			set_occlusion_mode(false)
 
-		# Capture PREVIOUS camera state for Latch
-		var prev_cam = CinematicManager.get_active_camera()
-		var p_basis = prev_cam.global_transform.basis if prev_cam else Basis.IDENTITY
-		var p_mode = CinematicManager.get_control_mode()
-		var has_input = input.move_vec.length() > 0.1 if input else false
-
+		# FSM-based Transition Logic
 		if _active_cinematic_zone:
 			# Enter Zone
-			# Enter Zone
-			# Save current camera state for restore on exit (only if we haven't saved it yet or we just fully exited)
-			# We check _restore_spring_length < 0 to ensure we capture the *original* player state, not an intermediate one if switching zones immediately.
-			if _restore_spring_length < 0.0:
-				_restore_spring_length = base_spring_length_3d
-				_restore_fov = base_fov
-
 			var rig = _active_cinematic_zone._rig_node
 			if rig:
-				CinematicManager.activate_rig_direct(rig, _active_cinematic_zone.control_mode)
-			
-			if _active_cinematic_zone.get("latch_on_enter") and has_input:
-				CinematicManager.latched_camera_basis = p_basis
-				CinematicManager.latched_control_mode = p_mode
-				CinematicManager.latch_active = true
-				# print("[PlayerController] LATCHED Basis on ENTER: ", p_basis)
-				
-				# Record for determinism!
-				SessionManager.record_custom_event("LATCH_BASIS", {
-						"basis": [
-								[p_basis.x.x, p_basis.x.y, p_basis.x.z],
-								[p_basis.y.x, p_basis.y.y, p_basis.y.z],
-								[p_basis.z.x, p_basis.z.y, p_basis.z.z]
-						],
-						"mode": p_mode
-				})
+				var trans_time = rig.transition_time if "transition_time" in rig else 0.0
+				var payload = {
+					"rig": rig,
+					"transition_time": trans_time,
+					"latch_on_enter": _active_cinematic_zone.get("latch_on_enter"),
+					"latch_on_exit": _active_cinematic_zone.get("latch_on_exit")
+				}
+				_current_zone_request_id = CinematicManager.request_camera_mode(
+					_active_cinematic_zone.control_mode,
+					payload,
+					"zone_" + _active_cinematic_zone.name,
+					5
+				)
 		else:
-			# Exit Zone (Return to Player Camera)
-			var cur_cam = CinematicManager.get_active_camera()
-			if cur_cam:
-				_exit_log_frames = 60 # Log first 60 frames (~1s) of exit to capture full transition
-				# 1. Snap player camera
-				snap_rig_to_camera_orbit(cur_cam.global_transform.origin, cur_cam.fov)
-				# 2. Deactivate cinematic rig
-				CinematicManager.deactivate_rig()
-				
-				# 3. Restore intended player settings (smooth transition will handle the rest in _physics_process)
-				if _restore_spring_length > 0.0:
-					base_spring_length_3d = _restore_spring_length
-					base_fov = _restore_fov
-					# Reset backup so next time we capture fresh
-					_restore_spring_length = -1.0
-					_restore_fov = -1.0
-				
-			else:
-				CinematicManager.deactivate_rig()
+			# Exit Zone
+			if _current_zone_request_id != -1:
+				CinematicManager.release_camera_request(_current_zone_request_id)
+				_current_zone_request_id = -1
 			
-			if _prev_active_cinematic_zone and _prev_active_cinematic_zone.get("latch_on_exit") and has_input:
-				# Only latch if not ALREADY latched (e.g. from entry, maintaining continuity)
-				if not CinematicManager.latch_active:
-					CinematicManager.latched_camera_basis = p_basis
-					CinematicManager.latched_control_mode = p_mode
-					CinematicManager.latch_active = true
+			# Recovery of local spring/fov state
+			if _restore_spring_length > 0.0:
+				base_spring_length_3d = _restore_spring_length
+				base_fov = _restore_fov
+				_restore_spring_length = -1.0
+				_restore_fov = -1.0
 		
 	# --- CINEMATIC RECOVERY FALLBACK ---
-	# If no zone is current, but CinematicManager is still active, it means we missed an exit event
-	# (e.g. zone was disabled or removed). We force return to Player Camera.
-	if _active_cinematic_zone == null and CinematicManager.is_active():
-		var sm = CinematicManager
-		# Safety: Only deactivate if the rig being managed by CinematicManager is NOT owned by someone else
-		# In this case, we trust the PlayerController to own the camera if no global cinematic is running.
-		print("[PlayerController] Recovery: No active zone detected but Rig active. Forcing deactivation.")
-		sm.deactivate_rig()
-		sync_camera_to_rig() # Ensure smooth return
+	# If no zone is current, but CinematicManager is still active (and we don't have a request),
+	# it means something else (script/system) is controlling it, OR we are in a bad state.
+	# We only force deactivate if WE think we should be in control (FREE mode) but CinematicManager is stuck.
+	# With the new Request system, this fallback is less critical as releasing requests handles it.
+	# We retain a basic check: If we have no active zone request, and CinematicManager is active,
+	# we assume it's valid (another system). We don't force deactivate anymore.
 	
 	_prev_active_cinematic_zone = _active_cinematic_zone
 

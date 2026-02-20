@@ -9,9 +9,9 @@ const CinematicManagerScript = preload("res://core_v2/autoloads/CinematicManager
 onready var CM = get_node("/root/CinematicManager")
 
 onready var player = $Pilot_v2
-onready var zone = $CinematicCameraZone
-onready var rig = $CinematicCameraZone/CinematicPathRig
-onready var camera = $CinematicCameraZone/CinematicPathRig/PathFollow/Camera
+onready var zone = $CameraZone
+onready var rig = $CameraZone/CinematicPathRig
+onready var camera = $CameraZone/CinematicPathRig/PathFollow/Camera
 
 func _ready():
 	# Wait for physics initialization

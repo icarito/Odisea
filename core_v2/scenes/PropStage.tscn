@@ -3,7 +3,7 @@
 [ext_resource path="res://core_v2/scenes/PropStage.gd" type="Script" id=1]
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=2]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=3]
-[ext_resource path="res://core_v2/components/CinematicCameraZone.gd" type="Script" id=4]
+[ext_resource path="res://core_v2/components/CameraZone.gd" type="Script" id=4]
 
 [sub_resource type="Environment" id=1]
 background_mode = 1
@@ -49,14 +49,14 @@ parameters/playback = SubResource( 2 )
 [node name="SpaceDust" parent="Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera" index="0"]
 visible = false
 
-[node name="CinematicCameraZoneV2" type="Area" parent="."]
+[node name="CameraZoneV2" type="Area" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7, 0 )
 script = ExtResource( 4 )
 debug_color = Color( 1, 0.5, 0, 0.3 )
 debug_render = false
 zone_extents = Vector3( 13, 8, 13 )
 
-[node name="CollisionShape" type="CollisionShape" parent="CinematicCameraZoneV2"]
+[node name="CollisionShape" type="CollisionShape" parent="CameraZoneV2"]
 shape = SubResource( 3 )
 
 [editable path="Pilot"]

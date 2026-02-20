@@ -43,7 +43,6 @@ func _ready():
 	connect("body_entered", self, "_on_body_entered")
 	
 	_sfx_drag = get_node_or_null("SFX Drag")
-	print("[PushableBoxV2] _ready. SFX Drag found: ", _sfx_drag)
 	
 	# WakeArea para detectar presencia del jugador/otros y despertar
 	var wake_area = get_node_or_null("WakeArea")
@@ -101,11 +100,9 @@ func _handle_rigid_logic(_dt):
 		# We use a simple check; for more accuracy we could check collision normals
 		if vel > 0.1:
 			if not _sfx_drag.playing:
-				print("[PushableBoxV2] Start Drag Sound. Vel: ", vel)
 				_sfx_drag.play_sfx()
 		else:
 			if _sfx_drag.playing:
-				print("[PushableBoxV2] Stop Drag Sound. Vel: ", vel)
 				_sfx_drag.stop_sfx()
 
 	if vel < settle_threshold and ang < (settle_threshold * 2.0):

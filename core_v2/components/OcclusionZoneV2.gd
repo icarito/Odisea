@@ -19,7 +19,7 @@ func _ready():
 	._ready()
 	add_to_group("OcclusionZoneV2")
 	if not Engine.editor_hint:
-		push_warning("[DEPRECATED] OcclusionZoneV2 está deprecada. Usa CinematicCameraZoneV2 con use_occlusion=true.")
+		push_warning("[DEPRECATED] OcclusionZoneV2 está deprecada. Usa CameraZoneV2 con use_occlusion=true.")
 	if debug_color == Color(0, 1, 0, 0.2): # Only if default
 		set_debug_color(Color(1.0, 1.0, 0.0, 0.2)) # Yellow
 		

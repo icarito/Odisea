@@ -10,25 +10,123 @@ enum ControlMode {
 	FIXED_AXIS
 }
 
+# --- New FSM Architecture (Phase 1) ---
+enum CameraModeState {
+	FREE_ACTIVE,
+	TRANSITION_TO_CINEMATIC,
+	CINEMATIC_ACTIVE,
+	TRANSITION_TO_FREE,
+	RECOVERY
+}
+
+enum InputState {
+	INPUT_DIRECT,
+	INPUT_LATCHED,
+	INPUT_BLOCKED
+}
+
+class CameraRequest:
+	var id: int
+	var mode: int # ControlMode
+	var payload: Dictionary
+	var source: String
+	var priority: int
+
+	func _init(_id: int, _mode: int, _payload: Dictionary, _source: String, _priority: int):
+		id = _id
+		mode = _mode
+		payload = _payload
+		source = _source
+		priority = _priority
+
+# FSM State
+var _current_state: int = CameraModeState.FREE_ACTIVE
+var _input_state: int = InputState.INPUT_DIRECT
+var _active_requests: Dictionary = {} # id -> CameraRequest
+var _active_payload: Dictionary = {}
+var _request_counter: int = 0
+var _latch_timer: float = 0.0
+const LATCH_TIMEOUT: float = 0.25
+const LATCH_DEADZONE: float = 0.1
+
+# Legacy / Compatibility Variables
 var active_rig = null
 var current_control_mode = ControlMode.FREE
 var latched_camera_basis = Basis.IDENTITY
 var latched_control_mode = ControlMode.FREE
-var latch_active := false
+var latch_active := false # Use _input_state == INPUT_LATCHED instead
 var _transition_active := false
 var _transition_start_time := 0.0
 var _transition_duration := 0.0
+var _transition_elapsed := 0.0
+var _transition_purpose := "" # "to_cinematic" | "to_free"
 var _transition_from_cam: Camera = null
 var _transition_to_cam: Camera = null
 var _transition_start_transform: Transform
 var _transition_start_fov: float
+var transition_debug_enabled := false
+var _transition_debug_events: Array = []
+const TRANSITION_DEBUG_MAX_EVENTS := 256
 
 signal cinematic_started(rig_id)
 signal cinematic_stopped
 signal control_mode_changed(mode)
 
 func _ready():
-	pass
+	var env_debug = OS.get_environment("ODISEA_CAMERA_DEBUG").to_lower()
+	transition_debug_enabled = env_debug in ["1", "true", "yes", "on"]
+
+func set_transition_debug(enabled: bool) -> void:
+	transition_debug_enabled = enabled
+
+func clear_transition_debug_events() -> void:
+	_transition_debug_events.clear()
+
+func get_transition_debug_events() -> Array:
+	return _transition_debug_events.duplicate(true)
+
+func _camera_debug_name(cam: Camera) -> String:
+	if not cam or not is_instance_valid(cam):
+		return "<null>"
+	var p = str(cam.get_path()) if cam.is_inside_tree() else "<detached>"
+	return "%s@%s" % [cam.name, p]
+
+func _log_transition(event: String, data: Dictionary = {}) -> void:
+	var entry = {
+		"t_ms": OS.get_ticks_msec(),
+		"event": event,
+		"data": data
+	}
+	_transition_debug_events.append(entry)
+	if _transition_debug_events.size() > TRANSITION_DEBUG_MAX_EVENTS:
+		_transition_debug_events.pop_front()
+	if transition_debug_enabled:
+		print("[CinematicManager][TRACE] ", entry)
+
+# --- Request API ---
+
+func request_camera_mode(mode: int, payload := {}, source := "system", priority := 0) -> int:
+	_request_counter += 1
+	var id = _request_counter
+	var req = CameraRequest.new(id, mode, payload, source, priority)
+	_active_requests[id] = req
+	_log_transition("request_add", {
+		"id": id,
+		"source": source,
+		"priority": priority,
+		"mode": mode,
+		"rig": str(payload.get("rig", null))
+	})
+	# print("[CinematicManager] Request %d: %s (Pri: %d) Source: %s" % [id, ControlMode.keys()[mode], priority, source])
+	return id
+
+func release_camera_request(request_id: int) -> void:
+	if _active_requests.has(request_id):
+		_log_transition("request_release", {
+			"id": request_id
+		})
+		_active_requests.erase(request_id)
+		# print("[CinematicManager] Released request %d" % request_id)
 
 func activate_rig(rig_id: String, control_mode: int = ControlMode.FREE):
 	var rigs = get_tree().get_nodes_in_group("cinematic_rigs")
@@ -52,88 +150,36 @@ func activate_rig_direct(target_rig: Spatial, control_mode: int = ControlMode.FR
 	if not target_rig:
 		printerr("[CinematicManager] activate_rig_direct called with null rig")
 		return
-	
-	if active_rig == target_rig:
-		return
-	
-	var new_cam = target_rig.get_camera() if target_rig.has_method("get_camera") else null
-	if not new_cam:
-		printerr("[CinematicManager] Rig has no camera: ", target_rig.name)
-		return
 
-	if old_camera == null:
-		old_camera = _find_player_camera()
-		if not old_camera:
-			old_camera = get_viewport().get_camera()
-
-	# Notify change
-	current_control_mode = control_mode
-	emit_signal("control_mode_changed", control_mode)
+	# Compatibility Wrapper: Create a high-priority request
+	# We use a distinct source "legacy_direct" so we can find it later in deactivate_rig
 	
-	var cam_basis = ""
-	var current_cam = get_viewport().get_camera()
-	if current_cam:
-		cam_basis = str(current_cam.global_transform.basis)
+	# Clean up any previous legacy request to avoid stacking
+	var to_remove = []
+	for id in _active_requests:
+		if _active_requests[id].source == "legacy_direct":
+			to_remove.append(id)
+	for id in to_remove:
+		release_camera_request(id)
 
-	print("[CinematicManager] activate_rig_direct: ", target_rig.name, " mode=", control_mode, " current_cam_basis=", cam_basis)
-	
-	# Handle transition
 	var trans_time = target_rig.transition_time if "transition_time" in target_rig else 0.0
+	var payload = {
+		"rig": target_rig,
+		"transition_time": trans_time,
+		"old_camera": old_camera # Optional hint
+	}
 	
-	if active_rig:
-		if active_rig.has_method("deactivate"):
-			active_rig.deactivate(false) # Do not restore camera, we handle it
-
-	active_rig = target_rig
-	if active_rig.has_method("activate"):
-		active_rig.activate(false) # Activate logic but don't force camera current yet
-
-	if trans_time > 0 and old_camera and new_cam and old_camera != new_cam:
-		CameraTransition.transition_camera3D(old_camera, new_cam, trans_time)
-	else:
-		# Immediate switch
-		new_cam.current = true
-
-	emit_signal("cinematic_started", target_rig.name)
+	request_camera_mode(control_mode, payload, "legacy_direct", 10)
 
 func deactivate_rig():
-	if not active_rig:
-		return
+	# Compatibility Wrapper: Release the legacy request
+	var to_remove = []
+	for id in _active_requests:
+		if _active_requests[id].source == "legacy_direct":
+			to_remove.append(id)
 	
-	var rig_cam = active_rig.get_camera() if active_rig.has_method("get_camera") else null
-	var trans_time = 0.5 # Default exit transition time
-	if active_rig.has_method("get_transition_time"):
-		trans_time = active_rig.get_transition_time()
-	elif "transition_time" in active_rig:
-		trans_time = active_rig.transition_time
-	
-	var player_cam = _find_player_camera()
-	
-	if active_rig.has_method("deactivate"):
-		active_rig.deactivate(false)
-			
-	if player_cam:
-		player_cam.current = true
-		# Find the controller and sync to restore base FOV and spring length
-		var parent = player_cam.get_parent()
-		while parent != null:
-			if parent.has_method("sync_camera_to_rig"):
-				parent.call("sync_camera_to_rig")
-				break
-			parent = parent.get_parent()
-			
-	active_rig = null
-	current_control_mode = ControlMode.FREE
-	emit_signal("control_mode_changed", ControlMode.FREE)
-	
-	if trans_time > 0 and rig_cam and player_cam:
-		# Use our custom dynamic transition
-		_start_dynamic_transition(rig_cam, player_cam, trans_time)
-	else:
-		if player_cam:
-			player_cam.current = true
-	
-	emit_signal("cinematic_stopped")
+	for id in to_remove:
+		release_camera_request(id)
 
 func _find_player_camera() -> Camera:
 	var players = get_tree().get_nodes_in_group("player")
@@ -163,25 +209,62 @@ func _search_camera(node: Node) -> Camera:
 	return null
 
 func get_active_camera() -> Camera:
-	if active_rig:
-		return active_rig.get_camera()
-	return get_viewport().get_camera()
+	if _transition_active and CameraTransition and is_instance_valid(CameraTransition.camera3D):
+		return CameraTransition.camera3D
+
+	if active_rig and is_instance_valid(active_rig):
+		if active_rig.has_method("get_camera"):
+			var rig_cam = active_rig.get_camera()
+			if rig_cam and is_instance_valid(rig_cam):
+				return rig_cam
+	else:
+		active_rig = null
+	return get_viewport().get_camera() if get_viewport() else null
 
 func get_control_mode() -> int:
 	return current_control_mode
 
 func is_active() -> bool:
-	return active_rig != null
+	return active_rig != null or not _active_requests.empty() or _transition_active
 
 # Compatibility for PlayerController or other systems calling step/force_finish
 func force_finish_transition():
 	# CameraTransition doesn't easily support force finish, but it's fine for now.
 	pass
 
-func _start_dynamic_transition(from: Camera, to: Camera, duration: float):
+func _cancel_plugin_transition() -> void:
+	if CameraTransition and CameraTransition.has_method("cancel_transition"):
+		_log_transition("plugin_cancel", {})
+		CameraTransition.cancel_transition()
+
+func _cancel_dynamic_transition(reason: String = "") -> void:
+	if _transition_active:
+		_log_transition("dynamic_cancel", {
+			"reason": reason,
+			"purpose": _transition_purpose,
+			"from": _camera_debug_name(_transition_from_cam),
+			"to": _camera_debug_name(_transition_to_cam)
+		})
+	_transition_active = false
+	_transition_elapsed = 0.0
+	_transition_purpose = ""
+	_transition_from_cam = null
+	_transition_to_cam = null
+
+func _start_dynamic_transition(from: Camera, to: Camera, duration: float, purpose: String = "to_free"):
+	_cancel_dynamic_transition("restart_dynamic")
+	_cancel_plugin_transition()
+	_log_transition("dynamic_start", {
+		"from": _camera_debug_name(from),
+		"to": _camera_debug_name(to),
+		"duration": duration,
+		"purpose": purpose
+	})
 	_transition_active = true
 	_transition_start_time = OS.get_ticks_msec() / 1000.0
 	_transition_duration = duration
+	_transition_elapsed = 0.0
+	_transition_purpose = purpose
 	_transition_from_cam = from
 	_transition_to_cam = to
 	_transition_start_transform = from.global_transform
@@ -205,35 +288,316 @@ func _start_dynamic_transform() -> Transform:
 	return _transition_start_transform
 
 func _process(delta: float):
-	if _transition_active:
-		var now = OS.get_ticks_msec() / 1000.0
-		var elapsed = now - _transition_start_time
-		if elapsed >= _transition_duration:
-			_finish_dynamic_transition()
-		else:
-			var t = elapsed / _transition_duration
-			# Ease InOut Cubic
-			t = -0.5 * (cos(PI * t) - 1)
-			
-			if is_instance_valid(_transition_to_cam) and CameraTransition.camera3D:
-				# Interpolate from Fixed Start to Moving Target
-				var target_tx = _transition_to_cam.global_transform
-				var target_fov = _transition_to_cam.fov
-				
-				var new_tx = _transition_start_transform.interpolate_with(target_tx, t)
-				var new_fov = lerp(_transition_start_fov, target_fov, t)
-				
-				CameraTransition.camera3D.global_transform = new_tx
-				CameraTransition.camera3D.fov = new_fov
+	pass
+
+func _update_dynamic_transition(dt: float) -> void:
+	if not _transition_active:
+		return
+
+	_transition_elapsed += max(0.0, dt)
+	if _transition_duration <= 0.0 or _transition_elapsed >= _transition_duration:
+		# Snap transition camera to the latest target pose before handoff to avoid
+		# a final-frame mismatch when the destination camera is moving with the player.
+		if is_instance_valid(_transition_to_cam) and CameraTransition.camera3D:
+			CameraTransition.camera3D.global_transform = _transition_to_cam.global_transform
+			CameraTransition.camera3D.fov = _transition_to_cam.fov
+		_finish_dynamic_transition()
+		return
+
+	var t = _transition_elapsed / _transition_duration
+	# Ease InOut Cubic
+	t = -0.5 * (cos(PI * t) - 1)
+
+	if is_instance_valid(_transition_to_cam) and CameraTransition.camera3D:
+		# Interpolate from Fixed Start to Moving Target
+		var target_tx = _transition_to_cam.global_transform
+		var target_fov = _transition_to_cam.fov
+		var new_tx = _transition_start_transform.interpolate_with(target_tx, t)
+		var new_fov = lerp(_transition_start_fov, target_fov, t)
+		CameraTransition.camera3D.global_transform = new_tx
+		CameraTransition.camera3D.fov = new_fov
 
 func _finish_dynamic_transition():
-	_transition_active = false
-	if is_instance_valid(_transition_to_cam):
-		_transition_to_cam.current = true
-	emit_signal("cinematic_stopped")
+	var target_cam: Camera = _transition_to_cam
+	var blend_cam: Camera = CameraTransition.camera3D if CameraTransition and is_instance_valid(CameraTransition.camera3D) else null
+	var purpose := _transition_purpose
 
-func step(_delta: float):
-	pass
+	_transition_active = false
+	_transition_purpose = ""
+	_transition_from_cam = null
+	_transition_to_cam = null
+
+	if is_instance_valid(target_cam):
+		var pos_err := 0.0
+		var ang_err_deg := 0.0
+		var aligned := false
+		# Exit transitions are sensitive because player camera keeps moving with gameplay.
+		if purpose == "to_free" and is_instance_valid(blend_cam):
+			pos_err = blend_cam.global_transform.origin.distance_to(target_cam.global_transform.origin)
+			var blend_fwd := (-blend_cam.global_transform.basis.z).normalized()
+			var target_fwd := (-target_cam.global_transform.basis.z).normalized()
+			var dot_fwd := clamp(blend_fwd.dot(target_fwd), -1.0, 1.0)
+			ang_err_deg = rad2deg(acos(dot_fwd))
+			if pos_err > 0.02 or ang_err_deg > 0.5:
+				_align_player_rig_to_camera(blend_cam, target_cam)
+				_sync_player_cam_hierarchy(target_cam)
+				aligned = true
+		_log_transition("dynamic_finish", {
+			"purpose": purpose,
+			"target": _camera_debug_name(target_cam),
+			"blend": _camera_debug_name(blend_cam),
+			"pos_err": pos_err,
+			"ang_err_deg": ang_err_deg,
+			"aligned": aligned
+		})
+		target_cam.current = true
+	if purpose == "to_free":
+		emit_signal("cinematic_stopped")
+
+func step(dt: float):
+	_update_dynamic_transition(dt)
+
+	# 1. Evaluate Requests
+	var best_req = _evaluate_requests()
+
+	# 2. Update Mode FSM
+	_update_mode_fsm(dt, best_req)
+
+	# 3. Update Input FSM (Latch Timer)
+	_update_input_fsm(dt)
+
+func _evaluate_requests() -> CameraRequest:
+	if _active_requests.empty():
+		return null
+
+	var invalid_ids := []
+	var best: CameraRequest = null
+	for id in _active_requests:
+		var req = _active_requests[id]
+		if req == null:
+			invalid_ids.append(id)
+			continue
+		var req_rig = req.payload.get("rig", null)
+		if req_rig != null and not is_instance_valid(req_rig):
+			invalid_ids.append(id)
+			continue
+
+		if best == null:
+			best = req
+			continue
+
+		if req.priority > best.priority:
+			best = req
+		elif req.priority == best.priority:
+			if req.id > best.id: # Newer wins
+				best = req
+
+	for id in invalid_ids:
+		_active_requests.erase(id)
+
+	return best
+
+func _update_mode_fsm(_dt: float, target_req: CameraRequest):
+	var target_mode = ControlMode.FREE
+	var target_rig = null
+	var transition_time = 0.0
+
+	if target_req:
+		target_mode = target_req.mode
+		target_rig = target_req.payload.get("rig")
+		transition_time = target_req.payload.get("transition_time", 0.0)
+		if target_rig != null and not is_instance_valid(target_rig):
+			target_rig = null
+
+	# Detect Change
+	if active_rig != target_rig:
+		# State Transition Logic
+		var old_cam = get_active_camera()
+		_log_transition("target_change", {
+			"from_rig": str(active_rig),
+			"to_rig": str(target_rig),
+			"old_cam": _camera_debug_name(old_cam),
+			"target_mode": target_mode
+		})
+		# If we retarget while returning to FREE, stop that dynamic blend first.
+		_cancel_dynamic_transition("retarget_change")
+
+		# Update State
+		if target_rig and is_instance_valid(target_rig):
+			_active_payload = target_req.payload
+			_current_state = CameraModeState.TRANSITION_TO_CINEMATIC
+			active_rig = target_rig
+			current_control_mode = target_mode
+			emit_signal("control_mode_changed", target_mode)
+
+			if active_rig and is_instance_valid(active_rig) and active_rig.has_method("activate"):
+				active_rig.activate(false)
+
+			var new_cam = null
+			if active_rig and is_instance_valid(active_rig) and active_rig.has_method("get_camera"):
+				new_cam = active_rig.get_camera()
+				if new_cam and is_instance_valid(new_cam):
+					if transition_time > 0.0 and old_cam and old_cam != new_cam:
+						_log_transition("to_cinematic_blend", {
+							"from": _camera_debug_name(old_cam),
+							"to": _camera_debug_name(new_cam),
+							"duration": transition_time
+						})
+						# Use dynamic target so the blend keeps following the rig camera
+						# while player movement keeps updating it.
+						_start_dynamic_transition(old_cam, new_cam, transition_time, "to_cinematic")
+					else:
+						_cancel_plugin_transition()
+						_log_transition("to_cinematic_snap", {
+							"to": _camera_debug_name(new_cam)
+						})
+						new_cam.current = true
+
+			emit_signal("cinematic_started", active_rig.name if active_rig else "")
+			_current_state = CameraModeState.CINEMATIC_ACTIVE # Assuming instant for logic flow if handled by plugin
+
+			if _active_payload.get("latch_on_enter", true):
+				_engage_input_latch(old_cam)
+
+		else:
+			# Returning to Free
+			_current_state = CameraModeState.TRANSITION_TO_FREE
+			var prev_rig = active_rig
+			var exit_transition_time: float = float(transition_time)
+			# When exiting because the request was released, target_req is null and transition_time
+			# comes as 0. In that path, reuse the active payload/rig transition to avoid hard snaps.
+			if exit_transition_time <= 0.0:
+				exit_transition_time = float(_active_payload.get("transition_time", 0.0))
+			if exit_transition_time <= 0.0 and prev_rig and is_instance_valid(prev_rig):
+				if "transition_time" in prev_rig:
+					exit_transition_time = prev_rig.transition_time
+
+			active_rig = null
+			current_control_mode = ControlMode.FREE
+			emit_signal("control_mode_changed", ControlMode.FREE)
+
+			if prev_rig and is_instance_valid(prev_rig) and prev_rig.has_method("deactivate"):
+				prev_rig.deactivate(false)
+
+			var player_cam = _find_player_camera()
+			if player_cam:
+				# Align player rig to the current cinematic POV before blending back.
+				# This avoids large sweeps to the old pre-cinematic angle on zone exit.
+				if old_cam and is_instance_valid(old_cam):
+					_align_player_rig_to_camera(old_cam, player_cam)
+					if exit_transition_time > 0.0 and old_cam and old_cam != player_cam:
+						# Use custom dynamic transition for return
+						_start_dynamic_transition(old_cam, player_cam, exit_transition_time, "to_free")
+					else:
+						_cancel_plugin_transition()
+						_log_transition("to_free_snap", {
+							"to": _camera_debug_name(player_cam)
+						})
+						player_cam.current = true
+						_sync_player_cam_hierarchy(player_cam)
+
+			emit_signal("cinematic_stopped")
+			_current_state = CameraModeState.FREE_ACTIVE
+
+			if _active_payload.get("latch_on_exit", true):
+				_engage_input_latch(old_cam)
+			_active_payload = {}
+
+	else:
+		# Steady State
+		if active_rig and is_instance_valid(active_rig):
+			_current_state = CameraModeState.CINEMATIC_ACTIVE
+		else:
+			active_rig = null
+			_current_state = CameraModeState.FREE_ACTIVE
+
+func _sync_player_cam_hierarchy(cam: Camera):
+	var parent = cam.get_parent()
+	while parent != null:
+		if parent.has_method("sync_camera_to_rig"):
+			parent.call("sync_camera_to_rig")
+			break
+		parent = parent.get_parent()
+
+
+func _align_player_rig_to_camera(target_cam: Camera, player_cam: Camera) -> void:
+	if not target_cam or not is_instance_valid(target_cam):
+		return
+	if not player_cam or not is_instance_valid(player_cam):
+		return
+
+	var parent = player_cam.get_parent()
+	while parent != null:
+		if parent.has_method("align_exit_from_cinematic"):
+			parent.call("align_exit_from_cinematic", target_cam)
+			return
+		if parent.has_method("snap_rig_to_camera_orbit"):
+			parent.call("snap_rig_to_camera_orbit", target_cam.global_transform.origin, target_cam.fov)
+			return
+		parent = parent.get_parent()
+
+func _engage_input_latch(ref_cam: Camera):
+	if not ref_cam: return
+
+	latched_camera_basis = ref_cam.global_transform.basis
+	latched_control_mode = current_control_mode # Capture mode at moment of latch?
+	# Actually, if we are transitioning TO cinematic, we want the OLD mode (FREE usually).
+	# If we are transitioning FROM cinematic, we want the OLD mode (CINEMATIC).
+	# So current_control_mode is already updated?
+	# Wait, in _update_mode_fsm, I update current_control_mode BEFORE calling this.
+	# So for "To Cinematic", current is CINEMATIC. We want the OLD one?
+	# Spec: "latched_control_mode" captured.
+	# If I am moving freely, I want to keep moving freely relative to the OLD camera.
+	# So the mode should probably be implicit or FREE?
+	# Actually, get_movement_basis uses latched_control_mode to interpret the vector.
+	# If I was in FREE mode, my input is relative to Camera.
+	# If I was in LOCKED mode, my input is relative to Screen.
+	# So yes, we need the *previous* mode.
+	# I'll rely on the caller to handle this? Or just assume FREE if we came from player?
+
+	# Correction: The latch ensures we keep moving in the *Same World Direction*.
+	# get_move_direction calculates World Dir from Input + Mode + Basis.
+	# So we need the Basis and Mode that generated the *current* world direction.
+	# If we just switched mode, `latched_control_mode` should be the OLD mode.
+
+	# But I updated `current_control_mode` already.
+	# I will just force FREE for now as it's the 99% case for latching (player moving).
+	latched_control_mode = ControlMode.FREE
+
+	_input_state = InputState.INPUT_LATCHED
+	_latch_timer = LATCH_TIMEOUT
+	latch_active = true
+	# print("[CinematicManager] Latch Engaged. Basis: ", latched_camera_basis.get_euler())
+
+func _update_input_fsm(dt: float):
+	if _input_state == InputState.INPUT_LATCHED:
+		_latch_timer -= dt
+		if _latch_timer <= 0.0:
+			_release_latch("timeout")
+
+func _release_latch(reason: String):
+	if _input_state != InputState.INPUT_LATCHED: return
+	_input_state = InputState.INPUT_DIRECT
+	latch_active = false
+	# print("[CinematicManager] Latch Released: ", reason)
+
+func get_movement_basis(input_magnitude: float = 1.0) -> Basis:
+	# Check for Neutral Input release
+	if _input_state == InputState.INPUT_LATCHED:
+		if input_magnitude < LATCH_DEADZONE:
+			_release_latch("neutral_input")
+
+	if _input_state == InputState.INPUT_LATCHED:
+		return latched_camera_basis
+
+	# Direct Mode
+	var cam = get_active_camera()
+	if cam:
+		return cam.global_transform.basis
+	return Basis.IDENTITY
+
+func is_input_latched() -> bool:
+	return _input_state == InputState.INPUT_LATCHED
 
 func get_full_snapshot() -> Dictionary:
 	var snapshot = {
@@ -288,11 +652,18 @@ func restore_snapshot(data: Dictionary) -> void:
 			cam.current = true
 
 func reset():
+	# Reset FSM/request state introduced in PR65.
+	_active_requests.clear()
+	_active_payload = {}
+	_request_counter = 0
+	_current_state = CameraModeState.FREE_ACTIVE
+	_input_state = InputState.INPUT_DIRECT
+	_latch_timer = 0.0
+
 	if active_rig:
 		# Stop any active transition immediately
-		_transition_active = false
-		_transition_from_cam = null
-		_transition_to_cam = null
+		_cancel_dynamic_transition("reset_active_rig")
+		_cancel_plugin_transition()
 
 		# Ensure player camera is active and sync properties if we were transitioning
 		var player_cam = _find_player_camera()
@@ -314,9 +685,8 @@ func reset():
 	latched_camera_basis = Basis.IDENTITY
 	latched_control_mode = ControlMode.FREE
 	latch_active = false
-	_transition_active = false
-	_transition_from_cam = null
-	_transition_to_cam = null
+	_cancel_dynamic_transition("reset")
+	_cancel_plugin_transition()
 	
 	var player_cam = _find_player_camera()
 	if player_cam:
