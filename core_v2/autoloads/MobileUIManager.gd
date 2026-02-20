@@ -35,9 +35,12 @@ func _get_touch_camera_control() -> TouchCameraControls:
 	return container.get_node_or_null("TouchCameraArea")
 
 func _on_camera_drag(delta: Vector2) -> void:
+	print("[MobileUIManager] Camera drag received: ", delta)
 	var input_provider = _get_active_input_provider()
 	if input_provider:
 		input_provider.add_touch_camera_drag(delta)
+	else:
+		print("[MobileUIManager] No input provider found!")
 
 func _on_camera_zoom(delta: float) -> void:
 	var input_provider = _get_active_input_provider()

@@ -18,7 +18,7 @@ var hardware_input_enabled := true
 var joy_look_sensitivity := 15.0
 var joy_move_sensitivity := 1.0
 var hardware_look_sensitivity := 1.0
-var touch_camera_sensitivity := 3.0
+var touch_camera_sensitivity := 0.003
 const JOY_DEADZONE := 0.2
 const DIGITAL_ZOOM_SENSITIVITY := 0.1
 
@@ -116,7 +116,7 @@ func _read_live_input() -> InputDataV2:
 
 		# --- TOUCH CAMERA (from TouchCameraControls) ---
 		if _touch_camera_drag.length_squared() > 0.001:
-			mouse_d += _touch_camera_drag * touch_camera_sensitivity
+			mouse_d += _touch_camera_drag
 			_touch_camera_drag = Vector2.ZERO
 
 		d.mouse_delta = mouse_d
