@@ -85,12 +85,16 @@ func _read_live_input() -> InputDataV2:
 		d.crouch = Input.is_action_pressed("crouch")
 		d.interact = Input.is_action_just_pressed("interact")
 
-		# --- JOYSTICK SPRINT (Left Stick) ---
+		# --- JOYSTICK SPRINT (Physical) ---
 		var joy_move = Vector2(
 			Input.get_joy_axis(0, JOY_AXIS_0),
 			Input.get_joy_axis(0, JOY_AXIS_1)
 		)
 		if joy_move.length() > 0.8:
+			d.sprint = true
+		
+		# --- VIRTUAL JOYSTICK SPRINT (high magnitude = sprint) ---
+		if d.move_vec.length() > 0.85:
 			d.sprint = true
 
 		# Acumula y consume mouse_delta localmente
