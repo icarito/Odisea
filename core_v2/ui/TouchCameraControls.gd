@@ -2,7 +2,7 @@ extends Control
 class_name TouchCameraControls
 
 export(float) var sensitivity := 2.0
-export(float) var zoom_sensitivity := 0.5
+export(float) var zoom_sensitivity := 0.1
 
 var _touch_index := -1
 var _last_touch_pos := Vector2.ZERO
@@ -78,6 +78,6 @@ func _update_pinch() -> void:
 		return
 	
 	var current_distance = positions[0].distance_to(positions[1])
-	var delta = (current_distance - _pinch_start_distance) * zoom_sensitivity * 0.01
+	var delta = (_pinch_start_distance - current_distance) * zoom_sensitivity
 	_pinch_start_distance = current_distance
 	emit_signal("camera_zoom", delta)
