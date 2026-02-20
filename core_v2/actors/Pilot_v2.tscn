@@ -134,13 +134,18 @@ skirt_limit = 6.0
 
 [node name="JumpSFX" type="AudioStreamPlayer3D" parent="Visual/Pivot"]
 stream = ExtResource( 13 )
+unit_db = 10.0
+unit_size = 10.0
 script = ExtResource( 14 )
 trigger_mode = "OneShotActive"
 
 [node name="FootstepDetector" type="AudioStreamPlayer3D" parent="Visual/Pivot"]
+unit_db = 6.0
+unit_size = 8.0
 max_distance = 20.0
 script = ExtResource( 54 )
 generic_fallback_profile = ExtResource( 55 )
+stride_length_run = 2.2
 
 [node name="OmniLight" type="OmniLight" parent="Visual" groups=["optional"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )

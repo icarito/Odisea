@@ -27,8 +27,8 @@ func _ready():
 	_sfx_alarm = get_node_or_null("SFX Alarm")
 	_apply_color()
 	
-	# Initial sound state check
-	if is_active and _sfx_alarm:
+	# Initial sound state check (skip in editor)
+	if not Engine.editor_hint and is_active and _sfx_alarm:
 		_sfx_alarm.play_sfx()
 
 func set_beacon_color(v: Color) -> void:
@@ -44,6 +44,9 @@ func set_light_range(v: float) -> void:
 func set_active(value: bool, immediate: bool = false) -> void:
 	var was_active = is_active
 	.set_active(value, immediate)
+	
+	if Engine.editor_hint:
+		return
 	
 	if _sfx_alarm:
 		if value and not was_active:

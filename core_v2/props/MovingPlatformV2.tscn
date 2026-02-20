@@ -12,7 +12,6 @@ extents = Vector3( 2.5, 0.1, 2.5 )
 extents = Vector3( 2.5, 1, 2.5 )
 
 [node name="MovingPlatformV2" type="KinematicBody"]
-collision_layer = 2
 script = ExtResource( 2 )
 starts_active = false
 movement_vector = Vector3( 0, 5, 0 )
@@ -42,4 +41,3 @@ unit_db = -6.0
 max_distance = 35.0
 script = ExtResource( 4 )
 loop_sample = true
-trigger_mode = "Active"

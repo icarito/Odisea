@@ -21,7 +21,9 @@ func _ready():
 	if stream and loop_sample and stream is AudioStreamSample:
 		stream.loop_mode = AudioStreamSample.LOOP_FORWARD
 	
-	unit_size = 1.0
+	# Solo asignar default si no está configurado
+	if unit_size <= 0:
+		unit_size = 1.0
 	bus = "Master"
 
 
