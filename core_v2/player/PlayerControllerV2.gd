@@ -977,6 +977,13 @@ func _update_cinematic_zone_detection(input: InputDataV2, dt: float = 1.0 / 60.0
 
 		# FSM-based Transition Logic
 		if _active_cinematic_zone:
+			# If we switched zones, release the previous request first.
+			# Otherwise stale requests remain active and can keep the camera locked
+			# after leaving the latest zone.
+			if _current_zone_request_id != -1:
+				CinematicManager.release_camera_request(_current_zone_request_id)
+				_current_zone_request_id = -1
+
 			# Enter Zone
 			var rig = _active_cinematic_zone._rig_node
 			if rig:

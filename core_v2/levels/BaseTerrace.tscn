@@ -44,14 +44,14 @@
 [ext_resource path="res://core_v2/props/EmergencyBeaconV2.tscn" type="PackedScene" id=45]
 [ext_resource path="res://core_v2/props/Lever.tscn" type="PackedScene" id=46]
 
-[sub_resource type="BoxShape" id=2433]
+[sub_resource type="BoxShape" id=2441]
 extents = Vector3( 10, 17, 4.95 )
 
 [sub_resource type="CubeMesh" id=1]
 material = ExtResource( 1 )
 size = Vector3( 80, 2, 80 )
 
-[sub_resource type="MultiMesh" id=2434]
+[sub_resource type="MultiMesh" id=2442]
 transform_format = 1
 instance_count = 200
 mesh = SubResource( 1 )
@@ -901,17 +901,17 @@ points = PoolVector3Array( -16, 0, -3, -16, -1, -3, -9, -1, -3, -9, 0, -3, -16, 
 [sub_resource type="ConvexPolygonShape" id=2432]
 points = PoolVector3Array( 30.25, 12, 4, 30.25, 10, 4, 30.75, 10, 4, 30.75, 12, 4, 30.25, 12, 28, 30.25, 10, 28, 30.75, 10, 28, 30.75, 12, 28 )
 
-[sub_resource type="BoxShape" id=2435]
+[sub_resource type="BoxShape" id=2443]
 resource_local_to_scene = true
 extents = Vector3( 63, 40, 33.7563 )
 
-[sub_resource type="BoxShape" id=2436]
+[sub_resource type="BoxShape" id=2444]
 extents = Vector3( 104, 1, 141.5 )
 
 [sub_resource type="MultiMesh" id=1491]
 mesh = ExtResource( 36 )
 
-[sub_resource type="BoxShape" id=2437]
+[sub_resource type="BoxShape" id=2445]
 resource_local_to_scene = true
 extents = Vector3( 88.5928, 15, 199.103 )
 
@@ -920,7 +920,7 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 
-[sub_resource type="BoxShape" id=2438]
+[sub_resource type="BoxShape" id=2446]
 extents = Vector3( 1, 0.5, 1 )
 
 [sub_resource type="SpatialMaterial" id=1974]
@@ -953,7 +953,7 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 
-[sub_resource type="BoxShape" id=2439]
+[sub_resource type="BoxShape" id=2447]
 extents = Vector3( 1, 0.5, 1 )
 
 [sub_resource type="SpatialMaterial" id=1979]
@@ -1052,12 +1052,12 @@ debug_render = false
 zone_extents = Vector3( 10, 17, 4.95 )
 
 [node name="CollisionShape" parent="SideScrollZone4" index="1"]
-shape = SubResource( 2433 )
+shape = SubResource( 2441 )
 
 [node name="TerraceSpiral" parent="." instance=ExtResource( 9 )]
 transform = Transform( 0.986025, 0, 0.166597, 0, 1, 0, -0.166597, 0, 0.986025, -237.353, 37.8111, 76.7493 )
 visible = false
-multimesh = SubResource( 2434 )
+multimesh = SubResource( 2442 )
 
 [node name="GuardrailSegment" parent="." instance=ExtResource( 21 )]
 transform = Transform( -8.74228e-07, 0, 1, 0, 1, 0, -20, 0, -4.37114e-08, 40, 1, 0 )
@@ -1725,7 +1725,7 @@ floor_protect_radius = 1.0
 enforce_occlusion_material = true
 
 [node name="CollisionShape" type="CollisionShape" parent="Building/OcclusionArea"]
-shape = SubResource( 2435 )
+shape = SubResource( 2443 )
 
 [node name="CheckZoneV2" parent="." instance=ExtResource( 29 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -25.3912, 20.017, 32.3357 )
@@ -1752,7 +1752,7 @@ zone_extents = Vector3( 104, 1, 141.5 )
 
 [node name="CollisionShape" type="CollisionShape" parent="KillZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0 )
-shape = SubResource( 2436 )
+shape = SubResource( 2444 )
 
 [node name="CrioBatch" type="MultiMeshInstance" parent="."]
 transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 8.42406, 5.63353, -19.4895 )
@@ -1842,7 +1842,7 @@ fade_time = 0.2
 
 [node name="CollisionShape2" type="CollisionShape" parent="BGMZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 27.1999, 13.8186, -47.3105 )
-shape = SubResource( 2437 )
+shape = SubResource( 2445 )
 
 [node name="EmergencyBeaconV2" parent="." groups=["optional"] instance=ExtResource( 45 )]
 transform = Transform( -4.37114e-08, 1, 8.74228e-08, 1, 4.37114e-08, 3.82137e-15, 0, 8.74228e-08, -1, -5.95378, 8.0297, -8.15047 )
@@ -1903,36 +1903,6 @@ fade_out_time = null
 [node name="Smoke" parent="CrioPod START" index="2"]
 skeleton = NodePath("../../Building/QodotMap/entity_0_worldspawn/entity_0_brush_3_collision_shape")
 
-[node name="EmergencyBeaconV3" parent="CrioPod START" groups=["optional"] instance=ExtResource( 45 )]
-transform = Transform( -2.91409e-08, 0.666667, -5.82819e-08, 0.666667, 2.91409e-08, 2.54758e-15, 5.09517e-15, -5.82819e-08, -0.666667, -1.33313, 2.85504, 4.09509 )
-starts_active = true
-is_interactable = false
-beacon_color = Color( 0, 1, 0.835294, 1 )
-rotation_speed = 1.0
-pulse_speed = 1.0
-light_range = 10.0
-light_energy_max = 2.0
-
-[node name="EmergencyBeaconV5" parent="CrioPod START" groups=["optional"] instance=ExtResource( 45 )]
-transform = Transform( 0.666667, 2.90872e-14, 9.53729e-08, 7.10543e-15, -0.666667, 1.53655e-07, 9.53729e-08, -1.53655e-07, -0.666667, 9.33355, 3.32171, 5.02843 )
-starts_active = true
-is_interactable = false
-beacon_color = Color( 0, 1, 0.835294, 1 )
-rotation_speed = 1.0
-pulse_speed = 1.0
-light_range = 10.0
-light_energy_max = 2.0
-
-[node name="EmergencyBeaconV4" parent="CrioPod START" groups=["optional"] instance=ExtResource( 45 )]
-transform = Transform( 2.91409e-08, -0.666667, 1.16564e-07, 0.666667, 2.91409e-08, 2.54758e-15, -7.64275e-15, 1.16564e-07, 0.666667, 18.6669, 2.85504, 4.0951 )
-starts_active = true
-is_interactable = false
-beacon_color = Color( 0, 1, 0.835294, 1 )
-rotation_speed = 1.0
-pulse_speed = 1.0
-light_range = 10.0
-light_energy_max = 2.0
-
 [node name="Pilot" parent="CrioPod START" instance=ExtResource( 2 )]
 transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0.000200272, 0.721707, -0.123402 )
 
@@ -1954,7 +1924,7 @@ material_override = SubResource( 1972 )
 cast_shadow = 0
 
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/AutomationTrigger"]
-shape = SubResource( 2438 )
+shape = SubResource( 2446 )
 
 [node name="_ZoneDebugMesh3" type="MeshInstance" parent="CrioPod START/AutomationTrigger"]
 visible = false
@@ -1999,7 +1969,7 @@ material_override = SubResource( 1977 )
 cast_shadow = 0
 
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/CinematicSequence"]
-shape = SubResource( 2439 )
+shape = SubResource( 2447 )
 
 [node name="_ZoneDebugMesh3" type="MeshInstance" parent="CrioPod START/CinematicSequence"]
 visible = false
@@ -2059,7 +2029,7 @@ anims/dolly = SubResource( 1037 )
 [node name="CameraZone2" parent="." instance=ExtResource( 31 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.18961, 11.1312, 20.0898 )
 debug_render = false
-zone_extents = Vector3( 14.5, 5.5, 13.95 )
+zone_extents = Vector3( 14.5, 5.89231, 13.95 )
 cinematic_rig_path = NodePath("CinematicPathRig")
 occlusion_root = NodePath("../CornerFloor")
 
