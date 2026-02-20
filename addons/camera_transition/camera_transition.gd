@@ -5,6 +5,7 @@ onready var camera3D: Camera = $Camera
 onready var tween: Tween = $Tween
 
 var transitioning: bool = false
+var _transition_serial: int = 0
 
 func _ready() -> void:
 	camera2D.current = false
@@ -13,15 +14,25 @@ func _ready() -> void:
 func switch_camera(from, to) -> void:
 	if not is_instance_valid(from) or not is_instance_valid(to):
 		return
+	cancel_transition()
 	from.current = false
 	to.current = true
 
+func cancel_transition() -> void:
+	_transition_serial += 1
+	if is_instance_valid(tween):
+		tween.remove_all()
+	transitioning = false
+
 func transition_camera2D(from: Camera2D, to: Camera2D, duration: float = 1.0) -> void:
-	if transitioning: return
 	if not is_instance_valid(from) or not is_instance_valid(to):
 		return
 	if not is_instance_valid(camera2D) or not is_instance_valid(tween):
 		return
+	_transition_serial += 1
+	var serial = _transition_serial
+	if transitioning:
+		tween.remove_all()
 	# Copy the parameters of the first camera
 	camera2D.zoom = from.zoom
 	camera2D.offset = from.offset
@@ -48,6 +59,8 @@ func transition_camera2D(from: Camera2D, to: Camera2D, duration: float = 1.0) ->
 
 	# Wait for the tween to complete
 	yield(tween, "tween_all_completed")
+	if serial != _transition_serial:
+		return
 
 	transitioning = false
 	# Make the second camera current if it still exists
@@ -55,11 +68,14 @@ func transition_camera2D(from: Camera2D, to: Camera2D, duration: float = 1.0) ->
 		to.current = true
 
 func transition_camera3D(from: Camera, to: Camera, duration: float = 1.0) -> void:
-	if transitioning: return
 	if not is_instance_valid(from) or not is_instance_valid(to):
 		return
 	if not is_instance_valid(camera3D) or not is_instance_valid(tween):
 		return
+	_transition_serial += 1
+	var serial = _transition_serial
+	if transitioning:
+		tween.remove_all()
 	# Copy the parameters of the first camera
 	camera3D.fov = from.fov
 	camera3D.cull_mask = from.cull_mask
@@ -83,6 +99,8 @@ func transition_camera3D(from: Camera, to: Camera, duration: float = 1.0) -> voi
 
 	# Wait for the tween to complete
 	yield(tween, "tween_all_completed")
+	if serial != _transition_serial:
+		return
 
 	transitioning = false
 	# Make the second camera current if it still exists

@@ -16,6 +16,7 @@ export(bool) var track_player := false # La cámara siempre mira al jugador
 export(bool) var follow_player_on_path := false # La cámara se mueve a lo largo del path para estar cerca del jugador
 export(float, 0.1, 20.0) var follow_speed := 5.0 # Velocidad de seguimiento suave
 export(Vector3) var player_offset := Vector3(0, 1.5, 0) # Offset para apuntar (altura del pecho)
+export(float, 0.0, 3.0) var follow_head_height := 1.5 # Altura de referencia para trackear "cabeza"
 
 # --- CONFIGURACIÓN DE CÁMARA ---
 export(float, 10.0, 120.0) var fov := 70.0 setget set_fov
@@ -53,7 +54,7 @@ func _ready():
 	if not Engine.editor_hint:
 		set_physics_process(track_player or follow_player_on_path)
 	
-	if auto_play and not Engine.editor_hint:
+	if auto_play and not Engine.editor_hint and not follow_player_on_path:
 		play()
 
 # --- ACTUALIZACIÓN ---
@@ -70,41 +71,35 @@ func _physics_process(delta):
 
 func _update_rig(delta: float):
 	"""Actualiza la posición del path follow y la orientación de la cámara."""
-	# Buscar jugador si no lo tenemos
-	if not _player_node or not is_instance_valid(_player_node):
+	var needs_player := (follow_player_on_path or track_player)
+	# Buscar jugador solo si el modo activo lo requiere.
+	if needs_player and (not _player_node or not is_instance_valid(_player_node)):
 		_find_player()
 		if not _player_node:
 			return
 	
 	# Seguir al jugador a lo largo del path
 	if follow_player_on_path and curve and path_follow:
-		var player_pos = _player_node.global_transform.origin
+		var player_pos = _get_player_tracking_position()
 		# Convertir posición global del jugador a local del Path
 		var local_pos = global_transform.affine_inverse().xform(player_pos)
-		# Encontrar el offset más cercano en la curva
-		var closest_offset = curve.get_closest_offset(local_pos)
+		# Encontrar el offset más cercano en la curva (estable para paths con múltiples puntos).
+		var closest_offset = _get_closest_offset_on_curve(curve, local_pos)
 		var curve_length = curve.get_baked_length()
 		if curve_length > 0:
 			_target_offset = closest_offset / curve_length
 			if not path_follow.loop:
 				# Keep a tiny margin from exactly 1.0 to avoid endpoint wrap artifacts.
 				_target_offset = clamp(_target_offset, 0.0, 0.9999)
-				# Preserve continuity near path ends: avoid abrupt 0<->1 flips caused by
-				# nearest-point ambiguity when the player is at extreme positions.
-				var current_offset = path_follow.unit_offset
-				if abs(_target_offset - current_offset) > 0.45:
-					if current_offset >= 0.8 and _target_offset <= 0.2:
-						_target_offset = 0.9999
-					elif current_offset <= 0.2 and _target_offset >= 0.8:
-						_target_offset = 0.0
-					else:
-						_target_offset = current_offset
+
 			# Si delta es 0 (llamada forzada), aplicamos inmediatamente
 			if delta <= 0.00001:
 				path_follow.unit_offset = _target_offset
 			else:
-				# Interpolar suavemente hacia el objetivo
-				path_follow.unit_offset = lerp(path_follow.unit_offset, _target_offset, follow_speed * delta)
+				# Follow with bounded speed to avoid abrupt jumps / overshoot.
+				var current_offset = path_follow.unit_offset
+				var max_step = max(0.0001, follow_speed * delta)
+				path_follow.unit_offset = move_toward(current_offset, _target_offset, max_step)
 	
 	# Actualizar orientación de la cámara
 	if camera:
@@ -113,7 +108,7 @@ func _update_rig(delta: float):
 		
 		# Hacer que la cámara mire al jugador (si track_player está activo)
 		if track_player and _player_node:
-			var target_pos = _player_node.global_transform.origin + player_offset
+			var target_pos = _get_player_tracking_position() + player_offset
 			camera.look_at(target_pos, Vector3.UP)
 
 # NOTA: Las funciones de transición interna fueron ELIMINADAS.
@@ -155,6 +150,39 @@ func _find_player():
 	var players = get_tree().get_nodes_in_group("player")
 	if players.size() > 0:
 		_player_node = players[0] as Spatial
+
+
+func _get_player_tracking_position() -> Vector3:
+	if not _player_node or not is_instance_valid(_player_node):
+		return Vector3.ZERO
+
+	var pivot = _player_node.get_node_or_null("Visual/Pivot")
+	if pivot and pivot is Spatial:
+		return (pivot as Spatial).global_transform.origin + Vector3.UP * follow_head_height
+
+	return _player_node.global_transform.origin + Vector3.UP * follow_head_height
+
+
+func _get_closest_offset_on_curve(c: Curve3D, local_pos: Vector3) -> float:
+	var length = c.get_baked_length()
+	if length <= 0.0:
+		return 0.0
+
+	# Fast baseline from engine helper.
+	var best_offset = c.get_closest_offset(local_pos)
+	var best_dist = c.interpolate_baked(best_offset).distance_squared_to(local_pos)
+
+	# Robust pass over baked points to avoid snapping to endpoints on complex paths.
+	var samples = int(max(24.0, ceil(length / 0.35)))
+	for i in range(samples + 1):
+		var t = float(i) / float(samples)
+		var off = t * length
+		var d = c.interpolate_baked(off).distance_squared_to(local_pos)
+		if d < best_dist:
+			best_dist = d
+			best_offset = off
+
+	return clamp(best_offset, 0.0, length)
 
 func _ensure_nodes():
 	# PathFollow
@@ -290,7 +318,7 @@ func activate(make_current: bool = true):
 	
 	# Forzar actualización inmediata de posición y rotación (SNAP)
 	# Usamos snap_to_target en lugar de _update_rig(0) porque _update_rig podría usar lerp
-	if not was_active:
+	if not was_active and follow_player_on_path:
 		snap_to_target()
 	
 	# Si se solicita, hacer la cámara current
@@ -300,7 +328,12 @@ func activate(make_current: bool = true):
 	# Activar physics_process para seguimiento continuo
 	set_physics_process(true)
 	
-	if auto_play:
+	# Avoid dual drivers on PathFollow: when follow_player_on_path is enabled,
+	# unit_offset must be driven only by follow logic (not dolly animation).
+	if follow_player_on_path:
+		if anim_player:
+			anim_player.stop()
+	elif auto_play:
 		play()
 
 func snap_to_target():
@@ -309,9 +342,9 @@ func snap_to_target():
 		_find_player()
 	
 	if _player_node and is_instance_valid(_player_node) and curve and path_follow:
-		var player_pos = _player_node.global_transform.origin
+		var player_pos = _get_player_tracking_position()
 		var local_pos = global_transform.affine_inverse().xform(player_pos)
-		var closest_offset = curve.get_closest_offset(local_pos)
+		var closest_offset = _get_closest_offset_on_curve(curve, local_pos)
 		
 		# Set directly without lerp
 		var curve_length = curve.get_baked_length()

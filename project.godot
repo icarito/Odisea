@@ -109,6 +109,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/BGMZoneV2.gd"
 }, {
+"base": "Spatial",
+"class": "BackForthMovement",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/TransformModifiers/BackForthMovement.gd"
+}, {
 "base": "Area",
 "class": "BaseZoneV2",
 "language": "GDScript",
@@ -129,6 +134,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/qol-camera/inspector_plugin.gd"
 }, {
+"base": "BaseZoneV2",
+"class": "CameraZoneV2",
+"language": "GDScript",
+"path": "res://core_v2/components/CameraZone.gd"
+}, {
 "base": "KinematicBody",
 "class": "CargolDroneV2",
 "language": "GDScript",
@@ -148,11 +158,6 @@ _global_script_classes=[ {
 "class": "CheckpointResource",
 "language": "GDScript",
 "path": "res://core_v2/systems/CheckpointResource.gd"
-}, {
-"base": "BaseZoneV2",
-"class": "CinematicCameraZoneV2",
-"language": "GDScript",
-"path": "res://core_v2/components/CinematicCameraZone.gd"
 }, {
 "base": "Path",
 "class": "CinematicPathRig",
@@ -243,6 +248,11 @@ _global_script_classes=[ {
 "class": "EqualsArgumentMatcher",
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/matchers/EqualsArgumentMatcher.gd"
+}, {
+"base": "Spatial",
+"class": "Follow",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/TransformModifiers/Follow.gd"
 }, {
 "base": "AudioStreamPlayer3D",
 "class": "FootstepDetector",
@@ -844,6 +854,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/systems/circuit/LogicCircuitManager.gd"
 }, {
+"base": "Spatial",
+"class": "LookAt",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/TransformModifiers/LookAt.gd"
+}, {
+"base": "Spatial",
+"class": "LookAtGroup",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/TransformModifiers/LookAtGroup.gd"
+}, {
 "base": "CSGCombiner",
 "class": "MeshBuilder",
 "language": "GDScript",
@@ -963,6 +983,11 @@ _global_script_classes=[ {
 "class": "OrbitArm",
 "language": "GDScript",
 "path": "res://addons/qodot/example_scenes/2-miscallaneous/1-runtime-map-building/orbit_arm.gd"
+}, {
+"base": "Spatial",
+"class": "Orbiter",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/TransformModifiers/UserInput/Orbiter.gd"
 }, {
 "base": "PhysicsEntity",
 "class": "PhysicsBall",
@@ -1229,6 +1254,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/props/scifi_lights/SciFiStaticLightV2.gd"
 }, {
+"base": "Spatial",
+"class": "Shake",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/TransformModifiers/Shake.gd"
+}, {
 "base": "VBoxContainer",
 "class": "ShapeCreationButton",
 "language": "GDScript",
@@ -1248,6 +1278,11 @@ _global_script_classes=[ {
 "class": "SlimeLayer",
 "language": "GDScript",
 "path": "res://addons/qodot/game_definitions/worldspawn_layers/liquid/slime.gd"
+}, {
+"base": "TransformModifier",
+"class": "SnapToPath",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/TransformModifiers/SnapToPath.gd"
 }, {
 "base": "Position3D",
 "class": "SpawnPointV2",
@@ -1274,6 +1309,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/core/TimeUnit.gd"
 }, {
+"base": "Spatial",
+"class": "TransformModifier",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/TransformModifiers/TransformModifier.gd"
+}, {
 "base": "Resource",
 "class": "TrenchBroomFaceAttrib",
 "language": "GDScript",
@@ -1293,6 +1333,41 @@ _global_script_classes=[ {
 "class": "TrenchBroomTag",
 "language": "GDScript",
 "path": "res://addons/qodot/src/resources/game-definitions/trenchbroom/trenchbroom_tag.gd"
+}, {
+"base": "Spatial",
+"class": "UniformMovement",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/TransformModifiers/UniformMovement/UniformMovement.gd"
+}, {
+"base": "Spatial",
+"class": "UniformRotation",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/TransformModifiers/UniformMovement/UniformRotation.gd"
+}, {
+"base": "Spatial",
+"class": "UniformTranslation",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/TransformModifiers/UniformMovement/UniformTranslation.gd"
+}, {
+"base": "Spatial",
+"class": "UserInput",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/TransformModifiers/UserInput/UserInput.gd"
+}, {
+"base": "Spatial",
+"class": "VCamera",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/VCameras/VCamera.gd"
+}, {
+"base": "Camera",
+"class": "VCameraBrain",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/VCameraBrain.gd"
+}, {
+"base": "Node",
+"class": "VCameraTriggerAction",
+"language": "GDScript",
+"path": "res://addons/virtualcamera/VCameras/VCameraTriggerAction.gd"
 }, {
 "base": "Reference",
 "class": "ValueProvider",
@@ -1360,15 +1435,16 @@ _global_script_class_icons={
 "AnyBuildInTypeArgumentMatcher": "",
 "AnyClazzArgumentMatcher": "",
 "BGMZoneV2": "",
+"BackForthMovement": "",
 "BaseZoneV2": "",
 "CallBackValueProvider": "",
 "Callable": "",
 "CameraInspectorPlugin": "",
+"CameraZoneV2": "",
 "CargolDroneV2": "",
 "ChainedArgumentMatcher": "",
 "CheckZoneV2": "",
 "CheckpointResource": "",
-"CinematicCameraZoneV2": "",
 "CinematicPathRig": "",
 "CinematicRigV2": "",
 "CircuitCable": "",
@@ -1387,6 +1463,7 @@ _global_script_class_icons={
 "DualSlidingObjectV2": "",
 "EmergencyBeaconV2": "",
 "EqualsArgumentMatcher": "",
+"Follow": "",
 "FootstepDetector": "",
 "FootstepMaterialLibrary": "",
 "FootstepMaterialProfile": "",
@@ -1507,6 +1584,8 @@ _global_script_class_icons={
 "LiquidLayer": "",
 "LocalTime": "",
 "LogicCircuitManager": "",
+"LookAt": "",
+"LookAtGroup": "",
 "MeshBuilder": "",
 "MeshBuilderBox": "",
 "MeshBuilderBuckyball": "",
@@ -1531,6 +1610,7 @@ _global_script_class_icons={
 "OYS_Resolver": "",
 "OcclusionZoneV2": "",
 "OrbitArm": "",
+"Orbiter": "",
 "PhysicsBall": "",
 "PhysicsEntity": "",
 "PilotAnimatorV2": "",
@@ -1584,19 +1664,29 @@ _global_script_class_icons={
 "SciFiShieldV2": "",
 "SciFiSphereLightV2": "",
 "SciFiStaticLightV2": "",
+"Shake": "",
 "ShapeCreationButton": "",
 "SignalHandler": "",
 "SlidingObjectV2": "",
 "SlimeLayer": "",
+"SnapToPath": "",
 "SpawnPointV2": "",
 "StringFuzzer": "",
 "TeleportSystem": "",
 "TerminalUIV2": "",
 "TimeUnit": "",
+"TransformModifier": "res://addons/virtualcamera/TransformModifiers/TransformModifier.svg",
 "TrenchBroomFaceAttrib": "",
 "TrenchBroomFaceAttribDefaults": "",
 "TrenchBroomGameConfig": "",
 "TrenchBroomTag": "",
+"UniformMovement": "",
+"UniformRotation": "",
+"UniformTranslation": "",
+"UserInput": "",
+"VCamera": "res://addons/virtualcamera/VCameras/VCamera.svg",
+"VCameraBrain": "res://addons/virtualcamera/VCameraBrain.svg",
+"VCameraTriggerAction": "",
 "ValueProvider": "",
 "Vector2Fuzzer": "",
 "Vector3Fuzzer": "",
@@ -1740,13 +1830,13 @@ cursor_right={
 zoom_in={
 "deadzone": 0.5,
 "events": [ Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":12,"pressure":0.0,"pressed":false,"script":null)
-, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":4,"pressed":false,"doubleclick":false,"script":null)
+, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":4,"canceled":false,"pressed":false,"doubleclick":false,"script":null)
  ]
 }
 zoom_out={
 "deadzone": 0.5,
 "events": [ Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":13,"pressure":0.0,"pressed":false,"script":null)
-, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":5,"pressed":false,"doubleclick":false,"script":null)
+, Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":5,"canceled":false,"pressed":false,"doubleclick":false,"script":null)
  ]
 }
 roll={

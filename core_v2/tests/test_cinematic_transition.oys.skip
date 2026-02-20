@@ -1,6 +1,6 @@
 // Test: Transiciones de Cámara Cinemática
 // Verifica que las transiciones de entrada y salida sean suaves (sin flash)
-// Nivel: Se usa TestCinematicScene.tscn que contiene un CinematicCameraZone con CinematicPathRig
+// Nivel: Se usa TestCinematicScene.tscn que contiene un CameraZone con CinematicPathRig
 
 LEVEL res://core_v2/tests/TestCinematicScene.tscn
 

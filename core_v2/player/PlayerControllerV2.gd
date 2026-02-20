@@ -87,6 +87,8 @@ var _prev_active_cinematic_zone: Node = null
 var _current_zone_request_id: int = -1
 const CINEMATIC_ZONE_EXIT_GRACE_TIME := 0.12
 var _cinematic_zone_exit_grace_left := 0.0
+const CINEMATIC_ZONE_SWITCH_GRACE_TIME := 0.18
+var _cinematic_zone_switch_grace_left := 0.0
 const PushableBoxV2Script = preload("res://core_v2/components/PushableBoxV2.gd")
 
 var _terminal_ui_active := false
@@ -217,6 +219,7 @@ func full_reset() -> void:
 	_prev_active_cinematic_zone = null
 	_current_zone_request_id = -1
 	_cinematic_zone_exit_grace_left = 0.0
+	_cinematic_zone_switch_grace_left = 0.0
 	set_occlusion_mode(false)
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
@@ -370,6 +373,47 @@ func snap_rig_to_camera_orbit(target_cam_pos: Vector3, target_fov: float = 70.0)
 		camera_rig.force_update_transform()
 		if _cached_cam:
 			_cached_cam.fov = base_fov
+
+	yaw_deg = rad2deg(yaw)
+	pitch_deg = rad2deg(pitch)
+
+
+func align_exit_from_cinematic(target_cam: Camera) -> void:
+	"""
+	Aligns player rig heading from the cinematic camera but restores the
+	player's pitch and zoom (FOV/spring) to third-person defaults.
+	"""
+	if not target_cam or not is_instance_valid(target_cam):
+		return
+
+	var preserved_pitch := pitch
+	var preserved_base_fov := base_fov
+	var preserved_base_spring := base_spring_length_3d
+
+	# Reuse robust yaw solving from orbit snap.
+	snap_rig_to_camera_orbit(target_cam.global_transform.origin, target_cam.fov)
+
+	# Restore player defaults (prefer explicitly saved pre-cinematic values when available).
+	var restored_spring := preserved_base_spring
+	var restored_fov := preserved_base_fov
+	if _restore_spring_length > 0.0:
+		restored_spring = _restore_spring_length
+	if _restore_fov > 0.0:
+		restored_fov = _restore_fov
+
+	base_spring_length_3d = restored_spring
+	base_fov = restored_fov
+
+	# Keep cinematic-aligned yaw, but restore player's vertical look.
+	pitch = preserved_pitch
+	if camera_rig:
+		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.force_update_transform()
+	if _cached_spring_arm:
+		current_spring_length = base_spring_length_3d
+		_cached_spring_arm.spring_length = base_spring_length_3d
+	if _cached_cam:
+		_cached_cam.fov = base_fov
 
 	yaw_deg = rad2deg(yaw)
 	pitch_deg = rad2deg(pitch)
@@ -870,9 +914,10 @@ func step(dt: float, input: InputDataV2) -> void:
 		_cached_cam.fov = lerp(_cached_cam.fov, base_fov, 4.0 * dt)
 		
 func _update_cinematic_zone_detection(input: InputDataV2, dt: float = 1.0 / 60.0):
-	var all_zones = get_tree().get_nodes_in_group("CinematicCameraZoneV2")
+	var all_zones = get_tree().get_nodes_in_group("CameraZoneV2")
 	var best_zone: Node = null
 	var min_volume = INF
+	var current_zone: Node = _active_cinematic_zone
 
 	for zone in all_zones:
 		if zone.is_zone_active and zone.is_body_in_zone(self):
@@ -881,16 +926,44 @@ func _update_cinematic_zone_detection(input: InputDataV2, dt: float = 1.0 / 60.0
 			if vol < min_volume:
 				min_volume = vol
 				best_zone = zone
+			elif abs(vol - min_volume) <= 0.0001:
+				# Deterministic tie-break: prefer current zone if still valid,
+				# then stable lexical NodePath (instance_id is not deterministic across reloads).
+				if zone == current_zone and best_zone != current_zone:
+					best_zone = zone
+				elif best_zone != current_zone:
+					var zone_path = str(zone.get_path()) if zone.is_inside_tree() else zone.name
+					var best_path = str(best_zone.get_path()) if best_zone and best_zone.is_inside_tree() else (best_zone.name if best_zone else "")
+					if zone_path < best_path:
+						best_zone = zone
 
 	var resolved_zone: Node = best_zone
 	if resolved_zone != null:
 		_cinematic_zone_exit_grace_left = CINEMATIC_ZONE_EXIT_GRACE_TIME
+		var current_still_inside: bool = (
+			current_zone != null
+			and is_instance_valid(current_zone)
+			and current_zone.is_zone_active
+			and current_zone.is_body_in_zone(self)
+		)
+		if current_still_inside and resolved_zone != current_zone:
+			# Hold current zone briefly to avoid ping-pong between overlapping boundaries.
+			if _cinematic_zone_switch_grace_left > 0.0:
+				_cinematic_zone_switch_grace_left = max(0.0, _cinematic_zone_switch_grace_left - dt)
+				resolved_zone = current_zone
+			else:
+				# Allow switch now, and prime grace for next border crossing.
+				_cinematic_zone_switch_grace_left = CINEMATIC_ZONE_SWITCH_GRACE_TIME
+		else:
+			_cinematic_zone_switch_grace_left = CINEMATIC_ZONE_SWITCH_GRACE_TIME
 	elif _active_cinematic_zone != null and _cinematic_zone_exit_grace_left > 0.0:
 		# Keep the previous zone briefly to prevent enter/exit flicker near bounds.
 		_cinematic_zone_exit_grace_left = max(0.0, _cinematic_zone_exit_grace_left - dt)
 		resolved_zone = _active_cinematic_zone
+		_cinematic_zone_switch_grace_left = max(0.0, _cinematic_zone_switch_grace_left - dt)
 	else:
 		_cinematic_zone_exit_grace_left = 0.0
+		_cinematic_zone_switch_grace_left = 0.0
 
 	_active_cinematic_zone = resolved_zone
 

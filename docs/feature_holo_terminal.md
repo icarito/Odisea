@@ -19,7 +19,7 @@ HoloTerminalV2 (InteractableBaseV2)
 └── CinematicSetup (Spatial) - [NEW CONTAINER]
     ├── TerminalCamRig (CinematicRig/CinematicPathRig) - [NEW]
     │   └── Camera
-    └── CameraZone (CinematicCameraZone) - [NEW]
+    └── CameraZone (CameraZone) - [NEW]
         └── CollisionShape (Defining the "sweet spot" area)
 
 

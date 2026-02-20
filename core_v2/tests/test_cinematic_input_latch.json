@@ -1336,6 +1336,132 @@
     {
       "input": {
         "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
           -1,
           0
         ],
@@ -2974,36 +3100,13 @@
         ]
       }
     ],
-    "18": [
-      {
-        "basis": [
-          [
-            -1,
-            0,
-            -0
-          ],
-          [
-            -0,
-            0.967986,
-            0.251005
-          ],
-          [
-            0,
-            0.251005,
-            -0.967986
-          ]
-        ],
-        "mode": 0,
-        "command": "LATCH_BASIS"
-      }
-    ],
     "63": [
 
     ],
-    "72": [
+    "79": [
 
     ],
-    "162": [
+    "169": [
       {
         "command": "SET",
         "var": "$end_x",
@@ -3046,7 +3149,7 @@
   },
   "meta": {
     "world_start_state": {
-      "/root/TestCinematicScene/Floor/CinematicCameraZone/CinematicPathRig": {
+      "/root/TestCinematicScene/Floor/CameraZone/CinematicPathRig": {
         "is_active": false,
         "target_offset": 0,
         "last_deactivate_time": 0,
@@ -3077,23 +3180,23 @@
   },
   "final_expected_state": {
     "position": [
-      -0.631647,
+      -4.101026,
       0.0415,
-      17.102432
+      13.157014
     ],
     "velocity": [
-      -0.234557,
-      -0.233825,
-      6.99607
+      0.244627,
+      -0.232715,
+      6.995725
     ],
-    "yaw": -1.60449,
-    "pitch": -0.025323,
+    "yaw": 0,
+    "pitch": -0,
     "base_spring_length_3d": 10,
     "movement_state": {
       "horizontal_velocity": [
-        -0.234557,
-        -0.000491,
-        6.99607
+        0.244627,
+        0.000618,
+        6.995725
       ],
       "external_velocity": [
         0,
@@ -3114,7 +3217,7 @@
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
     "$start_x": 0,
-    "$end_x": -0.631647,
-    "$delta_x": -0.631647
+    "$end_x": -4.101026,
+    "$delta_x": -4.101026
   }
 }

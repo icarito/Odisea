@@ -16,9 +16,9 @@ Identificación: Cada rig posee un rig_id único para ser invocado por triggers 
 
 Comportamiento: Al activarse, se convierte en la cámara actual del Viewport y dispara su animación asignada.
 
-2. Zonas de Cámara (CinematicCameraZone)
+2. Zonas de Cámara (CameraZone)
 
-Para forzar el uso de cámaras específicas durante el gameplay sin quitarle el control al jugador, se utiliza el nodo CinematicCameraZone.
+Para forzar el uso de cámaras específicas durante el gameplay sin quitarle el control al jugador, se utiliza el nodo CameraZone.
 
 Funcionalidad de la Zona:
 

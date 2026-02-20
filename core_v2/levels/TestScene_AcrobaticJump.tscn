@@ -1,7 +1,7 @@
 [gd_scene load_steps=8 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
-[ext_resource path="res://core_v2/components/CinematicCameraZone.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/components/CameraZone.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/visual/CinematicRig.gd" type="Script" id=3]
 [ext_resource path="res://core_v2/components/BaseZoneV2.gd" type="Script" id=4]
 
@@ -22,7 +22,7 @@ shape = SubResource( 1 )
 [node name="Pilot_v2" parent="." instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 
-[node name="CinematicZone" type="Area" parent="." groups=["CinematicCameraZoneV2"]]
+[node name="CinematicZone" type="Area" parent="." groups=["CameraZoneV2"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0 )
 script = ExtResource( 2 )
 cinematic_rig_path = NodePath("CinematicRig")
