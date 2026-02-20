@@ -17,7 +17,7 @@ signal camera_drag(delta)
 signal camera_zoom(delta)
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mouse_filter = Control.MOUSE_FILTER_PASS
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
@@ -47,6 +47,9 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_pinch_active = false
 
 func _handle_drag(event: InputEventScreenDrag) -> void:
+	if event.index in _pinch_touches:
+		_pinch_touches[event.index] = event.position
+	
 	if _pinch_active and _pinch_touches.size() == 2:
 		_update_pinch()
 		return
