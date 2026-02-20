@@ -19,7 +19,7 @@ signal camera_zoom(delta)
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		_handle_touch(event)
 	elif event is InputEventScreenDrag:
