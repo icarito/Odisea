@@ -148,9 +148,8 @@ stride_length_run = 2.2
 
 [node name="OmniLight" type="OmniLight" parent="Visual" groups=["optional"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )
-light_energy = 0.342
+light_energy = 0.2
 light_specular = 0.4
-omni_range = 20.0
 omni_attenuation = 2.21914
 
 [node name="CollisionShape" type="CollisionShape" parent="."]

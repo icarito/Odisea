@@ -1729,7 +1729,6 @@ keep_debug_server_open=true
 
 window/size/width=640
 window/size/height=480
-window/size/fullscreen=true
 window/size/test_width=1280
 window/size/test_height=960
 window/dpi/allow_hidpi=true
