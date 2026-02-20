@@ -50,6 +50,16 @@ class DummyZone:
 		pass
 
 
+class DummyPivot:
+	extends Spatial
+
+	func step_animator(_dt: float, _velocity: Vector3) -> void:
+		pass
+
+	func play_override_animation(_anim_name: String) -> void:
+		pass
+
+
 func _setup_root() -> Node:
 	var root := Node.new()
 	root.name = "PlayerCameraZoneRequestCleanupRoot"
@@ -91,7 +101,7 @@ func _setup_player(root: Node) -> KinematicBody:
 	visual.name = "Visual"
 	player.add_child(visual)
 
-	var pivot := Spatial.new()
+	var pivot := DummyPivot.new()
 	pivot.name = "Pivot"
 	visual.add_child(pivot)
 
