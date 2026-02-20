@@ -1999,6 +1999,8 @@ cast_shadow = 0
 
 [node name="CameraZone" parent="." instance=ExtResource( 31 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.04499, 3.20083, 20.0898 )
+monitoring = false
+monitorable = false
 debug_render = false
 zone_extents = Vector3( 16, 2, 15.5 )
 cinematic_rig_path = NodePath("CinematicPathRig")
@@ -2029,6 +2031,8 @@ anims/dolly = SubResource( 1037 )
 
 [node name="CameraZone2" parent="." instance=ExtResource( 31 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.18961, 11.1312, 20.0898 )
+monitoring = false
+monitorable = false
 debug_render = false
 zone_extents = Vector3( 14.5, 5.89231, 13.95 )
 cinematic_rig_path = NodePath("CinematicPathRig")
@@ -2233,21 +2237,18 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.47583, 2.04031, 7.83635 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 14.0689, 6.79533, 28.3948 )
 is_interactable = false
 light_color = Color( 0.223529, 1, 0.270588, 1 )
-light_range = 10.0
 light_energy_max = 3.4
 
 [node name="SciFiBoxLightV3" parent="." instance=ExtResource( 37 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.42527, 6.79533, 28.3948 )
 is_interactable = false
 light_color = Color( 0.223529, 1, 0.270588, 1 )
-light_range = 10.0
 light_energy_max = 3.4
 
 [node name="SciFiBoxLightV4" parent="." instance=ExtResource( 37 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.57473, 6.79533, 28.3948 )
 is_interactable = false
 light_color = Color( 0.223529, 1, 0.270588, 1 )
-light_range = 10.0
 light_energy_max = 3.4
 
 [editable path="SideScrollZone4"]

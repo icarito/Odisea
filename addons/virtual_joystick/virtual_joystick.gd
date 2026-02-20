@@ -6,31 +6,24 @@ extends Control
 
 #### EXPORTED VARIABLE ####
 
-# The color of the button when the joystick is in use.
 export(Color) var pressed_color := Color.gray
 
-# If the input is inside this range, the output is zero.
 export(float, 0, 200, 1) var deadzone_size : float = 10
 
-# The max distance the tip can reach.
 export(float, 0, 500, 1) var clampzone_size : float = 75
 
-# FIXED: The joystick doesn't move.
-# DYNAMIC: Every time the joystick area is pressed, the joystick position is set on the touched position.
+export(float, 0.1, 4.0, 0.1) var response_curve : float = 1.5
+
 enum JoystickMode {FIXED, DYNAMIC}
 
 export(JoystickMode) var joystick_mode := JoystickMode.FIXED
 
-# VISIBILITY_ALWAYS = Always visible.
-# VISIBILITY_TOUCHSCREEN_ONLY = Visible on touch screens only.
 enum VisibilityMode {ALWAYS , TOUCHSCREEN_ONLY }
 
 export(VisibilityMode) var visibility_mode := VisibilityMode.ALWAYS
 
-# Use Input Actions
 export var use_input_actions := true
 
-# Project -> Project Settings -> Input Map
 export var action_left := "move_left"
 export var action_right := "move_right"
 export var action_up := "move_forward"
@@ -117,7 +110,12 @@ func _update_joystick(touch_position: Vector2) -> void:
 	
 	if vector.length_squared() > deadzone_size * deadzone_size:
 		_pressed = true
-		_output = (vector - (vector.normalized() * deadzone_size)) / (clampzone_size - deadzone_size)
+		var normalized = vector.normalized()
+		var length = vector.length()
+		var normalized_length = (length - deadzone_size) / (clampzone_size - deadzone_size)
+		normalized_length = clamp(normalized_length, 0.0, 1.0)
+		var curved_length = pow(normalized_length, response_curve)
+		_output = normalized * curved_length
 	else:
 		_pressed = false
 		_output = Vector2.ZERO
