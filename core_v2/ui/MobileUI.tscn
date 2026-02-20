@@ -34,7 +34,7 @@ margin_right = 250.0
 margin_bottom = -50.0
 rect_scale = Vector2( 0.8, 0.8 )
 joystick_mode = 0
-visibility_mode = 1
+visibility_mode = 0
 use_input_actions = true
 action_left = "move_left"
 action_right = "move_right"
@@ -67,7 +67,7 @@ margin_bottom = -60.0
 normal = null
 pressed = null
 action = "jump"
-visibility_mode = 1
+visibility_mode = 0
 __meta__ = {
 "_edit_use_anchors_": false
 }
@@ -100,7 +100,7 @@ margin_bottom = -10.0
 normal = null
 pressed = null
 action = "run"
-visibility_mode = 1
+visibility_mode = 0
 __meta__ = {
 "_edit_use_anchors_": false
 }
@@ -133,7 +133,7 @@ margin_bottom = -60.0
 normal = null
 pressed = null
 action = "crouch"
-visibility_mode = 1
+visibility_mode = 0
 __meta__ = {
 "_edit_use_anchors_": false
 }
@@ -166,7 +166,7 @@ margin_bottom = -100.0
 normal = null
 pressed = null
 action = "interact"
-visibility_mode = 1
+visibility_mode = 0
 __meta__ = {
 "_edit_use_anchors_": false
 }

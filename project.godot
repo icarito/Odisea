@@ -1309,6 +1309,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/core/TimeUnit.gd"
 }, {
+"base": "Control",
+"class": "TouchCameraControls",
+"language": "GDScript",
+"path": "res://core_v2/ui/TouchCameraControls.gd"
+}, {
 "base": "Spatial",
 "class": "TransformModifier",
 "language": "GDScript",
@@ -1388,6 +1393,11 @@ _global_script_classes=[ {
 "class": "ViewLockProperty",
 "language": "GDScript",
 "path": "res://addons/qol-camera/view_lock_property.gd"
+}, {
+"base": "Control",
+"class": "VirtualJoystick",
+"language": "GDScript",
+"path": "res://addons/virtual_joystick/virtual_joystick.gd"
 }, {
 "base": "LiquidLayer",
 "class": "WaterLayer",
@@ -1675,6 +1685,7 @@ _global_script_class_icons={
 "TeleportSystem": "",
 "TerminalUIV2": "",
 "TimeUnit": "",
+"TouchCameraControls": "",
 "TransformModifier": "res://addons/virtualcamera/TransformModifiers/TransformModifier.svg",
 "TrenchBroomFaceAttrib": "",
 "TrenchBroomFaceAttribDefaults": "",
@@ -1691,6 +1702,7 @@ _global_script_class_icons={
 "Vector2Fuzzer": "",
 "Vector3Fuzzer": "",
 "ViewLockProperty": "",
+"VirtualJoystick": "",
 "WaterLayer": "",
 "WindTunnelV2": "",
 "XmlElement": "",
@@ -1720,6 +1732,7 @@ PerformanceMonitor="*res://core_v2/autoloads/PerformanceMonitor.gd"
 SubtitlesOverlayManager="*res://core_v2/autoloads/SubtitlesOverlayManager.gd"
 OptionalNodeManager="*res://core_v2/autoloads/OptionalNodeManager.gd"
 ShaderCacheManager="*res://addons/gd-shader-cache/src/ShaderCacheManager.gd"
+MobileUIManager="*res://core_v2/autoloads/MobileUIManager.gd"
 
 [debug]
 
@@ -1740,7 +1753,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/qol-camera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/qol-camera/plugin.cfg", "res://addons/virtualcamera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
 
 [gdunit3]
 
