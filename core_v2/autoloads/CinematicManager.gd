@@ -166,9 +166,14 @@ func _search_camera(node: Node) -> Camera:
 	return null
 
 func get_active_camera() -> Camera:
-	if active_rig:
-		return active_rig.get_camera()
-	return get_viewport().get_camera()
+	if active_rig and is_instance_valid(active_rig):
+		if active_rig.has_method("get_camera"):
+			var rig_cam = active_rig.get_camera()
+			if rig_cam and is_instance_valid(rig_cam):
+				return rig_cam
+	else:
+		active_rig = null
+	return get_viewport().get_camera() if get_viewport() else null
 
 func get_control_mode() -> int:
 	return current_control_mode
@@ -249,9 +254,18 @@ func _evaluate_requests() -> CameraRequest:
 	if _active_requests.empty():
 		return null
 
+	var invalid_ids := []
 	var best: CameraRequest = null
 	for id in _active_requests:
 		var req = _active_requests[id]
+		if req == null:
+			invalid_ids.append(id)
+			continue
+		var req_rig = req.payload.get("rig", null)
+		if req_rig != null and not is_instance_valid(req_rig):
+			invalid_ids.append(id)
+			continue
+
 		if best == null:
 			best = req
 			continue
@@ -261,6 +275,10 @@ func _evaluate_requests() -> CameraRequest:
 		elif req.priority == best.priority:
 			if req.id > best.id: # Newer wins
 				best = req
+
+	for id in invalid_ids:
+		_active_requests.erase(id)
+
 	return best
 
 func _update_mode_fsm(_dt: float, target_req: CameraRequest):
@@ -272,6 +290,8 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 		target_mode = target_req.mode
 		target_rig = target_req.payload.get("rig")
 		transition_time = target_req.payload.get("transition_time", 0.0)
+		if target_rig != null and not is_instance_valid(target_rig):
+			target_rig = null
 
 	# Detect Change
 	if active_rig != target_rig:
@@ -279,24 +299,26 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 		var old_cam = get_active_camera()
 
 		# Update State
-		if target_rig:
+		if target_rig and is_instance_valid(target_rig):
 			_active_payload = target_req.payload
 			_current_state = CameraModeState.TRANSITION_TO_CINEMATIC
 			active_rig = target_rig
 			current_control_mode = target_mode
 			emit_signal("control_mode_changed", target_mode)
 
-			if active_rig.has_method("activate"):
+			if active_rig and is_instance_valid(active_rig) and active_rig.has_method("activate"):
 				active_rig.activate(false)
 
-			var new_cam = active_rig.get_camera()
-			if new_cam:
+			var new_cam = null
+			if active_rig and is_instance_valid(active_rig) and active_rig.has_method("get_camera"):
+				new_cam = active_rig.get_camera()
+			if new_cam and is_instance_valid(new_cam):
 				if transition_time > 0.0 and old_cam and old_cam != new_cam:
 					CameraTransition.transition_camera3D(old_cam, new_cam, transition_time)
 				else:
 					new_cam.current = true
 
-			emit_signal("cinematic_started", active_rig.name)
+			emit_signal("cinematic_started", active_rig.name if active_rig else "")
 			_current_state = CameraModeState.CINEMATIC_ACTIVE # Assuming instant for logic flow if handled by plugin
 
 			if _active_payload.get("latch_on_enter", true):
@@ -306,18 +328,27 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 			# Returning to Free
 			_current_state = CameraModeState.TRANSITION_TO_FREE
 			var prev_rig = active_rig
+			var exit_transition_time: float = float(transition_time)
+			# When exiting because the request was released, target_req is null and transition_time
+			# comes as 0. In that path, reuse the active payload/rig transition to avoid hard snaps.
+			if exit_transition_time <= 0.0:
+				exit_transition_time = float(_active_payload.get("transition_time", 0.0))
+			if exit_transition_time <= 0.0 and prev_rig and is_instance_valid(prev_rig):
+				if "transition_time" in prev_rig:
+					exit_transition_time = prev_rig.transition_time
+
 			active_rig = null
 			current_control_mode = ControlMode.FREE
 			emit_signal("control_mode_changed", ControlMode.FREE)
 
-			if prev_rig and prev_rig.has_method("deactivate"):
+			if prev_rig and is_instance_valid(prev_rig) and prev_rig.has_method("deactivate"):
 				prev_rig.deactivate(false)
 
 			var player_cam = _find_player_camera()
 			if player_cam:
-				if transition_time > 0.0 and old_cam and old_cam != player_cam:
+				if exit_transition_time > 0.0 and old_cam and old_cam != player_cam:
 					# Use custom dynamic transition for return
-					_start_dynamic_transition(old_cam, player_cam, transition_time)
+					_start_dynamic_transition(old_cam, player_cam, exit_transition_time)
 				else:
 					player_cam.current = true
 					_sync_player_cam_hierarchy(player_cam)
@@ -331,9 +362,10 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 
 	else:
 		# Steady State
-		if active_rig:
+		if active_rig and is_instance_valid(active_rig):
 			_current_state = CameraModeState.CINEMATIC_ACTIVE
 		else:
+			active_rig = null
 			_current_state = CameraModeState.FREE_ACTIVE
 
 func _sync_player_cam_hierarchy(cam: Camera):
@@ -460,6 +492,14 @@ func restore_snapshot(data: Dictionary) -> void:
 			cam.current = true
 
 func reset():
+	# Reset FSM/request state introduced in PR65.
+	_active_requests.clear()
+	_active_payload = {}
+	_request_counter = 0
+	_current_state = CameraModeState.FREE_ACTIVE
+	_input_state = InputState.INPUT_DIRECT
+	_latch_timer = 0.0
+
 	if active_rig:
 		# Stop any active transition immediately
 		_transition_active = false

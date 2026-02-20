@@ -86,6 +86,19 @@ func _update_rig(delta: float):
 		var curve_length = curve.get_baked_length()
 		if curve_length > 0:
 			_target_offset = closest_offset / curve_length
+			if not path_follow.loop:
+				# Keep a tiny margin from exactly 1.0 to avoid endpoint wrap artifacts.
+				_target_offset = clamp(_target_offset, 0.0, 0.9999)
+				# Preserve continuity near path ends: avoid abrupt 0<->1 flips caused by
+				# nearest-point ambiguity when the player is at extreme positions.
+				var current_offset = path_follow.unit_offset
+				if abs(_target_offset - current_offset) > 0.45:
+					if current_offset >= 0.8 and _target_offset <= 0.2:
+						_target_offset = 0.9999
+					elif current_offset <= 0.2 and _target_offset >= 0.8:
+						_target_offset = 0.0
+					else:
+						_target_offset = current_offset
 			# Si delta es 0 (llamada forzada), aplicamos inmediatamente
 			if delta <= 0.00001:
 				path_follow.unit_offset = _target_offset
@@ -149,10 +162,11 @@ func _ensure_nodes():
 	if not path_follow:
 		path_follow = PathFollow.new()
 		path_follow.name = "PathFollow"
-		path_follow.loop = false
 		add_child(path_follow)
 		if Engine.editor_hint:
 			path_follow.owner = get_tree().edited_scene_root
+	# Always enforce the configured loop mode, including for pre-existing scene nodes.
+	path_follow.loop = loop
 	
 	# Configurar rotation_mode basado en opciones
 	_update_rotation_mode()
@@ -223,6 +237,7 @@ func _setup_animation():
 	anim.track_insert_key(track_idx, 0.0, 0.0)
 	anim.track_insert_key(track_idx, duration, 1.0)
 	anim.track_set_interpolation_type(track_idx, Animation.INTERPOLATION_LINEAR)
+	anim.track_set_interpolation_loop_wrap(track_idx, false)
 
 # --- SETTERS PARA EDITOR ---
 func set_duration(val: float):
@@ -299,7 +314,13 @@ func snap_to_target():
 		var closest_offset = curve.get_closest_offset(local_pos)
 		
 		# Set directly without lerp
-		path_follow.unit_offset = closest_offset / curve.get_baked_length()
+		var curve_length = curve.get_baked_length()
+		if curve_length <= 0.0:
+			return
+		var next_offset = closest_offset / curve_length
+		if not path_follow.loop:
+			next_offset = clamp(next_offset, 0.0, 0.9999)
+		path_follow.unit_offset = next_offset
 		
 		# Force update transform
 		path_follow.force_update_transform()

@@ -11,11 +11,17 @@ func _ready() -> void:
 	camera3D.current = false
 
 func switch_camera(from, to) -> void:
+	if not is_instance_valid(from) or not is_instance_valid(to):
+		return
 	from.current = false
 	to.current = true
 
 func transition_camera2D(from: Camera2D, to: Camera2D, duration: float = 1.0) -> void:
 	if transitioning: return
+	if not is_instance_valid(from) or not is_instance_valid(to):
+		return
+	if not is_instance_valid(camera2D) or not is_instance_valid(tween):
+		return
 	# Copy the parameters of the first camera
 	camera2D.zoom = from.zoom
 	camera2D.offset = from.offset
@@ -43,12 +49,17 @@ func transition_camera2D(from: Camera2D, to: Camera2D, duration: float = 1.0) ->
 	# Wait for the tween to complete
 	yield(tween, "tween_all_completed")
 
-	# Make the second camera current
-	to.current = true
 	transitioning = false
+	# Make the second camera current if it still exists
+	if is_instance_valid(to):
+		to.current = true
 
 func transition_camera3D(from: Camera, to: Camera, duration: float = 1.0) -> void:
 	if transitioning: return
+	if not is_instance_valid(from) or not is_instance_valid(to):
+		return
+	if not is_instance_valid(camera3D) or not is_instance_valid(tween):
+		return
 	# Copy the parameters of the first camera
 	camera3D.fov = from.fov
 	camera3D.cull_mask = from.cull_mask
@@ -73,6 +84,7 @@ func transition_camera3D(from: Camera, to: Camera, duration: float = 1.0) -> voi
 	# Wait for the tween to complete
 	yield(tween, "tween_all_completed")
 
-	# Make the second camera current
-	to.current = true
 	transitioning = false
+	# Make the second camera current if it still exists
+	if is_instance_valid(to):
+		to.current = true

@@ -85,6 +85,8 @@ var _push_target: Spatial = null
 var _active_cinematic_zone: Node = null
 var _prev_active_cinematic_zone: Node = null
 var _current_zone_request_id: int = -1
+const CINEMATIC_ZONE_EXIT_GRACE_TIME := 0.12
+var _cinematic_zone_exit_grace_left := 0.0
 const PushableBoxV2Script = preload("res://core_v2/components/PushableBoxV2.gd")
 
 var _terminal_ui_active := false
@@ -213,6 +215,8 @@ func full_reset() -> void:
 
 	_active_cinematic_zone = null
 	_prev_active_cinematic_zone = null
+	_current_zone_request_id = -1
+	_cinematic_zone_exit_grace_left = 0.0
 	set_occlusion_mode(false)
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
@@ -704,7 +708,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		jump_logic.buffer_jump()
 
 	# --- CINEMATIC ZONE DETECTION ---
-	_update_cinematic_zone_detection(input)
+	_update_cinematic_zone_detection(input, dt)
 	
 	# --- MOVEMENT ---
 	var move_vec = input.move_vec
@@ -865,9 +869,9 @@ func step(dt: float, input: InputDataV2) -> void:
 	if _cached_cam and abs(_cached_cam.fov - base_fov) > 0.01:
 		_cached_cam.fov = lerp(_cached_cam.fov, base_fov, 4.0 * dt)
 		
-func _update_cinematic_zone_detection(input: InputDataV2):
+func _update_cinematic_zone_detection(input: InputDataV2, dt: float = 1.0 / 60.0):
 	var all_zones = get_tree().get_nodes_in_group("CinematicCameraZoneV2")
-	var best_zone = null
+	var best_zone: Node = null
 	var min_volume = INF
 
 	for zone in all_zones:
@@ -878,7 +882,17 @@ func _update_cinematic_zone_detection(input: InputDataV2):
 				min_volume = vol
 				best_zone = zone
 
-	_active_cinematic_zone = best_zone
+	var resolved_zone: Node = best_zone
+	if resolved_zone != null:
+		_cinematic_zone_exit_grace_left = CINEMATIC_ZONE_EXIT_GRACE_TIME
+	elif _active_cinematic_zone != null and _cinematic_zone_exit_grace_left > 0.0:
+		# Keep the previous zone briefly to prevent enter/exit flicker near bounds.
+		_cinematic_zone_exit_grace_left = max(0.0, _cinematic_zone_exit_grace_left - dt)
+		resolved_zone = _active_cinematic_zone
+	else:
+		_cinematic_zone_exit_grace_left = 0.0
+
+	_active_cinematic_zone = resolved_zone
 
 	if _active_cinematic_zone != _prev_active_cinematic_zone:
 		if _prev_active_cinematic_zone and _prev_active_cinematic_zone.has_method("set_zone_occlusion_for_body"):
