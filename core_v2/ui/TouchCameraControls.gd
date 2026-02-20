@@ -5,7 +5,7 @@ export(float) var sensitivity := 3.5
 export(float) var zoom_sensitivity := 0.05
 export(bool) var invert_x := true
 export(bool) var invert_y := false
-export(bool) var tap_to_jump := true
+export(bool) var tap_to_jump := false
 export(float) var tap_max_duration := 0.3
 export(float) var tap_max_distance := 20.0
 

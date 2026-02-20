@@ -49,9 +49,7 @@ sensitivity = 3.5
 zoom_sensitivity = 0.05
 invert_x = true
 invert_y = false
-tap_to_jump = true
-tap_max_duration = 0.3
-tap_max_distance = 20.0
+tap_to_jump = false
 
 [node name="MoveJoystick" parent="Container" instance=ExtResource( 1 )]
 modulate = Color( 1, 1, 1, 0.6 )
