@@ -1865,7 +1865,6 @@ vram_compression/import_bptc=true
 vram_compression/import_etc=true
 vram_compression/import_pvrtc=true
 quality/shadow_atlas/size=2048
-quality/shadows/filter_mode=0
 quality/reflections/high_quality_ggx=false
 quality/shading/force_lambert_over_burley=true
 quality/shading/force_blinn_over_ggx=true

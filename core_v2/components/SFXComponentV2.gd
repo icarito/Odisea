@@ -60,7 +60,8 @@ func play_sfx():
 	# Priority 2: Local AudioStreamPlayer3D
 	if stream:
 		if not playing:
-			if fade_in_time > 0 and _tween:
+			var fi = float(fade_in_time) if fade_in_time != null else 0.0
+			if fi > 0.0 and _tween:
 				unit_db = -80.0
 				play()
 				_tween.stop_all()

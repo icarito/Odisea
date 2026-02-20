@@ -15,6 +15,7 @@ export(float, 0.0, 1.0) var pulse_min := 0.3 # Minimum pulse brightness (0 = ful
 
 var _dome_mesh: MeshInstance = null
 var _base_mesh: MeshInstance = null
+var _lens_mesh: MeshInstance = null
 var _omni_light: OmniLight = null
 var _sfx_alarm: SFXComponentV2 = null
 var _time_accumulator := 0.0
@@ -23,6 +24,7 @@ func _ready():
 	._ready()
 	_dome_mesh = get_node_or_null("DomeMesh")
 	_base_mesh = get_node_or_null("BaseMesh")
+	_lens_mesh = get_node_or_null("DomeMesh/Lens")
 	_omni_light = get_node_or_null("OmniLight")
 	_sfx_alarm = get_node_or_null("SFX Alarm")
 	_apply_color()
@@ -59,6 +61,8 @@ func _apply_color():
 		_omni_light.light_color = beacon_color
 	if _dome_mesh and _dome_mesh.material_override is SpatialMaterial:
 		_dome_mesh.material_override.emission = beacon_color
+	if _lens_mesh and _lens_mesh.material_override is SpatialMaterial:
+		_lens_mesh.material_override.emission = beacon_color
 
 func _physics_process(delta: float) -> void:
 	._physics_process(delta)
