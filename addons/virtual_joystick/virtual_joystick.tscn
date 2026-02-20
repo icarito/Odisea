@@ -5,7 +5,7 @@
 [ext_resource path="res://addons/virtual_joystick/virtual_joystick.gd" type="Script" id=3]
 
 [node name="Virtual joystick" type="Control"]
-modulate = Color( 1, 1, 1, 0.509804 )
+modulate = Color( 0.262745, 0.627451, 0.596078, 0.180392 )
 anchor_top = 1.0
 anchor_bottom = 1.0
 margin_left = 50.0
@@ -13,9 +13,9 @@ margin_top = -250.0
 margin_right = 250.0
 margin_bottom = -50.0
 script = ExtResource( 3 )
-__meta__ = {
-"_edit_use_anchors_": false
-}
+pressed_color = Color( 0.243137, 0.94902, 0.8, 1 )
+joystick_mode = 1
+visibility_mode = 1
 
 [node name="Base" type="TextureRect" parent="."]
 anchor_left = 0.5

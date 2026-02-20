@@ -63,6 +63,27 @@ var is_respawning := false
 var _session_run_id := 0
 var _system_launch_counter := 1000
 
+func _normalize_negative_zero_in_place(value):
+	var t = typeof(value)
+	if t == TYPE_DICTIONARY:
+		for key in value.keys():
+			value[key] = _normalize_negative_zero_in_place(value[key])
+		return value
+	if t == TYPE_ARRAY:
+		for i in range(value.size()):
+			value[i] = _normalize_negative_zero_in_place(value[i])
+		return value
+	if t == TYPE_REAL and abs(value) < 0.0000001:
+		return 0
+	return value
+
+func _json_print_normalized(data, indent := "") -> String:
+	var normalized = data
+	if typeof(data) in [TYPE_DICTIONARY, TYPE_ARRAY]:
+		normalized = data.duplicate(true)
+	normalized = _normalize_negative_zero_in_place(normalized)
+	return JSON.print(normalized, indent)
+
 func _get_replay_sync_nodes() -> Array:
 	if _replay_sync_cache_dirty:
 		var all_nodes = get_tree().get_nodes_in_group("replay_sync")
@@ -668,7 +689,7 @@ func stop_and_save_recording():
 			"buffer": buffer,
 			"final_expected_state": player.get_full_snapshot()
 		}
-		file.store_string(JSON.print(out))
+		file.store_string(_json_print_normalized(out))
 		file.close()
 		print("💾 Replay guardado en: ", file_path)
 
@@ -879,7 +900,7 @@ func load_and_play(path: String):
 				final_data["buffer"] = _current_replay_data["buffer"]
 			var sf = File.new()
 			if sf.open(target_save_path, File.WRITE) == OK:
-				sf.store_string(JSON.print(final_data, "  "))
+				sf.store_string(_json_print_normalized(final_data, "  "))
 				sf.close()
 		
 		if my_run_id != _session_run_id:
@@ -1262,7 +1283,7 @@ func _finish_and_validate():
 		
 		var f = File.new()
 		if f.open(target_save_path, File.WRITE) == OK:
-			f.store_string(JSON.print(final_data, "  "))
+			f.store_string(_json_print_normalized(final_data, "  "))
 			f.close()
 			print("✅ Snapshot saved/updated successfully in ", target_save_path)
 		else:

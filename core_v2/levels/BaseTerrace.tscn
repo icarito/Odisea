@@ -1715,6 +1715,8 @@ transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -11.007
 [node name="OcclusionArea" type="Area" parent="Building" groups=["optional"]]
 transform = Transform( 1.80496, 0, 0, 0, 1.80717, 0, 0, 0, 3.52709, -22, 0, 20.5809 )
 collision_mask = 2
+monitoring = false
+monitorable = false
 script = ExtResource( 27 )
 debug_color = Color( 1, 1, 0, 0.2 )
 debug_render = false
@@ -1723,7 +1725,6 @@ cone_radius = 2.5
 transparency_min = 0.294
 transparency_max = 0.678
 floor_protect_radius = 1.0
-enforce_occlusion_material = true
 
 [node name="CollisionShape" type="CollisionShape" parent="Building/OcclusionArea"]
 shape = SubResource( 2443 )
@@ -1999,8 +2000,6 @@ cast_shadow = 0
 
 [node name="CameraZone" parent="." instance=ExtResource( 31 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.04499, 3.20083, 20.0898 )
-monitoring = false
-monitorable = false
 debug_render = false
 zone_extents = Vector3( 16, 2, 15.5 )
 cinematic_rig_path = NodePath("CinematicPathRig")
@@ -2031,8 +2030,6 @@ anims/dolly = SubResource( 1037 )
 
 [node name="CameraZone2" parent="." instance=ExtResource( 31 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.18961, 11.1312, 20.0898 )
-monitoring = false
-monitorable = false
 debug_render = false
 zone_extents = Vector3( 14.5, 5.89231, 13.95 )
 cinematic_rig_path = NodePath("CinematicPathRig")

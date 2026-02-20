@@ -13,7 +13,7 @@
           0
         ],
         "yaw": 0,
-        "pitch": -0,
+        "pitch": 0,
         "base_spring_length_3d": 5,
         "movement_state": {
           "horizontal_velocity": [
@@ -45,7 +45,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -63,7 +63,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -81,7 +81,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -99,7 +99,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -117,7 +117,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -135,7 +135,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -153,7 +153,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -171,7 +171,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -189,7 +189,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -207,7 +207,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -225,7 +225,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -243,7 +243,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -261,7 +261,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -279,7 +279,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -297,7 +297,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -315,7 +315,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -333,7 +333,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -348,24 +348,6 @@
         "move_vec": [
           0,
           0
-        ],
-        "mouse_delta": [
-          0,
-          -0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          -1
         ],
         "mouse_delta": [
           0,
@@ -1445,6 +1427,24 @@
       "input": {
         "move_vec": [
           0,
+          -1
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
           0
         ],
         "mouse_delta": [
@@ -1467,7 +1467,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1485,7 +1485,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1503,7 +1503,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1521,7 +1521,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1539,7 +1539,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1557,7 +1557,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1575,7 +1575,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1593,7 +1593,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1611,7 +1611,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1629,7 +1629,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1647,7 +1647,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1665,7 +1665,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1683,7 +1683,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1701,7 +1701,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1719,7 +1719,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1737,7 +1737,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1755,7 +1755,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1773,7 +1773,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1791,7 +1791,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1809,7 +1809,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1827,7 +1827,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1845,7 +1845,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1863,7 +1863,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1881,7 +1881,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1899,7 +1899,7 @@
         ],
         "mouse_delta": [
           0,
-          -0
+          0
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2034,7 +2034,7 @@
           -0.2596
         ],
         "rot": [
-          -0,
+          0,
           0,
           0
         ],
@@ -2065,7 +2065,7 @@
           5.1545
         ],
         "rot": [
-          -0,
+          0,
           0,
           0
         ],
@@ -2096,7 +2096,7 @@
           8.6931
         ],
         "rot": [
-          -0,
+          0,
           0,
           0
         ],
@@ -2127,7 +2127,7 @@
           25.525299
         ],
         "rot": [
-          -0,
+          0,
           0,
           0
         ],
@@ -2158,7 +2158,7 @@
           21.508499
         ],
         "rot": [
-          -0,
+          0,
           0,
           0
         ],
@@ -2189,7 +2189,7 @@
           25.5222
         ],
         "rot": [
-          -0,
+          0,
           0,
           0
         ],
@@ -2220,7 +2220,7 @@
           9.2493
         ],
         "rot": [
-          -0,
+          0,
           0,
           0
         ],
@@ -2251,7 +2251,7 @@
           9.2462
         ],
         "rot": [
-          -0,
+          0,
           0,
           0
         ],
@@ -2297,7 +2297,7 @@
         "progress": 0,
         "target": 0,
         "start_rot": [
-          -0,
+          0,
           0,
           0
         ]
@@ -2309,7 +2309,7 @@
         "progress": 0,
         "target": 0,
         "start_rot": [
-          -0,
+          0,
           0,
           0
         ]
@@ -2321,7 +2321,7 @@
         "progress": 0,
         "target": 0,
         "start_rot": [
-          -0,
+          0,
           0,
           0
         ]
@@ -2401,7 +2401,7 @@
       0
     ],
     "yaw": 0,
-    "pitch": -0,
+    "pitch": 0,
     "base_spring_length_3d": 5,
     "movement_state": {
       "horizontal_velocity": [

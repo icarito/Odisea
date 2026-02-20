@@ -45,11 +45,8 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource( 2 )
-sensitivity = 3.5
-zoom_sensitivity = 0.05
-invert_x = true
-invert_y = false
-tap_to_jump = false
+sensitivity = 2.5
+zoom_sensitivity = 0.07
 
 [node name="MoveJoystick" parent="Container" instance=ExtResource( 1 )]
 modulate = Color( 1, 1, 1, 0.6 )

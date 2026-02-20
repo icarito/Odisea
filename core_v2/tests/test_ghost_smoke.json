@@ -13,7 +13,7 @@
           0
         ],
         "yaw": 0,
-        "pitch": -0,
+        "pitch": 0,
         "base_spring_length_3d": 10,
         "movement_state": {
           "horizontal_velocity": [
@@ -2861,7 +2861,7 @@
       7
     ],
     "yaw": 0,
-    "pitch": -0,
+    "pitch": 0,
     "base_spring_length_3d": 10,
     "movement_state": {
       "horizontal_velocity": [

@@ -5,6 +5,27 @@ extends SceneTree
 const OYS_Resolver = preload("res://core_v2/systems/OYS_Resolver.gd")
 const SessionManager = preload("res://core_v2/autoloads/SessionManager.gd")
 
+func _normalize_negative_zero_in_place(value):
+	var t = typeof(value)
+	if t == TYPE_DICTIONARY:
+		for key in value.keys():
+			value[key] = _normalize_negative_zero_in_place(value[key])
+		return value
+	if t == TYPE_ARRAY:
+		for i in range(value.size()):
+			value[i] = _normalize_negative_zero_in_place(value[i])
+		return value
+	if t == TYPE_REAL and abs(value) < 0.0000001:
+		return 0
+	return value
+
+func _json_print_normalized(data, indent := "") -> String:
+	var normalized = data
+	if typeof(data) in [TYPE_DICTIONARY, TYPE_ARRAY]:
+		normalized = data.duplicate(true)
+	normalized = _normalize_negative_zero_in_place(normalized)
+	return JSON.print(normalized, indent)
+
 
 func _run_oys_script(oys_path: String):
 	print("[OYSRunner] Opening OYS script at path: ", oys_path)
@@ -25,7 +46,7 @@ func _run_oys_script(oys_path: String):
 	if f.open(replay_path, File.WRITE) != OK:
 		printerr("Failed to write replay: ", replay_path)
 		return false
-	f.store_string(JSON.print(replay_data, "  "))
+	f.store_string(_json_print_normalized(replay_data, "  "))
 	f.close()
 	print("Replay written to: ", replay_path)
 	return true
