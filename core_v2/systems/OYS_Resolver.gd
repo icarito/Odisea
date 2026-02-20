@@ -146,9 +146,8 @@ static func _instruction_to_frames(inst: Dictionary, start_frame: int) -> Dictio
 			frames[start_frame] = {"interact": true}
 			next_frame = start_frame + 1
 
-		"WAIT":
-			var duration_sec = inst.get("value", 0.0)
-			var num_frames = OYS_Parser.duration_to_frames(duration_sec)
+		"WAIT", "WAIT_FRAMES":
+			var num_frames = _wait_to_frames(inst)
 			
 			# No input, just wait (empty frames added by convert buffer logic if not present, 
 			# or we explicitely add empty dicts to ensure duration matches)
@@ -198,6 +197,16 @@ static func _instruction_to_frames(inst: Dictionary, start_frame: int) -> Dictio
 		"events": events,
 		"next_frame": next_frame
 	}
+
+static func _wait_to_frames(inst: Dictionary) -> int:
+	var unit = String(inst.get("unit", "s")).to_lower()
+	var value = max(0.0, float(inst.get("value", 0.0)))
+	if unit in ["frames", "frame", "f"]:
+		var frame_count = int(round(value))
+		return frame_count if frame_count > 0 else 0
+	# Deterministic conversion aligned with runtime interpreter.
+	var wait_frames = int(ceil(value * FPS))
+	return wait_frames if wait_frames > 0 else 0
 
 static func _convert_frames_to_buffer(frame_data: Dictionary) -> Array:
 	var buffer = []

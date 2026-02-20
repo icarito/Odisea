@@ -479,18 +479,14 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		"SET_TIME_SCALE":
 			Engine.time_scale = inst.get("value", 1.0)
 		
-		"WAIT":
-			var duration = inst.get("value", 0.0)
-			# If fast_forward, execute at least 1 frame but skip the rest
-			
-			if not fast_forward:
-				var t = host_node.get_tree().create_timer(duration)
-				while t.time_left > 0:
-					if stop_requested or my_id != execution_id:
-						break
-					if fast_forward: break # Break immediately if FF requested during wait
-					yield (host_node.get_tree(), "physics_frame")
-			else:
+		"WAIT", "WAIT_FRAMES":
+			var wait_frames = _wait_frame_count_from_instruction(inst)
+			# Fast forward still advances one frame at most, preserving coroutine sequencing.
+			if fast_forward and wait_frames > 0:
+				wait_frames = 1
+			for _i in range(wait_frames):
+				if stop_requested or my_id != execution_id:
+					break
 				yield (host_node.get_tree(), "physics_frame")
 		
 		"PRINT":
@@ -968,6 +964,16 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				pc = start_index
 	
 	return null
+
+func _wait_frame_count_from_instruction(inst: Dictionary) -> int:
+	var unit = String(inst.get("unit", "s")).to_lower()
+	var value = max(0.0, float(inst.get("value", 0.0)))
+	if unit in ["frames", "frame", "f"]:
+		var frame_count = int(round(value))
+		return frame_count if frame_count > 0 else 0
+	# Deterministic conversion: seconds -> fixed 60 Hz frames.
+	var wait_frames = int(ceil(value * OYS_Parser.FPS))
+	return wait_frames if wait_frames > 0 else 0
 
 func _execute_movement(inst: Dictionary, my_id: int):
 	var cmd = inst.command

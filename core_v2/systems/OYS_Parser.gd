@@ -11,7 +11,7 @@ enum Command {
 	UNKNOWN,
 	SECTION, END, LEVEL,
 	FW, BW, LEFT, RIGHT, JUMP, INTERACT,
-	WAIT, LOOK, CALL, ZOOM, FOV,
+	WAIT, WAIT_FRAMES, LOOK, CALL, ZOOM, FOV,
 	SET, ASSERT, ASSERT_SIGNAL, PRINT, CLS,
 	GOTO, IF,
 	PLAY_ANIM, WAIT_ANIM, SPAWN,
@@ -35,6 +35,8 @@ const SYNONYMS = {
 	"BACKWARD": "BW",
 	"LT": "LEFT",
 	"RT": "RIGHT",
+	"WAITF": "WAIT_FRAMES",
+	"WAIT_FRAME": "WAIT_FRAMES",
 	"TIME_SCALE": "SET_TIME_SCALE",
 	"UI_OPEN": "OPEN",
 	"UI_CLICK": "CLICK",
@@ -128,8 +130,9 @@ static func parse_instruction(line: String) -> Dictionary:
 				if parts[i].begins_with("target="):
 					data["target"] = parts[i].split("=")[1]
 		
-		"WAIT":
-			data["value"] = parts[1].to_float() if parts.size() > 1 else 0.0
+		"WAIT", "WAIT_FRAMES":
+			var wait_data = _parse_wait_instruction(parts, cmd)
+			data.merge(wait_data, true)
 		
 		"LOOK":
 			data["pitch"] = parts[1].to_float() if parts.size() > 1 else 0.0
@@ -521,6 +524,39 @@ static func _extract_quoted_values(line: String) -> Array:
 		elif in_quote:
 			current += ch
 	return values
+
+static func _parse_wait_instruction(parts: Array, cmd: String) -> Dictionary:
+	var token = String(parts[1]).strip_edges() if parts.size() > 1 else "0"
+	if cmd == "WAIT_FRAMES":
+		return {
+			"value": max(0.0, token.to_float()),
+			"unit": "frames"
+		}
+
+	var lower = token.to_lower()
+	if lower.ends_with("frames"):
+		var raw = lower.substr(0, lower.length() - 6)
+		return {
+			"value": max(0.0, raw.to_float()),
+			"unit": "frames"
+		}
+	if lower.ends_with("frame"):
+		var raw = lower.substr(0, lower.length() - 5)
+		return {
+			"value": max(0.0, raw.to_float()),
+			"unit": "frames"
+		}
+	if lower.ends_with("f") and lower.length() > 1:
+		var raw = lower.substr(0, lower.length() - 1)
+		return {
+			"value": max(0.0, raw.to_float()),
+			"unit": "frames"
+		}
+
+	return {
+		"value": max(0.0, token.to_float()),
+		"unit": "s"
+	}
 
 # Parse a Vector3 from string "(x, y, z)"
 static func parse_vector3(s: String) -> Vector3:

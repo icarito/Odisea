@@ -63,6 +63,18 @@ func test_parse_cls_command():
 	var inst = OYS_Parser.parse_instruction("CLS")
 	assert_str(inst.command).is_equal("CLS")
 
+func test_parse_wait_frames_command():
+	var inst = OYS_Parser.parse_instruction("WAIT_FRAMES 12")
+	assert_str(inst.command).is_equal("WAIT_FRAMES")
+	assert_str(String(inst.get("unit", ""))).is_equal("frames")
+	assert_float(float(inst.get("value", -1.0))).is_equal(12.0)
+
+func test_parse_wait_suffix_f_as_frames():
+	var inst = OYS_Parser.parse_instruction("WAIT 7f")
+	assert_str(inst.command).is_equal("WAIT")
+	assert_str(String(inst.get("unit", ""))).is_equal("frames")
+	assert_float(float(inst.get("value", -1.0))).is_equal(7.0)
+
 func test_resolver_cls_generates_event():
 	var script = """
 	CLS
@@ -75,6 +87,32 @@ func test_resolver_cls_generates_event():
 	assert_bool(events.has(30)).is_true()
 	assert_str(events[0][0].get("command", "")).is_equal("CLS")
 	assert_str(events[30][0].get("command", "")).is_equal("CLS")
+
+func test_resolver_wait_frames_generates_exact_event_offset():
+	var script = """
+	PRINT "A"
+	WAIT_FRAMES 3
+	PRINT "B"
+	"""
+	var replay = OYS_Resolver.parse_script(script)
+	var events = replay.get("events", {})
+	assert_bool(events.has(0)).is_true()
+	assert_bool(events.has(3)).is_true()
+	assert_str(events[0][0].get("command", "")).is_equal("PRINT")
+	assert_str(events[3][0].get("command", "")).is_equal("PRINT")
+
+func test_resolver_wait_seconds_rounds_up_to_next_frame():
+	var script = """
+	PRINT "A"
+	WAIT 0.01
+	PRINT "B"
+	"""
+	var replay = OYS_Resolver.parse_script(script)
+	var events = replay.get("events", {})
+	assert_bool(events.has(0)).is_true()
+	assert_bool(events.has(1)).is_true()
+	assert_str(events[0][0].get("command", "")).is_equal("PRINT")
+	assert_str(events[1][0].get("command", "")).is_equal("PRINT")
 
 class MockHost extends Node:
 	func _init():
