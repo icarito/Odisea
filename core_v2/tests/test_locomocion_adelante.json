@@ -1481,12 +1481,12 @@
   },
   "final_expected_state": {
     "position": [
-      0,
+      -0,
       0.0415,
       1.887499
     ],
     "velocity": [
-      0,
+      -0,
       -0.233329,
       2
     ],
@@ -1495,7 +1495,7 @@
     "base_spring_length_3d": 5,
     "movement_state": {
       "horizontal_velocity": [
-        0,
+        -0,
         0.000004,
         2
       ],
