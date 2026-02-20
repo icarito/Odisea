@@ -618,6 +618,12 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			var box_name = inst.get("box", "")
 			var _max_pen = inst.get("max_penetration", 0.05)
 			var monitor_duration = inst.get("monitor_duration", 0.0)
+			var is_monitoring = (monitor_duration > 0.0)
+			var consecutive_frames = int(inst.get("consecutive_frames", 0))
+			# In monitored mode, require sustained clipping to avoid 1-frame physics jitter false positives.
+			if consecutive_frames <= 0:
+				consecutive_frames = 5 if is_monitoring else 1
+			var clipping_streak = 0
 			
 			var box = host_node.find_node(box_name, true, false)
 			var player = _find_player()
@@ -676,7 +682,6 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			# If monitor_duration > 0, we MUST yield.
 			
 			var _iterations = 1
-			var is_monitoring = (monitor_duration > 0.0)
 			
 			while true:
 				if not is_instance_valid(skeleton) or not is_instance_valid(box):
@@ -719,10 +724,14 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 							is_clipping = true
 						
 					if is_clipping:
-						test_failed = true
-						stop_requested = true
-						printerr("[OYS] ASSERT_NO_HAND_CLIPPING Failed: Hands are inside the box.")
-						return
+						clipping_streak += 1
+						if clipping_streak >= consecutive_frames:
+							test_failed = true
+							stop_requested = true
+							printerr("[OYS] ASSERT_NO_HAND_CLIPPING Failed: Hands are inside the box for %d consecutive frames." % clipping_streak)
+							return
+					else:
+						clipping_streak = 0
 				
 				if not is_monitoring:
 					break

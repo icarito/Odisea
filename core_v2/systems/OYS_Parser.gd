@@ -418,14 +418,24 @@ static func parse_instruction(line: String) -> Dictionary:
 							data["right"] = tokens[2].replace("\"", "")
 
 		"ASSERT_NO_HAND_CLIPPING":
-			# ASSERT_NO_HAND_CLIPPING BoxName [0.05] [MONITOR 1.0]
+			# ASSERT_NO_HAND_CLIPPING BoxName [0.05] [MONITOR 1.0] [CONSEC 3]
 			data["box"] = _extract_quoted(parts, 1)
 			data["max_penetration"] = parts[2].to_float() if parts.size() > 2 else 0.05
+			data["monitor_duration"] = 0.0
+			data["consecutive_frames"] = 0
 			
-			if parts.size() > 4 and parts[3] == "MONITOR":
-				data["monitor_duration"] = parts[4].to_float()
-			else:
-				data["monitor_duration"] = 0.0
+			var i = 3
+			while i < parts.size():
+				var token = parts[i].to_upper()
+				if token == "MONITOR" and i + 1 < parts.size():
+					data["monitor_duration"] = parts[i + 1].to_float()
+					i += 2
+					continue
+				if token == "CONSEC" and i + 1 < parts.size():
+					data["consecutive_frames"] = int(parts[i + 1])
+					i += 2
+					continue
+				i += 1
 
 		"TELEPORT":
 			# TELEPORT (x, y, z) or TELEPORT pos=(x, y, z)
