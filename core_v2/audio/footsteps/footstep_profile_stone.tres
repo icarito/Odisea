@@ -1,0 +1,15 @@
+[gd_resource type="Resource" load_steps=6 format=2]
+
+[ext_resource path="res://core_v2/systems/footsteps/footstep_profile.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/audio/footsteps/stone/footstep_stone-01.ogg" type="AudioStream" id=2]
+[ext_resource path="res://core_v2/audio/footsteps/stone/footstep_stone-02.ogg" type="AudioStream" id=3]
+[ext_resource path="res://core_v2/audio/footsteps/stone/footstep_stone-03.ogg" type="AudioStream" id=4]
+[ext_resource path="res://core_v2/audio/footsteps/stone/footstep_stone-04.ogg" type="AudioStream" id=5]
+
+[resource]
+script = ExtResource( 1 )
+streams = [ ExtResource( 2 ), ExtResource( 3 ), ExtResource( 4 ), ExtResource( 5 ) ]
+random_pitch_min = 0.8
+random_pitch_max = 1.2
+random_volume_db_min = -2.0
+random_volume_db_max = 2.0

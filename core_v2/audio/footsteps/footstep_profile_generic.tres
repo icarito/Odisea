@@ -1,0 +1,11 @@
+[gd_resource type="Resource" load_steps=2 format=2]
+
+[ext_resource path="res://core_v2/audio/footsteps/footstep_profile_stone.tres" type="Resource" id=1]
+
+[resource]
+script = ExtResource( "res://core_v2/systems/footsteps/footstep_profile.gd" )
+streams = [  ]
+random_pitch_min = 0.9
+random_pitch_max = 1.1
+random_volume_db_min = -2.0
+random_volume_db_max = 2.0

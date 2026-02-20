@@ -72,10 +72,10 @@ max_distance = 30.0
 
 [node name="SFX Drag" type="AudioStreamPlayer3D" parent="."]
 stream = ExtResource( 9 )
-unit_db = -6.0
+unit_db = -2.0
 max_db = 10.0
 max_distance = 15.0
 script = ExtResource( 8 )
 loop_sample = true
-fade_in_time = 0.2
+fade_in_time = 0.1
 fade_out_time = 0.5

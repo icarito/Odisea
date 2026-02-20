@@ -52,6 +52,8 @@ var _hand_l_gizmo: MeshInstance = null
 var _hand_r_gizmo: MeshInstance = null
 var _skeleton: Skeleton = null
 onready var jump_sfx: SFXComponentV2 = get_node_or_null("JumpSFX")
+onready var footstep_detector: FootstepDetector = get_node_or_null("FootstepDetector")
+var _footstep_sounds: Array = []
 
 # --- STATE ---
 # Almacena la velocidad suavizada para el blend tree de animación.
@@ -66,6 +68,9 @@ var acrobatic_trigger_frames_left: int = 0 # Hold trigger to survive frame order
 var is_rotation_locked: bool = false # Impide que el personaje rote durante maniobras (backflip)
 var hit_head_active: bool = false
 var current_push_time: float = 0.0
+
+# --- FOOTSTEPS ---
+var _distance_accumulator: float = 0.0
 
 # --- LIFECYCLE ---
 func _ready() -> void:
@@ -105,6 +110,13 @@ func _ready() -> void:
 
 	# Warmup animations to cache blends
 	_warmup_animations()
+	
+	# Cache footsteps
+	var fs_node = get_node_or_null("FootstepSfx")
+	if fs_node:
+		for child in fs_node.get_children():
+			if child is AudioStreamPlayer3D:
+				_footstep_sounds.append(child)
 
 func _warmup_animations() -> void:
 	"""Fuerza el cacheo de las mezclas de Grounded e InAir avanzando el AnimationTree."""
@@ -185,6 +197,34 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 		visual_velocity = visual_velocity.linear_interpolate(p_current_velocity, velocity_lerp_speed * dt)
 	else:
 		visual_velocity = p_current_velocity
+		
+	# --- FOOTSTEP LOGIC ---
+	if is_on_floor and not controller.get("is_pushing"):
+		# Use raw velocity for footsteps to avoid smoothing lag/jitter
+		var speed_h = Vector2(p_current_velocity.x, p_current_velocity.z).length()
+		if speed_h > 0.1: # Threshold to accumulate
+			_distance_accumulator += speed_h * dt
+			
+			# Dynamic stride from FootstepDetector
+			var current_stride = 0.9
+			var walk_threshold = 3.0
+			if footstep_detector:
+				current_stride = footstep_detector.stride_length_walk
+				walk_threshold = footstep_detector.walk_speed_threshold
+				if speed_h > walk_threshold:
+					var t = clamp((speed_h - walk_threshold) / walk_threshold, 0.0, 1.0)
+					current_stride = lerp(footstep_detector.stride_length_walk, footstep_detector.stride_length_run, t)
+			elif speed_h > walk_threshold:
+				var t = clamp((speed_h - walk_threshold) / walk_threshold, 0.0, 1.0)
+				current_stride = lerp(0.9, 2.0, t)
+			
+			if _distance_accumulator >= current_stride:
+				_distance_accumulator -= current_stride # Keep residue for precise rhythm
+				_play_footstep()
+		else:
+			pass
+	else:
+		_distance_accumulator = 0.0 # Reset in air so we don't step immediately on land (unless land sound handles that)
 
 	# 2. ROTACIÓN VISUAL SUAVE (YAW)
 	# Solo rotamos si no estamos bloqueados (durante backflip)
@@ -515,3 +555,13 @@ func _update_hand_gizmos():
 		var bone_pose = _skeleton.get_bone_global_pose(r_idx)
 		var global_bone = _skeleton.global_transform * bone_pose
 		_hand_r_gizmo.global_transform.origin = global_bone.origin
+
+func _play_footstep():
+	if footstep_detector:
+		footstep_detector.play_footstep()
+	elif not _footstep_sounds.empty():
+		var idx = randi() % _footstep_sounds.size()
+		var player = _footstep_sounds[idx]
+		if player and not player.playing:
+			player.pitch_scale = rand_range(0.9, 1.1)
+			player.play()
