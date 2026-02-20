@@ -38,6 +38,39 @@ def _stream_process(
     )
 
     captured_failed_asserts = []
+    detected_log_path: Path | None = None
+    assert_markers = (
+        "ASSERT FAILED",
+        "Assertion failed",
+        "ASSERT_FAIL",
+        "ASSERT_SIGNAL FAILED",
+        "ASSERT_NO_HAND_CLIPPING failed",
+        "[OYS ASSERT] FAILED",
+        "OYS ASSERT FAILED",
+    )
+
+    def _consume_line(raw_line: str):
+        nonlocal detected_log_path
+        clean = _strip_ansi(raw_line)
+        if not clean:
+            return
+
+        print(clean)
+
+        if any(marker in clean for marker in assert_markers):
+            captured_failed_asserts.append(clean)
+
+        if "Output guardado en:" in clean or "Output completo en:" in clean:
+            maybe_path = clean.split(":", 1)[-1].strip()
+            if maybe_path:
+                p = Path(maybe_path)
+                detected_log_path = p if p.is_absolute() else Path.cwd() / p
+
+        if os.environ.get("GITHUB_ACTIONS") == "true" and file_hint is not None:
+            if "[ERROR]" in clean:
+                print(f"::error file={file_hint}::{clean}")
+            elif "[WARNING]" in clean:
+                print(f"::warning file={file_hint}::{clean}")
 
     sel = selectors.DefaultSelector()
     if proc.stdout is not None:
@@ -58,26 +91,34 @@ def _stream_process(
         ):
             continue
 
-        clean = _strip_ansi(line)
-        print(clean)
-
-        if "ASSERT FAILED" in clean or "Assertion failed" in clean:
-            captured_failed_asserts.append(clean)
-
-        if os.environ.get("GITHUB_ACTIONS") == "true" and file_hint is not None:
-            if "[ERROR]" in clean:
-                print(f"::error file={file_hint}::{clean}")
-            elif "[WARNING]" in clean:
-                print(f"::warning file={file_hint}::{clean}")
+        _consume_line(line)
 
     # Drain remaining buffered output.
     if proc.stdout is not None:
         for line in proc.stdout:
-            clean = _strip_ansi(line)
-            if clean:
-                print(clean)
+            _consume_line(line)
 
-    return proc.poll(), captured_failed_asserts
+    return proc.poll(), captured_failed_asserts, detected_log_path
+
+
+def _extract_assert_failures_from_log(log_path: Path | None):
+    if log_path is None or not log_path.exists():
+        return []
+    patterns = (
+        "ASSERT FAILED",
+        "Assertion failed",
+        "ASSERT_FAIL",
+        "ASSERT_SIGNAL FAILED",
+        "ASSERT_NO_HAND_CLIPPING failed",
+        "[OYS ASSERT] FAILED",
+        "OYS ASSERT FAILED",
+    )
+    results = []
+    for line in log_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        clean = _strip_ansi(line)
+        if any(marker in clean for marker in patterns):
+            results.append(clean)
+    return results
 
 
 def _has_executable(program: str) -> bool:
@@ -184,13 +225,18 @@ def _run_gdunit_suite(suite_path: Path, selected_runner: str, repo_root: Path, o
     cmd += ["-a", str(rel_suite)]
     print(f"[INFO] Executing: {' '.join(cmd)}")
 
-    returncode, _ = _stream_process(
+    returncode, captured_failed_asserts, log_path = _stream_process(
         cmd,
         file_hint=rel_suite,
         env={"ODISEA_SKIP_PREFLIGHT": "1"},
     )
     if returncode != 0:
-        raise RunnerError(f"runtest.sh failed for {rel_suite} with return code {returncode}.")
+        failures = captured_failed_asserts + _extract_assert_failures_from_log(log_path)
+        deduped = list(dict.fromkeys(failures))
+        message = f"runtest.sh failed for {rel_suite} (return code {returncode})."
+        if deduped:
+            message += "\nAsserts detectados:\n" + "\n".join(deduped)
+        pytest.fail(message, pytrace=False)
 
 
 def _run_determinism_case(oys_name: str, selected_runner: str, odisea_debug: bool):
@@ -207,9 +253,14 @@ def _run_determinism_case(oys_name: str, selected_runner: str, odisea_debug: boo
     cmd += ["--oys", oys_name]
     print(f"[INFO] Executing: {' '.join(cmd)}")
 
-    returncode, _ = _stream_process(cmd, env={"ODISEA_SKIP_PREFLIGHT": "1"})
+    returncode, captured_failed_asserts, log_path = _stream_process(cmd, env={"ODISEA_SKIP_PREFLIGHT": "1"})
     if returncode != 0:
-        raise RunnerError(f"runtest.sh failed for OYS case '{oys_name}' with return code {returncode}.")
+        failures = captured_failed_asserts + _extract_assert_failures_from_log(log_path)
+        deduped = list(dict.fromkeys(failures))
+        message = f"runtest.sh failed for OYS case '{oys_name}' (return code {returncode})."
+        if deduped:
+            message += "\nAsserts detectados:\n" + "\n".join(deduped)
+        pytest.fail(message, pytrace=False)
 
 
 def _run_raw_oys_file(test_file: Path, selected_runner: str, repo_root: Path, odisea_debug: bool):
@@ -227,7 +278,7 @@ def _run_raw_oys_file(test_file: Path, selected_runner: str, repo_root: Path, od
     cmd += ["-s", "tests/debug_runner.gd", "--test-file", str(rel_file)]
     print(f"[INFO] Executing: {' '.join(cmd)}")
 
-    returncode, failed_asserts = _stream_process(cmd, file_hint=rel_file, filter_visualserver=True)
+    returncode, failed_asserts, _log_path = _stream_process(cmd, file_hint=rel_file, filter_visualserver=True)
     if returncode == 1:
         message = "Test failed with return code 1. Check logs for [ERROR]."
         if failed_asserts:
