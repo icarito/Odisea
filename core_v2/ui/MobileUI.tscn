@@ -1,0 +1,188 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://addons/virtual_joystick/virtual_joystick.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/ui/TouchCameraControls.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/ui/MobileUI.gd" type="Script" id=3]
+
+[sub_resource type="StyleBoxFlat" id=1]
+bg_color = Color( 0.2, 0.2, 0.2, 0.3 )
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="MobileUI" type="CanvasLayer"]
+layer = 10
+script = ExtResource( 3 )
+
+[node name="Container" type="Control" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="MoveJoystick" parent="Container" instance=ExtResource( 1 )]
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 0.0
+anchor_bottom = 1.0
+margin_left = 50.0
+margin_top = -250.0
+margin_right = 250.0
+margin_bottom = -50.0
+rect_scale = Vector2( 0.8, 0.8 )
+joystick_mode = 0
+visibility_mode = 1
+use_input_actions = true
+action_left = "move_left"
+action_right = "move_right"
+action_up = "move_forward"
+action_down = "move_backward"
+
+[node name="TouchCameraArea" type="Control" parent="Container"]
+anchor_left = 0.5
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 0.0
+margin_top = 0.0
+margin_right = 0.0
+margin_bottom = 0.0
+mouse_filter = 2
+script = ExtResource( 2 )
+sensitivity = 0.8
+deadzone_radius = 5.0
+
+[node name="JumpButton" type="TouchScreenButton" parent="Container"]
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = -140.0
+margin_top = -140.0
+margin_right = -60.0
+margin_bottom = -60.0
+normal = null
+pressed = null
+action = "jump"
+visibility_mode = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="JumpLabel" type="Label" parent="Container/JumpButton"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -30.0
+margin_top = -15.0
+margin_right = 30.0
+margin_bottom = 15.0
+text = "JUMP"
+align = 1
+valign = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="SprintButton" type="TouchScreenButton" parent="Container"]
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = -230.0
+margin_top = -90.0
+margin_right = -150.0
+margin_bottom = -10.0
+normal = null
+pressed = null
+action = "run"
+visibility_mode = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="SprintLabel" type="Label" parent="Container/SprintButton"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -30.0
+margin_top = -15.0
+margin_right = 30.0
+margin_bottom = 15.0
+text = "RUN"
+align = 1
+valign = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="CrouchButton" type="TouchScreenButton" parent="Container"]
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = -320.0
+margin_top = -140.0
+margin_right = -240.0
+margin_bottom = -60.0
+normal = null
+pressed = null
+action = "crouch"
+visibility_mode = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="CrouchLabel" type="Label" parent="Container/CrouchButton"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -30.0
+margin_top = -15.0
+margin_right = 30.0
+margin_bottom = 15.0
+text = "CRCH"
+align = 1
+valign = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="InteractButton" type="TouchScreenButton" parent="Container"]
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = -230.0
+margin_top = -180.0
+margin_right = -150.0
+margin_bottom = -100.0
+normal = null
+pressed = null
+action = "interact"
+visibility_mode = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="InteractLabel" type="Label" parent="Container/InteractButton"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -30.0
+margin_top = -15.0
+margin_right = 30.0
+margin_bottom = 15.0
+text = "ACT"
+align = 1
+valign = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}

@@ -17,9 +17,13 @@ var hardware_input_enabled := true
 
 var joy_look_sensitivity := 15.0
 var joy_move_sensitivity := 1.0
-var hardware_look_sensitivity := 1.0 # Multiplier for mouse
+var hardware_look_sensitivity := 1.0
+var touch_camera_sensitivity := 3.0
 const JOY_DEADZONE := 0.2
 const DIGITAL_ZOOM_SENSITIVITY := 0.1
+
+var _touch_camera_drag := Vector2.ZERO
+var _touch_camera_zoom := 0.0
 
 
 # Universal input getter
@@ -106,11 +110,17 @@ func _read_live_input() -> InputDataV2:
 		var digital_look_x = Input.get_action_strength("camera_right") - Input.get_action_strength("camera_left")
 		mouse_d.x += digital_look_x * joy_look_sensitivity
 
+		# --- TOUCH CAMERA (from TouchCameraControls) ---
+		if _touch_camera_drag.length_squared() > 0.001:
+			mouse_d += _touch_camera_drag * touch_camera_sensitivity
+			_touch_camera_drag = Vector2.ZERO
+
 		d.mouse_delta = mouse_d
 
 		# --- ZOOM ---
 		var digital_zoom = (Input.get_action_strength("zoom_out") - Input.get_action_strength("zoom_in")) * DIGITAL_ZOOM_SENSITIVITY
-		d.zoom_delta = zoom_delta_accum + digital_zoom
+		d.zoom_delta = zoom_delta_accum + digital_zoom + _touch_camera_zoom
+		_touch_camera_zoom = 0.0
 
 	# Limpiamos los acumuladores real aquí SIEMPRE para evitar fugas si se re-activa
 	mouse_delta_accum = Vector2()
@@ -128,3 +138,9 @@ func set_live_mode():
 	playback_buffer.clear()
 	playback_index = 0
 	mode = Mode.LIVE
+
+func add_touch_camera_drag(delta: Vector2) -> void:
+	_touch_camera_drag += delta
+
+func add_touch_camera_zoom(delta: float) -> void:
+	_touch_camera_zoom += delta
