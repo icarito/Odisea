@@ -21,6 +21,7 @@ var _has_initial_position: bool = false
 var _smooth_correction_target: Vector3 = Vector3.ZERO
 var _player: KinematicBody = null # Referencia cacheada al jugador
 var _smooth_correction_active: bool = false
+var _ignore_level_directive: bool = false
 const SMOOTH_CORRECTION_SPEED: float = 10.0 # Unidades por segundo
 
 func _ready():
@@ -73,11 +74,14 @@ func set_initial_position(pos: Vector3, yaw: float, pitch: float):
 	_smooth_correction_active = false
 	print("[OYSComponent] Posición inicial forzada: ", pos)
 
-func load_and_start(path: String, start_section: String = ""):
+func load_and_start(path: String, start_section: String = "", ignore_level_directive: bool = false):
 	_current_path = path
+	_ignore_level_directive = ignore_level_directive
 	var f = File.new()
 	if f.open(path, File.READ) == OK:
 		var content = f.get_as_text()
+		if _ignore_level_directive:
+			content = _strip_level_directive(content)
 		last_modified_time = f.get_modified_time(path)
 		f.close()
 
@@ -102,6 +106,19 @@ func load_and_start(path: String, start_section: String = ""):
 		call_deferred("_run_and_unpause", start_section)
 	else:
 		printerr("[OYSComponent] Could not open script: ", path)
+
+func load_and_start_ignoring_level(path: String, start_section: String = "") -> void:
+	load_and_start(path, start_section, true)
+
+func _strip_level_directive(content: String) -> String:
+	var filtered_lines: Array = []
+	for raw_line in content.split("\n"):
+		var line := String(raw_line)
+		var trimmed := line.strip_edges()
+		if trimmed.begins_with("LEVEL ") or trimmed == "LEVEL":
+			continue
+		filtered_lines.append(line)
+	return "\n".join(filtered_lines)
 
 func _run_and_unpause(start_section: String) -> void:
 	# DESACTIVAR corrección suave antes de ejecutar el script
@@ -220,6 +237,8 @@ func _process(_delta):
 				var content = ""
 				if f.open(_current_path, File.READ) == OK:
 					content = f.get_as_text()
+					if _ignore_level_directive:
+						content = _strip_level_directive(content)
 					f.close()
 				
 				interpreter.parse(content)

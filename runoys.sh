@@ -19,7 +19,7 @@ if [ -z "$GODOT_BIN" ]; then
 fi
 
 # Extract LEVEL from the .oys file
-SCENE=$(grep -m1 "^LEVEL" "$OYS_FILE" | sed 's/LEVEL //')
+SCENE=$(grep -m1 "^LEVEL" "$OYS_FILE" | sed -E 's/^LEVEL[[:space:]]*//' | tr -d '"')
 
 if [ -z "$SCENE" ]; then
     SCENE="res://core_v2/levels/TestScene_v2.tscn"

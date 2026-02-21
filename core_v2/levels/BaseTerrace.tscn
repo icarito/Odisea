@@ -1,4 +1,4 @@
-[gd_scene load_steps=290 format=2]
+[gd_scene load_steps=291 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -47,6 +47,7 @@
 [ext_resource path="res://core_v2/props/Lever.tscn" type="PackedScene" id=46]
 [ext_resource path="res://assets/sfx/explodemini.wav" type="AudioStream" id=47]
 [ext_resource path="res://core_v2/camera/VCameraSystem.tscn" type="PackedScene" id=48]
+[ext_resource path="res://core_v2/levels/level_script.gd" type="Script" id=49]
 
 [sub_resource type="BoxShape" id=2441]
 extents = Vector3( 10, 17, 4.95 )
@@ -1027,6 +1028,7 @@ use_collision = true
 width = 80.0
 depth = 80.0
 material = ExtResource( 1 )
+script = ExtResource( 49 )
 
 [node name="CornerFloor" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 29.7736, 1.83056, -29.847 )
@@ -1963,7 +1965,6 @@ script = ExtResource( 28 )
 debug_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 debug_render = false
 zone_extents = Vector3( 1, 0.5, 1 )
-script_file = "res://core_v2/scripts/intro.oys"
 center_player_on_enter = true
 
 [node name="_ZoneDebugMesh2" type="MeshInstance" parent="CrioPod START/CinematicSequence"]

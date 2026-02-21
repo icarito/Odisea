@@ -37,3 +37,14 @@ func test_oys_pro_execution() -> void:
 	assert_int(int(player_count)).is_equal(1)
 
 	print("[TEST] OYS Pro execution successful")
+
+func test_strip_level_directive_removes_level_lines_only() -> void:
+	var comp = OYSComponent.new()
+	var content = "LEVEL res://core_v2/levels/BaseTerrace.tscn\nSECTION \"Intro\"\nPRINT \"Hello\"\n  LEVEL res://other.tscn\n# LEVEL should stay in comments\nWAIT 0.1"
+	var stripped = comp._strip_level_directive(content)
+
+	assert_str(stripped).contains("SECTION \"Intro\"")
+	assert_str(stripped).contains("PRINT \"Hello\"")
+	assert_str(stripped).contains("# LEVEL should stay in comments")
+	assert_str(stripped).not_contains("LEVEL res://core_v2/levels/BaseTerrace.tscn")
+	assert_str(stripped).not_contains("LEVEL res://other.tscn")

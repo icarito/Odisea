@@ -866,8 +866,10 @@ func _handle_vcam_request(vcam: Node, payload: Dictionary, duration: float) -> v
 	_vcam_blend_duration = max(0.0, scaled_duration)
 	_vcam_blend_elapsed = 0.0
 	
-	# Initialize VCameraBrain position from old camera for smooth transition
-	if old_cam and is_instance_valid(old_cam):
+	# Initialize VCameraBrain position:
+	# - smooth blend from old camera when duration > 0
+	# - hard cut to target vcam when duration <= 0
+	if scaled_duration > 0.0 and old_cam and is_instance_valid(old_cam):
 		_vcam_brain.global_transform = old_cam.global_transform
 		_vcam_brain.fov = old_cam.fov
 	else:

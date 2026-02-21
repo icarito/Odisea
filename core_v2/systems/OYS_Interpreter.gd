@@ -615,7 +615,10 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			_configure_vcamera_targets(vcam, inst)
 			_log_vcamera_debug(manager, "before_vcamera_%s" % vcam_name, vcam)
 			manager.activate_vcamera(vcam, duration, ease_type)
-			yield(host_node.get_tree(), "physics_frame")
+			if float(duration) <= 0.0 and manager.has_method("step"):
+				manager.step(0.0)
+			else:
+				yield(host_node.get_tree(), "physics_frame")
 			_log_vcamera_debug(manager, "after_vcamera_%s" % vcam_name, vcam)
 
 			for _i in range(int(duration * 60.0)):
@@ -639,7 +642,10 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			_configure_vcamera_targets(vcam, inst)
 			_log_vcamera_debug(manager, "before_blend_%s" % vcam_name, vcam)
 			manager.blend_to_vcamera(vcam, duration)
-			yield(host_node.get_tree(), "physics_frame")
+			if float(duration) <= 0.0 and manager.has_method("step"):
+				manager.step(0.0)
+			else:
+				yield(host_node.get_tree(), "physics_frame")
 			_log_vcamera_debug(manager, "after_blend_%s" % vcam_name, vcam)
 
 			for _i in range(int(duration * 60.0)):
@@ -653,7 +659,10 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			if manager:
 				_log_vcamera_debug(manager, "before_return")
 				manager.deactivate_vcamera(duration)
-				yield(host_node.get_tree(), "physics_frame")
+				if float(duration) <= 0.0 and manager.has_method("step"):
+					manager.step(0.0)
+				else:
+					yield(host_node.get_tree(), "physics_frame")
 				_log_vcamera_debug(manager, "after_return")
 			
 			for _i in range(int(duration * 60.0)):

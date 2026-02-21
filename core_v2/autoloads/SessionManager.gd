@@ -769,12 +769,14 @@ func load_and_play(path: String):
 
 		# Find/Load Level
 		var scene_path = "res://core_v2/levels/TestScene_v2.tscn"
+		var has_level_directive := false
 		for line in script_content.split("\n"):
 			var l = line.strip_edges()
 			if l.begins_with("LEVEL"):
+				has_level_directive = true
 				var parts = l.split(" ", false)
 				if parts.size() > 1:
-					scene_path = parts[1]
+					scene_path = String(parts[1]).strip_edges().replace("\"", "")
 				break
 		
 		_oys_requested_scene = scene_path
@@ -839,14 +841,20 @@ func load_and_play(path: String):
 					break # Stop looking after first time-consuming command
 			
 			if not has_initial_setup:
-				# print("[SessionManager] No initial 'SET pos' found, applying default (0, 0.5, 0)")
-				var start_tf = Transform(Basis.IDENTITY, Vector3(0, 0.5, 0))
-				player.teleport_to(start_tf)
-				var ts = get_node_or_null("TeleportSystem")
-				if ts and ts.has_method("force_initial_spawn"):
-					ts.force_initial_spawn(start_tf)
-				# Record this as an event too so it's in the JSON
-				_on_oys_instruction_executed({"command": "SET", "var": "pos", "value": "(0, 0.5, 0)"}, {})
+				# Preserve scene-authored spawn when script defines LEVEL.
+				# Keep legacy origin fallback only for scripts without LEVEL.
+				if has_level_directive:
+					var ts = get_node_or_null("TeleportSystem")
+					if ts and ts.has_method("force_initial_spawn"):
+						ts.force_initial_spawn(player.global_transform)
+				else:
+					var start_tf = Transform(Basis.IDENTITY, Vector3(0, 0.5, 0))
+					player.teleport_to(start_tf)
+					var ts = get_node_or_null("TeleportSystem")
+					if ts and ts.has_method("force_initial_spawn"):
+						ts.force_initial_spawn(start_tf)
+					# Record this as an event too so it's in the JSON
+					_on_oys_instruction_executed({"command": "SET", "var": "pos", "value": "(0, 0.5, 0)"}, {})
 			
 			# Capture initial player state
 			buffer.append({"snapshot": player.get_full_snapshot()})
