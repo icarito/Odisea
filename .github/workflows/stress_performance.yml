@@ -69,6 +69,13 @@ jobs:
           mkdir -p ~/.local/share/godot/app_userdata/Odisea/
           export GODOT_BIN=godot
 
+      - name: Disable gdUnit addon for stress pipeline
+        run: |
+          set -euo pipefail
+          if [ -d addons/gdUnit3 ]; then
+            mv addons/gdUnit3 addons/gdUnit3.ci.disabled
+          fi
+
       - name: Disable editor plugins for CI import
         run: |
           set -euo pipefail
