@@ -38,6 +38,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Restore Godot project cache
+        id: godot_project_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ github.workspace }}/.import
+            ${{ github.workspace }}/.godot
+          key: godot-stress-${{ runner.os }}-${{ hashFiles('**/project.godot') }}-${{ hashFiles('assets/**', 'core_v2/audio/**') }}-${{ github.run_id }}
+          restore-keys: |
+            godot-stress-${{ runner.os }}-${{ hashFiles('**/project.godot') }}-${{ hashFiles('assets/**', 'core_v2/audio/**') }}-
+            godot-stress-${{ runner.os }}-
+            ${{ runner.os }}-godot-
+
       - name: Setup Godot
         run: |
           # Install Godot 3.6.2 manually
@@ -77,7 +90,7 @@ jobs:
           set -euo pipefail
           mkdir -p reports
           set +e
-          timeout 420s /usr/local/bin/godot --path . -e --headless --no-window --audio-driver Dummy 2>&1 | tee reports/import_resources_stress.log
+          timeout 600s /usr/local/bin/godot --path . -e --headless --no-window --audio-driver Dummy 2>&1 | tee reports/import_resources_stress.log
           godot_rc="${PIPESTATUS[0]}"
           set -e
           if [ "$godot_rc" -eq 124 ]; then
@@ -88,6 +101,8 @@ jobs:
             echo "Godot import command failed with exit code $godot_rc"
             exit "$godot_rc"
           fi
+          echo "Import complete."
+          echo "godot_project_cache_hit=${{ steps.godot_project_cache.outputs.cache-hit }}"
 
       - name: Capture Host Environment
         run: |
@@ -201,6 +216,15 @@ jobs:
             performance_baseline.json
             performance_history.json
           key: performance-cache-${{ runner.os }}-${{ github.ref_name }}-${{ github.run_id }}
+
+      - name: Save Godot project cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ github.workspace }}/.import
+            ${{ github.workspace }}/.godot
+          key: godot-stress-${{ runner.os }}-${{ hashFiles('**/project.godot') }}-${{ hashFiles('assets/**', 'core_v2/audio/**') }}-${{ github.run_id }}
 
       - name: Upload Artifacts
         if: always()
