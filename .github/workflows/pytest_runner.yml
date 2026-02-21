@@ -151,10 +151,14 @@ jobs:
             echo "Importing Godot resources..."
             # Let editor scan/import finish; --quit aborts scanner too early in CI.
             set +e
-            timeout 90s /usr/local/bin/godot --path . -e --headless --no-window --audio-driver Dummy 2>&1 | tee "$log_file"
+            timeout 240s /usr/local/bin/godot --path . -e --headless --no-window --audio-driver Dummy 2>&1 | tee "$log_file"
             local godot_rc="${PIPESTATUS[0]}"
             set -e
-            if [ "$godot_rc" -ne 0 ] && [ "$godot_rc" -ne 124 ]; then
+            if [ "$godot_rc" -eq 124 ]; then
+              echo "Godot import timed out before completing imports."
+              return 1
+            fi
+            if [ "$godot_rc" -ne 0 ]; then
               echo "Godot import command failed with exit code $godot_rc"
               return "$godot_rc"
             fi
