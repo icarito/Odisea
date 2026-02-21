@@ -9,6 +9,7 @@ export(bool) var emitting: bool = true setget set_emitting
 export(float) var timeout: float = 0.0
 export(float) var interval: float = 0.0
 export(float) var interval_random: float = 0.0
+export(float) var duration: float = 0.1
 
 var _time_alive: float = 0.0
 var _burst_timer: float = 0.0
@@ -73,7 +74,7 @@ func _process(delta):
 				_is_bursting = true
 				if particles: particles.emitting = true
 				if _audio and _audio.stream: _audio.play()
-				_burst_timer = 0.1 # duration of the spark burst
+				_burst_timer = duration # duration of the spark burst
 			else:
 				_is_bursting = false
 				if particles: particles.emitting = false
