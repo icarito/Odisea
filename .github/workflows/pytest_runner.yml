@@ -95,14 +95,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .venv
-          key: ${{ runner.os }}-venv-pytest-v1-${{ hashFiles('requirements-pytest.txt') }}
+          key: ${{ runner.os }}-venv-pytest-v2-${{ hashFiles('requirements-pytest.txt') }}
           restore-keys: |
-            ${{ runner.os }}-venv-pytest-v1-
+            ${{ runner.os }}-venv-pytest-v2-
 
-      - name: Install Pytest
-        if: steps.venv_cache.outputs.cache-hit != 'true'
+      - name: Install/Repair Pytest venv
         run: |
-          python -m venv .venv
+          set -euo pipefail
+          if [ ! -x .venv/bin/python ] || [ ! -x .venv/bin/pytest ] || ! .venv/bin/python -c "import sys" >/dev/null 2>&1; then
+            rm -rf .venv
+            python -m venv .venv
+          fi
+          ./.venv/bin/pip install --upgrade pip
           ./.venv/bin/pip install -r requirements-pytest.txt
 
       - name: Cache Diagnostics
