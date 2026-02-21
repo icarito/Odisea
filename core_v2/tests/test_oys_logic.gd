@@ -114,6 +114,7 @@ func test_parse_vcamera_with_follow_and_look_at():
 	assert_bool(is_equal_approx(float(inst.get("duration", -1.0)), 1.2)).is_true()
 	assert_str(String(inst.get("follow", ""))).is_equal("Pilot")
 	assert_str(String(inst.get("look_at", ""))).is_equal("Beacon")
+	assert_str(String(inst.get("mode", ""))).is_equal("script")
 
 func test_parse_vcamera_blend_with_follow_and_look_at():
 	var inst = OYS_Parser.parse_instruction('VCAMERA_BLEND name="IntroClose" duration=0.8 follow="none" lookat="target_node"')
@@ -122,6 +123,12 @@ func test_parse_vcamera_blend_with_follow_and_look_at():
 	assert_bool(is_equal_approx(float(inst.get("duration", -1.0)), 0.8)).is_true()
 	assert_str(String(inst.get("follow", ""))).is_equal("none")
 	assert_str(String(inst.get("look_at", ""))).is_equal("target_node")
+	assert_str(String(inst.get("mode", ""))).is_equal("script")
+
+func test_parse_vcamera_mode_scene():
+	var inst = OYS_Parser.parse_instruction('VCAMERA name="IntroFar" mode="scene"')
+	assert_str(inst.command).is_equal("VCAMERA")
+	assert_str(String(inst.get("mode", ""))).is_equal("scene")
 
 func test_resolver_cls_generates_event():
 	var script = """
@@ -429,25 +436,40 @@ func test_interpreter_vcamera_applies_follow_and_look_at_targets():
 	beacon.name = "Beacon"
 	host.add_child(beacon)
 
+	var alt_target = Spatial.new()
+	alt_target.name = "AltTarget"
+	host.add_child(alt_target)
+
 	var vcam = Spatial.new()
 	vcam.name = "IntroFar"
 	var follow = VCameraFollow.new()
 	follow.name = "Follow"
+	follow.target_path = NodePath("../../Pilot")
+	follow.target = pilot
 	vcam.add_child(follow)
 	var look_at = VCameraLookAt.new()
 	look_at.name = "LookAt"
+	look_at.look_at_target = NodePath("../../Beacon")
 	vcam.add_child(look_at)
 	host.add_child(vcam)
 
 	var interpreter = OYS_Interpreter.new(host)
 	interpreter._configure_vcamera_targets(vcam, {
-		"follow": "Pilot",
-		"look_at": "Beacon"
+		"mode": "script",
+		"follow": "AltTarget",
+		"look_at": "AltTarget"
 	})
 
 	assert_object(follow.target).is_not_null()
+	assert_bool(follow.target == alt_target).is_true()
+	assert_bool(String(look_at.look_at_target).ends_with("/AltTarget")).is_true()
+
+	interpreter._configure_vcamera_targets(vcam, {"mode": "scene"})
+	assert_object(follow.target).is_not_null()
 	assert_bool(follow.target == pilot).is_true()
-	assert_bool(String(look_at.look_at_target).ends_with("/Beacon")).is_true()
+	var restored_look_target = look_at.get_node_or_null(look_at.look_at_target)
+	assert_object(restored_look_target).is_not_null()
+	assert_bool(restored_look_target == beacon).is_true()
 
 	host.queue_free()
 

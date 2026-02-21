@@ -14,6 +14,7 @@ var sections: Dictionary = {}
 var section_names: Array = []
 var host_node: Node
 var _node_cache: Dictionary = {}
+var _vcam_scene_defaults: Dictionary = {}
 var is_running: bool = false
 var stop_requested: bool = false
 var fast_forward: bool = false
@@ -1481,6 +1482,12 @@ func _configure_vcamera_targets(vcam: Node, inst: Dictionary) -> void:
 	if not is_instance_valid(vcam):
 		return
 
+	_cache_vcamera_scene_defaults(vcam)
+	var mode := String(inst.get("mode", "script")).to_lower()
+	if mode == "scene":
+		_restore_vcamera_scene_defaults(vcam)
+		return
+
 	if inst.has("follow"):
 		var follow_raw := String(inst.get("follow", ""))
 		var follow_mod = vcam.get_node_or_null("Follow")
@@ -1506,6 +1513,55 @@ func _configure_vcamera_targets(vcam: Node, inst: Dictionary) -> void:
 					look_mod.look_at_target = look_target.get_path()
 				else:
 					printerr("[OYS] VCAMERA: look_at target '%s' not found" % look_raw)
+
+func _cache_vcamera_scene_defaults(vcam: Node) -> void:
+	if not is_instance_valid(vcam):
+		return
+	var key := vcam.get_instance_id()
+	if _vcam_scene_defaults.has(key):
+		return
+
+	var data := {
+		"follow_target_path": NodePath(""),
+		"look_at_target": NodePath("")
+	}
+
+	var follow_mod = vcam.get_node_or_null("Follow")
+	if follow_mod and "target_path" in follow_mod:
+		var follow_path: NodePath = follow_mod.target_path
+		if String(follow_path) == "" and "target" in follow_mod:
+			var runtime_target = follow_mod.target
+			if runtime_target and runtime_target is Node and runtime_target.is_inside_tree():
+				follow_path = follow_mod.get_path_to(runtime_target)
+		data["follow_target_path"] = follow_path
+
+	var look_mod = vcam.get_node_or_null("LookAt")
+	if look_mod and "look_at_target" in look_mod:
+		data["look_at_target"] = look_mod.look_at_target
+
+	_vcam_scene_defaults[key] = data
+
+func _restore_vcamera_scene_defaults(vcam: Node) -> void:
+	if not is_instance_valid(vcam):
+		return
+	var key := vcam.get_instance_id()
+	if not _vcam_scene_defaults.has(key):
+		return
+	var data: Dictionary = _vcam_scene_defaults[key]
+
+	var follow_mod = vcam.get_node_or_null("Follow")
+	if follow_mod and "target" in follow_mod:
+		var follow_path: NodePath = data.get("follow_target_path", NodePath(""))
+		if "target_path" in follow_mod:
+			follow_mod.target_path = follow_path
+		var restored_follow_target: Node = null
+		if String(follow_path) != "":
+			restored_follow_target = follow_mod.get_node_or_null(follow_path)
+		follow_mod.target = restored_follow_target
+
+	var look_mod = vcam.get_node_or_null("LookAt")
+	if look_mod and "look_at_target" in look_mod:
+		look_mod.look_at_target = data.get("look_at_target", NodePath(""))
 
 func _node_pos_dbg(node: Node) -> String:
 	if not is_instance_valid(node):

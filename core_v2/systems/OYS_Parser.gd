@@ -543,10 +543,14 @@ static func parse_instruction(line: String) -> Dictionary:
 							data["follow"] = v
 						"look_at", "lookat":
 							data["look_at"] = v
+						"mode":
+							data["mode"] = v.to_lower()
 			if not data.has("duration"):
 				data["duration"] = 1.0
 			if not data.has("ease"):
 				data["ease"] = -2.0
+			if not data.has("mode"):
+				data["mode"] = "script"
 		
 		"VCAMERA_BLEND":
 			data["name"] = _extract_quoted(parts, 1)
@@ -565,8 +569,12 @@ static func parse_instruction(line: String) -> Dictionary:
 							data["follow"] = v
 						"look_at", "lookat":
 							data["look_at"] = v
+						"mode":
+							data["mode"] = v.to_lower()
 			if not data.has("duration"):
 				data["duration"] = 1.0
+			if not data.has("mode"):
+				data["mode"] = "script"
 		
 		"VCAMERA_RETURN":
 			for i in range(1, parts.size()):
