@@ -44,7 +44,6 @@ jobs:
         with:
           path: |
             ${{ github.workspace }}/.import
-            ${{ github.workspace }}/.godot
           key: godot-stress-${{ runner.os }}-${{ hashFiles('**/project.godot') }}-${{ hashFiles('assets/**', 'core_v2/audio/**') }}-${{ github.run_id }}
           restore-keys: |
             godot-stress-${{ runner.os }}-${{ hashFiles('**/project.godot') }}-${{ hashFiles('assets/**', 'core_v2/audio/**') }}-
@@ -73,7 +72,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -d addons/gdUnit3 ]; then
-            mv addons/gdUnit3 addons/gdUnit3.ci.disabled
+            mkdir -p /tmp/odisea_ci_disabled
+            mv addons/gdUnit3 /tmp/odisea_ci_disabled/gdUnit3
           fi
 
       - name: Disable editor plugins for CI import
@@ -230,7 +230,6 @@ jobs:
         with:
           path: |
             ${{ github.workspace }}/.import
-            ${{ github.workspace }}/.godot
           key: godot-stress-${{ runner.os }}-${{ hashFiles('**/project.godot') }}-${{ hashFiles('assets/**', 'core_v2/audio/**') }}-${{ github.run_id }}
 
       - name: Upload Artifacts
