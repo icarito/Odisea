@@ -37,6 +37,7 @@ var _is_following_target := false
 # Deterministic input buffer from agents
 var _intended_velocity := Vector3.ZERO
 var _has_intended_velocity := false
+var _is_registered := false
 
 # Parenting Logic State
 var _original_parent_path := ""
@@ -66,6 +67,7 @@ func _ready():
 	if sm:
 		if sm.has_method("register_oys_actor"):
 			sm.register_oys_actor("CargolDrone", self)
+			_is_registered = true
 		if sm.has_signal("oys_registry_reset"):
 			sm.connect("oys_registry_reset", self, "_on_oys_registry_reset")
 
@@ -357,6 +359,7 @@ func _on_oys_registry_reset() -> void:
 	var sm = get_node_or_null("/root/SessionManager")
 	if sm and sm.has_method("register_oys_actor"):
 		sm.register_oys_actor("CargolDrone", self)
+		_is_registered = true
 
 # --- VISUAL FEEDBACK ---
 
