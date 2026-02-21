@@ -8,11 +8,14 @@ export(float) var timeout: float = 0.0
 export(float) var interval: float = 0.0
 export(float) var interval_random: float = 0.0
 export(float) var duration: float = 1.0
-export(float) var fadeout_time: float = 0.5
+export(float) var fadeout_time: float = 5.0
 
 var _time_alive: float = 0.0
 var _burst_timer: float = 0.0
 var _is_bursting: bool = false
+var _timeout_fade_active: bool = false
+var _timeout_fade_timer: float = 0.0
+var _timeout_fade_start_scale: Vector3 = Vector3(1, 1, 1)
 
 onready var _mesh: MeshInstance = get_node_or_null("SmokeMesh")
 onready var _anim: AnimationPlayer = get_node_or_null("SmokeMesh/AnimationPlayer")
@@ -24,27 +27,53 @@ func _ready():
 	if not Engine.editor_hint:
 		if _mesh:
 			_base_scale = _mesh.scale
-			
-		if interval > 0.0:
-			_burst_timer = max(0.01, interval + rand_range(-interval_random, interval_random))
-			_set_visuals_active(false)
-			_is_bursting = false
-		else:
+
+		if _is_constant_mode():
 			_is_bursting = true
 			_set_visuals_active(is_active)
 			if is_active and _audio and not _audio.playing:
 				_audio.play()
+		else:
+			_burst_timer = max(0.01, interval + rand_range(-interval_random, interval_random))
+			_set_visuals_active(false)
+			_is_bursting = false
 
 func _process(delta):
 	if Engine.editor_hint: return
 	
-	if timeout > 0.0:
+	if timeout > 0.0 and not _timeout_fade_active:
 		_time_alive += delta
 		if _time_alive >= timeout:
+			_start_timeout_fade_out()
+
+	if _timeout_fade_active:
+		if _mesh:
+			if fadeout_time <= 0.0:
+				_mesh.scale = Vector3.ZERO
+				_set_visuals_active(false)
+				set_process(false)
+				return
+			_timeout_fade_timer = max(0.0, _timeout_fade_timer - delta)
+			var t = _timeout_fade_timer / fadeout_time
+			_mesh.scale = _timeout_fade_start_scale * t
+			if _timeout_fade_timer <= 0.0:
+				_set_visuals_active(false)
+				set_process(false)
+		else:
 			_set_visuals_active(false)
 			set_process(false)
-			return
-			
+		return
+
+	# Continuous mode: never run burst toggles ("chorros"), just stay active.
+	if _is_constant_mode():
+		_is_bursting = true
+		_set_visuals_active(is_active)
+		if is_active and _audio and not _audio.playing:
+			_audio.play()
+		elif not is_active and _audio and _audio.playing:
+			_audio.stop()
+		return
+
 	if interval > 0.0:
 		_burst_timer -= delta
 		if _burst_timer <= 0.0:
@@ -69,6 +98,26 @@ func _process(delta):
 				var t = max(0.0, _burst_timer / fadeout_time)
 				_mesh.scale = _base_scale * t
 
+func _is_constant_mode() -> bool:
+	return interval <= 0.0 or duration <= 0.0
+
+func _start_timeout_fade_out() -> void:
+	_timeout_fade_active = true
+	_timeout_fade_timer = max(0.0, fadeout_time)
+	_is_bursting = false
+
+	if _audio and _audio.playing:
+		_audio.stop()
+
+	if _mesh:
+		_timeout_fade_start_scale = _mesh.scale
+		if _timeout_fade_start_scale.length_squared() <= 0.000001:
+			_timeout_fade_start_scale = _base_scale
+		_mesh.visible = true
+
+	if _anim and _anim.is_playing():
+		_anim.stop()
+
 func _set_visuals_active(active: bool):
 	if active and is_active:
 		if _anim and not _anim.is_playing():
@@ -90,6 +139,8 @@ func set_active(value: bool):
 			_audio.stop()
 			
 	is_active = value
+	if not Engine.editor_hint and _is_constant_mode() and not _timeout_fade_active:
+		_set_visuals_active(is_active)
 	if Engine.editor_hint:
 		if _anim:
 			if is_active: _anim.play("Explode")

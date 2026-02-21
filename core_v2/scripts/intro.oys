@@ -9,15 +9,13 @@ SECTION "Intro"
     
     # VCamera: Start with far dramatic establishing shot
     VCAMERA name="IntroFar" duration=0.0 mode="scene"
+    PLAY_SOUND "Explosion"
+    VCAMERA_SHAKE translation="(0.25, 0.25, 0.0)" rotation="(0, 0, 5.0)" intensity=1.0 duration=1.0 frequency=16
+    
 
     WAIT 1.4
     
-    PRINT "Elías, despierta..."
-    PLAY_ANIM "Confused"
-    
     # Restore legacy shake magnitude (pre-VCamera integration): amp=0.25, rot=5.0, freq=16
-    VCAMERA_SHAKE translation="(0.25, 0.25, 0.0)" rotation="(0, 0, 5.0)" intensity=1.0 duration=1.0 frequency=16
-    
     WAIT 1.0
     
     # Push in closer - transitioning to medium shot
@@ -25,28 +23,43 @@ SECTION "Intro"
 
     WAIT 0.6
     
-    PRINT "Algo está mal..."
     PLAY_SOUND "ExplosionMini"
     
     # Keep the same legacy shake magnitude for the impact beat
     VCAMERA_SHAKE translation="(0.25, 0.25, 0.0)" rotation="(0, 0, 5.0)" intensity=1.0 duration=1.0 frequency=16
+
+    WAIT 3.0
+
+    PRINT "Elías, despierta..."
     
     WAIT 1.0
+
+    # Final intimate close-up
+    VCAMERA_BLEND name="IntroFinal" duration=1.1 mode="scene"
     
-    SET_TIME_SCALE 0.7
+
+    WAIT 2.0
+
+    INTERACT    
+
+    WAIT 2.0
+    
+    
+    PLAY_ANIM "Confused"
     
     WAIT_ANIM "Confused"
     
-    # Final intimate close-up
-    VCAMERA_BLEND name="IntroFinal" duration=1.1 mode="scene"
+    PRINT "Algo está mal..."
 
-    WAIT 1.1
+    WAIT 1.50
     
     SET_TIME_SCALE 1.0
     
+    WAIT 2.5
+    
     PRINT "¡¿qué pasó acá?!"
     
-    WAIT 0.5
+    WAIT 2.5
     
     # Return control to player camera
     VCAMERA_RETURN duration=0.8

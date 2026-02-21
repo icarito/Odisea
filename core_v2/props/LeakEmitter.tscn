@@ -1,7 +1,7 @@
 [gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://assets/flipbook_particles/assets/clouds/cloud_03/cloud_03.tscn" type="PackedScene" id=1]
-[ext_resource path="res://assets/sfx/steam hiss.wav" type="AudioStream" id=2]
+[ext_resource path="res://assets/sfx/sfx100v2_loop_ambient_01.ogg" type="AudioStream" id=2]
 [ext_resource path="res://core_v2/props/LeakEmitter.gd" type="Script" id=4]
 
 [sub_resource type="QuadMesh" id=2]
@@ -25,9 +25,9 @@ tracks/0/keys = {
 
 [node name="LeakEmitter" type="Spatial"]
 script = ExtResource( 4 )
-is_active = null
-interval = 2.0
-duration = 2.2
+timeout = 30.0
+duration = 0.0
+fadeout_time = 10.0
 
 [node name="SmokeMesh" parent="." instance=ExtResource( 1 )]
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0.7, 0 )
