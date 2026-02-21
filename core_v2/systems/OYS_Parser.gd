@@ -28,7 +28,8 @@ enum Command {
 	LOG,
 	TELEPORT,
 	CAMERA_SHAKE, CAMERA_SHAKE_STOP,
-	PLAY_SOUND
+	PLAY_SOUND,
+	VCAMERA, VCAMERA_BLEND, VCAMERA_RETURN, VCAMERA_SHAKE
 }
 
 # Command synonyms mapping
@@ -522,6 +523,72 @@ static func parse_instruction(line: String) -> Dictionary:
 
 		"CAMERA_SHAKE_STOP":
 			pass
+		
+		"VCAMERA":
+			data["name"] = _extract_quoted(parts, 1)
+			for i in range(1, parts.size()):
+				var token = parts[i]
+				if token.find("=") != -1:
+					var kv = token.split("=", false, 1)
+					var k = kv[0].to_lower()
+					var v = kv[1].replace("\"", "") if kv.size() > 1 else ""
+					match k:
+						"name":
+							data["name"] = v
+						"duration", "dur":
+							data["duration"] = v.to_float()
+						"ease":
+							data["ease"] = v.to_float()
+			if not data.has("duration"):
+				data["duration"] = 1.0
+			if not data.has("ease"):
+				data["ease"] = -2.0
+		
+		"VCAMERA_BLEND":
+			data["name"] = _extract_quoted(parts, 1)
+			for i in range(1, parts.size()):
+				var token = parts[i]
+				if token.find("=") != -1:
+					var kv = token.split("=", false, 1)
+					var k = kv[0].to_lower()
+					var v = kv[1].replace("\"", "") if kv.size() > 1 else ""
+					match k:
+						"name":
+							data["name"] = v
+						"duration", "dur":
+							data["duration"] = v.to_float()
+			if not data.has("duration"):
+				data["duration"] = 1.0
+		
+		"VCAMERA_RETURN":
+			for i in range(1, parts.size()):
+				var token = parts[i]
+				if token.find("=") != -1:
+					var kv = token.split("=", false, 1)
+					var k = kv[0].to_lower()
+					var v = kv[1].replace("\"", "") if kv.size() > 1 else ""
+					if k == "duration" or k == "dur":
+						data["duration"] = v.to_float()
+			if not data.has("duration"):
+				data["duration"] = 1.0
+		
+		"VCAMERA_SHAKE":
+			data["translation"] = "(0, 0, 0)"
+			data["rotation"] = "(0, 0, 0)"
+			data["intensity"] = 1.0
+			for i in range(1, parts.size()):
+				var token = parts[i]
+				if token.find("=") != -1:
+					var kv = token.split("=", false, 1)
+					var k = kv[0].to_lower()
+					var v = kv[1].replace("\"", "") if kv.size() > 1 else ""
+					match k:
+						"translation", "trans":
+							data["translation"] = v
+						"rotation", "rot":
+							data["rotation"] = v
+						"intensity":
+							data["intensity"] = v.to_float()
 
 		"ENDWHILE":
 			pass

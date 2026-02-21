@@ -601,6 +601,78 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			if manager and manager.has_method("stop_camera_shake"):
 				manager.stop_camera_shake()
 
+		"VCAMERA":
+			var vcam_name = inst.get("name", "")
+			var duration = inst.get("duration", 1.0)
+			var ease_type = inst.get("ease", -2.0)
+			
+			var manager = host_node.get_node_or_null("/root/CinematicManager")
+			if not manager:
+				printerr("[OYS] VCAMERA: CinematicManager not found")
+				return
+			
+			var vcam = manager.find_vcamera(vcam_name)
+			if not vcam:
+				printerr("[OYS] VCAMERA: VCamera '%s' not found" % vcam_name)
+				return
+			
+			manager.activate_vcamera(vcam, duration, ease_type)
+			
+			for _i in range(int(duration * 60.0)):
+				if stop_requested: break
+				yield(host_node.get_tree(), "physics_frame")
+
+		"VCAMERA_BLEND":
+			var vcam_name = inst.get("name", "")
+			var duration = inst.get("duration", 1.0)
+			
+			var manager = host_node.get_node_or_null("/root/CinematicManager")
+			if not manager:
+				printerr("[OYS] VCAMERA_BLEND: CinematicManager not found")
+				return
+			
+			var vcam = manager.find_vcamera(vcam_name)
+			if not vcam:
+				printerr("[OYS] VCAMERA_BLEND: VCamera '%s' not found" % vcam_name)
+				return
+			
+			manager.blend_to_vcamera(vcam, duration)
+			
+			for _i in range(int(duration * 60.0)):
+				if stop_requested: break
+				yield(host_node.get_tree(), "physics_frame")
+
+		"VCAMERA_RETURN":
+			var duration = inst.get("duration", 1.0)
+			
+			var manager = host_node.get_node_or_null("/root/CinematicManager")
+			if manager:
+				manager.deactivate_vcamera(duration)
+			
+			for _i in range(int(duration * 60.0)):
+				if stop_requested: break
+				yield(host_node.get_tree(), "physics_frame")
+
+		"VCAMERA_SHAKE":
+			var trans_str = inst.get("translation", "(0,0,0)")
+			var rot_str = inst.get("rotation", "(0,0,0)")
+			var intensity = inst.get("intensity", 1.0)
+			
+			var manager = host_node.get_node_or_null("/root/CinematicManager")
+			if manager:
+				var vcam = manager.get_active_vcamera()
+				if vcam:
+					var shake = vcam.get_node_or_null("Shake")
+					if not shake:
+						var ShakeClass = load("res://addons/virtualcamera/TransformModifiers/Shake.gd")
+						shake = ShakeClass.new()
+						shake.name = "Shake"
+						vcam.add_child(shake)
+					if shake:
+						shake.translation_strength = OYS_Parser.parse_vector3(trans_str)
+						shake.rotation_strength = OYS_Parser.parse_vector3(rot_str)
+						shake.intensity = intensity
+
 		"CINEMATIC":
 			# Disable player input
 			var player = _find_player()

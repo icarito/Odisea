@@ -15,6 +15,10 @@ enum CameraModeState {
 	FREE_ACTIVE,
 	TRANSITION_TO_CINEMATIC,
 	CINEMATIC_ACTIVE,
+	TRANSITION_TO_VCAM,
+	VCAM_ACTIVE,
+	VCAM_BLENDING,
+	TRANSITION_VCAM_TO_FREE,
 	TRANSITION_TO_FREE,
 	RECOVERY
 }
@@ -79,6 +83,13 @@ var _shake_cam: Camera = null
 var _shake_base_h_offset := 0.0
 var _shake_base_v_offset := 0.0
 var _shake_base_roll_degrees := 0.0
+
+# --- VCamera System ---
+var _vcam_brain: Node = null
+var _vcam_active_camera: Node = null
+var _vcam_blend_duration: float = 1.0
+var _vcam_blend_elapsed: float = 0.0
+var _vcam_source: String = "vcamera"
 
 signal cinematic_started(rig_id)
 signal cinematic_stopped
@@ -193,6 +204,121 @@ func deactivate_rig():
 	for id in to_remove:
 		release_camera_request(id)
 
+# --- VCamera API ---
+
+func find_vcamera(vcam_name: String) -> Node:
+	var vcams = get_tree().get_nodes_in_group("vcamera")
+	for vcam in vcams:
+		if vcam.name == vcam_name:
+			return vcam
+	return null
+
+func get_active_vcamera() -> Node:
+	return _vcam_active_camera
+
+func activate_vcamera(vcam: Node, duration: float = 1.0, ease_type: float = -2.0) -> int:
+	if not vcam:
+		printerr("[CinematicManager] activate_vcamera called with null VCamera")
+		return -1
+	
+	_find_or_create_vcam_brain()
+	
+	var to_remove = []
+	for id in _active_requests:
+		if _active_requests[id].source == _vcam_source:
+			to_remove.append(id)
+	for id in to_remove:
+		release_camera_request(id)
+	
+	var payload = {
+		"vcamera": vcam,
+		"duration": duration,
+		"ease": ease_type,
+		"transition_time": duration
+	}
+	
+	_log_transition("vcamera_activate", {
+		"vcam": vcam.name,
+		"duration": duration
+	})
+	
+	return request_camera_mode(ControlMode.FREE, payload, _vcam_source, 15)
+
+func blend_to_vcamera(vcam: Node, duration: float = 1.0) -> void:
+	if not vcam:
+		printerr("[CinematicManager] blend_to_vcamera called with null VCamera")
+		return
+	
+	if _current_state != CameraModeState.VCAM_ACTIVE and _current_state != CameraModeState.VCAM_BLENDING:
+		printerr("[CinematicManager] blend_to_vcamera: Not in VCAM state (current: %s)" % CameraModeState.keys()[_current_state])
+		return
+	
+	_vcam_blend_duration = duration
+	_vcam_blend_elapsed = 0.0
+	
+	if _vcam_active_camera and is_instance_valid(_vcam_active_camera):
+		_vcam_active_camera.priority = 0
+	
+	vcam.enabled = true
+	vcam.priority = 100
+	vcam.transition_time = duration
+	
+	_current_state = CameraModeState.VCAM_BLENDING
+	_vcam_active_camera = vcam
+	
+	_log_transition("vcamera_blend", {
+		"to": vcam.name,
+		"duration": duration
+	})
+
+func deactivate_vcamera(duration: float = 1.0) -> void:
+	var to_remove = []
+	for id in _active_requests:
+		if _active_requests[id].source == _vcam_source:
+			to_remove.append(id)
+	for id in to_remove:
+		release_camera_request(id)
+	
+	if _vcam_active_camera and is_instance_valid(_vcam_active_camera):
+		_vcam_active_camera.enabled = false
+		_vcam_active_camera.priority = 0
+	_vcam_active_camera = null
+	
+	if _vcam_brain and is_instance_valid(_vcam_brain):
+		_vcam_brain.enabled = false
+	
+	_current_state = CameraModeState.TRANSITION_VCAM_TO_FREE
+	_log_transition("vcamera_deactivate", {"duration": duration})
+	
+	var player_cam = _find_player_camera()
+	if player_cam:
+		if _vcam_brain and is_instance_valid(_vcam_brain):
+			_align_player_rig_to_camera(_vcam_brain, player_cam)
+			_start_dynamic_transition(_vcam_brain, player_cam, duration, "to_free")
+		else:
+			player_cam.current = true
+	
+	_current_state = CameraModeState.FREE_ACTIVE
+	emit_signal("cinematic_stopped")
+	emit_signal("control_mode_changed", ControlMode.FREE)
+
+func _find_or_create_vcam_brain() -> Node:
+	if _vcam_brain and is_instance_valid(_vcam_brain):
+		return _vcam_brain
+	
+	var brains = get_tree().get_nodes_in_group("vcamera_brain")
+	if brains.size() > 0:
+		_vcam_brain = brains[0]
+		return _vcam_brain
+	
+	var existing = get_tree().root.find_node("VCameraBrain", true, false)
+	if existing:
+		_vcam_brain = existing
+		return _vcam_brain
+	
+	printerr("[CinematicManager] No VCameraBrain found in scene. Add one to use VCamera system.")
+	return null
+
 func _find_player_camera() -> Camera:
 	var players = get_tree().get_nodes_in_group("player")
 	for p in players:
@@ -224,6 +350,11 @@ func get_active_camera() -> Camera:
 	if _transition_active and CameraTransition and is_instance_valid(CameraTransition.camera3D):
 		return CameraTransition.camera3D
 
+	if _vcam_brain and is_instance_valid(_vcam_brain) and _vcam_brain is Camera:
+		if _current_state in [CameraModeState.VCAM_ACTIVE, CameraModeState.VCAM_BLENDING, 
+			CameraModeState.TRANSITION_TO_VCAM, CameraModeState.TRANSITION_VCAM_TO_FREE]:
+			return _vcam_brain as Camera
+
 	if active_rig and is_instance_valid(active_rig):
 		if active_rig.has_method("get_camera"):
 			var rig_cam = active_rig.get_camera()
@@ -237,7 +368,7 @@ func get_control_mode() -> int:
 	return current_control_mode
 
 func is_active() -> bool:
-	return active_rig != null or not _active_requests.empty() or _transition_active or _shake_active
+	return active_rig != null or not _active_requests.empty() or _transition_active or _shake_active or _vcam_active_camera != null
 
 # Compatibility for PlayerController or other systems calling step/force_finish
 func force_finish_transition():
@@ -458,6 +589,10 @@ func _evaluate_requests() -> CameraRequest:
 		if req_rig != null and not is_instance_valid(req_rig):
 			invalid_ids.append(id)
 			continue
+		var req_vcam = req.payload.get("vcamera", null)
+		if req_vcam != null and not is_instance_valid(req_vcam):
+			invalid_ids.append(id)
+			continue
 
 		if best == null:
 			best = req
@@ -466,7 +601,7 @@ func _evaluate_requests() -> CameraRequest:
 		if req.priority > best.priority:
 			best = req
 		elif req.priority == best.priority:
-			if req.id > best.id: # Newer wins
+			if req.id > best.id:
 				best = req
 
 	for id in invalid_ids:
@@ -477,14 +612,23 @@ func _evaluate_requests() -> CameraRequest:
 func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 	var target_mode = ControlMode.FREE
 	var target_rig = null
+	var target_vcam = null
 	var transition_time = 0.0
 
 	if target_req:
 		target_mode = target_req.mode
 		target_rig = target_req.payload.get("rig")
+		target_vcam = target_req.payload.get("vcamera")
 		transition_time = target_req.payload.get("transition_time", 0.0)
 		if target_rig != null and not is_instance_valid(target_rig):
 			target_rig = null
+		if target_vcam != null and not is_instance_valid(target_vcam):
+			target_vcam = null
+
+	# Handle VCamera requests
+	if target_vcam and target_req and target_req.source == _vcam_source:
+		_handle_vcam_request(target_vcam, target_req.payload, transition_time)
+		return
 
 	# Detect Change
 	if active_rig != target_rig:
@@ -584,9 +728,51 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 		# Steady State
 		if active_rig and is_instance_valid(active_rig):
 			_current_state = CameraModeState.CINEMATIC_ACTIVE
+		elif _vcam_active_camera and is_instance_valid(_vcam_active_camera):
+			if _current_state == CameraModeState.VCAM_BLENDING:
+				_vcam_blend_elapsed += _dt
+				if _vcam_blend_elapsed >= _vcam_blend_duration:
+					_current_state = CameraModeState.VCAM_ACTIVE
+					_vcam_blend_elapsed = 0.0
+			else:
+				_current_state = CameraModeState.VCAM_ACTIVE
 		else:
 			active_rig = null
 			_current_state = CameraModeState.FREE_ACTIVE
+
+func _handle_vcam_request(vcam: Node, payload: Dictionary, duration: float) -> void:
+	var old_cam = get_active_camera()
+	
+	_find_or_create_vcam_brain()
+	if not _vcam_brain:
+		printerr("[CinematicManager] Cannot activate VCamera: no VCameraBrain found")
+		return
+	
+	_current_state = CameraModeState.TRANSITION_TO_VCAM
+	_active_payload = payload
+	
+	if _vcam_active_camera and is_instance_valid(_vcam_active_camera):
+		_vcam_active_camera.priority = 0
+		_vcam_active_camera.enabled = false
+	
+	vcam.enabled = true
+	vcam.priority = 100
+	vcam.transition_time = duration
+	
+	_vcam_active_camera = vcam
+	
+	_vcam_brain.current = true
+	
+	_log_transition("vcam_activate", {
+		"vcam": vcam.name,
+		"duration": duration
+	})
+	
+	_engage_input_latch(old_cam)
+	
+	_current_state = CameraModeState.VCAM_ACTIVE
+	emit_signal("cinematic_started", vcam.name)
+	emit_signal("control_mode_changed", ControlMode.FREE)
 
 func _sync_player_cam_hierarchy(cam: Camera):
 	var parent = cam.get_parent()
@@ -685,12 +871,18 @@ func get_full_snapshot() -> Dictionary:
 			latched_camera_basis.z.x, latched_camera_basis.z.y, latched_camera_basis.z.z
 		],
 		"latched_control_mode": latched_control_mode,
-		"latch_active": latch_active
+		"latch_active": latch_active,
+		"camera_mode_state": _current_state
 	}
 	if active_rig:
 		snapshot["active_rig_path"] = active_rig.get_path()
 	else:
 		snapshot["active_rig_path"] = ""
+	
+	if _vcam_active_camera and is_instance_valid(_vcam_active_camera):
+		snapshot["vcam_active_path"] = _vcam_active_camera.get_path()
+	else:
+		snapshot["vcam_active_path"] = ""
 	
 	var current_cam = get_viewport().get_camera()
 	if current_cam:
@@ -710,6 +902,7 @@ func restore_snapshot(data: Dictionary) -> void:
 	)
 	latched_control_mode = int(data.get("latched_control_mode", ControlMode.FREE))
 	latch_active = data.get("latch_active", false)
+	_current_state = int(data.get("camera_mode_state", CameraModeState.FREE_ACTIVE))
 	
 	var rig_path = data.get("active_rig_path", "")
 	if rig_path != "":
@@ -721,6 +914,15 @@ func restore_snapshot(data: Dictionary) -> void:
 				cam.current = true
 	else:
 		active_rig = null
+	
+	var vcam_path = data.get("vcam_active_path", "")
+	if vcam_path != "":
+		var vcam = get_node(vcam_path)
+		if vcam:
+			_vcam_active_camera = vcam
+			_find_or_create_vcam_brain()
+	else:
+		_vcam_active_camera = null
 	
 	var cam_path = data.get("current_camera_path", "")
 	if cam_path != "":
@@ -756,6 +958,15 @@ func reset():
 				controller.call("sync_camera_to_rig")
 
 		deactivate_rig()
+	
+	# Reset VCamera state
+	if _vcam_active_camera and is_instance_valid(_vcam_active_camera):
+		_vcam_active_camera.enabled = false
+		_vcam_active_camera.priority = 0
+	_vcam_active_camera = null
+	
+	if _vcam_brain and is_instance_valid(_vcam_brain):
+		_vcam_brain.enabled = false
 	
 	active_rig = null
 	current_control_mode = ControlMode.FREE

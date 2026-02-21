@@ -1,0 +1,79 @@
+[gd_scene load_steps=6 format=2]
+
+[ext_resource path="res://addons/virtualcamera/VCameraBrain.gd" type="Script" id=1]
+[ext_resource path="res://addons/virtualcamera/VCameras/VCamera.gd" type="Script" id=2]
+[ext_resource path="res://addons/virtualcamera/TransformModifiers/Follow.gd" type="Script" id=3]
+[ext_resource path="res://addons/virtualcamera/TransformModifiers/LookAt.gd" type="Script" id=4]
+[ext_resource path="res://addons/virtualcamera/TransformModifiers/Shake.gd" type="Script" id=5]
+
+[node name="VCameraSystem" type="Spatial"]
+
+[node name="VCameraBrain" type="Camera" parent="."]
+process_priority = -1000
+script = ExtResource(1)
+target_group = "vcamera"
+
+[node name="VCameras" type="Spatial" parent="."]
+
+[node name="IntroFar" type="Spatial" parent="VCameras"]
+script = ExtResource(2)
+priority = 0
+enabled = false
+transition_time = 2.0
+fov = 70.0
+
+[node name="Follow" type="Spatial" parent="VCameras/IntroFar"]
+script = ExtResource(3)
+offset = Vector3( 0, 15, 20 )
+min_distance = 1.0
+min_distance_push_margin = 1.0
+min_distance_push_strength = 10.0
+min_distance_push_easing = 2.0
+max_distance = 25.0
+max_distance_push_margin = 1.0
+max_distance_push_strength = 10.0
+max_distance_push_easing = 2.0
+lock_axes = 0
+
+[node name="LookAt" type="Spatial" parent="VCameras/IntroFar"]
+script = ExtResource(4)
+look_at_lerp_t = 1.0
+look_at_offset = Vector3( 0, 0, 0 )
+
+[node name="IntroClose" type="Spatial" parent="VCameras"]
+script = ExtResource(2)
+priority = 0
+enabled = false
+transition_time = 1.5
+fov = 60.0
+
+[node name="Follow" type="Spatial" parent="VCameras/IntroClose"]
+script = ExtResource(3)
+offset = Vector3( 0, 3, 5 )
+min_distance = 1.0
+max_distance = 6.0
+lock_axes = 0
+
+[node name="LookAt" type="Spatial" parent="VCameras/IntroClose"]
+script = ExtResource(4)
+look_at_lerp_t = 1.0
+look_at_offset = Vector3( 0, 1.5, 0 )
+
+[node name="IntroFinal" type="Spatial" parent="VCameras"]
+script = ExtResource(2)
+priority = 0
+enabled = false
+transition_time = 2.0
+fov = 50.0
+
+[node name="Follow" type="Spatial" parent="VCameras/IntroFinal"]
+script = ExtResource(3)
+offset = Vector3( 0, 1.5, 3 )
+min_distance = 1.0
+max_distance = 4.0
+lock_axes = 0
+
+[node name="LookAt" type="Spatial" parent="VCameras/IntroFinal"]
+script = ExtResource(4)
+look_at_lerp_t = 1.0
+look_at_offset = Vector3( 0, 1.0, 0 )
