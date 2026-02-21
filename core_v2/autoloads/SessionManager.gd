@@ -41,6 +41,10 @@ var ghost_manager = null
 var _replay_sync_cache := []
 var _replay_sync_cache_dirty := true
 
+# Optimization: Throttle player search when missing
+const PLAYER_SEARCH_INTERVAL := 0.5
+var _find_player_throttle := 0.0
+
 # Optimization: Cache for node lookups
 var _node_cache := {}
 
@@ -393,7 +397,12 @@ func _physics_process(_dt):
 		if not _is_player_candidate_valid(player):
 			_find_player()
 	else:
-		_find_player()
+		if not _is_player_candidate_valid(player):
+			player = null
+			_find_player_throttle += _dt
+			if _find_player_throttle >= PLAYER_SEARCH_INTERVAL:
+				_find_player_throttle = 0.0
+				_find_player()
 
 	# Check for Skip Cinematic (Fast Forward)
 	if is_instance_valid(oys_interpreter) and oys_interpreter.is_running:
