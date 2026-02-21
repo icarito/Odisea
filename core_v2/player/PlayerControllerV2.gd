@@ -111,6 +111,8 @@ var last_input_vector := Vector3.ZERO
 var is_acrobatic_ready := false
 
 var _current_interactable: Node = null
+var _nearby_interactables: Array = []
+onready var interact_config = get_node_or_null("Logic/Interact")
 
 # Input
 var input_provider
@@ -507,6 +509,14 @@ func _process_interaction(input: InputDataV2):
 				min_dist = dist
 				best_target = body
 
+	var h_color = Color.cyan
+	var p_color = Color(0, 1, 1, 0.15)
+	var p_radius_sq = 36.0 # 6m default
+	if interact_config:
+		h_color = interact_config.highlight_color
+		p_color = interact_config.proximity_color
+		p_radius_sq = interact_config.proximity_radius * interact_config.proximity_radius
+
 	if best_target:
 		if _current_interactable != best_target:
 			# Clear highlight from previous target
@@ -517,8 +527,11 @@ func _process_interaction(input: InputDataV2):
 			var text = best_target.interaction_text if best_target.get("interaction_text") else "Interact"
 			emit_signal("interactable_in_range", text)
 			
-			# Apply highlight to new target
-			best_target.set_highlighted(true)
+			# Apply full highlight to new target
+			best_target.set_highlighted(true, h_color)
+			# Ensure it doesn't have proximity glow if it's the main target
+			if best_target.has_method("set_proximity_highlight"):
+				best_target.set_proximity_highlight(false)
 			
 			var can_auto_trigger = not best_target.get("_auto_triggered") or not best_target.get("one_off")
 			if best_target.get("auto_interact") and not best_target.is_active and can_auto_trigger:
@@ -530,6 +543,30 @@ func _process_interaction(input: InputDataV2):
 	else:
 		_clear_interactable()
 
+	# --- Proximity Glow Logic ---
+	# Handle objects that are nearby but not the current best_target
+	var all_interactables = get_tree().get_nodes_in_group("interactable")
+	var new_nearby = []
+	for obj in all_interactables:
+		if not is_instance_valid(obj) or obj == _current_interactable:
+			continue
+		
+		# Proximity check
+		var d_sq = global_transform.origin.distance_squared_to(obj.global_transform.origin)
+		if d_sq < p_radius_sq:
+			new_nearby.append(obj)
+			if not obj in _nearby_interactables:
+				if obj.has_method("set_proximity_highlight"):
+					obj.set_proximity_highlight(true, p_color)
+	
+	# Clear proximity from objects no longer nearby
+	for obj in _nearby_interactables:
+		if is_instance_valid(obj) and not obj in new_nearby and obj != _current_interactable:
+			if obj.has_method("set_proximity_highlight"):
+				obj.set_proximity_highlight(false)
+	
+	_nearby_interactables = new_nearby
+
 func _clear_interactable():
 	if _current_interactable != null:
 		if not _current_interactable.get("one_off"):
@@ -538,6 +575,13 @@ func _clear_interactable():
 		# Remove highlight when going out of range
 		_current_interactable.set_highlighted(false)
 		
+		# Restore proximity glow if still nearby
+		if interact_config and is_instance_valid(_current_interactable):
+			var d_sq = global_transform.origin.distance_squared_to(_current_interactable.global_transform.origin)
+			if d_sq < (interact_config.proximity_radius * interact_config.proximity_radius):
+				if _current_interactable.has_method("set_proximity_highlight"):
+					_current_interactable.set_proximity_highlight(true, interact_config.proximity_color)
+
 		_current_interactable = null
 		emit_signal("interactable_out_of_range")
 

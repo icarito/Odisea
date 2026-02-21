@@ -23,10 +23,15 @@ func set_active(val):
 	if p and p.has_method("set_active"):
 		p.set_active(val)
 
-func set_highlighted(enabled: bool):
+func set_highlighted(enabled: bool, color: Color = Color.cyan):
 	var p = get_parent()
 	if p and p.has_method("set_highlighted"):
-		p.set_highlighted(enabled)
+		p.set_highlighted(enabled, color)
+
+func set_proximity_highlight(enabled: bool, color: Color = Color(0.0, 1.0, 1.0, 0.1)):
+	var p = get_parent()
+	if p and p.has_method("set_proximity_highlight"):
+		p.set_proximity_highlight(enabled, color)
 
 func is_in_group(group: String) -> bool:
 	if group == "interactable": return true

@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=2]
+[gd_scene load_steps=22 format=2]
 
 [ext_resource path="res://core_v2/player/PlayerControllerV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/actors/PilotAnimatorV2.gd" type="Script" id=3]
@@ -13,6 +13,7 @@
 [ext_resource path="res://core_v2/visual/FakeShadow.gd" type="Script" id=53]
 [ext_resource path="res://core_v2/systems/footsteps/footstep_detector.gd" type="Script" id=54]
 [ext_resource path="res://core_v2/audio/footsteps/footstep_profile_default.tres" type="Resource" id=55]
+[ext_resource path="res://core_v2/components/InteractComponentV2.gd" type="Script" id=56]
 
 [sub_resource type="SpatialMaterial" id=121]
 albedo_color = Color( 1, 0.411765, 0.129412, 1 )
@@ -78,6 +79,12 @@ strafe_turn_multiplier = 0.1
 strafe_speed_multiplier = 1.0
 enable_slope_resistance = false
 slope_resistance_factor = 0.1
+
+[node name="Interact" type="Node" parent="Logic"]
+script = ExtResource( 56 )
+highlight_color = Color( 0, 1, 1, 0.498039 )
+proximity_color = Color( 0.290196, 0.811765, 0.764706, 0.364706 )
+proximity_radius = 6.0
 
 [node name="Visual" type="Spatial" parent="."]
 

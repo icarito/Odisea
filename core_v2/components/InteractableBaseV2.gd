@@ -37,7 +37,9 @@ var _perf_monitor = null
 
 # --- HIGHLIGHT SYSTEM ---
 var _highlight_meshes: Array = []
+var _proximity_meshes: Array = []
 const HIGHLIGHT_SHADER_PATH = "res://shaders/scanlines.shader"
+const PROXIMITY_SHADER_PATH = "res://shaders/proximity_glow.shader"
 
 # --- SIGNALS ---
 signal activated()
@@ -160,28 +162,36 @@ func _update_visuals() -> void:
 
 # --- HIGHLIGHT API ---
 
-func set_highlighted(enabled: bool) -> void:
+func set_highlighted(enabled: bool, color: Color = Color.cyan) -> void:
 	"""Apply or remove the interaction highlight effect."""
 	if enabled:
-		_apply_highlight()
+		_apply_highlight(color)
 	else:
 		_clear_highlight()
 
-func _apply_highlight() -> void:
-	"""Create and apply highlight overlays for all meshes in this interactable."""
-	if _highlight_meshes.size() > 0:
-		return # Already highlighted
+func set_proximity_highlight(enabled: bool, color: Color = Color(0.0, 1.0, 1.0, 0.1)) -> void:
+	"""Apply or remove the subtle proximity glow."""
+	if enabled:
+		_apply_proximity(color)
+	else:
+		_clear_proximity()
 
-	var shader = load(HIGHLIGHT_SHADER_PATH)
-	if shader == null:
+func _apply_highlight(color: Color) -> void:
+	"""Create and apply highlight overlays for all meshes."""
+	if _highlight_meshes.size() > 0:
+		# Update color if already exists
+		for overlay in _highlight_meshes:
+			if is_instance_valid(overlay) and overlay.material_override:
+				overlay.material_override.set_shader_param("highlight_color", color)
 		return
 
+	var shader = load(HIGHLIGHT_SHADER_PATH)
+	if shader == null: return
+
 	for child in _get_all_meshes(self):
-		if not (child is MeshInstance):
-			continue
+		if not (child is MeshInstance): continue
 		var base_mesh := child as MeshInstance
-		if base_mesh.mesh == null:
-			continue
+		if base_mesh.mesh == null: continue
 
 		var overlay := MeshInstance.new()
 		overlay.name = "_highlight_overlay"
@@ -191,11 +201,41 @@ func _apply_highlight() -> void:
 
 		var mat := ShaderMaterial.new()
 		mat.shader = shader
-		mat.set_shader_param("highlight_color", Color(1, 1, 0, 0.3))
+		mat.set_shader_param("highlight_color", color)
 		overlay.material_override = mat
 
 		base_mesh.add_child(overlay)
 		_highlight_meshes.append(overlay)
+
+func _apply_proximity(color: Color) -> void:
+	"""Create and apply subtle proximity glow overlays."""
+	if _proximity_meshes.size() > 0:
+		for overlay in _proximity_meshes:
+			if is_instance_valid(overlay) and overlay.material_override:
+				overlay.material_override.set_shader_param("glow_color", color)
+		return
+
+	var shader = load(PROXIMITY_SHADER_PATH)
+	if shader == null: return
+
+	for child in _get_all_meshes(self):
+		if not (child is MeshInstance): continue
+		var base_mesh := child as MeshInstance
+		if base_mesh.mesh == null: continue
+
+		var overlay := MeshInstance.new()
+		overlay.name = "_proximity_overlay"
+		overlay.mesh = base_mesh.mesh
+		overlay.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+		overlay.scale = Vector3(1.01, 1.01, 1.01)
+
+		var mat := ShaderMaterial.new()
+		mat.shader = shader
+		mat.set_shader_param("glow_color", color)
+		overlay.material_override = mat
+
+		base_mesh.add_child(overlay)
+		_proximity_meshes.append(overlay)
 
 func _clear_highlight() -> void:
 	"""Remove highlight overlays."""
@@ -203,6 +243,13 @@ func _clear_highlight() -> void:
 		if is_instance_valid(overlay):
 			overlay.queue_free()
 	_highlight_meshes.clear()
+
+func _clear_proximity() -> void:
+	"""Remove proximity overlays."""
+	for overlay in _proximity_meshes:
+		if is_instance_valid(overlay):
+			overlay.queue_free()
+	_proximity_meshes.clear()
 
 func _get_all_meshes(node: Node) -> Array:
 	"""Recursively get all MeshInstance children."""
