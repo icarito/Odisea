@@ -4,7 +4,7 @@ extends Spatial
 export(Color) var spark_color: Color = Color(1.0, 0.8, 0.2) setget set_spark_color
 export(float, 0.0, 3.0) var brightness: float = 1.0 setget set_brightness
 export(float) var emission_rate: float = 10.0
-export(bool) var emitting: bool = true setget set_emitting
+export(bool) var is_active: bool = true setget set_active
 
 export(float) var timeout: float = 0.0
 export(float) var interval: float = 0.0
@@ -55,7 +55,7 @@ func _update_in_editor():
 	if Engine.editor_hint:
 		update_color()
 		if particles:
-			particles.emitting = emitting
+			particles.emitting = is_active
 
 func _process(delta):
 	if Engine.editor_hint: return
@@ -64,6 +64,7 @@ func _process(delta):
 		_time_alive += delta
 		if _time_alive >= timeout:
 			if particles: particles.emitting = false
+			if _audio and _audio.playing: _audio.stop()
 			set_process(false)
 			return
 			
@@ -72,12 +73,13 @@ func _process(delta):
 		if _burst_timer <= 0.0:
 			if not _is_bursting:
 				_is_bursting = true
-				if particles: particles.emitting = true
-				if _audio and _audio.stream: _audio.play()
+				if particles and is_active: particles.emitting = true
+				if is_active and _audio and not _audio.playing: _audio.play()
 				_burst_timer = duration # duration of the spark burst
 			else:
 				_is_bursting = false
 				if particles: particles.emitting = false
+				if _audio and _audio.playing: _audio.stop()
 				_burst_timer = max(0.01, interval + rand_range(-interval_random, interval_random))
 
 func update_color():
@@ -107,21 +109,27 @@ func set_brightness(value: float):
 	brightness = value
 	_update_in_editor()
 
-func set_emitting(value: bool):
-	if emitting != value:
-		if value and _audio and _audio.stream: _audio.play()
-	emitting = value
+func set_active(value: bool):
+	if is_active != value:
+		if value and _is_bursting and _audio and not _audio.playing:
+			_audio.play()
+		elif not value and _audio and _audio.playing:
+			_audio.stop()
+	is_active = value
+	update_emission()
 	_update_in_editor()
 
 func activate():
-	set_emitting(true)
+	set_active(true)
 
 func deactivate():
-	set_emitting(false)
+	set_active(false)
 
 func toggle():
-	set_emitting(!emitting)
+	set_active(!is_active)
 
 func update_emission():
 	if particles:
-		particles.emitting = emitting
+		particles.emitting = is_active and _is_bursting
+		if interval <= 0.0:
+			particles.emitting = is_active

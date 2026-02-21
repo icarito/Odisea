@@ -2,7 +2,7 @@ tool
 extends Spatial
 class_name LeakEmitter
 
-export(bool) var emitting: bool = true setget set_emitting
+export(bool) var is_active: bool = true setget set_active
 
 export(float) var timeout: float = 0.0
 export(float) var interval: float = 0.0
@@ -31,7 +31,9 @@ func _ready():
 			_is_bursting = false
 		else:
 			_is_bursting = true
-			_set_visuals_active(emitting)
+			_set_visuals_active(is_active)
+			if is_active and _audio and not _audio.playing:
+				_audio.play()
 
 func _process(delta):
 	if Engine.editor_hint: return
@@ -50,14 +52,16 @@ func _process(delta):
 				# Start burst
 				_is_bursting = true
 				_set_visuals_active(true)
-				if _audio and _audio.stream: _audio.play()
+				if is_active and _audio and not _audio.playing:
+					_audio.play()
 				_burst_timer = duration
 				if _mesh: _mesh.scale = _base_scale
 			else:
 				# End burst
 				_is_bursting = false
 				_set_visuals_active(false)
-				if _audio: _audio.stop()
+				if _audio and _audio.playing:
+					_audio.stop()
 				_burst_timer = max(0.01, interval + rand_range(-interval_random, interval_random))
 		elif _is_bursting and _burst_timer < fadeout_time:
 			# Fade out effect over the last 'fadeout_time' seconds by scaling down
@@ -66,7 +70,7 @@ func _process(delta):
 				_mesh.scale = _base_scale * t
 
 func _set_visuals_active(active: bool):
-	if active and emitting:
+	if active and is_active:
 		if _anim and not _anim.is_playing():
 			_anim.play("Explode")
 		if _mesh:
@@ -78,23 +82,27 @@ func _set_visuals_active(active: bool):
 		if _mesh:
 			_mesh.visible = false
 
-func set_emitting(value: bool):
-	if emitting != value:
-		if value and _audio and _audio.stream: _audio.play()
-	emitting = value
+func set_active(value: bool):
+	if is_active != value:
+		if value and _is_bursting and _audio and not _audio.playing:
+			_audio.play()
+		elif not value and _audio and _audio.playing:
+			_audio.stop()
+			
+	is_active = value
 	if Engine.editor_hint:
 		if _anim:
-			if emitting: _anim.play("Explode")
+			if is_active: _anim.play("Explode")
 			else: _anim.stop()
 		if _mesh:
-			_mesh.visible = emitting
+			_mesh.visible = is_active
 			_mesh.scale = _base_scale
 
 func activate():
-	set_emitting(true)
+	set_active(true)
 
 func deactivate():
-	set_emitting(false)
+	set_active(false)
 
 func toggle():
-	set_emitting(!emitting)
+	set_active(!is_active)
