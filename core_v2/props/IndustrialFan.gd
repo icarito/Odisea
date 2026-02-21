@@ -20,7 +20,7 @@ func _physics_process(delta):
 	step(delta)
 
 	if is_active and _blade:
-		_blade.rotate_z(rotation_speed * delta)
+		_blade.rotate_y(rotation_speed * delta)
 
 	if is_active and _area:
 		var bodies = _area.get_overlapping_bodies()
@@ -28,7 +28,7 @@ func _physics_process(delta):
 			if body == self: continue
 
 			# Direction: Forward (-Z)
-			var dir = -global_transform.basis.z
+			var dir = - global_transform.basis.z
 
 			if body.has_method("set_external_velocity"):
 				# PlayerControllerV2 or compatible actor

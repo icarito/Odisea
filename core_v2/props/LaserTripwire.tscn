@@ -46,3 +46,4 @@ mesh = SubResource( 3 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
 enabled = true
 cast_to = Vector3( 4, 0, 0 )
+collision_mask = 3

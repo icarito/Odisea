@@ -23,11 +23,13 @@ func _physics_process(delta):
 	step(delta)
 
 	var colliding = false
-	if _raycast and _raycast.is_colliding():
-		var collider = _raycast.get_collider()
-		# Ignore static geometry or self
-		if collider != self and not (collider is StaticBody or collider is CSGShape):
-			colliding = true
+	if _raycast:
+		_raycast.force_raycast_update()
+		if _raycast.is_colliding():
+			var collider = _raycast.get_collider()
+			# Ignore static geometry or self
+			if collider != self and not (collider is StaticBody or collider is CSGShape):
+				colliding = true
 
 	# Logic:
 	# If colliding -> active (beam broken)
@@ -37,9 +39,11 @@ func _physics_process(delta):
 	if colliding:
 		if not is_active:
 			set_active(true)
+			_update_visuals()
 	else:
 		if is_active:
 			set_active(false)
+			_update_visuals()
 
 func _update_visuals():
 	if not _beam_mesh: return
