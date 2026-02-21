@@ -523,8 +523,10 @@ func test_interpreter_vcamera_scene_mode_clears_runtime_targets_when_editor_empt
 
 	var vcam = Spatial.new()
 	vcam.name = "IntroScene"
+	var scene_tx = Transform(Basis.IDENTITY, Vector3(1.25, 2.5, 3.75))
 	vcam.set_meta("scene_follow_target_path", NodePath(""))
 	vcam.set_meta("scene_look_at_target", NodePath(""))
+	vcam.set_meta("scene_vcam_transform", scene_tx)
 
 	var follow = VCameraFollow.new()
 	follow.name = "Follow"
@@ -537,12 +539,14 @@ func test_interpreter_vcamera_scene_mode_clears_runtime_targets_when_editor_empt
 	vcam.add_child(look_at)
 
 	host.add_child(vcam)
+	vcam.global_transform = Transform(Basis(Vector3.UP, deg2rad(37.0)), Vector3(9, 9, 9))
 
 	var interpreter = OYS_Interpreter.new(host)
 	interpreter._configure_vcamera_targets(vcam, {"mode": "scene"})
 
 	assert_object(follow.target).is_null()
 	assert_str(String(look_at.look_at_target)).is_equal("")
+	assert_bool(vcam.global_transform.origin.distance_to(scene_tx.origin) < 0.001).is_true()
 
 	host.queue_free()
 

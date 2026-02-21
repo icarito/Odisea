@@ -1,4 +1,4 @@
-[gd_scene load_steps=291 format=2]
+[gd_scene load_steps=290 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -36,7 +36,6 @@
 [ext_resource path="res://core_v2/visual/CinematicPathRig.gd" type="Script" id=34]
 [ext_resource path="res://textures/kenney_prototype_textures/red/texture_09.png" type="Texture" id=35]
 [ext_resource path="res://core_v2/things/Criopod_vert.tres" type="ArrayMesh" id=36]
-[ext_resource path="res://core_v2/props/SciFiBoxLightV2.tscn" type="PackedScene" id=37]
 [ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=38]
 [ext_resource path="res://assets/sfx/explode.wav" type="AudioStream" id=39]
 [ext_resource path="res://assets/music/(loreley...).mp3" type="AudioStream" id=40]
@@ -2001,6 +2000,8 @@ material_override = SubResource( 1987 )
 cast_shadow = 0
 
 [node name="VCameraSystem" parent="." instance=ExtResource( 48 )]
+bind_follow_target = false
+bind_lookat_target = false
 
 [node name="IntroFar" parent="VCameraSystem/VCameras" index="0"]
 transform = Transform( -0.767501, 0.00588502, -0.641021, -4.01284e-10, 0.999958, 0.00918031, 0.641048, 0.00704589, -0.767468, -49.9046, 43.3333, -19.5523 )
@@ -2008,7 +2009,8 @@ fov = 61.431
 far = 2000.0
 
 [node name="IntroClose" parent="VCameraSystem/VCameras" index="1"]
-transform = Transform( -0.647628, 0.522244, -0.554832, 0, 0.728168, 0.685399, 0.761957, 0.443884, -0.471582, 4.32095, 27.0267, 11.115 )
+transform = Transform( -0.924457, -0.109434, 0.365244, -0.0427371, 0.981631, 0.185944, -0.378883, 0.156288, -0.912152, 6.15684, 8.47339, 8.85584 )
+fov = 99.144
 
 [node name="Follow" parent="VCameraSystem/VCameras/IntroClose" index="1"]
 transform = Transform( 1, 1.79708e-05, -0.0010632, 1.2517e-06, 1.00001, -0.000104979, 7.45058e-07, -1.78814e-07, 1.00021, 14.3066, -1.6961, -20.2828 )
@@ -2018,6 +2020,7 @@ transform = Transform( -0.671181, 0.560374, -0.485281, 2.98023e-08, 0.65464, 0.7
 
 [node name="IntroFinal" parent="VCameraSystem/VCameras" index="2"]
 transform = Transform( -0.628235, 0, -0.778024, 0, 1, 0, 0.778024, 0, -0.628235, 13.3486, 5.57768, 30.1251 )
+fov = 111.928
 
 [node name="CameraZone" parent="." instance=ExtResource( 31 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.04499, 3.20083, 20.0898 )
@@ -2250,24 +2253,6 @@ skeleton = NodePath("../..")
 
 [node name="VerticalDoor" parent="." instance=ExtResource( 26 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.47583, 2.04031, 7.83635 )
-
-[node name="SciFiBoxLightV2" parent="." instance=ExtResource( 37 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 14.0689, 6.79533, 28.3948 )
-is_interactable = false
-light_color = Color( 0.223529, 1, 0.270588, 1 )
-light_energy_max = 3.4
-
-[node name="SciFiBoxLightV3" parent="." instance=ExtResource( 37 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.42527, 6.79533, 28.3948 )
-is_interactable = false
-light_color = Color( 0.223529, 1, 0.270588, 1 )
-light_energy_max = 3.4
-
-[node name="SciFiBoxLightV4" parent="." instance=ExtResource( 37 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.57473, 6.79533, 28.3948 )
-is_interactable = false
-light_color = Color( 0.223529, 1, 0.270588, 1 )
-light_energy_max = 3.4
 
 [node name="Explosion" type="AudioStreamPlayer3D" parent="."]
 transform = Transform( 1, -1.50996e-07, -2.30482e-07, -1.50996e-07, -1, 8.74228e-08, -2.30482e-07, -8.74228e-08, -1, 17.0368, 5.16846, 33.1643 )

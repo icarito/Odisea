@@ -32,6 +32,9 @@ func _try_bind_targets() -> void:
 	var player_path := _player.get_path()
 
 	for vcam in $VCameras.get_children():
+		if vcam is Spatial and not vcam.has_meta("scene_vcam_transform"):
+			vcam.set_meta("scene_vcam_transform", (vcam as Spatial).global_transform)
+
 		var follow = vcam.get_node_or_null("Follow")
 		if follow and "target_path" in follow and not vcam.has_meta("scene_follow_target_path"):
 			vcam.set_meta("scene_follow_target_path", follow.target_path)

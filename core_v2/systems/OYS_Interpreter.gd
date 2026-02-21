@@ -1524,7 +1524,8 @@ func _cache_vcamera_scene_defaults(vcam: Node) -> void:
 
 	var data := {
 		"follow_target_path": NodePath(""),
-		"look_at_target": NodePath("")
+		"look_at_target": NodePath(""),
+		"vcam_transform": null
 	}
 
 	var has_scene_follow_meta := vcam.has_meta("scene_follow_target_path")
@@ -1545,6 +1546,12 @@ func _cache_vcamera_scene_defaults(vcam: Node) -> void:
 	if look_mod and "look_at_target" in look_mod:
 		if not has_scene_look_meta:
 			data["look_at_target"] = look_mod.look_at_target
+
+	if vcam is Spatial:
+		if vcam.has_meta("scene_vcam_transform"):
+			data["vcam_transform"] = vcam.get_meta("scene_vcam_transform")
+		else:
+			data["vcam_transform"] = (vcam as Spatial).global_transform
 
 	_vcam_scene_defaults[key] = data
 
@@ -1569,6 +1576,9 @@ func _restore_vcamera_scene_defaults(vcam: Node) -> void:
 	var look_mod = vcam.get_node_or_null("LookAt")
 	if look_mod and "look_at_target" in look_mod:
 		look_mod.look_at_target = data.get("look_at_target", NodePath(""))
+
+	if vcam is Spatial and data.has("vcam_transform") and data["vcam_transform"] != null:
+		(vcam as Spatial).global_transform = data["vcam_transform"]
 
 func _node_pos_dbg(node: Node) -> String:
 	if not is_instance_valid(node):
