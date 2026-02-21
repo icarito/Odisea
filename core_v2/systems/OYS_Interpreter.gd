@@ -588,14 +588,7 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				manager.deactivate_rig()
 
 		"CAMERA_SHAKE":
-			var manager = host_node.get_node_or_null("/root/CinematicManager")
-			if manager and manager.has_method("trigger_camera_shake"):
-				manager.trigger_camera_shake(
-					float(inst.get("duration", 0.35)),
-					float(inst.get("amplitude", 0.08)),
-					float(inst.get("frequency", 28.0)),
-					float(inst.get("roll", 1.0))
-				)
+			_apply_camera_shake(inst)
 
 		"CAMERA_SHAKE_STOP":
 			var manager = host_node.get_node_or_null("/root/CinematicManager")
@@ -666,24 +659,8 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				yield(host_node.get_tree(), "physics_frame")
 
 		"VCAMERA_SHAKE":
-			var trans_str = inst.get("translation", "(0,0,0)")
-			var rot_str = inst.get("rotation", "(0,0,0)")
-			var intensity = inst.get("intensity", 1.0)
-			
-			var manager = host_node.get_node_or_null("/root/CinematicManager")
-			if manager:
-				var vcam = manager.get_active_vcamera()
-				if vcam:
-					var shake = vcam.get_node_or_null("Shake")
-					if not shake:
-						var ShakeClass = load("res://addons/virtualcamera/TransformModifiers/Shake.gd")
-						shake = ShakeClass.new()
-						shake.name = "Shake"
-						vcam.add_child(shake)
-					if shake:
-						shake.translation_strength = OYS_Parser.parse_vector3(trans_str)
-						shake.rotation_strength = OYS_Parser.parse_vector3(rot_str)
-						shake.intensity = intensity
+			# Kept for backwards compatibility; routed to the unified camera shake path.
+			_apply_camera_shake(inst)
 
 		"CINEMATIC":
 			# Disable player input
@@ -1448,6 +1425,30 @@ func _find_player() -> Node:
 	# Priority 3: Global name lookup
 	var player = host_node.get_tree().root.find_node("Pilot", true, false)
 	return player
+
+func _apply_camera_shake(inst: Dictionary) -> void:
+	var manager = host_node.get_node_or_null("/root/CinematicManager")
+	if not manager or not manager.has_method("trigger_camera_shake"):
+		return
+
+	var duration := float(inst.get("duration", 0.35))
+	var frequency := float(inst.get("frequency", 28.0))
+
+	if inst.has("translation") or inst.has("rotation"):
+		var trans := OYS_Parser.parse_vector3(String(inst.get("translation", "(0, 0, 0)")))
+		var rot := OYS_Parser.parse_vector3(String(inst.get("rotation", "(0, 0, 0)")))
+		var intensity := float(inst.get("intensity", 1.0))
+		var amplitude := max(abs(trans.x), max(abs(trans.y), abs(trans.z))) * intensity
+		var roll_deg := max(abs(rot.x), max(abs(rot.y), abs(rot.z))) * intensity
+		manager.trigger_camera_shake(duration, amplitude, frequency, roll_deg)
+		return
+
+	manager.trigger_camera_shake(
+		duration,
+		float(inst.get("amplitude", 0.08)),
+		frequency,
+		float(inst.get("roll", 1.0))
+	)
 
 func _is_vcamera_target_clear_token(raw: String) -> bool:
 	var key := raw.strip_edges().to_lower()

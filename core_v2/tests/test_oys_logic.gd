@@ -130,6 +130,22 @@ func test_parse_vcamera_mode_scene():
 	assert_str(inst.command).is_equal("VCAMERA")
 	assert_str(String(inst.get("mode", ""))).is_equal("scene")
 
+func test_parse_vcamera_shake_with_spaced_vectors():
+	var inst = OYS_Parser.parse_instruction('VCAMERA_SHAKE translation="(0.08, 0.05, 0.03)" rotation="(0, 0, 1.5)" intensity=0.6')
+	assert_str(inst.command).is_equal("VCAMERA_SHAKE")
+	assert_str(String(inst.get("translation", ""))).is_equal("(0.08, 0.05, 0.03)")
+	assert_str(String(inst.get("rotation", ""))).is_equal("(0, 0, 1.5)")
+	assert_bool(is_equal_approx(float(inst.get("intensity", -1.0)), 0.6)).is_true()
+
+func test_parse_camera_shake_with_vector_syntax():
+	var inst = OYS_Parser.parse_instruction('CAMERA_SHAKE translation="(0.1, 0.0, 0.0)" rotation="(0, 0, 2.0)" intensity=0.5 duration=0.6 frequency=20')
+	assert_str(inst.command).is_equal("CAMERA_SHAKE")
+	assert_str(String(inst.get("translation", ""))).is_equal("(0.1, 0.0, 0.0)")
+	assert_str(String(inst.get("rotation", ""))).is_equal("(0, 0, 2.0)")
+	assert_bool(is_equal_approx(float(inst.get("intensity", -1.0)), 0.5)).is_true()
+	assert_bool(is_equal_approx(float(inst.get("duration", -1.0)), 0.6)).is_true()
+	assert_bool(is_equal_approx(float(inst.get("frequency", -1.0)), 20.0)).is_true()
+
 func test_resolver_cls_generates_event():
 	var script = """
 	CLS
@@ -231,6 +247,29 @@ class MockSfxNode extends Node:
 	var plays := 0
 	func play_sfx():
 		plays += 1
+
+class MockCinematicManagerShake extends Node:
+	var calls := 0
+	var last_duration := 0.0
+	var last_amplitude := 0.0
+	var last_frequency := 0.0
+	var last_roll := 0.0
+
+	func trigger_camera_shake(duration: float = 0.35, amplitude: float = 0.08, frequency: float = 28.0, roll_degrees: float = 1.0) -> void:
+		calls += 1
+		last_duration = duration
+		last_amplitude = amplitude
+		last_frequency = frequency
+		last_roll = roll_degrees
+
+class MockHostForCameraShake extends Node:
+	var cm = null
+	func get_tree():
+		return Engine.get_main_loop()
+	func get_node_or_null(path):
+		if path == "/root/CinematicManager":
+			return cm
+		return .get_node_or_null(path)
 
 class DisabledSubtitlesManager extends SubtitlesOverlayManager:
 	func is_enabled() -> bool:
@@ -504,6 +543,24 @@ func test_interpreter_vcamera_scene_mode_clears_runtime_targets_when_editor_empt
 
 	assert_object(follow.target).is_null()
 	assert_str(String(look_at.look_at_target)).is_equal("")
+
+	host.queue_free()
+
+func test_interpreter_vcamera_shake_routes_to_unified_camera_shake():
+	var manager = MockCinematicManagerShake.new()
+	var host = MockHostForCameraShake.new()
+	host.cm = manager
+	add_child(host)
+
+	var interpreter = OYS_Interpreter.new(host)
+	interpreter.parse('VCAMERA_SHAKE translation="(0.1, 0.0, 0.0)" rotation="(0, 0, 2.0)" intensity=0.5 duration=0.6 frequency=20')
+	yield (_run_interpreter(interpreter), "completed")
+
+	assert_int(manager.calls).is_equal(1)
+	assert_bool(is_equal_approx(manager.last_duration, 0.6)).is_true()
+	assert_bool(is_equal_approx(manager.last_amplitude, 0.05)).is_true()
+	assert_bool(is_equal_approx(manager.last_frequency, 20.0)).is_true()
+	assert_bool(is_equal_approx(manager.last_roll, 1.0)).is_true()
 
 	host.queue_free()
 

@@ -492,6 +492,7 @@ static func parse_instruction(line: String) -> Dictionary:
 			data["amplitude"] = 0.08
 			data["frequency"] = 28.0
 			data["roll"] = 1.0
+			data["intensity"] = 1.0
 			var positional = 0
 			for i in range(1, parts.size()):
 				var token = parts[i]
@@ -508,6 +509,8 @@ static func parse_instruction(line: String) -> Dictionary:
 							data["frequency"] = v
 						"roll", "roll_degrees", "rot":
 							data["roll"] = v
+						"intensity":
+							data["intensity"] = v
 				else:
 					var v = token.to_float()
 					match positional:
@@ -521,6 +524,25 @@ static func parse_instruction(line: String) -> Dictionary:
 							data["roll"] = v
 					positional += 1
 
+			# Support vector-style shake syntax used by VCAMERA_SHAKE:
+			# CAMERA_SHAKE translation="(x, y, z)" rotation="(x, y, z)" intensity=0.8
+			var trans = _extract_named_value(line, "translation")
+			if trans == "":
+				trans = _extract_named_value(line, "trans")
+			if trans != "":
+				data["translation"] = trans
+
+			var rot = _extract_named_value(line, "rotation")
+			if rot == "":
+				rot = _extract_named_value(line, "rot")
+			# Avoid clobbering scalar roll syntax like rot=3
+			if rot.find(",") != -1 or (rot.begins_with("(") and rot.ends_with(")")):
+				data["rotation"] = rot
+
+			var named_intensity = _extract_named_value(line, "intensity")
+			if named_intensity != "":
+				data["intensity"] = named_intensity.to_float()
+		
 		"CAMERA_SHAKE_STOP":
 			pass
 		
@@ -592,6 +614,8 @@ static func parse_instruction(line: String) -> Dictionary:
 			data["translation"] = "(0, 0, 0)"
 			data["rotation"] = "(0, 0, 0)"
 			data["intensity"] = 1.0
+			data["duration"] = 0.35
+			data["frequency"] = 28.0
 			for i in range(1, parts.size()):
 				var token = parts[i]
 				if token.find("=") != -1:
@@ -605,6 +629,39 @@ static func parse_instruction(line: String) -> Dictionary:
 							data["rotation"] = v
 						"intensity":
 							data["intensity"] = v.to_float()
+						"duration", "dur", "time":
+							data["duration"] = v.to_float()
+						"frequency", "freq", "speed":
+							data["frequency"] = v.to_float()
+
+			# Robust parse from full line to support quoted vectors with spaces.
+			var v_trans = _extract_named_value(line, "translation")
+			if v_trans == "":
+				v_trans = _extract_named_value(line, "trans")
+			if v_trans != "":
+				data["translation"] = v_trans
+
+			var v_rot = _extract_named_value(line, "rotation")
+			if v_rot == "":
+				v_rot = _extract_named_value(line, "rot")
+			if v_rot != "":
+				data["rotation"] = v_rot
+
+			var v_intensity = _extract_named_value(line, "intensity")
+			if v_intensity != "":
+				data["intensity"] = v_intensity.to_float()
+			var v_duration = _extract_named_value(line, "duration")
+			if v_duration == "":
+				v_duration = _extract_named_value(line, "dur")
+			if v_duration != "":
+				data["duration"] = v_duration.to_float()
+			var v_frequency = _extract_named_value(line, "frequency")
+			if v_frequency == "":
+				v_frequency = _extract_named_value(line, "freq")
+			if v_frequency == "":
+				v_frequency = _extract_named_value(line, "speed")
+			if v_frequency != "":
+				data["frequency"] = v_frequency.to_float()
 
 		"ENDWHILE":
 			pass
@@ -691,6 +748,28 @@ static func _extract_quoted_values(line: String) -> Array:
 		elif in_quote:
 			current += ch
 	return values
+
+static func _extract_named_value(line: String, key: String) -> String:
+	var lower_line := line.to_lower()
+	var needle := key.to_lower() + "="
+	var idx := lower_line.find(needle)
+	if idx == -1:
+		return ""
+
+	var start := idx + needle.length()
+	if start >= line.length():
+		return ""
+
+	if line[start] == "\"":
+		var endq := line.find("\"", start + 1)
+		if endq == -1:
+			return line.substr(start + 1).strip_edges()
+		return line.substr(start + 1, endq - (start + 1)).strip_edges()
+
+	var end := line.find(" ", start)
+	if end == -1:
+		return line.substr(start).strip_edges()
+	return line.substr(start, end - start).strip_edges()
 
 static func _parse_wait_instruction(parts: Array, cmd: String) -> Dictionary:
 	var token = String(parts[1]).strip_edges() if parts.size() > 1 else "0"
