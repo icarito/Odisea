@@ -6,6 +6,15 @@ export(float, 0.0, 3.0) var brightness: float = 1.0 setget set_brightness
 export(float) var emission_rate: float = 10.0
 export(bool) var emitting: bool = true setget set_emitting
 
+export(float) var timeout: float = 0.0
+export(float) var interval: float = 0.0
+export(float) var interval_random: float = 0.0
+
+var _time_alive: float = 0.0
+var _burst_timer: float = 0.0
+var _is_bursting: bool = false
+onready var _audio: AudioStreamPlayer3D = get_node_or_null("SparkSound")
+
 var particles: CPUParticles
 var material: SpatialMaterial
 var gradient: Gradient
@@ -35,12 +44,40 @@ func _ready():
 				gradient = ramp
 		update_color()
 		update_emission()
+		
+		if interval > 0.0:
+			_burst_timer = max(0.01, interval + rand_range(-interval_random, interval_random))
+			if particles:
+				particles.emitting = false
 
 func _update_in_editor():
 	if Engine.editor_hint:
 		update_color()
 		if particles:
 			particles.emitting = emitting
+
+func _process(delta):
+	if Engine.editor_hint: return
+	
+	if timeout > 0.0:
+		_time_alive += delta
+		if _time_alive >= timeout:
+			if particles: particles.emitting = false
+			set_process(false)
+			return
+			
+	if interval > 0.0:
+		_burst_timer -= delta
+		if _burst_timer <= 0.0:
+			if not _is_bursting:
+				_is_bursting = true
+				if particles: particles.emitting = true
+				if _audio and _audio.stream: _audio.play()
+				_burst_timer = 0.1 # duration of the spark burst
+			else:
+				_is_bursting = false
+				if particles: particles.emitting = false
+				_burst_timer = max(0.01, interval + rand_range(-interval_random, interval_random))
 
 func update_color():
 	var r: float = min(spark_color.r * brightness, 1.0)
