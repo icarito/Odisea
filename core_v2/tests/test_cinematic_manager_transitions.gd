@@ -1,6 +1,8 @@
 extends GdUnitTestSuite
 
 const CM_PATH := "/root/CinematicManager"
+const VCAMERA_SCRIPT := preload("res://addons/virtualcamera/VCameras/VCamera.gd")
+const VCAM_BRAIN_SCRIPT := preload("res://addons/virtualcamera/VCameraBrain.gd")
 
 class DummyRig:
 	extends Spatial
@@ -99,6 +101,36 @@ func _find_event(events: Array, name: String) -> Dictionary:
 		if e is Dictionary and e.get("event", "") == name:
 			return e
 	return {}
+
+
+func _count_events(events: Array, name: String) -> int:
+	var count := 0
+	for e in events:
+		if e is Dictionary and e.get("event", "") == name:
+			count += 1
+	return count
+
+
+func _setup_vcamera_nodes(root: Node) -> Dictionary:
+	var brain = VCAM_BRAIN_SCRIPT.new()
+	brain.name = "VCameraBrain"
+	root.add_child(brain)
+
+	var vcam_a = VCAMERA_SCRIPT.new()
+	vcam_a.name = "IntroFar"
+	root.add_child(vcam_a)
+	vcam_a.global_transform.origin = Vector3(17.0, 20.0, 34.0)
+
+	var vcam_b = VCAMERA_SCRIPT.new()
+	vcam_b.name = "IntroClose"
+	root.add_child(vcam_b)
+	vcam_b.global_transform.origin = Vector3(17.0, 12.0, 34.0)
+
+	return {
+		"brain": brain,
+		"a": vcam_a,
+		"b": vcam_b
+	}
 
 
 func _ease_transition_t(raw_t: float) -> float:
@@ -301,6 +333,52 @@ func test_to_free_dynamic_transition_tracks_moving_player_target():
 		var expected_tx: Transform = cm._transition_start_transform.interpolate_with(player_cam.global_transform, t)
 		var blend_tx: Transform = CameraTransition.camera3D.global_transform
 		assert_float(blend_tx.origin.distance_to(expected_tx.origin)).is_less(0.0015)
+
+	cm.reset()
+	yield (_teardown_root(root), "completed")
+
+
+func test_vcamera_blend_updates_request_and_avoids_reactivation_loop():
+	var cm = get_node(CM_PATH)
+	assert_object(cm).is_not_null()
+
+	cm.reset()
+	cm.set_transition_debug(true)
+	cm.clear_transition_debug_events()
+
+	var root = _setup_root()
+	_setup_player_with_camera(root)
+	var vcam_data = _setup_vcamera_nodes(root)
+	var intro_far = vcam_data["a"]
+	var intro_close = vcam_data["b"]
+
+	yield (get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
+
+	var req_id: int = cm.activate_vcamera(intro_far, 1.4)
+	assert_int(req_id).is_greater(0)
+	cm.step(1.0 / 60.0)
+
+	var first_events = cm.get_transition_debug_events()
+	assert_int(_count_events(first_events, "vcam_activate")).is_equal(1)
+	assert_bool(cm.get_active_vcamera() == intro_far).is_true()
+
+	cm.blend_to_vcamera(intro_close, 0.9)
+	for _i in range(12):
+		cm.step(1.0 / 60.0)
+
+	assert_bool(cm.get_active_vcamera() == intro_close).is_true()
+
+	var synced := false
+	for id in cm._active_requests:
+		var req = cm._active_requests[id]
+		if req and req.source == cm._vcam_source:
+			synced = (req.payload.get("vcamera", null) == intro_close)
+			break
+	assert_bool(synced).is_true()
+
+	var final_events = cm.get_transition_debug_events()
+	assert_int(_count_events(final_events, "vcam_activate")).is_equal(1)
 
 	cm.reset()
 	yield (_teardown_root(root), "completed")

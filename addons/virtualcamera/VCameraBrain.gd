@@ -26,10 +26,14 @@ func begin_transition(vcam : VCamera):
 	transition_start_fov = fov
 	transition_start_near = near
 	transition_start_far = far
-	transition_time = 0.0 if last_active_vcamera != null else vcam.transition_time
+	# Always start blending from 0 so both first-entry and camera-to-camera transitions interpolate.
+	transition_time = 0.0
 	last_active_vcamera = vcam
 
 func process_transition(vcam : VCamera):
+	if vcam.transition_time <= 0.0:
+		snap_transition(vcam)
+		return
 	var t = transition_time / vcam.transition_time
 	t = ease(t, vcam.transition_ease)
 	global_transform = transition_start_transform.interpolate_with(vcam.global_transform, t)

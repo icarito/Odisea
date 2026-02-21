@@ -90,14 +90,24 @@ var _vcam_active_camera: Node = null
 var _vcam_blend_duration: float = 1.0
 var _vcam_blend_elapsed: float = 0.0
 var _vcam_source: String = "vcamera"
+const MODE_TRANSITION_SPEED_MULT := 1.0
+const MIN_TRANSITION_DURATION := 0.08
 
 signal cinematic_started(rig_id)
 signal cinematic_stopped
 signal control_mode_changed(mode)
 
+func _scaled_mode_transition_duration(duration: float) -> float:
+	if duration <= 0.0:
+		return 0.0
+	return max(MIN_TRANSITION_DURATION, duration / MODE_TRANSITION_SPEED_MULT)
+
 func _ready():
 	var env_debug = OS.get_environment("ODISEA_CAMERA_DEBUG").to_lower()
-	transition_debug_enabled = env_debug in ["1", "true", "yes", "on"]
+	if env_debug == "":
+		transition_debug_enabled = OS.is_debug_build()
+	else:
+		transition_debug_enabled = env_debug in ["1", "true", "yes", "on"]
 
 func set_transition_debug(enabled: bool) -> void:
 	transition_debug_enabled = enabled
@@ -253,7 +263,8 @@ func blend_to_vcamera(vcam: Node, duration: float = 1.0) -> void:
 		printerr("[CinematicManager] blend_to_vcamera: Not in VCAM state (current: %s)" % CameraModeState.keys()[_current_state])
 		return
 	
-	_vcam_blend_duration = duration
+	var scaled_duration := _scaled_mode_transition_duration(duration)
+	_vcam_blend_duration = scaled_duration
 	_vcam_blend_elapsed = 0.0
 	
 	if _vcam_active_camera and is_instance_valid(_vcam_active_camera):
@@ -261,17 +272,42 @@ func blend_to_vcamera(vcam: Node, duration: float = 1.0) -> void:
 	
 	vcam.enabled = true
 	vcam.priority = 100
-	vcam.transition_time = duration
+	vcam.transition_time = scaled_duration
 	
 	_current_state = CameraModeState.VCAM_BLENDING
 	_vcam_active_camera = vcam
 	
 	_log_transition("vcamera_blend", {
 		"to": vcam.name,
-		"duration": duration
+		"duration": scaled_duration,
+		"duration_requested": duration
 	})
 
+	# Keep the active VCamera request in sync so FSM target switches to the new VCamera.
+	var updated_request := false
+	for id in _active_requests:
+		var req = _active_requests[id]
+		if req and req.source == _vcam_source:
+			req.payload["vcamera"] = vcam
+			req.payload["transition_time"] = duration
+			req.payload["duration"] = duration
+			updated_request = true
+			break
+	if not updated_request:
+		var payload = {
+			"vcamera": vcam,
+			"duration": duration,
+			"ease": -2.0,
+			"transition_time": duration
+		}
+		request_camera_mode(ControlMode.FREE, payload, _vcam_source, 15)
+
 func deactivate_vcamera(duration: float = 1.0) -> void:
+	var scaled_duration := _scaled_mode_transition_duration(duration)
+	var from_cam: Camera = null
+	if _vcam_brain and is_instance_valid(_vcam_brain) and _vcam_brain is Camera:
+		from_cam = _vcam_brain as Camera
+
 	var to_remove = []
 	for id in _active_requests:
 		if _active_requests[id].source == _vcam_source:
@@ -283,18 +319,56 @@ func deactivate_vcamera(duration: float = 1.0) -> void:
 		_vcam_active_camera.enabled = false
 		_vcam_active_camera.priority = 0
 	_vcam_active_camera = null
-	
+
+	_current_state = CameraModeState.TRANSITION_VCAM_TO_FREE
+	_log_transition("vcamera_deactivate", {
+		"duration": scaled_duration,
+		"duration_requested": duration
+	})
+
+	# Respect any higher-level cinematic request still active (e.g. camera zone rig).
+	var resume_req := _evaluate_requests()
+	if resume_req and resume_req.payload.has("rig"):
+		var resume_rig = resume_req.payload.get("rig", null)
+		if is_instance_valid(resume_rig):
+			var resume_mode := int(resume_req.mode)
+			var resume_payload := resume_req.payload
+			var resume_transition := float(resume_payload.get("transition_time", duration))
+			if resume_transition <= 0.0 and "transition_time" in resume_rig:
+				resume_transition = float(resume_rig.transition_time)
+			resume_transition = _scaled_mode_transition_duration(resume_transition)
+
+			active_rig = resume_rig
+			current_control_mode = resume_mode
+			_active_payload = resume_payload
+
+			if active_rig.has_method("activate"):
+				active_rig.activate(false)
+
+			var rig_cam: Camera = null
+			if active_rig.has_method("get_camera"):
+				rig_cam = active_rig.get_camera()
+
+			if _vcam_brain and is_instance_valid(_vcam_brain):
+				_vcam_brain.current = false
+
+			if from_cam and is_instance_valid(from_cam) and rig_cam and is_instance_valid(rig_cam) and resume_transition > 0.0 and from_cam != rig_cam:
+				_start_dynamic_transition(from_cam, rig_cam, resume_transition, "to_cinematic")
+			elif rig_cam and is_instance_valid(rig_cam):
+				rig_cam.current = true
+
+			_current_state = CameraModeState.CINEMATIC_ACTIVE
+			emit_signal("control_mode_changed", resume_mode)
+			return
+
 	if _vcam_brain and is_instance_valid(_vcam_brain):
 		_vcam_brain.current = false
-	
-	_current_state = CameraModeState.TRANSITION_VCAM_TO_FREE
-	_log_transition("vcamera_deactivate", {"duration": duration})
-	
+
 	var player_cam = _find_player_camera()
 	if player_cam:
-		if _vcam_brain and is_instance_valid(_vcam_brain):
-			_align_player_rig_to_camera(_vcam_brain, player_cam)
-			_start_dynamic_transition(_vcam_brain, player_cam, duration, "to_free")
+		if from_cam and is_instance_valid(from_cam):
+			_align_player_rig_to_camera(from_cam, player_cam)
+			_start_dynamic_transition(from_cam, player_cam, scaled_duration, "to_free")
 		else:
 			player_cam.current = true
 	
@@ -659,14 +733,16 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 				new_cam = active_rig.get_camera()
 				if new_cam and is_instance_valid(new_cam):
 					if transition_time > 0.0 and old_cam and old_cam != new_cam:
+						var enter_transition_time := _scaled_mode_transition_duration(transition_time)
 						_log_transition("to_cinematic_blend", {
 							"from": _camera_debug_name(old_cam),
 							"to": _camera_debug_name(new_cam),
-							"duration": transition_time
+							"duration": enter_transition_time,
+							"duration_requested": transition_time
 						})
 						# Use dynamic target so the blend keeps following the rig camera
 						# while player movement keeps updating it.
-						_start_dynamic_transition(old_cam, new_cam, transition_time, "to_cinematic")
+						_start_dynamic_transition(old_cam, new_cam, enter_transition_time, "to_cinematic")
 					else:
 						_cancel_plugin_transition()
 						_log_transition("to_cinematic_snap", {
@@ -692,6 +768,7 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 			if exit_transition_time <= 0.0 and prev_rig and is_instance_valid(prev_rig):
 				if "transition_time" in prev_rig:
 					exit_transition_time = prev_rig.transition_time
+			exit_transition_time = _scaled_mode_transition_duration(exit_transition_time)
 
 			active_rig = null
 			current_control_mode = ControlMode.FREE
@@ -742,11 +819,37 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 
 func _handle_vcam_request(vcam: Node, payload: Dictionary, duration: float) -> void:
 	var old_cam = get_active_camera()
-	
+	var scaled_duration := _scaled_mode_transition_duration(duration)
 	_find_or_create_vcam_brain()
+
+	# Idempotent guard: avoid re-running activation every frame for the same active target.
+	if _vcam_active_camera == vcam and _current_state in [
+		CameraModeState.TRANSITION_TO_VCAM,
+		CameraModeState.VCAM_BLENDING,
+		CameraModeState.VCAM_ACTIVE
+	]:
+		if vcam and is_instance_valid(vcam):
+			vcam.transition_time = scaled_duration
+			vcam.enabled = true
+			vcam.priority = max(100, int(vcam.priority))
+		if _vcam_brain and is_instance_valid(_vcam_brain):
+			if not _vcam_brain.current:
+				_vcam_brain.current = true
+				_log_transition("vcam_reassert_current", {
+					"vcam": vcam.name,
+					"state": _current_state
+				})
+		_vcam_blend_duration = max(0.0, scaled_duration)
+		return
+
 	if not _vcam_brain:
 		printerr("[CinematicManager] Cannot activate VCamera: no VCameraBrain found")
 		return
+
+	# If we are overriding a zone/cinematic dynamic blend, stop it now so it doesn't
+	# hand back control to the rig camera at dynamic_finish.
+	_cancel_dynamic_transition("vcam_override")
+	_cancel_plugin_transition()
 	
 	_current_state = CameraModeState.TRANSITION_TO_VCAM
 	_active_payload = payload
@@ -757,9 +860,11 @@ func _handle_vcam_request(vcam: Node, payload: Dictionary, duration: float) -> v
 	
 	vcam.enabled = true
 	vcam.priority = 100
-	vcam.transition_time = duration
-	
+	vcam.transition_time = scaled_duration
+
 	_vcam_active_camera = vcam
+	_vcam_blend_duration = max(0.0, scaled_duration)
+	_vcam_blend_elapsed = 0.0
 	
 	# Initialize VCameraBrain position from old camera for smooth transition
 	if old_cam and is_instance_valid(old_cam):
@@ -771,19 +876,16 @@ func _handle_vcam_request(vcam: Node, payload: Dictionary, duration: float) -> v
 		_vcam_brain.fov = vcam.fov
 	
 	_vcam_brain.current = true
-	
-	# Reset VCameraBrain transition state so it blends from current position
-	_vcam_brain.transition_time = 0.0
-	_vcam_brain.last_active_vcamera = null
-	
+
 	_log_transition("vcam_activate", {
 		"vcam": vcam.name,
-		"duration": duration
+		"duration": scaled_duration,
+		"duration_requested": duration
 	})
 	
 	_engage_input_latch(old_cam)
 	
-	_current_state = CameraModeState.VCAM_ACTIVE
+	_current_state = CameraModeState.VCAM_BLENDING if scaled_duration > 0.0 else CameraModeState.VCAM_ACTIVE
 	emit_signal("cinematic_started", vcam.name)
 	emit_signal("control_mode_changed", ControlMode.FREE)
 

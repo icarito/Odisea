@@ -24,8 +24,8 @@ transition_time = 2.5
 
 [node name="Follow" type="Spatial" parent="VCameras/IntroFar"]
 script = ExtResource( 3 )
-offset = Vector3( 0, 12, 18 )
-max_distance = 30.0
+offset = Vector3( 0, 16, 14 )
+max_distance = 40.0
 
 [node name="LookAt" type="Spatial" parent="VCameras/IntroFar"]
 script = ExtResource( 4 )
@@ -41,8 +41,8 @@ fov = 55.0
 
 [node name="Follow" type="Spatial" parent="VCameras/IntroClose"]
 script = ExtResource( 3 )
-offset = Vector3( 0, 2.5, 4 )
-max_distance = 6.0
+offset = Vector3( 0, 10, 8 )
+max_distance = 18.0
 
 [node name="LookAt" type="Spatial" parent="VCameras/IntroClose"]
 script = ExtResource( 4 )
@@ -58,9 +58,9 @@ fov = 45.0
 
 [node name="Follow" type="Spatial" parent="VCameras/IntroFinal"]
 script = ExtResource( 3 )
-offset = Vector3( 0.5, 1.8, 2.5 )
+offset = Vector3( 0, 5, 3.8 )
 min_distance = 0.5
-max_distance = 4.0
+max_distance = 8.0
 
 [node name="LookAt" type="Spatial" parent="VCameras/IntroFinal"]
 script = ExtResource( 4 )

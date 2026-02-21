@@ -1,14 +1,15 @@
 SECTION "Intro"
     PRINT "ACTO I"
     
-    SET_TIME_SCALE 0.5
+    SET_TIME_SCALE 0.7
     
     CINEMATIC
     
     # VCamera: Start with far dramatic establishing shot
-    VCAMERA name="IntroFar" duration=2.5
-    
-    WAIT 2.5
+    PRINT "[VCAM] goto IntroFar"
+    VCAMERA name="IntroFar" duration=1.4
+
+    WAIT 1.4
     
     PRINT "Elías, despierta..."
     PLAY_ANIM "Confused"
@@ -16,12 +17,13 @@ SECTION "Intro"
     # Add subtle camera shake for disorientation
     VCAMERA_SHAKE translation="(0.08, 0.05, 0.03)" rotation="(0, 0, 1.5)" intensity=0.6
     
-    WAIT 1.5
+    WAIT 1.0
     
     # Push in closer - transitioning to medium shot
-    VCAMERA_BLEND name="IntroClose" duration=1.5
-    
-    WAIT 1.0
+    PRINT "[VCAM] blend IntroClose"
+    VCAMERA_BLEND name="IntroClose" duration=0.9
+
+    WAIT 0.6
     
     PRINT "Algo está mal..."
     PLAY_SOUND "ExplosionMini"
@@ -29,16 +31,17 @@ SECTION "Intro"
     # Stronger shake for impact
     VCAMERA_SHAKE translation="(0.15, 0.12, 0.08)" rotation="(0, 0, 3.0)" intensity=0.85
     
-    WAIT 1.5
+    WAIT 1.0
     
     SET_TIME_SCALE 0.7
     
     WAIT_ANIM "Confused"
     
     # Final intimate close-up
-    VCAMERA_BLEND name="IntroFinal" duration=2.0
-    
-    WAIT 2.0
+    PRINT "[VCAM] blend IntroFinal"
+    VCAMERA_BLEND name="IntroFinal" duration=1.1
+
+    WAIT 1.1
     
     SET_TIME_SCALE 1.0
     
@@ -47,6 +50,7 @@ SECTION "Intro"
     WAIT 0.5
     
     # Return control to player camera
-    VCAMERA_RETURN duration=1.5
+    PRINT "[VCAM] return"
+    VCAMERA_RETURN duration=0.8
     
     INTERACTIVE

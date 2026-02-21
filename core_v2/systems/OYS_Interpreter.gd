@@ -615,9 +615,12 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			if not vcam:
 				printerr("[OYS] VCAMERA: VCamera '%s' not found" % vcam_name)
 				return
-			
+
+			_log_vcamera_debug(manager, "before_vcamera_%s" % vcam_name, vcam)
 			manager.activate_vcamera(vcam, duration, ease_type)
-			
+			yield(host_node.get_tree(), "physics_frame")
+			_log_vcamera_debug(manager, "after_vcamera_%s" % vcam_name, vcam)
+
 			for _i in range(int(duration * 60.0)):
 				if stop_requested: break
 				yield(host_node.get_tree(), "physics_frame")
@@ -635,9 +638,12 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			if not vcam:
 				printerr("[OYS] VCAMERA_BLEND: VCamera '%s' not found" % vcam_name)
 				return
-			
+
+			_log_vcamera_debug(manager, "before_blend_%s" % vcam_name, vcam)
 			manager.blend_to_vcamera(vcam, duration)
-			
+			yield(host_node.get_tree(), "physics_frame")
+			_log_vcamera_debug(manager, "after_blend_%s" % vcam_name, vcam)
+
 			for _i in range(int(duration * 60.0)):
 				if stop_requested: break
 				yield(host_node.get_tree(), "physics_frame")
@@ -647,7 +653,10 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			
 			var manager = host_node.get_node_or_null("/root/CinematicManager")
 			if manager:
+				_log_vcamera_debug(manager, "before_return")
 				manager.deactivate_vcamera(duration)
+				yield(host_node.get_tree(), "physics_frame")
+				_log_vcamera_debug(manager, "after_return")
 			
 			for _i in range(int(duration * 60.0)):
 				if stop_requested: break
@@ -1436,6 +1445,39 @@ func _find_player() -> Node:
 	# Priority 3: Global name lookup
 	var player = host_node.get_tree().root.find_node("Pilot", true, false)
 	return player
+
+func _node_pos_dbg(node: Node) -> String:
+	if not is_instance_valid(node):
+		return "<null>"
+	if node is Spatial:
+		var p: Vector3 = (node as Spatial).global_transform.origin
+		return "(%.2f, %.2f, %.2f)" % [p.x, p.y, p.z]
+	return "<non-spatial>"
+
+func _log_vcamera_debug(manager: Node, label: String, requested_vcam: Node = null) -> void:
+	if not manager or not is_instance_valid(manager):
+		return
+	var player = _find_player()
+	var active_vcam: Node = null
+	if manager.has_method("get_active_vcamera"):
+		active_vcam = manager.get_active_vcamera()
+	var active_cam: Node = null
+	if manager.has_method("get_active_camera"):
+		active_cam = manager.get_active_camera()
+	var state := -1
+	if manager.has_method("get"):
+		state = int(manager.get("_current_state"))
+	print("[OYS][VCAM_DEBUG] %s state=%d player=%s requested=%s req_pos=%s active_vcam=%s active_vcam_pos=%s active_cam=%s active_cam_pos=%s" % [
+		label,
+		state,
+		_node_pos_dbg(player),
+		requested_vcam.name if is_instance_valid(requested_vcam) else "<none>",
+		_node_pos_dbg(requested_vcam),
+		active_vcam.name if is_instance_valid(active_vcam) else "<none>",
+		_node_pos_dbg(active_vcam),
+		active_cam.name if is_instance_valid(active_cam) else "<none>",
+		_node_pos_dbg(active_cam)
+	])
 
 func _post_oys_input(data: Dictionary):
 	if not host_node: return

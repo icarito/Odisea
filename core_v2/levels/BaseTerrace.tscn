@@ -2002,6 +2002,23 @@ cast_shadow = 0
 
 [node name="VCameraSystem" parent="." instance=ExtResource( 48 )]
 
+[node name="IntroFar" parent="VCameraSystem/VCameras" index="0"]
+transform = Transform( -0.767501, 0.00588502, -0.641021, -4.01284e-10, 0.999958, 0.00918031, 0.641048, 0.00704589, -0.767468, -49.9046, 43.3333, -19.5523 )
+fov = 61.431
+far = 2000.0
+
+[node name="IntroClose" parent="VCameraSystem/VCameras" index="1"]
+transform = Transform( -0.647628, 0.522244, -0.554832, 0, 0.728168, 0.685399, 0.761957, 0.443884, -0.471582, 4.32095, 27.0267, 11.115 )
+
+[node name="Follow" parent="VCameraSystem/VCameras/IntroClose" index="1"]
+transform = Transform( 1, 1.79708e-05, -0.0010632, 1.2517e-06, 1.00001, -0.000104979, 7.45058e-07, -1.78814e-07, 1.00021, 14.3066, -1.6961, -20.2828 )
+
+[node name="LookAt" parent="VCameraSystem/VCameras/IntroClose" index="2"]
+transform = Transform( -0.671181, 0.560374, -0.485281, 2.98023e-08, 0.65464, 0.75594, 0.741294, 0.507372, -0.439382, 0, 0, 0 )
+
+[node name="IntroFinal" parent="VCameraSystem/VCameras" index="2"]
+transform = Transform( -0.628235, 0, -0.778024, 0, 1, 0, 0.778024, 0, -0.628235, 13.3486, 5.57768, 30.1251 )
+
 [node name="CameraZone" parent="." instance=ExtResource( 31 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.04499, 3.20083, 20.0898 )
 debug_render = false
@@ -2269,3 +2286,4 @@ sound_name = "ExplosionMini"
 [editable path="SideScrollZone4"]
 [editable path="InteriorWide"]
 [editable path="CrioPod START"]
+[editable path="VCameraSystem"]
