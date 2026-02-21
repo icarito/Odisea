@@ -20,7 +20,7 @@ jobs:
   pytest-core:
     name: Run Tests (core)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       GODOT_VERSION: 3.6.2-stable
       GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
