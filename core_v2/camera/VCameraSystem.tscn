@@ -12,6 +12,7 @@ script = ExtResource( 0 )
 
 [node name="VCameraBrain" type="Camera" parent="."]
 process_priority = -1000
+current = false
 script = ExtResource( 1)
 target_group = "vcamera"
 

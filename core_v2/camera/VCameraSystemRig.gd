@@ -15,8 +15,8 @@ func _setup_follow_targets():
 	
 	for vcam in $VCameras.get_children():
 		var follow = vcam.get_node_or_null("Follow")
-		if follow and "follow_target" in follow:
-			follow.follow_target = player.get_path()
+		if follow and "target" in follow:
+			follow.target = player
 		
 		var look_at = vcam.get_node_or_null("LookAt")
 		if look_at and "look_at_target" in look_at:

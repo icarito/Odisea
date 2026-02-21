@@ -1379,6 +1379,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/virtualcamera/VCameraBrain.gd"
 }, {
+"base": "Spatial",
+"class": "VCameraSystemRig",
+"language": "GDScript",
+"path": "res://core_v2/camera/VCameraSystemRig.gd"
+}, {
 "base": "Node",
 "class": "VCameraTriggerAction",
 "language": "GDScript",
@@ -1709,6 +1714,7 @@ _global_script_class_icons={
 "UserInput": "",
 "VCamera": "res://addons/virtualcamera/VCameras/VCamera.svg",
 "VCameraBrain": "res://addons/virtualcamera/VCameraBrain.svg",
+"VCameraSystemRig": "",
 "VCameraTriggerAction": "",
 "ValueProvider": "",
 "Vector2Fuzzer": "",
