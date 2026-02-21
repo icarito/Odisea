@@ -70,7 +70,7 @@ nodes/Jumping/position = Vector2( 64, 112 )
 nodes/Transition/node = SubResource( 121 )
 nodes/Transition/position = Vector2( 288, 144 )
 nodes/output/position = Vector2( 528, 112 )
-node_connections = [ "Transition", 0, "Jumping", "Transition", 1, "Falling", "output", 0, "Transition" ]
+node_connections = [ "output", 0, "Transition", "Transition", 0, "Jumping", "Transition", 1, "Falling" ]
 
 [sub_resource type="AnimationNodeAnimation" id=197]
 animation = "Jump_Land"
@@ -95,7 +95,7 @@ nodes/Animation/position = Vector2( 368, 32 )
 nodes/Transition/node = SubResource( 199 )
 nodes/Transition/position = Vector2( 624, 48 )
 nodes/output/position = Vector2( 800, 80 )
-node_connections = [ "Transition", 0, "Animation", "Transition", 1, "Animation 2", "output", 0, "Transition" ]
+node_connections = [ "output", 0, "Transition", "Transition", 0, "Animation", "Transition", 1, "Animation 2" ]
 
 [sub_resource type="AnimationNodeAnimation" id=215]
 animation = "Push_Loop"

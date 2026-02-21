@@ -7,7 +7,7 @@
 [ext_resource path="res://core_v2/props/dragon-studio-mechanical-door-386159.mp3" type="AudioStream" id=5]
 [ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=6]
 
-[sub_resource type="ORMSpatialMaterial" id=87]
+[sub_resource type="SpatialMaterial" id=87]
 albedo_color = Color( 0.231373, 0.231373, 0.231373, 1 )
 albedo_texture = ExtResource( 1 )
 uv1_scale = Vector3( 1.5, 1.5, 1.5 )
