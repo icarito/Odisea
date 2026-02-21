@@ -1,6 +1,7 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://core_v2/props/scifi_lights/SparkEmitterV2.gd" type="Script" id=1]
+[ext_resource path="res://assets/sfx/spark.wav" type="AudioStream" id=2]
 
 [sub_resource type="SpatialMaterial" id=6]
 resource_local_to_scene = true
@@ -9,7 +10,7 @@ flags_transparent = true
 flags_unshaded = true
 flags_do_not_receive_shadows = true
 params_blend_mode = 1
-albedo_color = Color( 1, 0.9, 0.5, 0.9 )
+albedo_color = Color( 1, 0.819608, 0, 0.9 )
 
 [sub_resource type="SphereMesh" id=7]
 resource_local_to_scene = true
@@ -24,10 +25,11 @@ _data = [ Vector2( 0, 1 ), 0.0, 0.0, 0, 0, Vector2( 0.3, 0.7 ), 0.0, 0.0, 0, 0, 
 
 [node name="SparkEmitterV2" type="Spatial"]
 script = ExtResource( 1 )
-spark_color = Color( 1, 0.8, 0.2, 1 )
-brightness = 1.0
-emission_rate = 10.0
+spark_color = Color( 1, 0.819608, 0, 0.694118 )
 emitting = true
+interval = 1.0
+interval_random = 1.0
+duration = 1.1
 
 [node name="CPUParticles" type="CPUParticles" parent="."]
 amount = 50
@@ -43,8 +45,10 @@ initial_velocity = 4.0
 initial_velocity_random = 0.5
 scale_amount_random = 0.4
 scale_amount_curve = SubResource( 5 )
-color = Color( 1, 0.9, 0.5, 1 )
+color = Color( 1, 0.819608, 0, 1 )
 
 [node name="SparkSound" type="AudioStreamPlayer3D" parent="."]
-unit_db = -5.0
+stream = ExtResource( 2 )
+unit_db = 15.0
+unit_size = 2.0
 max_distance = 20.0
