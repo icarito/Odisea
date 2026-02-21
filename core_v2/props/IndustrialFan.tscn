@@ -1,26 +1,33 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=8 format=2]
 
 [ext_resource path="res://core_v2/props/IndustrialFan.gd" type="Script" id=1]
+
+[sub_resource type="SpatialMaterial" id=4]
+albedo_color = Color( 0.7, 0.15, 0.15, 1 )
+metallic = 0.7
+roughness = 0.3
+
+[sub_resource type="CubeMesh" id=5]
+material = SubResource( 4 )
+size = Vector3( 0.9, 0.04, 0.3 )
+
+[sub_resource type="CubeMesh" id=6]
+material = SubResource( 4 )
+size = Vector3( 0.9, 0.04, 0.3 )
+
+[sub_resource type="CubeMesh" id=7]
+material = SubResource( 4 )
+size = Vector3( 0.9, 0.04, 0.3 )
+
+[sub_resource type="CubeMesh" id=8]
+material = SubResource( 4 )
+size = Vector3( 0.9, 0.04, 0.3 )
 
 [sub_resource type="BoxShape" id=3]
 extents = Vector3( 2, 2, 5 )
 
 [node name="IndustrialFan" type="Spatial"]
 script = ExtResource( 1 )
-interaction_text = "Interact"
-anim_duration = 1.0
-starts_active = false
-auto_interact = false
-one_off = false
-is_interactable = true
-manual_toggle = true
-debug = false
-linked_switch_path = NodePath("")
-linked_switch_paths = [  ]
-visual_parts_paths = [  ]
-debug_draw = false
-rotation_speed = 15.0
-wind_force = 10.0
 
 [node name="Housing" type="CSGCombiner" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
@@ -38,18 +45,37 @@ height = 0.6
 sides = 16
 
 [node name="Blade" type="Spatial" parent="Housing"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
 
-[node name="Mesh1" type="CSGBox" parent="Housing/Blade"]
-width = 2.0
-height = 0.4
-depth = 0.05
+[node name="Hub" type="CSGCylinder" parent="Housing/Blade"]
+radius = 0.2
+height = 0.1
 
-[node name="Mesh2" type="CSGBox" parent="Housing/Blade"]
-transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 0, 0, 0 )
-width = 2.0
-height = 0.4
-depth = 0.05
+[node name="Pivot1" type="Spatial" parent="Housing/Blade"]
+
+[node name="BladeGeo1" type="MeshInstance" parent="Housing/Blade/Pivot1"]
+transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
+mesh = SubResource( 5 )
+
+[node name="Pivot2" type="Spatial" parent="Housing/Blade"]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 0, 0 )
+
+[node name="BladeGeo2" type="MeshInstance" parent="Housing/Blade/Pivot2"]
+transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
+mesh = SubResource( 6 )
+
+[node name="Pivot3" type="Spatial" parent="Housing/Blade"]
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 0 )
+
+[node name="BladeGeo3" type="MeshInstance" parent="Housing/Blade/Pivot3"]
+transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
+mesh = SubResource( 7 )
+
+[node name="Pivot4" type="Spatial" parent="Housing/Blade"]
+transform = Transform( 1.19249e-08, 0, -1, 0, 1, 0, 1, 0, 1.19249e-08, 0, 0, 0 )
+
+[node name="BladeGeo4" type="MeshInstance" parent="Housing/Blade/Pivot4"]
+transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
+mesh = SubResource( 8 )
 
 [node name="WindArea" type="Area" parent="."]
 
