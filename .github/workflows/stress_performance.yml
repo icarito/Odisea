@@ -29,7 +29,7 @@ env:
 jobs:
   stress-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       SIMULATE_REGRESSION: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_regression || 'false' }}
       FPS_TOLERANCE: ${{ github.event_name == 'workflow_dispatch' && inputs.fps_tolerance || '0.97' }}
@@ -91,25 +91,6 @@ jobs:
             { print }
           ' project.godot.ci.bak > project.godot
           echo "Editor plugins disabled for CI import pass."
-
-      - name: Import Resources (Prewarm)
-        run: |
-          set -euo pipefail
-          mkdir -p reports
-          set +e
-          timeout 600s /usr/local/bin/godot --path . -e --headless --no-window --audio-driver Dummy 2>&1 | tee reports/import_resources_stress.log
-          godot_rc="${PIPESTATUS[0]}"
-          set -e
-          if [ "$godot_rc" -eq 124 ]; then
-            echo "Godot import timed out before completing imports."
-            exit 1
-          fi
-          if [ "$godot_rc" -ne 0 ]; then
-            echo "Godot import command failed with exit code $godot_rc"
-            exit "$godot_rc"
-          fi
-          echo "Import complete."
-          echo "godot_project_cache_hit=${{ steps.godot_project_cache.outputs.cache-hit }}"
 
       - name: Capture Host Environment
         run: |
@@ -175,15 +156,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p reports
-          # Run the OYS script using the debug runner
-          # Timeout after 5 minutes to prevent hangs
-          # We use xvfb-run even with headless mode to ensure visual server initializes for viewports/captures if needed
+          # Run the OYS script using the debug runner.
+          # On cache misses, first-run import can take several minutes on CI runners.
+          # We use xvfb-run even with headless mode to ensure visual server initializes for viewports/captures if needed.
           set +e
-          timeout 300 xvfb-run godot --headless --no-window -s tests/debug_runner.gd --test-file core_v2/tests/stress/run_stress.oys 2>&1 | tee reports/stress_runner.log
+          timeout 900 xvfb-run godot --headless --no-window -s tests/debug_runner.gd --test-file core_v2/tests/stress/run_stress.oys 2>&1 | tee reports/stress_runner.log
           stress_rc="${PIPESTATUS[0]}"
           set -e
           if [ "$stress_rc" -eq 124 ]; then
-            echo "Stress runner timed out after 300s."
+            echo "Stress runner timed out after 900s."
             exit 124
           fi
           if [ "$stress_rc" -ne 0 ]; then
