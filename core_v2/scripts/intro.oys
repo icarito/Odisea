@@ -5,8 +5,8 @@ SECTION "Intro"
     
     CINEMATIC
     
-    
     BLEND 4.0
+        SHAKE duration=4.0 amp=0.25 freq=16 rot=5.0
         RIGHT 140 3.0
         LOOK -30 3.0
         ZOOM  -4.0 3.0
@@ -17,6 +17,8 @@ SECTION "Intro"
 
     WAIT 2.0
     PRINT "Algo está mal..."
+    PLAY_SOUND "ExplosionMini"
+    SHAKE duration=2.0 amp=0.25 freq=16 rot=5.0
     
     BLEND 1.0
         ZOOM +4.0 1.0

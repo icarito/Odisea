@@ -284,6 +284,31 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 					var p = inst.get("path", "")
 					var n_name = node.name if node else "null"
 					printerr("[OYS WARNING] PLAY_ANIM: Target is not an AnimationPlayer. Path='%s', Resolved='%s'" % [p, n_name])
+
+		"PLAY_SOUND":
+			var played = false
+			var sfx_ref = String(inst.get("sfx", "")).strip_edges()
+			var sound_name = String(inst.get("sound", "")).strip_edges()
+
+			if sfx_ref != "":
+				var sfx_node = _resolve_node(sfx_ref)
+				if sfx_node and sfx_node.has_method("play_sfx"):
+					sfx_node.play_sfx()
+					played = true
+				elif sfx_node and sfx_node.has_method("play"):
+					sfx_node.play()
+					played = true
+
+			if not played:
+				var audio = host_node.get_node_or_null("/root/AudioManager")
+				if audio and audio.has_method("play_sound"):
+					var resolved_sound = sound_name if sound_name != "" else sfx_ref
+					if resolved_sound != "":
+						audio.play_sound(resolved_sound, Vector3.ZERO)
+						played = true
+
+			if not played:
+				printerr("[OYS WARNING] PLAY_SOUND failed: no SFX node or AudioManager sound found. sfx='%s' sound='%s'" % [sfx_ref, sound_name])
 		
 		"WAIT_ANIM":
 			var node = _resolve_node(inst.get("path", ""))
@@ -560,6 +585,21 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			var manager = host_node.get_node_or_null("/root/CinematicManager")
 			if manager:
 				manager.deactivate_rig()
+
+		"CAMERA_SHAKE":
+			var manager = host_node.get_node_or_null("/root/CinematicManager")
+			if manager and manager.has_method("trigger_camera_shake"):
+				manager.trigger_camera_shake(
+					float(inst.get("duration", 0.35)),
+					float(inst.get("amplitude", 0.08)),
+					float(inst.get("frequency", 28.0)),
+					float(inst.get("roll", 1.0))
+				)
+
+		"CAMERA_SHAKE_STOP":
+			var manager = host_node.get_node_or_null("/root/CinematicManager")
+			if manager and manager.has_method("stop_camera_shake"):
+				manager.stop_camera_shake()
 
 		"CINEMATIC":
 			# Disable player input

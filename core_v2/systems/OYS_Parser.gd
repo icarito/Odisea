@@ -26,7 +26,9 @@ enum Command {
 	ASSERT_NO_HAND_CLIPPING,
 	UI_OPEN, UI_CLICK, UI_FILL, UI_TYPE, UI_PRESS, UI_WAIT, UI_SCREENSHOT, UI_ASSERT_TEXT,
 	LOG,
-	TELEPORT
+	TELEPORT,
+	CAMERA_SHAKE, CAMERA_SHAKE_STOP,
+	PLAY_SOUND
 }
 
 # Command synonyms mapping
@@ -38,6 +40,11 @@ const SYNONYMS = {
 	"WAITF": "WAIT_FRAMES",
 	"WAIT_FRAME": "WAIT_FRAMES",
 	"TIME_SCALE": "SET_TIME_SCALE",
+	"PLAY_SFX": "PLAY_SOUND",
+	"SFX": "PLAY_SOUND",
+	"SHAKE": "CAMERA_SHAKE",
+	"STOP_SHAKE": "CAMERA_SHAKE_STOP",
+	"CAM_SHAKE": "CAMERA_SHAKE",
 	"UI_OPEN": "OPEN",
 	"UI_CLICK": "CLICK",
 	"UI_FILL": "FILL",
@@ -226,6 +233,34 @@ static func parse_instruction(line: String) -> Dictionary:
 				data["anim"] = _extract_quoted(parts, 2)
 				if parts.size() > 3:
 					data["blend"] = parts[3].to_float()
+
+		"PLAY_SOUND":
+			# Default behavior: target an SFXComponent node by name/path.
+			# Optional fallback through AudioManager:
+			# PLAY_SOUND sound="ui_click"
+			# PLAY_SOUND sfx="SFX Alarm"
+			# PLAY_SOUND "SFX Alarm"
+			data["sfx"] = ""
+			data["sound"] = ""
+
+			var quoted = _extract_quoted_values(line)
+			if quoted.size() > 0:
+				data["sfx"] = quoted[0]
+
+			for i in range(1, parts.size()):
+				var token = parts[i]
+				if token.find("=") == -1:
+					continue
+				var kv = token.split("=", false, 1)
+				if kv.size() < 2:
+					continue
+				var k = kv[0].to_lower()
+				var v = kv[1].replace("\"", "")
+				match k:
+					"sfx", "node", "target", "path":
+						data["sfx"] = v
+					"sound", "name":
+						data["sound"] = v
 		
 		"WAIT_ANIM":
 			var arg1 = _extract_quoted(parts, 1)
@@ -448,6 +483,45 @@ static func parse_instruction(line: String) -> Dictionary:
 					for i in range(1, parts.size()):
 						val += parts[i]
 					data["pos"] = val.strip_edges()
+
+		"CAMERA_SHAKE":
+			# CAMERA_SHAKE [duration] [amplitude] [frequency] [roll]
+			# CAMERA_SHAKE duration=0.35 amplitude=0.08 frequency=28 roll=1.0
+			data["duration"] = 0.35
+			data["amplitude"] = 0.08
+			data["frequency"] = 28.0
+			data["roll"] = 1.0
+			var positional = 0
+			for i in range(1, parts.size()):
+				var token = parts[i]
+				if token.find("=") != -1:
+					var kv = token.split("=", false, 1)
+					var k = kv[0].to_lower()
+					var v = kv[1].to_float() if kv.size() > 1 else 0.0
+					match k:
+						"duration", "dur", "time":
+							data["duration"] = v
+						"amplitude", "amp", "strength":
+							data["amplitude"] = v
+						"frequency", "freq", "speed":
+							data["frequency"] = v
+						"roll", "roll_degrees", "rot":
+							data["roll"] = v
+				else:
+					var v = token.to_float()
+					match positional:
+						0:
+							data["duration"] = v
+						1:
+							data["amplitude"] = v
+						2:
+							data["frequency"] = v
+						3:
+							data["roll"] = v
+					positional += 1
+
+		"CAMERA_SHAKE_STOP":
+			pass
 
 		"ENDWHILE":
 			pass

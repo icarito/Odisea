@@ -68,6 +68,18 @@ var transition_debug_enabled := false
 var _transition_debug_events: Array = []
 const TRANSITION_DEBUG_MAX_EVENTS := 256
 
+var _shake_active := false
+var _shake_duration := 0.0
+var _shake_elapsed := 0.0
+var _shake_amplitude := 0.08
+var _shake_frequency := 28.0
+var _shake_roll_degrees := 1.0
+var _shake_seed := 0.0
+var _shake_cam: Camera = null
+var _shake_base_h_offset := 0.0
+var _shake_base_v_offset := 0.0
+var _shake_base_roll_degrees := 0.0
+
 signal cinematic_started(rig_id)
 signal cinematic_stopped
 signal control_mode_changed(mode)
@@ -225,7 +237,7 @@ func get_control_mode() -> int:
 	return current_control_mode
 
 func is_active() -> bool:
-	return active_rig != null or not _active_requests.empty() or _transition_active
+	return active_rig != null or not _active_requests.empty() or _transition_active or _shake_active
 
 # Compatibility for PlayerController or other systems calling step/force_finish
 func force_finish_transition():
@@ -354,6 +366,70 @@ func _finish_dynamic_transition():
 	if purpose == "to_free":
 		emit_signal("cinematic_stopped")
 
+func trigger_camera_shake(duration: float = 0.35, amplitude: float = 0.08, frequency: float = 28.0, roll_degrees: float = 1.0) -> void:
+	if duration <= 0.0:
+		stop_camera_shake()
+		return
+	_shake_active = true
+	_shake_duration = duration
+	_shake_elapsed = 0.0
+	_shake_amplitude = max(0.0, amplitude)
+	_shake_frequency = max(0.1, frequency)
+	_shake_roll_degrees = roll_degrees
+	_shake_seed = float(OS.get_ticks_usec() % 1000000) * 0.00001
+	var cam = get_active_camera()
+	if cam and is_instance_valid(cam):
+		_bind_shake_camera(cam)
+
+func stop_camera_shake() -> void:
+	_shake_active = false
+	_shake_duration = 0.0
+	_shake_elapsed = 0.0
+	_restore_shake_camera()
+
+func _bind_shake_camera(cam: Camera) -> void:
+	if _shake_cam == cam:
+		return
+	_restore_shake_camera()
+	_shake_cam = cam
+	_shake_base_h_offset = float(cam.get("h_offset"))
+	_shake_base_v_offset = float(cam.get("v_offset"))
+	_shake_base_roll_degrees = cam.rotation_degrees.z
+
+func _restore_shake_camera() -> void:
+	if _shake_cam and is_instance_valid(_shake_cam):
+		_shake_cam.set("h_offset", _shake_base_h_offset)
+		_shake_cam.set("v_offset", _shake_base_v_offset)
+		var rot = _shake_cam.rotation_degrees
+		rot.z = _shake_base_roll_degrees
+		_shake_cam.rotation_degrees = rot
+	_shake_cam = null
+
+func _update_camera_shake(dt: float) -> void:
+	if not _shake_active:
+		return
+	var cam = get_active_camera()
+	if not cam or not is_instance_valid(cam):
+		stop_camera_shake()
+		return
+	_bind_shake_camera(cam)
+	_shake_elapsed += max(0.0, dt)
+	if _shake_elapsed >= _shake_duration:
+		stop_camera_shake()
+		return
+	var t = _shake_elapsed / _shake_duration
+	var fade = 1.0 - t
+	fade *= fade
+	var phase = _shake_seed + _shake_elapsed * _shake_frequency * TAU
+	var x = sin(phase)
+	var y = cos(phase * 1.13 + 1.7)
+	var r = sin(phase * 0.79 + 2.3)
+	cam.set("h_offset", _shake_base_h_offset + x * _shake_amplitude * fade)
+	cam.set("v_offset", _shake_base_v_offset + y * _shake_amplitude * fade)
+	var rot = cam.rotation_degrees
+	rot.z = _shake_base_roll_degrees + r * _shake_roll_degrees * fade
+	cam.rotation_degrees = rot
+
 func step(dt: float):
 	_update_dynamic_transition(dt)
 
@@ -365,6 +441,7 @@ func step(dt: float):
 
 	# 3. Update Input FSM (Latch Timer)
 	_update_input_fsm(dt)
+	_update_camera_shake(dt)
 
 func _evaluate_requests() -> CameraRequest:
 	if _active_requests.empty():
@@ -685,6 +762,7 @@ func reset():
 	latched_camera_basis = Basis.IDENTITY
 	latched_control_mode = ControlMode.FREE
 	latch_active = false
+	stop_camera_shake()
 	_cancel_dynamic_transition("reset")
 	_cancel_plugin_transition()
 	

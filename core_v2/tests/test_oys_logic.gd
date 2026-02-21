@@ -75,6 +75,36 @@ func test_parse_wait_suffix_f_as_frames():
 	assert_str(String(inst.get("unit", ""))).is_equal("frames")
 	assert_float(float(inst.get("value", -1.0))).is_equal(7.0)
 
+func test_parse_camera_shake_positional():
+	var inst = OYS_Parser.parse_instruction("CAMERA_SHAKE 0.6 0.12 20 2.5")
+	assert_str(inst.command).is_equal("CAMERA_SHAKE")
+	assert_bool(is_equal_approx(float(inst.get("duration", -1.0)), 0.6)).is_true()
+	assert_bool(is_equal_approx(float(inst.get("amplitude", -1.0)), 0.12)).is_true()
+	assert_bool(is_equal_approx(float(inst.get("frequency", -1.0)), 20.0)).is_true()
+	assert_bool(is_equal_approx(float(inst.get("roll", -1.0)), 2.5)).is_true()
+
+func test_parse_camera_shake_key_value_synonym():
+	var inst = OYS_Parser.parse_instruction("SHAKE duration=0.5 amp=0.2 freq=18 rot=3")
+	assert_str(inst.command).is_equal("CAMERA_SHAKE")
+	assert_bool(is_equal_approx(float(inst.get("duration", -1.0)), 0.5)).is_true()
+	assert_bool(is_equal_approx(float(inst.get("amplitude", -1.0)), 0.2)).is_true()
+	assert_bool(is_equal_approx(float(inst.get("frequency", -1.0)), 18.0)).is_true()
+	assert_bool(is_equal_approx(float(inst.get("roll", -1.0)), 3.0)).is_true()
+
+func test_parse_camera_shake_stop_synonym():
+	var inst = OYS_Parser.parse_instruction("STOP_SHAKE")
+	assert_str(inst.command).is_equal("CAMERA_SHAKE_STOP")
+
+func test_parse_play_sound_default_targets_sfx():
+	var inst = OYS_Parser.parse_instruction('PLAY_SOUND "SFX Alarm"')
+	assert_str(inst.command).is_equal("PLAY_SOUND")
+	assert_str(String(inst.get("sfx", ""))).is_equal("SFX Alarm")
+
+func test_parse_play_sound_explicit_sound_name():
+	var inst = OYS_Parser.parse_instruction('PLAY_SOUND sound="ui_click"')
+	assert_str(inst.command).is_equal("PLAY_SOUND")
+	assert_str(String(inst.get("sound", ""))).is_equal("ui_click")
+
 func test_resolver_cls_generates_event():
 	var script = """
 	CLS
@@ -114,6 +144,28 @@ func test_resolver_wait_seconds_rounds_up_to_next_frame():
 	assert_str(events[0][0].get("command", "")).is_equal("PRINT")
 	assert_str(events[1][0].get("command", "")).is_equal("PRINT")
 
+func test_resolver_camera_shake_generates_logic_events():
+	var script = """
+	CAMERA_SHAKE 0.4 0.1 16 2
+	WAIT_FRAMES 2
+	STOP_SHAKE
+	"""
+	var replay = OYS_Resolver.parse_script(script)
+	var events = replay.get("events", {})
+	assert_bool(events.has(0)).is_true()
+	assert_bool(events.has(2)).is_true()
+	assert_str(events[0][0].get("command", "")).is_equal("CAMERA_SHAKE")
+	assert_str(events[2][0].get("command", "")).is_equal("CAMERA_SHAKE_STOP")
+
+func test_resolver_play_sound_generates_logic_event():
+	var script = """
+	PLAY_SOUND "SFX Alarm"
+	"""
+	var replay = OYS_Resolver.parse_script(script)
+	var events = replay.get("events", {})
+	assert_bool(events.has(0)).is_true()
+	assert_str(events[0][0].get("command", "")).is_equal("PLAY_SOUND")
+
 class MockHost extends Node:
 	func _init():
 		pass
@@ -149,6 +201,11 @@ class SystemMockInterpreter extends OYS_Interpreter:
 			"value": sync_exit_code if blocking else async_pid,
 			"blocking": blocking
 		}
+
+class MockSfxNode extends Node:
+	var plays := 0
+	func play_sfx():
+		plays += 1
 
 class DisabledSubtitlesManager extends SubtitlesOverlayManager:
 	func is_enabled() -> bool:
@@ -325,6 +382,20 @@ func test_system_helper_sync_mode_returns_exit_code():
 	assert_str(String(call.get("exec", ""))).is_equal("python3")
 	assert_int(int(interpreter.variables.get("$exit", -1))).is_equal(7)
 
+	host.queue_free()
+
+func test_interpreter_play_sound_calls_sfx_node():
+	var host = MockHost.new()
+	add_child(host)
+	var sfx = MockSfxNode.new()
+	sfx.name = "SFX Alarm"
+	host.add_child(sfx)
+
+	var interpreter = OYS_Interpreter.new(host)
+	interpreter.parse('PLAY_SOUND "SFX Alarm"')
+	yield (_run_interpreter(interpreter), "completed")
+
+	assert_int(sfx.plays).is_equal(1)
 	host.queue_free()
 
 func test_interpreter_print_calls_subtitle():

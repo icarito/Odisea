@@ -219,6 +219,20 @@ func test_get_active_camera_prefers_dynamic_transition_camera():
 	yield (_teardown_root(root), "completed")
 
 
+func test_is_active_when_camera_shake_running():
+	var cm = get_node(CM_PATH)
+	assert_object(cm).is_not_null()
+
+	cm.reset()
+	assert_bool(cm.is_active()).is_false()
+
+	cm.trigger_camera_shake(0.5, 0.1, 20.0, 1.0)
+	assert_bool(cm.is_active()).is_true()
+
+	cm.stop_camera_shake()
+	assert_bool(cm.is_active()).is_false()
+
+
 func test_to_cinematic_dynamic_transition_tracks_moving_rig_target():
 	var cm = get_node(CM_PATH)
 	assert_object(cm).is_not_null()
