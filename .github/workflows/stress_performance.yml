@@ -29,7 +29,7 @@ env:
 jobs:
   stress-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 20
     env:
       SIMULATE_REGRESSION: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_regression || 'false' }}
       FPS_TOLERANCE: ${{ github.event_name == 'workflow_dispatch' && inputs.fps_tolerance || '0.97' }}
@@ -55,6 +55,39 @@ jobs:
         run: |
           mkdir -p ~/.local/share/godot/app_userdata/Odisea/
           export GODOT_BIN=godot
+
+      - name: Disable editor plugins for CI import
+        run: |
+          set -euo pipefail
+          cp project.godot project.godot.ci.bak
+          awk '
+            BEGIN { in_editor_plugins = 0 }
+            /^\[editor_plugins\]$/ { in_editor_plugins = 1; print; next }
+            in_editor_plugins == 1 && /^enabled=/ {
+              print "enabled=PoolStringArray( )"
+              in_editor_plugins = 0
+              next
+            }
+            { print }
+          ' project.godot.ci.bak > project.godot
+          echo "Editor plugins disabled for CI import pass."
+
+      - name: Import Resources (Prewarm)
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          set +e
+          timeout 420s /usr/local/bin/godot --path . -e --headless --no-window --audio-driver Dummy 2>&1 | tee reports/import_resources_stress.log
+          godot_rc="${PIPESTATUS[0]}"
+          set -e
+          if [ "$godot_rc" -eq 124 ]; then
+            echo "Godot import timed out before completing imports."
+            exit 1
+          fi
+          if [ "$godot_rc" -ne 0 ]; then
+            echo "Godot import command failed with exit code $godot_rc"
+            exit "$godot_rc"
+          fi
 
       - name: Capture Host Environment
         run: |
@@ -118,13 +151,30 @@ jobs:
 
       - name: Run Stress Tests (Headless)
         run: |
+          set -euo pipefail
+          mkdir -p reports
           # Run the OYS script using the debug runner
           # Timeout after 5 minutes to prevent hangs
           # We use xvfb-run even with headless mode to ensure visual server initializes for viewports/captures if needed
-          timeout 300 xvfb-run godot --headless --no-window -s tests/debug_runner.gd --test-file core_v2/tests/stress/run_stress.oys || true
+          set +e
+          timeout 300 xvfb-run godot --headless --no-window -s tests/debug_runner.gd --test-file core_v2/tests/stress/run_stress.oys 2>&1 | tee reports/stress_runner.log
+          stress_rc="${PIPESTATUS[0]}"
+          set -e
+          if [ "$stress_rc" -eq 124 ]; then
+            echo "Stress runner timed out after 300s."
+            exit 124
+          fi
+          if [ "$stress_rc" -ne 0 ]; then
+            echo "Stress runner failed with exit code $stress_rc"
+            exit "$stress_rc"
+          fi
 
           # Move result to workspace
-          mv ~/.local/share/godot/app_userdata/Odisea/performance_snapshots.json performance_current.json || echo "[]" > performance_current.json
+          if [ ! -f ~/.local/share/godot/app_userdata/Odisea/performance_snapshots.json ]; then
+            echo "Stress runner did not produce performance_snapshots.json"
+            exit 1
+          fi
+          mv ~/.local/share/godot/app_userdata/Odisea/performance_snapshots.json performance_current.json
 
       - name: Check for Regressions
         env:
