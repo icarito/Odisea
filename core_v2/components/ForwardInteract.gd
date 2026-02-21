@@ -8,6 +8,7 @@ var is_active = false setget , get_is_active
 var one_off = false setget , get_one_off
 var auto_interact = false setget , get_auto_interact
 var _auto_triggered = false setget set_auto_triggered, get_auto_triggered
+var is_interactable = true setget set_is_interactable, get_is_interactable
 
 func _ready():
 	add_to_group("interactable")
@@ -53,6 +54,16 @@ func get_auto_interact() -> bool:
 	var p = get_parent()
 	if p and "auto_interact" in p: return p.auto_interact
 	return false
+
+func get_is_interactable() -> bool:
+	var p = get_parent()
+	if p and "is_interactable" in p: return p.is_interactable
+	return is_interactable
+
+func set_is_interactable(val: bool):
+	var p = get_parent()
+	if p and "is_interactable" in p: p.is_interactable = val
+	is_interactable = val
 
 func get_auto_triggered() -> bool:
 	var p = get_parent()

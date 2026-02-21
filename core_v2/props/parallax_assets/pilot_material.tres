@@ -21,6 +21,6 @@ shader_param/animationIntensity = 0.02
 shader_param/depth1 = 0.025
 shader_param/depth2 = 0.0
 shader_param/depth3 = 0.139
-shader_param/yOffset = -0.318
+shader_param/yOffset = -0.358
 shader_param/texture2 = ExtResource( 3 )
 shader_param/texture3 = ExtResource( 2 )

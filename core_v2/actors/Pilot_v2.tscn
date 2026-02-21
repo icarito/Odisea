@@ -82,8 +82,8 @@ slope_resistance_factor = 0.1
 
 [node name="Interact" type="Node" parent="Logic"]
 script = ExtResource( 56 )
-highlight_color = Color( 0, 1, 1, 0.498039 )
-proximity_color = Color( 0.290196, 0.811765, 0.764706, 0.364706 )
+highlight_color = Color( 0, 1, 1, 0.352941 )
+proximity_color = Color( 0.290196, 0.811765, 0.764706, 0.121569 )
 proximity_radius = 6.0
 
 [node name="Visual" type="Spatial" parent="."]

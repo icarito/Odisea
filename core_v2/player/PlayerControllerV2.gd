@@ -504,6 +504,8 @@ func _process_interaction(input: InputDataV2):
 	var min_dist = 999.0
 	for body in bodies:
 		if is_instance_valid(body) and body.is_in_group("interactable"):
+			if "is_interactable" in body and not body.is_interactable:
+				continue
 			var dist = global_transform.origin.distance_squared_to(body.global_transform.origin)
 			if dist < min_dist:
 				min_dist = dist
@@ -549,6 +551,9 @@ func _process_interaction(input: InputDataV2):
 	var new_nearby = []
 	for obj in all_interactables:
 		if not is_instance_valid(obj) or obj == _current_interactable:
+			continue
+		
+		if "is_interactable" in obj and not obj.is_interactable:
 			continue
 		
 		# Proximity check
