@@ -616,6 +616,7 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				printerr("[OYS] VCAMERA: VCamera '%s' not found" % vcam_name)
 				return
 
+			_configure_vcamera_targets(vcam, inst)
 			_log_vcamera_debug(manager, "before_vcamera_%s" % vcam_name, vcam)
 			manager.activate_vcamera(vcam, duration, ease_type)
 			yield(host_node.get_tree(), "physics_frame")
@@ -639,6 +640,7 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				printerr("[OYS] VCAMERA_BLEND: VCamera '%s' not found" % vcam_name)
 				return
 
+			_configure_vcamera_targets(vcam, inst)
 			_log_vcamera_debug(manager, "before_blend_%s" % vcam_name, vcam)
 			manager.blend_to_vcamera(vcam, duration)
 			yield(host_node.get_tree(), "physics_frame")
@@ -1445,6 +1447,65 @@ func _find_player() -> Node:
 	# Priority 3: Global name lookup
 	var player = host_node.get_tree().root.find_node("Pilot", true, false)
 	return player
+
+func _is_vcamera_target_clear_token(raw: String) -> bool:
+	var key := raw.strip_edges().to_lower()
+	return key in ["", "none", "off", "null", "false", "0"]
+
+func _resolve_vcamera_target(raw: String) -> Node:
+	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+		return null
+	var token := raw.strip_edges().replace("\"", "")
+	if token == "":
+		return null
+	var lower := token.to_lower()
+	if lower in ["player", "pilot"]:
+		return _find_player()
+
+	var tree := host_node.get_tree()
+	if token.begins_with("/"):
+		return tree.root.get_node_or_null(token)
+
+	var current_scene := tree.current_scene
+	if is_instance_valid(current_scene):
+		var node := current_scene.get_node_or_null(token)
+		if node:
+			return node
+		node = current_scene.find_node(token, true, false)
+		if node:
+			return node
+
+	return tree.root.find_node(token, true, false)
+
+func _configure_vcamera_targets(vcam: Node, inst: Dictionary) -> void:
+	if not is_instance_valid(vcam):
+		return
+
+	if inst.has("follow"):
+		var follow_raw := String(inst.get("follow", ""))
+		var follow_mod = vcam.get_node_or_null("Follow")
+		if follow_mod and "target" in follow_mod:
+			if _is_vcamera_target_clear_token(follow_raw):
+				follow_mod.target = null
+			else:
+				var follow_target = _resolve_vcamera_target(follow_raw)
+				if follow_target and follow_target is Spatial:
+					follow_mod.target = follow_target
+				else:
+					printerr("[OYS] VCAMERA: follow target '%s' not found or not Spatial" % follow_raw)
+
+	if inst.has("look_at"):
+		var look_raw := String(inst.get("look_at", ""))
+		var look_mod = vcam.get_node_or_null("LookAt")
+		if look_mod and "look_at_target" in look_mod:
+			if _is_vcamera_target_clear_token(look_raw):
+				look_mod.look_at_target = NodePath("")
+			else:
+				var look_target = _resolve_vcamera_target(look_raw)
+				if look_target and look_target.is_inside_tree():
+					look_mod.look_at_target = look_target.get_path()
+				else:
+					printerr("[OYS] VCAMERA: look_at target '%s' not found" % look_raw)
 
 func _node_pos_dbg(node: Node) -> String:
 	if not is_instance_valid(node):

@@ -5,6 +5,8 @@ const OYS_Parser = preload("res://core_v2/systems/OYS_Parser.gd")
 const OYS_Interpreter = preload("res://core_v2/systems/OYS_Interpreter.gd")
 const OYS_Resolver = preload("res://core_v2/systems/OYS_Resolver.gd")
 const SubtitlesOverlayManager = preload("res://core_v2/autoloads/SubtitlesOverlayManager.gd")
+const VCameraFollow = preload("res://addons/virtualcamera/TransformModifiers/Follow.gd")
+const VCameraLookAt = preload("res://addons/virtualcamera/TransformModifiers/LookAt.gd")
 
 func test_preprocess_comments():
 	var script = """
@@ -104,6 +106,22 @@ func test_parse_play_sound_explicit_sound_name():
 	var inst = OYS_Parser.parse_instruction('PLAY_SOUND sound="ui_click"')
 	assert_str(inst.command).is_equal("PLAY_SOUND")
 	assert_str(String(inst.get("sound", ""))).is_equal("ui_click")
+
+func test_parse_vcamera_with_follow_and_look_at():
+	var inst = OYS_Parser.parse_instruction('VCAMERA name="IntroFar" duration=1.2 follow="Pilot" look_at="Beacon"')
+	assert_str(inst.command).is_equal("VCAMERA")
+	assert_str(String(inst.get("name", ""))).is_equal("IntroFar")
+	assert_bool(is_equal_approx(float(inst.get("duration", -1.0)), 1.2)).is_true()
+	assert_str(String(inst.get("follow", ""))).is_equal("Pilot")
+	assert_str(String(inst.get("look_at", ""))).is_equal("Beacon")
+
+func test_parse_vcamera_blend_with_follow_and_look_at():
+	var inst = OYS_Parser.parse_instruction('VCAMERA_BLEND name="IntroClose" duration=0.8 follow="none" lookat="target_node"')
+	assert_str(inst.command).is_equal("VCAMERA_BLEND")
+	assert_str(String(inst.get("name", ""))).is_equal("IntroClose")
+	assert_bool(is_equal_approx(float(inst.get("duration", -1.0)), 0.8)).is_true()
+	assert_str(String(inst.get("follow", ""))).is_equal("none")
+	assert_str(String(inst.get("look_at", ""))).is_equal("target_node")
 
 func test_resolver_cls_generates_event():
 	var script = """
@@ -396,6 +414,41 @@ func test_interpreter_play_sound_calls_sfx_node():
 	yield (_run_interpreter(interpreter), "completed")
 
 	assert_int(sfx.plays).is_equal(1)
+	host.queue_free()
+
+func test_interpreter_vcamera_applies_follow_and_look_at_targets():
+	var host = MockHost.new()
+	add_child(host)
+
+	var pilot = Spatial.new()
+	pilot.name = "Pilot"
+	pilot.add_to_group("player")
+	host.add_child(pilot)
+
+	var beacon = Spatial.new()
+	beacon.name = "Beacon"
+	host.add_child(beacon)
+
+	var vcam = Spatial.new()
+	vcam.name = "IntroFar"
+	var follow = VCameraFollow.new()
+	follow.name = "Follow"
+	vcam.add_child(follow)
+	var look_at = VCameraLookAt.new()
+	look_at.name = "LookAt"
+	vcam.add_child(look_at)
+	host.add_child(vcam)
+
+	var interpreter = OYS_Interpreter.new(host)
+	interpreter._configure_vcamera_targets(vcam, {
+		"follow": "Pilot",
+		"look_at": "Beacon"
+	})
+
+	assert_object(follow.target).is_not_null()
+	assert_bool(follow.target == pilot).is_true()
+	assert_bool(String(look_at.look_at_target).ends_with("/Beacon")).is_true()
+
 	host.queue_free()
 
 func test_interpreter_print_calls_subtitle():

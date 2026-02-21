@@ -539,6 +539,10 @@ static func parse_instruction(line: String) -> Dictionary:
 							data["duration"] = v.to_float()
 						"ease":
 							data["ease"] = v.to_float()
+						"follow":
+							data["follow"] = v
+						"look_at", "lookat":
+							data["look_at"] = v
 			if not data.has("duration"):
 				data["duration"] = 1.0
 			if not data.has("ease"):
@@ -557,6 +561,10 @@ static func parse_instruction(line: String) -> Dictionary:
 							data["name"] = v
 						"duration", "dur":
 							data["duration"] = v.to_float()
+						"follow":
+							data["follow"] = v
+						"look_at", "lookat":
+							data["look_at"] = v
 			if not data.has("duration"):
 				data["duration"] = 1.0
 		
