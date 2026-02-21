@@ -8,6 +8,10 @@
 - Contratos y normas centralizados en `AGENTS.md`.
 - Proyecto listo para avanzar en features y QA según el nuevo TODO.
 
+## Logros recientes (Post-MVP Acto I)
+- Reimplementar BGM mínimo (`core_v2/autoloads/AudioManager.gd`).
+- Integrar "Cargol" (`core_v2/props/CargolDroneProp.tscn` y `core_v2/actors/CargolDroneV2.tscn`).
+
 ## Referencias
 - Features implementados: ver `docs/canon/`.
 - Normas y contratos: ver `AGENTS.md`.

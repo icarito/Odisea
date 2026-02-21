@@ -32,7 +32,6 @@ Nota: Priorizar la corrección de OYS, ya que impide validar los demás sistemas
 # TODO — MVP Odisea (2026-01-29)
 
 ## Pendientes principales
-- Reimplementar BGM mínimo (`autoload/AudioManager.gd` en Menu y criogenia)
 - Reimplementar WindZone (scenes/common)
 - Reimplementar multiplayer split-screen (core_v2)
 - Plataformas con barandas (`scenes/common/GuardrailSegment.tscn`)
@@ -43,7 +42,6 @@ Nota: Priorizar la corrección de OYS, ya que impide validar los demás sistemas
 - Drones DDC patrulleros (`scenes/common/DDCDrone.tscn`)
 - Ventanal gigante y nebulosa (escena final)
 - Diálogos narrativos con IA (DialogueManager, JSON, AudioStreamPlayer3D)
-- Integrar "Cargol" (`scenes/common/Cargol.tscn`)
 
 ## QA y balance
 - Medir cobertura y limpiar pendientes menores
