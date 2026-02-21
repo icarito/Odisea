@@ -285,7 +285,7 @@ func deactivate_vcamera(duration: float = 1.0) -> void:
 	_vcam_active_camera = null
 	
 	if _vcam_brain and is_instance_valid(_vcam_brain):
-		_vcam_brain.enabled = false
+		_vcam_brain.current = false
 	
 	_current_state = CameraModeState.TRANSITION_VCAM_TO_FREE
 	_log_transition("vcamera_deactivate", {"duration": duration})
@@ -966,7 +966,7 @@ func reset():
 	_vcam_active_camera = null
 	
 	if _vcam_brain and is_instance_valid(_vcam_brain):
-		_vcam_brain.enabled = false
+		_vcam_brain.current = false
 	
 	active_rig = null
 	current_control_mode = ControlMode.FREE
