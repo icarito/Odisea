@@ -108,8 +108,19 @@ func set_brightness(value: float):
 	_update_in_editor()
 
 func set_emitting(value: bool):
+	if emitting != value:
+		if value and _audio and _audio.stream: _audio.play()
 	emitting = value
 	_update_in_editor()
+
+func activate():
+	set_emitting(true)
+
+func deactivate():
+	set_emitting(false)
+
+func toggle():
+	set_emitting(!emitting)
 
 func update_emission():
 	if particles:
