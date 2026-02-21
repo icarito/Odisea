@@ -40,15 +40,13 @@ jobs:
 
       - name: Restore Godot project cache
         id: godot_project_cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache@v4
         with:
           path: |
             ${{ github.workspace }}/.import
-          key: godot-stress-${{ runner.os }}-${{ hashFiles('**/project.godot') }}-${{ hashFiles('assets/**', 'core_v2/audio/**') }}-${{ github.run_id }}
+          key: godot-stress-${{ runner.os }}-v2-${{ hashFiles('assets/**', 'core_v2/audio/**', 'core_v2/actors/**', 'core_v2/components/**') }}
           restore-keys: |
-            godot-stress-${{ runner.os }}-${{ hashFiles('**/project.godot') }}-${{ hashFiles('assets/**', 'core_v2/audio/**') }}-
-            godot-stress-${{ runner.os }}-
-            ${{ runner.os }}-godot-
+            godot-stress-${{ runner.os }}-v2-
 
       - name: Setup Godot
         run: |
@@ -139,10 +137,21 @@ jobs:
             return 0
           }
 
-          if ! import_once reports/import_resources_stress.log || ! smoke_once reports/resource_smoke_stress.log; then
-            echo "Import/smoke failed on first pass. Retrying once..."
+          import_ok=0
+          smoke_ok=0
+          if import_once reports/import_resources_stress.log; then
+            import_ok=1
+          fi
+          if smoke_once reports/resource_smoke_stress.log; then
+            smoke_ok=1
+          fi
+          if [ "$smoke_ok" -eq 0 ]; then
+            echo "Smoke still failing. Running one extra import+smoke retry..."
             import_once reports/import_resources_stress_retry.log || true
             smoke_once reports/resource_smoke_stress_retry.log
+          fi
+          if [ "$import_ok" -eq 0 ] && [ "$smoke_ok" -eq 1 ]; then
+            echo "Import timed out but smoke passed; skipping extra import work."
           fi
 
       - name: Capture Host Environment
@@ -256,14 +265,6 @@ jobs:
             performance_baseline.json
             performance_history.json
           key: performance-cache-${{ runner.os }}-${{ github.ref_name }}-${{ github.run_id }}
-
-      - name: Save Godot project cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ${{ github.workspace }}/.import
-          key: godot-stress-${{ runner.os }}-${{ hashFiles('**/project.godot') }}-${{ hashFiles('assets/**', 'core_v2/audio/**') }}-${{ github.run_id }}
 
       - name: Upload Artifacts
         if: always()
