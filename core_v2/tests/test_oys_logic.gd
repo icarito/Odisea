@@ -536,10 +536,14 @@ func test_interpreter_vcamera_scene_mode_clears_runtime_targets_when_editor_empt
 	var look_at = VCameraLookAt.new()
 	look_at.name = "LookAt"
 	look_at.look_at_target = NodePath("../../Pilot")
+	var scene_look_tx = Transform(Basis.IDENTITY, Vector3.ZERO)
+	look_at.transform = scene_look_tx
+	vcam.set_meta("scene_look_at_transform", scene_look_tx)
 	vcam.add_child(look_at)
 
 	host.add_child(vcam)
 	vcam.global_transform = Transform(Basis(Vector3.UP, deg2rad(37.0)), Vector3(9, 9, 9))
+	look_at.transform = Transform(Basis(Vector3.UP, deg2rad(65.0)), Vector3(1, 2, 3))
 
 	var interpreter = OYS_Interpreter.new(host)
 	interpreter._configure_vcamera_targets(vcam, {"mode": "scene"})
@@ -547,6 +551,7 @@ func test_interpreter_vcamera_scene_mode_clears_runtime_targets_when_editor_empt
 	assert_object(follow.target).is_null()
 	assert_str(String(look_at.look_at_target)).is_equal("")
 	assert_bool(vcam.global_transform.origin.distance_to(scene_tx.origin) < 0.001).is_true()
+	assert_bool(look_at.transform.origin.distance_to(scene_look_tx.origin) < 0.001).is_true()
 
 	host.queue_free()
 

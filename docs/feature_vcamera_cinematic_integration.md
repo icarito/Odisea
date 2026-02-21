@@ -259,3 +259,34 @@ SECTION "Intro"
 1. **VCameraBrain vs Player Camera Hierarchy**: Hybrid mode chosen (separate VCameraBrain)
 2. **Follow Target Resolution**: Both NodePath and runtime OYS override supported
 3. **Replay Determinism**: Need deterministic Shake seeds for replays
+
+---
+
+## 9. Post-Integration Fixes (2026-02-21)
+
+### Scene Mode Restore (`mode="scene"`)
+
+- `VCAMERA`/`VCAMERA_BLEND` in `mode="scene"` now restores editor defaults without requiring `follow="none"` or `look_at="none"` in script.
+- Runtime overrides for `Follow`/`LookAt` are isolated per interpreter run (`_vcam_scene_defaults` reset on parse).
+- Added strict restore of cached scene transforms for:
+  - `VCamera` global transform
+  - `Follow` transform
+  - `LookAt` transform
+- `LookAt.rotation_internal` is reset during scene restore to prevent sticky orientation between blends.
+
+### VCamera System Defaults
+
+- `VCameraSystemRig.bind_lookat_target` default changed to `false`.
+- Scene metadata capture added for `scene_follow_transform` and `scene_look_at_transform`.
+
+### Debugging Improvements
+
+- Extended OYS VCAM debug output to include requested/active `follow` and `look_at` values:
+  - `req_follow`, `req_look`, `active_follow`, `active_look`
+- This allows distinguishing target-binding bugs from pose/transition issues in logs.
+
+### Intro Shake Tuning
+
+- `core_v2/scripts/intro.oys` shake magnitude was restored to pre-VCamera values:
+  - Equivalent to `amp=0.25`, `rot=5.0`, `freq=16`
+  - Applied through unified `VCAMERA_SHAKE` syntax.

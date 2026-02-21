@@ -36,6 +36,8 @@ func parse(script_content: String):
 	instructions.clear()
 	sections.clear()
 	section_names.clear()
+	_node_cache.clear()
+	_vcam_scene_defaults.clear()
 	pc = 0
 
 	var lines = OYS_Parser.preprocess(script_content)
@@ -1519,14 +1521,14 @@ func _cache_vcamera_scene_defaults(vcam: Node) -> void:
 	if not is_instance_valid(vcam):
 		return
 	var key := vcam.get_instance_id()
-	if _vcam_scene_defaults.has(key):
-		return
-
-	var data := {
+	var has_existing := _vcam_scene_defaults.has(key)
+	var data := _vcam_scene_defaults.get(key, {
 		"follow_target_path": NodePath(""),
 		"look_at_target": NodePath(""),
-		"vcam_transform": null
-	}
+		"vcam_transform": null,
+		"follow_transform": null,
+		"look_at_transform": null
+	})
 
 	var has_scene_follow_meta := vcam.has_meta("scene_follow_target_path")
 	if has_scene_follow_meta:
@@ -1535,8 +1537,12 @@ func _cache_vcamera_scene_defaults(vcam: Node) -> void:
 	var follow_mod = vcam.get_node_or_null("Follow")
 	if follow_mod and "target_path" in follow_mod:
 		# Strictly preserve the editor scene value (target_path), never infer from runtime target.
-		if not has_scene_follow_meta:
+		if not has_scene_follow_meta and not has_existing:
 			data["follow_target_path"] = follow_mod.target_path
+	if vcam.has_meta("scene_follow_transform"):
+		data["follow_transform"] = vcam.get_meta("scene_follow_transform")
+	elif follow_mod and follow_mod is Spatial and not has_existing:
+		data["follow_transform"] = (follow_mod as Spatial).transform
 
 	var has_scene_look_meta := vcam.has_meta("scene_look_at_target")
 	if has_scene_look_meta:
@@ -1544,13 +1550,17 @@ func _cache_vcamera_scene_defaults(vcam: Node) -> void:
 
 	var look_mod = vcam.get_node_or_null("LookAt")
 	if look_mod and "look_at_target" in look_mod:
-		if not has_scene_look_meta:
+		if not has_scene_look_meta and not has_existing:
 			data["look_at_target"] = look_mod.look_at_target
+	if vcam.has_meta("scene_look_at_transform"):
+		data["look_at_transform"] = vcam.get_meta("scene_look_at_transform")
+	elif look_mod and look_mod is Spatial and not has_existing:
+		data["look_at_transform"] = (look_mod as Spatial).transform
 
 	if vcam is Spatial:
 		if vcam.has_meta("scene_vcam_transform"):
 			data["vcam_transform"] = vcam.get_meta("scene_vcam_transform")
-		else:
+		elif not has_existing:
 			data["vcam_transform"] = (vcam as Spatial).global_transform
 
 	_vcam_scene_defaults[key] = data
@@ -1572,10 +1582,16 @@ func _restore_vcamera_scene_defaults(vcam: Node) -> void:
 		if String(follow_path) != "":
 			restored_follow_target = follow_mod.get_node_or_null(follow_path)
 		follow_mod.target = restored_follow_target
+		if follow_mod is Spatial and data.get("follow_transform", null) != null:
+			(follow_mod as Spatial).transform = data["follow_transform"]
 
 	var look_mod = vcam.get_node_or_null("LookAt")
 	if look_mod and "look_at_target" in look_mod:
 		look_mod.look_at_target = data.get("look_at_target", NodePath(""))
+		if look_mod is Spatial and data.get("look_at_transform", null) != null:
+			(look_mod as Spatial).transform = data["look_at_transform"]
+		if look_mod is Spatial and "rotation_internal" in look_mod:
+			look_mod.rotation_internal = Quat((look_mod as Spatial).global_transform.basis)
 
 	if vcam is Spatial and data.has("vcam_transform") and data["vcam_transform"] != null:
 		(vcam as Spatial).global_transform = data["vcam_transform"]
@@ -1587,6 +1603,30 @@ func _node_pos_dbg(node: Node) -> String:
 		var p: Vector3 = (node as Spatial).global_transform.origin
 		return "(%.2f, %.2f, %.2f)" % [p.x, p.y, p.z]
 	return "<non-spatial>"
+
+func _vcam_follow_dbg(vcam: Node) -> String:
+	if not is_instance_valid(vcam):
+		return "<none>"
+	var follow = vcam.get_node_or_null("Follow")
+	if not follow:
+		return "<no_follow>"
+	if "target" in follow:
+		var t = follow.target
+		if is_instance_valid(t):
+			return t.name
+	if "target_path" in follow:
+		return String(follow.target_path)
+	return "<empty>"
+
+func _vcam_look_dbg(vcam: Node) -> String:
+	if not is_instance_valid(vcam):
+		return "<none>"
+	var look_mod = vcam.get_node_or_null("LookAt")
+	if not look_mod:
+		return "<no_lookat>"
+	if "look_at_target" in look_mod:
+		return String(look_mod.look_at_target)
+	return "<empty>"
 
 func _log_vcamera_debug(manager: Node, label: String, requested_vcam: Node = null) -> void:
 	if not manager or not is_instance_valid(manager):
@@ -1601,14 +1641,18 @@ func _log_vcamera_debug(manager: Node, label: String, requested_vcam: Node = nul
 	var state := -1
 	if manager.has_method("get"):
 		state = int(manager.get("_current_state"))
-	print("[OYS][VCAM_DEBUG] %s state=%d player=%s requested=%s req_pos=%s active_vcam=%s active_vcam_pos=%s active_cam=%s active_cam_pos=%s" % [
+	print("[OYS][VCAM_DEBUG] %s state=%d player=%s requested=%s req_pos=%s req_follow=%s req_look=%s active_vcam=%s active_vcam_pos=%s active_follow=%s active_look=%s active_cam=%s active_cam_pos=%s" % [
 		label,
 		state,
 		_node_pos_dbg(player),
 		requested_vcam.name if is_instance_valid(requested_vcam) else "<none>",
 		_node_pos_dbg(requested_vcam),
+		_vcam_follow_dbg(requested_vcam),
+		_vcam_look_dbg(requested_vcam),
 		active_vcam.name if is_instance_valid(active_vcam) else "<none>",
 		_node_pos_dbg(active_vcam),
+		_vcam_follow_dbg(active_vcam),
+		_vcam_look_dbg(active_vcam),
 		active_cam.name if is_instance_valid(active_cam) else "<none>",
 		_node_pos_dbg(active_cam)
 	])

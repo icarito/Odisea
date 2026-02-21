@@ -2000,7 +2000,6 @@ material_override = SubResource( 1987 )
 cast_shadow = 0
 
 [node name="VCameraSystem" parent="." instance=ExtResource( 48 )]
-bind_follow_target = false
 bind_lookat_target = false
 
 [node name="IntroFar" parent="VCameraSystem/VCameras" index="0"]

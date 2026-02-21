@@ -14,8 +14,8 @@ SECTION "Intro"
     PRINT "Elías, despierta..."
     PLAY_ANIM "Confused"
     
-    # Add subtle camera shake for disorientation
-    VCAMERA_SHAKE translation="(0.08, 0.05, 0.03)" rotation="(0, 0, 1.5)" intensity=0.6
+    # Restore legacy shake magnitude (pre-VCamera integration): amp=0.25, rot=5.0, freq=16
+    VCAMERA_SHAKE translation="(0.25, 0.25, 0.0)" rotation="(0, 0, 5.0)" intensity=1.0 duration=1.0 frequency=16
     
     WAIT 1.0
     
@@ -28,8 +28,8 @@ SECTION "Intro"
     PRINT "Algo está mal..."
     PLAY_SOUND "ExplosionMini"
     
-    # Stronger shake for impact
-    VCAMERA_SHAKE translation="(0.15, 0.12, 0.08)" rotation="(0, 0, 3.0)" intensity=0.85  
+    # Keep the same legacy shake magnitude for the impact beat
+    VCAMERA_SHAKE translation="(0.25, 0.25, 0.0)" rotation="(0, 0, 5.0)" intensity=1.0 duration=1.0 frequency=16
     
     WAIT 1.0
     

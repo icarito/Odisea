@@ -3,7 +3,7 @@ class_name VCameraSystemRig
 
 export(float, 0.05, 2.0) var rebind_interval := 0.25
 export(bool) var bind_follow_target := false
-export(bool) var bind_lookat_target := true
+export(bool) var bind_lookat_target := false
 export(bool) var log_bind_debug := true
 
 var _player: Spatial = null
@@ -38,6 +38,8 @@ func _try_bind_targets() -> void:
 		var follow = vcam.get_node_or_null("Follow")
 		if follow and "target_path" in follow and not vcam.has_meta("scene_follow_target_path"):
 			vcam.set_meta("scene_follow_target_path", follow.target_path)
+		if follow and follow is Spatial and not vcam.has_meta("scene_follow_transform"):
+			vcam.set_meta("scene_follow_transform", (follow as Spatial).transform)
 		if follow and "target" in follow:
 			if bind_follow_target:
 				follow.target = _player
@@ -47,6 +49,8 @@ func _try_bind_targets() -> void:
 		var look_at = vcam.get_node_or_null("LookAt")
 		if look_at and "look_at_target" in look_at and not vcam.has_meta("scene_look_at_target"):
 			vcam.set_meta("scene_look_at_target", look_at.look_at_target)
+		if look_at and look_at is Spatial and not vcam.has_meta("scene_look_at_transform"):
+			vcam.set_meta("scene_look_at_transform", (look_at as Spatial).transform)
 		if look_at and "look_at_target" in look_at:
 			if bind_lookat_target:
 				look_at.look_at_target = player_path
