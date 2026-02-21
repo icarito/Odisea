@@ -47,6 +47,7 @@
 [ext_resource path="res://core_v2/props/EmergencyBeaconV2.tscn" type="PackedScene" id=45]
 [ext_resource path="res://core_v2/props/Lever.tscn" type="PackedScene" id=46]
 [ext_resource path="res://assets/sfx/explodemini.wav" type="AudioStream" id=47]
+[ext_resource path="res://core_v2/camera/VCameraSystem.tscn" type="PackedScene" id=48]
 
 [sub_resource type="BoxShape" id=2441]
 extents = Vector3( 10, 17, 4.95 )
@@ -1965,6 +1966,11 @@ debug_render = false
 zone_extents = Vector3( 1, 0.5, 1 )
 script_file = "res://core_v2/scripts/intro.oys"
 center_player_on_enter = true
+
+[node name="VCameraSystem" parent="." instance=ExtResource( 48 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
+
+[node name="VCameraSystem" parent="CrioPod START" instance=ExtResource( 48 )]
 
 [node name="_ZoneDebugMesh2" type="MeshInstance" parent="CrioPod START/CinematicSequence"]
 visible = false
