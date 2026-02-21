@@ -1522,7 +1522,7 @@ func _cache_vcamera_scene_defaults(vcam: Node) -> void:
 		return
 	var key := vcam.get_instance_id()
 	var has_existing := _vcam_scene_defaults.has(key)
-	var data := _vcam_scene_defaults.get(key, {
+	var data: Dictionary = _vcam_scene_defaults.get(key, {
 		"follow_target_path": NodePath(""),
 		"look_at_target": NodePath(""),
 		"vcam_transform": null,

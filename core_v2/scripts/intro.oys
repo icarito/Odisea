@@ -6,7 +6,6 @@ SECTION "Intro"
     CINEMATIC
     
     # VCamera: Start with far dramatic establishing shot
-    PRINT "[VCAM] goto IntroFar"
     VCAMERA name="IntroFar" duration=1.4 mode="scene"
 
     WAIT 1.4
@@ -20,7 +19,6 @@ SECTION "Intro"
     WAIT 1.0
     
     # Push in closer - transitioning to medium shot
-    PRINT "[VCAM] blend IntroClose"
     VCAMERA_BLEND name="IntroClose" duration=0.9 mode="scene"
 
     WAIT 0.6
@@ -38,7 +36,6 @@ SECTION "Intro"
     WAIT_ANIM "Confused"
     
     # Final intimate close-up
-    PRINT "[VCAM] blend IntroFinal"
     VCAMERA_BLEND name="IntroFinal" duration=1.1 mode="scene"
 
     WAIT 1.1
@@ -50,7 +47,6 @@ SECTION "Intro"
     WAIT 0.5
     
     # Return control to player camera
-    PRINT "[VCAM] return"
     VCAMERA_RETURN duration=0.8
     
     INTERACTIVE

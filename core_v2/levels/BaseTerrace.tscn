@@ -1906,7 +1906,7 @@ fade_out_time = null
 [node name="Tween3" type="Tween" parent="CrioPod START/RotatingObjectV2/SFX Open sound" index="2"]
 
 [node name="Smoke" parent="CrioPod START" index="2"]
-skeleton = NodePath("../../Building/QodotMap/entity_0_worldspawn/entity_0_brush_3_collision_shape")
+is_active = true
 
 [node name="Pilot" parent="CrioPod START" instance=ExtResource( 2 )]
 transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0.000200272, 0.721707, -0.123402 )
@@ -2000,7 +2000,6 @@ material_override = SubResource( 1987 )
 cast_shadow = 0
 
 [node name="VCameraSystem" parent="." instance=ExtResource( 48 )]
-bind_lookat_target = false
 
 [node name="IntroFar" parent="VCameraSystem/VCameras" index="0"]
 transform = Transform( -0.767501, 0.00588502, -0.641021, -4.01284e-10, 0.999958, 0.00918031, 0.641048, 0.00704589, -0.767468, -49.9046, 43.3333, -19.5523 )
