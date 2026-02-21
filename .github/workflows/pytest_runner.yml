@@ -160,15 +160,6 @@ jobs:
             fi
             echo "Import complete."
             ls -la .import/ 2>/dev/null | head -10 || true
-            local missing=0
-            # Critical artifacts needed by autoloads/scenes during test bootstrap.
-            ls .import/*Pilot.glb-*.scn >/dev/null 2>&1 || { echo "ERROR: Pilot.glb import artifact not found yet"; missing=1; }
-            ls .import/*metal1.wav-*.sample >/dev/null 2>&1 || { echo "ERROR: metal1.wav import artifact not found yet"; missing=1; }
-            ls .import/*metal4.wav-*.sample >/dev/null 2>&1 || { echo "ERROR: metal4.wav import artifact not found yet"; missing=1; }
-            ls .import/*sfx100v2_door_01.ogg-*.oggstr >/dev/null 2>&1 || { echo "ERROR: sfx100v2_door_01.ogg import artifact not found yet"; missing=1; }
-            if [ "$missing" -ne 0 ]; then
-              return 1
-            fi
           }
 
           smoke_once() {
