@@ -33,6 +33,8 @@ func _try_bind_targets() -> void:
 
 	for vcam in $VCameras.get_children():
 		var follow = vcam.get_node_or_null("Follow")
+		if follow and "target_path" in follow and not vcam.has_meta("scene_follow_target_path"):
+			vcam.set_meta("scene_follow_target_path", follow.target_path)
 		if follow and "target" in follow:
 			if bind_follow_target:
 				follow.target = _player
@@ -40,6 +42,8 @@ func _try_bind_targets() -> void:
 				follow.target = null
 
 		var look_at = vcam.get_node_or_null("LookAt")
+		if look_at and "look_at_target" in look_at and not vcam.has_meta("scene_look_at_target"):
+			vcam.set_meta("scene_look_at_target", look_at.look_at_target)
 		if look_at and "look_at_target" in look_at:
 			if bind_lookat_target:
 				look_at.look_at_target = player_path

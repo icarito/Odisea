@@ -473,6 +473,40 @@ func test_interpreter_vcamera_applies_follow_and_look_at_targets():
 
 	host.queue_free()
 
+func test_interpreter_vcamera_scene_mode_clears_runtime_targets_when_editor_empty():
+	var host = MockHost.new()
+	add_child(host)
+
+	var pilot = Spatial.new()
+	pilot.name = "Pilot"
+	pilot.add_to_group("player")
+	host.add_child(pilot)
+
+	var vcam = Spatial.new()
+	vcam.name = "IntroScene"
+	vcam.set_meta("scene_follow_target_path", NodePath(""))
+	vcam.set_meta("scene_look_at_target", NodePath(""))
+
+	var follow = VCameraFollow.new()
+	follow.name = "Follow"
+	follow.target = pilot
+	vcam.add_child(follow)
+
+	var look_at = VCameraLookAt.new()
+	look_at.name = "LookAt"
+	look_at.look_at_target = NodePath("../../Pilot")
+	vcam.add_child(look_at)
+
+	host.add_child(vcam)
+
+	var interpreter = OYS_Interpreter.new(host)
+	interpreter._configure_vcamera_targets(vcam, {"mode": "scene"})
+
+	assert_object(follow.target).is_null()
+	assert_str(String(look_at.look_at_target)).is_equal("")
+
+	host.queue_free()
+
 func test_interpreter_print_calls_subtitle():
 	var host = MockHost.new()
 	add_child(host)

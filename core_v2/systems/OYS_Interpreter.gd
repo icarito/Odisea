@@ -1526,18 +1526,24 @@ func _cache_vcamera_scene_defaults(vcam: Node) -> void:
 		"look_at_target": NodePath("")
 	}
 
+	var has_scene_follow_meta := vcam.has_meta("scene_follow_target_path")
+	if has_scene_follow_meta:
+		data["follow_target_path"] = vcam.get_meta("scene_follow_target_path")
+
 	var follow_mod = vcam.get_node_or_null("Follow")
 	if follow_mod and "target_path" in follow_mod:
-		var follow_path: NodePath = follow_mod.target_path
-		if String(follow_path) == "" and "target" in follow_mod:
-			var runtime_target = follow_mod.target
-			if runtime_target and runtime_target is Node and runtime_target.is_inside_tree():
-				follow_path = follow_mod.get_path_to(runtime_target)
-		data["follow_target_path"] = follow_path
+		# Strictly preserve the editor scene value (target_path), never infer from runtime target.
+		if not has_scene_follow_meta:
+			data["follow_target_path"] = follow_mod.target_path
+
+	var has_scene_look_meta := vcam.has_meta("scene_look_at_target")
+	if has_scene_look_meta:
+		data["look_at_target"] = vcam.get_meta("scene_look_at_target")
 
 	var look_mod = vcam.get_node_or_null("LookAt")
 	if look_mod and "look_at_target" in look_mod:
-		data["look_at_target"] = look_mod.look_at_target
+		if not has_scene_look_meta:
+			data["look_at_target"] = look_mod.look_at_target
 
 	_vcam_scene_defaults[key] = data
 
