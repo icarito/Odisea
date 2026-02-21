@@ -761,7 +761,20 @@ func _handle_vcam_request(vcam: Node, payload: Dictionary, duration: float) -> v
 	
 	_vcam_active_camera = vcam
 	
+	# Initialize VCameraBrain position from old camera for smooth transition
+	if old_cam and is_instance_valid(old_cam):
+		_vcam_brain.global_transform = old_cam.global_transform
+		_vcam_brain.fov = old_cam.fov
+	else:
+		# Snap to VCamera position immediately if no old camera
+		_vcam_brain.global_transform = vcam.global_transform
+		_vcam_brain.fov = vcam.fov
+	
 	_vcam_brain.current = true
+	
+	# Reset VCameraBrain transition state so it blends from current position
+	_vcam_brain.transition_time = 0.0
+	_vcam_brain.last_active_vcamera = null
 	
 	_log_transition("vcam_activate", {
 		"vcam": vcam.name,
