@@ -6,6 +6,7 @@ extends Node
 
 const LOG_FILE_PATH := "user://performance_log.json"
 const SNAPSHOT_FILE_PATH := "user://performance_snapshots.json"
+const CAPTURE_FILE_PATH := "user://performance_captures.json"
 const LAG_SPIKE_THRESHOLD_FPS := 20.0
 const CPU_BUDGET_MS := 16.6
 const LOG_TRIGGER_PERCENT := 0.70 # 70% of CPU Budget
@@ -26,6 +27,10 @@ var _node_profiling_accumulators := {} # { node_ref: accumulated_usec }
 var _node_profiling_calls := {} # { node_ref: call_count }
 var _node_measurement_start := {} # { node_ref: start_usec }
 var _suppress_runtime_logs := false
+var _capture_active := false
+var _capture_tag := ""
+var _capture_start_usec := 0
+var _capture_samples := []
 
 # --- Signals ---
 signal lag_spike_detected(fps, drop)
@@ -55,6 +60,15 @@ func _process(delta):
 	var node_count = 0
 	if Performance.get("OBJECT_NODE_COUNT") != null:
 		node_count = Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
+
+	if _capture_active:
+		_capture_samples.append({
+			"fps": fps,
+			"process_ms": process_time * 1000.0,
+			"physics_ms": physics_time * 1000.0,
+			"draw_calls": draw_calls,
+			"node_count": node_count
+		})
 
 	# 2. Lag Spike Detection
 	if _last_fps - fps > LAG_SPIKE_THRESHOLD_FPS:
@@ -172,6 +186,8 @@ func _exit_tree():
 	_node_profiling_accumulators.clear()
 	_node_profiling_calls.clear()
 	_node_measurement_start.clear()
+	_capture_active = false
+	_capture_samples.clear()
 
 # --- Debug Actions ---
 
@@ -287,6 +303,130 @@ func _save_report(data: Dictionary):
 	file.store_string(JSON.print(data, "  "))
 	file.close()
 	print("[PerformanceMonitor] Report saved to ", LOG_FILE_PATH)
+
+func start_capture(tag: String = "capture") -> void:
+	_capture_active = true
+	_capture_tag = tag
+	_capture_start_usec = OS.get_ticks_usec()
+	_capture_samples.clear()
+
+func stop_capture(extra_tag: String = "") -> Dictionary:
+	if not _capture_active:
+		return {}
+
+	var final_tag := _capture_tag
+	if extra_tag != "":
+		final_tag = extra_tag
+
+	var elapsed_sec := max(0.0, float(OS.get_ticks_usec() - _capture_start_usec) / 1000000.0)
+	var summary := _build_capture_summary(final_tag, elapsed_sec, _capture_samples)
+	_capture_active = false
+	_capture_tag = ""
+	_capture_samples.clear()
+	_append_capture_summary(summary)
+
+	print("[PerformanceMonitor][CAPTURE] ", JSON.print(summary))
+	return summary
+
+func _build_capture_summary(tag: String, duration_sec: float, samples: Array) -> Dictionary:
+	if samples.empty():
+		return {
+			"tag": tag,
+			"timestamp": OS.get_unix_time(),
+			"duration_sec": duration_sec,
+			"sample_count": 0
+		}
+
+	var fps_values := []
+	var process_values := []
+	var physics_values := []
+	var draw_values := []
+	var node_values := []
+
+	var sum_fps := 0.0
+	var sum_process := 0.0
+	var sum_physics := 0.0
+	var sum_draw := 0.0
+	var sum_nodes := 0.0
+	var frames_lt_30 := 0
+	var frames_lt_50 := 0
+
+	for sample in samples:
+		var fps := float(sample.get("fps", 0.0))
+		var process_ms := float(sample.get("process_ms", 0.0))
+		var physics_ms := float(sample.get("physics_ms", 0.0))
+		var draw_calls := int(sample.get("draw_calls", 0))
+		var node_count := int(sample.get("node_count", 0))
+
+		fps_values.append(fps)
+		process_values.append(process_ms)
+		physics_values.append(physics_ms)
+		draw_values.append(draw_calls)
+		node_values.append(node_count)
+
+		sum_fps += fps
+		sum_process += process_ms
+		sum_physics += physics_ms
+		sum_draw += draw_calls
+		sum_nodes += node_count
+		if fps < 30.0:
+			frames_lt_30 += 1
+		if fps < 50.0:
+			frames_lt_50 += 1
+
+	fps_values.sort()
+	process_values.sort()
+	physics_values.sort()
+	draw_values.sort()
+	node_values.sort()
+
+	var count := float(samples.size())
+	return {
+		"tag": tag,
+		"timestamp": OS.get_unix_time(),
+		"duration_sec": duration_sec,
+		"sample_count": samples.size(),
+		"avg_fps": sum_fps / count,
+		"min_fps": float(fps_values[0]),
+		"p1_fps": _percentile(fps_values, 1.0),
+		"p5_fps": _percentile(fps_values, 5.0),
+		"avg_process_ms": sum_process / count,
+		"p95_process_ms": _percentile(process_values, 95.0),
+		"avg_physics_ms": sum_physics / count,
+		"p95_physics_ms": _percentile(physics_values, 95.0),
+		"avg_draw_calls": sum_draw / count,
+		"p95_draw_calls": _percentile(draw_values, 95.0),
+		"avg_node_count": sum_nodes / count,
+		"max_node_count": int(node_values[node_values.size() - 1]),
+		"frames_lt_30": frames_lt_30,
+		"frames_lt_50": frames_lt_50
+	}
+
+func _percentile(sorted_values: Array, percentile: float) -> float:
+	if sorted_values.empty():
+		return 0.0
+	var p := clamp(percentile, 0.0, 100.0) / 100.0
+	var idx := int(round((sorted_values.size() - 1) * p))
+	return float(sorted_values[idx])
+
+func _append_capture_summary(entry: Dictionary) -> void:
+	var data := []
+	var file := File.new()
+	if file.file_exists(CAPTURE_FILE_PATH):
+		if file.open(CAPTURE_FILE_PATH, File.READ) == OK:
+			var content := file.get_as_text()
+			file.close()
+			var parsed := JSON.parse(content)
+			if parsed.error == OK and typeof(parsed.result) == TYPE_ARRAY:
+				data = parsed.result
+
+	data.append(entry)
+
+	if file.open(CAPTURE_FILE_PATH, File.WRITE) != OK:
+		printerr("[PerformanceMonitor] Failed to write capture file: ", CAPTURE_FILE_PATH)
+		return
+	file.store_string(JSON.print(data, "  "))
+	file.close()
 
 func scan_scene():
 	# Helper to find relevant nodes in the current scene and register them

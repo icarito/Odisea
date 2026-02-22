@@ -255,6 +255,20 @@ func _ensure_anna_bridge_enabled(reason: String = "") -> Node:
 	add_child(bridge)
 	return bridge
 
+func perf_capture_start(tag: String = "default") -> void:
+	var pm = get_node_or_null("/root/PerformanceMonitor")
+	if pm and pm.has_method("start_capture"):
+		pm.start_capture(tag)
+		return
+	printerr("[SessionManager] PerformanceMonitor not available for perf_capture_start().")
+
+func perf_capture_stop(tag: String = "") -> Dictionary:
+	var pm = get_node_or_null("/root/PerformanceMonitor")
+	if pm and pm.has_method("stop_capture"):
+		return pm.stop_capture(tag)
+	printerr("[SessionManager] PerformanceMonitor not available for perf_capture_stop().")
+	return {}
+
 func _script_requires_anna(script_content: String) -> bool:
 	for raw_line in script_content.split("\n"):
 		var line = raw_line.strip_edges()
@@ -325,6 +339,9 @@ func _on_tree_changed_for_script(script_path: String):
 	yield (get_tree(), "idle_frame")
 	
 	print("[SessionManager] Running script: ", script_path)
+	var scripted_player = null
+	var restore_replay_mode := false
+	var restore_hardware_input := true
 	
 	var file = File.new()
 	if not file.file_exists(script_path):
@@ -349,6 +366,16 @@ func _on_tree_changed_for_script(script_path: String):
 				yield (get_tree(), "idle_frame")
 				yield (get_tree(), "idle_frame")
 			break
+
+	_find_player()
+	scripted_player = player
+	if is_instance_valid(scripted_player):
+		restore_replay_mode = scripted_player.is_replay_mode
+		if "input_provider" in scripted_player and is_instance_valid(scripted_player.input_provider):
+			restore_hardware_input = scripted_player.input_provider.hardware_input_enabled
+			scripted_player.input_provider.hardware_input_enabled = false
+		# Ensure OYS scripted mouse_delta can rotate camera even when mouse isn't captured.
+		scripted_player.is_replay_mode = true
 	
 	var OYS_Interpreter = load("res://core_v2/systems/OYS_Interpreter.gd")
 	var interpreter = OYS_Interpreter.new(self) # Use SessionManager as host
@@ -361,6 +388,11 @@ func _on_tree_changed_for_script(script_path: String):
 	var run_state = interpreter.run()
 	if run_state is GDScriptFunctionState:
 		yield (run_state, "completed")
+	
+	if is_instance_valid(scripted_player):
+		scripted_player.is_replay_mode = restore_replay_mode
+		if "input_provider" in scripted_player and is_instance_valid(scripted_player.input_provider):
+			scripted_player.input_provider.hardware_input_enabled = restore_hardware_input
 	
 	print("[SessionManager] Script finished.")
 	get_tree().quit(0)

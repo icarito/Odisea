@@ -1,0 +1,58 @@
+# Warmup A/B benchmark scenario for BaseTerrace.
+# Run with:
+#   OYS_AUTO_RUN=res://core_v2/tests/perf/warmup_ab_base_terrace.oys godot3-bin --no-window
+
+LEVEL res://core_v2/levels/BaseTerrace.tscn
+
+SECTION "WarmupAB"
+
+WAIT 0.5
+INTERACT
+
+BW 3m 
+RIGHT 15m
+WAIT 2
+RIGHT 20m
+WAIT 1
+RIGHT 10m
+FW 3m
+WALK RIGHT 20m
+
+# Phase 1: cryopod room traversal.
+TELEPORT (0.56, 1.05, -23.64)
+WAIT 0.5
+
+CALL perf_capture_start "warmup_ab_base_terrace"
+
+LOOK -12
+BW 2.2
+RIGHT 75
+FW 3.0
+RIGHT 20
+LOOK 14
+LEFT 130
+FW 2.8
+LEFT 2.4m
+JUMP 0.5
+BW 1.6
+RIGHT 150
+FW 3.4
+RIGHT 2.0m
+LEFT 55
+FW 2.6
+LOOK -8
+LEFT 1.6m
+
+# Phase 3: return to cryopods for another short pass.
+TELEPORT (1.2, 1.05, -22.8)
+FW 2.6
+RIGHT 1.6m
+LOOK -10
+LEFT 1.6m
+RIGHT 85
+FW 2.0
+
+WAIT 1.4
+
+CALL perf_capture_stop "warmup_ab_base_terrace"
+WAIT 0.2
