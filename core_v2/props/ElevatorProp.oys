@@ -1,0 +1,21 @@
+LEVEL res://core_v2/scenes/PropStage.tscn
+LOAD_PROP res://core_v2/props/ElevatorProp.tscn
+WAIT 1.0
+SCREENSHOT 0_idle
+
+# Simulate input signal on Input_Floor1 (child of Prop)
+# Note: Since there's no OLCS wiring in this isolated test, we can try calling the controller method directly OR interact with the internal button.
+
+# 1. Interact with internal button (it is a child of the prop)
+INTERACT Platform/Button_Internal
+WAIT 2.0
+SCREENSHOT 1_active
+
+# 2. Reset (PropStage reload?) or try another floor via script call?
+# Let's try calling _on_floor_request directly to simulate external input
+# CALL _on_floor_request 1
+# CALL _on_floor_request(1)
+# OYS syntax for CALL is: CALL Method Arg1 Arg2
+CALL _on_floor_request 1
+WAIT 5.0
+SCREENSHOT 2_moved

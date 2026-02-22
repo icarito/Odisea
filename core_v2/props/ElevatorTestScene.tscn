@@ -3,6 +3,7 @@
 [ext_resource path="res://core_v2/systems/circuit/LogicCircuitManager.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/systems/circuit/CircuitGraphResource.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/props/ElevatorProp.tscn" type="PackedScene" id=3]
+[ext_resource path="res://core_v2/props/ElevatorTestScene.gd" type="Script" id=4]
 
 [sub_resource type="Resource" id=1]
 script = ExtResource( 2 )
@@ -53,6 +54,7 @@ connections = [ {
 } ]
 
 [node name="ElevatorTestScene" type="Spatial"]
+script = ExtResource( 4 )
 
 [node name="LogicCircuitManager" type="Spatial" parent="."]
 script = ExtResource( 1 )
