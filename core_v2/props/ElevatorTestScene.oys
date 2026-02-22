@@ -1,0 +1,14 @@
+wait 1.0
+screenshot 0_idle
+
+interact ElevatorProp/Button_Floor1
+wait 3.0
+screenshot 1_mid
+
+interact ElevatorProp/Platform/Button_Internal
+wait 3.0
+screenshot 2_active
+
+interact ElevatorProp/Button_Floor0
+wait 5.0
+screenshot 3_off
