@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=2]
+[gd_scene load_steps=10 format=2]
 
 [ext_resource path="res://core_v2/systems/circuit/LogicCircuitManager.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/systems/circuit/CircuitGraphResource.gd" type="Script" id=2]
@@ -11,34 +11,42 @@
 script = ExtResource( 2 )
 nodes = {
 "btn0_ext": {
+"position": Vector2( -80, -70 ),
 "scene_path": NodePath("../ElevatorProp/Button_Floor0"),
 "type": "PROP"
 },
 "btn1_ext": {
+"position": Vector2( -110, -180 ),
 "scene_path": NodePath("../Button_Floor1"),
 "type": "PROP"
 },
-"btn_int": {
-"scene_path": NodePath("../ElevatorProp/Platform/Button_Internal"),
-"type": "PROP"
-},
 "btn2_ext": {
+"position": Vector2( -120, 100 ),
 "scene_path": NodePath("../Button_Floor2"),
 "type": "PROP"
 },
+"btn_int": {
+"position": Vector2( 220, 70 ),
+"scene_path": NodePath("../ElevatorProp/Platform/Button_Internal"),
+"type": "PROP"
+},
 "in0": {
+"position": Vector2( 630, -130 ),
 "scene_path": NodePath("../ElevatorProp/Input_Floor0"),
 "type": "PROP"
 },
 "in1": {
+"position": Vector2( 230, -170 ),
 "scene_path": NodePath("../ElevatorProp/Input_Floor1"),
 "type": "PROP"
 },
 "in2": {
+"position": Vector2( 200, 200 ),
 "scene_path": NodePath("../ElevatorProp/Input_Floor2"),
 "type": "PROP"
 },
 "in_next": {
+"position": Vector2( 630, 0 ),
 "scene_path": NodePath("../ElevatorProp/Input_Next"),
 "type": "PROP"
 }
@@ -48,25 +56,25 @@ connections = [ {
 "from_port": 0,
 "to": "in0",
 "to_port": 0,
-"type": "WIRED"
+"type": "WIRELESS"
 }, {
 "from": "btn1_ext",
 "from_port": 0,
 "to": "in1",
 "to_port": 0,
-"type": "WIRED"
+"type": "WIRELESS"
 }, {
 "from": "btn2_ext",
 "from_port": 0,
 "to": "in2",
 "to_port": 0,
-"type": "WIRED"
+"type": "WIRELESS"
 }, {
 "from": "btn_int",
 "from_port": 0,
 "to": "in_next",
 "to_port": 0,
-"type": "WIRED"
+"type": "WIRELESS"
 } ]
 
 [sub_resource type="SpatialMaterial" id=2]
@@ -109,15 +117,15 @@ depth = 4.0
 material = SubResource( 3 )
 
 [node name="Button_Floor1" parent="." instance=ExtResource( 6 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 5.0, 1.0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 5, 1 )
 momentary = true
 
 [node name="Button_Floor2" parent="." instance=ExtResource( 6 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 10.0, 1.0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 10, 1 )
 momentary = true
 
 [node name="Pilot_v2" parent="." instance=ExtResource( 5 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 1.5, 7 )
+transform = Transform( -0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, -0.707107, 7, 1.5, 7 )
 
 [node name="OmniLight" type="OmniLight" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 15, 8 )

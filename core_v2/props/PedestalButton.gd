@@ -22,9 +22,7 @@ var _momentary_timer = null
 
 func interact():
     if momentary:
-        set_active(true)
-        emit_signal("interaction_started")
-        emit_signal("interaction_completed")
+        set_active(true, true)
         
         if _momentary_timer:
             _momentary_timer.disconnect("timeout", self, "_on_momentary_timeout")
@@ -35,12 +33,10 @@ func interact():
             _momentary_timer.connect("timeout", self, "_on_momentary_timeout")
     else:
         # Toggle state
-        set_active(not is_active)
-        emit_signal("interaction_started")
-        emit_signal("interaction_completed")
+        set_active(not is_active, true)
 
 func _on_momentary_timeout():
-    set_active(false)
+    set_active(false, true)
     _momentary_timer = null
 
 func _update_visuals():
