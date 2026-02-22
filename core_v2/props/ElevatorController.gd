@@ -16,13 +16,6 @@ var is_moving = false
 onready var platform = get_node(platform_path) if platform_path else null
 
 func _ready():
-    # Force local camera if it exists (for isolated prop testing)
-    if has_node("Camera"):
-        var cam = get_node("Camera")
-        if cam is Camera:
-            cam.make_current()
-            printerr("[ElevatorController] Forced local camera current.")
-
     printerr("[ElevatorController] Ready. Platform=", platform)
 
     # Auto-connect child inputs
@@ -68,5 +61,5 @@ func _on_arrived(height):
 
     # Wait at floor
     if not Engine.editor_hint:
-        yield(get_tree().create_timer(1.0), "timeout")
+        yield (get_tree().create_timer(1.0), "timeout")
         _process_queue()

@@ -43,6 +43,10 @@ func _update_visuals():
         if not mat:
             mat = SpatialMaterial.new()
             light_mesh.material = mat
+        elif not mat.resource_local_to_scene:
+            mat = mat.duplicate()
+            mat.resource_local_to_scene = true
+            light_mesh.material = mat
 
         # Ensure we are modifying a unique material instance or the shared one if intended
         # For simple props, usually we want unique instance to not affect others

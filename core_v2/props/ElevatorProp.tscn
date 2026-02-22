@@ -69,5 +69,3 @@ floor_index = 2
 
 [node name="CableAnchor" type="Position3D" parent="Input_Floor2"]
 
-[node name="Camera" type="Camera" parent="."]
-transform = Transform( 0.707107, -0.353553, 0.612372, 0, 0.866025, 0.5, -0.707107, -0.353553, 0.612372, 10, 8, 10 )
