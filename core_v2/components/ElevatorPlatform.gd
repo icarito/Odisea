@@ -29,13 +29,20 @@ func _ready():
             passenger_area.connect("body_exited", self, "_on_passenger_exited")
 
 func move_to(height: float):
+    printerr("[ElevatorPlatform] move_to called. Target=", height, " Current=", global_transform.origin.y)
     target_height = height
     is_moving = true
+    set_physics_process(true) # Ensure process is running
+
+func step(dt: float):
+    # Compatibility with SessionManager deterministic loop
+    _physics_process(dt)
 
 func _physics_process(delta: float):
-    if is_moving: printerr("[Platform] Moving... Y=", global_transform.origin.y, " Vel=", current_velocity_y)
     if not is_moving:
         return
+
+    printerr("[ElevatorPlatform] Moving... Y=", global_transform.origin.y)
 
     var current_y = global_transform.origin.y
     var diff = target_height - current_y
@@ -53,7 +60,6 @@ func _physics_process(delta: float):
         return
 
     # Calculate target speed based on braking distance
-    # v^2 = 2 * a * d => v = sqrt(2 * a * d)
     var braking_speed = sqrt(2.0 * deceleration * dist)
     var target_speed = min(speed, braking_speed)
 
@@ -66,7 +72,6 @@ func _physics_process(delta: float):
     # Prevent overshoot
     if abs(move_step) > dist:
         move_step = diff # Snap to target
-        # Next frame will catch arrival condition
 
     global_transform.origin.y += move_step
 

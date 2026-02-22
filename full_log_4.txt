@@ -1,0 +1,74 @@
+🔍 Searching for 'ElevatorProp'...
+----------------------------------------------------------------
+🚀 Validating: ElevatorProp
+🧪 OYS script: res://core_v2/props/ElevatorProp.oys
+Godot Engine v3.5.2.stable.custom_build - https://godotengine.org
+OpenGL ES 2.0 Renderer: llvmpipe (LLVM 20.1.2, 256 bits)
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5204:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5204:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5204:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5727:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+ERROR: Condition "status < 0" is true. Returned: ERR_CANT_OPEN
+   at: init_device (drivers/alsa/audio_driver_alsa.cpp:89)
+WARNING: All audio drivers failed, falling back to the dummy driver.
+     at: initialize (servers/audio_server.cpp:222)
+
+ERROR: No loader found for resource: res://addons/virtual_joystick/textures/joystick_base_outline.png.
+   at: _load (core/io/resource_loader.cpp:278)
+ERROR: res://addons/virtual_joystick/virtual_joystick.tscn:3 - Parse Error: [ext_resource] referenced nonexistent resource at: res://addons/virtual_joystick/textures/joystick_base_outline.png
+   at: poll (scene/resources/resource_format_text.cpp:412)
+ERROR: Failed to load resource 'res://addons/virtual_joystick/virtual_joystick.tscn'.
+   at: load (core/io/resource_loader.cpp:206)
+ERROR: Failed loading resource: res://addons/virtual_joystick/virtual_joystick.tscn. Make sure resources have been imported by opening the project in the editor at least once.
+   at: _load (core/io/resource_loader.cpp:270)
+ERROR: res://core_v2/ui/MobileUI.tscn:3 - Parse Error: [ext_resource] referenced nonexistent resource at: res://addons/virtual_joystick/virtual_joystick.tscn
+   at: poll (scene/resources/resource_format_text.cpp:412)
+ERROR: Failed to load resource 'res://core_v2/ui/MobileUI.tscn'.
+   at: load (core/io/resource_loader.cpp:206)
+ERROR: Failed loading resource: res://core_v2/ui/MobileUI.tscn. Make sure resources have been imported by opening the project in the editor at least once.
+   at: _load (core/io/resource_loader.cpp:270)
+SCRIPT ERROR: Parse Error: Can't preload resource at path: res://core_v2/ui/MobileUI.tscn
+          at: GDScript::reload (res://core_v2/autoloads/MobileUIManager.gd:3)
+ERROR: Script does not inherit from Node: res://core_v2/autoloads/MobileUIManager.gd
+   at: start (main/main.cpp:1921)
+ERROR: No loader found for resource: res://core_v2/audio/footsteps/metal/Step_Tile_01.wav.
+   at: _load (core/io/resource_loader.cpp:278)
+ERROR: res://core_v2/audio/footsteps/footstep_profile_default.tres:4 - Parse Error: [ext_resource] referenced nonexistent resource at: res://core_v2/audio/footsteps/metal/Step_Tile_01.wav
+   at: poll (scene/resources/resource_format_text.cpp:412)
+ERROR: Failed to load resource 'res://core_v2/audio/footsteps/footstep_profile_default.tres'.
+   at: load (core/io/resource_loader.cpp:206)
+ERROR: Failed loading resource: res://core_v2/audio/footsteps/footstep_profile_default.tres. Make sure resources have been imported by opening the project in the editor at least once.
+   at: _load (core/io/resource_loader.cpp:270)
+ERROR: res://core_v2/actors/Pilot_v2.tscn:15 - Parse Error: [ext_resource] referenced nonexistent resource at: res://core_v2/audio/footsteps/footstep_profile_default.tres
+   at: poll (scene/resources/resource_format_text.cpp:412)
+ERROR: Failed to load resource 'res://core_v2/actors/Pilot_v2.tscn'.
+   at: load (core/io/resource_loader.cpp:206)
+ERROR: Failed loading resource: res://core_v2/actors/Pilot_v2.tscn. Make sure resources have been imported by opening the project in the editor at least once.
+   at: _load (core/io/resource_loader.cpp:270)
+ERROR: res://core_v2/scenes/PropStage.tscn:5 - Parse Error: [ext_resource] referenced nonexistent resource at: res://core_v2/actors/Pilot_v2.tscn
+   at: poll (scene/resources/resource_format_text.cpp:412)
+ERROR: Failed to load resource 'res://core_v2/scenes/PropStage.tscn'.
+   at: load (core/io/resource_loader.cpp:206)
+ERROR: Failed loading resource: res://core_v2/scenes/PropStage.tscn. Make sure resources have been imported by opening the project in the editor at least once.
+   at: _load (core/io/resource_loader.cpp:270)
+ERROR: Failed loading scene: res://core_v2/scenes/PropStage.tscn
+   at: start (main/main.cpp:2107)
+ERROR: Condition "_first != nullptr" is true.
+   at: ~List (./core/self_list.h:108)
+ERROR: Condition "_first != nullptr" is true.
+   at: ~List (./core/self_list.h:108)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object.cpp:2070)
+ERROR: Resources still in use at exit (run with --verbose for details).
+   at: clear (core/resource.cpp:417)
+✅ Success: 4 screenshots generated for ElevatorProp
+  ❌ Delta idle→mid: 0.85% pixels changed (< 5.0% minimum!)
+  ❌ Delta idle→active: 0.91% pixels changed (< 5.0% minimum!)
+⚠️  DELTA ASSERTION FAILED for ElevatorProp — prop may not be visually responding
+================================================================
+⚠️  1 prop(s) had delta assertion failures.
+📁 Validation artifacts: /app/test_output/props
