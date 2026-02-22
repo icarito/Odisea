@@ -5,6 +5,7 @@
 [ext_resource path="res://core_v2/props/ElevatorProp.tscn" type="PackedScene" id=3]
 [ext_resource path="res://core_v2/tests/test_elevator.gd" type="Script" id=4]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/props/PedestalButton.tscn" type="PackedScene" id=6]
 
 [sub_resource type="Resource" id=1]
 script = ExtResource( 2 )
@@ -14,11 +15,15 @@ nodes = {
 "type": "PROP"
 },
 "btn1_ext": {
-"scene_path": NodePath("../ElevatorProp/Button_Floor1"),
+"scene_path": NodePath("../Button_Floor1"),
 "type": "PROP"
 },
 "btn_int": {
 "scene_path": NodePath("../ElevatorProp/Platform/Button_Internal"),
+"type": "PROP"
+},
+"btn2_ext": {
+"scene_path": NodePath("../Button_Floor2"),
 "type": "PROP"
 },
 "in0": {
@@ -51,7 +56,7 @@ connections = [ {
 "to_port": 0,
 "type": "WIRED"
 }, {
-"from": "btn_int",
+"from": "btn2_ext",
 "from_port": 0,
 "to": "in2",
 "to_port": 0,
@@ -102,6 +107,14 @@ width = 4.0
 height = 1.0
 depth = 4.0
 material = SubResource( 3 )
+
+[node name="Button_Floor1" parent="." instance=ExtResource( 6 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 5.0, 1.0 )
+momentary = true
+
+[node name="Button_Floor2" parent="." instance=ExtResource( 6 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 10.0, 1.0 )
+momentary = true
 
 [node name="Pilot_v2" parent="." instance=ExtResource( 5 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 1.5, 7 )

@@ -17,6 +17,6 @@ SCREENSHOT2_active
 
 # Press Floor 0
 PRINT"Triggering Floor 0..."
-INTERACTButton_Floor0
+INTERACTElevatorProp / Button_Floor0
 WAIT8.0
 SCREENSHOT3_off
