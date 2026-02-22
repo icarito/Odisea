@@ -25,7 +25,6 @@ tracks/0/keys = {
 
 [node name="LeakEmitter" type="Spatial"]
 script = ExtResource( 4 )
-timeout = 30.0
 duration = 0.0
 fadeout_time = 10.0
 

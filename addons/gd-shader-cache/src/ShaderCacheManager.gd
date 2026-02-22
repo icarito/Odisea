@@ -13,19 +13,62 @@ func _ready():
 
 func load_and_compile(cache_path):
 	var cache_packed_scene = load(cache_path)
+	if cache_packed_scene == null:
+		printerr("[ShaderCacheManager] Failed to load cache scene: ", cache_path)
+		return
 	compile(cache_packed_scene)
 
 func compile(cache_packed_scene):
+	if cache_packed_scene == null:
+		printerr("[ShaderCacheManager] compile() received null PackedScene.")
+		return
 	var cache_path = cache_packed_scene.resource_path
 	if is_compiled(cache_path):
+		print("[ShaderCacheManager] Cache already compiled: ", cache_path)
 		return
 	
 	var cache_scene = spawn_cache(cache_packed_scene)
-	cache_scene.connect("compiled", self, "_on_cache_compiled", [cache_path, cache_scene])
+	if cache_scene == null:
+		printerr("[ShaderCacheManager] Failed to instance cache scene: ", cache_path)
+		return
+	if not cache_scene.has_signal("compiled"):
+		printerr("[ShaderCacheManager] Cache scene does not expose 'compiled' signal: ", cache_path)
+		cache_scene.queue_free()
+		return
+
+	cache_scene.connect("compiled", self, "_on_cache_compiled", [cache_path, cache_scene], CONNECT_ONESHOT)
+	_prepare_cache_scene(cache_scene, cache_path)
+
+func _prepare_cache_scene(cache_scene, cache_path: String) -> void:
+	if cache_scene.has_method("cache_scene"):
+		print("[ShaderCacheManager] Building runtime shader cache: ", cache_path)
+		var state = cache_scene.cache_scene()
+		if state is GDScriptFunctionState:
+			state.connect("completed", self, "_on_cache_scene_built", [cache_scene, cache_path], CONNECT_ONESHOT)
+			return
+	_on_cache_scene_built(cache_scene, cache_path)
+
+func _on_cache_scene_built(cache_scene, cache_path: String) -> void:
+	if not is_instance_valid(cache_scene):
+		return
+	print("[ShaderCacheManager] Cache scene prepared, compiling shaders: ", cache_path)
+	if cache_scene.has_method("set_active"):
+		cache_scene.set_active(true)
+
+func _on_cache_compiled(cache_path, cache_scene):
+	camera.current = false
+	_compiled_cache_paths.append(cache_path)
+	cache_scene.queue_free()
+	print("[ShaderCacheManager] Compiled shader cache: ", cache_path)
+	emit_signal("compiled", cache_path)
 
 func spawn_cache(cache_packed_scene):
 	var cache_scene = cache_packed_scene.instance()
+	if cache_scene == null:
+		return null
 	var active_camera = get_active_camera()
+	if active_camera == null:
+		return null
 	active_camera.add_child(cache_scene)
 	cache_scene.scale = Vector3.ONE * 0.001
 	cache_scene.global_transform.origin = -active_camera.global_transform.basis.z * 5
@@ -34,12 +77,6 @@ func spawn_cache(cache_packed_scene):
 
 func is_compiled(cache_path):
 	return cache_path in _compiled_cache_paths
-
-func _on_cache_compiled(cache_path, cache_scene):
-	camera.current = false
-	_compiled_cache_paths.append(cache_path)
-	cache_scene.queue_free()
-	emit_signal("compiled", cache_path)
 
 func get_active_camera():
 	var active_camera = get_viewport().get_camera()

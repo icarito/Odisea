@@ -1,4 +1,4 @@
-[gd_scene load_steps=298 format=2]
+[gd_scene load_steps=300 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -52,6 +52,8 @@
 [ext_resource path="res://core_v2/props/scifi_lights/FluorescentLightCeiling.tscn" type="PackedScene" id=50]
 [ext_resource path="res://core_v2/props/scifi_lights/FluorescentLightFlickering.tscn" type="PackedScene" id=51]
 [ext_resource path="res://core_v2/props/SciFiLightPathV2.tscn" type="PackedScene" id=52]
+[ext_resource path="res://core_v2/levels/ShaderWarmupTrigger.gd" type="Script" id=53]
+[ext_resource path="res://scenes/common/Odisea.tscn" type="PackedScene" id=54]
 
 [sub_resource type="BoxShape" id=2458]
 extents = Vector3( 10, 17, 4.95 )
@@ -992,7 +994,7 @@ albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 
 [sub_resource type="Curve3D" id=1036]
 _data = {
-"points": PoolVector3Array( -2.10588, 4.55962, 1.931, 0, 0, 0, 3.92162, -1.14124, 13.0803, 0, 0, 0, 0, 0, 0, 5.94199, -0.329188, 8.99562 ),
+"points": PoolVector3Array( -2.10588, 4.55962, 1.931, 0, 0, 0, 3.94009, -1.57517, 13.029, 0, 0, 0, 0, 0, 0, 5.88811, -0.20236, 8.87869 ),
 "tilts": PoolRealArray( 0, 0 )
 }
 
@@ -1045,7 +1047,7 @@ rings = 2
 
 [sub_resource type="Curve3D" id=2457]
 _data = {
-"points": PoolVector3Array( -2.47921, 0.0663891, 0.122301, 2.47921, -0.0663891, -0.122301, -16.1879, 0.868152, -0.673639, -2.58588, 0.000784874, 0.00881195, 2.58588, -0.000784874, -0.00881195, -8.50773, 0.427462, -0.0117073, -4.13257, 0.693394, 0.0541382, 4.13257, -0.693394, -0.0541382, 2, 0, 0 ),
+"points": PoolVector3Array( -2.2665, 0.00199771, 0.0182552, 2.2665, -0.00199771, -0.0182552, -11.1555, 0.00567698, 0.650577, -2.73758, 0.0812924, 0.0125027, 2.73758, -0.0812924, -0.0125027, -5.97219, 0.296299, 0.105284, -3.54255, 0.248627, -0.0616093, 3.54255, -0.248627, 0.0616093, 0.897272, 3.57628e-06, 0.136089 ),
 "tilts": PoolRealArray( 0, 0, 0 )
 }
 
@@ -1741,7 +1743,7 @@ shape = SubResource( 2431 )
 [node name="entity_0_brush_200_collision_shape" type="CollisionShape" parent="Building/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 2432 )
 
-[node name="VerticalDoor" parent="Building" groups=["no_occlusion", "optional"] instance=ExtResource( 26 )]
+[node name="VerticalDoor" parent="Building" groups=["no_occlusion"] instance=ExtResource( 26 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -11.0076, 6.003, 28.6455 )
 
 [node name="OcclusionArea" type="Area" parent="Building" groups=["optional"]]
@@ -2019,12 +2021,16 @@ visible = false
 material_override = SubResource( 1987 )
 cast_shadow = 0
 
+[node name="ShaderWarmupTrigger" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 17.0368, 2.2, 33.2 )
+script = ExtResource( 53 )
+
 [node name="VCameraSystem" parent="." instance=ExtResource( 48 )]
 
 [node name="IntroFar" parent="VCameraSystem/VCameras" index="0"]
-transform = Transform( -0.767501, 0.00588502, -0.641021, -4.01284e-10, 0.999958, 0.00918031, 0.641048, 0.00704589, -0.767468, -49.9046, 43.3333, -19.5523 )
+transform = Transform( -0.798615, 0.601843, 2.63074e-08, 0, -4.37114e-08, 1, 0.601843, 0.798615, 3.49085e-08, -247.674, 2164.67, 86.789 )
 fov = 61.431
-far = 2000.0
+far = 8192.0
 
 [node name="IntroClose" parent="VCameraSystem/VCameras" index="1"]
 transform = Transform( -0.924457, -0.109434, 0.365244, -0.0427371, 0.981631, 0.185944, -0.378883, 0.156288, -0.912152, 6.15684, 8.47339, 8.85584 )
@@ -2058,7 +2064,7 @@ follow_speed = 0.5
 transition_time = 1.5
 
 [node name="PathFollow" type="PathFollow" parent="CameraZone/CinematicPathRig"]
-transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 3.92162, -1.14124, 13.0803 )
+transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 3.94009, -1.57517, 13.029 )
 rotation_mode = 0
 loop = false
 
@@ -2088,7 +2094,7 @@ follow_speed = 0.5
 transition_time = 1.5
 
 [node name="PathFollow" type="PathFollow" parent="CameraZone2/CinematicPathRig"]
-transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 3.92162, -1.14124, 13.0803 )
+transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 3.94009, -1.57517, 13.029 )
 rotation_mode = 0
 loop = false
 
@@ -2321,9 +2327,23 @@ path_length = 10.0
 [node name="Path" parent="SciFiLightPathV2" index="0"]
 curve = SubResource( 2457 )
 
+[node name="SciFiLightPathV3" parent="." instance=ExtResource( 52 )]
+transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -1.55845, 2.04237, 25.6496 )
+starts_active = true
+light_count = 4
+path_length = 10.0
+
+[node name="Path" parent="SciFiLightPathV3" index="0"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -4.2275, -4.76837e-07, 2.29713 )
+curve = SubResource( 2457 )
+
+[node name="SDE Odisea" parent="." instance=ExtResource( 54 )]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 5.96046e-08, 0 )
+
 [editable path="SideScrollZone4"]
 [editable path="InteriorWide"]
 [editable path="CrioPod START"]
 [editable path="VCameraSystem"]
 [editable path="SparkEmitterV2"]
 [editable path="SciFiLightPathV2"]
+[editable path="SciFiLightPathV3"]

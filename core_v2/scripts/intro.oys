@@ -19,7 +19,7 @@ SECTION "Intro"
     WAIT 1.0
     
     # Push in closer - transitioning to medium shot
-    VCAMERA_BLEND name="IntroClose" duration=0.9 mode="scene"
+    VCAMERA_BLEND name="IntroClose" duration=2   mode="scene"
 
     WAIT 0.6
     
@@ -28,17 +28,14 @@ SECTION "Intro"
     # Keep the same legacy shake magnitude for the impact beat
     VCAMERA_SHAKE translation="(0.25, 0.25, 0.0)" rotation="(0, 0, 5.0)" intensity=1.0 duration=1.0 frequency=16
 
-    WAIT 3.0
-
-    PRINT "Elías, despierta..."
-    
     WAIT 1.0
 
     # Final intimate close-up
     VCAMERA_BLEND name="IntroFinal" duration=1.1 mode="scene"
     
+    PRINT "Elías, despierta..."
 
-    WAIT 2.0
+    WAIT 1.0
 
     INTERACT    
 
