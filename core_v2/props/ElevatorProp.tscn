@@ -5,6 +5,7 @@
 [ext_resource path="res://core_v2/props/ElevatorLogicInput.gd" type="Script" id=3]
 [ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=4]
 [ext_resource path="res://core_v2/props/PedestalButton.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/props/PedestalButton.tscn" type="PackedScene" id=5]
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 1.5, 0.1, 1.5 )
@@ -42,10 +43,6 @@ momentary = true
 
 [node name="Button_Floor0" parent="." instance=ExtResource( 5 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0, 2.5 )
-momentary = true
-
-[node name="Button_Floor1" parent="." instance=ExtResource( 5 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 5.0, 2.5 )
 momentary = true
 
 [node name="Input_Floor0" type="Spatial" parent="."]
