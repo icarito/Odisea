@@ -14,7 +14,8 @@ func set_active(value: bool, immediate: bool = false):
     .set_active(value, immediate)
 
     # Trigger on rising edge OR if we get repeated 'true' signals as momentary presses
-    if is_active:
+    # We must trigger it even if .set_active ignored it due to is_active == value
+    if value:
         emit_signal("input_triggered", floor_index)
 
 func _update_visuals():

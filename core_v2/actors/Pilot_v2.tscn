@@ -122,13 +122,13 @@ parameters/InAir/Transition/current = 1
 parameters/Jump/Transition/current = 0
 
 [node name="InteractArea" type="Area" parent="Visual/Pivot"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.50326 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
 collision_layer = 16
 collision_mask = 255
 monitorable = false
 
 [node name="CollisionShape" type="CollisionShape" parent="Visual/Pivot/InteractArea"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -1.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0.5 )
 shape = SubResource( 120 )
 
 [node name="FakeShadow" type="MeshInstance" parent="Visual/Pivot" groups=["optional"]]

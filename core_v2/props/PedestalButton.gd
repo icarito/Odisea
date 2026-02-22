@@ -28,8 +28,8 @@ func interact():
         
         if _momentary_timer:
             _momentary_timer.disconnect("timeout", self, "_on_momentary_timeout")
-            _momentary_timer.queue_free()
-            
+            _momentary_timer = null
+
         if not Engine.editor_hint:
             _momentary_timer = get_tree().create_timer(momentary_duration)
             _momentary_timer.connect("timeout", self, "_on_momentary_timeout")
