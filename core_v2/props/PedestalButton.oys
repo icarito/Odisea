@@ -1,20 +1,19 @@
-LEVEL res://core_v2/scenes/PropStage.tscn
-LOAD_PROP res://core_v2/props/PedestalButton.tscn
-
-# Give it a moment to stabilize
-WAIT 1.0
-SCREENSHOT 0_idle
+# Validation for PedestalButton
+LOAD_PROPres: / / core_v2 / props / PedestalButton.tscn
+WAIT1.0
+SCREENSHOT0_idle
 
 # Interact to toggle state
 INTERACT
-WAIT 1.0
-SCREENSHOT 1_mid
+WAIT1.0
+SCREENSHOT1_mid
 
-# Interact again (it's toggle)
+# Interact again
 INTERACT
-WAIT 1.0
-SCREENSHOT 2_active
+WAIT1.0
+SCREENSHOT2_active
 
+# Final state
 INTERACT
-WAIT 1.0
-SCREENSHOT 3_off
+WAIT1.0
+SCREENSHOT3_off

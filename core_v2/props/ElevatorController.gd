@@ -6,46 +6,62 @@ tool
 # Manages elevator logic, queueing requests, and commanding the platform.
 
 export(NodePath) var platform_path
-export(float) var floor_height_step = 5.0
+export(NodePath) var floors_path = NodePath("Floors")
 
 var requests = []
 var current_floor = 0
 var target_floor = -1
 var is_moving = false
+var floor_nodes = {}
 
 onready var platform = get_node(platform_path) if platform_path else null
+onready var floors_container = get_node(floors_path) if floors_path else null
 
 func _ready():
-    printerr("[ElevatorController] Ready. Platform=", platform)
+    # Discover and connect floor inputs
+    if floors_container:
+        for floor_node in floors_container.get_children():
+            var f_idx = _find_floor_input(floor_node)
+            if f_idx != -1:
+                floor_nodes[f_idx] = floor_node
 
-    # Auto-connect child inputs
-    for child in get_children():
-        if child.has_signal("input_triggered"):
-            if not child.is_connected("input_triggered", self, "_on_floor_request"):
-                child.connect("input_triggered", self, "_on_floor_request")
+
+    # Connect internal "next" button if present on platform
+    if platform:
+        for child in platform.get_children():
+            if child.has_signal("input_triggered") and child.get("floor_index") == -1:
+                if not child.is_connected("input_triggered", self, "_on_floor_request"):
+                    child.connect("input_triggered", self, "_on_floor_request")
+
 
     if platform:
         if not platform.is_connected("arrived_at_floor", self, "_on_arrived"):
             platform.connect("arrived_at_floor", self, "_on_arrived")
-    else:
-        printerr("[ElevatorController] Platform not found at path: ", platform_path)
+        pass
+
+func _find_floor_input(node: Node) -> int:
+    for child in node.get_children():
+        if child.has_signal("input_triggered"):
+            if not child.is_connected("input_triggered", self, "_on_floor_request"):
+                child.connect("input_triggered", self, "_on_floor_request")
+            return child.get("floor_index")
+    return -1
 
 func _on_floor_request(floor_idx):
     var actual_floor = floor_idx
     if floor_idx == -1:
         var max_f = 0
-        for child in get_children():
-            if "floor_index" in child and child.floor_index > max_f:
-                max_f = child.floor_index
+        for f in floor_nodes.keys():
+            if f > max_f:
+                max_f = f
         actual_floor = current_floor + 1
         if actual_floor > max_f:
             actual_floor = 0
             
-    printerr("[ElevatorController] Request received for floor: ", actual_floor)
+
     # Log request
     if not requests.has(actual_floor):
         if actual_floor == current_floor and not is_moving:
-            printerr("[ElevatorController] Already at floor ", actual_floor)
             # Already at floor, maybe open doors (omitted for now)
             return
 
@@ -59,15 +75,27 @@ func _process_queue():
         return
 
     target_floor = requests.pop_front()
-    printerr("[ElevatorController] Processing queue. Moving to floor: ", target_floor)
-    var h = target_floor * floor_height_step
-    platform.move_to(h)
-    is_moving = true
+    
+    if floor_nodes.has(target_floor):
+        var target_height = floor_nodes[target_floor].global_transform.origin.y
+
+        platform.move_to(target_height)
+        is_moving = true
+    else:
+        is_moving = false
+        requests.pop_front()
+        _process_queue()
 
 func _on_arrived(height):
     is_moving = false
-    current_floor = int(round(height / floor_height_step))
-    printerr("[ElevatorController] Arrived at floor: ", current_floor)
+    
+    # Identify which floor we arrived at based on height
+    current_floor = -1
+    for f_idx in floor_nodes.keys():
+        if abs(floor_nodes[f_idx].global_transform.origin.y - height) < 0.1:
+            current_floor = f_idx
+            break
+            
 
     # Wait at floor
     if not Engine.editor_hint:

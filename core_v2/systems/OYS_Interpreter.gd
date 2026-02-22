@@ -544,8 +544,18 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 
 			# Hook for custom screenshot logic (e.g. Editor PropStage)
 			var path = ""
-			if host_node.has_method("take_oys_screenshot"):
-				var result = yield (host_node.take_oys_screenshot(label, prop_name), "completed")
+			var stage = _resolve_stage()
+			var screenshot_target = host_node
+			
+			# Priority: if a specialized PropStage exists, use its logic (it knows how to frame props)
+			if stage and stage.has_method("take_oys_screenshot"):
+				screenshot_target = stage
+			elif not screenshot_target.has_method("take_oys_screenshot"):
+				# Fallback is handled below
+				pass
+
+			if screenshot_target.has_method("take_oys_screenshot"):
+				var result = yield (screenshot_target.take_oys_screenshot(label, prop_name), "completed")
 				if result and result is String:
 					path = result
 			else:
@@ -618,12 +628,12 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			if float(duration) <= 0.0 and manager.has_method("step"):
 				manager.step(0.0)
 			else:
-				yield(host_node.get_tree(), "physics_frame")
+				yield (host_node.get_tree(), "physics_frame")
 			_log_vcamera_debug(manager, "after_vcamera_%s" % vcam_name, vcam)
 
 			for _i in range(int(duration * 60.0)):
 				if stop_requested: break
-				yield(host_node.get_tree(), "physics_frame")
+				yield (host_node.get_tree(), "physics_frame")
 
 		"VCAMERA_BLEND":
 			var vcam_name = inst.get("name", "")
@@ -645,12 +655,12 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			if float(duration) <= 0.0 and manager.has_method("step"):
 				manager.step(0.0)
 			else:
-				yield(host_node.get_tree(), "physics_frame")
+				yield (host_node.get_tree(), "physics_frame")
 			_log_vcamera_debug(manager, "after_blend_%s" % vcam_name, vcam)
 
 			for _i in range(int(duration * 60.0)):
 				if stop_requested: break
-				yield(host_node.get_tree(), "physics_frame")
+				yield (host_node.get_tree(), "physics_frame")
 
 		"VCAMERA_RETURN":
 			var duration = inst.get("duration", 1.0)
@@ -662,12 +672,12 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				if float(duration) <= 0.0 and manager.has_method("step"):
 					manager.step(0.0)
 				else:
-					yield(host_node.get_tree(), "physics_frame")
+					yield (host_node.get_tree(), "physics_frame")
 				_log_vcamera_debug(manager, "after_return")
 			
 			for _i in range(int(duration * 60.0)):
 				if stop_requested: break
-				yield(host_node.get_tree(), "physics_frame")
+				yield (host_node.get_tree(), "physics_frame")
 
 		"VCAMERA_SHAKE":
 			# Kept for backwards compatibility; routed to the unified camera shake path.
@@ -1142,19 +1152,21 @@ func _execute_movement(inst: Dictionary, my_id: int):
 		
 		"INTERACT":
 			var target_name = inst.get("target", "")
+			var target_node = null
+			
 			if target_name != "":
-				# Direct interaction with a specific named prop/node
-				# This bypasses player input injection validation
-				var target_node = null
+				# Priority 1: Check if "target_name" is a path relative to the current prop
+				var prop = _resolve_prop()
+				if prop and is_instance_valid(prop):
+					target_node = prop.get_node_or_null(target_name)
 				
-				# Try resolving as prop first if it matches "prop" or similar keyword, 
-				# otherwise find by name
-				if target_name == "prop" or target_name == "current_prop":
-					target_node = _resolve_prop()
-				else:
-					# Try to find part of the prop? or just a global search
-					# For now, let's assume it's a node name in the scene
-					target_node = host_node.find_node(target_name, true, false)
+				# Priority 2: Keywords
+				if not target_node:
+					if target_name == "prop" or target_name == "current_prop":
+						target_node = prop
+					else:
+						# Priority 3: Global/Scene search via improved _resolve_node
+						target_node = _resolve_node(target_name)
 				
 				if target_node:
 					if target_node.has_method("interact"):
@@ -1165,11 +1177,20 @@ func _execute_movement(inst: Dictionary, my_id: int):
 				else:
 					print("[OYS WARNING] Could not find target '", target_name, "' for INTERACT.")
 				
-				# Wait one frame and return (no input injection)
+				# Wait one frame and return (no large-scale input injection)
 				yield (host_node.get_tree(), "physics_frame")
 				return
 			else:
-				# Default: Inject Input to Player
+				# Default: No target. In PropStage, target the prop itself.
+				var stage = _resolve_stage()
+				var prop = _resolve_prop()
+				if stage and prop and is_instance_valid(prop) and prop.has_method("interact"):
+					print("[OYS] No INTERACT target specified in PropStage. Interacting with current_prop: ", prop.name)
+					prop.interact()
+					yield (host_node.get_tree(), "physics_frame")
+					return
+				
+				# Default Fallback: Inject Input to Player
 				duration_sec = 1.0 / 60.0
 				is_interact = true
 	
@@ -1710,11 +1731,34 @@ func _resolve_node(path: String) -> Node:
 		else:
 			_node_cache.erase(path)
 
+	# 1. Try resolving relative to host
 	var node = host_node.get_node_or_null(path)
-	if not is_instance_valid(node) and host_node.is_inside_tree() and host_node.get_tree().current_scene:
-		node = host_node.get_tree().current_scene.find_node(path, true, false)
+	
+	# 2. Try resolving relative to current prop (for props validation)
+	if not is_instance_valid(node):
+		var prop = _resolve_prop()
+		if prop and is_instance_valid(prop):
+			node = prop.get_node_or_null(path)
+			
+	# 3. Try resolving relative to stage
+	if not is_instance_valid(node):
+		var stage = _resolve_stage()
+		if stage and is_instance_valid(stage):
+			node = stage.get_node_or_null(path)
+
+	# 4. Global scene search (recursive by name if it doesn't look like a path, otherwise relative to scene root)
 	if not is_instance_valid(node) and host_node.is_inside_tree():
-		node = host_node.get_tree().root.find_node(path, true, false)
+		var scene = host_node.get_tree().current_scene
+		if is_instance_valid(scene):
+			node = scene.get_node_or_null(path)
+			if not is_instance_valid(node) and path.find("/") == -1:
+				node = scene.find_node(path, true, false)
+	
+	# 5. Root search (last resort)
+	if not is_instance_valid(node) and host_node.is_inside_tree():
+		node = host_node.get_tree().root.get_node_or_null(path)
+		if not is_instance_valid(node) and path.find("/") == -1:
+			node = host_node.get_tree().root.find_node(path, true, false)
 
 	if is_instance_valid(node):
 		_node_cache[path] = node
@@ -1795,18 +1839,21 @@ class SignalObserver extends Object:
 		triggered = true
 
 func _resolve_stage() -> Node:
-	# Try identifying PropStage explicitly in the tree first
-	var root = host_node.get_tree().root
+	var tree = host_node.get_tree()
+	if is_instance_valid(tree.current_scene):
+		var stage = tree.current_scene
+		if stage.name == "PropStage" or stage.has_method("load_prop"):
+			return stage
+		
+		stage = tree.current_scene.find_node("PropStage", true, false)
+		if stage:
+			return stage
+
+	var root = tree.root
 	var stage = root.find_node("PropStage", true, false)
 	if stage:
 		return stage
-		
-	# Try current scene
-	stage = host_node.get_tree().current_scene
-	if stage and (stage.name == "PropStage" or stage.has_method("load_prop")):
-		return stage
 
-	# If host_node is a stage/host itself
 	if host_node.has_method("load_prop") and host_node.name != "SessionManager":
 		return host_node
 		
@@ -1987,7 +2034,7 @@ func _parse_system_args(args: Array) -> Dictionary:
 
 func _run_system_command(exec_path: String, exec_args: Array, blocking: bool) -> Dictionary:
 	if exec_path.strip_edges() == "":
-		return {"ok": false, "error": "empty executable", "value": -1, "blocking": blocking}
+		return {"ok": false, "error": "empty executable", "value": - 1, "blocking": blocking}
 
 	var output := []
 	var ret = OS.execute(exec_path, exec_args, blocking, output, true)
@@ -2003,7 +2050,7 @@ func _run_system_command(exec_path: String, exec_args: Array, blocking: bool) ->
 			_system_launch_counter += 1
 			pid = _system_launch_counter
 		return {"ok": true, "value": pid, "blocking": false}
-	return {"ok": false, "error": "could not start process", "value": -1, "blocking": false}
+	return {"ok": false, "error": "could not start process", "value": - 1, "blocking": false}
 
 func _compare(left, op, right) -> bool:
 	var l = left

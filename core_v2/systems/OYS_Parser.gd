@@ -135,8 +135,14 @@ static func parse_instruction(line: String) -> Dictionary:
 		
 		"INTERACT":
 			for i in range(1, parts.size()):
-				if parts[i].begins_with("target="):
-					data["target"] = parts[i].split("=")[1]
+				if parts[i].find("=") != -1:
+					var kv = parts[i].split("=", false, 1)
+					if kv[0].to_lower() == "target":
+						data["target"] = kv[1].replace("\"", "")
+				else:
+					# Positional target (e.g. INTERACT my_node)
+					if not data.has("target"):
+						data["target"] = parts[i].replace("\"", "")
 		
 		"WAIT", "WAIT_FRAMES":
 			var wait_data = _parse_wait_instruction(parts, cmd)

@@ -1,0 +1,47 @@
+[gd_scene load_steps=6 format=2]
+
+[ext_resource path="res://core_v2/props/ElevatorProp.tscn" type="PackedScene" id=3]
+[ext_resource path="res://core_v2/tests/TestScene_Elevator.gd" type="Script" id=4]
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=5]
+
+[sub_resource type="SpatialMaterial" id=2]
+albedo_color = Color( 0.1, 0.1, 0.8, 1 )
+
+[sub_resource type="SpatialMaterial" id=3]
+albedo_color = Color( 0.1, 0.8, 0.1, 1 )
+
+[node name="ElevatorTestScene" type="Spatial"]
+script = ExtResource( 4 )
+
+[node name="ElevatorProp" parent="." instance=ExtResource( 3 )]
+
+[node name="Floor0" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0 )
+use_collision = true
+width = 20.0
+height = 1.0
+depth = 20.0
+
+[node name="Floor1" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 4.5, 0 )
+use_collision = true
+width = 4.0
+height = 1.0
+depth = 4.0
+material = SubResource( 2 )
+
+[node name="Floor2" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 9.5, 0 )
+use_collision = true
+width = 4.0
+height = 1.0
+depth = 4.0
+material = SubResource( 3 )
+
+[node name="Pilot_v2" parent="." instance=ExtResource( 5 )]
+transform = Transform( -0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, -0.707107, 7, 1.5, 7 )
+
+[node name="OmniLight" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 15, 8 )
+omni_range = 30.0
+omni_attenuation = 1.5

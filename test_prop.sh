@@ -15,7 +15,7 @@ OUTPUT_DIR="$PROJECT_PATH/test_output/props"
 VALIDATOR_SCRIPT="res://core_v2/scripts/prop_validator.oys"
 CUSTOM_SCRIPT=false
 PROP_DIR="./core_v2/props"
-MIN_DELTA_PERCENT=0.5  # Minimum % of pixels that must differ between screenshots
+MIN_DELTA_PERCENT=2.0  # Minimum % of pixels that must differ between screenshots
 
 # 1. Parse Arguments
 while [ "$1" != "" ]; do
@@ -42,8 +42,8 @@ check_image_delta() {
     local label2="$4"
     
     if [ ! -f "$img1" ] || [ ! -f "$img2" ]; then
-        echo "  ⚠️  Cannot compare: missing image(s)"
-        return 0  # Don't fail on missing images
+        echo "  ⚠️  Cannot compare: missing image(s) $label1 or $label2"
+        return 1
     fi
     
     # Use ImageMagick compare to get pixel difference metric
@@ -129,7 +129,7 @@ run_validation() {
     export OYS_AUTO_RUN="$selected_script"
 
     # Run Godot
-    $GODOT_BIN --path "$PROJECT_PATH" "res://core_v2/scenes/PropStage.tscn" --no-window --quit-after 200
+    $GODOT_BIN --path "$PROJECT_PATH" "res://core_v2/scenes/PropStage.tscn" --no-window --quit-after 1000
     
     # Check results
     COUNT=$(ls "$OUTPUT_DIR"/${PROP_NAME}_*.png 2>/dev/null | wc -l)
@@ -185,9 +185,19 @@ run_validation() {
     local active_img="$OUTPUT_DIR/${PROP_NAME}_2_active.png"
     local off_img="$OUTPUT_DIR/${PROP_NAME}_3_off.png"
     
+    # If no images produced at all, it's a failure
+    if [ ! -f "$idle_img" ] && [ ! -f "$mid_img" ] && [ ! -f "$active_img" ] && [ ! -f "$off_img" ]; then
+        echo "❌ Failure: No standard screenshots (idle, mid, active, off) found for $PROP_NAME"
+        return 1
+    fi
+
     # Check idle → mid (should show interaction starting)
     if [ -f "$idle_img" ] && [ -f "$mid_img" ]; then
         check_image_delta "$idle_img" "$mid_img" "idle" "mid" || delta_failed=1
+    elif [ -f "$idle_img" ] || [ -f "$mid_img" ]; then
+        # If one is present but not both, it's a warning/fail if both were expected
+        # For now, let's just compare idle with active if mid is missing
+        pass
     fi
     
     # Check idle → active (should show clear visual change)
@@ -198,7 +208,7 @@ run_validation() {
     if [ "$delta_failed" -eq 1 ]; then
         echo "⚠️  DELTA ASSERTION FAILED for $PROP_NAME — prop may not be visually responding"
     fi
-    
+
     return $delta_failed
 }
 

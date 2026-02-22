@@ -131,7 +131,7 @@ func _set_visuals_active(active: bool):
 		if _mesh:
 			_mesh.visible = false
 
-func set_active(value: bool):
+func set_active(value: bool, immediate: bool = false):
 	if is_active != value:
 		if value and _is_bursting and _audio and not _audio.playing:
 			_audio.play()
@@ -139,6 +139,13 @@ func set_active(value: bool):
 			_audio.stop()
 			
 	is_active = value
+	
+	if immediate:
+		_time_alive = 0.0
+		_burst_timer = 0.0
+		if not _is_bursting and not _is_constant_mode():
+			_burst_timer = max(0.01, interval + rand_range(-interval_random, interval_random))
+
 	if not Engine.editor_hint and _is_constant_mode() and not _timeout_fade_active:
 		_set_visuals_active(is_active)
 	if Engine.editor_hint:
@@ -148,6 +155,9 @@ func set_active(value: bool):
 		if _mesh:
 			_mesh.visible = is_active
 			_mesh.scale = _base_scale
+
+func interact():
+	toggle()
 
 func activate():
 	set_active(true)
