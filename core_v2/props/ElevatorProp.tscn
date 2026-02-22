@@ -66,3 +66,9 @@ floor_index = 2
 
 [node name="CableAnchor" type="Position3D" parent="Input_Floor2"]
 
+[node name="Input_Next" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
+script = ExtResource( 3 )
+floor_index = -1
+
+[node name="CableAnchor" type="Position3D" parent="Input_Next"]

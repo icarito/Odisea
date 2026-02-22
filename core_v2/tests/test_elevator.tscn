@@ -32,6 +32,10 @@ nodes = {
 "in2": {
 "scene_path": NodePath("../ElevatorProp/Input_Floor2"),
 "type": "PROP"
+},
+"in_next": {
+"scene_path": NodePath("../ElevatorProp/Input_Next"),
+"type": "PROP"
 }
 }
 connections = [ {
@@ -50,6 +54,12 @@ connections = [ {
 "from": "btn_int",
 "from_port": 0,
 "to": "in2",
+"to_port": 0,
+"type": "WIRED"
+}, {
+"from": "btn_int",
+"from_port": 0,
+"to": "in_next",
 "to_port": 0,
 "type": "WIRED"
 } ]

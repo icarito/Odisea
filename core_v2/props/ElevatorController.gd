@@ -31,15 +31,25 @@ func _ready():
         printerr("[ElevatorController] Platform not found at path: ", platform_path)
 
 func _on_floor_request(floor_idx):
-    printerr("[ElevatorController] Request received for floor: ", floor_idx)
+    var actual_floor = floor_idx
+    if floor_idx == -1:
+        var max_f = 0
+        for child in get_children():
+            if "floor_index" in child and child.floor_index > max_f:
+                max_f = child.floor_index
+        actual_floor = current_floor + 1
+        if actual_floor > max_f:
+            actual_floor = 0
+            
+    printerr("[ElevatorController] Request received for floor: ", actual_floor)
     # Log request
-    if not requests.has(floor_idx):
-        if floor_idx == current_floor and not is_moving:
-            printerr("[ElevatorController] Already at floor ", floor_idx)
+    if not requests.has(actual_floor):
+        if actual_floor == current_floor and not is_moving:
+            printerr("[ElevatorController] Already at floor ", actual_floor)
             # Already at floor, maybe open doors (omitted for now)
             return
 
-        requests.append(floor_idx)
+        requests.append(actual_floor)
         # Sort for simple deterministic order (0->1->2)
         requests.sort()
         _process_queue()
