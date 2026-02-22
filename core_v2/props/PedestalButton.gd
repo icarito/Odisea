@@ -6,9 +6,6 @@ tool
 # A simple button prop that toggles state when interacted with.
 # Can be used as an input for OLCS logic.
 
-signal interaction_started()
-signal interaction_completed()
-
 export(Color) var color_active = Color(0.0, 1.0, 0.0) # Green
 export(Color) var color_inactive = Color(1.0, 0.0, 0.0) # Red
 export(NodePath) var light_mesh_path
@@ -27,7 +24,7 @@ func interact():
         emit_signal("interaction_started")
         emit_signal("interaction_completed")
         if not Engine.editor_hint:
-            yield(get_tree().create_timer(momentary_duration), "timeout")
+            yield (get_tree().create_timer(momentary_duration), "timeout")
             set_active(false)
     else:
         # Toggle state
