@@ -18,19 +18,30 @@ func _ready():
     # Ensure visual state matches initial logic state
     _update_visuals()
 
+var _momentary_timer = null
+
 func interact():
     if momentary:
         set_active(true)
         emit_signal("interaction_started")
         emit_signal("interaction_completed")
+        
+        if _momentary_timer:
+            _momentary_timer.disconnect("timeout", self, "_on_momentary_timeout")
+            _momentary_timer.queue_free()
+            
         if not Engine.editor_hint:
-            yield (get_tree().create_timer(momentary_duration), "timeout")
-            set_active(false)
+            _momentary_timer = get_tree().create_timer(momentary_duration)
+            _momentary_timer.connect("timeout", self, "_on_momentary_timeout")
     else:
         # Toggle state
         set_active(not is_active)
         emit_signal("interaction_started")
         emit_signal("interaction_completed")
+
+func _on_momentary_timeout():
+    set_active(false)
+    _momentary_timer = null
 
 func _update_visuals():
     if not is_inside_tree():

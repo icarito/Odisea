@@ -13,8 +13,8 @@ func set_active(value: bool, immediate: bool = false):
     var prev = is_active
     .set_active(value, immediate)
 
-    # Trigger on rising edge
-    if is_active and not prev:
+    # Trigger on rising edge OR if we get repeated 'true' signals as momentary presses
+    if is_active:
         emit_signal("input_triggered", floor_index)
 
 func _update_visuals():

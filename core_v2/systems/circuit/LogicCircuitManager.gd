@@ -42,7 +42,7 @@ func _ready():
                 call_deferred("defer_generate_cables")
 
 func defer_generate_cables():
-    yield(get_tree(), "idle_frame")
+    yield (get_tree(), "idle_frame")
     generate_cables()
 
 func _physics_process(delta: float):
@@ -137,20 +137,19 @@ func _build_runtime_logic():
 		var r_data = _runtime_nodes[id]
 		if r_data.type == "PROP" and r_data.state:
 			# Push initial state to output queue with 0 delay
-			_output_queue.append({ "source": id, "value": true, "delay": 0.0 })
+			_output_queue.append({"source": id, "value": true, "delay": 0.0})
 
 func _on_prop_activated(id: String):
-	_output_queue.append({ "source": id, "value": true, "delay": 0.0 })
+	# Push even if already active to allow repeated "momentary" triggers
+	_output_queue.append({"source": id, "value": true, "delay": 0.0})
 
 func _on_prop_deactivated(id: String):
-	_output_queue.append({ "source": id, "value": false, "delay": 0.0 })
+	_output_queue.append({"source": id, "value": false, "delay": 0.0})
 
 func _apply_output_change(source_id: String, value: bool):
 	var r_data = _runtime_nodes[source_id]
-	# Update internal state
-	if r_data.state != value:
-		r_data.state = value
-		# If it's a Prop, ensure it matches (feedback prevention? No, Prop output drives logic)
+	# Update internal state (allow repeated same-value triggers for momentary buttons)
+	r_data.state = value
 
 	# Find connections
 	for conn in circuit_data.connections:
@@ -166,7 +165,7 @@ func _apply_output_change(source_id: String, value: bool):
 					cable.set_active(value)
 
 			# Queue input update
-			_input_queue.append({ "target": conn.to, "input": source_id, "value": value })
+			_input_queue.append({"target": conn.to, "input": source_id, "value": value})
 
 func _process_input_change(target_id: String, input_id: String, value: bool):
 	if not _runtime_nodes.has(target_id):
@@ -192,14 +191,14 @@ func _process_input_change(target_id: String, input_id: String, value: bool):
 				# So we check against current state.
 				# If we schedule multiple changes, the last one wins? Or a queue?
 				# Simple delay: Schedule change.
-				_output_queue.append({ "source": target_id, "value": new_state, "delay": r_data.delay_time })
+				_output_queue.append({"source": target_id, "value": new_state, "delay": r_data.delay_time})
 				# We do NOT update r_data.state here. It updates when output is applied.
 				# Wait, _apply_output_change updates r_data.state.
 				return
 		else:
 			new_state = _evaluate_gate(r_data.gate_type, r_data.inputs)
 			if new_state != r_data.state:
-				_output_queue.append({ "source": target_id, "value": new_state, "delay": 0.0 })
+				_output_queue.append({"source": target_id, "value": new_state, "delay": 0.0})
 
 	elif r_data.type == "PROP":
 		# OR Logic for Props
@@ -209,19 +208,11 @@ func _process_input_change(target_id: String, input_id: String, value: bool):
 				new_state = true
 				break
 
-		# Prop state change is handled by Prop itself?
-		# LogicManager drives Prop.
-		if new_state != r_data.state:
-			# Update Prop
-			if r_data.ref and r_data.ref.has_method("set_active"):
-				r_data.ref.set_active(new_state)
-			# We also update internal state immediately or wait for signal?
-			# InteractableBaseV2 emits activated/deactivated.
-			# This will loop back to _on_prop_activated -> _output_queue.
-			# To avoid loop, check if state matches.
-			# InteractableBaseV2.set_active checks `if is_active == value: return`.
-			# So it won't emit signal if no change. Safe.
-			pass
+		# Update Prop
+		if r_data.ref and r_data.ref.has_method("set_active"):
+			# Always call set_active so momentary components can re-trigger
+			r_data.ref.set_active(new_state)
+		r_data.state = new_state
 
 func _evaluate_gate(type: String, inputs: Dictionary) -> bool:
 	var values = inputs.values()
@@ -380,16 +371,16 @@ func generate_cables():
             s1.radius = 0.5
             s1.material = SpatialMaterial.new()
             s1.material.emission_enabled = true
-            s1.material.emission = Color(1.0,0,0)
-            s1.material.albedo_color = Color(1.0,0,0)
+            s1.material.emission = Color(1.0, 0, 0)
+            s1.material.albedo_color = Color(1.0, 0, 0)
             add_child(s1)
             s1.global_transform.origin = start_pos
             var s2 = CSGSphere.new()
             s2.radius = 0.5
             s2.material = SpatialMaterial.new()
             s2.material.emission_enabled = true
-            s2.material.emission = Color(0,1.0,0)
-            s2.material.albedo_color = Color(0,1.0,0)
+            s2.material.emission = Color(0, 1.0, 0)
+            s2.material.albedo_color = Color(0, 1.0, 0)
             add_child(s2)
             s2.global_transform.origin = end_pos
 
@@ -590,7 +581,7 @@ func _on_cable_broken(conn: Dictionary):
 	var source_id = conn.from
 
 	# Queue input update to false
-	_input_queue.append({ "target": target_id, "input": source_id, "value": false })
+	_input_queue.append({"target": target_id, "input": source_id, "value": false})
 
 	# Remove from managed cables
 	var h = _get_connection_hash(conn)
