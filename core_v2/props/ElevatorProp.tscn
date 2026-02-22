@@ -17,6 +17,7 @@ script = ExtResource( 1 )
 platform_path = NodePath("Platform")
 
 [node name="Platform" type="KinematicBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 script = ExtResource( 2 )
 passenger_area_path = NodePath("PassengerArea")
 
@@ -67,3 +68,6 @@ script = ExtResource( 3 )
 floor_index = 2
 
 [node name="CableAnchor" type="Position3D" parent="Input_Floor2"]
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 0.707107, -0.353553, 0.612372, 0, 0.866025, 0.5, -0.707107, -0.353553, 0.612372, 10, 8, 10 )

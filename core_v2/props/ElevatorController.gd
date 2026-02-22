@@ -16,6 +16,15 @@ var is_moving = false
 onready var platform = get_node(platform_path) if platform_path else null
 
 func _ready():
+    # Force local camera if it exists (for isolated prop testing)
+    if has_node("Camera"):
+        var cam = get_node("Camera")
+        if cam is Camera:
+            cam.make_current()
+            printerr("[ElevatorController] Forced local camera current.")
+
+    printerr("[ElevatorController] Ready. Platform=", platform)
+
     # Auto-connect child inputs
     for child in get_children():
         if child.has_signal("input_triggered"):
@@ -26,14 +35,14 @@ func _ready():
         if not platform.is_connected("arrived_at_floor", self, "_on_arrived"):
             platform.connect("arrived_at_floor", self, "_on_arrived")
     else:
-        print("[ElevatorController] Platform not found at path: ", platform_path)
+        printerr("[ElevatorController] Platform not found at path: ", platform_path)
 
 func _on_floor_request(floor_idx):
-    print("[ElevatorController] Request received for floor: ", floor_idx)
+    printerr("[ElevatorController] Request received for floor: ", floor_idx)
     # Log request
     if not requests.has(floor_idx):
         if floor_idx == current_floor and not is_moving:
-            print("[ElevatorController] Already at floor ", floor_idx)
+            printerr("[ElevatorController] Already at floor ", floor_idx)
             # Already at floor, maybe open doors (omitted for now)
             return
 
@@ -47,7 +56,7 @@ func _process_queue():
         return
 
     target_floor = requests.pop_front()
-    print("[ElevatorController] Processing queue. Moving to floor: ", target_floor)
+    printerr("[ElevatorController] Processing queue. Moving to floor: ", target_floor)
     var h = target_floor * floor_height_step
     platform.move_to(h)
     is_moving = true
@@ -55,7 +64,7 @@ func _process_queue():
 func _on_arrived(height):
     is_moving = false
     current_floor = int(round(height / floor_height_step))
-    print("[ElevatorController] Arrived at floor: ", current_floor)
+    printerr("[ElevatorController] Arrived at floor: ", current_floor)
 
     # Wait at floor
     if not Engine.editor_hint:

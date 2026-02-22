@@ -9,9 +9,9 @@ signal input_triggered(floor_index)
 
 export(int) var floor_index = 0
 
-func set_active(value: bool):
+func set_active(value: bool, immediate: bool = false):
     var prev = is_active
-    .set_active(value)
+    .set_active(value, immediate)
 
     # Trigger on rising edge
     if is_active and not prev:

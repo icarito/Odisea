@@ -33,6 +33,7 @@ func move_to(height: float):
     is_moving = true
 
 func _physics_process(delta: float):
+    if is_moving: printerr("[Platform] Moving... Y=", global_transform.origin.y, " Vel=", current_velocity_y)
     if not is_moving:
         return
 

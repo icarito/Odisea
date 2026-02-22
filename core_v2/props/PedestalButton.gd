@@ -56,6 +56,6 @@ func _update_visuals():
             mat.emission_energy = 1.0 if is_active else 0.2
 
 # Optional: expose state change for editor tweaking
-func set_active(value: bool):
-    .set_active(value) # Call parent to update state and anim_progress
+func set_active(value: bool, immediate: bool = false):
+    .set_active(value, immediate) # Call parent to update state and anim_progress
     _update_visuals()
