@@ -2,14 +2,17 @@ LEVEL res://core_v2/props/ElevatorTestScene.tscn
 WAIT 1.0
 SCREENSHOT 0_idle
 
+# Press Floor 1
 INTERACT ElevatorProp/Button_Floor1
-WAIT 3.0
+WAIT 5.0
 SCREENSHOT 1_mid
 
+# Press Internal Button (Floor 2?)
 INTERACT ElevatorProp/Platform/Button_Internal
-WAIT 3.0
+WAIT 5.0
 SCREENSHOT 2_active
 
+# Press Floor 0
 INTERACT ElevatorProp/Button_Floor0
-WAIT 5.0
+WAIT 8.0
 SCREENSHOT 3_off
