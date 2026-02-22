@@ -93,7 +93,7 @@ height = 1.0
 depth = 20.0
 
 [node name="Floor1" type="CSGBox" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 4.5, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 4.5, 0 )
 use_collision = true
 width = 4.0
 height = 1.0
@@ -101,7 +101,7 @@ depth = 4.0
 material = SubResource( 2 )
 
 [node name="Floor2" type="CSGBox" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 9.5, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 9.5, 0 )
 use_collision = true
 width = 4.0
 height = 1.0
@@ -109,11 +109,11 @@ depth = 4.0
 material = SubResource( 3 )
 
 [node name="Button_Floor1" parent="." instance=ExtResource( 6 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 5.0, 1.0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 5.0, 1.0 )
 momentary = true
 
 [node name="Button_Floor2" parent="." instance=ExtResource( 6 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 10.0, 1.0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 10.0, 1.0 )
 momentary = true
 
 [node name="Pilot_v2" parent="." instance=ExtResource( 5 )]
