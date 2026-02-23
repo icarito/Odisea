@@ -7,6 +7,7 @@ import subprocess
 import os
 import time
 import shutil
+from typing import Optional
 
 class AnnaGymEnv(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 60}
@@ -21,13 +22,25 @@ class AnnaGymEnv(gym.Env):
         self.sock = None
         self.buffer = ""
 
-        # Action Space: 0=Idle, 1=Fwd, 2=Back, 3=Left, 4=Right
-        self.action_space = spaces.Discrete(5)
+        # Action Space:
+        # 0=Idle, 1=Fwd, 2=Back, 3=Left, 4=Right, 5=Jump,
+        # 6=SprintFwd, 7=SprintBack, 8=SprintLeft, 9=SprintRight
+        self.action_space = spaces.Discrete(10)
 
         # Observation Space: 12 floats (normalized approx -1 to 1)
         self.observation_space = spaces.Box(
             low=-1.0, high=1.0, shape=(12,), dtype=np.float32
         )
+
+        # If we are launching Godot ourselves, avoid attaching to a stale bridge process.
+        if self.launch_godot and self._is_port_busy(self.port):
+            new_port = self._find_free_port(start=self.port + 1)
+            if new_port is None:
+                raise RuntimeError(
+                    f"[AnnaGym] Port {self.port} is busy and no free nearby port was found."
+                )
+            print(f"[AnnaGym] Port {self.port} busy, switching to free port {new_port}.")
+            self.port = new_port
 
         if self.launch_godot:
             self._launch_godot()
@@ -48,7 +61,9 @@ class AnnaGymEnv(gym.Env):
         if self.headless:
             cmd = ["xvfb-run", "-a"]
 
-        cmd.extend([godot_bin, "--no-window", "--audio-driver", "Dummy", "--path", "."])
+        cmd.extend([godot_bin, "--audio-driver", "Dummy", "--path", "."])
+        if self.headless:
+            cmd.append("--no-window")
 
         if self.scene_path:
             cmd.append(self.scene_path)
@@ -56,6 +71,24 @@ class AnnaGymEnv(gym.Env):
         print(f"[AnnaGym] Launching Godot: {' '.join(cmd)}")
         self.godot_process = subprocess.Popen(cmd, env=env)
         time.sleep(3) # Wait for engine start
+
+    @staticmethod
+    def _is_port_busy(port: int) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.25)
+            return s.connect_ex(("127.0.0.1", int(port))) == 0
+
+    @staticmethod
+    def _find_free_port(start: int = 5001, attempts: int = 200) -> Optional[int]:
+        for p in range(int(start), int(start) + int(attempts)):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                try:
+                    s.bind(("127.0.0.1", p))
+                    return p
+                except OSError:
+                    continue
+        return None
 
     def _connect(self):
         if self.sock:
