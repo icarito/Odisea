@@ -56,6 +56,14 @@ def _assert_response(name, response):
         raise AssertionError(f"{name}: missing 'done' key. Response={response}")
 
 
+def _looks_like_async_observation(response):
+    if not isinstance(response, dict):
+        return False
+    if "obs" in response:
+        return False
+    return "anna" in response or "collisions" in response or "proximity" in response
+
+
 def main():
     print(f"[test_rl_loop] Connecting to {HOST}:{PORT} (protocol={PROTOCOL})")
     sock = _connect()
@@ -63,6 +71,12 @@ def main():
 
     try:
         initial = _recv_line(sock)
+        if _looks_like_async_observation(initial):
+            raise RuntimeError(
+                "Connected to ANNA async mode (non-RL payload). "
+                "Launch Godot with ANNA_RL_MODE=1 and a RL scene "
+                "(e.g. core_v2/tests/TestScene_RL.tscn)."
+            )
         _assert_response("initial", initial)
         print("[test_rl_loop] initial OK")
 
