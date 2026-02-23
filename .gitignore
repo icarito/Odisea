@@ -4,12 +4,10 @@ maps/autosave/
 
 # Godot-specific ignores
 export.cfg
-# Keep generated import metadata out of normal commits.
-# CI restores cache and re-imports incrementally when needed.
-.import/*
-*.import
-**/.import/
+# .import folder contains imported assets (stex, etc) - generated but large
+.import/
 *.stex
+# Note: *.import files are now tracked for Colab compatibility
 
 # Test snapshots are generated artifacts and should not be committed by default.
 core_v2/tests/*.json

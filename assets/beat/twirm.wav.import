@@ -1,0 +1,23 @@
+[remap]
+
+importer="wav"
+type="AudioStreamSample"
+path="res://.import/twirm.wav-3a3888e4aa0dddf38ed131d22064d84f.sample"
+
+[deps]
+
+source_file="res://assets/beat/twirm.wav"
+dest_files=[ "res://.import/twirm.wav-3a3888e4aa0dddf38ed131d22064d84f.sample" ]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=0

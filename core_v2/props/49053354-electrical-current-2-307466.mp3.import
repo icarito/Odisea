@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/49053354-electrical-current-2-307466.mp3-d5c1784fd1a0dbd6c3fd54703623947f.mp3str"
+
+[deps]
+
+source_file="res://core_v2/props/49053354-electrical-current-2-307466.mp3"
+dest_files=[ "res://.import/49053354-electrical-current-2-307466.mp3-d5c1784fd1a0dbd6c3fd54703623947f.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0

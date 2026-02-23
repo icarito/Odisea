@@ -1,0 +1,15 @@
+[remap]
+
+importer="ogg_vorbis"
+type="AudioStreamOGGVorbis"
+path="res://.import/sfx100v2_loop_water_03.ogg-14641a869d9cf2a82e919fd40ce3ee97.oggstr"
+
+[deps]
+
+source_file="res://assets/sfx/sfx100v2_loop_water_03.ogg"
+dest_files=[ "res://.import/sfx100v2_loop_water_03.ogg-14641a869d9cf2a82e919fd40ce3ee97.oggstr" ]
+
+[params]
+
+loop=true
+loop_offset=0
