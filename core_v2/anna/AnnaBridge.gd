@@ -25,7 +25,6 @@ func _ready():
 		print("[ANNA] RL Lock-Step Mode Enabled")
 		OS.set_use_vsync(false)
 		Engine.target_fps = 0
-		Engine.iterations_per_second = 0
 		print("[ANNA] VSync disabled, FPS unlocked for RL training")
 
 	var err = _server.listen(port)
