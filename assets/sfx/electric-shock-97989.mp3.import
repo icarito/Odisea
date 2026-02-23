@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/electric-shock-97989.mp3-cb59757b6158c0204f0c7f2212cc1ae5.mp3str"
+
+[deps]
+
+source_file="res://assets/sfx/electric-shock-97989.mp3"
+dest_files=[ "res://.import/electric-shock-97989.mp3-cb59757b6158c0204f0c7f2212cc1ae5.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0

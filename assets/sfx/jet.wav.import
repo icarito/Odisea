@@ -1,0 +1,23 @@
+[remap]
+
+importer="wav"
+type="AudioStreamSample"
+path="res://.import/jet.wav-2a3d2513705d06dd2a72c1d1362459f0.sample"
+
+[deps]
+
+source_file="res://assets/sfx/jet.wav"
+dest_files=[ "res://.import/jet.wav-2a3d2513705d06dd2a72c1d1362459f0.sample" ]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=0

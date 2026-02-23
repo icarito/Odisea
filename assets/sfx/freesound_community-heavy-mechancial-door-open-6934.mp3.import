@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/freesound_community-heavy-mechancial-door-open-6934.mp3-0825ac10ae7826fa8213314e36e4b418.mp3str"
+
+[deps]
+
+source_file="res://assets/sfx/freesound_community-heavy-mechancial-door-open-6934.mp3"
+dest_files=[ "res://.import/freesound_community-heavy-mechancial-door-open-6934.mp3-0825ac10ae7826fa8213314e36e4b418.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0

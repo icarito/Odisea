@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/Elias.mp3-938c7e358bb11c75ff24d2cf0a3d6f9d.mp3str"
+
+[deps]
+
+source_file="res://assets/music/Elias.mp3"
+dest_files=[ "res://.import/Elias.mp3-938c7e358bb11c75ff24d2cf0a3d6f9d.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0

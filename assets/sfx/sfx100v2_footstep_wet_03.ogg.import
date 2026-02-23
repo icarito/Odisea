@@ -1,0 +1,15 @@
+[remap]
+
+importer="ogg_vorbis"
+type="AudioStreamOGGVorbis"
+path="res://.import/sfx100v2_footstep_wet_03.ogg-4707f2f2999a9193cc384113d1d92425.oggstr"
+
+[deps]
+
+source_file="res://assets/sfx/sfx100v2_footstep_wet_03.ogg"
+dest_files=[ "res://.import/sfx100v2_footstep_wet_03.ogg-4707f2f2999a9193cc384113d1d92425.oggstr" ]
+
+[params]
+
+loop=false
+loop_offset=0
