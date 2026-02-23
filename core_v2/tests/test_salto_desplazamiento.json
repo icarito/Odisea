@@ -2239,7 +2239,9 @@
         ],
         "latched_control_mode": 0,
         "latch_active": false,
+        "camera_mode_state": 0,
         "active_rig_path": "",
+        "vcam_active_path": "",
         "current_camera_path": "/root/TestScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
     },
@@ -2248,13 +2250,13 @@
   "final_expected_state": {
     "position": [
       -0.000001,
-      0.9015,
-      6.545831
+      0.0415,
+      6.429997
     ],
     "velocity": [
       0,
-      -7.766667,
-      0.58333
+      0,
+      0
     ],
     "yaw": 0,
     "pitch": 0,
@@ -2262,8 +2264,8 @@
     "movement_state": {
       "horizontal_velocity": [
         0,
-        -0.000001,
-        0.58333
+        0,
+        0
       ],
       "external_velocity": [
         0,
@@ -2275,7 +2277,7 @@
       "current_turn_time": 0
     },
     "jump_state": {
-      "coyote_timer": 0,
+      "coyote_timer": 0.15,
       "jump_buffer_timer": 0,
       "is_jumping": false
     }

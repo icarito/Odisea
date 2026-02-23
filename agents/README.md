@@ -56,5 +56,4 @@ Si quieres limitar aún más, en Linux puedes combinarlos con `taskset`.
 ## Notas
 
 - En modo RL (`ANNA_RL_MODE=1`) el mundo avanza en lock-step (un `STEP` -> un frame físico).
-- El `Pilot` de `TestScene_RL.tscn` usa sensibilidad de mouse invertida para esta escena de pruebas.
 - Convención del proyecto: `-Z` es forward y `+Z` es back.

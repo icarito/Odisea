@@ -995,7 +995,7 @@ albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 
 [sub_resource type="Curve3D" id=1036]
 _data = {
-"points": PoolVector3Array( -2.10588, 4.55962, 1.931, 0, 0, 0, 3.94009, -1.57517, 13.029, 0, 0, 0, 0, 0, 0, 5.88811, -0.20236, 8.87869 ),
+"points": PoolVector3Array( -2.10588, 4.55962, 1.931, 0, 0, 0, 2.65847, -0.498666, 14.3116, 0, 0, 0, 0, 0, 0, -0.968958, -1.29247, 5.94631 ),
 "tilts": PoolRealArray( 0, 0 )
 }
 
@@ -2044,8 +2044,8 @@ transform = Transform( 1, 1.79708e-05, -0.0010632, 1.2517e-06, 1.00001, -0.00010
 transform = Transform( -0.671181, 0.560374, -0.485281, 2.98023e-08, 0.65464, 0.75594, 0.741294, 0.507372, -0.439382, 0, 0, 0 )
 
 [node name="IntroFinal" parent="VCameraSystem/VCameras" index="2"]
-transform = Transform( -0.628235, 0, -0.778024, 0, 1, 0, 0.778024, 0, -0.628235, 13.3486, 5.57768, 30.1251 )
-fov = 111.928
+transform = Transform( -0.717386, -0.404661, 0.567105, -0.00519347, 0.817098, 0.576475, -0.696657, 0.41061, -0.588276, 17.5863, 5.69518, 27.695 )
+fov = 99.888
 
 [node name="CameraZone" parent="." instance=ExtResource( 31 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.04499, 3.20083, 20.0898 )
@@ -2055,7 +2055,7 @@ cinematic_rig_path = NodePath("CinematicPathRig")
 occlusion_root = NodePath("../CornerFloor")
 
 [node name="CinematicPathRig" type="Path" parent="CameraZone"]
-transform = Transform( -6.7194e-08, 0, 1.53722, 0, 0.828185, 0, -2.61346, 0, -1.14238e-07, -15.5772, 4.19258, 13.0469 )
+transform = Transform( -6.7194e-08, 0, 1.53722, 0, 0.828185, 0, -2.61346, 0, -1.14238e-07, -15.5258, 4.19258, 10.1015 )
 curve = SubResource( 1036 )
 script = ExtResource( 34 )
 look_ahead = false
@@ -2065,7 +2065,7 @@ follow_speed = 0.5
 transition_time = 1.5
 
 [node name="PathFollow" type="PathFollow" parent="CameraZone/CinematicPathRig"]
-transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 3.94009, -1.57517, 13.029 )
+transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 2.65847, -0.498666, 14.3116 )
 rotation_mode = 0
 loop = false
 
@@ -2095,7 +2095,7 @@ follow_speed = 0.5
 transition_time = 1.5
 
 [node name="PathFollow" type="PathFollow" parent="CameraZone2/CinematicPathRig"]
-transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 3.94009, -1.57517, 13.029 )
+transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 2.65847, -0.498666, 14.3116 )
 rotation_mode = 0
 loop = false
 
