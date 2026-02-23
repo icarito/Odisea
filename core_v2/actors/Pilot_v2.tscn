@@ -48,13 +48,14 @@ size = Vector2( 0.1, 0.1 )
 collision_layer = 2
 collision_mask = 255
 script = ExtResource( 2 )
+mouse_sensitivity = 0.005
 joy_look_sensitivity = 5.0
 push_force = 9.0
 min_pitch = -45.0
 max_pitch = 60.0
 step_depth = 0.7
 step_grounded_grace = 0.3
-debug_stair_state = true
+debug_stair_state = false
 
 [node name="Logic" type="Node" parent="."]
 
@@ -90,7 +91,7 @@ proximity_radius = 6.0
 
 [node name="Pivot" type="Spatial" parent="Visual"]
 script = ExtResource( 3 )
-debug_stair_blend = true
+debug_stair_blend = false
 
 [node name="Skeleton" parent="Visual/Pivot" instance=ExtResource( 9 )]
 

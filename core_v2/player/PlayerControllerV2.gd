@@ -17,6 +17,7 @@ var initial_transform: Transform
 
 # --- EXPORTED TUNING ---
 export(float) var mouse_sensitivity := 0.005
+export(bool) var invert_mouse_y := false
 export(float) var joy_look_sensitivity := 15.0
 export(float) var joy_move_sensitivity := 1.0
 export(float) var snap_length := 0.25
@@ -762,7 +763,8 @@ func step(dt: float, input: InputDataV2) -> void:
 			movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
 			if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED or is_replay_mode or OS.get_name() == "Switch" or OS.has_touchscreen_ui_hint():
 				yaw -= input.mouse_delta.x * mouse_sensitivity
-				pitch -= input.mouse_delta.y * mouse_sensitivity
+				var mouse_y = -input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
+				pitch -= mouse_y * mouse_sensitivity
 			yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
 		pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
 
@@ -956,7 +958,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		emit_signal("rigid_contact_ended")
 	_was_touching_rigid = touched_rigid
 
-	if animator:
+	if animator and animator.has_method("step_animator"):
 		var anim_vel = velocity
 		if not movement_logic.external_source_is_static:
 			anim_vel = velocity - movement_logic.external_velocity

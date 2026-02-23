@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import random
 import sys
@@ -22,6 +23,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--no-launch", action="store_true", help="Do not auto-launch Godot.")
     parser.add_argument("--stochastic", action="store_true", help="Use stochastic actions instead of deterministic.")
     parser.add_argument("--step-delay", type=float, default=0.0, help="Optional delay between steps (seconds).")
+    parser.add_argument("--watch", action="store_true", help="Run continuously until Ctrl+C.")
     return parser.parse_args()
 
 
@@ -68,6 +70,18 @@ def main() -> int:
     if not model_path.exists():
         print("[eval_anna] model not found: %s" % model_path)
         return 2
+    meta_path = model_path.with_suffix(".meta.json")
+    if meta_path.exists():
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            timesteps = int(meta.get("timesteps", 0))
+            if timesteps > 0 and timesteps < 100_000:
+                print(
+                    "[eval_anna] warning: model timesteps=%d is low; behavior may look random/poor. Train longer (>=100k)."
+                    % timesteps
+                )
+        except Exception:
+            pass
 
     scene_path = args.scene
     if not scene_path.startswith("res://"):
@@ -79,6 +93,7 @@ def main() -> int:
         launch_godot=not args.no_launch,
         headless=not args.render,
     )
+    print("[eval_anna] connected_port=%d render=%s watch=%s" % (env.port, args.render, args.watch))
 
     deterministic = not args.stochastic
     model = PPO.load(str(model_path), device="cpu")
@@ -87,8 +102,13 @@ def main() -> int:
     episode_lengths = []
     successes = 0
 
+    interrupted = False
     try:
-        for episode in range(1, args.episodes + 1):
+        episode = 0
+        while True:
+            if not args.watch and episode >= args.episodes:
+                break
+            episode += 1
             obs, _ = env.reset()
             total_reward = 0.0
             length = 0
@@ -115,6 +135,9 @@ def main() -> int:
                 "[eval_anna] episode=%d reward=%.3f length=%d success=%s"
                 % (episode, total_reward, length, success)
             )
+    except KeyboardInterrupt:
+        interrupted = True
+        print("[eval_anna] interrupted by user (Ctrl+C)")
     finally:
         env.close()
 
@@ -123,8 +146,8 @@ def main() -> int:
     success_rate = (successes / max(1, len(episode_rewards))) * 100.0
 
     print(
-        "[eval_anna] summary episodes=%d avg_reward=%.3f avg_len=%.2f success_rate=%.1f%% deterministic=%s"
-        % (len(episode_rewards), avg_reward, avg_len, success_rate, deterministic)
+        "[eval_anna] summary episodes=%d avg_reward=%.3f avg_len=%.2f success_rate=%.1f%% deterministic=%s interrupted=%s"
+        % (len(episode_rewards), avg_reward, avg_len, success_rate, deterministic, interrupted)
     )
     return 0
 

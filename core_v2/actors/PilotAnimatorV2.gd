@@ -42,6 +42,7 @@ export var jump_buffer_duration: float = 0.18
 export var debug_push_gizmo: bool = false
 export var stair_air_time_threshold: float = 0.25
 export var debug_stair_blend: bool = false
+export var debug_animation_events: bool = false
 
 # --- NODES ---
 var controller: Node = null
@@ -331,7 +332,8 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	
 	# Resetear trigger acrobático usando el latch
 	if acrobatic_trigger_active:
-		print("PilotAnimator: Sending is_acrobatic = TRUE to AnimationTree")
+		if debug_animation_events:
+			print("PilotAnimator: Sending is_acrobatic = TRUE to AnimationTree")
 		animation_tree.set(PARAM_CONDITIONS_IS_ACROBATIC, true)
 		acrobatic_trigger_frames_left -= 1
 		if acrobatic_trigger_frames_left <= 0:
@@ -397,7 +399,8 @@ func _on_controller_hit_ceiling() -> void:
 func _on_controller_acrobatic_jumped() -> void:
 	"""Trigger Backflip State via is_acrobatic condition."""
 	if animation_tree:
-		print("PilotAnimator: Controller signal received. Arming ACROBATIC latch.")
+		if debug_animation_events:
+			print("PilotAnimator: Controller signal received. Arming ACROBATIC latch.")
 		# Activamos el latch para que update_animation_parameters lo procese en el momento correcto
 		acrobatic_trigger_active = true
 		acrobatic_trigger_frames_left = 2
@@ -421,7 +424,8 @@ func _on_controller_acrobatic_jumped() -> void:
 				rotation.y = target_angle
 				
 			is_rotation_locked = true # Bloquear hasta aterrizar
-			print("PilotAnimator: Backflip LOCKED orientation")
+			if debug_animation_events:
+				print("PilotAnimator: Backflip LOCKED orientation")
 		
 		if jump_sfx:
 			jump_sfx.play_sfx()

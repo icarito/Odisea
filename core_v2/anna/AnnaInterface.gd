@@ -20,7 +20,14 @@ const RL_REWARD_FAILURE = -100.0
 const RL_REWARD_TIME_PENALTY = -0.1
 const RL_PROGRESS_SCALE = 10.0
 const RL_SUCCESS_DIST = 1.5
+const RL_SPEED_REWARD_SCALE = 0.03 # Favors staying fast on ground.
+const RL_SPRINT_REWARD_SCALE = 0.02 # Extra reward when explicit sprint action is used.
+const RL_JUMP_ACTION_PENALTY = 0.05 # Discourage jump-spam.
+const RL_AIRBORNE_PENALTY = 0.015 # Grounded running is generally faster/more stable.
 const RL_COLLISION_PENALTY_THRESHOLD = 0.6 # If ray < 0.6m ~ collision
+const RL_FLOOR_NORMAL_Y_THRESHOLD = 0.6 # Upward-facing collisions are treated as floor/support.
+const RL_HAZARD_CONTACT_GRACE_FRAMES = 8 # Allow brief wall brushes before failing.
+const RL_FALL_DISTANCE = 3.5 # Episode fails if player falls this much below episode start height.
 
 export(bool) var allow_human_heuristic_override := true
 export(NodePath) var ai_controller_path := NodePath("")
@@ -40,10 +47,47 @@ var _accepted_once_ids := {}
 # RL State
 var _last_dist_to_target := -1.0
 var _episode_start_time := 0
+var _episode_start_height := 2.0
+var _hazard_contact_frames := 0
+var _killzone_triggered := false
+var _last_action_jump := false
+var _last_action_sprint := false
 
 func _ready():
 	_setup_sensors()
 	_setup_rl_sensors()
+	_bind_killzones()
+	var tree = get_tree()
+	if tree and not tree.is_connected("node_added", self, "_on_tree_node_added"):
+		tree.connect("node_added", self, "_on_tree_node_added")
+
+func _exit_tree():
+	var tree = get_tree()
+	if tree and tree.is_connected("node_added", self, "_on_tree_node_added"):
+		tree.disconnect("node_added", self, "_on_tree_node_added")
+
+func _on_tree_node_added(node: Node) -> void:
+	_try_bind_killzone(node)
+
+func _bind_killzones() -> void:
+	if not is_inside_tree():
+		return
+	var zones = get_tree().get_nodes_in_group("KillZoneV2")
+	for zone in zones:
+		_try_bind_killzone(zone)
+
+func _try_bind_killzone(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+	if not node.is_in_group("KillZoneV2"):
+		return
+	if not node.has_signal("player_killed"):
+		return
+	if not node.is_connected("player_killed", self, "_on_killzone_player_killed"):
+		node.connect("player_killed", self, "_on_killzone_player_killed")
+
+func _on_killzone_player_killed() -> void:
+	_killzone_triggered = true
 
 func _setup_sensors():
 	if is_instance_valid(_raycast_root):
@@ -169,6 +213,16 @@ func get_rl_observation() -> Dictionary:
 	# 1. Time Penalty
 	reward += RL_REWARD_TIME_PENALTY
 
+	# 1b. Reward speed (prefer fast locomotion over stationary/jump spam)
+	var horizontal_speed = Vector2(local_vel.x, local_vel.z).length()
+	reward += horizontal_speed * RL_SPEED_REWARD_SCALE
+	if _last_action_sprint and horizontal_speed > 0.1:
+		reward += horizontal_speed * RL_SPRINT_REWARD_SCALE
+	if _last_action_jump:
+		reward -= RL_JUMP_ACTION_PENALTY
+	if player.has_method("is_on_floor") and not player.is_on_floor():
+		reward -= RL_AIRBORNE_PENALTY
+
 	# 2. Progress
 	if _last_dist_to_target >= 0.0:
 		var diff = _last_dist_to_target - dist_to_target
@@ -180,19 +234,45 @@ func get_rl_observation() -> Dictionary:
 		reward += RL_REWARD_SUCCESS
 		done = true
 
-	# 4. Failure (Collision)
-	if min_ray_dist < RL_COLLISION_PENALTY_THRESHOLD:
+	# 4. Failure (KillZone / Fall / Prolonged hazard contact)
+	if not done and _killzone_triggered:
 		reward += RL_REWARD_FAILURE
 		done = true
-	elif player.has_method("get_slide_count"):
-		for i in range(player.get_slide_count()):
-			var col = player.get_slide_collision(i)
-			if col.collider.is_in_group("anna_target"):
-				continue
-			if col.collider is StaticBody:
-				reward += RL_REWARD_FAILURE
-				done = true
-				break
+
+	if not done and player.global_transform.origin.y < (_episode_start_height - RL_FALL_DISTANCE):
+		reward += RL_REWARD_FAILURE
+		done = true
+
+	if not done:
+		var hazard_contact := false
+		if min_ray_dist < RL_COLLISION_PENALTY_THRESHOLD:
+			hazard_contact = true
+
+		if player.has_method("get_slide_count"):
+			for i in range(player.get_slide_count()):
+				var col = player.get_slide_collision(i)
+				if col == null or not is_instance_valid(col.collider):
+					continue
+				if col.collider.is_in_group("anna_target"):
+					continue
+				if col.collider is StaticBody:
+					# Ground contact is expected and should not end the episode.
+					if col.normal.y >= RL_FLOOR_NORMAL_Y_THRESHOLD:
+						continue
+					# Ceiling contact should not end the episode either.
+					if col.normal.y <= -RL_FLOOR_NORMAL_Y_THRESHOLD:
+						continue
+					hazard_contact = true
+					break
+
+		if hazard_contact:
+			_hazard_contact_frames += 1
+		else:
+			_hazard_contact_frames = 0
+
+		if _hazard_contact_frames >= RL_HAZARD_CONTACT_GRACE_FRAMES:
+			reward += RL_REWARD_FAILURE
+			done = true
 
 	return {
 		"obs": obs_vector,
@@ -209,6 +289,7 @@ func reset_simulation() -> void:
 		var rand_yaw = rand_range(-PI, PI)
 		t.basis = Basis(Vector3.UP, rand_yaw)
 		player.teleport_to(t)
+		_episode_start_height = t.origin.y
 
 	# Reset Target
 	var target = _get_rl_target()
@@ -222,25 +303,49 @@ func reset_simulation() -> void:
 
 	# Reset internal state
 	_last_dist_to_target = -1.0
+	_hazard_contact_frames = 0
+	_killzone_triggered = false
+	_last_action_jump = false
+	_last_action_sprint = false
 	# Force initial distance update
 	if target and player:
 		_last_dist_to_target = player.global_transform.origin.distance_to(target.global_transform.origin)
 
 func apply_rl_action(action_idx: int) -> void:
-	# Action Space: 0=Idle, 1=Forward, 2=Back, 3=Left, 4=Right
+	# Action Space:
+	# 0=Idle, 1=Forward, 2=Back, 3=Left, 4=Right, 5=Jump,
+	# 6=SprintForward, 7=SprintBack, 8=SprintLeft, 9=SprintRight
 	var move_vec = Vector2.ZERO
+	var jump_pressed := false
+	var sprint_pressed := false
 
 	match action_idx:
 		1: move_vec.y = 1.0  # Forward
 		2: move_vec.y = -1.0 # Backward
 		3: move_vec.x = -1.0 # Left
 		4: move_vec.x = 1.0  # Right
+		5: jump_pressed = true
+		6:
+			move_vec.y = 1.0
+			sprint_pressed = true
+		7:
+			move_vec.y = -1.0
+			sprint_pressed = true
+		8:
+			move_vec.x = -1.0
+			sprint_pressed = true
+		9:
+			move_vec.x = 1.0
+			sprint_pressed = true
+
+	_last_action_jump = jump_pressed
+	_last_action_sprint = sprint_pressed
 
 	var input_dict = {
 		"move_vec": move_vec,
-		"jump": false,
+		"jump": jump_pressed,
 		"interact": false,
-		"sprint": false,
+		"sprint": sprint_pressed,
 		"crouch": false,
 		"mouse_delta": Vector2.ZERO,
 		"zoom_delta": 0.0,
