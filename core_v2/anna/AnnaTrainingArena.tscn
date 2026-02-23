@@ -1,0 +1,197 @@
+[gd_scene load_steps=19 format=2]
+
+[ext_resource path="res://core_v2/player/PlayerJumpV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/player/PlayerControllerV2.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/actors/PilotAnimatorV2.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/player/PlayerMovementV2.gd" type="Script" id=4]
+
+[sub_resource type="PlaneMesh" id=1]
+size = Vector2( 50, 50 )
+
+[sub_resource type="BoxShape" id=2]
+extents = Vector3( 25, 1, 25 )
+
+[sub_resource type="CubeMesh" id=3]
+size = Vector3( 50, 5, 2 )
+
+[sub_resource type="BoxShape" id=4]
+extents = Vector3( 25, 2.5, 1 )
+
+[sub_resource type="CubeMesh" id=5]
+size = Vector3( 50, 5, 2 )
+
+[sub_resource type="BoxShape" id=6]
+extents = Vector3( 25, 2.5, 1 )
+
+[sub_resource type="CubeMesh" id=7]
+size = Vector3( 2, 5, 50 )
+
+[sub_resource type="BoxShape" id=8]
+extents = Vector3( 1, 2.5, 25 )
+
+[sub_resource type="CubeMesh" id=9]
+size = Vector3( 2, 5, 50 )
+
+[sub_resource type="BoxShape" id=10]
+extents = Vector3( 1, 2.5, 25 )
+
+[sub_resource type="SphereMesh" id=11]
+
+[sub_resource type="SphereShape" id=12]
+
+[sub_resource type="CapsuleMesh" id=13]
+radius = 0.5
+
+[sub_resource type="CapsuleShape" id=14]
+radius = 0.5
+
+[node name="AnnaTrainingArena" type="Spatial"]
+
+[node name="Floor" type="StaticBody" parent="."]
+
+[node name="FloorMesh" type="MeshInstance" parent="Floor"]
+mesh = SubResource( 1 )
+
+[node name="FloorShape" type="CollisionShape" parent="Floor"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
+shape = SubResource( 2 )
+
+[node name="Wall_0" type="StaticBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, -25 )
+
+[node name="@@4" type="MeshInstance" parent="Wall_0"]
+mesh = SubResource( 3 )
+
+[node name="@@5" type="CollisionShape" parent="Wall_0"]
+shape = SubResource( 4 )
+
+[node name="Wall_1" type="StaticBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 25 )
+
+[node name="@@6" type="MeshInstance" parent="Wall_1"]
+mesh = SubResource( 5 )
+
+[node name="@@7" type="CollisionShape" parent="Wall_1"]
+shape = SubResource( 6 )
+
+[node name="Wall_2" type="StaticBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -25, 2.5, 0 )
+
+[node name="@@8" type="MeshInstance" parent="Wall_2"]
+mesh = SubResource( 7 )
+
+[node name="@@9" type="CollisionShape" parent="Wall_2"]
+shape = SubResource( 8 )
+
+[node name="Wall_3" type="StaticBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 2.5, 0 )
+
+[node name="@@10" type="MeshInstance" parent="Wall_3"]
+mesh = SubResource( 9 )
+
+[node name="@@11" type="CollisionShape" parent="Wall_3"]
+shape = SubResource( 10 )
+
+[node name="Target" type="Area" parent="." groups=["anna_target"]]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -10 )
+
+[node name="@@12" type="MeshInstance" parent="Target"]
+mesh = SubResource( 11 )
+
+[node name="@@13" type="CollisionShape" parent="Target"]
+shape = SubResource( 12 )
+
+[node name="Pilot" type="KinematicBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
+collision_layer = 2
+collision_mask = 255
+script = ExtResource( 2 )
+mouse_sensitivity = 0.005
+joy_look_sensitivity = 15.0
+joy_move_sensitivity = 1.0
+snap_length = 0.25
+push_force = 1.0
+min_pitch = -85.0
+max_pitch = 85.0
+interact_distance = 3.0
+push_offset = 0.71
+enable_cinematic_zoom = true
+cinematic_zoom_speed = 1.0
+cinematic_zoom_lerp_speed = 8.0
+cinematic_zoom_min_fov = 20.0
+cinematic_zoom_max_fov = 110.0
+step_height = 0.5
+step_depth = 0.6
+enable_step_up = true
+step_grounded_grace = 0.22
+stair_ground_probe_extra = 0.2
+debug_stair_state = false
+
+[node name="Logic" type="Node" parent="Pilot"]
+
+[node name="Jump" type="Node" parent="Pilot/Logic"]
+script = ExtResource( 1 )
+jump_force = 12.0
+gravity = -24.0
+min_jump_intensity = 0.4
+acrobatic_jump_force = 14.0
+acrobatic_backward_impulse = 12.0
+acrobatic_backward_multiplier = 0.2
+acrobatic_camera_push = 2.5
+acrobatic_brake_factor = 0.0
+
+[node name="Movement" type="Node" parent="Pilot/Logic"]
+script = ExtResource( 4 )
+acceleration = 30.0
+ground_friction = 30.0
+air_friction = 10.0
+move_speed = 5.0
+run_speed_multiplier = 1.8
+crouch_speed_multiplier = 0.5
+air_control_multiplier = 0.5
+stop_threshold = 0.01
+external_decay_rate = 2.0
+tank_turn_speed = 3.0
+tank_turn_transition_time = 1.0
+tank_turn_curve = null
+tank_turn_ramp_time = 0.5
+move_response_curve = null
+camera_response_curve = null
+strafe_turn_multiplier = 0.4
+strafe_speed_multiplier = 0.6
+floor_max_angle_degrees = 45.0
+enable_slope_resistance = true
+slope_resistance_factor = 0.2
+min_resistance_angle_degrees = 25.0
+
+[node name="Visual" type="Spatial" parent="Pilot"]
+
+[node name="Pivot" type="Spatial" parent="Pilot/Visual"]
+script = ExtResource( 3 )
+velocity_lerp_speed = 5.0
+rotation_lerp_speed = 10.0
+push_arm_length_offset = 0.0
+push_start_delay = 0.2
+push_lerp_speed = 10.0
+jump_buffer_duration = 0.18
+debug_push_gizmo = false
+stair_air_time_threshold = 0.25
+debug_stair_blend = false
+
+[node name="@@14" type="MeshInstance" parent="Pilot/Visual/Pivot"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 1, 0 )
+mesh = SubResource( 13 )
+
+[node name="CameraRig" type="Spatial" parent="Pilot"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0 )
+
+[node name="Camera" type="Camera" parent="Pilot/CameraRig"]
+transform = Transform( 1, 0, 0, 0, 0.965926, 0.258819, 0, -0.258819, 0.965926, 0, 0, 0 )
+current = true
+
+[node name="CollisionShape" type="CollisionShape" parent="Pilot"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0.96, 0 )
+shape = SubResource( 14 )
+
+[node name="Sun" type="DirectionalLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 10, 0 )

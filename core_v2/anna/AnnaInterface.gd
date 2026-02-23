@@ -5,6 +5,7 @@ class_name AnnaInterface
 # Configuration
 const PROTOCOL_VERSION = "anna.v1"
 const SENSOR_RAY_COUNT = 32
+const RL_SENSOR_COUNT = 8
 const SENSOR_RANGE = 20.0
 const PROXIMITY_RADIUS = 10.0
 const BUFFER_MAX_ENTRIES = 50
@@ -22,10 +23,20 @@ export(int) var olcs_snapshot_limit := 32
 # State
 var _raycast_root: Spatial
 var _rays := []
+var _rl_raycast_root: Spatial
+var _rl_rays := []
 var _accepted_once_ids := {}
+
+# RL State
+var _rl_target: Spatial
+var _last_dist_to_target: float = -1.0
+var _episode_steps: int = 0
+var _max_steps: int = 1000
+var _fallback_target_pos := Vector3(0, 1, -10) # Default target position
 
 func _ready():
 	_setup_sensors()
+	_setup_rl_sensors()
 
 func _setup_sensors():
 	if is_instance_valid(_raycast_root):
@@ -43,6 +54,23 @@ func _setup_sensors():
 		_raycast_root.add_child(ray)
 		_rays.append(ray)
 
+func _setup_rl_sensors():
+	if is_instance_valid(_rl_raycast_root):
+		return
+
+	_rl_raycast_root = Spatial.new()
+	_rl_raycast_root.name = "AnnaRLSensors"
+	add_child(_rl_raycast_root)
+
+	for i in range(RL_SENSOR_COUNT):
+		var ray = RayCast.new()
+		ray.enabled = true
+		ray.cast_to = Vector3(0, 0, -SENSOR_RANGE)
+		# Distribute 8 rays around 360 degrees
+		ray.rotation_degrees.y = (360.0 / RL_SENSOR_COUNT) * i
+		_rl_raycast_root.add_child(ray)
+		_rl_rays.append(ray)
+
 func get_observation() -> Dictionary:
 	return {
 		"proximity": _get_proximity(),
@@ -52,6 +80,256 @@ func get_observation() -> Dictionary:
 		"olcs": _get_olcs_observation(),
 		"anna": _get_anna_metadata()
 	}
+
+# --- RL Specific Methods ---
+
+func get_rl_observation() -> Array:
+	var obs = []
+
+	# 0-7: Proximity Sensors
+	var sensor_data = _get_rl_collisions()
+	for val in sensor_data:
+		obs.append(clamp(val / SENSOR_RANGE, 0.0, 1.0))
+
+	# Resolve target if needed
+	if not is_instance_valid(_rl_target):
+		_resolve_rl_target()
+
+	var player = _get_player()
+	var dist = 0.0
+	var angle = 0.0
+	var vel_fwd = 0.0
+	var vel_side = 0.0
+
+	if is_instance_valid(player):
+		var p_pos = player.global_transform.origin
+		var t_pos = _fallback_target_pos
+		if is_instance_valid(_rl_target):
+			t_pos = _rl_target.global_transform.origin
+
+		# 8: Normalized Distance to Target
+		dist = p_pos.distance_to(t_pos)
+		obs.append(clamp(dist / 50.0, 0.0, 1.0))
+
+		# 9: Relative Angle to Target (-1.0 to 1.0)
+		var forward = -player.global_transform.basis.z
+		var to_target = (t_pos - p_pos).normalized()
+		var angle_rad = forward.signed_angle_to(to_target, Vector3.UP)
+		angle = angle_rad / PI
+		obs.append(clamp(angle, -1.0, 1.0))
+
+		# 10: Forward Velocity (Normalized)
+		# 11: Lateral Velocity (Normalized)
+		var vel = Vector3.ZERO
+		if "velocity" in player:
+			vel = player.velocity
+
+		var basis = player.global_transform.basis
+		vel_fwd = vel.dot(-basis.z)
+		vel_side = vel.dot(basis.x)
+
+		obs.append(clamp(vel_fwd / 10.0, -1.0, 1.0))
+		obs.append(clamp(vel_side / 10.0, -1.0, 1.0))
+	else:
+		obs.append(0.0) # Dist
+		obs.append(0.0) # Angle
+		obs.append(0.0) # Vel Fwd
+		obs.append(0.0) # Vel Side
+
+	return obs
+
+func apply_rl_action(action_id: int) -> void:
+	var move_vec = Vector2.ZERO
+	# 0: Brake/Idle
+	# 1: Forward
+	# 2: Backward
+	# 3: Left
+	# 4: Right
+
+	match action_id:
+		1: move_vec.y = -1.0
+		2: move_vec.y = 1.0
+		3: move_vec.x = -1.0
+		4: move_vec.x = 1.0
+
+	var input_dict = {
+		"move_vec": move_vec,
+		"jump": false,
+		"interact": false,
+		"sprint": false,
+		"crouch": false,
+		"mouse_delta": Vector2.ZERO,
+		"zoom_delta": 0.0,
+		"fov_override": -1.0
+	}
+
+	var player = _get_player()
+	if is_instance_valid(player) and player.has_method("inject_input"):
+		player.inject_input(input_dict)
+
+func get_rl_reward() -> float:
+	var reward = 0.0
+
+	# Time Penalty
+	reward -= 0.01
+
+	var player = _get_player()
+	if not is_instance_valid(player):
+		return reward
+
+	var p_pos = player.global_transform.origin
+	var t_pos = _fallback_target_pos
+	if is_instance_valid(_rl_target):
+		t_pos = _rl_target.global_transform.origin
+
+	var current_dist = p_pos.distance_to(t_pos)
+
+	# Progress Reward
+	if _last_dist_to_target >= 0.0:
+		var delta = _last_dist_to_target - current_dist
+		reward += delta * 1.0
+
+	_last_dist_to_target = current_dist
+
+	# Success
+	if current_dist < 2.0:
+		reward += 100.0
+
+	# Failure (Collision)
+	var min_sensor = SENSOR_RANGE
+	var sensor_data = _get_rl_collisions()
+	for val in sensor_data:
+		if val < min_sensor:
+			min_sensor = val
+
+	if min_sensor < 0.6:
+		reward -= 100.0
+
+	return reward
+
+func check_done() -> bool:
+	var player = _get_player()
+	if not is_instance_valid(player):
+		return true
+
+	var p_pos = player.global_transform.origin
+	var t_pos = _fallback_target_pos
+	if is_instance_valid(_rl_target):
+		t_pos = _rl_target.global_transform.origin
+
+	var dist = p_pos.distance_to(t_pos)
+
+	if dist < 2.0:
+		return true # Success
+
+	var min_sensor = SENSOR_RANGE
+	var sensor_data = _get_rl_collisions()
+	for val in sensor_data:
+		if val < min_sensor:
+			min_sensor = val
+
+	if min_sensor < 0.6:
+		return true # Failure
+
+	return false
+
+func reset_rl_env() -> void:
+	_resolve_rl_target()
+	var player = _get_player()
+
+	if is_instance_valid(player):
+		# Reset Position
+		var t = Transform.IDENTITY
+		t.origin = Vector3(0, 2, 0)
+		if player.has_method("teleport_to"):
+			player.teleport_to(t)
+		else:
+			player.global_transform = t
+			if "velocity" in player:
+				player.velocity = Vector3.ZERO
+
+	# Reset Target (using fixed pos for now or randomize if target obj exists)
+	if is_instance_valid(_rl_target):
+		var rng = RandomNumberGenerator.new()
+		rng.randomize()
+		var angle = rng.randf_range(-PI, PI)
+		var dist = rng.randf_range(5.0, 15.0)
+		var x = sin(angle) * dist
+		var z = cos(angle) * dist
+		_rl_target.global_transform.origin = Vector3(x, 1.0, z)
+
+	# Reset state variables
+	if is_instance_valid(player):
+		var t_pos = _fallback_target_pos
+		if is_instance_valid(_rl_target):
+			t_pos = _rl_target.global_transform.origin
+		_last_dist_to_target = player.global_transform.origin.distance_to(t_pos)
+	else:
+		_last_dist_to_target = -1.0
+
+func _resolve_rl_target():
+	if is_instance_valid(_rl_target):
+		return
+	var targets = get_tree().get_nodes_in_group("anna_target")
+	if targets.size() > 0:
+		_rl_target = targets[0]
+		print("[AnnaInterface] Target resolved via group: %s" % _rl_target.name)
+		return
+
+	# Fallback 1: Direct search in current scene
+	if get_tree().current_scene:
+		var direct_target = get_tree().current_scene.find_node("Target", true, false)
+		if direct_target:
+			_rl_target = direct_target
+			print("[AnnaInterface] Target resolved via current_scene.find_node")
+			return
+
+	# Fallback 2: Absolute path
+	var abs_target = get_node_or_null("/root/AnnaTrainingArena/Target")
+	if abs_target:
+		_rl_target = abs_target
+		print("[AnnaInterface] Target resolved via absolute path")
+		return
+
+	print("[AnnaInterface] ERROR: Target could not be resolved. Using fallback position.")
+	print("[AnnaInterface] DUMPING TREE:")
+	if get_tree() and get_tree().root:
+		get_tree().root.print_tree_pretty()
+
+func _get_rl_collisions() -> Array:
+	if not is_instance_valid(_rl_raycast_root):
+		_setup_rl_sensors()
+
+	var player = _get_player()
+	if not is_instance_valid(player):
+		var fallback = []
+		for i in range(RL_SENSOR_COUNT): fallback.append(SENSOR_RANGE)
+		return fallback
+
+	if not player is Spatial:
+		var fallback = []
+		for i in range(RL_SENSOR_COUNT): fallback.append(SENSOR_RANGE)
+		return fallback
+
+	_rl_raycast_root.global_transform.origin = player.global_transform.origin + Vector3(0, 1.0, 0)
+	_rl_raycast_root.global_transform.basis = player.global_transform.basis
+
+	for ray in _rl_rays:
+		ray.clear_exceptions()
+		ray.add_exception(player)
+		ray.force_raycast_update()
+
+	var data = []
+	for ray in _rl_rays:
+		if ray.is_colliding():
+			var col_point = ray.get_collision_point()
+			var dist = ray.global_transform.origin.distance_to(col_point)
+			data.append(dist)
+		else:
+			data.append(SENSOR_RANGE)
+	return data
+
+# --- Standard Methods ---
 
 func _get_proximity() -> Array:
 	var player = _get_player()
@@ -111,7 +389,6 @@ func _get_collisions() -> Array:
 
 	var player = _get_player()
 	if not is_instance_valid(player):
-		# Return max range if no player
 		var fallback = []
 		for i in range(SENSOR_RAY_COUNT): fallback.append(SENSOR_RANGE)
 		return fallback
@@ -120,13 +397,8 @@ func _get_collisions() -> Array:
 		for i in range(SENSOR_RAY_COUNT): fallback.append(SENSOR_RANGE)
 		return fallback
 
-	# Teleport sensor to player eye level
-	# Note: If this node is not in the tree, rays won't work.
-	# Since AnnaInterface is likely a child of AnnaBridge which is in the tree, this works.
-	# We use global coordinates to position the sensor ring.
 	_raycast_root.global_transform.origin = player.global_transform.origin + Vector3(0, 1.0, 0)
 
-	# Force update to get immediate results
 	for ray in _rays:
 		ray.clear_exceptions()
 		ray.add_exception(player)
@@ -143,20 +415,17 @@ func _get_collisions() -> Array:
 	return data
 
 func apply_action(action: Dictionary):
-	# print("[AnnaInterface] Applying action: ", action.keys())
 	var sm = get_node_or_null("/root/SessionManager")
 	if not sm: return
 
-	# Movement
 	var has_input = action.has("move") or action.has("look") or action.has("jump") or action.has("interact") or action.has("sprint") or action.has("crouch")
 	if has_input:
-		var move_data = action.get("move", [0.0, 0.0]) # [x, y]
+		var move_data = action.get("move", [0.0, 0.0])
 		var jump = action.get("jump", false)
 		var interact = action.get("interact", false)
 		var sprint = action.get("sprint", false)
 		var crouch = action.get("crouch", false)
 
-		# Ensure types
 		var vx = 0.0
 		var vy = 0.0
 		if typeof(move_data) == TYPE_ARRAY and move_data.size() >= 2:
@@ -165,7 +434,6 @@ func apply_action(action: Dictionary):
 		vx = clamp(vx, -1.0, 1.0)
 		vy = clamp(vy, -1.0, 1.0)
 
-		# Look / Rotation
 		var look_data = action.get("look", [0.0, 0.0])
 		var lx = 0.0
 		var ly = 0.0
@@ -192,7 +460,6 @@ func apply_action(action: Dictionary):
 			"fov_override": -1.0
 		}
 
-		# Override SessionManager input if recording, otherwise inject directly to player
 		if sm.is_recording:
 			sm._oys_input_override = input_dict
 		else:
@@ -200,18 +467,15 @@ func apply_action(action: Dictionary):
 			if is_instance_valid(player) and player.has_method("inject_input"):
 				player.inject_input(input_dict)
 
-	# Command Injection
 	if action.has("command") and allow_command_injection:
 		var cmd = str(action["command"])
 		var console = _resolve_console()
 		if console and console.has_method("enqueue_command"):
 			console.enqueue_command(cmd)
 
-	# Structured OYS integration for ANNA clients
 	if action.has("oys"):
 		_apply_oys_action(action["oys"])
 
-	# OLCS/OCLS alias accepted to avoid client-side naming mismatch
 	if action.has("olcs"):
 		_apply_olcs_action(action["olcs"])
 	elif action.has("ocls"):
@@ -221,6 +485,9 @@ func _get_player() -> Node:
 	var sm = get_node_or_null("/root/SessionManager")
 	if sm and sm.player:
 		return sm.player
+	var p_nodes = get_tree().get_nodes_in_group("player")
+	if p_nodes.size() > 0:
+		return p_nodes[0]
 	return null
 
 func _get_anna_metadata() -> Dictionary:
