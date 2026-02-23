@@ -172,16 +172,16 @@ func _cache_material(node, material, extra={}):
 	
 	if geometry_instance:
 		var parent
-		if node.get_parent() is Skeleton:
-			parent = get_skeleton_node(true)
+		# Instancing warmup meshes under a temporary Skeleton can trigger
+		# "Skeleton parenthood graph is cyclic" on some rigs.
+		# Cache skinned materials in the regular container instead.
+		if material.resource_local_to_scene:
+			var from_node_path_string = String(node.get_path()).lstrip("/root/")
+			var from_node_owner_path = extra.get("owner_path")
+			parent = get_local_to_scene_materials_node(true)
+			geometry_instance.editor_description = "Owner: %s\nNodePath: %s" % [from_node_owner_path, from_node_path_string]
 		else:
-			if material.resource_local_to_scene:
-				var from_node_path_string = String(node.get_path()).lstrip("/root/")
-				var from_node_owner_path = extra.get("owner_path")
-				parent = get_local_to_scene_materials_node(true)
-				geometry_instance.editor_description = "Owner: %s\nNodePath: %s" % [from_node_owner_path, from_node_path_string]
-			else:
-				parent = get_materials_node(true)
+			parent = get_materials_node(true)
 		
 		if parent:
 			parent.add_child(geometry_instance)

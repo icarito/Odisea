@@ -5,8 +5,9 @@ extends MeshInstance
 # Drapes over obstacles and "tears" at steep cliffs to avoid walls.
 
 export(Texture) var shadow_texture: Texture
-export(float) var radius: float = 1.0 # Actual World Radius of the shadow blob
+export(float) var radius: float = 0.35 # Actual World Radius of the shadow blob
 export(float, 0.0, 1.0) var hardness: float = 0.5 # Edge softness
+export(String, "cheap", "grid") var shadow_mode: String = "cheap"
 export(int) var grid_resolution: int = 20 # NxN rays (Increased for better detail)
 export(float) var max_distance: float = 6.0
 export(float, 0.0, 1.0) var base_opacity: float = 1.0
@@ -14,12 +15,37 @@ export(float) var skirt_limit: float = 5.0 # Max height for skirts before we sto
 export(float) var vertical_offset: float = 0.02
 export(float) var snap_amount: float = 0.1 # World Grid Size (10cm matches your 0.2m floors)
 export(float) var smooth_speed: float = 10.0 # Lerp speed
+export(int, 1, 8) var update_every_n_frames: int = 3
+export(float) var movement_epsilon: float = 0.02
+export(float) var rotation_epsilon_deg: float = 1.0
+export(bool) var anchor_to_root_body: bool = true
+export(Vector3) var anchor_offset: Vector3 = Vector3(0, 0, 0)
+export(int) var ground_collision_mask: int = 5
 
 var _rays: Array = [] # Linear array of rays
 var _mesh_tool: SurfaceTool
 var _actor_excluded = false
+var _disable_runtime := false
+var _update_counter := 0
+var _has_last_sample := false
+var _last_parent_pos := Vector3.ZERO
+var _last_parent_rot_y := 0.0
+var _cheap_ray: RayCast = null
+var _cheap_ground_y := 0.0
 
 func _ready() -> void:
+	var disable_env := OS.get_environment("ODISEA_DISABLE_FAKE_SHADOW").to_lower()
+	_disable_runtime = disable_env in ["1", "true", "yes", "on"]
+	if _disable_runtime:
+		visible = false
+		set_process(false)
+		return
+	if OS.get_name() == "Switch":
+		# Keep fake shadow in low-spec platforms, but force the cheap path.
+		shadow_mode = "cheap"
+		update_every_n_frames = max(update_every_n_frames, 4)
+		grid_resolution = min(grid_resolution, 8)
+
 	_mesh_tool = SurfaceTool.new()
 	
 	var mat = preload("res://materials/shadow/FakeShadowShader.tres")
@@ -28,8 +54,20 @@ func _ready() -> void:
 	if shadow_texture:
 		material_override.set_shader_param("texture_albedo", shadow_texture)
 
-	# Create Ray Grid
-	_create_rays()
+	if shadow_mode == "grid":
+		# Create Ray Grid
+		_create_rays()
+	else:
+		# Cheap mode: one quad + one raycast.
+		var plane = PlaneMesh.new()
+		plane.size = Vector2(max(0.05, radius * 2.0), max(0.05, radius * 2.0))
+		mesh = plane
+		_cheap_ray = RayCast.new()
+		_cheap_ray.name = "CheapShadowRay"
+		_cheap_ray.enabled = true
+		_cheap_ray.collision_mask = ground_collision_mask
+		_cheap_ray.cast_to = Vector3(0, -max_distance - 1.0, 0)
+		add_child(_cheap_ray)
 	
 	cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	set_as_toplevel(true)
@@ -46,57 +84,77 @@ func _create_rays() -> void:
 			var r = RayCast.new()
 			r.name = "Ray_%d_%d" % [x, z]
 			r.enabled = true
-			# Match the Player GroundRay mask (bits 1-20 or just all)
-			r.collision_mask = 2147483647 # Scan EVERYTHING
+			# Match player ground probing by default: terrain/floor mask.
+			r.collision_mask = ground_collision_mask
 			r.cast_to = Vector3(0, -max_distance, 0)
 			add_child(r)
 			_rays.append(r)
 
 func _process(_delta: float) -> void:
+	if _disable_runtime:
+		return
 	var parent = get_parent()
 	if not parent: return
 	
-	var center_pos = parent.global_transform.origin
+	var center_pos = _get_anchor_center_pos(parent)
 	
-	# Snap Position for Pixel Art / Stability
-	# We MUST snap the mesh to the grid to avoid "swimming" geometry.
-	if snap_amount > 0.0:
+	# Grid mode benefits from snapping + UV slide.
+	# Cheap mode skips this to reduce per-frame cost.
+	if shadow_mode == "grid" and snap_amount > 0.0:
 		var snapped_pos = center_pos.snapped(Vector3(snap_amount, snap_amount, snap_amount))
 		global_transform.origin = snapped_pos
-		
-		# UV Sliding Technique:
-		# The mesh is snapped, but we want the shadow blob to follow the player smoothly.
-		# We calculate the difference and shift the UVs.
 		var diff = center_pos - snapped_pos
-		# Map world diff to UV space. 
-		# If UV scale is based on grid_width radius...
-		# Actually, simpler: Pass world offset to shader and let shader handle it?
-		# Or pre-calculate UV offset here.
-		# Let's pass Vector2 offset (x, z).
-		
 		if material_override:
-			# We need to scale this offset by the same factor used for UVs
-			# Grid width in world units:
 			var step = snap_amount
-			if step <= 0.001: step = 0.1
-			var grid_width = step * (grid_resolution - 1)
-			
-			# UV is 0..1 over grid_width.
-			# So 1 unit world move = 1.0/grid_width UV move.
+			if step <= 0.001:
+				step = 0.1
+			var grid_width = max(0.001, step * (grid_resolution - 1))
 			var uv_off = Vector2(diff.x, diff.z) / grid_width
-			
-			# We need to subtract this offset because if player moves RIGHT (+X),
-			# the texture needs to move RIGHT. 
-			# In UV space, moving texture right means modifying UVs... how?
-			# uv = UV - offset. 
 			material_override.set_shader_param("uv_offset", uv_off)
 	else:
 		global_transform.origin = center_pos
 		
 	_handle_exclusions()
 
-	# Reset rotation (Mesh stays axis aligned)
+	# Keep mesh orientation stable. In cheap mode we use PlaneMesh (already XZ).
 	global_transform.basis = Basis.IDENTITY
+	if shadow_mode != "grid":
+		var cheap_pos = global_transform.origin
+		cheap_pos.y = _cheap_ground_y if _has_last_sample else (center_pos.y - 1.0)
+		global_transform.origin = cheap_pos
+
+	var parent_rot_y = parent.global_transform.basis.get_euler().y
+	var moved_sq = center_pos.distance_squared_to(_last_parent_pos)
+	var rot_delta = abs(wrapf(parent_rot_y - _last_parent_rot_y, -PI, PI))
+	var move_eps_sq = movement_epsilon * movement_epsilon
+	var frame_interval = max(1, update_every_n_frames)
+	_update_counter += 1
+
+	var should_refresh = false
+	if not _has_last_sample:
+		should_refresh = true
+	elif moved_sq >= move_eps_sq:
+		should_refresh = true
+	elif rot_delta >= deg2rad(rotation_epsilon_deg):
+		should_refresh = true
+	elif _update_counter >= frame_interval:
+		should_refresh = true
+
+	if not should_refresh:
+		if shadow_mode != "grid":
+			var keep_pos = global_transform.origin
+			keep_pos.y = _cheap_ground_y if _has_last_sample else (center_pos.y - 1.0)
+			global_transform.origin = keep_pos
+		return
+
+	_update_counter = 0
+	_has_last_sample = true
+	_last_parent_pos = center_pos
+	_last_parent_rot_y = parent_rot_y
+
+	if shadow_mode != "grid":
+		_refresh_cheap_shadow(center_pos, parent_rot_y)
+		return
 
 	# Update Ray Positions
 	# Perfect Pixel Alignment:
@@ -150,6 +208,42 @@ func _process(_delta: float) -> void:
 
 	_generate_mesh()
 
+func _refresh_cheap_shadow(center_pos: Vector3, parent_rot_y: float) -> void:
+	if _cheap_ray:
+		_cheap_ray.global_transform.origin = center_pos + Vector3(0, 1.0, 0)
+		_cheap_ray.cast_to = Vector3(0, -max_distance - 1.0, 0)
+		_cheap_ray.force_raycast_update()
+		if _cheap_ray.is_colliding():
+			_cheap_ground_y = _cheap_ray.get_collision_point().y + vertical_offset
+		else:
+			_cheap_ground_y = center_pos.y - max_distance + vertical_offset
+	else:
+		_cheap_ground_y = center_pos.y - max_distance + vertical_offset
+
+	if material_override:
+		material_override.set_shader_param("hardness", hardness)
+		material_override.set_shader_param("uv_scale", 1.0)
+		material_override.set_shader_param("texture_rotation", -parent_rot_y)
+
+	if mesh is PlaneMesh:
+		var plane: PlaneMesh = mesh
+		plane.size = Vector2(max(0.05, radius * 2.0), max(0.05, radius * 2.0))
+
+	var p = global_transform.origin
+	p.y = _cheap_ground_y
+	global_transform.origin = p
+
+func _get_anchor_center_pos(parent: Node) -> Vector3:
+	var center_pos: Vector3 = (parent as Spatial).global_transform.origin
+	if anchor_to_root_body:
+		var p: Node = parent
+		while p:
+			if p is PhysicsBody:
+				center_pos = (p as Spatial).global_transform.origin
+				break
+			p = p.get_parent()
+	return center_pos + anchor_offset
+
 func _handle_exclusions() -> void:
 	if _actor_excluded: return
 	
@@ -165,6 +259,8 @@ func _handle_exclusions() -> void:
 	if actor:
 		for r in _rays:
 			r.add_exception(actor)
+		if _cheap_ray:
+			_cheap_ray.add_exception(actor)
 		_actor_excluded = true
 
 func _generate_mesh() -> void:

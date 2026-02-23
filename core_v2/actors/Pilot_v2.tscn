@@ -94,7 +94,7 @@ debug_stair_blend = true
 
 [node name="Skeleton" parent="Visual/Pivot" instance=ExtResource( 9 )]
 
-[node name="Mesh_0001" parent="Visual/Pivot/Skeleton/Node_40/Skinned_Mesh_0/Skeleton" index="0"]
+[node name="Mesh_0001" parent="Visual/Pivot/Skeleton/Node_40/Skinned_Mesh_0/Skeleton" index="0" groups=["deband_target"]]
 material/0 = SubResource( 121 )
 
 [node name="AnimationPlayer" parent="Visual/Pivot/Skeleton" index="1"]
@@ -122,7 +122,6 @@ parameters/InAir/Transition/current = 1
 parameters/Jump/Transition/current = 0
 
 [node name="InteractArea" type="Area" parent="Visual/Pivot"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
 collision_layer = 16
 collision_mask = 255
 monitorable = false
@@ -131,12 +130,19 @@ monitorable = false
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0.5 )
 shape = SubResource( 120 )
 
-[node name="FakeShadow" type="MeshInstance" parent="Visual/Pivot" groups=["optional"]]
+[node name="FakeShadow" type="MeshInstance" parent="Visual/Pivot" groups=["switch_keep"]]
 cast_shadow = 0
 script = ExtResource( 53 )
-grid_resolution = 12
-base_opacity = 0.4
+radius = 0.5
+hardness = 0.42
+shadow_mode = "grid"
+grid_resolution = 8
+base_opacity = 0.62
 skirt_limit = 6.0
+update_every_n_frames = 4
+movement_epsilon = 0.03
+anchor_offset = Vector3( 0, 0.03, 0 )
+ground_collision_mask = 5
 
 [node name="JumpSFX" type="AudioStreamPlayer3D" parent="Visual/Pivot"]
 stream = ExtResource( 13 )

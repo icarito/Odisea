@@ -96,6 +96,8 @@ var _restore_spring_length: float = -1.0
 var _restore_fov: float = -1.0
 var _exit_log_frames := 0
 var _occlusion_mode_active := false
+var _perf_disable_interaction_scan := false
+var _perf_disable_cinematic_zone_scan := false
 
 # Signals
 signal jumped
@@ -232,6 +234,11 @@ onready var animator = $Visual/Pivot
 onready var _audio_listener = get_node_or_null("AudioListener")
 
 func _ready():
+	var disable_interaction_env := OS.get_environment("ODISEA_DISABLE_INTERACTION_SCAN").to_lower()
+	_perf_disable_interaction_scan = disable_interaction_env in ["1", "true", "yes", "on"]
+	var disable_camera_zone_env := OS.get_environment("ODISEA_DISABLE_CAMERAZONE_SCAN").to_lower()
+	_perf_disable_cinematic_zone_scan = disable_camera_zone_env in ["1", "true", "yes", "on"]
+
 	initial_transform = global_transform
 	add_to_group("player")
 	_ensure_player_audio_listener()
@@ -498,6 +505,9 @@ func _setup_interact_area():
 		add_child(_interact_area)
 
 func _process_interaction(input: InputDataV2):
+	if _perf_disable_interaction_scan:
+		_clear_interactable()
+		return
 	if not _interact_area: return
 	var bodies = _interact_area.get_overlapping_bodies()
 	var best_target = null
@@ -801,7 +811,8 @@ func step(dt: float, input: InputDataV2) -> void:
 		jump_logic.buffer_jump()
 
 	# --- CINEMATIC ZONE DETECTION ---
-	_update_cinematic_zone_detection(input, dt)
+	if not _perf_disable_cinematic_zone_scan:
+		_update_cinematic_zone_detection(input, dt)
 	
 	# --- MOVEMENT ---
 	var move_vec = input.move_vec

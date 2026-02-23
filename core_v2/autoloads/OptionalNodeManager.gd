@@ -63,6 +63,9 @@ func _update_all_optional_nodes() -> void:
 		if not is_instance_valid(node):
 			continue
 		if _is_switch_platform and not _optional_enabled:
+			if node.is_in_group(SWITCH_KEEP_GROUP):
+				_apply_switch_runtime_optimizations(node)
+				continue
 			_prune_node(node)
 			continue
 		_set_node_optional_state(node, _optional_enabled)
@@ -104,6 +107,8 @@ func _is_optional_or_under_optional(node: Node) -> bool:
 
 func _prune_node(node: Node) -> void:
 	if not is_instance_valid(node):
+		return
+	if node.is_in_group(SWITCH_KEEP_GROUP):
 		return
 	if node.is_queued_for_deletion():
 		return

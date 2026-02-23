@@ -1799,6 +1799,7 @@ SubtitlesOverlayManager="*res://core_v2/autoloads/SubtitlesOverlayManager.gd"
 OptionalNodeManager="*res://core_v2/autoloads/OptionalNodeManager.gd"
 ShaderCacheManager="*res://addons/gd-shader-cache/src/ShaderCacheManager.gd"
 MobileUIManager="*res://core_v2/autoloads/MobileUIManager.gd"
+DebandingMaterialManager="*res://core_v2/autoloads/DebandingMaterialManager.gd"
 
 [debug]
 

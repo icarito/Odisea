@@ -1051,7 +1051,7 @@ _data = {
 "tilts": PoolRealArray( 0, 0, 0 )
 }
 
-[node name="Terrace" type="CSGBox"]
+[node name="Terrace" type="CSGBox" groups=["deband_target"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
 use_collision = true
 width = 80.0
@@ -1059,7 +1059,7 @@ depth = 80.0
 material = ExtResource( 1 )
 script = ExtResource( 49 )
 
-[node name="CornerFloor" type="CSGBox" parent="."]
+[node name="CornerFloor" type="CSGBox" parent="." groups=["deband_target"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 29.7736, 1.83056, -29.847 )
 width = 20.0
 height = 1.0
@@ -1773,6 +1773,7 @@ zone_extents = Vector3( 2.2, 4, 1 )
 [node name="DirectionalLight" parent="InteriorWide" index="0"]
 transform = Transform( -0.315579, 0.252033, -0.914757, -0.125866, 0.951167, 0.30541, 0.940509, 0.211516, -0.265529, 0.464873, 30.9615, 3.10425 )
 light_energy = 0.304
+light_indirect_energy = 0.0
 shadow_enabled = false
 shadow_bias = -0.231
 
@@ -2028,9 +2029,9 @@ script = ExtResource( 53 )
 [node name="VCameraSystem" parent="." instance=ExtResource( 48 )]
 
 [node name="IntroFar" parent="VCameraSystem/VCameras" index="0"]
-transform = Transform( -0.798615, 0.601843, 2.63074e-08, 0, -4.37114e-08, 1, 0.601843, 0.798615, 3.49085e-08, -247.674, 2164.67, 86.789 )
-fov = 61.431
-far = 8192.0
+transform = Transform( -0.798615, 0.601843, 2.63074e-08, 0, -4.37114e-08, 1, 0.601843, 0.798615, 3.49085e-08, -247.674, 200, 86.789 )
+fov = 60.0
+far = 300.0
 
 [node name="IntroClose" parent="VCameraSystem/VCameras" index="1"]
 transform = Transform( -0.924457, -0.109434, 0.365244, -0.0427371, 0.981631, 0.185944, -0.378883, 0.156288, -0.912152, 6.15684, 8.47339, 8.85584 )
@@ -2339,6 +2340,7 @@ curve = SubResource( 2457 )
 
 [node name="SDE Odisea" parent="." instance=ExtResource( 54 )]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 5.96046e-08, 0 )
+visible = false
 
 [editable path="SideScrollZone4"]
 [editable path="InteriorWide"]

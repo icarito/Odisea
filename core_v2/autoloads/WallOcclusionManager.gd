@@ -5,6 +5,7 @@ var camera_node: Camera
 var is_occlusion_active: bool = false
 var hole_radius: float = 1.5
 var registered_materials: Array = [] # Simple array of materials
+var _disable_occlusion_updates := false
 
 # Shader effect parameters
 var shader_params: Dictionary = {
@@ -16,6 +17,8 @@ var shader_params: Dictionary = {
 }
 
 func _process(_delta):
+	if _disable_occlusion_updates:
+		return
 	if registered_materials.empty():
 		return
 		
@@ -45,6 +48,10 @@ func _process(_delta):
 					mat.set_shader_param(key, shader_params[key])
 				living_materials.append(mat)
 		registered_materials = living_materials
+
+func _ready():
+	var disable_env := OS.get_environment("ODISEA_DISABLE_OCCLUSION_UPDATE").to_lower()
+	_disable_occlusion_updates = disable_env in ["1", "true", "yes", "on"]
 
 func register_material(mat: ShaderMaterial, _owner_node: Spatial = null):
 	if mat and not registered_materials.has(mat):

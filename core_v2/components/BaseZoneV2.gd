@@ -12,13 +12,16 @@ var _host_area: Area = null
 
 # Track bodies currently in zone (more reliable than overlaps_body during physics sync)
 var _bodies_in_zone: Dictionary = {}
+var _runtime_debug_logs := false
 
 func _ready():
+	var env_debug := OS.get_environment("ODISEA_ZONE_DEBUG").to_lower()
+	_runtime_debug_logs = env_debug in ["1", "true", "yes", "on"]
 	_find_and_setup_host()
 	if Engine.editor_hint or OS.is_debug_build():
 		_update_debug_mesh()
 	
-	if not Engine.editor_hint and _host_area:
+	if not Engine.editor_hint and _host_area and _runtime_debug_logs:
 		print("[BaseZoneV2] ", name, " Initialized. Layer: ", _host_area.collision_layer, " Mask: ", _host_area.collision_mask)
 
 func _find_and_setup_host():
@@ -48,17 +51,19 @@ func _find_and_setup_host():
 			printerr("[BaseZoneV2] WARNING: ", name, " has no Area host (self or parent).")
 
 func _on_host_body_entered(body: Node):
-	if not Engine.editor_hint:
+	if not Engine.editor_hint and _runtime_debug_logs:
 		print("DEBUG BASEZONE: Body Entered: ", body.name, " (", body.get_class(), ") groups: ", body.get_groups(), " into Zone: ", name)
 	
 	if body.is_in_group("player"):
-		print("DEBUG BASEZONE: Player detected in Zone: ", name)
+		if _runtime_debug_logs:
+			print("DEBUG BASEZONE: Player detected in Zone: ", name)
 		_on_zone_entered(body)
 	_bodies_in_zone[body.get_instance_id()] = body
 
 func _on_host_body_exited(body: Node):
 	if body.is_in_group("player"):
-		print("DEBUG BASEZONE: Body Exited: ", body.name, " Zone: ", self.name)
+		if _runtime_debug_logs:
+			print("DEBUG BASEZONE: Body Exited: ", body.name, " Zone: ", self.name)
 		_on_zone_exited(body)
 	_bodies_in_zone.erase(body.get_instance_id())
 
