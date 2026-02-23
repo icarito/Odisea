@@ -59,7 +59,7 @@ class AnnaGymEnv(gym.Env):
 
         cmd = []
         if self.headless:
-            cmd = ["xvfb-run", "-a"]
+            cmd = ["xvfb-run", "-a", "-s", "-screen 0 1024x768x24+120"]
 
         cmd.extend([godot_bin, "--audio-driver", "Dummy", "--path", "."])
         if self.headless:
