@@ -6,6 +6,7 @@ var _server: TCP_Server
 var _peers := []
 var _interface: Node
 var _peer_buffers := {} # { peer_instance_id: String }
+var is_rl_mode := false
 
 func _ready():
 	_interface = preload("res://core_v2/anna/AnnaInterface.gd").new()
@@ -17,6 +18,11 @@ func _ready():
 	if port_str.is_valid_integer():
 		port = int(port_str)
 
+	# Check RL Mode
+	if OS.get_environment("ANNA_RL_MODE") == "1":
+		is_rl_mode = true
+		print("[ANNA] RL Lock-Step Mode Enabled")
+
 	var err = _server.listen(port)
 	if err != OK:
 		print("[ANNA] Failed to listen on port %d" % port)
@@ -24,18 +30,26 @@ func _ready():
 		print("[ANNA] Listening on port %d" % port)
 
 func _physics_process(_delta):
+	# Accept new connections
 	while _server != null and _server.is_connection_available():
 		var peer = _server.take_connection()
 		if peer:
 			_peers.append(peer)
+			peer.set_no_delay(true) # Important for RL latency
 			print("[ANNA] Client connected: %s" % peer.get_connected_host())
 
 	# Process peers
 	var active_peers = []
 	for peer in _peers:
 		if peer.get_status() == StreamPeerTCP.STATUS_CONNECTED:
-			_handle_peer(peer)
-			active_peers.append(peer)
+			if is_rl_mode:
+				_handle_rl_peer_sync(peer)
+			else:
+				_handle_peer(peer)
+
+			# Check again if still connected after handling (might have disconnected in RL loop)
+			if peer.get_status() == StreamPeerTCP.STATUS_CONNECTED:
+				active_peers.append(peer)
 		else:
 			print("[ANNA] Client disconnected")
 			var pid = peer.get_instance_id()
@@ -51,6 +65,8 @@ func _exit_tree():
 	_peer_buffers.clear()
 	if _server:
 		_server.stop()
+
+# --- STANDARD ASYNC MODE ---
 
 func _handle_peer(peer: StreamPeerTCP):
 	# Send Observation
@@ -92,3 +108,81 @@ func _build_observation_payload() -> Dictionary:
 	anna_meta["peer_count"] = _peers.size()
 	obs["anna"] = anna_meta
 	return obs
+
+# --- RL LOCK-STEP MODE ---
+
+func _handle_rl_peer_sync(peer: StreamPeerTCP):
+	# 1. Send Observation (Current State)
+	var obs = _interface.get_rl_observation()
+	_send_json(peer, obs)
+
+	# 2. Block until Action or Reset command received
+	while true:
+		var msg = _read_json_message_blocking(peer)
+		if msg == null:
+			# Connection likely closed or error
+			return
+
+		if msg.has("command") and msg["command"] == "RESET":
+			# Handle Reset immediately
+			print("[ANNA] Resetting Simulation via TCP Command")
+			_interface.reset_simulation()
+			# IMPORTANT: Send fresh observation for the reset state
+			obs = _interface.get_rl_observation()
+			# Reset reward to 0 for the first frame after reset
+			obs["reward"] = 0.0
+			obs["done"] = false
+			_send_json(peer, obs)
+			# Continue waiting for the first action of the new episode
+			continue
+
+		elif msg.has("action"):
+			var action_idx = int(msg["action"])
+			_interface.apply_rl_action(action_idx)
+			# Done processing this frame
+			break
+
+		else:
+			print("[ANNA] Unknown RL command: ", msg)
+			# For robustness, we treat unknown commands as no-op and wait for next
+			# Or break to avoid freeze?
+			# Ideally, wait for valid action.
+			pass
+
+func _read_json_message_blocking(peer: StreamPeerTCP):
+	var pid = peer.get_instance_id()
+	if not _peer_buffers.has(pid):
+		_peer_buffers[pid] = ""
+
+	# Loop until we have a full line
+	while not "\n" in _peer_buffers[pid]:
+		# Check connection status
+		if peer.get_status() != StreamPeerTCP.STATUS_CONNECTED:
+			return null
+
+		var bytes = peer.get_available_bytes()
+		if bytes > 0:
+			var chunk = peer.get_utf8_string(bytes) # Read all available
+			_peer_buffers[pid] += chunk
+		else:
+			# Wait a bit to prevent CPU burn
+			OS.delay_usec(1000) # 1ms
+
+	# Extract line
+	var parts = _peer_buffers[pid].split("\n", true, 1)
+	var line = parts[0]
+	_peer_buffers[pid] = parts[1]
+
+	if line.strip_edges() == "":
+		return {} # Empty line, maybe just newline sent?
+
+	var parse = JSON.parse(line)
+	if parse.error == OK and typeof(parse.result) == TYPE_DICTIONARY:
+		return parse.result
+	else:
+		print("[ANNA] JSON Parse Error: ", line)
+		return {}
+
+func _send_json(peer: StreamPeerTCP, data: Dictionary):
+	var json_str = JSON.print(data)
+	peer.put_data((json_str + "\n").to_utf8())
