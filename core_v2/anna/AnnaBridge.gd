@@ -23,6 +23,8 @@ func _ready():
 	if rl_mode_env == "1" or rl_mode_env.to_lower() == "true":
 		is_rl_mode = true
 		print("[ANNA] RL Lock-Step Mode Enabled")
+		OS.set_use_vsync(false)
+		print("[ANNA] VSync disabled for RL training")
 
 	var err = _server.listen(port)
 	if err != OK:

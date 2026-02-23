@@ -30,3 +30,4 @@ pupeteer/.venv/
 *.pyc
 */__pycache__/
 digest.txt
+.venv311/

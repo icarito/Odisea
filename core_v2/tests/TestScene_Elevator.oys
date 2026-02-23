@@ -1,22 +1,10 @@
-LEVELres: / / core_v2 / tests / test_elevator.tscn
-# Initial stabilization time for logic circuit to build
-WAIT2.0
-SCREENSHOT0_idle
+LEVEL res://core_v2/tests/TestScene_Elevator.tscn
+WAIT 0.5
 
 # Press Floor 1
-PRINT"Triggering Floor 1..."
-INTERACTButton_Floor1
-WAIT5.0
-SCREENSHOT1_mid
-
-# Press Internal Button (Next Floor)
-PRINT"Triggering Internal Button..."
-INTERACTElevatorProp / Platform / Button_Internal
-WAIT5.0
-SCREENSHOT2_active
+INTERACT ElevatorProp/Floors/Floor1/Input/PedestalButton
+WAIT 3.0
 
 # Press Floor 0
-PRINT"Triggering Floor 0..."
-INTERACTElevatorProp / Button_Floor0
-WAIT8.0
-SCREENSHOT3_off
+INTERACT ElevatorProp/Floors/Floor0/Input/PedestalButton
+WAIT 3.0

@@ -44,7 +44,12 @@ def _prepare_imports(repo_root: Path):
     import numpy as np  # type: ignore
     import torch  # type: ignore
 
-    return AnnaGymEnv, PPO, np, torch
+    try:
+        import intel_extension_for_pytorch as ipex  # type: ignore
+    except ImportError:
+        ipex = None
+
+    return AnnaGymEnv, PPO, np, torch, ipex
 
 
 def main() -> int:
@@ -52,13 +57,16 @@ def main() -> int:
     _set_cpu_limits(args.cpu_threads)
 
     repo_root = Path(__file__).resolve().parents[1]
-    AnnaGymEnv, PPO, np, torch = _prepare_imports(repo_root)
+    AnnaGymEnv, PPO, np, torch, ipex = _prepare_imports(repo_root)
 
     torch.set_num_threads(max(1, int(args.cpu_threads)))
     try:
         torch.set_num_interop_threads(max(1, int(args.cpu_threads)))
     except Exception:
         pass
+
+    if ipex is not None:
+        print("[train_anna] Intel Extension for PyTorch (IPEX) available")
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -90,6 +98,15 @@ def main() -> int:
     )
 
     started_at = time.time()
+    if ipex is not None and hasattr(torch, 'xpu') and torch.xpu.is_available():
+        device = "xpu"
+        print("[train_anna] Using Intel XPU device: %s" % device)
+    elif torch.cuda.is_available():
+        device = "cuda"
+        print("[train_anna] Using CUDA device: %s" % device)
+    else:
+        device = "cpu"
+        print("[train_anna] Using device: %s" % device)
     try:
         model = PPO(
             "MlpPolicy",
@@ -97,7 +114,7 @@ def main() -> int:
             verbose=args.verbose,
             tensorboard_log=str(tb_log),
             seed=args.seed,
-            device="cpu",
+            device=device,
         )
         model.learn(total_timesteps=args.timesteps, progress_bar=True)
         model.save(str(model_out.with_suffix("")))
