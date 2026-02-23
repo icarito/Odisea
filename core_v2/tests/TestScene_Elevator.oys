@@ -1,10 +1,24 @@
 LEVEL res://core_v2/tests/TestScene_Elevator.tscn
 WAIT 0.5
 
+# Store initial position
+VAR pos_start = ElevatorProp/Platform.global_transform.origin
+ASSERT $pos_start.y < 1.0 "Platform should start at floor 0"
+
 # Press Floor 1
 INTERACT ElevatorProp/Floors/Floor1/Input/PedestalButton
 WAIT 3.0
 
+# Check platform moved to Floor 1 (y=5)
+VAR pos_mid = ElevatorProp/Platform.global_transform.origin
+ASSERT $pos_mid.y > 4.5 "Platform should be at Floor 1 (y=5)"
+ASSERT $pos_mid.y < 5.5 "Platform should be at Floor 1 (y=5)"
+
 # Press Floor 0
 INTERACT ElevatorProp/Floors/Floor0/Input/PedestalButton
 WAIT 3.0
+
+# Check platform returned to Floor 0 (y=0)
+VAR pos_end = ElevatorProp/Platform.global_transform.origin
+ASSERT $pos_end.y < 1.0 "Platform should return to Floor 0"
+ASSERT $pos_end.y > -0.5 "Platform should return to Floor 0"
