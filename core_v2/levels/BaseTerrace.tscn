@@ -2352,6 +2352,15 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6, 0 )
 [node name="Floor2" parent="ElevatorProp/Floors" index="2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16, 0 )
 
+[node name="ElevatorProp" parent="." instance=ExtResource( 55 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.05078, 2.04161, 23.9419 )
+
+[node name="Floor1" parent="ElevatorProp/Floors" index="1"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6, 0 )
+
+[node name="Floor2" parent="ElevatorProp/Floors" index="2"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16, 0 )
+
 [editable path="SideScrollZone4"]
 [editable path="InteriorWide"]
 [editable path="CrioPod START"]
