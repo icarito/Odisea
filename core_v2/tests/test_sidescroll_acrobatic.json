@@ -4,7 +4,7 @@
       "snapshot": {
         "position": [
           0,
-          0.5,
+          1,
           0
         ],
         "velocity": [
@@ -1804,11 +1804,7 @@
   ],
   "events": {
     "0": [
-      {
-        "command": "SET",
-        "var": "pos",
-        "value": "(0, 0.5, 0)"
-      }
+
     ],
     "59": [
 
@@ -1837,7 +1833,9 @@
         ],
         "latched_control_mode": 0,
         "latch_active": false,
+        "camera_mode_state": 0,
         "active_rig_path": "",
+        "vcam_active_path": "",
         "current_camera_path": "/root/TestScene_AcrobaticJump/Pilot_v2/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
     },
@@ -1845,9 +1843,9 @@
   },
   "final_expected_state": {
     "position": [
-      2.618973,
+      2.625163,
       2.6915,
-      -0.534644
+      -0.452732
     ],
     "velocity": [
       2.083333,
@@ -1860,7 +1858,7 @@
     "movement_state": {
       "horizontal_velocity": [
         2.083333,
-        0.00001,
+        0.000011,
         0
       ],
       "external_velocity": [

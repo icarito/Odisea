@@ -4181,11 +4181,6 @@
   "events": {
     "0": [
       {
-        "command": "SET",
-        "var": "pos",
-        "value": "(0, 0.5, 0)"
-      },
-      {
         "command": "PRINT",
         "message": "Starting destroyer signal test"
       }
@@ -5810,7 +5805,9 @@
         ],
         "latched_control_mode": 0,
         "latch_active": false,
+        "camera_mode_state": 0,
         "active_rig_path": "",
+        "vcam_active_path": "",
         "current_camera_path": "/root/TestScene_PropEmitter/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
     },

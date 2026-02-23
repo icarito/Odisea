@@ -5,7 +5,7 @@
         "position": [
           0,
           0.5,
-          0
+          -5
         ],
         "velocity": [
           0,
@@ -3029,11 +3029,6 @@
   "events": {
     "0": [
       {
-        "command": "SET",
-        "var": "pos",
-        "value": "(0, 0.5, 0)"
-      },
-      {
         "command": "PRINT",
         "message": "Iniciando test de transición cinemática..."
       },
@@ -3118,7 +3113,9 @@
         ],
         "latched_control_mode": 0,
         "latch_active": false,
+        "camera_mode_state": 0,
         "active_rig_path": "",
+        "vcam_active_path": "",
         "current_camera_path": "/root/TestCinematicScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
     },
@@ -3126,23 +3123,23 @@
   },
   "final_expected_state": {
     "position": [
-      -4.156133,
+      -1.364084,
       0.0415,
-      13.139232
+      11.588976
     ],
     "velocity": [
-      0.240196,
-      -0.234701,
-      6.995878
+      -0.119681,
+      -0.232995,
+      6.998977
     ],
     "yaw": 0,
     "pitch": 0,
     "base_spring_length_3d": 5,
     "movement_state": {
       "horizontal_velocity": [
-        0.240196,
-        -0.001367,
-        6.995878
+        -0.119681,
+        0.000339,
+        6.998977
       ],
       "external_velocity": [
         0,
@@ -3163,7 +3160,7 @@
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
     "$start_x": 0,
-    "$end_x": -4.156133,
-    "$delta_x": -4.156133
+    "$end_x": -1.364084,
+    "$delta_x": -1.364084
   }
 }

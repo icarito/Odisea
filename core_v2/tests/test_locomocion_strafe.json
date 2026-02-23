@@ -2024,7 +2024,9 @@
         ],
         "latched_control_mode": 0,
         "latch_active": false,
+        "camera_mode_state": 0,
         "active_rig_path": "",
+        "vcam_active_path": "",
         "current_camera_path": "/root/TestScene/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
     },
@@ -2032,9 +2034,9 @@
   },
   "final_expected_state": {
     "position": [
-      5.081703,
+      5.103374,
       0.0415,
-      0.00035
+      0.000165
     ],
     "velocity": [
       0,
