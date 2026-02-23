@@ -6,16 +6,17 @@ import json
 import subprocess
 import os
 import time
-import sys
+import shutil
 
 class AnnaGymEnv(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 60}
 
-    def __init__(self, scene_path=None, port=5000, launch_godot=True, headless=True):
+    def __init__(self, scene_path=None, port=5000, launch_godot=True, headless=True, godot_bin=None):
         self.port = port
         self.scene_path = scene_path
         self.launch_godot = launch_godot
         self.headless = headless
+        self.godot_bin = godot_bin or os.environ.get("GODOT_BIN", "godot3-bin")
         self.godot_process = None
         self.sock = None
         self.buffer = ""
@@ -38,16 +39,17 @@ class AnnaGymEnv(gym.Env):
         env["ANNA_RL_MODE"] = "1"
         env["ANNA_PORT"] = str(self.port)
 
-        # Ensure we run in the repo root context if needed, but subprocess usually inherits CWD
+        godot_bin = self.godot_bin
+        if shutil.which(godot_bin) is None and godot_bin == "godot3-bin" and shutil.which("godot3"):
+            godot_bin = "godot3"
+            print("[AnnaGym] GODOT_BIN=godot3-bin not found, falling back to godot3.")
 
         cmd = []
         if self.headless:
-            # Use xvfb-run with -a (auto server number)
             cmd = ["xvfb-run", "-a"]
 
-        cmd.append("godot3")
+        cmd.extend([godot_bin, "--no-window", "--audio-driver", "Dummy", "--path", "."])
 
-        # If scene path provided, run specific scene
         if self.scene_path:
             cmd.append(self.scene_path)
 
@@ -81,8 +83,8 @@ class AnnaGymEnv(gym.Env):
         try:
             msg = json.dumps(data) + "\n"
             self.sock.sendall(msg.encode('utf-8'))
-        except BrokenPipeError:
-            print("[AnnaGym] Broken Pipe, attempting reconnect...")
+        except (BrokenPipeError, OSError):
+            print("[AnnaGym] Socket error while sending, attempting reconnect...")
             self.sock.close()
             self.sock = None
             self._connect()
@@ -109,11 +111,10 @@ class AnnaGymEnv(gym.Env):
                 return json.loads(line)
             except json.JSONDecodeError:
                 print(f"[AnnaGym] JSON Decode Error: {line}")
-                return {} # Robustness: return empty dict which triggers fallback
+                return {"obs": [0.0]*12, "reward": 0.0, "done": True}
 
         except Exception as e:
             print(f"[AnnaGym] Recv Error: {e}")
-            # Robustness: Return zeros
             return {"obs": [0.0]*12, "reward": 0.0, "done": True}
 
     def reset(self, seed=None, options=None):

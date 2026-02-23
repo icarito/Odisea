@@ -1,22 +1,19 @@
-import gymnasium as gym
 from stable_baselines3 import PPO
 from anna_gym import AnnaGymEnv
 import os
-import sys
 
 def main():
-    # Assume script is run from repo root, so path is relative to root
-    scene_path = "core_v2/tests/TestScene_RL.tscn"
+    scene_path = os.environ.get("ANNA_SCENE", "core_v2/tests/TestScene_RL.tscn")
+    port = int(os.environ.get("ANNA_PORT", "5000"))
+    timesteps = int(os.environ.get("ANNA_TIMESTEPS", "2000"))
     print(f"Starting training with scene: {scene_path}")
 
-    # Create environment
-    # Use xvfb-run in wrapper, so just pass launch_godot=True
-    env = AnnaGymEnv(scene_path=scene_path, port=5000, launch_godot=True, headless=True)
+    env = AnnaGymEnv(scene_path=scene_path, port=port, launch_godot=True, headless=True)
 
     try:
         model = PPO("MlpPolicy", env, verbose=1)
         print("Model created. Starting learning...")
-        model.learn(total_timesteps=2000)
+        model.learn(total_timesteps=timesteps)
         print("Training finished.")
 
         model.save("ppo_anna_poc")

@@ -19,7 +19,8 @@ func _ready():
 		port = int(port_str)
 
 	# Check RL Mode
-	if OS.get_environment("ANNA_RL_MODE") == "1":
+	var rl_mode_env = OS.get_environment("ANNA_RL_MODE")
+	if rl_mode_env == "1" or rl_mode_env.to_lower() == "true":
 		is_rl_mode = true
 		print("[ANNA] RL Lock-Step Mode Enabled")
 
@@ -123,7 +124,13 @@ func _handle_rl_peer_sync(peer: StreamPeerTCP):
 			# Connection likely closed or error
 			return
 
-		if msg.has("command") and msg["command"] == "RESET":
+		var cmd_value = ""
+		if msg.has("command"):
+			cmd_value = str(msg["command"]).to_upper()
+		elif msg.has("type"):
+			cmd_value = str(msg["type"]).to_upper()
+
+		if cmd_value == "RESET":
 			# Handle Reset immediately
 			print("[ANNA] Resetting Simulation via TCP Command")
 			_interface.reset_simulation()
