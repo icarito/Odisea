@@ -4,7 +4,7 @@ class_name AnnaInterface
 
 # Configuration
 const PROTOCOL_VERSION = "anna.v1"
-const SENSOR_RAY_COUNT = 32
+const SENSOR_RAY_COUNT = 8
 const SENSOR_RANGE = 20.0
 const PROXIMITY_RADIUS = 10.0
 const BUFFER_MAX_ENTRIES = 50
@@ -23,6 +23,12 @@ export(int) var olcs_snapshot_limit := 32
 var _raycast_root: Spatial
 var _rays := []
 var _accepted_once_ids := {}
+
+# RL PoC State
+var _last_dist := -1.0
+var _initial_player_transform: Transform
+var _initial_target_transform: Transform
+var _has_stored_initial_transforms := false
 
 func _ready():
 	_setup_sensors()
@@ -44,11 +50,18 @@ func _setup_sensors():
 		_rays.append(ray)
 
 func get_observation() -> Dictionary:
+	var target_data = _get_target_data()
+	var raycasts = _get_collisions()
+	var rewards_and_done = _calculate_rewards_and_done(raycasts, target_data)
+
 	return {
 		"proximity": _get_proximity(),
 		"buffer": _get_buffer(),
 		"metrics": _get_metrics(),
-		"collisions": _get_collisions(),
+		"raycasts": raycasts,
+		"target": target_data,
+		"reward": rewards_and_done.reward,
+		"done": rewards_and_done.done,
 		"olcs": _get_olcs_observation(),
 		"anna": _get_anna_metadata()
 	}
@@ -203,9 +216,14 @@ func apply_action(action: Dictionary):
 	# Command Injection
 	if action.has("command") and allow_command_injection:
 		var cmd = str(action["command"])
-		var console = _resolve_console()
-		if console and console.has_method("enqueue_command"):
-			console.enqueue_command(cmd)
+
+		# Intercept RESET_EPISODE
+		if cmd == "RESET_EPISODE":
+			_reset_episode()
+		else:
+			var console = _resolve_console()
+			if console and console.has_method("enqueue_command"):
+				console.enqueue_command(cmd)
 
 	# Structured OYS integration for ANNA clients
 	if action.has("oys"):
@@ -407,3 +425,89 @@ func _apply_olcs_action(payload) -> void:
 			var value = bool(set_output.get("value", false))
 			if source != "":
 				manager.call("anna_set_output", source, value)
+
+# --- RL PoC Helpers ---
+
+func _get_target() -> Spatial:
+	var nodes = get_tree().get_nodes_in_group("anna_target")
+	if nodes.size() > 0 and nodes[0] is Spatial:
+		return nodes[0]
+	return null
+
+func _get_target_data() -> Dictionary:
+	var player = _get_player()
+	var target = _get_target()
+
+	if not is_instance_valid(player) or not is_instance_valid(target) or not (player is Spatial):
+		return {"distance": 100.0, "angle": 0.0}
+
+	var p_pos = player.global_transform.origin
+	var t_pos = target.global_transform.origin
+	var dist = p_pos.distance_to(t_pos)
+
+	# Angle relative to forward (-Z)
+	var forward = -player.global_transform.basis.z
+	var to_target = (t_pos - p_pos).normalized()
+
+	# Project to 2D (XZ plane) for navigation angle
+	var forward_2d = Vector2(forward.x, forward.z).normalized()
+	var to_target_2d = Vector2(to_target.x, to_target.z).normalized()
+
+	var angle = forward_2d.angle_to(to_target_2d) / PI # Normalize to -1.0 to 1.0
+
+	return {"distance": dist, "angle": angle}
+
+func _calculate_rewards_and_done(raycasts: Array, target_data: Dictionary) -> Dictionary:
+	var reward = -0.01 # Time penalty
+	var done = false
+
+	# 1. Collision Check
+	var min_ray = 999.0
+	for r in raycasts:
+		if r < min_ray: min_ray = r
+
+	if min_ray < 0.8: # Collision threshold (slightly higher than 0 to be safe)
+		reward -= 5.0
+		done = true
+
+	# 2. Target Check
+	var dist = target_data.distance
+	if dist < 2.0: # Reached target
+		reward += 10.0
+		done = true
+
+	# 3. Progress Reward
+	if _last_dist >= 0.0:
+		if dist < _last_dist:
+			reward += 0.1
+
+	_last_dist = dist
+
+	return {"reward": reward, "done": done}
+
+func _reset_episode():
+	var player = _get_player()
+	var target = _get_target()
+
+	# Store initial transforms once
+	if not _has_stored_initial_transforms:
+		if is_instance_valid(player) and player is Spatial:
+			_initial_player_transform = player.global_transform
+		if is_instance_valid(target):
+			_initial_target_transform = target.global_transform
+		_has_stored_initial_transforms = true
+
+	if is_instance_valid(player) and player is Spatial:
+		if _has_stored_initial_transforms:
+			player.global_transform = _initial_player_transform
+		else:
+			player.global_transform.origin = Vector3(0, 1, 0)
+
+		player.rotation = Vector3.ZERO
+		player.set("velocity", Vector3.ZERO)
+		player.set("external_velocity", Vector3.ZERO)
+
+	if is_instance_valid(target) and _has_stored_initial_transforms:
+		target.global_transform = _initial_target_transform
+
+	_last_dist = -1.0

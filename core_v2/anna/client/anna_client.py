@@ -1,82 +1,94 @@
 import socket
 import json
 import time
-import random
 import os
 
-HOST = '127.0.0.1'
-PORT = int(os.getenv("ANNA_PORT", "5000"))
+class AnnaTCPClient:
+    def __init__(self, host='127.0.0.1', port=5000):
+        self.host = host
+        self.port = int(os.getenv("ANNA_PORT", str(port)))
+        self.socket = None
+        self.buffer = b""
 
-def main():
+    def connect(self):
+        if self.socket:
+            self.socket.close()
+
+        retry_count = 0
+        while retry_count < 5:
+            try:
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.socket.connect((self.host, self.port))
+                print(f"[AnnaTCPClient] Connected to {self.host}:{self.port}")
+                return
+            except ConnectionRefusedError:
+                print(f"[AnnaTCPClient] Connection refused. Retrying in 2s... ({retry_count+1}/5)")
+                time.sleep(2)
+                retry_count += 1
+
+        raise ConnectionError(f"Could not connect to {self.host}:{self.port}")
+
+    def disconnect(self):
+        if self.socket:
+            self.socket.close()
+            self.socket = None
+            print("[AnnaTCPClient] Disconnected")
+
+    def send_action(self, action_dict):
+        if not self.socket:
+            raise ConnectionError("Not connected")
+
+        msg = json.dumps(action_dict) + "\n"
+        try:
+            self.socket.sendall(msg.encode('utf-8'))
+        except BrokenPipeError:
+            print("[AnnaTCPClient] Broken pipe, reconnecting...")
+            self.connect()
+            self.socket.sendall(msg.encode('utf-8'))
+
+    def receive_state(self):
+        if not self.socket:
+            raise ConnectionError("Not connected")
+
+        while b"\n" not in self.buffer:
+            try:
+                chunk = self.socket.recv(4096)
+                if not chunk:
+                    raise ConnectionError("Server closed connection")
+                self.buffer += chunk
+            except (ConnectionResetError, ConnectionAbortedError):
+                 print("[AnnaTCPClient] Connection reset, reconnecting...")
+                 self.connect()
+                 return self.receive_state()
+
+        line, self.buffer = self.buffer.split(b"\n", 1)
+
+        if not line.strip():
+            return self.receive_state()
+
+        try:
+            return json.loads(line.decode('utf-8'))
+        except json.JSONDecodeError as e:
+            print(f"[AnnaTCPClient] JSON Error: {e}")
+            return {}
+
+# Example usage (preserving original functionality if run as script)
+if __name__ == "__main__":
+    import random
+    client = AnnaTCPClient()
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((HOST, PORT))
-            print(f"Connected to {HOST}:{PORT}")
+        client.connect()
+        while True:
+            obs = client.receive_state()
+            print(f"Frame: {obs.get('anna', {}).get('physics_frame', '?')}")
 
-            # Buffer for receiving data
-            buffer = b""
+            action = {
+                "move": [random.uniform(-1, 1), random.uniform(-1, 1)],
+                "look": [random.uniform(-5, 5), random.uniform(-2, 2)]
+            }
+            client.send_action(action)
 
-            while True:
-                # Read observation (line based)
-                while b"\n" not in buffer:
-                    chunk = s.recv(4096)
-                    if not chunk:
-                        print("Connection closed")
-                        return
-                    buffer += chunk
-
-                line, buffer = buffer.split(b"\n", 1)
-
-                if not line.strip():
-                    continue
-
-                try:
-                    obs = json.loads(line.decode('utf-8'))
-                    # Print summary to avoid flooding console
-                    anna = obs.get('anna', {})
-                    metrics = obs.get('metrics', {})
-                    fps = metrics.get('fps', 0)
-                    proximity_count = len(obs.get('proximity', []))
-                    frame = anna.get('physics_frame', 0)
-                    proto = anna.get('protocol', '?')
-                    print(f"[{proto}] frame={frame} | FPS={fps:.1f} | Prox={proximity_count} | Collisions={len(obs.get('collisions', []))}")
-
-                except json.JSONDecodeError:
-                    print(f"JSON Decode Error: {line[:50]}...")
-
-                # Decide Action (Random Walk)
-                # Apply random movement every few frames or continuously
-                move_vec = [
-                    random.uniform(-1, 1) if random.random() > 0.5 else 0.0,
-                    random.uniform(-1, 1) if random.random() > 0.5 else 0.0
-                ]
-
-                look_vec = [
-                    random.uniform(-5, 5) if random.random() > 0.7 else 0.0,
-                    random.uniform(-2, 2) if random.random() > 0.8 else 0.0
-                ]
-
-                action = {
-                    "move": move_vec,
-                    "look": look_vec,
-                    "jump": random.random() > 0.98,
-                    "interact": random.random() > 0.99
-                }
-
-                # Occasional command injection
-                if random.random() > 0.995:
-                    action["command"] = "echo Hello from ANNA!"
-
-                # Send Action
-                msg = json.dumps(action) + "\n"
-                s.sendall(msg.encode('utf-8'))
-
-    except ConnectionRefusedError:
-        print(f"Connection refused. Is Godot running with ANNA enabled on port {PORT}?")
     except KeyboardInterrupt:
-        print("Stopping client.")
+        client.disconnect()
     except Exception as e:
         print(f"Error: {e}")
-
-if __name__ == "__main__":
-    main()
