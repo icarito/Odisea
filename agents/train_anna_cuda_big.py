@@ -6,6 +6,7 @@ import json
 import os
 import random
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -241,6 +242,33 @@ def _fit_batch_size(rollout_size: int, batch_size: int) -> int:
     return batch
 
 
+def _is_port_available(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind(("127.0.0.1", int(port)))
+            return True
+        except OSError:
+            return False
+
+
+def _find_available_port_block(start_port: int, block_size: int, max_scan: int = 4000) -> int:
+    start = max(1024, int(start_port))
+    size = max(1, int(block_size))
+    for base in range(start, start + max(1, int(max_scan))):
+        ok = True
+        for port in range(base, base + size):
+            if not _is_port_available(port):
+                ok = False
+                break
+        if ok:
+            return base
+    raise RuntimeError(
+        "Could not find %d consecutive free ports starting at %d (scan=%d)."
+        % (size, start, int(max_scan))
+    )
+
+
 def _run_stage(model, stage_name: str, timesteps: int, env, callback, reset_num_timesteps: bool) -> None:
     print("[train_anna_cuda_big] %s: timesteps=%d" % (stage_name, int(timesteps)))
     model.set_env(env)
@@ -347,10 +375,19 @@ def main() -> int:
     }
     rollout_size = int(args.n_steps) * num_envs
     fitted_batch = _fit_batch_size(rollout_size=rollout_size, batch_size=int(args.batch_size))
+    stage1_port = _find_available_port_block(int(args.port_stage1), num_envs)
+    stage2_port = _find_available_port_block(max(int(args.port_stage2), stage1_port + num_envs + 16), num_envs)
+    stage3_port = _find_available_port_block(max(int(args.port_stage3), stage2_port + num_envs + 16), num_envs)
 
     print("[train_anna_cuda_big] stage1=%s (%d)" % (scene_stage1, steps_stage1))
     print("[train_anna_cuda_big] stage2=%s (%d)" % (scene_stage2, steps_stage2))
     print("[train_anna_cuda_big] stage3=%s (%d)" % (scene_stage3, steps_stage3))
+    if stage1_port != int(args.port_stage1):
+        print("[train_anna_cuda_big] port shift: stage1 %d -> %d" % (int(args.port_stage1), stage1_port))
+    if stage2_port != int(args.port_stage2):
+        print("[train_anna_cuda_big] port shift: stage2 %d -> %d" % (int(args.port_stage2), stage2_port))
+    if stage3_port != int(args.port_stage3):
+        print("[train_anna_cuda_big] port shift: stage3 %d -> %d" % (int(args.port_stage3), stage3_port))
     print("[train_anna_cuda_big] total=%d cpu_threads=%d num_envs=%d n_steps=%d rollout=%d batch=%d net_arch=%s" % (
         total_timesteps,
         args.cpu_threads,
@@ -369,7 +406,7 @@ def main() -> int:
         DummyVecEnv,
         SubprocVecEnv,
         scene_stage1,
-        args.port_stage1,
+        stage1_port,
         args.render,
         args.no_launch,
         godot_bin,
@@ -405,7 +442,7 @@ def main() -> int:
             DummyVecEnv,
             SubprocVecEnv,
             scene_stage2,
-            args.port_stage2,
+            stage2_port,
             args.render,
             args.no_launch,
             godot_bin,
@@ -423,7 +460,7 @@ def main() -> int:
             DummyVecEnv,
             SubprocVecEnv,
             scene_stage3,
-            args.port_stage3,
+            stage3_port,
             args.render,
             args.no_launch,
             godot_bin,
@@ -468,9 +505,12 @@ def main() -> int:
         "timesteps_stage3": steps_stage3,
         "timesteps_total": total_timesteps,
         "timesteps": total_timesteps,
-        "port_stage1": int(args.port_stage1),
-        "port_stage2": int(args.port_stage2),
-        "port_stage3": int(args.port_stage3),
+        "port_stage1_requested": int(args.port_stage1),
+        "port_stage2_requested": int(args.port_stage2),
+        "port_stage3_requested": int(args.port_stage3),
+        "port_stage1": int(stage1_port),
+        "port_stage2": int(stage2_port),
+        "port_stage3": int(stage3_port),
         "checkpoint_dir": str(checkpoint_dir),
         "checkpoint_every": int(args.checkpoint_every),
         "duration_sec": round(time.time() - started_at, 3),
