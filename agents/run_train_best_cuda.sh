@@ -39,8 +39,12 @@ is_truthy() {
 }
 
 resolve_import_godot_bin() {
-  local candidate="${ANNA_IMPORT_GODOT_BIN:-${GODOT_BIN:-godot3-bin}}"
-  if command -v "${candidate}" >/dev/null 2>&1; then
+  local candidate="${ANNA_IMPORT_GODOT_BIN:-}"
+  if [[ -z "${candidate}" ]]; then
+    candidate="${GODOT_BIN:-godot3-bin}"
+  fi
+  # Preimport needs editor mode; do not use server binaries here.
+  if [[ "${candidate}" != *server* ]] && command -v "${candidate}" >/dev/null 2>&1; then
     echo "${candidate}"
     return 0
   fi

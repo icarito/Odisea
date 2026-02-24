@@ -133,6 +133,7 @@ Control por env:
 - `ANNA_PREIMPORT_REQUIRED=0` permite continuar aunque falle
 - `ANNA_IMPORT_FORCE_SOFTWARE=1` fuerza `LIBGL_ALWAYS_SOFTWARE=1` (default)
 - `ANNA_PREIMPORT_DISABLE_EDITOR_PLUGINS=1` desactiva temporalmente plugins en el pass de import (default)
+- `ANNA_IMPORT_GODOT_BIN=godot3` fija binario de import/smoke (si `GODOT_BIN=godot3-server`, el launcher ya evita usar server para preimport)
 - `ANNA_SKIP_PY_PREWARM_AFTER_PREIMPORT=1` evita duplicar prewarm en Python (default)
 
 Notas de throughput por defecto del launcher CUDA:
