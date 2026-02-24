@@ -38,8 +38,9 @@ jobs:
           path: |
             ${{ github.workspace }}/.import
             ${{ github.workspace }}/.godot
-          key: ${{ runner.os }}-godot-${{ hashFiles('**/project.godot') }}-${{ hashFiles('assets/**') }}
+          key: ${{ runner.os }}-godot-v3-${{ hashFiles('**/project.godot') }}-${{ hashFiles('assets/**', 'textures/**', 'models/**', 'core_v2/audio/**', 'core_v2/actors/**', 'core_v2/components/**', 'core_v2/props/**', 'core_v2/levels/**') }}
           restore-keys: |
+            ${{ runner.os }}-godot-v3-
             ${{ runner.os }}-godot-
 
       - name: Cache Godot binary
@@ -63,6 +64,13 @@ jobs:
             chmod +x "$TARGET_BIN"
           fi
           sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
+
+      - name: Clean Godot import caches
+        run: |
+          set -euo pipefail
+          rm -rf .godot/imported
+          mkdir -p .import
+          find .import -mindepth 1 -maxdepth 1 -type f -delete || true
 
       - name: Import Resources
         run: |

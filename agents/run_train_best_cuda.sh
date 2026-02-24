@@ -145,6 +145,14 @@ run_preimport_step() {
   fi
 
   local required="${ANNA_PREIMPORT_REQUIRED:-1}"
+  local clean_cache="${ANNA_IMPORT_CLEAN_CACHE:-0}"
+  if is_truthy "${clean_cache}"; then
+    echo "[run_train_best_cuda] Cleaning import caches (.import, .godot/imported) before preimport..."
+    rm -rf .godot/imported
+    mkdir -p .import
+    find .import -mindepth 1 -maxdepth 1 -type f -delete || true
+  fi
+
   local godot_bin
   if ! godot_bin="$(resolve_import_godot_bin)"; then
     echo "[run_train_best_cuda] Could not resolve Godot binary for preimport."
@@ -266,9 +274,9 @@ fi
   --cpu-threads "${CPU_THREADS:-16}" \
   --num-envs "${NUM_ENVS:-8}" \
   --num-envs-stage3 "${NUM_ENVS_STAGE3:-2}" \
-  --scene-stage1 core_v2/tests/TestScene_RL.tscn \
-  --scene-stage2 core_v2/tests/TestScene_RL_2.tscn \
-  --scene-stage3 core_v2/tests/TestScene_RL_BaseTerrace.tscn \
+  --scene-stage1 "${SCENE_STAGE1:-core_v2/tests/TestScene_RL.tscn}" \
+  --scene-stage2 "${SCENE_STAGE2:-core_v2/tests/TestScene_RL_2.tscn}" \
+  --scene-stage3 "${SCENE_STAGE3:-core_v2/tests/TestScene_RL_BaseTerrace.tscn}" \
   --timesteps-stage1 "${STAGE1_STEPS:-150000}" \
   --timesteps-stage2 "${STAGE2_STEPS:-650000}" \
   --timesteps-stage3 "${STAGE3_STEPS:-700000}" \

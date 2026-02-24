@@ -29,8 +29,9 @@ jobs:
           path: |
             ${{ github.workspace }}/.import
             ${{ github.workspace }}/.godot
-          key: ${{ runner.os }}-godot-${{ hashFiles('**/project.godot') }}
+          key: ${{ runner.os }}-godot-v3-${{ hashFiles('**/project.godot', 'assets/**', 'textures/**', 'models/**', 'core_v2/audio/**', 'core_v2/actors/**', 'core_v2/components/**', 'core_v2/props/**', 'core_v2/levels/**') }}
           restore-keys: |
+            ${{ runner.os }}-godot-v3-
             ${{ runner.os }}-godot-
 
       - name: Cache Godot binary
@@ -80,7 +81,11 @@ jobs:
           fi
 
       - name: Import Resources
-        run: /usr/local/bin/godot --path . -e --quit --headless || true
+        run: |
+          rm -rf .godot/imported
+          mkdir -p .import
+          find .import -mindepth 1 -maxdepth 1 -type f -delete || true
+          /usr/local/bin/godot --path . -e --quit --headless || true
 
       - name: Run GDUnit3 Tests
         env:
