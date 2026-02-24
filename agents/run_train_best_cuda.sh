@@ -69,7 +69,7 @@ run_import_once() {
   local timeout_sec="${ANNA_PREIMPORT_TIMEOUT_SEC:-600}"
   local use_xvfb="${ANNA_IMPORT_USE_XVFB:-1}"
   local force_sw="${ANNA_IMPORT_FORCE_SOFTWARE:-1}"
-  local -a cmd=("${godot_bin}" "--path" "." "-e" "--headless" "--no-window" "--audio-driver" "Dummy")
+  local -a cmd=("${godot_bin}" "--path" "." "--editor" "--quit" "--headless" "--no-window" "--audio-driver" "Dummy")
   if is_truthy "${use_xvfb}"; then
     cmd=("xvfb-run" "-a" "-s" "-screen 0 1024x768x24+120" "${cmd[@]}")
   fi
