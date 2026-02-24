@@ -36,6 +36,12 @@ export __NV_PRIME_RENDER_OFFLOAD="${__NV_PRIME_RENDER_OFFLOAD:-1}"
 export __GLX_VENDOR_LIBRARY_NAME="${__GLX_VENDOR_LIBRARY_NAME:-nvidia}"
 export ANNA_GODOT_PREFER_SERVER="${ANNA_GODOT_PREFER_SERVER:-1}"
 export ANNA_GODOT_VIDEO_DRIVER="${ANNA_GODOT_VIDEO_DRIVER:-GLES2}"
+export ANNA_GODOT_SERVER_FALLBACK="${ANNA_GODOT_SERVER_FALLBACK:-1}"
+export ANNA_GODOT_READY_TIMEOUT_SEC="${ANNA_GODOT_READY_TIMEOUT_SEC:-90}"
+export ANNA_GODOT_LAUNCH_STAGGER_SEC="${ANNA_GODOT_LAUNCH_STAGGER_SEC:-0.60}"
+export ANNA_CONNECT_MAX_RETRIES="${ANNA_CONNECT_MAX_RETRIES:-90}"
+export ANNA_CONNECT_RETRY_DELAY_SEC="${ANNA_CONNECT_RETRY_DELAY_SEC:-1.0}"
+export ANNA_IMPORT_PREWARM_STRICT="${ANNA_IMPORT_PREWARM_STRICT:-0}"
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
 MODEL_OUT="${MODEL_OUT:-agents/models/anna_ppo_cuda_big_${STAMP}.zip}"
@@ -43,7 +49,7 @@ MODEL_OUT="${MODEL_OUT:-agents/models/anna_ppo_cuda_big_${STAMP}.zip}"
 "${PYTHON_BIN}" agents/train_anna_cuda_big.py \
   --device auto \
   --cpu-threads "${CPU_THREADS:-16}" \
-  --num-envs "${NUM_ENVS:-8}" \
+  --num-envs "${NUM_ENVS:-6}" \
   --scene-stage1 core_v2/tests/TestScene_RL.tscn \
   --scene-stage2 core_v2/tests/TestScene_RL_2.tscn \
   --scene-stage3 core_v2/tests/TestScene_RL_BaseTerrace.tscn \

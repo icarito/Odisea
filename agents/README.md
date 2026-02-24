@@ -105,6 +105,19 @@ MODEL_OUT=agents/models/anna_ppo_cuda_big_custom.zip \
 ./agents/run_train_best_cuda.sh
 ```
 
+Preset robusto para Vast.ai (sin `.venv`, más tolerancia de arranque):
+
+```bash
+PYTHON_BIN=python \
+CPU_THREADS=16 \
+NUM_ENVS=6 \
+ANNA_GODOT_PREFER_SERVER=1 \
+ANNA_GODOT_SERVER_FALLBACK=1 \
+ANNA_GODOT_READY_TIMEOUT_SEC=90 \
+ANNA_CONNECT_MAX_RETRIES=90 \
+./agents/run_train_best_cuda.sh
+```
+
 Script base (si prefieres invocarlo directo):
 
 ```bash

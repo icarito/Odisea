@@ -8,6 +8,7 @@ import os
 import time
 import shutil
 import signal
+import random
 from typing import Optional
 
 class AnnaGymEnv(gym.Env):
@@ -25,8 +26,11 @@ class AnnaGymEnv(gym.Env):
         self.sock = None
         self.buffer = ""
         self.max_recovery_attempts = 3
-        self._connect_max_retries = 20
-        self._connect_retry_delay_sec = 1.0
+        self._connect_max_retries = max(5, int(os.environ.get("ANNA_CONNECT_MAX_RETRIES", "60")))
+        self._connect_retry_delay_sec = max(0.1, float(os.environ.get("ANNA_CONNECT_RETRY_DELAY_SEC", "1.0")))
+        self._launch_ready_timeout_sec = max(5.0, float(os.environ.get("ANNA_GODOT_READY_TIMEOUT_SEC", "45.0")))
+        self._launch_stagger_sec = max(0.0, float(os.environ.get("ANNA_GODOT_LAUNCH_STAGGER_SEC", "0.35")))
+        self._allow_server_fallback = str(os.environ.get("ANNA_GODOT_SERVER_FALLBACK", "1")).lower() not in ("0", "false", "no")
 
         # Action Space:
         # Compact action set (steering is assisted in-engine):
@@ -90,6 +94,19 @@ class AnnaGymEnv(gym.Env):
         raise RuntimeError(f"[AnnaGym] Could not find Godot binary (requested: {candidate}).")
 
     def _launch_godot(self):
+        attempted_server = False
+        for launch_try in range(2):
+            launched, used_server = self._launch_godot_once()
+            if launched:
+                return
+            if used_server and self._allow_server_fallback and not attempted_server:
+                attempted_server = True
+                print("[AnnaGym] Headless server launch did not become ready. Falling back to regular Godot binary.")
+                self.prefer_server_bin = False
+                continue
+            raise RuntimeError(f"[AnnaGym] Godot failed to become ready on port {self.port}.")
+
+    def _launch_godot_once(self):
         env = os.environ.copy()
         env["ANNA_RL_MODE"] = "1"
         env["ANNA_PORT"] = str(self.port)
@@ -117,9 +134,25 @@ class AnnaGymEnv(gym.Env):
             cmd.append(self.scene_path)
 
         print(f"[AnnaGym] Launching Godot: {' '.join(cmd)}")
+        if self._launch_stagger_sec > 0.0:
+            time.sleep(random.uniform(0.0, self._launch_stagger_sec))
         # Launch in its own process group so close() can terminate xvfb-run + Godot children reliably.
         self.godot_process = subprocess.Popen(cmd, env=env, start_new_session=True)
-        time.sleep(3) # Wait for engine start
+        ready = self._wait_for_bridge_ready(timeout_sec=self._launch_ready_timeout_sec)
+        return ready, is_server_bin
+
+    def _wait_for_bridge_ready(self, timeout_sec: float) -> bool:
+        deadline = time.time() + max(1.0, float(timeout_sec))
+        while time.time() < deadline:
+            if self._is_port_busy(self.port):
+                return True
+            if self.godot_process and self.godot_process.poll() is not None:
+                code = self.godot_process.returncode
+                print(f"[AnnaGym] Godot process exited early (code={code}) before bridge was ready.")
+                return False
+            time.sleep(0.2)
+        print(f"[AnnaGym] Timed out waiting for ANNA bridge on port {self.port}.")
+        return False
 
     def _close_socket(self):
         if self.sock:
