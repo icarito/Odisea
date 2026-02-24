@@ -31,6 +31,12 @@ var _rig_node: Node = null
 var is_zone_active: bool = true
 
 func _ready():
+	if _is_rl_mode():
+		monitoring = false
+		monitorable = false
+		set_process(false)
+		set_physics_process(false)
+		return
 	# Auto-setup: crear CollisionShape si no existe (también en editor para visualización)
 	_ensure_collision_shape()
 	# Si alguien escaló el nodo Area, hornear escala en extents para que gizmos/prioridad sean consistentes.
@@ -231,3 +237,7 @@ func _convert_material_occlusion(source_mat: Material, shader: Shader) -> Materi
 			new_mat.set_shader_param("uv1_blend_sharpness", source_mat.uv1_triplanar_sharpness)
 
 	return new_mat
+
+func _is_rl_mode() -> bool:
+	var rl_mode_env := OS.get_environment("ANNA_RL_MODE").to_lower()
+	return rl_mode_env in ["1", "true", "yes", "on"]

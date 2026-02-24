@@ -11,6 +11,10 @@ var _rebind_elapsed := 0.0
 var _targets_bound := false
 
 func _ready():
+	if _is_rl_mode():
+		set_process(false)
+		set_physics_process(false)
+		return
 	yield(get_tree(), "idle_frame")
 	_try_bind_targets()
 
@@ -80,3 +84,7 @@ func _find_player() -> Spatial:
 		if candidate is Spatial and is_instance_valid(candidate):
 			return candidate as Spatial
 	return null
+
+func _is_rl_mode() -> bool:
+	var rl_mode_env := OS.get_environment("ANNA_RL_MODE").to_lower()
+	return rl_mode_env in ["1", "true", "yes", "on"]

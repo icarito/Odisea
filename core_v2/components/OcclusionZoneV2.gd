@@ -16,6 +16,12 @@ export(NodePath) var occlusion_target_path = @".."
 export(Shader) var custom_occlusion_shader
 
 func _ready():
+	if _is_rl_mode():
+		monitoring = false
+		monitorable = false
+		set_process(false)
+		set_physics_process(false)
+		return
 	._ready()
 	add_to_group("OcclusionZoneV2")
 	if not Engine.editor_hint:
@@ -133,3 +139,7 @@ func _convert_material(source_mat: Material, shader: Shader) -> Material:
 			new_mat.set_shader_param("uv1_blend_sharpness", source_mat.uv1_triplanar_sharpness)
 		
 	return new_mat
+
+func _is_rl_mode() -> bool:
+	var rl_mode_env := OS.get_environment("ANNA_RL_MODE").to_lower()
+	return rl_mode_env in ["1", "true", "yes", "on"]

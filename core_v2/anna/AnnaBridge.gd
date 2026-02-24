@@ -7,6 +7,7 @@ var _peers := []
 var _interface: Node
 var _peer_buffers := {} # { peer_instance_id: String }
 var is_rl_mode := false
+var _rl_read_timeout_ms := 15000
 
 func _ready():
 	_interface = preload("res://core_v2/anna/AnnaInterface.gd").new()
@@ -31,6 +32,9 @@ func _ready():
 			physics_fps = max(30, int(physics_fps_env))
 		Engine.iterations_per_second = physics_fps
 		print("[ANNA] VSync disabled, FPS unlocked, physics=%dHz for RL training" % physics_fps)
+		var read_timeout_env = OS.get_environment("ANNA_RL_READ_TIMEOUT_MS")
+		if read_timeout_env.is_valid_integer():
+			_rl_read_timeout_ms = max(1000, int(read_timeout_env))
 
 	var err = _server.listen(port)
 	if err != OK:
@@ -43,8 +47,11 @@ func _physics_process(_delta):
 	while _server != null and _server.is_connection_available():
 		var peer = _server.take_connection()
 		if peer:
-			_peers.append(peer)
 			peer.set_no_delay(true) # Important for RL latency
+			if is_rl_mode:
+				_replace_rl_peer(peer)
+			else:
+				_peers.append(peer)
 			print("[ANNA] Client connected: %s" % peer.get_connected_host())
 
 	# Process peers
@@ -130,6 +137,7 @@ func _handle_rl_peer_sync(peer: StreamPeerTCP):
 		var msg = _read_json_message_blocking(peer)
 		if msg == null:
 			# Connection likely closed or error
+			_disconnect_peer(peer)
 			return
 
 		var cmd_value = ""
@@ -169,10 +177,14 @@ func _read_json_message_blocking(peer: StreamPeerTCP):
 	if not _peer_buffers.has(pid):
 		_peer_buffers[pid] = ""
 
+	var started_ms := OS.get_ticks_msec()
 	# Loop until we have a full line
 	while not "\n" in _peer_buffers[pid]:
 		# Check connection status
 		if peer.get_status() != StreamPeerTCP.STATUS_CONNECTED:
+			return null
+		if OS.get_ticks_msec() - started_ms > _rl_read_timeout_ms:
+			print("[ANNA] RL read timeout (%dms), dropping peer." % _rl_read_timeout_ms)
 			return null
 
 		var bytes = peer.get_available_bytes()
@@ -201,3 +213,18 @@ func _read_json_message_blocking(peer: StreamPeerTCP):
 func _send_json(peer: StreamPeerTCP, data: Dictionary):
 	var json_str = JSON.print(data)
 	peer.put_data((json_str + "\n").to_utf8())
+
+func _replace_rl_peer(new_peer: StreamPeerTCP) -> void:
+	for peer in _peers:
+		_disconnect_peer(peer)
+	_peers.clear()
+	_peers.append(new_peer)
+
+func _disconnect_peer(peer: StreamPeerTCP) -> void:
+	if not peer:
+		return
+	var pid = peer.get_instance_id()
+	if _peer_buffers.has(pid):
+		_peer_buffers.erase(pid)
+	if peer.get_status() == StreamPeerTCP.STATUS_CONNECTED:
+		peer.disconnect_from_host()
