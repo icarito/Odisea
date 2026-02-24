@@ -160,6 +160,19 @@ export ANNA_RL_PHYSICS_FPS="${ANNA_RL_PHYSICS_FPS:-0}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 export __NV_PRIME_RENDER_OFFLOAD="${__NV_PRIME_RENDER_OFFLOAD:-1}"
 export __GLX_VENDOR_LIBRARY_NAME="${__GLX_VENDOR_LIBRARY_NAME:-nvidia}"
+
+# Force NVIDIA OpenGL/GLES2 in headless Godot on vast.ai and similar bare-metal GPU servers.
+# Without this, Godot falls back to llvmpipe (software) -> ~500 FPS instead of 2000+.
+_NV_LIB_PATHS="/usr/lib/x86_64-linux-gnu/nvidia:/usr/lib/nvidia:/usr/local/nvidia/lib64"
+_NV_LIB_PATHS="${_NV_LIB_PATHS}:/usr/lib/x86_64-linux-gnu:/usr/lib"
+if [[ -n "${LD_LIBRARY_PATH:-}" ]]; then
+  export LD_LIBRARY_PATH="${_NV_LIB_PATHS}:${LD_LIBRARY_PATH}"
+else
+  export LD_LIBRARY_PATH="${_NV_LIB_PATHS}"
+fi
+unset _NV_LIB_PATHS
+echo "[run_train_best_cuda] LD_LIBRARY_PATH (NVIDIA boosted): ${LD_LIBRARY_PATH}"
+
 export ANNA_GODOT_PREFER_SERVER="${ANNA_GODOT_PREFER_SERVER:-1}"
 export ANNA_GODOT_VIDEO_DRIVER="${ANNA_GODOT_VIDEO_DRIVER:-GLES2}"
 export ANNA_GODOT_SERVER_FALLBACK="${ANNA_GODOT_SERVER_FALLBACK:-0}"
@@ -236,6 +249,13 @@ fi
   --timesteps-stage1 "${STAGE1_STEPS:-150000}" \
   --timesteps-stage2 "${STAGE2_STEPS:-650000}" \
   --timesteps-stage3 "${STAGE3_STEPS:-700000}" \
+  --stage3-max-steps "${STAGE3_MAX_STEPS:-800}" \
+  --stage3-spawn-x "${STAGE3_SPAWN_X:-5.0}" \
+  --stage3-spawn-y "${STAGE3_SPAWN_Y:-2.5}" \
+  --stage3-spawn-z "${STAGE3_SPAWN_Z:-15.0}" \
+  --stage3-target-radius-min "${STAGE3_TARGET_RADIUS_MIN:-4.0}" \
+  --stage3-target-radius-max "${STAGE3_TARGET_RADIUS_MAX:-10.0}" \
+  --stage3-target-y "${STAGE3_TARGET_Y:-2.0}" \
   --n-steps "${N_STEPS:-4096}" \
   --batch-size "${BATCH_SIZE:-8192}" \
   --n-epochs "${N_EPOCHS:-10}" \

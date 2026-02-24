@@ -3,12 +3,14 @@ extends Node
 const PORT = 5000
 const MAX_READ_BYTES_PER_TICK = 16384
 const RL_UNCAPPED_PHYSICS_FPS = 2000
+const RL_DEFAULT_POLL_SLEEP_USEC = 1000
 var _server: TCP_Server
 var _peers := []
 var _interface: Node
 var _peer_buffers := {} # { peer_instance_id: String }
 var is_rl_mode := false
 var _rl_read_timeout_ms := 15000
+var _rl_poll_sleep_usec := RL_DEFAULT_POLL_SLEEP_USEC
 
 func _ready():
 	_interface = preload("res://core_v2/anna/AnnaInterface.gd").new()
@@ -44,6 +46,12 @@ func _ready():
 		var read_timeout_env = OS.get_environment("ANNA_RL_READ_TIMEOUT_MS")
 		if read_timeout_env.is_valid_integer():
 			_rl_read_timeout_ms = max(1000, int(read_timeout_env))
+		var poll_sleep_env = OS.get_environment("ANNA_RL_POLL_SLEEP_USEC")
+		if poll_sleep_env.is_valid_integer():
+			_rl_poll_sleep_usec = max(0, int(poll_sleep_env))
+		elif disable_idle_sleep_env in ["1", "true", "yes", "on"]:
+			_rl_poll_sleep_usec = 0
+		print("[ANNA] RL poll sleep=%dus timeout=%dms" % [_rl_poll_sleep_usec, _rl_read_timeout_ms])
 
 	var err = _server.listen(port)
 	if err != OK:
@@ -201,8 +209,9 @@ func _read_json_message_blocking(peer: StreamPeerTCP):
 			var chunk = peer.get_utf8_string(bytes) # Read all available
 			_peer_buffers[pid] += chunk
 		else:
-			# Wait a bit to prevent CPU burn
-			OS.delay_usec(1000) # 1ms
+			# Optional polling backoff; set to 0 for max-throughput RL runs.
+			if _rl_poll_sleep_usec > 0:
+				OS.delay_usec(_rl_poll_sleep_usec)
 
 	# Extract line
 	var parts = _peer_buffers[pid].split("\n", true, 1)

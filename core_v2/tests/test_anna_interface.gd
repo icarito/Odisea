@@ -58,6 +58,62 @@ func _release_test_actions() -> void:
 	Input.action_release("move_forward")
 	Input.action_release("move_backward")
 
+func _setup_rl_context(runner) -> Dictionary:
+	var scene = runner.scene()
+	var pilot = scene.get_node_or_null("Pilot")
+	assert_object(pilot).is_not_null()
+
+	var sm = get_node_or_null("/root/SessionManager")
+	assert_object(sm).is_not_null()
+
+	var previous_player = sm.player
+	var previous_recording = sm.is_recording
+	var previous_override = sm._oys_input_override
+
+	sm.player = pilot
+	sm.is_recording = true
+	sm._oys_input_override = {}
+
+	var anna = AnnaInterface.new()
+	scene.add_child(anna)
+	yield (runner.simulate_frames(2), "completed")
+
+	var target = Area.new()
+	target.name = "UnitRLTarget"
+	target.add_to_group("anna_target")
+	var col = CollisionShape.new()
+	var shape = SphereShape.new()
+	shape.radius = 1.0
+	col.shape = shape
+	target.add_child(col)
+	target.translation = pilot.translation + Vector3(6.0, 1.0, 0.0)
+	scene.add_child(target)
+	yield (runner.simulate_frames(1), "completed")
+
+	anna.reset_simulation()
+	yield (runner.simulate_frames(1), "completed")
+
+	return {
+		"scene": scene,
+		"pilot": pilot,
+		"target": target,
+		"anna": anna,
+		"sm": sm,
+		"previous_player": previous_player,
+		"previous_recording": previous_recording,
+		"previous_override": previous_override
+	}
+
+func _teardown_rl_context(ctx: Dictionary) -> void:
+	var sm = ctx.get("sm", null)
+	if sm:
+		sm.player = ctx.get("previous_player", null)
+		sm.is_recording = ctx.get("previous_recording", false)
+		sm._oys_input_override = ctx.get("previous_override", {})
+	var anna = ctx.get("anna", null)
+	if anna:
+		yield (_free_node(anna), "completed")
+
 func test_anna_special_scene_has_required_layout() -> void:
 	var runner = scene_runner(ANNA_SCENE_PATH)
 	yield (runner.simulate_frames(2), "completed")
@@ -325,3 +381,72 @@ func test_anna_olcs_observation_and_action_integration() -> void:
 
 	yield (_free_node(manager), "completed")
 	yield (_free_node(anna), "completed")
+
+func test_rl_progress_regression_penalizes_when_distance_increases() -> void:
+	var runner = scene_runner(ANNA_SCENE_PATH)
+	yield (runner.simulate_frames(2), "completed")
+	var ctx = yield (_setup_rl_context(runner), "completed")
+	var anna = ctx["anna"]
+	var pilot = ctx["pilot"]
+	var target = ctx["target"]
+
+	# Force a clear "moving away" condition: previous distance tiny, current distance large.
+	target.global_transform.origin = pilot.global_transform.origin + Vector3(12.0, 1.0, 0.0)
+	anna._last_dist_to_target = 0.5
+	if "velocity" in pilot:
+		pilot.velocity = Vector3(2.5, 0.0, 0.0)
+
+	var step_obs = anna.get_rl_observation()
+	assert_bool(bool(step_obs.get("done", true))).is_false()
+	assert_float(float(step_obs.get("reward", 0.0))).is_less_equal(-2.4)
+	yield (_teardown_rl_context(ctx), "completed")
+
+func test_rl_reward_clamp_applies_to_shaping_but_not_timeout_terminal() -> void:
+	var runner = scene_runner(ANNA_SCENE_PATH)
+	yield (runner.simulate_frames(2), "completed")
+	var ctx = yield (_setup_rl_context(runner), "completed")
+	var anna = ctx["anna"]
+	var pilot = ctx["pilot"]
+	var target = ctx["target"]
+
+	target.global_transform.origin = pilot.global_transform.origin + Vector3(10.0, 1.0, 0.0)
+
+	# Non-terminal step: shaping reward should be clamped.
+	anna._episode_step_count = 0
+	anna._rl_max_episode_steps = 900
+	anna._killzone_triggered = false
+	if "velocity" in pilot:
+		pilot.velocity = Vector3(25.0, 0.0, 25.0)
+	var non_terminal = anna.get_rl_observation()
+	assert_bool(bool(non_terminal.get("done", true))).is_false()
+	assert_bool(abs(float(non_terminal.get("reward", 0.0))) <= 2.5001).is_true()
+
+	# Timeout terminal reward should be outside shaping clamp.
+	anna._episode_step_count = anna._rl_max_episode_steps
+	if "velocity" in pilot:
+		pilot.velocity = Vector3.ZERO
+	var timeout_step = anna.get_rl_observation()
+	assert_bool(bool(timeout_step.get("done", false))).is_true()
+	assert_float(float(timeout_step.get("reward", 0.0))).is_less_equal(-10.0)
+	yield (_teardown_rl_context(ctx), "completed")
+
+func test_rl_apply_action_anti_collapse_gate_throttles_forward_when_misaligned() -> void:
+	var runner = scene_runner(ANNA_SCENE_PATH)
+	yield (runner.simulate_frames(2), "completed")
+	var ctx = yield (_setup_rl_context(runner), "completed")
+	var anna = ctx["anna"]
+	var pilot = ctx["pilot"]
+	var sm = ctx["sm"]
+	var target = ctx["target"]
+
+	var t = pilot.global_transform
+	t.basis = Basis()
+	pilot.global_transform = t
+
+	target.global_transform.origin = pilot.global_transform.origin + Vector3(10.0, 1.0, 0.0)
+
+	anna.apply_rl_action(1) # Forward
+	var injected = sm._oys_input_override
+	var move_vec = injected.get("move_vec", Vector2.ZERO)
+	assert_bool(move_vec.y > -0.95).is_true()
+	yield (_teardown_rl_context(ctx), "completed")

@@ -19,16 +19,17 @@ const RL_REWARD_SUCCESS = 100.0
 const RL_REWARD_FAILURE = -100.0
 const RL_REWARD_TIME_PENALTY = -0.1
 const RL_MAX_EPISODE_STEPS = 1500
+const RL_SHAPING_REWARD_CLAMP = 2.5 # Clamp only shaping terms; keep terminal rewards outside.
 const RL_TIMEOUT_FAILURE_SCALE = 0.35
 const RL_PROGRESS_SCALE = 12.0
 const RL_SUCCESS_DIST = 2.0
 const RL_SPEED_REWARD_SCALE = 0.012 # Keep locomotion incentive without collapsing to always-forward.
-const RL_SPRINT_REWARD_SCALE = 0.05 # Stronger bonus when explicit sprint action is used.
-const RL_SPRINT_TARGET_SPEED = 7.0 # Target horizontal speed to make sprint behavior preferable.
-const RL_SPEED_TARGET_REWARD_SCALE = 0.05 # Reward approaching sprint target speed.
-const RL_SPRINT_ACTION_BONUS = 0.05 # Flat bonus for selecting sprint in favorable conditions.
-const RL_NO_SPRINT_WHEN_ALIGNED_PENALTY = 0.03 # Discourage jogging when aligned and path is clear.
-const RL_LOW_SPEED_WHEN_ALIGNED_PENALTY_SCALE = 0.01 # Penalize staying slow in sprint-friendly context.
+const RL_SPRINT_REWARD_SCALE = 0.12 # Strong bonus when explicit sprint action is used.
+const RL_SPRINT_TARGET_SPEED = 8.5 # Prefer true sprint pace over walk/jog.
+const RL_SPEED_TARGET_REWARD_SCALE = 0.10 # Reward approaching sprint target speed.
+const RL_SPRINT_ACTION_BONUS = 0.24 # Flat bonus for selecting sprint in favorable conditions.
+const RL_NO_SPRINT_WHEN_ALIGNED_PENALTY = 0.20 # Strongly discourage jogging when aligned and path is clear.
+const RL_LOW_SPEED_WHEN_ALIGNED_PENALTY_SCALE = 0.06 # Penalize staying slow in sprint-friendly context.
 const RL_JUMP_ACTION_PENALTY = 0.01 # Small baseline cost; keeps jump purposeful.
 const RL_JUMP_REPEAT_PENALTY = 0.03 # Stronger penalty for repeated jump spam.
 const RL_AIRBORNE_PENALTY = 0.0 # Do not punish being airborne; jumping is useful in obstacle courses.
@@ -43,11 +44,16 @@ const RL_STRAFE_OBSTACLE_REWARD_SCALE = 0.06 # Encourage strafe around nearby fr
 const RL_STRAFE_IDLE_PENALTY = 0.015 # Discourage needless strafe when already aligned.
 const RL_APPROACH_SPEED_REWARD_SCALE = 0.06 # Reward world velocity projected toward target direction.
 const RL_TANGENTIAL_SPEED_PENALTY_SCALE = 0.09 # Penalize circling/orbiting around target.
-const RL_NEAR_TARGET_ORBIT_PENALTY_SCALE = 0.20 # Stronger tangential penalty when already close.
+const RL_NEAR_TARGET_ORBIT_PENALTY_SCALE = 0.34 # Stronger tangential penalty when already close.
 const RL_NEAR_TARGET_RADIUS = 5.0
+const RL_NEAR_TARGET_MOVING_AWAY_PENALTY_SCALE = 0.24 # Penalize increasing distance when already near target.
+const RL_NEAR_TARGET_STRAFE_PENALTY_SCALE = 0.12 # Penalize lateral-only movement near target.
+const RL_ORBIT_RATIO_PENALTY_SCALE = 0.16 # Penalize tangential dominance over radial approach.
 const RL_ALIGNMENT_REWARD_SCALE = 0.04 # Shaping reward for facing target.
 const RL_PROXIMITY_REWARD_SCALE = 0.02 # Smooth bonus for getting closer even before success radius.
 const RL_PROXIMITY_REFERENCE_DIST = 20.0
+const RL_NEAR_TARGET_BONUS_DIST = 4.0
+const RL_NEAR_TARGET_BONUS_SCALE = 0.22 # Extra shaping when close, to offset timeout-dominated episodes.
 const RL_ANGLE_PROGRESS_SCALE = 1.8 # Reward reducing absolute angle-to-target.
 const RL_LOOK_USAGE_REWARD_SCALE = 0.01 # Encourage camera movement when misaligned.
 const RL_ANGLE_ABS_PENALTY_SCALE = 0.10 # Penalize staying off-target.
@@ -56,6 +62,7 @@ const RL_FORWARD_MISALIGN_PENALTY_SCALE = 0.16 # Penalize fast movement while no
 const RL_ALIGNED_SPEED_REWARD_SCALE = 0.05 # Reward forward speed only when aligned.
 const RL_UNALIGNED_SPEED_PENALTY_SCALE = 0.08 # Penalize rushing with poor aim.
 const RL_NO_CORRECTION_PENALTY = 0.06 # Penalize not using look while drifting off-target.
+const RL_NO_CORRECTION_PENALTY_CAP = 0.8 # Avoid runaway penalty explosion in long misaligned streaks.
 const RL_STEER_WHEN_MISALIGNED_REWARD_SCALE = 0.04 # Small reward for actively steering when off-target.
 const RL_STEER_CORRECTION_BONUS_SCALE = 1.2 # Extra bonus when steering reduces angle-to-target.
 const RL_ACTION_SWITCH_PENALTY_SCALE = 0.01 # Penalize abrupt action category changes, but allow course correction.
@@ -76,6 +83,14 @@ const RL_LOOK_ALIGN_DEADZONE = 0.03 # Keep correcting, but don't jitter around p
 const RL_LOOK_MIN_CORRECTION = 4.0 # Strong minimum yaw correction when clearly misaligned.
 const RL_MOVE_ALIGN_GATE = 0.10 # Begin throttling forward when heading is clearly wrong.
 const RL_MOVE_MIN_THROTTLE = 0.18 # Keep some forward motion while correcting to avoid freezing episodes.
+const RL_SPRINT_DISABLE_THROTTLE = 0.35 # Only disable sprint when heavy throttle reduction is needed.
+const RL_AUTO_SPRINT_ANGLE_MAX = 0.22 # Auto-enable sprint while reasonably aligned and far from target.
+const RL_AUTO_SPRINT_OBSTACLE_CLEAR_FACTOR = 1.25
+const RL_AUTO_SPRINT_MIN_DIST_FACTOR = 1.8
+const RL_ORBIT_CONTROL_DIST = 6.5 # When inside this range, prioritize correction over speed.
+const RL_ORBIT_CONTROL_ANGLE = 0.18 # Misalignment threshold for anti-orbit control.
+const RL_ORBIT_FORWARD_THROTTLE = 0.35 # Reduce forward commit near target while misaligned.
+const RL_ORBIT_STRAFE_THROTTLE = 0.45 # Reduce strafe orbiting near target while misaligned.
 const RL_COLLISION_PENALTY_THRESHOLD = 0.6 # If ray < 0.6m ~ collision
 const RL_FLOOR_NORMAL_Y_THRESHOLD = 0.6 # Upward-facing collisions are treated as floor/support.
 const RL_HAZARD_CONTACT_GRACE_FRAMES = 35 # Tolerate brief wall brushes in dense geometry.
@@ -85,21 +100,36 @@ const RL_STUCK_MIN_HSPEED = 0.12
 const RL_STUCK_MIN_PROGRESS_SPEED = 0.05
 const RL_STUCK_EXTRA_PENALTY_SCALE = 0.01 # Progressive punishment while stuck.
 const RL_STUCK_EXTRA_PENALTY_CAP = 0.35
-const RL_STUCK_RECOVERY_WALL_FRAMES = 18 # After this, force jump/backoff/strafe recovery.
-const RL_STUCK_NO_RECOVERY_PENALTY = 0.08
-const RL_STUCK_RECOVERY_REWARD = 0.05
-const RL_STUCK_RECOVERY_BACKOFF = 0.85
-const RL_STUCK_RECOVERY_STRAFE = 0.70
-const RL_STUCK_RECOVERY_JUMP_PERIOD = 10
+const RL_STUCK_RECOVERY_WALL_FRAMES = 12 # Trigger recovery sooner when hugging walls.
+const RL_STUCK_NO_RECOVERY_PENALTY = 0.12
+const RL_STUCK_RECOVERY_REWARD = 0.08
+const RL_STUCK_RECOVERY_BACKOFF = 1.0
+const RL_STUCK_RECOVERY_STRAFE = 0.95
+const RL_STUCK_RECOVERY_JUMP_PERIOD = 7
+const RL_HAZARD_EVASION_REWARD = 0.05 # Reward trying strafe/back/jump while in wall contact.
+const RL_HAZARD_FORWARD_PRESS_PENALTY = 0.08 # Penalize insisting on forward into wall contact.
+const RL_WALL_ESCAPE_PROGRESS_REWARD_SCALE = 0.12 # Reward increasing frontal clearance while in hazard.
+const RL_WALL_ESCAPE_REGRESS_PENALTY_SCALE = 0.06 # Penalize reducing frontal clearance while in hazard.
 const RL_SMART_JUMP_AHEAD_DIST = 1.85 # Jump is only useful when obstacle is close ahead.
 const RL_SMART_JUMP_MIN_COOLDOWN = 8 # Avoid hop-spam between consecutive frames.
 const RL_SMART_JUMP_ALLOW_STUCK_FRAMES = 12 # If stuck, allow more aggressive jump recovery.
 const RL_INTERACT_RANGE = 3.25
 const RL_INTERACT_FORWARD_DOT_MIN = 0.15
-const RL_INTERACT_CONTEXT_REWARD = 0.18
+const RL_INTERACT_CONTEXT_REWARD = 0.32
 const RL_INTERACT_SPAM_PENALTY = 0.04
 const RL_INTERACT_REPEAT_PENALTY = 0.05
 const RL_INTERACT_COOLDOWN_FRAMES = 8
+const RL_MISSED_INTERACT_PENALTY = 0.14 # Penalize pressing forward into a nearby interactable obstacle without interacting.
+const RL_INTERACT_AUTO_RANGE = 3.6 # Slightly wider than manual range to assist door usage.
+const RL_INTERACT_AUTO_FRONT_BLOCK_DIST = 2.0
+const RL_INTERACT_STUCK_TRIGGER_FRAMES = 10
+const RL_INTERACT_OPEN_PROGRESS_REWARD_SCALE = 0.10
+const RL_INTERACT_APPROACH_REWARD_SCALE = 0.22 # Reward moving toward a closed interactable that blocks route.
+const RL_INTERACT_ROUTE_ALIGN_REWARD_SCALE = 0.08 # Reward looking toward door candidate when it is relevant.
+const RL_INTERACT_FORWARD_IGNORE_PENALTY = 0.06 # Penalize forcing forward into closed interactable route blocker.
+const RL_ROUTE_INTERACT_FRONT_FACTOR = 1.4 # Door-subgoal trigger expands front-block test beyond auto-interact threshold.
+const RL_ROUTE_PROGRESS_WEIGHT = 0.25 # When door subgoal is active, de-prioritize direct target progress.
+const RL_ROUTE_GOAL_SWITCH_BONUS = 0.06 # Small bonus to keep policy committed to door objective once detected.
 const RL_FALL_DISTANCE = 3.5 # Episode fails if player falls this much below episode start height.
 
 export(bool) var allow_human_heuristic_override := true
@@ -147,6 +177,9 @@ var _has_last_angle_to_target := false
 var _wall_stuck_frames := 0
 var _jump_cooldown_frames := 0
 var _interact_cooldown_frames := 0
+var _last_front_ray_dist := -1.0
+var _last_route_interact_dist := -1.0
+var _last_route_interact_progress := -1.0
 
 # Spawn config (overrideable via env vars for scene-specific safe positions)
 var _rl_spawn_pos := Vector3(0.0, 2.0, 0.0)
@@ -270,6 +303,7 @@ func get_rl_observation() -> Dictionary:
 	var to_target = Vector3.ZERO
 	var forward = Vector3.ZERO
 	var facing_basis = Basis.IDENTITY
+	var route_subgoal_active = false
 
 	if not is_instance_valid(player) or not player is Spatial:
 		# Fallback/Fail state
@@ -304,11 +338,17 @@ func get_rl_observation() -> Dictionary:
 
 	# Target Info
 	var target = _ensure_rl_target()
+	var route_target: Spatial = null
 	if target:
+		route_target = _get_route_interactable(player as Spatial, target, front_ray_dist) as Spatial
+		var aim_target: Spatial = target
+		if is_instance_valid(route_target):
+			aim_target = route_target
+			route_subgoal_active = true
 		dist_to_target = player.global_transform.origin.distance_to(target.global_transform.origin)
 
 		# Angle
-		to_target = (target.global_transform.origin - player.global_transform.origin)
+		to_target = (aim_target.global_transform.origin - player.global_transform.origin)
 		to_target.y = 0
 		to_target = to_target.normalized()
 		facing_basis = _get_control_basis(player as Spatial)
@@ -345,6 +385,8 @@ func get_rl_observation() -> Dictionary:
 		on_floor_now = player.is_on_floor()
 
 	# --- REWARD CALCULATION ---
+	var terminal_reward = 0.0
+	var prev_dist_to_target = _last_dist_to_target
 
 	# 1. Time Penalty
 	_episode_step_count += 1
@@ -369,10 +411,41 @@ func get_rl_observation() -> Dictionary:
 			reward -= RL_BAD_JUMP_PENALTY
 	elif on_floor_now and front_ray_dist < RL_OBSTACLE_AHEAD_DIST and abs(_last_move_cmd.x) < 0.1:
 		reward -= RL_OBSTACLE_NO_EVASION_PENALTY
+	var interact_candidate_now = _get_front_interactable(player as Spatial)
+	if is_instance_valid(interact_candidate_now):
+		var interact_dist = player.global_transform.origin.distance_to((interact_candidate_now as Spatial).global_transform.origin) if interact_candidate_now is Spatial else RL_INTERACT_RANGE
+		var blocked_by_interactable = front_ray_dist < RL_INTERACT_AUTO_FRONT_BLOCK_DIST and interact_dist <= RL_INTERACT_AUTO_RANGE
+		if blocked_by_interactable and _last_move_cmd.y < -0.35 and not _last_action_interact:
+			reward -= RL_MISSED_INTERACT_PENALTY
+		var candidate_is_open = false
+		var candidate_progress = 0.0
+		if "is_active" in interact_candidate_now:
+			candidate_is_open = bool(interact_candidate_now.is_active)
+		if "target_progress" in interact_candidate_now:
+			candidate_progress = float(interact_candidate_now.target_progress)
+		var interact_closed = (not candidate_is_open) and candidate_progress < 0.9
+		if interact_closed:
+			if interact_dist <= RL_INTERACT_AUTO_RANGE:
+				if _last_route_interact_dist >= 0.0:
+					reward += (_last_route_interact_dist - interact_dist) * RL_INTERACT_APPROACH_REWARD_SCALE
+				var to_interact = (interact_candidate_now.global_transform.origin - player.global_transform.origin)
+				to_interact.y = 0.0
+				if forward.length_squared() > 0.001 and to_interact.length_squared() > 0.001:
+					reward += max(0.0, forward.dot(to_interact.normalized())) * RL_INTERACT_ROUTE_ALIGN_REWARD_SCALE
+				if _last_move_cmd.y < -0.45 and not _last_action_interact:
+					reward -= RL_INTERACT_FORWARD_IGNORE_PENALTY
+			if _last_route_interact_progress >= 0.0:
+				reward += max(0.0, candidate_progress - _last_route_interact_progress) * RL_INTERACT_OPEN_PROGRESS_REWARD_SCALE
+		_last_route_interact_dist = interact_dist
+		_last_route_interact_progress = candidate_progress
+	else:
+		_last_route_interact_dist = -1.0
+		_last_route_interact_progress = -1.0
 	if _last_action_interact:
-		var interact_candidate = _get_front_interactable(player as Spatial)
-		if is_instance_valid(interact_candidate):
+		if is_instance_valid(interact_candidate_now):
 			reward += RL_INTERACT_CONTEXT_REWARD
+			if "target_progress" in interact_candidate_now:
+				reward += float(interact_candidate_now.target_progress) * RL_INTERACT_OPEN_PROGRESS_REWARD_SCALE
 			if _interact_streak > 1:
 				reward -= float(_interact_streak - 1) * RL_INTERACT_REPEAT_PENALTY
 		else:
@@ -389,13 +462,17 @@ func get_rl_observation() -> Dictionary:
 	_has_last_local_hvel = true
 
 	# 2. Progress
-	if _last_dist_to_target >= 0.0:
-		var diff = _last_dist_to_target - dist_to_target
-		reward += diff * RL_PROGRESS_SCALE
-	_last_dist_to_target = dist_to_target
+	if prev_dist_to_target >= 0.0:
+		var diff = prev_dist_to_target - dist_to_target
+		if route_subgoal_active:
+			reward += max(0.0, diff) * RL_PROGRESS_SCALE * RL_ROUTE_PROGRESS_WEIGHT
+		else:
+			reward += diff * RL_PROGRESS_SCALE
 
 	# 2b. Target shaping (alignment + approach speed + proximity)
 	if target:
+		if route_subgoal_active:
+			reward += RL_ROUTE_GOAL_SWITCH_BONUS
 		if forward.length_squared() > 0.001 and to_target.length_squared() > 0.001:
 			var align = clamp(forward.dot(to_target), -1.0, 1.0)
 			reward += align * RL_ALIGNMENT_REWARD_SCALE
@@ -407,9 +484,17 @@ func get_rl_observation() -> Dictionary:
 			if dist_to_target < RL_NEAR_TARGET_RADIUS:
 				var near_ratio = 1.0 - clamp(dist_to_target / RL_NEAR_TARGET_RADIUS, 0.0, 1.0)
 				reward -= tangential_speed * near_ratio * RL_NEAR_TARGET_ORBIT_PENALTY_SCALE
+				if approach_speed < 0.0:
+					reward += approach_speed * near_ratio * RL_NEAR_TARGET_MOVING_AWAY_PENALTY_SCALE
+				var orbit_ratio = tangential_speed / max(0.2, abs(approach_speed) + 0.2)
+				if orbit_ratio > 1.0:
+					reward -= (orbit_ratio - 1.0) * near_ratio * RL_ORBIT_RATIO_PENALTY_SCALE
 
-		var proximity_ratio = clamp((RL_PROXIMITY_REFERENCE_DIST - dist_to_target) / RL_PROXIMITY_REFERENCE_DIST, 0.0, 1.0)
-		reward += proximity_ratio * RL_PROXIMITY_REWARD_SCALE
+			var proximity_ratio = clamp((RL_PROXIMITY_REFERENCE_DIST - dist_to_target) / RL_PROXIMITY_REFERENCE_DIST, 0.0, 1.0)
+			reward += proximity_ratio * RL_PROXIMITY_REWARD_SCALE
+			if dist_to_target < RL_NEAR_TARGET_BONUS_DIST:
+				var near_target_ratio = 1.0 - clamp(dist_to_target / RL_NEAR_TARGET_BONUS_DIST, 0.0, 1.0)
+				reward += near_target_ratio * RL_NEAR_TARGET_BONUS_SCALE
 
 		var abs_angle = abs(angle_to_target)
 		reward -= abs_angle * RL_ANGLE_ABS_PENALTY_SCALE
@@ -427,51 +512,57 @@ func get_rl_observation() -> Dictionary:
 			reward += abs_angle * RL_STEER_WHEN_MISALIGNED_REWARD_SCALE
 		if abs_angle < 0.08 and abs(_last_action_look_x) > 0.01:
 			reward -= RL_LOOK_WHEN_ALIGNED_PENALTY
-			if abs(_last_move_cmd.x) > 0.1 and abs_angle > 0.16:
-				reward += strafe_speed * RL_STRAFE_WHEN_MISALIGNED_REWARD_SCALE
-			if abs(_last_move_cmd.x) > 0.1 and front_ray_dist < RL_OBSTACLE_AHEAD_DIST:
-				reward += strafe_speed * RL_STRAFE_OBSTACLE_REWARD_SCALE
-			if abs(_last_move_cmd.x) > 0.1 and abs_angle < 0.08 and front_ray_dist > (RL_OBSTACLE_AHEAD_DIST * 1.2):
-				reward -= RL_STRAFE_IDLE_PENALTY
-			if horizontal_speed > 0.2 and abs_angle > 0.2:
-				reward -= horizontal_speed * abs_angle * RL_FORWARD_MISALIGN_PENALTY_SCALE
-			var forward_speed = max(0.0, vel.dot(to_target))
-			var sprint_context = on_floor_now and abs_angle < 0.16 and front_ray_dist > (RL_OBSTACLE_AHEAD_DIST * 1.2) and dist_to_target > (RL_SUCCESS_DIST * 1.5)
-			if sprint_context:
-				if _last_action_sprint and forward_speed > 0.8:
-					reward += RL_SPRINT_ACTION_BONUS
-				elif forward_speed > 0.8:
-					reward -= RL_NO_SPRINT_WHEN_ALIGNED_PENALTY
-				var speed_gap = max(0.0, RL_SPRINT_TARGET_SPEED - forward_speed)
-				reward -= speed_gap * RL_LOW_SPEED_WHEN_ALIGNED_PENALTY_SCALE
-			if abs_angle < 0.2:
-				reward += forward_speed * RL_ALIGNED_SPEED_REWARD_SCALE
-				_misaligned_run_streak = 0
-			elif forward_speed > 0.2:
-				reward -= forward_speed * abs_angle * RL_UNALIGNED_SPEED_PENALTY_SCALE
-				if abs(_last_action_look_x) < 0.01:
-					_misaligned_run_streak += 1
-					reward -= float(_misaligned_run_streak) * RL_NO_CORRECTION_PENALTY
-				else:
-					_misaligned_run_streak = 0
+		if abs(_last_move_cmd.x) > 0.1 and abs_angle > 0.16:
+			reward += strafe_speed * RL_STRAFE_WHEN_MISALIGNED_REWARD_SCALE
+		if abs(_last_move_cmd.x) > 0.1 and front_ray_dist < RL_OBSTACLE_AHEAD_DIST:
+			reward += strafe_speed * RL_STRAFE_OBSTACLE_REWARD_SCALE
+		if abs(_last_move_cmd.x) > 0.1 and abs_angle < 0.08 and front_ray_dist > (RL_OBSTACLE_AHEAD_DIST * 1.2):
+			reward -= RL_STRAFE_IDLE_PENALTY
+		if abs(_last_move_cmd.x) > 0.1 and dist_to_target < RL_NEAR_TARGET_RADIUS and abs_angle < 0.25:
+			var near_strafe_ratio = 1.0 - clamp(dist_to_target / RL_NEAR_TARGET_RADIUS, 0.0, 1.0)
+			reward -= strafe_speed * near_strafe_ratio * RL_NEAR_TARGET_STRAFE_PENALTY_SCALE
+		if horizontal_speed > 0.2 and abs_angle > 0.2:
+			reward -= horizontal_speed * abs_angle * RL_FORWARD_MISALIGN_PENALTY_SCALE
+
+		var forward_speed = max(0.0, vel.dot(to_target))
+		var sprint_context = on_floor_now and abs_angle < 0.16 and front_ray_dist > (RL_OBSTACLE_AHEAD_DIST * 1.2) and dist_to_target > (RL_SUCCESS_DIST * 1.5)
+		if sprint_context:
+			if _last_action_sprint and forward_speed > 0.8:
+				reward += RL_SPRINT_ACTION_BONUS
+			elif _last_move_cmd.y < -0.7 and forward_speed > 0.2:
+				reward -= RL_NO_SPRINT_WHEN_ALIGNED_PENALTY
+			var speed_gap = max(0.0, RL_SPRINT_TARGET_SPEED - forward_speed)
+			reward -= speed_gap * RL_LOW_SPEED_WHEN_ALIGNED_PENALTY_SCALE
+
+		if abs_angle < 0.2:
+			reward += forward_speed * RL_ALIGNED_SPEED_REWARD_SCALE
+			_misaligned_run_streak = 0
+		elif forward_speed > 0.2:
+			reward -= forward_speed * abs_angle * RL_UNALIGNED_SPEED_PENALTY_SCALE
+			if abs(_last_action_look_x) < 0.01:
+				_misaligned_run_streak += 1
+				reward -= min(float(_misaligned_run_streak) * RL_NO_CORRECTION_PENALTY, RL_NO_CORRECTION_PENALTY_CAP)
 			else:
 				_misaligned_run_streak = 0
-			if on_floor_now and abs_angle < 0.2:
-				var aligned_forward_speed = forward_speed
-				reward += aligned_forward_speed * RL_COMMIT_FORWARD_REWARD_SCALE
-			if dist_to_target > 4.0 and horizontal_speed < 0.2:
-				reward -= RL_STALL_PENALTY
-			if _last_dist_to_target >= 0.0 and (dist_to_target - _last_dist_to_target) > 0.02 and forward_speed > 0.15:
-				reward -= 0.08 # Moving in a way that increases distance should be corrected quickly.
+		else:
+			_misaligned_run_streak = 0
 
-			# Anti-collapse: repeating same action while neither distance nor angle improves.
-			if _same_action_streak > 6 and _last_dist_to_target >= 0.0 and _has_last_angle_to_target:
-				var dist_improved = (_last_dist_to_target - dist_to_target) > RL_BAD_STREAK_DIST_EPS
-				var angle_improved = (abs(_last_angle_to_target) - abs_angle) > RL_BAD_STREAK_ANGLE_EPS
-				if not dist_improved and not angle_improved:
-					reward -= float(_same_action_streak - 6) * RL_SAME_ACTION_STREAK_PENALTY
-			_last_angle_to_target = angle_to_target
-			_has_last_angle_to_target = true
+		if on_floor_now and abs_angle < 0.2:
+			var aligned_forward_speed = forward_speed
+			reward += aligned_forward_speed * RL_COMMIT_FORWARD_REWARD_SCALE
+		if dist_to_target > 4.0 and horizontal_speed < 0.2:
+			reward -= RL_STALL_PENALTY
+		if (not route_subgoal_active) and prev_dist_to_target >= 0.0 and (dist_to_target - prev_dist_to_target) > 0.02 and forward_speed > 0.15:
+			reward -= 0.08 # Moving in a way that increases distance should be corrected quickly.
+
+		# Anti-collapse: repeating same action while neither distance nor angle improves.
+		if _same_action_streak > 6 and prev_dist_to_target >= 0.0 and _has_last_angle_to_target:
+			var dist_improved = (prev_dist_to_target - dist_to_target) > RL_BAD_STREAK_DIST_EPS
+			var angle_improved = (abs(_last_angle_to_target) - abs_angle) > RL_BAD_STREAK_ANGLE_EPS
+			if not dist_improved and not angle_improved:
+				reward -= float(_same_action_streak - 6) * RL_SAME_ACTION_STREAK_PENALTY
+		_last_angle_to_target = angle_to_target
+		_has_last_angle_to_target = true
 
 	# 3. Success
 	var reached_target := false
@@ -481,20 +572,20 @@ func get_rl_observation() -> Dictionary:
 		elif target is Area and target.overlaps_body(player):
 			reached_target = true
 	if reached_target:
-		reward += RL_REWARD_SUCCESS
+		terminal_reward += RL_REWARD_SUCCESS
 		done = true
 
 	# 4. Failure (KillZone / Fall / Prolonged hazard contact)
 	if not done and _episode_step_count >= _rl_max_episode_steps:
-		reward += RL_REWARD_FAILURE * RL_TIMEOUT_FAILURE_SCALE
+		terminal_reward += RL_REWARD_FAILURE * RL_TIMEOUT_FAILURE_SCALE
 		done = true
 
 	if not done and _killzone_triggered:
-		reward += RL_REWARD_FAILURE
+		terminal_reward += RL_REWARD_FAILURE
 		done = true
 
 	if not done and player.global_transform.origin.y < (_episode_start_height - RL_FALL_DISTANCE):
-		reward += RL_REWARD_FAILURE
+		terminal_reward += RL_REWARD_FAILURE
 		done = true
 
 	if not done:
@@ -522,11 +613,23 @@ func get_rl_observation() -> Dictionary:
 		if hazard_contact:
 			_hazard_contact_frames += 1
 			reward -= RL_WALL_CONTACT_PENALTY
+			var trying_evasion_now := abs(_last_move_cmd.x) > 0.2 or _last_move_cmd.y > 0.2 or _last_action_jump
+			if trying_evasion_now:
+				reward += RL_HAZARD_EVASION_REWARD
+			elif _last_move_cmd.y < -0.25:
+				reward -= RL_HAZARD_FORWARD_PRESS_PENALTY
+			if _last_front_ray_dist >= 0.0:
+				var clear_delta = front_ray_dist - _last_front_ray_dist
+				if clear_delta > 0.0:
+					reward += clear_delta * RL_WALL_ESCAPE_PROGRESS_REWARD_SCALE
+				else:
+					reward += clear_delta * RL_WALL_ESCAPE_REGRESS_PENALTY_SCALE
 			if abs(_last_move_cmd.x) < 0.1 and not _last_action_jump:
 				reward -= RL_OBSTACLE_NO_EVASION_PENALTY
 		else:
 			_hazard_contact_frames = 0
 			_wall_stuck_frames = 0
+		_last_front_ray_dist = front_ray_dist
 
 		if hazard_contact and _hazard_contact_frames >= RL_HAZARD_CONTACT_GRACE_FRAMES:
 			var progress_speed = 0.0
@@ -547,17 +650,22 @@ func get_rl_observation() -> Dictionary:
 					reward -= RL_STUCK_NO_RECOVERY_PENALTY
 
 		if _wall_stuck_frames >= RL_STUCK_WALL_FAIL_FRAMES:
-			reward += RL_REWARD_FAILURE
+			terminal_reward += RL_REWARD_FAILURE
 			done = true
 
+	# Keep distance bookkeeping at the end so intermediate checks use previous-step value.
+	_last_dist_to_target = dist_to_target
+	var shaping_reward = clamp(reward, -RL_SHAPING_REWARD_CLAMP, RL_SHAPING_REWARD_CLAMP)
+	var final_reward = shaping_reward + terminal_reward
 	return {
 		"obs": obs_vector,
-		"reward": reward,
+		"reward": final_reward,
 		"done": done
 	}
 
 func reset_simulation() -> void:
 	var player = _get_player()
+	_reset_interactables_for_episode()
 	if player and player.has_method("teleport_to"):
 		var t = Transform()
 		t.origin = _rl_spawn_pos
@@ -600,6 +708,9 @@ func reset_simulation() -> void:
 	_wall_stuck_frames = 0
 	_jump_cooldown_frames = 0
 	_interact_cooldown_frames = 0
+	_last_front_ray_dist = -1.0
+	_last_route_interact_dist = -1.0
+	_last_route_interact_progress = -1.0
 	_episode_step_count = 0
 	_episode_start_time = OS.get_unix_time()
 	# Force initial distance update
@@ -616,9 +727,28 @@ func reset_simulation() -> void:
 				fwd = fwd.normalized()
 				_last_abs_angle_to_target = abs(fwd.angle_to(to_target) / PI)
 
+func _reset_interactables_for_episode() -> void:
+	if not is_inside_tree():
+		return
+	var nodes = get_tree().get_nodes_in_group("interactable")
+	for node in nodes:
+		if not is_instance_valid(node):
+			continue
+		if "is_used" in node:
+			node.is_used = false
+		if "target_progress" in node:
+			node.target_progress = 0.0
+		if "anim_progress" in node:
+			node.anim_progress = 0.0
+		if node.has_method("set_active"):
+			var starts_active = false
+			if "starts_active" in node:
+				starts_active = bool(node.starts_active)
+			node.set_active(starts_active, true)
+
 func apply_rl_action(action_idx: int) -> void:
 	# Action Space:
-	# 0=SteerOnly (+ contextual INTERACT when facing an interactable),
+	# 0=SteerOnly,
 	# 1=Forward,
 	# 2=SprintForward,
 	# 3=JumpForward,
@@ -658,13 +788,18 @@ func apply_rl_action(action_idx: int) -> void:
 			move_vec.x = 1.0
 			jump_pressed = true
 
-	# Assisted steering: force look direction toward current target bearing.
+	# Assisted steering: force look direction toward current objective bearing.
 	var player = _get_player()
 	var target = _ensure_rl_target()
+	var route_target: Spatial = null
 	var steer_angle = 0.0
 	var has_steer = false
 	if is_instance_valid(player) and is_instance_valid(target):
-		steer_angle = _get_target_angle_normalized(player as Spatial, target)
+		route_target = _get_route_interactable(player as Spatial, target, _get_front_obstacle_distance(player as Spatial)) as Spatial
+		var steer_target: Spatial = target
+		if is_instance_valid(route_target):
+			steer_target = route_target
+		steer_angle = _get_target_angle_normalized(player as Spatial, steer_target)
 		has_steer = true
 
 	if has_steer:
@@ -686,8 +821,33 @@ func apply_rl_action(action_idx: int) -> void:
 		var misalign = clamp((abs(steer_angle) - RL_MOVE_ALIGN_GATE) / max(0.001, 1.0 - RL_MOVE_ALIGN_GATE), 0.0, 1.0)
 		var throttle = lerp(1.0, RL_MOVE_MIN_THROTTLE, misalign)
 		move_vec.y *= throttle
-		if throttle < 0.55:
+		if throttle < RL_SPRINT_DISABLE_THROTTLE:
 			sprint_pressed = false
+
+	# Anti-orbit control near target:
+	# when close and misaligned, throttle forward/strafe so policy commits to re-aiming.
+	if is_instance_valid(player) and is_instance_valid(target):
+		var dist_now = player.global_transform.origin.distance_to(target.global_transform.origin)
+		if dist_now < RL_ORBIT_CONTROL_DIST and abs(steer_angle) > RL_ORBIT_CONTROL_ANGLE:
+			if move_vec.y < 0.0:
+				move_vec.y *= RL_ORBIT_FORWARD_THROTTLE
+			move_vec.x *= RL_ORBIT_STRAFE_THROTTLE
+			sprint_pressed = false
+
+	# Sprint assist: if policy keeps choosing plain forward while aligned and unobstructed,
+	# upgrade to sprint so locomotion does not collapse into walking.
+	if not sprint_pressed and move_vec.y < -0.6 and has_steer and abs(steer_angle) < RL_AUTO_SPRINT_ANGLE_MAX:
+		var on_floor_auto = true
+		if player and player.has_method("is_on_floor"):
+			on_floor_auto = player.is_on_floor()
+		if on_floor_auto:
+			var player_spatial_auto: Spatial = player as Spatial if player is Spatial else null
+			var front_clear = _get_front_obstacle_distance(player_spatial_auto) > (RL_OBSTACLE_AHEAD_DIST * RL_AUTO_SPRINT_OBSTACLE_CLEAR_FACTOR)
+			var far_target_auto = true
+			if is_instance_valid(player) and is_instance_valid(target):
+				far_target_auto = player.global_transform.origin.distance_to(target.global_transform.origin) > (RL_SUCCESS_DIST * RL_AUTO_SPRINT_MIN_DIST_FACTOR)
+			if front_clear and far_target_auto:
+				sprint_pressed = true
 
 	# Forced stuck recovery: if we are clearly wedged on walls, override action to escape.
 	var forced_recovery := false
@@ -720,11 +880,38 @@ func apply_rl_action(action_idx: int) -> void:
 		_jump_cooldown_frames = RL_SMART_JUMP_MIN_COOLDOWN
 
 	# Contextual interact:
-	# Reuse "steer-only" action as an explicit interaction intent when near an interactable.
-	# This preserves the 8-action API while enabling door usage in BaseTerrace.
-	var interact_candidate = _get_front_interactable(player as Spatial if player is Spatial else null)
-	if action_idx == 0 and is_instance_valid(interact_candidate):
-		interact_pressed = true
+	# Reuse "steer-only" action as explicit interaction, and auto-assist when a door-like
+	# interactable blocks frontal motion so the policy does not get stuck pushing.
+	var player_spatial_for_interact: Spatial = player as Spatial if player is Spatial else null
+	var interact_candidate = _get_front_interactable(player_spatial_for_interact)
+	if is_instance_valid(interact_candidate):
+		var interact_dist = RL_INTERACT_AUTO_RANGE
+		if interact_candidate is Spatial and is_instance_valid(player_spatial_for_interact):
+			interact_dist = player_spatial_for_interact.global_transform.origin.distance_to((interact_candidate as Spatial).global_transform.origin)
+		var front_obstacle_for_interact = _get_front_obstacle_distance(player_spatial_for_interact)
+		var candidate_is_open := false
+		var candidate_progress := 0.0
+		if "is_active" in interact_candidate:
+			candidate_is_open = bool(interact_candidate.is_active)
+		if "target_progress" in interact_candidate:
+			candidate_progress = float(interact_candidate.target_progress)
+		var should_open_interactable = not candidate_is_open and candidate_progress < 0.9
+		var auto_interact = false
+		if action_idx == 0 and should_open_interactable and front_obstacle_for_interact < RL_INTERACT_AUTO_FRONT_BLOCK_DIST and interact_dist <= RL_INTERACT_AUTO_RANGE:
+			auto_interact = true
+		elif should_open_interactable and move_vec.y < -0.55 and front_obstacle_for_interact < RL_INTERACT_AUTO_FRONT_BLOCK_DIST and interact_dist <= RL_INTERACT_AUTO_RANGE:
+			auto_interact = true
+		elif should_open_interactable and _wall_stuck_frames >= RL_INTERACT_STUCK_TRIGGER_FRAMES and interact_dist <= RL_INTERACT_AUTO_RANGE:
+			auto_interact = true
+		elif should_open_interactable and move_vec.y < -0.75 and interact_dist <= 2.6:
+			# Forward commit near a closed door-like interactable: assist with an interact pulse.
+			auto_interact = true
+		if auto_interact:
+			interact_pressed = true
+			if front_obstacle_for_interact < RL_INTERACT_AUTO_FRONT_BLOCK_DIST:
+				move_vec.y = min(move_vec.y, 0.0)
+				sprint_pressed = false
+				jump_pressed = false
 	if interact_pressed and _interact_cooldown_frames > 0:
 		interact_pressed = false
 	if interact_pressed:
@@ -847,6 +1034,34 @@ func _get_front_interactable(player: Spatial) -> Node:
 			best = node
 			best_dist = dist
 	return best
+
+func _is_interactable_closed(node: Node) -> bool:
+	if not is_instance_valid(node):
+		return false
+	var candidate_is_open := false
+	var candidate_progress := 0.0
+	if "is_active" in node:
+		candidate_is_open = bool(node.is_active)
+	if "target_progress" in node:
+		candidate_progress = float(node.target_progress)
+	return (not candidate_is_open) and candidate_progress < 0.9
+
+func _get_route_interactable(player: Spatial, target: Spatial, front_obstacle_dist: float) -> Node:
+	if not is_instance_valid(player) or not is_instance_valid(target):
+		return null
+	var front_candidate = _get_front_interactable(player)
+	if not is_instance_valid(front_candidate):
+		return null
+	if not _is_interactable_closed(front_candidate):
+		return null
+	var player_pos = player.global_transform.origin
+	var target_dist = player_pos.distance_to(target.global_transform.origin)
+	var interact_dist = player_pos.distance_to((front_candidate as Spatial).global_transform.origin) if front_candidate is Spatial else RL_INTERACT_AUTO_RANGE
+	var front_blocked = front_obstacle_dist < (RL_INTERACT_AUTO_FRONT_BLOCK_DIST * RL_ROUTE_INTERACT_FRONT_FACTOR)
+	var between_player_and_target = interact_dist < (target_dist + 0.5)
+	if front_blocked and between_player_and_target:
+		return front_candidate
+	return null
 
 func _get_target_angle_normalized(player: Spatial, target: Spatial) -> float:
 	if not is_instance_valid(player) or not is_instance_valid(target):

@@ -123,6 +123,7 @@ def _set_rl_runtime_defaults() -> None:
     os.environ.setdefault("ANNA_GODOT_PREFER_SERVER", "1")
     os.environ.setdefault("ANNA_GODOT_SERVER_FALLBACK", "0")
     os.environ.setdefault("ANNA_RL_DISABLE_CPU_SLEEP", "1")
+    os.environ.setdefault("ANNA_RL_POLL_SLEEP_USEC", "0")
     os.environ.setdefault("ODISEA_DISABLE_PERFMON_IN_RL", "1")
     os.environ.setdefault("ODISEA_QUIET_PERFMON", "1")
     os.environ.setdefault("ODISEA_DISABLE_FAKE_SHADOW", "1")
