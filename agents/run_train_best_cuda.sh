@@ -70,11 +70,12 @@ run_import_once() {
     cmd=("xvfb-run" "-a" "-s" "-screen 0 1024x768x24+120" "${cmd[@]}")
   fi
   echo "[run_train_best_cuda] Importing resources: ${cmd[*]}"
+  local -a env_prefix=("env" "-u" "__NV_PRIME_RENDER_OFFLOAD" "-u" "__GLX_VENDOR_LIBRARY_NAME" "GODOT_SILENCE_ROOT_WARNING=1")
   set +e
   if is_truthy "${force_sw}"; then
-    timeout "${timeout_sec}s" env LIBGL_ALWAYS_SOFTWARE=1 "${cmd[@]}" 2>&1 | tee "${log_file}"
+    timeout "${timeout_sec}s" "${env_prefix[@]}" LIBGL_ALWAYS_SOFTWARE=1 "${cmd[@]}" 2>&1 | tee "${log_file}"
   else
-    timeout "${timeout_sec}s" "${cmd[@]}" 2>&1 | tee "${log_file}"
+    timeout "${timeout_sec}s" "${env_prefix[@]}" "${cmd[@]}" 2>&1 | tee "${log_file}"
   fi
   local rc="${PIPESTATUS[0]}"
   set -e
@@ -104,11 +105,12 @@ run_smoke_once() {
     cmd=("xvfb-run" "-a" "-s" "-screen 0 1024x768x24+120" "${cmd[@]}")
   fi
   echo "[run_train_best_cuda] Running resource smoke: ${cmd[*]}"
+  local -a env_prefix=("env" "-u" "__NV_PRIME_RENDER_OFFLOAD" "-u" "__GLX_VENDOR_LIBRARY_NAME" "GODOT_SILENCE_ROOT_WARNING=1")
   set +e
   if is_truthy "${force_sw}"; then
-    timeout "${timeout_sec}s" env LIBGL_ALWAYS_SOFTWARE=1 "${cmd[@]}" 2>&1 | tee "${log_file}"
+    timeout "${timeout_sec}s" "${env_prefix[@]}" LIBGL_ALWAYS_SOFTWARE=1 "${cmd[@]}" 2>&1 | tee "${log_file}"
   else
-    timeout "${timeout_sec}s" "${cmd[@]}" 2>&1 | tee "${log_file}"
+    timeout "${timeout_sec}s" "${env_prefix[@]}" "${cmd[@]}" 2>&1 | tee "${log_file}"
   fi
   local rc="${PIPESTATUS[0]}"
   set -e
