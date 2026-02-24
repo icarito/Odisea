@@ -72,6 +72,13 @@ def _set_cpu_limits(threads: int) -> None:
     os.environ["NUMEXPR_NUM_THREADS"] = value
 
 
+def _set_nvidia_prime_defaults() -> None:
+    # Equivalent to:
+    # __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia python agents/train_anna_cuda_big.py
+    os.environ.setdefault("__NV_PRIME_RENDER_OFFLOAD", "1")
+    os.environ.setdefault("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
+
+
 def _prepare_imports(repo_root: Path):
     client_dir = repo_root / "core_v2" / "anna" / "client"
     if str(client_dir) not in sys.path:
@@ -190,6 +197,7 @@ def _run_stage(model, stage_name: str, timesteps: int, env, callback, reset_num_
 def main() -> int:
     args = _parse_args()
     _set_cpu_limits(args.cpu_threads)
+    _set_nvidia_prime_defaults()
 
     repo_root = Path(__file__).resolve().parents[1]
     AnnaGymEnv, PPO, CheckpointCallback, Monitor, DummyVecEnv, SubprocVecEnv, np, torch, nn = _prepare_imports(repo_root)
@@ -205,6 +213,13 @@ def main() -> int:
     torch.manual_seed(args.seed)
     num_envs = max(1, int(args.num_envs))
     godot_bin = _resolve_godot_bin(args.godot_bin)
+    print(
+        "[train_anna_cuda_big] PRIME offload env: __NV_PRIME_RENDER_OFFLOAD=%s __GLX_VENDOR_LIBRARY_NAME=%s"
+        % (
+            os.environ.get("__NV_PRIME_RENDER_OFFLOAD", ""),
+            os.environ.get("__GLX_VENDOR_LIBRARY_NAME", ""),
+        )
+    )
 
     device = _resolve_device(args, torch)
     if device.startswith("cuda"):

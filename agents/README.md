@@ -84,6 +84,12 @@ Entrenamiento grande en GPU CUDA (curriculum RL -> RL_2 -> BaseTerrace wrapper):
 ./agents/run_train_best_cuda.sh
 ```
 
+El script grande aplica por defecto el equivalente a:
+
+```bash
+__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia python agents/train_anna_cuda_big.py
+```
+
 Puedes personalizar sin editar el script, por ejemplo:
 
 ```bash
