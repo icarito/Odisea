@@ -118,6 +118,23 @@ ANNA_CONNECT_MAX_RETRIES=90 \
 ./agents/run_train_best_cuda.sh
 ```
 
+Antes de entrenar, `run_train_best_cuda.sh` corre un paso estilo GitHub Actions:
+- import global de recursos (`godot -e --headless`)
+- smoke de recursos críticos (`tests/ci_resource_smoke.gd`)
+- retry automático de smoke una vez
+
+Logs:
+- `reports/import_resources_train.log`
+- `reports/resource_smoke_train.log`
+- `reports/resource_smoke_train_retry.log`
+
+Control por env:
+- `ANNA_PREIMPORT_BEFORE_TRAIN=0` desactiva el paso
+- `ANNA_PREIMPORT_REQUIRED=0` permite continuar aunque falle
+- `ANNA_IMPORT_FORCE_SOFTWARE=1` fuerza `LIBGL_ALWAYS_SOFTWARE=1` (default)
+- `ANNA_PREIMPORT_DISABLE_EDITOR_PLUGINS=1` desactiva temporalmente plugins en el pass de import (default)
+- `ANNA_SKIP_PY_PREWARM_AFTER_PREIMPORT=1` evita duplicar prewarm en Python (default)
+
 Notas de throughput por defecto del launcher CUDA:
 - `ANNA_RL_PHYSICS_FPS=360`
 - `ODISEA_DISABLE_PERFMON_IN_RL=1` (evita overhead del monitor en entrenamiento)
