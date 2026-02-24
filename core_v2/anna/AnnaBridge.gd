@@ -25,8 +25,12 @@ func _ready():
 		print("[ANNA] RL Lock-Step Mode Enabled")
 		OS.set_use_vsync(false)
 		Engine.target_fps = 0
-		Engine.iterations_per_second = 1000
-		print("[ANNA] VSync disabled, FPS unlocked, physics=1000Hz for RL training")
+		var physics_fps = 60
+		var physics_fps_env = OS.get_environment("ANNA_RL_PHYSICS_FPS")
+		if physics_fps_env.is_valid_integer():
+			physics_fps = max(30, int(physics_fps_env))
+		Engine.iterations_per_second = physics_fps
+		print("[ANNA] VSync disabled, FPS unlocked, physics=%dHz for RL training" % physics_fps)
 
 	var err = _server.listen(port)
 	if err != OK:

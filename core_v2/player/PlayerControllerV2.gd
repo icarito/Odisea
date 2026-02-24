@@ -761,10 +761,10 @@ func step(dt: float, input: InputDataV2) -> void:
 	if active_zone_mode == CinematicManager.ControlMode.FREE:
 		if input and input.mouse_delta:
 			movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
-			if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED or is_replay_mode or OS.get_name() == "Switch" or OS.has_touchscreen_ui_hint():
-				yaw -= input.mouse_delta.x * mouse_sensitivity
-				var mouse_y = -input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
-				pitch -= mouse_y * mouse_sensitivity
+			# If mouse_delta exists, apply it directly; hardware input outside captured mode already produces zero delta.
+			yaw -= input.mouse_delta.x * mouse_sensitivity
+			var mouse_y = -input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
+			pitch -= mouse_y * mouse_sensitivity
 			yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
 		pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
 

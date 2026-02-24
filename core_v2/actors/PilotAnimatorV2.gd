@@ -72,6 +72,8 @@ var current_push_time: float = 0.0
 
 # --- FOOTSTEPS ---
 var _distance_accumulator: float = 0.0
+var _last_world_pos: Vector3 = Vector3.ZERO
+var _has_last_world_pos: bool = false
 
 # --- LIFECYCLE ---
 func _ready() -> void:
@@ -118,6 +120,9 @@ func _ready() -> void:
 		for child in fs_node.get_children():
 			if child is AudioStreamPlayer3D:
 				_footstep_sounds.append(child)
+
+	_last_world_pos = global_transform.origin
+	_has_last_world_pos = true
 
 func _warmup_animations() -> void:
 	"""Fuerza el cacheo de las mezclas de Grounded e InAir avanzando el AnimationTree."""
@@ -200,13 +205,21 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 		visual_velocity = p_current_velocity
 		
 	# --- FOOTSTEP LOGIC ---
+	var current_world_pos = global_transform.origin
+	var planar_delta := 0.0
+	if _has_last_world_pos:
+		var move_delta = current_world_pos - _last_world_pos
+		planar_delta = Vector2(move_delta.x, move_delta.z).length()
+	_last_world_pos = current_world_pos
+	_has_last_world_pos = true
+
 	if is_on_floor and not controller.get("is_pushing"):
-		# Use raw velocity for footsteps to avoid smoothing lag/jitter
-		var speed_h = Vector2(p_current_velocity.x, p_current_velocity.z).length()
-		if speed_h > 0.1: # Threshold to accumulate
-			_distance_accumulator += speed_h * dt
-			
-			# Dynamic stride from FootstepDetector
+		# Use real traveled planar distance, not instantaneous velocity, to avoid step spam when oscillating in place.
+		if planar_delta > 0.001:
+			_distance_accumulator += planar_delta
+
+			# Keep speed only for choosing stride profile (walk/run), not for counting distance.
+			var speed_h = Vector2(p_current_velocity.x, p_current_velocity.z).length()
 			var current_stride = 0.9
 			var walk_threshold = 3.0
 			if footstep_detector:
@@ -218,12 +231,10 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 			elif speed_h > walk_threshold:
 				var t = clamp((speed_h - walk_threshold) / walk_threshold, 0.0, 1.0)
 				current_stride = lerp(0.9, 2.0, t)
-			
+
 			if _distance_accumulator >= current_stride:
 				_distance_accumulator -= current_stride # Keep residue for precise rhythm
 				_play_footstep()
-		else:
-			pass
 	else:
 		_distance_accumulator = 0.0 # Reset in air so we don't step immediately on land (unless land sound handles that)
 

@@ -7,6 +7,7 @@ import subprocess
 import os
 import time
 import shutil
+import signal
 from typing import Optional
 
 class AnnaGymEnv(gym.Env):
@@ -23,9 +24,16 @@ class AnnaGymEnv(gym.Env):
         self.buffer = ""
 
         # Action Space:
-        # 0=Idle, 1=Fwd, 2=Back, 3=Left, 4=Right, 5=Jump,
-        # 6=SprintFwd, 7=SprintBack, 8=SprintLeft, 9=SprintRight
-        self.action_space = spaces.Discrete(10)
+        # Compact action set (steering is assisted in-engine):
+        # 0=SteerOnly
+        # 1=Forward
+        # 2=SprintForward
+        # 3=JumpForward
+        # 4=StrafeLeft
+        # 5=StrafeRight
+        # 6=JumpStrafeLeft
+        # 7=JumpStrafeRight
+        self.action_space = spaces.Discrete(8)
 
         # Observation Space: 12 floats (normalized approx -1 to 1)
         self.observation_space = spaces.Box(
@@ -69,7 +77,8 @@ class AnnaGymEnv(gym.Env):
             cmd.append(self.scene_path)
 
         print(f"[AnnaGym] Launching Godot: {' '.join(cmd)}")
-        self.godot_process = subprocess.Popen(cmd, env=env)
+        # Launch in its own process group so close() can terminate xvfb-run + Godot children reliably.
+        self.godot_process = subprocess.Popen(cmd, env=env, start_new_session=True)
         time.sleep(3) # Wait for engine start
 
     @staticmethod
@@ -183,8 +192,16 @@ class AnnaGymEnv(gym.Env):
             self.sock.close()
         if self.godot_process:
             print("[AnnaGym] Terminating Godot process...")
-            self.godot_process.terminate()
+            try:
+                pgid = os.getpgid(self.godot_process.pid)
+                os.killpg(pgid, signal.SIGTERM)
+            except Exception:
+                self.godot_process.terminate()
             try:
                 self.godot_process.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                self.godot_process.kill()
+                try:
+                    pgid = os.getpgid(self.godot_process.pid)
+                    os.killpg(pgid, signal.SIGKILL)
+                except Exception:
+                    self.godot_process.kill()
