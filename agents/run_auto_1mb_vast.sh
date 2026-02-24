@@ -32,7 +32,7 @@ run_case() {
     "${PYTHON_BIN:-python3}" agents/auto_train_anna.py \
       --scene-stage1 core_v2/tests/TestScene_RL.tscn \
       --scene-stage2 core_v2/tests/TestScene_RL_2.tscn \
-      --scene-stage3 core_v2/tests/TestScene_RL_3_Door.tscn \
+      --scene-stage3 core_v2/tests/TestScene_RL_BaseTerrace.tscn \
       --timesteps-stage1 8000 \
       --timesteps-stage2 12000 \
       --timesteps-stage3 16000 \
