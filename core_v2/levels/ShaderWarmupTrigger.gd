@@ -8,6 +8,9 @@ var _started := false
 func _ready() -> void:
 	if Engine.editor_hint:
 		return
+	if _is_disabled_in_runtime():
+		queue_free()
+		return
 	if not run_in_tests and _is_test_suite():
 		return
 	call_deferred("_start_shader_warmup")
@@ -39,3 +42,14 @@ func _is_test_suite() -> bool:
 	if Engine.has_singleton("GdUnit3"):
 		return Engine.get_singleton("GdUnit3").is_test_suite()
 	return false
+
+func _is_disabled_in_runtime() -> bool:
+	var hard_disable = OS.get_environment("ODISEA_DISABLE_SHADER_WARMUP").to_lower()
+	if hard_disable in ["1", "true", "yes", "on"]:
+		return true
+	var in_rl = OS.get_environment("ANNA_RL_MODE").to_lower() in ["1", "true", "yes", "on"]
+	var disable_in_rl = OS.get_environment("ODISEA_DISABLE_SHADER_WARMUP_IN_RL")
+	if disable_in_rl == "":
+		disable_in_rl = "1"
+	var disable_rl = disable_in_rl.to_lower() in ["1", "true", "yes", "on"]
+	return in_rl and disable_rl

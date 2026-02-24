@@ -41,6 +41,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--cpu-threads", type=int, default=8)
     parser.add_argument("--num-envs", type=int, default=6, help="Parallel Godot envs per stage (unique ports are auto-assigned).")
+    parser.add_argument("--num-envs-stage1", type=int, default=0, help="Optional override for stage1 env count.")
+    parser.add_argument("--num-envs-stage2", type=int, default=0, help="Optional override for stage2 env count.")
+    parser.add_argument("--num-envs-stage3", type=int, default=0, help="Optional override for stage3 env count.")
     parser.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto")
     parser.add_argument("--cuda-device-id", type=int, default=0)
     parser.add_argument("--godot-bin", default=os.environ.get("GODOT_BIN", "godot3-bin"))
@@ -93,6 +96,8 @@ def _set_rl_runtime_defaults() -> None:
     os.environ.setdefault("ODISEA_DISABLE_PERFMON_IN_RL", "1")
     os.environ.setdefault("ODISEA_QUIET_PERFMON", "1")
     os.environ.setdefault("ODISEA_DISABLE_FAKE_SHADOW", "1")
+    os.environ.setdefault("ODISEA_DISABLE_SHADER_WARMUP", "1")
+    os.environ.setdefault("ODISEA_DISABLE_SHADER_WARMUP_IN_RL", "1")
 
 
 def _prepare_imports(repo_root: Path):
@@ -269,6 +274,16 @@ def _find_available_port_block(start_port: int, block_size: int, max_scan: int =
     )
 
 
+def _resolve_stage_env_count(scene_path: str, default_envs: int, override_envs: int, is_stage3: bool = False) -> int:
+    if int(override_envs) > 0:
+        return max(1, int(override_envs))
+    default_envs = max(1, int(default_envs))
+    if is_stage3 and "BaseTerrace" in str(scene_path):
+        suggested = max(1, int(os.environ.get("ANNA_STAGE3_NUM_ENVS_DEFAULT", "2")))
+        return min(default_envs, suggested)
+    return default_envs
+
+
 def _run_stage(model, stage_name: str, timesteps: int, env, callback, reset_num_timesteps: bool) -> None:
     print("[train_anna_cuda_big] %s: timesteps=%d" % (stage_name, int(timesteps)))
     model.set_env(env)
@@ -345,6 +360,9 @@ def main() -> int:
     scene_stage1 = _scene_rel(repo_root, args.scene_stage1)
     scene_stage2 = _scene_rel(repo_root, args.scene_stage2)
     scene_stage3 = _scene_rel(repo_root, args.scene_stage3)
+    stage1_envs = _resolve_stage_env_count(scene_stage1, num_envs, args.num_envs_stage1, False)
+    stage2_envs = _resolve_stage_env_count(scene_stage2, num_envs, args.num_envs_stage2, False)
+    stage3_envs = _resolve_stage_env_count(scene_stage3, num_envs, args.num_envs_stage3, True)
 
     steps_stage1 = max(0, int(args.timesteps_stage1))
     steps_stage2 = max(0, int(args.timesteps_stage2))
@@ -373,15 +391,16 @@ def main() -> int:
         "activation_fn": nn.ReLU,
         "ortho_init": False,
     }
-    rollout_size = int(args.n_steps) * num_envs
+    rollout_size = int(args.n_steps) * stage1_envs
     fitted_batch = _fit_batch_size(rollout_size=rollout_size, batch_size=int(args.batch_size))
-    stage1_port = _find_available_port_block(int(args.port_stage1), num_envs)
-    stage2_port = _find_available_port_block(max(int(args.port_stage2), stage1_port + num_envs + 16), num_envs)
-    stage3_port = _find_available_port_block(max(int(args.port_stage3), stage2_port + num_envs + 16), num_envs)
+    stage1_port = _find_available_port_block(int(args.port_stage1), stage1_envs)
+    stage2_port = _find_available_port_block(max(int(args.port_stage2), stage1_port + stage1_envs + 16), stage2_envs)
+    stage3_port = _find_available_port_block(max(int(args.port_stage3), stage2_port + stage2_envs + 16), stage3_envs)
 
     print("[train_anna_cuda_big] stage1=%s (%d)" % (scene_stage1, steps_stage1))
     print("[train_anna_cuda_big] stage2=%s (%d)" % (scene_stage2, steps_stage2))
     print("[train_anna_cuda_big] stage3=%s (%d)" % (scene_stage3, steps_stage3))
+    print("[train_anna_cuda_big] envs: stage1=%d stage2=%d stage3=%d" % (stage1_envs, stage2_envs, stage3_envs))
     if stage1_port != int(args.port_stage1):
         print("[train_anna_cuda_big] port shift: stage1 %d -> %d" % (int(args.port_stage1), stage1_port))
     if stage2_port != int(args.port_stage2):
@@ -410,7 +429,7 @@ def main() -> int:
         args.render,
         args.no_launch,
         godot_bin,
-        num_envs,
+        stage1_envs,
     )
     try:
         model = PPO(
@@ -446,7 +465,7 @@ def main() -> int:
             args.render,
             args.no_launch,
             godot_bin,
-            num_envs,
+            stage2_envs,
         )
         try:
             _run_stage(model, "stage2", steps_stage2, env2, checkpoint_cb, False)
@@ -464,7 +483,7 @@ def main() -> int:
             args.render,
             args.no_launch,
             godot_bin,
-            num_envs,
+            stage3_envs,
         )
         try:
             _run_stage(model, "stage3", steps_stage3, env3, checkpoint_cb, False)
@@ -484,6 +503,9 @@ def main() -> int:
         "seed": int(args.seed),
         "cpu_threads": int(args.cpu_threads),
         "num_envs": int(num_envs),
+        "num_envs_stage1": int(stage1_envs),
+        "num_envs_stage2": int(stage2_envs),
+        "num_envs_stage3": int(stage3_envs),
         "learning_rate": float(args.learning_rate),
         "entropy_coef": float(args.entropy_coef),
         "gamma": float(args.gamma),

@@ -215,6 +215,8 @@ export ANNA_IMPORT_PREWARM_STRICT="${ANNA_IMPORT_PREWARM_STRICT:-0}"
 export ODISEA_DISABLE_PERFMON_IN_RL="${ODISEA_DISABLE_PERFMON_IN_RL:-1}"
 export ODISEA_QUIET_PERFMON="${ODISEA_QUIET_PERFMON:-1}"
 export ODISEA_DISABLE_FAKE_SHADOW="${ODISEA_DISABLE_FAKE_SHADOW:-1}"
+export ODISEA_DISABLE_SHADER_WARMUP="${ODISEA_DISABLE_SHADER_WARMUP:-1}"
+export ODISEA_DISABLE_SHADER_WARMUP_IN_RL="${ODISEA_DISABLE_SHADER_WARMUP_IN_RL:-1}"
 export ANNA_CUDA_TF32="${ANNA_CUDA_TF32:-1}"
 export ANNA_CUDNN_BENCHMARK="${ANNA_CUDNN_BENCHMARK:-1}"
 export ANNA_TORCH_MATMUL_PRECISION="${ANNA_TORCH_MATMUL_PRECISION:-high}"
@@ -237,6 +239,7 @@ fi
   --device auto \
   --cpu-threads "${CPU_THREADS:-16}" \
   --num-envs "${NUM_ENVS:-8}" \
+  --num-envs-stage3 "${NUM_ENVS_STAGE3:-2}" \
   --scene-stage1 core_v2/tests/TestScene_RL.tscn \
   --scene-stage2 core_v2/tests/TestScene_RL_2.tscn \
   --scene-stage3 core_v2/tests/TestScene_RL_BaseTerrace.tscn \

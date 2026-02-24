@@ -112,6 +112,9 @@ class AnnaGymEnv(gym.Env):
         env["ANNA_PORT"] = str(self.port)
         # Disable visual-only fake blob shadow in RL by default to reduce CPU raycast overhead.
         env.setdefault("ODISEA_DISABLE_FAKE_SHADOW", "1")
+        # Disable heavy shader warmup/cache build in RL by default.
+        env.setdefault("ODISEA_DISABLE_SHADER_WARMUP", "1")
+        env.setdefault("ODISEA_DISABLE_SHADER_WARMUP_IN_RL", "1")
         # Prevent heavy level intro scripts for BaseTerrace-like scenes during RL training.
         force_noop = str(env.get("ANNA_FORCE_OYS_NOOP", "0")).lower() in ("1", "true", "yes")
         scene_label = str(self.scene_path or "")
