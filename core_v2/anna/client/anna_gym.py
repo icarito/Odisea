@@ -19,6 +19,8 @@ class AnnaGymEnv(gym.Env):
         self.launch_godot = launch_godot
         self.headless = headless
         self.godot_bin = godot_bin or os.environ.get("GODOT_BIN", "godot3-bin")
+        self.video_driver = os.environ.get("ANNA_GODOT_VIDEO_DRIVER", "GLES2")
+        self.prefer_server_bin = str(os.environ.get("ANNA_GODOT_PREFER_SERVER", "1")).lower() not in ("0", "false", "no")
         self.godot_process = None
         self.sock = None
         self.buffer = ""
@@ -58,6 +60,35 @@ class AnnaGymEnv(gym.Env):
 
         # Connect logic handled on demand
 
+    def _resolve_godot_binary(self) -> str:
+        candidate = str(self.godot_bin).strip() or "godot3-bin"
+        if self.headless and self.prefer_server_bin:
+            server_candidates = []
+            if candidate:
+                if candidate in ("godot3-bin", "godot3"):
+                    server_candidates.append("godot3-server")
+                elif candidate == "godot":
+                    server_candidates.append("godot-server")
+                elif candidate.endswith("-bin"):
+                    server_candidates.append(candidate.replace("-bin", "-server"))
+                else:
+                    server_candidates.append(candidate + "-server")
+            server_candidates.extend(["godot3-server", "godot-server", "godot_server"])
+            for sc in server_candidates:
+                if sc and shutil.which(sc):
+                    print(f"[AnnaGym] Using headless server binary: {sc}")
+                    return sc
+
+        if shutil.which(candidate):
+            return candidate
+        if candidate == "godot3-bin" and shutil.which("godot3"):
+            print("[AnnaGym] GODOT_BIN=godot3-bin not found, falling back to godot3.")
+            return "godot3"
+        if shutil.which("godot"):
+            print("[AnnaGym] Falling back to godot.")
+            return "godot"
+        raise RuntimeError(f"[AnnaGym] Could not find Godot binary (requested: {candidate}).")
+
     def _launch_godot(self):
         env = os.environ.copy()
         env["ANNA_RL_MODE"] = "1"
@@ -66,17 +97,17 @@ class AnnaGymEnv(gym.Env):
         if "OYS_AUTO_RUN" not in env or not str(env.get("OYS_AUTO_RUN", "")).strip():
             env["OYS_AUTO_RUN"] = "res://core_v2/tests/anna_rl_noop.oys"
 
-        godot_bin = self.godot_bin
-        if shutil.which(godot_bin) is None and godot_bin == "godot3-bin" and shutil.which("godot3"):
-            godot_bin = "godot3"
-            print("[AnnaGym] GODOT_BIN=godot3-bin not found, falling back to godot3.")
+        godot_bin = self._resolve_godot_binary()
+        is_server_bin = "server" in os.path.basename(godot_bin)
 
         cmd = []
-        if self.headless:
+        if self.headless and not is_server_bin:
             cmd = ["xvfb-run", "-a", "-s", "-screen 0 1024x768x24+120"]
 
         cmd.extend([godot_bin, "--audio-driver", "Dummy", "--path", "."])
         if self.headless:
+            if not is_server_bin:
+                cmd.extend(["--video-driver", str(self.video_driver)])
             cmd.append("--no-window")
 
         if self.scene_path:
