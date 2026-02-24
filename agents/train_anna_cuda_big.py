@@ -559,7 +559,18 @@ def main() -> int:
                     )
                     first_learn_call = True
             else:
-                model.set_env(env)
+                if int(getattr(model, "n_envs", 1)) != int(stage_envs[stage_name]):
+                    print(
+                        "[train_anna_cuda_big] env-count change %d -> %d; reloading model for %s"
+                        % (int(getattr(model, "n_envs", 1)), int(stage_envs[stage_name]), stage_name)
+                    )
+                    _save_model_zip_atomic(model, checkpoint_latest_zip)
+                    model = PPO.load(str(checkpoint_latest_zip), env=env, device=device)
+                    model.tensorboard_log = str(tb_log)
+                    model.verbose = int(args.verbose)
+                    first_learn_call = False
+                else:
+                    model.set_env(env)
 
             print("[train_anna_cuda_big] %s: target=%d already=%d chunk=%d rollout=%d" % (
                 stage_name,
