@@ -1,0 +1,11 @@
+{
+  "model": "/run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/agents/models/anna_ppo_noorbit_lvl2_32k_fps120_v1.zip",
+  "timesteps": 32000,
+  "seed": 42,
+  "cpu_threads": 6,
+  "render": false,
+  "scene": "core_v2/tests/TestScene_RL_2.tscn",
+  "port": 5000,
+  "duration_sec": 284.179,
+  "created_at_unix": 1771899348
+}
