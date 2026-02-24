@@ -59,6 +59,17 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--n-epochs", type=int, default=10)
     parser.add_argument("--net-arch", type=_parse_int_list, default="2048,2048,1024,512")
     parser.add_argument("--checkpoint-every", type=int, default=50000)
+    parser.add_argument(
+        "--resume",
+        choices=["auto", "always", "never"],
+        default=os.environ.get("ANNA_TRAIN_RESUME_MODE", "auto"),
+        help="Resume from latest checkpoint in ckpt dir.",
+    )
+    parser.add_argument(
+        "--resume-from",
+        default="",
+        help="Optional explicit checkpoint/model .zip path to resume from.",
+    )
     parser.add_argument("--render", action="store_true", help="Launch Godot with window.")
     parser.add_argument("--no-launch", action="store_true", help="Do not auto-launch Godot.")
     parser.add_argument("--model-out", default="agents/models/anna_ppo_cuda_big.zip")
@@ -107,14 +118,13 @@ def _prepare_imports(repo_root: Path):
 
     from anna_gym import AnnaGymEnv  # type: ignore
     from stable_baselines3 import PPO  # type: ignore
-    from stable_baselines3.common.callbacks import CheckpointCallback  # type: ignore
     from stable_baselines3.common.monitor import Monitor  # type: ignore
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv  # type: ignore
     import numpy as np  # type: ignore
     import torch  # type: ignore
     from torch import nn  # type: ignore
 
-    return AnnaGymEnv, PPO, CheckpointCallback, Monitor, DummyVecEnv, SubprocVecEnv, np, torch, nn
+    return AnnaGymEnv, PPO, Monitor, DummyVecEnv, SubprocVecEnv, np, torch, nn
 
 
 def _configure_cuda_runtime(torch_mod) -> dict:
@@ -284,15 +294,43 @@ def _resolve_stage_env_count(scene_path: str, default_envs: int, override_envs: 
     return default_envs
 
 
-def _run_stage(model, stage_name: str, timesteps: int, env, callback, reset_num_timesteps: bool) -> None:
-    print("[train_anna_cuda_big] %s: timesteps=%d" % (stage_name, int(timesteps)))
-    model.set_env(env)
-    model.learn(
-        total_timesteps=int(timesteps),
-        reset_num_timesteps=reset_num_timesteps,
-        callback=callback,
-        progress_bar=True,
-    )
+def _atomic_write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    tmp.replace(path)
+
+
+def _safe_read_json(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_model_zip_atomic(model, dst_zip: Path) -> None:
+    dst_zip.parent.mkdir(parents=True, exist_ok=True)
+    tmp_base = dst_zip.parent / (dst_zip.stem + ".tmp")
+    tmp_zip = tmp_base.with_suffix(".zip")
+    if tmp_zip.exists():
+        tmp_zip.unlink()
+    model.save(str(tmp_base))
+    if not tmp_zip.exists():
+        raise RuntimeError("Checkpoint not generated: %s" % tmp_zip)
+    tmp_zip.replace(dst_zip)
+
+
+def _norm_done(stage_targets: dict, raw_done: dict) -> dict:
+    out = {}
+    for name, target in stage_targets.items():
+        try:
+            val = int(raw_done.get(name, 0))
+        except Exception:
+            val = 0
+        out[name] = max(0, min(int(target), val))
+    return out
 
 
 def main() -> int:
@@ -303,7 +341,7 @@ def main() -> int:
     _set_rl_runtime_defaults()
 
     repo_root = Path(__file__).resolve().parents[1]
-    AnnaGymEnv, PPO, CheckpointCallback, Monitor, DummyVecEnv, SubprocVecEnv, np, torch, nn = _prepare_imports(repo_root)
+    AnnaGymEnv, PPO, Monitor, DummyVecEnv, SubprocVecEnv, np, torch, nn = _prepare_imports(repo_root)
 
     torch.set_num_threads(max(1, int(args.cpu_threads)))
     try:
@@ -380,16 +418,28 @@ def main() -> int:
 
     checkpoint_dir = model_out.parent / (model_stem + "_ckpt")
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    checkpoint_cb = CheckpointCallback(
-        save_freq=max(1, int(args.checkpoint_every)),
-        save_path=str(checkpoint_dir),
-        name_prefix=model_stem,
-    )
+    checkpoint_latest_zip = checkpoint_dir / (model_stem + "_latest.zip")
+    train_state_path = checkpoint_dir / (model_stem + "_train_state.json")
 
     policy_kwargs = {
         "net_arch": dict(pi=list(args.net_arch), vf=list(args.net_arch)),
         "activation_fn": nn.ReLU,
         "ortho_init": False,
+    }
+    stage_targets = {
+        "stage1": int(steps_stage1),
+        "stage2": int(steps_stage2),
+        "stage3": int(steps_stage3),
+    }
+    stage_envs = {
+        "stage1": int(stage1_envs),
+        "stage2": int(stage2_envs),
+        "stage3": int(stage3_envs),
+    }
+    stage_scenes = {
+        "stage1": scene_stage1,
+        "stage2": scene_stage2,
+        "stage3": scene_stage3,
     }
     rollout_size = int(args.n_steps) * stage1_envs
     fitted_batch = _fit_batch_size(rollout_size=rollout_size, batch_size=int(args.batch_size))
@@ -416,81 +466,170 @@ def main() -> int:
         fitted_batch,
         args.net_arch,
     ))
+    print("[train_anna_cuda_big] resume=%s" % str(args.resume))
 
     started_at = time.time()
+    stage_ports = {
+        "stage1": int(stage1_port),
+        "stage2": int(stage2_port),
+        "stage3": int(stage3_port),
+    }
+    stage_order = ["stage1", "stage2", "stage3"]
 
-    env1 = _open_stage_env(
-        AnnaGymEnv,
-        Monitor,
-        DummyVecEnv,
-        SubprocVecEnv,
-        scene_stage1,
-        stage1_port,
-        args.render,
-        args.no_launch,
-        godot_bin,
-        stage1_envs,
-    )
-    try:
-        model = PPO(
-            "MlpPolicy",
-            env1,
-            verbose=int(args.verbose),
-            tensorboard_log=str(tb_log),
-            seed=int(args.seed),
-            learning_rate=float(args.learning_rate),
-            ent_coef=float(args.entropy_coef),
-            gamma=float(args.gamma),
-            gae_lambda=float(args.gae_lambda),
-            clip_range=float(args.clip_range),
-            n_steps=int(args.n_steps),
-            batch_size=fitted_batch,
-            n_epochs=int(args.n_epochs),
-            policy_kwargs=policy_kwargs,
-            device=device,
+    resume_mode = str(args.resume).strip().lower()
+    resume_from_arg = str(args.resume_from).strip()
+    resume_source: Path | None = None
+    state_raw = _safe_read_json(train_state_path)
+    stage_done = _norm_done(stage_targets, state_raw.get("stage_done", {}))
+    resumed = False
+
+    if resume_from_arg:
+        resume_source = (repo_root / resume_from_arg).resolve()
+    elif resume_mode != "never" and checkpoint_latest_zip.exists():
+        resume_source = checkpoint_latest_zip
+
+    if resume_mode == "always" and (resume_source is None or not resume_source.exists()):
+        raise RuntimeError(
+            "Resume requested (--resume always) but no checkpoint was found at %s"
+            % checkpoint_latest_zip
         )
-        if steps_stage1 > 0:
-            _run_stage(model, "stage1", steps_stage1, env1, checkpoint_cb, True)
-    finally:
-        env1.close()
 
-    if steps_stage2 > 0:
-        env2 = _open_stage_env(
+    if resume_source is not None and not resume_source.exists():
+        raise RuntimeError("Resume checkpoint not found: %s" % resume_source)
+
+    if resume_source is not None:
+        resumed = True
+        print("[train_anna_cuda_big] resume checkpoint: %s" % resume_source)
+        if state_raw:
+            print("[train_anna_cuda_big] resume stage_done: %s" % stage_done)
+        else:
+            print("[train_anna_cuda_big] resume without train state; stage progress will restart from 0.")
+
+    model = None
+    first_learn_call = True
+
+    for stage_name in stage_order:
+        stage_target = int(stage_targets[stage_name])
+        if stage_target <= 0:
+            continue
+        done_before = int(stage_done.get(stage_name, 0))
+        if done_before >= stage_target:
+            print("[train_anna_cuda_big] %s already complete (%d/%d), skipping." % (stage_name, done_before, stage_target))
+            continue
+
+        env = _open_stage_env(
             AnnaGymEnv,
             Monitor,
             DummyVecEnv,
             SubprocVecEnv,
-            scene_stage2,
-            stage2_port,
+            stage_scenes[stage_name],
+            stage_ports[stage_name],
             args.render,
             args.no_launch,
             godot_bin,
-            stage2_envs,
+            stage_envs[stage_name],
         )
         try:
-            _run_stage(model, "stage2", steps_stage2, env2, checkpoint_cb, False)
-        finally:
-            env2.close()
+            rollout_for_stage = int(args.n_steps) * int(stage_envs[stage_name])
+            chunk_steps = max(int(args.checkpoint_every), rollout_for_stage)
+            if model is None:
+                if resume_source is not None:
+                    print("[train_anna_cuda_big] loading model from checkpoint for %s..." % stage_name)
+                    model = PPO.load(str(resume_source), env=env, device=device)
+                    model.tensorboard_log = str(tb_log)
+                    model.verbose = int(args.verbose)
+                    first_learn_call = False
+                else:
+                    model = PPO(
+                        "MlpPolicy",
+                        env,
+                        verbose=int(args.verbose),
+                        tensorboard_log=str(tb_log),
+                        seed=int(args.seed),
+                        learning_rate=float(args.learning_rate),
+                        ent_coef=float(args.entropy_coef),
+                        gamma=float(args.gamma),
+                        gae_lambda=float(args.gae_lambda),
+                        clip_range=float(args.clip_range),
+                        n_steps=int(args.n_steps),
+                        batch_size=fitted_batch,
+                        n_epochs=int(args.n_epochs),
+                        policy_kwargs=policy_kwargs,
+                        device=device,
+                    )
+                    first_learn_call = True
+            else:
+                model.set_env(env)
 
-    if steps_stage3 > 0:
-        env3 = _open_stage_env(
-            AnnaGymEnv,
-            Monitor,
-            DummyVecEnv,
-            SubprocVecEnv,
-            scene_stage3,
-            stage3_port,
-            args.render,
-            args.no_launch,
-            godot_bin,
-            stage3_envs,
-        )
-        try:
-            _run_stage(model, "stage3", steps_stage3, env3, checkpoint_cb, False)
+            print("[train_anna_cuda_big] %s: target=%d already=%d chunk=%d rollout=%d" % (
+                stage_name,
+                stage_target,
+                done_before,
+                chunk_steps,
+                rollout_for_stage,
+            ))
+            while int(stage_done.get(stage_name, 0)) < stage_target:
+                remaining = stage_target - int(stage_done.get(stage_name, 0))
+                run_steps = min(int(chunk_steps), int(remaining))
+                before_ts = int(model.num_timesteps)
+                model.learn(
+                    total_timesteps=int(run_steps),
+                    reset_num_timesteps=first_learn_call,
+                    progress_bar=True,
+                )
+                first_learn_call = False
+                gained = max(0, int(model.num_timesteps) - before_ts)
+                if gained <= 0:
+                    gained = int(run_steps)
+
+                stage_done[stage_name] = min(stage_target, int(stage_done.get(stage_name, 0)) + int(gained))
+                periodic_zip = checkpoint_dir / ("%s_ts%010d.zip" % (model_stem, int(model.num_timesteps)))
+                _save_model_zip_atomic(model, periodic_zip)
+                _save_model_zip_atomic(model, checkpoint_latest_zip)
+                state_payload = {
+                    "version": 1,
+                    "model_out": str(model_out),
+                    "latest_checkpoint": str(checkpoint_latest_zip),
+                    "periodic_checkpoint": str(periodic_zip),
+                    "num_timesteps": int(model.num_timesteps),
+                    "stage_done": dict(stage_done),
+                    "stage_targets": dict(stage_targets),
+                    "current_stage": stage_name,
+                    "completed": all(int(stage_done[s]) >= int(stage_targets[s]) for s in stage_order),
+                    "updated_at_unix": int(time.time()),
+                }
+                _atomic_write_json(train_state_path, state_payload)
+                print(
+                    "[train_anna_cuda_big] %s progress: %d/%d (global_ts=%d)"
+                    % (stage_name, int(stage_done[stage_name]), stage_target, int(model.num_timesteps))
+                )
         finally:
-            env3.close()
+            env.close()
+
+    if model is None:
+        if resume_source is not None and resume_source.exists():
+            print("[train_anna_cuda_big] All stages already complete; exporting from %s" % resume_source)
+            model = PPO.load(str(resume_source), device=device)
+        else:
+            raise RuntimeError("No stage executed; check timesteps and resume settings.")
 
     model.save(str(model_out.with_suffix("")))
+    _save_model_zip_atomic(model, checkpoint_latest_zip)
+    _atomic_write_json(
+        train_state_path,
+        {
+            "version": 1,
+            "model_out": str(model_out),
+            "latest_checkpoint": str(checkpoint_latest_zip),
+            "periodic_checkpoint": str(checkpoint_latest_zip),
+            "num_timesteps": int(model.num_timesteps),
+            "stage_done": dict(stage_done),
+            "stage_targets": dict(stage_targets),
+            "current_stage": "done",
+            "completed": True,
+            "updated_at_unix": int(time.time()),
+        },
+    )
 
     metadata = {
         "model": str(model_out),
@@ -525,8 +664,9 @@ def main() -> int:
         "timesteps_stage1": steps_stage1,
         "timesteps_stage2": steps_stage2,
         "timesteps_stage3": steps_stage3,
-        "timesteps_total": total_timesteps,
-        "timesteps": total_timesteps,
+        "timesteps_total_requested": total_timesteps,
+        "timesteps_total_trained": int(model.num_timesteps),
+        "timesteps": int(model.num_timesteps),
         "port_stage1_requested": int(args.port_stage1),
         "port_stage2_requested": int(args.port_stage2),
         "port_stage3_requested": int(args.port_stage3),
@@ -534,7 +674,13 @@ def main() -> int:
         "port_stage2": int(stage2_port),
         "port_stage3": int(stage3_port),
         "checkpoint_dir": str(checkpoint_dir),
+        "checkpoint_latest": str(checkpoint_latest_zip),
+        "train_state_path": str(train_state_path),
         "checkpoint_every": int(args.checkpoint_every),
+        "resume_mode": resume_mode,
+        "resume_source": str(resume_source) if resume_source is not None else None,
+        "resumed": bool(resumed),
+        "stage_done": dict(stage_done),
         "duration_sec": round(time.time() - started_at, 3),
         "created_at_unix": int(time.time()),
     }

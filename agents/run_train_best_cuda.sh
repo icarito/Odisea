@@ -233,8 +233,28 @@ if [[ "${ANNA_KEEP_OYS_AUTO_RUN:-0}" != "1" ]]; then
   unset ANNA_FORCE_OYS_NOOP || true
 fi
 
-STAMP="$(date +%Y%m%d_%H%M%S)"
-MODEL_OUT="${MODEL_OUT:-agents/models/anna_ppo_cuda_big_${STAMP}.zip}"
+MODEL_POINTER_FILE="${ANNA_MODEL_POINTER_FILE:-agents/models/.anna_cuda_big_last_model_out}"
+if [[ -z "${MODEL_OUT:-}" ]]; then
+  if is_truthy "${ANNA_AUTO_RESUME:-1}" && ! is_truthy "${ANNA_NEW_RUN:-0}" && [[ -f "${MODEL_POINTER_FILE}" ]]; then
+    MODEL_OUT="$(head -n 1 "${MODEL_POINTER_FILE}")"
+    echo "[run_train_best_cuda] Reusing previous MODEL_OUT from pointer: ${MODEL_OUT}"
+  else
+    STAMP="$(date +%Y%m%d_%H%M%S)"
+    MODEL_OUT="agents/models/anna_ppo_cuda_big_${STAMP}.zip"
+    echo "[run_train_best_cuda] New MODEL_OUT: ${MODEL_OUT}"
+  fi
+fi
+mkdir -p "$(dirname "${MODEL_POINTER_FILE}")"
+echo "${MODEL_OUT}" > "${MODEL_POINTER_FILE}"
+
+RESUME_MODE="${RESUME_MODE:-auto}"
+if [[ "${RESUME_MODE}" != "auto" && "${RESUME_MODE}" != "always" && "${RESUME_MODE}" != "never" ]]; then
+  echo "[run_train_best_cuda] Invalid RESUME_MODE=${RESUME_MODE}, forcing auto."
+  RESUME_MODE="auto"
+fi
+if [[ -n "${RESUME_FROM:-}" ]]; then
+  EXTRA_TRAIN_ARGS+=("--resume-from" "${RESUME_FROM}")
+fi
 
 run_preimport_step
 if [[ "${PREIMPORT_OK}" -eq 1 ]] && is_truthy "${ANNA_SKIP_PY_PREWARM_AFTER_PREIMPORT:-1}"; then
@@ -261,6 +281,7 @@ fi
   --gae-lambda "${GAE_LAMBDA:-0.98}" \
   --clip-range "${CLIP_RANGE:-0.2}" \
   --checkpoint-every "${CHECKPOINT_EVERY:-50000}" \
+  --resume "${RESUME_MODE}" \
   --model-out "${MODEL_OUT}" \
   --verbose "${VERBOSE:-1}" \
   "${EXTRA_TRAIN_ARGS[@]}" \
