@@ -79,6 +79,20 @@ def _set_nvidia_prime_defaults() -> None:
     os.environ.setdefault("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
 
 
+def _set_torch_cuda_defaults() -> None:
+    # Throughput-oriented defaults for PPO MLP on CUDA nodes.
+    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:256,garbage_collection_threshold:0.8")
+    os.environ.setdefault("ANNA_CUDA_TF32", "1")
+    os.environ.setdefault("ANNA_CUDNN_BENCHMARK", "1")
+    os.environ.setdefault("ANNA_TORCH_MATMUL_PRECISION", "high")
+
+
+def _set_rl_runtime_defaults() -> None:
+    os.environ.setdefault("ANNA_RL_PHYSICS_FPS", "360")
+    os.environ.setdefault("ODISEA_DISABLE_PERFMON_IN_RL", "1")
+    os.environ.setdefault("ODISEA_QUIET_PERFMON", "1")
+
+
 def _prepare_imports(repo_root: Path):
     client_dir = repo_root / "core_v2" / "anna" / "client"
     if str(client_dir) not in sys.path:
@@ -94,6 +108,37 @@ def _prepare_imports(repo_root: Path):
     from torch import nn  # type: ignore
 
     return AnnaGymEnv, PPO, CheckpointCallback, Monitor, DummyVecEnv, SubprocVecEnv, np, torch, nn
+
+
+def _configure_cuda_runtime(torch_mod) -> dict:
+    tf32_enabled = str(os.environ.get("ANNA_CUDA_TF32", "1")).lower() in ("1", "true", "yes", "on")
+    cudnn_benchmark = str(os.environ.get("ANNA_CUDNN_BENCHMARK", "1")).lower() in ("1", "true", "yes", "on")
+    matmul_precision = str(os.environ.get("ANNA_TORCH_MATMUL_PRECISION", "high")).strip().lower() or "high"
+    if matmul_precision not in ("highest", "high", "medium"):
+        matmul_precision = "high"
+
+    try:
+        torch_mod.backends.cuda.matmul.allow_tf32 = tf32_enabled
+    except Exception:
+        pass
+    try:
+        torch_mod.backends.cudnn.allow_tf32 = tf32_enabled
+    except Exception:
+        pass
+    try:
+        torch_mod.backends.cudnn.benchmark = cudnn_benchmark
+    except Exception:
+        pass
+    try:
+        torch_mod.set_float32_matmul_precision(matmul_precision)
+    except Exception:
+        pass
+
+    return {
+        "cuda_tf32": bool(tf32_enabled),
+        "cudnn_benchmark": bool(cudnn_benchmark),
+        "matmul_precision": matmul_precision,
+    }
 
 
 def _scene_rel(repo_root: Path, scene_path: str) -> str:
@@ -210,6 +255,8 @@ def main() -> int:
     args = _parse_args()
     _set_cpu_limits(args.cpu_threads)
     _set_nvidia_prime_defaults()
+    _set_torch_cuda_defaults()
+    _set_rl_runtime_defaults()
 
     repo_root = Path(__file__).resolve().parents[1]
     AnnaGymEnv, PPO, CheckpointCallback, Monitor, DummyVecEnv, SubprocVecEnv, np, torch, nn = _prepare_imports(repo_root)
@@ -240,8 +287,22 @@ def main() -> int:
             raise RuntimeError("Requested cuda device id %d but only %d devices detected." % (cuda_id, torch.cuda.device_count()))
         torch.cuda.set_device(cuda_id)
         torch.cuda.manual_seed_all(args.seed)
+        cuda_runtime_cfg = _configure_cuda_runtime(torch)
         print("[train_anna_cuda_big] using CUDA: %s (%s)" % (device, torch.cuda.get_device_name(cuda_id)))
+        print(
+            "[train_anna_cuda_big] CUDA runtime: tf32=%s cudnn_benchmark=%s matmul_precision=%s"
+            % (
+                cuda_runtime_cfg["cuda_tf32"],
+                cuda_runtime_cfg["cudnn_benchmark"],
+                cuda_runtime_cfg["matmul_precision"],
+            )
+        )
     else:
+        cuda_runtime_cfg = {
+            "cuda_tf32": False,
+            "cudnn_benchmark": False,
+            "matmul_precision": "high",
+        }
         print("[train_anna_cuda_big] using device: %s" % device)
 
     prewarm_succeeded = False
@@ -379,6 +440,9 @@ def main() -> int:
         "device": device,
         "cuda_available": bool(torch.cuda.is_available()),
         "cuda_device_name": torch.cuda.get_device_name(int(args.cuda_device_id)) if device.startswith("cuda") else None,
+        "cuda_tf32": bool(cuda_runtime_cfg.get("cuda_tf32", False)),
+        "cudnn_benchmark": bool(cuda_runtime_cfg.get("cudnn_benchmark", False)),
+        "matmul_precision": str(cuda_runtime_cfg.get("matmul_precision", "high")),
         "seed": int(args.seed),
         "cpu_threads": int(args.cpu_threads),
         "num_envs": int(num_envs),

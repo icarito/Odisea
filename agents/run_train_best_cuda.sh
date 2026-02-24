@@ -30,7 +30,7 @@ if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
   fi
 fi
 
-export ANNA_RL_PHYSICS_FPS="${ANNA_RL_PHYSICS_FPS:-180}"
+export ANNA_RL_PHYSICS_FPS="${ANNA_RL_PHYSICS_FPS:-360}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 export __NV_PRIME_RENDER_OFFLOAD="${__NV_PRIME_RENDER_OFFLOAD:-1}"
 export __GLX_VENDOR_LIBRARY_NAME="${__GLX_VENDOR_LIBRARY_NAME:-nvidia}"
@@ -42,6 +42,11 @@ export ANNA_GODOT_LAUNCH_STAGGER_SEC="${ANNA_GODOT_LAUNCH_STAGGER_SEC:-0.60}"
 export ANNA_CONNECT_MAX_RETRIES="${ANNA_CONNECT_MAX_RETRIES:-90}"
 export ANNA_CONNECT_RETRY_DELAY_SEC="${ANNA_CONNECT_RETRY_DELAY_SEC:-1.0}"
 export ANNA_IMPORT_PREWARM_STRICT="${ANNA_IMPORT_PREWARM_STRICT:-0}"
+export ODISEA_DISABLE_PERFMON_IN_RL="${ODISEA_DISABLE_PERFMON_IN_RL:-1}"
+export ODISEA_QUIET_PERFMON="${ODISEA_QUIET_PERFMON:-1}"
+export ANNA_CUDA_TF32="${ANNA_CUDA_TF32:-1}"
+export ANNA_CUDNN_BENCHMARK="${ANNA_CUDNN_BENCHMARK:-1}"
+export ANNA_TORCH_MATMUL_PRECISION="${ANNA_TORCH_MATMUL_PRECISION:-high}"
 
 # Avoid leaking ad-hoc OYS scripts from the shell into RL runs unless explicitly requested.
 if [[ "${ANNA_KEEP_OYS_AUTO_RUN:-0}" != "1" ]]; then
@@ -55,7 +60,7 @@ MODEL_OUT="${MODEL_OUT:-agents/models/anna_ppo_cuda_big_${STAMP}.zip}"
 "${PYTHON_BIN}" agents/train_anna_cuda_big.py \
   --device auto \
   --cpu-threads "${CPU_THREADS:-16}" \
-  --num-envs "${NUM_ENVS:-6}" \
+  --num-envs "${NUM_ENVS:-8}" \
   --scene-stage1 core_v2/tests/TestScene_RL.tscn \
   --scene-stage2 core_v2/tests/TestScene_RL_2.tscn \
   --scene-stage3 core_v2/tests/TestScene_RL_BaseTerrace.tscn \
@@ -63,7 +68,7 @@ MODEL_OUT="${MODEL_OUT:-agents/models/anna_ppo_cuda_big_${STAMP}.zip}"
   --timesteps-stage2 "${STAGE2_STEPS:-650000}" \
   --timesteps-stage3 "${STAGE3_STEPS:-700000}" \
   --n-steps "${N_STEPS:-4096}" \
-  --batch-size "${BATCH_SIZE:-4096}" \
+  --batch-size "${BATCH_SIZE:-8192}" \
   --n-epochs "${N_EPOCHS:-10}" \
   --learning-rate "${LR:-0.00025}" \
   --entropy-coef "${ENT_COEF:-0.015}" \

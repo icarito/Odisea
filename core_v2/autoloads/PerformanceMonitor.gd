@@ -27,6 +27,7 @@ var _node_profiling_accumulators := {} # { node_ref: accumulated_usec }
 var _node_profiling_calls := {} # { node_ref: call_count }
 var _node_measurement_start := {} # { node_ref: start_usec }
 var _suppress_runtime_logs := false
+var _disabled := false
 var _capture_active := false
 var _capture_tag := ""
 var _capture_start_usec := 0
@@ -38,6 +39,12 @@ signal lag_spike_detected(fps, drop)
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS # Always run, even when tree is paused
 	_suppress_runtime_logs = _is_test_environment()
+	_disabled = _is_disabled_for_current_run()
+	if _disabled:
+		set_process(false)
+		if not _suppress_runtime_logs:
+			print("[PerformanceMonitor] Disabled for this run")
+		return
 	print("[PerformanceMonitor] Initialized")
 
 func _is_test_environment() -> bool:
@@ -46,6 +53,17 @@ func _is_test_environment() -> bool:
 	if Engine.has_singleton("GdUnit3"):
 		return Engine.get_singleton("GdUnit3").is_test_suite()
 	return false
+
+func _is_disabled_for_current_run() -> bool:
+	var hard_disable = OS.get_environment("ODISEA_DISABLE_PERFMON").to_lower()
+	if hard_disable in ["1", "true", "yes", "on"]:
+		return true
+	var in_rl = OS.get_environment("ANNA_RL_MODE").to_lower() in ["1", "true", "yes", "on"]
+	var disable_in_rl = OS.get_environment("ODISEA_DISABLE_PERFMON_IN_RL")
+	if disable_in_rl == "":
+		disable_in_rl = "1"
+	var disable_rl = disable_in_rl.to_lower() in ["1", "true", "yes", "on"]
+	return in_rl and disable_rl
 
 func _process(delta):
 	_frame_start_time = OS.get_ticks_usec()

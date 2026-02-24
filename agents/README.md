@@ -110,13 +110,19 @@ Preset robusto para Vast.ai (sin `.venv`, más tolerancia de arranque):
 ```bash
 PYTHON_BIN=python \
 CPU_THREADS=16 \
-NUM_ENVS=6 \
+NUM_ENVS=8 \
 ANNA_GODOT_PREFER_SERVER=1 \
 ANNA_GODOT_SERVER_FALLBACK=1 \
 ANNA_GODOT_READY_TIMEOUT_SEC=90 \
 ANNA_CONNECT_MAX_RETRIES=90 \
 ./agents/run_train_best_cuda.sh
 ```
+
+Notas de throughput por defecto del launcher CUDA:
+- `ANNA_RL_PHYSICS_FPS=360`
+- `ODISEA_DISABLE_PERFMON_IN_RL=1` (evita overhead del monitor en entrenamiento)
+- `BATCH_SIZE=8192`
+- `ANNA_CUDA_TF32=1`, `ANNA_CUDNN_BENCHMARK=1`, `ANNA_TORCH_MATMUL_PRECISION=high`
 
 Script base (si prefieres invocarlo directo):
 
