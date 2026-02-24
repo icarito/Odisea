@@ -22,6 +22,9 @@ class AnnaGymEnv(gym.Env):
         self.godot_process = None
         self.sock = None
         self.buffer = ""
+        self.max_recovery_attempts = 3
+        self._connect_max_retries = 20
+        self._connect_retry_delay_sec = 1.0
 
         # Action Space:
         # Compact action set (steering is assisted in-engine):
@@ -84,6 +87,47 @@ class AnnaGymEnv(gym.Env):
         self.godot_process = subprocess.Popen(cmd, env=env, start_new_session=True)
         time.sleep(3) # Wait for engine start
 
+    def _close_socket(self):
+        if self.sock:
+            try:
+                self.sock.close()
+            except Exception:
+                pass
+        self.sock = None
+        self.buffer = ""
+
+    def _terminate_godot_process(self):
+        if not self.godot_process:
+            return
+        print("[AnnaGym] Terminating Godot process...")
+        try:
+            pgid = os.getpgid(self.godot_process.pid)
+            os.killpg(pgid, signal.SIGTERM)
+        except Exception:
+            try:
+                self.godot_process.terminate()
+            except Exception:
+                pass
+        try:
+            self.godot_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            try:
+                pgid = os.getpgid(self.godot_process.pid)
+                os.killpg(pgid, signal.SIGKILL)
+            except Exception:
+                try:
+                    self.godot_process.kill()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        self.godot_process = None
+
+    def _is_godot_alive(self) -> bool:
+        if not self.godot_process:
+            return False
+        return self.godot_process.poll() is None
+
     @staticmethod
     def _is_port_busy(port: int) -> bool:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -106,81 +150,88 @@ class AnnaGymEnv(gym.Env):
         if self.sock:
             return
 
-        max_retries = 20
-        for i in range(max_retries):
+        for i in range(self._connect_max_retries):
             try:
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.sock.settimeout(5.0)
                 self.sock.connect(("127.0.0.1", self.port))
                 print("[AnnaGym] Connected to Godot ANNA Bridge.")
                 return
             except ConnectionRefusedError:
-                print(f"[AnnaGym] Connection refused, retrying ({i+1}/{max_retries})...")
-                time.sleep(1)
+                print(f"[AnnaGym] Connection refused, retrying ({i+1}/{self._connect_max_retries})...")
+                self._close_socket()
+                time.sleep(self._connect_retry_delay_sec)
             except Exception as e:
                 print(f"[AnnaGym] Connection error: {e}")
-                time.sleep(1)
+                self._close_socket()
+                time.sleep(self._connect_retry_delay_sec)
 
         raise Exception("Could not connect to Godot.")
 
-    def _send(self, data):
+    def _recover_bridge(self, reason: str):
+        print(f"[AnnaGym] Recovering bridge ({reason})")
+        self._close_socket()
+        if self.launch_godot:
+            if self._is_godot_alive():
+                self._terminate_godot_process()
+            self._launch_godot()
+        self._connect()
+
+    def _send_once(self, data):
         if not self.sock:
             self._connect()
-        try:
-            msg = json.dumps(data) + "\n"
-            self.sock.sendall(msg.encode('utf-8'))
-        except (BrokenPipeError, OSError):
-            print("[AnnaGym] Socket error while sending, attempting reconnect...")
-            self.sock.close()
-            self.sock = None
-            self._connect()
-            msg = json.dumps(data) + "\n"
-            self.sock.sendall(msg.encode('utf-8'))
+        msg = json.dumps(data) + "\n"
+        self.sock.sendall(msg.encode("utf-8"))
 
-    def _recv(self):
+    def _recv_once(self):
         if not self.sock:
-            self._connect() # Try reconnecting
-
-        try:
+            self._connect()
+        while True:
             while "\n" not in self.buffer:
                 chunk = self.sock.recv(4096)
                 if not chunk:
-                    raise Exception("Socket connection broken (Empty read)")
-                self.buffer += chunk.decode('utf-8', errors='ignore')
-
+                    raise RuntimeError("Socket connection broken (empty read).")
+                self.buffer += chunk.decode("utf-8", errors="ignore")
             line, rest = self.buffer.split("\n", 1)
             self.buffer = rest
             if not line.strip():
-                return self._recv() # Skip empty lines
-
+                continue
             try:
                 return json.loads(line)
             except json.JSONDecodeError:
                 print(f"[AnnaGym] JSON Decode Error: {line}")
-                return {"obs": [0.0]*12, "reward": 0.0, "done": True}
+                return {"obs": [0.0] * 12, "reward": 0.0, "done": True}
 
-        except Exception as e:
-            print(f"[AnnaGym] Recv Error: {e}")
-            return {"obs": [0.0]*12, "reward": 0.0, "done": True}
+    def _request(self, payload):
+        last_error = None
+        for attempt in range(self.max_recovery_attempts + 1):
+            try:
+                self._send_once(payload)
+                return self._recv_once()
+            except Exception as e:
+                last_error = e
+                print(f"[AnnaGym] transport error (attempt {attempt + 1}/{self.max_recovery_attempts + 1}): {e}")
+                if attempt >= self.max_recovery_attempts:
+                    break
+                self._recover_bridge(str(e))
+        print(f"[AnnaGym] request failed after recovery attempts: {last_error}")
+        return {"obs": [0.0] * 12, "reward": 0.0, "done": True}
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
         # Send Reset Command
-        self._send({"command": "RESET"})
+        data = self._request({"command": "RESET"})
 
         # Receive Initial Observation
-        data = self._recv()
         obs = np.array(data.get("obs", np.zeros(12)), dtype=np.float32)
-        info = {}
+        info = {"bridge_recovered": bool(data.get("done", False) and np.all(obs == 0.0))}
 
         return obs, info
 
     def step(self, action):
         # Send Action
-        self._send({"action": int(action)})
-
-        # Receive Result
-        data = self._recv()
+        data = self._request({"action": int(action)})
 
         obs = np.array(data.get("obs", np.zeros(12)), dtype=np.float32)
         reward = float(data.get("reward", 0.0))
@@ -191,20 +242,5 @@ class AnnaGymEnv(gym.Env):
         return obs, reward, terminated, truncated, info
 
     def close(self):
-        if self.sock:
-            self.sock.close()
-        if self.godot_process:
-            print("[AnnaGym] Terminating Godot process...")
-            try:
-                pgid = os.getpgid(self.godot_process.pid)
-                os.killpg(pgid, signal.SIGTERM)
-            except Exception:
-                self.godot_process.terminate()
-            try:
-                self.godot_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                try:
-                    pgid = os.getpgid(self.godot_process.pid)
-                    os.killpg(pgid, signal.SIGKILL)
-                except Exception:
-                    self.godot_process.kill()
+        self._close_socket()
+        self._terminate_godot_process()
