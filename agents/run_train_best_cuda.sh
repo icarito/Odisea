@@ -5,12 +5,30 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 cd "${REPO_ROOT}"
 
-if [[ ! -d ".venv" ]]; then
-  echo "[run_train_best_cuda] Missing .venv in ${REPO_ROOT}" >&2
-  exit 1
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+
+if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+  echo "[run_train_best_cuda] Using active virtualenv: ${VIRTUAL_ENV}"
+elif [[ -f ".venv/bin/activate" ]]; then
+  # Local dev convenience: auto-activate project venv when present.
+  # On remote servers (e.g. Vast.ai), script works without .venv.
+  source .venv/bin/activate
+  PYTHON_BIN="python"
+  echo "[run_train_best_cuda] Activated ${REPO_ROOT}/.venv"
+else
+  echo "[run_train_best_cuda] .venv not found; using system Python (${PYTHON_BIN})."
 fi
 
-source .venv/bin/activate
+if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+  if command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="python3"
+  elif command -v python >/dev/null 2>&1; then
+    PYTHON_BIN="python"
+  else
+    echo "[run_train_best_cuda] Could not find a Python interpreter." >&2
+    exit 1
+  fi
+fi
 
 export ANNA_RL_PHYSICS_FPS="${ANNA_RL_PHYSICS_FPS:-180}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
@@ -22,7 +40,7 @@ export ANNA_GODOT_VIDEO_DRIVER="${ANNA_GODOT_VIDEO_DRIVER:-GLES2}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 MODEL_OUT="${MODEL_OUT:-agents/models/anna_ppo_cuda_big_${STAMP}.zip}"
 
-python agents/train_anna_cuda_big.py \
+"${PYTHON_BIN}" agents/train_anna_cuda_big.py \
   --device auto \
   --cpu-threads "${CPU_THREADS:-16}" \
   --num-envs "${NUM_ENVS:-8}" \

@@ -123,12 +123,24 @@ def _resolve_godot_bin(godot_bin: str) -> str:
     raise RuntimeError("Godot binary not found: %s" % candidate)
 
 
-def _run_import_prewarm(repo_root: Path, godot_bin: str, timeout_sec: int) -> None:
+def _run_import_prewarm(repo_root: Path, godot_bin: str, timeout_sec: int) -> bool:
+    if "server" in Path(godot_bin).name:
+        print("[train_anna_cuda_big] import prewarm skipped: server binary has no editor mode.")
+        return False
+
     cmd = [godot_bin, "--editor", "--quit", "--path", str(repo_root), "--audio-driver", "Dummy", "--no-window"]
     if not os.environ.get("DISPLAY"):
         cmd = ["xvfb-run", "-a", "-s", "-screen 0 1024x768x24+120"] + cmd
     print("[train_anna_cuda_big] import prewarm: %s" % " ".join(cmd))
-    subprocess.run(cmd, check=True, cwd=str(repo_root), timeout=max(30, int(timeout_sec)))
+    strict = str(os.environ.get("ANNA_IMPORT_PREWARM_STRICT", "0")).lower() in ("1", "true", "yes")
+    try:
+        subprocess.run(cmd, check=True, cwd=str(repo_root), timeout=max(30, int(timeout_sec)))
+        return True
+    except Exception as e:
+        if strict:
+            raise
+        print("[train_anna_cuda_big] WARNING: import prewarm failed (%s). Continuing without prewarm." % e)
+        return False
 
 
 def _build_env_factory(AnnaGymEnv, Monitor, scene: str, port: int, render: bool, no_launch: bool, godot_bin: str):
@@ -232,8 +244,9 @@ def main() -> int:
     else:
         print("[train_anna_cuda_big] using device: %s" % device)
 
+    prewarm_succeeded = False
     if (not args.no_launch) and (not args.skip_import_prewarm):
-        _run_import_prewarm(
+        prewarm_succeeded = _run_import_prewarm(
             repo_root=repo_root,
             godot_bin=godot_bin,
             timeout_sec=int(args.import_timeout_sec),
@@ -380,7 +393,8 @@ def main() -> int:
         "n_epochs": int(args.n_epochs),
         "net_arch": list(args.net_arch),
         "godot_bin": godot_bin,
-        "import_prewarm": not bool(args.skip_import_prewarm),
+        "import_prewarm_requested": not bool(args.skip_import_prewarm),
+        "import_prewarm_succeeded": bool(prewarm_succeeded),
         "scene_stage1": scene_stage1,
         "scene_stage2": scene_stage2,
         "scene_stage3": scene_stage3,

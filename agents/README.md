@@ -84,6 +84,8 @@ Entrenamiento grande en GPU CUDA (curriculum RL -> RL_2 -> BaseTerrace wrapper):
 ./agents/run_train_best_cuda.sh
 ```
 
+No requiere `.venv` en servidor: si existe lo activa automáticamente; si no, usa el Python activo del sistema.
+
 El script grande aplica por defecto el equivalente a:
 
 ```bash

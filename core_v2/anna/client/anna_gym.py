@@ -93,8 +93,11 @@ class AnnaGymEnv(gym.Env):
         env = os.environ.copy()
         env["ANNA_RL_MODE"] = "1"
         env["ANNA_PORT"] = str(self.port)
-        # Prevent heavy level intro scripts (e.g. BaseTerrace intro.oys) during RL training.
-        if "OYS_AUTO_RUN" not in env or not str(env.get("OYS_AUTO_RUN", "")).strip():
+        # Prevent heavy level intro scripts for BaseTerrace-like scenes during RL training.
+        force_noop = str(env.get("ANNA_FORCE_OYS_NOOP", "0")).lower() in ("1", "true", "yes")
+        scene_label = str(self.scene_path or "")
+        needs_noop = force_noop or ("BaseTerrace" in scene_label)
+        if needs_noop and ("OYS_AUTO_RUN" not in env or not str(env.get("OYS_AUTO_RUN", "")).strip()):
             env["OYS_AUTO_RUN"] = "res://core_v2/tests/anna_rl_noop.oys"
 
         godot_bin = self._resolve_godot_binary()
