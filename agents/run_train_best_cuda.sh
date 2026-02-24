@@ -8,6 +8,7 @@ cd "${REPO_ROOT}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 PREIMPORT_OK=0
 EXTRA_TRAIN_ARGS=()
+IMPORT_HELPER="${REPO_ROOT}/scripts/godot_import_smoke.sh"
 
 if [[ -n "${VIRTUAL_ENV:-}" ]]; then
   echo "[run_train_best_cuda] Using active virtualenv: ${VIRTUAL_ENV}"
@@ -63,89 +64,6 @@ resolve_import_godot_bin() {
   return 1
 }
 
-run_import_once() {
-  local godot_bin="$1"
-  local log_file="$2"
-  local timeout_sec="${ANNA_PREIMPORT_TIMEOUT_SEC:-600}"
-  local use_xvfb="${ANNA_IMPORT_USE_XVFB:-1}"
-  local force_sw="${ANNA_IMPORT_FORCE_SOFTWARE:-1}"
-  local use_quit="${ANNA_PREIMPORT_USE_QUIT:-1}"
-  if is_truthy "${ANNA_IMPORT_CLEAN_CACHE:-0}"; then
-    use_quit="0"
-  fi
-  local -a cmd=()
-  if is_truthy "${use_quit}"; then
-    cmd=("${godot_bin}" "--path" "." "--editor" "--quit" "--headless" "--no-window" "--audio-driver" "Dummy")
-  else
-    cmd=("${godot_bin}" "--path" "." "-e" "--headless" "--no-window" "--audio-driver" "Dummy")
-  fi
-  if is_truthy "${use_xvfb}"; then
-    cmd=("xvfb-run" "-a" "-s" "-screen 0 1024x768x24+120" "${cmd[@]}")
-  fi
-  echo "[run_train_best_cuda] Importing resources: ${cmd[*]}"
-  local -a env_prefix=("env" "-u" "__NV_PRIME_RENDER_OFFLOAD" "-u" "__GLX_VENDOR_LIBRARY_NAME" "GODOT_SILENCE_ROOT_WARNING=1")
-  set +e
-  if is_truthy "${force_sw}"; then
-    timeout "${timeout_sec}s" "${env_prefix[@]}" LIBGL_ALWAYS_SOFTWARE=1 "${cmd[@]}" 2>&1 | tee "${log_file}"
-  else
-    timeout "${timeout_sec}s" "${env_prefix[@]}" "${cmd[@]}" 2>&1 | tee "${log_file}"
-  fi
-  local rc="${PIPESTATUS[0]}"
-  set -e
-  if [[ "${rc}" -eq 124 ]]; then
-    echo "[run_train_best_cuda] Import timed out (${timeout_sec}s)."
-    return 1
-  fi
-  if [[ "${rc}" -ne 0 ]]; then
-    echo "[run_train_best_cuda] Import failed (exit=${rc})."
-    return "${rc}"
-  fi
-  if grep -E -q "SCRIPT ERROR:|Parse Error:|referenced nonexistent resource|No loader found for resource|Failed loading resource:|Unrecognized binary resource file" "${log_file}"; then
-    echo "[run_train_best_cuda] Import reported resource/parse errors."
-    return 1
-  fi
-  return 0
-}
-
-run_smoke_once() {
-  local godot_bin="$1"
-  local log_file="$2"
-  local timeout_sec="${ANNA_PREIMPORT_SMOKE_TIMEOUT_SEC:-180}"
-  local use_xvfb="${ANNA_IMPORT_USE_XVFB:-1}"
-  local force_sw="${ANNA_IMPORT_FORCE_SOFTWARE:-1}"
-  local -a cmd=("${godot_bin}" "--headless" "--no-window" "--audio-driver" "Dummy" "-s" "tests/ci_resource_smoke.gd")
-  if is_truthy "${use_xvfb}"; then
-    cmd=("xvfb-run" "-a" "-s" "-screen 0 1024x768x24+120" "${cmd[@]}")
-  fi
-  echo "[run_train_best_cuda] Running resource smoke: ${cmd[*]}"
-  local -a env_prefix=("env" "-u" "__NV_PRIME_RENDER_OFFLOAD" "-u" "__GLX_VENDOR_LIBRARY_NAME" "GODOT_SILENCE_ROOT_WARNING=1")
-  set +e
-  if is_truthy "${force_sw}"; then
-    timeout "${timeout_sec}s" "${env_prefix[@]}" LIBGL_ALWAYS_SOFTWARE=1 "${cmd[@]}" 2>&1 | tee "${log_file}"
-  else
-    timeout "${timeout_sec}s" "${env_prefix[@]}" "${cmd[@]}" 2>&1 | tee "${log_file}"
-  fi
-  local rc="${PIPESTATUS[0]}"
-  set -e
-  if [[ "${rc}" -eq 124 ]]; then
-    echo "[run_train_best_cuda] Smoke timed out (${timeout_sec}s)."
-    return 1
-  fi
-  if [[ "${rc}" -ne 0 ]]; then
-    echo "[run_train_best_cuda] Smoke failed (exit=${rc})."
-    return "${rc}"
-  fi
-  if grep -q "\\[CI_SMOKE\\] Missing resources count:" "${log_file}"; then
-    echo "[run_train_best_cuda] Smoke detected missing resources."
-    return 1
-  fi
-  if grep -E -q "SCRIPT ERROR:|Parse Error:|referenced nonexistent resource|Failed loading resource:" "${log_file}"; then
-    echo "[run_train_best_cuda] Smoke detected parse/resource errors."
-    return 1
-  fi
-  return 0
-}
-
 run_preimport_step() {
   local enabled="${ANNA_PREIMPORT_BEFORE_TRAIN:-1}"
   if ! is_truthy "${enabled}"; then
@@ -155,12 +73,6 @@ run_preimport_step() {
 
   local required="${ANNA_PREIMPORT_REQUIRED:-1}"
   local clean_cache="${ANNA_IMPORT_CLEAN_CACHE:-0}"
-  if is_truthy "${clean_cache}"; then
-    echo "[run_train_best_cuda] Cleaning import caches (.import, .godot/imported) before preimport..."
-    rm -rf .godot/imported
-    mkdir -p .import
-    find .import -mindepth 1 -maxdepth 1 -type f -delete || true
-  fi
 
   local godot_bin
   if ! godot_bin="$(resolve_import_godot_bin)"; then
@@ -171,46 +83,38 @@ run_preimport_step() {
     return 0
   fi
 
-  mkdir -p reports
-  local disable_plugins="${ANNA_PREIMPORT_DISABLE_EDITOR_PLUGINS:-1}"
-  local plugins_backup="project.godot.preimport.bak"
-  local plugins_patched=0
-  if is_truthy "${disable_plugins}"; then
-    cp project.godot "${plugins_backup}"
-    awk '
-      BEGIN { in_editor_plugins = 0 }
-      /^\[editor_plugins\]$/ { in_editor_plugins = 1; print; next }
-      in_editor_plugins == 1 && /^enabled=/ {
-        print "enabled=PoolStringArray( )"
-        in_editor_plugins = 0
-        next
-      }
-      { print }
-    ' "${plugins_backup}" > project.godot
-    plugins_patched=1
-    echo "[run_train_best_cuda] Editor plugins disabled for preimport pass."
-  fi
-  cleanup_preimport_project() {
-    if [[ "${plugins_patched}" -eq 1 && -f "${plugins_backup}" ]]; then
-      mv -f "${plugins_backup}" project.godot
-      echo "[run_train_best_cuda] Restored project.godot after preimport."
+  if [[ ! -x "${IMPORT_HELPER}" ]]; then
+    echo "[run_train_best_cuda] Import helper not found/executable: ${IMPORT_HELPER}" >&2
+    if is_truthy "${required}"; then
+      return 1
     fi
-  }
-  trap cleanup_preimport_project RETURN
-
-  local import_log="reports/import_resources_train.log"
-  local smoke_log="reports/resource_smoke_train.log"
-  local smoke_retry_log="reports/resource_smoke_train_retry.log"
-
-  if run_import_once "${godot_bin}" "${import_log}" && run_smoke_once "${godot_bin}" "${smoke_log}"; then
-    echo "[run_train_best_cuda] Preimport + smoke OK."
-    PREIMPORT_OK=1
     return 0
   fi
 
-  echo "[run_train_best_cuda] Preimport/smoke first pass failed, retrying smoke once..."
-  if run_smoke_once "${godot_bin}" "${smoke_retry_log}"; then
-    echo "[run_train_best_cuda] Smoke retry OK."
+  mkdir -p reports
+  local import_log="reports/import_resources_train.log"
+  local smoke_log="reports/resource_smoke_train.log"
+  local smoke_retry_log="reports/resource_smoke_train_retry.log"
+  local import_mode="${ANNA_PREIMPORT_MODE:-auto}"
+  local use_xvfb="${ANNA_IMPORT_USE_XVFB:-1}"
+  local force_sw="${ANNA_IMPORT_FORCE_SOFTWARE:-1}"
+  local disable_plugins="${ANNA_PREIMPORT_DISABLE_EDITOR_PLUGINS:-1}"
+
+  if "${IMPORT_HELPER}" \
+    --godot-bin "${godot_bin}" \
+    --project-path "." \
+    --import-log "${import_log}" \
+    --smoke-log "${smoke_log}" \
+    --smoke-retry-log "${smoke_retry_log}" \
+    --timeout-import "${ANNA_PREIMPORT_TIMEOUT_SEC:-600}" \
+    --timeout-smoke "${ANNA_PREIMPORT_SMOKE_TIMEOUT_SEC:-180}" \
+    --clean-cache "${clean_cache}" \
+    --disable-editor-plugins "${disable_plugins}" \
+    --xvfb "${use_xvfb}" \
+    --force-software "${force_sw}" \
+    --import-mode "${import_mode}" \
+    --allow-smoke-retry "1"; then
+    echo "[run_train_best_cuda] Preimport + smoke OK."
     PREIMPORT_OK=1
     return 0
   fi

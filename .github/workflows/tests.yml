@@ -80,78 +80,23 @@ jobs:
             exit 127
           fi
 
-      - name: Clean Godot import caches
-        run: |
-          set -euo pipefail
-          rm -rf .godot/imported
-          mkdir -p .import
-          find .import -mindepth 1 -maxdepth 1 -type f -delete || true
-
-      - name: Disable editor plugins for CI import
-        run: |
-          set -euo pipefail
-          cp project.godot project.godot.ci.bak
-          awk '
-            BEGIN { in_editor_plugins = 0 }
-            /^\[editor_plugins\]$/ { in_editor_plugins = 1; print; next }
-            in_editor_plugins == 1 && /^enabled=/ {
-              print "enabled=PoolStringArray( )"
-              in_editor_plugins = 0
-              next
-            }
-            { print }
-          ' project.godot.ci.bak > project.godot
-          echo "Editor plugins disabled for CI import pass."
-
       - name: Import + Smoke (self-healing)
         run: |
           set -euo pipefail
-          mkdir -p reports
-
-          import_once() {
-            local log_file="$1"
-            set +e
-            timeout 600s /usr/local/bin/godot --path . -e --headless --no-window --audio-driver Dummy 2>&1 | tee "$log_file"
-            local godot_rc="${PIPESTATUS[0]}"
-            set -e
-            if [ "$godot_rc" -eq 124 ]; then
-              echo "Godot import timed out before completing imports."
-              return 1
-            fi
-            if [ "$godot_rc" -ne 0 ]; then
-              echo "Godot import command failed with exit code $godot_rc"
-              return "$godot_rc"
-            fi
-            return 0
-          }
-
-          smoke_once() {
-            local log_file="$1"
-            set +e
-            timeout 180s /usr/local/bin/godot --headless --no-window --audio-driver Dummy -s tests/ci_resource_smoke.gd 2>&1 | tee "$log_file"
-            local smoke_rc="${PIPESTATUS[0]}"
-            set -e
-            if [ "$smoke_rc" -ne 0 ] && [ "$smoke_rc" -ne 124 ]; then
-              echo "Resource smoke failed with exit code $smoke_rc"
-              return "$smoke_rc"
-            fi
-            if [ "$smoke_rc" -eq 124 ]; then
-              echo "Resource smoke timed out."
-              return 1
-            fi
-            if grep -q "\[CI_SMOKE\] Missing resources count:" "$log_file"; then
-              return 1
-            fi
-            if grep -E -q "SCRIPT ERROR:|Parse Error:|referenced nonexistent resource|No loader found for resource|Failed loading resource:" "$log_file"; then
-              return 1
-            fi
-            return 0
-          }
-
-          if ! import_once reports/import_resources.log || ! smoke_once reports/resource_smoke.log; then
-            echo "Import/smoke failed on first pass. Retrying smoke once..."
-            smoke_once reports/resource_smoke_retry.log
-          fi
+          scripts/godot_import_smoke.sh \
+            --godot-bin /usr/local/bin/godot \
+            --project-path . \
+            --import-log reports/import_resources.log \
+            --smoke-log reports/resource_smoke.log \
+            --smoke-retry-log reports/resource_smoke_retry.log \
+            --timeout-import 600 \
+            --timeout-smoke 180 \
+            --clean-cache 1 \
+            --disable-editor-plugins 1 \
+            --xvfb 0 \
+            --force-software 0 \
+            --import-mode full \
+            --allow-smoke-retry 1
 
       - name: Run GDUnit3 Tests
         env:
