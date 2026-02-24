@@ -34,7 +34,7 @@ class AnnaGymEnv(gym.Env):
 
         # Action Space:
         # Compact action set (steering is assisted in-engine):
-        # 0=SteerOnly
+        # 0=SteerOnly (contextual INTERACT when an interactable is in front/in range)
         # 1=Forward
         # 2=SprintForward
         # 3=JumpForward

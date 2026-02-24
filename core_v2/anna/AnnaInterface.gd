@@ -92,6 +92,12 @@ const RL_STUCK_RECOVERY_JUMP_PERIOD = 10
 const RL_SMART_JUMP_AHEAD_DIST = 1.85 # Jump is only useful when obstacle is close ahead.
 const RL_SMART_JUMP_MIN_COOLDOWN = 8 # Avoid hop-spam between consecutive frames.
 const RL_SMART_JUMP_ALLOW_STUCK_FRAMES = 12 # If stuck, allow more aggressive jump recovery.
+const RL_INTERACT_RANGE = 3.25
+const RL_INTERACT_FORWARD_DOT_MIN = 0.15
+const RL_INTERACT_CONTEXT_REWARD = 0.18
+const RL_INTERACT_SPAM_PENALTY = 0.04
+const RL_INTERACT_REPEAT_PENALTY = 0.05
+const RL_INTERACT_COOLDOWN_FRAMES = 8
 const RL_FALL_DISTANCE = 3.5 # Episode fails if player falls this much below episode start height.
 
 export(bool) var allow_human_heuristic_override := true
@@ -119,6 +125,7 @@ var _last_action_jump := false
 var _last_action_sprint := false
 var _last_action_look_x := 0.0
 var _last_action_look_y := 0.0
+var _last_action_interact := false
 var _last_abs_angle_to_target := -1.0
 var _last_move_cmd := Vector2.ZERO
 var _last_look_cmd := Vector2.ZERO
@@ -127,12 +134,14 @@ var _last_action_change_cost := 0.0
 var _last_local_hvel := Vector2.ZERO
 var _has_last_local_hvel := false
 var _jump_streak := 0
+var _interact_streak := 0
 var _misaligned_run_streak := 0
 var _same_action_streak := 0
 var _last_angle_to_target := 0.0
 var _has_last_angle_to_target := false
 var _wall_stuck_frames := 0
 var _jump_cooldown_frames := 0
+var _interact_cooldown_frames := 0
 
 func _ready():
 	_setup_sensors()
@@ -325,6 +334,14 @@ func get_rl_observation() -> Dictionary:
 			reward -= RL_BAD_JUMP_PENALTY
 	elif on_floor_now and front_ray_dist < RL_OBSTACLE_AHEAD_DIST and abs(_last_move_cmd.x) < 0.1:
 		reward -= RL_OBSTACLE_NO_EVASION_PENALTY
+	if _last_action_interact:
+		var interact_candidate = _get_front_interactable(player as Spatial)
+		if is_instance_valid(interact_candidate):
+			reward += RL_INTERACT_CONTEXT_REWARD
+			if _interact_streak > 1:
+				reward -= float(_interact_streak - 1) * RL_INTERACT_REPEAT_PENALTY
+		else:
+			reward -= RL_INTERACT_SPAM_PENALTY
 	if not on_floor_now:
 		reward -= RL_AIRBORNE_PENALTY
 	var height_gain = max(0.0, player.global_transform.origin.y - _episode_start_height)
@@ -527,6 +544,7 @@ func reset_simulation() -> void:
 	_killzone_triggered = false
 	_last_action_jump = false
 	_last_action_sprint = false
+	_last_action_interact = false
 	_last_action_look_x = 0.0
 	_last_action_look_y = 0.0
 	_last_abs_angle_to_target = -1.0
@@ -537,12 +555,14 @@ func reset_simulation() -> void:
 	_last_local_hvel = Vector2.ZERO
 	_has_last_local_hvel = false
 	_jump_streak = 0
+	_interact_streak = 0
 	_misaligned_run_streak = 0
 	_same_action_streak = 0
 	_last_angle_to_target = 0.0
 	_has_last_angle_to_target = false
 	_wall_stuck_frames = 0
 	_jump_cooldown_frames = 0
+	_interact_cooldown_frames = 0
 	# Force initial distance update
 	if target and player:
 		_last_dist_to_target = player.global_transform.origin.distance_to(target.global_transform.origin)
@@ -559,7 +579,7 @@ func reset_simulation() -> void:
 
 func apply_rl_action(action_idx: int) -> void:
 	# Action Space:
-	# 0=SteerOnly,
+	# 0=SteerOnly (+ contextual INTERACT when facing an interactable),
 	# 1=Forward,
 	# 2=SprintForward,
 	# 3=JumpForward,
@@ -570,9 +590,12 @@ func apply_rl_action(action_idx: int) -> void:
 	var move_vec = Vector2.ZERO
 	var jump_pressed := false
 	var sprint_pressed := false
+	var interact_pressed := false
 	var look_vec = Vector2.ZERO
 	if _jump_cooldown_frames > 0:
 		_jump_cooldown_frames -= 1
+	if _interact_cooldown_frames > 0:
+		_interact_cooldown_frames -= 1
 
 	match action_idx:
 		0:
@@ -657,14 +680,30 @@ func apply_rl_action(action_idx: int) -> void:
 	if jump_pressed:
 		_jump_cooldown_frames = RL_SMART_JUMP_MIN_COOLDOWN
 
+	# Contextual interact:
+	# Reuse "steer-only" action as an explicit interaction intent when near an interactable.
+	# This preserves the 8-action API while enabling door usage in BaseTerrace.
+	var interact_candidate = _get_front_interactable(player as Spatial if player is Spatial else null)
+	if action_idx == 0 and is_instance_valid(interact_candidate):
+		interact_pressed = true
+	if interact_pressed and _interact_cooldown_frames > 0:
+		interact_pressed = false
+	if interact_pressed:
+		_interact_cooldown_frames = RL_INTERACT_COOLDOWN_FRAMES
+
 	_last_action_jump = jump_pressed
 	_last_action_sprint = sprint_pressed
+	_last_action_interact = interact_pressed
 	_last_action_look_x = look_vec.x
 	_last_action_look_y = look_vec.y
 	if jump_pressed:
 		_jump_streak += 1
 	else:
 		_jump_streak = 0
+	if interact_pressed:
+		_interact_streak += 1
+	else:
+		_interact_streak = 0
 
 	var action_change_cost := 0.0
 	if _last_action_idx >= 0:
@@ -692,7 +731,7 @@ func apply_rl_action(action_idx: int) -> void:
 	var input_dict = {
 		"move_vec": move_vec,
 		"jump": jump_pressed,
-		"interact": false,
+		"interact": interact_pressed,
 		"sprint": sprint_pressed,
 		"crouch": false,
 		"mouse_delta": look_vec,
@@ -732,6 +771,43 @@ func _get_front_obstacle_distance(player: Spatial) -> float:
 		if d < front_dist:
 			front_dist = d
 	return front_dist
+
+func _get_front_interactable(player: Spatial) -> Node:
+	if not is_instance_valid(player):
+		return null
+	if not is_inside_tree():
+		return null
+
+	var basis = _get_control_basis(player)
+	var forward = -basis.z
+	forward.y = 0.0
+	if forward.length_squared() < 0.0001:
+		return null
+	forward = forward.normalized()
+
+	var best: Node = null
+	var best_dist := RL_INTERACT_RANGE + 0.001
+	var candidates = get_tree().get_nodes_in_group("interactable")
+	for node in candidates:
+		if not is_instance_valid(node):
+			continue
+		if not node is Spatial:
+			continue
+		if "is_interactable" in node and not bool(node.is_interactable):
+			continue
+
+		var to_node = (node.global_transform.origin - player.global_transform.origin)
+		to_node.y = 0.0
+		var dist = to_node.length()
+		if dist <= 0.001 or dist > RL_INTERACT_RANGE:
+			continue
+		var dir = to_node / dist
+		if forward.dot(dir) < RL_INTERACT_FORWARD_DOT_MIN:
+			continue
+		if dist < best_dist:
+			best = node
+			best_dist = dist
+	return best
 
 func _get_target_angle_normalized(player: Spatial, target: Spatial) -> float:
 	if not is_instance_valid(player) or not is_instance_valid(target):
