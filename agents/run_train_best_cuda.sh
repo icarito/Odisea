@@ -20,15 +20,16 @@ MODEL_OUT="${MODEL_OUT:-agents/models/anna_ppo_cuda_big_${STAMP}.zip}"
 
 python agents/train_anna_cuda_big.py \
   --device auto \
-  --cpu-threads "${CPU_THREADS:-8}" \
+  --cpu-threads "${CPU_THREADS:-16}" \
+  --num-envs "${NUM_ENVS:-8}" \
   --scene-stage1 core_v2/tests/TestScene_RL.tscn \
   --scene-stage2 core_v2/tests/TestScene_RL_2.tscn \
-  --scene-stage3 core_v2/tests/TestScene_RL_3.tscn \
-  --timesteps-stage1 "${STAGE1_STEPS:-100000}" \
-  --timesteps-stage2 "${STAGE2_STEPS:-400000}" \
-  --timesteps-stage3 "${STAGE3_STEPS:-500000}" \
+  --scene-stage3 core_v2/tests/TestScene_RL_BaseTerrace.tscn \
+  --timesteps-stage1 "${STAGE1_STEPS:-150000}" \
+  --timesteps-stage2 "${STAGE2_STEPS:-650000}" \
+  --timesteps-stage3 "${STAGE3_STEPS:-700000}" \
   --n-steps "${N_STEPS:-4096}" \
-  --batch-size "${BATCH_SIZE:-1024}" \
+  --batch-size "${BATCH_SIZE:-4096}" \
   --n-epochs "${N_EPOCHS:-10}" \
   --learning-rate "${LR:-0.00025}" \
   --entropy-coef "${ENT_COEF:-0.015}" \

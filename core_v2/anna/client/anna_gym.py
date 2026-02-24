@@ -59,6 +59,9 @@ class AnnaGymEnv(gym.Env):
         env = os.environ.copy()
         env["ANNA_RL_MODE"] = "1"
         env["ANNA_PORT"] = str(self.port)
+        # Prevent heavy level intro scripts (e.g. BaseTerrace intro.oys) during RL training.
+        if "OYS_AUTO_RUN" not in env or not str(env.get("OYS_AUTO_RUN", "")).strip():
+            env["OYS_AUTO_RUN"] = "res://core_v2/tests/anna_rl_noop.oys"
 
         godot_bin = self.godot_bin
         if shutil.which(godot_bin) is None and godot_bin == "godot3-bin" and shutil.which("godot3"):

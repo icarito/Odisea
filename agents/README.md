@@ -6,6 +6,7 @@ en `core_v2/tests/TestScene_RL.tscn`.
 Escena alternativa más difícil:
 - `core_v2/tests/TestScene_RL_2.tscn` (obstáculos/corredores/pilares)
 - `core_v2/tests/TestScene_RL_3.tscn` (laberinto + vallas bajas para salto/corrección)
+- `core_v2/tests/TestScene_RL_BaseTerrace.tscn` (wrapper RL que instancia `core_v2/levels/BaseTerrace.tscn` real)
 
 ## Requisitos
 
@@ -63,7 +64,7 @@ Curriculum de 3 niveles (incluye nivel 3):
 python3 agents/train_anna_curriculum.py \
   --scene-stage1 core_v2/tests/TestScene_RL.tscn \
   --scene-stage2 core_v2/tests/TestScene_RL_2.tscn \
-  --scene-stage3 core_v2/tests/TestScene_RL_3.tscn \
+  --scene-stage3 core_v2/tests/TestScene_RL_BaseTerrace.tscn \
   --timesteps-stage1 8000 \
   --timesteps-stage2 8000 \
   --timesteps-stage3 8000 \
@@ -77,7 +78,7 @@ Con ventana (para observar):
 python3 agents/train_anna.py --timesteps 50000 --render --cpu-threads 4
 ```
 
-Entrenamiento grande en GPU CUDA (curriculum RL -> RL_2 -> RL_3):
+Entrenamiento grande en GPU CUDA (curriculum RL -> RL_2 -> BaseTerrace wrapper):
 
 ```bash
 ./agents/run_train_best_cuda.sh
@@ -87,9 +88,10 @@ Puedes personalizar sin editar el script, por ejemplo:
 
 ```bash
 CPU_THREADS=12 \
+NUM_ENVS=8 \
 CUDA_VISIBLE_DEVICES=0 \
 STAGE1_STEPS=150000 \
-STAGE2_STEPS=500000 \
+STAGE2_STEPS=650000 \
 STAGE3_STEPS=700000 \
 MODEL_OUT=agents/models/anna_ppo_cuda_big_custom.zip \
 ./agents/run_train_best_cuda.sh
@@ -125,12 +127,19 @@ Ejemplo:
 ```bash
 python3 agents/auto_train_anna.py \
   --cpu-threads 6 \
-  --rounds 8 \
-  --timesteps-per-round 25000 \
+  --rounds 1 \
+  --scene-stage1 core_v2/tests/TestScene_RL.tscn \
+  --scene-stage2 core_v2/tests/TestScene_RL_2.tscn \
+  --scene-stage3 core_v2/tests/TestScene_RL_BaseTerrace.tscn \
+  --timesteps-stage1 8000 \
+  --timesteps-stage2 16000 \
+  --timesteps-stage3 8000 \
   --eval-episodes 6 \
   --eval-max-steps 800 \
   --success-target 0.5 \
-  --direction-target 0.62
+  --direction-target 0.62 \
+  --fast-success-target 0.45 \
+  --wall-contact-max 0.18
 ```
 
 ## Limitar CPU (evitar sobrecalentamiento)

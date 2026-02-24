@@ -20,8 +20,13 @@ const RL_REWARD_FAILURE = -100.0
 const RL_REWARD_TIME_PENALTY = -0.1
 const RL_PROGRESS_SCALE = 12.0
 const RL_SUCCESS_DIST = 2.0
-const RL_SPEED_REWARD_SCALE = 0.01 # Keep locomotion incentive without collapsing to always-forward.
-const RL_SPRINT_REWARD_SCALE = 0.02 # Extra reward when explicit sprint action is used.
+const RL_SPEED_REWARD_SCALE = 0.012 # Keep locomotion incentive without collapsing to always-forward.
+const RL_SPRINT_REWARD_SCALE = 0.05 # Stronger bonus when explicit sprint action is used.
+const RL_SPRINT_TARGET_SPEED = 7.0 # Target horizontal speed to make sprint behavior preferable.
+const RL_SPEED_TARGET_REWARD_SCALE = 0.05 # Reward approaching sprint target speed.
+const RL_SPRINT_ACTION_BONUS = 0.05 # Flat bonus for selecting sprint in favorable conditions.
+const RL_NO_SPRINT_WHEN_ALIGNED_PENALTY = 0.03 # Discourage jogging when aligned and path is clear.
+const RL_LOW_SPEED_WHEN_ALIGNED_PENALTY_SCALE = 0.01 # Penalize staying slow in sprint-friendly context.
 const RL_JUMP_ACTION_PENALTY = 0.01 # Small baseline cost; keeps jump purposeful.
 const RL_JUMP_REPEAT_PENALTY = 0.03 # Stronger penalty for repeated jump spam.
 const RL_AIRBORNE_PENALTY = 0.0 # Do not punish being airborne; jumping is useful in obstacle courses.
@@ -305,6 +310,7 @@ func get_rl_observation() -> Dictionary:
 	var horizontal_speed = Vector2(local_vel.x, local_vel.z).length()
 	var strafe_speed = abs(local_vel.x)
 	reward += horizontal_speed * RL_SPEED_REWARD_SCALE
+	reward += min(horizontal_speed / RL_SPRINT_TARGET_SPEED, 1.0) * RL_SPEED_TARGET_REWARD_SCALE
 	if _last_action_sprint and horizontal_speed > 0.1:
 		reward += horizontal_speed * RL_SPRINT_REWARD_SCALE
 	if _last_action_jump:
@@ -369,43 +375,51 @@ func get_rl_observation() -> Dictionary:
 			reward += abs_angle * RL_STEER_WHEN_MISALIGNED_REWARD_SCALE
 		if abs_angle < 0.08 and abs(_last_action_look_x) > 0.01:
 			reward -= RL_LOOK_WHEN_ALIGNED_PENALTY
-		if abs(_last_move_cmd.x) > 0.1 and abs_angle > 0.16:
-			reward += strafe_speed * RL_STRAFE_WHEN_MISALIGNED_REWARD_SCALE
-		if abs(_last_move_cmd.x) > 0.1 and front_ray_dist < RL_OBSTACLE_AHEAD_DIST:
-			reward += strafe_speed * RL_STRAFE_OBSTACLE_REWARD_SCALE
-		if abs(_last_move_cmd.x) > 0.1 and abs_angle < 0.08 and front_ray_dist > (RL_OBSTACLE_AHEAD_DIST * 1.2):
-			reward -= RL_STRAFE_IDLE_PENALTY
-		if horizontal_speed > 0.2 and abs_angle > 0.2:
-			reward -= horizontal_speed * abs_angle * RL_FORWARD_MISALIGN_PENALTY_SCALE
-		var forward_speed = max(0.0, vel.dot(to_target))
-		if abs_angle < 0.2:
-			reward += forward_speed * RL_ALIGNED_SPEED_REWARD_SCALE
-			_misaligned_run_streak = 0
-		elif forward_speed > 0.2:
-			reward -= forward_speed * abs_angle * RL_UNALIGNED_SPEED_PENALTY_SCALE
-			if abs(_last_action_look_x) < 0.01:
-				_misaligned_run_streak += 1
-				reward -= float(_misaligned_run_streak) * RL_NO_CORRECTION_PENALTY
+			if abs(_last_move_cmd.x) > 0.1 and abs_angle > 0.16:
+				reward += strafe_speed * RL_STRAFE_WHEN_MISALIGNED_REWARD_SCALE
+			if abs(_last_move_cmd.x) > 0.1 and front_ray_dist < RL_OBSTACLE_AHEAD_DIST:
+				reward += strafe_speed * RL_STRAFE_OBSTACLE_REWARD_SCALE
+			if abs(_last_move_cmd.x) > 0.1 and abs_angle < 0.08 and front_ray_dist > (RL_OBSTACLE_AHEAD_DIST * 1.2):
+				reward -= RL_STRAFE_IDLE_PENALTY
+			if horizontal_speed > 0.2 and abs_angle > 0.2:
+				reward -= horizontal_speed * abs_angle * RL_FORWARD_MISALIGN_PENALTY_SCALE
+			var forward_speed = max(0.0, vel.dot(to_target))
+			var sprint_context = on_floor_now and abs_angle < 0.16 and front_ray_dist > (RL_OBSTACLE_AHEAD_DIST * 1.2) and dist_to_target > (RL_SUCCESS_DIST * 1.5)
+			if sprint_context:
+				if _last_action_sprint and forward_speed > 0.8:
+					reward += RL_SPRINT_ACTION_BONUS
+				elif forward_speed > 0.8:
+					reward -= RL_NO_SPRINT_WHEN_ALIGNED_PENALTY
+				var speed_gap = max(0.0, RL_SPRINT_TARGET_SPEED - forward_speed)
+				reward -= speed_gap * RL_LOW_SPEED_WHEN_ALIGNED_PENALTY_SCALE
+			if abs_angle < 0.2:
+				reward += forward_speed * RL_ALIGNED_SPEED_REWARD_SCALE
+				_misaligned_run_streak = 0
+			elif forward_speed > 0.2:
+				reward -= forward_speed * abs_angle * RL_UNALIGNED_SPEED_PENALTY_SCALE
+				if abs(_last_action_look_x) < 0.01:
+					_misaligned_run_streak += 1
+					reward -= float(_misaligned_run_streak) * RL_NO_CORRECTION_PENALTY
+				else:
+					_misaligned_run_streak = 0
 			else:
 				_misaligned_run_streak = 0
-		else:
-			_misaligned_run_streak = 0
-		if on_floor_now and abs_angle < 0.2:
-			var aligned_forward_speed = forward_speed
-			reward += aligned_forward_speed * RL_COMMIT_FORWARD_REWARD_SCALE
-		if dist_to_target > 4.0 and horizontal_speed < 0.2:
-			reward -= RL_STALL_PENALTY
-		if _last_dist_to_target >= 0.0 and (dist_to_target - _last_dist_to_target) > 0.02 and forward_speed > 0.15:
-			reward -= 0.08 # Moving in a way that increases distance should be corrected quickly.
+			if on_floor_now and abs_angle < 0.2:
+				var aligned_forward_speed = forward_speed
+				reward += aligned_forward_speed * RL_COMMIT_FORWARD_REWARD_SCALE
+			if dist_to_target > 4.0 and horizontal_speed < 0.2:
+				reward -= RL_STALL_PENALTY
+			if _last_dist_to_target >= 0.0 and (dist_to_target - _last_dist_to_target) > 0.02 and forward_speed > 0.15:
+				reward -= 0.08 # Moving in a way that increases distance should be corrected quickly.
 
-		# Anti-collapse: repeating same action while neither distance nor angle improves.
-		if _same_action_streak > 6 and _last_dist_to_target >= 0.0 and _has_last_angle_to_target:
-			var dist_improved = (_last_dist_to_target - dist_to_target) > RL_BAD_STREAK_DIST_EPS
-			var angle_improved = (abs(_last_angle_to_target) - abs_angle) > RL_BAD_STREAK_ANGLE_EPS
-			if not dist_improved and not angle_improved:
-				reward -= float(_same_action_streak - 6) * RL_SAME_ACTION_STREAK_PENALTY
-		_last_angle_to_target = angle_to_target
-		_has_last_angle_to_target = true
+			# Anti-collapse: repeating same action while neither distance nor angle improves.
+			if _same_action_streak > 6 and _last_dist_to_target >= 0.0 and _has_last_angle_to_target:
+				var dist_improved = (_last_dist_to_target - dist_to_target) > RL_BAD_STREAK_DIST_EPS
+				var angle_improved = (abs(_last_angle_to_target) - abs_angle) > RL_BAD_STREAK_ANGLE_EPS
+				if not dist_improved and not angle_improved:
+					reward -= float(_same_action_streak - 6) * RL_SAME_ACTION_STREAK_PENALTY
+			_last_angle_to_target = angle_to_target
+			_has_last_angle_to_target = true
 
 	# 3. Success
 	var reached_target := false

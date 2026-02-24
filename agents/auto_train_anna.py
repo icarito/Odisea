@@ -9,18 +9,28 @@ import sys
 import time
 from collections import Counter
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, List
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Autonomous train/eval harness for ANNA until directional behavior improves."
+        description="Autonomous train/eval curriculum harness for ANNA with fast-target and low-wall-contact selection."
     )
-    parser.add_argument("--scene", default="core_v2/tests/TestScene_RL.tscn")
+    parser.add_argument("--scene", default="", help="Legacy single-scene override. If set, curriculum stages are ignored.")
     parser.add_argument("--train-port", type=int, default=5000)
+    parser.add_argument("--scene-stage1", default="core_v2/tests/TestScene_RL.tscn")
+    parser.add_argument("--scene-stage2", default="core_v2/tests/TestScene_RL_2.tscn")
+    parser.add_argument("--scene-stage3", default="core_v2/tests/TestScene_RL_BaseTerrace.tscn")
+    parser.add_argument("--timesteps-stage1", type=int, default=8000)
+    parser.add_argument("--timesteps-stage2", type=int, default=16000)
+    parser.add_argument("--timesteps-stage3", type=int, default=8000)
+    parser.add_argument("--train-port-stage1", type=int, default=5000)
+    parser.add_argument("--train-port-stage2", type=int, default=5001)
+    parser.add_argument("--train-port-stage3", type=int, default=5002)
+    parser.add_argument("--eval-scene", default="", help="Scene used for evaluation. Defaults to last active training stage.")
     parser.add_argument("--eval-port", type=int, default=5100)
-    parser.add_argument("--rounds", type=int, default=8)
-    parser.add_argument("--timesteps-per-round", type=int, default=25000)
+    parser.add_argument("--rounds", type=int, default=4)
+    parser.add_argument("--timesteps-per-round", type=int, default=32000, help="Used only in --scene single-scene mode.")
     parser.add_argument("--eval-episodes", type=int, default=6)
     parser.add_argument("--eval-max-steps", type=int, default=800)
     parser.add_argument("--seed", type=int, default=42)
@@ -30,6 +40,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--output-prefix", default="agents/models/anna_auto")
     parser.add_argument("--success-target", type=float, default=0.5)
     parser.add_argument("--direction-target", type=float, default=0.62)
+    parser.add_argument("--fast-success-target", type=float, default=0.45)
+    parser.add_argument("--wall-contact-max", type=float, default=0.18)
+    parser.add_argument("--wall-touch-ray-threshold", type=float, default=0.04)
     parser.add_argument("--min-rounds", type=int, default=2)
     parser.add_argument("--render-eval", action="store_true")
     parser.add_argument("--step-delay", type=float, default=0.0)
@@ -66,6 +79,41 @@ def _to_scene_path(repo_root: Path, scene: str) -> str:
     return os.path.relpath(str((repo_root / scene).resolve()), str(repo_root))
 
 
+def _build_train_stages(repo_root: Path, args: argparse.Namespace) -> List[Dict[str, object]]:
+    if str(args.scene).strip():
+        return [
+            {
+                "name": "single",
+                "scene": _to_scene_path(repo_root, args.scene),
+                "steps": max(0, int(args.timesteps_per_round)),
+                "port": int(args.train_port),
+            }
+        ]
+
+    stages: List[Dict[str, object]] = []
+    raw = [
+        ("stage1", args.scene_stage1, args.timesteps_stage1, args.train_port_stage1),
+        ("stage2", args.scene_stage2, args.timesteps_stage2, args.train_port_stage2),
+        ("stage3", args.scene_stage3, args.timesteps_stage3, args.train_port_stage3),
+    ]
+    for name, scene, steps, port in raw:
+        steps_i = max(0, int(steps))
+        if not str(scene).strip() or steps_i <= 0:
+            continue
+        stages.append(
+            {
+                "name": name,
+                "scene": _to_scene_path(repo_root, str(scene)),
+                "steps": steps_i,
+                "port": int(port),
+            }
+        )
+
+    if not stages:
+        raise RuntimeError("No training stages configured. Set --scene or positive --timesteps-stageN values.")
+    return stages
+
+
 def _evaluate(
     model,
     env,
@@ -73,15 +121,19 @@ def _evaluate(
     max_steps: int,
     deterministic: bool,
     step_delay: float,
+    wall_touch_ray_threshold: float,
 ) -> Dict[str, float]:
     rewards = []
     lengths = []
     successes = 0
+    success_lengths = []
     aligned_steps = 0
     improve_steps = 0
     worsen_steps = 0
     total_steps = 0
     angle_delta_abs_sum = 0.0
+    wall_touch_steps = 0
+    speed_sum = 0.0
     action_hist = Counter()
 
     for _ in range(max(1, episodes)):
@@ -103,6 +155,14 @@ def _evaluate(
             abs_angle = abs(float(obs[9])) if len(obs) > 9 else 1.0
             delta = prev_abs_angle - abs_angle
             angle_delta_abs_sum += abs(delta)
+            if len(obs) >= 8:
+                front_min = min(float(v) for v in obs[:8])
+                if front_min < wall_touch_ray_threshold:
+                    wall_touch_steps += 1
+            if len(obs) > 11:
+                vx = float(obs[10])
+                vz = float(obs[11])
+                speed_sum += min(1.0, (vx * vx + vz * vz) ** 0.5) * 20.0
             if delta > 0.01:
                 improve_steps += 1
             elif delta < -0.01:
@@ -118,6 +178,7 @@ def _evaluate(
             if terminated or truncated:
                 if terminated and reward > 0:
                     success = True
+                    success_lengths.append(step)
                 break
 
         rewards.append(ep_reward)
@@ -126,10 +187,20 @@ def _evaluate(
 
     avg_reward = sum(rewards) / max(1, len(rewards))
     avg_len = sum(lengths) / max(1, len(lengths))
+    avg_success_len = (
+        sum(success_lengths) / max(1, len(success_lengths)) if success_lengths else float(max_steps)
+    )
     success_rate = successes / max(1, len(rewards))
     aligned_ratio = aligned_steps / max(1, total_steps)
     improve_ratio = improve_steps / max(1, improve_steps + worsen_steps)
     activity = angle_delta_abs_sum / max(1, total_steps)
+    wall_touch_ratio = wall_touch_steps / max(1, total_steps)
+    wall_clear_ratio = 1.0 - wall_touch_ratio
+    avg_speed = speed_sum / max(1, total_steps)
+    speed_score = min(1.0, avg_speed / 7.0)
+    fast_success_score = 0.0
+    if success_lengths:
+        fast_success_score = max(0.0, 1.0 - min(1.0, avg_success_len / float(max_steps)))
     max_action_fraction = (
         (max(action_hist.values()) / float(total_steps)) if total_steps > 0 and action_hist else 1.0
     )
@@ -149,7 +220,13 @@ def _evaluate(
     return {
         "avg_reward": avg_reward,
         "avg_len": avg_len,
+        "avg_success_len": avg_success_len,
         "success_rate": success_rate,
+        "fast_success_score": fast_success_score,
+        "wall_touch_ratio": wall_touch_ratio,
+        "wall_clear_ratio": wall_clear_ratio,
+        "avg_speed": avg_speed,
+        "speed_score": speed_score,
         "aligned_ratio": aligned_ratio,
         "improve_ratio": improve_ratio,
         "turn_activity": activity,
@@ -162,9 +239,16 @@ def _evaluate(
 
 
 def _score(metrics: Dict[str, float]) -> float:
-    # Reward scale can be noisy, cap impact so success+direction dominate selection.
+    # Reward scale can be noisy; prioritize success speed + clean navigation.
     reward_term = max(-1.0, min(1.0, metrics["avg_reward"] / 250.0))
-    return (2.0 * metrics["success_rate"]) + metrics["direction_score"] + (0.20 * reward_term)
+    return (
+        (2.3 * metrics["success_rate"])
+        + (1.2 * metrics["fast_success_score"])
+        + (1.0 * metrics["wall_clear_ratio"])
+        + (0.9 * metrics["direction_score"])
+        + (0.35 * metrics["speed_score"])
+        + (0.15 * reward_term)
+    )
 
 
 def main() -> int:
@@ -173,7 +257,14 @@ def main() -> int:
 
     repo_root = Path(__file__).resolve().parents[1]
     AnnaGymEnv, PPO, np, torch = _prepare_imports(repo_root)
-    scene_path = _to_scene_path(repo_root, args.scene)
+    stages = _build_train_stages(repo_root, args)
+    timesteps_per_round = int(sum(int(s["steps"]) for s in stages))
+    if timesteps_per_round <= 0:
+        raise RuntimeError("timesteps per round must be > 0.")
+    if str(args.eval_scene).strip():
+        eval_scene = _to_scene_path(repo_root, args.eval_scene)
+    else:
+        eval_scene = str(stages[-1]["scene"])
 
     torch.set_num_threads(max(1, int(args.cpu_threads)))
     try:
@@ -193,6 +284,11 @@ def main() -> int:
     best_metrics: Dict[str, float] = {}
     history = []
     started_at = time.time()
+    total_trained_steps = 0
+    best_path = out_prefix.with_name(f"{out_prefix.name}_best.zip")
+
+    print("[auto_train_anna] stages=%s" % json.dumps(stages, sort_keys=True))
+    print("[auto_train_anna] eval_scene=%s timesteps_per_round=%d" % (eval_scene, timesteps_per_round))
 
     for rnd in range(1, max(1, args.rounds) + 1):
         round_seed = args.seed + rnd - 1
@@ -200,32 +296,46 @@ def main() -> int:
         random.seed(round_seed)
         torch.manual_seed(round_seed)
 
-        train_env = AnnaGymEnv(
-            scene_path=scene_path,
-            port=args.train_port,
-            launch_godot=True,
-            headless=True,
-        )
-        try:
-            if model is None:
-                model = PPO(
-                    "MlpPolicy",
-                    train_env,
-                    seed=round_seed,
-                    verbose=args.verbose,
-                    ent_coef=args.entropy_coef,
-                    learning_rate=args.learning_rate,
-                    device="cpu",
-                )
-            else:
-                model.set_env(train_env)
+        for stage in stages:
+            stage_scene = str(stage["scene"])
+            stage_steps = int(stage["steps"])
+            stage_port = int(stage["port"])
+            stage_name = str(stage["name"])
+            print(
+                "[auto_train_anna] round=%d train %s scene=%s steps=%d"
+                % (rnd, stage_name, stage_scene, stage_steps)
+            )
+            train_env = AnnaGymEnv(
+                scene_path=stage_scene,
+                port=stage_port,
+                launch_godot=True,
+                headless=True,
+            )
+            try:
+                if model is None:
+                    model = PPO(
+                        "MlpPolicy",
+                        train_env,
+                        seed=round_seed,
+                        verbose=args.verbose,
+                        ent_coef=args.entropy_coef,
+                        learning_rate=args.learning_rate,
+                        device="cpu",
+                    )
+                else:
+                    model.set_env(train_env)
 
-            model.learn(total_timesteps=args.timesteps_per_round, reset_num_timesteps=False, progress_bar=True)
-        finally:
-            train_env.close()
+                model.learn(
+                    total_timesteps=stage_steps,
+                    reset_num_timesteps=(total_trained_steps == 0),
+                    progress_bar=True,
+                )
+                total_trained_steps += stage_steps
+            finally:
+                train_env.close()
 
         eval_env = AnnaGymEnv(
-            scene_path=scene_path,
+            scene_path=eval_scene,
             port=args.eval_port,
             launch_godot=True,
             headless=not args.render_eval,
@@ -238,6 +348,7 @@ def main() -> int:
                 max_steps=args.eval_max_steps,
                 deterministic=not args.stochastic_eval,
                 step_delay=args.step_delay,
+                wall_touch_ray_threshold=float(args.wall_touch_ray_threshold),
             )
         finally:
             eval_env.close()
@@ -246,8 +357,8 @@ def main() -> int:
         record = {
             "round": rnd,
             "seed": round_seed,
-            "timesteps_this_round": args.timesteps_per_round,
-            "timesteps_total": int(rnd * args.timesteps_per_round),
+            "timesteps_this_round": timesteps_per_round,
+            "timesteps_total": int(total_trained_steps),
             "score": round_score,
             **metrics,
         }
@@ -268,6 +379,8 @@ def main() -> int:
             rnd >= args.min_rounds
             and metrics["success_rate"] >= args.success_target
             and metrics["direction_score"] >= args.direction_target
+            and metrics["fast_success_score"] >= args.fast_success_target
+            and metrics["wall_touch_ratio"] <= args.wall_contact_max
             and metrics["collapse_forward"] < 0.5
         )
         if stop_by_target:
@@ -275,10 +388,12 @@ def main() -> int:
             break
 
     summary = {
-        "scene": scene_path,
+        "scene": eval_scene,
+        "stages": stages,
         "rounds_completed": len(history),
-        "timesteps_total": int(len(history) * args.timesteps_per_round),
+        "timesteps_total": int(total_trained_steps),
         "best_score": best_score,
+        "best_model": str(best_path),
         "best_metrics": best_metrics,
         "history": history,
         "config": vars(args),
