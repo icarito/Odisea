@@ -121,6 +121,7 @@ ANNA_CONNECT_MAX_RETRIES=90 \
 Notas de throughput por defecto del launcher CUDA:
 - `ANNA_RL_PHYSICS_FPS=360`
 - `ODISEA_DISABLE_PERFMON_IN_RL=1` (evita overhead del monitor en entrenamiento)
+- `ODISEA_DISABLE_FAKE_SHADOW=1` (desactiva blob/fake shadow del piloto en RL)
 - `BATCH_SIZE=8192`
 - `ANNA_CUDA_TF32=1`, `ANNA_CUDNN_BENCHMARK=1`, `ANNA_TORCH_MATMUL_PRECISION=high`
 

@@ -91,6 +91,7 @@ def _set_rl_runtime_defaults() -> None:
     os.environ.setdefault("ANNA_RL_PHYSICS_FPS", "360")
     os.environ.setdefault("ODISEA_DISABLE_PERFMON_IN_RL", "1")
     os.environ.setdefault("ODISEA_QUIET_PERFMON", "1")
+    os.environ.setdefault("ODISEA_DISABLE_FAKE_SHADOW", "1")
 
 
 def _prepare_imports(repo_root: Path):
