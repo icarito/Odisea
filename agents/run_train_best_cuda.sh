@@ -43,6 +43,12 @@ export ANNA_CONNECT_MAX_RETRIES="${ANNA_CONNECT_MAX_RETRIES:-90}"
 export ANNA_CONNECT_RETRY_DELAY_SEC="${ANNA_CONNECT_RETRY_DELAY_SEC:-1.0}"
 export ANNA_IMPORT_PREWARM_STRICT="${ANNA_IMPORT_PREWARM_STRICT:-0}"
 
+# Avoid leaking ad-hoc OYS scripts from the shell into RL runs unless explicitly requested.
+if [[ "${ANNA_KEEP_OYS_AUTO_RUN:-0}" != "1" ]]; then
+  unset OYS_AUTO_RUN || true
+  unset ANNA_FORCE_OYS_NOOP || true
+fi
+
 STAMP="$(date +%Y%m%d_%H%M%S)"
 MODEL_OUT="${MODEL_OUT:-agents/models/anna_ppo_cuda_big_${STAMP}.zip}"
 
