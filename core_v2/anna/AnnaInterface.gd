@@ -18,6 +18,8 @@ const RL_MAX_VELOCITY = 20.0
 const RL_REWARD_SUCCESS = 100.0
 const RL_REWARD_FAILURE = -100.0
 const RL_REWARD_TIME_PENALTY = -0.1
+const RL_MAX_EPISODE_STEPS = 1500
+const RL_TIMEOUT_FAILURE_SCALE = 0.35
 const RL_PROGRESS_SCALE = 12.0
 const RL_SUCCESS_DIST = 2.0
 const RL_SPEED_REWARD_SCALE = 0.012 # Keep locomotion incentive without collapsing to always-forward.
@@ -118,6 +120,9 @@ var _accepted_once_ids := {}
 # RL State
 var _last_dist_to_target := -1.0
 var _episode_start_time := 0
+var _episode_step_count := 0
+var _rl_time_penalty := RL_REWARD_TIME_PENALTY
+var _rl_max_episode_steps := RL_MAX_EPISODE_STEPS
 var _episode_start_height := 2.0
 var _hazard_contact_frames := 0
 var _killzone_triggered := false
@@ -143,7 +148,36 @@ var _wall_stuck_frames := 0
 var _jump_cooldown_frames := 0
 var _interact_cooldown_frames := 0
 
+# Spawn config (overrideable via env vars for scene-specific safe positions)
+var _rl_spawn_pos := Vector3(0.0, 2.0, 0.0)
+var _rl_spawn_random_yaw := true
+var _rl_target_radius_min := 5.0
+var _rl_target_radius_max := 20.0
+var _rl_target_fixed_y := 1.0
+
 func _ready():
+	var rl_max_steps_env = OS.get_environment("ANNA_RL_MAX_STEPS")
+	if rl_max_steps_env.is_valid_integer():
+		_rl_max_episode_steps = max(100, int(rl_max_steps_env))
+	var rl_time_penalty_env = OS.get_environment("ANNA_RL_TIME_PENALTY")
+	if rl_time_penalty_env.is_valid_float():
+		_rl_time_penalty = float(rl_time_penalty_env)
+	# Spawn position override (useful for scene-specific safe floor positions)
+	var sx = OS.get_environment("ANNA_RL_SPAWN_X")
+	var sy = OS.get_environment("ANNA_RL_SPAWN_Y")
+	var sz = OS.get_environment("ANNA_RL_SPAWN_Z")
+	if sx.is_valid_float(): _rl_spawn_pos.x = float(sx)
+	if sy.is_valid_float(): _rl_spawn_pos.y = float(sy)
+	if sz.is_valid_float(): _rl_spawn_pos.z = float(sz)
+	# Target placement radius override (smaller = easier episodes)
+	var tr_min = OS.get_environment("ANNA_RL_TARGET_RADIUS_MIN")
+	var tr_max = OS.get_environment("ANNA_RL_TARGET_RADIUS_MAX")
+	var tr_y = OS.get_environment("ANNA_RL_TARGET_Y")
+	if tr_min.is_valid_float(): _rl_target_radius_min = max(1.0, float(tr_min))
+	if tr_max.is_valid_float(): _rl_target_radius_max = max(_rl_target_radius_min + 1.0, float(tr_max))
+	if tr_y.is_valid_float(): _rl_target_fixed_y = float(tr_y)
+	print("[AnnaInterface] spawn=%s  target_radius=[%.1f, %.1f]  max_steps=%d" % [
+		_rl_spawn_pos, _rl_target_radius_min, _rl_target_radius_max, _rl_max_episode_steps])
 	_setup_sensors()
 	_setup_rl_sensors()
 	_bind_killzones()
@@ -278,14 +312,14 @@ func get_rl_observation() -> Dictionary:
 		to_target.y = 0
 		to_target = to_target.normalized()
 		facing_basis = _get_control_basis(player as Spatial)
-		forward = -facing_basis.z
+		forward = - facing_basis.z
 		forward.y = 0
 		forward = forward.normalized()
 
 		var angle = forward.angle_to(to_target) # Returns 0 to PI
 		# Determine sign
 		if forward.cross(to_target).y < 0:
-			angle = -angle
+			angle = - angle
 
 		angle_to_target = angle / PI # Normalize -1 to 1
 	else:
@@ -313,7 +347,8 @@ func get_rl_observation() -> Dictionary:
 	# --- REWARD CALCULATION ---
 
 	# 1. Time Penalty
-	reward += RL_REWARD_TIME_PENALTY
+	_episode_step_count += 1
+	reward += _rl_time_penalty
 
 	# 1b. Reward speed (prefer fast locomotion over stationary/jump spam)
 	var horizontal_speed = Vector2(local_vel.x, local_vel.z).length()
@@ -450,6 +485,10 @@ func get_rl_observation() -> Dictionary:
 		done = true
 
 	# 4. Failure (KillZone / Fall / Prolonged hazard contact)
+	if not done and _episode_step_count >= _rl_max_episode_steps:
+		reward += RL_REWARD_FAILURE * RL_TIMEOUT_FAILURE_SCALE
+		done = true
+
 	if not done and _killzone_triggered:
 		reward += RL_REWARD_FAILURE
 		done = true
@@ -521,22 +560,20 @@ func reset_simulation() -> void:
 	var player = _get_player()
 	if player and player.has_method("teleport_to"):
 		var t = Transform()
-		t.origin = Vector3(0, 2, 0) # Start pos
-		# Random rotation?
+		t.origin = _rl_spawn_pos
 		var rand_yaw = rand_range(-PI, PI)
 		t.basis = Basis(Vector3.UP, rand_yaw)
 		player.teleport_to(t)
 		_episode_start_height = t.origin.y
 
-	# Reset Target
+	# Reset Target — polar coords so min/max radius is respected
 	var target = _ensure_rl_target()
 	if target:
-		var tx = rand_range(-20, 20)
-		var tz = rand_range(-20, 20)
-		while Vector2(tx, tz).length() < 5.0:
-			tx = rand_range(-20, 20)
-			tz = rand_range(-20, 20)
-		target.transform.origin = Vector3(tx, 1.0, tz)
+		var angle = rand_range(0.0, 2.0 * PI)
+		var dist = rand_range(_rl_target_radius_min, _rl_target_radius_max)
+		var tx = _rl_spawn_pos.x + cos(angle) * dist
+		var tz = _rl_spawn_pos.z + sin(angle) * dist
+		target.transform.origin = Vector3(tx, _rl_target_fixed_y, tz)
 
 	# Reset internal state
 	_last_dist_to_target = -1.0
@@ -563,6 +600,8 @@ func reset_simulation() -> void:
 	_wall_stuck_frames = 0
 	_jump_cooldown_frames = 0
 	_interact_cooldown_frames = 0
+	_episode_step_count = 0
+	_episode_start_time = OS.get_unix_time()
 	# Force initial distance update
 	if target and player:
 		_last_dist_to_target = player.global_transform.origin.distance_to(target.global_transform.origin)
@@ -571,7 +610,7 @@ func reset_simulation() -> void:
 		if to_target.length_squared() > 0.001:
 			to_target = to_target.normalized()
 			var fwd_basis = _get_control_basis(player as Spatial)
-			var fwd = -fwd_basis.z
+			var fwd = - fwd_basis.z
 			fwd.y = 0.0
 			if fwd.length_squared() > 0.001:
 				fwd = fwd.normalized()
@@ -635,9 +674,9 @@ func apply_rl_action(action_idx: int) -> void:
 			# Proportional steering toward target bearing using CameraRig orientation.
 			# Positive steer_angle should rotate camera toward target.
 			# PlayerControllerV2 applies yaw -= mouse_delta.x * sensitivity, so this sign is inverted.
-			look_vec.x = -clamp(steer_angle * RL_LOOK_DELTA_X, -RL_LOOK_DELTA_X, RL_LOOK_DELTA_X)
+			look_vec.x = - clamp(steer_angle * RL_LOOK_DELTA_X, -RL_LOOK_DELTA_X, RL_LOOK_DELTA_X)
 			if abs(steer_angle) > 0.12 and abs(look_vec.x) < RL_LOOK_MIN_CORRECTION:
-				look_vec.x = -sign(steer_angle) * RL_LOOK_MIN_CORRECTION
+				look_vec.x = - sign(steer_angle) * RL_LOOK_MIN_CORRECTION
 	else:
 		look_vec.x = 0.0
 
@@ -736,7 +775,7 @@ func apply_rl_action(action_idx: int) -> void:
 		"crouch": false,
 		"mouse_delta": look_vec,
 		"zoom_delta": 0.0,
-		"fov_override": -1.0
+		"fov_override": - 1.0
 	}
 
 	var sm = get_node_or_null("/root/SessionManager")
@@ -779,7 +818,7 @@ func _get_front_interactable(player: Spatial) -> Node:
 		return null
 
 	var basis = _get_control_basis(player)
-	var forward = -basis.z
+	var forward = - basis.z
 	forward.y = 0.0
 	if forward.length_squared() < 0.0001:
 		return null
@@ -819,14 +858,14 @@ func _get_target_angle_normalized(player: Spatial, target: Spatial) -> float:
 	to_target = to_target.normalized()
 	var facing_basis = player.global_transform.basis
 	facing_basis = _get_control_basis(player)
-	var forward = -facing_basis.z
+	var forward = - facing_basis.z
 	forward.y = 0.0
 	if forward.length_squared() < 0.0001:
 		return 0.0
 	forward = forward.normalized()
 	var angle = forward.angle_to(to_target)
 	if forward.cross(to_target).y < 0:
-		angle = -angle
+		angle = - angle
 	return angle / PI
 
 func _get_control_basis(player: Spatial) -> Basis:
@@ -1006,7 +1045,7 @@ func apply_action(action: Dictionary):
 			"crouch": bool(crouch),
 			"mouse_delta": Vector2(lx, ly),
 			"zoom_delta": 0.0,
-			"fov_override": -1.0
+			"fov_override": - 1.0
 		}
 
 		if sm and sm.is_recording:

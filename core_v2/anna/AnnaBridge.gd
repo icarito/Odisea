@@ -2,6 +2,7 @@ extends Node
 
 const PORT = 5000
 const MAX_READ_BYTES_PER_TICK = 16384
+const RL_UNCAPPED_PHYSICS_FPS = 2000
 var _server: TCP_Server
 var _peers := []
 var _interface: Node
@@ -25,11 +26,19 @@ func _ready():
 		is_rl_mode = true
 		print("[ANNA] RL Lock-Step Mode Enabled")
 		OS.set_use_vsync(false)
+		var disable_idle_sleep_env = OS.get_environment("ANNA_RL_DISABLE_CPU_SLEEP").to_lower()
+		if disable_idle_sleep_env in ["1", "true", "yes", "on"]:
+			OS.set_low_processor_usage_mode(false)
+			OS.set_low_processor_usage_mode_sleep_usec(0)
 		Engine.target_fps = 0
 		var physics_fps = 60
 		var physics_fps_env = OS.get_environment("ANNA_RL_PHYSICS_FPS")
 		if physics_fps_env.is_valid_integer():
-			physics_fps = max(30, int(physics_fps_env))
+			var requested_physics_fps = int(physics_fps_env)
+			if requested_physics_fps <= 0:
+				physics_fps = RL_UNCAPPED_PHYSICS_FPS
+			else:
+				physics_fps = max(30, min(requested_physics_fps, RL_UNCAPPED_PHYSICS_FPS))
 		Engine.iterations_per_second = physics_fps
 		print("[ANNA] VSync disabled, FPS unlocked, physics=%dHz for RL training" % physics_fps)
 		var read_timeout_env = OS.get_environment("ANNA_RL_READ_TIMEOUT_MS")

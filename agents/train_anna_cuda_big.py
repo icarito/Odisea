@@ -59,6 +59,21 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--n-epochs", type=int, default=10)
     parser.add_argument("--net-arch", type=_parse_int_list, default="2048,2048,1024,512")
     parser.add_argument("--checkpoint-every", type=int, default=50000)
+    # Stage 3 curriculum overrides (BaseTerrace-specific)
+    parser.add_argument("--stage3-max-steps", type=int, default=800,
+        help="Max episode steps for Stage 3 (shorter = faster credit assignment).")
+    parser.add_argument("--stage3-spawn-x", type=float, default=5.0)
+    parser.add_argument("--stage3-spawn-y", type=float, default=2.5)
+    parser.add_argument("--stage3-spawn-z", type=float, default=15.0)
+    parser.add_argument("--stage3-target-radius-min", type=float, default=4.0)
+    parser.add_argument("--stage3-target-radius-max", type=float, default=10.0)
+    parser.add_argument("--stage3-target-y", type=float, default=2.0)
+    parser.add_argument(
+        "--max-periodic-checkpoints",
+        type=int,
+        default=4,
+        help="Keep only the latest N periodic checkpoints per run (0 disables pruning).",
+    )
     parser.add_argument(
         "--resume",
         choices=["auto", "always", "never"],
@@ -103,7 +118,11 @@ def _set_torch_cuda_defaults() -> None:
 
 
 def _set_rl_runtime_defaults() -> None:
-    os.environ.setdefault("ANNA_RL_PHYSICS_FPS", "360")
+    # 0 => uncapped preset in AnnaBridge (maps to a high fixed physics rate).
+    os.environ.setdefault("ANNA_RL_PHYSICS_FPS", "0")
+    os.environ.setdefault("ANNA_GODOT_PREFER_SERVER", "1")
+    os.environ.setdefault("ANNA_GODOT_SERVER_FALLBACK", "0")
+    os.environ.setdefault("ANNA_RL_DISABLE_CPU_SLEEP", "1")
     os.environ.setdefault("ODISEA_DISABLE_PERFMON_IN_RL", "1")
     os.environ.setdefault("ODISEA_QUIET_PERFMON", "1")
     os.environ.setdefault("ODISEA_DISABLE_FAKE_SHADOW", "1")
@@ -119,12 +138,13 @@ def _prepare_imports(repo_root: Path):
     from anna_gym import AnnaGymEnv  # type: ignore
     from stable_baselines3 import PPO  # type: ignore
     from stable_baselines3.common.monitor import Monitor  # type: ignore
+    from stable_baselines3.common.utils import get_schedule_fn  # type: ignore
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv  # type: ignore
     import numpy as np  # type: ignore
     import torch  # type: ignore
     from torch import nn  # type: ignore
 
-    return AnnaGymEnv, PPO, Monitor, DummyVecEnv, SubprocVecEnv, np, torch, nn
+    return AnnaGymEnv, PPO, Monitor, DummyVecEnv, SubprocVecEnv, get_schedule_fn, np, torch, nn
 
 
 def _configure_cuda_runtime(torch_mod) -> dict:
@@ -205,8 +225,12 @@ def _run_import_prewarm(repo_root: Path, godot_bin: str, timeout_sec: int) -> bo
         return False
 
 
-def _build_env_factory(AnnaGymEnv, Monitor, scene: str, port: int, render: bool, no_launch: bool, godot_bin: str):
+def _build_env_factory(AnnaGymEnv, Monitor, scene: str, port: int, render: bool, no_launch: bool, godot_bin: str, extra_env: dict = None):
     def _make():
+        if extra_env:
+            import os as _os
+            for k, v in extra_env.items():
+                _os.environ[k] = str(v)
         env = AnnaGymEnv(
             scene_path=scene,
             port=int(port),
@@ -230,6 +254,7 @@ def _open_stage_env(
     no_launch: bool,
     godot_bin: str,
     num_envs: int,
+    extra_env: dict = None,
 ):
     env_fns = []
     for idx in range(max(1, int(num_envs))):
@@ -242,6 +267,7 @@ def _open_stage_env(
                 render=render,
                 no_launch=no_launch,
                 godot_bin=godot_bin,
+                extra_env=extra_env,
             )
         )
     if len(env_fns) > 1:
@@ -313,13 +339,43 @@ def _safe_read_json(path: Path) -> dict:
 def _save_model_zip_atomic(model, dst_zip: Path) -> None:
     dst_zip.parent.mkdir(parents=True, exist_ok=True)
     tmp_base = dst_zip.parent / (dst_zip.stem + ".tmp")
-    tmp_zip = tmp_base.with_suffix(".zip")
-    if tmp_zip.exists():
-        tmp_zip.unlink()
+    tmp_zip = Path(str(tmp_base) + ".zip")
+    for candidate in [tmp_base, tmp_zip]:
+        if candidate.exists():
+            candidate.unlink()
     model.save(str(tmp_base))
-    if not tmp_zip.exists():
-        raise RuntimeError("Checkpoint not generated: %s" % tmp_zip)
-    tmp_zip.replace(dst_zip)
+    # SB3 writes either "<path>.zip" (common) or exactly "<path>" depending on version/path handling.
+    src_zip: Path | None = None
+    if tmp_zip.exists():
+        src_zip = tmp_zip
+    elif tmp_base.exists():
+        src_zip = tmp_base
+    if src_zip is None:
+        raise RuntimeError("Checkpoint not generated: %s or %s" % (tmp_zip, tmp_base))
+    src_zip.replace(dst_zip)
+
+
+def _prune_periodic_checkpoints(checkpoint_dir: Path, model_stem: str, keep: int) -> None:
+    keep = max(0, int(keep))
+    if keep <= 0:
+        return
+    periodic = sorted(checkpoint_dir.glob("%s_ts*.zip" % model_stem), key=lambda p: p.name)
+    excess = len(periodic) - keep
+    if excess <= 0:
+        return
+    for old_path in periodic[:excess]:
+        try:
+            old_path.unlink()
+        except Exception:
+            pass
+
+
+def _apply_ppo_overrides(model, args: argparse.Namespace, get_schedule_fn) -> None:
+    lr = float(args.learning_rate)
+    model.learning_rate = lr
+    model.lr_schedule = get_schedule_fn(lr)
+    model.ent_coef = float(args.entropy_coef)
+    model.clip_range = get_schedule_fn(float(args.clip_range))
 
 
 def _norm_done(stage_targets: dict, raw_done: dict) -> dict:
@@ -341,7 +397,19 @@ def main() -> int:
     _set_rl_runtime_defaults()
 
     repo_root = Path(__file__).resolve().parents[1]
-    AnnaGymEnv, PPO, Monitor, DummyVecEnv, SubprocVecEnv, np, torch, nn = _prepare_imports(repo_root)
+    AnnaGymEnv, PPO, Monitor, DummyVecEnv, SubprocVecEnv, get_schedule_fn, np, torch, nn = _prepare_imports(repo_root)
+
+    # Stage 3 specific environment variables (BaseTerrace curriculum)
+    stage3_extra_env = {
+        "ANNA_RL_MAX_STEPS": str(int(args.stage3_max_steps)),
+        "ANNA_RL_SPAWN_X": str(float(args.stage3_spawn_x)),
+        "ANNA_RL_SPAWN_Y": str(float(args.stage3_spawn_y)),
+        "ANNA_RL_SPAWN_Z": str(float(args.stage3_spawn_z)),
+        "ANNA_RL_TARGET_RADIUS_MIN": str(float(args.stage3_target_radius_min)),
+        "ANNA_RL_TARGET_RADIUS_MAX": str(float(args.stage3_target_radius_max)),
+        "ANNA_RL_TARGET_Y": str(float(args.stage3_target_y)),
+    }
+    print("[train_anna_cuda_big] Stage3 env overrides: %s" % stage3_extra_env)
 
     torch.set_num_threads(max(1, int(args.cpu_threads)))
     try:
@@ -418,6 +486,12 @@ def main() -> int:
 
     checkpoint_dir = model_out.parent / (model_stem + "_ckpt")
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    # Cleanup stale partial saves from interrupted runs.
+    for stale in checkpoint_dir.glob("*.tmp"):
+        try:
+            stale.unlink()
+        except Exception:
+            pass
     checkpoint_latest_zip = checkpoint_dir / (model_stem + "_latest.zip")
     train_state_path = checkpoint_dir / (model_stem + "_train_state.json")
 
@@ -474,6 +548,11 @@ def main() -> int:
         "stage2": int(stage2_port),
         "stage3": int(stage3_port),
     }
+    stage_extra_env = {
+        "stage1": {},
+        "stage2": {},
+        "stage3": stage3_extra_env,
+    }
     stage_order = ["stage1", "stage2", "stage3"]
 
     resume_mode = str(args.resume).strip().lower()
@@ -528,6 +607,7 @@ def main() -> int:
             args.no_launch,
             godot_bin,
             stage_envs[stage_name],
+            extra_env=stage_extra_env[stage_name],
         )
         try:
             rollout_for_stage = int(args.n_steps) * int(stage_envs[stage_name])
@@ -536,8 +616,13 @@ def main() -> int:
                 if resume_source is not None:
                     print("[train_anna_cuda_big] loading model from checkpoint for %s..." % stage_name)
                     model = PPO.load(str(resume_source), env=env, device=device)
+                    _apply_ppo_overrides(model, args, get_schedule_fn)
                     model.tensorboard_log = str(tb_log)
                     model.verbose = int(args.verbose)
+                    print(
+                        "[train_anna_cuda_big] resume overrides: lr=%.8f ent_coef=%.5f clip_range=%.3f"
+                        % (float(args.learning_rate), float(args.entropy_coef), float(args.clip_range))
+                    )
                     first_learn_call = False
                 else:
                     model = PPO(
@@ -566,8 +651,13 @@ def main() -> int:
                     )
                     _save_model_zip_atomic(model, checkpoint_latest_zip)
                     model = PPO.load(str(checkpoint_latest_zip), env=env, device=device)
+                    _apply_ppo_overrides(model, args, get_schedule_fn)
                     model.tensorboard_log = str(tb_log)
                     model.verbose = int(args.verbose)
+                    print(
+                        "[train_anna_cuda_big] reload overrides: lr=%.8f ent_coef=%.5f clip_range=%.3f"
+                        % (float(args.learning_rate), float(args.entropy_coef), float(args.clip_range))
+                    )
                     first_learn_call = False
                 else:
                     model.set_env(env)
@@ -597,6 +687,11 @@ def main() -> int:
                 periodic_zip = checkpoint_dir / ("%s_ts%010d.zip" % (model_stem, int(model.num_timesteps)))
                 _save_model_zip_atomic(model, periodic_zip)
                 _save_model_zip_atomic(model, checkpoint_latest_zip)
+                _prune_periodic_checkpoints(
+                    checkpoint_dir=checkpoint_dir,
+                    model_stem=model_stem,
+                    keep=int(args.max_periodic_checkpoints),
+                )
                 state_payload = {
                     "version": 1,
                     "model_out": str(model_out),
@@ -621,6 +716,7 @@ def main() -> int:
         if resume_source is not None and resume_source.exists():
             print("[train_anna_cuda_big] All stages already complete; exporting from %s" % resume_source)
             model = PPO.load(str(resume_source), device=device)
+            _apply_ppo_overrides(model, args, get_schedule_fn)
         else:
             raise RuntimeError("No stage executed; check timesteps and resume settings.")
 

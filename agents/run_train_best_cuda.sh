@@ -64,6 +64,35 @@ resolve_import_godot_bin() {
   return 1
 }
 
+resolve_train_godot_bin() {
+  local candidate="${GODOT_BIN:-godot3-server}"
+  if command -v "${candidate}" >/dev/null 2>&1; then
+    echo "${candidate}"
+    return 0
+  fi
+  if command -v godot3-server >/dev/null 2>&1; then
+    echo "godot3-server"
+    return 0
+  fi
+  if command -v godot-server >/dev/null 2>&1; then
+    echo "godot-server"
+    return 0
+  fi
+  if command -v godot3-bin >/dev/null 2>&1; then
+    echo "godot3-bin"
+    return 0
+  fi
+  if command -v godot3 >/dev/null 2>&1; then
+    echo "godot3"
+    return 0
+  fi
+  if command -v godot >/dev/null 2>&1; then
+    echo "godot"
+    return 0
+  fi
+  return 1
+}
+
 run_preimport_step() {
   local enabled="${ANNA_PREIMPORT_BEFORE_TRAIN:-1}"
   if ! is_truthy "${enabled}"; then
@@ -127,13 +156,13 @@ run_preimport_step() {
   return 0
 }
 
-export ANNA_RL_PHYSICS_FPS="${ANNA_RL_PHYSICS_FPS:-360}"
+export ANNA_RL_PHYSICS_FPS="${ANNA_RL_PHYSICS_FPS:-0}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 export __NV_PRIME_RENDER_OFFLOAD="${__NV_PRIME_RENDER_OFFLOAD:-1}"
 export __GLX_VENDOR_LIBRARY_NAME="${__GLX_VENDOR_LIBRARY_NAME:-nvidia}"
 export ANNA_GODOT_PREFER_SERVER="${ANNA_GODOT_PREFER_SERVER:-1}"
 export ANNA_GODOT_VIDEO_DRIVER="${ANNA_GODOT_VIDEO_DRIVER:-GLES2}"
-export ANNA_GODOT_SERVER_FALLBACK="${ANNA_GODOT_SERVER_FALLBACK:-1}"
+export ANNA_GODOT_SERVER_FALLBACK="${ANNA_GODOT_SERVER_FALLBACK:-0}"
 export ANNA_GODOT_READY_TIMEOUT_SEC="${ANNA_GODOT_READY_TIMEOUT_SEC:-240}"
 export ANNA_GODOT_LAUNCH_STAGGER_SEC="${ANNA_GODOT_LAUNCH_STAGGER_SEC:-0.80}"
 export ANNA_CONNECT_MAX_RETRIES="${ANNA_CONNECT_MAX_RETRIES:-240}"
@@ -147,6 +176,9 @@ export ODISEA_DISABLE_SHADER_WARMUP_IN_RL="${ODISEA_DISABLE_SHADER_WARMUP_IN_RL:
 export ANNA_CUDA_TF32="${ANNA_CUDA_TF32:-1}"
 export ANNA_CUDNN_BENCHMARK="${ANNA_CUDNN_BENCHMARK:-1}"
 export ANNA_TORCH_MATMUL_PRECISION="${ANNA_TORCH_MATMUL_PRECISION:-high}"
+export ANNA_RL_DISABLE_CPU_SLEEP="${ANNA_RL_DISABLE_CPU_SLEEP:-1}"
+export ANNA_RL_MAX_STEPS="${ANNA_RL_MAX_STEPS:-1200}"
+export ANNA_RL_TIME_PENALTY="${ANNA_RL_TIME_PENALTY:--0.03}"
 
 # Avoid leaking ad-hoc OYS scripts from the shell into RL runs unless explicitly requested.
 if [[ "${ANNA_KEEP_OYS_AUTO_RUN:-0}" != "1" ]]; then
@@ -182,7 +214,18 @@ if [[ "${PREIMPORT_OK}" -eq 1 ]] && is_truthy "${ANNA_SKIP_PY_PREWARM_AFTER_PREI
   EXTRA_TRAIN_ARGS+=("--skip-import-prewarm")
 fi
 
+TRAIN_GODOT_BIN="$(resolve_train_godot_bin || true)"
+if [[ -z "${TRAIN_GODOT_BIN}" ]]; then
+  echo "[run_train_best_cuda] Could not resolve Godot binary for training." >&2
+  exit 1
+fi
+echo "[run_train_best_cuda] Training Godot binary: ${TRAIN_GODOT_BIN}"
+if [[ "${TRAIN_GODOT_BIN}" != *server* ]]; then
+  echo "[run_train_best_cuda] WARNING: server binary not available; using ${TRAIN_GODOT_BIN}."
+fi
+
 "${PYTHON_BIN}" agents/train_anna_cuda_big.py \
+  --godot-bin "${TRAIN_GODOT_BIN}" \
   --device auto \
   --cpu-threads "${CPU_THREADS:-16}" \
   --num-envs "${NUM_ENVS:-8}" \

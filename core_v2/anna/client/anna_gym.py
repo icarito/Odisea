@@ -128,6 +128,11 @@ class AnnaGymEnv(gym.Env):
         cmd = []
         if self.headless and not is_server_bin:
             cmd = ["xvfb-run", "-a", "-s", "-screen 0 1024x768x24+120"]
+            print(f"[AnnaGym] ⚠️  WARNING: using xvfb-run (software rendering likely). "
+                  f"godot3-server not found. FPS will be ~500 instead of 2000+. "
+                  f"Install godot3-server for GPU-speed training.")
+        else:
+            print(f"[AnnaGym] ✅ Using server binary: {godot_bin} (headless, fast)")
 
         cmd.extend([godot_bin, "--audio-driver", "Dummy", "--path", "."])
         if self.headless:
