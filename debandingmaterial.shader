@@ -8,6 +8,7 @@ uniform float roughness : hint_range(0,1) = 1.0;
 uniform sampler2D texture_roughness : hint_white;
 uniform vec4 roughness_texture_channel = vec4(1.0, 0.0, 0.0, 0.0);
 uniform sampler2D texture_emission : hint_black_albedo;
+uniform vec4 emission : hint_color = vec4(0.0, 0.0, 0.0, 1.0);
 uniform float emission_energy = 0.0;
 uniform float debanding_dither = 0.003;
 
@@ -38,5 +39,7 @@ void fragment() {
     ROUGHNESS = roughness_tex * roughness;
     SPECULAR = specular;
     vec3 emission_tex = texture(texture_emission, base_uv).rgb;
-    EMISSION = emission_tex * emission_energy;
+    // Use emission color as fallback when no emission texture is provided
+    vec3 emission_source = max(emission_tex, emission.rgb);
+    EMISSION = emission_source * emission_energy;
 }

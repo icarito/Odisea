@@ -93,13 +93,6 @@ func _ready() -> void:
 		connect("build_complete", self, "_on_build_finished")
 		connect("build_failed", self, "_on_build_finished")
 
-	if not DEBUG:
-		return
-
-	if not Engine.is_editor_hint():
-		if verify_parameters():
-			build_map()
-
 func _get_property_list() -> Array:
 	return [
 		QodotUtil.category_dict('Map'),
@@ -1094,6 +1087,30 @@ func apply_properties() -> void:
 
 		if 'properties' in entity_node:
 			entity_node.properties = properties
+		
+		# --- QODOT-TO-GODOT NATIVE MAPPING INJECTION ---
+		for property in properties:
+			var val = properties[property]
+			
+			# Map 'angle' to Y-rotation natively at root
+			if property == "angle":
+				if "rotation_degrees" in entity_node:
+					entity_node.rotation_degrees.y = float(val)
+				continue
+				
+			_apply_injected_property_recursive(entity_node, property, val)
+		# -----------------------------------------------
+
+func _apply_injected_property_recursive(node: Node, prop_name: String, val) -> void:
+	if prop_name in node:
+		var current = node.get(prop_name)
+		if typeof(current) == TYPE_BOOL and typeof(val) == TYPE_INT:
+			node.set(prop_name, bool(val))
+		else:
+			node.set(prop_name, val)
+	
+	for child in node.get_children():
+		_apply_injected_property_recursive(child, prop_name, val)
 
 func connect_signals() -> void:
 	for entity_idx in range(0, entity_nodes.size()):

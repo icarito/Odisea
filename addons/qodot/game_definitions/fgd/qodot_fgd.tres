@@ -1,4 +1,4 @@
-[gd_resource type="Resource" load_steps=20 format=2]
+[gd_resource type="Resource" load_steps=25 format=2]
 
 [ext_resource path="res://addons/qodot/game_definitions/fgd/base_classes/target_base_class.tres" type="Resource" id=1]
 [ext_resource path="res://addons/qodot/game_definitions/fgd/solid_classes/func_group_solid_class.tres" type="Resource" id=2]
@@ -19,6 +19,11 @@
 [ext_resource path="res://addons/qodot/game_definitions/fgd/solid_classes/wall_solid_class.tres" type="Resource" id=17]
 [ext_resource path="res://addons/qodot/game_definitions/fgd/point_classes/physics_ball_point_class.tres" type="Resource" id=18]
 [ext_resource path="res://addons/qodot/game_definitions/fgd/solid_classes/mover_solid_class.tres" type="Resource" id=19]
+[ext_resource path="res://core_v2/qodot_fgd/props/IrisDoorV2_point_class.tres" type="Resource" id=20]
+[ext_resource path="res://core_v2/qodot_fgd/props/VerticalDoor_point_class.tres" type="Resource" id=21]
+[ext_resource path="res://core_v2/qodot_fgd/props/Lever_point_class.tres" type="Resource" id=22]
+[ext_resource path="res://core_v2/qodot_fgd/props/FluorescentLightCeiling_point_class.tres" type="Resource" id=23]
+[ext_resource path="res://core_v2/qodot_fgd/props/FluorescentLightFlickering_point_class.tres" type="Resource" id=24]
 
 [resource]
 script = ExtResource( 6 )
@@ -26,4 +31,4 @@ export_file = false
 target_folder = "C:/OtherPrograms/TrenchBroom/games/Qodot"
 fgd_name = "Qodot"
 base_fgd_files = [  ]
-entity_definitions = [ ExtResource( 1 ), ExtResource( 4 ), ExtResource( 12 ), null, null, null, null, null, null, null, ExtResource( 3 ), ExtResource( 7 ), ExtResource( 13 ), ExtResource( 18 ), null, null, null, null, null, null, ExtResource( 9 ), ExtResource( 2 ), ExtResource( 10 ), ExtResource( 11 ), ExtResource( 8 ), ExtResource( 17 ), ExtResource( 5 ), ExtResource( 19 ), ExtResource( 14 ), ExtResource( 16 ), ExtResource( 15 ) ]
+entity_definitions = [ ExtResource( 1 ), ExtResource( 4 ), ExtResource( 12 ), null, null, null, null, null, null, null, ExtResource( 3 ), ExtResource( 7 ), ExtResource( 13 ), ExtResource( 18 ), null, null, null, null, null, null, ExtResource( 9 ), ExtResource( 2 ), ExtResource( 10 ), ExtResource( 11 ), ExtResource( 8 ), ExtResource( 17 ), ExtResource( 5 ), ExtResource( 19 ), ExtResource( 14 ), ExtResource( 16 ), ExtResource( 15 ), ExtResource( 20 ), ExtResource( 21 ), ExtResource( 22 ), ExtResource( 23 ), ExtResource( 24 ) ]

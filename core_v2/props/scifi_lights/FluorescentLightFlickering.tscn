@@ -7,14 +7,13 @@ albedo_color = Color( 0.7, 0.75, 0.6, 1 )
 roughness = 0.4
 emission_enabled = true
 emission = Color( 0.7, 0.75, 0.6, 1 )
-emission_energy = 0.8
+emission_energy = 1.0
 emission_operator = 0
 emission_on_uv2 = false
 
 [sub_resource type="CylinderMesh" id=2]
 top_radius = 0.05
 bottom_radius = 0.05
-height = 2.0
 radial_segments = 16
 rings = 1
 
@@ -27,8 +26,8 @@ collision_layer = 4
 collision_mask = 3
 script = ExtResource( 1 )
 interaction_text = "Fix Light"
+is_interactable = false
 light_color = Color( 0.7, 0.75, 0.6, 1 )
-light_energy = 1.0
 light_range = 8.0
 flicker_enabled = true
 flicker_speed = 15.0

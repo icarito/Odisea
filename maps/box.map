@@ -1819,3 +1819,26 @@
 ( 448 492 164 ) ( 448 492 165 ) ( 448 493 164 ) kenney_prototype_textures/purple/texture_13 [ 0 1 0 512 ] [ 0 0 -1 -128 ] 0 0.125 0.125
 }
 }
+// entity 1
+{
+"classname" "light_flickering"
+"origin" "248 360 72"
+"starts_active" "1"
+}
+// entity 2
+{
+"classname" "light_flickering"
+"origin" "120 360 72"
+"starts_active" "1"
+}
+// entity 3
+{
+"classname" "light_flickering"
+"origin" "360 360 72"
+}
+// entity 4
+{
+"classname" "light_ceiling"
+"origin" "184 360 72"
+"starts_active" "1"
+}

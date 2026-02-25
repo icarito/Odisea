@@ -1,7 +1,7 @@
 [gd_resource type="Resource" load_steps=4 format=2]
 
 [ext_resource path="res://addons/qodot/src/resources/game-definitions/trenchbroom/trenchbroom_game_config_folder.gd" type="Script" id=1]
-[ext_resource path="res://assets/odisea_icon2.png" type="Texture" id=2]
+[ext_resource path="res://assets/odisea_icon.png" type="Texture" id=2]
 [ext_resource path="res://addons/qodot/game_definitions/fgd/qodot_fgd.tres" type="Resource" id=3]
 
 [resource]

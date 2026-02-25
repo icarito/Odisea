@@ -98,6 +98,8 @@ func _to_deband_material(src: SpatialMaterial) -> ShaderMaterial:
 
 	var emission_energy := src.emission_energy if src.emission_enabled else 0.0
 	mat.set_shader_param("emission_energy", emission_energy)
+	if src.emission_enabled:
+		mat.set_shader_param("emission", src.emission)
 
 	_converted_cache[key] = mat
 	return mat

@@ -4,40 +4,40 @@ extends Resource
 tool
 
 ## Button to export new folder to the Trenchbroom Games Path
-export(bool) var export_file : bool setget set_export_file
+export(bool) var export_file: bool setget set_export_file
 
 ## The /games folder in either your Trenchbroom installation or your OS user data folder.
-export(String, DIR, GLOBAL) var trenchbroom_games_folder : String
+export(String, DIR, GLOBAL) var trenchbroom_games_folder: String
 
 ## Name of the game in Trenchbroom's game list
 export(String) var game_name := "Qodot"
 
 ## Icon for Trenchbroom's game list
-export(Texture) var icon : Texture
+export(Texture) var icon: Texture
 
 ## Array of FGD resources to include with this game
-export(Array, Resource) var fgd_files : Array = [
+export(Array, Resource) var fgd_files: Array = [
 	preload("res://addons/qodot/game_definitions/fgd/qodot_fgd.tres")
 ]
 
 ## Per-brush patterns to apply editor hints
-export(Array, Resource) var brush_tags : Array = []
+export(Array, Resource) var brush_tags: Array = []
 ## Per-texture patterns to apply editor hints
-export(Array, Resource) var face_tags : Array = []
+export(Array, Resource) var face_tags: Array = []
 
 ## Map-wide bitflags toggleable for each face
-export(Array, Resource) var face_attrib_surface_flags : Array = []
+export(Array, Resource) var face_attrib_surface_flags: Array = []
 ## Map-wide bitflags toggleable for each brush
-export(Array, Resource) var face_attrib_content_flags : Array = []
+export(Array, Resource) var face_attrib_content_flags: Array = []
 
 ## Private variable for storing fgd names, used in build_class_text()
-var fgd_filenames : Array = []
+var fgd_filenames: Array = []
 
 ## Private default .cfg contents, read more at: https://trenchbroom.github.io/manual/latest/#game_configuration_files 
 var base_text: String = """{
-	version: 3,
-	name: "%s",
-	icon: "Icon.png",
+	"version": 9,
+	"name": "%s",
+	"icon": "Icon.png",
 	"fileformats": [
 		{ "format": "Standard", "initialmap": "initial_standard.map" },
 		{ "format": "Valve", "initialmap": "initial_valve.map" },
@@ -51,9 +51,9 @@ var base_text: String = """{
 		"searchpath": ".",
 		"packageformat": { "extension": "pak", "format": "idpak" }
 	},
-	"textures": {
-		"package": { "type": "directory", "root": "textures" },
-		"format": { "extensions": ["bmp", "exr", "hdr", "jpeg", "jpg", "png", "tga", "webp"], "format": "image" },
+	"materials": {
+		"root": "textures",
+		"extensions": ["bmp", "exr", "hdr", "jpeg", "jpg", "png", "tga", "webp"],
 		"attribute": "_tb_textures"
 	},
 	"entities": {
@@ -87,7 +87,7 @@ func _init() -> void:
 			icon = ResourceLoader.load("res://icon.png")
 
 ## Exports folder and files to Trenchbroom games folder
-func set_export_file(new_export_file : bool = true) -> void:
+func set_export_file(new_export_file: bool = true) -> void:
 	# When boolean button is pressed
 	if new_export_file != export_file:
 		if Engine.is_editor_hint():
@@ -114,9 +114,9 @@ func set_export_file(new_export_file : bool = true) -> void:
 			print("Exporting TrenchBroom Game Config Folder to ", config_folder)
 			
 			# Icon
-			var icon_path : String = config_folder + "/Icon.png"
+			var icon_path: String = config_folder + "/Icon.png"
 			print("Exporting icon to ", icon_path)
-			var export_icon : Image = icon.get_data()
+			var export_icon: Image = icon.get_data()
 			export_icon.resize(32, 32, Image.INTERPOLATE_LANCZOS)
 			export_icon.save_png(icon_path)
 			# .cfg
@@ -137,7 +137,7 @@ func set_export_file(new_export_file : bool = true) -> void:
 				if not fgd_file is QodotFGDFile:
 					print("Skipping %s: Not a valid FGD file" % [fgd_file])
 					continue
-				var export_fgd : QodotFGDFile = fgd_file.duplicate()
+				var export_fgd: QodotFGDFile = fgd_file.duplicate()
 				export_fgd.target_folder = config_folder
 				export_fgd.set_export_file(true)
 			print("Export complete\n")
