@@ -9,15 +9,38 @@ const RL_SPAWN_POS = Vector3(5.0, 2.5, 15.0) # Open terrace, clear floor
 const RL_TARGET_Y = 2.0 # Floor level
 
 func _enter_tree() -> void:
+	_disable_qodot_for_rl()
 	_strip_heavy_runtime_nodes()
 	call_deferred("_strip_heavy_runtime_nodes")
 
 func _ready() -> void:
+	_disable_qodot_for_rl()
 	call_deferred("_strip_heavy_runtime_nodes")
 	# Override AnnaInterface spawn/target config if running in RL mode.
 	var is_rl = OS.get_environment("ANNA_RL_MODE") in ["1", "true", "True"]
 	if is_rl:
 		call_deferred("_configure_rl_spawn")
+
+func _disable_qodot_for_rl() -> void:
+	var is_rl = OS.get_environment("ANNA_RL_MODE").to_lower() in ["1", "true", "yes", "on"]
+	if not is_rl:
+		return
+	var disable_qodot = OS.get_environment("ANNA_RL_DISABLE_QODOT").to_lower()
+	if disable_qodot != "" and not (disable_qodot in ["1", "true", "yes", "on"]):
+		return
+
+	var qodot_node = get_node_or_null("Terrace/Building/QodotMap")
+	if not is_instance_valid(qodot_node):
+		return
+
+	# BaseTerrace already stores the generated geometry/colliders in-scene.
+	# In RL we don't need editor-time Qodot behavior.
+	if "auto_build" in qodot_node:
+		qodot_node.auto_build = false
+	qodot_node.set_process(false)
+	qodot_node.set_physics_process(false)
+	qodot_node.set_process_input(false)
+	qodot_node.set_process_unhandled_input(false)
 
 func _configure_rl_spawn() -> void:
 	# Find the AnnaInterface node and set its spawn/target config for BaseTerrace.

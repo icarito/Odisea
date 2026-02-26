@@ -9,6 +9,7 @@ import time
 import shutil
 import signal
 import random
+import struct
 from typing import Optional
 
 class AnnaGymEnv(gym.Env):
@@ -19,9 +20,16 @@ class AnnaGymEnv(gym.Env):
         self.scene_path = scene_path
         self.launch_godot = launch_godot
         self.headless = headless
-        self.godot_bin = godot_bin or os.environ.get("GODOT_BIN", "godot3-bin")
+        self.godot_bin = godot_bin or os.environ.get("GODOT_BIN", "/usr/local/bin/godot3-server")
         self.video_driver = os.environ.get("ANNA_GODOT_VIDEO_DRIVER", "GLES2")
         self.prefer_server_bin = str(os.environ.get("ANNA_GODOT_PREFER_SERVER", "1")).lower() not in ("0", "false", "no")
+        self.require_server_bin = str(os.environ.get("ANNA_GODOT_REQUIRE_SERVER", "1")).lower() not in ("0", "false", "no")
+        self.server_video_driver = str(os.environ.get("ANNA_GODOT_SERVER_VIDEO_DRIVER", "Dummy")).strip()
+        self.disable_render_loop = str(os.environ.get("ANNA_GODOT_DISABLE_RENDER_LOOP", "1")).lower() not in ("0", "false", "no")
+        # Keep empty by default. Passing --max-fps 0 to godot3-server can cap RL throughput hard.
+        self.godot_max_fps = str(os.environ.get("ANNA_GODOT_MAX_FPS", "")).strip()
+        self.godot_quiet = str(os.environ.get("ANNA_GODOT_QUIET", "1")).lower() not in ("0", "false", "no")
+        self.use_binary_protocol = str(os.environ.get("ANNA_RL_BINARY_PROTOCOL", "0")).lower() not in ("0", "false", "no")
         self.godot_process = None
         self.sock = None
         self.buffer = ""
@@ -30,7 +38,7 @@ class AnnaGymEnv(gym.Env):
         self._connect_retry_delay_sec = max(0.1, float(os.environ.get("ANNA_CONNECT_RETRY_DELAY_SEC", "1.0")))
         self._launch_ready_timeout_sec = max(5.0, float(os.environ.get("ANNA_GODOT_READY_TIMEOUT_SEC", "45.0")))
         self._launch_stagger_sec = max(0.0, float(os.environ.get("ANNA_GODOT_LAUNCH_STAGGER_SEC", "0.35")))
-        self._allow_server_fallback = str(os.environ.get("ANNA_GODOT_SERVER_FALLBACK", "1")).lower() not in ("0", "false", "no")
+        self._allow_server_fallback = str(os.environ.get("ANNA_GODOT_SERVER_FALLBACK", "0")).lower() not in ("0", "false", "no")
 
         # Action Space:
         # Compact action set (steering is assisted in-engine):
@@ -99,6 +107,9 @@ class AnnaGymEnv(gym.Env):
             launched, used_server = self._launch_godot_once()
             if launched:
                 return
+            # If launch probe failed, do not leave orphaned processes alive
+            # before attempting a fallback launch.
+            self._terminate_godot_process()
             if used_server and self._allow_server_fallback and not attempted_server:
                 attempted_server = True
                 print("[AnnaGym] Headless server launch did not become ready. Falling back to regular Godot binary.")
@@ -108,6 +119,9 @@ class AnnaGymEnv(gym.Env):
 
     def _launch_godot_once(self):
         env = os.environ.copy()
+        # SessionManager only auto-injects AnnaBridge when this flag is set.
+        # Keep it enabled to avoid launching without a bridge in non-RL scenes.
+        env.setdefault("ANNA_ENABLED", "1")
         env["ANNA_RL_MODE"] = "1"
         env["ANNA_PORT"] = str(self.port)
         # Disable visual-only fake blob shadow in RL by default to reduce CPU raycast overhead.
@@ -115,15 +129,27 @@ class AnnaGymEnv(gym.Env):
         # Disable heavy shader warmup/cache build in RL by default.
         env.setdefault("ODISEA_DISABLE_SHADER_WARMUP", "1")
         env.setdefault("ODISEA_DISABLE_SHADER_WARMUP_IN_RL", "1")
-        # Prevent heavy level intro scripts for BaseTerrace-like scenes during RL training.
+        # BaseTerrace includes QodotMap for editor workflows; disable runtime behavior in RL.
+        env.setdefault("ANNA_RL_DISABLE_QODOT", "1")
+        # Performance: force explicit high-frequency defaults (avoid relying on 0=uncapped semantics).
+        env.setdefault("ANNA_RL_TARGET_FPS", "2000")
+        env.setdefault("ANNA_RL_PHYSICS_FPS", "2000")
+        env.setdefault("ANNA_RL_PHYSICS_FPS_CAP", "2000")
+        env.setdefault("ANNA_RL_MAX_PHYSICS_STEPS_PER_FRAME", "64")
+        env.setdefault("ANNA_RL_DISABLE_CPU_SLEEP", "1")
+        env["ANNA_RL_BINARY_PROTOCOL"] = "1" if self.use_binary_protocol else "0"
+        # Optional explicit override only; OYS_AUTO_RUN runs in CLI mode and can auto-quit.
         force_noop = str(env.get("ANNA_FORCE_OYS_NOOP", "0")).lower() in ("1", "true", "yes")
-        scene_label = str(self.scene_path or "")
-        needs_noop = force_noop or ("BaseTerrace" in scene_label)
-        if needs_noop and ("OYS_AUTO_RUN" not in env or not str(env.get("OYS_AUTO_RUN", "")).strip()):
+        if force_noop and ("OYS_AUTO_RUN" not in env or not str(env.get("OYS_AUTO_RUN", "")).strip()):
             env["OYS_AUTO_RUN"] = "res://core_v2/tests/anna_rl_noop.oys"
 
         godot_bin = self._resolve_godot_binary()
         is_server_bin = "server" in os.path.basename(godot_bin)
+        if self.headless and self.require_server_bin and not is_server_bin:
+            raise RuntimeError(
+                "[AnnaGym] Headless RL requires godot3-server. "
+                "Set GODOT_BIN=godot3-server (or disable ANNA_GODOT_REQUIRE_SERVER)."
+            )
 
         cmd = []
         if self.headless and not is_server_bin:
@@ -135,13 +161,28 @@ class AnnaGymEnv(gym.Env):
             print(f"[AnnaGym] ✅ Using server binary: {godot_bin} (headless, fast)")
 
         cmd.extend([godot_bin, "--audio-driver", "Dummy", "--path", "."])
+        if self.godot_max_fps:
+            if is_server_bin and self.godot_max_fps == "0":
+                print("[AnnaGym] ⚠️  ANNA_GODOT_MAX_FPS=0 limits godot3-server throughput; ignoring this value.")
+            else:
+                cmd.extend(["--max-fps", str(self.godot_max_fps)])
         if self.headless:
-            if not is_server_bin:
+            if is_server_bin:
+                if self.server_video_driver:
+                    cmd.extend(["--video-driver", str(self.server_video_driver)])
+            else:
                 cmd.extend(["--video-driver", str(self.video_driver)])
-            cmd.append("--no-window")
+                cmd.append("--no-window")
+            if self.disable_render_loop:
+                cmd.append("--disable-render-loop")
+        if self.godot_quiet:
+            cmd.append("--quiet")
 
-        if self.scene_path:
-            cmd.append(self.scene_path)
+        scene_arg = str(self.scene_path).strip() if self.scene_path else ""
+        if scene_arg:
+            if not scene_arg.startswith("res://") and not os.path.isabs(scene_arg):
+                scene_arg = "res://" + scene_arg.lstrip("./")
+            cmd.append(scene_arg)
 
         print(f"[AnnaGym] Launching Godot: {' '.join(cmd)}")
         if self._launch_stagger_sec > 0.0:
@@ -230,6 +271,7 @@ class AnnaGymEnv(gym.Env):
         for i in range(self._connect_max_retries):
             try:
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 self.sock.settimeout(5.0)
                 self.sock.connect(("127.0.0.1", self.port))
                 print("[AnnaGym] Connected to Godot ANNA Bridge.")
@@ -279,6 +321,26 @@ class AnnaGymEnv(gym.Env):
                 print(f"[AnnaGym] JSON Decode Error: {line}")
                 return {"obs": [0.0] * 12, "reward": 0.0, "done": True}
 
+    def _recv_exact(self, n_bytes: int) -> bytes:
+        if not self.sock:
+            self._connect()
+        out = bytearray()
+        while len(out) < n_bytes:
+            chunk = self.sock.recv(n_bytes - len(out))
+            if not chunk:
+                raise RuntimeError("Socket connection broken (empty read).")
+            out.extend(chunk)
+        return bytes(out)
+
+    def _recv_once_binary(self):
+        # 12 obs float32 + reward float32 + done uint8
+        raw = self._recv_exact(53)
+        unpacked = struct.unpack(">13fB", raw)
+        obs = list(unpacked[:12])
+        reward = float(unpacked[12])
+        done = bool(unpacked[13])
+        return {"obs": obs, "reward": reward, "done": done}
+
     def _request(self, payload):
         last_error = None
         for attempt in range(self.max_recovery_attempts + 1):
@@ -294,11 +356,29 @@ class AnnaGymEnv(gym.Env):
         print(f"[AnnaGym] request failed after recovery attempts: {last_error}")
         return {"obs": [0.0] * 12, "reward": 0.0, "done": True}
 
+    def _request_binary(self, command_byte: int):
+        last_error = None
+        cmd = int(command_byte) & 0xFF
+        for attempt in range(self.max_recovery_attempts + 1):
+            try:
+                if not self.sock:
+                    self._connect()
+                self.sock.sendall(bytes([cmd]))
+                return self._recv_once_binary()
+            except Exception as e:
+                last_error = e
+                print(f"[AnnaGym] transport error (binary attempt {attempt + 1}/{self.max_recovery_attempts + 1}): {e}")
+                if attempt >= self.max_recovery_attempts:
+                    break
+                self._recover_bridge(str(e))
+        print(f"[AnnaGym] binary request failed after recovery attempts: {last_error}")
+        return {"obs": [0.0] * 12, "reward": 0.0, "done": True}
+
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
         # Send Reset Command
-        data = self._request({"command": "RESET"})
+        data = self._request_binary(255) if self.use_binary_protocol else self._request({"command": "RESET"})
 
         # Receive Initial Observation
         obs = np.array(data.get("obs", np.zeros(12)), dtype=np.float32)
@@ -308,7 +388,7 @@ class AnnaGymEnv(gym.Env):
 
     def step(self, action):
         # Send Action
-        data = self._request({"action": int(action)})
+        data = self._request_binary(int(action)) if self.use_binary_protocol else self._request({"action": int(action)})
 
         obs = np.array(data.get("obs", np.zeros(12)), dtype=np.float32)
         reward = float(data.get("reward", 0.0))

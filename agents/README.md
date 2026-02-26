@@ -21,6 +21,22 @@ Ejemplo:
 pip install gymnasium stable-baselines3
 ```
 
+## Run recomendado (overnight)
+
+Si quieres un run largo, ordenado por carpeta y con pre-check de FPS:
+
+```bash
+./agents/run_overnight_best.sh
+```
+
+Runbook operativo:
+
+- `agents/RUNBOOK_OVERNIGHT.md`
+
+Regla critica de rendimiento:
+
+- No usar `ANNA_GODOT_MAX_FPS=0` con `godot3-server` (baja mucho los SPS).
+
 ## 1) Entrenar modelo
 
 Headless (recomendado):
@@ -137,10 +153,11 @@ Control por env:
 - `ANNA_SKIP_PY_PREWARM_AFTER_PREIMPORT=1` evita duplicar prewarm en Python (default)
 
 Notas de throughput por defecto del launcher CUDA:
-- `ANNA_RL_PHYSICS_FPS=360`
+- `ANNA_RL_PHYSICS_FPS=0` (preset uncapped de `AnnaBridge`)
 - `ODISEA_DISABLE_PERFMON_IN_RL=1` (evita overhead del monitor en entrenamiento)
 - `ODISEA_DISABLE_FAKE_SHADOW=1` (desactiva blob/fake shadow del piloto en RL)
 - `ODISEA_DISABLE_SHADER_WARMUP=1` (evita compilación de shader cache runtime en RL)
+- `ANNA_RL_DISABLE_QODOT=1` (desactiva comportamiento de Qodot en wrapper RL BaseTerrace)
 - `BATCH_SIZE=8192`
 - `NUM_ENVS_STAGE3=2` por defecto para estabilizar `BaseTerrace` (stage3)
 - `ANNA_CUDA_TF32=1`, `ANNA_CUDNN_BENCHMARK=1`, `ANNA_TORCH_MATMUL_PRECISION=high`
