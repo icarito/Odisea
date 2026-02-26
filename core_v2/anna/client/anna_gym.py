@@ -15,12 +15,22 @@ from typing import Optional
 class AnnaGymEnv(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 60}
 
-    def __init__(self, scene_path=None, port=5000, launch_godot=True, headless=True, godot_bin=None):
+    def __init__(
+        self,
+        scene_path=None,
+        port=5000,
+        launch_godot=True,
+        headless=True,
+        godot_bin=None,
+        auto_relaunch_on_disconnect: Optional[bool] = None,
+    ):
         self.port = port
         self.scene_path = scene_path
         self.launch_godot = launch_godot
         self.headless = headless
-        self.godot_bin = godot_bin or os.environ.get("GODOT_BIN", "/usr/local/bin/godot3-server")
+        env_godot_bin = os.environ.get("ANNA_GODOT_BIN") or os.environ.get("GODOT_BIN")
+        default_godot_bin = "godot3-server" if headless else "godot3-bin"
+        self.godot_bin = godot_bin or env_godot_bin or default_godot_bin
         self.video_driver = os.environ.get("ANNA_GODOT_VIDEO_DRIVER", "GLES2")
         self.prefer_server_bin = str(os.environ.get("ANNA_GODOT_PREFER_SERVER", "1")).lower() not in ("0", "false", "no")
         self.require_server_bin = str(os.environ.get("ANNA_GODOT_REQUIRE_SERVER", "1")).lower() not in ("0", "false", "no")
@@ -39,6 +49,10 @@ class AnnaGymEnv(gym.Env):
         self._launch_ready_timeout_sec = max(5.0, float(os.environ.get("ANNA_GODOT_READY_TIMEOUT_SEC", "45.0")))
         self._launch_stagger_sec = max(0.0, float(os.environ.get("ANNA_GODOT_LAUNCH_STAGGER_SEC", "0.35")))
         self._allow_server_fallback = str(os.environ.get("ANNA_GODOT_SERVER_FALLBACK", "0")).lower() not in ("0", "false", "no")
+        if auto_relaunch_on_disconnect is None:
+            self.auto_relaunch_on_disconnect = str(os.environ.get("ANNA_GODOT_AUTO_RELAUNCH", "1")).lower() not in ("0", "false", "no")
+        else:
+            self.auto_relaunch_on_disconnect = bool(auto_relaunch_on_disconnect)
 
         # Action Space:
         # Compact action set (steering is assisted in-engine):
@@ -90,6 +104,13 @@ class AnnaGymEnv(gym.Env):
                 if sc and shutil.which(sc):
                     print(f"[AnnaGym] Using headless server binary: {sc}")
                     return sc
+        if not self.headless and "server" in os.path.basename(candidate):
+            if shutil.which("godot3-bin"):
+                print("[AnnaGym] Render mode requested; switching from server binary to godot3-bin.")
+                candidate = "godot3-bin"
+            elif shutil.which("godot3"):
+                print("[AnnaGym] Render mode requested; switching from server binary to godot3.")
+                candidate = "godot3"
 
         if shutil.which(candidate):
             return candidate
@@ -131,11 +152,26 @@ class AnnaGymEnv(gym.Env):
         env.setdefault("ODISEA_DISABLE_SHADER_WARMUP_IN_RL", "1")
         # BaseTerrace includes QodotMap for editor workflows; disable runtime behavior in RL.
         env.setdefault("ANNA_RL_DISABLE_QODOT", "1")
-        # Performance: force explicit high-frequency defaults (avoid relying on 0=uncapped semantics).
-        env.setdefault("ANNA_RL_TARGET_FPS", "2000")
-        env.setdefault("ANNA_RL_PHYSICS_FPS", "2000")
-        env.setdefault("ANNA_RL_PHYSICS_FPS_CAP", "2000")
-        env.setdefault("ANNA_RL_MAX_PHYSICS_STEPS_PER_FRAME", "64")
+        # Exit behavior on bridge disconnect:
+        # - watch/no-relaunch sessions should quit Godot to avoid falling back to live gameplay.
+        # - training/relaunch sessions should stay resilient and relaunch from client side.
+        if "ANNA_RL_EXIT_ON_DISCONNECT" not in env:
+            env["ANNA_RL_EXIT_ON_DISCONNECT"] = "1" if (self.launch_godot and not self.auto_relaunch_on_disconnect) else "0"
+        env.setdefault("ANNA_RL_EXIT_ON_DISCONNECT_GRACE_MS", "1500")
+        # Runtime defaults:
+        # - Headless training: very high fixed physics rate for maximum SPS.
+        # - Render/watch mode: human-speed physics so movement is not slow motion.
+        if self.headless:
+            env.setdefault("ANNA_RL_TARGET_FPS", "2000")
+            env.setdefault("ANNA_RL_PHYSICS_FPS", "2000")
+            env.setdefault("ANNA_RL_PHYSICS_FPS_CAP", "2000")
+            env.setdefault("ANNA_RL_MAX_PHYSICS_STEPS_PER_FRAME", "64")
+        else:
+            render_fps = str(os.environ.get("ANNA_RL_RENDER_PHYSICS_FPS", "60")).strip() or "60"
+            env.setdefault("ANNA_RL_TARGET_FPS", render_fps)
+            env.setdefault("ANNA_RL_PHYSICS_FPS", render_fps)
+            env.setdefault("ANNA_RL_PHYSICS_FPS_CAP", render_fps)
+            env.setdefault("ANNA_RL_MAX_PHYSICS_STEPS_PER_FRAME", "8")
         env.setdefault("ANNA_RL_DISABLE_CPU_SLEEP", "1")
         env["ANNA_RL_BINARY_PROTOCOL"] = "1" if self.use_binary_protocol else "0"
         # Optional explicit override only; OYS_AUTO_RUN runs in CLI mode and can auto-quit.
@@ -157,8 +193,10 @@ class AnnaGymEnv(gym.Env):
             print(f"[AnnaGym] ⚠️  WARNING: using xvfb-run (software rendering likely). "
                   f"godot3-server not found. FPS will be ~500 instead of 2000+. "
                   f"Install godot3-server for GPU-speed training.")
-        else:
+        elif self.headless:
             print(f"[AnnaGym] ✅ Using server binary: {godot_bin} (headless, fast)")
+        else:
+            print(f"[AnnaGym] ✅ Using render binary: {godot_bin} (windowed mode)")
 
         cmd.extend([godot_bin, "--audio-driver", "Dummy", "--path", "."])
         if self.godot_max_fps:
@@ -180,9 +218,7 @@ class AnnaGymEnv(gym.Env):
 
         scene_arg = str(self.scene_path).strip() if self.scene_path else ""
         if scene_arg:
-            if not scene_arg.startswith("res://") and not os.path.isabs(scene_arg):
-                scene_arg = "res://" + scene_arg.lstrip("./")
-            cmd.append(scene_arg)
+            cmd.append(self._resolve_scene_arg(scene_arg))
 
         print(f"[AnnaGym] Launching Godot: {' '.join(cmd)}")
         if self._launch_stagger_sec > 0.0:
@@ -191,6 +227,70 @@ class AnnaGymEnv(gym.Env):
         self.godot_process = subprocess.Popen(cmd, env=env, start_new_session=True)
         ready = self._wait_for_bridge_ready(timeout_sec=self._launch_ready_timeout_sec)
         return ready, is_server_bin
+
+    def _resolve_scene_arg(self, scene_arg: str) -> str:
+        project_root = os.path.abspath(".")
+
+        def _normalize_res(rel_path: str) -> str:
+            rel = rel_path.lstrip("./").replace("\\", "/")
+            return "res://" + rel
+
+        def _exists_rel(rel_path: str) -> bool:
+            rel = rel_path.lstrip("./")
+            return os.path.exists(os.path.join(project_root, rel))
+
+        raw = str(scene_arg).strip()
+        if not raw:
+            return raw
+
+        attempts = []
+        candidates = []
+
+        if raw.startswith("res://"):
+            rel = raw[len("res://"):].lstrip("/")
+            candidates.append(rel)
+        elif os.path.isabs(raw):
+            if os.path.exists(raw):
+                try:
+                    rel = os.path.relpath(raw, project_root)
+                    if not rel.startswith(".."):
+                        return _normalize_res(rel)
+                except Exception:
+                    pass
+                return raw
+            attempts.append(raw)
+            raise RuntimeError("[AnnaGym] Scene path does not exist: %s" % raw)
+        else:
+            candidates.append(raw.lstrip("./"))
+
+        expanded = []
+        for c in candidates:
+            c = c.strip()
+            if not c:
+                continue
+            expanded.append(c)
+            if not c.endswith(".tscn"):
+                expanded.append(c + ".tscn")
+            if "/" not in c and "\\" not in c:
+                expanded.append("core_v2/tests/" + c)
+                expanded.append("scenes/" + c)
+                if not c.endswith(".tscn"):
+                    expanded.append("core_v2/tests/" + c + ".tscn")
+                    expanded.append("scenes/" + c + ".tscn")
+
+        seen = set()
+        for rel in expanded:
+            if rel in seen:
+                continue
+            seen.add(rel)
+            attempts.append(rel)
+            if _exists_rel(rel):
+                return _normalize_res(rel)
+
+        raise RuntimeError(
+            "[AnnaGym] Could not resolve scene '%s'. Tried: %s"
+            % (raw, ", ".join(attempts[:10]))
+        )
 
     def _wait_for_bridge_ready(self, timeout_sec: float) -> bool:
         deadline = time.time() + max(1.0, float(timeout_sec))
@@ -291,6 +391,8 @@ class AnnaGymEnv(gym.Env):
         print(f"[AnnaGym] Recovering bridge ({reason})")
         self._close_socket()
         if self.launch_godot:
+            if not self.auto_relaunch_on_disconnect:
+                raise RuntimeError("[AnnaGym] Bridge disconnected and auto-relaunch is disabled.")
             if self._is_godot_alive():
                 self._terminate_godot_process()
             self._launch_godot()
@@ -352,9 +454,14 @@ class AnnaGymEnv(gym.Env):
                 print(f"[AnnaGym] transport error (attempt {attempt + 1}/{self.max_recovery_attempts + 1}): {e}")
                 if attempt >= self.max_recovery_attempts:
                     break
-                self._recover_bridge(str(e))
+                try:
+                    self._recover_bridge(str(e))
+                except Exception as recover_err:
+                    last_error = recover_err
+                    print(f"[AnnaGym] bridge recovery failed: {recover_err}")
+                    break
         print(f"[AnnaGym] request failed after recovery attempts: {last_error}")
-        return {"obs": [0.0] * 12, "reward": 0.0, "done": True}
+        return {"obs": [0.0] * 12, "reward": 0.0, "done": True, "__bridge_dead": True}
 
     def _request_binary(self, command_byte: int):
         last_error = None
@@ -370,9 +477,14 @@ class AnnaGymEnv(gym.Env):
                 print(f"[AnnaGym] transport error (binary attempt {attempt + 1}/{self.max_recovery_attempts + 1}): {e}")
                 if attempt >= self.max_recovery_attempts:
                     break
-                self._recover_bridge(str(e))
+                try:
+                    self._recover_bridge(str(e))
+                except Exception as recover_err:
+                    last_error = recover_err
+                    print(f"[AnnaGym] bridge recovery failed: {recover_err}")
+                    break
         print(f"[AnnaGym] binary request failed after recovery attempts: {last_error}")
-        return {"obs": [0.0] * 12, "reward": 0.0, "done": True}
+        return {"obs": [0.0] * 12, "reward": 0.0, "done": True, "__bridge_dead": True}
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -382,7 +494,10 @@ class AnnaGymEnv(gym.Env):
 
         # Receive Initial Observation
         obs = np.array(data.get("obs", np.zeros(12)), dtype=np.float32)
-        info = {"bridge_recovered": bool(data.get("done", False) and np.all(obs == 0.0))}
+        info = {
+            "bridge_recovered": bool(data.get("done", False) and np.all(obs == 0.0)),
+            "bridge_dead": bool(data.get("__bridge_dead", False)),
+        }
 
         return obs, info
 
@@ -394,7 +509,7 @@ class AnnaGymEnv(gym.Env):
         reward = float(data.get("reward", 0.0))
         terminated = bool(data.get("done", False))
         truncated = False
-        info = {}
+        info = {"bridge_dead": bool(data.get("__bridge_dead", False))}
 
         return obs, reward, terminated, truncated, info
 
