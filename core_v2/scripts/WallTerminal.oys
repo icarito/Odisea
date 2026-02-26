@@ -1,0 +1,12 @@
+LOAD_PROP "res://core_v2/props/WallTerminal.tscn"
+SPAWN scene="res://core_v2/tests/CameraClose.tscn"
+WAIT 1.0
+SCREENSHOT 0_idle
+INTERACT
+WAIT 2.0
+SCREENSHOT 1_mid
+WAIT 3.0
+SCREENSHOT 2_active
+INTERACT
+WAIT 1.0
+SCREENSHOT 3_off
