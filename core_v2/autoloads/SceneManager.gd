@@ -12,6 +12,9 @@ export(float, 0.0, 3.0) var default_fade_in := 0.35
 export(float, 0.0, 3.0) var default_audio_fade_out := 0.35
 export(float, 0.0, 3.0) var default_audio_fade_in := 0.35
 export(float, 3.0, 60.0) var transition_timeout_s := 9.0
+export(bool) var boot_fade_in_enabled := true
+export(float, 0.0, 5.0) var boot_fade_in_duration := 0.55
+export(int, 0, 10) var boot_fade_in_wait_frames := 1
 
 var _loader = null
 var _loaded_scene: PackedScene = null
@@ -25,6 +28,10 @@ var _input_restore_state: Dictionary = {}
 var _transition_started_ms := 0
 var _pending_scene_path := ""
 var _pending_transition_params: Dictionary = {}
+var _boot_fade_consumed := false
+
+func _ready() -> void:
+	call_deferred("_run_boot_fade_in")
 
 func _process(_delta: float) -> void:
 	_poll_loader()
@@ -415,3 +422,40 @@ func _drain_pending_transition() -> void:
 	_pending_scene_path = ""
 	_pending_transition_params.clear()
 	goto_scene(next_path, next_params)
+
+func _run_boot_fade_in() -> void:
+	if _boot_fade_consumed or not boot_fade_in_enabled:
+		return
+	_boot_fade_consumed = true
+	if _is_transitioning:
+		return
+	var tree := get_tree()
+	if not tree:
+		return
+
+	var transition_layer = _get_transition_layer()
+	if not transition_layer or not transition_layer.has_method("play"):
+		return
+
+	transition_layer.play("fade_out", {
+		"duration": 0.0,
+		"show_loading": false
+	})
+
+	for _i in range(max(0, boot_fade_in_wait_frames)):
+		yield(tree, "idle_frame")
+
+	var max_wait_frames := 90
+	while max_wait_frames > 0 and not is_instance_valid(tree.current_scene):
+		yield(tree, "idle_frame")
+		max_wait_frames -= 1
+
+	if _is_transitioning:
+		return
+
+	if not is_instance_valid(tree.current_scene):
+		transition_layer.play("fade_in", {"duration": 0.0})
+		return
+
+	yield(tree, "idle_frame")
+	transition_layer.play("fade_in", {"duration": max(0.0, boot_fade_in_duration)})
