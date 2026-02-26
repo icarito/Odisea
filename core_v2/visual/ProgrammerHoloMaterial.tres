@@ -1,0 +1,13 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=2]
+
+[ext_resource path="res://core_v2/visual/ProgrammerHoloShader.shader" type="Shader" id=1]
+
+[resource]
+shader = ExtResource( 1 )
+shader_param/holo_color = Color( 0, 1, 1, 0.8 )
+shader_param/emission_energy = 2.0
+shader_param/scanline_speed = 2.0
+shader_param/scanline_density = 150.0
+shader_param/scanline_strength = 0.5
+shader_param/fresnel_power = 3.0
+shader_param/glitch_intensity = 0.05

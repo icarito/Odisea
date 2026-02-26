@@ -96,15 +96,22 @@ func _ready() -> void:
 		return
 
 	# Conectar la señal de salto para manejar la animación de forma reactiva.
-	controller.connect("jumped", self, "_on_controller_jumped")
-	controller.connect("hit_ceiling", self, "_on_controller_hit_ceiling")
+	controller.connect("jumped", self , "_on_controller_jumped")
+	controller.connect("hit_ceiling", self , "_on_controller_hit_ceiling")
 	if controller.has_signal("acrobatic_jumped"):
-		controller.connect("acrobatic_jumped", self, "_on_controller_acrobatic_jumped")
+		controller.connect("acrobatic_jumped", self , "_on_controller_acrobatic_jumped")
 
 	# Intentar obtener AnimationPlayer si existe (puede estar dentro de Skeleton)
 	anim_player = get_node_or_null("AnimationPlayer")
 	if not anim_player:
 		anim_player = find_node("AnimationPlayer", true, false)
+		
+	if anim_player:
+		for anim_name in anim_player.get_animation_list():
+			if "Loop" in anim_name or "Run" in anim_name or "Walk" in anim_name or "Idle" in anim_name:
+				var anim = anim_player.get_animation(anim_name)
+				if anim:
+					anim.loop = true
  
 	var playback = animation_tree.get(PARAM_PLAYBACK) if animation_tree else null
 	if playback:
@@ -548,7 +555,7 @@ func _setup_debug_gizmo():
 		# Try looking in children of children indiscriminately for ANY Skeleton
 		_skeleton = null # Reset
 		# Breadth-first search for a Skeleton node
-		var queue = [self]
+		var queue = [ self ]
 		while not queue.empty():
 			var curr = queue.pop_front()
 			if curr is Skeleton:
