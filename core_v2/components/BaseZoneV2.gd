@@ -13,6 +13,7 @@ var _host_area: Area = null
 # Track bodies currently in zone (more reliable than overlaps_body during physics sync)
 var _bodies_in_zone: Dictionary = {}
 var _runtime_debug_logs := false
+var _debug_material: SpatialMaterial = null
 
 func _ready():
 	var env_debug := OS.get_environment("ODISEA_ZONE_DEBUG").to_lower()
@@ -189,11 +190,13 @@ func _update_debug_mesh():
 		# Match global transform exactly
 		mesh_inst.global_transform = shape.global_transform
 	
-	var mat = SpatialMaterial.new()
-	mat.flags_transparent = true
-	mat.flags_unshaded = true
-	mat.albedo_color = debug_color
-	mesh_inst.material_override = mat
+	if not _debug_material:
+		_debug_material = SpatialMaterial.new()
+		_debug_material.flags_transparent = true
+		_debug_material.flags_unshaded = true
+
+	_debug_material.albedo_color = debug_color
+	mesh_inst.material_override = _debug_material
 	mesh_inst.visible = true
 
 func _get_configuration_warning():
