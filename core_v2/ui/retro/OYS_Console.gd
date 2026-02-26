@@ -652,7 +652,7 @@ func _cmd_run(argv: Array, _raw: String) -> Dictionary:
 	if run_state is GDScriptFunctionState:
 		run_state.connect("completed", self, "_on_oys_run_completed", [path, interpreter], CONNECT_ONESHOT)
 	else:
-		_on_oys_run_completed(null, path, interpreter)
+		_on_oys_run_completed(path, interpreter)
 
 	emit_signal("run_oys_requested", path)
 	add_log("CORE", "Running OYS script: %s" % path)
@@ -1217,7 +1217,7 @@ func _vfs_convert_to_expected(raw_value: String, expected_type: int):
 		_:
 			return text
 
-func _on_oys_run_completed(_result = null, path: String = "", interpreter = null) -> void:
+func _on_oys_run_completed(path: String = "", interpreter = null) -> void:
 	add_log("CORE", "Finished OYS script: %s" % path)
 	if interpreter != null:
 		_active_interpreters.erase(interpreter)

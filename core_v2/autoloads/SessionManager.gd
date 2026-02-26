@@ -1022,7 +1022,7 @@ func _on_oys_instruction_executed(inst: Dictionary, _vars: Dictionary):
 	
 	var cmd = inst.get("command", "")
 	match cmd:
-		"ASSERT", "SET", "MATH", "PRINT", "CLS", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "PLAY_ANIM", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP":
+		"ASSERT", "SET", "MATH", "PRINT", "CLS", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "PLAY_ANIM", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP", "OPEN", "CHANGE_SCENE":
 			_current_replay_data["events"][frame].append(OYS_Parser.serialize_instruction(inst))
 		"ASSERT_SIGNAL":
 			var start_evt = OYS_Parser.serialize_instruction(inst)
@@ -2228,6 +2228,66 @@ func unregister_oys_actor(name: String) -> void:
 		if is_instance_valid(node) and node.is_in_group("oys_actor"):
 			node.remove_from_group("oys_actor")
 		_oys_actors.erase(name)
+
+func capture_scene_transition_state() -> Dictionary:
+	var out := {}
+	_find_player()
+	if is_instance_valid(player) and player.has_method("get_full_snapshot"):
+		var snapshot = player.get_full_snapshot()
+		if typeof(snapshot) == TYPE_DICTIONARY:
+			out["player_snapshot"] = snapshot.duplicate(true)
+	return out
+
+func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dictionary = {}):
+	_find_player()
+	if not is_instance_valid(player):
+		yield(get_tree(), "physics_frame")
+		return null
+
+	if typeof(state_data) == TYPE_DICTIONARY and state_data.has("player_snapshot"):
+		var snapshot = state_data["player_snapshot"]
+		if typeof(snapshot) == TYPE_DICTIONARY and player.has_method("restore_snapshot"):
+			player.restore_snapshot(snapshot)
+
+	var spawn = _find_scene_spawn_point(target_spawn_id)
+	if spawn and is_instance_valid(spawn):
+		if player.has_method("teleport_to"):
+			player.teleport_to(spawn.global_transform)
+		else:
+			player.global_transform = spawn.global_transform
+
+	var teleport_system = get_node_or_null("TeleportSystem")
+	if teleport_system and teleport_system.has_method("force_initial_spawn"):
+		var yaw = player.get("yaw") if "yaw" in player else 0.0
+		var pitch = player.get("pitch") if "pitch" in player else 0.0
+		teleport_system.force_initial_spawn(player.global_transform, yaw, pitch)
+
+	yield(get_tree(), "physics_frame")
+	return player
+
+func _find_scene_spawn_point(spawn_id: String = "") -> SpawnPointV2:
+	var scene = get_tree().current_scene
+	if not is_instance_valid(scene):
+		return null
+
+	var fallback: SpawnPointV2 = null
+	var pending: Array = [scene]
+	while not pending.empty():
+		var node = pending.pop_front()
+		if not is_instance_valid(node):
+			continue
+		if node is SpawnPointV2:
+			var sp := node as SpawnPointV2
+			if fallback == null:
+				fallback = sp
+			if spawn_id == "" or String(sp.spawn_id) == spawn_id:
+				return sp
+		for child in node.get_children():
+			pending.push_back(child)
+
+	if spawn_id == "":
+		return fallback
+	return null
 
 func take_oys_screenshot(label: String, _extra = ""):
 	# Wait for draw to complete

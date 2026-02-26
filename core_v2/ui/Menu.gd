@@ -39,13 +39,34 @@ func _on_Start_pressed():
 
 func _on_fade_out_complete():
 	#Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED) # Capturamos el mouse (desactivado para permitir Cursor personalizado)
-	get_tree().change_scene("res://core_v2/levels/BaseTerrace.tscn")
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if scene_manager and scene_manager.has_method("goto_scene"):
+		var state = scene_manager.goto_scene("res://core_v2/levels/BaseTerrace.tscn", {
+			"show_loading": false,
+			"fade_out": 0.0,
+			"fade_in": 0.25
+		})
+		if state is GDScriptFunctionState:
+			yield (state, "completed")
+	else:
+		get_tree().change_scene("res://core_v2/levels/BaseTerrace.tscn")
 
 func _on_copilot_pressed():
 	"""Multiplayer split-screen."""
 	#Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED) # Capturamos el mouse también para el modo coop (desactivado para permitir Cursor personalizado)
 	#GameGlobals.set_mode("copilot")
-	get_tree().change_scene("res://scenes/multiplayer/LocalMultiplayer.tscn")
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if scene_manager and scene_manager.has_method("goto_scene"):
+		var state = scene_manager.goto_scene("res://scenes/multiplayer/LocalMultiplayer.tscn", {
+			"show_loading": false,
+			"fade_out": 0.0,
+			"fade_in": 0.25,
+			"preserve_player_state": false
+		})
+		if state is GDScriptFunctionState:
+			yield (state, "completed")
+	else:
+		get_tree().change_scene("res://scenes/multiplayer/LocalMultiplayer.tscn")
 
 func _on_Quit_pressed():
 	get_tree().quit()

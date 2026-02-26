@@ -1822,23 +1822,23 @@
 // entity 1
 {
 "classname" "light_flickering"
-"origin" "248 360 72"
+"origin" "248 360 76"
 "starts_active" "1"
 }
 // entity 2
 {
 "classname" "light_flickering"
-"origin" "120 360 72"
+"origin" "120 360 76"
 "starts_active" "1"
 }
 // entity 3
 {
 "classname" "light_flickering"
-"origin" "360 360 72"
+"origin" "360 360 76"
 }
 // entity 4
 {
 "classname" "light_ceiling"
-"origin" "184 360 72"
+"origin" "184 360 76"
 "starts_active" "1"
 }

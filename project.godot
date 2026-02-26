@@ -1369,6 +1369,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/ui/TouchCameraControls.gd"
 }, {
+"base": "BaseZoneV2",
+"class": "TransferZoneV2",
+"language": "GDScript",
+"path": "res://core_v2/components/TransferZoneV2.gd"
+}, {
 "base": "Spatial",
 "class": "TransformModifier",
 "language": "GDScript",
@@ -1757,6 +1762,7 @@ _global_script_class_icons={
 "TouchActionButton": "",
 "TouchButton": "",
 "TouchCameraControls": "",
+"TransferZoneV2": "",
 "TransformModifier": "res://addons/virtualcamera/TransformModifiers/TransformModifier.svg",
 "TrenchBroomFaceAttrib": "",
 "TrenchBroomFaceAttribDefaults": "",
@@ -1796,6 +1802,8 @@ config/optional_nodes_enabled=true
 
 AudioManager="*res://core_v2/autoloads/AudioManager.gd"
 SessionManager="*res://core_v2/autoloads/SessionManager.gd"
+TransitionLayer="*res://core_v2/autoloads/TransitionLayer.gd"
+SceneManager="*res://core_v2/autoloads/SceneManager.gd"
 PersistenceManager="*res://core_v2/autoloads/PersistenceManager.gd"
 WallOcclusionManager="*res://core_v2/autoloads/WallOcclusionManager.gd"
 CinematicManager="*res://core_v2/autoloads/CinematicManager.gd"

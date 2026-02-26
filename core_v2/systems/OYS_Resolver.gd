@@ -155,7 +155,7 @@ static func _instruction_to_frames(inst: Dictionary, start_frame: int) -> Dictio
 				frames[start_frame + i] = {}
 			next_frame = start_frame + num_frames
 
-		"ASSERT", "SET", "MATH", "PRINT", "CLS", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "PLAY_ANIM", "PLAY_SOUND", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP", "CAMERA_SHAKE", "CAMERA_SHAKE_STOP":
+		"ASSERT", "SET", "MATH", "PRINT", "CLS", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "PLAY_ANIM", "PLAY_SOUND", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP", "CAMERA_SHAKE", "CAMERA_SHAKE_STOP", "OPEN", "CHANGE_SCENE":
 			# Logic commands: executed at the START of the frame, do not consume time
 			if not events.has(start_frame):
 				events[start_frame] = []
@@ -189,7 +189,7 @@ static func _instruction_to_frames(inst: Dictionary, start_frame: int) -> Dictio
 		# These commands are markers or runtime-only - just pass through or handle if needed
 		"SECTION", "END", "LEVEL", "GOTO", "IF", \
 		"PLAY_ANIM", "WAIT_ANIM", "SPAWN", "SET_TIME_SCALE", "SCREENSHOT", \
-		"CINEMATIC_START", "CINEMATIC_STOP", "RECORD_START", "RECORD_STOP":
+		"CINEMATIC_START", "CINEMATIC_STOP", "RECORD_START", "RECORD_STOP", "OPEN", "CHANGE_SCENE":
 			pass
 
 	return {

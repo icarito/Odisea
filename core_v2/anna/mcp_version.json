@@ -1,0 +1,13 @@
+{
+  "manifest_version": 1,
+  "bundle_version": "1.0.0",
+  "server": {
+    "name": "odisea-mcp",
+    "version": "0.2.0",
+    "protocol_version": "2025-06-18"
+  },
+  "runtime": {
+    "bridge_version": "0.2.0",
+    "protocol_version": "anna.v1"
+  }
+}

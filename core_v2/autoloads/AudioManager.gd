@@ -153,6 +153,26 @@ func reset():
 	if _tween:
 		_tween.stop_all()
 
+func fade_out_current_bgm(duration: float = 0.35) -> void:
+	var time = max(0.0, duration)
+	if _mdm_instance and _mdm_instance.has_method("stop") and _active_player == null:
+		# Fallback when MDM is controlling music and no internal stream is active.
+		_mdm_instance.call("stop")
+		return
+	if not _active_player or not _active_player.playing:
+		return
+	if time <= 0.0:
+		_active_player.stop()
+		return
+	_tween.stop_all()
+	_tween.interpolate_property(_active_player, "volume_db", _active_player.volume_db, -80.0, time, Tween.TRANS_LINEAR, Tween.EASE_IN_OUT)
+	_tween.interpolate_callback(_active_player, time, "stop")
+	_tween.start()
+
+func refresh_bgm_from_zones(_fade_in_time: float = 0.35) -> void:
+	# Zone update already carries fade_time and crossfade logic.
+	_update_bgm()
+
 # SFX Integration
 func play_sound(sound_name: String, _pos: Vector3 = Vector3.ZERO):
 	if _mds_instance and _mds_instance.has_method("play"):

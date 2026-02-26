@@ -9,7 +9,7 @@ const FPS = 60.0
 # Supported commands enum for type safety
 enum Command {
 	UNKNOWN,
-	SECTION, END, LEVEL,
+	SECTION, END, LEVEL, CHANGE_SCENE,
 	FW, BW, LEFT, RIGHT, JUMP, INTERACT,
 	WAIT, WAIT_FRAMES, LOOK, CALL, ZOOM, FOV,
 	SET, ASSERT, ASSERT_SIGNAL, PRINT, CLS,
@@ -326,6 +326,51 @@ static func parse_instruction(line: String) -> Dictionary:
 			data["path"] = _extract_quoted(parts, 1)
 			if data["path"] == "" and parts.size() > 1:
 				data["path"] = parts[1]
+			for i in range(1, parts.size()):
+				var token = parts[i]
+				if token.find("=") == -1:
+					continue
+				var kv = token.split("=", false, 1)
+				if kv.size() < 2:
+					continue
+				var key = kv[0].to_lower()
+				var value = kv[1].replace("\"", "")
+				match key:
+					"path", "scene":
+						data["path"] = value
+					"transition":
+						data["transition"] = value
+					"spawn", "spawn_id", "target_spawn_id":
+						data["spawn_id"] = value
+
+		"CHANGE_SCENE":
+			data["path"] = _extract_quoted(parts, 1)
+			if data["path"] == "" and parts.size() > 1:
+				data["path"] = parts[1]
+			if parts.size() > 2:
+				data["transition"] = _extract_quoted(parts, 2)
+				if data["transition"] == "":
+					data["transition"] = parts[2].replace("\"", "")
+			if parts.size() > 3:
+				data["spawn_id"] = _extract_quoted(parts, 3)
+				if data["spawn_id"] == "":
+					data["spawn_id"] = parts[3].replace("\"", "")
+			for i in range(1, parts.size()):
+				var token = parts[i]
+				if token.find("=") == -1:
+					continue
+				var kv = token.split("=", false, 1)
+				if kv.size() < 2:
+					continue
+				var key = kv[0].to_lower()
+				var value = kv[1].replace("\"", "")
+				match key:
+					"path", "scene":
+						data["path"] = value
+					"transition", "fx":
+						data["transition"] = value
+					"spawn", "spawn_id", "target_spawn_id":
+						data["spawn_id"] = value
 
 		"CLICK":
 			data["selector"] = _extract_quoted(parts, 1)

@@ -107,6 +107,20 @@ func test_parse_play_sound_explicit_sound_name():
 	assert_str(inst.command).is_equal("PLAY_SOUND")
 	assert_str(String(inst.get("sound", ""))).is_equal("ui_click")
 
+func test_parse_change_scene_positional():
+	var inst = OYS_Parser.parse_instruction('CHANGE_SCENE "res://core_v2/levels/BaseTerrace.tscn" "fade" "spawn_door_A"')
+	assert_str(inst.command).is_equal("CHANGE_SCENE")
+	assert_str(String(inst.get("path", ""))).is_equal("res://core_v2/levels/BaseTerrace.tscn")
+	assert_str(String(inst.get("transition", ""))).is_equal("fade")
+	assert_str(String(inst.get("spawn_id", ""))).is_equal("spawn_door_A")
+
+func test_parse_change_scene_key_values():
+	var inst = OYS_Parser.parse_instruction('CHANGE_SCENE path="res://core_v2/levels/TestScene_v2.tscn" transition=loading spawn_id=door_b')
+	assert_str(inst.command).is_equal("CHANGE_SCENE")
+	assert_str(String(inst.get("path", ""))).is_equal("res://core_v2/levels/TestScene_v2.tscn")
+	assert_str(String(inst.get("transition", ""))).is_equal("loading")
+	assert_str(String(inst.get("spawn_id", ""))).is_equal("door_b")
+
 func test_parse_vcamera_with_follow_and_look_at():
 	var inst = OYS_Parser.parse_instruction('VCAMERA name="IntroFar" duration=1.2 follow="Pilot" look_at="Beacon"')
 	assert_str(inst.command).is_equal("VCAMERA")
@@ -227,6 +241,30 @@ class MockPivotAnimator extends Node:
 	var stop_calls := 0
 	func stop_override_animation() -> void:
 		stop_calls += 1
+
+class MockSceneManagerNode extends Node:
+	var calls := []
+	func goto_scene(path: String, params: Dictionary = {}):
+		calls.append({
+			"path": path,
+			"params": params.duplicate(true)
+		})
+		return null
+
+class MockHostWithSceneManager extends Node:
+	var scene_manager = null
+	func _init():
+		scene_manager = MockSceneManagerNode.new()
+		scene_manager.name = "SceneManager"
+		add_child(scene_manager)
+	func get_tree():
+		return Engine.get_main_loop()
+	func get_node_or_null(path):
+		if path == "/root/SceneManager":
+			return scene_manager
+		if path == "/root/SessionManager":
+			return null
+		return .get_node_or_null(path)
 
 class RecordingInterpreter extends OYS_Interpreter:
 	var subtitles := []
@@ -475,6 +513,22 @@ func test_interpreter_play_sound_calls_sfx_node():
 	yield (_run_interpreter(interpreter), "completed")
 
 	assert_int(sfx.plays).is_equal(1)
+	host.queue_free()
+
+func test_interpreter_change_scene_routes_to_scene_manager():
+	var host = MockHostWithSceneManager.new()
+	add_child(host)
+
+	var interpreter = OYS_Interpreter.new(host)
+	interpreter.parse('CHANGE_SCENE "res://core_v2/levels/BaseTerrace.tscn" "fade" "door_c"')
+	yield (_run_interpreter(interpreter), "completed")
+
+	assert_int(host.scene_manager.calls.size()).is_equal(1)
+	var call = host.scene_manager.calls[0]
+	assert_str(String(call.get("path", ""))).is_equal("res://core_v2/levels/BaseTerrace.tscn")
+	var params: Dictionary = call.get("params", {})
+	assert_str(String(params.get("transition", ""))).is_equal("fade")
+	assert_str(String(params.get("spawn_id", ""))).is_equal("door_c")
 	host.queue_free()
 
 func test_interpreter_vcamera_applies_follow_and_look_at_targets():

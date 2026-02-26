@@ -396,9 +396,30 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			if typeof(scene_path) != TYPE_STRING or String(scene_path).strip_edges() == "":
 				printerr("[OYS] OPEN failed: invalid path: ", scene_path)
 			else:
-				var open_state = _open_scene(String(scene_path))
+				var open_params = {}
+				if inst.has("transition"):
+					open_params["transition"] = String(_resolve_value(inst.get("transition", "")))
+				if inst.has("spawn_id"):
+					open_params["spawn_id"] = String(_resolve_value(inst.get("spawn_id", "")))
+				var open_state = _change_scene(String(scene_path), open_params)
 				if open_state is GDScriptFunctionState:
 					yield (open_state, "completed")
+				_sync_host_after_scene_change()
+
+		"CHANGE_SCENE":
+			var target_scene = _resolve_value(inst.get("path", ""))
+			if typeof(target_scene) != TYPE_STRING or String(target_scene).strip_edges() == "":
+				printerr("[OYS] CHANGE_SCENE failed: invalid path: ", target_scene)
+			else:
+				var scene_params = {}
+				if inst.has("transition"):
+					scene_params["transition"] = String(_resolve_value(inst.get("transition", "")))
+				if inst.has("spawn_id"):
+					scene_params["spawn_id"] = String(_resolve_value(inst.get("spawn_id", "")))
+				var change_state = _change_scene(String(target_scene), scene_params)
+				if change_state is GDScriptFunctionState:
+					yield (change_state, "completed")
+				_sync_host_after_scene_change()
 
 		"CLICK":
 			var selector = String(_resolve_value(inst.get("selector", "")))
@@ -2187,6 +2208,25 @@ func _find_node_by_type(root: Node, type) -> Node:
 		var res = _find_node_by_type(root.get_child(i), type)
 		if res: return res
 	return null
+
+func _change_scene(path: String, params: Dictionary = {}):
+	if host_node and is_instance_valid(host_node):
+		var scene_manager = host_node.get_node_or_null("/root/SceneManager")
+		if scene_manager and scene_manager.has_method("goto_scene"):
+			var state = scene_manager.goto_scene(path, params)
+			if state is GDScriptFunctionState:
+				yield (state, "completed")
+			return null
+	return _open_scene(path)
+
+func _sync_host_after_scene_change() -> void:
+	var tree = Engine.get_main_loop()
+	if tree and tree is SceneTree:
+		var st = tree as SceneTree
+		if st.current_scene and is_instance_valid(st.current_scene):
+			host_node = st.current_scene
+		elif st.root and is_instance_valid(st.root):
+			host_node = st.root
 
 func _open_scene(path: String):
 	if not host_node or not host_node.is_inside_tree():
