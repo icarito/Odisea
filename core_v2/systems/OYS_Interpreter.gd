@@ -147,6 +147,7 @@ func run(start_section: String = ""):
 # Ejecutar desde un program counter específico (para hot-reload con checkpoints)
 func request_fast_forward():
 	fast_forward = true
+	_interrupt_running_animation()
 func run_from_pc(from_pc: int):
 	var _from_pc = from_pc
 	execution_id += 1
@@ -260,6 +261,9 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 					printerr("[OYS] IF GOTO target not found: ", target)
 		
 		"PLAY_ANIM":
+			if fast_forward:
+				_interrupt_running_animation()
+				return
 			# 1. Try to find a high-level handler (play_anim) on the Player first
 			# This is crucial because PlayerAnimator needs to disable AnimationTree
 			var player = _find_player()
@@ -277,7 +281,7 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				# try finding AnimationPlayer on player manually
 				if not (node and node is AnimationPlayer) and inst.get("path", "") == "":
 					if player:
-						var anim = player.find_node("AnimationPlayer", true, false)
+						var anim = _find_first_animation_player(player)
 						if anim: node = anim
 
 				if node and node is AnimationPlayer:
@@ -320,22 +324,22 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			if not (node and node is AnimationPlayer) and inst.get("path", "") == "":
 				var player = _find_player()
 				if player:
-					var anim = player.find_node("AnimationPlayer", true, false)
+					var anim = _find_first_animation_player(player)
 					if anim: node = anim
 			
 			if node and node is AnimationPlayer:
-				if node.is_playing():
+				while node.is_playing():
+					if stop_requested or my_id != execution_id:
+						break
 					if fast_forward:
-						# If fast forwarding, we can either seek to end or just skip waiting.
-						# Seeking to end is safer for state consistency.
-						var anim_name = node.current_animation
-						if anim_name != "":
-							var anim = node.get_animation(anim_name)
-							if anim:
-								node.seek(anim.length, true)
-						yield (host_node.get_tree(), "physics_frame")
-					else:
-						yield (node, "animation_finished")
+						_interrupt_animation_player(node)
+						_interrupt_running_animation()
+						break
+					yield (host_node.get_tree(), "physics_frame")
+			elif fast_forward:
+				# WAIT_ANIM can be authored with animation names (e.g. "Confused")
+				# rather than node paths; when skipping, still force-stop active player anims.
+				_interrupt_running_animation()
 		
 		"ASSERT_SIGNAL":
 			var target_path = inst.get("path", "")
@@ -515,6 +519,8 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			for _i in range(wait_frames):
 				if stop_requested or my_id != execution_id:
 					break
+				if fast_forward and _i > 0:
+					break
 				yield (host_node.get_tree(), "physics_frame")
 		
 		"PRINT":
@@ -609,7 +615,7 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 
 		"VCAMERA":
 			var vcam_name = inst.get("name", "")
-			var duration = inst.get("duration", 1.0)
+			var duration = _fast_forwarded_duration_seconds(float(inst.get("duration", 1.0)))
 			var ease_type = inst.get("ease", -2.0)
 			
 			var manager = host_node.get_node_or_null("/root/CinematicManager")
@@ -631,13 +637,17 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				yield (host_node.get_tree(), "physics_frame")
 			_log_vcamera_debug(manager, "after_vcamera_%s" % vcam_name, vcam)
 
-			for _i in range(int(duration * 60.0)):
+			for _i in range(_duration_to_wait_frames(duration)):
 				if stop_requested: break
+				if fast_forward and _i > 0:
+					if manager and manager.has_method("force_finish_transition"):
+						manager.force_finish_transition()
+					break
 				yield (host_node.get_tree(), "physics_frame")
 
 		"VCAMERA_BLEND":
 			var vcam_name = inst.get("name", "")
-			var duration = inst.get("duration", 1.0)
+			var duration = _fast_forwarded_duration_seconds(float(inst.get("duration", 1.0)))
 			
 			var manager = host_node.get_node_or_null("/root/CinematicManager")
 			if not manager:
@@ -658,12 +668,16 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				yield (host_node.get_tree(), "physics_frame")
 			_log_vcamera_debug(manager, "after_blend_%s" % vcam_name, vcam)
 
-			for _i in range(int(duration * 60.0)):
+			for _i in range(_duration_to_wait_frames(duration)):
 				if stop_requested: break
+				if fast_forward and _i > 0:
+					if manager and manager.has_method("force_finish_transition"):
+						manager.force_finish_transition()
+					break
 				yield (host_node.get_tree(), "physics_frame")
 
 		"VCAMERA_RETURN":
-			var duration = inst.get("duration", 1.0)
+			var duration = _fast_forwarded_duration_seconds(float(inst.get("duration", 1.0)))
 			
 			var manager = host_node.get_node_or_null("/root/CinematicManager")
 			if manager:
@@ -675,8 +689,12 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 					yield (host_node.get_tree(), "physics_frame")
 				_log_vcamera_debug(manager, "after_return")
 			
-			for _i in range(int(duration * 60.0)):
+			for _i in range(_duration_to_wait_frames(duration)):
 				if stop_requested: break
+				if fast_forward and _i > 0:
+					if manager and manager.has_method("force_finish_transition"):
+						manager.force_finish_transition()
+					break
 				yield (host_node.get_tree(), "physics_frame")
 
 		"VCAMERA_SHAKE":
@@ -1106,6 +1124,18 @@ func _wait_frame_count_from_instruction(inst: Dictionary) -> int:
 	var wait_frames = int(ceil(value * OYS_Parser.FPS))
 	return wait_frames if wait_frames > 0 else 0
 
+func _duration_to_wait_frames(duration_sec: float) -> int:
+	var duration = max(0.0, duration_sec)
+	var frames = int(ceil(duration * OYS_Parser.FPS))
+	return frames if frames > 0 else 0
+
+func _fast_forwarded_duration_seconds(duration_sec: float) -> float:
+	var duration = max(0.0, duration_sec)
+	if not fast_forward:
+		return duration
+	# For skip flow we want hard cuts (no transitional camera pose lingering).
+	return 0.0
+
 func _execute_movement(inst: Dictionary, my_id: int):
 	var cmd = inst.command
 	var player = _find_player()
@@ -1435,7 +1465,7 @@ func _parse_vector3_flexible(s: String) -> Vector3:
 
 func _find_player() -> Node:
 	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
-		return null
+		return _find_player_under_node(host_node)
 	
 	# Priority 1: Prefer SessionManager.player (primary source of truth)
 	var session = host_node.get_node_or_null("/root/SessionManager")
@@ -1448,15 +1478,53 @@ func _find_player() -> Node:
 		elif "player" in session and is_instance_valid(session.player):
 			return session.player
 
-	# Priority 2: Standard group lookup
+	# Priority 2: Host-local player lookup (more deterministic for tests and local scenes)
+	var local_player = _find_player_under_node(host_node)
+	if local_player:
+		return local_player
+
+	# Priority 3: Standard group lookup
 	var players = host_node.get_tree().get_nodes_in_group("player")
 	for p in players:
 		if is_instance_valid(p) and not p.is_queued_for_deletion():
 			return p
 
-	# Priority 3: Global name lookup
+	# Priority 4: Global name lookup
 	var player = host_node.get_tree().root.find_node("Pilot", true, false)
 	return player
+
+func _find_player_under_node(root: Node) -> Node:
+	if not root or not is_instance_valid(root):
+		return null
+
+	var pending: Array = [root]
+	while not pending.empty():
+		var current = pending.pop_front()
+		if not current or not is_instance_valid(current):
+			continue
+		if current.is_in_group("player") and not current.is_queued_for_deletion():
+			return current
+		for child in current.get_children():
+			pending.push_back(child)
+
+	var by_name = root.find_node("Pilot", true, false)
+	if by_name and is_instance_valid(by_name) and not by_name.is_queued_for_deletion():
+		return by_name
+	return null
+
+func _find_first_animation_player(root: Node) -> AnimationPlayer:
+	if not root or not is_instance_valid(root):
+		return null
+	var pending: Array = [root]
+	while not pending.empty():
+		var current = pending.pop_front()
+		if not current or not is_instance_valid(current):
+			continue
+		if current is AnimationPlayer:
+			return current as AnimationPlayer
+		for child in current.get_children():
+			pending.push_back(child)
+	return null
 
 func _apply_camera_shake(inst: Dictionary) -> void:
 	var manager = host_node.get_node_or_null("/root/CinematicManager")
@@ -1686,6 +1754,28 @@ func _log_vcamera_debug(manager: Node, label: String, requested_vcam: Node = nul
 		active_cam.name if is_instance_valid(active_cam) else "<none>",
 		_node_pos_dbg(active_cam)
 	])
+
+func _interrupt_animation_player(anim_player_node: AnimationPlayer) -> void:
+	if not anim_player_node or not is_instance_valid(anim_player_node):
+		return
+	if anim_player_node.is_playing():
+		anim_player_node.stop(false)
+
+func _interrupt_running_animation() -> void:
+	var player = _find_player()
+	if not player or not is_instance_valid(player):
+		return
+
+	# Prefer animator-level interruption so AnimationTree state gets restored.
+	var pivot = player.get_node_or_null("Visual/Pivot")
+	if pivot and is_instance_valid(pivot) and pivot.has_method("stop_override_animation"):
+		pivot.call("stop_override_animation")
+		return
+
+	# Fallback for scenes without PilotAnimatorV2 API.
+	var anim = _find_first_animation_player(player)
+	if anim:
+		_interrupt_animation_player(anim)
 
 func _post_oys_input(data: Dictionary):
 	if not host_node: return

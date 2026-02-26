@@ -213,6 +213,21 @@ class MockHost extends Node:
 	func get_tree():
 		return Engine.get_main_loop()
 
+class MockHostNoSession extends Node:
+	func _init():
+		pass
+	func get_tree():
+		return Engine.get_main_loop()
+	func get_node_or_null(path):
+		if path == "/root/SessionManager":
+			return null
+		return .get_node_or_null(path)
+
+class MockPivotAnimator extends Node:
+	var stop_calls := 0
+	func stop_override_animation() -> void:
+		stop_calls += 1
+
 class RecordingInterpreter extends OYS_Interpreter:
 	var subtitles := []
 	var clears := []
@@ -620,3 +635,52 @@ func test_subtitles_manager_warn_once_when_unavailable():
 	manager.clear_subtitles(false)
 	assert_bool(manager.get("_warned_unavailable")).is_true()
 	manager.free()
+
+func test_request_fast_forward_interrupts_player_animation_player():
+	var host = MockHostNoSession.new()
+	add_child(host)
+
+	var player := KinematicBody.new()
+	player.name = "Pilot"
+	player.add_to_group("player")
+	host.add_child(player)
+
+	var anim_player := AnimationPlayer.new()
+	var anim := Animation.new()
+	anim.length = 2.0
+	anim_player.add_animation("Long", anim)
+	player.add_child(anim_player)
+	anim_player.play("Long")
+	assert_bool(anim_player.is_playing()).is_true()
+
+	var interpreter = OYS_Interpreter.new(host)
+	interpreter.request_fast_forward()
+	yield (get_tree(), "idle_frame")
+
+	assert_bool(interpreter.fast_forward).is_true()
+	assert_bool(anim_player.is_playing()).is_false()
+	host.queue_free()
+
+func test_request_fast_forward_prefers_pivot_stop_override():
+	var host = MockHostNoSession.new()
+	add_child(host)
+
+	var player := KinematicBody.new()
+	player.name = "Pilot"
+	player.add_to_group("player")
+	host.add_child(player)
+
+	var visual := Spatial.new()
+	visual.name = "Visual"
+	player.add_child(visual)
+
+	var pivot := MockPivotAnimator.new()
+	pivot.name = "Pivot"
+	visual.add_child(pivot)
+
+	var interpreter = OYS_Interpreter.new(host)
+	interpreter.request_fast_forward()
+
+	assert_bool(interpreter.fast_forward).is_true()
+	assert_int(pivot.stop_calls).is_equal(1)
+	host.queue_free()

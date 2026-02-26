@@ -69,6 +69,7 @@ var acrobatic_trigger_frames_left: int = 0 # Hold trigger to survive frame order
 var is_rotation_locked: bool = false # Impide que el personaje rote durante maniobras (backflip)
 var hit_head_active: bool = false
 var current_push_time: float = 0.0
+var _override_sequence_id: int = 0
 
 # --- FOOTSTEPS ---
 var _distance_accumulator: float = 0.0
@@ -155,16 +156,35 @@ func play_override_animation(anim_name: String) -> void:
 	if animation_tree:
 		animation_tree.active = false
 	
+	_override_sequence_id += 1
+	var seq_id := _override_sequence_id
 	anim_player.play(anim_name)
 	
 	# Wait for finish and restore
 	yield (anim_player, "animation_finished")
-	
+	if seq_id != _override_sequence_id:
+		return
+	_restore_animation_tree_after_override()
+
+func stop_override_animation() -> void:
+	# Invalidate any coroutine waiting for animation_finished.
+	_override_sequence_id += 1
+	if anim_player and is_instance_valid(anim_player):
+		var current_anim := String(anim_player.current_animation)
+		var was_playing := anim_player.is_playing()
+		if was_playing:
+			anim_player.stop(false)
+			# Resume any pending yields started by play_override_animation().
+			anim_player.emit_signal("animation_finished", current_anim)
+	_restore_animation_tree_after_override()
+
+func _restore_animation_tree_after_override() -> void:
 	if animation_tree:
 		animation_tree.active = true
 		# Force reset to grounded/idle to avoid T-pose flicker
 		var playback = animation_tree.get(PARAM_PLAYBACK)
-		if playback: playback.start("Grounded")
+		if playback:
+			playback.start("Grounded")
 
 func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	"""

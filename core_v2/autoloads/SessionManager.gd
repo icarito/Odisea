@@ -429,7 +429,10 @@ func _physics_process(_dt):
 
 	# Check for Skip Cinematic (Fast Forward)
 	if is_instance_valid(oys_interpreter) and oys_interpreter.is_running:
-		if Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("jump") or Input.is_action_just_pressed("interact"):
+		if Input.is_action_just_pressed("ui_accept") \
+		or Input.is_action_just_pressed("jump") \
+		or Input.is_action_just_pressed("interact") \
+		or Input.is_action_just_pressed("ui_cancel"):
 			# Only fast forward if player input is actually disabled (Cinematic Mode)
 			# We check hardware_input_enabled on input_provider
 			if is_instance_valid(player) and "input_provider" in player and player.input_provider:

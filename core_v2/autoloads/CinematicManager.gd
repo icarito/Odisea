@@ -276,6 +276,10 @@ func blend_to_vcamera(vcam: Node, duration: float = 1.0) -> void:
 	
 	_current_state = CameraModeState.VCAM_BLENDING
 	_vcam_active_camera = vcam
+	if scaled_duration <= 0.0:
+		_current_state = CameraModeState.VCAM_ACTIVE
+		_vcam_blend_elapsed = _vcam_blend_duration
+		_snap_vcamera_brain_to_active()
 	
 	_log_transition("vcamera_blend", {
 		"to": vcam.name,
@@ -304,6 +308,7 @@ func blend_to_vcamera(vcam: Node, duration: float = 1.0) -> void:
 
 func deactivate_vcamera(duration: float = 1.0) -> void:
 	var scaled_duration := _scaled_mode_transition_duration(duration)
+	var hard_cut := duration <= 0.0
 	var from_cam: Camera = null
 	if _vcam_brain and is_instance_valid(_vcam_brain) and _vcam_brain is Camera:
 		from_cam = _vcam_brain as Camera
@@ -333,8 +338,8 @@ func deactivate_vcamera(duration: float = 1.0) -> void:
 		if is_instance_valid(resume_rig):
 			var resume_mode := int(resume_req.mode)
 			var resume_payload := resume_req.payload
-			var resume_transition := float(resume_payload.get("transition_time", duration))
-			if resume_transition <= 0.0 and "transition_time" in resume_rig:
+			var resume_transition := 0.0 if hard_cut else float(resume_payload.get("transition_time", duration))
+			if not hard_cut and resume_transition <= 0.0 and "transition_time" in resume_rig:
 				resume_transition = float(resume_rig.transition_time)
 			resume_transition = _scaled_mode_transition_duration(resume_transition)
 
@@ -446,8 +451,34 @@ func is_active() -> bool:
 
 # Compatibility for PlayerController or other systems calling step/force_finish
 func force_finish_transition():
-	# CameraTransition doesn't easily support force finish, but it's fine for now.
-	pass
+	var state_before := _current_state
+	var dynamic_was_active := _transition_active
+	var vcam_was_blending := _current_state in [
+		CameraModeState.TRANSITION_TO_VCAM,
+		CameraModeState.VCAM_BLENDING
+	]
+
+	if _transition_active:
+		_transition_elapsed = _transition_duration
+		if is_instance_valid(_transition_to_cam) and CameraTransition and is_instance_valid(CameraTransition.camera3D):
+			CameraTransition.camera3D.global_transform = _transition_to_cam.global_transform
+			CameraTransition.camera3D.fov = _transition_to_cam.fov
+		_finish_dynamic_transition()
+
+	if vcam_was_blending and _vcam_active_camera and is_instance_valid(_vcam_active_camera):
+		_vcam_blend_elapsed = _vcam_blend_duration
+		_current_state = CameraModeState.VCAM_ACTIVE
+		_vcam_active_camera.enabled = true
+		_vcam_active_camera.priority = max(100, int(_vcam_active_camera.priority))
+		_snap_vcamera_brain_to_active()
+
+	_cancel_plugin_transition()
+	_log_transition("force_finish", {
+		"state_before": state_before,
+		"state_after": _current_state,
+		"dynamic_was_active": dynamic_was_active,
+		"vcam_was_blending": vcam_was_blending
+	})
 
 func _cancel_plugin_transition() -> void:
 	if CameraTransition and CameraTransition.has_method("cancel_transition"):
@@ -500,6 +531,13 @@ func _start_dynamic_transition(from: Camera, to: Camera, duration: float, purpos
 		CameraTransition.camera3D.current = true
 		CameraTransition.camera3D.global_transform = _start_dynamic_transform()
 		CameraTransition.camera3D.fov = _transition_start_fov
+
+	# Duration zero is used by OYS fast-forward and should cut immediately.
+	if _transition_duration <= 0.0:
+		if CameraTransition.camera3D and is_instance_valid(_transition_to_cam):
+			CameraTransition.camera3D.global_transform = _transition_to_cam.global_transform
+			CameraTransition.camera3D.fov = _transition_to_cam.fov
+		_finish_dynamic_transition()
 
 func _start_dynamic_transform() -> Transform:
 	return _transition_start_transform
@@ -873,9 +911,8 @@ func _handle_vcam_request(vcam: Node, payload: Dictionary, duration: float) -> v
 		_vcam_brain.global_transform = old_cam.global_transform
 		_vcam_brain.fov = old_cam.fov
 	else:
-		# Snap to VCamera position immediately if no old camera
-		_vcam_brain.global_transform = vcam.global_transform
-		_vcam_brain.fov = vcam.fov
+		# Snap to VCamera pose immediately for fast-forward/hard cuts.
+		_snap_vcamera_brain_to_active()
 	
 	_vcam_brain.current = true
 
@@ -890,6 +927,43 @@ func _handle_vcam_request(vcam: Node, payload: Dictionary, duration: float) -> v
 	_current_state = CameraModeState.VCAM_BLENDING if scaled_duration > 0.0 else CameraModeState.VCAM_ACTIVE
 	emit_signal("cinematic_started", vcam.name)
 	emit_signal("control_mode_changed", ControlMode.FREE)
+
+func _refresh_vcamera_pose(vcam: Node) -> void:
+	if not vcam or not is_instance_valid(vcam):
+		return
+
+	# Follow/LookAt modifiers run in physics and may be one-frame stale when skip
+	# is requested from input. Tick them once before snapping brain pose.
+	var follow_mod = vcam.get_node_or_null("Follow")
+	if follow_mod and is_instance_valid(follow_mod) and follow_mod.has_method("_physics_process"):
+		follow_mod.call("_physics_process", 0.0)
+
+	var look_mod = vcam.get_node_or_null("LookAt")
+	if look_mod and is_instance_valid(look_mod) and look_mod.has_method("_physics_process"):
+		look_mod.call("_physics_process", 0.0)
+
+	if vcam is Spatial:
+		(vcam as Spatial).force_update_transform()
+
+func _snap_vcamera_brain_to_active() -> void:
+	if not (_vcam_brain and is_instance_valid(_vcam_brain)):
+		return
+	if not (_vcam_active_camera and is_instance_valid(_vcam_active_camera)):
+		return
+
+	_refresh_vcamera_pose(_vcam_active_camera)
+
+	if _vcam_brain.has_method("snap_transition"):
+		_vcam_brain.call("snap_transition", _vcam_active_camera)
+	else:
+		if _vcam_brain is Camera and _vcam_active_camera is Camera:
+			(_vcam_brain as Camera).global_transform = (_vcam_active_camera as Camera).global_transform
+			(_vcam_brain as Camera).fov = (_vcam_active_camera as Camera).fov
+
+	if _vcam_brain.has_method("set"):
+		_vcam_brain.set("last_active_vcamera", _vcam_active_camera)
+
+	_vcam_brain.current = true
 
 func _sync_player_cam_hierarchy(cam: Camera):
 	var parent = cam.get_parent()

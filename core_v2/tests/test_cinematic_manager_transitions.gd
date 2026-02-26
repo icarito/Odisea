@@ -251,6 +251,167 @@ func test_get_active_camera_prefers_dynamic_transition_camera():
 	yield (_teardown_root(root), "completed")
 
 
+func test_force_finish_transition_completes_dynamic_blend():
+	var cm = get_node(CM_PATH)
+	assert_object(cm).is_not_null()
+
+	cm.reset()
+	cm.set_transition_debug(true)
+	cm.clear_transition_debug_events()
+
+	var root = _setup_root()
+	var player_data = _setup_player_with_camera(root)
+	var player_cam: Camera = player_data["camera"]
+	var rig_a = _setup_rig(root, "RigA", Vector3(10, 3, 9))
+	yield (get_tree(), "idle_frame")
+
+	cm._start_dynamic_transition(player_cam, rig_a.get_camera(), 0.5, "to_cinematic")
+	assert_bool(cm._transition_active).is_true()
+
+	cm.force_finish_transition()
+
+	assert_bool(cm._transition_active).is_false()
+	assert_bool(rig_a.get_camera().current).is_true()
+
+	var ev = _find_event(cm.get_transition_debug_events(), "force_finish")
+	assert_bool(ev.size() > 0).is_true()
+	assert_bool(bool(ev.get("data", {}).get("dynamic_was_active", false))).is_true()
+
+	cm.reset()
+	yield (_teardown_root(root), "completed")
+
+
+func test_start_dynamic_transition_zero_duration_finishes_immediately():
+	var cm = get_node(CM_PATH)
+	assert_object(cm).is_not_null()
+
+	cm.reset()
+	var root = _setup_root()
+	var player_data = _setup_player_with_camera(root)
+	var player_cam: Camera = player_data["camera"]
+	var rig_a = _setup_rig(root, "RigA", Vector3(10, 3, 9))
+	yield (get_tree(), "idle_frame")
+
+	cm._start_dynamic_transition(player_cam, rig_a.get_camera(), 0.0, "to_cinematic")
+
+	assert_bool(cm._transition_active).is_false()
+	assert_bool(rig_a.get_camera().current).is_true()
+
+	cm.reset()
+	yield (_teardown_root(root), "completed")
+
+
+func test_force_finish_transition_snaps_vcam_brain_state():
+	var cm = get_node(CM_PATH)
+	assert_object(cm).is_not_null()
+
+	cm.reset()
+	cm.set_transition_debug(true)
+	cm.clear_transition_debug_events()
+
+	var root = _setup_root()
+	_setup_player_with_camera(root)
+	var vcam_data = _setup_vcamera_nodes(root)
+	var brain = vcam_data["brain"]
+	var intro_far = vcam_data["a"]
+	var intro_close = vcam_data["b"]
+
+	yield (get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
+
+	var req_id: int = cm.activate_vcamera(intro_far, 1.4)
+	assert_int(req_id).is_greater(0)
+	cm.step(1.0 / 60.0)
+
+	cm.blend_to_vcamera(intro_close, 1.2)
+	cm.step(1.0 / 60.0)
+
+	assert_bool(cm._current_state == cm.CameraModeState.VCAM_BLENDING).is_true()
+	assert_float(brain.transition_time).is_less(float(intro_close.transition_time))
+
+	cm.force_finish_transition()
+
+	assert_bool(cm._current_state == cm.CameraModeState.VCAM_ACTIVE).is_true()
+	assert_bool(brain.current).is_true()
+	assert_float(brain.transition_time).is_equal(float(intro_close.transition_time))
+	assert_float(brain.global_transform.origin.distance_to(intro_close.global_transform.origin)).is_less(0.001)
+
+	cm.reset()
+	yield (_teardown_root(root), "completed")
+
+
+func test_vcamera_blend_zero_duration_snaps_immediately():
+	var cm = get_node(CM_PATH)
+	assert_object(cm).is_not_null()
+
+	cm.reset()
+	var root = _setup_root()
+	_setup_player_with_camera(root)
+	var vcam_data = _setup_vcamera_nodes(root)
+	var brain = vcam_data["brain"]
+	var intro_far = vcam_data["a"]
+	var intro_close = vcam_data["b"]
+
+	yield (get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
+
+	var req_id: int = cm.activate_vcamera(intro_far, 1.0)
+	assert_int(req_id).is_greater(0)
+	cm.step(1.0 / 60.0)
+
+	cm.blend_to_vcamera(intro_close, 0.0)
+
+	assert_bool(cm._current_state == cm.CameraModeState.VCAM_ACTIVE).is_true()
+	assert_bool(brain.current).is_true()
+	assert_float(brain.global_transform.origin.distance_to(intro_close.global_transform.origin)).is_less(0.001)
+
+	cm.reset()
+	yield (_teardown_root(root), "completed")
+
+
+func test_vcamera_deactivate_zero_duration_ignores_resume_blend():
+	var cm = get_node(CM_PATH)
+	assert_object(cm).is_not_null()
+
+	cm.reset()
+	cm.set_transition_debug(true)
+	cm.clear_transition_debug_events()
+
+	var root = _setup_root()
+	_setup_player_with_camera(root)
+	var rig_a = _setup_rig(root, "RigA", Vector3(10, 3, 9))
+	var vcam_data = _setup_vcamera_nodes(root)
+	var intro_far = vcam_data["a"]
+
+	yield (get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
+
+	cm.request_camera_mode(
+		cm.ControlMode.LOCKED_VIEW,
+		{"rig": rig_a, "transition_time": 1.5},
+		"zone_req",
+		10
+	)
+	cm.step(1.0 / 60.0)
+	for _i in range(120):
+		cm.step(1.0 / 60.0)
+
+	var req_id: int = cm.activate_vcamera(intro_far, 1.0)
+	assert_int(req_id).is_greater(0)
+	cm.step(1.0 / 60.0)
+
+	cm.clear_transition_debug_events()
+	cm.deactivate_vcamera(0.0)
+
+	assert_bool(cm._transition_active).is_false()
+	assert_bool(cm._current_state == cm.CameraModeState.CINEMATIC_ACTIVE).is_true()
+	assert_bool(rig_a.get_camera().current).is_true()
+	assert_int(_count_events(cm.get_transition_debug_events(), "dynamic_start")).is_equal(0)
+
+	cm.reset()
+	yield (_teardown_root(root), "completed")
+
+
 func test_is_active_when_camera_shake_running():
 	var cm = get_node(CM_PATH)
 	assert_object(cm).is_not_null()

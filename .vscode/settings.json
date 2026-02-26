@@ -1,5 +1,20 @@
 {
     "chat.mcp.serverSampling": {
+        "src/.vscode/mcp.json: odisea-mcp": {
+            "allowedModels": [
+                "copilot/gpt-4.1",
+                "copilot/auto",
+                "copilot/claude-haiku-4.5",
+                "copilot/claude-opus-4.5",
+                "copilot/claude-opus-4.6",
+                "copilot/claude-sonnet-4.5",
+                "copilot/gemini-3-flash-preview",
+                "copilot/gemini-3-pro-preview",
+                "copilot/gpt-4o",
+                "copilot/gpt-5.2-codex",
+                "copilot/grok-code-fast-1"
+            ]
+        },
         "src/.vscode/mcp.json: mcp-godot": {
             "allowedModels": []
         }

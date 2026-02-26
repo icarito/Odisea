@@ -6,6 +6,31 @@
 > Consequently, spawning an object "in front" of the player often involves placing it at **positive Z** (e.g. `(0, 1, 3)`) as seen in `test_push_integration.oys`.
 > **ALWAYS verify direction visually** or via small test steps. Do not assume standard conventions apply universally without checking.
 
+## 🚀 ANNA/MCP Quick Start (VS Code)
+
+- **Default VS Code behavior:** all Godot launch configurations in `.vscode/launch.json` now set:
+  - `ANNA_ENABLED=1`
+  - `ANNA_PORT=5000`
+- This means launching scenes/tests from VS Code should expose the AnnaBridge TCP endpoint without extra manual exports.
+
+### Verificación rápida (cuando el juego ya está corriendo)
+
+```shell
+python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
+  --tool bridge_connect \
+  --args-json '{"host":"127.0.0.1","port":5000,"timeout_s":3.0}'
+```
+
+Si responde `"connected": true`, MCP está unido al runtime.
+
+### Si ejecutas Godot fuera de VS Code
+
+```shell
+export ANNA_ENABLED=1
+export ANNA_PORT=5000
+godot3-bin --path .
+```
+
 ## ⚠️ ANTES DE HACER MERGE
 
 **Ejecutar los tests para verificar que no se rompió nada:**

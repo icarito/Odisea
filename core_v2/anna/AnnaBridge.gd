@@ -4,6 +4,8 @@ const PORT = 5000
 const MAX_READ_BYTES_PER_TICK = 16384
 const RL_UNCAPPED_PHYSICS_FPS = 2000
 const RL_DEFAULT_POLL_SLEEP_USEC = 1000
+const MCP_RESULT_TYPE = "mcp_result"
+const MCP_ERROR_TYPE = "mcp_error"
 var _server: TCP_Server
 var _peers := []
 var _interface: Node
@@ -127,7 +129,7 @@ func _handle_peer(peer: StreamPeerTCP):
 			if line.strip_edges() != "":
 				var parse = JSON.parse(line)
 				if parse.error == OK and typeof(parse.result) == TYPE_DICTIONARY:
-					_interface.apply_action(parse.result)
+					_on_data_received(peer, parse.result)
 				else:
 					print("[ANNA] Malformed JSON action received: ", line.substr(0, 50))
 
@@ -231,6 +233,166 @@ func _read_json_message_blocking(peer: StreamPeerTCP):
 func _send_json(peer: StreamPeerTCP, data: Dictionary):
 	var json_str = JSON.print(data)
 	peer.put_data((json_str + "\n").to_utf8())
+
+func _on_data_received(peer: StreamPeerTCP, message: Dictionary) -> void:
+	var mcp_req = _normalize_mcp_request(message)
+	if bool(mcp_req.get("is_mcp", false)):
+		var cmd = str(mcp_req.get("command", ""))
+		var args = mcp_req.get("args", {})
+		if typeof(args) != TYPE_DICTIONARY:
+			args = {}
+		var result = _run_mcp_command(cmd, args)
+		_send_mcp_result(peer, mcp_req, result)
+		return
+	_interface.apply_action(message)
+
+func _normalize_mcp_request(message: Dictionary) -> Dictionary:
+	var req = {
+		"is_mcp": false,
+		"id": message.get("id", ""),
+		"command": "",
+		"args": {}
+	}
+	var payload: Dictionary = message
+	var msg_type = str(message.get("type", "")).to_lower()
+	if msg_type == "mcp_cmd":
+		req["is_mcp"] = true
+		if typeof(message.get("payload", {})) == TYPE_DICTIONARY:
+			payload = message.get("payload", {})
+	elif message.has("resource") and str(message.get("resource", "")).begins_with("odisea://"):
+		req["is_mcp"] = true
+	elif message.has("tool"):
+		req["is_mcp"] = true
+	elif message.has("action") and _is_known_mcp_command(str(message["action"])):
+		req["is_mcp"] = true
+	else:
+		return req
+
+	if message.has("request_id"):
+		req["id"] = message["request_id"]
+	if payload.has("request_id"):
+		req["id"] = payload["request_id"]
+	if payload.has("id"):
+		req["id"] = payload["id"]
+
+	var command = ""
+	if payload.has("action"):
+		command = str(payload["action"])
+	elif payload.has("tool"):
+		command = str(payload["tool"])
+	elif payload.has("name"):
+		command = str(payload["name"])
+	elif payload.has("resource"):
+		command = str(payload["resource"])
+	req["command"] = command
+
+	var args = {}
+	if typeof(payload.get("args", null)) == TYPE_DICTIONARY:
+		args = payload["args"]
+	elif typeof(payload.get("arguments", null)) == TYPE_DICTIONARY:
+		args = payload["arguments"]
+	else:
+		args = payload.duplicate(true)
+	if typeof(args) == TYPE_DICTIONARY:
+		args.erase("action")
+		args.erase("tool")
+		args.erase("name")
+		args.erase("resource")
+		args.erase("id")
+		args.erase("request_id")
+		args.erase("args")
+		args.erase("arguments")
+	req["args"] = args
+	return req
+
+func _is_known_mcp_command(cmd: String) -> bool:
+	var normalized = cmd.to_lower()
+	return normalized in [
+		"get_tree",
+		"inspect",
+		"inspect_node",
+		"oys_inject",
+		"execute_oys",
+		"capture_vision",
+		"query_codex_docs",
+		"odisea://scene/hierarchy",
+		"odisea://simulation/telemetry",
+		"odisea://olcs/logic-state"
+	]
+
+func _run_mcp_command(command: String, args: Dictionary) -> Dictionary:
+	var cmd = command.strip_edges().to_lower()
+	if cmd == "get_tree" or cmd == "scene_hierarchy" or cmd == "odisea://scene/hierarchy":
+		return {
+			"ok": true,
+			"data": _interface.get_scene_hierarchy_resource(
+				args.get("max_depth", args.get("depth_limit", 4)),
+				args.get("max_children", args.get("child_limit", 24))
+			)
+		}
+
+	if cmd == "simulation_telemetry" or cmd == "get_telemetry" or cmd == "odisea://simulation/telemetry":
+		return {
+			"ok": true,
+			"data": _interface.get_simulation_telemetry_resource()
+		}
+
+	if cmd == "logic_state" or cmd == "olcs_logic_state" or cmd == "odisea://olcs/logic-state":
+		return {
+			"ok": true,
+			"data": _interface.get_olcs_logic_state_resource()
+		}
+
+	if cmd == "inspect" or cmd == "inspect_node":
+		var path = str(args.get("node_path", args.get("path", "")))
+		var payload = _interface.inspect_node(path)
+		return {
+			"ok": bool(payload.get("ok", false)),
+			"data": payload
+		}
+
+	if cmd == "oys_inject" or cmd == "execute_oys":
+		var script_command = str(args.get("script_command", args.get("command", "")))
+		var payload = _interface.execute_oys(script_command)
+		return {
+			"ok": bool(payload.get("ok", false)),
+			"data": payload
+		}
+
+	if cmd == "capture_vision":
+		return {
+			"ok": true,
+			"data": _interface.capture_vision(args)
+		}
+
+	if cmd == "query_codex_docs":
+		var topic = str(args.get("topic", args.get("q", "")))
+		return {
+			"ok": true,
+			"data": _interface.query_codex_docs(topic, int(args.get("max_matches", 20)))
+		}
+
+	return {
+		"ok": false,
+		"error": "unknown_mcp_command",
+		"command": command
+	}
+
+func _send_mcp_result(peer: StreamPeerTCP, request: Dictionary, result: Dictionary) -> void:
+	var ok = bool(result.get("ok", false))
+	var payload = {
+		"type": MCP_RESULT_TYPE if ok else MCP_ERROR_TYPE,
+		"id": request.get("id", ""),
+		"ok": ok
+	}
+	if ok:
+		payload["data"] = result.get("data", {})
+	else:
+		payload["error"] = result.get("error", "mcp_failed")
+		payload["command"] = result.get("command", request.get("command", ""))
+		if result.has("data"):
+			payload["data"] = result["data"]
+	_send_json(peer, payload)
 
 func _replace_rl_peer(new_peer: StreamPeerTCP) -> void:
 	for peer in _peers:

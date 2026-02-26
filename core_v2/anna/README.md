@@ -86,6 +86,91 @@ Notas:
 - `command` solo aplica si `allow_command_injection = true`.
 - `olcs` y `ocls` se aceptan como alias para acciones del circuito.
 
+### MCP Bridge Commands (`type: "mcp_cmd"`)
+
+El bridge soporta comandos estilo MCP sobre el mismo socket TCP.  
+Formato recomendado:
+
+```json
+{
+  "type": "mcp_cmd",
+  "id": "req-123",
+  "payload": {
+    "action": "get_tree",
+    "args": {
+      "max_depth": 4
+    }
+  }
+}
+```
+
+Respuesta:
+
+```json
+{
+  "type": "mcp_result",
+  "id": "req-123",
+  "ok": true,
+  "data": {}
+}
+```
+
+Recursos soportados:
+
+- `odisea://scene/hierarchy` (`action: "get_tree"`)
+- `odisea://simulation/telemetry`
+- `odisea://olcs/logic-state`
+
+Tools soportados:
+
+- `bridge_status` (estado de conexión/proceso del puente)
+- `bridge_connect` (apuntar a runtime ya levantado)
+- `bridge_launch` (levantar Godot con `ANNA_ENABLED=1` y conectar)
+- `bridge_reset` (reiniciar sesión Godot + reconectar)
+- `bridge_stop` (detener sesión Godot lanzada por MCP)
+- `inspect_node` (`action: "inspect"` o `"inspect_node"`, arg `node_path`)
+- `execute_oys` (`action: "oys_inject"` o `"execute_oys"`, arg `script_command`)
+- `capture_vision` (`action: "capture_vision"`, args opcionales `label`, `include_base64`)
+- `query_codex_docs` (`action: "query_codex_docs"`, args `topic`, `max_matches`)
+
+### MCP Server para VS Code (stdio)
+
+Script: `core_v2/anna/client/odisea_mcp_stdio_server.py`
+
+Modos:
+
+- **MCP stdio** (default): usado por VS Code via `.vscode/mcp.json`.
+- **CLI directo** (stub):
+
+```bash
+python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
+  --tool bridge_status
+```
+
+```bash
+python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
+  --tool bridge_connect \
+  --args-json '{"host":"127.0.0.1","port":5000}'
+```
+
+```bash
+python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
+  --tool bridge_launch \
+  --args-json '{"project_path":".","godot_exe":"godot3-bin","port":5000}'
+```
+
+```bash
+python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
+  --tool bridge_stop
+```
+
+También soporta recursos:
+
+```bash
+python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
+  --resource odisea://simulation/telemetry
+```
+
 ### Acciones estructuradas: OYS + OLCS/OCLS
 
 Ejecutar comandos OYS de forma controlada:

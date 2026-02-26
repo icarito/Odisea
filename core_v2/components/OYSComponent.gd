@@ -32,6 +32,35 @@ func _ready():
 	# Conectar a CheckZones para guardar checkpoints durante el script
 	_connect_to_checkzones()
 
+func _unhandled_input(event: InputEvent) -> void:
+	if not _is_skip_cinematic_input(event):
+		return
+	if not _can_request_skip():
+		return
+	interpreter.request_fast_forward()
+	var cm = get_node_or_null("/root/CinematicManager")
+	if cm and cm.has_method("force_finish_transition"):
+		cm.force_finish_transition()
+	get_tree().set_input_as_handled()
+
+func _is_skip_cinematic_input(event: InputEvent) -> bool:
+	if not event:
+		return false
+	return event.is_action_pressed("interact") \
+		or event.is_action_pressed("jump") \
+		or event.is_action_pressed("ui_cancel") \
+		or event.is_action_pressed("ui_accept")
+
+func _can_request_skip() -> bool:
+	if not interpreter or not interpreter.is_running:
+		return false
+	var player = get_parent()
+	if not player:
+		return false
+	if not ("input_provider" in player) or not is_instance_valid(player.input_provider):
+		return false
+	return not bool(player.input_provider.hardware_input_enabled)
+
 # Función centralizada para obtener y cachear la referencia al jugador.
 # Esto evita múltiples yields y búsquedas, previniendo condiciones de carrera.
 func _get_player() -> KinematicBody:

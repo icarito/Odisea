@@ -47,6 +47,11 @@ class DummyOLCSManager extends Node:
 		rebuild_calls += 1
 		return true
 
+class DummyInspectable extends Spatial:
+	export(String) var lock_id := "door_01"
+	export(bool) var starts_locked := true
+	var runtime_only := 42
+
 func _free_node(node: Node) -> void:
 	if node and is_instance_valid(node):
 		node.queue_free()
@@ -57,6 +62,17 @@ func _release_test_actions() -> void:
 	Input.action_release("move_right")
 	Input.action_release("move_forward")
 	Input.action_release("move_backward")
+
+func _hierarchy_contains_name(entry: Dictionary, target: String) -> bool:
+	if str(entry.get("name", "")) == target:
+		return true
+	var children = entry.get("children", [])
+	if typeof(children) != TYPE_ARRAY:
+		return false
+	for child in children:
+		if typeof(child) == TYPE_DICTIONARY and _hierarchy_contains_name(child, target):
+			return true
+	return false
 
 func _setup_rl_context(runner) -> Dictionary:
 	var scene = runner.scene()
@@ -297,8 +313,103 @@ func test_anna_bridge_builds_observation_payload_with_runtime_metadata() -> void
 	assert_bool(int(payload["anna"].get("peer_count", -1)) >= 0).is_true()
 	assert_bool(int(payload["anna"].get("physics_frame", -1)) >= 0).is_true()
 
+	var mcp_tree = bridge._run_mcp_command("get_tree", {"max_depth": 1})
+	assert_bool(bool(mcp_tree.get("ok", false))).is_true()
+	assert_str(str(mcp_tree.get("data", {}).get("resource", ""))).is_equal("odisea://scene/hierarchy")
+
+	var mcp_inspect = bridge._run_mcp_command("inspect_node", {"node_path": str(pilot.get_path())})
+	assert_bool(bool(mcp_inspect.get("ok", false))).is_true()
+	assert_str(str(mcp_inspect.get("data", {}).get("path", ""))).is_equal(str(pilot.get_path()))
+
 	yield (_free_node(bridge), "completed")
 	sm.player = previous_player
+
+func test_anna_mcp_resources_scene_telemetry_and_filters_internal_nodes() -> void:
+	var runner = scene_runner(ANNA_SCENE_PATH)
+	yield (runner.simulate_frames(2), "completed")
+
+	var scene = runner.scene()
+	var pilot = scene.get_node_or_null("Pilot")
+	assert_object(pilot).is_not_null()
+
+	var sm = get_node_or_null("/root/SessionManager")
+	assert_object(sm).is_not_null()
+	var previous_player = sm.player
+	sm.player = pilot
+
+	var anna = AnnaInterface.new()
+	scene.add_child(anna)
+
+	var hidden = Node.new()
+	hidden.name = "_Timer"
+	scene.add_child(hidden)
+	yield (runner.simulate_frames(1), "completed")
+
+	var hierarchy = anna.get_scene_hierarchy_resource(3, 64)
+	assert_str(str(hierarchy.get("resource", ""))).is_equal("odisea://scene/hierarchy")
+	assert_bool(bool(hierarchy.get("available", false))).is_true()
+	var tree = hierarchy.get("tree", {})
+	assert_bool(_hierarchy_contains_name(tree, "Pilot")).is_true()
+	assert_bool(_hierarchy_contains_name(tree, "_Timer")).is_false()
+
+	var telemetry = anna.get_simulation_telemetry_resource()
+	assert_str(str(telemetry.get("resource", ""))).is_equal("odisea://simulation/telemetry")
+	assert_bool(bool(telemetry.get("elias", {}).get("available", false))).is_true()
+	assert_bool(telemetry.get("elias", {}).has("active_velocity")).is_true()
+	assert_bool(telemetry.has("oys")).is_true()
+
+	sm.player = previous_player
+	yield (_free_node(hidden), "completed")
+	yield (_free_node(anna), "completed")
+
+func test_anna_mcp_tools_inspect_execute_query_docs_and_logic_state() -> void:
+	var existing_console = get_tree().root.get_node_or_null("OYS_Console")
+	if existing_console and is_instance_valid(existing_console):
+		yield (_free_node(existing_console), "completed")
+
+	var anna = AnnaInterface.new()
+	get_tree().root.add_child(anna)
+	yield (get_tree(), "idle_frame")
+
+	var console = DummyConsole.new()
+	console.name = "OYS_Console"
+	get_tree().root.add_child(console)
+
+	var inspectable = DummyInspectable.new()
+	inspectable.name = "InspectableDoor"
+	get_tree().root.add_child(inspectable)
+
+	var manager = DummyOLCSManager.new()
+	manager.name = "LogicCircuitManager"
+	manager.add_to_group("olcs_manager")
+	get_tree().root.add_child(manager)
+	yield (get_tree(), "idle_frame")
+
+	var inspect = anna.inspect_node(str(inspectable.get_path()))
+	assert_bool(bool(inspect.get("ok", false))).is_true()
+	assert_str(str(inspect.get("export_vars", {}).get("lock_id", ""))).is_equal("door_01")
+	assert_bool(bool(inspect.get("export_vars", {}).get("starts_locked", false))).is_true()
+
+	var exec_res = anna.execute_oys("echo hi from mcp")
+	assert_bool(bool(exec_res.get("ok", false))).is_true()
+	assert_int(console.queued.size()).is_equal(1)
+	assert_bool(String(console.queued[0]).begins_with("run ")).is_true()
+	assert_bool(String(console.queued[0]).find("mcp_inline_") != -1).is_true()
+	assert_str(String(exec_res.get("source_command", ""))).is_equal("echo hi from mcp")
+
+	var logic_state = anna.get_olcs_logic_state_resource()
+	assert_str(str(logic_state.get("resource", ""))).is_equal("odisea://olcs/logic-state")
+	assert_bool(bool(logic_state.get("available", false))).is_true()
+	assert_int(logic_state.get("levers", []).size()).is_equal(1)
+
+	var docs = anna.query_codex_docs("odisea", 5)
+	assert_bool(docs.has("matches")).is_true()
+	assert_bool(int(docs.get("scanned_files", 0)) >= 1).is_true()
+
+	yield (_free_node(manager), "completed")
+	yield (_free_node(inspectable), "completed")
+	yield (_free_node(console), "completed")
+	yield (_free_node(anna), "completed")
 
 func test_anna_structured_oys_action_queues_console_commands() -> void:
 	var existing_console = get_tree().root.get_node_or_null("OYS_Console")
