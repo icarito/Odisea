@@ -187,7 +187,7 @@ func _update_visuals() -> void:
 		var progress = _ease_out_cubic(anim_progress)
 		
 		# Slide + Scale animation:
-		var start_y = -1.2
+		var start_y = -slide_height
 		var end_y = 0.0
 		var new_y = lerp(start_y, end_y, progress)
 		var new_scale = lerp(Vector3.ZERO, Vector3.ONE, progress)
