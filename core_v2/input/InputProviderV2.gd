@@ -64,14 +64,25 @@ func _apply_curve(v: Vector2, curve: Curve) -> Vector2:
 	return v.normalized() * curved_length
 
 
+func _is_digital_move_vector(v: Vector2) -> bool:
+	# Keyboard-style movement yields exact 0/1 action strengths.
+	# We use this to avoid forcing sprint on desktop keyboard movement.
+	var x = abs(v.x)
+	var y = abs(v.y)
+	var x_is_digital = is_equal_approx(x, 0.0) or is_equal_approx(x, 1.0)
+	var y_is_digital = is_equal_approx(y, 0.0) or is_equal_approx(y, 1.0)
+	return x_is_digital and y_is_digital
+
+
 func _read_live_input() -> InputDataV2:
 	var d = InputDataV2.new()
 
 	if hardware_input_enabled:
-		d.move_vec = Vector2(
+		var raw_move_vec = Vector2(
 			Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
 			Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward")
 		)
+		d.move_vec = raw_move_vec
 
 		# Apply curve to raw move vector (affects analog stick)
 		d.move_vec = _apply_curve(d.move_vec, move_response_curve)
@@ -93,8 +104,9 @@ func _read_live_input() -> InputDataV2:
 		if joy_move.length() > 0.8:
 			d.sprint = true
 		
-		# --- VIRTUAL JOYSTICK SPRINT (high magnitude = sprint) ---
-		if d.move_vec.length() > 0.85:
+		# --- VIRTUAL/ANALOG AUTO SPRINT ---
+		# Keep auto sprint for analog-like input, but do not force sprint for digital keyboard vectors.
+		if not _is_digital_move_vector(raw_move_vec) and d.move_vec.length() > 0.85:
 			d.sprint = true
 
 		# Acumula y consume mouse_delta localmente
