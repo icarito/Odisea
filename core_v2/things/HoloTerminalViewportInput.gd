@@ -9,6 +9,7 @@ var _cursor_position := Vector2.ZERO
 var _cursor_layer: CanvasLayer = null
 var _cursor_visual: Sprite = null
 var _mouse_button_mask := 0
+var _use_system_mouse := false
 
 func _ready() -> void:
 	_cursor_position = get_visible_rect().size * 0.5
@@ -22,11 +23,20 @@ func set_ui_mode(active: bool) -> void:
 		call_deferred("focus_command_input")
 	_ensure_cursor_visual()
 	if _cursor_visual:
-		_cursor_visual.visible = active
+		_cursor_visual.visible = active and not _use_system_mouse
+	_update_cursor_visual()
+
+func set_use_system_mouse(enabled: bool) -> void:
+	_use_system_mouse = enabled
+	_ensure_cursor_visual()
+	if _cursor_visual:
+		_cursor_visual.visible = _ui_mode_active and not _use_system_mouse
 	_update_cursor_visual()
 
 func process_mouse_motion(relative: Vector2) -> void:
 	if not _ui_mode_active:
+		return
+	if _use_system_mouse:
 		return
 	_ensure_cursor_visual()
 	_cursor_position += relative * cursor_sensitivity
@@ -45,6 +55,8 @@ func process_mouse_motion(relative: Vector2) -> void:
 func process_mouse_click(button_index: int = BUTTON_LEFT, pressed: bool = true, is_doubleclick: bool = false) -> void:
 	if not _ui_mode_active:
 		return
+	if _use_system_mouse:
+		return
 	_ensure_cursor_visual()
 	var evt = InputEventMouseButton.new()
 	evt.button_index = button_index
@@ -52,6 +64,45 @@ func process_mouse_click(button_index: int = BUTTON_LEFT, pressed: bool = true, 
 	evt.doubleclick = is_doubleclick and pressed
 	evt.position = _cursor_position
 	evt.global_position = _cursor_position
+	var bit = int(1 << (button_index - 1))
+	if pressed:
+		_mouse_button_mask |= bit
+	else:
+		_mouse_button_mask &= ~bit
+	evt.button_mask = _mouse_button_mask
+	input(evt)
+	_update_cursor_visual()
+
+func process_system_mouse_motion(position: Vector2, global_position: Vector2, relative: Vector2, root_size: Vector2) -> void:
+	if not _ui_mode_active:
+		return
+	if root_size.x <= 0.0 or root_size.y <= 0.0:
+		return
+	var viewport_pos = _map_root_to_viewport(position, root_size)
+	var viewport_global = _map_root_to_viewport(global_position, root_size)
+	_cursor_position = viewport_pos
+	var evt = InputEventMouseMotion.new()
+	evt.position = viewport_pos
+	evt.global_position = viewport_global
+	evt.relative = relative
+	evt.button_mask = _mouse_button_mask
+	input(evt)
+	_update_cursor_visual()
+
+func process_system_mouse_button(button_index: int, pressed: bool, is_doubleclick: bool, position: Vector2, global_position: Vector2, root_size: Vector2) -> void:
+	if not _ui_mode_active:
+		return
+	if root_size.x <= 0.0 or root_size.y <= 0.0:
+		return
+	var viewport_pos = _map_root_to_viewport(position, root_size)
+	var viewport_global = _map_root_to_viewport(global_position, root_size)
+	_cursor_position = viewport_pos
+	var evt = InputEventMouseButton.new()
+	evt.button_index = button_index
+	evt.pressed = pressed
+	evt.doubleclick = is_doubleclick and pressed
+	evt.position = viewport_pos
+	evt.global_position = viewport_global
 	var bit = int(1 << (button_index - 1))
 	if pressed:
 		_mouse_button_mask |= bit
@@ -132,4 +183,13 @@ func _ensure_cursor_visual() -> void:
 func _update_cursor_visual() -> void:
 	if not _cursor_visual or not is_instance_valid(_cursor_visual):
 		return
+	_cursor_visual.visible = _ui_mode_active and not _use_system_mouse
 	_cursor_visual.position = _cursor_position
+
+func _map_root_to_viewport(pos: Vector2, root_size: Vector2) -> Vector2:
+	var size = get_visible_rect().size
+	if size.x <= 0.0 or size.y <= 0.0:
+		return Vector2.ZERO
+	var x = (pos.x / root_size.x) * size.x
+	var y = (pos.y / root_size.y) * size.y
+	return Vector2(clamp(x, 0.0, size.x), clamp(y, 0.0, size.y))
