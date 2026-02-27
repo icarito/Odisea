@@ -26,7 +26,6 @@ _data = [ Vector2( 0, 1 ), 0.0, 0.0, 0, 0, Vector2( 0.3, 0.7 ), 0.0, 0.0, 0, 0, 
 [node name="SparkEmitterV2" type="Spatial"]
 script = ExtResource( 1 )
 spark_color = Color( 1, 0.819608, 0, 0.694118 )
-emitting = true
 interval = 1.0
 interval_random = 1.0
 duration = 1.1

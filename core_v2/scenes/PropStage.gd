@@ -11,14 +11,21 @@ onready var camera = $Camera
 
 var current_prop: Node = null
 var _accumulated_wait_time: float = 0.0
+var _current_prop_path: String = ""
+var _scene_cache := {}
+var _instance_cache := {}
+var _cache_root: Spatial = null
 
 export(String, FILE, "*.tscn") var dev_prop_path setget _set_dev_prop_path
 export(bool) var dev_take_screenshots setget _set_dev_take_screenshots
 export(bool) var dev_snap_to_floor = true
 export(int) var dev_tween_interval = 20
 export(bool) var dev_force_local_camera = false setget _set_dev_force_local_camera
+export(bool) var dev_reuse_prop_instances = true
 
 func _ready():
+    _ensure_cache_root()
+
     # Allow manual camera placement in the scene if desired.
     # Only force current if it exists.
     if camera:
@@ -34,6 +41,11 @@ func _ready():
         
     # Ensure environment is set up for neutral lighting
     pass
+
+func _exit_tree():
+    _release_cached_instances()
+    _scene_cache.clear()
+    _cache_root = null
 
 func _set_dev_prop_path(value):
     dev_prop_path = value
@@ -73,13 +85,17 @@ func _enforce_local_camera():
 
 
 func _process(_delta):
+    if current_prop and not is_instance_valid(current_prop):
+        current_prop = null
+        return
+
     # Continuous enforcement if enabled
     if dev_force_local_camera:
         if camera and not camera.current:
             camera.make_current()
         
         # Continuously suppress focus mode logic on current prop
-        if current_prop:
+        if current_prop and is_instance_valid(current_prop):
             # 0. Disable capability entirely if supported
             if "allow_focus_mode" in current_prop:
                 current_prop.set("allow_focus_mode", false)
@@ -186,16 +202,61 @@ func take_oys_screenshot(label: String, prop_named_prefix: String) -> String:
     
     var prop_original_parent: Node = null
     var prop_original_transform: Transform = Transform()
+    var prop_original_local_transform: Transform = Transform()
+    var prop_original_parent_is_spatial := false
+    var prop_was_camera_child := false
+    var extra_capture_nodes: Array = []
     var pilot_original_parent: Node = null
     var pilot_original_transform: Transform = Transform()
     var pilot_node: Node = get_node_or_null("Pilot")
     
-    if current_prop:
+    if current_prop and is_instance_valid(current_prop):
+        if current_prop.has_method("set_hud_attachment_suspended"):
+            current_prop.call("set_hud_attachment_suspended", true)
         prop_original_parent = current_prop.get_parent()
+        if prop_original_parent and prop_original_parent is Camera:
+            prop_was_camera_child = true
         prop_original_transform = current_prop.global_transform
+        if prop_original_parent and prop_original_parent is Spatial and current_prop is Spatial:
+            prop_original_parent_is_spatial = true
+            prop_original_local_transform = current_prop.transform
         if prop_original_parent:
             prop_original_parent.remove_child(current_prop)
-        vp.add_child(current_prop)
+        if prop_was_camera_child:
+            cam.add_child(current_prop)
+            if current_prop is Spatial:
+                current_prop.transform = prop_original_local_transform
+        else:
+            vp.add_child(current_prop)
+
+        if current_prop.has_method("get_capture_nodes"):
+            var nodes = current_prop.call("get_capture_nodes")
+            if typeof(nodes) == TYPE_ARRAY:
+                for node in nodes:
+                    if not (node is Spatial) or not is_instance_valid(node):
+                        continue
+                    var original_parent = node.get_parent()
+                    var node_data = {
+                        "node": node,
+                        "parent": original_parent,
+                        "global_transform": node.global_transform,
+                        "local_transform": Transform.IDENTITY,
+                        "parent_is_spatial": false,
+                        "was_camera_child": original_parent != null and original_parent is Camera,
+                    }
+                    if original_parent and original_parent is Spatial:
+                        node_data["parent_is_spatial"] = true
+                        node_data["local_transform"] = node.transform
+                    if original_parent:
+                        original_parent.remove_child(node)
+
+                    if node_data["was_camera_child"]:
+                        cam.add_child(node)
+                        node.transform = node_data["local_transform"]
+                    else:
+                        vp.add_child(node)
+                        node.global_transform = node_data["global_transform"]
+                    extra_capture_nodes.append(node_data)
     
     if pilot_node:
         pilot_original_parent = pilot_node.get_parent()
@@ -211,10 +272,34 @@ func take_oys_screenshot(label: String, prop_named_prefix: String) -> String:
     var img = tex.get_data()
     img.flip_y()
     
-    if current_prop and prop_original_parent:
-        vp.remove_child(current_prop)
+    if current_prop and is_instance_valid(current_prop) and prop_original_parent:
+        var capture_parent = current_prop.get_parent()
+        if capture_parent:
+            capture_parent.remove_child(current_prop)
         prop_original_parent.add_child(current_prop)
-        current_prop.global_transform = prop_original_transform
+        if prop_original_parent_is_spatial and current_prop is Spatial:
+            current_prop.transform = prop_original_local_transform
+        else:
+            current_prop.global_transform = prop_original_transform
+        if current_prop.has_method("set_hud_attachment_suspended"):
+            current_prop.call("set_hud_attachment_suspended", false)
+    elif current_prop and is_instance_valid(current_prop) and current_prop.has_method("set_hud_attachment_suspended"):
+        current_prop.call("set_hud_attachment_suspended", false)
+
+    for node_data in extra_capture_nodes:
+        var node = node_data.get("node", null)
+        if not node or not is_instance_valid(node):
+            continue
+        var capture_parent = node.get_parent()
+        if capture_parent:
+            capture_parent.remove_child(node)
+        var original_parent = node_data.get("parent", null)
+        if original_parent and is_instance_valid(original_parent):
+            original_parent.add_child(node)
+            if node_data.get("parent_is_spatial", false):
+                node.transform = node_data.get("local_transform", Transform.IDENTITY)
+            else:
+                node.global_transform = node_data.get("global_transform", Transform.IDENTITY)
     
     if pilot_node and pilot_original_parent:
         vp.remove_child(pilot_node)
@@ -303,35 +388,62 @@ func take_oys_screenshot(label: String, prop_named_prefix: String) -> String:
 
     
 func unload_prop():
-    if not spawn_point:
-        return
-    for c in spawn_point.get_children():
-        spawn_point.remove_child(c)
-        c.free()
+    if current_prop and is_instance_valid(current_prop):
+        if current_prop.has_method("set_hud_attachment_suspended"):
+            current_prop.call("set_hud_attachment_suspended", true)
+        if dev_reuse_prop_instances and _current_prop_path != "":
+            _move_prop_to_cache(current_prop)
+        else:
+            _free_prop_instance(current_prop)
+
+    if spawn_point:
+        for c in spawn_point.get_children():
+            if is_instance_valid(c):
+                if dev_reuse_prop_instances and _is_cached_instance(c):
+                    _move_prop_to_cache(c)
+                else:
+                    _free_prop_instance(c)
+
     current_prop = null
+    _current_prop_path = ""
     _accumulated_wait_time = 0.0
 
 func load_prop(path: String) -> void:
-    unload_prop()
-    
+    if path == "":
+        unload_prop()
+        return
+
     if not spawn_point:
         printerr("[PropStage] SpawnPoint node missing!")
         return
+
+    if current_prop and is_instance_valid(current_prop) and _current_prop_path == path and current_prop.get_parent() == spawn_point:
+        _configure_prop_instance(current_prop)
+        return
+
+    unload_prop()
     
     _accumulated_wait_time = 0.0
     
-    # yield (get_tree(), "physics_frame") # Wait for cleanup
-    
-    var scene = load(path)
-    if not scene:
+    var instance = _get_or_instance_prop(path)
+    if not instance:
         printerr("[PropStage] Failed to load scene: ", path)
         return
-        
-    var instance = scene.instance()
+
+    var old_parent = instance.get_parent()
+    if old_parent:
+        old_parent.remove_child(instance)
+
     spawn_point.add_child(instance)
     current_prop = instance
-    
-    # Center and reset
+    _current_prop_path = path
+
+    if current_prop.has_method("set_hud_attachment_suspended"):
+        current_prop.call("set_hud_attachment_suspended", false)
+
+    _configure_prop_instance(instance)
+
+func _configure_prop_instance(instance: Node) -> void:
     if instance is Spatial:
         instance.transform = Transform.IDENTITY
         if dev_snap_to_floor:
@@ -339,8 +451,9 @@ func load_prop(path: String) -> void:
             instance.transform.origin = Vector3(0, offset, 0)
         else:
             instance.transform.origin = Vector3(0, 0.5, 0)
-    
-    # Reset state just in case
+    _reset_prop_runtime_state(instance)
+
+func _reset_prop_runtime_state(instance: Node) -> void:
     if instance.has_method("restore_snapshot"):
         instance.restore_snapshot({
             "active": false,
@@ -351,6 +464,84 @@ func load_prop(path: String) -> void:
         })
     elif instance.has_method("set_active"):
         instance.set_active(false, true)
+
+func _get_or_instance_prop(path: String) -> Node:
+    if dev_reuse_prop_instances:
+        var cached = _instance_cache.get(path, null)
+        if cached and is_instance_valid(cached):
+            return cached
+        if cached and not is_instance_valid(cached):
+            _instance_cache.erase(path)
+
+    var scene = _get_cached_scene(path)
+    if not scene:
+        return null
+
+    var instance = scene.instance()
+    if dev_reuse_prop_instances:
+        _instance_cache[path] = instance
+    return instance
+
+func _get_cached_scene(path: String):
+    var cached = _scene_cache.get(path, null)
+    if cached:
+        return cached
+    var scene = load(path)
+    if scene:
+        _scene_cache[path] = scene
+    return scene
+
+func _move_prop_to_cache(prop: Node) -> void:
+    if not prop or not is_instance_valid(prop):
+        return
+    _ensure_cache_root()
+    var parent = prop.get_parent()
+    if parent:
+        parent.remove_child(prop)
+    _cache_root.add_child(prop)
+    if prop is Spatial:
+        prop.transform = Transform.IDENTITY
+
+func _free_prop_instance(prop: Node) -> void:
+    if not prop or not is_instance_valid(prop):
+        return
+    _forget_cached_instance(prop)
+    var parent = prop.get_parent()
+    if parent:
+        parent.remove_child(prop)
+    prop.queue_free()
+
+func _forget_cached_instance(prop: Node) -> void:
+    for key in _instance_cache.keys():
+        if _instance_cache[key] == prop:
+            _instance_cache.erase(key)
+            return
+
+func _is_cached_instance(prop: Node) -> bool:
+    for cached in _instance_cache.values():
+        if cached == prop:
+            return true
+    return false
+
+func _ensure_cache_root() -> void:
+    if _cache_root and is_instance_valid(_cache_root):
+        return
+    _cache_root = get_node_or_null("_PropCache")
+    if _cache_root == null:
+        _cache_root = Spatial.new()
+        _cache_root.name = "_PropCache"
+        add_child(_cache_root)
+        _cache_root.owner = null
+
+func _release_cached_instances() -> void:
+    for prop in _instance_cache.values():
+        if not prop or not is_instance_valid(prop):
+            continue
+        var parent = prop.get_parent()
+        if parent:
+            parent.remove_child(prop)
+        prop.queue_free()
+    _instance_cache.clear()
 
 # --- Validation Helpers ---
 

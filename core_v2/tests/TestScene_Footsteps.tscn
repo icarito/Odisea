@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=2]
+[gd_scene load_steps=16 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/systems/footsteps/footstep_surface.gd" type="Script" id=2]
@@ -8,6 +8,7 @@
 [ext_resource path="res://core_v2/audio/footsteps/footstep_profile_grass.tres" type="Resource" id=6]
 [ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=7]
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=8]
+[ext_resource path="res://core_v2/props/HelmetHUD.tscn" type="PackedScene" id=9]
 
 [sub_resource type="CubeMesh" id=6]
 size = Vector3( 4, 0.2, 4 )
@@ -145,3 +146,6 @@ material = ExtResource( 8 )
 
 [node name="Pilot" parent="Platform" instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3 )
+
+[node name="HelmetHUD" parent="." instance=ExtResource( 9 )]
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0.0406067, -0.4, 6.33281 )

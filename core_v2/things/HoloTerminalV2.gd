@@ -21,7 +21,7 @@ export(bool) var active setget set_active_debug
 export(bool) var use_cinematic_zone := true
 export(bool) var close_on_exit_zone := true
 export(bool) var enable_ui_interaction := true
-export(bool) var allow_focus_mode := true # If true, pressing 'focus' key transitions to FocusedRig
+export(bool) var allow_focus_mode := true # If true, interaction mode can transition to FocusedRig.
 enum CinematicCameraBehavior {
 	CAMERA_FIXED,
 	CAMERA_FOLLOW_PLAYER,
@@ -430,14 +430,26 @@ func _input(event):
 	if Engine.editor_hint:
 		return
 
-	if attach_to_active_camera and is_active:
-		if event.is_action_pressed(HUD_UI_BRIDGE_TOGGLE_ACTION):
+	# Unified interaction mode toggle:
+	# - HUD terminals: always handled while active.
+	# - Regular terminals: handled when focus mode is allowed and UI is interactive.
+	if event.is_action_pressed(HUD_UI_BRIDGE_TOGGLE_ACTION):
+		if attach_to_active_camera and is_active:
 			if _is_focused:
 				_exit_focus_mode()
 			else:
 				_enter_focus_mode()
 			get_tree().set_input_as_handled()
 			return
+		if is_active and allow_focus_mode and (is_ui_interactive() or _is_focused):
+			if _is_focused:
+				_exit_focus_mode()
+			else:
+				_enter_focus_mode()
+			get_tree().set_input_as_handled()
+			return
+
+	if attach_to_active_camera and is_active:
 		if event is InputEventKey and event.pressed and event.scancode == KEY_ESCAPE:
 			if _is_focused:
 				_exit_focus_mode()

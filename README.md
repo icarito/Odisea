@@ -89,6 +89,11 @@ No reinventar la rueda. Usar estas clases base cuando sea posible:
     *   Exporta `rotation_axis` y `rotation_amount`.
     *   Usa interpolación angular determinista.
     *   Ejemplo: `VentilationTurbine` (si aplica).
+*   **`HoloTerminalV2`**: Para terminales holográficas e interfaces interactivas.
+    *   Exporta `slide_height` (distancia de despliegue), `slide_speed`, `screen_resolution`.
+    *   Animación slide+scale del `ScreenContainer` controlada por `anim_progress`.
+    *   Incluye CinematicSetup (CameraZone + FocusedRig) para interacción en primera persona.
+    *   Ejemplos: `HoloTerminalV2`, `TableTerminal`, `WallTerminal`, `HelmetHUD`.
 
 ### Conectividad y Controladores
 Los sistemas complejos se construyen componiendo nodos simples:
@@ -108,4 +113,6 @@ Para implementar un nuevo prop:
 1.  **Definir**: Crear escena heredando de la Primitiva adecuada.
 2.  **Configurar**: Ajustar meshes y vectores en el Inspector.
 3.  **Validar**: Ejecutar `./test_prop.sh ... --base64`.
+    *   Si existe `NombreDelProp.oys` junto al `.tscn`, en `core_v2/scripts/`, o en `core_v2/tests/`, se usa automáticamente en lugar del validador genérico.
+    *   Los scripts personalizados pueden usar `SPAWN scene="..."` para posicionar cámaras o helpers (ej: `CameraClose.tscn`).
 4.  **Iterar**: El agente analiza la imagen. ¿La puerta traspasa el suelo? Ajustar. ¿Se abre al revés? Ajustar vector. Repetir hasta éxito.

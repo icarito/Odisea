@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://core_v2/tests/CameraClose.gd" type="Script" id=1]
+
+[node name="CameraClose" type="Spatial"]
+script = ExtResource( 1 )
