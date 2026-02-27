@@ -10,6 +10,9 @@ var _started := false
 func _ready() -> void:
 	if not auto_start_intro:
 		return
+	var rl_mode_env = OS.get_environment("ANNA_RL_MODE").to_lower()
+	if rl_mode_env in ["1", "true", "yes", "on"]:
+		return
 	if Engine.has_singleton("GdUnit3") and Engine.get_singleton("GdUnit3").is_test_suite():
 		return
 	var session = get_node_or_null("/root/SessionManager")

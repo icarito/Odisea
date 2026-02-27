@@ -99,6 +99,21 @@ var _exit_log_frames := 0
 var _occlusion_mode_active := false
 var _perf_disable_interaction_scan := false
 var _perf_disable_cinematic_zone_scan := false
+var _rl_mode := false
+var _rl_fast_controller := false
+var _rl_skip_animator := false
+var _rl_skip_camera_updates := false
+var _rl_skip_platform_tracking := false
+var _rl_skip_rigidbody_push := false
+var _rl_strip_visual_rig := false
+var _rl_step_profile_enabled := false
+var _rl_step_profile_every := 200
+var _rl_step_profile_file := "user://anna_rl_step_profile.log"
+var _rl_step_profile_count := 0
+var _rl_step_profile_us_total := 0
+var _rl_step_profile_us_control := 0
+var _rl_step_profile_us_move := 0
+var _rl_step_profile_us_post := 0
 
 # Signals
 signal jumped
@@ -234,11 +249,60 @@ onready var camera_rig = $CameraRig
 onready var animator = $Visual/Pivot
 onready var _audio_listener = get_node_or_null("AudioListener")
 
+func _env_enabled(name: String, default_value: bool = false) -> bool:
+	var raw := OS.get_environment(name)
+	if raw == "":
+		return default_value
+	return raw.to_lower() in ["1", "true", "yes", "on"]
+
 func _ready():
+	_rl_mode = _env_enabled("ANNA_RL_MODE", false)
+	_rl_fast_controller = _rl_mode and _env_enabled("ANNA_RL_FAST_CONTROLLER", false)
+	_rl_strip_visual_rig = _rl_mode and _env_enabled("ANNA_RL_STRIP_VISUAL_RIG", false)
+	if _rl_mode:
+		_rl_step_profile_enabled = _env_enabled("ANNA_RL_STEP_PROFILE", false)
+		var step_profile_every_env = OS.get_environment("ANNA_RL_STEP_PROFILE_EVERY")
+		if step_profile_every_env.is_valid_integer():
+			_rl_step_profile_every = max(50, int(step_profile_every_env))
+		var step_profile_file_env = OS.get_environment("ANNA_RL_STEP_PROFILE_FILE")
+		if step_profile_file_env.strip_edges() != "":
+			_rl_step_profile_file = step_profile_file_env
+		if _rl_step_profile_enabled:
+			_append_profile_line(_rl_step_profile_file, "[RL_STEP_PROFILE] start")
+	if _rl_fast_controller:
+		_rl_skip_animator = _env_enabled("ANNA_RL_FAST_DISABLE_ANIMATOR", true)
+		_rl_skip_camera_updates = _env_enabled("ANNA_RL_FAST_DISABLE_CAMERA_UPDATES", true)
+		_rl_skip_platform_tracking = _env_enabled("ANNA_RL_FAST_DISABLE_PLATFORM_TRACKING", true)
+		_rl_skip_rigidbody_push = _env_enabled("ANNA_RL_FAST_DISABLE_RIGID_PUSH", true)
+	else:
+		# Independent opt-in knobs for RL throughput without changing controller behavior.
+		_rl_skip_animator = _rl_mode and _env_enabled("ANNA_RL_SKIP_ANIMATOR", false)
+		_rl_skip_camera_updates = _rl_mode and _env_enabled("ANNA_RL_SKIP_CAMERA_UPDATES", false)
+		_rl_skip_platform_tracking = _rl_mode and _env_enabled("ANNA_RL_SKIP_PLATFORM_TRACKING", false)
+		_rl_skip_rigidbody_push = _rl_mode and _env_enabled("ANNA_RL_SKIP_RIGID_PUSH", false)
+
 	var disable_interaction_env := OS.get_environment("ODISEA_DISABLE_INTERACTION_SCAN").to_lower()
 	_perf_disable_interaction_scan = disable_interaction_env in ["1", "true", "yes", "on"]
 	var disable_camera_zone_env := OS.get_environment("ODISEA_DISABLE_CAMERAZONE_SCAN").to_lower()
 	_perf_disable_cinematic_zone_scan = disable_camera_zone_env in ["1", "true", "yes", "on"]
+	if _rl_fast_controller:
+		_perf_disable_interaction_scan = true
+		_perf_disable_cinematic_zone_scan = true
+		enable_step_up = false
+		var dust = get_node_or_null("CameraRig/Yaw/Pitch/SpringArm/Camera/SpaceDust")
+		if dust and "emitting" in dust:
+			dust.emitting = false
+		if _rl_skip_animator:
+			var anim_tree = get_node_or_null("Visual/Pivot/AnimationTree")
+			if anim_tree:
+				anim_tree.active = false
+	elif _rl_skip_animator:
+		var anim_tree_rl = get_node_or_null("Visual/Pivot/AnimationTree")
+		if anim_tree_rl:
+			anim_tree_rl.active = false
+	if _rl_strip_visual_rig:
+		_rl_skip_animator = true
+		_disable_visual_rig_for_rl()
 
 	initial_transform = global_transform
 	add_to_group("player")
@@ -294,6 +358,34 @@ func _ensure_player_audio_listener() -> void:
 		add_child(_audio_listener)
 	if _audio_listener.has_method("make_current"):
 		_audio_listener.make_current()
+
+func _disable_visual_rig_for_rl() -> void:
+	var anim_tree = get_node_or_null("Visual/Pivot/AnimationTree")
+	if anim_tree and "active" in anim_tree:
+		anim_tree.active = false
+	var skeleton = get_node_or_null("Visual/Pivot/Skeleton")
+	if skeleton:
+		skeleton.queue_free()
+	var fake_shadow = get_node_or_null("Visual/Pivot/FakeShadow")
+	if fake_shadow:
+		fake_shadow.queue_free()
+	var jump_sfx = get_node_or_null("Visual/Pivot/JumpSFX")
+	if jump_sfx:
+		jump_sfx.queue_free()
+	var footstep = get_node_or_null("Visual/Pivot/FootstepDetector")
+	if footstep:
+		footstep.queue_free()
+	var omni = get_node_or_null("Visual/OmniLight")
+	if omni:
+		omni.queue_free()
+	var dust = get_node_or_null("CameraRig/Yaw/Pitch/SpringArm/Camera/SpaceDust")
+	if dust:
+		if "emitting" in dust:
+			dust.emitting = false
+		dust.queue_free()
+	if animator:
+		animator.set_process(false)
+		animator.set_physics_process(false)
 
 func _find_camera(node: Node) -> Camera:
 	if node is Camera:
@@ -711,9 +803,23 @@ func _update_push_state(_dt: float, input: InputDataV2):
 
 func step(dt: float, input: InputDataV2) -> void:
 	if input == null: return
-	
-	_update_push_state(dt, input)
+	var prof_enabled := _rl_step_profile_enabled
+	var prof_t0 := 0
+	var prof_t_control := 0
+	var prof_t_move := 0
+	if prof_enabled:
+		prof_t0 = OS.get_ticks_usec()
+
+	if _rl_fast_controller and _rl_skip_rigidbody_push:
+		_was_pushing = is_pushing
+		is_pushing = false
+		visual_push_correction = 0.0
+		_push_target = null
+	else:
+		_update_push_state(dt, input)
 	var motion_grounded := is_effectively_grounded()
+	if _rl_fast_controller:
+		motion_grounded = is_on_floor() or _just_stepped or _step_grounded_timer > 0.0
 	var physics_grounded := is_on_floor() or _just_stepped or _step_grounded_timer > 0.0
 	if debug_stair_state:
 		var on_floor_now := is_on_floor()
@@ -748,7 +854,8 @@ func step(dt: float, input: InputDataV2) -> void:
 		input.jump = false
 		input.sprint = false
 
-	_process_interaction(input)
+	if not _rl_fast_controller:
+		_process_interaction(input)
 
 	if physics_grounded and velocity.y < 0 and movement_logic.get_horizontal_velocity().y <= 0:
 		velocity.y = 0
@@ -756,42 +863,54 @@ func step(dt: float, input: InputDataV2) -> void:
 			jump_logic.set_internal_velocity(0.0)
 
 	# Camera Orbit Logic (Third Person)
-	# Only update orbit if NOT in a camera zone (or if using FREE mode inside a zone)
-	var active_zone_mode = CinematicManager.get_control_mode()
-	if active_zone_mode == CinematicManager.ControlMode.FREE:
+	# In fast RL mode, skip CinematicManager checks and use a direct yaw/pitch update path.
+	if _rl_fast_controller:
 		if input and input.mouse_delta:
-			movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
-			# If mouse_delta exists, apply it directly; hardware input outside captured mode already produces zero delta.
 			yaw -= input.mouse_delta.x * mouse_sensitivity
-			var mouse_y = -input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
-			pitch -= mouse_y * mouse_sensitivity
-			yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
+			var mouse_y_fast = -input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
+			pitch -= mouse_y_fast * mouse_sensitivity
 		pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
-
-	var active_cam = CinematicManager.get_active_camera()
-	var can_zoom_cinematic = enable_cinematic_zoom and active_cam and is_instance_valid(active_cam) and active_cam != _cached_cam
-	if can_zoom_cinematic:
-		if _cinematic_zoom_target_cam != active_cam:
-			_cinematic_zoom_target_cam = active_cam
-			_cinematic_zoom_target_fov = active_cam.fov
-
-		if abs(input.zoom_delta) > 0.01:
-			_cinematic_zoom_target_fov = clamp(
-				_cinematic_zoom_target_fov + (input.zoom_delta * cinematic_zoom_speed),
-				cinematic_zoom_min_fov,
-				cinematic_zoom_max_fov
-			)
-
-		var zoom_t = clamp(cinematic_zoom_lerp_speed * dt, 0.0, 1.0)
-		active_cam.fov = lerp(active_cam.fov, _cinematic_zoom_target_fov, zoom_t)
-	else:
-		_cinematic_zoom_target_cam = null
-		_cinematic_zoom_target_fov = -1.0
 		if abs(input.zoom_delta) > 0.01:
 			base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 50.0)
+		if input.fov_override > 0.0:
+			base_fov = input.fov_override
+	else:
+		# Only update orbit if NOT in a camera zone (or if using FREE mode inside a zone)
+		var active_zone_mode = CinematicManager.get_control_mode()
+		if active_zone_mode == CinematicManager.ControlMode.FREE:
+			if input and input.mouse_delta:
+				movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
+				# If mouse_delta exists, apply it directly; hardware input outside captured mode already produces zero delta.
+				yaw -= input.mouse_delta.x * mouse_sensitivity
+				var mouse_y = -input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
+				pitch -= mouse_y * mouse_sensitivity
+				yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
+			pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
 
-	if input.fov_override > 0.0:
-		base_fov = input.fov_override
+		var active_cam = CinematicManager.get_active_camera()
+		var can_zoom_cinematic = enable_cinematic_zoom and active_cam and is_instance_valid(active_cam) and active_cam != _cached_cam
+		if can_zoom_cinematic:
+			if _cinematic_zoom_target_cam != active_cam:
+				_cinematic_zoom_target_cam = active_cam
+				_cinematic_zoom_target_fov = active_cam.fov
+
+			if abs(input.zoom_delta) > 0.01:
+				_cinematic_zoom_target_fov = clamp(
+					_cinematic_zoom_target_fov + (input.zoom_delta * cinematic_zoom_speed),
+					cinematic_zoom_min_fov,
+					cinematic_zoom_max_fov
+				)
+
+			var zoom_t = clamp(cinematic_zoom_lerp_speed * dt, 0.0, 1.0)
+			active_cam.fov = lerp(active_cam.fov, _cinematic_zoom_target_fov, zoom_t)
+		else:
+			_cinematic_zoom_target_cam = null
+			_cinematic_zoom_target_fov = -1.0
+			if abs(input.zoom_delta) > 0.01:
+				base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 50.0)
+
+		if input.fov_override > 0.0:
+			base_fov = input.fov_override
 
 	# Update Rig (Player's Rig)
 	if camera_rig:
@@ -813,14 +932,18 @@ func step(dt: float, input: InputDataV2) -> void:
 		jump_logic.buffer_jump()
 
 	# --- CINEMATIC ZONE DETECTION ---
-	if not _perf_disable_cinematic_zone_scan:
+	if not _rl_fast_controller and not _perf_disable_cinematic_zone_scan:
 		_update_cinematic_zone_detection(input, dt)
 	
 	# --- MOVEMENT ---
+	if prof_enabled:
+		prof_t_control = OS.get_ticks_usec()
 	var move_vec = input.move_vec
 	# Calculate World Direction based on Control Mode (or Latch)
 	# Logic delegated to CinematicManager (FSM)
 	var world_dir: Vector3 = _get_move_direction(move_vec)
+	if _rl_fast_controller:
+		world_dir = _get_move_direction_rl_fast(move_vec)
 
 	# --- ACROBATIC SNAP DETECTION (Legacy) ---
 	# Uses input.move_vec directly to capture raw intent before processing
@@ -915,7 +1038,7 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	var snap_vec = Vector3.DOWN * snap_length if (velocity.y <= 0 and not input.jump) else Vector3.ZERO
 	
-	if enable_step_up and is_on_floor() and velocity.y <= 0:
+	if enable_step_up and (not _rl_fast_controller) and is_on_floor() and velocity.y <= 0:
 		var step_motion = movement_logic.wish_direction if movement_logic.wish_direction.length() > 0.1 else velocity
 		var step_result = _try_step_up(step_motion)
 		if step_result.stepped:
@@ -928,7 +1051,10 @@ func step(dt: float, input: InputDataV2) -> void:
 	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true, 4, deg2rad(45), false)
 	
 	_update_floor_info()
-	_update_platform_tracking(dt)
+	if _rl_fast_controller and _rl_skip_platform_tracking:
+		_platform_velocity = Vector3.ZERO
+	else:
+		_update_platform_tracking(dt)
 
 	# Keep a short ground-contact grace to avoid false air states on tiny stair gaps.
 	if is_on_floor():
@@ -944,21 +1070,24 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	# Rigid body push
 	var touched_rigid = false
-	for i in get_slide_count():
-		var collision = get_slide_collision(i)
-		var body = collision.collider
-		if is_instance_valid(body) and body is RigidBody:
-			touched_rigid = true
-			if body is RigidBody:
-				if abs(collision.normal.y) < 0.5:
-					var impulse = - collision.normal * push_force * dt
-					body.apply_central_impulse(impulse)
+	if not (_rl_fast_controller and _rl_skip_rigidbody_push):
+		for i in get_slide_count():
+			var collision = get_slide_collision(i)
+			var body = collision.collider
+			if is_instance_valid(body) and body is RigidBody:
+				touched_rigid = true
+				if body is RigidBody:
+					if abs(collision.normal.y) < 0.5:
+						var impulse = - collision.normal * push_force * dt
+						body.apply_central_impulse(impulse)
 	
 	if _was_touching_rigid and not touched_rigid:
 		emit_signal("rigid_contact_ended")
 	_was_touching_rigid = touched_rigid
+	if prof_enabled:
+		prof_t_move = OS.get_ticks_usec()
 
-	if animator and animator.has_method("step_animator"):
+	if (not _rl_skip_animator) and animator and animator.has_method("step_animator"):
 		var anim_vel = velocity
 		if not movement_logic.external_source_is_static:
 			anim_vel = velocity - movement_logic.external_velocity
@@ -968,12 +1097,55 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	# Update Camera SpringArm (for Third Person view)
 	# Even if not active, we keep it updated
-	if _cached_spring_arm:
+	if (not _rl_skip_camera_updates) and _cached_spring_arm:
 		current_spring_length = lerp(current_spring_length, base_spring_length_3d, 4.0 * dt)
 		_cached_spring_arm.spring_length = current_spring_length
 	
-	if _cached_cam and abs(_cached_cam.fov - base_fov) > 0.01:
+	if (not _rl_skip_camera_updates) and _cached_cam and abs(_cached_cam.fov - base_fov) > 0.01:
 		_cached_cam.fov = lerp(_cached_cam.fov, base_fov, 4.0 * dt)
+	if prof_enabled:
+		_rl_step_profile_add(prof_t0, prof_t_control, prof_t_move, OS.get_ticks_usec())
+
+func _rl_step_profile_add(t0: int, t_control: int, t_move: int, t_end: int) -> void:
+	if t0 <= 0:
+		return
+	if t_control <= 0:
+		t_control = t0
+	if t_move <= 0:
+		t_move = t_control
+	_rl_step_profile_count += 1
+	_rl_step_profile_us_total += max(0, t_end - t0)
+	_rl_step_profile_us_control += max(0, t_control - t0)
+	_rl_step_profile_us_move += max(0, t_move - t_control)
+	_rl_step_profile_us_post += max(0, t_end - t_move)
+	if _rl_step_profile_count % _rl_step_profile_every != 0:
+		return
+	var n := float(_rl_step_profile_every)
+	var line = "[RL_STEP_PROFILE] control=%.1fus move=%.1fus post=%.1fus total=%.1fus" % [
+		_rl_step_profile_us_control / n,
+		_rl_step_profile_us_move / n,
+		_rl_step_profile_us_post / n,
+		_rl_step_profile_us_total / n
+	]
+	_append_profile_line(_rl_step_profile_file, line)
+	_rl_step_profile_us_total = 0
+	_rl_step_profile_us_control = 0
+	_rl_step_profile_us_move = 0
+	_rl_step_profile_us_post = 0
+
+func _append_profile_line(path: String, line: String) -> void:
+	var f := File.new()
+	var err = ERR_CANT_OPEN
+	if f.file_exists(path):
+		err = f.open(path, File.READ_WRITE)
+		if err == OK:
+			f.seek_end()
+	else:
+		err = f.open(path, File.WRITE)
+	if err != OK:
+		return
+	f.store_line(line)
+	f.close()
 		
 func _update_cinematic_zone_detection(input: InputDataV2, dt: float = 1.0 / 60.0):
 	var all_zones = get_tree().get_nodes_in_group("CameraZoneV2")
@@ -1227,6 +1399,22 @@ func reconnect_input_provider():
 
 func get_camera_basis() -> Basis:
 	return camera_rig.global_transform.basis if camera_rig else Basis.IDENTITY
+
+func _get_move_direction_rl_fast(input_vector: Vector2) -> Vector3:
+	var basis_fast = camera_rig.global_transform.basis if camera_rig else global_transform.basis
+	var forward = - basis_fast.z
+	forward.y = 0.0
+	if forward.length_squared() > 0.0001:
+		forward = forward.normalized()
+	else:
+		forward = Vector3.FORWARD
+	var right = basis_fast.x
+	right.y = 0.0
+	if right.length_squared() > 0.0001:
+		right = right.normalized()
+	else:
+		right = Vector3.RIGHT
+	return right * input_vector.x + forward * (-input_vector.y)
 
 func teleport_to(target_transform: Transform) -> void:
 	# print("[PlayerController] teleport_to called. Target: ", target_transform.origin, " Rot: ", target_transform.basis.get_euler())

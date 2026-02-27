@@ -99,26 +99,29 @@ const RL_ORBIT_FORWARD_THROTTLE = 0.35 # Reduce forward commit near target while
 const RL_ORBIT_STRAFE_THROTTLE = 0.45 # Reduce strafe orbiting near target while misaligned.
 const RL_COLLISION_PENALTY_THRESHOLD = 0.6 # If ray < 0.6m ~ collision
 const RL_FLOOR_NORMAL_Y_THRESHOLD = 0.6 # Upward-facing collisions are treated as floor/support.
-const RL_HAZARD_CONTACT_GRACE_FRAMES = 35 # Tolerate brief wall brushes in dense geometry.
-const RL_WALL_CONTACT_PENALTY = 0.03 # Stronger shaping penalty for sustained wall contact.
-const RL_STUCK_WALL_FAIL_FRAMES = 150 # Fail if clearly stuck against walls for too long.
+const RL_HAZARD_CONTACT_GRACE_FRAMES = 24 # Detect wall-stuck states sooner.
+const RL_WALL_CONTACT_PENALTY = 0.05 # Strong shaping penalty for sustained wall contact.
+const RL_STUCK_WALL_FAIL_FRAMES = 120 # Fail earlier if clearly stuck against walls.
 const RL_STUCK_MIN_HSPEED = 0.12
 const RL_STUCK_MIN_PROGRESS_SPEED = 0.05
-const RL_STUCK_EXTRA_PENALTY_SCALE = 0.01 # Progressive punishment while stuck.
-const RL_STUCK_EXTRA_PENALTY_CAP = 0.35
+const RL_STUCK_EXTRA_PENALTY_SCALE = 0.015 # Progressive punishment while stuck.
+const RL_STUCK_EXTRA_PENALTY_CAP = 0.5
 const RL_STUCK_RECOVERY_WALL_FRAMES = 12 # Trigger recovery sooner when hugging walls.
-const RL_STUCK_NO_RECOVERY_PENALTY = 0.12
+const RL_STUCK_NO_RECOVERY_PENALTY = 0.18
 const RL_STUCK_RECOVERY_REWARD = 0.08
 const RL_STUCK_RECOVERY_BACKOFF = 1.0
 const RL_STUCK_RECOVERY_STRAFE = 0.95
 const RL_STUCK_RECOVERY_JUMP_PERIOD = 7
 const RL_HAZARD_EVASION_REWARD = 0.05 # Reward trying strafe/back/jump while in wall contact.
-const RL_HAZARD_FORWARD_PRESS_PENALTY = 0.08 # Penalize insisting on forward into wall contact.
+const RL_HAZARD_FORWARD_PRESS_PENALTY = 0.12 # Penalize insisting on forward into wall contact.
 const RL_WALL_ESCAPE_PROGRESS_REWARD_SCALE = 0.12 # Reward increasing frontal clearance while in hazard.
 const RL_WALL_ESCAPE_REGRESS_PENALTY_SCALE = 0.06 # Penalize reducing frontal clearance while in hazard.
 const RL_SMART_JUMP_AHEAD_DIST = 1.85 # Jump is only useful when obstacle is close ahead.
 const RL_SMART_JUMP_MIN_COOLDOWN = 8 # Avoid hop-spam between consecutive frames.
 const RL_SMART_JUMP_ALLOW_STUCK_FRAMES = 12 # If stuck, allow more aggressive jump recovery.
+const RL_SMART_JUMP_TARGET_ABOVE_Y = 1.2 # If target is this much higher, allow jump-assist even without frontal obstacle.
+const RL_SMART_JUMP_TARGET_ABOVE_DIST = 9.0 # Jump-assist only when horizontally close enough to upper target.
+const RL_SMART_JUMP_MAX_STEER_ANGLE = 0.45 # Require approximate heading before vertical jump-assist.
 const RL_INTERACT_RANGE = 3.25
 const RL_INTERACT_FORWARD_DOT_MIN = 0.15
 const RL_INTERACT_CONTEXT_REWARD = 0.32
@@ -186,15 +189,33 @@ var _interact_cooldown_frames := 0
 var _last_front_ray_dist := -1.0
 var _last_route_interact_dist := -1.0
 var _last_route_interact_progress := -1.0
+var _cached_player: Node = null
+var _cached_target: Spatial = null
 
 # Spawn config (overrideable via env vars for scene-specific safe positions)
 var _rl_spawn_pos := Vector3(0.0, 2.0, 0.0)
+var _rl_spawn_alt_pos := Vector3(0.0, 2.0, 0.0)
+var _rl_spawn_alt_enabled := false
+var _rl_spawn_alt_prob := 0.0
 var _rl_spawn_random_yaw := true
 var _rl_target_radius_min := 5.0
 var _rl_target_radius_max := 20.0
 var _rl_target_fixed_y := 1.0
+var _rl_smart_jump_ahead_dist := RL_SMART_JUMP_AHEAD_DIST
+var _rl_smart_jump_target_above_y := RL_SMART_JUMP_TARGET_ABOVE_Y
+var _rl_smart_jump_target_above_dist := RL_SMART_JUMP_TARGET_ABOVE_DIST
+var _rl_smart_jump_max_steer_angle := RL_SMART_JUMP_MAX_STEER_ANGLE
+var _rl_legacy_fast_mode := false
+var _rl_hazard_contact_grace_frames := RL_HAZARD_CONTACT_GRACE_FRAMES
+var _rl_wall_contact_penalty := RL_WALL_CONTACT_PENALTY
+var _rl_stuck_wall_fail_frames := RL_STUCK_WALL_FAIL_FRAMES
+var _rl_stuck_extra_penalty_scale := RL_STUCK_EXTRA_PENALTY_SCALE
+var _rl_stuck_extra_penalty_cap := RL_STUCK_EXTRA_PENALTY_CAP
+var _rl_stuck_no_recovery_penalty := RL_STUCK_NO_RECOVERY_PENALTY
+var _rl_hazard_forward_press_penalty := RL_HAZARD_FORWARD_PRESS_PENALTY
 
 func _ready():
+	_rl_legacy_fast_mode = OS.get_environment("ANNA_RL_LEGACY_FAST_MODE").to_lower() in ["1", "true", "yes", "on"]
 	var rl_max_steps_env = OS.get_environment("ANNA_RL_MAX_STEPS")
 	if rl_max_steps_env.is_valid_integer():
 		_rl_max_episode_steps = max(100, int(rl_max_steps_env))
@@ -208,6 +229,20 @@ func _ready():
 	if sx.is_valid_float(): _rl_spawn_pos.x = float(sx)
 	if sy.is_valid_float(): _rl_spawn_pos.y = float(sy)
 	if sz.is_valid_float(): _rl_spawn_pos.z = float(sz)
+	var sax = OS.get_environment("ANNA_RL_SPAWN_ALT_X")
+	var say = OS.get_environment("ANNA_RL_SPAWN_ALT_Y")
+	var saz = OS.get_environment("ANNA_RL_SPAWN_ALT_Z")
+	var spawn_alt_prob = OS.get_environment("ANNA_RL_SPAWN_ALT_PROB")
+	_rl_spawn_alt_pos = _rl_spawn_pos
+	if sax.is_valid_float() or say.is_valid_float() or saz.is_valid_float():
+		if sax.is_valid_float(): _rl_spawn_alt_pos.x = float(sax)
+		if say.is_valid_float(): _rl_spawn_alt_pos.y = float(say)
+		if saz.is_valid_float(): _rl_spawn_alt_pos.z = float(saz)
+		_rl_spawn_alt_enabled = true
+	if spawn_alt_prob.is_valid_float():
+		_rl_spawn_alt_prob = clamp(float(spawn_alt_prob), 0.0, 1.0)
+		if _rl_spawn_alt_prob > 0.0:
+			_rl_spawn_alt_enabled = true
 	# Target placement radius override (smaller = easier episodes)
 	var tr_min = OS.get_environment("ANNA_RL_TARGET_RADIUS_MIN")
 	var tr_max = OS.get_environment("ANNA_RL_TARGET_RADIUS_MAX")
@@ -215,8 +250,45 @@ func _ready():
 	if tr_min.is_valid_float(): _rl_target_radius_min = max(1.0, float(tr_min))
 	if tr_max.is_valid_float(): _rl_target_radius_max = max(_rl_target_radius_min + 1.0, float(tr_max))
 	if tr_y.is_valid_float(): _rl_target_fixed_y = float(tr_y)
-	print("[AnnaInterface] spawn=%s  target_radius=[%.1f, %.1f]  max_steps=%d" % [
-		_rl_spawn_pos, _rl_target_radius_min, _rl_target_radius_max, _rl_max_episode_steps])
+	var jump_ahead_env = OS.get_environment("ANNA_RL_JUMP_AHEAD_DIST")
+	var jump_above_y_env = OS.get_environment("ANNA_RL_JUMP_TARGET_ABOVE_Y")
+	var jump_above_dist_env = OS.get_environment("ANNA_RL_JUMP_TARGET_ABOVE_DIST")
+	var jump_max_steer_env = OS.get_environment("ANNA_RL_JUMP_MAX_STEER_ANGLE")
+	var wall_contact_penalty_env = OS.get_environment("ANNA_RL_WALL_CONTACT_PENALTY")
+	var stuck_fail_frames_env = OS.get_environment("ANNA_RL_STUCK_WALL_FAIL_FRAMES")
+	var stuck_extra_scale_env = OS.get_environment("ANNA_RL_STUCK_EXTRA_PENALTY_SCALE")
+	var stuck_extra_cap_env = OS.get_environment("ANNA_RL_STUCK_EXTRA_PENALTY_CAP")
+	var stuck_no_recovery_env = OS.get_environment("ANNA_RL_STUCK_NO_RECOVERY_PENALTY")
+	var hazard_forward_press_env = OS.get_environment("ANNA_RL_HAZARD_FORWARD_PRESS_PENALTY")
+	var hazard_grace_frames_env = OS.get_environment("ANNA_RL_HAZARD_CONTACT_GRACE_FRAMES")
+	if jump_ahead_env.is_valid_float():
+		_rl_smart_jump_ahead_dist = clamp(float(jump_ahead_env), 0.8, 4.0)
+	if jump_above_y_env.is_valid_float():
+		_rl_smart_jump_target_above_y = clamp(float(jump_above_y_env), 0.4, 4.0)
+	if jump_above_dist_env.is_valid_float():
+		_rl_smart_jump_target_above_dist = clamp(float(jump_above_dist_env), 2.0, 25.0)
+	if jump_max_steer_env.is_valid_float():
+		_rl_smart_jump_max_steer_angle = clamp(float(jump_max_steer_env), 0.08, 1.0)
+	if wall_contact_penalty_env.is_valid_float():
+		_rl_wall_contact_penalty = clamp(float(wall_contact_penalty_env), 0.0, 1.5)
+	if stuck_fail_frames_env.is_valid_integer():
+		_rl_stuck_wall_fail_frames = int(clamp(int(stuck_fail_frames_env), 20, 2000))
+	if stuck_extra_scale_env.is_valid_float():
+		_rl_stuck_extra_penalty_scale = clamp(float(stuck_extra_scale_env), 0.0, 0.2)
+	if stuck_extra_cap_env.is_valid_float():
+		_rl_stuck_extra_penalty_cap = clamp(float(stuck_extra_cap_env), 0.0, 2.0)
+	if stuck_no_recovery_env.is_valid_float():
+		_rl_stuck_no_recovery_penalty = clamp(float(stuck_no_recovery_env), 0.0, 2.0)
+	if hazard_forward_press_env.is_valid_float():
+		_rl_hazard_forward_press_penalty = clamp(float(hazard_forward_press_env), 0.0, 2.0)
+	if hazard_grace_frames_env.is_valid_integer():
+		_rl_hazard_contact_grace_frames = int(clamp(int(hazard_grace_frames_env), 0, 400))
+	print("[AnnaInterface] spawn=%s alt_enabled=%s alt_prob=%.2f alt_spawn=%s target_radius=[%.1f, %.1f] jump[ahead=%.2f,above_y=%.2f,above_d=%.2f,max_steer=%.2f] wall[contact=%.3f stuck_scale=%.3f stuck_cap=%.3f stuck_fail=%d no_recovery=%.3f grace=%d fwd_press=%.3f] max_steps=%d legacy_fast=%s" % [
+		_rl_spawn_pos, str(_rl_spawn_alt_enabled), _rl_spawn_alt_prob, _rl_spawn_alt_pos,
+		_rl_target_radius_min, _rl_target_radius_max,
+		_rl_smart_jump_ahead_dist, _rl_smart_jump_target_above_y, _rl_smart_jump_target_above_dist, _rl_smart_jump_max_steer_angle,
+		_rl_wall_contact_penalty, _rl_stuck_extra_penalty_scale, _rl_stuck_extra_penalty_cap, _rl_stuck_wall_fail_frames, _rl_stuck_no_recovery_penalty, _rl_hazard_contact_grace_frames, _rl_hazard_forward_press_penalty,
+		_rl_max_episode_steps, str(_rl_legacy_fast_mode)])
 	_setup_sensors()
 	_setup_rl_sensors()
 	_bind_killzones()
@@ -556,6 +628,8 @@ func get_rl_observation() -> Dictionary:
 		# Fallback/Fail state
 		for i in range(12): obs_vector.append(0.0)
 		return {"obs": obs_vector, "reward": 0.0, "done": true}
+	if _rl_legacy_fast_mode:
+		return _get_rl_observation_legacy_fast(player as Spatial)
 
 	# 1. Update Sensors
 	# Move sensors to player position
@@ -859,12 +933,12 @@ func get_rl_observation() -> Dictionary:
 
 		if hazard_contact:
 			_hazard_contact_frames += 1
-			reward -= RL_WALL_CONTACT_PENALTY
+			reward -= _rl_wall_contact_penalty
 			var trying_evasion_now := abs(_last_move_cmd.x) > 0.2 or _last_move_cmd.y > 0.2 or _last_action_jump
 			if trying_evasion_now:
 				reward += RL_HAZARD_EVASION_REWARD
 			elif _last_move_cmd.y < -0.25:
-				reward -= RL_HAZARD_FORWARD_PRESS_PENALTY
+				reward -= _rl_hazard_forward_press_penalty
 			if _last_front_ray_dist >= 0.0:
 				var clear_delta = front_ray_dist - _last_front_ray_dist
 				if clear_delta > 0.0:
@@ -878,7 +952,7 @@ func get_rl_observation() -> Dictionary:
 			_wall_stuck_frames = 0
 		_last_front_ray_dist = front_ray_dist
 
-		if hazard_contact and _hazard_contact_frames >= RL_HAZARD_CONTACT_GRACE_FRAMES:
+		if hazard_contact and _hazard_contact_frames >= _rl_hazard_contact_grace_frames:
 			var progress_speed = 0.0
 			if target and to_target.length_squared() > 0.001:
 				progress_speed = vel.dot(to_target)
@@ -888,15 +962,15 @@ func get_rl_observation() -> Dictionary:
 				_wall_stuck_frames = 0
 
 		if _wall_stuck_frames > 0:
-			reward -= min(RL_STUCK_EXTRA_PENALTY_CAP, float(_wall_stuck_frames) * RL_STUCK_EXTRA_PENALTY_SCALE)
+			reward -= min(_rl_stuck_extra_penalty_cap, float(_wall_stuck_frames) * _rl_stuck_extra_penalty_scale)
 			if _wall_stuck_frames >= RL_STUCK_RECOVERY_WALL_FRAMES:
 				var trying_recovery := _last_move_cmd.y > 0.2 or abs(_last_move_cmd.x) > 0.2 or _last_action_jump
 				if trying_recovery:
 					reward += RL_STUCK_RECOVERY_REWARD
 				else:
-					reward -= RL_STUCK_NO_RECOVERY_PENALTY
+					reward -= _rl_stuck_no_recovery_penalty
 
-		if _wall_stuck_frames >= RL_STUCK_WALL_FAIL_FRAMES:
+		if _wall_stuck_frames >= _rl_stuck_wall_fail_frames:
 			terminal_reward += RL_REWARD_FAILURE
 			done = true
 
@@ -913,9 +987,12 @@ func get_rl_observation() -> Dictionary:
 func reset_simulation() -> void:
 	var player = _get_player()
 	_reset_interactables_for_episode()
+	var spawn_origin := _rl_spawn_pos
+	if _rl_spawn_alt_enabled and _rl_spawn_alt_prob > 0.0 and randf() < _rl_spawn_alt_prob:
+		spawn_origin = _rl_spawn_alt_pos
 	if player and player.has_method("teleport_to"):
 		var t = Transform()
-		t.origin = _rl_spawn_pos
+		t.origin = spawn_origin
 		var rand_yaw = rand_range(-PI, PI)
 		t.basis = Basis(Vector3.UP, rand_yaw)
 		player.teleport_to(t)
@@ -926,8 +1003,8 @@ func reset_simulation() -> void:
 	if target:
 		var angle = rand_range(0.0, 2.0 * PI)
 		var dist = rand_range(_rl_target_radius_min, _rl_target_radius_max)
-		var tx = _rl_spawn_pos.x + cos(angle) * dist
-		var tz = _rl_spawn_pos.z + sin(angle) * dist
+		var tx = spawn_origin.x + cos(angle) * dist
+		var tz = spawn_origin.z + sin(angle) * dist
 		target.transform.origin = Vector3(tx, _rl_target_fixed_y, tz)
 
 	# Reset internal state
@@ -1012,6 +1089,9 @@ func apply_rl_action(action_idx: int) -> void:
 		_jump_cooldown_frames -= 1
 	if _interact_cooldown_frames > 0:
 		_interact_cooldown_frames -= 1
+	if _rl_legacy_fast_mode:
+		_apply_rl_action_legacy_fast(action_idx)
+		return
 
 	match action_idx:
 		0:
@@ -1041,6 +1121,7 @@ func apply_rl_action(action_idx: int) -> void:
 	var route_target: Spatial = null
 	var steer_angle = 0.0
 	var has_steer = false
+	var vertical_jump_context := false
 	if is_instance_valid(player) and is_instance_valid(target):
 		route_target = _get_route_interactable(player as Spatial, target, _get_front_obstacle_distance(player as Spatial)) as Spatial
 		var steer_target: Spatial = target
@@ -1048,6 +1129,14 @@ func apply_rl_action(action_idx: int) -> void:
 			steer_target = route_target
 		steer_angle = _get_target_angle_normalized(player as Spatial, steer_target)
 		has_steer = true
+		var to_target_3d = target.global_transform.origin - player.global_transform.origin
+		var target_delta_y = to_target_3d.y
+		to_target_3d.y = 0.0
+		var horizontal_dist = to_target_3d.length()
+		var heading_ok = (not has_steer) or abs(steer_angle) <= _rl_smart_jump_max_steer_angle
+		if target_delta_y > _rl_smart_jump_target_above_y and horizontal_dist <= _rl_smart_jump_target_above_dist:
+			if heading_ok and (move_vec.y < -0.15 or abs(move_vec.x) > 0.2):
+				vertical_jump_context = true
 
 	if has_steer:
 		if abs(steer_angle) < RL_LOOK_ALIGN_DEADZONE:
@@ -1111,6 +1200,16 @@ func apply_rl_action(action_idx: int) -> void:
 		if int(_wall_stuck_frames) % RL_STUCK_RECOVERY_JUMP_PERIOD == 0:
 			jump_pressed = true
 
+	# Vertical jump-assist:
+	# If target is above and nearby, help the policy by injecting jump from non-jump actions.
+	if not jump_pressed and not forced_recovery and vertical_jump_context:
+		var on_floor_for_assist = true
+		if player and player.has_method("is_on_floor"):
+			on_floor_for_assist = player.is_on_floor()
+		if on_floor_for_assist and _jump_cooldown_frames <= 0:
+			jump_pressed = true
+			sprint_pressed = false
+
 	# Smart jump gating: only jump when obstacle/stuck context justifies it.
 	if jump_pressed and not forced_recovery:
 		var on_floor_now = true
@@ -1118,9 +1217,9 @@ func apply_rl_action(action_idx: int) -> void:
 			on_floor_now = player.is_on_floor()
 		var player_spatial: Spatial = player as Spatial if player is Spatial else null
 		var front_obstacle_dist = _get_front_obstacle_distance(player_spatial)
-		var obstacle_ahead = front_obstacle_dist < RL_SMART_JUMP_AHEAD_DIST
+		var obstacle_ahead = front_obstacle_dist < _rl_smart_jump_ahead_dist
 		var stuck_context = _wall_stuck_frames >= RL_SMART_JUMP_ALLOW_STUCK_FRAMES
-		var blocked_jump = (not on_floor_now) or (_jump_cooldown_frames > 0) or (not obstacle_ahead and not stuck_context)
+		var blocked_jump = (not on_floor_now) or (_jump_cooldown_frames > 0) or (not obstacle_ahead and not stuck_context and not vertical_jump_context)
 		if blocked_jump:
 			jump_pressed = false
 	if jump_pressed:
@@ -1218,6 +1317,131 @@ func apply_rl_action(action_idx: int) -> void:
 	else:
 		if player and player.has_method("inject_input"):
 			player.inject_input(input_dict)
+
+func _get_rl_observation_legacy_fast(player: Spatial) -> Dictionary:
+	if not is_instance_valid(_rl_raycast_root):
+		_setup_rl_sensors()
+	if not is_instance_valid(_rl_raycast_root) or _rl_rays.size() == 0:
+		var fallback := []
+		for _i in range(12):
+			fallback.append(0.0)
+		return {"obs": fallback, "reward": 0.0, "done": true}
+	var obs_vector := []
+	var reward := _rl_time_penalty
+	var done := false
+	var dist_to_target := SENSOR_RANGE
+	var angle_to_target := 0.0
+	var min_ray_dist := SENSOR_RANGE
+	_rl_raycast_root.global_transform.origin = player.global_transform.origin + Vector3(0, 1.0, 0)
+	_rl_raycast_root.global_transform.basis = player.global_transform.basis
+	for ray in _rl_rays:
+		ray.clear_exceptions()
+		ray.add_exception(player)
+		ray.force_raycast_update()
+		var d := SENSOR_RANGE
+		if ray.is_colliding():
+			d = ray.global_transform.origin.distance_to(ray.get_collision_point())
+		if d < min_ray_dist:
+			min_ray_dist = d
+		obs_vector.append(clamp(d / SENSOR_RANGE, 0.0, 1.0))
+	var target = _ensure_rl_target()
+	if target:
+		dist_to_target = player.global_transform.origin.distance_to(target.global_transform.origin)
+		var to_target = (target.global_transform.origin - player.global_transform.origin)
+		to_target.y = 0.0
+		if to_target.length_squared() > 0.0001:
+			to_target = to_target.normalized()
+			var forward = -player.global_transform.basis.z
+			forward.y = 0.0
+			if forward.length_squared() > 0.0001:
+				forward = forward.normalized()
+				var angle = forward.angle_to(to_target)
+				if forward.cross(to_target).y < 0:
+					angle = -angle
+				angle_to_target = angle / PI
+	obs_vector.append(clamp(dist_to_target / 50.0, 0.0, 1.0))
+	obs_vector.append(angle_to_target)
+	var vel = Vector3.ZERO
+	if "velocity" in player:
+		vel = player.velocity
+	var local_vel = player.global_transform.basis.xform_inv(vel)
+	obs_vector.append(clamp(local_vel.x / RL_MAX_VELOCITY, -1.0, 1.0))
+	obs_vector.append(clamp(local_vel.z / RL_MAX_VELOCITY, -1.0, 1.0))
+	if _last_dist_to_target >= 0.0:
+		reward += (_last_dist_to_target - dist_to_target) * RL_PROGRESS_SCALE
+	_last_dist_to_target = dist_to_target
+	if dist_to_target < RL_SUCCESS_DIST:
+		reward += RL_REWARD_SUCCESS
+		done = true
+	if not done and min_ray_dist < RL_COLLISION_PENALTY_THRESHOLD:
+		reward += RL_REWARD_FAILURE
+		done = true
+	elif not done and player.has_method("get_slide_count"):
+		for i in range(player.get_slide_count()):
+			var col = player.get_slide_collision(i)
+			if col == null or not is_instance_valid(col.collider):
+				continue
+			if col.collider.is_in_group("anna_target"):
+				continue
+			if col.collider is StaticBody:
+				reward += RL_REWARD_FAILURE
+				done = true
+				break
+	return {
+		"obs": obs_vector,
+		"reward": reward,
+		"done": done
+	}
+
+func _apply_rl_action_legacy_fast(action_idx: int) -> void:
+	var move_vec = Vector2.ZERO
+	var jump_pressed := false
+	var sprint_pressed := false
+	match action_idx:
+		1:
+			move_vec.y = -1.0
+		2:
+			move_vec.y = -1.0
+			sprint_pressed = true
+		3:
+			move_vec.y = -1.0
+			jump_pressed = true
+		4:
+			move_vec.x = -1.0
+		5:
+			move_vec.x = 1.0
+		6:
+			move_vec.x = -1.0
+			jump_pressed = true
+		7:
+			move_vec.x = 1.0
+			jump_pressed = true
+	var input_dict = {
+		"move_vec": move_vec,
+		"jump": jump_pressed,
+		"interact": false,
+		"sprint": sprint_pressed,
+		"crouch": false,
+		"mouse_delta": Vector2.ZERO,
+		"zoom_delta": 0.0,
+		"fov_override": -1.0
+	}
+	var sm = get_node_or_null("/root/SessionManager")
+	if sm and sm.is_recording:
+		sm._oys_input_override = input_dict
+	else:
+		var player = _get_player()
+		if player and player.has_method("inject_input"):
+			player.inject_input(input_dict)
+	_last_action_jump = jump_pressed
+	_last_action_sprint = sprint_pressed
+	_last_action_interact = false
+	_last_action_look_x = 0.0
+	_last_action_look_y = 0.0
+	_last_action_change_cost = 0.0
+	_last_move_cmd = move_vec
+	_last_look_cmd = Vector2.ZERO
+	_last_action_idx = action_idx
 
 func _get_front_obstacle_distance(player: Spatial) -> float:
 	if not is_instance_valid(player):
@@ -1340,15 +1564,21 @@ func _get_control_basis(player: Spatial) -> Basis:
 
 
 func _get_rl_target() -> Spatial:
+	if is_instance_valid(_cached_target) and _cached_target.is_inside_tree() and not _cached_target.is_queued_for_deletion():
+		return _cached_target
 	var targets = get_tree().get_nodes_in_group(RL_TARGET_GROUP)
 	if targets.size() > 0:
 		var t = targets[0]
-		if t is Spatial: return t
+		if t is Spatial:
+			_cached_target = t
+			return _cached_target
 	var current_scene = get_tree().current_scene if get_tree() else null
 	if is_instance_valid(current_scene):
 		var named = current_scene.get_node_or_null("RL_Target")
 		if named and named is Spatial:
-			return named
+			_cached_target = named
+			return _cached_target
+	_cached_target = null
 	return null
 
 func _ensure_rl_target() -> Spatial:
@@ -1370,6 +1600,7 @@ func _ensure_rl_target() -> Spatial:
 	shape.shape = sphere
 	target.add_child(shape)
 	current_scene.add_child(target)
+	_cached_target = target
 	return target
 
 # --- EXISTING HELPERS ---
@@ -1535,12 +1766,17 @@ func apply_action(action: Dictionary):
 		_apply_olcs_action(action["ocls"])
 
 func _get_player() -> Node:
+	if is_instance_valid(_cached_player) and _cached_player.is_inside_tree() and not _cached_player.is_queued_for_deletion():
+		return _cached_player
 	var sm = get_node_or_null("/root/SessionManager")
-	if sm and sm.player:
-		return sm.player
+	if sm and sm.player and is_instance_valid(sm.player) and sm.player.is_inside_tree():
+		_cached_player = sm.player
+		return _cached_player
 	var players = get_tree().get_nodes_in_group("player")
-	if players.size() > 0:
-		return players[0]
+	if players.size() > 0 and is_instance_valid(players[0]):
+		_cached_player = players[0]
+		return _cached_player
+	_cached_player = null
 	return null
 
 func _get_anna_metadata() -> Dictionary:

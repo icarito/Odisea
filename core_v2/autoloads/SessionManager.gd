@@ -62,6 +62,8 @@ var _is_waiting_for_respawn_validation := false
 var is_respawning := false
 var _session_run_id := 0
 var _system_launch_counter := 1000
+var _rl_mode := false
+var _rl_bypass_session_manager := true
 
 func _normalize_negative_zero_in_place(value):
 	var t = typeof(value)
@@ -158,6 +160,10 @@ func _initialize_player_for_session(p):
 
 
 func _ready():
+	_rl_mode = OS.get_environment("ANNA_RL_MODE").to_lower() in ["1", "true", "yes", "on"]
+	var bypass_env = OS.get_environment("ANNA_RL_BYPASS_SESSION_MANAGER").to_lower()
+	if bypass_env != "":
+		_rl_bypass_session_manager = bypass_env in ["1", "true", "yes", "on"]
 	# Initialize Ghost Manager
 	var ghost_script = load("res://core_v2/ghost/GhostManager.gd")
 	if ghost_script:
@@ -421,6 +427,11 @@ var _replay_frame := 0
 var _total_replay_frames := 0
 
 func _physics_process(_dt):
+	# In RL lock-step runs, AnnaBridge drives the simulation and SessionManager
+	# bookkeeping becomes pure overhead.
+	if _rl_mode and _rl_bypass_session_manager and not is_recording and not is_replaying and not is_cli_mode:
+		return
+
 	if is_recording or is_replaying:
 		if not _is_player_candidate_valid(player):
 			_find_player()
