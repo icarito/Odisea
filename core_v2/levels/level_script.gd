@@ -10,6 +10,8 @@ var _started := false
 func _ready() -> void:
 	if not auto_start_intro:
 		return
+	if _is_intro_disabled_by_env():
+		return
 	var rl_mode_env = OS.get_environment("ANNA_RL_MODE").to_lower()
 	if rl_mode_env in ["1", "true", "yes", "on"]:
 		return
@@ -72,3 +74,7 @@ func _is_cli_session(session: Node) -> bool:
 	if session.has_method("get"):
 		return bool(session.get("is_cli_mode"))
 	return false
+
+func _is_intro_disabled_by_env() -> bool:
+	var value = OS.get_environment("ODISEA_DISABLE_LEVEL_INTRO").to_lower()
+	return value in ["1", "true", "yes", "on"]
