@@ -1,5 +1,6 @@
-[gd_scene load_steps=22 format=2]
+[gd_scene load_steps=23 format=2]
 
+[ext_resource path="res://scenes/common/space_environment/Environment_InteriorLab.tres" type="Environment" id=1]
 [ext_resource path="res://core_v2/player/PlayerControllerV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/actors/PilotAnimatorV2.gd" type="Script" id=3]
 [ext_resource path="res://core_v2/player/PlayerJumpV2.gd" type="Script" id=4]
@@ -204,5 +205,8 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 enabled = true
 cast_to = Vector3( 0, -10, 0 )
 collision_mask = 1048575
+
+[node name="WorldEnvironment2" type="WorldEnvironment" parent="."]
+environment = ExtResource( 1 )
 
 [editable path="Visual/Pivot/Skeleton"]

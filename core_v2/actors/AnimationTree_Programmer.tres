@@ -25,10 +25,10 @@ snap = 1.0
 animation = "Idle_Loop"
 
 [sub_resource type="AnimationNodeAnimation" id=104]
-animation = "Walk_Formal_Loop"
+animation = "Walk_Loop"
 
 [sub_resource type="AnimationNodeAnimation" id=105]
-animation = "Sprint_Loop"
+animation = "Jog_Fwd_Loop"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id=106]
 blend_point_0/node = SubResource( 103 )
