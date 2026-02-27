@@ -1,3 +1,4 @@
+tool
 extends Spatial
 
 # TestScenePropZoo.gd
@@ -11,23 +12,105 @@ const EXHIBIT_SCENE = preload("res://core_v2/tests/Exhibit.tscn")
 export(float) var grid_spacing := 12.0
 export(int) var columns := 5
 export(bool) var snap_to_floor := true
+export(bool) var sort_by_last_modified := true
+export(bool) var newest_first := true
+export(bool) var lazy_load_props := true
+export(int, 1, 64) var props_per_frame := 4
+export(bool) var exclude_player_actors_from_lazy_load := true
+export(bool) var run_in_editor := false
+export(bool) var preload_props_in_editor := false
+export(bool) var lazy_create_exhibits := true
+export(bool) var editor_refresh_now := false setget _set_editor_refresh_now
 
 onready var exhibits_root = $Exhibits
+var _pending_prop_loads := []
 
 func _ready():
+	if Engine.editor_hint:
+		if preload_props_in_editor:
+			_preload_all_props_for_editor()
+		if run_in_editor:
+			_scan_and_populate()
+		return
+
 	print("TestScenePropZoo: Starting initialization...")
 	_scan_and_populate()
 	print("TestScenePropZoo: Initialization complete.")
 
 func _scan_and_populate():
-	var prop_files = []
-	_scan_dir_recursive(PROPS_DIR, prop_files)
-	
-	prop_files.sort()
-	print("TestScenePropZoo: Found %d props." % prop_files.size())
-	
-	for i in range(prop_files.size()):
-		_create_exhibit(prop_files[i], i)
+	var prop_entries = _collect_prop_entries()
+	_pending_prop_loads.clear()
+	set_process(false)
+	_clear_exhibits()
+	print("TestScenePropZoo: Found %d props." % prop_entries.size())
+
+	for i in range(prop_entries.size()):
+		var relative_path = String(prop_entries[i]["relative_path"])
+		var camera_sensitive = bool(prop_entries[i].get("camera_sensitive", false))
+		var load_now = (not lazy_load_props) or (exclude_player_actors_from_lazy_load and camera_sensitive)
+		if load_now:
+			var exhibit = _create_exhibit_shell(relative_path, i)
+			_populate_exhibit_prop(exhibit, relative_path)
+		else:
+			if lazy_create_exhibits:
+				_pending_prop_loads.append({
+					"index": i,
+					"relative_path": relative_path,
+				})
+			else:
+				var exhibit = _create_exhibit_shell(relative_path, i)
+				_pending_prop_loads.append({
+					"exhibit": exhibit,
+					"index": i,
+					"relative_path": relative_path,
+				})
+
+	if lazy_load_props and not _pending_prop_loads.empty():
+		set_process(true)
+		print("TestScenePropZoo: Lazy loading queue started (%d props, %d per frame)." % [_pending_prop_loads.size(), props_per_frame])
+
+func _process(_delta):
+	if _pending_prop_loads.empty():
+		set_process(false)
+		return
+
+	var batch_size = max(1, props_per_frame)
+	for _i in range(batch_size):
+		if _pending_prop_loads.empty():
+			break
+		var entry = _pending_prop_loads.pop_front()
+		var exhibit = entry.get("exhibit", null)
+		var index = int(entry.get("index", 0))
+		var relative_path = String(entry.get("relative_path", ""))
+		if (not exhibit or not is_instance_valid(exhibit)) and lazy_create_exhibits:
+			exhibit = _create_exhibit_shell(relative_path, index)
+		if not exhibit or not is_instance_valid(exhibit):
+			continue
+		_populate_exhibit_prop(exhibit, relative_path)
+
+	if _pending_prop_loads.empty():
+		set_process(false)
+		print("TestScenePropZoo: Lazy loading queue finished.")
+
+func _set_editor_refresh_now(value: bool) -> void:
+	editor_refresh_now = false
+	if not Engine.editor_hint or not value:
+		return
+	if preload_props_in_editor:
+		_preload_all_props_for_editor()
+	if run_in_editor:
+		_scan_and_populate()
+
+func _collect_prop_entries() -> Array:
+	var prop_entries = []
+	_scan_dir_recursive(PROPS_DIR, prop_entries)
+
+	if sort_by_last_modified:
+		prop_entries.sort_custom(self, "_sort_props_by_modified")
+	else:
+		prop_entries.sort_custom(self, "_sort_props_alpha")
+
+	return prop_entries
 
 func _scan_dir_recursive(path: String, results: Array):
 	var dir = Directory.new()
@@ -44,13 +127,64 @@ func _scan_dir_recursive(path: String, results: Array):
 			# Recurse into subdirectory
 			_scan_dir_recursive(full_path + "/", results)
 		elif file_name.ends_with(".tscn") and not "Base" in file_name:
-			# Store relative path from PROPS_DIR
-			results.append(full_path.replace(PROPS_DIR, ""))
+			var relative_path = full_path.replace(PROPS_DIR, "")
+			var mtime = _get_file_mtime(full_path)
+			results.append({
+				"relative_path": relative_path,
+				"modified_time": int(mtime),
+				"camera_sensitive": _is_camera_sensitive_prop(full_path, relative_path),
+			})
 		file_name = dir.get_next()
 	
 	dir.list_dir_end()
 
-func _create_exhibit(relative_path: String, index: int):
+func _is_camera_sensitive_prop(full_path: String, relative_path: String) -> bool:
+	var rel = relative_path.to_lower()
+	if rel.find("pilot") != -1 or rel.find("programmer") != -1 or rel.find("player") != -1:
+		return true
+
+	var file = File.new()
+	if file.open(full_path, File.READ) != OK:
+		return false
+	var text = file.get_as_text()
+	file.close()
+	return text.find("res://core_v2/actors/Pilot_v2.tscn") != -1 \
+		or text.find("res://core_v2/actors/Programmer_v2.tscn") != -1 \
+		or text.find("groups=[\"player\"") != -1
+
+func _sort_props_alpha(a: Dictionary, b: Dictionary) -> bool:
+	return String(a["relative_path"]) < String(b["relative_path"])
+
+func _sort_props_by_modified(a: Dictionary, b: Dictionary) -> bool:
+	var a_time = int(a.get("modified_time", 0))
+	var b_time = int(b.get("modified_time", 0))
+	if a_time == b_time:
+		return String(a["relative_path"]) < String(b["relative_path"])
+	return a_time > b_time if newest_first else a_time < b_time
+
+func _get_file_mtime(path: String) -> int:
+	var f = File.new()
+	var mtime = f.get_modified_time(path)
+	return int(mtime)
+
+func _clear_exhibits() -> void:
+	if not exhibits_root:
+		return
+	_pending_prop_loads.clear()
+	set_process(false)
+	for child in exhibits_root.get_children():
+		exhibits_root.remove_child(child)
+		child.free()
+
+func _preload_all_props_for_editor() -> void:
+	if not Engine.editor_hint:
+		return
+	var prop_entries = _collect_prop_entries()
+	for entry in prop_entries:
+		load(PROPS_DIR + String(entry["relative_path"]))
+	print("TestScenePropZoo: Preloaded %d prop scenes for editor cache." % prop_entries.size())
+
+func _create_exhibit_shell(relative_path: String, index: int) -> Node:
 	var exhibit = EXHIBIT_SCENE.instance()
 	exhibits_root.add_child(exhibit)
 	
@@ -71,6 +205,12 @@ func _create_exhibit(relative_path: String, index: int):
 			label.pixel_size = 0.02
 		else:
 			label.scale = Vector3(2, 2, 2)
+
+	return exhibit
+
+func _populate_exhibit_prop(exhibit: Node, relative_path: String) -> void:
+	if not exhibit or not is_instance_valid(exhibit):
+		return
 	
 	# Load and Instance Prop
 	var prop_path = PROPS_DIR + relative_path
@@ -81,7 +221,11 @@ func _create_exhibit(relative_path: String, index: int):
 
 	var prop = prop_res.instance()
 	var anchor = exhibit.get_node("PropAnchor")
+	if not anchor:
+		printerr("TestScenePropZoo: Exhibit without PropAnchor: %s" % relative_path)
+		return
 	anchor.add_child(prop)
+	var display_name = relative_path.get_file().get_basename()
 	print("TestScenePropZoo: Added exhibit for %s" % display_name)
 	
 	if snap_to_floor and prop is Spatial:

@@ -22,24 +22,31 @@ export(bool) var use_cinematic_zone := true
 export(bool) var close_on_exit_zone := true
 export(bool) var enable_ui_interaction := true
 export(bool) var allow_focus_mode := true # If true, pressing 'focus' key transitions to FocusedRig
-export(bool) var attach_to_active_camera := false
-export(bool) var hud_attach_as_child := false
-export(float, 0.0, 3.0) var hud_attach_transition_time := 0.35
-export(NodePath) var hud_attach_target_path := NodePath("ScreenContainer/ScreenMesh")
-export(float, 0.0, 1.0) var hud_screen_x := 0.5
-export(float, 0.0, 1.0) var hud_screen_y := 0.7
-export(float, 0.0, 1.0) var hud_screen_depth := 0.35
-export(float, 0.0, 1.0) var hud_screen_scale := 0.45
-export(float, 0.0, 10.0) var hud_interaction_radius := 3.0
-export(bool) var hud_auto_close_out_of_range := true
-export(bool) var hud_ui_bridge_requires_focus := true
-export(bool) var hud_ui_bridge_use_system_mouse := true
-export(float, 0.0, 1.0) var hud_background_alpha := 0.15
-export(float, 0.0, 8.0) var hud_background_emission := 3.0
-export(bool) var hud_focus_on_activate := true
-export(Vector3) var hud_local_offset := Vector3.ZERO
-export(Vector3) var hud_local_rotation_deg := Vector3(0, 180, 0)
-export(NodePath) var hud_reference_node_path := NodePath("")
+enum CinematicCameraBehavior {
+	CAMERA_FIXED,
+	CAMERA_FOLLOW_PLAYER,
+}
+export(int, "Fixed", "Follow Player") var cinematic_camera_behavior := CinematicCameraBehavior.CAMERA_FIXED setget _set_cinematic_camera_behavior
+
+# HUD runtime config is owned by HelmetHUDV2 and not exposed on regular terminals.
+var attach_to_active_camera := false
+var hud_attach_as_child := false
+var hud_attach_transition_time := 0.35
+var hud_attach_target_path := NodePath("ScreenContainer/ScreenMesh")
+var hud_screen_x := 0.5
+var hud_screen_y := 0.7
+var hud_screen_depth := 0.35
+var hud_screen_scale := 0.45
+var hud_interaction_radius := 3.0
+var hud_auto_close_out_of_range := true
+var hud_ui_bridge_requires_focus := true
+var hud_ui_bridge_use_system_mouse := true
+var hud_background_alpha := 0.15
+var hud_background_emission := 3.0
+var hud_focus_on_activate := true
+var hud_local_offset := Vector3.ZERO
+var hud_local_rotation_deg := Vector3(0, 180, 0)
+var hud_reference_node_path := NodePath("")
 
 # --- Internal Camera References ---
 var _camera_zone: Area = null
@@ -103,6 +110,7 @@ func _ready():
 	
 	# --- Cinematic Camera Auto-Wiring ---
 	_setup_cinematic_camera()
+	_apply_cinematic_camera_behavior()
 	_deactivate_terminal_cameras()
 
 	if not String(hud_attach_target_path).empty():
@@ -145,6 +153,30 @@ func _setup_cinematic_camera() -> void:
 	if not _cinematic_rig:
 		if use_cinematic_zone:
 			print("[HoloTerminalV2] Warning: CinematicPathRig not found in CinematicSetup")
+
+func _set_cinematic_camera_behavior(value: int) -> void:
+	cinematic_camera_behavior = int(clamp(value, 0, 1))
+	_apply_cinematic_camera_behavior()
+
+func _apply_cinematic_camera_behavior() -> void:
+	if not _cinematic_rig or not is_instance_valid(_cinematic_rig):
+		return
+	var follow_player = cinematic_camera_behavior == CinematicCameraBehavior.CAMERA_FOLLOW_PLAYER
+
+	if "track_player" in _cinematic_rig:
+		_cinematic_rig.set("track_player", follow_player)
+	if "follow_player_on_path" in _cinematic_rig:
+		_cinematic_rig.set("follow_player_on_path", follow_player)
+	if _cinematic_rig.has_method("_update_rotation_mode"):
+		_cinematic_rig.call("_update_rotation_mode")
+
+	# Optional compatibility with vcamera-style modifier nodes.
+	var follow_node = _cinematic_rig.get_node_or_null("Follow")
+	if follow_node and "enabled" in follow_node:
+		follow_node.set("enabled", follow_player)
+	var look_at_node = _cinematic_rig.get_node_or_null("LookAt")
+	if look_at_node and "enabled" in look_at_node:
+		look_at_node.set("enabled", follow_player)
 
 func _deactivate_terminal_cameras() -> void:
 	# Defensive: terminal cameras must never steal scene camera at load time.

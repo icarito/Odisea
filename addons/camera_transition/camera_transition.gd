@@ -11,6 +11,20 @@ func _ready() -> void:
 	camera2D.current = false
 	camera3D.current = false
 
+func _process(_delta: float) -> void:
+	if transitioning:
+		return
+	var cm_transitioning := false
+	var cinematic_manager = get_node_or_null("/root/CinematicManager")
+	if cinematic_manager:
+		cm_transitioning = bool(cinematic_manager.get("_transition_active"))
+	if cm_transitioning:
+		return
+	if camera2D.current:
+		camera2D.current = false
+	if camera3D.current:
+		camera3D.current = false
+
 func switch_camera(from, to) -> void:
 	if not is_instance_valid(from) or not is_instance_valid(to):
 		return

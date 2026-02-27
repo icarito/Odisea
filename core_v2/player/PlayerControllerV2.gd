@@ -337,6 +337,7 @@ func _ready():
 	_cached_cam = _find_camera(camera_rig)
 	if _cached_cam:
 		base_fov = _cached_cam.fov
+		call_deferred("_ensure_primary_camera_current")
 	
 	_cached_spring_arm = _find_spring_arm(camera_rig)
 	if _cached_spring_arm:
@@ -395,6 +396,19 @@ func _find_camera(node: Node) -> Camera:
 		if cam:
 			return cam
 	return null
+
+func _ensure_primary_camera_current() -> void:
+	if not _cached_cam or not is_instance_valid(_cached_cam):
+		return
+	var viewport_cam = get_viewport().get_camera() if get_viewport() else null
+	if viewport_cam == null:
+		_cached_cam.current = true
+		return
+	if viewport_cam == _cached_cam:
+		return
+	var cam_path = String(viewport_cam.get_path())
+	if cam_path.find("/CameraTransition/Camera") != -1 or cam_path.find("/ShaderCacheManager") != -1:
+		_cached_cam.current = true
 
 func _find_spring_arm(node: Node) -> SpringArm:
 	if node is SpringArm:

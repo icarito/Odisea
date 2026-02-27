@@ -2,14 +2,11 @@ extends Spatial
 
 signal compiled(cache_path)
 
-var camera = Camera.new()
-
 var _compiled_cache_paths = []
 
 
 func _ready():
-	camera.current = false
-	add_child(camera)
+	pass
 
 func load_and_compile(cache_path):
 	var cache_packed_scene = load(cache_path)
@@ -56,7 +53,6 @@ func _on_cache_scene_built(cache_scene, cache_path: String) -> void:
 		cache_scene.set_active(true)
 
 func _on_cache_compiled(cache_path, cache_scene):
-	camera.current = false
 	_compiled_cache_paths.append(cache_path)
 	cache_scene.queue_free()
 	print("[ShaderCacheManager] Compiled shader cache: ", cache_path)
@@ -80,8 +76,18 @@ func is_compiled(cache_path):
 
 func get_active_camera():
 	var active_camera = get_viewport().get_camera()
-	if not active_camera:
-		active_camera = camera
-		camera.current = true
+	if active_camera:
+		return active_camera
+	var scene_root = get_tree().current_scene
+	if scene_root:
+		return _find_first_camera(scene_root)
+	return null
 
-	return active_camera
+func _find_first_camera(node):
+	if node is Camera:
+		return node
+	for child in node.get_children():
+		var cam = _find_first_camera(child)
+		if cam:
+			return cam
+	return null

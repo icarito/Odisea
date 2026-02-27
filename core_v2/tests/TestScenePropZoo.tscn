@@ -2,12 +2,14 @@
 
 [ext_resource path="res://core_v2/tests/TestScenePropZoo.gd" type="Script" id=1]
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=2]
-[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=3]
+[ext_resource path="res://core_v2/actors/Programmer_v2.tscn" type="PackedScene" id=3]
 [ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=4]
 
 [node name="TestScenePropZoo" type="Spatial"]
 script = ExtResource( 1 )
 columns = 7
+run_in_editor = true
+preload_props_in_editor = false
 
 [node name="Camera" type="Camera" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 12, 15, 20 )
@@ -25,7 +27,7 @@ depth = 312.0
 material = ExtResource( 2 )
 
 [node name="Pilot" parent="Platform" instance=ExtResource( 3 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, -12 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.459699, 0, -5.17887 )
 
 [node name="WorldEnvironment2" type="WorldEnvironment" parent="."]
 environment = ExtResource( 4 )
