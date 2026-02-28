@@ -148,6 +148,7 @@ const RL_INTERACT_FORWARD_IGNORE_PENALTY = 0.06 # Penalize forcing forward into 
 const RL_ROUTE_INTERACT_FRONT_FACTOR = 1.4 # Door-subgoal trigger expands front-block test beyond auto-interact threshold.
 const RL_ROUTE_PROGRESS_WEIGHT = 0.25 # When door subgoal is active, de-prioritize direct target progress.
 const RL_ROUTE_GOAL_SWITCH_BONUS = 0.06 # Small bonus to keep policy committed to door objective once detected.
+const RL_DOOR_INTERACT_BIAS = 1.0 # >1 prioritizes door interaction over jump when a closed door blocks frontal route.
 const RL_FALL_DISTANCE = 3.5 # Episode fails if player falls this much below episode start height.
 const RL_SPAWN_ZONE_GROUP = "anna_rl_spawn_zone"
 const RL_TARGET_ZONE_GROUP = "anna_rl_target_zone"
@@ -292,6 +293,7 @@ var _rl_strafe_commit_remaining := 0
 var _rl_strafe_commit_side := 0.0
 var _rl_backstep_evasion_reward := 0.12
 var _rl_sprint_strafe_clear_penalty := 0.18
+var _rl_door_interact_bias := RL_DOOR_INTERACT_BIAS
 var _rl_last_episode_override := {}
 var _rl_scene_controller_cache: Node = null
 
@@ -387,6 +389,7 @@ func _ready():
 	var jump_strafe_forward_assist_env = OS.get_environment("ANNA_RL_JUMP_STRAFE_FORWARD_ASSIST")
 	var backstep_evasion_reward_env = OS.get_environment("ANNA_RL_BACKSTEP_EVASION_REWARD")
 	var sprint_strafe_clear_penalty_env = OS.get_environment("ANNA_RL_SPRINT_STRAFE_CLEAR_PENALTY")
+	var door_interact_bias_env = OS.get_environment("ANNA_RL_DOOR_INTERACT_BIAS")
 	if jump_ahead_env.is_valid_float():
 		_rl_smart_jump_ahead_dist = clamp(float(jump_ahead_env), 0.8, 4.0)
 	if jump_above_y_env.is_valid_float():
@@ -467,6 +470,8 @@ func _ready():
 		_rl_backstep_evasion_reward = clamp(float(backstep_evasion_reward_env), 0.0, 1.0)
 	if sprint_strafe_clear_penalty_env.is_valid_float():
 		_rl_sprint_strafe_clear_penalty = clamp(float(sprint_strafe_clear_penalty_env), 0.0, 1.0)
+	if door_interact_bias_env.is_valid_float():
+		_rl_door_interact_bias = clamp(float(door_interact_bias_env), 0.4, 3.0)
 	_configure_rl_shaping_profile(shaping_profile_env)
 	_refresh_rl_sampling_nodes()
 	print("[AnnaInterface] spawn=%s alt_enabled=%s alt_prob=%.2f alt_spawn=%s spawn_bounds=%s target_radius=[%.1f, %.1f] target_bounds=%s target_min_sep=%.2f spawn_samples=%d target_samples=%d zones[spawn=%d target=%d] points[spawn=%d target=%d] jump[ahead=%.2f,above_y=%.2f,above_d=%.2f,max_steer=%.2f,pen_scale=%.2f,hold=%d] wall[contact=%.3f stuck_scale=%.3f stuck_cap=%.3f stuck_fail=%d no_recovery=%.3f grace=%d fwd_press=%.3f recovery[frames=%d strafe=%.2f backoff=%.2f jump_period=%d early_hazard=%d early_front=%.2f side_bias=%.0f]] shaping[profile=%s clamp=%.2f timeout=%.2f progress=%.2f align=%.2f speed=%.2f penalty=%.2f orbit=%.2f wall=%.2f strafe_reward=%.2f strafe_penalty=%.2f action_change=%.2f] max_steps=%d legacy_fast=%s" % [
@@ -1041,8 +1046,10 @@ func get_rl_observation() -> Dictionary:
 		reward -= RL_OBSTACLE_NO_EVASION_PENALTY * _rl_penalty_scale
 	var interact_candidate_now = _get_front_interactable(player as Spatial)
 	if is_instance_valid(interact_candidate_now):
+		var door_interact_bias = max(0.4, _rl_door_interact_bias)
+		var door_focus_range = RL_INTERACT_AUTO_RANGE * (1.0 + max(0.0, door_interact_bias - 1.0) * 0.25)
 		var interact_dist = player.global_transform.origin.distance_to((interact_candidate_now as Spatial).global_transform.origin) if interact_candidate_now is Spatial else RL_INTERACT_RANGE
-		var blocked_by_interactable = front_ray_dist < RL_INTERACT_AUTO_FRONT_BLOCK_DIST and interact_dist <= RL_INTERACT_AUTO_RANGE
+		var blocked_by_interactable = front_ray_dist < RL_INTERACT_AUTO_FRONT_BLOCK_DIST and interact_dist <= door_focus_range
 		if blocked_by_interactable and _last_move_cmd.y < -0.35 and not _last_action_interact:
 			reward -= RL_MISSED_INTERACT_PENALTY * _rl_penalty_scale
 		var candidate_is_open = false
@@ -1053,7 +1060,7 @@ func get_rl_observation() -> Dictionary:
 			candidate_progress = float(interact_candidate_now.target_progress)
 		var interact_closed = (not candidate_is_open) and candidate_progress < 0.9
 		if interact_closed:
-			if interact_dist <= RL_INTERACT_AUTO_RANGE:
+			if interact_dist <= door_focus_range:
 				if _last_route_interact_dist >= 0.0:
 					reward += (_last_route_interact_dist - interact_dist) * RL_INTERACT_APPROACH_REWARD_SCALE * _rl_progress_reward_scale
 				var to_interact = (interact_candidate_now.global_transform.origin - player.global_transform.origin)
@@ -1062,6 +1069,10 @@ func get_rl_observation() -> Dictionary:
 					reward += max(0.0, forward.dot(to_interact.normalized())) * RL_INTERACT_ROUTE_ALIGN_REWARD_SCALE * _rl_alignment_reward_scale
 				if _last_move_cmd.y < -0.45 and not _last_action_interact:
 					reward -= RL_INTERACT_FORWARD_IGNORE_PENALTY * _rl_penalty_scale
+				if door_interact_bias > 1.01 and _last_action_jump and _last_move_cmd.y < -0.25:
+					reward -= RL_MISSED_INTERACT_PENALTY * _rl_penalty_scale * door_interact_bias
+				if door_interact_bias > 1.01 and _last_action_interact:
+					reward += RL_INTERACT_CONTEXT_REWARD * 0.4 * _rl_alignment_reward_scale * door_interact_bias
 			if _last_route_interact_progress >= 0.0:
 				reward += max(0.0, candidate_progress - _last_route_interact_progress) * RL_INTERACT_OPEN_PROGRESS_REWARD_SCALE * _rl_progress_reward_scale
 		_last_route_interact_dist = interact_dist
@@ -1877,6 +1888,11 @@ func apply_rl_action(action_idx: int) -> void:
 	var player_spatial_for_interact: Spatial = player as Spatial if player is Spatial else null
 	var interact_candidate = _get_front_interactable(player_spatial_for_interact)
 	if is_instance_valid(interact_candidate):
+		var door_interact_bias = max(0.4, _rl_door_interact_bias)
+		var door_focus_range = RL_INTERACT_AUTO_RANGE * (1.0 + max(0.0, door_interact_bias - 1.0) * 0.25)
+		var door_focus_front = RL_INTERACT_AUTO_FRONT_BLOCK_DIST * (1.0 + max(0.0, door_interact_bias - 1.0) * 0.25)
+		var door_forward_trigger = -0.55 + max(0.0, door_interact_bias - 1.0) * 0.15
+		door_forward_trigger = clamp(door_forward_trigger, -0.75, -0.25)
 		var interact_dist = RL_INTERACT_AUTO_RANGE
 		if interact_candidate is Spatial and is_instance_valid(player_spatial_for_interact):
 			interact_dist = player_spatial_for_interact.global_transform.origin.distance_to((interact_candidate as Spatial).global_transform.origin)
@@ -1888,19 +1904,22 @@ func apply_rl_action(action_idx: int) -> void:
 		if "target_progress" in interact_candidate:
 			candidate_progress = float(interact_candidate.target_progress)
 		var should_open_interactable = not candidate_is_open and candidate_progress < 0.9
+		if door_interact_bias > 1.01 and should_open_interactable and move_vec.y < -0.2 and front_obstacle_for_interact < door_focus_front and interact_dist <= door_focus_range:
+			# Door-focused shaping mode: avoid "jumping through" closed door encounters.
+			jump_pressed = false
 		var auto_interact = false
-		if action_idx == 0 and should_open_interactable and front_obstacle_for_interact < RL_INTERACT_AUTO_FRONT_BLOCK_DIST and interact_dist <= RL_INTERACT_AUTO_RANGE:
+		if action_idx == 0 and should_open_interactable and front_obstacle_for_interact < door_focus_front and interact_dist <= door_focus_range:
 			auto_interact = true
-		elif should_open_interactable and move_vec.y < -0.55 and front_obstacle_for_interact < RL_INTERACT_AUTO_FRONT_BLOCK_DIST and interact_dist <= RL_INTERACT_AUTO_RANGE:
+		elif should_open_interactable and move_vec.y < door_forward_trigger and front_obstacle_for_interact < door_focus_front and interact_dist <= door_focus_range:
 			auto_interact = true
-		elif should_open_interactable and _wall_stuck_frames >= RL_INTERACT_STUCK_TRIGGER_FRAMES and interact_dist <= RL_INTERACT_AUTO_RANGE:
+		elif should_open_interactable and _wall_stuck_frames >= RL_INTERACT_STUCK_TRIGGER_FRAMES and interact_dist <= door_focus_range:
 			auto_interact = true
 		elif should_open_interactable and move_vec.y < -0.75 and interact_dist <= 2.6:
 			# Forward commit near a closed door-like interactable: assist with an interact pulse.
 			auto_interact = true
 		if auto_interact:
 			interact_pressed = true
-			if front_obstacle_for_interact < RL_INTERACT_AUTO_FRONT_BLOCK_DIST:
+			if front_obstacle_for_interact < door_focus_front:
 				move_vec.y = min(move_vec.y, 0.0)
 				sprint_pressed = false
 				jump_pressed = false
