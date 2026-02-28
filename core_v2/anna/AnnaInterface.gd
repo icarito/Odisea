@@ -149,6 +149,9 @@ const RL_ROUTE_INTERACT_FRONT_FACTOR = 1.4 # Door-subgoal trigger expands front-
 const RL_ROUTE_PROGRESS_WEIGHT = 0.25 # When door subgoal is active, de-prioritize direct target progress.
 const RL_ROUTE_GOAL_SWITCH_BONUS = 0.06 # Small bonus to keep policy committed to door objective once detected.
 const RL_DOOR_INTERACT_BIAS = 1.0 # >1 prioritizes door interaction over jump when a closed door blocks frontal route.
+const RL_REQUIRE_INTERACTABLE_OPEN_FOR_SUCCESS = false # Optional hard-gate: reaching target only succeeds after opening an interactable.
+const RL_SUCCESS_INTERACTABLE_PROGRESS = 0.9 # Treat interactable as "opened" above this target_progress.
+const RL_BYPASS_SUCCESS_PENALTY_SCALE = 0.6 # Portion of failure reward used when bypassing the required interactable gate.
 const RL_FALL_DISTANCE = 3.5 # Episode fails if player falls this much below episode start height.
 const RL_SPAWN_ZONE_GROUP = "anna_rl_spawn_zone"
 const RL_TARGET_ZONE_GROUP = "anna_rl_target_zone"
@@ -294,6 +297,10 @@ var _rl_strafe_commit_side := 0.0
 var _rl_backstep_evasion_reward := 0.12
 var _rl_sprint_strafe_clear_penalty := 0.18
 var _rl_door_interact_bias := RL_DOOR_INTERACT_BIAS
+var _rl_require_interactable_open_for_success := RL_REQUIRE_INTERACTABLE_OPEN_FOR_SUCCESS
+var _rl_success_interactable_progress := RL_SUCCESS_INTERACTABLE_PROGRESS
+var _rl_bypass_success_penalty_scale := RL_BYPASS_SUCCESS_PENALTY_SCALE
+var _rl_episode_interactable_opened := false
 var _rl_last_episode_override := {}
 var _rl_scene_controller_cache: Node = null
 
@@ -390,6 +397,9 @@ func _ready():
 	var backstep_evasion_reward_env = OS.get_environment("ANNA_RL_BACKSTEP_EVASION_REWARD")
 	var sprint_strafe_clear_penalty_env = OS.get_environment("ANNA_RL_SPRINT_STRAFE_CLEAR_PENALTY")
 	var door_interact_bias_env = OS.get_environment("ANNA_RL_DOOR_INTERACT_BIAS")
+	var require_interactable_open_success_env = OS.get_environment("ANNA_RL_REQUIRE_INTERACTABLE_OPEN_FOR_SUCCESS")
+	var success_interactable_progress_env = OS.get_environment("ANNA_RL_SUCCESS_INTERACTABLE_PROGRESS")
+	var bypass_success_penalty_scale_env = OS.get_environment("ANNA_RL_BYPASS_SUCCESS_PENALTY_SCALE")
 	if jump_ahead_env.is_valid_float():
 		_rl_smart_jump_ahead_dist = clamp(float(jump_ahead_env), 0.8, 4.0)
 	if jump_above_y_env.is_valid_float():
@@ -472,6 +482,12 @@ func _ready():
 		_rl_sprint_strafe_clear_penalty = clamp(float(sprint_strafe_clear_penalty_env), 0.0, 1.0)
 	if door_interact_bias_env.is_valid_float():
 		_rl_door_interact_bias = clamp(float(door_interact_bias_env), 0.4, 3.0)
+	if require_interactable_open_success_env != "":
+		_rl_require_interactable_open_for_success = require_interactable_open_success_env.to_lower() in ["1", "true", "yes", "on"]
+	if success_interactable_progress_env.is_valid_float():
+		_rl_success_interactable_progress = clamp(float(success_interactable_progress_env), 0.1, 1.0)
+	if bypass_success_penalty_scale_env.is_valid_float():
+		_rl_bypass_success_penalty_scale = clamp(float(bypass_success_penalty_scale_env), 0.0, 2.0)
 	_configure_rl_shaping_profile(shaping_profile_env)
 	_refresh_rl_sampling_nodes()
 	print("[AnnaInterface] spawn=%s alt_enabled=%s alt_prob=%.2f alt_spawn=%s spawn_bounds=%s target_radius=[%.1f, %.1f] target_bounds=%s target_min_sep=%.2f spawn_samples=%d target_samples=%d zones[spawn=%d target=%d] points[spawn=%d target=%d] jump[ahead=%.2f,above_y=%.2f,above_d=%.2f,max_steer=%.2f,pen_scale=%.2f,hold=%d] wall[contact=%.3f stuck_scale=%.3f stuck_cap=%.3f stuck_fail=%d no_recovery=%.3f grace=%d fwd_press=%.3f recovery[frames=%d strafe=%.2f backoff=%.2f jump_period=%d early_hazard=%d early_front=%.2f side_bias=%.0f]] shaping[profile=%s clamp=%.2f timeout=%.2f progress=%.2f align=%.2f speed=%.2f penalty=%.2f orbit=%.2f wall=%.2f strafe_reward=%.2f strafe_penalty=%.2f action_change=%.2f] max_steps=%d legacy_fast=%s" % [
@@ -1089,6 +1105,8 @@ func get_rl_observation() -> Dictionary:
 				reward -= float(_interact_streak - 1) * RL_INTERACT_REPEAT_PENALTY * _rl_penalty_scale
 		else:
 			reward -= RL_INTERACT_SPAM_PENALTY * _rl_penalty_scale
+	if _rl_require_interactable_open_for_success and not _rl_episode_interactable_opened:
+		_rl_episode_interactable_opened = _any_interactable_opened_for_success()
 	if not on_floor_now:
 		reward -= RL_AIRBORNE_PENALTY * _rl_penalty_scale
 	var height_gain = max(0.0, player.global_transform.origin.y - _episode_start_height)
@@ -1222,8 +1240,13 @@ func get_rl_observation() -> Dictionary:
 		elif target is Area and target.overlaps_body(player):
 			reached_target = true
 	if reached_target:
-		terminal_reward += RL_REWARD_SUCCESS
-		done = true
+		if _rl_require_interactable_open_for_success and not _rl_episode_interactable_opened:
+			reward -= RL_MISSED_INTERACT_PENALTY * _rl_penalty_scale * max(1.0, _rl_door_interact_bias)
+			terminal_reward += RL_REWARD_FAILURE * _rl_bypass_success_penalty_scale
+			done = true
+		else:
+			terminal_reward += RL_REWARD_SUCCESS
+			done = true
 
 	# 4. Failure (KillZone / Fall / Prolonged hazard contact)
 	if not done and _episode_step_count >= _rl_max_episode_steps:
@@ -1391,6 +1414,7 @@ func reset_simulation() -> void:
 	_last_front_ray_dist = -1.0
 	_last_route_interact_dist = -1.0
 	_last_route_interact_progress = -1.0
+	_rl_episode_interactable_opened = _any_interactable_opened_for_success()
 	_episode_step_count = 0
 	_episode_start_time = OS.get_unix_time()
 	# Force initial distance update
@@ -2308,6 +2332,21 @@ func _is_interactable_closed(node: Node) -> bool:
 	if "target_progress" in node:
 		candidate_progress = float(node.target_progress)
 	return (not candidate_is_open) and candidate_progress < 0.9
+
+func _any_interactable_opened_for_success() -> bool:
+	var nodes = get_tree().get_nodes_in_group("interactable")
+	for node in nodes:
+		if not is_instance_valid(node):
+			continue
+		var candidate_is_open := false
+		var candidate_progress := 0.0
+		if "is_active" in node:
+			candidate_is_open = bool(node.is_active)
+		if "target_progress" in node:
+			candidate_progress = float(node.target_progress)
+		if candidate_is_open or candidate_progress >= _rl_success_interactable_progress:
+			return true
+	return false
 
 func _get_route_interactable(player: Spatial, target: Spatial, front_obstacle_dist: float) -> Node:
 	if not is_instance_valid(player) or not is_instance_valid(target):
