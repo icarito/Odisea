@@ -5,7 +5,7 @@ class_name AnnaInterface
 # Configuration
 const PROTOCOL_VERSION = "anna.v1"
 const SENSOR_RAY_COUNT = 32 # Legacy/Visual
-const RL_SENSOR_RAY_COUNT = 8 # RL PoC
+const RL_SENSOR_RAY_COUNT = 8 # 8 rays + 4 scalar features = 12D obs (matches bridge/client contracts)
 const SENSOR_RANGE = 20.0
 const PROXIMITY_RADIUS = 10.0
 const BUFFER_MAX_ENTRIES = 50
@@ -67,6 +67,8 @@ const RL_AIM_STABILITY_BONUS_SCALE = 0.06 # Bonus when consistently aimed at tar
 const RL_FORWARD_MISALIGN_PENALTY_SCALE = 0.16 # Penalize fast movement while not aiming at target.
 const RL_ALIGNED_SPEED_REWARD_SCALE = 0.05 # Reward forward speed only when aligned.
 const RL_UNALIGNED_SPEED_PENALTY_SCALE = 0.08 # Penalize rushing with poor aim.
+const RL_MOVING_AWAY_WHEN_ALIGNED_PENALTY_SCALE = 0.22 # Penalize backing away while already aimed at target and clear path.
+const RL_BACKSTEP_WHEN_ALIGNED_CLEAR_PENALTY = 0.14 # Additional penalty when explicit backward input is used in that context.
 const RL_NO_CORRECTION_PENALTY = 0.06 # Penalize not using look while drifting off-target.
 const RL_NO_CORRECTION_PENALTY_CAP = 0.8 # Avoid runaway penalty explosion in long misaligned streaks.
 const RL_STEER_WHEN_MISALIGNED_REWARD_SCALE = 0.04 # Small reward for actively steering when off-target.
@@ -80,6 +82,7 @@ const RL_MOVE_FLIP_PENALTY = 0.07 # Penalize abrupt forward/back direction rever
 const RL_COMMIT_FORWARD_REWARD_SCALE = 0.06 # Reward sustained aligned forward progress.
 const RL_STALL_PENALTY = 0.03 # Penalize stalling when far from target.
 const RL_LOOK_WHEN_ALIGNED_PENALTY = 0.08 # Penalize unnecessary camera movement when already aimed.
+const RL_STEER_ONLY_IDLE_PENALTY = 0.16 # Discourage camera-only policy collapse when far from target.
 const RL_SAME_ACTION_STREAK_PENALTY = 0.02 # Penalize repeating same action while not improving.
 const RL_BAD_STREAK_DIST_EPS = 0.01
 const RL_BAD_STREAK_ANGLE_EPS = 0.005
@@ -140,6 +143,21 @@ const RL_ROUTE_INTERACT_FRONT_FACTOR = 1.4 # Door-subgoal trigger expands front-
 const RL_ROUTE_PROGRESS_WEIGHT = 0.25 # When door subgoal is active, de-prioritize direct target progress.
 const RL_ROUTE_GOAL_SWITCH_BONUS = 0.06 # Small bonus to keep policy committed to door objective once detected.
 const RL_FALL_DISTANCE = 3.5 # Episode fails if player falls this much below episode start height.
+const RL_SPAWN_ZONE_GROUP = "anna_rl_spawn_zone"
+const RL_TARGET_ZONE_GROUP = "anna_rl_target_zone"
+const RL_SPAWN_POINT_GROUP = "anna_rl_spawn_point"
+const RL_TARGET_POINT_GROUP = "anna_rl_target_point"
+const RL_SPAWN_SAMPLE_TRIES = 24
+const RL_TARGET_SAMPLE_TRIES = 28
+const RL_FLOOR_SNAP_UP = 4.0
+const RL_FLOOR_SNAP_DOWN = 16.0
+const RL_FLOOR_SNAP_CLEARANCE = 0.32
+const RL_TARGET_MIN_SEPARATION = 4.0
+const RL_SHAPING_PROFILE_BALANCED = "balanced"
+const RL_SHAPING_PROFILE_STABLE = "stable"
+const RL_SHAPING_PROFILE_FAST = "fast"
+const RL_SCENE_HOOK_BEFORE_RESET = "anna_rl_before_episode_reset"
+const RL_SCENE_HOOK_CHOOSE_EPISODE = "anna_rl_choose_episode"
 
 export(bool) var allow_human_heuristic_override := true
 export(NodePath) var ai_controller_path := NodePath("")
@@ -162,6 +180,7 @@ var _episode_start_time := 0
 var _episode_step_count := 0
 var _rl_time_penalty := RL_REWARD_TIME_PENALTY
 var _rl_max_episode_steps := RL_MAX_EPISODE_STEPS
+var _rl_base_max_episode_steps := RL_MAX_EPISODE_STEPS
 var _episode_start_height := 2.0
 var _hazard_contact_frames := 0
 var _killzone_triggered := false
@@ -201,6 +220,19 @@ var _rl_spawn_random_yaw := true
 var _rl_target_radius_min := 5.0
 var _rl_target_radius_max := 20.0
 var _rl_target_fixed_y := 1.0
+var _rl_spawn_bounds_enabled := false
+var _rl_target_bounds_enabled := false
+var _rl_spawn_bounds_min := Vector3.ZERO
+var _rl_spawn_bounds_max := Vector3.ZERO
+var _rl_target_bounds_min := Vector3.ZERO
+var _rl_target_bounds_max := Vector3.ZERO
+var _rl_spawn_sample_tries := RL_SPAWN_SAMPLE_TRIES
+var _rl_target_sample_tries := RL_TARGET_SAMPLE_TRIES
+var _rl_target_min_separation := RL_TARGET_MIN_SEPARATION
+var _rl_spawn_zone_nodes := []
+var _rl_target_zone_nodes := []
+var _rl_spawn_point_nodes := []
+var _rl_target_point_nodes := []
 var _rl_smart_jump_ahead_dist := RL_SMART_JUMP_AHEAD_DIST
 var _rl_smart_jump_target_above_y := RL_SMART_JUMP_TARGET_ABOVE_Y
 var _rl_smart_jump_target_above_dist := RL_SMART_JUMP_TARGET_ABOVE_DIST
@@ -213,12 +245,48 @@ var _rl_stuck_extra_penalty_scale := RL_STUCK_EXTRA_PENALTY_SCALE
 var _rl_stuck_extra_penalty_cap := RL_STUCK_EXTRA_PENALTY_CAP
 var _rl_stuck_no_recovery_penalty := RL_STUCK_NO_RECOVERY_PENALTY
 var _rl_hazard_forward_press_penalty := RL_HAZARD_FORWARD_PRESS_PENALTY
+var _rl_shaping_profile := RL_SHAPING_PROFILE_BALANCED
+var _rl_timeout_failure_scale := RL_TIMEOUT_FAILURE_SCALE
+var _rl_shaping_reward_clamp := RL_SHAPING_REWARD_CLAMP
+var _rl_progress_reward_scale := 1.0
+var _rl_alignment_reward_scale := 1.0
+var _rl_speed_reward_scale := 1.0
+var _rl_penalty_scale := 1.0
+var _rl_orbit_penalty_scale := 1.0
+var _rl_wall_penalty_scale := 1.0
+var _rl_jump_penalty_scale := 1.0
+var _rl_strafe_reward_scale := 1.0
+var _rl_strafe_penalty_scale := 1.0
+var _rl_action_change_penalty_scale := 1.0
+var _rl_stuck_recovery_strafe := RL_STUCK_RECOVERY_STRAFE
+var _rl_stuck_recovery_backoff := RL_STUCK_RECOVERY_BACKOFF
+var _rl_stuck_recovery_jump_period := RL_STUCK_RECOVERY_JUMP_PERIOD
+var _rl_stuck_recovery_wall_frames := RL_STUCK_RECOVERY_WALL_FRAMES
+var _rl_early_wall_recovery_hazard_frames := 6
+var _rl_early_wall_recovery_front_dist := RL_OBSTACLE_AHEAD_DIST
+var _rl_recovery_strafe_side := 0.0
+var _rl_recovery_strafe_side_bias := 0.0
+var _rl_jump_hold_input_frames := 2
+var _rl_jump_hold_frames := 0
+var _rl_assisted_steering := true
+var _rl_action0_backstep_enabled := false
+var _rl_action0_backstep_speed := 0.8
+var _rl_sprint_on_jump_actions := false
+var _rl_sprint_on_strafe_actions := false
+var _rl_sprint_on_jump_strafe_actions := false
+var _rl_strafe_forward_assist := 0.0
+var _rl_jump_strafe_forward_assist := 0.0
+var _rl_backstep_evasion_reward := 0.12
+var _rl_sprint_strafe_clear_penalty := 0.18
+var _rl_last_episode_override := {}
+var _rl_scene_controller_cache: Node = null
 
 func _ready():
 	_rl_legacy_fast_mode = OS.get_environment("ANNA_RL_LEGACY_FAST_MODE").to_lower() in ["1", "true", "yes", "on"]
 	var rl_max_steps_env = OS.get_environment("ANNA_RL_MAX_STEPS")
 	if rl_max_steps_env.is_valid_integer():
 		_rl_max_episode_steps = max(100, int(rl_max_steps_env))
+	_rl_base_max_episode_steps = _rl_max_episode_steps
 	var rl_time_penalty_env = OS.get_environment("ANNA_RL_TIME_PENALTY")
 	if rl_time_penalty_env.is_valid_float():
 		_rl_time_penalty = float(rl_time_penalty_env)
@@ -247,9 +315,26 @@ func _ready():
 	var tr_min = OS.get_environment("ANNA_RL_TARGET_RADIUS_MIN")
 	var tr_max = OS.get_environment("ANNA_RL_TARGET_RADIUS_MAX")
 	var tr_y = OS.get_environment("ANNA_RL_TARGET_Y")
+	var spawn_random_yaw_env = OS.get_environment("ANNA_RL_SPAWN_RANDOM_YAW")
+	var spawn_bounds_env = OS.get_environment("ANNA_RL_SPAWN_BOUNDS")
+	var target_bounds_env = OS.get_environment("ANNA_RL_TARGET_BOUNDS")
+	var spawn_tries_env = OS.get_environment("ANNA_RL_SPAWN_SAMPLE_TRIES")
+	var target_tries_env = OS.get_environment("ANNA_RL_TARGET_SAMPLE_TRIES")
+	var target_min_separation_env = OS.get_environment("ANNA_RL_TARGET_MIN_SEPARATION")
+	var shaping_profile_env = OS.get_environment("ANNA_RL_SHAPING_PROFILE")
 	if tr_min.is_valid_float(): _rl_target_radius_min = max(1.0, float(tr_min))
 	if tr_max.is_valid_float(): _rl_target_radius_max = max(_rl_target_radius_min + 1.0, float(tr_max))
 	if tr_y.is_valid_float(): _rl_target_fixed_y = float(tr_y)
+	if spawn_random_yaw_env != "":
+		_rl_spawn_random_yaw = spawn_random_yaw_env.to_lower() in ["1", "true", "yes", "on"]
+	_apply_rl_bounds_from_env(spawn_bounds_env, true)
+	_apply_rl_bounds_from_env(target_bounds_env, false)
+	if spawn_tries_env.is_valid_integer():
+		_rl_spawn_sample_tries = int(clamp(int(spawn_tries_env), 4, 160))
+	if target_tries_env.is_valid_integer():
+		_rl_target_sample_tries = int(clamp(int(target_tries_env), 4, 220))
+	if target_min_separation_env.is_valid_float():
+		_rl_target_min_separation = clamp(float(target_min_separation_env), 0.5, 30.0)
 	var jump_ahead_env = OS.get_environment("ANNA_RL_JUMP_AHEAD_DIST")
 	var jump_above_y_env = OS.get_environment("ANNA_RL_JUMP_TARGET_ABOVE_Y")
 	var jump_above_dist_env = OS.get_environment("ANNA_RL_JUMP_TARGET_ABOVE_DIST")
@@ -261,6 +346,28 @@ func _ready():
 	var stuck_no_recovery_env = OS.get_environment("ANNA_RL_STUCK_NO_RECOVERY_PENALTY")
 	var hazard_forward_press_env = OS.get_environment("ANNA_RL_HAZARD_FORWARD_PRESS_PENALTY")
 	var hazard_grace_frames_env = OS.get_environment("ANNA_RL_HAZARD_CONTACT_GRACE_FRAMES")
+	var jump_penalty_scale_env = OS.get_environment("ANNA_RL_JUMP_PENALTY_SCALE")
+	var strafe_reward_scale_env = OS.get_environment("ANNA_RL_STRAFE_REWARD_SCALE")
+	var strafe_penalty_scale_env = OS.get_environment("ANNA_RL_STRAFE_PENALTY_SCALE")
+	var action_change_penalty_scale_env = OS.get_environment("ANNA_RL_ACTION_CHANGE_PENALTY_SCALE")
+	var stuck_recovery_strafe_env = OS.get_environment("ANNA_RL_STUCK_RECOVERY_STRAFE")
+	var stuck_recovery_backoff_env = OS.get_environment("ANNA_RL_STUCK_RECOVERY_BACKOFF")
+	var stuck_recovery_jump_period_env = OS.get_environment("ANNA_RL_STUCK_RECOVERY_JUMP_PERIOD")
+	var stuck_recovery_wall_frames_env = OS.get_environment("ANNA_RL_STUCK_RECOVERY_WALL_FRAMES")
+	var early_wall_recovery_hazard_frames_env = OS.get_environment("ANNA_RL_EARLY_WALL_RECOVERY_HAZARD_FRAMES")
+	var early_wall_recovery_front_dist_env = OS.get_environment("ANNA_RL_EARLY_WALL_RECOVERY_FRONT_DIST")
+	var recovery_strafe_side_env = OS.get_environment("ANNA_RL_RECOVERY_STRAFE_SIDE")
+	var jump_hold_frames_env = OS.get_environment("ANNA_RL_JUMP_HOLD_FRAMES")
+	var assisted_steering_env = OS.get_environment("ANNA_RL_ASSISTED_STEERING")
+	var action0_backstep_env = OS.get_environment("ANNA_RL_ACTION0_BACKSTEP")
+	var action0_backstep_speed_env = OS.get_environment("ANNA_RL_ACTION0_BACKSTEP_SPEED")
+	var sprint_on_jump_env = OS.get_environment("ANNA_RL_SPRINT_ON_JUMP")
+	var sprint_on_strafe_env = OS.get_environment("ANNA_RL_SPRINT_ON_STRAFE")
+	var sprint_on_jump_strafe_env = OS.get_environment("ANNA_RL_SPRINT_ON_JUMP_STRAFE")
+	var strafe_forward_assist_env = OS.get_environment("ANNA_RL_STRAFE_FORWARD_ASSIST")
+	var jump_strafe_forward_assist_env = OS.get_environment("ANNA_RL_JUMP_STRAFE_FORWARD_ASSIST")
+	var backstep_evasion_reward_env = OS.get_environment("ANNA_RL_BACKSTEP_EVASION_REWARD")
+	var sprint_strafe_clear_penalty_env = OS.get_environment("ANNA_RL_SPRINT_STRAFE_CLEAR_PENALTY")
 	if jump_ahead_env.is_valid_float():
 		_rl_smart_jump_ahead_dist = clamp(float(jump_ahead_env), 0.8, 4.0)
 	if jump_above_y_env.is_valid_float():
@@ -283,12 +390,70 @@ func _ready():
 		_rl_hazard_forward_press_penalty = clamp(float(hazard_forward_press_env), 0.0, 2.0)
 	if hazard_grace_frames_env.is_valid_integer():
 		_rl_hazard_contact_grace_frames = int(clamp(int(hazard_grace_frames_env), 0, 400))
-	print("[AnnaInterface] spawn=%s alt_enabled=%s alt_prob=%.2f alt_spawn=%s target_radius=[%.1f, %.1f] jump[ahead=%.2f,above_y=%.2f,above_d=%.2f,max_steer=%.2f] wall[contact=%.3f stuck_scale=%.3f stuck_cap=%.3f stuck_fail=%d no_recovery=%.3f grace=%d fwd_press=%.3f] max_steps=%d legacy_fast=%s" % [
+	if jump_penalty_scale_env.is_valid_float():
+		_rl_jump_penalty_scale = clamp(float(jump_penalty_scale_env), 0.2, 4.0)
+	if strafe_reward_scale_env.is_valid_float():
+		_rl_strafe_reward_scale = clamp(float(strafe_reward_scale_env), 0.2, 4.0)
+	if strafe_penalty_scale_env.is_valid_float():
+		_rl_strafe_penalty_scale = clamp(float(strafe_penalty_scale_env), 0.0, 3.0)
+	if action_change_penalty_scale_env.is_valid_float():
+		_rl_action_change_penalty_scale = clamp(float(action_change_penalty_scale_env), 0.0, 3.0)
+	if stuck_recovery_strafe_env.is_valid_float():
+		_rl_stuck_recovery_strafe = clamp(float(stuck_recovery_strafe_env), 0.1, 1.5)
+	if stuck_recovery_backoff_env.is_valid_float():
+		_rl_stuck_recovery_backoff = clamp(float(stuck_recovery_backoff_env), -1.0, 1.5)
+	if stuck_recovery_jump_period_env.is_valid_integer():
+		_rl_stuck_recovery_jump_period = int(clamp(int(stuck_recovery_jump_period_env), 0, 120))
+	if stuck_recovery_wall_frames_env.is_valid_integer():
+		_rl_stuck_recovery_wall_frames = int(clamp(int(stuck_recovery_wall_frames_env), 2, 120))
+	if early_wall_recovery_hazard_frames_env.is_valid_integer():
+		_rl_early_wall_recovery_hazard_frames = int(clamp(int(early_wall_recovery_hazard_frames_env), 1, 120))
+	if early_wall_recovery_front_dist_env.is_valid_float():
+		_rl_early_wall_recovery_front_dist = clamp(float(early_wall_recovery_front_dist_env), 0.4, 4.0)
+	if recovery_strafe_side_env.is_valid_float():
+		_rl_recovery_strafe_side_bias = clamp(float(recovery_strafe_side_env), -1.0, 1.0)
+		if abs(_rl_recovery_strafe_side_bias) < 0.1:
+			_rl_recovery_strafe_side_bias = 0.0
+		else:
+			_rl_recovery_strafe_side_bias = sign(_rl_recovery_strafe_side_bias)
+	if jump_hold_frames_env.is_valid_integer():
+		_rl_jump_hold_input_frames = int(clamp(int(jump_hold_frames_env), 0, 12))
+	if assisted_steering_env != "":
+		_rl_assisted_steering = assisted_steering_env.to_lower() in ["1", "true", "yes", "on"]
+	if action0_backstep_env != "":
+		_rl_action0_backstep_enabled = action0_backstep_env.to_lower() in ["1", "true", "yes", "on"]
+	if action0_backstep_speed_env.is_valid_float():
+		_rl_action0_backstep_speed = clamp(float(action0_backstep_speed_env), 0.1, 1.0)
+	if sprint_on_jump_env != "":
+		_rl_sprint_on_jump_actions = sprint_on_jump_env.to_lower() in ["1", "true", "yes", "on"]
+	if sprint_on_strafe_env != "":
+		_rl_sprint_on_strafe_actions = sprint_on_strafe_env.to_lower() in ["1", "true", "yes", "on"]
+	if sprint_on_jump_strafe_env != "":
+		_rl_sprint_on_jump_strafe_actions = sprint_on_jump_strafe_env.to_lower() in ["1", "true", "yes", "on"]
+	if strafe_forward_assist_env.is_valid_float():
+		_rl_strafe_forward_assist = clamp(float(strafe_forward_assist_env), 0.0, 1.0)
+	if jump_strafe_forward_assist_env.is_valid_float():
+		_rl_jump_strafe_forward_assist = clamp(float(jump_strafe_forward_assist_env), 0.0, 1.0)
+	if backstep_evasion_reward_env.is_valid_float():
+		_rl_backstep_evasion_reward = clamp(float(backstep_evasion_reward_env), 0.0, 1.0)
+	if sprint_strafe_clear_penalty_env.is_valid_float():
+		_rl_sprint_strafe_clear_penalty = clamp(float(sprint_strafe_clear_penalty_env), 0.0, 1.0)
+	_configure_rl_shaping_profile(shaping_profile_env)
+	_refresh_rl_sampling_nodes()
+	print("[AnnaInterface] spawn=%s alt_enabled=%s alt_prob=%.2f alt_spawn=%s spawn_bounds=%s target_radius=[%.1f, %.1f] target_bounds=%s target_min_sep=%.2f spawn_samples=%d target_samples=%d zones[spawn=%d target=%d] points[spawn=%d target=%d] jump[ahead=%.2f,above_y=%.2f,above_d=%.2f,max_steer=%.2f,pen_scale=%.2f,hold=%d] wall[contact=%.3f stuck_scale=%.3f stuck_cap=%.3f stuck_fail=%d no_recovery=%.3f grace=%d fwd_press=%.3f recovery[frames=%d strafe=%.2f backoff=%.2f jump_period=%d early_hazard=%d early_front=%.2f side_bias=%.0f]] shaping[profile=%s clamp=%.2f timeout=%.2f progress=%.2f align=%.2f speed=%.2f penalty=%.2f orbit=%.2f wall=%.2f strafe_reward=%.2f strafe_penalty=%.2f action_change=%.2f] max_steps=%d legacy_fast=%s" % [
 		_rl_spawn_pos, str(_rl_spawn_alt_enabled), _rl_spawn_alt_prob, _rl_spawn_alt_pos,
+		("on" if _rl_spawn_bounds_enabled else "off"),
 		_rl_target_radius_min, _rl_target_radius_max,
-		_rl_smart_jump_ahead_dist, _rl_smart_jump_target_above_y, _rl_smart_jump_target_above_dist, _rl_smart_jump_max_steer_angle,
-		_rl_wall_contact_penalty, _rl_stuck_extra_penalty_scale, _rl_stuck_extra_penalty_cap, _rl_stuck_wall_fail_frames, _rl_stuck_no_recovery_penalty, _rl_hazard_contact_grace_frames, _rl_hazard_forward_press_penalty,
+		("on" if _rl_target_bounds_enabled else "off"), _rl_target_min_separation, _rl_spawn_sample_tries, _rl_target_sample_tries,
+		_rl_spawn_zone_nodes.size(), _rl_target_zone_nodes.size(), _rl_spawn_point_nodes.size(), _rl_target_point_nodes.size(),
+		_rl_smart_jump_ahead_dist, _rl_smart_jump_target_above_y, _rl_smart_jump_target_above_dist, _rl_smart_jump_max_steer_angle, _rl_jump_penalty_scale, _rl_jump_hold_input_frames,
+		_rl_wall_contact_penalty, _rl_stuck_extra_penalty_scale, _rl_stuck_extra_penalty_cap, _rl_stuck_wall_fail_frames, _rl_stuck_no_recovery_penalty, _rl_hazard_contact_grace_frames, _rl_hazard_forward_press_penalty, _rl_stuck_recovery_wall_frames, _rl_stuck_recovery_strafe, _rl_stuck_recovery_backoff, _rl_stuck_recovery_jump_period, _rl_early_wall_recovery_hazard_frames, _rl_early_wall_recovery_front_dist, _rl_recovery_strafe_side_bias,
+		_rl_shaping_profile, _rl_shaping_reward_clamp, _rl_timeout_failure_scale, _rl_progress_reward_scale, _rl_alignment_reward_scale, _rl_speed_reward_scale, _rl_penalty_scale, _rl_orbit_penalty_scale, _rl_wall_penalty_scale, _rl_strafe_reward_scale, _rl_strafe_penalty_scale, _rl_action_change_penalty_scale,
 		_rl_max_episode_steps, str(_rl_legacy_fast_mode)])
+	print("[AnnaInterface] action_cfg backstep[action0=%s speed=%.2f evasion_reward=%.2f] sprint[jump=%s strafe=%s jump_strafe=%s] strafe_forward_assist=%.2f jump_strafe_forward_assist=%.2f sprint_strafe_clear_penalty=%.2f" % [
+		str(_rl_action0_backstep_enabled), _rl_action0_backstep_speed, _rl_backstep_evasion_reward, str(_rl_sprint_on_jump_actions), str(_rl_sprint_on_strafe_actions), str(_rl_sprint_on_jump_strafe_actions), _rl_strafe_forward_assist, _rl_jump_strafe_forward_assist, _rl_sprint_strafe_clear_penalty
+	])
+	print("[AnnaInterface] steering assisted=%s" % [str(_rl_assisted_steering)])
 	_setup_sensors()
 	_setup_rl_sensors()
 	_bind_killzones()
@@ -323,6 +488,93 @@ func _try_bind_killzone(node: Node) -> void:
 
 func _on_killzone_player_killed() -> void:
 	_killzone_triggered = true
+
+func _parse_float_tokens(raw: String) -> Array:
+	var out := []
+	var normalized = raw.strip_edges().replace(";", ",").replace(" ", ",")
+	for token in normalized.split(",", false):
+		var piece = token.strip_edges()
+		if piece == "":
+			continue
+		if piece.is_valid_float():
+			out.append(float(piece))
+	return out
+
+func _apply_rl_bounds_from_env(raw: String, for_spawn: bool) -> void:
+	if raw.strip_edges() == "":
+		return
+	var values = _parse_float_tokens(raw)
+	if values.size() != 4 and values.size() != 6:
+		return
+	var x_min = min(values[0], values[1])
+	var x_max = max(values[0], values[1])
+	var z_min = min(values[2], values[3])
+	var z_max = max(values[2], values[3])
+	var y_min = _rl_spawn_pos.y if for_spawn else _rl_target_fixed_y
+	var y_max = y_min
+	if values.size() == 6:
+		y_min = min(values[4], values[5])
+		y_max = max(values[4], values[5])
+	var min_v = Vector3(x_min, y_min, z_min)
+	var max_v = Vector3(x_max, y_max, z_max)
+	if for_spawn:
+		_rl_spawn_bounds_enabled = true
+		_rl_spawn_bounds_min = min_v
+		_rl_spawn_bounds_max = max_v
+	else:
+		_rl_target_bounds_enabled = true
+		_rl_target_bounds_min = min_v
+		_rl_target_bounds_max = max_v
+
+func _read_env_scale(name: String, current: float, min_v: float, max_v: float) -> float:
+	var raw = OS.get_environment(name)
+	if raw.is_valid_float():
+		return clamp(float(raw), min_v, max_v)
+	return current
+
+func _configure_rl_shaping_profile(raw_profile: String) -> void:
+	var profile = raw_profile.strip_edges().to_lower()
+	if profile == "":
+		profile = RL_SHAPING_PROFILE_STABLE
+	_rl_shaping_profile = profile
+	_rl_timeout_failure_scale = RL_TIMEOUT_FAILURE_SCALE
+	_rl_shaping_reward_clamp = RL_SHAPING_REWARD_CLAMP
+	_rl_progress_reward_scale = 1.0
+	_rl_alignment_reward_scale = 1.0
+	_rl_speed_reward_scale = 1.0
+	_rl_penalty_scale = 1.0
+	_rl_orbit_penalty_scale = 1.0
+	_rl_wall_penalty_scale = 1.0
+	match profile:
+		RL_SHAPING_PROFILE_STABLE:
+			_rl_timeout_failure_scale = 0.24
+			_rl_shaping_reward_clamp = 3.2
+			_rl_progress_reward_scale = 1.18
+			_rl_alignment_reward_scale = 1.16
+			_rl_speed_reward_scale = 1.10
+			_rl_penalty_scale = 0.78
+			_rl_orbit_penalty_scale = 0.72
+			_rl_wall_penalty_scale = 0.70
+		RL_SHAPING_PROFILE_FAST:
+			_rl_timeout_failure_scale = 0.30
+			_rl_shaping_reward_clamp = 3.5
+			_rl_progress_reward_scale = 1.24
+			_rl_alignment_reward_scale = 1.10
+			_rl_speed_reward_scale = 1.22
+			_rl_penalty_scale = 0.86
+			_rl_orbit_penalty_scale = 0.84
+			_rl_wall_penalty_scale = 0.78
+		_:
+			_rl_shaping_profile = RL_SHAPING_PROFILE_BALANCED
+
+	_rl_shaping_reward_clamp = _read_env_scale("ANNA_RL_SHAPING_REWARD_CLAMP", _rl_shaping_reward_clamp, 0.5, 12.0)
+	_rl_timeout_failure_scale = _read_env_scale("ANNA_RL_TIMEOUT_FAILURE_SCALE", _rl_timeout_failure_scale, 0.0, 1.0)
+	_rl_progress_reward_scale = _read_env_scale("ANNA_RL_PROGRESS_REWARD_SCALE", _rl_progress_reward_scale, 0.2, 3.0)
+	_rl_alignment_reward_scale = _read_env_scale("ANNA_RL_ALIGNMENT_REWARD_SCALE", _rl_alignment_reward_scale, 0.2, 3.0)
+	_rl_speed_reward_scale = _read_env_scale("ANNA_RL_SPEED_REWARD_SCALE", _rl_speed_reward_scale, 0.2, 3.0)
+	_rl_penalty_scale = _read_env_scale("ANNA_RL_PENALTY_SCALE", _rl_penalty_scale, 0.2, 3.0)
+	_rl_orbit_penalty_scale = _read_env_scale("ANNA_RL_ORBIT_PENALTY_SCALE", _rl_orbit_penalty_scale, 0.2, 3.0)
+	_rl_wall_penalty_scale = _read_env_scale("ANNA_RL_WALL_PENALTY_SCALE", _rl_wall_penalty_scale, 0.2, 3.0)
 
 func _setup_sensors():
 	if is_instance_valid(_raycast_root):
@@ -388,6 +640,14 @@ func get_scene_hierarchy_resource(max_depth := MCP_SCENE_DEPTH_LIMIT, max_childr
 
 func get_simulation_telemetry_resource() -> Dictionary:
 	var fps = float(Performance.get_monitor(Performance.TIME_FPS))
+	var process_ms = float(Performance.get_monitor(Performance.TIME_PROCESS)) * 1000.0
+	var physics_ms = float(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)) * 1000.0
+	var draw_calls = 0
+	if Performance.get("RENDER_DRAW_CALLS") != null:
+		draw_calls = int(Performance.get_monitor(Performance.RENDER_DRAW_CALLS))
+	var node_count = 0
+	if Performance.get("OBJECT_NODE_COUNT") != null:
+		node_count = int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT))
 	var player = _get_player()
 	var player_data = {
 		"available": false
@@ -407,6 +667,10 @@ func get_simulation_telemetry_resource() -> Dictionary:
 	return {
 		"resource": "odisea://simulation/telemetry",
 		"fps": fps,
+		"process_ms": process_ms,
+		"physics_ms": physics_ms,
+		"draw_calls": draw_calls,
+		"node_count": node_count,
 		"physics_frame": Engine.get_physics_frames(),
 		"elias": player_data,
 		"oys": _read_oys_runtime_info()
@@ -711,33 +975,40 @@ func get_rl_observation() -> Dictionary:
 
 	# 1. Time Penalty
 	_episode_step_count += 1
-	reward += _rl_time_penalty
+	reward += _rl_time_penalty * _rl_penalty_scale
 
 	# 1b. Reward speed (prefer fast locomotion over stationary/jump spam)
 	var horizontal_speed = Vector2(local_vel.x, local_vel.z).length()
 	var strafe_speed = abs(local_vel.x)
-	reward += horizontal_speed * RL_SPEED_REWARD_SCALE
-	reward += min(horizontal_speed / RL_SPRINT_TARGET_SPEED, 1.0) * RL_SPEED_TARGET_REWARD_SCALE
+	reward += horizontal_speed * RL_SPEED_REWARD_SCALE * _rl_speed_reward_scale
+	reward += min(horizontal_speed / RL_SPRINT_TARGET_SPEED, 1.0) * RL_SPEED_TARGET_REWARD_SCALE * _rl_speed_reward_scale
+	if _last_action_idx == 0 and horizontal_speed < 0.2 and dist_to_target > (RL_SUCCESS_DIST * 1.5):
+		var steer_only_context_clear = front_ray_dist > (RL_OBSTACLE_AHEAD_DIST * 1.1) and _hazard_contact_frames <= 1 and _wall_stuck_frames <= 1
+		if steer_only_context_clear:
+			var steer_only_penalty = RL_STEER_ONLY_IDLE_PENALTY
+			if abs(angle_to_target) > 0.22 and abs(_last_action_look_x) > 0.04:
+				steer_only_penalty *= 0.4 # Allow short camera correction bursts, but not full episodes of no movement.
+			reward -= steer_only_penalty * _rl_penalty_scale
 	if _last_action_sprint and horizontal_speed > 0.1:
-		reward += horizontal_speed * RL_SPRINT_REWARD_SCALE
+		reward += horizontal_speed * RL_SPRINT_REWARD_SCALE * _rl_speed_reward_scale
 	if _last_action_jump:
-		reward -= RL_JUMP_ACTION_PENALTY
+		reward -= RL_JUMP_ACTION_PENALTY * _rl_penalty_scale * _rl_jump_penalty_scale
 		if _jump_streak > 1:
-			reward -= float(_jump_streak - 1) * RL_JUMP_REPEAT_PENALTY
+			reward -= float(_jump_streak - 1) * RL_JUMP_REPEAT_PENALTY * _rl_penalty_scale * _rl_jump_penalty_scale
 		if not on_floor_now:
-			reward -= RL_JUMP_REPEAT_PENALTY
+			reward -= RL_JUMP_REPEAT_PENALTY * _rl_penalty_scale * _rl_jump_penalty_scale
 		if front_ray_dist < RL_OBSTACLE_AHEAD_DIST and vel.y > 0.05:
-			reward += RL_OBSTACLE_JUMP_BONUS
+			reward += RL_OBSTACLE_JUMP_BONUS * _rl_progress_reward_scale
 		else:
-			reward -= RL_BAD_JUMP_PENALTY
+			reward -= RL_BAD_JUMP_PENALTY * _rl_penalty_scale * _rl_jump_penalty_scale
 	elif on_floor_now and front_ray_dist < RL_OBSTACLE_AHEAD_DIST and abs(_last_move_cmd.x) < 0.1:
-		reward -= RL_OBSTACLE_NO_EVASION_PENALTY
+		reward -= RL_OBSTACLE_NO_EVASION_PENALTY * _rl_penalty_scale
 	var interact_candidate_now = _get_front_interactable(player as Spatial)
 	if is_instance_valid(interact_candidate_now):
 		var interact_dist = player.global_transform.origin.distance_to((interact_candidate_now as Spatial).global_transform.origin) if interact_candidate_now is Spatial else RL_INTERACT_RANGE
 		var blocked_by_interactable = front_ray_dist < RL_INTERACT_AUTO_FRONT_BLOCK_DIST and interact_dist <= RL_INTERACT_AUTO_RANGE
 		if blocked_by_interactable and _last_move_cmd.y < -0.35 and not _last_action_interact:
-			reward -= RL_MISSED_INTERACT_PENALTY
+			reward -= RL_MISSED_INTERACT_PENALTY * _rl_penalty_scale
 		var candidate_is_open = false
 		var candidate_progress = 0.0
 		if "is_active" in interact_candidate_now:
@@ -748,15 +1019,15 @@ func get_rl_observation() -> Dictionary:
 		if interact_closed:
 			if interact_dist <= RL_INTERACT_AUTO_RANGE:
 				if _last_route_interact_dist >= 0.0:
-					reward += (_last_route_interact_dist - interact_dist) * RL_INTERACT_APPROACH_REWARD_SCALE
+					reward += (_last_route_interact_dist - interact_dist) * RL_INTERACT_APPROACH_REWARD_SCALE * _rl_progress_reward_scale
 				var to_interact = (interact_candidate_now.global_transform.origin - player.global_transform.origin)
 				to_interact.y = 0.0
 				if forward.length_squared() > 0.001 and to_interact.length_squared() > 0.001:
-					reward += max(0.0, forward.dot(to_interact.normalized())) * RL_INTERACT_ROUTE_ALIGN_REWARD_SCALE
+					reward += max(0.0, forward.dot(to_interact.normalized())) * RL_INTERACT_ROUTE_ALIGN_REWARD_SCALE * _rl_alignment_reward_scale
 				if _last_move_cmd.y < -0.45 and not _last_action_interact:
-					reward -= RL_INTERACT_FORWARD_IGNORE_PENALTY
+					reward -= RL_INTERACT_FORWARD_IGNORE_PENALTY * _rl_penalty_scale
 			if _last_route_interact_progress >= 0.0:
-				reward += max(0.0, candidate_progress - _last_route_interact_progress) * RL_INTERACT_OPEN_PROGRESS_REWARD_SCALE
+				reward += max(0.0, candidate_progress - _last_route_interact_progress) * RL_INTERACT_OPEN_PROGRESS_REWARD_SCALE * _rl_progress_reward_scale
 		_last_route_interact_dist = interact_dist
 		_last_route_interact_progress = candidate_progress
 	else:
@@ -764,21 +1035,21 @@ func get_rl_observation() -> Dictionary:
 		_last_route_interact_progress = -1.0
 	if _last_action_interact:
 		if is_instance_valid(interact_candidate_now):
-			reward += RL_INTERACT_CONTEXT_REWARD
+			reward += RL_INTERACT_CONTEXT_REWARD * _rl_alignment_reward_scale
 			if "target_progress" in interact_candidate_now:
-				reward += float(interact_candidate_now.target_progress) * RL_INTERACT_OPEN_PROGRESS_REWARD_SCALE
+				reward += float(interact_candidate_now.target_progress) * RL_INTERACT_OPEN_PROGRESS_REWARD_SCALE * _rl_progress_reward_scale
 			if _interact_streak > 1:
-				reward -= float(_interact_streak - 1) * RL_INTERACT_REPEAT_PENALTY
+				reward -= float(_interact_streak - 1) * RL_INTERACT_REPEAT_PENALTY * _rl_penalty_scale
 		else:
-			reward -= RL_INTERACT_SPAM_PENALTY
+			reward -= RL_INTERACT_SPAM_PENALTY * _rl_penalty_scale
 	if not on_floor_now:
-		reward -= RL_AIRBORNE_PENALTY
+		reward -= RL_AIRBORNE_PENALTY * _rl_penalty_scale
 	var height_gain = max(0.0, player.global_transform.origin.y - _episode_start_height)
-	reward += min(height_gain, RL_HEIGHT_REWARD_CAP) * RL_HEIGHT_REWARD_SCALE
-	reward -= _last_action_change_cost
+	reward += min(height_gain, RL_HEIGHT_REWARD_CAP) * RL_HEIGHT_REWARD_SCALE * _rl_progress_reward_scale
+	reward -= _last_action_change_cost * _rl_penalty_scale * _rl_action_change_penalty_scale
 	var local_hvel = Vector2(local_vel.x, local_vel.z)
 	if _has_last_local_hvel:
-		reward -= (local_hvel - _last_local_hvel).length() * RL_VELOCITY_JERK_PENALTY_SCALE
+		reward -= (local_hvel - _last_local_hvel).length() * RL_VELOCITY_JERK_PENALTY_SCALE * _rl_penalty_scale
 	_last_local_hvel = local_hvel
 	_has_last_local_hvel = true
 
@@ -786,104 +1057,115 @@ func get_rl_observation() -> Dictionary:
 	if prev_dist_to_target >= 0.0:
 		var diff = prev_dist_to_target - dist_to_target
 		if route_subgoal_active:
-			reward += max(0.0, diff) * RL_PROGRESS_SCALE * RL_ROUTE_PROGRESS_WEIGHT
+			reward += max(0.0, diff) * RL_PROGRESS_SCALE * RL_ROUTE_PROGRESS_WEIGHT * _rl_progress_reward_scale
 		else:
-			reward += diff * RL_PROGRESS_SCALE
+			reward += diff * RL_PROGRESS_SCALE * _rl_progress_reward_scale
 
 	# 2b. Target shaping (alignment + approach speed + proximity)
 	if target:
 		if route_subgoal_active:
-			reward += RL_ROUTE_GOAL_SWITCH_BONUS
+			reward += RL_ROUTE_GOAL_SWITCH_BONUS * _rl_progress_reward_scale
 		if forward.length_squared() > 0.001 and to_target.length_squared() > 0.001:
 			var align = clamp(forward.dot(to_target), -1.0, 1.0)
-			reward += align * RL_ALIGNMENT_REWARD_SCALE
+			reward += align * RL_ALIGNMENT_REWARD_SCALE * _rl_alignment_reward_scale
 
 			var approach_speed = vel.dot(to_target)
-			reward += approach_speed * RL_APPROACH_SPEED_REWARD_SCALE
+			reward += approach_speed * RL_APPROACH_SPEED_REWARD_SCALE * _rl_progress_reward_scale
 			var tangential_speed = (vel - to_target * approach_speed).length()
-			reward -= tangential_speed * RL_TANGENTIAL_SPEED_PENALTY_SCALE
+			reward -= tangential_speed * RL_TANGENTIAL_SPEED_PENALTY_SCALE * _rl_orbit_penalty_scale * _rl_penalty_scale
 			if dist_to_target < RL_NEAR_TARGET_RADIUS:
 				var near_ratio = 1.0 - clamp(dist_to_target / RL_NEAR_TARGET_RADIUS, 0.0, 1.0)
-				reward -= tangential_speed * near_ratio * RL_NEAR_TARGET_ORBIT_PENALTY_SCALE
+				reward -= tangential_speed * near_ratio * RL_NEAR_TARGET_ORBIT_PENALTY_SCALE * _rl_orbit_penalty_scale * _rl_penalty_scale
 				if approach_speed < 0.0:
-					reward += approach_speed * near_ratio * RL_NEAR_TARGET_MOVING_AWAY_PENALTY_SCALE
+					reward += approach_speed * near_ratio * RL_NEAR_TARGET_MOVING_AWAY_PENALTY_SCALE * _rl_orbit_penalty_scale * _rl_penalty_scale
 				var orbit_ratio = tangential_speed / max(0.2, abs(approach_speed) + 0.2)
 				if orbit_ratio > 1.0:
-					reward -= (orbit_ratio - 1.0) * near_ratio * RL_ORBIT_RATIO_PENALTY_SCALE
+					reward -= (orbit_ratio - 1.0) * near_ratio * RL_ORBIT_RATIO_PENALTY_SCALE * _rl_orbit_penalty_scale * _rl_penalty_scale
 
 			var proximity_ratio = clamp((RL_PROXIMITY_REFERENCE_DIST - dist_to_target) / RL_PROXIMITY_REFERENCE_DIST, 0.0, 1.0)
-			reward += proximity_ratio * RL_PROXIMITY_REWARD_SCALE
+			reward += proximity_ratio * RL_PROXIMITY_REWARD_SCALE * _rl_progress_reward_scale
 			if dist_to_target < RL_NEAR_TARGET_BONUS_DIST:
 				var near_target_ratio = 1.0 - clamp(dist_to_target / RL_NEAR_TARGET_BONUS_DIST, 0.0, 1.0)
-				reward += near_target_ratio * RL_NEAR_TARGET_BONUS_SCALE
+				reward += near_target_ratio * RL_NEAR_TARGET_BONUS_SCALE * _rl_progress_reward_scale
 
 		var abs_angle = abs(angle_to_target)
-		reward -= abs_angle * RL_ANGLE_ABS_PENALTY_SCALE
+		reward -= abs_angle * RL_ANGLE_ABS_PENALTY_SCALE * _rl_penalty_scale
 		var alignment_focus = 1.0 - abs_angle
-		reward += alignment_focus * alignment_focus * RL_AIM_STABILITY_BONUS_SCALE
+		reward += alignment_focus * alignment_focus * RL_AIM_STABILITY_BONUS_SCALE * _rl_alignment_reward_scale
 		if _last_abs_angle_to_target >= 0.0:
-			reward += (_last_abs_angle_to_target - abs_angle) * RL_ANGLE_PROGRESS_SCALE
+			reward += (_last_abs_angle_to_target - abs_angle) * RL_ANGLE_PROGRESS_SCALE * _rl_alignment_reward_scale
 			if abs(_last_action_look_x) > 0.05 and abs_angle < _last_abs_angle_to_target:
-				reward += (_last_abs_angle_to_target - abs_angle) * RL_STEER_CORRECTION_BONUS_SCALE
+				reward += (_last_abs_angle_to_target - abs_angle) * RL_STEER_CORRECTION_BONUS_SCALE * _rl_alignment_reward_scale
 		_last_abs_angle_to_target = abs_angle
 
 		if abs_angle > 0.12 and abs(_last_action_look_x) > 0.01:
-			reward += RL_LOOK_USAGE_REWARD_SCALE
+			reward += RL_LOOK_USAGE_REWARD_SCALE * _rl_alignment_reward_scale
 		if abs_angle > 0.16 and abs(_last_action_look_x) > 0.05:
-			reward += abs_angle * RL_STEER_WHEN_MISALIGNED_REWARD_SCALE
+			reward += abs_angle * RL_STEER_WHEN_MISALIGNED_REWARD_SCALE * _rl_alignment_reward_scale
 		if abs_angle < 0.08 and abs(_last_action_look_x) > 0.01:
-			reward -= RL_LOOK_WHEN_ALIGNED_PENALTY
-		if abs(_last_move_cmd.x) > 0.1 and abs_angle > 0.16:
-			reward += strafe_speed * RL_STRAFE_WHEN_MISALIGNED_REWARD_SCALE
-		if abs(_last_move_cmd.x) > 0.1 and front_ray_dist < RL_OBSTACLE_AHEAD_DIST:
-			reward += strafe_speed * RL_STRAFE_OBSTACLE_REWARD_SCALE
-		if abs(_last_move_cmd.x) > 0.1 and abs_angle < 0.08 and front_ray_dist > (RL_OBSTACLE_AHEAD_DIST * 1.2):
-			reward -= RL_STRAFE_IDLE_PENALTY
-		if abs(_last_move_cmd.x) > 0.1 and dist_to_target < RL_NEAR_TARGET_RADIUS and abs_angle < 0.25:
-			var near_strafe_ratio = 1.0 - clamp(dist_to_target / RL_NEAR_TARGET_RADIUS, 0.0, 1.0)
-			reward -= strafe_speed * near_strafe_ratio * RL_NEAR_TARGET_STRAFE_PENALTY_SCALE
-		if horizontal_speed > 0.2 and abs_angle > 0.2:
-			reward -= horizontal_speed * abs_angle * RL_FORWARD_MISALIGN_PENALTY_SCALE
+			reward -= RL_LOOK_WHEN_ALIGNED_PENALTY * _rl_penalty_scale
+			if abs(_last_move_cmd.x) > 0.1 and abs_angle > 0.16:
+				reward += strafe_speed * RL_STRAFE_WHEN_MISALIGNED_REWARD_SCALE * _rl_alignment_reward_scale * _rl_strafe_reward_scale
+			if abs(_last_move_cmd.x) > 0.1 and front_ray_dist < RL_OBSTACLE_AHEAD_DIST:
+				reward += strafe_speed * RL_STRAFE_OBSTACLE_REWARD_SCALE * _rl_progress_reward_scale * _rl_strafe_reward_scale
+			if abs(_last_move_cmd.x) > 0.1 and abs_angle < 0.08 and front_ray_dist > (RL_OBSTACLE_AHEAD_DIST * 1.2):
+				reward -= RL_STRAFE_IDLE_PENALTY * _rl_penalty_scale * _rl_strafe_penalty_scale
+			if _last_action_sprint and abs(_last_move_cmd.x) > 0.1 and abs_angle < 0.12 and front_ray_dist > (RL_OBSTACLE_AHEAD_DIST * 1.35):
+				reward -= _rl_sprint_strafe_clear_penalty * _rl_penalty_scale * _rl_strafe_penalty_scale
+			if abs(_last_move_cmd.x) > 0.1 and dist_to_target < RL_NEAR_TARGET_RADIUS and abs_angle < 0.25:
+				var near_strafe_ratio = 1.0 - clamp(dist_to_target / RL_NEAR_TARGET_RADIUS, 0.0, 1.0)
+				reward -= strafe_speed * near_strafe_ratio * RL_NEAR_TARGET_STRAFE_PENALTY_SCALE * _rl_orbit_penalty_scale * _rl_penalty_scale * _rl_strafe_penalty_scale
+			if horizontal_speed > 0.2 and abs_angle > 0.2:
+				reward -= horizontal_speed * abs_angle * RL_FORWARD_MISALIGN_PENALTY_SCALE * _rl_penalty_scale
 
-		var forward_speed = max(0.0, vel.dot(to_target))
-		var sprint_context = on_floor_now and abs_angle < 0.16 and front_ray_dist > (RL_OBSTACLE_AHEAD_DIST * 1.2) and dist_to_target > (RL_SUCCESS_DIST * 1.5)
-		if sprint_context:
-			if _last_action_sprint and forward_speed > 0.8:
-				reward += RL_SPRINT_ACTION_BONUS
-			elif _last_move_cmd.y < -0.7 and forward_speed > 0.2:
-				reward -= RL_NO_SPRINT_WHEN_ALIGNED_PENALTY
-			var speed_gap = max(0.0, RL_SPRINT_TARGET_SPEED - forward_speed)
-			reward -= speed_gap * RL_LOW_SPEED_WHEN_ALIGNED_PENALTY_SCALE
+			var forward_speed = max(0.0, vel.dot(to_target))
+			var signed_approach_speed = vel.dot(to_target)
+			var moving_away_speed = max(0.0, -signed_approach_speed)
+			if abs_angle < 0.2 and moving_away_speed > 0.1:
+				var clear_escape_path = front_ray_dist > (RL_OBSTACLE_AHEAD_DIST * 1.2)
+				var hazard_context = (_hazard_contact_frames >= _rl_hazard_contact_grace_frames) or (_wall_stuck_frames > 0)
+				if clear_escape_path and not hazard_context:
+					reward -= moving_away_speed * RL_MOVING_AWAY_WHEN_ALIGNED_PENALTY_SCALE * _rl_penalty_scale
+					if _last_move_cmd.y > 0.2:
+						reward -= RL_BACKSTEP_WHEN_ALIGNED_CLEAR_PENALTY * _rl_penalty_scale
+			var sprint_context = on_floor_now and abs_angle < 0.16 and front_ray_dist > (RL_OBSTACLE_AHEAD_DIST * 1.2) and dist_to_target > (RL_SUCCESS_DIST * 1.5)
+			if sprint_context:
+				if _last_action_sprint and forward_speed > 0.8:
+					reward += RL_SPRINT_ACTION_BONUS * _rl_speed_reward_scale
+				elif _last_move_cmd.y < -0.7 and forward_speed > 0.2:
+					reward -= RL_NO_SPRINT_WHEN_ALIGNED_PENALTY * _rl_penalty_scale
+				var speed_gap = max(0.0, RL_SPRINT_TARGET_SPEED - forward_speed)
+				reward -= speed_gap * RL_LOW_SPEED_WHEN_ALIGNED_PENALTY_SCALE * _rl_penalty_scale
 
-		if abs_angle < 0.2:
-			reward += forward_speed * RL_ALIGNED_SPEED_REWARD_SCALE
-			_misaligned_run_streak = 0
-		elif forward_speed > 0.2:
-			reward -= forward_speed * abs_angle * RL_UNALIGNED_SPEED_PENALTY_SCALE
-			if abs(_last_action_look_x) < 0.01:
-				_misaligned_run_streak += 1
-				reward -= min(float(_misaligned_run_streak) * RL_NO_CORRECTION_PENALTY, RL_NO_CORRECTION_PENALTY_CAP)
+			if abs_angle < 0.2:
+				reward += forward_speed * RL_ALIGNED_SPEED_REWARD_SCALE * _rl_speed_reward_scale
+				_misaligned_run_streak = 0
+			elif forward_speed > 0.2:
+				reward -= forward_speed * abs_angle * RL_UNALIGNED_SPEED_PENALTY_SCALE * _rl_penalty_scale
+				if abs(_last_action_look_x) < 0.01:
+					_misaligned_run_streak += 1
+					reward -= min(float(_misaligned_run_streak) * RL_NO_CORRECTION_PENALTY, RL_NO_CORRECTION_PENALTY_CAP) * _rl_penalty_scale
+				else:
+					_misaligned_run_streak = 0
 			else:
 				_misaligned_run_streak = 0
-		else:
-			_misaligned_run_streak = 0
 
-		if on_floor_now and abs_angle < 0.2:
-			var aligned_forward_speed = forward_speed
-			reward += aligned_forward_speed * RL_COMMIT_FORWARD_REWARD_SCALE
-		if dist_to_target > 4.0 and horizontal_speed < 0.2:
-			reward -= RL_STALL_PENALTY
-		if (not route_subgoal_active) and prev_dist_to_target >= 0.0 and (dist_to_target - prev_dist_to_target) > 0.02 and forward_speed > 0.15:
-			reward -= 0.08 # Moving in a way that increases distance should be corrected quickly.
+			if on_floor_now and abs_angle < 0.2:
+				var aligned_forward_speed = forward_speed
+				reward += aligned_forward_speed * RL_COMMIT_FORWARD_REWARD_SCALE * _rl_speed_reward_scale
+			if dist_to_target > 4.0 and horizontal_speed < 0.2:
+				reward -= RL_STALL_PENALTY * _rl_penalty_scale
+			if (not route_subgoal_active) and prev_dist_to_target >= 0.0 and (dist_to_target - prev_dist_to_target) > 0.02 and forward_speed > 0.15:
+				reward -= 0.08 * _rl_penalty_scale # Moving in a way that increases distance should be corrected quickly.
 
-		# Anti-collapse: repeating same action while neither distance nor angle improves.
-		if _same_action_streak > 6 and prev_dist_to_target >= 0.0 and _has_last_angle_to_target:
-			var dist_improved = (prev_dist_to_target - dist_to_target) > RL_BAD_STREAK_DIST_EPS
-			var angle_improved = (abs(_last_angle_to_target) - abs_angle) > RL_BAD_STREAK_ANGLE_EPS
-			if not dist_improved and not angle_improved:
-				reward -= float(_same_action_streak - 6) * RL_SAME_ACTION_STREAK_PENALTY
-		_last_angle_to_target = angle_to_target
-		_has_last_angle_to_target = true
+			# Anti-collapse: repeating same action while neither distance nor angle improves.
+			if _same_action_streak > 6 and prev_dist_to_target >= 0.0 and _has_last_angle_to_target:
+				var dist_improved = (prev_dist_to_target - dist_to_target) > RL_BAD_STREAK_DIST_EPS
+				var angle_improved = (abs(_last_angle_to_target) - abs_angle) > RL_BAD_STREAK_ANGLE_EPS
+				if not dist_improved and not angle_improved:
+					reward -= float(_same_action_streak - 6) * RL_SAME_ACTION_STREAK_PENALTY * _rl_penalty_scale
+			_last_angle_to_target = angle_to_target
+			_has_last_angle_to_target = true
 
 	# 3. Success
 	var reached_target := false
@@ -898,7 +1180,7 @@ func get_rl_observation() -> Dictionary:
 
 	# 4. Failure (KillZone / Fall / Prolonged hazard contact)
 	if not done and _episode_step_count >= _rl_max_episode_steps:
-		terminal_reward += RL_REWARD_FAILURE * RL_TIMEOUT_FAILURE_SCALE
+		terminal_reward += RL_REWARD_FAILURE * _rl_timeout_failure_scale
 		done = true
 
 	if not done and _killzone_triggered:
@@ -931,25 +1213,28 @@ func get_rl_observation() -> Dictionary:
 					hazard_contact = true
 					break
 
-		if hazard_contact:
-			_hazard_contact_frames += 1
-			reward -= _rl_wall_contact_penalty
-			var trying_evasion_now := abs(_last_move_cmd.x) > 0.2 or _last_move_cmd.y > 0.2 or _last_action_jump
-			if trying_evasion_now:
-				reward += RL_HAZARD_EVASION_REWARD
-			elif _last_move_cmd.y < -0.25:
-				reward -= _rl_hazard_forward_press_penalty
+			if hazard_contact:
+				_hazard_contact_frames += 1
+				reward -= _rl_wall_contact_penalty * _rl_wall_penalty_scale * _rl_penalty_scale
+				var trying_evasion_now := abs(_last_move_cmd.x) > 0.2 or _last_move_cmd.y > 0.2 or _last_action_jump
+				if trying_evasion_now:
+					reward += RL_HAZARD_EVASION_REWARD * _rl_progress_reward_scale
+					if _last_move_cmd.y > 0.2:
+						reward += _rl_backstep_evasion_reward * _rl_progress_reward_scale
+				elif _last_move_cmd.y < -0.25:
+					reward -= _rl_hazard_forward_press_penalty * _rl_wall_penalty_scale * _rl_penalty_scale
 			if _last_front_ray_dist >= 0.0:
 				var clear_delta = front_ray_dist - _last_front_ray_dist
 				if clear_delta > 0.0:
-					reward += clear_delta * RL_WALL_ESCAPE_PROGRESS_REWARD_SCALE
+					reward += clear_delta * RL_WALL_ESCAPE_PROGRESS_REWARD_SCALE * _rl_wall_penalty_scale
 				else:
-					reward += clear_delta * RL_WALL_ESCAPE_REGRESS_PENALTY_SCALE
+					reward += clear_delta * RL_WALL_ESCAPE_REGRESS_PENALTY_SCALE * _rl_wall_penalty_scale
 			if abs(_last_move_cmd.x) < 0.1 and not _last_action_jump:
-				reward -= RL_OBSTACLE_NO_EVASION_PENALTY
+				reward -= RL_OBSTACLE_NO_EVASION_PENALTY * _rl_penalty_scale
 		else:
 			_hazard_contact_frames = 0
 			_wall_stuck_frames = 0
+			_rl_recovery_strafe_side = 0.0
 		_last_front_ray_dist = front_ray_dist
 
 		if hazard_contact and _hazard_contact_frames >= _rl_hazard_contact_grace_frames:
@@ -962,13 +1247,13 @@ func get_rl_observation() -> Dictionary:
 				_wall_stuck_frames = 0
 
 		if _wall_stuck_frames > 0:
-			reward -= min(_rl_stuck_extra_penalty_cap, float(_wall_stuck_frames) * _rl_stuck_extra_penalty_scale)
+			reward -= min(_rl_stuck_extra_penalty_cap, float(_wall_stuck_frames) * _rl_stuck_extra_penalty_scale) * _rl_wall_penalty_scale * _rl_penalty_scale
 			if _wall_stuck_frames >= RL_STUCK_RECOVERY_WALL_FRAMES:
 				var trying_recovery := _last_move_cmd.y > 0.2 or abs(_last_move_cmd.x) > 0.2 or _last_action_jump
 				if trying_recovery:
-					reward += RL_STUCK_RECOVERY_REWARD
+					reward += RL_STUCK_RECOVERY_REWARD * _rl_progress_reward_scale
 				else:
-					reward -= _rl_stuck_no_recovery_penalty
+					reward -= _rl_stuck_no_recovery_penalty * _rl_wall_penalty_scale * _rl_penalty_scale
 
 		if _wall_stuck_frames >= _rl_stuck_wall_fail_frames:
 			terminal_reward += RL_REWARD_FAILURE
@@ -976,7 +1261,7 @@ func get_rl_observation() -> Dictionary:
 
 	# Keep distance bookkeeping at the end so intermediate checks use previous-step value.
 	_last_dist_to_target = dist_to_target
-	var shaping_reward = clamp(reward, -RL_SHAPING_REWARD_CLAMP, RL_SHAPING_REWARD_CLAMP)
+	var shaping_reward = clamp(reward, -_rl_shaping_reward_clamp, _rl_shaping_reward_clamp)
 	var final_reward = shaping_reward + terminal_reward
 	return {
 		"obs": obs_vector,
@@ -987,25 +1272,42 @@ func get_rl_observation() -> Dictionary:
 func reset_simulation() -> void:
 	var player = _get_player()
 	_reset_interactables_for_episode()
-	var spawn_origin := _rl_spawn_pos
-	if _rl_spawn_alt_enabled and _rl_spawn_alt_prob > 0.0 and randf() < _rl_spawn_alt_prob:
-		spawn_origin = _rl_spawn_alt_pos
+	_rl_max_episode_steps = _rl_base_max_episode_steps
+	_call_rl_scene_before_reset_hook()
+	_refresh_rl_sampling_nodes()
+	var target = _ensure_rl_target()
+	var spawn_origin := _sample_rl_spawn_position(player)
+	var target_origin := _sample_rl_target_position(spawn_origin, player, target)
+	var has_yaw_override := false
+	var yaw_override := 0.0
+	var episode_override = _get_rl_scene_episode_override()
+	_rl_last_episode_override = {}
+	if typeof(episode_override) == TYPE_DICTIONARY:
+		_rl_last_episode_override = episode_override.duplicate(true)
+		var spawn_pick = _variant_to_vector3(episode_override.get("spawn", null))
+		if bool(spawn_pick.get("ok", false)):
+			spawn_origin = spawn_pick.get("value", spawn_origin)
+		var target_pick = _variant_to_vector3(episode_override.get("target", null))
+		if bool(target_pick.get("ok", false)):
+			target_origin = target_pick.get("value", target_origin)
+		var yaw_value = episode_override.get("yaw", null)
+		if yaw_value != null and (typeof(yaw_value) == TYPE_REAL or typeof(yaw_value) == TYPE_INT):
+			has_yaw_override = true
+			yaw_override = float(yaw_value)
+		var max_steps_value = episode_override.get("max_steps", null)
+		if max_steps_value != null and typeof(max_steps_value) in [TYPE_INT, TYPE_REAL]:
+			_rl_max_episode_steps = max(100, int(max_steps_value))
 	if player and player.has_method("teleport_to"):
 		var t = Transform()
 		t.origin = spawn_origin
-		var rand_yaw = rand_range(-PI, PI)
+		var rand_yaw = yaw_override if has_yaw_override else (rand_range(-PI, PI) if _rl_spawn_random_yaw else 0.0)
 		t.basis = Basis(Vector3.UP, rand_yaw)
 		player.teleport_to(t)
 		_episode_start_height = t.origin.y
 
-	# Reset Target — polar coords so min/max radius is respected
-	var target = _ensure_rl_target()
+	# Reset Target
 	if target:
-		var angle = rand_range(0.0, 2.0 * PI)
-		var dist = rand_range(_rl_target_radius_min, _rl_target_radius_max)
-		var tx = spawn_origin.x + cos(angle) * dist
-		var tz = spawn_origin.z + sin(angle) * dist
-		target.transform.origin = Vector3(tx, _rl_target_fixed_y, tz)
+		target.global_transform.origin = target_origin
 
 	# Reset internal state
 	_last_dist_to_target = -1.0
@@ -1030,6 +1332,8 @@ func reset_simulation() -> void:
 	_last_angle_to_target = 0.0
 	_has_last_angle_to_target = false
 	_wall_stuck_frames = 0
+	_rl_recovery_strafe_side = 0.0
+	_rl_jump_hold_frames = 0
 	_jump_cooldown_frames = 0
 	_interact_cooldown_frames = 0
 	_last_front_ray_dist = -1.0
@@ -1050,6 +1354,253 @@ func reset_simulation() -> void:
 			if fwd.length_squared() > 0.001:
 				fwd = fwd.normalized()
 				_last_abs_angle_to_target = abs(fwd.angle_to(to_target) / PI)
+
+func _get_rl_scene_controller() -> Node:
+	if _is_rl_scene_hook_node(_rl_scene_controller_cache):
+		return _rl_scene_controller_cache
+	var node: Node = self
+	while is_instance_valid(node):
+		if _is_rl_scene_hook_node(node):
+			_rl_scene_controller_cache = node
+			return node
+		node = node.get_parent()
+	if not is_inside_tree():
+		return null
+	var tree = get_tree()
+	if tree == null:
+		return null
+	var scene = tree.current_scene
+	if _is_rl_scene_hook_node(scene):
+		_rl_scene_controller_cache = scene
+		return scene
+	var nested = _search_rl_scene_hook_in_subtree(scene, 128)
+	if is_instance_valid(nested):
+		_rl_scene_controller_cache = nested
+		return nested
+	return scene
+
+func _is_rl_scene_hook_node(node: Node) -> bool:
+	return is_instance_valid(node) and (
+		node.has_method(RL_SCENE_HOOK_BEFORE_RESET) or
+		node.has_method(RL_SCENE_HOOK_CHOOSE_EPISODE)
+	)
+
+func _search_rl_scene_hook_in_subtree(root: Node, node_limit: int = 128) -> Node:
+	if not is_instance_valid(root):
+		return null
+	var stack = [root]
+	var visited = 0
+	while stack.size() > 0 and visited < node_limit:
+		var current = stack.pop_back()
+		visited += 1
+		if _is_rl_scene_hook_node(current):
+			return current
+		for i in range(current.get_child_count()):
+			var child = current.get_child(i)
+			if is_instance_valid(child):
+				stack.push_back(child)
+	return null
+
+func _call_rl_scene_before_reset_hook() -> void:
+	var scene = _get_rl_scene_controller()
+	if not is_instance_valid(scene):
+		return
+	if scene.has_method(RL_SCENE_HOOK_BEFORE_RESET):
+		scene.call(RL_SCENE_HOOK_BEFORE_RESET, self)
+
+func _get_rl_scene_episode_override() -> Dictionary:
+	var scene = _get_rl_scene_controller()
+	if not is_instance_valid(scene):
+		return {}
+	if not scene.has_method(RL_SCENE_HOOK_CHOOSE_EPISODE):
+		return {}
+	var raw = scene.call(RL_SCENE_HOOK_CHOOSE_EPISODE, self)
+	if typeof(raw) == TYPE_DICTIONARY:
+		return raw
+	return {}
+
+func _variant_to_vector3(value) -> Dictionary:
+	if value is Vector3:
+		return {"ok": true, "value": value}
+	if typeof(value) == TYPE_ARRAY:
+		var arr = value
+		if arr.size() >= 3:
+			return {
+				"ok": true,
+				"value": Vector3(float(arr[0]), float(arr[1]), float(arr[2]))
+			}
+	if typeof(value) == TYPE_DICTIONARY:
+		var d = value
+		if d.has("x") and d.has("y") and d.has("z"):
+			return {
+				"ok": true,
+				"value": Vector3(float(d["x"]), float(d["y"]), float(d["z"]))
+			}
+	return {"ok": false}
+
+func _refresh_rl_sampling_nodes() -> void:
+	_rl_spawn_zone_nodes = []
+	_rl_target_zone_nodes = []
+	_rl_spawn_point_nodes = []
+	_rl_target_point_nodes = []
+	if not is_inside_tree():
+		return
+	var tree = get_tree()
+	if not tree:
+		return
+	for node in tree.get_nodes_in_group(RL_SPAWN_ZONE_GROUP):
+		if is_instance_valid(node) and node is Spatial:
+			_rl_spawn_zone_nodes.append(node)
+	for node in tree.get_nodes_in_group(RL_TARGET_ZONE_GROUP):
+		if is_instance_valid(node) and node is Spatial:
+			_rl_target_zone_nodes.append(node)
+	for node in tree.get_nodes_in_group(RL_SPAWN_POINT_GROUP):
+		if is_instance_valid(node) and node is Spatial:
+			_rl_spawn_point_nodes.append(node)
+	for node in tree.get_nodes_in_group(RL_TARGET_POINT_GROUP):
+		if is_instance_valid(node) and node is Spatial:
+			_rl_target_point_nodes.append(node)
+
+func _get_zone_extents(zone: Node) -> Vector3:
+	if not is_instance_valid(zone):
+		return Vector3.ZERO
+	if "extents" in zone:
+		return zone.extents
+	if "size" in zone:
+		return zone.size * 0.5
+	return Vector3.ZERO
+
+func _get_zone_weight(zone: Node) -> float:
+	if not is_instance_valid(zone):
+		return 1.0
+	if "weight" in zone:
+		return max(0.01, float(zone.weight))
+	return 1.0
+
+func _pick_weighted_zone(nodes: Array) -> Spatial:
+	if nodes.empty():
+		return null
+	var total_weight = 0.0
+	for node in nodes:
+		total_weight += _get_zone_weight(node)
+	if total_weight <= 0.0:
+		return nodes[randi() % nodes.size()] as Spatial
+	var roll = randf() * total_weight
+	for node in nodes:
+		roll -= _get_zone_weight(node)
+		if roll <= 0.0:
+			return node as Spatial
+	return nodes[nodes.size() - 1] as Spatial
+
+func _sample_zone_position(zone: Spatial, player: Node, default_y: float) -> Vector3:
+	if not is_instance_valid(zone):
+		return Vector3(0.0, default_y, 0.0)
+	var extents = _get_zone_extents(zone)
+	var center = zone.global_transform.origin
+	var y_min = center.y
+	var y_max = center.y
+	var use_node_y_as_floor = true
+	if "use_node_y_as_floor" in zone:
+		use_node_y_as_floor = bool(zone.use_node_y_as_floor)
+	if "floor_y" in zone:
+		y_min = float(zone.floor_y)
+		y_max = float(zone.floor_y)
+	elif extents.y > 0.01 and not use_node_y_as_floor:
+		y_min = center.y - extents.y
+		y_max = center.y + extents.y
+	var p = Vector3(
+		rand_range(center.x - extents.x, center.x + extents.x),
+		rand_range(y_min, y_max),
+		rand_range(center.z - extents.z, center.z + extents.z)
+	)
+	if "y_jitter" in zone:
+		p.y += rand_range(-abs(float(zone.y_jitter)), abs(float(zone.y_jitter)))
+	return _snap_position_to_floor(p, player)
+
+func _sample_bounds_position(min_v: Vector3, max_v: Vector3, player: Node, default_y: float) -> Vector3:
+	var p = Vector3(
+		rand_range(min_v.x, max_v.x),
+		rand_range(min_v.y, max_v.y),
+		rand_range(min_v.z, max_v.z)
+	)
+	if abs(max_v.y - min_v.y) < 0.001:
+		p.y = default_y
+	return _snap_position_to_floor(p, player)
+
+func _snap_position_to_floor(point: Vector3, player: Node) -> Vector3:
+	var viewport = get_viewport()
+	if viewport == null or viewport.world == null:
+		return point
+	var from = point + Vector3.UP * RL_FLOOR_SNAP_UP
+	var to = point - Vector3.UP * RL_FLOOR_SNAP_DOWN
+	var exclude := []
+	if is_instance_valid(player):
+		exclude.append(player)
+	var hit = viewport.world.direct_space_state.intersect_ray(from, to, exclude, 0x7FFFFFFF, true, false)
+	if typeof(hit) == TYPE_DICTIONARY and hit.has("position"):
+		var p = hit["position"]
+		if p is Vector3:
+			return p + Vector3.UP * RL_FLOOR_SNAP_CLEARANCE
+	return point
+
+func _horizontal_distance(a: Vector3, b: Vector3) -> float:
+	var d = a - b
+	d.y = 0.0
+	return d.length()
+
+func _sample_rl_spawn_position(player: Node) -> Vector3:
+	if _rl_spawn_point_nodes.size() > 0:
+		for _i in range(_rl_spawn_sample_tries):
+			var node = _rl_spawn_point_nodes[randi() % _rl_spawn_point_nodes.size()]
+			if is_instance_valid(node) and node is Spatial:
+				return _snap_position_to_floor((node as Spatial).global_transform.origin, player)
+	if _rl_spawn_zone_nodes.size() > 0:
+		for _i in range(_rl_spawn_sample_tries):
+			var zone = _pick_weighted_zone(_rl_spawn_zone_nodes)
+			if is_instance_valid(zone):
+				return _sample_zone_position(zone, player, _rl_spawn_pos.y)
+	if _rl_spawn_bounds_enabled:
+		for _i in range(_rl_spawn_sample_tries):
+			return _sample_bounds_position(_rl_spawn_bounds_min, _rl_spawn_bounds_max, player, _rl_spawn_pos.y)
+	var spawn_origin = _rl_spawn_pos
+	if _rl_spawn_alt_enabled and _rl_spawn_alt_prob > 0.0 and randf() < _rl_spawn_alt_prob:
+		spawn_origin = _rl_spawn_alt_pos
+	return _snap_position_to_floor(spawn_origin, player)
+
+func _target_distance_ok(spawn_origin: Vector3, target_origin: Vector3) -> bool:
+	return _horizontal_distance(spawn_origin, target_origin) >= _rl_target_min_separation
+
+func _sample_rl_target_position(spawn_origin: Vector3, player: Node, _target: Spatial) -> Vector3:
+	if _rl_target_point_nodes.size() > 0:
+		for _i in range(_rl_target_sample_tries):
+			var node = _rl_target_point_nodes[randi() % _rl_target_point_nodes.size()]
+			if not is_instance_valid(node) or not node is Spatial:
+				continue
+			var p = _snap_position_to_floor((node as Spatial).global_transform.origin, player)
+			if _target_distance_ok(spawn_origin, p):
+				return p
+	if _rl_target_zone_nodes.size() > 0:
+		for _i in range(_rl_target_sample_tries):
+			var zone = _pick_weighted_zone(_rl_target_zone_nodes)
+			if not is_instance_valid(zone):
+				continue
+			var p = _sample_zone_position(zone, player, _rl_target_fixed_y)
+			if _target_distance_ok(spawn_origin, p):
+				return p
+	if _rl_target_bounds_enabled:
+		for _i in range(_rl_target_sample_tries):
+			var p = _sample_bounds_position(_rl_target_bounds_min, _rl_target_bounds_max, player, _rl_target_fixed_y)
+			if _target_distance_ok(spawn_origin, p):
+				return p
+	for _i in range(_rl_target_sample_tries):
+		var angle = rand_range(0.0, 2.0 * PI)
+		var dist = rand_range(_rl_target_radius_min, _rl_target_radius_max)
+		var tx = spawn_origin.x + cos(angle) * dist
+		var tz = spawn_origin.z + sin(angle) * dist
+		var p = _snap_position_to_floor(Vector3(tx, _rl_target_fixed_y, tz), player)
+		if _target_distance_ok(spawn_origin, p):
+			return p
+	return _snap_position_to_floor(Vector3(spawn_origin.x, _rl_target_fixed_y, spawn_origin.z + _rl_target_radius_min), player)
 
 func _reset_interactables_for_episode() -> void:
 	if not is_inside_tree():
@@ -1085,6 +1636,9 @@ func apply_rl_action(action_idx: int) -> void:
 	var sprint_pressed := false
 	var interact_pressed := false
 	var look_vec = Vector2.ZERO
+	var jump_hold_active := _rl_jump_hold_frames > 0
+	if _rl_jump_hold_frames > 0:
+		_rl_jump_hold_frames -= 1
 	if _jump_cooldown_frames > 0:
 		_jump_cooldown_frames -= 1
 	if _interact_cooldown_frames > 0:
@@ -1115,6 +1669,21 @@ func apply_rl_action(action_idx: int) -> void:
 			move_vec.x = 1.0
 			jump_pressed = true
 
+	# Allow diagonal strafe+forward without increasing action space size.
+	if not jump_pressed and abs(move_vec.x) > 0.1 and _rl_strafe_forward_assist > 0.0:
+		move_vec.y = min(move_vec.y, -_rl_strafe_forward_assist)
+
+	if jump_pressed and abs(move_vec.x) > 0.1 and _rl_jump_strafe_forward_assist > 0.0:
+		move_vec.y = min(move_vec.y, -_rl_jump_strafe_forward_assist)
+	if jump_pressed and not sprint_pressed:
+		if abs(move_vec.x) > 0.1:
+			if _rl_sprint_on_jump_strafe_actions:
+				sprint_pressed = true
+		elif _rl_sprint_on_jump_actions:
+			sprint_pressed = true
+	elif abs(move_vec.x) > 0.1 and _rl_sprint_on_strafe_actions:
+		sprint_pressed = true
+
 	# Assisted steering: force look direction toward current objective bearing.
 	var player = _get_player()
 	var target = _ensure_rl_target()
@@ -1122,7 +1691,7 @@ func apply_rl_action(action_idx: int) -> void:
 	var steer_angle = 0.0
 	var has_steer = false
 	var vertical_jump_context := false
-	if is_instance_valid(player) and is_instance_valid(target):
+	if _rl_assisted_steering and is_instance_valid(player) and is_instance_valid(target):
 		route_target = _get_route_interactable(player as Spatial, target, _get_front_obstacle_distance(player as Spatial)) as Spatial
 		var steer_target: Spatial = target
 		if is_instance_valid(route_target):
@@ -1138,7 +1707,7 @@ func apply_rl_action(action_idx: int) -> void:
 			if heading_ok and (move_vec.y < -0.15 or abs(move_vec.x) > 0.2):
 				vertical_jump_context = true
 
-	if has_steer:
+	if _rl_assisted_steering and has_steer:
 		if abs(steer_angle) < RL_LOOK_ALIGN_DEADZONE:
 			look_vec.x = 0.0
 		else:
@@ -1153,7 +1722,7 @@ func apply_rl_action(action_idx: int) -> void:
 
 	# Anti-collapse runtime gate:
 	# when target bearing is off, throttle forward so controller re-aims without freezing.
-	if has_steer and abs(steer_angle) > RL_MOVE_ALIGN_GATE:
+	if _rl_assisted_steering and has_steer and abs(steer_angle) > RL_MOVE_ALIGN_GATE:
 		var misalign = clamp((abs(steer_angle) - RL_MOVE_ALIGN_GATE) / max(0.001, 1.0 - RL_MOVE_ALIGN_GATE), 0.0, 1.0)
 		var throttle = lerp(1.0, RL_MOVE_MIN_THROTTLE, misalign)
 		move_vec.y *= throttle
@@ -1162,7 +1731,7 @@ func apply_rl_action(action_idx: int) -> void:
 
 	# Anti-orbit control near target:
 	# when close and misaligned, throttle forward/strafe so policy commits to re-aiming.
-	if is_instance_valid(player) and is_instance_valid(target):
+	if _rl_assisted_steering and is_instance_valid(player) and is_instance_valid(target):
 		var dist_now = player.global_transform.origin.distance_to(target.global_transform.origin)
 		if dist_now < RL_ORBIT_CONTROL_DIST and abs(steer_angle) > RL_ORBIT_CONTROL_ANGLE:
 			if move_vec.y < 0.0:
@@ -1185,19 +1754,37 @@ func apply_rl_action(action_idx: int) -> void:
 			if front_clear and far_target_auto:
 				sprint_pressed = true
 
+	var player_spatial_for_recovery: Spatial = player as Spatial if player is Spatial else null
+	var front_obstacle_for_recovery = _get_front_obstacle_distance(player_spatial_for_recovery)
+	if action_idx == 0 and _rl_action0_backstep_enabled:
+		var backstep_context = front_obstacle_for_recovery < (RL_OBSTACLE_AHEAD_DIST * 1.1) or _hazard_contact_frames > 0 or _wall_stuck_frames > 0
+		if backstep_context:
+			move_vec.y = _rl_action0_backstep_speed
+	var early_recovery = _hazard_contact_frames >= _rl_early_wall_recovery_hazard_frames and front_obstacle_for_recovery < _rl_early_wall_recovery_front_dist and move_vec.y < -0.25 and abs(move_vec.x) < 0.35 and not vertical_jump_context
+
 	# Forced stuck recovery: if we are clearly wedged on walls, override action to escape.
 	var forced_recovery := false
-	if _wall_stuck_frames >= RL_STUCK_RECOVERY_WALL_FRAMES:
+	if _wall_stuck_frames >= _rl_stuck_recovery_wall_frames or early_recovery:
 		forced_recovery = true
-		var strafe_sign = 1.0 if int(_wall_stuck_frames / RL_STUCK_RECOVERY_WALL_FRAMES) % 2 == 0 else -1.0
-		if has_steer and abs(steer_angle) > 0.20:
-			strafe_sign = sign(steer_angle)
+		var strafe_sign = _rl_recovery_strafe_side
+		if abs(strafe_sign) < 0.001:
+			if has_steer and abs(steer_angle) > 0.20:
+				strafe_sign = sign(steer_angle)
+			elif abs(_rl_recovery_strafe_side_bias) > 0.001:
+				strafe_sign = _rl_recovery_strafe_side_bias
+			elif abs(_last_move_cmd.x) > 0.05:
+				strafe_sign = sign(_last_move_cmd.x)
+			elif abs(move_vec.x) > 0.05:
+				strafe_sign = sign(move_vec.x)
+			else:
+				strafe_sign = 1.0
 			if abs(strafe_sign) < 0.001:
 				strafe_sign = 1.0
-		move_vec.x = strafe_sign * RL_STUCK_RECOVERY_STRAFE
-		move_vec.y = RL_STUCK_RECOVERY_BACKOFF
+		_rl_recovery_strafe_side = strafe_sign
+		move_vec.x = strafe_sign * _rl_stuck_recovery_strafe
+		move_vec.y = _rl_stuck_recovery_backoff
 		sprint_pressed = false
-		if int(_wall_stuck_frames) % RL_STUCK_RECOVERY_JUMP_PERIOD == 0:
+		if _rl_stuck_recovery_jump_period > 0 and _wall_stuck_frames > 0 and int(_wall_stuck_frames) % _rl_stuck_recovery_jump_period == 0:
 			jump_pressed = true
 
 	# Vertical jump-assist:
@@ -1210,6 +1797,9 @@ func apply_rl_action(action_idx: int) -> void:
 			jump_pressed = true
 			sprint_pressed = false
 
+	if not jump_pressed and jump_hold_active and not forced_recovery:
+		jump_pressed = true
+
 	# Smart jump gating: only jump when obstacle/stuck context justifies it.
 	if jump_pressed and not forced_recovery:
 		var on_floor_now = true
@@ -1219,11 +1809,13 @@ func apply_rl_action(action_idx: int) -> void:
 		var front_obstacle_dist = _get_front_obstacle_distance(player_spatial)
 		var obstacle_ahead = front_obstacle_dist < _rl_smart_jump_ahead_dist
 		var stuck_context = _wall_stuck_frames >= RL_SMART_JUMP_ALLOW_STUCK_FRAMES
-		var blocked_jump = (not on_floor_now) or (_jump_cooldown_frames > 0) or (not obstacle_ahead and not stuck_context and not vertical_jump_context)
+		var blocked_jump = (not on_floor_now and not jump_hold_active) or ((_jump_cooldown_frames > 0) and not jump_hold_active) or (not obstacle_ahead and not stuck_context and not vertical_jump_context and not jump_hold_active)
 		if blocked_jump:
 			jump_pressed = false
 	if jump_pressed:
-		_jump_cooldown_frames = RL_SMART_JUMP_MIN_COOLDOWN
+		if not jump_hold_active:
+			_jump_cooldown_frames = RL_SMART_JUMP_MIN_COOLDOWN
+			_rl_jump_hold_frames = max(0, int(_rl_jump_hold_input_frames))
 
 	# Contextual interact:
 	# Reuse "steer-only" action as explicit interaction, and auto-assist when a door-like
