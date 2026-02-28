@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=2]
+[gd_scene load_steps=31 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/anna/AnnaBridge.gd" type="Script" id=2]
@@ -52,6 +52,12 @@ extents = Vector3( 1.8, 0.3, 0.5 )
 
 [sub_resource type="CubeMesh" id=16]
 size = Vector3( 3.6, 0.6, 1 )
+
+[sub_resource type="BoxShape" id=26]
+extents = Vector3( 1.8, 1.2, 0.4 )
+
+[sub_resource type="CubeMesh" id=27]
+size = Vector3( 3.6, 2.4, 0.8 )
 
 [sub_resource type="BoxShape" id=17]
 extents = Vector3( 6, 1.5, 0.5 )
@@ -198,6 +204,24 @@ shape = SubResource( 15 )
 
 [node name="Mesh" type="MeshInstance" parent="DoorFrame_Top"]
 mesh = SubResource( 16 )
+
+[node name="DoorVaultBlocker_Start" type="StaticBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 4.6, 9.8 )
+
+[node name="Collision" type="CollisionShape" parent="DoorVaultBlocker_Start"]
+shape = SubResource( 26 )
+
+[node name="Mesh" type="MeshInstance" parent="DoorVaultBlocker_Start"]
+mesh = SubResource( 27 )
+
+[node name="DoorVaultBlocker_Maze" type="StaticBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 4.6, 8.2 )
+
+[node name="Collision" type="CollisionShape" parent="DoorVaultBlocker_Maze"]
+shape = SubResource( 26 )
+
+[node name="Mesh" type="MeshInstance" parent="DoorVaultBlocker_Maze"]
+mesh = SubResource( 27 )
 
 [node name="GateDoor" parent="." instance=ExtResource( 3 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 1.6, 9 )
