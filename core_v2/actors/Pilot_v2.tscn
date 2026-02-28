@@ -14,6 +14,7 @@
 [ext_resource path="res://core_v2/systems/footsteps/footstep_detector.gd" type="Script" id=54]
 [ext_resource path="res://core_v2/audio/footsteps/footstep_profile_default.tres" type="Resource" id=55]
 [ext_resource path="res://core_v2/components/InteractComponentV2.gd" type="Script" id=56]
+[ext_resource path="res://core_v2/camera/KinematicArm3D.gd" type="Script" id=60]
 
 [sub_resource type="SpatialMaterial" id=121]
 albedo_color = Color( 1, 0.411765, 0.129412, 1 )
@@ -182,10 +183,11 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.16982, 0 )
 [node name="Pitch" type="Spatial" parent="CameraRig/Yaw"]
 transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866, 0, 0.309255, 0 )
 
-[node name="SpringArm" type="SpringArm" parent="CameraRig/Yaw/Pitch"]
+[node name="SpringArm" type="Spatial" parent="CameraRig/Yaw/Pitch"]
 transform = Transform( -1, -1.51808e-08, 8.60946e-08, 0, 0.984808, 0.173648, -8.74228e-08, 0.173648, -0.984808, 0, -0.062, 0 )
-collision_mask = 0
-shape = SubResource( 109 )
+script = ExtResource( 60 )
+collision_mask = 1048575
+collider_shape = SubResource( 109 )
 spring_length = 5.0
 
 [node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]

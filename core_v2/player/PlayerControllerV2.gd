@@ -54,7 +54,7 @@ var _was_on_platform := false
 # Camera State
 var base_fov := 75.0
 var _cached_cam: Camera = null
-var _cached_spring_arm: SpringArm = null
+var _cached_spring_arm = null
 var base_spring_length := 7.0
 var base_spring_length_3d := 7.0
 var current_spring_length := 7.0
@@ -170,7 +170,7 @@ var _created_movement_logic := false
 # --- SNAPSHOT SERIALIZATION ---
 func get_full_snapshot() -> Dictionary:
 	var snapshot = {
-		"position": [self.global_transform.origin.x, self.global_transform.origin.y, self.global_transform.origin.z],
+		"position": [ self.global_transform.origin.x, self.global_transform.origin.y, self.global_transform.origin.z],
 		"velocity": [velocity.x, velocity.y, velocity.z],
 		"yaw": yaw,
 		"pitch": pitch,
@@ -410,9 +410,9 @@ func _ensure_primary_camera_current() -> void:
 	if cam_path.find("/CameraTransition/Camera") != -1 or cam_path.find("/ShaderCacheManager") != -1:
 		_cached_cam.current = true
 
-func _find_spring_arm(node: Node) -> SpringArm:
-	if node is SpringArm:
-		return node as SpringArm
+func _find_spring_arm(node: Node) -> Node:
+	if node is SpringArm or node.has_method("get_hit_length"):
+		return node
 	for i in range(node.get_child_count()):
 		var arm = _find_spring_arm(node.get_child(i))
 		if arm:
@@ -782,11 +782,11 @@ func _update_push_state(_dt: float, input: InputDataV2):
 				var from = global_transform.origin + Vector3(0, 1.0, 0)
 				var input_dir = world_input.normalized()
 				var to_input = from + input_dir * 2.0
-				var result = space_state.intersect_ray(from, to_input, [self])
+				var result = space_state.intersect_ray(from, to_input, [ self ])
 				
 				if not result or result.collider != best_target:
 					var to_center = best_target.global_transform.origin
-					result = space_state.intersect_ray(from, to_center, [self])
+					result = space_state.intersect_ray(from, to_center, [ self ])
 				
 				if result and result.collider == best_target:
 					push_normal = result.normal
@@ -881,7 +881,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	if _rl_fast_controller:
 		if input and input.mouse_delta:
 			yaw -= input.mouse_delta.x * mouse_sensitivity
-			var mouse_y_fast = -input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
+			var mouse_y_fast = - input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
 			pitch -= mouse_y_fast * mouse_sensitivity
 		pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
 		if abs(input.zoom_delta) > 0.01:
@@ -896,7 +896,7 @@ func step(dt: float, input: InputDataV2) -> void:
 				movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
 				# If mouse_delta exists, apply it directly; hardware input outside captured mode already produces zero delta.
 				yaw -= input.mouse_delta.x * mouse_sensitivity
-				var mouse_y = -input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
+				var mouse_y = - input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
 				pitch -= mouse_y * mouse_sensitivity
 				yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
 			pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
@@ -1168,7 +1168,7 @@ func _update_cinematic_zone_detection(input: InputDataV2, dt: float = 1.0 / 60.0
 	var current_zone: Node = _active_cinematic_zone
 
 	for zone in all_zones:
-		if zone.is_zone_active and zone.is_body_in_zone(self):
+		if zone.is_zone_active and zone.is_body_in_zone(self ):
 			# Simple volume comparison for priority (smaller = higher priority)
 			var vol = zone.get_volume() if zone.has_method("get_volume") else 1000.0
 			if vol < min_volume:
@@ -1192,7 +1192,7 @@ func _update_cinematic_zone_detection(input: InputDataV2, dt: float = 1.0 / 60.0
 			current_zone != null
 			and is_instance_valid(current_zone)
 			and current_zone.is_zone_active
-			and current_zone.is_body_in_zone(self)
+			and current_zone.is_body_in_zone(self )
 		)
 		if current_still_inside and resolved_zone != current_zone:
 			# Hold current zone briefly to avoid ping-pong between overlapping boundaries.
@@ -1217,9 +1217,9 @@ func _update_cinematic_zone_detection(input: InputDataV2, dt: float = 1.0 / 60.0
 
 	if _active_cinematic_zone != _prev_active_cinematic_zone:
 		if _prev_active_cinematic_zone and _prev_active_cinematic_zone.has_method("set_zone_occlusion_for_body"):
-			_prev_active_cinematic_zone.set_zone_occlusion_for_body(self, false)
+			_prev_active_cinematic_zone.set_zone_occlusion_for_body(self , false)
 		if _active_cinematic_zone and _active_cinematic_zone.has_method("set_zone_occlusion_for_body"):
-			_active_cinematic_zone.set_zone_occlusion_for_body(self, true)
+			_active_cinematic_zone.set_zone_occlusion_for_body(self , true)
 		elif _occlusion_mode_active:
 			set_occlusion_mode(false)
 
@@ -1303,7 +1303,7 @@ func is_effectively_grounded() -> bool:
 		var space_state = get_world().direct_space_state
 		var from = global_transform.origin + Vector3.UP * 0.05
 		var to = from + Vector3.DOWN * (step_height + stair_ground_probe_extra)
-		var hit = space_state.intersect_ray(from, to, [self], 1) # Terrain only (Mask 1)
+		var hit = space_state.intersect_ray(from, to, [ self ], 1) # Terrain only (Mask 1)
 		near_ground = not hit.empty()
 	return is_on_floor() or _just_stepped or _step_grounded_timer > 0.0 or recent_floor_contact or near_ground
 
