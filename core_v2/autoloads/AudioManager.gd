@@ -37,11 +37,6 @@ func _find_mixing_desk():
 	var root = get_tree().get_root()
 	# Strategy 1: Look for node named "MixingDeskMusic"
 	_mdm_instance = root.find_node("MixingDeskMusic", true, false)
-	if _mdm_instance:
-		print("[AudioManager] MixingDeskMusic found: ", _mdm_instance.name)
-	else:
-		print("[AudioManager] MixingDeskMusic NOT found. Using internal AudioStreamPlayers.")
-
 	# Strategy 2: Look for MDS
 	_mds_instance = root.find_node("MixingDeskSound", true, false)
 

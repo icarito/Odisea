@@ -43,7 +43,6 @@ func _on_zone_entered(body: Node):
 	})
 	if body.has_method("set_occlusion_mode"):
 		body.set_occlusion_mode(true)
-	print("[OcclusionZoneV2] Body entered: ", body.name, " Active count: ", WallOcclusionManager.registered_materials.size())
 
 func _on_zone_exited(body: Node):
 	WallOcclusionManager.set_occlusion_params(false, cone_radius, {})
@@ -53,13 +52,11 @@ func _on_zone_exited(body: Node):
 func _apply_enforcement():
 	var root = get_node_or_null(occlusion_target_path)
 	if not root:
-		print("[OcclusionZoneV2] Target path invalid: ", occlusion_target_path)
 		return
 		
 	var shader_to_use = custom_occlusion_shader
 	if not shader_to_use:
 		shader_to_use = load("res://shaders/dither_hiding.shader")
-	print("[OcclusionZoneV2] Applying enforcement starting from target: ", root.name)
 	_recursive_apply(root, shader_to_use)
 
 func _is_part_of_player(node: Node) -> bool:

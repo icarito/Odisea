@@ -39,7 +39,7 @@ The launcher does:
 - `ANNA_GODOT_PREFER_SERVER=1`
 - `ANNA_GODOT_SERVER_FALLBACK=0`
 - `ANNA_GODOT_DISABLE_RENDER_LOOP=1`
-- `ANNA_GODOT_SERVER_VIDEO_DRIVER=Dummy`
+- `ANNA_GODOT_SERVER_VIDEO_DRIVER=` (vacío: no forzar `--video-driver` en `godot3-server`)
 - `ANNA_GODOT_QUIET=1`
 - `ANNA_RL_DISABLE_CPU_SLEEP=1`
 - `ANNA_RL_PHYSICS_FPS=0` (AnnaBridge uncapped preset)

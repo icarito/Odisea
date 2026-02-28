@@ -32,9 +32,13 @@ class AnnaGymEnv(gym.Env):
         default_godot_bin = "godot3-server" if headless else "godot3-bin"
         self.godot_bin = godot_bin or env_godot_bin or default_godot_bin
         self.video_driver = os.environ.get("ANNA_GODOT_VIDEO_DRIVER", "GLES2")
+        self.audio_driver = str(os.environ.get("ANNA_GODOT_AUDIO_DRIVER", "Dummy")).strip()
+        self.disable_audio_driver_flag = str(os.environ.get("ANNA_GODOT_DISABLE_AUDIO_DRIVER_FLAG", "0")).lower() in ("1", "true", "yes", "on")
         self.prefer_server_bin = str(os.environ.get("ANNA_GODOT_PREFER_SERVER", "1")).lower() not in ("0", "false", "no")
         self.require_server_bin = str(os.environ.get("ANNA_GODOT_REQUIRE_SERVER", "1")).lower() not in ("0", "false", "no")
-        self.server_video_driver = str(os.environ.get("ANNA_GODOT_SERVER_VIDEO_DRIVER", "Dummy")).strip()
+        # For godot3-server, don't force --video-driver by default.
+        # Some setups perform better when this flag is omitted entirely.
+        self.server_video_driver = str(os.environ.get("ANNA_GODOT_SERVER_VIDEO_DRIVER", "")).strip()
         self.disable_render_loop = str(os.environ.get("ANNA_GODOT_DISABLE_RENDER_LOOP", "1")).lower() not in ("0", "false", "no")
         # Keep empty by default. Passing --max-fps 0 to godot3-server can cap RL throughput hard.
         self.godot_max_fps = str(os.environ.get("ANNA_GODOT_MAX_FPS", "")).strip()
@@ -198,7 +202,9 @@ class AnnaGymEnv(gym.Env):
         else:
             print(f"[AnnaGym] ✅ Using render binary: {godot_bin} (windowed mode)")
 
-        cmd.extend([godot_bin, "--audio-driver", "Dummy", "--path", "."])
+        cmd.extend([godot_bin, "--path", "."])
+        if not self.disable_audio_driver_flag and self.audio_driver:
+            cmd.extend(["--audio-driver", str(self.audio_driver)])
         if self.godot_max_fps:
             if is_server_bin and self.godot_max_fps == "0":
                 print("[AnnaGym] ⚠️  ANNA_GODOT_MAX_FPS=0 limits godot3-server throughput; ignoring this value.")
@@ -509,7 +515,10 @@ class AnnaGymEnv(gym.Env):
         reward = float(data.get("reward", 0.0))
         terminated = bool(data.get("done", False))
         truncated = False
-        info = {"bridge_dead": bool(data.get("__bridge_dead", False))}
+        info = {
+            "bridge_dead": bool(data.get("__bridge_dead", False)),
+            "done_reason": str(data.get("done_reason", "unknown")),
+        }
 
         return obs, reward, terminated, truncated, info
 

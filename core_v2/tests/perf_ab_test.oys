@@ -1,0 +1,34 @@
+# Performance A/B Test Script
+# Run with: ANNA_ENABLED=1 godot3-bin --path . --vsync off
+
+echo "=== A/B PERFORMANCE TEST ==="
+
+# Test 1: Baseline
+echo "Test 1: BASELINE (default settings)"
+print "FPS: " + str(Engine.get_frames_per_second())
+
+# Test 2: LOW profile
+echo "Setting profile to LOW..."
+HardwareProfile.set_profile(1)
+wait 2
+print "FPS LOW: " + str(Engine.get_frames_per_second())
+
+# Test 3: Optional nodes OFF
+echo "Disabling optional nodes..."
+OptionalNodeManager.set_optional_nodes_enabled(false)
+wait 2
+print "FPS OPT OFF: " + str(Engine.get_frames_per_second())
+
+# Test 4: Disable AI
+echo "Disabling AI..."
+PerformanceMonitor.set_debug_disable_ai(true)
+wait 2
+print "FPS AI OFF: " + str(Engine.get_frames_per_second())
+
+# Test 5: Freeze logic
+echo "Freezing logic..."
+PerformanceMonitor.set_debug_freeze_logic(true)
+wait 2
+print "FPS FROZEN: " + str(Engine.get_frames_per_second())
+
+echo "=== TESTS COMPLETE ==="

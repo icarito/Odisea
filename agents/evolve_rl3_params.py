@@ -148,7 +148,7 @@ def _candidate_env(args: argparse.Namespace, genes: dict, fast_mode: bool) -> di
     env["ANNA_GODOT_PREFER_SERVER"] = "1"
     env["ANNA_GODOT_SERVER_FALLBACK"] = "0"
     env["ANNA_GODOT_DISABLE_RENDER_LOOP"] = "1"
-    env["ANNA_GODOT_SERVER_VIDEO_DRIVER"] = "Dummy"
+    env["ANNA_GODOT_SERVER_VIDEO_DRIVER"] = ""
     env["ANNA_RL_DISABLE_QODOT"] = "1"
     env["ANNA_RL_EXIT_ON_DISCONNECT"] = "0"
     env["ANNA_RL_SPAWN_X"] = "0"

@@ -15,12 +15,9 @@ func _ready():
 	var teleport_system = get_tree().get_root().find_node("TeleportSystem", true, false)
 	if teleport_system:
 		if not is_connected("checkpoint_reached", teleport_system, "_on_checkpoint_reached"):
-			var res = connect("checkpoint_reached", teleport_system, "_on_checkpoint_reached")
-			print("[CheckZoneV2] Señal checkpoint_reached conectada a TeleportSystem:", teleport_system, "res=", res)
+			connect("checkpoint_reached", teleport_system, "_on_checkpoint_reached")
 
 func _on_zone_entered(body: Node):
-	print("[CheckZoneV2] body_entered:", body)
-	print("[CheckZoneV2] Player detected, emitting checkpoint_reached (base)")
 	var base_transform = _get_base_transform()
 	emit_signal("checkpoint_reached", base_transform)
 
@@ -45,5 +42,4 @@ func _get_base_transform():
 		return t
 	# Fallback: usar el centro del área o del host
 	var fallback_transform = global_transform if not _host_area else _host_area.global_transform
-	print("[CheckZoneV2] WARNING: No CollisionShape BoxShape, usando centro.")
 	return fallback_transform

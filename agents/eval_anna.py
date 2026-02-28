@@ -218,7 +218,8 @@ def main() -> int:
             successes += 1 if success else 0
             end_reason = "running"
             if terminated:
-                end_reason = "terminated"
+                done_reason = str(info.get("done_reason", "")).strip()
+                end_reason = "terminated:%s" % (done_reason if done_reason != "" else "unknown")
             elif truncated and args.max_steps > 0 and length >= args.max_steps:
                 end_reason = "truncated:max_steps"
             elif truncated:

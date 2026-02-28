@@ -1750,6 +1750,8 @@ func _vcam_look_dbg(vcam: Node) -> String:
 func _log_vcamera_debug(manager: Node, label: String, requested_vcam: Node = null) -> void:
 	if not manager or not is_instance_valid(manager):
 		return
+	if OS.get_environment("ODISEA_VCAM_DEBUG").to_lower() != "1":
+		return
 	var player = _find_player()
 	var active_vcam: Node = null
 	if manager.has_method("get_active_vcamera"):

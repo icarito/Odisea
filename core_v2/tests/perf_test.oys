@@ -1,0 +1,17 @@
+# Performance test script - disable things and measure
+echo "=== PERFORMANCE TEST ==="
+
+# Disable all optional nodes
+echo "Disabling optional nodes..."
+set_optional_nodes_enabled(false)
+
+# Disable physics processing on all RigidBodies
+echo "Disabling physics on rigidbodies..."
+for node in get_tree().get_nodes_in_group("ai_agents"):
+    if node.has_method("set_physics_process"):
+        node.set_physics_process(false)
+    if node.has_method("set_process"):
+        node.set_process(false)
+
+echo "Test complete - check FPS"
+print "Optional nodes disabled"

@@ -31,7 +31,6 @@ func _ready():
 			session.register_oys_actor("GhostManager", self)
 		if session.has_signal("oys_registry_reset"):
 			session.connect("oys_registry_reset", self, "_on_oys_registry_reset")
-	print("[GhostManager] Initialized and registered.")
 
 func _on_oys_registry_reset() -> void:
 	var session = get_node_or_null("/root/SessionManager")

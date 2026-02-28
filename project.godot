@@ -1195,6 +1195,11 @@ _global_script_classes=[ {
 "path": "res://addons/qodot/src/import_plugins/quake_wad_import_plugin.gd"
 }, {
 "base": "Reference",
+"class": "RLSceneRandomizer",
+"language": "GDScript",
+"path": "res://core_v2/tests/RLSceneRandomizer.gd"
+}, {
+"base": "Reference",
 "class": "RPC",
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/network/rpc/RPC.gd"
@@ -1732,6 +1737,7 @@ _global_script_class_icons={
 "QuakePaletteImportPlugin": "",
 "QuakeWadFile": "",
 "QuakeWadImportPlugin": "",
+"RLSceneRandomizer": "",
 "RPC": "",
 "RPCClientConnect": "",
 "RPCClientDisconnect": "",
@@ -1798,6 +1804,7 @@ _global_script_class_icons={
 
 config/name="Odisea"
 run/main_scene="res://core_v2/levels/BaseTerrace.tscn"
+run/low_processor_mode=true
 boot_splash/image="res://assets/splash.png"
 boot_splash/use_filter=false
 config/icon="res://assets/odisea_icon.png"
@@ -1817,6 +1824,7 @@ CameraTransition="*res://addons/camera_transition/camera_transition.tscn"
 PerformanceMonitor="*res://core_v2/autoloads/PerformanceMonitor.gd"
 SubtitlesOverlayManager="*res://core_v2/autoloads/SubtitlesOverlayManager.gd"
 OptionalNodeManager="*res://core_v2/autoloads/OptionalNodeManager.gd"
+HardwareProfile="*res://core_v2/autoloads/HardwareProfile.gd"
 ShaderCacheManager="*res://addons/gd-shader-cache/src/ShaderCacheManager.gd"
 MobileUIManager="*res://core_v2/autoloads/MobileUIManager.gd"
 DebandingMaterialManager="*res://core_v2/autoloads/DebandingMaterialManager.gd"
@@ -1833,7 +1841,6 @@ window/size/fullscreen=true
 window/size/test_width=1280
 window/size/test_height=960
 window/dpi/allow_hidpi=true
-window/vsync/vsync_via_compositor=true
 window/per_pixel_transparency/allowed=true
 window/per_pixel_transparency/enabled=true
 window/stretch/mode="viewport"
@@ -1841,7 +1848,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/qol-camera/plugin.cfg", "res://addons/virtualcamera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/csgtomeshinstance/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/qol-camera/plugin.cfg", "res://addons/virtualcamera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
 
 [gdunit3]
 
@@ -2052,6 +2059,7 @@ common/enable_pause_aware_picking=true
 quality/driver/driver_name="GLES2"
 quality/driver/fallback_to_gles2=true
 quality/intended_usage/framebuffer_allocation.mobile=2
+threads/thread_model=2
 vram_compression/import_bptc=true
 vram_compression/import_etc=true
 vram_compression/import_pvrtc=true

@@ -22,39 +22,77 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--train-port", type=int, default=5000)
     parser.add_argument("--scene-stage1", default="core_v2/tests/TestScene_RL.tscn")
     parser.add_argument("--scene-stage2", default="core_v2/tests/TestScene_RL_2.tscn")
-    parser.add_argument("--scene-stage3", default="core_v2/tests/TestScene_RL_BaseTerrace.tscn")
-    parser.add_argument("--timesteps-stage1", type=int, default=16000)
+    parser.add_argument("--scene-stage3", default="core_v2/tests/TestScene_RL_3.tscn")
+    parser.add_argument("--scene-stage4", default="core_v2/tests/TestScene_RL_3_Door.tscn")
+    parser.add_argument("--scene-stage5", default="core_v2/tests/TestScene_RL_4_TwoFloorRoom.tscn")
+    parser.add_argument("--timesteps-stage1", type=int, default=12000)
     parser.add_argument("--timesteps-stage2", type=int, default=16000)
-    parser.add_argument("--timesteps-stage3", type=int, default=8000)
-    parser.add_argument("--stage1-round-steps", default="16000,8000,4000", help="Optional fixed per-round steps for stage1.")
-    parser.add_argument("--stage2-round-steps", default="16000,16000,8000", help="Optional fixed per-round steps for stage2.")
-    parser.add_argument("--stage3-round-steps", default="8000,24000,32000", help="Optional fixed per-round steps for stage3.")
+    parser.add_argument("--timesteps-stage3", type=int, default=22000)
+    parser.add_argument("--timesteps-stage4", type=int, default=28000)
+    parser.add_argument("--timesteps-stage5", type=int, default=34000)
+    parser.add_argument("--stage1-round-steps", default="", help="Optional fixed per-round steps for stage1.")
+    parser.add_argument("--stage2-round-steps", default="", help="Optional fixed per-round steps for stage2.")
+    parser.add_argument("--stage3-round-steps", default="", help="Optional fixed per-round steps for stage3.")
+    parser.add_argument("--stage4-round-steps", default="", help="Optional fixed per-round steps for stage4.")
+    parser.add_argument("--stage5-round-steps", default="", help="Optional fixed per-round steps for stage5.")
     parser.add_argument("--train-port-stage1", type=int, default=5000)
     parser.add_argument("--train-port-stage2", type=int, default=5001)
     parser.add_argument("--train-port-stage3", type=int, default=5002)
+    parser.add_argument("--train-port-stage4", type=int, default=5003)
+    parser.add_argument("--train-port-stage5", type=int, default=5004)
     parser.add_argument("--eval-scene", default="", help="Scene used for evaluation. Defaults to last active training stage.")
     parser.add_argument("--eval-port", type=int, default=5100)
-    parser.add_argument("--rounds", type=int, default=3)
-    parser.add_argument("--timesteps-per-round", type=int, default=32000, help="Used only in --scene single-scene mode.")
+    parser.add_argument("--rounds", type=int, default=40)
+    parser.add_argument("--timesteps-per-round", type=int, default=40000, help="Used only in --scene single-scene mode.")
     parser.add_argument("--eval-episodes", type=int, default=20)
-    parser.add_argument("--eval-max-steps", type=int, default=900)
+    parser.add_argument("--eval-max-steps", type=int, default=1500)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--cpu-threads", type=int, default=6)
-    parser.add_argument("--num-envs", type=int, default=1, help="Parallel Godot envs for training stages.")
-    parser.add_argument("--ppo-n-steps", type=int, default=1024, help="PPO rollout steps per env.")
-    parser.add_argument("--ppo-batch-size", type=int, default=512, help="PPO batch size (throughput-sensitive).")
-    parser.add_argument("--ppo-n-epochs", type=int, default=3, help="PPO epochs per update (lower = faster).")
+    parser.add_argument("--cpu-threads", type=int, default=2)
+    parser.add_argument("--num-envs", type=int, default=4, help="Parallel Godot envs for training stages.")
+    parser.add_argument("--ppo-n-steps", type=int, default=2048, help="PPO rollout steps per env.")
+    parser.add_argument("--ppo-batch-size", type=int, default=2048, help="PPO batch size (throughput-sensitive).")
+    parser.add_argument("--ppo-n-epochs", type=int, default=2, help="PPO epochs per update (lower = faster).")
     parser.add_argument("--ppo-device", choices=["cpu", "cuda", "auto"], default="cpu", help="Torch device for PPO updates.")
     parser.add_argument("--entropy-coef", type=float, default=0.03)
     parser.add_argument("--learning-rate", type=float, default=5e-4)
-    parser.add_argument("--max-model-mb", type=float, default=1.0, help="Hard cap for resulting .zip model size.")
-    parser.add_argument("--policy-widths", default="64,96,128,160,192", help="Comma-separated hidden widths to try.")
-    parser.add_argument("--policy-depths", default="2,3", help="Comma-separated layer depths to try.")
-    parser.add_argument("--arch-limit", type=int, default=8, help="Max architecture candidates considered after parsing.")
-    parser.add_argument("--stage-growth", type=float, default=0.20, help="Per-round growth factor that shifts time to harder stages.")
+    parser.add_argument("--max-model-mb", type=float, default=3.0, help="Hard cap for resulting .zip model size.")
+    parser.add_argument("--policy-widths", default="128,160", help="Comma-separated hidden widths to try.")
+    parser.add_argument("--policy-depths", default="2", help="Comma-separated layer depths to try.")
+    parser.add_argument("--arch-limit", type=int, default=4, help="Max architecture candidates considered after parsing.")
+    parser.add_argument("--stage-growth", type=float, default=0.25, help="Per-round growth factor that shifts time to harder stages.")
     parser.add_argument("--max-stage-scale", type=float, default=2.2, help="Upper bound for dynamic stage scaling.")
+    parser.add_argument(
+        "--stage-unlock-by-success",
+        action="store_true",
+        default=True,
+        help="Unlock next curriculum stage only when current unlocked stage reaches target success.",
+    )
+    parser.add_argument(
+        "--no-stage-unlock-by-success",
+        dest="stage_unlock_by_success",
+        action="store_false",
+        help="Disable stage unlock gating and train all configured stages each round.",
+    )
+    parser.add_argument(
+        "--stage-unlock-target",
+        type=float,
+        default=0.5,
+        help="Success-rate threshold used for stage unlocking when --stage-unlock-by-success is enabled.",
+    )
+    parser.add_argument(
+        "--stage-unlock-eval-episodes",
+        type=int,
+        default=4,
+        help="Episodes used to evaluate unlocked stage progress.",
+    )
+    parser.add_argument(
+        "--stage-unlock-max-steps",
+        type=int,
+        default=900,
+        help="Max steps for stage unlock evaluation episodes.",
+    )
     parser.add_argument("--rl-physics-fps", type=int, default=0, help="Value for ANNA_RL_PHYSICS_FPS (<=0 uses AnnaBridge uncapped mode).")
-    parser.add_argument("--rl-max-steps", type=int, default=900, help="Default ANNA_RL_MAX_STEPS exported to Godot.")
+    parser.add_argument("--rl-max-steps", type=int, default=1500, help="Default ANNA_RL_MAX_STEPS exported to Godot.")
     parser.add_argument(
         "--rl-disable-cpu-sleep",
         dest="rl_disable_cpu_sleep",
@@ -78,7 +116,38 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--render-eval", action="store_true")
     parser.add_argument("--step-delay", type=float, default=0.0)
     parser.add_argument("--stochastic-eval", action="store_true")
-    parser.add_argument("--verbose", type=int, default=1)
+    parser.add_argument(
+        "--live-report-steps",
+        type=int,
+        default=20000,
+        help="Emit live telemetry every N train steps inside each stage (<=0 disables chunk telemetry).",
+    )
+    parser.add_argument(
+        "--live-eval-episodes",
+        type=int,
+        default=1,
+        help="Quick eval episodes for each live telemetry chunk (0 disables).",
+    )
+    parser.add_argument(
+        "--live-eval-max-steps",
+        type=int,
+        default=300,
+        help="Max steps for quick live eval runs.",
+    )
+    parser.add_argument(
+        "--save-latest-per-live",
+        dest="save_latest_per_live",
+        action="store_true",
+        default=True,
+        help="Save <output>_latest.zip after each live telemetry chunk (default: on).",
+    )
+    parser.add_argument(
+        "--no-save-latest-per-live",
+        dest="save_latest_per_live",
+        action="store_false",
+        help="Disable latest checkpoint saves for each live telemetry chunk.",
+    )
+    parser.add_argument("--verbose", type=int, default=0)
     return parser.parse_args()
 
 
@@ -241,6 +310,8 @@ def _set_rl_runtime_tuning(physics_fps: int, disable_cpu_sleep: bool, rl_max_ste
     os.environ["ANNA_RL_MAX_STEPS"] = str(max(100, int(rl_max_steps)))
     os.environ.setdefault("ANNA_GODOT_PREFER_SERVER", "1")
     os.environ.setdefault("ANNA_GODOT_SERVER_FALLBACK", "0")
+    os.environ.setdefault("ANNA_GODOT_SERVER_VIDEO_DRIVER", "")
+    os.environ.setdefault("ANNA_GODOT_DISABLE_AUDIO_DRIVER_FLAG", "1")
     os.environ.setdefault("ANNA_GODOT_VIDEO_DRIVER", "GLES2")
     os.environ.setdefault("ODISEA_DISABLE_PERFMON_IN_RL", "1")
     os.environ.setdefault("ODISEA_QUIET_PERFMON", "1")
@@ -359,6 +430,8 @@ def _build_train_stages(repo_root: Path, args: argparse.Namespace) -> List[Dict[
         ("stage1", args.scene_stage1, args.timesteps_stage1, args.train_port_stage1),
         ("stage2", args.scene_stage2, args.timesteps_stage2, args.train_port_stage2),
         ("stage3", args.scene_stage3, args.timesteps_stage3, args.train_port_stage3),
+        ("stage4", args.scene_stage4, args.timesteps_stage4, args.train_port_stage4),
+        ("stage5", args.scene_stage5, args.timesteps_stage5, args.train_port_stage5),
     ]
     for name, scene, steps, port in raw:
         steps_i = max(0, int(steps))
@@ -378,9 +451,23 @@ def _build_train_stages(repo_root: Path, args: argparse.Namespace) -> List[Dict[
     return stages
 
 
+def _safe_corr(np, a, b) -> float:
+    if len(a) < 3 or len(b) < 3:
+        return 0.0
+    try:
+        corr = float(np.corrcoef(np.asarray(a), np.asarray(b))[0, 1])
+    except Exception:
+        return 0.0
+    if corr != corr:  # NaN guard.
+        return 0.0
+    return corr
+
+
 def _evaluate(
     model,
     env,
+    np,
+    torch,
     episodes: int,
     max_steps: int,
     deterministic: bool,
@@ -401,6 +488,13 @@ def _evaluate(
     dist_sum = 0.0
     min_dist = 1e9
     action_hist = Counter()
+    gamma = float(getattr(model, "gamma", 0.99))
+    value_preds_all = []
+    returns_all = []
+    top1_probs = []
+    entropies = []
+    action_space_n = int(getattr(getattr(model, "action_space", None), "n", 8))
+    max_entropy = float(np.log(max(2, action_space_n)))
 
     for _ in range(max(1, episodes)):
         obs, _ = env.reset()
@@ -408,8 +502,20 @@ def _evaluate(
         ep_len = 0
         prev_abs_angle = abs(float(obs[9])) if len(obs) > 9 else 1.0
         success = False
+        ep_rewards = []
+        ep_values = []
 
         for step in range(1, max_steps + 1):
+            # Predictive diagnostics from current policy/value outputs.
+            obs_tensor, _ = model.policy.obs_to_tensor(obs)
+            with torch.no_grad():
+                dist = model.policy.get_distribution(obs_tensor)
+                probs = dist.distribution.probs.detach().cpu().numpy().reshape(-1)
+                top1_probs.append(float(np.max(probs)))
+                entropy = -float(np.sum(probs * np.log(np.clip(probs, 1e-8, 1.0))))
+                entropies.append(entropy)
+                value_pred = float(model.policy.predict_values(obs_tensor).detach().cpu().numpy().reshape(-1)[0])
+
             action, _ = model.predict(obs, deterministic=deterministic)
             action_int = int(action)
             action_hist[action_int] += 1
@@ -417,6 +523,8 @@ def _evaluate(
             obs, reward, terminated, truncated, _info = env.step(action_int)
             ep_reward += float(reward)
             ep_len = step
+            ep_rewards.append(float(reward))
+            ep_values.append(value_pred)
 
             abs_angle = abs(float(obs[9])) if len(obs) > 9 else 1.0
             delta = prev_abs_angle - abs_angle
@@ -451,6 +559,18 @@ def _evaluate(
                     success = True
                     success_lengths.append(step)
                 break
+
+        # Critic fit proxy: compare value predictions vs discounted realized returns.
+        ret = 0.0
+        ep_returns = []
+        for r in reversed(ep_rewards):
+            ret = float(r) + gamma * ret
+            ep_returns.append(ret)
+        ep_returns.reverse()
+        if ep_returns and ep_values:
+            pair_n = min(len(ep_returns), len(ep_values))
+            returns_all.extend(ep_returns[:pair_n])
+            value_preds_all.extend(ep_values[:pair_n])
 
         rewards.append(ep_reward)
         lengths.append(ep_len)
@@ -488,6 +608,19 @@ def _evaluate(
         + 0.10 * min(1.0, activity / 0.03)
     )
     collapse_forward = forward_fraction > 0.92 and max_action_fraction > 0.88 and improve_ratio < 0.52
+    avg_top1_prob = sum(top1_probs) / max(1, len(top1_probs))
+    avg_entropy = sum(entropies) / max(1, len(entropies))
+    entropy_norm = min(1.0, avg_entropy / max(1e-6, max_entropy))
+    value_mae = 0.0
+    if value_preds_all:
+        value_mae = float(np.mean(np.abs(np.asarray(value_preds_all) - np.asarray(returns_all))))
+    value_corr = _safe_corr(np, value_preds_all, returns_all)
+    value_fit_score = 1.0 / (1.0 + value_mae)
+    predictive_capacity = (
+        0.45 * avg_top1_prob
+        + 0.35 * max(0.0, value_corr)
+        + 0.20 * value_fit_score
+    )
 
     return {
         "avg_reward": avg_reward,
@@ -508,6 +641,12 @@ def _evaluate(
         "forward_fraction": forward_fraction,
         "direction_score": direction_score,
         "collapse_forward": 1.0 if collapse_forward else 0.0,
+        "policy_top1_prob": avg_top1_prob,
+        "policy_entropy": avg_entropy,
+        "policy_entropy_norm": entropy_norm,
+        "value_return_corr": value_corr,
+        "value_mae": value_mae,
+        "predictive_capacity": predictive_capacity,
         "steps": float(total_steps),
     }
 
@@ -515,13 +654,36 @@ def _evaluate(
 def _score(metrics: Dict[str, float]) -> float:
     # Reward scale can be noisy; prioritize success speed + clean navigation.
     reward_term = max(-1.0, min(1.0, metrics["avg_reward"] / 250.0))
+    predictive_term = max(0.0, min(1.0, metrics.get("predictive_capacity", 0.0)))
     return (
         (2.3 * metrics["success_rate"])
         + (1.2 * metrics["fast_success_score"])
         + (1.0 * metrics["wall_clear_ratio"])
         + (0.9 * metrics["direction_score"])
         + (0.35 * metrics["speed_score"])
+        + (0.25 * predictive_term)
         + (0.15 * reward_term)
+    )
+
+
+def _format_live_metrics(metrics: Dict[str, float]) -> str:
+    return (
+        "success={success:.3f} fast={fast:.3f} dir={dir:.3f} wall={wall:.3f} "
+        "dist={dist:.2f} min_dist={min_dist:.2f} speed={speed:.2f} "
+        "pred={pred:.3f} top1={top1:.3f} ent={ent:.3f} v_corr={vcorr:.3f} v_mae={vmae:.3f}"
+    ).format(
+        success=float(metrics.get("success_rate", 0.0)),
+        fast=float(metrics.get("fast_success_score", 0.0)),
+        dir=float(metrics.get("direction_score", 0.0)),
+        wall=float(metrics.get("wall_touch_ratio", 0.0)),
+        dist=float(metrics.get("avg_target_dist", 0.0)),
+        min_dist=float(metrics.get("min_target_dist", 0.0)),
+        speed=float(metrics.get("avg_speed", 0.0)),
+        pred=float(metrics.get("predictive_capacity", 0.0)),
+        top1=float(metrics.get("policy_top1_prob", 0.0)),
+        ent=float(metrics.get("policy_entropy_norm", 0.0)),
+        vcorr=float(metrics.get("value_return_corr", 0.0)),
+        vmae=float(metrics.get("value_mae", 0.0)),
     )
 
 
@@ -535,12 +697,14 @@ def main() -> int:
     )
 
     repo_root = Path(__file__).resolve().parents[1]
-    AnnaGymEnv, PPO, _Monitor, _DummyVecEnv, _SubprocVecEnv, np, torch = _prepare_imports(repo_root)
+    AnnaGymEnv, PPO, Monitor, DummyVecEnv, SubprocVecEnv, np, torch = _prepare_imports(repo_root)
     stages = _build_train_stages(repo_root, args)
     stage_round_steps = {
         "stage1": _parse_round_steps(args.stage1_round_steps),
         "stage2": _parse_round_steps(args.stage2_round_steps),
         "stage3": _parse_round_steps(args.stage3_round_steps),
+        "stage4": _parse_round_steps(args.stage4_round_steps),
+        "stage5": _parse_round_steps(args.stage5_round_steps),
     }
     base_timesteps_per_round = int(sum(int(s["steps"]) for s in stages))
     if base_timesteps_per_round <= 0:
@@ -575,9 +739,12 @@ def main() -> int:
     best_success = -1.0
     best_metrics: Dict[str, float] = {}
     history = []
+    live_history = []
     started_at = time.time()
     total_trained_steps = 0
     best_path = out_prefix.with_name(f"{out_prefix.name}_best.zip")
+    latest_path = out_prefix.with_name(f"{out_prefix.name}_latest.zip")
+    interrupted = False
 
     print("[auto_train_anna] stages=%s" % json.dumps(stages, sort_keys=True))
     print("[auto_train_anna] stage_round_steps=%s" % json.dumps(stage_round_steps, sort_keys=True))
@@ -630,143 +797,334 @@ def main() -> int:
         "[auto_train_anna] ppo n_steps=%d batch=%d n_epochs=%d device=%s"
         % (rollout_steps, ppo_batch_size, ppo_n_epochs, ppo_device)
     )
-
-    for rnd in range(1, max(1, args.rounds) + 1):
-        round_seed = args.seed + rnd - 1
-        np.random.seed(round_seed)
-        random.seed(round_seed)
-        torch.manual_seed(round_seed)
-        round_trained_steps = 0
-
-        for stage_idx, stage in enumerate(stages):
-            stage_scene = str(stage["scene"])
-            stage_base_steps = int(stage["steps"])
-            stage_port = int(stage["port"])
-            stage_name = str(stage["name"])
-            stage_schedule = stage_round_steps.get(stage_name, [])
-            if rnd <= len(stage_schedule):
-                stage_steps = int(stage_schedule[rnd - 1])
-            else:
-                stage_steps = _dynamic_stage_steps(
-                    base_steps=stage_base_steps,
-                    stage_idx=stage_idx,
-                    stage_count=len(stages),
-                    round_idx=rnd,
-                    rounds_total=max(1, int(args.rounds)),
-                    stage_growth=float(args.stage_growth),
-                    max_stage_scale=float(args.max_stage_scale),
-                )
-            print(
-                "[auto_train_anna] round=%d train %s scene=%s steps=%d (base=%d)"
-                % (rnd, stage_name, stage_scene, stage_steps, stage_base_steps)
+    print(
+        "[auto_train_anna] live telemetry: report_steps=%d live_eval_episodes=%d live_eval_max_steps=%d save_latest=%s"
+        % (
+            int(args.live_report_steps),
+            int(args.live_eval_episodes),
+            int(args.live_eval_max_steps),
+            str(bool(args.save_latest_per_live)),
+        )
+    )
+    stage_unlock_enabled = bool(args.stage_unlock_by_success) and len(stages) > 1 and not str(args.scene).strip()
+    unlocked_stage_count = 1 if stage_unlock_enabled else len(stages)
+    stage_unlock_history = []
+    if stage_unlock_enabled:
+        print(
+            "[auto_train_anna] stage unlock enabled: target=%.3f eval_episodes=%d max_steps=%d initial_stage=%s"
+            % (
+                float(args.stage_unlock_target),
+                int(args.stage_unlock_eval_episodes),
+                int(args.stage_unlock_max_steps),
+                str(stages[0]["name"]),
             )
-            train_env = AnnaGymEnv(
-                scene_path=stage_scene,
-                port=stage_port,
+        )
+
+    try:
+        for rnd in range(1, max(1, args.rounds) + 1):
+            round_seed = args.seed + rnd - 1
+            np.random.seed(round_seed)
+            random.seed(round_seed)
+            torch.manual_seed(round_seed)
+            round_trained_steps = 0
+
+            for stage_idx, stage in enumerate(stages):
+                if stage_idx >= int(unlocked_stage_count):
+                    continue
+                stage_scene = str(stage["scene"])
+                stage_base_steps = int(stage["steps"])
+                stage_port = int(stage["port"])
+                stage_name = str(stage["name"])
+                stage_schedule = stage_round_steps.get(stage_name, [])
+                if rnd <= len(stage_schedule):
+                    stage_steps = int(stage_schedule[rnd - 1])
+                else:
+                    stage_steps = _dynamic_stage_steps(
+                        base_steps=stage_base_steps,
+                        stage_idx=stage_idx,
+                        stage_count=len(stages),
+                        round_idx=rnd,
+                        rounds_total=max(1, int(args.rounds)),
+                        stage_growth=float(args.stage_growth),
+                        max_stage_scale=float(args.max_stage_scale),
+                    )
+                print(
+                    "[auto_train_anna] round=%d train %s scene=%s steps=%d (base=%d)"
+                    % (rnd, stage_name, stage_scene, stage_steps, stage_base_steps)
+                )
+                train_env = _open_stage_env(
+                    AnnaGymEnv=AnnaGymEnv,
+                    Monitor=Monitor,
+                    DummyVecEnv=DummyVecEnv,
+                    SubprocVecEnv=SubprocVecEnv,
+                    scene=stage_scene,
+                    start_port=stage_port,
+                    num_envs=max(1, int(args.num_envs)),
+                )
+                try:
+                    if model is None:
+                        policy_kwargs = {"net_arch": dict(pi=list(selected_arch), vf=list(selected_arch))}
+                        model = PPO(
+                            "MlpPolicy",
+                            train_env,
+                            seed=round_seed,
+                            verbose=args.verbose,
+                            ent_coef=args.entropy_coef,
+                            learning_rate=args.learning_rate,
+                            policy_kwargs=policy_kwargs,
+                            n_steps=rollout_steps,
+                            batch_size=ppo_batch_size,
+                            n_epochs=ppo_n_epochs,
+                            device=ppo_device,
+                        )
+                    else:
+                        model.set_env(train_env)
+
+                    live_report_steps = int(args.live_report_steps)
+                    use_chunks = live_report_steps > 0 and live_report_steps < stage_steps
+                    stage_step_done = 0
+                    stage_chunk_idx = 0
+                    stage_chunk_total = (
+                        int((stage_steps + live_report_steps - 1) / live_report_steps)
+                        if use_chunks
+                        else 1
+                    )
+                    while stage_step_done < stage_steps:
+                        if use_chunks:
+                            chunk_steps = min(live_report_steps, stage_steps - stage_step_done)
+                        else:
+                            chunk_steps = stage_steps - stage_step_done
+                        stage_chunk_idx += 1
+                        chunk_started = time.time()
+                        model.learn(
+                            total_timesteps=chunk_steps,
+                            reset_num_timesteps=(total_trained_steps == 0),
+                            progress_bar=(not use_chunks),
+                        )
+                        chunk_elapsed = max(1e-6, time.time() - chunk_started)
+                        stage_step_done += chunk_steps
+                        total_trained_steps += chunk_steps
+                        round_trained_steps += chunk_steps
+
+                        if use_chunks:
+                            live_record = {
+                                "round": int(rnd),
+                                "stage": stage_name,
+                                "stage_scene": stage_scene,
+                                "chunk_index": int(stage_chunk_idx),
+                                "chunk_total": int(stage_chunk_total),
+                                "chunk_steps": int(chunk_steps),
+                                "stage_steps_done": int(stage_step_done),
+                                "stage_steps_total": int(stage_steps),
+                                "timesteps_total": int(total_trained_steps),
+                                "train_sps": float(chunk_steps / chunk_elapsed),
+                                "elapsed_sec": round(chunk_elapsed, 3),
+                            }
+                            if int(args.live_eval_episodes) > 0:
+                                live_port = _find_available_port_block(int(args.eval_port) + 300, 1, max_scan=2000)
+                                live_eval_env = AnnaGymEnv(
+                                    scene_path=stage_scene,
+                                    port=live_port,
+                                    launch_godot=True,
+                                    headless=True,
+                                )
+                                try:
+                                    live_metrics = _evaluate(
+                                        model=model,
+                                        env=live_eval_env,
+                                        np=np,
+                                        torch=torch,
+                                        episodes=max(1, int(args.live_eval_episodes)),
+                                        max_steps=max(50, int(args.live_eval_max_steps)),
+                                        deterministic=not args.stochastic_eval,
+                                        step_delay=0.0,
+                                        wall_touch_ray_threshold=float(args.wall_touch_ray_threshold),
+                                    )
+                                finally:
+                                    live_eval_env.close()
+                                live_record["metrics"] = live_metrics
+                                print(
+                                    "[auto_train_anna][live] round=%d stage=%s chunk=%d/%d stage_steps=%d/%d total=%d sps=%.1f %s"
+                                    % (
+                                        rnd,
+                                        stage_name,
+                                        stage_chunk_idx,
+                                        stage_chunk_total,
+                                        stage_step_done,
+                                        stage_steps,
+                                        total_trained_steps,
+                                        live_record["train_sps"],
+                                        _format_live_metrics(live_metrics),
+                                    )
+                                )
+                            else:
+                                print(
+                                    "[auto_train_anna][live] round=%d stage=%s chunk=%d/%d stage_steps=%d/%d total=%d sps=%.1f"
+                                    % (
+                                        rnd,
+                                        stage_name,
+                                        stage_chunk_idx,
+                                        stage_chunk_total,
+                                        stage_step_done,
+                                        stage_steps,
+                                        total_trained_steps,
+                                        live_record["train_sps"],
+                                    )
+                                )
+                            live_history.append(live_record)
+                            if bool(args.save_latest_per_live):
+                                model.save(str(latest_path.with_suffix("")), exclude=["policy.optimizer"])
+                                print("[auto_train_anna][live] latest checkpoint: %s" % latest_path)
+                finally:
+                    train_env.close()
+
+            eval_scene_round = eval_scene
+            if stage_unlock_enabled and not str(args.eval_scene).strip():
+                eval_scene_round = str(stages[max(0, int(unlocked_stage_count) - 1)]["scene"])
+
+            eval_env = AnnaGymEnv(
+                scene_path=eval_scene_round,
+                port=args.eval_port,
                 launch_godot=True,
-                headless=True,
+                headless=not args.render_eval,
             )
             try:
-                if model is None:
-                    policy_kwargs = {"net_arch": dict(pi=list(selected_arch), vf=list(selected_arch))}
-                    model = PPO(
-                        "MlpPolicy",
-                        train_env,
-                        seed=round_seed,
-                        verbose=args.verbose,
-                        ent_coef=args.entropy_coef,
-                        learning_rate=args.learning_rate,
-                        policy_kwargs=policy_kwargs,
-                        n_steps=rollout_steps,
-                        batch_size=ppo_batch_size,
-                        n_epochs=ppo_n_epochs,
-                        device=ppo_device,
-                    )
-                else:
-                    model.set_env(train_env)
-
-                model.learn(
-                    total_timesteps=stage_steps,
-                    reset_num_timesteps=(total_trained_steps == 0),
-                    progress_bar=True,
+                metrics = _evaluate(
+                    model=model,
+                    env=eval_env,
+                    np=np,
+                    torch=torch,
+                    episodes=args.eval_episodes,
+                    max_steps=args.eval_max_steps,
+                    deterministic=not args.stochastic_eval,
+                    step_delay=args.step_delay,
+                    wall_touch_ray_threshold=float(args.wall_touch_ray_threshold),
                 )
-                total_trained_steps += stage_steps
-                round_trained_steps += stage_steps
             finally:
-                train_env.close()
+                eval_env.close()
 
-        eval_env = AnnaGymEnv(
-            scene_path=eval_scene,
-            port=args.eval_port,
-            launch_godot=True,
-            headless=not args.render_eval,
-        )
-        try:
-            metrics = _evaluate(
-                model=model,
-                env=eval_env,
-                episodes=args.eval_episodes,
-                max_steps=args.eval_max_steps,
-                deterministic=not args.stochastic_eval,
-                step_delay=args.step_delay,
-                wall_touch_ray_threshold=float(args.wall_touch_ray_threshold),
-            )
-        finally:
-            eval_env.close()
+            round_score = _score(metrics)
+            record = {
+                "round": rnd,
+                "seed": round_seed,
+                "timesteps_this_round": int(round_trained_steps),
+                "timesteps_total": int(total_trained_steps),
+                "eval_scene": eval_scene_round,
+                "unlocked_stage_count": int(unlocked_stage_count),
+                "unlocked_stage_name": str(stages[max(0, int(unlocked_stage_count) - 1)]["name"]),
+                "score": round_score,
+                **metrics,
+            }
+            history.append(record)
+            print("[auto_train_anna] round=%d score=%.4f metrics=%s" % (rnd, round_score, json.dumps(metrics, sort_keys=True)))
 
-        round_score = _score(metrics)
-        record = {
-            "round": rnd,
-            "seed": round_seed,
-            "timesteps_this_round": int(round_trained_steps),
-            "timesteps_total": int(total_trained_steps),
-            "score": round_score,
-            **metrics,
-        }
-        history.append(record)
-        print("[auto_train_anna] round=%d score=%.4f metrics=%s" % (rnd, round_score, json.dumps(metrics, sort_keys=True)))
-
-        checkpoint_path = out_prefix.with_name(f"{out_prefix.name}_r{rnd}.zip")
-        model.save(str(checkpoint_path.with_suffix("")), exclude=["policy.optimizer"])
-        checkpoint_size = checkpoint_path.stat().st_size if checkpoint_path.exists() else 0
-        checkpoint_fits_cap = checkpoint_size <= max_model_bytes
-        print(
-            "[auto_train_anna] round=%d checkpoint=%s size=%.3fMB fits_cap=%s"
-            % (rnd, checkpoint_path.name, checkpoint_size / (1024.0 * 1024.0), checkpoint_fits_cap)
-        )
-
-        current_success = float(metrics.get("success_rate", 0.0))
-        should_promote_best = False
-        if checkpoint_fits_cap:
-            # Prioritize real task completion over synthetic shaping score.
-            if current_success > best_success + 1e-9:
-                should_promote_best = True
-            elif abs(current_success - best_success) <= 1e-9 and round_score > best_score:
-                should_promote_best = True
-        if should_promote_best:
-            best_success = current_success
-            best_score = round_score
-            best_metrics = metrics
-            best_path = out_prefix.with_name(f"{out_prefix.name}_best.zip")
-            model.save(str(best_path.with_suffix("")), exclude=["policy.optimizer"])
+            checkpoint_path = out_prefix.with_name(f"{out_prefix.name}_r{rnd}.zip")
+            model.save(str(checkpoint_path.with_suffix("")), exclude=["policy.optimizer"])
+            checkpoint_size = checkpoint_path.stat().st_size if checkpoint_path.exists() else 0
+            checkpoint_fits_cap = checkpoint_size <= max_model_bytes
             print(
-                "[auto_train_anna] new best model: %s (success_rate=%.3f score=%.4f)"
-                % (best_path, best_success, best_score)
+                "[auto_train_anna] round=%d checkpoint=%s size=%.3fMB fits_cap=%s"
+                % (rnd, checkpoint_path.name, checkpoint_size / (1024.0 * 1024.0), checkpoint_fits_cap)
             )
-        elif not checkpoint_fits_cap:
-            print("[auto_train_anna] size cap exceeded; skipping best-model promotion for this round.")
 
-        stop_by_target = (
-            rnd >= args.min_rounds
-            and metrics["success_rate"] >= args.success_target
-            and metrics["direction_score"] >= args.direction_target
-            and metrics["fast_success_score"] >= args.fast_success_target
-            and metrics["wall_touch_ratio"] <= args.wall_contact_max
-            and metrics["collapse_forward"] < 0.5
-        )
-        if stop_by_target:
-            print("[auto_train_anna] target reached at round %d, stopping early." % rnd)
-            break
+            current_success = float(metrics.get("success_rate", 0.0))
+            should_promote_best = False
+            if checkpoint_fits_cap:
+                # Prioritize real task completion over synthetic shaping score.
+                if current_success > best_success + 1e-9:
+                    should_promote_best = True
+                elif abs(current_success - best_success) <= 1e-9 and round_score > best_score:
+                    should_promote_best = True
+            if should_promote_best:
+                best_success = current_success
+                best_score = round_score
+                best_metrics = metrics
+                best_path = out_prefix.with_name(f"{out_prefix.name}_best.zip")
+                model.save(str(best_path.with_suffix("")), exclude=["policy.optimizer"])
+                print(
+                    "[auto_train_anna] new best model: %s (success_rate=%.3f score=%.4f)"
+                    % (best_path, best_success, best_score)
+                )
+            elif not checkpoint_fits_cap:
+                print("[auto_train_anna] size cap exceeded; skipping best-model promotion for this round.")
+
+            if stage_unlock_enabled:
+                gate_idx = max(0, int(unlocked_stage_count) - 1)
+                gate_stage = stages[gate_idx]
+                gate_scene = str(gate_stage["scene"])
+                gate_port = _find_available_port_block(int(args.eval_port) + 600, 1, max_scan=2000)
+                gate_env = AnnaGymEnv(
+                    scene_path=gate_scene,
+                    port=gate_port,
+                    launch_godot=True,
+                    headless=True,
+                )
+                try:
+                    gate_metrics = _evaluate(
+                        model=model,
+                        env=gate_env,
+                        np=np,
+                        torch=torch,
+                        episodes=max(1, int(args.stage_unlock_eval_episodes)),
+                        max_steps=max(50, int(args.stage_unlock_max_steps)),
+                        deterministic=True,
+                        step_delay=0.0,
+                        wall_touch_ray_threshold=float(args.wall_touch_ray_threshold),
+                    )
+                finally:
+                    gate_env.close()
+
+                gate_success = float(gate_metrics.get("success_rate", 0.0))
+                gate_pass = gate_success >= float(args.stage_unlock_target)
+                gate_event = {
+                    "round": int(rnd),
+                    "stage_index": int(gate_idx + 1),
+                    "stage_name": str(gate_stage["name"]),
+                    "stage_scene": gate_scene,
+                    "success_rate": gate_success,
+                    "target": float(args.stage_unlock_target),
+                    "passed": bool(gate_pass),
+                }
+                record["stage_gate"] = gate_event
+                stage_unlock_history.append(gate_event)
+                print(
+                    "[auto_train_anna][gate] round=%d stage=%s success=%.3f target=%.3f pass=%s"
+                    % (rnd, gate_event["stage_name"], gate_success, float(args.stage_unlock_target), str(gate_pass))
+                )
+                if gate_pass and int(unlocked_stage_count) < len(stages):
+                    unlocked_stage_count += 1
+                    next_stage = stages[int(unlocked_stage_count) - 1]
+                    print(
+                        "[auto_train_anna][gate] unlocked stage %d/%d -> %s (%s)"
+                        % (
+                            int(unlocked_stage_count),
+                            len(stages),
+                            str(next_stage["name"]),
+                            str(next_stage["scene"]),
+                        )
+                    )
+
+            stop_by_target = (
+                rnd >= args.min_rounds
+                and (not stage_unlock_enabled or int(unlocked_stage_count) >= len(stages))
+                and metrics["success_rate"] >= args.success_target
+                and metrics["direction_score"] >= args.direction_target
+                and metrics["fast_success_score"] >= args.fast_success_target
+                and metrics["wall_touch_ratio"] <= args.wall_contact_max
+                and metrics["collapse_forward"] < 0.5
+            )
+            if stop_by_target:
+                print("[auto_train_anna] target reached at round %d, stopping early." % rnd)
+                break
+    except KeyboardInterrupt:
+        interrupted = True
+        print("[auto_train_anna] interrupted: persisting latest artifacts before exit.")
+        if model is not None:
+            interrupted_path = out_prefix.with_name(f"{out_prefix.name}_interrupted.zip")
+            model.save(str(interrupted_path.with_suffix("")), exclude=["policy.optimizer"])
+            model.save(str(latest_path.with_suffix("")), exclude=["policy.optimizer"])
+            print("[auto_train_anna] interrupted checkpoint: %s" % interrupted_path)
+            print("[auto_train_anna] latest checkpoint: %s" % latest_path)
 
     summary = {
         "scene": eval_scene,
@@ -779,8 +1137,16 @@ def main() -> int:
         "timesteps_total": int(total_trained_steps),
         "best_score": best_score,
         "best_model": str(best_path),
+        "best_model_exists": bool(best_path.exists()),
+        "latest_model": str(latest_path),
+        "latest_model_exists": bool(latest_path.exists()),
         "best_metrics": best_metrics,
         "history": history,
+        "live_history": live_history,
+        "stage_unlock_enabled": bool(stage_unlock_enabled),
+        "unlocked_stage_count": int(unlocked_stage_count),
+        "stage_unlock_history": stage_unlock_history,
+        "interrupted": bool(interrupted),
         "config": vars(args),
         "duration_sec": round(time.time() - started_at, 3),
         "created_at_unix": int(time.time()),
@@ -788,6 +1154,17 @@ def main() -> int:
     summary_path = out_prefix.with_name(f"{out_prefix.name}_summary.json")
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print("[auto_train_anna] summary: %s" % summary_path)
+    if not best_path.exists():
+        print("[auto_train_anna] best model was not promoted (likely size cap or no completed round).")
+    if latest_path.exists():
+        print(
+            "[auto_train_anna] watch latest: ANNA_GODOT_BIN=godot3-bin .venv/bin/python agents/eval_anna.py --model %s --scene %s --watch --render --cpu-threads %d"
+            % (
+                os.path.relpath(str(latest_path), str(repo_root)),
+                eval_scene,
+                max(1, int(args.cpu_threads)),
+            )
+        )
     return 0
 
 

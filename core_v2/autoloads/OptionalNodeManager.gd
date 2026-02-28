@@ -438,14 +438,13 @@ func _batch_criopods_to_multimesh() -> void:
 	var glass_count = _build_criopod_multimesh(batch_root, criopods, "RotatingObjectV2/Glass", "CriopodGlassBatch")
 	var pilot_count = _build_criopod_multimesh(batch_root, criopods, "PersonCard2", "CriopodPilotBatch")
 
-	var per_batch = max(1, CRIOPOD_FREE_BATCH_SIZE)
-	for i in range(criopods.size()):
-		var pod = criopods[i]
+	# Hide visual meshes on ALL criopods but keep collision bodies for full collision coverage
+	# The multimesh provides visual rendering, original nodes provide collision
+	for pod in criopods:
 		if not is_instance_valid(pod):
 			continue
-		pod.queue_free()
-		if i % per_batch == per_batch - 1:
-			yield(get_tree(), "idle_frame")
+		_hide_criopod_visuals(pod)
+		# Note: NOT calling queue_free() - keeping collision bodies
 
 	_criopods_batched = true
 	print(
@@ -501,6 +500,22 @@ func _build_criopod_multimesh(batch_root: Spatial, criopods: Array, mesh_path: S
 	batch_root.add_child(mmi)
 
 	return transforms.size()
+
+func _hide_criopod_visuals(pod: Node) -> void:
+	"""Free visual meshes on a criopod but keep collision bodies."""
+	if pod.has_node("Criopod"):
+		var mesh = pod.get_node("Criopod")
+		if mesh is MeshInstance:
+			mesh.queue_free()
+	if pod.has_node("RotatingObjectV2/Glass"):
+		var glass = pod.get_node("RotatingObjectV2/Glass")
+		if glass is MeshInstance:
+			glass.queue_free()
+	if pod.has_node("PersonCard2"):
+		var pilot = pod.get_node("PersonCard2")
+		if pilot is MeshInstance:
+			pilot.queue_free()
+	# Note: RotatingObjectV2 (KinematicBody) and StaticBody collision shapes are preserved
 
 func _is_criopod_batch_node(node: Node) -> bool:
 	return node and String(node.name).begins_with("CriopodBatch")

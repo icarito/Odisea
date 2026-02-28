@@ -27,7 +27,7 @@ def _set_probe_defaults() -> None:
     os.environ.setdefault("ANNA_GODOT_PREFER_SERVER", "1")
     os.environ.setdefault("ANNA_GODOT_SERVER_FALLBACK", "0")
     os.environ.setdefault("ANNA_GODOT_DISABLE_RENDER_LOOP", "1")
-    os.environ.setdefault("ANNA_GODOT_SERVER_VIDEO_DRIVER", "Dummy")
+    os.environ.setdefault("ANNA_GODOT_SERVER_VIDEO_DRIVER", "")
     os.environ.setdefault("ANNA_GODOT_QUIET", "1")
     os.environ.setdefault("ANNA_RL_DISABLE_CPU_SLEEP", "1")
     os.environ.setdefault("ANNA_RL_PHYSICS_FPS", "0")

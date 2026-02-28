@@ -1,72 +1,88 @@
 extends Spatial
 
-# Stage 3 (door curriculum): inspired by BaseTerrace flow
-# - Spawn starts in a small chamber
-# - A sliding door blocks the only easy exit
-# - Target is forced to the far side so INTERACT becomes useful
+const RLSceneRandomizer = preload("res://core_v2/tests/RLSceneRandomizer.gd")
 
-const RL_SPAWN_POS = Vector3(5.0, 2.5, 15.0)
-const RL_TARGET_FIXED = Vector3(5.0, 1.0, -6.0)
-const RL_TARGET_JITTER_X = 3.5
-const RL_TARGET_JITTER_Z = 3.0
+const FLOOR_Y = 1.0
+const STAGE_MAX_STEPS = 1400
+const DOOR_REQUIRED_PROB = 1.0
+const FORCE_FIXED_ROUTE = true
+const FIXED_SPAWN = Vector3(5.0, 2.5, 16.0)
+const FIXED_TARGET = Vector3(5.0, FLOOR_Y, -8.0)
 
-var _anna_interface: Node = null
-var _is_rl := false
-var _last_episode_seen := -1
+var _randomizer: RLSceneRandomizer = null
 
 func _ready() -> void:
-	_is_rl = OS.get_environment("ANNA_RL_MODE") in ["1", "true", "True"]
-	if not _is_rl:
+	_ensure_randomizer()
+
+func anna_rl_before_episode_reset(_interface: AnnaInterface) -> void:
+	_reset_gate_state()
+	_ensure_randomizer()
+	if not _randomizer.has_pool("spawn_start"):
+		_build_pools()
+
+func anna_rl_choose_episode(_interface: AnnaInterface) -> Dictionary:
+	_ensure_randomizer()
+	if _use_fixed_route():
+		return {
+			"spawn": FIXED_SPAWN,
+			"target": FIXED_TARGET,
+			"door_required": true,
+			"max_steps": _get_stage_max_steps()
+		}
+	var use_door_route = randf() < _get_door_required_prob()
+	var pair := {}
+	if use_door_route:
+		pair = _randomizer.choose_episode(["spawn_start"], ["target_far"], 9.0, 48.0, 180)
+	else:
+		pair = _randomizer.choose_episode(["spawn_free"], ["target_free"], 7.0, 52.0, 180)
+	if pair.empty():
+		pair["spawn"] = FIXED_SPAWN
+		pair["target"] = Vector3(5.0, FLOOR_Y, -8.0)
+		pair["door_required"] = true
+		pair["max_steps"] = _get_stage_max_steps()
+		return pair
+	pair["max_steps"] = _get_stage_max_steps()
+	pair["door_required"] = use_door_route
+	return pair
+
+func _use_fixed_route() -> bool:
+	var env = OS.get_environment("ANNA_RL_DOOR_FIXED_ROUTE")
+	if env != "":
+		return env.to_lower() in ["1", "true", "yes", "on"]
+	return FORCE_FIXED_ROUTE
+
+func _get_door_required_prob() -> float:
+	var env = OS.get_environment("ANNA_RL_DOOR_REQUIRED_PROB")
+	if env.is_valid_float():
+		return clamp(float(env), 0.0, 1.0)
+	return DOOR_REQUIRED_PROB
+
+func _get_stage_max_steps() -> int:
+	var env = OS.get_environment("ANNA_RL_MAX_STEPS")
+	if env.is_valid_integer():
+		return int(max(100, int(env)))
+	return STAGE_MAX_STEPS
+
+func _ensure_randomizer() -> void:
+	if _randomizer != null:
 		return
-	call_deferred("_configure_rl")
-	set_physics_process(true)
+	_randomizer = RLSceneRandomizer.new()
+	_randomizer.configure(self)
+	_build_pools()
 
-func _physics_process(_delta: float) -> void:
-	if not _is_rl or not is_instance_valid(_anna_interface):
-		return
-	if "_episode_step_count" in _anna_interface and int(_anna_interface._episode_step_count) <= 1:
-		var episode_now = int(_anna_interface._episode_start_time)
-		if episode_now != _last_episode_seen:
-			_last_episode_seen = episode_now
-			_reset_gate_state()
-		_enforce_target_far_zone()
-
-func _configure_rl() -> void:
-	_anna_interface = _find_anna_interface(self)
-	if not is_instance_valid(_anna_interface):
-		return
-
-	# Respect explicit env overrides; otherwise keep scene-safe defaults.
-	var sx = OS.get_environment("ANNA_RL_SPAWN_X")
-	var sy = OS.get_environment("ANNA_RL_SPAWN_Y")
-	var sz = OS.get_environment("ANNA_RL_SPAWN_Z")
-	if not sx.is_valid_float() and not sy.is_valid_float() and not sz.is_valid_float():
-		_anna_interface._rl_spawn_pos = RL_SPAWN_POS
-	_anna_interface._rl_spawn_random_yaw = false
-
-	if not OS.get_environment("ANNA_RL_TARGET_Y").is_valid_float():
-		_anna_interface._rl_target_fixed_y = 1.0
-
-	_enforce_target_far_zone()
-
-func _enforce_target_far_zone() -> void:
-	var target = get_node_or_null("RL_Target")
-	if not is_instance_valid(target):
-		return
-	if not is_instance_valid(_anna_interface):
-		return
-
-	var p = RL_TARGET_FIXED
-	p.x += rand_range(-RL_TARGET_JITTER_X, RL_TARGET_JITTER_X)
-	p.z += rand_range(-RL_TARGET_JITTER_Z, RL_TARGET_JITTER_Z)
-	p.y = float(_anna_interface._rl_target_fixed_y)
-	target.global_transform.origin = p
+func _build_pools() -> void:
+	_randomizer.clear()
+	# Start chamber and post-door area.
+	_randomizer.add_box_pool("spawn_start", Vector3(2.0, FLOOR_Y, 12.0), Vector3(8.0, FLOOR_Y, 19.0), 160, FLOOR_Y, 0.35)
+	_randomizer.add_box_pool("target_far", Vector3(-10.0, FLOOR_Y, -14.0), Vector3(22.0, FLOOR_Y, 2.0), 220, FLOOR_Y, 0.45)
+	# Free mode pools.
+	_randomizer.add_box_pool("spawn_free", Vector3(-22.0, FLOOR_Y, -22.0), Vector3(22.0, FLOOR_Y, 22.0), 240, FLOOR_Y, 0.45)
+	_randomizer.add_box_pool("target_free", Vector3(-22.0, FLOOR_Y, -22.0), Vector3(22.0, FLOOR_Y, 22.0), 260, FLOOR_Y, 0.45)
 
 func _reset_gate_state() -> void:
 	var gate = get_node_or_null("GateDoor")
 	if not is_instance_valid(gate):
 		return
-	# Deterministic reset: each RL episode starts with closed gate.
 	if "is_used" in gate:
 		gate.is_used = false
 	if "target_progress" in gate:
@@ -75,12 +91,3 @@ func _reset_gate_state() -> void:
 		gate.anim_progress = 0.0
 	if gate.has_method("set_active"):
 		gate.set_active(false, true)
-
-func _find_anna_interface(root: Node) -> Node:
-	for child in root.get_children():
-		if child is AnnaInterface:
-			return child
-		var found = _find_anna_interface(child)
-		if found:
-			return found
-	return null

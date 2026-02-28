@@ -228,9 +228,9 @@ def _resource_to_action(uri: str) -> str:
     if uri == "odisea://scene/hierarchy":
         return "get_tree"
     if uri == "odisea://simulation/telemetry":
-        return "odisea://simulation/telemetry"
+        return "get_telemetry"
     if uri == "odisea://olcs/logic-state":
-        return "odisea://olcs/logic-state"
+        return "get_olcs_state"
     raise ValueError("Unknown resource URI: %s" % uri)
 
 

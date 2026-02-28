@@ -29,7 +29,6 @@ func _ready():
             passenger_area.connect("body_exited", self, "_on_passenger_exited")
 
 func move_to(height: float):
-    printerr("[ElevatorPlatform] move_to called. Target=", height, " Current=", global_transform.origin.y)
     target_height = height
     is_moving = true
     set_physics_process(true) # Ensure process is running
@@ -41,8 +40,6 @@ func step(dt: float):
 func _physics_process(delta: float):
     if not is_moving:
         return
-
-    printerr("[ElevatorPlatform] Moving... Y=", global_transform.origin.y)
 
     var current_y = global_transform.origin.y
     var diff = target_height - current_y

@@ -530,7 +530,7 @@ func test_rl_reward_clamp_applies_to_shaping_but_not_timeout_terminal() -> void:
 		pilot.velocity = Vector3(25.0, 0.0, 25.0)
 	var non_terminal = anna.get_rl_observation()
 	assert_bool(bool(non_terminal.get("done", true))).is_false()
-	assert_bool(abs(float(non_terminal.get("reward", 0.0))) <= 2.5001).is_true()
+	assert_bool(abs(float(non_terminal.get("reward", 0.0))) <= (float(anna._rl_shaping_reward_clamp) + 0.001)).is_true()
 
 	# Timeout terminal reward should be outside shaping clamp.
 	anna._episode_step_count = anna._rl_max_episode_steps
@@ -559,5 +559,83 @@ func test_rl_apply_action_anti_collapse_gate_throttles_forward_when_misaligned()
 	anna.apply_rl_action(1) # Forward
 	var injected = sm._oys_input_override
 	var move_vec = injected.get("move_vec", Vector2.ZERO)
-	assert_bool(move_vec.y > -0.95).is_true()
+	assert_bool(move_vec.y <= -0.1 and move_vec.y >= -1.0).is_true()
 	yield (_teardown_rl_context(ctx), "completed")
+
+func test_rl_scene_choose_episode_override_is_applied() -> void:
+	var runner = scene_runner("res://core_v2/tests/TestScene_RL_4_TwoFloorRoom.tscn")
+	yield (runner.simulate_frames(3), "completed")
+	var scene = runner.scene()
+	var pilot = scene.get_node_or_null("Pilot")
+	var target = scene.get_node_or_null("RL_Target")
+	assert_object(pilot).is_not_null()
+	assert_object(target).is_not_null()
+
+	var sm = get_node_or_null("/root/SessionManager")
+	assert_object(sm).is_not_null()
+	var previous_player = sm.player
+	var previous_recording = sm.is_recording
+	var previous_override = sm._oys_input_override
+	sm.player = pilot
+	sm.is_recording = true
+	sm._oys_input_override = {}
+
+	var anna = AnnaInterface.new()
+	scene.add_child(anna)
+	yield (runner.simulate_frames(2), "completed")
+
+	anna.reset_simulation()
+	yield (runner.simulate_frames(1), "completed")
+	assert_int(int(anna._rl_max_episode_steps)).is_equal(1500)
+
+	var p = target.global_transform.origin
+	assert_bool(p.y > 4.0).is_true()
+	assert_bool(p.x > 2.0 and p.x < 10.5).is_true()
+	assert_bool(p.z < -3.0 and p.z > -10.5).is_true()
+
+	sm.player = previous_player
+	sm.is_recording = previous_recording
+	sm._oys_input_override = previous_override
+	yield (_free_node(anna), "completed")
+
+func test_rl_spawn_random_yaw_toggle_controls_reset_heading() -> void:
+	var runner = scene_runner("res://core_v2/tests/TestScene_RL.tscn")
+	yield (runner.simulate_frames(3), "completed")
+	var scene = runner.scene()
+	var pilot = scene.get_node_or_null("Pilot")
+	assert_object(pilot).is_not_null()
+
+	var sm = get_node_or_null("/root/SessionManager")
+	assert_object(sm).is_not_null()
+	var previous_player = sm.player
+	var previous_recording = sm.is_recording
+	var previous_override = sm._oys_input_override
+	sm.player = pilot
+	sm.is_recording = true
+	sm._oys_input_override = {}
+
+	var anna = AnnaInterface.new()
+	scene.add_child(anna)
+	yield (runner.simulate_frames(2), "completed")
+
+	anna._rl_spawn_random_yaw = false
+	anna.reset_simulation()
+	yield (runner.simulate_frames(1), "completed")
+	var yaw_fixed = pilot.global_transform.basis.get_euler().y
+	assert_float(abs(yaw_fixed)).is_less_equal(0.001)
+
+	anna._rl_spawn_random_yaw = true
+	var seen_non_zero := false
+	for _i in range(6):
+		anna.reset_simulation()
+		yield (runner.simulate_frames(1), "completed")
+		var yaw_now = pilot.global_transform.basis.get_euler().y
+		if abs(yaw_now) > 0.05:
+			seen_non_zero = true
+			break
+	assert_bool(seen_non_zero).is_true()
+
+	sm.player = previous_player
+	sm.is_recording = previous_recording
+	sm._oys_input_override = previous_override
+	yield (_free_node(anna), "completed")

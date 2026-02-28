@@ -64,7 +64,6 @@ func _initialize():
 	# Sort blades by name for consistent Z-stacking
 	_blades.sort_custom(self, "_sort_blades")
 	
-	print("[IrisDoorV2] Found ", _blades.size(), " blades.")
 	for i in range(_blades.size()):
 		_start_rotations.append(_blades[i].rotation_degrees)
 

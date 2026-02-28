@@ -247,6 +247,10 @@ func _ready():
 
 func _ensure_anna_bridge_enabled(reason: String = "") -> Node:
 	var existing = get_node_or_null("AnnaBridge")
+	if not (existing and is_instance_valid(existing)):
+		var tree = get_tree()
+		if tree and tree.get_root():
+			existing = tree.get_root().find_node("AnnaBridge", true, false)
 	if existing and is_instance_valid(existing):
 		return existing
 

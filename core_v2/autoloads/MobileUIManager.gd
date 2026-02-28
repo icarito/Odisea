@@ -1,7 +1,6 @@
 extends CanvasLayer
 
 const MobileUI = preload("res://core_v2/ui/MobileUI.tscn")
-const SWITCH_PLATFORM_NAME := "Switch"
 
 var _mobile_ui: CanvasLayer = null
 var _touch_camera: TouchCameraControls = null
@@ -10,8 +9,7 @@ var _is_mobile := false
 func _ready() -> void:
 	layer = 100
 	
-	# Switch can expose touch support but we use gamepad controls there.
-	_is_mobile = (OS.has_touchscreen_ui_hint() or OS.get_name() in ["Android", "iOS"]) and OS.get_name() != SWITCH_PLATFORM_NAME
+	_is_mobile = (OS.has_touchscreen_ui_hint() or HardwareProfile.is_android() or HardwareProfile.get_platform() == HardwareProfile.PlatformType.IOS) and not HardwareProfile.is_switch()
 	
 	if _is_mobile:
 		_spawn_mobile_ui()

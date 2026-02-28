@@ -38,7 +38,6 @@ func compile(cache_packed_scene):
 
 func _prepare_cache_scene(cache_scene, cache_path: String) -> void:
 	if cache_scene.has_method("cache_scene"):
-		print("[ShaderCacheManager] Building runtime shader cache: ", cache_path)
 		var state = cache_scene.cache_scene()
 		if state is GDScriptFunctionState:
 			state.connect("completed", self, "_on_cache_scene_built", [cache_scene, cache_path], CONNECT_ONESHOT)
@@ -48,14 +47,12 @@ func _prepare_cache_scene(cache_scene, cache_path: String) -> void:
 func _on_cache_scene_built(cache_scene, cache_path: String) -> void:
 	if not is_instance_valid(cache_scene):
 		return
-	print("[ShaderCacheManager] Cache scene prepared, compiling shaders: ", cache_path)
 	if cache_scene.has_method("set_active"):
 		cache_scene.set_active(true)
 
 func _on_cache_compiled(cache_path, cache_scene):
 	_compiled_cache_paths.append(cache_path)
 	cache_scene.queue_free()
-	print("[ShaderCacheManager] Compiled shader cache: ", cache_path)
 	emit_signal("compiled", cache_path)
 
 func spawn_cache(cache_packed_scene):

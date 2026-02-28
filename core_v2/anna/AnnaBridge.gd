@@ -726,13 +726,13 @@ func _run_mcp_command(command: String, args: Dictionary) -> Dictionary:
 			)
 		}
 
-	if cmd == "simulation_telemetry" or cmd == "get_telemetry" or cmd == "odisea://simulation/telemetry":
+	if cmd == "simulation_telemetry" or cmd == "get_telemetry" or cmd == "odisea://simulation/telemetry" or cmd == "get_olcs_state":
 		return {
 			"ok": true,
 			"data": _interface.get_simulation_telemetry_resource()
 		}
 
-	if cmd == "logic_state" or cmd == "olcs_logic_state" or cmd == "odisea://olcs/logic-state":
+	if cmd == "logic_state" or cmd == "olcs_logic_state" or cmd == "odisea://olcs/logic-state" or cmd == "get_olcs_state":
 		return {
 			"ok": true,
 			"data": _interface.get_olcs_logic_state_resource()

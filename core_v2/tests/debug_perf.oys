@@ -1,0 +1,21 @@
+# Debug script to check performance
+print "=== PERFORMANCE DEBUG ==="
+print "Node count: " + str(get_tree().get_node_count())
+print "FPS: " + str(Engine.get_frames_per_second())
+
+var pm = get_node_or_null("/root/PerformanceMonitor")
+if pm:
+    print "PerformanceMonitor found"
+else:
+    print "PerformanceMonitor NOT found"
+
+var hp = get_node_or_null("/root/HardwareProfile")
+if hp:
+    print "HardwareProfile found"
+    print "Profile: " + str(hp.get_profile())
+    print "Weak: " + str(hp.is_weak_hardware())
+    print "Device: " + hp.get_device_name()
+else:
+    print "HardwareProfile NOT found"
+
+print "=== END DEBUG ==="

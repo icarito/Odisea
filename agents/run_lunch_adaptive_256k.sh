@@ -22,10 +22,15 @@ CHUNK_TIMESTEPS="${CHUNK_TIMESTEPS:-16000}"
 RUN_MINUTES="${RUN_MINUTES:-0}"
 SCENE_STAGE1="${SCENE_STAGE1:-core_v2/tests/TestScene_RL.tscn}"
 SCENE_STAGE2="${SCENE_STAGE2:-core_v2/tests/TestScene_RL_2.tscn}"
-SCENE_STAGE3="${SCENE_STAGE3:-core_v2/tests/TestScene_RL_BaseTerrace.tscn}"
+SCENE_STAGE3="${SCENE_STAGE3:-core_v2/tests/TestScene_RL_3.tscn}"
+STAGES_CSV="${STAGES_CSV:-}"
 
 CPU_THREADS="${CPU_THREADS:-6}"
 TRAIN_DEVICE="${TRAIN_DEVICE:-cpu}"
+NUM_ENVS="${NUM_ENVS:-1}"
+NUM_ENVS_STAGE1="${NUM_ENVS_STAGE1:-${NUM_ENVS}}"
+NUM_ENVS_STAGE2="${NUM_ENVS_STAGE2:-${NUM_ENVS}}"
+NUM_ENVS_STAGE3="${NUM_ENVS_STAGE3:-${NUM_ENVS}}"
 MAX_CPU_TEMP_C="${MAX_CPU_TEMP_C:-84}"
 RESUME_CPU_TEMP_C="${RESUME_CPU_TEMP_C:-79}"
 TEMP_POLL_SEC="${TEMP_POLL_SEC:-20}"
@@ -47,7 +52,8 @@ export GODOT_BIN="${GODOT_BIN:-godot3-server}"
 export ANNA_GODOT_PREFER_SERVER="${ANNA_GODOT_PREFER_SERVER:-1}"
 export ANNA_GODOT_SERVER_FALLBACK="${ANNA_GODOT_SERVER_FALLBACK:-0}"
 export ANNA_GODOT_DISABLE_RENDER_LOOP="${ANNA_GODOT_DISABLE_RENDER_LOOP:-1}"
-export ANNA_GODOT_SERVER_VIDEO_DRIVER="${ANNA_GODOT_SERVER_VIDEO_DRIVER:-Dummy}"
+export ANNA_GODOT_SERVER_VIDEO_DRIVER="${ANNA_GODOT_SERVER_VIDEO_DRIVER:-}"
+export ANNA_GODOT_DISABLE_AUDIO_DRIVER_FLAG="${ANNA_GODOT_DISABLE_AUDIO_DRIVER_FLAG:-1}"
 export ANNA_RL_DISABLE_QODOT="${ANNA_RL_DISABLE_QODOT:-1}"
 export ANNA_RL_PHYSICS_FPS="${ANNA_RL_PHYSICS_FPS:-2000}"
 export ANNA_RL_TARGET_FPS="${ANNA_RL_TARGET_FPS:-2000}"
@@ -62,7 +68,9 @@ CHECKPOINT_EVERY="${CHECKPOINT_EVERY:-16000}"
 EVAL_EPISODES="${EVAL_EPISODES:-4}"
 EVAL_MAX_STEPS="${EVAL_MAX_STEPS:-1200}"
 
-if [[ "${ALLOW_STAGE3}" == "1" ]]; then
+if [[ -n "${STAGES_CSV}" ]]; then
+  IFS=',' read -r -a STAGES <<< "${STAGES_CSV}"
+elif [[ "${ALLOW_STAGE3}" == "1" ]]; then
   STAGES=("${SCENE_STAGE1}" "${SCENE_STAGE2}" "${SCENE_STAGE3}")
 else
   STAGES=("${SCENE_STAGE1}" "${SCENE_STAGE2}")
@@ -88,6 +96,7 @@ fi
 
 echo "[lunch256] run_dir=${RUN_DIR}" | tee "${RUN_DIR}/manifest.log"
 echo "[lunch256] total=${TOTAL_TIMESTEPS} chunk=${CHUNK_TIMESTEPS} cpu_threads=${CPU_THREADS} device=${TRAIN_DEVICE}" | tee -a "${RUN_DIR}/manifest.log"
+echo "[lunch256] envs: num_envs=${NUM_ENVS} stage1=${NUM_ENVS_STAGE1} stage2=${NUM_ENVS_STAGE2} stage3=${NUM_ENVS_STAGE3}" | tee -a "${RUN_DIR}/manifest.log"
 echo "[lunch256] curriculum: stages=${STAGES[*]} promote_min_delta=${PROMOTE_MIN_DELTA} promote_min_success=${PROMOTE_MIN_SUCCESS_PCT}" | tee -a "${RUN_DIR}/manifest.log"
 echo "[lunch256] stage_start_idx=${stage_idx} stage_start=${STAGES[${stage_idx}]}" | tee -a "${RUN_DIR}/manifest.log"
 echo "[lunch256] train cfg: n_steps=${N_STEPS} batch=${BATCH_SIZE} epochs=${N_EPOCHS} net=${NET_ARCH}" | tee -a "${RUN_DIR}/manifest.log"
@@ -197,9 +206,13 @@ while [[ "${spent}" -lt "${TOTAL_TIMESTEPS}" ]]; do
   chunk_id=$((chunk_id + 1))
 
   s1=0; s2=0; s3=0
+  scene_stage3_chunk="${SCENE_STAGE3}"
   if [[ "${stage_idx}" -eq 0 ]]; then s1="${steps}"; fi
   if [[ "${stage_idx}" -eq 1 ]]; then s2="${steps}"; fi
-  if [[ "${stage_idx}" -eq 2 ]]; then s3="${steps}"; fi
+  if [[ "${stage_idx}" -ge 2 ]]; then
+    s3="${steps}"
+    scene_stage3_chunk="${stage}"
+  fi
 
   model_out="${MODEL_DIR}/anna_lunch_${STAMP}_c$(printf '%03d' "${chunk_id}").zip"
   train_log="${LOG_DIR}/chunk_$(printf '%03d' "${chunk_id}")_train.log"
@@ -211,16 +224,16 @@ while [[ "${spent}" -lt "${TOTAL_TIMESTEPS}" ]]; do
     --godot-bin "${GODOT_BIN}"
     --device "${TRAIN_DEVICE}"
     --cpu-threads "${CPU_THREADS}"
-    --num-envs 1
-    --num-envs-stage1 1
-    --num-envs-stage2 1
-    --num-envs-stage3 1
+    --num-envs "${NUM_ENVS}"
+    --num-envs-stage1 "${NUM_ENVS_STAGE1}"
+    --num-envs-stage2 "${NUM_ENVS_STAGE2}"
+    --num-envs-stage3 "${NUM_ENVS_STAGE3}"
     --timesteps-stage1 "${s1}"
     --timesteps-stage2 "${s2}"
     --timesteps-stage3 "${s3}"
     --scene-stage1 "${SCENE_STAGE1}"
     --scene-stage2 "${SCENE_STAGE2}"
-    --scene-stage3 "${SCENE_STAGE3}"
+    --scene-stage3 "${scene_stage3_chunk}"
     --n-steps "${N_STEPS}"
     --batch-size "${BATCH_SIZE}"
     --n-epochs "${N_EPOCHS}"
@@ -245,9 +258,8 @@ while [[ "${spent}" -lt "${TOTAL_TIMESTEPS}" ]]; do
       break
     fi
     echo "[lunch256] train failed on attempt ${attempt}; cleaning stale godot and retrying..." | tee -a "${RUN_DIR}/manifest.log"
-    for p in $(ps -eo pid,cmd | awk '/godot3-server --audio-driver Dummy --path \\. --video-driver Dummy --disable-render-loop --quiet res:\\/\\/core_v2\\/tests\\// {print $1}'); do
-      kill -TERM "$p" 2>/dev/null || true
-    done
+    # Use pkill here; awk regex escaping is fragile across distros/awk variants.
+    pkill -TERM -f "godot3-server .*--disable-render-loop --quiet res://core_v2/tests/TestScene_RL" 2>/dev/null || true
     sleep 2
     thermal_guard
   done

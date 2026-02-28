@@ -1800,37 +1800,73 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.04532, 0 )
 script = ExtResource( 42 )
 _scenes = [ ExtResource( 43 ) ]
 
-[node name="PushableBoxV20" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 18.2, -2.00272e-05, -30 )
+[node name="PushableBoxV20" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 17.0, 0.5, -25.0 )
 
-[node name="PushableBoxV21" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 18.2, 1.99998, -30 )
+[node name="PushableBoxV21" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 20.0, 0.5, -25.0 )
 
-[node name="PushableBoxV22" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 18.2, 3.99998, -30 )
+[node name="PushableBoxV22" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 20.0, 1.6, -25.0 )
 
-[node name="PushableBoxV23" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 18.2, 5.99998, -30 )
+[node name="PushableBoxV23" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 17.0, 2.7, -25.0 )
 
-[node name="PushableBoxV24" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 18.2, 7.99998, -30 )
+[node name="PushableBoxV24" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 17.0, 3.8000000000000003, -25.0 )
 
 [node name="PushableBoxV2" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 18.2, 9.99998, -30 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.0, 0.5, -25.0 )
 
 [node name="PushableBoxV3" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 18.5, -2.00272e-05, -27.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.0, 2.7, -25.0 )
 
-[node name="PushableBoxV4" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 18.5, 1.99998, -27.5 )
+[node name="PushableBoxV4" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 14.0, 3.8000000000000003, -25.0 )
 
-[node name="PushableBoxV5" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 18.5, 3.99998, -27.5 )
+[node name="PushableBoxV5" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 17.0, 1.6, -25.0 )
 
 [node name="PushableBoxV6" parent="Scatter3D" instance=ExtResource( 43 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 18.5, 5.99998, -27.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.0, 1.6, -25.0 )
 
-[node name="BGMZoneV2" type="Area" parent="."]
+[node name="PushableBoxV7" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.0, 2.7, -25.0 )
+
+[node name="PushableBoxV8" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.0, 3.8000000000000003, -25.0 )
+
+[node name="PushableBoxV9" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.0, 0.5, -25.0 )
+
+[node name="PushableBoxV10" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.0, 1.6, -25.0 )
+
+[node name="PushableBoxV11" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.0, 2.7, -25.0 )
+
+[node name="PushableBoxV12" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.0, 3.8000000000000003, -25.0 )
+
+[node name="PushableBoxV13" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.0, 0.5, -25.0 )
+
+[node name="PushableBoxV14" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.0, 1.6, -25.0 )
+
+[node name="PushableBoxV15" parent="Scatter3D" instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.0, 3.8000000000000003, -25.0 )
+
+[node name="PushableBoxV16" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 14.0, 0.5, -25.0 )
+
+[node name="PushableBoxV17" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 14.0, 1.6, -25.0 )
+
+[node name="PushableBoxV18" parent="Scatter3D" groups=["optional"] instance=ExtResource( 43 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 14.0, 2.7, -25.0 )
+
+[node name="BGMZoneV2" type="Area" parent="." groups=["optional"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 0.6, -22, 2, 8.46188 )
 collision_mask = 2
 script = ExtResource( 41 )
@@ -1876,6 +1912,9 @@ transform = Transform( 2.56, 0, 0, 0, -4.37114e-08, -1, 0, 2.56, -1.11901e-07, 7
 transform = Transform( -1.5, 0, -2.14589e-07, 0, 1.5, 0, 2.14589e-07, 0, -1.5, 17.0368, 2.04103, 33.2445 )
 skeleton = NodePath("")
 
+[node name="RotatingObjectV2" parent="CrioPod START" index="0"]
+transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
+
 [node name="SFX Open sound" parent="CrioPod START/RotatingObjectV2" index="2"]
 fade_in_time = null
 fade_out_time = null
@@ -1886,7 +1925,7 @@ fade_out_time = null
 
 [node name="Tween3" type="Tween" parent="CrioPod START/RotatingObjectV2/SFX Open sound" index="2"]
 
-[node name="Smoke" parent="CrioPod START" index="1"]
+[node name="Smoke" parent="CrioPod START" index="2"]
 transform = Transform( 3, 0, 8.31764e-09, 0, 2.90486, 0, 8.31704e-09, 0, 2.90486, 0.45195, -0.399253, 3.12261 )
 timeout = 20.0
 interval = 0.0

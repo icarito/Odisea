@@ -329,7 +329,6 @@ func _connect_to_checkzones():
 		if cz and is_instance_valid(cz) and cz.has_signal("checkpoint_reached"):
 			if not cz.is_connected("checkpoint_reached", self, "_on_checkpoint_reached"):
 				cz.connect("checkpoint_reached", self, "_on_checkpoint_reached")
-				print("[OYSComponent] Conectado a CheckZone: ", cz.name)
 
 # Callback cuando el player pasa por un CheckZone durante la ejecución del script
 func _on_checkpoint_reached(_base_transform: Transform):
@@ -338,15 +337,11 @@ func _on_checkpoint_reached(_base_transform: Transform):
 	
 	var player = yield (_get_player(), "completed")
 	if player and player.has_method("get_full_snapshot"):
-		print("[OYSComponent] Guardando checkpoint desde player: ", player.name)
 		_checkpoint_snapshot = player.get_full_snapshot()
 		_checkpoint_pc = interpreter.pc
-		print("[OYSComponent] 📍 Checkpoint guardado en pc=", _checkpoint_pc, " pos=", _checkpoint_snapshot.get("position", []))
 
 # Realiza un reset completo de sistemas globales y estado del jugador
 func hard_reset():
-	print("[OYSComponent] Executing HARD RESET...")
-	
 	# 1. Detener intérprete inmediatamente
 	if interpreter:
 		interpreter.stop_requested = true

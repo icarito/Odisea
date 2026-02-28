@@ -400,17 +400,7 @@ def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
     AnnaGymEnv, PPO, Monitor, DummyVecEnv, SubprocVecEnv, get_schedule_fn, np, torch, nn = _prepare_imports(repo_root)
 
-    # Stage 3 specific environment variables (BaseTerrace curriculum)
-    stage3_extra_env = {
-        "ANNA_RL_MAX_STEPS": str(int(args.stage3_max_steps)),
-        "ANNA_RL_SPAWN_X": str(float(args.stage3_spawn_x)),
-        "ANNA_RL_SPAWN_Y": str(float(args.stage3_spawn_y)),
-        "ANNA_RL_SPAWN_Z": str(float(args.stage3_spawn_z)),
-        "ANNA_RL_TARGET_RADIUS_MIN": str(float(args.stage3_target_radius_min)),
-        "ANNA_RL_TARGET_RADIUS_MAX": str(float(args.stage3_target_radius_max)),
-        "ANNA_RL_TARGET_Y": str(float(args.stage3_target_y)),
-    }
-    print("[train_anna_cuda_big] Stage3 env overrides: %s" % stage3_extra_env)
+    stage3_extra_env = {}
 
     torch.set_num_threads(max(1, int(args.cpu_threads)))
     try:
@@ -467,6 +457,18 @@ def main() -> int:
     scene_stage1 = _scene_rel(repo_root, args.scene_stage1)
     scene_stage2 = _scene_rel(repo_root, args.scene_stage2)
     scene_stage3 = _scene_rel(repo_root, args.scene_stage3)
+    force_stage3_overrides = str(os.environ.get("ANNA_STAGE3_FORCE_OVERRIDES", "0")).lower() in ("1", "true", "yes", "on")
+    if "BaseTerrace" in str(scene_stage3) or force_stage3_overrides:
+        stage3_extra_env = {
+            "ANNA_RL_MAX_STEPS": str(int(args.stage3_max_steps)),
+            "ANNA_RL_SPAWN_X": str(float(args.stage3_spawn_x)),
+            "ANNA_RL_SPAWN_Y": str(float(args.stage3_spawn_y)),
+            "ANNA_RL_SPAWN_Z": str(float(args.stage3_spawn_z)),
+            "ANNA_RL_TARGET_RADIUS_MIN": str(float(args.stage3_target_radius_min)),
+            "ANNA_RL_TARGET_RADIUS_MAX": str(float(args.stage3_target_radius_max)),
+            "ANNA_RL_TARGET_Y": str(float(args.stage3_target_y)),
+        }
+    print("[train_anna_cuda_big] Stage3 env overrides: %s" % stage3_extra_env)
     stage1_envs = _resolve_stage_env_count(scene_stage1, num_envs, args.num_envs_stage1, False)
     stage2_envs = _resolve_stage_env_count(scene_stage2, num_envs, args.num_envs_stage2, False)
     stage3_envs = _resolve_stage_env_count(scene_stage3, num_envs, args.num_envs_stage3, True)

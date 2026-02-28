@@ -105,7 +105,7 @@ func _scaled_mode_transition_duration(duration: float) -> float:
 func _ready():
 	var env_debug = OS.get_environment("ODISEA_CAMERA_DEBUG").to_lower()
 	if env_debug == "":
-		transition_debug_enabled = OS.is_debug_build()
+		transition_debug_enabled = false
 	else:
 		transition_debug_enabled = env_debug in ["1", "true", "yes", "on"]
 

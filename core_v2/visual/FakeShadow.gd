@@ -36,16 +36,25 @@ var _cheap_ground_y := 0.0
 func _ready() -> void:
 	var disable_env := OS.get_environment("ODISEA_DISABLE_FAKE_SHADOW").to_lower()
 	_disable_runtime = disable_env in ["1", "true", "yes", "on"]
+	
+	# Auto-disable on Linux ARM (Anbernic, etc)
+	if OS.get_name() == "Linux" and _detect_arm_architecture():
+		_disable_runtime = true
+	
 	if _disable_runtime:
 		visible = false
 		set_process(false)
 		return
-	if OS.get_name() == "Switch":
-		# Keep fake shadow in low-spec platforms, but force the cheap path.
-		shadow_mode = "cheap"
-		update_every_n_frames = max(update_every_n_frames, 4)
-		grid_resolution = min(grid_resolution, 8)
-
+	
+	# Check HardwareProfile if available
+	var hp = get_node("/root/HardwareProfile") if has_node("/root/HardwareProfile") else null
+	if hp and hp.has_method("should_use_cheap_shadows"):
+		if hp.should_use_cheap_shadows():
+			shadow_mode = "cheap"
+			update_every_n_frames = max(update_every_n_frames, hp.get_shadow_update_interval())
+			grid_resolution = min(grid_resolution, hp.get_shadow_grid_resolution())
+	
+	# Continue with setup
 	_mesh_tool = SurfaceTool.new()
 	
 	var mat = preload("res://materials/shadow/FakeShadowShader.tres")
@@ -55,7 +64,6 @@ func _ready() -> void:
 		material_override.set_shader_param("texture_albedo", shadow_texture)
 
 	if shadow_mode == "grid":
-		# Create Ray Grid
 		_create_rays()
 	else:
 		# Cheap mode: one quad + one raycast.
@@ -71,6 +79,15 @@ func _ready() -> void:
 	
 	cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	set_as_toplevel(true)
+
+func _detect_arm_architecture() -> bool:
+	var file = File.new()
+	if file.file_exists("/proc/cpuinfo"):
+		if file.open("/proc/cpuinfo", File.READ) == OK:
+			var content = file.get_as_text().to_lower()
+			file.close()
+			return "arm" in content or "aarch64" in content
+	return false
 
 func _create_rays() -> void:
 	# Clean up existing if any (though usually clean on ready)

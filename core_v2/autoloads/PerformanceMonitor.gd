@@ -10,6 +10,7 @@ const CAPTURE_FILE_PATH := "user://performance_captures.json"
 const LAG_SPIKE_THRESHOLD_FPS := 20.0
 const CPU_BUDGET_MS := 16.6
 const LOG_TRIGGER_PERCENT := 0.70 # 70% of CPU Budget
+const CPU_WARNING_INTERVAL_SEC := 5.0
 
 # --- Debug Flags ---
 var debug_freeze_logic := false setget set_debug_freeze_logic
@@ -32,6 +33,7 @@ var _capture_active := false
 var _capture_tag := ""
 var _capture_start_usec := 0
 var _capture_samples := []
+var _last_cpu_warning_time := 0.0
 
 # --- Signals ---
 signal lag_spike_detected(fps, drop)
@@ -93,12 +95,13 @@ func _process(delta):
 		_report_lag_spike(fps, _last_fps, process_time, physics_time, draw_calls, node_count)
 	_last_fps = fps
 
-	# 3. CPU Budget Check
+	# 3. CPU Budget Check (throttled)
 	if process_time > (CPU_BUDGET_MS * LOG_TRIGGER_PERCENT * 0.001):
-		# Trigger logging if sustainable budget is exceeded
-		# We throttle this to avoid spamming logs every frame
-		if (not _suppress_runtime_logs) and Engine.get_frames_drawn() % 60 == 0:
-			print("[PerformanceMonitor] WARNING: CPU Budget > 70%% (%.4f ms)" % (process_time * 1000.0))
+		if not _suppress_runtime_logs:
+			var current_time = OS.get_ticks_msec()
+			if current_time - _last_cpu_warning_time > (CPU_WARNING_INTERVAL_SEC * 1000.0):
+				_last_cpu_warning_time = current_time
+				print("[PerformanceMonitor] WARNING: CPU Budget > 70%% (%.4f ms)" % (process_time * 1000.0))
 
 	# 4. Debug Logic: Cull Distance
 	if debug_cull_distance_enabled:
