@@ -266,6 +266,8 @@ var _rl_early_wall_recovery_hazard_frames := 6
 var _rl_early_wall_recovery_front_dist := RL_OBSTACLE_AHEAD_DIST
 var _rl_recovery_strafe_side := 0.0
 var _rl_recovery_strafe_side_bias := 0.0
+var _rl_recovery_side_clear_margin := 0.35
+var _rl_recovery_fallback_side := 1.0
 var _rl_jump_hold_input_frames := 2
 var _rl_jump_hold_frames := 0
 var _rl_assisted_steering := true
@@ -276,6 +278,9 @@ var _rl_sprint_on_strafe_actions := false
 var _rl_sprint_on_jump_strafe_actions := false
 var _rl_strafe_forward_assist := 0.0
 var _rl_jump_strafe_forward_assist := 0.0
+var _rl_strafe_commit_frames := 7
+var _rl_strafe_commit_remaining := 0
+var _rl_strafe_commit_side := 0.0
 var _rl_backstep_evasion_reward := 0.12
 var _rl_sprint_strafe_clear_penalty := 0.18
 var _rl_last_episode_override := {}
@@ -357,6 +362,7 @@ func _ready():
 	var early_wall_recovery_hazard_frames_env = OS.get_environment("ANNA_RL_EARLY_WALL_RECOVERY_HAZARD_FRAMES")
 	var early_wall_recovery_front_dist_env = OS.get_environment("ANNA_RL_EARLY_WALL_RECOVERY_FRONT_DIST")
 	var recovery_strafe_side_env = OS.get_environment("ANNA_RL_RECOVERY_STRAFE_SIDE")
+	var recovery_side_clear_margin_env = OS.get_environment("ANNA_RL_RECOVERY_SIDE_CLEAR_MARGIN")
 	var jump_hold_frames_env = OS.get_environment("ANNA_RL_JUMP_HOLD_FRAMES")
 	var assisted_steering_env = OS.get_environment("ANNA_RL_ASSISTED_STEERING")
 	var action0_backstep_env = OS.get_environment("ANNA_RL_ACTION0_BACKSTEP")
@@ -365,6 +371,7 @@ func _ready():
 	var sprint_on_strafe_env = OS.get_environment("ANNA_RL_SPRINT_ON_STRAFE")
 	var sprint_on_jump_strafe_env = OS.get_environment("ANNA_RL_SPRINT_ON_JUMP_STRAFE")
 	var strafe_forward_assist_env = OS.get_environment("ANNA_RL_STRAFE_FORWARD_ASSIST")
+	var strafe_commit_frames_env = OS.get_environment("ANNA_RL_STRAFE_COMMIT_FRAMES")
 	var jump_strafe_forward_assist_env = OS.get_environment("ANNA_RL_JUMP_STRAFE_FORWARD_ASSIST")
 	var backstep_evasion_reward_env = OS.get_environment("ANNA_RL_BACKSTEP_EVASION_REWARD")
 	var sprint_strafe_clear_penalty_env = OS.get_environment("ANNA_RL_SPRINT_STRAFE_CLEAR_PENALTY")
@@ -416,6 +423,8 @@ func _ready():
 			_rl_recovery_strafe_side_bias = 0.0
 		else:
 			_rl_recovery_strafe_side_bias = sign(_rl_recovery_strafe_side_bias)
+	if recovery_side_clear_margin_env.is_valid_float():
+		_rl_recovery_side_clear_margin = clamp(float(recovery_side_clear_margin_env), 0.05, 3.0)
 	if jump_hold_frames_env.is_valid_integer():
 		_rl_jump_hold_input_frames = int(clamp(int(jump_hold_frames_env), 0, 12))
 	if assisted_steering_env != "":
@@ -432,6 +441,8 @@ func _ready():
 		_rl_sprint_on_jump_strafe_actions = sprint_on_jump_strafe_env.to_lower() in ["1", "true", "yes", "on"]
 	if strafe_forward_assist_env.is_valid_float():
 		_rl_strafe_forward_assist = clamp(float(strafe_forward_assist_env), 0.0, 1.0)
+	if strafe_commit_frames_env.is_valid_integer():
+		_rl_strafe_commit_frames = int(clamp(int(strafe_commit_frames_env), 0, 30))
 	if jump_strafe_forward_assist_env.is_valid_float():
 		_rl_jump_strafe_forward_assist = clamp(float(jump_strafe_forward_assist_env), 0.0, 1.0)
 	if backstep_evasion_reward_env.is_valid_float():
@@ -450,8 +461,8 @@ func _ready():
 		_rl_wall_contact_penalty, _rl_stuck_extra_penalty_scale, _rl_stuck_extra_penalty_cap, _rl_stuck_wall_fail_frames, _rl_stuck_no_recovery_penalty, _rl_hazard_contact_grace_frames, _rl_hazard_forward_press_penalty, _rl_stuck_recovery_wall_frames, _rl_stuck_recovery_strafe, _rl_stuck_recovery_backoff, _rl_stuck_recovery_jump_period, _rl_early_wall_recovery_hazard_frames, _rl_early_wall_recovery_front_dist, _rl_recovery_strafe_side_bias,
 		_rl_shaping_profile, _rl_shaping_reward_clamp, _rl_timeout_failure_scale, _rl_progress_reward_scale, _rl_alignment_reward_scale, _rl_speed_reward_scale, _rl_penalty_scale, _rl_orbit_penalty_scale, _rl_wall_penalty_scale, _rl_strafe_reward_scale, _rl_strafe_penalty_scale, _rl_action_change_penalty_scale,
 		_rl_max_episode_steps, str(_rl_legacy_fast_mode)])
-	print("[AnnaInterface] action_cfg backstep[action0=%s speed=%.2f evasion_reward=%.2f] sprint[jump=%s strafe=%s jump_strafe=%s] strafe_forward_assist=%.2f jump_strafe_forward_assist=%.2f sprint_strafe_clear_penalty=%.2f" % [
-		str(_rl_action0_backstep_enabled), _rl_action0_backstep_speed, _rl_backstep_evasion_reward, str(_rl_sprint_on_jump_actions), str(_rl_sprint_on_strafe_actions), str(_rl_sprint_on_jump_strafe_actions), _rl_strafe_forward_assist, _rl_jump_strafe_forward_assist, _rl_sprint_strafe_clear_penalty
+	print("[AnnaInterface] action_cfg backstep[action0=%s speed=%.2f evasion_reward=%.2f] sprint[jump=%s strafe=%s jump_strafe=%s] strafe_forward_assist=%.2f jump_strafe_forward_assist=%.2f strafe_commit_frames=%d recovery_side_clear_margin=%.2f sprint_strafe_clear_penalty=%.2f" % [
+		str(_rl_action0_backstep_enabled), _rl_action0_backstep_speed, _rl_backstep_evasion_reward, str(_rl_sprint_on_jump_actions), str(_rl_sprint_on_strafe_actions), str(_rl_sprint_on_jump_strafe_actions), _rl_strafe_forward_assist, _rl_jump_strafe_forward_assist, _rl_strafe_commit_frames, _rl_recovery_side_clear_margin, _rl_sprint_strafe_clear_penalty
 	])
 	print("[AnnaInterface] steering assisted=%s" % [str(_rl_assisted_steering)])
 	_setup_sensors()
@@ -1333,7 +1344,12 @@ func reset_simulation() -> void:
 	_has_last_angle_to_target = false
 	_wall_stuck_frames = 0
 	_rl_recovery_strafe_side = 0.0
+	_rl_recovery_fallback_side = - _rl_recovery_fallback_side
+	if abs(_rl_recovery_fallback_side) < 0.001:
+		_rl_recovery_fallback_side = 1.0
 	_rl_jump_hold_frames = 0
+	_rl_strafe_commit_remaining = 0
+	_rl_strafe_commit_side = 0.0
 	_jump_cooldown_frames = 0
 	_interact_cooldown_frames = 0
 	_last_front_ray_dist = -1.0
@@ -1643,6 +1659,8 @@ func apply_rl_action(action_idx: int) -> void:
 		_jump_cooldown_frames -= 1
 	if _interact_cooldown_frames > 0:
 		_interact_cooldown_frames -= 1
+	if _rl_strafe_commit_remaining > 0:
+		_rl_strafe_commit_remaining -= 1
 	if _rl_legacy_fast_mode:
 		_apply_rl_action_legacy_fast(action_idx)
 		return
@@ -1668,6 +1686,22 @@ func apply_rl_action(action_idx: int) -> void:
 		7:
 			move_vec.x = 1.0
 			jump_pressed = true
+
+	# Strafe commit gate:
+	# keep the chosen lateral side for a few frames to avoid left-right jitter.
+	if abs(move_vec.x) > 0.1 and _rl_strafe_commit_frames > 0:
+		var requested_side = sign(move_vec.x)
+		if abs(_rl_strafe_commit_side) < 0.001:
+			_rl_strafe_commit_side = requested_side
+			_rl_strafe_commit_remaining = _rl_strafe_commit_frames
+		elif _rl_strafe_commit_remaining > 0 and requested_side != _rl_strafe_commit_side:
+			move_vec.x = _rl_strafe_commit_side * abs(move_vec.x)
+		else:
+			if requested_side != _rl_strafe_commit_side:
+				_rl_strafe_commit_side = requested_side
+			_rl_strafe_commit_remaining = _rl_strafe_commit_frames
+	elif _rl_strafe_commit_remaining <= 0:
+		_rl_strafe_commit_side = 0.0
 
 	# Allow diagonal strafe+forward without increasing action space size.
 	if not jump_pressed and abs(move_vec.x) > 0.1 and _rl_strafe_forward_assist > 0.0:
@@ -1768,22 +1802,15 @@ func apply_rl_action(action_idx: int) -> void:
 		forced_recovery = true
 		var strafe_sign = _rl_recovery_strafe_side
 		if abs(strafe_sign) < 0.001:
-			if has_steer and abs(steer_angle) > 0.20:
-				strafe_sign = sign(steer_angle)
-			elif abs(_rl_recovery_strafe_side_bias) > 0.001:
-				strafe_sign = _rl_recovery_strafe_side_bias
-			elif abs(_last_move_cmd.x) > 0.05:
-				strafe_sign = sign(_last_move_cmd.x)
-			elif abs(move_vec.x) > 0.05:
-				strafe_sign = sign(move_vec.x)
-			else:
-				strafe_sign = 1.0
+			strafe_sign = _pick_recovery_strafe_side(player_spatial_for_recovery, has_steer, steer_angle, move_vec.x)
 			if abs(strafe_sign) < 0.001:
-				strafe_sign = 1.0
+				strafe_sign = _rl_recovery_fallback_side
 		_rl_recovery_strafe_side = strafe_sign
 		move_vec.x = strafe_sign * _rl_stuck_recovery_strafe
 		move_vec.y = _rl_stuck_recovery_backoff
 		sprint_pressed = false
+		_rl_strafe_commit_side = strafe_sign
+		_rl_strafe_commit_remaining = max(_rl_strafe_commit_remaining, _rl_strafe_commit_frames)
 		if _rl_stuck_recovery_jump_period > 0 and _wall_stuck_frames > 0 and int(_wall_stuck_frames) % _rl_stuck_recovery_jump_period == 0:
 			jump_pressed = true
 
@@ -2060,6 +2087,73 @@ func _get_front_obstacle_distance(player: Spatial) -> float:
 		if d < front_dist:
 			front_dist = d
 	return front_dist
+
+func _get_lateral_clearance(player: Spatial) -> Dictionary:
+	if not is_instance_valid(player):
+		return {"left": SENSOR_RANGE, "right": SENSOR_RANGE}
+	if not is_instance_valid(_rl_raycast_root):
+		_setup_rl_sensors()
+	if not is_instance_valid(_rl_raycast_root) or _rl_rays.size() == 0:
+		return {"left": SENSOR_RANGE, "right": SENSOR_RANGE}
+
+	var control_basis = _get_control_basis(player)
+	var right = control_basis.x
+	right.y = 0.0
+	if right.length_squared() < 0.0001:
+		right = player.global_transform.basis.x
+		right.y = 0.0
+	if right.length_squared() < 0.0001:
+		return {"left": SENSOR_RANGE, "right": SENSOR_RANGE}
+	right = right.normalized()
+
+	_rl_raycast_root.global_transform.origin = player.global_transform.origin + Vector3(0, 1.0, 0)
+	_rl_raycast_root.global_transform.basis = control_basis
+
+	var left_sum := 0.0
+	var right_sum := 0.0
+	var left_count := 0
+	var right_count := 0
+	for ray in _rl_rays:
+		ray.clear_exceptions()
+		ray.add_exception(player)
+		ray.force_raycast_update()
+		var d = SENSOR_RANGE
+		if ray.is_colliding():
+			d = ray.global_transform.origin.distance_to(ray.get_collision_point())
+
+		var dir = ray.global_transform.basis.xform(ray.cast_to.normalized())
+		dir.y = 0.0
+		if dir.length_squared() < 0.0001:
+			continue
+		dir = dir.normalized()
+		var side_dot = dir.dot(right)
+		if side_dot > 0.25:
+			right_sum += d
+			right_count += 1
+		elif side_dot < -0.25:
+			left_sum += d
+			left_count += 1
+
+	var left_avg = left_sum / float(left_count) if left_count > 0 else SENSOR_RANGE
+	var right_avg = right_sum / float(right_count) if right_count > 0 else SENSOR_RANGE
+	return {"left": left_avg, "right": right_avg}
+
+func _pick_recovery_strafe_side(player: Spatial, has_steer: bool, steer_angle: float, proposed_move_x: float) -> float:
+	var clearance = _get_lateral_clearance(player)
+	var left_clear = float(clearance.get("left", SENSOR_RANGE))
+	var right_clear = float(clearance.get("right", SENSOR_RANGE))
+	var clear_delta = right_clear - left_clear
+	if abs(clear_delta) > _rl_recovery_side_clear_margin:
+		return 1.0 if clear_delta > 0.0 else -1.0
+	if has_steer and abs(steer_angle) > 0.20:
+		return sign(steer_angle)
+	if abs(_rl_recovery_strafe_side_bias) > 0.001:
+		return _rl_recovery_strafe_side_bias
+	if abs(_last_move_cmd.x) > 0.05:
+		return sign(_last_move_cmd.x)
+	if abs(proposed_move_x) > 0.05:
+		return sign(proposed_move_x)
+	return _rl_recovery_fallback_side
 
 func _get_front_interactable(player: Spatial) -> Node:
 	if not is_instance_valid(player):
