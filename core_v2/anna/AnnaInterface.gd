@@ -44,7 +44,13 @@ const RL_HEIGHT_REWARD_CAP = 2.5
 const RL_OBSTACLE_AHEAD_DIST = 1.6
 const RL_OBSTACLE_JUMP_BONUS = 0.22 # Strong bonus for jumping when obstacle is ahead.
 const RL_BAD_JUMP_PENALTY = 0.12 # Penalize jumping when no nearby frontal obstacle.
+const RL_JUMPABLE_OBSTACLE_BONUS = 0.16 # Extra reward when jump clears a low front obstacle.
+const RL_JUMPABLE_OBSTACLE_IGNORE_PENALTY = 0.10 # Penalize pushing forward into jumpable frontal obstacles without jumping.
 const RL_OBSTACLE_NO_EVASION_PENALTY = 0.08 # Penalize pushing head-on into nearby obstacles without jump/strafe.
+const RL_FRONT_HEIGHT_SENSOR_DIST = 2.4
+const RL_FRONT_HEIGHT_LOW_Y = 0.55
+const RL_FRONT_HEIGHT_HIGH_Y = 1.35
+const RL_FRONT_HEIGHT_CLEARANCE_MARGIN = 0.08
 const RL_STRAFE_WHEN_MISALIGNED_REWARD_SCALE = 0.08 # Encourage strafe corrections when target is off-center.
 const RL_STRAFE_OBSTACLE_REWARD_SCALE = 0.06 # Encourage strafe around nearby frontal obstacles.
 const RL_STRAFE_IDLE_PENALTY = 0.015 # Discourage needless strafe when already aligned.
@@ -237,6 +243,9 @@ var _rl_smart_jump_ahead_dist := RL_SMART_JUMP_AHEAD_DIST
 var _rl_smart_jump_target_above_y := RL_SMART_JUMP_TARGET_ABOVE_Y
 var _rl_smart_jump_target_above_dist := RL_SMART_JUMP_TARGET_ABOVE_DIST
 var _rl_smart_jump_max_steer_angle := RL_SMART_JUMP_MAX_STEER_ANGLE
+var _rl_front_height_sensor_dist := RL_FRONT_HEIGHT_SENSOR_DIST
+var _rl_front_height_low_y := RL_FRONT_HEIGHT_LOW_Y
+var _rl_front_height_high_y := RL_FRONT_HEIGHT_HIGH_Y
 var _rl_legacy_fast_mode := false
 var _rl_hazard_contact_grace_frames := RL_HAZARD_CONTACT_GRACE_FRAMES
 var _rl_wall_contact_penalty := RL_WALL_CONTACT_PENALTY
@@ -344,6 +353,9 @@ func _ready():
 	var jump_above_y_env = OS.get_environment("ANNA_RL_JUMP_TARGET_ABOVE_Y")
 	var jump_above_dist_env = OS.get_environment("ANNA_RL_JUMP_TARGET_ABOVE_DIST")
 	var jump_max_steer_env = OS.get_environment("ANNA_RL_JUMP_MAX_STEER_ANGLE")
+	var jump_front_height_dist_env = OS.get_environment("ANNA_RL_FRONT_HEIGHT_SENSOR_DIST")
+	var jump_front_height_low_y_env = OS.get_environment("ANNA_RL_FRONT_HEIGHT_LOW_Y")
+	var jump_front_height_high_y_env = OS.get_environment("ANNA_RL_FRONT_HEIGHT_HIGH_Y")
 	var wall_contact_penalty_env = OS.get_environment("ANNA_RL_WALL_CONTACT_PENALTY")
 	var stuck_fail_frames_env = OS.get_environment("ANNA_RL_STUCK_WALL_FAIL_FRAMES")
 	var stuck_extra_scale_env = OS.get_environment("ANNA_RL_STUCK_EXTRA_PENALTY_SCALE")
@@ -383,6 +395,12 @@ func _ready():
 		_rl_smart_jump_target_above_dist = clamp(float(jump_above_dist_env), 2.0, 25.0)
 	if jump_max_steer_env.is_valid_float():
 		_rl_smart_jump_max_steer_angle = clamp(float(jump_max_steer_env), 0.08, 1.0)
+	if jump_front_height_dist_env.is_valid_float():
+		_rl_front_height_sensor_dist = clamp(float(jump_front_height_dist_env), 0.5, 6.0)
+	if jump_front_height_low_y_env.is_valid_float():
+		_rl_front_height_low_y = clamp(float(jump_front_height_low_y_env), 0.15, 1.6)
+	if jump_front_height_high_y_env.is_valid_float():
+		_rl_front_height_high_y = clamp(float(jump_front_height_high_y_env), _rl_front_height_low_y + 0.1, 2.4)
 	if wall_contact_penalty_env.is_valid_float():
 		_rl_wall_contact_penalty = clamp(float(wall_contact_penalty_env), 0.0, 1.5)
 	if stuck_fail_frames_env.is_valid_integer():
@@ -931,6 +949,9 @@ func get_rl_observation() -> Dictionary:
 
 		# Normalize: 0.0 (Collision) to 1.0 (Clear)
 		obs_vector.append(clamp(d / SENSOR_RANGE, 0.0, 1.0))
+	var front_height_profile = _get_front_height_profile(player as Spatial)
+	var jumpable_front = bool(front_height_profile.get("jumpable", false))
+	var jumpable_front_score = float(front_height_profile.get("score", 0.0))
 
 	# Target Info
 	var target = _ensure_rl_target()
@@ -1008,10 +1029,14 @@ func get_rl_observation() -> Dictionary:
 			reward -= float(_jump_streak - 1) * RL_JUMP_REPEAT_PENALTY * _rl_penalty_scale * _rl_jump_penalty_scale
 		if not on_floor_now:
 			reward -= RL_JUMP_REPEAT_PENALTY * _rl_penalty_scale * _rl_jump_penalty_scale
-		if front_ray_dist < RL_OBSTACLE_AHEAD_DIST and vel.y > 0.05:
+		if jumpable_front and vel.y > 0.05:
+			reward += (RL_OBSTACLE_JUMP_BONUS + (RL_JUMPABLE_OBSTACLE_BONUS * jumpable_front_score)) * _rl_progress_reward_scale
+		elif front_ray_dist < RL_OBSTACLE_AHEAD_DIST and vel.y > 0.05:
 			reward += RL_OBSTACLE_JUMP_BONUS * _rl_progress_reward_scale
 		else:
 			reward -= RL_BAD_JUMP_PENALTY * _rl_penalty_scale * _rl_jump_penalty_scale
+	elif on_floor_now and jumpable_front and _last_move_cmd.y < -0.35 and abs(_last_move_cmd.x) < 0.1:
+		reward -= RL_JUMPABLE_OBSTACLE_IGNORE_PENALTY * _rl_penalty_scale
 	elif on_floor_now and front_ray_dist < RL_OBSTACLE_AHEAD_DIST and abs(_last_move_cmd.x) < 0.1:
 		reward -= RL_OBSTACLE_NO_EVASION_PENALTY * _rl_penalty_scale
 	var interact_candidate_now = _get_front_interactable(player as Spatial)
@@ -1834,7 +1859,9 @@ func apply_rl_action(action_idx: int) -> void:
 			on_floor_now = player.is_on_floor()
 		var player_spatial: Spatial = player as Spatial if player is Spatial else null
 		var front_obstacle_dist = _get_front_obstacle_distance(player_spatial)
-		var obstacle_ahead = front_obstacle_dist < _rl_smart_jump_ahead_dist
+		var front_height_profile = _get_front_height_profile(player_spatial)
+		var jumpable_front = bool(front_height_profile.get("jumpable", false))
+		var obstacle_ahead = (front_obstacle_dist < _rl_smart_jump_ahead_dist) or jumpable_front
 		var stuck_context = _wall_stuck_frames >= RL_SMART_JUMP_ALLOW_STUCK_FRAMES
 		var blocked_jump = (not on_floor_now and not jump_hold_active) or ((_jump_cooldown_frames > 0) and not jump_hold_active) or (not obstacle_ahead and not stuck_context and not vertical_jump_context and not jump_hold_active)
 		if blocked_jump:
@@ -2087,6 +2114,66 @@ func _get_front_obstacle_distance(player: Spatial) -> float:
 		if d < front_dist:
 			front_dist = d
 	return front_dist
+
+func _get_front_height_profile(player: Spatial) -> Dictionary:
+	var default_profile = {
+		"jumpable": false,
+		"score": 0.0,
+		"low_dist": SENSOR_RANGE,
+		"high_dist": SENSOR_RANGE
+	}
+	if not is_instance_valid(player):
+		return default_profile
+	if not is_inside_tree():
+		return default_profile
+	var world = player.get_world()
+	if world == null:
+		return default_profile
+	var space = world.direct_space_state
+	if space == null:
+		return default_profile
+
+	var control_basis = _get_control_basis(player)
+	var forward = -control_basis.z
+	forward.y = 0.0
+	if forward.length_squared() < 0.0001:
+		forward = -player.global_transform.basis.z
+		forward.y = 0.0
+	if forward.length_squared() < 0.0001:
+		return default_profile
+	forward = forward.normalized()
+
+	var probe_dist = clamp(_rl_front_height_sensor_dist, 0.5, SENSOR_RANGE)
+	var low_from = player.global_transform.origin + Vector3(0.0, _rl_front_height_low_y, 0.0)
+	var high_from = player.global_transform.origin + Vector3(0.0, _rl_front_height_high_y, 0.0)
+	var low_to = low_from + forward * probe_dist
+	var high_to = high_from + forward * probe_dist
+	var exclude = [player]
+	var low_hit = space.intersect_ray(low_from, low_to, exclude, 0x7FFFFFFF, true, false)
+	var high_hit = space.intersect_ray(high_from, high_to, exclude, 0x7FFFFFFF, true, false)
+	var low_dist = probe_dist
+	var high_dist = probe_dist
+	var low_blocked = not low_hit.empty()
+	var high_blocked = not high_hit.empty()
+	if low_blocked:
+		low_dist = low_from.distance_to(low_hit.position)
+	if high_blocked:
+		high_dist = high_from.distance_to(high_hit.position)
+
+	var jumpable = low_blocked and ((not high_blocked) or (high_dist > low_dist + RL_FRONT_HEIGHT_CLEARANCE_MARGIN))
+	var score = 0.0
+	if jumpable:
+		var near_factor = 1.0 - clamp(low_dist / probe_dist, 0.0, 1.0)
+		var clearance_factor = 1.0
+		if high_blocked:
+			clearance_factor = clamp((high_dist - low_dist) / max(0.05, probe_dist), 0.0, 1.0)
+		score = clamp(near_factor * (0.6 + 0.4 * clearance_factor), 0.0, 1.0)
+	return {
+		"jumpable": jumpable,
+		"score": score,
+		"low_dist": low_dist,
+		"high_dist": high_dist
+	}
 
 func _get_lateral_clearance(player: Spatial) -> Dictionary:
 	if not is_instance_valid(player):
