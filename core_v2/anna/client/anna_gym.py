@@ -70,9 +70,9 @@ class AnnaGymEnv(gym.Env):
         # 7=JumpStrafeRight
         self.action_space = spaces.Discrete(8)
 
-        # Observation Space: 13 floats (8 rays + dist + angle + vel_x + vel_z + height) (normalized approx -1 to 1)
+        # Observation Space: 12 floats (8 rays + dist + angle + vel_x + vel_z + height) (normalized approx -1 to 1)
         self.observation_space = spaces.Box(
-            low=-1.0, high=1.0, shape=(13,), dtype=np.float32
+            low=-1.0, high=1.0, shape=(12,), dtype=np.float32
         )
 
         # If we are launching Godot ourselves, avoid attaching to a stale bridge process.
@@ -427,7 +427,7 @@ class AnnaGymEnv(gym.Env):
                 return json.loads(line)
             except json.JSONDecodeError:
                 print(f"[AnnaGym] JSON Decode Error: {line}")
-                return {"obs": [0.0] * 13, "reward": 0.0, "done": True}
+                return {"obs": [0.0] * 12, "reward": 0.0, "done": True}
 
     def _recv_exact(self, n_bytes: int) -> bytes:
         if not self.sock:
@@ -442,8 +442,8 @@ class AnnaGymEnv(gym.Env):
 
     def _recv_once_binary(self):
         # 12 obs float32 + reward float32 + done uint8
-        raw = self._recv_exact(57)
-        unpacked = struct.unpack(">14fB", raw)
+        raw = self._recv_exact(53)
+        unpacked = struct.unpack(">13fB", raw)
         obs = list(unpacked[:13])
         reward = float(unpacked[14])
         done = bool(unpacked[14])
@@ -467,7 +467,7 @@ class AnnaGymEnv(gym.Env):
                     print(f"[AnnaGym] bridge recovery failed: {recover_err}")
                     break
         print(f"[AnnaGym] request failed after recovery attempts: {last_error}")
-        return {"obs": [0.0] * 13, "reward": 0.0, "done": True, "__bridge_dead": True}
+        return {"obs": [0.0] * 12, "reward": 0.0, "done": True, "__bridge_dead": True}
 
     def _request_binary(self, command_byte: int):
         last_error = None
@@ -490,7 +490,7 @@ class AnnaGymEnv(gym.Env):
                     print(f"[AnnaGym] bridge recovery failed: {recover_err}")
                     break
         print(f"[AnnaGym] binary request failed after recovery attempts: {last_error}")
-        return {"obs": [0.0] * 13, "reward": 0.0, "done": True, "__bridge_dead": True}
+        return {"obs": [0.0] * 12, "reward": 0.0, "done": True, "__bridge_dead": True}
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
