@@ -547,7 +547,8 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		"PRINT":
 			var message = inst.get("message", "")
 			message = _substitute_variables(message)
-			print("[OYS PRINT] ", message)
+			if not fast_forward:
+				print("[OYS PRINT] ", message)
 			_log_to_console("OYS", message)
 			_show_subtitle(message, Color.white, 2.5)
 

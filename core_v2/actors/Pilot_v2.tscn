@@ -53,6 +53,7 @@ joy_look_sensitivity = 5.0
 push_force = 9.0
 min_pitch = -45.0
 max_pitch = 60.0
+auto_align_speed = 3.0
 step_depth = 0.7
 step_grounded_grace = 0.3
 

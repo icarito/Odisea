@@ -25,7 +25,8 @@ var _ignore_level_directive: bool = false
 const SMOOTH_CORRECTION_SPEED: float = 10.0 # Unidades por segundo
 
 func _ready():
-	interpreter = OYS_Interpreter.new(self)
+	add_to_group("oys_components")
+	interpreter = OYS_Interpreter.new(self )
 	if script_file != "":
 		load_and_start(script_file)
 	
@@ -327,8 +328,8 @@ func _connect_to_checkzones():
 	var checkzones = get_tree().get_nodes_in_group("CheckZoneV2")
 	for cz in checkzones:
 		if cz and is_instance_valid(cz) and cz.has_signal("checkpoint_reached"):
-			if not cz.is_connected("checkpoint_reached", self, "_on_checkpoint_reached"):
-				cz.connect("checkpoint_reached", self, "_on_checkpoint_reached")
+			if not cz.is_connected("checkpoint_reached", self , "_on_checkpoint_reached"):
+				cz.connect("checkpoint_reached", self , "_on_checkpoint_reached")
 
 # Callback cuando el player pasa por un CheckZone durante la ejecución del script
 func _on_checkpoint_reached(_base_transform: Transform):

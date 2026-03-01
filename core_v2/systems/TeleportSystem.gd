@@ -205,6 +205,14 @@ func _respawn_at_spawn_or_zero():
 	if session_mgr:
 		session_mgr.is_respawning = true
 	
+	# Resetear CinematicManager para soltar cualquier cámara bloqueada
+	var cin_mgr = get_node_or_null("/root/CinematicManager")
+	if cin_mgr and cin_mgr.has_method("reset"):
+		cin_mgr.reset()
+	
+	# Reiniciar cualquier OYSComponent activo
+	get_tree().call_group("oys_components", "hard_reset")
+	
 	# Buscar player_controller si es null o inválido
 	if not is_instance_valid(player_controller):
 		var pilot = get_tree().get_root().find_node("Pilot", true, false)
@@ -313,7 +321,7 @@ func _respawn_at_spawn_or_zero():
 
 func _on_player_killed():
 	print("[TeleportSystem] _on_player_killed ejecutado! Señal recibida. Verificando estado inicial...")
-	print("[TeleportSystem] self:", self, " path=", get_path())
+	print("[TeleportSystem] self:", self , " path=", get_path())
 	var pc_path = player_controller.get_path() if is_instance_valid(player_controller) else "null"
 	print("[TeleportSystem] player_controller:", player_controller, " path=", pc_path)
 	
@@ -321,6 +329,14 @@ func _on_player_killed():
 	var session_mgr = get_node_or_null("/root/SessionManager")
 	if session_mgr:
 		session_mgr.is_respawning = true
+		
+	# Resetear CinematicManager para soltar cualquier cámara bloqueada al morir
+	var cin_mgr = get_node_or_null("/root/CinematicManager")
+	if cin_mgr and cin_mgr.has_method("reset"):
+		cin_mgr.reset()
+
+	# Reiniciar cualquier OYSComponent activo
+	get_tree().call_group("oys_components", "hard_reset")
 	
 	# Buscar player_controller si es null o inválido
 	if not is_instance_valid(player_controller):
