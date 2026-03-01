@@ -1460,7 +1460,6 @@ shape = SubResource( 2811 )
 [node name="entity_0_brush_111_collision_shape" type="CollisionShape" parent="Building/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 2812 )
 
-
 [node name="entity_0_brush_112_collision_shape" type="CollisionShape" parent="Building/QodotMap/entity_0_worldspawn"]
 shape = SubResource( 2813 )
 

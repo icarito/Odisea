@@ -20,6 +20,7 @@ export(float) var tank_turn_ramp_time := 0.5
 export(Curve) var move_response_curve
 export(Curve) var camera_response_curve
 export(float, 0.0, 1.0) var tank_strafe_blend := 0.5 # 0.0 = pure strafe, 1.0 = pure tank turn
+export(float, 0.0, 1.0) var diagonal_turn_blend := 0.5 # Turning reduction multiplier when moving diagonally
 
 # Slope Handling (inspired by Terrestrial Characters)
 export(float, 0, 90) var floor_max_angle_degrees := 45.0
@@ -132,11 +133,16 @@ func get_tank_yaw_delta(dt: float, move_vec: Vector2) -> float:
 			speed_factor = tank_turn_curve.interpolate(current_turn_time / tank_turn_ramp_time)
 			
 		var multiplier = -1.0
+		var active_blend = tank_strafe_blend
+		
 		# Invert rotation direction when moving backward
 		if move_vec.y > 0.01:
 			multiplier = 1.0
+			active_blend = diagonal_turn_blend
+		elif move_vec.y < -0.01:
+			active_blend = diagonal_turn_blend
 			
-		return move_vec.x * tank_turn_speed * speed_factor * tank_strafe_blend * dt * multiplier
+		return move_vec.x * tank_turn_speed * speed_factor * active_blend * dt * multiplier
 	
 	current_turn_time = 0.0
 	return 0.0
