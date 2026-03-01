@@ -5,7 +5,7 @@ class_name AnnaInterface
 # Configuration
 const PROTOCOL_VERSION = "anna.v1"
 const SENSOR_RAY_COUNT = 32 # Legacy/Visual
-const RL_SENSOR_RAY_COUNT = 8 # 8 rays + 4 scalar features = 12D obs (matches bridge/client contracts)
+const RL_SENSOR_RAY_COUNT = 8 # 8 rays + 5 scalar features = 13D obs (rays, dist, angle, vel_x, vel_z, height) (matches bridge/client contracts)
 const SENSOR_RANGE = 20.0
 const PROXIMITY_RADIUS = 10.0
 const BUFFER_MAX_ENTRIES = 50
@@ -2218,6 +2218,10 @@ func _get_rl_observation_legacy_fast(player: Spatial) -> Dictionary:
 	var local_vel = player.global_transform.basis.xform_inv(vel)
 	obs_vector.append(clamp(local_vel.x / RL_MAX_VELOCITY, -1.0, 1.0))
 	obs_vector.append(clamp(local_vel.z / RL_MAX_VELOCITY, -1.0, 1.0))
+	# Add height (Y position) for floor awareness in multi-floor levels
+	var player_y = player.global_transform.origin.y
+	# Normalize: assume floors at Y=1, Y=5, etc. Max reasonable height ~10m
+	obs_vector.append(clamp(player_y / 10.0, 0.0, 1.0))
 	if _last_dist_to_target >= 0.0:
 		reward += (_last_dist_to_target - dist_to_target) * RL_PROGRESS_SCALE
 	_last_dist_to_target = dist_to_target
