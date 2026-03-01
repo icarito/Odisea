@@ -535,13 +535,13 @@ func _ready():
 	_setup_rl_sensors()
 	_bind_killzones()
 	var tree = get_tree()
-	if tree and not tree.is_connected("node_added", self, "_on_tree_node_added"):
-		tree.connect("node_added", self, "_on_tree_node_added")
+	if tree and not tree.is_connected("node_added", self , "_on_tree_node_added"):
+		tree.connect("node_added", self , "_on_tree_node_added")
 
 func _exit_tree():
 	var tree = get_tree()
-	if tree and tree.is_connected("node_added", self, "_on_tree_node_added"):
-		tree.disconnect("node_added", self, "_on_tree_node_added")
+	if tree and tree.is_connected("node_added", self , "_on_tree_node_added"):
+		tree.disconnect("node_added", self , "_on_tree_node_added")
 
 func _on_tree_node_added(node: Node) -> void:
 	_try_bind_killzone(node)
@@ -560,8 +560,8 @@ func _try_bind_killzone(node: Node) -> void:
 		return
 	if not node.has_signal("player_killed"):
 		return
-	if not node.is_connected("player_killed", self, "_on_killzone_player_killed"):
-		node.connect("player_killed", self, "_on_killzone_player_killed")
+	if not node.is_connected("player_killed", self , "_on_killzone_player_killed"):
+		node.connect("player_killed", self , "_on_killzone_player_killed")
 
 func _on_killzone_player_killed() -> void:
 	_killzone_triggered = true
@@ -968,7 +968,7 @@ func get_rl_observation() -> Dictionary:
 
 	if not is_instance_valid(player) or not player is Spatial:
 		# Fallback/Fail state
-		for i in range(12): obs_vector.append(0.0)
+		for i in range(13): obs_vector.append(0.0)
 		return {"obs": obs_vector, "reward": 0.0, "done": true, "done_reason": "invalid_player"}
 	if _rl_legacy_fast_mode:
 		return _get_rl_observation_legacy_fast(player as Spatial)
@@ -1046,6 +1046,7 @@ func get_rl_observation() -> Dictionary:
 	var local_vel = player.global_transform.basis.xform_inv(vel)
 	obs_vector.append(clamp(local_vel.x / RL_MAX_VELOCITY, -1.0, 1.0)) # Right/Left
 	obs_vector.append(clamp(local_vel.z / RL_MAX_VELOCITY, -1.0, 1.0)) # Backward/Forward (-Z is forward)
+	obs_vector.append(player.global_transform.origin.y) # Sensor 12: Height
 	var on_floor_now = true
 	if player.has_method("is_on_floor"):
 		on_floor_now = player.is_on_floor()
@@ -1592,7 +1593,7 @@ func _call_rl_scene_before_reset_hook() -> void:
 	if not is_instance_valid(scene):
 		return
 	if scene.has_method(RL_SCENE_HOOK_BEFORE_RESET):
-		scene.call(RL_SCENE_HOOK_BEFORE_RESET, self)
+		scene.call(RL_SCENE_HOOK_BEFORE_RESET, self )
 
 func _get_rl_scene_episode_override() -> Dictionary:
 	var scene = _get_rl_scene_controller()
@@ -1600,7 +1601,7 @@ func _get_rl_scene_episode_override() -> Dictionary:
 		return {}
 	if not scene.has_method(RL_SCENE_HOOK_CHOOSE_EPISODE):
 		return {}
-	var raw = scene.call(RL_SCENE_HOOK_CHOOSE_EPISODE, self)
+	var raw = scene.call(RL_SCENE_HOOK_CHOOSE_EPISODE, self )
 	if typeof(raw) == TYPE_DICTIONARY:
 		return raw
 	return {}
@@ -2202,13 +2203,13 @@ func _get_rl_observation_legacy_fast(player: Spatial) -> Dictionary:
 		to_target.y = 0.0
 		if to_target.length_squared() > 0.0001:
 			to_target = to_target.normalized()
-			var forward = -player.global_transform.basis.z
+			var forward = - player.global_transform.basis.z
 			forward.y = 0.0
 			if forward.length_squared() > 0.0001:
 				forward = forward.normalized()
 				var angle = forward.angle_to(to_target)
 				if forward.cross(to_target).y < 0:
-					angle = -angle
+					angle = - angle
 				angle_to_target = angle / PI
 	obs_vector.append(clamp(dist_to_target / 50.0, 0.0, 1.0))
 	obs_vector.append(angle_to_target)
@@ -2218,9 +2219,8 @@ func _get_rl_observation_legacy_fast(player: Spatial) -> Dictionary:
 	var local_vel = player.global_transform.basis.xform_inv(vel)
 	obs_vector.append(clamp(local_vel.x / RL_MAX_VELOCITY, -1.0, 1.0))
 	obs_vector.append(clamp(local_vel.z / RL_MAX_VELOCITY, -1.0, 1.0))
-	# Add height (Y position) for floor awareness in multi-floor levels
+	# Add height (Y position) for floor awareness
 	var player_y = player.global_transform.origin.y
-	# Normalize: assume floors at Y=1, Y=5, etc. Max reasonable height ~10m
 	obs_vector.append(clamp(player_y / 10.0, 0.0, 1.0))
 	if _last_dist_to_target >= 0.0:
 		reward += (_last_dist_to_target - dist_to_target) * RL_PROGRESS_SCALE
@@ -2283,7 +2283,7 @@ func _apply_rl_action_legacy_fast(action_idx: int) -> void:
 		"crouch": false,
 		"mouse_delta": Vector2.ZERO,
 		"zoom_delta": 0.0,
-		"fov_override": -1.0
+		"fov_override": - 1.0
 	}
 	var sm = get_node_or_null("/root/SessionManager")
 	if sm and sm.is_recording:
@@ -2347,10 +2347,10 @@ func _get_front_height_profile(player: Spatial) -> Dictionary:
 		return default_profile
 
 	var control_basis = _get_control_basis(player)
-	var forward = -control_basis.z
+	var forward = - control_basis.z
 	forward.y = 0.0
 	if forward.length_squared() < 0.0001:
-		forward = -player.global_transform.basis.z
+		forward = - player.global_transform.basis.z
 		forward.y = 0.0
 	if forward.length_squared() < 0.0001:
 		return default_profile
@@ -2446,7 +2446,7 @@ func _pick_recovery_strafe_side(player: Spatial, has_steer: bool, steer_angle: f
 	if abs(clear_delta) > _rl_recovery_side_clear_margin:
 		return 1.0 if clear_delta > 0.0 else -1.0
 	if has_steer and abs(steer_angle) > 0.20:
-		return - sign(steer_angle)
+		return -sign(steer_angle)
 	if abs(_rl_recovery_strafe_side_bias) > 0.001:
 		return _rl_recovery_strafe_side_bias
 	if abs(_last_move_cmd.x) > 0.05:
@@ -3027,7 +3027,7 @@ func _should_include_scene_node(node: Node) -> bool:
 func _read_oys_runtime_info() -> Dictionary:
 	var info = {
 		"running": false,
-		"pc": -1,
+		"pc": - 1,
 		"line_raw": "",
 		"line_command": ""
 	}

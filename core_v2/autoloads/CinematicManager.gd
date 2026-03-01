@@ -301,7 +301,7 @@ func blend_to_vcamera(vcam: Node, duration: float = 1.0) -> void:
 		var payload = {
 			"vcamera": vcam,
 			"duration": duration,
-			"ease": -2.0,
+			"ease": - 2.0,
 			"transition_time": duration
 		}
 		request_camera_mode(ControlMode.FREE, payload, _vcam_source, 15)
@@ -426,11 +426,12 @@ func _search_camera(node: Node) -> Camera:
 	return null
 
 func get_active_camera() -> Camera:
-	if _transition_active and CameraTransition and is_instance_valid(CameraTransition.camera3D):
-		return CameraTransition.camera3D
+	var cam_transition = get_node_or_null("/root/CameraTransition")
+	if _transition_active and cam_transition and is_instance_valid(cam_transition.camera3D):
+		return cam_transition.camera3D
 
 	if _vcam_brain and is_instance_valid(_vcam_brain) and _vcam_brain is Camera:
-		if _current_state in [CameraModeState.VCAM_ACTIVE, CameraModeState.VCAM_BLENDING, 
+		if _current_state in [CameraModeState.VCAM_ACTIVE, CameraModeState.VCAM_BLENDING,
 			CameraModeState.TRANSITION_TO_VCAM, CameraModeState.TRANSITION_VCAM_TO_FREE]:
 			return _vcam_brain as Camera
 
@@ -460,9 +461,10 @@ func force_finish_transition():
 
 	if _transition_active:
 		_transition_elapsed = _transition_duration
-		if is_instance_valid(_transition_to_cam) and CameraTransition and is_instance_valid(CameraTransition.camera3D):
-			CameraTransition.camera3D.global_transform = _transition_to_cam.global_transform
-			CameraTransition.camera3D.fov = _transition_to_cam.fov
+		var cam_transition = get_node_or_null("/root/CameraTransition")
+		if is_instance_valid(_transition_to_cam) and cam_transition and is_instance_valid(cam_transition.camera3D):
+			cam_transition.camera3D.global_transform = _transition_to_cam.global_transform
+			cam_transition.camera3D.fov = _transition_to_cam.fov
 		_finish_dynamic_transition()
 
 	if vcam_was_blending and _vcam_active_camera and is_instance_valid(_vcam_active_camera):
@@ -481,9 +483,10 @@ func force_finish_transition():
 	})
 
 func _cancel_plugin_transition() -> void:
-	if CameraTransition and CameraTransition.has_method("cancel_transition"):
+	var cam_transition = get_node_or_null("/root/CameraTransition")
+	if cam_transition and cam_transition.has_method("cancel_transition"):
 		_log_transition("plugin_cancel", {})
-		CameraTransition.cancel_transition()
+		cam_transition.cancel_transition()
 
 func _cancel_dynamic_transition(reason: String = "") -> void:
 	if _transition_active:
@@ -527,16 +530,17 @@ func _start_dynamic_transition(from: Camera, to: Camera, duration: float, purpos
 	# Or clearer: We hijack the 'from' camera (if possible) or just use the Viewport's current.
 	
 	# Let's use CameraTransition's singleton camera for the blend
-	if CameraTransition.camera3D:
-		CameraTransition.camera3D.current = true
-		CameraTransition.camera3D.global_transform = _start_dynamic_transform()
-		CameraTransition.camera3D.fov = _transition_start_fov
+	var cam_transition = get_node_or_null("/root/CameraTransition")
+	if cam_transition and cam_transition.camera3D:
+		cam_transition.camera3D.current = true
+		cam_transition.camera3D.global_transform = _start_dynamic_transform()
+		cam_transition.camera3D.fov = _transition_start_fov
 
 	# Duration zero is used by OYS fast-forward and should cut immediately.
 	if _transition_duration <= 0.0:
-		if CameraTransition.camera3D and is_instance_valid(_transition_to_cam):
-			CameraTransition.camera3D.global_transform = _transition_to_cam.global_transform
-			CameraTransition.camera3D.fov = _transition_to_cam.fov
+		if cam_transition and cam_transition.camera3D and is_instance_valid(_transition_to_cam):
+			cam_transition.camera3D.global_transform = _transition_to_cam.global_transform
+			cam_transition.camera3D.fov = _transition_to_cam.fov
 		_finish_dynamic_transition()
 
 func _start_dynamic_transform() -> Transform:
@@ -553,9 +557,10 @@ func _update_dynamic_transition(dt: float) -> void:
 	if _transition_duration <= 0.0 or _transition_elapsed >= _transition_duration:
 		# Snap transition camera to the latest target pose before handoff to avoid
 		# a final-frame mismatch when the destination camera is moving with the player.
-		if is_instance_valid(_transition_to_cam) and CameraTransition.camera3D:
-			CameraTransition.camera3D.global_transform = _transition_to_cam.global_transform
-			CameraTransition.camera3D.fov = _transition_to_cam.fov
+		var cam_transition = get_node_or_null("/root/CameraTransition")
+		if is_instance_valid(_transition_to_cam) and cam_transition and cam_transition.camera3D:
+			cam_transition.camera3D.global_transform = _transition_to_cam.global_transform
+			cam_transition.camera3D.fov = _transition_to_cam.fov
 		_finish_dynamic_transition()
 		return
 
@@ -563,18 +568,20 @@ func _update_dynamic_transition(dt: float) -> void:
 	# Ease InOut Cubic
 	t = -0.5 * (cos(PI * t) - 1)
 
-	if is_instance_valid(_transition_to_cam) and CameraTransition.camera3D:
+	var cam_transition = get_node_or_null("/root/CameraTransition")
+	if is_instance_valid(_transition_to_cam) and cam_transition and cam_transition.camera3D:
 		# Interpolate from Fixed Start to Moving Target
 		var target_tx = _transition_to_cam.global_transform
 		var target_fov = _transition_to_cam.fov
 		var new_tx = _transition_start_transform.interpolate_with(target_tx, t)
 		var new_fov = lerp(_transition_start_fov, target_fov, t)
-		CameraTransition.camera3D.global_transform = new_tx
-		CameraTransition.camera3D.fov = new_fov
+		cam_transition.camera3D.global_transform = new_tx
+		cam_transition.camera3D.fov = new_fov
 
 func _finish_dynamic_transition():
 	var target_cam: Camera = _transition_to_cam
-	var blend_cam: Camera = CameraTransition.camera3D if CameraTransition and is_instance_valid(CameraTransition.camera3D) else null
+	var cam_transition = get_node_or_null("/root/CameraTransition")
+	var blend_cam: Camera = cam_transition.camera3D if cam_transition and is_instance_valid(cam_transition.camera3D) else null
 	var purpose := _transition_purpose
 
 	_transition_active = false
