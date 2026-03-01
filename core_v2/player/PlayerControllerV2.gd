@@ -26,6 +26,9 @@ export(float) var min_pitch := -85.0
 export(float) var max_pitch := 85.0
 export(float) var interact_distance := 3.0
 export(float) var push_offset := 0.71 # Relaxed to 0.71m to close visual gap (User Request).
+export(bool) var enable_auto_align := true
+export(float) var auto_align_speed := 2.0
+export(float) var auto_align_delay := 1.0
 export(bool) var enable_cinematic_zoom := true
 export(float) var cinematic_zoom_speed := 1.0
 export(float) var cinematic_zoom_lerp_speed := 8.0
@@ -892,13 +895,22 @@ func step(dt: float, input: InputDataV2) -> void:
 		# Only update orbit if NOT in a camera zone (or if using FREE mode inside a zone)
 		var active_zone_mode = CinematicManager.get_control_mode()
 		if active_zone_mode == CinematicManager.ControlMode.FREE:
-			if input and input.mouse_delta:
+			if input:
 				movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
-				# If mouse_delta exists, apply it directly; hardware input outside captured mode already produces zero delta.
+				# Apply hardware input directly
 				yaw -= input.mouse_delta.x * mouse_sensitivity
 				var mouse_y = - input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
 				pitch -= mouse_y * mouse_sensitivity
 				yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
+				
+				# Auto-align camera behind player if strafing without mouse input
+				if enable_auto_align and not movement_logic.is_tank_turn_mode:
+					if movement_logic.camera_input_timer > auto_align_delay:
+						var wish_dir = movement_logic.wish_direction
+						if wish_dir.length_squared() > 0.5:
+							var target_yaw = atan2(-wish_dir.x, -wish_dir.z)
+							yaw = lerp_angle(yaw, target_yaw, auto_align_speed * dt)
+							
 			pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
 
 		var active_cam = CinematicManager.get_active_camera()

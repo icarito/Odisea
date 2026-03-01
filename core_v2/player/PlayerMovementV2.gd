@@ -19,8 +19,7 @@ export(Curve) var tank_turn_curve
 export(float) var tank_turn_ramp_time := 0.5
 export(Curve) var move_response_curve
 export(Curve) var camera_response_curve
-export(float) var strafe_turn_multiplier := 0.4
-export(float) var strafe_speed_multiplier := 0.6
+export(float, 0.0, 1.0) var tank_strafe_blend := 0.5 # 0.0 = pure strafe, 1.0 = pure tank turn
 
 # Slope Handling (inspired by Terrestrial Characters)
 export(float, 0, 90) var floor_max_angle_degrees := 45.0
@@ -132,15 +131,12 @@ func get_tank_yaw_delta(dt: float, move_vec: Vector2) -> float:
 		if tank_turn_curve and tank_turn_ramp_time > 0:
 			speed_factor = tank_turn_curve.interpolate(current_turn_time / tank_turn_ramp_time)
 			
-		var multiplier = 1.0
-		# Invert rotation direction when moving backward (move_vec.y < 0)
-		if move_vec.y < -0.01:
-			multiplier = -1.0
-		elif abs(move_vec.y) < 0.01:
-			# If strafing (no forward/backward), turn slower and don't invert
-			multiplier = strafe_turn_multiplier
+		var multiplier = -1.0
+		# Invert rotation direction when moving backward
+		if move_vec.y > 0.01:
+			multiplier = 1.0
 			
-		return move_vec.x * tank_turn_speed * speed_factor * dt * multiplier
+		return move_vec.x * tank_turn_speed * speed_factor * tank_strafe_blend * dt * multiplier
 	
 	current_turn_time = 0.0
 	return 0.0
@@ -178,14 +174,11 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 	
 	var right = basis.x
 	
-	var _lateral_input = 0.0
-	if not is_tank_turn_mode:
-		_lateral_input = move_vec.x
-	elif abs(move_vec.y) < 0.01:
-		# If in tank mode and NOT moving forward/backward, allow slow strafing
-		_lateral_input = move_vec.x * strafe_speed_multiplier
+	var lateral_input = move_vec.x
+	if is_tank_turn_mode:
+		lateral_input = move_vec.x * (1.0 - tank_strafe_blend)
 		
-	var wish_dir = forward * (-move_vec.y) + right * move_vec.x
+	var wish_dir = forward * (-move_vec.y) + right * lateral_input
 	wish_direction = wish_dir.normalized() if wish_dir.length_squared() > 0.0 else Vector3.ZERO
 	wish_dir = wish_direction * target_speed
 	
