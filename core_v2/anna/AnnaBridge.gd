@@ -5,7 +5,7 @@ const MAX_READ_BYTES_PER_TICK = 16384
 const RL_UNCAPPED_PHYSICS_FPS = 2000
 const RL_MAX_PHYSICS_FPS_HARD_CAP = 10000
 const RL_DEFAULT_POLL_SLEEP_USEC = 1000
-const RL_BINARY_OBS_FLOATS = 13 # 12 obs + reward
+const RL_BINARY_OBS_FLOATS = 13 # 13 obs + reward
 const RL_BINARY_OBS_SIZE = RL_BINARY_OBS_FLOATS * 4 + 1 # + done byte
 const MCP_RESULT_TYPE = "mcp_result"
 const MCP_ERROR_TYPE = "mcp_error"
@@ -178,6 +178,10 @@ func _physics_process(_delta):
 				_rl_peer_states.erase(pid)
 		_peers = active_peers
 		_maybe_exit_rl_on_disconnect()
+		
+	# Native ONNX Inference Hook (Offline Mode)
+	if is_rl_mode and _peers.empty() and not _rl_exit_on_disconnect:
+		_run_native_onnx_inference()
 
 func _exit_tree():
 	for peer in _peers:
@@ -570,7 +574,7 @@ func _send_rl_binary_observation(peer: StreamPeerTCP, data: Dictionary):
 	var obs_array: Array = obs_raw if typeof(obs_raw) == TYPE_ARRAY else []
 	var stream := StreamPeerBuffer.new()
 	stream.big_endian = true
-	for i in range(12):
+	for i in range(13):
 		var v := 0.0
 		if i < obs_array.size():
 			v = float(obs_array[i])
@@ -830,3 +834,73 @@ func _quit_runtime_after_disconnect() -> void:
 	var tree = get_tree()
 	if tree:
 		tree.quit()
+
+# --- NATIVE ONNX INFERENCE ---
+var _onnx_model = null
+var _onnx_initialized := false
+var _onnx_model_path := ""
+
+func _init_onnx_model():
+	if _onnx_initialized:
+		return
+	_onnx_initialized = true
+	var path = OS.get_environment("ANNA_ONNX_MODEL")
+	if path.strip_edges() == "":
+		return
+	_onnx_model_path = path
+
+	if not File.new().file_exists(_onnx_model_path):
+		printerr("[ANNA] ONNX model not found at: ", _onnx_model_path)
+		return
+
+	print("[ANNA] Initializing native ONNX inference with model: ", _onnx_model_path)
+	var onnx_wrapper = load("res://addons/godot_rl_agents/onnx/wrapper/ONNX_wrapper.gd")
+	if onnx_wrapper == null:
+		printerr("[ANNA] Failed to load ONNX_wrapper.gd. Ensure godot_rl_agents is installed.")
+		return
+		
+	# Batch size is 1 for single-agent inference
+	_onnx_model = onnx_wrapper.new(_onnx_model_path, 1)
+
+func _run_native_onnx_inference():
+	if not _onnx_initialized:
+		_init_onnx_model()
+		
+	if _onnx_model == null:
+		return
+		
+	# Collect Observation
+	var t0 = OS.get_ticks_usec()
+	var obs_dict = _interface.get_rl_observation()
+	var raw_obs = obs_dict.get("obs", [])
+	var state_ins = 0 # Ignored by this model, but required by API
+	
+	# Pass to Godot-RL-Agents ONNX Wrapper (C# invocation)
+	var t1 = OS.get_ticks_usec()
+	var result = _onnx_model.run_inference(raw_obs, state_ins)
+	var t2 = OS.get_ticks_usec()
+	
+	if typeof(result) != TYPE_DICTIONARY or not result.has("output"):
+		# Silent fail, wait for python maybe?
+		return
+		
+	# Extract action tensor
+	var output_tensor = result["output"]
+	var best_action = 0
+	var best_val = - INF
+	for i in range(output_tensor.size()):
+		if output_tensor[i] > best_val:
+			best_val = output_tensor[i]
+			best_action = i
+			
+	# Apply Action
+	var t3 = OS.get_ticks_usec()
+	_interface.apply_rl_action(best_action)
+	var t4 = OS.get_ticks_usec()
+	
+	_rl_profile_add(
+		t1 - t0, # Obs Us
+		0, # No network send
+		t2 - t1, # Wait Us (Inference Time)
+		t4 - t3 # Apply Us
+	)
