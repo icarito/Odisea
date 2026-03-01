@@ -377,6 +377,13 @@ func hard_reset():
 		if tree:
 			tree.active = false
 			tree.active = true
+			
+		# Devolver el control al jugador restaurando hardware_input y apagando replay_mode
+		player.is_replay_mode = false
+		if "input_provider" in player and is_instance_valid(player.input_provider):
+			player.input_provider.hardware_input_enabled = true
+		if player.has_method("force_camera_current"):
+			player.force_camera_current()
 	
 	# 5. Resetear escala de tiempo
 	Engine.time_scale = 1.0

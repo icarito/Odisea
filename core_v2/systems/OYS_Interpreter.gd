@@ -140,9 +140,10 @@ func run(start_section: String = ""):
 
 	if my_id == execution_id:
 		is_running = false
-		var session = host_node.get_node_or_null("/root/SessionManager")
-		if session and is_instance_valid(session):
-			session.set("_oys_input_override", {})
+		if is_instance_valid(host_node) and host_node.is_inside_tree():
+			var session = host_node.get_node_or_null("/root/SessionManager")
+			if session and is_instance_valid(session):
+				session.set("_oys_input_override", {})
 
 # Ejecutar desde un program counter específico (para hot-reload con checkpoints)
 func request_fast_forward():
@@ -182,9 +183,10 @@ func run_from_pc(from_pc: int):
 
 	if my_id == execution_id:
 		is_running = false
-		var session = host_node.get_node_or_null("/root/SessionManager")
-		if session and is_instance_valid(session):
-			session.set("_oys_input_override", {})
+		if is_instance_valid(host_node) and host_node.is_inside_tree():
+			var session = host_node.get_node_or_null("/root/SessionManager")
+			if session and is_instance_valid(session):
+				session.set("_oys_input_override", {})
 
 func _execute_instruction(inst: Dictionary, my_id: int):
 	var cmd = inst.command
@@ -547,10 +549,10 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		"PRINT":
 			var message = inst.get("message", "")
 			message = _substitute_variables(message)
-			if not fast_forward:
-				print("[OYS PRINT] ", message)
+			print("[OYS PRINT] ", message)
 			_log_to_console("OYS", message)
-			_show_subtitle(message, Color.white, 2.5)
+			if not fast_forward:
+				_show_subtitle(message, Color.white, 2.5)
 
 		"LOG":
 			var tag = inst.get("tag", "OYS")
