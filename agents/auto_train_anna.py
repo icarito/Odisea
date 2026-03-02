@@ -668,6 +668,12 @@ def _evaluate(
     forward_fraction = (
         sum(action_hist[a] for a in (1, 2, 3)) / float(total_steps) if total_steps > 0 else 1.0
     )
+    jump_fraction = (
+        sum(action_hist[a] for a in (3, 6, 7)) / float(total_steps) if total_steps > 0 else 0.0
+    )
+    strafe_fraction = (
+        sum(action_hist[a] for a in (4, 5, 6, 7)) / float(total_steps) if total_steps > 0 else 0.0
+    )
 
     # Composite directional quality score: prioritize reducing angle and avoiding action collapse.
     direction_score = (
@@ -708,6 +714,8 @@ def _evaluate(
         "turn_activity": activity,
         "max_action_fraction": max_action_fraction,
         "forward_fraction": forward_fraction,
+        "jump_fraction": jump_fraction,
+        "strafe_fraction": strafe_fraction,
         "direction_score": direction_score,
         "collapse_forward": 1.0 if collapse_forward else 0.0,
         "policy_top1_prob": avg_top1_prob,
@@ -739,6 +747,7 @@ def _format_live_metrics(metrics: Dict[str, float]) -> str:
     return (
         "success={success:.3f} fast={fast:.3f} dir={dir:.3f} wall={wall:.3f} "
         "dist={dist:.2f} min_dist={min_dist:.2f} speed={speed:.2f} "
+        "jump={jump:.3f} strafe={strafe:.3f} "
         "pred={pred:.3f} top1={top1:.3f} ent={ent:.3f} v_corr={vcorr:.3f} v_mae={vmae:.3f}"
     ).format(
         success=float(metrics.get("success_rate", 0.0)),
@@ -748,6 +757,8 @@ def _format_live_metrics(metrics: Dict[str, float]) -> str:
         dist=float(metrics.get("avg_target_dist", 0.0)),
         min_dist=float(metrics.get("min_target_dist", 0.0)),
         speed=float(metrics.get("avg_speed", 0.0)),
+        jump=float(metrics.get("jump_fraction", 0.0)),
+        strafe=float(metrics.get("strafe_fraction", 0.0)),
         pred=float(metrics.get("predictive_capacity", 0.0)),
         top1=float(metrics.get("policy_top1_prob", 0.0)),
         ent=float(metrics.get("policy_entropy_norm", 0.0)),

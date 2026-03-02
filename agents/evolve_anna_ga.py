@@ -96,7 +96,7 @@ def _parse_args() -> argparse.Namespace:
 def _gene_space() -> Dict[str, List[Any]]:
     return {
         "learning_rate": [2.5e-4, 3e-4, 4e-4, 5e-4],
-        "entropy_coef": [0.02, 0.025, 0.03],
+        "entropy_coef": [0.025, 0.03, 0.035, 0.04],
         # Throughput-biased PPO settings: larger rollout/update chunk,
         # fewer optimizer updates per wall-clock second.
         "ppo_n_steps": [4096],
@@ -132,6 +132,12 @@ def _fitness(
     wall_clear = float(metrics.get("wall_clear_ratio", 0.0))
     speed = float(metrics.get("speed_score", 0.0))
     collapse = float(metrics.get("collapse_forward", 1.0))
+    max_action_fraction = float(metrics.get("max_action_fraction", 1.0))
+    forward_fraction = float(metrics.get("forward_fraction", 1.0))
+    jump_fraction = float(metrics.get("jump_fraction", 0.0))
+    entropy_norm = float(metrics.get("policy_entropy_norm", 0.0))
+    turn_activity = float(metrics.get("turn_activity", 0.0))
+    stage_progress = float(metrics.get("stage_progress", 0.0))
     avg_success_len = float(metrics.get("avg_success_len", 1e9))
     avg_target_dist = float(metrics.get("avg_target_dist", 50.0))
     min_target_dist = float(metrics.get("min_target_dist", avg_target_dist))
@@ -140,6 +146,8 @@ def _fitness(
     len_bonus = max(0.0, 1.0 - min(1.0, avg_success_len / 1500.0))
     prox = max(0.0, 1.0 - min(1.0, avg_target_dist / 25.0))
     min_prox = max(0.0, 1.0 - min(1.0, min_target_dist / 12.0))
+    action_diversity = max(0.0, 1.0 - max_action_fraction)
+    turn_activity_score = min(1.0, max(0.0, turn_activity / 0.01))
     base = (
         success * 1000.0
         + fast_success * 120.0
@@ -149,8 +157,37 @@ def _fitness(
         + direction * 60.0
         + wall_clear * 25.0
         + speed * 15.0
-        - collapse * 100.0
+        + action_diversity * 90.0
+        + entropy_norm * 35.0
+        + turn_activity_score * 25.0
+        - collapse * 140.0
     )
+
+    # Anti-collapse penalties: reject "always same action" policies even if reward looks good.
+    if max_action_fraction >= 0.985:
+        base -= 220.0
+    elif max_action_fraction >= 0.95:
+        base -= 120.0
+    if forward_fraction >= 0.98 and max_action_fraction >= 0.90:
+        base -= 120.0
+    if entropy_norm < 0.45:
+        base -= (0.45 - entropy_norm) * 220.0
+    if turn_activity < 0.0012:
+        base -= 50.0
+
+    # Stage4+ requires reliable jumping. Penalize no-jump and over-jump collapse.
+    if stage_progress >= 4.0:
+        if jump_fraction < 0.015:
+            base -= (0.015 - jump_fraction) * 10000.0
+        elif jump_fraction > 0.45:
+            base -= (jump_fraction - 0.45) * 450.0
+        jump_target = 0.11
+        jump_band = 0.11
+        jump_centered = max(0.0, 1.0 - abs(jump_fraction - jump_target) / jump_band)
+        base += jump_centered * 35.0
+        if max_action_fraction >= 0.94 and jump_fraction < 0.01:
+            base -= 120.0
+
     if model_mb <= 0.0 or target_model_mb <= 0.0 or model_size_weight <= 0.0:
         return base
     diff = abs(float(model_mb) - float(target_model_mb))
