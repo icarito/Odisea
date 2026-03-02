@@ -2395,7 +2395,7 @@
     "position": [
       0.000664,
       0.0415,
-      1.617933
+      1.617934
     ],
     "velocity": [
       0,
@@ -2416,7 +2416,7 @@
         0,
         0
       ],
-      "camera_input_timer": 0,
+      "camera_input_timer": 1.733333,
       "is_tank_turn_mode": true,
       "current_turn_time": 0
     },

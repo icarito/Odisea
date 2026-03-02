@@ -1843,22 +1843,22 @@
   },
   "final_expected_state": {
     "position": [
-      2.625163,
+      2.628529,
       2.6915,
-      -0.452732
+      -0.47463
     ],
     "velocity": [
       2.083333,
       -0.766667,
       0
     ],
-    "yaw": 0,
+    "yaw": -0.92502,
     "pitch": 0,
     "base_spring_length_3d": 5,
     "movement_state": {
       "horizontal_velocity": [
         2.083333,
-        0.000011,
+        0.000002,
         0
       ],
       "external_velocity": [
@@ -1866,7 +1866,7 @@
         0,
         0
       ],
-      "camera_input_timer": 0,
+      "camera_input_timer": 1.633333,
       "is_tank_turn_mode": true,
       "current_turn_time": 0
     },

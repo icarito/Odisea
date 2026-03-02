@@ -1,0 +1,19 @@
+SECTION "Reverse_Turn_Test"
+    PRINT "Starting Tank Turn Reverse Test"
+    
+    # Move forward and turn right
+    FW 1.0s
+    RIGHT 90
+    WAIT 0.5
+    SCREENSHOT "forward_right"
+    PRINT "Turned right while moving forward"
+    
+    # Move backward and turn right
+    BW 1.0s
+    RIGHT 90
+    WAIT 0.5
+    SCREENSHOT "backward_right"
+    PRINT "Turned right while moving backward"
+    
+    PRINT "Test completed. Check results visually or via camera alignment."
+END

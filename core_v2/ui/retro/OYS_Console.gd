@@ -328,32 +328,35 @@ func _execute_line(line: String, alias_depth: int) -> void:
 	emit_signal("command_executed", line, ok, msg)
 
 func _register_builtin_commands() -> void:
-	register_command("help", self, "_cmd_help", "Muestra ayuda.", "help [comando]")
-	register_command("clear", self, "_cmd_clear", "Limpia salida.", "clear")
-	register_command("history", self, "_cmd_history", "Muestra historial.", "history")
-	register_command("echo", self, "_cmd_echo", "Imprime texto.", "echo <mensaje>")
-	register_command("fastfetch", self, "_cmd_fastfetch", "Muestra resumen del sistema OdiseaOS.", "fastfetch")
-	register_command("pwd", self, "_cmd_pwd", "Muestra directorio actual VFS.", "pwd")
-	register_command("ls", self, "_cmd_ls", "Lista entradas VFS.", "ls [ruta|glob]")
-	register_command("cd", self, "_cmd_cd", "Cambia directorio VFS.", "cd [ruta]")
-	register_command("cat", self, "_cmd_cat", "Muestra script o propiedades de nodo.", "cat <ruta>")
-	register_command("cp", self, "_cmd_cp", "Clona un nodo.", "cp <origen> [destino]")
-	register_command("rm", self, "_cmd_rm", "Elimina un nodo.", "rm <ruta>")
-	register_command("mv", self, "_cmd_mv", "Reasigna nodo a nuevo padre.", "mv <origen> <nuevo_padre>")
-	register_command("cvars", self, "_cmd_cvars", "Lista cvars.", "cvars")
-	register_command("set", self, "_cmd_set", "Asigna cvar.", "set <cvar> <valor>")
-	register_command("get", self, "_cmd_get", "Lee cvar.", "get <cvar>")
-	register_command("exec", self, "_cmd_exec", "Ejecuta .cfg.", "exec <script.cfg>")
-	register_command("bind", self, "_cmd_bind", "Asocia tecla/comando.", "bind <tecla> <comando>")
-	register_command("alias", self, "_cmd_alias", "Crea alias.", "alias <nombre> <comando>")
-	register_command("filter", self, "_cmd_filter", "Filtra por canal.", "filter <AI|SYS|CORE|WARN|ERR|off>")
-	register_command("run", self, "_cmd_run", "Ejecuta script OYS.", "run <archivo.oys>")
-	register_command("quit", self, "_cmd_quit", "Cierra la holoterminal.", "quit")
+	register_command("help", self , "_cmd_help", "Muestra ayuda.", "help [comando]")
+	register_command("clear", self , "_cmd_clear", "Limpia salida.", "clear")
+	register_command("history", self , "_cmd_history", "Muestra historial.", "history")
+	register_command("echo", self , "_cmd_echo", "Imprime texto.", "echo <mensaje>")
+	register_command("fastfetch", self , "_cmd_fastfetch", "Muestra resumen del sistema OdiseaOS.", "fastfetch")
+	register_command("pwd", self , "_cmd_pwd", "Muestra directorio actual VFS.", "pwd")
+	register_command("ls", self , "_cmd_ls", "Lista entradas VFS.", "ls [ruta|glob]")
+	register_command("cd", self , "_cmd_cd", "Cambia directorio VFS.", "cd [ruta]")
+	register_command("cat", self , "_cmd_cat", "Muestra script o propiedades de nodo.", "cat <ruta>")
+	register_command("cp", self , "_cmd_cp", "Clona un nodo.", "cp <origen> [destino]")
+	register_command("rm", self , "_cmd_rm", "Elimina un nodo.", "rm <ruta>")
+	register_command("mv", self , "_cmd_mv", "Reasigna nodo a nuevo padre.", "mv <origen> <nuevo_padre>")
+	register_command("cvars", self , "_cmd_cvars", "Lista cvars.", "cvars")
+	register_command("set", self , "_cmd_set", "Asigna cvar.", "set <cvar> <valor>")
+	register_command("get", self , "_cmd_get", "Lee cvar.", "get <cvar>")
+	register_command("exec", self , "_cmd_exec", "Ejecuta .cfg.", "exec <script.cfg>")
+	register_command("bind", self , "_cmd_bind", "Asocia tecla/comando.", "bind <tecla> <comando>")
+	register_command("alias", self , "_cmd_alias", "Crea alias.", "alias <nombre> <comando>")
+	register_command("filter", self , "_cmd_filter", "Filtra por canal.", "filter <AI|SYS|CORE|WARN|ERR|off>")
+	register_command("run", self , "_cmd_run", "Ejecuta script OYS.", "run <archivo.oys>")
+	register_command("calc", self , "_cmd_calc", "Abre la calculadora.", "calc")
+	register_command("nodescan", self , "_cmd_nodescan", "Abre el escaneador de nodos.", "nodescan")
+	register_command("joy_debug", self , "_cmd_joy_debug", "Debug controller buttons", "joy_debug")
+	register_command("quit", self , "_cmd_quit", "Cierra la holoterminal.", "quit")
 
 func _register_builtin_cvars() -> void:
-	register_cvar("allow_cheats", TYPE_BOOL, false, "Habilita comandos cheat.", null, null, FLAG_ARCHIVE, self, "_on_allow_cheats_changed")
-	register_cvar("console_read_only", TYPE_BOOL, false, "Modo solo lectura.", null, null, FLAG_ARCHIVE, self, "_on_read_only_changed")
-	register_cvar("sv_gravity", TYPE_REAL, -14.0, "Gravedad del salto.", -50.0, -1.0, FLAG_ARCHIVE, self, "_on_sv_gravity_changed")
+	register_cvar("allow_cheats", TYPE_BOOL, false, "Habilita comandos cheat.", null, null, FLAG_ARCHIVE, self , "_on_allow_cheats_changed")
+	register_cvar("console_read_only", TYPE_BOOL, false, "Modo solo lectura.", null, null, FLAG_ARCHIVE, self , "_on_read_only_changed")
+	register_cvar("sv_gravity", TYPE_REAL, -14.0, "Gravedad del salto.", -50.0, -1.0, FLAG_ARCHIVE, self , "_on_sv_gravity_changed")
 
 func _on_allow_cheats_changed(value) -> void:
 	allow_cheats = bool(value)
@@ -650,7 +653,7 @@ func _cmd_run(argv: Array, _raw: String) -> Dictionary:
 	_active_interpreters.append(interpreter)
 	var run_state = interpreter.run()
 	if run_state is GDScriptFunctionState:
-		run_state.connect("completed", self, "_on_oys_run_completed", [path, interpreter], CONNECT_ONESHOT)
+		run_state.connect("completed", self , "_on_oys_run_completed", [path, interpreter], CONNECT_ONESHOT)
 	else:
 		_on_oys_run_completed(path, interpreter)
 
@@ -662,6 +665,42 @@ func _cmd_quit(_argv: Array, _raw: String) -> Dictionary:
 	add_log("SYS", "Closing HoloTerminal...")
 	emit_signal("quit_requested")
 	return {"ok": true}
+
+func _cmd_calc(_argv: Array, _raw: String) -> Dictionary:
+	var desktop = _find_debug_overlay()
+	if desktop and desktop.has_method("_open_calc"):
+		desktop.call("_open_calc")
+		return {"ok": true}
+	return {"ok": false, "message": "DebugOverlay with _open_calc not found"}
+
+func _cmd_nodescan(_argv: Array, _raw: String) -> Dictionary:
+	var desktop = _find_debug_overlay()
+	if desktop and desktop.has_method("_open_nodescan"):
+		desktop.call("_open_nodescan")
+		return {"ok": true}
+	return {"ok": false, "message": "DebugOverlay with _open_nodescan not found"}
+
+func _cmd_joy_debug(_argv: Array, _raw: String) -> Dictionary:
+	add_log("SYS", "Joystick Debug Active. Press any button...")
+	var timer = get_tree().create_timer(10.0)
+	var count = 0
+	while timer.time_left > 0:
+		for i in range(20): # Check first 20 buttons
+			if Input.is_joy_button_pressed(0, i):
+				add_log("SYS", "Joy Button Pressed: %d" % i)
+				yield (get_tree().create_timer(0.2), "timeout") # avoid flood
+		yield (get_tree(), "idle_frame")
+	add_log("SYS", "Joystick Debug Ended.")
+	return {"ok": true}
+
+func _find_debug_overlay() -> Node:
+	var root = get_tree().root
+	if not root: return null
+	# Standard overlay path or search
+	var overlay = root.get_node_or_null("DebugOverlay")
+	if not overlay:
+		overlay = root.find_node("DebugOverlay", true, false)
+	return overlay
 
 func _push_history(line: String) -> void:
 	if line == "":
