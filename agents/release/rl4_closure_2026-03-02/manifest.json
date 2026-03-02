@@ -1,0 +1,58 @@
+{
+  "generated_at": "2026-03-02T07:02:44.389256",
+  "selection_criteria": "Sort by stage5_gate_best_success desc, then stage5_gate_passes desc, then best_score desc",
+  "shared_seed_base": "agents/release/rl4_closure_2026-03-02/models/shared_seed_best13d_rl2.zip",
+  "top_models": [
+    {
+      "gid": "fae3669a36f5",
+      "best_path": "agents/models/anna_ga_rl4_didactic_long_b_fae3669a36f5_best.zip",
+      "base_r1_path": "agents/models/anna_ga_rl4_didactic_long_b_fae3669a36f5_r1.zip",
+      "summary_path": null,
+      "run_log": "agents/runs/ga_rl4_didactic_long_b/fae3669a36f5.log",
+      "best_score": 5.3212,
+      "best_score_success_rate": 1.0,
+      "stage5_gate_best_success": 1.0,
+      "stage5_gate_passes": 1,
+      "stage5_gate_events": 1,
+      "best_score_line": "[auto_train_anna] round=1 score=5.3212 metrics={\"aligned_ratio\": 0.6991023339317773, \"avg_len\": 278.5, \"avg_reward\": 797.5580502057448, \"avg_speed\": 6.2190568467530705, \"avg_success_len\": 278.5, \"avg_target_dist\": 17.084881159639124, \"collapse_forward\": 0.0, \"direction_score\": 0.6587926365998511, \"fast_success_score\": 0.7679166666666667, \"forward_fraction\": 1.0, \"improve_ratio\": 0.9081632653061225, \"max_action_fraction\": 0.6872531418312388, \"min_target_dist\": 1.9074918702244759, \"policy_entropy\": 1.66340491138198, \"policy_entropy_norm\": 0.7999286722137094, \"policy_top1_prob\": 0.3134490985844679, \"predictive_capacity\": 0.18334407388476223, \"speed_score\": 0.8884366923932958, \"steps\": 2785.0, \"success_rate\": 1.0, \"turn_activity\": 0.0038382636286197914, \"value_mae\": 121.34693989472612, \"value_return_corr\": 0.11616366844873138, \"wall_clear_ratio\": 1.0, \"wall_touch_ratio\": 0.0}",
+      "copied_best": "agents/release/rl4_closure_2026-03-02/models/top1_fae3669a36f5_best.zip",
+      "copied_base_r1": "agents/release/rl4_closure_2026-03-02/models/top1_fae3669a36f5_base_r1.zip",
+      "copied_best_size_bytes": 482789,
+      "copied_base_r1_size_bytes": 482789
+    },
+    {
+      "gid": "93d772d1eff0",
+      "best_path": "agents/models/anna_ga_rl4_didactic_long_a_93d772d1eff0_best.zip",
+      "base_r1_path": "agents/models/anna_ga_rl4_didactic_long_a_93d772d1eff0_r1.zip",
+      "summary_path": "agents/models/anna_ga_rl4_didactic_long_a_93d772d1eff0_summary.json",
+      "run_log": "agents/runs/ga_rl4_didactic_long_a/93d772d1eff0.log",
+      "best_score": 5.3568,
+      "best_score_success_rate": 1.0,
+      "stage5_gate_best_success": 0.5,
+      "stage5_gate_passes": 1,
+      "stage5_gate_events": 1,
+      "best_score_line": "[auto_train_anna] round=1 score=5.3568 metrics={\"aligned_ratio\": 0.5930087390761548, \"avg_len\": 240.3, \"avg_reward\": 691.8706382252509, \"avg_speed\": 6.703058775293799, \"avg_success_len\": 240.3, \"avg_target_dist\": 15.22859824612842, \"collapse_forward\": 0.0, \"direction_score\": 0.563659838801348, \"fast_success_score\": 0.8283571428571428, \"forward_fraction\": 1.0, \"improve_ratio\": 0.8902439024390244, \"max_action_fraction\": 1.0, \"min_target_dist\": 1.8988652154803276, \"policy_entropy\": 1.6113993198832919, \"policy_entropy_norm\": 0.7749192692291579, \"policy_top1_prob\": 0.3381706423006403, \"predictive_capacity\": 0.2814892342911906, \"speed_score\": 0.9575798250419714, \"steps\": 2403.0, \"success_rate\": 1.0, \"turn_activity\": 0.004439369380424482, \"value_mae\": 105.01162437334341, \"value_return_corr\": 0.36407388483829084, \"wall_clear_ratio\": 1.0, \"wall_touch_ratio\": 0.0}",
+      "copied_best": "agents/release/rl4_closure_2026-03-02/models/top2_93d772d1eff0_best.zip",
+      "copied_base_r1": "agents/release/rl4_closure_2026-03-02/models/top2_93d772d1eff0_base_r1.zip",
+      "copied_best_size_bytes": 482789,
+      "copied_base_r1_size_bytes": 482789
+    },
+    {
+      "gid": "e07c49641388",
+      "best_path": "agents/models/anna_ga_rl4_didactic_long_a_e07c49641388_best.zip",
+      "base_r1_path": "agents/models/anna_ga_rl4_didactic_long_a_e07c49641388_r1.zip",
+      "summary_path": "agents/models/anna_ga_rl4_didactic_long_a_e07c49641388_summary.json",
+      "run_log": "agents/runs/ga_rl4_didactic_long_a/e07c49641388.log",
+      "best_score": 5.3757,
+      "best_score_success_rate": 1.0,
+      "stage5_gate_best_success": 0.0,
+      "stage5_gate_passes": 0,
+      "stage5_gate_events": 2,
+      "best_score_line": "[auto_train_anna] round=1 score=5.3757 metrics={\"aligned_ratio\": 0.4882837238758708, \"avg_len\": 197.375, \"avg_reward\": 558.8534459864313, \"avg_speed\": 6.45108935918279, \"avg_success_len\": 197.375, \"avg_target_dist\": 13.436155338040857, \"collapse_forward\": 0.0, \"direction_score\": 0.5703267174536159, \"fast_success_score\": 0.8590178571428572, \"forward_fraction\": 1.0, \"improve_ratio\": 0.9102564102564102, \"max_action_fraction\": 0.8866371120962635, \"min_target_dist\": 1.894879899919033, \"policy_entropy\": 1.608479591092405, \"policy_entropy_norm\": 0.7735151764800402, \"policy_top1_prob\": 0.3277109386310916, \"predictive_capacity\": 0.23597284636203822, \"speed_score\": 0.92158419416897, \"steps\": 1579.0, \"success_rate\": 1.0, \"turn_activity\": 0.0047903472865548895, \"value_mae\": 90.64409737703939, \"value_return_corr\": 0.24663019565010755, \"wall_clear_ratio\": 1.0, \"wall_touch_ratio\": 0.0}",
+      "copied_best": "agents/release/rl4_closure_2026-03-02/models/top3_e07c49641388_best.zip",
+      "copied_base_r1": "agents/release/rl4_closure_2026-03-02/models/top3_e07c49641388_base_r1.zip",
+      "copied_best_size_bytes": 482657,
+      "copied_base_r1_size_bytes": 482657
+    }
+  ]
+}

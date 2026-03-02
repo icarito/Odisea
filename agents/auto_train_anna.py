@@ -55,6 +55,18 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--cpu-threads", type=int, default=2)
     parser.add_argument("--num-envs", type=int, default=4, help="Parallel Godot envs for training stages.")
+    parser.add_argument(
+        "--stage-open-retries",
+        type=int,
+        default=3,
+        help="Retries when opening training stage envs fails (e.g. transient Godot startup timeout).",
+    )
+    parser.add_argument(
+        "--stage-open-retry-sleep",
+        type=float,
+        default=1.0,
+        help="Base sleep seconds between stage env open retries.",
+    )
     parser.add_argument("--ppo-n-steps", type=int, default=2048, help="PPO rollout steps per env.")
     parser.add_argument("--ppo-batch-size", type=int, default=2048, help="PPO batch size (throughput-sensitive).")
     parser.add_argument("--ppo-n-epochs", type=int, default=2, help="PPO epochs per update (lower = faster).")
@@ -367,10 +379,11 @@ def _prepare_imports(repo_root: Path):
     from stable_baselines3 import PPO  # type: ignore
     from stable_baselines3.common.monitor import Monitor  # type: ignore
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv  # type: ignore
+    from stable_baselines3.common.utils import get_schedule_fn  # type: ignore
     import numpy as np  # type: ignore
     import torch  # type: ignore
 
-    return AnnaGymEnv, PPO, Monitor, DummyVecEnv, SubprocVecEnv, np, torch
+    return AnnaGymEnv, PPO, Monitor, DummyVecEnv, SubprocVecEnv, get_schedule_fn, np, torch
 
 
 def _is_port_available(port: int) -> bool:
@@ -423,21 +436,45 @@ def _open_stage_env(
     scene: str,
     start_port: int,
     num_envs: int,
+    open_retries: int = 3,
+    retry_sleep_sec: float = 1.0,
 ):
-    env_fns = []
-    base_port = _find_available_port_block(int(start_port), max(1, int(num_envs)))
-    for idx in range(max(1, int(num_envs))):
-        env_fns.append(
-            _build_env_factory(
-                AnnaGymEnv=AnnaGymEnv,
-                Monitor=Monitor,
-                scene=scene,
-                port=base_port + idx,
+    env_count = max(1, int(num_envs))
+    attempts = max(1, int(open_retries))
+    base_sleep = max(0.1, float(retry_sleep_sec))
+    last_exc: Exception | None = None
+
+    for attempt in range(1, attempts + 1):
+        env_fns = []
+        port_hint = int(start_port) + (attempt - 1) * 20
+        try:
+            base_port = _find_available_port_block(port_hint, env_count)
+            for idx in range(env_count):
+                env_fns.append(
+                    _build_env_factory(
+                        AnnaGymEnv=AnnaGymEnv,
+                        Monitor=Monitor,
+                        scene=scene,
+                        port=base_port + idx,
+                    )
+                )
+            if len(env_fns) > 1:
+                return SubprocVecEnv(env_fns, start_method="spawn")
+            return DummyVecEnv(env_fns)
+        except Exception as exc:
+            last_exc = exc
+            if attempt >= attempts:
+                break
+            wait_s = base_sleep * float(attempt)
+            print(
+                "[auto_train_anna] stage env open retry %d/%d scene=%s reason=%s wait=%.2fs"
+                % (attempt, attempts, scene, str(exc), wait_s)
             )
-        )
-    if len(env_fns) > 1:
-        return SubprocVecEnv(env_fns, start_method="spawn")
-    return DummyVecEnv(env_fns)
+            time.sleep(wait_s)
+
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("Failed to open stage env for scene=%s" % scene)
 
 
 def _to_scene_path(repo_root: Path, scene: str) -> str:
@@ -729,7 +766,7 @@ def main() -> int:
     )
 
     repo_root = Path(__file__).resolve().parents[1]
-    AnnaGymEnv, PPO, Monitor, DummyVecEnv, SubprocVecEnv, np, torch = _prepare_imports(repo_root)
+    AnnaGymEnv, PPO, Monitor, DummyVecEnv, SubprocVecEnv, get_schedule_fn, np, torch = _prepare_imports(repo_root)
     stages = _build_train_stages(repo_root, args)
     stage_round_steps = {
         "stage1": _parse_round_steps(args.stage1_round_steps),
@@ -893,6 +930,8 @@ def main() -> int:
                     scene=stage_scene,
                     start_port=stage_port,
                     num_envs=max(1, int(args.num_envs)),
+                    open_retries=max(1, int(args.stage_open_retries)),
+                    retry_sleep_sec=float(args.stage_open_retry_sleep),
                 )
                 try:
                     if model is None:
@@ -907,8 +946,13 @@ def main() -> int:
                                     print_system_info=False,
                                 )
                                 # Keep GA-selected optimization knobs even when warm-starting weights.
+                                lr_value = float(args.learning_rate)
                                 model.ent_coef = float(args.entropy_coef)
-                                model.learning_rate = float(args.learning_rate)
+                                model.learning_rate = lr_value
+                                model.lr_schedule = get_schedule_fn(lr_value)
+                                if hasattr(model, "policy") and hasattr(model.policy, "optimizer"):
+                                    for param_group in model.policy.optimizer.param_groups:
+                                        param_group["lr"] = lr_value
                             except Exception as exc:
                                 print("[auto_train_anna] warm start failed (%s), falling back to fresh init." % str(exc))
                                 model = None

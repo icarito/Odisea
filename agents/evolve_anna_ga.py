@@ -54,6 +54,8 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--eval-episodes", type=int, default=20)
     p.add_argument("--eval-max-steps", type=int, default=1500)
     p.add_argument("--rl-max-steps", type=int, default=1500)
+    p.add_argument("--stage-open-retries", type=int, default=3)
+    p.add_argument("--stage-open-retry-sleep", type=float, default=1.0)
     p.add_argument("--live-report-steps", type=int, default=4000, help="Live telemetry chunk size passed to auto_train_anna.")
     p.add_argument("--live-eval-episodes", type=int, default=1, help="Quick eval episodes per live telemetry chunk.")
     p.add_argument("--live-eval-max-steps", type=int, default=300, help="Quick eval max steps per live telemetry chunk.")
@@ -61,7 +63,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--eval-physics-fps", type=int, default=60, help="Evaluation physics FPS passed to auto_train_anna.")
     p.add_argument("--scene-stage1", default="core_v2/tests/TestScene_RL.tscn")
     p.add_argument("--scene-stage2", default="core_v2/tests/TestScene_RL_2.tscn")
-    p.add_argument("--scene-stage3", default="core_v2/tests/TestScene_RL_3_Door.tscn")
+    p.add_argument("--scene-stage3", default="core_v2/tests/TestScene_RL_3.tscn")
     p.add_argument("--scene-stage4", default="core_v2/tests/TestScene_RL_3_Door.tscn")
     p.add_argument("--scene-stage5", default="core_v2/tests/TestScene_RL_4_TwoFloorRoom.tscn")
     p.add_argument("--timesteps-stage4", type=int, default=28000)
@@ -95,8 +97,10 @@ def _gene_space() -> Dict[str, List[Any]]:
     return {
         "learning_rate": [2.5e-4, 3e-4, 4e-4, 5e-4],
         "entropy_coef": [0.02, 0.025, 0.03],
-        "ppo_n_steps": [2048],
-        "ppo_batch_size": [1024, 2048],
+        # Throughput-biased PPO settings: larger rollout/update chunk,
+        # fewer optimizer updates per wall-clock second.
+        "ppo_n_steps": [4096],
+        "ppo_batch_size": [4096],
         "ppo_n_epochs": [1],
         "timesteps_stage1": [8000, 10000, 12000],
         "timesteps_stage2": [12000, 14000, 16000],
@@ -288,6 +292,10 @@ def _build_cmd(
         str(args.eval_physics_fps),
         "--rl-max-steps",
         str(args.rl_max_steps),
+        "--stage-open-retries",
+        str(max(1, int(args.stage_open_retries))),
+        "--stage-open-retry-sleep",
+        str(max(0.1, float(args.stage_open_retry_sleep))),
         "--live-report-steps",
         str(args.live_report_steps),
         "--live-eval-episodes",
