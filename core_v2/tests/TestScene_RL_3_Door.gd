@@ -72,7 +72,7 @@ func _get_stage_max_steps() -> int:
 	if env.is_valid_integer():
 		return int(max(100, int(env)))
 	if _didactic_mode:
-		return max(STAGE_MAX_STEPS, 1600)
+		return int(max(STAGE_MAX_STEPS, 1600))
 	return STAGE_MAX_STEPS
 
 func _ensure_randomizer() -> void:
