@@ -49,6 +49,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--mutation-boost", type=float, default=0.10)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--cpu-threads", type=int, default=8)
+    p.add_argument("--num-envs", type=int, default=1)
     p.add_argument("--parallel-jobs", type=int, default=1)
     p.add_argument("--eval-episodes", type=int, default=20)
     p.add_argument("--eval-max-steps", type=int, default=1500)
@@ -61,8 +62,24 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--scene-stage1", default="core_v2/tests/TestScene_RL.tscn")
     p.add_argument("--scene-stage2", default="core_v2/tests/TestScene_RL_2.tscn")
     p.add_argument("--scene-stage3", default="core_v2/tests/TestScene_RL_3_Door.tscn")
+    p.add_argument("--scene-stage4", default="core_v2/tests/TestScene_RL_3_Door.tscn")
+    p.add_argument("--scene-stage5", default="core_v2/tests/TestScene_RL_4_TwoFloorRoom.tscn")
+    p.add_argument("--timesteps-stage4", type=int, default=28000)
+    p.add_argument("--timesteps-stage5", type=int, default=34000)
     p.add_argument("--rounds", type=int, default=3)
     p.add_argument("--min-rounds", type=int, default=3)
+    p.add_argument("--arch-limit", type=int, default=3)
+    p.add_argument("--max-model-mb", type=float, default=1.00)
+    p.add_argument("--target-model-mb", type=float, default=0.60)
+    p.add_argument("--model-size-weight", type=float, default=80.0)
+    p.add_argument("--success-target", type=float, default=0.45)
+    p.add_argument("--direction-target", type=float, default=0.68)
+    p.add_argument("--fast-success-target", type=float, default=0.45)
+    p.add_argument("--stage-unlock-target", type=float, default=0.55)
+    p.add_argument("--stage-growth", type=float, default=0.18)
+    p.add_argument("--max-stage-scale", type=float, default=1.8)
+    p.add_argument("--init-model", default="", help="Optional PPO .zip used to warm-start each candidate.")
+    p.add_argument("--port-base", type=int, default=5000)
     p.add_argument("--output-prefix", default="agents/models/anna_ga")
     p.add_argument("--work-dir", default="agents/runs/ga")
     p.add_argument("--python-bin", default=".venv/bin/python", help="Path to python executable.")
@@ -76,17 +93,17 @@ def _parse_args() -> argparse.Namespace:
 
 def _gene_space() -> Dict[str, List[Any]]:
     return {
-        "learning_rate": [3e-4, 5e-4, 7e-4, 1e-3],
-        "entropy_coef": [0.01, 0.015, 0.02, 0.03],
+        "learning_rate": [2.5e-4, 3e-4, 4e-4, 5e-4],
+        "entropy_coef": [0.02, 0.025, 0.03],
         "ppo_n_steps": [2048],
-        "ppo_batch_size": [2048],
+        "ppo_batch_size": [1024, 2048],
         "ppo_n_epochs": [1],
-        "timesteps_stage1": [4000, 8000],
-        "timesteps_stage2": [8000, 12000],
-        "timesteps_stage3": [12000, 16000, 24000],
-        "policy_widths": ["64", "96"],
-        "policy_depths": ["1"],
-        "wall_contact_max": [0.20, 0.25, 0.30],
+        "timesteps_stage1": [8000, 10000, 12000],
+        "timesteps_stage2": [12000, 14000, 16000],
+        "timesteps_stage3": [18000, 22000, 24000],
+        "policy_widths": ["112,128,144", "128,144"],
+        "policy_depths": ["2"],
+        "wall_contact_max": [0.18, 0.22, 0.26],
     }
 
 
@@ -99,7 +116,12 @@ def _stable_gene_id(genes: Dict[str, Any]) -> str:
     return hashlib.sha1(payload).hexdigest()[:12]
 
 
-def _fitness(metrics: Dict[str, float]) -> float:
+def _fitness(
+    metrics: Dict[str, float],
+    model_mb: float,
+    target_model_mb: float,
+    model_size_weight: float,
+) -> float:
     success = float(metrics.get("success_rate", 0.0))
     fast_success = float(metrics.get("fast_success_score", 0.0))
     direction = float(metrics.get("direction_score", 0.0))
@@ -114,7 +136,7 @@ def _fitness(metrics: Dict[str, float]) -> float:
     len_bonus = max(0.0, 1.0 - min(1.0, avg_success_len / 1500.0))
     prox = max(0.0, 1.0 - min(1.0, avg_target_dist / 25.0))
     min_prox = max(0.0, 1.0 - min(1.0, min_target_dist / 12.0))
-    return (
+    base = (
         success * 1000.0
         + fast_success * 120.0
         + len_bonus * 80.0
@@ -125,6 +147,34 @@ def _fitness(metrics: Dict[str, float]) -> float:
         + speed * 15.0
         - collapse * 100.0
     )
+    if model_mb <= 0.0 or target_model_mb <= 0.0 or model_size_weight <= 0.0:
+        return base
+    diff = abs(float(model_mb) - float(target_model_mb))
+    # Soft preference for ~target size without overriding task success.
+    size_term = -float(model_size_weight) * diff
+    if diff <= 0.08:
+        size_term += 12.0
+    return base + size_term
+
+
+def _select_progress_metrics(summary: Dict[str, Any]) -> Dict[str, float]:
+    history = summary.get("history", []) or []
+    if not isinstance(history, list) or not history:
+        return dict(summary.get("best_metrics", {}) or {})
+
+    def _key(item: Dict[str, Any]) -> Tuple[int, int, float, float, float]:
+        stage = int(item.get("unlocked_stage_count", 0) or 0)
+        stage_gate = item.get("stage_gate", {}) or {}
+        passed = 1 if bool(stage_gate.get("passed", False)) else 0
+        success = float(item.get("success_rate", 0.0) or 0.0)
+        fast = float(item.get("fast_success_score", 0.0) or 0.0)
+        score = float(item.get("score", 0.0) or 0.0)
+        return (stage, passed, success, fast, score)
+
+    chosen = max(history, key=_key)
+    metrics = dict(chosen)
+    metrics["stage_progress"] = float(chosen.get("unlocked_stage_count", 0) or 0)
+    return metrics
 
 
 def _fmt_metric(metrics: Dict[str, float], key: str, fmt: str = ".3f", default: float = 0.0) -> str:
@@ -163,6 +213,7 @@ def _build_cmd(
     args: argparse.Namespace,
     genes: Dict[str, Any],
     output_prefix: str,
+    ports: Dict[str, int],
 ) -> List[str]:
     return [
         args.python_bin,
@@ -173,12 +224,32 @@ def _build_cmd(
         args.scene_stage2,
         "--scene-stage3",
         args.scene_stage3,
+        "--scene-stage4",
+        args.scene_stage4,
+        "--scene-stage5",
+        args.scene_stage5,
+        "--train-port-stage1",
+        str(int(ports["train_stage1"])),
+        "--train-port-stage2",
+        str(int(ports["train_stage2"])),
+        "--train-port-stage3",
+        str(int(ports["train_stage3"])),
+        "--train-port-stage4",
+        str(int(ports["train_stage4"])),
+        "--train-port-stage5",
+        str(int(ports["train_stage5"])),
+        "--eval-port",
+        str(int(ports["eval"])),
         "--timesteps-stage1",
         str(genes["timesteps_stage1"]),
         "--timesteps-stage2",
         str(genes["timesteps_stage2"]),
         "--timesteps-stage3",
         str(genes["timesteps_stage3"]),
+        "--timesteps-stage4",
+        str(max(1, int(args.timesteps_stage4))),
+        "--timesteps-stage5",
+        str(max(1, int(args.timesteps_stage5))),
         "--rounds",
         str(args.rounds),
         "--min-rounds",
@@ -190,7 +261,7 @@ def _build_cmd(
         "--cpu-threads",
         str(args.cpu_threads),
         "--num-envs",
-        "1",
+        str(max(1, int(args.num_envs))),
         "--ppo-n-steps",
         str(genes["ppo_n_steps"]),
         "--ppo-batch-size",
@@ -208,9 +279,9 @@ def _build_cmd(
         "--policy-depths",
         str(genes["policy_depths"]),
         "--arch-limit",
-        "1",
+        str(max(1, int(args.arch_limit))),
         "--max-model-mb",
-        "1.0",
+        str(float(args.max_model_mb)),
         "--rl-physics-fps",
         str(args.train_physics_fps),
         "--eval-physics-fps",
@@ -225,11 +296,19 @@ def _build_cmd(
         str(args.live_eval_max_steps),
         "--rl-disable-cpu-sleep",
         "--success-target",
-        "0.35",
+        str(float(args.success_target)),
         "--direction-target",
-        "0.62",
+        str(float(args.direction_target)),
         "--fast-success-target",
-        "0.35",
+        str(float(args.fast_success_target)),
+        "--stage-unlock-target",
+        str(float(args.stage_unlock_target)),
+        "--stage-growth",
+        str(float(args.stage_growth)),
+        "--max-stage-scale",
+        str(float(args.max_stage_scale)),
+        "--init-model",
+        str(args.init_model),
         "--wall-contact-max",
         str(genes["wall_contact_max"]),
         "--output-prefix",
@@ -237,6 +316,19 @@ def _build_cmd(
         "--verbose",
         str(args.verbose),
     ]
+
+
+def _ports_for_gid(port_base: int, gid: str) -> Dict[str, int]:
+    seed = int(gid[:8], 16)
+    base = int(port_base) + (seed % 700) * 10
+    return {
+        "train_stage1": base,
+        "train_stage2": base + 1,
+        "train_stage3": base + 2,
+        "train_stage4": base + 3,
+        "train_stage5": base + 4,
+        "eval": base + 100,
+    }
 
 
 def _evaluate_individual(
@@ -252,7 +344,8 @@ def _evaluate_individual(
     out_prefix = f"{args.output_prefix}_{gid}"
     summary_path = Path(f"{out_prefix}_summary.json")
     log_path = run_dir / f"{gid}.log"
-    cmd = _build_cmd(args, genes, out_prefix)
+    ports = _ports_for_gid(int(args.port_base), gid)
+    cmd = _build_cmd(args, genes, out_prefix, ports)
     env = os.environ.copy()
     env.setdefault("PYTHONUNBUFFERED", "1")
     env.setdefault("GODOT_BIN", "godot3-server")
@@ -347,10 +440,33 @@ def _evaluate_individual(
 
     metrics: Dict[str, float] = {}
     fit = -1e9
+    best_model_path = Path(f"{out_prefix}_best.zip")
+    latest_model_path = Path(f"{out_prefix}_latest.zip")
+    if best_model_path.exists():
+        model_mb = best_model_path.stat().st_size / (1024.0 * 1024.0)
+    elif latest_model_path.exists():
+        model_mb = latest_model_path.stat().st_size / (1024.0 * 1024.0)
+    else:
+        model_mb = 0.0
     if rc == 0 and summary_path.exists():
         data = json.loads(summary_path.read_text(encoding="utf-8"))
-        metrics = data.get("best_metrics", {}) or {}
-        fit = _fitness(metrics)
+        metrics = _select_progress_metrics(data)
+        stage_progress = float(metrics.get("stage_progress", 0.0))
+        success_rate = float(metrics.get("success_rate", 0.0))
+        fit = _fitness(
+            metrics=metrics,
+            model_mb=float(model_mb),
+            target_model_mb=float(args.target_model_mb),
+            model_size_weight=float(args.model_size_weight),
+        )
+        # Do not over-reward higher stage snapshots that have poor actual success.
+        effective_stage = stage_progress if success_rate >= 0.5 else max(1.0, stage_progress - 1.5)
+        fit += effective_stage * 140.0
+        if stage_progress >= 4.0 and success_rate < 0.4:
+            fit -= 220.0
+        if not best_model_path.exists():
+            # Prefer candidates that actually produce a promoted best artifact.
+            fit -= 120.0
     elif not args.keep_failed:
         for p in [summary_path, Path(f"{out_prefix}_best.zip")]:
             try:
@@ -367,14 +483,13 @@ def _evaluate_individual(
     )
     cache[gid] = ind
     elapsed = time.time() - started
-    model_path = Path(f"{out_prefix}_best.zip")
-    model_mb = (model_path.stat().st_size / (1024.0 * 1024.0)) if model_path.exists() else 0.0
     print(
-        "[ga] eval gid=%s rc=%d fit=%.3f success=%s fast=%s dir=%s speed=%s wall=%s d_avg=%s d_min=%s model=%.3fMB elapsed=%.1fs out=%s"
+        "[ga] eval gid=%s rc=%d fit=%.3f stage=%s success=%s fast=%s dir=%s speed=%s wall=%s d_avg=%s d_min=%s model=%.3fMB elapsed=%.1fs out=%s"
         % (
             gid,
             rc,
             ind.fitness,
+            _fmt_metric(metrics, "stage_progress", ".0f", 0.0),
             _fmt_metric(metrics, "success_rate"),
             _fmt_metric(metrics, "fast_success_score"),
             _fmt_metric(metrics, "direction_score"),

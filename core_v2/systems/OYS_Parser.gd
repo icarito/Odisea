@@ -29,7 +29,8 @@ enum Command {
 	TELEPORT,
 	CAMERA_SHAKE, CAMERA_SHAKE_STOP,
 	PLAY_SOUND,
-	VCAMERA, VCAMERA_BLEND, VCAMERA_RETURN, VCAMERA_SHAKE
+	VCAMERA, VCAMERA_BLEND, VCAMERA_RETURN, VCAMERA_SHAKE,
+	ANNA_ENABLE, ANNA_DISABLE, ANNA_SET_TARGET
 }
 
 # Command synonyms mapping
@@ -716,6 +717,29 @@ static func parse_instruction(line: String) -> Dictionary:
 
 		"ENDWHILE":
 			pass
+
+		"ANNA_ENABLE", "ANNA_DISABLE":
+			data["target"] = _extract_quoted(parts, 1) if parts.size() > 1 else ""
+
+		"ANNA_SET_TARGET":
+			data["target"] = _extract_quoted(parts, 1) if parts.size() > 1 else ""
+			if parts.size() > 2:
+				for i in range(1, parts.size()):
+					var p = parts[i]
+					if p.begins_with("pos="):
+						var val_start = line.find("pos=") + 4
+						var val_end = -1
+						var open_char = line[val_start]
+						var close_char = ""
+						if open_char == "[": close_char = "]"
+						elif open_char == "(": close_char = ")"
+						
+						if close_char != "":
+							val_end = line.find(close_char, val_start)
+							if val_end != -1:
+								data["pos"] = line.substr(val_start, val_end - val_start + 1)
+						else:
+							data["pos"] = p.split("=")[1]
 		
 		_:
 			data["error"] = "Unknown command: " + cmd

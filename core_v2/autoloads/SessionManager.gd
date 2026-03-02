@@ -96,7 +96,7 @@ func _get_replay_sync_nodes() -> Array:
 				continue
 			if not is_instance_valid(active_scene) or active_scene.is_a_parent_of(node):
 				filtered.append(node)
-		filtered.sort_custom(self, "_sort_nodes_by_path")
+		filtered.sort_custom(self , "_sort_nodes_by_path")
 		_replay_sync_cache = filtered
 		_replay_sync_cache_dirty = false
 	return _replay_sync_cache
@@ -171,8 +171,8 @@ func _ready():
 		add_child(ghost_manager)
 
 	# Listen for node additions to update cached group
-	get_tree().connect("node_added", self, "_on_node_added")
-	get_tree().connect("node_removed", self, "_on_node_removed")
+	get_tree().connect("node_added", self , "_on_node_added")
+	get_tree().connect("node_removed", self , "_on_node_removed")
 	# --- Environment Variables (Prop Validation Pipeline) ---
 	_env_vars["$sys_env_prop_path"] = OS.get_environment("OYS_PROP_PATH")
 	_env_vars["$sys_env_auto_run"] = OS.get_environment("OYS_AUTO_RUN")
@@ -193,13 +193,13 @@ func _ready():
 			# NO llamamos a load_and_play aquí. La escena aún no está lista.
 			# En su lugar, nos conectamos a la señal 'tree_changed'.
 			# Se disparará cuando la escena principal se cargue, y entonces ejecutaremos el replay.
-			get_tree().connect("tree_changed", self, "_on_tree_changed_for_replay", [replay_path], CONNECT_ONESHOT)
+			get_tree().connect("tree_changed", self , "_on_tree_changed_for_replay", [replay_path], CONNECT_ONESHOT)
 			return
 		
 		if arg == "--run-script" and i + 1 < args.size():
 			is_cli_mode = true
 			var script_path = args[i + 1]
-			get_tree().connect("tree_changed", self, "_on_tree_changed_for_script", [script_path], CONNECT_ONESHOT)
+			get_tree().connect("tree_changed", self , "_on_tree_changed_for_script", [script_path], CONNECT_ONESHOT)
 			return
 
 	# --- Instanciar y conectar TeleportSystem (instanciación robusta) ---
@@ -243,7 +243,7 @@ func _ready():
 	if _env_vars["$sys_env_auto_run"] != "":
 		var script_path = _env_vars["$sys_env_auto_run"]
 		is_cli_mode = true
-		get_tree().connect("tree_changed", self, "_on_tree_changed_for_script", [script_path], CONNECT_ONESHOT)
+		get_tree().connect("tree_changed", self , "_on_tree_changed_for_script", [script_path], CONNECT_ONESHOT)
 
 func _ensure_anna_bridge_enabled(reason: String = "") -> Node:
 	var existing = get_node_or_null("AnnaBridge")
@@ -329,7 +329,7 @@ func _connect_teleport_system():
 	var is_menu = false
 	if current_scene and current_scene.filename.find("Menu.tscn") != -1:
 		is_menu = true
-	if not is_testing and not is_cli_mode and not is_menu:
+	if not is_testing and not is_cli_mode and not is_menu and not OS.has_feature("Server"):
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func _on_tree_changed_for_replay(replay_path: String):
@@ -388,7 +388,7 @@ func _on_tree_changed_for_script(script_path: String):
 		scripted_player.is_replay_mode = true
 	
 	var OYS_Interpreter = load("res://core_v2/systems/OYS_Interpreter.gd")
-	var interpreter = OYS_Interpreter.new(self) # Use SessionManager as host
+	var interpreter = OYS_Interpreter.new(self ) # Use SessionManager as host
 	interpreter.parse(content)
 	# Inject environment variables
 	for k in _env_vars:
@@ -424,7 +424,8 @@ func _unhandled_input(event):
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		# Re-capturar al hacer click en la pantalla, solo si el cursor está visible.
 		if event is InputEventMouseButton and event.pressed and Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE:
-			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+			if not OS.has_feature("Server"):
+				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
 var _replay_frame := 0
@@ -668,8 +669,8 @@ func start_recording():
 		player.is_replay_mode = true # Usamos esta bandera para indicar control externo
 		player.set_physics_process(false)
 		# Conectar señal de drift correction
-		if player.has_signal("rigid_contact_ended") and not player.is_connected("rigid_contact_ended", self, "_on_rigid_contact_ended"):
-			player.connect("rigid_contact_ended", self, "_on_rigid_contact_ended")
+		if player.has_signal("rigid_contact_ended") and not player.is_connected("rigid_contact_ended", self , "_on_rigid_contact_ended"):
+			player.connect("rigid_contact_ended", self , "_on_rigid_contact_ended")
 	
 	# --- Capturar estado inicial del mundo (nodos en 'replay_sync') ---
 	var world_start_state = _get_world_state_snapshot()
@@ -871,8 +872,8 @@ func load_and_play(path: String):
 			host = get_tree().root
 		var interpreter = OYS_Interpreter.new(host)
 		interpreter.parse(script_content)
-		interpreter.connect("instruction_executed", self, "_on_oys_instruction_executed")
-		interpreter.connect("instruction_completed", self, "_on_oys_instruction_completed")
+		interpreter.connect("instruction_executed", self , "_on_oys_instruction_executed")
+		interpreter.connect("instruction_completed", self , "_on_oys_instruction_completed")
 		# Inject environment variables
 		for k in _env_vars:
 			interpreter.variables[k] = _env_vars[k]
@@ -1486,8 +1487,8 @@ func _handle_assert_signal(cmd: Dictionary):
 		var target_node = _find_node_recursive(target_name)
 		
 		if target_node:
-			if not target_node.is_connected(signal_name, self, "_on_monitored_signal"):
-				target_node.connect(signal_name, self, "_on_monitored_signal", [key])
+			if not target_node.is_connected(signal_name, self , "_on_monitored_signal"):
+				target_node.connect(signal_name, self , "_on_monitored_signal", [key])
 			print("[OYS] Listening for signal '%s' on %s" % [signal_name, target_node.name])
 		else:
 			printerr("[OYS] ASSERT_SIGNAL ERROR: Could not find node '%s'" % target_name)
@@ -1623,7 +1624,7 @@ func _parse_system_helper_args(args: Array) -> Dictionary:
 
 func _run_system_helper_command(exec_path: String, exec_args: Array, blocking: bool) -> Dictionary:
 	if exec_path.strip_edges() == "":
-		return {"ok": false, "error": "empty executable", "value": -1, "blocking": blocking}
+		return {"ok": false, "error": "empty executable", "value": - 1, "blocking": blocking}
 
 	var output := []
 	var ret = OS.execute(exec_path, exec_args, blocking, output, true)
@@ -1637,7 +1638,7 @@ func _run_system_helper_command(exec_path: String, exec_args: Array, blocking: b
 			_system_launch_counter += 1
 			pid = _system_launch_counter
 		return {"ok": true, "value": pid, "blocking": false}
-	return {"ok": false, "error": "could not start process", "value": -1, "blocking": false}
+	return {"ok": false, "error": "could not start process", "value": - 1, "blocking": false}
 
 func _find_node_recursive(name: String) -> Node:
 	if name == "Pilot" or name == "Player":
@@ -2256,7 +2257,7 @@ func capture_scene_transition_state() -> Dictionary:
 func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dictionary = {}):
 	_find_player()
 	if not is_instance_valid(player):
-		yield(get_tree(), "physics_frame")
+		yield (get_tree(), "physics_frame")
 		return null
 
 	if typeof(state_data) == TYPE_DICTIONARY and state_data.has("player_snapshot"):
@@ -2277,7 +2278,7 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 		var pitch = player.get("pitch") if "pitch" in player else 0.0
 		teleport_system.force_initial_spawn(player.global_transform, yaw, pitch)
 
-	yield(get_tree(), "physics_frame")
+	yield (get_tree(), "physics_frame")
 	return player
 
 func _find_scene_spawn_point(spawn_id: String = "") -> SpawnPointV2:

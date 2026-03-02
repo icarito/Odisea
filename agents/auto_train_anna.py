@@ -113,6 +113,7 @@ def _parse_args() -> argparse.Namespace:
         help="Allow polling sleep in RL bridge (lower CPU, lower max FPS).",
     )
     parser.add_argument("--output-prefix", default="agents/models/anna_auto")
+    parser.add_argument("--init-model", default="", help="Optional PPO .zip to warm-start training.")
     parser.add_argument("--success-target", type=float, default=0.5)
     parser.add_argument("--direction-target", type=float, default=0.62)
     parser.add_argument("--fast-success-target", type=float, default=0.45)
@@ -895,20 +896,37 @@ def main() -> int:
                 )
                 try:
                     if model is None:
-                        policy_kwargs = {"net_arch": dict(pi=list(selected_arch), vf=list(selected_arch))}
-                        model = PPO(
-                            "MlpPolicy",
-                            train_env,
-                            seed=round_seed,
-                            verbose=args.verbose,
-                            ent_coef=args.entropy_coef,
-                            learning_rate=args.learning_rate,
-                            policy_kwargs=policy_kwargs,
-                            n_steps=rollout_steps,
-                            batch_size=ppo_batch_size,
-                            n_epochs=ppo_n_epochs,
-                            device=ppo_device,
-                        )
+                        init_model_path = Path(str(args.init_model)).expanduser() if str(args.init_model).strip() else None
+                        if init_model_path is not None and init_model_path.exists():
+                            try:
+                                print("[auto_train_anna] warm start from: %s" % str(init_model_path))
+                                model = PPO.load(
+                                    str(init_model_path),
+                                    env=train_env,
+                                    device=ppo_device,
+                                    print_system_info=False,
+                                )
+                                # Keep GA-selected optimization knobs even when warm-starting weights.
+                                model.ent_coef = float(args.entropy_coef)
+                                model.learning_rate = float(args.learning_rate)
+                            except Exception as exc:
+                                print("[auto_train_anna] warm start failed (%s), falling back to fresh init." % str(exc))
+                                model = None
+                        if model is None:
+                            policy_kwargs = {"net_arch": dict(pi=list(selected_arch), vf=list(selected_arch))}
+                            model = PPO(
+                                "MlpPolicy",
+                                train_env,
+                                seed=round_seed,
+                                verbose=args.verbose,
+                                ent_coef=args.entropy_coef,
+                                learning_rate=args.learning_rate,
+                                policy_kwargs=policy_kwargs,
+                                n_steps=rollout_steps,
+                                batch_size=ppo_batch_size,
+                                n_epochs=ppo_n_epochs,
+                                device=ppo_device,
+                            )
                     else:
                         model.set_env(train_env)
 

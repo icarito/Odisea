@@ -244,6 +244,47 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		"SECTION":
 			pass # Already indexed
 		
+		"ANNA_ENABLE":
+			var target = inst.get("target", "")
+			var node = _find_actor_node(target) if target != "" else _find_player()
+			if is_instance_valid(node) and node.has_node("AnnaInterface"):
+				var anna = node.get_node("AnnaInterface")
+				if anna.has_method("set_rl_active"):
+					anna.set_rl_active(true)
+				else:
+					printerr("[OYS_Interpreter] ANNA_ENABLE failed: AnnaInterface lacks set_rl_active method")
+			else:
+				printerr("[OYS_Interpreter] ANNA_ENABLE failed: Node not found or lacks AnnaInterface")
+
+		"ANNA_DISABLE":
+			var target = inst.get("target", "")
+			var node = _find_actor_node(target) if target != "" else _find_player()
+			if is_instance_valid(node) and node.has_node("AnnaInterface"):
+				var anna = node.get_node("AnnaInterface")
+				if anna.has_method("set_rl_active"):
+					anna.set_rl_active(false)
+				else:
+					printerr("[OYS_Interpreter] ANNA_DISABLE failed: AnnaInterface lacks set_rl_active method")
+			else:
+				printerr("[OYS_Interpreter] ANNA_DISABLE failed: Node not found or lacks AnnaInterface")
+
+		"ANNA_SET_TARGET":
+			var target = inst.get("target", "")
+			var pos_str = inst.get("pos", "")
+			var target_node = _find_actor_node(target) if target != "" else _find_player()
+			
+			if is_instance_valid(target_node) and target_node.has_node("AnnaInterface"):
+				var anna = target_node.get_node("AnnaInterface")
+				if anna.has_method("set_custom_target"):
+					if pos_str != "":
+						var coords = Utilities.parse_vector3(pos_str)
+						anna.set_custom_target(coords)
+					else:
+						printerr("[OYS_Interpreter] ANNA_SET_TARGET failed: Must specify pos=(x,y,z)")
+				else:
+					printerr("[OYS_Interpreter] ANNA_SET_TARGET failed: AnnaInterface lacks set_custom_target method")
+			else:
+				printerr("[OYS_Interpreter] ANNA_SET_TARGET failed: Node not found or lacks AnnaInterface")
 		"GOTO":
 			var target = inst.get("target", "")
 			if sections.has(target):

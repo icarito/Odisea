@@ -234,6 +234,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/asserts/DefaultValueProvider.gd"
 }, {
+"base": "Node2D",
+"class": "DrawLine3D",
+"language": "GDScript",
+"path": "res://addons/godot_rl_agents/sensors/sensors_3d/DrawLine3D.gd"
+}, {
 "base": "InteractableBaseV2",
 "class": "DualSlidingObjectV2",
 "language": "GDScript",
@@ -819,6 +824,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/things/HoloTerminalV2.gd"
 }, {
+"base": "Node2D",
+"class": "ISensor2D",
+"language": "GDScript",
+"path": "res://addons/godot_rl_agents/sensors/sensors_2d/ISensor2D.gd"
+}, {
+"base": "Spatial",
+"class": "ISensor3D",
+"language": "GDScript",
+"path": "res://addons/godot_rl_agents/sensors/sensors_3d/ISensor3D.gd"
+}, {
 "base": "PropBaseV2",
 "class": "IndustrialFan",
 "language": "GDScript",
@@ -983,6 +998,11 @@ _global_script_classes=[ {
 "class": "MeshBuilderTorus",
 "language": "GDScript",
 "path": "res://addons/meshbuilder/mesh_builder_torus/mesh_builder_torus.gd"
+}, {
+"base": "Node",
+"class": "ONNXModel",
+"language": "GDScript",
+"path": "res://addons/godot_rl_agents/onnx/wrapper/ONNX_wrapper.gd"
 }, {
 "base": "Node",
 "class": "OYSComponent",
@@ -1199,6 +1219,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/qodot/src/import_plugins/quake_wad_import_plugin.gd"
 }, {
+"base": "Spatial",
+"class": "RGBCameraSensor3D",
+"language": "GDScript",
+"path": "res://addons/godot_rl_agents/sensors/sensors_3d/RGBCameraSensor3D.gd"
+}, {
 "base": "Reference",
 "class": "RLSceneRandomizer",
 "language": "GDScript",
@@ -1238,6 +1263,16 @@ _global_script_classes=[ {
 "class": "RPCMessage",
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/network/rpc/RPCMessage.gd"
+}, {
+"base": "ISensor3D",
+"class": "RayCastSensor3D",
+"language": "GDScript",
+"path": "res://addons/godot_rl_agents/sensors/sensors_3d/RaycastSensor3D.gd"
+}, {
+"base": "ISensor2D",
+"class": "RaycastSensor2D",
+"language": "GDScript",
+"path": "res://addons/godot_rl_agents/sensors/sensors_2d/RaycastSensor2D.gd"
 }, {
 "base": "Reference",
 "class": "Result",
@@ -1550,6 +1585,7 @@ _global_script_class_icons={
 "Comparator": "",
 "ContinuousRotatorV2": "",
 "DefaultValueProvider": "",
+"DrawLine3D": "",
 "DualSlidingObjectV2": "",
 "ElevatorController": "",
 "ElevatorLogicInput": "",
@@ -1667,6 +1703,8 @@ _global_script_class_icons={
 "GodotGdErrorMonitor": "",
 "HelmetHUDV2": "",
 "HoloTerminalV2": "",
+"ISensor2D": "",
+"ISensor3D": "",
 "IndustrialFan": "",
 "InputDataV2": "",
 "InputProviderV2": "",
@@ -1700,6 +1738,7 @@ _global_script_class_icons={
 "MeshBuilderRing": "",
 "MeshBuilderSphere": "",
 "MeshBuilderTorus": "",
+"ONNXModel": "",
 "OYSComponent": "",
 "OYSShell": "",
 "OYSTrigger": "",
@@ -1743,6 +1782,7 @@ _global_script_class_icons={
 "QuakePaletteImportPlugin": "",
 "QuakeWadFile": "",
 "QuakeWadImportPlugin": "",
+"RGBCameraSensor3D": "",
 "RLSceneRandomizer": "",
 "RPC": "",
 "RPCClientConnect": "",
@@ -1751,6 +1791,8 @@ _global_script_class_icons={
 "RPCGdUnitEvent": "",
 "RPCGdUnitTestSuite": "",
 "RPCMessage": "",
+"RayCastSensor3D": "",
+"RaycastSensor2D": "",
 "Result": "",
 "RetroWindow": "",
 "RichTextEffectBackground": "",
@@ -2054,6 +2096,10 @@ toggle_optional_nodes={
 3d_physics/layer_5="Trigger"
 3d_physics/layer_6="Vehicle"
 3d_physics/layer_7="Prop"
+
+[mono]
+
+project/assembly_name="Odisea"
 
 [physics]
 

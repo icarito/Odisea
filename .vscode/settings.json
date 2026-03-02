@@ -20,7 +20,7 @@
         }
     },
     "godotTools.editorPath.godot3": "/usr/bin/godot3-bin",
-    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "python.defaultInterpreterPath": "",
     "python.testing.pytestArgs": [
         "-q",
         "core_v2/tests",
