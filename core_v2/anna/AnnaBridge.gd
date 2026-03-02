@@ -2,7 +2,7 @@ extends Node
 
 const PORT = 5000
 const MAX_READ_BYTES_PER_TICK = 16384
-const RL_UNCAPPED_PHYSICS_FPS = 2000
+const RL_UNCAPPED_PHYSICS_FPS_DEFAULT = 6000
 const RL_MAX_PHYSICS_FPS_HARD_CAP = 10000
 const RL_DEFAULT_POLL_SLEEP_USEC = 1000
 const RL_BINARY_OBS_FLOATS = 13 # 13 obs + reward
@@ -47,91 +47,91 @@ func _ready():
 		port = int(port_str)
 
 	# Check RL Mode
-		var rl_mode_env = OS.get_environment("ANNA_RL_MODE")
-		if rl_mode_env == "1" or rl_mode_env.to_lower() == "true":
-			is_rl_mode = true
-		_rl_binary_protocol = OS.get_environment("ANNA_RL_BINARY_PROTOCOL").to_lower() in ["1", "true", "yes", "on"]
-		_rl_blocking_sync = OS.get_environment("ANNA_RL_BLOCKING_SYNC").to_lower() in ["1", "true", "yes", "on"]
-		_rl_profile_enabled = OS.get_environment("ANNA_RL_PROFILE").to_lower() in ["1", "true", "yes", "on"]
-		_rl_profile_to_file = OS.get_environment("ANNA_RL_PROFILE_TO_FILE").to_lower() in ["1", "true", "yes", "on"]
-		var profile_file_env = OS.get_environment("ANNA_RL_PROFILE_FILE_PATH")
-		if profile_file_env.strip_edges() != "":
-			_rl_profile_file_path = profile_file_env
-		var profile_every_env = OS.get_environment("ANNA_RL_PROFILE_EVERY")
-		if profile_every_env.is_valid_integer():
-			_rl_profile_every_steps = max(50, int(profile_every_env))
-		print("[ANNA] RL Lock-Step Mode Enabled")
-		OS.set_use_vsync(false)
-		var disable_idle_sleep_env = OS.get_environment("ANNA_RL_DISABLE_CPU_SLEEP").to_lower()
-		if disable_idle_sleep_env in ["1", "true", "yes", "on"]:
-			OS.set_low_processor_usage_mode(false)
-			OS.set_low_processor_usage_mode_sleep_usec(0)
-		var target_fps = 0
-		var target_fps_env = OS.get_environment("ANNA_RL_TARGET_FPS")
-		if target_fps_env.is_valid_integer():
-			target_fps = max(0, int(target_fps_env))
-		Engine.target_fps = target_fps
-		var physics_fps = 60
-		var physics_fps_cap = RL_UNCAPPED_PHYSICS_FPS
-		var physics_fps_cap_env = OS.get_environment("ANNA_RL_PHYSICS_FPS_CAP")
-		if physics_fps_cap_env.is_valid_integer():
-			physics_fps_cap = clamp(int(physics_fps_cap_env), RL_UNCAPPED_PHYSICS_FPS, RL_MAX_PHYSICS_FPS_HARD_CAP)
-		var physics_fps_env = OS.get_environment("ANNA_RL_PHYSICS_FPS")
-		if physics_fps_env.is_valid_integer():
-			var requested_physics_fps = int(physics_fps_env)
-			if requested_physics_fps <= 0:
-				physics_fps = physics_fps_cap
-			else:
-				physics_fps = max(30, min(requested_physics_fps, physics_fps_cap))
-		Engine.iterations_per_second = physics_fps
-		var max_physics_steps = -1
-		var max_steps_env = OS.get_environment("ANNA_RL_MAX_PHYSICS_STEPS_PER_FRAME")
-		if max_steps_env.is_valid_integer():
-			max_physics_steps = max(8, int(max_steps_env))
-		if max_physics_steps > 0 and ProjectSettings.has_setting("physics/common/max_physics_steps_per_frame"):
-			ProjectSettings.set_setting("physics/common/max_physics_steps_per_frame", max_physics_steps)
-		var jitter_fix = -1.0
-		var jitter_fix_env = OS.get_environment("ANNA_RL_PHYSICS_JITTER_FIX")
-		if jitter_fix_env.is_valid_float():
-			jitter_fix = clamp(float(jitter_fix_env), 0.0, 1.0)
-		if jitter_fix >= 0.0 and ProjectSettings.has_setting("physics/common/physics_jitter_fix"):
-			ProjectSettings.set_setting("physics/common/physics_jitter_fix", jitter_fix)
-		var max_steps_msg = "default"
-		if max_physics_steps > 0:
-			max_steps_msg = str(max_physics_steps)
-		var jitter_msg = "default"
-		if jitter_fix >= 0.0:
-			jitter_msg = "%.3f" % jitter_fix
-		print("[ANNA] RL engine: target_fps=%d physics=%dHz max_phys_steps=%s jitter_fix=%s" % [
-			target_fps, physics_fps, max_steps_msg, jitter_msg
-		])
-		var read_timeout_env = OS.get_environment("ANNA_RL_READ_TIMEOUT_MS")
-		if read_timeout_env.is_valid_integer():
-			_rl_read_timeout_ms = max(1000, int(read_timeout_env))
-		var poll_sleep_env = OS.get_environment("ANNA_RL_POLL_SLEEP_USEC")
-		if poll_sleep_env.is_valid_integer():
-			_rl_poll_sleep_usec = max(0, int(poll_sleep_env))
-		elif disable_idle_sleep_env in ["1", "true", "yes", "on"]:
-			_rl_poll_sleep_usec = 0
-			var blocking_poll_env = OS.get_environment("ANNA_RL_BLOCKING_POLL_USEC")
-			if blocking_poll_env.is_valid_integer():
-				_rl_blocking_poll_usec = max(0, int(blocking_poll_env))
-			var exit_on_disconnect_env = OS.get_environment("ANNA_RL_EXIT_ON_DISCONNECT").to_lower()
-			if exit_on_disconnect_env in ["0", "false", "no", "off"]:
-				_rl_exit_on_disconnect = false
-			var exit_grace_env = OS.get_environment("ANNA_RL_EXIT_ON_DISCONNECT_GRACE_MS")
-			if exit_grace_env.is_valid_integer():
-				_rl_exit_disconnect_grace_ms = max(0, int(exit_grace_env))
-			print("[ANNA] RL poll sleep=%dus timeout=%dms" % [_rl_poll_sleep_usec, _rl_read_timeout_ms])
-			print("[ANNA] RL sync mode=%s" % ["blocking" if _rl_blocking_sync else "nonblocking"])
-			if _rl_blocking_sync:
-				print("[ANNA] RL blocking poll=%dus timeout=%dms" % [_rl_blocking_poll_usec, _rl_read_timeout_ms])
-			print("[ANNA] RL protocol=%s" % ["binary" if _rl_binary_protocol else "json"])
-			print("[ANNA] RL exit_on_disconnect=%s grace_ms=%d" % [str(_rl_exit_on_disconnect), _rl_exit_disconnect_grace_ms])
-			if _rl_profile_enabled:
-				print("[ANNA] RL profiling enabled (every %d steps)" % _rl_profile_every_steps)
-				if _rl_profile_to_file:
-					_append_text_line(_rl_profile_file_path, "[ANNA][RL_PROFILE] start")
+	var rl_mode_env = OS.get_environment("ANNA_RL_MODE")
+	if rl_mode_env == "1" or rl_mode_env.to_lower() == "true":
+		is_rl_mode = true
+	_rl_binary_protocol = OS.get_environment("ANNA_RL_BINARY_PROTOCOL").to_lower() in ["1", "true", "yes", "on"]
+	_rl_blocking_sync = OS.get_environment("ANNA_RL_BLOCKING_SYNC").to_lower() in ["1", "true", "yes", "on"]
+	_rl_profile_enabled = OS.get_environment("ANNA_RL_PROFILE").to_lower() in ["1", "true", "yes", "on"]
+	_rl_profile_to_file = OS.get_environment("ANNA_RL_PROFILE_TO_FILE").to_lower() in ["1", "true", "yes", "on"]
+	var profile_file_env = OS.get_environment("ANNA_RL_PROFILE_FILE_PATH")
+	if profile_file_env.strip_edges() != "":
+		_rl_profile_file_path = profile_file_env
+	var profile_every_env = OS.get_environment("ANNA_RL_PROFILE_EVERY")
+	if profile_every_env.is_valid_integer():
+		_rl_profile_every_steps = max(50, int(profile_every_env))
+	print("[ANNA] RL Lock-Step Mode Enabled")
+	OS.set_use_vsync(false)
+	var disable_idle_sleep_env = OS.get_environment("ANNA_RL_DISABLE_CPU_SLEEP").to_lower()
+	if disable_idle_sleep_env in ["1", "true", "yes", "on"]:
+		OS.set_low_processor_usage_mode(false)
+		OS.set_low_processor_usage_mode_sleep_usec(0)
+	var target_fps = 0
+	var target_fps_env = OS.get_environment("ANNA_RL_TARGET_FPS")
+	if target_fps_env.is_valid_integer():
+		target_fps = max(0, int(target_fps_env))
+	Engine.target_fps = target_fps
+	var physics_fps = 60
+	var physics_fps_cap = RL_UNCAPPED_PHYSICS_FPS_DEFAULT
+	var physics_fps_cap_env = OS.get_environment("ANNA_RL_PHYSICS_FPS_CAP")
+	if physics_fps_cap_env.is_valid_integer():
+		physics_fps_cap = clamp(int(physics_fps_cap_env), 60, RL_MAX_PHYSICS_FPS_HARD_CAP)
+	var physics_fps_env = OS.get_environment("ANNA_RL_PHYSICS_FPS")
+	if physics_fps_env.is_valid_integer():
+		var requested_physics_fps = int(physics_fps_env)
+		if requested_physics_fps <= 0:
+			physics_fps = physics_fps_cap
+		else:
+			physics_fps = max(30, min(requested_physics_fps, physics_fps_cap))
+	Engine.iterations_per_second = physics_fps
+	var max_physics_steps = -1
+	var max_steps_env = OS.get_environment("ANNA_RL_MAX_PHYSICS_STEPS_PER_FRAME")
+	if max_steps_env.is_valid_integer():
+		max_physics_steps = max(8, int(max_steps_env))
+	if max_physics_steps > 0 and ProjectSettings.has_setting("physics/common/max_physics_steps_per_frame"):
+		ProjectSettings.set_setting("physics/common/max_physics_steps_per_frame", max_physics_steps)
+	var jitter_fix = -1.0
+	var jitter_fix_env = OS.get_environment("ANNA_RL_PHYSICS_JITTER_FIX")
+	if jitter_fix_env.is_valid_float():
+		jitter_fix = clamp(float(jitter_fix_env), 0.0, 1.0)
+	if jitter_fix >= 0.0 and ProjectSettings.has_setting("physics/common/physics_jitter_fix"):
+		ProjectSettings.set_setting("physics/common/physics_jitter_fix", jitter_fix)
+	var max_steps_msg = "default"
+	if max_physics_steps > 0:
+		max_steps_msg = str(max_physics_steps)
+	var jitter_msg = "default"
+	if jitter_fix >= 0.0:
+		jitter_msg = "%.3f" % jitter_fix
+	print("[ANNA] RL engine: target_fps=%d physics=%dHz max_phys_steps=%s jitter_fix=%s" % [
+		target_fps, physics_fps, max_steps_msg, jitter_msg
+	])
+	var read_timeout_env = OS.get_environment("ANNA_RL_READ_TIMEOUT_MS")
+	if read_timeout_env.is_valid_integer():
+		_rl_read_timeout_ms = max(1000, int(read_timeout_env))
+	var poll_sleep_env = OS.get_environment("ANNA_RL_POLL_SLEEP_USEC")
+	if poll_sleep_env.is_valid_integer():
+		_rl_poll_sleep_usec = max(0, int(poll_sleep_env))
+	elif disable_idle_sleep_env in ["1", "true", "yes", "on"]:
+		_rl_poll_sleep_usec = 0
+	var blocking_poll_env = OS.get_environment("ANNA_RL_BLOCKING_POLL_USEC")
+	if blocking_poll_env.is_valid_integer():
+		_rl_blocking_poll_usec = max(0, int(blocking_poll_env))
+	var exit_on_disconnect_env = OS.get_environment("ANNA_RL_EXIT_ON_DISCONNECT").to_lower()
+	if exit_on_disconnect_env in ["0", "false", "no", "off"]:
+		_rl_exit_on_disconnect = false
+	var exit_grace_env = OS.get_environment("ANNA_RL_EXIT_ON_DISCONNECT_GRACE_MS")
+	if exit_grace_env.is_valid_integer():
+		_rl_exit_disconnect_grace_ms = max(0, int(exit_grace_env))
+	print("[ANNA] RL poll sleep=%dus timeout=%dms" % [_rl_poll_sleep_usec, _rl_read_timeout_ms])
+	print("[ANNA] RL sync mode=%s" % ["blocking" if _rl_blocking_sync else "nonblocking"])
+	if _rl_blocking_sync:
+		print("[ANNA] RL blocking poll=%dus timeout=%dms" % [_rl_blocking_poll_usec, _rl_read_timeout_ms])
+	print("[ANNA] RL protocol=%s" % ["binary" if _rl_binary_protocol else "json"])
+	print("[ANNA] RL exit_on_disconnect=%s grace_ms=%d" % [str(_rl_exit_on_disconnect), _rl_exit_disconnect_grace_ms])
+	if _rl_profile_enabled:
+		print("[ANNA] RL profiling enabled (every %d steps)" % _rl_profile_every_steps)
+		if _rl_profile_to_file:
+			_append_text_line(_rl_profile_file_path, "[ANNA][RL_PROFILE] start")
 
 	var err = _server.listen(port)
 	if err != OK:

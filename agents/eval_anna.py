@@ -103,6 +103,17 @@ def _pick_default_model(repo_root: Path) -> Path | None:
     return None
 
 
+def _adapt_obs(obs, expected_dim: int, np):
+    arr = np.asarray(obs, dtype=np.float32).reshape(-1)
+    if arr.shape[0] == expected_dim:
+        return arr
+    if arr.shape[0] > expected_dim:
+        return arr[:expected_dim]
+    out = np.zeros(expected_dim, dtype=np.float32)
+    out[: arr.shape[0]] = arr
+    return out
+
+
 def main() -> int:
     args = _parse_args()
     if args.render is None:
@@ -168,6 +179,15 @@ def main() -> int:
 
     deterministic = not args.stochastic
     model = PPO.load(str(model_path), device="cpu")
+    expected_obs_dim = int(model.observation_space.shape[0]) if model.observation_space.shape else 0
+    if expected_obs_dim <= 0:
+        raise RuntimeError("[eval_anna] invalid model observation space.")
+    env_obs_dim = int(env.observation_space.shape[0]) if env.observation_space.shape else expected_obs_dim
+    if env_obs_dim != expected_obs_dim:
+        print(
+            "[eval_anna] obs adapter active: env_dim=%d model_dim=%d (crop/pad applied)."
+            % (env_obs_dim, expected_obs_dim)
+        )
 
     episode_rewards = []
     episode_lengths = []
@@ -182,6 +202,7 @@ def main() -> int:
                 break
             episode += 1
             obs, _ = env.reset()
+            obs = _adapt_obs(obs, expected_obs_dim, np)
             total_reward = 0.0
             length = 0
             success = False
@@ -192,7 +213,8 @@ def main() -> int:
             while True:
                 step += 1
                 action, _ = model.predict(obs, deterministic=deterministic)
-                obs, reward, terminated, truncated, info = env.step(action)
+                obs_raw, reward, terminated, truncated, info = env.step(action)
+                obs = _adapt_obs(obs_raw, expected_obs_dim, np)
                 total_reward += float(reward)
                 length = step
 

@@ -32,7 +32,7 @@ class AnnaGymEnv(gym.Env):
         default_godot_bin = "godot3-server" if headless else "godot3-bin"
         self.godot_bin = godot_bin or env_godot_bin or default_godot_bin
         self.video_driver = os.environ.get("ANNA_GODOT_VIDEO_DRIVER", "GLES2")
-        self.audio_driver = str(os.environ.get("ANNA_GODOT_AUDIO_DRIVER", "Dummy")).strip()
+        self.audio_driver = str(os.environ.get("ANNA_GODOT_AUDIO_DRIVER", "")).strip()
         self.disable_audio_driver_flag = str(os.environ.get("ANNA_GODOT_DISABLE_AUDIO_DRIVER_FLAG", "0")).lower() in ("1", "true", "yes", "on")
         self.prefer_server_bin = str(os.environ.get("ANNA_GODOT_PREFER_SERVER", "1")).lower() not in ("0", "false", "no")
         self.require_server_bin = str(os.environ.get("ANNA_GODOT_REQUIRE_SERVER", "1")).lower() not in ("0", "false", "no")
@@ -43,6 +43,8 @@ class AnnaGymEnv(gym.Env):
         # Keep empty by default. Passing --max-fps 0 to godot3-server can cap RL throughput hard.
         self.godot_max_fps = str(os.environ.get("ANNA_GODOT_MAX_FPS", "")).strip()
         self.godot_quiet = str(os.environ.get("ANNA_GODOT_QUIET", "1")).lower() not in ("0", "false", "no")
+        # Headless RL can emit very noisy warnings from engine/plugins; allow silencing child stdio.
+        self.godot_stdio = str(os.environ.get("ANNA_GODOT_STDIO", "inherit")).strip().lower()
         self.use_binary_protocol = str(os.environ.get("ANNA_RL_BINARY_PROTOCOL", "0")).lower() not in ("0", "false", "no")
         self.godot_process = None
         self.sock = None
@@ -163,13 +165,17 @@ class AnnaGymEnv(gym.Env):
             env["ANNA_RL_EXIT_ON_DISCONNECT"] = "1" if (self.launch_godot and not self.auto_relaunch_on_disconnect) else "0"
         env.setdefault("ANNA_RL_EXIT_ON_DISCONNECT_GRACE_MS", "1500")
         # Runtime defaults:
-        # - Headless training: very high fixed physics rate for maximum SPS.
+        # - Headless training: uncapped by default (physics=0), with a high safety cap.
         # - Render/watch mode: human-speed physics so movement is not slow motion.
         if self.headless:
-            env.setdefault("ANNA_RL_TARGET_FPS", "2000")
-            env.setdefault("ANNA_RL_PHYSICS_FPS", "2000")
-            env.setdefault("ANNA_RL_PHYSICS_FPS_CAP", "2000")
-            env.setdefault("ANNA_RL_MAX_PHYSICS_STEPS_PER_FRAME", "64")
+            env.setdefault("ANNA_RL_TARGET_FPS", str(os.environ.get("ANNA_RL_DEFAULT_TARGET_FPS", "0")).strip() or "0")
+            env.setdefault("ANNA_RL_PHYSICS_FPS", str(os.environ.get("ANNA_RL_DEFAULT_PHYSICS_FPS", "0")).strip() or "0")
+            # Keep a high cap so requested fast rates (e.g. 4000-6000) are not silently clipped to 2000.
+            env.setdefault(
+                "ANNA_RL_PHYSICS_FPS_CAP",
+                str(os.environ.get("ANNA_RL_DEFAULT_PHYSICS_FPS_CAP", "6000")).strip() or "6000",
+            )
+            env.setdefault("ANNA_RL_MAX_PHYSICS_STEPS_PER_FRAME", "128")
         else:
             render_fps = str(os.environ.get("ANNA_RL_RENDER_PHYSICS_FPS", "60")).strip() or "60"
             env.setdefault("ANNA_RL_TARGET_FPS", render_fps)
@@ -222,6 +228,10 @@ class AnnaGymEnv(gym.Env):
         if self.godot_quiet:
             cmd.append("--quiet")
 
+        threads = env.get("GODOT_THREADS", "")
+        if threads.isdigit():
+            cmd.extend(["--threads", threads])
+
         scene_arg = str(self.scene_path).strip() if self.scene_path else ""
         if scene_arg:
             cmd.append(self._resolve_scene_arg(scene_arg))
@@ -230,7 +240,14 @@ class AnnaGymEnv(gym.Env):
         if self._launch_stagger_sec > 0.0:
             time.sleep(random.uniform(0.0, self._launch_stagger_sec))
         # Launch in its own process group so close() can terminate xvfb-run + Godot children reliably.
-        self.godot_process = subprocess.Popen(cmd, env=env, start_new_session=True)
+        popen_kwargs = {
+            "env": env,
+            "start_new_session": True,
+        }
+        if self.godot_stdio in ("null", "devnull", "quiet"):
+            popen_kwargs["stdout"] = subprocess.DEVNULL
+            popen_kwargs["stderr"] = subprocess.DEVNULL
+        self.godot_process = subprocess.Popen(cmd, **popen_kwargs)
         ready = self._wait_for_bridge_ready(timeout_sec=self._launch_ready_timeout_sec)
         return ready, is_server_bin
 
@@ -441,11 +458,11 @@ class AnnaGymEnv(gym.Env):
         return bytes(out)
 
     def _recv_once_binary(self):
-        # 12 obs float32 + reward float32 + done uint8
+        # 13 obs float32 + reward float32 + done uint8
         raw = self._recv_exact(57)
         unpacked = struct.unpack(">14fB", raw)
         obs = list(unpacked[:13])
-        reward = float(unpacked[14])
+        reward = float(unpacked[13])
         done = bool(unpacked[14])
         return {"obs": obs, "reward": reward, "done": done}
 
@@ -499,7 +516,7 @@ class AnnaGymEnv(gym.Env):
         data = self._request_binary(255) if self.use_binary_protocol else self._request({"command": "RESET"})
 
         # Receive Initial Observation
-        obs = np.array(data.get("obs", np.zeros(12)), dtype=np.float32)
+        obs = np.array(data.get("obs", np.zeros(13)), dtype=np.float32)
         info = {
             "bridge_recovered": bool(data.get("done", False) and np.all(obs == 0.0)),
             "bridge_dead": bool(data.get("__bridge_dead", False)),
@@ -511,7 +528,7 @@ class AnnaGymEnv(gym.Env):
         # Send Action
         data = self._request_binary(int(action)) if self.use_binary_protocol else self._request({"action": int(action)})
 
-        obs = np.array(data.get("obs", np.zeros(12)), dtype=np.float32)
+        obs = np.array(data.get("obs", np.zeros(13)), dtype=np.float32)
         reward = float(data.get("reward", 0.0))
         terminated = bool(data.get("done", False))
         truncated = False

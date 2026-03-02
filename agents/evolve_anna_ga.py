@@ -8,6 +8,7 @@ import math
 import os
 import random
 import subprocess
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -26,6 +27,17 @@ class Individual:
     elapsed_sec: float = 0.0
     model_mb: float = 0.0
 
+def _log(msg: str, work_dir: Path | None = None):
+    ts = time.strftime("%H:%M:%S")
+    line = f"[{ts}] {msg}"
+    print(line, flush=True)
+    if work_dir:
+        try:
+            with (work_dir / "evolution.log").open("a", encoding="utf-8") as f:
+                f.write(line + "\n")
+        except:
+            pass
+
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Genetic search for ANNA PPO/curriculum configs.")
@@ -41,6 +53,11 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--eval-episodes", type=int, default=20)
     p.add_argument("--eval-max-steps", type=int, default=1500)
     p.add_argument("--rl-max-steps", type=int, default=1500)
+    p.add_argument("--live-report-steps", type=int, default=4000, help="Live telemetry chunk size passed to auto_train_anna.")
+    p.add_argument("--live-eval-episodes", type=int, default=1, help="Quick eval episodes per live telemetry chunk.")
+    p.add_argument("--live-eval-max-steps", type=int, default=300, help="Quick eval max steps per live telemetry chunk.")
+    p.add_argument("--train-physics-fps", type=int, default=0, help="Training physics FPS passed to auto_train_anna (<=0 = uncapped mode).")
+    p.add_argument("--eval-physics-fps", type=int, default=60, help="Evaluation physics FPS passed to auto_train_anna.")
     p.add_argument("--scene-stage1", default="core_v2/tests/TestScene_RL.tscn")
     p.add_argument("--scene-stage2", default="core_v2/tests/TestScene_RL_2.tscn")
     p.add_argument("--scene-stage3", default="core_v2/tests/TestScene_RL_3_Door.tscn")
@@ -48,8 +65,9 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--min-rounds", type=int, default=3)
     p.add_argument("--output-prefix", default="agents/models/anna_ga")
     p.add_argument("--work-dir", default="agents/runs/ga")
-    p.add_argument("--python-bin", default=os.environ.get("PYTHON_BIN", "python3"))
+    p.add_argument("--python-bin", default=".venv/bin/python", help="Path to python executable.")
     p.add_argument("--timeout-sec", type=int, default=0, help="0 disables timeout per individual.")
+    p.add_argument("--retry-failed", type=int, default=1, help="Retries per individual when training exits non-zero.")
     p.add_argument("--keep-failed", action="store_true")
     p.add_argument("--top-k-log", type=int, default=5)
     p.add_argument("--verbose", type=int, default=1)
@@ -58,16 +76,16 @@ def _parse_args() -> argparse.Namespace:
 
 def _gene_space() -> Dict[str, List[Any]]:
     return {
-        "learning_rate": [2e-4, 3e-4, 5e-4, 7e-4, 1e-3],
-        "entropy_coef": [0.015, 0.02, 0.03, 0.035, 0.05],
-        "ppo_n_steps": [512, 1024, 2048],
-        "ppo_batch_size": [256, 512, 1024],
-        "ppo_n_epochs": [2, 3, 4],
-        "timesteps_stage1": [4000, 8000, 12000, 16000],
-        "timesteps_stage2": [8000, 12000, 16000, 24000],
-        "timesteps_stage3": [16000, 24000, 32000, 48000],
-        "policy_widths": ["96,128", "128,160", "128,192", "160,192"],
-        "policy_depths": ["2", "2,3"],
+        "learning_rate": [3e-4, 5e-4, 7e-4, 1e-3],
+        "entropy_coef": [0.01, 0.015, 0.02, 0.03],
+        "ppo_n_steps": [2048],
+        "ppo_batch_size": [2048],
+        "ppo_n_epochs": [1],
+        "timesteps_stage1": [4000, 8000],
+        "timesteps_stage2": [8000, 12000],
+        "timesteps_stage3": [12000, 16000, 24000],
+        "policy_widths": ["64", "96"],
+        "policy_depths": ["1"],
         "wall_contact_max": [0.20, 0.25, 0.30],
     }
 
@@ -171,6 +189,8 @@ def _build_cmd(
         str(args.eval_max_steps),
         "--cpu-threads",
         str(args.cpu_threads),
+        "--num-envs",
+        "1",
         "--ppo-n-steps",
         str(genes["ppo_n_steps"]),
         "--ppo-batch-size",
@@ -188,13 +208,21 @@ def _build_cmd(
         "--policy-depths",
         str(genes["policy_depths"]),
         "--arch-limit",
-        "2",
+        "1",
         "--max-model-mb",
         "1.0",
         "--rl-physics-fps",
-        "0",
+        str(args.train_physics_fps),
+        "--eval-physics-fps",
+        str(args.eval_physics_fps),
         "--rl-max-steps",
         str(args.rl_max_steps),
+        "--live-report-steps",
+        str(args.live_report_steps),
+        "--live-eval-episodes",
+        str(args.live_eval_episodes),
+        "--live-eval-max-steps",
+        str(args.live_eval_max_steps),
         "--rl-disable-cpu-sleep",
         "--success-target",
         "0.35",
@@ -230,28 +258,92 @@ def _evaluate_individual(
     env.setdefault("GODOT_BIN", "godot3-server")
     env.setdefault("ANNA_GODOT_PREFER_SERVER", "1")
     env.setdefault("ANNA_GODOT_SERVER_FALLBACK", "0")
+    env.setdefault("ANNA_GODOT_DISABLE_RENDER_LOOP", "1")
+    env.setdefault("ANNA_GODOT_DISABLE_AUDIO_DRIVER_FLAG", "1")
+    env.setdefault("ANNA_GODOT_SERVER_VIDEO_DRIVER", "")
+    env.setdefault("ANNA_RL_BINARY_PROTOCOL", "1")
     env.setdefault("ANNA_RL_MAX_STEPS", str(args.rl_max_steps))
+    env.setdefault("ANNA_RL_PHYSICS_FPS", str(args.train_physics_fps))
+    env.setdefault("ANNA_RL_TARGET_FPS", "0" if int(args.train_physics_fps) <= 0 else str(args.train_physics_fps))
+    env.setdefault("ANNA_RL_PHYSICS_FPS_CAP", "6000")
+    env.setdefault("ANNA_RL_MAX_PHYSICS_STEPS_PER_FRAME", "128")
+    env.setdefault("ANNA_RL_DISABLE_CPU_SLEEP", "1")
+    env.setdefault("ANNA_RL_POLL_SLEEP_USEC", "0")
     env.setdefault("vblank_mode", "0")
+    if "GODOT_THREADS" in os.environ:
+        env["GODOT_THREADS"] = os.environ["GODOT_THREADS"]
 
     started = time.time()
     rc = 0
+    retry_failed = max(0, int(args.retry_failed))
+    attempts = 1 + retry_failed
+    try:
+        summary_path.unlink(missing_ok=True)
+    except Exception:
+        pass
     with log_path.open("w", encoding="utf-8") as lf:
         lf.write("# CMD: %s\n\n" % " ".join(cmd))
         lf.flush()
-        try:
-            proc = subprocess.run(
-                cmd,
-                cwd=str(Path(__file__).resolve().parents[1]),
-                env=env,
-                stdout=lf,
-                stderr=subprocess.STDOUT,
-                timeout=(None if args.timeout_sec <= 0 else args.timeout_sec),
-                check=False,
-            )
-            rc = int(proc.returncode)
-        except subprocess.TimeoutExpired:
-            rc = 124
-            lf.write("\n[TIMEOUT] %ds\n" % int(args.timeout_sec))
+        for attempt in range(1, attempts + 1):
+            if attempt > 1:
+                lf.write("\n[RETRY] attempt %d/%d after rc=%d\n" % (attempt, attempts, rc))
+                lf.flush()
+                time.sleep(1.0)
+            env["ANNA_GA_ATTEMPT"] = str(attempt)
+            try:
+                if args.parallel_jobs == 1 and args.verbose > 0:
+                    print(f"\n" + "="*60, flush=True)
+                    print(f"🧬 [GA] Evaluating Candidate : {gid} (attempt {attempt}/{attempts})", flush=True)
+                    print(f"🧬 Genes: {json.dumps(genes)}", flush=True)
+                    print("="*60 + "\n", flush=True)
+                    proc = subprocess.Popen(
+                        cmd,
+                        cwd=str(Path(__file__).resolve().parents[1]),
+                        env=env,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        bufsize=1,
+                    )
+                    for line in proc.stdout:
+                        lf.write(line)
+                        # Suppress Bullet noise from the console so the user can easily read SB3 tables
+                        skip = False
+                        for noise in [
+                            "RigidBody in 3D only supports primitive shapes",
+                            "VisualServer attempted to free a NULL RID",
+                            "Octahedral compression cannot be used",
+                            "at: copyAllOwnerShapes",
+                            "at: free (servers/visual/",
+                            "at: norm_to_oct (servers/",
+                            "ERROR: Expected Image data size",
+                            "at: create (core/image.cpp:",
+                        ]:
+                            if noise in line:
+                                skip = True
+                                break
+                        if not skip:
+                            sys.stdout.write(line)
+                            sys.stdout.flush()
+
+                    proc.wait(timeout=(None if args.timeout_sec <= 0 else args.timeout_sec))
+                    rc = int(proc.returncode)
+                else:
+                    proc = subprocess.run(
+                        cmd,
+                        cwd=str(Path(__file__).resolve().parents[1]),
+                        env=env,
+                        stdout=lf,
+                        stderr=subprocess.STDOUT,
+                        timeout=(None if args.timeout_sec <= 0 else args.timeout_sec),
+                        check=False,
+                    )
+                    rc = int(proc.returncode)
+            except subprocess.TimeoutExpired:
+                rc = 124
+                lf.write("\n[TIMEOUT] %ds\n" % int(args.timeout_sec))
+            if rc == 0 and summary_path.exists():
+                break
 
     metrics: Dict[str, float] = {}
     fit = -1e9

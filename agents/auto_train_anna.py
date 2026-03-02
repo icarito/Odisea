@@ -46,6 +46,12 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--timesteps-per-round", type=int, default=40000, help="Used only in --scene single-scene mode.")
     parser.add_argument("--eval-episodes", type=int, default=20)
     parser.add_argument("--eval-max-steps", type=int, default=1500)
+    parser.add_argument(
+        "--eval-physics-fps",
+        type=int,
+        default=60,
+        help="Physics FPS used only for evaluation environments (live eval, round eval, stage gate).",
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--cpu-threads", type=int, default=2)
     parser.add_argument("--num-envs", type=int, default=4, help="Parallel Godot envs for training stages.")
@@ -91,7 +97,7 @@ def _parse_args() -> argparse.Namespace:
         default=900,
         help="Max steps for stage unlock evaluation episodes.",
     )
-    parser.add_argument("--rl-physics-fps", type=int, default=0, help="Value for ANNA_RL_PHYSICS_FPS (<=0 uses AnnaBridge uncapped mode).")
+    parser.add_argument("--rl-physics-fps", type=int, default=4000, help="Value for ANNA_RL_PHYSICS_FPS (<=0 uses AnnaBridge uncapped mode).")
     parser.add_argument("--rl-max-steps", type=int, default=1500, help="Default ANNA_RL_MAX_STEPS exported to Godot.")
     parser.add_argument(
         "--rl-disable-cpu-sleep",
@@ -318,12 +324,37 @@ def _set_rl_runtime_tuning(physics_fps: int, disable_cpu_sleep: bool, rl_max_ste
     os.environ.setdefault("ODISEA_DISABLE_FAKE_SHADOW", "1")
     os.environ.setdefault("ODISEA_DISABLE_SHADER_WARMUP", "1")
     os.environ.setdefault("ODISEA_DISABLE_SHADER_WARMUP_IN_RL", "1")
+    os.environ.setdefault("ANNA_RL_TARGET_FPS", "4000")
     if disable_cpu_sleep:
         os.environ["ANNA_RL_DISABLE_CPU_SLEEP"] = "1"
         os.environ.setdefault("ANNA_RL_POLL_SLEEP_USEC", "0")
     else:
         os.environ.setdefault("ANNA_RL_DISABLE_CPU_SLEEP", "0")
         os.environ.setdefault("ANNA_RL_POLL_SLEEP_USEC", "1000")
+
+
+def _set_eval_runtime_tuning(eval_physics_fps: int) -> Dict[str, str | None]:
+    keys = [
+        "ANNA_RL_TARGET_FPS",
+        "ANNA_RL_PHYSICS_FPS",
+        "ANNA_RL_PHYSICS_FPS_CAP",
+        "ANNA_RL_MAX_PHYSICS_STEPS_PER_FRAME",
+    ]
+    prev = {k: os.environ.get(k) for k in keys}
+    fps = max(30, int(eval_physics_fps))
+    os.environ["ANNA_RL_TARGET_FPS"] = str(fps)
+    os.environ["ANNA_RL_PHYSICS_FPS"] = str(fps)
+    os.environ["ANNA_RL_PHYSICS_FPS_CAP"] = str(fps)
+    os.environ["ANNA_RL_MAX_PHYSICS_STEPS_PER_FRAME"] = "8"
+    return prev
+
+
+def _restore_runtime_tuning(prev: Dict[str, str | None]) -> None:
+    for key, value in prev.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
 
 
 def _prepare_imports(repo_root: Path):
@@ -760,6 +791,7 @@ def main() -> int:
             os.environ.get("ANNA_RL_MAX_STEPS", ""),
         )
     )
+    print("[auto_train_anna] eval runtime: eval_physics_fps=%d" % int(args.eval_physics_fps))
     print(
         "[auto_train_anna] size_cap=%.2fMB arch_candidates=%s"
         % (max_model_bytes / (1024.0 * 1024.0), json.dumps(arch_candidates))
@@ -899,7 +931,7 @@ def main() -> int:
                         model.learn(
                             total_timesteps=chunk_steps,
                             reset_num_timesteps=(total_trained_steps == 0),
-                            progress_bar=(not use_chunks),
+                            progress_bar=False,
                         )
                         chunk_elapsed = max(1e-6, time.time() - chunk_started)
                         stage_step_done += chunk_steps
@@ -922,6 +954,7 @@ def main() -> int:
                             }
                             if int(args.live_eval_episodes) > 0:
                                 live_port = _find_available_port_block(int(args.eval_port) + 300, 1, max_scan=2000)
+                                live_eval_prev_env = _set_eval_runtime_tuning(int(args.eval_physics_fps))
                                 live_eval_env = AnnaGymEnv(
                                     scene_path=stage_scene,
                                     port=live_port,
@@ -942,6 +975,7 @@ def main() -> int:
                                     )
                                 finally:
                                     live_eval_env.close()
+                                    _restore_runtime_tuning(live_eval_prev_env)
                                 live_record["metrics"] = live_metrics
                                 print(
                                     "[auto_train_anna][live] round=%d stage=%s chunk=%d/%d stage_steps=%d/%d total=%d sps=%.1f %s"
@@ -982,6 +1016,7 @@ def main() -> int:
             if stage_unlock_enabled and not str(args.eval_scene).strip():
                 eval_scene_round = str(stages[max(0, int(unlocked_stage_count) - 1)]["scene"])
 
+            eval_prev_env = _set_eval_runtime_tuning(int(args.eval_physics_fps))
             eval_env = AnnaGymEnv(
                 scene_path=eval_scene_round,
                 port=args.eval_port,
@@ -1002,6 +1037,7 @@ def main() -> int:
                 )
             finally:
                 eval_env.close()
+                _restore_runtime_tuning(eval_prev_env)
 
             round_score = _score(metrics)
             record = {
@@ -1053,6 +1089,7 @@ def main() -> int:
                 gate_stage = stages[gate_idx]
                 gate_scene = str(gate_stage["scene"])
                 gate_port = _find_available_port_block(int(args.eval_port) + 600, 1, max_scan=2000)
+                gate_prev_env = _set_eval_runtime_tuning(int(args.eval_physics_fps))
                 gate_env = AnnaGymEnv(
                     scene_path=gate_scene,
                     port=gate_port,
@@ -1073,6 +1110,7 @@ def main() -> int:
                     )
                 finally:
                     gate_env.close()
+                    _restore_runtime_tuning(gate_prev_env)
 
                 gate_success = float(gate_metrics.get("success_rate", 0.0))
                 gate_pass = gate_success >= float(args.stage_unlock_target)
