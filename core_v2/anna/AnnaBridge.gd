@@ -868,10 +868,18 @@ func _run_native_onnx_inference():
 		
 	if _onnx_model == null:
 		return
-		
+	
+	# Check if episode is done from previous step and reset if needed
+	var obs_dict = _interface.get_rl_observation()
+	if obs_dict.get("done", false):
+		var done_reason = obs_dict.get("done_reason", "unknown")
+		print("[ANNA] Native ONNX: episode done, reason=", done_reason, " - RESETTING")
+		_interface.reset_simulation()
+		# Get fresh observation after reset
+		obs_dict = _interface.get_rl_observation()
+	
 	# Collect Observation
 	var t0 = OS.get_ticks_usec()
-	var obs_dict = _interface.get_rl_observation()
 	var raw_obs = obs_dict.get("obs", [])
 	var state_ins = 0 # Ignored by this model, but required by API
 	
