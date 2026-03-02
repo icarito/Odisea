@@ -229,6 +229,9 @@ var _last_route_interact_dist := -1.0
 var _last_route_interact_progress := -1.0
 var _cached_player: Node = null
 var _cached_target: Spatial = null
+var _controlled_player: Node = null
+var _forced_target: Spatial = null
+var _rl_active := true
 
 # Spawn config (overrideable via env vars for scene-specific safe positions)
 var _rl_spawn_pos := Vector3(0.0, 2.0, 0.0)
@@ -1809,6 +1812,8 @@ func _reset_interactables_for_episode() -> void:
 			node.set_active(starts_active, true)
 
 func apply_rl_action(action_idx: int) -> void:
+	if not _rl_active:
+		return
 	# Action Space:
 	# 0=SteerOnly,
 	# 1=Forward,
@@ -2565,6 +2570,8 @@ func _get_control_basis(player: Spatial) -> Basis:
 
 
 func _get_rl_target() -> Spatial:
+	if is_instance_valid(_forced_target) and _forced_target.is_inside_tree() and not _forced_target.is_queued_for_deletion():
+		return _forced_target
 	if is_instance_valid(_cached_target) and _cached_target.is_inside_tree() and not _cached_target.is_queued_for_deletion():
 		return _cached_target
 	var targets = get_tree().get_nodes_in_group(RL_TARGET_GROUP)
@@ -2767,6 +2774,8 @@ func apply_action(action: Dictionary):
 		_apply_olcs_action(action["ocls"])
 
 func _get_player() -> Node:
+	if is_instance_valid(_controlled_player) and _controlled_player.is_inside_tree() and not _controlled_player.is_queued_for_deletion():
+		return _controlled_player
 	if is_instance_valid(_cached_player) and _cached_player.is_inside_tree() and not _cached_player.is_queued_for_deletion():
 		return _cached_player
 	var sm = get_node_or_null("/root/SessionManager")
@@ -2779,6 +2788,36 @@ func _get_player() -> Node:
 		return _cached_player
 	_cached_player = null
 	return null
+
+func set_controlled_player(node: Node) -> void:
+	if is_instance_valid(node):
+		_controlled_player = node
+		_cached_player = node
+	else:
+		_controlled_player = null
+
+func set_target_node(node: Node) -> void:
+	if node is Spatial and is_instance_valid(node):
+		_forced_target = node
+		_cached_target = node
+	else:
+		_forced_target = null
+
+func set_custom_target(pos: Vector3) -> void:
+	var target = _ensure_rl_target()
+	if not is_instance_valid(target):
+		return
+	var t = target.global_transform
+	t.origin = pos
+	target.global_transform = t
+	_forced_target = target
+	_cached_target = target
+
+func set_rl_active(active: bool) -> void:
+	_rl_active = bool(active)
+
+func is_rl_active() -> bool:
+	return _rl_active
 
 func _get_anna_metadata() -> Dictionary:
 	var sm = get_node_or_null("/root/SessionManager")

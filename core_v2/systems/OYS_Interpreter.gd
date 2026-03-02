@@ -277,7 +277,7 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				var anna = target_node.get_node("AnnaInterface")
 				if anna.has_method("set_custom_target"):
 					if pos_str != "":
-						var coords = Utilities.parse_vector3(pos_str)
+						var coords = OYS_Parser.parse_vector3(pos_str)
 						anna.set_custom_target(coords)
 					else:
 						printerr("[OYS_Interpreter] ANNA_SET_TARGET failed: Must specify pos=(x,y,z)")
@@ -1557,6 +1557,41 @@ func _find_player() -> Node:
 	# Priority 4: Global name lookup
 	var player = host_node.get_tree().root.find_node("Pilot", true, false)
 	return player
+
+func _find_actor_node(target: String) -> Node:
+	var key = String(target).strip_edges()
+	if key == "":
+		return _find_player()
+	if key == "Pilot" or key == "Player":
+		return _find_player()
+
+	# Try path/name resolution from interpreter context first.
+	var node = _resolve_node(key)
+	if is_instance_valid(node):
+		return node
+
+	# If SessionManager has a registered OYS actor, prefer that.
+	var session = _find_session_manager()
+	if session and session.has_method("get_oys_actor"):
+		node = session.call("get_oys_actor", key)
+		if is_instance_valid(node):
+			return node
+
+	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+		return null
+
+	var tree = host_node.get_tree()
+	if tree and is_instance_valid(tree.current_scene):
+		node = tree.current_scene.find_node(key, true, false)
+		if is_instance_valid(node):
+			return node
+
+	if tree and tree.root:
+		node = tree.root.find_node(key, true, false)
+		if is_instance_valid(node):
+			return node
+
+	return null
 
 func _find_player_under_node(root: Node) -> Node:
 	if not root or not is_instance_valid(root):

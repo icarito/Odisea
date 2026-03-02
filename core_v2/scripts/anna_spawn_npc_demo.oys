@@ -1,0 +1,10 @@
+SECTION start
+PRINT "Spawning ANNA NPC (native ONNX)..."
+
+SPAWN scene="res://core_v2/actors/Pilot_v2.tscn" name="AnnaNPC" pos=[3, 1, 5] anna=true anna_native=true anna_active=true anna_model="res://core_v2/trained_models/anna_best_rl4.onnx" anna_target=[0, 1, 12]
+
+WAIT 0.2
+ANNA_ENABLE "AnnaNPC"
+ANNA_SET_TARGET "AnnaNPC" pos=(0, 1, 12)
+
+PRINT "ANNA NPC ready: model active + target configured."

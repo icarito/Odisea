@@ -160,6 +160,29 @@ func test_parse_camera_shake_with_vector_syntax():
 	assert_bool(is_equal_approx(float(inst.get("duration", -1.0)), 0.6)).is_true()
 	assert_bool(is_equal_approx(float(inst.get("frequency", -1.0)), 20.0)).is_true()
 
+func test_parse_spawn_with_anna_options():
+	var inst = OYS_Parser.parse_instruction('SPAWN scene="res://core_v2/actors/Pilot_v2.tscn" name="AnnaNPC" pos=[3, 1, 5] anna=true anna_model="res://core_v2/trained_models/anna_best_rl4.onnx" anna_target=[0, 1, 12]')
+	assert_str(inst.command).is_equal("SPAWN")
+	assert_str(String(inst.get("scene", ""))).is_equal("res://core_v2/actors/Pilot_v2.tscn")
+	assert_str(String(inst.get("name", ""))).is_equal("AnnaNPC")
+	assert_str(String(inst.get("anna", ""))).is_equal("true")
+	assert_str(String(inst.get("anna_model", ""))).is_equal("res://core_v2/trained_models/anna_best_rl4.onnx")
+	assert_str(String(inst.get("anna_target", ""))).is_equal("[0, 1, 12]")
+
+func test_parse_anna_commands():
+	var enable = OYS_Parser.parse_instruction('ANNA_ENABLE "AnnaNPC"')
+	assert_str(enable.command).is_equal("ANNA_ENABLE")
+	assert_str(String(enable.get("target", ""))).is_equal("AnnaNPC")
+
+	var disable = OYS_Parser.parse_instruction('ANNA_DISABLE "AnnaNPC"')
+	assert_str(disable.command).is_equal("ANNA_DISABLE")
+	assert_str(String(disable.get("target", ""))).is_equal("AnnaNPC")
+
+	var set_target = OYS_Parser.parse_instruction('ANNA_SET_TARGET "AnnaNPC" pos=(0, 1, 12)')
+	assert_str(set_target.command).is_equal("ANNA_SET_TARGET")
+	assert_str(String(set_target.get("target", ""))).is_equal("AnnaNPC")
+	assert_str(String(set_target.get("pos", ""))).is_equal("(0, 1, 12)")
+
 func test_resolver_cls_generates_event():
 	var script = """
 	CLS

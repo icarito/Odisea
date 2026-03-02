@@ -302,6 +302,31 @@ static func parse_instruction(line: String) -> Dictionary:
 					else:
 						# Simple value?
 						data["pos"] = p.split("=")[1]
+
+			# Extended named args (useful for ANNA NPC spawn presets).
+			var spawn_name = _extract_named_value(line, "name")
+			if spawn_name != "":
+				data["name"] = spawn_name
+			var anna_flag = _extract_named_value(line, "anna")
+			if anna_flag != "":
+				data["anna"] = anna_flag
+			var anna_native_flag = _extract_named_value(line, "anna_native")
+			if anna_native_flag != "":
+				data["anna_native"] = anna_native_flag
+			var anna_active = _extract_named_value(line, "anna_active")
+			if anna_active != "":
+				data["anna_active"] = anna_active
+			var anna_model = _extract_named_value(line, "anna_model")
+			if anna_model == "":
+				anna_model = _extract_named_value(line, "onnx_model")
+			if anna_model != "":
+				data["anna_model"] = anna_model
+			var anna_target_node = _extract_named_value(line, "anna_target_node")
+			if anna_target_node != "":
+				data["anna_target_node"] = anna_target_node
+			var anna_target = _extract_named_vector(line, "anna_target")
+			if anna_target != "":
+				data["anna_target"] = anna_target
 			
 			# Legacy Fallback
 			if not data.has("scene") and parts.size() > 1 and not parts[1].begins_with("scene="):
@@ -845,6 +870,37 @@ static func _extract_named_value(line: String, key: String) -> String:
 	if end == -1:
 		return line.substr(start).strip_edges()
 	return line.substr(start, end - start).strip_edges()
+
+static func _extract_named_vector(line: String, key: String) -> String:
+	var lower_line := line.to_lower()
+	var needle := key.to_lower() + "="
+	var idx := lower_line.find(needle)
+	if idx == -1:
+		return ""
+	var start := idx + needle.length()
+	if start >= line.length():
+		return ""
+
+	var open_char := line[start]
+	var close_char := ""
+	if open_char == "[":
+		close_char = "]"
+	elif open_char == "(":
+		close_char = ")"
+	else:
+		return _extract_named_value(line, key)
+
+	var depth := 0
+	for i in range(start, line.length()):
+		var ch = line[i]
+		if ch == open_char:
+			depth += 1
+		elif ch == close_char:
+			depth -= 1
+			if depth == 0:
+				return line.substr(start, i - start + 1).strip_edges()
+
+	return line.substr(start).strip_edges()
 
 static func _parse_wait_instruction(parts: Array, cmd: String) -> Dictionary:
 	var token = String(parts[1]).strip_edges() if parts.size() > 1 else "0"

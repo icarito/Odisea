@@ -1038,7 +1038,7 @@ func _on_oys_instruction_executed(inst: Dictionary, _vars: Dictionary):
 	
 	var cmd = inst.get("command", "")
 	match cmd:
-		"ASSERT", "SET", "MATH", "PRINT", "CLS", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "PLAY_ANIM", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP", "OPEN", "CHANGE_SCENE":
+		"ASSERT", "SET", "MATH", "PRINT", "CLS", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "ANNA_ENABLE", "ANNA_DISABLE", "ANNA_SET_TARGET", "PLAY_ANIM", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP", "OPEN", "CHANGE_SCENE":
 			_current_replay_data["events"][frame].append(OYS_Parser.serialize_instruction(inst))
 		"ASSERT_SIGNAL":
 			var start_evt = OYS_Parser.serialize_instruction(inst)
@@ -1425,6 +1425,8 @@ func _execute_event(cmd: Dictionary):
 				printerr("[SessionManager] Replay Error: LOAD_PROP with empty path")
 		"SPAWN":
 			_handle_spawn_command(cmd)
+		"ANNA_ENABLE", "ANNA_DISABLE", "ANNA_SET_TARGET":
+			_handle_anna_command(cmd)
 		"PLAY_ANIM":
 			_handle_play_anim(cmd)
 		"SET_TIME_SCALE":
@@ -2081,6 +2083,9 @@ func _handle_spawn_command(cmd: Dictionary):
 	if obj == null:
 		printerr("[SessionManager] SPAWN failed: cannot instance scene ", scene_path)
 		return
+	var custom_name = String(cmd.get("name", "")).strip_edges()
+	if custom_name != "":
+		obj.name = custom_name
 
 	var has_pos = cmd.has("pos") and obj is Spatial
 	var parsed_pos = Vector3.ZERO
@@ -2126,6 +2131,127 @@ func _handle_spawn_command(cmd: Dictionary):
 		rb.linear_velocity = Vector3.ZERO
 		rb.angular_velocity = Vector3.ZERO
 		rb.sleeping = false
+
+	if _spawn_cmd_wants_anna(cmd):
+		_configure_spawned_anna_agent(obj, cmd)
+
+func _spawn_cmd_wants_anna(cmd: Dictionary) -> bool:
+	if not cmd.has("anna") and not cmd.has("anna_native") and not cmd.has("anna_model"):
+		return false
+	if cmd.has("anna") and _as_bool(cmd.get("anna", false)):
+		return true
+	if cmd.has("anna_native") and _as_bool(cmd.get("anna_native", false)):
+		return true
+	if _as_string(cmd.get("anna_model", "")).strip_edges() != "":
+		return true
+	return false
+
+func _as_bool(value, default_value := false) -> bool:
+	if typeof(value) == TYPE_BOOL:
+		return bool(value)
+	var s = String(value).strip_edges().to_lower()
+	if s == "":
+		return default_value
+	return s in ["1", "true", "yes", "on"]
+
+func _as_string(value, default_value := "") -> String:
+	if value == null:
+		return default_value
+	return String(value)
+
+func _configure_spawned_anna_agent(obj: Node, cmd: Dictionary) -> void:
+	if not is_instance_valid(obj):
+		return
+	if not obj.has_method("inject_input"):
+		printerr("[SessionManager] SPAWN anna=true ignored: spawned node lacks inject_input() -> ", obj.name)
+		return
+
+	var anna = obj.get_node_or_null("AnnaInterface")
+	if not anna:
+		var anna_script = load("res://core_v2/anna/AnnaInterface.gd")
+		if anna_script:
+			anna = anna_script.new()
+			anna.name = "AnnaInterface"
+			obj.add_child(anna)
+	if not anna:
+		printerr("[SessionManager] Could not attach AnnaInterface to ", obj.name)
+		return
+
+	if anna.has_method("set_controlled_player"):
+		anna.call("set_controlled_player", obj)
+	if anna.has_method("set_rl_active"):
+		anna.call("set_rl_active", _as_bool(cmd.get("anna_active", true), true))
+
+	var target_node_name = _as_string(cmd.get("anna_target_node", "")).strip_edges()
+	if target_node_name != "":
+		var named_target = _find_node_recursive(target_node_name)
+		if named_target and anna.has_method("set_target_node"):
+			anna.call("set_target_node", named_target)
+
+	if cmd.has("anna_target") and anna.has_method("set_custom_target"):
+		var target_pos = _parse_vector3_flexible(_as_string(cmd.get("anna_target", "")))
+		anna.call("set_custom_target", target_pos)
+
+	var controller = obj.get_node_or_null("AnnaNPCController")
+	if not controller:
+		var controller_script = load("res://core_v2/anna/AnnaNPCController.gd")
+		if controller_script:
+			controller = controller_script.new()
+			controller.name = "AnnaNPCController"
+			obj.add_child(controller)
+	if not controller:
+		printerr("[SessionManager] Could not attach AnnaNPCController to ", obj.name)
+		return
+
+	var model_path = _as_string(cmd.get("anna_model", "")).strip_edges()
+	if model_path == "":
+		model_path = _as_string(cmd.get("onnx_model", "")).strip_edges()
+	if model_path != "":
+		controller.set("onnx_model_path", model_path)
+	controller.set("auto_start", _as_bool(cmd.get("anna_active", true), true))
+	if controller.has_method("set_active"):
+		controller.call("set_active", _as_bool(cmd.get("anna_active", true), true))
+
+func _handle_anna_command(cmd: Dictionary) -> void:
+	var target_name = _as_string(cmd.get("target", "")).strip_edges()
+	var target_node: Node = null
+	if target_name != "":
+		target_node = _find_node_recursive(target_name)
+	else:
+		_find_player()
+		target_node = player
+	if not is_instance_valid(target_node):
+		printerr("[SessionManager] ", cmd.get("command", "ANNA"), " failed: target not found")
+		return
+
+	var anna = target_node.get_node_or_null("AnnaInterface")
+	if not anna:
+		var anna_script = load("res://core_v2/anna/AnnaInterface.gd")
+		if anna_script:
+			anna = anna_script.new()
+			anna.name = "AnnaInterface"
+			target_node.add_child(anna)
+	if not anna:
+		printerr("[SessionManager] ", cmd.get("command", "ANNA"), " failed: AnnaInterface unavailable")
+		return
+
+	if anna.has_method("set_controlled_player"):
+		anna.call("set_controlled_player", target_node)
+
+	var command = String(cmd.get("command", "")).to_upper()
+	match command:
+		"ANNA_ENABLE":
+			if anna.has_method("set_rl_active"):
+				anna.call("set_rl_active", true)
+		"ANNA_DISABLE":
+			if anna.has_method("set_rl_active"):
+				anna.call("set_rl_active", false)
+		"ANNA_SET_TARGET":
+			var pos_str = _as_string(cmd.get("pos", "")).strip_edges()
+			if pos_str == "":
+				printerr("[SessionManager] ANNA_SET_TARGET failed: missing pos=(x,y,z)")
+			elif anna.has_method("set_custom_target"):
+				anna.call("set_custom_target", _parse_vector3_flexible(pos_str))
 
 func _handle_play_anim(cmd: Dictionary):
 	var path = cmd.get("path", "")
