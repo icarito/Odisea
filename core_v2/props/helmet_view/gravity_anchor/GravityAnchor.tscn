@@ -1,0 +1,50 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://core_v2/props/helmet_view/gravity_anchor/GravityAnchor.gd" type="Script" id=1]
+
+[sub_resource type="Shader" id=3]
+code = "
+shader_type spatial;
+render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx,unshaded;
+uniform vec4 color_stable : hint_color = vec4(0.0, 1.0, 1.0, 1.0);
+uniform vec4 color_unstable : hint_color = vec4(1.0, 0.5, 0.0, 1.0);
+uniform float stability = 1.0; // 1.0 stable, 0.0 unstable
+
+void fragment() {
+    vec4 current_color = mix(color_unstable, color_stable, stability);
+    float flicker = mix(step(0.5, fract(TIME * 10.0)), 1.0, stability);
+    ALBEDO = current_color.rgb;
+    ALPHA = flicker;
+}
+"
+
+[sub_resource type="ShaderMaterial" id=4]
+shader = SubResource( 3 )
+shader_param/color_stable = Color( 0, 1, 1, 1 )
+shader_param/color_unstable = Color( 1, 0.5, 0, 1 )
+shader_param/stability = 1.0
+
+[sub_resource type="CylinderMesh" id=2]
+material = SubResource( 4 )
+top_radius = 0.001
+bottom_radius = 0.5
+height = 1.0
+radial_segments = 4
+
+[node name="GravityAnchor" type="Spatial"]
+script = ExtResource( 1 )
+interaction_text = "Interact"
+anim_duration = 1.0
+starts_active = false
+auto_interact = false
+one_off = false
+is_interactable = true
+manual_toggle = true
+debug = false
+linked_switch_path = NodePath("")
+linked_switch_paths = [  ]
+visual_parts_paths = [  ]
+debug_draw = false
+
+[node name="Mesh" type="MeshInstance" parent="."]
+mesh = SubResource( 2 )

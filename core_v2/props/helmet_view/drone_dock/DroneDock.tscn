@@ -1,0 +1,32 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://core_v2/props/helmet_view/drone_dock/DroneDock.gd" type="Script" id=1]
+
+[sub_resource type="SpatialMaterial" id=1]
+emission_enabled = true
+emission = Color( 0, 0, 1, 1 )
+emission_energy = 1.0
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="CylinderMesh" id=2]
+material = SubResource( 1 )
+height = 0.5
+
+[node name="DroneDock" type="Spatial"]
+script = ExtResource( 1 )
+interaction_text = "Interact"
+anim_duration = 1.0
+starts_active = false
+auto_interact = false
+one_off = false
+is_interactable = true
+manual_toggle = true
+debug = false
+linked_switch_path = NodePath("")
+linked_switch_paths = [  ]
+visual_parts_paths = [  ]
+debug_draw = false
+
+[node name="Mesh" type="MeshInstance" parent="."]
+mesh = SubResource( 2 )
