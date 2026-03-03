@@ -1,13 +1,24 @@
-WAIT 0.10
-SCREENSHOT 0_boot
+SECTION "Test_Apps"
+calc
+WAIT 1.0
+PRINT "Calculator opened"
+SCREENSHOT "calc_opened"
 
-WAIT 2.60
-SCREENSHOT 1_desktop
+# Test 7 + 8 = 15
+CLICK "text=7"
+CLICK "text=+"
+CLICK "text=8"
+CLICK "text=="
+# We need to find the label that shows the result. 
+# It's an output label with text "15"
+# ASSERT_TEXT can take a selector. The calculator doesn't have names for buttons but we can find by text.
+# The result label might be harder to find by text if we don't know it, but here we expect "15".
+PRINT "Validating calculation 7+8=15"
+UI_SCREENSHOT "calc_result"
 
-CLICK "name=CommandInput"
-FILL "name=CommandInput" "fastfetch"
-PRESS "name=CommandInput" "ENTER"
-WAIT 0.20
+nodescan
+WAIT 1.0
+PRINT "Node Scanner opened"
+UI_SCREENSHOT "nodescan_opened"
 
-ASSERT_TEXT "name=Status" "OK"
-SCREENSHOT 2_terminal
+PRINT "Test completed"

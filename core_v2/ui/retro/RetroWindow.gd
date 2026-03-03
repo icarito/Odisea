@@ -22,15 +22,27 @@ onready var _close_button: Button = $VBox/TitleBar/TitleRow/BtnClose
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	# Apply holo window background
+	var win_style = StyleBoxFlat.new()
+	win_style.bg_color = Color(0.04, 0.08, 0.05, 0.88)
+	win_style.border_width_left = 1
+	win_style.border_width_top = 1
+	win_style.border_width_right = 1
+	win_style.border_width_bottom = 1
+	win_style.border_color = Color(0.34, 0.46, 0.36, 0.8)
+	win_style.shadow_size = 6
+	win_style.shadow_color = Color(0.38, 0.62, 0.36, 0.12)
+	add_stylebox_override("panel", win_style)
+	
 	if _title_bar:
 		_title_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if _title_row:
 		_title_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	connect("gui_input", self, "_on_window_gui_input")
+	connect("gui_input", self , "_on_window_gui_input")
 	if _max_button:
-		_max_button.connect("pressed", self, "_on_max_pressed")
+		_max_button.connect("pressed", self , "_on_max_pressed")
 	if _close_button:
-		_close_button.connect("pressed", self, "_on_close_pressed")
+		_close_button.connect("pressed", self , "_on_close_pressed")
 	if _title_label:
 		_title_label.align = Label.ALIGN_CENTER
 		_title_label.valign = Label.VALIGN_CENTER
@@ -53,11 +65,11 @@ func set_focused(active: bool) -> void:
 
 func _focus_window() -> void:
 	raise()
-	emit_signal("window_focused", self)
+	emit_signal("window_focused", self )
 
 func _on_close_pressed() -> void:
 	hide()
-	emit_signal("close_requested", self)
+	emit_signal("close_requested", self )
 
 func _on_max_pressed() -> void:
 	_toggle_maximize()
@@ -85,7 +97,7 @@ func _toggle_maximize() -> void:
 func _on_window_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == BUTTON_LEFT:
 		if event.pressed:
-			emit_signal("window_clicked", self, event)
+			emit_signal("window_clicked", self , event)
 			_focus_window()
 			if _is_click_on_title_bar(event.global_position):
 				if event.doubleclick:
@@ -119,15 +131,16 @@ func _is_click_on_title_button(global_pos: Vector2) -> bool:
 
 func _build_title_style(active: bool) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
-	s.bg_color = Color("1c5877") if active else Color("2a2a2a")
+	# Holo-green if active, semi-transparent dark if not
+	s.bg_color = Color(0.08, 0.22, 0.12, 0.8) if active else Color(0.04, 0.04, 0.04, 0.6)
 	s.border_width_left = 1
 	s.border_width_top = 1
 	s.border_width_right = 1
 	s.border_width_bottom = 1
-	s.border_color = Color("00d8ff") if active else Color("5a5a5a")
+	s.border_color = Color("9bfa94") if active else Color(0.34, 0.46, 0.36, 0.4)
 	if active:
-		s.shadow_size = 2
-		s.shadow_color = Color(0, 1, 1, 0.4)
+		s.shadow_size = 4
+		s.shadow_color = Color(0.61, 0.98, 0.58, 0.3) # Holo green glow
 	s.expand_margin_top = 1
 	s.expand_margin_bottom = 1
 	return s

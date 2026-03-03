@@ -153,9 +153,9 @@ func _read_live_input() -> InputDataV2:
 		var joy_move_x = Input.get_joy_axis(0, JOY_AXIS_0)
 		var joy_move_y = Input.get_joy_axis(0, JOY_AXIS_1)
 		if _invert_joystick_x:
-			joy_move_x = -joy_move_x
+			joy_move_x = - joy_move_x
 		if _invert_joystick_y:
-			joy_move_y = -joy_move_y
+			joy_move_y = - joy_move_y
 		var joy_move = Vector2(
 			joy_move_x,
 			joy_move_y
@@ -176,12 +176,12 @@ func _read_live_input() -> InputDataV2:
 		var joy_look_x = Input.get_joy_axis(0, JOY_AXIS_2)
 		var joy_look_y = Input.get_joy_axis(0, JOY_AXIS_3)
 		if _invert_joystick_x:
-			joy_look_x = -joy_look_x
+			joy_look_x = - joy_look_x
 		if _invert_joystick_y:
-			joy_look_y = -joy_look_y
+			joy_look_y = - joy_look_y
 		var joy_look = Vector2(
 			joy_look_x,
-			-joy_look_y
+			- joy_look_y
 		)
 		if joy_look.length() > JOY_DEADZONE:
 			joy_look = _apply_curve(joy_look, camera_response_curve)
@@ -200,6 +200,12 @@ func _read_live_input() -> InputDataV2:
 
 		# --- ZOOM ---
 		var digital_zoom = (Input.get_action_strength("zoom_out") - Input.get_action_strength("zoom_in")) * DIGITAL_ZOOM_SENSITIVITY
+		
+		# Robustness: Many handhelds/controllers overlap Stick Click with D-pad indices.
+		# If the movement stick is active, we ignore digital (button-based) zoom to avoid accidents.
+		if joy_move.length() > 0.4:
+			digital_zoom = 0.0
+			
 		d.zoom_delta = zoom_delta_accum + digital_zoom + _touch_camera_zoom
 		_touch_camera_zoom = 0.0
 

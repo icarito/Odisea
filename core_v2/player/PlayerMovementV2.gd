@@ -135,11 +135,13 @@ func get_tank_yaw_delta(dt: float, move_vec: Vector2) -> float:
 		var multiplier = -1.0
 		var active_blend = tank_strafe_blend
 		
-		# Invert rotation direction when moving backward
-		if move_vec.y > 0.01:
-			multiplier = 1.0
+		# Standard Tank Turn: Left/Right rotate character relative to its own axis.
+		# No inversion in reverse (classic tank behavior).
+		if move_vec.y > 0.01: # Backward (Z+)
+			multiplier = -1.0
 			active_blend = diagonal_turn_blend
-		elif move_vec.y < -0.01:
+		elif move_vec.y < -0.01: # Forward (Z-)
+			multiplier = -1.0
 			active_blend = diagonal_turn_blend
 			
 		return move_vec.x * tank_turn_speed * speed_factor * active_blend * dt * multiplier

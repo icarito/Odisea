@@ -999,6 +999,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/meshbuilder/mesh_builder_torus/mesh_builder_torus.gd"
 }, {
+"base": "WindowDialog",
+"class": "NodeScan",
+"language": "GDScript",
+"path": "res://core_v2/ui/retro/NodeScan.gd"
+}, {
 "base": "Node",
 "class": "ONNXModel",
 "language": "GDScript",
@@ -1053,6 +1058,11 @@ _global_script_classes=[ {
 "class": "Orbiter",
 "language": "GDScript",
 "path": "res://addons/virtualcamera/TransformModifiers/UserInput/Orbiter.gd"
+}, {
+"base": "WindowDialog",
+"class": "OysCalc",
+"language": "GDScript",
+"path": "res://core_v2/ui/retro/OysCalc.gd"
 }, {
 "base": "PropBaseV2",
 "class": "PedestalButton",
@@ -1738,6 +1748,7 @@ _global_script_class_icons={
 "MeshBuilderRing": "",
 "MeshBuilderSphere": "",
 "MeshBuilderTorus": "",
+"NodeScan": "",
 "ONNXModel": "",
 "OYSComponent": "",
 "OYSShell": "",
@@ -1749,6 +1760,7 @@ _global_script_class_icons={
 "OcclusionZoneV2": "",
 "OrbitArm": "",
 "Orbiter": "",
+"OysCalc": "",
 "PedestalButton": "",
 "PhysicsBall": "",
 "PhysicsEntity": "",
