@@ -1,4 +1,4 @@
-extends WindowDialog
+extends VBoxContainer
 class_name OysCalc
 
 const BTN_W = 40
@@ -12,14 +12,12 @@ var _new_number_expected: bool = false
 var _buttons = []
 
 func _ready() -> void:
-	window_title = "OYS-CALC"
+	size_flags_horizontal = SIZE_EXPAND_FILL
+	size_flags_vertical = SIZE_EXPAND_FILL
 	rect_min_size = Vector2(200, 260)
-	rect_size = Vector2(200, 260)
 	theme = preload("res://core_v2/ui/retro/RetroOS.tres")
+	mouse_filter = MOUSE_FILTER_PASS
 
-	var vbox = VBoxContainer.new()
-	vbox.set_anchors_and_margins_preset(Control.PRESET_WIDE, Control.PRESET_MODE_MINSIZE, 8)
-	add_child(vbox)
 
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color("0a120b")
@@ -31,7 +29,7 @@ func _ready() -> void:
 
 	var panel = PanelContainer.new()
 	panel.add_stylebox_override("panel", style)
-	vbox.add_child(panel)
+	add_child(panel)
 
 	_output_label = Label.new()
 	_output_label.text = "0"
@@ -43,13 +41,14 @@ func _ready() -> void:
 
 	var spacer = Control.new()
 	spacer.rect_min_size = Vector2(0, 10)
-	vbox.add_child(spacer)
+	add_child(spacer)
 
 	var grid = GridContainer.new()
 	grid.columns = 4
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(grid)
+	grid.size_flags_horizontal = SIZE_EXPAND_FILL
+	grid.size_flags_vertical = SIZE_EXPAND_FILL
+	add_child(grid)
+
 
 	var btn_layout = [
 		["7", "8", "9", "/"],
@@ -65,7 +64,7 @@ func _ready() -> void:
 			btn.text = text
 			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			btn.size_flags_vertical = Control.SIZE_EXPAND_FILL
-			btn.connect("pressed", self, "_on_button_pressed", [text])
+			btn.connect("pressed", self , "_on_button_pressed", [text])
 			btn.add_color_override("font_color", Color("9bfa94")) # Green
 			btn.add_color_override("font_color_focus", Color("e0af41")) # Amber
 			btn.add_color_override("font_color_hover", Color("e0af41")) # Amber
@@ -85,10 +84,10 @@ func _setup_focus() -> void:
 			var left_idx = row * 4 + (col - 1) if col > 0 else row * 4 + 3
 			var right_idx = row * 4 + (col + 1) if col < 3 else row * 4 + 0
 
-			btn.focus_neighbor_top = btn.get_path_to(_buttons[up_idx])
-			btn.focus_neighbor_bottom = btn.get_path_to(_buttons[down_idx])
-			btn.focus_neighbor_left = btn.get_path_to(_buttons[left_idx])
-			btn.focus_neighbor_right = btn.get_path_to(_buttons[right_idx])
+			btn.focus_neighbour_top = btn.get_path_to(_buttons[up_idx])
+			btn.focus_neighbour_bottom = btn.get_path_to(_buttons[down_idx])
+			btn.focus_neighbour_left = btn.get_path_to(_buttons[left_idx])
+			btn.focus_neighbour_right = btn.get_path_to(_buttons[right_idx])
 			btn.focus_mode = Control.FOCUS_ALL
 
 func _on_button_pressed(text: String) -> void:

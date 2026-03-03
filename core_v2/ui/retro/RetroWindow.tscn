@@ -30,11 +30,13 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 
 [node name="TitleLabel" type="Label" parent="VBox/TitleBar/TitleRow"]
-margin_top = 2.0
 margin_right = 294.0
-margin_bottom = 35.0
+margin_bottom = 26.0
+rect_min_size = Vector2( 0, 26 )
 size_flags_horizontal = 3
 text = "Window"
+valign = 1
+
 
 [node name="BtnMax" type="Button" parent="VBox/TitleBar/TitleRow"]
 margin_left = 298.0

@@ -3,54 +3,63 @@
 [sub_resource type="StyleBoxEmpty" id=4]
 
 [sub_resource type="StyleBoxFlat" id=1]
-content_margin_left = 6.0
-content_margin_right = 6.0
+content_margin_left = 8.0
+content_margin_right = 8.0
 content_margin_top = 4.0
 content_margin_bottom = 4.0
-bg_color = Color( 0.752941, 0.752941, 0.752941, 1 )
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color( 0.878431, 0.878431, 0.878431, 1 )
+bg_color = Color( 0.0392157, 0.054902, 0.0431373, 0.75 )
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color( 0.607843, 0.992157, 0.580392, 0.5 )
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+shadow_color = Color( 0.607843, 0.992157, 0.580392, 0.08 )
+shadow_size = 2
 
 [sub_resource type="StyleBoxFlat" id=2]
-content_margin_left = 7.0
-content_margin_right = 5.0
-content_margin_top = 5.0
-content_margin_bottom = 3.0
-bg_color = Color( 0.752941, 0.752941, 0.752941, 1 )
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color( 0.25098, 0.25098, 0.25098, 1 )
+content_margin_left = 8.0
+content_margin_right = 8.0
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+bg_color = Color( 0.0588235, 0.0784314, 0.0627451, 0.85 )
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color( 0.878431, 0.686275, 0.254902, 0.8 )
+shadow_color = Color( 0.878431, 0.686275, 0.254902, 0.15 )
+shadow_size = 3
 
 [sub_resource type="StyleBoxFlat" id=3]
-bg_color = Color( 0, 0, 0, 1 )
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color( 0.12549, 0.12549, 0.12549, 1 )
+bg_color = Color( 0.0392157, 0.054902, 0.0431373, 1 )
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color( 0.337255, 0.458824, 0.360784, 1 )
 
 [resource]
-Button/colors/font_color = Color( 0, 0, 0, 1 )
-Button/colors/font_color_hover = Color( 0, 0, 0, 1 )
-Button/colors/font_color_pressed = Color( 0, 0, 0, 1 )
+Button/colors/font_color = Color( 0.607843, 0.992157, 0.580392, 1 )
+Button/colors/font_color_hover = Color( 0.878431, 0.686275, 0.254902, 1 )
+Button/colors/font_color_pressed = Color( 1, 1, 1, 1 )
 Button/styles/focus = SubResource( 4 )
 Button/styles/hover = SubResource( 1 )
 Button/styles/normal = SubResource( 1 )
 Button/styles/pressed = SubResource( 2 )
-Label/colors/font_color = Color( 0, 0, 0, 1 )
-LineEdit/colors/font_color = Color( 0, 0, 0, 1 )
+Label/colors/font_color = Color( 0.607843, 0.992157, 0.580392, 1 )
+LineEdit/colors/font_color = Color( 0.607843, 0.992157, 0.580392, 1 )
 LineEdit/colors/font_color_selected = Color( 1, 1, 1, 1 )
-LineEdit/colors/selection_color = Color( 0, 0, 0.501961, 1 )
+LineEdit/colors/selection_color = Color( 0.180392, 0.317647, 0.219608, 1 )
 LineEdit/styles/focus = SubResource( 1 )
 LineEdit/styles/normal = SubResource( 1 )
 Panel/styles/panel = SubResource( 1 )
 PanelContainer/styles/panel = SubResource( 1 )
-ProgressBar/styles/bg = SubResource( 2 )
-ProgressBar/styles/fg = SubResource( 3 )
+ProgressBar/styles/bg = SubResource( 3 )
+ProgressBar/styles/fg = SubResource( 1 )
 TextEdit/styles/focus = SubResource( 1 )
 TextEdit/styles/normal = SubResource( 1 )
 Tree/styles/bg = SubResource( 1 )
