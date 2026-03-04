@@ -1,42 +1,6 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=2 format=2]
 
 [ext_resource path="res://core_v2/props/helmet_view/hazard_tape/HazardTape.gd" type="Script" id=1]
 
-[sub_resource type="Shader" id=3]
-code = "
-shader_type spatial;
-render_mode blend_mix,depth_draw_opaque,cull_disabled,diffuse_burley,specular_schlick_ggx,unshaded;
-uniform vec4 color1 : hint_color = vec4(1.0, 0.5, 0.0, 1.0);
-uniform vec4 color2 : hint_color = vec4(0.0, 0.0, 0.0, 1.0);
-uniform float scroll_speed = 0.5;
-uniform float pulse = 1.0;
-
-void fragment() {
-    // Slower, more rhythmic scrolling
-    float stripe = step(0.5, fract((UV.x * 2.0 + UV.y - TIME * scroll_speed) * 3.0));
-    vec4 c = mix(color1, color2, stripe);
-    
-    // Smooth pulse instead of chaotic glitch
-    float alpha_pulse = mix(0.7, 1.0, 0.5 + 0.5 * sin(TIME * 2.0));
-    
-    ALBEDO = c.rgb * mix(0.8, 1.2, pulse * (0.5 + 0.5 * sin(TIME * 3.0)));
-    ALPHA = alpha_pulse;
-}
-"
-
-[sub_resource type="ShaderMaterial" id=4]
-shader = SubResource( 3 )
-shader_param/color1 = Color( 1, 0.8, 0, 1 )
-shader_param/color2 = Color( 0, 0, 0, 1 )
-shader_param/scroll_speed = 0.5
-shader_param/pulse = 0.0
-
-[sub_resource type="QuadMesh" id=2]
-material = SubResource( 4 )
-size = Vector2( 5, 1 )
-
 [node name="HazardTape" type="Spatial"]
 script = ExtResource( 1 )
-
-[node name="Mesh" type="MeshInstance" parent="."]
-mesh = SubResource( 2 )
