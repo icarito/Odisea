@@ -1,0 +1,92 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://core_v2/props/helmet_view/holo_planta/holo_planta.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/helmet_view/holo_planta/holo_plant_tex.png" type="Texture" id=2]
+
+[sub_resource type="Shader" id=1]
+code = "shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_disabled, unshaded;
+
+uniform sampler2D plant_texture : hint_albedo;
+uniform vec4 albedo_color : hint_color = vec4(0.0, 1.0, 1.0, 1.0);
+uniform float activation : hint_range(0.0, 1.0) = 1.0;
+uniform float glitch_intensity : hint_range(0.0, 1.0) = 0.05;
+
+float random(float t) {
+    return fract(sin(t * 12.9898) * 43758.5453);
+}
+
+void fragment() {
+    float time_snap = floor(TIME * 15.0);
+    float glitch_offset = (random(time_snap) - 0.5) * glitch_intensity * activation;
+    
+    vec2 uv_glitch = UV;
+    if (random(time_snap + UV.y) > 0.95) {
+        uv_glitch.x += glitch_offset;
+    }
+
+    vec4 tex = texture(plant_texture, uv_glitch);
+    
+    // Masking
+    float mask = max(tex.r, max(tex.g, tex.b));
+    if (mask < 0.05) {
+        discard;
+    }
+
+    // Technical Scanlines & Flicker
+    float scanline = sin(UV.y * 50.0 + TIME * 2.5) * 0.1 + 0.9;
+    float flicker = step(0.03, random(TIME)) * 0.2 + 0.8;
+    
+    ALBEDO = albedo_color.rgb * tex.rgb * scanline * flicker;
+    ALPHA = albedo_color.a * mask * (0.2 + 0.8 * activation) * flicker;
+}
+"
+
+[sub_resource type="ShaderMaterial" id=2]
+shader = SubResource( 1 )
+shader_param/albedo_color = Color( 0, 1, 1, 0.8 )
+shader_param/activation = 1.0
+shader_param/glitch_intensity = 0.05
+shader_param/plant_texture = ExtResource( 2 )
+
+[sub_resource type="SpatialMaterial" id=3]
+flags_transparent = true
+flags_unshaded = true
+params_billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+albedo_color = Color( 0.6, 1, 1, 0.15 )
+
+[sub_resource type="QuadMesh" id=4]
+size = Vector2( 0.015, 0.015 )
+
+[node name="HoloPlanta" type="Spatial"]
+script = ExtResource( 1 )
+
+[node name="PlantSprite" type="Sprite3D" parent="."]
+offset = Vector2( 0, 320 )
+pixel_size = 0.004
+billboard = 2
+double_sided = false
+texture = ExtResource( 2 )
+material_override = SubResource( 2 )
+
+[node name="AmbientParticles" type="CPUParticles" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
+material_override = SubResource( 3 )
+amount = 25
+lifetime = 5.0
+preprocess = 2.0
+mesh = SubResource( 4 )
+emission_shape = 2
+emission_box_extents = Vector3( 0.6, 1.2, 0.6 )
+direction = Vector3( 0, 0, 0 )
+spread = 180.0
+gravity = Vector3( 0, 0.01, 0 )
+initial_velocity = 0.03
+initial_velocity_random = 1.0
+damping = 0.1
+scale_amount = 0.5
+scale_amount_random = 1.0
+color = Color( 1, 1, 1, 0.3 )
