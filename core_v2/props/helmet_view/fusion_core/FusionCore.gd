@@ -27,6 +27,10 @@ var _frames_below_threshold = 0
 var housing_mat = null
 var core_mat = null
 
+# --- State ---
+var is_active = false
+var _auto_triggered = false
+
 func _init():
     add_to_group("pushable")
     add_to_group("interactable")
@@ -116,21 +120,20 @@ func wake_up():
 func _on_body_entered(_body):
     if mode == RigidBody.MODE_KINEMATIC:
         wake_up()
-
 func interact():
-    target_progress = 0.0 if target_progress > 0.5 else 1.0
+    if target_progress > 0.5:
+        target_progress = 0.0
+    else:
+        target_progress = 1.0
 
-var is_active = false
-var _auto_triggered = false
-
-func set_active(val, _instant = false):
+func set_active(val, _instant_arg = false):
     is_active = val
     target_progress = 1.0 if val else 0.0
 
-func set_highlighted(_val, _color = null):
+func set_highlighted(_val, _color_arg = null):
     pass
 
-func set_proximity_highlight(_val, _color = null):
+func set_proximity_highlight(_val, _color_arg = null):
     pass
 
 func _update_visuals():

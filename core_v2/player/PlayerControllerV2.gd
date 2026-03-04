@@ -109,14 +109,14 @@ var _rl_skip_camera_updates := false
 var _rl_skip_platform_tracking := false
 var _rl_skip_rigidbody_push := false
 var _rl_strip_visual_rig := false
-var _rl_step_profile_enabled := false
-var _rl_step_profile_every := 200
-var _rl_step_profile_file := "user://anna_rl_step_profile.log"
-var _rl_step_profile_count := 0
-var _rl_step_profile_us_total := 0
-var _rl_step_profile_us_control := 0
-var _rl_step_profile_us_move := 0
-var _rl_step_profile_us_post := 0
+var _rl_step_profile_enabled: bool = false
+var _rl_step_profile_every: int = 200
+var _rl_step_profile_file: String = "user://anna_rl_step_profile.log"
+var _rl_step_profile_count: int = 0
+var _rl_step_profile_us_total: int = 0
+var _rl_step_profile_us_control: int = 0
+var _rl_step_profile_us_move: int = 0
+var _rl_step_profile_us_post: int = 0
 
 # Signals
 signal jumped
@@ -266,7 +266,9 @@ func _ready():
 		_rl_step_profile_enabled = _env_enabled("ANNA_RL_STEP_PROFILE", false)
 		var step_profile_every_env = OS.get_environment("ANNA_RL_STEP_PROFILE_EVERY")
 		if step_profile_every_env.is_valid_integer():
-			_rl_step_profile_every = max(50, int(step_profile_every_env))
+			var raw_every = int(step_profile_every_env)
+			if raw_every < 50: raw_every = 50
+			_rl_step_profile_every = raw_every
 		var step_profile_file_env = OS.get_environment("ANNA_RL_STEP_PROFILE_FILE")
 		if step_profile_file_env.strip_edges() != "":
 			_rl_step_profile_file = step_profile_file_env
@@ -1140,10 +1142,21 @@ func _rl_step_profile_add(t0: int, t_control: int, t_move: int, t_end: int) -> v
 	if t_move <= 0:
 		t_move = t_control
 	_rl_step_profile_count += 1
-	_rl_step_profile_us_total += max(0, t_end - t0)
-	_rl_step_profile_us_control += max(0, t_control - t0)
-	_rl_step_profile_us_move += max(0, t_move - t_control)
-	_rl_step_profile_us_post += max(0, t_end - t_move)
+	var diff_total = t_end - t0
+	if diff_total < 0: diff_total = 0
+	_rl_step_profile_us_total += diff_total
+
+	var diff_control = t_control - t0
+	if diff_control < 0: diff_control = 0
+	_rl_step_profile_us_control += diff_control
+
+	var diff_move = t_move - t_control
+	if diff_move < 0: diff_move = 0
+	_rl_step_profile_us_move += diff_move
+
+	var diff_post = t_end - t_move
+	if diff_post < 0: diff_post = 0
+	_rl_step_profile_us_post += diff_post
 	if _rl_step_profile_count % _rl_step_profile_every != 0:
 		return
 	var n := float(_rl_step_profile_every)
@@ -1173,7 +1186,7 @@ func _append_profile_line(path: String, line: String) -> void:
 	f.store_line(line)
 	f.close()
 		
-func _update_cinematic_zone_detection(input: InputDataV2, dt: float = 1.0 / 60.0):
+func _update_cinematic_zone_detection(_input: InputDataV2, dt: float = 1.0 / 60.0):
 	var all_zones = get_tree().get_nodes_in_group("CameraZoneV2")
 	var best_zone: Node = null
 	var min_volume = INF
