@@ -1,50 +1,111 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=11 format=2]
 
 [ext_resource path="res://core_v2/props/helmet_view/gravity_anchor/GravityAnchor.gd" type="Script" id=1]
 
+[sub_resource type="SpatialMaterial" id=1]
+albedo_color = Color( 0.12, 0.12, 0.18, 1 )
+flags_unshaded = true
+
+[sub_resource type="CylinderMesh" id=2]
+material = SubResource( 1 )
+top_radius = 0.15
+bottom_radius = 0.6
+height = 0.4
+radial_segments = 6
+
+[sub_resource type="CylinderShape" id=8]
+radius = 0.6
+height = 0.4
+
 [sub_resource type="Shader" id=3]
-code = "
-shader_type spatial;
-render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx,unshaded;
+code = "shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_disabled, unshaded;
+
 uniform vec4 color_stable : hint_color = vec4(0.0, 1.0, 1.0, 1.0);
-uniform vec4 color_unstable : hint_color = vec4(1.0, 0.5, 0.0, 1.0);
-uniform float stability = 1.0; // 1.0 stable, 0.0 unstable
+uniform vec4 color_unstable : hint_color = vec4(1.0, 0.4, 0.0, 1.0);
+uniform float stability : hint_range(0.0, 1.0) = 0.0;
 
 void fragment() {
-    vec4 current_color = mix(color_unstable, color_stable, stability);
-    float flicker = mix(step(0.5, fract(TIME * 10.0)), 1.0, stability);
-    ALBEDO = current_color.rgb;
-    ALPHA = flicker;
+    vec2 center = UV - vec2(0.5);
+    float dist = length(center);
+    float angle = atan(center.y, center.x);
+    
+    // Rotating gravity field lines
+    float field = sin(angle * 6.0 + TIME * 3.0 * stability) * 0.5 + 0.5;
+    field *= smoothstep(0.5, 0.1, dist);
+    
+    // Pulsing core
+    float core = smoothstep(0.15, 0.0, dist);
+    float pulse = sin(TIME * 4.0) * 0.3 + 0.7;
+    
+    // Unstable flicker when low stability
+    float flicker = mix(step(0.3, fract(sin(TIME * 20.0) * 43.0)), 1.0, stability);
+    
+    float energy = (field * 0.6 + core * pulse) * flicker;
+    vec3 col = mix(color_unstable.rgb, color_stable.rgb, stability);
+    
+    ALBEDO = col * energy * 2.5;
+    ALPHA = energy * (0.3 + 0.7 * stability);
 }
 "
 
 [sub_resource type="ShaderMaterial" id=4]
 shader = SubResource( 3 )
 shader_param/color_stable = Color( 0, 1, 1, 1 )
-shader_param/color_unstable = Color( 1, 0.5, 0, 1 )
-shader_param/stability = 1.0
+shader_param/color_unstable = Color( 1, 0.4, 0, 1 )
+shader_param/stability = 0.0
 
-[sub_resource type="CylinderMesh" id=2]
-material = SubResource( 4 )
-top_radius = 0.001
-bottom_radius = 0.5
-height = 1.0
-radial_segments = 4
+[sub_resource type="SphereMesh" id=5]
+radius = 0.35
+height = 0.7
+radial_segments = 12
+rings = 6
+
+[sub_resource type="SpatialMaterial" id=6]
+flags_transparent = true
+flags_unshaded = true
+params_billboard_mode = 3
+albedo_color = Color( 0, 1, 1, 0.1 )
+
+[sub_resource type="QuadMesh" id=7]
+size = Vector2( 0.02, 0.02 )
 
 [node name="GravityAnchor" type="Spatial"]
 script = ExtResource( 1 )
-interaction_text = "Interact"
-anim_duration = 1.0
-starts_active = false
-auto_interact = false
-one_off = false
-is_interactable = true
-manual_toggle = true
-debug = false
-linked_switch_path = NodePath("")
-linked_switch_paths = [  ]
-visual_parts_paths = [  ]
-debug_draw = false
 
-[node name="Mesh" type="MeshInstance" parent="."]
+[node name="BasePylon" type="MeshInstance" parent="."]
 mesh = SubResource( 2 )
+
+[node name="StaticBody" type="StaticBody" parent="BasePylon"]
+
+[node name="CollisionShape" type="CollisionShape" parent="BasePylon/StaticBody"]
+shape = SubResource( 8 )
+
+[node name="GravityField" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
+mesh = SubResource( 5 )
+material/0 = SubResource( 4 )
+
+[node name="AnchorLight" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
+light_color = Color( 0, 1, 1, 1 )
+light_energy = 0.0
+omni_range = 3.5
+omni_attenuation = 2.0
+
+[node name="FieldParticles" type="CPUParticles" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
+material_override = SubResource( 6 )
+emitting = false
+amount = 20
+lifetime = 2.0
+mesh = SubResource( 7 )
+emission_shape = 1
+emission_sphere_radius = 0.6
+direction = Vector3( 0, -1, 0 )
+spread = 90.0
+gravity = Vector3( 0, -0.5, 0 )
+initial_velocity = 0.2
+initial_velocity_random = 1.0
+scale_amount = 0.4
+scale_amount_random = 1.0
