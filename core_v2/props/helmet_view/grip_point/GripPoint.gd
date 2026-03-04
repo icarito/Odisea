@@ -2,19 +2,23 @@ tool
 extends PropBaseV2
 class_name GripPoint
 
-var mat: Material
+var indicator_mat: Material
 
 func _ready():
     ._ready()
-    var mesh_inst = get_node_or_null("Mesh")
-    if mesh_inst:
-        mat = mesh_inst.get_surface_material(0)
-        if mat:
-            mat = mat.duplicate()
-            mesh_inst.set_surface_material(0, mat)
+    var ring = get_node_or_null("IndicatorRing")
+    if ring:
+        indicator_mat = ring.get_surface_material(0)
+        if indicator_mat:
+            indicator_mat = indicator_mat.duplicate()
+            ring.set_surface_material(0, indicator_mat)
 
 func _update_visuals():
-    if mat and mat is SpatialMaterial:
-        mat.emission_enabled = true
-        mat.emission = Color(1.0, 0.0, 0.0)
-        mat.emission_energy = anim_progress * 5.0
+    # Indicator ring shader
+    if indicator_mat and indicator_mat is ShaderMaterial:
+        indicator_mat.set_shader_param("activation", anim_progress)
+    
+    # Grip light
+    var light = get_node_or_null("GripLight")
+    if light:
+        light.light_energy = anim_progress * 3.0
