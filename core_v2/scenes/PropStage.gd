@@ -146,7 +146,7 @@ func _run_validation_oys():
         printerr("[PropStage] Could not load OYS_Interpreter.gd")
         return
         
-    var interpreter = interpreter_script.new(self)
+    var interpreter = interpreter_script.new(self )
     # interpreter.host_node = self # Handling in _init now
     interpreter.variables["$sys_env_prop_path"] = prop_path
     
@@ -307,84 +307,51 @@ func take_oys_screenshot(label: String, prop_named_prefix: String) -> String:
         pilot_node.global_transform = pilot_original_transform
     
     var dir = Directory.new()
-    var res_base = "res://test_output/props/"
     
-    # Determine a robust prefix for the saved image. Prefer the OYS-provided
-    # prop_named_prefix but fall back to the current_prop's filename or name so
-    # the testing runner (which expects e.g. "CircuitCable_0_idle.png") finds
-    # the files even if the interpreter passes an unexpected prefix.
+    # Determine prefix from prop name
     var prefix = prop_named_prefix
     if not prefix or prefix == "" or prefix == "prop" or prefix.begins_with("unknown"):
-        if current_prop and current_prop.has_method("get") and current_prop.has_meta("filename"):
-            prefix = current_prop.get_meta("filename")
-        elif current_prop and "filename" in current_prop and current_prop.filename != "":
+        if current_prop and "filename" in current_prop and current_prop.filename != "":
             prefix = current_prop.filename.get_file()
         elif current_prop and current_prop.name:
             prefix = current_prop.name
         else:
             prefix = "unknown"
-
-    # Strip a common extension if present (e.g. "CircuitCable.tscn")
     if prefix.ends_with(".tscn"):
         prefix = prefix.substr(0, prefix.length() - 5)
 
-    # Try to save using a res:// path (preferred). If that fails, fall back to
-    # user://. We already ensured the underlying filesystem folder exists.
-    # Prepare both the res:// and filesystem (globalized) paths
-    var res_path = res_base + "%s_%s.png" % [prefix, label]
-    var fs_res_base = ProjectSettings.globalize_path(res_base)
-    # If globalize failed, try to derive from res:// root
-    if fs_res_base == "":
+    # Build filesystem path from project root
+    var res_base = "res://test_output/props/"
+    var fs_base = ProjectSettings.globalize_path(res_base)
+    if fs_base == "":
         var res_root = ProjectSettings.globalize_path("res://")
         if res_root != "":
-            fs_res_base = res_root.rstrip("/") + "/test_output/props/"
+            fs_base = res_root.rstrip("/") + "/test_output/props/"
     
-    var fs_res_path = ""
-    if fs_res_base != "":
-        if not fs_res_base.ends_with("/"):
-            fs_res_base += "/"
-        fs_res_path = fs_res_base + "%s_%s.png" % [prefix, label]
+    if fs_base == "":
+        printerr("[PropStage] ERROR: Cannot resolve filesystem path for screenshots")
+        vp.queue_free()
+        return ""
 
-    var saved_path = ""
-
-    if fs_res_path != "":
-        var err = img.save_png(fs_res_path)
-        if err == OK:
-            saved_path = fs_res_path
-            print("[PropStage] Saved (fs res): ", fs_res_path)
-        else:
-            printerr("[PropStage] Failed to save to fs res path:", fs_res_path, "err=", err)
-
-    # If saving to fs res failed, try res:// directly (Godot may accept it), then user:// as last resort
-    if saved_path == "":
-        var err2 = img.save_png(res_path)
-        if err2 == OK:
-            saved_path = res_path
-            print("[PropStage] Saved (res://): ", res_path)
-        else:
-            printerr("[PropStage] Failed to save to res:// path:", res_path, "err=", err2, "-> trying user:// fallback")
-            var user_base = "user://test_output/props/"
-            var fs_user_base = ProjectSettings.globalize_path(user_base)
-            if fs_user_base != "" and not dir.dir_exists(fs_user_base):
-                dir.make_dir_recursive(fs_user_base)
-            var user_path = user_base + "%s_%s.png" % [prefix, label]
-            var err3 = img.save_png(user_path)
-            if err3 == OK:
-                saved_path = user_path
-                print("[PropStage] Saved (user://): ", user_path)
-            else:
-                printerr("[PropStage] Failed to save screenshot to user:// as well: ", user_path, "err=", err3)
-
-    # Final log: report the actual saved path (res:// preferred, user:// fallback)
-    if saved_path != "":
-        print("[PropStage] Final saved path: ", saved_path)
+    if not fs_base.ends_with("/"):
+        fs_base += "/"
+    
+    if not dir.dir_exists(fs_base):
+        dir.make_dir_recursive(fs_base)
+    
+    var save_path = fs_base + "%s_%s.png" % [prefix, label]
+    var err = img.save_png(save_path)
+    
+    if err == OK:
+        print("[PropStage] Saved (fs res): ", save_path)
+        print("[PropStage] Final saved path: ", save_path)
     else:
-        printerr("[PropStage] No screenshot path available after save attempts.")
+        printerr("[PropStage] ERROR: Failed to save screenshot to: ", save_path, " err=", err)
 
     # Cleanup
     vp.queue_free()
 
-    return saved_path
+    return save_path
 
     
 func unload_prop():
