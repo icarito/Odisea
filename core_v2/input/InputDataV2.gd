@@ -11,6 +11,7 @@ var interact := false
 var mouse_delta := Vector2()
 var zoom_delta := 0.0
 var fov_override := -1.0 # -1 means no override
+var hardware_mouse_active := false # True when real mouse hardware contributed to mouse_delta
 
 func _canonical_float(v: float) -> float:
 	# Avoid noisy JSON diffs from signed zero (-0.0 vs 0.0).
@@ -26,7 +27,8 @@ func to_dict() -> Dictionary:
 		"jump": jump,
 		"sprint": sprint,
 		"crouch": crouch,
-		"interact": interact
+		"interact": interact,
+		"hardware_mouse_active": hardware_mouse_active
 	}
 
 # Deserialización desde Dictionary
@@ -47,3 +49,5 @@ func from_dict(d: Dictionary) -> void:
 		crouch = d["crouch"]
 	if d.has("interact"):
 		interact = d["interact"]
+	if d.has("hardware_mouse_active"):
+		hardware_mouse_active = d["hardware_mouse_active"]

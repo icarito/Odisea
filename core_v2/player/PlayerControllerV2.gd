@@ -898,7 +898,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		var active_zone_mode = CinematicManager.get_control_mode()
 		if active_zone_mode == CinematicManager.ControlMode.FREE:
 			if input:
-				movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint)
+				movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint, input.hardware_mouse_active)
 				# Apply hardware input directly
 				yaw -= input.mouse_delta.x * mouse_sensitivity
 				var mouse_y = - input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y

@@ -171,6 +171,7 @@ func _read_live_input() -> InputDataV2:
 		# Acumula y consume mouse_delta localmente
 		var mouse_d = Vector2(_q(mouse_delta_accum.x), _q(-mouse_delta_accum.y))
 		mouse_d *= hardware_look_sensitivity
+		d.hardware_mouse_active = mouse_d.length() > 0.1
 
 		# --- JOYSTICK CAMERA (Right Stick) ---
 		var joy_look_x = Input.get_joy_axis(0, JOY_AXIS_2)

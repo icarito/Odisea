@@ -41,6 +41,7 @@ var external_source_is_static := true
 var camera_input_timer := 0.0
 var is_tank_turn_mode := true
 var current_turn_time := 0.0
+var _mouse_used_this_move := false
 
 func _ready() -> void:
 	if not tank_turn_curve:
@@ -107,14 +108,22 @@ func apply_slope_resistance(velocity: Vector3) -> Vector3:
 	var resistance = velocity * (1.0 - slope_resistance_factor)
 	return resistance
 
-func update_tank_mode(dt: float, mouse_delta: Vector2, _move_vec: Vector2, _jump: bool, _sprint: bool) -> void:
+func update_tank_mode(dt: float, mouse_delta: Vector2, _move_vec: Vector2, _jump: bool, _sprint: bool, hardware_mouse: bool = false) -> void:
 	if mouse_delta.length() > 0.1:
 		camera_input_timer = 0.0
 		is_tank_turn_mode = false
+		# Only lock tank turn through movement for real hardware mouse, not joystick
+		if hardware_mouse:
+			_mouse_used_this_move = true
 	else:
-		# Timer counts up as long as mouse is still.
-		# This allows returning to tank mode even while moving.
-		camera_input_timer += dt
+		# If mouse was used during this movement, keep timer reset while still moving.
+		if _mouse_used_this_move and _move_vec.length() > 0.1:
+			camera_input_timer = 0.0
+		else:
+			camera_input_timer += dt
+			# Clear the flag once we've stopped moving
+			if _move_vec.length() <= 0.1:
+				_mouse_used_this_move = false
 		
 		if camera_input_timer >= tank_turn_transition_time:
 			is_tank_turn_mode = true
@@ -155,7 +164,8 @@ func get_full_snapshot() -> Dictionary:
 		"external_velocity": [external_velocity.x, external_velocity.y, external_velocity.z],
 		"camera_input_timer": camera_input_timer,
 		"is_tank_turn_mode": is_tank_turn_mode,
-		"current_turn_time": current_turn_time
+		"current_turn_time": current_turn_time,
+		"_mouse_used_this_move": _mouse_used_this_move
 	}
 
 func restore_snapshot(data: Dictionary) -> void:
@@ -166,6 +176,7 @@ func restore_snapshot(data: Dictionary) -> void:
 	camera_input_timer = data.get("camera_input_timer", 0.0)
 	is_tank_turn_mode = data.get("is_tank_turn_mode", true)
 	current_turn_time = data.get("current_turn_time", 0.0)
+	_mouse_used_this_move = data.get("_mouse_used_this_move", false)
 
 func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, is_on_floor: bool, crouch: bool = false) -> void:
 	var speed_multiplier = 1.0
