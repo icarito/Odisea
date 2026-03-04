@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=2]
+[gd_scene load_steps=10 format=2]
 
 [ext_resource path="res://core_v2/props/helmet_view/fusion_core/FusionCore.gd" type="Script" id=1]
 
@@ -30,14 +30,14 @@ shader_param/charge_level = 0.0
 
 [sub_resource type="CylinderMesh" id=2]
 material = SubResource( 11 )
-top_radius = 0.5
-bottom_radius = 0.6
-height = 1.2
-radial_segments = 8
+top_radius = 0.35
+bottom_radius = 0.35
+height = 0.8
+radial_segments = 16
 
 [sub_resource type="CylinderShape" id=9]
-radius = 0.6
-height = 1.2
+radius = 0.35
+height = 0.8
 
 [sub_resource type="Shader" id=3]
 code = "shader_type spatial;
@@ -54,7 +54,7 @@ void fragment() {
     // Plasma swirl
     float swirl = sin(angle * 3.0 + dist * 12.0 - TIME * 5.0 * charge_level) * 0.5 + 0.5;
     
-    // Core glow - bright center falloff
+    // Core glow
     float core_glow = smoothstep(0.5, 0.0, dist);
     
     float energy = (swirl * 0.4 + core_glow * 1.5) * charge_level;
@@ -70,8 +70,8 @@ shader_param/color_full = Color( 0, 1, 1, 1 )
 shader_param/charge_level = 0.0
 
 [sub_resource type="SphereMesh" id=5]
-radius = 0.55
-height = 1.1
+radius = 0.3
+height = 0.6
 radial_segments = 16
 rings = 8
 
@@ -84,38 +84,42 @@ albedo_color = Color( 0, 1, 1, 0.12 )
 [sub_resource type="QuadMesh" id=7]
 size = Vector2( 0.025, 0.025 )
 
-[node name="FusionCore" type="Spatial"]
+[node name="FusionCore" type="RigidBody" groups=["pushable", "interactable"]]
+collision_layer = 4
+collision_mask = 7
+mass = 8.0
+mode = 3
+contacts_reported = 4
+contact_monitor = true
 script = ExtResource( 1 )
+
+[node name="CollisionShape" type="CollisionShape" parent="."]
+shape = SubResource( 9 )
 
 [node name="Housing" type="MeshInstance" parent="."]
 mesh = SubResource( 2 )
 
-[node name="StaticBody" type="StaticBody" parent="Housing"]
-
-[node name="CollisionShape" type="CollisionShape" parent="Housing/StaticBody"]
-shape = SubResource( 9 )
-
 [node name="EnergyCore" type="MeshInstance" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0 )
 mesh = SubResource( 5 )
 material/0 = SubResource( 4 )
 
 [node name="CoreLight" type="OmniLight" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0 )
 light_color = Color( 0, 1, 1, 1 )
 light_energy = 0.0
 omni_range = 4.0
 omni_attenuation = 1.5
 
 [node name="EnergyParticles" type="CPUParticles" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0 )
 material_override = SubResource( 6 )
 emitting = false
 amount = 25
 lifetime = 1.5
 mesh = SubResource( 7 )
 emission_shape = 1
-emission_sphere_radius = 0.4
+emission_sphere_radius = 0.3
 direction = Vector3( 0, 1, 0 )
 spread = 180.0
 gravity = Vector3( 0, 0.3, 0 )

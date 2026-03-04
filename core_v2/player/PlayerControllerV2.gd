@@ -765,7 +765,7 @@ func _update_push_state(_dt: float, input: InputDataV2):
 	var min_dist = 999.0
 
 	for body in bodies:
-		if is_instance_valid(body) and body is PushableBoxV2Script:
+		if is_instance_valid(body) and body.is_in_group("pushable"):
 			var dist = global_transform.origin.distance_squared_to(body.global_transform.origin)
 			if dist < min_dist:
 				min_dist = dist
