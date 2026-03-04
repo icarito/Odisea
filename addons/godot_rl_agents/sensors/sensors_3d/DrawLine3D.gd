@@ -6,18 +6,18 @@ class Line:
     var Start
     var End
     var LineColor
-    var Time
+    var lifetime
     
-    func _init(Start, End, LineColor, Time):
+    func _init(Start, End, LineColor, lifetime):
         self.Start = Start
         self.End = End
         self.LineColor = LineColor
-        self.Time = Time
+        self.lifetime = lifetime
 
 var Lines = []
 var RemovedLine = false
 var editor_viewport_2d = null
-var editor_viewport_3d = null 
+var editor_viewport_3d = null
 var editor_camera_3d = null
 
 func _ready():
@@ -49,14 +49,14 @@ func find_viewport_3d(node: Node, recursive_level):
         for child in node.get_children():
             var result = find_viewport_3d(child, recursive_level)
             if result != null:
-                return result    
+                return result
 
 func _process(delta):
     for i in range(len(Lines)):
-        Lines[i].Time -= delta
+        Lines[i].lifetime -= delta
     
-    if(len(Lines) > 0 || RemovedLine):
-        update() #Calls _draw
+    if (len(Lines) > 0 || RemovedLine):
+        update() # Calls _draw
         RemovedLine = false
 
 
@@ -65,7 +65,7 @@ func geteditorcamera(camera_index):
     
 func get_camera():
     if Engine.editor_hint:
-        return geteditorcamera(0)   
+        return geteditorcamera(0)
     else:
         var Cam = get_viewport().get_camera()
         return Cam
@@ -80,7 +80,7 @@ func _draw():
         #Dont draw line if either start or end is considered behind the camera
         #this causes the line to not be drawn sometimes but avoids a bug where the
         #line is drawn incorrectly
-        if(Cam.is_position_behind(Lines[i].Start) ||
+        if (Cam.is_position_behind(Lines[i].Start) ||
             Cam.is_position_behind(Lines[i].End)):
             continue
         
@@ -89,18 +89,18 @@ func _draw():
     #Remove lines that have timed out
     var i = Lines.size() - 1
     while (i >= 0):
-        if(Lines[i].Time < 0.0):
+        if (Lines[i].lifetime < 0.0):
             Lines.remove(i)
             RemovedLine = true
         i -= 1
 
-func DrawLine(Start, End, LineColor, Time = 0.0):
-    Lines.append(Line.new(Start, End, LineColor, Time))
+func DrawLine(Start, End, LineColor, lifetime = 0.0):
+    Lines.append(Line.new(Start, End, LineColor, lifetime))
 
-func DrawRay(Start, Ray, LineColor, Time = 0.0):
-    Lines.append(Line.new(Start, Start + Ray, LineColor, Time))
+func DrawRay(Start, Ray, LineColor, lifetime = 0.0):
+    Lines.append(Line.new(Start, Start + Ray, LineColor, lifetime))
 
-func DrawCube(Center, HalfExtents, LineColor, Time = 0.0):
+func DrawCube(Center, HalfExtents, LineColor, lifetime = 0.0):
     #Start at the 'top left'
     var LinePointStart = Center
     LinePointStart.x -= HalfExtents
@@ -109,38 +109,37 @@ func DrawCube(Center, HalfExtents, LineColor, Time = 0.0):
     
     #Draw top square
     var LinePointEnd = LinePointStart + Vector3(0, 0, HalfExtents * 2.0)
-    DrawLine(LinePointStart, LinePointEnd, LineColor, Time);
+    DrawLine(LinePointStart, LinePointEnd, LineColor, lifetime);
     LinePointStart = LinePointEnd
     LinePointEnd = LinePointStart + Vector3(HalfExtents * 2.0, 0, 0)
-    DrawLine(LinePointStart, LinePointEnd, LineColor, Time);
+    DrawLine(LinePointStart, LinePointEnd, LineColor, lifetime);
     LinePointStart = LinePointEnd
     LinePointEnd = LinePointStart + Vector3(0, 0, -HalfExtents * 2.0)
-    DrawLine(LinePointStart, LinePointEnd, LineColor, Time);
+    DrawLine(LinePointStart, LinePointEnd, LineColor, lifetime);
     LinePointStart = LinePointEnd
     LinePointEnd = LinePointStart + Vector3(-HalfExtents * 2.0, 0, 0)
-    DrawLine(LinePointStart, LinePointEnd, LineColor, Time);
+    DrawLine(LinePointStart, LinePointEnd, LineColor, lifetime);
     
     #Draw bottom square
     LinePointStart = LinePointEnd + Vector3(0, -HalfExtents * 2.0, 0)
     LinePointEnd = LinePointStart + Vector3(0, 0, HalfExtents * 2.0)
-    DrawLine(LinePointStart, LinePointEnd, LineColor, Time);
+    DrawLine(LinePointStart, LinePointEnd, LineColor, lifetime);
     LinePointStart = LinePointEnd
     LinePointEnd = LinePointStart + Vector3(HalfExtents * 2.0, 0, 0)
-    DrawLine(LinePointStart, LinePointEnd, LineColor, Time);
+    DrawLine(LinePointStart, LinePointEnd, LineColor, lifetime);
     LinePointStart = LinePointEnd
     LinePointEnd = LinePointStart + Vector3(0, 0, -HalfExtents * 2.0)
-    DrawLine(LinePointStart, LinePointEnd, LineColor, Time);
+    DrawLine(LinePointStart, LinePointEnd, LineColor, lifetime);
     LinePointStart = LinePointEnd
     LinePointEnd = LinePointStart + Vector3(-HalfExtents * 2.0, 0, 0)
-    DrawLine(LinePointStart, LinePointEnd, LineColor, Time);
+    DrawLine(LinePointStart, LinePointEnd, LineColor, lifetime);
     
     #Draw vertical lines
     LinePointStart = LinePointEnd
-    DrawRay(LinePointStart, Vector3(0, HalfExtents * 2.0, 0), LineColor, Time)
+    DrawRay(LinePointStart, Vector3(0, HalfExtents * 2.0, 0), LineColor, lifetime)
     LinePointStart += Vector3(0, 0, HalfExtents * 2.0)
-    DrawRay(LinePointStart, Vector3(0, HalfExtents * 2.0, 0), LineColor, Time)
+    DrawRay(LinePointStart, Vector3(0, HalfExtents * 2.0, 0), LineColor, lifetime)
     LinePointStart += Vector3(HalfExtents * 2.0, 0, 0)
-    DrawRay(LinePointStart, Vector3(0, HalfExtents * 2.0, 0), LineColor, Time)
+    DrawRay(LinePointStart, Vector3(0, HalfExtents * 2.0, 0), LineColor, lifetime)
     LinePointStart += Vector3(0, 0, -HalfExtents * 2.0)
-    DrawRay(LinePointStart, Vector3(0, HalfExtents * 2.0, 0), LineColor, Time)
-
+    DrawRay(LinePointStart, Vector3(0, HalfExtents * 2.0, 0), LineColor, lifetime)
