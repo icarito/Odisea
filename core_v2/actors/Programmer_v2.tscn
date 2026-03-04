@@ -17,7 +17,6 @@
 [ext_resource path="res://core_v2/components/InteractComponentV2.gd" type="Script" id=56]
 [ext_resource path="res://core_v2/camera/KinematicArm3D.gd" type="Script" id=60]
 [ext_resource path="res://core_v2/visual/ProgrammerHoloMaterial.tres" type="Material" id=121]
-
 [sub_resource type="AnimationNodeStateMachinePlayback" id=108]
 
 [sub_resource type="BoxShape" id=120]
@@ -73,8 +72,6 @@ tank_turn_transition_time = 0.5
 tank_turn_curve = ExtResource( 10 )
 move_response_curve = ExtResource( 11 )
 camera_response_curve = ExtResource( 10 )
-strafe_turn_multiplier = 0.1
-strafe_speed_multiplier = 1.0
 enable_slope_resistance = false
 slope_resistance_factor = 0.1
 
@@ -179,9 +176,9 @@ transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866,
 [node name="SpringArm" type="Spatial" parent="CameraRig/Yaw/Pitch"]
 transform = Transform( -1, -1.51808e-08, 8.60946e-08, 0, 0.984808, 0.173648, -8.74228e-08, 0.173648, -0.984808, 0, -0.062, 0 )
 script = ExtResource( 60 )
-collision_mask = 1048575
 collider_shape = SubResource( 109 )
 spring_length = 5.0
+collision_mask = 1048575
 
 [node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]
 transform = Transform( 1, -3.90799e-14, 8.52651e-14, 0, 1, 1.49012e-08, -1.42109e-14, -1.49012e-08, 1, 0, 0, 0 )
