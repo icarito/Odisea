@@ -10,6 +10,7 @@ export(Color) var fence_color := Color(0.35, 0.35, 0.35) setget set_fence_color
 export(float, 0.5, 100.0, 0.1) var height := 2.5 setget set_height
 export(float, 1.0, 50.0) var path_length := 8.0 setget set_path_length
 export(float, -10.0, 10.0) var path_height := 0.0 setget set_path_height
+const PROP_LAYER := 64 # Layer 7: Prop
 
 var _path_node: Path = null
 var _container: Spatial = null
@@ -197,6 +198,8 @@ func _generate_fence():
         
         var p_body = StaticBody.new()
         p_body.name = "PoleBody_%d" % i
+        p_body.collision_layer = PROP_LAYER
+        p_body.collision_mask = 255
         var p_col = CollisionShape.new()
         var p_cyl = CylinderShape.new()
         p_cyl.radius = pole_radius
@@ -246,6 +249,8 @@ func _generate_fence():
         
         var body = StaticBody.new()
         body.name = "FenceBarrier_%d" % i
+        body.collision_layer = PROP_LAYER
+        body.collision_mask = 255
         var col_shape = CollisionShape.new()
         var box = BoxShape.new()
         box.extents = Vector3(segment_len * 0.5, height * 0.5, 0.02)

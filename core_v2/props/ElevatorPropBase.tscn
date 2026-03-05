@@ -18,6 +18,8 @@ platform_path = NodePath("Platform")
 
 [node name="Platform" type="KinematicBody" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
+collision_layer = 64
+collision_mask = 255
 script = ExtResource( 5 )
 passenger_area_path = NodePath("PassengerArea")
 

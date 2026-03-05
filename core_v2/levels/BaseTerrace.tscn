@@ -1,4 +1,4 @@
-[gd_scene load_steps=300 format=2]
+[gd_scene load_steps=299 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -54,7 +54,7 @@
 [ext_resource path="res://core_v2/levels/ShaderWarmupTrigger.gd" type="Script" id=53]
 [ext_resource path="res://core_v2/props/ElevatorProp.tscn" type="PackedScene" id=55]
 
-[sub_resource type="BoxShape" id=2458]
+[sub_resource type="BoxShape" id=2912]
 extents = Vector3( 10, 17, 4.95 )
 
 [sub_resource type="SpatialMaterial" id=2685]
@@ -907,17 +907,17 @@ points = PoolVector3Array( 23.75, 17.25, 7.5, 23.75, 16, 7.5, 24, 16, 7.5, 24, 1
 [sub_resource type="ConvexPolygonShape" id=2904]
 points = PoolVector3Array( 23.75, 17.25, 15.75, 23.75, 16, 15.75, 24, 16, 15.75, 24, 17.25, 15.75, 23.75, 17.25, 23.75, 23.75, 16, 23.75, 24, 16, 23.75, 24, 17.25, 23.75 )
 
-[sub_resource type="BoxShape" id=2679]
+[sub_resource type="BoxShape" id=2913]
 resource_local_to_scene = true
 extents = Vector3( 63, 40, 33.7563 )
 
-[sub_resource type="BoxShape" id=2680]
+[sub_resource type="BoxShape" id=2914]
 extents = Vector3( 104, 1, 141.5 )
 
 [sub_resource type="MultiMesh" id=1491]
 mesh = ExtResource( 36 )
 
-[sub_resource type="BoxShape" id=2681]
+[sub_resource type="BoxShape" id=2915]
 resource_local_to_scene = true
 extents = Vector3( 88.5928, 15, 199.103 )
 
@@ -926,7 +926,7 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 
-[sub_resource type="BoxShape" id=2682]
+[sub_resource type="BoxShape" id=2916]
 extents = Vector3( 1, 0.5, 1 )
 
 [sub_resource type="SpatialMaterial" id=1974]
@@ -959,7 +959,7 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 
-[sub_resource type="BoxShape" id=2683]
+[sub_resource type="BoxShape" id=2917]
 extents = Vector3( 1, 0.5, 1 )
 
 [sub_resource type="SpatialMaterial" id=1979]
@@ -987,42 +987,6 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 
-[sub_resource type="Curve3D" id=1036]
-_data = {
-"points": PoolVector3Array( -2.10588, 4.55962, 1.931, 0, 0, 0, 3.94009, -1.57517, 13.029, 0, 0, 0, 0, 0, 0, 5.88811, -0.20236, 8.87869 ),
-"tilts": PoolRealArray( 0, 0 )
-}
-
-[sub_resource type="Animation" id=1037]
-length = 5.0
-tracks/0/type = "value"
-tracks/0/path = NodePath("PathFollow:unit_offset")
-tracks/0/interp = 1
-tracks/0/loop_wrap = false
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/keys = {
-"times": PoolRealArray( 0, 5 ),
-"transitions": PoolRealArray( 1, 1 ),
-"update": 0,
-"values": [ 0.0, 1.0 ]
-}
-
-[sub_resource type="Animation" id=2440]
-length = 5.0
-tracks/0/type = "value"
-tracks/0/path = NodePath("PathFollow:unit_offset")
-tracks/0/interp = 1
-tracks/0/loop_wrap = false
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/keys = {
-"times": PoolRealArray( 0, 5 ),
-"transitions": PoolRealArray( 1, 1 ),
-"update": 0,
-"values": [ 0.0, 1.0 ]
-}
-
 [sub_resource type="SpatialMaterial" id=2448]
 resource_local_to_scene = true
 render_priority = 1
@@ -1046,7 +1010,28 @@ _data = {
 "tilts": PoolRealArray( 0, 0, 0 )
 }
 
-[sub_resource type="Curve3D" id=2684]
+[sub_resource type="Curve3D" id=2911]
+_data = {
+"points": PoolVector3Array(  ),
+"tilts": PoolRealArray(  )
+}
+
+[sub_resource type="Animation" id=1037]
+length = 5.0
+tracks/0/type = "value"
+tracks/0/path = NodePath("PathFollow:unit_offset")
+tracks/0/interp = 1
+tracks/0/loop_wrap = false
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 5 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 0,
+"values": [ 0.0, 1.0 ]
+}
+
+[sub_resource type="Curve3D" id=2918]
 _data = {
 "points": PoolVector3Array( 0, 0, 0, 0, 0, 0, -0.974657, -4.44925e-08, -0.0433385, 0, 0, 0, 0, 0, 0, -1.97465, -8.80818e-08, -0.0405459, 0, 0, 0, 0, 0, 0, -1.98024, -1.75504e-07, -2.04053, 0, 0, 0, 0, 0, 0, -1.99105, -2.64295e-07, -4.06668, 0, 0, 0, 0, 0, 0, 2.01416, -8.85692e-08, -4.0517, 0, 0, 0, 0, 0, 0, 2.02533, 8.62756e-08, -0.0517117, 0, 0, 0, 0, 0, 0, 1.02534, 4.26861e-08, -0.0489235 ),
 "tilts": PoolRealArray( 0, 0, 0, 0, 0, 0, 0 )
@@ -1088,7 +1073,7 @@ debug_render = false
 zone_extents = Vector3( 10, 17, 4.95 )
 
 [node name="CollisionShape" parent="SideScrollZone4" index="1"]
-shape = SubResource( 2458 )
+shape = SubResource( 2912 )
 
 [node name="GuardrailSegment" parent="." instance=ExtResource( 21 )]
 transform = Transform( -8.74228e-07, 0, 1, 0, 1, 0, -20, 0, -4.37114e-08, 40, 1, 0 )
@@ -1786,7 +1771,7 @@ transparency_max = 0.678
 floor_protect_radius = 1.0
 
 [node name="CollisionShape" type="CollisionShape" parent="Building/OcclusionArea"]
-shape = SubResource( 2679 )
+shape = SubResource( 2913 )
 
 [node name="CheckZoneV2" parent="." instance=ExtResource( 29 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -25.3912, 20.017, 32.3357 )
@@ -1813,7 +1798,7 @@ zone_extents = Vector3( 104, 1, 141.5 )
 
 [node name="CollisionShape" type="CollisionShape" parent="KillZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0 )
-shape = SubResource( 2680 )
+shape = SubResource( 2914 )
 
 [node name="CrioBatch" type="MultiMeshInstance" parent="."]
 transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 8.42406, 5.63353, -19.4895 )
@@ -1867,7 +1852,7 @@ fade_time = 0.2
 
 [node name="CollisionShape2" type="CollisionShape" parent="BGMZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 27.1999, 13.8186, -47.3105 )
-shape = SubResource( 2681 )
+shape = SubResource( 2915 )
 
 [node name="EmergencyBeaconV2" parent="." groups=["optional"] instance=ExtResource( 45 )]
 transform = Transform( -4.37114e-08, 1, 8.74228e-08, 1, 4.37114e-08, 3.82137e-15, 0, 8.74228e-08, -1, -5.95378, 8.0297, -8.15047 )
@@ -1942,7 +1927,7 @@ material_override = SubResource( 1972 )
 cast_shadow = 0
 
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/AutomationTrigger"]
-shape = SubResource( 2682 )
+shape = SubResource( 2916 )
 
 [node name="_ZoneDebugMesh3" type="MeshInstance" parent="CrioPod START/AutomationTrigger"]
 visible = false
@@ -1984,7 +1969,7 @@ material_override = SubResource( 1977 )
 cast_shadow = 0
 
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/CinematicSequence"]
-shape = SubResource( 2683 )
+shape = SubResource( 2917 )
 
 [node name="_ZoneDebugMesh3" type="MeshInstance" parent="CrioPod START/CinematicSequence"]
 visible = false
@@ -2037,66 +2022,6 @@ transform = Transform( -0.671181, 0.560374, -0.485281, 2.98023e-08, 0.65464, 0.7
 transform = Transform( -0.755305, 0, -0.655374, 0, 1, 0, 0.655374, 0, -0.755305, 10.1387, 5.57768, 28.4967 )
 fov = 111.928
 far = 8192.0
-
-[node name="CameraZone" parent="." instance=ExtResource( 31 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.04499, 3.20083, 20.0898 )
-debug_render = false
-zone_extents = Vector3( 16, 2, 15.5 )
-cinematic_rig_path = NodePath("CinematicPathRig")
-occlusion_root = NodePath("../CornerFloor")
-
-[node name="CinematicPathRig" type="Path" parent="CameraZone"]
-transform = Transform( -6.7194e-08, 0, 1.53722, 0, 0.828185, 0, -2.61346, 0, -1.14238e-07, -15.5772, 4.19258, 13.0469 )
-curve = SubResource( 1036 )
-script = ExtResource( 34 )
-look_ahead = false
-track_player = true
-follow_player_on_path = true
-follow_speed = 0.5
-transition_time = 1.5
-
-[node name="PathFollow" type="PathFollow" parent="CameraZone/CinematicPathRig"]
-transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 3.94009, -1.57517, 13.029 )
-rotation_mode = 0
-loop = false
-
-[node name="Camera" type="Camera" parent="CameraZone/CinematicPathRig/PathFollow"]
-transform = Transform( 0.519326, -0.0792928, 0.648366, 0, 0.375116, 0.0458753, -0.656465, -0.0341891, 0.27956, 0, 0, 0 )
-near = 0.1
-far = 1000.0
-
-[node name="AnimationPlayer" type="AnimationPlayer" parent="CameraZone/CinematicPathRig"]
-anims/dolly = SubResource( 1037 )
-
-[node name="CameraZone2" parent="." instance=ExtResource( 31 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.18961, 11.1312, 20.0898 )
-debug_render = false
-zone_extents = Vector3( 14.5, 5.89231, 13.95 )
-cinematic_rig_path = NodePath("CinematicPathRig")
-occlusion_root = NodePath("../CornerFloor")
-
-[node name="CinematicPathRig" type="Path" parent="CameraZone2"]
-transform = Transform( -6.7194e-08, 0, 1.53722, 0, 0.828185, 0, -2.61346, 0, -1.14238e-07, -15.5772, 4.19258, 13.0469 )
-curve = SubResource( 1036 )
-script = ExtResource( 34 )
-look_ahead = false
-track_player = true
-follow_player_on_path = true
-follow_speed = 0.5
-transition_time = 1.5
-
-[node name="PathFollow" type="PathFollow" parent="CameraZone2/CinematicPathRig"]
-transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 3.94009, -1.57517, 13.029 )
-rotation_mode = 0
-loop = false
-
-[node name="Camera" type="Camera" parent="CameraZone2/CinematicPathRig/PathFollow"]
-transform = Transform( 0.519326, -0.0792928, 0.648366, 0, 0.375116, 0.0458753, -0.656465, -0.0341891, 0.27956, 0, 0, 0 )
-near = 0.1
-far = 1000.0
-
-[node name="AnimationPlayer" type="AnimationPlayer" parent="CameraZone2/CinematicPathRig"]
-anims/dolly = SubResource( 2440 )
 
 [node name="Scatter3D2" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.838061, 0 )
@@ -2318,6 +2243,36 @@ curve = SubResource( 2457 )
 [node name="ElevatorProp" parent="." instance=ExtResource( 55 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 6.05078, 2.04161, 23.9419 )
 
+[node name="CameraZone" parent="ElevatorProp/Platform" index="4" instance=ExtResource( 31 )]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0.0580997, 1.05839, 0.0507798 )
+debug_render = false
+zone_extents = Vector3( 1.65, 4, 1.65 )
+cinematic_rig_path = NodePath("CinematicPathRig")
+occlusion_root = NodePath("../../../CornerFloor")
+
+[node name="CinematicPathRig" type="Path" parent="ElevatorProp/Platform/CameraZone"]
+transform = Transform( -3.09086e-08, 0.707107, -0.707107, 3.09086e-08, 0.707107, 0.707107, 1, 0, -4.37114e-08, -1.78653, 2.69038, -0.0769081 )
+curve = SubResource( 2911 )
+script = ExtResource( 34 )
+look_ahead = false
+follow_speed = 0.5
+player_offset = Vector3( 0, 1.5, 1.084 )
+fov = 100.0
+
+[node name="PathFollow" type="PathFollow" parent="ElevatorProp/Platform/CameraZone/CinematicPathRig"]
+transform = Transform( 0.999999, 0, 0, 0, 1, 0, 0, 0, 0.999992, 0, 0, 0 )
+rotation_mode = 0
+loop = false
+
+[node name="Camera" type="Camera" parent="ElevatorProp/Platform/CameraZone/CinematicPathRig/PathFollow"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1.00001, 0, 0, 0 )
+fov = 100.0
+near = 0.1
+far = 1000.0
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="ElevatorProp/Platform/CameraZone/CinematicPathRig"]
+anims/dolly = SubResource( 1037 )
+
 [node name="Floor1" parent="ElevatorProp/Floors" index="1"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6, 0 )
 
@@ -2328,7 +2283,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16, 0 )
 height = 20.0
 
 [node name="Path2" parent="ElevatorProp/MetalFence" index="0"]
-curve = SubResource( 2684 )
+curve = SubResource( 2918 )
 
 [node name="CSGCylinder" parent="ElevatorProp/MetalFence/Path2" index="0"]
 transform = Transform( 1, 4.71845e-16, 0, 5.01682e-14, 1, 4.9738e-14, 0, 0, 1, -0.00600338, 20.1, -2.102 )

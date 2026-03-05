@@ -15,8 +15,10 @@ export(bool) var look_ahead := true # La cámara mira hacia adelante del path
 export(bool) var track_player := false # La cámara siempre mira al jugador
 export(bool) var follow_player_on_path := false # La cámara se mueve a lo largo del path para estar cerca del jugador
 export(float, 0.1, 20.0) var follow_speed := 5.0 # Velocidad de seguimiento suave
+export(float, 0.0, 20.0) var min_player_distance_on_path := 0.0 # Si > 0, evita que el PathFollow quede demasiado cerca del jugador
 export(Vector3) var player_offset := Vector3(0, 1.5, 0) # Offset para apuntar (altura del pecho)
 export(float, 0.0, 3.0) var follow_head_height := 1.5 # Altura de referencia para trackear "cabeza"
+export(bool) var preserve_camera_local_offset := true # Si true, respeta la posición local de Camera configurada en el editor
 
 # --- CONFIGURACIÓN DE CÁMARA ---
 export(float, 10.0, 120.0) var fov := 70.0 setget set_fov
@@ -83,11 +85,10 @@ func _update_rig(delta: float):
 		var player_pos = _get_player_tracking_position()
 		# Convertir posición global del jugador a local del Path
 		var local_pos = global_transform.affine_inverse().xform(player_pos)
-		# Encontrar el offset más cercano en la curva (estable para paths con múltiples puntos).
-		var closest_offset = _get_closest_offset_on_curve(curve, local_pos)
 		var curve_length = curve.get_baked_length()
 		if curve_length > 0:
-			_target_offset = closest_offset / curve_length
+			var follow_offset = _get_follow_offset_on_curve(curve, local_pos, path_follow.loop)
+			_target_offset = follow_offset / curve_length
 			if not path_follow.loop:
 				# Keep a tiny margin from exactly 1.0 to avoid endpoint wrap artifacts.
 				_target_offset = clamp(_target_offset, 0.0, 0.9999)
@@ -103,8 +104,9 @@ func _update_rig(delta: float):
 	
 	# Actualizar orientación de la cámara
 	if camera:
-		# La cámara está como hija de PathFollow, su posición local debe ser 0
-		camera.transform.origin = Vector3.ZERO
+		# Opcional: compatibilidad legacy para rigs que quieran anclar la cámara al origen del PathFollow.
+		if not preserve_camera_local_offset:
+			camera.transform.origin = Vector3.ZERO
 		
 		# Hacer que la cámara mire al jugador (si track_player está activo)
 		if track_player and _player_node:
@@ -183,6 +185,68 @@ func _get_closest_offset_on_curve(c: Curve3D, local_pos: Vector3) -> float:
 			best_offset = off
 
 	return clamp(best_offset, 0.0, length)
+
+func _wrap_or_clamp_offset(offset: float, curve_length: float, is_loop: bool) -> float:
+	if curve_length <= 0.0:
+		return 0.0
+	if is_loop:
+		var wrapped: float = fmod(offset, curve_length)
+		if wrapped < 0.0:
+			wrapped += curve_length
+		return wrapped
+	return clamp(offset, 0.0, curve_length)
+
+func _get_follow_offset_on_curve(c: Curve3D, local_player_pos: Vector3, is_loop: bool) -> float:
+	var curve_length: float = c.get_baked_length()
+	if curve_length <= 0.0:
+		return 0.0
+
+	var closest_offset: float = _get_closest_offset_on_curve(c, local_player_pos)
+	if min_player_distance_on_path <= 0.0:
+		return _wrap_or_clamp_offset(closest_offset, curve_length, is_loop)
+
+	var base_point: Vector3 = c.interpolate_baked(closest_offset)
+	if base_point.distance_to(local_player_pos) >= min_player_distance_on_path:
+		return _wrap_or_clamp_offset(closest_offset, curve_length, is_loop)
+
+	var step: float = max(0.05, curve_length / 96.0)
+	var max_steps: int = int(ceil(curve_length / step)) + 1
+	var found_plus: bool = false
+	var found_minus: bool = false
+	var plus_offset: float = closest_offset
+	var minus_offset: float = closest_offset
+	var plus_dist_sq: float = 0.0
+	var minus_dist_sq: float = 0.0
+
+	for i in range(1, max_steps + 1):
+		var travel: float = float(i) * step
+		if not found_plus:
+			var candidate_plus: float = _wrap_or_clamp_offset(closest_offset + travel, curve_length, is_loop)
+			var d_plus_sq: float = c.interpolate_baked(candidate_plus).distance_squared_to(local_player_pos)
+			if d_plus_sq >= min_player_distance_on_path * min_player_distance_on_path:
+				found_plus = true
+				plus_offset = candidate_plus
+				plus_dist_sq = d_plus_sq
+
+		if not found_minus:
+			var candidate_minus: float = _wrap_or_clamp_offset(closest_offset - travel, curve_length, is_loop)
+			var d_minus_sq: float = c.interpolate_baked(candidate_minus).distance_squared_to(local_player_pos)
+			if d_minus_sq >= min_player_distance_on_path * min_player_distance_on_path:
+				found_minus = true
+				minus_offset = candidate_minus
+				minus_dist_sq = d_minus_sq
+
+		if found_plus and found_minus:
+			break
+
+	if found_plus and found_minus:
+		# Prefer the candidate that leaves more breathing room when both are equally near in arc length.
+		return plus_offset if plus_dist_sq > minus_dist_sq else minus_offset
+	if found_plus:
+		return plus_offset
+	if found_minus:
+		return minus_offset
+	return _wrap_or_clamp_offset(closest_offset, curve_length, is_loop)
 
 func _ensure_nodes():
 	# PathFollow
@@ -344,13 +408,13 @@ func snap_to_target():
 	if _player_node and is_instance_valid(_player_node) and curve and path_follow:
 		var player_pos = _get_player_tracking_position()
 		var local_pos = global_transform.affine_inverse().xform(player_pos)
-		var closest_offset = _get_closest_offset_on_curve(curve, local_pos)
 		
 		# Set directly without lerp
 		var curve_length = curve.get_baked_length()
 		if curve_length <= 0.0:
 			return
-		var next_offset = closest_offset / curve_length
+		var follow_offset = _get_follow_offset_on_curve(curve, local_pos, path_follow.loop)
+		var next_offset = follow_offset / curve_length
 		if not path_follow.loop:
 			next_offset = clamp(next_offset, 0.0, 0.9999)
 		path_follow.unit_offset = next_offset

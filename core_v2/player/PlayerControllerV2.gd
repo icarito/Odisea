@@ -34,6 +34,7 @@ export(float) var cinematic_zoom_speed := 1.0
 export(float) var cinematic_zoom_lerp_speed := 8.0
 export(float) var cinematic_zoom_min_fov := 20.0
 export(float) var cinematic_zoom_max_fov := 110.0
+export(int, LAYERS_3D_PHYSICS) var camera_collision_mask := 1 # Entorno only (pisos/paredes del nivel)
 # Stair-stepping Configuration
 export(float) var step_height := 0.5
 export(float) var step_depth := 0.6
@@ -148,10 +149,17 @@ func force_camera_current(_reset_orientation := false):
 	if _cached_cam:
 		_cached_cam.current = true
 
+func _is_occlusion_enabled() -> bool:
+	var raw := OS.get_environment("ODISEA_ENABLE_OCCLUSION").to_lower()
+	return raw in ["1", "true", "yes", "on"]
+
 func set_occlusion_mode(active: bool) -> void:
+	if not _is_occlusion_enabled():
+		active = false
 	_occlusion_mode_active = active
 	if _cached_spring_arm:
-		_cached_spring_arm.collision_mask = 0 if active else base_collision_mask
+		# Keep camera-wall collision enabled even when occlusion visuals are toggled.
+		_cached_spring_arm.collision_mask = base_collision_mask
 
 func sync_camera_to_rig() -> void:
 	if _cached_spring_arm:
@@ -349,7 +357,8 @@ func _ready():
 		base_spring_length = _cached_spring_arm.spring_length
 		base_spring_length_3d = _cached_spring_arm.spring_length
 		current_spring_length = _cached_spring_arm.spring_length
-		base_collision_mask = _cached_spring_arm.collision_mask
+		base_collision_mask = camera_collision_mask if camera_collision_mask > 0 else _cached_spring_arm.collision_mask
+		_cached_spring_arm.collision_mask = base_collision_mask
 	
 	if camera_rig:
 		base_rig_y = camera_rig.transform.origin.y

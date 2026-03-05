@@ -31,9 +31,15 @@ func _ready():
 		
 	if not Engine.editor_hint:
 		if enforce_occlusion_material:
-			_apply_enforcement()
+			if _is_occlusion_enabled():
+				_apply_enforcement()
 
 func _on_zone_entered(body: Node):
+	if not _is_occlusion_enabled():
+		WallOcclusionManager.set_occlusion_params(false, cone_radius, {})
+		if body.has_method("set_occlusion_mode"):
+			body.set_occlusion_mode(false)
+		return
 	WallOcclusionManager.set_occlusion_params(true, cone_radius, {
 		"blur_softness": blur_softness,
 		"edge_fade": edge_fade,
@@ -45,6 +51,11 @@ func _on_zone_entered(body: Node):
 		body.set_occlusion_mode(true)
 
 func _on_zone_exited(body: Node):
+	if not _is_occlusion_enabled():
+		WallOcclusionManager.set_occlusion_params(false, cone_radius, {})
+		if body.has_method("set_occlusion_mode"):
+			body.set_occlusion_mode(false)
+		return
 	WallOcclusionManager.set_occlusion_params(false, cone_radius, {})
 	if body.has_method("set_occlusion_mode"):
 		body.set_occlusion_mode(false)
@@ -140,3 +151,7 @@ func _convert_material(source_mat: Material, shader: Shader) -> Material:
 func _is_rl_mode() -> bool:
 	var rl_mode_env := OS.get_environment("ANNA_RL_MODE").to_lower()
 	return rl_mode_env in ["1", "true", "yes", "on"]
+
+func _is_occlusion_enabled() -> bool:
+	var raw := OS.get_environment("ODISEA_ENABLE_OCCLUSION").to_lower()
+	return raw in ["1", "true", "yes", "on"]

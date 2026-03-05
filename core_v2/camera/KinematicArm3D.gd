@@ -18,8 +18,17 @@ export var min_length := 0.5
 export var spring_length := 7.0 # Renamed target_length to spring_length for compatibility with SpringArm
 export var target_length := 7.0 # Keeping this for internal use or alias, but spring_length is the primary property manipulated by the player controller.
 
-# the weight used when interpolating the arm's length
-export var weight := 10.0
+# Smoothing speed while extending back to target length (lower = smoother).
+export var extend_weight := 6.0
+
+# Smoothing speed while retracting on obstacle hit (higher = less clipping).
+export var retract_weight := 18.0
+
+# Legacy single-weight control kept for backward compatibility with old scenes.
+export var weight := -1.0
+
+# Small safety margin so camera stays slightly away from colliders.
+export var collision_padding := 0.12
 
 # paths to objects which the arm won't collide with
 export(Array, NodePath) var _exclude_paths: Array
@@ -102,45 +111,37 @@ func get_hit_length() -> float:
 	return current_length
 
 func _physics_process(delta):
-	# Sync target_length with spring_length just in case someone modifies spring_length directly
+	# Sync target_length with spring_length just in case someone modifies spring_length directly.
 	target_length = spring_length
-	
-	current_length = lerp(current_length, target_length, weight * delta)
-	var collision_info := _move_kinematic_body()
-	
+
+	if not is_instance_valid(kinematic_body):
+		return
+
+	# Use separate smoothing speeds: snappier retract, softer extension.
+	var moving_outward := target_length > current_length
+	var active_weight := extend_weight if moving_outward else retract_weight
+	if weight > 0.0:
+		active_weight = weight
+	var t := clamp(active_weight * delta, 0.0, 1.0)
+	var desired_length := max(lerp(current_length, target_length, t), min_length)
+	var arm_origin := global_transform.origin
+	var arm_motion := global_transform.basis.z * desired_length
+
+	# Always cast from arm origin to avoid skipping geometry when the target jumps between frames.
+	kinematic_body.global_transform.origin = arm_origin
+	var collision_info := kinematic_body.move_and_collide(arm_motion)
 	if is_instance_valid(collision_info):
-		var relative_origin := global_transform.origin - kinematic_body.global_transform.origin
-		var arm_vector := global_transform.basis.z * current_length
-		var perpendicular_arm_length := arm_vector.dot(collision_info.normal)
-		var perpendicular_distance := collision_info.normal.dot(relative_origin)
-		
-		if perpendicular_arm_length == 0:
-			_reset_kinematic_body()
-		else:
-			var ratio := abs(perpendicular_distance / perpendicular_arm_length)
-			var correction_vector := arm_vector.slide(collision_info.normal) * ratio + relative_origin.slide(collision_info.normal)
-			
-			if correction_vector.dot(arm_vector) > 0:
-				_reset_kinematic_body()
-				return
-			else:
-				# Move away to safe spot
-				kinematic_body.move_and_collide(correction_vector)
-				current_length *= ratio
-				
-	# Ensure the length doesn't go below min_length
-	current_length = max(current_length, min_length)
-	
+		var safe_length := collision_info.travel.length() - collision_padding
+		current_length = max(safe_length, min_length)
+	else:
+		current_length = desired_length
+
 	_update_children()
 
 func _update_children() -> void:
 	var target := kinematic_body.global_transform.origin
 	for child in get_children():
+		if child == kinematic_body:
+			continue
 		if child is Spatial:
 			child.global_transform.origin = target
-
-func _move_kinematic_body(length := current_length) -> KinematicCollision:
-	return kinematic_body.move_and_collide(global_transform.basis.z * length + global_transform.origin - kinematic_body.global_transform.origin)
-
-func _reset_kinematic_body() -> void:
-	kinematic_body.global_transform.origin = global_transform.basis.z * min_length + global_transform.origin

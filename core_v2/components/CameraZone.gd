@@ -51,7 +51,7 @@ func _ready():
 	
 	# Cache rig deterministically at ready
 	_cache_rig()
-	if not Engine.editor_hint and use_occlusion and enforce_occlusion_material:
+	if not Engine.editor_hint and use_occlusion and enforce_occlusion_material and _is_occlusion_enabled():
 		_apply_occlusion_enforcement()
 
 func _ensure_collision_shape():
@@ -148,6 +148,11 @@ func _on_zone_exited(_body: Node):
 	pass
 
 func set_zone_occlusion_for_body(body: Node, active: bool) -> void:
+	if not _is_occlusion_enabled():
+		WallOcclusionManager.set_occlusion_params(false, occlusion_cone_radius, {})
+		if is_instance_valid(body) and body.has_method("set_occlusion_mode"):
+			body.set_occlusion_mode(false)
+		return
 	if not use_occlusion:
 		return
 	WallOcclusionManager.set_occlusion_params(active, occlusion_cone_radius, {
@@ -241,3 +246,7 @@ func _convert_material_occlusion(source_mat: Material, shader: Shader) -> Materi
 func _is_rl_mode() -> bool:
 	var rl_mode_env := OS.get_environment("ANNA_RL_MODE").to_lower()
 	return rl_mode_env in ["1", "true", "yes", "on"]
+
+func _is_occlusion_enabled() -> bool:
+	var raw := OS.get_environment("ODISEA_ENABLE_OCCLUSION").to_lower()
+	return raw in ["1", "true", "yes", "on"]

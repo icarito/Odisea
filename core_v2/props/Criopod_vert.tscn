@@ -99,7 +99,8 @@ material/0 = SubResource( 35 )
 
 [node name="RotatingObjectV2" type="KinematicBody" parent="."]
 transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
-collision_layer = 97
+collision_layer = 96
+collision_mask = 255
 script = ExtResource( 4 )
 anim_duration = 3.0
 rotation_amount = -120.0
@@ -129,6 +130,8 @@ duration = 1.5
 fadeout_time = 0.5
 
 [node name="StaticBody2" type="StaticBody" parent="."]
+collision_layer = 64
+collision_mask = 255
 
 [node name="CollisionShape" type="CollisionShape" parent="StaticBody2"]
 shape = SubResource( 40 )
