@@ -30,6 +30,12 @@ export var weight := -1.0
 # Small safety margin so camera stays slightly away from colliders.
 export var collision_padding := 0.12
 
+# Ignore tiny hit-length fluctuations to reduce wall jitter on dense geometry.
+export var collision_jitter_epsilon := 0.035
+
+# Speed used when retracting due to collision correction.
+export var collision_shrink_weight := 28.0
+
 # paths to objects which the arm won't collide with
 export(Array, NodePath) var _exclude_paths: Array
 
@@ -132,7 +138,12 @@ func _physics_process(delta):
 	var collision_info := kinematic_body.move_and_collide(arm_motion)
 	if is_instance_valid(collision_info):
 		var safe_length := collision_info.travel.length() - collision_padding
-		current_length = max(safe_length, min_length)
+		var hit_length := max(safe_length, min_length)
+		# While colliding, only shrink on meaningful deltas.
+		# Prevents jitter caused by frame-to-frame micro changes on contact points.
+		if hit_length < current_length - collision_jitter_epsilon:
+			var shrink_t := clamp(collision_shrink_weight * delta, 0.0, 1.0)
+			current_length = lerp(current_length, hit_length, shrink_t)
 	else:
 		current_length = desired_length
 

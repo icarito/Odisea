@@ -1900,8 +1900,8 @@ fade_out_time = null
 [node name="Tween3" type="Tween" parent="CrioPod START/RotatingObjectV2/SFX Open sound" index="2"]
 
 [node name="Smoke" parent="CrioPod START" index="1"]
-transform = Transform( 3, 0, 8.31764e-09, 0, 2.90486, 0, 8.31704e-09, 0, 2.90486, 0.45195, -0.399253, 3.12261 )
-timeout = 20.0
+transform = Transform( 1, 0, -2.77232e-09, 0, 1, 0, 2.77232e-09, 0, 1, 0.106033, -0.165206, 1.22316 )
+timeout = 15.0
 interval = 0.0
 duration = 0.0
 fadeout_time = 10.0
@@ -2019,8 +2019,8 @@ transform = Transform( 1, 1.79708e-05, -0.0010632, 1.2517e-06, 1.00001, -0.00010
 transform = Transform( -0.671181, 0.560374, -0.485281, 2.98023e-08, 0.65464, 0.75594, 0.741294, 0.507372, -0.439382, 0, 0, 0 )
 
 [node name="IntroFinal" parent="VCameraSystem/VCameras" index="2"]
-transform = Transform( -0.755305, 0, -0.655374, 0, 1, 0, 0.655374, 0, -0.755305, 10.1387, 5.57768, 28.4967 )
-fov = 111.928
+transform = Transform( -0.768853, 0, 0.639426, 0, 1, 0, -0.639426, 0, -0.768853, 17.5672, 5.57768, 26.4851 )
+fov = 100.0
 far = 8192.0
 
 [node name="Scatter3D2" type="Spatial" parent="."]
