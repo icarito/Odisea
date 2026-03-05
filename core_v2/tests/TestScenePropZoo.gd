@@ -187,16 +187,16 @@ func _preload_all_props_for_editor() -> void:
 func _create_exhibit_shell(relative_path: String, index: int) -> Node:
 	var exhibit = EXHIBIT_SCENE.instance()
 	exhibits_root.add_child(exhibit)
-	
+
 	# Layout
 	# warning-ignore:INTEGER_DIVISION
 	var row = index / columns
 	var col = index % columns
 	exhibit.translation = Vector3(col * grid_spacing, 0, row * grid_spacing)
-	
+
 	# Display name: just the filename without extension
 	var display_name = relative_path.get_file().get_basename()
-	
+
 	# Setup Label
 	var label = exhibit.get_node("Floor/Label")
 	if label:

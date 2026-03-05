@@ -272,14 +272,14 @@ func _apply_font_overrides() -> void:
 	var f_label := DynamicFont.new()
 	f_label.font_data = _font_data
 	f_label.size = _font_size
-	f_label.use_filter = true
-	f_label.use_mipmaps = true
+	f_label.use_filter = false
+	f_label.use_mipmaps = false
 
 	var f_output := DynamicFont.new()
 	f_output.font_data = _font_data
 	f_output.size = max(FONT_SIZE_MIN, _font_size - 1)
-	f_output.use_filter = true
-	f_output.use_mipmaps = true
+	f_output.use_filter = false
+	f_output.use_mipmaps = false
 
 	if _prompt:
 		_prompt.add_font_override("font", f_label)

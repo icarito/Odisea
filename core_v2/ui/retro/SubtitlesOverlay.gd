@@ -124,8 +124,8 @@ func _get_subtitle_font() -> DynamicFont:
 	if not font_data: font_data = load("res://core_v2/ui/fonts/SyneMono-Regular.ttf")
 	if font_data: _cached_font.font_data = font_data
 	_cached_font.size = 20
-	_cached_font.use_filter = true
-	_cached_font.use_mipmaps = true
+	_cached_font.use_filter = false
+	_cached_font.use_mipmaps = false
 	return _cached_font
 
 func _build_font() -> DynamicFont:

@@ -4,14 +4,22 @@
 
 [resource]
 shader = ExtResource( 1 )
-shader_param/holo_color = Color( 0.0784314, 0.933333, 0.894118, 0.898039 )
-shader_param/emission_energy = 2.2
-shader_param/opacity = 0.82
-shader_param/scanline_density = 156.0
-shader_param/scanline_strength = 0.96
-shader_param/fresnel_power = 2.41
-shader_param/fresnel_strength = 1.5
-shader_param/glitch_intensity = 0.84
-shader_param/glitch_line_density = 72.0
-shader_param/noise_strength = 0.46
-shader_param/alpha_floor = 0.02
+shader_param/base_color = Color( 1, 0.270588, 0.984314, 0.796078 )
+shader_param/albedo_mix = 0.0
+shader_param/emission_energy = 4.85
+shader_param/alpha_scale = 0.217
+shader_param/min_alpha = 0.08
+shader_param/scanline_density = 21.682
+shader_param/scanline_speed = 2.293
+shader_param/scanline_strength = 0.05
+shader_param/flicker_speed = 16.0
+shader_param/flicker_strength = 0.12
+shader_param/edge_power = 4.161
+shader_param/edge_strength = 4.0
+shader_param/noise_scale = 5.0
+shader_param/distortion_strength = 0.1
+shader_param/chroma_shift = 0.013
+shader_param/glitch_strength = 0.8
+shader_param/glitch_density = 80.0
+shader_param/glitch_snap_rate = 15.0
+shader_param/background_mix = 0.666

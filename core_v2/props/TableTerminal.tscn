@@ -101,6 +101,7 @@ shape = SubResource( 18 )
 
 [node name="BaseMesh" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, 0 )
+use_collision = true
 width = 1.0
 height = 0.05
 depth = 0.5

@@ -64,8 +64,8 @@ func _apply_theme() -> void:
 		var dynamic_font := DynamicFont.new()
 		dynamic_font.font_data = pixel_font_data
 		dynamic_font.size = pixel_font_size
-		dynamic_font.use_filter = true
-		dynamic_font.use_mipmaps = true
+		dynamic_font.use_filter = false
+		dynamic_font.use_mipmaps = false
 		var themed = retro_theme.duplicate(true)
 		themed.default_font = dynamic_font
 		_desktop.theme = themed

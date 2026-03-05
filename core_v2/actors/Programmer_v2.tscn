@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=2]
+[gd_scene load_steps=24 format=2]
 
 [ext_resource path="res://scenes/common/space_environment/Environment_InteriorLab.tres" type="Environment" id=1]
 [ext_resource path="res://core_v2/player/PlayerControllerV2.gd" type="Script" id=2]
@@ -17,6 +17,7 @@
 [ext_resource path="res://core_v2/components/InteractComponentV2.gd" type="Script" id=56]
 [ext_resource path="res://core_v2/camera/KinematicArm3D.gd" type="Script" id=60]
 [ext_resource path="res://core_v2/visual/ProgrammerHoloMaterial.tres" type="Material" id=121]
+
 [sub_resource type="AnimationNodeStateMachinePlayback" id=108]
 
 [sub_resource type="BoxShape" id=120]
@@ -150,7 +151,8 @@ unit_size = 8.0
 max_distance = 20.0
 script = ExtResource( 54 )
 generic_fallback_profile = ExtResource( 55 )
-stride_length_run = 2.2
+stride_length_walk = 1.5
+stride_length_run = 4.0
 
 [node name="OmniLight" type="OmniLight" parent="Visual" groups=["optional"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )
@@ -179,7 +181,6 @@ script = ExtResource( 60 )
 collider_shape = SubResource( 109 )
 min_length = 1.0
 spring_length = 5.0
-collision_mask = 1
 
 [node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]
 transform = Transform( 1, -3.90799e-14, 8.52651e-14, 0, 1, 1.49012e-08, -1.42109e-14, -1.49012e-08, 1, 0, 0, 0 )
