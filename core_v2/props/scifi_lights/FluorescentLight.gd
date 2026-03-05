@@ -76,8 +76,14 @@ func _update_visuals() -> void:
 		_spot_light.light_energy = current_energy
 
 	if _mesh and _mesh.material_override:
-		if _mesh.material_override is SpatialMaterial:
-			_mesh.material_override.emission_energy = current_energy
+		var mat = _mesh.material_override
+		if mat is SpatialMaterial:
+			mat.emission_energy = current_energy
+			mat.albedo_color.a = clamp(current_energy / max(light_energy, 0.001), 0.15, 1.0)
+		elif mat is ShaderMaterial:
+			mat.set_shader_param("emission_energy", current_energy)
+			var alpha = clamp(current_energy / max(light_energy, 0.001), 0.15, 1.0)
+			mat.set_shader_param("albedo", Color(light_color.r, light_color.g, light_color.b, alpha))
 
 func step(dt: float) -> void:
 	.step(dt)

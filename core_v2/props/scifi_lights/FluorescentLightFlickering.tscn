@@ -3,7 +3,7 @@
 [ext_resource path="res://core_v2/props/scifi_lights/FluorescentLight.gd" type="Script" id=1]
 
 [sub_resource type="SpatialMaterial" id=4]
-albedo_color = Color( 0.7, 0.75, 0.6, 1 )
+albedo_color = Color( 0.7, 0.75, 0.6, 0.15 )
 roughness = 0.4
 emission_enabled = true
 emission = Color( 0.7, 0.75, 0.6, 1 )
@@ -42,6 +42,7 @@ mesh = SubResource( 2 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2, 0 )
 light_color = Color( 0.7, 0.75, 0.6, 1 )
 light_energy = 0.0
+light_cull_mask = 4293918720
 omni_range = 8.0
 omni_attenuation = 2.0
 
