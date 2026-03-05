@@ -2246,7 +2246,7 @@ transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 6.05078
 [node name="CameraZone" parent="ElevatorProp/Platform" index="4" instance=ExtResource( 31 )]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0.0580997, 1.05839, 0.0507798 )
 debug_render = false
-zone_extents = Vector3( 1.65, 4, 1.65 )
+zone_extents = Vector3( 1.5, 3, 1.5 )
 cinematic_rig_path = NodePath("CinematicPathRig")
 occlusion_root = NodePath("../../../CornerFloor")
 
