@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://core_v2/props/metal_fence/MetalFence.gd" type="Script" id=1]
+
+[sub_resource type="Curve3D" id=1]
+_data = {
+"points": PoolVector3Array( 0, 0, 0, 0, 0, 0, -1.97465, -8.80817e-08, -0.0405416, 0, 0, 0, 0, 0, 0, -1.98024, -1.75504e-07, -2.04053, 0, 0, 0, 0, 0, 0, -1.99105, -2.64295e-07, -4.06668, 0, 0, 0, 0, 0, 0, 2.01416, -8.85692e-08, -4.0517, 0, 0, 0, 0, 0, 0, 2.02533, 8.62756e-08, -0.0517117 ),
+"tilts": PoolRealArray( 0, 0, 0, 0, 0 )
+}
+
+[node name="MetalFence" type="Spatial"]
+script = ExtResource( 1 )
+is_interactable = false
+height = null
+
+[node name="Path2" type="Path" parent="."]
+curve = SubResource( 1 )

@@ -1,4 +1,4 @@
-[gd_scene load_steps=297 format=2]
+[gd_scene load_steps=298 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -1038,6 +1038,12 @@ rings = 2
 _data = {
 "points": PoolVector3Array( -2.2665, 0.00199771, 0.0182552, 2.2665, -0.00199771, -0.0182552, -11.1555, 0.00567698, 0.650577, -2.73758, 0.0812924, 0.0125027, 2.73758, -0.0812924, -0.0125027, -5.97219, 0.296299, 0.105284, -3.54255, 0.248627, -0.0616093, 3.54255, -0.248627, 0.0616093, 0.897272, 3.57628e-06, 0.136089 ),
 "tilts": PoolRealArray( 0, 0, 0 )
+}
+
+[sub_resource type="Curve3D" id=2908]
+_data = {
+"points": PoolVector3Array( 0, 0, 0, 0, 0, 0, -0.974657, -4.44925e-08, -0.0433385, 0, 0, 0, 0, 0, 0, -1.97465, -8.80818e-08, -0.0405459, 0, 0, 0, 0, 0, 0, -1.98024, -1.75504e-07, -2.04053, 0, 0, 0, 0, 0, 0, -1.99105, -2.64295e-07, -4.06668, 0, 0, 0, 0, 0, 0, 2.01416, -8.85692e-08, -4.0517, 0, 0, 0, 0, 0, 0, 2.02533, 8.62756e-08, -0.0517117, 0, 0, 0, 0, 0, 0, 1.02534, 4.26861e-08, -0.0489235 ),
+"tilts": PoolRealArray( 0, 0, 0, 0, 0, 0, 0 )
 }
 
 [node name="Terrace" type="CSGBox" groups=["deband_target"]]
@@ -2299,6 +2305,16 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6, 0 )
 [node name="Floor2" parent="ElevatorProp/Floors" index="2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16, 0 )
 
+[node name="MetalFence" parent="ElevatorProp" index="2"]
+height = 20.0
+
+[node name="Path2" parent="ElevatorProp/MetalFence" index="0"]
+curve = SubResource( 2908 )
+
+[node name="CSGCylinder" parent="ElevatorProp/MetalFence/Path2" index="0"]
+transform = Transform( 1, 4.71845e-16, 0, 5.01682e-14, 1, 4.9738e-14, 0, 0, 1, -0.00600338, 20.1, -2.102 )
+use_collision = true
+
 [editable path="SideScrollZone4"]
 [editable path="InteriorWide"]
 [editable path="CrioPod START"]
@@ -2307,3 +2323,4 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16, 0 )
 [editable path="SciFiLightPathV2"]
 [editable path="SciFiLightPathV3"]
 [editable path="ElevatorProp"]
+[editable path="ElevatorProp/MetalFence"]

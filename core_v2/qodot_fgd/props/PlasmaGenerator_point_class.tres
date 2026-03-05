@@ -1,26 +1,24 @@
 [gd_resource type="Resource" load_steps=3 format=2]
 
 [ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/props/scifi_lights/FluorescentLightCeiling.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/PlasmaGenerator.tscn" type="PackedScene" id=2]
 
 [resource]
 script = ExtResource( 1 )
-classname = "light_ceiling"
-description = "Fluorescent Light Ceiling"
+classname = "prop_plasma_generator"
+description = "Plasma generator with pulsing light core."
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
-"starts_active": 1
 }
 class_property_descriptions = {
-"starts_active": "Set to 1 if the light is on, 0 for off"
 }
 meta_properties = {
-"color": Color( 1.0, 1.0, 0.8, 1 ),
-"size": AABB( -10, -2, -2, 10, 2, 2 )
+"color": Color( 0.8, 0.3, 1.0, 1 ),
+"size": AABB( -8, -8, -8, 8, 8, 8 )
 }
 node_class = ""
 transient_node = false
 scene_file = ExtResource( 2 )
-scene = "FluorescentLightCeiling"
+scene = "PlasmaGenerator"
 scripting = ""

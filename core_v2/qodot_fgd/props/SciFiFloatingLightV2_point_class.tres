@@ -1,0 +1,32 @@
+[gd_resource type="Resource" load_steps=3 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/SciFiFloatingLightV2.tscn" type="PackedScene" id=2]
+
+[resource]
+script = ExtResource( 1 )
+classname = "light_floating"
+description = "Sci-Fi Floating Light with patrol option"
+qodot_internal = false
+base_classes = [  ]
+class_properties = {
+"float_amplitude": 0.2,
+"float_speed": 2.0,
+"patrol_speed": 2.0,
+"is_patrolling": 0
+}
+class_property_descriptions = {
+"float_amplitude": "Floating bob amplitude",
+"float_speed": "Floating bob speed",
+"patrol_speed": "Patrol movement speed",
+"is_patrolling": "Set to 1 if light should patrol"
+}
+meta_properties = {
+"color": Color( 0.6, 0.8, 1.0, 1 ),
+"size": AABB( -1, -3, -1, 1, 3, 1 )
+}
+node_class = ""
+transient_node = false
+scene_file = ExtResource( 2 )
+scene = "SciFiFloatingLightV2"
+scripting = ""

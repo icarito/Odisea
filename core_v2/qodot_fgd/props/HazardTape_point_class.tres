@@ -1,0 +1,32 @@
+[gd_resource type="Resource" load_steps=3 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/helmet_view/hazard_tape/HazardTape.tscn" type="PackedScene" id=2]
+
+[resource]
+script = ExtResource( 1 )
+classname = "prop_hazard_tape"
+description = "Hazard warning tape following a path."
+qodot_internal = false
+base_classes = [  ]
+class_properties = {
+"panel_count": 6,
+"panel_height": 1.5,
+"path_length": 5.0,
+"path_height": 0.0
+}
+class_property_descriptions = {
+"panel_count": "Number of tape panels (2-20)",
+"panel_height": "Height of each tape panel (0.3-3)",
+"path_length": "Total length of hazard tape (0.5-20)",
+"path_height": "Height offset of the tape path"
+}
+meta_properties = {
+"color": Color( 1.0, 0.9, 0.0, 1 ),
+"size": AABB( -8, -2, -2, 8, 2, 2 )
+}
+node_class = ""
+transient_node = false
+scene_file = ExtResource( 2 )
+scene = "HazardTape"
+scripting = ""

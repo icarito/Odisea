@@ -1,0 +1,38 @@
+[gd_resource type="Resource" load_steps=3 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/SparkEmitterV2.tscn" type="PackedScene" id=2]
+
+[resource]
+script = ExtResource( 1 )
+classname = "prop_spark_emitter"
+description = "Spark particle emitter with timing controls."
+qodot_internal = false
+base_classes = [  ]
+class_properties = {
+"spark_color": Color( 1.0, 0.8, 0.2, 1 ),
+"brightness": 1.0,
+"emission_rate": 10.0,
+"is_active": 1,
+"interval": 0.0,
+"interval_random": 0.0,
+"duration": 0.1
+}
+class_property_descriptions = {
+"spark_color": "Color of the sparks",
+"brightness": "Spark brightness (0-3)",
+"emission_rate": "Particles per second",
+"is_active": "Set to 1 if emitter is on",
+"interval": "Seconds between bursts (0=continuous)",
+"interval_random": "Random variation added to interval",
+"duration": "Duration of each burst"
+}
+meta_properties = {
+"color": Color( 1.0, 0.9, 0.3, 1 ),
+"size": AABB( -1, -1, -1, 1, 1, 1 )
+}
+node_class = ""
+transient_node = false
+scene_file = ExtResource( 2 )
+scene = "SparkEmitterV2"
+scripting = ""

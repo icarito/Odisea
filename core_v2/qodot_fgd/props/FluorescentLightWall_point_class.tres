@@ -1,19 +1,25 @@
 [gd_resource type="Resource" load_steps=3 format=2]
 
 [ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/props/scifi_lights/FluorescentLightCeiling.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/scifi_lights/FluorescentLightWall.tscn" type="PackedScene" id=2]
 
 [resource]
 script = ExtResource( 1 )
-classname = "light_ceiling"
-description = "Fluorescent Light Ceiling"
+classname = "light_wall"
+description = "Fluorescent Wall Light"
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
-"starts_active": 1
+"starts_active": 1,
+"light_color": Color( 0.8, 0.9, 1.0, 1 ),
+"light_energy": 1.0,
+"light_range": 10.0
 }
 class_property_descriptions = {
-"starts_active": "Set to 1 if the light is on, 0 for off"
+"starts_active": "Set to 1 if the light is on, 0 for off",
+"light_color": "Color of the light",
+"light_energy": "Light brightness (0-10)",
+"light_range": "Light reach distance (0-20)"
 }
 meta_properties = {
 "color": Color( 1.0, 1.0, 0.8, 1 ),
@@ -22,5 +28,5 @@ meta_properties = {
 node_class = ""
 transient_node = false
 scene_file = ExtResource( 2 )
-scene = "FluorescentLightCeiling"
+scene = "FluorescentLightWall"
 scripting = ""

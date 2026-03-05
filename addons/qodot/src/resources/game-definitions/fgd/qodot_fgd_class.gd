@@ -3,7 +3,7 @@ extends Resource
 
 var prefix: String = ""
 
-export(String) var class_options : String = QodotUtil.CATEGORY_STRING
+export(String) var class_options: String = QodotUtil.CATEGORY_STRING
 
 export(String) var classname := ""
 
@@ -22,7 +22,7 @@ export(Dictionary) var meta_properties := {
 	"color": Color(0.8, 0.8, 0.8)
 }
 
-export(String) var node_options : String = QodotUtil.CATEGORY_STRING
+export(String) var node_options: String = QodotUtil.CATEGORY_STRING
 
 export(String) var node_class := ""
 
@@ -30,7 +30,7 @@ export(bool) var transient_node := false
 
 func build_def_text() -> String:
 	# Class prefix
-	var res : String = prefix
+	var res: String = prefix
 
 	# Meta properties
 	var base_str = ""
@@ -93,7 +93,7 @@ func build_def_text() -> String:
 			prop_val = String(value)
 		elif value is float:
 			prop_type = "float"
-			prop_val = String(value)
+			prop_val = "\"" + String(value) + "\""
 		elif value is String:
 			prop_type = "string"
 			prop_val = "\"" + value + "\""
@@ -129,7 +129,7 @@ func build_def_text() -> String:
 		elif value is Object:
 			prop_type = "target_source"
 
-		if(prop_val):
+		if (prop_val):
 			res += "\t"
 			res += prop
 			res += "("
@@ -152,4 +152,3 @@ func build_def_text() -> String:
 	res += "]" + QodotUtil.newline()
 
 	return res
-

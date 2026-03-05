@@ -1,26 +1,26 @@
 [gd_resource type="Resource" load_steps=3 format=2]
 
 [ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/props/scifi_lights/FluorescentLightCeiling.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/SciFiFloorPanelV2.tscn" type="PackedScene" id=2]
 
 [resource]
 script = ExtResource( 1 )
-classname = "light_ceiling"
-description = "Fluorescent Light Ceiling"
+classname = "light_floor_panel"
+description = "Sci-Fi Floor Panel with glowing grid"
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
-"starts_active": 1
+"grid_color": Color( 0.1, 0.4, 0.8, 1 )
 }
 class_property_descriptions = {
-"starts_active": "Set to 1 if the light is on, 0 for off"
+"grid_color": "Color of the grid lines"
 }
 meta_properties = {
-"color": Color( 1.0, 1.0, 0.8, 1 ),
-"size": AABB( -10, -2, -2, 10, 2, 2 )
+"color": Color( 0.2, 0.5, 1.0, 1 ),
+"size": AABB( -32, -2, -32, 32, 2, 32 )
 }
 node_class = ""
 transient_node = false
 scene_file = ExtResource( 2 )
-scene = "FluorescentLightCeiling"
+scene = "SciFiFloorPanelV2"
 scripting = ""

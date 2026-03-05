@@ -1,0 +1,36 @@
+[gd_resource type="Resource" load_steps=3 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/VolumetricGlowLightV2.tscn" type="PackedScene" id=2]
+
+[resource]
+script = ExtResource( 1 )
+classname = "light_volumetric"
+description = "Volumetric Glow Light with pulse"
+qodot_internal = false
+base_classes = [  ]
+class_properties = {
+"glow_color": Color( 1.0, 0.5, 0.0, 1 ),
+"glow_intensity": 3.0,
+"pulse_speed": 1.0,
+"pulse_amount": 0.3,
+"light_range": 4.0,
+"light_energy": 2.0
+}
+class_property_descriptions = {
+"glow_color": "Color of the glow",
+"glow_intensity": "Glow brightness (0.1-10)",
+"pulse_speed": "Pulse animation speed (0-10)",
+"pulse_amount": "Amount of pulsing (0-1)",
+"light_range": "Light reach distance",
+"light_energy": "Light energy"
+}
+meta_properties = {
+"color": Color( 1.0, 0.6, 0.2, 1 ),
+"size": AABB( -3, -3, -3, 3, 3, 3 )
+}
+node_class = ""
+transient_node = false
+scene_file = ExtResource( 2 )
+scene = "VolumetricGlowLightV2"
+scripting = ""

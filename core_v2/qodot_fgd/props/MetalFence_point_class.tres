@@ -1,0 +1,32 @@
+[gd_resource type="Resource" load_steps=3 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/metal_fence/MetalFence.tscn" type="PackedScene" id=2]
+
+[resource]
+script = ExtResource( 1 )
+classname = "prop_metal_fence"
+description = "Path-based metallic fence."
+qodot_internal = false
+base_classes = [  ]
+class_properties = {
+"panel_count": 8,
+"fence_color": Color( 0.35, 0.35, 0.35, 1 ),
+"height": 2.5,
+"path_length": 8.0
+}
+class_property_descriptions = {
+"panel_count": "Number of fence panels",
+"fence_color": "Color of the fence metal",
+"height": "Fence height in units",
+"path_length": "Total length of the fence path"
+}
+meta_properties = {
+"color": Color( 0.5, 0.5, 0.5, 1 ),
+"size": AABB( -16, -4, -2, 16, 4, 2 )
+}
+node_class = ""
+transient_node = false
+scene_file = ExtResource( 2 )
+scene = "MetalFence"
+scripting = ""

@@ -1,10 +1,12 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=12 format=2]
 
 [ext_resource path="res://core_v2/props/ElevatorController.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/ElevatorPlatform.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/props/ElevatorLogicInput.gd" type="Script" id=3]
 [ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=4]
 [ext_resource path="res://core_v2/props/PedestalButton.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/props/metal_fence/MetalFence.tscn" type="PackedScene" id=6]
+[ext_resource path="res://textures/prototype_textures/Orange.png" type="Texture" id=7]
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 1.5, 0.1, 1.5 )
@@ -12,8 +14,22 @@ extents = Vector3( 1.5, 0.1, 1.5 )
 [sub_resource type="BoxShape" id=2]
 extents = Vector3( 1.5, 1, 1.5 )
 
+[sub_resource type="Curve3D" id=7]
+_data = {
+"points": PoolVector3Array( 0, 0, 0, 0, 0, 0, -0.974657, -4.44925e-08, -0.0433385, 0, 0, 0, 0, 0, 0, -1.97465, -8.80818e-08, -0.0405459, 0, 0, 0, 0, 0, 0, -1.98024, -1.75504e-07, -2.04053, 0, 0, 0, 0, 0, 0, -1.99105, -2.64295e-07, -4.06668, 0, 0, 0, 0, 0, 0, 2.01416, -8.85692e-08, -4.0517, 0, 0, 0, 0, 0, 0, 2.02533, 8.62756e-08, -0.0517117, 0, 0, 0, 0, 0, 0, 1.02534, 4.26861e-08, -0.0489235 ),
+"tilts": PoolRealArray( 0, 0, 0, 0, 0, 0, 0 )
+}
+
+[sub_resource type="SpatialMaterial" id=4]
+flags_world_triplanar = true
+albedo_texture = ExtResource( 7 )
+uv1_triplanar = true
+uv1_triplanar_sharpness = 1.0
+
 [node name="ElevatorProp" type="Spatial"]
 script = ExtResource( 1 )
+is_interactable = false
+manual_toggle = false
 platform_path = NodePath("Platform")
 
 [node name="Platform" type="KinematicBody" parent="."]
@@ -84,3 +100,19 @@ floor_index = 2
 momentary = true
 
 [node name="CableAnchor" type="Position3D" parent="Floors/Floor2/Input"]
+
+[node name="MetalFence" parent="." instance=ExtResource( 6 )]
+transform = Transform( 0.00279248, 4.37112e-08, 0.999996, -4.37112e-08, 1, -4.35893e-08, -0.999996, -4.35893e-08, 0.00279248, 2.04606, 0, 0.0254679 )
+manual_toggle = false
+height = 12.5
+
+[node name="Path2" parent="MetalFence" index="0"]
+curve = SubResource( 7 )
+
+[node name="CSGCylinder" type="CSGCylinder" parent="MetalFence/Path2" index="0"]
+transform = Transform( 1, 0, 0, 2.13163e-14, 1, 2.21073e-14, 0, 8.04912e-16, 1, -0.00587167, 12.6, -2.10247 )
+radius = 2.8
+height = 0.2
+material = SubResource( 4 )
+
+[editable path="MetalFence"]

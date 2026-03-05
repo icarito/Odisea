@@ -49,7 +49,8 @@ signal interaction_started()
 signal interaction_completed()
 
 func _init():
-	add_to_group("interactable")
+	if is_interactable:
+		add_to_group("interactable")
 	add_to_group("replay_sync")
 
 func _ready():
@@ -71,7 +72,7 @@ func _ready():
 	if Engine.has_singleton("PerformanceMonitor") or has_node("/root/PerformanceMonitor"):
 		_perf_monitor = get_node("/root/PerformanceMonitor")
 		if _perf_monitor and _perf_monitor.has_method("register_monitored_node"):
-			_perf_monitor.register_monitored_node(self)
+			_perf_monitor.register_monitored_node(self )
 
 # --- CORE API ---
 
@@ -113,7 +114,7 @@ func set_active(value: bool, immediate: bool = false) -> void:
 
 func step(dt: float) -> void:
 	if _perf_monitor and _perf_monitor.has_method("measure_start"):
-		_perf_monitor.measure_start(self, "step")
+		_perf_monitor.measure_start(self , "step")
 
 	"""Called during fixed physics step. Updates animation progress."""
 	if abs(anim_progress - target_progress) < 0.001:
@@ -138,7 +139,7 @@ func step(dt: float) -> void:
 	_update_visuals()
 
 	if _perf_monitor and _perf_monitor.has_method("measure_end"):
-		_perf_monitor.measure_end(self, "step")
+		_perf_monitor.measure_end(self , "step")
 
 func _on_animation_completed() -> void:
 	"""Called when animation reaches target. Override for sound triggers."""
@@ -188,7 +189,7 @@ func _apply_highlight(color: Color) -> void:
 	var shader = load(HIGHLIGHT_SHADER_PATH)
 	if shader == null: return
 
-	for child in _get_all_meshes(self):
+	for child in _get_all_meshes(self ):
 		if not (child is MeshInstance): continue
 		var base_mesh := child as MeshInstance
 		if base_mesh.mesh == null: continue
@@ -218,7 +219,7 @@ func _apply_proximity(color: Color) -> void:
 	var shader = load(PROXIMITY_SHADER_PATH)
 	if shader == null: return
 
-	for child in _get_all_meshes(self):
+	for child in _get_all_meshes(self ):
 		if not (child is MeshInstance): continue
 		var base_mesh := child as MeshInstance
 		if base_mesh.mesh == null: continue

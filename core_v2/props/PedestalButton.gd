@@ -25,12 +25,12 @@ func interact():
         set_active(true, true)
         
         if _momentary_timer:
-            _momentary_timer.disconnect("timeout", self, "_on_momentary_timeout")
+            _momentary_timer.disconnect("timeout", self , "_on_momentary_timeout")
             _momentary_timer = null
 
         if not Engine.editor_hint:
             _momentary_timer = get_tree().create_timer(momentary_duration)
-            _momentary_timer.connect("timeout", self, "_on_momentary_timeout")
+            _momentary_timer.connect("timeout", self , "_on_momentary_timeout")
     else:
         # Toggle state
         set_active(not is_active, true)
@@ -46,14 +46,14 @@ func _update_visuals():
     var color = color_active if is_active else color_inactive
 
     if light_mesh:
-        var mat = light_mesh.material
+        var mat = light_mesh.material_override
         if not mat:
             mat = SpatialMaterial.new()
-            light_mesh.material = mat
+            light_mesh.material_override = mat
         elif not mat.resource_local_to_scene:
             mat = mat.duplicate()
             mat.resource_local_to_scene = true
-            light_mesh.material = mat
+            light_mesh.material_override = mat
 
         # Ensure we are modifying a unique material instance or the shared one if intended
         # For simple props, usually we want unique instance to not affect others

@@ -1,0 +1,28 @@
+[gd_resource type="Resource" load_steps=3 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/CargolDroneProp.tscn" type="PackedScene" id=2]
+
+[resource]
+script = ExtResource( 1 )
+classname = "prop_cargol_drone"
+description = "Cargol Drone that follows the player when activated."
+qodot_internal = false
+base_classes = [  ]
+class_properties = {
+"follow_distance": 3.0,
+"hover_height": 3.0
+}
+class_property_descriptions = {
+"follow_distance": "Distance the drone maintains from player",
+"hover_height": "Height at which the drone hovers"
+}
+meta_properties = {
+"color": Color( 0.4, 0.8, 0.4, 1 ),
+"size": AABB( -4, -4, -4, 4, 4, 4 )
+}
+node_class = ""
+transient_node = false
+scene_file = ExtResource( 2 )
+scene = "CargolDroneProp"
+scripting = ""

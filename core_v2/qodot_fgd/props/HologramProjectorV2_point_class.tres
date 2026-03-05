@@ -1,0 +1,36 @@
+[gd_resource type="Resource" load_steps=3 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/HologramProjectorV2.tscn" type="PackedScene" id=2]
+
+[resource]
+script = ExtResource( 1 )
+classname = "prop_hologram_projector"
+description = "Holographic projector with scanlines."
+qodot_internal = false
+base_classes = [  ]
+class_properties = {
+"hologram_color": Color( 0.0, 1.0, 0.5, 1 ),
+"scanline_speed": 2.0,
+"scanline_density": 20.0,
+"flicker_speed": 5.0,
+"base_alpha": 0.7,
+"active": 1
+}
+class_property_descriptions = {
+"hologram_color": "Color of the hologram",
+"scanline_speed": "Scanline animation speed (0-10)",
+"scanline_density": "Number of scanlines (1-50)",
+"flicker_speed": "Flicker speed (0-20)",
+"base_alpha": "Base transparency (0-1)",
+"active": "Set to 1 if projector is on"
+}
+meta_properties = {
+"color": Color( 0.0, 1.0, 0.6, 1 ),
+"size": AABB( -3, -3, -3, 3, 3, 3 )
+}
+node_class = ""
+transient_node = false
+scene_file = ExtResource( 2 )
+scene = "HologramProjectorV2"
+scripting = ""

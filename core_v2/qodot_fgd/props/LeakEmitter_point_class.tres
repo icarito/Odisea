@@ -1,0 +1,36 @@
+[gd_resource type="Resource" load_steps=3 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/LeakEmitter.tscn" type="PackedScene" id=2]
+
+[resource]
+script = ExtResource( 1 )
+classname = "prop_leak_emitter"
+description = "Smoke/steam leak emitter with timing controls."
+qodot_internal = false
+base_classes = [  ]
+class_properties = {
+"is_active": 1,
+"timeout": 0.0,
+"interval": 0.0,
+"interval_random": 0.0,
+"duration": 1.0,
+"fadeout_time": 5.0
+}
+class_property_descriptions = {
+"is_active": "Set to 1 if emitter starts on",
+"timeout": "Initial delay before first emission",
+"interval": "Seconds between bursts (0=continuous)",
+"interval_random": "Random variation added to interval",
+"duration": "Duration of each burst",
+"fadeout_time": "Seconds for smoke to fade out"
+}
+meta_properties = {
+"color": Color( 0.7, 0.7, 0.7, 1 ),
+"size": AABB( -2, -2, -2, 2, 2, 2 )
+}
+node_class = ""
+transient_node = false
+scene_file = ExtResource( 2 )
+scene = "LeakEmitter"
+scripting = ""

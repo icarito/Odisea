@@ -1,0 +1,28 @@
+[gd_resource type="Resource" load_steps=3 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/LaserTripwire.tscn" type="PackedScene" id=2]
+
+[resource]
+script = ExtResource( 1 )
+classname = "prop_laser_tripwire"
+description = "Laser tripwire that activates when beam is broken."
+qodot_internal = false
+base_classes = [  ]
+class_properties = {
+"beam_length": 4.0,
+"beam_color": Color( 1, 0, 0, 1 )
+}
+class_property_descriptions = {
+"beam_length": "Length of the laser beam",
+"beam_color": "Color of the laser beam"
+}
+meta_properties = {
+"color": Color( 1.0, 0.2, 0.2, 1 ),
+"size": AABB( -2, -2, -2, 2, 2, 2 )
+}
+node_class = ""
+transient_node = false
+scene_file = ExtResource( 2 )
+scene = "LaserTripwire"
+scripting = ""
