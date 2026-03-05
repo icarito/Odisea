@@ -1811,6 +1811,42 @@
 ( 128 368 96 ) ( 129 368 96 ) ( 128 368 97 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 ( 128 368 96 ) ( 128 368 97 ) ( 128 369 96 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 }
+// brush 200
+{
+( 256 368 96 ) ( 256 369 96 ) ( 256 368 97 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( 128 368 96 ) ( 128 368 97 ) ( 129 368 96 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( 128 368 96 ) ( 129 368 96 ) ( 128 369 96 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( 136 372 124 ) ( 136 373 124 ) ( 137 372 124 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( 136 372 100 ) ( 137 372 100 ) ( 136 372 101 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( 384 372 100 ) ( 384 372 101 ) ( 384 373 100 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+}
+// brush 201
+{
+( 124 368 96 ) ( 124 369 96 ) ( 124 368 97 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( -64 368 96 ) ( -64 368 97 ) ( -63 368 96 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( -64 368 96 ) ( -63 368 96 ) ( -64 369 96 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( -56 372 124 ) ( -56 373 124 ) ( -55 372 124 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( -56 372 100 ) ( -55 372 100 ) ( -56 372 101 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( 192 372 100 ) ( 192 372 101 ) ( 192 373 100 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+}
+// brush 202
+{
+( 120 380 256 ) ( 120 381 256 ) ( 120 380 257 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( -68 380 256 ) ( -68 380 257 ) ( -67 380 256 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( -68 380 256 ) ( -67 380 256 ) ( -68 381 256 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( -60 384 276 ) ( -60 385 276 ) ( -59 384 276 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( -60 384 260 ) ( -59 384 260 ) ( -60 384 261 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( 188 384 260 ) ( 188 384 261 ) ( 188 385 260 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+}
+// brush 203
+{
+( 252 380 256 ) ( 252 381 256 ) ( 252 380 257 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( 124 380 256 ) ( 124 380 257 ) ( 125 380 256 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( 124 380 256 ) ( 125 380 256 ) ( 124 381 256 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( 132 384 276 ) ( 132 385 276 ) ( 133 384 276 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( 132 384 260 ) ( 133 384 260 ) ( 132 384 261 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( 380 384 260 ) ( 380 384 261 ) ( 380 385 260 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+}
 }
 // entity 1
 {
