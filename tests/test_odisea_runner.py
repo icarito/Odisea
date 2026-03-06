@@ -121,6 +121,16 @@ def _extract_assert_failures_from_log(log_path: Path | None):
     return results
 
 
+def _tail_log_excerpt(log_path: Path | None, max_lines: int = 80) -> str:
+    if log_path is None or not log_path.exists():
+        return ""
+    lines = log_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    if not lines:
+        return ""
+    excerpt = [_strip_ansi(line) for line in lines[-max_lines:]]
+    return "\n".join(line for line in excerpt if line)
+
+
 def _has_executable(program: str) -> bool:
     if os.path.sep in program:
         return os.path.isfile(program) and os.access(program, os.X_OK)
@@ -236,6 +246,10 @@ def _run_gdunit_suite(suite_path: Path, selected_runner: str, repo_root: Path, o
         message = f"runtest.sh failed for {rel_suite} (return code {returncode})."
         if deduped:
             message += "\nAsserts detectados:\n" + "\n".join(deduped)
+        else:
+            excerpt = _tail_log_excerpt(log_path)
+            if excerpt:
+                message += f"\nTail de log ({log_path}):\n{excerpt}"
         pytest.fail(message, pytrace=False)
 
 
@@ -260,6 +274,10 @@ def _run_determinism_case(oys_name: str, selected_runner: str, odisea_debug: boo
         message = f"runtest.sh failed for OYS case '{oys_name}' (return code {returncode})."
         if deduped:
             message += "\nAsserts detectados:\n" + "\n".join(deduped)
+        else:
+            excerpt = _tail_log_excerpt(log_path)
+            if excerpt:
+                message += f"\nTail de log ({log_path}):\n{excerpt}"
         pytest.fail(message, pytrace=False)
 
 
