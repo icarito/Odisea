@@ -38,7 +38,7 @@ jobs:
           path: |
             ${{ github.workspace }}/.import
             ${{ github.workspace }}/.godot
-          key: ${{ runner.os }}-godot-v3-${{ hashFiles('**/project.godot') }}-${{ hashFiles('assets/**', 'textures/**', 'models/**', 'core_v2/audio/**', 'core_v2/actors/**', 'core_v2/components/**', 'core_v2/props/**', 'core_v2/levels/**') }}
+          key: ${{ runner.os }}-godot-v3-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import', '.import/**', 'assets/**', 'textures/**', 'models/**', 'core_v2/audio/**', 'core_v2/actors/**', 'core_v2/components/**', 'core_v2/props/**', 'core_v2/levels/**') }}
           restore-keys: |
             ${{ runner.os }}-godot-v3-
             ${{ runner.os }}-godot-
@@ -65,6 +65,11 @@ jobs:
           fi
           sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
 
+      - name: Validate tracked import manifests
+        run: |
+          set -euo pipefail
+          python3 scripts/check_tracked_imports.py
+
       - name: Import + Smoke (self-healing)
         run: |
           set -euo pipefail
@@ -76,11 +81,11 @@ jobs:
             --smoke-retry-log reports/resource_smoke_determinism_retry.log \
             --timeout-import 600 \
             --timeout-smoke 180 \
-            --clean-cache 1 \
+            --clean-cache 0 \
             --disable-editor-plugins 1 \
             --xvfb 0 \
             --force-software 0 \
-            --import-mode full \
+            --import-mode auto \
             --allow-smoke-retry 1
 
       - name: Run Determinism Tests

@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${ODISEA_SKIP_IMPORT_HOOKS:-0}" == "1" ]]; then
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "${REPO_ROOT}"
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "[odisea-pre-push] python3 is required to validate tracked imports." >&2
+  exit 1
+fi
+
+python3 scripts/check_tracked_imports.py
+
+if [[ "${ODISEA_SKIP_PREPUSH_SMOKE:-0}" == "1" ]]; then
+  echo "[odisea-pre-push] Skipping Godot smoke due to ODISEA_SKIP_PREPUSH_SMOKE=1"
+  exit 0
+fi
+
+readarray -t PUSH_LINES < <(cat)
+ASSET_PATTERNS='(^|/)(assets|textures|models|core_v2/audio|core_v2/actors|core_v2/components|core_v2/props|core_v2/levels|\.import)(/|$)|(^|/).+\.import$|(^|/)project\.godot$|(^|/)tests/ci_resource_smoke\.gd$'
+HAS_ASSET_CHANGES=0
+
+for line in "${PUSH_LINES[@]}"; do
+  [[ -z "${line}" ]] && continue
+  local_ref="$(awk '{print $1}' <<<"${line}")"
+  local_sha="$(awk '{print $2}' <<<"${line}")"
+  remote_sha="$(awk '{print $4}' <<<"${line}")"
+
+  if [[ "${local_sha}" == "0000000000000000000000000000000000000000" ]]; then
+    continue
+  fi
+
+  if [[ "${remote_sha}" == "0000000000000000000000000000000000000000" ]]; then
+    diff_output="$(git diff-tree --no-commit-id --name-only -r "${local_sha}" || true)"
+  else
+    diff_output="$(git diff --name-only "${remote_sha}..${local_sha}" || true)"
+  fi
+
+  if grep -E -q "${ASSET_PATTERNS}" <<<"${diff_output}"; then
+    HAS_ASSET_CHANGES=1
+    break
+  fi
+done
+
+if [[ "${HAS_ASSET_CHANGES}" -eq 0 ]]; then
+  echo "[odisea-pre-push] No asset/import changes detected; skipping Godot smoke."
+  exit 0
+fi
+
+GODOT_BIN="${GODOT_BIN:-}"
+if [[ -z "${GODOT_BIN}" ]]; then
+  if command -v godot3-bin >/dev/null 2>&1; then
+    GODOT_BIN="godot3-bin"
+  elif command -v godot >/dev/null 2>&1; then
+    GODOT_BIN="godot"
+  else
+    echo "[odisea-pre-push] WARNING: no Godot binary found; skipped smoke. Set GODOT_BIN or install godot3-bin." >&2
+    exit 0
+  fi
+fi
+
+scripts/godot_import_smoke.sh \
+  --godot-bin "${GODOT_BIN}" \
+  --project-path . \
+  --import-log reports/import_resources_pre_push.log \
+  --smoke-log reports/resource_smoke_pre_push.log \
+  --smoke-retry-log reports/resource_smoke_pre_push_retry.log \
+  --timeout-import 240 \
+  --timeout-smoke 120 \
+  --clean-cache 0 \
+  --disable-editor-plugins 1 \
+  --xvfb 0 \
+  --force-software 0 \
+  --import-mode quick \
+  --allow-smoke-retry 1

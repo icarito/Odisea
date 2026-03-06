@@ -1,0 +1,93 @@
+name: Asset Integrity
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 3.6.2-stable
+  GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
+
+jobs:
+  asset-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Godot cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/.import
+            ${{ github.workspace }}/.godot
+          key: ${{ runner.os }}-godot-v3-asset-integrity-${{ hashFiles('**/project.godot', '**/*.import', '.import/**', 'assets/**', 'textures/**', 'models/**', 'core_v2/audio/**', 'core_v2/actors/**', 'core_v2/components/**', 'core_v2/props/**', 'core_v2/levels/**') }}
+          restore-keys: |
+            ${{ runner.os }}-godot-v3-asset-integrity-
+            ${{ runner.os }}-godot-v3-
+
+      - name: Cache Godot binary
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
+          key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-asset-integrity
+          restore-keys: |
+            ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-
+
+      - name: Setup Godot 3.6.2
+        run: |
+          set -euo pipefail
+          TARGET_DIR="${GODOT_CACHE_DIR}/${GODOT_VERSION}"
+          TARGET_BIN="${TARGET_DIR}/godot"
+          mkdir -p "$TARGET_DIR"
+          if [ ! -x "$TARGET_BIN" ]; then
+            wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux_headless.64.zip"
+            unzip -q "Godot_v${GODOT_VERSION}_linux_headless.64.zip"
+            mv "Godot_v${GODOT_VERSION}_linux_headless.64" "$TARGET_BIN"
+            chmod +x "$TARGET_BIN"
+          fi
+          sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
+
+      - name: Validate tracked import manifests
+        run: |
+          set -euo pipefail
+          python3 scripts/check_tracked_imports.py
+
+      - name: Import + Smoke (full clean rebuild)
+        run: |
+          set -euo pipefail
+          scripts/godot_import_smoke.sh \
+            --godot-bin /usr/local/bin/godot \
+            --project-path . \
+            --import-log reports/import_resources_asset_integrity.log \
+            --smoke-log reports/resource_smoke_asset_integrity.log \
+            --smoke-retry-log reports/resource_smoke_asset_integrity_retry.log \
+            --timeout-import 600 \
+            --timeout-smoke 180 \
+            --clean-cache 1 \
+            --disable-editor-plugins 1 \
+            --xvfb 0 \
+            --force-software 0 \
+            --import-mode full \
+            --allow-smoke-retry 1
+
+      - name: Upload asset integrity logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: asset-integrity-logs
+          path: |
+            reports/import_resources_asset_integrity.log
+            reports/resource_smoke_asset_integrity.log
+            reports/resource_smoke_asset_integrity_retry.log

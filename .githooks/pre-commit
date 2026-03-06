@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${ODISEA_SKIP_IMPORT_HOOKS:-0}" == "1" ]]; then
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "${REPO_ROOT}"
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "[odisea-pre-commit] python3 is required to validate tracked imports." >&2
+  exit 1
+fi
+
+python3 scripts/check_tracked_imports.py --staged

@@ -204,6 +204,47 @@ Al trabajar con Props o Elementos Interactuables, sigue este procedimiento recur
 2.  **Reporte**: Muestra los resultados (imágenes/base64) al usuario inmediatamente después de cualquier cambio en el asset.
 3.  **Iteración**: No consideres un asset terminado hasta que el usuario confirme que las capturas de pantalla son correctas.
 
+## Política de Assets e Imports (CI + Local)
+
+Reglas operativas:
+- Los archivos trackeados dentro de `.import/` se consideran artefactos versionados del proyecto. No son caché descartable.
+- Los pipelines normales de tests no deben ejecutar un clean rebuild destructivo de `.import/`. Ese camino queda reservado al workflow dedicado `Asset Integrity`.
+- Todo cambio que toque `assets/`, `textures/`, `models/`, `core_v2/audio/`, `core_v2/actors/`, `core_v2/components/`, `core_v2/props/`, `core_v2/levels/`, `project.godot`, `*.import` o `.import/` debe pasar validación de manifests antes de empujar.
+- Si un `source_file` o un `dest_files` de un `.import` trackeado no existe, eso es un error de integración y debe corregirse antes de CI.
+
+Comandos de validación:
+
+```shell
+# Validación rápida de todos los manifests trackeados
+python3 scripts/check_tracked_imports.py
+
+# Smoke corto sin limpiar imports trackeados
+scripts/godot_import_smoke.sh \
+  --godot-bin godot3-bin \
+  --project-path . \
+  --clean-cache 0 \
+  --import-mode quick
+```
+
+Workflow esperado:
+- Workflows normales (`tests`, `pytest`, `stress`, `determinism`): `clean-cache=0`, validación rápida primero.
+- Workflow `Asset Integrity`: único job autorizado a usar `clean-cache=1` + `import-mode=full`.
+
+Hooks recomendados:
+
+```shell
+# Instala hooks repo-managed en este clon
+scripts/install_git_hooks.sh
+```
+
+Comportamiento de hooks:
+- `pre-commit`: valida manifests relacionados a archivos staged.
+- `pre-push`: valida todos los manifests trackeados y, si detecta cambios de assets/imports y existe Godot local, corre smoke rápido.
+
+Variables de escape para casos excepcionales:
+- `ODISEA_SKIP_IMPORT_HOOKS=1`: desactiva hooks repo-managed.
+- `ODISEA_SKIP_PREPUSH_SMOKE=1`: deja la validación de manifests activa, pero salta el smoke Godot del `pre-push`.
+
 ## Nota para Agentes: Pipeline de UI (DebugOverlay / Workbench)
 
 Al iterar UI retro (Workbench, ventanas, terminal), usar pipeline dedicado de capturas:

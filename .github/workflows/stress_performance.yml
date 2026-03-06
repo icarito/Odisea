@@ -44,7 +44,7 @@ jobs:
         with:
           path: |
             ${{ github.workspace }}/.import
-          key: godot-stress-${{ runner.os }}-v3-${{ hashFiles('assets/**', 'textures/**', 'models/**', 'core_v2/audio/**', 'core_v2/actors/**', 'core_v2/components/**', 'core_v2/props/**', 'core_v2/levels/**') }}
+          key: godot-stress-${{ runner.os }}-v3-${{ hashFiles('**/*.import', '.import/**', 'assets/**', 'textures/**', 'models/**', 'core_v2/audio/**', 'core_v2/actors/**', 'core_v2/components/**', 'core_v2/props/**', 'core_v2/levels/**') }}
           restore-keys: |
             godot-stress-${{ runner.os }}-v3-
 
@@ -74,6 +74,11 @@ jobs:
             mv addons/gdUnit3 /tmp/odisea_ci_disabled/gdUnit3
           fi
 
+      - name: Validate tracked import manifests
+        run: |
+          set -euo pipefail
+          python3 scripts/check_tracked_imports.py
+
       - name: Import + Smoke (self-healing)
         run: |
           set -euo pipefail
@@ -85,11 +90,11 @@ jobs:
             --smoke-retry-log reports/resource_smoke_stress_retry.log \
             --timeout-import 600 \
             --timeout-smoke 180 \
-            --clean-cache 1 \
+            --clean-cache 0 \
             --disable-editor-plugins 1 \
             --xvfb 0 \
             --force-software 0 \
-            --import-mode full \
+            --import-mode auto \
             --allow-smoke-retry 1
 
       - name: Capture Host Environment
