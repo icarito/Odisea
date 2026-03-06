@@ -13,11 +13,15 @@ var current_floor = 0
 var target_floor = -1
 var is_moving = false
 var floor_nodes = {}
+var _sfx_move: SFXComponentV2 = null
+var _sfx_arrival: SFXComponentV2 = null
 
 onready var platform = get_node(platform_path) if platform_path else null
 onready var floors_container = get_node(floors_path) if floors_path else null
 
 func _ready():
+    _cache_sfx_nodes()
+
     # Discover and connect floor inputs
     if floors_container:
         for floor_node in floors_container.get_children():
@@ -37,6 +41,8 @@ func _ready():
     if platform:
         if not platform.is_connected("arrived_at_floor", self, "_on_arrived"):
             platform.connect("arrived_at_floor", self, "_on_arrived")
+        if platform.has_signal("stopped") and not platform.is_connected("stopped", self, "_on_platform_stopped"):
+            platform.connect("stopped", self, "_on_platform_stopped")
         pass
 
 func _find_floor_input(node: Node) -> int:
@@ -78,16 +84,19 @@ func _process_queue():
     
     if floor_nodes.has(target_floor):
         var target_height = floor_nodes[target_floor].global_transform.origin.y
-
+        _start_move_sfx()
         platform.move_to(target_height)
         is_moving = true
     else:
         is_moving = false
+        _stop_move_sfx()
         requests.pop_front()
         _process_queue()
 
 func _on_arrived(height):
     is_moving = false
+    _stop_move_sfx()
+    _play_arrival_sfx()
     
     # Identify which floor we arrived at based on height
     current_floor = -1
@@ -101,3 +110,26 @@ func _on_arrived(height):
     if not Engine.editor_hint:
         yield (get_tree().create_timer(1.0), "timeout")
         _process_queue()
+
+func _on_platform_stopped():
+    _stop_move_sfx()
+
+func _cache_sfx_nodes() -> void:
+    _sfx_move = get_node_or_null("Platform/SFX Move")
+    _sfx_arrival = get_node_or_null("Platform/SFX Arrival")
+
+func _start_move_sfx() -> void:
+    if Engine.editor_hint:
+        return
+    if _sfx_move and not _sfx_move.playing:
+        _sfx_move.play_sfx()
+
+func _stop_move_sfx() -> void:
+    if _sfx_move and _sfx_move.playing:
+        _sfx_move.stop_sfx()
+
+func _play_arrival_sfx() -> void:
+    if Engine.editor_hint:
+        return
+    if _sfx_arrival:
+        _sfx_arrival.play_sfx()

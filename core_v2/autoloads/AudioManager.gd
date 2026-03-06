@@ -13,6 +13,9 @@ var _tween: Tween
 var _active_zones := []
 var _mdm_instance: Node = null # MixingDeskMusic instance
 var _mds_instance: Node = null # MixingDeskSound instance (if used globally)
+var _music_paused_by_focus := false
+var _active_zone: Node = null
+var _zone_playback_positions := {}
 
 func _ready():
 	_bgm_player_1 = AudioStreamPlayer.new()
@@ -33,6 +36,12 @@ func _ready():
 	# Since autoloads are children of root, we can check siblings or children of root
 	call_deferred("_find_mixing_desk")
 
+func _notification(what):
+	if what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
+		_set_music_focus_paused(true)
+	elif what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
+		_set_music_focus_paused(false)
+
 func _find_mixing_desk():
 	var root = get_tree().get_root()
 	# Strategy 1: Look for node named "MixingDeskMusic"
@@ -51,9 +60,13 @@ func unregister_zone(zone):
 		_update_bgm()
 
 func _update_bgm():
+	if _music_paused_by_focus:
+		return
+
 	# Sort zones by priority (volume)
 	_active_zones.sort_custom(self, "_sort_zones")
 
+	var top_zone = null
 	var target_stream = null
 	var target_song = ""
 	var target_pitch = 1.0
@@ -62,11 +75,15 @@ func _update_bgm():
 
 	if _active_zones.size() > 0:
 		var top = _active_zones[0]
+		top_zone = top
 		target_stream = top.bgm_stream
 		target_song = top.song_name
 		target_pitch = top.pitch_scale
 		target_volume = top.volume_db
 		fade_time = top.fade_time
+
+	if top_zone != _active_zone:
+		_save_active_zone_playback()
 
 	# Priority 1: Use Mixing Desk if available and song name is provided
 	if _mdm_instance and target_song != "":
@@ -81,10 +98,11 @@ func _update_bgm():
 			# Ensure our internal players are silent
 			if _active_player and _active_player.playing:
 				_active_player.stop()
+		_active_zone = top_zone
 		return
 
 	# Priority 2: Use internal AudioStreamPlayers
-	_crossfade_to(target_stream, target_pitch, target_volume, fade_time)
+	_crossfade_to(target_stream, target_pitch, target_volume, fade_time, top_zone)
 
 func _sort_zones(a, b):
 	if a.has_method("get_volume") and b.has_method("get_volume"):
@@ -92,7 +110,10 @@ func _sort_zones(a, b):
 	# Fallback if get_volume missing (shouldn't happen with V2)
 	return false
 
-func _crossfade_to(stream, pitch, vol, time):
+func _crossfade_to(stream, pitch, vol, time, zone = null):
+	if _music_paused_by_focus:
+		return
+
 	# If MDM was playing, stop it?
 	if _mdm_instance and _mdm_instance.has_method("stop"):
 		_mdm_instance.call("stop")
@@ -100,9 +121,12 @@ func _crossfade_to(stream, pitch, vol, time):
 	# If current stream is same, update properties
 	if _active_player and _active_player.stream == stream:
 		if _active_player.playing:
+			if zone != null and zone != _active_zone:
+				_seek_player_to_zone_position(_active_player, zone)
 			_tween.interpolate_property(_active_player, "volume_db", _active_player.volume_db, vol, time, Tween.TRANS_LINEAR, Tween.EASE_IN_OUT)
 			_tween.interpolate_property(_active_player, "pitch_scale", _active_player.pitch_scale, pitch, time, Tween.TRANS_LINEAR, Tween.EASE_IN_OUT)
 			_tween.start()
+			_active_zone = zone
 			return
 
 	var next_player = _bgm_player_1
@@ -114,6 +138,7 @@ func _crossfade_to(stream, pitch, vol, time):
 		next_player.pitch_scale = pitch
 		next_player.volume_db = -80 # Start silent
 		next_player.play()
+		_seek_player_to_zone_position(next_player, zone)
 
 		_tween.stop_all()
 		_tween.interpolate_property(next_player, "volume_db", -80, vol, time, Tween.TRANS_LINEAR, Tween.EASE_IN_OUT)
@@ -124,6 +149,7 @@ func _crossfade_to(stream, pitch, vol, time):
 
 		_tween.start()
 		_active_player = next_player
+		_active_zone = zone
 	else:
 		# Fade out active if no new stream
 		if _active_player and _active_player.playing:
@@ -132,9 +158,13 @@ func _crossfade_to(stream, pitch, vol, time):
 			_tween.interpolate_callback(_active_player, time, "stop")
 			_tween.start()
 			_active_player = null
+		_active_zone = null
 	
 func reset():
+	_save_active_zone_playback()
 	_active_zones.clear()
+	_active_zone = null
+	_zone_playback_positions.clear()
 	if _mdm_instance and _mdm_instance.has_method("stop"):
 		_mdm_instance.call("stop")
 	
@@ -167,6 +197,88 @@ func fade_out_current_bgm(duration: float = 0.35) -> void:
 func refresh_bgm_from_zones(_fade_in_time: float = 0.35) -> void:
 	# Zone update already carries fade_time and crossfade logic.
 	_update_bgm()
+
+func _set_music_focus_paused(paused: bool) -> void:
+	if _music_paused_by_focus == paused:
+		return
+
+	_music_paused_by_focus = paused
+
+	if paused:
+		_pause_internal_bgm_players()
+		_pause_mdm_music()
+	else:
+		_resume_internal_bgm_players()
+		_resume_mdm_music()
+		_update_bgm()
+
+func _pause_internal_bgm_players() -> void:
+	if _tween:
+		_tween.stop_all()
+	_save_active_zone_playback()
+	for player in [_bgm_player_1, _bgm_player_2]:
+		if not player or not player.playing:
+			continue
+		if player.has_method("set_stream_paused"):
+			player.set_stream_paused(true)
+		else:
+			player.stop()
+
+func _resume_internal_bgm_players() -> void:
+	for player in [_bgm_player_1, _bgm_player_2]:
+		if not player:
+			continue
+		if player.has_method("set_stream_paused"):
+			player.set_stream_paused(false)
+
+func _save_active_zone_playback() -> void:
+	if not _active_zone or not _active_player or not _active_player.playing:
+		return
+	var key = _zone_playback_key(_active_zone)
+	if key == "":
+		return
+	_zone_playback_positions[key] = _active_player.get_playback_position()
+
+func _seek_player_to_zone_position(player: AudioStreamPlayer, zone: Node) -> void:
+	if not player or not zone:
+		return
+	var key = _zone_playback_key(zone)
+	if key == "" or not _zone_playback_positions.has(key):
+		return
+	var resume_pos = float(_zone_playback_positions[key])
+	if resume_pos <= 0.0:
+		return
+	var stream_len = 0.0
+	if player.stream and player.stream.has_method("get_length"):
+		stream_len = float(player.stream.get_length())
+	if stream_len > 0.0:
+		resume_pos = fmod(resume_pos, max(0.01, stream_len - 0.01))
+	player.seek(resume_pos)
+
+func _zone_playback_key(zone: Node) -> String:
+	if not zone:
+		return ""
+	if zone.is_inside_tree():
+		return str(zone.get_path())
+	return str(zone.name)
+
+func _pause_mdm_music() -> void:
+	if not _mdm_instance:
+		return
+	if _mdm_instance.has_method("pause"):
+		_mdm_instance.call("pause")
+	elif _mdm_instance.has_method("set_paused"):
+		_mdm_instance.call("set_paused", true)
+	elif _mdm_instance.has_method("stop"):
+		_mdm_instance.call("stop")
+
+func _resume_mdm_music() -> void:
+	if not _mdm_instance:
+		return
+	if _mdm_instance.has_method("resume"):
+		_mdm_instance.call("resume")
+	elif _mdm_instance.has_method("set_paused"):
+		_mdm_instance.call("set_paused", false)
 
 # SFX Integration
 func play_sound(sound_name: String, _pos: Vector3 = Vector3.ZERO):

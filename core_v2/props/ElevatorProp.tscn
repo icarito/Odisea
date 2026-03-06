@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=2]
+[gd_scene load_steps=18 format=2]
 
 [ext_resource path="res://core_v2/props/ElevatorController.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/ElevatorPlatform.gd" type="Script" id=2]
@@ -9,6 +9,9 @@
 [ext_resource path="res://textures/prototype_textures/Orange.png" type="Texture" id=7]
 [ext_resource path="res://core_v2/components/BGMZoneV2.gd" type="Script" id=8]
 [ext_resource path="res://assets/music/Shadow Code.mp3" type="AudioStream" id=9]
+[ext_resource path="res://assets/sfx/sfx100v2_loop_machine_01.ogg" type="AudioStream" id=10]
+[ext_resource path="res://assets/beat/bell_l.wav" type="AudioStream" id=11]
+[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=12]
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 1.5, 0.1, 1.5 )
@@ -16,7 +19,10 @@ extents = Vector3( 1.5, 0.1, 1.5 )
 [sub_resource type="BoxShape" id=2]
 extents = Vector3( 1.5, 3, 1.5 )
 
-[sub_resource type="Curve3D" id=5]
+[sub_resource type="BoxShape" id=5]
+extents = Vector3( 1.5, 3, 1.5 )
+
+[sub_resource type="Curve3D" id=6]
 _data = {
 "points": PoolVector3Array( 0, 0, 0, 0, 0, 0, -0.974657, -4.44925e-08, -0.0433385, 0, 0, 0, 0, 0, 0, -1.97465, -8.80818e-08, -0.0405459, 0, 0, 0, 0, 0, 0, -1.99105, -2.64295e-07, -4.06668, 0, 0, 0, 0, 0, 0, 2.01416, -8.85692e-08, -4.0517, 0, 0, 0, 0, 0, 0, 2.02533, 8.62756e-08, -0.0517117, 0, 0, 0, 0, 0, 0, 1.02534, 4.26861e-08, -0.0489235 ),
 "tilts": PoolRealArray( 0, 0, 0, 0, 0, 0 )
@@ -74,7 +80,23 @@ zone_extents = Vector3( 1.5, 3, 1.5 )
 bgm_stream = ExtResource( 9 )
 
 [node name="CollisionShape" type="CollisionShape" parent="Platform/BGMZoneV2"]
-shape = SubResource( 2 )
+shape = SubResource( 5 )
+
+[node name="SFX Move" type="AudioStreamPlayer3D" parent="Platform"]
+stream = ExtResource( 10 )
+unit_db = 10.0
+max_distance = 35.0
+script = ExtResource( 12 )
+loop_sample = true
+
+[node name="SFX Arrival" type="AudioStreamPlayer3D" parent="Platform"]
+stream = ExtResource( 11 )
+unit_db = 13.0
+max_db = 5.0
+pitch_scale = 2.0
+max_distance = 30.0
+script = ExtResource( 12 )
+trigger_mode = "OneShotActive"
 
 [node name="Floors" type="Spatial" parent="."]
 
@@ -125,7 +147,7 @@ panel_count = 14
 height = 15.5
 
 [node name="Path2" parent="MetalFence" index="0"]
-curve = SubResource( 5 )
+curve = SubResource( 6 )
 
 [node name="CSGCylinder" type="CSGCylinder" parent="MetalFence/Path2" index="0"]
 transform = Transform( 1, 0, 0, 2.84217e-14, 1, 2.92127e-14, 0, 8.04912e-16, 1, -0.0058718, 15.6, -2.10247 )

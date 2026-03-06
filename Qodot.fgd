@@ -140,13 +140,13 @@
 ]
 
 @PointClass color(128 128 128) size(-2 -16 -4, 2 16 4) = prop_metal_fence : "Path-based metallic fence." [
-	panel_count(integer) : "Number of fence panels"  : 8
 	fence_color(color255) : "Color of the fence metal"  : "89 89 89"
 	height(float) : "Fence height in units"  : "2.5"
+	panel_count(integer) : "Number of fence panels"  : 8
 	path_length(float) : "Total length of the fence path"  : "8"
 ]
 
-@PointClass color(255 255 204) size(-5 -1 -1, 5 1 1) = light_wall : "Fluorescent Wall Light" [
+@PointClass color(255 255 204) size(-1 -1 -5, 1 1 5) = light_wall : "Fluorescent Wall Light" [
 	angle(float) : "Yaw rotation in degrees"  : "0"
 	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
 	light_color(color255) : "Color of the light"  : "204 229 255"
@@ -157,14 +157,14 @@
 
 @PointClass color(255 178 77) size(-6 -6 -3, 6 6 3) = light_box : "Sci-Fi Box Light" [
 	light_color(color255) : "Color of the light"  : "255 138 46"
-	light_range(float) : "Light reach distance (0.5-10)"  : "5"
 	light_energy_max(float) : "Maximum light energy (0-8)"  : "2"
+	light_range(float) : "Light reach distance (0.5-10)"  : "5"
 ]
 
 @PointClass color(255 229 153) size(-2 -2 -14, 2 2 0) = light_hanging : "Sci-Fi Hanging Light with sway" [
 	light_color(color255) : "Color of the light"  : "229 217 178"
-	light_range(float) : "Light reach distance (0.5-10)"  : "4"
 	light_energy_max(float) : "Maximum light energy (0-5)"  : "2"
+	light_range(float) : "Light reach distance (0.5-10)"  : "4"
 	sway_amplitude(float) : "How much the light sways (0-0.5)"  : "0.05"
 	sway_speed(float) : "Speed of swaying (0.5-5)"  : "1"
 ]
@@ -182,8 +182,8 @@
 @PointClass color(153 204 255) size(-1 -1 -3, 1 1 3) = light_floating : "Sci-Fi Floating Light with patrol option" [
 	float_amplitude(float) : "Floating bob amplitude"  : "0.2"
 	float_speed(float) : "Floating bob speed"  : "2"
-	patrol_speed(float) : "Patrol movement speed"  : "2"
 	is_patrolling(integer) : "Set to 1 if light should patrol"  : 0
+	patrol_speed(float) : "Patrol movement speed"  : "2"
 ]
 
 @PointClass color(51 128 255) size(-32 -32 -2, 32 32 2) = light_floor_panel : "Sci-Fi Floor Panel with glowing grid" [
@@ -191,13 +191,13 @@
 ]
 
 @PointClass color(77 153 255) size(-2 -32 -6, 2 32 6) = light_path : "Sci-Fi Light Path - arc of small lights" [
-	light_count(integer) : "Number of lights along the path (2-50)"  : 8
 	light_color(color255) : "Color of the lights"  : "51 128 255"
-	light_range(float) : "Light reach distance (0.5-5)"  : "1.5"
+	light_count(integer) : "Number of lights along the path (2-50)"  : 8
 	light_energy_max(float) : "Maximum light energy (0-5)"  : "1.5"
-	show_bulbs(integer) : "Set to 1 to show bulb meshes"  : 1
-	path_length(float) : "Length of the arc (0.5-20)"  : "4"
+	light_range(float) : "Light reach distance (0.5-5)"  : "1.5"
 	path_height(float) : "Height of the arc (0-2)"  : "0.8"
+	path_length(float) : "Length of the arc (0.5-20)"  : "4"
+	show_bulbs(integer) : "Set to 1 to show bulb meshes"  : 1
 ]
 
 @PointClass color(255 153 51) size(-3 -3 -3, 3 3 3) = light_volumetric : "Volumetric Glow Light with pulse" [
@@ -211,11 +211,11 @@
 
 @PointClass color(255 102 26) size(-3 -3 0, 3 3 7) = light_emergency_beacon : "Emergency Beacon with rotating light" [
 	beacon_color(color255) : "Color of the beacon light"  : "255 77 0"
-	rotation_speed(float) : "Rotation speed (rotations/sec)"  : "3"
-	pulse_speed(float) : "Pulse frequency"  : "2"
-	light_range(float) : "Light reach distance (0.5-15)"  : "5"
 	light_energy_max(float) : "Maximum light energy (0-8)"  : "3"
+	light_range(float) : "Light reach distance (0.5-15)"  : "5"
 	pulse_min(float) : "Minimum pulse brightness (0-1)"  : "0.3"
+	pulse_speed(float) : "Pulse frequency"  : "2"
+	rotation_speed(float) : "Rotation speed (rotations/sec)"  : "3"
 ]
 
 @PointClass color(255 229 77) size(-1 -1 -1, 1 1 1) = prop_spark_emitter : "Spark particle emitter with timing controls." [
@@ -273,6 +273,6 @@
 @PointClass color(255 229 0) size(-2 -8 -2, 2 8 2) = prop_hazard_tape : "Hazard warning tape following a path." [
 	panel_count(integer) : "Number of tape panels (2-20)"  : 6
 	panel_height(float) : "Height of each tape panel (0.3-3)"  : "1.5"
-	path_length(float) : "Total length of hazard tape (0.5-20)"  : "5"
 	path_height(float) : "Height offset of the tape path"  : "0"
+	path_length(float) : "Total length of hazard tape (0.5-20)"  : "5"
 ]

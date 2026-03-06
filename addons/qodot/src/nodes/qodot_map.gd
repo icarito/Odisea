@@ -5,6 +5,7 @@ tool
 const DEBUG := false
 const YIELD_DURATION := 0.0
 const YIELD_SIGNAL := "timeout"
+const PROP_PHYSICS_LAYER := 1 << 6 # Layer 7
 
 signal build_complete()
 signal build_progress(step, progress)
@@ -64,6 +65,10 @@ var worldspawn_layer_collision_shapes := []
 var auto_build := false
 var _last_map_mod_time := 0
 var _is_building := false
+var _qodot_native_library: GDNativeLibrary = null
+var _qodot_native_script: NativeScript = null
+var _qodot_init_error_reported := false
+var _concave_rigidbody_warned := {}
 
 func set_map_file(new_map_file: String) -> void:
 	if map_file != new_map_file:
@@ -121,6 +126,18 @@ func _get_property_list() -> Array:
 		QodotUtil.property_dict('auto_build', TYPE_BOOL)
 	]
 
+func _warn_concave_on_rigidbody(context: String) -> void:
+	if context in _concave_rigidbody_warned:
+		return
+	_concave_rigidbody_warned[context] = true
+	push_warning("[Qodot] %s requested concave collision on RigidBody; forcing convex for Bullet compatibility." % context)
+
+func _should_force_convex_for_node(node: Node, context: String) -> bool:
+	if node is RigidBody:
+		_warn_concave_on_rigidbody(context)
+		return true
+	return false
+
 # Utility
 func verify_and_build():
 	if verify_parameters():
@@ -135,32 +152,8 @@ func manual_build():
 
 func verify_parameters():
 	if not is_instance_valid(qodot) or not qodot.has_method("load_map") or DEBUG:
-		if DEBUG: print("[Qodot] Initializing GDNative library and script...")
-		
-		var q_lib: GDNativeLibrary = GDNativeLibrary.new()
-		q_lib.set("entry/OSX.64", "res://addons/qodot/bin/osx/libqodot.dylib")
-		q_lib.set("entry/Windows.64", "res://addons/qodot/bin/win64/libqodot.dll")
-		q_lib.set("entry/X11.64", "res://addons/qodot/bin/x11/libqodot.so")
-		q_lib.set("dependency/OSX.64", ["res://addons/qodot/bin/osx/libmap.dylib"])
-		q_lib.set("dependency/Windows.64", ["res://addons/qodot/bin/win64/libmap.dll"])
-		q_lib.set("dependency/X11.64", ["res://addons/qodot/bin/x11/libmap.so"])
-
-		var q_script: NativeScript = NativeScript.new()
-		if not is_instance_valid(q_script):
+		if not _ensure_qodot_native_instance():
 			return false
-
-		q_script.library = q_lib
-		q_script.set("class_name", "Qodot")
-
-		if not is_instance_valid(q_script):
-			return false
-
-		var q_inst = q_script.new()
-		if not is_instance_valid(q_inst):
-			return false
-
-		qodot = q_inst
-		if DEBUG: print("[Qodot] GDNative initialized successfully.")
 
 	if not is_instance_valid(qodot):
 		return false
@@ -174,6 +167,72 @@ func verify_parameters():
 		push_error("Error: No such file %s" % map_file)
 		return false
 
+	return true
+
+func _build_qodot_native_script() -> bool:
+	_qodot_native_library = GDNativeLibrary.new()
+	if not is_instance_valid(_qodot_native_library):
+		push_error("[Qodot] Failed to create GDNativeLibrary")
+		return false
+
+	_qodot_native_library.set("entry/OSX.64", "res://addons/qodot/bin/osx/libqodot.dylib")
+	_qodot_native_library.set("entry/Windows.64", "res://addons/qodot/bin/win64/libqodot.dll")
+	_qodot_native_library.set("entry/X11.64", "res://addons/qodot/bin/x11/libqodot.so")
+	_qodot_native_library.set("dependency/OSX.64", ["res://addons/qodot/bin/osx/libmap.dylib"])
+	_qodot_native_library.set("dependency/Windows.64", ["res://addons/qodot/bin/win64/libmap.dll"])
+	_qodot_native_library.set("dependency/X11.64", ["res://addons/qodot/bin/x11/libmap.so"])
+
+	_qodot_native_script = NativeScript.new()
+	if _qodot_native_script == null or not is_instance_valid(_qodot_native_script):
+		push_error("[Qodot] NativeScript API unavailable while initializing parser")
+		_qodot_native_library = null
+		return false
+
+	_qodot_native_script.library = _qodot_native_library
+	_qodot_native_script.set("class_name", "Qodot")
+
+	return true
+
+func _instantiate_qodot_native() -> Object:
+	# During editor hot-reload, NativeScript references can become stale between builds.
+	# Guard new() behind a fresh validity check to avoid "null instance" crashes.
+	if _qodot_native_script == null or not is_instance_valid(_qodot_native_script):
+		return null
+	var parser = _qodot_native_script
+	if parser == null or not is_instance_valid(parser):
+		return null
+	var q_inst = parser.new()
+	if q_inst == null or not is_instance_valid(q_inst):
+		return null
+	return q_inst
+
+func _ensure_qodot_native_instance() -> bool:
+	if DEBUG:
+		print("[Qodot] Initializing GDNative parser...")
+
+	if _qodot_native_script == null or not is_instance_valid(_qodot_native_script):
+		if not _build_qodot_native_script():
+			return false
+
+	var q_inst = _instantiate_qodot_native()
+	if q_inst == null or not is_instance_valid(q_inst):
+		# Retry once by fully rebuilding script/library references.
+		_qodot_native_script = null
+		_qodot_native_library = null
+		if not _build_qodot_native_script():
+			return false
+		q_inst = _instantiate_qodot_native()
+
+	if q_inst == null or not is_instance_valid(q_inst):
+		if not _qodot_init_error_reported:
+			push_error("[Qodot] Failed to instantiate NativeScript class 'Qodot'")
+			_qodot_init_error_reported = true
+		return false
+
+	qodot = q_inst
+	_qodot_init_error_reported = false
+	if DEBUG:
+		print("[Qodot] GDNative initialized successfully.")
 	return true
 
 func reset_build_context():
@@ -196,6 +255,7 @@ func reset_build_context():
 	worldspawn_layer_mesh_instances = {}
 	entity_collision_shapes = []
 	worldspawn_layer_collision_shapes = []
+	_concave_rigidbody_warned = {}
 
 	build_step_index = 0
 	build_step_count = 0
@@ -350,6 +410,10 @@ func trigger_full_build() -> void:
 		
 	print("[Qodot] Auto-building map: ", map_file)
 	_is_building = true
+	# Force a clean parser rebind in auto-reload paths to avoid stale editor references.
+	qodot = null
+	_qodot_native_script = null
+	_qodot_native_library = null
 	should_add_children = true
 	should_set_owners = true
 	verify_and_build()
@@ -475,13 +539,22 @@ func build_entity_nodes() -> Array:
 			if classname in entity_definitions:
 				var entity_definition := entity_definitions[classname] as QodotFGDClass
 				if entity_definition is QodotFGDSolidClass:
+					var is_trenchbroom_layer := false
+					var is_prop_layer := false
+					if '_tb_type' in properties:
+						is_trenchbroom_layer = String(properties['_tb_type']) == "_tb_layer"
+					if '_tb_name' in properties:
+						is_prop_layer = String(properties['_tb_name']).to_lower() == "prop"
+
 					if entity_definition.spawn_type == QodotFGDSolidClass.SpawnType.MERGE_WORLDSPAWN:
 						entity_nodes.append(null)
 						continue
-					elif use_trenchbroom_group_hierarchy and entity_definition.spawn_type == QodotFGDSolidClass.SpawnType.GROUP:
+					elif use_trenchbroom_group_hierarchy and entity_definition.spawn_type == QodotFGDSolidClass.SpawnType.GROUP and not is_trenchbroom_layer:
 						should_add_child = false
 					if entity_definition.node_class != "":
 						node = ClassDB.instance(entity_definition.node_class)
+					if is_prop_layer and node is CollisionObject:
+						node.collision_layer = PROP_PHYSICS_LAYER
 				elif entity_definition is QodotFGDPointClass:
 					if entity_definition.scene_file:
 						var flag = PackedScene.GEN_EDIT_STATE_DISABLED
@@ -670,6 +743,9 @@ func build_entity_collision_shape_nodes() -> Array:
 			entity_collision_shapes_arr.append(null)
 			continue
 
+		if concave and _should_force_convex_for_node(node, "Entity '%s'" % properties.get('classname', "entity_%s" % entity_idx)):
+			concave = false
+
 		if concave:
 			var collision_shape := CollisionShape.new()
 			collision_shape.name = "entity_%s_collision_shape" % entity_idx
@@ -711,6 +787,9 @@ func build_worldspawn_layer_collision_shape_nodes() -> Array:
 			worldspawn_layer_collision_shapes.append(shapes)
 			continue
 
+		if concave and _should_force_convex_for_node(node, "Worldspawn layer '%s'" % layer.name):
+			concave = false
+
 		if concave:
 			var collision_shape := CollisionShape.new()
 			collision_shape.name = "entity_0_%s_collision_shape" % layer.name
@@ -746,6 +825,11 @@ func build_entity_collision_shapes() -> void:
 							concave = false
 						QodotFGDSolidClass.CollisionShapeType.CONCAVE:
 							concave = true
+
+		var collision_node := entity_nodes[entity_idx] as Node
+		if concave and is_instance_valid(collision_node):
+			if _should_force_convex_for_node(collision_node, "Entity '%s'" % properties.get('classname', "entity_%s" % entity_idx)):
+				concave = false
 
 		if not entity_collision_shapes[entity_idx]:
 			continue
@@ -809,6 +893,10 @@ func build_worldspawn_layer_collision_shapes() -> void:
 				concave = true
 
 		var layer_dict = worldspawn_layer_dicts[layer_idx]
+		var layer_node := worldspawn_layer_nodes[layer_idx] as Node
+		if concave and is_instance_valid(layer_node):
+			if _should_force_convex_for_node(layer_node, "Worldspawn layer '%s'" % layer.name):
+				concave = false
 
 		if not worldspawn_layer_collision_shapes[layer_idx]:
 			continue

@@ -48,6 +48,7 @@ script = ExtResource( 2 )
 sensitivity = 2.5
 zoom_sensitivity = 0.07
 invert_x = false
+invert_y = true
 
 [node name="MoveJoystick" parent="Container" instance=ExtResource( 1 )]
 modulate = Color( 1, 1, 1, 0.6 )

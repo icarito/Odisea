@@ -7,6 +7,7 @@ const PlayerMovementV2 = preload("PlayerMovementV2.gd")
 
 const FIXED_DT := 1.0 / 60.0
 const UP := Vector3.UP
+const PLAYER_REQUIRED_COLLISION_MASK := 1 << 6 # Layer 7
 
 var is_replay_mode := false
 
@@ -42,12 +43,22 @@ export(bool) var enable_step_up := true
 export(float) var step_grounded_grace := 0.22
 export(float) var stair_ground_probe_extra := 0.2
 export(bool) var debug_stair_state := false
+export(float, 0.2, 1.0) var crouch_collider_height_ratio := 0.55
+export(float) var crouch_headroom_margin := 0.03
 
 var _step_grounded_timer := 0.0
 var _just_stepped := false
 var _ground_contact_grace_timer := 0.0
 var _last_debug_effective_grounded := true
 var _last_debug_on_floor := true
+var _body_collision_shape: CollisionShape = null
+var _body_capsule_shape: CapsuleShape = null
+var _standing_capsule_height := 0.0
+var _crouched_capsule_height := 0.0
+var _standing_capsule_total_height := 0.0
+var _crouched_capsule_total_height := 0.0
+var _standing_collision_origin := Vector3.ZERO
+var _crouched_collision_origin := Vector3.ZERO
 
 # Platform Transform Tracking
 var _platform_collider: Spatial = null
@@ -318,6 +329,7 @@ func _ready():
 		_disable_visual_rig_for_rl()
 
 	initial_transform = global_transform
+	_ensure_required_player_collision_mask()
 	add_to_group("player")
 	_ensure_player_audio_listener()
 	if not is_instance_valid(input_provider):
@@ -364,6 +376,11 @@ func _ready():
 		base_rig_y = camera_rig.transform.origin.y
 	
 	_setup_interact_area()
+	_setup_crouch_collision()
+
+func _ensure_required_player_collision_mask() -> void:
+	if (collision_mask & PLAYER_REQUIRED_COLLISION_MASK) == 0:
+		collision_mask |= PLAYER_REQUIRED_COLLISION_MASK
 
 func _ensure_player_audio_listener() -> void:
 	if not (_audio_listener and is_instance_valid(_audio_listener)):
@@ -624,6 +641,86 @@ func _setup_interact_area():
 		animator.add_child(_interact_area)
 	else:
 		add_child(_interact_area)
+
+func _setup_crouch_collision() -> void:
+	var body_shape = get_node_or_null("CollisionShape")
+	if body_shape == null:
+		for child in get_children():
+			if child is CollisionShape:
+				body_shape = child
+				break
+	if body_shape == null:
+		return
+	if not (body_shape.shape is CapsuleShape):
+		return
+	var unique_shape = body_shape.shape.duplicate()
+	body_shape.shape = unique_shape
+	_body_collision_shape = body_shape
+	_body_capsule_shape = body_shape.shape as CapsuleShape
+	if not _body_capsule_shape:
+		return
+	_standing_capsule_height = max(0.1, _body_capsule_shape.height)
+	_crouched_capsule_height = max(0.1, _standing_capsule_height * clamp(crouch_collider_height_ratio, 0.2, 1.0))
+	_standing_capsule_total_height = _standing_capsule_height + (_body_capsule_shape.radius * 2.0)
+	_crouched_capsule_total_height = _crouched_capsule_height + (_body_capsule_shape.radius * 2.0)
+	_standing_collision_origin = _body_collision_shape.transform.origin
+	var half_delta = (_standing_capsule_total_height - _crouched_capsule_total_height) * 0.5
+	_crouched_collision_origin = _standing_collision_origin + Vector3(0, -half_delta, 0)
+	_apply_crouch_collision_state(false)
+
+func _apply_crouch_collision_state(crouched: bool) -> void:
+	if not _body_capsule_shape or not _body_collision_shape:
+		return
+	var target_height = _crouched_capsule_height if crouched else _standing_capsule_height
+	var target_origin = _crouched_collision_origin if crouched else _standing_collision_origin
+	if abs(_body_capsule_shape.height - target_height) <= 0.0001:
+		var same_origin = _body_collision_shape.transform.origin.distance_squared_to(target_origin) <= 0.000001
+		if same_origin:
+			return
+	_body_capsule_shape.height = target_height
+	var shape_transform = _body_collision_shape.transform
+	shape_transform.origin = target_origin
+	_body_collision_shape.transform = shape_transform
+
+func _resolve_crouch_state(wants_crouch: bool) -> bool:
+	if wants_crouch:
+		return true
+	if is_crouching and not _has_headroom_to_stand():
+		return true
+	return false
+
+func _has_headroom_to_stand() -> bool:
+	if not _body_capsule_shape or not _body_collision_shape:
+		return true
+	var stand_total = _standing_capsule_total_height
+	if stand_total <= 0.0:
+		stand_total = _standing_capsule_height + (_body_capsule_shape.radius * 2.0)
+	var crouch_total = _crouched_capsule_total_height
+	if crouch_total <= 0.0:
+		crouch_total = _crouched_capsule_height + (_body_capsule_shape.radius * 2.0)
+	var extra_height = stand_total - crouch_total
+	if extra_height <= 0.001:
+		return true
+	var world_shape: Transform = global_transform * _body_collision_shape.transform
+	var center = world_shape.origin
+	var horizontal_radius = max(0.02, _body_capsule_shape.radius - crouch_headroom_margin)
+	var start_y = center.y + (crouch_total * 0.5) - crouch_headroom_margin
+	var end_y = start_y + extra_height + crouch_headroom_margin
+	var space_state = get_world().direct_space_state
+	var offsets = [
+		Vector3.ZERO,
+		global_transform.basis.x * horizontal_radius,
+		-global_transform.basis.x * horizontal_radius,
+		global_transform.basis.z * horizontal_radius,
+		-global_transform.basis.z * horizontal_radius
+	]
+	for offset in offsets:
+		var from = Vector3(center.x + offset.x, start_y, center.z + offset.z)
+		var to = Vector3(center.x + offset.x, end_y, center.z + offset.z)
+		var hit = space_state.intersect_ray(from, to, [ self ], collision_mask)
+		if not hit.empty():
+			return false
+	return true
 
 func _process_interaction(input: InputDataV2):
 	if _perf_disable_interaction_scan:
@@ -1015,7 +1112,9 @@ func step(dt: float, input: InputDataV2) -> void:
 		# Simplify input to just "forward" magnitude for the logic
 		move_vec = Vector2(0, -world_dir.length())
 	
-	is_crouching = input.crouch and physics_grounded
+	var wants_crouch = input.crouch and physics_grounded
+	is_crouching = _resolve_crouch_state(wants_crouch)
+	_apply_crouch_collision_state(is_crouching)
 	var effective_sprint = input.sprint and not is_crouching
 
 	movement_logic.process_movement(dt, move_vec, basis, effective_sprint, physics_grounded, is_crouching)
@@ -1377,36 +1476,51 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 	collision_mask = 1 # Force terrain-only detection (Mask 1)
 	
 	var result = {"stepped": false, "position": global_transform.origin}
-	if motion.length_squared() < 0.0001: return result
-	var horizontal_motion = Vector3(motion.x, 0, motion.z)
-	if horizontal_motion.length_squared() < 0.0001: return result
-	var move_dir = horizontal_motion.normalized()
-	var origin = global_transform.origin
-	var probe_distance = clamp(motion.length(), 0.05, step_depth)
-	var foot_collision = move_and_collide(move_dir * probe_distance, true, true, true)
-	if foot_collision == null: return result
-	if foot_collision.normal.y > 0.7: return result
-	var head_collision = move_and_collide(Vector3.UP * step_height, true, true, true)
-	if head_collision != null: return result
-	var step_up_pos = origin + Vector3.UP * step_height
-	var old_pos = global_transform.origin
-	global_transform.origin = step_up_pos
-	var forward_test = move_and_collide(move_dir * probe_distance, true, true, true)
-	var advanced_x = move_dir * probe_distance
-	if forward_test: advanced_x = forward_test.travel
-	var check_pos = step_up_pos + advanced_x
-	global_transform.origin = check_pos
-	var down_collision = move_and_collide(Vector3.DOWN * (step_height + 0.1), true, true, true)
-	global_transform.origin = old_pos
-	if down_collision != null:
-		if down_collision.normal.y > 0.7:
+	var can_try_step := motion.length_squared() >= 0.0001
+	var horizontal_motion := Vector3.ZERO
+	var move_dir := Vector3.ZERO
+	var origin := global_transform.origin
+	var probe_distance := 0.0
+	var advanced_x := Vector3.ZERO
+	var check_pos := origin
+
+	if can_try_step:
+		horizontal_motion = Vector3(motion.x, 0, motion.z)
+		if horizontal_motion.length_squared() < 0.0001:
+			can_try_step = false
+
+	if can_try_step:
+		move_dir = horizontal_motion.normalized()
+		probe_distance = clamp(motion.length(), 0.05, step_depth)
+		var foot_collision = move_and_collide(move_dir * probe_distance, true, true, true)
+		if foot_collision == null or foot_collision.normal.y > 0.7:
+			can_try_step = false
+
+	if can_try_step:
+		var head_collision = move_and_collide(Vector3.UP * step_height, true, true, true)
+		if head_collision != null:
+			can_try_step = false
+
+	if can_try_step:
+		var step_up_pos = origin + Vector3.UP * step_height
+		var old_pos = global_transform.origin
+		global_transform.origin = step_up_pos
+		var forward_test = move_and_collide(move_dir * probe_distance, true, true, true)
+		advanced_x = move_dir * probe_distance
+		if forward_test:
+			advanced_x = forward_test.travel
+		check_pos = step_up_pos + advanced_x
+		global_transform.origin = check_pos
+		var down_collision = move_and_collide(Vector3.DOWN * (step_height + 0.1), true, true, true)
+		global_transform.origin = old_pos
+		if down_collision != null and down_collision.normal.y > 0.7:
 			var step_surface_y = check_pos.y - down_collision.travel.length()
 			var height_gain = step_surface_y - origin.y
 			# Allow a tiny tolerance for collision rounding around configured step height.
 			if height_gain > 0.01 and height_gain <= step_height + 0.02:
 				result.stepped = true
 				result.position = Vector3(origin.x + advanced_x.x, step_surface_y, origin.z + advanced_x.z)
-	
+		
 	collision_mask = old_mask # Restore original mask
 	return result
 
