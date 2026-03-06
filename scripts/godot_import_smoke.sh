@@ -14,6 +14,7 @@ is_truthy() {
 GODOT_BIN="${GODOT_BIN:-godot3-bin}"
 PROJECT_PATH="."
 IMPORT_LOG="reports/import_resources.log"
+IMPORT_RETRY_LOG="reports/import_resources_retry.log"
 SMOKE_LOG="reports/resource_smoke.log"
 SMOKE_RETRY_LOG="reports/resource_smoke_retry.log"
 TIMEOUT_IMPORT_SEC="${TIMEOUT_IMPORT_SEC:-600}"
@@ -30,6 +31,7 @@ while [[ $# -gt 0 ]]; do
     --godot-bin) GODOT_BIN="$2"; shift 2 ;;
     --project-path) PROJECT_PATH="$2"; shift 2 ;;
     --import-log) IMPORT_LOG="$2"; shift 2 ;;
+    --import-retry-log) IMPORT_RETRY_LOG="$2"; shift 2 ;;
     --smoke-log) SMOKE_LOG="$2"; shift 2 ;;
     --smoke-retry-log) SMOKE_RETRY_LOG="$2"; shift 2 ;;
     --timeout-import) TIMEOUT_IMPORT_SEC="$2"; shift 2 ;;
@@ -48,6 +50,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 mkdir -p "$(dirname "${IMPORT_LOG}")"
+mkdir -p "$(dirname "${IMPORT_RETRY_LOG}")"
 mkdir -p "$(dirname "${SMOKE_LOG}")"
 mkdir -p "$(dirname "${SMOKE_RETRY_LOG}")"
 
@@ -129,14 +132,16 @@ run_cmd() {
 }
 
 run_import_once() {
+  local import_mode="$1"
+  local log_file="$2"
   local -a cmd=("${GODOT_BIN}" "--path" "${PROJECT_PATH}" "--headless" "--no-window" "--audio-driver" "Dummy")
-  if [[ "${IMPORT_MODE}" == "quick" ]]; then
+  if [[ "${import_mode}" == "quick" ]]; then
     cmd=("${GODOT_BIN}" "--path" "${PROJECT_PATH}" "--editor" "--quit" "--headless" "--no-window" "--audio-driver" "Dummy")
   else
     cmd+=("-e")
   fi
-  echo "[godot_import_smoke] Import mode=${IMPORT_MODE}: ${cmd[*]}"
-  if ! run_cmd "${TIMEOUT_IMPORT_SEC}" "${IMPORT_LOG}" "${cmd[@]}"; then
+  echo "[godot_import_smoke] Import mode=${import_mode}: ${cmd[*]}"
+  if ! run_cmd "${TIMEOUT_IMPORT_SEC}" "${log_file}" "${cmd[@]}"; then
     local rc=$?
     if [[ "${rc}" -eq 124 ]]; then
       echo "[godot_import_smoke] Import timed out (${TIMEOUT_IMPORT_SEC}s)."
@@ -145,7 +150,7 @@ run_import_once() {
     echo "[godot_import_smoke] Import command failed (exit=${rc})."
     return 1
   fi
-  if grep -E -q "${import_regex}" "${IMPORT_LOG}"; then
+  if grep -E -q "${import_regex}" "${log_file}"; then
     echo "[godot_import_smoke] Import reported parse/resource errors."
     return 1
   fi
@@ -177,7 +182,7 @@ run_smoke_once() {
 }
 
 import_ok=0
-if run_import_once; then
+if run_import_once "${IMPORT_MODE}" "${IMPORT_LOG}"; then
   import_ok=1
 fi
 
@@ -187,6 +192,21 @@ if run_smoke_once "${SMOKE_LOG}"; then
   fi
   echo "[godot_import_smoke] Preimport + smoke OK."
   exit 0
+fi
+
+if [[ "${IMPORT_MODE}" != "full" ]]; then
+  echo "[godot_import_smoke] Smoke failed after ${IMPORT_MODE} import; escalating to full import..."
+  import_ok=0
+  if run_import_once "full" "${IMPORT_RETRY_LOG}"; then
+    import_ok=1
+  fi
+  if run_smoke_once "${SMOKE_RETRY_LOG}"; then
+    if [[ "${import_ok}" -eq 0 ]]; then
+      echo "[godot_import_smoke] Full import failed/timed out, but smoke passed after escalation."
+    fi
+    echo "[godot_import_smoke] Full import fallback + smoke OK."
+    exit 0
+  fi
 fi
 
 if is_truthy "${ALLOW_SMOKE_RETRY}"; then
