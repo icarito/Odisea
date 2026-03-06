@@ -20,7 +20,7 @@ jobs:
   pytest-core:
     name: Run Tests (core)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       GODOT_VERSION: 3.6.2-stable
       GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
@@ -204,7 +204,7 @@ jobs:
     name: Run Pytest (raw-oys)
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_raw_oys == true }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     continue-on-error: true
     env:
       GODOT_VERSION: 3.6.2-stable
