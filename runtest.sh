@@ -35,6 +35,7 @@ fi
 DEBUG_OUTPUT=0
 RUNNER_MODE="${ODISEA_SHELL_RUNNER:-pytest}"
 PYTEST_WORKERS="${ODISEA_PYTEST_WORKERS:-6}"
+PYTEST_FAIL_FAST="${ODISEA_PYTEST_FAIL_FAST:-0}"
 PYTEST_BIN=""
 RUN_STRESS_ONLY=0
 
@@ -259,6 +260,9 @@ run_pytest_delegate() {
     fi
     if pytest_supports_xdist; then
         cmd+=("-n" "$PYTEST_WORKERS")
+    fi
+    if is_truthy "$PYTEST_FAIL_FAST"; then
+        cmd+=("-x" "--maxfail" "1")
     fi
     if [ -z "$HEADLESS" ]; then
         cmd+=("--odisea-debug")

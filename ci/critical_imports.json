@@ -1,0 +1,39 @@
+{
+  "critical_import_manifests": [
+    {
+      "path": "models/Pilot.glb.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "Playable actor used across core_v2 levels and smoke tests."
+    },
+    {
+      "path": "models/Programmer.glb.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "Actor referenced by BaseTerrace/test suites; missing .import scene breaks CI cold loads."
+    },
+    {
+      "path": "assets/sfx/bb_loop.wav.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "PushableBoxV2 drag loop is part of the asset-integrity smoke path."
+    },
+    {
+      "path": "assets/sfx/spark.wav.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "SparkEmitterV2 audio is part of the asset-integrity smoke path."
+    },
+    {
+      "path": "core_v2/props/dragon-studio-mechanical-door-386159.mp3.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "VerticalDoor audio is part of the asset-integrity smoke path."
+    }
+  ]
+}

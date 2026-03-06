@@ -208,15 +208,21 @@ Al trabajar con Props o Elementos Interactuables, sigue este procedimiento recur
 
 Reglas operativas:
 - Los archivos trackeados dentro de `.import/` se consideran artefactos versionados del proyecto. No son caché descartable.
+- Solo versionamos artifacts críticos de imports de escena (`.glb -> .scn/.md5`) para assets de gameplay que deban cargar en frío en CI. No versionar `.stex` masivos por defecto.
 - Los pipelines normales de tests no deben ejecutar un clean rebuild destructivo de `.import/`. Ese camino queda reservado al workflow dedicado `Asset Integrity`.
+- La lista de imports críticos vive en `ci/critical_imports.json`; la estrategia completa está documentada en `docs/engineering/CI_Asset_Strategy.md`.
 - Todo cambio que toque `assets/`, `textures/`, `models/`, `core_v2/audio/`, `core_v2/actors/`, `core_v2/components/`, `core_v2/props/`, `core_v2/levels/`, `project.godot`, `*.import` o `.import/` debe pasar validación de manifests antes de empujar.
 - Si un `source_file` o un `dest_files` de un `.import` trackeado no existe, eso es un error de integración y debe corregirse antes de CI.
+- Si un import crítico apunta a un `.scn` generado no trackeado, el hook/CI debe fallar de inmediato. No esperar a que un test tarde 20 minutos en tocar ese recurso.
 
 Comandos de validación:
 
 ```shell
 # Validación rápida de todos los manifests trackeados
 python3 scripts/check_tracked_imports.py
+
+# Valida imports críticos que deben existir y estar versionados
+python3 scripts/check_critical_import_artifacts.py
 
 # Smoke corto sin limpiar imports trackeados
 scripts/godot_import_smoke.sh \
@@ -228,7 +234,8 @@ scripts/godot_import_smoke.sh \
 
 Workflow esperado:
 - Workflows normales (`tests`, `pytest`, `stress`, `determinism`): `clean-cache=0`, validación rápida primero.
-- Workflow `Asset Integrity`: único job autorizado a usar `clean-cache=1` + `import-mode=full`.
+- Workflows normales deben saltar preflight redundante dentro de `runtest.sh` una vez que `Import + Smoke` ya pasó.
+- Workflow `Asset Integrity`: usa `clean-cache=1` pero con smoke dedicado a la política de imports críticos. No debe reutilizar la smoke grande de `BaseTerrace` si eso obliga a reimportar assets fuera de la política.
 
 Hooks recomendados:
 
@@ -238,8 +245,8 @@ scripts/install_git_hooks.sh
 ```
 
 Comportamiento de hooks:
-- `pre-commit`: valida manifests relacionados a archivos staged.
-- `pre-push`: valida todos los manifests trackeados y, si detecta cambios de assets/imports y existe Godot local, corre smoke rápido.
+- `pre-commit`: valida manifests relacionados a archivos staged y también imports críticos stageados.
+- `pre-push`: valida todos los manifests trackeados, valida imports críticos completos y, si detecta cambios de assets/imports y existe `godot3-bin` local, corre smoke rápido.
 
 Variables de escape para casos excepcionales:
 - `ODISEA_SKIP_IMPORT_HOOKS=1`: desactiva hooks repo-managed.

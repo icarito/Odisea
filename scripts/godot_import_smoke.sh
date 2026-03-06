@@ -17,6 +17,7 @@ IMPORT_LOG="reports/import_resources.log"
 IMPORT_RETRY_LOG="reports/import_resources_retry.log"
 SMOKE_LOG="reports/resource_smoke.log"
 SMOKE_RETRY_LOG="reports/resource_smoke_retry.log"
+SMOKE_SCRIPT="tests/ci_resource_smoke.gd"
 TIMEOUT_IMPORT_SEC="${TIMEOUT_IMPORT_SEC:-600}"
 TIMEOUT_SMOKE_SEC="${TIMEOUT_SMOKE_SEC:-180}"
 CLEAN_CACHE="${CLEAN_CACHE:-1}"
@@ -26,6 +27,7 @@ FORCE_SOFTWARE="${FORCE_SOFTWARE:-0}"
 IMPORT_MODE="${IMPORT_MODE:-auto}" # auto|quick|full
 ALLOW_IMPORT_RETRY="${ALLOW_IMPORT_RETRY:-1}"
 ALLOW_SMOKE_RETRY="${ALLOW_SMOKE_RETRY:-1}"
+ALLOW_FULL_ESCALATION="${ALLOW_FULL_ESCALATION:-1}"
 REQUIRE_IMPORT_SUCCESS="${REQUIRE_IMPORT_SUCCESS:-0}"
 
 while [[ $# -gt 0 ]]; do
@@ -36,6 +38,7 @@ while [[ $# -gt 0 ]]; do
     --import-retry-log) IMPORT_RETRY_LOG="$2"; shift 2 ;;
     --smoke-log) SMOKE_LOG="$2"; shift 2 ;;
     --smoke-retry-log) SMOKE_RETRY_LOG="$2"; shift 2 ;;
+    --smoke-script) SMOKE_SCRIPT="$2"; shift 2 ;;
     --timeout-import) TIMEOUT_IMPORT_SEC="$2"; shift 2 ;;
     --timeout-smoke) TIMEOUT_SMOKE_SEC="$2"; shift 2 ;;
     --clean-cache) CLEAN_CACHE="$2"; shift 2 ;;
@@ -45,6 +48,7 @@ while [[ $# -gt 0 ]]; do
     --import-mode) IMPORT_MODE="$2"; shift 2 ;;
     --allow-import-retry) ALLOW_IMPORT_RETRY="$2"; shift 2 ;;
     --allow-smoke-retry) ALLOW_SMOKE_RETRY="$2"; shift 2 ;;
+    --allow-full-escalation) ALLOW_FULL_ESCALATION="$2"; shift 2 ;;
     --require-successful-import) REQUIRE_IMPORT_SUCCESS="$2"; shift 2 ;;
     *)
       echo "[godot_import_smoke] Unknown arg: $1" >&2
@@ -176,7 +180,7 @@ run_import_once() {
 
 run_smoke_once() {
   local log_file="$1"
-  local -a cmd=("${GODOT_BIN}" "--headless" "--no-window" "--audio-driver" "Dummy" "-s" "tests/ci_resource_smoke.gd")
+  local -a cmd=("${GODOT_BIN}" "--headless" "--no-window" "--audio-driver" "Dummy" "-s" "${SMOKE_SCRIPT}")
   echo "[godot_import_smoke] Smoke: ${cmd[*]}"
   if run_cmd "${TIMEOUT_SMOKE_SEC}" "${log_file}" "${cmd[@]}"; then
     :
@@ -226,7 +230,7 @@ if run_smoke_once "${SMOKE_LOG}"; then
   exit 0
 fi
 
-if [[ "${IMPORT_MODE}" != "full" ]]; then
+if [[ "${IMPORT_MODE}" != "full" ]] && is_truthy "${ALLOW_FULL_ESCALATION}"; then
   echo "[godot_import_smoke] Smoke failed after ${IMPORT_MODE} import; escalating to full import..."
   import_ok=0
   if run_import_once "full" "${IMPORT_RETRY_LOG}"; then

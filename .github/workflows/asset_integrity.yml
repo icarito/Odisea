@@ -3,8 +3,42 @@ name: Asset Integrity
 on:
   push:
     branches: [ main ]
+    paths:
+      - '.github/workflows/asset_integrity.yml'
+      - '.githooks/pre-commit'
+      - '.githooks/pre-push'
+      - 'ci/critical_imports.json'
+      - 'project.godot'
+      - 'tests/ci_resource_smoke.gd'
+      - 'tests/ci_resource_smoke_asset_integrity.gd'
+      - 'scripts/check_tracked_imports.py'
+      - 'scripts/check_critical_import_artifacts.py'
+      - 'scripts/godot_import_smoke.sh'
+      - 'models/**'
+      - 'core_v2/actors/**'
+      - 'core_v2/props/**'
+      - 'core_v2/levels/**'
+      - '**/*.import'
+      - '.import/**'
   pull_request:
     branches: [ main ]
+    paths:
+      - '.github/workflows/asset_integrity.yml'
+      - '.githooks/pre-commit'
+      - '.githooks/pre-push'
+      - 'ci/critical_imports.json'
+      - 'project.godot'
+      - 'tests/ci_resource_smoke.gd'
+      - 'tests/ci_resource_smoke_asset_integrity.gd'
+      - 'scripts/check_tracked_imports.py'
+      - 'scripts/check_critical_import_artifacts.py'
+      - 'scripts/godot_import_smoke.sh'
+      - 'models/**'
+      - 'core_v2/actors/**'
+      - 'core_v2/props/**'
+      - 'core_v2/levels/**'
+      - '**/*.import'
+      - '.import/**'
   workflow_dispatch:
 
 concurrency:
@@ -18,7 +52,7 @@ env:
 jobs:
   asset-integrity:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     permissions:
       contents: read
 
@@ -64,6 +98,11 @@ jobs:
           set -euo pipefail
           python3 scripts/check_tracked_imports.py
 
+      - name: Validate critical import artifacts
+        run: |
+          set -euo pipefail
+          python3 scripts/check_critical_import_artifacts.py
+
       - name: Import + Smoke (full clean rebuild)
         run: |
           set -euo pipefail
@@ -74,14 +113,16 @@ jobs:
             --import-retry-log reports/import_resources_asset_integrity_retry.log \
             --smoke-log reports/resource_smoke_asset_integrity.log \
             --smoke-retry-log reports/resource_smoke_asset_integrity_retry.log \
-            --timeout-import 900 \
+            --smoke-script tests/ci_resource_smoke_asset_integrity.gd \
+            --timeout-import 600 \
             --timeout-smoke 180 \
             --clean-cache 1 \
             --disable-editor-plugins 1 \
             --xvfb 0 \
             --force-software 0 \
-            --import-mode full \
-            --allow-import-retry 1 \
+            --import-mode quick \
+            --allow-import-retry 0 \
+            --allow-full-escalation 0 \
             --allow-smoke-retry 1
 
       - name: Upload asset integrity logs

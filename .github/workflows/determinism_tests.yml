@@ -70,6 +70,11 @@ jobs:
           set -euo pipefail
           python3 scripts/check_tracked_imports.py
 
+      - name: Validate critical import artifacts
+        run: |
+          set -euo pipefail
+          python3 scripts/check_critical_import_artifacts.py
+
       - name: Import + Smoke (self-healing)
         run: |
           set -euo pipefail
@@ -91,6 +96,7 @@ jobs:
       - name: Run Determinism Tests
         env:
           GODOT_BIN: /usr/local/bin/godot
+          ODISEA_SKIP_PREFLIGHT: "1"
         run: |
           mkdir -p reports
           echo "Running determinism tests with 60s timeout per test"

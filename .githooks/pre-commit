@@ -14,3 +14,4 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 python3 scripts/check_tracked_imports.py --staged
+python3 scripts/check_critical_import_artifacts.py --staged
