@@ -157,6 +157,7 @@ jobs:
         env:
           GODOT_BIN: /usr/local/bin/godot
           OYS_NODET: "1"
+          ODISEA_PYTEST_WORKERS: "4"
         run: |
           set -euo pipefail
           mkdir -p reports
