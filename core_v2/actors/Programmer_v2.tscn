@@ -168,7 +168,7 @@ shape = SubResource( 48 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0 )
 
 [node name="CameraRig" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.16982, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.26982, 0 )
 
 [node name="Yaw" type="Spatial" parent="CameraRig"]
 

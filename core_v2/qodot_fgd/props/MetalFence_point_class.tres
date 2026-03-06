@@ -5,28 +5,30 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "prop_metal_fence"
 description = "Path-based metallic fence."
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
-"panel_count": 8,
 "fence_color": Color( 0.35, 0.35, 0.35, 1 ),
 "height": 2.5,
+"panel_count": 8,
 "path_length": 8.0
 }
 class_property_descriptions = {
-"panel_count": "Number of fence panels",
 "fence_color": "Color of the fence metal",
 "height": "Fence height in units",
+"panel_count": "Number of fence panels",
 "path_length": "Total length of the fence path"
 }
 meta_properties = {
 "color": Color( 0.5, 0.5, 0.5, 1 ),
-"size": AABB( -16, -4, -2, 16, 4, 2 )
+"size": AABB( -2, -16, -4, 2, 16, 4 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "MetalFence"
+scene_file = ExtResource( 2 )
 scripting = ""

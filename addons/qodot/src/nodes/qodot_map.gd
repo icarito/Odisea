@@ -1044,6 +1044,9 @@ func apply_properties() -> void:
 
 		var entity_dict := entity_dicts[entity_idx] as Dictionary
 		var properties := entity_dict['properties'] as Dictionary
+		# Track raw rotation keys from the map before defaults/type conversion mutate the dictionary.
+		var source_has_angle := properties.has("angle")
+		var source_has_full_rotation := properties.has("angles") or properties.has("mangle")
 
 		if 'classname' in properties:
 			var classname = properties['classname']
@@ -1094,8 +1097,28 @@ func apply_properties() -> void:
 			
 			# Map 'angle' to Y-rotation natively at root
 			if property == "angle":
+				if not source_has_angle or source_has_full_rotation:
+					continue
 				if "rotation_degrees" in entity_node:
 					entity_node.rotation_degrees.y = float(val)
+				continue
+			# Map full TrenchBroom/Quake rotations when present.
+			# Source coordinates are Z-up, while Godot scene is Y-up with axis swizzle:
+			# quake(X,Y,Z) -> godot(Z,X,Y) for rotations around axes.
+			if property == "angles" or property == "mangle":
+				if not source_has_full_rotation:
+					continue
+				if "rotation_degrees" in entity_node:
+					if typeof(val) == TYPE_STRING:
+						var comps = String(val).split(" ")
+						if comps.size() >= 3:
+							var pitch_q = comps[0].to_float()
+							var yaw_q = comps[1].to_float()
+							var roll_q = comps[2].to_float()
+							entity_node.rotation_degrees = Vector3(roll_q, yaw_q, pitch_q)
+					elif typeof(val) == TYPE_VECTOR3:
+						var angles_vec = val as Vector3
+						entity_node.rotation_degrees = Vector3(angles_vec.z, angles_vec.y, angles_vec.x)
 				continue
 				
 			_apply_injected_property_recursive(entity_node, property, val)

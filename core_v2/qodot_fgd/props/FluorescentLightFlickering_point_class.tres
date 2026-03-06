@@ -5,22 +5,28 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "light_flickering"
 description = "Fluorescent Light Flickering"
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
+"angle": 0.0,
+"angles": Vector3( 0, 0, 0 ),
 "starts_active": 1
 }
 class_property_descriptions = {
+"angle": "Yaw rotation in degrees",
+"angles": "Pitch Yaw Roll rotation in degrees",
 "starts_active": "Set to 1 if the light is on, 0 for off"
 }
 meta_properties = {
-"color": Color( 1.0, 1.0, 0.8, 1 ),
-"size": AABB( -10, -2, -2, 10, 2, 2 )
+"color": Color( 1, 1, 0.8, 1 ),
+"size": AABB( -2, -10, -2, 2, 10, 2 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "FluorescentLightFlickering"
+scene_file = ExtResource( 2 )
 scripting = ""

@@ -5,6 +5,7 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "light_floor_panel"
 description = "Sci-Fi Floor Panel with glowing grid"
 qodot_internal = false
@@ -16,11 +17,12 @@ class_property_descriptions = {
 "grid_color": "Color of the grid lines"
 }
 meta_properties = {
-"color": Color( 0.2, 0.5, 1.0, 1 ),
-"size": AABB( -32, -2, -32, 32, 2, 32 )
+"color": Color( 0.2, 0.5, 1, 1 ),
+"size": AABB( -32, -32, -2, 32, 32, 2 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "SciFiFloorPanelV2"
+scene_file = ExtResource( 2 )
 scripting = ""

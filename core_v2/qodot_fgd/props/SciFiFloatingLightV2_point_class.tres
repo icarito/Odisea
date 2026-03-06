@@ -5,6 +5,7 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "light_floating"
 description = "Sci-Fi Floating Light with patrol option"
 qodot_internal = false
@@ -12,21 +13,22 @@ base_classes = [  ]
 class_properties = {
 "float_amplitude": 0.2,
 "float_speed": 2.0,
-"patrol_speed": 2.0,
-"is_patrolling": 0
+"is_patrolling": 0,
+"patrol_speed": 2.0
 }
 class_property_descriptions = {
 "float_amplitude": "Floating bob amplitude",
 "float_speed": "Floating bob speed",
-"patrol_speed": "Patrol movement speed",
-"is_patrolling": "Set to 1 if light should patrol"
+"is_patrolling": "Set to 1 if light should patrol",
+"patrol_speed": "Patrol movement speed"
 }
 meta_properties = {
-"color": Color( 0.6, 0.8, 1.0, 1 ),
-"size": AABB( -1, -3, -1, 1, 3, 1 )
+"color": Color( 0.6, 0.8, 1, 1 ),
+"size": AABB( -1, -1, -3, 1, 1, 3 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "SciFiFloatingLightV2"
+scene_file = ExtResource( 2 )
 scripting = ""

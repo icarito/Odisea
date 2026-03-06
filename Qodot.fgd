@@ -1,0 +1,278 @@
+@BaseClass = Target[
+]
+
+@BaseClass = Targetname[
+]
+
+@BaseClass color(255 255 40) = Light[
+	_color(color255) : "Light color"  : "255 255 255"
+	delay(choices) : "Attenuation"  = [
+		1 : "Inverse distance falloff"
+		2 : "Inverse distance squared"
+		5 : "Inverse distance squared B"
+		0 : "Linear falloff (Default)"
+		4 : "Local minlight"
+		3 : "No falloff"
+	]
+	light(integer) : "Brightness"  : 300
+	mangle(string) : "Spotlight angle"  : "0.005 0 0"
+	wait(integer) : "Fade distance multiplier"  : 1
+]
+
+@PointClass size(-8 -8 -8, 8 8 8) base(Targetname, Target) = signal : "Signal" [
+	signal_name(string) : "Signal to target"  : ""
+]
+
+@PointClass size(-8 -8 -8, 8 8 8) base(Targetname, Target) = receiver : "Receiver" [
+	receiver_name(string) : ""  : ""
+]
+
+@PointClass size(-8 -8 -8, 8 8 8) base(Light) = light : "Invisible light source" [
+	angle(float) : "Rotation Angle"  : "0"
+]
+
+@PointClass size(-8 -8 -8, 8 8 8) = physics_ball : "Physics Ball" [
+	mass(float) : ""  : "1"
+	size(float) : ""  : "1"
+	velocity(string) : "Initial velocity"  : "0 0 0"
+]
+
+@SolidClass = worldspawn : "World Entity" [
+]
+
+@SolidClass = group : "Brush Group" [
+]
+
+@SolidClass = detail : "Detail Brush" [
+]
+
+@SolidClass = illusionary : "Non-colliding Brush" [
+]
+
+@SolidClass = wall : "Basic entity brush." [
+]
+
+@SolidClass = trigger : "Trigger Volume" [
+]
+
+@SolidClass = mover : "Moving brush." [
+	rotation(string) : ""  : "0 0 0"
+	scale(string) : ""  : "1 1 1"
+	speed(float) : ""  : "1"
+	translation(string) : ""  : "0 0 0"
+]
+
+@SolidClass = rotate : "Rotating Brush" [
+	axis(string) : "Rotation Axis"  : "0 1 0"
+	speed(float) : "Rotation Speed"  : "360"
+]
+
+@SolidClass = physics : "Physics Brush" [
+	mass(float) : ""  : "1"
+	velocity(string) : ""  : "0 0 0"
+]
+
+@SolidClass = button : "Interactive button brush." [
+	axis(string) : ""  : "0 -1 0"
+	depth(float) : ""  : "0.8"
+	press_signal_delay(float) : ""  : "0"
+	release_delay(float) : ""  : "0"
+	release_signal_delay(float) : ""  : "0"
+	speed(float) : ""  : "8"
+	trigger_signal_delay(float) : ""  : "0"
+]
+
+@PointClass color(204 204 204) size(-8 -8 -8, 8 8 8) = prop_door_iris : "Iris Door" [
+	starts_active(integer) : "Set to 1 if the door starts open"  : 0
+]
+
+@PointClass color(204 204 204) size(-8 -8 -8, 8 8 8) = prop_door_vertical : "Vertical Door" [
+	starts_active(integer) : "Set to 1 if the door starts open"  : 0
+]
+
+@PointClass color(204 204 204) size(-8 -8 -8, 8 8 8) = prop_lever : "A standard switch/lever." [
+	starts_active(integer) : "Set to 1 if the lever starts in active state"  : 0
+]
+
+@PointClass color(255 255 204) size(-2 -10 -2, 2 10 2) = light_ceiling : "Fluorescent Light Ceiling" [
+	angle(float) : "Yaw rotation in degrees"  : "0"
+	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
+	starts_active(integer) : "Set to 1 if the light is on, 0 for off"  : 1
+]
+
+@PointClass color(255 255 204) size(-2 -10 -2, 2 10 2) = light_flickering : "Fluorescent Light Flickering" [
+	angle(float) : "Yaw rotation in degrees"  : "0"
+	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
+	starts_active(integer) : "Set to 1 if the light is on, 0 for off"  : 1
+]
+
+@PointClass color(204 102 51) size(-16 -16 -16, 16 16 16) = prop_door_heavy_blast : "Heavy Blast Door" [
+	starts_active(integer) : "Set to 1 if the door starts open"  : 0
+]
+
+@PointClass color(204 153 51) size(-8 -8 -8, 8 8 8) = prop_door_floor_hatch : "Floor Hatch" [
+	starts_active(integer) : "Set to 1 if the hatch starts open"  : 0
+]
+
+@PointClass color(153 153 77) size(-8 -8 -2, 8 8 2) = prop_pressure_plate : "Pressure Plate" [
+	starts_active(integer) : "Set to 1 if the plate starts pressed"  : 0
+]
+
+@PointClass color(77 204 77) size(-4 -4 -4, 4 4 4) = prop_pedestal_button : "Interactive pedestal button. Can be momentary or toggle." [
+	starts_active(integer) : "Set to 1 if the button starts active"  : 0
+	momentary(integer) : "Set to 1 for momentary (auto-reset) mode"  : 0
+	momentary_duration(float) : "Seconds before momentary button resets"  : "0.5"
+]
+
+@PointClass color(128 128 204) size(-16 -16 -4, 16 16 4) = prop_moving_platform : "Moving Platform" [
+	starts_active(integer) : "Set to 1 if the platform starts moving"  : 0
+]
+
+@PointClass color(128 178 204) size(-8 -8 -8, 8 8 8) = prop_industrial_fan : "Industrial fan that pushes objects in its forward direction." [
+	starts_active(integer) : "Set to 1 if the fan starts on"  : 1
+	rotation_speed(float) : "Blade rotation speed in radians/sec"  : "15"
+	wind_force(float) : "Wind push force strength"  : "10"
+]
+
+@PointClass color(255 51 51) size(-2 -2 -2, 2 2 2) = prop_laser_tripwire : "Laser tripwire that activates when beam is broken." [
+	beam_length(float) : "Length of the laser beam"  : "4"
+	beam_color(color255) : "Color of the laser beam"  : "255 0 0"
+]
+
+@PointClass color(128 128 128) size(-2 -16 -4, 2 16 4) = prop_metal_fence : "Path-based metallic fence." [
+	panel_count(integer) : "Number of fence panels"  : 8
+	fence_color(color255) : "Color of the fence metal"  : "89 89 89"
+	height(float) : "Fence height in units"  : "2.5"
+	path_length(float) : "Total length of the fence path"  : "8"
+]
+
+@PointClass color(255 255 204) size(-5 -1 -1, 5 1 1) = light_wall : "Fluorescent Wall Light" [
+	angle(float) : "Yaw rotation in degrees"  : "0"
+	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
+	light_color(color255) : "Color of the light"  : "204 229 255"
+	light_energy(float) : "Light brightness (0-10)"  : "1"
+	light_range(float) : "Light reach distance (0-20)"  : "10"
+	starts_active(integer) : "Set to 1 if the light is on, 0 for off"  : 1
+]
+
+@PointClass color(255 178 77) size(-6 -6 -3, 6 6 3) = light_box : "Sci-Fi Box Light" [
+	light_color(color255) : "Color of the light"  : "255 138 46"
+	light_range(float) : "Light reach distance (0.5-10)"  : "5"
+	light_energy_max(float) : "Maximum light energy (0-8)"  : "2"
+]
+
+@PointClass color(255 229 153) size(-2 -2 -14, 2 2 0) = light_hanging : "Sci-Fi Hanging Light with sway" [
+	light_color(color255) : "Color of the light"  : "229 217 178"
+	light_range(float) : "Light reach distance (0.5-10)"  : "4"
+	light_energy_max(float) : "Maximum light energy (0-5)"  : "2"
+	sway_amplitude(float) : "How much the light sways (0-0.5)"  : "0.05"
+	sway_speed(float) : "Speed of swaying (0.5-5)"  : "1"
+]
+
+@PointClass color(204 128 255) size(-2 -2 -2, 2 2 2) = light_sphere : "Sci-Fi Sphere Light" [
+	light_color(color255) : "Color of the light"  : "201 110 255"
+	light_energy_max(float) : "Maximum light energy (0-5)"  : "1.5"
+]
+
+@PointClass color(178 255 77) size(-1 -1 -3, 1 1 3) = light_static : "Sci-Fi Static Light" [
+	light_color(color255) : "Color of the light"  : "163 255 29"
+	light_energy_max(float) : "Maximum light energy (0-5)"  : "2"
+]
+
+@PointClass color(153 204 255) size(-1 -1 -3, 1 1 3) = light_floating : "Sci-Fi Floating Light with patrol option" [
+	float_amplitude(float) : "Floating bob amplitude"  : "0.2"
+	float_speed(float) : "Floating bob speed"  : "2"
+	patrol_speed(float) : "Patrol movement speed"  : "2"
+	is_patrolling(integer) : "Set to 1 if light should patrol"  : 0
+]
+
+@PointClass color(51 128 255) size(-32 -32 -2, 32 32 2) = light_floor_panel : "Sci-Fi Floor Panel with glowing grid" [
+	grid_color(color255) : "Color of the grid lines"  : "26 102 204"
+]
+
+@PointClass color(77 153 255) size(-2 -32 -6, 2 32 6) = light_path : "Sci-Fi Light Path - arc of small lights" [
+	light_count(integer) : "Number of lights along the path (2-50)"  : 8
+	light_color(color255) : "Color of the lights"  : "51 128 255"
+	light_range(float) : "Light reach distance (0.5-5)"  : "1.5"
+	light_energy_max(float) : "Maximum light energy (0-5)"  : "1.5"
+	show_bulbs(integer) : "Set to 1 to show bulb meshes"  : 1
+	path_length(float) : "Length of the arc (0.5-20)"  : "4"
+	path_height(float) : "Height of the arc (0-2)"  : "0.8"
+]
+
+@PointClass color(255 153 51) size(-3 -3 -3, 3 3 3) = light_volumetric : "Volumetric Glow Light with pulse" [
+	glow_color(color255) : "Color of the glow"  : "255 128 0"
+	glow_intensity(float) : "Glow brightness (0.1-10)"  : "3"
+	pulse_speed(float) : "Pulse animation speed (0-10)"  : "1"
+	pulse_amount(float) : "Amount of pulsing (0-1)"  : "0.3"
+	light_range(float) : "Light reach distance"  : "4"
+	light_energy(float) : "Light energy"  : "2"
+]
+
+@PointClass color(255 102 26) size(-3 -3 0, 3 3 7) = light_emergency_beacon : "Emergency Beacon with rotating light" [
+	beacon_color(color255) : "Color of the beacon light"  : "255 77 0"
+	rotation_speed(float) : "Rotation speed (rotations/sec)"  : "3"
+	pulse_speed(float) : "Pulse frequency"  : "2"
+	light_range(float) : "Light reach distance (0.5-15)"  : "5"
+	light_energy_max(float) : "Maximum light energy (0-8)"  : "3"
+	pulse_min(float) : "Minimum pulse brightness (0-1)"  : "0.3"
+]
+
+@PointClass color(255 229 77) size(-1 -1 -1, 1 1 1) = prop_spark_emitter : "Spark particle emitter with timing controls." [
+	spark_color(color255) : "Color of the sparks"  : "255 204 51"
+	brightness(float) : "Spark brightness (0-3)"  : "1"
+	emission_rate(float) : "Particles per second"  : "10"
+	is_active(integer) : "Set to 1 if emitter is on"  : 1
+	interval(float) : "Seconds between bursts (0=continuous)"  : "0"
+	interval_random(float) : "Random variation added to interval"  : "0"
+	duration(float) : "Duration of each burst"  : "0.1"
+]
+
+@PointClass color(178 178 178) size(-2 -2 -2, 2 2 2) = prop_leak_emitter : "Smoke/steam leak emitter with timing controls." [
+	is_active(integer) : "Set to 1 if emitter starts on"  : 1
+	timeout(float) : "Initial delay before first emission"  : "0"
+	interval(float) : "Seconds between bursts (0=continuous)"  : "0"
+	interval_random(float) : "Random variation added to interval"  : "0"
+	duration(float) : "Duration of each burst"  : "1"
+	fadeout_time(float) : "Seconds for smoke to fade out"  : "5"
+]
+
+@PointClass color(0 255 153) size(-3 -3 -3, 3 3 3) = prop_hologram_projector : "Holographic projector with scanlines." [
+	hologram_color(color255) : "Color of the hologram"  : "0 255 128"
+	scanline_speed(float) : "Scanline animation speed (0-10)"  : "2"
+	scanline_density(float) : "Number of scanlines (1-50)"  : "20"
+	flicker_speed(float) : "Flicker speed (0-20)"  : "5"
+	base_alpha(float) : "Base transparency (0-1)"  : "0.7"
+	active(integer) : "Set to 1 if projector is on"  : 1
+]
+
+@PointClass color(77 153 255) size(-2 -16 -16, 2 16 16) = prop_shield : "Sci-Fi energy shield barrier." [
+	shield_energy(float) : "Shield energy/brightness (0-5)"  : "2"
+]
+
+@PointClass color(204 77 255) size(-8 -8 -8, 8 8 8) = prop_plasma_generator : "Plasma generator with pulsing light core." [
+]
+
+@PointClass color(102 102 204) size(-16 -16 -16, 16 16 16) = prop_elevator : "Multi-floor elevator system." [
+	starts_active(integer) : "Set to 1 if elevator starts active"  : 0
+]
+
+@PointClass color(77 128 178) size(-16 -16 -16, 16 16 16) = prop_airlock : "Airlock chamber." [
+	starts_active(integer) : "Set to 1 if airlock starts active"  : 0
+]
+
+@PointClass color(153 128 77) size(-8 -16 -4, 8 16 4) = prop_conveyor : "Conveyor belt system." [
+	starts_active(integer) : "Set to 1 if conveyor starts running"  : 1
+]
+
+@PointClass color(102 204 102) size(-4 -4 -4, 4 4 4) = prop_cargol_drone : "Cargol Drone that follows the player when activated." [
+	follow_distance(float) : "Distance the drone maintains from player"  : "3"
+	hover_height(float) : "Height at which the drone hovers"  : "3"
+]
+
+@PointClass color(255 229 0) size(-2 -8 -2, 2 8 2) = prop_hazard_tape : "Hazard warning tape following a path." [
+	panel_count(integer) : "Number of tape panels (2-20)"  : 6
+	panel_height(float) : "Height of each tape panel (0.3-3)"  : "1.5"
+	path_length(float) : "Total length of hazard tape (0.5-20)"  : "5"
+	path_height(float) : "Height offset of the tape path"  : "0"
+]

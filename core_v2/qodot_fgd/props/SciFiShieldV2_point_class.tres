@@ -5,6 +5,7 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "prop_shield"
 description = "Sci-Fi energy shield barrier."
 qodot_internal = false
@@ -16,11 +17,12 @@ class_property_descriptions = {
 "shield_energy": "Shield energy/brightness (0-5)"
 }
 meta_properties = {
-"color": Color( 0.3, 0.6, 1.0, 1 ),
-"size": AABB( -16, -16, -2, 16, 16, 2 )
+"color": Color( 0.3, 0.6, 1, 1 ),
+"size": AABB( -2, -16, -16, 2, 16, 16 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "SciFiShieldV2"
+scene_file = ExtResource( 2 )
 scripting = ""

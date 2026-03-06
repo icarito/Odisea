@@ -1,0 +1,15 @@
+[gd_resource type="SpatialMaterial" load_steps=2 format=2]
+
+[ext_resource path="res://textures/steel_grate.png" type="Texture" id=1]
+
+[resource]
+flags_transparent = true
+params_use_alpha_scissor = true
+params_alpha_scissor_threshold = 0.5
+albedo_color = Color( 0.85, 0.88, 0.92, 1 )
+albedo_texture = ExtResource( 1 )
+metallic = 0.75
+roughness = 0.35
+uv1_scale = Vector3( 0.5, 0.5, 0.5 )
+uv1_triplanar = true
+uv1_triplanar_sharpness = 1.0

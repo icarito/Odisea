@@ -5,34 +5,36 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "light_path"
 description = "Sci-Fi Light Path - arc of small lights"
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
+"light_color": Color( 0.2, 0.5, 1, 1 ),
 "light_count": 8,
-"light_color": Color( 0.2, 0.5, 1.0, 1 ),
-"light_range": 1.5,
 "light_energy_max": 1.5,
-"show_bulbs": 1,
+"light_range": 1.5,
+"path_height": 0.8,
 "path_length": 4.0,
-"path_height": 0.8
+"show_bulbs": 1
 }
 class_property_descriptions = {
-"light_count": "Number of lights along the path (2-50)",
 "light_color": "Color of the lights",
-"light_range": "Light reach distance (0.5-5)",
+"light_count": "Number of lights along the path (2-50)",
 "light_energy_max": "Maximum light energy (0-5)",
-"show_bulbs": "Set to 1 to show bulb meshes",
+"light_range": "Light reach distance (0.5-5)",
+"path_height": "Height of the arc (0-2)",
 "path_length": "Length of the arc (0.5-20)",
-"path_height": "Height of the arc (0-2)"
+"show_bulbs": "Set to 1 to show bulb meshes"
 }
 meta_properties = {
-"color": Color( 0.3, 0.6, 1.0, 1 ),
-"size": AABB( -32, -6, -2, 32, 6, 2 )
+"color": Color( 0.3, 0.6, 1, 1 ),
+"size": AABB( -2, -32, -6, 2, 32, 6 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "SciFiLightPathV2"
+scene_file = ExtResource( 2 )
 scripting = ""

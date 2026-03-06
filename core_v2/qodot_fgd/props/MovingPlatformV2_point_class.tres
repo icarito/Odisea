@@ -5,6 +5,7 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "prop_moving_platform"
 description = "Moving Platform"
 qodot_internal = false
@@ -17,10 +18,11 @@ class_property_descriptions = {
 }
 meta_properties = {
 "color": Color( 0.5, 0.5, 0.8, 1 ),
-"size": AABB( -16, -4, -16, 16, 4, 16 )
+"size": AABB( -16, -16, -4, 16, 16, 4 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "MovingPlatformV2"
+scene_file = ExtResource( 2 )
 scripting = ""

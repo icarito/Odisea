@@ -5,32 +5,34 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "light_emergency_beacon"
 description = "Emergency Beacon with rotating light"
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
-"beacon_color": Color( 1.0, 0.3, 0.0, 1 ),
-"rotation_speed": 3.0,
-"pulse_speed": 2.0,
-"light_range": 5.0,
+"beacon_color": Color( 1, 0.3, 0, 1 ),
 "light_energy_max": 3.0,
-"pulse_min": 0.3
+"light_range": 5.0,
+"pulse_min": 0.3,
+"pulse_speed": 2.0,
+"rotation_speed": 3.0
 }
 class_property_descriptions = {
 "beacon_color": "Color of the beacon light",
-"rotation_speed": "Rotation speed (rotations/sec)",
-"pulse_speed": "Pulse frequency",
-"light_range": "Light reach distance (0.5-15)",
 "light_energy_max": "Maximum light energy (0-8)",
-"pulse_min": "Minimum pulse brightness (0-1)"
+"light_range": "Light reach distance (0.5-15)",
+"pulse_min": "Minimum pulse brightness (0-1)",
+"pulse_speed": "Pulse frequency",
+"rotation_speed": "Rotation speed (rotations/sec)"
 }
 meta_properties = {
-"color": Color( 1.0, 0.4, 0.1, 1 ),
-"size": AABB( -3, 0, -3, 3, 7, 3 )
+"color": Color( 1, 0.4, 0.1, 1 ),
+"size": AABB( -3, -3, 0, 3, 3, 7 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "EmergencyBeaconV2"
+scene_file = ExtResource( 2 )
 scripting = ""
