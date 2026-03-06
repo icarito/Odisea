@@ -663,9 +663,15 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 
 			var manager = host_node.get_node_or_null("/root/CinematicManager")
 			if manager:
+				var screen_fx = host_node.get_node_or_null("/root/ScreenEffectsManager")
+				if screen_fx and screen_fx.has_method("show_script_cinematic_bars"):
+					screen_fx.show_script_cinematic_bars()
 				manager.activate_rig(rig_id, mode)
 
 		"CINEMATIC_STOP":
+			var screen_fx = host_node.get_node_or_null("/root/ScreenEffectsManager")
+			if screen_fx and screen_fx.has_method("hide_script_cinematic_bars"):
+				screen_fx.hide_script_cinematic_bars()
 			var manager = host_node.get_node_or_null("/root/CinematicManager")
 			if manager:
 				manager.deactivate_rig()

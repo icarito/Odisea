@@ -338,6 +338,29 @@ class MockCinematicManagerShake extends Node:
 		last_frequency = frequency
 		last_roll = roll_degrees
 
+class MockCinematicManagerCommands extends Node:
+	var activate_calls := []
+	var deactivate_calls := 0
+
+	func activate_rig(rig_id: String, mode: int) -> void:
+		activate_calls.append({
+			"rig_id": rig_id,
+			"mode": mode
+		})
+
+	func deactivate_rig() -> void:
+		deactivate_calls += 1
+
+class MockScreenEffectsManagerCommands extends Node:
+	var show_calls := 0
+	var hide_calls := 0
+
+	func show_script_cinematic_bars(_immediate: bool = false) -> void:
+		show_calls += 1
+
+	func hide_script_cinematic_bars(_immediate: bool = false) -> void:
+		hide_calls += 1
+
 class MockHostForCameraShake extends Node:
 	var cm = null
 	func get_tree():
@@ -345,6 +368,20 @@ class MockHostForCameraShake extends Node:
 	func get_node_or_null(path):
 		if path == "/root/CinematicManager":
 			return cm
+		return .get_node_or_null(path)
+
+class MockHostForCinematicCommands extends Node:
+	var cm = null
+	var screen_fx = null
+
+	func get_tree():
+		return Engine.get_main_loop()
+
+	func get_node_or_null(path):
+		if path == "/root/CinematicManager":
+			return cm
+		if path == "/root/ScreenEffectsManager":
+			return screen_fx
 		return .get_node_or_null(path)
 
 class DisabledSubtitlesManager extends SubtitlesOverlayManager:
@@ -771,6 +808,40 @@ func test_subtitles_manager_uses_overlay_ui_host_when_available():
 	assert_int(overlay.get("_entries").size()).is_equal(0)
 
 	manager.queue_free()
+
+func test_interpreter_cinematic_start_shows_script_bars_and_activates_rig():
+	var cm = MockCinematicManagerCommands.new()
+	var screen_fx = MockScreenEffectsManagerCommands.new()
+	var host = MockHostForCinematicCommands.new()
+	host.cm = cm
+	host.screen_fx = screen_fx
+	add_child(host)
+
+	var interpreter = OYS_Interpreter.new(host)
+	interpreter.parse('CINEMATIC_START "IntroRig" LOCKED_VIEW')
+	yield(_run_interpreter(interpreter), "completed")
+
+	assert_int(screen_fx.show_calls).is_equal(1)
+	assert_int(cm.activate_calls.size()).is_equal(1)
+	assert_str(String(cm.activate_calls[0].get("rig_id", ""))).is_equal("IntroRig")
+	assert_int(int(cm.activate_calls[0].get("mode", -1))).is_equal(2)
+	host.queue_free()
+
+func test_interpreter_cinematic_stop_hides_script_bars_and_deactivates_rig():
+	var cm = MockCinematicManagerCommands.new()
+	var screen_fx = MockScreenEffectsManagerCommands.new()
+	var host = MockHostForCinematicCommands.new()
+	host.cm = cm
+	host.screen_fx = screen_fx
+	add_child(host)
+
+	var interpreter = OYS_Interpreter.new(host)
+	interpreter.parse("CINEMATIC_STOP")
+	yield(_run_interpreter(interpreter), "completed")
+
+	assert_int(screen_fx.hide_calls).is_equal(1)
+	assert_int(cm.deactivate_calls).is_equal(1)
+	host.queue_free()
 
 func test_request_fast_forward_interrupts_player_animation_player():
 	var host = MockHostNoSession.new()

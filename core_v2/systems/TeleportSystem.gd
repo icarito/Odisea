@@ -324,6 +324,12 @@ func _on_player_killed():
 	print("[TeleportSystem] self:", self , " path=", get_path())
 	var pc_path = player_controller.get_path() if is_instance_valid(player_controller) else "null"
 	print("[TeleportSystem] player_controller:", player_controller, " path=", pc_path)
+
+	var screen_fx = get_node_or_null("/root/ScreenEffectsManager")
+	if screen_fx and screen_fx.has_method("begin_death_cover"):
+		var death_cover = screen_fx.begin_death_cover()
+		if death_cover is GDScriptFunctionState:
+			yield(death_cover, "completed")
 	
 	# Activar flag de respawn para que los triggers no ejecuten scripts
 	var session_mgr = get_node_or_null("/root/SessionManager")
@@ -503,10 +509,16 @@ func _on_player_killed():
 		if cam_rig:
 			camera_controller = cam_rig
 		print("[TeleportSystem] Nuevo Pilot instanciado y referenciado. enforced transform and reset state:", new_pilot.initial_transform)
+		if screen_fx and screen_fx.has_method("end_death_cover"):
+			var death_clear = screen_fx.end_death_cover()
+			if death_clear is GDScriptFunctionState:
+				yield(death_clear, "completed")
 		# Desactivar flag de respawn después de algunos frames para permitir que las zonas detecten al player
 		call_deferred("_clear_respawn_flag")
 	else:
 		print("[TeleportSystem] No se pudo reinstanciar Pilot (no estaba en árbol)")
+		if screen_fx and screen_fx.has_method("reset"):
+			screen_fx.reset(true)
 		_clear_respawn_flag()
 
 func _on_checkpoint_reached(transform):

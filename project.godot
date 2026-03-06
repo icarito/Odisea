@@ -1924,13 +1924,14 @@ WallOcclusionManager="*res://core_v2/autoloads/WallOcclusionManager.gd"
 CinematicManager="*res://core_v2/autoloads/CinematicManager.gd"
 CameraTransition="*res://addons/camera_transition/camera_transition.tscn"
 PerformanceMonitor="*res://core_v2/autoloads/PerformanceMonitor.gd"
-OverlayUIManager="*res://core_v2/autoloads/OverlayUIManager.gd"
 SubtitlesOverlayManager="*res://core_v2/autoloads/SubtitlesOverlayManager.gd"
 OptionalNodeManager="*res://core_v2/autoloads/OptionalNodeManager.gd"
 HardwareProfile="*res://core_v2/autoloads/HardwareProfile.gd"
 ShaderCacheManager="*res://addons/gd-shader-cache/src/ShaderCacheManager.gd"
 MobileUIManager="*res://core_v2/autoloads/MobileUIManager.gd"
 DebandingMaterialManager="*res://core_v2/autoloads/DebandingMaterialManager.gd"
+OverlayUIManager="*res://core_v2/autoloads/OverlayUIManager.gd"
+ScreenEffectsManager="*res://core_v2/autoloads/ScreenEffectsManager.gd"
 
 [debug]
 
@@ -1951,7 +1952,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/gdUnit3/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/virtualcamera/plugin.cfg" )
+enabled=PoolStringArray(  )
 
 [gdunit3]
 
