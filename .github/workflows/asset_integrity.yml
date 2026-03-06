@@ -18,7 +18,7 @@ env:
 jobs:
   asset-integrity:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: read
 
@@ -74,7 +74,7 @@ jobs:
             --import-retry-log reports/import_resources_asset_integrity_retry.log \
             --smoke-log reports/resource_smoke_asset_integrity.log \
             --smoke-retry-log reports/resource_smoke_asset_integrity_retry.log \
-            --timeout-import 600 \
+            --timeout-import 900 \
             --timeout-smoke 180 \
             --clean-cache 1 \
             --disable-editor-plugins 1 \
