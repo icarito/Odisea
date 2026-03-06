@@ -6,6 +6,7 @@ const CRITICAL_RESOURCES := [
 	"res://core_v2/components/SlidingObjectV2.tscn",
 	# Fails early when the GLB import pipeline is still incomplete.
 	"res://core_v2/actors/Pilot_v2.tscn",
+	"res://core_v2/actors/Programmer_v2.tscn",
 	# Stage-3 curriculum coverage (doors/sparks/HDR and BaseTerrace deps).
 	"res://core_v2/props/VerticalDoor.tscn",
 	"res://core_v2/props/SparkEmitterV2.tscn",
