@@ -24,7 +24,9 @@ DISABLE_EDITOR_PLUGINS="${DISABLE_EDITOR_PLUGINS:-1}"
 USE_XVFB="${USE_XVFB:-0}"
 FORCE_SOFTWARE="${FORCE_SOFTWARE:-0}"
 IMPORT_MODE="${IMPORT_MODE:-auto}" # auto|quick|full
+ALLOW_IMPORT_RETRY="${ALLOW_IMPORT_RETRY:-1}"
 ALLOW_SMOKE_RETRY="${ALLOW_SMOKE_RETRY:-1}"
+REQUIRE_IMPORT_SUCCESS="${REQUIRE_IMPORT_SUCCESS:-0}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -41,7 +43,9 @@ while [[ $# -gt 0 ]]; do
     --xvfb) USE_XVFB="$2"; shift 2 ;;
     --force-software) FORCE_SOFTWARE="$2"; shift 2 ;;
     --import-mode) IMPORT_MODE="$2"; shift 2 ;;
+    --allow-import-retry) ALLOW_IMPORT_RETRY="$2"; shift 2 ;;
     --allow-smoke-retry) ALLOW_SMOKE_RETRY="$2"; shift 2 ;;
+    --require-successful-import) REQUIRE_IMPORT_SUCCESS="$2"; shift 2 ;;
     *)
       echo "[godot_import_smoke] Unknown arg: $1" >&2
       exit 2
@@ -71,6 +75,17 @@ fi
 project_file="${PROJECT_PATH}/project.godot"
 plugins_backup=""
 plugins_patched=0
+
+if [[ -f "${project_file}.preimport.bak" ]]; then
+  if cmp -s "${project_file}" "${project_file}.preimport.bak"; then
+    rm -f "${project_file}.preimport.bak"
+    echo "[godot_import_smoke] Removed stale preimport backup."
+  else
+    echo "[godot_import_smoke] Refusing to continue: stale ${project_file}.preimport.bak differs from ${project_file}." >&2
+    exit 1
+  fi
+fi
+
 cleanup_project_file() {
   if [[ "${plugins_patched}" -eq 1 && -n "${plugins_backup}" && -f "${plugins_backup}" ]]; then
     mv -f "${plugins_backup}" "${project_file}"
@@ -141,7 +156,9 @@ run_import_once() {
     cmd+=("-e")
   fi
   echo "[godot_import_smoke] Import mode=${import_mode}: ${cmd[*]}"
-  if ! run_cmd "${TIMEOUT_IMPORT_SEC}" "${log_file}" "${cmd[@]}"; then
+  if run_cmd "${TIMEOUT_IMPORT_SEC}" "${log_file}" "${cmd[@]}"; then
+    :
+  else
     local rc=$?
     if [[ "${rc}" -eq 124 ]]; then
       echo "[godot_import_smoke] Import timed out (${TIMEOUT_IMPORT_SEC}s)."
@@ -161,7 +178,9 @@ run_smoke_once() {
   local log_file="$1"
   local -a cmd=("${GODOT_BIN}" "--headless" "--no-window" "--audio-driver" "Dummy" "-s" "tests/ci_resource_smoke.gd")
   echo "[godot_import_smoke] Smoke: ${cmd[*]}"
-  if ! run_cmd "${TIMEOUT_SMOKE_SEC}" "${log_file}" "${cmd[@]}"; then
+  if run_cmd "${TIMEOUT_SMOKE_SEC}" "${log_file}" "${cmd[@]}"; then
+    :
+  else
     local rc=$?
     if [[ "${rc}" -eq 124 ]]; then
       echo "[godot_import_smoke] Smoke timed out (${TIMEOUT_SMOKE_SEC}s)."
@@ -182,12 +201,25 @@ run_smoke_once() {
 }
 
 import_ok=0
-if run_import_once "${IMPORT_MODE}" "${IMPORT_LOG}"; then
+if [[ "${IMPORT_MODE}" == "full" ]]; then
+  if run_import_once "full" "${IMPORT_LOG}"; then
+    import_ok=1
+  elif is_truthy "${ALLOW_IMPORT_RETRY}"; then
+    echo "[godot_import_smoke] Full import incomplete; retrying once with warmed cache..."
+    if run_import_once "full" "${IMPORT_RETRY_LOG}"; then
+      import_ok=1
+    fi
+  fi
+elif run_import_once "${IMPORT_MODE}" "${IMPORT_LOG}"; then
   import_ok=1
 fi
 
 if run_smoke_once "${SMOKE_LOG}"; then
   if [[ "${import_ok}" -eq 0 ]]; then
+    if is_truthy "${REQUIRE_IMPORT_SUCCESS}"; then
+      echo "[godot_import_smoke] Smoke passed, but import did not complete successfully."
+      exit 1
+    fi
     echo "[godot_import_smoke] Import failed/timed out, but smoke passed."
   fi
   echo "[godot_import_smoke] Preimport + smoke OK."
@@ -199,9 +231,18 @@ if [[ "${IMPORT_MODE}" != "full" ]]; then
   import_ok=0
   if run_import_once "full" "${IMPORT_RETRY_LOG}"; then
     import_ok=1
+  elif is_truthy "${ALLOW_IMPORT_RETRY}"; then
+    echo "[godot_import_smoke] Escalated full import incomplete; retrying once with warmed cache..."
+    if run_import_once "full" "${IMPORT_RETRY_LOG}"; then
+      import_ok=1
+    fi
   fi
   if run_smoke_once "${SMOKE_RETRY_LOG}"; then
     if [[ "${import_ok}" -eq 0 ]]; then
+      if is_truthy "${REQUIRE_IMPORT_SUCCESS}"; then
+        echo "[godot_import_smoke] Smoke passed after escalation, but full import did not complete successfully."
+        exit 1
+      fi
       echo "[godot_import_smoke] Full import failed/timed out, but smoke passed after escalation."
     fi
     echo "[godot_import_smoke] Full import fallback + smoke OK."

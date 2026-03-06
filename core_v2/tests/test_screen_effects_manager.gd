@@ -1,5 +1,20 @@
 extends GdUnitTestSuite
 
+var _previous_screen_effects_env := ""
+
+func before_test() -> void:
+	_previous_screen_effects_env = OS.get_environment("OYS_SCREEN_EFFECTS")
+	OS.set_environment("OYS_SCREEN_EFFECTS", "1")
+	var manager = get_tree().root.get_node_or_null("ScreenEffectsManager")
+	if manager:
+		manager.reset(true)
+
+func after_test() -> void:
+	var manager = get_tree().root.get_node_or_null("ScreenEffectsManager")
+	if manager:
+		manager.reset(true)
+	OS.set_environment("OYS_SCREEN_EFFECTS", _previous_screen_effects_env)
+
 func test_screen_effects_manager_mounts_overlay_and_toggles_cinematic_bars() -> void:
 	var manager = get_tree().root.get_node_or_null("ScreenEffectsManager")
 	var overlay_ui = get_tree().root.get_node_or_null("OverlayUIManager")

@@ -18,7 +18,7 @@ env:
 jobs:
   asset-integrity:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       contents: read
 
@@ -71,6 +71,7 @@ jobs:
             --godot-bin /usr/local/bin/godot \
             --project-path . \
             --import-log reports/import_resources_asset_integrity.log \
+            --import-retry-log reports/import_resources_asset_integrity_retry.log \
             --smoke-log reports/resource_smoke_asset_integrity.log \
             --smoke-retry-log reports/resource_smoke_asset_integrity_retry.log \
             --timeout-import 600 \
@@ -80,6 +81,7 @@ jobs:
             --xvfb 0 \
             --force-software 0 \
             --import-mode full \
+            --allow-import-retry 1 \
             --allow-smoke-retry 1
 
       - name: Upload asset integrity logs
@@ -89,5 +91,6 @@ jobs:
           name: asset-integrity-logs
           path: |
             reports/import_resources_asset_integrity.log
+            reports/import_resources_asset_integrity_retry.log
             reports/resource_smoke_asset_integrity.log
             reports/resource_smoke_asset_integrity_retry.log
