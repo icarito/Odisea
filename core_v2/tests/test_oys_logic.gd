@@ -843,6 +843,36 @@ func test_interpreter_cinematic_stop_hides_script_bars_and_deactivates_rig():
 	assert_int(cm.deactivate_calls).is_equal(1)
 	host.queue_free()
 
+func test_interpreter_cinematic_command_shows_script_bars():
+	var cm = MockCinematicManagerCommands.new()
+	var screen_fx = MockScreenEffectsManagerCommands.new()
+	var host = MockHostForCinematicCommands.new()
+	host.cm = cm
+	host.screen_fx = screen_fx
+	add_child(host)
+
+	var interpreter = OYS_Interpreter.new(host)
+	interpreter.parse("CINEMATIC")
+	yield(_run_interpreter(interpreter), "completed")
+
+	assert_int(screen_fx.show_calls).is_equal(1)
+	host.queue_free()
+
+func test_interpreter_interactive_hides_script_bars():
+	var cm = MockCinematicManagerCommands.new()
+	var screen_fx = MockScreenEffectsManagerCommands.new()
+	var host = MockHostForCinematicCommands.new()
+	host.cm = cm
+	host.screen_fx = screen_fx
+	add_child(host)
+
+	var interpreter = OYS_Interpreter.new(host)
+	interpreter.parse("INTERACTIVE")
+	yield(_run_interpreter(interpreter), "completed")
+
+	assert_int(screen_fx.hide_calls).is_equal(1)
+	host.queue_free()
+
 func test_request_fast_forward_interrupts_player_animation_player():
 	var host = MockHostNoSession.new()
 	add_child(host)

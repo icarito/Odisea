@@ -330,11 +330,15 @@ func _on_player_killed():
 		var death_cover = screen_fx.begin_death_cover()
 		if death_cover is GDScriptFunctionState:
 			yield(death_cover, "completed")
-	
-	# Activar flag de respawn para que los triggers no ejecuten scripts
+
+	# Activar flag de respawn antes de la espera interactiva para congelar triggers/scripts.
 	var session_mgr = get_node_or_null("/root/SessionManager")
 	if session_mgr:
 		session_mgr.is_respawning = true
+	if screen_fx and screen_fx.has_method("wait_for_death_confirm"):
+		var death_confirm = screen_fx.wait_for_death_confirm()
+		if death_confirm is GDScriptFunctionState:
+			yield(death_confirm, "completed")
 		
 	# Resetear CinematicManager para soltar cualquier cámara bloqueada al morir
 	var cin_mgr = get_node_or_null("/root/CinematicManager")

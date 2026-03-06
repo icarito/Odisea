@@ -34,6 +34,16 @@ func end_death_cover(params: Dictionary = {}):
 		return _overlay.end_death_cover(params)
 	return null
 
+func wait_for_death_confirm(params: Dictionary = {}):
+	if _should_skip_death_confirm(params):
+		return null
+	if not _ensure_overlay():
+		_warn_unavailable_once("wait_for_death_confirm")
+		return null
+	if _overlay.has_method("wait_for_death_confirm"):
+		return _overlay.wait_for_death_confirm(params)
+	return null
+
 func reset(immediate: bool = true) -> void:
 	_script_cinematic_depth = 0
 	if not _ensure_overlay():
@@ -51,6 +61,26 @@ func is_enabled() -> bool:
 	if OS.has_feature("Server"):
 		return false
 	return true
+
+func _should_skip_death_confirm(params: Dictionary) -> bool:
+	if bool(params.get("skip", false)):
+		return true
+	if OS.has_feature("Server"):
+		return true
+	if OS.get_environment("OYS_AUTO_RUN").strip_edges() != "":
+		return true
+	var session = get_node_or_null("/root/SessionManager")
+	if not session:
+		return false
+	if bool(session.get("is_cli_mode")):
+		return true
+	if bool(session.get("is_recording")):
+		return true
+	if bool(session.get("is_replaying")):
+		return true
+	if bool(session.get("_is_waiting_for_respawn_validation")):
+		return true
+	return false
 
 func _set_script_cinematic_visible(enabled: bool, immediate: bool) -> void:
 	if not _ensure_overlay():

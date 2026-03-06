@@ -773,12 +773,18 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			_apply_camera_shake(inst)
 
 		"CINEMATIC":
+			var screen_fx = host_node.get_node_or_null("/root/ScreenEffectsManager")
+			if screen_fx and screen_fx.has_method("show_script_cinematic_bars"):
+				screen_fx.show_script_cinematic_bars()
 			# Disable player input
 			var player = _find_player()
 			if player and "input_provider" in player and player.input_provider:
 				player.input_provider.hardware_input_enabled = false
 				
 		"INTERACTIVE":
+			var screen_fx = host_node.get_node_or_null("/root/ScreenEffectsManager")
+			if screen_fx and screen_fx.has_method("hide_script_cinematic_bars"):
+				screen_fx.hide_script_cinematic_bars()
 			# Enable player input and stop fast forward
 			var player = _find_player()
 			if player and "input_provider" in player and player.input_provider:

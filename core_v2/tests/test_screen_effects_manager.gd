@@ -40,3 +40,15 @@ func test_screen_effects_manager_death_cover_roundtrip() -> void:
 		yield(clear_state, "completed")
 	assert_bool(is_equal_approx(float(overlay.get("death_progress")), 0.0)).is_true()
 	manager.reset(true)
+
+func test_screen_effects_manager_skips_death_confirm_in_cli_mode() -> void:
+	var manager = get_tree().root.get_node_or_null("ScreenEffectsManager")
+	var session = get_tree().root.get_node_or_null("SessionManager")
+	assert_object(manager).is_not_null()
+	assert_object(session).is_not_null()
+
+	var previous_cli_mode = bool(session.is_cli_mode)
+	session.is_cli_mode = true
+	var wait_state = manager.wait_for_death_confirm()
+	assert_bool(wait_state == null).is_true()
+	session.is_cli_mode = previous_cli_mode

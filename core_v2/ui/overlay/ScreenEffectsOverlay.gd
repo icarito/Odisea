@@ -2,6 +2,7 @@ extends Control
 
 signal death_cover_reached
 signal death_cover_cleared
+signal death_confirmed
 
 export(float) var death_close_sec := 0.15
 export(float) var death_open_sec := 0.18
@@ -12,6 +13,7 @@ export(float) var cinematic_bar_height_ratio := 0.11
 
 var death_progress := 0.0 setget _set_death_progress
 var cinematic_progress := 0.0 setget _set_cinematic_progress
+var _waiting_for_death_confirm := false
 
 onready var _effect_rect: ColorRect = $EffectRect
 onready var _title: Label = $Title
@@ -19,6 +21,7 @@ onready var _title: Label = $Title
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_effect_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	set_process_input(false)
 	_prepare_material()
 	_update_shader_params()
 	_update_title()
@@ -35,11 +38,19 @@ func begin_death_cover(params: Dictionary = {}):
 
 func end_death_cover(params: Dictionary = {}):
 	var duration := float(params.get("duration", death_open_sec))
+	_cancel_death_confirm_wait()
 	_stop_active_tweens()
 	var state = _animate_value("_set_death_progress", death_progress, 0.0, duration)
 	if state is GDScriptFunctionState:
 		yield(state, "completed")
 	emit_signal("death_cover_cleared")
+
+func wait_for_death_confirm(_params: Dictionary = {}):
+	if _waiting_for_death_confirm:
+		yield(self, "death_confirmed")
+		return
+	_set_waiting_for_death_confirm(true)
+	yield(self, "death_confirmed")
 
 func set_cinematic_bars_enabled(enabled: bool, immediate: bool = false) -> void:
 	_stop_active_tweens_for("CinematicTween")
@@ -50,6 +61,7 @@ func set_cinematic_bars_enabled(enabled: bool, immediate: bool = false) -> void:
 	_animate_value("_set_cinematic_progress", cinematic_progress, target, cinematic_transition_sec, "CinematicTween")
 
 func reset_effects(immediate: bool = true) -> void:
+	_cancel_death_confirm_wait()
 	_stop_active_tweens()
 	if immediate:
 		_set_death_progress(0.0)
@@ -90,6 +102,8 @@ func _update_title() -> void:
 	if not is_instance_valid(_title):
 		return
 	var title_alpha = clamp((death_progress - 0.72) / 0.24, 0.0, 1.0)
+	if _waiting_for_death_confirm:
+		title_alpha = max(title_alpha, 1.0)
 	_title.visible = title_alpha > 0.01
 	var c = _title.modulate
 	c.a = title_alpha
@@ -97,6 +111,14 @@ func _update_title() -> void:
 
 func _update_visibility() -> void:
 	visible = death_progress > 0.001 or cinematic_progress > 0.001
+
+func _input(event: InputEvent) -> void:
+	if not _waiting_for_death_confirm:
+		return
+	if not _is_confirm_event(event):
+		return
+	_complete_death_confirm_wait()
+	get_tree().set_input_as_handled()
 
 func _animate_value(method_name: String, from_value: float, to_value: float, duration: float, tween_name: String = "DeathTween"):
 	if duration <= 0.0:
@@ -120,3 +142,31 @@ func _stop_active_tweens_for(tween_name: String) -> void:
 	if tween and tween is Tween:
 		tween.stop_all()
 		tween.queue_free()
+
+func _set_waiting_for_death_confirm(waiting: bool) -> void:
+	_waiting_for_death_confirm = waiting
+	set_process_input(waiting)
+	_update_title()
+
+func _complete_death_confirm_wait() -> void:
+	if not _waiting_for_death_confirm:
+		return
+	_set_waiting_for_death_confirm(false)
+	emit_signal("death_confirmed")
+
+func _cancel_death_confirm_wait() -> void:
+	if not _waiting_for_death_confirm:
+		return
+	_set_waiting_for_death_confirm(false)
+	emit_signal("death_confirmed")
+
+func _is_confirm_event(event: InputEvent) -> bool:
+	if event is InputEventKey:
+		return event.pressed and not event.echo
+	if event is InputEventJoypadButton:
+		return event.pressed
+	if event is InputEventMouseButton:
+		return event.pressed
+	if event is InputEventScreenTouch:
+		return event.pressed
+	return false
