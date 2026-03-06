@@ -1,4 +1,4 @@
-extends CanvasLayer
+extends Control
 
 export(float) var default_duration := 2.5
 export(float) var fade_in_sec := 0.2
@@ -10,27 +10,29 @@ export(float) var horizontal_margin := 32.0
 export(float) var line_spacing := 8.0
 export(float) var max_width_ratio := 0.86
 export(float) var panel_alpha := 0.62
+export(float) var safe_area_padding := 20.0
+export(int, 1, 8) var max_visible_lines := 4
+export(int, 10, 48) var font_size := 20
 
 var _entries := []
 var _layout_tween: Tween = null
 var _cached_font: DynamicFont = null
+var _expiry_timer: Timer = null
 
 onready var _layer: Control = $Layer
-var _stack: VBoxContainer = null
 
 func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if is_instance_valid(_layer):
 		_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	set_process(true)
+		_layer.anchor_right = 1.0
+		_layer.anchor_bottom = 1.0
+	_ensure_expiry_timer()
+	_reflow(false)
 
-func _process(_delta: float) -> void:
-	var now = OS.get_ticks_msec() / 1000.0
-	for entry in _entries:
-		if bool(entry.get("fading", false)):
-			continue
-		var expires_at = float(entry.get("expires_at", 0.0))
-		if now >= expires_at:
-			_start_fade_out(entry, fade_out_sec)
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED and is_instance_valid(_layer):
+		_reflow(false)
 
 func show_subtitle(text: String, color: Color = Color.white, duration: float = 2.5) -> void:
 	if text.strip_edges() == "":
@@ -45,9 +47,11 @@ func show_subtitle(text: String, color: Color = Color.white, duration: float = 2
 		"target_pos": Vector2.ZERO
 	}
 	_entries.append(entry)
+	_trim_excess_lines()
 	line.modulate.a = 0.0
 	_tween_alpha(line, 0.0, 1.0, fade_in_sec)
 	_reflow(true)
+	_schedule_next_expiry()
 
 func clear_subtitles(immediate: bool = false) -> void:
 	if immediate:
@@ -56,6 +60,7 @@ func clear_subtitles(immediate: bool = false) -> void:
 	var copied = _entries.duplicate()
 	for entry in copied:
 		_start_fade_out(entry, clear_fade_out_sec)
+	_schedule_next_expiry()
 
 func _build_line(text: String, color: Color) -> PanelContainer:
 	var panel := PanelContainer.new()
@@ -78,7 +83,7 @@ func _build_line(text: String, color: Color) -> PanelContainer:
 	label.align = Label.ALIGN_CENTER
 	label.valign = Label.VALIGN_CENTER
 	label.text = text
-	label.add_color_override("font_color", Color.white)
+	label.add_color_override("font_color", color)
 	var font = _get_subtitle_font()
 	label.add_font_override("font", font)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -90,7 +95,12 @@ func _build_line(text: String, color: Color) -> PanelContainer:
 	
 	var v_size = _layer.get_viewport_rect().size
 	if v_size.x <= 0: v_size = Vector2(1024, 600)
-	var max_w = min(600.0, v_size.x * 0.8)
+	var safe_margins = _get_safe_margins()
+	var usable_width = max(
+		240.0,
+		v_size.x - float(safe_margins.get("left", 0.0)) - float(safe_margins.get("right", 0.0)) - (horizontal_margin * 2.0)
+	)
+	var max_w = min(usable_width, v_size.x * max_width_ratio)
 	var req_w = clamp(text_w + 64.0, 240.0, max_w)
 	
 	panel.rect_min_size = Vector2(req_w, 0.0)
@@ -123,7 +133,7 @@ func _get_subtitle_font() -> DynamicFont:
 	var font_data = load("res://assets/fonts/SyneMono-Regular.ttf")
 	if not font_data: font_data = load("res://core_v2/ui/fonts/SyneMono-Regular.ttf")
 	if font_data: _cached_font.font_data = font_data
-	_cached_font.size = 20
+	_cached_font.size = font_size
 	_cached_font.use_filter = false
 	_cached_font.use_mipmaps = false
 	return _cached_font
@@ -132,18 +142,23 @@ func _build_font() -> DynamicFont:
 	return _get_subtitle_font()
 
 func _reflow(animated: bool) -> void:
+	if not is_instance_valid(_layer):
+		return
 	_cleanup_stale_entries()
 	var v_size = _layer.get_viewport_rect().size
 	if v_size.x <= 0.0: v_size = Vector2(1024, 600)
 
-	var cursor_y = v_size.y - bottom_margin
+	var safe_margins = _get_safe_margins()
+	var cursor_y = v_size.y - bottom_margin - float(safe_margins.get("bottom", 0.0))
 	for i in range(_entries.size() - 1, -1, -1):
 		var entry = _entries[i]
 		var node = entry.get("node", null)
 		if not is_instance_valid(node):
 			continue
 		var node_size = node.rect_min_size
-		var pos = Vector2((v_size.x - node_size.x) * 0.5, cursor_y - node_size.y)
+		var usable_width = v_size.x - float(safe_margins.get("left", 0.0)) - float(safe_margins.get("right", 0.0))
+		var pos_x = float(safe_margins.get("left", 0.0)) + max(0.0, (usable_width - node_size.x) * 0.5)
+		var pos = Vector2(pos_x, cursor_y - node_size.y)
 		entry["target_pos"] = pos
 		_entries[i] = entry
 		cursor_y = pos.y - line_spacing
@@ -174,6 +189,7 @@ func _start_fade_out(entry: Dictionary, duration_sec: float) -> void:
 		return
 	entry["fading"] = true
 	_tween_alpha(node, node.modulate.a, 0.0, max(0.05, duration_sec), true, entry)
+	_schedule_next_expiry()
 
 func _tween_alpha(node: CanvasItem, from_a: float, to_a: float, duration_sec: float, remove_on_complete: bool = false, entry: Dictionary = {}) -> void:
 	if not is_instance_valid(node):
@@ -204,6 +220,7 @@ func _on_fade_out_completed(entry: Dictionary, tw: Tween) -> void:
 		node.queue_free()
 	_remove_entry(entry)
 	_reflow(false)
+	_schedule_next_expiry()
 
 func _remove_entry(entry: Dictionary) -> void:
 	var target_node = entry.get("node", null)
@@ -226,3 +243,65 @@ func _kill_all() -> void:
 		if is_instance_valid(node):
 			node.queue_free()
 	_entries.clear()
+	if is_instance_valid(_expiry_timer):
+		_expiry_timer.stop()
+
+func _ensure_expiry_timer() -> void:
+	if is_instance_valid(_expiry_timer):
+		return
+	_expiry_timer = Timer.new()
+	_expiry_timer.name = "ExpiryTimer"
+	_expiry_timer.one_shot = true
+	_expiry_timer.pause_mode = Node.PAUSE_MODE_PROCESS
+	add_child(_expiry_timer)
+	_expiry_timer.connect("timeout", self, "_on_expiry_timeout")
+
+func _on_expiry_timeout() -> void:
+	var now = OS.get_ticks_msec() / 1000.0
+	var copied = _entries.duplicate()
+	for entry in copied:
+		if bool(entry.get("fading", false)):
+			continue
+		if now >= float(entry.get("expires_at", 0.0)):
+			_start_fade_out(entry, fade_out_sec)
+	_schedule_next_expiry()
+
+func _schedule_next_expiry() -> void:
+	if not is_instance_valid(_expiry_timer):
+		return
+	var now = OS.get_ticks_msec() / 1000.0
+	var next_expire := -1.0
+	for entry in _entries:
+		if bool(entry.get("fading", false)):
+			continue
+		var expires_at = float(entry.get("expires_at", 0.0))
+		if next_expire < 0.0 or expires_at < next_expire:
+			next_expire = expires_at
+	if next_expire < 0.0:
+		_expiry_timer.stop()
+		return
+	_expiry_timer.start(max(0.01, next_expire - now))
+
+func _trim_excess_lines() -> void:
+	if max_visible_lines <= 0:
+		return
+	var active_count := 0
+	for i in range(_entries.size() - 1, -1, -1):
+		var entry = _entries[i]
+		if bool(entry.get("fading", false)):
+			continue
+		active_count += 1
+		if active_count > max_visible_lines:
+			_start_fade_out(entry, clear_fade_out_sec)
+
+func _get_safe_margins() -> Dictionary:
+	var margins = {
+		"left": 0.0,
+		"top": 0.0,
+		"right": 0.0,
+		"bottom": 0.0
+	}
+	var overlay_ui = get_node_or_null("/root/OverlayUIManager")
+	if overlay_ui and overlay_ui.has_method("get_safe_margins"):
+		margins = overlay_ui.get_safe_margins(safe_area_padding)
+	return margins

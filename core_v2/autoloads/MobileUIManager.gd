@@ -52,3 +52,34 @@ func _get_active_input_provider():
 
 func is_mobile() -> bool:
 	return _is_mobile
+
+func get_reserved_overlay_margins(padding: float = 16.0) -> Dictionary:
+	var margins = {
+		"left": 0.0,
+		"top": 0.0,
+		"right": 0.0,
+		"bottom": 0.0
+	}
+	if not is_instance_valid(_mobile_ui):
+		return margins
+
+	var viewport_size = get_viewport().get_visible_rect().size
+	margins = _expand_overlay_margins(margins, _mobile_ui.get_node_or_null("Container/MoveJoystick"), viewport_size, padding)
+	margins = _expand_overlay_margins(margins, _mobile_ui.get_node_or_null("Container/ActionButtons"), viewport_size, padding)
+	return margins
+
+func _expand_overlay_margins(margins: Dictionary, ctrl: Control, viewport_size: Vector2, padding: float) -> Dictionary:
+	if not is_instance_valid(ctrl) or not ctrl.visible:
+		return margins
+
+	var top_left = ctrl.rect_global_position
+	var scale = ctrl.rect_scale
+	var size = Vector2(ctrl.rect_size.x * abs(scale.x), ctrl.rect_size.y * abs(scale.y))
+	var bottom_right = top_left + size
+
+	margins["bottom"] = max(float(margins.get("bottom", 0.0)), max(0.0, viewport_size.y - top_left.y + padding))
+	if bottom_right.x <= viewport_size.x * 0.5:
+		margins["left"] = max(float(margins.get("left", 0.0)), bottom_right.x + padding)
+	if top_left.x >= viewport_size.x * 0.5:
+		margins["right"] = max(float(margins.get("right", 0.0)), viewport_size.x - top_left.x + padding)
+	return margins

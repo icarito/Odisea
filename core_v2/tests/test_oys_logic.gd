@@ -351,6 +351,39 @@ class DisabledSubtitlesManager extends SubtitlesOverlayManager:
 	func is_enabled() -> bool:
 		return false
 
+class EnabledSubtitlesManager extends SubtitlesOverlayManager:
+	func is_enabled() -> bool:
+		return true
+
+class MockSubtitleOverlay extends Node:
+	var shown := []
+	var clears := []
+
+	func show_subtitle(text: String, color: Color = Color.white, duration: float = 2.5) -> void:
+		shown.append({
+			"text": text,
+			"color": color,
+			"duration": duration
+		})
+
+	func clear_subtitles(immediate: bool = false) -> void:
+		clears.append(immediate)
+
+class MockOverlayUIManager extends Node:
+	var ensure_calls := 0
+	var last_slot := ""
+
+	func ensure_overlay(node_name: String, _scene: PackedScene, slot_name: String = "Passive") -> Node:
+		ensure_calls += 1
+		last_slot = slot_name
+		var existing = get_node_or_null(node_name)
+		if existing:
+			return existing
+		var overlay = MockSubtitleOverlay.new()
+		overlay.name = node_name
+		add_child(overlay)
+		return overlay
+
 func _run_interpreter(interpreter) -> void:
 	var state = interpreter.run()
 	if state is GDScriptFunctionState:
@@ -712,6 +745,32 @@ func test_subtitles_manager_warn_once_when_unavailable():
 	manager.clear_subtitles(false)
 	assert_bool(manager.get("_warned_unavailable")).is_true()
 	manager.free()
+
+func test_subtitles_manager_uses_overlay_ui_host_when_available():
+	var overlay_ui = get_tree().root.get_node_or_null("OverlayUIManager")
+	assert_object(overlay_ui).is_not_null()
+
+	var passive_slot = overlay_ui.get_slot("Passive")
+	var existing = passive_slot.get_node_or_null("SubtitlesOverlay")
+	if existing:
+		existing.queue_free()
+		yield (get_tree(), "idle_frame")
+
+	var manager = EnabledSubtitlesManager.new()
+	add_child(manager)
+
+	manager.show_subtitle("hola overlay", Color(1, 0, 0), 1.5)
+	yield (get_tree(), "idle_frame")
+
+	var overlay = passive_slot.get_node_or_null("SubtitlesOverlay")
+	assert_object(overlay).is_not_null()
+	assert_bool(overlay.get_parent() == passive_slot).is_true()
+	assert_int(overlay.get("_entries").size()).is_equal(1)
+
+	manager.clear_subtitles(true)
+	assert_int(overlay.get("_entries").size()).is_equal(0)
+
+	manager.queue_free()
 
 func test_request_fast_forward_interrupts_player_animation_player():
 	var host = MockHostNoSession.new()

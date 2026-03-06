@@ -1,6 +1,7 @@
 extends Node
 
 const SubtitlesOverlayScene = preload("res://core_v2/ui/retro/SubtitlesOverlay.tscn")
+const OVERLAY_UI_PATH := "/root/OverlayUIManager"
 
 var _overlay: Node = null
 var _warned_unavailable := false
@@ -37,13 +38,15 @@ func _ensure_overlay() -> bool:
 		return true
 	if not get_tree() or not is_instance_valid(get_tree().root):
 		return false
-	_overlay = SubtitlesOverlayScene.instance()
-	if not is_instance_valid(_overlay):
-		return false
-	_overlay.name = "SubtitlesOverlay"
-	# Always add to root to ensure it stays across scene changes
-	get_tree().root.add_child(_overlay)
-	return true
+	var overlay_ui = get_node_or_null(OVERLAY_UI_PATH)
+	if overlay_ui and overlay_ui.has_method("ensure_overlay"):
+		_overlay = overlay_ui.ensure_overlay("SubtitlesOverlay", SubtitlesOverlayScene, "Passive")
+	else:
+		_overlay = SubtitlesOverlayScene.instance()
+		if is_instance_valid(_overlay):
+			_overlay.name = "SubtitlesOverlay"
+			get_tree().root.add_child(_overlay)
+	return is_instance_valid(_overlay)
 
 func _warn_unavailable_once(context: String) -> void:
 	if _warned_unavailable:
