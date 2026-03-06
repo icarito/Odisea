@@ -52,10 +52,17 @@ mkdir -p "$(dirname "${SMOKE_LOG}")"
 mkdir -p "$(dirname "${SMOKE_RETRY_LOG}")"
 
 if is_truthy "${CLEAN_CACHE}"; then
-  echo "[godot_import_smoke] Cleaning import caches (.import, .godot/imported)..."
+  echo "[godot_import_smoke] Cleaning import caches (.godot/imported; preserving tracked .import artifacts)..."
   rm -rf "${PROJECT_PATH}/.godot/imported"
   mkdir -p "${PROJECT_PATH}/.import"
-  find "${PROJECT_PATH}/.import" -mindepth 1 -maxdepth 1 -type f -delete || true
+  if git -C "${PROJECT_PATH}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    while IFS= read -r -d '' import_file; do
+      rel_path="${import_file#${PROJECT_PATH}/}"
+      if ! git -C "${PROJECT_PATH}" ls-files --error-unmatch "${rel_path}" >/dev/null 2>&1; then
+        rm -f "${import_file}"
+      fi
+    done < <(find "${PROJECT_PATH}/.import" -mindepth 1 -maxdepth 1 -type f -print0)
+  fi
 fi
 
 project_file="${PROJECT_PATH}/project.godot"
