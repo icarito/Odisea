@@ -69,7 +69,7 @@ func _is_disabled_for_current_run() -> bool:
 	var disable_rl = disable_in_rl.to_lower() in ["1", "true", "yes", "on"]
 	return in_rl and disable_rl
 
-func _process(delta):
+func _process(_delta):
 	_frame_start_time = OS.get_ticks_usec()
 
 	# 1. Gather Global Metrics

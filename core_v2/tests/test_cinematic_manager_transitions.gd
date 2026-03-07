@@ -319,7 +319,7 @@ func test_force_finish_transition_snaps_vcam_brain_state():
 	yield (get_tree(), "idle_frame")
 	yield (get_tree(), "idle_frame")
 
-	var req_id: int = cm.activate_vcamera(intro_far, 1.4)
+	var req_id: int = int(cm.activate_vcamera(intro_far, 1.4))
 	assert_int(req_id).is_greater(0)
 	cm.step(1.0 / 60.0)
 
@@ -355,7 +355,7 @@ func test_vcamera_blend_zero_duration_snaps_immediately():
 	yield (get_tree(), "idle_frame")
 	yield (get_tree(), "idle_frame")
 
-	var req_id: int = cm.activate_vcamera(intro_far, 1.0)
+	var req_id: int = int(cm.activate_vcamera(intro_far, 1.0))
 	assert_int(req_id).is_greater(0)
 	cm.step(1.0 / 60.0)
 
@@ -396,7 +396,7 @@ func test_vcamera_deactivate_zero_duration_ignores_resume_blend():
 	for _i in range(120):
 		cm.step(1.0 / 60.0)
 
-	var req_id: int = cm.activate_vcamera(intro_far, 1.0)
+	var req_id: int = int(cm.activate_vcamera(intro_far, 1.0))
 	assert_int(req_id).is_greater(0)
 	cm.step(1.0 / 60.0)
 
@@ -516,7 +516,7 @@ func test_vcamera_blend_updates_request_and_avoids_reactivation_loop():
 	yield (get_tree(), "idle_frame")
 	yield (get_tree(), "idle_frame")
 
-	var req_id: int = cm.activate_vcamera(intro_far, 1.4)
+	var req_id: int = int(cm.activate_vcamera(intro_far, 1.4))
 	assert_int(req_id).is_greater(0)
 	cm.step(1.0 / 60.0)
 

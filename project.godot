@@ -1942,6 +1942,7 @@ VideoExporter="*res://core_v2/systems/VideoExporter.gd"
 [debug]
 
 keep_debug_server_open=true
+debug/gdscript/warnings/exclude_addons=true
 
 [display]
 

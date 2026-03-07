@@ -534,7 +534,7 @@ func _get_anchor_pos(node: Spatial) -> Vector3:
 		return anchor.global_transform.origin
 	return node.global_transform.origin
 
-func _generate_catenary(curve: Curve3D, start: Vector3, end: Vector3, slack: float = 0.5):
+func _generate_catenary(curve: Curve3D, start: Vector3, end: Vector3, _slack: float = 0.5):
 	# Cable routing: go from start anchor, down to floor, across, up to end anchor
 	# This simulates how a real builder would run cables along surfaces
 	# Convert global points to local to Manager (as cables are children of Manager)

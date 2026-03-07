@@ -17,7 +17,7 @@ func _ready():
 		if not is_connected("checkpoint_reached", teleport_system, "_on_checkpoint_reached"):
 			connect("checkpoint_reached", teleport_system, "_on_checkpoint_reached")
 
-func _on_zone_entered(body: Node):
+func _on_zone_entered(_body: Node):
 	var base_transform = _get_base_transform()
 	emit_signal("checkpoint_reached", base_transform)
 

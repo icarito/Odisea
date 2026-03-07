@@ -292,7 +292,7 @@ class MockHostWithSceneManager extends Node:
 class RecordingInterpreter extends OYS_Interpreter:
 	var subtitles := []
 	var clears := []
-	func _init(host = null).(host):
+	func _init(_host = null).(_host):
 		pass
 	func _show_subtitle(text: String, color: Color = Color.white, duration: float = 2.5) -> void:
 		subtitles.append({"text": text, "color": color, "duration": duration})
@@ -304,7 +304,7 @@ class SystemMockInterpreter extends OYS_Interpreter:
 	var async_pid := 4242
 	var sync_exit_code := 7
 
-	func _init(host = null).(host):
+	func _init(_host = null).(_host):
 		pass
 
 	func _run_system_command(exec_path: String, exec_args: Array, blocking: bool) -> Dictionary:

@@ -546,7 +546,7 @@ func _start_dynamic_transition(from: Camera, to: Camera, duration: float, purpos
 func _start_dynamic_transform() -> Transform:
 	return _transition_start_transform
 
-func _process(delta: float):
+func _process(_delta: float):
 	pass
 
 func _update_dynamic_transition(dt: float) -> void:

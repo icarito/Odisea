@@ -176,7 +176,7 @@ func capture_frame(player: Node) -> Dictionary:
 		}
 	}
 
-func step(dt: float):
+func step(_dt: float):
 	if not is_playing_ghost:
 		return
 
