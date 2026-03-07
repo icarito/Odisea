@@ -180,12 +180,17 @@ func _ready():
 	_env_vars["$sys_env_auto_run"] = OS.get_environment("OYS_AUTO_RUN")
 
 	# --- Project A.N.N.A Integration ---
-	if OS.get_environment("ANNA_ENABLED") == "1":
+	if _should_enable_anna_bridge():
 		var allow_remote_anna = OS.get_environment(ALLOW_ANNA_IN_REMOTE_DEBUG_ENV).to_lower() in ["1", "true", "yes", "on"]
+		if _is_vscode_remote_debug_session():
+			allow_remote_anna = true
 		if _is_remote_debug_session() and not allow_remote_anna:
 			print("[SessionManager] Skipping AnnaBridge in remote-debug session for stability (%s=1 to override)." % ALLOW_ANNA_IN_REMOTE_DEBUG_ENV)
 		else:
-			_ensure_anna_bridge_enabled("ANNA_ENABLED=1")
+			var reason = "ANNA_ENABLED=1"
+			if OS.get_environment("ANNA_ENABLED") != "1" and _is_vscode_remote_debug_session():
+				reason = "VSCode remote-debug auto-detect"
+			_ensure_anna_bridge_enabled(reason)
 
 	# Detección de parámetro --replay
 	var args = OS.get_cmdline_args()
@@ -293,6 +298,17 @@ func _script_requires_anna(script_content: String) -> bool:
 		if (line.begins_with("#") or line.begins_with("//")) and line.findn("REQUIRE_ANNA=1") != -1:
 			return true
 	return false
+
+func _should_enable_anna_bridge() -> bool:
+	if OS.get_environment("ANNA_ENABLED") == "1":
+		return true
+	return _is_vscode_remote_debug_session()
+
+func _is_vscode_remote_debug_session() -> bool:
+	if not _is_remote_debug_session():
+		return false
+	var vscode_pid = OS.get_environment("VSCODE_PID").strip_edges()
+	return vscode_pid != ""
 
 func _is_remote_debug_session() -> bool:
 	var args = OS.get_cmdline_args()

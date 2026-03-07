@@ -16,6 +16,7 @@ export(float) var impact_cooldown = 0.12
 export(bool) var snap_rotation = true
 export(float) var rotation_snap_degrees = 90.0
 export(float) var settle_lerp_speed = 10.0
+export(int) var wake_check_interval_frames = 3
 
 var _frames_below_threshold = 0
 var _pending_snapshot = null
@@ -25,6 +26,7 @@ var _impact_sound_index = 0
 var _impact_players = []
 var _sfx_drag = null
 var _perf_monitor = null
+var _wake_check_frame_countdown = 0
 
 func _init():
 	add_to_group("pushable")
@@ -67,7 +69,12 @@ func step(dt):
 	if mode == RigidBody.MODE_RIGID:
 		_handle_rigid_logic(dt)
 	elif mode == RigidBody.MODE_KINEMATIC:
-		_check_kinematic_wakeup()
+		# Throttle expensive overlap scans when box is sleeping/kinematic.
+		if _wake_check_frame_countdown <= 0:
+			_check_kinematic_wakeup()
+			_wake_check_frame_countdown = max(0, wake_check_interval_frames - 1)
+		else:
+			_wake_check_frame_countdown -= 1
 		if _target_basis != null:
 			_handle_smooth_rotation(dt)
 
@@ -155,6 +162,7 @@ func wake_up():
 		mode = RigidBody.MODE_RIGID
 		sleeping = false
 		_target_basis = null
+		_wake_check_frame_countdown = 0
 		# Dar un pequeño empujón o resetear frames para evitar re-settle inmediato
 		_frames_below_threshold = 0
 
