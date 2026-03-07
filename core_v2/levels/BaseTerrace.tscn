@@ -2406,6 +2406,12 @@ transform = Transform( -0.564584, -0.322214, 0.759884, -0.00835131, 0.922836, 0.
 fov = 60.0
 far = 8192.0
 
+[node name="Explosion" type="AudioStreamPlayer3D" parent="VCameraSystem/VCameras/IntroFar" index="3"]
+transform = Transform( -0.564583, 0.0083514, 0.825334, -0.322213, -0.922834, -0.211077, 0.759884, -0.385105, 0.523709, 0, 0, 0 )
+stream = ExtResource( 39 )
+script = ExtResource( 38 )
+sound_name = "Explosion"
+
 [node name="IntroClose" parent="VCameraSystem/VCameras" index="1"]
 transform = Transform( -0.872551, -0.142589, -0.46725, 0.0276049, 0.940536, -0.338571, 0.487742, -0.308319, -0.816729, -9.43556, 3.83472, 11.8019 )
 fov = 99.144
@@ -2416,6 +2422,12 @@ transform = Transform( 1, 1.79708e-05, -0.0010632, 1.2517e-06, 1.00001, -0.00010
 
 [node name="LookAt" parent="VCameraSystem/VCameras/IntroClose" index="2"]
 transform = Transform( -0.671181, 0.560374, -0.485281, 2.98023e-08, 0.65464, 0.75594, 0.741294, 0.507372, -0.439382, 0, 0, 0 )
+
+[node name="ExplosionMini" type="AudioStreamPlayer3D" parent="VCameraSystem/VCameras/IntroClose" index="3"]
+transform = Transform( -0.872552, -0.0276054, -0.487742, -0.14259, -0.940536, 0.308319, -0.46725, 0.338571, 0.81673, 0, 0, 0 )
+stream = ExtResource( 47 )
+script = ExtResource( 38 )
+sound_name = "ExplosionMini"
 
 [node name="IntroFinal" parent="VCameraSystem/VCameras" index="2"]
 transform = Transform( -0.768853, 0, 0.639426, 0, 1, 0, -0.639426, 0, -0.768853, 17.5672, 5.57768, 26.4851 )
@@ -2625,20 +2637,6 @@ skeleton = NodePath("../..")
 
 [node name="VerticalDoor" parent="." instance=ExtResource( 26 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.47583, 2.04031, 7.83635 )
-
-[node name="Explosion" type="AudioStreamPlayer3D" parent="."]
-transform = Transform( 1, -1.50996e-07, -2.30482e-07, -1.50996e-07, -1, 8.74228e-08, -2.30482e-07, -8.74228e-08, -1, 17.0368, 5.16846, 33.1643 )
-stream = ExtResource( 39 )
-autoplay = true
-script = ExtResource( 38 )
-sound_name = "Explosion"
-
-[node name="ExplosionMini" type="AudioStreamPlayer3D" parent="."]
-transform = Transform( 1, -1.50996e-07, -2.30482e-07, -1.50996e-07, -1, 8.74228e-08, -2.30482e-07, -8.74228e-08, -1, 17.0368, 5.16846, 33.1643 )
-stream = ExtResource( 47 )
-autoplay = true
-script = ExtResource( 38 )
-sound_name = "ExplosionMini"
 
 [node name="SparkEmitterV2" parent="." instance=ExtResource( 37 )]
 transform = Transform( 1, 0, 0, 0, 0.905436, -0.424484, 0, 0.424484, 0.905436, 17.7421, 3.66101, 32.0812 )
