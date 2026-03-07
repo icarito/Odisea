@@ -250,11 +250,13 @@ func _respawn_at_spawn_or_zero():
 			var root_node = get_tree().current_scene if get_tree().current_scene else get_tree().root
 			root_node.add_child(new_pilot)
 		yield (get_tree(), "idle_frame")
+		_force_player_camera_current(new_pilot)
 		if new_pilot.has_method("full_reset"):
 			new_pilot.full_reset()
 		new_pilot.global_transform = target_transform
 		new_pilot.initial_transform = target_transform
 		yield (get_tree(), "physics_frame")
+		_force_player_camera_current(new_pilot)
 		if new_pilot.has_method("set_external_velocity"):
 			new_pilot.set_external_velocity(Vector3.ZERO)
 		new_pilot.velocity = Vector3.ZERO
@@ -431,11 +433,7 @@ func _on_player_killed():
 			var root_node = get_tree().current_scene if get_tree().current_scene else get_tree().root
 			root_node.add_child(new_pilot)
 		yield (get_tree(), "idle_frame")
-		# Ensure camera is current if it exists
-		var cam = new_pilot.get_node_or_null("CameraRig/Camera")
-		if cam:
-			cam.current = true
-			print("[TeleportSystem] Camera set as current for new player")
+		_force_player_camera_current(new_pilot)
 		# Deep reset to avoid inheriting any previous state
 		if new_pilot.has_method("full_reset"):
 			new_pilot.full_reset()
@@ -444,6 +442,7 @@ func _on_player_killed():
 		new_pilot.initial_transform = target_transform
 		# Allow physics to process so Areas will detect overlap and emit signals
 		yield (get_tree(), "physics_frame")
+		_force_player_camera_current(new_pilot)
 		if new_pilot.has_method("set_external_velocity"):
 			new_pilot.set_external_velocity(Vector3.ZERO)
 		new_pilot.velocity = Vector3.ZERO
@@ -575,3 +574,13 @@ func _clear_respawn_flag():
 	if sm:
 		sm.is_respawning = false
 		print("[TeleportSystem] Flag is_respawning desactivado")
+
+func _force_player_camera_current(pilot: Node) -> void:
+	if not is_instance_valid(pilot):
+		return
+	if pilot.has_method("force_camera_current"):
+		pilot.force_camera_current()
+		return
+	var cam = pilot.get_node_or_null("CameraRig/Yaw/Pitch/SpringArm/Camera")
+	if cam and cam is Camera:
+		cam.current = true

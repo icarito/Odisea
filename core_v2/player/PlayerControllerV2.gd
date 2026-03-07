@@ -257,15 +257,24 @@ func full_reset() -> void:
 	if is_instance_valid(animator) and animator.has_method("reset_state"):
 		animator.reset_state()
 
+	_clear_cinematic_zone_request()
 	_active_cinematic_zone = null
 	_prev_active_cinematic_zone = null
-	_current_zone_request_id = -1
 	_cinematic_zone_exit_grace_left = 0.0
 	_cinematic_zone_switch_grace_left = 0.0
 	set_occlusion_mode(false)
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		camera_rig.force_update_transform()
+
+func _exit_tree() -> void:
+	# Ensure we never leave dangling camera requests when player is respawned/freed.
+	_clear_cinematic_zone_request()
+
+func _clear_cinematic_zone_request() -> void:
+	if _current_zone_request_id != -1 and is_instance_valid(CinematicManager):
+		CinematicManager.release_camera_request(_current_zone_request_id)
+	_current_zone_request_id = -1
 
 onready var camera_rig = $CameraRig
 onready var animator = $Visual/Pivot

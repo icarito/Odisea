@@ -1162,6 +1162,15 @@ func reset():
 		_vcam_active_camera.enabled = false
 		_vcam_active_camera.priority = 0
 	_vcam_active_camera = null
+
+	# Defensive cleanup: clear any lingering virtual camera priorities/enabled flags.
+	for vcam in get_tree().get_nodes_in_group("vcamera"):
+		if not is_instance_valid(vcam):
+			continue
+		if "enabled" in vcam:
+			vcam.enabled = false
+		if "priority" in vcam:
+			vcam.priority = 0
 	
 	if _vcam_brain and is_instance_valid(_vcam_brain):
 		_vcam_brain.current = false
