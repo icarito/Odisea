@@ -31,52 +31,15 @@ func _init() -> void:
 	_detect_inverted_joystick()
 
 func _detect_inverted_joystick() -> void:
+	_invert_joystick_x = false
+	_invert_joystick_y = false
+
 	# Check environment variable override first
 	var force_invert = OS.get_environment("ODISEA_INVERT_JOYSTICK").to_lower()
 	if force_invert in ["1", "true", "yes", "on"]:
 		_invert_joystick_y = true
 		_invert_joystick_x = true
 		print("[InputProviderV2] Inverted joystick axes via ODISEA_INVERT_JOYSTICK")
-		return
-	
-	# Check for Anbernic device via ODISEA_DEVICE env var OR cmdline args
-	var device = OS.get_environment("ODISEA_DEVICE").to_lower()
-	var cmdline_args = OS.get_cmdline_args()
-	for arg in cmdline_args:
-		if arg.begins_with("ODISEA_DEVICE="):
-			device = arg.substr(15).to_lower()
-	
-	if device in ["anbernic", "351", "rg351", "rk3326"]:
-		_invert_joystick_y = true
-		_invert_joystick_x = true
-		print("[InputProviderV2] Inverted joystick axes for Anbernic device: " + device)
-		return
-	
-	# Check via HardwareProfile (for Anbernic detection)
-	var hw_profile = null
-	var main_loop = Engine.get_main_loop()
-	if main_loop and main_loop is SceneTree:
-		var scene_tree: SceneTree = main_loop
-		if scene_tree.root:
-			hw_profile = scene_tree.root.get_node_or_null("HardwareProfile")
-	if hw_profile and "_detected_device_name" in hw_profile:
-		var hw_device = str(hw_profile._detected_device_name).to_lower()
-		if "anbernic" in hw_device or "351" in hw_device or "rg351" in hw_device:
-			_invert_joystick_y = true
-			_invert_joystick_x = true
-			print("[InputProviderV2] Inverted joystick axes via HardwareProfile: " + hw_device)
-			return
-	
-	# Check for Anbernic via /sys/firmware/devicetree/base/model
-	var file = File.new()
-	if file.file_exists("/sys/firmware/devicetree/base/model"):
-		if file.open("/sys/firmware/devicetree/base/model", File.READ) == OK:
-			var model = file.get_line().to_lower()
-			file.close()
-			if "351" in model or "rg351" in model or "anbernic" in model:
-				_invert_joystick_y = true
-				_invert_joystick_x = true
-				print("[InputProviderV2] Inverted joystick axes for Anbernic device via devicetree")
 
 
 # Universal input getter
@@ -136,6 +99,13 @@ func _read_live_input() -> InputDataV2:
 			Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward")
 		)
 		d.move_vec = raw_move_vec
+
+		# Apply inversion only to analog input (non-digital) on devices where it's required
+		if not _is_digital_move_vector(raw_move_vec):
+			if _invert_joystick_x:
+				d.move_vec.x = -d.move_vec.x
+			if _invert_joystick_y:
+				d.move_vec.y = -d.move_vec.y
 
 		# Apply curve to raw move vector (affects analog stick)
 		d.move_vec = _apply_curve(d.move_vec, move_response_curve)

@@ -37,6 +37,9 @@ const S905_DEVICES := [
 	"s905",
 	"aml s905",
 ]
+const LOW_END_RAM_CAP_GB := 1.0
+const MEMORY_FALLBACK_TOTAL_GB := 1.0
+const MEMORY_FALLBACK_AVAILABLE_GB := 0.5
 
 var _detected_profile: int = Profile.UNKNOWN
 var _detected_platform: int = PlatformType.UNKNOWN
@@ -44,7 +47,7 @@ var _detected_device_name := ""
 var _processor_count := 0
 var _is_weak_hardware := false
 var _auto_detected := false
-var _cached_memory_total_gb := 8.0
+var _cached_memory_total_gb := MEMORY_FALLBACK_TOTAL_GB
 var _profile_forced_by_env := false
 var _manual_profile_override := false
 var _auto_detected_profile: int = Profile.MEDIUM
@@ -132,6 +135,7 @@ func _detect_hardware() -> void:
 	if forced_device != "":
 		_detected_device_name = forced_device
 		if forced_device in ["anbernic", "351", "rg351", "rk3326"]:
+			_apply_low_end_memory_cap()
 			_detected_platform = PlatformType.LINUX_ARM
 			_detected_profile = Profile.LOW
 			_detected_device_name = "Anbernic " + forced_device
@@ -199,18 +203,22 @@ func _detect_linux_platform() -> int:
 	_detected_device_name = device_info.model
 	
 	if _is_anbernic_device(device_info):
+		_apply_low_end_memory_cap()
 		_detected_profile = Profile.LOW
 		return PlatformType.LINUX_ARM
 	
 	if _is_rk3326_device(device_info):
+		_apply_low_end_memory_cap()
 		_detected_profile = Profile.LOW
 		return PlatformType.LINUX_ARM
 	
 	if _is_s905_device(device_info):
+		_apply_low_end_memory_cap()
 		_detected_profile = Profile.LOW
 		return PlatformType.LINUX_ARM
 	
 	if _has_mali_gpu(device_info):
+		_apply_low_end_memory_cap()
 		_detected_profile = Profile.LOW
 		return PlatformType.LINUX_ARM
 	
@@ -392,7 +400,10 @@ func _estimate_linux_x86_profile() -> int:
 	return Profile.LOW
 
 func _get_memory_info() -> Dictionary:
-	var info := { "total_gb": 8.0, "available_gb": 4.0 }
+	var info := {
+		"total_gb": MEMORY_FALLBACK_TOTAL_GB,
+		"available_gb": MEMORY_FALLBACK_AVAILABLE_GB
+	}
 	var file := File.new()
 	
 	if file.file_exists("/proc/meminfo"):
@@ -411,6 +422,12 @@ func _get_memory_info() -> Dictionary:
 							break
 		
 	return info
+
+func _apply_low_end_memory_cap() -> void:
+	if _cached_memory_total_gb <= 0.0:
+		_cached_memory_total_gb = LOW_END_RAM_CAP_GB
+	elif _cached_memory_total_gb > LOW_END_RAM_CAP_GB:
+		_cached_memory_total_gb = LOW_END_RAM_CAP_GB
 
 func _parse_first_int(raw: String) -> int:
 	var digits := ""
