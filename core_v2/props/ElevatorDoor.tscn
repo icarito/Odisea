@@ -110,8 +110,10 @@ is_interactable = false
 manual_toggle = false
 mesh_a_path = NodePath("DoorLeft")
 mesh_b_path = NodePath("DoorRight")
-slide_vector_a = Vector3( -1.5, 0, 0 )
-slide_vector_b = Vector3( 1.5, 0, 0 )
+slide_vector_a = Vector3( -0.75, 0, 0 )
+slide_vector_b = Vector3( 0.75, 0, 0 )
+scale_vector_a = Vector3( -0.95, 0, 0 )
+scale_vector_b = Vector3( -0.95, 0, 0 )
 top_floor_height = 0.6
 
 [node name="Header" type="CSGBox" parent="."]

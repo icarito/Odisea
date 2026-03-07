@@ -1,7 +1,6 @@
 tool
-extends DualSlidingObjectV2
+extends DualScalingObjectV2
 class_name ElevatorDoor
-
 # Auto-fit the shaft fence so each door fills the gap up to the next floor.
 export(bool) var auto_fit_shaft_fence := true setget set_auto_fit_shaft_fence
 export(float, 0.0, 2.0, 0.01) var shaft_top_margin := 0.0 setget set_shaft_top_margin
