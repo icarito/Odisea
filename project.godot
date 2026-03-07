@@ -1936,6 +1936,8 @@ ShaderCacheManager="*res://addons/gd-shader-cache/src/ShaderCacheManager.gd"
 MobileUIManager="*res://core_v2/autoloads/MobileUIManager.gd"
 OverlayUIManager="*res://core_v2/autoloads/OverlayUIManager.gd"
 ScreenEffectsManager="*res://core_v2/autoloads/ScreenEffectsManager.gd"
+ScreenshotQueue="*res://core_v2/systems/ScreenshotQueue.gd"
+VideoExporter="*res://core_v2/systems/VideoExporter.gd"
 
 [debug]
 

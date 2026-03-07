@@ -161,6 +161,43 @@ func _initialize_player_for_session(p):
 		p.set_physics_process(false)
 
 
+var _live_export_on_exit := false
+var _video_export_mode := false
+
+func _on_tree_changed_for_live_recording():
+	get_tree().set_auto_accept_quit(false)
+	var attempts := 0
+	while attempts < 90:
+		_find_player()
+		if is_instance_valid(player):
+			start_recording()
+			return
+		attempts += 1
+		yield (get_tree(), "idle_frame")
+	printerr("[SessionManager] Live export: could not find player to start recording.")
+
+func _notification(what):
+	if what == MainLoop.NOTIFICATION_WM_QUIT_REQUEST:
+		if _live_export_on_exit:
+			if is_recording:
+				var saved_path = stop_and_save_recording()
+				if saved_path != "":
+					var exec_path = OS.get_executable_path()
+					OS.set_environment("ODISEA_DISABLE_SHADER_WARMUP", "1")
+					OS.set_environment("ODISEA_MUTE_AUDIO_HEADLESS", "0")
+					OS.set_environment("ODISEA_FORCE_MUTE_AUDIO", "0")
+					var args = ["--no-window", "--fixed-fps", "60", "--video-export", saved_path]
+					var export_audio_driver = OS.get_environment("ODISEA_VIDEO_EXPORT_AUDIO_DRIVER").strip_edges()
+					if export_audio_driver != "":
+						args.append("--audio-driver")
+						args.append(export_audio_driver)
+					print("\n=======================================================")
+					print("🎥 [LiveExport] Session ended! Exporting video in background...")
+					print("📂 Godot headless instance spawned. MP4 will be saved soon!")
+					print("=======================================================\n")
+					OS.execute(exec_path, args, false)
+			get_tree().quit(0)
+
 func _ready():
 	_rl_mode = OS.get_environment("ANNA_RL_MODE").to_lower() in ["1", "true", "yes", "on"]
 	var bypass_env = OS.get_environment("ANNA_RL_BYPASS_SESSION_MANAGER").to_lower()
@@ -212,6 +249,19 @@ func _ready():
 			var script_path = args[i + 1]
 			get_tree().connect("tree_changed", self , "_on_tree_changed_for_script", [script_path], CONNECT_ONESHOT)
 			return
+
+		if arg == "--video-export" or arg == "--export-video":
+			_video_export_mode = true
+			_prepare_video_export_runtime()
+			if i + 1 < args.size() and not args[i + 1].begins_with("--") and (args[i + 1].ends_with(".json") or args[i + 1].ends_with(".oys")):
+				is_cli_mode = true
+				var replay_path = args[i + 1]
+				get_tree().connect("tree_changed", self , "_on_tree_changed_for_replay", [replay_path, true], CONNECT_ONESHOT)
+				return
+			else:
+				_live_export_on_exit = true
+				get_tree().connect("tree_changed", self , "_on_tree_changed_for_live_recording", [], CONNECT_ONESHOT)
+				continue
 
 	# --- Instanciar y conectar TeleportSystem (instanciación robusta) ---
 	if not has_node("TeleportSystem"):
@@ -348,6 +398,13 @@ func _read_process_cmdline() -> String:
 	file.close()
 	return raw
 
+func _prepare_video_export_runtime() -> void:
+	# Reduce first-frame stalls during export runs.
+	OS.set_environment("ODISEA_DISABLE_SHADER_WARMUP", "1")
+	# We need audio for muxing, so keep headless mute disabled.
+	OS.set_environment("ODISEA_MUTE_AUDIO_HEADLESS", "0")
+	OS.set_environment("ODISEA_FORCE_MUTE_AUDIO", "0")
+
 
 # Conexión automática de TeleportSystem con Player, Camera y zonas
 func _connect_teleport_system():
@@ -392,13 +449,20 @@ func _connect_teleport_system():
 	if not is_testing and not is_cli_mode and not is_menu and not OS.has_feature("Server"):
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
-func _on_tree_changed_for_replay(replay_path: String):
-	# Esta función se ejecuta una sola vez cuando la escena principal está lista.
-	# Esperamos un frame idle para que todos los nodos ejecuten _ready() y se agreguen a sus grupos
+func _on_tree_changed_for_replay(replay_path: String, export_video = false):
 	yield (get_tree(), "idle_frame")
 	yield (get_tree(), "idle_frame")
 	
-	# Ahora es seguro buscar al jugador y cargar el replay.
+	print("[SessionManager] _on_tree_changed_for_replay called! path=", replay_path, " export=", export_video)
+	
+	if export_video:
+		var exporter = get_node_or_null("/root/VideoExporter")
+		if exporter:
+			print("[SessionManager] Calling start_export...")
+			exporter.start_export(replay_path)
+		else:
+			printerr("[SessionManager] ERROR: VideoExporter node not found!")
+			
 	_find_player()
 	if player:
 		player.is_replay_mode = true
@@ -700,11 +764,19 @@ func _physics_process(_dt):
 		if ghost_manager and ghost_manager.is_playing_ghost:
 			ghost_manager.step(FIXED_DT)
 
+	# Capture explicit global physics step if live exporting or exporting!
+	var __ext_exporter = get_node_or_null("/root/VideoExporter")
+	if __ext_exporter != null and __ext_exporter.is_exporting:
+		__ext_exporter.capture_frame(get_viewport())
+
 func start_recording():
 	if not is_instance_valid(player):
 		printerr("SessionManager: No se puede iniciar la grabación, no se encontró al jugador.")
 		return
 	buffer.clear()
+	_current_replay_data = {
+		"events": {}
+	}
 	is_recording = true
 	_active_input_provider = player.input_provider if is_instance_valid(player) else null
 	_pending_drift_checkpoint = false
@@ -769,10 +841,10 @@ func _on_rigid_contact_ended():
 	# Marcar que debemos guardar un checkpoint en el próximo frame del buffer
 	_pending_drift_checkpoint = true
 
-func stop_and_save_recording():
+func stop_and_save_recording(force_path: String = "") -> String:
 	if not is_instance_valid(player):
 		printerr("SessionManager: No se puede detener la grabación, no se encontró al jugador.")
-		return
+		return ""
 	is_recording = false
 	
 	# Restaurar control normal del player
@@ -791,8 +863,11 @@ func stop_and_save_recording():
 
 	if ghost_manager and ghost_manager.is_ghost_recording:
 		ghost_manager.save_recording_override(buffer, replay_meta)
+		return ""
 	else:
-		var file_path = "user://replay_" + str(OS.get_unix_time()) + ".json"
+		var file_path = force_path
+		if file_path == "":
+			file_path = "user://replay_" + str(OS.get_unix_time()) + ".json"
 		var file = File.new()
 		file.open(file_path, File.WRITE)
 		var out = {
@@ -800,9 +875,12 @@ func stop_and_save_recording():
 			"buffer": buffer,
 			"final_expected_state": player.get_full_snapshot()
 		}
+		if _current_replay_data.has("events"):
+			out["events"] = _current_replay_data["events"]
 		file.store_string(_json_print_normalized(out))
 		file.close()
 		print("💾 Replay guardado en: ", file_path)
+		return file_path
 
 var _playback_printed_start := false
 var _playback_printed_end := false
@@ -842,9 +920,9 @@ func load_and_play(path: String):
 	_cleanup_session_spawned_nodes()
 	Engine.time_scale = 1.0
 	
-	var _ts = get_node_or_null("TeleportSystem")
-	if _ts and _ts.has_method("reset"):
-		_ts.reset()
+	var _ts_reload = get_node_or_null("TeleportSystem")
+	if _ts_reload and _ts_reload.has_method("reset"):
+		_ts_reload.reset()
 	
 	_find_player()
 	if is_instance_valid(player):
@@ -1057,6 +1135,39 @@ func load_and_play(path: String):
 				input_buffer.append(entry)
 	_current_replay_data = data
 	
+	# Fix: In headless mode, the engine boots into the default scene. We MUST change to the recorded scene.
+	var meta = data.get("meta", {})
+	var meta_scene = meta.get("scene", "")
+	if meta_scene == "":
+		meta_scene = meta.get("scene_path", "")
+		
+	if meta_scene != "":
+		_oys_requested_scene = meta_scene
+		if get_tree().current_scene == null or get_tree().current_scene.filename != meta_scene:
+			var packed = load(meta_scene)
+			if packed:
+				get_tree().current_scene.queue_free()
+				var inst = packed.instance()
+				get_tree().root.add_child(inst)
+				get_tree().current_scene = inst
+				yield (get_tree(), "idle_frame")
+				if my_run_id != _session_run_id:
+					return
+				
+				# CRITICAL: Since we just deleted the default scene and loaded a new one,
+				# we must refresh autoload references to the new scene's nodes.
+				if is_instance_valid(CinematicManager) and CinematicManager.has_method("reset"):
+					CinematicManager.reset()
+				var _ts = get_node_or_null("TeleportSystem")
+				if _ts and _ts.has_method("reset"):
+					_ts.reset()
+				_find_player()
+				if is_instance_valid(player):
+					if player.has_method("full_reset"):
+						player.full_reset()
+					if player.has_method("force_camera_current"):
+						player.force_camera_current()
+	
 	# Restore world state for JSON replays
 	if data.has("world_snapshot"):
 		_restore_world_state_snapshot(data.world_snapshot)
@@ -1202,9 +1313,10 @@ func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
 
 	_drift_validated = false
 	_replay_frame = 0
+	_total_replay_frames = input_buffer.size()
 	is_replaying = true
 	
-	print("▶️ Reproduciendo replay desde buffer...")
+	print("▶️ Reproduciendo replay desde buffer con %d frames..." % _total_replay_frames)
 
 func play_buffer(input_buffer: Array, replay_data: Dictionary):
 	_find_player()
@@ -1416,8 +1528,12 @@ func _finish_and_validate():
 
 	# 3. Salir si estamos en modo CLI
 	if is_cli_mode:
-		print("[SessionManager] Exiting CLI mode")
-		get_tree().quit(0 if success else 1)
+		var exporter = get_node_or_null("/root/VideoExporter")
+		if exporter and exporter.is_exporting:
+			print("[SessionManager] Deferring CLI exit to VideoExporter")
+		else:
+			print("[SessionManager] Exiting CLI mode")
+			get_tree().quit(0 if success else 1)
 
 func _check_events_for_frame(frame_idx: int):
 	if event_timeline.has(frame_idx):
@@ -1489,8 +1605,28 @@ func _execute_event(cmd: Dictionary):
 			_handle_anna_command(cmd)
 		"PLAY_ANIM":
 			_handle_play_anim(cmd)
+		"PLAY_SOUND":
+			_handle_play_sound_event(cmd)
 		"SET_TIME_SCALE":
 			Engine.time_scale = float(cmd.get("value", 1.0))
+		"CINEMATIC":
+			_set_script_cinematic_input_block(true)
+		"INTERACTIVE":
+			_set_script_cinematic_input_block(false)
+		"CINEMATIC_START":
+			_handle_cinematic_start_event(cmd)
+		"CINEMATIC_STOP":
+			_handle_cinematic_stop_event()
+		"VCAMERA":
+			_handle_vcamera_activate_event(cmd)
+		"VCAMERA_BLEND":
+			_handle_vcamera_blend_event(cmd)
+		"VCAMERA_RETURN":
+			_handle_vcamera_return_event(cmd)
+		"VCAMERA_SHAKE", "CAMERA_SHAKE":
+			_handle_camera_shake_event(cmd)
+		"CAMERA_SHAKE_STOP":
+			_stop_camera_shake_event()
 		"LATCH_BASIS":
 			var b_arr = cmd.get("basis")
 			if b_arr and b_arr.size() == 3:
@@ -1502,6 +1638,122 @@ func _execute_event(cmd: Dictionary):
 					CinematicManager.latched_control_mode = int(cmd.get("mode", 0))
 					CinematicManager.latch_active = true
 					print("[SessionManager] RESTORED LATCHED BASIS from Event")
+
+func _set_script_cinematic_input_block(enabled: bool) -> void:
+	var screen_fx = get_node_or_null("/root/ScreenEffectsManager")
+	if screen_fx:
+		if enabled and screen_fx.has_method("show_script_cinematic_bars"):
+			screen_fx.show_script_cinematic_bars()
+		elif not enabled and screen_fx.has_method("hide_script_cinematic_bars"):
+			screen_fx.hide_script_cinematic_bars()
+	_find_player()
+	if is_instance_valid(player) and "input_provider" in player and is_instance_valid(player.input_provider):
+		player.input_provider.hardware_input_enabled = not enabled
+
+func _handle_cinematic_start_event(cmd: Dictionary) -> void:
+	_set_script_cinematic_input_block(true)
+	var manager = get_node_or_null("/root/CinematicManager")
+	if manager and manager.has_method("activate_rig"):
+		var rig_id = String(cmd.get("rig_id", ""))
+		var mode_str = String(cmd.get("mode", "FREE")).to_upper()
+		var mode = 0
+		match mode_str:
+			"SIDESCROLL":
+				mode = 1
+			"LOCKED_VIEW":
+				mode = 2
+			"FIXED_AXIS":
+				mode = 3
+			_:
+				mode = 0
+		manager.activate_rig(rig_id, mode)
+
+func _handle_cinematic_stop_event() -> void:
+	_set_script_cinematic_input_block(false)
+	var manager = get_node_or_null("/root/CinematicManager")
+	if manager and manager.has_method("deactivate_rig"):
+		manager.deactivate_rig()
+
+func _find_vcamera_for_event(name: String):
+	var manager = get_node_or_null("/root/CinematicManager")
+	if not manager or not manager.has_method("find_vcamera"):
+		return null
+	var vcam_name = name.strip_edges().replace("\"", "")
+	if vcam_name == "":
+		return null
+	return manager.find_vcamera(vcam_name)
+
+func _handle_vcamera_activate_event(cmd: Dictionary) -> void:
+	var manager = get_node_or_null("/root/CinematicManager")
+	if not manager:
+		return
+	var vcam = _find_vcamera_for_event(String(cmd.get("name", "")))
+	if not is_instance_valid(vcam):
+		printerr("[SessionManager] Replay VCAMERA failed: camera not found: ", cmd.get("name", ""))
+		return
+	var duration = float(cmd.get("duration", 1.0))
+	var ease_type = float(cmd.get("ease", -2.0))
+	manager.activate_vcamera(vcam, duration, ease_type)
+
+func _handle_vcamera_blend_event(cmd: Dictionary) -> void:
+	var manager = get_node_or_null("/root/CinematicManager")
+	if not manager or not manager.has_method("blend_to_vcamera"):
+		return
+	var vcam = _find_vcamera_for_event(String(cmd.get("name", "")))
+	if not is_instance_valid(vcam):
+		printerr("[SessionManager] Replay VCAMERA_BLEND failed: camera not found: ", cmd.get("name", ""))
+		return
+	var duration = float(cmd.get("duration", 1.0))
+	manager.blend_to_vcamera(vcam, duration)
+
+func _handle_vcamera_return_event(cmd: Dictionary) -> void:
+	var manager = get_node_or_null("/root/CinematicManager")
+	if manager and manager.has_method("deactivate_vcamera"):
+		manager.deactivate_vcamera(float(cmd.get("duration", 1.0)))
+
+func _handle_camera_shake_event(cmd: Dictionary) -> void:
+	var manager = get_node_or_null("/root/CinematicManager")
+	if not manager or not manager.has_method("trigger_camera_shake"):
+		return
+	var duration = float(cmd.get("duration", 0.35))
+	var frequency = float(cmd.get("frequency", 28.0))
+	if cmd.has("translation") or cmd.has("rotation"):
+		var trans = _parse_vector3(String(cmd.get("translation", "(0,0,0)")))
+		var rot = _parse_vector3(String(cmd.get("rotation", "(0,0,0)")))
+		var intensity = float(cmd.get("intensity", 1.0))
+		var amplitude = max(abs(trans.x), max(abs(trans.y), abs(trans.z))) * intensity
+		var roll_deg = max(abs(rot.x), max(abs(rot.y), abs(rot.z))) * intensity
+		manager.trigger_camera_shake(duration, amplitude, frequency, roll_deg)
+		return
+	manager.trigger_camera_shake(
+		duration,
+		float(cmd.get("amplitude", 0.08)),
+		frequency,
+		float(cmd.get("roll", 1.0))
+	)
+
+func _stop_camera_shake_event() -> void:
+	var manager = get_node_or_null("/root/CinematicManager")
+	if manager and manager.has_method("stop_camera_shake"):
+		manager.stop_camera_shake()
+
+func _handle_play_sound_event(cmd: Dictionary) -> void:
+	var sfx_target = String(cmd.get("sfx", "")).strip_edges()
+	if sfx_target != "":
+		var node = _find_node_recursive(sfx_target)
+		if node and is_instance_valid(node) and node.has_method("play"):
+			node.play()
+			return
+
+	var audio = get_node_or_null("/root/AudioManager")
+	if not audio or not audio.has_method("play_sound"):
+		return
+	var sound_name = String(cmd.get("sound", ""))
+	if sound_name == "":
+		sound_name = sfx_target
+	if sound_name == "":
+		return
+	audio.play_sound(sound_name, Vector3.ZERO)
 
 func record_custom_event(cmd_name: String, data: Dictionary):
 	if not is_recording: return

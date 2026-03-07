@@ -340,13 +340,18 @@ func take_oys_screenshot(label: String, prop_named_prefix: String) -> String:
         dir.make_dir_recursive(fs_base)
     
     var save_path = fs_base + "%s_%s.png" % [prefix, label]
-    var err = img.save_png(save_path)
     
-    if err == OK:
-        print("[PropStage] Saved (fs res): ", save_path)
-        print("[PropStage] Final saved path: ", save_path)
+    if has_node("/root/ScreenshotQueue"):
+        var queue = get_node("/root/ScreenshotQueue")
+        queue.enqueue_screenshot(img, save_path)
+        print("[PropStage] Enqueued screenshot: ", save_path)
     else:
-        printerr("[PropStage] ERROR: Failed to save screenshot to: ", save_path, " err=", err)
+        var err = img.save_png(save_path)
+        if err == OK:
+            print("[PropStage] Saved (fs res): ", save_path)
+            print("[PropStage] Final saved path: ", save_path)
+        else:
+            printerr("[PropStage] ERROR: Failed to save screenshot to: ", save_path, " err=", err)
 
     # Cleanup
     vp.queue_free()

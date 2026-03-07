@@ -191,6 +191,7 @@ func run_from_pc(from_pc: int):
 func _execute_instruction(inst: Dictionary, my_id: int):
 	var cmd = inst.command
 	emit_signal("instruction_executed", inst, variables)
+	_record_live_instruction_event(inst)
 	
 	match cmd:
 		"BLEND":
@@ -1926,6 +1927,29 @@ func _post_oys_input(data: Dictionary):
 			player.inject_input(data)
 		else:
 			print("[OYS WARNING] Could not find player to inject input: ", data)
+
+func _record_live_instruction_event(inst: Dictionary) -> void:
+	if not is_instance_valid(host_node) or not host_node.is_inside_tree():
+		return
+	var session = host_node.get_node_or_null("/root/SessionManager")
+	if not session or not is_instance_valid(session):
+		return
+	if not bool(session.get("is_recording")):
+		return
+	if bool(session.get("is_replaying")):
+		return
+	if not session.has_method("record_event"):
+		return
+
+	var cmd_name := String(inst.get("command", "")).to_upper()
+	if cmd_name in [
+		"CINEMATIC", "INTERACTIVE",
+		"CINEMATIC_START", "CINEMATIC_STOP",
+		"VCAMERA", "VCAMERA_BLEND", "VCAMERA_RETURN",
+		"VCAMERA_SHAKE", "CAMERA_SHAKE", "CAMERA_SHAKE_STOP",
+		"PLAY_SOUND", "SET_TIME_SCALE", "PRINT", "PLAY_ANIM"
+	]:
+		session.record_event(OYS_Parser.serialize_instruction(inst))
 
 func _resolve_node(path: String) -> Node:
 	if _node_cache.has(path):
