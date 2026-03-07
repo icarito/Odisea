@@ -787,8 +787,8 @@ func test_subtitles_manager_uses_overlay_ui_host_when_available():
 	var overlay_ui = get_tree().root.get_node_or_null("OverlayUIManager")
 	assert_object(overlay_ui).is_not_null()
 
-	var passive_slot = overlay_ui.get_slot("Passive")
-	var existing = passive_slot.get_node_or_null("SubtitlesOverlay")
+	var subtitle_slot = overlay_ui.get_slot("HUD")
+	var existing = subtitle_slot.get_node_or_null("SubtitlesOverlay")
 	if existing:
 		existing.queue_free()
 		yield (get_tree(), "idle_frame")
@@ -799,9 +799,9 @@ func test_subtitles_manager_uses_overlay_ui_host_when_available():
 	manager.show_subtitle("hola overlay", Color(1, 0, 0), 1.5)
 	yield (get_tree(), "idle_frame")
 
-	var overlay = passive_slot.get_node_or_null("SubtitlesOverlay")
+	var overlay = subtitle_slot.get_node_or_null("SubtitlesOverlay")
 	assert_object(overlay).is_not_null()
-	assert_bool(overlay.get_parent() == passive_slot).is_true()
+	assert_bool(overlay.get_parent() == subtitle_slot).is_true()
 	assert_int(overlay.get("_entries").size()).is_equal(1)
 
 	manager.clear_subtitles(true)

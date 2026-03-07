@@ -1040,7 +1040,7 @@ _data = {
 "tilts": PoolRealArray( 0, 0, 0 )
 }
 
-[node name="Terrace" type="CSGBox" groups=["deband_target"]]
+[node name="Terrace" type="CSGBox"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
 use_collision = true
 width = 80.0
@@ -1048,7 +1048,7 @@ depth = 80.0
 material = ExtResource( 1 )
 script = ExtResource( 49 )
 
-[node name="CornerFloor" type="CSGBox" parent="." groups=["deband_target"]]
+[node name="CornerFloor" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 29.7736, 1.83056, -29.847 )
 width = 20.0
 height = 1.0

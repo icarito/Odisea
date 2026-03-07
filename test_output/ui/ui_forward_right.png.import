@@ -2,15 +2,15 @@
 
 importer="texture"
 type="StreamTexture"
-path="res://.import/Command_center_96.jpeg-d159d089529f3ec57711296b5199006b.stex"
+path="res://.import/ui_forward_right.png-19c1cbf5e8f1f25c9d1700cd4aa2d4e7.stex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/rooms/Command_center_96.jpeg"
-dest_files=[ "res://.import/Command_center_96.jpeg-d159d089529f3ec57711296b5199006b.stex" ]
+source_file="res://test_output/ui/ui_forward_right.png"
+dest_files=[ "res://.import/ui_forward_right.png-19c1cbf5e8f1f25c9d1700cd4aa2d4e7.stex" ]
 
 [params]
 

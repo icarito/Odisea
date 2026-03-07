@@ -1935,7 +1935,6 @@ OptionalNodeManager="*res://core_v2/autoloads/OptionalNodeManager.gd"
 HardwareProfile="*res://core_v2/autoloads/HardwareProfile.gd"
 ShaderCacheManager="*res://addons/gd-shader-cache/src/ShaderCacheManager.gd"
 MobileUIManager="*res://core_v2/autoloads/MobileUIManager.gd"
-DebandingMaterialManager="*res://core_v2/autoloads/DebandingMaterialManager.gd"
 OverlayUIManager="*res://core_v2/autoloads/OverlayUIManager.gd"
 ScreenEffectsManager="*res://core_v2/autoloads/ScreenEffectsManager.gd"
 

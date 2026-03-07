@@ -2,6 +2,7 @@ extends Node
 
 const SubtitlesOverlayScene = preload("res://core_v2/ui/retro/SubtitlesOverlay.tscn")
 const OVERLAY_UI_PATH := "/root/OverlayUIManager"
+const OVERLAY_SLOT_SUBTITLES := "HUD"
 
 var _overlay: Node = null
 var _warned_unavailable := false
@@ -40,7 +41,8 @@ func _ensure_overlay() -> bool:
 		return false
 	var overlay_ui = get_node_or_null(OVERLAY_UI_PATH)
 	if overlay_ui and overlay_ui.has_method("ensure_overlay"):
-		_overlay = overlay_ui.ensure_overlay("SubtitlesOverlay", SubtitlesOverlayScene, "Passive")
+		# Keep subtitles above passive post effects (cinematic/death bars).
+		_overlay = overlay_ui.ensure_overlay("SubtitlesOverlay", SubtitlesOverlayScene, OVERLAY_SLOT_SUBTITLES)
 	else:
 		_overlay = SubtitlesOverlayScene.instance()
 		if is_instance_valid(_overlay):

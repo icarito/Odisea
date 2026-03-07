@@ -1237,7 +1237,7 @@ _data = {
 "tilts": PoolRealArray( 0, 0, 0, 0, 0, 0, 0 )
 }
 
-[node name="Terrace" type="CSGBox" groups=["deband_target"]]
+[node name="Terrace" type="CSGBox"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
 use_collision = true
 width = 80.0

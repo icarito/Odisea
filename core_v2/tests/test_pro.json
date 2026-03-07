@@ -14,7 +14,7 @@
         ],
         "yaw": 0,
         "pitch": 0,
-        "base_spring_length_3d": 5,
+        "base_spring_length_3d": 7,
         "movement_state": {
           "horizontal_velocity": [
             0,
@@ -28,7 +28,8 @@
           ],
           "camera_input_timer": 0,
           "is_tank_turn_mode": true,
-          "current_turn_time": 0
+          "current_turn_time": 0,
+          "_mouse_used_this_move": false
         },
         "jump_state": {
           "coyote_timer": 0,
@@ -52,7 +53,8 @@
         "jump": false,
         "sprint": false,
         "crouch": false,
-        "interact": false
+        "interact": false,
+        "hardware_mouse_active": false
       }
     },
     {
@@ -70,7 +72,8 @@
         "jump": false,
         "sprint": false,
         "crouch": false,
-        "interact": false
+        "interact": false,
+        "hardware_mouse_active": false
       }
     },
     {
@@ -88,7 +91,8 @@
         "jump": false,
         "sprint": false,
         "crouch": false,
-        "interact": false
+        "interact": false,
+        "hardware_mouse_active": false
       }
     },
     {
@@ -106,7 +110,8 @@
         "jump": false,
         "sprint": false,
         "crouch": false,
-        "interact": false
+        "interact": false,
+        "hardware_mouse_active": false
       }
     },
     {
@@ -124,7 +129,8 @@
         "jump": false,
         "sprint": false,
         "crouch": false,
-        "interact": false
+        "interact": false,
+        "hardware_mouse_active": false
       }
     },
     {
@@ -142,7 +148,8 @@
         "jump": false,
         "sprint": false,
         "crouch": false,
-        "interact": false
+        "interact": false,
+        "hardware_mouse_active": false
       }
     }
   ],
@@ -564,17 +571,17 @@
   "final_expected_state": {
     "position": [
       0,
-      0.383333,
+      0.418333,
       0
     ],
     "velocity": [
       0,
-      -2,
+      -1.4,
       0
     ],
     "yaw": 0,
     "pitch": 0,
-    "base_spring_length_3d": 5,
+    "base_spring_length_3d": 7,
     "movement_state": {
       "horizontal_velocity": [
         0,
@@ -588,7 +595,8 @@
       ],
       "camera_input_timer": 0.1,
       "is_tank_turn_mode": true,
-      "current_turn_time": 0
+      "current_turn_time": 0,
+      "_mouse_used_this_move": false
     },
     "jump_state": {
       "coyote_timer": 0,
