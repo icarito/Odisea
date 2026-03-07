@@ -11,5 +11,5 @@ dest_files=[ "res://.import/sfx100v2_misc_13.ogg-8f126456bd66d17ca8eaae796cf0ebf
 
 [params]
 
-loop=true
+loop=false
 loop_offset=0

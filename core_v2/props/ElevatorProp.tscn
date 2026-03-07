@@ -91,8 +91,10 @@ script = ExtResource( 12 )
 loop_sample = true
 
 [node name="SFX Arrival" type="AudioStreamPlayer3D" parent="Platform"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 2, 0 )
 stream = ExtResource( 11 )
-unit_db = 13.0
+attenuation_model = 2
+unit_db = 17.0
 max_db = 5.0
 pitch_scale = 2.0
 max_distance = 30.0
@@ -159,10 +161,11 @@ height = 15.5
 [node name="Path2" parent="MetalFence" index="0"]
 curve = SubResource( 6 )
 
-[node name="CSGCylinder" type="CSGCylinder" parent="MetalFence/Path2" index="0"]
-transform = Transform( 1, 0, 0, 2.84217e-14, 1, 2.92127e-14, 0, 8.04912e-16, 1, -0.0058718, 15.6, -2.10247 )
-radius = 2.8
+[node name="CSGCylinder" type="CSGBox" parent="MetalFence/Path2" index="0"]
+transform = Transform( 1, 0, 0, 3.55271e-14, 1, 3.63182e-14, 0, 8.04912e-16, 1, -0.0058718, 15.6, -2.10247 )
+width = 4.4
 height = 0.2
+depth = 4.4
 material = SubResource( 4 )
 
 [editable path="MetalFence"]

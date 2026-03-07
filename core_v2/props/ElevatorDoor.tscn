@@ -1,46 +1,141 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=16 format=2]
 
-[ext_resource path="res://core_v2/components/DualSlidingObjectV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/ElevatorDoor.gd" type="Script" id=1]
 [ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=2]
-[ext_resource path="res://core_v2/props/dragon-studio-mechanical-door-386159.mp3" type="AudioStream" id=3]
+[ext_resource path="res://assets/sfx/sfx100v2_misc_13.ogg" type="AudioStream" id=3]
 [ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=4]
 
+[sub_resource type="QuadMesh" id=10]
+resource_local_to_scene = true
+size = Vector2( 3, 2.5 )
+
+[sub_resource type="Shader" id=11]
+code = "shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_disabled;
+
+uniform vec4 fence_color : hint_color = vec4(0.35, 0.35, 0.35, 1.0);
+uniform vec2 tiling = vec2(10.0, 10.0);
+uniform float wire_thickness : hint_range(0.01, 0.5) = 0.08;
+
+void fragment() {
+    vec2 uv = UV * tiling;
+    vec2 grid_uv = fract(vec2(uv.x + uv.y, uv.x - uv.y) * 0.5);
+    float line_x = step(grid_uv.x, wire_thickness) + step(1.0 - wire_thickness, grid_uv.x);
+    float line_y = step(grid_uv.y, wire_thickness) + step(1.0 - wire_thickness, grid_uv.y);
+    float alpha = clamp(max(line_x, line_y), 0.0, 1.0);
+    if (alpha < 0.5) { discard; }
+    ALBEDO = fence_color.rgb * 0.8;
+    METALLIC = 1.0;
+    ROUGHNESS = 0.5;
+    vec2 center_dist = abs(grid_uv - 0.5) * 2.0;
+    float d = max(center_dist.x, center_dist.y);
+    float ao = smoothstep(1.0 - wire_thickness * 2.0, 1.0, d);
+    ALBEDO *= mix(1.0, 0.5, ao);
+}
+"
+
+[sub_resource type="ShaderMaterial" id=12]
+resource_local_to_scene = true
+shader = SubResource( 11 )
+shader_param/fence_color = Color( 0.35, 0.35, 0.35, 1 )
+shader_param/tiling = Vector2( 18, 15 )
+shader_param/wire_thickness = 0.08
+
+[sub_resource type="CylinderMesh" id=13]
+resource_local_to_scene = true
+top_radius = 0.05
+bottom_radius = 0.05
+height = 2.8
+radial_segments = 8
+
+[sub_resource type="SpatialMaterial" id=8]
+albedo_color = Color( 0.3, 0.3, 0.3, 1 )
+metallic = 0.9
+roughness = 0.6
+
+[sub_resource type="CylinderMesh" id=14]
+resource_local_to_scene = true
+top_radius = 0.05
+bottom_radius = 0.05
+height = 2.8
+radial_segments = 8
+
 [sub_resource type="BoxShape" id=1]
-extents = Vector3( 0.75, 1.5, 0.1 )
+extents = Vector3( 0.75, 1.5, 0.02 )
 
-[sub_resource type="CubeMesh" id=2]
-size = Vector3( 1.5, 3.0, 0.2 )
+[sub_resource type="QuadMesh" id=7]
+size = Vector2( 1.5, 3 )
 
-[sub_resource type="SpatialMaterial" id=3]
-albedo_color = Color( 0.18, 0.18, 0.22, 1 )
-metallic = 0.7
-roughness = 0.3
+[sub_resource type="Shader" id=5]
+code = "shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_disabled;
+
+uniform vec4 fence_color : hint_color = vec4(0.35, 0.35, 0.35, 1.0);
+uniform vec2 tiling = vec2(10.0, 10.0);
+uniform float wire_thickness : hint_range(0.01, 0.5) = 0.08;
+
+void fragment() {
+    vec2 uv = UV * tiling;
+    vec2 grid_uv = fract(vec2(uv.x + uv.y, uv.x - uv.y) * 0.5);
+    float line_x = step(grid_uv.x, wire_thickness) + step(1.0 - wire_thickness, grid_uv.x);
+    float line_y = step(grid_uv.y, wire_thickness) + step(1.0 - wire_thickness, grid_uv.y);
+    float alpha = clamp(max(line_x, line_y), 0.0, 1.0);
+    if (alpha < 0.5) { discard; }
+    ALBEDO = fence_color.rgb * 0.8;
+    METALLIC = 1.0;
+    ROUGHNESS = 0.5;
+    vec2 center_dist = abs(grid_uv - 0.5) * 2.0;
+    float d = max(center_dist.x, center_dist.y);
+    float ao = smoothstep(1.0 - wire_thickness * 2.0, 1.0, d);
+    ALBEDO *= mix(1.0, 0.5, ao);
+}
+"
+
+[sub_resource type="ShaderMaterial" id=6]
+shader = SubResource( 5 )
+shader_param/fence_color = Color( 0.35, 0.35, 0.35, 1 )
+shader_param/tiling = Vector2( 18, 15 )
+shader_param/wire_thickness = 0.08
+
+[sub_resource type="CylinderMesh" id=9]
+top_radius = 0.05
+bottom_radius = 0.05
+height = 3.0
+radial_segments = 8
 
 [node name="ElevatorDoor" type="Spatial"]
 script = ExtResource( 1 )
+anim_duration = 0.8
 is_interactable = false
 manual_toggle = false
-anim_duration = 0.8
 mesh_a_path = NodePath("DoorLeft")
 mesh_b_path = NodePath("DoorRight")
 slide_vector_a = Vector3( -1.5, 0, 0 )
 slide_vector_b = Vector3( 1.5, 0, 0 )
+top_floor_height = 0.6
 
-[node name="Frame" type="CSGCombiner" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0 )
+[node name="Header" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.2, 0 )
 use_collision = true
-
-[node name="Outer" type="CSGBox" parent="Frame"]
-width = 3.8
-height = 3.6
-depth = 0.6
+width = 3.0
+height = 0.4
+depth = 0.2
 material = ExtResource( 2 )
 
-[node name="Inner" type="CSGBox" parent="Frame"]
-operation = 2
-width = 3.0
-height = 3.0
-depth = 0.8
+[node name="ShaftFence" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.65, 0 )
+mesh = SubResource( 10 )
+material/0 = SubResource( 12 )
+
+[node name="ShaftPoleLeft" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 4.65, 0 )
+mesh = SubResource( 13 )
+material/0 = SubResource( 8 )
+
+[node name="ShaftPoleRight" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 4.65, 0 )
+mesh = SubResource( 14 )
+material/0 = SubResource( 8 )
 
 [node name="DoorLeft" type="KinematicBody" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.75, 1.5, 0 )
@@ -48,9 +143,19 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.75, 1.5, 0 )
 [node name="CollisionShape" type="CollisionShape" parent="DoorLeft"]
 shape = SubResource( 1 )
 
-[node name="MeshInstance" type="MeshInstance" parent="DoorLeft"]
-mesh = SubResource( 2 )
-material/0 = SubResource( 3 )
+[node name="FencePanel" type="MeshInstance" parent="DoorLeft"]
+mesh = SubResource( 7 )
+material/0 = SubResource( 6 )
+
+[node name="PoleLeft" type="MeshInstance" parent="DoorLeft"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.75, 0, 0 )
+mesh = SubResource( 9 )
+material/0 = SubResource( 8 )
+
+[node name="PoleRight" type="MeshInstance" parent="DoorLeft"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.75, 0, 0 )
+mesh = SubResource( 9 )
+material/0 = SubResource( 8 )
 
 [node name="DoorRight" type="KinematicBody" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.75, 1.5, 0 )
@@ -58,13 +163,23 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.75, 1.5, 0 )
 [node name="CollisionShape" type="CollisionShape" parent="DoorRight"]
 shape = SubResource( 1 )
 
-[node name="MeshInstance" type="MeshInstance" parent="DoorRight"]
-mesh = SubResource( 2 )
-material/0 = SubResource( 3 )
+[node name="FencePanel" type="MeshInstance" parent="DoorRight"]
+mesh = SubResource( 7 )
+material/0 = SubResource( 6 )
+
+[node name="PoleLeft" type="MeshInstance" parent="DoorRight"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.75, 0, 0 )
+mesh = SubResource( 9 )
+material/0 = SubResource( 8 )
+
+[node name="PoleRight" type="MeshInstance" parent="DoorRight"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.75, 0, 0 )
+mesh = SubResource( 9 )
+material/0 = SubResource( 8 )
 
 [node name="SFX Door" type="AudioStreamPlayer3D" parent="."]
 stream = ExtResource( 3 )
 unit_db = 10.0
 max_distance = 30.0
 script = ExtResource( 4 )
-trigger_mode = "OneShotActive"
+trigger_mode = "Interact"

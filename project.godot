@@ -259,6 +259,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/props/ElevatorController.gd"
 }, {
+"base": "DualSlidingObjectV2",
+"class": "ElevatorDoor",
+"language": "GDScript",
+"path": "res://core_v2/props/ElevatorDoor.gd"
+}, {
 "base": "PropBaseV2",
 "class": "ElevatorLogicInput",
 "language": "GDScript",
@@ -1635,6 +1640,7 @@ _global_script_class_icons={
 "DroneDock": "",
 "DualSlidingObjectV2": "",
 "ElevatorController": "",
+"ElevatorDoor": "",
 "ElevatorLogicInput": "",
 "ElevatorPlatform": "",
 "EmergencyBeaconV2": "",
