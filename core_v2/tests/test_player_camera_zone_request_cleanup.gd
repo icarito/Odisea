@@ -46,9 +46,6 @@ class DummyZone:
 	func get_volume() -> float:
 		return _volume
 
-	func set_zone_occlusion_for_body(_body: Node, _active: bool) -> void:
-		pass
-
 
 class DummyPivot:
 	extends Spatial

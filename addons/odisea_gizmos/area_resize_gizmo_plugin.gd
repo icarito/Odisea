@@ -1,8 +1,6 @@
 tool
 extends EditorSpatialGizmoPlugin
 
-const OcclusionArea = preload("res://core_v2/components/OcclusionZoneV2.gd")
-
 var undo_redo: UndoRedo
 
 func _init():

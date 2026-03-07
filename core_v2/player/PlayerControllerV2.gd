@@ -111,7 +111,6 @@ var _terminal_ui_active := false
 var _restore_spring_length: float = -1.0
 var _restore_fov: float = -1.0
 var _exit_log_frames := 0
-var _occlusion_mode_active := false
 var _perf_disable_interaction_scan := false
 var _perf_disable_cinematic_zone_scan := false
 var _rl_mode := false
@@ -159,18 +158,6 @@ func set_camera_input_locked(locked: bool):
 func force_camera_current(_reset_orientation := false):
 	if _cached_cam:
 		_cached_cam.current = true
-
-func _is_occlusion_enabled() -> bool:
-	var raw := OS.get_environment("ODISEA_ENABLE_OCCLUSION").to_lower()
-	return raw in ["1", "true", "yes", "on"]
-
-func set_occlusion_mode(active: bool) -> void:
-	if not _is_occlusion_enabled():
-		active = false
-	_occlusion_mode_active = active
-	if _cached_spring_arm:
-		# Keep camera-wall collision enabled even when occlusion visuals are toggled.
-		_cached_spring_arm.collision_mask = base_collision_mask
 
 func sync_camera_to_rig() -> void:
 	if _cached_spring_arm:
@@ -262,7 +249,6 @@ func full_reset() -> void:
 	_prev_active_cinematic_zone = null
 	_cinematic_zone_exit_grace_left = 0.0
 	_cinematic_zone_switch_grace_left = 0.0
-	set_occlusion_mode(false)
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		camera_rig.force_update_transform()
@@ -1358,13 +1344,6 @@ func _update_cinematic_zone_detection(_input: InputDataV2, dt: float = 1.0 / 60.
 	_active_cinematic_zone = resolved_zone
 
 	if _active_cinematic_zone != _prev_active_cinematic_zone:
-		if _prev_active_cinematic_zone and _prev_active_cinematic_zone.has_method("set_zone_occlusion_for_body"):
-			_prev_active_cinematic_zone.set_zone_occlusion_for_body(self , false)
-		if _active_cinematic_zone and _active_cinematic_zone.has_method("set_zone_occlusion_for_body"):
-			_active_cinematic_zone.set_zone_occlusion_for_body(self , true)
-		elif _occlusion_mode_active:
-			set_occlusion_mode(false)
-
 		# FSM-based Transition Logic
 		if _active_cinematic_zone:
 			# If we switched zones, release the previous request first.

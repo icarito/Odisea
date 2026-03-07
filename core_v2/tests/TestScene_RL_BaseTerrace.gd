@@ -76,13 +76,11 @@ func _strip_heavy_runtime_nodes() -> void:
 	_disable_node("Terrace/OYSComponent")
 	_disable_node("Terrace/CameraZone")
 	_disable_node("Terrace/CameraZone2")
-	_disable_node("Terrace/OcclusionZone")
 	_disable_node("Terrace/VCameraSystem")
 	_disable_node("Terrace/VCameraBrain")
 	_disable_node("Terrace/ShaderWarmupTrigger")
 	_disable_nodes_named(self, "ShaderWarmupTrigger")
 	_disable_group("CameraZoneV2")
-	_disable_group("OcclusionZoneV2")
 
 func _disable_node(path: String) -> void:
 	var node = get_node_or_null(path)

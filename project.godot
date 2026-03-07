@@ -1089,11 +1089,6 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/systems/OYS_Resolver.gd"
 }, {
-"base": "BaseZoneV2",
-"class": "OcclusionZoneV2",
-"language": "GDScript",
-"path": "res://core_v2/components/OcclusionZoneV2.gd"
-}, {
 "base": "Spatial",
 "class": "OrbitArm",
 "language": "GDScript",
@@ -1811,7 +1806,6 @@ _global_script_class_icons={
 "OYS_Interpreter": "",
 "OYS_Parser": "",
 "OYS_Resolver": "",
-"OcclusionZoneV2": "",
 "OrbitArm": "",
 "Orbiter": "",
 "OysCalc": "",
@@ -1932,7 +1926,6 @@ SessionManager="*res://core_v2/autoloads/SessionManager.gd"
 TransitionLayer="*res://core_v2/autoloads/TransitionLayer.gd"
 SceneManager="*res://core_v2/autoloads/SceneManager.gd"
 PersistenceManager="*res://core_v2/autoloads/PersistenceManager.gd"
-WallOcclusionManager="*res://core_v2/autoloads/WallOcclusionManager.gd"
 CinematicManager="*res://core_v2/autoloads/CinematicManager.gd"
 CameraTransition="*res://addons/camera_transition/camera_transition.tscn"
 PerformanceMonitor="*res://core_v2/autoloads/PerformanceMonitor.gd"

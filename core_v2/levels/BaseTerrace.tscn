@@ -1,4 +1,4 @@
-[gd_scene load_steps=345 format=2]
+[gd_scene load_steps=343 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -26,7 +26,6 @@
 [ext_resource path="res://textures/kenney_prototype_textures/red/texture_08.png" type="Texture" id=24]
 [ext_resource path="res://textures/kenney_prototype_textures/red/texture_09.png" type="Texture" id=25]
 [ext_resource path="res://core_v2/props/VerticalDoor.tscn" type="PackedScene" id=26]
-[ext_resource path="res://core_v2/components/OcclusionZoneV2.gd" type="Script" id=27]
 [ext_resource path="res://core_v2/components/OYSTrigger.gd" type="Script" id=28]
 [ext_resource path="res://core_v2/things/CheckZoneV2.tscn" type="PackedScene" id=29]
 [ext_resource path="res://core_v2/components/KillZoneV2.gd" type="Script" id=30]
@@ -1111,16 +1110,12 @@ points = PoolVector3Array( -53.4353, 10.819, -2.22044, -53.4353, 9.56897, -2.220
 points = PoolVector3Array( -40.4353, -3.93103, -26.2204, -32.4353, 0.0689655, -26.2204, -32.4353, 0.568965, -26.2204, -40.4353, -3.43103, -26.2204, -40.4353, -3.43103, -20.2204, -40.4353, -3.93103, -20.2204, -32.4353, 0.568965, -20.2204, -32.4353, 0.0689655, -20.2204 )
 
 [sub_resource type="BoxShape" id=3446]
-resource_local_to_scene = true
-extents = Vector3( 63, 40, 33.7563 )
-
-[sub_resource type="BoxShape" id=3447]
 extents = Vector3( 104, 1, 141.5 )
 
 [sub_resource type="MultiMesh" id=1491]
 mesh = ExtResource( 36 )
 
-[sub_resource type="BoxShape" id=3448]
+[sub_resource type="BoxShape" id=3447]
 resource_local_to_scene = true
 extents = Vector3( 88.5928, 15, 199.103 )
 
@@ -1129,7 +1124,7 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 
-[sub_resource type="BoxShape" id=3449]
+[sub_resource type="BoxShape" id=3448]
 extents = Vector3( 1, 0.5, 1 )
 
 [sub_resource type="SpatialMaterial" id=1974]
@@ -1162,7 +1157,7 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 
-[sub_resource type="BoxShape" id=3450]
+[sub_resource type="BoxShape" id=3449]
 extents = Vector3( 1, 0.5, 1 )
 
 [sub_resource type="SpatialMaterial" id=1979]
@@ -1228,10 +1223,10 @@ tracks/0/keys = {
 "values": [ 0.0, 1.0 ]
 }
 
-[sub_resource type="BoxShape" id=3451]
+[sub_resource type="BoxShape" id=3450]
 extents = Vector3( 1.5, 3, 1.5 )
 
-[sub_resource type="Curve3D" id=3452]
+[sub_resource type="Curve3D" id=3451]
 _data = {
 "points": PoolVector3Array( 0, 0, 0, 0, 0, 0, -0.974657, -4.44925e-08, -0.0433385, 0, 0, 0, 0, 0, 0, -1.97465, -8.80818e-08, -0.0405459, 0, 0, 0, 0, 0, 0, -1.98024, -1.75504e-07, -2.04053, 0, 0, 0, 0, 0, 0, -1.99105, -2.64295e-07, -4.06668, 0, 0, 0, 0, 0, 0, 2.01416, -8.85692e-08, -4.0517, 0, 0, 0, 0, 0, 0, 2.02533, 8.62756e-08, -0.0517117, 0, 0, 0, 0, 0, 0, 1.02534, 4.26861e-08, -0.0489235 ),
 "tilts": PoolRealArray( 0, 0, 0, 0, 0, 0, 0 )
@@ -2154,25 +2149,8 @@ shape = SubResource( 3443 )
 [node name="entity_23_brush_28_collision_shape" type="CollisionShape" parent="Building/QodotMap/entity_23_func_group"]
 shape = SubResource( 3444 )
 
-[node name="VerticalDoor" parent="Building" groups=["no_occlusion"] instance=ExtResource( 26 )]
+[node name="VerticalDoor" parent="Building" instance=ExtResource( 26 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -11.0076, 6.003, 28.6455 )
-
-[node name="OcclusionArea" type="Area" parent="Building" groups=["optional"]]
-transform = Transform( 1.80496, 0, 0, 0, 1.80717, 0, 0, 0, 3.52709, -22, 0, 20.5809 )
-collision_mask = 2
-monitoring = false
-monitorable = false
-script = ExtResource( 27 )
-debug_color = Color( 1, 1, 0, 0.2 )
-debug_render = false
-zone_extents = Vector3( 63, 40, 33.7563 )
-cone_radius = 2.5
-transparency_min = 0.294
-transparency_max = 0.678
-floor_protect_radius = 1.0
-
-[node name="CollisionShape" type="CollisionShape" parent="Building/OcclusionArea"]
-shape = SubResource( 3446 )
 
 [node name="CheckZoneV2" parent="." instance=ExtResource( 29 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -25.3912, 20.017, 32.3357 )
@@ -2196,7 +2174,7 @@ zone_extents = Vector3( 104, 1, 141.5 )
 
 [node name="CollisionShape" type="CollisionShape" parent="KillZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0 )
-shape = SubResource( 3447 )
+shape = SubResource( 3446 )
 
 [node name="CrioBatch" type="MultiMeshInstance" parent="."]
 transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 8.42406, 5.63353, -19.4895 )
@@ -2250,7 +2228,7 @@ fade_time = 0.2
 
 [node name="CollisionShape2" type="CollisionShape" parent="BGMZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 27.1999, 13.8186, -47.3105 )
-shape = SubResource( 3448 )
+shape = SubResource( 3447 )
 
 [node name="EmergencyBeaconV2" parent="." groups=["optional"] instance=ExtResource( 45 )]
 transform = Transform( -4.37114e-08, 1, 8.74228e-08, 1, 4.37114e-08, 3.82137e-15, 0, 8.74228e-08, -1, -5.95378, 8.0297, -8.15047 )
@@ -2325,7 +2303,7 @@ material_override = SubResource( 1972 )
 cast_shadow = 0
 
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/AutomationTrigger"]
-shape = SubResource( 3449 )
+shape = SubResource( 3448 )
 
 [node name="_ZoneDebugMesh3" type="MeshInstance" parent="CrioPod START/AutomationTrigger"]
 visible = false
@@ -2367,7 +2345,7 @@ material_override = SubResource( 1977 )
 cast_shadow = 0
 
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/CinematicSequence"]
-shape = SubResource( 3450 )
+shape = SubResource( 3449 )
 
 [node name="_ZoneDebugMesh3" type="MeshInstance" parent="CrioPod START/CinematicSequence"]
 visible = false
@@ -2658,7 +2636,6 @@ transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0.05809
 debug_render = false
 zone_extents = Vector3( 1.5, 3, 1.5 )
 cinematic_rig_path = NodePath("CinematicPathRig")
-occlusion_root = NodePath("")
 
 [node name="CinematicPathRig" type="Path" parent="ElevatorProp/Platform/CameraZone"]
 transform = Transform( -3.09086e-08, 0.707107, -0.707107, 3.09086e-08, 0.707107, 0.707107, 1, 0, -4.37114e-08, -1.78653, 2.69038, -0.0769081 )
@@ -2688,7 +2665,7 @@ bgm_stream = ExtResource( 52 )
 volume_db = -5.0
 
 [node name="CollisionShape" parent="ElevatorProp/Platform/BGMZoneV2" index="0"]
-shape = SubResource( 3451 )
+shape = SubResource( 3450 )
 
 [node name="Floor1" parent="ElevatorProp/Floors" index="1"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6, 0 )
@@ -2700,7 +2677,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16, 0 )
 height = 20.0
 
 [node name="Path2" parent="ElevatorProp/MetalFence" index="0"]
-curve = SubResource( 3452 )
+curve = SubResource( 3451 )
 
 [node name="CSGCylinder" parent="ElevatorProp/MetalFence/Path2" index="0"]
 transform = Transform( 1, 4.71845e-16, 0, 5.01682e-14, 1, 4.9738e-14, 0, 0, 1, -0.00600338, 20.1, -2.102 )
