@@ -18,6 +18,11 @@ var _active_zone: Node = null
 var _zone_playback_positions := {}
 var _headless_audio_muted := false
 var _focus_audio_muted := false
+var _cinematic_listener: Listener = null
+var _cinematic_listener_engaged := false
+
+export(bool) var follow_active_camera_for_spatial_sfx := true
+export(bool) var follow_active_camera_only_during_cinematics := true
 
 const HEADLESS_MUTE_ENV := "ODISEA_MUTE_AUDIO_HEADLESS"
 const FORCE_MUTE_ENV := "ODISEA_FORCE_MUTE_AUDIO"
@@ -130,6 +135,9 @@ func _find_mixing_desk():
 	_mdm_instance = root.find_node("MixingDeskMusic", true, false)
 	# Strategy 2: Look for MDS
 	_mds_instance = root.find_node("MixingDeskSound", true, false)
+
+func _physics_process(_delta):
+	_update_spatial_listener_for_cinematics()
 
 func register_zone(zone):
 	if not _active_zones.has(zone):
@@ -259,6 +267,7 @@ func reset():
 	
 	if _tween:
 		_tween.stop_all()
+	_restore_default_spatial_listener()
 
 func fade_out_current_bgm(duration: float = 0.35) -> void:
 	var time = max(0.0, duration)
@@ -373,3 +382,63 @@ func play_sound(sound_name: String, _pos: Vector3 = Vector3.ZERO):
 		# For now, SFXComponentV2 handles its own fallback if it has a stream.
 		# This method is just for the name-based lookup.
 		print("[AudioManager] Warning: Cannot play sound '%s' - MixingDeskSound not found." % sound_name)
+
+func _update_spatial_listener_for_cinematics() -> void:
+	if not follow_active_camera_for_spatial_sfx:
+		_restore_default_spatial_listener()
+		return
+
+	var target_cam = _get_spatial_listener_target_camera()
+	if target_cam and is_instance_valid(target_cam):
+		_apply_cinematic_listener_to_camera(target_cam)
+	else:
+		_restore_default_spatial_listener()
+
+func _get_spatial_listener_target_camera() -> Camera:
+	var cm = get_node_or_null("/root/CinematicManager")
+	if not cm or not is_instance_valid(cm):
+		return null
+
+	if follow_active_camera_only_during_cinematics:
+		if not (cm.has_method("is_active") and cm.is_active()):
+			return null
+
+	if cm.has_method("get_active_camera"):
+		var cam = cm.get_active_camera()
+		if cam and is_instance_valid(cam):
+			return cam
+	return null
+
+func _apply_cinematic_listener_to_camera(cam: Camera) -> void:
+	if not _cinematic_listener or not is_instance_valid(_cinematic_listener):
+		_cinematic_listener = Listener.new()
+		_cinematic_listener.name = "CinematicAudioListener"
+		add_child(_cinematic_listener)
+
+	_cinematic_listener.global_transform = cam.global_transform
+	_cinematic_listener.make_current()
+	_cinematic_listener_engaged = true
+
+func _restore_default_spatial_listener() -> void:
+	if not _cinematic_listener_engaged:
+		return
+
+	if _cinematic_listener and is_instance_valid(_cinematic_listener):
+		if _cinematic_listener.has_method("clear_current"):
+			_cinematic_listener.clear_current()
+
+	var player_listener = _find_player_listener()
+	if player_listener and is_instance_valid(player_listener):
+		player_listener.make_current()
+
+	_cinematic_listener_engaged = false
+
+func _find_player_listener() -> Listener:
+	var players = get_tree().get_nodes_in_group("player")
+	for p in players:
+		if not is_instance_valid(p):
+			continue
+		var l = p.get_node_or_null("AudioListener")
+		if l and l is Listener:
+			return l as Listener
+	return null
