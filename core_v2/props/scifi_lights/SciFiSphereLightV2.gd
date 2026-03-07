@@ -7,11 +7,14 @@ class_name SciFiSphereLightV2
 
 export(Color) var light_color := Color(0.79, 0.43, 1.0) setget set_light_color
 export(float, 0.0, 5.0) var light_energy_max := 1.5
+export(int, 1, 4) var visual_tick_interval_frames := 2
 
 var _cone_mesh: MeshInstance = null
 var _base_sphere: MeshInstance = null
 var _omni_light: OmniLight = null
 var _time_accumulator := 0.0
+var _visual_tick_countdown := 0
+var _visual_tick_accumulator := 0.0
 
 func _ready():
 	._ready()
@@ -33,8 +36,11 @@ func _apply_color():
 
 func _physics_process(delta: float) -> void:
 	._physics_process(delta)
+	var visual_dt = _consume_visual_tick(delta)
+	if visual_dt < 0.0:
+		return
 	if is_active:
-		_time_accumulator += delta
+		_time_accumulator += visual_dt
 		if _cone_mesh and _cone_mesh.material_override is ShaderMaterial:
 			_cone_mesh.material_override.set_shader_param("iTime", _time_accumulator)
 
@@ -60,3 +66,17 @@ func get_snapshot() -> Dictionary:
 func restore_snapshot(data: Dictionary) -> void:
 	.restore_snapshot(data)
 	_time_accumulator = data.get("sphere_time", 0.0)
+
+func _consume_visual_tick(delta: float) -> float:
+	_visual_tick_accumulator += max(0.0, delta)
+	if visual_tick_interval_frames <= 1:
+		var dt = _visual_tick_accumulator
+		_visual_tick_accumulator = 0.0
+		return dt
+	if _visual_tick_countdown > 0:
+		_visual_tick_countdown -= 1
+		return -1.0
+	_visual_tick_countdown = visual_tick_interval_frames - 1
+	var sampled_dt = _visual_tick_accumulator
+	_visual_tick_accumulator = 0.0
+	return sampled_dt

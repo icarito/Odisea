@@ -17,6 +17,7 @@ export(bool) var snap_rotation = true
 export(float) var rotation_snap_degrees = 90.0
 export(float) var settle_lerp_speed = 10.0
 export(int) var wake_check_interval_frames = 3
+export(bool) var wake_on_body_exit = false
 
 var _frames_below_threshold = 0
 var _pending_snapshot = null
@@ -247,6 +248,8 @@ func _on_body_entered(body):
 		wake_up()
 
 func _on_body_exited(_body):
+	if not wake_on_body_exit:
+		return
 	if mode == RigidBody.MODE_KINEMATIC:
 		if debug:
 			print("[PushableBoxV2] Body exited, waking up to check gravity.")

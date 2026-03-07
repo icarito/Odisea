@@ -11,11 +11,14 @@ export(float, 0.0, 20.0) var light_range := 10.0 setget set_light_range
 export(bool) var flicker_enabled := false
 export(float, 0.1, 20.0) var flicker_speed := 10.0
 export(float, 0.0, 1.0) var flicker_intensity := 0.5
+export(int, 1, 4) var flicker_tick_interval_frames := 2
 
 var _omni_light: OmniLight = null
 var _spot_light: SpotLight = null # Optional support for spotlight too
 var _mesh: MeshInstance = null
 var _time_acc: float = 0.0
+var _flicker_tick_countdown := 0
+var _flicker_tick_accumulator := 0.0
 
 func _ready():
 	._ready()
@@ -87,7 +90,10 @@ func _update_visuals() -> void:
 
 func step(dt: float) -> void:
 	.step(dt)
-	_time_acc += dt
+	var flicker_dt = _consume_flicker_tick(dt)
+	if flicker_dt < 0.0:
+		return
+	_time_acc += flicker_dt
 
 	if flicker_enabled and anim_progress > 0.01:
 		_update_visuals()
@@ -97,3 +103,17 @@ func _find_child_by_type(type_name: String) -> Node:
 		if child.get_class() == type_name:
 			return child
 	return null
+
+func _consume_flicker_tick(delta: float) -> float:
+	_flicker_tick_accumulator += max(0.0, delta)
+	if flicker_tick_interval_frames <= 1:
+		var dt = _flicker_tick_accumulator
+		_flicker_tick_accumulator = 0.0
+		return dt
+	if _flicker_tick_countdown > 0:
+		_flicker_tick_countdown -= 1
+		return -1.0
+	_flicker_tick_countdown = flicker_tick_interval_frames - 1
+	var sampled_dt = _flicker_tick_accumulator
+	_flicker_tick_accumulator = 0.0
+	return sampled_dt

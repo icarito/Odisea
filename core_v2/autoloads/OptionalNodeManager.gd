@@ -27,6 +27,16 @@ const THREAD_SCATTER_BATCH_DELAY_SEC := 0.03
 const THREAD_SCATTER_WAIT_FRAMES := 240
 const CRIOPOD_FREE_BATCH_SIZE := 6
 const TOGGLE_OPTIONAL_ACTION := "toggle_optional_nodes"
+const INTERACT_ACTION := "interact"
+const PROFILE_LOW := 1
+const PROFILE_MEDIUM := 2
+const DECOR_RB_CULL_INTERVAL_SEC := 0.15
+const DECOR_RB_CULL_BATCH_PER_TICK := 8
+const DECOR_RB_FREEZE_RADIUS_LOW := 20.0
+const DECOR_RB_FREEZE_RADIUS_MEDIUM := 26.0
+const DECOR_RB_FREEZE_RADIUS_HIGH := 34.0
+const DECOR_RB_INTERACT_WAKE_RADIUS := 3.5
+const META_DISTANCE_FROZEN := "__optional_distance_frozen"
 
 class ScatterPreloadWorker:
 	extends Reference
@@ -47,6 +57,10 @@ var _stacked_box_paths := []
 var _stacked_boxes_cache := []
 var _box_watchdog_running := false
 var _box_watchdog_cursor := 0
+var _decor_rb_culling_running := false
+var _decor_rb_cursor := 0
+var _decor_rb_forced_sleep_ids := {}
+var _cached_player: Spatial = null
 var _thread_scatter_enabled := false
 var _scatter_disabled_by_env := false
 var _criopod_soft_cap := DEFAULT_CRIOPOD_SOFT_CAP
@@ -72,9 +86,12 @@ func _ready() -> void:
 	_delayed_scatter_load()  # Load scatter later to speed up startup
 	if not _scatter_disabled_by_env:
 		_start_box_watchdog()
+		_start_decorative_rigidbody_culling()
 	set_process_input(true)
 
 func _exit_tree() -> void:
+	_box_watchdog_running = false
+	_decor_rb_culling_running = false
 	if _scatter_preload_thread and not _scatter_preload_thread.is_active():
 		_scatter_preload_thread.wait_to_finish()
 	_scatter_preload_thread = null
@@ -157,6 +174,8 @@ func _input(event: InputEvent) -> void:
 		if HardwareProfile.is_weak_hardware():
 			return
 		toggle_optional_nodes()
+	if event.is_action_pressed(INTERACT_ACTION):
+		_wake_nearest_distance_frozen_box()
 
 func _apply_initial_state() -> void:
 	_update_all_optional_nodes()
@@ -725,9 +744,20 @@ func _start_box_watchdog() -> void:
 	call_deferred("_box_watchdog_loop")
 
 func _box_watchdog_loop() -> void:
-	while true:
+	while _box_watchdog_running and is_inside_tree():
 		yield(get_tree().create_timer(BOX_WATCHDOG_INTERVAL_SEC), "timeout")
 		_wake_misplaced_boxes_incremental(BOX_WATCHDOG_CHECKS_PER_TICK)
+
+func _start_decorative_rigidbody_culling() -> void:
+	if _decor_rb_culling_running:
+		return
+	_decor_rb_culling_running = true
+	call_deferred("_decorative_rigidbody_culling_loop")
+
+func _decorative_rigidbody_culling_loop() -> void:
+	while _decor_rb_culling_running and is_inside_tree():
+		yield(get_tree().create_timer(DECOR_RB_CULL_INTERVAL_SEC), "timeout")
+		_apply_decorative_rigidbody_distance_culling(DECOR_RB_CULL_BATCH_PER_TICK)
 
 func _wake_misplaced_boxes_incremental(max_checks: int) -> int:
 	var boxes = _get_stacked_boxes()
@@ -735,6 +765,9 @@ func _wake_misplaced_boxes_incremental(max_checks: int) -> int:
 		_box_watchdog_cursor = 0
 		return 0
 
+	var player = _resolve_player_node()
+	var culling_enabled = _is_decorative_rigidbody_culling_enabled() and is_instance_valid(player)
+	var freeze_radius = _get_decorative_rigidbody_freeze_radius()
 	var checks = boxes.size()
 	if max_checks > 0:
 		checks = min(checks, max_checks)
@@ -745,6 +778,10 @@ func _wake_misplaced_boxes_incremental(max_checks: int) -> int:
 		var box = boxes[idx]
 		if not is_instance_valid(box):
 			continue
+		if culling_enabled and _should_freeze_box_for_distance(box, player, freeze_radius):
+			_set_decorative_box_forced_sleep(box, true)
+			continue
+		_set_decorative_box_forced_sleep(box, false)
 		if box.mode != RigidBody.MODE_KINEMATIC:
 			continue
 		if _box_needs_wakeup(box):
@@ -758,10 +795,17 @@ func _wake_misplaced_boxes_incremental(max_checks: int) -> int:
 	return woken
 
 func _wake_misplaced_boxes() -> int:
+	var player = _resolve_player_node()
+	var culling_enabled = _is_decorative_rigidbody_culling_enabled() and is_instance_valid(player)
+	var freeze_radius = _get_decorative_rigidbody_freeze_radius()
 	var woken := 0
 	for box in _get_stacked_boxes():
 		if not is_instance_valid(box):
 			continue
+		if culling_enabled and _should_freeze_box_for_distance(box, player, freeze_radius):
+			_set_decorative_box_forced_sleep(box, true)
+			continue
+		_set_decorative_box_forced_sleep(box, false)
 		if box.mode != RigidBody.MODE_KINEMATIC:
 			continue
 		if _box_needs_wakeup(box):
@@ -832,7 +876,7 @@ func _try_add_stack_candidate(node: Node, boxes: Array, seen: Dictionary) -> voi
 		return
 	if not _is_pushable_box_node(node):
 		return
-	if not (_is_optional_or_under_optional(node) or _is_under_group(node, "scatter")):
+	if not (_is_optional_or_under_optional(node) or _is_under_group(node, "scatter") or _is_under_named_ancestor(node, ["Scatter3D", "Scatter3D2"])):
 		return
 	var instance_id = node.get_instance_id()
 	if seen.has(instance_id):
@@ -850,6 +894,135 @@ func _is_under_group(node: Node, group_name: String) -> bool:
 			return true
 		current = current.get_parent()
 	return false
+
+func _is_under_named_ancestor(node: Node, ancestor_names: Array) -> bool:
+	var current: Node = node
+	while current != null:
+		if ancestor_names.has(String(current.name)):
+			return true
+		current = current.get_parent()
+	return false
+
+func _resolve_player_node() -> Spatial:
+	if is_instance_valid(_cached_player):
+		return _cached_player
+	var players = get_tree().get_nodes_in_group("player")
+	for candidate in players:
+		if candidate is Spatial and is_instance_valid(candidate):
+			_cached_player = candidate
+			return _cached_player
+	return null
+
+func _is_decorative_rigidbody_culling_enabled() -> bool:
+	var env_value = OS.get_environment("ODISEA_DECOR_RB_CULL").to_lower().strip_edges()
+	if env_value in ["0", "false", "no", "off"]:
+		return false
+	if env_value in ["1", "true", "yes", "on"]:
+		return true
+	var profile = _get_hardware_profile_value()
+	return profile <= PROFILE_MEDIUM or HardwareProfile.is_weak_hardware()
+
+func _get_hardware_profile_value() -> int:
+	var hp = get_node_or_null("/root/HardwareProfile")
+	if hp and hp.has_method("get_profile"):
+		return int(hp.get_profile())
+	return 3
+
+func _get_decorative_rigidbody_freeze_radius() -> float:
+	var profile = _get_hardware_profile_value()
+	if profile <= PROFILE_LOW:
+		return DECOR_RB_FREEZE_RADIUS_LOW
+	if profile <= PROFILE_MEDIUM:
+		return DECOR_RB_FREEZE_RADIUS_MEDIUM
+	return DECOR_RB_FREEZE_RADIUS_HIGH
+
+func _apply_decorative_rigidbody_distance_culling(max_checks: int = DECOR_RB_CULL_BATCH_PER_TICK) -> int:
+	if not _is_decorative_rigidbody_culling_enabled():
+		return 0
+	var player = _resolve_player_node()
+	if not is_instance_valid(player):
+		return 0
+	var boxes = _get_stack_candidate_boxes()
+	if boxes.empty():
+		_decor_rb_cursor = 0
+		return 0
+
+	var checks = boxes.size()
+	if max_checks > 0:
+		checks = min(checks, max_checks)
+
+	var freeze_radius = _get_decorative_rigidbody_freeze_radius()
+	var frozen := 0
+	for i in range(checks):
+		var idx = (_decor_rb_cursor + i) % boxes.size()
+		var box = boxes[idx]
+		if not is_instance_valid(box):
+			continue
+		var should_freeze = _should_freeze_box_for_distance(box, player, freeze_radius)
+		_set_decorative_box_forced_sleep(box, should_freeze)
+		if should_freeze:
+			frozen += 1
+
+	_decor_rb_cursor = (_decor_rb_cursor + checks) % boxes.size()
+	return frozen
+
+func _should_freeze_box_for_distance(box: RigidBody, player: Spatial, freeze_radius: float) -> bool:
+	if not is_instance_valid(box) or not is_instance_valid(player):
+		return false
+	return box.global_transform.origin.distance_to(player.global_transform.origin) > freeze_radius
+
+func _set_decorative_box_forced_sleep(box: RigidBody, should_freeze: bool) -> void:
+	if not is_instance_valid(box):
+		return
+	var instance_id = box.get_instance_id()
+	if should_freeze:
+		var already_frozen = _decor_rb_forced_sleep_ids.has(instance_id)
+		if already_frozen and box.mode == RigidBody.MODE_KINEMATIC and box.sleeping:
+			return
+		if not _decor_rb_forced_sleep_ids.has(instance_id):
+			_decor_rb_forced_sleep_ids[instance_id] = true
+		box.linear_velocity = Vector3.ZERO
+		box.angular_velocity = Vector3.ZERO
+		box.mode = RigidBody.MODE_KINEMATIC
+		box.sleeping = true
+		box.set_meta(META_DISTANCE_FROZEN, true)
+		return
+	_decor_rb_forced_sleep_ids.erase(instance_id)
+	if box.has_meta(META_DISTANCE_FROZEN):
+		box.remove_meta(META_DISTANCE_FROZEN)
+
+func _wake_nearest_distance_frozen_box() -> bool:
+	if not _is_decorative_rigidbody_culling_enabled():
+		return false
+	var player = _resolve_player_node()
+	if not is_instance_valid(player):
+		return false
+	var max_dist_sq = DECOR_RB_INTERACT_WAKE_RADIUS * DECOR_RB_INTERACT_WAKE_RADIUS
+	var nearest_box: RigidBody = null
+	var nearest_dist_sq = INF
+	for box in _get_stack_candidate_boxes():
+		if not is_instance_valid(box):
+			continue
+		if not _decor_rb_forced_sleep_ids.has(box.get_instance_id()):
+			continue
+		var dist_sq = box.global_transform.origin.distance_squared_to(player.global_transform.origin)
+		if dist_sq > max_dist_sq:
+			continue
+		if dist_sq < nearest_dist_sq:
+			nearest_dist_sq = dist_sq
+			nearest_box = box
+	if not is_instance_valid(nearest_box):
+		return false
+	var instance_id = nearest_box.get_instance_id()
+	_decor_rb_forced_sleep_ids.erase(instance_id)
+	if nearest_box.has_meta(META_DISTANCE_FROZEN):
+		nearest_box.remove_meta(META_DISTANCE_FROZEN)
+	if nearest_box.has_method("wake_up"):
+		nearest_box.call("wake_up")
+	else:
+		nearest_box.mode = RigidBody.MODE_RIGID
+		nearest_box.sleeping = false
+	return true
 
 func _hide_scatter_objects() -> void:
 	# Wait for scene to load

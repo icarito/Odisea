@@ -9,11 +9,14 @@ export(float, 0.5, 10.0) var light_range := 4.0 setget set_light_range
 export(float, 0.0, 5.0) var light_energy_max := 2.0
 export(float, 0.0, 0.5) var sway_amplitude := 0.05 # How much the light sways
 export(float, 0.5, 5.0) var sway_speed := 1.0 # Speed of swaying
+export(int, 1, 4) var visual_tick_interval_frames := 2
 
 var _lamp_pivot: Spatial = null
 var _omni_light: OmniLight = null
 var _lamp_mesh: MeshInstance = null
 var _time_accumulator := 0.0
+var _visual_tick_countdown := 0
+var _visual_tick_accumulator := 0.0
 
 func _ready():
 	._ready()
@@ -41,7 +44,10 @@ func _apply_color():
 
 func _physics_process(delta: float) -> void:
 	._physics_process(delta)
-	_time_accumulator += delta
+	var visual_dt = _consume_visual_tick(delta)
+	if visual_dt < 0.0:
+		return
+	_time_accumulator += visual_dt
 	
 	# Gentle sway when active
 	if _lamp_pivot and sway_amplitude > 0.001:
@@ -66,3 +72,17 @@ func get_snapshot() -> Dictionary:
 func restore_snapshot(data: Dictionary) -> void:
 	.restore_snapshot(data)
 	_time_accumulator = data.get("hanging_time", 0.0)
+
+func _consume_visual_tick(delta: float) -> float:
+	_visual_tick_accumulator += max(0.0, delta)
+	if visual_tick_interval_frames <= 1:
+		var dt = _visual_tick_accumulator
+		_visual_tick_accumulator = 0.0
+		return dt
+	if _visual_tick_countdown > 0:
+		_visual_tick_countdown -= 1
+		return -1.0
+	_visual_tick_countdown = visual_tick_interval_frames - 1
+	var sampled_dt = _visual_tick_accumulator
+	_visual_tick_accumulator = 0.0
+	return sampled_dt

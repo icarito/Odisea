@@ -25,7 +25,6 @@
 [ext_resource path="res://textures/kenney_prototype_textures/purple/texture_08.png" type="Texture" id=24]
 [ext_resource path="res://textures/kenney_prototype_textures/red/texture_09.png" type="Texture" id=25]
 [ext_resource path="res://core_v2/props/VerticalDoor.tscn" type="PackedScene" id=26]
-[ext_resource path="res://core_v2/components/OcclusionZoneV2.gd" type="Script" id=27]
 [ext_resource path="res://core_v2/components/OYSTrigger.gd" type="Script" id=28]
 [ext_resource path="res://core_v2/things/CheckZoneV2.tscn" type="PackedScene" id=29]
 [ext_resource path="res://core_v2/components/KillZoneV2.gd" type="Script" id=30]
@@ -1743,25 +1742,8 @@ starts_active = true
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 22.5, 4.75, 11.5 )
 starts_active = true
 
-[node name="VerticalDoor" parent="Building" groups=["no_occlusion"] instance=ExtResource( 26 )]
+[node name="VerticalDoor" parent="Building" instance=ExtResource( 26 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -11.0076, 6.003, 28.6455 )
-
-[node name="OcclusionArea" type="Area" parent="Building" groups=["optional"]]
-transform = Transform( 1.80496, 0, 0, 0, 1.80717, 0, 0, 0, 3.52709, -22, 0, 20.5809 )
-collision_mask = 2
-monitoring = false
-monitorable = false
-script = ExtResource( 27 )
-debug_color = Color( 1, 1, 0, 0.2 )
-debug_render = false
-zone_extents = Vector3( 63, 40, 33.7563 )
-cone_radius = 2.5
-transparency_min = 0.294
-transparency_max = 0.678
-floor_protect_radius = 1.0
-
-[node name="CollisionShape" type="CollisionShape" parent="Building/OcclusionArea"]
-shape = SubResource( 2903 )
 
 [node name="CheckZoneV2" parent="." instance=ExtResource( 29 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -25.3912, 20.017, 32.3357 )
@@ -2054,7 +2036,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.04499, 3.20083, 20.0898 )
 debug_render = false
 zone_extents = Vector3( 16, 2, 15.5 )
 cinematic_rig_path = NodePath("CinematicPathRig")
-occlusion_root = NodePath("../CornerFloor")
 
 [node name="CinematicPathRig" type="Path" parent="CameraZone"]
 transform = Transform( -6.7194e-08, 0, 1.53722, 0, 0.828185, 0, -2.61346, 0, -1.14238e-07, -15.5772, 4.19258, 13.0469 )
@@ -2084,7 +2065,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.18961, 11.1312, 20.0898 )
 debug_render = false
 zone_extents = Vector3( 14.5, 5.89231, 13.95 )
 cinematic_rig_path = NodePath("CinematicPathRig")
-occlusion_root = NodePath("../CornerFloor")
 
 [node name="CinematicPathRig" type="Path" parent="CameraZone2"]
 transform = Transform( -6.7194e-08, 0, 1.53722, 0, 0.828185, 0, -2.61346, 0, -1.14238e-07, -15.5772, 4.19258, 13.0469 )

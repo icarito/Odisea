@@ -1,7 +1,7 @@
 extends Spatial
 class_name VCameraSystemRig
 
-export(float, 0.05, 2.0) var rebind_interval := 0.25
+export(float, 0.05, 2.0) var rebind_interval := 0.2
 export(bool) var bind_follow_target := false
 export(bool) var bind_lookat_target := false
 export(bool) var log_bind_debug := true

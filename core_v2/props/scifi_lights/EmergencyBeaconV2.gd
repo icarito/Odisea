@@ -12,6 +12,7 @@ export(float, 0.1, 10.0) var pulse_speed := 2.0 # Pulse frequency
 export(float, 0.5, 15.0) var light_range := 5.0 setget set_light_range
 export(float, 0.0, 8.0) var light_energy_max := 3.0
 export(float, 0.0, 1.0) var pulse_min := 0.3 # Minimum pulse brightness (0 = fully off)
+export(int, 1, 4) var visual_tick_interval_frames := 2
 
 var _dome_mesh: MeshInstance = null
 var _base_mesh: MeshInstance = null
@@ -19,6 +20,8 @@ var _lens_mesh: MeshInstance = null
 var _omni_light: OmniLight = null
 var _sfx_alarm: SFXComponentV2 = null
 var _time_accumulator := 0.0
+var _visual_tick_countdown := 0
+var _visual_tick_accumulator := 0.0
 
 func _ready():
 	._ready()
@@ -66,8 +69,11 @@ func _apply_color():
 
 func _physics_process(delta: float) -> void:
 	._physics_process(delta)
+	var visual_dt = _consume_visual_tick(delta)
+	if visual_dt < 0.0:
+		return
 	if is_active:
-		_time_accumulator += delta
+		_time_accumulator += visual_dt
 		
 		# Rotate the dome
 		if _dome_mesh:
@@ -108,3 +114,17 @@ func get_snapshot() -> Dictionary:
 func restore_snapshot(data: Dictionary) -> void:
 	.restore_snapshot(data)
 	_time_accumulator = data.get("beacon_time", 0.0)
+
+func _consume_visual_tick(delta: float) -> float:
+	_visual_tick_accumulator += max(0.0, delta)
+	if visual_tick_interval_frames <= 1:
+		var dt = _visual_tick_accumulator
+		_visual_tick_accumulator = 0.0
+		return dt
+	if _visual_tick_countdown > 0:
+		_visual_tick_countdown -= 1
+		return -1.0
+	_visual_tick_countdown = visual_tick_interval_frames - 1
+	var sampled_dt = _visual_tick_accumulator
+	_visual_tick_accumulator = 0.0
+	return sampled_dt
