@@ -56,6 +56,11 @@ if [ "$1" = "--show" ]; then
     shift
 fi
 
+# Ensure complete silence on headless/no-window test runs unless explicitly overridden.
+if [ -n "$HEADLESS" ] && [ -z "${ODISEA_FORCE_MUTE_AUDIO+x}" ]; then
+    export ODISEA_FORCE_MUTE_AUDIO=1
+fi
+
 # Configuración de logging - Generar nombre único para soporte concurrente
 LOG_DIR="./reports"
 LOG_FILE="$LOG_DIR/gdunit_$(date +%Y%m%d_%H%M%S)_$$.log"

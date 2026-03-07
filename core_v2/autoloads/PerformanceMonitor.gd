@@ -24,9 +24,11 @@ var debug_collision_shapes := false setget set_debug_collision_shapes
 var _frame_start_time := 0
 var _last_fps := 60.0
 var _monitored_nodes := [] # Array of WeakRef
-var _node_profiling_accumulators := {} # { node_ref: accumulated_usec }
-var _node_profiling_calls := {} # { node_ref: call_count }
-var _node_measurement_start := {} # { node_ref: start_usec }
+var _node_profiling_accumulators := {} # { node_id: accumulated_usec }
+var _node_profiling_calls := {} # { node_id: call_count }
+var _node_measurement_start := {} # { node_id: start_usec }
+var _profiled_node_names := {} # { node_id: node.name }
+var _profiled_node_paths := {} # { node_id: String(node.get_path()) }
 var _suppress_runtime_logs := false
 var _disabled := false
 var _capture_active := false
@@ -176,37 +178,51 @@ func _cleanup_monitored_nodes():
 	_monitored_nodes = valid_nodes
 
 func _cleanup_measurement_cache():
-	var stale_keys := []
-	for node in _node_measurement_start.keys():
-		if not is_instance_valid(node):
-			stale_keys.append(node)
-	for key in stale_keys:
-		_node_measurement_start.erase(key)
+	var stale_measurements := []
+	for node_id in _node_measurement_start.keys():
+		if not _node_profiling_accumulators.has(node_id) and not _node_profiling_calls.has(node_id):
+			stale_measurements.append(node_id)
+	for node_id in stale_measurements:
+		_node_measurement_start.erase(node_id)
 
 func measure_start(node: Object, _tag: String = ""):
 	# Store start time for this node instance
-	_node_measurement_start[node] = OS.get_ticks_usec()
+	if not is_instance_valid(node):
+		return
+	var node_id = int(node.get_instance_id())
+	_profiled_node_names[node_id] = String(node.name)
+	if node is Node and node.is_inside_tree():
+		_profiled_node_paths[node_id] = str(node.get_path())
+	else:
+		_profiled_node_paths[node_id] = ""
+	_node_measurement_start[node_id] = OS.get_ticks_usec()
 
 func measure_end(node: Object, _tag: String = ""):
-	if not _node_measurement_start.has(node): return
+	if not is_instance_valid(node):
+		return
+	var node_id = int(node.get_instance_id())
+	if not _node_measurement_start.has(node_id):
+		return
 
-	var start = _node_measurement_start[node]
+	var start = _node_measurement_start[node_id]
 	var end = OS.get_ticks_usec()
 	var duration = end - start
 
-	if not _node_profiling_accumulators.has(node):
-		_node_profiling_accumulators[node] = 0
-		_node_profiling_calls[node] = 0
+	if not _node_profiling_accumulators.has(node_id):
+		_node_profiling_accumulators[node_id] = 0
+		_node_profiling_calls[node_id] = 0
 
-	_node_profiling_accumulators[node] += duration
-	_node_profiling_calls[node] += 1
-	_node_measurement_start.erase(node)
+	_node_profiling_accumulators[node_id] += duration
+	_node_profiling_calls[node_id] += 1
+	_node_measurement_start.erase(node_id)
 
 func _exit_tree():
 	_monitored_nodes.clear()
 	_node_profiling_accumulators.clear()
 	_node_profiling_calls.clear()
 	_node_measurement_start.clear()
+	_profiled_node_names.clear()
+	_profiled_node_paths.clear()
 	_capture_active = false
 	_capture_samples.clear()
 
@@ -298,14 +314,13 @@ func _report_lag_spike(fps, prev_fps, process_t, physics_t, draw_c, node_c):
 
 func _get_top_heavy_nodes() -> Array:
 	var list = []
-	for node in _node_profiling_accumulators:
-		if is_instance_valid(node):
-			list.append({
-				"name": node.name,
-				"path": str(node.get_path()),
-				"time_usec": _node_profiling_accumulators[node],
-				"calls": _node_profiling_calls[node]
-			})
+	for node_id in _node_profiling_accumulators.keys():
+		list.append({
+			"name": _profiled_node_names.get(node_id, "node_%s" % str(node_id)),
+			"path": _profiled_node_paths.get(node_id, ""),
+			"time_usec": _node_profiling_accumulators[node_id],
+			"calls": _node_profiling_calls.get(node_id, 0)
+		})
 
 	list.sort_custom(self, "_sort_by_time_desc")
 

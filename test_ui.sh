@@ -116,6 +116,9 @@ else
 fi
 echo "🧪 OYS script: $OYS_SCRIPT"
 export OYS_AUTO_RUN="$OYS_SCRIPT"
+if [ -z "${ODISEA_FORCE_MUTE_AUDIO+x}" ]; then
+    export ODISEA_FORCE_MUTE_AUDIO=1
+fi
 
 $GODOT_BIN --path "$PROJECT_PATH" "$UI_RES_PATH" --no-window --quit-after 260
 RUN_CODE=$?

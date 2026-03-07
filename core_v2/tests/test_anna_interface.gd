@@ -357,6 +357,9 @@ func test_anna_mcp_resources_scene_telemetry_and_filters_internal_nodes() -> voi
 	assert_bool(bool(telemetry.get("elias", {}).get("available", false))).is_true()
 	assert_bool(telemetry.get("elias", {}).has("active_velocity")).is_true()
 	assert_bool(telemetry.has("oys")).is_true()
+	assert_bool(telemetry.has("hardware")).is_true()
+	assert_bool(bool(telemetry.get("hardware", {}).get("available", false))).is_true()
+	assert_bool(telemetry.get("hardware", {}).has("shadow_policy")).is_true()
 
 	sm.player = previous_player
 	yield (_free_node(hidden), "completed")

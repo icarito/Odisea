@@ -44,6 +44,7 @@ var _detected_device_name := ""
 var _processor_count := 0
 var _is_weak_hardware := false
 var _auto_detected := false
+var _cached_memory_total_gb := 8.0
 
 signal profile_changed(new_profile)
 signal platform_detected(platform_type, device_name)
@@ -54,6 +55,8 @@ func _ready() -> void:
 
 func _detect_hardware() -> void:
 	_processor_count = OS.get_processor_count()
+	var mem_info = _get_memory_info()
+	_cached_memory_total_gb = float(mem_info.total_gb)
 	var os_name = OS.get_name()
 	
 	# Check environment variable for device override (e.g., ODISEA_DEVICE=anbernic)
@@ -86,7 +89,7 @@ func _detect_hardware() -> void:
 			_detected_device_name = OS.get_model_name()
 			_detected_profile = _estimate_ios_profile()
 			_auto_detected = true
-		"Linux":
+		"Linux", "X11", "Server":
 			_detected_platform = _detect_linux_platform()
 			_auto_detected = true
 		"Windows":
@@ -112,11 +115,12 @@ func _detect_hardware() -> void:
 	_is_weak_hardware = _detect_weak_hardware()
 	
 	emit_signal("platform_detected", _detected_platform, _detected_device_name)
-	print("[HardwareProfile] Detected: %s (%s), Profile: %s, Cores: %d, Weak: %s" % [
+	print("[HardwareProfile] Detected: %s (%s), Profile: %s, Cores: %d, RAM: %.1fGB, Weak: %s" % [
 		_detected_device_name, 
 		PlatformType.keys()[_detected_platform],
 		Profile.keys()[_detected_profile],
 		_processor_count,
+		_cached_memory_total_gb,
 		_is_weak_hardware
 	])
 
@@ -140,12 +144,7 @@ func _detect_linux_platform() -> int:
 		_detected_profile = Profile.LOW
 		return PlatformType.LINUX_ARM
 	
-	# Fallback: All ARM Linux devices default to LOW profile (handhelds are usually ARM)
-	if device_info.is_arm or device_info.is_arm64:
-		if _processor_count <= 6:
-			_detected_profile = Profile.LOW
-		return PlatformType.LINUX_ARM
-	
+	# ARM Linux defaults to conservative profiles.
 	if device_info.is_arm:
 		if _processor_count <= 4:
 			_detected_profile = Profile.LOW
@@ -162,6 +161,7 @@ func _detect_linux_platform() -> int:
 			_detected_profile = Profile.HIGH
 		return PlatformType.LINUX_ARM
 	
+	_detected_profile = _estimate_linux_x86_profile()
 	return PlatformType.LINUX_X86
 
 const MALI_GPU_IDS := [
@@ -306,26 +306,53 @@ func _estimate_low_end_arm64_profile() -> int:
 	
 	return Profile.MEDIUM
 
+func _estimate_linux_x86_profile() -> int:
+	var mem_info = _get_memory_info()
+	var total_gb = float(mem_info.total_gb)
+	_cached_memory_total_gb = total_gb
+	
+	if _processor_count >= 16 and total_gb >= 24.0:
+		return Profile.SUPERHIGH
+	if _processor_count >= 8 and total_gb >= 12.0:
+		return Profile.HIGH
+	if _processor_count >= 6 and total_gb >= 8.0:
+		return Profile.HIGH
+	if _processor_count >= 4 and total_gb >= 4.0:
+		return Profile.MEDIUM
+	return Profile.LOW
+
 func _get_memory_info() -> Dictionary:
 	var info := { "total_gb": 8.0, "available_gb": 4.0 }
 	var file := File.new()
 	
 	if file.file_exists("/proc/meminfo"):
 		if file.open("/proc/meminfo", File.READ) == OK:
-			var content := file.get_as_text()
-			file.close()
-			
-			var lines = content.split("\n")
-			for line in lines:
-				if line.begins_with("MemTotal"):
-					var parts = line.split(":")
-					if parts.size() > 1:
-						var kb_str = parts[-1].strip_edges().split(" ")[0]
-						var kb = kb_str.to_int()
-						info.total_gb = kb / 1024.0 / 1024.0
-						break
-	
+				var content := file.get_as_text()
+				file.close()
+				
+				var lines = content.split("\n")
+				for line in lines:
+					if line.begins_with("MemTotal"):
+						var parts = line.split(":")
+						if parts.size() > 1:
+							var kb = _parse_first_int(parts[-1].strip_edges())
+							if kb > 0:
+								info.total_gb = kb / 1024.0 / 1024.0
+							break
+		
 	return info
+
+func _parse_first_int(raw: String) -> int:
+	var digits := ""
+	for i in range(raw.length()):
+		var ch = raw.substr(i, 1)
+		if ch >= "0" and ch <= "9":
+			digits += ch
+		elif digits != "":
+			break
+	if digits == "":
+		return 0
+	return int(digits)
 
 func _detect_android_model() -> String:
 	var model = OS.get_model_name()
@@ -441,6 +468,19 @@ func is_weak_hardware() -> bool:
 func is_platform(platform: int) -> bool:
 	return _detected_platform == platform
 
+func get_profile_name() -> String:
+	if _detected_profile < 0 or _detected_profile >= Profile.keys().size():
+		return "UNKNOWN"
+	return Profile.keys()[_detected_profile]
+
+func get_platform_name() -> String:
+	if _detected_platform < 0 or _detected_platform >= PlatformType.keys().size():
+		return "UNKNOWN"
+	return PlatformType.keys()[_detected_platform]
+
+func get_total_memory_gb() -> float:
+	return _cached_memory_total_gb
+
 func is_switch() -> bool:
 	return _detected_platform == PlatformType.SWITCH
 
@@ -459,6 +499,11 @@ func profile_at_least(min_profile: int) -> bool:
 	return _detected_profile >= min_profile
 
 func should_use_cheap_shadows() -> bool:
+	var shadow_mode = _get_shadow_mode_override()
+	if shadow_mode == "cheap":
+		return true
+	if shadow_mode == "full":
+		return false
 	return _detected_profile <= Profile.LOW
 
 func should_use_reduced_particles() -> bool:
@@ -468,6 +513,11 @@ func should_use_reduced_lights() -> bool:
 	return _detected_profile <= Profile.MEDIUM
 
 func get_shadow_update_interval() -> int:
+	var shadow_mode = _get_shadow_mode_override()
+	if shadow_mode == "cheap":
+		return 6
+	if shadow_mode == "full":
+		return 1
 	match _detected_profile:
 		Profile.LOW:
 			return 6
@@ -480,6 +530,11 @@ func get_shadow_update_interval() -> int:
 	return 3
 
 func get_shadow_grid_resolution() -> int:
+	var shadow_mode = _get_shadow_mode_override()
+	if shadow_mode == "cheap":
+		return 8
+	if shadow_mode == "full":
+		return 28
 	match _detected_profile:
 		Profile.LOW:
 			return 8
@@ -490,3 +545,20 @@ func get_shadow_grid_resolution() -> int:
 		Profile.SUPERHIGH:
 			return 28
 	return 16
+
+func get_shadow_policy_summary() -> Dictionary:
+	return {
+		"mode": _get_shadow_mode_override(),
+		"cheap_shadows": should_use_cheap_shadows(),
+		"update_interval": get_shadow_update_interval(),
+		"grid_resolution": get_shadow_grid_resolution()
+	}
+
+func _get_shadow_mode_override() -> String:
+	var mode_env = OS.get_environment("ODISEA_SHADOW_MODE").to_lower().strip_edges()
+	match mode_env:
+		"0", "off", "false", "cheap", "low":
+			return "cheap"
+		"1", "on", "true", "full", "high":
+			return "full"
+	return "auto"

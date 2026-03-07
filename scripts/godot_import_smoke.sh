@@ -139,6 +139,9 @@ run_cmd() {
     cmd=("xvfb-run" "-a" "-s" "-screen 0 1024x768x24+120" "${cmd[@]}")
   fi
   local -a env_prefix=("env" "-u" "__NV_PRIME_RENDER_OFFLOAD" "-u" "__GLX_VENDOR_LIBRARY_NAME" "GODOT_SILENCE_ROOT_WARNING=1")
+  if [[ -z "${ODISEA_FORCE_MUTE_AUDIO+x}" ]]; then
+    env_prefix+=("ODISEA_FORCE_MUTE_AUDIO=1")
+  fi
   set +e
   if is_truthy "${FORCE_SOFTWARE}"; then
     timeout "${timeout_sec}s" "${env_prefix[@]}" LIBGL_ALWAYS_SOFTWARE=1 "${cmd[@]}" 2>&1 | tee "${log_file}"

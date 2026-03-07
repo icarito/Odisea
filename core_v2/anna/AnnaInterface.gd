@@ -744,6 +744,25 @@ func get_simulation_telemetry_resource() -> Dictionary:
 			"active_velocity": _to_vector3_array(velocity),
 			"speed": velocity.length()
 		}
+	var hardware_data = {
+		"available": false
+	}
+	var hardware_profile = get_node_or_null("/root/HardwareProfile")
+	if hardware_profile and is_instance_valid(hardware_profile):
+		var shadow_policy = {}
+		if hardware_profile.has_method("get_shadow_policy_summary"):
+			shadow_policy = hardware_profile.get_shadow_policy_summary()
+		hardware_data = {
+			"available": true,
+			"platform": String(hardware_profile.get_platform_name()) if hardware_profile.has_method("get_platform_name") else "UNKNOWN",
+			"profile": String(hardware_profile.get_profile_name()) if hardware_profile.has_method("get_profile_name") else "UNKNOWN",
+			"platform_id": int(hardware_profile.get_platform()) if hardware_profile.has_method("get_platform") else -1,
+			"profile_id": int(hardware_profile.get_profile()) if hardware_profile.has_method("get_profile") else -1,
+			"cores": int(hardware_profile.get_processor_count()) if hardware_profile.has_method("get_processor_count") else 0,
+			"memory_total_gb": float(hardware_profile.get_total_memory_gb()) if hardware_profile.has_method("get_total_memory_gb") else 0.0,
+			"weak_hardware": bool(hardware_profile.is_weak_hardware()) if hardware_profile.has_method("is_weak_hardware") else false,
+			"shadow_policy": shadow_policy
+		}
 	return {
 		"resource": "odisea://simulation/telemetry",
 		"fps": fps,
@@ -753,7 +772,8 @@ func get_simulation_telemetry_resource() -> Dictionary:
 		"node_count": node_count,
 		"physics_frame": Engine.get_physics_frames(),
 		"elias": player_data,
-		"oys": _read_oys_runtime_info()
+		"oys": _read_oys_runtime_info(),
+		"hardware": hardware_data
 	}
 
 func get_olcs_logic_state_resource() -> Dictionary:

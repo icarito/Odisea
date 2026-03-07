@@ -97,6 +97,9 @@ run_validation() {
     export OYS_AUTO_RUN="$VALIDATOR_SCRIPT"
     echo "🧪 OYS script: $VALIDATOR_SCRIPT"
     echo "📦 Prop path: $RES_PATH"
+    if [ -z "${ODISEA_FORCE_MUTE_AUDIO+x}" ]; then
+        export ODISEA_FORCE_MUTE_AUDIO=1
+    fi
 
     # Run Godot
     $GODOT_BIN --path "$PROJECT_PATH" "res://core_v2/scenes/PropStage.tscn" --no-window --quit-after 1000

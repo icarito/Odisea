@@ -3,12 +3,18 @@ extends Spatial
 signal compiled(cache_path)
 
 var _compiled_cache_paths = []
+var _disable_in_remote_debug := false
+const REMOTE_DEBUG_FLAGS := ["--remote-debug"]
 
 
 func _ready():
-	pass
+	_disable_in_remote_debug = _is_remote_debug_session()
+	if _disable_in_remote_debug:
+		print("[ShaderCacheManager] Disabled in remote-debug session for stability")
 
 func load_and_compile(cache_path):
+	if _disable_in_remote_debug:
+		return
 	var cache_packed_scene = load(cache_path)
 	if cache_packed_scene == null:
 		printerr("[ShaderCacheManager] Failed to load cache scene: ", cache_path)
@@ -16,6 +22,8 @@ func load_and_compile(cache_path):
 	compile(cache_packed_scene)
 
 func compile(cache_packed_scene):
+	if _disable_in_remote_debug:
+		return
 	if cache_packed_scene == null:
 		printerr("[ShaderCacheManager] compile() received null PackedScene.")
 		return
@@ -88,3 +96,40 @@ func _find_first_camera(node):
 		if cam:
 			return cam
 	return null
+
+func _is_remote_debug_session() -> bool:
+	for arg in OS.get_cmdline_args():
+		if str(arg) in REMOTE_DEBUG_FLAGS:
+			return true
+	return _proc_cmdline_has_any(REMOTE_DEBUG_FLAGS)
+
+func _proc_cmdline_has_any(flags: Array) -> bool:
+	if not OS.get_name() in ["X11", "Linux", "Server"]:
+		return false
+	var cmdline = _read_process_cmdline()
+	if cmdline == "":
+		return false
+	for flag in flags:
+		if String(flag) in cmdline:
+			return true
+	return false
+
+func _read_process_cmdline() -> String:
+	var pid = OS.get_process_id()
+	var proc_path = "/proc/%d/cmdline" % pid
+	var file = File.new()
+	if not file.file_exists(proc_path):
+		return ""
+	if file.open(proc_path, File.READ) != OK:
+		return ""
+	var raw := ""
+	var guard := 0
+	while not file.eof_reached() and guard < 32768:
+		var b = int(file.get_8())
+		if b == 0:
+			raw += " "
+		else:
+			raw += char(b)
+		guard += 1
+	file.close()
+	return raw

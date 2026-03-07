@@ -64,6 +64,8 @@ var _session_run_id := 0
 var _system_launch_counter := 1000
 var _rl_mode := false
 var _rl_bypass_session_manager := true
+const ALLOW_ANNA_IN_REMOTE_DEBUG_ENV := "ODISEA_ALLOW_ANNA_REMOTE_DEBUG"
+const REMOTE_DEBUG_FLAGS := ["--remote-debug"]
 
 func _normalize_negative_zero_in_place(value):
 	var t = typeof(value)
@@ -179,7 +181,11 @@ func _ready():
 
 	# --- Project A.N.N.A Integration ---
 	if OS.get_environment("ANNA_ENABLED") == "1":
-		_ensure_anna_bridge_enabled("ANNA_ENABLED=1")
+		var allow_remote_anna = OS.get_environment(ALLOW_ANNA_IN_REMOTE_DEBUG_ENV).to_lower() in ["1", "true", "yes", "on"]
+		if _is_remote_debug_session() and not allow_remote_anna:
+			print("[SessionManager] Skipping AnnaBridge in remote-debug session for stability (%s=1 to override)." % ALLOW_ANNA_IN_REMOTE_DEBUG_ENV)
+		else:
+			_ensure_anna_bridge_enabled("ANNA_ENABLED=1")
 
 	# Detección de parámetro --replay
 	var args = OS.get_cmdline_args()
@@ -287,6 +293,44 @@ func _script_requires_anna(script_content: String) -> bool:
 		if (line.begins_with("#") or line.begins_with("//")) and line.findn("REQUIRE_ANNA=1") != -1:
 			return true
 	return false
+
+func _is_remote_debug_session() -> bool:
+	var args = OS.get_cmdline_args()
+	for arg in args:
+		if str(arg) in REMOTE_DEBUG_FLAGS:
+			return true
+	return _proc_cmdline_has_any(REMOTE_DEBUG_FLAGS)
+
+func _proc_cmdline_has_any(flags: Array) -> bool:
+	if not OS.get_name() in ["X11", "Linux", "Server"]:
+		return false
+	var cmdline = _read_process_cmdline()
+	if cmdline == "":
+		return false
+	for flag in flags:
+		if String(flag) in cmdline:
+			return true
+	return false
+
+func _read_process_cmdline() -> String:
+	var pid = OS.get_process_id()
+	var proc_path = "/proc/%d/cmdline" % pid
+	var file = File.new()
+	if not file.file_exists(proc_path):
+		return ""
+	if file.open(proc_path, File.READ) != OK:
+		return ""
+	var raw := ""
+	var guard := 0
+	while not file.eof_reached() and guard < 32768:
+		var b = int(file.get_8())
+		if b == 0:
+			raw += " "
+		else:
+			raw += char(b)
+		guard += 1
+	file.close()
+	return raw
 
 
 # Conexión automática de TeleportSystem con Player, Camera y zonas

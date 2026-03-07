@@ -16,8 +16,16 @@ var _mds_instance: Node = null # MixingDeskSound instance (if used globally)
 var _music_paused_by_focus := false
 var _active_zone: Node = null
 var _zone_playback_positions := {}
+var _headless_audio_muted := false
+var _focus_audio_muted := false
+
+const HEADLESS_MUTE_ENV := "ODISEA_MUTE_AUDIO_HEADLESS"
+const FORCE_MUTE_ENV := "ODISEA_FORCE_MUTE_AUDIO"
 
 func _ready():
+	_headless_audio_muted = _should_mute_audio_for_runtime()
+	_apply_headless_audio_mute(_headless_audio_muted)
+
 	_bgm_player_1 = AudioStreamPlayer.new()
 	_bgm_player_1.bus = "Master"
 	_bgm_player_1.name = "BGMPlayer1"
@@ -38,9 +46,83 @@ func _ready():
 
 func _notification(what):
 	if what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
+		_set_focus_audio_muted(true)
 		_set_music_focus_paused(true)
 	elif what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
+		_set_focus_audio_muted(false)
 		_set_music_focus_paused(false)
+
+func _should_mute_audio_for_runtime() -> bool:
+	var force_mute = OS.get_environment(FORCE_MUTE_ENV).to_lower().strip_edges()
+	if force_mute in ["1", "true", "yes", "on"]:
+		return true
+	if force_mute in ["0", "false", "no", "off"]:
+		return false
+
+	var mute_headless = OS.get_environment(HEADLESS_MUTE_ENV).to_lower().strip_edges()
+	if mute_headless in ["0", "false", "no", "off"]:
+		return false
+
+	if _cmdline_has_any(["--no-window", "--headless"]):
+		return true
+
+	return OS.get_name() == "Server" or OS.has_feature("Server") or OS.has_feature("server")
+
+func _cmdline_has_any(flags: Array) -> bool:
+	var args = OS.get_cmdline_args()
+	for arg in args:
+		if str(arg) in flags:
+			return true
+	return _proc_cmdline_has_any(flags)
+
+func _proc_cmdline_has_any(flags: Array) -> bool:
+	if not OS.get_name() in ["X11", "Linux", "Server"]:
+		return false
+	var cmdline = _read_process_cmdline()
+	if cmdline == "":
+		return false
+	for flag in flags:
+		if String(flag) in cmdline:
+			return true
+	return false
+
+func _read_process_cmdline() -> String:
+	var pid = OS.get_process_id()
+	var proc_path = "/proc/%d/cmdline" % pid
+	var file = File.new()
+	if not file.file_exists(proc_path):
+		return ""
+	if file.open(proc_path, File.READ) != OK:
+		return ""
+	var raw := ""
+	var guard := 0
+	while not file.eof_reached() and guard < 32768:
+		var b = int(file.get_8())
+		if b == 0:
+			raw += " "
+		else:
+			raw += char(b)
+		guard += 1
+	file.close()
+	return raw
+
+func _apply_headless_audio_mute(muted: bool) -> void:
+	_headless_audio_muted = muted
+	_apply_master_audio_mute_state()
+	if muted:
+		print("[AudioManager] Master bus muted for headless/runtime policy")
+
+func _set_focus_audio_muted(muted: bool) -> void:
+	if _focus_audio_muted == muted:
+		return
+	_focus_audio_muted = muted
+	_apply_master_audio_mute_state()
+
+func _apply_master_audio_mute_state() -> void:
+	var master_idx = AudioServer.get_bus_index("Master")
+	if master_idx < 0:
+		master_idx = 0
+	AudioServer.set_bus_mute(master_idx, _headless_audio_muted or _focus_audio_muted)
 
 func _find_mixing_desk():
 	var root = get_tree().get_root()
