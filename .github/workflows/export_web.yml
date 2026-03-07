@@ -45,12 +45,32 @@ jobs:
 
       - name: Move Web export to root
         run: |
-          # El action crea un subdirectorio con el nombre del preset
-          # Mover todo al nivel superior para evitar /Web/ en la URL
-          if [ -d "${{ steps.export.outputs.build_directory }}/Web" ]; then
-            mv ${{ steps.export.outputs.build_directory }}/Web/* ${{ steps.export.outputs.build_directory }}/
-            rmdir ${{ steps.export.outputs.build_directory }}/Web
-            echo "Moved Web export to root directory"
+          # El action crea un subdirectorio con el nombre del preset (p.ej. HTML5).
+          # Mover todo al nivel superior para que Pages sirva index.html en la raíz.
+          BUILD_DIR="${{ steps.export.outputs.build_directory }}"
+          SRC_DIR=""
+
+          for candidate in HTML5 Web; do
+            if [ -d "$BUILD_DIR/$candidate" ]; then
+              SRC_DIR="$BUILD_DIR/$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$SRC_DIR" ]; then
+            CANDIDATE="$(find "$BUILD_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1 || true)"
+            if [ -n "$CANDIDATE" ] && [ -f "$CANDIDATE/index.html" ]; then
+              SRC_DIR="$CANDIDATE"
+            fi
+          fi
+
+          if [ -n "$SRC_DIR" ]; then
+            shopt -s dotglob
+            mv "$SRC_DIR"/* "$BUILD_DIR"/
+            rmdir "$SRC_DIR"
+            echo "Moved export contents from $SRC_DIR to $BUILD_DIR"
+          else
+            echo "No nested export dir found; leaving build directory as-is."
           fi
 
       - name: Upload artifact
