@@ -45,6 +45,55 @@ var _processor_count := 0
 var _is_weak_hardware := false
 var _auto_detected := false
 var _cached_memory_total_gb := 8.0
+var _profile_forced_by_env := false
+var _manual_profile_override := false
+var _auto_detected_profile: int = Profile.MEDIUM
+var _profile_cycle_index := 0
+var _web_adaptive_quality_enabled := false
+var _web_runtime_sec := 0.0
+var _web_fps_sample_accum := 0.0
+var _web_fps_below_streak := 0
+var _web_degrade_cooldown_sec := 0.0
+var _fallback_sky = null
+var _environment_resource_cache := {}
+var _world_environment_refresh_queued := false
+var _directional_lights_refresh_queued := false
+var _fluorescent_lights_refresh_queued := false
+var _sun_direction_sync_queued := false
+var _directional_shadow_update_version := 0
+var _fluorescent_shadow_update_version := 0
+
+const WEB_TARGET_FPS := 30.0
+const WEB_FPS_SAMPLE_INTERVAL_SEC := 1.0
+const WEB_FPS_STREAK_TO_DEGRADE := 5
+const WEB_FPS_WARMUP_SEC := 8.0
+const WEB_DEGRADE_COOLDOWN_SEC := 12.0
+const ADAPTIVE_PROFILE_ENV := "ODISEA_ADAPTIVE_PROFILE"
+const ADAPTIVE_PROFILE_ENV_LEGACY := "ODISEA_WEB_ADAPTIVE_PROFILE"
+const PROFILE_CYCLE_ACTION := "cycle_performance_profile"
+const PROFILE_AUTO_SENTINEL := -1
+const PROFILE_CYCLE_ORDER := [PROFILE_AUTO_SENTINEL, Profile.LOW, Profile.MEDIUM, Profile.HIGH]
+const META_ORIGINAL_ENVIRONMENT := "__hp_original_environment"
+const META_ORIGINAL_DIR_SHADOW := "__hp_original_dir_shadow_enabled"
+const META_ORIGINAL_DIR_SHADOW_MODE := "__hp_original_dir_shadow_mode"
+const META_ORIGINAL_DIR_SHADOW_MAX_DISTANCE := "__hp_original_dir_shadow_max_distance"
+const META_ORIGINAL_DIR_SHADOW_BLEND_SPLITS := "__hp_original_dir_shadow_blend_splits"
+const META_ORIGINAL_FLUOR_SHADOW := "__hp_original_fluor_shadow_enabled"
+const META_PROFILED_ENV_KEY := "__hp_profiled_env_key"
+const META_PROFILED_ENV_PATH := "__hp_profiled_env_path"
+const META_RUNTIME_ENV_INSTANCE := "__hp_runtime_env_instance"
+const FLUORESCENT_SCRIPT_PATH := "res://core_v2/props/scifi_lights/FluorescentLight.gd"
+const LOW_NO_SHADOW_ENV_BRIGHTNESS := 0.5
+const FALLBACK_SPACE_COLOR := Color(0.0, 0.0, 0.01, 1.0)
+const PROFILED_ENV_INTERIOR_WIDE := "interior_wide"
+const INTERIOR_WIDE_ENV_HIGH_PATH := "res://scenes/common/space_environment/Environment_InteriorWide.tres"
+const INTERIOR_WIDE_ENV_MEDIUM_PATH := "res://scenes/common/space_environment/Environment_InteriorWideMedium.tres"
+const INTERIOR_WIDE_ENV_LOW_PATH := "res://scenes/common/space_environment/Environment_InteriorWideLow.tres"
+const DIRECTIONAL_SHADOW_POLICY_OFF := 0
+const DIRECTIONAL_SHADOW_POLICY_REDUCED := 1
+const DIRECTIONAL_SHADOW_POLICY_RESTORE := 2
+const DIRECTIONAL_SHADOW_BATCH_SIZE := 10
+const FLUORESCENT_SHADOW_BATCH_SIZE := 24
 
 signal profile_changed(new_profile)
 signal platform_detected(platform_type, device_name)
@@ -52,6 +101,25 @@ signal platform_detected(platform_type, device_name)
 func _ready() -> void:
 	_detect_hardware()
 	_apply_environment_overrides()
+	_configure_web_adaptive_quality()
+	_connect_runtime_signals()
+	_register_profile_cycle_action()
+	_sync_optional_nodes_for_profile()
+	_sync_world_environment_for_profile()
+	_sync_directional_lights_for_profile()
+	_sync_fluorescent_lights_for_profile()
+	_sync_procedural_sun_direction()
+	_refresh_web_adaptive_process_state()
+	set_process_input(true)
+
+func _process(delta: float) -> void:
+	if not _web_adaptive_quality_enabled:
+		return
+	_monitor_web_runtime_performance(delta)
+
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed(PROFILE_CYCLE_ACTION):
+		cycle_profile_mode()
 
 func _detect_hardware() -> void:
 	_processor_count = OS.get_processor_count()
@@ -113,6 +181,8 @@ func _detect_hardware() -> void:
 			_detected_profile = Profile.MEDIUM
 	
 	_is_weak_hardware = _detect_weak_hardware()
+	_detected_profile = _sanitize_profile(_detected_profile)
+	_auto_detected_profile = _detected_profile
 	
 	emit_signal("platform_detected", _detected_platform, _detected_device_name)
 	print("[HardwareProfile] Detected: %s (%s), Profile: %s, Cores: %d, RAM: %.1fGB, Weak: %s" % [
@@ -388,7 +458,10 @@ func _estimate_ios_profile() -> int:
 	return Profile.HIGH
 
 func _estimate_html5_profile() -> int:
-	return Profile.LOW
+	# Start with high quality on web unless we have strong signs of weak hardware.
+	if _has_strong_weak_indicators_for_html5():
+		return Profile.LOW
+	return Profile.HIGH
 
 func _detect_weak_hardware() -> bool:
 	if _detected_platform == PlatformType.SWITCH:
@@ -401,7 +474,10 @@ func _detect_weak_hardware() -> bool:
 		return true
 	
 	if _detected_platform == PlatformType.HTML5:
-		return true
+		if _has_strong_weak_indicators_for_html5():
+			return true
+		# Runtime evidence can mark web as weak after adaptive degradation reaches LOW.
+		return _detected_profile <= Profile.LOW
 	
 	if _detected_platform == PlatformType.IOS:
 		return false
@@ -419,12 +495,16 @@ func _apply_environment_overrides() -> void:
 	var profile_env = OS.get_environment("ODISEA_GRAPHICS_PROFILE").to_lower()
 	match profile_env:
 		"low", "min", "1":
+			_profile_forced_by_env = true
 			set_profile(Profile.LOW)
 		"medium", "med", "2":
+			_profile_forced_by_env = true
 			set_profile(Profile.MEDIUM)
 		"high", "3":
+			_profile_forced_by_env = true
 			set_profile(Profile.HIGH)
 		"superhigh", "max", "4":
+			_profile_forced_by_env = true
 			set_profile(Profile.SUPERHIGH)
 	
 	# VSync control - disable for weak hardware or via env
@@ -445,8 +525,15 @@ func _apply_optional_override(force_optional: String) -> void:
 			opt_manager.set_optional_nodes_enabled(false)
 
 func set_profile(new_profile: int) -> void:
-	if new_profile != _detected_profile:
-		_detected_profile = new_profile
+	var normalized_profile = _sanitize_profile(new_profile)
+	if normalized_profile != _detected_profile:
+		_detected_profile = normalized_profile
+		_is_weak_hardware = _detect_weak_hardware()
+		_sync_optional_nodes_for_profile()
+		_sync_world_environment_for_profile()
+		_sync_directional_lights_for_profile()
+		_sync_fluorescent_lights_for_profile()
+		_sync_procedural_sun_direction()
 		emit_signal("profile_changed", _detected_profile)
 		print("[HardwareProfile] Profile changed to: %s" % Profile.keys()[_detected_profile])
 
@@ -562,3 +649,504 @@ func _get_shadow_mode_override() -> String:
 		"1", "on", "true", "full", "high":
 			return "full"
 	return "auto"
+
+func _configure_web_adaptive_quality() -> void:
+	if _profile_forced_by_env:
+		_web_adaptive_quality_enabled = false
+		print("[HardwareProfile] Adaptive quality disabled (profile forced by env).")
+		_refresh_web_adaptive_process_state()
+		return
+	var env_value = OS.get_environment(ADAPTIVE_PROFILE_ENV).to_lower().strip_edges()
+	if env_value == "":
+		env_value = OS.get_environment(ADAPTIVE_PROFILE_ENV_LEGACY).to_lower().strip_edges()
+	if env_value in ["0", "false", "no", "off"]:
+		_web_adaptive_quality_enabled = false
+	elif env_value in ["1", "true", "yes", "on"]:
+		_web_adaptive_quality_enabled = true
+	else:
+		_web_adaptive_quality_enabled = _is_adaptive_profile_supported_by_default()
+	print("[HardwareProfile] Adaptive quality: %s (platform=%s)" % [
+		"ENABLED" if _web_adaptive_quality_enabled else "DISABLED",
+		get_platform_name()
+	])
+	_refresh_web_adaptive_process_state()
+
+func _is_adaptive_profile_supported_by_default() -> bool:
+	match _detected_platform:
+		PlatformType.HTML5, PlatformType.LINUX_X86, PlatformType.WINDOWS, PlatformType.MACOS:
+			return true
+	return false
+
+func _register_profile_cycle_action() -> void:
+	if not InputMap.has_action(PROFILE_CYCLE_ACTION):
+		InputMap.add_action(PROFILE_CYCLE_ACTION)
+	if InputMap.get_action_list(PROFILE_CYCLE_ACTION).empty():
+		push_warning("[HardwareProfile] Input action '%s' has no key bound in InputMap." % PROFILE_CYCLE_ACTION)
+
+func _refresh_web_adaptive_process_state() -> void:
+	var adaptive_active = _web_adaptive_quality_enabled and not _manual_profile_override
+	set_process(adaptive_active)
+
+func _reset_web_adaptive_counters() -> void:
+	_web_runtime_sec = 0.0
+	_web_fps_sample_accum = 0.0
+	_web_fps_below_streak = 0
+	_web_degrade_cooldown_sec = 0.0
+
+func _resolve_auto_profile() -> int:
+	if _auto_detected_profile > Profile.UNKNOWN:
+		return _sanitize_profile(_auto_detected_profile)
+	if _detected_profile > Profile.UNKNOWN:
+		return _sanitize_profile(_detected_profile)
+	return Profile.MEDIUM
+
+func _sanitize_profile(profile: int) -> int:
+	if profile <= Profile.UNKNOWN:
+		return Profile.MEDIUM
+	return int(clamp(profile, Profile.LOW, Profile.HIGH))
+
+func cycle_profile_mode() -> void:
+	if _profile_forced_by_env:
+		_notify_profile_selection("Perfil bloqueado por ODISEA_GRAPHICS_PROFILE")
+		return
+	_profile_cycle_index = (_profile_cycle_index + 1) % PROFILE_CYCLE_ORDER.size()
+	var selection = int(PROFILE_CYCLE_ORDER[_profile_cycle_index])
+	if selection == PROFILE_AUTO_SENTINEL:
+		_manual_profile_override = false
+		set_profile(_resolve_auto_profile())
+	else:
+		_manual_profile_override = true
+		set_profile(selection)
+	_refresh_web_adaptive_process_state()
+	_reset_web_adaptive_counters()
+	_notify_profile_selection(_profile_selection_message(selection))
+
+func _profile_selection_message(selection: int) -> String:
+	if selection == PROFILE_AUTO_SENTINEL:
+		return "Perfil de performance: AUTO (%s)" % Profile.keys()[_detected_profile]
+	return "Perfil de performance: %s (manual)" % Profile.keys()[selection]
+
+func _notify_profile_selection(message: String) -> void:
+	print("[OYS PRINT] ", message)
+	var subtitles = get_node_or_null("/root/SubtitlesOverlayManager")
+	if subtitles and subtitles.has_method("show_subtitle"):
+		subtitles.show_subtitle(message, Color(0.65, 0.95, 1.0), 2.6)
+
+func _monitor_web_runtime_performance(delta: float) -> void:
+	_web_runtime_sec += delta
+	_web_fps_sample_accum += delta
+	if _web_degrade_cooldown_sec > 0.0:
+		_web_degrade_cooldown_sec = max(0.0, _web_degrade_cooldown_sec - delta)
+	if _web_runtime_sec < WEB_FPS_WARMUP_SEC:
+		return
+	if _web_fps_sample_accum < WEB_FPS_SAMPLE_INTERVAL_SEC:
+		return
+	_web_fps_sample_accum = 0.0
+	var fps = float(Performance.get_monitor(Performance.TIME_FPS))
+	if fps < WEB_TARGET_FPS:
+		_web_fps_below_streak += 1
+	else:
+		_web_fps_below_streak = 0
+	if _web_fps_below_streak >= WEB_FPS_STREAK_TO_DEGRADE and _web_degrade_cooldown_sec <= 0.0:
+		_degrade_web_profile_due_to_fps(fps)
+
+func _degrade_web_profile_due_to_fps(observed_fps: float) -> void:
+	if _detected_profile <= Profile.LOW:
+		_web_fps_below_streak = 0
+		_web_degrade_cooldown_sec = WEB_DEGRADE_COOLDOWN_SEC
+		return
+	var prev_profile = _detected_profile
+	var next_profile = max(Profile.LOW, prev_profile - 1)
+	print("[HardwareProfile] Web FPS %.1f < %.1f sustained. Lowering profile: %s -> %s" % [
+		observed_fps,
+		WEB_TARGET_FPS,
+		Profile.keys()[prev_profile],
+		Profile.keys()[next_profile]
+	])
+	set_profile(next_profile)
+	_web_fps_below_streak = 0
+	_web_degrade_cooldown_sec = WEB_DEGRADE_COOLDOWN_SEC
+
+func _has_strong_weak_indicators_for_html5() -> bool:
+	var weak_env = OS.get_environment("ODISEA_WEB_WEAK_DEVICE").to_lower().strip_edges()
+	if weak_env in ["1", "true", "yes", "on"]:
+		return true
+	if _processor_count <= 2:
+		return true
+	if _cached_memory_total_gb > 0.0 and _cached_memory_total_gb <= 2.0:
+		return true
+	# Touch device + low core count is a strong weak-signal for mobile browsers.
+	if OS.has_touchscreen_ui_hint() and _processor_count <= 4:
+		return true
+	return false
+
+func _connect_runtime_signals() -> void:
+	if not get_tree():
+		return
+	if not get_tree().is_connected("node_added", self, "_on_tree_node_added"):
+		get_tree().connect("node_added", self, "_on_tree_node_added")
+
+func _on_tree_node_added(node: Node) -> void:
+	if node is WorldEnvironment:
+		_sync_world_environment_for_profile()
+		_sync_procedural_sun_direction()
+	elif node is DirectionalLight:
+		_sync_directional_lights_for_profile()
+		_sync_procedural_sun_direction()
+	else:
+		var parent = node.get_parent()
+		if _is_fluorescent_light_host(node) or (parent and _is_fluorescent_light_host(parent)):
+			_sync_fluorescent_lights_for_profile()
+
+func _sync_world_environment_for_profile() -> void:
+	if _world_environment_refresh_queued:
+		return
+	_world_environment_refresh_queued = true
+	call_deferred("_sync_world_environment_for_profile_deferred")
+
+func _sync_world_environment_for_profile_deferred() -> void:
+	_world_environment_refresh_queued = false
+	if not get_tree() or not is_instance_valid(get_tree().root):
+		return
+	var world_environments := []
+	_collect_world_environments(get_tree().root, world_environments)
+	if world_environments.empty():
+		return
+	var use_low_spec_sky = _detected_profile <= Profile.LOW
+	var fallback_sky = _get_or_create_fallback_sky()
+	if fallback_sky == null:
+		return
+	for world_env in world_environments:
+		if not is_instance_valid(world_env):
+			continue
+		if _try_apply_profiled_environment_override(world_env):
+			continue
+		_apply_world_environment_sky_fallback(world_env, use_low_spec_sky, fallback_sky)
+
+func _collect_world_environments(node: Node, into: Array) -> void:
+	if node is WorldEnvironment:
+		into.append(node)
+	for child in node.get_children():
+		if child is Node:
+			_collect_world_environments(child, into)
+
+func _try_apply_profiled_environment_override(world_env: WorldEnvironment) -> bool:
+	var env_key = _resolve_profiled_environment_key(world_env)
+	if env_key == "":
+		return false
+	var target_path = _get_profiled_environment_path(env_key)
+	if target_path == "":
+		return false
+	var current_path = _get_profiled_environment_current_path(world_env)
+	if current_path == target_path:
+		return true
+	var env_resource = _load_environment_resource_cached(target_path)
+	if env_resource == null:
+		push_warning("[HardwareProfile] Failed to load profiled environment: %s" % target_path)
+		return false
+	world_env.environment = env_resource.duplicate(true)
+	world_env.set_meta(META_PROFILED_ENV_KEY, env_key)
+	world_env.set_meta(META_PROFILED_ENV_PATH, target_path)
+	return true
+
+func _resolve_profiled_environment_key(world_env: WorldEnvironment) -> String:
+	if world_env.has_meta(META_PROFILED_ENV_KEY):
+		return String(world_env.get_meta(META_PROFILED_ENV_KEY))
+	if world_env.environment == null:
+		return ""
+	var resource_path = String(world_env.environment.resource_path)
+	if resource_path in [INTERIOR_WIDE_ENV_HIGH_PATH, INTERIOR_WIDE_ENV_MEDIUM_PATH, INTERIOR_WIDE_ENV_LOW_PATH]:
+		world_env.set_meta(META_PROFILED_ENV_KEY, PROFILED_ENV_INTERIOR_WIDE)
+		if resource_path != "":
+			world_env.set_meta(META_PROFILED_ENV_PATH, resource_path)
+		return PROFILED_ENV_INTERIOR_WIDE
+	return ""
+
+func _get_profiled_environment_path(env_key: String) -> String:
+	if env_key == PROFILED_ENV_INTERIOR_WIDE:
+		if _detected_profile <= Profile.LOW:
+			return INTERIOR_WIDE_ENV_LOW_PATH
+		if _detected_profile == Profile.MEDIUM:
+			return INTERIOR_WIDE_ENV_MEDIUM_PATH
+		return INTERIOR_WIDE_ENV_HIGH_PATH
+	return ""
+
+func _get_profiled_environment_current_path(world_env: WorldEnvironment) -> String:
+	if world_env.has_meta(META_PROFILED_ENV_PATH):
+		return String(world_env.get_meta(META_PROFILED_ENV_PATH))
+	if world_env.environment == null:
+		return ""
+	return String(world_env.environment.resource_path)
+
+func _load_environment_resource_cached(path: String) -> Environment:
+	if _environment_resource_cache.has(path):
+		return _environment_resource_cache[path]
+	var loaded = load(path)
+	if loaded and loaded is Environment:
+		_environment_resource_cache[path] = loaded
+		return loaded
+	return null
+
+func _sync_procedural_sun_direction() -> void:
+	if _sun_direction_sync_queued:
+		return
+	_sun_direction_sync_queued = true
+	call_deferred("_sync_procedural_sun_direction_deferred")
+
+func _sync_procedural_sun_direction_deferred() -> void:
+	_sun_direction_sync_queued = false
+	if not get_tree() or not is_instance_valid(get_tree().root):
+		return
+	var sun_direction = _get_sun_direction_from_primary_directional()
+	if sun_direction == Vector3.ZERO:
+		return
+	var latitude = rad2deg(asin(clamp(sun_direction.y, -1.0, 1.0)))
+	var longitude = rad2deg(atan2(sun_direction.x, sun_direction.z))
+	var world_environments := []
+	_collect_world_environments(get_tree().root, world_environments)
+	for world_env in world_environments:
+		var sky = _get_runtime_procedural_sky(world_env)
+		if sky == null:
+			continue
+		sky.sun_latitude = latitude
+		sky.sun_longitude = longitude
+
+func _get_sun_direction_from_primary_directional() -> Vector3:
+	var directional_lights := []
+	_collect_directional_lights(get_tree().root, directional_lights)
+	if directional_lights.empty():
+		return Vector3.ZERO
+	var primary = null
+	for light in directional_lights:
+		if is_instance_valid(light) and light.visible:
+			primary = light
+			break
+	if primary == null:
+		primary = directional_lights[0]
+	if not is_instance_valid(primary):
+		return Vector3.ZERO
+	# DirectionalLight shines along local -Z, so sun position is inverse (local +Z).
+	return primary.global_transform.basis.z.normalized()
+
+func _get_runtime_procedural_sky(world_env: WorldEnvironment) -> ProceduralSky:
+	if world_env == null or world_env.environment == null:
+		return null
+	_ensure_runtime_environment_instance(world_env)
+	if world_env.environment == null:
+		return null
+	var sky = world_env.environment.background_sky
+	if sky == null or not (sky is ProceduralSky):
+		return null
+	return sky as ProceduralSky
+
+func _ensure_runtime_environment_instance(world_env: WorldEnvironment) -> void:
+	if world_env.has_meta(META_RUNTIME_ENV_INSTANCE):
+		return
+	if world_env.environment == null:
+		return
+	world_env.environment = world_env.environment.duplicate(true)
+	world_env.set_meta(META_RUNTIME_ENV_INSTANCE, true)
+
+func _get_or_create_fallback_sky():
+	if _fallback_sky:
+		return _fallback_sky
+	var sky = ProceduralSky.new()
+	# Keep the fallback sky horizonless for deep-space look.
+	sky.sky_top_color = FALLBACK_SPACE_COLOR
+	sky.sky_horizon_color = FALLBACK_SPACE_COLOR
+	sky.sky_curve = 0.25
+	sky.ground_horizon_color = FALLBACK_SPACE_COLOR
+	sky.ground_bottom_color = FALLBACK_SPACE_COLOR
+	sky.ground_curve = 0.25
+	_fallback_sky = sky
+	return _fallback_sky
+
+func _apply_world_environment_sky_fallback(world_env: WorldEnvironment, force_low_spec: bool, fallback_sky) -> void:
+	if world_env.environment == null:
+		return
+	if not world_env.has_meta(META_ORIGINAL_ENVIRONMENT):
+		world_env.set_meta(META_ORIGINAL_ENVIRONMENT, world_env.environment.duplicate(true))
+	var needs_fallback = force_low_spec
+	var has_sky_mode = world_env.environment.background_mode == Environment.BG_SKY
+	var current_has_no_sky = has_sky_mode and world_env.environment.background_sky == null
+	if current_has_no_sky:
+		needs_fallback = true
+	if not needs_fallback:
+		var current_is_fallback = has_sky_mode and world_env.environment.background_sky == fallback_sky
+		if (current_is_fallback or current_has_no_sky) and world_env.has_meta(META_ORIGINAL_ENVIRONMENT):
+			var original_env = world_env.get_meta(META_ORIGINAL_ENVIRONMENT)
+			if original_env:
+				world_env.environment = original_env.duplicate(true)
+		return
+	if world_env.environment.background_mode == Environment.BG_SKY and world_env.environment.background_sky == fallback_sky:
+		return
+	var baseline_env = world_env.get_meta(META_ORIGINAL_ENVIRONMENT)
+	var env_copy = baseline_env.duplicate(true) if baseline_env else world_env.environment.duplicate(true)
+	env_copy.background_mode = Environment.BG_SKY
+	env_copy.background_sky = fallback_sky
+	if force_low_spec:
+		env_copy.ambient_light_sky_contribution = min(env_copy.ambient_light_sky_contribution, 0.25)
+		# With low profile shadows disabled, lower brightness to preserve scene contrast.
+		env_copy.adjustment_enabled = true
+		env_copy.adjustment_brightness = LOW_NO_SHADOW_ENV_BRIGHTNESS
+	world_env.environment = env_copy
+
+func _sync_directional_lights_for_profile() -> void:
+	if _directional_lights_refresh_queued:
+		return
+	_directional_lights_refresh_queued = true
+	call_deferred("_sync_directional_lights_for_profile_deferred")
+
+func _sync_directional_lights_for_profile_deferred() -> void:
+	_directional_lights_refresh_queued = false
+	if not get_tree() or not is_instance_valid(get_tree().root):
+		return
+	var directional_lights := []
+	_collect_directional_lights(get_tree().root, directional_lights)
+	var shadow_policy = DIRECTIONAL_SHADOW_POLICY_RESTORE
+	if _detected_profile <= Profile.LOW:
+		shadow_policy = DIRECTIONAL_SHADOW_POLICY_OFF
+	elif _detected_profile == Profile.MEDIUM:
+		shadow_policy = DIRECTIONAL_SHADOW_POLICY_REDUCED
+	_directional_shadow_update_version += 1
+	var version = _directional_shadow_update_version
+	if shadow_policy == DIRECTIONAL_SHADOW_POLICY_RESTORE:
+		for light in directional_lights:
+			_apply_directional_light_shadow_policy(light, shadow_policy)
+	else:
+		_apply_directional_shadow_policy_batch(directional_lights, shadow_policy, version, 0)
+
+func _collect_directional_lights(node: Node, into: Array) -> void:
+	if node is DirectionalLight:
+		into.append(node)
+	for child in node.get_children():
+		if child is Node:
+			_collect_directional_lights(child, into)
+
+func _apply_directional_light_shadow_policy(light: DirectionalLight, shadow_policy: int) -> void:
+	if not is_instance_valid(light):
+		return
+	_capture_directional_light_shadow_defaults(light)
+	var original_shadow_enabled = bool(light.get_meta(META_ORIGINAL_DIR_SHADOW))
+	if _has_property(light, "directional_shadow_blend_splits"):
+		light.directional_shadow_blend_splits = false
+	if shadow_policy == DIRECTIONAL_SHADOW_POLICY_OFF:
+		light.shadow_enabled = false
+		return
+	if shadow_policy == DIRECTIONAL_SHADOW_POLICY_REDUCED:
+		light.shadow_enabled = original_shadow_enabled
+		if not original_shadow_enabled:
+			return
+		if _has_property(light, "directional_shadow_mode"):
+			light.directional_shadow_mode = DirectionalLight.SHADOW_PARALLEL_2_SPLITS
+		if _has_property(light, "directional_shadow_blend_splits"):
+			light.directional_shadow_blend_splits = false
+		if _has_property(light, "directional_shadow_max_distance") and light.has_meta(META_ORIGINAL_DIR_SHADOW_MAX_DISTANCE):
+			light.directional_shadow_max_distance = float(light.get_meta(META_ORIGINAL_DIR_SHADOW_MAX_DISTANCE))
+		return
+	light.shadow_enabled = original_shadow_enabled
+	if _has_property(light, "directional_shadow_mode") and light.has_meta(META_ORIGINAL_DIR_SHADOW_MODE):
+		light.directional_shadow_mode = int(light.get_meta(META_ORIGINAL_DIR_SHADOW_MODE))
+	if _has_property(light, "directional_shadow_max_distance") and light.has_meta(META_ORIGINAL_DIR_SHADOW_MAX_DISTANCE):
+		light.directional_shadow_max_distance = float(light.get_meta(META_ORIGINAL_DIR_SHADOW_MAX_DISTANCE))
+
+func _capture_directional_light_shadow_defaults(light: DirectionalLight) -> void:
+	if not light.has_meta(META_ORIGINAL_DIR_SHADOW):
+		light.set_meta(META_ORIGINAL_DIR_SHADOW, light.shadow_enabled)
+	if _has_property(light, "directional_shadow_mode") and not light.has_meta(META_ORIGINAL_DIR_SHADOW_MODE):
+		light.set_meta(META_ORIGINAL_DIR_SHADOW_MODE, light.directional_shadow_mode)
+	if _has_property(light, "directional_shadow_blend_splits") and not light.has_meta(META_ORIGINAL_DIR_SHADOW_BLEND_SPLITS):
+		light.set_meta(META_ORIGINAL_DIR_SHADOW_BLEND_SPLITS, light.directional_shadow_blend_splits)
+	if _has_property(light, "directional_shadow_max_distance") and not light.has_meta(META_ORIGINAL_DIR_SHADOW_MAX_DISTANCE):
+		light.set_meta(META_ORIGINAL_DIR_SHADOW_MAX_DISTANCE, light.directional_shadow_max_distance)
+
+func _has_property(obj: Object, property_name: String) -> bool:
+	for data in obj.get_property_list():
+		if String(data.get("name", "")) == property_name:
+			return true
+	return false
+
+func _sync_fluorescent_lights_for_profile() -> void:
+	if _fluorescent_lights_refresh_queued:
+		return
+	_fluorescent_lights_refresh_queued = true
+	call_deferred("_sync_fluorescent_lights_for_profile_deferred")
+
+func _sync_fluorescent_lights_for_profile_deferred() -> void:
+	_fluorescent_lights_refresh_queued = false
+	if not get_tree() or not is_instance_valid(get_tree().root):
+		return
+	var fluorescent_hosts := []
+	_collect_fluorescent_hosts(get_tree().root, fluorescent_hosts)
+	var disable_shadows = _detected_profile <= Profile.MEDIUM
+	_fluorescent_shadow_update_version += 1
+	var version = _fluorescent_shadow_update_version
+	if disable_shadows:
+		_apply_fluorescent_shadow_policy_batch(fluorescent_hosts, disable_shadows, version, 0)
+	else:
+		for host in fluorescent_hosts:
+			_apply_fluorescent_shadow_policy(host, disable_shadows)
+
+func _apply_directional_shadow_policy_batch(lights: Array, shadow_policy: int, version: int, start_index: int) -> void:
+	if version != _directional_shadow_update_version:
+		return
+	var end_index = min(start_index + DIRECTIONAL_SHADOW_BATCH_SIZE, lights.size())
+	for i in range(start_index, end_index):
+		_apply_directional_light_shadow_policy(lights[i], shadow_policy)
+	if end_index < lights.size() and version == _directional_shadow_update_version:
+		yield(get_tree(), "idle_frame")
+		if version == _directional_shadow_update_version:
+			_apply_directional_shadow_policy_batch(lights, shadow_policy, version, end_index)
+
+func _apply_fluorescent_shadow_policy_batch(hosts: Array, disable_shadows: bool, version: int, start_index: int) -> void:
+	if version != _fluorescent_shadow_update_version:
+		return
+	var end_index = min(start_index + FLUORESCENT_SHADOW_BATCH_SIZE, hosts.size())
+	for i in range(start_index, end_index):
+		_apply_fluorescent_shadow_policy(hosts[i], disable_shadows)
+	if end_index < hosts.size() and version == _fluorescent_shadow_update_version:
+		yield(get_tree(), "idle_frame")
+		if version == _fluorescent_shadow_update_version:
+			_apply_fluorescent_shadow_policy_batch(hosts, disable_shadows, version, end_index)
+
+func _collect_fluorescent_hosts(node: Node, into: Array) -> void:
+	if _is_fluorescent_light_host(node):
+		into.append(node)
+	for child in node.get_children():
+		if child is Node:
+			_collect_fluorescent_hosts(child, into)
+
+func _is_fluorescent_light_host(node: Node) -> bool:
+	if not is_instance_valid(node):
+		return false
+	var script = node.get_script()
+	if script == null:
+		return false
+	if not (script is Script):
+		return false
+	return String(script.resource_path) == FLUORESCENT_SCRIPT_PATH
+
+func _apply_fluorescent_shadow_policy(host: Node, disable_shadows: bool) -> void:
+	for child in host.get_children():
+		if not (child is Light):
+			continue
+		if not (child is OmniLight or child is SpotLight):
+			continue
+		if not child.has_meta(META_ORIGINAL_FLUOR_SHADOW):
+			child.set_meta(META_ORIGINAL_FLUOR_SHADOW, child.shadow_enabled)
+		if disable_shadows:
+			child.shadow_enabled = false
+		else:
+			child.shadow_enabled = bool(child.get_meta(META_ORIGINAL_FLUOR_SHADOW))
+
+func _sync_optional_nodes_for_profile() -> void:
+	call_deferred("_sync_optional_nodes_for_profile_deferred")
+
+func _sync_optional_nodes_for_profile_deferred() -> void:
+	if not get_tree() or not is_instance_valid(get_tree().root):
+		return
+	var opt_manager = get_tree().root.get_node_or_null("OptionalNodeManager")
+	if not opt_manager or not opt_manager.has_method("set_optional_nodes_enabled"):
+		return
+	if _is_weak_hardware:
+		opt_manager.set_optional_nodes_enabled(false)

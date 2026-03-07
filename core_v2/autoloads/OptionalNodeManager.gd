@@ -26,6 +26,7 @@ const THREAD_SCATTER_BATCH_CRIOPODS := 8
 const THREAD_SCATTER_BATCH_DELAY_SEC := 0.03
 const THREAD_SCATTER_WAIT_FRAMES := 240
 const CRIOPOD_FREE_BATCH_SIZE := 6
+const TOGGLE_OPTIONAL_ACTION := "toggle_optional_nodes"
 
 class ScatterPreloadWorker:
 	extends Reference
@@ -71,6 +72,7 @@ func _ready() -> void:
 	_delayed_scatter_load()  # Load scatter later to speed up startup
 	if not _scatter_disabled_by_env:
 		_start_box_watchdog()
+	set_process_input(true)
 
 func _exit_tree() -> void:
 	if _scatter_preload_thread and not _scatter_preload_thread.is_active():
@@ -145,14 +147,13 @@ func _connect_tree_signals() -> void:
 		tree.connect("node_added", self, "_on_tree_node_added")
 
 func _register_input_actions() -> void:
-	if not InputMap.has_action("toggle_optional_nodes"):
-		var event = InputEventKey.new()
-		event.scancode = KEY_F10
-		InputMap.add_action("toggle_optional_nodes")
-		InputMap.action_add_event("toggle_optional_nodes", event)
+	if not InputMap.has_action(TOGGLE_OPTIONAL_ACTION):
+		InputMap.add_action(TOGGLE_OPTIONAL_ACTION)
+	if InputMap.get_action_list(TOGGLE_OPTIONAL_ACTION).empty():
+		push_warning("[OptionalNodeManager] Input action '%s' has no key bound in InputMap." % TOGGLE_OPTIONAL_ACTION)
 
 func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("toggle_optional_nodes"):
+	if event.is_action_pressed(TOGGLE_OPTIONAL_ACTION):
 		if HardwareProfile.is_weak_hardware():
 			return
 		toggle_optional_nodes()
@@ -256,11 +257,14 @@ func toggle_optional_nodes() -> void:
 	print("[OptionalNodeManager] Optional nodes: ", "ENABLED" if _optional_enabled else "DISABLED")
 
 func set_optional_nodes_enabled(enabled: bool) -> void:
+	var target_enabled = enabled
 	if HardwareProfile.is_weak_hardware():
-		_optional_enabled = false
-		return
-	if _optional_enabled != enabled:
-		_optional_enabled = enabled
+		target_enabled = false
+	if _optional_enabled != target_enabled:
+		_optional_enabled = target_enabled
+		_update_all_optional_nodes()
+	elif HardwareProfile.is_weak_hardware() and not target_enabled:
+		# Re-apply low-spec pruning when hardware profile drops at runtime.
 		_update_all_optional_nodes()
 
 func is_optional_enabled() -> bool:

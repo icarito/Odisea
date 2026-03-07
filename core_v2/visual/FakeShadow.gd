@@ -20,7 +20,8 @@ export(float) var movement_epsilon: float = 0.02
 export(float) var rotation_epsilon_deg: float = 1.0
 export(bool) var anchor_to_root_body: bool = true
 export(Vector3) var anchor_offset: Vector3 = Vector3(0, 0, 0)
-export(int) var ground_collision_mask: int = 5
+# Include Entorno (1), NPC-Friendly (3, legacy), and Prop (7) so moving platforms/elevators receive the shadow.
+export(int) var ground_collision_mask: int = 69
 
 var _rays: Array = [] # Linear array of rays
 var _mesh_tool: SurfaceTool
