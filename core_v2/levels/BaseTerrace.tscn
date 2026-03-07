@@ -2183,8 +2183,7 @@ zone_extents = Vector3( 2.2, 4, 1 )
 
 [node name="DirectionalLight" parent="InteriorWide" index="0" groups=["optional"]]
 transform = Transform( 1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, 1.15035, 29.4183, 3.10425 )
-light_energy = 0.304
-light_indirect_energy = 0.0
+directional_shadow_mode = 2
 directional_shadow_depth_range = 1
 
 [node name="KillZoneV2" type="Area" parent="."]

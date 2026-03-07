@@ -5,14 +5,19 @@ tool
 # ElevatorController.gd
 # Manages elevator logic, queueing requests, and commanding the platform.
 
+signal door_opened(floor_idx)
+signal door_closed(floor_idx)
+
 export(NodePath) var platform_path
 export(NodePath) var floors_path = NodePath("Floors")
+export(float) var door_open_wait := 2.0 # seconds door stays open
 
 var requests = []
 var current_floor = 0
 var target_floor = -1
 var is_moving = false
 var floor_nodes = {}
+var floor_doors = {} # floor_idx -> door node (DualSlidingObjectV2)
 var _sfx_move: SFXComponentV2 = null
 var _sfx_arrival: SFXComponentV2 = null
 
@@ -28,28 +33,35 @@ func _ready():
             var f_idx = _find_floor_input(floor_node)
             if f_idx != -1:
                 floor_nodes[f_idx] = floor_node
+                # Discover door child if present
+                var door = floor_node.get_node_or_null("Door")
+                if door:
+                    floor_doors[f_idx] = door
 
 
     # Connect internal "next" button if present on platform
     if platform:
         for child in platform.get_children():
             if child.has_signal("input_triggered") and child.get("floor_index") == -1:
-                if not child.is_connected("input_triggered", self, "_on_floor_request"):
-                    child.connect("input_triggered", self, "_on_floor_request")
+                if not child.is_connected("input_triggered", self , "_on_floor_request"):
+                    child.connect("input_triggered", self , "_on_floor_request")
 
 
     if platform:
-        if not platform.is_connected("arrived_at_floor", self, "_on_arrived"):
-            platform.connect("arrived_at_floor", self, "_on_arrived")
-        if platform.has_signal("stopped") and not platform.is_connected("stopped", self, "_on_platform_stopped"):
-            platform.connect("stopped", self, "_on_platform_stopped")
-        pass
+        if not platform.is_connected("arrived_at_floor", self , "_on_arrived"):
+            platform.connect("arrived_at_floor", self , "_on_arrived")
+        if platform.has_signal("stopped") and not platform.is_connected("stopped", self , "_on_platform_stopped"):
+            platform.connect("stopped", self , "_on_platform_stopped")
+
+    # Open door at starting floor
+    if not Engine.editor_hint:
+        _open_door(current_floor)
 
 func _find_floor_input(node: Node) -> int:
     for child in node.get_children():
         if child.has_signal("input_triggered"):
-            if not child.is_connected("input_triggered", self, "_on_floor_request"):
-                child.connect("input_triggered", self, "_on_floor_request")
+            if not child.is_connected("input_triggered", self , "_on_floor_request"):
+                child.connect("input_triggered", self , "_on_floor_request")
             return child.get("floor_index")
     return -1
 
@@ -83,6 +95,11 @@ func _process_queue():
     target_floor = requests.pop_front()
     
     if floor_nodes.has(target_floor):
+        # Close door at current floor before departing
+        if current_floor != -1 and current_floor != target_floor:
+            _close_door(current_floor)
+            if not Engine.editor_hint:
+                yield (get_tree().create_timer(0.9), "timeout")
         var target_height = floor_nodes[target_floor].global_transform.origin.y
         _start_move_sfx()
         platform.move_to(target_height)
@@ -104,9 +121,11 @@ func _on_arrived(height):
         if abs(floor_nodes[f_idx].global_transform.origin.y - height) < 0.1:
             current_floor = f_idx
             break
-            
 
-    # Wait at floor
+    # Open door at this floor (stays open until elevator departs)
+    _open_door(current_floor)
+
+    # Process any pending requests after a brief pause
     if not Engine.editor_hint:
         yield (get_tree().create_timer(1.0), "timeout")
         _process_queue()
@@ -133,3 +152,17 @@ func _play_arrival_sfx() -> void:
         return
     if _sfx_arrival:
         _sfx_arrival.play_sfx()
+
+func _open_door(floor_idx: int) -> void:
+    if floor_doors.has(floor_idx):
+        var door = floor_doors[floor_idx]
+        if door.has_method("set_active"):
+            door.set_active(true)
+            emit_signal("door_opened", floor_idx)
+
+func _close_door(floor_idx: int) -> void:
+    if floor_doors.has(floor_idx):
+        var door = floor_doors[floor_idx]
+        if door.has_method("set_active"):
+            door.set_active(false)
+            emit_signal("door_closed", floor_idx)
