@@ -5,6 +5,8 @@ const MobileUI = preload("res://core_v2/ui/MobileUI.tscn")
 var _mobile_ui: CanvasLayer = null
 var _touch_camera: TouchCameraControls = null
 var _is_mobile := false
+var _is_cinematic_active := false
+var _cinematic_manager: Node = null
 
 func _ready() -> void:
 	layer = 100
@@ -13,6 +15,10 @@ func _ready() -> void:
 	
 	if _is_mobile:
 		_spawn_mobile_ui()
+	
+	_connect_cinematic_manager()
+	_refresh_mobile_ui_visibility()
+	set_process(_is_mobile)
 
 func _spawn_mobile_ui() -> void:
 	if _mobile_ui:
@@ -25,6 +31,53 @@ func _spawn_mobile_ui() -> void:
 	if _touch_camera:
 		_touch_camera.connect("camera_drag", self, "_on_camera_drag")
 		_touch_camera.connect("camera_zoom", self, "_on_camera_zoom")
+	
+	_refresh_mobile_ui_visibility()
+
+func _connect_cinematic_manager() -> void:
+	_cinematic_manager = get_node_or_null("/root/CinematicManager")
+	if not is_instance_valid(_cinematic_manager):
+		_is_cinematic_active = false
+		return
+	if not _cinematic_manager.is_connected("cinematic_started", self, "_on_cinematic_started"):
+		_cinematic_manager.connect("cinematic_started", self, "_on_cinematic_started")
+	if not _cinematic_manager.is_connected("cinematic_stopped", self, "_on_cinematic_stopped"):
+		_cinematic_manager.connect("cinematic_stopped", self, "_on_cinematic_stopped")
+	_is_cinematic_active = _is_script_cinematic_active()
+
+func _is_script_cinematic_active() -> bool:
+	if not is_instance_valid(_cinematic_manager):
+		return false
+	var active_requests = _cinematic_manager.get("_active_requests")
+	if typeof(active_requests) != TYPE_DICTIONARY:
+		return false
+	for request_id in active_requests.keys():
+		var request = active_requests.get(request_id)
+		if request and str(request.source) == "legacy_direct":
+			return true
+	return false
+
+func _refresh_mobile_ui_visibility() -> void:
+	_is_cinematic_active = _is_script_cinematic_active() or _is_script_input_block_active()
+	if is_instance_valid(_mobile_ui):
+		_mobile_ui.visible = _is_mobile and not _is_cinematic_active
+
+func _process(_delta: float) -> void:
+	if not _is_mobile or not is_instance_valid(_mobile_ui):
+		return
+	_refresh_mobile_ui_visibility()
+
+func _is_script_input_block_active() -> bool:
+	var input_provider = _get_active_input_provider()
+	if input_provider == null:
+		return false
+	return not bool(input_provider.hardware_input_enabled)
+
+func _on_cinematic_started(_rig_id: String = "") -> void:
+	_refresh_mobile_ui_visibility()
+
+func _on_cinematic_stopped() -> void:
+	_refresh_mobile_ui_visibility()
 
 func _get_touch_camera_control() -> TouchCameraControls:
 	if not _mobile_ui:
