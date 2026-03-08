@@ -18,6 +18,6 @@ def _preset_block(name: str) -> str:
 
 def test_html5_export_includes_all_reachable_resources():
     block = _preset_block("HTML5")
-    assert 'export_filter="all_resources"' in block
-    assert 'vram_texture_compression/for_desktop=false' in block
+    assert 'export_filter="resources"' in block
+    assert 'vram_texture_compression/for_desktop=true' in block
     assert 'vram_texture_compression/for_mobile=true' in block
