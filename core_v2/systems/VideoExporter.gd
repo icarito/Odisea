@@ -2,6 +2,8 @@ extends Node
 
 # VideoExporter.gd
 # Captures replay frames and muxes them with an audio capture.
+# Live `--export-video` exports are typically spawned with the `Dummy` audio driver so
+# the export stays silent while AudioEffectRecord still builds the final track.
 
 var is_exporting := false
 var export_name := ""
@@ -17,6 +19,8 @@ var _monitor_silence_effect: AudioEffectAmplify = null
 var _monitor_silence_effect_idx := -1
 var _audio_capture_path := ""
 var _audio_capture_saved := false
+var _audio_capture_started := false
+var _audio_capture_duration_sec := 0.0
 
 var _saved_follow_active_camera = null
 var _saved_follow_only_cinematics = null
@@ -40,6 +44,9 @@ func start_export(path: String) -> void:
 	is_exporting = true
 	_capture_video_frames = true
 	frame_index = 0
+	_audio_capture_started = false
+	_audio_capture_saved = false
+	_audio_capture_duration_sec = 0.0
 
 	export_dir = "user://export_" + export_name
 	var dir = Directory.new()
@@ -63,7 +70,6 @@ func start_export(path: String) -> void:
 			sm.connect("replay_finished", self , "_on_replay_finished")
 
 	_configure_audio_manager_for_export()
-	_start_audio_capture()
 
 func _process(_delta):
 	if not is_exporting:
@@ -76,6 +82,8 @@ func capture_frame(viewport: Viewport) -> void:
 		return
 	if not viewport:
 		return
+	if not _audio_capture_started:
+		_start_audio_capture()
 
 	var tex = viewport.get_texture()
 	if not tex:
@@ -100,7 +108,8 @@ func _on_replay_finished(_success, _drift, _frames):
 func _finalize_export() -> void:
 	# Let one frame pass so AudioEffectRecord flushes final mix blocks.
 	yield (get_tree(), "idle_frame")
-	_stop_audio_capture()
+	if _audio_capture_started:
+		_stop_audio_capture()
 
 	var queue = get_node_or_null("/root/ScreenshotQueue")
 	if queue and queue.has_method("wait_for_empty"):
@@ -115,9 +124,11 @@ func _compile_video():
 	var out_file = abs_dir + "/../" + export_name + "_export.mp4"
 	var input_pattern = abs_dir + "/frame_%05d.png"
 	var audio_input_path = ProjectSettings.globalize_path(_audio_capture_path)
+	var video_duration_sec = float(frame_index) / float(EXPORT_FPS)
 
 	var args = []
 	if _audio_capture_saved:
+		var audio_filter = _build_audio_sync_filter(video_duration_sec, _audio_capture_duration_sec)
 		args = [
 			"-y",
 			"-framerate", str(EXPORT_FPS),
@@ -129,11 +140,16 @@ func _compile_video():
 			"-preset", "fast",
 			"-crf", "18",
 			"-pix_fmt", "yuv420p",
+		]
+		if audio_filter != "":
+			args.append("-filter:a")
+			args.append(audio_filter)
+		args.append_array([
 			"-c:a", "aac",
 			"-b:a", "192k",
 			"-shortest",
 			out_file
-		]
+		])
 	else:
 		args = [
 			"-y",
@@ -165,6 +181,8 @@ func _compile_video():
 
 func _start_audio_capture() -> void:
 	_audio_capture_saved = false
+	_audio_capture_started = false
+	_audio_capture_duration_sec = 0.0
 	_audio_capture_path = export_dir + "/audio_capture.wav"
 	_unmute_audio_for_export()
 
@@ -176,6 +194,7 @@ func _start_audio_capture() -> void:
 	_audio_record_effect_idx = AudioServer.get_bus_effect_count(_audio_record_bus_idx)
 	AudioServer.add_bus_effect(_audio_record_bus_idx, _audio_record_effect)
 	_audio_record_effect.set_recording_active(true)
+	_audio_capture_started = true
 	_apply_monitor_silence_if_requested()
 	print("[VideoExporter] Audio capture started on bus index ", _audio_record_bus_idx)
 
@@ -187,6 +206,9 @@ func _stop_audio_capture() -> void:
 			var err = recording.save_to_wav(_audio_capture_path)
 			if err == OK:
 				_audio_capture_saved = true
+				_audio_capture_duration_sec = _resolve_audio_capture_duration_seconds(recording)
+				if _audio_capture_duration_sec <= 0.0:
+					_audio_capture_duration_sec = _read_saved_wav_duration_seconds(_audio_capture_path)
 				print("[VideoExporter] Audio capture saved to: ", _audio_capture_path)
 			else:
 				printerr("[VideoExporter] Failed to save audio capture: ", _audio_capture_path, " err=", err)
@@ -195,6 +217,7 @@ func _stop_audio_capture() -> void:
 
 	_remove_monitor_silence_effect()
 	_remove_audio_capture_effect()
+	_audio_capture_started = false
 
 func _remove_audio_capture_effect() -> void:
 	if _audio_record_bus_idx < 0:
@@ -256,6 +279,60 @@ func _remove_monitor_silence_effect() -> void:
 func _should_silence_monitor_output() -> bool:
 	# Disabled: muting monitor output via bus effects can nullify AudioEffectRecord capture.
 	return false
+
+func _build_audio_sync_filter(video_duration_sec: float, audio_duration_sec: float) -> String:
+	if video_duration_sec <= 0.0 or audio_duration_sec <= 0.0:
+		return ""
+	var tempo = audio_duration_sec / video_duration_sec
+	if abs(tempo - 1.0) <= 0.01:
+		return ""
+	var filters := []
+	while tempo > 2.0:
+		filters.append("atempo=2.0")
+		tempo /= 2.0
+	while tempo < 0.5:
+		filters.append("atempo=0.5")
+		tempo /= 0.5
+	filters.append("atempo=%.6f" % tempo)
+	var filter = PoolStringArray(filters).join(",")
+	print("[VideoExporter] Audio sync correction: video=%.3fs audio=%.3fs filter=%s" % [video_duration_sec, audio_duration_sec, filter])
+	return filter
+
+func _resolve_audio_capture_duration_seconds(recording) -> float:
+	if not recording:
+		return 0.0
+	if recording.has_method("get_length"):
+		return float(recording.get_length())
+	return 0.0
+
+func _read_saved_wav_duration_seconds(path: String) -> float:
+	var abs_path = ProjectSettings.globalize_path(path)
+	var file = File.new()
+	if file.open(abs_path, File.READ) != OK:
+		return 0.0
+	if file.get_len() < 44:
+		file.close()
+		return 0.0
+	file.seek(22)
+	var channels = _read_le_u16(file)
+	var sample_rate = _read_le_u32(file)
+	file.seek(34)
+	var bits_per_sample = _read_le_u16(file)
+	file.seek(40)
+	var data_size = _read_le_u32(file)
+	file.close()
+	if channels <= 0 or sample_rate <= 0 or bits_per_sample <= 0:
+		return 0.0
+	var bytes_per_second = float(sample_rate * channels * bits_per_sample) / 8.0
+	if bytes_per_second <= 0.0:
+		return 0.0
+	return float(data_size) / bytes_per_second
+
+func _read_le_u16(file: File) -> int:
+	return int(file.get_8()) | (int(file.get_8()) << 8)
+
+func _read_le_u32(file: File) -> int:
+	return int(file.get_8()) | (int(file.get_8()) << 8) | (int(file.get_8()) << 16) | (int(file.get_8()) << 24)
 
 func _configure_audio_manager_for_export() -> void:
 	var audio_manager = get_node_or_null("/root/AudioManager")

@@ -1,7 +1,9 @@
 extends Node
 const FIXED_DT := 1.0 / 60.0
+const REPLAY_WATCHDOG_STALL_FRAMES := 900
 var _is_validating := false # Re-entry protection
-var _replay_watchdog_frames := 0 # Safety counter for tests
+var _replay_watchdog_frames := 0 # Safety counter for stalled replays/tests
+var _replay_watchdog_last_input_index := -1
 const EARLY_WEAK_HINT_ENV := "ODISEA_EARLY_WEAK_HARDWARE"
 const EARLY_WEAK_RAM_GB_CAP := 1.05
 const EARLY_WEAK_DEVICE_HINTS := [
@@ -197,6 +199,7 @@ var _video_export_mode := false
 
 func _on_tree_changed_for_live_recording():
 	get_tree().set_auto_accept_quit(false)
+	_prepare_live_video_export_recording_runtime()
 	var attempts := 0
 	while attempts < 90:
 		_find_player()
@@ -219,15 +222,55 @@ func _notification(what):
 					OS.set_environment("ODISEA_FORCE_MUTE_AUDIO", "0")
 					var args = ["--no-window", "--fixed-fps", "60", "--video-export", saved_path]
 					var export_audio_driver = OS.get_environment("ODISEA_VIDEO_EXPORT_AUDIO_DRIVER").strip_edges()
-					if export_audio_driver != "":
-						args.append("--audio-driver")
-						args.append(export_audio_driver)
+					if export_audio_driver == "":
+						export_audio_driver = "Dummy"
+					args.append("--audio-driver")
+					args.append(export_audio_driver)
 					print("\n=======================================================")
 					print("🎥 [LiveExport] Session ended! Exporting video in background...")
 					print("📂 Godot headless instance spawned. MP4 will be saved soon!")
 					print("=======================================================\n")
 					OS.execute(exec_path, args, false)
 			get_tree().quit(0)
+
+func _prepare_live_video_export_recording_runtime() -> void:
+	# Live export should not alter gameplay audio; silence is applied in the spawned export process.
+	OS.set_environment("ODISEA_DISABLE_SHADER_WARMUP", "1")
+	OS.set_environment("ODISEA_MUTE_AUDIO_HEADLESS", "0")
+	OS.set_environment("ODISEA_FORCE_MUTE_AUDIO", "0")
+
+func _reset_replay_watchdog(provider = null) -> void:
+	_replay_watchdog_frames = 0
+	_replay_watchdog_last_input_index = -1
+	if is_instance_valid(provider):
+		_replay_watchdog_last_input_index = int(provider.playback_index)
+
+func _tick_replay_watchdog(provider) -> void:
+	if not is_replaying or _is_waiting_for_respawn_validation:
+		_reset_replay_watchdog(provider)
+		return
+
+	var is_progressing := false
+	var current_index := _replay_watchdog_last_input_index
+	var buffer_size := -1
+
+	if is_instance_valid(provider) and provider.mode == provider.Mode.REPLAY:
+		current_index = int(provider.playback_index)
+		buffer_size = provider.playback_buffer.size()
+		if current_index >= buffer_size:
+			_reset_replay_watchdog(provider)
+			return
+		is_progressing = current_index != _replay_watchdog_last_input_index
+
+	if is_progressing:
+		_replay_watchdog_last_input_index = current_index
+		_replay_watchdog_frames = 0
+		return
+
+	_replay_watchdog_frames += 1
+	if _replay_watchdog_frames > REPLAY_WATCHDOG_STALL_FRAMES:
+		printerr("[SessionManager] WATCHDOG: Replay stalled at input %d/%d. Forcing termination." % [current_index, buffer_size])
+		_finish_and_validate()
 
 func _ready():
 	_rl_mode = OS.get_environment("ANNA_RL_MODE").to_lower() in ["1", "true", "yes", "on"]
@@ -288,13 +331,14 @@ func _ready():
 
 		if arg == "--video-export" or arg == "--export-video":
 			_video_export_mode = true
-			_prepare_video_export_runtime()
 			if i + 1 < args.size() and not args[i + 1].begins_with("--") and (args[i + 1].ends_with(".json") or args[i + 1].ends_with(".oys")):
+				_prepare_video_export_runtime()
 				is_cli_mode = true
 				var replay_path = args[i + 1]
 				get_tree().connect("tree_changed", self , "_on_tree_changed_for_replay", [replay_path, true], CONNECT_ONESHOT)
 				return
 			else:
+				_prepare_live_video_export_recording_runtime()
 				_live_export_on_exit = true
 				get_tree().connect("tree_changed", self , "_on_tree_changed_for_live_recording", [], CONNECT_ONESHOT)
 				continue
@@ -700,7 +744,7 @@ func _parse_first_int(raw: String) -> int:
 func _prepare_video_export_runtime() -> void:
 	# Reduce first-frame stalls during export runs.
 	OS.set_environment("ODISEA_DISABLE_SHADER_WARMUP", "1")
-	# We need audio for muxing, so keep headless mute disabled.
+	# Replay export still needs audible buses internally so VideoExporter can capture/mux audio.
 	OS.set_environment("ODISEA_MUTE_AUDIO_HEADLESS", "0")
 	OS.set_environment("ODISEA_FORCE_MUTE_AUDIO", "0")
 
@@ -1044,16 +1088,12 @@ func _physics_process(_dt):
 		_total_replay_frames = _replay_frame
 		
 		# Proactiva validación de fin de buffer para evitar desfase de 1 frame en el reporte
-		if is_instance_valid(_active_input_provider) and _active_input_provider.playback_buffer.empty():
+		if is_instance_valid(_active_input_provider) and _active_input_provider.mode == _active_input_provider.Mode.REPLAY and _active_input_provider.playback_index >= _active_input_provider.playback_buffer.size():
 			if not _is_waiting_for_respawn_validation:
 				run_playback()
 				
-		# WATCHDOG: Si el replay se queda atascado por más de 15 segundos sin terminar, forzamos fin.
-		# Esto previene el timeout infinito del test runner si algo falla silenciosamente.
-		_replay_watchdog_frames += 1
-		if _replay_watchdog_frames > 900: # 15 segundos a 60fps
-			printerr("[SessionManager] WATCHDOG: Replay hung detected. Forcing termination.")
-			_finish_and_validate()
+		# WATCHDOG: termina solo si el playback deja de avanzar, no por duración total del replay.
+		_tick_replay_watchdog(_active_input_provider)
 	
 	else:
 		# Normal gameplay (Not recording, Not replaying)
@@ -1195,7 +1235,7 @@ func load_and_play(path: String):
 	is_replaying = false
 	_is_waiting_for_respawn_validation = false
 	_is_validating = false
-	_replay_watchdog_frames = 0
+	_reset_replay_watchdog()
 	is_recording = false
 	is_respawning = false
 	_is_waiting_for_respawn_validation = false
@@ -1590,6 +1630,7 @@ func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
 	_active_input_provider = player.input_provider
 	_replay_input_provider = player.input_provider
 	_replay_input_buffer = input_buffer.duplicate(true)
+	_reset_replay_watchdog(player.input_provider)
 	if "velocity" in player:
 		player.velocity = Vector3.ZERO
 
@@ -1658,6 +1699,7 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 	_active_input_provider = player.input_provider
 	_replay_input_provider = player.input_provider
 	_replay_input_buffer = input_buffer.duplicate(true)
+	_reset_replay_watchdog(player.input_provider)
 
 	# Initialize Event Runtime
 	event_timeline = {}
@@ -1708,6 +1750,7 @@ func _finish_and_validate():
 	_drift_validated = true
 	is_replaying = false
 	is_recording = false
+	_reset_replay_watchdog()
 	Engine.time_scale = 1.0
 	
 	if is_instance_valid(CinematicManager) and CinematicManager.has_method("reset"):
