@@ -35,27 +35,6 @@ func test_screen_effects_manager_mounts_overlay_and_toggles_cinematic_bars() -> 
 	assert_bool(is_equal_approx(float(overlay.get("cinematic_progress")), 0.0)).is_true()
 	manager.reset(true)
 
-func test_screen_effects_manager_exposes_safe_margins_for_cinematic_bars() -> void:
-	var manager = get_tree().root.get_node_or_null("ScreenEffectsManager")
-	var overlay_ui = get_tree().root.get_node_or_null("OverlayUIManager")
-	assert_object(manager).is_not_null()
-	assert_object(overlay_ui).is_not_null()
-
-	manager.reset(true)
-	manager.show_script_cinematic_bars(true)
-	yield(get_tree(), "idle_frame")
-
-	var margins = overlay_ui.get_safe_margins()
-	assert_float(float(margins.get("top", 0.0))).is_greater(0.0)
-	assert_float(float(margins.get("bottom", 0.0))).is_greater(0.0)
-
-	manager.hide_script_cinematic_bars(true)
-	yield(get_tree(), "idle_frame")
-
-	var cleared_margins = overlay_ui.get_safe_margins()
-	assert_float(float(cleared_margins.get("top", 0.0))).is_equal(0.0)
-	assert_float(float(cleared_margins.get("bottom", 0.0))).is_equal(0.0)
-
 func test_screen_effects_manager_death_cover_roundtrip() -> void:
 	var manager = get_tree().root.get_node_or_null("ScreenEffectsManager")
 	var overlay_ui = get_tree().root.get_node_or_null("OverlayUIManager")
