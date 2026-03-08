@@ -1,5 +1,7 @@
 extends Control
 
+const FALLBACK_SUBTITLE_FONT_DATA = preload("res://assets/fonts/SyneMono-Regular.ttf")
+
 export(float) var default_duration := 2.5
 export(float) var fade_in_sec := 0.2
 export(float) var fade_out_sec := 0.2
@@ -130,9 +132,12 @@ func _get_subtitle_font() -> DynamicFont:
 	if _cached_font:
 		return _cached_font
 	_cached_font = DynamicFont.new()
-	var font_data = load("res://assets/fonts/SyneMono-Regular.ttf")
-	if not font_data: font_data = load("res://core_v2/ui/fonts/SyneMono-Regular.ttf")
-	if font_data: _cached_font.font_data = font_data
+	if FALLBACK_SUBTITLE_FONT_DATA:
+		_cached_font.font_data = FALLBACK_SUBTITLE_FONT_DATA
+	else:
+		var font_data = load("res://assets/fonts/SyneMono-Regular.ttf")
+		if not font_data: font_data = load("res://core_v2/ui/fonts/SyneMono-Regular.ttf")
+		if font_data: _cached_font.font_data = font_data
 	_cached_font.size = font_size
 	_cached_font.use_filter = false
 	_cached_font.use_mipmaps = false

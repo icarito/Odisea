@@ -101,3 +101,23 @@ func test_touch_ui_is_hidden_when_script_input_is_blocked() -> void:
 	mobile_ui_manager.queue_free()
 	session_manager.player = prev_player
 	fake_player.free()
+
+
+func test_hidden_touch_ui_does_not_reserve_subtitle_margins() -> void:
+	var mobile_ui_manager = MobileUIManagerScript.new()
+	get_tree().root.add_child(mobile_ui_manager)
+	mobile_ui_manager._is_mobile = true
+	mobile_ui_manager._spawn_mobile_ui()
+
+	assert_object(mobile_ui_manager._mobile_ui).is_not_null()
+	assert_bool(mobile_ui_manager._mobile_ui.visible).is_true()
+	var visible_margins = mobile_ui_manager.get_reserved_overlay_margins()
+	assert_float(float(visible_margins.get("bottom", 0.0))).is_greater(0.0)
+
+	mobile_ui_manager._mobile_ui.visible = false
+	var hidden_margins = mobile_ui_manager.get_reserved_overlay_margins()
+	assert_float(float(hidden_margins.get("left", 0.0))).is_equal(0.0)
+	assert_float(float(hidden_margins.get("right", 0.0))).is_equal(0.0)
+	assert_float(float(hidden_margins.get("bottom", 0.0))).is_equal(0.0)
+
+	mobile_ui_manager.queue_free()

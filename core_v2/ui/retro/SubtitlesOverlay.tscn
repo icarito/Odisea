@@ -7,16 +7,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource( 1 )
-default_duration = null
-fade_in_sec = null
-fade_out_sec = null
-clear_fade_out_sec = null
-stack_shift_sec = null
-bottom_margin = null
-horizontal_margin = null
-line_spacing = null
-max_width_ratio = null
-panel_alpha = null
 
 [node name="Layer" type="Control" parent="."]
 anchor_right = 1.0

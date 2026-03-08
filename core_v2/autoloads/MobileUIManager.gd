@@ -113,7 +113,7 @@ func get_reserved_overlay_margins(padding: float = 16.0) -> Dictionary:
 		"right": 0.0,
 		"bottom": 0.0
 	}
-	if not is_instance_valid(_mobile_ui):
+	if not is_instance_valid(_mobile_ui) or not _mobile_ui.visible:
 		return margins
 
 	var viewport_size = get_viewport().get_visible_rect().size
@@ -122,7 +122,7 @@ func get_reserved_overlay_margins(padding: float = 16.0) -> Dictionary:
 	return margins
 
 func _expand_overlay_margins(margins: Dictionary, ctrl: Control, viewport_size: Vector2, padding: float) -> Dictionary:
-	if not is_instance_valid(ctrl) or not ctrl.visible:
+	if not is_instance_valid(ctrl) or not ctrl.is_visible_in_tree():
 		return margins
 
 	var top_left = ctrl.rect_global_position
