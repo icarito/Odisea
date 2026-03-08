@@ -3,7 +3,7 @@ extends GdUnitTestSuite
 const HardwareProfileScript = preload("res://core_v2/autoloads/HardwareProfile.gd")
 
 
-func test_html5_adaptive_degrade_is_disabled() -> void:
+func test_html5_adaptive_degrade_stops_at_medium() -> void:
 	var hp = get_tree().root.get_node_or_null("HardwareProfile")
 	assert_object(hp).is_not_null()
 
@@ -20,11 +20,14 @@ func test_html5_adaptive_degrade_is_disabled() -> void:
 	hp._web_degrade_cooldown_sec = 0.0
 
 	hp._configure_web_adaptive_quality()
-	assert_bool(hp._web_adaptive_quality_enabled).is_false()
+	assert_bool(hp._web_adaptive_quality_enabled).is_true()
 
 	hp._degrade_web_profile_due_to_fps(20.0)
-	assert_int(hp._detected_profile).is_equal(HardwareProfileScript.Profile.HIGH)
-	assert_float(hp._web_degrade_cooldown_sec).is_equal(0.0)
+	assert_int(hp._detected_profile).is_equal(HardwareProfileScript.Profile.MEDIUM)
+
+	hp._web_degrade_cooldown_sec = 0.0
+	hp._degrade_web_profile_due_to_fps(20.0)
+	assert_int(hp._detected_profile).is_equal(HardwareProfileScript.Profile.MEDIUM)
 
 	hp._detected_platform = prev_platform
 	hp._detected_profile = prev_profile
