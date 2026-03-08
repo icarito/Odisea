@@ -2,9 +2,18 @@ extends Node
 const FIXED_DT := 1.0 / 60.0
 var _is_validating := false # Re-entry protection
 var _replay_watchdog_frames := 0 # Safety counter for tests
+const EARLY_WEAK_HINT_ENV := "ODISEA_EARLY_WEAK_HARDWARE"
+const EARLY_WEAK_RAM_GB_CAP := 1.05
+const EARLY_WEAK_DEVICE_HINTS := [
+	"anbernic",
+	"rg351",
+	"rk3326",
+	"mali",
+]
 
 signal replay_finished(success, drift, frames)
 signal oys_registry_reset
+signal startup_gate_opened(reason, waited_frames)
 
 var player: KinematicBody = null
 var _player_searched = false
@@ -66,6 +75,20 @@ var _rl_mode := false
 var _rl_bypass_session_manager := true
 const ALLOW_ANNA_IN_REMOTE_DEBUG_ENV := "ODISEA_ALLOW_ANNA_REMOTE_DEBUG"
 const REMOTE_DEBUG_FLAGS := ["--remote-debug"]
+const STARTUP_GATE_FRAMES_FAST := 2
+const STARTUP_GATE_FRAMES_WEAK := 18
+const STARTUP_GATE_MAX_WAIT_FRAMES := 720
+const STARTUP_GATE_FRAMES_ENV := "ODISEA_STARTUP_GATE_FRAMES"
+var _early_weak_hardware := false
+var _startup_gate_open := false
+var _startup_gate_started := false
+var _startup_gate_waited_frames := 0
+var _startup_gate_reason := ""
+
+func _enter_tree() -> void:
+	_early_weak_hardware = _detect_weak_hardware_early()
+	if _early_weak_hardware:
+		_apply_early_weak_hardware_hints()
 
 func _normalize_negative_zero_in_place(value):
 	var t = typeof(value)
@@ -306,6 +329,116 @@ func _ready():
 		is_cli_mode = true
 		get_tree().connect("tree_changed", self , "_on_tree_changed_for_script", [script_path], CONNECT_ONESHOT)
 
+	_begin_startup_gate_monitor()
+
+func is_startup_gate_open() -> bool:
+	return _startup_gate_open
+
+func get_startup_gate_status() -> Dictionary:
+	return {
+		"open": _startup_gate_open,
+		"started": _startup_gate_started,
+		"reason": _startup_gate_reason,
+		"waited_frames": _startup_gate_waited_frames
+	}
+
+func wait_until_startup_gate_open(max_frames := STARTUP_GATE_MAX_WAIT_FRAMES):
+	_begin_startup_gate_monitor()
+	var frame_cap = max(0, int(max_frames))
+	var waited := 0
+	while not _startup_gate_open and waited < frame_cap:
+		waited += 1
+		yield(get_tree(), "idle_frame")
+
+func _begin_startup_gate_monitor() -> void:
+	if _startup_gate_open or _startup_gate_started:
+		return
+	_startup_gate_started = true
+	call_deferred("_resolve_startup_gate_deferred")
+
+func _resolve_startup_gate_deferred() -> void:
+	var required_stable_frames = _get_startup_gate_required_stable_frames()
+	if required_stable_frames <= 0:
+		_open_startup_gate("disabled", 0)
+		return
+	var stable_frames := 0
+	var waited_frames := 0
+	while waited_frames < STARTUP_GATE_MAX_WAIT_FRAMES:
+		if _is_startup_gate_ready_now():
+			stable_frames += 1
+			if stable_frames >= required_stable_frames:
+				_open_startup_gate("ready", waited_frames)
+				return
+		else:
+			stable_frames = 0
+		waited_frames += 1
+		yield(get_tree(), "idle_frame")
+	_open_startup_gate("timeout", waited_frames)
+
+func _get_startup_gate_required_stable_frames() -> int:
+	var required = STARTUP_GATE_FRAMES_WEAK if _early_weak_hardware else STARTUP_GATE_FRAMES_FAST
+	var env_value = OS.get_environment(STARTUP_GATE_FRAMES_ENV).strip_edges()
+	if env_value.is_valid_integer():
+		required = int(env_value)
+	return int(clamp(required, 0, STARTUP_GATE_MAX_WAIT_FRAMES))
+
+func _is_startup_gate_ready_now() -> bool:
+	var tree = get_tree()
+	if tree == null:
+		return false
+	var scene = tree.current_scene
+	if not is_instance_valid(scene):
+		return false
+	if _is_scene_transition_busy():
+		return false
+	if _startup_gate_requires_player(scene):
+		return _has_valid_startup_player()
+	return true
+
+func _is_scene_transition_busy() -> bool:
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if scene_manager and scene_manager.has_method("is_transitioning"):
+		return bool(scene_manager.is_transitioning())
+	return false
+
+func _startup_gate_requires_player(scene: Node) -> bool:
+	if is_cli_mode:
+		return false
+	if OS.has_feature("Server"):
+		return false
+	if Engine.has_singleton("GdUnit3") and Engine.get_singleton("GdUnit3").is_test_suite():
+		return false
+	if not is_instance_valid(scene):
+		return false
+	var scene_path = String(scene.filename)
+	if scene_path.find("Menu.tscn") != -1:
+		return false
+	if get_tree().get_nodes_in_group("player").empty():
+		return false
+	return true
+
+func _has_valid_startup_player() -> bool:
+	if _is_player_candidate_valid(player):
+		return true
+	var pilots = get_tree().get_nodes_in_group("player")
+	for p in pilots:
+		if _is_player_candidate_valid(p):
+			player = p
+			return true
+	return false
+
+func _open_startup_gate(reason: String, waited_frames: int) -> void:
+	if _startup_gate_open:
+		return
+	_startup_gate_open = true
+	_startup_gate_reason = reason
+	_startup_gate_waited_frames = max(0, waited_frames)
+	if reason == "timeout":
+		printerr("[SessionManager] Startup gate opened by timeout after %d idle frames." % _startup_gate_waited_frames)
+	elif _startup_gate_waited_frames > 0:
+		print("[SessionManager] Startup gate opened after %d idle frames." % _startup_gate_waited_frames)
+	emit_signal("startup_gate_opened", _startup_gate_reason, _startup_gate_waited_frames)
+
 func _ensure_anna_bridge_enabled(reason: String = "") -> Node:
 	var existing = get_node_or_null("AnnaBridge")
 	if not (existing and is_instance_valid(existing)):
@@ -397,6 +530,96 @@ func _read_process_cmdline() -> String:
 		guard += 1
 	file.close()
 	return raw
+
+func _detect_weak_hardware_early() -> bool:
+	var forced_device = OS.get_environment("ODISEA_DEVICE").to_lower()
+	if _contains_any_hint(forced_device, EARLY_WEAK_DEVICE_HINTS):
+		return true
+	var explicit_hint = OS.get_environment(EARLY_WEAK_HINT_ENV).to_lower()
+	if explicit_hint in ["1", "true", "yes", "on"]:
+		return true
+	if explicit_hint in ["0", "false", "no", "off"]:
+		return false
+	if not OS.get_name() in ["X11", "Linux", "Server"]:
+		return false
+	var device_fingerprint = (
+		_read_text_file("/proc/cpuinfo")
+		+ " "
+		+ _read_text_file("/sys/firmware/devicetree/base/model")
+		+ " "
+		+ _read_text_file("/sys/class/graphics/fb0/device/modalias")
+	).to_lower()
+	var is_arm = "arm" in device_fingerprint or "aarch64" in device_fingerprint
+	if not is_arm and not _contains_any_hint(device_fingerprint, EARLY_WEAK_DEVICE_HINTS):
+		return false
+	var mem_total_gb = _read_mem_total_gb()
+	if mem_total_gb > 0.0 and mem_total_gb <= EARLY_WEAK_RAM_GB_CAP:
+		return true
+	return _contains_any_hint(device_fingerprint, EARLY_WEAK_DEVICE_HINTS)
+
+func _apply_early_weak_hardware_hints() -> void:
+	OS.set_environment(EARLY_WEAK_HINT_ENV, "1")
+	OS.set_environment("ODISEA_GRAPHICS_PROFILE", "low")
+	OS.set_environment("ODISEA_DISABLE_TERRACE_SCATTER", "1")
+	OS.set_environment("ODISEA_THREAD_SCATTER_LAZY", "0")
+	OS.set_environment("ODISEA_DECOR_RB_CULL", "0")
+	OS.set_environment("ODISEA_DISABLE_SHADER_WARMUP", "1")
+	print("[SessionManager] Early weak-hardware fast-path enabled.")
+
+func _contains_any_hint(text: String, hints: Array) -> bool:
+	for hint in hints:
+		var needle = String(hint)
+		if needle != "" and needle in text:
+			return true
+	return false
+
+func _read_text_file(path: String) -> String:
+	var file = File.new()
+	if not file.file_exists(path):
+		return ""
+	if file.open(path, File.READ) != OK:
+		return ""
+	var data := ""
+	var guard := 0
+	var max_bytes := 65536
+	while not file.eof_reached() and guard < max_bytes:
+		var b = int(file.get_8())
+		if b == 0:
+			data += " "
+		else:
+			data += char(b)
+		guard += 1
+	file.close()
+	return data
+
+func _read_mem_total_gb() -> float:
+	var meminfo = _read_text_file("/proc/meminfo")
+	if meminfo == "":
+		return 0.0
+	for raw_line in meminfo.split("\n"):
+		var line = String(raw_line).strip_edges()
+		if not line.begins_with("MemTotal"):
+			continue
+		var parts = line.split(":")
+		if parts.size() < 2:
+			continue
+		var kb = _parse_first_int(parts[1])
+		if kb <= 0:
+			return 0.0
+		return float(kb) / 1024.0 / 1024.0
+	return 0.0
+
+func _parse_first_int(raw: String) -> int:
+	var digits := ""
+	for i in range(raw.length()):
+		var ch = raw.substr(i, 1)
+		if ch >= "0" and ch <= "9":
+			digits += ch
+		elif digits != "":
+			break
+	if digits == "":
+		return 0
+	return int(digits)
 
 func _prepare_video_export_runtime() -> void:
 	# Reduce first-frame stalls during export runs.

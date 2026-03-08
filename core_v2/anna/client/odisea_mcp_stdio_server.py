@@ -112,9 +112,32 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "node_path": {"type": "string", "description": "NodePath, e.g. /root/Main/Pilot"}
+                "node_path": {"type": "string", "description": "NodePath, e.g. /root/Main/Pilot"},
+                "include_children": {"type": "boolean", "description": "Include serialized child subtree."},
+                "include_visual": {"type": "boolean", "description": "Include mesh/material/light runtime details."},
+                "max_depth": {"type": "number", "description": "Child/visual traversal depth (0-8)."},
+                "max_children": {"type": "number", "description": "Per-node child cap (1-256)."},
+                "probe_fields": {
+                    "type": "array",
+                    "description": "Runtime node fields to probe (can include non-export vars).",
+                    "items": {"type": "string"},
+                },
             },
             "required": ["node_path"],
+        },
+    },
+    {
+        "name": "set_property",
+        "description": "Set a runtime node property by path. Supports nested property paths like environment.glow_enabled.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "node_path": {"type": "string", "description": "NodePath, e.g. /root/Main/WorldEnvironment"},
+                "property": {"type": "string", "description": "Property name/path, e.g. environment.glow_enabled"},
+                "value": {"description": "New property value. Can be bool/number/string/object/array."},
+                "strict": {"type": "boolean", "description": "Fail if property does not exist (default true)."},
+            },
+            "required": ["node_path", "property", "value"],
         },
     },
     {
@@ -429,7 +452,20 @@ def call_tool(session: BridgeSessionManager, name: str, args: Optional[Dict[str,
     if name == "bridge_stop":
         return session.stop_with_status()
     if name == "inspect_node":
-        return session.proxy.call("inspect_node", {"node_path": str(a.get("node_path", ""))})
+        payload: Dict[str, Any] = {"node_path": str(a.get("node_path", ""))}
+        for key in ("include_children", "include_visual", "max_depth", "max_children", "probe_fields"):
+            if key in a:
+                payload[key] = a[key]
+        return session.proxy.call("inspect_node", payload)
+    if name == "set_property":
+        payload: Dict[str, Any] = {
+            "node_path": str(a.get("node_path", "")),
+            "property": str(a.get("property", a.get("property_path", ""))),
+            "value": a.get("value", None),
+        }
+        if "strict" in a:
+            payload["strict"] = bool(a.get("strict"))
+        return session.proxy.call("set_property", payload)
     if name == "execute_oys":
         return session.proxy.call("execute_oys", {"script_command": str(a.get("script_command", ""))})
     if name == "capture_vision":

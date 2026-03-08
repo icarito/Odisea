@@ -75,6 +75,11 @@ var _override_sequence_id: int = 0
 var _distance_accumulator: float = 0.0
 var _last_world_pos: Vector3 = Vector3.ZERO
 var _has_last_world_pos: bool = false
+var _footstep_stop_grace_left := 0.0
+var _manual_animtree_step_enabled := false
+var _manual_animtree_step_accum := 0.0
+const FOOTSTEP_STOP_GRACE_SEC := 0.18
+const MANUAL_ANIMTREE_STEP_INTERVAL_HYPER_LOW := 1.0 / 20.0
 
 # --- LIFECYCLE ---
 func _ready() -> void:
@@ -131,6 +136,7 @@ func _ready() -> void:
 
 	_last_world_pos = global_transform.origin
 	_has_last_world_pos = true
+	_configure_animation_runtime_policy()
 
 func _warmup_animations() -> void:
 	"""Fuerza el cacheo de las mezclas de Grounded e InAir avanzando el AnimationTree."""
@@ -264,6 +270,7 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 				_play_footstep()
 	else:
 		_distance_accumulator = 0.0 # Reset in air so we don't step immediately on land (unless land sound handles that)
+	_update_footstep_playback_guard(is_on_floor, planar_delta, dt)
 
 	# 2. ROTACIÓN VISUAL SUAVE (YAW)
 	# Solo rotamos si no estamos bloqueados (durante backflip)
@@ -317,6 +324,7 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 
 	# 3. APLICACIÓN DE ESTADO AL ANIMATIONTREE
 	update_animation_parameters(p_current_velocity, is_on_floor, controller.get_wish_direction().length())
+	_advance_animation_tree_if_manual(dt)
 
 	was_on_floor_last_frame = is_on_floor
 
@@ -599,11 +607,71 @@ func _update_hand_gizmos():
 		_hand_r_gizmo.global_transform.origin = global_bone.origin
 
 func _play_footstep():
+	_footstep_stop_grace_left = FOOTSTEP_STOP_GRACE_SEC
 	if footstep_detector:
+		if "stream_paused" in footstep_detector:
+			footstep_detector.stream_paused = false
+		if footstep_detector.playing:
+			footstep_detector.stop()
 		footstep_detector.play_footstep()
 	elif not _footstep_sounds.empty():
 		var idx = randi() % _footstep_sounds.size()
 		var player = _footstep_sounds[idx]
-		if player and not player.playing:
+		if player:
+			if "stream_paused" in player:
+				player.stream_paused = false
+			if player.playing:
+				player.stop()
 			player.pitch_scale = rand_range(0.9, 1.1)
 			player.play()
+
+func _is_hyper_low_runtime() -> bool:
+	var hp = get_node_or_null("/root/HardwareProfile")
+	if hp != null:
+		if hp.has_method("is_hyper_low_mode") and bool(hp.is_hyper_low_mode()):
+			return true
+		if hp.has_method("is_linux_handheld") and hp.has_method("get_profile"):
+			if bool(hp.is_linux_handheld()) and int(hp.get_profile()) <= 1:
+				return true
+	var forced_device = OS.get_environment("ODISEA_DEVICE").to_lower().strip_edges()
+	return forced_device.find("anbernic") != -1
+
+func _configure_animation_runtime_policy() -> void:
+	_manual_animtree_step_enabled = _is_hyper_low_runtime()
+	if animation_tree == null:
+		return
+	if _manual_animtree_step_enabled:
+		animation_tree.process_mode = AnimationTree.ANIMATION_PROCESS_MANUAL
+	else:
+		animation_tree.process_mode = AnimationTree.ANIMATION_PROCESS_IDLE
+
+func _advance_animation_tree_if_manual(dt: float) -> void:
+	if not _manual_animtree_step_enabled:
+		return
+	if animation_tree == null or not animation_tree.active:
+		return
+	_manual_animtree_step_accum += max(0.0, dt)
+	if _manual_animtree_step_accum < MANUAL_ANIMTREE_STEP_INTERVAL_HYPER_LOW:
+		return
+	var step_dt = _manual_animtree_step_accum
+	_manual_animtree_step_accum = 0.0
+	animation_tree.advance(step_dt)
+
+func _update_footstep_playback_guard(is_on_floor: bool, planar_delta: float, dt: float) -> void:
+	_footstep_stop_grace_left = max(0.0, _footstep_stop_grace_left - max(0.0, dt))
+	var is_moving_planar = planar_delta > 0.004
+	var is_pushing = bool(controller.get("is_pushing")) if controller else false
+	if is_on_floor and is_moving_planar and not is_pushing:
+		return
+	if _footstep_stop_grace_left > 0.0:
+		return
+	_stop_footstep_audio_if_playing()
+
+func _stop_footstep_audio_if_playing() -> void:
+	if footstep_detector:
+		if footstep_detector.playing:
+			footstep_detector.stop()
+	for player in _footstep_sounds:
+		if player and is_instance_valid(player):
+			if player.playing:
+				player.stop()

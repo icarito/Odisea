@@ -752,16 +752,26 @@ func get_simulation_telemetry_resource() -> Dictionary:
 		var shadow_policy = {}
 		if hardware_profile.has_method("get_shadow_policy_summary"):
 			shadow_policy = hardware_profile.get_shadow_policy_summary()
+		var frame_pacing = {}
+		if hardware_profile.has_method("get_frame_pacing_summary"):
+			frame_pacing = hardware_profile.get_frame_pacing_summary()
+		var profile_name = "UNKNOWN"
+		if hardware_profile.has_method("get_effective_profile_name"):
+			profile_name = String(hardware_profile.get_effective_profile_name())
+		elif hardware_profile.has_method("get_profile_name"):
+			profile_name = String(hardware_profile.get_profile_name())
 		hardware_data = {
 			"available": true,
 			"platform": String(hardware_profile.get_platform_name()) if hardware_profile.has_method("get_platform_name") else "UNKNOWN",
-			"profile": String(hardware_profile.get_profile_name()) if hardware_profile.has_method("get_profile_name") else "UNKNOWN",
+			"profile": profile_name,
 			"platform_id": int(hardware_profile.get_platform()) if hardware_profile.has_method("get_platform") else -1,
 			"profile_id": int(hardware_profile.get_profile()) if hardware_profile.has_method("get_profile") else -1,
 			"cores": int(hardware_profile.get_processor_count()) if hardware_profile.has_method("get_processor_count") else 0,
 			"memory_total_gb": float(hardware_profile.get_total_memory_gb()) if hardware_profile.has_method("get_total_memory_gb") else 0.0,
 			"weak_hardware": bool(hardware_profile.is_weak_hardware()) if hardware_profile.has_method("is_weak_hardware") else false,
-			"shadow_policy": shadow_policy
+			"hyper_low": bool(hardware_profile.is_hyper_low_mode()) if hardware_profile.has_method("is_hyper_low_mode") else false,
+			"shadow_policy": shadow_policy,
+			"frame_pacing": frame_pacing
 		}
 	return {
 		"resource": "odisea://simulation/telemetry",
@@ -788,7 +798,7 @@ func get_olcs_logic_state_resource() -> Dictionary:
 		"node_count": int(snapshot.get("nodes", []).size())
 	}
 
-func inspect_node(node_path: String) -> Dictionary:
+func inspect_node(node_path: String, options := {}) -> Dictionary:
 	var node = _find_node_from_path(node_path)
 	if node == null:
 		return {
@@ -796,6 +806,13 @@ func inspect_node(node_path: String) -> Dictionary:
 			"error": "node_not_found",
 			"node_path": node_path
 		}
+
+	var opts = options if typeof(options) == TYPE_DICTIONARY else {}
+	var include_children = bool(opts.get("include_children", false))
+	var include_visual = bool(opts.get("include_visual", false))
+	var max_depth = _sanitize_mcp_int_limit(opts.get("max_depth", 1), 1, 0, 8)
+	var max_children = _sanitize_mcp_int_limit(opts.get("max_children", 24), 24, 1, 256)
+	var probe_fields = opts.get("probe_fields", [])
 
 	var out = {
 		"ok": true,
@@ -808,7 +825,89 @@ func inspect_node(node_path: String) -> Dictionary:
 		out["position"] = _to_vector3_array((node as Spatial).global_transform.origin)
 	if "velocity" in node:
 		out["velocity"] = _to_json_compatible(node.get("velocity"))
+	if typeof(probe_fields) == TYPE_ARRAY and not probe_fields.empty():
+		out["runtime_fields"] = _extract_probed_node_fields(node, probe_fields)
+	if include_visual:
+		out["visual"] = _extract_visual_state(node)
+		out["visual_descendants"] = _collect_visual_descendants(node, max_depth, max_children)
+		var player_input_info = _extract_player_input_runtime(node)
+		if bool(player_input_info.get("available", false)):
+			out["input_runtime"] = player_input_info
+	if include_children:
+		out["children"] = _serialize_node_children(node, max_depth, max_children, include_visual)
 	return out
+
+func set_property(node_path: String, property_path: String, value, options := {}) -> Dictionary:
+	var node = _find_node_from_path(node_path)
+	if node == null:
+		return {
+			"ok": false,
+			"error": "node_not_found",
+			"node_path": node_path
+		}
+
+	var clean_path = property_path.strip_edges()
+	if clean_path == "":
+		return {
+			"ok": false,
+			"error": "empty_property_path",
+			"node_path": node_path
+		}
+
+	var opts = options if typeof(options) == TYPE_DICTIONARY else {}
+	var strict = bool(opts.get("strict", true))
+	var resolved = _resolve_property_target(node, clean_path)
+	if not bool(resolved.get("ok", false)):
+		resolved["node_path"] = String(node.get_path())
+		resolved["property_path"] = clean_path
+		return resolved
+
+	var target = resolved.get("target", null)
+	var target_property = String(resolved.get("property", ""))
+	if target == null or not (target is Object):
+		return {
+			"ok": false,
+			"error": "invalid_property_target",
+			"node_path": String(node.get_path()),
+			"property_path": clean_path
+		}
+	if target_property == "":
+		return {
+			"ok": false,
+			"error": "invalid_property_name",
+			"node_path": String(node.get_path()),
+			"property_path": clean_path
+		}
+
+	var had_property = _object_has_property(target, target_property)
+	if strict and not had_property:
+		return {
+			"ok": false,
+			"error": "property_not_found",
+			"node_path": String(node.get_path()),
+			"property_path": clean_path,
+			"target_type": String(target.get_class()),
+			"target_property": target_property
+		}
+
+	var previous_value = null
+	if had_property:
+		previous_value = target.get(target_property)
+	var decoded_value = _decode_set_property_value(value)
+	target.set(target_property, decoded_value)
+	var current_value = target.get(target_property) if _object_has_property(target, target_property) else decoded_value
+
+	return {
+		"ok": true,
+		"node_path": String(node.get_path()),
+		"property_path": clean_path,
+		"target_type": String(target.get_class()),
+		"target_property": target_property,
+		"had_property": had_property,
+		"strict": strict,
+		"previous_value": _to_json_compatible(previous_value),
+		"new_value": _to_json_compatible(current_value)
+	}
 
 func execute_oys(script_command: String) -> Dictionary:
 	if not allow_oys_integration:
@@ -3161,6 +3260,388 @@ func _find_node_from_path(node_path: String) -> Node:
 
 	return root.find_node(clean, true, false)
 
+func _sanitize_mcp_int_limit(raw_value, fallback: int, min_value: int, max_value: int) -> int:
+	var parsed = fallback
+	match typeof(raw_value):
+		TYPE_INT:
+			parsed = int(raw_value)
+		TYPE_REAL:
+			parsed = int(round(float(raw_value)))
+		TYPE_STRING:
+			var s = String(raw_value).strip_edges()
+			if s.is_valid_integer():
+				parsed = int(s)
+	return int(clamp(parsed, min_value, max_value))
+
+func _resolve_property_target(root_obj, property_path: String) -> Dictionary:
+	var clean = property_path.strip_edges()
+	if clean == "":
+		return {
+			"ok": false,
+			"error": "empty_property_path"
+		}
+	if clean.find(".") == -1:
+		return {
+			"ok": true,
+			"target": root_obj,
+			"property": clean
+		}
+
+	var segments = clean.split(".", false)
+	if segments.empty():
+		return {
+			"ok": false,
+			"error": "invalid_property_path"
+		}
+
+	var cursor = root_obj
+	var last_idx = segments.size() - 1
+	for i in range(last_idx):
+		var key = String(segments[i]).strip_edges()
+		if key == "":
+			return {
+				"ok": false,
+				"error": "invalid_property_path",
+				"segment": i
+			}
+		if cursor == null or not (cursor is Object):
+			return {
+				"ok": false,
+				"error": "intermediate_not_object",
+				"segment": i,
+				"name": key
+			}
+		if not _object_has_property(cursor, key):
+			return {
+				"ok": false,
+				"error": "intermediate_property_not_found",
+				"segment": i,
+				"name": key,
+				"target_type": String(cursor.get_class())
+			}
+		cursor = cursor.get(key)
+		if cursor == null:
+			return {
+				"ok": false,
+				"error": "intermediate_is_null",
+				"segment": i,
+				"name": key
+			}
+
+	var final_key = String(segments[last_idx]).strip_edges()
+	if final_key == "":
+		return {
+			"ok": false,
+			"error": "invalid_property_path",
+			"segment": last_idx
+		}
+	return {
+		"ok": true,
+		"target": cursor,
+		"property": final_key
+	}
+
+func _decode_set_property_value(raw):
+	if typeof(raw) != TYPE_DICTIONARY:
+		return raw
+	var wrapped = raw as Dictionary
+	if not wrapped.has("type"):
+		return raw
+	var value = wrapped.get("value", null)
+	var kind = String(wrapped.get("type", "")).to_lower().strip_edges()
+	match kind:
+		"bool", "boolean":
+			return bool(value)
+		"int", "integer":
+			return int(value)
+		"float", "real", "number":
+			return float(value)
+		"string", "str":
+			return String(value)
+		"vector2":
+			return _decode_vector2_value(value)
+		"vector3":
+			return _decode_vector3_value(value)
+		"color":
+			return _decode_color_value(value)
+	return value
+
+func _decode_vector2_value(raw):
+	if typeof(raw) == TYPE_ARRAY:
+		var arr = raw as Array
+		if arr.size() >= 2:
+			return Vector2(float(arr[0]), float(arr[1]))
+	return raw
+
+func _decode_vector3_value(raw):
+	if typeof(raw) == TYPE_ARRAY:
+		var arr = raw as Array
+		if arr.size() >= 3:
+			return Vector3(float(arr[0]), float(arr[1]), float(arr[2]))
+	return raw
+
+func _decode_color_value(raw):
+	if typeof(raw) == TYPE_ARRAY:
+		var arr = raw as Array
+		if arr.size() == 3:
+			return Color(float(arr[0]), float(arr[1]), float(arr[2]), 1.0)
+		if arr.size() >= 4:
+			return Color(float(arr[0]), float(arr[1]), float(arr[2]), float(arr[3]))
+	if typeof(raw) == TYPE_DICTIONARY:
+		var d = raw as Dictionary
+		var r = float(d.get("r", 0.0))
+		var g = float(d.get("g", 0.0))
+		var b = float(d.get("b", 0.0))
+		var a = float(d.get("a", 1.0))
+		return Color(r, g, b, a)
+	return raw
+
+func _serialize_node_children(node: Node, max_depth: int, max_children: int, include_visual: bool) -> Array:
+	if max_depth <= 0:
+		return []
+	var out := []
+	var children = node.get_children()
+	var limit = min(children.size(), max_children)
+	for i in range(limit):
+		var child = children[i]
+		if not (child is Node):
+			continue
+		out.append(_serialize_node_brief(child, max_depth - 1, max_children, include_visual))
+	return out
+
+func _serialize_node_brief(node: Node, depth_left: int, max_children: int, include_visual: bool) -> Dictionary:
+	var payload := {
+		"name": String(node.name),
+		"type": String(node.get_class()),
+		"path": String(node.get_path())
+	}
+	if include_visual:
+		var visual = _extract_visual_state(node)
+		if not visual.empty():
+			payload["visual"] = visual
+	if depth_left <= 0:
+		return payload
+	var children = node.get_children()
+	var limit = min(children.size(), max_children)
+	var child_payload := []
+	for i in range(limit):
+		var child = children[i]
+		if child is Node:
+			child_payload.append(_serialize_node_brief(child, depth_left - 1, max_children, include_visual))
+	if not child_payload.empty():
+		payload["children"] = child_payload
+	if children.size() > max_children:
+		payload["truncated"] = true
+	return payload
+
+func _extract_probed_node_fields(node: Node, probe_fields: Array) -> Dictionary:
+	var out := {}
+	for raw_field in probe_fields:
+		var field = String(raw_field).strip_edges()
+		if field == "":
+			continue
+		if _node_has_property(node, field):
+			out[field] = _to_json_compatible(node.get(field))
+		else:
+			out[field] = "__missing__"
+	return out
+
+func _node_has_property(node: Node, field: String) -> bool:
+	for prop in node.get_property_list():
+		if typeof(prop) != TYPE_DICTIONARY:
+			continue
+		if String(prop.get("name", "")) == field:
+			return true
+	return false
+
+func _extract_visual_state(node: Node) -> Dictionary:
+	var out := {}
+	if node is MeshInstance:
+		out["mesh"] = _extract_mesh_visual_state(node as MeshInstance)
+	if node is Light:
+		var light = node as Light
+		out["light"] = {
+			"shadow_enabled": bool(light.shadow_enabled),
+			"light_color": _to_json_compatible(light.light_color),
+			"light_energy": float(light.light_energy)
+		}
+	if node is WorldEnvironment:
+		var world_env = node as WorldEnvironment
+		var env = world_env.environment
+		out["world_environment"] = {
+			"has_environment": env != null
+		}
+		if env != null:
+			out["world_environment"]["background_mode"] = int(env.background_mode)
+			out["world_environment"]["has_sky"] = env.background_sky != null
+			out["world_environment"]["glow_enabled"] = bool(env.glow_enabled)
+			out["world_environment"]["ssao_enabled"] = bool(env.ssao_enabled)
+			out["world_environment"]["adjustment_enabled"] = bool(env.adjustment_enabled)
+	return out
+
+func _extract_mesh_visual_state(mesh_node: MeshInstance) -> Dictionary:
+	var surface_count = mesh_node.get_surface_material_count()
+	if surface_count <= 0 and mesh_node.mesh:
+		surface_count = mesh_node.mesh.get_surface_count()
+	return {
+		"surface_count": int(surface_count),
+		"cast_shadow": int(mesh_node.cast_shadow),
+		"visible": bool(mesh_node.visible),
+		"materials": _extract_mesh_material_entries(mesh_node, surface_count)
+	}
+
+func _extract_mesh_material_entries(mesh_node: MeshInstance, surface_count: int) -> Array:
+	var out := []
+	for i in range(surface_count):
+		var mat = mesh_node.get_surface_material(i)
+		var source = "override"
+		if mat == null and mesh_node.mesh:
+			mat = mesh_node.mesh.surface_get_material(i)
+			source = "mesh_surface"
+		var entry := {
+			"index": i,
+			"source": source,
+			"material_type": "null",
+			"resource_path": ""
+		}
+		if mat != null:
+			entry["material_type"] = String(mat.get_class())
+			entry["resource_path"] = String(mat.resource_path)
+			if mat is SpatialMaterial:
+				entry["flags_unshaded"] = bool((mat as SpatialMaterial).flags_unshaded)
+			elif mat is ShaderMaterial:
+				var shader = (mat as ShaderMaterial).shader
+				entry["shader_path"] = String(shader.resource_path) if shader else ""
+		out.append(entry)
+	return out
+
+func _collect_visual_descendants(node: Node, max_depth: int, max_children: int) -> Array:
+	var into := []
+	_collect_visual_descendants_recursive(node, 0, max_depth, max_children, into)
+	return into
+
+func _collect_visual_descendants_recursive(node: Node, depth: int, max_depth: int, max_children: int, into: Array) -> void:
+	if depth > max_depth:
+		return
+	if depth > 0 and (node is MeshInstance or node is Light or node is WorldEnvironment):
+		var entry = {
+			"path": String(node.get_path()),
+			"type": String(node.get_class())
+		}
+		var visual = _extract_visual_state(node)
+		if not visual.empty():
+			entry["visual"] = visual
+		into.append(entry)
+	if depth == max_depth:
+		return
+	var children = node.get_children()
+	var limit = min(children.size(), max_children)
+	for i in range(limit):
+		var child = children[i]
+		if child is Node:
+			_collect_visual_descendants_recursive(child, depth + 1, max_depth, max_children, into)
+
+func _extract_player_input_runtime(node: Node) -> Dictionary:
+	var out := {
+		"available": false
+	}
+	var resolved = _resolve_player_input_source(node)
+	if not bool(resolved.get("ok", false)):
+		return out
+	var source_node = resolved.get("source_node", null)
+	var provider = resolved.get("provider", null)
+	if source_node == null:
+		return out
+	if provider == null:
+		return out
+	out["available"] = true
+	out["source_path"] = String((source_node as Node).get_path())
+	out["source_type"] = String((source_node as Node).get_class())
+	out["source_strategy"] = String(resolved.get("strategy", "direct"))
+	out["provider_type"] = String(provider.get_class()) if provider.has_method("get_class") else String(provider)
+	out["fields"] = _extract_object_fields(provider, [
+		"mode",
+		"joy_look_sensitivity",
+		"joy_move_sensitivity",
+		"hardware_input_enabled",
+		"touch_camera_sensitivity",
+		"handheld_axis_correction_enabled",
+		"handheld_axis_profile",
+		"_invert_joy_move_x",
+		"_invert_joy_move_y",
+		"_invert_joy_look_x",
+		"_invert_joy_look_y"
+	])
+	out["legacy_invert_fields_present"] = {
+		"x": _object_has_property(provider, "_invert_joystick_x"),
+		"y": _object_has_property(provider, "_invert_joystick_y")
+	}
+	return out
+
+func _resolve_player_input_source(start_node: Node) -> Dictionary:
+	var current: Node = start_node
+	while current != null:
+		if _node_has_property(current, "input_provider"):
+			var provider = current.get("input_provider")
+			if provider != null:
+				return {
+					"ok": true,
+					"source_node": current,
+					"provider": provider,
+					"strategy": "ancestor"
+				}
+		current = current.get_parent()
+
+	var queue := [start_node]
+	var cursor := 0
+	var visited := 0
+	var max_nodes := 256
+	while cursor < queue.size() and visited < max_nodes:
+		var node = queue[cursor]
+		cursor += 1
+		visited += 1
+		if node != null and node is Node and _node_has_property(node, "input_provider"):
+			var candidate = node.get("input_provider")
+			if candidate != null:
+				return {
+					"ok": true,
+					"source_node": node,
+					"provider": candidate,
+					"strategy": "descendant"
+				}
+		if node == null or not (node is Node):
+			continue
+		for child in node.get_children():
+			if child is Node:
+				queue.append(child)
+	return {
+		"ok": false
+	}
+
+func _extract_object_fields(obj, fields: Array) -> Dictionary:
+	var out := {}
+	if obj == null:
+		return out
+	for raw_field in fields:
+		var field = String(raw_field).strip_edges()
+		if field == "":
+			continue
+		if _object_has_property(obj, field):
+			out[field] = _to_json_compatible(obj.get(field))
+	return out
+
+func _object_has_property(obj, field: String) -> bool:
+	if obj == null:
+		return false
+	if not obj.has_method("get_property_list"):
+		return false
+	for prop in obj.get_property_list():
+		if typeof(prop) != TYPE_DICTIONARY:
+			continue
+		if String(prop.get("name", "")) == field:
+			return true
+	return false
+
 func _extract_export_vars(node: Node) -> Dictionary:
 	var out = {}
 	var script = node.get_script()
@@ -3217,7 +3698,7 @@ func _to_json_compatible(value):
 				return null
 			if value is Node:
 				return String((value as Node).get_path())
-			return String(value)
+			return str(value)
 		_:
 			return value
 

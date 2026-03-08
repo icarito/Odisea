@@ -1911,12 +1911,11 @@ _global_script_class_icons={
 [application]
 
 config/name="Odisea"
-run/main_scene="res://core_v2/levels/BaseTerrace.tscn"
+run/main_scene="res://core_v2/tests/TestScene_Footsteps.tscn"
 run/low_processor_mode=true
 boot_splash/image="res://assets/splash.png"
 boot_splash/use_filter=false
 config/icon="res://assets/odisea_icon.png"
-boot_splash/minimum_display_time=3
 config/optional_nodes_enabled=true
 
 [autoload]
@@ -1949,8 +1948,6 @@ debug/gdscript/warnings/exclude_addons=true
 window/size/width=640
 window/size/height=480
 window/size/fullscreen=true
-window/size/test_width=1280
-window/size/test_height=960
 window/dpi/allow_hidpi=true
 window/per_pixel_transparency/allowed=true
 window/per_pixel_transparency/enabled=true
@@ -1959,7 +1956,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/virtualcamera/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/mixing-desk/plugin.cfg", "res://addons/virtualcamera/plugin.cfg" )
 
 [gdunit3]
 

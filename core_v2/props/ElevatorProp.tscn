@@ -85,7 +85,8 @@ shape = SubResource( 5 )
 
 [node name="SFX Move" type="AudioStreamPlayer3D" parent="Platform"]
 stream = ExtResource( 10 )
-unit_db = 10.0
+unit_db = 15.0
+max_db = 4.0
 max_distance = 35.0
 script = ExtResource( 12 )
 loop_sample = true
@@ -94,8 +95,9 @@ loop_sample = true
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 2, 0 )
 stream = ExtResource( 11 )
 attenuation_model = 2
-unit_db = 17.0
-max_db = 5.0
+unit_db = 20.0
+unit_size = 2.0
+max_db = 6.0
 pitch_scale = 2.0
 max_distance = 30.0
 script = ExtResource( 12 )

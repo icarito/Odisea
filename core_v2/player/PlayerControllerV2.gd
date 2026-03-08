@@ -8,6 +8,9 @@ const PlayerMovementV2 = preload("PlayerMovementV2.gd")
 const FIXED_DT := 1.0 / 60.0
 const UP := Vector3.UP
 const PLAYER_REQUIRED_COLLISION_MASK := 1 << 6 # Layer 7
+const PLAYER_WEAK_VISUAL_REAPPLY_FRAMES := 24
+const HARDWARE_PROFILE_LOW := 1
+const HYPER_LOW_ANIMATOR_STEP_INTERVAL_FRAMES := 3
 
 var is_replay_mode := false
 
@@ -128,6 +131,8 @@ var _rl_step_profile_us_total: int = 0
 var _rl_step_profile_us_control: int = 0
 var _rl_step_profile_us_move: int = 0
 var _rl_step_profile_us_post: int = 0
+var _hyper_low_animator_throttle := false
+var _hyper_low_animator_tick := 0
 
 # Signals
 signal jumped
@@ -322,6 +327,12 @@ func _ready():
 	if _rl_strip_visual_rig:
 		_rl_skip_animator = true
 		_disable_visual_rig_for_rl()
+	if _should_disable_expensive_scans_for_profile():
+		_perf_disable_interaction_scan = true
+		_perf_disable_cinematic_zone_scan = true
+	if _should_disable_step_up_for_profile():
+		enable_step_up = false
+	_hyper_low_animator_throttle = _should_throttle_animator_for_profile()
 
 	initial_transform = global_transform
 	_ensure_required_player_collision_mask()
@@ -372,6 +383,8 @@ func _ready():
 	
 	_setup_interact_area()
 	_setup_crouch_collision()
+	call_deferred("_apply_weak_visual_policy_if_needed_deferred")
+	call_deferred("_apply_camera_particle_policy")
 
 func _ensure_required_player_collision_mask() -> void:
 	if (collision_mask & PLAYER_REQUIRED_COLLISION_MASK) == 0:
@@ -385,6 +398,95 @@ func _ensure_player_audio_listener() -> void:
 		add_child(_audio_listener)
 	if _audio_listener.has_method("make_current"):
 		_audio_listener.make_current()
+
+func _should_force_unshaded_player_visuals() -> bool:
+	var hp = get_node_or_null("/root/HardwareProfile")
+	if hp and hp.has_method("is_weak_hardware") and bool(hp.is_weak_hardware()):
+		return true
+	if hp and hp.has_method("get_profile"):
+		return int(hp.get_profile()) == HARDWARE_PROFILE_LOW
+	return false
+
+func _should_reduce_camera_particles() -> bool:
+	var hp = get_node_or_null("/root/HardwareProfile")
+	if hp and hp.has_method("should_use_reduced_particles"):
+		return bool(hp.should_use_reduced_particles())
+	if hp and hp.has_method("is_weak_hardware"):
+		return bool(hp.is_weak_hardware())
+	return false
+
+func _should_disable_step_up_for_profile() -> bool:
+	var hp = get_node_or_null("/root/HardwareProfile")
+	if hp and hp.has_method("is_hyper_low_mode"):
+		return bool(hp.is_hyper_low_mode())
+	return false
+
+func _should_disable_expensive_scans_for_profile() -> bool:
+	var hp = get_node_or_null("/root/HardwareProfile")
+	if hp and hp.has_method("is_hyper_low_mode"):
+		return bool(hp.is_hyper_low_mode())
+	return false
+
+func _should_throttle_animator_for_profile() -> bool:
+	var hp = get_node_or_null("/root/HardwareProfile")
+	if hp and hp.has_method("is_hyper_low_mode"):
+		return bool(hp.is_hyper_low_mode())
+	return false
+
+func _apply_camera_particle_policy() -> void:
+	var dust = get_node_or_null("CameraRig/Yaw/Pitch/SpringArm/Camera/SpaceDust")
+	if not is_instance_valid(dust):
+		return
+	var should_reduce = _should_reduce_camera_particles()
+	if "emitting" in dust:
+		dust.emitting = not should_reduce
+
+func _apply_weak_visual_policy_if_needed_deferred() -> void:
+	if not _should_force_unshaded_player_visuals():
+		return
+	var fake_shadow = get_node_or_null("Visual/Pivot/FakeShadow")
+	if fake_shadow and fake_shadow is MeshInstance:
+		fake_shadow.visible = true
+		fake_shadow.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+		if fake_shadow.has_method("set_process"):
+			fake_shadow.set_process(true)
+		if fake_shadow.has_method("set_physics_process"):
+			fake_shadow.set_physics_process(false)
+	var pass_count = max(1, PLAYER_WEAK_VISUAL_REAPPLY_FRAMES)
+	for i in range(pass_count):
+		_force_unshaded_meshes_recursive(get_node_or_null("Visual"))
+		if i < pass_count - 1:
+			yield(get_tree(), "idle_frame")
+
+func _force_unshaded_meshes_recursive(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+	if node is MeshInstance:
+		_apply_unshaded_mesh_policy(node as MeshInstance)
+	for child in node.get_children():
+		if child is Node:
+			_force_unshaded_meshes_recursive(child)
+
+func _apply_unshaded_mesh_policy(mesh_node: MeshInstance) -> void:
+	if not is_instance_valid(mesh_node):
+		return
+	var surface_count := mesh_node.get_surface_material_count()
+	if surface_count <= 0 and mesh_node.mesh:
+		surface_count = mesh_node.mesh.get_surface_count()
+	for i in range(surface_count):
+		var mat = mesh_node.get_surface_material(i)
+		if mat == null and mesh_node.mesh:
+			mat = mesh_node.mesh.surface_get_material(i)
+		if mat is SpatialMaterial:
+			var spatial_mat = mat as SpatialMaterial
+			if not spatial_mat.resource_local_to_scene:
+				var duplicated = spatial_mat.duplicate()
+				if duplicated is SpatialMaterial:
+					spatial_mat = duplicated
+			spatial_mat.flags_unshaded = true
+			spatial_mat.flags_do_not_receive_shadows = true
+			mesh_node.set_surface_material(i, spatial_mat)
+	mesh_node.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 
 func _disable_visual_rig_for_rl() -> void:
 	var anim_tree = get_node_or_null("Visual/Pivot/AnimationTree")
@@ -1218,11 +1320,21 @@ func step(dt: float, input: InputDataV2) -> void:
 	if prof_enabled:
 		prof_t_move = OS.get_ticks_usec()
 
-	if (not _rl_skip_animator) and animator and animator.has_method("step_animator"):
+	var should_step_animator := true
+	var animator_dt := dt
+	if _hyper_low_animator_throttle:
+		_hyper_low_animator_tick += 1
+		if _hyper_low_animator_tick >= HYPER_LOW_ANIMATOR_STEP_INTERVAL_FRAMES:
+			_hyper_low_animator_tick = 0
+			animator_dt = dt * float(HYPER_LOW_ANIMATOR_STEP_INTERVAL_FRAMES)
+		else:
+			should_step_animator = false
+
+	if should_step_animator and (not _rl_skip_animator) and animator and animator.has_method("step_animator"):
 		var anim_vel = velocity
 		if not movement_logic.external_source_is_static:
 			anim_vel = velocity - movement_logic.external_velocity
-		animator.step_animator(dt, anim_vel)
+		animator.step_animator(animator_dt, anim_vel)
 		
 	movement_logic.external_source_is_static = true
 

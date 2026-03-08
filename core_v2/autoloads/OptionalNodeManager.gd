@@ -28,6 +28,7 @@ const THREAD_SCATTER_WAIT_FRAMES := 240
 const CRIOPOD_FREE_BATCH_SIZE := 6
 const TOGGLE_OPTIONAL_ACTION := "toggle_optional_nodes"
 const INTERACT_ACTION := "interact"
+const EARLY_WEAK_HINT_ENV := "ODISEA_EARLY_WEAK_HARDWARE"
 const PROFILE_LOW := 1
 const PROFILE_MEDIUM := 2
 const DECOR_RB_CULL_INTERVAL_SEC := 0.15
@@ -72,6 +73,10 @@ var _scatter_preload_done := false
 var _scatter_preload_data := {}
 var _scatter_box_blueprints := []
 var _scatter_criopod_blueprints := []
+var _candidate_boxes_cache := []
+var _candidate_boxes_dirty := true
+var _weak_hardware_mode := false
+var _player_unshade_pass_scheduled := false
 
 signal optional_nodes_toggled(enabled)
 
@@ -81,9 +86,14 @@ func _ready() -> void:
 	_register_input_actions()
 	_connect_tree_signals()
 	_apply_initial_state()
+	if _weak_hardware_mode:
+		_apply_weak_runtime_fast_path()
+		_schedule_player_unshade_pass()
+		set_process_input(true)
+		return
 	if _thread_scatter_enabled and not _scatter_disabled_by_env:
 		_start_threaded_scatter_preload()
-	_delayed_scatter_load()  # Load scatter later to speed up startup
+	_delayed_scatter_load() # Load scatter later to speed up startup
 	if not _scatter_disabled_by_env:
 		_start_box_watchdog()
 		_start_decorative_rigidbody_culling()
@@ -122,19 +132,35 @@ func _delayed_scatter_load() -> void:
 	# Defer scatter loading to speed up initial startup
 	call_deferred("_hide_scatter_always")
 
+func _apply_weak_runtime_fast_path() -> void:
+	# Weak devices should skip any deferred scatter reconstruction/background watchdogs.
+	_scatter_disabled_by_env = true
+	_thread_scatter_enabled = false
+	_box_watchdog_running = false
+	_decor_rb_culling_running = false
+	call_deferred("_hide_scatter_objects")
+
 func _load_config() -> void:
 	# Check for weak hardware or Linux ARM handheld
 	var is_weak = false
+	var weak_hint = OS.get_environment(EARLY_WEAK_HINT_ENV).to_lower()
+	if weak_hint in ["1", "true", "yes", "on"]:
+		is_weak = true
+	elif weak_hint in ["0", "false", "no", "off"]:
+		is_weak = false
 	if has_node("/root/HardwareProfile"):
 		var hp = get_node("/root/HardwareProfile")
 		if hp.has_method("is_weak_hardware"):
 			is_weak = hp.is_weak_hardware()
 	
 	# Also force LOW for Linux ARM devices (Anbernic, etc)
-	if OS.get_name() == "Linux":
+	if OS.get_name() in ["Linux", "X11", "Server"]:
 		if _is_linux_arm_device():
 			is_weak = true
-	
+		elif _is_linux_low_memory_device():
+			is_weak = true
+
+	_weak_hardware_mode = is_weak
 	if is_weak:
 		_optional_enabled = false
 		_config_loaded = true
@@ -147,21 +173,78 @@ func _load_config() -> void:
 	_config_loaded = true
 
 func _is_linux_arm_device() -> bool:
-	if OS.get_name() != "Linux":
+	if not OS.get_name() in ["Linux", "X11", "Server"]:
 		return false
 	# Check for ARM architecture
 	var file = File.new()
 	if file.file_exists("/proc/cpuinfo"):
 		if file.open("/proc/cpuinfo", File.READ) == OK:
-			var content = file.get_as_text().to_lower()
+			var content := ""
+			var guard := 0
+			var max_bytes := 65536
+			while not file.eof_reached() and guard < max_bytes:
+				var b = int(file.get_8())
+				if b == 0:
+					content += " "
+				else:
+					content += char(b)
+				guard += 1
 			file.close()
+			content = content.to_lower()
 			return "arm" in content or "aarch64" in content
 	return false
 
+func _is_linux_low_memory_device() -> bool:
+	if not OS.get_name() in ["Linux", "X11", "Server"]:
+		return false
+	var file = File.new()
+	if not file.file_exists("/proc/meminfo"):
+		return false
+	if file.open("/proc/meminfo", File.READ) != OK:
+		return false
+	var meminfo := ""
+	var guard := 0
+	var max_bytes := 32768
+	while not file.eof_reached() and guard < max_bytes:
+		var b = int(file.get_8())
+		if b == 0:
+			meminfo += " "
+		else:
+			meminfo += char(b)
+		guard += 1
+	file.close()
+	for raw_line in meminfo.split("\n"):
+		var line = String(raw_line).strip_edges()
+		if not line.begins_with("MemTotal"):
+			continue
+		var parts = line.split(":")
+		if parts.size() < 2:
+			continue
+		var kb = _parse_first_int(parts[1])
+		if kb <= 0:
+			return false
+		var total_gb = float(kb) / 1024.0 / 1024.0
+		return total_gb <= 1.05
+	return false
+
+func _parse_first_int(raw: String) -> int:
+	var digits := ""
+	for i in range(raw.length()):
+		var ch = raw.substr(i, 1)
+		if ch >= "0" and ch <= "9":
+			digits += ch
+		elif digits != "":
+			break
+	if digits == "":
+		return 0
+	return int(digits)
+
 func _connect_tree_signals() -> void:
 	var tree := get_tree()
-	if not tree.is_connected("node_added", self, "_on_tree_node_added"):
-		tree.connect("node_added", self, "_on_tree_node_added")
+	if not tree.is_connected("node_added", self , "_on_tree_node_added"):
+		tree.connect("node_added", self , "_on_tree_node_added")
+	if not tree.is_connected("node_removed", self , "_on_tree_node_removed"):
+		tree.connect("node_removed", self , "_on_tree_node_removed")
 
 func _register_input_actions() -> void:
 	if not InputMap.has_action(TOGGLE_OPTIONAL_ACTION):
@@ -171,11 +254,21 @@ func _register_input_actions() -> void:
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed(TOGGLE_OPTIONAL_ACTION):
-		if HardwareProfile.is_weak_hardware():
+		if _is_weak_hardware_active():
 			return
 		toggle_optional_nodes()
 	if event.is_action_pressed(INTERACT_ACTION):
 		_wake_nearest_distance_frozen_box()
+
+func _is_weak_hardware_active() -> bool:
+	if _weak_hardware_mode:
+		return true
+	if has_node("/root/HardwareProfile"):
+		var hp = get_node("/root/HardwareProfile")
+		if hp and hp.has_method("is_weak_hardware"):
+			_weak_hardware_mode = bool(hp.is_weak_hardware())
+			return _weak_hardware_mode
+	return false
 
 func _apply_initial_state() -> void:
 	_update_all_optional_nodes()
@@ -185,7 +278,7 @@ func _update_all_optional_nodes() -> void:
 	for node in optional_nodes:
 		if not is_instance_valid(node):
 			continue
-		if HardwareProfile.is_weak_hardware() and not _optional_enabled:
+		if _is_weak_hardware_active() and not _optional_enabled:
 			if node.is_in_group(LOW_SPEC_KEEP_GROUP):
 				_apply_low_spec_optimizations(node)
 				continue
@@ -195,13 +288,17 @@ func _update_all_optional_nodes() -> void:
 	emit_signal("optional_nodes_toggled", _optional_enabled)
 
 func _on_tree_node_added(node: Node) -> void:
+	_candidate_boxes_dirty = true
 	call_deferred("_apply_node_policy", node)
+
+func _on_tree_node_removed(_node: Node) -> void:
+	_candidate_boxes_dirty = true
 
 func _apply_node_policy(node: Node) -> void:
 	if not is_instance_valid(node):
 		return
 
-	if HardwareProfile.is_weak_hardware():
+	if _is_weak_hardware_active():
 		if _should_prune_on_low_spec(node):
 			_prune_node(node)
 			return
@@ -209,11 +306,19 @@ func _apply_node_policy(node: Node) -> void:
 		return
 
 	if _is_optional_or_under_optional(node):
+		# Never disable the player or camera even if they are under an optional parent
+		if node.is_in_group("player") or node.is_in_group("camera") or node is Camera or node is Listener or node is InterpolatedCamera:
+			return
 		_set_node_optional_state(node, _optional_enabled)
 
 func _should_prune_on_low_spec(node: Node) -> bool:
 	if node.is_in_group(LOW_SPEC_KEEP_GROUP):
 		return false
+	if node.is_in_group("scatter"):
+		return true
+	var node_name = String(node.name)
+	if node_name == "Scatter3D" or node_name == "Scatter3D2":
+		return true
 	if _is_optional_or_under_optional(node):
 		return true
 	return node.get_class() in LOW_SPEC_PRUNE_CLASSES
@@ -233,6 +338,8 @@ func _prune_node(node: Node) -> void:
 		return
 	if node.is_in_group(LOW_SPEC_KEEP_GROUP):
 		return
+	if node.is_in_group("player") or node.is_in_group("camera") or node is Camera or node is Listener:
+		return
 	if node.is_queued_for_deletion():
 		return
 	node.queue_free()
@@ -240,6 +347,11 @@ func _prune_node(node: Node) -> void:
 func _apply_low_spec_optimizations(node: Node) -> void:
 	if node is Light:
 		node.shadow_enabled = false
+	if _is_player_like_node(node):
+		_unshade_node_materials(node)
+		_schedule_player_unshade_pass()
+	elif node is MeshInstance and _is_player_or_descendant(node):
+		_unshade_mesh_instance_materials(node)
 	if node is Particles:
 		node.emitting = false
 	if node is CPUParticles:
@@ -250,6 +362,74 @@ func _apply_low_spec_optimizations(node: Node) -> void:
 		node.environment.dof_blur_near_enabled = false
 		node.environment.dof_blur_far_enabled = false
 		node.environment.adjustment_enabled = false
+
+func _is_player_like_node(node: Node) -> bool:
+	if not is_instance_valid(node):
+		return false
+	if node.is_in_group("player"):
+		return true
+	var script = node.get_script()
+	if script and script is Script:
+		var script_path = String((script as Script).resource_path)
+		if script_path.ends_with("/PlayerControllerV2.gd"):
+			return true
+	var lowered_name = String(node.name).to_lower()
+	if node is KinematicBody and lowered_name in ["pilot", "player", "elias"]:
+		return true
+	return false
+
+func _is_player_or_descendant(node: Node) -> bool:
+	var current: Node = node
+	while current != null:
+		if _is_player_like_node(current):
+			return true
+		current = current.get_parent()
+	return false
+
+func _schedule_player_unshade_pass() -> void:
+	if _player_unshade_pass_scheduled:
+		return
+	_player_unshade_pass_scheduled = true
+	call_deferred("_apply_player_unshade_pass_deferred")
+
+func _apply_player_unshade_pass_deferred() -> void:
+	_player_unshade_pass_scheduled = false
+	if not _is_weak_hardware_active():
+		return
+	yield (get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
+	var players = get_tree().get_nodes_in_group("player")
+	if players.empty():
+		var fallback_player = get_tree().get_root().find_node("Pilot", true, false)
+		if fallback_player and is_instance_valid(fallback_player):
+			_unshade_node_materials(fallback_player)
+		return
+	for player in players:
+		if is_instance_valid(player):
+			_unshade_node_materials(player)
+
+func _unshade_node_materials(node: Node) -> void:
+	if node is MeshInstance:
+		_unshade_mesh_instance_materials(node)
+	for child in node.get_children():
+		_unshade_node_materials(child)
+
+func _unshade_mesh_instance_materials(mesh_node: MeshInstance) -> void:
+	if mesh_node == null:
+		return
+	var surface_count := mesh_node.get_surface_material_count()
+	if surface_count <= 0 and mesh_node.mesh:
+		surface_count = mesh_node.mesh.get_surface_count()
+	for i in range(surface_count):
+		var mat = mesh_node.get_surface_material(i)
+		if not mat and mesh_node.mesh:
+			mat = mesh_node.mesh.surface_get_material(i)
+		if mat is SpatialMaterial:
+			mat.flags_unshaded = true
+			mesh_node.set_surface_material(i, mat)
+	# Player meshes in LOW should not cast dynamic shadows to avoid mobile depth artifacts.
+	if _is_player_or_descendant(mesh_node):
+		mesh_node.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 
 func _set_node_optional_state(node: Node, enabled: bool) -> void:
 	if node is Spatial:
@@ -265,11 +445,14 @@ func _set_node_optional_state(node: Node, enabled: bool) -> void:
 			node.set_deferred("monitoring", true)
 			node.set_deferred("monitorable", true)
 		else:
+			# Never disable collision or processing for the player or camera
+			if node.is_in_group("player") or node.is_in_group("camera") or node is Camera or node is Listener:
+				return
 			node.set_deferred("monitoring", false)
 			node.set_deferred("monitorable", false)
 
 func toggle_optional_nodes() -> void:
-	if HardwareProfile.is_weak_hardware():
+	if _is_weak_hardware_active():
 		return
 	_optional_enabled = not _optional_enabled
 	_update_all_optional_nodes()
@@ -277,12 +460,12 @@ func toggle_optional_nodes() -> void:
 
 func set_optional_nodes_enabled(enabled: bool) -> void:
 	var target_enabled = enabled
-	if HardwareProfile.is_weak_hardware():
+	if _is_weak_hardware_active():
 		target_enabled = false
 	if _optional_enabled != target_enabled:
 		_optional_enabled = target_enabled
 		_update_all_optional_nodes()
-	elif HardwareProfile.is_weak_hardware() and not target_enabled:
+	elif _is_weak_hardware_active() and not target_enabled:
 		# Re-apply low-spec pruning when hardware profile drops at runtime.
 		_update_all_optional_nodes()
 
@@ -313,25 +496,25 @@ func _get_scatter_node(node_name: String) -> Node:
 
 func _wait_for_scatter_nodes(max_wait_frames: int = THREAD_SCATTER_WAIT_FRAMES):
 	# Always yield one frame so callers can safely yield on this method.
-	yield(get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
 	var waited := 0
 	while waited < max_wait_frames:
 		if _get_scatter_node("Scatter3D") or _get_scatter_node("Scatter3D2"):
 			return
-		yield(get_tree(), "idle_frame")
+		yield (get_tree(), "idle_frame")
 		waited += 1
 
 func _lazy_load_scatter() -> void:
 	if _thread_scatter_enabled:
-		yield(_lazy_load_scatter_threaded(), "completed")
+		yield (_lazy_load_scatter_threaded(), "completed")
 		return
 
 	# Wait for initial load
-	yield(get_tree(), "idle_frame")
-	yield(get_tree(), "idle_frame")
-	yield(_wait_for_scatter_nodes(), "completed")
+	yield (get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
+	yield (_wait_for_scatter_nodes(), "completed")
 	_apply_scatter_soft_caps()
-	yield(_batch_criopods_to_multimesh(), "completed")
+	yield (_batch_criopods_to_multimesh(), "completed")
 	
 	# Load Criopods first (they're simpler)
 	var scatter2 = _get_scatter_node("Scatter3D2")
@@ -340,7 +523,7 @@ func _lazy_load_scatter() -> void:
 		print("[OptionalNodeManager] Loaded Scatter3D2 (Criopods)")
 	
 	# Then arrange and load boxes after 3 more seconds
-	yield(get_tree().create_timer(3.0), "timeout")
+	yield (get_tree().create_timer(3.0), "timeout")
 	_arrange_boxes_in_stacks()
 	var scatter = _get_scatter_node("Scatter3D")
 	if scatter:
@@ -353,25 +536,25 @@ func _lazy_load_scatter() -> void:
 
 func _lazy_load_scatter_threaded():
 	# Wait for initial load
-	yield(get_tree(), "idle_frame")
-	yield(get_tree(), "idle_frame")
-	yield(_wait_for_scatter_nodes(), "completed")
+	yield (get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
+	yield (_wait_for_scatter_nodes(), "completed")
 	_apply_scatter_soft_caps()
-	yield(_batch_criopods_to_multimesh(), "completed")
+	yield (_batch_criopods_to_multimesh(), "completed")
 
 	if _scatter_box_blueprints.empty() and _scatter_criopod_blueprints.empty():
 		_prepare_threaded_scatter_blueprints()
 
-	yield(_wait_for_scatter_preload(), "completed")
+	yield (_wait_for_scatter_preload(), "completed")
 
 	var criopod_scene = _scatter_preload_data.get("criopod_scene", null)
-	yield(_spawn_scatter_blueprints("Scatter3D2", _scatter_criopod_blueprints, criopod_scene, THREAD_SCATTER_BATCH_CRIOPODS), "completed")
+	yield (_spawn_scatter_blueprints("Scatter3D2", _scatter_criopod_blueprints, criopod_scene, THREAD_SCATTER_BATCH_CRIOPODS), "completed")
 	print("[OptionalNodeManager] Loaded Scatter3D2 (Criopods)")
 
 	# Then arrange and load boxes after 3 more seconds
-	yield(get_tree().create_timer(3.0), "timeout")
+	yield (get_tree().create_timer(3.0), "timeout")
 	var box_scene = _scatter_preload_data.get("box_scene", null)
-	yield(_spawn_scatter_blueprints("Scatter3D", _scatter_box_blueprints, box_scene, THREAD_SCATTER_BATCH_BOXES), "completed")
+	yield (_spawn_scatter_blueprints("Scatter3D", _scatter_box_blueprints, box_scene, THREAD_SCATTER_BATCH_BOXES), "completed")
 	_arrange_boxes_in_stacks()
 	print("[OptionalNodeManager] Loaded Scatter3D (Boxes)")
 
@@ -420,7 +603,7 @@ func _apply_scatter_soft_caps() -> void:
 			criopods.append(child)
 	if criopods.size() <= _criopod_soft_cap:
 		return
-	criopods.sort_custom(self, "_sort_nodes_by_name")
+	criopods.sort_custom(self , "_sort_nodes_by_name")
 	for i in range(_criopod_soft_cap, criopods.size()):
 		criopods[i].queue_free()
 	print(
@@ -432,7 +615,7 @@ func _apply_scatter_soft_caps() -> void:
 
 func _batch_criopods_to_multimesh() -> void:
 	# Always yield at least one frame so callers can safely yield on this method.
-	yield(get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
 
 	if not _criopod_multimesh_enabled:
 		return
@@ -590,7 +773,7 @@ func _start_threaded_scatter_preload() -> void:
 
 func _wait_for_scatter_preload():
 	# Always yield at least one frame so callers can safely yield on this method.
-	yield(get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
 
 	if _scatter_preload_done:
 		return
@@ -603,7 +786,7 @@ func _wait_for_scatter_preload():
 
 func _spawn_scatter_blueprints(parent_name: String, blueprints: Array, packed_scene: Resource, batch_size: int):
 	# Always yield at least one frame so callers can safely yield on this method.
-	yield(get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
 
 	var parent = _get_scatter_node(parent_name)
 	if not parent:
@@ -639,9 +822,9 @@ func _spawn_scatter_blueprints(parent_name: String, blueprints: Array, packed_sc
 
 		spawned += 1
 		if spawned % per_batch == 0:
-			yield(get_tree(), "idle_frame")
+			yield (get_tree(), "idle_frame")
 			if THREAD_SCATTER_BATCH_DELAY_SEC > 0.0:
-				yield(get_tree().create_timer(THREAD_SCATTER_BATCH_DELAY_SEC), "timeout")
+				yield (get_tree().create_timer(THREAD_SCATTER_BATCH_DELAY_SEC), "timeout")
 
 	if spawned == 0 and not blueprints.empty():
 		printerr("[OptionalNodeManager] Failed to spawn blueprints for ", parent_name)
@@ -650,7 +833,7 @@ func _activate_boxes_gradually() -> void:
 	var boxes = _get_stack_candidate_boxes()
 	
 	# Sort by Y position (bottom first)
-	boxes.sort_custom(self, "_sort_boxes_by_height")
+	boxes.sort_custom(self , "_sort_boxes_by_height")
 	
 	print("[OptionalNodeManager] Activating ", boxes.size(), " boxes gradually...")
 	
@@ -661,14 +844,14 @@ func _activate_boxes_gradually() -> void:
 			# Wake up the box (enable physics)
 			box.sleeping = false
 			box.mode = RigidBody.MODE_RIGID
-			print("[OptionalNodeManager] Activated box ", i+1, "/", boxes.size())
+			print("[OptionalNodeManager] Activated box ", i + 1, "/", boxes.size())
 			
 			# Wait for this box to settle before activating next
 			# Check if velocity is near zero
 			var settled_frames = 0
-			var max_wait = 60  # Max 60 frames (~1 second)
+			var max_wait = 60 # Max 60 frames (~1 second)
 			while settled_frames < 15 and max_wait > 0:
-				yield(get_tree(), "idle_frame")
+				yield (get_tree(), "idle_frame")
 				if box.get_linear_velocity().length() < 0.1:
 					settled_frames += 1
 				else:
@@ -693,7 +876,7 @@ func _arrange_boxes_in_stacks() -> void:
 		return
 	
 	# Sort by original Z, then X
-	boxes.sort_custom(self, "_sort_boxes_original")
+	boxes.sort_custom(self , "_sort_boxes_original")
 	
 	# Stack configuration - boxes are 2x2x2m
 	var stack_x = 5.0
@@ -713,7 +896,7 @@ func _arrange_boxes_in_stacks() -> void:
 		var height_idx = idx % boxes_per_stack
 		
 		var x = stack_x + (stack_idx * stack_spacing)
-		var y = 1.0 + (height_idx * box_gap)  # Box center at y=1 when on ground
+		var y = 1.0 + (height_idx * box_gap) # Box center at y=1 when on ground
 		var z = stack_z
 		
 		box.global_transform.origin = Vector3(x, y, z)
@@ -733,8 +916,8 @@ func _arrange_boxes_in_stacks() -> void:
 	print("[OptionalNodeManager] Arranged ", boxes.size(), " boxes in stacks (sleeping/kinematic)")
 
 func _sort_boxes_original(a, b) -> bool:
-	return (a.global_transform.origin.z < b.global_transform.origin.z or 
-		(a.global_transform.origin.z == b.global_transform.origin.z and 
+	return (a.global_transform.origin.z < b.global_transform.origin.z or
+		(a.global_transform.origin.z == b.global_transform.origin.z and
 		 a.global_transform.origin.x < b.global_transform.origin.x))
 
 func _start_box_watchdog() -> void:
@@ -745,7 +928,7 @@ func _start_box_watchdog() -> void:
 
 func _box_watchdog_loop() -> void:
 	while _box_watchdog_running and is_inside_tree():
-		yield(get_tree().create_timer(BOX_WATCHDOG_INTERVAL_SEC), "timeout")
+		yield (get_tree().create_timer(BOX_WATCHDOG_INTERVAL_SEC), "timeout")
 		_wake_misplaced_boxes_incremental(BOX_WATCHDOG_CHECKS_PER_TICK)
 
 func _start_decorative_rigidbody_culling() -> void:
@@ -756,7 +939,7 @@ func _start_decorative_rigidbody_culling() -> void:
 
 func _decorative_rigidbody_culling_loop() -> void:
 	while _decor_rb_culling_running and is_inside_tree():
-		yield(get_tree().create_timer(DECOR_RB_CULL_INTERVAL_SEC), "timeout")
+		yield (get_tree().create_timer(DECOR_RB_CULL_INTERVAL_SEC), "timeout")
 		_apply_decorative_rigidbody_distance_culling(DECOR_RB_CULL_BATCH_PER_TICK)
 
 func _wake_misplaced_boxes_incremental(max_checks: int) -> int:
@@ -850,6 +1033,9 @@ func _box_needs_wakeup(box: RigidBody) -> bool:
 	return hit.empty()
 
 func _get_stack_candidate_boxes() -> Array:
+	if not _candidate_boxes_dirty and not _candidate_boxes_cache.empty():
+		return _candidate_boxes_cache
+		
 	var boxes := []
 	var seen := {}
 	
@@ -860,6 +1046,8 @@ func _get_stack_candidate_boxes() -> Array:
 		if node:
 			_collect_stack_candidates(node, boxes, seen)
 	
+	_candidate_boxes_cache = boxes
+	_candidate_boxes_dirty = false
 	return boxes
 
 func _collect_stack_candidates(node: Node, boxes: Array, seen: Dictionary) -> void:
@@ -920,7 +1108,7 @@ func _is_decorative_rigidbody_culling_enabled() -> bool:
 	if env_value in ["1", "true", "yes", "on"]:
 		return true
 	var profile = _get_hardware_profile_value()
-	return profile <= PROFILE_MEDIUM or HardwareProfile.is_weak_hardware()
+	return profile <= PROFILE_MEDIUM or _is_weak_hardware_active()
 
 func _get_hardware_profile_value() -> int:
 	var hp = get_node_or_null("/root/HardwareProfile")
@@ -1026,8 +1214,8 @@ func _wake_nearest_distance_frozen_box() -> bool:
 
 func _hide_scatter_objects() -> void:
 	# Wait for scene to load
-	yield(get_tree(), "idle_frame")
-	yield(get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
 	
 	# Hide Scatter3D (PushableBoxes)
 	var scatter = _get_scatter_node("Scatter3D")

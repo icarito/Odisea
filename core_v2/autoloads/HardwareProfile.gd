@@ -38,8 +38,8 @@ const S905_DEVICES := [
 	"aml s905",
 ]
 const LOW_END_RAM_CAP_GB := 1.0
-const MEMORY_FALLBACK_TOTAL_GB := 1.0
-const MEMORY_FALLBACK_AVAILABLE_GB := 0.5
+const MEMORY_FALLBACK_TOTAL_GB := 8.0
+const MEMORY_FALLBACK_AVAILABLE_GB := 4.0
 
 var _detected_profile: int = Profile.UNKNOWN
 var _detected_platform: int = PlatformType.UNKNOWN
@@ -65,6 +65,9 @@ var _fluorescent_lights_refresh_queued := false
 var _sun_direction_sync_queued := false
 var _directional_shadow_update_version := 0
 var _fluorescent_shadow_update_version := 0
+var _camera_range_refresh_queued := false
+var _is_anbernic_target := false
+var _hyper_low_mode := false
 
 const WEB_TARGET_FPS := 30.0
 const WEB_FPS_SAMPLE_INTERVAL_SEC := 1.0
@@ -85,9 +88,16 @@ const META_ORIGINAL_FLUOR_SHADOW := "__hp_original_fluor_shadow_enabled"
 const META_PROFILED_ENV_KEY := "__hp_profiled_env_key"
 const META_PROFILED_ENV_PATH := "__hp_profiled_env_path"
 const META_RUNTIME_ENV_INSTANCE := "__hp_runtime_env_instance"
+const META_ORIGINAL_ENV_GLOW_ENABLED := "__hp_original_env_glow_enabled"
+const META_ORIGINAL_ENV_SSAO_ENABLED := "__hp_original_env_ssao_enabled"
+const META_ORIGINAL_ENV_DOF_NEAR_ENABLED := "__hp_original_env_dof_near_enabled"
+const META_ORIGINAL_ENV_DOF_FAR_ENABLED := "__hp_original_env_dof_far_enabled"
+const META_ORIGINAL_ENV_ADJUSTMENT_ENABLED := "__hp_original_env_adjustment_enabled"
+const META_ORIGINAL_CAMERA_FAR := "__hp_original_camera_far"
 const FLUORESCENT_SCRIPT_PATH := "res://core_v2/props/scifi_lights/FluorescentLight.gd"
 const LOW_NO_SHADOW_ENV_BRIGHTNESS := 0.5
 const FALLBACK_SPACE_COLOR := Color(0.0, 0.0, 0.01, 1.0)
+const DEFAULT_WORLD_ENV_PATH := "res://scenes/common/space_environment/Environment_ExteriorSpace.tres"
 const PROFILED_ENV_INTERIOR_WIDE := "interior_wide"
 const INTERIOR_WIDE_ENV_HIGH_PATH := "res://scenes/common/space_environment/Environment_InteriorWide.tres"
 const INTERIOR_WIDE_ENV_MEDIUM_PATH := "res://scenes/common/space_environment/Environment_InteriorWideMedium.tres"
@@ -97,6 +107,9 @@ const DIRECTIONAL_SHADOW_POLICY_REDUCED := 1
 const DIRECTIONAL_SHADOW_POLICY_RESTORE := 2
 const DIRECTIONAL_SHADOW_BATCH_SIZE := 10
 const FLUORESCENT_SHADOW_BATCH_SIZE := 24
+const HYPER_LOW_CAMERA_FAR_CLAMP := 180.0
+const HYPER_LOW_CAMERA_FAR_MIN := 35.0
+const HYPER_LOW_TARGET_FPS := 30
 
 signal profile_changed(new_profile)
 signal platform_detected(platform_type, device_name)
@@ -109,6 +122,7 @@ func _ready() -> void:
 	_register_profile_cycle_action()
 	_sync_optional_nodes_for_profile()
 	_sync_world_environment_for_profile()
+	_sync_camera_ranges_for_profile()
 	_sync_directional_lights_for_profile()
 	_sync_fluorescent_lights_for_profile()
 	_sync_procedural_sun_direction()
@@ -131,18 +145,22 @@ func _detect_hardware() -> void:
 	var os_name = OS.get_name()
 	
 	# Check environment variable for device override (e.g., ODISEA_DEVICE=anbernic)
-	var forced_device = OS.get_environment("ODISEA_DEVICE").to_lower()
+	var forced_device = OS.get_environment("ODISEA_DEVICE").to_lower().strip_edges()
 	if forced_device != "":
 		_detected_device_name = forced_device
 		if forced_device in ["anbernic", "351", "rg351", "rk3326"]:
 			_apply_low_end_memory_cap()
 			_detected_platform = PlatformType.LINUX_ARM
 			_detected_profile = Profile.LOW
+			_is_anbernic_target = _contains_any_hint(forced_device, ANBERNIC_DEVICE_IDS)
 			_detected_device_name = "Anbernic " + forced_device
 			_is_weak_hardware = true
 			_auto_detected = true
+			_refresh_hyper_low_state()
 			emit_signal("platform_detected", _detected_platform, _detected_device_name)
 			print("[HardwareProfile] Forced device: %s, Profile: LOW" % forced_device)
+			if _hyper_low_mode:
+				print("[HardwareProfile] Hyper-low mode enabled for Anbernic device override.")
 			return
 	
 	match os_name:
@@ -187,6 +205,7 @@ func _detect_hardware() -> void:
 	_is_weak_hardware = _detect_weak_hardware()
 	_detected_profile = _sanitize_profile(_detected_profile)
 	_auto_detected_profile = _detected_profile
+	_refresh_hyper_low_state()
 	
 	emit_signal("platform_detected", _detected_platform, _detected_device_name)
 	print("[HardwareProfile] Detected: %s (%s), Profile: %s, Cores: %d, RAM: %.1fGB, Weak: %s" % [
@@ -197,12 +216,15 @@ func _detect_hardware() -> void:
 		_cached_memory_total_gb,
 		_is_weak_hardware
 	])
+	if _hyper_low_mode:
+		print("[HardwareProfile] Hyper-low mode enabled (Anbernic).")
 
 func _detect_linux_platform() -> int:
 	var device_info = _get_linux_device_info()
 	_detected_device_name = device_info.model
 	
 	if _is_anbernic_device(device_info):
+		_is_anbernic_target = true
 		_apply_low_end_memory_cap()
 		_detected_profile = Profile.LOW
 		return PlatformType.LINUX_ARM
@@ -369,6 +391,16 @@ func _has_mali_gpu(info: Dictionary) -> bool:
 	
 	return false
 
+func _contains_any_hint(text: String, hints: Array) -> bool:
+	if text == "":
+		return false
+	var lower = text.to_lower()
+	for raw_hint in hints:
+		var hint = String(raw_hint).strip_edges().to_lower()
+		if hint != "" and lower.find(hint) != -1:
+			return true
+	return false
+
 func _estimate_low_end_arm64_profile() -> int:
 	if _processor_count <= 4:
 		return Profile.LOW
@@ -523,15 +555,55 @@ func _apply_environment_overrides() -> void:
 		"superhigh", "max", "4":
 			_profile_forced_by_env = true
 			set_profile(Profile.SUPERHIGH)
-	
-	# VSync control - disable for weak hardware or via env
-	var vsync_env = OS.get_environment("ODISEA_VSYNC").to_lower()
-	if vsync_env == "off" or vsync_env == "0" or _detected_profile == Profile.LOW:
-		OS.set_use_vsync(false)
-		print("[HardwareProfile] VSync disabled")
+
+	_apply_frame_pacing_policy()
 	
 	var force_optional = OS.get_environment("ODISEA_FORCE_OPTIONAL_NODES").to_lower()
 	call_deferred("_apply_optional_override", force_optional)
+
+func _apply_frame_pacing_policy() -> void:
+	var vsync_env := OS.get_environment("ODISEA_VSYNC").to_lower().strip_edges()
+	var target_fps_env := OS.get_environment("ODISEA_TARGET_FPS").strip_edges()
+
+	if _hyper_low_mode:
+		if vsync_env in ["off", "0", "false", "no"]:
+			OS.set_use_vsync(false)
+			print("[HardwareProfile] Hyper-low frame pacing: VSync forced OFF by env override.")
+		else:
+			OS.set_use_vsync(true)
+			print("[HardwareProfile] Hyper-low frame pacing: VSync enabled.")
+
+		var hyper_low_target_fps := HYPER_LOW_TARGET_FPS
+		if target_fps_env.is_valid_integer():
+			hyper_low_target_fps = max(0, int(target_fps_env))
+		Engine.target_fps = hyper_low_target_fps
+		print("[HardwareProfile] Hyper-low frame pacing: target_fps=%d" % hyper_low_target_fps)
+		return
+
+	if target_fps_env.is_valid_integer():
+		var env_target_fps := max(0, int(target_fps_env))
+		Engine.target_fps = env_target_fps
+		print("[HardwareProfile] Frame pacing: target_fps set by env=%d" % env_target_fps)
+	else:
+		if int(Engine.target_fps) != 0:
+			Engine.target_fps = 0
+			print("[HardwareProfile] Frame pacing: target_fps reset to uncapped (0).")
+
+	if vsync_env in ["on", "1", "true", "yes"]:
+		OS.set_use_vsync(true)
+		print("[HardwareProfile] VSync enabled by env override.")
+		return
+
+	# Legacy default: disable on LOW unless explicitly forced on.
+	if vsync_env in ["off", "0", "false", "no"] or _detected_profile == Profile.LOW:
+		OS.set_use_vsync(false)
+		print("[HardwareProfile] VSync disabled.")
+
+func get_frame_pacing_summary() -> Dictionary:
+	return {
+		"vsync": bool(OS.is_vsync_enabled()),
+		"target_fps": int(Engine.target_fps)
+	}
 
 func _apply_optional_override(force_optional: String) -> void:
 	var opt_manager = get_tree().root.get_node_or_null("OptionalNodeManager")
@@ -546,8 +618,11 @@ func set_profile(new_profile: int) -> void:
 	if normalized_profile != _detected_profile:
 		_detected_profile = normalized_profile
 		_is_weak_hardware = _detect_weak_hardware()
+		_refresh_hyper_low_state()
+		_apply_frame_pacing_policy()
 		_sync_optional_nodes_for_profile()
 		_sync_world_environment_for_profile()
+		_sync_camera_ranges_for_profile()
 		_sync_directional_lights_for_profile()
 		_sync_fluorescent_lights_for_profile()
 		_sync_procedural_sun_direction()
@@ -576,6 +651,14 @@ func get_profile_name() -> String:
 	if _detected_profile < 0 or _detected_profile >= Profile.keys().size():
 		return "UNKNOWN"
 	return Profile.keys()[_detected_profile]
+
+func get_effective_profile_name() -> String:
+	if _hyper_low_mode:
+		return "HYPER_LOW"
+	return get_profile_name()
+
+func is_hyper_low_mode() -> bool:
+	return _hyper_low_mode
 
 func get_platform_name() -> String:
 	if _detected_platform < 0 or _detected_platform >= PlatformType.keys().size():
@@ -807,6 +890,8 @@ func _on_tree_node_added(node: Node) -> void:
 	if node is WorldEnvironment:
 		_sync_world_environment_for_profile()
 		_sync_procedural_sun_direction()
+	elif node is Camera:
+		_sync_camera_ranges_for_profile()
 	elif node is DirectionalLight:
 		_sync_directional_lights_for_profile()
 		_sync_procedural_sun_direction()
@@ -829,16 +914,38 @@ func _sync_world_environment_for_profile_deferred() -> void:
 	_collect_world_environments(get_tree().root, world_environments)
 	if world_environments.empty():
 		return
-	var use_low_spec_sky = _detected_profile <= Profile.LOW
+	# Keep procedural sky in LOW profiles; fallback sky is only for missing-sky environments.
+	var use_low_spec_sky = false
 	var fallback_sky = _get_or_create_fallback_sky()
 	if fallback_sky == null:
 		return
 	for world_env in world_environments:
 		if not is_instance_valid(world_env):
 			continue
-		if _try_apply_profiled_environment_override(world_env):
+		if not _ensure_world_environment_resource(world_env, fallback_sky):
 			continue
-		_apply_world_environment_sky_fallback(world_env, use_low_spec_sky, fallback_sky)
+		var has_profiled_override = _try_apply_profiled_environment_override(world_env)
+		if not has_profiled_override:
+			_apply_world_environment_sky_fallback(world_env, use_low_spec_sky, fallback_sky)
+		_apply_world_environment_postfx_policy(world_env)
+
+func _ensure_world_environment_resource(world_env: WorldEnvironment, fallback_sky) -> bool:
+	if world_env == null:
+		return false
+	if world_env.environment != null:
+		return true
+	var default_env = _load_environment_resource_cached(DEFAULT_WORLD_ENV_PATH)
+	if default_env != null:
+		world_env.environment = default_env.duplicate(true)
+		return true
+	var fallback_env := Environment.new()
+	fallback_env.background_mode = Environment.BG_SKY
+	fallback_env.background_sky = fallback_sky
+	fallback_env.ambient_light_color = Color(0.04, 0.08, 0.18, 1.0)
+	fallback_env.ambient_light_energy = 1.0
+	world_env.environment = fallback_env
+	push_warning("[HardwareProfile] WorldEnvironment had null environment; assigned fallback runtime environment.")
+	return true
 
 func _collect_world_environments(node: Node, into: Array) -> void:
 	if node is WorldEnvironment:
@@ -1007,6 +1114,88 @@ func _apply_world_environment_sky_fallback(world_env: WorldEnvironment, force_lo
 		env_copy.adjustment_enabled = true
 		env_copy.adjustment_brightness = LOW_NO_SHADOW_ENV_BRIGHTNESS
 	world_env.environment = env_copy
+
+func _apply_world_environment_postfx_policy(world_env: WorldEnvironment) -> void:
+	if world_env == null or world_env.environment == null:
+		return
+	_ensure_runtime_environment_instance(world_env)
+	var env = world_env.environment
+	if env == null:
+		return
+	if not world_env.has_meta(META_ORIGINAL_ENV_GLOW_ENABLED):
+		world_env.set_meta(META_ORIGINAL_ENV_GLOW_ENABLED, bool(env.glow_enabled))
+	if not world_env.has_meta(META_ORIGINAL_ENV_SSAO_ENABLED):
+		world_env.set_meta(META_ORIGINAL_ENV_SSAO_ENABLED, bool(env.ssao_enabled))
+	if _has_property(env, "dof_blur_near_enabled") and not world_env.has_meta(META_ORIGINAL_ENV_DOF_NEAR_ENABLED):
+		world_env.set_meta(META_ORIGINAL_ENV_DOF_NEAR_ENABLED, bool(env.dof_blur_near_enabled))
+	if _has_property(env, "dof_blur_far_enabled") and not world_env.has_meta(META_ORIGINAL_ENV_DOF_FAR_ENABLED):
+		world_env.set_meta(META_ORIGINAL_ENV_DOF_FAR_ENABLED, bool(env.dof_blur_far_enabled))
+	if _has_property(env, "adjustment_enabled") and not world_env.has_meta(META_ORIGINAL_ENV_ADJUSTMENT_ENABLED):
+		world_env.set_meta(META_ORIGINAL_ENV_ADJUSTMENT_ENABLED, bool(env.adjustment_enabled))
+
+	if _hyper_low_mode:
+		env.glow_enabled = false
+		env.ssao_enabled = false
+		if _has_property(env, "dof_blur_near_enabled"):
+			env.dof_blur_near_enabled = false
+		if _has_property(env, "dof_blur_far_enabled"):
+			env.dof_blur_far_enabled = false
+		if _has_property(env, "adjustment_enabled"):
+			env.adjustment_enabled = false
+		return
+
+	if world_env.has_meta(META_ORIGINAL_ENV_GLOW_ENABLED):
+		env.glow_enabled = bool(world_env.get_meta(META_ORIGINAL_ENV_GLOW_ENABLED))
+	if world_env.has_meta(META_ORIGINAL_ENV_SSAO_ENABLED):
+		env.ssao_enabled = bool(world_env.get_meta(META_ORIGINAL_ENV_SSAO_ENABLED))
+	if _has_property(env, "dof_blur_near_enabled") and world_env.has_meta(META_ORIGINAL_ENV_DOF_NEAR_ENABLED):
+		env.dof_blur_near_enabled = bool(world_env.get_meta(META_ORIGINAL_ENV_DOF_NEAR_ENABLED))
+	if _has_property(env, "dof_blur_far_enabled") and world_env.has_meta(META_ORIGINAL_ENV_DOF_FAR_ENABLED):
+		env.dof_blur_far_enabled = bool(world_env.get_meta(META_ORIGINAL_ENV_DOF_FAR_ENABLED))
+	if _has_property(env, "adjustment_enabled") and world_env.has_meta(META_ORIGINAL_ENV_ADJUSTMENT_ENABLED):
+		env.adjustment_enabled = bool(world_env.get_meta(META_ORIGINAL_ENV_ADJUSTMENT_ENABLED))
+
+func _sync_camera_ranges_for_profile() -> void:
+	if _camera_range_refresh_queued:
+		return
+	_camera_range_refresh_queued = true
+	call_deferred("_sync_camera_ranges_for_profile_deferred")
+
+func _sync_camera_ranges_for_profile_deferred() -> void:
+	_camera_range_refresh_queued = false
+	if not get_tree() or not is_instance_valid(get_tree().root):
+		return
+	var cameras := []
+	_collect_cameras(get_tree().root, cameras)
+	for camera in cameras:
+		_apply_camera_range_policy(camera)
+
+func _collect_cameras(node: Node, into: Array) -> void:
+	if node is Camera:
+		into.append(node as Camera)
+	for child in node.get_children():
+		if child is Node:
+			_collect_cameras(child, into)
+
+func _apply_camera_range_policy(camera: Camera) -> void:
+	if not is_instance_valid(camera):
+		return
+	if not camera.has_meta(META_ORIGINAL_CAMERA_FAR):
+		camera.set_meta(META_ORIGINAL_CAMERA_FAR, float(camera.far))
+	var original_far = float(camera.get_meta(META_ORIGINAL_CAMERA_FAR))
+	if _hyper_low_mode:
+		var capped_far = min(original_far, HYPER_LOW_CAMERA_FAR_CLAMP)
+		if original_far > HYPER_LOW_CAMERA_FAR_MIN:
+			capped_far = max(HYPER_LOW_CAMERA_FAR_MIN, capped_far)
+		if not is_equal_approx(camera.far, capped_far):
+			camera.far = capped_far
+		return
+	if not is_equal_approx(camera.far, original_far):
+		camera.far = original_far
+
+func _refresh_hyper_low_state() -> void:
+	var next_state = _detected_profile <= Profile.LOW and _is_anbernic_target
+	_hyper_low_mode = bool(next_state)
 
 func _sync_directional_lights_for_profile() -> void:
 	if _directional_lights_refresh_queued:

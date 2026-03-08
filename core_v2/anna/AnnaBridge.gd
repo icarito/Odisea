@@ -710,6 +710,7 @@ func _is_known_mcp_command(cmd: String) -> bool:
 		"get_tree",
 		"inspect",
 		"inspect_node",
+		"set_property",
 		"oys_inject",
 		"execute_oys",
 		"capture_vision",
@@ -744,7 +745,24 @@ func _run_mcp_command(command: String, args: Dictionary) -> Dictionary:
 
 	if cmd == "inspect" or cmd == "inspect_node":
 		var path = str(args.get("node_path", args.get("path", "")))
-		var payload = _interface.inspect_node(path)
+		var inspect_options := {}
+		for key in ["include_children", "include_visual", "max_depth", "max_children", "probe_fields"]:
+			if args.has(key):
+				inspect_options[key] = args.get(key)
+		var payload = _interface.inspect_node(path, inspect_options)
+		return {
+			"ok": bool(payload.get("ok", false)),
+			"data": payload
+		}
+
+	if cmd == "set_property":
+		var node_path = str(args.get("node_path", args.get("path", "")))
+		var property_path = str(args.get("property", args.get("property_path", "")))
+		var value = args.get("value", null)
+		var set_options := {}
+		if args.has("strict"):
+			set_options["strict"] = args.get("strict")
+		var payload = _interface.set_property(node_path, property_path, value, set_options)
 		return {
 			"ok": bool(payload.get("ok", false)),
 			"data": payload

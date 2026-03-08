@@ -20,26 +20,28 @@ var joy_move_sensitivity := 1.0
 var hardware_look_sensitivity := 1.0
 var touch_camera_sensitivity := 0.003
 const JOY_DEADZONE := 0.2
-var _invert_joystick_y := false
-var _invert_joystick_x := false
 const DIGITAL_ZOOM_SENSITIVITY := 0.1
+const ANBERNIC_DEVICE_HINTS := [
+	"anbernic",
+	"rg351",
+	"351",
+	"351v",
+	"351elec",
+	"gameforce"
+]
 
 var _touch_camera_drag := Vector2.ZERO
 var _touch_camera_zoom := 0.0
+var _axis_profile_resolved := false
+var _invert_joy_move_x := false
+var _invert_joy_move_y := false
+var _invert_joy_look_x := false
+var _invert_joy_look_y := false
+var handheld_axis_correction_enabled := false
+var handheld_axis_profile := "none"
 
 func _init() -> void:
-	_detect_inverted_joystick()
-
-func _detect_inverted_joystick() -> void:
-	_invert_joystick_x = false
-	_invert_joystick_y = false
-
-	# Check environment variable override first
-	var force_invert = OS.get_environment("ODISEA_INVERT_JOYSTICK").to_lower()
-	if force_invert in ["1", "true", "yes", "on"]:
-		_invert_joystick_y = true
-		_invert_joystick_x = true
-		print("[InputProviderV2] Inverted joystick axes via ODISEA_INVERT_JOYSTICK")
+	pass
 
 
 # Universal input getter
@@ -89,30 +91,72 @@ func _is_digital_move_vector(v: Vector2) -> bool:
 	var y_is_digital = is_equal_approx(y, 0.0) or is_equal_approx(y, 1.0)
 	return x_is_digital and y_is_digital
 
+func _get_hardware_profile_node():
+	var main_loop = Engine.get_main_loop()
+	if main_loop == null or not (main_loop is SceneTree):
+		return null
+	var root = (main_loop as SceneTree).get_root()
+	if root == null:
+		return null
+	return root.get_node_or_null("HardwareProfile")
+
+func _ensure_axis_profile_resolved() -> void:
+	if _axis_profile_resolved:
+		return
+
+	var detected_anbernic = false
+	var resolved_profile = "none"
+	var forced_device = OS.get_environment("ODISEA_DEVICE").to_lower().strip_edges()
+	if _contains_any_hint(forced_device, ANBERNIC_DEVICE_HINTS):
+		detected_anbernic = true
+		resolved_profile = "anbernic_env_invert_xy"
+	else:
+		var hp = _get_hardware_profile_node()
+		if hp == null:
+			return
+		var profile_ready = true
+		if hp.has_method("get_profile"):
+			profile_ready = int(hp.get_profile()) > 0
+		if not profile_ready:
+			# HardwareProfile is mounted but not fully initialized yet.
+			# Keep probing next frames instead of freezing "none".
+			return
+
+		if hp.has_method("get_device_name") and _contains_any_hint(String(hp.get_device_name()).to_lower(), ANBERNIC_DEVICE_HINTS):
+			detected_anbernic = true
+			resolved_profile = "anbernic_name_invert_xy"
+		elif hp.has_method("is_linux_handheld") and bool(hp.is_linux_handheld()):
+			detected_anbernic = true
+			resolved_profile = "anbernic_detected_invert_xy"
+
+	_axis_profile_resolved = true
+	handheld_axis_correction_enabled = detected_anbernic
+	handheld_axis_profile = resolved_profile if detected_anbernic else "none"
+	_invert_joy_move_x = detected_anbernic
+	_invert_joy_move_y = detected_anbernic
+	_invert_joy_look_x = detected_anbernic
+	_invert_joy_look_y = detected_anbernic
+
+func _contains_any_hint(text: String, hints: Array) -> bool:
+	if text == "":
+		return false
+	for raw_hint in hints:
+		var hint = String(raw_hint).strip_edges().to_lower()
+		if hint != "" and text.find(hint) != -1:
+			return true
+	return false
+
 
 func _read_live_input() -> InputDataV2:
 	var d = InputDataV2.new()
 
 	if hardware_input_enabled:
+		_ensure_axis_profile_resolved()
+
 		var raw_move_vec = Vector2(
 			Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
 			Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward")
 		)
-		d.move_vec = raw_move_vec
-
-		# Apply inversion only to analog input (non-digital) on devices where it's required
-		if not _is_digital_move_vector(raw_move_vec):
-			if _invert_joystick_x:
-				d.move_vec.x = -d.move_vec.x
-			if _invert_joystick_y:
-				d.move_vec.y = -d.move_vec.y
-
-		# Apply curve to raw move vector (affects analog stick)
-		d.move_vec = _apply_curve(d.move_vec, move_response_curve)
-		d.move_vec *= joy_move_sensitivity
-
-		d.move_vec.x = _q(d.move_vec.x)
-		d.move_vec.y = _q(d.move_vec.y)
 
 		d.jump = Input.is_action_pressed("jump")
 		d.sprint = Input.is_action_pressed("run")
@@ -122,20 +166,27 @@ func _read_live_input() -> InputDataV2:
 		# --- JOYSTICK SPRINT (Physical) ---
 		var joy_move_x = Input.get_joy_axis(0, JOY_AXIS_0)
 		var joy_move_y = Input.get_joy_axis(0, JOY_AXIS_1)
-		if _invert_joystick_x:
+		if _invert_joy_move_x:
 			joy_move_x = - joy_move_x
-		if _invert_joystick_y:
+		if _invert_joy_move_y:
 			joy_move_y = - joy_move_y
 		var joy_move = Vector2(
 			joy_move_x,
 			joy_move_y
 		)
+		var move_source_vec = raw_move_vec
+		if joy_move.length() > JOY_DEADZONE:
+			move_source_vec = joy_move
+		d.move_vec = _apply_curve(move_source_vec, move_response_curve)
+		d.move_vec *= joy_move_sensitivity
+		d.move_vec.x = _q(d.move_vec.x)
+		d.move_vec.y = _q(d.move_vec.y)
 		if joy_move.length() > 0.8:
 			d.sprint = true
 		
 		# --- VIRTUAL/ANALOG AUTO SPRINT ---
 		# Keep auto sprint for analog-like input, but do not force sprint for digital keyboard vectors.
-		if not _is_digital_move_vector(raw_move_vec) and d.move_vec.length() > 0.85:
+		if not _is_digital_move_vector(move_source_vec) and d.move_vec.length() > 0.85:
 			d.sprint = true
 
 		# Acumula y consume mouse_delta localmente
@@ -146,9 +197,9 @@ func _read_live_input() -> InputDataV2:
 		# --- JOYSTICK CAMERA (Right Stick) ---
 		var joy_look_x = Input.get_joy_axis(0, JOY_AXIS_2)
 		var joy_look_y = Input.get_joy_axis(0, JOY_AXIS_3)
-		if _invert_joystick_x:
+		if _invert_joy_look_x:
 			joy_look_x = - joy_look_x
-		if _invert_joystick_y:
+		if _invert_joy_look_y:
 			joy_look_y = - joy_look_y
 		var joy_look = Vector2(
 			joy_look_x,

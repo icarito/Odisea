@@ -7,7 +7,7 @@
 
 [sub_resource type="QuadMesh" id=10]
 resource_local_to_scene = true
-size = Vector2( 3, 2.5 )
+size = Vector2( 3, 0.6 )
 
 [sub_resource type="Shader" id=11]
 code = "shader_type spatial;
@@ -38,14 +38,14 @@ void fragment() {
 resource_local_to_scene = true
 shader = SubResource( 11 )
 shader_param/fence_color = Color( 0.35, 0.35, 0.35, 1 )
-shader_param/tiling = Vector2( 18, 15 )
+shader_param/tiling = Vector2( 18, 3.6 )
 shader_param/wire_thickness = 0.08
 
 [sub_resource type="CylinderMesh" id=13]
 resource_local_to_scene = true
 top_radius = 0.05
 bottom_radius = 0.05
-height = 2.8
+height = 0.7
 radial_segments = 8
 
 [sub_resource type="SpatialMaterial" id=8]
@@ -57,7 +57,7 @@ roughness = 0.6
 resource_local_to_scene = true
 top_radius = 0.05
 bottom_radius = 0.05
-height = 2.8
+height = 0.7
 radial_segments = 8
 
 [sub_resource type="BoxShape" id=1]
@@ -110,10 +110,6 @@ is_interactable = false
 manual_toggle = false
 mesh_a_path = NodePath("DoorLeft")
 mesh_b_path = NodePath("DoorRight")
-slide_vector_a = Vector3( -0.75, 0, 0 )
-slide_vector_b = Vector3( 0.75, 0, 0 )
-scale_vector_a = Vector3( -0.95, 0, 0 )
-scale_vector_b = Vector3( -0.95, 0, 0 )
 top_floor_height = 0.6
 
 [node name="Header" type="CSGBox" parent="."]
@@ -125,17 +121,17 @@ depth = 0.2
 material = ExtResource( 2 )
 
 [node name="ShaftFence" type="MeshInstance" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.65, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.7, 0 )
 mesh = SubResource( 10 )
 material/0 = SubResource( 12 )
 
 [node name="ShaftPoleLeft" type="MeshInstance" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 4.65, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 3.7, 0 )
 mesh = SubResource( 13 )
 material/0 = SubResource( 8 )
 
 [node name="ShaftPoleRight" type="MeshInstance" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 4.65, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 3.7, 0 )
 mesh = SubResource( 14 )
 material/0 = SubResource( 8 )
 
@@ -181,7 +177,8 @@ material/0 = SubResource( 8 )
 
 [node name="SFX Door" type="AudioStreamPlayer3D" parent="."]
 stream = ExtResource( 3 )
-unit_db = 10.0
+unit_db = 15.0
+unit_size = 2.0
 max_distance = 30.0
 script = ExtResource( 4 )
 trigger_mode = "Interact"

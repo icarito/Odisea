@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 const ANNA_SCENE_PATH := "res://core_v2/tests/TestScene_ANNA.tscn"
 const AnnaInterface = preload("res://core_v2/anna/AnnaInterface.gd")
 const AnnaBridge = preload("res://core_v2/anna/AnnaBridge.gd")
+const InputProviderV2 = preload("res://core_v2/input/InputProviderV2.gd")
 
 class DummyAIController extends Node:
 	var heuristic := "ai"
@@ -51,6 +52,9 @@ class DummyInspectable extends Spatial:
 	export(String) var lock_id := "door_01"
 	export(bool) var starts_locked := true
 	var runtime_only := 42
+
+class DummyInputProbe extends Spatial:
+	var input_provider = InputProviderV2.new()
 
 func _free_node(node: Node) -> void:
 	if node and is_instance_valid(node):
@@ -412,6 +416,121 @@ func test_anna_mcp_tools_inspect_execute_query_docs_and_logic_state() -> void:
 	yield (_free_node(manager), "completed")
 	yield (_free_node(inspectable), "completed")
 	yield (_free_node(console), "completed")
+	yield (_free_node(anna), "completed")
+
+func test_anna_inspect_node_supports_visual_and_input_runtime_options() -> void:
+	var anna = AnnaInterface.new()
+	get_tree().root.add_child(anna)
+	yield (get_tree(), "idle_frame")
+
+	var probe = DummyInputProbe.new()
+	probe.name = "ProbePilot"
+	get_tree().root.add_child(probe)
+
+	var visual_root = Spatial.new()
+	visual_root.name = "Visual"
+	probe.add_child(visual_root)
+
+	var mesh_node = MeshInstance.new()
+	mesh_node.name = "BodyMesh"
+	mesh_node.mesh = CubeMesh.new()
+	var mat = SpatialMaterial.new()
+	mat.flags_unshaded = true
+	mesh_node.set_surface_material(0, mat)
+	visual_root.add_child(mesh_node)
+	yield (get_tree(), "idle_frame")
+
+	var inspect = anna.inspect_node(str(mesh_node.get_path()), {
+		"include_visual": true,
+		"include_children": true,
+		"max_depth": 3,
+		"max_children": 16,
+		"probe_fields": ["visible", "runtime_only"]
+	})
+	assert_bool(bool(inspect.get("ok", false))).is_true()
+	assert_bool(inspect.has("runtime_fields")).is_true()
+	assert_bool(inspect["runtime_fields"].has("visible")).is_true()
+	assert_str(str(inspect["runtime_fields"].get("runtime_only", ""))).is_equal("__missing__")
+	assert_bool(inspect.has("visual")).is_true()
+	assert_bool(inspect.get("visual", {}).has("mesh")).is_true()
+	var materials = inspect.get("visual", {}).get("mesh", {}).get("materials", [])
+	assert_bool(materials.size() >= 1).is_true()
+	assert_bool(bool(materials[0].get("flags_unshaded", false))).is_true()
+	assert_bool(inspect.has("input_runtime")).is_true()
+	assert_bool(bool(inspect.get("input_runtime", {}).get("available", false))).is_true()
+	assert_str(str(inspect.get("input_runtime", {}).get("source_path", ""))).is_equal(str(probe.get_path()))
+	assert_str(str(inspect.get("input_runtime", {}).get("source_strategy", ""))).is_equal("ancestor")
+	assert_bool(inspect.has("children")).is_true()
+
+	var bridge = AnnaBridge.new()
+	get_tree().root.add_child(bridge)
+	yield (get_tree(), "idle_frame")
+
+	var mcp_inspect = bridge._run_mcp_command("inspect_node", {
+		"node_path": str(mesh_node.get_path()),
+		"include_visual": true,
+		"probe_fields": ["visible"],
+		"max_depth": 2
+	})
+	assert_bool(bool(mcp_inspect.get("ok", false))).is_true()
+	assert_bool(mcp_inspect.get("data", {}).has("runtime_fields")).is_true()
+	assert_bool(mcp_inspect.get("data", {}).has("visual")).is_true()
+
+	yield (_free_node(bridge), "completed")
+	yield (_free_node(probe), "completed")
+	yield (_free_node(anna), "completed")
+
+func test_anna_set_property_supports_nested_paths_and_bridge_tool() -> void:
+	var anna = AnnaInterface.new()
+	get_tree().root.add_child(anna)
+	yield (get_tree(), "idle_frame")
+
+	var world_env = WorldEnvironment.new()
+	world_env.name = "TestWorldEnvironment"
+	var env = Environment.new()
+	env.glow_enabled = true
+	env.ssao_enabled = true
+	world_env.environment = env
+	get_tree().root.add_child(world_env)
+	yield (get_tree(), "idle_frame")
+
+	var set_res = anna.set_property(str(world_env.get_path()), "environment.glow_enabled", false)
+	assert_bool(bool(set_res.get("ok", false))).is_true()
+	assert_bool(bool(set_res.get("had_property", false))).is_true()
+	assert_bool(bool(set_res.get("new_value", true))).is_false()
+	assert_bool(world_env.environment.glow_enabled).is_false()
+
+	var set_color = anna.set_property(str(world_env.get_path()), "environment.ambient_light_color", {
+		"type": "color",
+		"value": [0.15, 0.25, 0.35, 1.0]
+	})
+	assert_bool(bool(set_color.get("ok", false))).is_true()
+	assert_bool(is_equal_approx(world_env.environment.ambient_light_color.r, 0.15)).is_true()
+	assert_bool(is_equal_approx(world_env.environment.ambient_light_color.g, 0.25)).is_true()
+	assert_bool(is_equal_approx(world_env.environment.ambient_light_color.b, 0.35)).is_true()
+
+	var bridge = AnnaBridge.new()
+	get_tree().root.add_child(bridge)
+	yield (get_tree(), "idle_frame")
+
+	var bridge_set = bridge._run_mcp_command("set_property", {
+		"node_path": str(world_env.get_path()),
+		"property": "environment.glow_enabled",
+		"value": true
+	})
+	assert_bool(bool(bridge_set.get("ok", false))).is_true()
+	assert_bool(bool(world_env.environment.glow_enabled)).is_true()
+
+	var bridge_fail = bridge._run_mcp_command("set_property", {
+		"node_path": str(world_env.get_path()),
+		"property": "environment.not_a_real_property",
+		"value": 1
+	})
+	assert_bool(bool(bridge_fail.get("ok", true))).is_false()
+	assert_str(str(bridge_fail.get("data", {}).get("error", ""))).is_equal("property_not_found")
+
+	yield (_free_node(bridge), "completed")
+	yield (_free_node(world_env), "completed")
 	yield (_free_node(anna), "completed")
 
 func test_anna_structured_oys_action_queues_console_commands() -> void:

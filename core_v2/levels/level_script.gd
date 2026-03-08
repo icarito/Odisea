@@ -4,6 +4,8 @@ export(bool) var auto_start_intro := true
 export(String, FILE, "*.oys") var intro_script_file := "res://core_v2/scripts/intro.oys"
 export(String) var start_section := "Intro"
 export(bool) var ignore_level_directive := true
+export(bool) var wait_for_runtime_startup := true
+export(int, 0, 1200) var startup_wait_max_frames := 720
 
 var _started := false
 
@@ -36,6 +38,10 @@ func _start_intro_if_possible() -> void:
 		is_recording = bool(session.get("is_recording"))
 	if is_replaying or is_recording:
 		return
+	if wait_for_runtime_startup and session and session.has_method("wait_until_startup_gate_open"):
+		var gate_state = session.wait_until_startup_gate_open(startup_wait_max_frames)
+		if gate_state is GDScriptFunctionState:
+			yield(gate_state, "completed")
 
 	var player = _find_player()
 	var attempts := 0

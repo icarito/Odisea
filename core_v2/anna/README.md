@@ -129,6 +129,7 @@ Tools soportados:
 - `bridge_reset` (reiniciar sesión Godot + reconectar)
 - `bridge_stop` (detener sesión Godot lanzada por MCP)
 - `inspect_node` (`action: "inspect"` o `"inspect_node"`, arg `node_path`)
+- `set_property` (`action: "set_property"`, args `node_path`, `property`, `value`, opcional `strict`)
 - `execute_oys` (`action: "oys_inject"` o `"execute_oys"`, arg `script_command`)
 - `capture_vision` (`action: "capture_vision"`, args opcionales `label`, `include_base64`)
 - `query_codex_docs` (`action: "query_codex_docs"`, args `topic`, `max_matches`)

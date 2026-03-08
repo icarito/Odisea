@@ -11,6 +11,10 @@ const LAG_SPIKE_THRESHOLD_FPS := 20.0
 const CPU_BUDGET_MS := 16.6
 const LOG_TRIGGER_PERCENT := 0.70 # 70% of CPU Budget
 const CPU_WARNING_INTERVAL_SEC := 5.0
+const LAG_LOG_INTERVAL_SEC := 2.0
+const REPORT_WRITE_INTERVAL_SEC := 4.0
+const REPORT_WRITE_INTERVAL_HYPER_LOW_SEC := 10.0
+const REPORT_DROP_BYPASS_DELTA := 12.0
 
 # --- Debug Flags ---
 var debug_freeze_logic := false setget set_debug_freeze_logic
@@ -22,6 +26,8 @@ var debug_collision_shapes := false setget set_debug_collision_shapes
 
 # --- Metrics State ---
 var _frame_start_time := 0
+var _last_process_tick_usec := 0
+var _last_frame_gap_ms := 0.0
 var _last_fps := 60.0
 var _monitored_nodes := [] # Array of WeakRef
 var _node_profiling_accumulators := {} # { node_id: accumulated_usec }
@@ -36,6 +42,10 @@ var _capture_tag := ""
 var _capture_start_usec := 0
 var _capture_samples := []
 var _last_cpu_warning_time := 0.0
+var _last_lag_log_time_msec := 0
+var _last_report_write_time_msec := 0
+var _last_saved_drop := 0.0
+var _suppressed_report_count := 0
 
 # --- Signals ---
 signal lag_spike_detected(fps, drop)
@@ -70,7 +80,13 @@ func _is_disabled_for_current_run() -> bool:
 	return in_rl and disable_rl
 
 func _process(_delta):
-	_frame_start_time = OS.get_ticks_usec()
+	var now_usec := OS.get_ticks_usec()
+	_frame_start_time = now_usec
+	var frame_gap_ms := 0.0
+	if _last_process_tick_usec > 0:
+		frame_gap_ms = float(now_usec - _last_process_tick_usec) / 1000.0
+	_last_process_tick_usec = now_usec
+	_last_frame_gap_ms = frame_gap_ms
 
 	# 1. Gather Global Metrics
 	var fps = Performance.get_monitor(Performance.TIME_FPS)
@@ -88,13 +104,14 @@ func _process(_delta):
 			"fps": fps,
 			"process_ms": process_time * 1000.0,
 			"physics_ms": physics_time * 1000.0,
+			"frame_gap_ms": frame_gap_ms,
 			"draw_calls": draw_calls,
 			"node_count": node_count
 		})
 
 	# 2. Lag Spike Detection
 	if _last_fps - fps > LAG_SPIKE_THRESHOLD_FPS:
-		_report_lag_spike(fps, _last_fps, process_time, physics_time, draw_calls, node_count)
+		_report_lag_spike(fps, _last_fps, process_time, physics_time, draw_calls, node_count, frame_gap_ms)
 	_last_fps = fps
 
 	# 3. CPU Budget Check (throttled)
@@ -294,23 +311,35 @@ func _restore_visibility():
 			if node.has_method("set_process"): node.set_process(true)
 			if node.has_method("set_physics_process"): node.set_physics_process(true)
 
-func _report_lag_spike(fps, prev_fps, process_t, physics_t, draw_c, node_c):
-	if not _suppress_runtime_logs:
+func _report_lag_spike(fps, prev_fps, process_t, physics_t, draw_c, node_c, frame_gap_ms: float):
+	var now_msec := OS.get_ticks_msec()
+	var drop: float = float(prev_fps) - float(fps)
+	if not _suppress_runtime_logs and _should_log_lag_spike(now_msec, drop):
 		print("[PerformanceMonitor] LAG SPIKE DETECTED! FPS dropped from %.1f to %.1f" % [prev_fps, fps])
-	emit_signal("lag_spike_detected", fps, prev_fps - fps)
+		_last_lag_log_time_msec = now_msec
+	emit_signal("lag_spike_detected", fps, drop)
 
 	var report = {
 		"timestamp": OS.get_unix_time(),
 		"fps": fps,
-		"drop": prev_fps - fps,
+		"drop": drop,
 		"process_time_ms": process_t * 1000.0,
 		"physics_time_ms": physics_t * 1000.0,
+		"frame_gap_ms": frame_gap_ms,
 		"draw_calls": draw_c,
 		"node_count": node_c,
 		"heavy_nodes": _get_top_heavy_nodes()
 	}
 
-	_save_report(report)
+	_save_report_throttled(report, now_msec)
+
+func _should_log_lag_spike(now_msec: int, drop: float) -> bool:
+	if _last_lag_log_time_msec <= 0:
+		return true
+	if drop >= LAG_SPIKE_THRESHOLD_FPS * 2.0:
+		return true
+	var interval_msec := int(LAG_LOG_INTERVAL_SEC * 1000.0)
+	return now_msec - _last_lag_log_time_msec >= interval_msec
 
 func _get_top_heavy_nodes() -> Array:
 	var list = []
@@ -339,6 +368,38 @@ func _save_report(data: Dictionary):
 	file.store_string(JSON.print(data, "  "))
 	file.close()
 	print("[PerformanceMonitor] Report saved to ", LOG_FILE_PATH)
+
+func _save_report_throttled(data: Dictionary, now_msec: int) -> void:
+	var drop := float(data.get("drop", 0.0))
+	var interval_msec := _get_report_write_interval_msec()
+	var should_write := false
+
+	if _last_report_write_time_msec <= 0:
+		should_write = true
+	elif now_msec - _last_report_write_time_msec >= interval_msec:
+		should_write = true
+	elif drop >= _last_saved_drop + REPORT_DROP_BYPASS_DELTA:
+		# Persist immediately if current spike is significantly worse than last saved one.
+		should_write = true
+
+	if not should_write:
+		_suppressed_report_count += 1
+		return
+
+	var payload := data.duplicate(true)
+	if _suppressed_report_count > 0:
+		payload["suppressed_reports"] = _suppressed_report_count
+	_suppressed_report_count = 0
+	_last_report_write_time_msec = now_msec
+	_last_saved_drop = drop
+	call_deferred("_save_report", payload)
+
+func _get_report_write_interval_msec() -> int:
+	var interval_sec := REPORT_WRITE_INTERVAL_SEC
+	var hp = get_node_or_null("/root/HardwareProfile")
+	if is_instance_valid(hp) and hp.has_method("is_hyper_low_mode") and hp.is_hyper_low_mode():
+		interval_sec = REPORT_WRITE_INTERVAL_HYPER_LOW_SEC
+	return int(interval_sec * 1000.0)
 
 func start_capture(tag: String = "capture") -> void:
 	_capture_active = true
@@ -376,12 +437,14 @@ func _build_capture_summary(tag: String, duration_sec: float, samples: Array) ->
 	var fps_values := []
 	var process_values := []
 	var physics_values := []
+	var frame_gap_values := []
 	var draw_values := []
 	var node_values := []
 
 	var sum_fps := 0.0
 	var sum_process := 0.0
 	var sum_physics := 0.0
+	var sum_frame_gap := 0.0
 	var sum_draw := 0.0
 	var sum_nodes := 0.0
 	var frames_lt_30 := 0
@@ -391,18 +454,21 @@ func _build_capture_summary(tag: String, duration_sec: float, samples: Array) ->
 		var fps := float(sample.get("fps", 0.0))
 		var process_ms := float(sample.get("process_ms", 0.0))
 		var physics_ms := float(sample.get("physics_ms", 0.0))
+		var frame_gap_ms := float(sample.get("frame_gap_ms", 0.0))
 		var draw_calls := int(sample.get("draw_calls", 0))
 		var node_count := int(sample.get("node_count", 0))
 
 		fps_values.append(fps)
 		process_values.append(process_ms)
 		physics_values.append(physics_ms)
+		frame_gap_values.append(frame_gap_ms)
 		draw_values.append(draw_calls)
 		node_values.append(node_count)
 
 		sum_fps += fps
 		sum_process += process_ms
 		sum_physics += physics_ms
+		sum_frame_gap += frame_gap_ms
 		sum_draw += draw_calls
 		sum_nodes += node_count
 		if fps < 30.0:
@@ -413,6 +479,7 @@ func _build_capture_summary(tag: String, duration_sec: float, samples: Array) ->
 	fps_values.sort()
 	process_values.sort()
 	physics_values.sort()
+	frame_gap_values.sort()
 	draw_values.sort()
 	node_values.sort()
 
@@ -430,6 +497,9 @@ func _build_capture_summary(tag: String, duration_sec: float, samples: Array) ->
 		"p95_process_ms": _percentile(process_values, 95.0),
 		"avg_physics_ms": sum_physics / count,
 		"p95_physics_ms": _percentile(physics_values, 95.0),
+		"avg_frame_gap_ms": sum_frame_gap / count,
+		"p95_frame_gap_ms": _percentile(frame_gap_values, 95.0),
+		"max_frame_gap_ms": float(frame_gap_values[frame_gap_values.size() - 1]),
 		"avg_draw_calls": sum_draw / count,
 		"p95_draw_calls": _percentile(draw_values, 95.0),
 		"avg_node_count": sum_nodes / count,
