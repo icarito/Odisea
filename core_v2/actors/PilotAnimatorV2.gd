@@ -78,8 +78,11 @@ var _has_last_world_pos: bool = false
 var _footstep_stop_grace_left := 0.0
 var _manual_animtree_step_enabled := false
 var _manual_animtree_step_accum := 0.0
+var _anim_tree_param_cache := {}
 const FOOTSTEP_STOP_GRACE_SEC := 0.18
-const MANUAL_ANIMTREE_STEP_INTERVAL_HYPER_LOW := 1.0 / 20.0
+const MANUAL_ANIMTREE_STEP_INTERVAL_HYPER_LOW := 1.0 / 12.0
+const ANIM_PARAM_FLOAT_EPSILON := 0.0005
+const ANIM_BLEND_PARAM_FLOAT_EPSILON := 0.035
 
 # --- LIFECYCLE ---
 func _ready() -> void:
@@ -123,6 +126,7 @@ func _ready() -> void:
 		playback.start("Grounded")
 	# Activating the AnimationTree safely
 	animation_tree.active = true
+	_anim_tree_param_cache.clear()
 
 	# Warmup animations to cache blends
 	_warmup_animations()
@@ -334,13 +338,13 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 		return
 
 	# Actualizar condiciones básicas
-	animation_tree.set(PARAM_CONDITIONS_ON_FLOOR, is_on_floor)
-	animation_tree.set(PARAM_CONDITIONS_NOT_ON_FLOOR, not is_on_floor)
+	_set_anim_tree_param(PARAM_CONDITIONS_ON_FLOOR, is_on_floor)
+	_set_anim_tree_param(PARAM_CONDITIONS_NOT_ON_FLOOR, not is_on_floor)
 
 	# Push State (highest priority over crouch)
 	var is_pushing = controller.get("is_pushing") if controller else false
-	animation_tree.set(PARAM_CONDITIONS_IS_PUSHING, is_pushing)
-	animation_tree.set(PARAM_CONDITIONS_NOT_PUSHING, not is_pushing)
+	_set_anim_tree_param(PARAM_CONDITIONS_IS_PUSHING, is_pushing)
+	_set_anim_tree_param(PARAM_CONDITIONS_NOT_PUSHING, not is_pushing)
 
 	# Keep acrobatic trigger alive for a couple of frames.
 	acrobatic_trigger_active = acrobatic_trigger_frames_left > 0
@@ -348,8 +352,8 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	# Crouch State
 	# If acrobatic is armed this frame, force crouch off to avoid competing transitions.
 	var is_crouching: bool = true if controller and controller.get("is_crouching") and not is_pushing and not acrobatic_trigger_active else false
-	animation_tree.set(PARAM_CONDITIONS_IS_CROUCHED, is_crouching)
-	animation_tree.set(PARAM_CONDITIONS_NOT_CROUCHED, not is_crouching)
+	_set_anim_tree_param(PARAM_CONDITIONS_IS_CROUCHED, is_crouching)
+	_set_anim_tree_param(PARAM_CONDITIONS_NOT_CROUCHED, not is_crouching)
 
 	# Estados de salto/caída usando la velocidad registrada en el último frame en aire.
 	# IMPORTANTE: Forzamos false si estamos en el suelo (evita flickering en escaleras).
@@ -357,12 +361,12 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	var is_falling: bool = last_air_vertical_speed < -1.0 and effective_airborne
 	var is_floating: bool = last_air_vertical_speed >= -1.0 and last_air_vertical_speed < 0.0 and effective_airborne
 
-	animation_tree.set(PARAM_CONDITIONS_IS_FALLING, is_falling)
-	animation_tree.set(PARAM_CONDITIONS_IS_FLOATING, is_floating)
+	_set_anim_tree_param(PARAM_CONDITIONS_IS_FALLING, is_falling)
+	_set_anim_tree_param(PARAM_CONDITIONS_IS_FLOATING, is_floating)
 
 	# Falling Fast
 	var is_falling_fast: bool = last_air_vertical_speed < -12.0 and effective_airborne
-	animation_tree.set(PARAM_CONDITIONS_IS_FALLING_FAST, is_falling_fast)
+	_set_anim_tree_param(PARAM_CONDITIONS_IS_FALLING_FAST, is_falling_fast)
 
 	# is_jumping: true si acabamos de disparar el salto (buffer) o si estamos subiendo en aire
 	# IMPORTANTE: También forzamos false si estamos en el suelo para evitar saltos visuales en escaleras.
@@ -374,21 +378,21 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	if acrobatic_trigger_active:
 		is_jumping_param = false
 		
-	animation_tree.set(PARAM_CONDITIONS_IS_JUMPING, is_jumping_param)
+	_set_anim_tree_param(PARAM_CONDITIONS_IS_JUMPING, is_jumping_param)
 	
 	# Resetear trigger acrobático usando el latch
 	if acrobatic_trigger_active:
 		if debug_animation_events:
 			print("PilotAnimator: Sending is_acrobatic = TRUE to AnimationTree")
-		animation_tree.set(PARAM_CONDITIONS_IS_ACROBATIC, true)
+		_set_anim_tree_param(PARAM_CONDITIONS_IS_ACROBATIC, true)
 		acrobatic_trigger_frames_left -= 1
 		if acrobatic_trigger_frames_left <= 0:
 			acrobatic_trigger_active = false
 	else:
-		animation_tree.set(PARAM_CONDITIONS_IS_ACROBATIC, false)
+		_set_anim_tree_param(PARAM_CONDITIONS_IS_ACROBATIC, false)
 	
 	# Hit Head condition (one-shot, cleared after this frame)
-	animation_tree.set(PARAM_CONDITIONS_HIT_HEAD, hit_head_active)
+	_set_anim_tree_param(PARAM_CONDITIONS_HIT_HEAD, hit_head_active)
 	hit_head_active = false
 
 	# Emitir land_soft / land_hard SOLO en el frame de aterrizaje (edge detect)
@@ -396,26 +400,26 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	var land_soft: bool = landed_now and last_air_vertical_speed >= -1.0
 	var land_hard: bool = landed_now and last_air_vertical_speed < -1.0
 
-	animation_tree.set(PARAM_CONDITIONS_LAND_SOFT, land_soft)
-	animation_tree.set(PARAM_CONDITIONS_LAND_HARD, land_hard)
+	_set_anim_tree_param(PARAM_CONDITIONS_LAND_SOFT, land_soft)
+	_set_anim_tree_param(PARAM_CONDITIONS_LAND_HARD, land_hard)
 
 	# Parámetro para la mezcla de locomoción (Idle/Walk/Run).
 	# Usa la magnitud de la velocidad horizontal suavizada.
 	var blend_pos = Vector2(visual_velocity.x, visual_velocity.z).length()
-	animation_tree.set(PARAM_GROUNDED_BLEND_POSITION, blend_pos)
-	animation_tree.set(PARAM_CROUCHED_BLEND_POSITION, blend_pos)
+	_set_anim_tree_param(PARAM_GROUNDED_BLEND_POSITION, blend_pos, ANIM_BLEND_PARAM_FLOAT_EPSILON)
+	_set_anim_tree_param(PARAM_CROUCHED_BLEND_POSITION, blend_pos, ANIM_BLEND_PARAM_FLOAT_EPSILON)
 
 	# Selección entre JumpLoop y FloatLoop: usar JumpLoop si saltamos recientemente
 	# o si hay entrada de movimiento significativa.
 	var use_jump_loop: bool = (time_since_jump < 0.25) or (move_vec_length > 0.3)
-	animation_tree.set(PARAM_CONDITIONS_USE_JUMP_LOOP, use_jump_loop)
+	_set_anim_tree_param(PARAM_CONDITIONS_USE_JUMP_LOOP, use_jump_loop)
 
 	# Lógica de transición de Salto (Start vs Land)
 	# Solo pasamos a Land (1) si tocamos el suelo antes de que termine el estado visual de salto.
 	# No pasamos a Land al soltar el botón (Short Jump), para mantener el arco visual en el aire.
 	# IMPORTANTE: Forzamos 1 (Land/Grounded) si estamos en el suelo.
 	var jump_transition = 1 if is_on_floor else 0
-	animation_tree.set(PARAM_JUMP_TRANSITION_CURRENT, jump_transition)
+	_set_anim_tree_param(PARAM_JUMP_TRANSITION_CURRENT, jump_transition)
 
 	if is_on_floor:
 		airborne_time = 0.0
@@ -430,7 +434,7 @@ func _on_controller_jumped() -> void:
 	
 	# Usar ONE_SHOT_REQUEST_FIRE es la forma correcta y determinista de activar animaciones OneShot.
 	# NO NO NO NO ES ACTIVE 1
-	animation_tree.set(PARAM_GROUNDED_JUMP_ACTIVE, 1) # NO TOCAR (Legacy logic, mantener si es necesario para compatibilidad)
+	_set_anim_tree_param(PARAM_GROUNDED_JUMP_ACTIVE, 1, 0.0) # NO TOCAR (Legacy logic, mantener si es necesario para compatibilidad)
 
 	# Activar buffer de salto para mantener `is_jumping` verdadero algunos ms
 	jumped_buffer_time = jump_buffer_duration
@@ -640,10 +644,24 @@ func _configure_animation_runtime_policy() -> void:
 	_manual_animtree_step_enabled = _is_hyper_low_runtime()
 	if animation_tree == null:
 		return
+	_anim_tree_param_cache.clear()
 	if _manual_animtree_step_enabled:
 		animation_tree.process_mode = AnimationTree.ANIMATION_PROCESS_MANUAL
 	else:
 		animation_tree.process_mode = AnimationTree.ANIMATION_PROCESS_IDLE
+
+func _set_anim_tree_param(path: String, value, float_epsilon := ANIM_PARAM_FLOAT_EPSILON) -> void:
+	if animation_tree == null:
+		return
+	if _anim_tree_param_cache.has(path):
+		var previous = _anim_tree_param_cache[path]
+		if typeof(value) in [TYPE_REAL, TYPE_INT] and typeof(previous) in [TYPE_REAL, TYPE_INT]:
+			if abs(float(previous) - float(value)) <= float(float_epsilon):
+				return
+		elif previous == value:
+			return
+	_anim_tree_param_cache[path] = value
+	animation_tree.set(path, value)
 
 func _advance_animation_tree_if_manual(dt: float) -> void:
 	if not _manual_animtree_step_enabled:

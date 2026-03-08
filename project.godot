@@ -1911,8 +1911,7 @@ _global_script_class_icons={
 [application]
 
 config/name="Odisea"
-run/main_scene="res://core_v2/tests/TestScene_Footsteps.tscn"
-run/low_processor_mode=true
+run/main_scene="res://core_v2/levels/BaseTerrace.tscn"
 boot_splash/image="res://assets/splash.png"
 boot_splash/use_filter=false
 config/icon="res://assets/odisea_icon.png"

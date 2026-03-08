@@ -37,18 +37,30 @@ var _cheap_ground_y := 0.0
 func _ready() -> void:
 	var disable_env := OS.get_environment("ODISEA_DISABLE_FAKE_SHADOW").to_lower()
 	_disable_runtime = disable_env in ["1", "true", "yes", "on"]
+	var force_cheap_runtime := false
+
+	var hp = get_node("/root/HardwareProfile") if has_node("/root/HardwareProfile") else null
+	if hp:
+		if hp.has_method("is_hyper_low_mode") and bool(hp.is_hyper_low_mode()):
+			force_cheap_runtime = true
+		elif hp.has_method("is_weak_hardware") and bool(hp.is_weak_hardware()):
+			force_cheap_runtime = true
 	
 	# Auto-disable on Linux ARM (Anbernic, etc)
 	if OS.get_name() == "Linux" and _detect_arm_architecture():
-		_disable_runtime = true
+		force_cheap_runtime = true
 	
 	if _disable_runtime:
 		visible = false
 		set_process(false)
 		return
+
+	if force_cheap_runtime:
+		shadow_mode = "cheap"
+		update_every_n_frames = max(update_every_n_frames, 6)
+		grid_resolution = min(grid_resolution, 8)
 	
 	# Check HardwareProfile if available
-	var hp = get_node("/root/HardwareProfile") if has_node("/root/HardwareProfile") else null
 	if hp and hp.has_method("should_use_cheap_shadows"):
 		if hp.should_use_cheap_shadows():
 			shadow_mode = "cheap"

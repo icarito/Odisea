@@ -13,6 +13,7 @@ var _server: TCP_Server
 var _peers := []
 var _interface: Node
 var _peer_buffers := {} # { peer_instance_id: String }
+var _mcp_peers := {} # { peer_instance_id: true }
 var _rl_peer_states := {} # { peer_instance_id: Dictionary }
 var is_rl_mode := false
 var _rl_read_timeout_ms := 15000
@@ -50,88 +51,89 @@ func _ready():
 	var rl_mode_env = OS.get_environment("ANNA_RL_MODE")
 	if rl_mode_env == "1" or rl_mode_env.to_lower() == "true":
 		is_rl_mode = true
-	_rl_binary_protocol = OS.get_environment("ANNA_RL_BINARY_PROTOCOL").to_lower() in ["1", "true", "yes", "on"]
-	_rl_blocking_sync = OS.get_environment("ANNA_RL_BLOCKING_SYNC").to_lower() in ["1", "true", "yes", "on"]
-	_rl_profile_enabled = OS.get_environment("ANNA_RL_PROFILE").to_lower() in ["1", "true", "yes", "on"]
-	_rl_profile_to_file = OS.get_environment("ANNA_RL_PROFILE_TO_FILE").to_lower() in ["1", "true", "yes", "on"]
-	var profile_file_env = OS.get_environment("ANNA_RL_PROFILE_FILE_PATH")
-	if profile_file_env.strip_edges() != "":
-		_rl_profile_file_path = profile_file_env
-	var profile_every_env = OS.get_environment("ANNA_RL_PROFILE_EVERY")
-	if profile_every_env.is_valid_integer():
-		_rl_profile_every_steps = max(50, int(profile_every_env))
-	print("[ANNA] RL Lock-Step Mode Enabled")
-	OS.set_use_vsync(false)
-	var disable_idle_sleep_env = OS.get_environment("ANNA_RL_DISABLE_CPU_SLEEP").to_lower()
-	if disable_idle_sleep_env in ["1", "true", "yes", "on"]:
-		OS.set_low_processor_usage_mode(false)
-		OS.set_low_processor_usage_mode_sleep_usec(0)
-	var target_fps = 0
-	var target_fps_env = OS.get_environment("ANNA_RL_TARGET_FPS")
-	if target_fps_env.is_valid_integer():
-		target_fps = max(0, int(target_fps_env))
-	Engine.target_fps = target_fps
-	var physics_fps = 60
-	var physics_fps_cap = RL_UNCAPPED_PHYSICS_FPS_DEFAULT
-	var physics_fps_cap_env = OS.get_environment("ANNA_RL_PHYSICS_FPS_CAP")
-	if physics_fps_cap_env.is_valid_integer():
-		physics_fps_cap = clamp(int(physics_fps_cap_env), 60, RL_MAX_PHYSICS_FPS_HARD_CAP)
-	var physics_fps_env = OS.get_environment("ANNA_RL_PHYSICS_FPS")
-	if physics_fps_env.is_valid_integer():
-		var requested_physics_fps = int(physics_fps_env)
-		if requested_physics_fps <= 0:
-			physics_fps = physics_fps_cap
-		else:
-			physics_fps = max(30, min(requested_physics_fps, physics_fps_cap))
-	Engine.iterations_per_second = physics_fps
-	var max_physics_steps = -1
-	var max_steps_env = OS.get_environment("ANNA_RL_MAX_PHYSICS_STEPS_PER_FRAME")
-	if max_steps_env.is_valid_integer():
-		max_physics_steps = max(8, int(max_steps_env))
-	if max_physics_steps > 0 and ProjectSettings.has_setting("physics/common/max_physics_steps_per_frame"):
-		ProjectSettings.set_setting("physics/common/max_physics_steps_per_frame", max_physics_steps)
-	var jitter_fix = -1.0
-	var jitter_fix_env = OS.get_environment("ANNA_RL_PHYSICS_JITTER_FIX")
-	if jitter_fix_env.is_valid_float():
-		jitter_fix = clamp(float(jitter_fix_env), 0.0, 1.0)
-	if jitter_fix >= 0.0 and ProjectSettings.has_setting("physics/common/physics_jitter_fix"):
-		ProjectSettings.set_setting("physics/common/physics_jitter_fix", jitter_fix)
-	var max_steps_msg = "default"
-	if max_physics_steps > 0:
-		max_steps_msg = str(max_physics_steps)
-	var jitter_msg = "default"
-	if jitter_fix >= 0.0:
-		jitter_msg = "%.3f" % jitter_fix
-	print("[ANNA] RL engine: target_fps=%d physics=%dHz max_phys_steps=%s jitter_fix=%s" % [
-		target_fps, physics_fps, max_steps_msg, jitter_msg
-	])
-	var read_timeout_env = OS.get_environment("ANNA_RL_READ_TIMEOUT_MS")
-	if read_timeout_env.is_valid_integer():
-		_rl_read_timeout_ms = max(1000, int(read_timeout_env))
-	var poll_sleep_env = OS.get_environment("ANNA_RL_POLL_SLEEP_USEC")
-	if poll_sleep_env.is_valid_integer():
-		_rl_poll_sleep_usec = max(0, int(poll_sleep_env))
-	elif disable_idle_sleep_env in ["1", "true", "yes", "on"]:
-		_rl_poll_sleep_usec = 0
-	var blocking_poll_env = OS.get_environment("ANNA_RL_BLOCKING_POLL_USEC")
-	if blocking_poll_env.is_valid_integer():
-		_rl_blocking_poll_usec = max(0, int(blocking_poll_env))
-	var exit_on_disconnect_env = OS.get_environment("ANNA_RL_EXIT_ON_DISCONNECT").to_lower()
-	if exit_on_disconnect_env in ["0", "false", "no", "off"]:
-		_rl_exit_on_disconnect = false
-	var exit_grace_env = OS.get_environment("ANNA_RL_EXIT_ON_DISCONNECT_GRACE_MS")
-	if exit_grace_env.is_valid_integer():
-		_rl_exit_disconnect_grace_ms = max(0, int(exit_grace_env))
-	print("[ANNA] RL poll sleep=%dus timeout=%dms" % [_rl_poll_sleep_usec, _rl_read_timeout_ms])
-	print("[ANNA] RL sync mode=%s" % ["blocking" if _rl_blocking_sync else "nonblocking"])
-	if _rl_blocking_sync:
-		print("[ANNA] RL blocking poll=%dus timeout=%dms" % [_rl_blocking_poll_usec, _rl_read_timeout_ms])
-	print("[ANNA] RL protocol=%s" % ["binary" if _rl_binary_protocol else "json"])
-	print("[ANNA] RL exit_on_disconnect=%s grace_ms=%d" % [str(_rl_exit_on_disconnect), _rl_exit_disconnect_grace_ms])
-	if _rl_profile_enabled:
-		print("[ANNA] RL profiling enabled (every %d steps)" % _rl_profile_every_steps)
-		if _rl_profile_to_file:
-			_append_text_line(_rl_profile_file_path, "[ANNA][RL_PROFILE] start")
+	if is_rl_mode:
+		_rl_binary_protocol = OS.get_environment("ANNA_RL_BINARY_PROTOCOL").to_lower() in ["1", "true", "yes", "on"]
+		_rl_blocking_sync = OS.get_environment("ANNA_RL_BLOCKING_SYNC").to_lower() in ["1", "true", "yes", "on"]
+		_rl_profile_enabled = OS.get_environment("ANNA_RL_PROFILE").to_lower() in ["1", "true", "yes", "on"]
+		_rl_profile_to_file = OS.get_environment("ANNA_RL_PROFILE_TO_FILE").to_lower() in ["1", "true", "yes", "on"]
+		var profile_file_env = OS.get_environment("ANNA_RL_PROFILE_FILE_PATH")
+		if profile_file_env.strip_edges() != "":
+			_rl_profile_file_path = profile_file_env
+		var profile_every_env = OS.get_environment("ANNA_RL_PROFILE_EVERY")
+		if profile_every_env.is_valid_integer():
+			_rl_profile_every_steps = max(50, int(profile_every_env))
+		print("[ANNA] RL Lock-Step Mode Enabled")
+		OS.set_use_vsync(false)
+		var disable_idle_sleep_env = OS.get_environment("ANNA_RL_DISABLE_CPU_SLEEP").to_lower()
+		if disable_idle_sleep_env in ["1", "true", "yes", "on"]:
+			OS.set_low_processor_usage_mode(false)
+			OS.set_low_processor_usage_mode_sleep_usec(0)
+		var target_fps = 0
+		var target_fps_env = OS.get_environment("ANNA_RL_TARGET_FPS")
+		if target_fps_env.is_valid_integer():
+			target_fps = max(0, int(target_fps_env))
+		Engine.target_fps = target_fps
+		var physics_fps = 60
+		var physics_fps_cap = RL_UNCAPPED_PHYSICS_FPS_DEFAULT
+		var physics_fps_cap_env = OS.get_environment("ANNA_RL_PHYSICS_FPS_CAP")
+		if physics_fps_cap_env.is_valid_integer():
+			physics_fps_cap = clamp(int(physics_fps_cap_env), 60, RL_MAX_PHYSICS_FPS_HARD_CAP)
+		var physics_fps_env = OS.get_environment("ANNA_RL_PHYSICS_FPS")
+		if physics_fps_env.is_valid_integer():
+			var requested_physics_fps = int(physics_fps_env)
+			if requested_physics_fps <= 0:
+				physics_fps = physics_fps_cap
+			else:
+				physics_fps = max(30, min(requested_physics_fps, physics_fps_cap))
+		Engine.iterations_per_second = physics_fps
+		var max_physics_steps = -1
+		var max_steps_env = OS.get_environment("ANNA_RL_MAX_PHYSICS_STEPS_PER_FRAME")
+		if max_steps_env.is_valid_integer():
+			max_physics_steps = max(8, int(max_steps_env))
+		if max_physics_steps > 0 and ProjectSettings.has_setting("physics/common/max_physics_steps_per_frame"):
+			ProjectSettings.set_setting("physics/common/max_physics_steps_per_frame", max_physics_steps)
+		var jitter_fix = -1.0
+		var jitter_fix_env = OS.get_environment("ANNA_RL_PHYSICS_JITTER_FIX")
+		if jitter_fix_env.is_valid_float():
+			jitter_fix = clamp(float(jitter_fix_env), 0.0, 1.0)
+		if jitter_fix >= 0.0 and ProjectSettings.has_setting("physics/common/physics_jitter_fix"):
+			ProjectSettings.set_setting("physics/common/physics_jitter_fix", jitter_fix)
+		var max_steps_msg = "default"
+		if max_physics_steps > 0:
+			max_steps_msg = str(max_physics_steps)
+		var jitter_msg = "default"
+		if jitter_fix >= 0.0:
+			jitter_msg = "%.3f" % jitter_fix
+		print("[ANNA] RL engine: target_fps=%d physics=%dHz max_phys_steps=%s jitter_fix=%s" % [
+			target_fps, physics_fps, max_steps_msg, jitter_msg
+		])
+		var read_timeout_env = OS.get_environment("ANNA_RL_READ_TIMEOUT_MS")
+		if read_timeout_env.is_valid_integer():
+			_rl_read_timeout_ms = max(1000, int(read_timeout_env))
+		var poll_sleep_env = OS.get_environment("ANNA_RL_POLL_SLEEP_USEC")
+		if poll_sleep_env.is_valid_integer():
+			_rl_poll_sleep_usec = max(0, int(poll_sleep_env))
+		elif disable_idle_sleep_env in ["1", "true", "yes", "on"]:
+			_rl_poll_sleep_usec = 0
+		var blocking_poll_env = OS.get_environment("ANNA_RL_BLOCKING_POLL_USEC")
+		if blocking_poll_env.is_valid_integer():
+			_rl_blocking_poll_usec = max(0, int(blocking_poll_env))
+		var exit_on_disconnect_env = OS.get_environment("ANNA_RL_EXIT_ON_DISCONNECT").to_lower()
+		if exit_on_disconnect_env in ["0", "false", "no", "off"]:
+			_rl_exit_on_disconnect = false
+		var exit_grace_env = OS.get_environment("ANNA_RL_EXIT_ON_DISCONNECT_GRACE_MS")
+		if exit_grace_env.is_valid_integer():
+			_rl_exit_disconnect_grace_ms = max(0, int(exit_grace_env))
+		print("[ANNA] RL poll sleep=%dus timeout=%dms" % [_rl_poll_sleep_usec, _rl_read_timeout_ms])
+		print("[ANNA] RL sync mode=%s" % ["blocking" if _rl_blocking_sync else "nonblocking"])
+		if _rl_blocking_sync:
+			print("[ANNA] RL blocking poll=%dus timeout=%dms" % [_rl_blocking_poll_usec, _rl_read_timeout_ms])
+		print("[ANNA] RL protocol=%s" % ["binary" if _rl_binary_protocol else "json"])
+		print("[ANNA] RL exit_on_disconnect=%s grace_ms=%d" % [str(_rl_exit_on_disconnect), _rl_exit_disconnect_grace_ms])
+		if _rl_profile_enabled:
+			print("[ANNA] RL profiling enabled (every %d steps)" % _rl_profile_every_steps)
+			if _rl_profile_to_file:
+				_append_text_line(_rl_profile_file_path, "[ANNA][RL_PROFILE] start")
 
 	var err = _server.listen(port)
 	if err != OK:
@@ -189,6 +191,7 @@ func _exit_tree():
 			peer.disconnect_from_host()
 	_peers.clear()
 	_peer_buffers.clear()
+	_mcp_peers.clear()
 	_rl_peer_states.clear()
 	if _server:
 		_server.stop()
@@ -196,18 +199,12 @@ func _exit_tree():
 # --- STANDARD ASYNC MODE ---
 
 func _handle_peer(peer: StreamPeerTCP):
-	# Send Observation
-	var obs = _build_observation_payload()
-	var json_str = JSON.print(obs)
-	# Append newline for delimiter
-	peer.put_data((json_str + "\n").to_utf8())
-
 	# Receive Action (Buffering)
+	var pid = peer.get_instance_id()
+	var peer_is_mcp := bool(_mcp_peers.get(pid, false))
 	var bytes = peer.get_available_bytes()
 	if bytes > 0:
 		var chunk = peer.get_utf8_string(min(bytes, MAX_READ_BYTES_PER_TICK))
-		var pid = peer.get_instance_id()
-
 		if not _peer_buffers.has(pid):
 			_peer_buffers[pid] = ""
 		_peer_buffers[pid] += chunk
@@ -221,9 +218,23 @@ func _handle_peer(peer: StreamPeerTCP):
 			if line.strip_edges() != "":
 				var parse = JSON.parse(line)
 				if parse.error == OK and typeof(parse.result) == TYPE_DICTIONARY:
-					_on_data_received(peer, parse.result)
+					var handled_as_mcp := _on_data_received(peer, parse.result)
+					if handled_as_mcp:
+						_mcp_peers[pid] = true
+						peer_is_mcp = true
+					else:
+						if _mcp_peers.has(pid):
+							_mcp_peers.erase(pid)
+						peer_is_mcp = false
 				else:
 					print("[ANNA] Malformed JSON action received: ", line.substr(0, 50))
+
+	if peer_is_mcp:
+		return
+
+	# Stream observations only to action/agent peers. MCP peers operate request/response only.
+	var obs = _build_observation_payload()
+	_send_json(peer, obs)
 
 func _build_observation_payload() -> Dictionary:
 	var obs = _interface.get_observation()
@@ -633,7 +644,7 @@ func _append_text_line(path: String, line: String) -> void:
 	f.store_line(line)
 	f.close()
 
-func _on_data_received(peer: StreamPeerTCP, message: Dictionary) -> void:
+func _on_data_received(peer: StreamPeerTCP, message: Dictionary) -> bool:
 	var mcp_req = _normalize_mcp_request(message)
 	if bool(mcp_req.get("is_mcp", false)):
 		var cmd = str(mcp_req.get("command", ""))
@@ -642,8 +653,9 @@ func _on_data_received(peer: StreamPeerTCP, message: Dictionary) -> void:
 			args = {}
 		var result = _run_mcp_command(cmd, args)
 		_send_mcp_result(peer, mcp_req, result)
-		return
+		return true
 	_interface.apply_action(message)
+	return false
 
 func _normalize_mcp_request(message: Dictionary) -> Dictionary:
 	var req = {
@@ -824,6 +836,8 @@ func _disconnect_peer(peer: StreamPeerTCP) -> void:
 	var pid = peer.get_instance_id()
 	if _peer_buffers.has(pid):
 		_peer_buffers.erase(pid)
+	if _mcp_peers.has(pid):
+		_mcp_peers.erase(pid)
 	if _rl_peer_states.has(pid):
 		_rl_peer_states.erase(pid)
 	if peer.get_status() == StreamPeerTCP.STATUS_CONNECTED:
