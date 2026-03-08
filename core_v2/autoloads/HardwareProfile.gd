@@ -507,9 +507,9 @@ func _estimate_ios_profile() -> int:
 	return Profile.HIGH
 
 func _estimate_html5_profile() -> int:
-	# Start with high quality on web unless we have strong signs of weak hardware.
+	# On web we keep MEDIUM as the lowest automatic floor so assets/materials stay intact.
 	if _has_strong_weak_indicators_for_html5():
-		return Profile.LOW
+		return Profile.MEDIUM
 	return Profile.HIGH
 
 func _detect_weak_hardware() -> bool:
@@ -523,9 +523,7 @@ func _detect_weak_hardware() -> bool:
 		return true
 	
 	if _detected_platform == PlatformType.HTML5:
-		if _has_strong_weak_indicators_for_html5():
-			return true
-		# Runtime evidence can mark web as weak after adaptive degradation reaches LOW.
+		# Web MEDIUM should keep full assets/materials; reserve "weak" only for explicit LOW.
 		return _detected_profile <= Profile.LOW
 	
 	if _detected_platform == PlatformType.IOS:
@@ -851,12 +849,13 @@ func _monitor_web_runtime_performance(delta: float) -> void:
 		_degrade_web_profile_due_to_fps(fps)
 
 func _degrade_web_profile_due_to_fps(observed_fps: float) -> void:
-	if _detected_profile <= Profile.LOW:
+	var min_profile = Profile.MEDIUM if _detected_platform == PlatformType.HTML5 else Profile.LOW
+	if _detected_profile <= min_profile:
 		_web_fps_below_streak = 0
 		_web_degrade_cooldown_sec = WEB_DEGRADE_COOLDOWN_SEC
 		return
 	var prev_profile = _detected_profile
-	var next_profile = max(Profile.LOW, prev_profile - 1)
+	var next_profile = max(min_profile, prev_profile - 1)
 	print("[HardwareProfile] Web FPS %.1f < %.1f sustained. Lowering profile: %s -> %s" % [
 		observed_fps,
 		WEB_TARGET_FPS,

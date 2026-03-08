@@ -27,16 +27,15 @@ def test_stress__run_stress_oys():
         "--no-window",
         "--audio-driver",
         "Dummy",
-        "-s",
-        "tests/debug_runner.gd",
-        "--test-file",
-        "core_v2/tests/stress/run_stress.oys",
     ]
+    env = os.environ.copy()
+    env["OYS_AUTO_RUN"] = "res://core_v2/tests/stress/run_stress.oys"
     completed = subprocess.run(
         cmd,
         cwd=REPO_ROOT,
         text=True,
         capture_output=True,
+        env=env,
     )
     if completed.returncode != 0:
         pytest.fail(

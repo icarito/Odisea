@@ -293,10 +293,15 @@ def _run_raw_oys_file(test_file: Path, selected_runner: str, repo_root: Path, od
     cmd = [godot_bin]
     if not odisea_debug:
         cmd += ["--headless", "--no-window", "--audio-driver", "Dummy"]
-    cmd += ["-s", "tests/debug_runner.gd", "--test-file", str(rel_file)]
+    oys_auto_run = "res://%s" % rel_file.as_posix()
     print(f"[INFO] Executing: {' '.join(cmd)}")
 
-    returncode, failed_asserts, _log_path = _stream_process(cmd, file_hint=rel_file, filter_visualserver=True)
+    returncode, failed_asserts, _log_path = _stream_process(
+        cmd,
+        file_hint=rel_file,
+        filter_visualserver=True,
+        env={"OYS_AUTO_RUN": oys_auto_run},
+    )
     if returncode == 1:
         message = "Test failed with return code 1. Check logs for [ERROR]."
         if failed_asserts:

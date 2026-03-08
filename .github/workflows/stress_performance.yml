@@ -166,10 +166,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p reports
-          # Run the OYS script using the debug runner after resource smoke/import.
+          # Run the stress OYS directly via the SessionManager auto-run contract.
           # We use xvfb-run even with headless mode to ensure visual server initializes for viewports/captures if needed.
           set +e
-          timeout 600 xvfb-run godot --headless --no-window -s tests/debug_runner.gd --test-file core_v2/tests/stress/run_stress.oys 2>&1 | tee reports/stress_runner.log
+          timeout 600 env OYS_AUTO_RUN=res://core_v2/tests/stress/run_stress.oys \
+            xvfb-run godot --headless --no-window --audio-driver Dummy 2>&1 | tee reports/stress_runner.log
           stress_rc="${PIPESTATUS[0]}"
           set -e
           if [ "$stress_rc" -eq 124 ]; then
