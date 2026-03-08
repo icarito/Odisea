@@ -3,29 +3,32 @@ extends GdUnitTestSuite
 const HardwareProfileScript = preload("res://core_v2/autoloads/HardwareProfile.gd")
 
 
-func test_html5_adaptive_degrade_stops_at_medium() -> void:
+func test_html5_adaptive_degrade_is_disabled() -> void:
 	var hp = get_tree().root.get_node_or_null("HardwareProfile")
 	assert_object(hp).is_not_null()
 
 	var prev_platform = hp._detected_platform
 	var prev_profile = hp._detected_profile
+	var prev_enabled = hp._web_adaptive_quality_enabled
 	var prev_streak = hp._web_fps_below_streak
 	var prev_cooldown = hp._web_degrade_cooldown_sec
 
 	hp._detected_platform = HardwareProfileScript.PlatformType.HTML5
 	hp._detected_profile = HardwareProfileScript.Profile.HIGH
+	hp._web_adaptive_quality_enabled = true
 	hp._web_fps_below_streak = 0
 	hp._web_degrade_cooldown_sec = 0.0
 
-	hp._degrade_web_profile_due_to_fps(20.0)
-	assert_int(hp._detected_profile).is_equal(HardwareProfileScript.Profile.MEDIUM)
+	hp._configure_web_adaptive_quality()
+	assert_bool(hp._web_adaptive_quality_enabled).is_false()
 
-	hp._web_degrade_cooldown_sec = 0.0
 	hp._degrade_web_profile_due_to_fps(20.0)
-	assert_int(hp._detected_profile).is_equal(HardwareProfileScript.Profile.MEDIUM)
+	assert_int(hp._detected_profile).is_equal(HardwareProfileScript.Profile.HIGH)
+	assert_float(hp._web_degrade_cooldown_sec).is_equal(0.0)
 
 	hp._detected_platform = prev_platform
 	hp._detected_profile = prev_profile
+	hp._web_adaptive_quality_enabled = prev_enabled
 	hp._web_fps_below_streak = prev_streak
 	hp._web_degrade_cooldown_sec = prev_cooldown
 

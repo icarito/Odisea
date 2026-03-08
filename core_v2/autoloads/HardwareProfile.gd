@@ -749,6 +749,11 @@ func _get_shadow_mode_override() -> String:
 	return "auto"
 
 func _configure_web_adaptive_quality() -> void:
+	if _detected_platform == PlatformType.HTML5:
+		_web_adaptive_quality_enabled = false
+		print("[HardwareProfile] Adaptive quality disabled for HTML5.")
+		_refresh_web_adaptive_process_state()
+		return
 	if _profile_forced_by_env:
 		_web_adaptive_quality_enabled = false
 		print("[HardwareProfile] Adaptive quality disabled (profile forced by env).")
@@ -849,6 +854,10 @@ func _monitor_web_runtime_performance(delta: float) -> void:
 		_degrade_web_profile_due_to_fps(fps)
 
 func _degrade_web_profile_due_to_fps(observed_fps: float) -> void:
+	if _detected_platform == PlatformType.HTML5:
+		_web_fps_below_streak = 0
+		_web_degrade_cooldown_sec = 0.0
+		return
 	var min_profile = Profile.MEDIUM if _detected_platform == PlatformType.HTML5 else Profile.LOW
 	if _detected_profile <= min_profile:
 		_web_fps_below_streak = 0
