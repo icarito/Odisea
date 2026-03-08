@@ -107,3 +107,23 @@ func test_hyper_low_profile_keeps_animator_frame_throttle_disabled() -> void:
 
 	yield (_free_node(root), "completed")
 	hp._hyper_low_mode = previous_hyper_low
+
+
+func test_hyper_low_profile_keeps_cinematic_zone_scan_enabled() -> void:
+	var hp = get_tree().root.get_node_or_null("HardwareProfile")
+	assert_object(hp).is_not_null()
+	var previous_hyper_low = hp._hyper_low_mode
+	hp._hyper_low_mode = true
+
+	var root := Node.new()
+	root.name = "PlayerHandheldCameraZoneRoot"
+	get_tree().root.add_child(root)
+
+	var player = _build_player()
+	root.add_child(player)
+	yield (get_tree(), "idle_frame")
+
+	assert_bool(player._perf_disable_cinematic_zone_scan).is_false()
+
+	yield (_free_node(root), "completed")
+	hp._hyper_low_mode = previous_hyper_low

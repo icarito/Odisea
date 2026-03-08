@@ -327,9 +327,6 @@ func _ready():
 	if _rl_strip_visual_rig:
 		_rl_skip_animator = true
 		_disable_visual_rig_for_rl()
-	if _should_disable_expensive_scans_for_profile():
-		_perf_disable_interaction_scan = true
-		_perf_disable_cinematic_zone_scan = true
 	if _should_disable_step_up_for_profile():
 		enable_step_up = false
 	if _should_disable_auto_align_for_profile():

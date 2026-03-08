@@ -2,8 +2,8 @@ tool
 extends PropBaseV2
 class_name SciFiSphereLightV2
 
-# SciFiSphereLightV2.gd - Animated cone/sphere with emissive dot shader.
-# Has a solid BaseSphere for visibility + a shader cone for the animated effect.
+# SciFiSphereLightV2.gd - Animated sphere light with a cheap emissive cone fallback.
+# Keeps the silhouette without relying on a custom shader.
 
 export(Color) var light_color := Color(0.79, 0.43, 1.0) setget set_light_color
 export(float, 0.0, 5.0) var light_energy_max := 1.5
@@ -33,6 +33,9 @@ func _apply_color():
 		_omni_light.light_color = light_color
 	if _base_sphere and _base_sphere.material_override is SpatialMaterial:
 		_base_sphere.material_override.emission = light_color
+	if _cone_mesh and _cone_mesh.material_override is SpatialMaterial:
+		_cone_mesh.material_override.albedo_color = Color(light_color.r, light_color.g, light_color.b, _cone_mesh.material_override.albedo_color.a)
+		_cone_mesh.material_override.emission = light_color
 
 func _physics_process(delta: float) -> void:
 	._physics_process(delta)
@@ -47,10 +50,14 @@ func _physics_process(delta: float) -> void:
 func _update_visuals() -> void:
 	._update_visuals()
 	var t = anim_progress
-	# Cone shader
+	# Deprecated shader path, kept for compatibility with old scenes.
 	if _cone_mesh and _cone_mesh.material_override is ShaderMaterial:
 		_cone_mesh.material_override.set_shader_param("blenda", t)
 		_cone_mesh.material_override.set_shader_param("blendb", t)
+	elif _cone_mesh and _cone_mesh.material_override is SpatialMaterial:
+		var cone_mat := _cone_mesh.material_override
+		cone_mat.emission_energy = t * 1.6
+		cone_mat.albedo_color.a = clamp(0.08 + t * 0.35, 0.0, 0.45)
 	# Base sphere emission
 	if _base_sphere and _base_sphere.material_override is SpatialMaterial:
 		_base_sphere.material_override.emission_energy = t * 3.0

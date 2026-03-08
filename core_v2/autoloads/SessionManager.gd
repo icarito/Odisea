@@ -75,6 +75,14 @@ var _rl_mode := false
 var _rl_bypass_session_manager := true
 const ALLOW_ANNA_IN_REMOTE_DEBUG_ENV := "ODISEA_ALLOW_ANNA_REMOTE_DEBUG"
 const REMOTE_DEBUG_FLAGS := ["--remote-debug"]
+const ANNA_ENABLED_ENV := "ANNA_ENABLED"
+const ANNA_PORT_ENV := "ANNA_PORT"
+const SWITCH_ANNA_CONFIG_CANDIDATES := [
+	"user://anna.env",
+	"user://enable_anna.txt",
+	"sdmc:/switch/Odisea/anna.env",
+	"sdmc:/switch/Odisea/enable_anna.txt",
+]
 const STARTUP_GATE_FRAMES_FAST := 2
 const STARTUP_GATE_FRAMES_WEAK := 18
 const STARTUP_GATE_MAX_WAIT_FRAMES := 720
@@ -240,16 +248,21 @@ func _ready():
 	_env_vars["$sys_env_auto_run"] = OS.get_environment("OYS_AUTO_RUN")
 
 	# --- Project A.N.N.A Integration ---
-	if _should_enable_anna_bridge():
+	var anna_runtime = _resolve_anna_runtime_config()
+	if bool(anna_runtime.get("enabled", false)):
 		var allow_remote_anna = OS.get_environment(ALLOW_ANNA_IN_REMOTE_DEBUG_ENV).to_lower() in ["1", "true", "yes", "on"]
 		if _is_vscode_remote_debug_session():
 			allow_remote_anna = true
 		if _is_remote_debug_session() and not allow_remote_anna:
 			print("[SessionManager] Skipping AnnaBridge in remote-debug session for stability (%s=1 to override)." % ALLOW_ANNA_IN_REMOTE_DEBUG_ENV)
 		else:
-			var reason = "ANNA_ENABLED=1"
-			if OS.get_environment("ANNA_ENABLED") != "1" and _is_vscode_remote_debug_session():
-				reason = "VSCode remote-debug auto-detect"
+			var anna_port = String(anna_runtime.get("port", "")).strip_edges()
+			if anna_port != "":
+				OS.set_environment(ANNA_PORT_ENV, anna_port)
+			var reason = String(anna_runtime.get("reason", "")).strip_edges()
+			var source = String(anna_runtime.get("source", "")).strip_edges()
+			if source != "" and source != "env" and source != "vscode":
+				reason += " (%s)" % source
 			_ensure_anna_bridge_enabled(reason)
 
 	# Detección de parámetro --replay
@@ -482,10 +495,73 @@ func _script_requires_anna(script_content: String) -> bool:
 			return true
 	return false
 
+func _load_switch_anna_config() -> Dictionary:
+	var cfg := {
+		"enabled": false,
+		"port": "",
+		"source": "",
+	}
+	if OS.get_name() != "Switch":
+		return cfg
+	var file := File.new()
+	for path in SWITCH_ANNA_CONFIG_CANDIDATES:
+		if not file.file_exists(path):
+			continue
+		cfg["source"] = path
+		if path.ends_with(".txt"):
+			cfg["enabled"] = true
+			return cfg
+		if file.open(path, File.READ) != OK:
+			printerr("[SessionManager] Could not open Switch ANNA config: %s" % path)
+			return cfg
+		while not file.eof_reached():
+			var raw_line = file.get_line()
+			var line = raw_line.strip_edges()
+			if line == "" or line.begins_with("#") or line.begins_with(";"):
+				continue
+			var eq_idx = line.find("=")
+			if eq_idx == -1:
+				continue
+			var key = line.substr(0, eq_idx).strip_edges()
+			var value = line.substr(eq_idx + 1, line.length()).strip_edges()
+			if key == ANNA_ENABLED_ENV:
+				cfg["enabled"] = value.to_lower() in ["1", "true", "yes", "on"]
+			elif key == ANNA_PORT_ENV and value.is_valid_integer():
+				cfg["port"] = value
+		file.close()
+		return cfg
+	return cfg
+
+func _resolve_anna_runtime_config() -> Dictionary:
+	var config := {
+		"enabled": false,
+		"port": "",
+		"reason": "",
+		"source": "",
+	}
+	var env_enabled = OS.get_environment(ANNA_ENABLED_ENV).strip_edges()
+	if env_enabled != "":
+		config["enabled"] = env_enabled.to_lower() in ["1", "true", "yes", "on"]
+		config["port"] = OS.get_environment(ANNA_PORT_ENV).strip_edges()
+		config["reason"] = "%s=%s" % [ANNA_ENABLED_ENV, env_enabled]
+		config["source"] = "env"
+		return config
+	if _is_vscode_remote_debug_session():
+		config["enabled"] = true
+		config["port"] = OS.get_environment(ANNA_PORT_ENV).strip_edges()
+		config["reason"] = "VSCode remote-debug auto-detect"
+		config["source"] = "vscode"
+		return config
+	var switch_cfg = _load_switch_anna_config()
+	if bool(switch_cfg.get("enabled", false)):
+		config["enabled"] = true
+		config["port"] = String(switch_cfg.get("port", "")).strip_edges()
+		config["reason"] = "Switch ANNA config"
+		config["source"] = String(switch_cfg.get("source", ""))
+	return config
+
 func _should_enable_anna_bridge() -> bool:
-	if OS.get_environment("ANNA_ENABLED") == "1":
-		return true
-	return _is_vscode_remote_debug_session()
+	return bool(_resolve_anna_runtime_config().get("enabled", false))
 
 func _is_vscode_remote_debug_session() -> bool:
 	if not _is_remote_debug_session():

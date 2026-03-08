@@ -45,6 +45,12 @@ func _is_disabled_in_runtime() -> bool:
 	var hard_disable = OS.get_environment("ODISEA_DISABLE_SHADER_WARMUP").to_lower()
 	if hard_disable in ["1", "true", "yes", "on"]:
 		return true
+	var hardware_profile = get_node_or_null("/root/HardwareProfile")
+	if hardware_profile != null:
+		if hardware_profile.has_method("get_platform") and hardware_profile.get_platform() == hardware_profile.PlatformType.SWITCH:
+			return true
+		if hardware_profile.has_method("is_weak_hardware") and hardware_profile.is_weak_hardware():
+			return true
 	var in_rl = OS.get_environment("ANNA_RL_MODE").to_lower() in ["1", "true", "yes", "on"]
 	var disable_in_rl = OS.get_environment("ODISEA_DISABLE_SHADER_WARMUP_IN_RL")
 	if disable_in_rl == "":

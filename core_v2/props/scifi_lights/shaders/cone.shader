@@ -35,7 +35,7 @@ void fragment() {
 		vec2 tuv2 = tuv * vec2(10., 1);
 		vec2 ouv = tuv2;
 		tuv2 = floor(tuv2 * 80.) / 80.;
-		vec2 offset = round(tuv2 * 20.) / 20.;
+		vec2 offset = floor(tuv2 * 20. + vec2(0.5)) / 20.;
 		vec3 dot_col = vec3(0.);
 	    for(int i = 0; i < 3; i++) {
 	        float t = iTime + float(i) * 5.1 + (abs(tuv2.y)) * 6.5;

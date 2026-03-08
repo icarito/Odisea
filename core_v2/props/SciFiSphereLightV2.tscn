@@ -1,7 +1,6 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://core_v2/props/scifi_lights/SciFiSphereLightV2.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/props/scifi_lights/shaders/cone.shader" type="Shader" id=2]
 
 [sub_resource type="SpatialMaterial" id=4]
 albedo_color = Color( 0.08, 0.08, 0.1, 1 )
@@ -19,11 +18,16 @@ height = 0.24
 radial_segments = 12
 rings = 6
 
-[sub_resource type="ShaderMaterial" id=1]
-shader = ExtResource( 2 )
-shader_param/iTime = 0.0
-shader_param/blenda = 0.0
-shader_param/blendb = 0.0
+[sub_resource type="SpatialMaterial" id=1]
+flags_transparent = true
+params_cull_mode = 2
+albedo_color = Color( 0.79, 0.43, 1, 0.18 )
+roughness = 1.0
+emission_enabled = true
+emission = Color( 0.79, 0.43, 1, 1 )
+emission_energy = 0.0
+emission_operator = 0
+emission_on_uv2 = false
 
 [sub_resource type="CylinderMesh" id=2]
 top_radius = 0.0

@@ -94,6 +94,11 @@ const META_ORIGINAL_ENV_DOF_NEAR_ENABLED := "__hp_original_env_dof_near_enabled"
 const META_ORIGINAL_ENV_DOF_FAR_ENABLED := "__hp_original_env_dof_far_enabled"
 const META_ORIGINAL_ENV_ADJUSTMENT_ENABLED := "__hp_original_env_adjustment_enabled"
 const META_ORIGINAL_CAMERA_FAR := "__hp_original_camera_far"
+const META_DIAG_TRANSPARENCY_HIDDEN := "__hp_diag_transparency_hidden"
+const META_DIAG_PROCESS_WAS_ENABLED := "__hp_diag_process_was_enabled"
+const META_DIAG_PHYSICS_PROCESS_WAS_ENABLED := "__hp_diag_physics_process_was_enabled"
+const META_DIAG_LIGHT_ENERGY := "__hp_diag_light_energy"
+const META_DIAG_LIGHT_VISIBLE := "__hp_diag_light_visible"
 const FLUORESCENT_SCRIPT_PATH := "res://core_v2/props/scifi_lights/FluorescentLight.gd"
 const LOW_NO_SHADOW_ENV_BRIGHTNESS := 0.5
 const FALLBACK_SPACE_COLOR := Color(0.0, 0.0, 0.01, 1.0)
@@ -110,6 +115,9 @@ const FLUORESCENT_SHADOW_BATCH_SIZE := 24
 const HYPER_LOW_CAMERA_FAR_CLAMP := 180.0
 const HYPER_LOW_CAMERA_FAR_MIN := 35.0
 const HYPER_LOW_TARGET_FPS := 30
+const TRANSPARENCY_DIAG_ENV := "ODISEA_DIAG_DISABLE_TRANSPARENCIES"
+const TRANSPARENCY_DIAG_CATEGORIES_ENV := "ODISEA_DIAG_TRANSPARENCY_CATEGORIES"
+const TRANSPARENCY_DIAG_DEFAULT_CATEGORIES := ["scifi_lights", "holograms", "fx", "helmet_view"]
 
 signal profile_changed(new_profile)
 signal platform_detected(platform_type, device_name)
@@ -125,6 +133,7 @@ func _ready() -> void:
 	_sync_camera_ranges_for_profile()
 	_sync_directional_lights_for_profile()
 	_sync_fluorescent_lights_for_profile()
+	_sync_transparency_diagnostics_for_profile()
 	_sync_procedural_sun_direction()
 	_refresh_web_adaptive_process_state()
 	set_process_input(true)
@@ -623,6 +632,7 @@ func set_profile(new_profile: int) -> void:
 		_sync_camera_ranges_for_profile()
 		_sync_directional_lights_for_profile()
 		_sync_fluorescent_lights_for_profile()
+		_sync_transparency_diagnostics_for_profile()
 		_sync_procedural_sun_direction()
 		emit_signal("profile_changed", _detected_profile)
 		print("[HardwareProfile] Profile changed to: %s" % Profile.keys()[_detected_profile])
@@ -898,6 +908,8 @@ func _on_tree_node_added(node: Node) -> void:
 		var parent = node.get_parent()
 		if _is_fluorescent_light_host(node) or (parent and _is_fluorescent_light_host(parent)):
 			_sync_fluorescent_lights_for_profile()
+		if _should_disable_transparency_diag():
+			_apply_transparency_diag_to_node(node)
 
 func _sync_world_environment_for_profile() -> void:
 	if _world_environment_refresh_queued:
@@ -1193,7 +1205,8 @@ func _apply_camera_range_policy(camera: Camera) -> void:
 		camera.far = original_far
 
 func _refresh_hyper_low_state() -> void:
-	var next_state = _detected_profile <= Profile.LOW and _is_anbernic_target
+	var handheld_hyper_low = _is_anbernic_target or _detected_platform == PlatformType.SWITCH
+	var next_state = _detected_profile <= Profile.LOW and handheld_hyper_low
 	_hyper_low_mode = bool(next_state)
 
 func _sync_directional_lights_for_profile() -> void:
@@ -1220,6 +1233,161 @@ func _sync_directional_lights_for_profile_deferred() -> void:
 			_apply_directional_light_shadow_policy(light, shadow_policy)
 	else:
 		_apply_directional_shadow_policy_batch(directional_lights, shadow_policy, version, 0)
+
+func _sync_transparency_diagnostics_for_profile() -> void:
+	call_deferred("_sync_transparency_diagnostics_for_profile_deferred")
+
+func _sync_transparency_diagnostics_for_profile_deferred() -> void:
+	if not get_tree() or not is_instance_valid(get_tree().root):
+		return
+	if _should_disable_transparency_diag():
+		var counts := {}
+		_apply_transparency_diag_recursive(get_tree().root, counts)
+		if not counts.empty():
+			print("[HardwareProfile] Transparency diagnostic prune: %s" % [JSON.print(counts)])
+		return
+	_restore_transparency_diag_recursive(get_tree().root)
+
+func _should_disable_transparency_diag() -> bool:
+	var env_value = OS.get_environment(TRANSPARENCY_DIAG_ENV).strip_edges().to_lower()
+	if env_value in ["0", "false", "no", "off"]:
+		return false
+	if env_value in ["1", "true", "yes", "on"]:
+		return true
+	return _hyper_low_mode or _detected_platform == PlatformType.SWITCH
+
+func _get_transparency_diag_categories() -> Array:
+	var raw = OS.get_environment(TRANSPARENCY_DIAG_CATEGORIES_ENV).strip_edges().to_lower()
+	if raw == "":
+		return TRANSPARENCY_DIAG_DEFAULT_CATEGORIES.duplicate()
+	var categories := []
+	for part in raw.split(",", false):
+		var item = String(part).strip_edges()
+		if item != "":
+			categories.append(item)
+	if categories.empty():
+		return TRANSPARENCY_DIAG_DEFAULT_CATEGORIES.duplicate()
+	return categories
+
+func _apply_transparency_diag_recursive(node: Node, counts: Dictionary) -> void:
+	_apply_transparency_diag_to_node(node, counts)
+	for child in node.get_children():
+		if child is Node:
+			_apply_transparency_diag_recursive(child, counts)
+
+func _restore_transparency_diag_recursive(node: Node) -> void:
+	if node is Spatial and node.has_meta(META_DIAG_TRANSPARENCY_HIDDEN):
+		node.visible = bool(node.get_meta(META_DIAG_TRANSPARENCY_HIDDEN))
+		node.remove_meta(META_DIAG_TRANSPARENCY_HIDDEN)
+	if node is Light:
+		var light_node := node as Light
+		if light_node.has_meta(META_DIAG_LIGHT_ENERGY):
+			light_node.light_energy = float(light_node.get_meta(META_DIAG_LIGHT_ENERGY))
+			light_node.remove_meta(META_DIAG_LIGHT_ENERGY)
+		if light_node.has_meta(META_DIAG_LIGHT_VISIBLE):
+			light_node.visible = bool(light_node.get_meta(META_DIAG_LIGHT_VISIBLE))
+			light_node.remove_meta(META_DIAG_LIGHT_VISIBLE)
+	if node.has_meta(META_DIAG_PROCESS_WAS_ENABLED):
+		node.set_process(bool(node.get_meta(META_DIAG_PROCESS_WAS_ENABLED)))
+		node.remove_meta(META_DIAG_PROCESS_WAS_ENABLED)
+	if node.has_meta(META_DIAG_PHYSICS_PROCESS_WAS_ENABLED):
+		node.set_physics_process(bool(node.get_meta(META_DIAG_PHYSICS_PROCESS_WAS_ENABLED)))
+		node.remove_meta(META_DIAG_PHYSICS_PROCESS_WAS_ENABLED)
+	for child in node.get_children():
+		if child is Node:
+			_restore_transparency_diag_recursive(child)
+
+func _apply_transparency_diag_to_node(node: Node, counts := {}) -> void:
+	var category = _classify_transparency_diag_node(node)
+	if category == "":
+		return
+	var categories = _get_transparency_diag_categories()
+	if not categories.has(category):
+		return
+	var changed := false
+	if node is MeshInstance:
+		var mesh_instance := node as MeshInstance
+		if mesh_instance.visible:
+			if not mesh_instance.has_meta(META_DIAG_TRANSPARENCY_HIDDEN):
+				mesh_instance.set_meta(META_DIAG_TRANSPARENCY_HIDDEN, mesh_instance.visible)
+			mesh_instance.visible = false
+			changed = true
+	if node is Light:
+		var light_node := node as Light
+		if not light_node.has_meta(META_DIAG_LIGHT_ENERGY):
+			light_node.set_meta(META_DIAG_LIGHT_ENERGY, light_node.light_energy)
+		if not light_node.has_meta(META_DIAG_LIGHT_VISIBLE):
+			light_node.set_meta(META_DIAG_LIGHT_VISIBLE, light_node.visible)
+		light_node.light_energy = 0.0
+		light_node.visible = false
+		changed = true
+	if node.has_method("set_process"):
+		if not node.has_meta(META_DIAG_PROCESS_WAS_ENABLED):
+			node.set_meta(META_DIAG_PROCESS_WAS_ENABLED, node.is_processing())
+		node.set_process(false)
+		changed = true
+	if node.has_method("set_physics_process"):
+		if not node.has_meta(META_DIAG_PHYSICS_PROCESS_WAS_ENABLED):
+			node.set_meta(META_DIAG_PHYSICS_PROCESS_WAS_ENABLED, node.is_physics_processing())
+		node.set_physics_process(false)
+		changed = true
+	if not changed:
+		return
+	if typeof(counts) == TYPE_DICTIONARY:
+		counts[category] = int(counts.get(category, 0)) + 1
+
+func _classify_transparency_diag_node(node: Node) -> String:
+	var source = _get_transparency_diag_source(node)
+	var has_transparent_visual = _node_has_transparent_visual(node)
+	var is_decorative_light = node is Light
+	var is_decorative_script = _contains_any_hint(source, ["fluorescentlight", "scifispherelight", "scifiboxlight", "volumetricglowlight", "hologram", "shield", "sparkemitter", "beacon", "helmet_view"])
+	if not has_transparent_visual and not is_decorative_light and not is_decorative_script:
+		return ""
+	if _contains_any_hint(source, ["scifi_lights", "fluorescentlight", "scifispherelight", "scifiboxlight", "volumetricglowlight", "scifihanginglight", "scififloatinglight", "scifistaticlight", "emergencybeacon"]):
+		return "scifi_lights"
+	if _contains_any_hint(source, ["hologram", "holoterminal", "tableterminal", "wallterminal", "scifishield", "shield", "holo"]):
+		return "holograms"
+	if _contains_any_hint(source, ["sparkemitter", "volumetricglow", "fusioncore", "gravityanchor", "neon_sign", "hazard_tape", "beacon"]):
+		return "fx"
+	if _contains_any_hint(source, ["helmethud", "helmet_view", "drone_dock", "grip_point", "holo_planta"]):
+		return "helmet_view"
+	return ""
+
+func _get_transparency_diag_source(node: Node) -> String:
+	var parts := [String(node.name).to_lower(), String(node.get_path()).to_lower()]
+	if node.filename != null:
+		parts.append(String(node.filename).to_lower())
+	var script = node.get_script()
+	if script and script is Script:
+		parts.append(String(script.resource_path).to_lower())
+	return " ".join(parts)
+
+func _node_has_transparent_visual(node: Node) -> bool:
+	if not (node is MeshInstance):
+		return false
+	var mesh_instance := node as MeshInstance
+	if _material_is_transparent(mesh_instance.material_override):
+		return true
+	if mesh_instance.mesh == null:
+		return false
+	for surface_idx in range(mesh_instance.mesh.get_surface_count()):
+		if _material_is_transparent(mesh_instance.get_surface_material(surface_idx)):
+			return true
+	return false
+
+func _material_is_transparent(mat: Material) -> bool:
+	if mat == null:
+		return false
+	if mat is SpatialMaterial:
+		var spatial_mat := mat as SpatialMaterial
+		if spatial_mat.flags_transparent:
+			return true
+		if spatial_mat.params_blend_mode != SpatialMaterial.BLEND_MODE_MIX:
+			return true
+		return spatial_mat.albedo_color.a < 0.999
+	if mat is ShaderMaterial:
+		return true
+	return false
 
 func _collect_directional_lights(node: Node, into: Array) -> void:
 	if node is DirectionalLight:

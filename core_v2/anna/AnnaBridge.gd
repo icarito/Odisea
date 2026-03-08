@@ -9,6 +9,9 @@ const RL_BINARY_OBS_FLOATS = 13 # 13 obs + reward
 const RL_BINARY_OBS_SIZE = RL_BINARY_OBS_FLOATS * 4 + 1 # + done byte
 const MCP_RESULT_TYPE = "mcp_result"
 const MCP_ERROR_TYPE = "mcp_error"
+const SWITCH_BIND_ADDRESSES := ["0.0.0.0", "*"]
+const DEFAULT_BIND_ADDRESSES := ["*", "0.0.0.0"]
+const PORT_FALLBACK_OFFSETS := [0, 1, 2]
 var _server: TCP_Server
 var _peers := []
 var _interface: Node
@@ -36,6 +39,38 @@ var _rl_exit_on_disconnect := false
 var _rl_exit_disconnect_grace_ms := 1500
 var _rl_had_connected_peer := false
 var _rl_disconnected_since_ms := -1
+var _listen_port := PORT
+var _listen_bind_address := "*"
+
+func _get_bind_addresses() -> Array:
+	if OS.get_name() == "Switch":
+		return SWITCH_BIND_ADDRESSES
+	return DEFAULT_BIND_ADDRESSES
+
+func _listen_server(requested_port: int) -> int:
+	var bind_addresses = _get_bind_addresses()
+	var last_err := FAILED
+	for port_offset in PORT_FALLBACK_OFFSETS:
+		var try_port = requested_port + int(port_offset)
+		for bind_address in bind_addresses:
+			var err = _server.listen(try_port, bind_address)
+			if err == OK:
+				_listen_port = try_port
+				_listen_bind_address = bind_address
+				return OK
+			last_err = err
+			if _server:
+				_server.stop()
+	return last_err
+
+func _should_stream_observation_continuously() -> bool:
+	if OS.get_name() == "Switch":
+		return false
+	var hardware_profile = get_node_or_null("/root/HardwareProfile")
+	if hardware_profile and is_instance_valid(hardware_profile):
+		if hardware_profile.has_method("is_hyper_low_mode") and bool(hardware_profile.is_hyper_low_mode()):
+			return false
+	return true
 
 func _ready():
 	_interface = preload("res://core_v2/anna/AnnaInterface.gd").new()
@@ -135,11 +170,14 @@ func _ready():
 			if _rl_profile_to_file:
 				_append_text_line(_rl_profile_file_path, "[ANNA][RL_PROFILE] start")
 
-	var err = _server.listen(port)
+	var err = _listen_server(port)
 	if err != OK:
-		print("[ANNA] Failed to listen on port %d" % port)
+		printerr("[ANNA] Failed to listen on port %d (err=%d, bind=%s)" % [port, err, _listen_bind_address])
 	else:
-		print("[ANNA] Listening on port %d" % port)
+		if _listen_port != port:
+			OS.set_environment("ANNA_PORT", str(_listen_port))
+			print("[ANNA] Port %d unavailable, fell back to %d" % [port, _listen_port])
+		print("[ANNA] Listening on %s:%d" % [_listen_bind_address, _listen_port])
 
 func _physics_process(_delta):
 	# Accept new connections
@@ -230,6 +268,9 @@ func _handle_peer(peer: StreamPeerTCP):
 					print("[ANNA] Malformed JSON action received: ", line.substr(0, 50))
 
 	if peer_is_mcp:
+		return
+
+	if not _should_stream_observation_continuously():
 		return
 
 	# Stream observations only to action/agent peers. MCP peers operate request/response only.
@@ -719,6 +760,8 @@ func _normalize_mcp_request(message: Dictionary) -> Dictionary:
 func _is_known_mcp_command(cmd: String) -> bool:
 	var normalized = cmd.to_lower()
 	return normalized in [
+		"ping",
+		"telemetry_lite",
 		"get_tree",
 		"inspect",
 		"inspect_node",
@@ -727,13 +770,64 @@ func _is_known_mcp_command(cmd: String) -> bool:
 		"execute_oys",
 		"capture_vision",
 		"query_codex_docs",
+		"odisea://telemetry-lite",
 		"odisea://scene/hierarchy",
 		"odisea://simulation/telemetry",
 		"odisea://olcs/logic-state"
 	]
 
+func _build_telemetry_lite() -> Dictionary:
+	var fps = float(Performance.get_monitor(Performance.TIME_FPS))
+	var process_ms = float(Performance.get_monitor(Performance.TIME_PROCESS)) * 1000.0
+	var physics_ms = float(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)) * 1000.0
+	var node_count = 0
+	if Performance.get("OBJECT_NODE_COUNT") != null:
+		node_count = int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT))
+	var draw_calls = 0
+	if Performance.get("RENDER_DRAW_CALLS") != null:
+		draw_calls = int(Performance.get_monitor(Performance.RENDER_DRAW_CALLS))
+	var hardware := {
+		"available": false
+	}
+	var hardware_profile = get_node_or_null("/root/HardwareProfile")
+	if hardware_profile and is_instance_valid(hardware_profile):
+		hardware = {
+			"available": true,
+			"platform": String(hardware_profile.get_platform_name()) if hardware_profile.has_method("get_platform_name") else "UNKNOWN",
+			"profile": String(hardware_profile.get_effective_profile_name()) if hardware_profile.has_method("get_effective_profile_name") else "UNKNOWN",
+			"hyper_low": bool(hardware_profile.is_hyper_low_mode()) if hardware_profile.has_method("is_hyper_low_mode") else false,
+			"weak_hardware": bool(hardware_profile.is_weak_hardware()) if hardware_profile.has_method("is_weak_hardware") else false
+		}
+	return {
+		"resource": "odisea://telemetry-lite",
+		"fps": fps,
+		"process_ms": process_ms,
+		"physics_ms": physics_ms,
+		"draw_calls": draw_calls,
+		"node_count": node_count,
+		"physics_frame": Engine.get_physics_frames(),
+		"peer_count": _peers.size(),
+		"hardware": hardware
+	}
+
 func _run_mcp_command(command: String, args: Dictionary) -> Dictionary:
 	var cmd = command.strip_edges().to_lower()
+	if cmd == "ping":
+		return {
+			"ok": true,
+			"data": {
+				"pong": true,
+				"physics_frame": Engine.get_physics_frames(),
+				"peer_count": _peers.size(),
+			}
+		}
+
+	if cmd == "telemetry_lite" or cmd == "odisea://telemetry-lite":
+		return {
+			"ok": true,
+			"data": _build_telemetry_lite()
+		}
+
 	if cmd == "get_tree" or cmd == "scene_hierarchy" or cmd == "odisea://scene/hierarchy":
 		return {
 			"ok": true,

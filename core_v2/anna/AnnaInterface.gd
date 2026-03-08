@@ -17,6 +17,7 @@ const MCP_DOC_SEARCH_PATHS = ["res://README.md", "res://TODO.md"]
 const MCP_SCREENSHOT_DIR = "user://anna_mcp"
 const MCP_INLINE_OYS_DIR = "user://anna_mcp/inline_oys"
 const OYS_CONSOLE_SCRIPT = preload("res://core_v2/ui/retro/OYS_Console.gd")
+const ANNA_LAZY_SENSORS_ENV := "ANNA_LAZY_SENSORS"
 
 # RL Config
 const RL_TARGET_GROUP = "anna_target"
@@ -534,12 +535,25 @@ func _ready():
 	])
 	print("[AnnaInterface] look_cfg delta_x=%.2f min_correction=%.2f" % [_rl_look_delta_x, _rl_look_min_correction])
 	print("[AnnaInterface] steering assisted=%s" % [str(_rl_assisted_steering)])
-	_setup_sensors()
-	_setup_rl_sensors()
+	if _should_prewarm_sensors():
+		_setup_sensors()
+		_setup_rl_sensors()
 	_bind_killzones()
 	var tree = get_tree()
 	if tree and not tree.is_connected("node_added", self , "_on_tree_node_added"):
 		tree.connect("node_added", self , "_on_tree_node_added")
+
+func _should_prewarm_sensors() -> bool:
+	var lazy_env = OS.get_environment(ANNA_LAZY_SENSORS_ENV).strip_edges().to_lower()
+	if lazy_env != "":
+		return not (lazy_env in ["1", "true", "yes", "on"])
+	if OS.get_name() == "Switch":
+		return false
+	var hardware_profile = get_node_or_null("/root/HardwareProfile")
+	if hardware_profile and is_instance_valid(hardware_profile):
+		if hardware_profile.has_method("is_hyper_low_mode") and bool(hardware_profile.is_hyper_low_mode()):
+			return false
+	return true
 
 func _exit_tree():
 	var tree = get_tree()

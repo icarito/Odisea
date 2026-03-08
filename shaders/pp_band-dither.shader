@@ -13,5 +13,5 @@ void fragment() {
 
 	vec3 dith = texture(dither_tex, SCREEN_UV*(buf_size/dith_size)).rgb;
 	dith -= 0.5;
-	COLOR.rgb = round(COLOR.rgb*col_depth + dith * (dither_banding ? 1.0 : 0.0)) / col_depth;
+	COLOR.rgb = floor(COLOR.rgb * col_depth + dith * (dither_banding ? 1.0 : 0.0) + vec3(0.5)) / col_depth;
 }
