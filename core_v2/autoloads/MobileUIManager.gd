@@ -99,8 +99,12 @@ func _on_camera_zoom(delta: float) -> void:
 
 func _get_active_input_provider():
 	var session = get_node_or_null("/root/SessionManager")
-	if session and session.player and session.player.input_provider:
-		return session.player.input_provider
+	if not session or not session.player:
+		return null
+	var player = session.player
+	if not ("input_provider" in player):
+		return null
+	return player.input_provider
 	return null
 
 func is_mobile() -> bool:
