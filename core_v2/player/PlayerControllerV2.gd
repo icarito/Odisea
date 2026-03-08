@@ -327,8 +327,6 @@ func _ready():
 	if _rl_strip_visual_rig:
 		_rl_skip_animator = true
 		_disable_visual_rig_for_rl()
-	if _should_disable_step_up_for_profile():
-		enable_step_up = false
 	if _should_disable_auto_align_for_profile():
 		enable_auto_align = false
 	_hyper_low_animator_throttle = _should_throttle_animator_for_profile()
@@ -423,18 +421,7 @@ func _should_reduce_camera_particles() -> bool:
 		return bool(hp.is_weak_hardware())
 	return false
 
-func _should_disable_step_up_for_profile() -> bool:
-	# Keep step-up available on handheld weak hardware by default.
-	# Runtime A/B showed this is not the main stutter culprit.
-	return false
-
 func _should_disable_auto_align_for_profile() -> bool:
-	var hp = _get_hardware_profile_node()
-	if hp and hp.has_method("is_hyper_low_mode"):
-		return bool(hp.is_hyper_low_mode())
-	return false
-
-func _should_disable_expensive_scans_for_profile() -> bool:
 	var hp = _get_hardware_profile_node()
 	if hp and hp.has_method("is_hyper_low_mode"):
 		return bool(hp.is_hyper_low_mode())
