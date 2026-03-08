@@ -1,8 +1,6 @@
 LEVEL "res://core_v2/levels/BaseTerrace.tscn"
 
 SECTION "Intro"
-    PRINT "ACTO I"
-    
     SET_TIME_SCALE 0.7
     
     CINEMATIC
@@ -14,6 +12,8 @@ SECTION "Intro"
     
 
     WAIT 1.4
+    PRINT "ACTO I"
+    
     
     # Restore legacy shake magnitude (pre-VCamera integration): amp=0.25, rot=5.0, freq=16
     WAIT 1.0
