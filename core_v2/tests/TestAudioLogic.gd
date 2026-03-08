@@ -30,3 +30,38 @@ func test_audio_manager_sorting():
 	zone_large.free()
 	zone_small.free()
 	am.free()
+
+func test_mobile_web_audio_guard_detection():
+	var am = AudioManagerScript.new()
+
+	assert_bool(am._should_enable_mobile_web_audio_guard("HTML5", true)).is_true()
+	assert_bool(am._should_enable_mobile_web_audio_guard("HTML5", false)).is_false()
+	assert_bool(am._should_enable_mobile_web_audio_guard("Android", true)).is_false()
+
+	am.free()
+
+func test_mobile_web_audio_policy_pauses_out_of_range_players():
+	var am = AudioManagerScript.new()
+	var player = AudioStreamPlayer3D.new()
+	player.max_distance = 24.0
+	player.out_of_range_mode = AudioStreamPlayer3D.OUT_OF_RANGE_MIX
+
+	am._configure_mobile_web_3d_player(player)
+
+	assert_int(player.out_of_range_mode).is_equal(AudioStreamPlayer3D.OUT_OF_RANGE_PAUSE)
+
+	player.free()
+	am.free()
+
+func test_mobile_web_audio_policy_keeps_unbounded_players_mixing():
+	var am = AudioManagerScript.new()
+	var player = AudioStreamPlayer3D.new()
+	player.max_distance = 0.0
+	player.out_of_range_mode = AudioStreamPlayer3D.OUT_OF_RANGE_MIX
+
+	am._configure_mobile_web_3d_player(player)
+
+	assert_int(player.out_of_range_mode).is_equal(AudioStreamPlayer3D.OUT_OF_RANGE_MIX)
+
+	player.free()
+	am.free()

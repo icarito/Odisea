@@ -1917,6 +1917,10 @@ boot_splash/use_filter=false
 config/icon="res://assets/odisea_icon.png"
 config/optional_nodes_enabled=true
 
+[audio]
+
+output_latency.web=100
+
 [autoload]
 
 AudioManager="*res://core_v2/autoloads/AudioManager.gd"

@@ -20,14 +20,17 @@ var _headless_audio_muted := false
 var _focus_audio_muted := false
 var _cinematic_listener: Listener = null
 var _cinematic_listener_engaged := false
+var _mobile_web_audio_guard_enabled := false
 
 export(bool) var follow_active_camera_for_spatial_sfx := true
 export(bool) var follow_active_camera_only_during_cinematics := true
 
 const HEADLESS_MUTE_ENV := "ODISEA_MUTE_AUDIO_HEADLESS"
 const FORCE_MUTE_ENV := "ODISEA_FORCE_MUTE_AUDIO"
+const MOBILE_WEB_MASTER_GAIN_DB := -6.0
 
 func _ready():
+	_configure_runtime_audio_safeguards()
 	_headless_audio_muted = _should_mute_audio_for_runtime()
 	_apply_headless_audio_mute(_headless_audio_muted)
 
@@ -56,6 +59,66 @@ func _notification(what):
 	elif what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
 		_set_focus_audio_muted(false)
 		_set_music_focus_paused(false)
+
+func _exit_tree() -> void:
+	var tree = get_tree()
+	if tree and tree.is_connected("node_added", self, "_on_tree_node_added"):
+		tree.disconnect("node_added", self, "_on_tree_node_added")
+
+func _configure_runtime_audio_safeguards() -> void:
+	_mobile_web_audio_guard_enabled = _should_enable_mobile_web_audio_guard(OS.get_name(), OS.has_touchscreen_ui_hint())
+	if not _mobile_web_audio_guard_enabled:
+		return
+
+	var master_idx = _get_master_bus_index()
+	_ensure_master_limiter(master_idx)
+	var current_master_db = AudioServer.get_bus_volume_db(master_idx)
+	if current_master_db > MOBILE_WEB_MASTER_GAIN_DB:
+		AudioServer.set_bus_volume_db(master_idx, MOBILE_WEB_MASTER_GAIN_DB)
+
+	var tree = get_tree()
+	if tree and tree.root:
+		_apply_mobile_web_audio_policy_to_subtree(tree.root)
+	if tree and not tree.is_connected("node_added", self, "_on_tree_node_added"):
+		tree.connect("node_added", self, "_on_tree_node_added")
+
+	print("[AudioManager] Mobile web audio safeguards enabled (master %.1fdB, limiter, out-of-range pause)" % MOBILE_WEB_MASTER_GAIN_DB)
+
+func _should_enable_mobile_web_audio_guard(os_name: String, has_touchscreen_hint: bool) -> bool:
+	return os_name == "HTML5" and has_touchscreen_hint
+
+func _get_master_bus_index() -> int:
+	var master_idx = AudioServer.get_bus_index("Master")
+	return master_idx if master_idx >= 0 else 0
+
+func _ensure_master_limiter(bus_idx: int) -> void:
+	if bus_idx < 0:
+		return
+	for effect_idx in range(AudioServer.get_bus_effect_count(bus_idx)):
+		var effect = AudioServer.get_bus_effect(bus_idx, effect_idx)
+		if effect and effect.get_class() == "AudioEffectLimiter":
+			return
+	AudioServer.add_bus_effect(bus_idx, AudioEffectLimiter.new(), 0)
+
+func _on_tree_node_added(node: Node) -> void:
+	if not _mobile_web_audio_guard_enabled:
+		return
+	_apply_mobile_web_audio_policy_to_subtree(node)
+
+func _apply_mobile_web_audio_policy_to_subtree(node: Node) -> void:
+	if not node:
+		return
+	if node is AudioStreamPlayer3D:
+		_configure_mobile_web_3d_player(node as AudioStreamPlayer3D)
+	for child in node.get_children():
+		if child is Node:
+			_apply_mobile_web_audio_policy_to_subtree(child)
+
+func _configure_mobile_web_3d_player(player: AudioStreamPlayer3D) -> void:
+	if not player:
+		return
+	if player.max_distance > 0.0 and player.out_of_range_mode != AudioStreamPlayer3D.OUT_OF_RANGE_PAUSE:
+		player.out_of_range_mode = AudioStreamPlayer3D.OUT_OF_RANGE_PAUSE
 
 func _should_mute_audio_for_runtime() -> bool:
 	var force_mute = OS.get_environment(FORCE_MUTE_ENV).to_lower().strip_edges()
