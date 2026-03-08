@@ -57,6 +57,13 @@ func get_safe_margins(extra_padding: float = 0.0) -> Dictionary:
 		for key in margins.keys():
 			margins[key] = max(float(margins.get(key, 0.0)), float(mobile_margins.get(key, 0.0)))
 
+	var screen_effects = get_node_or_null("/root/ScreenEffectsManager")
+	if screen_effects and screen_effects.has_method("get_safe_margins"):
+		var screen_fx_margins = screen_effects.get_safe_margins()
+		if typeof(screen_fx_margins) == TYPE_DICTIONARY:
+			for key in margins.keys():
+				margins[key] = max(float(margins.get(key, 0.0)), float(screen_fx_margins.get(key, 0.0)))
+
 	if extra_padding > 0.0:
 		for key in margins.keys():
 			margins[key] = float(margins[key]) + extra_padding

@@ -70,6 +70,21 @@ func reset_effects(immediate: bool = true) -> void:
 	_animate_value("_set_death_progress", death_progress, 0.0, death_open_sec, "DeathTween")
 	_animate_value("_set_cinematic_progress", cinematic_progress, 0.0, cinematic_transition_sec, "CinematicTween")
 
+func get_safe_margins() -> Dictionary:
+	var margins := {
+		"left": 0.0,
+		"top": 0.0,
+		"right": 0.0,
+		"bottom": 0.0
+	}
+	if cinematic_progress <= 0.001:
+		return margins
+	var viewport_size = get_viewport_rect().size
+	var bar_height = viewport_size.y * cinematic_bar_height_ratio * cinematic_progress
+	margins["top"] = bar_height
+	margins["bottom"] = bar_height
+	return margins
+
 func _set_death_progress(value: float) -> void:
 	death_progress = clamp(value, 0.0, 1.0)
 	_update_shader_params()

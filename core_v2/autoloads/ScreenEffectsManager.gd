@@ -51,6 +51,22 @@ func reset(immediate: bool = true) -> void:
 	if _overlay.has_method("reset_effects"):
 		_overlay.reset_effects(immediate)
 
+func get_safe_margins() -> Dictionary:
+	var margins := {
+		"left": 0.0,
+		"top": 0.0,
+		"right": 0.0,
+		"bottom": 0.0
+	}
+	if not _ensure_overlay():
+		return margins
+	if _overlay.has_method("get_safe_margins"):
+		var overlay_margins = _overlay.get_safe_margins()
+		if typeof(overlay_margins) == TYPE_DICTIONARY:
+			for key in margins.keys():
+				margins[key] = float(overlay_margins.get(key, 0.0))
+	return margins
+
 func is_enabled() -> bool:
 	var env = OS.get_environment("OYS_SCREEN_EFFECTS").strip_edges().to_lower()
 	if env != "":
