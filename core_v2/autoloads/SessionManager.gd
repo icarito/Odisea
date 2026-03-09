@@ -196,6 +196,7 @@ func _initialize_player_for_session(p):
 
 var _live_export_on_exit := false
 var _video_export_mode := false
+var _live_export_launch_in_progress := false
 
 func _on_tree_changed_for_live_recording():
 	get_tree().set_auto_accept_quit(false)
@@ -213,24 +214,12 @@ func _on_tree_changed_for_live_recording():
 func _notification(what):
 	if what == MainLoop.NOTIFICATION_WM_QUIT_REQUEST:
 		if _live_export_on_exit:
+			if _live_export_launch_in_progress:
+				print("[LiveExport] Export launch already in progress. Waiting before quitting.")
+				return
 			if is_recording:
-				var saved_path = stop_and_save_recording()
-				if saved_path != "":
-					var exec_path = OS.get_executable_path()
-					OS.set_environment("ODISEA_DISABLE_SHADER_WARMUP", "1")
-					OS.set_environment("ODISEA_MUTE_AUDIO_HEADLESS", "0")
-					OS.set_environment("ODISEA_FORCE_MUTE_AUDIO", "0")
-					var args = ["--no-window", "--fixed-fps", "60", "--video-export", saved_path]
-					var export_audio_driver = OS.get_environment("ODISEA_VIDEO_EXPORT_AUDIO_DRIVER").strip_edges()
-					if export_audio_driver == "":
-						export_audio_driver = "Dummy"
-					args.append("--audio-driver")
-					args.append(export_audio_driver)
-					print("\n=======================================================")
-					print("🎥 [LiveExport] Session ended! Exporting video in background...")
-					print("📂 Godot headless instance spawned. MP4 will be saved soon!")
-					print("=======================================================\n")
-					OS.execute(exec_path, args, false)
+				call_deferred("_finalize_live_recording_with_video_export", true)
+				return
 			get_tree().quit(0)
 
 func _prepare_live_video_export_recording_runtime() -> void:
@@ -238,6 +227,55 @@ func _prepare_live_video_export_recording_runtime() -> void:
 	OS.set_environment("ODISEA_DISABLE_SHADER_WARMUP", "1")
 	OS.set_environment("ODISEA_MUTE_AUDIO_HEADLESS", "0")
 	OS.set_environment("ODISEA_FORCE_MUTE_AUDIO", "0")
+
+func _log_live_export_status(message: String) -> void:
+	print("[LiveExport] ", message)
+
+func _build_live_export_process_args(saved_path: String) -> Array:
+	var args = ["--no-window", "--fixed-fps", "60", "--video-export", saved_path]
+	var export_audio_driver = OS.get_environment("ODISEA_VIDEO_EXPORT_AUDIO_DRIVER").strip_edges()
+	if export_audio_driver == "":
+		export_audio_driver = "Dummy"
+	args.append("--audio-driver")
+	args.append(export_audio_driver)
+	return args
+
+func _spawn_live_video_export_async(saved_path: String) -> bool:
+	var exec_path = OS.get_executable_path()
+	OS.set_environment("ODISEA_DISABLE_SHADER_WARMUP", "1")
+	OS.set_environment("ODISEA_MUTE_AUDIO_HEADLESS", "0")
+	OS.set_environment("ODISEA_FORCE_MUTE_AUDIO", "0")
+	var args = _build_live_export_process_args(saved_path)
+	print("\n=======================================================")
+	print("🎥 [LiveExport] Launching async video export...")
+	print("📂 Replay source: ", saved_path)
+	print("🧵 Gameplay will continue while export runs in a separate process.")
+	print("=======================================================\n")
+	var ret = OS.execute(exec_path, args, false)
+	if ret < 0:
+		printerr("[LiveExport] Failed to launch export process: ", ret)
+		return false
+	_log_live_export_status("Export process launched. Replay save is done; screenshots and ffmpeg continue in background.")
+	return true
+
+func _finalize_live_recording_with_video_export(quit_after_export: bool = false) -> void:
+	if _live_export_launch_in_progress:
+		return
+	_live_export_launch_in_progress = true
+	_log_live_export_status("Saving live replay...")
+	var saved_path = stop_and_save_recording()
+	if saved_path == "":
+		_live_export_launch_in_progress = false
+		printerr("[LiveExport] Could not save live replay.")
+		if quit_after_export:
+			get_tree().quit(1)
+		return
+	var success = _spawn_live_video_export_async(saved_path)
+	_live_export_launch_in_progress = false
+	if not success:
+		printerr("[LiveExport] Video export launch failed.")
+	if quit_after_export:
+		get_tree().quit(0 if success else 1)
 
 func _reset_replay_watchdog(provider = null) -> void:
 	_replay_watchdog_frames = 0
@@ -926,10 +964,14 @@ func _physics_process(_dt):
 						CinematicManager.force_finish_transition()
 
 	if Input.is_action_just_pressed("record-toggle"):
+		if _live_export_launch_in_progress:
+			_log_live_export_status("Export launch already in progress. Ignoring toggle.")
+			return
 		if not is_recording:
 			start_recording()
+			_log_live_export_status("Grabacion iniciada. Pulsa de nuevo para guardar y exportar.")
 		else:
-			stop_and_save_recording()
+			call_deferred("_finalize_live_recording_with_video_export", false)
 
 	if is_recording:
 		# Consumir input desde el provider una única vez y usar ese mismo input

@@ -19,14 +19,24 @@ var current_velocity_y: float = 0.0
 var is_moving: bool = false
 var passengers := []
 onready var passenger_area: Area = get_node(passenger_area_path) if passenger_area_path else null
+var _pending_snapshot = null
+var _snapshot_applied := false
+
+func _init():
+    add_to_group("replay_sync")
 
 func _ready():
-    target_height = global_transform.origin.y
     if passenger_area:
         if not passenger_area.is_connected("body_entered", self, "_on_passenger_entered"):
             passenger_area.connect("body_entered", self, "_on_passenger_entered")
         if not passenger_area.is_connected("body_exited", self, "_on_passenger_exited"):
             passenger_area.connect("body_exited", self, "_on_passenger_exited")
+    if _pending_snapshot != null:
+        _apply_snapshot(_pending_snapshot)
+        _pending_snapshot = null
+    elif not _snapshot_applied:
+        target_height = global_transform.origin.y
+        set_physics_process(is_moving)
 
 func move_to(height: float):
     target_height = height
@@ -98,3 +108,41 @@ func _on_passenger_entered(body):
 func _on_passenger_exited(body):
     if body:
         passengers.erase(body)
+
+func get_snapshot() -> Dictionary:
+    return {
+        "position": [global_transform.origin.x, global_transform.origin.y, global_transform.origin.z],
+        "target_height": target_height,
+        "current_velocity_y": current_velocity_y,
+        "is_moving": is_moving,
+        "speed": speed,
+        "acceleration": acceleration,
+        "deceleration": deceleration,
+        "debug_passengers": debug_passengers
+    }
+
+func restore_snapshot(data: Dictionary) -> void:
+    if not is_inside_tree():
+        _pending_snapshot = data.duplicate(true)
+        return
+    _apply_snapshot(data)
+
+func _apply_snapshot(data: Dictionary) -> void:
+    _snapshot_applied = true
+    passengers.clear()
+    if data.has("speed"):
+        speed = float(data["speed"])
+    if data.has("acceleration"):
+        acceleration = float(data["acceleration"])
+    if data.has("deceleration"):
+        deceleration = float(data["deceleration"])
+    if data.has("debug_passengers"):
+        debug_passengers = bool(data["debug_passengers"])
+    if data.has("position"):
+        var pos = data["position"]
+        global_transform.origin = Vector3(pos[0], pos[1], pos[2])
+    target_height = float(data.get("target_height", global_transform.origin.y))
+    current_velocity_y = float(data.get("current_velocity_y", 0.0))
+    is_moving = bool(data.get("is_moving", false))
+    force_update_transform()
+    set_physics_process(is_moving)

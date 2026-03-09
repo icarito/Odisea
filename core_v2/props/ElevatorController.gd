@@ -20,6 +20,7 @@ var floor_nodes = {}
 var floor_doors = {} # floor_idx -> door node (DualSlidingObjectV2)
 var _sfx_move: SFXComponentV2 = null
 var _sfx_arrival: SFXComponentV2 = null
+var _pending_snapshot = null
 
 onready var platform = get_node(platform_path) if platform_path else null
 onready var floors_container = get_node(floors_path) if floors_path else null
@@ -56,6 +57,9 @@ func _ready():
     # Open door at starting floor
     if not Engine.editor_hint:
         _open_door(current_floor)
+    if _pending_snapshot != null:
+        _apply_snapshot(_pending_snapshot)
+        _pending_snapshot = null
 
 func _find_floor_input(node: Node) -> int:
     for child in node.get_children():
@@ -166,3 +170,29 @@ func _close_door(floor_idx: int) -> void:
         if door.has_method("set_active"):
             door.set_active(false)
             emit_signal("door_closed", floor_idx)
+
+func get_snapshot() -> Dictionary:
+    var snap = .get_snapshot()
+    snap["requests"] = requests.duplicate(true)
+    snap["current_floor"] = current_floor
+    snap["target_floor"] = target_floor
+    snap["is_moving"] = is_moving
+    return snap
+
+func restore_snapshot(data: Dictionary) -> void:
+    if not is_inside_tree():
+        _pending_snapshot = data.duplicate(true)
+        return
+    _apply_snapshot(data)
+
+func _apply_snapshot(data: Dictionary) -> void:
+    var restored_requests = data.get("requests", [])
+    requests = restored_requests.duplicate(true) if typeof(restored_requests) == TYPE_ARRAY else []
+    current_floor = int(data.get("current_floor", current_floor))
+    target_floor = int(data.get("target_floor", target_floor))
+    is_moving = bool(data.get("is_moving", is_moving))
+    .restore_snapshot(data)
+    if is_moving:
+        _start_move_sfx()
+    else:
+        _stop_move_sfx()

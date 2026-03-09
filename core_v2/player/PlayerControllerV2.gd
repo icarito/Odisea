@@ -916,7 +916,11 @@ func _clear_interactable():
 		emit_signal("interactable_out_of_range")
 
 func _input(event):
-	if is_replay_mode or camera_input_locked: return
+	var session_recording = false
+	var sm = get_node_or_null("/root/SessionManager")
+	if sm and sm.player == self and sm.is_recording:
+		session_recording = true
+	if (is_replay_mode and not session_recording) or camera_input_locked: return
 	if _terminal_ui_active: return
 	
 	if event is InputEventMouseMotion:

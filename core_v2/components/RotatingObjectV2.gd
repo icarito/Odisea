@@ -55,6 +55,7 @@ func _update_visuals() -> void:
 		deg2rad(_start_rotation.z)
 	)
 	rotate(rotation_axis, angle)
+	force_update_transform()
 
 func _apply_easing(t: float) -> float:
 	match easing_type:

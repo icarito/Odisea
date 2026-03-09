@@ -26,6 +26,8 @@ var _saved_follow_active_camera = null
 var _saved_follow_only_cinematics = null
 
 const EXPORT_FPS := 60
+const EXPORT_SCALE := 2
+const EXPORT_VIDEO_FILTER := "scale=iw*%d:ih*%d:flags=neighbor" % [EXPORT_SCALE, EXPORT_SCALE]
 
 func _ready():
 	name = "VideoExporter"
@@ -136,6 +138,7 @@ func _compile_video():
 			"-i", audio_input_path,
 			"-map", "0:v:0",
 			"-map", "1:a:0",
+			"-vf", EXPORT_VIDEO_FILTER,
 			"-c:v", "libx264",
 			"-preset", "fast",
 			"-crf", "18",
@@ -155,6 +158,7 @@ func _compile_video():
 			"-y",
 			"-framerate", str(EXPORT_FPS),
 			"-i", input_pattern,
+			"-vf", EXPORT_VIDEO_FILTER,
 			"-c:v", "libx264",
 			"-preset", "fast",
 			"-crf", "18",
