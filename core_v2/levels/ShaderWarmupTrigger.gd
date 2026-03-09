@@ -19,6 +19,11 @@ func _start_shader_warmup() -> void:
 	if _started:
 		return
 	_started = true
+	var startup_trace = get_node_or_null("/root/StartupTrace")
+	if startup_trace and startup_trace.has_method("mark"):
+		startup_trace.mark("shader_warmup_started", {
+			"path": shader_cache_scene_path
+		})
 
 	var manager := get_node_or_null("/root/ShaderCacheManager")
 	if manager == null:
@@ -33,6 +38,11 @@ func _start_shader_warmup() -> void:
 func _on_shader_cache_compiled(cache_path: String) -> void:
 	if cache_path != shader_cache_scene_path:
 		return
+	var startup_trace = get_node_or_null("/root/StartupTrace")
+	if startup_trace and startup_trace.has_method("mark"):
+		startup_trace.mark("shader_warmup_compiled", {
+			"path": cache_path
+		})
 	if is_instance_valid(self):
 		queue_free()
 

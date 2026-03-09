@@ -99,6 +99,13 @@ func _ready() -> void:
 		_start_box_watchdog()
 		_start_decorative_rigidbody_culling()
 	set_process_input(true)
+	var startup_trace = get_node_or_null("/root/StartupTrace")
+	if startup_trace and startup_trace.has_method("mark"):
+		startup_trace.mark("optional_node_manager_ready", {
+			"weak_hardware_mode": _weak_hardware_mode,
+			"scatter_disabled": _scatter_disabled_by_env,
+			"thread_scatter": _thread_scatter_enabled
+		})
 
 func _exit_tree() -> void:
 	_box_watchdog_running = false

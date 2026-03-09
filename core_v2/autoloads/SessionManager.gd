@@ -425,6 +425,13 @@ func _ready():
 		get_tree().connect("tree_changed", self , "_on_tree_changed_for_script", [script_path], CONNECT_ONESHOT)
 
 	_begin_startup_gate_monitor()
+	var startup_trace = get_node_or_null("/root/StartupTrace")
+	if startup_trace and startup_trace.has_method("mark"):
+		startup_trace.mark("session_manager_ready", {
+			"cli_mode": is_cli_mode,
+			"video_export_mode": _video_export_mode,
+			"early_weak_hardware": _early_weak_hardware
+		})
 
 func is_startup_gate_open() -> bool:
 	return _startup_gate_open

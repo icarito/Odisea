@@ -137,6 +137,12 @@ func _ready() -> void:
 	_sync_procedural_sun_direction()
 	_refresh_web_adaptive_process_state()
 	set_process_input(true)
+	var startup_trace = get_node_or_null("/root/StartupTrace")
+	if startup_trace and startup_trace.has_method("mark"):
+		startup_trace.mark("hardware_profile_ready", {
+			"profile": _detected_profile,
+			"weak_hardware": _is_weak_hardware
+		})
 
 func _process(delta: float) -> void:
 	if not _web_adaptive_quality_enabled:

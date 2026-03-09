@@ -1911,7 +1911,7 @@ _global_script_class_icons={
 [application]
 
 config/name="Odisea"
-run/main_scene="res://core_v2/levels/BaseTerrace.tscn"
+run/main_scene="res://core_v2/bootstrap/Boot.tscn"
 boot_splash/image="res://assets/splash.png"
 boot_splash/use_filter=false
 config/icon="res://assets/odisea_icon.png"
@@ -1940,6 +1940,7 @@ OverlayUIManager="*res://core_v2/autoloads/OverlayUIManager.gd"
 ScreenEffectsManager="*res://core_v2/autoloads/ScreenEffectsManager.gd"
 ScreenshotQueue="*res://core_v2/systems/ScreenshotQueue.gd"
 VideoExporter="*res://core_v2/systems/VideoExporter.gd"
+StartupTrace="*res://core_v2/autoloads/StartupTrace.gd"
 
 [debug]
 
