@@ -15,6 +15,7 @@ const LAG_LOG_INTERVAL_SEC := 2.0
 const REPORT_WRITE_INTERVAL_SEC := 4.0
 const REPORT_WRITE_INTERVAL_HYPER_LOW_SEC := 10.0
 const REPORT_DROP_BYPASS_DELTA := 12.0
+const DETAILED_NODE_PROFILING_ENV := "ODISEA_DETAILED_NODE_PROFILING"
 
 # --- Debug Flags ---
 var debug_freeze_logic := false setget set_debug_freeze_logic
@@ -46,6 +47,7 @@ var _last_lag_log_time_msec := 0
 var _last_report_write_time_msec := 0
 var _last_saved_drop := 0.0
 var _suppressed_report_count := 0
+var _detailed_node_profiling_enabled := false
 
 # --- Signals ---
 signal lag_spike_detected(fps, drop)
@@ -53,6 +55,7 @@ signal lag_spike_detected(fps, drop)
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS # Always run, even when tree is paused
 	_suppress_runtime_logs = _is_test_environment()
+	_detailed_node_profiling_enabled = OS.get_environment(DETAILED_NODE_PROFILING_ENV).to_lower() in ["1", "true", "yes", "on"]
 	_disabled = _is_disabled_for_current_run()
 	if _disabled:
 		set_process(false)
@@ -204,6 +207,8 @@ func _cleanup_measurement_cache():
 
 func measure_start(node: Object, _tag: String = ""):
 	# Store start time for this node instance
+	if not _detailed_node_profiling_enabled:
+		return
 	if not is_instance_valid(node):
 		return
 	var node_id = int(node.get_instance_id())
@@ -215,6 +220,8 @@ func measure_start(node: Object, _tag: String = ""):
 	_node_measurement_start[node_id] = OS.get_ticks_usec()
 
 func measure_end(node: Object, _tag: String = ""):
+	if not _detailed_node_profiling_enabled:
+		return
 	if not is_instance_valid(node):
 		return
 	var node_id = int(node.get_instance_id())

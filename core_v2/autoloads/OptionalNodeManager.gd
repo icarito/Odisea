@@ -10,6 +10,7 @@ const LOW_SPEC_PRUNE_CLASSES := [
 ]
 const BOX_STACK_MIN_COUNT := 6
 const BOX_STACK_GAP := 2.02
+const BOX_STACK_WAKE_CHECK_INTERVAL_FRAMES := 12
 const BOX_WATCHDOG_INTERVAL_SEC := 2.0
 const BOX_WATCHDOG_CHECKS_PER_TICK := 2
 const BOX_SUPPORT_RAY_EXTRA := 0.35
@@ -908,6 +909,8 @@ func _arrange_boxes_in_stacks() -> void:
 		# Start fully settled: kinematic (no physics integration) until explicit wake-up.
 		box.sleeping = true
 		box.mode = RigidBody.MODE_KINEMATIC
+		if "wake_check_interval_frames" in box:
+			box.wake_check_interval_frames = max(int(box.wake_check_interval_frames), BOX_STACK_WAKE_CHECK_INTERVAL_FRAMES)
 		_stacked_box_paths.append(box.get_path())
 		_stacked_boxes_cache.append(box)
 		

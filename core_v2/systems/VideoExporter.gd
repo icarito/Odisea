@@ -26,8 +26,11 @@ var _saved_follow_active_camera = null
 var _saved_follow_only_cinematics = null
 
 const EXPORT_FPS := 60
-const EXPORT_SCALE := 2
+const EXPORT_SCALE := 4
 const EXPORT_VIDEO_FILTER := "scale=iw*%d:ih*%d:flags=neighbor" % [EXPORT_SCALE, EXPORT_SCALE]
+const EXPORT_VIDEO_PRESET := "medium"
+const EXPORT_VIDEO_CRF := "0"
+const EXPORT_VIDEO_PIXEL_FORMAT := "rgb24"
 
 func _ready():
 	name = "VideoExporter"
@@ -127,6 +130,7 @@ func _compile_video():
 	var input_pattern = abs_dir + "/frame_%05d.png"
 	var audio_input_path = ProjectSettings.globalize_path(_audio_capture_path)
 	var video_duration_sec = float(frame_index) / float(EXPORT_FPS)
+	var video_filter = "%s,format=%s" % [EXPORT_VIDEO_FILTER, EXPORT_VIDEO_PIXEL_FORMAT]
 
 	var args = []
 	if _audio_capture_saved:
@@ -138,11 +142,10 @@ func _compile_video():
 			"-i", audio_input_path,
 			"-map", "0:v:0",
 			"-map", "1:a:0",
-			"-vf", EXPORT_VIDEO_FILTER,
-			"-c:v", "libx264",
-			"-preset", "fast",
-			"-crf", "18",
-			"-pix_fmt", "yuv420p",
+			"-vf", video_filter,
+			"-preset", EXPORT_VIDEO_PRESET,
+			"-crf", EXPORT_VIDEO_CRF,
+			"-pix_fmt", EXPORT_VIDEO_PIXEL_FORMAT,
 		]
 		if audio_filter != "":
 			args.append("-filter:a")
@@ -158,11 +161,10 @@ func _compile_video():
 			"-y",
 			"-framerate", str(EXPORT_FPS),
 			"-i", input_pattern,
-			"-vf", EXPORT_VIDEO_FILTER,
-			"-c:v", "libx264",
-			"-preset", "fast",
-			"-crf", "18",
-			"-pix_fmt", "yuv420p",
+			"-vf", video_filter,
+			"-preset", EXPORT_VIDEO_PRESET,
+			"-crf", EXPORT_VIDEO_CRF,
+			"-pix_fmt", EXPORT_VIDEO_PIXEL_FORMAT,
 			out_file
 		]
 
