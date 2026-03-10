@@ -52,6 +52,10 @@ Adopt a phased startup architecture:
   - `TerraceInteriorWide.tscn`
   - `TerraceSecondaryFX.tscn`
 - Load critical gameplay first and secondary decoration later.
+- Keep decorative cryopods visual-only during cold start and reconstruct their collision procedurally after the startup gate instead of authoring a second collider-only scene.
+- Treat `Scatter3D` as authoring/placement data, not as the batching mechanism. For cryopod decor, keep `Scatter3D2` editable as the layout source for now, but move repeated details such as `PersonCard` silhouettes and deferred colliders to chunk-level runtime builders. Reserve scene instances only for gameplay-relevant or nearby variants.
+- `BaseTerraceCryopodDecor` now supports an editor bake flow that emits a compact layout resource (`BaseTerraceCryopodDecorLayout.tres`) and a separate runtime scene that reconstructs `MultiMesh` batches from that layout. The authored scene stays editable; the runtime scene stays small.
+- The runtime `MultiMesh` batches must preserve source `GeometryInstance` flags for shell and glass (`cast_shadow`, `layers`, `use_in_baked_light`). The procedural `PersonCard` LOD should not cast or receive shadows, otherwise the interior pods pick up misleading directional-light shadows that were not part of the original decorative setup.
 
 ### Phase 3: Seamless Masking
 
@@ -62,6 +66,9 @@ Adopt a phased startup architecture:
 
 - Replace authored-at-start scatter for decorative boxes/criopods with data-driven manifests, proxies, or `MultiMesh`.
 - Spawn full `PushableBoxV2` only when interaction is possible or nearby.
+- For decorative cryopods that need collision later, prefer one chunk-level runtime builder that walks the already-authored visuals and creates shared-shape `StaticBody` colliders after startup masking. Avoid one script per prop and avoid a dedicated collider `.tscn` when the authored visuals already define the transforms.
+- Decorative cryopod materials may use reduced-resolution texture copies. For `BaseTerrace`, the current direction is to standardize the `DisplayCase_2` textures on the reduced set because the target presentation is SD and the original 1K textures are not paying for themselves.
+- The current preferred cryopod decor path is: authored source scene -> baked layout resource -> runtime scene builds `shell`, `glass`, and `PersonCard` `MultiMesh` batches from external resources, plus deferred runtime colliders generated from the same layout. Use one collider per pod when gameplay needs per-pod collision separation.
 
 ## Determinism Constraint
 
@@ -110,6 +117,12 @@ The primary loading route remains `ResourceLoader.load_interactive()` through `S
 - `core_v2/autoloads/HardwareProfile.gd` (modify)
 - `core_v2/autoloads/OptionalNodeManager.gd` (modify)
 - `core_v2/levels/ShaderWarmupTrigger.gd` (modify)
+- `core_v2/levels/chunks/BaseTerraceCryopodDecor.tscn` (modify)
+- `core_v2/levels/chunks/BaseTerraceCryopodDecor.gd` (new)
+- `core_v2/levels/chunks/BaseTerraceCryopodDecorRuntime.tscn` (new)
+- `core_v2/levels/chunks/BaseTerraceCryopodDecorRuntime.gd` (new)
+- `core_v2/levels/chunks/CryopodDecorLayoutResource.gd` (new)
+- `core_v2/props/CriopodParallaxDecor.tscn` (modify)
 
 ## Verification
 

@@ -2,6 +2,8 @@ extends Spatial
 
 export(String, FILE, "*.tscn,*.scn") var shader_cache_scene_path := "res://core_v2/levels/shader_cache/BaseTerraceShaderCache.tscn"
 export(bool) var run_in_tests := false
+export(bool) var wait_for_startup_gate := true
+export(int, 0, 1200) var startup_wait_max_frames := 720
 
 var _started := false
 
@@ -13,7 +15,20 @@ func _ready() -> void:
 		return
 	if not run_in_tests and _is_test_suite():
 		return
-	call_deferred("_start_shader_warmup")
+	call_deferred("_start_shader_warmup_when_ready")
+
+func _start_shader_warmup_when_ready() -> void:
+	if _started or not is_instance_valid(self):
+		return
+	if wait_for_startup_gate:
+		var session = get_node_or_null("/root/SessionManager")
+		if session and session.has_method("is_startup_gate_open") and not bool(session.is_startup_gate_open()):
+			if session.has_method("wait_until_startup_gate_open"):
+				var wait_state = session.wait_until_startup_gate_open(startup_wait_max_frames)
+				if wait_state is GDScriptFunctionState:
+					yield(wait_state, "completed")
+	if is_instance_valid(self):
+		_start_shader_warmup()
 
 func _start_shader_warmup() -> void:
 	if _started:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=343 format=2]
+[gd_scene load_steps=339 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -12,11 +12,10 @@
 [ext_resource path="res://core_v2/props/Criopod_vert.tscn" type="PackedScene" id=10]
 [ext_resource path="res://core_v2/props/IrisDoorV2.tscn" type="PackedScene" id=11]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_08.png" type="Texture" id=12]
-[ext_resource path="res://core_v2/props/CriopodParallax.tscn" type="PackedScene" id=13]
+[ext_resource path="res://core_v2/levels/chunks/BaseTerraceCryopodDecorRuntime.tscn" type="PackedScene" id=13]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_02.png" type="Texture" id=14]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_01.png" type="Texture" id=15]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_06.png" type="Texture" id=16]
-[ext_resource path="res://addons/MultiMeshBatcher/Batcher_Node.gd" type="Script" id=17]
 [ext_resource path="res://textures/kenney_prototype_textures/orange/texture_05.png" type="Texture" id=18]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_12.png" type="Texture" id=19]
 [ext_resource path="res://textures/kenney_prototype_textures/orange/texture_08.png" type="Texture" id=20]
@@ -26,6 +25,7 @@
 [ext_resource path="res://textures/kenney_prototype_textures/red/texture_08.png" type="Texture" id=24]
 [ext_resource path="res://textures/kenney_prototype_textures/red/texture_09.png" type="Texture" id=25]
 [ext_resource path="res://core_v2/props/VerticalDoor.tscn" type="PackedScene" id=26]
+[ext_resource path="res://core_v2/levels/chunks/BaseTerraceSecondaryFX.tscn" type="PackedScene" id=27]
 [ext_resource path="res://core_v2/components/OYSTrigger.gd" type="Script" id=28]
 [ext_resource path="res://core_v2/things/CheckZoneV2.tscn" type="PackedScene" id=29]
 [ext_resource path="res://core_v2/components/KillZoneV2.gd" type="Script" id=30]
@@ -34,8 +34,6 @@
 [ext_resource path="res://textures/steel_grate.tres" type="Material" id=33]
 [ext_resource path="res://core_v2/visual/CinematicPathRig.gd" type="Script" id=34]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_07.png" type="Texture" id=35]
-[ext_resource path="res://core_v2/things/Criopod_vert.tres" type="ArrayMesh" id=36]
-[ext_resource path="res://core_v2/props/SparkEmitterV2.tscn" type="PackedScene" id=37]
 [ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=38]
 [ext_resource path="res://assets/sfx/explode.wav" type="AudioStream" id=39]
 [ext_resource path="res://assets/music/(loreley...).mp3" type="AudioStream" id=40]
@@ -43,7 +41,6 @@
 [ext_resource path="res://addons/zylann.scatter/scatter3d.gd" type="Script" id=42]
 [ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=43]
 [ext_resource path="res://materials/things/StainlessSteel.tres" type="Material" id=44]
-[ext_resource path="res://core_v2/props/EmergencyBeaconV2.tscn" type="PackedScene" id=45]
 [ext_resource path="res://core_v2/props/Lever.tscn" type="PackedScene" id=46]
 [ext_resource path="res://assets/sfx/explodemini.wav" type="AudioStream" id=47]
 [ext_resource path="res://core_v2/camera/VCameraSystem.tscn" type="PackedScene" id=48]
@@ -56,7 +53,7 @@
 [ext_resource path="res://core_v2/props/ElevatorProp.tscn" type="PackedScene" id=55]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_03.png" type="Texture" id=56]
 
-[sub_resource type="BoxShape" id=3445]
+[sub_resource type="BoxShape" id=3454]
 extents = Vector3( 10, 17, 4.95 )
 
 [sub_resource type="SpatialMaterial" id=3182]
@@ -1109,13 +1106,10 @@ points = PoolVector3Array( -53.4353, 10.819, -2.22044, -53.4353, 9.56897, -2.220
 [sub_resource type="ConvexPolygonShape" id=3444]
 points = PoolVector3Array( -40.4353, -3.93103, -26.2204, -32.4353, 0.0689655, -26.2204, -32.4353, 0.568965, -26.2204, -40.4353, -3.43103, -26.2204, -40.4353, -3.43103, -20.2204, -40.4353, -3.93103, -20.2204, -32.4353, 0.568965, -20.2204, -32.4353, 0.0689655, -20.2204 )
 
-[sub_resource type="BoxShape" id=3446]
+[sub_resource type="BoxShape" id=3455]
 extents = Vector3( 104, 1, 141.5 )
 
-[sub_resource type="MultiMesh" id=1491]
-mesh = ExtResource( 36 )
-
-[sub_resource type="BoxShape" id=3447]
+[sub_resource type="BoxShape" id=3456]
 resource_local_to_scene = true
 extents = Vector3( 88.5928, 15, 199.103 )
 
@@ -1124,7 +1118,7 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 
-[sub_resource type="BoxShape" id=3448]
+[sub_resource type="BoxShape" id=3457]
 extents = Vector3( 1, 0.5, 1 )
 
 [sub_resource type="SpatialMaterial" id=1974]
@@ -1157,7 +1151,7 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 
-[sub_resource type="BoxShape" id=3449]
+[sub_resource type="BoxShape" id=3458]
 extents = Vector3( 1, 0.5, 1 )
 
 [sub_resource type="SpatialMaterial" id=1979]
@@ -1185,23 +1179,6 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 
-[sub_resource type="SpatialMaterial" id=2448]
-resource_local_to_scene = true
-render_priority = 1
-flags_transparent = true
-flags_unshaded = true
-flags_do_not_receive_shadows = true
-params_blend_mode = 1
-albedo_color = Color( 0, 1, 0.929412, 0.9 )
-
-[sub_resource type="SphereMesh" id=2449]
-resource_local_to_scene = true
-material = SubResource( 2448 )
-radius = 0.05
-height = 0.1
-radial_segments = 4
-rings = 2
-
 [sub_resource type="Curve3D" id=2911]
 _data = {
 "points": PoolVector3Array(  ),
@@ -1223,14 +1200,31 @@ tracks/0/keys = {
 "values": [ 0.0, 1.0 ]
 }
 
-[sub_resource type="BoxShape" id=3450]
+[sub_resource type="BoxShape" id=3459]
 extents = Vector3( 1.5, 3, 1.5 )
 
-[sub_resource type="Curve3D" id=3451]
+[sub_resource type="Curve3D" id=3460]
 _data = {
 "points": PoolVector3Array( 0, 0, 0, 0, 0, 0, -0.974657, -4.44925e-08, -0.0433385, 0, 0, 0, 0, 0, 0, -1.97465, -8.80818e-08, -0.0405459, 0, 0, 0, 0, 0, 0, -1.98024, -1.75504e-07, -2.04053, 0, 0, 0, 0, 0, 0, -1.99105, -2.64295e-07, -4.06668, 0, 0, 0, 0, 0, 0, 2.01416, -8.85692e-08, -4.0517, 0, 0, 0, 0, 0, 0, 2.02533, 8.62756e-08, -0.0517117, 0, 0, 0, 0, 0, 0, 1.02534, 4.26861e-08, -0.0489235 ),
 "tilts": PoolRealArray( 0, 0, 0, 0, 0, 0, 0 )
 }
+
+[sub_resource type="SpatialMaterial" id=3452]
+resource_local_to_scene = true
+render_priority = 1
+flags_transparent = true
+flags_unshaded = true
+flags_do_not_receive_shadows = true
+params_blend_mode = 1
+albedo_color = Color( 0, 1, 0.929412, 0.9 )
+
+[sub_resource type="SphereMesh" id=3453]
+resource_local_to_scene = true
+material = SubResource( 3452 )
+radius = 0.05
+height = 0.1
+radial_segments = 4
+rings = 2
 
 [node name="Terrace" type="CSGBox"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
@@ -1261,7 +1255,7 @@ debug_render = false
 zone_extents = Vector3( 10, 17, 4.95 )
 
 [node name="CollisionShape" parent="SideScrollZone4" index="1"]
-shape = SubResource( 3445 )
+shape = SubResource( 3454 )
 
 [node name="GuardrailSegment" parent="." instance=ExtResource( 21 )]
 transform = Transform( -8.74228e-07, 0, 1, 0, 1, 0, -20, 0, -4.37114e-08, 40, 1, 0 )
@@ -2174,12 +2168,7 @@ zone_extents = Vector3( 104, 1, 141.5 )
 
 [node name="CollisionShape" type="CollisionShape" parent="KillZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0 )
-shape = SubResource( 3446 )
-
-[node name="CrioBatch" type="MultiMeshInstance" parent="."]
-transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 8.42406, 5.63353, -19.4895 )
-multimesh = SubResource( 1491 )
-script = ExtResource( 17 )
+shape = SubResource( 3455 )
 
 [node name="Scatter3D" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.04532, 0 )
@@ -2228,21 +2217,7 @@ fade_time = 0.2
 
 [node name="CollisionShape2" type="CollisionShape" parent="BGMZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 27.1999, 13.8186, -47.3105 )
-shape = SubResource( 3447 )
-
-[node name="EmergencyBeaconV2" parent="." groups=["optional"] instance=ExtResource( 45 )]
-transform = Transform( -4.37114e-08, 1, 8.74228e-08, 1, 4.37114e-08, 3.82137e-15, 0, 8.74228e-08, -1, -5.95378, 8.0297, -8.15047 )
-starts_active = true
-is_interactable = false
-beacon_color = Color( 1, 0.0705882, 0, 1 )
-light_range = 10.0
-
-[node name="EmergencyBeaconV3" parent="." groups=["optional"] instance=ExtResource( 45 )]
-transform = Transform( 1.91069e-15, 4.37114e-08, -1, 1, 4.37114e-08, 3.82137e-15, 4.37114e-08, -1, -4.37114e-08, 9.04622, 8.0297, -5.95047 )
-starts_active = true
-is_interactable = false
-beacon_color = Color( 1, 0.0705882, 0, 1 )
-light_range = 10.0
+shape = SubResource( 3456 )
 
 [node name="InnerHole" type="CSGCylinder" parent="."]
 transform = Transform( 2.437, 0, 0, 0, -2.437, 2.1305e-07, 0, -2.1305e-07, -2.437, 7.99303, 3.34242, -26.982 )
@@ -2303,7 +2278,7 @@ material_override = SubResource( 1972 )
 cast_shadow = 0
 
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/AutomationTrigger"]
-shape = SubResource( 3448 )
+shape = SubResource( 3457 )
 
 [node name="_ZoneDebugMesh3" type="MeshInstance" parent="CrioPod START/AutomationTrigger"]
 visible = false
@@ -2345,7 +2320,7 @@ material_override = SubResource( 1977 )
 cast_shadow = 0
 
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/CinematicSequence"]
-shape = SubResource( 3449 )
+shape = SubResource( 3458 )
 
 [node name="_ZoneDebugMesh3" type="MeshInstance" parent="CrioPod START/CinematicSequence"]
 visible = false
@@ -2411,222 +2386,8 @@ transform = Transform( -0.768853, 0, 0.639426, 0, 1, 0, -0.639426, 0, -0.768853,
 fov = 100.0
 far = 8192.0
 
-[node name="Scatter3D2" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.838061, 0 )
-script = ExtResource( 42 )
-_scenes = [ ExtResource( 13 ) ]
-
-[node name="Criopod" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -10.4173, 2.84477, 18.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod2" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -10.4173, 2.84477, 20.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod3" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -10.4173, 2.84477, 22.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod25" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, -2.2173, 8.87919, 32.2837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod31" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, -0.2173, 8.88025, 32.2837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod32" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 1.7827, 8.88309, 32.2837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod33" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 3.7827, 8.87919, 32.2837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod34" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 5.7827, 8.88025, 32.2837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod35" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 7.7827, 8.88309, 32.2837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod36" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 9.7827, 8.87919, 32.2837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod37" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 11.7827, 8.88025, 32.2837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod38" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 13.7827, 8.88309, 32.2837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod39" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, 15.7827, 8.88025, 32.2837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod40" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, -6.2173, 8.88025, 32.2837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod41" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -1.31134e-07, 0, 1.5, 0, 1.31134e-07, 0, -1.5, -4.2173, 8.88309, 32.2837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod4" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -10.4173, 2.84477, 24.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod5" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -10.4173, 2.84477, 26.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod23" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -10.4173, 2.84477, 28.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod24" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -10.4173, 2.84477, 30.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod6" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -10.4173, 2.84477, 8.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod7" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -10.4173, 2.84477, 10.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod8" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -10.4173, 2.84477, 12.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod26" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, -6.2173, 2.84477, 6.8837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod27" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, -8.2173, 2.84477, 6.8837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod28" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, -0.2173, 2.84477, 6.8837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod29" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, -2.2173, 2.84477, 6.8837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod30" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, -4.2173, 2.84477, 6.8837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod9" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -10.4173, 2.84477, 14.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod10" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -10.4173, 2.84477, 16.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod42" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -9.2173, 8.84477, 18.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod43" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -9.2173, 8.84477, 20.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod44" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -9.2173, 8.84477, 22.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod49" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -9.2173, 8.84477, 8.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod50" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -9.2173, 8.84477, 10.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod51" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -9.2173, 8.84477, 12.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod52" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -9.2173, 8.84477, 14.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod53" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -6.55671e-08, 0, 1.5, 0, 1.5, 0, -1.5, 0, -6.55671e-08, -9.2173, 8.84477, 16.5837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod11" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -2.26494e-07, 0, 1.5, 0, 2.26494e-07, 0, -1.5, -7.4173, 2.84477, 33.4837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod12" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -2.26494e-07, 0, 1.5, 0, 2.26494e-07, 0, -1.5, -5.4173, 2.84477, 33.4837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod13" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -2.26494e-07, 0, 1.5, 0, 2.26494e-07, 0, -1.5, -3.4173, 2.84477, 33.4837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod14" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -2.26494e-07, 0, 1.5, 0, 2.26494e-07, 0, -1.5, -1.4173, 2.84477, 33.4837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod15" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -2.26494e-07, 0, 1.5, 0, 2.26494e-07, 0, -1.5, 0.582701, 2.84477, 33.4837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod16" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -2.26494e-07, 0, 1.5, 0, 2.26494e-07, 0, -1.5, 2.5827, 2.84477, 33.4837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod17" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -2.26494e-07, 0, 1.5, 0, 2.26494e-07, 0, -1.5, 4.5827, 2.84477, 33.4837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod18" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -2.26494e-07, 0, 1.5, 0, 2.26494e-07, 0, -1.5, 6.5827, 2.84477, 33.4837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod19" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -2.26494e-07, 0, 1.5, 0, 2.26494e-07, 0, -1.5, 8.5827, 2.84477, 33.4837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod20" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -2.26494e-07, 0, 1.5, 0, 2.26494e-07, 0, -1.5, 10.5827, 2.84477, 33.4837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod21" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -2.26494e-07, 0, 1.5, 0, 2.26494e-07, 0, -1.5, 12.5827, 2.84477, 33.4837 )
-skeleton = NodePath("../..")
-
-[node name="Criopod22" parent="Scatter3D2" instance=ExtResource( 13 )]
-transform = Transform( -1.5, 0, -2.26494e-07, 0, 1.5, 0, 2.26494e-07, 0, -1.5, 14.5827, 2.84477, 33.4837 )
-skeleton = NodePath("../..")
-
 [node name="VerticalDoor" parent="." instance=ExtResource( 26 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.47583, 2.04031, 7.83635 )
-
-[node name="SparkEmitterV2" parent="." instance=ExtResource( 37 )]
-transform = Transform( 1, 0, 0, 0, 0.905436, -0.424484, 0, 0.424484, 0.905436, 17.7421, 3.66101, 32.0812 )
-spark_color = Color( 0, 1, 0.929412, 0.396078 )
-emission_rate = 5.0
-timeout = 30.0
-
-[node name="CPUParticles" parent="SparkEmitterV2" index="0"]
-transform = Transform( -0.117696, -0.711562, -0.692696, 0.922141, -0.337167, 0.189668, -0.368515, -0.61644, 0.695844, -0.550901, -0.556787, 0.688503 )
-amount = 10
-mesh = SubResource( 2449 )
-gravity = Vector3( -8.842, 0, 0 )
-color = Color( 0, 1, 0.929412, 1 )
 
 [node name="ElevatorProp" parent="." instance=ExtResource( 55 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 6.05078, 2.14161, 23.9419 )
@@ -2665,7 +2426,7 @@ bgm_stream = ExtResource( 52 )
 volume_db = -5.0
 
 [node name="CollisionShape" parent="ElevatorProp/Platform/BGMZoneV2" index="0"]
-shape = SubResource( 3450 )
+shape = SubResource( 3459 )
 
 [node name="SFX Arrival" parent="ElevatorProp/Platform" index="7"]
 unit_size = 3.0
@@ -2680,16 +2441,24 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16, 0 )
 height = 20.0
 
 [node name="Path2" parent="ElevatorProp/MetalFence" index="0"]
-curve = SubResource( 3451 )
+curve = SubResource( 3460 )
 
 [node name="CSGCylinder" parent="ElevatorProp/MetalFence/Path2" index="0"]
 transform = Transform( 1, 4.71845e-16, 0, 5.01682e-14, 1, 4.9738e-14, 0, 0, 1, -0.00600338, 20.1, -2.102 )
 use_collision = true
 
+[node name="SecondaryFX" parent="." instance=ExtResource( 27 )]
+
+[node name="CPUParticles" parent="SecondaryFX/SparkEmitterV2" index="0"]
+mesh = SubResource( 3453 )
+
+[node name="CryopodDecor" parent="." instance=ExtResource( 13 )]
+
 [editable path="SideScrollZone4"]
 [editable path="InteriorWide"]
 [editable path="CrioPod START"]
 [editable path="VCameraSystem"]
-[editable path="SparkEmitterV2"]
 [editable path="ElevatorProp"]
 [editable path="ElevatorProp/MetalFence"]
+[editable path="SecondaryFX"]
+[editable path="SecondaryFX/SparkEmitterV2"]

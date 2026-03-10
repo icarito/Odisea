@@ -1,0 +1,8 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://core_v2/levels/chunks/BaseTerraceCryopodDecorRuntime.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/CriopodParallaxDecor.tscn" type="PackedScene" id=2]
+
+[node name="CryopodDecorRuntime" type="Spatial"]
+script = ExtResource( 1 )
+source_pod_scene = ExtResource( 2 )
