@@ -1960,7 +1960,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/virtualcamera/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/virtualcamera/plugin.cfg" )
 
 [gdunit3]
 

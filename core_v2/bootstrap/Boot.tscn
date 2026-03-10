@@ -4,3 +4,4 @@
 
 [node name="Boot" type="Node"]
 script = ExtResource( 1 )
+loading_message = "espera..."
