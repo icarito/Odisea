@@ -95,6 +95,7 @@ const MOBILE_WEB_RENDER_SCALE_ENV := "ODISEA_MOBILE_WEB_RENDER_SCALE"
 const MOBILE_WEB_RENDER_SCALE_DEFAULT := 0.67
 const MOBILE_WEB_RENDER_SCALE_MIN := 0.5
 const MOBILE_WEB_RENDER_SCALE_MAX := 1.0
+const MOBILE_WEB_GRAPHICS_PROFILE_DEFAULT := "medium"
 const MOBILE_WEB_TARGET_FPS_DEFAULT := "30"
 const MOBILE_WEB_TRANSPARENCY_ENV := "ODISEA_DIAG_DISABLE_TRANSPARENCIES"
 const MOBILE_WEB_MIN_RENDER_SIZE := Vector2(320, 180)
@@ -112,7 +113,7 @@ func _enter_tree() -> void:
 		OS.get_environment(MOBILE_WEB_SAFETY_ENV)
 	)
 	_early_weak_hardware = _detect_weak_hardware_early()
-	if _early_weak_hardware or _mobile_web_safety_enabled:
+	if _early_weak_hardware:
 		_apply_early_weak_hardware_hints()
 	if _mobile_web_safety_enabled:
 		_apply_mobile_web_safety_hints()
@@ -761,7 +762,7 @@ func _should_enable_mobile_web_safety(os_name: String, has_touchscreen: bool, ov
 
 func _apply_mobile_web_safety_hints() -> void:
 	OS.set_environment(MOBILE_WEB_WEAK_ENV, "1")
-	_set_env_default("ODISEA_GRAPHICS_PROFILE", "low")
+	_set_env_default("ODISEA_GRAPHICS_PROFILE", MOBILE_WEB_GRAPHICS_PROFILE_DEFAULT)
 	_set_env_default("ODISEA_DISABLE_TERRACE_SCATTER", "1")
 	_set_env_default("ODISEA_THREAD_SCATTER_LAZY", "0")
 	_set_env_default("ODISEA_DECOR_RB_CULL", "0")
