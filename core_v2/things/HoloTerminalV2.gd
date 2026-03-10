@@ -9,6 +9,13 @@ class_name HoloTerminalV2
 const DebugOverlayScene = preload("res://core_v2/ui/retro/DebugOverlay.tscn")
 const OYSConsoleScript = preload("res://core_v2/ui/retro/OYS_Console.gd")
 const HUD_UI_BRIDGE_TOGGLE_ACTION := "toggle_debug_menu"
+const MOBILE_WEB_SAFETY_ENV := "ODISEA_MOBILE_WEB_SAFETY"
+const MOBILE_WEB_HOLO_SCALE_ENV := "ODISEA_HOLO_VIEWPORT_SCALE"
+const MOBILE_WEB_HOLO_SCALE_DEFAULT := 0.5
+const MOBILE_WEB_HOLO_SCALE_MIN := 0.35
+const MOBILE_WEB_HOLO_SCALE_MAX := 1.0
+const MOBILE_WEB_HOLO_MAX_SIZE := Vector2(512, 384)
+const MOBILE_WEB_HOLO_MIN_SIZE := Vector2(320, 240)
 
 # --- Terminal Configuration ---
 export(float) var slide_speed := 2.0
@@ -346,10 +353,50 @@ func _apply_viewport_settings() -> void:
 	var viewport = get_node_or_null("Viewport")
 	if not viewport:
 		return
-	var target_size = Vector2(max(320.0, screen_resolution.x), max(240.0, screen_resolution.y))
+	var target_size = _resolve_viewport_target_size(
+		OS.get_name(),
+		OS.has_touchscreen_ui_hint(),
+		OS.get_environment(MOBILE_WEB_SAFETY_ENV),
+		OS.get_environment(MOBILE_WEB_HOLO_SCALE_ENV)
+	)
 	viewport.size = target_size
 	# Avoid duplicated events: viewport input is injected explicitly via HoloTerminalViewportInput.
 	viewport.gui_disable_input = true
+
+func _resolve_viewport_target_size(
+	os_name: String,
+	has_touchscreen: bool,
+	mobile_web_override: String = "",
+	scale_override: String = ""
+) -> Vector2:
+	var base_size = Vector2(max(MOBILE_WEB_HOLO_MIN_SIZE.x, screen_resolution.x), max(MOBILE_WEB_HOLO_MIN_SIZE.y, screen_resolution.y))
+	if not _should_reduce_viewport_for_mobile_web(os_name, has_touchscreen, mobile_web_override):
+		return base_size
+	var scale = _read_mobile_web_holo_scale(scale_override)
+	var reduced = Vector2(
+		floor(base_size.x * scale),
+		floor(base_size.y * scale)
+	)
+	return Vector2(
+		clamp(reduced.x, MOBILE_WEB_HOLO_MIN_SIZE.x, min(base_size.x, MOBILE_WEB_HOLO_MAX_SIZE.x)),
+		clamp(reduced.y, MOBILE_WEB_HOLO_MIN_SIZE.y, min(base_size.y, MOBILE_WEB_HOLO_MAX_SIZE.y))
+	)
+
+func _should_reduce_viewport_for_mobile_web(os_name: String, has_touchscreen: bool, override_value: String = "") -> bool:
+	var normalized = override_value.to_lower().strip_edges()
+	if normalized in ["1", "true", "yes", "on"]:
+		return true
+	if normalized in ["0", "false", "no", "off"]:
+		return false
+	return os_name == "HTML5" and has_touchscreen
+
+func _read_mobile_web_holo_scale(raw_value: String) -> float:
+	if raw_value.strip_edges() == "":
+		return MOBILE_WEB_HOLO_SCALE_DEFAULT
+	var parsed = float(raw_value)
+	if parsed <= 0.0:
+		return MOBILE_WEB_HOLO_SCALE_DEFAULT
+	return clamp(parsed, MOBILE_WEB_HOLO_SCALE_MIN, MOBILE_WEB_HOLO_SCALE_MAX)
 
 
 # Property aliases for spec compliance (read-only access to state)

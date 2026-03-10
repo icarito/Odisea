@@ -89,16 +89,33 @@ const STARTUP_GATE_FRAMES_FAST := 2
 const STARTUP_GATE_FRAMES_WEAK := 18
 const STARTUP_GATE_MAX_WAIT_FRAMES := 720
 const STARTUP_GATE_FRAMES_ENV := "ODISEA_STARTUP_GATE_FRAMES"
+const MOBILE_WEB_SAFETY_ENV := "ODISEA_MOBILE_WEB_SAFETY"
+const MOBILE_WEB_WEAK_ENV := "ODISEA_WEB_WEAK_DEVICE"
+const MOBILE_WEB_RENDER_SCALE_ENV := "ODISEA_MOBILE_WEB_RENDER_SCALE"
+const MOBILE_WEB_RENDER_SCALE_DEFAULT := 0.67
+const MOBILE_WEB_RENDER_SCALE_MIN := 0.5
+const MOBILE_WEB_RENDER_SCALE_MAX := 1.0
+const MOBILE_WEB_TARGET_FPS_DEFAULT := "30"
+const MOBILE_WEB_TRANSPARENCY_ENV := "ODISEA_DIAG_DISABLE_TRANSPARENCIES"
+const MOBILE_WEB_MIN_RENDER_SIZE := Vector2(320, 180)
 var _early_weak_hardware := false
+var _mobile_web_safety_enabled := false
 var _startup_gate_open := false
 var _startup_gate_started := false
 var _startup_gate_waited_frames := 0
 var _startup_gate_reason := ""
 
 func _enter_tree() -> void:
+	_mobile_web_safety_enabled = _should_enable_mobile_web_safety(
+		OS.get_name(),
+		OS.has_touchscreen_ui_hint(),
+		OS.get_environment(MOBILE_WEB_SAFETY_ENV)
+	)
 	_early_weak_hardware = _detect_weak_hardware_early()
-	if _early_weak_hardware:
+	if _early_weak_hardware or _mobile_web_safety_enabled:
 		_apply_early_weak_hardware_hints()
+	if _mobile_web_safety_enabled:
+		_apply_mobile_web_safety_hints()
 
 func _normalize_negative_zero_in_place(value):
 	var t = typeof(value)
@@ -315,6 +332,9 @@ func _ready():
 	var bypass_env = OS.get_environment("ANNA_RL_BYPASS_SESSION_MANAGER").to_lower()
 	if bypass_env != "":
 		_rl_bypass_session_manager = bypass_env in ["1", "true", "yes", "on"]
+	if _mobile_web_safety_enabled:
+		_apply_mobile_web_render_scale()
+		call_deferred("_apply_mobile_web_render_scale")
 	# Initialize Ghost Manager
 	var ghost_script = load("res://core_v2/ghost/GhostManager.gd")
 	if ghost_script:
@@ -730,6 +750,71 @@ func _apply_early_weak_hardware_hints() -> void:
 	OS.set_environment("ODISEA_DECOR_RB_CULL", "0")
 	OS.set_environment("ODISEA_DISABLE_SHADER_WARMUP", "1")
 	print("[SessionManager] Early weak-hardware fast-path enabled.")
+
+func _should_enable_mobile_web_safety(os_name: String, has_touchscreen: bool, override_value: String = "") -> bool:
+	var normalized = override_value.to_lower().strip_edges()
+	if normalized in ["1", "true", "yes", "on"]:
+		return true
+	if normalized in ["0", "false", "no", "off"]:
+		return false
+	return os_name == "HTML5" and has_touchscreen
+
+func _apply_mobile_web_safety_hints() -> void:
+	OS.set_environment(MOBILE_WEB_WEAK_ENV, "1")
+	_set_env_default("ODISEA_GRAPHICS_PROFILE", "low")
+	_set_env_default("ODISEA_DISABLE_TERRACE_SCATTER", "1")
+	_set_env_default("ODISEA_THREAD_SCATTER_LAZY", "0")
+	_set_env_default("ODISEA_DECOR_RB_CULL", "0")
+	_set_env_default("ODISEA_DISABLE_SHADER_WARMUP", "1")
+	_set_env_default("ODISEA_TARGET_FPS", MOBILE_WEB_TARGET_FPS_DEFAULT)
+	_set_env_default(MOBILE_WEB_TRANSPARENCY_ENV, "1")
+	print("[SessionManager] Mobile web safety mode enabled.")
+
+func _apply_mobile_web_render_scale() -> void:
+	if not _mobile_web_safety_enabled:
+		return
+	var tree = get_tree()
+	if not tree:
+		return
+	var root = tree.root
+	if not root:
+		return
+	var base_size = OS.window_size
+	if base_size.x <= 0.0 or base_size.y <= 0.0:
+		base_size = Vector2(
+			float(ProjectSettings.get_setting("display/window/size/width")),
+			float(ProjectSettings.get_setting("display/window/size/height"))
+		)
+	var render_scale = _read_clamped_mobile_web_scale(OS.get_environment(MOBILE_WEB_RENDER_SCALE_ENV))
+	if render_scale >= 0.999:
+		return
+	var target_size = _compute_mobile_web_render_size(base_size, render_scale)
+	root.set_size_override_stretch(true)
+	root.set_size_override(true, target_size)
+	print("[SessionManager] Mobile web render scale %.2f -> %s" % [render_scale, target_size])
+
+func _read_clamped_mobile_web_scale(raw_value: String) -> float:
+	if raw_value.strip_edges() == "":
+		return MOBILE_WEB_RENDER_SCALE_DEFAULT
+	var parsed = float(raw_value)
+	if parsed <= 0.0:
+		return MOBILE_WEB_RENDER_SCALE_DEFAULT
+	return clamp(parsed, MOBILE_WEB_RENDER_SCALE_MIN, MOBILE_WEB_RENDER_SCALE_MAX)
+
+func _compute_mobile_web_render_size(base_size: Vector2, render_scale: float) -> Vector2:
+	var safe_base = Vector2(max(1.0, base_size.x), max(1.0, base_size.y))
+	var scaled = Vector2(
+		floor(safe_base.x * render_scale),
+		floor(safe_base.y * render_scale)
+	)
+	return Vector2(
+		min(safe_base.x, max(MOBILE_WEB_MIN_RENDER_SIZE.x, scaled.x)),
+		min(safe_base.y, max(MOBILE_WEB_MIN_RENDER_SIZE.y, scaled.y))
+	)
+
+func _set_env_default(name: String, value: String) -> void:
+	if OS.get_environment(name).strip_edges() == "":
+		OS.set_environment(name, value)
 
 func _contains_any_hint(text: String, hints: Array) -> bool:
 	for hint in hints:
