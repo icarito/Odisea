@@ -61,6 +61,8 @@ Adopt a phased startup architecture:
 
 - Use train travel, intro camera motion, tunnel occlusion, or cinematic framing to hide chunk polling and attach points.
 - Delay non-critical shader warmup and optional visuals until after first control or after the player enters a masked zone.
+- `ShaderWarmupTrigger` is now deferred until the startup gate instead of running in the first startup slice.
+- `BaseTerraceSecondaryFX.tscn` is now attached through `DeferredSceneChunk.gd` after the startup gate, so beacons and spark emitters no longer sit on the cold-start critical path.
 
 ### Phase 4: Decoration Strategy
 
@@ -117,12 +119,14 @@ The primary loading route remains `ResourceLoader.load_interactive()` through `S
 - `core_v2/autoloads/HardwareProfile.gd` (modify)
 - `core_v2/autoloads/OptionalNodeManager.gd` (modify)
 - `core_v2/levels/ShaderWarmupTrigger.gd` (modify)
+- `core_v2/levels/chunks/DeferredSceneChunk.gd` (new)
 - `core_v2/levels/chunks/BaseTerraceCryopodDecor.tscn` (modify)
 - `core_v2/levels/chunks/BaseTerraceCryopodDecor.gd` (new)
 - `core_v2/levels/chunks/BaseTerraceCryopodDecorRuntime.tscn` (new)
 - `core_v2/levels/chunks/BaseTerraceCryopodDecorRuntime.gd` (new)
 - `core_v2/levels/chunks/CryopodDecorLayoutResource.gd` (new)
 - `core_v2/props/CriopodParallaxDecor.tscn` (modify)
+- `export_presets.cfg` (modify)
 
 ## Verification
 
@@ -130,3 +134,9 @@ The primary loading route remains `ResourceLoader.load_interactive()` through `S
 2. Inspect `user://startup_trace.json` and verify milestone timestamps for boot request, scene ready, and startup gate.
 3. Run a replay such as `user://replay_1773095917.json` and verify CLI replay still loads the recorded scene correctly.
 4. Compare startup trace data before and after future chunk-splitting work.
+
+### Current Measured Wins
+
+- Deferring `ShaderWarmupTrigger` in `performance`, windowed, uncapped improved startup from roughly `scene_ready=4933.7 ms` / `startup_gate=5176.5 ms` to `scene_ready=4073.7 ms` / `startup_gate=4080.0 ms`.
+- Deferring `BaseTerraceSecondaryFX.tscn` with `DeferredSceneChunk.gd` on the current tree improved cold start slightly again (`scene_ready` about `3966.5 ms -> 3923.0 ms`, `startup_gate` about `3974.9 ms -> 3931.3 ms` in the local A/B), with mixed replay impact. That trade is acceptable because `FD-032` is prioritizing hidden startup work.
+- Export templates must explicitly include the runtime chunk assets (`DeferredSceneChunk.gd`, cryopod runtime scene/layout resources, low-res `DisplayCase_2` textures, `BaseTerraceSecondaryFX.tscn`) because these resources are now attached indirectly and are easy to miss in filtered exports.

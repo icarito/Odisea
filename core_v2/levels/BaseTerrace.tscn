@@ -52,6 +52,7 @@
 [ext_resource path="res://core_v2/props/SciFiHangingLightV2.tscn" type="PackedScene" id=54]
 [ext_resource path="res://core_v2/props/ElevatorProp.tscn" type="PackedScene" id=55]
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_03.png" type="Texture" id=56]
+[ext_resource path="res://core_v2/levels/chunks/DeferredSceneChunk.gd" type="Script" id=57]
 
 [sub_resource type="BoxShape" id=3454]
 extents = Vector3( 10, 17, 4.95 )
@@ -2447,10 +2448,11 @@ curve = SubResource( 3460 )
 transform = Transform( 1, 4.71845e-16, 0, 5.01682e-14, 1, 4.9738e-14, 0, 0, 1, -0.00600338, 20.1, -2.102 )
 use_collision = true
 
-[node name="SecondaryFX" parent="." instance=ExtResource( 27 )]
-
-[node name="CPUParticles" parent="SecondaryFX/SparkEmitterV2" index="0"]
-mesh = SubResource( 3453 )
+[node name="SecondaryFX" type="Spatial" parent="."]
+script = ExtResource( 57 )
+chunk_scene = ExtResource( 27 )
+wait_for_startup_gate = true
+startup_trace_label = "BaseTerraceSecondaryFX"
 
 [node name="CryopodDecor" parent="." instance=ExtResource( 13 )]
 
@@ -2460,5 +2462,3 @@ mesh = SubResource( 3453 )
 [editable path="VCameraSystem"]
 [editable path="ElevatorProp"]
 [editable path="ElevatorProp/MetalFence"]
-[editable path="SecondaryFX"]
-[editable path="SecondaryFX/SparkEmitterV2"]

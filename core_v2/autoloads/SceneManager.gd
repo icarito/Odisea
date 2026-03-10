@@ -7,11 +7,15 @@ signal transition_completed(path, scene_root, params)
 signal transition_failed(path, reason)
 
 export(int, 1, 20) var poll_budget_ms := 6
+export(int, 1, 40) var weak_poll_budget_ms := 10
+export(int, 1, 80) var hyper_low_poll_budget_ms := 14
 export(float, 0.0, 3.0) var default_fade_out := 0.35
 export(float, 0.0, 3.0) var default_fade_in := 0.35
 export(float, 0.0, 3.0) var default_audio_fade_out := 0.35
 export(float, 0.0, 3.0) var default_audio_fade_in := 0.35
 export(float, 3.0, 60.0) var transition_timeout_s := 9.0
+export(float, 3.0, 120.0) var weak_transition_timeout_s := 20.0
+export(float, 3.0, 180.0) var hyper_low_transition_timeout_s := 35.0
 export(bool) var boot_fade_in_enabled := true
 export(float, 0.0, 5.0) var boot_fade_in_duration := 0.55
 export(int, 0, 10) var boot_fade_in_wait_frames := 1
@@ -26,6 +30,9 @@ var _transition_params: Dictionary = {}
 var _captured_player_state: Dictionary = {}
 var _input_restore_state: Dictionary = {}
 var _transition_started_ms := 0
+var _loader_last_progress_ms := 0
+var _loader_last_stage := -1
+var _last_transition_abort_reason := ""
 var _pending_scene_path := ""
 var _pending_transition_params: Dictionary = {}
 var _boot_fade_consumed := false
@@ -60,6 +67,9 @@ func goto_scene(path: String, params: Dictionary = {}):
 	_load_error = ""
 	_loader = null
 	_is_loading = false
+	_loader_last_progress_ms = 0
+	_loader_last_stage = -1
+	_last_transition_abort_reason = ""
 
 	_capture_player_state_for_transition()
 	_disable_input_for_transition()
@@ -85,6 +95,9 @@ func goto_scene(path: String, params: Dictionary = {}):
 	_start_loader(_next_scene_path)
 	while _is_loading:
 		yield(get_tree(), "idle_frame")
+
+	if _last_transition_abort_reason != "":
+		return false
 
 	if _load_error != "":
 		var fail_state = _finalize_failed_transition(_load_error)
@@ -125,6 +138,8 @@ func _start_loader(path: String) -> void:
 		_is_loading = false
 		return
 	_is_loading = true
+	_loader_last_progress_ms = OS.get_ticks_msec()
+	_loader_last_stage = -1
 	_emit_progress(0.0)
 
 func _poll_loader() -> void:
@@ -132,14 +147,19 @@ func _poll_loader() -> void:
 		return
 
 	var start_ms := OS.get_ticks_msec()
-	while _is_loading and (OS.get_ticks_msec() - start_ms) < poll_budget_ms:
+	var budget_ms := _get_effective_poll_budget_ms()
+	while _is_loading and (OS.get_ticks_msec() - start_ms) < budget_ms:
 		var err = _loader.poll()
 		if err == OK:
 			var stage_count = max(1, _loader.get_stage_count())
 			var stage = _loader.get_stage()
+			if stage != _loader_last_stage:
+				_loader_last_stage = stage
+				_loader_last_progress_ms = OS.get_ticks_msec()
 			_emit_progress(float(stage) / float(stage_count))
 		elif err == ERR_FILE_EOF:
 			var resource = _loader.get_resource()
+			_loader_last_progress_ms = OS.get_ticks_msec()
 			if resource and resource is PackedScene:
 				_loaded_scene = resource
 				_emit_progress(1.0)
@@ -363,10 +383,33 @@ func _reset_runtime_state() -> void:
 	_is_loading = false
 	_is_transitioning = false
 	_transition_started_ms = 0
+	_loader_last_progress_ms = 0
+	_loader_last_stage = -1
 	_next_scene_path = ""
 	_transition_params.clear()
 	_captured_player_state.clear()
 	_input_restore_state.clear()
+
+func _get_effective_poll_budget_ms() -> int:
+	var budget: int = int(poll_budget_ms)
+	var hardware_profile = get_node_or_null("/root/HardwareProfile")
+	if hardware_profile == null:
+		return budget
+	if hardware_profile.has_method("is_hyper_low_mode") and bool(hardware_profile.is_hyper_low_mode()):
+		return int(max(budget, int(hyper_low_poll_budget_ms)))
+	if hardware_profile.has_method("is_weak_hardware") and bool(hardware_profile.is_weak_hardware()):
+		return int(max(budget, int(weak_poll_budget_ms)))
+	return budget
+
+func _get_effective_transition_timeout_ms() -> int:
+	var timeout_s := max(3.0, transition_timeout_s)
+	var hardware_profile = get_node_or_null("/root/HardwareProfile")
+	if hardware_profile != null:
+		if hardware_profile.has_method("is_hyper_low_mode") and bool(hardware_profile.is_hyper_low_mode()):
+			timeout_s = max(timeout_s, hyper_low_transition_timeout_s)
+		elif hardware_profile.has_method("is_weak_hardware") and bool(hardware_profile.is_weak_hardware()):
+			timeout_s = max(timeout_s, weak_transition_timeout_s)
+	return int(timeout_s * 1000.0)
 
 func _get_transition_layer() -> Node:
 	return get_node_or_null("/root/TransitionLayer")
@@ -392,16 +435,18 @@ func _should_show_loading(mode: String) -> bool:
 func _check_transition_timeout() -> void:
 	if not _is_transitioning:
 		return
-	var timeout_ms = int(max(3.0, transition_timeout_s) * 1000.0)
+	var timeout_ms = _get_effective_transition_timeout_ms()
 	if _transition_started_ms <= 0:
 		_transition_started_ms = OS.get_ticks_msec()
 		return
-	if OS.get_ticks_msec() - _transition_started_ms < timeout_ms:
+	var reference_ms := _loader_last_progress_ms if _loader_last_progress_ms > 0 else _transition_started_ms
+	if OS.get_ticks_msec() - reference_ms < timeout_ms:
 		return
 	_force_reset_stuck_transition("timeout")
 
 func _force_reset_stuck_transition(reason: String) -> void:
 	printerr("[SceneManager] Transition watchdog reset: ", reason, " path=", _next_scene_path)
+	_last_transition_abort_reason = "watchdog_" + reason
 	emit_signal("transition_failed", _next_scene_path, "watchdog_" + reason)
 	var transition_layer = _get_transition_layer()
 	if transition_layer:

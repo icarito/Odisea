@@ -3,8 +3,10 @@ extends Node
 export(String, FILE, "*.tscn,*.scn") var startup_scene_path := "res://core_v2/levels/BaseTerrace.tscn"
 export(String) var loading_message := "Abriendo BaseTerrace..."
 export(bool) var show_progress := true
+export(int, 0, 60) var scene_manager_wait_frames := 12
 
 var _started := false
+var _fallback_started := false
 
 func _ready() -> void:
 	if Engine.editor_hint:
@@ -25,8 +27,15 @@ func _start_boot_transition() -> void:
 		return
 
 	var scene_manager = get_node_or_null("/root/SceneManager")
+	var wait_frames := max(0, scene_manager_wait_frames)
+	while (scene_manager == null or not scene_manager.has_method("goto_scene")) and wait_frames > 0:
+		wait_frames -= 1
+		yield(get_tree(), "idle_frame")
+		scene_manager = get_node_or_null("/root/SceneManager")
 	_mark_trace("boot_loader_scene_request", {"path": startup_scene_path})
 	if scene_manager and scene_manager.has_method("goto_scene"):
+		if not scene_manager.is_connected("transition_failed", self, "_on_transition_failed"):
+			scene_manager.connect("transition_failed", self, "_on_transition_failed")
 		var state = scene_manager.goto_scene(startup_scene_path, {
 			"transition": "loading",
 			"show_loading": true,
@@ -43,6 +52,28 @@ func _start_boot_transition() -> void:
 		return
 
 	_mark_trace("boot_loader_scene_request_fallback", {"path": startup_scene_path})
+	_start_direct_scene_fallback("scene_manager_missing")
+
+func _on_transition_failed(path: String, reason: String) -> void:
+	if String(path) != startup_scene_path:
+		return
+	if _fallback_started:
+		return
+	printerr("[BootLoader] Interactive startup transition failed (%s). Falling back to direct change_scene." % reason)
+	_mark_trace("boot_loader_transition_failed", {
+		"path": path,
+		"reason": reason
+	})
+	call_deferred("_start_direct_scene_fallback", reason)
+
+func _start_direct_scene_fallback(reason: String = "") -> void:
+	if _fallback_started:
+		return
+	_fallback_started = true
+	_mark_trace("boot_loader_direct_fallback", {
+		"path": startup_scene_path,
+		"reason": reason
+	})
 	var err := get_tree().change_scene(startup_scene_path)
 	if err != OK:
 		printerr("[BootLoader] change_scene failed for %s (err=%d)" % [startup_scene_path, err])

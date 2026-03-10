@@ -54,8 +54,9 @@ func _ready():
 func _update_in_editor():
 	if Engine.editor_hint:
 		update_color()
-		if particles:
-			particles.emitting = is_active
+		var live_particles = _get_particles()
+		if live_particles:
+			live_particles.emitting = is_active
 
 func _process(delta):
 	if Engine.editor_hint: return
@@ -63,23 +64,33 @@ func _process(delta):
 	if timeout > 0.0:
 		_time_alive += delta
 		if _time_alive >= timeout:
-			if particles: particles.emitting = false
-			if _audio and _audio.playing: _audio.stop()
+			var live_particles = _get_particles()
+			var live_audio = _get_audio()
+			if live_particles:
+				live_particles.emitting = false
+			if live_audio and live_audio.playing:
+				live_audio.stop()
 			set_process(false)
 			return
 			
 	if interval > 0.0:
 		_burst_timer -= delta
 		if _burst_timer <= 0.0:
+			var live_particles = _get_particles()
+			var live_audio = _get_audio()
 			if not _is_bursting:
 				_is_bursting = true
-				if particles and is_active: particles.emitting = true
-				if is_active and _audio and not _audio.playing: _audio.play()
+				if live_particles and is_active:
+					live_particles.emitting = true
+				if is_active and live_audio and not live_audio.playing:
+					live_audio.play()
 				_burst_timer = duration # duration of the spark burst
 			else:
 				_is_bursting = false
-				if particles: particles.emitting = false
-				if _audio and _audio.playing: _audio.stop()
+				if live_particles:
+					live_particles.emitting = false
+				if live_audio and live_audio.playing:
+					live_audio.stop()
 				_burst_timer = max(0.01, interval + rand_range(-interval_random, interval_random))
 
 func update_color():
@@ -87,8 +98,9 @@ func update_color():
 	var g: float = min(spark_color.g * brightness, 1.0)
 	var b: float = min(spark_color.b * brightness, 1.0)
 	
-	if particles:
-		particles.color = Color(r, g, b, 1.0)
+	var live_particles = _get_particles()
+	if live_particles:
+		live_particles.color = Color(r, g, b, 1.0)
 		
 		if gradient:
 			gradient.set_color(0, Color(min(r + 0.1, 1.0), min(g + 0.1, 1.0), min(b + 0.1, 1.0), 1.0))
@@ -111,10 +123,11 @@ func set_brightness(value: float):
 
 func set_active(value: bool):
 	if is_active != value:
-		if value and _is_bursting and _audio and not _audio.playing:
-			_audio.play()
-		elif not value and _audio and _audio.playing:
-			_audio.stop()
+		var live_audio = _get_audio()
+		if value and _is_bursting and live_audio and not live_audio.playing:
+			live_audio.play()
+		elif not value and live_audio and live_audio.playing:
+			live_audio.stop()
 	is_active = value
 	update_emission()
 	_update_in_editor()
@@ -129,7 +142,24 @@ func toggle():
 	set_active(!is_active)
 
 func update_emission():
-	if particles:
-		particles.emitting = is_active and _is_bursting
+	var live_particles = _get_particles()
+	if live_particles:
+		live_particles.emitting = is_active and _is_bursting
 		if interval <= 0.0:
-			particles.emitting = is_active
+			live_particles.emitting = is_active
+
+func _get_particles() -> CPUParticles:
+	if particles and is_instance_valid(particles):
+		return particles
+	particles = get_node_or_null("CPUParticles")
+	if particles and is_instance_valid(particles):
+		return particles
+	return null
+
+func _get_audio() -> AudioStreamPlayer3D:
+	if _audio and is_instance_valid(_audio):
+		return _audio
+	_audio = get_node_or_null("SparkSound")
+	if _audio and is_instance_valid(_audio):
+		return _audio
+	return null
