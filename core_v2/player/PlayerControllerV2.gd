@@ -4,6 +4,7 @@ const InputProviderV2 = preload("../input/InputProviderV2.gd")
 const InputDataV2 = preload("../input/InputDataV2.gd")
 const PlayerJumpV2 = preload("PlayerJumpV2.gd")
 const PlayerMovementV2 = preload("PlayerMovementV2.gd")
+const TraversalLogicV2 = preload("traversal/TraversalLogicV2.gd")
 
 const FIXED_DT := 1.0 / 60.0
 const UP := Vector3.UP
@@ -178,6 +179,7 @@ func ensure_input_provider():
 
 var jump_logic: PlayerJumpV2
 var movement_logic: PlayerMovementV2
+var traversal_logic: TraversalLogicV2
 var _created_jump_logic := false
 var _created_movement_logic := false
 
@@ -361,6 +363,16 @@ func _ready():
 			get_node("Logic").add_child(movement_logic)
 		else:
 			add_child(movement_logic)
+
+	if has_node("Logic/Traversal"):
+		traversal_logic = get_node("Logic/Traversal")
+	else:
+		traversal_logic = TraversalLogicV2.new()
+		traversal_logic.name = "Traversal"
+		if has_node("Logic"):
+			get_node("Logic").add_child(traversal_logic)
+		else:
+			add_child(traversal_logic)
 	
 	_cached_cam = _find_camera(camera_rig)
 	if _cached_cam:
@@ -867,6 +879,17 @@ func _process_interaction(input: InputDataV2):
 					best_target._auto_triggered = true
 		if input.interact and best_target.has_method("interact"):
 			best_target.interact()
+
+		# Traversal Entry Logic (Ladder/Ledge)
+		if input.move_vec.y < -0.1: # Forward/Toward surface
+			if best_target.is_in_group("ladder") and traversal_logic:
+				var anchor = best_target.global_transform.origin
+				var normal = -best_target.global_transform.basis.z # Assuming -Z is ladder forward
+				traversal_logic.enter_climbing(anchor, normal, global_transform.origin)
+			elif best_target.is_in_group("ledge") and traversal_logic:
+				var anchor = best_target.global_transform.origin
+				var normal = -best_target.global_transform.basis.z
+				traversal_logic.enter_hanging(anchor, normal)
 	else:
 		_clear_interactable()
 
@@ -1029,6 +1052,31 @@ func _update_push_state(_dt: float, input: InputDataV2):
 
 func step(dt: float, input: InputDataV2) -> void:
 	if input == null: return
+
+	# --- TRAVERSAL STATE CHECK ---
+	if traversal_logic and traversal_logic.is_active:
+		var old_pos = global_transform.origin
+		var next_pos = traversal_logic.step(dt, input.move_vec, old_pos)
+		global_transform.origin = next_pos
+
+		# Mantle auto-exit
+		if traversal_logic.current_state == traversal_logic.TraversalState.MANTLING and traversal_logic.anim_progress >= 1.0:
+			traversal_logic.exit()
+
+		# Jump to exit traversal
+		if input.jump:
+			traversal_logic.exit()
+			velocity.y = jump_logic.jump_force
+			jump_logic.consume_jump()
+
+		# Sync visual velocity for animator
+		var delta_pos = next_pos - old_pos
+		velocity = delta_pos / dt if dt > 0 else Vector3.ZERO
+
+		# Update animator with traversal state
+		if animator and animator.has_method("step_animator"):
+			animator.step_animator(dt, velocity)
+		return
 	var prof_enabled := _rl_step_profile_enabled
 	var prof_t0 := 0
 	var prof_t_control := 0

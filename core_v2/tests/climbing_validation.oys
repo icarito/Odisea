@@ -1,0 +1,35 @@
+# Automated Traversal Sequence for Odisea
+LEVEL res://core_v2/scenes/PropStage.tscn
+
+# Setup Ladder and Ledge Props
+SPAWN res://core_v2/components/LadderV2.tscn AS ladder AT 0 0 -3
+SPAWN res://core_v2/components/LedgeV2.tscn AS ledge AT 3 1.8 -3
+
+# 1. Ladder Climbing Validation
+# Teleport close to ladder. Ladder is at Z=-3. Player at Z=-2.5.
+TELEPORT (0, 0.1, -2.4)
+SET rot 0
+WAIT 0.5
+INPUT {"move_vec": [0, -1]} # Forward toward ladder
+WAIT 2.0
+ASSERT elias.traversal_logic.current_state == 1 # 1 = CLIMBING
+SCREENSHOT climbing_ladder
+
+# 2. Ledge Hanging Validation
+# Ledge is at X=3, Y=1.8, Z=-3.
+TELEPORT (3, 0.1, -2.4)
+SET rot 0
+WAIT 0.5
+INPUT {"jump": true, "move_vec": [0, -1]}
+WAIT 2.0
+ASSERT elias.traversal_logic.current_state == 2 # 2 = HANGING
+SCREENSHOT hanging_ledge
+
+# 3. Mantle (Climb Up) Validation
+INPUT {"move_vec": [0, -1]} # Up toward platform
+WAIT 2.0
+ASSERT elias.traversal_logic.current_state == 4 # 4 = MANTLING
+WAIT 2.0
+ASSERT elias.traversal_logic.current_state == 0 # 0 = NONE
+ASSERT elias.is_on_floor == true
+SCREENSHOT mantled_platform

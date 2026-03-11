@@ -965,11 +965,18 @@ func _on_tree_changed_for_script(script_path: String):
 	for line in content.split("\n"):
 		if line.begins_with("LEVEL "):
 			var scene_path = line.replace("LEVEL ", "").strip_edges()
-			if get_tree().current_scene.filename != scene_path:
+			var current_scene = get_tree().current_scene
+			var needs_load = true
+			if is_instance_valid(current_scene):
+				if current_scene.filename == scene_path:
+					needs_load = false
+
+			if needs_load:
 				print("Loading scene: ", scene_path)
 				var scene = load(scene_path).instance()
 				get_tree().root.add_child(scene)
-				get_tree().current_scene.queue_free()
+				if is_instance_valid(current_scene):
+					current_scene.queue_free()
 				get_tree().current_scene = scene
 				yield (get_tree(), "idle_frame")
 				yield (get_tree(), "idle_frame")

@@ -1575,7 +1575,7 @@ func _find_actor_node(target: String) -> Node:
 	var key = String(target).strip_edges()
 	if key == "":
 		return _find_player()
-	if key == "Pilot" or key == "Player":
+	if key == "Pilot" or key == "Player" or key == "elias":
 		return _find_player()
 
 	# Try path/name resolution from interpreter context first.
@@ -2103,6 +2103,19 @@ func _resolve_value(val):
 
 	if val.begins_with("$"):
 		return variables.get(val, 0)
+
+	# Support for Actor.Property.Path (e.g. elias.traversal_logic.current_state)
+	if val.find(".") != -1 and not val.is_valid_float():
+		var parts = val.split(".")
+		var actor_name = parts[0]
+		var actor = _find_actor_node(actor_name)
+		if is_instance_valid(actor):
+			var prop_path = val.substr(actor_name.length() + 1)
+			var sm = _find_session_manager()
+			if sm and sm.has_method("_get_nested_prop"):
+				var res = sm._get_nested_prop(actor, prop_path)
+				if res != null: return res
+
 	if val.is_valid_float():
 		return val.to_float()
 	if val in ["pos.y", "pos.x", "pos.z"]:

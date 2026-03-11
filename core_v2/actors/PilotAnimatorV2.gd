@@ -25,6 +25,8 @@ const PARAM_CONDITIONS_IS_PUSHING = "parameters/conditions/is_pushing"
 const PARAM_CONDITIONS_NOT_PUSHING = "parameters/conditions/!is_pushing"
 const PARAM_CONDITIONS_IS_CROUCHED = "parameters/conditions/is_crouched"
 const PARAM_CONDITIONS_NOT_CROUCHED = "parameters/conditions/!is_crouched"
+const PARAM_CONDITIONS_IS_HANGING = "parameters/conditions/is_hanging"
+const PARAM_CONDITIONS_IS_CLIMBING = "parameters/conditions/is_climbing"
 
 # --- EXPORTS ---
 # Velocidad de suavizado para la velocidad usada en el AnimationTree.
@@ -55,6 +57,12 @@ var _skeleton: Skeleton = null
 onready var jump_sfx: SFXComponentV2 = get_node_or_null("JumpSFX")
 onready var footstep_detector: FootstepDetector = get_node_or_null("FootstepDetector")
 var _footstep_sounds: Array = []
+
+# --- IK TARGETS ---
+var left_hand_target := Vector3.ZERO
+var right_hand_target := Vector3.ZERO
+var left_foot_target := Vector3.ZERO
+var right_foot_target := Vector3.ZERO
 
 # --- STATE ---
 # Almacena la velocidad suavizada para el blend tree de animación.
@@ -337,6 +345,13 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	if not animation_tree:
 		return
 
+	# Traversal State Integration
+	var is_climbing = controller.traversal_logic.is_climbing if controller and controller.get("traversal_logic") else false
+	var is_hanging = controller.traversal_logic.is_hanging if controller and controller.get("traversal_logic") else false
+
+	_set_anim_tree_param(PARAM_CONDITIONS_IS_CLIMBING, is_climbing)
+	_set_anim_tree_param(PARAM_CONDITIONS_IS_HANGING, is_hanging)
+
 	# Actualizar condiciones básicas
 	_set_anim_tree_param(PARAM_CONDITIONS_ON_FLOOR, is_on_floor)
 	_set_anim_tree_param(PARAM_CONDITIONS_NOT_ON_FLOOR, not is_on_floor)
@@ -406,8 +421,18 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	# Parámetro para la mezcla de locomoción (Idle/Walk/Run).
 	# Usa la magnitud de la velocidad horizontal suavizada.
 	var blend_pos = Vector2(visual_velocity.x, visual_velocity.z).length()
+	if is_climbing or is_hanging:
+		# Use anim_progress from traversal logic for climbing/hanging blend
+		blend_pos = controller.traversal_logic.anim_progress if controller and controller.get("traversal_logic") else 0.0
+
 	_set_anim_tree_param(PARAM_GROUNDED_BLEND_POSITION, blend_pos, ANIM_BLEND_PARAM_FLOAT_EPSILON)
 	_set_anim_tree_param(PARAM_CROUCHED_BLEND_POSITION, blend_pos, ANIM_BLEND_PARAM_FLOAT_EPSILON)
+
+	# Update IK Targets for Traversal
+	if is_hanging:
+		_update_hanging_ik()
+	elif is_climbing:
+		_update_climbing_ik()
 
 	# Selección entre JumpLoop y FloatLoop: usar JumpLoop si saltamos recientemente
 	# o si hay entrada de movimiento significativa.
@@ -445,6 +470,69 @@ func _on_controller_jumped() -> void:
 func _on_controller_hit_ceiling() -> void:
 	"""Se ejecuta cuando el controlador emite la señal 'hit_ceiling'."""
 	hit_head_active = true
+
+func _update_hanging_ik():
+	if not controller or not controller.traversal_logic: return
+	var anchor = controller.traversal_logic.ledge_anchor_point
+	var normal = controller.traversal_logic.ledge_normal
+	var tangent = normal.cross(Vector3.UP).normalized()
+
+	# Hands snapped to ledge
+	left_hand_target = anchor - tangent * 0.3
+	right_hand_target = anchor + tangent * 0.3
+
+	# Apply IK Paden-Kahan 3 (distance) to reach ledge
+	_apply_analytical_ik("LeftHand", left_hand_target)
+	_apply_analytical_ik("RightHand", right_hand_target)
+
+func _update_climbing_ik():
+	if not controller or not controller.traversal_logic: return
+	var anchor = controller.traversal_logic.ladder_anchor_point
+	var progress = controller.traversal_logic.anim_progress
+
+	# Alternate hands/feet based on progress (0.0 to 1.0 cycle)
+	var step_y = floor(progress * 2.0)
+	left_hand_target = anchor + Vector3.UP * (step_y * 0.4) - Vector3.RIGHT * 0.25
+	right_hand_target = anchor + Vector3.UP * ((1.0 - step_y) * 0.4) + Vector3.RIGHT * 0.25
+
+	_apply_analytical_ik("LeftHand", left_hand_target)
+	_apply_analytical_ik("RightHand", right_hand_target)
+
+func _apply_analytical_ik(bone_name: String, target_world_pos: Vector3):
+	if not _skeleton: return
+	var bone_idx = _skeleton.find_bone(bone_name)
+	if bone_idx == -1: return
+
+	var parent_idx = _skeleton.get_bone_parent(bone_idx)
+	if parent_idx == -1: return
+
+	# Analytical IK Solvers based on Paden-Kahan subproblems
+	var local_target = _skeleton.global_transform.affine_inverse().xform(target_world_pos)
+	var parent_pose = _skeleton.get_bone_global_pose(parent_idx)
+	var child_pose = _skeleton.get_bone_global_pose(bone_idx)
+
+	var parent_origin = parent_pose.origin
+	var target_dir = (local_target - parent_origin).normalized()
+	var current_dir = (child_pose.origin - parent_origin).normalized()
+
+	# Subproblem 1: Rotation about a single axis
+	if current_dir.dot(target_dir) < 0.9999:
+		var axis = current_dir.cross(target_dir)
+		if axis.length_squared() > 0.00001:
+			axis = axis.normalized()
+			var angle = acos(clamp(current_dir.dot(target_dir), -1.0, 1.0))
+			# Rotate parent to point child toward target
+			parent_pose.basis = parent_pose.basis.rotated(axis, angle)
+			_skeleton.set_bone_global_pose_override(parent_idx, parent_pose, 1.0, true)
+			# Re-read child pose after parent update
+			child_pose = _skeleton.get_bone_global_pose(bone_idx)
+
+	# Subproblem 3: Rotation to a given distance (Simplified reach extension)
+	var limb_len = (child_pose.origin - parent_origin).length()
+	var target_dist = (local_target - parent_origin).length()
+	if target_dist > 0.001 and target_dist < (limb_len * 2.0):
+		child_pose.origin = parent_origin + target_dir * target_dist
+		_skeleton.set_bone_global_pose_override(bone_idx, child_pose, 1.0, true)
 
 func _on_controller_acrobatic_jumped() -> void:
 	"""Trigger Backflip State via is_acrobatic condition."""
