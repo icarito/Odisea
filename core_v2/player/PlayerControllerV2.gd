@@ -31,6 +31,15 @@ export(float) var min_pitch := -85.0
 export(float) var max_pitch := 85.0
 export(float) var interact_distance := 3.0
 export(float) var push_offset := 0.71 # Relaxed to 0.71m to close visual gap (User Request).
+var traversal_jump_vertical_multiplier := 1.05
+var traversal_jump_push_force := 2.8
+var traversal_jump_detach_distance := 0.18
+var traversal_camera_collision_grace := 0.22
+var ledge_regrab_cooldown_time_above := 0.7
+var ledge_regrab_cooldown_time_below := 0.4
+var hang_drop_push_force := 1.2
+var hang_drop_vertical_velocity := 0.35
+var ladder_regrab_cooldown_time := 0.2
 export(bool) var enable_auto_align := true
 export(float) var auto_align_speed := 2.0
 export(float) var auto_align_delay := 1.0
@@ -99,6 +108,15 @@ var external_input_provided := false
 var visual_push_correction: float = 0.0
 
 var _push_target: Spatial = null
+var _ledge_regrab_cooldown := 0.0
+var _ladder_regrab_cooldown := 0.0
+var _jump_was_pressed := false
+var _crouch_was_pressed := false
+var _camera_collision_grace_left := 0.0
+var _traversal_strafe_latch_active := false
+var _traversal_strafe_release_coyote_left := 0.0
+var _traversal_exit_yaw_target := 0.0
+var _traversal_exit_yaw_target_active := false
 
 
 # Cinematic Zone State
@@ -247,10 +265,8 @@ func full_reset() -> void:
 		jump_logic.coyote_timer = 0.0
 		jump_logic.jump_buffer_timer = 0.0
 		jump_logic._is_jumping = false
-
 	if is_instance_valid(animator) and animator.has_method("reset_state"):
 		animator.reset_state()
-
 	_clear_cinematic_zone_request()
 	_active_cinematic_zone = null
 	_prev_active_cinematic_zone = null
@@ -259,6 +275,54 @@ func full_reset() -> void:
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		camera_rig.force_update_transform()
+
+func _sync_movement_state_after_traversal(horizontal_velocity: Vector3 = Vector3.ZERO) -> void:
+	if not is_instance_valid(movement_logic):
+		return
+	movement_logic.horizontal_velocity = Vector3(horizontal_velocity.x, 0.0, horizontal_velocity.z)
+	movement_logic.wish_direction = Vector3.ZERO
+
+func _begin_post_traversal_strafe_latch(surface_normal: Vector3, exit_input: Vector2) -> void:
+	var face_dir = surface_normal.normalized() if surface_normal.length_squared() > 0.001 else Vector3.ZERO
+	if face_dir != Vector3.ZERO:
+		_traversal_exit_yaw_target = atan2(-face_dir.x, -face_dir.z)
+		_traversal_exit_yaw_target_active = true
+	if is_instance_valid(movement_logic):
+		movement_logic.is_tank_turn_mode = false
+		movement_logic.camera_input_timer = 0.0
+		movement_logic.current_turn_time = 0.0
+		movement_logic._mouse_used_this_move = false
+	var release_coyote := traversal_logic.post_traversal_strafe_release_coyote_time if traversal_logic else 0.14
+	_traversal_strafe_latch_active = true
+	_traversal_strafe_release_coyote_left = release_coyote
+
+func _update_post_traversal_strafe_latch(dt: float, input: InputDataV2) -> void:
+	if not _traversal_strafe_latch_active:
+		return
+	var deadzone := traversal_logic.post_traversal_strafe_latch_deadzone if traversal_logic else 0.1
+	var release_coyote := traversal_logic.post_traversal_strafe_release_coyote_time if traversal_logic else 0.14
+	if input == null or input.move_vec.length() <= deadzone:
+		_traversal_strafe_release_coyote_left = max(0.0, _traversal_strafe_release_coyote_left - dt)
+		if _traversal_strafe_release_coyote_left <= 0.0:
+			_traversal_strafe_latch_active = false
+		return
+	_traversal_strafe_release_coyote_left = release_coyote
+	if is_instance_valid(movement_logic):
+		movement_logic.is_tank_turn_mode = false
+		movement_logic.camera_input_timer = 0.0
+		movement_logic.current_turn_time = 0.0
+		movement_logic._mouse_used_this_move = false
+
+func _update_post_traversal_exit_alignment(dt: float) -> void:
+	if not _traversal_exit_yaw_target_active:
+		return
+	var align_speed := traversal_logic.post_traversal_face_wall_speed if traversal_logic else 8.0
+	yaw = lerp_angle(yaw, _traversal_exit_yaw_target, clamp(align_speed * dt, 0.0, 1.0))
+	yaw_deg = rad2deg(yaw)
+	if abs(wrapf(_traversal_exit_yaw_target - yaw, -PI, PI)) <= 0.02:
+		yaw = _traversal_exit_yaw_target
+		yaw_deg = rad2deg(yaw)
+		_traversal_exit_yaw_target_active = false
 
 func _exit_tree() -> void:
 	# Ensure we never leave dangling camera requests when player is respawned/freed.
@@ -373,6 +437,9 @@ func _ready():
 			get_node("Logic").add_child(traversal_logic)
 		else:
 			add_child(traversal_logic)
+
+	if traversal_logic and traversal_logic.has_method("apply_to_controller"):
+		traversal_logic.apply_to_controller(self)
 	
 	_cached_cam = _find_camera(camera_rig)
 	if _cached_cam:
@@ -727,6 +794,324 @@ func _get_move_direction(input_vector: Vector2, mode = -1, camera_basis = null) 
 		# print("[MoveDir] mode=%d in_y=%.3f fwd_basis_z=%s raw_fwd=%s fwd_norm=%s res=%s" % [mode, input_vector.y, camera_basis.z, raw_fwd, raw_fwd.normalized(), res])
 	return res
 
+func _update_camera_orbit_state(dt: float, input: InputDataV2, allow_auto_align: bool = true, allow_move_turn_input: bool = true) -> void:
+	# Camera Orbit Logic (Third Person)
+	if _rl_fast_controller:
+		if input and input.mouse_delta:
+			yaw -= input.mouse_delta.x * mouse_sensitivity
+			var mouse_y_fast = - input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
+			pitch -= mouse_y_fast * mouse_sensitivity
+		pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
+		if abs(input.zoom_delta) > 0.01:
+			base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 50.0)
+		if input.fov_override > 0.0:
+			base_fov = input.fov_override
+	else:
+		var active_zone_mode = CinematicManager.get_control_mode()
+		if active_zone_mode == CinematicManager.ControlMode.FREE:
+			if input:
+				var orbit_move_vec = input.move_vec if allow_move_turn_input else Vector2.ZERO
+				if _traversal_strafe_latch_active:
+					orbit_move_vec = Vector2.ZERO
+					movement_logic.is_tank_turn_mode = false
+					movement_logic.camera_input_timer = 0.0
+					movement_logic.current_turn_time = 0.0
+				movement_logic.update_tank_mode(dt, input.mouse_delta, orbit_move_vec, input.jump, input.sprint, input.hardware_mouse_active)
+				yaw -= input.mouse_delta.x * mouse_sensitivity
+				var mouse_y = - input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
+				pitch -= mouse_y * mouse_sensitivity
+				yaw += movement_logic.get_tank_yaw_delta(dt, orbit_move_vec)
+				if allow_auto_align and enable_auto_align and not movement_logic.is_tank_turn_mode:
+					if movement_logic.camera_input_timer > auto_align_delay:
+						var wish_dir = movement_logic.wish_direction
+						if wish_dir.length_squared() > 0.5:
+							var target_yaw = atan2(-wish_dir.x, -wish_dir.z)
+							yaw = lerp_angle(yaw, target_yaw, auto_align_speed * dt)
+			pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
+
+		var active_cam = CinematicManager.get_active_camera()
+		var can_zoom_cinematic = enable_cinematic_zoom and active_cam and is_instance_valid(active_cam) and active_cam != _cached_cam
+		if can_zoom_cinematic:
+			if _cinematic_zoom_target_cam != active_cam:
+				_cinematic_zoom_target_cam = active_cam
+				_cinematic_zoom_target_fov = active_cam.fov
+
+			if abs(input.zoom_delta) > 0.01:
+				_cinematic_zoom_target_fov = clamp(
+					_cinematic_zoom_target_fov + (input.zoom_delta * cinematic_zoom_speed),
+					cinematic_zoom_min_fov,
+					cinematic_zoom_max_fov
+				)
+
+			var zoom_t = clamp(cinematic_zoom_lerp_speed * dt, 0.0, 1.0)
+			active_cam.fov = lerp(active_cam.fov, _cinematic_zoom_target_fov, zoom_t)
+		else:
+			_cinematic_zoom_target_cam = null
+			_cinematic_zoom_target_fov = -1.0
+			if abs(input.zoom_delta) > 0.01:
+				base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 50.0)
+
+		if input.fov_override > 0.0:
+			base_fov = input.fov_override
+
+	if camera_rig:
+		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.force_update_transform()
+
+	yaw_deg = rad2deg(yaw)
+	pitch_deg = rad2deg(pitch)
+
+func _update_camera_view(dt: float) -> void:
+	if (not _rl_skip_camera_updates) and _cached_spring_arm:
+		current_spring_length = lerp(current_spring_length, base_spring_length_3d, 4.0 * dt)
+		_cached_spring_arm.spring_length = current_spring_length
+
+	if (not _rl_skip_camera_updates) and _cached_cam and abs(_cached_cam.fov - base_fov) > 0.01:
+		_cached_cam.fov = lerp(_cached_cam.fov, base_fov, 4.0 * dt)
+
+func _update_camera_collision_mask_state(dt: float) -> void:
+	if not _cached_spring_arm:
+		return
+	var suppress_collision := false
+	if traversal_logic and traversal_logic.is_active:
+		var state = traversal_logic.current_state
+		suppress_collision = state == traversal_logic.TraversalState.HANGING or state == traversal_logic.TraversalState.MANTLING
+	if suppress_collision:
+		_camera_collision_grace_left = max(_camera_collision_grace_left, traversal_camera_collision_grace)
+	else:
+		_camera_collision_grace_left = max(0.0, _camera_collision_grace_left - dt)
+	_cached_spring_arm.collision_mask = 0 if _camera_collision_grace_left > 0.0 else base_collision_mask
+
+func _get_traversal_detach_normal() -> Vector3:
+	if not traversal_logic:
+		return -global_transform.basis.z
+	if traversal_logic.current_state == traversal_logic.TraversalState.CLIMBING:
+		if traversal_logic.ladder_normal.length_squared() > 0.001:
+			return -traversal_logic.ladder_normal.normalized()
+	elif traversal_logic.current_state == traversal_logic.TraversalState.HANGING or traversal_logic.current_state == traversal_logic.TraversalState.MANTLING:
+		if traversal_logic.ledge_normal.length_squared() > 0.001:
+			return -traversal_logic.ledge_normal.normalized()
+	return -global_transform.basis.z
+
+func _find_nearby_ladder_for_crouch() -> Node:
+	if _ladder_regrab_cooldown > 0.0:
+		return null
+	var top_margin = traversal_logic.ladder_crouch_top_margin if traversal_logic else 0.35
+	var below_margin = traversal_logic.ladder_crouch_vertical_below_margin if traversal_logic else 0.8
+	var above_margin = traversal_logic.ladder_crouch_vertical_above_margin if traversal_logic else 1.0
+	var lateral_limit := traversal_logic.ladder_crouch_lateral_limit if traversal_logic else 0.9
+	var depth_limit := traversal_logic.ladder_crouch_depth_limit if traversal_logic else 0.9
+	var ladders = get_tree().get_nodes_in_group("ladder")
+	var best_ladder: Node = null
+	var best_score := INF
+	var player_pos = global_transform.origin
+	for ladder in ladders:
+		if not is_instance_valid(ladder):
+			continue
+		if "is_interactable" in ladder and not ladder.is_interactable:
+			continue
+		var anchor = ladder.get_climb_anchor() if ladder.has_method("get_climb_anchor") else ladder.global_transform.origin
+		var normal = -ladder.global_transform.basis.z
+		var right = normal.cross(Vector3.UP).normalized()
+		var rel = player_pos - anchor
+		var lateral = abs(rel.dot(right))
+		var depth = abs(rel.dot(normal))
+		var limits = ladder.get_climb_limits() if ladder.has_method("get_climb_limits") else Vector2(-1.5, 1.5)
+		var vertical = rel.y
+		if vertical < limits.y - top_margin:
+			continue
+		var within_vertical = vertical >= limits.x - below_margin and vertical <= limits.y + above_margin
+		var within_lateral = lateral <= lateral_limit
+		var within_depth = depth <= depth_limit
+		if not within_vertical or not within_lateral or not within_depth:
+			continue
+		var clamped_vertical = clamp(vertical, limits.x, limits.y)
+		var score = lateral * lateral + depth * depth + abs(vertical - clamped_vertical) * 0.25
+		if score < best_score:
+			best_score = score
+			best_ladder = ladder
+	return best_ladder
+
+func _can_auto_enter_ladder(ladder: Node) -> bool:
+	if not is_instance_valid(ladder):
+		return false
+	var anchor = ladder.get_climb_anchor() if ladder.has_method("get_climb_anchor") else ladder.global_transform.origin
+	var normal = -ladder.global_transform.basis.z
+	var right = normal.cross(Vector3.UP).normalized()
+	var rel = global_transform.origin - anchor
+	var limits = ladder.get_climb_limits() if ladder.has_method("get_climb_limits") else Vector2(-1.5, 1.5)
+	var below_margin := traversal_logic.ladder_auto_enter_vertical_below_margin if traversal_logic else 0.35
+	var above_margin := traversal_logic.ladder_auto_enter_vertical_above_margin if traversal_logic else 0.55
+	var lateral_limit := traversal_logic.ladder_auto_enter_lateral_limit if traversal_logic else 0.55
+	var depth_limit := traversal_logic.ladder_auto_enter_depth_limit if traversal_logic else 0.55
+	var vertical = rel.y
+	var lateral = abs(rel.dot(right))
+	var depth = abs(rel.dot(normal))
+	return (
+		vertical >= limits.x - below_margin
+		and vertical <= limits.y + above_margin
+		and lateral <= lateral_limit
+		and depth <= depth_limit
+	)
+
+func _find_nearby_ledge_for_crouch() -> Node:
+	if _ledge_regrab_cooldown > 0.0:
+		return null
+	var min_vertical_from_above := traversal_logic.ledge_crouch_min_vertical_from_above if traversal_logic else 0.05
+	var max_vertical_from_above := traversal_logic.ledge_crouch_max_vertical_from_above if traversal_logic else 2.6
+	var lateral_margin := traversal_logic.ledge_crouch_lateral_margin if traversal_logic else 0.35
+	var depth_limit := traversal_logic.ledge_crouch_depth_limit if traversal_logic else 1.35
+	var ledges = get_tree().get_nodes_in_group("ledge")
+	var best_ledge: Node = null
+	var best_score := INF
+	var player_pos = global_transform.origin
+	for ledge in ledges:
+		if not is_instance_valid(ledge):
+			continue
+		if not (ledge is PhysicsBody):
+			continue
+		if not ledge.has_method("get_hang_half_width"):
+			continue
+		if "is_interactable" in ledge and not ledge.is_interactable:
+			continue
+		var anchor = ledge.global_transform.origin
+		var normal = -ledge.global_transform.basis.z
+		var tangent = normal.cross(Vector3.UP).normalized()
+		var rel = player_pos - anchor
+		var half_width = ledge.get_hang_half_width() if ledge.has_method("get_hang_half_width") else 0.85
+		var lateral = abs(rel.dot(tangent))
+		var depth = abs(rel.dot(normal))
+		var vertical = rel.y
+		if vertical < min_vertical_from_above:
+			continue
+		var within_lateral = lateral <= half_width + lateral_margin
+		var within_depth = depth <= depth_limit
+		var within_vertical = vertical >= min_vertical_from_above and vertical <= max_vertical_from_above
+		if not within_lateral or not within_depth or not within_vertical:
+			continue
+		var clamped_vertical = clamp(vertical, -0.1, 1.8)
+		var score = lateral * lateral + depth * depth + abs(vertical - clamped_vertical) * 0.35
+		if vertical > 0.5:
+			score -= 0.15
+		if score < best_score:
+			best_score = score
+			best_ledge = ledge
+	return best_ledge
+
+func _start_ledge_regrab_cooldown(player_y: float, ledge_y: float) -> void:
+	if player_y > ledge_y + 0.1:
+		_ledge_regrab_cooldown = max(_ledge_regrab_cooldown, ledge_regrab_cooldown_time_above)
+	else:
+		_ledge_regrab_cooldown = max(_ledge_regrab_cooldown, ledge_regrab_cooldown_time_below)
+
+func _update_input_edge_state(input: InputDataV2) -> void:
+	if input == null:
+		_jump_was_pressed = false
+		_crouch_was_pressed = false
+		return
+	_jump_was_pressed = input.jump
+	_crouch_was_pressed = input.crouch
+
+func _should_auto_hang_ledge(best_target: Node, input: InputDataV2) -> bool:
+	if not best_target or _ledge_regrab_cooldown > 0.0:
+		return false
+	var max_rising_velocity := traversal_logic.ledge_auto_hang_max_rising_velocity if traversal_logic else 0.05
+	if is_effectively_grounded() and velocity.y >= -max_rising_velocity:
+		return false
+	var anchor = best_target.global_transform.origin
+	var normal = -best_target.global_transform.basis.z
+	var tangent = normal.cross(Vector3.UP).normalized()
+	var rel = global_transform.origin - anchor
+	var half_width = best_target.get_hang_half_width() if best_target.has_method("get_hang_half_width") else 0.85
+	var lateral_margin := traversal_logic.ledge_auto_hang_lateral_margin if traversal_logic else 0.28
+	var depth_limit := traversal_logic.ledge_auto_hang_depth_limit if traversal_logic else 0.75
+	var lateral = abs(rel.dot(tangent))
+	var depth = abs(rel.dot(normal))
+	var vertical = global_transform.origin.y - anchor.y
+	var ledge_height_above_feet = -vertical
+	var min_grab_height = max(
+		traversal_logic.ledge_auto_hang_min_height if traversal_logic else 0.75,
+		_standing_capsule_total_height * (traversal_logic.ledge_auto_hang_min_height_ratio if traversal_logic else 0.42)
+	)
+	var max_grab_height = max(
+		min_grab_height + (traversal_logic.ledge_auto_hang_band_padding if traversal_logic else 0.2),
+		min(
+			traversal_logic.ledge_auto_hang_max_height if traversal_logic else 1.6,
+			_standing_capsule_total_height * (traversal_logic.ledge_auto_hang_max_height_ratio if traversal_logic else 0.9)
+		)
+	)
+	# Auto-hang should only happen when the ledge is within arm/torso reach.
+	# If the ledge is too low relative to the feet, the player should keep falling
+	# under gravity instead of getting "pulled" down into a hang from the hips/feet.
+	if ledge_height_above_feet < min_grab_height:
+		return false
+	if velocity.y > max_rising_velocity:
+		return false
+	if lateral > half_width + lateral_margin:
+		return false
+	if depth > depth_limit:
+		return false
+	return ledge_height_above_feet >= min_grab_height and ledge_height_above_feet <= max_grab_height
+
+func _can_start_mantle() -> bool:
+	var mantle_targets = _get_mantle_target_points()
+	if mantle_targets.empty():
+		return false
+	var target_top = mantle_targets["top"]
+	if not traversal_logic:
+		return false
+	if traversal_logic.current_state != traversal_logic.TraversalState.HANGING:
+		return false
+	var space_state = get_world().direct_space_state
+
+	if not _body_capsule_shape:
+		return true
+	var stand_shape = CapsuleShape.new()
+	stand_shape.radius = _body_capsule_shape.radius
+	stand_shape.height = max(0.1, _standing_capsule_height)
+	var params = PhysicsShapeQueryParameters.new()
+	params.set_shape(stand_shape)
+	params.transform = Transform(global_transform.basis, target_top) * Transform(Basis.IDENTITY, _standing_collision_origin)
+	params.exclude = [self]
+	params.collision_mask = collision_mask
+	var hits = space_state.intersect_shape(params, 1)
+	return hits.empty()
+
+func _get_mantle_target_points() -> Dictionary:
+	if not traversal_logic:
+		return {}
+	if traversal_logic.current_state != traversal_logic.TraversalState.HANGING:
+		return {}
+	var tangent = traversal_logic.ledge_normal.cross(Vector3.UP).normalized()
+	var nominal_vertical = traversal_logic.ledge_anchor_point + tangent * traversal_logic.hang_lateral_offset + Vector3.UP * traversal_logic.mantle_up_offset
+	var nominal_top = nominal_vertical + traversal_logic.ledge_normal * traversal_logic.mantle_forward_offset
+	var space_state = get_world().direct_space_state
+	var support_offsets = [
+		Vector3.ZERO,
+		tangent * 0.18,
+		-tangent * 0.18
+	]
+	var best_hit = {}
+	for offset in support_offsets:
+		var from = nominal_top + offset + Vector3.UP * 0.3
+		var to = nominal_top + offset + Vector3.DOWN * 1.4
+		var hit = space_state.intersect_ray(from, to, [self], collision_mask)
+		if hit.empty():
+			continue
+		if hit.normal.y < 0.45:
+			continue
+		best_hit = hit
+		break
+	if best_hit.empty():
+		return {}
+	var support_y = best_hit.position.y
+	var target_vertical = Vector3(nominal_vertical.x, support_y, nominal_vertical.z)
+	var target_top = Vector3(nominal_top.x, support_y, nominal_top.z)
+	return {
+		"vertical": target_vertical,
+		"top": target_top
+	}
+
 var _interact_area: Area = null
 
 func _setup_interact_area():
@@ -831,6 +1216,18 @@ func _has_headroom_to_stand() -> bool:
 			return false
 	return true
 
+func _resolve_interactable_root(node: Node) -> Node:
+	var current = node
+	while current and is_instance_valid(current):
+		if current.is_in_group("interactable") and current.has_method("get_climb_anchor"):
+			return current
+		if current.is_in_group("interactable") and current.has_method("get_hang_half_width"):
+			return current
+		if current.get("is_interactable") != null and current.get("is_interactable"):
+			return current
+		current = current.get_parent()
+	return node
+
 func _process_interaction(input: InputDataV2):
 	if _perf_disable_interaction_scan:
 		_clear_interactable()
@@ -838,16 +1235,26 @@ func _process_interaction(input: InputDataV2):
 	if not _interact_area: return
 	var bodies = _interact_area.get_overlapping_bodies()
 	var best_target = null
+	var crouch_ledge_target = null
+	var crouch_ladder_target = null
 	var min_dist = 999.0
 	for body in bodies:
-		if is_instance_valid(body) and body.is_in_group("interactable"):
-			if "is_interactable" in body and not body.is_interactable:
+		var candidate = _resolve_interactable_root(body)
+		if is_instance_valid(candidate) and candidate.is_in_group("interactable"):
+			if "is_interactable" in candidate and not candidate.is_interactable:
 				continue
-			var dist = global_transform.origin.distance_squared_to(body.global_transform.origin)
+			var dist = global_transform.origin.distance_squared_to(candidate.global_transform.origin)
 			if dist < min_dist:
 				min_dist = dist
-				best_target = body
-
+				best_target = candidate
+	if input.crouch and (best_target == null or best_target.is_in_group("ledge")):
+		crouch_ledge_target = _find_nearby_ledge_for_crouch()
+		if crouch_ledge_target:
+			best_target = crouch_ledge_target
+	if input.crouch and (best_target == null or best_target.is_in_group("ladder")):
+		crouch_ladder_target = _find_nearby_ladder_for_crouch()
+		if crouch_ladder_target:
+			best_target = crouch_ladder_target
 	var h_color = Color.cyan
 	var p_color = Color(0, 1, 1, 0.15)
 	var p_radius_sq = 36.0 # 6m default
@@ -860,14 +1267,16 @@ func _process_interaction(input: InputDataV2):
 		if _current_interactable != best_target:
 			# Clear highlight from previous target
 			if _current_interactable and is_instance_valid(_current_interactable):
-				_current_interactable.set_highlighted(false)
+				if _current_interactable.has_method("set_highlighted"):
+					_current_interactable.set_highlighted(false)
 			
 			_current_interactable = best_target
 			var text = best_target.interaction_text if best_target.get("interaction_text") else "Interact"
 			emit_signal("interactable_in_range", text)
 			
 			# Apply full highlight to new target
-			best_target.set_highlighted(true, h_color)
+			if best_target.has_method("set_highlighted"):
+				best_target.set_highlighted(true, h_color)
 			# Ensure it doesn't have proximity glow if it's the main target
 			if best_target.has_method("set_proximity_highlight"):
 				best_target.set_proximity_highlight(false)
@@ -880,16 +1289,26 @@ func _process_interaction(input: InputDataV2):
 		if input.interact and best_target.has_method("interact"):
 			best_target.interact()
 
-		# Traversal Entry Logic (Ladder/Ledge)
-		if input.move_vec.y < -0.1: # Forward/Toward surface
-			if best_target.is_in_group("ladder") and traversal_logic:
-				var anchor = best_target.global_transform.origin
-				var normal = -best_target.global_transform.basis.z # Assuming -Z is ladder forward
-				traversal_logic.enter_climbing(anchor, normal, global_transform.origin)
-			elif best_target.is_in_group("ledge") and traversal_logic:
-				var anchor = best_target.global_transform.origin
-				var normal = -best_target.global_transform.basis.z
-				traversal_logic.enter_hanging(anchor, normal)
+		# Traversal Entry Logic
+		var ladder_forward_entry = best_target.is_in_group("ladder") and input.move_vec.y < -0.1 and _can_auto_enter_ladder(best_target)
+		var ladder_crouch_entry = best_target.is_in_group("ladder") and input.crouch and best_target == crouch_ladder_target
+		if best_target.is_in_group("ladder") and traversal_logic and _ladder_regrab_cooldown <= 0.0 and (ladder_forward_entry or ladder_crouch_entry):
+			var anchor = best_target.get_climb_anchor() if best_target.has_method("get_climb_anchor") else best_target.global_transform.origin
+			var normal = -best_target.global_transform.basis.z # Assuming -Z is ladder forward
+			var is_1d = best_target.get("is_1d_ladder") if "is_1d_ladder" in best_target else true
+			var climb_limits = best_target.get_climb_limits() if best_target.has_method("get_climb_limits") else Vector2(-1.5, 1.5)
+			traversal_logic.enter_climbing(anchor, normal, global_transform.origin, is_1d, climb_limits.x, climb_limits.y)
+			_sync_movement_state_after_traversal()
+			if jump_logic:
+				jump_logic.set_internal_velocity(0.0)
+		elif best_target.is_in_group("ledge") and traversal_logic and ((_should_auto_hang_ledge(best_target, input) and input.move_vec.y <= 0.2) or (input.crouch and best_target == crouch_ledge_target)):
+			var anchor = best_target.global_transform.origin
+			var normal = -best_target.global_transform.basis.z
+			var half_width = best_target.get_hang_half_width() if best_target.has_method("get_hang_half_width") else 0.85
+			traversal_logic.enter_hanging(anchor, normal, half_width, global_transform.origin)
+			_sync_movement_state_after_traversal()
+			if jump_logic:
+				jump_logic.set_internal_velocity(0.0)
 	else:
 		_clear_interactable()
 
@@ -922,11 +1341,12 @@ func _process_interaction(input: InputDataV2):
 
 func _clear_interactable():
 	if _current_interactable != null:
-		if not _current_interactable.get("one_off"):
+		if "_auto_triggered" in _current_interactable and not _current_interactable.get("one_off"):
 			_current_interactable._auto_triggered = false
 		
 		# Remove highlight when going out of range
-		_current_interactable.set_highlighted(false)
+		if _current_interactable.has_method("set_highlighted"):
+			_current_interactable.set_highlighted(false)
 		
 		# Restore proximity glow if still nearby
 		if interact_config and is_instance_valid(_current_interactable):
@@ -1051,31 +1471,103 @@ func _update_push_state(_dt: float, input: InputDataV2):
 				_push_target = best_target
 
 func step(dt: float, input: InputDataV2) -> void:
-	if input == null: return
+	if input == null:
+		_update_input_edge_state(null)
+		return
+	_update_post_traversal_strafe_latch(dt, input)
+	_update_post_traversal_exit_alignment(dt)
+	var jump_just_pressed = input.jump and not _jump_was_pressed
+	var crouch_just_pressed = input.crouch and not _crouch_was_pressed
+	_ledge_regrab_cooldown = max(0.0, _ledge_regrab_cooldown - dt)
+	_ladder_regrab_cooldown = max(0.0, _ladder_regrab_cooldown - dt)
 
 	# --- TRAVERSAL STATE CHECK ---
 	if traversal_logic and traversal_logic.is_active:
+		var current_traversal_state = traversal_logic.current_state
+		var was_climbing = current_traversal_state == traversal_logic.TraversalState.CLIMBING
+		var was_hanging = current_traversal_state == traversal_logic.TraversalState.HANGING
+		var was_mantling = current_traversal_state == traversal_logic.TraversalState.MANTLING
+		var traversal_surface_normal := Vector3.ZERO
+		if current_traversal_state == traversal_logic.TraversalState.CLIMBING and traversal_logic.ladder_normal.length_squared() > 0.001:
+			traversal_surface_normal = traversal_logic.ladder_normal.normalized()
+		elif (current_traversal_state == traversal_logic.TraversalState.HANGING or current_traversal_state == traversal_logic.TraversalState.MANTLING) and traversal_logic.ledge_normal.length_squared() > 0.001:
+			traversal_surface_normal = traversal_logic.ledge_normal.normalized()
+		var ledge_y_before = traversal_logic.ledge_anchor_point.y if traversal_logic else global_transform.origin.y
 		var old_pos = global_transform.origin
-		var next_pos = traversal_logic.step(dt, input.move_vec, old_pos)
+		traversal_logic.crouch_just_pressed = crouch_just_pressed
+		var next_pos = traversal_logic.step(dt, input.move_vec, old_pos, input.crouch)
 		global_transform.origin = next_pos
+		var traversal_jump_velocity = null
+		var traversal_drop_velocity = null
+
+		if was_climbing and not traversal_logic.is_active:
+			_ladder_regrab_cooldown = max(_ladder_regrab_cooldown, ladder_regrab_cooldown_time)
+			_begin_post_traversal_strafe_latch(traversal_surface_normal, input.move_vec)
+		if was_hanging and not traversal_logic.is_active and not input.jump:
+			_start_ledge_regrab_cooldown(global_transform.origin.y, ledge_y_before)
+			var detach_normal = _get_traversal_detach_normal()
+			global_transform.origin += detach_normal * 0.08
+			traversal_drop_velocity = detach_normal * hang_drop_push_force
+			traversal_drop_velocity.y = hang_drop_vertical_velocity
+			if jump_logic:
+				jump_logic.set_internal_velocity(traversal_drop_velocity.y)
+			_sync_movement_state_after_traversal(traversal_drop_velocity)
+			_begin_post_traversal_strafe_latch(traversal_surface_normal, input.move_vec)
+		if was_mantling and not traversal_logic.is_active:
+			_start_ledge_regrab_cooldown(global_transform.origin.y, ledge_y_before)
+			_sync_movement_state_after_traversal()
+			_begin_post_traversal_strafe_latch(traversal_surface_normal, input.move_vec)
+
+		if traversal_logic.current_state == traversal_logic.TraversalState.HANGING and input.move_vec.y < -0.5 and not crouch_just_pressed and traversal_logic._hang_attach_active == false and traversal_logic._hang_mantle_input_grace_left <= 0.0:
+			var mantle_targets = _get_mantle_target_points()
+			if not mantle_targets.empty() and _can_start_mantle():
+				traversal_logic.configure_mantle_targets(mantle_targets["vertical"], mantle_targets["top"])
+				traversal_logic.start_mantle()
 
 		# Mantle auto-exit
 		if traversal_logic.current_state == traversal_logic.TraversalState.MANTLING and traversal_logic.anim_progress >= 1.0:
 			traversal_logic.exit()
+			_start_ledge_regrab_cooldown(global_transform.origin.y, ledge_y_before)
+			if traversal_logic.ledge_normal.length_squared() > 0.001:
+				global_transform.origin += traversal_logic.ledge_normal.normalized() * 0.12
 
 		# Jump to exit traversal
-		if input.jump:
+		if jump_just_pressed:
+			var detach_normal = _get_traversal_detach_normal()
+			var upward_force = jump_logic.jump_force * traversal_jump_vertical_multiplier if jump_logic else 12.0
 			traversal_logic.exit()
-			velocity.y = jump_logic.jump_force
-			jump_logic.consume_jump()
+			if current_traversal_state == traversal_logic.TraversalState.CLIMBING:
+				_ladder_regrab_cooldown = max(_ladder_regrab_cooldown, ladder_regrab_cooldown_time)
+			if current_traversal_state == traversal_logic.TraversalState.HANGING or current_traversal_state == traversal_logic.TraversalState.MANTLING:
+				_start_ledge_regrab_cooldown(global_transform.origin.y, ledge_y_before)
+			if jump_logic:
+				jump_logic.consume_jump()
+				jump_logic.set_internal_velocity(upward_force)
+			velocity = detach_normal * traversal_jump_push_force
+			velocity.y = upward_force
+			traversal_jump_velocity = velocity
+			_sync_movement_state_after_traversal(traversal_jump_velocity)
+			_begin_post_traversal_strafe_latch(traversal_surface_normal, input.move_vec)
+			global_transform.origin += detach_normal * traversal_jump_detach_distance + Vector3.UP * min(0.12, upward_force * dt)
+			emit_signal("jumped")
 
 		# Sync visual velocity for animator
-		var delta_pos = next_pos - old_pos
-		velocity = delta_pos / dt if dt > 0 else Vector3.ZERO
+		var delta_pos = global_transform.origin - old_pos
+		if traversal_jump_velocity != null:
+			velocity = traversal_jump_velocity
+		elif traversal_drop_velocity != null:
+			velocity = traversal_drop_velocity
+		else:
+			velocity = delta_pos / dt if dt > 0 else Vector3.ZERO
+
+		_update_camera_orbit_state(dt, input, false, false)
+		_update_camera_collision_mask_state(dt)
 
 		# Update animator with traversal state
 		if animator and animator.has_method("step_animator"):
 			animator.step_animator(dt, velocity)
+		_update_camera_view(dt)
+		_update_input_edge_state(input)
 		return
 	var prof_enabled := _rl_step_profile_enabled
 	var prof_t0 := 0
@@ -1128,6 +1620,8 @@ func step(dt: float, input: InputDataV2) -> void:
 		input.jump = false
 		input.sprint = false
 
+	_update_camera_orbit_state(dt, input)
+
 	if not _rl_fast_controller:
 		_process_interaction(input)
 
@@ -1136,82 +1630,12 @@ func step(dt: float, input: InputDataV2) -> void:
 		if is_instance_valid(jump_logic):
 			jump_logic.set_internal_velocity(0.0)
 
-	# Camera Orbit Logic (Third Person)
-	# In fast RL mode, skip CinematicManager checks and use a direct yaw/pitch update path.
-	if _rl_fast_controller:
-		if input and input.mouse_delta:
-			yaw -= input.mouse_delta.x * mouse_sensitivity
-			var mouse_y_fast = - input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
-			pitch -= mouse_y_fast * mouse_sensitivity
-		pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
-		if abs(input.zoom_delta) > 0.01:
-			base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 50.0)
-		if input.fov_override > 0.0:
-			base_fov = input.fov_override
-	else:
-		# Only update orbit if NOT in a camera zone (or if using FREE mode inside a zone)
-		var active_zone_mode = CinematicManager.get_control_mode()
-		if active_zone_mode == CinematicManager.ControlMode.FREE:
-			if input:
-				movement_logic.update_tank_mode(dt, input.mouse_delta, input.move_vec, input.jump, input.sprint, input.hardware_mouse_active)
-				# Apply hardware input directly
-				yaw -= input.mouse_delta.x * mouse_sensitivity
-				var mouse_y = - input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
-				pitch -= mouse_y * mouse_sensitivity
-				yaw += movement_logic.get_tank_yaw_delta(dt, input.move_vec)
-				
-				# Auto-align camera behind player if strafing without mouse input
-				if enable_auto_align and not movement_logic.is_tank_turn_mode:
-					if movement_logic.camera_input_timer > auto_align_delay:
-						var wish_dir = movement_logic.wish_direction
-						if wish_dir.length_squared() > 0.5:
-							var target_yaw = atan2(-wish_dir.x, -wish_dir.z)
-							yaw = lerp_angle(yaw, target_yaw, auto_align_speed * dt)
-							
-			pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
-
-		var active_cam = CinematicManager.get_active_camera()
-		var can_zoom_cinematic = enable_cinematic_zoom and active_cam and is_instance_valid(active_cam) and active_cam != _cached_cam
-		if can_zoom_cinematic:
-			if _cinematic_zoom_target_cam != active_cam:
-				_cinematic_zoom_target_cam = active_cam
-				_cinematic_zoom_target_fov = active_cam.fov
-
-			if abs(input.zoom_delta) > 0.01:
-				_cinematic_zoom_target_fov = clamp(
-					_cinematic_zoom_target_fov + (input.zoom_delta * cinematic_zoom_speed),
-					cinematic_zoom_min_fov,
-					cinematic_zoom_max_fov
-				)
-
-			var zoom_t = clamp(cinematic_zoom_lerp_speed * dt, 0.0, 1.0)
-			active_cam.fov = lerp(active_cam.fov, _cinematic_zoom_target_fov, zoom_t)
-		else:
-			_cinematic_zoom_target_cam = null
-			_cinematic_zoom_target_fov = -1.0
-			if abs(input.zoom_delta) > 0.01:
-				base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 50.0)
-
-		if input.fov_override > 0.0:
-			base_fov = input.fov_override
-
-	# Update Rig (Player's Rig)
-	if camera_rig:
-		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
-		camera_rig.force_update_transform()
-		# Also force update children (SpringArm and Camera) if possible
-		# They should be updated by parent force_update_transform() though.
-
-	
-	yaw_deg = rad2deg(yaw)
-	pitch_deg = rad2deg(pitch)
-
 	if is_on_floor():
 		jump_logic.reset_on_floor()
 	else:
 		jump_logic.on_air_tick(dt)
 
-	if input.jump:
+	if jump_just_pressed and not (traversal_logic and traversal_logic.is_active):
 		jump_logic.buffer_jump()
 
 	# --- CINEMATIC ZONE DETECTION ---
@@ -1390,16 +1814,11 @@ func step(dt: float, input: InputDataV2) -> void:
 		
 	movement_logic.external_source_is_static = true
 
-	# Update Camera SpringArm (for Third Person view)
-	# Even if not active, we keep it updated
-	if (not _rl_skip_camera_updates) and _cached_spring_arm:
-		current_spring_length = lerp(current_spring_length, base_spring_length_3d, 4.0 * dt)
-		_cached_spring_arm.spring_length = current_spring_length
-	
-	if (not _rl_skip_camera_updates) and _cached_cam and abs(_cached_cam.fov - base_fov) > 0.01:
-		_cached_cam.fov = lerp(_cached_cam.fov, base_fov, 4.0 * dt)
+	_update_camera_collision_mask_state(dt)
+	_update_camera_view(dt)
 	if prof_enabled:
 		_rl_step_profile_add(prof_t0, prof_t_control, prof_t_move, OS.get_ticks_usec())
+	_update_input_edge_state(input)
 
 func _rl_step_profile_add(t0: int, t_control: int, t_move: int, t_end: int) -> void:
 	if t0 <= 0:

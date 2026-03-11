@@ -16,6 +16,7 @@
 | FD-030 | Cargol NPC | Planned | Medium | Medium |
 | FD-031 | Narrative Dialogs (IA) | Planned | Large | Low |
 | FD-032 | Seamless Startup Streaming | In Progress | Large | High |
+| FD-033 | Advanced Traversal Systems | In Progress | Large | High |
 
 ## Completed
 

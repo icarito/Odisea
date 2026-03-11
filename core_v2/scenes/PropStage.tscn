@@ -42,6 +42,26 @@ fov = 50.0
 
 [node name="Pilot" parent="." instance=ExtResource( 3 )]
 transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 3, 0.1, 1 )
+mouse_sensitivity = null
+invert_mouse_y = null
+joy_move_sensitivity = null
+snap_length = null
+interact_distance = null
+push_offset = null
+enable_auto_align = null
+auto_align_delay = null
+enable_cinematic_zoom = null
+cinematic_zoom_speed = null
+cinematic_zoom_lerp_speed = null
+cinematic_zoom_min_fov = null
+cinematic_zoom_max_fov = null
+camera_collision_mask = null
+step_height = null
+enable_step_up = null
+stair_ground_probe_extra = null
+debug_stair_state = null
+crouch_collider_height_ratio = null
+crouch_headroom_margin = null
 
 [node name="AnimationTree" parent="Pilot/Visual/Pivot" index="1"]
 parameters/playback = SubResource( 2 )

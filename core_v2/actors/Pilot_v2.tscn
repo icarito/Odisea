@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=2]
+[gd_scene load_steps=24 format=2]
 
 [ext_resource path="res://core_v2/player/PlayerControllerV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/actors/PilotAnimatorV2.gd" type="Script" id=3]
@@ -15,6 +15,7 @@
 [ext_resource path="res://core_v2/audio/footsteps/footstep_profile_default.tres" type="Resource" id=55]
 [ext_resource path="res://core_v2/components/InteractComponentV2.gd" type="Script" id=56]
 [ext_resource path="res://core_v2/camera/KinematicArm3D.gd" type="Script" id=60]
+[ext_resource path="res://core_v2/player/traversal/TraversalLogicV2.gd" type="Script" id=61]
 
 [sub_resource type="SpatialMaterial" id=121]
 albedo_color = Color( 1, 0.411765, 0.129412, 1 )
@@ -49,13 +50,33 @@ size = Vector2( 0.1, 0.1 )
 collision_layer = 2
 collision_mask = 255
 script = ExtResource( 2 )
+mouse_sensitivity = null
+invert_mouse_y = null
 joy_look_sensitivity = 5.0
+joy_move_sensitivity = null
+snap_length = null
 push_force = 9.0
 min_pitch = -45.0
 max_pitch = 60.0
+interact_distance = null
+push_offset = null
+enable_auto_align = null
 auto_align_speed = 3.0
+auto_align_delay = null
+enable_cinematic_zoom = null
+cinematic_zoom_speed = null
+cinematic_zoom_lerp_speed = null
+cinematic_zoom_min_fov = null
+cinematic_zoom_max_fov = null
+camera_collision_mask = null
+step_height = null
 step_depth = 0.7
+enable_step_up = null
 step_grounded_grace = 0.3
+stair_ground_probe_extra = null
+debug_stair_state = null
+crouch_collider_height_ratio = null
+crouch_headroom_margin = null
 
 [node name="Logic" type="Node" parent="."]
 
@@ -86,6 +107,11 @@ script = ExtResource( 56 )
 highlight_color = Color( 0, 1, 1, 0.352941 )
 proximity_color = Color( 0.290196, 0.811765, 0.764706, 0.121569 )
 proximity_radius = 6.0
+
+[node name="Traversal" type="Node" parent="Logic"]
+script = ExtResource( 61 )
+ledge_regrab_cooldown_time_above = 1.0
+ladder_auto_enter_lateral_limit = 0.8
 
 [node name="Visual" type="Spatial" parent="."]
 
