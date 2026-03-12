@@ -24,6 +24,7 @@ var is_rope_sliding := false
 
 # Simulation Variables (Logic)
 var is_1d_ladder := true
+var climb_motion_amount := 0.0
 var ladder_min_offset := -1.5
 var ladder_max_offset := 1.5
 var ledge_anchor_point := Vector3.ZERO
@@ -54,7 +55,7 @@ var _hang_mantle_input_grace_left := 0.0
 var crouch_just_pressed := false
 
 # --- TUNING ---
-export(float) var climb_speed := 2.5
+export(float) var climb_speed := 1.7
 export(float) var shimmy_speed := 2.0
 export(float) var mantle_duration := 0.6
 export(float) var mantle_up_offset := 0.95
@@ -174,6 +175,7 @@ func _step_climbing(dt: float, input: Vector2, pos: Vector3, crouch_pressed: boo
 	var up_dir = Vector3.UP
 	var right_dir = ladder_normal.cross(up_dir).normalized()
 	if _ladder_attach_active:
+		climb_motion_amount = 0.0
 		var attach_pos = pos.move_toward(_ladder_attach_target, ladder_attach_speed * dt)
 		if attach_pos.distance_squared_to(_ladder_attach_target) <= 0.0004:
 			attach_pos = _ladder_attach_target
@@ -184,6 +186,7 @@ func _step_climbing(dt: float, input: Vector2, pos: Vector3, crouch_pressed: boo
 		climb_input_y = 1.0
 
 	var input_x = 0.0 if is_1d_ladder else input.x
+	climb_motion_amount = abs(climb_input_y) + abs(input_x)
 	var move_vec = (up_dir * -climb_input_y + right_dir * input_x) * climb_speed * dt
 	var next_pos = pos + move_vec
 
@@ -320,12 +323,14 @@ func enter_climbing(anchor: Vector3, normal: Vector3, start_pos: Vector3, p_is_1
 	var local_x = 0.0 if is_1d_ladder else rel.dot(right_dir)
 	_ladder_attach_target = ladder_anchor_point + up_dir * clamped_y + right_dir * local_x
 	_ladder_attach_active = start_pos.distance_squared_to(_ladder_attach_target) > 0.0025
+	climb_motion_amount = 0.0
 	anim_progress = 0.0
 
 func enter_hanging(anchor: Vector3, normal: Vector3, p_half_width: float = 0.85, start_pos: Vector3 = Vector3.ZERO):
 	current_state = TraversalState.HANGING
 	is_active = true
 	is_climbing = false
+	climb_motion_amount = 0.0
 	is_hanging = true
 	is_swinging = false
 	is_mantling = false
@@ -358,6 +363,7 @@ func enter_swinging(anchor: Vector3, radius: float):
 	is_climbing = false
 	is_hanging = false
 	is_swinging = true
+	climb_motion_amount = 0.0
 	is_mantling = false
 	is_rope_sliding = false
 	swing_anchor_point = anchor
@@ -371,6 +377,7 @@ func enter_rope_sliding(start: Vector3, end: Vector3):
 	is_climbing = false
 	is_hanging = false
 	is_swinging = false
+	climb_motion_amount = 0.0
 	is_mantling = false
 	is_rope_sliding = true
 	rope_start = start
@@ -385,6 +392,7 @@ func exit():
 	is_swinging = false
 	is_mantling = false
 	is_rope_sliding = false
+	climb_motion_amount = 0.0
 	hang_lateral_offset = 0.0
 	_ladder_attach_active = false
 	_ladder_attach_target = Vector3.ZERO
@@ -421,6 +429,7 @@ func restore_snapshot(data: Dictionary):
 
 	is_active = current_state != TraversalState.NONE
 	is_climbing = current_state == TraversalState.CLIMBING
+	climb_motion_amount = 0.0
 	is_hanging = current_state == TraversalState.HANGING
 	is_swinging = current_state == TraversalState.SWINGING
 	is_mantling = current_state == TraversalState.MANTLING

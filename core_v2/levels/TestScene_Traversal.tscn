@@ -32,6 +32,8 @@ material = ExtResource( 2 )
 [node name="Pilot" parent="." instance=ExtResource( 1 )]
 transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0.1, 4 )
 
+[node name="Mesh_0001" parent="Pilot/Visual/Pivot/Skeleton/Skinned_Mesh_0/Skeleton" index="0"]
+
 [node name="AnimationTree" parent="Pilot/Visual/Pivot" index="1"]
 parameters/playback = SubResource( 1 )
 

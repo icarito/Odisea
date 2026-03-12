@@ -120,10 +120,11 @@ script = ExtResource( 3 )
 
 [node name="Skeleton" parent="Visual/Pivot" instance=ExtResource( 9 )]
 
-[node name="Mesh_0001" parent="Visual/Pivot/Skeleton/Node_40/Skinned_Mesh_0/Skeleton" index="0"]
+[node name="Mesh_0001" parent="Visual/Pivot/Skeleton/Skinned_Mesh_0/Skeleton" index="0"]
 material/0 = SubResource( 121 )
 
 [node name="AnimationPlayer" parent="Visual/Pivot/Skeleton" index="1"]
+reset_on_save = false
 playback_default_blend_time = 0.5
 
 [node name="AnimationTree" type="AnimationTree" parent="Visual/Pivot"]
@@ -131,11 +132,13 @@ tree_root = ExtResource( 7 )
 anim_player = NodePath("../Skeleton/AnimationPlayer")
 active = true
 parameters/playback = SubResource( 108 )
+parameters/conditions/!is_climbing = false
 parameters/conditions/!is_crouched = false
 parameters/conditions/!is_pushing = false
 parameters/conditions/!on_floor = false
 parameters/conditions/hit_head = false
 parameters/conditions/is_acrobatic = false
+parameters/conditions/is_climbing = false
 parameters/conditions/is_crouched = false
 parameters/conditions/is_falling = false
 parameters/conditions/is_jumping = false

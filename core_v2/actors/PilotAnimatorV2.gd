@@ -27,6 +27,7 @@ const PARAM_CONDITIONS_IS_CROUCHED = "parameters/conditions/is_crouched"
 const PARAM_CONDITIONS_NOT_CROUCHED = "parameters/conditions/!is_crouched"
 const PARAM_CONDITIONS_IS_HANGING = "parameters/conditions/is_hanging"
 const PARAM_CONDITIONS_IS_CLIMBING = "parameters/conditions/is_climbing"
+const PARAM_CLIMBING_TIMESCALE = "parameters/Climbing/TimeScale/scale"
 
 # --- EXPORTS ---
 # Velocidad de suavizado para la velocidad usada en el AnimationTree.
@@ -39,6 +40,13 @@ export var rotation_lerp_speed: float = 10.0
 export(float) var push_arm_length_offset = 0.0 # Standard reach (0.9m) matches 0.9m offset.
 export(float) var push_start_delay = 0.2
 export(float) var push_lerp_speed = 10.0
+export(float) var climb_idle_motion_threshold = 0.12
+export(float) var climb_idle_playback_scale = 0.0
+export(float) var climb_playback_lerp_speed = 8.0
+export(float) var climb_visual_wall_offset = 0.42
+export(float) var climb_visual_offset_lerp_speed = 10.0
+export(float) var climb_hand_target_half_width = 0.36
+export(bool) var enable_climbing_ik = false
 # Duración en segundos durante la cual consideramos que el salto acaba de iniciarse (buffer)
 export var jump_buffer_duration: float = 0.18
 export var debug_push_gizmo: bool = false
@@ -54,6 +62,7 @@ var _debug_sphere: MeshInstance = null
 var _hand_l_gizmo: MeshInstance = null
 var _hand_r_gizmo: MeshInstance = null
 var _skeleton: Skeleton = null
+var _skeleton_base_translation := Vector3.ZERO
 onready var jump_sfx: SFXComponentV2 = get_node_or_null("JumpSFX")
 onready var footstep_detector: FootstepDetector = get_node_or_null("FootstepDetector")
 var _footstep_sounds: Array = []
@@ -87,6 +96,7 @@ var _footstep_stop_grace_left := 0.0
 var _manual_animtree_step_enabled := false
 var _manual_animtree_step_accum := 0.0
 var _anim_tree_param_cache := {}
+var _climb_playback_scale := 1.0
 const FOOTSTEP_STOP_GRACE_SEC := 0.18
 const MANUAL_ANIMTREE_STEP_INTERVAL_HYPER_LOW := 1.0 / 12.0
 const ANIM_PARAM_FLOAT_EPSILON := 0.0005
@@ -124,7 +134,7 @@ func _ready() -> void:
 		
 	if anim_player:
 		for anim_name in anim_player.get_animation_list():
-			if "Loop" in anim_name or "Run" in anim_name or "Walk" in anim_name or "Idle" in anim_name:
+			if "Loop" in anim_name or "Run" in anim_name or "Walk" in anim_name or "Idle" in anim_name or "Climb" in anim_name:
 				var anim = anim_player.get_animation(anim_name)
 				if anim:
 					anim.loop = true
@@ -333,6 +343,7 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 		push_direction = - global_transform.basis.z
 
 	_update_push_animation_offset(dt, is_pushing, push_direction)
+	_update_climb_visual_state(dt)
 
 	# 3. APLICACIÓN DE ESTADO AL ANIMATIONTREE
 	update_animation_parameters(p_current_velocity, is_on_floor, controller.get_wish_direction().length())
@@ -431,7 +442,7 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	# Update IK Targets for Traversal
 	if is_hanging:
 		_update_hanging_ik()
-	elif is_climbing:
+	elif is_climbing and enable_climbing_ik:
 		_update_climbing_ik()
 
 	# Selección entre JumpLoop y FloatLoop: usar JumpLoop si saltamos recientemente
@@ -489,18 +500,22 @@ func _update_climbing_ik():
 	if not controller or not controller.traversal_logic: return
 	var anchor = controller.traversal_logic.ladder_anchor_point
 	var progress = controller.traversal_logic.anim_progress
+	var lateral = controller.traversal_logic.ladder_normal.cross(Vector3.UP).normalized()
+	if lateral.length_squared() <= 0.0001:
+		lateral = Vector3.RIGHT
 
 	# Alternate hands/feet based on progress (0.0 to 1.0 cycle)
 	var step_y = floor(progress * 2.0)
-	left_hand_target = anchor + Vector3.UP * (step_y * 0.4) - Vector3.RIGHT * 0.25
-	right_hand_target = anchor + Vector3.UP * ((1.0 - step_y) * 0.4) + Vector3.RIGHT * 0.25
+	left_hand_target = anchor + Vector3.UP * (step_y * 0.4) - lateral * climb_hand_target_half_width
+	right_hand_target = anchor + Vector3.UP * ((1.0 - step_y) * 0.4) + lateral * climb_hand_target_half_width
 
 	_apply_analytical_ik("LeftHand", left_hand_target)
 	_apply_analytical_ik("RightHand", right_hand_target)
 
 func _apply_analytical_ik(bone_name: String, target_world_pos: Vector3):
 	if not _skeleton: return
-	var bone_idx = _skeleton.find_bone(bone_name)
+	var resolved_bone_name = _resolve_ik_bone_name(bone_name)
+	var bone_idx = _skeleton.find_bone(resolved_bone_name)
 	if bone_idx == -1: return
 
 	var parent_idx = _skeleton.get_bone_parent(bone_idx)
@@ -533,6 +548,20 @@ func _apply_analytical_ik(bone_name: String, target_world_pos: Vector3):
 	if target_dist > 0.001 and target_dist < (limb_len * 2.0):
 		child_pose.origin = parent_origin + target_dir * target_dist
 		_skeleton.set_bone_global_pose_override(bone_idx, child_pose, 1.0, true)
+
+func _resolve_ik_bone_name(bone_name: String) -> String:
+	if not _skeleton:
+		return bone_name
+	var candidates := [bone_name]
+	match bone_name:
+		"LeftHand":
+			candidates = ["DEF-handL", "LeftHand", "Hand.L", "mixamorig:LeftHand"]
+		"RightHand":
+			candidates = ["DEF-handR", "RightHand", "Hand.R", "mixamorig:RightHand"]
+	for candidate in candidates:
+		if _skeleton.find_bone(candidate) != -1:
+			return candidate
+	return bone_name
 
 func _on_controller_acrobatic_jumped() -> void:
 	"""Trigger Backflip State via is_acrobatic condition."""
@@ -665,6 +694,54 @@ func _setup_debug_gizmo():
 			for child in curr.get_children():
 				if child != _debug_sphere and child != _hand_l_gizmo and child != _hand_r_gizmo:
 					queue.push_back(child)
+	if _skeleton:
+		_skeleton_base_translation = _skeleton.translation
+
+func _update_climb_visual_state(dt: float) -> void:
+	if not controller or not controller.get("traversal_logic"):
+		_restore_climb_visual_state(dt)
+		return
+	var traversal = controller.get("traversal_logic")
+	if traversal == null:
+		_restore_climb_visual_state(dt)
+		return
+
+	var target_playback_speed := 1.0
+	var target_skeleton_translation := _skeleton_base_translation
+	if traversal.is_climbing:
+		var is_climbing_moving: bool = bool(traversal._ladder_attach_active) or float(traversal.climb_motion_amount) > climb_idle_motion_threshold
+		target_playback_speed = 1.0 if is_climbing_moving else climb_idle_playback_scale
+		if _skeleton and traversal.ladder_normal.length_squared() > 0.001:
+			var world_offset = -traversal.ladder_normal.normalized() * climb_visual_wall_offset
+			var local_offset = global_transform.basis.xform_inv(world_offset)
+			target_skeleton_translation += local_offset
+
+	if dt > 0.0:
+		_climb_playback_scale = lerp(_climb_playback_scale, target_playback_speed, clamp(climb_playback_lerp_speed * dt, 0.0, 1.0))
+	else:
+		_climb_playback_scale = target_playback_speed
+	_set_anim_tree_param(PARAM_CLIMBING_TIMESCALE, _climb_playback_scale, 0.0)
+	if _skeleton:
+		if dt > 0.0:
+			_skeleton.translation = _skeleton.translation.linear_interpolate(
+				target_skeleton_translation,
+				clamp(climb_visual_offset_lerp_speed * dt, 0.0, 1.0)
+			)
+		else:
+			_skeleton.translation = target_skeleton_translation
+
+func _restore_climb_visual_state(dt: float) -> void:
+	_climb_playback_scale = 1.0
+	_set_anim_tree_param(PARAM_CLIMBING_TIMESCALE, 1.0, 0.0)
+	if not _skeleton:
+		return
+	if dt > 0.0:
+		_skeleton.translation = _skeleton.translation.linear_interpolate(
+			_skeleton_base_translation,
+			clamp(climb_visual_offset_lerp_speed * dt, 0.0, 1.0)
+		)
+	else:
+		_skeleton.translation = _skeleton_base_translation
 
 func _update_hand_gizmos():
 	if not _skeleton or not debug_push_gizmo:
