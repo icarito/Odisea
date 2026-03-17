@@ -1,0 +1,13 @@
+[remap]
+
+importer="qodot.map"
+type="Resource"
+path="res://.import/crio.map-ba1e8cc027538121d192b3cd651f8cfd.tres"
+
+[deps]
+
+source_file="res://maps/crio.map"
+dest_files=[ "res://.import/crio.map-ba1e8cc027538121d192b3cd651f8cfd.tres" ]
+
+[params]
+
