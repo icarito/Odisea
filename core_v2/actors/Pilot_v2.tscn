@@ -117,6 +117,7 @@ ladder_auto_enter_lateral_limit = 0.8
 
 [node name="Pivot" type="Spatial" parent="Visual"]
 script = ExtResource( 3 )
+climb_visual_lateral_offset = 0.12
 
 [node name="Skeleton" parent="Visual/Pivot" instance=ExtResource( 9 )]
 
@@ -130,12 +131,12 @@ playback_default_blend_time = 0.5
 [node name="AnimationTree" type="AnimationTree" parent="Visual/Pivot"]
 tree_root = ExtResource( 7 )
 anim_player = NodePath("../Skeleton/AnimationPlayer")
-active = true
 parameters/playback = SubResource( 108 )
 parameters/conditions/!is_climbing = false
 parameters/conditions/!is_crouched = false
 parameters/conditions/!is_pushing = false
 parameters/conditions/!on_floor = false
+parameters/conditions/climb_exit_air = false
 parameters/conditions/hit_head = false
 parameters/conditions/is_acrobatic = false
 parameters/conditions/is_climbing = false
@@ -145,6 +146,7 @@ parameters/conditions/is_jumping = false
 parameters/conditions/is_pushing = false
 parameters/conditions/land_hard = false
 parameters/conditions/on_floor = false
+parameters/Climbing/TimeScale/scale = 1.0
 parameters/Crouched/blend_position = 0
 parameters/Grounded/blend_position = 5.30719
 parameters/InAir/Transition/current = 1
