@@ -1,24 +1,6 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=2 format=2]
 
-[ext_resource path="res://core_v2/props/SparkEmitterV2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/props/EmergencyBeaconV2.tscn" type="PackedScene" id=2]
-
-[sub_resource type="SpatialMaterial" id=2448]
-resource_local_to_scene = true
-render_priority = 1
-flags_transparent = true
-flags_unshaded = true
-flags_do_not_receive_shadows = true
-params_blend_mode = 1
-albedo_color = Color( 0, 1, 0.929412, 0.9 )
-
-[sub_resource type="SphereMesh" id=2449]
-resource_local_to_scene = true
-material = SubResource( 2448 )
-radius = 0.05
-height = 0.1
-radial_segments = 4
-rings = 2
 
 [node name="SecondaryFX" type="Spatial"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
@@ -36,18 +18,3 @@ starts_active = true
 is_interactable = false
 beacon_color = Color( 1, 0.0705882, 0, 1 )
 light_range = 10.0
-
-[node name="SparkEmitterV2" parent="." instance=ExtResource( 1 )]
-transform = Transform( 1, 0, 0, 0, 0.905436, -0.424484, 0, 0.424484, 0.905436, 17.7421, 3.66101, 32.0812 )
-spark_color = Color( 0, 1, 0.929412, 0.396078 )
-emission_rate = 5.0
-timeout = 30.0
-
-[node name="CPUParticles" parent="SparkEmitterV2" index="0"]
-transform = Transform( -0.117696, -0.711562, -0.692696, 0.922141, -0.337167, 0.189668, -0.368515, -0.61644, 0.695844, -0.550901, -0.556787, 0.688503 )
-amount = 10
-mesh = SubResource( 2449 )
-gravity = Vector3( -8.842, 0, 0 )
-color = Color( 0, 1, 0.929412, 1 )
-
-[editable path="SparkEmitterV2"]
