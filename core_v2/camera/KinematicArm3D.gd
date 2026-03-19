@@ -33,6 +33,18 @@ export var collision_padding := 0.12
 # Ignore tiny hit-length fluctuations to reduce wall jitter on dense geometry.
 export var collision_jitter_epsilon := 0.035
 
+# Keep contact with the same obstacle latched until the hit meaningfully changes.
+export var collision_hold_epsilon := 0.08
+
+# Require a clearly farther hit before releasing a collision latch around corners.
+export var collision_release_hysteresis := 0.18
+
+# Farther hits must persist briefly before we let the arm extend again.
+export var collision_release_delay := 0.1
+
+# Briefly keep the last stable hit when the cast flickers to "no collision".
+export var collision_miss_grace := 0.08
+
 # Speed used when retracting due to collision correction.
 export var collision_shrink_weight := 28.0
 
@@ -43,6 +55,10 @@ export(Array, NodePath) var _exclude_paths: Array
 export(int, LAYERS_3D_PHYSICS) var collision_mask := 1 setget set_collision_mask
 
 var kinematic_body: KinematicBody
+var _collision_latched_length := -1.0
+var _collision_release_timer := 0.0
+var _collision_miss_timer := 0.0
+var _excluded_objects: Array = []
 
 func set_collider_shape(shape: Shape) -> void:
 	collider_shape = shape
@@ -62,6 +78,7 @@ func _enter_tree():
 	kinematic_body = KinematicBody.new()
 	kinematic_body.collision_layer = 0
 	kinematic_body.collision_mask = collision_mask
+	_excluded_objects.clear()
 	
 	if not collider_shape:
 		# Default to a sphere shape if not set
@@ -77,12 +94,14 @@ func _enter_tree():
 		var node = get_node_or_null(path)
 		if node and node is CollisionObject:
 			kinematic_body.add_collision_exception_with(node)
+			_add_excluded_object_internal(node)
 	
 	# Try to add exception for the player if it's in the hierarchy
 	var parent = get_parent()
 	while parent:
 		if parent is KinematicBody:
 			kinematic_body.add_collision_exception_with(parent)
+			_add_excluded_object_internal(parent)
 			break
 		parent = parent.get_parent()
 	
@@ -100,14 +119,32 @@ func _exit_tree():
 func _ready():
 	set_physics_process(false)
 	target_length = spring_length
+	_collision_latched_length = -1.0
+	_collision_release_timer = 0.0
+	_collision_miss_timer = 0.0
+	_excluded_objects = _excluded_objects.duplicate()
+
+func _add_excluded_object_internal(obj) -> void:
+	if obj == null:
+		return
+	for existing in _excluded_objects:
+		if existing == obj:
+			return
+	_excluded_objects.append(obj)
 
 func add_excluded_object(obj):
-	if is_instance_valid(kinematic_body) and obj is CollisionObject:
-		kinematic_body.add_collision_exception_with(obj)
+	if obj is CollisionObject:
+		_add_excluded_object_internal(obj)
+		if is_instance_valid(kinematic_body):
+			kinematic_body.add_collision_exception_with(obj)
 
 func remove_excluded_object(obj):
-	if is_instance_valid(kinematic_body) and obj is CollisionObject:
-		kinematic_body.remove_collision_exception_with(obj)
+	if obj is CollisionObject:
+		for i in range(_excluded_objects.size() - 1, -1, -1):
+			if _excluded_objects[i] == obj:
+				_excluded_objects.remove(i)
+		if is_instance_valid(kinematic_body):
+			kinematic_body.remove_collision_exception_with(obj)
 
 func clear_excluded_objects():
 	# Godot 3 KinematicBody doesn't have a direct clear_collision_exceptions... a bit tricky. We would have to recreate it or keep track.
@@ -120,9 +157,6 @@ func _physics_process(delta):
 	# Sync target_length with spring_length just in case someone modifies spring_length directly.
 	target_length = spring_length
 
-	if not is_instance_valid(kinematic_body):
-		return
-
 	# Use separate smoothing speeds: snappier retract, softer extension.
 	var moving_outward := target_length > current_length
 	var active_weight := extend_weight if moving_outward else retract_weight
@@ -132,25 +166,101 @@ func _physics_process(delta):
 	var desired_length := max(lerp(current_length, target_length, t), min_length)
 	var arm_origin := global_transform.origin
 	var arm_motion := global_transform.basis.z * desired_length
+	var rendered_length := desired_length
 
-	# Always cast from arm origin to avoid skipping geometry when the target jumps between frames.
-	kinematic_body.global_transform.origin = arm_origin
-	var collision_info := kinematic_body.move_and_collide(arm_motion)
-	if is_instance_valid(collision_info):
-		var safe_length := collision_info.travel.length() - collision_padding
-		var hit_length := max(safe_length, min_length)
-		# While colliding, only shrink on meaningful deltas.
-		# Prevents jitter caused by frame-to-frame micro changes on contact points.
-		if hit_length < current_length - collision_jitter_epsilon:
+	var safe_hit_length := _cast_shape_hit_length(arm_origin, arm_motion, desired_length)
+	if safe_hit_length >= 0.0:
+		_collision_miss_timer = 0.0
+		var hit_length := safe_hit_length
+		var resolved_hit_length := _resolve_collision_hit_length(hit_length, delta)
+		var length_delta := resolved_hit_length - current_length
+		if length_delta < -collision_jitter_epsilon:
+			# Retract immediately to the safe hit point so the camera never clips into
+			# fresh obstacles when the player backs into a wall.
 			var shrink_t := clamp(collision_shrink_weight * delta, 0.0, 1.0)
-			current_length = lerp(current_length, hit_length, shrink_t)
+			current_length = lerp(current_length, resolved_hit_length, shrink_t)
+			rendered_length = resolved_hit_length
+		elif length_delta > collision_jitter_epsilon:
+			# When the sweep remains colliding but finds a farther face, expand smoothly
+			# instead of snapping the camera outwards frame-to-frame around corners.
+			var extend_t := clamp(extend_weight * delta, 0.0, 1.0)
+			current_length = lerp(current_length, resolved_hit_length, extend_t)
+			rendered_length = current_length
+		else:
+			current_length = resolved_hit_length
+			rendered_length = resolved_hit_length
 	else:
-		current_length = desired_length
+		if _collision_latched_length >= 0.0:
+			_collision_miss_timer += delta
+			if _collision_miss_timer < collision_miss_grace:
+				if current_length < _collision_latched_length - collision_jitter_epsilon:
+					var hold_extend_t := clamp(extend_weight * delta, 0.0, 1.0)
+					current_length = lerp(current_length, _collision_latched_length, hold_extend_t)
+				else:
+					current_length = _collision_latched_length
+				rendered_length = current_length
+			else:
+				_collision_latched_length = -1.0
+				_collision_release_timer = 0.0
+				_collision_miss_timer = 0.0
+				current_length = desired_length
+				rendered_length = current_length
+		else:
+			current_length = desired_length
+			rendered_length = current_length
 
-	_update_children()
+	if is_instance_valid(kinematic_body):
+		kinematic_body.global_transform.origin = arm_origin + global_transform.basis.z * rendered_length
 
-func _update_children() -> void:
-	var target := kinematic_body.global_transform.origin
+	_update_children(arm_origin, rendered_length)
+
+func _cast_shape_hit_length(arm_origin: Vector3, arm_motion: Vector3, desired_length: float) -> float:
+	var world = get_world()
+	if world == null:
+		return -1.0
+	var space_state = world.direct_space_state
+	if space_state == null or collider_shape == null:
+		return -1.0
+
+	var params := PhysicsShapeQueryParameters.new()
+	params.set_shape(collider_shape)
+	params.transform = Transform(global_transform.basis, arm_origin)
+	params.collision_mask = collision_mask
+	params.exclude = _excluded_objects
+
+	var motion_result = space_state.cast_motion(params, arm_motion)
+	if motion_result.empty():
+		return -1.0
+
+	var safe_fraction := float(motion_result[0])
+	if safe_fraction >= 0.9999:
+		return -1.0
+
+	return max((desired_length * safe_fraction) - collision_padding, min_length)
+
+func _resolve_collision_hit_length(hit_length: float, delta: float) -> float:
+	if _collision_latched_length < 0.0:
+		_collision_latched_length = hit_length
+		_collision_release_timer = 0.0
+		return _collision_latched_length
+
+	if hit_length < _collision_latched_length - collision_hold_epsilon:
+		_collision_latched_length = hit_length
+		_collision_release_timer = 0.0
+		return _collision_latched_length
+
+	if hit_length > _collision_latched_length + collision_release_hysteresis:
+		_collision_release_timer += delta
+		if _collision_release_timer >= collision_release_delay:
+			var latch_t := clamp(extend_weight * delta, 0.0, 1.0)
+			_collision_latched_length = lerp(_collision_latched_length, hit_length, latch_t)
+		return _collision_latched_length
+
+	_collision_release_timer = 0.0
+	return _collision_latched_length
+
+func _update_children(arm_origin: Vector3, rendered_length: float) -> void:
+	var target := arm_origin + global_transform.basis.z * rendered_length
 	for child in get_children():
 		if child == kinematic_body:
 			continue

@@ -1,0 +1,13 @@
+[remap]
+
+importer="qodot.map"
+type="Resource"
+path="res://.import/machine_room.map-56b8ff3e0f8d4d426ab2dd210c8be04d.tres"
+
+[deps]
+
+source_file="res://maps/machine_room.map"
+dest_files=[ "res://.import/machine_room.map-56b8ff3e0f8d4d426ab2dd210c8be04d.tres" ]
+
+[params]
+

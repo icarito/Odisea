@@ -90,6 +90,7 @@ collision_mask = 0
 script = ExtResource( 7 )
 interaction_text = "Toggle Terminal"
 anim_duration = 0.5
+starts_active = true
 slide_height = 0.0
 close_on_exit_zone = false
 allow_focus_mode = false
@@ -127,8 +128,6 @@ scale_amount = 0.5
 color = Color( 0, 1, 1, 0.501961 )
 
 [node name="ScreenContainer" type="Spatial" parent="."]
-transform = Transform( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-visible = false
 
 [node name="ScreenMesh" type="CSGBox" parent="ScreenContainer"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0 )
@@ -141,7 +140,6 @@ material = SubResource( 7 )
 [node name="Viewport" type="Viewport" parent="."]
 size = Vector2( 1024, 768 )
 transparent_bg = true
-render_target_update_mode = 0
 gui_disable_input = true
 script = ExtResource( 12 )
 
@@ -193,7 +191,7 @@ near = 0.1
 far = 1000.0
 
 [node name="LookAt" type="Spatial" parent="CinematicSetup/CinematicPathRig/PathFollow/Camera"]
-transform = Transform( 0.933801, 0.102395, -0.342826, -2.75671e-07, 0.958174, 0.286186, 0.357791, -0.26724, 0.894745, 0, 0, 0 )
+transform = Transform( 0.933801, -0.00673025, -0.357728, -2.72645e-07, 0.999823, -0.0188113, 0.357791, 0.0175661, 0.933637, 0, 0, 0 )
 script = ExtResource( 3 )
 look_at_target = NodePath("../../../../../ScreenContainer/ScreenMesh")
 

@@ -29,7 +29,10 @@ script = ExtResource( 1 )
 interaction_text = "Toggle Wall Light"
 light_color = Color( 0.9, 0.95, 1, 1 )
 light_energy = 1.2
-light_range = 6.0
+light_range = 20.0
+flickr_timeout = null
+flickr_timeout_random_spread = null
+flickr_timeout_endgame_chance = null
 
 [node name="MeshInstance" type="MeshInstance" parent="."]
 material_override = SubResource( 4 )
@@ -39,7 +42,7 @@ mesh = SubResource( 2 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.2 )
 light_color = Color( 0.9, 0.95, 1, 1 )
 light_energy = 0.0
-omni_range = 6.0
+omni_range = 20.0
 omni_attenuation = 2.0
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
