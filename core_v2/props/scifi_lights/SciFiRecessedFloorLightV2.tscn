@@ -1,0 +1,84 @@
+[gd_scene load_steps=8 format=2]
+
+[ext_resource path="res://core_v2/props/scifi_lights/SciFiWorkLightV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/components/ForwardInteract.gd" type="Script" id=2]
+
+[sub_resource type="SpatialMaterial" id=1]
+albedo_color = Color( 0.15, 0.15, 0.18, 1 )
+metallic = 1.0
+roughness = 0.2
+
+[sub_resource type="CylinderMesh" id=3]
+material = SubResource( 1 )
+top_radius = 0.15
+bottom_radius = 0.15
+height = 0.02
+
+[sub_resource type="SpatialMaterial" id=2]
+resource_local_to_scene = true
+emission_enabled = true
+emission = Color( 1, 0.9, 0.6, 1 )
+emission_energy = 10.0
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="CubeMesh" id=4]
+material = SubResource( 2 )
+size = Vector3( 0.1, 0.01, 0.05 )
+
+[sub_resource type="BoxShape" id=5]
+extents = Vector3( 0.15, 0.05, 0.15 )
+
+[node name="SciFiRecessedFloorLightV2" type="Spatial"]
+script = ExtResource( 1 )
+interaction_text = "Toggle Ground Light"
+starts_active = true
+light_color = Color( 1, 0.95, 0.8, 1 )
+light_energy_max = 5.0
+light_range = 6.0
+
+[node name="Fixture" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.012, 0 )
+mesh = SubResource( 3 )
+
+[node name="Slot" type="CSGBox" parent="Fixture"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.01, -0.05 )
+operation = 2
+width = 0.12
+height = 0.04
+depth = 0.1
+
+[node name="Head" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.012, -0.05 )
+
+[node name="SpotLight" type="SpotLight" parent="Head"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.05 )
+light_color = Color( 1, 0.95, 0.8, 1 )
+light_energy = 5.0
+shadow_enabled = true
+spot_range = 6.0
+
+[node name="OmniLight" type="OmniLight" parent="Head"]
+light_color = Color( 1, 0.95, 0.8, 1 )
+light_energy = 2.25
+omni_range = 2.0
+
+[node name="Bulb" type="MeshInstance" parent="Head"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.005, 0 )
+mesh = SubResource( 4 )
+
+[node name="Indicator" type="CSGBox" parent="Fixture"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.011, 0.08 )
+width = 0.02
+height = 0.01
+depth = 0.02
+material = SubResource( 1 )
+
+[node name="InteractionBody" type="KinematicBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0 )
+collision_layer = 4
+collision_mask = 3
+script = ExtResource( 2 )
+
+[node name="CollisionShape" type="CollisionShape" parent="InteractionBody"]
+shape = SubResource( 5 )

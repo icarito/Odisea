@@ -1,0 +1,34 @@
+[gd_resource type="Resource" load_steps=3 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/scifi_lights/SciFiRecessedWallLightV2.tscn" type="PackedScene" id=2]
+
+[resource]
+script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
+classname = "light_recessed_wall"
+description = "Sci-Fi Recessed Wall Light"
+qodot_internal = false
+base_classes = [  ]
+class_properties = {
+"light_color": Color( 1, 1, 1, 1 ),
+"light_energy_max": 6.0,
+"light_range": 8.0,
+"starts_active": 1
+}
+class_property_descriptions = {
+"light_color": "Color of the recessed wall light",
+"light_energy_max": "Maximum light energy (0-10)",
+"light_range": "Beam distance (1-100)",
+"starts_active": "Set to 1 if the light starts on"
+}
+meta_properties = {
+"color": Color( 0.8, 0.9, 1, 1 ),
+"size": AABB( -0.24, -0.02, -0.08, 0.48, 0.3, 0.16 )
+}
+node_options = "----------------------------------------------------------------"
+node_class = ""
+transient_node = false
+scene = "SciFiRecessedWallLightV2"
+scene_file = ExtResource( 2 )
+scripting = ""

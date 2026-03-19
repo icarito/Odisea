@@ -33,6 +33,14 @@ const ASSETS := [
 		"scene": "res://core_v2/props/scifi_lights/SciFiPathMarkerArrowV2.tscn",
 		"point_class": "res://core_v2/qodot_fgd/props/SciFiPathMarkerArrowV2_point_class.tres",
 	},
+	{
+		"scene": "res://core_v2/props/scifi_lights/SciFiRecessedFloorLightV2.tscn",
+		"point_class": "res://core_v2/qodot_fgd/props/SciFiRecessedFloorLightV2_point_class.tres",
+	},
+	{
+		"scene": "res://core_v2/props/scifi_lights/SciFiRecessedWallLightV2.tscn",
+		"point_class": "res://core_v2/qodot_fgd/props/SciFiRecessedWallLightV2_point_class.tres",
+	},
 ]
 
 func test_new_props_follow_interactable_contract_and_match_point_class_size():

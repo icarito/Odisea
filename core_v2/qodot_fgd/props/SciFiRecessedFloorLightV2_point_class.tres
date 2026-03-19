@@ -1,0 +1,34 @@
+[gd_resource type="Resource" load_steps=3 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/scifi_lights/SciFiRecessedFloorLightV2.tscn" type="PackedScene" id=2]
+
+[resource]
+script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
+classname = "light_recessed_floor"
+description = "Sci-Fi Recessed Floor Light"
+qodot_internal = false
+base_classes = [  ]
+class_properties = {
+"light_color": Color( 1, 0.95, 0.8, 1 ),
+"light_energy_max": 5.0,
+"light_range": 6.0,
+"starts_active": 1
+}
+class_property_descriptions = {
+"light_color": "Color of the recessed floor light",
+"light_energy_max": "Maximum light energy (0-10)",
+"light_range": "Beam distance (1-100)",
+"starts_active": "Set to 1 if the light starts on"
+}
+meta_properties = {
+"color": Color( 1, 0.9, 0.65, 1 ),
+"size": AABB( -0.2, 0, -0.18, 0.4, 0.12, 0.36 )
+}
+node_options = "----------------------------------------------------------------"
+node_class = ""
+transient_node = false
+scene = "SciFiRecessedFloorLightV2"
+scene_file = ExtResource( 2 )
+scripting = ""
