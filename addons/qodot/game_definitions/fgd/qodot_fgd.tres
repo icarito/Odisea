@@ -1,4 +1,4 @@
-[gd_resource type="Resource" load_steps=53 format=2]
+[gd_resource type="Resource" load_steps=61 format=2]
 
 [ext_resource path="res://addons/qodot/game_definitions/fgd/base_classes/target_base_class.tres" type="Resource" id=1]
 [ext_resource path="res://addons/qodot/game_definitions/fgd/solid_classes/func_group_solid_class.tres" type="Resource" id=2]
@@ -52,6 +52,14 @@
 [ext_resource path="res://core_v2/qodot_fgd/props/Conveyor_point_class.tres" type="Resource" id=50]
 [ext_resource path="res://core_v2/qodot_fgd/props/CargolDroneProp_point_class.tres" type="Resource" id=51]
 [ext_resource path="res://core_v2/qodot_fgd/props/HazardTape_point_class.tres" type="Resource" id=52]
+[ext_resource path="res://core_v2/qodot_fgd/props/DoorDoubleSidewaysV2_point_class.tres" type="Resource" id=53]
+[ext_resource path="res://core_v2/qodot_fgd/props/DoorSingleVerticalV2_point_class.tres" type="Resource" id=54]
+[ext_resource path="res://core_v2/qodot_fgd/props/DoorDoubleVerticalV2_point_class.tres" type="Resource" id=55]
+[ext_resource path="res://core_v2/qodot_fgd/props/SciFiWorkLightV2_point_class.tres" type="Resource" id=56]
+[ext_resource path="res://core_v2/qodot_fgd/props/SciFiWorkLightTripodV2_point_class.tres" type="Resource" id=57]
+[ext_resource path="res://core_v2/qodot_fgd/props/SciFiWallSconceV2_point_class.tres" type="Resource" id=58]
+[ext_resource path="res://core_v2/qodot_fgd/props/SciFiPathMarkerV2_point_class.tres" type="Resource" id=59]
+[ext_resource path="res://core_v2/qodot_fgd/props/SciFiPathMarkerArrowV2_point_class.tres" type="Resource" id=60]
 
 [resource]
 script = ExtResource( 6 )
@@ -59,4 +67,4 @@ export_file = false
 target_folder = "/home/icarito/.TrenchBroom/games/Odisea"
 fgd_name = "Qodot"
 base_fgd_files = [  ]
-entity_definitions = [ ExtResource( 1 ), ExtResource( 4 ), ExtResource( 12 ), null, null, null, null, null, null, null, ExtResource( 3 ), ExtResource( 7 ), ExtResource( 13 ), ExtResource( 18 ), null, null, null, null, null, null, ExtResource( 9 ), ExtResource( 2 ), ExtResource( 10 ), ExtResource( 11 ), ExtResource( 8 ), ExtResource( 17 ), ExtResource( 5 ), ExtResource( 19 ), ExtResource( 14 ), ExtResource( 16 ), ExtResource( 15 ), ExtResource( 20 ), ExtResource( 21 ), ExtResource( 22 ), ExtResource( 23 ), ExtResource( 24 ), ExtResource( 25 ), ExtResource( 26 ), ExtResource( 27 ), ExtResource( 28 ), ExtResource( 29 ), ExtResource( 30 ), ExtResource( 31 ), ExtResource( 32 ), ExtResource( 33 ), ExtResource( 34 ), ExtResource( 35 ), ExtResource( 36 ), ExtResource( 37 ), ExtResource( 38 ), ExtResource( 39 ), ExtResource( 40 ), ExtResource( 41 ), ExtResource( 42 ), ExtResource( 43 ), ExtResource( 44 ), ExtResource( 45 ), ExtResource( 46 ), ExtResource( 47 ), ExtResource( 48 ), ExtResource( 49 ), ExtResource( 50 ), ExtResource( 51 ), ExtResource( 52 ) ]
+entity_definitions = [ ExtResource( 1 ), ExtResource( 4 ), ExtResource( 12 ), null, null, null, null, null, null, null, ExtResource( 3 ), ExtResource( 7 ), ExtResource( 13 ), ExtResource( 18 ), null, null, null, null, null, null, ExtResource( 9 ), ExtResource( 2 ), ExtResource( 10 ), ExtResource( 11 ), ExtResource( 8 ), ExtResource( 17 ), ExtResource( 5 ), ExtResource( 19 ), ExtResource( 14 ), ExtResource( 16 ), ExtResource( 15 ), ExtResource( 20 ), ExtResource( 21 ), ExtResource( 22 ), ExtResource( 23 ), ExtResource( 24 ), ExtResource( 25 ), ExtResource( 26 ), ExtResource( 27 ), ExtResource( 28 ), ExtResource( 29 ), ExtResource( 30 ), ExtResource( 31 ), ExtResource( 32 ), ExtResource( 33 ), ExtResource( 34 ), ExtResource( 35 ), ExtResource( 36 ), ExtResource( 37 ), ExtResource( 38 ), ExtResource( 39 ), ExtResource( 40 ), ExtResource( 41 ), ExtResource( 42 ), ExtResource( 43 ), ExtResource( 44 ), ExtResource( 45 ), ExtResource( 46 ), ExtResource( 47 ), ExtResource( 48 ), ExtResource( 49 ), ExtResource( 50 ), ExtResource( 51 ), ExtResource( 52 ), ExtResource( 53 ), ExtResource( 54 ), ExtResource( 55 ), ExtResource( 56 ), ExtResource( 57 ), ExtResource( 58 ), ExtResource( 59 ), ExtResource( 60 ) ]

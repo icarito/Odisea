@@ -1,0 +1,36 @@
+[gd_resource type="Resource" load_steps=3 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/scifi_lights/SciFiWorkLightV2.tscn" type="PackedScene" id=2]
+
+[resource]
+script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
+classname = "light_work"
+description = "Sci-Fi Work Light"
+qodot_internal = false
+base_classes = [  ]
+class_properties = {
+"light_color": Color( 1, 0.9, 0.7, 1 ),
+"light_energy_max": 4.0,
+"light_range": 15.0,
+"spot_angle": 45.0,
+"starts_active": 1
+}
+class_property_descriptions = {
+"light_color": "Color of the reflector",
+"light_energy_max": "Maximum light energy (0-10)",
+"light_range": "Beam distance (1-100)",
+"spot_angle": "Spot cone angle (1-90)",
+"starts_active": "Set to 1 if the light starts on"
+}
+meta_properties = {
+"color": Color( 1, 0.9, 0.6, 1 ),
+"size": AABB( -0.6, 0, -0.8, 1.2, 1.4, 1.6 )
+}
+node_options = "----------------------------------------------------------------"
+node_class = ""
+transient_node = false
+scene = "SciFiWorkLightV2"
+scene_file = ExtResource( 2 )
+scripting = ""

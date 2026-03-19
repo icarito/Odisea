@@ -1,0 +1,154 @@
+[gd_scene load_steps=12 format=2]
+
+[ext_resource path="res://core_v2/props/scifi_doors/SciFiDoorV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/components/ForwardInteract.gd" type="Script" id=2]
+
+[sub_resource type="SpatialMaterial" id=1]
+albedo_color = Color( 0.12, 0.14, 0.17, 1 )
+metallic = 0.82
+roughness = 0.22
+
+[sub_resource type="CubeMesh" id=2]
+material = SubResource( 1 )
+size = Vector3( 3.15, 1.58, 0.24 )
+
+[sub_resource type="BoxShape" id=3]
+extents = Vector3( 1.575, 0.79, 0.12 )
+
+[sub_resource type="SpatialMaterial" id=4]
+resource_local_to_scene = true
+albedo_color = Color( 0.1, 0.16, 0.18, 1 )
+emission_enabled = true
+emission = Color( 1, 0.2, 0.2, 1 )
+emission_energy = 0.45
+
+[sub_resource type="CubeMesh" id=5]
+material = SubResource( 4 )
+size = Vector3( 2.6, 0.12, 0.05 )
+
+[sub_resource type="CubeMesh" id=6]
+material = SubResource( 4 )
+size = Vector3( 0.12, 2.5, 0.05 )
+
+[sub_resource type="CubeMesh" id=7]
+material = SubResource( 1 )
+size = Vector3( 2.12, 0.18, 0.08 )
+
+[node name="DoorDoubleVerticalV2" type="Spatial"]
+script = ExtResource( 1 )
+interaction_text = "Cycle Split Shutter"
+anim_duration = 0.8
+panel_left_path = NodePath("PanelTop")
+panel_right_path = NodePath("PanelBottom")
+open_offset_left = Vector3( 0, 1.55, 0 )
+open_offset_right = Vector3( 0, -1.55, 0 )
+color_closed = Color( 1, 0.18, 0.18, 1 )
+color_open = Color( 0.14, 0.95, 1, 1 )
+color_moving = Color( 1, 0.72, 0.2, 1 )
+indicator_light_paths = [ NodePath("PanelTop/Indicator"), NodePath("PanelBottom/Indicator"), NodePath("Frame/SideLightLeft"), NodePath("Frame/SideLightRight"), NodePath("Frame/TopLightStrip"), NodePath("Frame/LightTop"), NodePath("Frame/LightLeft"), NodePath("Frame/LightRight") ]
+
+[node name="Frame" type="Spatial" parent="."]
+
+[node name="SideL" type="CSGBox" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.98, 1.54, 0 )
+use_collision = true
+width = 0.42
+height = 3.34
+depth = 0.58
+material = SubResource( 1 )
+
+[node name="SideR" type="CSGBox" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.98, 1.54, 0 )
+use_collision = true
+width = 0.42
+height = 3.34
+depth = 0.58
+material = SubResource( 1 )
+
+[node name="Top" type="CSGBox" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.56, 0 )
+use_collision = true
+width = 4.35
+height = 0.34
+depth = 0.58
+material = SubResource( 1 )
+
+[node name="Bottom" type="CSGBox" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 0 )
+use_collision = true
+width = 3.92
+height = 0.12
+depth = 0.48
+material = SubResource( 1 )
+
+[node name="TopLightStrip" type="MeshInstance" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.26, 0.31 )
+mesh = SubResource( 5 )
+
+[node name="SideLightLeft" type="MeshInstance" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.71, 1.54, 0.3 )
+mesh = SubResource( 6 )
+
+[node name="SideLightRight" type="MeshInstance" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.71, 1.54, 0.3 )
+mesh = SubResource( 6 )
+
+[node name="LightTop" type="OmniLight" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.14, 0.56 )
+light_color = Color( 1, 0.18, 0.18, 1 )
+light_energy = 0.45
+omni_range = 3.5
+
+[node name="LightLeft" type="OmniLight" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.52, 1.55, 0.48 )
+light_color = Color( 1, 0.18, 0.18, 1 )
+light_energy = 0.28
+omni_range = 2.0
+
+[node name="LightRight" type="OmniLight" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.52, 1.55, 0.48 )
+light_color = Color( 1, 0.18, 0.18, 1 )
+light_energy = 0.28
+omni_range = 2.0
+
+[node name="PanelTop" type="KinematicBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.33, 0 )
+collision_layer = 4
+collision_mask = 3
+script = ExtResource( 2 )
+
+[node name="MeshInstance" type="MeshInstance" parent="PanelTop"]
+mesh = SubResource( 2 )
+
+[node name="CollisionShape" type="CollisionShape" parent="PanelTop"]
+shape = SubResource( 3 )
+
+[node name="Brace" type="MeshInstance" parent="PanelTop"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.38, 0.15 )
+mesh = SubResource( 7 )
+
+[node name="Indicator" type="MeshInstance" parent="PanelTop"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.56, 0.16 )
+mesh = SubResource( 5 )
+material_override = SubResource( 4 )
+
+[node name="PanelBottom" type="KinematicBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0 )
+collision_layer = 4
+collision_mask = 3
+script = ExtResource( 2 )
+
+[node name="MeshInstance" type="MeshInstance" parent="PanelBottom"]
+mesh = SubResource( 2 )
+
+[node name="CollisionShape" type="CollisionShape" parent="PanelBottom"]
+shape = SubResource( 3 )
+
+[node name="Brace" type="MeshInstance" parent="PanelBottom"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.38, 0.15 )
+mesh = SubResource( 7 )
+
+[node name="Indicator" type="MeshInstance" parent="PanelBottom"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.56, 0.16 )
+mesh = SubResource( 5 )
+material_override = SubResource( 4 )
