@@ -76,7 +76,7 @@ func _update_visuals() -> void:
 	var base_energy = light_energy * anim_progress
 	var flicker_factor = 1.0
 
-	if flicker_enabled and anim_progress > 0.01:
+	if not Engine.editor_hint and flicker_enabled and anim_progress > 0.01:
 		var noise = sin(_time_acc * flicker_speed) * sin(_time_acc * flicker_speed * 0.79 + 1.23)
 		noise += 0.5 * sin(_time_acc * flicker_speed * 3.14)
 		flicker_factor = 1.0 - (flicker_intensity * 0.5 * (1.0 + noise))
@@ -92,11 +92,11 @@ func _update_visuals() -> void:
 	if _mesh and _mesh.material_override:
 		var mat = _mesh.material_override
 		if mat is SpatialMaterial:
-			mat.emission_energy = base_energy
-			mat.albedo_color.a = clamp(base_energy / max(light_energy, 0.001), 0.15, 1.0)
+			mat.emission_energy = flicker_energy
+			mat.albedo_color.a = clamp(flicker_energy / max(light_energy, 0.001), 0.15, 1.0)
 		elif mat is ShaderMaterial:
-			mat.set_shader_param("emission_energy", base_energy)
-			var alpha = clamp(base_energy / max(light_energy, 0.001), 0.15, 1.0)
+			mat.set_shader_param("emission_energy", flicker_energy)
+			var alpha = clamp(flicker_energy / max(light_energy, 0.001), 0.15, 1.0)
 			mat.set_shader_param("albedo", Color(light_color.r, light_color.g, light_color.b, alpha))
 
 func step(dt: float) -> void:
@@ -112,7 +112,7 @@ func step(dt: float) -> void:
 		return
 	_time_acc += flicker_dt
 
-	if flicker_enabled and anim_progress > 0.01:
+	if not Engine.editor_hint and flicker_enabled and anim_progress > 0.01:
 		_update_visuals()
 
 func _on_flicker_timeout():
