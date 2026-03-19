@@ -43,7 +43,10 @@ export var collision_release_hysteresis := 0.18
 export var collision_release_delay := 0.1
 
 # Briefly keep the last stable hit when the cast flickers to "no collision".
-export var collision_miss_grace := 0.08
+export var collision_miss_grace := 0.35
+
+# When contact is finally released, expand more gently than the regular orbit zoom.
+export var collision_clear_extend_weight := 2.5
 
 # Speed used when retracting due to collision correction.
 export var collision_shrink_weight := 28.0
@@ -203,10 +206,14 @@ func _physics_process(delta):
 				_collision_latched_length = -1.0
 				_collision_release_timer = 0.0
 				_collision_miss_timer = 0.0
-				current_length = desired_length
+				var clear_t := clamp(collision_clear_extend_weight * delta, 0.0, 1.0)
+				current_length = lerp(current_length, target_length, clear_t)
+				current_length = max(current_length, min_length)
 				rendered_length = current_length
 		else:
-			current_length = desired_length
+			var clear_t := clamp(collision_clear_extend_weight * delta, 0.0, 1.0)
+			current_length = lerp(current_length, target_length, clear_t)
+			current_length = max(current_length, min_length)
 			rendered_length = current_length
 
 	if is_instance_valid(kinematic_body):
@@ -247,13 +254,6 @@ func _resolve_collision_hit_length(hit_length: float, delta: float) -> float:
 	if hit_length < _collision_latched_length - collision_hold_epsilon:
 		_collision_latched_length = hit_length
 		_collision_release_timer = 0.0
-		return _collision_latched_length
-
-	if hit_length > _collision_latched_length + collision_release_hysteresis:
-		_collision_release_timer += delta
-		if _collision_release_timer >= collision_release_delay:
-			var latch_t := clamp(extend_weight * delta, 0.0, 1.0)
-			_collision_latched_length = lerp(_collision_latched_length, hit_length, latch_t)
 		return _collision_latched_length
 
 	_collision_release_timer = 0.0
