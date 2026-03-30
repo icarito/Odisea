@@ -1359,6 +1359,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/props/scifi_lights/SciFiBoxLightV2.gd"
 }, {
+"base": "PropBaseV2",
+"class": "SciFiDoorV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_doors/SciFiDoorV2.gd"
+}, {
 "base": "KinematicBody",
 "class": "SciFiFloatingLightV2",
 "language": "GDScript",
@@ -1380,6 +1385,11 @@ _global_script_classes=[ {
 "path": "res://core_v2/props/scifi_lights/SciFiLightPathV2.gd"
 }, {
 "base": "PropBaseV2",
+"class": "SciFiPathMarkerV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/SciFiPathMarkerV2.gd"
+}, {
+"base": "PropBaseV2",
 "class": "SciFiShieldV2",
 "language": "GDScript",
 "path": "res://core_v2/props/scifi_lights/SciFiShieldV2.gd"
@@ -1393,6 +1403,11 @@ _global_script_classes=[ {
 "class": "SciFiStaticLightV2",
 "language": "GDScript",
 "path": "res://core_v2/props/scifi_lights/SciFiStaticLightV2.gd"
+}, {
+"base": "PropBaseV2",
+"class": "SciFiWorkLightV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/SciFiWorkLightV2.gd"
 }, {
 "base": "Spatial",
 "class": "Shake",
@@ -1860,13 +1875,16 @@ _global_script_class_icons={
 "RotatingObjectV2": "",
 "SFXComponentV2": "",
 "SciFiBoxLightV2": "",
+"SciFiDoorV2": "",
 "SciFiFloatingLightV2": "",
 "SciFiFloorPanelV2": "",
 "SciFiHangingLightV2": "",
 "SciFiLightPathV2": "",
+"SciFiPathMarkerV2": "",
 "SciFiShieldV2": "",
 "SciFiSphereLightV2": "",
 "SciFiStaticLightV2": "",
+"SciFiWorkLightV2": "",
 "Shake": "",
 "ShapeCreationButton": "",
 "SignalHandler": "",
@@ -1951,10 +1969,10 @@ debug/gdscript/warnings/exclude_addons=true
 
 window/size/width=640
 window/size/height=480
-window/size/fullscreen=true
+window/size/always_on_top=true
+window/size/test_width=800
+window/size/test_height=600
 window/dpi/allow_hidpi=true
-window/per_pixel_transparency/allowed=true
-window/per_pixel_transparency/enabled=true
 window/stretch/mode="viewport"
 window/stretch/aspect="expand"
 
@@ -2190,12 +2208,15 @@ vram_compression/import_etc=true
 vram_compression/import_pvrtc=true
 quality/shadow_atlas/size=2048
 quality/reflections/high_quality_ggx=false
+quality/shading/force_vertex_shading=true
 quality/shading/force_lambert_over_burley=true
 quality/shading/force_blinn_over_ggx=true
+quality/shading/use_physical_light_attenuation=true
 quality/depth_prepass/enable=false
 batching/options/use_batching=false
 batching/options/single_rect_fallback=true
 batching/parameters/batch_buffer_size=32768
 environment/default_clear_color=Color( 0.137255, 0.219608, 0.282353, 1 )
+quality/filters/use_debanding=true
 quality/depth/hdr=false
 quality/filters/anisotropic_filtering_level=0
