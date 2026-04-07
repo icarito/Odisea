@@ -5,7 +5,7 @@
 //
 // Based on the proven dither_hiding.shader from project history.
 shader_type spatial;
-render_mode depth_draw_alpha_prepass, cull_back;
+render_mode cull_back;
 
 // --- Standard PBR uniforms (copied from SpatialMaterial at runtime) ---
 uniform vec4 albedo : hint_color = vec4(1.0);
@@ -20,6 +20,12 @@ uniform bool has_normal_map = false;
 uniform bool has_mrao_map = false;
 uniform vec3 uv1_scale = vec3(1.0);
 uniform vec3 uv1_offset = vec3(0.0);
+
+// --- Emission uniforms (copied from SpatialMaterial at runtime) ---
+uniform bool emission_enabled = false;
+uniform vec4 emission_color : hint_color = vec4(0.0, 0.0, 0.0, 1.0);
+uniform float emission_energy = 0.0;
+uniform int emission_op = 0; // 0 = ADD, 1 = MULTIPLY
 
 // --- Occlusion uniforms (updated per-frame by PropDitherManager) ---
 uniform vec3 player_pos;
@@ -111,6 +117,15 @@ void fragment() {
 	if (has_normal_map) {
 		NORMALMAP = texture(texture_normal, UV).rgb;
 		NORMALMAP_DEPTH = normal_scale;
+	}
+
+	// --- Emission output ---
+	if (emission_enabled) {
+		if (emission_op == 1) {
+			EMISSION = ALBEDO * emission_color.rgb * emission_energy;
+		} else {
+			EMISSION = emission_color.rgb * emission_energy;
+		}
 	}
 
 	// --- Cone-based dither occlusion ---

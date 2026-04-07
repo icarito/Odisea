@@ -549,10 +549,6 @@ func _should_prewarm_sensors() -> bool:
 		return not (lazy_env in ["1", "true", "yes", "on"])
 	if OS.get_name() == "Switch":
 		return false
-	var hardware_profile = get_node_or_null("/root/HardwareProfile")
-	if hardware_profile and is_instance_valid(hardware_profile):
-		if hardware_profile.has_method("is_hyper_low_mode") and bool(hardware_profile.is_hyper_low_mode()):
-			return false
 	return true
 
 func _exit_tree():
@@ -761,32 +757,6 @@ func get_simulation_telemetry_resource() -> Dictionary:
 	var hardware_data = {
 		"available": false
 	}
-	var hardware_profile = get_node_or_null("/root/HardwareProfile")
-	if hardware_profile and is_instance_valid(hardware_profile):
-		var shadow_policy = {}
-		if hardware_profile.has_method("get_shadow_policy_summary"):
-			shadow_policy = hardware_profile.get_shadow_policy_summary()
-		var frame_pacing = {}
-		if hardware_profile.has_method("get_frame_pacing_summary"):
-			frame_pacing = hardware_profile.get_frame_pacing_summary()
-		var profile_name = "UNKNOWN"
-		if hardware_profile.has_method("get_effective_profile_name"):
-			profile_name = String(hardware_profile.get_effective_profile_name())
-		elif hardware_profile.has_method("get_profile_name"):
-			profile_name = String(hardware_profile.get_profile_name())
-		hardware_data = {
-			"available": true,
-			"platform": String(hardware_profile.get_platform_name()) if hardware_profile.has_method("get_platform_name") else "UNKNOWN",
-			"profile": profile_name,
-			"platform_id": int(hardware_profile.get_platform()) if hardware_profile.has_method("get_platform") else -1,
-			"profile_id": int(hardware_profile.get_profile()) if hardware_profile.has_method("get_profile") else -1,
-			"cores": int(hardware_profile.get_processor_count()) if hardware_profile.has_method("get_processor_count") else 0,
-			"memory_total_gb": float(hardware_profile.get_total_memory_gb()) if hardware_profile.has_method("get_total_memory_gb") else 0.0,
-			"weak_hardware": bool(hardware_profile.is_weak_hardware()) if hardware_profile.has_method("is_weak_hardware") else false,
-			"hyper_low": bool(hardware_profile.is_hyper_low_mode()) if hardware_profile.has_method("is_hyper_low_mode") else false,
-			"shadow_policy": shadow_policy,
-			"frame_pacing": frame_pacing
-		}
 	return {
 		"resource": "odisea://simulation/telemetry",
 		"fps": fps,

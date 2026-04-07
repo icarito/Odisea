@@ -11,7 +11,7 @@ var _cinematic_manager: Node = null
 func _ready() -> void:
 	layer = 100
 	
-	_is_mobile = (OS.has_touchscreen_ui_hint() or HardwareProfile.is_android() or HardwareProfile.get_platform() == HardwareProfile.PlatformType.IOS) and not HardwareProfile.is_switch()
+	_is_mobile = (OS.has_touchscreen_ui_hint() or OS.get_name() == "Android" or OS.get_name() == "iOS") and OS.get_name() != "Switch"
 	
 	if _is_mobile:
 		_spawn_mobile_ui()

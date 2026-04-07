@@ -66,10 +66,6 @@ func _listen_server(requested_port: int) -> int:
 func _should_stream_observation_continuously() -> bool:
 	if OS.get_name() == "Switch":
 		return false
-	var hardware_profile = get_node_or_null("/root/HardwareProfile")
-	if hardware_profile and is_instance_valid(hardware_profile):
-		if hardware_profile.has_method("is_hyper_low_mode") and bool(hardware_profile.is_hyper_low_mode()):
-			return false
 	return true
 
 func _ready():
@@ -789,15 +785,6 @@ func _build_telemetry_lite() -> Dictionary:
 	var hardware := {
 		"available": false
 	}
-	var hardware_profile = get_node_or_null("/root/HardwareProfile")
-	if hardware_profile and is_instance_valid(hardware_profile):
-		hardware = {
-			"available": true,
-			"platform": String(hardware_profile.get_platform_name()) if hardware_profile.has_method("get_platform_name") else "UNKNOWN",
-			"profile": String(hardware_profile.get_effective_profile_name()) if hardware_profile.has_method("get_effective_profile_name") else "UNKNOWN",
-			"hyper_low": bool(hardware_profile.is_hyper_low_mode()) if hardware_profile.has_method("is_hyper_low_mode") else false,
-			"weak_hardware": bool(hardware_profile.is_weak_hardware()) if hardware_profile.has_method("is_weak_hardware") else false
-		}
 	return {
 		"resource": "odisea://telemetry-lite",
 		"fps": fps,

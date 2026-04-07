@@ -196,6 +196,13 @@ func _convert_spatial_to_dither(source: SpatialMaterial) -> ShaderMaterial:
 	new_mat.set_shader_param("uv1_scale", source.uv1_scale)
 	new_mat.set_shader_param("uv1_offset", source.uv1_offset)
 
+	# Emission
+	if source.emission_enabled:
+		new_mat.set_shader_param("emission_enabled", true)
+		new_mat.set_shader_param("emission_color", source.emission)
+		new_mat.set_shader_param("emission_energy", source.emission_energy)
+		new_mat.set_shader_param("emission_op", source.emission_operator)
+
 	# Initial occlusion params
 	new_mat.set_shader_param("hole_radius", _hole_radius)
 	new_mat.set_shader_param("is_active", 1.0)

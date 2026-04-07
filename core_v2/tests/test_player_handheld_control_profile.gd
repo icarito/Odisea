@@ -64,12 +64,9 @@ func _build_player() -> KinematicBody:
 	return player
 
 
-func test_hyper_low_profile_marks_auto_align_for_disable() -> void:
-	var hp = get_tree().root.get_node_or_null("HardwareProfile")
-	assert_object(hp).is_not_null()
-	var previous_hyper_low = hp._hyper_low_mode
-	hp._hyper_low_mode = true
+# With HardwareProfile removed, these methods always return false (safe defaults).
 
+func test_auto_align_defaults_to_enabled() -> void:
 	var root := Node.new()
 	root.name = "PlayerHandheldControlProfileRoot"
 	get_tree().root.add_child(root)
@@ -78,43 +75,13 @@ func test_hyper_low_profile_marks_auto_align_for_disable() -> void:
 	root.add_child(player)
 	yield (get_tree(), "idle_frame")
 
-	assert_bool(player._should_disable_auto_align_for_profile()).is_true()
-	player.enable_auto_align = true
-	if player._should_disable_auto_align_for_profile():
-		player.enable_auto_align = false
-	assert_bool(player.enable_auto_align).is_false()
-
-	yield (_free_node(root), "completed")
-	hp._hyper_low_mode = previous_hyper_low
-
-
-func test_hyper_low_profile_keeps_animator_frame_throttle_disabled() -> void:
-	var hp = get_tree().root.get_node_or_null("HardwareProfile")
-	assert_object(hp).is_not_null()
-	var previous_hyper_low = hp._hyper_low_mode
-	hp._hyper_low_mode = true
-
-	var root := Node.new()
-	root.name = "PlayerHandheldAnimatorThrottleRoot"
-	get_tree().root.add_child(root)
-
-	var player = _build_player()
-	root.add_child(player)
-	yield (get_tree(), "idle_frame")
-
+	assert_bool(player._should_disable_auto_align_for_profile()).is_false()
 	assert_bool(player._should_throttle_animator_for_profile()).is_false()
-	assert_bool(player._hyper_low_animator_throttle).is_false()
 
 	yield (_free_node(root), "completed")
-	hp._hyper_low_mode = previous_hyper_low
 
 
-func test_hyper_low_profile_keeps_cinematic_zone_scan_enabled() -> void:
-	var hp = get_tree().root.get_node_or_null("HardwareProfile")
-	assert_object(hp).is_not_null()
-	var previous_hyper_low = hp._hyper_low_mode
-	hp._hyper_low_mode = true
-
+func test_cinematic_zone_scan_stays_enabled() -> void:
 	var root := Node.new()
 	root.name = "PlayerHandheldCameraZoneRoot"
 	get_tree().root.add_child(root)
@@ -126,15 +93,9 @@ func test_hyper_low_profile_keeps_cinematic_zone_scan_enabled() -> void:
 	assert_bool(player._perf_disable_cinematic_zone_scan).is_false()
 
 	yield (_free_node(root), "completed")
-	hp._hyper_low_mode = previous_hyper_low
 
 
-func test_hyper_low_profile_keeps_step_up_enabled() -> void:
-	var hp = get_tree().root.get_node_or_null("HardwareProfile")
-	assert_object(hp).is_not_null()
-	var previous_hyper_low = hp._hyper_low_mode
-	hp._hyper_low_mode = true
-
+func test_step_up_stays_enabled() -> void:
 	var root := Node.new()
 	root.name = "PlayerHandheldStepUpRoot"
 	get_tree().root.add_child(root)
@@ -146,4 +107,3 @@ func test_hyper_low_profile_keeps_step_up_enabled() -> void:
 	assert_bool(player.enable_step_up).is_true()
 
 	yield (_free_node(root), "completed")
-	hp._hyper_low_mode = previous_hyper_low

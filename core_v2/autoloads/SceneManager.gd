@@ -391,24 +391,10 @@ func _reset_runtime_state() -> void:
 	_input_restore_state.clear()
 
 func _get_effective_poll_budget_ms() -> int:
-	var budget: int = int(poll_budget_ms)
-	var hardware_profile = get_node_or_null("/root/HardwareProfile")
-	if hardware_profile == null:
-		return budget
-	if hardware_profile.has_method("is_hyper_low_mode") and bool(hardware_profile.is_hyper_low_mode()):
-		return int(max(budget, int(hyper_low_poll_budget_ms)))
-	if hardware_profile.has_method("is_weak_hardware") and bool(hardware_profile.is_weak_hardware()):
-		return int(max(budget, int(weak_poll_budget_ms)))
-	return budget
+	return int(poll_budget_ms)
 
 func _get_effective_transition_timeout_ms() -> int:
 	var timeout_s := max(3.0, transition_timeout_s)
-	var hardware_profile = get_node_or_null("/root/HardwareProfile")
-	if hardware_profile != null:
-		if hardware_profile.has_method("is_hyper_low_mode") and bool(hardware_profile.is_hyper_low_mode()):
-			timeout_s = max(timeout_s, hyper_low_transition_timeout_s)
-		elif hardware_profile.has_method("is_weak_hardware") and bool(hardware_profile.is_weak_hardware()):
-			timeout_s = max(timeout_s, weak_transition_timeout_s)
 	return int(timeout_s * 1000.0)
 
 func _get_transition_layer() -> Node:

@@ -91,14 +91,7 @@ func _is_digital_move_vector(v: Vector2) -> bool:
 	var y_is_digital = is_equal_approx(y, 0.0) or is_equal_approx(y, 1.0)
 	return x_is_digital and y_is_digital
 
-func _get_hardware_profile_node():
-	var main_loop = Engine.get_main_loop()
-	if main_loop == null or not (main_loop is SceneTree):
-		return null
-	var root = (main_loop as SceneTree).get_root()
-	if root == null:
-		return null
-	return root.get_node_or_null("HardwareProfile")
+
 
 func _ensure_axis_profile_resolved() -> void:
 	if _axis_profile_resolved:
@@ -110,24 +103,6 @@ func _ensure_axis_profile_resolved() -> void:
 	if _contains_any_hint(forced_device, ANBERNIC_DEVICE_HINTS):
 		detected_anbernic = true
 		resolved_profile = "anbernic_env_invert_xy"
-	else:
-		var hp = _get_hardware_profile_node()
-		if hp == null:
-			return
-		var profile_ready = true
-		if hp.has_method("get_profile"):
-			profile_ready = int(hp.get_profile()) > 0
-		if not profile_ready:
-			# HardwareProfile is mounted but not fully initialized yet.
-			# Keep probing next frames instead of freezing "none".
-			return
-
-		if hp.has_method("get_device_name") and _contains_any_hint(String(hp.get_device_name()).to_lower(), ANBERNIC_DEVICE_HINTS):
-			detected_anbernic = true
-			resolved_profile = "anbernic_name_invert_xy"
-		elif hp.has_method("is_linux_handheld") and bool(hp.is_linux_handheld()):
-			detected_anbernic = true
-			resolved_profile = "anbernic_detected_invert_xy"
 
 	_axis_profile_resolved = true
 	handheld_axis_correction_enabled = detected_anbernic

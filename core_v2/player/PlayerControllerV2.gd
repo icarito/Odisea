@@ -475,41 +475,16 @@ func _ensure_player_audio_listener() -> void:
 	if _audio_listener.has_method("make_current"):
 		_audio_listener.make_current()
 
-func _get_hardware_profile_node():
-	var tree = get_tree()
-	if tree == null:
-		return null
-	var root = tree.get_root()
-	if root == null:
-		return null
-	return root.get_node_or_null("HardwareProfile")
-
 func _should_force_unshaded_player_visuals() -> bool:
-	var hp = _get_hardware_profile_node()
-	if hp and hp.has_method("is_weak_hardware") and bool(hp.is_weak_hardware()):
-		return true
-	if hp and hp.has_method("get_profile"):
-		return int(hp.get_profile()) == HARDWARE_PROFILE_LOW
 	return false
 
 func _should_reduce_camera_particles() -> bool:
-	var hp = _get_hardware_profile_node()
-	if hp and hp.has_method("should_use_reduced_particles"):
-		return bool(hp.should_use_reduced_particles())
-	if hp and hp.has_method("is_weak_hardware"):
-		return bool(hp.is_weak_hardware())
 	return false
 
 func _should_disable_auto_align_for_profile() -> bool:
-	var hp = _get_hardware_profile_node()
-	if hp and hp.has_method("is_hyper_low_mode"):
-		return bool(hp.is_hyper_low_mode())
 	return false
 
 func _should_throttle_animator_for_profile() -> bool:
-	# Hyper-low already uses manual AnimationTree stepping inside PilotAnimatorV2.
-	# Throttling the whole animator here batches visual work into bursty frames and
-	# hurts frame pacing on handhelds more than it helps raw throughput.
 	return false
 
 func _apply_camera_particle_policy() -> void:

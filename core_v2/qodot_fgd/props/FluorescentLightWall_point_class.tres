@@ -13,6 +13,10 @@ base_classes = [  ]
 class_properties = {
 "angle": 0.0,
 "angles": Vector3( 0, 0, 0 ),
+"base_emission_energy": 1.8,
+"flicker_enabled": 0,
+"flicker_intensity": 0.5,
+"flicker_speed": 10.0,
 "light_color": Color( 0.8, 0.9, 1, 1 ),
 "light_energy": 1.0,
 "light_range": 10.0,
@@ -21,6 +25,10 @@ class_properties = {
 class_property_descriptions = {
 "angle": "Yaw rotation in degrees",
 "angles": "Pitch Yaw Roll rotation in degrees",
+"base_emission_energy": "Emission brightness on the mesh (0-10)",
+"flicker_enabled": "Set to 1 to enable flickering, 0 for off",
+"flicker_intensity": "Flicker brightness intensity variance (0-1)",
+"flicker_speed": "Flicker speed (frequency)",
 "light_color": "Color of the light",
 "light_energy": "Light brightness (0-10)",
 "light_range": "Light reach distance (0-20)",

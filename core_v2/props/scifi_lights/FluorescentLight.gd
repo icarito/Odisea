@@ -11,29 +11,18 @@ export(float, 0.0, 20.0) var light_range := 10.0 setget set_light_range
 export(bool) var flicker_enabled := false
 export(float, 0.1, 20.0) var flicker_speed := 10.0
 export(float, 0.0, 1.0) var flicker_intensity := 0.5
-export(int, 1, 4) var flicker_tick_interval_frames := 2
-export(float, 0.0, 300.0) var flickr_timeout := 30.0
-export(float, 0.0, 300.0) var flickr_timeout_random_spread := 15.0
-export(float, 0.0, 1.0) var flickr_timeout_endgame_chance := 0.5
+export(float, 0.0, 10.0) var base_emission_energy := 1.8
 
 var _omni_light: OmniLight = null
 var _spot_light: SpotLight = null # Optional support for spotlight too
 var _mesh: MeshInstance = null
 var _time_acc: float = 0.0
-var _flicker_tick_countdown := 0
-var _flicker_tick_accumulator := 0.0
-var _flickr_timeout_timer := 0.0
-var _flickr_finished := false
-var _initial_light_energy := 1.0
 
 func _ready():
 	._ready()
 	_omni_light = _find_child_by_type("OmniLight")
 	_spot_light = _find_child_by_type("SpotLight")
 	_mesh = _find_child_by_type("MeshInstance")
-	_initial_light_energy = light_energy
-	if not Engine.editor_hint and flicker_enabled:
-		_flickr_timeout_timer = flickr_timeout + (randf() * 2.0 - 1.0) * flickr_timeout_random_spread
 	_apply_settings()
 
 func set_light_color(v: Color) -> void:
@@ -62,87 +51,94 @@ func _apply_settings():
 		_spot_light.light_color = light_color
 		_spot_light.spot_range = light_range
 
-	if _mesh and _mesh.material_override:
-		if not _mesh.material_override.resource_local_to_scene:
-			_mesh.material_override = _mesh.material_override.duplicate()
-		if _mesh.material_override is SpatialMaterial:
-			_mesh.material_override.emission = light_color
+	if _mesh:
+		var has_mat_override = (_mesh.material_override != null)
+		var mat = _mesh.material_override if has_mat_override else _mesh.get_surface_material(0)
+		
+		if mat:
+			if not mat.resource_local_to_scene and not Engine.editor_hint:
+				mat = mat.duplicate()
+				if has_mat_override:
+					_mesh.material_override = mat
+				else:
+					_mesh.set_surface_material(0, mat)
+					
+			if mat is SpatialMaterial:
+				mat.emission = light_color
+				mat.emission_operator = SpatialMaterial.EMISSION_OP_ADD
 
 	_update_visuals()
 
 func _update_visuals() -> void:
 	._update_visuals()
 
-	var base_energy = light_energy * anim_progress
-	var flicker_factor = 1.0
+	# anim_progress 0.0 = Off, 1.0 = On (if starts_active is true)
+	# However, InteractableBaseV2 logic:
+	# is_active = true -> target_progress = 1.0
+	# is_active = false -> target_progress = 0.0
 
-	if not Engine.editor_hint and flicker_enabled and anim_progress > 0.01:
+	var current_energy = light_energy * anim_progress
+	var target_emission = base_emission_energy * anim_progress * 3.0
+
+	if flicker_enabled and anim_progress > 0.01:
+		# Deterministic flicker using _time_acc
+		# Use sine waves to create irregular looking but deterministic pattern
 		var noise = sin(_time_acc * flicker_speed) * sin(_time_acc * flicker_speed * 0.79 + 1.23)
+		# Add some high frequency noise
 		noise += 0.5 * sin(_time_acc * flicker_speed * 3.14)
-		flicker_factor = 1.0 - (flicker_intensity * 0.5 * (1.0 + noise))
-		flicker_factor = clamp(flicker_factor, 0.0, 1.2)
 
-	var flicker_energy = base_energy * flicker_factor
+		# Normalize roughly to -1..1 range (it can exceed but we clamp or scale)
+		# We want flicker to reduce energy occasionally.
+		# Map noise to factor [1.0 - intensity, 1.0]
+
+		# Simple approach: if noise > threshold, dim it.
+		# Or continuous variation.
+
+		var factor = 1.0 - (flicker_intensity * 0.5 * (1.0 + noise))
+		factor = clamp(factor, 0.0, 1.2) # Allow slight over-brightness too?
+
+		current_energy *= factor
+		target_emission *= factor
 
 	if _omni_light:
-		_omni_light.light_energy = flicker_energy
+		_omni_light.light_energy = current_energy
 	if _spot_light:
-		_spot_light.light_energy = flicker_energy
+		_spot_light.light_energy = current_energy
 
-	if _mesh and _mesh.material_override:
-		var mat = _mesh.material_override
+	if _mesh:
+		var has_mat_override = (_mesh.material_override != null)
+		var mat = _mesh.material_override if has_mat_override else _mesh.get_surface_material(0)
 		if mat is SpatialMaterial:
-			mat.emission_energy = flicker_energy
-			mat.albedo_color.a = clamp(flicker_energy / max(light_energy, 0.001), 0.15, 1.0)
+			mat.emission_energy = target_emission
+			if target_emission > 0.1:
+				var bright_albedo = light_color.linear_interpolate(Color.white, 0.5)
+				mat.albedo_color = bright_albedo
+			else:
+				mat.albedo_color = Color(0.15, 0.15, 0.15)
 		elif mat is ShaderMaterial:
-			mat.set_shader_param("emission_energy", flicker_energy)
-			var alpha = clamp(flicker_energy / max(light_energy, 0.001), 0.15, 1.0)
-			mat.set_shader_param("albedo", Color(light_color.r, light_color.g, light_color.b, alpha))
+			# PropDitherManager replaced SpatialMaterial with ShaderMaterial
+			mat.set_shader_param("emission_enabled", target_emission > 0.01)
+			mat.set_shader_param("emission_energy", target_emission)
+			mat.set_shader_param("emission_color", light_color)
+			if target_emission > 0.1:
+				var bright_albedo = light_color.linear_interpolate(Color.white, 0.5)
+				mat.set_shader_param("albedo", bright_albedo)
+			else:
+				mat.set_shader_param("albedo", Color(0.15, 0.15, 0.15))
+
 
 func step(dt: float) -> void:
 	.step(dt)
-	
-	if not Engine.editor_hint and flicker_enabled and not _flickr_finished:
-		_flickr_timeout_timer -= dt
-		if _flickr_timeout_timer <= 0:
-			_on_flicker_timeout()
-
-	var flicker_dt = _consume_flicker_tick(dt)
-	if flicker_dt < 0.0:
-		return
-	_time_acc += flicker_dt
-
-	if not Engine.editor_hint and flicker_enabled and anim_progress > 0.01:
+	_time_acc += dt
+	# Always update visuals if flickering is enabled and we are active,
+	# because flicker depends on time even if anim_progress is static at 1.0
+	if flicker_enabled and anim_progress > 0.01:
 		_update_visuals()
 
-func _on_flicker_timeout():
-	_flickr_finished = true
-	flicker_enabled = false
-	# Determine final state based on chance
-	if randf() < flickr_timeout_endgame_chance:
-		# Resolve to ON: ensure light_energy is restored/kept
-		set_light_energy(_initial_light_energy)
-	else:
-		# Resolve to OFF: kill light energy
-		set_light_energy(0.0)
-	_update_visuals()
-
-func _find_child_by_type(type_name: String) -> Node:
-	for child in get_children():
+func _find_child_by_type(type_name: String, node: Node = self) -> Node:
+	for child in node.get_children():
 		if child.get_class() == type_name:
 			return child
+		var res = _find_child_by_type(type_name, child)
+		if res: return res
 	return null
-
-func _consume_flicker_tick(delta: float) -> float:
-	_flicker_tick_accumulator += max(0.0, delta)
-	if flicker_tick_interval_frames <= 1:
-		var dt = _flicker_tick_accumulator
-		_flicker_tick_accumulator = 0.0
-		return dt
-	if _flicker_tick_countdown > 0:
-		_flicker_tick_countdown -= 1
-		return -1.0
-	_flicker_tick_countdown = flicker_tick_interval_frames - 1
-	var sampled_dt = _flicker_tick_accumulator
-	_flicker_tick_accumulator = 0.0
-	return sampled_dt

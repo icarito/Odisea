@@ -1950,8 +1950,6 @@ CinematicManager="*res://core_v2/autoloads/CinematicManager.gd"
 CameraTransition="*res://addons/camera_transition/camera_transition.tscn"
 PerformanceMonitor="*res://core_v2/autoloads/PerformanceMonitor.gd"
 SubtitlesOverlayManager="*res://core_v2/autoloads/SubtitlesOverlayManager.gd"
-OptionalNodeManager="*res://core_v2/autoloads/OptionalNodeManager.gd"
-HardwareProfile="*res://core_v2/autoloads/HardwareProfile.gd"
 ShaderCacheManager="*res://addons/gd-shader-cache/src/ShaderCacheManager.gd"
 MobileUIManager="*res://core_v2/autoloads/MobileUIManager.gd"
 OverlayUIManager="*res://core_v2/autoloads/OverlayUIManager.gd"
@@ -1959,6 +1957,7 @@ ScreenEffectsManager="*res://core_v2/autoloads/ScreenEffectsManager.gd"
 ScreenshotQueue="*res://core_v2/systems/ScreenshotQueue.gd"
 VideoExporter="*res://core_v2/systems/VideoExporter.gd"
 StartupTrace="*res://core_v2/autoloads/StartupTrace.gd"
+PropDitherManager="*res://core_v2/autoloads/PropDitherManager.gd"
 
 [debug]
 
@@ -1969,12 +1968,12 @@ debug/gdscript/warnings/exclude_addons=true
 
 window/size/width=640
 window/size/height=480
-window/size/always_on_top=true
-window/size/test_width=800
-window/size/test_height=600
+window/size/test_width=1000
+window/size/test_height=750
 window/dpi/allow_hidpi=true
+window/vsync/vsync_via_compositor=true
 window/stretch/mode="viewport"
-window/stretch/aspect="expand"
+window/stretch/aspect="keep_height"
 
 [editor_plugins]
 
@@ -2199,7 +2198,6 @@ common/enable_pause_aware_picking=true
 
 [rendering]
 
-quality/driver/driver_name="GLES2"
 quality/driver/fallback_to_gles2=true
 quality/intended_usage/framebuffer_allocation.mobile=2
 threads/thread_model=2
@@ -2208,15 +2206,15 @@ vram_compression/import_etc=true
 vram_compression/import_pvrtc=true
 quality/shadow_atlas/size=2048
 quality/reflections/high_quality_ggx=false
-quality/shading/force_vertex_shading=true
 quality/shading/force_lambert_over_burley=true
 quality/shading/force_blinn_over_ggx=true
 quality/shading/use_physical_light_attenuation=true
 quality/depth_prepass/enable=false
-batching/options/use_batching=false
+quality/spatial_partitioning/render_tree_balance=1.0
 batching/options/single_rect_fallback=true
+batching/parameters/max_join_item_commands=32
 batching/parameters/batch_buffer_size=32768
+gles3/shaders/shader_compilation_mode=2
 environment/default_clear_color=Color( 0.137255, 0.219608, 0.282353, 1 )
 quality/filters/use_debanding=true
-quality/depth/hdr=false
-quality/filters/anisotropic_filtering_level=0
+environment/default_environment="res://default_env.tres"

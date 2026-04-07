@@ -403,9 +403,6 @@ func _save_report_throttled(data: Dictionary, now_msec: int) -> void:
 
 func _get_report_write_interval_msec() -> int:
 	var interval_sec := REPORT_WRITE_INTERVAL_SEC
-	var hp = get_node_or_null("/root/HardwareProfile")
-	if is_instance_valid(hp) and hp.has_method("is_hyper_low_mode") and hp.is_hyper_low_mode():
-		interval_sec = REPORT_WRITE_INTERVAL_HYPER_LOW_SEC
 	return int(interval_sec * 1000.0)
 
 func start_capture(tag: String = "capture") -> void:

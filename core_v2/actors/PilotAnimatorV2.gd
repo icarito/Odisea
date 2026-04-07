@@ -1082,13 +1082,6 @@ func _play_footstep():
 			player.play()
 
 func _is_hyper_low_runtime() -> bool:
-	var hp = get_node_or_null("/root/HardwareProfile")
-	if hp != null:
-		if hp.has_method("is_hyper_low_mode") and bool(hp.is_hyper_low_mode()):
-			return true
-		if hp.has_method("is_linux_handheld") and hp.has_method("get_profile"):
-			if bool(hp.is_linux_handheld()) and int(hp.get_profile()) <= 1:
-				return true
 	var forced_device = OS.get_environment("ODISEA_DEVICE").to_lower().strip_edges()
 	return forced_device.find("anbernic") != -1
 
