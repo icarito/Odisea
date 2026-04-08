@@ -1967,11 +1967,10 @@ debug/gdscript/warnings/exclude_addons=true
 [display]
 
 window/size/width=640
-window/size/height=480
-window/size/test_width=1000
-window/size/test_height=750
+window/size/height=360
+window/size/test_width=1280
+window/size/test_height=720
 window/dpi/allow_hidpi=true
-window/vsync/vsync_via_compositor=true
 window/stretch/mode="viewport"
 window/stretch/aspect="keep_height"
 
@@ -2198,6 +2197,7 @@ common/enable_pause_aware_picking=true
 
 [rendering]
 
+quality/driver/driver_name="GLES2"
 quality/driver/fallback_to_gles2=true
 quality/intended_usage/framebuffer_allocation.mobile=2
 threads/thread_model=2
@@ -2205,10 +2205,6 @@ vram_compression/import_bptc=true
 vram_compression/import_etc=true
 vram_compression/import_pvrtc=true
 quality/shadow_atlas/size=2048
-quality/reflections/high_quality_ggx=false
-quality/shading/force_lambert_over_burley=true
-quality/shading/force_blinn_over_ggx=true
-quality/shading/use_physical_light_attenuation=true
 quality/depth_prepass/enable=false
 quality/spatial_partitioning/render_tree_balance=1.0
 batching/options/single_rect_fallback=true
@@ -2217,4 +2213,5 @@ batching/parameters/batch_buffer_size=32768
 gles3/shaders/shader_compilation_mode=2
 environment/default_clear_color=Color( 0.137255, 0.219608, 0.282353, 1 )
 quality/filters/use_debanding=true
+quality/depth/hdr=false
 environment/default_environment="res://default_env.tres"

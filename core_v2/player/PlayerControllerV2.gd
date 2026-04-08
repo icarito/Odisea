@@ -91,6 +91,13 @@ var base_collision_mask := 0
 var _cinematic_zoom_target_fov := -1.0
 var _cinematic_zoom_target_cam: Camera = null
 
+# Camera Rig Vertical Follow (smooth Y-lag during jumps)
+export(float) var camera_rig_y_follow_speed := 6.0   # lerp weight when airborne (lower = more lag)
+export(float) var camera_rig_y_ground_snap_speed := 20.0 # lerp weight when grounded (fast catch-up)
+export(float) var camera_rig_y_max_lag := 2.0  # max Y-offset the rig can lag behind target
+var _camera_rig_y_smoothed_global := 0.0 # smoothed global-Y for the camera pivot
+var _camera_rig_y_initialized := false
+
 # State
 var velocity := Vector3()
 var is_pushing: bool = false
@@ -274,7 +281,10 @@ func full_reset() -> void:
 	_cinematic_zone_switch_grace_left = 0.0
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.transform.origin.y = base_rig_y
 		camera_rig.force_update_transform()
+		_camera_rig_y_smoothed_global = global_transform.origin.y + base_rig_y
+		_camera_rig_y_initialized = true
 
 func _sync_movement_state_after_traversal(horizontal_velocity: Vector3 = Vector3.ZERO) -> void:
 	if not is_instance_valid(movement_logic):
@@ -456,6 +466,8 @@ func _ready():
 	
 	if camera_rig:
 		base_rig_y = camera_rig.transform.origin.y
+		_camera_rig_y_smoothed_global = global_transform.origin.y + base_rig_y
+		_camera_rig_y_initialized = true
 	
 	_setup_interact_area()
 	_setup_crouch_collision()
@@ -843,6 +855,30 @@ func _update_camera_view(dt: float) -> void:
 
 	if (not _rl_skip_camera_updates) and _cached_cam and abs(_cached_cam.fov - base_fov) > 0.01:
 		_cached_cam.fov = lerp(_cached_cam.fov, base_fov, 4.0 * dt)
+
+	_update_camera_rig_vertical(dt)
+
+func _update_camera_rig_vertical(dt: float) -> void:
+	if not camera_rig or _rl_skip_camera_updates:
+		return
+	if not _camera_rig_y_initialized:
+		_camera_rig_y_smoothed_global = global_transform.origin.y + base_rig_y
+		_camera_rig_y_initialized = true
+		return
+
+	var target_global_y := global_transform.origin.y + base_rig_y
+	var grounded := is_on_floor() or _just_stepped or _step_grounded_timer > 0.0
+	var speed := camera_rig_y_ground_snap_speed if grounded else camera_rig_y_follow_speed
+	var t := clamp(speed * dt, 0.0, 1.0)
+	_camera_rig_y_smoothed_global = lerp(_camera_rig_y_smoothed_global, target_global_y, t)
+
+	# Clamp max lag so camera doesn't get left behind excessively
+	var lag := target_global_y - _camera_rig_y_smoothed_global
+	if abs(lag) > camera_rig_y_max_lag:
+		_camera_rig_y_smoothed_global = target_global_y - sign(lag) * camera_rig_y_max_lag
+
+	# Convert smoothed global Y back to local offset
+	camera_rig.transform.origin.y = _camera_rig_y_smoothed_global - global_transform.origin.y
 
 func _update_camera_collision_mask_state(dt: float) -> void:
 	if not _cached_spring_arm:
@@ -2139,7 +2175,10 @@ func teleport_to(target_transform: Transform) -> void:
 	
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.transform.origin.y = base_rig_y
 		camera_rig.force_update_transform()
+		_camera_rig_y_smoothed_global = target_transform.origin.y + base_rig_y
+		_camera_rig_y_initialized = true
 
 	ensure_input_provider()
 	set_camera_input_locked(false)

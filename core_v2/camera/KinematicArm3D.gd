@@ -57,6 +57,11 @@ export(Array, NodePath) var _exclude_paths: Array
 # the layers which the end of the arm will collide with
 export(int, LAYERS_3D_PHYSICS) var collision_mask := 1 setget set_collision_mask
 
+# Ceiling collision prevention
+export var ceiling_check_enabled := true
+export var ceiling_margin := 0.3  # keep camera this far below detected ceiling
+export var ceiling_check_distance := 3.0  # how far upward to probe for ceilings
+
 var kinematic_body: KinematicBody
 var _collision_latched_length := -1.0
 var _collision_release_timer := 0.0
@@ -261,8 +266,33 @@ func _resolve_collision_hit_length(hit_length: float, delta: float) -> float:
 
 func _update_children(arm_origin: Vector3, rendered_length: float) -> void:
 	var target := arm_origin + global_transform.basis.z * rendered_length
+
+	# Ceiling clamp: prevent camera from poking through floors above
+	if ceiling_check_enabled:
+		target = _clamp_target_below_ceiling(target)
+
 	for child in get_children():
 		if child == kinematic_body:
 			continue
 		if child is Spatial:
 			child.global_transform.origin = target
+
+func _clamp_target_below_ceiling(target: Vector3) -> Vector3:
+	var world = get_world()
+	if world == null:
+		return target
+	var space_state = world.direct_space_state
+	if space_state == null:
+		return target
+
+	# Cast a ray upward from the arm origin to find ceilings
+	var ray_from := global_transform.origin
+	var ray_to := ray_from + Vector3.UP * ceiling_check_distance
+	var result = space_state.intersect_ray(ray_from, ray_to, _excluded_objects, collision_mask)
+	if result.empty():
+		return target
+
+	var ceiling_y: float = result.position.y - ceiling_margin
+	if target.y > ceiling_y:
+		target.y = ceiling_y
+	return target

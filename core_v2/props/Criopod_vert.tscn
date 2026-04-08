@@ -68,6 +68,7 @@ surfaces/0 = {
 }
 
 [sub_resource type="SpatialMaterial" id=36]
+render_priority = 1
 flags_transparent = true
 params_cull_mode = 2
 albedo_color = Color( 0.290196, 0.509804, 0.611765, 0.494118 )
@@ -81,10 +82,6 @@ ao_light_affect = 0.0
 ao_texture = ExtResource( 1 )
 ao_on_uv2 = false
 ao_texture_channel = 2
-refraction_enabled = true
-refraction_scale = 0.01
-refraction_texture = ExtResource( 2 )
-refraction_texture_channel = 0
 
 [sub_resource type="ConvexPolygonShape" id=41]
 points = PoolVector3Array( 0.346308, -0.00406617, 0.17202, 0.24063, 1.32967, 0.30214, 0.24063, -0.00406617, 0.30214, 0.232475, -0.00406617, 0.285862, 0.232475, 1.32967, 0.285862, 0.354439, 1.32967, 0.188297, 0.346308, 1.32967, 0.17202, 0.354439, -0.00406617, 0.188297 )
