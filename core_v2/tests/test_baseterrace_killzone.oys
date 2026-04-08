@@ -1,1 +1,20 @@
-[KillZoneV2] Adding better fallback
+// Test: BaseTerrace KillZone Verification
+// Verifies that the KillZone in the actual BaseTerrace level functions correctly.
+
+LEVEL res://core_v2/levels/BaseTerrace.tscn
+
+SECTION "BaseTerrace KillZone Test"
+    PRINT "Starting BaseTerrace KillZone test"
+
+    // Teleport just above the KillZone volume, below the level floor, to verify
+    // the live BaseTerrace wiring without depending on a particular floor gap.
+    TELEPORT (0.0, -3.0, 0.0)
+
+    PRINT "Teleported via SessionManager. Player should be falling now..."
+
+    // Wait for the KillZone at Y=-24 to be hit.
+    ASSERT_SIGNAL "player_killed" 5.0 "KillZoneV2"
+
+    WAIT 1.0
+    PRINT "SUCCESS: KillZone caught the player in BaseTerrace!"
+END
