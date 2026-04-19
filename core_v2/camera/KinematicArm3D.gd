@@ -5,6 +5,9 @@
 class_name KinematicArm3D
 extends Spatial
 
+const LATCH_POSE_TRANSLATION_EPSILON := 0.025
+const LATCH_POSE_DIRECTION_DOT_EPSILON := 0.00015
+
 # The shape of the end of the arm (the "rolling ball")
 export var collider_shape: Shape setget set_collider_shape
 
@@ -45,6 +48,10 @@ export var collision_release_delay := 0.1
 # Briefly keep the last stable hit when the cast flickers to "no collision".
 export var collision_miss_grace := 0.35
 
+# If negative, a stationary arm keeps its latch until the pivot or direction changes.
+# Set a positive value to allow timed release while the player/camera is fully idle.
+export var collision_stationary_release_delay := -1.0
+
 # When contact is finally released, expand more gently than the regular orbit zoom.
 export var collision_clear_extend_weight := 2.5
 
@@ -64,9 +71,12 @@ export var ceiling_check_distance := 3.0  # how far upward to probe for ceilings
 
 var kinematic_body: KinematicBody
 var _collision_latched_length := -1.0
+var _collision_latch_origin := Vector3.ZERO
+var _collision_latch_direction := Vector3.BACK
 var _collision_release_timer := 0.0
 var _collision_miss_timer := 0.0
 var _excluded_objects: Array = []
+var _zoom_out_blocked := false
 
 func set_collider_shape(shape: Shape) -> void:
 	collider_shape = shape
@@ -128,8 +138,11 @@ func _ready():
 	set_physics_process(false)
 	target_length = spring_length
 	_collision_latched_length = -1.0
+	_collision_latch_origin = _get_arm_pose_origin()
+	_collision_latch_direction = _get_arm_pose_direction()
 	_collision_release_timer = 0.0
 	_collision_miss_timer = 0.0
+	_zoom_out_blocked = false
 	_excluded_objects = _excluded_objects.duplicate()
 
 func _add_excluded_object_internal(obj) -> void:
@@ -161,6 +174,9 @@ func clear_excluded_objects():
 func get_hit_length() -> float:
 	return current_length
 
+func is_zoom_out_blocked() -> bool:
+	return _zoom_out_blocked
+
 func _physics_process(delta):
 	# Sync target_length with spring_length just in case someone modifies spring_length directly.
 	target_length = spring_length
@@ -175,56 +191,45 @@ func _physics_process(delta):
 	var arm_origin := global_transform.origin
 	var arm_motion := global_transform.basis.z * desired_length
 	var rendered_length := desired_length
+	var final_target := arm_origin + arm_motion
+	var used_ceiling_accommodation := _can_accommodate_under_ceiling(arm_origin, desired_length)
+	var safe_hit_length := -1.0
 
-	var safe_hit_length := _cast_shape_hit_length(arm_origin, arm_motion, desired_length)
-	if safe_hit_length >= 0.0:
-		_collision_miss_timer = 0.0
-		var hit_length := safe_hit_length
-		var resolved_hit_length := _resolve_collision_hit_length(hit_length, delta)
-		var length_delta := resolved_hit_length - current_length
-		if length_delta < -collision_jitter_epsilon:
-			# Retract immediately to the safe hit point so the camera never clips into
-			# fresh obstacles when the player backs into a wall.
-			var shrink_t := clamp(collision_shrink_weight * delta, 0.0, 1.0)
-			current_length = lerp(current_length, resolved_hit_length, shrink_t)
-			rendered_length = resolved_hit_length
-		elif length_delta > collision_jitter_epsilon:
-			# When the sweep remains colliding but finds a farther face, expand smoothly
-			# instead of snapping the camera outwards frame-to-frame around corners.
-			var extend_t := clamp(extend_weight * delta, 0.0, 1.0)
-			current_length = lerp(current_length, resolved_hit_length, extend_t)
-			rendered_length = current_length
-		else:
-			current_length = resolved_hit_length
-			rendered_length = resolved_hit_length
+	if used_ceiling_accommodation:
+		rendered_length = _advance_clear_length(delta)
+		final_target = _clamp_target_below_ceiling(arm_origin + global_transform.basis.z * rendered_length, arm_origin)
 	else:
-		if _collision_latched_length >= 0.0:
-			_collision_miss_timer += delta
-			if _collision_miss_timer < collision_miss_grace:
-				if current_length < _collision_latched_length - collision_jitter_epsilon:
-					var hold_extend_t := clamp(extend_weight * delta, 0.0, 1.0)
-					current_length = lerp(current_length, _collision_latched_length, hold_extend_t)
-				else:
-					current_length = _collision_latched_length
+		safe_hit_length = _cast_shape_hit_length(arm_origin, arm_motion, desired_length)
+		if safe_hit_length >= 0.0:
+			_collision_miss_timer = 0.0
+			var hit_length := safe_hit_length
+			var resolved_hit_length := _resolve_collision_hit_length(hit_length, delta)
+			var length_delta := resolved_hit_length - current_length
+			if length_delta < -collision_jitter_epsilon:
+				# Retract immediately to the safe hit point so the camera never clips into
+				# fresh obstacles when the player backs into a wall.
+				var shrink_t := clamp(collision_shrink_weight * delta, 0.0, 1.0)
+				current_length = lerp(current_length, resolved_hit_length, shrink_t)
+				rendered_length = resolved_hit_length
+			elif length_delta > collision_jitter_epsilon:
+				# When the sweep remains colliding but finds a farther face, expand smoothly
+				# instead of snapping the camera outwards frame-to-frame around corners.
+				var extend_t := clamp(extend_weight * delta, 0.0, 1.0)
+				current_length = lerp(current_length, resolved_hit_length, extend_t)
 				rendered_length = current_length
 			else:
-				_collision_latched_length = -1.0
-				_collision_release_timer = 0.0
-				_collision_miss_timer = 0.0
-				var clear_t := clamp(collision_clear_extend_weight * delta, 0.0, 1.0)
-				current_length = lerp(current_length, target_length, clear_t)
-				current_length = max(current_length, min_length)
-				rendered_length = current_length
+				current_length = resolved_hit_length
+				rendered_length = resolved_hit_length
 		else:
-			var clear_t := clamp(collision_clear_extend_weight * delta, 0.0, 1.0)
-			current_length = lerp(current_length, target_length, clear_t)
-			current_length = max(current_length, min_length)
-			rendered_length = current_length
+			rendered_length = _advance_clear_length(delta)
+		final_target = arm_origin + global_transform.basis.z * rendered_length
+
+	_zoom_out_blocked = used_ceiling_accommodation or safe_hit_length >= 0.0 or _collision_latched_length >= 0.0
 
 	if is_instance_valid(kinematic_body):
-		kinematic_body.global_transform.origin = arm_origin + global_transform.basis.z * rendered_length
+		kinematic_body.global_transform.origin = final_target
 
-	_update_children(arm_origin, rendered_length)
+	_update_children(final_target)
 
 func _cast_shape_hit_length(arm_origin: Vector3, arm_motion: Vector3, desired_length: float) -> float:
 	var world = get_world()
@@ -250,34 +255,110 @@ func _cast_shape_hit_length(arm_origin: Vector3, arm_motion: Vector3, desired_le
 
 	return max((desired_length * safe_fraction) - collision_padding, min_length)
 
+func _advance_clear_length(delta: float) -> float:
+	if _collision_latched_length >= 0.0:
+		_collision_miss_timer += delta
+		var release_delay := collision_miss_grace
+		if not _has_collision_latch_pose_changed():
+			if collision_stationary_release_delay < 0.0:
+				if current_length < _collision_latched_length - collision_jitter_epsilon:
+					var stationary_hold_t := clamp(extend_weight * delta, 0.0, 1.0)
+					current_length = lerp(current_length, _collision_latched_length, stationary_hold_t)
+				else:
+					current_length = _collision_latched_length
+				return current_length
+			release_delay = max(release_delay, collision_stationary_release_delay)
+		if _collision_miss_timer < release_delay:
+			if current_length < _collision_latched_length - collision_jitter_epsilon:
+				var hold_extend_t := clamp(extend_weight * delta, 0.0, 1.0)
+				current_length = lerp(current_length, _collision_latched_length, hold_extend_t)
+			else:
+				current_length = _collision_latched_length
+			return current_length
+
+		_collision_latched_length = -1.0
+		_collision_release_timer = 0.0
+		_collision_miss_timer = 0.0
+
+	var clear_t := clamp(collision_clear_extend_weight * delta, 0.0, 1.0)
+	current_length = lerp(current_length, target_length, clear_t)
+	current_length = max(current_length, min_length)
+	return current_length
+
+func _start_collision_latch(hit_length: float) -> float:
+	_collision_latched_length = hit_length
+	_collision_latch_origin = _get_arm_pose_origin()
+	_collision_latch_direction = _get_arm_pose_direction()
+	_collision_release_timer = 0.0
+	_collision_miss_timer = 0.0
+	return _collision_latched_length
+
 func _resolve_collision_hit_length(hit_length: float, delta: float) -> float:
 	if _collision_latched_length < 0.0:
-		_collision_latched_length = hit_length
-		_collision_release_timer = 0.0
-		return _collision_latched_length
+		return _start_collision_latch(hit_length)
 
 	if hit_length < _collision_latched_length - collision_hold_epsilon:
-		_collision_latched_length = hit_length
-		_collision_release_timer = 0.0
+		return _start_collision_latch(hit_length)
+
+	if hit_length > _collision_latched_length + collision_release_hysteresis:
+		_collision_release_timer += delta
+		if _collision_release_timer >= collision_release_delay:
+			return _start_collision_latch(hit_length)
 		return _collision_latched_length
 
 	_collision_release_timer = 0.0
 	return _collision_latched_length
 
-func _update_children(arm_origin: Vector3, rendered_length: float) -> void:
-	var target := arm_origin + global_transform.basis.z * rendered_length
+func _has_collision_latch_pose_changed() -> bool:
+	if _collision_latched_length < 0.0:
+		return true
+	if _get_arm_pose_origin().distance_squared_to(_collision_latch_origin) > LATCH_POSE_TRANSLATION_EPSILON * LATCH_POSE_TRANSLATION_EPSILON:
+		return true
+	var current_direction := _get_arm_pose_direction()
+	if current_direction.length_squared() <= 0.0001 or _collision_latch_direction.length_squared() <= 0.0001:
+		return true
+	return current_direction.dot(_collision_latch_direction) < 1.0 - LATCH_POSE_DIRECTION_DOT_EPSILON
 
-	# Ceiling clamp: prevent camera from poking through floors above
-	if ceiling_check_enabled:
-		target = _clamp_target_below_ceiling(target)
+func _get_arm_pose_origin() -> Vector3:
+	return global_transform.origin if is_inside_tree() else transform.origin
 
+func _get_arm_pose_direction() -> Vector3:
+	var basis := global_transform.basis if is_inside_tree() else transform.basis
+	return basis.z.normalized()
+
+func _update_children(target: Vector3) -> void:
 	for child in get_children():
 		if child == kinematic_body:
 			continue
 		if child is Spatial:
 			child.global_transform.origin = target
 
-func _clamp_target_below_ceiling(target: Vector3) -> Vector3:
+func _can_accommodate_under_ceiling(arm_origin: Vector3, desired_length: float) -> bool:
+	if not ceiling_check_enabled:
+		return false
+	var desired_target := arm_origin + global_transform.basis.z * desired_length
+	var adjusted_target := _clamp_target_below_ceiling(desired_target, arm_origin)
+	if adjusted_target.distance_squared_to(desired_target) <= 0.0001:
+		return false
+	return _is_target_position_clear(adjusted_target)
+
+func _is_target_position_clear(target: Vector3) -> bool:
+	var world = get_world()
+	if world == null:
+		return true
+	var space_state = world.direct_space_state
+	if space_state == null or collider_shape == null:
+		return true
+
+	var params := PhysicsShapeQueryParameters.new()
+	params.set_shape(collider_shape)
+	params.transform = Transform(global_transform.basis, target)
+	params.collision_mask = collision_mask
+	params.exclude = _excluded_objects
+
+	return space_state.intersect_shape(params, 1).empty()
+
+func _clamp_target_below_ceiling(target: Vector3, arm_origin: Vector3) -> Vector3:
 	var world = get_world()
 	if world == null:
 		return target
@@ -294,5 +375,13 @@ func _clamp_target_below_ceiling(target: Vector3) -> Vector3:
 
 	var ceiling_y: float = result.position.y - ceiling_margin
 	if target.y > ceiling_y:
-		target.y = ceiling_y
+		var offset := target - arm_origin
+		var desired_distance := offset.length()
+		var planar := Vector3(offset.x, 0.0, offset.z)
+		var planar_dir := planar.normalized() if planar.length_squared() > 0.0001 else Vector3(global_transform.basis.z.x, 0.0, global_transform.basis.z.z).normalized()
+		var ceiling_offset_y := ceiling_y - arm_origin.y
+		var max_vertical := clamp(ceiling_offset_y, -desired_distance, desired_distance)
+		var horizontal_sq := max((desired_distance * desired_distance) - (max_vertical * max_vertical), 0.0)
+		var horizontal_len := sqrt(horizontal_sq)
+		target = arm_origin + planar_dir * horizontal_len + Vector3.UP * max_vertical
 	return target
