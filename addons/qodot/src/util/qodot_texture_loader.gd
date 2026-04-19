@@ -50,6 +50,7 @@ const PBR_SUFFIX_PROPERTIES := {
 var base_texture_path: String
 var texture_extensions: PoolStringArray
 var texture_wads: Array
+var texture_name_aliases: Dictionary
 
 # Instances
 var directory := Directory.new()
@@ -66,14 +67,26 @@ func get_pbr_suffix_pattern(suffix: int) -> String:
 
 	return PBR_SUFFIX_PATTERNS[suffix]
 
+func normalize_texture_name(texture_name: String) -> String:
+	var normalized := texture_name.strip_edges()
+	if normalized.length() >= 2:
+		if (normalized.begins_with('"') and normalized.ends_with('"')) \
+				or (normalized.begins_with("'") and normalized.ends_with("'")):
+			normalized = normalized.substr(1, normalized.length() - 2)
+	if normalized in texture_name_aliases:
+		normalized = texture_name_aliases[normalized]
+	return normalized
+
 # Overrides
 func _init(
 		base_texture_path: String,
 		texture_extensions: PoolStringArray,
-		texture_wads: Array
+		texture_wads: Array,
+		texture_name_aliases: Dictionary = {}
 	) -> void:
 	self.base_texture_path = base_texture_path
 	self.texture_extensions = texture_extensions
+	self.texture_name_aliases = texture_name_aliases.duplicate()
 
 	load_texture_wad_resources(texture_wads)
 
@@ -94,16 +107,17 @@ func load_textures(texture_list: Array) -> Dictionary:
 	return texture_dict
 
 func load_texture(texture_name: String) -> Texture:
-	if(texture_name == TEXTURE_EMPTY):
+	var normalized_texture_name := normalize_texture_name(texture_name)
+	if(normalized_texture_name == TEXTURE_EMPTY):
 		return null
 
 	# Load albedo texture if it exists
 	for texture_extension in texture_extensions:
-		var texture_path := "%s/%s.%s" % [base_texture_path, texture_name, texture_extension]
+		var texture_path := "%s/%s.%s" % [base_texture_path, normalized_texture_name, texture_extension]
 		if ResourceLoader.exists(texture_path, "Texture"):
 			return load(texture_path) as Texture
 
-	var texture_name_lower : String = texture_name.to_lower()
+	var texture_name_lower : String = normalized_texture_name.to_lower()
 	for texture_wad in texture_wad_resources:
 		if texture_name_lower in texture_wad.textures:
 			return texture_wad.textures[texture_name_lower]
@@ -135,7 +149,8 @@ func create_material(
 	# Autoload material if it exists
 	var material_dict := {}
 
-	var material_path = "%s/%s.%s" % [base_texture_path, texture_name, material_extension]
+	var normalized_texture_name := normalize_texture_name(texture_name)
+	var material_path = "%s/%s.%s" % [base_texture_path, normalized_texture_name, material_extension]
 	if not material_path in material_dict and directory.file_exists(material_path):
 		var loaded_material: Material = load(material_path)
 		if loaded_material:
@@ -152,7 +167,7 @@ func create_material(
 	else:
 		material = SpatialMaterial.new()
 
-	var texture : Texture = load_texture(texture_name)
+	var texture : Texture = load_texture(normalized_texture_name)
 	if not texture:
 		return material
 	
@@ -161,7 +176,7 @@ func create_material(
 	elif material is ShaderMaterial && default_material_albedo_uniform != "":
 		material.set_shader_param(default_material_albedo_uniform, texture)
 
-	var pbr_textures : Dictionary = get_pbr_textures(texture_name)
+	var pbr_textures : Dictionary = get_pbr_textures(normalized_texture_name)
 	for pbr_suffix in PBRSuffix:
 		var suffix = PBRSuffix[pbr_suffix]
 		var tex = pbr_textures[suffix]

@@ -6,6 +6,8 @@ const DEBUG := false
 const YIELD_DURATION := 0.0
 const YIELD_SIGNAL := "timeout"
 const PROP_PHYSICS_LAYER := 1 << 6 # Layer 7
+const TEXTURE_ALIAS_PREFIX := "__qodot_texture_alias__/"
+const QUOTED_TEXTURE_FACE_PATTERN := '^(\\s*\\([^\\)]*\\)\\s*\\([^\\)]*\\)\\s*\\([^\\)]*\\)\\s*)"([^"]+)"(.*)$'
 
 signal build_complete()
 signal build_progress(step, progress)
@@ -69,6 +71,7 @@ var _qodot_native_library: GDNativeLibrary = null
 var _qodot_native_script: NativeScript = null
 var _qodot_init_error_reported := false
 var _concave_rigidbody_warned := {}
+var _texture_name_aliases := {}
 
 func set_map_file(new_map_file: String) -> void:
 	if map_file != new_map_file:
@@ -168,6 +171,71 @@ func verify_parameters():
 		return false
 
 	return true
+
+func _texture_name_needs_alias(texture_name: String) -> bool:
+	return texture_name.find(" ") != -1 or texture_name.find("\t") != -1
+
+func _build_safe_texture_alias(texture_name: String) -> String:
+	var safe_name := texture_name.replace(" ", "_")
+	safe_name = safe_name.replace("\t", "_")
+	safe_name = safe_name.replace('"', "")
+	safe_name = safe_name.replace("'", "")
+	var base_alias := TEXTURE_ALIAS_PREFIX + safe_name
+	var alias := base_alias
+	var suffix := 2
+	while alias in _texture_name_aliases and _texture_name_aliases[alias] != texture_name:
+		alias = "%s_%d" % [base_alias, suffix]
+		suffix += 1
+	_texture_name_aliases[alias] = texture_name
+	return alias
+
+func _prepare_map_file_for_libmap(source_map_file: String) -> String:
+	_texture_name_aliases.clear()
+
+	var source := File.new()
+	if source.open(source_map_file, File.READ) != OK:
+		return ProjectSettings.globalize_path(source_map_file)
+
+	var quoted_texture_regex := RegEx.new()
+	if quoted_texture_regex.compile(QUOTED_TEXTURE_FACE_PATTERN) != OK:
+		source.close()
+		return ProjectSettings.globalize_path(source_map_file)
+
+	var output := ""
+	var changed := false
+	while not source.eof_reached():
+		var line := source.get_line()
+		var result := quoted_texture_regex.search(line)
+		if result:
+			var texture_name := result.get_string(2)
+			var replacement := texture_name
+			if _texture_name_needs_alias(texture_name):
+				replacement = _build_safe_texture_alias(texture_name)
+			line = "%s%s%s" % [result.get_string(1), replacement, result.get_string(3)]
+			changed = true
+		output += line + "\n"
+	source.close()
+
+	if not changed:
+		return ProjectSettings.globalize_path(source_map_file)
+
+	var temp_dir := "user://qodot_preprocessed"
+	var dir := Directory.new()
+	dir.make_dir_recursive(temp_dir)
+	var temp_map_file := "%s/%s_%s.map" % [
+		temp_dir,
+		source_map_file.get_file().get_basename(),
+		str(get_instance_id())
+	]
+
+	var dest := File.new()
+	if dest.open(temp_map_file, File.WRITE) != OK:
+		_texture_name_aliases.clear()
+		return ProjectSettings.globalize_path(source_map_file)
+	dest.store_string(output)
+	dest.close()
+
+	return ProjectSettings.globalize_path(temp_map_file)
 
 func _build_qodot_native_script() -> bool:
 	_qodot_native_library = GDNativeLibrary.new()
@@ -450,7 +518,7 @@ func remove_children() -> void:
 		child.queue_free()
 
 func load_map() -> void:
-	var file: String = ProjectSettings.globalize_path(map_file)
+	var file: String = _prepare_map_file_for_libmap(map_file)
 	qodot.load_map(file)
 
 func fetch_texture_list() -> Array:
@@ -460,7 +528,8 @@ func init_texture_loader() -> QodotTextureLoader:
 	return QodotTextureLoader.new(
 		base_texture_dir,
 		texture_file_extensions,
-		texture_wads
+		texture_wads,
+		_texture_name_aliases
 	)
 
 func load_textures() -> Dictionary:
@@ -533,8 +602,9 @@ func build_entity_nodes() -> Array:
 
 		var should_add_child = should_add_children
 
+		var classname := ""
 		if 'classname' in properties:
-			var classname = properties['classname']
+			classname = properties['classname']
 			node_name += "_" + classname
 			if classname in entity_definitions:
 				var entity_definition := entity_definitions[classname] as QodotFGDClass
@@ -724,8 +794,9 @@ func build_entity_collision_shape_nodes() -> Array:
 		var node := entity_nodes[entity_idx] as Node
 		var concave = false
 
+		var classname := ""
 		if 'classname' in properties:
-			var classname = properties['classname']
+			classname = properties['classname']
 			if classname in entity_definitions:
 				var entity_definition := entity_definitions[classname] as QodotFGDSolidClass
 				if entity_definition:
@@ -1133,11 +1204,17 @@ func apply_properties() -> void:
 		var entity_dict := entity_dicts[entity_idx] as Dictionary
 		var properties := entity_dict['properties'] as Dictionary
 		# Track raw rotation keys from the map before defaults/type conversion mutate the dictionary.
+		var source_property_keys := {}
+		for source_property in properties:
+			source_property_keys[source_property] = true
 		var source_has_angle := properties.has("angle")
 		var source_has_full_rotation := properties.has("angles") or properties.has("mangle")
+		var source_has_native_color := properties.has("_color")
+		var source_has_legacy_color := properties.has("light_color") or properties.has("beacon_color")
 
+		var classname := ""
 		if 'classname' in properties:
-			var classname = properties['classname']
+			classname = properties['classname']
 			if classname in entity_definitions:
 				var entity_definition := entity_definitions[classname] as QodotFGDClass
 
@@ -1182,6 +1259,11 @@ func apply_properties() -> void:
 		# --- QODOT-TO-GODOT NATIVE MAPPING INJECTION ---
 		for property in properties:
 			var val = properties[property]
+			if classname == "light_emergency_beacon":
+				if source_has_native_color and not source_property_keys.has(property) and (property == "light_color" or property == "beacon_color"):
+					continue
+				if source_has_legacy_color and not source_property_keys.has(property) and property == "_color":
+					continue
 			
 			# Map 'angle' to Y-rotation natively at root
 			if property == "angle":
