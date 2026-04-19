@@ -28,7 +28,7 @@
 ]
 
 @PointClass size(-8 -8 -8, 8 8 8) base(Light) = light : "Invisible light source" [
-	angle(float) : "Rotation Angle"  : "0"
+	angle(angle) : "Rotation Angle"  : "0"
 ]
 
 @PointClass size(-8 -8 -8, 8 8 8) = physics_ball : "Physics Ball" [
@@ -95,14 +95,25 @@
 ]
 
 @PointClass color(255 255 204) size(-2 -10 -2, 2 10 2) = light_ceiling : "Fluorescent Light Ceiling" [
-	angle(float) : "Yaw rotation in degrees"  : "0"
+	angle(angle) : "Yaw rotation in degrees"  : "0"
 	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
+	base_emission_energy(float) : "Emission brightness on the mesh (0-12)"  : "2.6"
+	light_color(color255) : "Color of the light"  : "204 229 255"
+	light_energy(float) : "Light brightness (0-10)"  : "1.35"
+	light_range(float) : "Light reach distance (0-30)"  : "14"
 	starts_active(integer) : "Set to 1 if the light is on, 0 for off"  : 1
 ]
 
 @PointClass color(255 255 204) size(-2 -10 -2, 2 10 2) = light_flickering : "Fluorescent Light Flickering" [
-	angle(float) : "Yaw rotation in degrees"  : "0"
+	angle(angle) : "Yaw rotation in degrees"  : "0"
 	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
+	base_emission_energy(float) : "Emission brightness on the mesh (0-12)"  : "2.3"
+	flicker_enabled(integer) : "Set to 1 to enable flickering, 0 for off"  : 1
+	flicker_intensity(float) : "Flicker brightness intensity variance (0-1)"  : "0.5"
+	flicker_speed(float) : "Flicker speed (frequency)"  : "10"
+	light_color(color255) : "Color of the light"  : "204 229 255"
+	light_energy(float) : "Light brightness (0-10)"  : "1.15"
+	light_range(float) : "Light reach distance (0-30)"  : "11.5"
 	starts_active(integer) : "Set to 1 if the light is on, 0 for off"  : 1
 ]
 
@@ -147,11 +158,15 @@
 ]
 
 @PointClass color(255 255 204) size(-1 -1 -5, 1 1 5) = light_wall : "Fluorescent Wall Light" [
-	angle(float) : "Yaw rotation in degrees"  : "0"
+	angle(angle) : "Yaw rotation in degrees"  : "0"
 	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
+	base_emission_energy(float) : "Emission brightness on the mesh (0-12)"  : "2.4"
+	flicker_enabled(integer) : "Set to 1 to enable flickering, 0 for off"  : 0
+	flicker_intensity(float) : "Flicker brightness intensity variance (0-1)"  : "0.5"
+	flicker_speed(float) : "Flicker speed (frequency)"  : "10"
 	light_color(color255) : "Color of the light"  : "204 229 255"
-	light_energy(float) : "Light brightness (0-10)"  : "1"
-	light_range(float) : "Light reach distance (0-20)"  : "10"
+	light_energy(float) : "Light brightness (0-10)"  : "1.25"
+	light_range(float) : "Light reach distance (0-30)"  : "10"
 	starts_active(integer) : "Set to 1 if the light is on, 0 for off"  : 1
 ]
 
@@ -163,8 +178,9 @@
 
 @PointClass color(255 229 153) size(-2 -2 -14, 2 2 0) = light_hanging : "Sci-Fi Hanging Light with sway" [
 	light_color(color255) : "Color of the light"  : "229 217 178"
-	light_energy_max(float) : "Maximum light energy (0-5)"  : "2"
-	light_range(float) : "Light reach distance (0.5-10)"  : "4"
+	light_energy_max(float) : "Maximum light energy (0-8)"  : "2.4"
+	light_range(float) : "Light reach distance (0.5-12)"  : "7"
+	starts_active(integer) : "Set to 1 if the light is on, 0 for off"  : 1
 	sway_amplitude(float) : "How much the light sways (0-0.5)"  : "0.05"
 	sway_speed(float) : "Speed of swaying (0.5-5)"  : "1"
 ]
@@ -210,12 +226,29 @@
 ]
 
 @PointClass color(255 102 26) size(-3 -3 0, 3 3 7) = light_emergency_beacon : "Emergency Beacon with rotating light" [
-	beacon_color(color255) : "Color of the beacon light"  : "255 77 0"
-	light_energy_max(float) : "Maximum light energy (0-8)"  : "3"
-	light_range(float) : "Light reach distance (0.5-15)"  : "5"
+	angle(angle) : "Yaw rotation in degrees"  : "0"
+	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
+	auto_interact(integer) : "Set to 1 for automatic player activation, 0 for manual/no interaction"  : 0
+	_color(color255) : "Native TrenchBroom light color"  : "255 18 0"
+	beacon_color(color255) : "Legacy alias for _color; kept for existing maps"  : "255 18 0"
+	dome_emission_energy(float) : "Beacon dome emission brightness (0-12)"  : "3"
+	enable_shadows(integer) : "Set to 1 to block light with level geometry, 0 for cheaper non-shadowed light"  : 1
+	interaction_text(string) : "Prompt shown when is_interactable is 1"  : "Toggle Beacon"
+	is_interactable(integer) : "Set to 1 if the player can toggle this beacon, 0 for decorative/circuit-only"  : 0
+	lens_emission_energy(float) : "Front lens emission brightness (0-12)"  : "5"
+	light_attenuation(float) : "OmniLight attenuation/falloff (0.1-8)"  : "1.5"
+	light_color(color255) : "Alias for _color; kept for existing maps"  : "255 18 0"
+	light_energy_max(float) : "Maximum light energy (0-10)"  : "3"
+	light_range(float) : "Light reach distance (0.5-30)"  : "6"
+	manual_toggle(integer) : "Set to 1 to toggle active state on interaction, 0 to only emit interaction signal"  : 1
 	pulse_min(float) : "Minimum pulse brightness (0-1)"  : "0.3"
 	pulse_speed(float) : "Pulse frequency"  : "2"
 	rotation_speed(float) : "Rotation speed (rotations/sec)"  : "3"
+	sound_enabled(integer) : "Set to 1 to play alarm audio while active, 0 for silent beacon"  : 1
+	sound_max_distance(float) : "Alarm audible max distance"  : "80"
+	sound_unit_db(float) : "Alarm volume in dB"  : "4"
+	starts_active(integer) : "Set to 1 if the beacon starts on, 0 for off"  : 1
+	visual_tick_interval_frames(integer) : "Visual update cadence in physics frames; 1 is smoothest"  : 2
 ]
 
 @PointClass color(255 229 77) size(-1 -1 -1, 1 1 1) = prop_spark_emitter : "Spark particle emitter with timing controls." [
@@ -275,4 +308,70 @@
 	panel_height(float) : "Height of each tape panel (0.3-3)"  : "1.5"
 	path_height(float) : "Height offset of the tape path"  : "0"
 	path_length(float) : "Total length of hazard tape (0.5-20)"  : "5"
+]
+
+@PointClass color(38 217 255) size(-3 0 -0.8, 6 4 1.6) = prop_door_scifi_double_sideways : "Sci-Fi Double Sideways Door" [
+	starts_active(integer) : "Set to 1 if the door starts open"  : 0
+]
+
+@PointClass color(38 191 255) size(-3 0 -0.8, 6 4 1.6) = prop_door_scifi_vertical : "Sci-Fi Vertical Door" [
+	starts_active(integer) : "Set to 1 if the door starts open"  : 0
+]
+
+@PointClass color(38 229 242) size(-3 0 -0.8, 6 4 1.6) = prop_door_scifi_double_vertical : "Sci-Fi Double Vertical Door" [
+	starts_active(integer) : "Set to 1 if the door starts open"  : 0
+]
+
+@PointClass color(255 229 153) size(-0.6 0 -0.8, 1.2 1.4 1.6) = light_work : "Sci-Fi Work Light" [
+	light_color(color255) : "Color of the reflector"  : "255 229 178"
+	light_energy_max(float) : "Maximum light energy (0-10)"  : "4"
+	light_range(float) : "Beam distance (1-100)"  : "15"
+	spot_angle(float) : "Spot cone angle (1-90)"  : "45"
+	starts_active(integer) : "Set to 1 if the light starts on"  : 1
+]
+
+@PointClass color(255 242 178) size(-0.8 0 -0.8, 1.6 2.4 1.6) = light_work_tripod : "Sci-Fi Tripod Flood Light" [
+	light_color(color255) : "Color of the flood light"  : "255 242 204"
+	light_energy_max(float) : "Maximum light energy (0-10)"  : "6"
+	light_range(float) : "Beam distance (1-100)"  : "25"
+	spot_angle(float) : "Spot cone angle (1-90)"  : "35"
+	starts_active(integer) : "Set to 1 if the light starts on"  : 1
+]
+
+@PointClass color(51 178 255) size(-0.4 -0.5 -0.2, 0.8 1 0.8) = light_wall_sconce : "Sci-Fi Wall Sconce" [
+	light_color(color255) : "Color of the sconce"  : "51 153 255"
+	light_energy_max(float) : "Maximum light energy (0-10)"  : "3"
+	light_range(float) : "Beam distance (1-100)"  : "8"
+	spot_angle(float) : "Spot cone angle (1-90)"  : "60"
+	starts_active(integer) : "Set to 1 if the light starts on"  : 1
+]
+
+@PointClass color(26 217 255) size(-0.35 0 -0.35, 0.7 0.2 0.7) = light_path_marker : "Sci-Fi Floor Path Marker" [
+	light_energy_max(float) : "Maximum light energy (0-5)"  : "1.5"
+	light_range(float) : "Glow distance (0.5-8)"  : "1.5"
+	marker_color(color255) : "Color of the floor marker"  : "0 204 255"
+	pulse_speed(float) : "Pulse speed (0.1-5)"  : "1.5"
+	starts_active(integer) : "Set to 1 if the light starts on"  : 1
+]
+
+@PointClass color(255 204 51) size(-0.4 0 -0.4, 0.8 0.2 0.8) = light_path_arrow : "Sci-Fi Arrow Path Marker" [
+	light_energy_max(float) : "Maximum light energy (0-5)"  : "1.5"
+	light_range(float) : "Glow distance (0.5-8)"  : "2"
+	marker_color(color255) : "Color of the arrow marker"  : "255 204 0"
+	pulse_speed(float) : "Pulse speed (0.1-5)"  : "2.5"
+	starts_active(integer) : "Set to 1 if the light starts on"  : 1
+]
+
+@PointClass color(255 229 166) size(-0.2 0 -0.18, 0.4 0.12 0.36) = light_recessed_floor : "Sci-Fi Recessed Floor Light" [
+	light_color(color255) : "Color of the recessed floor light"  : "255 242 204"
+	light_energy_max(float) : "Maximum light energy (0-10)"  : "5"
+	light_range(float) : "Beam distance (1-100)"  : "6"
+	starts_active(integer) : "Set to 1 if the light starts on"  : 1
+]
+
+@PointClass color(204 229 255) size(-0.24 -0.02 -0.08, 0.48 0.3 0.16) = light_recessed_wall : "Sci-Fi Recessed Wall Light" [
+	light_color(color255) : "Color of the recessed wall light"  : "255 255 255"
+	light_energy_max(float) : "Maximum light energy (0-10)"  : "6"
+	light_range(float) : "Beam distance (1-100)"  : "8"
+	starts_active(integer) : "Set to 1 if the light starts on"  : 1
 ]

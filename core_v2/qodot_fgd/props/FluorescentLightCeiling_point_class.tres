@@ -13,16 +13,16 @@ base_classes = [  ]
 class_properties = {
 "angle": 0.0,
 "angles": Vector3( 0, 0, 0 ),
-"base_emission_energy": 1.8,
+"base_emission_energy": 2.6,
 "light_color": Color( 0.8, 0.9, 1, 1 ),
-"light_energy": 1.0,
-"light_range": 20.0,
+"light_energy": 1.35,
+"light_range": 14.0,
 "starts_active": 1
 }
 class_property_descriptions = {
 "angle": "Yaw rotation in degrees",
 "angles": "Pitch Yaw Roll rotation in degrees",
-"base_emission_energy": "Emission brightness on the mesh (0-10)",
+"base_emission_energy": "Emission brightness on the mesh (0-12)",
 "light_color": "Color of the light",
 "light_energy": "Light brightness (0-10)",
 "light_range": "Light reach distance (0-30)",

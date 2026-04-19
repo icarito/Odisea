@@ -92,7 +92,7 @@ func build_def_text() -> String:
 			prop_type = "integer"
 			prop_val = String(value)
 		elif value is float:
-			prop_type = "float"
+			prop_type = "angle" if prop == "angle" else "float"
 			prop_val = "\"" + String(value) + "\""
 		elif value is String:
 			prop_type = "string"

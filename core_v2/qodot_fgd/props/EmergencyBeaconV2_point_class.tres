@@ -11,20 +11,54 @@ description = "Emergency Beacon with rotating light"
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
-"beacon_color": Color( 1, 0.3, 0, 1 ),
+"_color": Color( 1, 0.0705882, 0, 1 ),
+"angle": 0.0,
+"angles": Vector3( 0, 0, 0 ),
+"auto_interact": 0,
+"beacon_color": Color( 1, 0.0705882, 0, 1 ),
+"dome_emission_energy": 3.0,
+"enable_shadows": 1,
+"interaction_text": "Toggle Beacon",
+"is_interactable": 0,
+"lens_emission_energy": 5.0,
+"light_attenuation": 1.5,
+"light_color": Color( 1, 0.0705882, 0, 1 ),
 "light_energy_max": 3.0,
-"light_range": 5.0,
+"light_range": 6.0,
+"manual_toggle": 1,
 "pulse_min": 0.3,
 "pulse_speed": 2.0,
-"rotation_speed": 3.0
+"rotation_speed": 3.0,
+"sound_enabled": 1,
+"sound_max_distance": 80.0,
+"sound_unit_db": 4.0,
+"starts_active": 1,
+"visual_tick_interval_frames": 2
 }
 class_property_descriptions = {
-"beacon_color": "Color of the beacon light",
-"light_energy_max": "Maximum light energy (0-8)",
-"light_range": "Light reach distance (0.5-15)",
+"_color": "Native TrenchBroom light color",
+"angle": "Yaw rotation in degrees",
+"angles": "Pitch Yaw Roll rotation in degrees",
+"auto_interact": "Set to 1 for automatic player activation, 0 for manual/no interaction",
+"beacon_color": "Legacy alias for _color; kept for existing maps",
+"dome_emission_energy": "Beacon dome emission brightness (0-12)",
+"enable_shadows": "Set to 1 to block light with level geometry, 0 for cheaper non-shadowed light",
+"interaction_text": "Prompt shown when is_interactable is 1",
+"is_interactable": "Set to 1 if the player can toggle this beacon, 0 for decorative/circuit-only",
+"lens_emission_energy": "Front lens emission brightness (0-12)",
+"light_attenuation": "OmniLight attenuation/falloff (0.1-8)",
+"light_color": "Alias for _color; kept for existing maps",
+"light_energy_max": "Maximum light energy (0-10)",
+"light_range": "Light reach distance (0.5-30)",
+"manual_toggle": "Set to 1 to toggle active state on interaction, 0 to only emit interaction signal",
 "pulse_min": "Minimum pulse brightness (0-1)",
 "pulse_speed": "Pulse frequency",
-"rotation_speed": "Rotation speed (rotations/sec)"
+"rotation_speed": "Rotation speed (rotations/sec)",
+"sound_enabled": "Set to 1 to play alarm audio while active, 0 for silent beacon",
+"sound_max_distance": "Alarm audible max distance",
+"sound_unit_db": "Alarm volume in dB",
+"starts_active": "Set to 1 if the beacon starts on, 0 for off",
+"visual_tick_interval_frames": "Visual update cadence in physics frames; 1 is smoothest"
 }
 meta_properties = {
 "color": Color( 1, 0.4, 0.1, 1 ),

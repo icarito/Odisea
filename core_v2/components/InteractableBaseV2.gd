@@ -11,7 +11,7 @@ export(float) var anim_duration := 1.0 # Seconds to complete animation
 export(bool) var starts_active := false setget set_starts_active # Initial logical state
 export(bool) var auto_interact := false # If true, automatically triggers when player is in range
 export(bool) var one_off := false # If true, can only be used once (manually or automatically)
-export(bool) var is_interactable := true # If false, ignore player interaction
+export(bool) var is_interactable := true setget set_is_interactable # If false, ignore player interaction
 export(bool) var manual_toggle := true # If false, emit signal but don't toggle state automatically
 export(bool) var debug := false
 
@@ -22,6 +22,15 @@ func set_starts_active(v: bool) -> void:
 		anim_progress = 1.0 if is_active else 0.0
 		target_progress = anim_progress
 		_update_visuals()
+
+func set_is_interactable(v: bool) -> void:
+	is_interactable = v
+	if is_interactable:
+		if not is_in_group("interactable"):
+			add_to_group("interactable")
+	else:
+		if is_in_group("interactable"):
+			remove_from_group("interactable")
 
 # --- STATE VARIABLES ---
 # These are snapshotted for replay determinism
@@ -49,11 +58,11 @@ signal interaction_started()
 signal interaction_completed()
 
 func _init():
-	if is_interactable:
-		add_to_group("interactable")
+	set_is_interactable(is_interactable)
 	add_to_group("replay_sync")
 
 func _ready():
+	set_is_interactable(is_interactable)
 	# Initial state setup
 	is_active = starts_active
 	anim_progress = 1.0 if is_active else 0.0

@@ -12,15 +12,17 @@ qodot_internal = false
 base_classes = [  ]
 class_properties = {
 "light_color": Color( 0.9, 0.85, 0.7, 1 ),
-"light_energy_max": 2.0,
-"light_range": 4.0,
+"light_energy_max": 2.4,
+"light_range": 7.0,
+"starts_active": 1,
 "sway_amplitude": 0.05,
 "sway_speed": 1.0
 }
 class_property_descriptions = {
 "light_color": "Color of the light",
-"light_energy_max": "Maximum light energy (0-5)",
-"light_range": "Light reach distance (0.5-10)",
+"light_energy_max": "Maximum light energy (0-8)",
+"light_range": "Light reach distance (0.5-12)",
+"starts_active": "Set to 1 if the light is on, 0 for off",
 "sway_amplitude": "How much the light sways (0-0.5)",
 "sway_speed": "Speed of swaying (0.5-5)"
 }
