@@ -549,7 +549,7 @@ func _should_prewarm_sensors() -> bool:
 		return not (lazy_env in ["1", "true", "yes", "on"])
 	if OS.get_name() == "Switch":
 		return false
-	return true
+	return OS.get_environment("ANNA_RL_MODE").strip_edges().to_lower() in ["1", "true", "yes", "on"]
 
 func _exit_tree():
 	var tree = get_tree()
@@ -676,7 +676,7 @@ func _setup_sensors():
 
 	for i in range(SENSOR_RAY_COUNT):
 		var ray = RayCast.new()
-		ray.enabled = true
+		ray.enabled = false
 		ray.cast_to = Vector3(0, 0, -SENSOR_RANGE)
 		ray.rotation_degrees.y = (360.0 / SENSOR_RAY_COUNT) * i
 		_raycast_root.add_child(ray)
@@ -692,12 +692,29 @@ func _setup_rl_sensors():
 
 	for i in range(RL_SENSOR_RAY_COUNT):
 		var ray = RayCast.new()
-		ray.enabled = true
+		ray.enabled = false
 		ray.cast_to = Vector3(0, 0, -SENSOR_RANGE)
 		# 8 rays distributed around 360 degrees
 		ray.rotation_degrees.y = (360.0 / float(RL_SENSOR_RAY_COUNT)) * i
 		_rl_raycast_root.add_child(ray)
 		_rl_rays.append(ray)
+
+func _sample_ray_distance(ray: RayCast, exclude: Object = null) -> float:
+	if not is_instance_valid(ray):
+		return SENSOR_RANGE
+	var was_enabled := ray.enabled
+	if not was_enabled:
+		ray.enabled = true
+	ray.clear_exceptions()
+	if is_instance_valid(exclude):
+		ray.add_exception(exclude)
+	ray.force_raycast_update()
+	var dist := SENSOR_RANGE
+	if ray.is_colliding():
+		dist = ray.global_transform.origin.distance_to(ray.get_collision_point())
+	if not was_enabled:
+		ray.enabled = false
+	return dist
 
 # --- STANDARD API ---
 
@@ -754,8 +771,15 @@ func get_simulation_telemetry_resource() -> Dictionary:
 			"active_velocity": _to_vector3_array(velocity),
 			"speed": velocity.length()
 		}
+	var driver_name = "GLES2"
+	if ProjectSettings.has_setting("rendering/quality/driver/driver_name"):
+		driver_name = String(ProjectSettings.get_setting("rendering/quality/driver/driver_name"))
+	var is_headless = OS.has_feature("Server") or OS.get_name() == "Server"
 	var hardware_data = {
-		"available": false
+		"available": true,
+		"driver_name": driver_name,
+		"headless": is_headless,
+		"shadow_policy": "disabled" if is_headless else ("compat" if driver_name == "GLES2" else "default")
 	}
 	return {
 		"resource": "odisea://simulation/telemetry",
@@ -1078,6 +1102,11 @@ func get_rl_observation() -> Dictionary:
 		return {"obs": obs_vector, "reward": 0.0, "done": true, "done_reason": "invalid_player"}
 	if _rl_legacy_fast_mode:
 		return _get_rl_observation_legacy_fast(player as Spatial)
+	if not is_instance_valid(_rl_raycast_root):
+		_setup_rl_sensors()
+	if not is_instance_valid(_rl_raycast_root) or _rl_rays.size() == 0:
+		for i in range(13): obs_vector.append(0.0)
+		return {"obs": obs_vector, "reward": 0.0, "done": true, "done_reason": "missing_rl_sensors"}
 
 	# 1. Update Sensors
 	# Move sensors to player position
@@ -1090,12 +1119,7 @@ func get_rl_observation() -> Dictionary:
 	var front_ray_dist = SENSOR_RANGE
 	for i in range(_rl_rays.size()):
 		var ray = _rl_rays[i]
-		ray.clear_exceptions()
-		ray.add_exception(player)
-		ray.force_raycast_update()
-		var d = SENSOR_RANGE
-		if ray.is_colliding():
-			d = ray.global_transform.origin.distance_to(ray.get_collision_point())
+		var d = _sample_ray_distance(ray, player)
 
 		if d < min_ray_dist: min_ray_dist = d
 		if i == 0 or i == 1 or i == (_rl_rays.size() - 1):
@@ -2292,12 +2316,7 @@ func _get_rl_observation_legacy_fast(player: Spatial) -> Dictionary:
 	_rl_raycast_root.global_transform.basis = player.global_transform.basis
 	for i in range(_rl_rays.size()):
 		var ray = _rl_rays[i]
-		ray.clear_exceptions()
-		ray.add_exception(player)
-		ray.force_raycast_update()
-		var d := SENSOR_RANGE
-		if ray.is_colliding():
-			d = ray.global_transform.origin.distance_to(ray.get_collision_point())
+		var d := _sample_ray_distance(ray, player)
 		if d < min_ray_dist:
 			min_ray_dist = d
 		if i == 0 or i == 1 or i == (_rl_rays.size() - 1):
@@ -2426,12 +2445,7 @@ func _get_front_obstacle_distance(player: Spatial) -> float:
 		if i != 0 and i != 1 and i != (_rl_rays.size() - 1):
 			continue
 		var ray = _rl_rays[i]
-		ray.clear_exceptions()
-		ray.add_exception(player)
-		ray.force_raycast_update()
-		var d = SENSOR_RANGE
-		if ray.is_colliding():
-			d = ray.global_transform.origin.distance_to(ray.get_collision_point())
+		var d = _sample_ray_distance(ray, player)
 		if d < front_dist:
 			front_dist = d
 	return front_dist
@@ -2522,12 +2536,7 @@ func _get_lateral_clearance(player: Spatial) -> Dictionary:
 	var left_count := 0
 	var right_count := 0
 	for ray in _rl_rays:
-		ray.clear_exceptions()
-		ray.add_exception(player)
-		ray.force_raycast_update()
-		var d = SENSOR_RANGE
-		if ray.is_colliding():
-			d = ray.global_transform.origin.distance_to(ray.get_collision_point())
+		var d = _sample_ray_distance(ray, player)
 
 		var dir = ray.global_transform.basis.xform(ray.cast_to.normalized())
 		dir.y = 0.0
@@ -2786,20 +2795,9 @@ func _get_collisions() -> Array:
 	# Teleport sensor to player eye level
 	_raycast_root.global_transform.origin = player.global_transform.origin + Vector3(0, 1.0, 0)
 
-	# Force update to get immediate results
-	for ray in _rays:
-		ray.clear_exceptions()
-		ray.add_exception(player)
-		ray.force_raycast_update()
-
 	var data = []
 	for ray in _rays:
-		if ray.is_colliding():
-			var col_point = ray.get_collision_point()
-			var dist = ray.global_transform.origin.distance_to(col_point)
-			data.append(dist)
-		else:
-			data.append(SENSOR_RANGE)
+		data.append(_sample_ray_distance(ray, player))
 	return data
 
 func apply_action(action: Dictionary):

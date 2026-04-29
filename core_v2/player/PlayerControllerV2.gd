@@ -9,6 +9,7 @@ const TraversalLogicV2 = preload("traversal/TraversalLogicV2.gd")
 const FIXED_DT := 1.0 / 60.0
 const UP := Vector3.UP
 const PLAYER_REQUIRED_COLLISION_MASK := 1 << 6 # Layer 7
+const STEP_SUPPORT_COLLISION_MASK := (1 << 0) | (1 << 1) | (1 << 6) # Worldspawn, gameplay floors and structural props.
 const PLAYER_WEAK_VISUAL_REAPPLY_FRAMES := 24
 const HARDWARE_PROFILE_LOW := 1
 const HYPER_LOW_ANIMATOR_STEP_INTERVAL_FRAMES := 5
@@ -92,11 +93,17 @@ var _cinematic_zoom_target_fov := -1.0
 var _cinematic_zoom_target_cam: Camera = null
 
 # Camera Rig Vertical Follow (smooth Y-lag during jumps)
-export(float) var camera_rig_y_follow_speed := 6.0   # lerp weight when airborne (lower = more lag)
-export(float) var camera_rig_y_ground_snap_speed := 20.0 # lerp weight when grounded (fast catch-up)
-export(float) var camera_rig_y_max_lag := 2.0  # max Y-offset the rig can lag behind target
+export(float, 0.5, 12.0, 0.1) var camera_rig_y_follow_speed := 2.5   # lerp weight when airborne while rising (lower = more lag)
+export(float, 1.0, 40.0, 0.5) var camera_rig_y_ground_snap_speed := 18.0 # lerp weight when grounded (fast catch-up)
+export(float, 0.5, 20.0, 0.1) var camera_rig_y_fall_follow_speed := 4.5
+export(float, 0.5, 6.0, 0.1) var camera_rig_y_max_lag := 2.0  # max Y-offset the rig can lag behind target
+export(float, 0.0, 0.5, 0.01) var camera_rig_jump_lazy_delay := 0.16
+export(float, 0.0, 2.0, 0.01) var camera_rig_jump_lazy_deadzone := 0.85
 var _camera_rig_y_smoothed_global := 0.0 # smoothed global-Y for the camera pivot
 var _camera_rig_y_initialized := false
+var _camera_rig_airborne_anchor_global := 0.0
+var _camera_rig_airborne_rise_time := 0.0
+var _camera_rig_was_grounded := true
 
 # State
 var velocity := Vector3()
@@ -285,6 +292,9 @@ func full_reset() -> void:
 		camera_rig.force_update_transform()
 		_camera_rig_y_smoothed_global = global_transform.origin.y + base_rig_y
 		_camera_rig_y_initialized = true
+		_camera_rig_airborne_anchor_global = _camera_rig_y_smoothed_global
+		_camera_rig_airborne_rise_time = 0.0
+		_camera_rig_was_grounded = true
 
 func _sync_movement_state_after_traversal(horizontal_velocity: Vector3 = Vector3.ZERO) -> void:
 	if not is_instance_valid(movement_logic):
@@ -468,6 +478,9 @@ func _ready():
 		base_rig_y = camera_rig.transform.origin.y
 		_camera_rig_y_smoothed_global = global_transform.origin.y + base_rig_y
 		_camera_rig_y_initialized = true
+		_camera_rig_airborne_anchor_global = _camera_rig_y_smoothed_global
+		_camera_rig_airborne_rise_time = 0.0
+		_camera_rig_was_grounded = true
 	
 	_setup_interact_area()
 	_setup_crouch_collision()
@@ -789,8 +802,7 @@ func _update_camera_orbit_state(dt: float, input: InputDataV2, allow_auto_align:
 			var mouse_y_fast = - input.mouse_delta.y if invert_mouse_y else input.mouse_delta.y
 			pitch -= mouse_y_fast * mouse_sensitivity
 		pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
-		if abs(input.zoom_delta) > 0.01:
-			base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 50.0)
+		_apply_orbit_zoom_delta(input.zoom_delta)
 		if input.fov_override > 0.0:
 			base_fov = input.fov_override
 	else:
@@ -835,8 +847,7 @@ func _update_camera_orbit_state(dt: float, input: InputDataV2, allow_auto_align:
 		else:
 			_cinematic_zoom_target_cam = null
 			_cinematic_zoom_target_fov = -1.0
-			if abs(input.zoom_delta) > 0.01:
-				base_spring_length_3d = clamp(base_spring_length_3d + input.zoom_delta, 2.0, 50.0)
+			_apply_orbit_zoom_delta(input.zoom_delta)
 
 		if input.fov_override > 0.0:
 			base_fov = input.fov_override
@@ -864,11 +875,36 @@ func _update_camera_rig_vertical(dt: float) -> void:
 	if not _camera_rig_y_initialized:
 		_camera_rig_y_smoothed_global = global_transform.origin.y + base_rig_y
 		_camera_rig_y_initialized = true
+		_camera_rig_airborne_anchor_global = _camera_rig_y_smoothed_global
+		_camera_rig_airborne_rise_time = 0.0
+		_camera_rig_was_grounded = true
 		return
 
 	var target_global_y := global_transform.origin.y + base_rig_y
 	var grounded := is_on_floor() or _just_stepped or _step_grounded_timer > 0.0
-	var speed := camera_rig_y_ground_snap_speed if grounded else camera_rig_y_follow_speed
+	var rising := not grounded and velocity.y > 0.05
+	if grounded:
+		_camera_rig_airborne_anchor_global = target_global_y
+		_camera_rig_airborne_rise_time = 0.0
+		_camera_rig_was_grounded = true
+	elif _camera_rig_was_grounded:
+		_camera_rig_airborne_anchor_global = _camera_rig_y_smoothed_global
+		_camera_rig_airborne_rise_time = 0.0
+		_camera_rig_was_grounded = false
+
+	if rising:
+		_camera_rig_airborne_rise_time += dt
+		if _camera_rig_airborne_rise_time < camera_rig_jump_lazy_delay:
+			target_global_y = min(target_global_y, _camera_rig_airborne_anchor_global)
+		else:
+			target_global_y = max(
+				_camera_rig_airborne_anchor_global,
+				target_global_y - camera_rig_jump_lazy_deadzone
+			)
+	else:
+		_camera_rig_airborne_rise_time = 0.0 if grounded else _camera_rig_airborne_rise_time
+
+	var speed := camera_rig_y_ground_snap_speed if grounded else (camera_rig_y_follow_speed if rising else camera_rig_y_fall_follow_speed)
 	var t := clamp(speed * dt, 0.0, 1.0)
 	_camera_rig_y_smoothed_global = lerp(_camera_rig_y_smoothed_global, target_global_y, t)
 
@@ -879,6 +915,21 @@ func _update_camera_rig_vertical(dt: float) -> void:
 
 	# Convert smoothed global Y back to local offset
 	camera_rig.transform.origin.y = _camera_rig_y_smoothed_global - global_transform.origin.y
+
+func _is_camera_zoom_out_blocked() -> bool:
+	return (
+		_cached_spring_arm
+		and is_instance_valid(_cached_spring_arm)
+		and _cached_spring_arm.has_method("is_zoom_out_blocked")
+		and _cached_spring_arm.is_zoom_out_blocked()
+	)
+
+func _apply_orbit_zoom_delta(zoom_delta: float) -> void:
+	if abs(zoom_delta) <= 0.01:
+		return
+	if zoom_delta > 0.0 and _is_camera_zoom_out_blocked():
+		return
+	base_spring_length_3d = clamp(base_spring_length_3d + zoom_delta, 2.0, 50.0)
 
 func _update_camera_collision_mask_state(dt: float) -> void:
 	if not _cached_spring_arm:
@@ -2018,9 +2069,13 @@ func is_effectively_grounded() -> bool:
 		var space_state = get_world().direct_space_state
 		var from = global_transform.origin + Vector3.UP * 0.05
 		var to = from + Vector3.DOWN * (step_height + stair_ground_probe_extra)
-		var hit = space_state.intersect_ray(from, to, [ self ], 1) # Terrain only (Mask 1)
+		var hit = space_state.intersect_ray(from, to, [ self ], _get_step_support_collision_mask())
 		near_ground = not hit.empty()
 	return is_on_floor() or _just_stepped or _step_grounded_timer > 0.0 or recent_floor_contact or near_ground
+
+func _get_step_support_collision_mask() -> int:
+	var support_mask := collision_mask & STEP_SUPPORT_COLLISION_MASK
+	return support_mask if support_mask != 0 else collision_mask
 
 func _update_platform_tracking(dt: float) -> void:
 	var new_platform: Spatial = null
@@ -2055,7 +2110,7 @@ func _update_platform_tracking(dt: float) -> void:
 
 func _try_step_up(motion: Vector3) -> Dictionary:
 	var old_mask = collision_mask
-	collision_mask = 1 # Force terrain-only detection (Mask 1)
+	collision_mask = _get_step_support_collision_mask()
 	
 	var result = {"stepped": false, "position": global_transform.origin}
 	var can_try_step := motion.length_squared() >= 0.0001
@@ -2179,6 +2234,9 @@ func teleport_to(target_transform: Transform) -> void:
 		camera_rig.force_update_transform()
 		_camera_rig_y_smoothed_global = target_transform.origin.y + base_rig_y
 		_camera_rig_y_initialized = true
+		_camera_rig_airborne_anchor_global = _camera_rig_y_smoothed_global
+		_camera_rig_airborne_rise_time = 0.0
+		_camera_rig_was_grounded = true
 
 	ensure_input_provider()
 	set_camera_input_locked(false)

@@ -16,6 +16,7 @@
 [ext_resource path="res://core_v2/components/InteractComponentV2.gd" type="Script" id=56]
 [ext_resource path="res://core_v2/camera/KinematicArm3D.gd" type="Script" id=60]
 [ext_resource path="res://core_v2/player/traversal/TraversalLogicV2.gd" type="Script" id=61]
+[ext_resource path="res://core_v2/player/PlayerUISettings.gd" type="Script" id=62]
 
 [sub_resource type="SpatialMaterial" id=121]
 albedo_color = Color( 1, 0.411765, 0.129412, 1 )
@@ -71,12 +72,13 @@ cinematic_zoom_max_fov = null
 camera_collision_mask = null
 step_height = null
 step_depth = 0.7
-enable_step_up = null
 step_grounded_grace = 0.3
 stair_ground_probe_extra = null
 debug_stair_state = null
 crouch_collider_height_ratio = null
 crouch_headroom_margin = null
+camera_rig_jump_lazy_delay = 0.3
+camera_rig_jump_lazy_deadzone = 0.5
 
 [node name="Logic" type="Node" parent="."]
 
@@ -112,6 +114,11 @@ proximity_radius = 6.0
 script = ExtResource( 61 )
 ledge_regrab_cooldown_time_above = 1.0
 ladder_auto_enter_lateral_limit = 0.8
+
+[node name="UI" type="Node" parent="Logic"]
+script = ExtResource( 62 )
+terminal_cursor_sensitivity = 1.8
+holo_projector_resolution_scale = 0.75
 
 [node name="Visual" type="Spatial" parent="."]
 
@@ -216,7 +223,9 @@ transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866,
 transform = Transform( -1, -1.51808e-08, 8.60946e-08, 0, 0.984808, 0.173648, -8.74228e-08, 0.173648, -0.984808, 0, -0.062, 0 )
 script = ExtResource( 60 )
 collider_shape = SubResource( 109 )
+current_length = 5.0
 min_length = 1.0
+spring_length = 5.0
 
 [node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]
 transform = Transform( 1, -3.90799e-14, 8.52651e-14, 0, 1, 1.49012e-08, -1.42109e-14, -1.49012e-08, 1, 0, 0, 0 )

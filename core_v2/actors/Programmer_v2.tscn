@@ -50,6 +50,12 @@ joy_look_sensitivity = 5.0
 push_force = 9.0
 min_pitch = -45.0
 max_pitch = 60.0
+camera_rig_y_follow_speed = 2.5
+camera_rig_y_ground_snap_speed = 18.0
+camera_rig_y_fall_follow_speed = 4.5
+camera_rig_y_max_lag = 2.0
+camera_rig_jump_lazy_delay = 0.16
+camera_rig_jump_lazy_deadzone = 0.85
 step_depth = 0.7
 step_grounded_grace = 0.3
 

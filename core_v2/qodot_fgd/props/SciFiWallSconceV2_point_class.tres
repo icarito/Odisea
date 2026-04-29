@@ -11,6 +11,8 @@ description = "Sci-Fi Wall Sconce"
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
+"enable_shadows": 0,
+"is_interactable": 1,
 "light_color": Color( 0.2, 0.6, 1, 1 ),
 "light_energy_max": 3.0,
 "light_range": 8.0,
@@ -18,6 +20,8 @@ class_properties = {
 "starts_active": 1
 }
 class_property_descriptions = {
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only",
 "light_color": "Color of the sconce",
 "light_energy_max": "Maximum light energy (0-10)",
 "light_range": "Beam distance (1-100)",
@@ -26,7 +30,7 @@ class_property_descriptions = {
 }
 meta_properties = {
 "color": Color( 0.2, 0.7, 1, 1 ),
-"size": AABB( -0.4, -0.5, -0.2, 0.8, 1.0, 0.8 )
+"size": AABB( -0.4, -0.5, -0.2, 0.8, 1, 0.8 )
 }
 node_options = "----------------------------------------------------------------"
 node_class = ""

@@ -30,22 +30,27 @@ radial_segments = 12
 rings = 6
 
 [sub_resource type="SpatialMaterial" id=6]
+resource_local_to_scene = true
 albedo_color = Color( 0.1, 0.1, 0.1, 1 )
 emission_enabled = true
 emission = Color( 0.9, 0.85, 0.7, 1 )
-emission_energy = 3.0
+emission_energy = 3.6
+emission_operator = 0
+emission_on_uv2 = false
 
-[node name="SciFiHangingLightV2" type="StaticBody"]
+[node name="SciFiHangingLightV2" type="StaticBody" groups=["no_occlusion"]]
 collision_layer = 4
 collision_mask = 3
 script = ExtResource( 1 )
 interaction_text = "Toggle Hanging Light"
+starts_active = true
 
 [node name="CeilingMount" type="MeshInstance" parent="."]
 mesh = SubResource( 1 )
 material/0 = SubResource( 2 )
 
 [node name="LampPivot" type="Spatial" parent="."]
+transform = Transform( 0.999716, -0.0238205, 1.21864e-09, 0.0237921, 0.998524, -0.0488214, 0.00116295, 0.0488075, 0.998808, 0, 0, 0 )
 
 [node name="Cable" type="MeshInstance" parent="LampPivot"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.4, 0 )
@@ -54,11 +59,22 @@ material/0 = SubResource( 4 )
 
 [node name="LampMesh" type="MeshInstance" parent="LampPivot"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.84, 0 )
+cast_shadow = 0
 mesh = SubResource( 5 )
 material/0 = SubResource( 6 )
 
 [node name="OmniLight" type="OmniLight" parent="LampPivot"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.84, 0 )
+transform = Transform( 0.999764, 0.0216164, 0.00217416, -0.0213094, 0.995186, -0.0956599, -0.00423152, 0.095591, 0.995412, 0.00561085, -1.42953, -0.00978365 )
 light_color = Color( 0.9, 0.85, 0.7, 1 )
-light_energy = 2.0
-omni_range = 4.0
+light_energy = 0.6
+omni_attenuation = 1.6245
+
+[node name="SpotLight" type="SpotLight" parent="LampPivot"]
+transform = Transform( 0.999784, 0.00491118, -0.0202186, 0.0195367, 0.112689, 0.993439, 0.00715736, -0.993618, 0.112568, 0.0279164, -0.912545, -0.00715439 )
+layers = 65
+light_color = Color( 0.901961, 0.85098, 0.701961, 1 )
+light_energy = 0.5
+light_cull_mask = 4293918785
+spot_attenuation = 1.68179
+spot_angle = 32.8
+spot_angle_attenuation = 1.62451

@@ -5,24 +5,30 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "prop_laser_tripwire"
 description = "Laser tripwire that activates when beam is broken."
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
+"beam_color": Color( 1, 0, 0, 1 ),
 "beam_length": 4.0,
-"beam_color": Color( 1, 0, 0, 1 )
+"enable_shadows": 0,
+"is_interactable": 1
 }
 class_property_descriptions = {
+"beam_color": "Color of the laser beam",
 "beam_length": "Length of the laser beam",
-"beam_color": "Color of the laser beam"
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"
 }
 meta_properties = {
-"color": Color( 1.0, 0.2, 0.2, 1 ),
+"color": Color( 1, 0.2, 0.2, 1 ),
 "size": AABB( -2, -2, -2, 2, 2, 2 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "LaserTripwire"
+scene_file = ExtResource( 2 )
 scripting = ""

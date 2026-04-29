@@ -5,32 +5,38 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "prop_hologram_projector"
 description = "Holographic projector with scanlines."
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
-"hologram_color": Color( 0.0, 1.0, 0.5, 1 ),
-"scanline_speed": 2.0,
-"scanline_density": 20.0,
-"flicker_speed": 5.0,
+"active": 1,
 "base_alpha": 0.7,
-"active": 1
+"enable_shadows": 0,
+"flicker_speed": 5.0,
+"hologram_color": Color( 0, 1, 0.5, 1 ),
+"is_interactable": 1,
+"scanline_density": 20.0,
+"scanline_speed": 2.0
 }
 class_property_descriptions = {
-"hologram_color": "Color of the hologram",
-"scanline_speed": "Scanline animation speed (0-10)",
-"scanline_density": "Number of scanlines (1-50)",
-"flicker_speed": "Flicker speed (0-20)",
+"active": "Set to 1 if projector is on",
 "base_alpha": "Base transparency (0-1)",
-"active": "Set to 1 if projector is on"
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
+"flicker_speed": "Flicker speed (0-20)",
+"hologram_color": "Color of the hologram",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only",
+"scanline_density": "Number of scanlines (1-50)",
+"scanline_speed": "Scanline animation speed (0-10)"
 }
 meta_properties = {
-"color": Color( 0.0, 1.0, 0.6, 1 ),
+"color": Color( 0, 1, 0.6, 1 ),
 "size": AABB( -3, -3, -3, 3, 3, 3 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "HologramProjectorV2"
+scene_file = ExtResource( 2 )
 scripting = ""

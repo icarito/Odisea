@@ -5,34 +5,40 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "prop_spark_emitter"
 description = "Spark particle emitter with timing controls."
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
-"spark_color": Color( 1.0, 0.8, 0.2, 1 ),
 "brightness": 1.0,
+"duration": 0.1,
 "emission_rate": 10.0,
-"is_active": 1,
+"enable_shadows": 0,
 "interval": 0.0,
 "interval_random": 0.0,
-"duration": 0.1
+"is_active": 1,
+"is_interactable": 1,
+"spark_color": Color( 1, 0.8, 0.2, 1 )
 }
 class_property_descriptions = {
-"spark_color": "Color of the sparks",
 "brightness": "Spark brightness (0-3)",
+"duration": "Duration of each burst",
 "emission_rate": "Particles per second",
-"is_active": "Set to 1 if emitter is on",
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
 "interval": "Seconds between bursts (0=continuous)",
 "interval_random": "Random variation added to interval",
-"duration": "Duration of each burst"
+"is_active": "Set to 1 if emitter is on",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only",
+"spark_color": "Color of the sparks"
 }
 meta_properties = {
-"color": Color( 1.0, 0.9, 0.3, 1 ),
+"color": Color( 1, 0.9, 0.3, 1 ),
 "size": AABB( -1, -1, -1, 1, 1, 1 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "SparkEmitterV2"
+scene_file = ExtResource( 2 )
 scripting = ""

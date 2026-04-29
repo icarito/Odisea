@@ -11,14 +11,18 @@ description = "Sci-Fi Floating Light with patrol option"
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
+"enable_shadows": 0,
 "float_amplitude": 0.2,
 "float_speed": 2.0,
+"is_interactable": 1,
 "is_patrolling": 0,
 "patrol_speed": 2.0
 }
 class_property_descriptions = {
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
 "float_amplitude": "Floating bob amplitude",
 "float_speed": "Floating bob speed",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only",
 "is_patrolling": "Set to 1 if light should patrol",
 "patrol_speed": "Patrol movement speed"
 }

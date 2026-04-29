@@ -11,9 +11,11 @@ var _auto_triggered = false setget set_auto_triggered, get_auto_triggered
 var is_interactable = true setget set_is_interactable, get_is_interactable
 
 func _ready():
-	add_to_group("interactable")
+	set_is_interactable(get_is_interactable())
 
 func interact():
+	if not get_is_interactable():
+		return
 	print("[ForwardInteract] Interaction triggered on ", name)
 	var p = get_parent()
 	if p and p.has_method("interact"):
@@ -35,7 +37,8 @@ func set_proximity_highlight(enabled: bool, color: Color = Color(0.0, 1.0, 1.0, 
 		p.set_proximity_highlight(enabled, color)
 
 func is_in_group(group: String) -> bool:
-	if group == "interactable": return true
+	if group == "interactable":
+		return get_is_interactable() and .is_in_group(group)
 	return.is_in_group(group)
 
 # --- PROXY ACCESSORS ---
@@ -64,6 +67,12 @@ func set_is_interactable(val: bool):
 	var p = get_parent()
 	if p and "is_interactable" in p: p.is_interactable = val
 	is_interactable = val
+	if is_interactable:
+		if not .is_in_group("interactable"):
+			add_to_group("interactable")
+	else:
+		if .is_in_group("interactable"):
+			remove_from_group("interactable")
 
 func get_auto_triggered() -> bool:
 	var p = get_parent()

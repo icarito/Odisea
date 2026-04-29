@@ -11,6 +11,8 @@ description = "Sci-Fi Light Path - arc of small lights"
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
+"enable_shadows": 0,
+"is_interactable": 1,
 "light_color": Color( 0.2, 0.5, 1, 1 ),
 "light_count": 8,
 "light_energy_max": 1.5,
@@ -20,6 +22,8 @@ class_properties = {
 "show_bulbs": 1
 }
 class_property_descriptions = {
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only",
 "light_color": "Color of the lights",
 "light_count": "Number of lights along the path (2-50)",
 "light_energy_max": "Maximum light energy (0-5)",

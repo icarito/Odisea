@@ -11,6 +11,8 @@ description = "Sci-Fi Work Light"
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
+"enable_shadows": 0,
+"is_interactable": 1,
 "light_color": Color( 1, 0.9, 0.7, 1 ),
 "light_energy_max": 4.0,
 "light_range": 15.0,
@@ -18,6 +20,8 @@ class_properties = {
 "starts_active": 1
 }
 class_property_descriptions = {
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only",
 "light_color": "Color of the reflector",
 "light_energy_max": "Maximum light energy (0-10)",
 "light_range": "Beam distance (1-100)",

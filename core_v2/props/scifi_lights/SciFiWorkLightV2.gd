@@ -13,6 +13,7 @@ export(float, 1.0, 100.0) var light_range := 15.0 setget set_light_range
 export(float, 1.0, 90.0) var spot_angle := 45.0 setget set_spot_angle
 export(float, -90.0, 90.0) var head_tilt := 0.0 setget set_head_tilt
 export(bool) var enable_shadows := true setget set_enable_shadows
+export(float, 0.0, 16.0) var bulb_emission_energy := 4.0
 
 export(Color) var albedo_color_on := Color(1.0, 1.0, 1.0)
 export(Color) var albedo_color_off := Color(0.3, 0.3, 0.3)
@@ -72,6 +73,7 @@ func set_enable_shadows(v: bool) -> void:
 		_spot_light.shadow_enabled = v
 	if _omni_light:
 		_omni_light.shadow_enabled = false
+		_omni_light.visible = not v
 
 func _apply_settings():
 	if _spot_light:
@@ -83,6 +85,7 @@ func _apply_settings():
 		_omni_light.light_color = light_color
 		_omni_light.omni_range = max(1.0, light_range * 0.35)
 		_omni_light.shadow_enabled = false
+		_omni_light.visible = not enable_shadows
 	
 	if _head_node:
 		var rot = _head_node.rotation_degrees
@@ -114,12 +117,13 @@ func _update_visuals() -> void:
 	if _spot_light:
 		_spot_light.light_energy = t * light_energy_max
 	if _omni_light:
-		_omni_light.light_energy = t * light_energy_max * 0.45
+		var omni_fill_ratio := 0.0 if enable_shadows else 0.45
+		_omni_light.light_energy = t * light_energy_max * omni_fill_ratio
 	
 	if _bulb_mesh:
 		var mat = _get_spatial_material(_bulb_mesh)
 		if mat:
-			mat.emission_energy = t * 4.0
+			mat.emission_energy = t * bulb_emission_energy
 			mat.albedo_color = albedo_color_off.linear_interpolate(albedo_color_on, t)
 
 	if _indicator_mesh:

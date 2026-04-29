@@ -8,703 +8,152 @@
 "_tb_mod" "materials;textures"
 // brush 0
 {
-( 160 20 -8 ) ( 160 21 -8 ) ( 160 20 -7 ) kenney_prototype_textures/green/texture_11 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 160 20 -8 ) ( 160 20 -7 ) ( 161 20 -8 ) kenney_prototype_textures/green/texture_11 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 160 20 -16 ) ( 161 20 -16 ) ( 160 21 -16 ) kenney_prototype_textures/green/texture_11 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 168 24 -4 ) ( 168 25 -4 ) ( 169 24 -4 ) kenney_prototype_textures/green/texture_11 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 168 24 -4 ) ( 169 24 -4 ) ( 168 24 -3 ) kenney_prototype_textures/green/texture_11 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 288 24 -4 ) ( 288 24 -3 ) ( 288 25 -4 ) kenney_prototype_textures/green/texture_11 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 1
-{
-( 480 264 80 ) ( 480 356 80 ) ( 480 264 256 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 320 256 ) ( 496 320 256 ) ( 480 320 80 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 264 80 ) ( 496 356 80 ) ( 480 264 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 264 256 ) ( 480 356 256 ) ( 496 264 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 356 256 ) ( 480 356 80 ) ( 496 356 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 264 256 ) ( 496 356 256 ) ( 496 264 80 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 2
-{
-( 20 52 288 ) ( 16 48 256 ) ( 16 496 256 ) kenney_prototype_textures/dark/texture_04 [ 0 -1 0 0 ] [ -0.12403473458920847 -0 -0.9922778767136677 0 ] 0 0.125 0.125
-( 28 52 288 ) ( 32 48 256 ) ( 16 48 256 ) kenney_prototype_textures/dark/texture_04 [ 1 0 -0 0 ] [ 0 -0 -1 0 ] 0 0.125 0.125
-( 32 48 256 ) ( 32 496 256 ) ( 16 496 256 ) kenney_prototype_textures/dark/texture_04 [ -1 0 0 0 ] [ -0 -1 -0 0 ] 0 0.125 0.125
-( 20 492 288 ) ( 28 492 288 ) ( 28 52 288 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 16 496 256 ) ( 32 496 256 ) ( 28 492 288 ) kenney_prototype_textures/dark/texture_04 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 28 492 288 ) ( 32 496 256 ) ( 32 48 256 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0.12403473458920847 0 -0.9922778767136677 0 ] 0 0.125 0.125
-}
-// brush 3
-{
-( 484 52 288 ) ( 480 48 256 ) ( 480 352 256 ) kenney_prototype_textures/dark/texture_04 [ 0 -1 0 0 ] [ -0.12403473458920847 -0 -0.9922778767136677 0 ] 0 0.125 0.125
-( 492 52 288 ) ( 496 48 256 ) ( 480 48 256 ) kenney_prototype_textures/dark/texture_04 [ 1 0 -0 0 ] [ 0 -0 -1 0 ] 0 0.125 0.125
-( 496 48 256 ) ( 496 352 256 ) ( 480 352 256 ) kenney_prototype_textures/dark/texture_04 [ -1 0 0 0 ] [ -0 -1 -0 0 ] 0 0.125 0.125
-( 484 352 288 ) ( 492 352 288 ) ( 492 52 288 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 352 256 ) ( 496 352 256 ) ( 492 352 288 ) kenney_prototype_textures/dark/texture_04 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 492 352 288 ) ( 496 352 256 ) ( 496 48 256 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0.12403473458920847 0 -0.9922778767136677 0 ] 0 0.125 0.125
-}
-// brush 4
-{
-( 484 448 288 ) ( 480 448 256 ) ( 480 496 256 ) kenney_prototype_textures/dark/texture_04 [ 0 -1 0 0 ] [ -0.12403473458920847 -0 -0.9922778767136677 0 ] 0 0.125 0.125
-( 492 448 288 ) ( 496 448 256 ) ( 480 448 256 ) kenney_prototype_textures/dark/texture_04 [ 1 0 -0 0 ] [ 0 -0 -1 0 ] 0 0.125 0.125
-( 496 448 256 ) ( 496 496 256 ) ( 480 496 256 ) kenney_prototype_textures/dark/texture_04 [ -1 0 0 0 ] [ -0 -1 -0 0 ] 0 0.125 0.125
-( 484 492 288 ) ( 492 492 288 ) ( 492 448 288 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 496 256 ) ( 496 496 256 ) ( 492 492 288 ) kenney_prototype_textures/dark/texture_04 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 492 492 288 ) ( 496 496 256 ) ( 496 448 256 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0.12403473458920847 0 -0.9922778767136677 0 ] 0 0.125 0.125
-}
-// brush 5
-{
-( 20 496 256 ) ( 20 492 288 ) ( 20 484 288 ) kenney_prototype_textures/dark/texture_04 [ 0 -1 0 0 ] [ -0 -0 -1 0 ] 0 0.125 0.125
-( 492 484 288 ) ( 496 480 256 ) ( 20 480 256 ) kenney_prototype_textures/dark/texture_04 [ 1 0 -0 0 ] [ 0 -0.12403473458920847 -0.9922778767136677 0 ] 0 0.125 0.125
-( 496 480 256 ) ( 496 496 256 ) ( 20 496 256 ) kenney_prototype_textures/dark/texture_04 [ -1 0 0 0 ] [ -0 -1 -0 0 ] 0 0.125 0.125
-( 20 492 288 ) ( 492 492 288 ) ( 492 484 288 ) kenney_prototype_textures/dark/texture_04 [ 1 -0 0 0 ] [ -0 -1 0 0 ] 0 0.125 0.125
-( 492 492 288 ) ( 20 492 288 ) ( 20 496 256 ) kenney_prototype_textures/dark/texture_04 [ -1 0 0 0 ] [ 0 0.12403473458920847 -0.9922778767136677 0 ] 0 0.125 0.125
-( 492 492 288 ) ( 496 496 256 ) ( 496 480 256 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0.12403473458920847 0 -0.9922778767136677 0 ] 0 0.125 0.125
-}
-// brush 6
-{
-( 20 64 256 ) ( 20 60 288 ) ( 20 52 288 ) kenney_prototype_textures/dark/texture_04 [ 0 -1 0 0 ] [ -0 -0 -1 0 ] 0 0.125 0.125
-( 492 52 288 ) ( 496 48 256 ) ( 20 48 256 ) kenney_prototype_textures/dark/texture_04 [ 1 0 -0 0 ] [ 0 -0.12403473458920847 -0.9922778767136677 0 ] 0 0.125 0.125
-( 496 48 256 ) ( 496 64 256 ) ( 20 64 256 ) kenney_prototype_textures/dark/texture_04 [ -1 0 0 0 ] [ -0 -1 -0 0 ] 0 0.125 0.125
-( 20 60 288 ) ( 492 60 288 ) ( 492 52 288 ) kenney_prototype_textures/dark/texture_04 [ 1 -0 0 0 ] [ -0 -1 0 0 ] 0 0.125 0.125
-( 492 60 288 ) ( 20 60 288 ) ( 20 64 256 ) kenney_prototype_textures/dark/texture_04 [ -1 0 0 0 ] [ 0 0.12403473458920847 -0.9922778767136677 0 ] 0 0.125 0.125
-( 492 60 288 ) ( 496 64 256 ) ( 496 48 256 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0.12403473458920847 0 -0.9922778767136677 0 ] 0 0.125 0.125
-}
-// brush 7
-{
-( 464 448 256 ) ( 492 448 262 ) ( 492 352 262 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 464 352 256 ) ( 492 352 262 ) ( 492 352 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 492 352 256 ) ( 492 448 256 ) ( 464 448 256 ) kenney_prototype_textures/orange/texture_08 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 492 448 256 ) ( 492 448 262 ) ( 464 448 256 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 492 352 262 ) ( 492 448 262 ) ( 492 448 256 ) kenney_prototype_textures/orange/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 8
-{
-( 480 356 176 ) ( 480 464 176 ) ( 480 356 256 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 356 256 ) ( 496 356 256 ) ( 480 356 176 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 356 176 ) ( 496 464 176 ) ( 480 356 176 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 356 256 ) ( 480 464 256 ) ( 496 356 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 496 464 176 ) ( 496 464 256 ) ( 480 464 176 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 356 256 ) ( 496 464 256 ) ( 496 356 176 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 9
-{
-( 16 146 256 ) ( 16 146 182 ) ( 16 192 256 ) kenney_prototype_textures/dark/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 146 256 ) ( 32 146 182 ) ( 16 146 256 ) __TB_empty [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 16 192 182 ) ( 16 146 182 ) ( 32 192 182 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 192 256 ) ( 32 146 256 ) ( 16 192 256 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 16 192 256 ) ( 16 192 182 ) ( 32 192 256 ) __TB_empty [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 32 192 256 ) ( 32 192 182 ) ( 32 146 256 ) kenney_prototype_textures/dark/texture_12 [ 0 1 0 -150 ] [ 0 0 -1 60 ] 0 0.1 0.1
-}
-// brush 10
-{
-( 480 496 256 ) ( 480 468 256 ) ( 480 496 80 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 464 80 ) ( 480 464 80 ) ( 496 464 256 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 496 80 ) ( 480 468 80 ) ( 496 496 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 496 496 256 ) ( 496 468 256 ) ( 480 496 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 496 80 ) ( 496 496 80 ) ( 480 496 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 496 80 ) ( 496 468 80 ) ( 496 496 256 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 11
-{
-( 16 496 256 ) ( 16 396 256 ) ( 16 496 80 ) kenney_prototype_textures/dark/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 396 80 ) ( 16 396 80 ) ( 32 396 256 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 16 496 80 ) ( 16 396 80 ) ( 32 496 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 496 256 ) ( 32 396 256 ) ( 16 496 256 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 16 496 80 ) ( 32 496 80 ) ( 16 496 256 ) kenney_prototype_textures/dark/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 496 80 ) ( 32 396 80 ) ( 32 496 256 ) kenney_prototype_textures/dark/texture_12 [ 0 1 0 -150 ] [ 0 0 -1 60 ] 0 0.1 0.1
-}
-// brush 12
-{
-( 160 24 -4 ) ( 160 25 -4 ) ( 160 24 -3 ) kenney_prototype_textures/green/texture_11 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 160 24 -4 ) ( 160 24 -3 ) ( 161 24 -4 ) kenney_prototype_textures/green/texture_11 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 160 24 -16 ) ( 161 24 -16 ) ( 160 25 -16 ) kenney_prototype_textures/green/texture_11 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 288 32 0 ) ( 288 33 0 ) ( 289 32 0 ) kenney_prototype_textures/green/texture_11 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 288 32 0 ) ( 289 32 0 ) ( 288 32 1 ) kenney_prototype_textures/green/texture_11 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 288 32 0 ) ( 288 32 1 ) ( 288 33 0 ) kenney_prototype_textures/green/texture_11 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 13
-{
-( 16 192 80 ) ( 16 192 136 ) ( 16 146 80 ) kenney_prototype_textures/dark/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 16 146 80 ) ( 16 146 136 ) ( 32 146 80 ) __TB_empty [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 16 192 80 ) ( 16 146 80 ) ( 32 192 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 146 136 ) ( 16 146 136 ) ( 32 192 136 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 192 80 ) ( 32 192 136 ) ( 16 192 80 ) __TB_empty [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 32 146 80 ) ( 32 146 136 ) ( 32 192 80 ) kenney_prototype_textures/dark/texture_12 [ 0 1 0 -150 ] [ 0 0 -1 60 ] 0 0.1 0.1
-}
-// brush 14
-{
-( 160 16 -8 ) ( 160 17 -8 ) ( 160 16 -7 ) kenney_prototype_textures/green/texture_11 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 160 16 -8 ) ( 160 16 -7 ) ( 161 16 -8 ) kenney_prototype_textures/green/texture_11 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 160 16 -16 ) ( 161 16 -16 ) ( 160 17 -16 ) kenney_prototype_textures/green/texture_11 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 168 20 -8 ) ( 168 21 -8 ) ( 169 20 -8 ) kenney_prototype_textures/green/texture_11 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 168 20 -4 ) ( 169 20 -4 ) ( 168 20 -3 ) kenney_prototype_textures/green/texture_11 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 288 20 -4 ) ( 288 20 -3 ) ( 288 21 -4 ) kenney_prototype_textures/green/texture_11 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 15
-{
-( 160 12 -8 ) ( 160 13 -8 ) ( 160 12 -7 ) kenney_prototype_textures/green/texture_11 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 160 12 -8 ) ( 160 12 -7 ) ( 161 12 -8 ) kenney_prototype_textures/green/texture_11 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 160 12 -16 ) ( 161 12 -16 ) ( 160 13 -16 ) kenney_prototype_textures/green/texture_11 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 168 16 -12 ) ( 168 17 -12 ) ( 169 16 -12 ) kenney_prototype_textures/green/texture_11 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 168 16 -4 ) ( 169 16 -4 ) ( 168 16 -3 ) kenney_prototype_textures/green/texture_11 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 288 16 -4 ) ( 288 16 -3 ) ( 288 17 -4 ) kenney_prototype_textures/green/texture_11 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 16
-{
-( 64 484 160 ) ( 64 485 160 ) ( 64 484 161 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 -1 0 512 ] [ 0 0 -1 -128 ] 0 0.125 0.125
-( 64 484 160 ) ( 64 484 161 ) ( 65 484 160 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 512 ] [ 0 0 -1 -128 ] 0 0.125 0.125
-( 64 484 160 ) ( 65 484 160 ) ( 64 485 160 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 512 ] [ 0 -1 0 -128 ] 0 0.125 0.125
-( 72 492 192 ) ( 72 493 192 ) ( 73 492 192 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 512 ] [ 0 -1 0 -128 ] 0 0.125 0.125
-( 72 492 164 ) ( 73 492 164 ) ( 72 492 165 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 512 ] [ 0 0 -1 -128 ] 0 0.125 0.125
-( 448 492 164 ) ( 448 492 165 ) ( 448 493 164 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 1 0 512 ] [ 0 0 -1 -128 ] 0 0.125 0.125
-}
-// brush 17
-{
-( 480 48 80 ) ( 480 114 80 ) ( 480 48 256 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 48 256 ) ( 496 48 256 ) ( 480 48 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 48 80 ) ( 496 114 80 ) ( 480 48 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 48 256 ) ( 480 114 256 ) ( 496 48 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 114 256 ) ( 480 114 80 ) ( 496 114 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 48 256 ) ( 496 114 256 ) ( 496 48 80 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 18
-{
-( 480 218 256 ) ( 480 218 182 ) ( 480 264 256 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 114 256 ) ( 496 114 182 ) ( 480 114 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 264 192 ) ( 480 218 192 ) ( 496 264 192 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 496 264 256 ) ( 496 218 256 ) ( 480 264 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 320 256 ) ( 480 320 182 ) ( 496 320 256 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 264 256 ) ( 496 264 182 ) ( 496 218 256 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 19
-{
-( 480 264 80 ) ( 480 264 136 ) ( 480 218 80 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 114 80 ) ( 480 114 136 ) ( 496 114 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 264 80 ) ( 480 218 80 ) ( 496 264 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 496 218 160 ) ( 480 218 160 ) ( 496 264 160 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 496 320 80 ) ( 496 320 136 ) ( 480 320 80 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 218 80 ) ( 496 218 136 ) ( 496 264 80 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 20
-{
-( 16 350 256 ) ( 16 350 182 ) ( 16 396 256 ) kenney_prototype_textures/dark/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 350 256 ) ( 32 350 182 ) ( 16 350 256 ) __TB_empty [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 16 396 182 ) ( 16 350 182 ) ( 32 396 182 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 396 256 ) ( 32 350 256 ) ( 16 396 256 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 16 396 256 ) ( 16 396 182 ) ( 32 396 256 ) __TB_empty [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 32 396 256 ) ( 32 396 182 ) ( 32 350 256 ) kenney_prototype_textures/dark/texture_12 [ 0 1 0 -150 ] [ 0 0 -1 60 ] 0 0.1 0.1
-}
-// brush 21
-{
-( 16 350 256 ) ( 16 294 256 ) ( 16 350 80 ) kenney_prototype_textures/dark/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 294 80 ) ( 16 294 80 ) ( 32 294 256 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 16 350 80 ) ( 16 294 80 ) ( 32 350 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 350 256 ) ( 32 294 256 ) ( 16 350 256 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 16 350 80 ) ( 32 350 80 ) ( 16 350 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 350 80 ) ( 32 294 80 ) ( 32 350 256 ) kenney_prototype_textures/dark/texture_12 [ 0 1 0 -150 ] [ 0 0 -1 60 ] 0 0.1 0.1
-}
-// brush 22
-{
-( 16 248 256 ) ( 16 248 182 ) ( 16 294 256 ) kenney_prototype_textures/dark/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 248 256 ) ( 32 248 182 ) ( 16 248 256 ) __TB_empty [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 16 294 182 ) ( 16 248 182 ) ( 32 294 182 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 294 256 ) ( 32 248 256 ) ( 16 294 256 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 16 294 256 ) ( 16 294 182 ) ( 32 294 256 ) __TB_empty [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 32 294 256 ) ( 32 294 182 ) ( 32 248 256 ) kenney_prototype_textures/dark/texture_12 [ 0 1 0 -150 ] [ 0 0 -1 60 ] 0 0.1 0.1
-}
-// brush 23
-{
-( 16 294 80 ) ( 16 294 136 ) ( 16 248 80 ) kenney_prototype_textures/dark/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 16 248 80 ) ( 16 248 136 ) ( 32 248 80 ) __TB_empty [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 16 294 80 ) ( 16 248 80 ) ( 32 294 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 248 136 ) ( 16 248 136 ) ( 32 294 136 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 294 80 ) ( 32 294 136 ) ( 16 294 80 ) __TB_empty [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 32 248 80 ) ( 32 248 136 ) ( 32 294 80 ) kenney_prototype_textures/dark/texture_12 [ 0 1 0 -150 ] [ 0 0 -1 60 ] 0 0.1 0.1
-}
-// brush 24
-{
-( 16 248 256 ) ( 16 192 256 ) ( 16 248 80 ) kenney_prototype_textures/dark/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 192 80 ) ( 16 192 80 ) ( 32 192 256 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 16 248 80 ) ( 16 192 80 ) ( 32 248 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 248 256 ) ( 32 192 256 ) ( 16 248 256 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 16 248 80 ) ( 32 248 80 ) ( 16 248 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 248 80 ) ( 32 192 80 ) ( 32 248 256 ) kenney_prototype_textures/dark/texture_12 [ 0 1 0 -150 ] [ 0 0 -1 60 ] 0 0.1 0.1
-}
-// brush 25
-{
-( 16 48 80 ) ( 16 146 80 ) ( 16 48 256 ) kenney_prototype_textures/dark/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 16 48 256 ) ( 32 48 256 ) ( 16 48 80 ) kenney_prototype_textures/dark/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 48 80 ) ( 32 146 80 ) ( 16 48 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 16 48 256 ) ( 16 146 256 ) ( 32 48 256 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 16 146 256 ) ( 16 146 80 ) ( 32 146 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 48 256 ) ( 32 146 256 ) ( 32 48 80 ) kenney_prototype_textures/dark/texture_12 [ 0 1 0 -150 ] [ 0 0 -1 60 ] 0 0.1 0.1
-}
-// brush 26
-{
-( 480 356 80 ) ( 480 464 80 ) ( 480 356 96 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 356 96 ) ( 496 356 96 ) ( 480 356 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 356 80 ) ( 496 464 80 ) ( 480 356 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 356 96 ) ( 480 464 96 ) ( 496 356 96 ) kenney_prototype_textures/dark/texture_05 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 496 464 80 ) ( 496 464 96 ) ( 480 464 80 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 356 96 ) ( 496 464 96 ) ( 496 356 80 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 27
-{
-( 480 240 160 ) ( 480 241 160 ) ( 480 240 161 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 114 160 ) ( 480 114 161 ) ( 481 114 160 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 240 160 ) ( 481 240 160 ) ( 480 241 160 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 496 256 192 ) ( 496 257 192 ) ( 497 256 192 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 496 320 176 ) ( 497 320 176 ) ( 496 320 177 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 256 176 ) ( 496 256 177 ) ( 496 257 176 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 28
-{
-( 64 496 80 ) ( 64 492 160 ) ( 64 484 160 ) kenney_prototype_textures/light/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 64 484 160 ) ( 448 484 160 ) ( 448 480 80 ) kenney_prototype_textures/dark/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 448 480 80 ) ( 448 496 80 ) ( 64 496 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 64 492 160 ) ( 448 492 160 ) ( 448 484 160 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 64 496 80 ) ( 448 496 80 ) ( 448 492 160 ) kenney_prototype_textures/dark/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 448 492 160 ) ( 448 496 80 ) ( 448 480 80 ) kenney_prototype_textures/light/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 29
-{
-( 288 64 256 ) ( 288 48 256 ) ( 288 64 80 ) kenney_prototype_textures/light/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 48 80 ) ( 288 48 80 ) ( 480 48 256 ) kenney_prototype_textures/dark/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 64 80 ) ( 288 64 80 ) ( 480 48 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 48 256 ) ( 288 48 256 ) ( 480 64 256 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 64 256 ) ( 288 64 256 ) ( 480 64 80 ) kenney_prototype_textures/dark/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 48 256 ) ( 480 64 256 ) ( 480 48 80 ) kenney_prototype_textures/light/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 30
-{
-( 492 448 262 ) ( 492 352 262 ) ( 492 352 256 ) kenney_prototype_textures/dark/texture_07 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 492 352 262 ) ( 512 352 262 ) ( 512 352 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 512 352 256 ) ( 512 448 256 ) ( 492 448 256 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 492 448 262 ) ( 512 448 262 ) ( 512 352 262 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 512 448 256 ) ( 512 448 262 ) ( 492 448 262 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 512 352 262 ) ( 512 448 262 ) ( 512 448 256 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 31
-{
-( 288 32 32 ) ( 288 32 96 ) ( 288 0 96 ) kenney_prototype_textures/dark/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 512 0 96 ) ( 512 32 32 ) ( 288 32 32 ) kenney_prototype_textures/dark/texture_06 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 288 32 96 ) ( 512 32 96 ) ( 512 0 96 ) kenney_prototype_textures/dark/texture_06 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 512 32 32 ) ( 512 32 96 ) ( 288 32 96 ) kenney_prototype_textures/dark/texture_06 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 512 0 96 ) ( 512 32 96 ) ( 512 32 32 ) kenney_prototype_textures/dark/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 32
-{
 ( 0 32 -16 ) ( 0 512 -16 ) ( 0 32 96 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 ( 0 32 96 ) ( 16 32 96 ) ( 0 32 -16 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 ( 0 32 -16 ) ( 16 32 -16 ) ( 0 512 -16 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 0 512 96 ) ( 16 512 96 ) ( 0 32 96 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 0 512 112 ) ( 16 512 112 ) ( 0 32 112 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
 ( 0 512 -16 ) ( 16 512 -16 ) ( 0 512 96 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 ( 16 32 -16 ) ( 16 32 96 ) ( 16 512 -16 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 }
-// brush 33
+// brush 1
 {
-( 16 512 96 ) ( 16 496 96 ) ( 16 512 -16 ) kenney_prototype_textures/light/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 496 96 ) ( 496 496 -16 ) ( 16 496 96 ) kenney_prototype_textures/light/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 16 512 -16 ) ( 16 496 -16 ) ( 496 512 -16 ) kenney_prototype_textures/light/texture_08 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 496 512 96 ) ( 496 496 96 ) ( 16 512 96 ) kenney_prototype_textures/light/texture_08 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 496 512 96 ) ( 16 512 96 ) ( 496 512 -16 ) kenney_prototype_textures/light/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 512 -16 ) ( 496 496 -16 ) ( 496 512 96 ) kenney_prototype_textures/light/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 16 512 96 ) ( 16 496 96 ) ( 16 512 -16 ) kenney_prototype_textures/red/texture_09 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 496 496 96 ) ( 496 496 -16 ) ( 16 496 96 ) kenney_prototype_textures/red/texture_09 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 16 512 -16 ) ( 16 496 -16 ) ( 496 512 -16 ) kenney_prototype_textures/red/texture_09 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 496 512 96 ) ( 496 496 96 ) ( 16 512 96 ) kenney_prototype_textures/red/texture_09 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 496 512 96 ) ( 16 512 96 ) ( 496 512 -16 ) kenney_prototype_textures/red/texture_09 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 496 512 -16 ) ( 496 496 -16 ) ( 496 512 96 ) kenney_prototype_textures/red/texture_09 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 }
-// brush 34
+// brush 2
 {
-( 16 496 -16 ) ( 16 496 0 ) ( 16 48 -16 ) kenney_prototype_textures/light/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 16 48 -16 ) ( 16 48 0 ) ( 496 48 -16 ) kenney_prototype_textures/light/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 16 496 -16 ) ( 16 48 -16 ) ( 496 496 -16 ) kenney_prototype_textures/light/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 16 48 0 ) ( 16 496 0 ) ( 496 48 0 ) kenney_prototype_textures/light/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 496 496 -16 ) ( 496 496 0 ) ( 16 496 -16 ) kenney_prototype_textures/light/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 48 -16 ) ( 496 48 0 ) ( 496 496 -16 ) kenney_prototype_textures/light/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 496 512 96 ) ( 496 32 96 ) ( 496 512 -16 ) kenney_prototype_textures/red/texture_09 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 512 32 -16 ) ( 496 32 -16 ) ( 512 32 96 ) kenney_prototype_textures/red/texture_09 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 512 512 -16 ) ( 496 512 -16 ) ( 512 32 -16 ) kenney_prototype_textures/red/texture_09 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 512 32 96 ) ( 496 32 96 ) ( 512 512 96 ) kenney_prototype_textures/red/texture_09 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 512 512 96 ) ( 496 512 96 ) ( 512 512 -16 ) kenney_prototype_textures/red/texture_09 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 512 32 96 ) ( 512 512 96 ) ( 512 32 -16 ) kenney_prototype_textures/red/texture_09 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 }
-// brush 35
+// brush 3
 {
-( 160 48 -16 ) ( 160 48 0 ) ( 160 32 -16 ) kenney_prototype_textures/dark/texture_05 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 192 32 -16 ) ( 192 32 0 ) ( 256 32 -16 ) kenney_prototype_textures/dark/texture_05 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 256 48 -16 ) ( 192 48 -16 ) ( 256 32 -16 ) kenney_prototype_textures/dark/texture_05 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 192 48 0 ) ( 256 48 0 ) ( 192 32 0 ) kenney_prototype_textures/dark/texture_05 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 256 48 -16 ) ( 256 48 0 ) ( 192 48 -16 ) kenney_prototype_textures/dark/texture_05 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 272 32 -16 ) ( 272 32 0 ) ( 272 48 -16 ) kenney_prototype_textures/dark/texture_05 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 16 364 76 ) ( 16 365 76 ) ( 16 364 77 ) kenney_prototype_textures/red/texture_08 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 16 364 76 ) ( 16 364 77 ) ( 17 364 76 ) kenney_prototype_textures/red/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 16 364 0 ) ( 17 364 0 ) ( 16 365 0 ) kenney_prototype_textures/red/texture_08 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 44 368 112 ) ( 44 369 112 ) ( 45 368 112 ) kenney_prototype_textures/red/texture_08 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 44 368 80 ) ( 45 368 80 ) ( 44 368 81 ) kenney_prototype_textures/red/texture_08 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 240 368 80 ) ( 240 368 81 ) ( 240 369 80 ) kenney_prototype_textures/red/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 }
-// brush 36
+// brush 4
 {
-( 448 496 256 ) ( 448 480 256 ) ( 448 496 80 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 480 80 ) ( 448 480 80 ) ( 480 480 256 ) kenney_prototype_textures/dark/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 496 80 ) ( 448 496 80 ) ( 480 480 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 480 256 ) ( 448 480 256 ) ( 480 496 256 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 496 256 ) ( 448 496 256 ) ( 480 496 80 ) kenney_prototype_textures/dark/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 480 256 ) ( 480 496 256 ) ( 480 480 80 ) kenney_prototype_textures/light/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 240 293 2 ) ( 240 375 0 ) ( 240 375 2 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 241 374.75 0 ) ( 240 293 0 ) ( 241 293.25 0 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 241 374.75 80 ) ( 240 293 80 ) ( 240 375 80 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 249.7058823529412 258.4264705882353 2 ) ( 248.7058823529412 258.1764705882353 0 ) ( 248.7058823529412 258.1764705882353 2 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0.9701425001453319 0.24253562503633297 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 238.41176470588235 364.3970588235294 2 ) ( 237.41176470588235 364.6470588235294 0 ) ( 238.41176470588235 364.3970588235294 0 ) kenney_prototype_textures/light/GuardrailTranslucent [ -0.9701425001453319 0.24253562503633297 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 241 374.75 2 ) ( 241 293.25 0 ) ( 241 293.25 2 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 }
-// brush 37
+// brush 5
 {
-( 32 480 80 ) ( 32 496 80 ) ( 32 480 256 ) kenney_prototype_textures/light/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 480 256 ) ( 64 480 256 ) ( 32 480 80 ) kenney_prototype_textures/dark/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 480 80 ) ( 64 480 80 ) ( 32 496 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 496 256 ) ( 64 496 256 ) ( 32 480 256 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 496 80 ) ( 64 496 80 ) ( 32 496 256 ) kenney_prototype_textures/dark/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 64 480 80 ) ( 64 480 256 ) ( 64 496 80 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 16 496 0 ) ( 16 48 0 ) ( 16 496 -16 ) kenney_prototype_textures/green/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( 496 48 -16 ) ( 118 48 -16 ) ( 496 48 0 ) kenney_prototype_textures/green/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 496 496 -16 ) ( 118 496 -16 ) ( 496 48 -16 ) kenney_prototype_textures/green/texture_08 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 496 48 0 ) ( 118 48 0 ) ( 496 496 0 ) kenney_prototype_textures/green/texture_08 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 496 496 0 ) ( 118 496 0 ) ( 496 496 -16 ) kenney_prototype_textures/green/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 496 48 0 ) ( 496 496 0 ) ( 496 48 -16 ) kenney_prototype_textures/green/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 }
-// brush 38
+// brush 6
 {
-( 64 480 256 ) ( 64 484 192 ) ( 64 492 192 ) kenney_prototype_textures/light/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 448 480 256 ) ( 448 484 192 ) ( 64 484 192 ) kenney_prototype_textures/dark/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 448 484 192 ) ( 448 492 192 ) ( 64 492 192 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 64 496 256 ) ( 448 496 256 ) ( 448 480 256 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 448 492 192 ) ( 448 496 256 ) ( 64 496 256 ) kenney_prototype_textures/dark/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 448 480 256 ) ( 448 496 256 ) ( 448 492 192 ) kenney_prototype_textures/light/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 39
-{
-( 32 48 80 ) ( 32 64 80 ) ( 32 48 256 ) kenney_prototype_textures/light/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 48 256 ) ( 160 48 256 ) ( 32 48 80 ) kenney_prototype_textures/dark/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 48 80 ) ( 160 48 80 ) ( 32 64 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 64 256 ) ( 160 64 256 ) ( 32 48 256 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 64 80 ) ( 160 64 80 ) ( 32 64 256 ) kenney_prototype_textures/dark/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 288 48 80 ) ( 288 48 256 ) ( 288 64 80 ) kenney_prototype_textures/light/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 40
-{
-( 0 32 32 ) ( 0 32 96 ) ( 0 0 96 ) kenney_prototype_textures/dark/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 160 0 96 ) ( 160 32 32 ) ( 0 32 32 ) kenney_prototype_textures/dark/texture_06 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 0 32 96 ) ( 160 32 96 ) ( 160 0 96 ) kenney_prototype_textures/dark/texture_06 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 160 32 32 ) ( 160 32 96 ) ( 0 32 96 ) kenney_prototype_textures/dark/texture_06 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 160 0 96 ) ( 160 32 96 ) ( 160 32 32 ) kenney_prototype_textures/dark/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 41
-{
-( 272 32 -16 ) ( 272 48 -16 ) ( 272 32 96 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 32 -16 ) ( 288 32 -16 ) ( 496 32 96 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 48 -16 ) ( 288 48 -16 ) ( 496 32 -16 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 496 32 96 ) ( 288 32 96 ) ( 496 48 96 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 496 48 96 ) ( 288 48 96 ) ( 496 48 -16 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 496 48 96 ) ( 496 48 -16 ) ( 496 32 96 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 42
-{
-( 16 32 -16 ) ( 16 48 -16 ) ( 16 32 96 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 16 32 96 ) ( 160 32 96 ) ( 16 32 -16 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 16 32 -16 ) ( 160 32 -16 ) ( 16 48 -16 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 16 48 96 ) ( 160 48 96 ) ( 16 32 96 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 16 48 -16 ) ( 160 48 -16 ) ( 16 48 96 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 160 48 -16 ) ( 160 32 -16 ) ( 160 48 96 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 43
-{
-( 272 48 80 ) ( 272 64 0 ) ( 272 64 80 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 288 48 80 ) ( 272 48 0 ) ( 272 48 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 288 64 0 ) ( 272 48 0 ) ( 288 48 0 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 288 64 80 ) ( 272 48 80 ) ( 272 64 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 288 80 80 ) ( 272 80 0 ) ( 288 80 0 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 288 64 80 ) ( 288 48 0 ) ( 288 48 80 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 44
-{
-( 144 48 80 ) ( 144 64 0 ) ( 144 64 80 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 160 48 80 ) ( 144 48 0 ) ( 144 48 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 160 64 0 ) ( 144 48 0 ) ( 160 48 0 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 160 64 80 ) ( 144 48 80 ) ( 144 64 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 160 80 80 ) ( 144 80 0 ) ( 160 80 0 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 160 64 80 ) ( 160 48 0 ) ( 160 48 80 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 45
-{
-( 144 64 80 ) ( 144 65 80 ) ( 144 64 81 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 144 64 80 ) ( 144 64 81 ) ( 145 64 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 144 64 80 ) ( 145 64 80 ) ( 144 65 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 304 80 96 ) ( 304 81 96 ) ( 305 80 96 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 304 80 96 ) ( 305 80 96 ) ( 304 80 97 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 288 80 96 ) ( 288 80 97 ) ( 288 81 96 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 46
-{
-( 144 48 192 ) ( 144 0 112 ) ( 144 0 96 ) kenney_prototype_textures/dark/texture_02 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 144 0 112 ) ( 304 0 112 ) ( 304 0 96 ) kenney_prototype_textures/dark/texture_02 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 304 0 112 ) ( 144 0 112 ) ( 144 48 192 ) kenney_prototype_textures/dark/texture_02 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 304 0 96 ) ( 304 48 96 ) ( 144 48 96 ) kenney_prototype_textures/dark/texture_02 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 304 48 96 ) ( 304 48 192 ) ( 144 48 192 ) kenney_prototype_textures/dark/texture_02 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 304 0 112 ) ( 304 48 192 ) ( 304 48 96 ) kenney_prototype_textures/dark/texture_02 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 47
-{
-( 160 0 96 ) ( 160 8 80 ) ( 160 48 80 ) kenney_prototype_textures/dark/texture_02 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 288 0 96 ) ( 288 8 80 ) ( 160 8 80 ) kenney_prototype_textures/dark/texture_02 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 288 8 80 ) ( 288 48 80 ) ( 160 48 80 ) kenney_prototype_textures/dark/texture_02 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 160 48 96 ) ( 288 48 96 ) ( 288 0 96 ) kenney_prototype_textures/dark/texture_02 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 288 48 80 ) ( 288 48 96 ) ( 160 48 96 ) kenney_prototype_textures/dark/texture_02 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 288 0 96 ) ( 288 48 96 ) ( 288 48 80 ) kenney_prototype_textures/dark/texture_02 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 48
-{
-( 496 512 96 ) ( 496 32 96 ) ( 496 512 -16 ) kenney_prototype_textures/light/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 512 32 -16 ) ( 496 32 -16 ) ( 512 32 96 ) kenney_prototype_textures/light/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 512 512 -16 ) ( 496 512 -16 ) ( 512 32 -16 ) kenney_prototype_textures/light/texture_08 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 512 32 96 ) ( 496 32 96 ) ( 512 512 96 ) kenney_prototype_textures/light/texture_08 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 512 512 96 ) ( 496 512 96 ) ( 512 512 -16 ) kenney_prototype_textures/light/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 512 32 96 ) ( 512 512 96 ) ( 512 32 -16 ) kenney_prototype_textures/light/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 49
-{
-( 368 480 256 ) ( 368 64 256 ) ( 368 480 240 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 64 240 ) ( 368 64 240 ) ( 480 64 256 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 480 240 ) ( 368 480 240 ) ( 480 64 240 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 64 256 ) ( 368 64 256 ) ( 480 480 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 480 256 ) ( 368 480 256 ) ( 480 480 240 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 64 256 ) ( 480 480 256 ) ( 480 64 240 ) kenney_prototype_textures/light/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 50
-{
-( 368 368 272 ) ( 368 369 272 ) ( 368 368 273 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 368 64 272 ) ( 368 64 273 ) ( 369 64 272 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 368 368 256 ) ( 369 368 256 ) ( 368 369 256 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 372 372 276 ) ( 372 373 276 ) ( 373 372 276 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 372 372 276 ) ( 373 372 276 ) ( 372 372 277 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 372 372 276 ) ( 372 372 277 ) ( 372 373 276 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 51
-{
-( 96 368 256 ) ( 96 369 256 ) ( 96 368 257 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( -68 368 256 ) ( -68 368 257 ) ( -67 368 256 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( -68 368 256 ) ( -67 368 256 ) ( -68 369 256 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( -60 372 276 ) ( -60 373 276 ) ( -59 372 276 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( -60 372 260 ) ( -59 372 260 ) ( -60 372 261 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 368 372 260 ) ( 368 372 261 ) ( 368 373 260 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 52
-{
-( 96 352 240 ) ( 96 353 240 ) ( 96 352 241 ) kenney_prototype_textures/dark/texture_07 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 416 368 240 ) ( 416 368 241 ) ( 417 368 240 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 416 352 240 ) ( 417 352 240 ) ( 416 353 240 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 432 448 256 ) ( 432 449 256 ) ( 433 448 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 432 480 256 ) ( 433 480 256 ) ( 432 480 257 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 368 448 256 ) ( 368 448 257 ) ( 368 449 256 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 53
-{
-( 32 64 240 ) ( 32 480 240 ) ( 32 64 256 ) kenney_prototype_textures/light/texture_06 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 64 256 ) ( 96 64 256 ) ( 32 64 240 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 32 64 240 ) ( 96 64 240 ) ( 32 480 240 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 480 256 ) ( 96 480 256 ) ( 32 64 256 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 480 240 ) ( 96 480 240 ) ( 32 480 256 ) kenney_prototype_textures/light/texture_06 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 96 64 240 ) ( 96 64 256 ) ( 96 480 240 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 54
-{
-( 92 368 272 ) ( 92 369 272 ) ( 92 368 273 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 92 64 272 ) ( 92 64 273 ) ( 93 64 272 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 92 368 256 ) ( 93 368 256 ) ( 92 369 256 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 96 372 276 ) ( 96 373 276 ) ( 97 372 276 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 96 372 276 ) ( 97 372 276 ) ( 96 372 277 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 96 372 276 ) ( 96 372 277 ) ( 96 373 276 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 55
-{
-( 32 352 80 ) ( 32 353 80 ) ( 32 352 81 ) kenney_prototype_textures/dark/texture_07 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 416 240 80 ) ( 416 240 81 ) ( 417 240 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 416 352 80 ) ( 417 352 80 ) ( 416 353 80 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 432 448 96 ) ( 432 449 96 ) ( 433 448 96 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 432 480 96 ) ( 433 480 96 ) ( 432 480 97 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 380 448 96 ) ( 380 448 97 ) ( 380 449 96 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 56
-{
-( 32 368 96 ) ( 32 369 96 ) ( 32 368 97 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 128 368 96 ) ( 128 368 97 ) ( 129 368 96 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 128 368 96 ) ( 129 368 96 ) ( 128 369 96 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 136 372 124 ) ( 136 373 124 ) ( 137 372 124 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 136 372 100 ) ( 137 372 100 ) ( 136 372 101 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 384 372 100 ) ( 384 372 101 ) ( 384 373 100 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 57
-{
-( 380 64 80 ) ( 380 65 80 ) ( 380 64 81 ) kenney_prototype_textures/dark/texture_07 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 464 64 80 ) ( 464 64 81 ) ( 465 64 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 464 64 80 ) ( 465 64 80 ) ( 464 65 80 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 80 96 ) ( 480 81 96 ) ( 481 80 96 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 480 480 96 ) ( 481 480 96 ) ( 480 480 97 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 480 80 96 ) ( 480 80 97 ) ( 480 81 96 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 58
-{
-( 384 368 116 ) ( 384 369 116 ) ( 384 368 117 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 384 64 116 ) ( 384 64 117 ) ( 385 64 116 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 384 368 96 ) ( 385 368 96 ) ( 384 369 96 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 388 372 124 ) ( 388 373 124 ) ( 389 372 124 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 388 372 120 ) ( 389 372 120 ) ( 388 372 121 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 388 372 120 ) ( 388 372 121 ) ( 388 373 120 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 59
-{
-( 16 376 76 ) ( 16 377 76 ) ( 16 376 77 ) kenney_prototype_textures/purple/texture_08 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 16 376 76 ) ( 16 376 77 ) ( 17 376 76 ) kenney_prototype_textures/purple/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 16 376 0 ) ( 17 376 0 ) ( 16 377 0 ) kenney_prototype_textures/purple/texture_08 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 44 380 80 ) ( 44 381 80 ) ( 45 380 80 ) kenney_prototype_textures/purple/texture_08 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 44 380 80 ) ( 45 380 80 ) ( 44 380 81 ) kenney_prototype_textures/purple/texture_08 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 240 380 80 ) ( 240 380 81 ) ( 240 381 80 ) kenney_prototype_textures/purple/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 60
-{
-( 380 372 0 ) ( 380 373 0 ) ( 380 372 1 ) kenney_prototype_textures/purple/texture_08 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 380 48 0 ) ( 380 48 1 ) ( 381 48 0 ) kenney_prototype_textures/purple/texture_08 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 380 372 0 ) ( 381 372 0 ) ( 380 373 0 ) kenney_prototype_textures/purple/texture_08 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 384 376 80 ) ( 384 377 80 ) ( 385 376 80 ) kenney_prototype_textures/purple/texture_08 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 384 240 4 ) ( 385 240 4 ) ( 384 240 5 ) kenney_prototype_textures/purple/texture_08 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 384 376 4 ) ( 384 376 5 ) ( 384 377 4 ) kenney_prototype_textures/purple/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 61
-{
-( 256 240 0 ) ( 256 241 0 ) ( 256 240 1 ) kenney_prototype_textures/green/texture_03 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 256 240 0 ) ( 256 240 1 ) ( 257 240 0 ) kenney_prototype_textures/green/texture_03 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 256 240 0 ) ( 257 240 0 ) ( 256 241 0 ) kenney_prototype_textures/green/texture_03 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
-( 384 256 80 ) ( 384 257 80 ) ( 385 256 80 ) kenney_prototype_textures/green/texture_03 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
-( 384 256 16 ) ( 385 256 16 ) ( 384 256 17 ) kenney_prototype_textures/green/texture_03 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 388 256 16 ) ( 388 256 17 ) ( 388 257 16 ) kenney_prototype_textures/green/texture_03 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 1 1
-}
-// brush 62
-{
-( 240 240 0 ) ( 240 241 0 ) ( 240 240 1 ) kenney_prototype_textures/green/texture_03 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 240 240 0 ) ( 240 240 1 ) ( 241 240 0 ) kenney_prototype_textures/green/texture_03 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 240 240 0 ) ( 241 240 0 ) ( 240 241 0 ) kenney_prototype_textures/green/texture_03 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
-( 256 272 80 ) ( 256 273 80 ) ( 257 272 80 ) kenney_prototype_textures/green/texture_03 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
-( 256 384 16 ) ( 257 384 16 ) ( 256 384 17 ) kenney_prototype_textures/green/texture_03 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 256 272 16 ) ( 256 272 17 ) ( 256 273 16 ) kenney_prototype_textures/green/texture_03 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 1 1
-}
-// brush 63
-{
-( 256 256 0 ) ( 256 257 0 ) ( 256 256 1 ) kenney_prototype_textures/red/texture_05 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 368 256 0 ) ( 368 256 1 ) ( 369 256 0 ) kenney_prototype_textures/red/texture_05 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 368 256 0 ) ( 369 256 0 ) ( 368 257 0 ) kenney_prototype_textures/red/texture_05 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 384 384 8 ) ( 384 385 8 ) ( 385 384 8 ) kenney_prototype_textures/red/texture_05 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 384 384 16 ) ( 385 384 16 ) ( 384 384 17 ) kenney_prototype_textures/red/texture_05 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 384 384 16 ) ( 384 384 17 ) ( 384 385 16 ) kenney_prototype_textures/red/texture_05 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-}
-// brush 64
-{
-( 16 396 80 ) ( 16 396 136 ) ( 16 350 80 ) kenney_prototype_textures/dark/texture_08 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 16 350 80 ) ( 16 350 136 ) ( 32 350 80 ) __TB_empty [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 16 396 80 ) ( 16 350 80 ) ( 32 396 80 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 350 136 ) ( 16 350 136 ) ( 32 396 136 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 32 396 80 ) ( 32 396 136 ) ( 16 396 80 ) __TB_empty [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
-( 32 350 80 ) ( 32 350 136 ) ( 32 396 80 ) kenney_prototype_textures/dark/texture_12 [ 0 1 0 -150 ] [ 0 0 -1 60 ] 0 0.1 0.1
+( 16 48 96 ) ( 16 32 96 ) ( 16 48 -16 ) kenney_prototype_textures/red/texture_09 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 496 32 96 ) ( 496 32 -16 ) ( 16 32 96 ) kenney_prototype_textures/red/texture_09 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 16 48 -16 ) ( 16 32 -16 ) ( 496 48 -16 ) kenney_prototype_textures/red/texture_09 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 496 48 96 ) ( 496 32 96 ) ( 16 48 96 ) kenney_prototype_textures/red/texture_09 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 496 48 96 ) ( 16 48 96 ) ( 496 48 -16 ) kenney_prototype_textures/red/texture_09 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 496 48 -16 ) ( 496 32 -16 ) ( 496 48 96 ) kenney_prototype_textures/red/texture_09 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 }
 }
 // entity 1
 {
-"classname" "light_ceiling"
-"origin" "128 479 194"
+"classname" "light_flickering"
+"origin" "248 427 94"
 "starts_active" "1"
 }
 // entity 2
 {
 "classname" "light_flickering"
-"origin" "248 427 78"
+"origin" "120 427 94"
 "starts_active" "1"
 }
 // entity 3
 {
 "classname" "light_flickering"
-"origin" "120 427 78"
-"starts_active" "1"
+"origin" "360 427 94"
 }
 // entity 4
 {
 "classname" "light_flickering"
-"origin" "360 427 78"
+"origin" "421 136 94"
+"starts_active" "1"
+"angles" "0 90 0"
 }
 // entity 5
 {
 "classname" "light_flickering"
-"origin" "421 136 78"
+"origin" "421 264 94"
 "starts_active" "1"
 "angles" "0 90 0"
 }
 // entity 6
 {
 "classname" "light_flickering"
-"origin" "421 264 78"
-"starts_active" "1"
+"origin" "421 384 94"
 "angles" "0 90 0"
 }
 // entity 7
-{
-"classname" "light_flickering"
-"origin" "421 384 78"
-"angles" "0 90 0"
-}
-// entity 8
-{
-"classname" "light_wall"
-"origin" "43 479 177"
-}
-// entity 9
-{
-"classname" "light_wall"
-"origin" "479 479 177"
-}
-// entity 10
-{
-"classname" "light_ceiling"
-"origin" "256 479 194"
-"starts_active" "1"
-}
-// entity 11
-{
-"classname" "light_ceiling"
-"origin" "478 297 194"
-"starts_active" "1"
-"angle" "0"
-"angles" "0 90 0"
-}
-// entity 12
-{
-"classname" "light_wall"
-"origin" "459 65 177"
-}
-// entity 13
-{
-"classname" "light_ceiling"
-"origin" "478 137 194"
-"starts_active" "1"
-"angle" "0"
-"angles" "0 90 0"
-}
-// entity 14
-{
-"classname" "light_ceiling"
-"origin" "478 209 194"
-"starts_active" "1"
-"angle" "0"
-"angles" "0 90 0"
-}
-// entity 15
 {
 "classname" "light_wall"
 "origin" "495 495 53"
 "angle" "225"
 }
-// entity 16
-{
-"classname" "light_ceiling"
-"origin" "384 479 194"
-"starts_active" "1"
-}
-// entity 17
+// entity 8
 {
 "classname" "light_hanging"
-"origin" "366 366 80"
+"origin" "320 336 90"
 }
-// entity 18
+// entity 9
 {
-"classname" "light_hanging"
-"origin" "334 366 80"
+"classname" "light_work_tripod"
+"origin" "84.8 297.6 0.8"
+"angle" "90"
+"property 1" ""
+"is_interactable" "0"
+"enable_shadows" "1"
+"light_energy_max" "12"
+"light_range" "32"
+"spot_angle" "60"
 }
-// entity 19
+// entity 10
 {
-"classname" "light_hanging"
-"origin" "302 366 80"
+"classname" "light_emergency_beacon"
+"origin" "19 159.8 81"
+"angles" "90 90 0"
 }
-// entity 20
+// entity 11
+{
+"classname" "light_work_tripod"
+"origin" "175.6 160 0.8"
+"angle" "0"
+"property 1" ""
+"is_interactable" "0"
+"enable_shadows" "1"
+"light_energy_max" "12"
+"light_range" "32"
+"spot_angle" "60"
+}
+// entity 12
+{
+"classname" "prop_door_floor_hatch"
+"origin" "94 164 8"
+}
+// entity 13
 {
 "classname" "func_group"
 "_tb_type" "_tb_layer"
@@ -713,20 +162,92 @@
 "_tb_layer_sort_index" "0"
 // brush 0
 {
-( 384 328 8 ) ( 384 329 8 ) ( 384 328 9 ) prototype_textures/Grey [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 384 344 8 ) ( 384 344 9 ) ( 385 344 8 ) prototype_textures/Grey [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 384 328 0 ) ( 385 328 0 ) ( 384 329 0 ) prototype_textures/Grey [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 388 384 28 ) ( 388 385 28 ) ( 389 384 28 ) prototype_textures/Grey [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 388 384 12 ) ( 389 384 12 ) ( 388 384 13 ) prototype_textures/Grey [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 388 384 12 ) ( 388 384 13 ) ( 388 385 12 ) prototype_textures/Grey [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 384 328 8 ) ( 384 329 8 ) ( 384 328 9 ) "prototype_textures/blue 1" [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 384 344 8 ) ( 384 344 9 ) ( 385 344 8 ) "prototype_textures/blue 1" [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 384 328 0 ) ( 385 328 0 ) ( 384 329 0 ) "prototype_textures/blue 1" [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 388 384 24 ) ( 388 385 24 ) ( 389 384 24 ) "prototype_textures/blue 1" [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 388 384 12 ) ( 389 384 12 ) ( 388 384 13 ) "prototype_textures/blue 1" [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 388 384 12 ) ( 388 384 13 ) ( 388 385 12 ) "prototype_textures/blue 1" [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 }
 // brush 1
 {
-( 284 384 8 ) ( 284 385 8 ) ( 284 384 9 ) prototype_textures/Grey [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 284 384 8 ) ( 284 384 9 ) ( 285 384 8 ) prototype_textures/Grey [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 284 384 0 ) ( 285 384 0 ) ( 284 385 0 ) prototype_textures/Grey [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 376 388 28 ) ( 376 389 28 ) ( 377 388 28 ) prototype_textures/Grey [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( 376 388 12 ) ( 377 388 12 ) ( 376 388 13 ) prototype_textures/Grey [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 388 388 12 ) ( 388 388 13 ) ( 388 389 12 ) prototype_textures/Grey [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 284 384 8 ) ( 284 385 8 ) ( 284 384 9 ) "prototype_textures/blue 1" [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 284 384 8 ) ( 284 384 9 ) ( 285 384 8 ) "prototype_textures/blue 1" [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 284 384 0 ) ( 285 384 0 ) ( 284 385 0 ) "prototype_textures/blue 1" [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 376 388 24 ) ( 376 389 24 ) ( 377 388 24 ) "prototype_textures/blue 1" [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 376 388 12 ) ( 377 388 12 ) ( 376 388 13 ) "prototype_textures/blue 1" [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 388 388 12 ) ( 388 388 13 ) ( 388 389 12 ) "prototype_textures/blue 1" [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+}
+// brush 2
+{
+( 336 357 20 ) ( 336 358 20 ) ( 336 357 21 ) kenney_prototype_textures/dark/texture_07 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 333 360 20 ) ( 333 360 21 ) ( 334 360 20 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 333 357 8 ) ( 334 357 8 ) ( 333 358 8 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 337 361 19 ) ( 337 362 19 ) ( 338 361 19 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 337 361 24 ) ( 338 361 24 ) ( 337 361 25 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 337 361 24 ) ( 337 361 25 ) ( 337 362 24 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+}
+// brush 3
+{
+( 336 359 19 ) ( 336 360 19 ) ( 336 359 20 ) kenney_prototype_textures/dark/texture_07 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 336 359 19 ) ( 336 359 20 ) ( 337 359 19 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 336 359 19 ) ( 337 359 19 ) ( 336 360 19 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 337 360 20 ) ( 337 361 20 ) ( 338 360 20 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 337 384 20 ) ( 338 384 20 ) ( 337 384 21 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 337 360 20 ) ( 337 360 21 ) ( 337 361 20 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+}
+// brush 4
+{
+( 293 359 19 ) ( 293 360 19 ) ( 293 359 20 ) kenney_prototype_textures/dark/texture_07 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 293 359 19 ) ( 293 359 20 ) ( 294 359 19 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 293 359 19 ) ( 294 359 19 ) ( 293 360 19 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 294 360 20 ) ( 294 361 20 ) ( 295 360 20 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 294 384 20 ) ( 295 384 20 ) ( 294 384 21 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 294 360 20 ) ( 294 360 21 ) ( 294 361 20 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+}
+// brush 5
+{
+( 293 357 20 ) ( 293 358 20 ) ( 293 357 21 ) kenney_prototype_textures/dark/texture_07 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 290 360 20 ) ( 290 360 21 ) ( 291 360 20 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 290 357 8 ) ( 291 357 8 ) ( 290 358 8 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 294 361 19 ) ( 294 362 19 ) ( 295 361 19 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 294 361 24 ) ( 295 361 24 ) ( 294 361 25 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 294 361 24 ) ( 294 361 25 ) ( 294 362 24 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+}
+// brush 6
+{
+( 380 357 20 ) ( 380 358 20 ) ( 380 357 21 ) kenney_prototype_textures/dark/texture_07 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 377 360 20 ) ( 377 360 21 ) ( 378 360 20 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 377 357 8 ) ( 378 357 8 ) ( 377 358 8 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 381 361 19 ) ( 381 362 19 ) ( 382 361 19 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 381 361 24 ) ( 382 361 24 ) ( 381 361 25 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 381 361 24 ) ( 381 361 25 ) ( 381 362 24 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+}
+// brush 7
+{
+( 380 359 19 ) ( 380 360 19 ) ( 380 359 20 ) kenney_prototype_textures/dark/texture_07 [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 380 359 19 ) ( 380 359 20 ) ( 381 359 19 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 380 359 19 ) ( 381 359 19 ) ( 380 360 19 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 381 360 20 ) ( 381 361 20 ) ( 382 360 20 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 381 384 20 ) ( 382 384 20 ) ( 381 384 21 ) kenney_prototype_textures/dark/texture_07 [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 381 360 20 ) ( 381 360 21 ) ( 381 361 20 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+}
+// brush 8
+{
+( 292 380 22 ) ( 292 381 22 ) ( 292 380 23 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( 292 356 22 ) ( 292 356 23 ) ( 293 356 22 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( 292 380 22 ) ( 293 380 22 ) ( 292 381 22 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( 320 384 23 ) ( 320 385 23 ) ( 321 384 23 ) kenney_prototype_textures/light/GuardrailTranslucent [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( 320 382 26 ) ( 321 382 26 ) ( 320 382 27 ) kenney_prototype_textures/light/GuardrailTranslucent [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( 382 384 26 ) ( 382 384 27 ) ( 382 385 26 ) kenney_prototype_textures/light/GuardrailTranslucent [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+}
+// brush 9
+{
+( 240 256 0 ) ( 240 257 0 ) ( 240 256 1 ) "prototype_textures/blue 1" [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 368 256 0 ) ( 368 256 1 ) ( 369 256 0 ) "prototype_textures/blue 1" [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 368 256 0 ) ( 369 256 0 ) ( 368 257 0 ) "prototype_textures/blue 1" [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 384 384 8 ) ( 384 385 8 ) ( 385 384 8 ) "prototype_textures/blue 1" [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 384 384 16 ) ( 385 384 16 ) ( 384 384 17 ) "prototype_textures/blue 1" [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 384 384 16 ) ( 384 384 17 ) ( 384 385 16 ) "prototype_textures/blue 1" [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 }
 }

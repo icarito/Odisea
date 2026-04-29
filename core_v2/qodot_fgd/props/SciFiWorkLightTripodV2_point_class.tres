@@ -11,13 +11,17 @@ description = "Sci-Fi Tripod Flood Light"
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
+"enable_shadows": 1,
+"is_interactable": 0,
 "light_color": Color( 1, 0.95, 0.8, 1 ),
-"light_energy_max": 6.0,
-"light_range": 25.0,
-"spot_angle": 35.0,
+"light_energy_max": 12.0,
+"light_range": 32.0,
+"spot_angle": 60.0,
 "starts_active": 1
 }
 class_property_descriptions = {
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only",
 "light_color": "Color of the flood light",
 "light_energy_max": "Maximum light energy (0-10)",
 "light_range": "Beam distance (1-100)",

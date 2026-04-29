@@ -31,24 +31,23 @@ size_flags_vertical = 3
 
 [node name="TitleLabel" type="Label" parent="VBox/TitleBar/TitleRow"]
 margin_right = 294.0
-margin_bottom = 26.0
+margin_bottom = 33.0
 rect_min_size = Vector2( 0, 26 )
 size_flags_horizontal = 3
 text = "Window"
 valign = 1
 
-
 [node name="BtnMax" type="Button" parent="VBox/TitleBar/TitleRow"]
 margin_left = 298.0
 margin_right = 320.0
-margin_bottom = 37.0
+margin_bottom = 33.0
 rect_min_size = Vector2( 22, 18 )
 text = "+"
 
 [node name="BtnClose" type="Button" parent="VBox/TitleBar/TitleRow"]
 margin_left = 324.0
 margin_right = 346.0
-margin_bottom = 37.0
+margin_bottom = 33.0
 rect_min_size = Vector2( 22, 18 )
 text = "X"
 

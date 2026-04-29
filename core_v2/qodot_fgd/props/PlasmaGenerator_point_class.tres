@@ -5,20 +5,26 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "prop_plasma_generator"
 description = "Plasma generator with pulsing light core."
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
+"enable_shadows": 0,
+"is_interactable": 1
 }
 class_property_descriptions = {
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"
 }
 meta_properties = {
-"color": Color( 0.8, 0.3, 1.0, 1 ),
+"color": Color( 0.8, 0.3, 1, 1 ),
 "size": AABB( -8, -8, -8, 8, 8, 8 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "PlasmaGenerator"
+scene_file = ExtResource( 2 )
 scripting = ""

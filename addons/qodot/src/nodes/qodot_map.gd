@@ -551,11 +551,140 @@ func generate_geometry() -> void:
 	qodot.generate_geometry(texture_size_dict);
 
 func fetch_entity_dicts() -> Array:
-	return qodot.get_entity_dicts()
+	var native_entity_dicts = qodot.get_entity_dicts()
+	if not native_entity_dicts:
+		native_entity_dicts = []
+	return _merge_missing_point_entity_dicts(native_entity_dicts)
 
 func fetch_worldspawn_layer_dicts() -> Array:
 	var layer_dicts = qodot.get_worldspawn_layer_dicts()
 	return layer_dicts if layer_dicts else []
+
+func _merge_missing_point_entity_dicts(native_entity_dicts: Array) -> Array:
+	var parsed_entity_dicts := _parse_map_entity_dicts(map_file)
+	if parsed_entity_dicts.empty():
+		return native_entity_dicts
+
+	var merged := native_entity_dicts.duplicate()
+	var native_signatures := {}
+	for native_entity_dict in native_entity_dicts:
+		var native_properties: Dictionary = native_entity_dict.get("properties", {})
+		native_signatures[_entity_signature(native_properties)] = true
+
+	var parsed_by_signature := {}
+	for parsed_entity_dict in parsed_entity_dicts:
+		var parsed_properties: Dictionary = parsed_entity_dict.get("properties", {})
+		parsed_by_signature[_entity_signature(parsed_properties)] = parsed_entity_dict
+
+	for native_entity_dict in merged:
+		var native_properties: Dictionary = native_entity_dict.get("properties", {})
+		var source_entity_dict: Dictionary = parsed_by_signature.get(_entity_signature(native_properties), {})
+		if not source_entity_dict.empty():
+			_copy_source_property_metadata(native_entity_dict, source_entity_dict)
+
+	for parsed_entity_dict in parsed_entity_dicts:
+		var parsed_properties: Dictionary = parsed_entity_dict.get("properties", {})
+		var parsed_signature := _entity_signature(parsed_properties)
+		if native_signatures.has(parsed_signature):
+			continue
+		if _should_restore_missing_point_entity(parsed_entity_dict):
+			_copy_source_property_metadata(parsed_entity_dict, parsed_entity_dict)
+			merged.append(parsed_entity_dict)
+
+	return merged
+
+func _copy_source_property_metadata(target_entity_dict: Dictionary, source_entity_dict: Dictionary) -> void:
+	var source_properties: Dictionary = source_entity_dict.get("properties", {})
+	var source_property_keys := {}
+	for source_property in source_properties:
+		source_property_keys[source_property] = true
+	target_entity_dict["_source_property_keys"] = source_property_keys
+	target_entity_dict["_source_has_angle"] = source_properties.has("angle")
+	target_entity_dict["_source_has_full_rotation"] = source_properties.has("angles") or source_properties.has("mangle")
+	target_entity_dict["_source_has_native_color"] = source_properties.has("_color")
+	target_entity_dict["_source_has_legacy_color"] = source_properties.has("light_color") or source_properties.has("beacon_color")
+
+func _should_restore_missing_point_entity(entity_dict: Dictionary) -> bool:
+	if bool(entity_dict.get("_has_brushes", false)):
+		return false
+
+	var properties: Dictionary = entity_dict.get("properties", {})
+	var classname := String(properties.get("classname", ""))
+	if classname == "":
+		return false
+	if not classname in entity_definitions:
+		return false
+	return entity_definitions[classname] is QodotFGDPointClass
+
+func _entity_signature(properties: Dictionary) -> String:
+	return "%s|%s|%s|%s" % [
+		String(properties.get("classname", "")),
+		String(properties.get("origin", "")),
+		String(properties.get("targetname", "")),
+		String(properties.get("_tb_id", ""))
+	]
+
+func _parse_map_entity_dicts(source_map_file: String) -> Array:
+	var entity_dicts := []
+	var file := File.new()
+	if file.open(source_map_file, File.READ) != OK:
+		return entity_dicts
+
+	var depth := 0
+	var entity_index := -1
+	var current_properties := {}
+	var current_has_brushes := false
+
+	while not file.eof_reached():
+		var line := file.get_line().strip_edges()
+		if line == "" or line.begins_with("//"):
+			continue
+
+		if line == "{":
+			depth += 1
+			if depth == 1:
+				entity_index += 1
+				current_properties = {}
+				current_has_brushes = false
+			elif depth == 2:
+				current_has_brushes = true
+			continue
+
+		if line == "}":
+			if depth == 1:
+				entity_dicts.append({
+					"properties": current_properties.duplicate(),
+					"center": Vector3.ZERO,
+					"brush_indices": [],
+					"_map_entity_index": entity_index,
+					"_has_brushes": current_has_brushes
+				})
+				current_properties = {}
+				current_has_brushes = false
+			depth = max(depth - 1, 0)
+			continue
+
+		if depth == 1 and line.begins_with("\""):
+			var kv := _parse_map_key_value_line(line)
+			if kv.size() == 2:
+				current_properties[kv[0]] = kv[1]
+
+	file.close()
+	return entity_dicts
+
+func _parse_map_key_value_line(line: String) -> Array:
+	var values := []
+	var search_from := 0
+	while values.size() < 2:
+		var start := line.find("\"", search_from)
+		if start < 0:
+			return []
+		var end := line.find("\"", start + 1)
+		if end < 0:
+			return []
+		values.append(line.substr(start + 1, end - start - 1))
+		search_from = end + 1
+	return values
 
 func build_texture_size_dict() -> Dictionary:
 	var texture_size_dict := {}
@@ -598,7 +727,8 @@ func build_entity_nodes() -> Array:
 		var properties := entity_dict['properties'] as Dictionary
 
 		var node = QodotEntity.new()
-		var node_name = "entity_%s" % entity_idx
+		var map_entity_index := int(entity_dict.get("_map_entity_index", entity_idx))
+		var node_name = "entity_%s" % map_entity_index
 
 		var should_add_child = should_add_children
 
@@ -1203,20 +1333,22 @@ func apply_properties() -> void:
 
 		var entity_dict := entity_dicts[entity_idx] as Dictionary
 		var properties := entity_dict['properties'] as Dictionary
-		# Track raw rotation keys from the map before defaults/type conversion mutate the dictionary.
-		var source_property_keys := {}
-		for source_property in properties:
-			source_property_keys[source_property] = true
-		var source_has_angle := properties.has("angle")
-		var source_has_full_rotation := properties.has("angles") or properties.has("mangle")
-		var source_has_native_color := properties.has("_color")
-		var source_has_legacy_color := properties.has("light_color") or properties.has("beacon_color")
+		# Track raw keys from the source .map rather than synthesized native parser fields.
+		var source_property_keys: Dictionary = entity_dict.get("_source_property_keys", {})
+		if source_property_keys.empty():
+			for source_property in properties:
+				source_property_keys[source_property] = true
+		var source_has_angle := bool(entity_dict.get("_source_has_angle", properties.has("angle")))
+		var source_has_full_rotation := bool(entity_dict.get("_source_has_full_rotation", properties.has("angles") or properties.has("mangle")))
+		var source_has_native_color := bool(entity_dict.get("_source_has_native_color", properties.has("_color")))
+		var source_has_legacy_color := bool(entity_dict.get("_source_has_legacy_color", properties.has("light_color") or properties.has("beacon_color")))
 
 		var classname := ""
 		if 'classname' in properties:
 			classname = properties['classname']
 			if classname in entity_definitions:
 				var entity_definition := entity_definitions[classname] as QodotFGDClass
+				var use_scene_defaults: bool = entity_definition is QodotFGDPointClass and entity_definition.scene_file != null
 
 				for property in properties:
 					var prop_string = properties[property]
@@ -1251,6 +1383,8 @@ func apply_properties() -> void:
 				# Assign properties not defined with defaults from the entity definition
 				for property in entity_definitions[classname].class_properties:
 					if not property in properties:
+						if use_scene_defaults and property in entity_node:
+							continue
 						properties[property] = entity_definition.class_properties[property]
 
 		if 'properties' in entity_node:
@@ -1269,8 +1403,11 @@ func apply_properties() -> void:
 			if property == "angle":
 				if not source_has_angle or source_has_full_rotation:
 					continue
-				if "rotation_degrees" in entity_node:
-					entity_node.rotation_degrees.y = float(val)
+				if entity_node is Spatial:
+					var spatial_node := entity_node as Spatial
+					spatial_node.transform.basis = Basis(Vector3.UP, deg2rad(float(val)))
+				elif "rotation_degrees" in entity_node:
+					entity_node.rotation_degrees = Vector3(0.0, float(val), 0.0)
 				continue
 			# Map full TrenchBroom/Quake rotations when present.
 			# Source coordinates are Z-up, while Godot scene is Y-up with axis swizzle:
@@ -1294,11 +1431,32 @@ func apply_properties() -> void:
 			_apply_injected_property_recursive(entity_node, property, val)
 		# -----------------------------------------------
 
+func _coerce_bool_property(val) -> bool:
+	match typeof(val):
+		TYPE_BOOL:
+			return val
+		TYPE_INT, TYPE_REAL:
+			return val != 0
+		TYPE_STRING:
+			var text := String(val).strip_edges().to_lower()
+			if text == "" or text == "0" or text == "false" or text == "off" or text == "no":
+				return false
+			if text == "1" or text == "true" or text == "on" or text == "yes":
+				return true
+	return bool(val)
+
 func _apply_injected_property_recursive(node: Node, prop_name: String, val) -> void:
+	if prop_name == "is_interactable" and node.has_method("set_is_interactable"):
+		node.set_is_interactable(_coerce_bool_property(val))
+	elif prop_name == "enable_shadows" and node is Light:
+		node.shadow_enabled = _coerce_bool_property(val)
+	elif prop_name == "enable_shadows" and "shadow_enabled" in node:
+		node.shadow_enabled = _coerce_bool_property(val)
+	
 	if prop_name in node:
 		var current = node.get(prop_name)
-		if typeof(current) == TYPE_BOOL and typeof(val) == TYPE_INT:
-			node.set(prop_name, bool(val))
+		if typeof(current) == TYPE_BOOL:
+			node.set(prop_name, _coerce_bool_property(val))
 		else:
 			node.set(prop_name, val)
 	

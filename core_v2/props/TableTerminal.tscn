@@ -38,7 +38,7 @@ albedo_color = Color( 0, 0.890196, 1, 1 )
 material = SubResource( 9 )
 size = Vector2( 0.01, 0.05 )
 
-[sub_resource type="ViewportTexture" id=20]
+[sub_resource type="ViewportTexture" id=22]
 
 [sub_resource type="ShaderMaterial" id=7]
 shader = ExtResource( 4 )
@@ -49,7 +49,11 @@ shader_param/flip_h = false
 shader_param/flip_v = true
 shader_param/back_flip_h = false
 shader_param/back_flip_v = false
-shader_param/texture_albedo = SubResource( 20 )
+shader_param/aligned_flip_h = false
+shader_param/aligned_flip_v = true
+shader_param/flip_h_when_viewed_from_back = false
+shader_param/flip_v_when_viewed_from_back = true
+shader_param/texture_albedo = SubResource( 22 )
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 1.35, 0.95, 0.35 )
@@ -85,8 +89,8 @@ tracks/0/keys = {
 
 [node name="TableTerminal" type="KinematicBody"]
 transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 0 )
-collision_layer = 2
-collision_mask = 0
+collision_layer = 64
+collision_mask = 255
 script = ExtResource( 7 )
 interaction_text = "Toggle Terminal"
 anim_duration = 0.333333
@@ -102,6 +106,8 @@ shape = SubResource( 18 )
 [node name="BaseMesh" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, 0 )
 use_collision = true
+collision_layer = 64
+collision_mask = 255
 width = 1.0
 height = 0.05
 depth = 0.5
@@ -182,24 +188,29 @@ shape = SubResource( 21 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.626, 1.40493, -5.63946 )
 curve = SubResource( 14 )
 script = ExtResource( 11 )
+look_ahead = false
+follow_player_on_path = true
+player_offset = Vector3( 0, 0, 0 )
+follow_head_height = 2.0
+preserve_camera_local_offset = false
+fov = 33.0
 preview_position = 0.5
 
 [node name="PathFollow" type="PathFollow" parent="CinematicSetup/CinematicPathRig"]
-transform = Transform( 5.56355e-14, 1.49157e-07, 0.999992, 3.72999e-07, 1, -1.49156e-07, -0.999999, 3.73e-07, 0, 0.625122, 0.19433, 0.639461 )
-offset = 2.0
-rotation_mode = 4
+transform = Transform( -2.98427e-07, 0, 0.999992, 0, 1, 0, -0.999999, 0, -2.98425e-07, -1.374, 0.19433, 0.639461 )
+rotation_mode = 0
 loop = false
 
 [node name="Camera" type="Camera" parent="CinematicSetup/CinematicPathRig/PathFollow"]
 transform = Transform( -4.37114e-08, 0, 1.00001, 0, 1, 0, -1, 0, -4.37118e-08, -5.02681e-07, 0, 1.91667 )
 current = true
+fov = 33.0
 near = 0.1
 far = 1000.0
 
 [node name="LookAt" type="Spatial" parent="CinematicSetup/CinematicPathRig/PathFollow/Camera"]
-transform = Transform( 0.933801, 0.102395, -0.342826, -2.75671e-07, 0.958174, 0.286186, 0.357791, -0.26724, 0.894745, 0, 0, 0 )
+transform = Transform( 0.99986, -0.00507675, 0.0158744, 0, 0.952477, 0.30461, -0.0166664, -0.304567, 0.952345, 0, 0, 0 )
 script = ExtResource( 13 )
-look_at_target = NodePath("../../../../../ScreenContainer/ScreenMesh")
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="CinematicSetup/CinematicPathRig"]
 anims/dolly = SubResource( 15 )
@@ -210,6 +221,7 @@ script = ExtResource( 6 )
 transition_time = 0.3
 
 [node name="Camera" type="Camera" parent="CinematicSetup/FocusedRig"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.00327969, 0, -0.00788164 )
 
 [node name="SFX PowerUp" type="AudioStreamPlayer3D" parent="."]
 stream = ExtResource( 8 )

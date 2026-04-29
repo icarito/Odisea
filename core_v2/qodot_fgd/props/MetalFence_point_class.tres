@@ -11,14 +11,18 @@ description = "Path-based metallic fence."
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
+"enable_shadows": 0,
 "fence_color": Color( 0.35, 0.35, 0.35, 1 ),
 "height": 2.5,
+"is_interactable": 1,
 "panel_count": 8,
 "path_length": 8.0
 }
 class_property_descriptions = {
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
 "fence_color": "Color of the fence metal",
 "height": "Fence height in units",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only",
 "panel_count": "Number of fence panels",
 "path_length": "Total length of the fence path"
 }

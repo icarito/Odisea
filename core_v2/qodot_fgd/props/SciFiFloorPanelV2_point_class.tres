@@ -11,10 +11,14 @@ description = "Sci-Fi Floor Panel with glowing grid"
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
-"grid_color": Color( 0.1, 0.4, 0.8, 1 )
+"enable_shadows": 0,
+"grid_color": Color( 0.1, 0.4, 0.8, 1 ),
+"is_interactable": 1
 }
 class_property_descriptions = {
-"grid_color": "Color of the grid lines"
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
+"grid_color": "Color of the grid lines",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"
 }
 meta_properties = {
 "color": Color( 0.2, 0.5, 1, 1 ),

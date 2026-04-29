@@ -5,32 +5,38 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "prop_leak_emitter"
 description = "Smoke/steam leak emitter with timing controls."
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
-"is_active": 1,
-"timeout": 0.0,
+"duration": 1.0,
+"enable_shadows": 0,
+"fadeout_time": 5.0,
 "interval": 0.0,
 "interval_random": 0.0,
-"duration": 1.0,
-"fadeout_time": 5.0
+"is_active": 1,
+"is_interactable": 1,
+"timeout": 0.0
 }
 class_property_descriptions = {
-"is_active": "Set to 1 if emitter starts on",
-"timeout": "Initial delay before first emission",
+"duration": "Duration of each burst",
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
+"fadeout_time": "Seconds for smoke to fade out",
 "interval": "Seconds between bursts (0=continuous)",
 "interval_random": "Random variation added to interval",
-"duration": "Duration of each burst",
-"fadeout_time": "Seconds for smoke to fade out"
+"is_active": "Set to 1 if emitter starts on",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only",
+"timeout": "Initial delay before first emission"
 }
 meta_properties = {
 "color": Color( 0.7, 0.7, 0.7, 1 ),
 "size": AABB( -2, -2, -2, 2, 2, 2 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "LeakEmitter"
+scene_file = ExtResource( 2 )
 scripting = ""

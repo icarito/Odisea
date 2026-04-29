@@ -6,12 +6,12 @@ class_name FluorescentLight
 # Extends PropBaseV2 for compatibility with Logic Circuit System and interactions.
 
 export(Color) var light_color := Color(0.8, 0.9, 1.0) setget set_light_color
-export(float, 0.0, 10.0) var light_energy := 1.0 setget set_light_energy
-export(float, 0.0, 20.0) var light_range := 10.0 setget set_light_range
+export(float, 0.0, 10.0) var light_energy := 1.25 setget set_light_energy
+export(float, 0.0, 30.0) var light_range := 10.0 setget set_light_range
 export(bool) var flicker_enabled := false
 export(float, 0.1, 20.0) var flicker_speed := 10.0
 export(float, 0.0, 1.0) var flicker_intensity := 0.5
-export(float, 0.0, 10.0) var base_emission_energy := 1.8
+export(float, 0.0, 12.0) var base_emission_energy := 2.4
 
 var _omni_light: OmniLight = null
 var _spot_light: SpotLight = null # Optional support for spotlight too

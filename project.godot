@@ -189,10 +189,20 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/systems/circuit/CircuitGraphResource.gd"
 }, {
+"base": "Node",
+"class": "CircuitTerminalBridge",
+"language": "GDScript",
+"path": "res://core_v2/systems/circuit/CircuitTerminalBridge.gd"
+}, {
 "base": "Spatial",
 "class": "CircuitTestScene",
 "language": "GDScript",
 "path": "res://core_v2/props/CircuitTestScene.gd"
+}, {
+"base": "Control",
+"class": "CircuitUINode",
+"language": "GDScript",
+"path": "res://core_v2/systems/circuit/CircuitUINode.gd"
 }, {
 "base": "Reference",
 "class": "CmdArgumentParser",
@@ -1124,6 +1134,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/actors/PilotAnimatorV2.gd"
 }, {
+"base": "Node",
+"class": "PlayerUISettings",
+"language": "GDScript",
+"path": "res://core_v2/player/PlayerUISettings.gd"
+}, {
 "base": "Button",
 "class": "PluginButton",
 "language": "GDScript",
@@ -1454,6 +1469,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/systems/TeleportSystem.gd"
 }, {
+"base": "Spatial",
+"class": "TerminalCameraRig",
+"language": "GDScript",
+"path": "res://core_v2/components/TerminalCameraRig.gd"
+}, {
+"base": "Spatial",
+"class": "TerminalHUDBridge",
+"language": "GDScript",
+"path": "res://core_v2/components/TerminalHUDBridge.gd"
+}, {
 "base": "Control",
 "class": "TerminalUIV2",
 "language": "GDScript",
@@ -1641,7 +1666,9 @@ _global_script_class_icons={
 "CircuitCable": "",
 "CircuitExampleProp": "",
 "CircuitGraphResource": "",
+"CircuitTerminalBridge": "",
 "CircuitTestScene": "",
+"CircuitUINode": "",
 "CmdArgumentParser": "",
 "CmdCommand": "",
 "CmdCommandHandler": "",
@@ -1828,6 +1855,7 @@ _global_script_class_icons={
 "PhysicsBall": "",
 "PhysicsEntity": "",
 "PilotAnimatorV2": "",
+"PlayerUISettings": "",
 "PluginButton": "",
 "PressurePlateV2": "",
 "PropBaseV2": "",
@@ -1894,6 +1922,8 @@ _global_script_class_icons={
 "SpawnPointV2": "",
 "StringFuzzer": "",
 "TeleportSystem": "",
+"TerminalCameraRig": "",
+"TerminalHUDBridge": "",
 "TerminalUIV2": "",
 "TerraceSpiral": "",
 "TimeUnit": "",
@@ -1933,7 +1963,6 @@ run/main_scene="res://core_v2/bootstrap/Boot.tscn"
 boot_splash/image="res://assets/splash.png"
 boot_splash/use_filter=false
 config/icon="res://assets/odisea_icon.png"
-config/optional_nodes_enabled=true
 
 [audio]
 
@@ -1966,13 +1995,11 @@ debug/gdscript/warnings/exclude_addons=true
 
 [display]
 
-window/size/width=640
-window/size/height=360
 window/size/test_width=1280
 window/size/test_height=720
 window/dpi/allow_hidpi=true
 window/stretch/mode="viewport"
-window/stretch/aspect="keep_height"
+window/stretch/aspect="keep"
 
 [editor_plugins]
 
@@ -2192,11 +2219,12 @@ project/assembly_name="Odisea"
 
 [physics]
 
-3d/smooth_trimesh_collision=true
+common/physics_jitter_fix=0.0
 common/enable_pause_aware_picking=true
 
 [rendering]
 
+quality/filters/sharpen_intensity=0.301
 quality/driver/driver_name="GLES2"
 quality/driver/fallback_to_gles2=true
 quality/intended_usage/framebuffer_allocation.mobile=2
@@ -2204,14 +2232,13 @@ threads/thread_model=2
 vram_compression/import_bptc=true
 vram_compression/import_etc=true
 vram_compression/import_pvrtc=true
-quality/shadow_atlas/size=2048
-quality/depth_prepass/enable=false
-quality/spatial_partitioning/render_tree_balance=1.0
+quality/shading/force_vertex_shading.mobile=false
+quality/shading/force_lambert_over_burley=true
+quality/shading/use_physical_light_attenuation=true
 batching/options/single_rect_fallback=true
 batching/parameters/max_join_item_commands=32
 batching/parameters/batch_buffer_size=32768
 gles3/shaders/shader_compilation_mode=2
 environment/default_clear_color=Color( 0.137255, 0.219608, 0.282353, 1 )
-quality/filters/use_debanding=true
-quality/depth/hdr=false
+quality/filters/msaa=1
 environment/default_environment="res://default_env.tres"

@@ -3,7 +3,7 @@
 [resource]
 resource_name = "GuardrailTranslucent"
 flags_transparent = true
-flags_unshaded = false
 albedo_color = Color( 0.7, 0.72, 0.75, 0.35 )
-metallic = 0.6
-roughness = 0.25
+metallic = 0.62
+metallic_specular = 1.0
+roughness = 0.33

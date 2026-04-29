@@ -5,32 +5,38 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "light_volumetric"
 description = "Volumetric Glow Light with pulse"
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
-"glow_color": Color( 1.0, 0.5, 0.0, 1 ),
+"enable_shadows": 0,
+"glow_color": Color( 1, 0.5, 0, 1 ),
 "glow_intensity": 3.0,
-"pulse_speed": 1.0,
-"pulse_amount": 0.3,
+"is_interactable": 1,
+"light_energy": 2.0,
 "light_range": 4.0,
-"light_energy": 2.0
+"pulse_amount": 0.3,
+"pulse_speed": 1.0
 }
 class_property_descriptions = {
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
 "glow_color": "Color of the glow",
 "glow_intensity": "Glow brightness (0.1-10)",
-"pulse_speed": "Pulse animation speed (0-10)",
-"pulse_amount": "Amount of pulsing (0-1)",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only",
+"light_energy": "Light energy",
 "light_range": "Light reach distance",
-"light_energy": "Light energy"
+"pulse_amount": "Amount of pulsing (0-1)",
+"pulse_speed": "Pulse animation speed (0-10)"
 }
 meta_properties = {
-"color": Color( 1.0, 0.6, 0.2, 1 ),
+"color": Color( 1, 0.6, 0.2, 1 ),
 "size": AABB( -3, -3, -3, 3, 3, 3 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "VolumetricGlowLightV2"
+scene_file = ExtResource( 2 )
 scripting = ""

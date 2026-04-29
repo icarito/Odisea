@@ -31,40 +31,41 @@ size_flags_vertical = 3
 custom_constants/separation = 6
 
 [node name="Output" type="RichTextLabel" parent="VBox"]
-margin_right = 100.0
-margin_bottom = 58.0
+margin_right = 640.0
+margin_bottom = 293.0
+focus_mode = 2
 size_flags_vertical = 3
+custom_colors/default_color = Color( 0.733333, 1, 0.639216, 1 )
 bbcode_enabled = true
 scroll_following = true
 selection_enabled = true
-custom_colors/default_color = Color( 0.733333, 1, 0.639216, 1 )
 
 [node name="CommandRow" type="HBoxContainer" parent="VBox"]
-margin_top = 64.0
-margin_right = 100.0
-margin_bottom = 88.0
+margin_top = 299.0
+margin_right = 640.0
+margin_bottom = 328.0
 
 [node name="Prompt" type="Label" parent="VBox/CommandRow"]
-margin_top = 2.0
-margin_right = 20.0
-margin_bottom = 20.0
-text = ">_"
+margin_top = 1.0
+margin_right = 17.0
+margin_bottom = 27.0
 custom_colors/font_color = Color( 0.607843, 0.992157, 0.580392, 1 )
+text = ">_"
 
 [node name="CommandInput" type="LineEdit" parent="VBox/CommandRow"]
-margin_left = 24.0
-margin_right = 100.0
-margin_bottom = 24.0
+margin_left = 21.0
+margin_right = 640.0
+margin_bottom = 29.0
 size_flags_horizontal = 3
-custom_colors/font_color = Color( 0.858824, 1, 0.847059, 1 )
-custom_colors/font_color_selected = Color( 1, 1, 1, 1 )
 custom_colors/selection_color = Color( 0.180392, 0.317647, 0.219608, 1 )
-custom_styles/normal = SubResource( 1 )
+custom_colors/font_color_selected = Color( 1, 1, 1, 1 )
+custom_colors/font_color = Color( 0.858824, 1, 0.847059, 1 )
 custom_styles/focus = SubResource( 1 )
+custom_styles/normal = SubResource( 1 )
 
 [node name="Status" type="Label" parent="VBox"]
-margin_top = 94.0
-margin_right = 100.0
-margin_bottom = 112.0
-text = "READY"
+margin_top = 334.0
+margin_right = 640.0
+margin_bottom = 360.0
 custom_colors/font_color = Color( 0.607843, 0.992157, 0.580392, 1 )
+text = "READY"

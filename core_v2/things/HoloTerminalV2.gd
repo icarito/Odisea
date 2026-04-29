@@ -4,7 +4,10 @@ class_name HoloTerminalV2
 
 # HoloTerminalV2.gd - Interactive Holographic Screen
 # Inherits InteractableBaseV2 for replay determinism.
-# V2.2: Integrated local Cinematic Camera System
+# V2.3: Uses extracted TerminalCameraRig and TerminalHUDBridge components
+
+const TerminalCameraRigScript = preload("res://core_v2/components/TerminalCameraRig.gd")
+const TerminalHUDBridgeScript = preload("res://core_v2/components/TerminalHUDBridge.gd")
 
 const DebugOverlayScene = preload("res://core_v2/ui/retro/DebugOverlay.tscn")
 const OYSConsoleScript = preload("res://core_v2/ui/retro/OYS_Console.gd")
@@ -16,6 +19,13 @@ const MOBILE_WEB_HOLO_SCALE_MIN := 0.35
 const MOBILE_WEB_HOLO_SCALE_MAX := 1.0
 const MOBILE_WEB_HOLO_MAX_SIZE := Vector2(512, 384)
 const MOBILE_WEB_HOLO_MIN_SIZE := Vector2(320, 240)
+
+# --- Extracted Components (optional) ---
+export(bool) var use_extracted_camera_rig := false
+export(bool) var use_extracted_hud_bridge := false
+
+var _camera_rig_component: Node = null
+var _hud_bridge_component: Node = null
 
 # --- Terminal Configuration ---
 export(float) var slide_speed := 2.0
@@ -83,6 +93,8 @@ var _hud_transition_to_origin := Vector3.ZERO
 var _hud_transition_target_basis := Basis.IDENTITY
 var _hud_last_particle_dir := Vector3.ZERO
 var _focus_camera_request_id := -1
+var _resolved_cursor_sensitivity := 1.0
+var _resolved_viewport_scale := 1.0
 
 func _ready():
 	interaction_text = "Toggle Terminal"
@@ -132,9 +144,16 @@ func _ready():
 	_viewport_input = get_node_or_null("Viewport")
 	# Cache TerminalUI reference
 	_terminal_ui = get_node_or_null("Viewport/TerminalUI")
+	_apply_player_ui_settings()
 	if _terminal_ui and not _terminal_ui.is_connected("debug_button_pressed", self , "_on_terminal_debug_requested"):
 		_terminal_ui.connect("debug_button_pressed", self , "_on_terminal_debug_requested")
 	_bind_console_events()
+	
+	# Initialize extracted components if enabled
+	if use_extracted_camera_rig and TerminalCameraRigScript:
+		_initialize_camera_rig_component()
+	if use_extracted_hud_bridge and TerminalHUDBridgeScript:
+		_initialize_hud_bridge_component()
 
 
 func _setup_cinematic_camera() -> void:
@@ -353,11 +372,13 @@ func _apply_viewport_settings() -> void:
 	var viewport = get_node_or_null("Viewport")
 	if not viewport:
 		return
+	_resolved_viewport_scale = _get_player_holo_viewport_scale()
 	var target_size = _resolve_viewport_target_size(
 		OS.get_name(),
 		OS.has_touchscreen_ui_hint(),
 		OS.get_environment(MOBILE_WEB_SAFETY_ENV),
-		OS.get_environment(MOBILE_WEB_HOLO_SCALE_ENV)
+		OS.get_environment(MOBILE_WEB_HOLO_SCALE_ENV),
+		_resolved_viewport_scale
 	)
 	viewport.size = target_size
 	# Avoid duplicated events: viewport input is injected explicitly via HoloTerminalViewportInput.
@@ -367,16 +388,25 @@ func _resolve_viewport_target_size(
 	os_name: String,
 	has_touchscreen: bool,
 	mobile_web_override: String = "",
-	scale_override: String = ""
+	scale_override: String = "",
+	player_scale: float = 1.0
 ) -> Vector2:
 	var base_size = Vector2(max(MOBILE_WEB_HOLO_MIN_SIZE.x, screen_resolution.x), max(MOBILE_WEB_HOLO_MIN_SIZE.y, screen_resolution.y))
-	if not _should_reduce_viewport_for_mobile_web(os_name, has_touchscreen, mobile_web_override):
+	var effective_scale = clamp(player_scale, MOBILE_WEB_HOLO_SCALE_MIN, 1.0)
+	var mobile_web_reduce = _should_reduce_viewport_for_mobile_web(os_name, has_touchscreen, mobile_web_override)
+	if mobile_web_reduce:
+		effective_scale = min(effective_scale, _read_mobile_web_holo_scale(scale_override))
+	if is_equal_approx(effective_scale, 1.0):
 		return base_size
-	var scale = _read_mobile_web_holo_scale(scale_override)
 	var reduced = Vector2(
-		floor(base_size.x * scale),
-		floor(base_size.y * scale)
+		floor(base_size.x * effective_scale),
+		floor(base_size.y * effective_scale)
 	)
+	if not mobile_web_reduce:
+		return Vector2(
+			clamp(reduced.x, MOBILE_WEB_HOLO_MIN_SIZE.x, base_size.x),
+			clamp(reduced.y, MOBILE_WEB_HOLO_MIN_SIZE.y, base_size.y)
+		)
 	return Vector2(
 		clamp(reduced.x, MOBILE_WEB_HOLO_MIN_SIZE.x, min(base_size.x, MOBILE_WEB_HOLO_MAX_SIZE.x)),
 		clamp(reduced.y, MOBILE_WEB_HOLO_MIN_SIZE.y, min(base_size.y, MOBILE_WEB_HOLO_MAX_SIZE.y))
@@ -414,6 +444,7 @@ func _update_ui_mode() -> void:
 	"""Update TerminalUI cursor based on terminal state and player position."""
 	if Engine.editor_hint:
 		return
+	_apply_player_ui_settings()
 
 	if attach_to_active_camera:
 		var hud_interactive = is_active and enable_ui_interaction and (not hud_ui_bridge_requires_focus or _is_focused)
@@ -664,6 +695,35 @@ func _find_player() -> Node:
 	if players.size() > 0:
 		return players[0]
 	return null
+
+func _find_player_ui_settings() -> Node:
+	var player = _find_player()
+	if player == null:
+		return null
+	return player.get_node_or_null("Logic/UI")
+
+func _get_player_cursor_sensitivity() -> float:
+	var settings = _find_player_ui_settings()
+	if settings == null:
+		return 1.0
+	if settings.has_method("get_terminal_cursor_sensitivity"):
+		return max(0.1, float(settings.call("get_terminal_cursor_sensitivity")))
+	return 1.0
+
+func _get_player_holo_viewport_scale() -> float:
+	var settings = _find_player_ui_settings()
+	if settings == null:
+		return 1.0
+	if settings.has_method("get_holo_projector_resolution_scale"):
+		return clamp(float(settings.call("get_holo_projector_resolution_scale")), MOBILE_WEB_HOLO_SCALE_MIN, 1.0)
+	return 1.0
+
+func _apply_player_ui_settings() -> void:
+	_resolved_cursor_sensitivity = _get_player_cursor_sensitivity()
+	if _viewport_input:
+		_viewport_input.set("cursor_sensitivity", _resolved_cursor_sensitivity)
+	if _terminal_ui:
+		_terminal_ui.set("cursor_sensitivity", _resolved_cursor_sensitivity)
 
 func _request_focus_camera_rig(rig: Node) -> void:
 	_release_focus_camera_request()
@@ -1003,3 +1063,42 @@ func get_capture_nodes() -> Array:
 	if attach_to_active_camera and target and is_instance_valid(target) and target != self and target.get_parent() != self:
 		nodes.append(target)
 	return nodes
+
+
+func _initialize_camera_rig_component() -> void:
+	if _camera_rig_component:
+		return
+	_camera_rig_component = TerminalCameraRigScript.new()
+	_camera_rig_component.name = "TerminalCameraRig_Component"
+	_camera_rig_component.use_cinematic_zone = use_cinematic_zone
+	_camera_rig_component.close_on_exit_zone = close_on_exit_zone
+	_camera_rig_component.allow_focus_mode = allow_focus_mode
+	_camera_rig_component.cinematic_camera_behavior = cinematic_camera_behavior
+	add_child(_camera_rig_component)
+	_camera_rig_component.initialize(self)
+
+
+func _initialize_hud_bridge_component() -> void:
+	if _hud_bridge_component:
+		return
+	_hud_bridge_component = TerminalHUDBridgeScript.new()
+	_hud_bridge_component.name = "TerminalHUDBridge_Component"
+	_hud_bridge_component.attach_to_active_camera = attach_to_active_camera
+	_hud_bridge_component.hud_attach_as_child = hud_attach_as_child
+	_hud_bridge_component.hud_attach_transition_time = hud_attach_transition_time
+	_hud_bridge_component.hud_screen_x = hud_screen_x
+	_hud_bridge_component.hud_screen_y = hud_screen_y
+	_hud_bridge_component.hud_screen_depth = hud_screen_depth
+	_hud_bridge_component.hud_screen_scale = hud_screen_scale
+	_hud_bridge_component.hud_interaction_radius = hud_interaction_radius
+	_hud_bridge_component.hud_auto_close_out_of_range = hud_auto_close_out_of_range
+	add_child(_hud_bridge_component)
+	_hud_bridge_component.initialize(self)
+
+
+func get_camera_rig_component() -> Node:
+	return _camera_rig_component
+
+
+func get_hud_bridge_component() -> Node:
+	return _hud_bridge_component

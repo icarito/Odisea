@@ -3,6 +3,7 @@ extends CanvasLayer
 const RetroWindowScene = preload("res://core_v2/ui/retro/RetroWindow.tscn")
 const OYSShellScene = preload("res://core_v2/ui/retro/OYSShell.tscn")
 const OYSConsoleScript = preload("res://core_v2/ui/retro/OYS_Console.gd")
+const HeadingFont = preload("res://assets/fonts/Heading_Font.tres")
 
 export(Theme) var retro_theme
 export(DynamicFontData) var pixel_font_data
@@ -60,17 +61,9 @@ func _notification(what: int) -> void:
 func _apply_theme() -> void:
 	if not retro_theme:
 		return
-	if pixel_font_data:
-		var dynamic_font := DynamicFont.new()
-		dynamic_font.font_data = pixel_font_data
-		dynamic_font.size = pixel_font_size
-		dynamic_font.use_filter = false
-		dynamic_font.use_mipmaps = false
-		var themed = retro_theme.duplicate(true)
-		themed.default_font = dynamic_font
-		_desktop.theme = themed
-		return
 	_desktop.theme = retro_theme
+	if HeadingFont and _boot_logo:
+		_boot_logo.add_font_override("font", HeadingFont)
 
 func _seed_windows() -> void:
 	if _window_area.get_child_count() > 0:
@@ -185,6 +178,7 @@ func _focus_shell_command_input(window: RetroWindow) -> void:
 func _setup_system_menu() -> void:
 	_system_menu = PopupMenu.new()
 	_system_menu.name = "SystemMenu"
+	_system_menu.theme = _desktop.theme
 	_system_menu.add_item("New Terminal", 1)
 	_system_menu.add_item("Calculator", 4)
 	_system_menu.add_item("Node Scanner", 5)

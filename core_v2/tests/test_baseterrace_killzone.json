@@ -14,7 +14,7 @@
         ],
         "yaw": 0,
         "pitch": 0,
-        "base_spring_length_3d": 7,
+        "base_spring_length_3d": 5,
         "movement_state": {
           "horizontal_velocity": [
             0,
@@ -3172,14 +3172,14 @@
   },
   "meta": {
     "world_start_state": {
-      "/root/Terrace/Building/QodotMap/entity_10_light_flickering": {
+      "/root/Terrace/Building/QodotMap/entity_10_light_ceiling": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1
       },
-      "/root/Terrace/Building/QodotMap/entity_11_light_wall": {
+      "/root/Terrace/Building/QodotMap/entity_11_light_ceiling": {
         "active": true,
         "used": false,
         "auto_triggered": false,
@@ -3221,26 +3221,29 @@
         "progress": 1,
         "target": 1
       },
-      "/root/Terrace/Building/QodotMap/entity_17_light_ceiling": {
+      "/root/Terrace/Building/QodotMap/entity_17_light_hanging": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
-        "target": 1
+        "target": 1,
+        "hanging_time": 0
       },
-      "/root/Terrace/Building/QodotMap/entity_18_light_ceiling": {
+      "/root/Terrace/Building/QodotMap/entity_18_light_hanging": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
-        "target": 1
+        "target": 1,
+        "hanging_time": 0
       },
-      "/root/Terrace/Building/QodotMap/entity_19_light_wall": {
+      "/root/Terrace/Building/QodotMap/entity_19_light_hanging": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
-        "target": 1
+        "target": 1,
+        "hanging_time": 0
       },
       "/root/Terrace/Building/QodotMap/entity_1_light_ceiling": {
         "active": true,
@@ -3249,38 +3252,30 @@
         "progress": 1,
         "target": 1
       },
-      "/root/Terrace/Building/QodotMap/entity_20_light_ceiling": {
+      "/root/Terrace/Building/QodotMap/entity_20_light_emergency_beacon": {
+        "active": true,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 1,
+        "target": 1,
+        "beacon_time": 0
+      },
+      "/root/Terrace/Building/QodotMap/entity_21_light_emergency_beacon": {
+        "active": true,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 1,
+        "target": 1,
+        "beacon_time": 0
+      },
+      "/root/Terrace/Building/QodotMap/entity_22_light_wall": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1
       },
-      "/root/Terrace/Building/QodotMap/entity_21_light_hanging": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0,
-        "hanging_time": 0
-      },
-      "/root/Terrace/Building/QodotMap/entity_22_light_hanging": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0,
-        "hanging_time": 0
-      },
-      "/root/Terrace/Building/QodotMap/entity_23_light_hanging": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0,
-        "hanging_time": 0
-      },
-      "/root/Terrace/Building/QodotMap/entity_2_light_ceiling": {
+      "/root/Terrace/Building/QodotMap/entity_2_light_flickering": {
         "active": true,
         "used": false,
         "auto_triggered": false,
@@ -3315,21 +3310,21 @@
         "progress": 1,
         "target": 1
       },
-      "/root/Terrace/Building/QodotMap/entity_7_light_ceiling": {
+      "/root/Terrace/Building/QodotMap/entity_7_light_flickering": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1
       },
-      "/root/Terrace/Building/QodotMap/entity_8_light_flickering": {
+      "/root/Terrace/Building/QodotMap/entity_8_light_wall": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1
       },
-      "/root/Terrace/Building/QodotMap/entity_9_light_ceiling": {
+      "/root/Terrace/Building/QodotMap/entity_9_light_wall": {
         "active": true,
         "used": false,
         "auto_triggered": false,
@@ -3948,6 +3943,21 @@
           -179.999985
         ]
       },
+      "/root/Terrace/TableTerminal": {
+        "active": true,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 1,
+        "target": 1
+      },
+      "/root/Terrace/TableTerminal/CinematicSetup/CinematicPathRig": {
+        "is_active": false,
+        "target_offset": 0,
+        "last_deactivate_time": 0,
+        "unit_offset": 0,
+        "current_animation": "",
+        "playback_position": 0
+      },
       "/root/Terrace/WallTerminal": {
         "active": true,
         "used": false,
@@ -4009,12 +4019,12 @@
     ],
     "velocity": [
       0,
-      -11.9,
+      -10.966666,
       0
     ],
     "yaw": 0,
     "pitch": 0,
-    "base_spring_length_3d": 7,
+    "base_spring_length_3d": 5,
     "movement_state": {
       "horizontal_velocity": [
         0,
@@ -4026,7 +4036,7 @@
         0,
         0
       ],
-      "camera_input_timer": 0.85,
+      "camera_input_timer": 0.816667,
       "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false

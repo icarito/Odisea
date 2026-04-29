@@ -1,6 +1,8 @@
 extends PanelContainer
 class_name RetroWindow
 
+const TitleFontData = preload("res://assets/fonts/SixtyFour-Regular-FontData.tres")
+
 signal window_focused(window)
 signal close_requested(window)
 signal window_clicked(window, event)
@@ -25,13 +27,12 @@ func _ready() -> void:
 	# Apply holo window background
 	var win_style = StyleBoxFlat.new()
 	win_style.bg_color = Color(0.04, 0.08, 0.05, 0.88)
+	win_style.anti_aliasing = false
 	win_style.border_width_left = 1
 	win_style.border_width_top = 1
 	win_style.border_width_right = 1
 	win_style.border_width_bottom = 1
 	win_style.border_color = Color(0.34, 0.46, 0.36, 0.8)
-	win_style.shadow_size = 6
-	win_style.shadow_color = Color(0.38, 0.62, 0.36, 0.12)
 	add_stylebox_override("panel", win_style)
 	
 	if _title_bar:
@@ -48,8 +49,17 @@ func _ready() -> void:
 		_title_label.valign = Label.VALIGN_CENTER
 		_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_title_label.add_font_override("font", _build_title_font())
 	set_window_title(window_title)
 	set_focused(false)
+
+func _build_title_font() -> DynamicFont:
+	var font := DynamicFont.new()
+	font.font_data = TitleFontData
+	font.size = 12
+	font.use_filter = false
+	font.use_mipmaps = false
+	return font
 
 func set_window_title(value: String) -> void:
 	window_title = value
@@ -132,15 +142,13 @@ func _is_click_on_title_button(global_pos: Vector2) -> bool:
 func _build_title_style(active: bool) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	# Holo-green if active, semi-transparent dark if not
+	s.anti_aliasing = false
 	s.bg_color = Color(0.08, 0.22, 0.12, 0.8) if active else Color(0.04, 0.04, 0.04, 0.6)
 	s.border_width_left = 1
 	s.border_width_top = 1
 	s.border_width_right = 1
 	s.border_width_bottom = 1
 	s.border_color = Color("9bfa94") if active else Color(0.34, 0.46, 0.36, 0.4)
-	if active:
-		s.shadow_size = 4
-		s.shadow_color = Color(0.61, 0.98, 0.58, 0.3) # Holo green glow
 	s.expand_margin_top = 1
 	s.expand_margin_bottom = 1
 	return s

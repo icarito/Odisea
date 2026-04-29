@@ -5,6 +5,8 @@ const DEFAULT_SCENE := "res://core_v2/ui/retro/DebugOverlay.tscn"
 var _scene_path := DEFAULT_SCENE
 var _output_dir := "res://test_output/ui"
 var _prefix := "debugoverlay"
+var _late_delay := 0.0
+var _late_label := "3_late"
 
 func _init() -> void:
 	_parse_args()
@@ -17,6 +19,10 @@ func _parse_args() -> void:
 			_scene_path = arg.substr("--scene=".length(), arg.length())
 		elif arg.begins_with("--out="):
 			_output_dir = arg.substr("--out=".length(), arg.length())
+		elif arg.begins_with("--late-delay="):
+			_late_delay = max(0.0, arg.substr("--late-delay=".length(), arg.length()).to_float())
+		elif arg.begins_with("--late-label="):
+			_late_label = arg.substr("--late-label=".length(), arg.length())
 
 	if _scene_path.strip_edges() == "":
 		_scene_path = OS.get_environment("OYS_UI_SCENE")
@@ -57,6 +63,11 @@ func _run() -> void:
 	yield(self, "idle_frame")
 	yield(VisualServer, "frame_post_draw")
 	_capture("2_terminal")
+
+	if _late_delay > 0.0:
+		yield(create_timer(_late_delay), "timeout")
+		yield(VisualServer, "frame_post_draw")
+		_capture(_late_label)
 
 	quit(0)
 

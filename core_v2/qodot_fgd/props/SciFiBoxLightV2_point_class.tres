@@ -11,11 +11,15 @@ description = "Sci-Fi Box Light"
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
+"enable_shadows": 0,
+"is_interactable": 1,
 "light_color": Color( 1, 0.54, 0.18, 1 ),
 "light_energy_max": 2.0,
 "light_range": 5.0
 }
 class_property_descriptions = {
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only",
 "light_color": "Color of the light",
 "light_energy_max": "Maximum light energy (0-8)",
 "light_range": "Light reach distance (0.5-10)"

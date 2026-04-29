@@ -108,9 +108,33 @@ func _scan_node(node: Node) -> void:
 func _process_collision_object(co: CollisionObject) -> void:
 	if not is_instance_valid(co):
 		return
-	# The prop root is typically the parent of the CollisionObject
-	var prop_root: Node = co.get_parent() if co.get_parent() else co
+	var prop_root: Node = _get_occlusion_root_for_collision_object(co)
 	_convert_meshes_recursive(prop_root)
+
+
+func _get_occlusion_root_for_collision_object(co: CollisionObject) -> Node:
+	if _has_mesh_descendant(co):
+		return co
+
+	var parent := co.get_parent()
+	if parent == null:
+		return co
+
+	# Qodot func_group StaticBodies can live directly under the map root. Using
+	# their parent would convert the whole level mesh and visibly dither floors.
+	if parent.get_class() == "QodotSpatial":
+		return co
+
+	return parent
+
+
+func _has_mesh_descendant(node: Node) -> bool:
+	for child in node.get_children():
+		if child is MeshInstance:
+			return true
+		if _has_mesh_descendant(child):
+			return true
+	return false
 
 
 func _convert_meshes_recursive(node: Node) -> void:

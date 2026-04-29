@@ -2,26 +2,30 @@
 
 importer="texture"
 type="StreamTexture"
-path="res://.import/texture_03.png-149ef08e5746eb9556765af42e8468ca.stex"
+path.s3tc="res://.import/texture_03.png-149ef08e5746eb9556765af42e8468ca.s3tc.stex"
+path.etc2="res://.import/texture_03.png-149ef08e5746eb9556765af42e8468ca.etc2.stex"
+path.etc="res://.import/texture_03.png-149ef08e5746eb9556765af42e8468ca.etc.stex"
+path.pvrtc="res://.import/texture_03.png-149ef08e5746eb9556765af42e8468ca.pvrtc.stex"
 metadata={
-"vram_texture": false
+"imported_formats": [ "bptc", "s3tc", "etc2", "etc", "pvrtc" ],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/kenney_prototype_textures/purple/texture_03.png"
-dest_files=[ "res://.import/texture_03.png-149ef08e5746eb9556765af42e8468ca.stex" ]
+dest_files=[ "res://.import/texture_03.png-149ef08e5746eb9556765af42e8468ca.s3tc.stex", "res://.import/texture_03.png-149ef08e5746eb9556765af42e8468ca.etc2.stex", "res://.import/texture_03.png-149ef08e5746eb9556765af42e8468ca.etc.stex", "res://.import/texture_03.png-149ef08e5746eb9556765af42e8468ca.pvrtc.stex" ]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/lossy_quality=0.7
 compress/hdr_mode=0
 compress/bptc_ldr=0
 compress/normal_map=0
-flags/repeat=0
+flags/repeat=true
 flags/filter=true
-flags/mipmaps=false
+flags/mipmaps=true
 flags/anisotropic=false
 flags/srgb=2
 process/fix_alpha_border=true
@@ -31,5 +35,5 @@ process/invert_color=false
 process/normal_map_invert_y=false
 stream=false
 size_limit=0
-detect_3d=true
+detect_3d=false
 svg/scale=1.0

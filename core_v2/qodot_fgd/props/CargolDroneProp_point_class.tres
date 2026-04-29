@@ -5,24 +5,30 @@
 
 [resource]
 script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
 classname = "prop_cargol_drone"
 description = "Cargol Drone that follows the player when activated."
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
+"enable_shadows": 0,
 "follow_distance": 3.0,
-"hover_height": 3.0
+"hover_height": 3.0,
+"is_interactable": 1
 }
 class_property_descriptions = {
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
 "follow_distance": "Distance the drone maintains from player",
-"hover_height": "Height at which the drone hovers"
+"hover_height": "Height at which the drone hovers",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"
 }
 meta_properties = {
 "color": Color( 0.4, 0.8, 0.4, 1 ),
 "size": AABB( -4, -4, -4, 4, 4, 4 )
 }
+node_options = "----------------------------------------------------------------"
 node_class = ""
 transient_node = false
-scene_file = ExtResource( 2 )
 scene = "CargolDroneProp"
+scene_file = ExtResource( 2 )
 scripting = ""

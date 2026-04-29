@@ -91,14 +91,14 @@ custom_constants/margin_bottom = 18
 margin_left = 18.0
 margin_top = 18.0
 margin_right = 622.0
-margin_bottom = 462.0
+margin_bottom = 342.0
 size_flags_horizontal = 3
 size_flags_vertical = 3
 custom_constants/separation = 10
 
 [node name="BootText" type="RichTextLabel" parent="Desktop/BootScreen/BootMargin/BootVBox"]
 margin_right = 604.0
-margin_bottom = 444.0
+margin_bottom = 324.0
 size_flags_vertical = 3
 custom_colors/default_color = Color( 1, 1, 1, 1 )
 bbcode_enabled = true
@@ -106,9 +106,9 @@ scroll_following = true
 
 [node name="OdiseaLogo" type="Label" parent="Desktop/BootScreen/BootMargin/BootVBox"]
 visible = false
-margin_top = 497.0
-margin_right = 988.0
-margin_bottom = 531.0
+margin_top = 289.0
+margin_right = 604.0
+margin_bottom = 324.0
 custom_colors/font_color = Color( 1, 1, 1, 1 )
 text = "ODISEA OS"
 align = 1

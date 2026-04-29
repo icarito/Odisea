@@ -11,12 +11,16 @@ description = "Hazard warning tape following a path."
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
+"enable_shadows": 0,
+"is_interactable": 1,
 "panel_count": 6,
 "panel_height": 1.5,
 "path_height": 0.0,
 "path_length": 5.0
 }
 class_property_descriptions = {
+"enable_shadows": "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting",
+"is_interactable": "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only",
 "panel_count": "Number of tape panels (2-20)",
 "panel_height": "Height of each tape panel (0.3-3)",
 "path_height": "Height offset of the tape path",
