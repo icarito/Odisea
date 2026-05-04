@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=2]
+[gd_scene load_steps=25 format=2]
 
 [ext_resource path="res://core_v2/player/PlayerControllerV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/actors/PilotAnimatorV2.gd" type="Script" id=3]
@@ -117,8 +117,6 @@ ladder_auto_enter_lateral_limit = 0.8
 
 [node name="UI" type="Node" parent="Logic"]
 script = ExtResource( 62 )
-terminal_cursor_sensitivity = 1.8
-holo_projector_resolution_scale = 0.75
 
 [node name="Visual" type="Spatial" parent="."]
 
@@ -231,6 +229,7 @@ spring_length = 5.0
 transform = Transform( 1, -3.90799e-14, 8.52651e-14, 0, 1, 1.49012e-08, -1.42109e-14, -1.49012e-08, 1, 0, 0, 0 )
 current = true
 fov = 75.0
+near = 0.01
 far = 10000.0
 
 [node name="SpaceDust" type="CPUParticles" parent="CameraRig/Yaw/Pitch/SpringArm/Camera"]

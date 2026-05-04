@@ -1,0 +1,25 @@
+[remap]
+
+importer="texture_array"
+type="TextureArray"
+path="res://.import/BaseTerrace.exr-4d52a38a569c905f9d74ca31ddfb2fb0.texarr"
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+source_file="res://core_v2/levels/BaseTerrace.exr"
+dest_files=[ "res://.import/BaseTerrace.exr-4d52a38a569c905f9d74ca31ddfb2fb0.texarr" ]
+
+[params]
+
+compress/mode=0
+compress/no_bptc_if_rgb=false
+flags/repeat=false
+flags/filter=true
+flags/mipmaps=false
+flags/anisotropic=false
+flags/srgb=false
+slices/horizontal=1
+slices/vertical=1
