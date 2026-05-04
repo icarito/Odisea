@@ -49,6 +49,10 @@ shader_param/flip_h = false
 shader_param/flip_v = true
 shader_param/back_flip_h = false
 shader_param/back_flip_v = false
+shader_param/aligned_flip_h = false
+shader_param/aligned_flip_v = true
+shader_param/flip_h_when_viewed_from_back = false
+shader_param/flip_v_when_viewed_from_back = true
 shader_param/texture_albedo = SubResource( 22 )
 
 [sub_resource type="BoxShape" id=1]
@@ -204,7 +208,8 @@ script = ExtResource( 6 )
 transition_time = 0.3
 
 [node name="Camera" type="Camera" parent="CinematicSetup/FocusedRig"]
-fov = 42.0
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.45 )
+fov = 46.7
 
 [node name="SFX PowerUp" type="AudioStreamPlayer3D" parent="."]
 stream = ExtResource( 8 )
