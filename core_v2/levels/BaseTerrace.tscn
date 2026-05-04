@@ -264,7 +264,7 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0.843137, 0.054902, 0.054902, 0.580392 )
 
-[sub_resource type="BoxShape" id=3125]
+[sub_resource type="BoxShape" id=3168]
 extents = Vector3( 104, 1, 141.5 )
 
 [sub_resource type="SpatialMaterial" id=3011]
@@ -272,7 +272,7 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0, 1, 0, 0.0901961 )
 
-[sub_resource type="BoxShape" id=3126]
+[sub_resource type="BoxShape" id=3169]
 resource_local_to_scene = true
 extents = Vector3( 88.5928, 15, 199.103 )
 
@@ -321,7 +321,7 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0.827451, 0.247059, 0.0431373, 0.3 )
 
-[sub_resource type="BoxShape" id=3127]
+[sub_resource type="BoxShape" id=3170]
 extents = Vector3( 1, 0.5, 1 )
 
 [sub_resource type="SpatialMaterial" id=2882]
@@ -678,7 +678,7 @@ cast_shadow = 0
 
 [node name="CollisionShape" type="CollisionShape" parent="KillZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0 )
-shape = SubResource( 3125 )
+shape = SubResource( 3168 )
 
 [node name="BGMZoneV2" type="Area" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 0.6, -22, 2, 8.46188 )
@@ -697,7 +697,7 @@ cast_shadow = 0
 
 [node name="CollisionShape2" type="CollisionShape" parent="BGMZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 27.1999, 13.8186, -47.3105 )
-shape = SubResource( 3126 )
+shape = SubResource( 3169 )
 
 [node name="CrioPod START" parent="." instance=ExtResource( 10 )]
 transform = Transform( -1.5, 0, -2.14589e-07, 0, 1.5, 0, 2.14589e-07, 0, -1.5, 17.0368, 2.04103, 33.2445 )
@@ -786,7 +786,7 @@ material_override = SubResource( 3024 )
 cast_shadow = 0
 
 [node name="CollisionShape" type="CollisionShape" parent="CrioPod START/CinematicSequence"]
-shape = SubResource( 3127 )
+shape = SubResource( 3170 )
 
 [node name="ShaderWarmupTrigger" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 17.0368, 2.2, 33.2 )
