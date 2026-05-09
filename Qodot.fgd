@@ -133,7 +133,7 @@
 	starts_active(integer) : "Set to 1 if the door starts open"  : 0
 ]
 
-@PointClass color(204 153 51) size(-8 -8 -8, 8 8 8) = prop_door_floor_hatch : "Floor Hatch" [
+@PointClass color(204 153 51) size(-32 -32 -2, 32 32 2) = prop_door_floor_hatch : "Floor Hatch" [
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	starts_active(integer) : "Set to 1 if the hatch starts open"  : 0
@@ -269,7 +269,7 @@
 	light_energy(float) : "Light energy"  : "2"
 ]
 
-@PointClass color(255 102 26) size(-3 -3 0, 3 3 7) = light_emergency_beacon : "Emergency Beacon with rotating light" [
+@PointClass color(255 102 26) size(-4 0 -4, 4 8 4) = light_emergency_beacon : "Emergency Beacon with rotating light" [
 	angle(angle) : "Yaw rotation in degrees"  : "0"
 	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
 	auto_interact(integer) : "Set to 1 for automatic player activation, 0 for manual/no interaction"  : 0
@@ -374,25 +374,25 @@
 	path_length(float) : "Total length of hazard tape (0.5-20)"  : "5"
 ]
 
-@PointClass color(38 217 255) size(-3 0 -0.8, 6 4 1.6) = prop_door_scifi_double_sideways : "Sci-Fi Double Sideways Door" [
+@PointClass color(38 217 255) size(-10 -37 0, 10 37 61) = prop_door_scifi_double_sideways : "Sci-Fi Double Sideways Door" [
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	starts_active(integer) : "Set to 1 if the door starts open"  : 0
 ]
 
-@PointClass color(38 191 255) size(-3 0 -0.8, 6 4 1.6) = prop_door_scifi_vertical : "Sci-Fi Vertical Door" [
+@PointClass color(38 191 255) size(-10 -37 0, 10 37 61) = prop_door_scifi_vertical : "Sci-Fi Vertical Door" [
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	starts_active(integer) : "Set to 1 if the door starts open"  : 0
 ]
 
-@PointClass color(38 229 242) size(-3 0 -0.8, 6 4 1.6) = prop_door_scifi_double_vertical : "Sci-Fi Double Vertical Door" [
+@PointClass color(38 229 242) size(-10 -37 0, 10 37 61) = prop_door_scifi_double_vertical : "Sci-Fi Double Vertical Door" [
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	starts_active(integer) : "Set to 1 if the door starts open"  : 0
 ]
 
-@PointClass color(255 229 153) size(-0.6 0 -0.8, 1.2 1.4 1.6) = light_work : "Sci-Fi Work Light" [
+@PointClass color(255 229 153) size(-6 -6 0, 6 6 18) = light_work : "Sci-Fi Work Light" [
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	light_color(color255) : "Color of the reflector"  : "255 229 178"
@@ -402,7 +402,7 @@
 	starts_active(integer) : "Set to 1 if the light starts on"  : 1
 ]
 
-@PointClass color(255 242 178) size(-0.8 0 -0.8, 1.6 2.4 1.6) = light_work_tripod : "Sci-Fi Tripod Flood Light" [
+@PointClass color(255 242 178) size(-13 -13 0, 13 13 38) = light_work_tripod : "Sci-Fi Tripod Flood Light" [
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 0
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 1
 	light_color(color255) : "Color of the flood light"  : "255 242 204"
@@ -412,7 +412,7 @@
 	starts_active(integer) : "Set to 1 if the light starts on"  : 1
 ]
 
-@PointClass color(51 178 255) size(-0.4 -0.5 -0.2, 0.8 1 0.8) = light_wall_sconce : "Sci-Fi Wall Sconce" [
+@PointClass color(51 178 255) size(-2 -4 -8, 8 4 8) = light_wall_sconce : "Sci-Fi Wall Sconce" [
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	light_color(color255) : "Color of the sconce"  : "51 153 255"
@@ -422,7 +422,7 @@
 	starts_active(integer) : "Set to 1 if the light starts on"  : 1
 ]
 
-@PointClass color(26 217 255) size(-0.35 0 -0.35, 0.7 0.2 0.7) = light_path_marker : "Sci-Fi Floor Path Marker" [
+@PointClass color(26 217 255) size(-4 -4 0, 4 4 2) = light_path_marker : "Sci-Fi Floor Path Marker" [
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	light_energy_max(float) : "Maximum light energy (0-5)"  : "1.5"
@@ -432,7 +432,7 @@
 	starts_active(integer) : "Set to 1 if the light starts on"  : 1
 ]
 
-@PointClass color(255 204 51) size(-0.4 0 -0.4, 0.8 0.2 0.8) = light_path_arrow : "Sci-Fi Arrow Path Marker" [
+@PointClass color(255 204 51) size(-5 -5 0, 5 5 3) = light_path_arrow : "Sci-Fi Arrow Path Marker" [
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	light_energy_max(float) : "Maximum light energy (0-5)"  : "1.5"
@@ -442,7 +442,7 @@
 	starts_active(integer) : "Set to 1 if the light starts on"  : 1
 ]
 
-@PointClass color(255 229 166) size(-0.2 0 -0.18, 0.4 0.12 0.36) = light_recessed_floor : "Sci-Fi Recessed Floor Light" [
+@PointClass color(255 229 166) size(-3 -3 0, 3 3 2) = light_recessed_floor : "Sci-Fi Recessed Floor Light" [
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	light_color(color255) : "Color of the recessed floor light"  : "255 242 204"
@@ -451,7 +451,7 @@
 	starts_active(integer) : "Set to 1 if the light starts on"  : 1
 ]
 
-@PointClass color(204 229 255) size(-0.24 -0.02 -0.08, 0.48 0.3 0.16) = light_recessed_wall : "Sci-Fi Recessed Wall Light" [
+@PointClass color(204 229 255) size(-2 -4 -3, 2 4 3) = light_recessed_wall : "Sci-Fi Recessed Wall Light" [
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 1
 	light_color(color255) : "Color of the recessed wall light"  : "255 255 255"

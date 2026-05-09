@@ -45,6 +45,7 @@ head_tilt = -42.0
 bulb_emission_energy = 8.0
 
 [node name="Tripod" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.297321, 0 )
 
 [node name="Hub" type="CSGCylinder" parent="Tripod"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0 )
@@ -101,18 +102,18 @@ depth = 0.12
 material = SubResource( 1 )
 
 [node name="StemLower" type="CSGCylinder" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.852679, 0 )
 radius = 0.06
 material = SubResource( 1 )
 
 [node name="StemUpper" type="CSGCylinder" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.85, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.552679, 0 )
 radius = 0.04
 height = 0.8
 material = SubResource( 1 )
 
 [node name="Head" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 0.743145, 0.669131, 0, -0.669131, 0.743145, 0, 2.25, 0 )
+transform = Transform( 1, 0, 0, 0, 0.743145, 0.669131, 0, -0.669131, 0.743145, 0, 1.952679, 0 )
 
 [node name="MeshInstance" type="CSGBox" parent="Head"]
 width = 0.65

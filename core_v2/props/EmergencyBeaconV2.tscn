@@ -27,7 +27,7 @@ flags_transparent = true
 albedo_color = Color( 0.1, 0.05, 0.02, 0.7 )
 emission_enabled = true
 emission = Color( 1, 0.0705882, 0, 1 )
-emission_energy = 0.951388
+emission_energy = 2.85935
 emission_operator = 0
 emission_on_uv2 = false
 
@@ -41,7 +41,7 @@ radial_segments = 12
 resource_local_to_scene = true
 emission_enabled = true
 emission = Color( 1, 0.0705882, 0, 1 )
-emission_energy = 1.58565
+emission_energy = 4.76558
 emission_operator = 0
 emission_on_uv2 = false
 
@@ -64,17 +64,17 @@ light_color = Color( 1, 0.0705882, 0, 1 )
 beacon_color = Color( 1, 0.0705882, 0, 1 )
 
 [node name="BaseMesh" type="MeshInstance" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.115, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 material_override = SubResource( 2 )
 mesh = SubResource( 1 )
 
 [node name="BaseRing" type="MeshInstance" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.015, 0 )
 material_override = SubResource( 2 )
 mesh = SubResource( 8 )
 
 [node name="DomeMesh" type="MeshInstance" parent="."]
-transform = Transform( -0.951055, 0, -0.30902, 0, 1, 0, 0.30902, 0, -0.951055, 0, 0.295, 0 )
+transform = Transform( 4.1434e-05, 0, -0.999999, 0, 1, 0, 0.999999, 0, 4.1434e-05, 0, 0.295, 0 )
 material_override = SubResource( 4 )
 mesh = SubResource( 3 )
 
@@ -87,13 +87,13 @@ mesh = SubResource( 5 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.495, 0 )
 layers = 65
 light_color = Color( 1, 0.0705882, 0, 1 )
-light_energy = 0.951388
+light_energy = 2.85935
 shadow_enabled = true
 omni_range = 6.0
 omni_attenuation = 1.5
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.215, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0 )
 shape = SubResource( 7 )
 
 [node name="SFX Alarm" type="AudioStreamPlayer3D" parent="."]
