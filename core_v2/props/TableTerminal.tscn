@@ -38,7 +38,7 @@ albedo_color = Color( 0, 0.890196, 1, 1 )
 material = SubResource( 9 )
 size = Vector2( 0.01, 0.05 )
 
-[sub_resource type="ViewportTexture" id=22]
+[sub_resource type="ViewportTexture" id=20]
 
 [sub_resource type="ShaderMaterial" id=7]
 shader = ExtResource( 4 )
@@ -53,7 +53,7 @@ shader_param/aligned_flip_h = false
 shader_param/aligned_flip_v = true
 shader_param/flip_h_when_viewed_from_back = false
 shader_param/flip_v_when_viewed_from_back = true
-shader_param/texture_albedo = SubResource( 22 )
+shader_param/texture_albedo = SubResource( 20 )
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 1.35, 0.95, 0.35 )
@@ -94,6 +94,8 @@ collision_mask = 255
 script = ExtResource( 7 )
 interaction_text = "Toggle Terminal"
 anim_duration = 0.333333
+is_focusable = true
+focus_text = "Focus Terminal"
 slide_speed = 3.0
 slide_height = 0.0
 use_cinematic_zone = false

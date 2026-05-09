@@ -14,6 +14,15 @@ func show_subtitle(text: String, color: Color = Color.white, duration: float = 2
 	if _overlay and _overlay.has_method("show_subtitle"):
 		_overlay.show_subtitle(text, color, duration)
 
+func show_hint(text: String, color: Color = Color(0.85, 1.0, 0.95), duration: float = 1.75) -> void:
+	if not _ensure_overlay():
+		_warn_unavailable_once("show_hint")
+		return
+	if _overlay and _overlay.has_method("show_hint"):
+		_overlay.show_hint(text, color, duration)
+	elif _overlay and _overlay.has_method("show_subtitle"):
+		_overlay.show_subtitle(text, color, duration)
+
 func clear_subtitles(immediate: bool = false) -> void:
 	if not _ensure_overlay():
 		_warn_unavailable_once("clear_subtitles")

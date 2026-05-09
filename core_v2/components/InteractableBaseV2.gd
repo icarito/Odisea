@@ -12,6 +12,8 @@ export(bool) var starts_active := false setget set_starts_active # Initial logic
 export(bool) var auto_interact := false # If true, automatically triggers when player is in range
 export(bool) var one_off := false # If true, can only be used once (manually or automatically)
 export(bool) var is_interactable := true setget set_is_interactable # If false, ignore player interaction
+export(bool) var is_focusable := false setget set_is_focusable # If true, player can target this for focus-only actions
+export(String) var focus_text := "Focus"
 export(bool) var manual_toggle := true # If false, emit signal but don't toggle state automatically
 export(bool) var debug := false
 
@@ -31,6 +33,15 @@ func set_is_interactable(v: bool) -> void:
 	else:
 		if is_in_group("interactable"):
 			remove_from_group("interactable")
+
+func set_is_focusable(v: bool) -> void:
+	is_focusable = v
+	if is_focusable:
+		if not is_in_group("focusable"):
+			add_to_group("focusable")
+	else:
+		if is_in_group("focusable"):
+			remove_from_group("focusable")
 
 # --- STATE VARIABLES ---
 # These are snapshotted for replay determinism
@@ -59,10 +70,12 @@ signal interaction_completed()
 
 func _init():
 	set_is_interactable(is_interactable)
+	set_is_focusable(is_focusable)
 	add_to_group("replay_sync")
 
 func _ready():
 	set_is_interactable(is_interactable)
+	set_is_focusable(is_focusable)
 	# Initial state setup
 	is_active = starts_active
 	anim_progress = 1.0 if is_active else 0.0

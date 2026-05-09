@@ -98,11 +98,15 @@ var _resolved_viewport_scale := 1.0
 
 func _ready():
 	interaction_text = "Toggle Terminal"
+	set("focus_text", "Focus Terminal")
+	set_is_interactable(is_interactable)
+	set_is_focusable(allow_focus_mode)
 
 	if attach_to_active_camera:
 		# HUD mode bypasses cinematic focus transitions entirely.
 		use_cinematic_zone = false
 		allow_focus_mode = false
+		set_is_focusable(false)
 
 	# Configure base class speed
 	if slide_speed > 0:
@@ -266,6 +270,32 @@ func interact() -> void:
 		if not attach_to_active_camera and not use_cinematic_zone and allow_focus_mode:
 			_enter_focus_mode()
 
+func can_focus() -> bool:
+	return allow_focus_mode and enable_ui_interaction
+
+func focus() -> void:
+	if not can_focus():
+		return
+	if not is_active:
+		set_active(true)
+	if attach_to_active_camera:
+		_enter_focus_mode()
+		return
+	if not _is_focused:
+		_enter_focus_mode()
+
+func get_interaction_prompt() -> String:
+	var parts := PoolStringArray()
+	if is_interactable:
+		parts.append("[F] %s" % [interaction_text if interaction_text.strip_edges() != "" else "Toggle Terminal"])
+	if can_focus():
+		if _is_focused:
+			parts.append("[ESC] Exit Terminal")
+		else:
+			var prompt_focus_text = get("focus_text")
+			parts.append("[Z] %s" % [str(prompt_focus_text) if prompt_focus_text else "Focus Terminal"])
+	return parts.join(" / ")
+
 
 # Override set_active to manage cinematic camera on state changes
 func set_active(value: bool, immediate: bool = false) -> void:
@@ -287,11 +317,12 @@ func set_active(value: bool, immediate: bool = false) -> void:
 	# --- Cinematic Camera Management ---
 	# If NOT using cinematic zone by default, it remains inactive until focused.
 	# If using it, it stays active while terminal is open.
-	if not use_cinematic_zone and _camera_zone and "is_zone_active" in _camera_zone:
-		 # Only activate zone if we are focused (handled in _enter/_exit)
-		 # or if we are just closing it.
-		 if not value:
-			 _camera_zone.is_zone_active = false
+	if _camera_zone and "is_zone_active" in _camera_zone:
+		# If closing terminal, always deactivate zone to release camera
+		if not value:
+			_camera_zone.is_zone_active = false
+		# If opening and NOT using cinematic zone, it remains inactive until focused
+		# (handled in _enter_focus_mode)
 	
 	# Update UI interaction mode
 	_update_ui_mode()
@@ -301,6 +332,16 @@ func _on_camera_zone_body_entered(body: Node) -> void:
 	if not body.is_in_group("player"):
 		return
 	_player_in_zone = true
+	
+	# Reactivate zone if we are supposed to use it, allowing ESC -> Exit -> Re-enter flow
+	if use_cinematic_zone and _camera_zone and "is_zone_active" in _camera_zone:
+		_camera_zone.is_zone_active = true
+	
+	# Auto-interact: activate terminal automatically on entry
+	if auto_interact and not is_active:
+		print("[HoloTerminalV2] Auto-activating terminal on zone entry")
+		set_active(true)
+		
 	_update_ui_mode()
 
 
@@ -442,7 +483,7 @@ func set_active_debug(val: bool) -> void:
 # --- UI Mode Management ---
 func _update_ui_mode() -> void:
 	"""Update TerminalUI cursor based on terminal state and player position."""
-	if Engine.editor_hint:
+	if Engine.editor_hint or not is_inside_tree():
 		return
 	_apply_player_ui_settings()
 
@@ -466,9 +507,9 @@ func _update_ui_mode() -> void:
 	
 	# UI should be interactive if:
 	# 1. Logic is active (terminal open)
-	# 2. UI interaction is enabled in config
+	# 2. UI interaction is enabled in config (or auto_interact is active)
 	# 3. Player is either in the zone OR explicitly focused
-	var base_interactive = is_active and enable_ui_interaction and (_player_in_zone or _is_focused)
+	var base_interactive = is_active and (enable_ui_interaction or auto_interact) and (_player_in_zone or _is_focused)
 	var should_be_active = base_interactive
 	
 	# If cinematic zone is off, UI interaction is strictly limited to focus mode
@@ -543,18 +584,28 @@ func _input(event):
 			get_tree().set_input_as_handled()
 			return
 
-	if _is_focused:
-		if event is InputEventKey and event.pressed and event.scancode == KEY_ESCAPE:
-			print("[HoloTerminalV2] ESC pressed, exiting focus mode")
-			_exit_focus_mode()
-			get_tree().set_input_as_handled()
-			return
-		if event.is_action_pressed("ui_cancel"):
+	# Unified ui_cancel handling for regular terminals
+	if is_active and event.is_action_pressed("ui_cancel") and not attach_to_active_camera:
+		if _is_focused:
 			print("[HoloTerminalV2] ui_cancel pressed, exiting focus mode")
 			_exit_focus_mode()
-			get_tree().set_input_as_handled()
-			return
-	
+		else:
+			if _camera_zone and "is_zone_active" in _camera_zone:
+				var currently_active = _camera_zone.is_zone_active
+				_camera_zone.is_zone_active = not currently_active
+				print("[HoloTerminalV2] ui_cancel pressed, cinematic camera toggled: ", _camera_zone.is_zone_active)
+				
+			if auto_interact:
+				# auto_interact terminals stay active visually
+				pass
+			else:
+				# For regular terminals, only deactivate terminal if we are releasing the camera
+				if _camera_zone and not _camera_zone.is_zone_active:
+					print("[HoloTerminalV2] Deactivating terminal")
+					set_active(false)
+		get_tree().set_input_as_handled()
+		return
+
 	# Handle focus mode toggle
 	if is_ui_interactive() and allow_focus_mode and not attach_to_active_camera:
 		if event.is_action_pressed("focus") and not _is_focused:
@@ -691,7 +742,10 @@ func _set_player_input_blocked(blocked: bool) -> void:
 		_locked_player = null
 
 func _find_player() -> Node:
-	var players = get_tree().get_nodes_in_group("player")
+	var tree = get_tree()
+	if tree == null:
+		return null
+	var players = tree.get_nodes_in_group("player")
 	if players.size() > 0:
 		return players[0]
 	return null
@@ -753,7 +807,10 @@ func _release_focus_camera_request() -> void:
 	_focus_camera_request_id = -1
 
 func _bind_console_events() -> void:
-	var root = get_tree().root
+	var tree = get_tree()
+	if tree == null:
+		return
+	var root = tree.root
 	if root == null:
 		return
 	_console = root.get_node_or_null("OYS_Console")
@@ -905,7 +962,8 @@ func _resolve_active_camera() -> Camera:
 		if player_camera and player_camera is Camera:
 			return player_camera as Camera
 
-	var scene_root = get_tree().current_scene if get_tree() else null
+	var tree = get_tree()
+	var scene_root = tree.current_scene if tree else null
 	if scene_root:
 		var current_camera = _find_current_camera_recursive(scene_root)
 		if current_camera:

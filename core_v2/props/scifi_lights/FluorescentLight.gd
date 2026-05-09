@@ -12,17 +12,25 @@ export(bool) var flicker_enabled := false
 export(float, 0.1, 20.0) var flicker_speed := 10.0
 export(float, 0.0, 1.0) var flicker_intensity := 0.5
 export(float, 0.0, 12.0) var base_emission_energy := 2.4
+export(float, 0.0, 300.0) var flicker_timeout_seconds := 30.0
+export(float, 0.0, 120.0) var flicker_timeout_random_offset := 10.0
+export(float, 0.0, 1.0) var flicker_settle_on_probability := 0.5
 
 var _omni_light: OmniLight = null
 var _spot_light: SpotLight = null # Optional support for spotlight too
 var _mesh: MeshInstance = null
 var _time_acc: float = 0.0
+var _timeout_rng := RandomNumberGenerator.new()
+var _flicker_timeout_remaining: float = 0.0
+var _flicker_has_settled := false
+var _flicker_settled_on := true
 
 func _ready():
 	._ready()
 	_omni_light = _find_child_by_type("OmniLight")
 	_spot_light = _find_child_by_type("SpotLight")
 	_mesh = _find_child_by_type("MeshInstance")
+	_initialize_flicker_timeout_state()
 	_apply_settings()
 
 func set_light_color(v: Color) -> void:
@@ -80,7 +88,12 @@ func _update_visuals() -> void:
 	var current_energy = light_energy * anim_progress
 	var target_emission = base_emission_energy * anim_progress * 3.0
 
-	if flicker_enabled and anim_progress > 0.01:
+	if Engine.editor_hint:
+		pass
+	elif flicker_enabled and anim_progress > 0.01 and _flicker_has_settled and not _flicker_settled_on:
+		current_energy = 0.0
+		target_emission = 0.0
+	elif flicker_enabled and anim_progress > 0.01 and not _flicker_has_settled:
 		# Deterministic flicker using _time_acc
 		# Use sine waves to create irregular looking but deterministic pattern
 		var noise = sin(_time_acc * flicker_speed) * sin(_time_acc * flicker_speed * 0.79 + 1.23)
@@ -129,11 +142,70 @@ func _update_visuals() -> void:
 
 func step(dt: float) -> void:
 	.step(dt)
+	if Engine.editor_hint:
+		return
 	_time_acc += dt
+	_step_flicker_timeout(dt)
 	# Always update visuals if flickering is enabled and we are active,
 	# because flicker depends on time even if anim_progress is static at 1.0
 	if flicker_enabled and anim_progress > 0.01:
 		_update_visuals()
+
+func get_snapshot() -> Dictionary:
+	var data := .get_snapshot()
+	data["time_acc"] = _time_acc
+	data["flicker_timeout_remaining"] = _flicker_timeout_remaining
+	data["flicker_has_settled"] = _flicker_has_settled
+	data["flicker_settled_on"] = _flicker_settled_on
+	data["flicker_timeout_rng_state"] = _timeout_rng.state
+	return data
+
+func restore_snapshot(data: Dictionary) -> void:
+	.restore_snapshot(data)
+	_time_acc = data.get("time_acc", 0.0)
+	_initialize_flicker_timeout_state()
+	_flicker_timeout_remaining = data.get("flicker_timeout_remaining", _flicker_timeout_remaining)
+	_flicker_has_settled = data.get("flicker_has_settled", false)
+	_flicker_settled_on = data.get("flicker_settled_on", true)
+	if data.has("flicker_timeout_rng_state"):
+		_timeout_rng.state = data["flicker_timeout_rng_state"]
+	_update_visuals()
+
+func _initialize_flicker_timeout_state() -> void:
+	var seed_source := str(get_path())
+	_timeout_rng.seed = int(abs(hash(seed_source)))
+	_flicker_timeout_remaining = _sample_timeout(
+		flicker_timeout_seconds,
+		flicker_timeout_random_offset
+	)
+	_flicker_has_settled = false
+	_flicker_settled_on = true
+
+func _step_flicker_timeout(dt: float) -> void:
+	if not flicker_enabled or anim_progress <= 0.01:
+		return
+
+	if _flicker_has_settled:
+		return
+
+	if flicker_timeout_seconds <= 0.0:
+		_settle_flicker_state()
+		return
+
+	_flicker_timeout_remaining -= dt
+	if _flicker_timeout_remaining <= 0.0:
+		_settle_flicker_state()
+		_flicker_timeout_remaining = 0.0
+
+func _settle_flicker_state() -> void:
+	_flicker_has_settled = true
+	_flicker_settled_on = _timeout_rng.randf() <= clamp(flicker_settle_on_probability, 0.0, 1.0)
+
+func _sample_timeout(base_seconds: float, random_offset: float) -> float:
+	var clamped_offset := max(random_offset, 0.0)
+	if clamped_offset <= 0.0:
+		return max(base_seconds, 0.0)
+	return max(base_seconds + _timeout_rng.randf_range(-clamped_offset, clamped_offset), 0.0)
 
 func _find_child_by_type(type_name: String, node: Node = self) -> Node:
 	for child in node.get_children():

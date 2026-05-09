@@ -5,6 +5,7 @@ const OYS_Parser = preload("res://core_v2/systems/OYS_Parser.gd")
 const OYS_Interpreter = preload("res://core_v2/systems/OYS_Interpreter.gd")
 const OYS_Resolver = preload("res://core_v2/systems/OYS_Resolver.gd")
 const SubtitlesOverlayManager = preload("res://core_v2/autoloads/SubtitlesOverlayManager.gd")
+const PlayerHintManager = preload("res://core_v2/autoloads/PlayerHintManager.gd")
 const VCameraFollow = preload("res://addons/virtualcamera/TransformModifiers/Follow.gd")
 const VCameraLookAt = preload("res://addons/virtualcamera/TransformModifiers/LookAt.gd")
 
@@ -64,6 +65,16 @@ func test_parse_while_spaces_and_case():
 func test_parse_cls_command():
 	var inst = OYS_Parser.parse_instruction("CLS")
 	assert_str(inst.command).is_equal("CLS")
+
+func test_parse_hint_command():
+	var inst = OYS_Parser.parse_instruction('HINT "Use terminal" 12')
+	assert_str(inst.command).is_equal("HINT")
+	assert_str(String(inst.get("message", ""))).is_equal("Use terminal")
+	assert_bool(is_equal_approx(float(inst.get("duration", -1.0)), 12.0)).is_true()
+
+func test_parse_hint_clear_command():
+	var inst = OYS_Parser.parse_instruction("HINT_CLEAR")
+	assert_str(inst.command).is_equal("HINT_CLEAR")
 
 func test_parse_wait_frames_command():
 	var inst = OYS_Parser.parse_instruction("WAIT_FRAMES 12")
@@ -196,6 +207,21 @@ func test_resolver_cls_generates_event():
 	assert_str(events[0][0].get("command", "")).is_equal("CLS")
 	assert_str(events[30][0].get("command", "")).is_equal("CLS")
 
+func test_resolver_hint_generates_event():
+	var script = """
+	HINT "Use terminal" 5
+	WAIT_FRAMES 2
+	HINT_CLEAR
+	"""
+	var replay = OYS_Resolver.parse_script(script)
+	var events = replay.get("events", {})
+	assert_bool(events.has(0)).is_true()
+	assert_bool(events.has(2)).is_true()
+	assert_str(events[0][0].get("command", "")).is_equal("HINT")
+	assert_str(String(events[0][0].get("message", ""))).is_equal("Use terminal")
+	assert_bool(is_equal_approx(float(events[0][0].get("duration", -1.0)), 5.0)).is_true()
+	assert_str(events[2][0].get("command", "")).is_equal("HINT_CLEAR")
+
 func test_resolver_wait_frames_generates_exact_event_offset():
 	var script = """
 	PRINT "A"
@@ -292,12 +318,21 @@ class MockHostWithSceneManager extends Node:
 class RecordingInterpreter extends OYS_Interpreter:
 	var subtitles := []
 	var clears := []
+	var hints := []
+	var hint_clears := 0
+	var hint_interactive := []
 	func _init(_host = null).(_host):
 		pass
 	func _show_subtitle(text: String, color: Color = Color.white, duration: float = 2.5) -> void:
 		subtitles.append({"text": text, "color": color, "duration": duration})
 	func _clear_subtitles(immediate: bool = false) -> void:
 		clears.append(immediate)
+	func _show_player_hint(text: String, duration: float = 30.0) -> void:
+		hints.append({"text": text, "duration": duration})
+	func _clear_player_hint() -> void:
+		hint_clears += 1
+	func _set_player_hints_interactive(enabled: bool) -> void:
+		hint_interactive.append(enabled)
 
 class SystemMockInterpreter extends OYS_Interpreter:
 	var system_calls := []
@@ -757,6 +792,28 @@ func test_interpreter_cls_calls_clear_with_fade():
 	assert_bool(interpreter.clears[0]).is_false()
 	host.queue_free()
 
+func test_interpreter_hint_calls_player_hint_manager_path():
+	var host = MockHost.new()
+	add_child(host)
+	var interpreter = RecordingInterpreter.new(host)
+	interpreter.parse('HINT "Use terminal" 8')
+	yield (_run_interpreter(interpreter), "completed")
+
+	assert_int(interpreter.hints.size()).is_equal(1)
+	assert_str(String(interpreter.hints[0].get("text", ""))).is_equal("Use terminal")
+	assert_bool(is_equal_approx(float(interpreter.hints[0].get("duration", -1.0)), 8.0)).is_true()
+	host.queue_free()
+
+func test_interpreter_hint_clear_calls_player_hint_clear():
+	var host = MockHost.new()
+	add_child(host)
+	var interpreter = RecordingInterpreter.new(host)
+	interpreter.parse("HINT_CLEAR")
+	yield (_run_interpreter(interpreter), "completed")
+
+	assert_int(interpreter.hint_clears).is_equal(1)
+	host.queue_free()
+
 func test_interpreter_assert_subtitles_ok_and_fail():
 	var host = MockHost.new()
 	add_child(host)
@@ -825,6 +882,17 @@ func test_interpreter_cinematic_start_shows_script_bars_and_activates_rig():
 	assert_int(cm.activate_calls.size()).is_equal(1)
 	assert_str(String(cm.activate_calls[0].get("rig_id", ""))).is_equal("IntroRig")
 	assert_int(int(cm.activate_calls[0].get("mode", -1))).is_equal(2)
+	host.queue_free()
+
+func test_interpreter_cinematic_start_disables_player_hints():
+	var host = MockHost.new()
+	add_child(host)
+	var interpreter = RecordingInterpreter.new(host)
+	interpreter.parse('CINEMATIC_START "IntroRig" LOCKED_VIEW')
+	yield(_run_interpreter(interpreter), "completed")
+
+	assert_int(interpreter.hint_interactive.size()).is_greater_equal(1)
+	assert_bool(bool(interpreter.hint_interactive[0])).is_false()
 	host.queue_free()
 
 func test_interpreter_cinematic_stop_hides_script_bars_and_deactivates_rig():

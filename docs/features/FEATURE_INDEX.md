@@ -17,6 +17,7 @@
 | FD-031 | Narrative Dialogs (IA) | Planned | Large | Low |
 | FD-032 | Seamless Startup Streaming | In Progress | Large | High |
 | FD-033 | Advanced Traversal Systems | In Progress | Large | High |
+| FD-034 | Player Interaction Hints | Planned | Medium | Medium |
 
 ## Completed
 

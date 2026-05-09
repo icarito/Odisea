@@ -606,6 +606,13 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 
 		"CLS":
 			_clear_subtitles(false)
+
+		"HINT":
+			var hint_message = _substitute_variables(inst.get("message", ""))
+			_show_player_hint(hint_message, float(inst.get("duration", 30.0)))
+
+		"HINT_CLEAR":
+			_clear_player_hint()
 			
 		"SCREENSHOT":
 			var label = inst.get("label", "screenshot")
@@ -653,6 +660,7 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				print("[OYS] Screenshot saved to: ", path)
 		
 		"CINEMATIC_START":
+			_set_player_hints_interactive(false)
 			var rig_id = inst.get("rig_id", "")
 			var mode_str = inst.get("mode", "FREE")
 			var mode = 0 # FREE
@@ -676,6 +684,7 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			var manager = host_node.get_node_or_null("/root/CinematicManager")
 			if manager:
 				manager.deactivate_rig()
+			_set_player_hints_interactive(true)
 
 		"CAMERA_SHAKE":
 			_apply_camera_shake(inst)
@@ -774,6 +783,7 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			_apply_camera_shake(inst)
 
 		"CINEMATIC":
+			_set_player_hints_interactive(false)
 			var screen_fx = host_node.get_node_or_null("/root/ScreenEffectsManager")
 			if screen_fx and screen_fx.has_method("show_script_cinematic_bars"):
 				screen_fx.show_script_cinematic_bars()
@@ -791,6 +801,7 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			if player and "input_provider" in player and player.input_provider:
 				player.input_provider.hardware_input_enabled = true
 			fast_forward = false
+			_set_player_hints_interactive(true)
 
 		"RECORD_START":
 			var recorder = _find_recorder()
@@ -1947,7 +1958,7 @@ func _record_live_instruction_event(inst: Dictionary) -> void:
 		"CINEMATIC_START", "CINEMATIC_STOP",
 		"VCAMERA", "VCAMERA_BLEND", "VCAMERA_RETURN",
 		"VCAMERA_SHAKE", "CAMERA_SHAKE", "CAMERA_SHAKE_STOP",
-		"PLAY_SOUND", "SET_TIME_SCALE", "PRINT", "PLAY_ANIM"
+		"PLAY_SOUND", "SET_TIME_SCALE", "PRINT", "PLAY_ANIM", "HINT", "HINT_CLEAR"
 	]:
 		session.record_event(OYS_Parser.serialize_instruction(inst))
 
@@ -2060,6 +2071,26 @@ func _clear_subtitles(immediate: bool = false) -> void:
 	var manager = _get_subtitles_manager()
 	if manager and manager.has_method("clear_subtitles"):
 		manager.clear_subtitles(immediate)
+
+func _get_player_hint_manager() -> Node:
+	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+		return null
+	return host_node.get_node_or_null("/root/PlayerHintManager")
+
+func _show_player_hint(text: String, duration: float = 30.0) -> void:
+	var manager = _get_player_hint_manager()
+	if manager and manager.has_method("show_manual_hint"):
+		manager.show_manual_hint(text, duration)
+
+func _clear_player_hint() -> void:
+	var manager = _get_player_hint_manager()
+	if manager and manager.has_method("clear_manual_hint"):
+		manager.clear_manual_hint()
+
+func _set_player_hints_interactive(enabled: bool) -> void:
+	var manager = _get_player_hint_manager()
+	if manager and manager.has_method("set_interactive"):
+		manager.set_interactive(enabled)
 
 class SignalObserver extends Object:
 	var triggered = false

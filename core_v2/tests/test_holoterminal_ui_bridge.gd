@@ -35,6 +35,23 @@ func test_holoterminal_mounts_debugoverlay_in_viewport() -> void:
 
 	yield (_teardown_scene_root(scene), "completed")
 
+func test_holoterminal_can_be_focus_only_when_not_interactable() -> void:
+	var scene = _setup_scene_root()
+	var holo = HoloTerminalScene.instance()
+	holo.is_interactable = false
+	holo.allow_focus_mode = true
+	scene.add_child(holo)
+	yield (get_tree(), "idle_frame")
+
+	assert_bool(holo.is_in_group("interactable")).is_false()
+	assert_bool(holo.is_in_group("focusable")).is_true()
+	assert_bool(holo.can_focus()).is_true()
+	assert_str(holo.get_interaction_prompt()).is_equal("[Z] Focus Terminal")
+	holo.set("_is_focused", true)
+	assert_str(holo.get_interaction_prompt()).is_equal("[ESC] Exit Terminal")
+
+	yield (_teardown_scene_root(scene), "completed")
+
 func test_fastfetch_command_prints_odisea_summary() -> void:
 	var scene = _setup_scene_root()
 	var console = OYSConsole.new()

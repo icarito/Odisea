@@ -137,6 +137,7 @@ func _read_live_input() -> InputDataV2:
 		d.sprint = Input.is_action_pressed("run")
 		d.crouch = Input.is_action_pressed("crouch")
 		d.interact = Input.is_action_just_pressed("interact")
+		d.focus = Input.is_action_just_pressed("focus")
 
 		# --- JOYSTICK SPRINT (Physical) ---
 		var joy_move_x = Input.get_joy_axis(0, JOY_AXIS_0)

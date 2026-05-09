@@ -32,9 +32,10 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 
 [node name="VBoxContainer" type="VBoxContainer" parent="Panel/CenterContainer"]
-margin_left = 54.0
-margin_right = 486.0
-margin_bottom = 388.0
+margin_left = 246.0
+margin_top = 62.0
+margin_right = 678.0
+margin_bottom = 438.0
 size_flags_horizontal = 3
 size_flags_vertical = 3
 custom_constants/separation = 56
@@ -62,5 +63,5 @@ stretch_mode = 6
 [node name="Button" type="Button" parent="Panel/CenterContainer/VBoxContainer"]
 margin_top = 349.0
 margin_right = 432.0
-margin_bottom = 388.0
+margin_bottom = 376.0
 text = "OK"

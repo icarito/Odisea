@@ -37,9 +37,15 @@ func _notification(what: int) -> void:
 		_reflow(false)
 
 func show_subtitle(text: String, color: Color = Color.white, duration: float = 2.5) -> void:
+	_show_entry(text, color, duration, false)
+
+func show_hint(text: String, color: Color = Color(0.85, 1.0, 0.95), duration: float = 1.75) -> void:
+	_show_entry(text, color, duration, true)
+
+func _show_entry(text: String, color: Color, duration: float, is_hint: bool) -> void:
 	if text.strip_edges() == "":
 		return
-	var line = _build_line(text, color)
+	var line = _build_line(text, color, is_hint)
 	_layer.add_child(line)
 	var now = OS.get_ticks_msec() / 1000.0
 	var entry = {
@@ -64,12 +70,12 @@ func clear_subtitles(immediate: bool = false) -> void:
 		_start_fade_out(entry, clear_fade_out_sec)
 	_schedule_next_expiry()
 
-func _build_line(text: String, color: Color) -> PanelContainer:
+func _build_line(text: String, color: Color, is_hint: bool = false) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.modulate.a = 1.0
 	panel.rect_pivot_offset = Vector2.ZERO
-	panel.add_stylebox_override("panel", _build_stylebox())
+	panel.add_stylebox_override("panel", _build_stylebox(is_hint))
 
 	var margin := MarginContainer.new()
 	margin.add_constant_override("margin_left", 18)
@@ -116,9 +122,17 @@ func _build_line(text: String, color: Color) -> PanelContainer:
 	panel.rect_size = panel.rect_min_size
 	return panel
 
-func _build_stylebox() -> StyleBoxFlat:
+func _build_stylebox(is_hint: bool = false) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.0, 0.0, 0.0, panel_alpha)
+	if is_hint:
+		sb.bg_color = Color(0.01, 0.08, 0.09, 0.78)
+		sb.border_color = Color(0.0, 0.9, 0.78, 0.72)
+		sb.border_width_left = 1
+		sb.border_width_right = 1
+		sb.border_width_top = 1
+		sb.border_width_bottom = 1
+	else:
+		sb.bg_color = Color(0.0, 0.0, 0.0, panel_alpha)
 	sb.corner_radius_top_left = 6
 	sb.corner_radius_top_right = 6
 	sb.corner_radius_bottom_left = 6

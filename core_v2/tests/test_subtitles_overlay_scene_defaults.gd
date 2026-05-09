@@ -30,3 +30,15 @@ func test_subtitles_overlay_builds_font_with_font_data() -> void:
 	assert_object(font.font_data).is_not_null()
 
 	overlay.queue_free()
+
+
+func test_subtitles_overlay_supports_distinct_hint_entries() -> void:
+	var overlay = SubtitlesOverlayScene.instance()
+	add_child(overlay)
+
+	overlay.show_hint("[Z] Focus Terminal")
+	var layer = overlay.get_node_or_null("Layer")
+	assert_object(layer).is_not_null()
+	assert_int(layer.get_child_count()).is_equal(1)
+
+	overlay.queue_free()

@@ -7,7 +7,7 @@ albedo_color = Color( 0.85, 0.875, 0.8, 1 )
 roughness = 0.4
 emission_enabled = true
 emission = Color( 0.7, 0.75, 0.6, 1 )
-emission_energy = 2.74711
+emission_energy = 3.1799
 emission_operator = 0
 emission_on_uv2 = false
 
@@ -46,7 +46,7 @@ mesh = SubResource( 2 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.7, 0 )
 sorting_offset = 20.0
 light_color = Color( 0.7, 0.75, 0.6, 1 )
-light_energy = 1.06638
+light_energy = 0.725543
 light_cull_mask = 4293918785
 shadow_enabled = true
 omni_range = 7.0

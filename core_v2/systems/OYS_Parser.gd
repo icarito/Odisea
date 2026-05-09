@@ -30,7 +30,8 @@ enum Command {
 	CAMERA_SHAKE, CAMERA_SHAKE_STOP,
 	PLAY_SOUND,
 	VCAMERA, VCAMERA_BLEND, VCAMERA_RETURN, VCAMERA_SHAKE,
-	ANNA_ENABLE, ANNA_DISABLE, ANNA_SET_TARGET
+	ANNA_ENABLE, ANNA_DISABLE, ANNA_SET_TARGET,
+	HINT, HINT_CLEAR
 }
 
 # Command synonyms mapping
@@ -228,6 +229,33 @@ static func parse_instruction(line: String) -> Dictionary:
 						data["message"] = line.substr(second_space + 1).replace("\"", "")
 
 		"CLS":
+			pass
+
+		"HINT":
+			var quoted = _extract_quoted_values(line)
+			if quoted.size() > 0:
+				data["message"] = quoted[0]
+			elif parts.size() > 1:
+				data["message"] = line.substr(line.find(" ") + 1).strip_edges()
+			else:
+				data["message"] = ""
+			data["duration"] = 30.0
+			var named_duration = _extract_named_value(line, "duration")
+			if named_duration == "":
+				named_duration = _extract_named_value(line, "dur")
+			if named_duration == "":
+				named_duration = _extract_named_value(line, "time")
+			if named_duration != "":
+				data["duration"] = named_duration.to_float()
+			elif quoted.size() > 0:
+				var after_quote = line.find("\"" + quoted[0] + "\"")
+				if after_quote != -1:
+					after_quote += quoted[0].length() + 2
+					var tail = line.substr(after_quote).strip_edges()
+					if tail != "" and tail.find("=") == -1:
+						data["duration"] = tail.split(" ", false)[0].to_float()
+
+		"HINT_CLEAR":
 			pass
 		
 		"PLAY_ANIM":

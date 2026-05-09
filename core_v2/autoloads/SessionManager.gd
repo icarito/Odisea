@@ -1690,7 +1690,7 @@ func _on_oys_instruction_executed(inst: Dictionary, _vars: Dictionary):
 	
 	var cmd = inst.get("command", "")
 	match cmd:
-		"ASSERT", "SET", "MATH", "PRINT", "CLS", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "ANNA_ENABLE", "ANNA_DISABLE", "ANNA_SET_TARGET", "PLAY_ANIM", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP", "OPEN", "CHANGE_SCENE":
+		"ASSERT", "SET", "MATH", "PRINT", "CLS", "HINT", "HINT_CLEAR", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "ANNA_ENABLE", "ANNA_DISABLE", "ANNA_SET_TARGET", "PLAY_ANIM", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP", "OPEN", "CHANGE_SCENE":
 			_current_replay_data["events"][frame].append(OYS_Parser.serialize_instruction(inst))
 		"ASSERT_SIGNAL":
 			var start_evt = OYS_Parser.serialize_instruction(inst)
@@ -2071,6 +2071,11 @@ func _execute_event(cmd: Dictionary):
 			_show_subtitle(msg, Color.white, 2.5)
 		"CLS":
 			_clear_subtitles(false)
+		"HINT":
+			var hint_msg = _resolve_variables_in_string(cmd.get("message", ""))
+			_show_player_hint(hint_msg, float(cmd.get("duration", 30.0)))
+		"HINT_CLEAR":
+			_clear_player_hint()
 		"ASSERT_SIGNAL":
 			_handle_assert_signal(cmd)
 		"GET_NODES_IN_GROUP":
@@ -2094,13 +2099,17 @@ func _execute_event(cmd: Dictionary):
 		"SET_TIME_SCALE":
 			Engine.time_scale = float(cmd.get("value", 1.0))
 		"CINEMATIC":
+			_set_player_hints_interactive(false)
 			_set_script_cinematic_input_block(true)
 		"INTERACTIVE":
 			_set_script_cinematic_input_block(false)
+			_set_player_hints_interactive(true)
 		"CINEMATIC_START":
+			_set_player_hints_interactive(false)
 			_handle_cinematic_start_event(cmd)
 		"CINEMATIC_STOP":
 			_handle_cinematic_stop_event()
+			_set_player_hints_interactive(true)
 		"VCAMERA":
 			_handle_vcamera_activate_event(cmd)
 		"VCAMERA_BLEND":
@@ -2267,6 +2276,21 @@ func _clear_subtitles(immediate: bool = false) -> void:
 	var subtitles = get_node_or_null("/root/SubtitlesOverlayManager")
 	if subtitles and subtitles.has_method("clear_subtitles"):
 		subtitles.clear_subtitles(immediate)
+
+func _show_player_hint(text: String, duration: float = 30.0) -> void:
+	var hints = get_node_or_null("/root/PlayerHintManager")
+	if hints and hints.has_method("show_manual_hint"):
+		hints.show_manual_hint(text, duration)
+
+func _clear_player_hint() -> void:
+	var hints = get_node_or_null("/root/PlayerHintManager")
+	if hints and hints.has_method("clear_manual_hint"):
+		hints.clear_manual_hint()
+
+func _set_player_hints_interactive(enabled: bool) -> void:
+	var hints = get_node_or_null("/root/PlayerHintManager")
+	if hints and hints.has_method("set_interactive"):
+		hints.set_interactive(enabled)
 
 func _handle_assert_signal(cmd: Dictionary):
 	var phase = cmd.get("phase", "start")

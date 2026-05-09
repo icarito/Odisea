@@ -181,8 +181,16 @@ var last_input_vector := Vector3.ZERO
 var is_acrobatic_ready := false
 
 var _current_interactable: Node = null
+var _current_interaction_prompt := ""
 var _nearby_interactables: Array = []
 onready var interact_config = get_node_or_null("Logic/Interact")
+
+const INTERACT_ACTION_NAME := "interact"
+const FOCUS_ACTION_NAME := "focus"
+const DEFAULT_ACTION_HINTS := {
+	"interact": "[F]",
+	"focus": "[Z]"
+}
 
 # Input
 var input_provider
@@ -1287,8 +1295,55 @@ func _resolve_interactable_root(node: Node) -> Node:
 			return current
 		if current.get("is_interactable") != null and current.get("is_interactable"):
 			return current
+		if current.get("is_focusable") != null and current.get("is_focusable"):
+			return current
+		if current.is_in_group("focusable"):
+			return current
 		current = current.get_parent()
 	return node
+
+func _candidate_can_interact(candidate: Node) -> bool:
+	if candidate == null or not is_instance_valid(candidate):
+		return false
+	if candidate.get("is_interactable") != null:
+		return bool(candidate.get("is_interactable"))
+	return candidate.is_in_group("interactable")
+
+func _candidate_can_focus(candidate: Node) -> bool:
+	if candidate == null or not is_instance_valid(candidate):
+		return false
+	if candidate.has_method("can_focus"):
+		return bool(candidate.call("can_focus"))
+	if candidate.get("is_focusable") != null:
+		return bool(candidate.get("is_focusable"))
+	return candidate.is_in_group("focusable")
+
+func _candidate_is_actionable(candidate: Node) -> bool:
+	return _candidate_can_interact(candidate) or _candidate_can_focus(candidate)
+
+func _get_interaction_prompt(candidate: Node) -> String:
+	if candidate == null or not is_instance_valid(candidate):
+		return ""
+	if candidate.has_method("get_interaction_prompt"):
+		return str(candidate.call("get_interaction_prompt"))
+	var parts := PoolStringArray()
+	if _candidate_can_interact(candidate):
+		var action_text = candidate.get("interaction_text")
+		parts.append("%s %s" % [_get_action_hint_label(INTERACT_ACTION_NAME), str(action_text) if action_text else "Interact"])
+	if _candidate_can_focus(candidate):
+		var focus_text = candidate.get("focus_text")
+		parts.append("%s %s" % [_get_action_hint_label(FOCUS_ACTION_NAME), str(focus_text) if focus_text else "Focus"])
+	return parts.join(" / ")
+
+func _get_action_hint_label(action_name: String) -> String:
+	return String(DEFAULT_ACTION_HINTS.get(action_name, "[?]"))
+
+func _show_interaction_prompt(text: String) -> void:
+	if text.strip_edges() == "":
+		return
+	var hints = get_node_or_null("/root/PlayerHintManager")
+	if hints and hints.has_method("show_interaction_hint"):
+		hints.show_interaction_hint(text)
 
 func _process_interaction(input: InputDataV2):
 	if _perf_disable_interaction_scan:
@@ -1302,9 +1357,7 @@ func _process_interaction(input: InputDataV2):
 	var min_dist = 999.0
 	for body in bodies:
 		var candidate = _resolve_interactable_root(body)
-		if is_instance_valid(candidate) and candidate.is_in_group("interactable"):
-			if "is_interactable" in candidate and not candidate.is_interactable:
-				continue
+		if is_instance_valid(candidate) and _candidate_is_actionable(candidate):
 			var dist = global_transform.origin.distance_squared_to(candidate.global_transform.origin)
 			if dist < min_dist:
 				min_dist = dist
@@ -1326,6 +1379,7 @@ func _process_interaction(input: InputDataV2):
 		p_radius_sq = interact_config.proximity_radius * interact_config.proximity_radius
 
 	if best_target:
+		var text = _get_interaction_prompt(best_target)
 		if _current_interactable != best_target:
 			# Clear highlight from previous target
 			if _current_interactable and is_instance_valid(_current_interactable):
@@ -1333,8 +1387,9 @@ func _process_interaction(input: InputDataV2):
 					_current_interactable.set_highlighted(false)
 			
 			_current_interactable = best_target
-			var text = best_target.interaction_text if best_target.get("interaction_text") else "Interact"
+			_current_interaction_prompt = text
 			emit_signal("interactable_in_range", text)
+			_show_interaction_prompt(text)
 			
 			# Apply full highlight to new target
 			if best_target.has_method("set_highlighted"):
@@ -1344,12 +1399,21 @@ func _process_interaction(input: InputDataV2):
 				best_target.set_proximity_highlight(false)
 			
 			var can_auto_trigger = not best_target.get("_auto_triggered") or not best_target.get("one_off")
-			if best_target.get("auto_interact") and not best_target.is_active and can_auto_trigger:
+			if _candidate_can_interact(best_target) and best_target.get("auto_interact") and not best_target.is_active and can_auto_trigger:
 				if best_target.has_method("set_active"):
 					best_target.set_active(true)
 					best_target._auto_triggered = true
-		if input.interact and best_target.has_method("interact"):
+		elif text != _current_interaction_prompt:
+			_current_interaction_prompt = text
+			emit_signal("interactable_in_range", text)
+			_show_interaction_prompt(text)
+		if input.interact and _candidate_can_interact(best_target) and best_target.has_method("interact"):
 			best_target.interact()
+		if input.focus and _candidate_can_focus(best_target):
+			if best_target.has_method("focus"):
+				best_target.call("focus")
+			elif best_target.has_method("_enter_focus_mode"):
+				best_target.call("_enter_focus_mode")
 
 		# Traversal Entry Logic
 		var ladder_forward_entry = best_target.is_in_group("ladder") and input.move_vec.y < -0.1 and _can_auto_enter_ladder(best_target)
@@ -1377,12 +1441,15 @@ func _process_interaction(input: InputDataV2):
 	# --- Proximity Glow Logic ---
 	# Handle objects that are nearby but not the current best_target
 	var all_interactables = get_tree().get_nodes_in_group("interactable")
+	for focusable in get_tree().get_nodes_in_group("focusable"):
+		if not focusable in all_interactables:
+			all_interactables.append(focusable)
 	var new_nearby = []
 	for obj in all_interactables:
 		if not is_instance_valid(obj) or obj == _current_interactable:
 			continue
 		
-		if "is_interactable" in obj and not obj.is_interactable:
+		if not _candidate_is_actionable(obj):
 			continue
 		
 		# Proximity check
@@ -1418,7 +1485,11 @@ func _clear_interactable():
 					_current_interactable.set_proximity_highlight(true, interact_config.proximity_color)
 
 		_current_interactable = null
+		_current_interaction_prompt = ""
 		emit_signal("interactable_out_of_range")
+		var hints = get_node_or_null("/root/PlayerHintManager")
+		if hints and hints.has_method("clear_interaction_hint"):
+			hints.clear_interaction_hint()
 
 func _input(event):
 	var session_recording = false
@@ -1463,6 +1534,7 @@ func _accumulate_input(target: InputDataV2, source: InputDataV2) -> void:
 	target.sprint = target.sprint or source.sprint
 	target.crouch = target.crouch or source.crouch
 	target.interact = target.interact or source.interact
+	target.focus = target.focus or source.focus
 
 func _update_push_state(_dt: float, input: InputDataV2):
 	_was_pushing = is_pushing

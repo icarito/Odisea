@@ -90,15 +90,15 @@ custom_constants/margin_bottom = 18
 [node name="BootVBox" type="VBoxContainer" parent="Desktop/BootScreen/BootMargin"]
 margin_left = 18.0
 margin_top = 18.0
-margin_right = 622.0
-margin_bottom = 342.0
+margin_right = 1006.0
+margin_bottom = 582.0
 size_flags_horizontal = 3
 size_flags_vertical = 3
 custom_constants/separation = 10
 
 [node name="BootText" type="RichTextLabel" parent="Desktop/BootScreen/BootMargin/BootVBox"]
-margin_right = 604.0
-margin_bottom = 324.0
+margin_right = 988.0
+margin_bottom = 564.0
 size_flags_vertical = 3
 custom_colors/default_color = Color( 1, 1, 1, 1 )
 bbcode_enabled = true
