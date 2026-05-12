@@ -393,6 +393,8 @@
 ]
 
 @PointClass color(255 229 153) size(-6 -6 0, 6 6 18) = light_work : "Sci-Fi Work Light" [
+	angle(angle) : "Yaw rotation in degrees"  : "0"
+	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	light_color(color255) : "Color of the reflector"  : "255 229 178"
@@ -403,6 +405,8 @@
 ]
 
 @PointClass color(255 242 178) size(-13 -13 0, 13 13 38) = light_work_tripod : "Sci-Fi Tripod Flood Light" [
+	angle(angle) : "Yaw rotation in degrees"  : "0"
+	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 0
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 1
 	light_color(color255) : "Color of the flood light"  : "255 242 204"

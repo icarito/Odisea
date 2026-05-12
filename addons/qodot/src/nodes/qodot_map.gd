@@ -599,6 +599,12 @@ func _merge_missing_point_entity_dicts(native_entity_dicts: Array) -> Array:
 
 func _copy_source_property_metadata(target_entity_dict: Dictionary, source_entity_dict: Dictionary) -> void:
 	var source_properties: Dictionary = source_entity_dict.get("properties", {})
+	var target_properties: Dictionary = target_entity_dict.get("properties", {})
+	for rotation_property in ["angle", "angles", "mangle"]:
+		if source_properties.has(rotation_property):
+			target_properties[rotation_property] = source_properties[rotation_property]
+	target_entity_dict["properties"] = target_properties
+
 	var source_property_keys := {}
 	for source_property in source_properties:
 		source_property_keys[source_property] = true
@@ -1465,6 +1471,8 @@ func apply_properties() -> void:
 							continue
 						properties[property] = entity_definition.class_properties[property]
 
+		var angle_overrides_full_rotation := source_has_angle and source_has_full_rotation
+
 		if 'properties' in entity_node:
 			entity_node.properties = properties
 		
@@ -1479,19 +1487,20 @@ func apply_properties() -> void:
 			
 			# Map 'angle' to Y-rotation natively at root
 			if property == "angle":
-				if not source_has_angle or source_has_full_rotation:
+				if not source_has_angle:
 					continue
+				var yaw_degrees := -float(val)
 				if entity_node is Spatial:
 					var spatial_node := entity_node as Spatial
-					spatial_node.transform.basis = Basis(Vector3.UP, deg2rad(float(val)))
+					spatial_node.transform.basis = Basis(Vector3.UP, deg2rad(yaw_degrees))
 				elif "rotation_degrees" in entity_node:
-					entity_node.rotation_degrees = Vector3(0.0, float(val), 0.0)
+					entity_node.rotation_degrees = Vector3(0.0, yaw_degrees, 0.0)
 				continue
 			# Map full TrenchBroom/Quake rotations when present.
 			# Source coordinates are Z-up, while Godot scene is Y-up with axis swizzle:
 			# quake(X,Y,Z) -> godot(Z,X,Y) for rotations around axes.
 			if property == "angles" or property == "mangle":
-				if not source_has_full_rotation:
+				if not source_has_full_rotation or angle_overrides_full_rotation:
 					continue
 				if "rotation_degrees" in entity_node:
 					if typeof(val) == TYPE_STRING:
@@ -1526,6 +1535,7 @@ func _coerce_bool_property(val) -> bool:
 func _apply_injected_property_recursive(node: Node, prop_name: String, val) -> void:
 	if prop_name == "is_interactable" and node.has_method("set_is_interactable"):
 		node.set_is_interactable(_coerce_bool_property(val))
+		return
 	elif prop_name == "enable_shadows" and node is Light:
 		node.shadow_enabled = _coerce_bool_property(val)
 	elif prop_name == "enable_shadows" and "shadow_enabled" in node:
@@ -1537,6 +1547,8 @@ func _apply_injected_property_recursive(node: Node, prop_name: String, val) -> v
 			node.set(prop_name, _coerce_bool_property(val))
 		else:
 			node.set(prop_name, val)
+		if prop_name == "is_interactable":
+			return
 	
 	for child in node.get_children():
 		_apply_injected_property_recursive(child, prop_name, val)

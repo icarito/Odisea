@@ -41,3 +41,9 @@ prop needs an editor-visible color picker.
 
 `light_color` and `beacon_color` remain available as compatibility aliases for
 existing maps, but new maps should prefer `_color`.
+
+## Work Lights
+
+`light_work` and `light_work_tripod` expose `angle(angle)` and `angles(string)`.
+Use `angle` for normal yaw rotation from TrenchBroom; Qodot applies it to the
+root Spatial rotation during map import.
