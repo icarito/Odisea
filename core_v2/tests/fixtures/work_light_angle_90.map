@@ -1,0 +1,10 @@
+{
+"classname" "worldspawn"
+}
+{
+"classname" "light_work_tripod"
+"origin" "0 0 0"
+"angle" "90"
+"angles" "0 270 0"
+"is_interactable" "0"
+}

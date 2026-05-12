@@ -1,0 +1,13 @@
+[remap]
+
+importer="qodot.map"
+type="Resource"
+path="res://.import/work_light_angle_90.map-0984476a5e8f5e23994ac387891a488c.tres"
+
+[deps]
+
+source_file="res://core_v2/tests/fixtures/work_light_angle_90.map"
+dest_files=[ "res://.import/work_light_angle_90.map-0984476a5e8f5e23994ac387891a488c.tres" ]
+
+[params]
+
