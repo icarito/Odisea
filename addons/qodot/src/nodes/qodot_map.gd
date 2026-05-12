@@ -6,6 +6,10 @@ const DEBUG := false
 const YIELD_DURATION := 0.0
 const YIELD_SIGNAL := "timeout"
 const PROP_PHYSICS_LAYER := 1 << 6 # Layer 7
+const EDITOR_HIDDEN_TRENCHBROOM_LAYERS := [
+	"ceiling"
+]
+const EditorHiddenLayerScript = preload("res://core_v2/levels/EditorHiddenLayer.gd")
 const TEXTURE_ALIAS_PREFIX := "__qodot_texture_alias__/"
 const QUOTED_TEXTURE_FACE_PATTERN := '^(\\s*\\([^\\)]*\\)\\s*\\([^\\)]*\\)\\s*\\([^\\)]*\\)\\s*)"([^"]+)"(.*)$'
 
@@ -719,6 +723,27 @@ func build_libmap_worldspawn_layers(worldspawn_layers: Array) -> Array:
 		})
 	return libmap_worldspawn_layers
 
+func is_editor_hidden_trenchbroom_layer(properties: Dictionary) -> bool:
+	if String(properties.get("_tb_type", "")) != "_tb_layer":
+		return false
+	var layer_name := String(properties.get("_tb_name", "")).strip_edges().to_lower()
+	return layer_name in EDITOR_HIDDEN_TRENCHBROOM_LAYERS
+
+func _array_index_is_valid(array: Array, index) -> bool:
+	if typeof(index) != TYPE_INT:
+		return false
+	if index < 0:
+		return false
+	if index >= array.size():
+		return false
+	return true
+
+func _parse_origin_property(origin_value):
+	var origin_comps := String(origin_value).split(" ", false)
+	if origin_comps.size() < 3:
+		return null
+	return Vector3(origin_comps[1].to_float(), origin_comps[2].to_float(), origin_comps[0].to_float())
+
 func build_entity_nodes() -> Array:
 	var entity_nodes := []
 
@@ -729,6 +754,7 @@ func build_entity_nodes() -> Array:
 		var node = QodotEntity.new()
 		var map_entity_index := int(entity_dict.get("_map_entity_index", entity_idx))
 		var node_name = "entity_%s" % map_entity_index
+		var is_editor_hidden_layer := is_editor_hidden_trenchbroom_layer(properties)
 
 		var should_add_child = should_add_children
 
@@ -765,12 +791,21 @@ func build_entity_nodes() -> Array:
 				if entity_definition.script_class:
 					node.set_script(entity_definition.script_class)
 
+		if is_editor_hidden_layer:
+			var layer_name := String(properties.get("_tb_name", "")).strip_edges()
+			if layer_name != "":
+				node_name += "_" + layer_name
+			if not node.get_script():
+				node.set_script(EditorHiddenLayerScript)
+			node.set_meta("editor_hidden_trenchbroom_layer", true)
+			node.set_meta("trenchbroom_layer_name", layer_name)
+
 		node.name = node_name
 
 		if 'origin' in properties:
-			var origin_comps = properties['origin'].split(' ')
-			var origin_vec = Vector3(origin_comps[1].to_float(), origin_comps[2].to_float(), origin_comps[0].to_float())
-			node.translation = origin_vec / inverse_scale_factor
+			var origin_vec = _parse_origin_property(properties['origin'])
+			if origin_vec != null:
+				node.translation = origin_vec / inverse_scale_factor
 		else:
 			if entity_idx != 0:
 				node.translation = entity_dict['center'] / inverse_scale_factor
@@ -792,7 +827,10 @@ func build_worldspawn_layer_nodes() -> Array:
 			node.set_script(worldspawn_layer.script_class)
 
 		worldspawn_layer_nodes.append(node)
-		queue_add_child(self, node, entity_nodes[0])
+		if _array_index_is_valid(entity_nodes, 0):
+			queue_add_child(self, node, entity_nodes[0])
+		else:
+			queue_add_child(self, node)
 
 	return worldspawn_layer_nodes
 
@@ -938,7 +976,10 @@ func build_entity_collision_shape_nodes() -> Array:
 
 					if entity_definition.spawn_type == QodotFGDSolidClass.SpawnType.MERGE_WORLDSPAWN:
 						# TODO: Find the worldspawn object instead of assuming index 0
-						node = entity_nodes[0] as Node
+						if _array_index_is_valid(entity_nodes, 0):
+							node = entity_nodes[0] as Node
+						else:
+							node = null
 
 		if not node:
 			entity_collision_shapes_arr.append(null)
@@ -1027,12 +1068,18 @@ func build_entity_collision_shapes() -> void:
 						QodotFGDSolidClass.CollisionShapeType.CONCAVE:
 							concave = true
 
+		if not _array_index_is_valid(entity_nodes, entity_idx):
+			continue
+		if not _array_index_is_valid(entity_collision_shapes, entity_idx):
+			continue
+
 		var collision_node := entity_nodes[entity_idx] as Node
 		if concave and is_instance_valid(collision_node):
 			if _should_force_convex_for_node(collision_node, "Entity '%s'" % properties.get('classname', "entity_%s" % entity_idx)):
 				concave = false
 
-		if not entity_collision_shapes[entity_idx]:
+		var collision_shape_nodes = entity_collision_shapes[entity_idx]
+		if not collision_shape_nodes:
 			continue
 
 		if concave:
@@ -1051,11 +1098,17 @@ func build_entity_collision_shapes() -> void:
 				continue
 
 			if concave:
+				if not _array_index_is_valid(surface_verts, 0):
+					continue
+				if not _array_index_is_valid(surface_verts, 8):
+					continue
 				var vertices := surface_verts[0] as PoolVector3Array
 				var indices := surface_verts[8] as PoolIntArray
 				for vert_idx in indices:
 					entity_verts.append(vertices[vert_idx])
 			else:
+				if not _array_index_is_valid(surface_verts, 0):
+					continue
 				var shape_points = PoolVector3Array()
 				for vertex in surface_verts[0]:
 					if not vertex in shape_points:
@@ -1064,7 +1117,11 @@ func build_entity_collision_shapes() -> void:
 				var shape = ConvexPolygonShape.new()
 				shape.set_points(shape_points)
 
-				var collision_shape = entity_collision_shapes[entity_idx][surface_idx]
+				if not _array_index_is_valid(collision_shape_nodes, surface_idx):
+					continue
+				var collision_shape = collision_shape_nodes[surface_idx]
+				if not collision_shape:
+					continue
 				collision_shape.set_shape(shape)
 
 		if concave:
@@ -1074,7 +1131,11 @@ func build_entity_collision_shapes() -> void:
 			var shape = ConcavePolygonShape.new()
 			shape.set_faces(entity_verts)
 
-			var collision_shape = entity_collision_shapes[entity_idx][0]
+			if not _array_index_is_valid(collision_shape_nodes, 0):
+				continue
+			var collision_shape = collision_shape_nodes[0]
+			if not collision_shape:
+				continue
 			collision_shape.set_shape(shape)
 
 func build_worldspawn_layer_collision_shapes() -> void:
@@ -1220,11 +1281,18 @@ func build_entity_mesh_instances() -> Dictionary:
 		if not mesh:
 			continue
 
+		if not _array_index_is_valid(entity_nodes, entity_idx):
+			continue
+
+		var entity_node = entity_nodes[entity_idx]
+		if not entity_node:
+			continue
+
 		var mesh_instance := MeshInstance.new()
 		mesh_instance.name = 'entity_%s_mesh_instance' % entity_idx
 		mesh_instance.set_flag(MeshInstance.FLAG_USE_BAKED_LIGHT, use_in_baked_light)
 
-		queue_add_child(entity_nodes[entity_idx], mesh_instance)
+		queue_add_child(entity_node, mesh_instance)
 
 		entity_mesh_instances[entity_idx] = mesh_instance
 
@@ -1250,6 +1318,9 @@ func build_worldspawn_layer_mesh_instances() -> Dictionary:
 		mesh_instance.name = 'entity_0_%s_mesh_instance' % worldspawn_layer.name
 		mesh_instance.set_flag(MeshInstance.FLAG_USE_BAKED_LIGHT, true)
 
+		if not _array_index_is_valid(worldspawn_layer_nodes, idx):
+			continue
+
 		queue_add_child(worldspawn_layer_nodes[idx], mesh_instance)
 		idx += 1
 
@@ -1260,14 +1331,21 @@ func build_worldspawn_layer_mesh_instances() -> Dictionary:
 func apply_entity_meshes() -> void:
 	for entity_idx in entity_mesh_dict:
 		var mesh := entity_mesh_dict[entity_idx] as Mesh
-		var mesh_instance := entity_mesh_instances[entity_idx] as MeshInstance
+		var mesh_instance := entity_mesh_instances.get(entity_idx, null) as MeshInstance
 
 		if not mesh or not mesh_instance:
 			continue
 
 		mesh_instance.set_mesh(mesh)
 
-		queue_add_child(entity_nodes[entity_idx], mesh_instance)
+		if not _array_index_is_valid(entity_nodes, entity_idx):
+			continue
+
+		var entity_node = entity_nodes[entity_idx]
+		if not entity_node:
+			continue
+
+		queue_add_child(entity_node, mesh_instance)
 
 func apply_worldspawn_layer_meshes() -> void:
 	for texture_name in worldspawn_layer_mesh_dict:
