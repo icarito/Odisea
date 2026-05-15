@@ -101,18 +101,19 @@ func _update_spiral_animation():
 		# 1. Posicionar en la espiral (Translate Z -> Rotate Theta -> Translate R)
 		xform.origin = Vector3(cos(theta) * r, z, sin(theta) * r)
 		
-		# 2. Orientación local (Inclinación centrífuga + Interlock)
-		# OpenSCAD aplica rotaciones de adentro hacia afuera:
-		#   rotate([0, 0, interlock]) -> rotate([0, y_ang, 0]) -> rotate([0, 0, theta])
-		# En Godot construimos la base en ese mismo orden:
-		var basis = Basis.IDENTITY
-		basis = basis.rotated(Vector3(0, 0, 1), interlock) # 1. Interlock local (eje Z de SCAD)
-		basis = basis.rotated(Vector3(0, 1, 0), y_ang) # 2. Inclinación centrífuga (eje Y de SCAD)
-		basis = basis.rotated(Vector3(0, 1, 0), theta) # 3. Posición en espiral (eje Z de SCAD = Y de Godot)
-		
-		xform.basis = basis
+		xform.basis = _build_plate_basis(theta, y_ang, interlock)
 		
 		multimesh.set_instance_transform(i, xform)
+
+func _build_plate_basis(theta: float, tilt_angle: float, interlock: float) -> Basis:
+	var outward = Vector3(cos(theta), 0.0, sin(theta)).normalized()
+	var tangent = outward.cross(Vector3.UP).normalized()
+	var normal = Vector3.UP.rotated(tangent, -tilt_angle).normalized()
+
+	var z_axis = tangent.rotated(normal, interlock).normalized()
+	var x_axis = normal.cross(z_axis).normalized()
+	z_axis = x_axis.cross(normal).normalized()
+	return Basis(x_axis, normal, z_axis).orthonormalized()
 
 func _apply_blend_easing(raw_t: float) -> float:
 	var clamped_t = clamp(raw_t, 0.0, 1.0)
