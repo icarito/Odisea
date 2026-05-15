@@ -125,6 +125,15 @@ func _process(_delta):
                     if current_prop.has_method("_update_ui_mode"):
                         current_prop.call("_update_ui_mode")
 
+func set_capture_camera_orbit(distance: float, height: float, yaw_deg: float, look_at_height: float = 0.35) -> void:
+    if not camera:
+        return
+    var yaw = deg2rad(yaw_deg)
+    var origin = Vector3(cos(yaw) * distance, height, sin(yaw) * distance)
+    camera.transform = Transform.IDENTITY.translated(origin)
+    camera.look_at(Vector3(0, look_at_height, 0), Vector3.UP)
+    camera.make_current()
+
 func _run_validation_oys():
     print("[PropStage] Starting OYS Validation...")
     if dev_prop_path == "" and current_prop == null:

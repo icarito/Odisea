@@ -352,7 +352,7 @@
 	starts_active(integer) : "Set to 1 if airlock starts active"  : 0
 ]
 
-@PointClass color(153 128 77) size(-8 -16 -4, 8 16 4) = prop_conveyor : "Conveyor belt system." [
+@PointClass color(153 128 77) size(-8 -16 -6, 8 16 6) = prop_conveyor : "Conveyor belt system." [
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	starts_active(integer) : "Set to 1 if conveyor starts running"  : 1

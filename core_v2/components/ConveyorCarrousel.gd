@@ -6,7 +6,8 @@ signal deactivated()
 signal interaction_started()
 signal interaction_completed()
 
-export(float) var speed_x := 2.0 setget set_speed_x
+export(float) var radius := 3.0 setget set_radius
+export(float) var angular_speed := 1.0 setget set_angular_speed
 export(bool) var starts_active := true setget set_starts_active
 export(float) var acceleration := 4.0
 export(bool) var require_on_floor := false
@@ -18,18 +19,11 @@ export(float) var debounce_time := 0.2 setget set_debounce_time
 export(float) var idle_speed_ratio := 0.1 setget set_idle_speed_ratio
 
 export(Color) var stripe_dark_color = Color(0.14, 0.15, 0.16, 1.0) setget set_stripe_dark_color
-export(Color) var stripe_light_color = Color(0.48, 0.42, 0.16, 1.0) setget set_stripe_light_color
-export(float) var stripe_emission = 0.015 setget set_stripe_emission
-export(float) var stripe_tiling = 4.0 setget set_stripe_tiling
-export(float) var stripe_fill = 0.42 setget set_stripe_fill
+export(Color) var stripe_light_color = Color(0.4, 0.34, 0.16, 1.0) setget set_stripe_light_color
+export(float) var stripe_emission = 0.012 setget set_stripe_emission
+export(float) var stripe_count = 20.0 setget set_stripe_count
+export(float) var stripe_fill = 0.4 setget set_stripe_fill
 
-export(float) var length := 8.0 setget set_length
-export(float) var width := 3.0 setget set_width
-export(float) var visual_speed_multiplier := 1.0 setget set_visual_speed_multiplier
-
-# Legacy property bridge for scenes saved with old versions.
-var push_velocity: Vector3 setget set_push_velocity
-var _speed_x_initialized := false
 var is_active := true
 
 var _bodies := []
@@ -41,6 +35,11 @@ var _occupancy_hold_timer := 0.0
 var _occupied := false
 var _feedback_state := "disabled"
 var _running := false
+
+const BELT_HEIGHT := 0.14
+const BASE_HEIGHT := 0.72
+const BELT_INNER_RATIO := 0.56
+const BELT_SEGMENTS := 48
 
 func _init():
 	add_to_group("replay_sync")
@@ -60,22 +59,37 @@ func _ready():
 func _ensure_support_nodes() -> void:
 	var ground = get_node_or_null("Ground")
 	if ground and not ground.has_node("BaseVisual"):
-		var base_visual := CSGBox.new()
+		var base_visual := MeshInstance.new()
 		base_visual.name = "BaseVisual"
-		base_visual.material = _build_metal_material(Color(0.24, 0.26, 0.29, 1.0), 0.85, 0.15)
+		base_visual.mesh = CylinderMesh.new()
+		base_visual.material_override = _build_metal_material(Color(0.24, 0.26, 0.29, 1.0), 0.85, 0.15)
 		ground.add_child(base_visual)
 		if Engine.editor_hint:
 			base_visual.owner = get_tree().edited_scene_root
 
-	for plate_name in ["EntryPlate", "ExitPlate", "SidePlateLeft", "SidePlateRight"]:
-		if has_node(plate_name):
+	for node_name in ["OuterRail", "InnerHub"]:
+		if has_node(node_name):
 			continue
-		var plate := CSGBox.new()
-		plate.name = plate_name
-		plate.material = _build_metal_material(Color(0.36, 0.38, 0.4, 1.0), 0.72, 0.08)
-		add_child(plate)
+		var mesh := MeshInstance.new()
+		mesh.name = node_name
+		mesh.mesh = CylinderMesh.new()
+		mesh.material_override = _build_metal_material(Color(0.32, 0.34, 0.37, 1.0), 0.72, 0.1)
+		add_child(mesh)
 		if Engine.editor_hint:
-			plate.owner = get_tree().edited_scene_root
+			mesh.owner = get_tree().edited_scene_root
+
+	if not has_node("InnerWell"):
+		var inner_well := MeshInstance.new()
+		inner_well.name = "InnerWell"
+		inner_well.mesh = CylinderMesh.new()
+		inner_well.material_override = _build_metal_material(Color(0.08, 0.09, 0.1, 1.0), 0.92, 0.04)
+		add_child(inner_well)
+		if Engine.editor_hint:
+			inner_well.owner = get_tree().edited_scene_root
+
+	var motion_band = get_node_or_null("MotionBand")
+	if motion_band:
+		motion_band.visible = false
 
 	if not has_node("Indicators"):
 		var indicators := Spatial.new()
@@ -84,42 +98,30 @@ func _ensure_support_nodes() -> void:
 		if Engine.editor_hint:
 			indicators.owner = get_tree().edited_scene_root
 
-		_create_indicator_pair(indicators, "Ready", Color(0.25, 0.8, 0.35, 1.0), 0.34)
-		_create_indicator_pair(indicators, "Running", Color(0.86, 0.67, 0.19, 1.0), 0.0)
-		_create_indicator_pair(indicators, "Disabled", Color(0.88, 0.28, 0.22, 1.0), -0.34)
-
-		var end_cluster := Spatial.new()
-		end_cluster.name = "EndCluster"
-		indicators.add_child(end_cluster)
-		if Engine.editor_hint:
-			end_cluster.owner = get_tree().edited_scene_root
-
-		_create_indicator_pair(end_cluster, "Ready", Color(0.25, 0.8, 0.35, 1.0), 0.34, "EndCluster")
-		_create_indicator_pair(end_cluster, "Running", Color(0.86, 0.67, 0.19, 1.0), 0.0, "EndCluster")
-		_create_indicator_pair(end_cluster, "Disabled", Color(0.88, 0.28, 0.22, 1.0), -0.34, "EndCluster")
+		_create_indicator_pair(indicators, "Ready", Color(0.25, 0.8, 0.35, 1.0))
+		_create_indicator_pair(indicators, "Running", Color(0.86, 0.67, 0.19, 1.0))
+		_create_indicator_pair(indicators, "Disabled", Color(0.88, 0.28, 0.22, 1.0))
 
 	var housing = get_node_or_null("Indicators/Housing")
 	if housing:
 		housing.visible = false
 
-func _create_indicator_pair(parent: Spatial, suffix: String, color: Color, z_offset: float, variant: String = "") -> void:
+func _create_indicator_pair(parent: Spatial, suffix: String, color: Color) -> void:
 	var mesh := MeshInstance.new()
-	mesh.name = "Indicator%sMesh%s" % [suffix, variant]
+	mesh.name = "Indicator%sMesh" % suffix
 	var cylinder := CylinderMesh.new()
 	cylinder.top_radius = 0.08
 	cylinder.bottom_radius = 0.08
 	cylinder.height = 0.07
 	mesh.mesh = cylinder
-	mesh.translation = Vector3(0, -0.06, z_offset)
 	mesh.material_override = _build_indicator_material(color)
 	parent.add_child(mesh)
 
 	var light := OmniLight.new()
-	light.name = "Indicator%sLight%s" % [suffix, variant]
-	light.translation = Vector3(0, 0.04, z_offset)
+	light.name = "Indicator%sLight" % suffix
 	light.light_color = color
-	light.light_energy = 0.65
-	light.omni_range = 2.1
+	light.light_energy = 0.62
+	light.omni_range = 2.0
 	light.shadow_enabled = false
 	parent.add_child(light)
 
@@ -138,15 +140,16 @@ func _build_indicator_material(color: Color) -> SpatialMaterial:
 	var material := SpatialMaterial.new()
 	material.albedo_color = color
 	material.emission_enabled = true
-	material.emission = color * 0.22
+	material.emission = color * 0.2
 	material.metallic = 0.05
 	material.roughness = 0.22
 	return material
 
 func _apply_idle_runtime_defaults() -> void:
+	var nominal_speed = _get_nominal_speed()
 	if is_active:
-		_internal_speed = speed_x if _should_drive_without_sampling() else 0.0
-		_visual_speed = speed_x if _should_drive_without_sampling() else speed_x * idle_speed_ratio
+		_internal_speed = nominal_speed if _should_drive_without_sampling() else 0.0
+		_visual_speed = nominal_speed if _should_drive_without_sampling() else nominal_speed * idle_speed_ratio
 	else:
 		_internal_speed = 0.0
 		_visual_speed = 0.0
@@ -168,21 +171,27 @@ func _ensure_unique_material() -> Material:
 func _update_shader_params(mat: ShaderMaterial) -> void:
 	if not mat:
 		return
-
-	mat.set_shader_param("dir", Vector2(0, 1))
 	mat.set_shader_param("phase", _visual_phase)
 	mat.set_shader_param("color_a", stripe_dark_color)
 	mat.set_shader_param("color_b", stripe_light_color)
 	mat.set_shader_param("emission", stripe_emission)
+	mat.set_shader_param("stripe_count", stripe_count)
+	mat.set_shader_param("fill", stripe_fill)
 	mat.set_shader_param("softness", 0.08)
 	mat.set_shader_param("metalness", 0.18)
-	mat.set_shader_param("roughness", 0.82)
-	mat.set_shader_param("tiling", stripe_tiling * (length / 8.0))
-	mat.set_shader_param("fill", stripe_fill)
+	mat.set_shader_param("roughness", 0.84)
+	mat.set_shader_param("outer_radius", radius)
+	mat.set_shader_param("lane_inner_ratio", 0.58)
+	mat.set_shader_param("lane_outer_ratio", 0.94)
+	mat.set_shader_param("motion_dir", _get_motion_direction())
 
-func set_speed_x(v: float) -> void:
-	speed_x = v
-	_speed_x_initialized = true
+func set_radius(v: float) -> void:
+	radius = max(v, 0.5)
+	_update_scaling()
+	_trigger_shader_update()
+
+func set_angular_speed(v: float) -> void:
+	angular_speed = v
 	_refresh_idle_defaults()
 
 func set_active(v: bool, immediate: bool = false) -> void:
@@ -235,26 +244,12 @@ func set_stripe_emission(v: float) -> void:
 	stripe_emission = max(v, 0.0)
 	_trigger_shader_update()
 
-func set_stripe_tiling(v: float) -> void:
-	stripe_tiling = max(v, 0.01)
+func set_stripe_count(v: float) -> void:
+	stripe_count = max(v, 2.0)
 	_trigger_shader_update()
 
 func set_stripe_fill(v: float) -> void:
 	stripe_fill = clamp(v, 0.0, 1.0)
-	_trigger_shader_update()
-
-func set_visual_speed_multiplier(v: float) -> void:
-	visual_speed_multiplier = max(v, 0.0)
-	_trigger_shader_update()
-
-func set_length(v: float) -> void:
-	length = max(v, 0.1)
-	_update_scaling()
-	_trigger_shader_update()
-
-func set_width(v: float) -> void:
-	width = max(v, 0.1)
-	_update_scaling()
 	_trigger_shader_update()
 
 func _refresh_idle_defaults() -> void:
@@ -272,96 +267,135 @@ func _trigger_shader_update() -> void:
 	if mat and mat is ShaderMaterial:
 		_update_shader_params(mat)
 
-func set_push_velocity(v: Vector3) -> void:
-	if not _speed_x_initialized and v.length() > 0.001:
-		speed_x = v.length()
-		if debug:
-			print("[Conveyor] Captured legacy push_velocity: ", v, " -> speed_x: ", speed_x)
-	_refresh_idle_defaults()
-
 func _update_scaling() -> void:
 	if not is_inside_tree():
 		return
 
-	var col = get_node_or_null("CollisionShape")
-	if col and col.shape is BoxShape:
-		if not col.shape.resource_local_to_scene:
-			col.shape = col.shape.duplicate()
-		col.shape.extents = Vector3(length / 2.0, 0.6, width / 2.0)
+	var collision_shape = get_node_or_null("CollisionShape")
+	if collision_shape and collision_shape.shape is CylinderShape:
+		if not collision_shape.shape.resource_local_to_scene:
+			collision_shape.shape = collision_shape.shape.duplicate()
+		collision_shape.shape.radius = radius
+		collision_shape.shape.height = 1.2
 
-	var ground_col = get_node_or_null("Ground/GroundCollision")
-	if ground_col and ground_col.shape is BoxShape:
-		if not ground_col.shape.resource_local_to_scene:
-			ground_col.shape = ground_col.shape.duplicate()
-		ground_col.shape.extents = Vector3(length / 2.0, 0.3, (width / 2.0) + 0.18)
+	var ground_collision = get_node_or_null("Ground/GroundCollision")
+	if ground_collision and ground_collision.shape is CylinderShape:
+		if not ground_collision.shape.resource_local_to_scene:
+			ground_collision.shape = ground_collision.shape.duplicate()
+		ground_collision.shape.radius = radius + 0.2
+		ground_collision.shape.height = 0.7
 
 	var belt = get_node_or_null("Belt")
-	if belt:
-		belt.scale = Vector3(length / 8.0, 1.0, width / 2.0)
+	if belt and belt is MeshInstance:
+		belt.mesh = _build_annulus_mesh(radius * BELT_INNER_RATIO, radius, BELT_HEIGHT, BELT_SEGMENTS)
 
 	var base_visual = get_node_or_null("Ground/BaseVisual")
-	if base_visual:
-		base_visual.width = length
-		base_visual.height = 0.6
-		base_visual.depth = width + 0.45
-		base_visual.translation = Vector3(0, -0.38, 0)
+	if base_visual and base_visual.mesh is CylinderMesh:
+		var base_mesh: CylinderMesh = base_visual.mesh
+		base_mesh.top_radius = radius + 0.45
+		base_mesh.bottom_radius = radius + 0.55
+		base_mesh.height = BASE_HEIGHT
+		base_visual.translation = Vector3(0, -0.58, 0)
+		if base_visual.material_override and base_visual.material_override is SpatialMaterial:
+			base_visual.material_override.albedo_color = Color(0.16, 0.17, 0.19, 1.0)
 
-	var entry_plate = get_node_or_null("EntryPlate")
-	if entry_plate:
-		entry_plate.width = 0.45
-		entry_plate.height = 0.08
-		entry_plate.depth = width + 0.32
-		entry_plate.translation = Vector3(-(length / 2.0) + 0.35, 0.02, 0)
+	var outer_rail = get_node_or_null("OuterRail")
+	if outer_rail and outer_rail is MeshInstance:
+		outer_rail.mesh = _build_annulus_mesh(radius + 0.02, radius + 0.3, 0.28, BELT_SEGMENTS)
+		outer_rail.translation = Vector3(0, 0.06, 0)
 
-	var exit_plate = get_node_or_null("ExitPlate")
-	if exit_plate:
-		exit_plate.width = 0.45
-		exit_plate.height = 0.08
-		exit_plate.depth = width + 0.32
-		exit_plate.translation = Vector3((length / 2.0) - 0.35, 0.02, 0)
+	var inner_hub = get_node_or_null("InnerHub")
+	if inner_hub and inner_hub.mesh is CylinderMesh:
+		var hub_mesh: CylinderMesh = inner_hub.mesh
+		hub_mesh.top_radius = max(radius * 0.34, 0.7)
+		hub_mesh.bottom_radius = max(radius * 0.38, 0.82)
+		hub_mesh.height = 0.5
+		inner_hub.translation = Vector3(0, -0.24, 0)
+		if inner_hub.material_override and inner_hub.material_override is SpatialMaterial:
+			inner_hub.material_override.albedo_color = Color(0.12, 0.13, 0.15, 1.0)
 
-	var side_left = get_node_or_null("SidePlateLeft")
-	if side_left:
-		side_left.width = max(length - 0.5, 0.2)
-		side_left.height = 0.12
-		side_left.depth = 0.14
-		side_left.translation = Vector3(0, 0.04, (width / 2.0) + 0.18)
-
-	var side_right = get_node_or_null("SidePlateRight")
-	if side_right:
-		side_right.width = max(length - 0.5, 0.2)
-		side_right.height = 0.12
-		side_right.depth = 0.14
-		side_right.translation = Vector3(0, 0.04, -((width / 2.0) + 0.18))
-
-	var gl = get_node_or_null("GuardrailSegmentLeft")
-	if gl:
-		gl.translation.z = (width / 2.0) + 0.35
-		gl.scale.x = (length / 8.0) * 1.9755
-
-	var gr = get_node_or_null("GuardrailSegmentRight")
-	if gr:
-		gr.translation.z = -((width / 2.0) + 0.15)
-		gr.scale.x = (length / 8.0) * 1.976
+	var inner_well = get_node_or_null("InnerWell")
+	if inner_well and inner_well.mesh is CylinderMesh:
+		var inner_mesh: CylinderMesh = inner_well.mesh
+		inner_mesh.top_radius = max((radius * BELT_INNER_RATIO) - 0.1, 0.35)
+		inner_mesh.bottom_radius = max((radius * BELT_INNER_RATIO) - 0.04, 0.4)
+		inner_mesh.height = 0.28
+		inner_well.translation = Vector3(0, -0.17, 0)
 
 	_update_indicator_layout()
 
+func _build_annulus_mesh(inner_radius: float, outer_radius: float, height: float, segments: int) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	var half_height = height * 0.5
+	var safe_segments = max(segments, 12)
+
+	for i in range(safe_segments):
+		var t0 = float(i) / float(safe_segments)
+		var t1 = float(i + 1) / float(safe_segments)
+		var a0 = t0 * TAU
+		var a1 = t1 * TAU
+
+		var outer_top_0 = Vector3(cos(a0) * outer_radius, half_height, sin(a0) * outer_radius)
+		var outer_top_1 = Vector3(cos(a1) * outer_radius, half_height, sin(a1) * outer_radius)
+		var inner_top_0 = Vector3(cos(a0) * inner_radius, half_height, sin(a0) * inner_radius)
+		var inner_top_1 = Vector3(cos(a1) * inner_radius, half_height, sin(a1) * inner_radius)
+
+		var outer_bottom_0 = Vector3(outer_top_0.x, -half_height, outer_top_0.z)
+		var outer_bottom_1 = Vector3(outer_top_1.x, -half_height, outer_top_1.z)
+		var inner_bottom_0 = Vector3(inner_top_0.x, -half_height, inner_top_0.z)
+		var inner_bottom_1 = Vector3(inner_top_1.x, -half_height, inner_top_1.z)
+
+		_add_quad(st, inner_top_0, outer_top_0, outer_top_1, inner_top_1, Vector3.UP, t0, t1, inner_radius, outer_radius)
+		_add_quad(st, outer_bottom_0, inner_bottom_0, inner_bottom_1, outer_bottom_1, Vector3.DOWN, t0, t1, inner_radius, outer_radius)
+		_add_quad(st, outer_top_0, outer_bottom_0, outer_bottom_1, outer_top_1, Vector3(cos(a0 + (a1 - a0) * 0.5), 0.0, sin(a0 + (a1 - a0) * 0.5)).normalized(), t0, t1, 0.0, height)
+		_add_quad(st, inner_bottom_0, inner_top_0, inner_top_1, inner_bottom_1, -Vector3(cos(a0 + (a1 - a0) * 0.5), 0.0, sin(a0 + (a1 - a0) * 0.5)).normalized(), t0, t1, 0.0, height)
+
+	st.generate_normals()
+	return st.commit()
+
 func _update_indicator_layout() -> void:
-	var indicators = get_node_or_null("Indicators")
-	if indicators:
-		indicators.translation = Vector3(-(length / 2.0) + 0.34, -0.04, 0)
-		indicators.rotation = Vector3.ZERO
+	var indicator_radius = radius + 0.34
+	var indicator_height = -0.16
+	_place_perimeter_indicator("Ready", indicator_radius, indicator_height, deg2rad(210.0))
+	_place_perimeter_indicator("Running", indicator_radius, indicator_height, deg2rad(330.0))
+	_place_perimeter_indicator("Disabled", indicator_radius, indicator_height, deg2rad(90.0))
 
-	var end_cluster = get_node_or_null("Indicators/EndCluster")
-	if end_cluster:
-		end_cluster.translation = Vector3(length - 0.68, 0, 0)
-		end_cluster.rotation = Vector3(0, PI, 0)
+func _place_perimeter_indicator(state_name: String, indicator_radius: float, indicator_height: float, angle: float) -> void:
+	var mesh = get_node_or_null("Indicators/Indicator%sMesh" % state_name)
+	if mesh:
+		mesh.translation = Vector3(cos(angle) * indicator_radius, indicator_height, sin(angle) * indicator_radius)
+	var light = get_node_or_null("Indicators/Indicator%sLight" % state_name)
+	if light:
+		light.translation = Vector3(cos(angle) * indicator_radius, indicator_height + 0.1, sin(angle) * indicator_radius)
 
-func _get_conveyor_length() -> float:
-	return length
+func _get_motion_direction() -> float:
+	return 1.0 if angular_speed >= 0.0 else -1.0
 
-func compute_nominal_push_velocity_for_point(_world_position: Vector3) -> Vector3:
-	return global_transform.basis.x.normalized() * speed_x
+func _add_quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, normal: Vector3, u0: float, u1: float, v0: float, v1: float) -> void:
+	st.add_normal(normal)
+	st.add_uv(Vector2(u0, v0))
+	st.add_vertex(a)
+	st.add_normal(normal)
+	st.add_uv(Vector2(u0, v1))
+	st.add_vertex(b)
+	st.add_normal(normal)
+	st.add_uv(Vector2(u1, v1))
+	st.add_vertex(c)
+
+	st.add_normal(normal)
+	st.add_uv(Vector2(u0, v0))
+	st.add_vertex(a)
+	st.add_normal(normal)
+	st.add_uv(Vector2(u1, v1))
+	st.add_vertex(c)
+	st.add_normal(normal)
+	st.add_uv(Vector2(u1, v0))
+	st.add_vertex(d)
+
+func compute_nominal_push_velocity_for_point(world_position: Vector3) -> Vector3:
+	return _get_tangent_direction(world_position) * _get_nominal_speed()
 
 func get_feedback_state() -> String:
 	return _feedback_state
@@ -373,7 +407,7 @@ func preview_ready_state() -> void:
 	occupancy_detection = true
 	is_active = true
 	_internal_speed = 0.0
-	_visual_speed = speed_x * idle_speed_ratio
+	_visual_speed = _get_nominal_speed() * idle_speed_ratio
 	_running = false
 	_update_feedback_state(false)
 	_trigger_shader_update()
@@ -381,8 +415,8 @@ func preview_ready_state() -> void:
 func preview_running_state() -> void:
 	occupancy_detection = false
 	is_active = true
-	_internal_speed = speed_x
-	_visual_speed = speed_x
+	_internal_speed = _get_nominal_speed()
+	_visual_speed = _get_nominal_speed()
 	_running = true
 	_update_feedback_state(true)
 	_trigger_shader_update()
@@ -398,9 +432,8 @@ func preview_disabled_state() -> void:
 func get_snapshot() -> Dictionary:
 	return {
 		"pos": [global_transform.origin.x, global_transform.origin.y, global_transform.origin.z],
-		"speed_x": speed_x,
-		"length": length,
-		"width": width,
+		"radius": radius,
+		"angular_speed": angular_speed,
 		"require_on_floor": require_on_floor,
 		"rigid_force_multiplier": rigid_force_multiplier,
 		"occupancy_detection": occupancy_detection,
@@ -409,7 +442,7 @@ func get_snapshot() -> Dictionary:
 		"stripe_dark_color": [stripe_dark_color.r, stripe_dark_color.g, stripe_dark_color.b, stripe_dark_color.a],
 		"stripe_light_color": [stripe_light_color.r, stripe_light_color.g, stripe_light_color.b, stripe_light_color.a],
 		"stripe_emission": stripe_emission,
-		"stripe_tiling": stripe_tiling,
+		"stripe_count": stripe_count,
 		"stripe_fill": stripe_fill,
 		"is_active": is_active,
 		"internal_speed": _internal_speed,
@@ -421,18 +454,10 @@ func get_snapshot() -> Dictionary:
 	}
 
 func _apply_snapshot(data: Dictionary) -> void:
-	if data.has("speed_x"):
-		speed_x = data["speed_x"]
-	elif data.has("push_velocity"):
-		var pv = data["push_velocity"]
-		var mag = Vector3(pv[0], pv[1], pv[2]).length()
-		if mag > 0.001:
-			speed_x = mag
-
-	if data.has("length"):
-		length = data["length"]
-	if data.has("width"):
-		width = data["width"]
+	if data.has("radius"):
+		radius = data["radius"]
+	if data.has("angular_speed"):
+		angular_speed = data["angular_speed"]
 	if data.has("require_on_floor"):
 		require_on_floor = data["require_on_floor"]
 	if data.has("rigid_force_multiplier"):
@@ -443,11 +468,9 @@ func _apply_snapshot(data: Dictionary) -> void:
 		debounce_time = data["debounce_time"]
 	if data.has("idle_speed_ratio"):
 		idle_speed_ratio = data["idle_speed_ratio"]
-
 	if data.has("pos"):
 		var p = data["pos"]
 		global_transform.origin = Vector3(p[0], p[1], p[2])
-
 	if data.has("stripe_dark_color"):
 		var sd = data["stripe_dark_color"]
 		stripe_dark_color = Color(sd[0], sd[1], sd[2], sd[3])
@@ -456,8 +479,8 @@ func _apply_snapshot(data: Dictionary) -> void:
 		stripe_light_color = Color(sl[0], sl[1], sl[2], sl[3])
 	if data.has("stripe_emission"):
 		stripe_emission = data["stripe_emission"]
-	if data.has("stripe_tiling"):
-		stripe_tiling = data["stripe_tiling"]
+	if data.has("stripe_count"):
+		stripe_count = data["stripe_count"]
 	if data.has("stripe_fill"):
 		stripe_fill = data["stripe_fill"]
 	if data.has("is_active"):
@@ -495,17 +518,19 @@ func step(dt: float) -> void:
 	var should_push = _update_occupancy_state(driveable_bodies, dt)
 	var was_running = _running
 
-	var target_speed = speed_x if should_push else 0.0
+	var nominal_speed = _get_nominal_speed()
+	var target_speed = nominal_speed if should_push else 0.0
 	var target_visual_speed = 0.0
 	if is_active:
-		target_visual_speed = speed_x if should_push else speed_x * idle_speed_ratio
+		target_visual_speed = nominal_speed if should_push else nominal_speed * idle_speed_ratio
 
 	_internal_speed = move_toward(_internal_speed, target_speed, acceleration * dt)
 	_visual_speed = move_toward(_visual_speed, target_visual_speed, acceleration * dt)
 	_running = _internal_speed > 0.001
 
-	var visible_speed = (_visual_speed * stripe_tiling / 8.0) * visual_speed_multiplier
-	_visual_phase = fmod(_visual_phase + visible_speed * dt, 100.0)
+	var circumference = max(TAU * radius, 0.001)
+	var visible_cycles = _visual_speed / circumference
+	_visual_phase = fmod(_visual_phase + visible_cycles * dt, 100.0)
 	_update_feedback_state(should_push)
 	if _running != was_running:
 		if _running:
@@ -525,8 +550,6 @@ func step(dt: float) -> void:
 			body.set_external_velocity(world_push)
 			if body.has_method("set_external_source_is_static"):
 				body.set_external_source_is_static(false)
-			if debug:
-				print("[Conveyor] push to:", body.get_name() if body.has_method("get_name") else body, " vel:", world_push)
 		elif body is RigidBody:
 			body.add_central_force(world_push * rigid_force_multiplier * 5.0)
 
@@ -564,11 +587,22 @@ func _update_occupancy_state(driveable_bodies: Array, dt: float) -> bool:
 	return _occupied or _occupancy_hold_timer > 0.0
 
 func _compute_runtime_push_velocity_for_body(body) -> Vector3:
-	var nominal = compute_nominal_push_velocity_for_point(body.global_transform.origin)
-	var nominal_len = nominal.length()
-	if nominal_len <= 0.001:
-		return Vector3.ZERO
-	return nominal.normalized() * _internal_speed
+	return _get_tangent_direction(body.global_transform.origin) * _internal_speed
+
+func _get_tangent_direction(world_position: Vector3) -> Vector3:
+	var center = global_transform.origin
+	var up = global_transform.basis.y.normalized()
+	var radial = world_position - center
+	radial -= up * radial.dot(up)
+	if radial.length() <= 0.001:
+		return global_transform.basis.x.normalized()
+	var tangent = up.cross(radial.normalized()).normalized()
+	if angular_speed < 0.0:
+		tangent = -tangent
+	return tangent
+
+func _get_nominal_speed() -> float:
+	return abs(angular_speed) * radius
 
 func _update_feedback_state(should_push: bool) -> void:
 	var next_state = "disabled"
@@ -602,24 +636,12 @@ func _sync_belt_audio() -> void:
 			sfx.stop()
 
 func _set_indicator_visible(state_name: String, visible: bool) -> void:
-	var indicators = get_node_or_null("Indicators")
-	if not indicators:
-		return
-	var mesh = indicators.get_node_or_null("Indicator%sMesh" % state_name)
+	var mesh = get_node_or_null("Indicators/Indicator%sMesh" % state_name)
 	if mesh:
 		mesh.visible = visible
-	var light = indicators.get_node_or_null("Indicator%sLight" % state_name)
+	var light = get_node_or_null("Indicators/Indicator%sLight" % state_name)
 	if light:
 		light.visible = visible
-
-	var end_cluster = indicators.get_node_or_null("EndCluster")
-	if end_cluster:
-		var end_mesh = end_cluster.get_node_or_null("Indicator%sMeshEndCluster" % state_name)
-		if end_mesh:
-			end_mesh.visible = visible
-		var end_light = end_cluster.get_node_or_null("Indicator%sLightEndCluster" % state_name)
-		if end_light:
-			end_light.visible = visible
 
 func _should_drive_without_sampling() -> bool:
 	return is_active and not occupancy_detection

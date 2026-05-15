@@ -304,32 +304,32 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 		planar_delta = Vector2(move_delta.x, move_delta.z).length()
 	_last_world_pos = current_world_pos
 	_has_last_world_pos = true
+	var has_locomotion_intent := _has_locomotion_intent()
 
-	if is_on_floor and not controller.get("is_pushing"):
+	if _should_accumulate_footsteps(is_on_floor, planar_delta, has_locomotion_intent):
 		# Use real traveled planar distance, not instantaneous velocity, to avoid step spam when oscillating in place.
-		if planar_delta > 0.001:
-			_distance_accumulator += planar_delta
+		_distance_accumulator += planar_delta
 
-			# Keep speed only for choosing stride profile (walk/run), not for counting distance.
-			var speed_h = Vector2(p_current_velocity.x, p_current_velocity.z).length()
-			var current_stride = 0.9
-			var walk_threshold = 3.0
-			if footstep_detector:
-				current_stride = footstep_detector.stride_length_walk
-				walk_threshold = footstep_detector.walk_speed_threshold
-				if speed_h > walk_threshold:
-					var t = clamp((speed_h - walk_threshold) / walk_threshold, 0.0, 1.0)
-					current_stride = lerp(footstep_detector.stride_length_walk, footstep_detector.stride_length_run, t)
-			elif speed_h > walk_threshold:
+		# Keep speed only for choosing stride profile (walk/run), not for counting distance.
+		var speed_h = Vector2(p_current_velocity.x, p_current_velocity.z).length()
+		var current_stride = 0.9
+		var walk_threshold = 3.0
+		if footstep_detector:
+			current_stride = footstep_detector.stride_length_walk
+			walk_threshold = footstep_detector.walk_speed_threshold
+			if speed_h > walk_threshold:
 				var t = clamp((speed_h - walk_threshold) / walk_threshold, 0.0, 1.0)
-				current_stride = lerp(0.9, 2.0, t)
+				current_stride = lerp(footstep_detector.stride_length_walk, footstep_detector.stride_length_run, t)
+		elif speed_h > walk_threshold:
+			var t = clamp((speed_h - walk_threshold) / walk_threshold, 0.0, 1.0)
+			current_stride = lerp(0.9, 2.0, t)
 
-			if _distance_accumulator >= current_stride:
-				_distance_accumulator -= current_stride # Keep residue for precise rhythm
-				_play_footstep()
+		if _distance_accumulator >= current_stride:
+			_distance_accumulator -= current_stride # Keep residue for precise rhythm
+			_play_footstep()
 	else:
 		_distance_accumulator = 0.0 # Reset in air so we don't step immediately on land (unless land sound handles that)
-	_update_footstep_playback_guard(is_on_floor, planar_delta, dt)
+	_update_footstep_playback_guard(is_on_floor, planar_delta, dt, has_locomotion_intent)
 
 	# 2. ROTACIÓN VISUAL SUAVE (YAW)
 	# Solo rotamos si no estamos bloqueados (durante backflip)
@@ -1120,15 +1120,28 @@ func _advance_animation_tree_if_manual(dt: float) -> void:
 	_manual_animtree_step_accum = 0.0
 	animation_tree.advance(step_dt)
 
-func _update_footstep_playback_guard(is_on_floor: bool, planar_delta: float, dt: float) -> void:
+func _update_footstep_playback_guard(is_on_floor: bool, planar_delta: float, dt: float, has_locomotion_intent: bool = false) -> void:
 	_footstep_stop_grace_left = max(0.0, _footstep_stop_grace_left - max(0.0, dt))
-	var is_moving_planar = planar_delta > 0.004
-	var is_pushing = bool(controller.get("is_pushing")) if controller else false
-	if is_on_floor and is_moving_planar and not is_pushing:
+	if _should_accumulate_footsteps(is_on_floor, planar_delta, has_locomotion_intent, 0.004):
 		return
 	if _footstep_stop_grace_left > 0.0:
 		return
 	_stop_footstep_audio_if_playing()
+
+func _has_locomotion_intent() -> bool:
+	if controller == null or not controller.has_method("get_wish_direction"):
+		return false
+	var wish_direction = controller.get_wish_direction()
+	return typeof(wish_direction) == TYPE_VECTOR3 and wish_direction.length_squared() > 0.0001
+
+func _should_accumulate_footsteps(is_on_floor: bool, planar_delta: float, has_locomotion_intent: bool, planar_threshold: float = 0.001) -> bool:
+	if not is_on_floor or planar_delta <= planar_threshold:
+		return false
+	if not has_locomotion_intent:
+		return false
+	if controller and bool(controller.get("is_pushing")):
+		return false
+	return true
 
 func _stop_footstep_audio_if_playing() -> void:
 	if footstep_detector:

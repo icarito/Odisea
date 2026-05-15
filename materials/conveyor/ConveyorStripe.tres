@@ -4,10 +4,13 @@
 
 [resource]
 shader = ExtResource( 1 )
-shader_param/color_a = Color( 0.18, 0.18, 0.18, 1 )
-shader_param/color_b = Color( 0.32, 0.32, 0.3, 1 )
+shader_param/color_a = Color( 0.14, 0.15, 0.16, 1 )
+shader_param/color_b = Color( 0.48, 0.42, 0.16, 1 )
 shader_param/tiling = 4.0
 shader_param/phase = 0.0
 shader_param/dir = Vector2( 0, 1 )
-shader_param/fill = 0.35
-shader_param/emission = 0.04
+shader_param/fill = 0.42
+shader_param/emission = 0.015
+shader_param/softness = 0.08
+shader_param/metalness = 0.18
+shader_param/roughness = 0.82
