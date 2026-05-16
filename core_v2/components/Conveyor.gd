@@ -42,6 +42,13 @@ var _occupied := false
 var _feedback_state := "disabled"
 var _running := false
 
+const INDICATOR_BUTTON_SIZE := Vector3(0.18, 0.035, 0.2)
+const INDICATOR_HOUSING_SIZE := Vector3(0.26, 0.045, 1.08)
+const INDICATOR_COLLISION_EXTENTS := Vector3(0.09, 0.02, 0.1)
+const INDICATOR_BUTTON_Y := 0.085
+const INDICATOR_HOUSING_OFFSET := Vector3(0.0, 0.065, 0.0)
+const INDICATOR_LIGHT_HEIGHT := 0.125
+
 func _init():
 	add_to_group("replay_sync")
 
@@ -98,34 +105,108 @@ func _ensure_support_nodes() -> void:
 		_create_indicator_pair(end_cluster, "Running", Color(0.86, 0.67, 0.19, 1.0), 0.0, "EndCluster")
 		_create_indicator_pair(end_cluster, "Disabled", Color(0.88, 0.28, 0.22, 1.0), -0.34, "EndCluster")
 
+	_ensure_indicator_housing("Indicators")
+	_ensure_indicator_housing("Indicators/EndCluster")
+	_configure_indicator_pair("Indicators", "Ready", Color(0.25, 0.8, 0.35, 1.0), 0.34)
+	_configure_indicator_pair("Indicators", "Running", Color(0.86, 0.67, 0.19, 1.0), 0.0)
+	_configure_indicator_pair("Indicators", "Disabled", Color(0.88, 0.28, 0.22, 1.0), -0.34)
+	_configure_indicator_pair("Indicators/EndCluster", "Ready", Color(0.25, 0.8, 0.35, 1.0), 0.34, "EndCluster")
+	_configure_indicator_pair("Indicators/EndCluster", "Running", Color(0.86, 0.67, 0.19, 1.0), 0.0, "EndCluster")
+	_configure_indicator_pair("Indicators/EndCluster", "Disabled", Color(0.88, 0.28, 0.22, 1.0), -0.34, "EndCluster")
+
 	var housing = get_node_or_null("Indicators/Housing")
 	if housing:
-		housing.visible = false
+		housing.visible = true
 
 func _create_indicator_pair(parent: Spatial, suffix: String, color: Color, z_offset: float, variant: String = "") -> void:
 	var mesh := MeshInstance.new()
 	mesh.name = "Indicator%sMesh%s" % [suffix, variant]
-	var cylinder := CylinderMesh.new()
-	cylinder.top_radius = 0.08
-	cylinder.bottom_radius = 0.08
-	cylinder.height = 0.07
-	mesh.mesh = cylinder
-	mesh.translation = Vector3(0, -0.06, z_offset)
+	var button := CubeMesh.new()
+	button.size = INDICATOR_BUTTON_SIZE
+	mesh.mesh = button
+	mesh.translation = Vector3(0, INDICATOR_BUTTON_Y, z_offset)
 	mesh.material_override = _build_indicator_material(color)
 	parent.add_child(mesh)
 
 	var light := OmniLight.new()
 	light.name = "Indicator%sLight%s" % [suffix, variant]
-	light.translation = Vector3(0, 0.04, z_offset)
+	light.translation = Vector3(0, INDICATOR_LIGHT_HEIGHT, z_offset)
 	light.light_color = color
-	light.light_energy = 0.65
-	light.omni_range = 2.1
+	light.light_energy = 0.46
+	light.omni_range = 1.6
 	light.shadow_enabled = false
 	parent.add_child(light)
 
 	if Engine.editor_hint:
 		mesh.owner = get_tree().edited_scene_root
 		light.owner = get_tree().edited_scene_root
+
+func _ensure_indicator_collision(parent_path: String, suffix: String, z_offset: float, variant: String = "") -> void:
+	var parent = get_node_or_null(parent_path)
+	if not parent:
+		return
+	var body_name = "Indicator%sPlate%s" % [suffix, variant]
+	var body: StaticBody = parent.get_node_or_null(body_name)
+	if not body:
+		body = StaticBody.new()
+		body.name = body_name
+		body.collision_layer = 2
+		body.collision_mask = 0
+		parent.add_child(body)
+		if Engine.editor_hint:
+			body.owner = get_tree().edited_scene_root
+
+	var collider: CollisionShape = body.get_node_or_null("CollisionShape")
+	if not collider:
+		collider = CollisionShape.new()
+		collider.name = "CollisionShape"
+		body.add_child(collider)
+		if Engine.editor_hint:
+			collider.owner = get_tree().edited_scene_root
+
+	if not collider.shape or not collider.shape is BoxShape:
+		collider.shape = BoxShape.new()
+	if not collider.shape.resource_local_to_scene:
+		collider.shape = collider.shape.duplicate()
+	collider.shape.extents = INDICATOR_COLLISION_EXTENTS
+	body.translation = Vector3(0, INDICATOR_BUTTON_Y - 0.004, z_offset)
+
+func _ensure_indicator_housing(parent_path: String) -> void:
+	var parent = get_node_or_null(parent_path)
+	if not parent:
+		return
+	var housing = parent.get_node_or_null("Housing")
+	if not housing:
+		housing = CSGBox.new()
+		housing.name = "Housing"
+		parent.add_child(housing)
+		if Engine.editor_hint:
+			housing.owner = get_tree().edited_scene_root
+	housing.width = INDICATOR_HOUSING_SIZE.x
+	housing.height = INDICATOR_HOUSING_SIZE.y
+	housing.depth = INDICATOR_HOUSING_SIZE.z
+	housing.translation = INDICATOR_HOUSING_OFFSET
+	housing.material = _build_metal_material(Color(0.12, 0.12, 0.14, 1.0), 0.72, 0.12)
+	housing.visible = true
+
+func _configure_indicator_pair(parent_path: String, suffix: String, color: Color, z_offset: float, variant: String = "") -> void:
+	var mesh: MeshInstance = get_node_or_null("%s/Indicator%sMesh%s" % [parent_path, suffix, variant])
+	if mesh:
+		var button := CubeMesh.new()
+		button.size = INDICATOR_BUTTON_SIZE
+		mesh.mesh = button
+		mesh.translation = Vector3(0, INDICATOR_BUTTON_Y, z_offset)
+		mesh.material_override = _build_indicator_material(color)
+
+	var light: OmniLight = get_node_or_null("%s/Indicator%sLight%s" % [parent_path, suffix, variant])
+	if light:
+		light.translation = Vector3(0, INDICATOR_LIGHT_HEIGHT, z_offset)
+		light.light_color = color
+		light.light_energy = 0.46
+		light.omni_range = 1.6
+		light.shadow_enabled = false
+
+	_ensure_indicator_collision(parent_path, suffix, z_offset, variant)
 
 func _build_metal_material(albedo: Color, roughness_value: float, metallic_value: float) -> SpatialMaterial:
 	var material := SpatialMaterial.new()
@@ -138,9 +219,10 @@ func _build_indicator_material(color: Color) -> SpatialMaterial:
 	var material := SpatialMaterial.new()
 	material.albedo_color = color
 	material.emission_enabled = true
-	material.emission = color * 0.22
+	material.emission = color
+	material.emission_energy = 0.22
 	material.metallic = 0.05
-	material.roughness = 0.22
+	material.roughness = 0.28
 	return material
 
 func _apply_idle_runtime_defaults() -> void:
@@ -349,13 +431,13 @@ func _update_scaling() -> void:
 func _update_indicator_layout() -> void:
 	var indicators = get_node_or_null("Indicators")
 	if indicators:
-		indicators.translation = Vector3(-(length / 2.0) + 0.34, -0.04, 0)
+		indicators.translation = Vector3(-(length / 2.0) + 0.35, 0, 0)
 		indicators.rotation = Vector3.ZERO
 
 	var end_cluster = get_node_or_null("Indicators/EndCluster")
 	if end_cluster:
-		end_cluster.translation = Vector3(length - 0.68, 0, 0)
-		end_cluster.rotation = Vector3(0, PI, 0)
+		end_cluster.translation = Vector3(length - 0.7, 0, 0)
+		end_cluster.rotation = Vector3.ZERO
 
 func _get_conveyor_length() -> float:
 	return length

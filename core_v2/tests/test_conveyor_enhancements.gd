@@ -21,6 +21,10 @@ func test_conveyor_defaults_create_feedback_and_support_geometry():
 	assert_object(conveyor.get_node("Indicators/IndicatorReadyLight")).is_not_null()
 	assert_object(conveyor.get_node("Indicators/IndicatorRunningMesh")).is_not_null()
 	assert_object(conveyor.get_node("Indicators/IndicatorDisabledMesh")).is_not_null()
+	assert_object(conveyor.get_node("Indicators/IndicatorReadyPlate/CollisionShape")).is_not_null()
+
+	var plate_collision: CollisionShape = conveyor.get_node("Indicators/IndicatorReadyPlate/CollisionShape")
+	assert_float(plate_collision.shape.extents.y).is_less_equal(0.03)
 
 func test_conveyor_ready_state_keeps_visual_idle_without_pushing():
 	var conveyor = yield(_spawn(CONVEYOR_SCENE), "completed")

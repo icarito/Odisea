@@ -1,4 +1,4 @@
-[gd_scene load_steps=157 format=2]
+[gd_scene load_steps=150 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -427,7 +427,7 @@ points = PoolVector3Array( -0.344934, -0.00406617, -0.299619, -0.344934, 1.32967
 [sub_resource type="ConcavePolygonShape" id=3261]
 data = PoolVector3Array( 0.2918, 0.106, 0.4843, -0.2918, 0.653, 0.4843, 0.2918, 0.653, 0.4843, 0.2918, 0.106, 0.4843, -0.2918, 0.106, 0.4843, -0.2918, 0.653, 0.4843, 0.4031, 2.3961, 0.2582, -0.2582, 2.3961, 0.4031, -0.4031, 2.3961, 0.2582, 0.4031, 2.3961, 0.2582, 0.2582, 2.3961, 0.4031, -0.2582, 2.3961, 0.4031, 0.4031, 2.3961, -0.4843, 0.4031, 2.3961, 0.2582, -0.4031, 2.3961, 0.2582, 0.4031, 2.3961, -0.4843, -0.4031, 2.3961, 0.2582, -0.4031, 2.3961, -0.4843, -0.4843, 0.653, -0.2421, -0.4843, 2.3429, -0.4843, -0.4843, 2.1251, -0.2421, -0.4843, 2.1251, 0.2918, -0.4843, 2.1251, -0.2421, -0.4843, 2.3429, -0.4843, -0.4843, 2.1251, 0.2918, -0.4843, 2.3429, -0.4843, -0.4843, 2.3429, 0.2918, -0.4843, 0.653, -0.2421, -0.4843, 0.106, -0.4843, -0.4843, 2.3429, -0.4843, -0.4843, 0.106, 0.2918, -0.4843, 0.106, -0.4843, -0.4843, 0.653, -0.2421, -0.4843, 0.106, 0.2918, -0.4843, 0.653, -0.2421, -0.4843, 0.653, 0.2918, 0.2731, 0.106, 0.439, -0.2731, 0, 0.439, -0.2731, 0.106, 0.439, 0.2731, 0.106, 0.439, 0.2731, 0, 0.439, -0.2731, 0, 0.439, -0.439, 0.106, 0.2731, -0.439, 0, -0.439, -0.439, 0.106, -0.439, -0.439, 0.106, 0.2731, -0.439, 0, 0.2731, -0.439, 0, -0.439, 0.4843, 2.1251, -0.2421, 0.4843, 2.3429, 0.2918, 0.4843, 2.3429, -0.4843, 0.4843, 2.1251, -0.2421, 0.4843, 2.1251, 0.2918, 0.4843, 2.3429, 0.2918, 0.4843, 0.106, -0.4843, 0.4843, 2.1251, -0.2421, 0.4843, 2.3429, -0.4843, 0.4843, 0.106, -0.4843, 0.4843, 0.653, -0.2421, 0.4843, 2.1251, -0.2421, 0.4843, 0.106, -0.4843, 0.4843, 0.653, 0.2918, 0.4843, 0.653, -0.2421, 0.4843, 0.106, -0.4843, 0.4843, 0.106, 0.2918, 0.4843, 0.653, 0.2918, 0.2918, 2.1251, 0.4843, -0.2918, 2.3429, 0.4843, 0.2918, 2.3429, 0.4843, 0.2918, 2.1251, 0.4843, -0.2918, 2.1251, 0.4843, -0.2918, 2.3429, 0.4843, 0.439, 0.106, 0.2731, 0.2731, 0, 0.439, 0.2731, 0.106, 0.439, 0.439, 0.106, 0.2731, 0.439, 0, 0.2731, 0.2731, 0, 0.439, -0.2918, 2.1251, 0.4843, -0.4843, 2.3429, 0.2918, -0.2918, 2.3429, 0.4843, -0.2918, 2.1251, 0.4843, -0.4843, 2.1251, 0.2918, -0.4843, 2.3429, 0.2918, 0.2918, 2.3429, 0.4843, 0.4843, 2.1251, 0.2918, 0.2918, 2.1251, 0.4843, 0.2918, 2.3429, 0.4843, 0.4843, 2.3429, 0.2918, 0.4843, 2.1251, 0.2918, 0.2918, 0.653, 0.4843, 0.4843, 0.106, 0.2918, 0.2918, 0.106, 0.4843, 0.2918, 0.653, 0.4843, 0.4843, 0.653, 0.2918, 0.4843, 0.106, 0.2918, -0.2918, 0.106, 0.4843, -0.4843, 0.653, 0.2918, -0.2918, 0.653, 0.4843, -0.2918, 0.106, 0.4843, -0.4843, 0.106, 0.2918, -0.4843, 0.653, 0.2918, -0.2602, 2.0519, 0.4078, 0.4078, 2.0519, 0.2602, -0.4078, 2.0519, 0.2602, -0.2602, 2.0519, 0.4078, 0.2602, 2.0519, 0.4078, 0.4078, 2.0519, 0.2602, -0.4078, 2.0519, -0.2421, -0.4078, 2.0519, 0.2602, 0.4078, 2.0519, 0.2602, -0.4078, 2.0519, -0.2421, 0.4078, 2.0519, 0.2602, 0.4078, 2.0519, -0.2421, 0.439, 0.106, -0.439, -0.4843, 0.106, -0.4843, -0.439, 0.106, -0.439, 0.439, 0.106, -0.439, 0.4843, 0.106, -0.4843, -0.4843, 0.106, -0.4843, -0.439, 0.106, -0.439, -0.4843, 0.106, -0.4843, -0.4843, 0.106, 0.2918, -0.439, 0.106, -0.439, -0.4843, 0.106, 0.2918, -0.439, 0.106, 0.2731, 0.439, 0.106, 0.2731, 0.4843, 0.106, -0.4843, 0.439, 0.106, -0.439, 0.439, 0.106, 0.2731, 0.4843, 0.106, 0.2918, 0.4843, 0.106, -0.4843, 0.2731, 0.106, 0.439, 0.4843, 0.106, 0.2918, 0.439, 0.106, 0.2731, 0.2731, 0.106, 0.439, 0.2918, 0.106, 0.4843, 0.4843, 0.106, 0.2918, -0.2731, 0.106, 0.439, 0.2918, 0.106, 0.4843, 0.2731, 0.106, 0.439, -0.2731, 0.106, 0.439, -0.2918, 0.106, 0.4843, 0.2918, 0.106, 0.4843, -0.439, 0.106, 0.2731, -0.2918, 0.106, 0.4843, -0.2731, 0.106, 0.439, -0.439, 0.106, 0.2731, -0.4843, 0.106, 0.2918, -0.2918, 0.106, 0.4843, 0.4843, 0.106, -0.4843, -0.4843, 2.3429, -0.4843, -0.4843, 0.106, -0.4843, -0.4843, 2.3429, -0.4843, 0.4843, 0.106, -0.4843, 0.4031, 2.3961, -0.4843, -0.4843, 2.3429, -0.4843, 0.4031, 2.3961, -0.4843, -0.4031, 2.3961, -0.4843, 0.4031, 2.3961, -0.4843, 0.4843, 0.106, -0.4843, 0.4843, 2.3429, -0.4843, -0.2731, 0.106, 0.439, -0.439, 0, 0.2731, -0.439, 0.106, 0.2731, -0.2731, 0.106, 0.439, -0.2731, 0, 0.439, -0.439, 0, 0.2731, 0.439, 0.106, -0.439, 0.439, 0, 0.2731, 0.439, 0.106, 0.2731, 0.439, 0.106, -0.439, 0.439, 0, -0.439, 0.439, 0, 0.2731, -0.439, 0.106, -0.439, 0.439, 0, -0.439, 0.439, 0.106, -0.439, -0.439, 0.106, -0.439, -0.439, 0, -0.439, 0.439, 0, -0.439, 0.4031, 2.3961, -0.4843, 0.4843, 2.3429, 0.2918, 0.4031, 2.3961, 0.2582, 0.4031, 2.3961, -0.4843, 0.4843, 2.3429, -0.4843, 0.4843, 2.3429, 0.2918, 0.4031, 2.3961, 0.2582, 0.4843, 2.3429, 0.2918, 0.2918, 2.3429, 0.4843, 0.4031, 2.3961, 0.2582, 0.2918, 2.3429, 0.4843, 0.2582, 2.3961, 0.4031, -0.4031, 2.3961, 0.2582, -0.4843, 2.3429, -0.4843, -0.4031, 2.3961, -0.4843, -0.4031, 2.3961, 0.2582, -0.4843, 2.3429, 0.2918, -0.4843, 2.3429, -0.4843, -0.2582, 2.3961, 0.4031, -0.4843, 2.3429, 0.2918, -0.4031, 2.3961, 0.2582, -0.2582, 2.3961, 0.4031, -0.2918, 2.3429, 0.4843, -0.4843, 2.3429, 0.2918, 0.2582, 2.3961, 0.4031, -0.2918, 2.3429, 0.4843, -0.2582, 2.3961, 0.4031, 0.2582, 2.3961, 0.4031, 0.2918, 2.3429, 0.4843, -0.2918, 2.3429, 0.4843, 0.4078, 2.0519, 0.2602, 0.4843, 2.1251, -0.2421, 0.4078, 2.0519, -0.2421, 0.4078, 2.0519, 0.2602, 0.4843, 2.1251, 0.2918, 0.4843, 2.1251, -0.2421, 0.4078, 0.7263, -0.2421, 0.4843, 0.653, 0.2918, 0.4078, 0.7263, 0.2602, 0.4078, 0.7263, -0.2421, 0.4843, 0.653, -0.2421, 0.4843, 0.653, 0.2918, -0.4078, 2.0519, -0.2421, -0.4843, 2.1251, 0.2918, -0.4078, 2.0519, 0.2602, -0.4078, 2.0519, -0.2421, -0.4843, 2.1251, -0.2421, -0.4843, 2.1251, 0.2918, -0.4078, 0.7263, 0.2602, -0.4843, 0.653, -0.2421, -0.4078, 0.7263, -0.2421, -0.4078, 0.7263, 0.2602, -0.4843, 0.653, 0.2918, -0.4843, 0.653, -0.2421, -0.4078, 2.0519, 0.2602, -0.2918, 2.1251, 0.4843, -0.2602, 2.0519, 0.4078, -0.4078, 2.0519, 0.2602, -0.4843, 2.1251, 0.2918, -0.2918, 2.1251, 0.4843, 0.4078, 0.7263, 0.2602, 0.2918, 0.653, 0.4843, 0.2602, 0.7263, 0.4078, 0.4078, 0.7263, 0.2602, 0.4843, 0.653, 0.2918, 0.2918, 0.653, 0.4843, -0.2602, 0.7263, 0.4078, -0.4843, 0.653, 0.2918, -0.4078, 0.7263, 0.2602, -0.2602, 0.7263, 0.4078, -0.2918, 0.653, 0.4843, -0.4843, 0.653, 0.2918, 0.2602, 2.0519, 0.4078, 0.4843, 2.1251, 0.2918, 0.4078, 2.0519, 0.2602, 0.2602, 2.0519, 0.4078, 0.2918, 2.1251, 0.4843, 0.4843, 2.1251, 0.2918, 0.2602, 0.7263, 0.4078, -0.2918, 0.653, 0.4843, -0.2602, 0.7263, 0.4078, 0.2602, 0.7263, 0.4078, 0.2918, 0.653, 0.4843, -0.2918, 0.653, 0.4843, -0.2602, 2.0519, 0.4078, 0.2918, 2.1251, 0.4843, 0.2602, 2.0519, 0.4078, -0.2602, 2.0519, 0.4078, -0.2918, 2.1251, 0.4843, 0.2918, 2.1251, 0.4843, 0.4078, 0.7263, 0.2602, -0.4078, 0.7263, -0.2421, 0.4078, 0.7263, -0.2421, 0.4078, 0.7263, 0.2602, -0.4078, 0.7263, 0.2602, -0.4078, 0.7263, -0.2421, 0.4078, 0.7263, 0.2602, -0.2602, 0.7263, 0.4078, -0.4078, 0.7263, 0.2602, 0.4078, 0.7263, 0.2602, 0.2602, 0.7263, 0.4078, -0.2602, 0.7263, 0.4078, -0.4078, 2.0519, -0.2421, 0.4078, 0.7263, -0.2421, -0.4078, 0.7263, -0.2421, -0.4843, 0.653, -0.2421, -0.4078, 2.0519, -0.2421, -0.4078, 0.7263, -0.2421, -0.4843, 0.653, -0.2421, -0.4843, 2.1251, -0.2421, -0.4078, 2.0519, -0.2421, -0.4078, 2.0519, -0.2421, 0.4078, 2.0519, -0.2421, 0.4078, 0.7263, -0.2421, 0.4843, 0.653, -0.2421, 0.4078, 0.7263, -0.2421, 0.4078, 2.0519, -0.2421, 0.4843, 0.653, -0.2421, 0.4078, 2.0519, -0.2421, 0.4843, 2.1251, -0.2421 )
 
-[sub_resource type="BoxShape" id=3376]
+[sub_resource type="BoxShape" id=3369]
 extents = Vector3( 1, 0.5, 1 )
 
 [sub_resource type="SpatialMaterial" id=2882]
@@ -509,7 +509,7 @@ albedo_color = Color( 0, 0.890196, 1, 1 )
 material = SubResource( 9 )
 size = Vector2( 0.01, 0.05 )
 
-[sub_resource type="ViewportTexture" id=3377]
+[sub_resource type="ViewportTexture" id=3370]
 
 [sub_resource type="ShaderMaterial" id=7]
 shader = ExtResource( 158 )
@@ -524,12 +524,12 @@ shader_param/aligned_flip_h = false
 shader_param/aligned_flip_v = true
 shader_param/flip_h_when_viewed_from_back = false
 shader_param/flip_v_when_viewed_from_back = true
-shader_param/texture_albedo = SubResource( 3377 )
+shader_param/texture_albedo = SubResource( 3370 )
 
 [sub_resource type="BoxShape" id=3262]
 extents = Vector3( 1.35, 0.95, 0.35 )
 
-[sub_resource type="BoxShape" id=3378]
+[sub_resource type="BoxShape" id=3371]
 extents = Vector3( 1.5, 2, 1.5 )
 
 [sub_resource type="Curve3D" id=14]
@@ -577,7 +577,7 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0.843137, 0.054902, 0.054902, 0.580392 )
 
-[sub_resource type="BoxShape" id=3379]
+[sub_resource type="BoxShape" id=3372]
 extents = Vector3( 104, 1, 141.5 )
 
 [sub_resource type="SpatialMaterial" id=3161]
@@ -590,7 +590,7 @@ flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0, 1, 0, 0.0901961 )
 
-[sub_resource type="BoxShape" id=3380]
+[sub_resource type="BoxShape" id=3373]
 resource_local_to_scene = true
 extents = Vector3( 88.5928, 15, 199.103 )
 
@@ -613,56 +613,6 @@ roughness = 0.72
 albedo_color = Color( 0.36, 0.38, 0.4, 1 )
 metallic = 0.08
 roughness = 0.72
-
-[sub_resource type="SpatialMaterial" id=3369]
-albedo_color = Color( 0.18, 0.19, 0.22, 1 )
-metallic = 0.12
-roughness = 0.9
-
-[sub_resource type="SpatialMaterial" id=3370]
-albedo_color = Color( 0.25, 0.8, 0.35, 1 )
-metallic = 0.05
-roughness = 0.22
-emission_enabled = true
-emission = Color( 0.055, 0.176, 0.077, 0.22 )
-emission_energy = 1.0
-emission_operator = 0
-emission_on_uv2 = false
-
-[sub_resource type="CylinderMesh" id=3371]
-top_radius = 0.08
-bottom_radius = 0.08
-height = 0.07
-
-[sub_resource type="SpatialMaterial" id=3372]
-albedo_color = Color( 0.86, 0.67, 0.19, 1 )
-metallic = 0.05
-roughness = 0.22
-emission_enabled = true
-emission = Color( 0.1892, 0.1474, 0.0418, 0.22 )
-emission_energy = 1.0
-emission_operator = 0
-emission_on_uv2 = false
-
-[sub_resource type="CylinderMesh" id=3373]
-top_radius = 0.08
-bottom_radius = 0.08
-height = 0.07
-
-[sub_resource type="SpatialMaterial" id=3374]
-albedo_color = Color( 0.88, 0.28, 0.22, 1 )
-metallic = 0.05
-roughness = 0.22
-emission_enabled = true
-emission = Color( 0.1936, 0.0616, 0.0484, 0.22 )
-emission_energy = 1.0
-emission_operator = 0
-emission_on_uv2 = false
-
-[sub_resource type="CylinderMesh" id=3375]
-top_radius = 0.08
-bottom_radius = 0.08
-height = 0.07
 
 [sub_resource type="SpatialMaterial" id=3359]
 resource_name = "GuardrailTranslucent"
@@ -1071,7 +1021,7 @@ zone_extents = Vector3( 1, 0.5, 1 )
 center_player_on_enter = true
 
 [node name="CollisionShape" type="CollisionShape" parent="Building/CrioPod START/CinematicSequence"]
-shape = SubResource( 3376 )
+shape = SubResource( 3369 )
 
 [node name="Criopods" type="Spatial" parent="Building"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2.83806, 0 )
@@ -2115,7 +2065,7 @@ size = Vector2( 1024, 640 )
 shape = SubResource( 3262 )
 
 [node name="CollisionShape" parent="Building/TableTerminal/CinematicSetup/CameraZone" index="2"]
-shape = SubResource( 3378 )
+shape = SubResource( 3371 )
 
 [node name="CinematicPathRig" parent="Building/TableTerminal/CinematicSetup" index="1"]
 curve = SubResource( 14 )
@@ -2427,7 +2377,7 @@ cast_shadow = 0
 
 [node name="CollisionShape" type="CollisionShape" parent="KillZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0 )
-shape = SubResource( 3379 )
+shape = SubResource( 3372 )
 
 [node name="BGMZoneV2" type="Area" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 0.6, -22, 2, 8.46188 )
@@ -2451,7 +2401,7 @@ cast_shadow = 0
 
 [node name="CollisionShape2" type="CollisionShape" parent="BGMZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 27.1999, 13.8186, -47.3105 )
-shape = SubResource( 3380 )
+shape = SubResource( 3373 )
 
 [node name="ShaderWarmupTrigger" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 17.0368, 2.2, 33.2 )
@@ -2498,46 +2448,6 @@ material = SubResource( 3368 )
 [node name="Indicators" type="Spatial" parent="Conveyor"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.66, -0.04, 0 )
 
-[node name="Housing" type="CSGBox" parent="Conveyor/Indicators"]
-visible = false
-width = 0.32
-height = 0.28
-depth = 1.1
-material = SubResource( 3369 )
-
-[node name="IndicatorReadyMesh" type="MeshInstance" parent="Conveyor/Indicators"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 0.34 )
-material_override = SubResource( 3370 )
-mesh = SubResource( 3371 )
-
-[node name="IndicatorReadyLight" type="OmniLight" parent="Conveyor/Indicators"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, 0.34 )
-light_color = Color( 0.25, 0.8, 0.35, 1 )
-light_energy = 0.65
-omni_range = 2.1
-
-[node name="IndicatorRunningMesh" type="MeshInstance" parent="Conveyor/Indicators"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 0 )
-material_override = SubResource( 3372 )
-mesh = SubResource( 3373 )
-
-[node name="IndicatorRunningLight" type="OmniLight" parent="Conveyor/Indicators"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, 0 )
-light_color = Color( 0.86, 0.67, 0.19, 1 )
-light_energy = 0.65
-omni_range = 2.1
-
-[node name="IndicatorDisabledMesh" type="MeshInstance" parent="Conveyor/Indicators"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -0.34 )
-material_override = SubResource( 3374 )
-mesh = SubResource( 3375 )
-
-[node name="IndicatorDisabledLight" type="OmniLight" parent="Conveyor/Indicators"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, -0.34 )
-light_color = Color( 0.88, 0.28, 0.22, 1 )
-light_energy = 0.65
-omni_range = 2.1
-
 [node name="VentilationTurbine" parent="." instance=ExtResource( 26 )]
 transform = Transform( 150, 0.000145912, -6.37802e-12, 0, -6.55671e-06, -150, -0.000145912, 150, -6.55671e-06, -0.0687813, 2553.58, 1.81772 )
 starts_active = true
@@ -2555,8 +2465,6 @@ plate_step = 83.0
 r_min = 460.0
 r_max = 460.0
 interlock_angle = 25.0
-animate = true
-manual_blend = 0.0
 
 [node name="TerraceSpiral2" parent="." instance=ExtResource( 25 )]
 transform = Transform( -0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, -0.965926, -0.38279, 17.5621, 2.69862 )
@@ -2564,8 +2472,6 @@ plate_step = 83.0
 r_min = 460.0
 r_max = 460.0
 interlock_angle = 25.0
-animate = true
-manual_blend = 0.0
 
 [node name="TerraceSpiral3" parent="." instance=ExtResource( 25 )]
 transform = Transform( -0.258819, 0, 0.965926, 0, 1, 0, -0.965926, 0, -0.258819, -0.38279, 17.5621, 2.69862 )
@@ -2573,8 +2479,6 @@ plate_step = 83.0
 r_min = 460.0
 r_max = 460.0
 interlock_angle = 25.0
-animate = true
-manual_blend = 0.0
 
 [node name="TerraceSpiral4" parent="." instance=ExtResource( 25 )]
 transform = Transform( 0.258819, 0, -0.965926, 0, 1, 0, 0.965926, 0, 0.258819, -0.38279, 17.5621, 2.69862 )
@@ -2582,8 +2486,6 @@ plate_step = 83.0
 r_min = 460.0
 r_max = 460.0
 interlock_angle = 25.0
-animate = true
-manual_blend = 0.0
 
 [node name="DirectionalLight" type="DirectionalLight" parent="."]
 transform = Transform( -1, -8.74228e-08, 4.37114e-08, 4.37114e-08, 1.91069e-15, 1, -8.74228e-08, 1, 1.91069e-15, -116.659, 183.432, 180.132 )

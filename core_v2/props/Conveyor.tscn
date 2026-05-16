@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=2]
+[gd_scene load_steps=36 format=2]
 
 [ext_resource path="res://core_v2/components/Conveyor.gd" type="Script" id=1]
 [ext_resource path="res://materials/conveyor/ConveyorStripe.tres" type="Material" id=2]
@@ -7,13 +7,18 @@
 [ext_resource path="res://assets/sfx/sfx100v2_loop_machine_04.ogg" type="AudioStream" id=5]
 [ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=6]
 
-[sub_resource type="BoxShape" id=5]
-extents = Vector3( 4, 0.6, 1 )
+[sub_resource type="BoxShape" id=13]
+extents = Vector3( 4, 0.6, 1.5 )
 
-[sub_resource type="BoxShape" id=6]
-extents = Vector3( 4, 0.1, 1 )
+[sub_resource type="BoxShape" id=14]
+extents = Vector3( 4, 0.3, 1.68 )
 
-[sub_resource type="ShaderMaterial" id=7]
+[sub_resource type="SpatialMaterial" id=7]
+albedo_color = Color( 0.24, 0.26, 0.29, 1 )
+metallic = 0.15
+roughness = 0.85
+
+[sub_resource type="ShaderMaterial" id=15]
 shader = ExtResource( 4 )
 shader_param/color_a = Color( 0.14, 0.15, 0.16, 1 )
 shader_param/color_b = Color( 0.48, 0.42, 0.16, 1 )
@@ -40,35 +45,166 @@ surfaces/0 = {
 "vertex_count": 36
 }
 
+[sub_resource type="SpatialMaterial" id=9]
+albedo_color = Color( 0.36, 0.38, 0.4, 1 )
+metallic = 0.08
+roughness = 0.72
+
+[sub_resource type="SpatialMaterial" id=10]
+albedo_color = Color( 0.36, 0.38, 0.4, 1 )
+metallic = 0.08
+roughness = 0.72
+
+[sub_resource type="SpatialMaterial" id=11]
+albedo_color = Color( 0.36, 0.38, 0.4, 1 )
+metallic = 0.08
+roughness = 0.72
+
+[sub_resource type="SpatialMaterial" id=12]
+albedo_color = Color( 0.36, 0.38, 0.4, 1 )
+metallic = 0.08
+roughness = 0.72
+
+[sub_resource type="SpatialMaterial" id=16]
+albedo_color = Color( 0.25, 0.8, 0.35, 1 )
+metallic = 0.05
+roughness = 0.28
+emission_enabled = true
+emission = Color( 0.25, 0.8, 0.35, 1 )
+emission_energy = 0.22
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="CubeMesh" id=17]
+size = Vector3( 0.18, 0.035, 0.2 )
+
+[sub_resource type="SpatialMaterial" id=18]
+albedo_color = Color( 0.86, 0.67, 0.19, 1 )
+metallic = 0.05
+roughness = 0.28
+emission_enabled = true
+emission = Color( 0.86, 0.67, 0.19, 1 )
+emission_energy = 0.22
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="CubeMesh" id=19]
+size = Vector3( 0.18, 0.035, 0.2 )
+
+[sub_resource type="SpatialMaterial" id=20]
+albedo_color = Color( 0.88, 0.28, 0.22, 1 )
+metallic = 0.05
+roughness = 0.28
+emission_enabled = true
+emission = Color( 0.88, 0.28, 0.22, 1 )
+emission_energy = 0.22
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="CubeMesh" id=21]
+size = Vector3( 0.18, 0.035, 0.2 )
+
+[sub_resource type="SpatialMaterial" id=22]
+albedo_color = Color( 0.25, 0.8, 0.35, 1 )
+metallic = 0.05
+roughness = 0.28
+emission_enabled = true
+emission = Color( 0.25, 0.8, 0.35, 1 )
+emission_energy = 0.22
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="CubeMesh" id=23]
+size = Vector3( 0.18, 0.035, 0.2 )
+
+[sub_resource type="SpatialMaterial" id=24]
+albedo_color = Color( 0.86, 0.67, 0.19, 1 )
+metallic = 0.05
+roughness = 0.28
+emission_enabled = true
+emission = Color( 0.86, 0.67, 0.19, 1 )
+emission_energy = 0.22
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="CubeMesh" id=25]
+size = Vector3( 0.18, 0.035, 0.2 )
+
+[sub_resource type="SpatialMaterial" id=26]
+albedo_color = Color( 0.88, 0.28, 0.22, 1 )
+metallic = 0.05
+roughness = 0.28
+emission_enabled = true
+emission = Color( 0.88, 0.28, 0.22, 1 )
+emission_energy = 0.22
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="CubeMesh" id=27]
+size = Vector3( 0.18, 0.035, 0.2 )
+
+[sub_resource type="SpatialMaterial" id=28]
+albedo_color = Color( 0.12, 0.12, 0.14, 1 )
+metallic = 0.12
+roughness = 0.72
+
+[sub_resource type="BoxShape" id=29]
+extents = Vector3( 0.09, 0.02, 0.1 )
+
+[sub_resource type="BoxShape" id=30]
+extents = Vector3( 0.09, 0.02, 0.1 )
+
+[sub_resource type="BoxShape" id=31]
+extents = Vector3( 0.09, 0.02, 0.1 )
+
+[sub_resource type="SpatialMaterial" id=32]
+albedo_color = Color( 0.12, 0.12, 0.14, 1 )
+metallic = 0.12
+roughness = 0.72
+
+[sub_resource type="BoxShape" id=33]
+extents = Vector3( 0.09, 0.02, 0.1 )
+
+[sub_resource type="BoxShape" id=34]
+extents = Vector3( 0.09, 0.02, 0.1 )
+
+[sub_resource type="BoxShape" id=35]
+extents = Vector3( 0.09, 0.02, 0.1 )
+
 [node name="Conveyor" type="Area"]
 collision_layer = 9
 script = ExtResource( 1 )
 speed_x = 1.0
 starts_active = false
-stripe_light_color = Color( 0.48, 0.42, 0.16, 1 )
-stripe_emission = 0.015
-stripe_fill = 0.42
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
-shape = SubResource( 5 )
+shape = SubResource( 13 )
 
 [node name="Ground" type="StaticBody" parent="."]
 collision_layer = 2
 collision_mask = 129
 
 [node name="GroundCollision" type="CollisionShape" parent="Ground"]
-shape = SubResource( 6 )
+shape = SubResource( 14 )
+
+[node name="BaseVisual" type="CSGBox" parent="Ground"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.38, 0 )
+width = 8.0
+height = 0.6
+depth = 3.45
+material = SubResource( 7 )
 
 [node name="Belt" type="MeshInstance" parent="."]
-material_override = SubResource( 7 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1.5, 0, 0, 0 )
+material_override = SubResource( 15 )
 use_in_baked_light = true
 mesh = SubResource( 4 )
 
 [node name="GuardrailSegmentRight" parent="." instance=ExtResource( 3 )]
-transform = Transform( 1.976, 0, 0, 0, 1.2, 0, 0, 0, 0.92, 0, -0.1, -1 )
+transform = Transform( 1.976, 0, 0, 0, 1.2, 0, 0, 0, 0.92, 0, -0.1, -1.65 )
 
 [node name="GuardrailSegmentLeft" parent="." instance=ExtResource( 3 )]
-transform = Transform( -1.9755, 0, -1.38916e-07, 0, 1.2, 0, 2.98292e-07, 0, -0.92, 0, -0.1, 1.2 )
+transform = Transform( -1.9755, 0, -1.38916e-07, 0, 1.2, 0, 2.98292e-07, 0, -0.92, 0, -0.1, 1.85 )
 
 [node name="SFX Belt" type="AudioStreamPlayer3D" parent="."]
 stream = ExtResource( 5 )
@@ -76,4 +212,179 @@ unit_db = -6.0
 max_distance = 30.0
 script = ExtResource( 6 )
 loop_sample = true
-trigger_mode = "Active"
+
+[node name="EntryPlate" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3.65, 0.02, 0 )
+width = 0.45
+height = 0.08
+depth = 3.32
+material = SubResource( 9 )
+
+[node name="EntryPlate2" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -4.22514, 0.0134576, 0 )
+width = 0.45
+height = 0.173098
+depth = 3.32
+material = SubResource( 9 )
+
+[node name="ExitPlate" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.65, 0.02, 0 )
+width = 0.45
+height = 0.08
+depth = 3.32
+material = SubResource( 10 )
+
+[node name="ExitPlate2" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.22499, 0.0112368, 0 )
+width = 0.45
+height = 0.177746
+depth = 3.32
+material = SubResource( 10 )
+
+[node name="SidePlateLeft" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.04, 1.68 )
+width = 7.5
+height = 0.12
+depth = 0.14
+material = SubResource( 11 )
+
+[node name="SidePlateRight" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.04, -1.68 )
+width = 7.5
+height = 0.12
+depth = 0.14
+material = SubResource( 12 )
+
+[node name="Indicators" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3.65, 0, 0 )
+
+[node name="IndicatorReadyMesh" type="MeshInstance" parent="Indicators"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.085, 0.34 )
+material_override = SubResource( 16 )
+mesh = SubResource( 17 )
+
+[node name="IndicatorReadyLight" type="OmniLight" parent="Indicators"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.125, 0.34 )
+light_color = Color( 0.25, 0.8, 0.35, 1 )
+light_energy = 0.46
+omni_range = 1.6
+
+[node name="IndicatorRunningMesh" type="MeshInstance" parent="Indicators"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.085, 0 )
+material_override = SubResource( 18 )
+mesh = SubResource( 19 )
+
+[node name="IndicatorRunningLight" type="OmniLight" parent="Indicators"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.125, 0 )
+light_color = Color( 0.86, 0.67, 0.19, 1 )
+light_energy = 0.46
+omni_range = 1.6
+
+[node name="IndicatorDisabledMesh" type="MeshInstance" parent="Indicators"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.085, -0.34 )
+material_override = SubResource( 20 )
+mesh = SubResource( 21 )
+
+[node name="IndicatorDisabledLight" type="OmniLight" parent="Indicators"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.125, -0.34 )
+light_color = Color( 0.88, 0.28, 0.22, 1 )
+light_energy = 0.46
+omni_range = 1.6
+
+[node name="EndCluster" type="Spatial" parent="Indicators"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 7.3, 0, 0 )
+
+[node name="IndicatorReadyMeshEndCluster" type="MeshInstance" parent="Indicators/EndCluster"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.085, 0.34 )
+material_override = SubResource( 22 )
+mesh = SubResource( 23 )
+
+[node name="IndicatorReadyLightEndCluster" type="OmniLight" parent="Indicators/EndCluster"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.125, 0.34 )
+light_color = Color( 0.25, 0.8, 0.35, 1 )
+light_energy = 0.46
+omni_range = 1.6
+
+[node name="IndicatorRunningMeshEndCluster" type="MeshInstance" parent="Indicators/EndCluster"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.085, 0 )
+material_override = SubResource( 24 )
+mesh = SubResource( 25 )
+
+[node name="IndicatorRunningLightEndCluster" type="OmniLight" parent="Indicators/EndCluster"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.125, 0 )
+light_color = Color( 0.86, 0.67, 0.19, 1 )
+light_energy = 0.46
+omni_range = 1.6
+
+[node name="IndicatorDisabledMeshEndCluster" type="MeshInstance" parent="Indicators/EndCluster"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.085, -0.34 )
+material_override = SubResource( 26 )
+mesh = SubResource( 27 )
+
+[node name="IndicatorDisabledLightEndCluster" type="OmniLight" parent="Indicators/EndCluster"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.125, -0.34 )
+light_color = Color( 0.88, 0.28, 0.22, 1 )
+light_energy = 0.46
+omni_range = 1.6
+
+[node name="Housing" type="CSGBox" parent="Indicators/EndCluster"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.065, 0 )
+width = 0.26
+height = 0.045
+depth = 1.08
+material = SubResource( 28 )
+
+[node name="IndicatorReadyPlateEndCluster" type="StaticBody" parent="Indicators/EndCluster"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.081, 0.34 )
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape" type="CollisionShape" parent="Indicators/EndCluster/IndicatorReadyPlateEndCluster"]
+shape = SubResource( 29 )
+
+[node name="IndicatorRunningPlateEndCluster" type="StaticBody" parent="Indicators/EndCluster"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.081, 0 )
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape" type="CollisionShape" parent="Indicators/EndCluster/IndicatorRunningPlateEndCluster"]
+shape = SubResource( 30 )
+
+[node name="IndicatorDisabledPlateEndCluster" type="StaticBody" parent="Indicators/EndCluster"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.081, -0.34 )
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape" type="CollisionShape" parent="Indicators/EndCluster/IndicatorDisabledPlateEndCluster"]
+shape = SubResource( 31 )
+
+[node name="Housing" type="CSGBox" parent="Indicators"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.065, 0 )
+width = 0.26
+height = 0.045
+depth = 1.08
+material = SubResource( 32 )
+
+[node name="IndicatorReadyPlate" type="StaticBody" parent="Indicators"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.081, 0.34 )
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape" type="CollisionShape" parent="Indicators/IndicatorReadyPlate"]
+shape = SubResource( 33 )
+
+[node name="IndicatorRunningPlate" type="StaticBody" parent="Indicators"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.081, 0 )
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape" type="CollisionShape" parent="Indicators/IndicatorRunningPlate"]
+shape = SubResource( 34 )
+
+[node name="IndicatorDisabledPlate" type="StaticBody" parent="Indicators"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.081, -0.34 )
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape" type="CollisionShape" parent="Indicators/IndicatorDisabledPlate"]
+shape = SubResource( 35 )

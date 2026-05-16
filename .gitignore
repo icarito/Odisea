@@ -25,6 +25,7 @@ mono_crash.*.json
 # Game specific
 replays/
 reports/
+test_output/
 
 pupeteer/.venv/
 *.pyc

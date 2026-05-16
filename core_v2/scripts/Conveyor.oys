@@ -11,6 +11,8 @@ SECTION "LoadDefault"
 
 SECTION "StartValidation"
     WAIT 1.0
+    CALL set_capture_camera_orbit 7.0 1.8 -145.0 0.45
+    WAIT 0.2
     CALL preview_ready_state
     WAIT 0.4
     SCREENSHOT 0_idle
