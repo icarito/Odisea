@@ -2449,7 +2449,6 @@ transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 29.3101
 transform = Transform( -1, 0, -1.50996e-07, 0, 1, 0, 1.50996e-07, 0, -1, 8.31005, 0.999998, -29.1752 )
 
 [node name="WorldRotator" parent="." instance=ExtResource( 15 )]
-current_platform = NodePath("..")
 
 [editable path="Building/CrioPod START"]
 [editable path="Building/TableTerminal"]

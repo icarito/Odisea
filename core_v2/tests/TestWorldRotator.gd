@@ -113,7 +113,6 @@ func _configure_test_rotator() -> void:
 	_rotator.auto_select_first_platform = false
 	_rotator.auto_track_target_plate = false
 	_rotator.auto_track_requires_floor_contact = true
-	_rotator.continuous_tracking = false
 	_rotator.tracking_target_path = NodePath("../Pilot")
 	_rotator.collision_pool_size = max(_rotator.collision_pool_size, 32)
 	_rotator.collision_update_interval = 3
