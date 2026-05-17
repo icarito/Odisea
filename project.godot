@@ -889,6 +889,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/props/IndustrialFan.gd"
 }, {
+"base": "Spatial",
+"class": "InfiniteScaffoldField",
+"language": "GDScript",
+"path": "res://core_v2/systems/scaffold/InfiniteScaffoldField.gd"
+}, {
 "base": "Reference",
 "class": "InputDataV2",
 "language": "GDScript",
@@ -1369,6 +1374,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/SFXComponentV2.gd"
 }, {
+"base": "Area",
+"class": "ScaffoldExclusionArea",
+"language": "GDScript",
+"path": "res://core_v2/systems/scaffold/ScaffoldExclusionArea.gd"
+}, {
 "base": "PropBaseV2",
 "class": "SciFiBoxLightV2",
 "language": "GDScript",
@@ -1614,6 +1624,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/WindTunnelV2.gd"
 }, {
+"base": "Spatial",
+"class": "WorldRotator",
+"language": "GDScript",
+"path": "res://core_v2/systems/WorldRotator.gd"
+}, {
 "base": "Reference",
 "class": "XmlElement",
 "language": "GDScript",
@@ -1806,6 +1821,7 @@ _global_script_class_icons={
 "ISensor2D": "",
 "ISensor3D": "",
 "IndustrialFan": "",
+"InfiniteScaffoldField": "",
 "InputDataV2": "",
 "InputProviderV2": "",
 "IntFuzzer": "",
@@ -1902,6 +1918,7 @@ _global_script_class_icons={
 "RichTextLabelExt": "",
 "RotatingObjectV2": "",
 "SFXComponentV2": "",
+"ScaffoldExclusionArea": "",
 "SciFiBoxLightV2": "",
 "SciFiDoorV2": "",
 "SciFiFloatingLightV2": "",
@@ -1951,6 +1968,7 @@ _global_script_class_icons={
 "VirtualJoystick": "",
 "WaterLayer": "",
 "WindTunnelV2": "",
+"WorldRotator": "",
 "XmlElement": "",
 "_TestCase": "",
 "_TestSuiteScanner": ""
@@ -1988,6 +2006,7 @@ VideoExporter="*res://core_v2/systems/VideoExporter.gd"
 StartupTrace="*res://core_v2/autoloads/StartupTrace.gd"
 PropDitherManager="*res://core_v2/autoloads/PropDitherManager.gd"
 PlayerHintManager="*res://core_v2/autoloads/PlayerHintManager.gd"
+GravityWorld="*res://core_v2/systems/GravityWorld.gd"
 
 [debug]
 

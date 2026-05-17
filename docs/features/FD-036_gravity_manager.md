@@ -1,6 +1,6 @@
 # FD-036: Gravity Manager — World-Rotation Approach
 
-**Status:** Design
+**Status:** In Progress
 **Priority:** High
 **Effort:** Medium
 **Created:** 2026-05-14

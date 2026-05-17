@@ -1,0 +1,16 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://core_v2/components/WorldRotator.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/tests/TestWorldRotator.gd" type="Script" id=3]
+
+[node name="TestWorldRotator" type="Spatial"]
+script = ExtResource( 3 )
+selected_plate = 12
+
+[node name="WorldRotator" parent="." instance=ExtResource( 1 )]
+spiral_blend = 1.0
+auto_select_first_platform = false
+
+[node name="Pilot" parent="." instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 3 )

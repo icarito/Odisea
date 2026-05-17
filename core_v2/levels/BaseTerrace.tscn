@@ -1,4 +1,4 @@
-[gd_scene load_steps=150 format=2]
+[gd_scene load_steps=146 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -14,7 +14,7 @@
 [ext_resource path="res://textures/kenney_prototype_textures/light/texture_03.png" type="Texture" id=12]
 [ext_resource path="res://core_v2/props/CriopodParallax.tscn" type="PackedScene" id=13]
 [ext_resource path="res://core_v2/props/EmergencyBeaconV2.tscn" type="PackedScene" id=14]
-[ext_resource path="res://scenes/common/space_environment/Environment_InteriorWideFog.tres" type="Environment" id=15]
+[ext_resource path="res://core_v2/components/WorldRotator.tscn" type="PackedScene" id=15]
 [ext_resource path="res://core_v2/props/scifi_lights/SciFiWorkLightTripodV2.tscn" type="PackedScene" id=16]
 [ext_resource path="res://core_v2/props/scifi_doors/DoorDoubleVerticalV2.tscn" type="PackedScene" id=17]
 [ext_resource path="res://core_v2/props/scifi_lights/FluorescentLightCeiling.tscn" type="PackedScene" id=18]
@@ -24,9 +24,6 @@
 [ext_resource path="res://textures/kenney_prototype_textures/dark/texture_08.png" type="Texture" id=22]
 [ext_resource path="res://textures/kenney_prototype_textures/green/texture_08.png" type="Texture" id=23]
 [ext_resource path="res://core_v2/props/Conveyor.tscn" type="PackedScene" id=24]
-[ext_resource path="res://core_v2/components/TerraceSpiral.tscn" type="PackedScene" id=25]
-[ext_resource path="res://core_v2/props/VentilationTurbine.tscn" type="PackedScene" id=26]
-[ext_resource path="res://models/sde_1/sde_1_Mesh_0.mesh" type="ArrayMesh" id=27]
 [ext_resource path="res://core_v2/components/OYSTrigger.gd" type="Script" id=28]
 [ext_resource path="res://core_v2/props/TableTerminal.tscn" type="PackedScene" id=29]
 [ext_resource path="res://core_v2/components/KillZoneV2.gd" type="Script" id=30]
@@ -613,15 +610,6 @@ roughness = 0.72
 albedo_color = Color( 0.36, 0.38, 0.4, 1 )
 metallic = 0.08
 roughness = 0.72
-
-[sub_resource type="SpatialMaterial" id=3359]
-resource_name = "GuardrailTranslucent"
-flags_transparent = true
-params_cull_mode = 1
-albedo_color = Color( 0.0941176, 0.247059, 0.47451, 0.670588 )
-metallic = 0.62
-metallic_specular = 1.0
-roughness = 0.33
 
 [node name="Terrace" type="CSGBox"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
@@ -2407,9 +2395,6 @@ shape = SubResource( 3373 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 17.0368, 2.2, 33.2 )
 script = ExtResource( 53 )
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-environment = ExtResource( 15 )
-
 [node name="Conveyor" parent="." instance=ExtResource( 24 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.28818, 2.8, 14.1997 )
 starts_active = true
@@ -2448,57 +2433,6 @@ material = SubResource( 3368 )
 [node name="Indicators" type="Spatial" parent="Conveyor"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.66, -0.04, 0 )
 
-[node name="VentilationTurbine" parent="." instance=ExtResource( 26 )]
-transform = Transform( 150, 0.000145912, -6.37802e-12, 0, -6.55671e-06, -150, -0.000145912, 150, -6.55671e-06, -0.0687813, 2553.58, 1.81772 )
-starts_active = true
-
-[node name="OmniLight" type="OmniLight" parent="VentilationTurbine"]
-transform = Transform( 0.02, 0, 0, 0, 0.02, 1.11022e-16, 0, -1.11022e-16, 0.02, 0, 2.38419e-07, -4.66 )
-light_energy = 10.0
-shadow_enabled = true
-omni_range = 4000.0
-omni_shadow_detail = 0
-
-[node name="TerraceSpiral" parent="." instance=ExtResource( 25 )]
-transform = Transform( 0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, -0.38279, 17.5621, 2.69862 )
-plate_step = 83.0
-r_min = 460.0
-r_max = 460.0
-interlock_angle = 25.0
-
-[node name="TerraceSpiral2" parent="." instance=ExtResource( 25 )]
-transform = Transform( -0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, -0.965926, -0.38279, 17.5621, 2.69862 )
-plate_step = 83.0
-r_min = 460.0
-r_max = 460.0
-interlock_angle = 25.0
-
-[node name="TerraceSpiral3" parent="." instance=ExtResource( 25 )]
-transform = Transform( -0.258819, 0, 0.965926, 0, 1, 0, -0.965926, 0, -0.258819, -0.38279, 17.5621, 2.69862 )
-plate_step = 83.0
-r_min = 460.0
-r_max = 460.0
-interlock_angle = 25.0
-
-[node name="TerraceSpiral4" parent="." instance=ExtResource( 25 )]
-transform = Transform( 0.258819, 0, -0.965926, 0, 1, 0, 0.965926, 0, 0.258819, -0.38279, 17.5621, 2.69862 )
-plate_step = 83.0
-r_min = 460.0
-r_max = 460.0
-interlock_angle = 25.0
-
-[node name="DirectionalLight" type="DirectionalLight" parent="."]
-transform = Transform( -1, -8.74228e-08, 4.37114e-08, 4.37114e-08, 1.91069e-15, 1, -8.74228e-08, 1, 1.91069e-15, -116.659, 183.432, 180.132 )
-light_energy = 0.892
-shadow_enabled = true
-directional_shadow_mode = 2
-directional_shadow_blend_splits = true
-
-[node name="Sde1Mesh0" type="MeshInstance" parent="."]
-transform = Transform( 4000, 0, 0, 0, -0.000174846, 4000, 0, -4000, -0.000174846, 0, 1267, -5.53823e-05 )
-mesh = ExtResource( 27 )
-material/0 = SubResource( 3359 )
-
 [node name="ConveyorCarrousel" parent="." instance=ExtResource( 32 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 17.3127, 1, 14.3097 )
 radius = 10.0
@@ -2513,6 +2447,9 @@ transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 29.3101
 
 [node name="SciFiWorkLightV4" parent="." instance=ExtResource( 31 )]
 transform = Transform( -1, 0, -1.50996e-07, 0, 1, 0, 1.50996e-07, 0, -1, 8.31005, 0.999998, -29.1752 )
+
+[node name="WorldRotator" parent="." instance=ExtResource( 15 )]
+current_platform = NodePath("..")
 
 [editable path="Building/CrioPod START"]
 [editable path="Building/TableTerminal"]
