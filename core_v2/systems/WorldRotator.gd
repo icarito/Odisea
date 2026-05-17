@@ -101,8 +101,7 @@ func _exit_tree() -> void:
 func _physics_process(delta: float) -> void:
 	if continuous_tracking:
 		_update_continuous_tracking(delta)
-	else:
-		_update_tracked_target_plate()
+	_update_tracked_target_plate()
 		
 	if _has_transform_target:
 		_slerp_to_global_transform(delta)
