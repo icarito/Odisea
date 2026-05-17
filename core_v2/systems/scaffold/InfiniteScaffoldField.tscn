@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://core_v2/systems/scaffold/InfiniteScaffoldField.gd" type="Script" id=1]
+
+[node name="InfiniteScaffoldField" type="Spatial"]
+script = ExtResource( 1 )
+cell_size = 10.0
+detail_radius = 30.0
