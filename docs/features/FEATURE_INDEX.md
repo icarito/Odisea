@@ -18,6 +18,10 @@
 | FD-032 | Seamless Startup Streaming | In Progress | Large | High |
 | FD-033 | Advanced Traversal Systems | In Progress | Large | High |
 | FD-034 | Player Interaction Hints | Planned | Medium | Medium |
+| FD-035 | ConveyorCarrousel & Conveyor Enhancements | Design | Medium | Medium |
+| FD-036 | Gravity Manager - World-Rotation Approach | In Progress | Medium | High |
+| FD-037 | Infinite Scaffold Field | Design | Large | Medium |
+| FD-038 | ZeroGravityController & Controller Swapping | Design | Medium | High |
 
 ## Completed
 
