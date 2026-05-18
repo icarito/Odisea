@@ -233,6 +233,9 @@ func get_full_snapshot() -> Dictionary:
 		"base_spring_length_3d": base_spring_length_3d,
 		"movement_state": movement_logic.get_full_snapshot() if is_instance_valid(movement_logic) else {}
 	}
+	var cm = get_node_or_null("ControllerManager")
+	if cm:
+		snapshot["controller_mode"] = cm.current_mode
 	if is_instance_valid(jump_logic):
 		snapshot["jump_state"] = {
 			"coyote_timer": jump_logic.coyote_timer,
@@ -247,6 +250,11 @@ func restore_snapshot(data: Dictionary) -> void:
 		var t = self.global_transform
 		t.origin = Vector3(pos[0], pos[1], pos[2])
 		self.global_transform = t
+		
+	if data.has("controller_mode"):
+		var cm = get_node_or_null("ControllerManager")
+		if cm and cm.has_method("switch_to"):
+			cm.switch_to(data["controller_mode"])
 	if data.has("velocity"):
 		var vel = data["velocity"]
 		velocity = Vector3(vel[0], vel[1], vel[2])
@@ -468,7 +476,16 @@ func _ready():
 
 	if traversal_logic and traversal_logic.has_method("apply_to_controller"):
 		traversal_logic.apply_to_controller(self)
-	
+
+	if not has_node("ZeroGravityController"):
+		var zgc = load("res://core_v2/player/ZeroGravityController.gd").new()
+		zgc.name = "ZeroGravityController"
+		add_child(zgc)
+
+	if not has_node("ControllerManager"):
+		var cm = load("res://core_v2/player/ControllerManager.gd").new()
+		cm.name = "ControllerManager"
+		add_child(cm)
 	_cached_cam = _find_camera(camera_rig)
 	if _cached_cam:
 		base_fov = _cached_cam.fov
@@ -1605,6 +1622,14 @@ func _update_push_state(_dt: float, input: InputDataV2):
 				_push_target = best_target
 
 func step(dt: float, input: InputDataV2) -> void:
+	var cm = get_node_or_null("ControllerManager")
+	if cm and cm.current_mode == cm.Mode.ZERO_GRAVITY:
+		var zgc = cm.zero_gravity_controller
+		if zgc and zgc.has_method("step_zero_g"):
+			zgc.step_zero_g(dt, input)
+			_update_input_edge_state(input)
+			return
+
 	if input == null:
 		_update_input_edge_state(null)
 		return

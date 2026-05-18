@@ -1627,7 +1627,8 @@ func load_and_play(path: String):
 		if get_tree().current_scene == null or get_tree().current_scene.filename != meta_scene:
 			var packed = load(meta_scene)
 			if packed:
-				get_tree().current_scene.queue_free()
+				if is_instance_valid(get_tree().current_scene):
+					get_tree().current_scene.queue_free()
 				var inst = packed.instance()
 				get_tree().root.add_child(inst)
 				get_tree().current_scene = inst

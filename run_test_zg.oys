@@ -1,0 +1,9 @@
+SCENE "res://core_v2/tests/TestZeroGravity.tscn"
+WAIT 1.0
+
+# Mover el piloto hacia adelante
+PLAYER_MOVE "forward"
+WAIT 2.0
+PLAYER_MOVE "none"
+
+WAIT 1.0

@@ -441,16 +441,18 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	# Estados de salto/caída usando la velocidad registrada en el último frame en aire.
 	# IMPORTANTE: Forzamos false si estamos en el suelo (evita flickering en escaleras).
 	var effective_airborne: bool = (not anim_on_floor) and (not traversal_locked) and airborne_time >= stair_air_time_threshold
+	
+	var is_zero_g := false
+	if controller:
+		var cm = controller.get_node_or_null("ControllerManager")
+		if cm and cm.get("current_mode") == cm.Mode.ZERO_GRAVITY:
+			is_zero_g = true
+
+	if is_zero_g:
+		effective_airborne = true
+
 	var is_falling: bool = last_air_vertical_speed < -1.0 and effective_airborne
-	var is_floating: bool = last_air_vertical_speed >= -1.0 and last_air_vertical_speed < 0.0 and effective_airborne
-
-	_set_anim_tree_param(PARAM_CONDITIONS_IS_FALLING, is_falling)
-	_set_anim_tree_param(PARAM_CONDITIONS_IS_FLOATING, is_floating)
-
-	# Falling Fast
-	var is_falling_fast: bool = last_air_vertical_speed < -12.0 and effective_airborne
-	_set_anim_tree_param(PARAM_CONDITIONS_IS_FALLING_FAST, is_falling_fast)
-
+	
 	# is_jumping: true si acabamos de disparar el salto (buffer) o si estamos subiendo en aire
 	# IMPORTANTE: También forzamos false si estamos en el suelo para evitar saltos visuales en escaleras.
 	var is_jumping_param: bool = ((jumped_buffer_time > 0.0) or (effective_airborne and velocity.y > 1.0)) and effective_airborne
@@ -458,8 +460,17 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	# PRIORIDAD ABSOLUTA AL BACKFLIP:
 	# Si el latch acrobático está armado, forzamos is_jumping a false.
 	# Esto obliga a la StateMachine a ignorar el salto normal y tomar la transición 'is_acrobatic'.
-	if acrobatic_trigger_active:
+	if acrobatic_trigger_active or is_zero_g:
 		is_jumping_param = false
+
+	var is_floating: bool = effective_airborne and not is_falling and not is_jumping_param
+
+	_set_anim_tree_param(PARAM_CONDITIONS_IS_FALLING, is_falling)
+	_set_anim_tree_param(PARAM_CONDITIONS_IS_FLOATING, is_floating)
+
+	# Falling Fast
+	var is_falling_fast: bool = last_air_vertical_speed < -12.0 and effective_airborne
+	_set_anim_tree_param(PARAM_CONDITIONS_IS_FALLING_FAST, is_falling_fast)
 		
 	_set_anim_tree_param(PARAM_CONDITIONS_IS_JUMPING, is_jumping_param)
 	

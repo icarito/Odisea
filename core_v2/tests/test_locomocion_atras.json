@@ -31,6 +31,7 @@
           "current_turn_time": 0,
           "_mouse_used_this_move": false
         },
+        "controller_mode": -1,
         "jump_state": {
           "coyote_timer": 0,
           "jump_buffer_timer": 0,
@@ -55,6 +56,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -75,6 +78,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -95,6 +100,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -115,6 +122,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -135,6 +144,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -155,6 +166,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -175,6 +188,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -195,6 +210,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -215,6 +232,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -235,6 +254,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -255,6 +276,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -275,6 +298,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -295,6 +320,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -315,6 +342,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -335,6 +364,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -355,6 +386,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -375,6 +408,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -395,6 +430,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -415,6 +452,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -435,6 +474,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -455,6 +496,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -475,6 +518,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -495,6 +540,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -515,6 +562,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -535,6 +584,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -555,6 +606,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -575,6 +628,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -595,6 +650,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -615,6 +672,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -635,6 +694,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -655,6 +716,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -675,6 +738,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -695,6 +760,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -715,6 +782,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -735,6 +804,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -755,6 +826,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -775,6 +848,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -795,6 +870,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -815,6 +892,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -835,6 +914,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -855,6 +936,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -875,6 +958,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -895,6 +980,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -915,6 +1002,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -935,6 +1024,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -955,6 +1046,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -975,6 +1068,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -995,6 +1090,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -1015,6 +1112,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -1035,6 +1134,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -1055,6 +1156,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -1075,6 +1178,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -1095,6 +1200,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -1115,6 +1222,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -1135,6 +1244,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -1155,6 +1266,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -1175,6 +1288,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -1195,6 +1310,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     },
@@ -1215,6 +1332,8 @@
         "crouch": false,
         "interact": false,
         "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
         "hardware_mouse_active": false
       }
     }
@@ -1637,6 +1756,7 @@
       "current_turn_time": 0,
       "_mouse_used_this_move": false
     },
+    "controller_mode": 0,
     "jump_state": {
       "coyote_timer": 0,
       "jump_buffer_timer": 0,

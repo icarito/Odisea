@@ -9,6 +9,8 @@ var sprint := false
 var crouch := false
 var interact := false
 var focus := false
+var rotate_left := false
+var rotate_right := false
 var mouse_delta := Vector2()
 var zoom_delta := 0.0
 var fov_override := -1.0 # -1 means no override
@@ -30,6 +32,8 @@ func to_dict() -> Dictionary:
 		"crouch": crouch,
 		"interact": interact,
 		"focus": focus,
+		"rotate_left": rotate_left,
+		"rotate_right": rotate_right,
 		"hardware_mouse_active": hardware_mouse_active
 	}
 
@@ -53,5 +57,9 @@ func from_dict(d: Dictionary) -> void:
 		interact = d["interact"]
 	if d.has("focus"):
 		focus = d["focus"]
+	if d.has("rotate_left"):
+		rotate_left = d["rotate_left"]
+	if d.has("rotate_right"):
+		rotate_right = d["rotate_right"]
 	if d.has("hardware_mouse_active"):
 		hardware_mouse_active = d["hardware_mouse_active"]

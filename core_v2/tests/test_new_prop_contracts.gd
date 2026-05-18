@@ -78,16 +78,31 @@ func test_new_props_follow_interactable_contract_and_match_point_class_size():
 		assert_bool(meta.has("size")).is_true()
 
 		var point_size: AABB = meta["size"]
+		# In FGD point classes, the size property contains:
+		# position: the minimum bounds (min_x, min_y, min_z)
+		# size: the maximum bounds (max_x, max_y, max_z)
+		# So the actual size in map units is max - min (which is size - position)
+		var real_size_map_units = point_size.size - point_size.position
+		
+		# Map Qodot/TrenchBroom coordinates to Godot coordinate system and scale to meters:
+		# Godot X <- TrenchBroom Y
+		# Godot Y <- TrenchBroom Z
+		# Godot Z <- TrenchBroom X
+		var mapped_size_meters = Vector3(
+			real_size_map_units.y * 0.0625,
+			real_size_map_units.z * 0.0625,
+			real_size_map_units.x * 0.0625
+		)
 		var scene_bounds: AABB = _compute_scene_visual_bounds(prop)
 
-		assert_bool(point_size.size.x >= scene_bounds.size.x * 0.95).is_true()
-		assert_bool(point_size.size.y >= scene_bounds.size.y * 0.95).is_true()
-		assert_bool(point_size.size.z >= scene_bounds.size.z * 0.95).is_true()
+		assert_bool(mapped_size_meters.x >= scene_bounds.size.x * 0.95).is_true()
+		assert_bool(mapped_size_meters.y >= scene_bounds.size.y * 0.95).is_true()
+		assert_bool(mapped_size_meters.z >= scene_bounds.size.z * 0.95).is_true()
 
 		# Keep TrenchBroom handles reasonably tight to the actual prop volume.
-		assert_bool(point_size.size.x <= scene_bounds.size.x * 4.0).is_true()
-		assert_bool(point_size.size.y <= scene_bounds.size.y * 4.0).is_true()
-		assert_bool(point_size.size.z <= max(0.8, scene_bounds.size.z * 4.0)).is_true()
+		assert_bool(mapped_size_meters.x <= scene_bounds.size.x * 4.0).is_true()
+		assert_bool(mapped_size_meters.y <= scene_bounds.size.y * 4.0).is_true()
+		assert_bool(mapped_size_meters.z <= max(0.8, scene_bounds.size.z * 4.0)).is_true()
 
 func _has_interaction_proxy(node: Node) -> bool:
 	for child in node.get_children():

@@ -74,18 +74,13 @@ func test_test_scene_generates_neighbor_collision_proxies() -> void:
 	var spiral: Spatial = rotator.get_platforms()[spiral_index]
 	var visual_neighbor: Transform = rotator.global_transform * rotator.get_plate_canonical_transform(spiral, neighbor_plate)
 
-	# XZ del pool coincide con el visual (misma columna XZ).
-	var pool_xz := Vector2(neighbor_body.global_transform.origin.x, neighbor_body.global_transform.origin.z)
-	var visual_xz := Vector2(visual_neighbor.origin.x, visual_neighbor.origin.z)
-	assert_float(pool_xz.distance_to(visual_xz)).is_less(0.5)
-
-	# Y del pool coincide con el active_collision_body (piso de referencia del jugador).
-	var active_body: StaticBody = scene.get_active_collision_body()
-	if active_body:
-		assert_float(abs(neighbor_body.global_transform.origin.y - active_body.global_transform.origin.y)).is_less(0.1)
-
-	# La basis es horizontal (basis.y = Vector3.UP).
-	assert_float(neighbor_body.global_transform.basis.y.normalized().dot(Vector3.UP)).is_greater_equal(0.999)
+	# El origin del pool debe coincidir con el visual completo.
+	assert_float(neighbor_body.global_transform.origin.distance_to(visual_neighbor.origin)).is_less(0.02)
+	# En TestWorldRotator (continuous_tracking = false) el pool sigue la orientación
+	# visual exacta para que la colisión coincida con el mesh vecino.
+	assert_float(neighbor_body.global_transform.basis.x.normalized().dot(visual_neighbor.basis.x.normalized())).is_greater_equal(0.999)
+	assert_float(neighbor_body.global_transform.basis.y.normalized().dot(visual_neighbor.basis.y.normalized())).is_greater_equal(0.999)
+	assert_float(neighbor_body.global_transform.basis.z.normalized().dot(visual_neighbor.basis.z.normalized())).is_greater_equal(0.999)
 
 	# Raycast desde arriba del slot: debe golpear el StaticBody del pool.
 	var from: Vector3 = neighbor_body.global_transform.origin + Vector3.UP * 6.0

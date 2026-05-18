@@ -643,15 +643,6 @@ func _assign_pool_to_nearest_plates() -> void:
 	var pool_size: int = _collision_pool.size()
 	var assign_count: int = min(candidates.size(), pool_size)
 
-	# En modo continuous_tracking todas las plates se nivelan al Y del active body
-	# para que sean accesibles caminando (las vecinas de otras espirales están al
-	# mismo nivel real tras la rotación del mundo).
-	# En plate-tracking cada plate mantiene su Y visual propio.
-	var use_floor_y: bool = continuous_tracking
-	var floor_y: float = 0.0
-	if use_floor_y and _active_collision_body and is_instance_valid(_active_collision_body):
-		floor_y = _active_collision_body.global_transform.origin.y
-
 	for i in range(assign_count):
 		var c: Dictionary = candidates[i]
 		var body: StaticBody = _collision_pool[i]
@@ -660,10 +651,7 @@ func _assign_pool_to_nearest_plates() -> void:
 		body.set_meta("spiral_index", c.spiral_index)
 		body.set_meta("plate_index", c.plate_index)
 		var plate_global: Transform = global_transform * c.canonical_tx
-		var flat: Transform = _make_horizontal_target_transform(plate_global)
-		if use_floor_y:
-			flat.origin.y = floor_y
-		body.global_transform = flat
+		body.global_transform = _get_neighbor_collision_transform(plate_global)
 		_pool_assignments[i] = {"spiral_index": c.spiral_index, "plate_index": c.plate_index}
 
 	# Los slots sobrantes se mandan lejos para que no interfieran.
@@ -674,6 +662,11 @@ func _assign_pool_to_nearest_plates() -> void:
 
 func _sort_by_dist_sq(a: Dictionary, b: Dictionary) -> bool:
 	return a.dist_sq < b.dist_sq
+
+func _get_neighbor_collision_transform(plate_global: Transform) -> Transform:
+	# Las terrazas vecinas deben coincidir con el mesh visual real para que
+	# el paso entre plates no encuentre un collider desplazado o desfasado.
+	return plate_global
 
 func _sync_pool_shape_extents(body: StaticBody, spiral: Spatial) -> void:
 	var shape_node: CollisionShape = body.get_node_or_null("CollisionShape") as CollisionShape
