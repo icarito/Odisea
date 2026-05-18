@@ -14,7 +14,9 @@ func test_test_scene_loads_world_rotator_script() -> void:
 	assert_str(rotator.get_script().resource_path).is_equal("res://core_v2/systems/WorldRotator.gd")
 	assert_bool(GravityWorld.has_rotator()).is_true()
 	assert_object(GravityWorld.get_rotator()).is_same(rotator)
+	assert_object(scene.get_node_or_null("PhysicalTerrace")).is_not_null()
 	assert_object(scene.get_active_collision_body()).is_not_null()
+	assert_object(scene.get_active_collision_body()).is_same(scene.get_node("PhysicalTerrace"))
 	assert_float(rotator.spiral_blend).is_equal_approx(1.0, 0.001)
 	assert_bool(rotator.auto_track_target_plate).is_true()
 
@@ -37,16 +39,18 @@ func test_test_scene_aligns_selected_plate_to_physical_terrace() -> void:
 	assert_float(abs(player_on_plate.x)).is_less(5.0)
 	assert_float(abs(player_on_plate.z)).is_less(5.0)
 
-func test_test_scene_generates_active_collision_without_physical_terrace_node() -> void:
+func test_test_scene_uses_explicit_physical_terrace_node() -> void:
 	var scene = auto_free(TestWorldRotatorScene.instance())
 	add_child(scene)
 	yield(get_tree(), "idle_frame")
 
-	assert_object(scene.get_node_or_null("PhysicalTerrace")).is_null()
+	var physical_terrace: StaticBody = scene.get_node("PhysicalTerrace")
+	assert_object(physical_terrace).is_not_null()
 	var active_body: StaticBody = scene.get_active_collision_body()
 	assert_object(active_body).is_not_null()
-	assert_str(active_body.name).is_equal("ActiveTerraceCollision")
-	assert_object(active_body.get_node_or_null("CollisionShape")).is_not_null()
+	assert_object(active_body).is_same(physical_terrace)
+	assert_object(physical_terrace.get_node_or_null("CollisionShape")).is_not_null()
+	assert_object(physical_terrace.get_node_or_null("MeshInstance")).is_null()
 
 func test_test_scene_generates_neighbor_collision_proxies() -> void:
 	var scene = auto_free(TestWorldRotatorScene.instance())

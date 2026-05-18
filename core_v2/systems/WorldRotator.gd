@@ -37,7 +37,7 @@ export(NodePath) var physical_terrace_path := NodePath("")
 export(Vector3) var fallback_collision_extents := Vector3(100.0, 1.0, 100.0)
 export(bool) var auto_track_target_plate := false
 export(NodePath) var tracking_target_path := NodePath("")
-export(float) var auto_track_min_switch_distance := 0.5
+export(float) var auto_track_min_switch_distance := 20.0
 export(bool) var auto_track_requires_floor_contact := true
 export(bool) var continuous_tracking := true
 
@@ -114,8 +114,7 @@ func _physics_process(delta: float) -> void:
 	# En modo plate-tracking es ancla fija — NO se mueve aquí.
 	if continuous_tracking and _active_collision_body and is_instance_valid(_active_collision_body) \
 			and _selected_spiral_index >= 0 and _selected_plate_index >= 0:
-		if _active_collision_body.name == "ActiveTerraceCollision":
-			_active_collision_body.global_transform = global_transform * _selected_plate_canonical
+		_active_collision_body.global_transform = global_transform * _selected_plate_canonical
 
 	var pool_update_due: bool = _is_pool_update_due()
 	if not pool_update_due:
@@ -300,6 +299,17 @@ func _get_plate_contact_distance_squared(spiral: Spatial, plate_canonical: Trans
 	# horizontal del jugador — calcular en espacio local producía rankings incorrectos.
 	return plate_canonical.origin.distance_squared_to(canonical_position)
 
+func _get_plate_distance_for_indices(spiral_index: int, plate_index: int, global_position: Vector3) -> float:
+	if spiral_index < 0 or spiral_index >= _registered_platforms.size():
+		return INF
+	var spiral: Spatial = _registered_platforms[spiral_index]
+	var plate_count: int = get_plate_count(spiral)
+	if plate_index < 0 or plate_index >= plate_count:
+		return INF
+	var canonical_position: Vector3 = to_canonical(global_position)
+	var plate_tx: Transform = get_plate_canonical_transform(spiral, plate_index)
+	return sqrt(_get_plate_contact_distance_squared(spiral, plate_tx, canonical_position))
+
 # Fuerza la recomputación del target (útil si la plataforma cambió su orientación).
 func invalidate_target() -> void:
 	_recompute_target()
@@ -402,6 +412,17 @@ func _update_tracked_target_plate() -> void:
 	var plate_index: int = int(target_plate["plate_index"])
 	if spiral_index == _selected_spiral_index and plate_index == _selected_plate_index:
 		return
+	if continuous_tracking and _selected_spiral_index >= 0 and _selected_plate_index >= 0 \
+			and auto_track_min_switch_distance > 0.0:
+		var target_global_position: Vector3 = target.global_transform.origin
+		var current_distance: float = _get_plate_distance_for_indices(
+				_selected_spiral_index, _selected_plate_index, target_global_position)
+		var candidate_distance: float = _get_plate_distance_for_indices(
+				spiral_index, plate_index, target_global_position)
+		# No cambiar de plate hasta que la nueva gane por un margen claro.
+		# Esto evita flips bruscos al cruzar bordes y reduce la sensación de salto.
+		if candidate_distance + auto_track_min_switch_distance >= current_distance:
+			return
 	if continuous_tracking:
 		# En modo continuous el mundo ya rota via _update_continuous_tracking.
 		# Solo actualizamos los índices y el pool, sin mover el active_collision_body.

@@ -5,6 +5,7 @@ export(int, 0, 10000) var selected_plate := 0
 export(bool) var snap_on_selection := true
 
 onready var _rotator: Spatial = $WorldRotator
+onready var _physical_terrace: StaticBody = $PhysicalTerrace
 onready var _player: Spatial = $Pilot
 onready var _camera: Camera = $Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera
 
@@ -17,41 +18,10 @@ func _ready() -> void:
 	if has_node("/root/GravityWorld"):
 		GravityWorld.set_ship_axis(Vector3.ZERO, Vector3.UP)
 	call_deferred("apply_selection")
-	print("[TestWorldRotator] Controls: 1-4 spiral, A/D plate, Z/C +/-10 plates, Q/E spiral, F centrifugal, V axial")
 
 func _process(delta: float) -> void:
 	_sync_selection_from_rotator()
 	_reset_camera_roll()
-
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		match event.scancode:
-			KEY_1:
-				_set_spiral(0)
-			KEY_2:
-				_set_spiral(1)
-			KEY_3:
-				_set_spiral(2)
-			KEY_4:
-				_set_spiral(3)
-			KEY_Q:
-				_set_spiral(selected_spiral - 1)
-			KEY_E:
-				_set_spiral(selected_spiral + 1)
-			KEY_A:
-				_set_plate(selected_plate - 1)
-			KEY_D:
-				_set_plate(selected_plate + 1)
-			KEY_Z:
-				_set_plate(selected_plate - 10)
-			KEY_C:
-				_set_plate(selected_plate + 10)
-			KEY_F:
-				_set_blend(1.0)
-			KEY_V:
-				_set_blend(0.0)
-			KEY_R:
-				_respawn_player()
 
 func apply_selection() -> void:
 	_collect_spirals()
@@ -75,17 +45,13 @@ func apply_selection() -> void:
 	_selected_plate_canonical = plate_canonical
 	_configure_gravity_for_selected_plate(plate_canonical)
 	_rotator.auto_track_target_plate = true
-	print("[TestWorldRotator] Spiral %d/%d plate %d/%d -> physical terrace" % [
-		selected_spiral + 1,
-		_spirals.size(),
-		selected_plate,
-		plate_count - 1
-	])
 
 func get_selected_plate_global_transform() -> Transform:
 	return _rotator.get_selected_plate_global_transform()
 
 func get_physical_terrace_transform() -> Transform:
+	if _physical_terrace:
+		return _physical_terrace.global_transform
 	return _rotator.get_active_collision_transform()
 
 func get_active_collision_body() -> StaticBody:
@@ -114,6 +80,7 @@ func _configure_test_rotator() -> void:
 	_rotator.auto_track_target_plate = false
 	_rotator.auto_track_requires_floor_contact = true
 	_rotator.tracking_target_path = NodePath("../Pilot")
+	_rotator.physical_terrace_path = NodePath("../PhysicalTerrace")
 	_rotator.collision_pool_size = max(_rotator.collision_pool_size, 32)
 	_rotator.collision_update_interval = 3
 
