@@ -447,6 +447,13 @@ func _update_continuous_tracking(delta: float) -> void:
 	if target == null:
 		return
 
+	# No rotar mientras el jugador está en el aire.
+	# Durante el salto el mundo debe permanecer estático para que los slots del
+	# pool de colisiones queden en la posición correcta de aterrizaje.
+	# La rotación se retoma cuando el jugador vuelve a tocar el suelo.
+	if target.has_method("is_on_floor") and not target.is_on_floor():
+		return
+
 	var p_global: Vector3 = target.global_transform.origin
 	var p_can: Vector3 = to_canonical(p_global)
 
