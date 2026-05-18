@@ -101,19 +101,27 @@ func _exit_tree() -> void:
 func _physics_process(delta: float) -> void:
 	if continuous_tracking:
 		_update_continuous_tracking(delta)
+	# El tracking por plates corre siempre: detecta cambio de plate activa
+	# independientemente de si continuous_tracking está activo o no.
 	_update_tracked_target_plate()
-		
+
 	if _has_transform_target:
 		_slerp_to_global_transform(delta)
 	else:
 		_slerp_to_target(delta)
-		
-	if _active_collision_body and is_instance_valid(_active_collision_body) and _selected_spiral_index >= 0 and _selected_plate_index >= 0:
+
+	# En modo continuous_tracking el active_collision_body sigue al visual rotado.
+	# En modo plate-tracking es ancla fija — NO se mueve aquí.
+	if continuous_tracking and _active_collision_body and is_instance_valid(_active_collision_body) \
+			and _selected_spiral_index >= 0 and _selected_plate_index >= 0:
 		if _active_collision_body.name == "ActiveTerraceCollision":
 			_active_collision_body.global_transform = global_transform * _selected_plate_canonical
 
-	_pool_update_counter += 1
-	if _pool_update_counter >= collision_update_interval:
+	var pool_update_due: bool = _is_pool_update_due()
+	if not pool_update_due:
+		_pool_update_counter += 1
+		pool_update_due = _pool_update_counter >= collision_update_interval
+	if pool_update_due:
 		_pool_update_counter = 0
 		_assign_pool_to_nearest_plates()
 
@@ -380,8 +388,6 @@ func _sync_spirals_recursive(root: Node) -> void:
 func _update_tracked_target_plate() -> void:
 	if not auto_track_target_plate or spiral_blend <= 0.001:
 		return
-	if _selected_spiral_index < 0 or _selected_plate_index < 0 or _active_collision_body == null:
-		return
 	var target: Spatial = _get_tracking_target()
 	if target == null:
 		return
@@ -396,8 +402,18 @@ func _update_tracked_target_plate() -> void:
 	var plate_index: int = int(target_plate["plate_index"])
 	if spiral_index == _selected_spiral_index and plate_index == _selected_plate_index:
 		return
-	_activate_nearest_plate_at_current_global_transform(spiral_index, plate_index)
-	# Reasignar pool inmediatamente tras cambio de plate activa.
+	if continuous_tracking:
+		# En modo continuous el mundo ya rota via _update_continuous_tracking.
+		# Solo actualizamos los índices y el pool, sin mover el active_collision_body.
+		_selected_spiral_index = spiral_index
+		_selected_plate_index = plate_index
+		if spiral_index >= 0 and spiral_index < _registered_platforms.size():
+			_selected_plate_canonical = get_plate_canonical_transform(
+					_registered_platforms[spiral_index], plate_index)
+	else:
+		if _selected_spiral_index < 0 or _selected_plate_index < 0 or _active_collision_body == null:
+			return
+		_activate_nearest_plate_at_current_global_transform(spiral_index, plate_index)
 	_pool_update_counter = collision_update_interval
 
 func _find_floor_contact_plate(target: Spatial) -> Dictionary:
@@ -430,10 +446,10 @@ func _update_continuous_tracking(delta: float) -> void:
 	var target: Spatial = _get_tracking_target()
 	if target == null:
 		return
-	
+
 	var p_global: Vector3 = target.global_transform.origin
 	var p_can: Vector3 = to_canonical(p_global)
-	
+
 	var up_can: Vector3
 	if has_node("/root/GravityWorld"):
 		up_can = get_node("/root/GravityWorld").get_canonical_up_direction(p_can)
@@ -442,18 +458,18 @@ func _update_continuous_tracking(delta: float) -> void:
 		up_can = Vector3(p_can.x, 0.0, p_can.z).normalized()
 		if up_can.length_squared() < 0.001:
 			up_can = Vector3.UP
-			
+
 	var up_global: Vector3 = global_transform.basis.xform(up_can).normalized()
 	var q_align: Quat = _quat_align(up_global, Vector3.UP)
-	
+
 	# Evitar vibraciones por coma flotante
 	if q_align.w >= 0.99999:
 		return
-		
+
 	var new_basis: Basis = (Basis(q_align) * global_transform.basis).orthonormalized()
 	# Pivotamos alrededor del jugador para que no sea desplazado bruscamente
 	var new_origin: Vector3 = p_global - new_basis.xform(p_can)
-	
+
 	_target_global_transform = Transform(new_basis, new_origin)
 	_has_transform_target = true
 	# Hacemos que la interpolación no dependa solo de rotation_speed sino que fluya
@@ -528,8 +544,14 @@ func _ensure_active_collision_body() -> StaticBody:
 	_active_collision_body.name = "ActiveTerraceCollision"
 	_active_collision_body.collision_layer = 1
 	_active_collision_body.collision_mask = 1
+	# Crear la shape ANTES de insertar en el árbol.
+	_active_collision_shape = CollisionShape.new()
+	_active_collision_shape.name = "CollisionShape"
+	var _init_box: BoxShape = BoxShape.new()
+	_init_box.extents = fallback_collision_extents
+	_active_collision_shape.shape = _init_box
+	_active_collision_body.add_child(_active_collision_shape)
 	_get_collision_parent().add_child(_active_collision_body)
-	_active_collision_shape = _create_collision_shape(_active_collision_body)
 	return _active_collision_body
 
 func _ensure_generated_collision_root() -> void:
@@ -555,13 +577,15 @@ func _build_collision_pool() -> void:
 		# Metadata inicialmente vacío; se asigna en _assign_pool_to_nearest_plates.
 		body.set_meta("spiral_index", -1)
 		body.set_meta("plate_index", -1)
-		_generated_collision_root.add_child(body)
+		# Añadir CollisionShape ANTES de insertar el body en el árbol.
+		# Si se añade después, Godot 3 puede no registrar la shape en el physics server.
 		var shape: CollisionShape = CollisionShape.new()
 		shape.name = "CollisionShape"
 		var box: BoxShape = BoxShape.new()
 		box.extents = default_extents
 		shape.shape = box
 		body.add_child(shape)
+		_generated_collision_root.add_child(body)
 		_collision_pool.append(body)
 		_pool_assignments.append({})
 
@@ -597,7 +621,7 @@ func _assign_pool_to_nearest_plates() -> void:
 			# Exclude the active plate because it is already handled by _active_collision_body
 			if spiral_index == _selected_spiral_index and plate_index == _selected_plate_index:
 				continue
-				
+
 			var plate_tx: Transform = get_plate_canonical_transform(spiral, plate_index)
 			var dist_sq: float = _get_plate_contact_distance_squared(spiral, plate_tx, center_canonical)
 			candidates.append({
@@ -612,6 +636,15 @@ func _assign_pool_to_nearest_plates() -> void:
 	var pool_size: int = _collision_pool.size()
 	var assign_count: int = min(candidates.size(), pool_size)
 
+	# En modo continuous_tracking todas las plates se nivelan al Y del active body
+	# para que sean accesibles caminando (las vecinas de otras espirales están al
+	# mismo nivel real tras la rotación del mundo).
+	# En plate-tracking cada plate mantiene su Y visual propio.
+	var use_floor_y: bool = continuous_tracking
+	var floor_y: float = 0.0
+	if use_floor_y and _active_collision_body and is_instance_valid(_active_collision_body):
+		floor_y = _active_collision_body.global_transform.origin.y
+
 	for i in range(assign_count):
 		var c: Dictionary = candidates[i]
 		var body: StaticBody = _collision_pool[i]
@@ -620,7 +653,10 @@ func _assign_pool_to_nearest_plates() -> void:
 		body.set_meta("spiral_index", c.spiral_index)
 		body.set_meta("plate_index", c.plate_index)
 		var plate_global: Transform = global_transform * c.canonical_tx
-		body.global_transform = _make_horizontal_target_transform(plate_global)
+		var flat: Transform = _make_horizontal_target_transform(plate_global)
+		if use_floor_y:
+			flat.origin.y = floor_y
+		body.global_transform = flat
 		_pool_assignments[i] = {"spiral_index": c.spiral_index, "plate_index": c.plate_index}
 
 	# Los slots sobrantes se mandan lejos para que no interfieran.
@@ -693,6 +729,17 @@ func _wrap_index(value: int, size: int) -> int:
 	if wrapped < 0:
 		wrapped += size
 	return wrapped
+
+func _is_pool_update_due() -> bool:
+	if continuous_tracking:
+		return true
+	if _has_transform_target:
+		return true
+	if _platform_node == null:
+		return false
+	var q_cur: Quat = transform.basis.get_rotation_quat()
+	var q_target: Quat = _target_quat
+	return abs(q_cur.dot(q_target)) < 0.9999
 
 # ── Utilidades de álgebra ────────────────────────────────────────────────────
 

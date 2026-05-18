@@ -14,3 +14,22 @@ auto_select_first_platform = false
 
 [node name="Pilot" parent="." instance=ExtResource( 2 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 3 )
+mouse_sensitivity = 0.005
+invert_mouse_y = false
+joy_move_sensitivity = 1.0
+snap_length = 0.25
+interact_distance = 3.0
+push_offset = 0.71
+enable_auto_align = true
+auto_align_delay = 1.0
+enable_cinematic_zoom = true
+cinematic_zoom_speed = 1.0
+cinematic_zoom_lerp_speed = 8.0
+cinematic_zoom_min_fov = 20.0
+cinematic_zoom_max_fov = 110.0
+camera_collision_mask = 1
+step_height = 0.5
+stair_ground_probe_extra = 0.2
+debug_stair_state = false
+crouch_collider_height_ratio = 0.55
+crouch_headroom_margin = 0.03
