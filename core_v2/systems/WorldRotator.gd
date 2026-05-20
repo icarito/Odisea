@@ -18,6 +18,8 @@ signal platform_changed(platform_node)
 
 # Velocidad de interpolación de la rotación del mundo (rad/s).
 export(float) var rotation_speed := 2.0
+# Factor de velocidad de rotación cuando el jugador está en el aire (0.0 a 1.0).
+export(float, 0.0, 1.0) var airborne_rotation_factor := 0.3
 
 # Nodo que define la plataforma activa.
 # Su eje local +Y debe ser la dirección "arriba" para el jugador sobre esa plataforma.
@@ -115,6 +117,8 @@ func _physics_process(delta: float) -> void:
 	if continuous_tracking and _active_collision_body and is_instance_valid(_active_collision_body) \
 			and _selected_spiral_index >= 0 and _selected_plate_index >= 0:
 		_active_collision_body.global_transform = global_transform * _selected_plate_canonical
+		# Sincronizar el resto del pool para evitar drift visual-físico entre saltos de asignación.
+		_sync_pool_transforms_to_world()
 
 	var pool_update_due: bool = _is_pool_update_due()
 	if not pool_update_due:
@@ -266,8 +270,17 @@ func get_plate_canonical_transform(spiral: Spatial, plate_index: int) -> Transfo
 	if multimesh == null or multimesh.instance_count <= 0:
 		return Transform.IDENTITY
 	var clamped_index: int = clamp(plate_index, 0, multimesh.instance_count - 1)
+
+	# Optimización: usar transform cacheado si está disponible
+	var local_xform: Transform
+	var cached_list = spiral.get("_cached_transforms")
+	if cached_list != null and cached_list is Array and clamped_index < cached_list.size():
+		local_xform = cached_list[clamped_index]
+	else:
+		local_xform = multimesh.get_instance_transform(clamped_index)
+
 	var spiral_canonical: Transform = global_transform.affine_inverse() * spiral.global_transform
-	return spiral_canonical * multimesh.get_instance_transform(clamped_index)
+	return spiral_canonical * local_xform
 
 func find_nearest_terrace_plate(global_position: Vector3) -> Dictionary:
 	_auto_register_platforms()
@@ -373,17 +386,29 @@ func _recompute_target() -> void:
 
 func _slerp_to_target(delta: float) -> void:
 	var q_cur: Quat = transform.basis.get_rotation_quat()
-	var q_new: Quat = q_cur.slerp(_target_quat, min(1.0, rotation_speed * delta))
+	var t: float = min(1.0, _get_effective_rotation_speed() * delta)
+	# Aplicar smoothstep para una aceleración/deceleración más natural en micro-movimientos.
+	var eased_t: float = t * t * (3.0 - 2.0 * t)
+	var q_new: Quat = q_cur.slerp(_target_quat, eased_t)
 	transform.basis = Basis(q_new).orthonormalized()
 
 func _slerp_to_global_transform(delta: float) -> void:
-	var t: float = min(1.0, rotation_speed * delta)
+	var t: float = min(1.0, _get_effective_rotation_speed() * delta)
+	var eased_t: float = t * t * (3.0 - 2.0 * t)
 	var current: Transform = global_transform
 	var q_cur: Quat = current.basis.get_rotation_quat()
 	var q_target: Quat = _target_global_transform.basis.get_rotation_quat()
-	var q_new: Quat = q_cur.slerp(q_target, t)
-	var origin_new: Vector3 = current.origin.linear_interpolate(_target_global_transform.origin, t)
+	var q_new: Quat = q_cur.slerp(q_target, eased_t)
+	var origin_new: Vector3 = current.origin.linear_interpolate(_target_global_transform.origin, eased_t)
 	global_transform = Transform(Basis(q_new).orthonormalized(), origin_new)
+
+func _get_effective_rotation_speed() -> float:
+	var speed = rotation_speed
+	var target: Spatial = _get_tracking_target()
+	if target and target.has_method("is_on_floor") and not target.is_on_floor():
+		speed *= airborne_rotation_factor
+	return speed
+
 
 func _sync_spirals() -> void:
 	_sync_spirals_recursive(self)
@@ -468,12 +493,9 @@ func _update_continuous_tracking(delta: float) -> void:
 	if target == null:
 		return
 
-	# No rotar mientras el jugador está en el aire.
-	# Durante el salto el mundo debe permanecer estático para que los slots del
-	# pool de colisiones queden en la posición correcta de aterrizaje.
-	# La rotación se retoma cuando el jugador vuelve a tocar el suelo.
-	if target.has_method("is_on_floor") and not target.is_on_floor():
-		return
+	# Ahora permitimos rotación moderada en el aire para un look más natural,
+	# pero mantenemos la lógica de pivotar sobre el jugador.
+	# El factor de velocidad se aplica en _get_effective_rotation_speed().
 
 	var p_global: Vector3 = target.global_transform.origin
 	var p_can: Vector3 = to_canonical(p_global)
@@ -630,28 +652,54 @@ func _assign_pool_to_nearest_plates() -> void:
 	if _collision_pool.empty() or _registered_platforms.empty():
 		return
 	var tracking_target: Spatial = _get_tracking_target()
+	var target_global_pos: Vector3
 	var center_canonical: Vector3
 	if tracking_target != null:
-		center_canonical = to_canonical(tracking_target.global_transform.origin)
+		target_global_pos = tracking_target.global_transform.origin
+		center_canonical = to_canonical(target_global_pos)
 	elif _selected_plate_index >= 0:
 		center_canonical = _selected_plate_canonical.origin
+		target_global_pos = from_canonical(center_canonical)
 	else:
 		return
 
-	# Recopilar todas las plates con su distancia al centro.
-	# Los transforms del multimesh se leen tal como están — el spiral los actualiza
-	# en su propio _physics_process; un frame de lag es aceptable.
-	var candidates: Array = []  # Array of {spiral, plate, dist_sq, canonical_tx}
+	# Recopilar candidates usando búsqueda espacial por altura (Y local de la espira).
+	var candidates: Array = []  # Array of {spiral_index, plate_index, dist_sq, canonical_tx}
+	var pool_size: int = _collision_pool.size()
+	# Buscamos un rango de plates que cubra con creces el pool_size.
+	# 48 plates por espira es lo común, un radio de 12 plates suele bastar.
+	var search_range_idx: int = int(ceil(float(pool_size) / float(max(1, _registered_platforms.size())))) + 4
+
 	for spiral_index in range(_registered_platforms.size()):
 		var spiral: Spatial = _registered_platforms[spiral_index]
 		var plate_count: int = get_plate_count(spiral)
-		for plate_index in range(plate_count):
-			# Exclude the active plate because it is already handled by _active_collision_body
+		if plate_count <= 0: continue
+
+		var plate_step: float = spiral.get("plate_step") if spiral.get("plate_step") != null else 40.0
+		var spiral_inv_xform: Transform = spiral.global_transform.affine_inverse()
+		var spiral_canonical_base: Transform = global_transform.affine_inverse() * spiral.global_transform
+		var local_pos: Vector3 = spiral_inv_xform.xform(target_global_pos)
+
+		var center_idx: int = int(round(local_pos.y / max(0.001, plate_step)))
+		var start_idx: int = max(0, center_idx - search_range_idx)
+		var end_idx: int = min(plate_count - 1, center_idx + search_range_idx)
+
+		var cached_list = spiral.get("_cached_transforms")
+		var has_cache: bool = cached_list != null and cached_list is Array
+
+		for plate_index in range(start_idx, end_idx + 1):
 			if spiral_index == _selected_spiral_index and plate_index == _selected_plate_index:
 				continue
 
-			var plate_tx: Transform = get_plate_canonical_transform(spiral, plate_index)
-			var dist_sq: float = _get_plate_contact_distance_squared(spiral, plate_tx, center_canonical)
+			var plate_local_tx: Transform
+			if has_cache:
+				plate_local_tx = cached_list[plate_index]
+			else:
+				var multimesh: MultiMesh = spiral.get("multimesh")
+				plate_local_tx = multimesh.get_instance_transform(plate_index)
+
+			var plate_tx: Transform = spiral_canonical_base * plate_local_tx
+			var dist_sq: float = plate_tx.origin.distance_squared_to(center_canonical)
 			candidates.append({
 				"spiral_index": spiral_index,
 				"plate_index": plate_index,
@@ -661,7 +709,6 @@ func _assign_pool_to_nearest_plates() -> void:
 
 	# Ordenar por distancia ascendente y tomar las primeras collision_pool_size.
 	candidates.sort_custom(self, "_sort_by_dist_sq")
-	var pool_size: int = _collision_pool.size()
 	var assign_count: int = min(candidates.size(), pool_size)
 
 	for i in range(assign_count):
@@ -671,6 +718,8 @@ func _assign_pool_to_nearest_plates() -> void:
 		_sync_pool_shape_extents(body, spiral)
 		body.set_meta("spiral_index", c.spiral_index)
 		body.set_meta("plate_index", c.plate_index)
+		# Guardamos el transform canónico para actualizaciones por frame en continuous_tracking.
+		body.set_meta("canonical_tx", c.canonical_tx)
 		var plate_global: Transform = global_transform * c.canonical_tx
 		body.global_transform = _get_neighbor_collision_transform(plate_global)
 		_pool_assignments[i] = {"spiral_index": c.spiral_index, "plate_index": c.plate_index}
@@ -679,7 +728,16 @@ func _assign_pool_to_nearest_plates() -> void:
 	var far_away: Transform = Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
 	for i in range(assign_count, pool_size):
 		_collision_pool[i].global_transform = far_away
+		_collision_pool[i].set_meta("canonical_tx", null)
 		_pool_assignments[i] = {}
+
+func _sync_pool_transforms_to_world() -> void:
+	for i in range(_collision_pool.size()):
+		var body: StaticBody = _collision_pool[i]
+		if not is_instance_valid(body): continue
+		var canonical_tx = body.get_meta("canonical_tx")
+		if canonical_tx is Transform:
+			body.global_transform = global_transform * (canonical_tx as Transform)
 
 func _sort_by_dist_sq(a: Dictionary, b: Dictionary) -> bool:
 	return a.dist_sq < b.dist_sq

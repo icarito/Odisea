@@ -21,6 +21,8 @@ export(float, 0.0, 1.0) var manual_blend: float = 0.0 setget set_manual_blend # 
 export var cycle_duration: float = 10.0 setget set_cycle_duration
 var time_accumulator: float = 0.0
 var _needs_rebuild: bool = true
+var _last_applied_blend: float = -1.0
+var _cached_transforms: Array = [] # Array of Transform
 
 func _init():
 	add_to_group("replay_sync")
@@ -44,6 +46,11 @@ func _setup_multimesh():
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.instance_count = plate_count
 	multimesh.mesh = plate_mesh
+
+	_cached_transforms.resize(plate_count)
+	for i in range(plate_count):
+		_cached_transforms[i] = Transform.IDENTITY
+	_last_applied_blend = -1.0 # Force update
 
 func _physics_process(delta: float):
 	_rebuild_multimesh_if_needed()
@@ -73,6 +80,11 @@ func _update_spiral_animation():
 
 	blend = clamp(blend, 0.0, 1.0)
 	
+	# Optimización: si el blend no ha cambiado significativamente, saltar el update de MultiMesh
+	if abs(blend - _last_applied_blend) < 0.0001:
+		return
+	_last_applied_blend = blend
+
 	var plate_count = multimesh.instance_count
 	if plate_count <= 1:
 		return
@@ -104,6 +116,7 @@ func _update_spiral_animation():
 		xform.basis = _build_plate_basis(theta, y_ang, interlock)
 		
 		multimesh.set_instance_transform(i, xform)
+		_cached_transforms[i] = xform
 
 func _build_plate_basis(theta: float, tilt_angle: float, interlock: float) -> Basis:
 	var outward = Vector3(cos(theta), 0.0, sin(theta)).normalized()
