@@ -13,6 +13,7 @@ const STEP_SUPPORT_COLLISION_MASK := (1 << 0) | (1 << 1) | (1 << 6) # Worldspawn
 const PLAYER_WEAK_VISUAL_REAPPLY_FRAMES := 24
 const HARDWARE_PROFILE_LOW := 1
 const HYPER_LOW_ANIMATOR_STEP_INTERVAL_FRAMES := 5
+const PLATFORM_TRACKING_MAX_DELTA := 120.0
 
 var is_replay_mode := false
 
@@ -79,6 +80,7 @@ var _platform_collider: Spatial = null
 var _platform_last_transform: Transform = Transform.IDENTITY
 var _platform_velocity: Vector3 = Vector3.ZERO
 var _was_on_platform := false
+var _platform_tracking_key := ""
 
 # Camera State
 var base_fov := 75.0
@@ -2176,21 +2178,24 @@ func _get_step_support_collision_mask() -> int:
 
 func _update_platform_tracking(dt: float) -> void:
 	var new_platform: Spatial = null
+	var new_platform_key := ""
 	if is_on_floor():
 		for i in get_slide_count():
 			var collision = get_slide_collision(i)
 			if collision.normal.y > 0.7:
 				var collider = collision.collider
-				if collider is Spatial and not collider is StaticBody:
+				if _is_trackable_platform_collider(collider):
 					new_platform = collider
+					new_platform_key = _get_platform_tracking_key(collider)
 					break
 	
-	if new_platform != _platform_collider:
+	if new_platform != _platform_collider or new_platform_key != _platform_tracking_key:
 		if _platform_collider != null and new_platform == null:
 			if _platform_velocity.length() > 0.1:
 				velocity += _platform_velocity
 		
 		_platform_collider = new_platform
+		_platform_tracking_key = new_platform_key
 		if new_platform:
 			_platform_last_transform = new_platform.global_transform
 		_was_on_platform = new_platform != null
@@ -2200,10 +2205,30 @@ func _update_platform_tracking(dt: float) -> void:
 		var old_local_pos = _platform_last_transform.affine_inverse().xform(global_transform.origin)
 		var new_global_pos = current_transform.xform(old_local_pos)
 		var delta_pos = new_global_pos - global_transform.origin
-		_platform_velocity = delta_pos / dt if dt > 0 else Vector3.ZERO
+		if delta_pos.length() <= PLATFORM_TRACKING_MAX_DELTA:
+			global_transform.origin += delta_pos
+			_platform_velocity = delta_pos / dt if dt > 0 else Vector3.ZERO
+		else:
+			_platform_velocity = Vector3.ZERO
 		_platform_last_transform = current_transform
 	else:
 		_platform_velocity = Vector3.ZERO
+		_platform_tracking_key = ""
+
+func _is_trackable_platform_collider(collider: Object) -> bool:
+	if not collider is Spatial:
+		return false
+	if collider is StaticBody:
+		return collider.has_meta("world_rotator_collision")
+	return true
+
+func _get_platform_tracking_key(collider: Object) -> String:
+	if collider == null:
+		return ""
+	var key := str(collider.get_instance_id())
+	if collider.has_meta("spiral_index") and collider.has_meta("plate_index"):
+		key += ":%s:%s" % [str(collider.get_meta("spiral_index")), str(collider.get_meta("plate_index"))]
+	return key
 
 func _try_step_up(motion: Vector3) -> Dictionary:
 	var old_mask = collision_mask

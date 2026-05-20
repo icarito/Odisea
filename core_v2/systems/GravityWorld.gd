@@ -93,26 +93,38 @@ func get_default_angular_velocity_for_one_g(radius: float = -1.0) -> float:
 	return sqrt(one_g_strength / max(r, 0.001))
 
 func get_canonical_gravity_direction(canonical_position: Vector3) -> Vector3:
-	if not is_centrifugal_mode():
+	var gravity: Vector3 = get_canonical_gravity(canonical_position)
+	if gravity.length_squared() <= 0.001:
 		return Vector3.DOWN
-	var radial: Vector3 = get_axis_radial_vector(canonical_position)
-	if radial.length_squared() <= 0.001:
-		return Vector3.DOWN
-	return radial.normalized()
+	return gravity.normalized()
 
 func get_canonical_up_direction(canonical_position: Vector3) -> Vector3:
 	return -get_canonical_gravity_direction(canonical_position)
 
 func get_gravity_strength(canonical_position: Vector3) -> float:
-	if not is_centrifugal_mode():
-		return one_g_strength
-	var radius: float = get_axis_radius(canonical_position)
-	if ship_angular_velocity_rad_s > 0.0:
-		return ship_angular_velocity_rad_s * ship_angular_velocity_rad_s * radius
-	return one_g_strength * (radius / max(centrifugal_reference_radius, 0.001))
+	return get_canonical_gravity(canonical_position).length()
 
 func get_canonical_gravity(canonical_position: Vector3) -> Vector3:
-	return get_canonical_gravity_direction(canonical_position) * get_gravity_strength(canonical_position)
+	var blend: float = clamp(get_gravity_blend(), 0.0, 1.0)
+	var standard_gravity: Vector3 = Vector3.DOWN * one_g_strength
+	if blend <= 0.001:
+		return standard_gravity
+	var centrifugal_gravity: Vector3 = _get_centrifugal_gravity(canonical_position)
+	if blend >= 0.999:
+		return centrifugal_gravity
+	return standard_gravity.linear_interpolate(centrifugal_gravity, blend)
+
+func _get_centrifugal_gravity(canonical_position: Vector3) -> Vector3:
+	var radial: Vector3 = get_axis_radial_vector(canonical_position)
+	if radial.length_squared() <= 0.001:
+		return Vector3.DOWN * one_g_strength
+	var radius: float = radial.length()
+	var strength: float
+	if ship_angular_velocity_rad_s > 0.0:
+		strength = ship_angular_velocity_rad_s * ship_angular_velocity_rad_s * radius
+	else:
+		strength = one_g_strength * (radius / max(centrifugal_reference_radius, 0.001))
+	return radial.normalized() * strength
 
 func get_physical_gravity(global_position: Vector3) -> Vector3:
 	var canonical_position: Vector3 = global_position
