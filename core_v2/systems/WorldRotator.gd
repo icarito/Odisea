@@ -2,6 +2,8 @@ extends Spatial
 tool
 class_name WorldRotator
 
+const GravityModes = preload("res://core_v2/systems/GravityModes.gd")
+
 # WorldRotator — rota el entorno visual para alinear la plataforma activa con la gravedad estándar.
 #
 # Arquitectura (FD-036):
@@ -20,6 +22,9 @@ signal platform_changed(platform_node)
 export(float) var rotation_speed := 2.0
 # Factor de velocidad de rotación cuando el jugador está en el aire (0.0 a 1.0).
 export(float, 0.0, 1.0) var airborne_rotation_factor := 0.3
+export(int, "STANDARD_1G", "SPIN_WALKABLE", "ZERO_G", "SPIN_DYNAMIC") var gravity_mode := GravityModes.Mode.SPIN_WALKABLE
+export(bool) var rotation_frozen := false
+export(bool) var debug_draw_target_basis := false
 
 # Nodo que define la plataforma activa.
 # Su eje local +Y debe ser la dirección "arriba" para el jugador sobre esa plataforma.
@@ -33,6 +38,8 @@ export(float, 0.0, 1.0) var spiral_blend := 0.0 setget _set_spiral_blend
 
 # Si no hay current_platform explícito, usa la primera TerraceSpiral registrada.
 export(bool) var auto_select_first_platform := true
+export(bool) var select_nearest_plate_on_ready := false
+export(bool) var snap_initial_selection := true
 
 # Colisiones físicas generadas para probar/usar terrazas sin authoring manual.
 export(NodePath) var physical_terrace_path := NodePath("")
@@ -63,6 +70,7 @@ var _platform_node: Spatial = null
 var _target_quat := Quat()
 var _has_transform_target := false
 var _target_global_transform := Transform.IDENTITY
+var _is_transitioning := false
 var _registered_platforms: Array = []  # Array[Spatial]
 var _selected_spiral_index := -1
 var _selected_plate_index := -1
@@ -83,6 +91,14 @@ func _get_generated_collision_bodies() -> Array:
 # ── Ciclo de vida ────────────────────────────────────────────────────────────
 
 func _ready() -> void:
+	# Reset to identity so editor-saved runtime transforms don't corrupt canonical calculations.
+	global_transform = Transform.IDENTITY
+	if Engine.editor_hint:
+		return
+	# Also reset PhysicalTerrace if configured — it may have been dirtied by the editor too.
+	var pt: Spatial = _resolve_physical_terrace_target()
+	if pt:
+		pt.global_transform = Transform.IDENTITY
 	_auto_register_platforms()
 	if not current_platform.is_empty():
 		_platform_node = get_node_or_null(current_platform) as Spatial
@@ -92,6 +108,7 @@ func _ready() -> void:
 	_recompute_target()
 	_sync_spirals()
 	call_deferred("_build_collision_pool")
+	call_deferred("_select_nearest_plate_on_ready_if_enabled")
 	if has_node("/root/GravityWorld"):
 		get_node("/root/GravityWorld").register_rotator(self)
 
@@ -257,6 +274,17 @@ func get_selected_spiral_index() -> int:
 func get_selected_plate_index() -> int:
 	return _selected_plate_index
 
+func is_transitioning() -> bool:
+	return _is_transitioning
+
+func get_target_basis() -> Basis:
+	if _has_transform_target:
+		return _target_global_transform.basis
+	return Basis(_target_quat).orthonormalized()
+
+func set_rotation_frozen(frozen: bool) -> void:
+	rotation_frozen = frozen
+
 func get_plate_count(spiral: Spatial) -> int:
 	if spiral == null:
 		return 0
@@ -385,14 +413,21 @@ func _recompute_target() -> void:
 	_target_quat = _quat_align(up, Vector3.UP)
 
 func _slerp_to_target(delta: float) -> void:
+	if rotation_frozen:
+		_is_transitioning = false
+		return
 	var q_cur: Quat = transform.basis.get_rotation_quat()
 	var t: float = min(1.0, _get_effective_rotation_speed() * delta)
 	# Aplicar smoothstep para una aceleración/deceleración más natural en micro-movimientos.
 	var eased_t: float = t * t * (3.0 - 2.0 * t)
 	var q_new: Quat = q_cur.slerp(_target_quat, eased_t)
 	transform.basis = Basis(q_new).orthonormalized()
+	_is_transitioning = abs(q_new.dot(_target_quat)) < 0.9999
 
 func _slerp_to_global_transform(delta: float) -> void:
+	if rotation_frozen:
+		_is_transitioning = false
+		return
 	var t: float = min(1.0, _get_effective_rotation_speed() * delta)
 	var eased_t: float = t * t * (3.0 - 2.0 * t)
 	var current: Transform = global_transform
@@ -401,6 +436,7 @@ func _slerp_to_global_transform(delta: float) -> void:
 	var q_new: Quat = q_cur.slerp(q_target, eased_t)
 	var origin_new: Vector3 = current.origin.linear_interpolate(_target_global_transform.origin, eased_t)
 	global_transform = Transform(Basis(q_new).orthonormalized(), origin_new)
+	_is_transitioning = abs(q_new.dot(q_target)) < 0.9999 or origin_new.distance_to(_target_global_transform.origin) > 0.01
 
 func _get_effective_rotation_speed() -> float:
 	var speed = rotation_speed
@@ -538,6 +574,34 @@ func _get_tracking_target() -> Spatial:
 			return player as Spatial
 	return null
 
+func _resolve_physical_terrace_target() -> Spatial:
+	if physical_terrace_path.is_empty():
+		return null
+	var configured: Node = get_node_or_null(physical_terrace_path)
+	if configured == null and get_parent():
+		configured = get_parent().get_node_or_null(physical_terrace_path)
+	if configured is Spatial:
+		return configured as Spatial
+	return null
+
+func _select_nearest_plate_on_ready_if_enabled() -> void:
+	if not select_nearest_plate_on_ready:
+		return
+	_auto_register_platforms()
+	_sync_spirals()
+	var target: Spatial = _get_tracking_target()
+	if target == null:
+		return
+	var nearest: Dictionary = find_nearest_terrace_plate(target.global_transform.origin)
+	if nearest.empty():
+		return
+	var target_body: Spatial = _resolve_physical_terrace_target()
+	select_terrace_plate(
+			int(nearest["spiral_index"]),
+			int(nearest["plate_index"]),
+			target_body,
+			snap_initial_selection)
+
 func _activate_nearest_plate_at_current_global_transform(spiral_index: int, plate_index: int) -> void:
 	if spiral_index < 0 or spiral_index >= _registered_platforms.size():
 		return
@@ -577,13 +641,9 @@ func _force_spiral_update(spiral: Spatial) -> void:
 func _ensure_active_collision_body() -> StaticBody:
 	if _active_collision_body and is_instance_valid(_active_collision_body):
 		return _active_collision_body
-	var configured: Node = null
-	if not physical_terrace_path.is_empty():
-		configured = get_node_or_null(physical_terrace_path)
-		if configured == null and get_parent():
-			configured = get_parent().get_node_or_null(physical_terrace_path)
+	var configured: Spatial = _resolve_physical_terrace_target()
 	if configured is StaticBody:
-		_active_collision_body = configured
+		_active_collision_body = configured as StaticBody
 		_active_collision_shape = _find_collision_shape(_active_collision_body)
 		if _active_collision_shape == null:
 			_active_collision_shape = _create_collision_shape(_active_collision_body)
@@ -627,6 +687,7 @@ func _build_collision_pool() -> void:
 		# Metadata inicialmente vacío; se asigna en _assign_pool_to_nearest_plates.
 		body.set_meta("spiral_index", -1)
 		body.set_meta("plate_index", -1)
+		body.set_meta("canonical_tx", null)
 		# Añadir CollisionShape ANTES de insertar el body en el árbol.
 		# Si se añade después, Godot 3 puede no registrar la shape en el physics server.
 		var shape: CollisionShape = CollisionShape.new()
@@ -672,6 +733,7 @@ func _assign_pool_to_nearest_plates() -> void:
 
 	for spiral_index in range(_registered_platforms.size()):
 		var spiral: Spatial = _registered_platforms[spiral_index]
+		_force_spiral_update(spiral)
 		var plate_count: int = get_plate_count(spiral)
 		if plate_count <= 0: continue
 
@@ -685,7 +747,7 @@ func _assign_pool_to_nearest_plates() -> void:
 		var end_idx: int = min(plate_count - 1, center_idx + search_range_idx)
 
 		var cached_list = spiral.get("_cached_transforms")
-		var has_cache: bool = cached_list != null and cached_list is Array
+		var has_cache: bool = cached_list != null and cached_list is Array and end_idx < cached_list.size()
 
 		for plate_index in range(start_idx, end_idx + 1):
 			if spiral_index == _selected_spiral_index and plate_index == _selected_plate_index:
@@ -735,6 +797,7 @@ func _sync_pool_transforms_to_world() -> void:
 	for i in range(_collision_pool.size()):
 		var body: StaticBody = _collision_pool[i]
 		if not is_instance_valid(body): continue
+		if not body.has_meta("canonical_tx"): continue
 		var canonical_tx = body.get_meta("canonical_tx")
 		if canonical_tx is Transform:
 			body.global_transform = global_transform * (canonical_tx as Transform)
