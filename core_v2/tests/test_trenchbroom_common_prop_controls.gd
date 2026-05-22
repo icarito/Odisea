@@ -304,7 +304,7 @@ func test_baseterrace_work_light_matches_trenchbroom_overrides():
 	add_child(scene)
 	yield(get_tree(), "idle_frame")
 
-	var tripod: Node = scene.get_node_or_null("Building/QodotMap/entity_4_light_work_tripod")
+	var tripod: Node = scene.get_node_or_null("Terrace/Building/QodotMap/entity_4_light_work_tripod")
 	assert_object(tripod).is_not_null()
 	assert_float((tripod as Spatial).translation.y).is_equal_approx(0.0, 0.001)
 	assert_float((tripod as Spatial).rotation_degrees.y).is_equal_approx(90.0, 0.001)
@@ -324,7 +324,7 @@ func test_baseterrace_holo_terminal_keeps_single_viewport_input_tree():
 	assert_object(packed).is_not_null()
 
 	var scene: Node = packed.instance()
-	var terminal: Node = scene.get_node_or_null("Building/TableTerminal")
+	var terminal: Node = scene.get_node_or_null("Terrace/Building/TableTerminal")
 	assert_object(terminal).is_not_null()
 	assert_int(_count_direct_children_named(terminal, "Viewport")).is_equal(1)
 	assert_int(_count_direct_children_named(terminal, "ScreenContainer")).is_equal(1)
@@ -344,7 +344,7 @@ func test_baseterrace_vcamera_system_keeps_single_camera_tree():
 	assert_object(packed).is_not_null()
 
 	var scene: Node = packed.instance()
-	var vcam_system: Node = scene.get_node_or_null("Building/VCameraSystem")
+	var vcam_system: Node = scene.get_node_or_null("Terrace/Building/VCameraSystem")
 	assert_object(vcam_system).is_not_null()
 	assert_int(_count_direct_children_named(vcam_system, "VCameraBrain")).is_equal(1)
 	assert_int(_count_direct_children_named(vcam_system, "VCameras")).is_equal(1)
@@ -365,7 +365,7 @@ func test_baseterrace_start_criopod_keeps_single_player_audio_listener():
 	assert_object(packed).is_not_null()
 
 	var scene: Node = packed.instance()
-	var criopod: Node = scene.get_node_or_null("Building/CrioPod START")
+	var criopod: Node = scene.get_node_or_null("Terrace/Building/CrioPod START")
 	assert_object(criopod).is_not_null()
 	assert_int(_count_direct_children_named(criopod, "Pilot")).is_equal(1)
 	assert_int(_count_direct_children_named(criopod, "RotatingObjectV2")).is_equal(1)
