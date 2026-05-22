@@ -216,7 +216,9 @@ func _activate_slot(index: int, candidate: Dictionary) -> void:
 			if instance:
 				var spawn_offset: Vector3 = _assignment_indices.get(key, {}).get("spawn_offset", Vector3.ZERO)
 				if instance is Spatial and spawn_offset != Vector3.ZERO:
-					(instance as Spatial).transform.origin = spawn_offset
+					# spawn_offset is world-space; convert to slot-local to stay world-up
+					# regardless of plate tilt angle.
+					(instance as Spatial).transform.origin = slot.global_transform.basis.xform_inv(spawn_offset)
 				slot.add_child(instance)
 
 	_slot_assignments[index] = {
