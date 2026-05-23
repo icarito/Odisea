@@ -6,6 +6,8 @@
 **Created:** 2026-05-17
 **Completed:** -
 
+**Engineering contract:** `docs/engineering/Gravity_Physics_Contracts.md`
+
 ## Problem
 
 Las terrazas rotatorias necesitan un fondo estructural creible entre el shaft principal y el casco exterior de la nave. Modelar ese volumen a mano como miles de tuberias, cruces y soportes no escala: aumenta costo de authoring, costo de carga, draw calls y riesgo de que el jugador vea huecos cuando el nivel rota o se streamea.
@@ -54,6 +56,20 @@ World
 - `field_height_min` / `field_height_max`: limites axiales o verticales del volumen jugable.
 
 Para evitar popping durante rotaciones, el generador calcula `canonical_player_pos` usando la inversa del transform del `WorldRotator` cuando aplique. El set de celdas activas depende de esa posicion canonica, no del `global_transform.origin` post-rotacion.
+
+### Estado 2026-05-23
+
+Esta feature sigue en diseño. El prototipo de scaffold infinito tiene problemas
+de rendimiento y no debe integrarse a `BaseTerrace` hasta definir:
+
+- presupuesto de nodos/draw calls por LOD;
+- reciclaje amortizado de celdas;
+- exclusiones authorables para no invadir gameplay;
+- integración con `WorldRotator.to_canonical()` sin recalcular miles de piezas
+  por frame.
+
+Mientras tanto, cualquier andamiaje debe ser visual, barato, y no participar en
+física de gameplay.
 
 ### Scaffold Domain
 

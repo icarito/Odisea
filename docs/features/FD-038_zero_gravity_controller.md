@@ -7,6 +7,8 @@
 **Depends on:** InputDataV2, InputProviderV2, replay_sync group, snapshot system
 **Supersedes:** player/PlayerControllerV2.gd (no lo reemplaza — conviven)
 
+**Engineering contract:** `docs/engineering/Gravity_Physics_Contracts.md`
+
 ## Problem
 
 El Acto I necesita secciones de **gravedad cero** (cuerpo central de la nave, exterior, módulos sin rotación). El PlayerControllerV2 actual asume gravedad hacia -Y, snap al suelo, salto Coyote Time, crouch físico — todo esto no aplica en 0G.
@@ -70,6 +72,19 @@ A) Snap 90° (recomendado) | B) Continua | C) Tap = snap, hold = continuo
 3. Soltar crouch legacy
 4. Conservar `velocity.length()` como base
 5. Efectos visuales opcionales
+
+## Estado 2026-05-23
+
+El controlador 0G existe como prototipo/ruta separada, pero falta completar el
+control angular y la integración de zonas casi 0G cerca del eje en modo
+centrífugo. No resolver esto metiendo `up` dinámico en `PlayerControllerV2`.
+
+Las zonas de gravedad cero o casi cero deben entrar por:
+
+- `GravityWorld` / gravity zones;
+- `ControllerManager`;
+- `ZeroGravityController`;
+- snapshots determinísticos.
 
 ## InputMap — Acciones Nuevas
 

@@ -1,4 +1,4 @@
-# Plan: Fix FD-040 PlateContentStream + BaseTerrace integration
+# Plan: Fix FD-039/FD-040 PlateContentStream + BaseTerrace integration
 
 ## TL;DR
 Tres bugs concretos + una feature de autoría. El bug principal es que `_refresh_active_slots()` destruye y recrea contenidos al reasignar slots (sort inestable). Eso causa el "objetos desaparecen" y también el jitter (recreación en MODE_RIGID). Los fixes son: (1) sticky slot assignment, (2) preservar estado de RigidBody en slot save/restore, (3) suavizar visual_push_correction, (4) crear PlateSlotConfig para authoring en inspector.

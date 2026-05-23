@@ -1,11 +1,13 @@
-# FD-040: Gravity Physics Strategy for Godot 3
+# FD-039: Gravity Physics Strategy for Godot 3
 
-**Status:** Revised
+**Status:** Implemented / Revised
 **Priority:** High
 **Effort:** Medium
 **Created:** 2026-05-20
-**Revised:** 2026-05-20
+**Revised:** 2026-05-23
 **Depends on:** FD-036, FD-038
+
+**Engineering contract:** `docs/engineering/Gravity_Physics_Contracts.md`
 
 ## Por qué el primer intento fracasó
 
@@ -26,7 +28,8 @@ No puedes autorar una escena ("sala", "puzzle", "prop interactivo") que viva per
 
 ## Decisión revisada
 
-Odisea usa un modelo de gravedad híbrido en cuatro regímenes estables.
+Odisea usa un modelo de gravedad híbrido en cuatro regímenes estables. Los
+valores enteros viven en `GravityModes.gd` y son estables para snapshots/replay.
 
 | Régimen | Runtime path | Qué se simula |
 |---------|--------------|---------------|
@@ -34,6 +37,12 @@ Odisea usa un modelo de gravedad híbrido en cuatro regímenes estables.
 | `SPIN_WALKABLE` | `PlayerControllerV2` + `WorldRotator` + **PlateContentStream** | Player + contenido de escena en espacio centrífugo |
 | `ZERO_G` | `ControllerManager` + `ZeroGravityController` | Controlador inercial 0G separado |
 | `SPIN_DYNAMIC` | `DynamicGravityProxy` (opt-in) | Pseudo-gravedad radial para props `RigidBody` seleccionados |
+
+`GravityWorld.gravity_blend` permite mezclar `STANDARD_1G` y `SPIN_WALKABLE`.
+Con blend parcial, el vector resultante puede ser diagonal: por ejemplo radial
+hacia afuera del eje y a la vez inclinado hacia `-Y`. Esto cubre placas a 45
+grados y futuros casos narrativos donde la dirección de gravedad no coincide
+exactamente con el ángulo visual de la terraza.
 
 ---
 
@@ -44,6 +53,11 @@ Odisea usa un modelo de gravedad híbrido en cuatro regímenes estables.
 - Zero-G sigue siendo un controlador separado seleccionado por `ControllerManager`.
 - Coriolis y pseudo-gravedad radial son opt-in por prop/zona, no defaults globales.
 - Simular sólo objetos que el jugador puede leer o usar; VFX, audio y staging para movimiento decorativo o lejano.
+- `WorldRotator` es `tool`; nunca debe mutar transforms en `Engine.editor_hint`.
+- `BaseTerrace` funciona hoy como escena híbrida/legacy: conserva física bajo
+  `WorldRotator`, por eso debe mantener
+  `centrifugal_current_plate_only_physics = false` hasta migrar a
+  `PlateContentStream`.
 
 ---
 
@@ -96,7 +110,7 @@ World
 | `core_v2/player/ControllerManager.gd` | Mapea `ZERO_G` → `ZeroGravityController`; resto usa controlador estándar |
 | `core_v2/systems/DynamicGravityProxy.gd` | Pseudo-gravedad radial opt-in para `RigidBody` props seleccionados |
 
-### Nuevo
+### Nuevo / activo
 
 | Archivo | Rol |
 |---------|-----|
@@ -129,6 +143,19 @@ func get_slot(spiral_idx: int, plate_idx: int) -> Spatial
 
 Esto es el único cambio de disciplina respecto al primer intento. La clave es que `PlateContentStream` abstrae la complejidad de mantener los transforms correctos.
 
+### Excepción actual: BaseTerrace
+
+`BaseTerrace.tscn` ya funciona en modo centrífugo, pero todavía no cumple al 100%
+la regla ideal porque contiene física legacy debajo de `WorldRotator`. Por
+compatibilidad:
+
+- `WorldRotator.centrifugal_current_plate_only_physics` está desactivado en
+  `BaseTerrace`.
+- No mover esa configuración sin migrar primero colisiones/props a
+  `PlateContentRoot`.
+- Los tests deben proteger este override porque reactivarlo rompe gameplay como
+  killzones, props y colisiones legacy.
+
 ---
 
 ## Para `DynamicGravityProxy` (SPIN_DYNAMIC)
@@ -149,9 +176,10 @@ Tests existentes (sin cambios):
 ./runtest.sh -a ./core_v2/tests/test_gravity_modes.gd
 ./runtest.sh -a ./core_v2/tests/test_dynamic_gravity_proxy.gd
 ./runtest.sh -a ./core_v2/tests/test_world_rotator.gd
+./runtest.sh --nodet --oys test_baseterrace_killzone
 ```
 
-Tests nuevos a crear:
+Test activo para `PlateContentStream`:
 
 ```bash
 ./runtest.sh -a ./core_v2/tests/test_plate_content_stream.gd

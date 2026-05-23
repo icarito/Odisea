@@ -1,10 +1,12 @@
-# FD-041: PlateContentStream Stability and Inspector Authoring
+# FD-040: PlateContentStream Stability and Inspector Authoring
 
-**Status:** Pending Verification
+**Status:** Verified / In Progress
 **Priority:** High
 **Effort:** Small
 **Created:** 2026-05-21
-**Depends on:** FD-040
+**Depends on:** FD-039
+
+**Engineering contract:** `docs/engineering/Gravity_Physics_Contracts.md`
 
 ## Problem
 
@@ -46,6 +48,22 @@ export(PackedScene) var content_scene
 
 On `_ready()`, `PlateContentStream` scans direct children that are `PlateSlotConfig` and calls `assign_scene()` for each one. `BaseTerrace.tscn` now includes an example `PlateSlotConfig_0_12` under `PlateContentRoot`.
 
+### Current-plate-only physics gating
+
+`PlateContentStream` can keep streamed slots visible while disabling physics on
+non-selected plates in centrifugal mode:
+
+```gdscript
+export(bool) var centrifugal_current_plate_only_physics := true
+```
+
+This is meant for streamed plate content owned by `PlateContentRoot`, not for
+legacy physics authored under `WorldRotator`.
+
+`WorldRotator` has a similarly named pool optimization. In `BaseTerrace` that
+optimization is explicitly disabled because the scene still contains legacy
+gameplay physics under `WorldRotator`.
+
 ## Verification
 
 Focused automated tests:
@@ -53,6 +71,7 @@ Focused automated tests:
 ```bash
 ./runtest.sh -a ./core_v2/tests/test_plate_content_stream.gd
 ./runtest.sh -a ./core_v2/tests/test_world_rotator.gd
+./runtest.sh --nodet --oys test_baseterrace_killzone
 ```
 
 Manual pass for the gameplay feel:

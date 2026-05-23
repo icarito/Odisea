@@ -1,7 +1,7 @@
 extends Reference
 class_name GravityModes
 
-# FD-040 gravity regimes. Keep these integer values stable: controller
+# FD-039 gravity regimes. Keep these integer values stable: controller
 # snapshots and OYS/debug tooling may serialize them directly.
 
 enum Mode {

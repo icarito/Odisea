@@ -1,10 +1,12 @@
 # FD-036: Gravity Manager — World-Rotation Approach
 
-**Status:** In Progress
+**Status:** Implemented / In Progress
 **Priority:** High
 **Effort:** Medium
 **Created:** 2026-05-14
 **Completed:** -
+
+**Engineering contract:** `docs/engineering/Gravity_Physics_Contracts.md`
 
 ## Problem
 
@@ -33,11 +35,19 @@ World
 └── GravityZoneVolumes
 ```
 
-**Modos:**
+**Modos actuales:**
 | Modo | Comportamiento | Rotación del mundo |
 |------|---------------|-------------------|
-| 1G estándar | Suelo apunta a -Y | Frame de terraza actual → -Y |
-| Centrífuga | Suelo apunta radial al eje | Frame centrífugo → -Y |
+| `STANDARD_1G` | Gravedad global hacia `-Y` | Sin frame centrífugo |
+| `SPIN_WALKABLE` | Player usa física estándar; gravedad canónica puede apuntar radialmente hacia afuera del eje | `WorldRotator` alinea la placa seleccionada con el frame caminable |
+| `ZERO_G` | Controlador separado sin gravedad | Sin asumir suelo |
+| `SPIN_DYNAMIC` | Props opt-in reciben pseudo-gravedad radial | No reemplaza el sistema caminable |
+
+`GravityWorld.gravity_blend` permite mezclar `STANDARD_1G` y radial
+centrífugo. Esto representa terrazas o fallas donde la fuerza se lee diagonal,
+por ejemplo una placa visualmente a 45 grados con gravedad inclinada entre
+radial y `-Y`. La orientación de la placa y la dirección real de gravedad pueden
+divergir en trabajos futuros por razones narrativas.
 
 ### Part 1: GravityWorld Autoload
 
@@ -53,7 +63,22 @@ Spatial tool que interpola su basis vía slerp cada frame hacia el target de Gra
 - `rotation_speed: float` (default 2.0 rad/s)
 - En `_process()`: `q_current.slerp(q_target, min(1.0, rotation_speed * delta))`
 
-### Part 3: TerraceChunk — Escenas Independientes
+### Part 3: PlateContentStream — Contenido de Gameplay
+
+La revisión FD-039 reemplazó la idea de meter contenido con física dentro de
+`WorldRotator`. En Godot 3 eso teletransporta colisiones al rotar el padre.
+
+Contrato vigente:
+
+- `WorldRotator` contiene visuales, `TerraceSpiral`, skybox y staging visual.
+- Gameplay con física debe ir fuera de `WorldRotator`.
+- `PlateContentStream` materializa sub-escenas en slots globales cuyo transform
+  se calcula desde `WorldRotator.global_transform * plate_canonical_transform`.
+- `BaseTerrace` todavía es híbrida/legacy y mantiene
+  `centrifugal_current_plate_only_physics = false` hasta migrar su física a
+  slots.
+
+### Part 4: TerraceChunk — Escenas Independientes
 
 Cada terraza es una scene independiente cargada/descargada por distancia:
 - Radio carga: 60m
@@ -61,7 +86,7 @@ Cada terraza es una scene independiente cargada/descargada por distancia:
 - Fade 0.5s
 - TerraceSpiral (MultiMesh) se mantiene como LOD lejano, reemplazado por escenas al acercarse
 
-### Part 4: Transiciones
+### Part 5: Transiciones
 
 Al cambiar modo o terraza: WorldRotator slerp al nuevo target. Cámara no afectada. Efecto visual con GravityAnchor/partículas.
 
@@ -77,6 +102,16 @@ Al cambiar modo o terraza: WorldRotator slerp al nuevo target. Cámara no afecta
 ## Unmodified Files
 
 PlayerControllerV2, PlayerJumpV2, PlayerMovementV2, camera/ — **sin cambios**
+
+## Estado 2026-05-23
+
+- `BaseTerrace` funciona en modo centrífugo con `WorldRotator`.
+- `WorldRotator` es `tool`, pero no debe mutar transforms en `Engine.editor_hint`.
+- La terraza puede verse inclinada en runtime por el frame centrífugo, pero el
+  editor no debe reescribir esa pose por side effects de `_ready()`.
+- El ventilador / fan visual que existía en el contexto de `WorldRotator` quedó
+  fuera del pase actual; reintroducirlo es secundario y debe hacerse sin añadir
+  física global costosa.
 
 ## Verification
 

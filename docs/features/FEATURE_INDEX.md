@@ -19,11 +19,11 @@
 | FD-033 | Advanced Traversal Systems | In Progress | Large | High |
 | FD-034 | Player Interaction Hints | Planned | Medium | Medium |
 | FD-035 | ConveyorCarrousel & Conveyor Enhancements | Design | Medium | Medium |
-| FD-036 | Gravity Manager - World-Rotation Approach | In Progress | Medium | High |
+| FD-036 | Gravity Manager - World-Rotation Approach | Implemented / In Progress | Medium | High |
 | FD-037 | Infinite Scaffold Field | Design | Large | Medium |
 | FD-038 | ZeroGravityController & Controller Swapping | Design | Medium | High |
-| FD-040 | Gravity Physics Strategy for Godot 3 | In Progress | Medium | High |
-| FD-041 | PlateContentStream Stability and Inspector Authoring | Pending Verification | Small | High |
+| FD-039 | Gravity Physics Strategy for Godot 3 | Implemented / Revised | Medium | High |
+| FD-040 | PlateContentStream Stability and Inspector Authoring | Verified / In Progress | Small | High |
 
 ## Completed
 
@@ -91,3 +91,13 @@
 # UI capture
 ./test_ui.sh --scene=DebugOverlay --base64
 ```
+
+## Gravity / Physics Contract Docs
+
+Agents touching gravity, centrifugal terraces, zero-G, streamed plate content, or
+scaffold performance must read:
+
+- `docs/engineering/Gravity_Physics_Contracts.md`
+- `docs/features/FD-036_gravity_manager.md`
+- `docs/features/FD-039_gravity_physics_strategy.md`
+- `docs/features/FD-040_plate_content_stream_stability.md`

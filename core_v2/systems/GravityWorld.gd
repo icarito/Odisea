@@ -4,7 +4,7 @@ const GravityModes = preload("res://core_v2/systems/GravityModes.gd")
 
 # GravityWorld — autoload que centraliza el estado de gravedad del nivel.
 #
-# FD-040 formaliza tres caminos:
+# FD-039 formaliza tres caminos:
 #   - STANDARD_1G/SPIN_WALKABLE: PlayerControllerV2 + WorldRotator.
 #   - ZERO_G: ControllerManager cambia a ZeroGravityController.
 #   - SPIN_DYNAMIC: opt-in para props via DynamicGravityProxy.

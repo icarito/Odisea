@@ -144,6 +144,28 @@ sudo apt-get update && sudo apt-get install -y godot3
 
 ## Contratos Críticos
 
+### Gravity / WorldRotator / Plate Physics
+
+Antes de tocar gravedad, terrazas centrífugas, `WorldRotator`,
+`PlateContentStream`, zero-G, scaffold infinito o `BaseTerrace`, leer:
+
+- `docs/engineering/Gravity_Physics_Contracts.md`
+- `docs/features/FD-036_gravity_manager.md`
+- `docs/features/FD-039_gravity_physics_strategy.md`
+- `docs/features/FD-040_plate_content_stream_stability.md`
+
+Resumen operativo:
+- `PlayerControllerV2` conserva `Vector3.UP`; no introducir `up` dinámico.
+- En modo centrífugo caminable, `WorldRotator` cambia el marco visual y la
+  cámara sigue al personaje; la física del jugador sigue siendo estándar.
+- Gameplay con física debe vivir fuera de `WorldRotator` vía
+  `PlateContentStream`, salvo escenas legacy documentadas.
+- `BaseTerrace` funciona en modo centrífugo, pero sigue siendo híbrida/legacy y
+  debe mantener `WorldRotator.centrifugal_current_plate_only_physics = false`
+  hasta migrar su física a slots.
+- `WorldRotator` es `tool`: no debe mutar transforms, seleccionar plates ni
+  aplicar anclas en `Engine.editor_hint`.
+
 ### PlayerController — Movimiento y Plataformas
 
 El `PlayerControllerV2` usa **Transform-Delta Tracking** para seguir plataformas móviles (inspirado en [Terrestrial Characters](https://github.com/Trokara)):
