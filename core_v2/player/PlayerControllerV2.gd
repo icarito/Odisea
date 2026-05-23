@@ -122,6 +122,7 @@ var external_input_provided := false
 # Visual Anchoring (Hysteresis)
 # Stores strictly visual offset to keep hands aligned when physics collider is closer than 0.9m
 var visual_push_correction: float = 0.0
+var _push_correction_smoothed: float = 0.0
 
 var _push_target: Spatial = null
 var _ledge_regrab_cooldown := 0.0
@@ -238,6 +239,10 @@ func get_full_snapshot() -> Dictionary:
 	var cm = get_node_or_null("ControllerManager")
 	if cm:
 		snapshot["controller_mode"] = cm.current_mode
+	if has_node("/root/GravityWorld"):
+		var gravity_world = get_node("/root/GravityWorld")
+		if gravity_world and gravity_world.has_method("get_gravity_mode_at"):
+			snapshot["gravity_mode"] = gravity_world.get_gravity_mode_at(global_transform.origin)
 	if is_instance_valid(jump_logic):
 		snapshot["jump_state"] = {
 			"coyote_timer": jump_logic.coyote_timer,
@@ -257,6 +262,10 @@ func restore_snapshot(data: Dictionary) -> void:
 		var cm = get_node_or_null("ControllerManager")
 		if cm and cm.has_method("switch_to"):
 			cm.switch_to(data["controller_mode"])
+	if data.has("gravity_mode") and has_node("/root/GravityWorld"):
+		var gravity_world = get_node("/root/GravityWorld")
+		if gravity_world and gravity_world.has_method("set_gravity_mode"):
+			gravity_world.set_gravity_mode(int(data["gravity_mode"]))
 	if data.has("velocity"):
 		var vel = data["velocity"]
 		velocity = Vector3(vel[0], vel[1], vel[2])
@@ -820,6 +829,28 @@ func _get_move_direction(input_vector: Vector2, mode = -1, camera_basis = null) 
 		raw_fwd.y = 0
 		# print("[MoveDir] mode=%d in_y=%.3f fwd_basis_z=%s raw_fwd=%s fwd_norm=%s res=%s" % [mode, input_vector.y, camera_basis.z, raw_fwd, raw_fwd.normalized(), res])
 	return res
+
+func _get_support_normal() -> Vector3:
+	if is_instance_valid(movement_logic) and movement_logic.has_method("get_floor_normal"):
+		var floor_normal = movement_logic.get_floor_normal()
+		if floor_normal is Vector3 and floor_normal.length_squared() > 0.25:
+			return floor_normal.normalized()
+	return Vector3.UP
+
+func _project_vector_onto_support_plane(vector: Vector3) -> Vector3:
+	var support_normal := _get_support_normal()
+	var projected := vector - support_normal * vector.dot(support_normal)
+	return projected
+
+func _get_push_plane_direction(vector: Vector3, fallback: Vector3 = Vector3.ZERO) -> Vector3:
+	var projected := _project_vector_onto_support_plane(vector)
+	if projected.length_squared() > 0.0001:
+		return projected.normalized()
+	if fallback.length_squared() > 0.0001:
+		var fallback_projected := _project_vector_onto_support_plane(fallback)
+		if fallback_projected.length_squared() > 0.0001:
+			return fallback_projected.normalized()
+	return Vector3.ZERO
 
 func _update_camera_orbit_state(dt: float, input: InputDataV2, allow_auto_align: bool = true, allow_move_turn_input: bool = true) -> void:
 	# Camera Orbit Logic (Third Person)
@@ -1555,15 +1586,18 @@ func _accumulate_input(target: InputDataV2, source: InputDataV2) -> void:
 	target.interact = target.interact or source.interact
 	target.focus = target.focus or source.focus
 
-func _update_push_state(_dt: float, input: InputDataV2):
+func _update_push_state(dt: float, input: InputDataV2):
 	_was_pushing = is_pushing
 	is_pushing = false
-	visual_push_correction = 0.0
+	var raw_push_correction := 0.0
 	_push_target = null
 	# Push is strictly grounded-only. Never activate or persist while airborne.
 	if not is_on_floor() or velocity.y > 0.05:
+		_apply_visual_push_correction(raw_push_correction, dt)
 		return
-	if not _interact_area: return
+	if not _interact_area:
+		_apply_visual_push_correction(raw_push_correction, dt)
+		return
 
 	var bodies = _interact_area.get_overlapping_bodies()
 	var best_target = null
@@ -1579,16 +1613,17 @@ func _update_push_state(_dt: float, input: InputDataV2):
 	if best_target:
 		# Check intention: Are we trying to move towards it?
 		var world_input = _get_move_direction(input.move_vec)
-		var dir_to_box = (best_target.global_transform.origin - global_transform.origin)
-		dir_to_box.y = 0 # Ignore vertical diff
-		dir_to_box = dir_to_box.normalized()
+		var dir_to_box = _get_push_plane_direction(
+			best_target.global_transform.origin - global_transform.origin
+		)
 
-		if world_input.length_squared() > 0.01:
-			var dot = world_input.normalized().dot(dir_to_box)
+		if world_input.length_squared() > 0.01 and dir_to_box.length_squared() > 0.01:
+			var input_push_dir := _get_push_plane_direction(world_input, dir_to_box)
+			var dot = input_push_dir.dot(dir_to_box)
 			if dot > 0.5: # Approx 45 degrees
 				var space_state = get_world().direct_space_state
-				var from = global_transform.origin + Vector3(0, 1.0, 0)
-				var input_dir = world_input.normalized()
+				var from = global_transform.origin + _get_support_normal() * 1.0
+				var input_dir = input_push_dir
 				var to_input = from + input_dir * 2.0
 				var result = space_state.intersect_ray(from, to_input, [ self ])
 				
@@ -1597,13 +1632,16 @@ func _update_push_state(_dt: float, input: InputDataV2):
 					result = space_state.intersect_ray(from, to_center, [ self ])
 				
 				if result and result.collider == best_target:
-					push_normal = result.normal
+					var push_axis := _get_push_plane_direction(-result.normal, dir_to_box)
+					if push_axis.length_squared() <= 0.0001:
+						push_axis = dir_to_box
+					push_normal = -push_axis
 					var p_pos = global_transform.origin
 					var h_pos = result.position
 					# Project distance onto the push normal for consistent depth check (handles corners/edges)
 					# surf_dist is the distance along the push axis
 					var rel_vec = h_pos - p_pos
-					var surf_dist = rel_vec.dot(-push_normal)
+					var surf_dist = rel_vec.dot(push_axis)
 					
 					# Contact Gate: Apply animation if within reasonable reach (1.25m)
 					# We decouple the LOGICAL push state from the VISUAL anchor point.
@@ -1612,16 +1650,64 @@ func _update_push_state(_dt: float, input: InputDataV2):
 						# Pro-actively wake up the box if it has settled into Kinematic mode
 						if best_target.has_method("wake_up"):
 							best_target.wake_up()
+						if surf_dist <= push_offset + 0.08:
+							var desired_push_speed := max(0.5, movement_logic.move_speed * input.move_vec.length())
+							if best_target.has_method("set_external_velocity"):
+								best_target.set_external_velocity(push_axis * desired_push_speed)
+							elif best_target is RigidBody:
+								var rigid_target := best_target as RigidBody
+								rigid_target.apply_central_impulse(push_axis * push_force * dt)
 							
 						# Visual Anchoring: Calculate discrepancy from ideal push_offset (0.71m)
-						visual_push_correction = max(0.0, push_offset - surf_dist)
+						raw_push_correction = max(0.0, push_offset - surf_dist)
 					else:
-						visual_push_correction = 0.0
+						raw_push_correction = 0.0
 				else:
 					push_normal = - dir_to_box
-					visual_push_correction = 0.0
+					raw_push_correction = 0.0
 				
 				_push_target = best_target
+	_apply_visual_push_correction(raw_push_correction, dt)
+
+func _apply_visual_push_correction(raw_correction: float, dt: float) -> void:
+	_push_correction_smoothed = lerp(_push_correction_smoothed, raw_correction, clamp(15.0 * dt, 0.0, 1.0))
+	visual_push_correction = _push_correction_smoothed
+
+func _apply_push_constraint(dt: float) -> void:
+	if not is_pushing or not is_instance_valid(_push_target):
+		return
+	if push_normal.length_squared() <= 0.0001:
+		return
+
+	var away_from_box := push_normal.normalized()
+	var toward_box := -away_from_box
+	var support_normal := _get_support_normal()
+	var space_state = get_world().direct_space_state
+	var from = global_transform.origin + support_normal * 1.0
+	var cast_to = from + toward_box * (interact_distance + 0.5)
+	var result = space_state.intersect_ray(from, cast_to, [self])
+	if not result or result.collider != _push_target:
+		return
+
+	var rel_vec = result.position - global_transform.origin
+	var surf_dist = rel_vec.dot(toward_box)
+	if surf_dist >= push_offset:
+		return
+
+	var penetration = push_offset - surf_dist
+	var correction_dist = min(penetration, max(0.02, 6.0 * dt))
+	global_transform.origin += away_from_box * correction_dist
+
+	var into_box_speed = velocity.dot(away_from_box)
+	if into_box_speed < 0.0:
+		velocity -= away_from_box * into_box_speed
+
+	if is_instance_valid(movement_logic):
+		var h_vel = movement_logic.get_horizontal_velocity()
+		var h_into_box_speed = h_vel.dot(away_from_box)
+		if h_into_box_speed < 0.0:
+			h_vel -= away_from_box * h_into_box_speed
+			movement_logic.horizontal_velocity = h_vel
 
 func step(dt: float, input: InputDataV2) -> void:
 	var cm = get_node_or_null("ControllerManager")
@@ -1741,6 +1827,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		_was_pushing = is_pushing
 		is_pushing = false
 		visual_push_correction = 0.0
+		_push_correction_smoothed = 0.0
 		_push_target = null
 	else:
 		_update_push_state(dt, input)
@@ -1859,7 +1946,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	if physics_grounded:
 		velocity.y = h_vel.y
 
-	# _apply_push_constraint() # Removed for legacy physics restoration
+	_apply_push_constraint(dt)
 
 	# --- ACROBATIC JUMP CHECK (before normal jump) ---
 	if is_acrobatic_ready and is_on_floor() and jump_logic.jump_buffer_timer > 0 and not CinematicManager.latch_active:
@@ -1946,9 +2033,12 @@ func step(dt: float, input: InputDataV2) -> void:
 			var body = collision.collider
 			if is_instance_valid(body) and body is RigidBody:
 				touched_rigid = true
+				if is_pushing and body == _push_target:
+					continue
 				if body is RigidBody:
-					if abs(collision.normal.y) < 0.5:
-						var impulse = - collision.normal * push_force * dt
+					var push_dir := _get_push_plane_direction(-collision.normal, velocity)
+					if push_dir.length_squared() > 0.0001:
+						var impulse = push_dir * push_force * dt
 						body.apply_central_impulse(impulse)
 	
 	if _was_touching_rigid and not touched_rigid:

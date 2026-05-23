@@ -6,13 +6,15 @@ LEVEL res://core_v2/levels/BaseTerrace.tscn
 SECTION "BaseTerrace KillZone Test"
     PRINT "Starting BaseTerrace KillZone test"
 
-    // Teleport just above the KillZone volume, below the level floor, to verify
-    // the live BaseTerrace wiring without depending on a particular floor gap.
-    TELEPORT (0.0, -3.0, 0.0)
+    // Teleport DIRECTLY INSIDE the KillZone volume.
+    // KillZoneV2 node is at world (1,-19.1113,21). CollisionShape offset is (0,-5,0),
+    // so the box center is at world (1,-24.1113,21) with half-extents (104, 1, 141.5).
+    // Player physics is disabled during OYS, so we place the player directly in the box.
+    TELEPORT (1.0, -24.0, 21.0)
 
-    PRINT "Teleported via SessionManager. Player should be falling now..."
+    PRINT "Teleported into KillZone volume. Area overlap should trigger signal..."
 
-    // Wait for the KillZone at Y=-24 to be hit.
+    // Wait for the KillZone body_entered to detect the overlap.
     ASSERT_SIGNAL "player_killed" 5.0 "KillZoneV2"
 
     WAIT 1.0

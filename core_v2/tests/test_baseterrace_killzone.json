@@ -5,7 +5,7 @@
         "position": [
           -6.9635,
           7.12359,
-          34.429604
+          34.4296
         ],
         "velocity": [
           0,
@@ -32,2299 +32,12 @@
           "_mouse_used_this_move": false
         },
         "controller_mode": -1,
+        "gravity_mode": 1,
         "jump_state": {
           "coyote_timer": 0,
           "jump_buffer_timer": 0,
           "is_jumping": false
         }
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "hardware_mouse_active": false
       }
     },
     {
@@ -3634,7 +1347,7 @@
       },
       {
         "command": "PRINT",
-        "message": "Teleported via SessionManager. Player should be falling now..."
+        "message": "Teleported into KillZone volume. Area overlap should trigger signal..."
       },
       {
         "command": "ASSERT_SIGNAL",
@@ -3642,9 +1355,7 @@
         "timeout": 5,
         "path": "KillZoneV2",
         "phase": "start"
-      }
-    ],
-    "103": [
+      },
       {
         "command": "ASSERT_SIGNAL",
         "signal": "player_killed",
@@ -3653,7 +1364,7 @@
         "phase": "check"
       }
     ],
-    "163": [
+    "59": [
       {
         "command": "PRINT",
         "message": "SUCCESS: KillZone caught the player in BaseTerrace!"
@@ -3662,7 +1373,255 @@
   },
   "meta": {
     "world_start_state": {
-      "/root/Terrace/Building/CrioPod START/RotatingObjectV2": {
+      "/root/Node/PlateContentRoot/PlateContentSlot_00/PushableBoxV2": {
+        "pos": [
+          -16.083603,
+          43.612099,
+          302.287506
+        ],
+        "rot": [
+          -0.244346,
+          -1.623156,
+          1.570796
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/Node/PlateContentRoot/PlateContentSlot_01/PushableBoxV2": {
+        "pos": [
+          77.262917,
+          18.612099,
+          292.47641
+        ],
+        "rot": [
+          -0.244346,
+          -1.308997,
+          1.570796
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/Node/PlateContentRoot/PlateContentSlot_02/PushableBoxV2": {
+        "pos": [
+          -107.893211,
+          68.612106,
+          282.772766
+        ],
+        "rot": [
+          -0.244346,
+          -1.937316,
+          1.570796
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/Node/PlateContentRoot/PlateContentSlot_03/PushableBoxV2": {
+        "pos": [
+          -189.17897,
+          93.612106,
+          235.842438
+        ],
+        "rot": [
+          -0.244346,
+          -2.251475,
+          1.570796
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/Node/PlateContentRoot/PlateContentSlot_04/PushableBoxV2": {
+        "pos": [
+          -251.984024,
+          118.612106,
+          166.090347
+        ],
+        "rot": [
+          -0.244346,
+          -2.565634,
+          1.570796
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/Node/PlateContentRoot/PlateContentSlot_05/PushableBoxV2": {
+        "pos": [
+          -290.160583,
+          143.612106,
+          80.34433
+        ],
+        "rot": [
+          -0.244346,
+          -2.879793,
+          1.570796
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/Node/PlateContentRoot/PlateContentSlot_06/PushableBoxV2": {
+        "pos": [
+          -299.97168,
+          168.612106,
+          -13.002193
+        ],
+        "rot": [
+          -0.244346,
+          3.089233,
+          1.570796
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/Node/PlateContentRoot/PlateContentSlot_07/PushableBoxV2": {
+        "pos": [
+          163.008926,
+          3993.612061,
+          254.29985
+        ],
+        "rot": [
+          -0.244346,
+          -0.994838,
+          1.570796
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1
+      },
+      "/root/Node/WorldRotator/Terrace/Building/CrioPod START/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3674,7 +1633,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3686,7 +1645,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod10/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod10/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3698,7 +1657,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod11/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod11/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3710,7 +1669,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod12/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod12/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3722,7 +1681,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod13/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod13/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3734,7 +1693,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod14/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod14/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3746,7 +1705,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod15/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod15/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3758,7 +1717,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod16/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod16/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3770,7 +1729,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod17/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod17/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3782,7 +1741,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod18/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod18/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3794,7 +1753,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod19/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod19/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3806,7 +1765,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod2/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod2/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3818,7 +1777,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod20/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod20/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3830,7 +1789,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod21/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod21/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3842,7 +1801,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod22/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod22/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3854,7 +1813,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod23/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod23/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3866,7 +1825,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod24/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod24/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3878,7 +1837,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod3/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod3/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3890,7 +1849,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod4/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod4/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3902,7 +1861,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod5/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod5/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3914,7 +1873,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod6/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod6/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3926,7 +1885,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod7/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod7/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3938,7 +1897,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod8/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod8/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3950,7 +1909,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/Criopods/Criopod9/RotatingObjectV2": {
+      "/root/Node/WorldRotator/Terrace/Building/Criopods/Criopod9/RotatingObjectV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -3962,7 +1921,7 @@
           -179.999985
         ]
       },
-      "/root/Terrace/Building/PushableBoxV3": {
+      "/root/Node/WorldRotator/Terrace/Building/PushableBoxV3": {
         "pos": [
           -14.8269,
           7.59,
@@ -3993,9 +1952,9 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/Terrace/Building/PushableBoxV4": {
+      "/root/Node/WorldRotator/Terrace/Building/PushableBoxV4": {
         "pos": [
-          -7.7411,
+          -7.740999,
           7.59,
           24.615299
         ],
@@ -4024,7 +1983,7 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/Terrace/Building/PushableBoxV5": {
+      "/root/Node/WorldRotator/Terrace/Building/PushableBoxV5": {
         "pos": [
           -11.8269,
           7.59,
@@ -4055,7 +2014,7 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/Terrace/Building/PushableBoxV6": {
+      "/root/Node/WorldRotator/Terrace/Building/PushableBoxV6": {
         "pos": [
           -11.8269,
           9.59,
@@ -4086,7 +2045,7 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/Terrace/Building/PushableBoxV7": {
+      "/root/Node/WorldRotator/Terrace/Building/PushableBoxV7": {
         "pos": [
           -14.8269,
           9.59,
@@ -4117,7 +2076,7 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/Terrace/Building/PushableBoxV8": {
+      "/root/Node/WorldRotator/Terrace/Building/PushableBoxV8": {
         "pos": [
           -19.1679,
           7.59,
@@ -4148,7 +2107,7 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/Terrace/Building/PushableBoxV9": {
+      "/root/Node/WorldRotator/Terrace/Building/PushableBoxV9": {
         "pos": [
           -19.1679,
           9.59,
@@ -4179,38 +2138,38 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/Terrace/Building/QodotMap/entity_11_prop_door_scifi_double_vertical": {
+      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_11_prop_door_scifi_double_vertical": {
         "active": false,
         "used": false,
         "auto_triggered": false,
         "progress": 0,
         "target": 0
       },
-      "/root/Terrace/Building/QodotMap/entity_1_light_flickering": {
+      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_1_light_flickering": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1,
         "time_acc": 0,
-        "flicker_timeout_remaining": 31.233195,
+        "flicker_timeout_remaining": 37.273849,
         "flicker_has_settled": false,
         "flicker_settled_on": true,
-        "flicker_timeout_rng_state": -856415322228115014
+        "flicker_timeout_rng_state": 4822213761132479581
       },
-      "/root/Terrace/Building/QodotMap/entity_2_light_wall": {
+      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_2_light_wall": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1,
         "time_acc": 0,
-        "flicker_timeout_remaining": 34.44934,
+        "flicker_timeout_remaining": 20.075654,
         "flicker_has_settled": false,
         "flicker_settled_on": true,
-        "flicker_timeout_rng_state": -1819950385017476823
+        "flicker_timeout_rng_state": -6980950748257503860
       },
-      "/root/Terrace/Building/QodotMap/entity_3_light_hanging": {
+      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_3_light_hanging": {
         "active": true,
         "used": false,
         "auto_triggered": false,
@@ -4218,33 +2177,33 @@
         "target": 1,
         "hanging_time": 0
       },
-      "/root/Terrace/Building/QodotMap/entity_4_light_work_tripod": {
+      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_4_light_work_tripod": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1
       },
-      "/root/Terrace/Building/QodotMap/entity_5_light_wall": {
+      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_5_light_wall": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1,
         "time_acc": 0,
-        "flicker_timeout_remaining": 37.336828,
+        "flicker_timeout_remaining": 21.875336,
         "flicker_has_settled": false,
         "flicker_settled_on": true,
-        "flicker_timeout_rng_state": -8828732271272904024
+        "flicker_timeout_rng_state": 4457011439196620555
       },
-      "/root/Terrace/Building/QodotMap/entity_5_light_work_tripod": {
+      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_5_light_work_tripod": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1
       },
-      "/root/Terrace/Building/QodotMap/entity_6_light_emergency_beacon": {
+      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_6_light_emergency_beacon": {
         "active": true,
         "used": false,
         "auto_triggered": false,
@@ -4252,7 +2211,7 @@
         "target": 1,
         "beacon_time": 0
       },
-      "/root/Terrace/Building/QodotMap/entity_6_prop_door_floor_hatch/HatchDoor": {
+      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_6_prop_door_floor_hatch/HatchDoor": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -4264,7 +2223,7 @@
           0
         ]
       },
-      "/root/Terrace/Building/QodotMap/entity_6_prop_door_floor_hatch/ValveWheel": {
+      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_6_prop_door_floor_hatch/ValveWheel": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -4276,50 +2235,50 @@
           0
         ]
       },
-      "/root/Terrace/Building/QodotMap/entity_7_light_ceiling": {
+      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_7_light_ceiling": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1,
         "time_acc": 0,
-        "flicker_timeout_remaining": 37.59618,
+        "flicker_timeout_remaining": 26.102634,
         "flicker_has_settled": false,
         "flicker_settled_on": true,
-        "flicker_timeout_rng_state": 2854126083289183673
+        "flicker_timeout_rng_state": -2376601295671375044
       },
-      "/root/Terrace/Building/QodotMap/entity_8_light_ceiling": {
+      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_8_light_ceiling": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1,
         "time_acc": 0,
-        "flicker_timeout_remaining": 37.310352,
+        "flicker_timeout_remaining": 31.341542,
         "flicker_has_settled": false,
         "flicker_settled_on": true,
-        "flicker_timeout_rng_state": 5981305552905971566
+        "flicker_timeout_rng_state": 1748924883606011121
       },
-      "/root/Terrace/Building/QodotMap/entity_9_light_ceiling": {
+      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_9_light_ceiling": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1,
         "time_acc": 0,
-        "flicker_timeout_remaining": 26.637743,
+        "flicker_timeout_remaining": 30.847688,
         "flicker_has_settled": false,
         "flicker_settled_on": true,
-        "flicker_timeout_rng_state": -8339912341526193885
+        "flicker_timeout_rng_state": 4876104353222799014
       },
-      "/root/Terrace/Building/TableTerminal": {
+      "/root/Node/WorldRotator/Terrace/Building/TableTerminal": {
         "active": false,
         "used": false,
         "auto_triggered": false,
         "progress": 0,
         "target": 0
       },
-      "/root/Terrace/Building/TableTerminal/CinematicSetup/CinematicPathRig": {
+      "/root/Node/WorldRotator/Terrace/Building/TableTerminal/CinematicSetup/CinematicPathRig": {
         "is_active": false,
         "target_offset": 0,
         "last_deactivate_time": 0,
@@ -4327,7 +2286,7 @@
         "current_animation": "",
         "playback_position": 0
       },
-      "/root/Terrace/Conveyor": {
+      "/root/Node/WorldRotator/Terrace/Conveyor": {
         "pos": [
           -2.28818,
           1.8,
@@ -4364,7 +2323,7 @@
         "occupied": false,
         "feedback_state": "ready"
       },
-      "/root/Terrace/ConveyorCarrousel": {
+      "/root/Node/WorldRotator/Terrace/ConveyorCarrousel": {
         "pos": [
           17.3127,
           0,
@@ -4400,57 +2359,38 @@
         "occupied": false,
         "feedback_state": "ready"
       },
-      "/root/Terrace/SciFiWorkLightV2": {
+      "/root/Node/WorldRotator/Terrace/SciFiWorkLightV2": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1
       },
-      "/root/Terrace/SciFiWorkLightV3": {
+      "/root/Node/WorldRotator/Terrace/SciFiWorkLightV3": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1
       },
-      "/root/Terrace/SciFiWorkLightV4": {
+      "/root/Node/WorldRotator/Terrace/SciFiWorkLightV4": {
         "active": true,
         "used": false,
         "auto_triggered": false,
         "progress": 1,
         "target": 1
       },
-      "/root/Terrace/WorldRotator/TerraceSpiral": {
+      "/root/Node/WorldRotator/TerraceSpiral": {
         "t": 0
       },
-      "/root/Terrace/WorldRotator/TerraceSpiral2": {
+      "/root/Node/WorldRotator/TerraceSpiral2": {
         "t": 0
       },
-      "/root/Terrace/WorldRotator/TerraceSpiral3": {
+      "/root/Node/WorldRotator/TerraceSpiral3": {
         "t": 0
       },
-      "/root/Terrace/WorldRotator/TerraceSpiral4": {
+      "/root/Node/WorldRotator/TerraceSpiral4": {
         "t": 0
-      },
-      "/root/Terrace/WorldRotator/VentilationTurbine": {
-        "active": true,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 1,
-        "target": 1
-      },
-      "/root/Terrace/WorldRotator/VentilationTurbine/FanBlades": {
-        "active": true,
-        "speed_scale": 0,
-        "accum_rot": [
-          0,
-          0,
-          0
-        ]
-      },
-      "/root/Terrace/WorldRotator/VentilationTurbine/WindTunnel": {
-        "active": true
       },
       "CinematicManager": {
         "current_control_mode": 0,
@@ -4470,21 +2410,21 @@
         "camera_mode_state": 0,
         "active_rig_path": "",
         "vcam_active_path": "",
-        "current_camera_path": "/root/Terrace/Building/CrioPod START/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
+        "current_camera_path": "/root/Node/Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera"
       }
     },
     "scene_path": "res://core_v2/levels/BaseTerrace.tscn"
   },
   "final_expected_state": {
     "position": [
-      -6.9396,
-      7.13128,
-      34.264317
+      1,
+      -30.883333,
+      21
     ],
     "velocity": [
       0,
-      -11.2,
-      0.000004
+      -13.766666,
+      0
     ],
     "yaw": 0,
     "pitch": 0,
@@ -4500,12 +2440,13 @@
         0,
         0
       ],
-      "camera_input_timer": 0.816667,
+      "camera_input_timer": 0.983333,
       "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false
     },
     "controller_mode": 0,
+    "gravity_mode": 1,
     "jump_state": {
       "coyote_timer": 0,
       "jump_buffer_timer": 0,
