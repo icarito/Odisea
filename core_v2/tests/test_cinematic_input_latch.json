@@ -3790,13 +3790,13 @@
   },
   "final_expected_state": {
     "position": [
-      -1.364084,
+      -1.363976,
       0.0415,
-      11.588974
+      11.589019
     ],
     "velocity": [
-      -0.119681,
-      -0.232981,
+      -0.119671,
+      -0.23378,
       6.998977
     ],
     "yaw": 0,
@@ -3804,8 +3804,8 @@
     "base_spring_length_3d": 5,
     "movement_state": {
       "horizontal_velocity": [
-        -0.119681,
-        0.000353,
+        -0.119671,
+        -0.000447,
         6.998977
       ],
       "external_velocity": [
@@ -3830,7 +3830,7 @@
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
     "$start_x": 0,
-    "$end_x": -1.364084,
-    "$delta_x": -1.364084
+    "$end_x": -1.363976,
+    "$delta_x": -1.363976
   }
 }

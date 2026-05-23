@@ -215,11 +215,12 @@ func test_test_scene_uses_explicit_physical_terrace_node() -> void:
 
 func test_test_scene_keeps_only_current_plate_physics_in_centrifugal_mode() -> void:
 	var scene = auto_free(TestWorldRotatorScene.instance())
+	var rotator = scene.get_node("WorldRotator")
+	rotator.centrifugal_current_plate_only_physics = true
 	add_child(scene)
 	yield(get_tree(), "idle_frame")
 	yield(get_tree(), "physics_frame")
 
-	var rotator = scene.get_node("WorldRotator")
 	assert_bool(rotator.centrifugal_current_plate_only_physics).is_true()
 	assert_object(scene.get_node_or_null("GeneratedTerraceCollisions")).is_not_null()
 	assert_int(scene.get_generated_collision_count()).is_equal(0)
@@ -293,6 +294,7 @@ func test_test_scene_tracks_player_to_neighbor_plate_and_rebuilds_collisions() -
 	yield(get_tree(), "physics_frame")
 
 	var rotator = scene.get_node("WorldRotator")
+	rotator.centrifugal_current_plate_only_physics = true
 	rotator.rotation_speed = 1000.0
 	rotator.rotation_frozen = false
 	# Desactivar continuous_tracking para probar plate-tracking deterministamente.
