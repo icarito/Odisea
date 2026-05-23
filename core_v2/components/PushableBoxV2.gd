@@ -11,6 +11,8 @@ export(bool) var debug = false
 export(Vector3) var size = Vector3(2, 2, 2) setget set_size
 export(float) var impact_min_speed = 1.4
 export(float) var impact_cooldown = 0.12
+export(float) var external_velocity_gain = 12.0
+export(float) var external_force_max_accel = 16.0
 
 # Configuración de Snap
 export(bool) var snap_rotation = true
@@ -18,6 +20,7 @@ export(float) var rotation_snap_degrees = 90.0
 export(float) var settle_lerp_speed = 10.0
 export(int) var wake_check_interval_frames = 3
 export(bool) var wake_on_body_exit = false
+export(float, 0.0, 1.0) var support_contact_min_up_dot = 0.35
 
 var _frames_below_threshold = 0
 var _pending_snapshot = null
@@ -28,6 +31,8 @@ var _impact_players = []
 var _sfx_drag = null
 var _perf_monitor = null
 var _wake_check_frame_countdown = 0
+var _support_normal := Vector3.UP
+var _has_support_contact := false
 
 func _init():
 	add_to_group("pushable")
@@ -72,6 +77,7 @@ func step(dt):
 	elif mode == RigidBody.MODE_KINEMATIC:
 		# Throttle expensive overlap scans when box is sleeping/kinematic.
 		if _wake_check_frame_countdown <= 0:
+			_refresh_support_contact_probe()
 			_check_kinematic_wakeup()
 			_wake_check_frame_countdown = max(0, wake_check_interval_frames - 1)
 		else:
@@ -120,6 +126,60 @@ func _handle_rigid_logic(_dt):
 	else:
 		_frames_below_threshold = 0
 
+func _get_world_up_direction() -> Vector3:
+	if has_node("/root/GravityWorld"):
+		var gravity_world = get_node("/root/GravityWorld")
+		if gravity_world and gravity_world.has_method("get_physical_gravity"):
+			var gravity: Vector3 = gravity_world.get_physical_gravity(global_transform.origin)
+			if gravity.length_squared() > 0.0001:
+				return -gravity.normalized()
+	return Vector3.UP
+
+func _project_vector_onto_plane(vector: Vector3, normal: Vector3) -> Vector3:
+	if normal.length_squared() <= 0.0001:
+		return vector
+	return vector - normal * vector.dot(normal)
+
+func _get_effective_support_normal() -> Vector3:
+	return _support_normal if _has_support_contact else _get_world_up_direction()
+
+func _refresh_support_contact_from_state(state) -> void:
+	var up_dir := _get_world_up_direction()
+	var best_dot: float = support_contact_min_up_dot
+	var best_normal: Vector3 = up_dir
+	var found: bool = false
+
+	for i in range(state.get_contact_count()):
+		var local_normal: Vector3 = state.get_contact_local_normal(i)
+		if local_normal.length_squared() <= 0.0001:
+			continue
+		var world_normal: Vector3 = global_transform.basis.xform(local_normal).normalized()
+		var up_dot: float = world_normal.dot(up_dir)
+		if up_dot > best_dot:
+			best_dot = up_dot
+			best_normal = world_normal
+			found = true
+
+	_has_support_contact = found
+	_support_normal = best_normal if found else up_dir
+
+func _refresh_support_contact_probe() -> void:
+	var up_dir := _get_world_up_direction()
+	var half_height := max(0.5, _get_global_height() * 0.5)
+	var from := global_transform.origin + up_dir * min(half_height, 0.6)
+	var to := global_transform.origin - up_dir * (half_height + 0.8)
+	var hit = get_world().direct_space_state.intersect_ray(from, to, [self])
+	if hit and hit.has("normal"):
+		var hit_normal = hit.normal
+		if hit_normal is Vector3 and hit_normal.length_squared() > 0.0001:
+			var support_normal: Vector3 = (hit_normal as Vector3).normalized()
+			if support_normal.dot(up_dir) >= support_contact_min_up_dot:
+				_has_support_contact = true
+				_support_normal = support_normal
+				return
+	_has_support_contact = false
+	_support_normal = up_dir
+
 func _settle():
 	if debug:
 		print("[PushableBoxV2] Settling at ", global_transform.origin)
@@ -154,6 +214,7 @@ func _settle():
 	if _sfx_drag and _sfx_drag.playing:
 		_sfx_drag.stop_sfx()
 		
+	_refresh_support_contact_probe()
 	_refresh_wake_area()
 
 func wake_up():
@@ -166,6 +227,7 @@ func wake_up():
 		_wake_check_frame_countdown = 0
 		# Dar un pequeño empujón o resetear frames para evitar re-settle inmediato
 		_frames_below_threshold = 0
+		_refresh_support_contact_probe()
 
 func _round_vec3(p_v, p_decimals):
 	var multiplier = pow(10, p_decimals)
@@ -244,8 +306,8 @@ func _on_body_entered(body):
 	_try_play_impact_sfx(body)
 
 	if mode == RigidBody.MODE_KINEMATIC:
-		# Despertar ante cualquier colisión si estamos asentados
-		wake_up()
+		if _should_wake_from_body(body):
+			wake_up()
 
 func _on_body_exited(_body):
 	if not wake_on_body_exit:
@@ -285,6 +347,24 @@ func _check_kinematic_wakeup():
 				break
 			potential_interactable = potential_interactable.get_parent()
 
+func _should_wake_from_body(body) -> bool:
+	if body == null or body == self:
+		return false
+	if body is StaticBody:
+		return false
+	if body is RigidBody:
+		return true
+	if body is KinematicBody:
+		return true
+	if body is Node and (body as Node).is_in_group("player"):
+		return true
+
+	var vel = body.get("linear_velocity") if body is Object else null
+	if vel is Vector3 and vel.length_squared() > 0.01:
+		return true
+
+	return false
+
 func _setup_impact_players():
 	_impact_players = [
 		get_node_or_null("ImpactSfx1"),
@@ -319,28 +399,36 @@ func _try_play_impact_sfx(body):
 func set_external_velocity(vel):
 	if mode == RigidBody.MODE_KINEMATIC:
 		wake_up()
+	else:
+		_refresh_support_contact_probe()
 	
 	if mode == RigidBody.MODE_RIGID:
 		# Queremos que la caja alcance la velocidad 'vel' pero no la supere.
 		# Usamos un controlador proporcional: Fuerza = ganancia * masa * (target_v - current_v)
+		var support_normal := _get_effective_support_normal()
 		var target_v = vel
 		var current_v = linear_velocity
-		
-		# Si el transportador es principalmente horizontal, ignoramos el eje Y
-		# para no pelear contra la gravedad o saltos.
-		if abs(vel.y) < 0.2:
+		if _has_support_contact:
+			target_v = _project_vector_onto_plane(target_v, support_normal)
+			current_v = _project_vector_onto_plane(current_v, support_normal)
+		elif abs(vel.y) < 0.2:
+			# Fallback legacy para superficies planas sin contacto cacheado.
 			target_v.y = 0
 			current_v.y = 0
 		
 		var diff = target_v - current_v
-		
-		# Usamos una ganancia de 20.0 para igualar la aceleración típica del jugador.
-		# Esto hace que la caja se pegue a la velocidad del transportador rápidamente.
-		var force = diff * mass * 20.0
+
+		var target_accel = diff * external_velocity_gain
+		if external_force_max_accel > 0.0 and target_accel.length() > external_force_max_accel:
+			target_accel = target_accel.normalized() * external_force_max_accel
+		var force = target_accel * mass
 		add_central_force(force)
 		
 		if debug and force.length() > 0.1:
 			print("[PushableBoxV2] set_ext_vel: force=%s" % force)
+
+func _integrate_forces(state) -> void:
+	_refresh_support_contact_from_state(state)
 
 # --- Replay System (SessionManager) ---
 

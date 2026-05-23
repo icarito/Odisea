@@ -10,6 +10,11 @@ export(NodePath) var tracking_target_path := NodePath("")
 export(int, 1, 128) var slot_pool_size := 16
 export(int, 1, 60) var slot_update_interval := 3
 export(bool) var auto_register_rotator := true
+export(bool) var auto_assign_from_rotator := false
+export(PackedScene) var auto_content_scene: PackedScene
+export(Vector3) var auto_content_spawn_offset := Vector3.ZERO
+export(int, 0, 64) var auto_plate_window_before := 2
+export(int, 0, 64) var auto_plate_window_after := 5
 
 var _rotator: Spatial = null
 var _assignments := {}          # key -> PackedScene
@@ -28,7 +33,7 @@ func _ready() -> void:
 			register_rotator(resolved)
 	call_deferred("_refresh_active_slots")
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if _rotator == null or not is_instance_valid(_rotator):
 		_rotator = _resolve_rotator()
 	if _rotator == null:
@@ -40,7 +45,7 @@ func _physics_process(_delta: float) -> void:
 	else:
 		_slot_update_counter -= 1
 
-	_sync_slot_transforms()
+	_sync_slot_transforms(delta)
 
 # Asocia una escena empaquetada a una plate específica.
 # La escena se instanciará cuando esa plate esté entre las más cercanas.
@@ -59,7 +64,7 @@ func assign_scene(spiral_idx: int, plate_idx: int, packed: PackedScene) -> void:
 	}
 	if is_inside_tree():
 		_refresh_active_slots()
-		_sync_slot_transforms()
+		_sync_slot_transforms(0.0)
 
 func clear_assignments() -> void:
 	_assignments.clear()
@@ -72,10 +77,10 @@ func register_rotator(rotator: Spatial) -> void:
 	_rotator = rotator
 	if is_inside_tree():
 		_refresh_active_slots()
-		_sync_slot_transforms()
+		_sync_slot_transforms(0.0)
 
 # Actualiza los transforms de todos los slots activos.
-func _sync_slot_transforms() -> void:
+func _sync_slot_transforms(delta: float = 0.0) -> void:
 	if _rotator == null or not is_instance_valid(_rotator):
 		return
 	for i in range(_slots.size()):
@@ -92,9 +97,10 @@ func _sync_slot_transforms() -> void:
 			var target_global: Transform = _rotator.global_transform * (canonical_tx as Transform)
 			if _transforms_close(slot.global_transform, target_global):
 				continue
-			var active_rigid_transforms: Dictionary = _capture_active_rigid_body_transforms(slot)
+			var previous_slot_transform: Transform = slot.global_transform
+			var active_rigid_states: Dictionary = _capture_active_rigid_body_states(slot, previous_slot_transform)
 			slot.global_transform = target_global
-			_restore_active_rigid_body_transforms(active_rigid_transforms)
+			_restore_active_rigid_body_states(active_rigid_states, previous_slot_transform, target_global, delta)
 
 # Devuelve el slot activo para una plate, o null si no está materializado.
 func get_slot(spiral_idx: int, plate_idx: int) -> Spatial:
@@ -168,8 +174,14 @@ func _collect_candidates() -> Array:
 
 	var platforms: Array = _rotator.get_platforms()
 	var center: Vector3 = _get_reference_canonical_position()
+	var keys_seen := {}
+
+	if auto_assign_from_rotator and auto_content_scene != null:
+		candidates.append_array(_collect_auto_candidates(platforms, center, keys_seen))
 
 	for key in _assignment_indices.keys():
+		if keys_seen.has(key):
+			continue
 		if not _assignments.has(key):
 			continue
 		var indices: Dictionary = _assignment_indices[key]
@@ -193,9 +205,63 @@ func _collect_candidates() -> Array:
 			"spiral_idx": spiral_idx,
 			"plate_idx": plate_idx,
 			"scene": _assignments[key],
+			"spawn_offset": _assignment_indices.get(key, {}).get("spawn_offset", Vector3.ZERO),
 			"canonical_tx": canonical_tx,
 			"dist_sq": canonical_tx.origin.distance_squared_to(center)
 		})
+
+	return candidates
+
+func _collect_auto_candidates(platforms: Array, center: Vector3, keys_seen: Dictionary) -> Array:
+	var candidates: Array = []
+	if not _is_rotator_centrifugal():
+		return candidates
+	if platforms.empty() or not _rotator.has_method("get_plate_count") or not _rotator.has_method("get_plate_canonical_transform"):
+		return candidates
+
+	var base_spiral_idx: int = -1
+	var base_plate_idx: int = -1
+	if _rotator.has_method("get_selected_spiral_index") and _rotator.has_method("get_selected_plate_index"):
+		base_spiral_idx = int(_rotator.get_selected_spiral_index())
+		base_plate_idx = int(_rotator.get_selected_plate_index())
+
+	if base_spiral_idx < 0 or base_plate_idx < 0:
+		var target: Spatial = _get_tracking_target()
+		if target == null or not _rotator.has_method("find_nearest_terrace_plate"):
+			return candidates
+		var nearest: Dictionary = _rotator.find_nearest_terrace_plate(target.global_transform.origin)
+		if nearest.empty():
+			return candidates
+		base_spiral_idx = int(nearest.get("spiral_index", -1))
+		base_plate_idx = int(nearest.get("plate_index", -1))
+
+	if base_spiral_idx < 0 or base_spiral_idx >= platforms.size():
+		return candidates
+	var spiral: Spatial = platforms[base_spiral_idx]
+	if spiral == null:
+		return candidates
+	var plate_count: int = _rotator.get_plate_count(spiral)
+	if plate_count <= 0:
+		return candidates
+
+	var first_offset: int = -auto_plate_window_before
+	var last_offset: int = auto_plate_window_after
+	for offset in range(first_offset, last_offset + 1):
+		var plate_idx: int = _wrap_index(base_plate_idx + offset, plate_count)
+		var key: String = _make_key(base_spiral_idx, plate_idx)
+		if keys_seen.has(key):
+			continue
+		var canonical_tx: Transform = _rotator.get_plate_canonical_transform(spiral, plate_idx)
+		candidates.append({
+			"key": key,
+			"spiral_idx": base_spiral_idx,
+			"plate_idx": plate_idx,
+			"scene": auto_content_scene,
+			"spawn_offset": auto_content_spawn_offset,
+			"canonical_tx": canonical_tx,
+			"dist_sq": canonical_tx.origin.distance_squared_to(center)
+		})
+		keys_seen[key] = true
 
 	return candidates
 
@@ -214,7 +280,7 @@ func _activate_slot(index: int, candidate: Dictionary) -> void:
 		if scene:
 			var instance: Node = scene.instance()
 			if instance:
-				var spawn_offset: Vector3 = _assignment_indices.get(key, {}).get("spawn_offset", Vector3.ZERO)
+				var spawn_offset: Vector3 = candidate.get("spawn_offset", _assignment_indices.get(key, {}).get("spawn_offset", Vector3.ZERO))
 				if instance is Spatial and spawn_offset != Vector3.ZERO:
 					# spawn_offset is world-space; convert to slot-local to stay world-up
 					# regardless of plate tilt angle.
@@ -292,21 +358,36 @@ func _clear_slot_children(slot: Spatial) -> void:
 		slot.remove_child(child)
 		child.queue_free()
 
-func _capture_active_rigid_body_transforms(root: Node) -> Dictionary:
+func _capture_active_rigid_body_states(root: Node, slot_global_transform: Transform) -> Dictionary:
 	var captured := {}
-	_capture_active_rigid_body_transforms_recursive(root, captured)
+	_capture_active_rigid_body_states_recursive(root, captured, slot_global_transform)
 	return captured
 
-func _capture_active_rigid_body_transforms_recursive(root: Node, captured: Dictionary) -> void:
+func _capture_active_rigid_body_states_recursive(root: Node, captured: Dictionary, slot_global_transform: Transform) -> void:
 	for child in root.get_children():
 		if child is RigidBody and (child as RigidBody).mode == RigidBody.MODE_RIGID:
-			captured[child] = (child as RigidBody).global_transform
-		_capture_active_rigid_body_transforms_recursive(child, captured)
+			var body: RigidBody = child as RigidBody
+			captured[body] = {
+				"local_transform": slot_global_transform.affine_inverse() * body.global_transform,
+				"linear_velocity": body.linear_velocity,
+				"angular_velocity": body.angular_velocity
+			}
+		_capture_active_rigid_body_states_recursive(child, captured, slot_global_transform)
 
-func _restore_active_rigid_body_transforms(captured: Dictionary) -> void:
+func _restore_active_rigid_body_states(captured: Dictionary, previous_slot_transform: Transform, new_slot_transform: Transform, _delta: float) -> void:
+	var slot_delta_basis: Basis = new_slot_transform.basis * previous_slot_transform.basis.inverse()
 	for body in captured.keys():
 		if is_instance_valid(body) and body is RigidBody:
-			(body as RigidBody).global_transform = captured[body]
+			var body_state: Dictionary = captured[body]
+			if not body_state.has("local_transform"):
+				continue
+			var rigid_body: RigidBody = body as RigidBody
+			var local_transform: Transform = body_state["local_transform"]
+			rigid_body.global_transform = new_slot_transform * local_transform
+			if body_state.get("linear_velocity", null) is Vector3:
+				rigid_body.linear_velocity = slot_delta_basis.xform(body_state["linear_velocity"])
+			if body_state.get("angular_velocity", null) is Vector3:
+				rigid_body.angular_velocity = slot_delta_basis.xform(body_state["angular_velocity"])
 
 func _transforms_close(a: Transform, b: Transform) -> bool:
 	if a.origin.distance_to(b.origin) > 0.001:
@@ -366,6 +447,14 @@ func _get_reference_canonical_position() -> Vector3:
 
 	return Vector3.ZERO
 
+func _is_rotator_centrifugal() -> bool:
+	if _rotator == null or not is_instance_valid(_rotator):
+		return false
+	var value = _rotator.get("spiral_blend")
+	if value == null:
+		return true
+	return float(value) > 0.001
+
 func _collect_nodes_in_group(root: Node, group_name: String, out: Array) -> void:
 	if root == null or root.is_queued_for_deletion():
 		return
@@ -379,3 +468,11 @@ func _sort_by_distance(a: Dictionary, b: Dictionary) -> bool:
 
 func _make_key(spiral_idx: int, plate_idx: int) -> String:
 	return "%d:%d" % [spiral_idx, plate_idx]
+
+func _wrap_index(value: int, size: int) -> int:
+	if size <= 0:
+		return 0
+	var wrapped: int = value % size
+	if wrapped < 0:
+		wrapped += size
+	return wrapped

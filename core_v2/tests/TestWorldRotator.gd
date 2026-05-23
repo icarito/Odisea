@@ -3,11 +3,13 @@ extends Spatial
 export(int, 0, 3) var selected_spiral := 0
 export(int, 0, 10000) var selected_plate := 0
 export(bool) var snap_on_selection := true
+export(PackedScene) var plate_content_scene
 
 onready var _rotator: Spatial = $WorldRotator
 onready var _physical_terrace: StaticBody = $PhysicalTerrace
 onready var _player: Spatial = $Pilot
 onready var _camera: Camera = $Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera
+onready var _plate_content_stream: Spatial = get_node_or_null("PlateContentRoot") as Spatial
 
 var _spirals: Array = []
 var _selected_plate_canonical := Transform.IDENTITY
@@ -15,6 +17,7 @@ var _selected_plate_canonical := Transform.IDENTITY
 func _ready() -> void:
 	_collect_spirals()
 	_configure_test_rotator()
+	_configure_plate_content_stream()
 	if has_node("/root/GravityWorld"):
 		GravityWorld.set_ship_axis(Vector3.ZERO, Vector3.UP)
 	call_deferred("apply_selection")
@@ -44,6 +47,7 @@ func apply_selection() -> void:
 	var plate_canonical: Transform = _rotator.get_selected_plate_canonical_transform()
 	_selected_plate_canonical = plate_canonical
 	_configure_gravity_for_selected_plate(plate_canonical)
+	_assign_plate_content()
 	_rotator.auto_track_target_plate = true
 
 func get_selected_plate_global_transform() -> Transform:
@@ -59,6 +63,17 @@ func get_active_collision_body() -> StaticBody:
 
 func get_generated_collision_count() -> int:
 	return _rotator.get_generated_collision_count()
+
+func get_plate_content_stream() -> Spatial:
+	return _plate_content_stream
+
+func get_streamed_pushable_boxes() -> Array:
+	if _plate_content_stream and _plate_content_stream.has_method("get_streamed_nodes_in_group"):
+		var boxes: Array = _plate_content_stream.get_streamed_nodes_in_group("pushable_box")
+		if boxes.empty():
+			boxes = _plate_content_stream.get_streamed_nodes_in_group("pushable")
+		return boxes
+	return []
 
 func _set_spiral(value: int) -> void:
 	selected_spiral = _wrap_index(value, max(1, _spirals.size()))
@@ -84,6 +99,33 @@ func _configure_test_rotator() -> void:
 	_rotator.collision_pool_size = max(_rotator.collision_pool_size, 32)
 	_rotator.collision_update_interval = 3
 
+func _configure_plate_content_stream() -> void:
+	if not _plate_content_stream:
+		return
+	_plate_content_stream.rotator_path = NodePath("../WorldRotator")
+	_plate_content_stream.tracking_target_path = NodePath("../Pilot")
+	_plate_content_stream.slot_pool_size = 8
+	_plate_content_stream.slot_update_interval = 1
+	if _plate_content_stream.has_method("register_rotator"):
+		_plate_content_stream.register_rotator(_rotator)
+
+func _assign_plate_content() -> void:
+	if not _plate_content_stream or plate_content_scene == null:
+		return
+	if selected_spiral < 0 or selected_spiral >= _spirals.size():
+		return
+	var spiral: Spatial = _spirals[selected_spiral]
+	var plate_count: int = _get_plate_count(spiral)
+	if plate_count <= 0:
+		return
+	if _plate_content_stream.has_method("register_rotator"):
+		_plate_content_stream.register_rotator(_rotator)
+	# Keep a wider neighborhood loaded and avoid clearing every frame.
+	# This prevents pushables from disappearing while crossing plate boundaries.
+	for offset in range(-2, 6):
+		var plate_idx: int = _wrap_index(selected_plate + offset, plate_count)
+		_plate_content_stream.assign_scene(selected_spiral, plate_idx, plate_content_scene)
+
 func _sync_selection_from_rotator() -> void:
 	if not _rotator:
 		return
@@ -100,6 +142,7 @@ func _sync_selection_from_rotator() -> void:
 	selected_plate = rotator_plate
 	_selected_plate_canonical = _rotator.get_selected_plate_canonical_transform()
 	_configure_gravity_for_selected_plate(_selected_plate_canonical)
+	_assign_plate_content()
 
 func _collect_spirals() -> void:
 	_spirals.clear()

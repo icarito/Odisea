@@ -47,10 +47,17 @@ func _setup_multimesh():
 	multimesh.instance_count = plate_count
 	multimesh.mesh = plate_mesh
 
-	_cached_transforms.resize(plate_count)
-	for i in range(plate_count):
-		_cached_transforms[i] = Transform.IDENTITY
+	_ensure_transform_cache_size(plate_count)
 	_last_applied_blend = -1.0 # Force update
+
+func _ensure_transform_cache_size(plate_count: int):
+	if _cached_transforms.size() == plate_count:
+		return
+
+	var previous_size = _cached_transforms.size()
+	_cached_transforms.resize(plate_count)
+	for i in range(previous_size, plate_count):
+		_cached_transforms[i] = Transform.IDENTITY
 
 func _physics_process(delta: float):
 	_rebuild_multimesh_if_needed()
@@ -88,6 +95,7 @@ func _update_spiral_animation():
 	var plate_count = multimesh.instance_count
 	if plate_count <= 1:
 		return
+	_ensure_transform_cache_size(plate_count)
 
 	var safe_r_min = r_min if r_min != null else 0.0
 	var safe_r_max = r_max if r_max != null else 0.0

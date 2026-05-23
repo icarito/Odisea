@@ -111,6 +111,8 @@ func _ready() -> void:
 	# Reset to identity so editor-saved runtime transforms don't corrupt canonical calculations.
 	global_transform = Transform.IDENTITY
 	if Engine.editor_hint:
+		set_physics_process(false)
+		set_process(false)
 		return
 	# Also reset PhysicalTerrace if configured — it may have been dirtied by the editor too.
 	var pt: Spatial = _resolve_physical_terrace_target()
@@ -143,6 +145,8 @@ func _exit_tree() -> void:
 	_destroy_collision_pool()
 
 func _physics_process(delta: float) -> void:
+	if Engine.editor_hint:
+		return
 	var continuous_tracking_applied: bool = false
 	if continuous_tracking:
 		continuous_tracking_applied = _update_continuous_tracking(delta)
@@ -187,7 +191,8 @@ func set_active_platform(node: Spatial) -> void:
 		return
 	_platform_node = node
 	current_platform = _path_to(node)
-	_recompute_target()
+	if not Engine.editor_hint:
+		_recompute_target()
 	emit_signal("platform_changed", node)
 
 # Alias conveniente de set_active_platform.
@@ -234,6 +239,8 @@ func get_canonical_transform() -> Transform:
 # Reencuadra el mundo visual para que un transform canónico interno quede
 # exactamente sobre un transform físico estable fuera del WorldRotator.
 func align_canonical_transform_to_global(canonical_transform: Transform, target_global_transform: Transform, snap_immediately: bool = false) -> void:
+	if Engine.editor_hint:
+		return
 	_has_transform_target = true
 	_platform_node = null
 	current_platform = NodePath("")
@@ -244,6 +251,8 @@ func align_canonical_transform_to_global(canonical_transform: Transform, target_
 # Selecciona una plate de TerraceSpiral, reencuadra el mundo para que coincida
 # con una terraza física estable y genera colisiones equivalentes para plates vecinas.
 func select_terrace_plate(spiral_index: int, plate_index: int, target_body: Spatial = null, snap_immediately: bool = false) -> bool:
+	if Engine.editor_hint:
+		return false
 	_auto_register_platforms()
 	_sync_spirals()
 	if _registered_platforms.empty():
@@ -395,21 +404,23 @@ func _set_current_platform_path(path: NodePath) -> void:
 	if is_inside_tree():
 		if path.is_empty():
 			_platform_node = null
-			_recompute_target()
+			if not Engine.editor_hint:
+				_recompute_target()
 			return
 		var node = get_node_or_null(path) as Spatial
 		if node:
 			_platform_node = node
-			_recompute_target()
+			if not Engine.editor_hint:
+				_recompute_target()
 
 func _set_spiral_blend(value: float) -> void:
 	var was_centrifugal: bool = spiral_blend > 0.001
 	spiral_blend = clamp(value, 0.0, 1.0)
 	if is_inside_tree():
 		_sync_spirals()
-		_apply_scene_anchor()
 		if Engine.editor_hint:
 			return
+		_apply_scene_anchor()
 		var is_centrifugal: bool = spiral_blend > 0.001
 		if not is_centrifugal:
 			_clear_selected_plate_for_flat_mode()
@@ -419,30 +430,30 @@ func _set_spiral_blend(value: float) -> void:
 func _set_scene_anchor_content_path(path: NodePath) -> void:
 	scene_anchor_content_path = path
 	_reset_scene_anchor_cache()
-	if is_inside_tree():
+	if is_inside_tree() and not Engine.editor_hint:
 		_apply_scene_anchor_after_ready()
 
 func _set_scene_anchor_reference_path(path: NodePath) -> void:
 	scene_anchor_reference_path = path
 	_reset_scene_anchor_cache()
-	if is_inside_tree():
+	if is_inside_tree() and not Engine.editor_hint:
 		_apply_scene_anchor_after_ready()
 
 func _set_scene_anchor_spiral_index(value: int) -> void:
 	scene_anchor_spiral_index = value
 	_reset_scene_anchor_resolution()
-	if is_inside_tree():
+	if is_inside_tree() and not Engine.editor_hint:
 		_apply_scene_anchor()
 
 func _set_scene_anchor_plate_index(value: int) -> void:
 	scene_anchor_plate_index = value
 	_reset_scene_anchor_resolution()
-	if is_inside_tree():
+	if is_inside_tree() and not Engine.editor_hint:
 		_apply_scene_anchor()
 
 func _set_scene_anchor_offset(value: Vector3) -> void:
 	scene_anchor_offset = value
-	if is_inside_tree():
+	if is_inside_tree() and not Engine.editor_hint:
 		_apply_scene_anchor()
 
 # ── Implementación ───────────────────────────────────────────────────────────
@@ -518,6 +529,9 @@ func _recompute_target() -> void:
 	_target_quat = _quat_align(up, Vector3.UP)
 
 func _slerp_to_target(delta: float) -> void:
+	if Engine.editor_hint:
+		_is_transitioning = false
+		return
 	if rotation_frozen:
 		_is_transitioning = false
 		return
@@ -530,6 +544,9 @@ func _slerp_to_target(delta: float) -> void:
 	_is_transitioning = abs(q_new.dot(_target_quat)) < 0.9999
 
 func _slerp_to_global_transform(delta: float) -> void:
+	if Engine.editor_hint:
+		_is_transitioning = false
+		return
 	if rotation_frozen:
 		_is_transitioning = false
 		return
@@ -638,6 +655,8 @@ func _find_floor_contact_plate(target: Spatial) -> Dictionary:
 	return {}
 
 func _update_continuous_tracking(_delta: float) -> bool:
+	if Engine.editor_hint:
+		return false
 	if spiral_blend <= 0.001:
 		return false
 	var target: Spatial = _get_tracking_target()
@@ -753,10 +772,14 @@ func _reset_scene_anchor_resolution() -> void:
 	_scene_anchor_resolved_plate_index = -1
 
 func _apply_scene_anchor_after_ready() -> void:
+	if Engine.editor_hint:
+		return
 	_cache_scene_anchor_transforms()
 	_apply_scene_anchor()
 
 func _apply_scene_anchor() -> bool:
+	if Engine.editor_hint:
+		return false
 	if not _cache_scene_anchor_transforms():
 		return false
 	if spiral_blend <= 0.001:
@@ -787,6 +810,8 @@ func _apply_scene_anchor() -> bool:
 	return false
 
 func _restore_scene_anchor_transform() -> void:
+	if Engine.editor_hint:
+		return
 	if _scene_anchor_cached and _scene_anchor_content_node and is_instance_valid(_scene_anchor_content_node):
 		_scene_anchor_content_node.global_transform = global_transform * _scene_anchor_content_canonical
 
@@ -831,11 +856,15 @@ func _resolve_scene_anchor_indices() -> Dictionary:
 	}
 
 func _select_nearest_plate_on_ready_if_enabled() -> void:
+	if Engine.editor_hint:
+		return
 	if not select_nearest_plate_on_ready:
 		return
 	_select_nearest_tracking_plate(snap_initial_selection)
 
 func _select_nearest_tracking_plate(snap_immediately: bool = false) -> bool:
+	if Engine.editor_hint:
+		return false
 	if spiral_blend <= 0.001:
 		return false
 	_auto_register_platforms()
@@ -854,6 +883,8 @@ func _select_nearest_tracking_plate(snap_immediately: bool = false) -> bool:
 			snap_immediately)
 
 func _clear_selected_plate_for_flat_mode() -> void:
+	if Engine.editor_hint:
+		return
 	_selected_spiral_index = -1
 	_selected_plate_index = -1
 	_selected_plate_canonical = Transform.IDENTITY

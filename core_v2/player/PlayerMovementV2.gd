@@ -80,6 +80,9 @@ func set_floor_normal(normal: Vector3) -> void:
 	"""Called by PlayerControllerV2 after move_and_slide to update floor info."""
 	_floor_normal = normal
 
+func get_floor_normal() -> Vector3:
+	return _floor_normal
+
 func align_to_floor(vector: Vector3) -> Vector3:
 	"""Rotates a horizontal vector to lie along the floor plane.
 	Prevents lateral drift when moving sideways on slopes."""
