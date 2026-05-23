@@ -5,7 +5,9 @@
             "label": "echo-oys-filter",
             "type": "shell",
             "command": "echo",
-            "args": ["Running OYS test: ${fileBasenameNoExtension}"],
+            "args": [
+                "Running OYS test: ${fileBasenameNoExtension}"
+            ],
             "problemMatcher": [],
             "detail": "Muestra el nombre del test OYS a ejecutar"
         },
@@ -13,13 +15,19 @@
             "label": "Run OYS Test (headless)",
             "type": "shell",
             "command": "./runtest.sh",
-            "args": ["--oys", "${fileBasenameNoExtension}"],
+            "args": [
+                "--oys",
+                "${fileBasenameNoExtension}"
+            ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
             "problemMatcher": {
                 "owner": "oys",
-                "fileLocation": ["relative", "${workspaceFolder}"],
+                "fileLocation": [
+                    "relative",
+                    "${workspaceFolder}"
+                ],
                 "pattern": {
                     "regexp": "^(.*):(\\d+):(\\d+):\\s*(error|warning|info):\\s*(.*)$",
                     "file": 1,
@@ -47,7 +55,11 @@
             "label": "Run OYS Test (visible)",
             "type": "shell",
             "command": "./runtest.sh",
-            "args": ["--show", "--oys", "${fileBasenameNoExtension}"],
+            "args": [
+                "--show",
+                "--oys",
+                "${fileBasenameNoExtension}"
+            ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -67,7 +79,10 @@
             "label": "Run All Tests",
             "type": "shell",
             "command": "./runtest.sh",
-            "args": ["-a", "./core_v2/tests/"],
+            "args": [
+                "-a",
+                "./core_v2/tests/"
+            ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -87,7 +102,9 @@
             "label": "Run Stress Profile",
             "type": "shell",
             "command": "./runtest.sh",
-            "args": ["--stress"],
+            "args": [
+                "--stress"
+            ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -107,7 +124,10 @@
             "label": "Run GdUnit Test File",
             "type": "shell",
             "command": "./runtest.sh",
-            "args": ["-a", "${relativeFile}"],
+            "args": [
+                "-a",
+                "${relativeFile}"
+            ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -122,6 +142,12 @@
                 "clear": false
             },
             "detail": "Ejecuta el archivo .gd de test actual"
+        },
+        {
+            "label": "Run game (debug)",
+            "type": "shell",
+            "command": "godot3-bin .",
+            "inAgents": true
         }
     ]
 }

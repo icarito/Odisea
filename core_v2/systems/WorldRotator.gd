@@ -2,6 +2,8 @@ extends Spatial
 tool
 class_name WorldRotator
 
+const GravityModes = preload("res://core_v2/systems/GravityModes.gd")
+
 # WorldRotator — rota el entorno visual para alinear la plataforma activa con la gravedad estándar.
 #
 # Arquitectura (FD-036):
@@ -18,6 +20,11 @@ signal platform_changed(platform_node)
 
 # Velocidad de interpolación de la rotación del mundo (rad/s).
 export(float) var rotation_speed := 2.0
+# Factor de velocidad de rotación cuando el jugador está en el aire (0.0 a 1.0).
+export(float, 0.0, 1.0) var airborne_rotation_factor := 0.3
+export(int, "STANDARD_1G", "SPIN_WALKABLE", "ZERO_G", "SPIN_DYNAMIC") var gravity_mode := GravityModes.Mode.SPIN_WALKABLE
+export(bool) var rotation_frozen := false
+export(bool) var debug_draw_target_basis := false
 
 # Nodo que define la plataforma activa.
 # Su eje local +Y debe ser la dirección "arriba" para el jugador sobre esa plataforma.
@@ -31,14 +38,8 @@ export(float, 0.0, 1.0) var spiral_blend := 0.0 setget _set_spiral_blend
 
 # Si no hay current_platform explícito, usa la primera TerraceSpiral registrada.
 export(bool) var auto_select_first_platform := true
-
-# Selección explícita de una plate de TerraceSpiral. Esto permite asignar desde
-# el Inspector una plataforma física a un id estable: espiral N, piso/plate M.
-export(int, 0, 1024) var selected_spiral := 0 setget _set_selected_spiral
-export(int, 0, 10000) var selected_plate := 0 setget _set_selected_plate
-export(bool) var apply_selection_on_ready := false
-export(bool) var snap_on_selection := true
-export(bool) var configure_gravity_from_selection := true
+export(bool) var select_nearest_plate_on_ready := false
+export(bool) var snap_initial_selection := true
 
 # Colisiones físicas generadas para probar/usar terrazas sin authoring manual.
 export(NodePath) var physical_terrace_path := NodePath("")
@@ -47,25 +48,30 @@ export(bool) var auto_track_target_plate := false
 export(NodePath) var tracking_target_path := NodePath("")
 export(float) var auto_track_min_switch_distance := 20.0
 export(bool) var auto_track_requires_floor_contact := true
+export(int, 1, 30) var target_plate_query_interval := 3
 export(bool) var continuous_tracking := true
+export(NodePath) var scene_anchor_content_path := NodePath("") setget _set_scene_anchor_content_path
+export(NodePath) var scene_anchor_reference_path := NodePath("") setget _set_scene_anchor_reference_path
+export(int) var scene_anchor_spiral_index := -1 setget _set_scene_anchor_spiral_index
+export(int) var scene_anchor_plate_index := -1 setget _set_scene_anchor_plate_index
+export(bool) var scene_anchor_use_selected_plate_on_ready := false
+export(Vector3) var scene_anchor_offset := Vector3.ZERO setget _set_scene_anchor_offset
+export(bool) var scene_anchor_restore_in_flat_mode := true
 
 # Pool fijo de StaticBodies reutilizables para colisiones de terrazas.
 # En lugar de crear/destruir objetos al cambiar de plate, se reasignan los
-# slots del pool a las N plates más cercanas solo cuando el jugador cambia de zona.
+# transforms del pool a las N plates más cercanas al jugador cada frame.
 # Un tamaño de 32 cubre ~8 plates por espiral en el entorno inmediato.
-export(int, 4, 128) var collision_pool_size := 12
-
+export(int, 4, 128) var collision_pool_size := 32
 # Cada cuántos physics frames se recalcula la asignación del pool.
-# Esto solo controla la búsqueda/ordenamiento de placas cercanas; los transforms
-# de los colliders ya asignados se sincronizan cada frame para seguir el tilt.
-export(int, 1, 60) var collision_update_interval := 12
-# Distancia mínima en espacio canónico para volver a buscar las placas cercanas.
-# Con 0 se recupera el comportamiento anterior: reordenar en cada intervalo.
-export(float, 0.0, 200.0) var collision_reassign_min_distance := 30.0
+# 1 = cada frame (máxima precisión), 6 = cada 6 frames (~10 Hz a 60 Hz).
+export(int, 1, 30) var collision_update_interval := 3
 # Factor de escala en XZ para los BoxShape del pool.
-# 1.0 = límites exactos del mesh visible. Mantenerlo exacto evita que el
-# jugador pueda caminar sobre colisión invisible fuera de la placa.
-export(float, 0.5, 3.0) var collision_pool_xz_scale := 1.0
+# El mesh de las plates es 200x2x200 -> extents = (100,1,100).
+# En modo centrífugo las plates vecinas están a ~249 unidades de distancia XZ,
+# dejando un hueco de 49u entre boxes. Escalar a 1.3 da extents=130 -> solape.
+export(float, 1.0, 3.0) var collision_pool_xz_scale := 1.3
+export(bool) var warn_on_physics_children := true
 
 # ── Estado interno ──────────────────────────────────────────────────────────
 
@@ -73,6 +79,7 @@ var _platform_node: Spatial = null
 var _target_quat := Quat()
 var _has_transform_target := false
 var _target_global_transform := Transform.IDENTITY
+var _is_transitioning := false
 var _registered_platforms: Array = []  # Array[Spatial]
 var _selected_spiral_index := -1
 var _selected_plate_index := -1
@@ -80,17 +87,19 @@ var _selected_plate_canonical := Transform.IDENTITY
 var _active_collision_body: StaticBody = null
 var _active_collision_shape: CollisionShape = null
 var _generated_collision_root: Spatial = null
+var _scene_anchor_content_node: Spatial = null
+var _scene_anchor_reference_node: Spatial = null
+var _scene_anchor_content_canonical := Transform.IDENTITY
+var _scene_anchor_reference_canonical := Transform.IDENTITY
+var _scene_anchor_cached := false
+var _scene_anchor_resolved_spiral_index := -1
+var _scene_anchor_resolved_plate_index := -1
 # Pool fijo: cada slot es un StaticBody pre-creado con BoxShape.
 # _pool_assignments[i] = {"spiral": int, "plate": int} o {} si el slot está libre.
 var _collision_pool: Array = []        # Array[StaticBody]
 var _pool_assignments: Array = []      # Array[Dictionary]
 var _pool_update_counter: int = 0
-var _pool_force_reassign := true
-var _pool_has_assignment_center := false
-var _pool_assignment_center_canonical := Vector3.ZERO
-var _pool_assignment_selected_spiral := -1
-var _pool_assignment_selected_plate := -1
-var _pool_assignment_xz_scale := -1.0
+var _target_plate_query_counter: int = 0
 # Retrocompatibilidad: alias del pool para tests que lean _generated_collision_bodies
 var _generated_collision_bodies: Array setget ,_get_generated_collision_bodies
 func _get_generated_collision_bodies() -> Array:
@@ -99,6 +108,22 @@ func _get_generated_collision_bodies() -> Array:
 # ── Ciclo de vida ────────────────────────────────────────────────────────────
 
 func _ready() -> void:
+	# Reset to identity so editor-saved runtime transforms don't corrupt canonical calculations.
+	global_transform = Transform.IDENTITY
+	if Engine.editor_hint:
+		set_physics_process(false)
+		set_process(false)
+		return
+	# Also reset PhysicalTerrace if configured — it may have been dirtied by the editor too.
+	var pt: Spatial = _resolve_physical_terrace_target()
+	if pt:
+		pt.global_transform = Transform.IDENTITY
+		if pt is StaticBody:
+			_active_collision_body = pt as StaticBody
+			_active_collision_shape = _find_collision_shape(_active_collision_body)
+			if _active_collision_shape == null:
+				_active_collision_shape = _create_collision_shape(_active_collision_body)
+	_cache_scene_anchor_transforms()
 	_auto_register_platforms()
 	if not current_platform.is_empty():
 		_platform_node = get_node_or_null(current_platform) as Spatial
@@ -107,8 +132,10 @@ func _ready() -> void:
 		current_platform = _path_to(_platform_node)
 	_recompute_target()
 	_sync_spirals()
+	_warn_about_physics_children()
 	call_deferred("_build_collision_pool")
-	call_deferred("_apply_configured_selection_if_needed")
+	call_deferred("_select_nearest_plate_on_ready_if_enabled")
+	call_deferred("_apply_scene_anchor_after_ready")
 	if has_node("/root/GravityWorld"):
 		get_node("/root/GravityWorld").register_rotator(self)
 
@@ -118,31 +145,37 @@ func _exit_tree() -> void:
 	_destroy_collision_pool()
 
 func _physics_process(delta: float) -> void:
+	if Engine.editor_hint:
+		return
+	var continuous_tracking_applied: bool = false
 	if continuous_tracking:
-		_update_continuous_tracking(delta)
+		continuous_tracking_applied = _update_continuous_tracking(delta)
 	# El tracking por plates corre siempre: detecta cambio de plate activa
 	# independientemente de si continuous_tracking está activo o no.
 	_update_tracked_target_plate()
 
-	if _has_transform_target:
+	if continuous_tracking_applied:
+		_is_transitioning = false
+	elif _has_transform_target:
 		_slerp_to_global_transform(delta)
 	else:
 		_slerp_to_target(delta)
 
-	_update_active_collision_layer_for_mode()
+	# En modo continuous_tracking el active_collision_body sigue al visual rotado.
+	# En modo plate-tracking es ancla fija — NO se mueve aquí.
+	if continuous_tracking and _active_collision_body and is_instance_valid(_active_collision_body) \
+			and _selected_spiral_index >= 0 and _selected_plate_index >= 0:
+		_active_collision_body.global_transform = global_transform * _selected_plate_canonical
+		# Sincronizar el resto del pool para evitar drift visual-físico entre saltos de asignación.
+		_sync_pool_transforms_to_world()
 
-	var pool_update_due: bool = _pool_force_reassign
+	var pool_update_due: bool = _is_pool_update_due()
 	if not pool_update_due:
 		_pool_update_counter += 1
 		pool_update_due = _pool_update_counter >= collision_update_interval
 	if pool_update_due:
 		_pool_update_counter = 0
-		if _should_reassign_collision_pool():
-			_assign_pool_to_nearest_plates()
-		else:
-			_sync_assigned_pool_transforms()
-	else:
-		_sync_assigned_pool_transforms()
+		_assign_pool_to_nearest_plates()
 
 # ── API pública ──────────────────────────────────────────────────────────────
 
@@ -158,7 +191,8 @@ func set_active_platform(node: Spatial) -> void:
 		return
 	_platform_node = node
 	current_platform = _path_to(node)
-	_recompute_target()
+	if not Engine.editor_hint:
+		_recompute_target()
 	emit_signal("platform_changed", node)
 
 # Alias conveniente de set_active_platform.
@@ -205,6 +239,8 @@ func get_canonical_transform() -> Transform:
 # Reencuadra el mundo visual para que un transform canónico interno quede
 # exactamente sobre un transform físico estable fuera del WorldRotator.
 func align_canonical_transform_to_global(canonical_transform: Transform, target_global_transform: Transform, snap_immediately: bool = false) -> void:
+	if Engine.editor_hint:
+		return
 	_has_transform_target = true
 	_platform_node = null
 	current_platform = NodePath("")
@@ -215,19 +251,19 @@ func align_canonical_transform_to_global(canonical_transform: Transform, target_
 # Selecciona una plate de TerraceSpiral, reencuadra el mundo para que coincida
 # con una terraza física estable y genera colisiones equivalentes para plates vecinas.
 func select_terrace_plate(spiral_index: int, plate_index: int, target_body: Spatial = null, snap_immediately: bool = false) -> bool:
+	if Engine.editor_hint:
+		return false
 	_auto_register_platforms()
 	_sync_spirals()
 	if _registered_platforms.empty():
 		return false
 	_selected_spiral_index = _wrap_index(spiral_index, _registered_platforms.size())
-	selected_spiral = _selected_spiral_index
 	var spiral: Spatial = _registered_platforms[_selected_spiral_index]
 	_force_spiral_update(spiral)
 	var plate_count: int = get_plate_count(spiral)
 	if plate_count <= 0:
 		return false
 	_selected_plate_index = clamp(plate_index, 0, plate_count - 1)
-	selected_plate = _selected_plate_index
 	_selected_plate_canonical = get_plate_canonical_transform(spiral, _selected_plate_index)
 
 	if target_body == null:
@@ -239,24 +275,11 @@ func select_terrace_plate(spiral_index: int, plate_index: int, target_body: Spat
 			if _active_collision_shape == null:
 				_active_collision_shape = _create_collision_shape(_active_collision_body)
 
-	_set_collision_plate_meta(_active_collision_body, _selected_spiral_index, _selected_plate_index)
 	_sync_active_collision_shape(spiral)
 	align_canonical_transform_to_global(_selected_plate_canonical, target_body.global_transform, snap_immediately)
-	_configure_gravity_for_selected_plate(_selected_plate_canonical)
 	# Forzar reasignación inmediata del pool al nuevo centro.
-	_force_collision_pool_reassign()
+	_pool_update_counter = collision_update_interval
 	return true
-
-# Aplica la selección exportada actual. Es la entrada pensada para escenas de
-# prueba, OYS y tooling: configurar id + physical_terrace_path y dejar que este
-# nodo encuadre el mundo.
-func apply_selection() -> bool:
-	return select_terrace_plate(selected_spiral, selected_plate, null, snap_on_selection)
-
-func set_selected_terrace_plate(spiral_index: int, plate_index: int, snap_immediately: bool = true) -> bool:
-	selected_spiral = spiral_index
-	selected_plate = plate_index
-	return select_terrace_plate(selected_spiral, selected_plate, null, snap_immediately)
 
 func get_selected_plate_canonical_transform() -> Transform:
 	return _selected_plate_canonical
@@ -282,11 +305,27 @@ func get_generated_collision_count() -> int:
 			count += 1
 	return count
 
+func get_physics_child_violations() -> Array:
+	var violations: Array = []
+	_collect_physics_child_violations(self, violations)
+	return violations
+
 func get_selected_spiral_index() -> int:
 	return _selected_spiral_index
 
 func get_selected_plate_index() -> int:
 	return _selected_plate_index
+
+func is_transitioning() -> bool:
+	return _is_transitioning
+
+func get_target_basis() -> Basis:
+	if _has_transform_target:
+		return _target_global_transform.basis
+	return Basis(_target_quat).orthonormalized()
+
+func set_rotation_frozen(frozen: bool) -> void:
+	rotation_frozen = frozen
 
 func get_plate_count(spiral: Spatial) -> int:
 	if spiral == null:
@@ -301,11 +340,20 @@ func get_plate_canonical_transform(spiral: Spatial, plate_index: int) -> Transfo
 	if multimesh == null or multimesh.instance_count <= 0:
 		return Transform.IDENTITY
 	var clamped_index: int = clamp(plate_index, 0, multimesh.instance_count - 1)
+
+	# Optimización: usar transform cacheado si está disponible
+	var local_xform: Transform
+	var cached_list = spiral.get("_cached_transforms")
+	if cached_list != null and cached_list is Array and clamped_index < cached_list.size():
+		local_xform = cached_list[clamped_index]
+	else:
+		local_xform = multimesh.get_instance_transform(clamped_index)
+
 	var spiral_canonical: Transform = global_transform.affine_inverse() * spiral.global_transform
-	return spiral_canonical * multimesh.get_instance_transform(clamped_index)
+	return spiral_canonical * local_xform
 
 func find_nearest_terrace_plate(global_position: Vector3) -> Dictionary:
-	_auto_register_platforms()
+	_ensure_registered_platforms()
 	if _registered_platforms.empty():
 		return {}
 	var canonical_position: Vector3 = to_canonical(global_position)
@@ -356,39 +404,97 @@ func _set_current_platform_path(path: NodePath) -> void:
 	if is_inside_tree():
 		if path.is_empty():
 			_platform_node = null
-			_recompute_target()
+			if not Engine.editor_hint:
+				_recompute_target()
 			return
 		var node = get_node_or_null(path) as Spatial
 		if node:
 			_platform_node = node
-			_recompute_target()
+			if not Engine.editor_hint:
+				_recompute_target()
 
 func _set_spiral_blend(value: float) -> void:
+	var was_centrifugal: bool = spiral_blend > 0.001
 	spiral_blend = clamp(value, 0.0, 1.0)
 	if is_inside_tree():
 		_sync_spirals()
-		if apply_selection_on_ready and _selected_spiral_index >= 0:
-			apply_selection()
+		if Engine.editor_hint:
+			return
+		_apply_scene_anchor()
+		var is_centrifugal: bool = spiral_blend > 0.001
+		if not is_centrifugal:
+			_clear_selected_plate_for_flat_mode()
+		elif not was_centrifugal or _selected_spiral_index < 0 or _selected_plate_index < 0:
+			call_deferred("_select_nearest_tracking_plate", snap_initial_selection)
 
-func _set_selected_spiral(value: int) -> void:
-	selected_spiral = max(value, 0)
-	if is_inside_tree() and apply_selection_on_ready:
-		apply_selection()
+func _set_scene_anchor_content_path(path: NodePath) -> void:
+	scene_anchor_content_path = path
+	_reset_scene_anchor_cache()
+	if is_inside_tree() and not Engine.editor_hint:
+		_apply_scene_anchor_after_ready()
 
-func _set_selected_plate(value: int) -> void:
-	selected_plate = max(value, 0)
-	if is_inside_tree() and apply_selection_on_ready:
-		apply_selection()
+func _set_scene_anchor_reference_path(path: NodePath) -> void:
+	scene_anchor_reference_path = path
+	_reset_scene_anchor_cache()
+	if is_inside_tree() and not Engine.editor_hint:
+		_apply_scene_anchor_after_ready()
+
+func _set_scene_anchor_spiral_index(value: int) -> void:
+	scene_anchor_spiral_index = value
+	_reset_scene_anchor_resolution()
+	if is_inside_tree() and not Engine.editor_hint:
+		_apply_scene_anchor()
+
+func _set_scene_anchor_plate_index(value: int) -> void:
+	scene_anchor_plate_index = value
+	_reset_scene_anchor_resolution()
+	if is_inside_tree() and not Engine.editor_hint:
+		_apply_scene_anchor()
+
+func _set_scene_anchor_offset(value: Vector3) -> void:
+	scene_anchor_offset = value
+	if is_inside_tree() and not Engine.editor_hint:
+		_apply_scene_anchor()
 
 # ── Implementación ───────────────────────────────────────────────────────────
-
-func _apply_configured_selection_if_needed() -> void:
-	if apply_selection_on_ready:
-		apply_selection()
 
 func _auto_register_platforms() -> void:
 	_registered_platforms.clear()
 	_register_platforms_recursive(self)
+
+func _ensure_registered_platforms() -> void:
+	if _registered_platforms.empty():
+		_auto_register_platforms()
+
+func _warn_about_physics_children() -> void:
+	if not warn_on_physics_children:
+		return
+	var violations: Array = get_physics_child_violations()
+	if violations.empty():
+		return
+	var max_reported: int = min(violations.size(), 12)
+	var shown: Array = violations.slice(0, max_reported - 1)
+	push_warning("[WorldRotator] Physics gameplay nodes found under WorldRotator. Move them to PlateContentStream slots: %s%s" % [
+		str(shown),
+		" ..." if violations.size() > max_reported else ""
+	])
+
+func _collect_physics_child_violations(root: Node, out: Array) -> void:
+	for child in root.get_children():
+		if _is_forbidden_physics_child(child):
+			out.append(str(get_path_to(child)) if child.is_inside_tree() and is_inside_tree() else child.name)
+		_collect_physics_child_violations(child, out)
+
+func _is_forbidden_physics_child(node: Node) -> bool:
+	if node == self:
+		return false
+	if node is PhysicsBody:
+		return true
+	if node is Area:
+		return true
+	if node is CollisionShape:
+		return true
+	return false
 
 func _register_platforms_recursive(root: Node) -> void:
 	for child in root.get_children():
@@ -423,18 +529,44 @@ func _recompute_target() -> void:
 	_target_quat = _quat_align(up, Vector3.UP)
 
 func _slerp_to_target(delta: float) -> void:
+	if Engine.editor_hint:
+		_is_transitioning = false
+		return
+	if rotation_frozen:
+		_is_transitioning = false
+		return
 	var q_cur: Quat = transform.basis.get_rotation_quat()
-	var q_new: Quat = q_cur.slerp(_target_quat, min(1.0, rotation_speed * delta))
+	var t: float = min(1.0, _get_effective_rotation_speed() * delta)
+	# Aplicar smoothstep para una aceleración/deceleración más natural en micro-movimientos.
+	var eased_t: float = t * t * (3.0 - 2.0 * t)
+	var q_new: Quat = q_cur.slerp(_target_quat, eased_t)
 	transform.basis = Basis(q_new).orthonormalized()
+	_is_transitioning = abs(q_new.dot(_target_quat)) < 0.9999
 
 func _slerp_to_global_transform(delta: float) -> void:
-	var t: float = min(1.0, rotation_speed * delta)
+	if Engine.editor_hint:
+		_is_transitioning = false
+		return
+	if rotation_frozen:
+		_is_transitioning = false
+		return
+	var t: float = min(1.0, _get_effective_rotation_speed() * delta)
+	var eased_t: float = t * t * (3.0 - 2.0 * t)
 	var current: Transform = global_transform
 	var q_cur: Quat = current.basis.get_rotation_quat()
 	var q_target: Quat = _target_global_transform.basis.get_rotation_quat()
-	var q_new: Quat = q_cur.slerp(q_target, t)
-	var origin_new: Vector3 = current.origin.linear_interpolate(_target_global_transform.origin, t)
+	var q_new: Quat = q_cur.slerp(q_target, eased_t)
+	var origin_new: Vector3 = current.origin.linear_interpolate(_target_global_transform.origin, eased_t)
 	global_transform = Transform(Basis(q_new).orthonormalized(), origin_new)
+	_is_transitioning = abs(q_new.dot(q_target)) < 0.9999 or origin_new.distance_to(_target_global_transform.origin) > 0.01
+
+func _get_effective_rotation_speed() -> float:
+	var speed = rotation_speed
+	var target: Spatial = _get_tracking_target()
+	if target and target.has_method("is_on_floor") and not target.is_on_floor():
+		speed *= airborne_rotation_factor
+	return speed
+
 
 func _sync_spirals() -> void:
 	_sync_spirals_recursive(self)
@@ -456,7 +588,14 @@ func _update_tracked_target_plate() -> void:
 	if target_plate.empty():
 		if auto_track_requires_floor_contact and target.has_method("is_on_floor"):
 			return
+		if _selected_spiral_index >= 0 and _selected_plate_index >= 0 and target_plate_query_interval > 1:
+			_target_plate_query_counter += 1
+			if _target_plate_query_counter < target_plate_query_interval:
+				return
+		_target_plate_query_counter = 0
 		target_plate = find_nearest_terrace_plate(target.global_transform.origin)
+	else:
+		_target_plate_query_counter = 0
 	if target_plate.empty():
 		return
 	var spiral_index: int = int(target_plate["spiral_index"])
@@ -482,12 +621,12 @@ func _update_tracked_target_plate() -> void:
 		if spiral_index >= 0 and spiral_index < _registered_platforms.size():
 			_selected_plate_canonical = get_plate_canonical_transform(
 					_registered_platforms[spiral_index], plate_index)
-		_set_collision_plate_meta(_active_collision_body, _selected_spiral_index, _selected_plate_index)
 	else:
 		if _selected_spiral_index < 0 or _selected_plate_index < 0 or _active_collision_body == null:
 			return
 		_activate_nearest_plate_at_current_global_transform(spiral_index, plate_index)
-	_force_collision_pool_reassign()
+	_target_plate_query_counter = 0
+	_pool_update_counter = collision_update_interval
 
 func _find_floor_contact_plate(target: Spatial) -> Dictionary:
 	if not target.has_method("is_on_floor") or not target.has_method("get_slide_count") or not target.has_method("get_slide_collision"):
@@ -515,22 +654,18 @@ func _find_floor_contact_plate(target: Spatial) -> Dictionary:
 			}
 	return {}
 
-func _update_continuous_tracking(delta: float) -> void:
-	var blend: float = _get_active_gravity_blend()
-	if blend <= 0.001:
-		return
-
+func _update_continuous_tracking(_delta: float) -> bool:
+	if Engine.editor_hint:
+		return false
+	if spiral_blend <= 0.001:
+		return false
 	var target: Spatial = _get_tracking_target()
 	if target == null:
-		return
+		return false
 
-	# No rotar mientras el jugador está en el aire.
-	# Durante el salto el mundo debe permanecer estático para que los slots del
-	# pool de colisiones queden en la posición correcta de aterrizaje.
-	# La rotación se retoma cuando el jugador vuelve a tocar el suelo.
-	if target.has_method("is_on_floor") and not target.is_on_floor():
-		_target_global_transform = global_transform
-		return
+	# Ahora permitimos rotación moderada en el aire para un look más natural,
+	# pero mantenemos la lógica de pivotar sobre el jugador.
+	# El factor de velocidad se aplica en _get_effective_rotation_speed().
 
 	var p_global: Vector3 = target.global_transform.origin
 	var p_can: Vector3 = to_canonical(p_global)
@@ -540,17 +675,18 @@ func _update_continuous_tracking(delta: float) -> void:
 		up_can = get_node("/root/GravityWorld").get_canonical_up_direction(p_can)
 	else:
 		# Fallback radial
-		var radial_up := -Vector3(p_can.x, 0.0, p_can.z).normalized()
-		if radial_up.length_squared() < 0.001:
-			radial_up = Vector3.UP
-		up_can = Vector3.UP.linear_interpolate(radial_up, blend).normalized()
+		up_can = Vector3(p_can.x, 0.0, p_can.z).normalized()
+		if up_can.length_squared() < 0.001:
+			up_can = Vector3.UP
 
 	var up_global: Vector3 = global_transform.basis.xform(up_can).normalized()
 	var q_align: Quat = _quat_align(up_global, Vector3.UP)
 
 	# Evitar vibraciones por coma flotante
 	if q_align.w >= 0.99999:
-		return
+		_target_global_transform = global_transform
+		_has_transform_target = true
+		return true
 
 	var new_basis: Basis = (Basis(q_align) * global_transform.basis).orthonormalized()
 	# Pivotamos alrededor del jugador para que no sea desplazado bruscamente
@@ -558,8 +694,10 @@ func _update_continuous_tracking(delta: float) -> void:
 
 	_target_global_transform = Transform(new_basis, new_origin)
 	_has_transform_target = true
-	# Hacemos que la interpolación no dependa solo de rotation_speed sino que fluya
-	# El slerp se encargará de suavizarlo
+	# En continuous tracking el rotator es parte del frame de referencia del piloto.
+	# Si queda atrasado por slerp, los slots y rigid bodies reciben transforms viejos.
+	global_transform = _target_global_transform
+	return true
 
 func _get_tracking_target() -> Spatial:
 	if not tracking_target_path.is_empty():
@@ -574,6 +712,202 @@ func _get_tracking_target() -> Spatial:
 			return player as Spatial
 	return null
 
+func _resolve_physical_terrace_target() -> Spatial:
+	if physical_terrace_path.is_empty():
+		return null
+	var configured: Node = get_node_or_null(physical_terrace_path)
+	if configured == null and get_parent():
+		configured = get_parent().get_node_or_null(physical_terrace_path)
+	if configured is Spatial:
+		return configured as Spatial
+	return null
+
+func _resolve_scene_anchor_content_node() -> Spatial:
+	if scene_anchor_content_path.is_empty():
+		return null
+	var configured: Node = get_node_or_null(scene_anchor_content_path)
+	if configured == null and get_parent():
+		configured = get_parent().get_node_or_null(scene_anchor_content_path)
+	if configured is Spatial:
+		return configured as Spatial
+	return null
+
+func _resolve_scene_anchor_reference_node(content_node: Spatial) -> Spatial:
+	if content_node == null:
+		return null
+	if scene_anchor_reference_path.is_empty():
+		return content_node
+	var configured: Node = get_node_or_null(scene_anchor_reference_path)
+	if configured == null and get_parent():
+		configured = get_parent().get_node_or_null(scene_anchor_reference_path)
+	if configured is Spatial:
+		return configured as Spatial
+	return content_node
+
+func _cache_scene_anchor_transforms() -> bool:
+	var content_node: Spatial = _resolve_scene_anchor_content_node()
+	if content_node == null:
+		return false
+	var reference_node: Spatial = _resolve_scene_anchor_reference_node(content_node)
+	if reference_node == null:
+		return false
+	if not _scene_anchor_cached or _scene_anchor_content_node != content_node or _scene_anchor_reference_node != reference_node:
+		_scene_anchor_content_node = content_node
+		_scene_anchor_reference_node = reference_node
+		_scene_anchor_content_canonical = global_transform.affine_inverse() * content_node.global_transform
+		_scene_anchor_reference_canonical = global_transform.affine_inverse() * reference_node.global_transform
+		_scene_anchor_cached = true
+	return true
+
+func _reset_scene_anchor_cache() -> void:
+	_scene_anchor_content_node = null
+	_scene_anchor_reference_node = null
+	_scene_anchor_content_canonical = Transform.IDENTITY
+	_scene_anchor_reference_canonical = Transform.IDENTITY
+	_scene_anchor_cached = false
+	_reset_scene_anchor_resolution()
+
+func _reset_scene_anchor_resolution() -> void:
+	_scene_anchor_resolved_spiral_index = -1
+	_scene_anchor_resolved_plate_index = -1
+
+func _apply_scene_anchor_after_ready() -> void:
+	if Engine.editor_hint:
+		return
+	_cache_scene_anchor_transforms()
+	_apply_scene_anchor()
+
+func _apply_scene_anchor() -> bool:
+	if Engine.editor_hint:
+		return false
+	if not _cache_scene_anchor_transforms():
+		return false
+	if spiral_blend <= 0.001:
+		if scene_anchor_restore_in_flat_mode:
+			_restore_scene_anchor_transform()
+		return false
+	_auto_register_platforms()
+	var anchor_indices: Dictionary = _resolve_scene_anchor_indices()
+	if anchor_indices.empty():
+		return false
+	var spiral_index: int = int(anchor_indices.get("spiral_index", -1))
+	var plate_index: int = int(anchor_indices.get("plate_index", -1))
+	if spiral_index < 0 or spiral_index >= _registered_platforms.size():
+		return false
+	var spiral: Spatial = _registered_platforms[spiral_index]
+	_force_spiral_update(spiral)
+	var plate_count: int = get_plate_count(spiral)
+	if plate_count <= 0:
+		return false
+	plate_index = clamp(plate_index, 0, plate_count - 1)
+	var plate_canonical: Transform = get_plate_canonical_transform(spiral, plate_index)
+	var reference_from_content: Transform = _scene_anchor_content_canonical.affine_inverse() * _scene_anchor_reference_canonical
+	var target_reference_canonical: Transform = plate_canonical * Transform(Basis.IDENTITY, scene_anchor_offset)
+	var target_content_canonical: Transform = target_reference_canonical * reference_from_content.affine_inverse()
+	if _scene_anchor_content_node and is_instance_valid(_scene_anchor_content_node):
+		_scene_anchor_content_node.global_transform = global_transform * target_content_canonical
+		return true
+	return false
+
+func _restore_scene_anchor_transform() -> void:
+	if Engine.editor_hint:
+		return
+	if _scene_anchor_cached and _scene_anchor_content_node and is_instance_valid(_scene_anchor_content_node):
+		_scene_anchor_content_node.global_transform = global_transform * _scene_anchor_content_canonical
+
+func _resolve_scene_anchor_indices() -> Dictionary:
+	if scene_anchor_spiral_index >= 0 and scene_anchor_plate_index >= 0:
+		if _registered_platforms.empty():
+			return {}
+		var explicit_spiral: int = _wrap_index(scene_anchor_spiral_index, _registered_platforms.size())
+		var explicit_plate: int = scene_anchor_plate_index
+		if explicit_spiral < 0 or explicit_spiral >= _registered_platforms.size():
+			return {}
+		var explicit_count: int = get_plate_count(_registered_platforms[explicit_spiral])
+		if explicit_count <= 0:
+			return {}
+		return {
+			"spiral_index": explicit_spiral,
+			"plate_index": clamp(explicit_plate, 0, explicit_count - 1)
+		}
+	if _scene_anchor_resolved_spiral_index >= 0 and _scene_anchor_resolved_plate_index >= 0:
+		return {
+			"spiral_index": _scene_anchor_resolved_spiral_index,
+			"plate_index": _scene_anchor_resolved_plate_index
+		}
+	if not scene_anchor_use_selected_plate_on_ready:
+		return {}
+	var resolved_spiral: int = _selected_spiral_index
+	var resolved_plate: int = _selected_plate_index
+	if resolved_spiral < 0 or resolved_plate < 0:
+		var target: Spatial = _get_tracking_target()
+		if target:
+			var nearest: Dictionary = find_nearest_terrace_plate(target.global_transform.origin)
+			if not nearest.empty():
+				resolved_spiral = int(nearest.get("spiral_index", -1))
+				resolved_plate = int(nearest.get("plate_index", -1))
+	if resolved_spiral < 0 or resolved_plate < 0:
+		return {}
+	_scene_anchor_resolved_spiral_index = resolved_spiral
+	_scene_anchor_resolved_plate_index = resolved_plate
+	return {
+		"spiral_index": resolved_spiral,
+		"plate_index": resolved_plate
+	}
+
+func _select_nearest_plate_on_ready_if_enabled() -> void:
+	if Engine.editor_hint:
+		return
+	if not select_nearest_plate_on_ready:
+		return
+	_select_nearest_tracking_plate(snap_initial_selection)
+
+func _select_nearest_tracking_plate(snap_immediately: bool = false) -> bool:
+	if Engine.editor_hint:
+		return false
+	if spiral_blend <= 0.001:
+		return false
+	_auto_register_platforms()
+	_sync_spirals()
+	var target: Spatial = _get_tracking_target()
+	if target == null:
+		return false
+	var nearest: Dictionary = find_nearest_terrace_plate(target.global_transform.origin)
+	if nearest.empty():
+		return false
+	var target_body: Spatial = _resolve_physical_terrace_target()
+	return select_terrace_plate(
+			int(nearest["spiral_index"]),
+			int(nearest["plate_index"]),
+			target_body,
+			snap_immediately)
+
+func _clear_selected_plate_for_flat_mode() -> void:
+	if Engine.editor_hint:
+		return
+	_selected_spiral_index = -1
+	_selected_plate_index = -1
+	_selected_plate_canonical = Transform.IDENTITY
+	_platform_node = null
+	current_platform = NodePath("")
+	_has_transform_target = true
+	_target_global_transform = Transform.IDENTITY
+	_target_quat = Quat()
+	_is_transitioning = false
+	global_transform = Transform.IDENTITY
+
+	var pt: Spatial = _resolve_physical_terrace_target()
+	if pt:
+		pt.global_transform = Transform.IDENTITY
+		if pt is StaticBody:
+			_active_collision_body = pt as StaticBody
+			_active_collision_shape = _find_collision_shape(_active_collision_body)
+			if _active_collision_shape == null:
+				_active_collision_shape = _create_collision_shape(_active_collision_body)
+	if scene_anchor_restore_in_flat_mode:
+		_restore_scene_anchor_transform()
+	_deactivate_collision_pool()
+
 func _activate_nearest_plate_at_current_global_transform(spiral_index: int, plate_index: int) -> void:
 	if spiral_index < 0 or spiral_index >= _registered_platforms.size():
 		return
@@ -585,22 +919,10 @@ func _activate_nearest_plate_at_current_global_transform(spiral_index: int, plat
 	var plate_global: Transform = global_transform * plate_canonical
 	var active_body: StaticBody = _ensure_active_collision_body()
 	_sync_active_collision_shape(spiral)
-	active_body.global_transform = _make_horizontal_target_transform(plate_global)
+	# Keep the physical terrace aligned with the real spiral plate orientation.
+	# Forcing a horizontal basis here causes platform/gravity mismatch in-game.
+	active_body.global_transform = plate_global
 	select_terrace_plate(spiral_index, plate_index, active_body, false)
-
-func _make_horizontal_target_transform(source_global: Transform) -> Transform:
-	var x_axis: Vector3 = source_global.basis.x
-	x_axis.y = 0.0
-	if x_axis.length_squared() <= 0.001:
-		x_axis = source_global.basis.z.cross(Vector3.UP)
-		x_axis.y = 0.0
-	if x_axis.length_squared() <= 0.001:
-		x_axis = Vector3.RIGHT
-	x_axis = x_axis.normalized()
-	var y_axis: Vector3 = Vector3.UP
-	var z_axis: Vector3 = x_axis.cross(y_axis).normalized()
-	x_axis = y_axis.cross(z_axis).normalized()
-	return Transform(Basis(x_axis, y_axis, z_axis).orthonormalized(), source_global.origin)
 
 func _force_spiral_update(spiral: Spatial) -> void:
 	if spiral == null:
@@ -613,17 +935,9 @@ func _force_spiral_update(spiral: Spatial) -> void:
 func _ensure_active_collision_body() -> StaticBody:
 	if _active_collision_body and is_instance_valid(_active_collision_body):
 		return _active_collision_body
-	var configured: Node = null
-	if not physical_terrace_path.is_empty():
-		configured = get_node_or_null(physical_terrace_path)
-		if configured == null and get_parent():
-			configured = get_parent().get_node_or_null(physical_terrace_path)
+	var configured: Spatial = _resolve_physical_terrace_target()
 	if configured is StaticBody:
-		_active_collision_body = configured
-		if not _active_collision_body.has_meta("world_rotator_original_collision_layer"):
-			_active_collision_body.set_meta("world_rotator_original_collision_layer", _active_collision_body.collision_layer)
-		_active_collision_body.set_meta("world_rotator_collision", true)
-		_active_collision_body.set_meta("world_rotator_active_collision", true)
+		_active_collision_body = configured as StaticBody
 		_active_collision_shape = _find_collision_shape(_active_collision_body)
 		if _active_collision_shape == null:
 			_active_collision_shape = _create_collision_shape(_active_collision_body)
@@ -634,9 +948,6 @@ func _ensure_active_collision_body() -> StaticBody:
 	_active_collision_body.name = "ActiveTerraceCollision"
 	_active_collision_body.collision_layer = 1
 	_active_collision_body.collision_mask = 1
-	_active_collision_body.set_meta("world_rotator_original_collision_layer", _active_collision_body.collision_layer)
-	_active_collision_body.set_meta("world_rotator_collision", true)
-	_active_collision_body.set_meta("world_rotator_active_collision", true)
 	# Crear la shape ANTES de insertar en el árbol.
 	_active_collision_shape = CollisionShape.new()
 	_active_collision_shape.name = "CollisionShape"
@@ -662,15 +973,17 @@ func _build_collision_pool() -> void:
 	# Limpiar pool anterior si lo hubiera (ej. cambio de collision_pool_size en editor).
 	_destroy_collision_pool()
 	var default_extents: Vector3 = fallback_collision_extents
+	var far_away: Transform = Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
 	for i in range(collision_pool_size):
 		var body: StaticBody = StaticBody.new()
 		body.name = "PoolTerraceCollision_%d" % i
 		body.collision_layer = 1
 		body.collision_mask = 1
 		# Metadata inicialmente vacío; se asigna en _assign_pool_to_nearest_plates.
-		body.set_meta("world_rotator_collision", true)
 		body.set_meta("spiral_index", -1)
 		body.set_meta("plate_index", -1)
+		body.set_meta("canonical_tx", null)
+		body.global_transform = far_away
 		# Añadir CollisionShape ANTES de insertar el body en el árbol.
 		# Si se añade después, Godot 3 puede no registrar la shape en el physics server.
 		var shape: CollisionShape = CollisionShape.new()
@@ -682,6 +995,8 @@ func _build_collision_pool() -> void:
 		_generated_collision_root.add_child(body)
 		_collision_pool.append(body)
 		_pool_assignments.append({})
+	if spiral_blend <= 0.001:
+		_deactivate_collision_pool()
 
 func _destroy_collision_pool() -> void:
 	for body in _collision_pool:
@@ -689,38 +1004,65 @@ func _destroy_collision_pool() -> void:
 			body.queue_free()
 	_collision_pool.clear()
 	_pool_assignments.clear()
-	_pool_force_reassign = true
-	_pool_has_assignment_center = false
-	_pool_assignment_selected_spiral = -1
-	_pool_assignment_selected_plate = -1
-	_pool_assignment_xz_scale = -1.0
 
 # Recalcula qué plates reciben un slot del pool, ordenando por distancia al jugador.
 # Solo reasigna transforms — cero allocs.
 func _assign_pool_to_nearest_plates() -> void:
+	if spiral_blend <= 0.001:
+		_deactivate_collision_pool()
+		return
 	if _collision_pool.empty() or _registered_platforms.empty():
 		return
-	var center_info: Dictionary = _get_collision_pool_center_canonical()
-	if center_info.empty():
+	var tracking_target: Spatial = _get_tracking_target()
+	var target_global_pos: Vector3
+	var center_canonical: Vector3
+	if tracking_target != null:
+		target_global_pos = tracking_target.global_transform.origin
+		center_canonical = to_canonical(target_global_pos)
+	elif _selected_plate_index >= 0:
+		center_canonical = _selected_plate_canonical.origin
+		target_global_pos = from_canonical(center_canonical)
+	else:
 		return
-	var center_canonical: Vector3 = center_info["center"]
 
-	# Recopilar todas las plates con su distancia al centro.
-	# Los transforms del multimesh se leen tal como están — el spiral los actualiza
-	# en su propio _physics_process; un frame de lag es aceptable.
-	var candidates: Array = []  # Array of {spiral, plate, dist_sq, canonical_tx}
+	# Recopilar candidates usando búsqueda espacial por altura (Y local de la espira).
+	var candidates: Array = []  # Array of {spiral_index, plate_index, dist_sq, canonical_tx}
+	var pool_size: int = _collision_pool.size()
+	# Buscamos un rango de plates que cubra con creces el pool_size.
+	# 48 plates por espira es lo común, un radio de 12 plates suele bastar.
+	var search_range_idx: int = int(ceil(float(pool_size) / float(max(1, _registered_platforms.size())))) + 4
+
 	for spiral_index in range(_registered_platforms.size()):
 		var spiral: Spatial = _registered_platforms[spiral_index]
+		_force_spiral_update(spiral)
 		var plate_count: int = get_plate_count(spiral)
-		for plate_index in range(plate_count):
-			# En plate-tracking no duplicamos la plate activa porque la maneja
-			# _active_collision_body. En continuous_tracking sí la incluimos:
-			# PhysicalTerrace queda como ancla inicial y el pool sigue el MultiMesh.
-			if not continuous_tracking and spiral_index == _selected_spiral_index and plate_index == _selected_plate_index:
+		if plate_count <= 0: continue
+
+		var plate_step: float = spiral.get("plate_step") if spiral.get("plate_step") != null else 40.0
+		var spiral_inv_xform: Transform = spiral.global_transform.affine_inverse()
+		var spiral_canonical_base: Transform = global_transform.affine_inverse() * spiral.global_transform
+		var local_pos: Vector3 = spiral_inv_xform.xform(target_global_pos)
+
+		var center_idx: int = int(round(local_pos.y / max(0.001, plate_step)))
+		var start_idx: int = max(0, center_idx - search_range_idx)
+		var end_idx: int = min(plate_count - 1, center_idx + search_range_idx)
+
+		var cached_list = spiral.get("_cached_transforms")
+		var has_cache: bool = cached_list != null and cached_list is Array and end_idx < cached_list.size()
+
+		for plate_index in range(start_idx, end_idx + 1):
+			if spiral_index == _selected_spiral_index and plate_index == _selected_plate_index:
 				continue
 
-			var plate_tx: Transform = get_plate_canonical_transform(spiral, plate_index)
-			var dist_sq: float = _get_plate_contact_distance_squared(spiral, plate_tx, center_canonical)
+			var plate_local_tx: Transform
+			if has_cache:
+				plate_local_tx = cached_list[plate_index]
+			else:
+				var multimesh: MultiMesh = spiral.get("multimesh")
+				plate_local_tx = multimesh.get_instance_transform(plate_index)
+
+			var plate_tx: Transform = spiral_canonical_base * plate_local_tx
+			var dist_sq: float = plate_tx.origin.distance_squared_to(center_canonical)
 			candidates.append({
 				"spiral_index": spiral_index,
 				"plate_index": plate_index,
@@ -728,110 +1070,102 @@ func _assign_pool_to_nearest_plates() -> void:
 				"canonical_tx": plate_tx
 			})
 
-	# Ordenar por distancia ascendente y tomar las primeras collision_pool_size.
+	# Ordenar por distancia ascendente y tomar la ventana activa.
 	candidates.sort_custom(self, "_sort_by_dist_sq")
-	var pool_size: int = _collision_pool.size()
-	var assign_count: int = min(candidates.size(), pool_size)
+	var active_count: int = min(candidates.size(), pool_size)
+	var active_candidates: Array = candidates.slice(0, active_count - 1) if active_count > 0 else []
+	var candidates_by_key := {}
+	for candidate in active_candidates:
+		candidates_by_key[_make_pool_key(int(candidate["spiral_index"]), int(candidate["plate_index"]))] = candidate
 
-	for i in range(assign_count):
-		var c: Dictionary = candidates[i]
-		var body: StaticBody = _collision_pool[i]
-		var spiral: Spatial = _registered_platforms[c.spiral_index]
-		_sync_pool_shape_extents(body, spiral)
-		body.set_meta("spiral_index", c.spiral_index)
-		body.set_meta("plate_index", c.plate_index)
-		var plate_global: Transform = global_transform * c.canonical_tx
-		body.global_transform = _get_neighbor_collision_transform(plate_global)
-		_pool_assignments[i] = {"spiral_index": c.spiral_index, "plate_index": c.plate_index}
-
-	# Los slots sobrantes se mandan lejos para que no interfieran.
-	var far_away: Transform = Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
-	for i in range(assign_count, pool_size):
-		_collision_pool[i].global_transform = far_away
-		_pool_assignments[i] = {}
-
-	_pool_assignment_center_canonical = center_canonical
-	_pool_has_assignment_center = true
-	_pool_assignment_selected_spiral = _selected_spiral_index
-	_pool_assignment_selected_plate = _selected_plate_index
-	_pool_assignment_xz_scale = collision_pool_xz_scale
-	_pool_force_reassign = false
-
-func _force_collision_pool_reassign() -> void:
-	_pool_force_reassign = true
-	_pool_update_counter = collision_update_interval
-
-func _get_collision_pool_center_canonical() -> Dictionary:
-	var tracking_target: Spatial = _get_tracking_target()
-	if tracking_target != null:
-		return {"center": to_canonical(tracking_target.global_transform.origin)}
-	if _selected_plate_index >= 0:
-		return {"center": _selected_plate_canonical.origin}
-	return {}
-
-func _should_reassign_collision_pool() -> bool:
-	if _collision_pool.empty() or _registered_platforms.empty():
-		return false
-	var center_info: Dictionary = _get_collision_pool_center_canonical()
-	if center_info.empty():
-		return false
-	if _pool_force_reassign or not _pool_has_assignment_center:
-		return true
-	if _pool_assignment_selected_spiral != _selected_spiral_index:
-		return true
-	if _pool_assignment_selected_plate != _selected_plate_index:
-		return true
-	if not is_equal_approx(_pool_assignment_xz_scale, collision_pool_xz_scale):
-		return true
-	if collision_reassign_min_distance <= 0.0:
-		return true
-	var center_canonical: Vector3 = center_info["center"]
-	var min_dist_sq: float = collision_reassign_min_distance * collision_reassign_min_distance
-	return center_canonical.distance_squared_to(_pool_assignment_center_canonical) >= min_dist_sq
-
-func _sort_by_dist_sq(a: Dictionary, b: Dictionary) -> bool:
-	return a.dist_sq < b.dist_sq
-
-func _sync_assigned_pool_transforms() -> void:
-	if _collision_pool.empty() or _registered_platforms.empty():
-		return
+	var assigned_keys := {}
 	for i in range(_collision_pool.size()):
-		if i >= _pool_assignments.size():
-			return
 		var assignment: Dictionary = _pool_assignments[i]
 		if assignment.empty():
 			continue
-		var spiral_index: int = int(assignment.get("spiral_index", -1))
-		var plate_index: int = int(assignment.get("plate_index", -1))
-		if spiral_index < 0 or spiral_index >= _registered_platforms.size():
+		var key: String = _make_pool_key(int(assignment.get("spiral_index", -1)), int(assignment.get("plate_index", -1)))
+		if candidates_by_key.has(key):
+			_assign_collision_pool_slot(i, candidates_by_key[key])
+			assigned_keys[key] = true
+		else:
+			_deactivate_collision_pool_slot(i)
+
+	for candidate in active_candidates:
+		var key: String = _make_pool_key(int(candidate["spiral_index"]), int(candidate["plate_index"]))
+		if assigned_keys.has(key):
 			continue
-		var spiral: Spatial = _registered_platforms[spiral_index]
-		var plate_count: int = get_plate_count(spiral)
-		if plate_index < 0 or plate_index >= plate_count:
-			continue
+		var free_slot: int = _find_free_collision_pool_slot()
+		if free_slot == -1:
+			break
+		_assign_collision_pool_slot(free_slot, candidate)
+		assigned_keys[key] = true
+
+func _deactivate_collision_pool() -> void:
+	var far_away: Transform = Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
+	for i in range(_collision_pool.size()):
 		var body: StaticBody = _collision_pool[i]
-		if body == null or not is_instance_valid(body):
+		if not is_instance_valid(body):
 			continue
-		var plate_tx: Transform = get_plate_canonical_transform(spiral, plate_index)
-		body.global_transform = _get_neighbor_collision_transform(global_transform * plate_tx)
-		_set_collision_plate_meta(body, spiral_index, plate_index)
+		body.global_transform = far_away
+		body.set_meta("spiral_index", -1)
+		body.set_meta("plate_index", -1)
+		body.set_meta("canonical_tx", null)
+		if i < _pool_assignments.size():
+			_pool_assignments[i] = {}
 
-func _set_collision_plate_meta(body: StaticBody, spiral_index: int, plate_index: int) -> void:
-	if body == null or not is_instance_valid(body):
+func _assign_collision_pool_slot(index: int, candidate: Dictionary) -> void:
+	if index < 0 or index >= _collision_pool.size():
 		return
-	body.set_meta("world_rotator_collision", true)
+	var body: StaticBody = _collision_pool[index]
+	if not is_instance_valid(body):
+		return
+	var spiral_index: int = int(candidate["spiral_index"])
+	if spiral_index < 0 or spiral_index >= _registered_platforms.size():
+		return
+	var spiral: Spatial = _registered_platforms[spiral_index]
+	_sync_pool_shape_extents(body, spiral)
 	body.set_meta("spiral_index", spiral_index)
-	body.set_meta("plate_index", plate_index)
+	body.set_meta("plate_index", int(candidate["plate_index"]))
+	body.set_meta("canonical_tx", candidate["canonical_tx"])
+	var plate_global: Transform = global_transform * (candidate["canonical_tx"] as Transform)
+	body.global_transform = _get_neighbor_collision_transform(plate_global)
+	_pool_assignments[index] = {
+		"spiral_index": spiral_index,
+		"plate_index": int(candidate["plate_index"])
+	}
 
-func _update_active_collision_layer_for_mode() -> void:
-	if _active_collision_body == null or not is_instance_valid(_active_collision_body):
+func _deactivate_collision_pool_slot(index: int) -> void:
+	if index < 0 or index >= _collision_pool.size():
 		return
-	if not _active_collision_body.has_meta("world_rotator_original_collision_layer"):
-		_active_collision_body.set_meta("world_rotator_original_collision_layer", _active_collision_body.collision_layer)
-	if continuous_tracking:
-		_active_collision_body.collision_layer = 0
-	else:
-		_active_collision_body.collision_layer = int(_active_collision_body.get_meta("world_rotator_original_collision_layer"))
+	var body: StaticBody = _collision_pool[index]
+	if is_instance_valid(body):
+		body.global_transform = Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
+		body.set_meta("spiral_index", -1)
+		body.set_meta("plate_index", -1)
+		body.set_meta("canonical_tx", null)
+	if index < _pool_assignments.size():
+		_pool_assignments[index] = {}
+
+func _find_free_collision_pool_slot() -> int:
+	for i in range(_pool_assignments.size()):
+		if _pool_assignments[i].empty():
+			return i
+	return -1
+
+func _make_pool_key(spiral_index: int, plate_index: int) -> String:
+	return "%d:%d" % [spiral_index, plate_index]
+
+func _sync_pool_transforms_to_world() -> void:
+	for i in range(_collision_pool.size()):
+		var body: StaticBody = _collision_pool[i]
+		if not is_instance_valid(body): continue
+		if not body.has_meta("canonical_tx"): continue
+		var canonical_tx = body.get_meta("canonical_tx")
+		if canonical_tx is Transform:
+			body.global_transform = global_transform * (canonical_tx as Transform)
+
+func _sort_by_dist_sq(a: Dictionary, b: Dictionary) -> bool:
+	return a.dist_sq < b.dist_sq
 
 func _get_neighbor_collision_transform(plate_global: Transform) -> Transform:
 	# Las terrazas vecinas deben coincidir con el mesh visual real para que
@@ -846,6 +1180,7 @@ func _sync_pool_shape_extents(body: StaticBody, spiral: Spatial) -> void:
 	if box == null:
 		return
 	var e: Vector3 = _get_plate_collision_extents(spiral)
+	# Escalar XZ para cubrir el hueco entre plates adyacentes.
 	box.extents = Vector3(e.x * collision_pool_xz_scale, e.y, e.z * collision_pool_xz_scale)
 
 func _get_collision_parent() -> Node:
@@ -877,25 +1212,6 @@ func _sync_active_collision_shape(spiral: Spatial) -> void:
 		_active_collision_shape.shape = box
 	box.extents = _get_plate_collision_extents(spiral)
 
-func _configure_gravity_for_selected_plate(plate_canonical: Transform) -> void:
-	if not configure_gravity_from_selection:
-		return
-	if not has_node("/root/GravityWorld"):
-		return
-	var gravity_world: Node = get_node("/root/GravityWorld")
-	if gravity_world.has_method("get_axis_radius"):
-		var radius: float = gravity_world.get_axis_radius(plate_canonical.origin)
-		if gravity_world.has_method("set_centrifugal_reference_radius"):
-			gravity_world.set_centrifugal_reference_radius(radius)
-		if gravity_world.has_method("get_default_angular_velocity_for_one_g") and gravity_world.has_method("set_ship_angular_velocity"):
-			gravity_world.set_ship_angular_velocity(gravity_world.get_default_angular_velocity_for_one_g(radius))
-
-func _get_active_gravity_blend() -> float:
-	var local_blend: float = clamp(spiral_blend, 0.0, 1.0)
-	if has_node("/root/GravityWorld") and get_node("/root/GravityWorld").has_method("get_gravity_blend"):
-		return max(local_blend, clamp(float(get_node("/root/GravityWorld").get_gravity_blend()), 0.0, 1.0))
-	return local_blend
-
 func _get_plate_collision_extents(spiral: Spatial) -> Vector3:
 	var mesh: Mesh = spiral.get("plate_mesh")
 	if mesh == null:
@@ -919,13 +1235,10 @@ func _wrap_index(value: int, size: int) -> int:
 	return wrapped
 
 func _is_pool_update_due() -> bool:
-	if _has_transform_target and not continuous_tracking:
-		var distance: float = global_transform.origin.distance_to(_target_global_transform.origin)
-		if distance > 0.05:
-			return true
-		var q_cur_global: Quat = global_transform.basis.get_rotation_quat()
-		var q_target_global: Quat = _target_global_transform.basis.get_rotation_quat()
-		return abs(q_cur_global.dot(q_target_global)) < 0.9999
+	if continuous_tracking:
+		return true
+	if _has_transform_target:
+		return true
 	if _platform_node == null:
 		return false
 	var q_cur: Quat = transform.basis.get_rotation_quat()

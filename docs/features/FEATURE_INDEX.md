@@ -22,6 +22,8 @@
 | FD-036 | Gravity Manager - World-Rotation Approach | In Progress | Medium | High |
 | FD-037 | Infinite Scaffold Field | Design | Large | Medium |
 | FD-038 | ZeroGravityController & Controller Swapping | Design | Medium | High |
+| FD-040 | Gravity Physics Strategy for Godot 3 | In Progress | Medium | High |
+| FD-041 | PlateContentStream Stability and Inspector Authoring | Pending Verification | Small | High |
 
 ## Completed
 
