@@ -1,13 +1,19 @@
 # FD-038: ZeroGravityController & Controller Swapping
 
-**Status:** Design
-**Priority:** High
+**Status:** Design / Prototype
+**Priority:** Medium
 **Effort:** Medium
 **Created:** 2026-05-17
 **Depends on:** InputDataV2, InputProviderV2, replay_sync group, snapshot system
 **Supersedes:** player/PlayerControllerV2.gd (no lo reemplaza — conviven)
 
 **Engineering contract:** `docs/engineering/Gravity_Physics_Contracts.md`
+
+## Product Decision 2026-05-23
+
+0G should be prototyped. If it is fun, include it in Acto I; if not, keep it for
+a later section. This means FD-038 is no longer a guaranteed early Acto I
+dependency, but it deserves a focused playable spike.
 
 ## Problem
 
@@ -95,16 +101,19 @@ Las zonas de gravedad cero o casi cero deben entrar por:
 
 E es `interact` actualmente. En 0G la prioridad cambia.
 
-## Files to Create
+## Existing Files
 
 - `core_v2/player/ZeroGravityController.gd`
 - `core_v2/player/ControllerManager.gd`
+- `core_v2/props/ZeroGravityZone.gd`
+- `core_v2/props/ZeroGravityZone.tscn`
+- `core_v2/tests/TestZeroGravity.tscn`
 
 ## Files to Modify
 
-- `project.godot` — acciones rotate_left, rotate_right
-- `PlayerControllerV2.gd` — exponer transform/velocity
-- `replay_sync` — incluir controller_mode
+- `project.godot` — acciones rotate_left, rotate_right if missing
+- `PlayerControllerV2.gd` — only if transform/velocity handoff is incomplete
+- Snapshot/replay sync — ensure `controller_mode` is captured/restored
 
 ## Files NOT Modified
 
