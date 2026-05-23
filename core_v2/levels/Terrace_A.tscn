@@ -1,0 +1,137 @@
+[gd_scene load_steps=12 format=2]
+
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=2]
+[ext_resource path="res://scenes/common/space_environment/Environment_InteriorWideFog.tres" type="Environment" id=4]
+[ext_resource path="res://core_v2/props/AirlockChamber.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/props/scifi_lights/SciFiPathMarkerV2.tscn" type="PackedScene" id=6]
+[ext_resource path="res://core_v2/props/EmergencyBeaconV2.tscn" type="PackedScene" id=7]
+[ext_resource path="res://core_v2/props/Conveyor.tscn" type="PackedScene" id=8]
+[ext_resource path="res://scenes/common/GuardrailSegment.tscn" type="PackedScene" id=9]
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=10]
+[ext_resource path="res://materials/things/StainlessSteel.tres" type="Material" id=11]
+
+[sub_resource type="SpatialMaterial" id=2]
+albedo_color = Color( 0.12, 0.18, 0.22, 1 )
+roughness = 0.85
+
+[node name="Terrace_A" type="Spatial"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 4 )
+
+[node name="Pilot" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, -3 )
+
+[node name="Spawn_FromInteriorA" type="Position3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, -3 )
+script = ExtResource( 2 )
+spawn_id = "from_interior_a"
+
+[node name="Plate" type="Spatial" parent="."]
+
+[node name="Deck" type="CSGBox" parent="Plate"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.12, 0 )
+use_collision = true
+width = 20.0
+height = 0.24
+depth = 16.0
+material = ExtResource( 10 )
+
+[node name="SafetyRailLeft" type="CSGBox" parent="Plate"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0.75, 0 )
+use_collision = true
+width = 0.18
+height = 1.5
+depth = 16.0
+material = SubResource( 2 )
+
+[node name="SafetyRailRight" type="CSGBox" parent="Plate"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0.75, 0 )
+use_collision = true
+width = 0.18
+height = 1.5
+depth = 16.0
+material = SubResource( 2 )
+
+[node name="AirlockDockingPad" type="CSGBox" parent="Plate"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -6 )
+use_collision = true
+width = 5.4
+height = 0.12
+depth = 8.4
+material = ExtResource( 11 )
+
+[node name="CargoConveyor" parent="Plate" instance=ExtResource( 8 )]
+transform = Transform( 0.78, 0, 0, 0, 0.78, 0, 0, 0, 0.78, -5.4, 0.28, 4.4 )
+starts_active = false
+
+[node name="RearGuardrailWest" parent="Plate" instance=ExtResource( 9 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 8 )
+
+[node name="RearGuardrailInnerWest" parent="Plate" instance=ExtResource( 9 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 8 )
+
+[node name="RearGuardrailInnerEast" parent="Plate" instance=ExtResource( 9 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 8 )
+
+[node name="RearGuardrailEast" parent="Plate" instance=ExtResource( 9 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 8 )
+
+[node name="FrontGuardrailWest" parent="Plate" instance=ExtResource( 9 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 0, -8 )
+
+[node name="FrontGuardrailEast" parent="Plate" instance=ExtResource( 9 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, -8 )
+
+[node name="TerraceAirlock" parent="." instance=ExtResource( 5 )]
+transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 1.15, -6 )
+
+[node name="AirlockZoneV2" parent="TerraceAirlock" index="6"]
+target_scene = "res://core_v2/levels/Interior_A.tscn"
+target_spawn_id = "from_terrace_a"
+airlock_controller_path = NodePath("..")
+target_airlock_path = NodePath("Airlock")
+zone_dir = Vector3( 0, 0, 1 )
+
+[node name="TerraceLabel" type="Label3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.866025, -0.5, 0, 0.5, 0.866025, 0, 2.2, -3 )
+modulate = Color( 0, 0.65, 1, 1 )
+text = "TERRACE A"
+
+[node name="AirlockPathMarker" parent="." instance=ExtResource( 6 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.3, 0.03, -5.8 )
+marker_color = Color( 0.25, 0.9, 0.35, 1 )
+light_energy_max = 1.2
+
+[node name="AirlockMarkerLabel" type="Label3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.866025, -0.5, 0, 0.5, 0.866025, 2.35, 1.45, -6.4 )
+modulate = Color( 0.25, 0.9, 0.35, 1 )
+text = "AIRLOCK-01"
+
+[node name="SpawnPathMarker" parent="." instance=ExtResource( 6 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.35, 0.03, -5.1 )
+marker_color = Color( 0.3, 0.7, 1, 1 )
+light_energy_max = 1.0
+
+[node name="SpawnMarkerLabel" type="Label3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.866025, -0.5, 0, 0.5, 0.866025, -1.45, 1.25, -5.25 )
+modulate = Color( 0.3, 0.7, 1, 1 )
+text = "T-01"
+
+[node name="ExteriorBeaconWest" parent="." instance=ExtResource( 7 )]
+transform = Transform( 0.85, 0, 0, 0, 0.85, 0, 0, 0, 0.85, -8.7, 0.04, 7.1 )
+sound_enabled = false
+
+[node name="ExteriorBeaconEast" parent="." instance=ExtResource( 7 )]
+transform = Transform( 0.85, 0, 0, 0, 0.85, 0, 0, 0, 0.85, 8.7, 0.04, 7.1 )
+sound_enabled = false
+
+[node name="KeyLight" type="DirectionalLight" parent="."]
+transform = Transform( 0.707107, -0.353553, 0.612372, 0, 0.866025, 0.5, -0.707107, -0.353553, 0.612372, 0, 4, 0 )
+light_color = Color( 0.55, 0.72, 1, 1 )
+light_energy = 0.8
+shadow_enabled = true
+
+[editable path="TerraceAirlock"]
+[editable path="TerraceAirlock/AirlockZoneV2"]

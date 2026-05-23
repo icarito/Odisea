@@ -62,7 +62,10 @@ func goto_scene(path: String, params: Dictionary = {}):
 	_is_transitioning = true
 	_transition_started_ms = OS.get_ticks_msec()
 	_next_scene_path = target_path
-	_transition_params = params.duplicate(true)
+	var supplied_preloaded_scene = params.get("_preloaded_scene", null)
+	var sanitized_params = params.duplicate(false)
+	sanitized_params.erase("_preloaded_scene")
+	_transition_params = sanitized_params.duplicate(true)
 	_loaded_scene = null
 	_load_error = ""
 	_loader = null
@@ -92,9 +95,13 @@ func goto_scene(path: String, params: Dictionary = {}):
 				"show_loading": show_loading
 			})
 
-	_start_loader(_next_scene_path)
-	while _is_loading:
-		yield(get_tree(), "idle_frame")
+	if supplied_preloaded_scene and supplied_preloaded_scene is PackedScene:
+		_loaded_scene = supplied_preloaded_scene
+		_emit_progress(1.0)
+	else:
+		_start_loader(_next_scene_path)
+		while _is_loading:
+			yield(get_tree(), "idle_frame")
 
 	if _last_transition_abort_reason != "":
 		return false
@@ -221,6 +228,8 @@ func _apply_spawn_and_state(scene_root: Node):
 	if bool(_transition_params.get("preserve_player_state", true)) and _captured_player_state.size() > 0 and not state_data.has("player_snapshot"):
 		state_data["player_snapshot"] = _captured_player_state.duplicate(true)
 
+	_apply_transition_world_state(state_data)
+
 	var target_spawn_id := String(_transition_params.get("target_spawn_id", _transition_params.get("spawn_id", ""))).strip_edges()
 	if session and session.has_method("apply_scene_transition_state"):
 		# Do not block the transition flow on physics waits from SessionManager.
@@ -232,10 +241,33 @@ func _apply_spawn_and_state(scene_root: Node):
 	var player = _find_player_in_scene(scene_root)
 	if is_instance_valid(player) and state_data.has("player_snapshot") and typeof(state_data["player_snapshot"]) == TYPE_DICTIONARY and player.has_method("restore_snapshot"):
 		player.restore_snapshot(state_data["player_snapshot"])
-	if is_instance_valid(player) and is_instance_valid(spawn_node):
+	elif is_instance_valid(player) and state_data.has("controller_mode"):
+		var controller_manager = player.get_node_or_null("ControllerManager")
+		if controller_manager and controller_manager.has_method("switch_to"):
+			controller_manager.switch_to(int(state_data["controller_mode"]))
+
+	var target_airlock = _find_transition_airlock(scene_root, state_data)
+	var used_airlock_frame := false
+	if is_instance_valid(player) and is_instance_valid(target_airlock) and typeof(state_data.get("airlock_relative_transform", null)) == TYPE_TRANSFORM:
+		var relative_transform: Transform = state_data["airlock_relative_transform"]
+		_move_player_to_transform(player, target_airlock.global_transform * relative_transform)
+		_apply_airlock_relative_velocity(player, target_airlock, state_data)
+		_open_transition_airlock_exit(target_airlock, state_data)
+		used_airlock_frame = true
+
+	if not used_airlock_frame and is_instance_valid(player) and is_instance_valid(spawn_node):
 		_move_player_to_transform(player, spawn_node.global_transform)
 	if session and is_instance_valid(player):
 		session.player = player
+
+func _apply_transition_world_state(state_data: Dictionary) -> void:
+	var gravity_world = get_node_or_null("/root/GravityWorld")
+	if gravity_world == null:
+		return
+	if state_data.has("gravity_world_snapshot") and typeof(state_data["gravity_world_snapshot"]) == TYPE_DICTIONARY and gravity_world.has_method("restore_snapshot"):
+		gravity_world.restore_snapshot(state_data["gravity_world_snapshot"])
+	elif state_data.has("gravity_mode") and gravity_world.has_method("set_gravity_mode"):
+		gravity_world.set_gravity_mode(int(state_data["gravity_mode"]))
 
 func _find_spawn_point(scene_root: Node, spawn_id: String) -> SpawnPointV2:
 	if not is_instance_valid(scene_root):
@@ -259,6 +291,41 @@ func _find_spawn_point(scene_root: Node, spawn_id: String) -> SpawnPointV2:
 	if spawn_id == "":
 		return fallback
 	return null
+
+func _find_transition_airlock(scene_root: Node, state_data: Dictionary) -> Spatial:
+	if not is_instance_valid(scene_root) or typeof(state_data) != TYPE_DICTIONARY:
+		return null
+	var target_path := String(state_data.get("target_airlock_path", "")).strip_edges()
+	if target_path != "":
+		var by_path = scene_root.get_node_or_null(NodePath(target_path))
+		if is_instance_valid(by_path) and by_path is Spatial:
+			return by_path
+		var by_name = scene_root.find_node(target_path, true, false)
+		if is_instance_valid(by_name) and by_name is Spatial:
+			return by_name
+	var fallback = scene_root.find_node("*Airlock*", true, false)
+	if is_instance_valid(fallback) and fallback is Spatial:
+		return fallback
+	return null
+
+func _apply_airlock_relative_velocity(player: Node, target_airlock: Spatial, state_data: Dictionary) -> void:
+	if not is_instance_valid(player):
+		return
+	if not ("velocity" in player):
+		return
+	if typeof(state_data.get("airlock_relative_velocity", null)) != TYPE_VECTOR3:
+		return
+	var local_velocity: Vector3 = state_data["airlock_relative_velocity"]
+	player.velocity = target_airlock.global_transform.basis.xform(local_velocity)
+
+func _open_transition_airlock_exit(target_airlock: Spatial, state_data: Dictionary) -> void:
+	if not is_instance_valid(target_airlock):
+		return
+	var exit_door := String(state_data.get("target_airlock_exit_door", "outer")).strip_edges().to_lower()
+	if exit_door == "" or exit_door == "none":
+		return
+	if target_airlock.has_method("open_exit_door"):
+		target_airlock.open_exit_door(exit_door, false)
 
 func _find_player_in_scene(scene_root: Node) -> Node:
 	if not is_instance_valid(scene_root):
@@ -308,15 +375,24 @@ func _disable_input_for_transition() -> void:
 		"is_replay_mode": false
 	}
 
+	if _transition_params.has("input_restore_state") and typeof(_transition_params["input_restore_state"]) == TYPE_DICTIONARY:
+		var supplied_state: Dictionary = _transition_params["input_restore_state"]
+		_input_restore_state["valid"] = bool(supplied_state.get("valid", false))
+		_input_restore_state["hardware_input_enabled"] = bool(supplied_state.get("hardware_input_enabled", true))
+		_input_restore_state["is_replay_mode"] = bool(supplied_state.get("is_replay_mode", false))
+
 	var player = _find_current_player()
 	if not is_instance_valid(player):
 		return
 
-	_input_restore_state["valid"] = true
-	if "is_replay_mode" in player:
-		_input_restore_state["is_replay_mode"] = bool(player.is_replay_mode)
+	if not bool(_input_restore_state.get("valid", false)):
+		_input_restore_state["valid"] = true
+		if "is_replay_mode" in player:
+			_input_restore_state["is_replay_mode"] = bool(player.is_replay_mode)
+		if "input_provider" in player and is_instance_valid(player.input_provider):
+			_input_restore_state["hardware_input_enabled"] = bool(player.input_provider.hardware_input_enabled)
+
 	if "input_provider" in player and is_instance_valid(player.input_provider):
-		_input_restore_state["hardware_input_enabled"] = bool(player.input_provider.hardware_input_enabled)
 		player.input_provider.hardware_input_enabled = false
 
 func _restore_input_after_transition() -> void:

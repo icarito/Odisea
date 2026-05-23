@@ -50,7 +50,7 @@ export(float) var cinematic_zoom_speed := 1.0
 export(float) var cinematic_zoom_lerp_speed := 8.0
 export(float) var cinematic_zoom_min_fov := 20.0
 export(float) var cinematic_zoom_max_fov := 110.0
-export(int, LAYERS_3D_PHYSICS) var camera_collision_mask := 1 # Entorno only (pisos/paredes del nivel)
+export(int, LAYERS_3D_PHYSICS) var camera_collision_mask := 129 # Entorno + CameraCollision
 # Stair-stepping Configuration
 export(float) var step_height := 0.5
 export(float) var step_depth := 0.6

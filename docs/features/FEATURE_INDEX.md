@@ -60,7 +60,7 @@ Usar tres capas separadas:
 
 | FD | Title | Status | Effort | Priority | PM Note |
 |----|-------|--------|--------|----------|---------|
-| FD-021 | Scene Transition System | Design | Medium | P0 | Convertir en contrato real: `TransitionPortal`, destino, spawn anchor, preload vecino, fallback con mascara corta. |
+| FD-021 | Scene Transition System | Implemented / Vertical | Medium | P0 | `TransitionPortal` usa `SceneManager`, airlock/fade/instant, spawn anchor, snapshot e input lock. |
 | FD-040 | PlateContentStream Stability and Inspector Authoring | Verified / In Progress | Small | P0 | Terminar authoring para que una plate pueda contener una sub-escena jugable sin tocar `WorldRotator`. |
 | FD-026 | Goal Beacon | Planned | Small | P0 | Sin objetivo no hay loop de nivel testeable. |
 | FD-025 | Tube / Airlock Connector Kit | Planned | Small | P0 | Kit de airlock/conector para transiciones y rutas de plataformas. |

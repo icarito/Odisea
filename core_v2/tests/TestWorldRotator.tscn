@@ -15,6 +15,7 @@ selected_plate = 12
 plate_content_scene = ExtResource( 5 )
 
 [node name="WorldRotator" parent="." instance=ExtResource( 1 )]
+visible = false
 rotation_frozen = false
 spiral_blend = 1.0
 auto_select_first_platform = false

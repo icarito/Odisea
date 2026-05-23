@@ -3211,13 +3211,32 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 		var snapshot = state_data["player_snapshot"]
 		if typeof(snapshot) == TYPE_DICTIONARY and player.has_method("restore_snapshot"):
 			player.restore_snapshot(snapshot)
+	elif typeof(state_data) == TYPE_DICTIONARY and state_data.has("controller_mode"):
+		var controller_manager = player.get_node_or_null("ControllerManager")
+		if controller_manager and controller_manager.has_method("switch_to"):
+			controller_manager.switch_to(int(state_data["controller_mode"]))
+
+	var target_airlock = _find_transition_airlock(state_data)
+	var used_airlock_frame := false
+	if is_instance_valid(target_airlock) and typeof(state_data.get("airlock_relative_transform", null)) == TYPE_TRANSFORM:
+		var relative_transform: Transform = state_data["airlock_relative_transform"]
+		var target_transform: Transform = target_airlock.global_transform * relative_transform
+		if player.has_method("teleport_to"):
+			player.teleport_to(target_transform)
+		else:
+			player.global_transform = target_transform
+		_apply_airlock_relative_velocity(target_airlock, state_data)
+		used_airlock_frame = true
 
 	var spawn = _find_scene_spawn_point(target_spawn_id)
-	if spawn and is_instance_valid(spawn):
+	if not used_airlock_frame and spawn and is_instance_valid(spawn):
 		if player.has_method("teleport_to"):
 			player.teleport_to(spawn.global_transform)
 		else:
 			player.global_transform = spawn.global_transform
+
+	if used_airlock_frame:
+		_open_transition_airlock_exit(target_airlock, state_data)
 
 	var teleport_system = get_node_or_null("TeleportSystem")
 	if teleport_system and teleport_system.has_method("force_initial_spawn"):
@@ -3227,6 +3246,46 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 
 	yield (get_tree(), "physics_frame")
 	return player
+
+func _find_transition_airlock(state_data: Dictionary) -> Spatial:
+	if typeof(state_data) != TYPE_DICTIONARY:
+		return null
+	var scene = get_tree().current_scene
+	if not is_instance_valid(scene):
+		return null
+
+	var target_path := String(state_data.get("target_airlock_path", "")).strip_edges()
+	if target_path != "":
+		var by_path = scene.get_node_or_null(NodePath(target_path))
+		if is_instance_valid(by_path) and by_path is Spatial:
+			return by_path
+		var by_name = scene.find_node(target_path, true, false)
+		if is_instance_valid(by_name) and by_name is Spatial:
+			return by_name
+
+	var fallback = scene.find_node("*Airlock*", true, false)
+	if is_instance_valid(fallback) and fallback is Spatial:
+		return fallback
+	return null
+
+func _apply_airlock_relative_velocity(target_airlock: Spatial, state_data: Dictionary) -> void:
+	if not is_instance_valid(player):
+		return
+	if not ("velocity" in player):
+		return
+	if typeof(state_data.get("airlock_relative_velocity", null)) != TYPE_VECTOR3:
+		return
+	var local_velocity: Vector3 = state_data["airlock_relative_velocity"]
+	player.velocity = target_airlock.global_transform.basis.xform(local_velocity)
+
+func _open_transition_airlock_exit(target_airlock: Spatial, state_data: Dictionary) -> void:
+	if not is_instance_valid(target_airlock):
+		return
+	var exit_door := String(state_data.get("target_airlock_exit_door", "outer")).strip_edges().to_lower()
+	if exit_door == "" or exit_door == "none":
+		return
+	if target_airlock.has_method("open_exit_door"):
+		target_airlock.open_exit_door(exit_door, false)
 
 func _find_scene_spawn_point(spawn_id: String = "") -> SpawnPointV2:
 	var scene = get_tree().current_scene

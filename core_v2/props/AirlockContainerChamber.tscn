@@ -1,0 +1,73 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://core_v2/components/AirlockControllerV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/IrisDoorV2.tscn" type="PackedScene" id=2]
+
+[sub_resource type="SpatialMaterial" id=1]
+albedo_color = Color( 0.24, 0.28, 0.3, 1 )
+metallic = 0.25
+roughness = 0.5
+
+[sub_resource type="SpatialMaterial" id=2]
+albedo_color = Color( 0.08, 0.1, 0.11, 1 )
+roughness = 0.65
+
+[sub_resource type="SpatialMaterial" id=3]
+flags_unshaded = true
+albedo_color = Color( 0.0, 0.65, 1, 0.22 )
+
+[sub_resource type="BoxShape" id=4]
+extents = Vector3( 1.9, 1.6, 2.0 )
+
+[node name="AirlockContainerChamber" type="Spatial"]
+script = ExtResource( 1 )
+outer_door_path = NodePath("OuterDoor")
+inner_door_path = NodePath("InnerDoor")
+chamber_zone_path = NodePath("ChamberZone")
+pressurize_time = 1.0
+reset_time = 1.5
+
+[node name="ContainerShell" type="CSGCombiner" parent="."]
+use_collision = true
+
+[node name="OuterBox" type="CSGBox" parent="ContainerShell"]
+width = 4.8
+height = 3.4
+depth = 4.8
+material = SubResource( 1 )
+
+[node name="InnerVoid" type="CSGBox" parent="ContainerShell"]
+operation = 2
+width = 3.6
+height = 2.6
+depth = 5.2
+material = SubResource( 1 )
+
+[node name="FloorPad" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.18, 0 )
+use_collision = true
+width = 3.5
+height = 0.2
+depth = 4.2
+material = SubResource( 2 )
+
+[node name="LightStrip" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.35, 0 )
+width = 2.4
+height = 0.08
+depth = 4.1
+material = SubResource( 3 )
+
+[node name="OuterDoor" parent="." instance=ExtResource( 2 )]
+transform = Transform( 0.62, 0, 0, 0, 0.62, 0, 0, 0, 0.62, 0, 0, 2.45 )
+
+[node name="InnerDoor" parent="." instance=ExtResource( 2 )]
+transform = Transform( -0.62, -5.42021e-08, 0, 5.42021e-08, -0.62, 0, 0, 0, 0.62, 0, 0, -2.45 )
+
+[node name="ChamberZone" type="Area" parent="."]
+visible = false
+collision_layer = 0
+collision_mask = 2147483647
+
+[node name="CollisionShape" type="CollisionShape" parent="ChamberZone"]
+shape = SubResource( 4 )

@@ -7,6 +7,10 @@ tool
 
 enum State {IDLE, ENTRY_OPEN, PRESSURIZING, EXIT_OPEN}
 
+signal airlock_cycle_started()
+signal airlock_ready()
+signal airlock_cycle_completed()
+
 # --- EXPORTS ---
 export(NodePath) var outer_door_path
 export(NodePath) var inner_door_path
@@ -26,11 +30,15 @@ var _chamber_zone: Area = null
 func _ready():
 	add_to_group("replay_sync")
 
-	if outer_door_path: _outer_door = get_node(outer_door_path)
-	if inner_door_path: _inner_door = get_node(inner_door_path)
+	if outer_door_path:
+		_outer_door = get_node_or_null(outer_door_path)
+	if inner_door_path:
+		_inner_door = get_node_or_null(inner_door_path)
 
 	if chamber_zone_path:
-		var node = get_node(chamber_zone_path)
+		var node = get_node_or_null(chamber_zone_path)
+		if node == null:
+			return
 		if node is Area:
 			_chamber_zone = node
 		elif node.has_node("Area"):
@@ -53,9 +61,49 @@ func interact():
 	# Reset state to IDLE to ensure interaction works (handles stale replay state)
 	if state != State.IDLE:
 		state = State.IDLE
-		if _outer_door and _outer_door.has_method("set_active"):
-			_outer_door.set_active(false, true)  # Immediate reset to closed
+		_set_door_active(_outer_door, false, true)
 	interact_outer()
+
+func start_cycle(cycling_in: bool = true) -> bool:
+	if Engine.editor_hint:
+		return false
+	if state != State.IDLE:
+		return false
+
+	_is_cycling_in = cycling_in
+	state = State.PRESSURIZING
+	timer = max(pressurize_time, 0.0)
+	_set_door_active(_outer_door, false)
+	_set_door_active(_inner_door, false)
+	emit_signal("airlock_cycle_started")
+
+	if timer <= 0.0:
+		_finish_pressurization()
+	return true
+
+func is_airlock_ready() -> bool:
+	return state == State.EXIT_OPEN
+
+func open_exit_door(door_name: String = "outer", immediate: bool = false) -> bool:
+	var normalized := door_name.strip_edges().to_lower()
+	if normalized == "none":
+		return false
+
+	var door = _outer_door
+	var other_door = _inner_door
+	_is_cycling_in = false
+	if normalized == "inner":
+		door = _inner_door
+		other_door = _outer_door
+		_is_cycling_in = true
+
+	state = State.EXIT_OPEN
+	timer = max(reset_time, 0.0)
+	_set_door_active(other_door, false, immediate)
+	var opened := _set_door_active(door, true, immediate)
+	if opened:
+		emit_signal("airlock_ready")
+	return opened
 
 func interact_outer():
 	print("[AirlockControllerV2] interact_outer() called, state=", state)
@@ -72,13 +120,11 @@ func _start_entry():
 	print("[AirlockControllerV2] _start_entry() called, _outer_door=", _outer_door)
 	state = State.ENTRY_OPEN
 	if _is_cycling_in:
-		if _outer_door and _outer_door.has_method("set_active"):
-			print("[AirlockControllerV2] Calling _outer_door.set_active(true)")
-			_outer_door.set_active(true)
+		print("[AirlockControllerV2] Opening outer door")
+		_set_door_active(_outer_door, true)
 	else:
-		if _inner_door and _inner_door.has_method("set_active"):
-			print("[AirlockControllerV2] Calling _inner_door.set_active(true)")
-			_inner_door.set_active(true)
+		print("[AirlockControllerV2] Opening inner door")
+		_set_door_active(_inner_door, true)
 
 func _on_body_entered(body):
 	if Engine.editor_hint: return
@@ -90,11 +136,9 @@ func _on_body_entered(body):
 
 		# Close entry door
 		if _is_cycling_in:
-			if _outer_door and _outer_door.has_method("set_active"):
-				_outer_door.set_active(false)
+			_set_door_active(_outer_door, false)
 		else:
-			if _inner_door and _inner_door.has_method("set_active"):
-				_inner_door.set_active(false)
+			_set_door_active(_inner_door, false)
 
 # --- DETERMINISTIC STEP ---
 
@@ -104,15 +148,7 @@ func step(dt: float):
 	if state == State.PRESSURIZING:
 		timer -= dt
 		if timer <= 0:
-			state = State.EXIT_OPEN
-			timer = reset_time
-			# Open exit door
-			if _is_cycling_in:
-				if _inner_door and _inner_door.has_method("set_active"):
-					_inner_door.set_active(true)
-			else:
-				if _outer_door and _outer_door.has_method("set_active"):
-					_outer_door.set_active(true)
+			_finish_pressurization()
 
 	elif state == State.EXIT_OPEN:
 		timer -= dt
@@ -120,11 +156,42 @@ func step(dt: float):
 			state = State.IDLE
 			# Close exit door (auto reset)
 			if _is_cycling_in:
-				if _inner_door and _inner_door.has_method("set_active"):
-					_inner_door.set_active(false)
+				_set_door_active(_inner_door, false)
 			else:
-				if _outer_door and _outer_door.has_method("set_active"):
-					_outer_door.set_active(false)
+				_set_door_active(_outer_door, false)
+			emit_signal("airlock_cycle_completed")
+
+func _finish_pressurization() -> void:
+	state = State.EXIT_OPEN
+	timer = max(reset_time, 0.0)
+	if _is_cycling_in:
+		_set_door_active(_inner_door, true)
+	else:
+		_set_door_active(_outer_door, true)
+	emit_signal("airlock_ready")
+	if timer <= 0.0:
+		state = State.IDLE
+		_set_door_active(_outer_door, false)
+		_set_door_active(_inner_door, false)
+		emit_signal("airlock_cycle_completed")
+
+func _set_door_active(door: Node, value: bool, immediate: bool = false) -> bool:
+	if not is_instance_valid(door):
+		return false
+	if door.has_method("set_active"):
+		door.call("set_active", value, immediate)
+		return true
+	var pending: Array = [door]
+	while not pending.empty():
+		var node = pending.pop_front()
+		if not is_instance_valid(node):
+			continue
+		if node != door and node.has_method("set_active"):
+			node.call("set_active", value, immediate)
+			return true
+		for child in node.get_children():
+			pending.push_back(child)
+	return false
 
 func _physics_process(delta):
 	step(delta)
