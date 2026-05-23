@@ -111,12 +111,12 @@ func _get_generated_collision_bodies() -> Array:
 # ── Ciclo de vida ────────────────────────────────────────────────────────────
 
 func _ready() -> void:
-	# Reset to identity so editor-saved runtime transforms don't corrupt canonical calculations.
-	global_transform = Transform.IDENTITY
 	if Engine.editor_hint:
 		set_physics_process(false)
 		set_process(false)
 		return
+	# Reset to identity so editor-saved runtime transforms don't corrupt canonical calculations.
+	global_transform = Transform.IDENTITY
 	# Also reset PhysicalTerrace if configured — it may have been dirtied by the editor too.
 	var pt: Spatial = _resolve_physical_terrace_target()
 	if pt:

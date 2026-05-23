@@ -599,6 +599,7 @@ scene_anchor_reference_path = NodePath("Terrace")
 scene_anchor_use_selected_plate_on_ready = true
 collision_pool_size = 16
 collision_pool_xz_scale = 1.0
+centrifugal_current_plate_only_physics = false
 
 [node name="Terrace" type="CSGBox" parent="WorldRotator"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )

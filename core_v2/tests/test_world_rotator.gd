@@ -496,6 +496,7 @@ func test_baseterrace_world_rotator_uses_pilot_and_centrifugal_terrace_anchor() 
 	assert_float(rotator.scene_anchor_offset.y).is_equal_approx(0.0, 0.001)
 	assert_float(rotator.spiral_blend).is_equal_approx(1.0, 0.001)
 	assert_int(rotator.collision_pool_size).is_equal(16)
+	assert_bool(rotator.centrifugal_current_plate_only_physics).is_false()
 	assert_int(rotator.get_selected_spiral_index()).is_greater_equal(0)
 	assert_int(rotator.get_selected_plate_index()).is_greater_equal(0)
 
