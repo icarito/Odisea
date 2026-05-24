@@ -275,21 +275,21 @@ func _apply_transition_world_state(state_data: Dictionary) -> void:
 	elif state_data.has("gravity_mode") and gravity_world.has_method("set_gravity_mode"):
 		gravity_world.set_gravity_mode(int(state_data["gravity_mode"]))
 
-func _find_spawn_point(scene_root: Node, spawn_id: String) -> SpawnPointV2:
+func _find_spawn_point(scene_root: Node, spawn_id: String) -> Position3D:
 	if not is_instance_valid(scene_root):
 		return null
 
-	var fallback: SpawnPointV2 = null
+	var fallback: Position3D = null
 	var pending: Array = [scene_root]
 	while not pending.empty():
 		var node = pending.pop_front()
 		if not is_instance_valid(node):
 			continue
-		if node is SpawnPointV2:
-			var spawn_node := node as SpawnPointV2
+		if node is Position3D and "spawn_id" in node:
+			var spawn_node := node as Position3D
 			if fallback == null:
 				fallback = spawn_node
-			if spawn_id == "" or String(spawn_node.spawn_id) == spawn_id:
+			if spawn_id == "" or String(node.get("spawn_id")) == spawn_id:
 				return spawn_node
 		for child in node.get_children():
 			pending.push_back(child)

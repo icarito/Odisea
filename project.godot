@@ -1499,6 +1499,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/virtualcamera/TransformModifiers/SnapToPath.gd"
 }, {
+"base": "Position3D",
+"class": "SpawnPointV2",
+"language": "GDScript",
+"path": "res://core_v2/components/SpawnPointV2.gd"
+}, {
 "base": "Fuzzer",
 "class": "StringFuzzer",
 "language": "GDScript",
@@ -1988,6 +1993,7 @@ _global_script_class_icons={
 "SlidingObjectV2": "",
 "SlimeLayer": "",
 "SnapToPath": "",
+"SpawnPointV2": "",
 "StringFuzzer": "",
 "TeleportSystem": "",
 "TerminalCameraRig": "",

@@ -3350,22 +3350,22 @@ func _open_transition_airlock_exit(target_airlock: Spatial, state_data: Dictiona
 	if target_airlock.has_method("open_exit_door"):
 		target_airlock.open_exit_door(exit_door, false)
 
-func _find_scene_spawn_point(spawn_id: String = "") -> SpawnPointV2:
+func _find_scene_spawn_point(spawn_id: String = "") -> Position3D:
 	var scene = get_tree().current_scene
 	if not is_instance_valid(scene):
 		return null
 
-	var fallback: SpawnPointV2 = null
+	var fallback: Position3D = null
 	var pending: Array = [scene]
 	while not pending.empty():
 		var node = pending.pop_front()
 		if not is_instance_valid(node):
 			continue
-		if node is SpawnPointV2:
-			var sp := node as SpawnPointV2
+		if node is Position3D and "spawn_id" in node:
+			var sp := node as Position3D
 			if fallback == null:
 				fallback = sp
-			if spawn_id == "" or String(sp.spawn_id) == spawn_id:
+			if spawn_id == "" or String(node.get("spawn_id")) == spawn_id:
 				return sp
 		for child in node.get_children():
 			pending.push_back(child)
