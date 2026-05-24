@@ -188,7 +188,7 @@ func _trigger_transition(player: Node) -> bool:
 		"state_data": _build_state_data(player)
 	}
 
-	if _preloaded_scene != null:
+	if _preloaded_scene != null and resolved_target_scene == target_scene:
 		params["_preloaded_scene"] = _preloaded_scene
 
 	scene_manager.goto_scene(resolved_target_scene, params)

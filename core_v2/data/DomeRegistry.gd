@@ -18,7 +18,7 @@ const DEFAULT_FACADE_LOD_SCALE := Vector3(1.01, 1.01, 1.01)
 # - facade_lod_scale: escala adicional para el LOD extraido.
 var _registry := {
 	"dome_01": {
-		"interior_scene": "res://core_v2/levels/interiors/Dome_01.tscn",
+		"interior_scene": "res://core_v2/levels/interiors/Dome_Crio.tscn",
 		"facade_scene": "res://core_v2/levels/facades/DomeFacade_01.tscn",
 		"facade_lod_scene": "res://models/lod/DomeFacade_01_LOD.glb",
 		"facade_lod_mesh_node": "DomeLOD",
