@@ -74,13 +74,6 @@ r_min = 300.0
 r_max = 300.0
 interlock_angle = 14.0
 
-[node name="DirectionalLight" type="DirectionalLight" parent="."]
-transform = Transform( -1, -8.74228e-08, 4.37114e-08, 4.37114e-08, 1.91069e-15, 1, -8.74228e-08, 1, 1.91068e-15, -116.659, 182.432, 180.132 )
-light_energy = 0.892
-shadow_enabled = true
-directional_shadow_blend_splits = true
-directional_shadow_max_distance = 4000.0
-
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 2 )
 

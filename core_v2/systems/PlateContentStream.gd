@@ -25,7 +25,12 @@ var _assignment_indices := {}   # key -> {spiral_idx, plate_idx}
 var _slots: Array = []          # Array[Spatial]
 var _slot_assignments: Array = [] # Array[Dictionary]
 var _slot_scenes: Array = []    # Array[PackedScene]
+var _slot_physics_enabled: Array = [] # Array[bool] — estado cacheado por slot
 var _slot_update_counter := 0
+var _bulk_assignment_depth := 0
+var _bulk_assignment_dirty := false
+var _last_selected_spiral_idx: int = -2  # -2 = no inicializado
+var _last_selected_plate_idx: int = -2
 
 func _ready() -> void:
 	_build_slot_pool()
@@ -41,6 +46,14 @@ func _physics_process(delta: float) -> void:
 		_rotator = _resolve_rotator()
 	if _rotator == null:
 		return
+
+	# Refresco inmediato si cambió la placa seleccionada (evita delay al saltar entre terrazas)
+	var cur_spiral: int = int(_rotator.get_selected_spiral_index()) if _rotator.has_method("get_selected_spiral_index") else -1
+	var cur_plate: int = int(_rotator.get_selected_plate_index()) if _rotator.has_method("get_selected_plate_index") else -1
+	if cur_spiral != _last_selected_spiral_idx or cur_plate != _last_selected_plate_idx:
+		_last_selected_spiral_idx = cur_spiral
+		_last_selected_plate_idx = cur_plate
+		_slot_update_counter = 0  # forzar refresh inmediato este frame
 
 	if _slot_update_counter <= 0:
 		_refresh_active_slots()
@@ -59,6 +72,7 @@ func assign_scene(spiral_idx: int, plate_idx: int, packed: PackedScene, spawn_of
 		_assignments.erase(key)
 		_assignment_indices.erase(key)
 		_deactivate_slot_for_key(key)
+		_mark_assignments_dirty()
 		return
 
 	_assignments[key] = packed
@@ -68,10 +82,18 @@ func assign_scene(spiral_idx: int, plate_idx: int, packed: PackedScene, spawn_of
 		"spawn_offset": spawn_offset,
 		"context": context.duplicate(true)
 	}
-	if is_inside_tree():
-		_refresh_active_slots()
-		_sync_slot_transforms(0.0)
-		_sync_physics_activation_for_slots()
+	_mark_assignments_dirty()
+
+func begin_bulk_assignments() -> void:
+	_bulk_assignment_depth += 1
+
+func end_bulk_assignments() -> void:
+	if _bulk_assignment_depth <= 0:
+		_flush_assignment_changes_if_needed()
+		return
+	_bulk_assignment_depth -= 1
+	if _bulk_assignment_depth == 0:
+		_flush_assignment_changes_if_needed()
 
 func clear_assignments() -> void:
 	_assignments.clear()
@@ -118,6 +140,10 @@ func _sync_physics_activation_for_slots() -> void:
 			continue
 		var assignment: Dictionary = _slot_assignments[i]
 		var active: bool = not should_gate or _assignment_matches_selected_plate(assignment)
+		var cached: bool = _slot_physics_enabled[i] if i < _slot_physics_enabled.size() else not active
+		if active == cached:
+			continue
+		_slot_physics_enabled[i] = active
 		_set_subtree_physics_enabled(slot, active)
 
 func _should_gate_physics_to_selected_plate() -> bool:
@@ -230,6 +256,7 @@ func _refresh_active_slots() -> void:
 	_ensure_slot_pool()
 	if _rotator == null or not is_instance_valid(_rotator):
 		return
+	_bulk_assignment_dirty = false
 
 	var candidates: Array = _collect_candidates()
 	candidates.sort_custom(self, "_sort_by_distance")
@@ -260,6 +287,19 @@ func _refresh_active_slots() -> void:
 			break
 		_activate_slot(free_slot, candidate)
 		assigned_keys[key] = true
+	_sync_physics_activation_for_slots()
+
+func _mark_assignments_dirty() -> void:
+	_bulk_assignment_dirty = true
+	if _bulk_assignment_depth > 0:
+		return
+	_flush_assignment_changes_if_needed()
+
+func _flush_assignment_changes_if_needed() -> void:
+	if not is_inside_tree() or not _bulk_assignment_dirty:
+		return
+	_refresh_active_slots()
+	_sync_slot_transforms(0.0)
 	_sync_physics_activation_for_slots()
 
 func _collect_candidates() -> Array:
@@ -315,51 +355,55 @@ func _collect_auto_candidates(platforms: Array, center: Vector3, keys_seen: Dict
 	if platforms.empty() or not _rotator.has_method("get_plate_count") or not _rotator.has_method("get_plate_canonical_transform"):
 		return candidates
 
-	var base_spiral_idx: int = -1
-	var base_plate_idx: int = -1
-	if _rotator.has_method("get_selected_spiral_index") and _rotator.has_method("get_selected_plate_index"):
-		base_spiral_idx = int(_rotator.get_selected_spiral_index())
-		base_plate_idx = int(_rotator.get_selected_plate_index())
-
-	if base_spiral_idx < 0 or base_plate_idx < 0:
-		var target: Spatial = _get_tracking_target()
-		if target == null or not _rotator.has_method("find_nearest_terrace_plate"):
-			return candidates
-		var nearest: Dictionary = _rotator.find_nearest_terrace_plate(target.global_transform.origin)
-		if nearest.empty():
-			return candidates
-		base_spiral_idx = int(nearest.get("spiral_index", -1))
-		base_plate_idx = int(nearest.get("plate_index", -1))
-
-	if base_spiral_idx < 0 or base_spiral_idx >= platforms.size():
-		return candidates
-	var spiral: Spatial = platforms[base_spiral_idx]
-	if spiral == null:
-		return candidates
-	var plate_count: int = _rotator.get_plate_count(spiral)
-	if plate_count <= 0:
-		return candidates
-
-	var first_offset: int = -auto_plate_window_before
-	var last_offset: int = auto_plate_window_after
-	for offset in range(first_offset, last_offset + 1):
-		var plate_idx: int = _wrap_index(base_plate_idx + offset, plate_count)
-		var key: String = _make_key(base_spiral_idx, plate_idx)
-		if keys_seen.has(key):
+	# Incluir candidatos de TODAS las terrazas (spirals), no solo la actual.
+	# Por cada terraza encontramos la placa más cercana al jugador y cargamos la ventana alrededor.
+	for spiral_idx in range(platforms.size()):
+		var spiral: Spatial = platforms[spiral_idx]
+		if spiral == null:
 			continue
-		var canonical_tx: Transform = _rotator.get_plate_canonical_transform(spiral, plate_idx)
-		candidates.append({
-			"key": key,
-			"spiral_idx": base_spiral_idx,
-			"plate_idx": plate_idx,
-			"scene": auto_content_scene,
-			"spawn_offset": auto_content_spawn_offset,
-			"canonical_tx": canonical_tx,
-			"dist_sq": canonical_tx.origin.distance_squared_to(center)
-		})
-		keys_seen[key] = true
+		var plate_count: int = _rotator.get_plate_count(spiral)
+		if plate_count <= 0:
+			continue
+
+		# Para la terraza seleccionada usamos el índice autoritativo; para las demás, nearest por distancia
+		var base_plate_idx: int = -1
+		if _rotator.has_method("get_selected_spiral_index") and _rotator.has_method("get_selected_plate_index") \
+				and int(_rotator.get_selected_spiral_index()) == spiral_idx:
+			base_plate_idx = int(_rotator.get_selected_plate_index())
+		if base_plate_idx < 0:
+			base_plate_idx = _find_nearest_plate_in_spiral(spiral, plate_count, center)
+		if base_plate_idx < 0:
+			continue
+
+		for offset in range(-auto_plate_window_before, auto_plate_window_after + 1):
+			var plate_idx: int = _wrap_index(base_plate_idx + offset, plate_count)
+			var key: String = _make_key(spiral_idx, plate_idx)
+			if keys_seen.has(key):
+				continue
+			var canonical_tx: Transform = _rotator.get_plate_canonical_transform(spiral, plate_idx)
+			candidates.append({
+				"key": key,
+				"spiral_idx": spiral_idx,
+				"plate_idx": plate_idx,
+				"scene": auto_content_scene,
+				"spawn_offset": auto_content_spawn_offset,
+				"canonical_tx": canonical_tx,
+				"dist_sq": canonical_tx.origin.distance_squared_to(center)
+			})
+			keys_seen[key] = true
 
 	return candidates
+
+func _find_nearest_plate_in_spiral(spiral: Spatial, plate_count: int, center: Vector3) -> int:
+	var best_idx: int = 0
+	var best_dist_sq: float = INF
+	for plate_idx in range(plate_count):
+		var canonical_tx: Transform = _rotator.get_plate_canonical_transform(spiral, plate_idx)
+		var dist_sq: float = canonical_tx.origin.distance_squared_to(center)
+		if dist_sq < best_dist_sq:
+			best_dist_sq = dist_sq
+			best_idx = plate_idx
+	return best_idx
 
 func _activate_slot(index: int, candidate: Dictionary) -> void:
 	var slot: Spatial = _slots[index]
@@ -384,23 +428,44 @@ func _activate_slot(index: int, candidate: Dictionary) -> void:
 					(instance as Spatial).transform.origin = slot.global_transform.basis.xform_inv(spawn_offset)
 				_apply_instance_context(instance, context)
 				slot.add_child(instance)
+	else:
+		var existing_instance := _get_slot_root_instance(slot)
+		_apply_instance_context(existing_instance, candidate.get("context", _assignment_indices.get(key, {}).get("context", {})))
 
 	_slot_assignments[index] = {
 		"key": key,
 		"spiral_idx": int(candidate["spiral_idx"]),
 		"plate_idx": int(candidate["plate_idx"]),
-		"canonical_tx": candidate["canonical_tx"]
+		"canonical_tx": candidate["canonical_tx"],
+		"context": candidate.get("context", _assignment_indices.get(key, {}).get("context", {}))
 	}
 	_slot_scenes[index] = scene
+	if not same_key or not same_scene:
+		# Nuevo contenido: los nodos no tienen meta de gate, física habilitada por defecto
+		if index < _slot_physics_enabled.size():
+			_slot_physics_enabled[index] = true
 
 func _apply_instance_context(instance: Node, context: Dictionary) -> void:
 	if not is_instance_valid(instance) or typeof(context) != TYPE_DICTIONARY or context.empty():
+		_set_instance_stream_hidden(instance, false)
 		return
 	instance.set_meta("plate_content_context", context.duplicate(true))
 	if context.has("dome_id"):
 		instance.set_meta("dome_id", String(context.get("dome_id", "")).strip_edges())
+	_set_instance_stream_hidden(instance, bool(context.get("stream_hidden", false)))
 	if instance.has_method("apply_plate_content_context"):
 		instance.call("apply_plate_content_context", context.duplicate(true))
+
+func _set_instance_stream_hidden(instance: Node, hidden: bool) -> void:
+	if instance is Spatial:
+		(instance as Spatial).visible = not hidden
+
+func _get_slot_root_instance(slot: Spatial) -> Node:
+	if slot == null or not is_instance_valid(slot):
+		return null
+	if slot.get_child_count() <= 0:
+		return null
+	return slot.get_child(0)
 
 func _deactivate_slot_for_key(key: String) -> void:
 	var index: int = _find_slot_for_key(key)
@@ -416,6 +481,8 @@ func _deactivate_slot(index: int) -> void:
 		slot.global_transform = Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
 	_slot_assignments[index] = {}
 	_slot_scenes[index] = null
+	if index < _slot_physics_enabled.size():
+		_slot_physics_enabled[index] = true  # reset cache: prox. sync lo aplicará si corresponde
 
 func _build_slot_pool() -> void:
 	for slot in _slots:
@@ -424,6 +491,7 @@ func _build_slot_pool() -> void:
 	_slots.clear()
 	_slot_assignments.clear()
 	_slot_scenes.clear()
+	_slot_physics_enabled.clear()
 
 	for i in range(slot_pool_size):
 		var slot := Spatial.new()
@@ -433,6 +501,7 @@ func _build_slot_pool() -> void:
 		_slots.append(slot)
 		_slot_assignments.append({})
 		_slot_scenes.append(null)
+		_slot_physics_enabled.append(true)
 
 func _ensure_slot_pool() -> void:
 	if _slots.size() != slot_pool_size:

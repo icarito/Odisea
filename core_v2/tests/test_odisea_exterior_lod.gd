@@ -34,3 +34,10 @@ func test_extract_dome_lod_blueprint_collects_all_meshes_with_hierarchy() -> voi
 func test_resolve_uniform_fit_scale_for_sizes_matches_reference_bounds() -> void:
 	var exterior = auto_free(OdiseaExteriorScript.new())
 	assert_float(exterior._resolve_uniform_fit_scale_for_sizes(Vector3(125, 65, 125), Vector3(62.5, 32.5, 62.5))).is_equal_approx(0.5, 0.0001)
+
+func test_prewarm_full_detail_dome_covers_one_ring_beyond_visible_radius() -> void:
+	var exterior = auto_free(OdiseaExteriorScript.new())
+	exterior.dome_full_detail_plate_radius = 0
+	exterior.dome_full_detail_preload_extra_radius = 1
+	assert_bool(exterior._is_distance_within_full_detail_prewarm(1)).is_true()
+	assert_bool(exterior._is_distance_within_full_detail_prewarm(2)).is_false()

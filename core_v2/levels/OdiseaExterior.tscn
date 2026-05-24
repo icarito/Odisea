@@ -14,7 +14,6 @@ script = ExtResource( 3 )
 selected_spiral = 2
 selected_plate = 4
 plate_content_scene = ExtResource( 5 )
-dome_full_detail_plate_radius = 0
 
 [node name="WorldRotator" parent="." instance=ExtResource( 1 )]
 rotation_frozen = false
@@ -40,7 +39,7 @@ slot_pool_size = 8
 slot_update_interval = 1
 
 [node name="Pilot" parent="." instance=ExtResource( 2 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 3 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 3, 29 )
 mouse_sensitivity = 0.005
 invert_mouse_y = false
 joy_move_sensitivity = 1.0

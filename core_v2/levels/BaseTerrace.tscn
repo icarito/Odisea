@@ -1941,7 +1941,7 @@ fov = 100.0
 far = 8192.0
 
 [node name="PushableBoxV3" parent="WorldRotator/Terrace/Building" instance=ExtResource( 5 )]
-transform = Transform( 0.999944, -0.00742467, -0.00758043, 0.00743583, 0.999971, 0.00144538, 0.00756945, -0.00150167, 0.99997, 9.17307, 1.59003, 23.2077 )
+transform = Transform( 0.999944, -0.00742428, -0.00758034, 0.00743584, 0.999971, 0.00144535, 0.00756915, -0.00150159, 0.99997, 9.17307, 1.59001, 23.2078 )
 
 [node name="BoxMesh" type="CSGBox" parent="WorldRotator/Terrace/Building/PushableBoxV3"]
 material = ExtResource( 133 )
@@ -1976,7 +1976,7 @@ fade_in_time = 0.1
 fade_out_time = 0.5
 
 [node name="PushableBoxV5" parent="WorldRotator/Terrace/Building" instance=ExtResource( 5 )]
-transform = Transform( 0.999944, -0.00742467, -0.00758043, 0.00743583, 0.999971, 0.00144538, 0.00756945, -0.00150167, 0.99997, 12.1731, 1.58995, 23.2077 )
+transform = Transform( 0.999944, -0.00742428, -0.00758034, 0.00743584, 0.999971, 0.00144535, 0.00756915, -0.00150159, 0.99997, 12.1731, 1.58994, 23.2077 )
 
 [node name="BoxMesh" type="CSGBox" parent="WorldRotator/Terrace/Building/PushableBoxV5"]
 material = ExtResource( 133 )
@@ -2011,7 +2011,7 @@ fade_in_time = 0.1
 fade_out_time = 0.5
 
 [node name="PushableBoxV6" parent="WorldRotator/Terrace/Building" instance=ExtResource( 5 )]
-transform = Transform( 0.999944, -0.00742467, -0.00758043, 0.00743583, 0.999971, 0.00144538, 0.00756945, -0.00150167, 0.99997, 12.1731, 3.59004, 23.2077 )
+transform = Transform( 0.999944, -0.00742428, -0.00758034, 0.00743584, 0.999971, 0.00144535, 0.00756915, -0.00150159, 0.99997, 12.1731, 3.59003, 23.2077 )
 
 [node name="BoxMesh" type="CSGBox" parent="WorldRotator/Terrace/Building/PushableBoxV6"]
 material = ExtResource( 133 )
@@ -2046,7 +2046,7 @@ fade_in_time = 0.1
 fade_out_time = 0.5
 
 [node name="PushableBoxV7" parent="WorldRotator/Terrace/Building" instance=ExtResource( 5 )]
-transform = Transform( 0.999944, -0.00742467, -0.00758043, 0.00743583, 0.999971, 0.00144538, 0.00756945, -0.00150167, 0.99997, 9.17309, 3.59003, 23.2077 )
+transform = Transform( 0.999944, -0.00742428, -0.00758034, 0.00743584, 0.999971, 0.00144535, 0.00756915, -0.00150159, 0.99997, 9.17311, 3.59002, 23.2077 )
 
 [node name="BoxMesh" type="CSGBox" parent="WorldRotator/Terrace/Building/PushableBoxV7"]
 material = ExtResource( 133 )
@@ -2081,7 +2081,7 @@ fade_in_time = 0.1
 fade_out_time = 0.5
 
 [node name="PushableBoxV8" parent="WorldRotator/Terrace/Building" instance=ExtResource( 5 )]
-transform = Transform( 0.999944, -0.00742467, -0.00758043, 0.00743583, 0.999971, 0.00144538, 0.00756945, -0.00150167, 0.99997, 4.83212, 1.59003, 9.5501 )
+transform = Transform( 0.999944, -0.00742428, -0.00758034, 0.00743584, 0.999971, 0.00144535, 0.00756915, -0.00150159, 0.99997, 4.83213, 1.59002, 9.55006 )
 
 [node name="BoxMesh" type="CSGBox" parent="WorldRotator/Terrace/Building/PushableBoxV8"]
 material = ExtResource( 133 )
@@ -2116,7 +2116,7 @@ fade_in_time = 0.1
 fade_out_time = 0.5
 
 [node name="PushableBoxV9" parent="WorldRotator/Terrace/Building" instance=ExtResource( 5 )]
-transform = Transform( 0.999944, -0.00742467, -0.00758043, 0.00743583, 0.999971, 0.00144538, 0.00756945, -0.00150167, 0.99997, 4.83214, 3.59003, 9.5501 )
+transform = Transform( 0.999944, -0.00742428, -0.00758034, 0.00743584, 0.999971, 0.00144535, 0.00756915, -0.00150159, 0.99997, 4.83216, 3.59002, 9.55006 )
 
 [node name="BoxMesh" type="CSGBox" parent="WorldRotator/Terrace/Building/PushableBoxV9"]
 material = ExtResource( 133 )
@@ -2151,7 +2151,7 @@ fade_in_time = 0.1
 fade_out_time = 0.5
 
 [node name="PushableBoxV4" parent="WorldRotator/Terrace/Building" instance=ExtResource( 5 )]
-transform = Transform( 0.999944, -0.00742467, -0.00758043, 0.00743583, 0.999971, 0.00144538, 0.00756945, -0.00150167, 0.99997, 16.259, 1.58997, 23.6153 )
+transform = Transform( 0.999944, -0.00742428, -0.00758034, 0.00743584, 0.999971, 0.00144535, 0.00756915, -0.00150159, 0.99997, 16.259, 1.58996, 23.6153 )
 
 [node name="BoxMesh" type="CSGBox" parent="WorldRotator/Terrace/Building/PushableBoxV4"]
 material = ExtResource( 133 )

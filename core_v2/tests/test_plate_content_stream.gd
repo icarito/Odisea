@@ -150,6 +150,46 @@ func test_assign_scene_applies_context_metadata_to_instanced_root() -> void:
 	assert_bool(content.has_meta("dome_id")).is_true()
 	assert_str(String(content.get_meta("dome_id"))).is_equal("dome_02")
 
+func test_reassigning_same_scene_updates_visibility_without_reinstancing() -> void:
+	var setup: Dictionary = _build_stream_setup()
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+
+	var stream: Spatial = setup["stream"]
+	var packed := _make_marker_scene("HiddenContent")
+	stream.assign_scene(0, 12, packed, Vector3.ZERO, {"stream_hidden": true})
+	yield(get_tree(), "physics_frame")
+
+	var slot: Spatial = stream.get_slot(0, 12)
+	assert_object(slot).is_not_null()
+	var content_before: Spatial = slot.get_node_or_null("HiddenContent") as Spatial
+	assert_object(content_before).is_not_null()
+	assert_bool(content_before.visible).is_false()
+
+	stream.assign_scene(0, 12, packed, Vector3.ZERO, {"stream_hidden": false})
+	yield(get_tree(), "physics_frame")
+
+	var content_after: Spatial = slot.get_node_or_null("HiddenContent") as Spatial
+	assert_object(content_after).is_same(content_before)
+	assert_bool(content_after.visible).is_true()
+
+func test_bulk_assignments_delay_slot_refresh_until_flush() -> void:
+	var setup: Dictionary = _build_stream_setup()
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+
+	var stream: PlateContentStream = setup["stream"]
+	stream.begin_bulk_assignments()
+	stream.assign_scene(0, 12, _make_marker_scene("BulkContent"))
+	assert_object(stream.get_slot(0, 12)).is_null()
+
+	stream.end_bulk_assignments()
+	yield(get_tree(), "physics_frame")
+
+	var slot: Spatial = stream.get_slot(0, 12)
+	assert_object(slot).is_not_null()
+	assert_object(slot.get_node_or_null("BulkContent")).is_not_null()
+
 func test_active_slots_keep_key_binding_when_distance_order_changes() -> void:
 	var setup: Dictionary = _build_stream_setup()
 	var stream: Spatial = setup["stream"]
