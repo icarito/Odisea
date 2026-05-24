@@ -152,6 +152,8 @@ func set_dome_lod_plate_hidden(plate_index: int, hidden: bool) -> void:
 		_dome_lod_hidden_plates[plate_index] = true
 	else:
 		_dome_lod_hidden_plates.erase(plate_index)
+	# Aplicar inmediatamente: el loop de animación tiene early-exit si blend no cambia
+	_update_dome_lod_overlay_transforms()
 
 func set_dome_lod_overlays(groups: Array) -> void:
 	_ensure_dome_lod_root()

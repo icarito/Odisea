@@ -592,10 +592,8 @@ func _sync_dome_facade_cursor() -> void:
 
 	var dome_id := DomeRegistry.get_dome_id_for_plate(cur_spiral, cur_plate)
 	var info := DomeRegistry.get_dome(dome_id)
-	# Si no es un domo registrado (dome_id sintético sin facade_scene especial), aparcar
-	var is_explicit := DomeRegistry.get_all_dome_ids().has(dome_id)
-
-	var facade_path := String(info.get("facade_scene", "")).strip_edges() if is_explicit else ""
+	# Usar facade_scene del registro (get_dome ya devuelve DomeFacade_01 por defecto para domos sintéticos)
+	var facade_path := String(info.get("facade_scene", "")).strip_edges()
 
 	for path in _dome_facade_cursors.keys():
 		var cursor: Spatial = _dome_facade_cursors[path]
@@ -603,6 +601,8 @@ func _sync_dome_facade_cursor() -> void:
 			continue
 		if path != facade_path:
 			cursor.global_transform = Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
+			if cursor.has_meta("dome_id"):
+				cursor.remove_meta("dome_id")
 
 	if facade_path == "" or not _dome_facade_cursors.has(facade_path):
 		_active_dome_facade_path = ""
@@ -620,7 +620,10 @@ func _sync_dome_facade_cursor() -> void:
 	# Posicionar usando transform vivo (sigue animación de la espiral)
 	_tick_dome_facade_cursor()
 
-	# Propagar dome_id al AirlockChamber o cualquier hijo que lo acepte (solo en cambio)
+	# Fijar dome_id como meta directamente en el cursor para que AirlockZoneV2
+	# pueda encontrarlo traversando hacia arriba en el árbol de nodos.
+	active_cursor.set_meta("dome_id", dome_id)
+	# También propagar contexto a hijos que lo acepten (solo en cambio)
 	var context := {"dome_id": dome_id}
 	if active_cursor.has_method("apply_plate_content_context"):
 		active_cursor.apply_plate_content_context(context)
@@ -654,6 +657,8 @@ func _park_all_dome_facade_cursors() -> void:
 		var cursor: Spatial = _dome_facade_cursors[path]
 		if is_instance_valid(cursor):
 			cursor.global_transform = Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
+			if cursor.has_meta("dome_id"):
+				cursor.remove_meta("dome_id")
 
 func _apply_lod_hide_for_selection(new_spiral: int, new_plate: int) -> void:
 	# Quita el LOD del plate anterior y oculta el del plate nuevo (el cursor lo cubre)
@@ -668,7 +673,5 @@ func _apply_lod_hide_for_selection(new_spiral: int, new_plate: int) -> void:
 	var spiral: Spatial = _spirals[new_spiral]
 	if spiral.has_method("set_dome_lod_plate_hidden"):
 		spiral.call("set_dome_lod_plate_hidden", new_plate, true)
-	_lod_hidden_spiral = new_spiral
-	_lod_hidden_plate = new_plate
 	_lod_hidden_spiral = new_spiral
 	_lod_hidden_plate = new_plate

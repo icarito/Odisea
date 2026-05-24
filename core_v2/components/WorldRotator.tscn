@@ -81,3 +81,11 @@ environment = ExtResource( 2 )
 transform = Transform( 4000, 0, 0, 0, -0.000174846, 4000, 0, -4000, -0.000174846, 0, 1267, -5.53823e-05 )
 mesh = ExtResource( 3 )
 material/0 = SubResource( 3 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0 )
+shadow_enabled = true
+directional_shadow_blend_splits = true
+directional_shadow_normal_bias = 0.433
+directional_shadow_bias_split_scale = 0.158
+directional_shadow_max_distance = 1000.0
