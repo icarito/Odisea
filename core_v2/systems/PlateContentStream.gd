@@ -53,7 +53,7 @@ func _physics_process(delta: float) -> void:
 
 # Asocia una escena empaquetada a una plate específica.
 # La escena se instanciará cuando esa plate esté entre las más cercanas.
-func assign_scene(spiral_idx: int, plate_idx: int, packed: PackedScene, spawn_offset: Vector3 = Vector3.ZERO) -> void:
+func assign_scene(spiral_idx: int, plate_idx: int, packed: PackedScene, spawn_offset: Vector3 = Vector3.ZERO, context: Dictionary = {}) -> void:
 	var key: String = _make_key(spiral_idx, plate_idx)
 	if packed == null:
 		_assignments.erase(key)
@@ -65,7 +65,8 @@ func assign_scene(spiral_idx: int, plate_idx: int, packed: PackedScene, spawn_of
 	_assignment_indices[key] = {
 		"spiral_idx": spiral_idx,
 		"plate_idx": plate_idx,
-		"spawn_offset": spawn_offset
+		"spawn_offset": spawn_offset,
+		"context": context.duplicate(true)
 	}
 	if is_inside_tree():
 		_refresh_active_slots()
@@ -300,6 +301,7 @@ func _collect_candidates() -> Array:
 			"plate_idx": plate_idx,
 			"scene": _assignments[key],
 			"spawn_offset": _assignment_indices.get(key, {}).get("spawn_offset", Vector3.ZERO),
+			"context": _assignment_indices.get(key, {}).get("context", {}),
 			"canonical_tx": canonical_tx,
 			"dist_sq": canonical_tx.origin.distance_squared_to(center)
 		})
@@ -375,10 +377,12 @@ func _activate_slot(index: int, candidate: Dictionary) -> void:
 			var instance: Node = scene.instance()
 			if instance:
 				var spawn_offset: Vector3 = candidate.get("spawn_offset", _assignment_indices.get(key, {}).get("spawn_offset", Vector3.ZERO))
+				var context: Dictionary = candidate.get("context", _assignment_indices.get(key, {}).get("context", {}))
 				if instance is Spatial and spawn_offset != Vector3.ZERO:
 					# spawn_offset is world-space; convert to slot-local to stay world-up
 					# regardless of plate tilt angle.
 					(instance as Spatial).transform.origin = slot.global_transform.basis.xform_inv(spawn_offset)
+				_apply_instance_context(instance, context)
 				slot.add_child(instance)
 
 	_slot_assignments[index] = {
@@ -388,6 +392,15 @@ func _activate_slot(index: int, candidate: Dictionary) -> void:
 		"canonical_tx": candidate["canonical_tx"]
 	}
 	_slot_scenes[index] = scene
+
+func _apply_instance_context(instance: Node, context: Dictionary) -> void:
+	if not is_instance_valid(instance) or typeof(context) != TYPE_DICTIONARY or context.empty():
+		return
+	instance.set_meta("plate_content_context", context.duplicate(true))
+	if context.has("dome_id"):
+		instance.set_meta("dome_id", String(context.get("dome_id", "")).strip_edges())
+	if instance.has_method("apply_plate_content_context"):
+		instance.call("apply_plate_content_context", context.duplicate(true))
 
 func _deactivate_slot_for_key(key: String) -> void:
 	var index: int = _find_slot_for_key(key)

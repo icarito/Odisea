@@ -555,7 +555,11 @@ func _open_startup_gate(reason: String, waited_frames: int) -> void:
 		return
 	_startup_gate_open = true
 	_startup_gate_reason = reason
-	_startup_gate_waited_frames = max(0, waited_frames)
+	var waited_frames_i: int = int(waited_frames)
+	if waited_frames_i > 0:
+		_startup_gate_waited_frames = waited_frames_i
+	else:
+		_startup_gate_waited_frames = 0
 	if reason == "timeout":
 		printerr("[SessionManager] Startup gate opened by timeout after %d idle frames." % _startup_gate_waited_frames)
 	elif _startup_gate_waited_frames > 0:
@@ -3207,6 +3211,11 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 		yield (get_tree(), "physics_frame")
 		return null
 
+	var active_dome_id := ""
+	if typeof(state_data) == TYPE_DICTIONARY:
+		active_dome_id = String(state_data.get("active_dome_id", "")).strip_edges()
+	_apply_active_dome_context(active_dome_id)
+
 	if typeof(state_data) == TYPE_DICTIONARY and state_data.has("player_snapshot"):
 		var snapshot = state_data["player_snapshot"]
 		if typeof(snapshot) == TYPE_DICTIONARY and player.has_method("restore_snapshot"):
@@ -3255,6 +3264,22 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 
 	yield (get_tree(), "physics_frame")
 	return player
+
+func _apply_active_dome_context(active_dome_id: String) -> void:
+	var normalized := String(active_dome_id).strip_edges()
+	var scene = get_tree().current_scene
+	if is_instance_valid(scene):
+		if normalized == "":
+			if scene.has_meta("dome_id"):
+				scene.remove_meta("dome_id")
+		else:
+			scene.set_meta("dome_id", normalized)
+	if is_instance_valid(player):
+		if normalized == "":
+			if player.has_meta("dome_id"):
+				player.remove_meta("dome_id")
+		else:
+			player.set_meta("dome_id", normalized)
 
 func _restore_transition_camera_state(state_data: Dictionary, target_transform: Transform, target_airlock: Spatial = null) -> void:
 	if not is_instance_valid(player):

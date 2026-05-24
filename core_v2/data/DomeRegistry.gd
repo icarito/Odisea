@@ -39,5 +39,29 @@ func get_dome(dome_id: String) -> Dictionary:
 func get_interior_scene(dome_id: String) -> String:
 	return _registry.get(dome_id, {}).get("interior_scene", "")
 
+func get_spawn_id_from_exterior(dome_id: String) -> String:
+	return String(_registry.get(dome_id, {}).get("spawn_id_from_exterior", ""))
+
+func get_spawn_id_from_interior(dome_id: String) -> String:
+	return String(_registry.get(dome_id, {}).get("spawn_id_from_interior", ""))
+
+func find_dome_id_by_interior_spawn(spawn_id: String) -> String:
+	var normalized := String(spawn_id).strip_edges()
+	if normalized == "":
+		return ""
+	for dome_id in _registry.keys():
+		if String(_registry[dome_id].get("spawn_id_from_interior", "")).strip_edges() == normalized:
+			return String(dome_id)
+	return ""
+
+func find_dome_id_by_exterior_spawn(spawn_id: String) -> String:
+	var normalized := String(spawn_id).strip_edges()
+	if normalized == "":
+		return ""
+	for dome_id in _registry.keys():
+		if String(_registry[dome_id].get("spawn_id_from_exterior", "")).strip_edges() == normalized:
+			return String(dome_id)
+	return ""
+
 func get_all_dome_ids() -> Array:
 	return _registry.keys()

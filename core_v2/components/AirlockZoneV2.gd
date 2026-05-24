@@ -156,9 +156,28 @@ func _trigger_transition(player: Node) -> bool:
 		printerr("[AirlockZoneV2] SceneManager autoload missing")
 		return false
 
+	var resolved_target_scene := target_scene
+	var resolved_target_spawn_id := target_spawn_id
+	var active_dome_id := _resolve_active_dome_id()
+	if active_dome_id != "":
+		var dome_info: Dictionary = DomeRegistry.get_dome(active_dome_id)
+		if not dome_info.empty():
+			if _is_moving_outer_to_inner():
+				var interior_scene := String(dome_info.get("interior_scene", "")).strip_edges()
+				if interior_scene != "":
+					resolved_target_scene = interior_scene
+				var exterior_spawn := String(dome_info.get("spawn_id_from_exterior", "")).strip_edges()
+				if exterior_spawn != "":
+					resolved_target_spawn_id = exterior_spawn
+			else:
+				var interior_spawn := String(dome_info.get("spawn_id_from_interior", "")).strip_edges()
+				if interior_spawn != "":
+					resolved_target_spawn_id = interior_spawn
+
 	var params := {
-		"spawn_id": target_spawn_id,
-		"target_spawn_id": target_spawn_id,
+		"spawn_id": resolved_target_spawn_id,
+		"target_spawn_id": resolved_target_spawn_id,
+		"dome_id": active_dome_id,
 		"transition": "fade",
 		"transition_style": "airlock",
 		"preserve_player_state": true,
@@ -172,7 +191,7 @@ func _trigger_transition(player: Node) -> bool:
 	if _preloaded_scene != null:
 		params["_preloaded_scene"] = _preloaded_scene
 
-	scene_manager.goto_scene(target_scene, params)
+	scene_manager.goto_scene(resolved_target_scene, params)
 	return true
 
 func _build_state_data(player: Node) -> Dictionary:
@@ -201,6 +220,10 @@ func _build_state_data(player: Node) -> Dictionary:
 			state_data["camera_yaw"] = float(player.yaw)
 		if "pitch" in player:
 			state_data["camera_pitch"] = float(player.pitch)
+
+	var active_dome_id := _resolve_active_dome_id()
+	if active_dome_id != "":
+		state_data["active_dome_id"] = active_dome_id
 
 	var airlock = _find_airlock_controller()
 	if is_instance_valid(player) and player is Spatial:
@@ -312,6 +335,33 @@ func _get_player() -> Node:
 			_tracked_player = player
 			return _tracked_player
 	return null
+
+func _resolve_active_dome_id() -> String:
+	var node: Node = self
+	while node:
+		if node.has_meta("dome_id"):
+			return String(node.get_meta("dome_id")).strip_edges()
+		node = node.get_parent()
+
+	var player = _get_player()
+	if is_instance_valid(player) and player.has_meta("dome_id"):
+		return String(player.get_meta("dome_id")).strip_edges()
+
+	var scene = get_tree().current_scene
+	if is_instance_valid(scene) and scene.has_meta("dome_id"):
+		return String(scene.get_meta("dome_id")).strip_edges()
+
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if scene_manager:
+		var params = scene_manager.get("_transition_params")
+		if typeof(params) == TYPE_DICTIONARY:
+			if params.has("dome_id"):
+				return String(params.get("dome_id", "")).strip_edges()
+			var state_data = params.get("state_data", {})
+			if typeof(state_data) == TYPE_DICTIONARY and state_data.has("active_dome_id"):
+				return String(state_data.get("active_dome_id", "")).strip_edges()
+
+	return ""
 
 func _is_player(node: Node) -> bool:
 	return is_instance_valid(node) and node.is_in_group("player")

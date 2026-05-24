@@ -104,3 +104,13 @@ func test_transition_state_clamps_falling_vertical_offset() -> void:
 
 	assert_float(state_data["airlock_relative_position"].y).is_equal_approx(-0.2, 0.001)
 	assert_float(state_data["airlock_relative_velocity"].y).is_equal_approx(0.0, 0.001)
+
+func test_resolve_active_dome_id_uses_player_metadata_after_transition() -> void:
+	var zone = auto_free(_make_zone())
+	add_child(zone)
+
+	var player = auto_free(FakePlayer.new())
+	player.set_meta("dome_id", "dome_03")
+	add_child(player)
+
+	assert_str(zone._resolve_active_dome_id()).is_equal("dome_03")

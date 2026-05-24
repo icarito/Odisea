@@ -11,7 +11,8 @@ extents = Vector3( 100, 1, 100 )
 
 [node name="TestWorldRotator" type="Spatial"]
 script = ExtResource( 3 )
-selected_plate = 12
+selected_spiral = 2
+selected_plate = 4
 plate_content_scene = ExtResource( 5 )
 
 [node name="WorldRotator" parent="." instance=ExtResource( 1 )]
@@ -21,6 +22,7 @@ auto_select_first_platform = false
 physical_terrace_path = NodePath("../PhysicalTerrace")
 auto_track_target_plate = true
 scene_anchor_use_selected_plate_on_ready = true
+collision_pool_size = 8
 collision_pool_xz_scale = 1.0
 warn_on_physics_children = false
 centrifugal_current_plate_only_physics = false

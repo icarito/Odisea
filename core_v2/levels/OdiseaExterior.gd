@@ -35,12 +35,7 @@ func _resolve_spawn_state() -> void:
 	var params = scene_manager.get("_transition_params")
 	if typeof(params) == TYPE_DICTIONARY:
 		var spawn_id = params.get("target_spawn_id", params.get("spawn_id", ""))
-		var dome_id = ""
-		for check_id in DomeRegistry.get_all_dome_ids():
-			var info = DomeRegistry.get_dome(check_id)
-			if info.get("spawn_id_from_interior") == spawn_id:
-				dome_id = check_id
-				break
+		var dome_id = DomeRegistry.find_dome_id_by_interior_spawn(String(spawn_id))
 		if dome_id != "":
 			var info = DomeRegistry.get_dome(dome_id)
 			selected_spiral = info.get("spiral_index", 0)
@@ -156,12 +151,14 @@ func _assign_plate_content() -> void:
 	for dome_id in DomeRegistry.get_all_dome_ids():
 		var info = DomeRegistry.get_dome(dome_id)
 		if info.has("facade_scene") and info.has("spiral_index") and info.has("plate_index"):
+			var dome_spiral_idx := int(info["spiral_index"])
+			var dome_plate_idx := int(info["plate_index"])
 			var facade_scene_path: String = info["facade_scene"]
 			if ResourceLoader.exists(facade_scene_path):
 				var facade_scene = load(facade_scene_path)
 				if facade_scene is PackedScene:
 					var facade_spawn_offset: Vector3 = info.get("facade_spawn_offset", Vector3.ZERO)
-					_plate_content_stream.assign_scene(int(info["spiral_index"]), int(info["plate_index"]), facade_scene, facade_spawn_offset)
+					_plate_content_stream.assign_scene(dome_spiral_idx, dome_plate_idx, facade_scene, facade_spawn_offset, {"dome_id": dome_id})
 
 func _sync_selection_from_rotator() -> void:
 	if not _rotator:
