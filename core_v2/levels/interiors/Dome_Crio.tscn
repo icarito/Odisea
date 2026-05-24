@@ -957,7 +957,7 @@ points = PoolVector3Array( 1.06711, 0.0833333, -5.94378, 1.06711, -0.416667, -5.
 [node name="Dome_01" type="Spatial"]
 
 [node name="Pilot_v2" parent="." instance=ExtResource( 8 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 1.08, 10 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 1.08, -3 )
 
 [node name="SpawnPointV2" type="Position3D" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
