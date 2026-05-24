@@ -17,7 +17,6 @@ plate_content_scene = ExtResource( 5 )
 
 [node name="WorldRotator" parent="." instance=ExtResource( 1 )]
 rotation_frozen = false
-spiral_blend = 1.0
 auto_select_first_platform = false
 physical_terrace_path = NodePath("../PhysicalTerrace")
 auto_track_target_plate = true

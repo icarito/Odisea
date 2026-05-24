@@ -1,3 +1,6 @@
-newmtl kenney_prototype_textures/purple/texture_13
-map_Kd ../textures/kenney_prototype_textures/purple/texture_13.png
+newmtl kenney_prototype_textures/dark/texture_07
+map_Kd ../textures/kenney_prototype_textures/dark/texture_07.png
+
+newmtl kenney_prototype_textures/purple/texture_07
+map_Kd ../textures/kenney_prototype_textures/purple/texture_07.png
 

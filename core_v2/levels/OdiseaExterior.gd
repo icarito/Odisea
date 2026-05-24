@@ -273,7 +273,7 @@ func _build_spiral_dome_lod_groups(spiral_group_map: Dictionary) -> Array:
 				var plate_index := int(item.get("plate_index", -1))
 				var lod_scale: Vector3 = _resolve_effective_dome_lod_scale(info, blueprint)
 				var scaled_local := _scale_transform(part.get("local_transform", Transform.IDENTITY), lod_scale)
-				var origin_offset: Vector3 = info.get("facade_spawn_offset", Vector3.ZERO) + info.get("facade_lod_spawn_offset", Vector3.ZERO)
+				var origin_offset: Vector3 = info.get("facade_spawn_offset", Vector3.ZERO)
 				overlay_items.append({
 					"plate_index": plate_index,
 					"local_transform": scaled_local,
@@ -505,8 +505,9 @@ func _sync_selection_from_rotator() -> void:
 	selected_plate = rotator_plate
 	_selected_plate_canonical = _rotator.get_selected_plate_canonical_transform()
 	_configure_gravity_for_selected_plate(_selected_plate_canonical)
-	_apply_lod_hide_for_selection(selected_spiral, selected_plate)
+	# Posicionar el cursor ANTES de ocultar el LOD para evitar el frame vacío
 	_sync_dome_facade_cursor()
+	_apply_lod_hide_for_selection(selected_spiral, selected_plate)
 
 func _collect_spirals() -> void:
 	_spirals.clear()
