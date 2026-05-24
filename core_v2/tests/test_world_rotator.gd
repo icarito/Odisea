@@ -2,6 +2,7 @@ extends GdUnitTestSuite
 
 const TestWorldRotatorScene = preload("res://core_v2/tests/TestWorldRotator.tscn")
 const BaseTerraceScene = preload("res://core_v2/levels/BaseTerrace.tscn")
+const OdiseaExteriorScene = preload("res://core_v2/levels/OdiseaExterior.tscn")
 const WorldRotatorScene = preload("res://core_v2/components/WorldRotator.tscn")
 const WorldRotatorScript = preload("res://core_v2/systems/WorldRotator.gd")
 const GravityWorldScript = preload("res://core_v2/systems/GravityWorld.gd")
@@ -51,6 +52,30 @@ func test_test_scene_world_rotator_has_no_physics_children() -> void:
 
 	var rotator = scene.get_node("WorldRotator")
 	assert_array(rotator.get_physics_child_violations()).is_empty()
+
+func test_odisea_exterior_preserves_authored_spiral_blend_at_runtime() -> void:
+	var scene = auto_free(OdiseaExteriorScene.instance())
+	var rotator = scene.get_node("WorldRotator")
+	rotator.spiral_blend = 0.35
+
+	add_child(scene)
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+
+	assert_float(rotator.spiral_blend).is_equal_approx(0.35, 0.001)
+
+func test_odisea_exterior_keeps_neighbor_platform_collisions_in_flat_blend() -> void:
+	var scene = auto_free(OdiseaExteriorScene.instance())
+	var rotator = scene.get_node("WorldRotator")
+	rotator.spiral_blend = 0.0
+
+	add_child(scene)
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "physics_frame")
+	yield(get_tree(), "physics_frame")
+
+	assert_bool(rotator.centrifugal_current_plate_only_physics).is_false()
+	assert_int(scene.get_generated_collision_count()).is_greater(0)
 
 func test_streamed_pushable_boxes_keep_local_pose_when_slot_moves() -> void:
 	var scene = auto_free(TestWorldRotatorScene.instance())

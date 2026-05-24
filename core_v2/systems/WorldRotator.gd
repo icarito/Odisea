@@ -582,7 +582,9 @@ func _sync_spirals_recursive(root: Node) -> void:
 		_sync_spirals_recursive(child)
 
 func _update_tracked_target_plate() -> void:
-	if not auto_track_target_plate or spiral_blend <= 0.001:
+	if not auto_track_target_plate:
+		return
+	if spiral_blend <= 0.001 and centrifugal_current_plate_only_physics:
 		return
 	var target: Spatial = _get_tracking_target()
 	if target == null:
@@ -873,7 +875,7 @@ func _select_nearest_plate_on_ready_if_enabled() -> void:
 func _select_nearest_tracking_plate(snap_immediately: bool = false) -> bool:
 	if Engine.editor_hint:
 		return false
-	if spiral_blend <= 0.001:
+	if spiral_blend <= 0.001 and centrifugal_current_plate_only_physics:
 		return false
 	_auto_register_platforms()
 	_sync_spirals()
@@ -1003,7 +1005,7 @@ func _build_collision_pool() -> void:
 		_generated_collision_root.add_child(body)
 		_collision_pool.append(body)
 		_pool_assignments.append({})
-	if spiral_blend <= 0.001:
+	if spiral_blend <= 0.001 and centrifugal_current_plate_only_physics:
 		_deactivate_collision_pool()
 
 func _destroy_collision_pool() -> void:
@@ -1016,7 +1018,7 @@ func _destroy_collision_pool() -> void:
 # Recalcula qué plates reciben un slot del pool, ordenando por distancia al jugador.
 # Solo reasigna transforms — cero allocs.
 func _assign_pool_to_nearest_plates() -> void:
-	if spiral_blend <= 0.001:
+	if spiral_blend <= 0.001 and centrifugal_current_plate_only_physics:
 		_deactivate_collision_pool()
 		return
 	if centrifugal_current_plate_only_physics:

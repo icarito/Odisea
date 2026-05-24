@@ -26,7 +26,7 @@ var _registry := {
 		"facade_lod_spawn_offset": Vector3(0, 0.3, 0),
 		"facade_spawn_offset": Vector3(0, 0.3, 0),
 		"spiral_index": 0,
-		"plate_index": 0,
+		"plate_index": 15,
 		"display_name": "Laboratorio Biológico",
 		"spawn_id_from_exterior": "from_dome_01",
 		"spawn_id_from_interior": "from_exterior_dome_01"

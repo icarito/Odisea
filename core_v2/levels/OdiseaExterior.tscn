@@ -9,14 +9,15 @@
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 100, 1, 100 )
 
-[node name="TestWorldRotator" type="Spatial"]
+[node name="Odisea" type="Spatial"]
 script = ExtResource( 3 )
 selected_spiral = 2
-selected_plate = 4
+selected_plate = 120
 plate_content_scene = ExtResource( 5 )
 
 [node name="WorldRotator" parent="." instance=ExtResource( 1 )]
 rotation_frozen = false
+spiral_blend = 1.0
 auto_select_first_platform = false
 physical_terrace_path = NodePath("../PhysicalTerrace")
 auto_track_target_plate = true

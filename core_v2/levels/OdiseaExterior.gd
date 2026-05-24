@@ -123,7 +123,6 @@ func _set_blend(value: float) -> void:
 func _configure_test_rotator() -> void:
 	if not _rotator:
 		return
-	_rotator.spiral_blend = 1.0
 	_rotator.auto_select_first_platform = false
 	_rotator.auto_track_target_plate = false
 	_rotator.auto_track_requires_floor_contact = true
