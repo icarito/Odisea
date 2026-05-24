@@ -2,10 +2,10 @@ extends BaseZoneV2
 class_name AirlockZoneV2
 
 const PRELOAD_POLL_BUDGET_MS := 4
-const DEFAULT_FADE_OUT_S := 0.2
-const DEFAULT_FADE_IN_S := 0.2
-const STALL_START_PROGRESS := 0.85
-const TRIGGER_PROGRESS := 0.9
+const DEFAULT_FADE_OUT_S := 0.14
+const DEFAULT_FADE_IN_S := 0.16
+const STALL_START_PROGRESS := 0.5
+const TRIGGER_PROGRESS := 0.6
 
 export(String, FILE, "*.tscn") var target_scene := ""
 export(String) var target_spawn_id := ""
@@ -159,12 +159,13 @@ func _trigger_transition(player: Node) -> bool:
 	var params := {
 		"spawn_id": target_spawn_id,
 		"target_spawn_id": target_spawn_id,
-		"transition": "instant",
+		"transition": "fade",
 		"transition_style": "airlock",
 		"preserve_player_state": true,
-		"fade_out": 0.0,
-		"fade_in": 0.0,
+		"fade_out": DEFAULT_FADE_OUT_S,
+		"fade_in": DEFAULT_FADE_IN_S,
 		"show_loading": false,
+		"wait_for_fade_out": true,
 		"state_data": _build_state_data(player)
 	}
 

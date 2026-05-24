@@ -44,7 +44,7 @@ func _physics_process(delta: float) -> void:
 
 	if _slot_update_counter <= 0:
 		_refresh_active_slots()
-		_slot_update_counter = max(1, slot_update_interval) - 1
+		_slot_update_counter = int(max(1, slot_update_interval)) - 1
 	else:
 		_slot_update_counter -= 1
 
@@ -53,7 +53,7 @@ func _physics_process(delta: float) -> void:
 
 # Asocia una escena empaquetada a una plate específica.
 # La escena se instanciará cuando esa plate esté entre las más cercanas.
-func assign_scene(spiral_idx: int, plate_idx: int, packed: PackedScene) -> void:
+func assign_scene(spiral_idx: int, plate_idx: int, packed: PackedScene, spawn_offset: Vector3 = Vector3.ZERO) -> void:
 	var key: String = _make_key(spiral_idx, plate_idx)
 	if packed == null:
 		_assignments.erase(key)
@@ -64,7 +64,8 @@ func assign_scene(spiral_idx: int, plate_idx: int, packed: PackedScene) -> void:
 	_assignments[key] = packed
 	_assignment_indices[key] = {
 		"spiral_idx": spiral_idx,
-		"plate_idx": plate_idx
+		"plate_idx": plate_idx,
+		"spawn_offset": spawn_offset
 	}
 	if is_inside_tree():
 		_refresh_active_slots()
@@ -232,7 +233,7 @@ func _refresh_active_slots() -> void:
 	var candidates: Array = _collect_candidates()
 	candidates.sort_custom(self, "_sort_by_distance")
 	var candidates_by_key := {}
-	var active_candidate_count: int = min(candidates.size(), _slots.size())
+	var active_candidate_count: int = int(min(candidates.size(), _slots.size()))
 	var active_candidates: Array = candidates.slice(0, active_candidate_count - 1) if active_candidate_count > 0 else []
 	for candidate in active_candidates:
 		candidates_by_key[str(candidate["key"])] = candidate

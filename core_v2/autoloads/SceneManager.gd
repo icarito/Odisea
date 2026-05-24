@@ -90,10 +90,13 @@ func goto_scene(path: String, params: Dictionary = {}):
 				bool(_transition_params.get("show_progress", true))
 			)
 		if use_fade and transition_layer.has_method("play"):
+			var fade_out_duration := max(0.0, float(_transition_params.get("fade_out", default_fade_out)))
 			transition_layer.play("fade_out", {
-				"duration": float(_transition_params.get("fade_out", default_fade_out)),
+				"duration": fade_out_duration,
 				"show_loading": show_loading
 			})
+			if bool(_transition_params.get("wait_for_fade_out", false)) and fade_out_duration > 0.0:
+				yield(get_tree().create_timer(fade_out_duration), "timeout")
 
 	if supplied_preloaded_scene and supplied_preloaded_scene is PackedScene:
 		_loaded_scene = supplied_preloaded_scene
@@ -107,18 +110,14 @@ func goto_scene(path: String, params: Dictionary = {}):
 		return false
 
 	if _load_error != "":
-		var fail_state = _finalize_failed_transition(_load_error)
-		if fail_state is GDScriptFunctionState:
-			yield(fail_state, "completed")
+		_finalize_failed_transition(_load_error)
 		return false
 
 	var set_state = _set_new_scene(_loaded_scene)
 	if set_state is GDScriptFunctionState:
 		yield(set_state, "completed")
 	if _load_error != "":
-		var fail_swap_state = _finalize_failed_transition(_load_error)
-		if fail_swap_state is GDScriptFunctionState:
-			yield(fail_swap_state, "completed")
+		_finalize_failed_transition(_load_error)
 		return false
 
 	_fade_audio_in(float(_transition_params.get("audio_fade_in", default_audio_fade_in)))

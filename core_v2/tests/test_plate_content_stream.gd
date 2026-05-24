@@ -119,6 +119,21 @@ func test_reassigning_scene_replaces_active_slot_child() -> void:
 	assert_object(slot_after.get_node_or_null("ContentA")).is_null()
 	assert_object(slot_after.get_node_or_null("ContentB")).is_not_null()
 
+func test_assign_scene_applies_world_spawn_offset_to_streamed_content() -> void:
+	var setup: Dictionary = _build_stream_setup()
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+
+	var stream: Spatial = setup["stream"]
+	stream.assign_scene(0, 12, _make_marker_scene("OffsetContent"), Vector3(0.0, 0.3, 0.0))
+	yield(get_tree(), "physics_frame")
+
+	var slot: Spatial = stream.get_slot(0, 12)
+	assert_object(slot).is_not_null()
+	var content: Spatial = slot.get_node_or_null("OffsetContent") as Spatial
+	assert_object(content).is_not_null()
+	assert_float(content.global_transform.origin.distance_to(slot.global_transform.origin + Vector3(0.0, 0.3, 0.0))).is_less(0.02)
+
 func test_active_slots_keep_key_binding_when_distance_order_changes() -> void:
 	var setup: Dictionary = _build_stream_setup()
 	var stream: Spatial = setup["stream"]

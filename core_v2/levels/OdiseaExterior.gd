@@ -24,7 +24,7 @@ func _ready() -> void:
 	_resolve_spawn_state()
 	call_deferred("apply_selection")
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	_sync_selection_from_rotator()
 	_reset_camera_roll()
 
@@ -61,7 +61,7 @@ func apply_selection() -> void:
 		printerr("[OdiseaExterior] Selected TerraceSpiral has no plates: ", spiral.name)
 		return
 
-	selected_plate = clamp(selected_plate, 0, plate_count - 1)
+	selected_plate = int(clamp(selected_plate, 0, plate_count - 1))
 	if not _rotator.select_terrace_plate(selected_spiral, selected_plate, null, snap_on_selection):
 		printerr("[OdiseaExterior] Could not select generated terrace collision")
 		return
@@ -101,7 +101,7 @@ func get_streamed_pushable_boxes() -> Array:
 	return []
 
 func _set_spiral(value: int) -> void:
-	selected_spiral = _wrap_index(value, max(1, _spirals.size()))
+	selected_spiral = _wrap_index(value, int(max(1, _spirals.size())))
 	apply_selection()
 
 func _set_plate(value: int) -> void:
@@ -160,7 +160,8 @@ func _assign_plate_content() -> void:
 			if ResourceLoader.exists(facade_scene_path):
 				var facade_scene = load(facade_scene_path)
 				if facade_scene is PackedScene:
-					_plate_content_stream.assign_scene(int(info["spiral_index"]), int(info["plate_index"]), facade_scene)
+					var facade_spawn_offset: Vector3 = info.get("facade_spawn_offset", Vector3.ZERO)
+					_plate_content_stream.assign_scene(int(info["spiral_index"]), int(info["plate_index"]), facade_scene, facade_spawn_offset)
 
 func _sync_selection_from_rotator() -> void:
 	if not _rotator:

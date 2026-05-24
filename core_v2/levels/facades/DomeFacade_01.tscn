@@ -1321,7 +1321,7 @@ shape = SubResource( 211 )
 shape = SubResource( 212 )
 
 [node name="Label3D" type="Label3D" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, -15 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, -43 )
 text = "Dome 01: Lab"
 
 [node name="Airlock_North" parent="." instance=ExtResource( 1 )]
