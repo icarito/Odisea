@@ -1,0 +1,21 @@
+[remap]
+
+importer="wavefront_obj"
+type="Mesh"
+path="res://.import/DomeTerrace.obj-f58bfca425b4d15469b104f1eec2a74f.mesh"
+
+[deps]
+
+files=[ "res://.import/DomeTerrace.obj-f58bfca425b4d15469b104f1eec2a74f.mesh" ]
+
+source_file="res://maps/DomeTerrace.obj"
+dest_files=[ "res://.import/DomeTerrace.obj-f58bfca425b4d15469b104f1eec2a74f.mesh", "res://.import/DomeTerrace.obj-f58bfca425b4d15469b104f1eec2a74f.mesh" ]
+
+[params]
+
+scale_mesh=Vector3( 1, 1, 1 )
+offset_mesh=Vector3( 0, 0, 0 )
+optimize_mesh_flags=4286
+generate_tangents=true
+vertex_cache_optimization=true
+octahedral_compression=true

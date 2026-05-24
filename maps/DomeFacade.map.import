@@ -1,0 +1,13 @@
+[remap]
+
+importer="qodot.map"
+type="Resource"
+path="res://.import/DomeFacade.map-68ee8963ac58a280ab86248030e85b58.tres"
+
+[deps]
+
+source_file="res://maps/DomeFacade.map"
+dest_files=[ "res://.import/DomeFacade.map-68ee8963ac58a280ab86248030e85b58.tres" ]
+
+[params]
+
