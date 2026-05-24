@@ -20,10 +20,10 @@ roughness = 0.8
 environment = ExtResource( 5 )
 
 [node name="Pilot" parent="." instance=ExtResource( 1 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, -1.0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, -1 )
 
 [node name="Spawn_FromTerraceA" type="Position3D" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, -1.0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, -1 )
 script = ExtResource( 4 )
 spawn_id = "from_terrace_a"
 
@@ -97,11 +97,10 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.8, 2 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, -4 )
 
 [node name="AirlockZoneV2" parent="Airlock" index="6"]
+debug_render = false
 target_scene = "res://core_v2/levels/Terrace_A.tscn"
 target_spawn_id = "from_interior_a"
-airlock_controller_path = NodePath("..")
 target_airlock_path = NodePath("TerraceAirlock")
-zone_dir = Vector3( 0, 0, -1 )
 
 [node name="PortalLabel" type="Label3D" parent="Airlock"]
 transform = Transform( 1, 0, 0, 0, 0.866025, -0.5, 0, 0.5, 0.866025, 0, 2.5, 0 )
@@ -134,4 +133,3 @@ light_energy = 0.6
 omni_range = 9.0
 
 [editable path="Airlock"]
-[editable path="Airlock/AirlockZoneV2"]

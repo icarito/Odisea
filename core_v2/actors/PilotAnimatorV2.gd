@@ -403,6 +403,17 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 
 	was_on_floor_last_frame = is_on_floor and not (controller.traversal_logic.is_climbing if controller and controller.get("traversal_logic") else false) and not (controller.traversal_logic.is_hanging if controller and controller.get("traversal_logic") else false)
 
+func snap_visual_to_direction(world_direction: Vector3) -> void:
+	var horizontal_direction := world_direction
+	horizontal_direction.y = 0.0
+	if horizontal_direction.length_squared() <= 0.0001:
+		return
+	horizontal_direction = horizontal_direction.normalized()
+	var parent_basis = get_parent().global_transform.basis if get_parent() else Basis()
+	var local_direction: Vector3 = parent_basis.xform_inv(horizontal_direction)
+	rotation.y = atan2(local_direction.x, local_direction.z)
+	is_rotation_locked = false
+
 
 func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_length: float) -> void:
 	if not animation_tree:

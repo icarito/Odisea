@@ -12,6 +12,8 @@ const EDITOR_HIDDEN_TRENCHBROOM_LAYERS := [
 const EditorHiddenLayerScript = preload("res://core_v2/levels/EditorHiddenLayer.gd")
 const TEXTURE_ALIAS_PREFIX := "__qodot_texture_alias__/"
 const QUOTED_TEXTURE_FACE_PATTERN := '^(\\s*\\([^\\)]*\\)\\s*\\([^\\)]*\\)\\s*\\([^\\)]*\\)\\s*)"([^"]+)"(.*)$'
+const FALLBACK_TEXTURE_SIZE := Vector2(64, 64)
+const LIBMAP_MAX_TOKEN_LENGTH := 240
 
 signal build_complete()
 signal build_progress(step, progress)
@@ -217,6 +219,9 @@ func _prepare_map_file_for_libmap(source_map_file: String) -> String:
 				replacement = _build_safe_texture_alias(texture_name)
 			line = "%s%s%s" % [result.get_string(1), replacement, result.get_string(3)]
 			changed = true
+		elif _line_has_oversized_libmap_token(line):
+			line = _sanitize_oversized_libmap_token_line(line)
+			changed = true
 		output += line + "\n"
 	source.close()
 
@@ -240,6 +245,19 @@ func _prepare_map_file_for_libmap(source_map_file: String) -> String:
 	dest.close()
 
 	return ProjectSettings.globalize_path(temp_map_file)
+
+func _line_has_oversized_libmap_token(line: String) -> bool:
+	var normalized := line.replace("\t", " ")
+	for token in normalized.split(" ", false):
+		if token.length() > LIBMAP_MAX_TOKEN_LENGTH:
+			return true
+	return false
+
+func _sanitize_oversized_libmap_token_line(line: String) -> String:
+	var stripped := line.strip_edges()
+	if stripped.begins_with("\"_tb_textures\""):
+		return "\"_tb_textures\" \"\""
+	return line
 
 func _build_qodot_native_script() -> bool:
 	_qodot_native_library = GDNativeLibrary.new()
@@ -276,6 +294,10 @@ func _instantiate_qodot_native() -> Object:
 	var q_inst = parser.new()
 	if q_inst == null or not is_instance_valid(q_inst):
 		return null
+	# If the native library lacks godot_nativescript_init, Godot silently returns
+	# a plain Reference instead of the Qodot class. Detect this here.
+	if not q_inst.has_method("load_map"):
+		return null
 	return q_inst
 
 func _ensure_qodot_native_instance() -> bool:
@@ -297,7 +319,8 @@ func _ensure_qodot_native_instance() -> bool:
 
 	if q_inst == null or not is_instance_valid(q_inst):
 		if not _qodot_init_error_reported:
-			push_error("[Qodot] Failed to instantiate NativeScript class 'Qodot'")
+			push_error("[Qodot] Failed to instantiate NativeScript class 'Qodot'. "
+				+ "The native library may lack godot_nativescript_init (check libqodot.so is built for Godot 3 GDNative).")
 			_qodot_init_error_reported = true
 		return false
 
@@ -704,7 +727,7 @@ func build_texture_size_dict() -> Dictionary:
 		if texture:
 			texture_size_dict[tex_key] = texture.get_size()
 		else:
-			texture_size_dict[tex_key] = Vector2.ONE
+			texture_size_dict[tex_key] = FALLBACK_TEXTURE_SIZE
 
 	return texture_size_dict
 

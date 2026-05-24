@@ -15,7 +15,6 @@ export(Vector3) var zone_dir := Vector3.FORWARD
 
 var _progress := 0.0
 var _relative_position := Vector3.ZERO
-var _relative_transform := Transform.IDENTITY
 var _background_load: ResourceInteractiveLoader = null
 var _preloaded_scene: PackedScene = null
 var _scene_ready := false
@@ -126,7 +125,6 @@ func _update_progress(player: Spatial) -> void:
 
 	_progress = clamp((projected + half_length) / length, 0.0, 1.0)
 	_relative_position = local_pos
-	_relative_transform = global_transform.affine_inverse() * player.global_transform
 	_update_safe_relative_y(player, local_pos)
 
 func _apply_soft_stall(player: Node) -> void:
@@ -146,14 +144,6 @@ func _run_transition(player: Node) -> void:
 		_has_triggered = false
 		return
 
-	var transition_layer = get_node_or_null("/root/TransitionLayer")
-	if transition_layer and transition_layer.has_method("play"):
-		transition_layer.play("fade_out", {
-			"duration": DEFAULT_FADE_OUT_S,
-			"show_loading": false
-		})
-		yield(get_tree().create_timer(DEFAULT_FADE_OUT_S), "timeout")
-
 	_trigger_transition(player)
 
 func _trigger_transition(player: Node) -> bool:
@@ -169,11 +159,11 @@ func _trigger_transition(player: Node) -> bool:
 	var params := {
 		"spawn_id": target_spawn_id,
 		"target_spawn_id": target_spawn_id,
-		"transition": "fade",
+		"transition": "instant",
 		"transition_style": "airlock",
 		"preserve_player_state": true,
 		"fade_out": 0.0,
-		"fade_in": DEFAULT_FADE_IN_S,
+		"fade_in": 0.0,
 		"show_loading": false,
 		"state_data": _build_state_data(player)
 	}
@@ -189,11 +179,27 @@ func _build_state_data(player: Node) -> Dictionary:
 	if is_instance_valid(player) and player.has_method("get_full_snapshot"):
 		var snapshot = player.get_full_snapshot()
 		if typeof(snapshot) == TYPE_DICTIONARY:
-			state_data["player_snapshot"] = snapshot.duplicate(true)
+			var clean_snapshot: Dictionary = snapshot.duplicate(true)
+			# Clear global position so SceneManager uses SpawnPointV2 + relative offset
+			for key in ["pos", "position", "global_position", "origin"]:
+				if clean_snapshot.has(key):
+					clean_snapshot[key] = Vector3.ZERO
+			# Clear velocity so player arrives at rest
+			for key in ["vel", "velocity", "linear_velocity"]:
+				if clean_snapshot.has(key):
+					clean_snapshot[key] = Vector3.ZERO
+			state_data["player_snapshot"] = clean_snapshot
 			if snapshot.has("gravity_mode"):
 				state_data["gravity_mode"] = snapshot["gravity_mode"]
 			if snapshot.has("controller_mode"):
 				state_data["controller_mode"] = snapshot["controller_mode"]
+
+	# Capture camera orientation before transition
+	if is_instance_valid(player):
+		if "yaw" in player:
+			state_data["camera_yaw"] = float(player.yaw)
+		if "pitch" in player:
+			state_data["camera_pitch"] = float(player.pitch)
 
 	var airlock = _find_airlock_controller()
 	if is_instance_valid(player) and player is Spatial:
@@ -206,14 +212,17 @@ func _build_state_data(player: Node) -> Dictionary:
 		var sanitized_transform := _sanitize_relative_transform(relative_transform, player)
 		state_data["airlock_relative_position"] = sanitized_transform.origin
 		state_data["airlock_relative_transform"] = sanitized_transform
+		if "yaw" in player:
+			state_data["camera_body_yaw_offset"] = float(player.yaw) - player_transform.basis.get_euler().y
+			var camera_forward: Vector3 = Basis(Vector3.UP, float(player.yaw)).xform(Vector3.FORWARD)
+			state_data["camera_relative_forward"] = frame.basis.xform_inv(camera_forward).normalized()
 		state_data["target_airlock_exit_door"] = _get_exit_door_for_direction()
 		if not target_airlock_path.is_empty():
 			state_data["target_airlock_path"] = String(target_airlock_path)
-
 		if "velocity" in player:
 			var velocity: Vector3 = player.velocity
 			var relative_velocity: Vector3 = frame.basis.xform_inv(velocity)
-			if _has_safe_relative_y and relative_transform.origin.y < _last_safe_relative_y - 0.35 and relative_velocity.y < 0.0:
+			if _has_safe_relative_y and float(player.velocity.y) < -1.0:
 				relative_velocity.y = 0.0
 			state_data["airlock_relative_velocity"] = relative_velocity
 
@@ -251,8 +260,9 @@ func _start_airlock_cycle() -> void:
 		return
 	if airlock.has_method("is_airlock_ready") and airlock.is_airlock_ready():
 		return
-	if airlock.has_method("start_cycle"):
-		airlock.start_cycle(_is_moving_outer_to_inner())
+	var entry_door := "outer" if _is_moving_outer_to_inner() else "inner"
+	if airlock.has_method("start_transition_cycle"):
+		airlock.start_transition_cycle(entry_door)
 
 func _is_moving_outer_to_inner() -> bool:
 	return _get_local_zone_direction().dot(Vector3.FORWARD) >= 0.0

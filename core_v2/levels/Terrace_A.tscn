@@ -64,7 +64,6 @@ material = ExtResource( 11 )
 
 [node name="CargoConveyor" parent="Plate" instance=ExtResource( 8 )]
 transform = Transform( 0.78, 0, 0, 0, 0.78, 0, 0, 0, 0.78, -5.4, 0.28, 4.4 )
-starts_active = false
 
 [node name="RearGuardrailWest" parent="Plate" instance=ExtResource( 9 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 8 )
@@ -90,7 +89,6 @@ transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 1.15, -6 )
 [node name="AirlockZoneV2" parent="TerraceAirlock" index="6"]
 target_scene = "res://core_v2/levels/Interior_A.tscn"
 target_spawn_id = "from_terrace_a"
-airlock_controller_path = NodePath("..")
 target_airlock_path = NodePath("Airlock")
 zone_dir = Vector3( 0, 0, 1 )
 
@@ -134,4 +132,3 @@ light_energy = 0.8
 shadow_enabled = true
 
 [editable path="TerraceAirlock"]
-[editable path="TerraceAirlock/AirlockZoneV2"]

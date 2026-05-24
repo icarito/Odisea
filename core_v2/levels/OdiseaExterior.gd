@@ -20,16 +20,37 @@ func _ready() -> void:
 	_configure_plate_content_stream()
 	if has_node("/root/GravityWorld"):
 		GravityWorld.set_ship_axis(Vector3.ZERO, Vector3.UP)
+	
+	_resolve_spawn_state()
 	call_deferred("apply_selection")
 
 func _process(delta: float) -> void:
 	_sync_selection_from_rotator()
 	_reset_camera_roll()
 
+func _resolve_spawn_state() -> void:
+	if not has_node("/root/SceneManager"):
+		return
+	var scene_manager = get_node("/root/SceneManager")
+	var params = scene_manager.get("_transition_params")
+	if typeof(params) == TYPE_DICTIONARY:
+		var spawn_id = params.get("target_spawn_id", params.get("spawn_id", ""))
+		var dome_id = ""
+		for check_id in DomeRegistry.get_all_dome_ids():
+			var info = DomeRegistry.get_dome(check_id)
+			if info.get("spawn_id_from_interior") == spawn_id:
+				dome_id = check_id
+				break
+		if dome_id != "":
+			var info = DomeRegistry.get_dome(dome_id)
+			selected_spiral = info.get("spiral_index", 0)
+			selected_plate = info.get("plate_index", 0)
+			snap_on_selection = true
+
 func apply_selection() -> void:
 	_collect_spirals()
 	if _spirals.empty():
-		printerr("[TestWorldRotator] No TerraceSpiral nodes found under WorldRotator")
+		printerr("[OdiseaExterior] No TerraceSpiral nodes found under WorldRotator")
 		return
 	selected_spiral = _wrap_index(selected_spiral, _spirals.size())
 	_force_spiral_update()
@@ -37,12 +58,12 @@ func apply_selection() -> void:
 	var spiral: Spatial = _spirals[selected_spiral]
 	var plate_count: int = _get_plate_count(spiral)
 	if plate_count <= 0:
-		printerr("[TestWorldRotator] Selected TerraceSpiral has no plates: ", spiral.name)
+		printerr("[OdiseaExterior] Selected TerraceSpiral has no plates: ", spiral.name)
 		return
 
 	selected_plate = clamp(selected_plate, 0, plate_count - 1)
 	if not _rotator.select_terrace_plate(selected_spiral, selected_plate, null, snap_on_selection):
-		printerr("[TestWorldRotator] Could not select generated terrace collision")
+		printerr("[OdiseaExterior] Could not select generated terrace collision")
 		return
 	_rotator.scene_anchor_spiral_index = selected_spiral
 	_rotator.scene_anchor_plate_index = selected_plate
@@ -108,13 +129,13 @@ func _configure_plate_content_stream() -> void:
 		return
 	_plate_content_stream.rotator_path = NodePath("../WorldRotator")
 	_plate_content_stream.tracking_target_path = NodePath("../Pilot")
-	_plate_content_stream.slot_pool_size = 8
+	_plate_content_stream.slot_pool_size = 16
 	_plate_content_stream.slot_update_interval = 1
 	if _plate_content_stream.has_method("register_rotator"):
 		_plate_content_stream.register_rotator(_rotator)
 
 func _assign_plate_content() -> void:
-	if not _plate_content_stream or plate_content_scene == null:
+	if not _plate_content_stream:
 		return
 	if selected_spiral < 0 or selected_spiral >= _spirals.size():
 		return
@@ -124,11 +145,22 @@ func _assign_plate_content() -> void:
 		return
 	if _plate_content_stream.has_method("register_rotator"):
 		_plate_content_stream.register_rotator(_rotator)
-	# Keep a wider neighborhood loaded and avoid clearing every frame.
-	# This prevents pushables from disappearing while crossing plate boundaries.
-	for offset in range(-2, 6):
-		var plate_idx: int = _wrap_index(selected_plate + offset, plate_count)
-		_plate_content_stream.assign_scene(selected_spiral, plate_idx, plate_content_scene)
+		
+	# First assign standard plates
+	if plate_content_scene != null:
+		for offset in range(-2, 6):
+			var plate_idx: int = _wrap_index(selected_plate + offset, plate_count)
+			_plate_content_stream.assign_scene(selected_spiral, plate_idx, plate_content_scene)
+			
+	# Then assign special facade scenes based on DomeRegistry
+	for dome_id in DomeRegistry.get_all_dome_ids():
+		var info = DomeRegistry.get_dome(dome_id)
+		if info.has("facade_scene") and info.has("spiral_index") and info.has("plate_index"):
+			var facade_scene_path: String = info["facade_scene"]
+			if ResourceLoader.exists(facade_scene_path):
+				var facade_scene = load(facade_scene_path)
+				if facade_scene is PackedScene:
+					_plate_content_stream.assign_scene(int(info["spiral_index"]), int(info["plate_index"]), facade_scene)
 
 func _sync_selection_from_rotator() -> void:
 	if not _rotator:

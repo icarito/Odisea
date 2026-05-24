@@ -1,0 +1,13 @@
+[remap]
+
+importer="qodot.map"
+type="Resource"
+path="res://.import/DomeTerrace.map-91d1384311359be85ba6aa33e319ee27.tres"
+
+[deps]
+
+source_file="res://maps/DomeTerrace.map"
+dest_files=[ "res://.import/DomeTerrace.map-91d1384311359be85ba6aa33e319ee27.tres" ]
+
+[params]
+

@@ -1499,11 +1499,6 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/virtualcamera/TransformModifiers/SnapToPath.gd"
 }, {
-"base": "Position3D",
-"class": "SpawnPointV2",
-"language": "GDScript",
-"path": "res://core_v2/components/SpawnPointV2.gd"
-}, {
 "base": "Fuzzer",
 "class": "StringFuzzer",
 "language": "GDScript",
@@ -1993,7 +1988,6 @@ _global_script_class_icons={
 "SlidingObjectV2": "",
 "SlimeLayer": "",
 "SnapToPath": "",
-"SpawnPointV2": "",
 "StringFuzzer": "",
 "TeleportSystem": "",
 "TerminalCameraRig": "",
@@ -2048,6 +2042,7 @@ output_latency.web=100
 
 [autoload]
 
+DomeRegistry="*res://core_v2/data/DomeRegistry.gd"
 AudioManager="*res://core_v2/autoloads/AudioManager.gd"
 SessionManager="*res://core_v2/autoloads/SessionManager.gd"
 TransitionLayer="*res://core_v2/autoloads/TransitionLayer.gd"
@@ -2325,6 +2320,8 @@ threads/thread_model=2
 vram_compression/import_bptc=true
 vram_compression/import_etc=true
 vram_compression/import_pvrtc=true
+quality/shadows/filter_mode=2
+quality/shading/force_vertex_shading=true
 quality/shading/use_physical_light_attenuation=true
 batching/options/single_rect_fallback=true
 batching/parameters/max_join_item_commands=32

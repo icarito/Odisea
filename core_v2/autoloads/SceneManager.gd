@@ -250,13 +250,19 @@ func _apply_spawn_and_state(scene_root: Node):
 	var used_airlock_frame := false
 	if is_instance_valid(player) and is_instance_valid(target_airlock) and typeof(state_data.get("airlock_relative_transform", null)) == TYPE_TRANSFORM:
 		var relative_transform: Transform = state_data["airlock_relative_transform"]
-		_move_player_to_transform(player, target_airlock.global_transform * relative_transform)
+		var target_transform: Transform = target_airlock.global_transform * relative_transform
+		target_transform = _face_airlock_exit(target_airlock, state_data, target_transform)
+		_move_player_to_transform(player, target_transform)
+		_restore_transition_camera_state(player, state_data, target_transform, target_airlock)
+		_snap_transition_visual(player, target_transform)
 		_apply_airlock_relative_velocity(player, target_airlock, state_data)
 		_open_transition_airlock_exit(target_airlock, state_data)
 		used_airlock_frame = true
 
 	if not used_airlock_frame and is_instance_valid(player) and is_instance_valid(spawn_node):
 		_move_player_to_transform(player, spawn_node.global_transform)
+		_restore_transition_camera_state(player, state_data, spawn_node.global_transform, null)
+		_snap_transition_visual(player, spawn_node.global_transform)
 	if session and is_instance_valid(player):
 		session.player = player
 
@@ -327,6 +333,25 @@ func _open_transition_airlock_exit(target_airlock: Spatial, state_data: Dictiona
 	if target_airlock.has_method("open_exit_door"):
 		target_airlock.open_exit_door(exit_door, false)
 
+func _face_airlock_exit(target_airlock: Spatial, state_data: Dictionary, target_transform: Transform) -> Transform:
+	if not is_instance_valid(target_airlock):
+		return target_transform
+	var exit_door := String(state_data.get("target_airlock_exit_door", "outer")).strip_edges().to_lower()
+	var local_exit_dir := Vector3.BACK
+	if exit_door == "inner":
+		local_exit_dir = Vector3.FORWARD
+	elif exit_door == "none":
+		return target_transform
+	var exit_dir: Vector3 = target_airlock.global_transform.basis.xform(local_exit_dir)
+	exit_dir.y = 0.0
+	if exit_dir.length_squared() <= 0.0001:
+		return target_transform
+	exit_dir = exit_dir.normalized()
+	var yaw := atan2(-exit_dir.x, -exit_dir.z)
+	var out := target_transform
+	out.basis = Basis(Vector3.UP, yaw)
+	return out
+
 func _find_player_in_scene(scene_root: Node) -> Node:
 	if not is_instance_valid(scene_root):
 		return null
@@ -349,6 +374,39 @@ func _move_player_to_transform(player: Node, target_transform: Transform) -> voi
 		return
 	if player is Spatial:
 		(player as Spatial).global_transform = target_transform
+
+func _restore_transition_camera_state(player: Node, state_data: Dictionary, target_transform: Transform, target_airlock: Spatial = null) -> void:
+	if not is_instance_valid(player):
+		return
+	if state_data.has("camera_yaw") and "yaw" in player:
+		if is_instance_valid(target_airlock) and typeof(state_data.get("camera_relative_forward", null)) == TYPE_VECTOR3:
+			var camera_forward: Vector3 = target_airlock.global_transform.basis.xform(state_data["camera_relative_forward"])
+			camera_forward.y = 0.0
+			if camera_forward.length_squared() > 0.0001:
+				camera_forward = camera_forward.normalized()
+				player.yaw = atan2(-camera_forward.x, -camera_forward.z)
+			else:
+				player.yaw = target_transform.basis.get_euler().y
+		elif state_data.has("camera_body_yaw_offset"):
+			player.yaw = target_transform.basis.get_euler().y + float(state_data["camera_body_yaw_offset"])
+		else:
+			player.yaw = float(state_data["camera_yaw"])
+		if "yaw_deg" in player:
+			player.yaw_deg = rad2deg(player.yaw)
+	if state_data.has("camera_pitch") and "pitch" in player:
+		player.pitch = float(state_data["camera_pitch"])
+		if "pitch_deg" in player:
+			player.pitch_deg = rad2deg(player.pitch)
+	if "camera_rig" in player and is_instance_valid(player.camera_rig) and "yaw" in player and "pitch" in player:
+		player.camera_rig.transform.basis = Basis(Vector3.UP, player.yaw) * Basis(Vector3.RIGHT, player.pitch)
+		player.camera_rig.force_update_transform()
+
+func _snap_transition_visual(player: Node, target_transform: Transform) -> void:
+	if not is_instance_valid(player):
+		return
+	var animator = player.get("animator") if "animator" in player else null
+	if is_instance_valid(animator) and animator.has_method("snap_visual_to_direction"):
+		animator.snap_visual_to_direction(-target_transform.basis.z)
 
 func _capture_player_state_for_transition() -> void:
 	_captured_player_state.clear()

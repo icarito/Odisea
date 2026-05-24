@@ -285,6 +285,13 @@ func restore_snapshot(data: Dictionary) -> void:
 
 	if camera_rig:
 		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.transform.origin.y = base_rig_y
+		camera_rig.force_update_transform()
+		_camera_rig_y_smoothed_global = global_transform.origin.y + base_rig_y
+		_camera_rig_y_initialized = true
+		_camera_rig_airborne_anchor_global = _camera_rig_y_smoothed_global
+		_camera_rig_airborne_rise_time = 0.0
+		_camera_rig_was_grounded = true
 
 func full_reset() -> void:
 	velocity = Vector3.ZERO

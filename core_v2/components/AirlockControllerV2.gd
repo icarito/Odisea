@@ -81,6 +81,16 @@ func start_cycle(cycling_in: bool = true) -> bool:
 		_finish_pressurization()
 	return true
 
+func start_transition_cycle(entry_door_name: String = "outer") -> bool:
+	if Engine.editor_hint:
+		return false
+	var normalized := entry_door_name.strip_edges().to_lower()
+	var entry_door = _inner_door if normalized == "inner" else _outer_door
+	_is_cycling_in = normalized != "inner"
+	_set_door_active(entry_door, false)
+	state = State.IDLE
+	return true
+
 func is_airlock_ready() -> bool:
 	return state == State.EXIT_OPEN
 

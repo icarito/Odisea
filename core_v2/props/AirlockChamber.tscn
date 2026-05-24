@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://core_v2/components/AirlockControllerV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/IrisDoorV2.tscn" type="PackedScene" id=2]
@@ -14,25 +14,20 @@ albedo_color = Color( 0.08, 0.11, 0.12, 1 )
 metallic = 0.2
 roughness = 0.55
 
-[sub_resource type="SpatialMaterial" id=3]
-flags_unshaded = true
-albedo_color = Color( 0.0, 0.75, 1, 0.18 )
-
 [sub_resource type="BoxShape" id=4]
-extents = Vector3( 2.5, 2.5, 4.0 )
+extents = Vector3( 2.5, 2.5, 4 )
 
 [sub_resource type="BoxShape" id=5]
-extents = Vector3( 2.85, 2.5, 4.0 )
+extents = Vector3( 2.85, 2.5, 4 )
 
 [sub_resource type="BoxShape" id=6]
-extents = Vector3( 2.85, 0.08, 4.0 )
+extents = Vector3( 2.85, 0.08, 4 )
 
 [node name="AirlockChamber" type="Spatial"]
 script = ExtResource( 1 )
 outer_door_path = NodePath("OuterDoor")
 inner_door_path = NodePath("InnerDoor")
 chamber_zone_path = NodePath("ChamberZone")
-pressurize_time = 1.0
 reset_time = 1.5
 
 [node name="CylindricalShell" type="CSGCombiner" parent="."]
@@ -47,8 +42,8 @@ sides = 32
 material = SubResource( 1 )
 
 [node name="InnerVoid" type="CSGCylinder" parent="CylindricalShell"]
-operation = 2
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
+operation = 2
 radius = 2.8
 height = 8.2
 sides = 32
@@ -61,13 +56,6 @@ width = 4.5
 height = 0.22
 depth = 8.0
 material = SubResource( 2 )
-
-[node name="CeilingStrip" type="CSGBox" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.9, 0 )
-width = 1.0
-height = 0.08
-depth = 7.5
-material = SubResource( 3 )
 
 [node name="OuterDoor" parent="." instance=ExtResource( 2 )]
 transform = Transform( 0.78, 0, 0, 0, 0.78, 0, 0, 0, 0.78, 0, 0, 4.1 )
@@ -88,8 +76,9 @@ visible = false
 collision_layer = 0
 collision_mask = 2147483647
 script = ExtResource( 3 )
-debug_color = Color( 0.0, 0.75, 1.0, 0.18 )
-zone_extents = Vector3( 2.85, 2.5, 4.0 )
+debug_color = Color( 0, 0.75, 1, 0.18 )
+debug_render = false
+zone_extents = Vector3( 2.85, 2.5, 4 )
 airlock_controller_path = NodePath("..")
 
 [node name="CollisionShape" type="CollisionShape" parent="AirlockZoneV2"]
@@ -97,20 +86,18 @@ shape = SubResource( 5 )
 
 [node name="AirlockSafetyFloor" type="StaticBody" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.31, 0 )
-collision_layer = 1
-collision_mask = 1
 
 [node name="CollisionShape" type="CollisionShape" parent="AirlockSafetyFloor"]
 shape = SubResource( 6 )
 
 [node name="LoadingRedLight" type="OmniLight" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.95, 1.45, 0.0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.95, 1.45, 0 )
 light_color = Color( 1, 0.08, 0.04, 1 )
 light_energy = 0.25
 omni_range = 4.0
 
 [node name="ReadyGreenLight" type="OmniLight" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.95, 1.45, 0.0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.95, 1.45, 0 )
 light_color = Color( 0.15, 1, 0.28, 1 )
 light_energy = 0.2
 omni_range = 4.0

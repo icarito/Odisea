@@ -3221,10 +3221,17 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 	if is_instance_valid(target_airlock) and typeof(state_data.get("airlock_relative_transform", null)) == TYPE_TRANSFORM:
 		var relative_transform: Transform = state_data["airlock_relative_transform"]
 		var target_transform: Transform = target_airlock.global_transform * relative_transform
+		var exit_transform: Transform = _face_airlock_exit(target_airlock, state_data, target_transform)
+		# Teleport body with identity rotation to preserve the camera_rig local=world invariant
+		# (PlayerControllerV2 always writes Basis(Y, world_yaw) to camera_rig LOCAL transform)
+		var body_transform := target_transform
+		body_transform.basis = Basis.IDENTITY
 		if player.has_method("teleport_to"):
-			player.teleport_to(target_transform)
+			player.teleport_to(body_transform)
 		else:
-			player.global_transform = target_transform
+			player.global_transform = body_transform
+		_restore_transition_camera_state(state_data, exit_transform, target_airlock)
+		_snap_transition_visual(exit_transform)
 		_apply_airlock_relative_velocity(target_airlock, state_data)
 		used_airlock_frame = true
 
@@ -3234,6 +3241,8 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 			player.teleport_to(spawn.global_transform)
 		else:
 			player.global_transform = spawn.global_transform
+		_restore_transition_camera_state(state_data, spawn.global_transform, null)
+		_snap_transition_visual(spawn.global_transform)
 
 	if used_airlock_frame:
 		_open_transition_airlock_exit(target_airlock, state_data)
@@ -3246,6 +3255,58 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 
 	yield (get_tree(), "physics_frame")
 	return player
+
+func _restore_transition_camera_state(state_data: Dictionary, target_transform: Transform, target_airlock: Spatial = null) -> void:
+	if not is_instance_valid(player):
+		return
+	if state_data.has("camera_yaw") and "yaw" in player:
+		if is_instance_valid(target_airlock) and typeof(state_data.get("camera_relative_forward", null)) == TYPE_VECTOR3:
+			var camera_forward: Vector3 = target_airlock.global_transform.basis.xform(state_data["camera_relative_forward"])
+			camera_forward.y = 0.0
+			if camera_forward.length_squared() > 0.0001:
+				camera_forward = camera_forward.normalized()
+				player.yaw = atan2(-camera_forward.x, -camera_forward.z)
+			else:
+				player.yaw = target_transform.basis.get_euler().y
+		elif state_data.has("camera_body_yaw_offset"):
+			player.yaw = target_transform.basis.get_euler().y + float(state_data["camera_body_yaw_offset"])
+		else:
+			player.yaw = float(state_data["camera_yaw"])
+		if "yaw_deg" in player:
+			player.yaw_deg = rad2deg(player.yaw)
+	if state_data.has("camera_pitch") and "pitch" in player:
+		player.pitch = float(state_data["camera_pitch"])
+		if "pitch_deg" in player:
+			player.pitch_deg = rad2deg(player.pitch)
+	if "camera_rig" in player and is_instance_valid(player.camera_rig) and "yaw" in player and "pitch" in player:
+		player.camera_rig.transform.basis = Basis(Vector3.UP, player.yaw) * Basis(Vector3.RIGHT, player.pitch)
+		player.camera_rig.force_update_transform()
+
+func _snap_transition_visual(target_transform: Transform) -> void:
+	if not is_instance_valid(player):
+		return
+	var animator = player.get("animator") if "animator" in player else null
+	if is_instance_valid(animator) and animator.has_method("snap_visual_to_direction"):
+		animator.snap_visual_to_direction(-target_transform.basis.z)
+
+func _face_airlock_exit(target_airlock: Spatial, state_data: Dictionary, target_transform: Transform) -> Transform:
+	if not is_instance_valid(target_airlock):
+		return target_transform
+	var exit_door := String(state_data.get("target_airlock_exit_door", "outer")).strip_edges().to_lower()
+	var local_exit_dir := Vector3.BACK
+	if exit_door == "inner":
+		local_exit_dir = Vector3.FORWARD
+	elif exit_door == "none":
+		return target_transform
+	var exit_dir: Vector3 = target_airlock.global_transform.basis.xform(local_exit_dir)
+	exit_dir.y = 0.0
+	if exit_dir.length_squared() <= 0.0001:
+		return target_transform
+	exit_dir = exit_dir.normalized()
+	var yaw := atan2(-exit_dir.x, -exit_dir.z)
+	var out := target_transform
+	out.basis = Basis(Vector3.UP, yaw)
+	return out
 
 func _find_transition_airlock(state_data: Dictionary) -> Spatial:
 	if typeof(state_data) != TYPE_DICTIONARY:
@@ -3262,6 +3323,8 @@ func _find_transition_airlock(state_data: Dictionary) -> Spatial:
 		var by_name = scene.find_node(target_path, true, false)
 		if is_instance_valid(by_name) and by_name is Spatial:
 			return by_name
+		# Specific path was requested but not found — don't fall back to a random airlock
+		return null
 
 	var fallback = scene.find_node("*Airlock*", true, false)
 	if is_instance_valid(fallback) and fallback is Spatial:

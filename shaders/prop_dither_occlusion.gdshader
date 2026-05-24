@@ -5,7 +5,7 @@
 //
 // Based on the proven dither_hiding.shader from project history.
 shader_type spatial;
-render_mode cull_back;
+render_mode cull_back, shadows_disabled;
 
 // --- Standard PBR uniforms (copied from SpatialMaterial at runtime) ---
 uniform vec4 albedo : hint_color = vec4(1.0);

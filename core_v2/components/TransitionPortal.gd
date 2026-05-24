@@ -210,6 +210,13 @@ func _append_airlock_frame_state(state_data: Dictionary, player: Node) -> void:
 	state_data["airlock_relative_transform"] = source_transform.affine_inverse() * player_transform
 	state_data["target_airlock_path"] = String(target_airlock_path)
 	state_data["target_airlock_exit_door"] = target_airlock_exit_door
+	if "yaw" in player:
+		state_data["camera_yaw"] = float(player.yaw)
+		state_data["camera_body_yaw_offset"] = float(player.yaw) - player_transform.basis.get_euler().y
+		var camera_forward: Vector3 = Basis(Vector3.UP, float(player.yaw)).xform(Vector3.FORWARD)
+		state_data["camera_relative_forward"] = source_transform.basis.xform_inv(camera_forward).normalized()
+	if "pitch" in player:
+		state_data["camera_pitch"] = float(player.pitch)
 
 	if "velocity" in player:
 		var velocity: Vector3 = player.velocity
