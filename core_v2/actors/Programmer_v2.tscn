@@ -15,6 +15,7 @@
 [ext_resource path="res://core_v2/audio/footsteps/footstep_profile_default.tres" type="Resource" id=55]
 [ext_resource path="res://core_v2/components/InteractComponentV2.gd" type="Script" id=56]
 [ext_resource path="res://core_v2/camera/KinematicArm3D.gd" type="Script" id=60]
+[ext_resource path="res://core_v2/player/OverTheShoulder.gd" type="Script" id=61]
 [ext_resource path="res://core_v2/visual/ProgrammerHoloMaterial.tres" type="Material" id=121]
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=108]
@@ -86,6 +87,9 @@ script = ExtResource( 56 )
 highlight_color = Color( 0, 1, 1, 0.352941 )
 proximity_color = Color( 0.290196, 0.811765, 0.764706, 0.121569 )
 proximity_radius = 6.0
+
+[node name="OverTheShoulder" type="Node" parent="Logic"]
+script = ExtResource( 61 )
 
 [node name="Visual" type="Spatial" parent="."]
 
