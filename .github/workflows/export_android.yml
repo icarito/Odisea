@@ -27,13 +27,11 @@ jobs:
       - name: Setup Android Export Templates
         run: |
           mkdir -p ~/.local/share/godot/templates
-          # Buscar templates en rutas conocidas del contenedor
-          if [ -d /root/.local/share/godot/templates/3.6.2.stable ]; then
-            ln -sf /root/.local/share/godot/templates/* ~/.local/share/godot/templates/
-          elif [ -d /root/.local/share/godot/templates ]; then
-            cp -rv /root/.local/share/godot/templates/* ~/.local/share/godot/templates/ || true
+          # Templates estan en export_templates/ (no en templates/) en esta version del container
+          if [ -d /root/.local/share/godot/export_templates ]; then
+            ln -sf /root/.local/share/godot/export_templates/* ~/.local/share/godot/templates/
           fi
-          ls -la ~/.local/share/godot/templates/ || echo "No templates found"
+          ls -la ~/.local/share/godot/templates/3.6.2.stable/ 2>/dev/null || echo "WARNING: templates not found"
 
       - name: Configure Godot Editor Settings
         run: |
