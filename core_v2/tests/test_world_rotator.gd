@@ -5,6 +5,7 @@ const BaseTerraceScene = preload("res://core_v2/levels/BaseTerrace.tscn")
 const OdiseaExteriorScene = preload("res://core_v2/levels/OdiseaExterior.tscn")
 const WorldRotatorScene = preload("res://core_v2/components/WorldRotator.tscn")
 const WorldRotatorScript = preload("res://core_v2/systems/WorldRotator.gd")
+const SpiralPlateAttachmentScript = preload("res://core_v2/components/SpiralPlateAttachment.gd")
 const GravityWorldScript = preload("res://core_v2/systems/GravityWorld.gd")
 const PushableBoxV2Scene = preload("res://core_v2/components/PushableBoxV2.tscn")
 
@@ -76,6 +77,91 @@ func test_odisea_exterior_keeps_neighbor_platform_collisions_in_flat_blend() -> 
 
 	assert_bool(rotator.centrifugal_current_plate_only_physics).is_false()
 	assert_int(scene.get_generated_collision_count()).is_greater(0)
+
+func test_spiral_plate_attachment_follows_world_rotator_transform() -> void:
+	var scene = auto_free(OdiseaExteriorScene.instance())
+	add_child(scene)
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+
+	var rotator = scene.get_node("WorldRotator")
+	var platforms: Array = rotator.get_platforms()
+	assert_int(platforms.size()).is_greater_equal(2)
+
+	var light := OmniLight.new()
+	light.name = "AttachedOmniLight"
+	light.set_script(SpiralPlateAttachmentScript)
+	light.rotator_path = NodePath("../WorldRotator")
+	light.attachment_mode = SpiralPlateAttachmentScript.AttachmentMode.PLATE
+	light.spiral_index = 1
+	light.plate_index = 10
+	light.local_offset = Vector3(0.0, 4.0, 0.0)
+	scene.add_child(light)
+	yield(get_tree(), "idle_frame")
+
+	var expected: Transform = rotator.global_transform \
+			* rotator.get_plate_canonical_transform(platforms[1], 10) \
+			* Transform(Basis.IDENTITY, Vector3(0.0, 4.0, 0.0))
+	assert_float(light.global_transform.origin.distance_to(expected.origin)).is_less(0.02)
+
+	var old_position: Vector3 = light.global_transform.origin
+	rotator.global_transform = Transform(Basis(Vector3.UP, deg2rad(20.0)) * rotator.global_transform.basis, rotator.global_transform.origin)
+	light.force_update()
+	var updated_expected: Transform = rotator.global_transform \
+			* rotator.get_plate_canonical_transform(platforms[1], 10) \
+			* Transform(Basis.IDENTITY, Vector3(0.0, 4.0, 0.0))
+	assert_float(light.global_transform.origin.distance_to(updated_expected.origin)).is_less(0.02)
+	assert_float(light.global_transform.origin.distance_to(old_position)).is_greater(0.1)
+
+func test_spiral_plate_attachment_default_preserves_authored_axis_transform() -> void:
+	var scene = auto_free(OdiseaExteriorScene.instance())
+	add_child(scene)
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+
+	var rotator = scene.get_node("WorldRotator")
+	var light := OmniLight.new()
+	light.name = "AxisOmniLight"
+	light.transform.origin = Vector3(0.0, 420.0, 0.0)
+	light.set_script(SpiralPlateAttachmentScript)
+	light.rotator_path = NodePath("../WorldRotator")
+	light.plate_index = 90
+	var authored_global := Transform(Basis.IDENTITY, Vector3(0.0, 420.0, 0.0))
+	var authored_canonical: Transform = rotator.global_transform.affine_inverse() * authored_global
+	scene.add_child(light)
+	yield(get_tree(), "idle_frame")
+
+	var expected: Transform = rotator.global_transform * authored_canonical
+	var plate_90: Transform = rotator.global_transform * rotator.get_plate_canonical_transform(rotator.get_platforms()[0], 90)
+	assert_float(light.global_transform.origin.distance_to(expected.origin)).is_less(0.02)
+	assert_float(light.global_transform.origin.distance_to(plate_90.origin)).is_greater(10.0)
+
+	rotator.global_transform = Transform(Basis(Vector3.UP, deg2rad(20.0)) * rotator.global_transform.basis, rotator.global_transform.origin)
+	light.force_update()
+	var updated_expected: Transform = rotator.global_transform * authored_canonical
+	assert_float(light.global_transform.origin.distance_to(updated_expected.origin)).is_less(0.02)
+
+func test_world_rotator_rotates_panorama_sky_orientation_with_visual_frame() -> void:
+	var scene = auto_free(OdiseaExteriorScene.instance())
+	add_child(scene)
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+
+	var rotator = scene.get_node("WorldRotator")
+	var world_environment: WorldEnvironment = rotator.get_node("WorldEnvironment")
+	assert_object(world_environment).is_not_null()
+	assert_object(world_environment.environment).is_not_null()
+	assert_int(rotator._world_environment_sky_entries.size()).is_greater_equal(1)
+
+	var authored_orientation: Basis = rotator._world_environment_sky_entries[0].get("authored_orientation", Basis.IDENTITY)
+	rotator.global_transform = Transform(Basis(Vector3.UP, deg2rad(37.0)) * rotator.global_transform.basis, rotator.global_transform.origin)
+	rotator._sync_world_environment_sky_frames()
+
+	var expected: Basis = rotator.global_transform.basis * authored_orientation
+	var actual: Basis = world_environment.environment.background_sky_orientation
+	assert_float(actual.x.normalized().dot(expected.x.normalized())).is_greater_equal(0.999)
+	assert_float(actual.y.normalized().dot(expected.y.normalized())).is_greater_equal(0.999)
+	assert_float(actual.z.normalized().dot(expected.z.normalized())).is_greater_equal(0.999)
 
 func test_streamed_pushable_boxes_keep_local_pose_when_slot_moves() -> void:
 	var scene = auto_free(TestWorldRotatorScene.instance())

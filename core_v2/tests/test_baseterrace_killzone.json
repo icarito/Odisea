@@ -1375,12 +1375,12 @@
     "world_start_state": {
       "/root/Node/PlateContentRoot/PlateContentSlot_00/PushableBoxV2": {
         "pos": [
-          -23.027115,
+          -22.121338,
           40.712101,
-          301.842804
+          289.877045
         ],
         "rot": [
-          -0.244346,
+          -0.218166,
           -1.646349,
           1.570796
         ],
@@ -1406,12 +1406,12 @@
       },
       "/root/Node/PlateContentRoot/PlateContentSlot_01/PushableBoxV2": {
         "pos": [
-          77.262917,
+          74.157089,
           18.612099,
-          292.47641
+          280.885284
         ],
         "rot": [
-          -0.244346,
+          -0.218166,
           -1.308997,
           1.570796
         ],
@@ -1437,12 +1437,12 @@
       },
       "/root/Node/PlateContentRoot/PlateContentSlot_02/PushableBoxV2": {
         "pos": [
-          -120.764404,
+          -115.94915,
           62.812099,
-          277.486328
+          266.494812
         ],
         "rot": [
-          -0.244346,
+          -0.218166,
           -1.983701,
           1.570796
         ],
@@ -1468,12 +1468,12 @@
       },
       "/root/Node/PlateContentRoot/PlateContentSlot_03/PushableBoxV2": {
         "pos": [
-          -204.930954,
+          -196.749023,
           84.912109,
-          222.152664
+          213.374527
         ],
         "rot": [
-          -0.244346,
+          -0.218166,
           -2.321054,
           1.570796
         ],
@@ -1499,13 +1499,13 @@
       },
       "/root/Node/PlateContentRoot/PlateContentSlot_04/PushableBoxV2": {
         "pos": [
-          -266.038483,
-          107.0121,
-          142.079681
+          -278.569458,
+          18.612099,
+          77.238503
         ],
         "rot": [
-          -0.244346,
-          -2.658406,
+          -0.218166,
+          -2.879793,
           1.570796
         ],
         "vel": [
@@ -1530,13 +1530,13 @@
       },
       "/root/Node/PlateContentRoot/PlateContentSlot_05/PushableBoxV2": {
         "pos": [
-          -297.198334,
-          129.112106,
-          46.29406
+          133.423019,
+          107.0121,
+          257.728088
         ],
         "rot": [
-          -0.244346,
-          -2.995758,
+          -0.218166,
+          -1.08761,
           1.570796
         ],
         "vel": [
@@ -1561,13 +1561,13 @@
       },
       "/root/Node/PlateContentRoot/PlateContentSlot_06/PushableBoxV2": {
         "pos": [
-          -294.897766,
-          151.212112,
-          -54.406124
+          210.293106,
+          84.912109,
+          199.06485
         ],
         "rot": [
-          -0.244346,
-          2.950075,
+          -0.218166,
+          -0.750257,
           1.570796
         ],
         "vel": [
@@ -1592,13 +1592,13 @@
       },
       "/root/Node/PlateContentRoot/PlateContentSlot_07/PushableBoxV2": {
         "pos": [
-          168.79982,
-          3289.412109,
-          250.442963
+          41.468834,
+          129.112106,
+          287.64151
         ],
         "rot": [
-          -0.244346,
-          -0.971645,
+          -0.218166,
+          -1.424962,
           1.570796
         ],
         "vel": [
@@ -1924,12 +1924,12 @@
       "/root/Node/WorldRotator/Terrace/Building/PushableBoxV3": {
         "pos": [
           -14.82693,
-          7.59003,
-          24.207701
+          7.59001,
+          24.2078
         ],
         "rot": [
           -0.001445,
-          -0.007581,
+          -0.00758,
           0.007436
         ],
         "vel": [
@@ -1955,12 +1955,12 @@
       "/root/Node/WorldRotator/Terrace/Building/PushableBoxV4": {
         "pos": [
           -7.740999,
-          7.58997,
+          7.58996,
           24.615299
         ],
         "rot": [
           -0.001445,
-          -0.007581,
+          -0.00758,
           0.007436
         ],
         "vel": [
@@ -1986,12 +1986,12 @@
       "/root/Node/WorldRotator/Terrace/Building/PushableBoxV5": {
         "pos": [
           -11.8269,
-          7.58995,
+          7.58994,
           24.207701
         ],
         "rot": [
           -0.001445,
-          -0.007581,
+          -0.00758,
           0.007436
         ],
         "vel": [
@@ -2017,12 +2017,12 @@
       "/root/Node/WorldRotator/Terrace/Building/PushableBoxV6": {
         "pos": [
           -11.8269,
-          9.59004,
+          9.59003,
           24.207701
         ],
         "rot": [
           -0.001445,
-          -0.007581,
+          -0.00758,
           0.007436
         ],
         "vel": [
@@ -2047,13 +2047,13 @@
       },
       "/root/Node/WorldRotator/Terrace/Building/PushableBoxV7": {
         "pos": [
-          -14.82691,
-          9.59003,
+          -14.82689,
+          9.59002,
           24.207701
         ],
         "rot": [
           -0.001445,
-          -0.007581,
+          -0.00758,
           0.007436
         ],
         "vel": [
@@ -2078,13 +2078,13 @@
       },
       "/root/Node/WorldRotator/Terrace/Building/PushableBoxV8": {
         "pos": [
-          -19.167881,
-          7.59003,
-          10.5501
+          -19.16787,
+          7.59002,
+          10.55006
         ],
         "rot": [
           -0.001445,
-          -0.007581,
+          -0.00758,
           0.007436
         ],
         "vel": [
@@ -2109,13 +2109,13 @@
       },
       "/root/Node/WorldRotator/Terrace/Building/PushableBoxV9": {
         "pos": [
-          -19.16786,
-          9.59003,
-          10.5501
+          -19.167839,
+          9.59002,
+          10.55006
         ],
         "rot": [
           -0.001445,
-          -0.007581,
+          -0.00758,
           0.007436
         ],
         "vel": [
@@ -2137,139 +2137,6 @@
         ],
         "snap_rot": true,
         "snap_deg": 1
-      },
-      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_11_prop_door_scifi_double_vertical": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0
-      },
-      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_1_light_flickering": {
-        "active": true,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 1,
-        "target": 1,
-        "time_acc": 0,
-        "flicker_timeout_remaining": 37.273849,
-        "flicker_has_settled": false,
-        "flicker_settled_on": true,
-        "flicker_timeout_rng_state": 4822213761132479581
-      },
-      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_2_light_wall": {
-        "active": true,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 1,
-        "target": 1,
-        "time_acc": 0,
-        "flicker_timeout_remaining": 20.075654,
-        "flicker_has_settled": false,
-        "flicker_settled_on": true,
-        "flicker_timeout_rng_state": -6980950748257503860
-      },
-      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_3_light_hanging": {
-        "active": true,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 1,
-        "target": 1,
-        "hanging_time": 0
-      },
-      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_4_light_work_tripod": {
-        "active": true,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 1,
-        "target": 1
-      },
-      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_5_light_wall": {
-        "active": true,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 1,
-        "target": 1,
-        "time_acc": 0,
-        "flicker_timeout_remaining": 21.875336,
-        "flicker_has_settled": false,
-        "flicker_settled_on": true,
-        "flicker_timeout_rng_state": 4457011439196620555
-      },
-      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_5_light_work_tripod": {
-        "active": true,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 1,
-        "target": 1
-      },
-      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_6_light_emergency_beacon": {
-        "active": true,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 1,
-        "target": 1,
-        "beacon_time": 0
-      },
-      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_6_prop_door_floor_hatch/HatchDoor": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0,
-        "start_pos": [
-          0,
-          0,
-          0
-        ]
-      },
-      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_6_prop_door_floor_hatch/ValveWheel": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0,
-        "start_rot": [
-          0,
-          0,
-          0
-        ]
-      },
-      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_7_light_ceiling": {
-        "active": true,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 1,
-        "target": 1,
-        "time_acc": 0,
-        "flicker_timeout_remaining": 26.102634,
-        "flicker_has_settled": false,
-        "flicker_settled_on": true,
-        "flicker_timeout_rng_state": -2376601295671375044
-      },
-      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_8_light_ceiling": {
-        "active": true,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 1,
-        "target": 1,
-        "time_acc": 0,
-        "flicker_timeout_remaining": 31.341542,
-        "flicker_has_settled": false,
-        "flicker_settled_on": true,
-        "flicker_timeout_rng_state": 1748924883606011121
-      },
-      "/root/Node/WorldRotator/Terrace/Building/QodotMap/entity_9_light_ceiling": {
-        "active": true,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 1,
-        "target": 1,
-        "time_acc": 0,
-        "flicker_timeout_remaining": 30.847688,
-        "flicker_has_settled": false,
-        "flicker_settled_on": true,
-        "flicker_timeout_rng_state": 4876104353222799014
       },
       "/root/Node/WorldRotator/Terrace/Building/TableTerminal": {
         "active": false,
