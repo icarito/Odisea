@@ -5,8 +5,10 @@ import pytest
 import os
 import re
 import selectors
+import signal
 import subprocess
 import sys
+import time
 
 
 class RunnerError(Exception):
@@ -22,6 +24,7 @@ def _stream_process(
     file_hint: Path | None = None,
     filter_visualserver: bool = False,
     env: dict[str, str] | None = None,
+    timeout_sec: float | None = None,
 ):
     process_env = os.environ.copy()
     if env:
@@ -76,7 +79,25 @@ def _stream_process(
     if proc.stdout is not None:
         sel.register(proc.stdout, selectors.EVENT_READ)
 
+    deadline = time.monotonic() + timeout_sec if timeout_sec and timeout_sec > 0 else None
+    timed_out = False
     while proc.poll() is None:
+        if deadline is not None and time.monotonic() >= deadline:
+            timed_out = True
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                proc.wait(timeout=5)
+            break
+
         events = sel.select(timeout=0.2)
         if not events:
             continue
@@ -97,6 +118,12 @@ def _stream_process(
     if proc.stdout is not None:
         for line in proc.stdout:
             _consume_line(line)
+
+    if timed_out:
+        timeout_message = f"TIMEOUT: command exceeded {timeout_sec:.0f}s: {' '.join(cmd)}"
+        print(timeout_message)
+        captured_failed_asserts.append(timeout_message)
+        return 124, captured_failed_asserts, detected_log_path
 
     return proc.poll(), captured_failed_asserts, detected_log_path
 
@@ -190,6 +217,19 @@ def _truthy_env(value: str | None) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _test_timeout_sec() -> float | None:
+    value = os.environ.get("ODISEA_TEST_TIMEOUT_SEC")
+    if value is None:
+        if os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true":
+            return 180.0
+        return None
+    try:
+        parsed = float(value)
+    except ValueError:
+        return 180.0
+    return parsed if parsed > 0 else None
+
+
 def _cli_option_value(option_name: str) -> str | None:
     prefix = f"{option_name}="
     argv = sys.argv[1:]
@@ -239,6 +279,7 @@ def _run_gdunit_suite(suite_path: Path, selected_runner: str, repo_root: Path, o
         cmd,
         file_hint=rel_suite,
         env={"ODISEA_SKIP_PREFLIGHT": "1"},
+        timeout_sec=_test_timeout_sec(),
     )
     if returncode != 0:
         failures = captured_failed_asserts + _extract_assert_failures_from_log(log_path)
@@ -267,7 +308,11 @@ def _run_determinism_case(oys_name: str, selected_runner: str, odisea_debug: boo
     cmd += ["--oys", oys_name]
     print(f"[INFO] Executing: {' '.join(cmd)}")
 
-    returncode, captured_failed_asserts, log_path = _stream_process(cmd, env={"ODISEA_SKIP_PREFLIGHT": "1"})
+    returncode, captured_failed_asserts, log_path = _stream_process(
+        cmd,
+        env={"ODISEA_SKIP_PREFLIGHT": "1"},
+        timeout_sec=_test_timeout_sec(),
+    )
     if returncode != 0:
         failures = captured_failed_asserts + _extract_assert_failures_from_log(log_path)
         deduped = list(dict.fromkeys(failures))
@@ -301,6 +346,7 @@ def _run_raw_oys_file(test_file: Path, selected_runner: str, repo_root: Path, od
         file_hint=rel_file,
         filter_visualserver=True,
         env={"OYS_AUTO_RUN": oys_auto_run},
+        timeout_sec=_test_timeout_sec(),
     )
     if returncode == 1:
         message = "Test failed with return code 1. Check logs for [ERROR]."
