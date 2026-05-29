@@ -39,11 +39,11 @@ jobs:
         run: |
           mkdir -p ~/.config/godot
           cat > ~/.config/godot/editor_settings-3.tres << 'EOF'
-[android]
-adb = "/usr/lib/android-sdk/platform-tools/adb"
-javac = "/usr/bin/javac"
-jdk_path = "/usr/lib/jvm/java-11-openjdk-amd64"
-EOF
+          [android]
+          adb = "/usr/lib/android-sdk/platform-tools/adb"
+          javac = "/usr/bin/javac"
+          jdk_path = "/usr/lib/jvm/java-11-openjdk-amd64"
+          EOF
 
       - name: Export to Android
         run: |
