@@ -4,7 +4,7 @@ class_name SteelPlate
 # SteelPlate.gd - Thin pushable plate.
 # Extends PushableBoxV2 to reuse its hybrid physics logic.
 
-export(float) var weight := 20.0 setget set_weight
+# export(float) var weight := 20.0 setget set_weight
 
 func set_weight(v: float) -> void:
 	weight = v
