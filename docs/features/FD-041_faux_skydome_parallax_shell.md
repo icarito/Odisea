@@ -1,116 +1,80 @@
-# FD-041: Faux Skydome / Centrifugal Parallax Shell
+# FD-041: Faux Skydome / Terrace Segmentation & LOD
 
-**Status:** Design
+**Status:** Design (Revision 2)
 **Priority:** Medium
 **Effort:** Medium
 **Created:** 2026-05-23
-**Completed:** -
-**Depends on:** FD-036, FD-039
-
-**Engineering contract:** `docs/engineering/Gravity_Physics_Contracts.md`
+**Updated:** 2026-05-29
+**Depends on:** FD-036, FD-039, WorldRotator, PlateContentStream
 
 ## Problem
 
-Odisea necesita vender escala, nave y rotacion centrifuga alrededor de las
-terrazas sin pagar inmediatamente el costo del `InfiniteScaffoldField` completo.
-El scaffold procedural sigue siendo prometedor, pero hoy esta bloqueado por
-presupuesto de nodos/draw calls, reciclaje amortizado y exclusiones authorables.
+Odisea necesita vender escala, nave y rotacion centrifuga de las terrazas sin
+pagar el costo de draw calls del WorldRotator completo. En HTML5/WebGL el
+rendimiento es abismal por acumulacion de geometria, luces y GDScript.
 
-Para poder construir niveles ya, se necesita una capa visual barata que sugiera:
-
-- casco o volumen interior de nave;
-- estrellas/exterior visible a traves de aperturas o ventanales;
-- la espiral como landmark lejano;
-- profundidad entre plates, espiral y estructura lejana;
-- movimiento relativo durante cambios de frame centrifugo;
-- continuidad entre interiores cerrados y zonas abiertas de espiral.
-
-Esta capa no debe introducir gameplay, colisiones ni dependencia de fisica.
+Solucion: segmentar la espiral en N arcos (12 segmentos de 30 grados) y
+asignar LOD por segmento segun distancia al jugador y plates activos.
 
 ## Solution
 
-Crear un `FauxSkydomeParallaxShell` visual bajo `WorldRotator`, usado como LOD
-lejano o sustituto temporal del scaffold:
+### Arquitectura
 
-```text
+```
 WorldRotator
-+-- TerraceSpiralVisual
-+-- FauxSkydomeParallaxShell
-    +-- HullDepthLayer
-    +-- IndustrialGridLayer
-    +-- WarningLightLayer
++-- TerraceSpiral
++-- FauxSkydomeParallaxShell (LOD0 global)
++-- TerraceSegmentManager
+    +-- Segment_00 (LOD1 / LOD2)
+    +-- Segment_01
+    +-- ...
+    +-- Segment_11
 ```
 
-La primera version debe favorecer materiales, texturas y `MultiMesh` muy barato
-antes que geometria detallada:
+### LOD por segmento
 
-- shell cilindrico o esferico invertido, centrado en el eje de nave;
-- 2-3 capas con parallax sutil basado en camara/canonico;
-- textura industrial repetible o baked atlas de tuberias/soportes;
-- scrolling lento opcional para vender rotacion o profundidad;
-- sin colision;
-- sin luces dinamicas necesarias;
-- switch `enabled_on_low_profile` / `quality_level`.
+| LOD | Tecnica | Draw calls | Colision | GPU |
+|-----|---------|------------|----------|-----|
+| 0 | FauxSkydome (cilindro texturizado) | 1 | No | Bajo |
+| 1 | MultiMeshInstance con bake | 1 | No | Bajo |
+| 2 | MeshInstance individual | 1/segmento | Si | Medio |
 
-### Runtime Contract
+### Reglas
 
-- Vive bajo `WorldRotator` porque es visual y debe compartir el frame
-  centrifugo.
-- Sus decisiones de posicion/parallax deben usar espacio canonico cuando sea
-  necesario, no el origen local de un chunk arbitrario.
-- Nunca bloquea `PlateContentStream`, transiciones, colisiones o replay.
-- Puede actualizarse en `_process()` porque es visual-only, pero debe exponer un
-  metodo determinista `force_update(canonical_camera_pos)` para tests o capturas.
+- LOD0 siempre visible.
+- LOD1 visible donde LOD2 no esta activo.
+- LOD2 activo solo para: segmento del player, 2 vecinos, segmentos con
+  PlateContentStream activo.
+- HTML5: solo LOD0 + LOD1.
 
-### Visual Direction
+### Integracion PlateContentStream
 
-El resultado debe poder alternar entre dos lecturas compatibles: casco/exterior
-espacial y estructura interna de espiral. No debe sentirse como un cielo natural
-generico:
+PlateContentStream.loaded_plates -> TerraceSegmentManager
+  -> segment = plate.spiral_index / 12
+  -> promocionar a LOD2
 
-- capas oscuras de casco, estrellas contenidas, grids tecnicos, tuberias lejanas
-  y luces discretas;
-- silueta reconocible de la espiral cuando el punto de vista lo permita;
-- contraste suficiente para mostrar rotacion sin competir con plataformas;
-- sin miles de piezas individuales lejanas;
-- evitar movimiento rapido de fondo que cause mareo.
+### FauxSkydomeParallaxShell (LOD0)
 
-### Relationship to FD-037
-
-Si funciona, este shell se convierte en el LOD lejano de `InfiniteScaffoldField`.
-Si no funciona, se elimina sin afectar gameplay porque no tiene estado fisico ni
-contratos de nivel.
-
-## Considered Options
-
-- **Option A: Integrar ya el scaffold infinito completo**: mayor fidelidad, pero
-  alto riesgo de rendimiento y authoring antes del slice jugable.
-- **Option B: Fondo estatico simple**: barato, pero no ayuda a vender rotacion ni
-  profundidad.
-- **Option C: Shell visual con parallax por capas**: barato, reversible y puede
-  evolucionar a LOD lejano de FD-037.
-- **Selected:** Option C.
+Cilindro/esfera invertida, 3 capas:
+- HullDepthLayer: casco interior de nave
+- IndustrialGridLayer: textura baked de la espiral
+- WarningLightLayer: Sprites de luces
 
 ## Files to Create
 
-- `core_v2/systems/visual/FauxSkydomeParallaxShell.gd`
-- `core_v2/systems/visual/FauxSkydomeParallaxShell.tscn`
-- `shaders/faux_skydome_parallax.shader`
-- `core_v2/tests/visual/test_faux_skydome_parallax.oys`
+- core_v2/systems/visual/TerraceSegmentManager.gd
+- core_v2/systems/visual/FauxSkydomeParallaxShell.gd
+- shaders/faux_skydome_parallax.shader
 
 ## Files to Modify
 
-- `docs/features/FEATURE_INDEX.md`
-- Escenas de prueba bajo `core_v2/levels/` o `core_v2/tests/` que necesiten
-  validar el fondo centrifugo.
+- core_v2/systems/WorldRotator.gd
+- core_v2/systems/PlateContentStream.gd
 
 ## Verification
 
-1. Activar el shell bajo `WorldRotator` y confirmar que rota coherentemente con
-   el frame centrifugo.
-2. Cruzar una transicion interior -> espiral y verificar que el fondo aparece
-   sin stutter visible.
-3. Capturar un recorrido corto y confirmar que el parallax no produce mareo ni
-   popping.
-4. Comparar draw calls y FPS contra una escena con scaffold lejano prototipo.
-5. Confirmar que desactivar el shell no cambia colisiones, replay ni gameplay.
+1. Segmentos visibles sin gaps.
+2. LOD0 en distancia, LOD1 al acercarse, LOD2 al llegar.
+3. HTML5 mantiene 30+ FPS con LOD0+LOD1.
+4. PlateContentStream promociona/degrada segmentos.
+5. Sin popping visual al cambiar LOD.
