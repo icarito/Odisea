@@ -19,6 +19,10 @@ albedo_color = Color( 1, 0, 0, 1 )
 emission_enabled = true
 emission = Color( 1, 0, 0, 1 )
 
+[sub_resource type="CylinderShape" id=5]
+radius = 0.3
+height = 0.1
+
 [node name="Manometer" type="Spatial"]
 script = ExtResource( 1 )
 
@@ -39,3 +43,9 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.06 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.125, 0 )
 mesh = SubResource( 3 )
 material/0 = SubResource( 4 )
+
+[node name="StaticBody" type="StaticBody" parent="."]
+
+[node name="CollisionShape" type="CollisionShape" parent="StaticBody"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
+shape = SubResource( 5 )
