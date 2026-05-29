@@ -17,6 +17,7 @@
 [ext_resource path="res://core_v2/camera/KinematicArm3D.gd" type="Script" id=60]
 [ext_resource path="res://core_v2/player/traversal/TraversalLogicV2.gd" type="Script" id=61]
 [ext_resource path="res://core_v2/player/PlayerUISettings.gd" type="Script" id=62]
+[ext_resource path="res://core_v2/player/OverTheShoulder.gd" type="Script" id=63]
 
 [sub_resource type="SpatialMaterial" id=121]
 albedo_color = Color( 1, 0.411765, 0.129412, 1 )
@@ -117,6 +118,9 @@ ladder_auto_enter_lateral_limit = 0.8
 
 [node name="UI" type="Node" parent="Logic"]
 script = ExtResource( 62 )
+
+[node name="OverTheShoulder" type="Node" parent="Logic"]
+script = ExtResource( 63 )
 
 [node name="Visual" type="Spatial" parent="."]
 
