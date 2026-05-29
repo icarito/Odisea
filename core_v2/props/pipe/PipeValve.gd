@@ -48,11 +48,11 @@ func _update_visuals() -> void:
 		_wheel = get_node_or_null("Wheel")
 		if not _wheel: return
 
-	# Rota 180 grados en eje X
+	# Rota 180 grados en eje Z
 	var eased = _ease_in_out(anim_progress)
 	var angle = lerp(0.0, PI, eased)
 
-	_wheel.rotation.x = angle
+	_wheel.rotation.z = angle
 
 func _on_animation_completed() -> void:
 	._on_animation_completed()
