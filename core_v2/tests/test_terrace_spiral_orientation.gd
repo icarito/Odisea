@@ -22,6 +22,7 @@ func test_zero_tilt_keeps_terrace_normal_vertical() -> void:
 func test_dome_lod_overlays_follow_cached_plate_transforms() -> void:
 	var spiral = auto_free(TerraceSpiralScript.new())
 	add_child(spiral)
+	yield(get_tree(), "idle_frame")
 	spiral.plate_mesh = CubeMesh.new()
 	spiral.total_height = 120.0
 	spiral.plate_step = 40.0
@@ -44,7 +45,6 @@ func test_dome_lod_overlays_follow_cached_plate_transforms() -> void:
 			"signature": "dome|part0|1"
 		}]
 	}])
-	yield(get_tree(), "idle_frame")
 
 	var overlay_root: Spatial = spiral.get_node_or_null("DomeLOD") as Spatial
 	assert_object(overlay_root).is_not_null()
