@@ -52,7 +52,8 @@ func test_new_props_follow_interactable_contract_and_match_point_class_size():
 		var packed: PackedScene = load(entry["scene"]) as PackedScene
 		assert_object(packed).is_not_null()
 
-		var prop: Node = auto_free(packed.instance())
+		var prop: Node = packed.instance()
+		assert_object(prop).is_not_null()
 		host.add_child(prop)
 		yield(get_tree(), "idle_frame")
 
@@ -104,6 +105,10 @@ func test_new_props_follow_interactable_contract_and_match_point_class_size():
 		assert_bool(mapped_size_meters.y <= scene_bounds.size.y * 4.0).is_true()
 		assert_bool(mapped_size_meters.z <= max(0.8, scene_bounds.size.z * 4.0)).is_true()
 
+		host.remove_child(prop)
+		prop.queue_free()
+		yield(get_tree(), "idle_frame")
+
 func _has_interaction_proxy(node: Node) -> bool:
 	for child in node.get_children():
 		if child is CollisionObject and child.has_method("interact"):
@@ -124,7 +129,14 @@ func _compute_scene_visual_bounds(node: Node) -> AABB:
 func _collect_visual_bounds(node: Node) -> Array:
 	var bounds: Array = []
 	for child in node.get_children():
-		if child is MeshInstance or child is CSGShape:
+		if not is_instance_valid(child):
+			continue
+
+		if child is MeshInstance:
+			if child.mesh != null:
+				bounds.append(child.get_transformed_aabb())
+		elif child is CSGShape:
 			bounds.append(child.get_transformed_aabb())
+
 		bounds.append_array(_collect_visual_bounds(child))
 	return bounds
