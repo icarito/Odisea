@@ -24,10 +24,29 @@ jobs:
           mkdir -p android
           keytool -genkey -v -keystore android/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Export to Android
+      - name: Setup Android Export Templates
         run: |
           mkdir -p ~/.local/share/godot/templates
-          cp -rv /root/.local/share/godot/templates/* ~/.local/share/godot/templates/ || true
+          # Buscar templates en rutas conocidas del contenedor
+          if [ -d /root/.local/share/godot/templates/3.6.2.stable ]; then
+            ln -sf /root/.local/share/godot/templates/* ~/.local/share/godot/templates/
+          elif [ -d /root/.local/share/godot/templates ]; then
+            cp -rv /root/.local/share/godot/templates/* ~/.local/share/godot/templates/ || true
+          fi
+          ls -la ~/.local/share/godot/templates/ || echo "No templates found"
+
+      - name: Configure Godot Editor Settings
+        run: |
+          mkdir -p ~/.config/godot
+          cat > ~/.config/godot/editor_settings-3.tres << 'EOF'
+[android]
+adb = "/usr/lib/android-sdk/platform-tools/adb"
+javac = "/usr/bin/javac"
+jdk_path = "/usr/lib/jvm/java-11-openjdk-amd64"
+EOF
+
+      - name: Export to Android
+        run: |
           mkdir -p ports
           godot --no-window --editor --quit || true
           godot --no-window --export-debug "Android" ports/Odisea.apk
