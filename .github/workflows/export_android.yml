@@ -1,0 +1,51 @@
+name: Exportar APK (Android)
+
+on:
+  push:
+    branches: [ "main" ]
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  export-android:
+    runs-on: ubuntu-latest
+    name: Export Android APK
+    container:
+      image: barichello/godot-ci:3.6.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate Debug Keystore
+        run: |
+          mkdir -p android
+          keytool -genkey -v -keystore android/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Export to Android
+        run: |
+          # The godot-ci image has templates in /root/.local/share/godot/templates/
+          # We ensure the export templates are available in the expected path
+          mkdir -v -p ~/.local/share/godot/templates
+          # If they are already in /root and we are root, we don't need to move them, 
+          # but we'll link them just in case ~/.local is different
+          cp -rv /root/.local/share/godot/templates/* ~/.local/share/godot/templates/ || true
+          mkdir -v -p ports
+          godot -v --export-debug "Android" ports/Odisea.apk
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Odisea-Android-APK
+          path: ports/Odisea.apk
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ports/Odisea.apk
+          generate_release_notes: true
+          draft: false
+          prerelease: false
