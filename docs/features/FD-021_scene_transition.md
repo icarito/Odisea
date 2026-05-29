@@ -1,10 +1,11 @@
 # FD-021: Scene Transition System
 
-**Status:** Design (Revisión 2)
+**Status:** Implemented
 **Priority:** P0
 **Effort:** Medium
 **Created:** 2026-03-02
-**Updated:** 2026-05-23
+**Updated:** 2026-05-29
+**Completed:** 2026-05-29
 
 ## Problem
 
@@ -148,17 +149,23 @@ func _physics_process(delta):
 
 - 1:1 por airlock. Convencion: `target_spawn_id = "from_X"`, SpawnPointV2 con `spawn_id = "from_X"`
 
-## Files to Create
+## Files Created
 
 - `core_v2/components/AirlockZoneV2.gd`
 
-## Files to Modify
+## Files Modified
 
-- `core_v2/props/AirlockChamber.tscn` — 7m diametro, 8m largo, collision camara
-- `core_v2/components/TransitionPortal.gd` — refactorizar o eliminar
-- `core_v2/components/TransitionPortal.tscn` — refactorizar o eliminar
-- `core_v2/levels/Interior_A.tscn` — reubicar airlock, front wall
-- `core_v2/levels/Terrace_A.tscn` — airlock visible desde fuera
+- `core_v2/autoloads/SceneManager.gd` — camera yaw/pitch preservado en snapshot
+- `core_v2/components/AirlockControllerV2.gd` — start_transition_cycle + open_exit_door
+- `core_v2/levels/Interior_A.tscn` — airlock integrado
+- `core_v2/levels/Terrace_A.tscn` — destino funcional
+
+## Camera Yank Fix
+
+El camera yank al transicionar se resolvió preservando `yaw` y `pitch` en el
+snapshot del player. `SceneManager._apply_spawn_and_state()` ahora restaura la
+orientación completa de la cámara (yaw + pitch) después del spawn, eliminando
+el salto brusco.
 
 ## Verification
 
@@ -169,5 +176,5 @@ func _physics_process(delta):
 5. Puerta opuesta se abre automaticamente
 6. Si carga lenta: player frena suavemente
 7. Ida/vuelta funciona
-8. Camara no atraviesa paredes
+8. Camara no atraviesa paredes ni salta en la transicion
 9. `./runtest.sh -a ./core_v2/tests/` pasa completo
