@@ -127,12 +127,15 @@ def pytest_configure(config):
             config.option.numprocesses = 0
         elif editor_mode and editor_serial:
             # Optional fallback when local machine cannot handle parallel Godot runs.
-            config.option.numprocesses = 0
+            config.option.numprocesses = 3
         elif debug_enabled:
             # Debug sessions must be single-process; xdist workers lose debug context.
             config.option.numprocesses = 0
         elif (not debug_enabled) and (not is_collect_only) and (not explicit_numprocesses):
-            config.option.numprocesses = "auto"
+            if _is_github_actions():
+                config.option.numprocesses = "auto"
+            else:
+                config.option.numprocesses = 3
 
 
 def _is_github_actions() -> bool:
