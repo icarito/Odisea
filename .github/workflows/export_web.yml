@@ -73,6 +73,9 @@ jobs:
             echo "No nested export dir found; leaving build directory as-is."
           fi
 
+      - name: Minimize Web export for GitHub Pages
+        run: python3 scripts/minimize_html_export.py "${{ steps.export.outputs.build_directory }}"
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
