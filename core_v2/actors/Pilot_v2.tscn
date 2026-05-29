@@ -20,8 +20,10 @@
 [ext_resource path="res://core_v2/player/OverTheShoulder.gd" type="Script" id=63]
 
 [sub_resource type="SpatialMaterial" id=121]
-albedo_color = Color( 1, 0.411765, 0.129412, 1 )
-roughness = 0.58
+albedo_color = Color( 1, 0.48, 0.12, 1 )
+metallic = 0.0
+metallic_specular = 0.22
+roughness = 0.9
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=108]
 
