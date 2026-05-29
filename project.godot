@@ -1369,11 +1369,6 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/network/rpc/RPCMessage.gd"
 }, {
-"base": "Spatial",
-"class": "RadialScatter",
-"language": "GDScript",
-"path": "res://core_v2/tools/RadialScatter.gd"
-}, {
 "base": "ISensor3D",
 "class": "RayCastSensor3D",
 "language": "GDScript",
@@ -1508,16 +1503,6 @@ _global_script_classes=[ {
 "class": "SpawnPointV2",
 "language": "GDScript",
 "path": "res://core_v2/components/SpawnPointV2.gd"
-}, {
-"base": "Spatial",
-"class": "SpiralPlateAttachment",
-"language": "GDScript",
-"path": "res://core_v2/components/SpiralPlateAttachment.gd"
-}, {
-"base": "PropBaseV2",
-"class": "SteelGratePlatform",
-"language": "GDScript",
-"path": "res://core_v2/props/scaffold/SteelGratePlatform.gd"
 }, {
 "base": "Fuzzer",
 "class": "StringFuzzer",
@@ -1982,7 +1967,6 @@ _global_script_class_icons={
 "RPCGdUnitEvent": "",
 "RPCGdUnitTestSuite": "",
 "RPCMessage": "",
-"RadialScatter": "",
 "RayCastSensor3D": "",
 "RaycastSensor2D": "",
 "Result": "",
@@ -2010,8 +1994,6 @@ _global_script_class_icons={
 "SlimeLayer": "",
 "SnapToPath": "",
 "SpawnPointV2": "",
-"SpiralPlateAttachment": "",
-"SteelGratePlatform": "",
 "StringFuzzer": "",
 "TeleportSystem": "",
 "TerminalCameraRig": "",
@@ -2099,11 +2081,11 @@ window/size/test_width=1280
 window/size/test_height=720
 window/dpi/allow_hidpi=true
 window/stretch/mode="viewport"
-window/stretch/aspect="keep"
+window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/virtualcamera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/virtualcamera/plugin.cfg" )
 
 [gdunit3]
 
@@ -2345,6 +2327,7 @@ threads/thread_model=2
 vram_compression/import_bptc=true
 vram_compression/import_etc=true
 vram_compression/import_pvrtc=true
+quality/shadows/filter_mode=2
 quality/shading/force_vertex_shading=true
 quality/shading/use_physical_light_attenuation=true
 batching/options/single_rect_fallback=true

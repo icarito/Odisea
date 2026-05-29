@@ -244,11 +244,6 @@
 }
 // entity 12
 {
-"classname" "prop_steel_grate_platform"
-"origin" "-128 -228 32"
-}
-// entity 13
-{
 "classname" "func_group"
 "_tb_type" "_tb_layer"
 "_tb_name" "Prop"
@@ -372,13 +367,13 @@
 ( 27.085986354229817 21.322954567876195 28 ) ( 17.81025829886113 46.80780794900363 20 ) ( 27.085986354229817 21.322954567876195 20 ) kenney_prototype_textures/light/texture_03 [ -0.4999999999999993 0.866025403784439 0 -52.677505 ] [ 0 0 -1 0 ] 270 0.125 0.125
 }
 }
-// entity 14
+// entity 13
 {
 "classname" "prop_door_scifi_double_vertical"
 "origin" "127 -179 0.4"
 "_tb_layer" "1"
 }
-// entity 15
+// entity 14
 {
 "classname" "func_group"
 "_tb_type" "_tb_layer"

@@ -27,7 +27,5 @@ func test_html5_export_preset_includes_terminal_and_pilot_dependencies() -> void
 	assert_int(html5_options).is_greater(html5_start)
 
 	var preset_text := text.substr(html5_start, html5_options - html5_start)
-	if preset_text.find("export_filter=\"all_resources\"") != -1:
-		return
 	for resource_path in REQUIRED_HTML5_RESOURCES:
 		assert_bool(preset_text.find(resource_path) != -1).is_true()

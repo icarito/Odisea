@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=2]
+[gd_scene load_steps=25 format=2]
 
 [ext_resource path="res://core_v2/player/PlayerControllerV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/actors/PilotAnimatorV2.gd" type="Script" id=3]
@@ -70,6 +70,7 @@ cinematic_zoom_speed = null
 cinematic_zoom_lerp_speed = null
 cinematic_zoom_min_fov = null
 cinematic_zoom_max_fov = null
+camera_collision_mask = 129
 step_height = null
 step_depth = 0.7
 step_grounded_grace = 0.3
@@ -120,12 +121,6 @@ script = ExtResource( 62 )
 
 [node name="OverTheShoulder" type="Node" parent="Logic"]
 script = ExtResource( 63 )
-max_side_offset = 1.2
-max_height_offset = -2.5
-max_forward_offset = 2.0
-distance_min = 0.0
-distance_max = 4.0
-right_side = false
 
 [node name="Visual" type="Spatial" parent="."]
 

@@ -8,11 +8,9 @@ panorama = ExtResource( 1 )
 [resource]
 background_mode = 2
 background_sky = SubResource( 2 )
-fog_enabled = true
-fog_color = Color( 0.00784314, 0.0901961, 0.0980392, 0.976471 )
-fog_depth_curve = 0.901251
+fog_color = Color( 0.172549, 0.172549, 0.172549, 0.976471 )
 fog_height_enabled = true
-fog_height_min = 3.3
+fog_height_min = 4.0
 tonemap_mode = 2
 tonemap_exposure = 0.72
 tonemap_white = 1.75
