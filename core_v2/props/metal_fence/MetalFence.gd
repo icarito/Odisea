@@ -16,6 +16,7 @@ var _path_node: Path = null
 var _container: Spatial = null
 var _shader: Shader = null
 var _poles_material: SpatialMaterial = null
+var _panel_material_cache: Array = []
 
 func _init():
     is_interactable = false
@@ -156,6 +157,8 @@ func _generate_fence():
     if not _container:
         return
         
+    _panel_material_cache.clear()
+
     for child in _container.get_children():
         child.queue_free()
         
@@ -236,16 +239,12 @@ func _generate_fence():
         center.y += height * 0.5
         panel.translation = center
         
-        if segment_dir.normalized().abs() != Vector3.UP:
-            var forward = segment_dir.normalized()
-            var up = Vector3.UP
-            var right = forward.cross(up).normalized()
-            if right.length() > 0.001:
-                var actual_up = right.cross(forward).normalized()
-                panel.transform = Transform(Basis(right, actual_up, forward), center)
-                panel.rotate_y(PI * 0.5)
-                
+        var forward = segment_dir.normalized()
+        var panel_basis = _build_segment_basis(forward)
+        panel.transform = Transform(panel_basis, center)
+
         _container.add_child(panel)
+        _panel_material_cache.append(mat)
         
         var body = StaticBody.new()
         body.name = "FenceBarrier_%d" % i
@@ -258,12 +257,17 @@ func _generate_fence():
         body.add_child(col_shape)
         
         body.translation = center
-        if segment_dir.normalized().abs() != Vector3.UP:
-            var forward = segment_dir.normalized()
-            var up = Vector3.UP
-            var right = forward.cross(up).normalized()
-            if right.length() > 0.001:
-                var actual_up = right.cross(forward).normalized()
-                body.transform = Transform(Basis(right, actual_up, forward), center)
+        body.transform = Transform(panel_basis, center)
                 
         _container.add_child(body)
+
+func _build_segment_basis(forward: Vector3) -> Basis:
+    if forward.length_squared() < 0.0001:
+        return Basis()
+
+    var x_axis = forward.normalized()
+    var z_axis = x_axis.cross(Vector3.UP).normalized()
+    if z_axis.length_squared() < 0.0001:
+        z_axis = Vector3.FORWARD
+    var y_axis = z_axis.cross(x_axis).normalized()
+    return Basis(x_axis, y_axis, z_axis)
