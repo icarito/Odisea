@@ -156,11 +156,9 @@ run_cmd() {
 run_import_once() {
   local import_mode="$1"
   local log_file="$2"
-  local -a cmd=("${GODOT_BIN}" "--path" "${PROJECT_PATH}" "--headless" "--no-window" "--audio-driver" "Dummy")
-  if [[ "${import_mode}" == "quick" ]]; then
-    cmd=("${GODOT_BIN}" "--path" "${PROJECT_PATH}" "--editor" "--quit" "--headless" "--no-window" "--audio-driver" "Dummy")
-  else
-    cmd+=("-e")
+  local -a cmd=("${GODOT_BIN}" "--path" "${PROJECT_PATH}" "--editor" "--quit" "--headless" "--no-window" "--audio-driver" "Dummy")
+  if [[ "${import_mode}" == "full" ]]; then
+    cmd=("${GODOT_BIN}" "--path" "${PROJECT_PATH}" "-e" "--quit" "--headless" "--no-window" "--audio-driver" "Dummy")
   fi
   echo "[godot_import_smoke] Import mode=${import_mode}: ${cmd[*]}"
   if run_cmd "${TIMEOUT_IMPORT_SEC}" "${log_file}" "${cmd[@]}"; then

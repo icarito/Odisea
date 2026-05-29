@@ -33,11 +33,15 @@ For this repo, the expensive failures came from imported scene artifacts for cri
 
 - `models/Pilot.glb.import`
 - `models/Programmer.glb.import`
+- `assets/sfx/bb_loop.wav.import`
+- `assets/sfx/spark.wav.import`
+- `assets/sfx/Alarm_Loop_01.wav.import`
+- `core_v2/props/dragon-studio-mechanical-door-386159.mp3.import`
 
 These entries require:
 
 - source file present
-- imported `.scn` artifact present
+- imported runtime artifact present (`.scn`, `.sample`, `.mp3str`, etc.)
 - `.md5` sidecar present
 - all of the above tracked by git when listed as critical
 

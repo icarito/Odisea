@@ -29,6 +29,13 @@
       "reason": "SparkEmitterV2 audio is part of the asset-integrity smoke path."
     },
     {
+      "path": "assets/sfx/Alarm_Loop_01.wav.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "EmergencyBeaconV2 audio is reached by the BaseTerrace/Qodot smoke path in normal CI lanes."
+    },
+    {
       "path": "core_v2/props/dragon-studio-mechanical-door-386159.mp3.import",
       "required_sidecars": [
         ".md5"
