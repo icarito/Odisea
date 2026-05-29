@@ -6,14 +6,14 @@
 [ext_resource path="res://core_v2/components/RotatingObjectV2.gd" type="Script" id=4]
 [ext_resource path="res://core_v2/props/parallax_assets/pilot_material.tres" type="Material" id=8]
 
-[sub_resource type="SpatialMaterial" id=29]
+[sub_resource type="SpatialMaterial" id=219]
 resource_name = "DisplayCase_2_mat"
 vertex_color_use_as_albedo = true
 params_cull_mode = 2
 albedo_color = Color( 0.906332, 0.906332, 0.906332, 1 )
 metallic = 1.0
 
-[sub_resource type="ArrayMesh" id=30]
+[sub_resource type="ArrayMesh" id=220]
 resource_name = "Generic_Props_Cont_DisplayCase_2"
 surfaces/0 = {
 "aabb": AABB( -0.484276, 0, -0.484276, 0.968552, 2.39615, 0.968552 ),
@@ -22,13 +22,13 @@ surfaces/0 = {
 "blend_shape_data": [  ],
 "format": 6389015,
 "index_count": 300,
-"material": SubResource( 29 ),
+"material": SubResource( 219 ),
 "primitive": 4,
 "skeleton_aabb": [  ],
 "vertex_count": 168
 }
 
-[sub_resource type="SpatialMaterial" id=35]
+[sub_resource type="SpatialMaterial" id=221]
 albedo_texture = ExtResource( 3 )
 metallic = 1.0
 metallic_texture = ExtResource( 1 )
@@ -88,8 +88,8 @@ data = PoolVector3Array( 0.2918, 0.106, 0.4843, -0.2918, 0.653, 0.4843, 0.2918, 
 
 [node name="Criopod" type="MeshInstance"]
 use_in_baked_light = true
-mesh = SubResource( 30 )
-material/0 = SubResource( 35 )
+mesh = SubResource( 220 )
+material/0 = SubResource( 221 )
 
 [node name="RotatingObjectV2" type="KinematicBody" parent="."]
 transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )

@@ -103,6 +103,7 @@ var _collision_pool: Array = []        # Array[StaticBody]
 var _pool_assignments: Array = []      # Array[Dictionary]
 var _pool_update_counter: int = 0
 var _target_plate_query_counter: int = 0
+var _world_environment_sky_entries: Array = []
 # Retrocompatibilidad: alias del pool para tests que lean _generated_collision_bodies
 var _generated_collision_bodies: Array setget ,_get_generated_collision_bodies
 func _get_generated_collision_bodies() -> Array:
@@ -117,6 +118,8 @@ func _ready() -> void:
 		return
 	# Reset to identity so editor-saved runtime transforms don't corrupt canonical calculations.
 	global_transform = Transform.IDENTITY
+	_cache_world_environment_sky_frames()
+	_sync_world_environment_sky_frames()
 	# Also reset PhysicalTerrace if configured — it may have been dirtied by the editor too.
 	var pt: Spatial = _resolve_physical_terrace_target()
 	if pt:
@@ -179,6 +182,7 @@ func _physics_process(delta: float) -> void:
 	if pool_update_due:
 		_pool_update_counter = 0
 		_assign_pool_to_nearest_plates()
+	_sync_world_environment_sky_frames()
 
 # ── API pública ──────────────────────────────────────────────────────────────
 
@@ -250,6 +254,7 @@ func align_canonical_transform_to_global(canonical_transform: Transform, target_
 	_target_global_transform = target_global_transform * canonical_transform.affine_inverse()
 	if snap_immediately:
 		global_transform = _target_global_transform
+		_sync_world_environment_sky_frames()
 
 # Selecciona una plate de TerraceSpiral, reencuadra el mundo para que coincida
 # con una terraza física estable y genera colisiones equivalentes para plates vecinas.
@@ -570,6 +575,31 @@ func _get_effective_rotation_speed() -> float:
 		speed *= airborne_rotation_factor
 	return speed
 
+func _cache_world_environment_sky_frames() -> void:
+	_world_environment_sky_entries.clear()
+	_collect_world_environment_sky_frames(self)
+
+func _collect_world_environment_sky_frames(root: Node) -> void:
+	for child in root.get_children():
+		if child is WorldEnvironment:
+			var world_environment := child as WorldEnvironment
+			if world_environment.environment != null:
+				var runtime_environment: Environment = world_environment.environment.duplicate(true)
+				world_environment.environment = runtime_environment
+				_world_environment_sky_entries.append({
+					"world_environment": world_environment,
+					"environment": runtime_environment,
+					"authored_orientation": runtime_environment.background_sky_orientation
+				})
+		_collect_world_environment_sky_frames(child)
+
+func _sync_world_environment_sky_frames() -> void:
+	for entry in _world_environment_sky_entries:
+		var world_environment: WorldEnvironment = entry.get("world_environment", null)
+		var environment: Environment = entry.get("environment", null)
+		if not is_instance_valid(world_environment) or environment == null:
+			continue
+		environment.background_sky_orientation = global_transform.basis * entry.get("authored_orientation", Basis.IDENTITY)
 
 func _sync_spirals() -> void:
 	_sync_spirals_recursive(self)
@@ -905,6 +935,7 @@ func _clear_selected_plate_for_flat_mode() -> void:
 	_target_quat = Quat()
 	_is_transitioning = false
 	global_transform = Transform.IDENTITY
+	_sync_world_environment_sky_frames()
 
 	var pt: Spatial = _resolve_physical_terrace_target()
 	if pt:

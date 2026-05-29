@@ -11,7 +11,7 @@ use_collision = true
 height = 0.5
 
 [node name="Core" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.40594, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.59858, 0 )
 script = ExtResource( 1 )
 movement_vector = Vector3( 0, 1.5, 0 )
 cycle_duration = 3.0

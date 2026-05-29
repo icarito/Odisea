@@ -183,6 +183,64 @@
 	path_length(float) : "Total length of the fence path"  : "8"
 ]
 
+@PointClass color(166 179 191) size(-24 0 -24, 24 40 24) = prop_steel_grate_platform : "Steel grate platform with collision for catwalks and maintenance pads." [
+	is_interactable(integer) : "Decorative structural prop"  : 0
+	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	back_height_offset(float) : "Height offset applied to the back edge for ramps" : "0"
+	deck_frame_thickness(float) : "Thickness of the deck frame in units"  : "0.1"
+	frame_color(color255) : "Color of the structural tubes and deck frame"  : "46 48 54"
+	front_height_offset(float) : "Height offset applied to the front edge for ramps" : "0"
+	platform_depth(float) : "Platform depth in units"  : "3"
+	platform_height(float) : "Height from floor to the walking deck"  : "1.6"
+	platform_width(float) : "Platform width in units"  : "3"
+	rail_back_opening_gravity(float) : "0 left/front bias, 1 right/back bias for the back opening" : "0.5"
+	rail_back(integer) : "Set to 1 to close the back side with a rail"  : 1
+	rail_back_opening_width(float) : "Centered opening width on the back rail"  : "0"
+	rail_color(color255) : "Color of the rails and gate posts"  : "46 48 54"
+	rail_front_opening_gravity(float) : "0 left/front bias, 1 right/back bias for the front opening" : "0.5"
+	rail_front(integer) : "Set to 1 to close the front side with a rail"  : 1
+	rail_front_opening_width(float) : "Centered opening width on the front rail"  : "0"
+	rail_height(float) : "Guard rail height above the deck"  : "1.1"
+	rail_infill_enabled(integer) : "Set to 1 to generate transparent mesh infill on rails"  : 1
+	rail_left_opening_gravity(float) : "0 front bias, 1 back bias for the left opening" : "0.5"
+	rail_left(integer) : "Set to 1 to close the left side with a rail"  : 0
+	rail_left_opening_width(float) : "Centered opening width on the left rail"  : "0"
+	rail_mid_ratio(float) : "Height ratio for the mid rail between deck and top rail"  : "0.5"
+	rail_right_opening_gravity(float) : "0 front bias, 1 back bias for the right opening" : "0.5"
+	rail_right(integer) : "Set to 1 to close the right side with a rail"  : 0
+	rail_right_opening_width(float) : "Centered opening width on the right rail"  : "0"
+	tube_radius(float) : "Radius of the cylindrical scaffold tubes"  : "0.07"
+]
+
+@PointClass color(179 184 194) size(-48 0 -16, 48 56 16) = prop_scaffold_walkway : "Long scaffold walkway with steel grate deck and side rails." [
+	is_interactable(integer) : "Decorative structural prop"  : 0
+	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	back_height_offset(float) : "Height offset applied to the back edge for ramps" : "0"
+	deck_frame_thickness(float) : "Thickness of the deck frame in units"  : "0.12"
+	frame_color(color255) : "Color of the structural tubes and deck frame"  : "46 48 54"
+	front_height_offset(float) : "Height offset applied to the front edge for ramps" : "0"
+	platform_depth(float) : "Walkway depth in units"  : "2"
+	platform_height(float) : "Height from floor to the walking deck"  : "2.4"
+	platform_width(float) : "Walkway length in units"  : "6"
+	rail_back_opening_gravity(float) : "0 left/front bias, 1 right/back bias for the back opening" : "0.5"
+	rail_back(integer) : "Set to 1 to close the back side with a rail"  : 1
+	rail_back_opening_width(float) : "Centered opening width on the back rail"  : "0"
+	rail_color(color255) : "Color of the rails and gate posts"  : "46 48 54"
+	rail_front_opening_gravity(float) : "0 left/front bias, 1 right/back bias for the front opening" : "0.5"
+	rail_front(integer) : "Set to 1 to close the front side with a rail"  : 1
+	rail_front_opening_width(float) : "Centered opening width on the front rail"  : "0"
+	rail_height(float) : "Guard rail height above the deck"  : "1.15"
+	rail_infill_enabled(integer) : "Set to 1 to generate transparent mesh infill on rails"  : 1
+	rail_left_opening_gravity(float) : "0 front bias, 1 back bias for the left opening" : "0.5"
+	rail_left(integer) : "Set to 1 to close the left side with a rail"  : 0
+	rail_left_opening_width(float) : "Centered opening width on the left rail"  : "0"
+	rail_mid_ratio(float) : "Height ratio for the mid rail between deck and top rail"  : "0.5"
+	rail_right_opening_gravity(float) : "0 front bias, 1 back bias for the right opening" : "0.5"
+	rail_right(integer) : "Set to 1 to close the right side with a rail"  : 0
+	rail_right_opening_width(float) : "Centered opening width on the right rail"  : "0"
+	tube_radius(float) : "Radius of the cylindrical scaffold tubes"  : "0.08"
+]
+
 @PointClass color(255 255 204) size(-1 -1 -5, 1 1 5) = light_wall : "Fluorescent Wall Light" [
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0

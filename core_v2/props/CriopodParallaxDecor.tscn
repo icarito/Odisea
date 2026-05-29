@@ -4,14 +4,14 @@
 [ext_resource path="res://assets/DisplayCase_2/decor/DisplayCase_2_albedo_decor.png" type="Texture" id=3]
 [ext_resource path="res://assets/DisplayCase_2/decor/DisplayCase_2_mrao_decor.png" type="Texture" id=4]
 
-[sub_resource type="SpatialMaterial" id=29]
+[sub_resource type="SpatialMaterial" id=221]
 resource_name = "DisplayCase_2_mat"
 vertex_color_use_as_albedo = true
 params_cull_mode = 2
 albedo_color = Color( 0.906332, 0.906332, 0.906332, 1 )
 metallic = 1.0
 
-[sub_resource type="ArrayMesh" id=30]
+[sub_resource type="ArrayMesh" id=222]
 resource_name = "Generic_Props_Cont_DisplayCase_2"
 surfaces/0 = {
 "aabb": AABB( -0.484276, 0, -0.484276, 0.968552, 2.39615, 0.968552 ),
@@ -20,13 +20,13 @@ surfaces/0 = {
 "blend_shape_data": [  ],
 "format": 6389015,
 "index_count": 300,
-"material": SubResource( 29 ),
+"material": SubResource( 221 ),
 "primitive": 4,
 "skeleton_aabb": [  ],
 "vertex_count": 168
 }
 
-[sub_resource type="SpatialMaterial" id=35]
+[sub_resource type="SpatialMaterial" id=220]
 albedo_texture = ExtResource( 3 )
 metallic = 1.0
 metallic_texture = ExtResource( 4 )
@@ -72,8 +72,8 @@ roughness = 0.1
 
 [node name="Criopod" type="MeshInstance"]
 use_in_baked_light = true
-mesh = SubResource( 30 )
-material/0 = SubResource( 35 )
+mesh = SubResource( 222 )
+material/0 = SubResource( 220 )
 
 [node name="Glass" type="MeshInstance" parent="."]
 transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
