@@ -10,8 +10,6 @@ const CRITICAL_RESOURCES := [
 	# Stage-3 curriculum coverage (doors/sparks/HDR and BaseTerrace deps).
 	"res://core_v2/props/VerticalDoor.tscn",
 	"res://core_v2/props/SparkEmitterV2.tscn",
-	"res://core_v2/levels/BaseTerrace.tscn",
-	"res://core_v2/tests/TestScene_RL_BaseTerrace.tscn",
 ]
 
 func _normalize_dep_path(dep: String) -> String:
