@@ -1004,6 +1004,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/virtualcamera/TransformModifiers/LookAtGroup.gd"
 }, {
+"base": "Spatial",
+"class": "Manometer",
+"language": "GDScript",
+"path": "res://core_v2/props/Manometer.gd"
+}, {
 "base": "CSGCombiner",
 "class": "MeshBuilder",
 "language": "GDScript",
@@ -1163,6 +1168,11 @@ _global_script_classes=[ {
 "class": "PilotAnimatorV2",
 "language": "GDScript",
 "path": "res://core_v2/actors/PilotAnimatorV2.gd"
+}, {
+"base": "InteractableBaseV2",
+"class": "PipeValve",
+"language": "GDScript",
+"path": "res://core_v2/props/pipe/PipeValve.gd"
 }, {
 "base": "Spatial",
 "class": "PlateContentStream",
@@ -1909,6 +1919,7 @@ _global_script_class_icons={
 "LogicCircuitManager": "",
 "LookAt": "",
 "LookAtGroup": "",
+"Manometer": "",
 "MeshBuilder": "",
 "MeshBuilderBox": "",
 "MeshBuilderBuckyball": "",
@@ -1941,6 +1952,7 @@ _global_script_class_icons={
 "PhysicsBall": "",
 "PhysicsEntity": "",
 "PilotAnimatorV2": "",
+"PipeValve": "",
 "PlateContentStream": "",
 "PlateSlotConfig": "",
 "PlayerUISettings": "",
@@ -2354,3 +2366,4 @@ gles3/shaders/shader_compilation_mode=2
 environment/default_clear_color=Color( 0.137255, 0.219608, 0.282353, 1 )
 quality/filters/msaa=1
 environment/default_environment="res://default_env.tres"
+quality/filters/msaa.web=0
