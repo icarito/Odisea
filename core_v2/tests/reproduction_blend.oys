@@ -1,4 +1,4 @@
-LEVEL res://core_v2/levels/TestScene_v2.tscn
+LEVEL res://core_v2/tests/TestScene_base.tscn
 
 SECTION "TEST_BLEND"
 # Validate BLEND executes RIGHT turn + LOOK down in parallel.
@@ -17,9 +17,9 @@ ASSERT yaw_deg > -170 "BLEND right rotation overshot expected range"
 ASSERT pitch_deg < -40 "BLEND should apply LOOK pitch down"
 ASSERT pitch_deg > -85 "BLEND pitch overshot expected range"
 
-# No movement command was issued; position should remain near origin.
+# No movement command was issued; position should remain near the TestScene_base spawn.
 ASSERT pos.x < 0.05 "Unexpected X drift during camera-only BLEND"
 ASSERT pos.x > -0.05 "Unexpected X drift during camera-only BLEND"
-ASSERT pos.z < 0.05 "Unexpected Z drift during camera-only BLEND"
-ASSERT pos.z > -0.05 "Unexpected Z drift during camera-only BLEND"
+ASSERT pos.z < -2.95 "Unexpected Z drift during camera-only BLEND"
+ASSERT pos.z > -3.05 "Unexpected Z drift during camera-only BLEND"
 END
