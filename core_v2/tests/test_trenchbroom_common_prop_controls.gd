@@ -156,7 +156,7 @@ func test_qodot_full_build_preserves_crio_work_light_angle_from_source_map():
 	qodot_map.verify_and_build()
 	yield(get_tree(), "idle_frame")
 
-	var tripod: Spatial = qodot_map.find_node("entity_4_light_work_tripod", true, false)
+	var tripod: Spatial = qodot_map.find_node("*_light_work_tripod", true, false)
 	assert_object(tripod).is_not_null()
 	assert_float(abs(tripod.rotation_degrees.y)).is_equal_approx(90.0, 0.001)
 
