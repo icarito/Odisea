@@ -26,15 +26,12 @@ jobs:
 
       - name: Export to Android
         run: |
-          # The godot-ci image has templates in /root/.local/share/godot/templates/
-          # We ensure the export templates are available in the expected path
-          mkdir -v -p ~/.local/share/godot/templates
-          # If they are already in /root and we are root, we don't need to move them, 
-          # but we'll link them just in case ~/.local is different
+          mkdir -p ~/.local/share/godot/templates
           cp -rv /root/.local/share/godot/templates/* ~/.local/share/godot/templates/ || true
-          mkdir -v -p ports
-          godot -v --export-debug "Android" ports/Odisea.apk
-
+          mkdir -p ports
+          godot --no-window --editor --quit || true
+          godot --no-window --export-debug "Android" ports/Odisea.apk
+            
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
