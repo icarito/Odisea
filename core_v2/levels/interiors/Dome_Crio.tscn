@@ -1,4 +1,4 @@
-[gd_scene load_steps=236 format=2]
+[gd_scene load_steps=237 format=2]
 
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldWalkway.tscn" type="PackedScene" id=1]
 [ext_resource path="res://addons/qodot/src/nodes/qodot_map.gd" type="Script" id=2]
@@ -11,6 +11,7 @@
 [ext_resource path="res://core_v2/props/CriopodParallax.tscn" type="PackedScene" id=9]
 [ext_resource path="res://core_v2/props/scaffold/SteelGratePlatform.tscn" type="PackedScene" id=10]
 [ext_resource path="res://core_v2/tools/RadialScatter.gd" type="Script" id=11]
+[ext_resource path="res://core_v2/systems/gas/GasArea3D.tscn" type="PackedScene" id=12]
 [ext_resource path="res://assets/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=13]
 [ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=14]
 [ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=15]
@@ -1482,7 +1483,7 @@ auto_build = true
 [node name="SteelGratePlatform" parent="." instance=ExtResource( 10 )]
 transform = Transform( -1, 0, -5.96046e-08, 0, 1, 0, 5.96046e-08, 0, -1, -0.5, 0, 3.6 )
 platform_width = 10.0
-platform_depth = 18.3
+platform_depth = 2.0
 platform_height = 12.0
 rail_back = false
 rail_left = true
@@ -2539,6 +2540,12 @@ transform = Transform( 0.19509, -0.119528, -0.973475, 1.06542e-08, 0.992546, -0.
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
+
+[node name="GasArea3D" parent="." instance=ExtResource( 12 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.391787, 2.04148, 1.97583 )
+gas_type = 2
+buoyancy = -0.01
+gas_world_collision_mask = 127
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]

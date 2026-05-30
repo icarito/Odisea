@@ -374,6 +374,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/Fuzzers.gd"
 }, {
+"base": "Area",
+"class": "GasArea3D",
+"language": "GDScript",
+"path": "res://core_v2/systems/gas/GasArea3D.gd"
+}, {
+"base": "Spatial",
+"class": "GasParticleManager",
+"language": "GDScript",
+"path": "res://core_v2/systems/gas/GasParticleManager.gd"
+}, {
 "base": "Resource",
 "class": "GdAssertMessages",
 "language": "GDScript",
@@ -1793,6 +1803,8 @@ _global_script_class_icons={
 "Fuzzer": "",
 "FuzzerTool": "",
 "Fuzzers": "",
+"GasArea3D": "",
+"GasParticleManager": "",
 "GdAssertMessages": "",
 "GdAssertReports": "",
 "GdClassDescriptor": "",
