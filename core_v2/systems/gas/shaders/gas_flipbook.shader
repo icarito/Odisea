@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_alpha_prepass, cull_disabled, unshaded, shadows_disabled, ambient_light_disabled;
+render_mode depth_draw_opaque, cull_disabled, unshaded, shadows_disabled, ambient_light_disabled;
 
 uniform sampler2D smoke_atlas : hint_albedo;
 uniform int atlas_columns = 8;
@@ -53,5 +53,13 @@ void fragment() {
 
 	ALBEDO = modulated.rgb;
 	EMISSION = modulated.rgb * mix(emission_strength, fire_emission_strength, particle_fire_mix);
-	ALPHA = alpha;
+	
+	// Dithered transparency for GLES2 (Jimenez's Interleaved Gradient Noise)
+	// Pos offset by TIME to eliminate static screen patterns (Film grain effect)
+	vec2 pos = FRAGCOORD.xy + vec2(TIME * 73.0, TIME * 91.0);
+	vec2 magic = vec2(0.06711056, 0.00583715);
+	float limit = fract(52.9829189 * fract(dot(pos, magic)));
+	if (alpha < limit) {
+		discard;
+	}
 }

@@ -15,6 +15,8 @@ export(float) var collision_margin := 0.08
 export(float) var collision_damping := 0.28
 export(float) var collision_slide := 0.68
 export(float) var flipbook_frames_per_second := 16.0
+export(float) var anim_speed_base := 1.0
+export(float) var anim_speed_velocity_factor := 0.2
 export(String, FILE, "*.shader") var shader_path := "res://core_v2/systems/gas/shaders/gas_flipbook.shader"
 export(String, FILE, "*.png,*.tga,*.webp,*.jpg") var default_atlas_path := "res://assets/flipbook_particles/assets/clouds/textures/cloud_01.tga"
 
@@ -41,6 +43,9 @@ func _ensure_multimesh_instance() -> void:
 		multimesh_instance = MultiMeshInstance.new()
 		multimesh_instance.name = "GasMultiMeshInstance"
 		add_child(multimesh_instance)
+
+	multimesh_instance.cast_shadow = 0 # GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	multimesh_instance.extra_cull_margin = 32.0
 
 	multimesh = multimesh_instance.multimesh
 	if multimesh == null:
@@ -124,10 +129,14 @@ func step(delta: float) -> void:
 		var lifetime := float(p["lifetime"]) + delta * max(decay_rate, 0.0)
 		var max_lifetime := max(float(p["max_lifetime"]), 0.001)
 
+		var speed := velocity.length()
+		var p_anim_mod: float = float(p.get("anim_speed_mod", 1.0))
+		var anim_delta: float = delta * (anim_speed_base * p_anim_mod + speed * anim_speed_velocity_factor)
+
 		p["velocity"] = velocity
 		p["position"] = position
 		p["lifetime"] = lifetime
-		p["anim_time"] = float(p.get("anim_time", 0.0)) + delta
+		p["anim_time"] = float(p.get("anim_time", 0.0)) + anim_delta
 
 		if lifetime >= max_lifetime:
 			p["active"] = false
@@ -199,11 +208,15 @@ func emit_particle(local_position: Vector3, local_velocity: Vector3 = Vector3.ZE
 	p["velocity"] = local_velocity
 	p["lifetime"] = 0.0
 	p["max_lifetime"] = default_max_lifetime if max_lifetime <= 0.0 else max_lifetime
-	p["base_scale"] = default_base_scale if base_scale <= 0.0 else base_scale
+	
+	var base_s = default_base_scale if base_scale <= 0.0 else base_scale
+	p["base_scale"] = base_s * (0.5 + _get_deterministic_anim_offset(index + 777) * 1.0)
+	
 	p["color"] = default_color if color.a < 0.0 else color
 	p["combustion"] = false
 	p["anim_time"] = 0.0
 	p["anim_offset"] = _get_deterministic_anim_offset(index)
+	p["anim_speed_mod"] = 0.5 + _get_deterministic_anim_offset(index + 1234) * 1.5
 	particles[index] = p
 	_sync_instance(index)
 	return index
@@ -287,7 +300,7 @@ func _sync_instance(index: int) -> void:
 	var p: Dictionary = particles[index]
 	var age := clamp(float(p["lifetime"]) / max(float(p["max_lifetime"]), 0.001), 0.0, 1.0)
 	var frame_time := float(p.get("anim_time", 0.0)) + float(p.get("anim_offset", 0.0))
-	var scale := max(float(p["base_scale"]), 0.001) * (0.65 + 0.35 * age)
+	var scale := max(float(p["base_scale"]), 0.001) * (0.9 + 0.6 * age)
 	var xform := Transform.IDENTITY
 	xform.origin = Vector3(p["position"])
 	xform.basis = xform.basis.scaled(Vector3(scale, scale, scale))
@@ -353,5 +366,6 @@ func restore_snapshot(data: Dictionary) -> void:
 		p["combustion"] = bool(entry.get("b", false))
 		p["anim_time"] = float(entry.get("a", 0.0))
 		p["anim_offset"] = float(entry.get("o", _get_deterministic_anim_offset(index)))
+		p["anim_speed_mod"] = 0.5 + _get_deterministic_anim_offset(index + 1234) * 1.5
 		particles[index] = p
 		_sync_instance(index)

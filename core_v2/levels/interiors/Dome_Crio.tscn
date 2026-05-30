@@ -1470,10 +1470,10 @@ zone_dir = Vector3( 0, 0, 1 )
 [node name="OmniLight" type="OmniLight" parent="Lighting"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 22, 0 )
 light_color = Color( 0.9, 0.95, 1, 1 )
-light_energy = 2.0
+light_energy = 1.233
 shadow_enabled = true
 omni_range = 45.0
-omni_attenuation = 0.420448
+omni_attenuation = 0.37893
 
 [node name="QodotMap2" type="Spatial" parent="."]
 transform = Transform( 1.19249e-08, 0, -1, 0, 1, 0, 1, 0, 1.19249e-08, 0, 1, 0 )
@@ -2562,13 +2562,15 @@ material/0 = SubResource( 221 )
 
 [node name="GasArea3D" parent="." instance=ExtResource( 12 )]
 gas_type = 2
+viscosity = 0.2
 buoyancy = -0.01
-initial_fill_radius = 10.0
-initial_vertical_fill = 6.0
+initial_particle_count = 1024
+initial_fill_radius = 5.0
+initial_particle_scale = 4.0
 gas_world_collision_mask = 127
 
 [node name="GasParticleManager" parent="GasArea3D" index="1"]
-default_color = Color( 0.47451, 0.0235294, 0.211765, 0.294118 )
+default_color = Color( 0.0313726, 0.454902, 0.411765, 0.65098 )
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]

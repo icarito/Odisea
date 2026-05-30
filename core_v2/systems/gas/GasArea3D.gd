@@ -181,21 +181,31 @@ func _populate_initial_gas() -> void:
 	if manager.get_active_particle_indices().size() > 0:
 		return
 
+	if initial_particle_count > manager.pool_size:
+		manager.pool_size = initial_particle_count
+		manager._ensure_multimesh_instance()
+		manager._setup_pool()
+
 	var extents := _get_shape_extents()
 	var count := int(min(initial_particle_count, manager.pool_size))
-	var golden_angle := PI * (3.0 - sqrt(5.0))
-	var horizontal_radius := min(extents.x, extents.z) * clamp(initial_fill_radius, 0.05, 1.0)
-	var vertical_radius := extents.y * clamp(initial_vertical_fill, 0.05, 1.0)
+	var fill_x := clamp(initial_fill_radius, 0.05, 5.0)
+	var fill_y := clamp(initial_vertical_fill, 0.05, 5.0)
+	var fill_z := fill_x
 
 	for i in range(count):
-		var u := (float(i) + 0.5) / float(max(1, count))
-		var ring_radius := sqrt(u) * horizontal_radius
-		var angle := float(i) * golden_angle
-		var y_phase := fmod(float(i) * 0.38196601125, 1.0)
+		var u_x := fmod(float(i) * 0.7548776662466927, 1.0)
+		var u_y := fmod(float(i) * 0.5698402909980532, 1.0)
+		var u_z := fmod(float(i) * 0.4323369283944646, 1.0)
+
+		# Add deterministic noise (jitter) to break the grid regularity
+		var jitter_x := (float((i * 1103515245 + 12345) & 0x7fffffff) / float(0x7fffffff) - 0.5) * 0.3
+		var jitter_y := (float((i * 214013 + 2531011) & 0x7fffffff) / float(0x7fffffff) - 0.5) * 0.3
+		var jitter_z := (float((i * 1664525 + 1013904223) & 0x7fffffff) / float(0x7fffffff) - 0.5) * 0.3
+
 		var shape_pos := Vector3(
-			cos(angle) * ring_radius,
-			(y_phase - 0.5) * 2.0 * vertical_radius,
-			-sin(angle) * ring_radius
+			(clamp(u_x + jitter_x, 0.0, 1.0) - 0.5) * 2.0 * extents.x * fill_x,
+			(clamp(u_y + jitter_y, 0.0, 1.0) - 0.5) * 2.0 * extents.y * fill_y,
+			(clamp(u_z + jitter_z, 0.0, 1.0) - 0.5) * 2.0 * extents.z * fill_z
 		)
 		var world_pos: Vector3 = _shape_local_to_world(shape_pos)
 		if initial_respect_world_collision and _is_world_point_blocked(world_pos):
