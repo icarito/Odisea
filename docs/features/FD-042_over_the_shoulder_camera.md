@@ -17,15 +17,24 @@ movimiento vertical.
 ## Solution
 
 Componente `OverTheShoulder.gd` bajo el nodo Logic del PlayerController.
-Desplaza el SpringArm horizontal/verticalmente cuando se acorta.
+Define una curva especial de zoom: a medida que la distancia efectiva del
+SpringArm se acorta, la camara pasa progresivamente de tercera persona centrada
+a encuadre over-the-shoulder.
 
 ### Comportamiento
 
-1. **Activacion progresiva**: Al acortarse el spring arm por debajo de
-   distance_max (4.5m), desliza la camara al hombro. A distance_min (1.5m)
-   el offset esta al maximo.
+1. **Activacion progresiva**: El OTS sigue la misma distancia efectiva del
+   zoom. El zoom manual y el acortamiento por colision alimentan la misma curva;
+   no hay un segundo modo lateral separado para espacios estrechos.
+   La salida de OTS usa `distance_unblend_speed`, mas lenta que la entrada, para
+   evitar pops al liberar colision en puertas o esquinas.
+   Cuando el brazo colisiona, solo se comprime el offset lateral del hombro
+   hacia el centro, manteniendo el zoom para pasar detras del player.
 2. **Offset**: side 0.65m, height -0.25m, pivot_z 0.2m, curva ajustable.
-3. **Jump compensation**: Al saltar, la camara sube 0.4m y retrocede 0.5m.
+3. **Jump compensation integrada al zoom**: Al entrar en el rango OTS, el
+   seguimiento vertical lazy del rig se mezcla suavemente hacia follow directo
+   del player. La distancia de activacion se configura con
+   `ots_camera_follow_start_length` y `ots_camera_follow_full_length`.
 4. **Cinematicas**: Se resetea si CinematicManager no esta en modo FREE.
 
 ### Arbol de nodos

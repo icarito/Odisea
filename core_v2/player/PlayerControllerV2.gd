@@ -50,6 +50,8 @@ export(float) var cinematic_zoom_speed := 1.0
 export(float) var cinematic_zoom_lerp_speed := 8.0
 export(float) var cinematic_zoom_min_fov := 20.0
 export(float) var cinematic_zoom_max_fov := 110.0
+export(float) var orbit_zoom_min_length := 0.75
+export(float) var orbit_zoom_max_length := 50.0
 export(int, LAYERS_3D_PHYSICS) var camera_collision_mask := 129 # Entorno + CameraCollision
 # Stair-stepping Configuration
 export(float) var step_height := 0.5
@@ -101,11 +103,16 @@ export(float, 0.5, 20.0, 0.1) var camera_rig_y_fall_follow_speed := 4.5
 export(float, 0.5, 6.0, 0.1) var camera_rig_y_max_lag := 2.0  # max Y-offset the rig can lag behind target
 export(float, 0.0, 0.5, 0.01) var camera_rig_jump_lazy_delay := 0.16
 export(float, 0.0, 2.0, 0.01) var camera_rig_jump_lazy_deadzone := 0.85
+export(float) var ots_camera_follow_start_length := 3.2
+export(float) var ots_camera_follow_full_length := 1.0
+export(float, 1.0, 40.0, 0.5) var ots_camera_follow_speed := 18.0
+export(float, 0.5, 20.0, 0.1) var ots_camera_follow_blend_speed := 8.0
 var _camera_rig_y_smoothed_global := 0.0 # smoothed global-Y for the camera pivot
 var _camera_rig_y_initialized := false
 var _camera_rig_airborne_anchor_global := 0.0
 var _camera_rig_airborne_rise_time := 0.0
 var _camera_rig_was_grounded := true
+var _ots_camera_follow_weight := 0.0
 
 # State
 var velocity := Vector3()
@@ -433,7 +440,7 @@ func _ready():
 		_perf_disable_interaction_scan = true
 		_perf_disable_cinematic_zone_scan = true
 		enable_step_up = false
-		var dust = get_node_or_null("CameraRig/Yaw/Pitch/SpringArm/Camera/SpaceDust")
+		var dust = _get_camera_space_dust()
 		if dust and "emitting" in dust:
 			dust.emitting = false
 		if _rl_skip_animator:
@@ -556,7 +563,7 @@ func _should_throttle_animator_for_profile() -> bool:
 	return false
 
 func _apply_camera_particle_policy() -> void:
-	var dust = get_node_or_null("CameraRig/Yaw/Pitch/SpringArm/Camera/SpaceDust")
+	var dust = _get_camera_space_dust()
 	if not is_instance_valid(dust):
 		return
 	var should_reduce = _should_reduce_camera_particles()
@@ -629,7 +636,7 @@ func _disable_visual_rig_for_rl() -> void:
 	var omni = get_node_or_null("Visual/OmniLight")
 	if omni:
 		omni.queue_free()
-	var dust = get_node_or_null("CameraRig/Yaw/Pitch/SpringArm/Camera/SpaceDust")
+	var dust = _get_camera_space_dust()
 	if dust:
 		if "emitting" in dust:
 			dust.emitting = false
@@ -637,6 +644,14 @@ func _disable_visual_rig_for_rl() -> void:
 	if animator:
 		animator.set_process(false)
 		animator.set_physics_process(false)
+
+func _get_camera_space_dust() -> Node:
+	var cam := _cached_cam
+	if not is_instance_valid(cam) and camera_rig:
+		cam = _find_camera(camera_rig)
+	if not is_instance_valid(cam):
+		return null
+	return cam.get_node_or_null("SpaceDust")
 
 func _find_camera(node: Node) -> Camera:
 	if node is Camera:
@@ -946,6 +961,7 @@ func _update_camera_rig_vertical(dt: float) -> void:
 		return
 
 	var target_global_y := global_transform.origin.y + base_rig_y
+	var ots_follow_weight := _update_ots_camera_follow_weight(dt)
 	var grounded := is_on_floor() or _just_stepped or _step_grounded_timer > 0.0
 	var rising := not grounded and velocity.y > 0.05
 	if grounded:
@@ -959,17 +975,21 @@ func _update_camera_rig_vertical(dt: float) -> void:
 
 	if rising:
 		_camera_rig_airborne_rise_time += dt
-		if _camera_rig_airborne_rise_time < camera_rig_jump_lazy_delay:
+		var effective_lazy_delay: float = lerp(camera_rig_jump_lazy_delay, 0.0, ots_follow_weight)
+		var effective_lazy_deadzone: float = lerp(camera_rig_jump_lazy_deadzone, 0.0, ots_follow_weight)
+		if _camera_rig_airborne_rise_time < effective_lazy_delay:
 			target_global_y = min(target_global_y, _camera_rig_airborne_anchor_global)
 		else:
 			target_global_y = max(
 				_camera_rig_airborne_anchor_global,
-				target_global_y - camera_rig_jump_lazy_deadzone
+				target_global_y - effective_lazy_deadzone
 			)
 	else:
 		_camera_rig_airborne_rise_time = 0.0 if grounded else _camera_rig_airborne_rise_time
 
 	var speed := camera_rig_y_ground_snap_speed if grounded else (camera_rig_y_follow_speed if rising else camera_rig_y_fall_follow_speed)
+	if not grounded:
+		speed = lerp(speed, ots_camera_follow_speed, ots_follow_weight)
 	var t := clamp(speed * dt, 0.0, 1.0)
 	_camera_rig_y_smoothed_global = lerp(_camera_rig_y_smoothed_global, target_global_y, t)
 
@@ -980,6 +1000,29 @@ func _update_camera_rig_vertical(dt: float) -> void:
 
 	# Convert smoothed global Y back to local offset
 	camera_rig.transform.origin.y = _camera_rig_y_smoothed_global - global_transform.origin.y
+
+func _update_ots_camera_follow_weight(dt: float) -> float:
+	var start_len := max(ots_camera_follow_start_length, ots_camera_follow_full_length + 0.001)
+	var full_len := max(ots_camera_follow_full_length, 0.001)
+	var effective_len := _get_effective_camera_arm_length()
+	var raw_weight := 1.0 - clamp((effective_len - full_len) / (start_len - full_len), 0.0, 1.0)
+	_ots_camera_follow_weight = lerp(
+		_ots_camera_follow_weight,
+		raw_weight,
+		1.0 - exp(-max(ots_camera_follow_blend_speed, 0.0) * max(dt, 0.0))
+	)
+	return _ots_camera_follow_weight
+
+func _get_effective_camera_arm_length() -> float:
+	var target_len := current_spring_length
+	if _cached_spring_arm and is_instance_valid(_cached_spring_arm):
+		var spring_len = _cached_spring_arm.get("spring_length")
+		if spring_len != null:
+			target_len = float(spring_len)
+		var current_len = _cached_spring_arm.get("current_length")
+		if current_len != null:
+			return min(float(current_len), target_len)
+	return target_len
 
 func _is_camera_zoom_out_blocked() -> bool:
 	return (
@@ -994,7 +1037,11 @@ func _apply_orbit_zoom_delta(zoom_delta: float) -> void:
 		return
 	if zoom_delta > 0.0 and _is_camera_zoom_out_blocked():
 		return
-	base_spring_length_3d = clamp(base_spring_length_3d + zoom_delta, 2.0, 50.0)
+	base_spring_length_3d = clamp(
+		base_spring_length_3d + zoom_delta,
+		max(orbit_zoom_min_length, 0.1),
+		max(orbit_zoom_max_length, orbit_zoom_min_length)
+	)
 
 func _update_camera_collision_mask_state(dt: float) -> void:
 	if not _cached_spring_arm:

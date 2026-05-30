@@ -88,7 +88,7 @@ func _build_rig(root: Node) -> Dictionary:
 	}
 
 
-func test_collision_maximizes_side_offset_and_blocks_negative_vertical_drop() -> void:
+func test_shortened_zoom_uses_same_shoulder_curve_without_extra_vertical_drop() -> void:
 	var root := _setup_root()
 	var rig: Dictionary = yield(_build_rig(root), "completed")
 	var player: DummyPlayer = rig["player"]
@@ -101,10 +101,9 @@ func test_collision_maximizes_side_offset_and_blocks_negative_vertical_drop() ->
 	ots.distance_min = 0.0
 	ots.distance_max = 4.5
 	ots.right_side = false
-	ots.lerp_speed = 1.0
-	ots.distance_blend_speed = 1.0
-	ots.collision_blend_speed = 1.0
-	ots.jump_compensation_speed = 1.0
+	ots.lerp_speed = 100.0
+	ots.distance_blend_speed = 100.0
+	ots.jump_compensation_speed = 100.0
 
 	player.velocity = Vector3.ZERO
 	player._on_floor = false
@@ -135,9 +134,8 @@ func test_open_space_preserves_regular_negative_shoulder_drop() -> void:
 	ots.distance_min = 0.0
 	ots.distance_max = 4.0
 	ots.right_side = true
-	ots.lerp_speed = 1.0
-	ots.distance_blend_speed = 1.0
-	ots.collision_blend_speed = 1.0
+	ots.lerp_speed = 100.0
+	ots.distance_blend_speed = 100.0
 
 	arm.current_length = 0.0
 	arm.target_length = 0.0
@@ -149,5 +147,34 @@ func test_open_space_preserves_regular_negative_shoulder_drop() -> void:
 	assert_float(arm.camera_local_offset.x).is_equal_approx(1.2, 0.0001)
 	assert_float(arm.camera_local_offset.y).is_equal_approx(-0.5, 0.0001)
 	assert_float(arm.camera_local_offset.z).is_equal_approx(0.3, 0.0001)
+
+	yield(_teardown_root(root), "completed")
+
+
+func test_manual_zoom_range_reaches_full_shoulder_offset() -> void:
+	var root := _setup_root()
+	var rig: Dictionary = yield(_build_rig(root), "completed")
+	var arm: DummyArm = rig["arm"]
+	var ots = rig["ots"]
+
+	ots.max_side_offset = 0.55
+	ots.max_height_offset = -0.35
+	ots.max_pivot_z_offset = 0.2
+	ots.distance_min = 1.0
+	ots.distance_max = 3.2
+	ots.right_side = true
+	ots.lerp_speed = 100.0
+	ots.distance_blend_speed = 100.0
+
+	arm.current_length = 1.0
+	arm.target_length = 1.0
+	arm.spring_length = 1.0
+	arm.zoom_out_blocked = false
+
+	ots._physics_process(1.0)
+
+	assert_float(arm.camera_local_offset.x).is_equal_approx(0.55, 0.0001)
+	assert_float(arm.camera_local_offset.y).is_equal_approx(-0.35, 0.0001)
+	assert_float(arm.camera_local_offset.z).is_equal_approx(0.2, 0.0001)
 
 	yield(_teardown_root(root), "completed")

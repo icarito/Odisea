@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=2]
+[gd_scene load_steps=24 format=2]
 
 [ext_resource path="res://core_v2/player/PlayerControllerV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/actors/PilotAnimatorV2.gd" type="Script" id=3]
@@ -15,6 +15,7 @@
 [ext_resource path="res://core_v2/audio/footsteps/footstep_profile_default.tres" type="Resource" id=55]
 [ext_resource path="res://core_v2/components/InteractComponentV2.gd" type="Script" id=56]
 [ext_resource path="res://core_v2/camera/KinematicArm3D.gd" type="Script" id=60]
+[ext_resource path="res://core_v2/player/OverTheShoulder.gd" type="Script" id=63]
 [ext_resource path="res://core_v2/visual/ProgrammerHoloMaterial.tres" type="Material" id=121]
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=108]
@@ -56,6 +57,9 @@ camera_rig_y_fall_follow_speed = 4.5
 camera_rig_y_max_lag = 2.0
 camera_rig_jump_lazy_delay = 0.16
 camera_rig_jump_lazy_deadzone = 0.85
+ots_camera_follow_start_length = 5.0
+ots_camera_follow_full_length = 1.0
+ots_camera_follow_speed = 18.0
 step_depth = 0.7
 step_grounded_grace = 0.3
 
@@ -86,6 +90,14 @@ script = ExtResource( 56 )
 highlight_color = Color( 0, 1, 1, 0.352941 )
 proximity_color = Color( 0.290196, 0.811765, 0.764706, 0.121569 )
 proximity_radius = 6.0
+
+[node name="OverTheShoulder" type="Node" parent="Logic"]
+script = ExtResource( 63 )
+max_side_offset = 0.55
+max_height_offset = -0.35
+distance_min = 1.0
+distance_max = 5.0
+jump_rise_offset = 0.45
 
 [node name="Visual" type="Spatial" parent="."]
 

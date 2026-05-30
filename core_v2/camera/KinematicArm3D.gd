@@ -46,17 +46,17 @@ export var collision_release_hysteresis := 0.18
 export var collision_release_delay := 0.1
 
 # Briefly keep the last stable hit when the cast flickers to "no collision".
-export var collision_miss_grace := 0.35
+export var collision_miss_grace := 0.22
 
-# If negative, a stationary arm keeps its latch until the pivot or direction changes.
-# Set a positive value to allow timed release while the player/camera is fully idle.
-export var collision_stationary_release_delay := -1.0
+# Moving doors can clear while the camera/player are idle, so release a stale
+# latch after a short grace even if the pivot and direction did not change.
+export var collision_stationary_release_delay := 0.25
 
 # When contact is finally released, expand more gently than the regular orbit zoom.
-export var collision_clear_extend_weight := 2.5
+export var collision_clear_extend_weight := 1.4
 
 # Speed used when retracting due to collision correction.
-export var collision_shrink_weight := 28.0
+export var collision_shrink_weight := 10.0
 
 # paths to objects which the arm won't collide with
 export(Array, NodePath) var _exclude_paths: Array
@@ -354,10 +354,16 @@ func _update_children(target: Vector3) -> void:
 func _resolve_child_target(base_target: Vector3) -> Vector3:
 	if camera_local_offset.length_squared() <= 0.000001:
 		return base_target
-	var desired_world_offset := global_transform.basis.xform(camera_local_offset)
-	if desired_world_offset.length_squared() <= 0.000001:
+	var vertical_world_offset := Vector3.UP * camera_local_offset.y
+	var pivot_world_offset := global_transform.basis.z * camera_local_offset.z
+	var lateral_world_offset := global_transform.basis.x * camera_local_offset.x
+	if vertical_world_offset.length_squared() <= 0.000001 and pivot_world_offset.length_squared() <= 0.000001 and lateral_world_offset.length_squared() <= 0.000001:
 		return base_target
-	return base_target + _resolve_safe_motion_offset(base_target, desired_world_offset)
+	var vertical_target := base_target + vertical_world_offset
+	var safe_pivot_offset := _resolve_safe_motion_offset(vertical_target, pivot_world_offset)
+	var pivot_target := vertical_target + safe_pivot_offset
+	var safe_lateral_offset := _resolve_safe_motion_offset(pivot_target, lateral_world_offset)
+	return pivot_target + safe_lateral_offset
 
 func _resolve_safe_motion_offset(origin: Vector3, desired_offset: Vector3) -> Vector3:
 	var world = get_world()
