@@ -69,6 +69,11 @@ export var ceiling_check_enabled := true
 export var ceiling_margin := 0.3  # keep camera this far below detected ceiling
 export var ceiling_check_distance := 3.0  # how far upward to probe for ceilings
 
+# Local offset applied to the rendered child target (typically the Camera).
+# This lets higher-level camera behaviors style the framing without fighting
+# the arm's own collision-driven transform.
+var camera_local_offset := Vector3.ZERO
+
 var kinematic_body: KinematicBody
 var _collision_latched_length := -1.0
 var _collision_latch_origin := Vector3.ZERO
@@ -97,7 +102,7 @@ func _enter_tree():
 	kinematic_body.collision_layer = 0
 	kinematic_body.collision_mask = collision_mask
 	_excluded_objects.clear()
-	
+
 	if not collider_shape:
 		# Default to a sphere shape if not set
 		var sphere = SphereShape.new()
@@ -105,15 +110,15 @@ func _enter_tree():
 		set_collider_shape(sphere)
 	else:
 		set_collider_shape(collider_shape)
-		
+
 	kinematic_body.name = name + "_KinematicBody"
-	
+
 	for path in _exclude_paths:
 		var node = get_node_or_null(path)
 		if node and node is CollisionObject:
 			kinematic_body.add_collision_exception_with(node)
 			_add_excluded_object_internal(node)
-	
+
 	# Try to add exception for the player if it's in the hierarchy
 	var parent = get_parent()
 	while parent:
@@ -122,7 +127,7 @@ func _enter_tree():
 			_add_excluded_object_internal(parent)
 			break
 		parent = parent.get_parent()
-	
+
 	# Add as top-level child to self rather than depending on current_scene which may be null in tests
 	kinematic_body.set_as_toplevel(true)
 	call_deferred("add_child", kinematic_body)
@@ -173,6 +178,18 @@ func clear_excluded_objects():
 
 func get_hit_length() -> float:
 	return current_length
+
+func set_camera_local_offset(offset: Vector3) -> void:
+	camera_local_offset = offset
+
+func get_camera_local_offset() -> Vector3:
+	return camera_local_offset
+
+func has_active_collision() -> bool:
+	if _zoom_out_blocked:
+		return true
+	var desired_length := target_length if target_length > 0.0 else spring_length
+	return current_length < desired_length - max(collision_jitter_epsilon, 0.02)
 
 func is_zoom_out_blocked() -> bool:
 	return _zoom_out_blocked
@@ -327,11 +344,52 @@ func _get_arm_pose_direction() -> Vector3:
 	return basis.z.normalized()
 
 func _update_children(target: Vector3) -> void:
+	var child_target := _resolve_child_target(target)
 	for child in get_children():
 		if child == kinematic_body:
 			continue
 		if child is Spatial:
-			child.global_transform.origin = target
+			child.global_transform.origin = child_target
+
+func _resolve_child_target(base_target: Vector3) -> Vector3:
+	if camera_local_offset.length_squared() <= 0.000001:
+		return base_target
+	var desired_world_offset := global_transform.basis.xform(camera_local_offset)
+	if desired_world_offset.length_squared() <= 0.000001:
+		return base_target
+	return base_target + _resolve_safe_motion_offset(base_target, desired_world_offset)
+
+func _resolve_safe_motion_offset(origin: Vector3, desired_offset: Vector3) -> Vector3:
+	var world = get_world()
+	if world == null:
+		return desired_offset
+	var space_state = world.direct_space_state
+	if space_state == null or collider_shape == null:
+		return desired_offset
+
+	var params := PhysicsShapeQueryParameters.new()
+	params.set_shape(collider_shape)
+	params.transform = Transform(global_transform.basis, origin)
+	params.collision_mask = collision_mask
+	params.exclude = _excluded_objects
+
+	var motion_result = space_state.cast_motion(params, desired_offset)
+	if motion_result.empty():
+		return desired_offset
+
+	var safe_fraction := float(motion_result[0])
+	if safe_fraction >= 0.9999:
+		return desired_offset
+
+	var desired_distance := desired_offset.length()
+	if desired_distance <= 0.0001:
+		return Vector3.ZERO
+
+	var safe_distance := max((desired_distance * safe_fraction) - collision_padding, 0.0)
+	if safe_distance <= 0.0001:
+		return Vector3.ZERO
+
+	return desired_offset.normalized() * safe_distance
 
 func _can_accommodate_under_ceiling(arm_origin: Vector3, desired_length: float) -> bool:
 	if not ceiling_check_enabled:

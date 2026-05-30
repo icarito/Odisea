@@ -21,7 +21,6 @@
 
 [sub_resource type="SpatialMaterial" id=121]
 albedo_color = Color( 1, 0.48, 0.12, 1 )
-metallic = 0.0
 metallic_specular = 0.22
 roughness = 0.9
 
@@ -122,12 +121,12 @@ script = ExtResource( 62 )
 
 [node name="OverTheShoulder" type="Node" parent="Logic"]
 script = ExtResource( 63 )
-max_side_offset = 2.0
-max_height_offset = -2.5
-distance_min = 0.0
-right_side = false
-jump_rise_offset = 2.0
-jump_compensation_speed = 4.0
+max_side_offset = 0.55
+max_height_offset = -0.35
+distance_min = 0.8
+distance_max = 2.4
+jump_rise_offset = 0.45
+jump_compensation_speed = 3.5
 
 [node name="Visual" type="Spatial" parent="."]
 
@@ -228,22 +227,24 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.99232, 0 )
 [node name="Pitch" type="Spatial" parent="CameraRig/Yaw"]
 transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866, 0, 0.309255, 0 )
 
-[node name="SpringArm" type="Spatial" parent="CameraRig/Yaw/Pitch"]
+[node name="OTS_Offset" type="Spatial" parent="CameraRig/Yaw/Pitch"]
+
+[node name="SpringArm" type="Spatial" parent="CameraRig/Yaw/Pitch/OTS_Offset"]
 transform = Transform( -1, -1.51808e-08, 8.60946e-08, 0, 0.984808, 0.173648, -8.74228e-08, 0.173648, -0.984808, 0, -0.062, 0 )
 script = ExtResource( 60 )
 collider_shape = SubResource( 109 )
-current_length = 5.0
-min_length = 1.0
-spring_length = 5.0
+current_length = 3.2
+min_length = 0.65
+spring_length = 3.2
 
-[node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/SpringArm"]
+[node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/OTS_Offset/SpringArm"]
 transform = Transform( 1, -3.90799e-14, 8.52651e-14, 0, 1, 1.49012e-08, -1.42109e-14, -1.49012e-08, 1, 0, 0, 0 )
 current = true
 fov = 75.0
 near = 0.01
 far = 10000.0
 
-[node name="SpaceDust" type="CPUParticles" parent="CameraRig/Yaw/Pitch/SpringArm/Camera"]
+[node name="SpaceDust" type="CPUParticles" parent="CameraRig/Yaw/Pitch/OTS_Offset/SpringArm/Camera"]
 transform = Transform( -1, -3.54569e-08, 1.46774e-07, 4.26326e-14, 0.972039, 0.23482, -1.50996e-07, 0.23482, -0.972039, 4.1845e-08, -0.377084, -0.277126 )
 amount = 50
 local_coords = false

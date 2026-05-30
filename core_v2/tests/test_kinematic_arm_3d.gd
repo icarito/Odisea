@@ -174,3 +174,38 @@ func test_ceiling_accommodation_preserves_zoom_when_adjusted_target_is_clear() -
 	assert_float(arm.global_transform.origin.distance_to(camera.global_transform.origin)).is_greater(5.2)
 
 	yield(_teardown_root(root), "completed")
+
+
+func test_camera_local_offset_is_trimmed_by_secondary_collision() -> void:
+	var root := _setup_root()
+	var arm := _build_arm(root)
+	arm.current_length = 3.0
+	arm.spring_length = 3.0
+	arm.target_length = 3.0
+	arm.weight = 600.0
+	arm.collision_padding = 0.0
+	arm.camera_local_offset = Vector3(1.5, 0.0, 0.0)
+
+	var side_wall := StaticBody.new()
+	side_wall.name = "SideWall"
+	var side_shape := CollisionShape.new()
+	side_shape.name = "CollisionShape"
+	var side_box := BoxShape.new()
+	side_box.extents = Vector3(0.1, 2.0, 2.0)
+	side_shape.shape = side_box
+	side_shape.transform.origin = Vector3(0.9, 0.0, 3.0)
+	side_wall.add_child(side_shape)
+	root.add_child(side_wall)
+
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "physics_frame")
+	yield(get_tree(), "physics_frame")
+
+	var camera: Camera = arm.get_node("Camera")
+	var lateral_offset := camera.global_transform.origin.x - arm.global_transform.origin.x
+
+	assert_float(camera.global_transform.origin.z).is_equal_approx(3.0, 0.15)
+	assert_float(lateral_offset).is_less(0.8)
+	assert_float(lateral_offset).is_greater(0.0)
+
+	yield(_teardown_root(root), "completed")
