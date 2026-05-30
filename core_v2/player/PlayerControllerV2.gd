@@ -101,6 +101,7 @@ export(float, 0.5, 12.0, 0.1) var camera_rig_y_follow_speed := 2.5   # lerp weig
 export(float, 1.0, 40.0, 0.5) var camera_rig_y_ground_snap_speed := 18.0 # lerp weight when grounded (fast catch-up)
 export(float, 0.5, 20.0, 0.1) var camera_rig_y_fall_follow_speed := 4.5
 export(float, 0.5, 6.0, 0.1) var camera_rig_y_max_lag := 2.0  # max Y-offset the rig can lag behind target
+export(float, 0.5, 20.0, 0.1) var camera_rig_step_snap_speed := 7.5 # gentler catch-up immediately after stair-step motion
 export(float, 0.0, 0.5, 0.01) var camera_rig_jump_lazy_delay := 0.16
 export(float, 0.0, 2.0, 0.01) var camera_rig_jump_lazy_deadzone := 0.85
 export(float) var ots_camera_follow_start_length := 3.2
@@ -963,6 +964,7 @@ func _update_camera_rig_vertical(dt: float) -> void:
 	var target_global_y := global_transform.origin.y + base_rig_y
 	var ots_follow_weight := _update_ots_camera_follow_weight(dt)
 	var grounded := is_on_floor() or _just_stepped or _step_grounded_timer > 0.0
+	var step_transition := _just_stepped or _step_grounded_timer > 0.0
 	var rising := not grounded and velocity.y > 0.05
 	if grounded:
 		_camera_rig_airborne_anchor_global = target_global_y
@@ -988,6 +990,8 @@ func _update_camera_rig_vertical(dt: float) -> void:
 		_camera_rig_airborne_rise_time = 0.0 if grounded else _camera_rig_airborne_rise_time
 
 	var speed := camera_rig_y_ground_snap_speed if grounded else (camera_rig_y_follow_speed if rising else camera_rig_y_fall_follow_speed)
+	if step_transition:
+		speed = camera_rig_step_snap_speed
 	if not grounded:
 		speed = lerp(speed, ots_camera_follow_speed, ots_follow_weight)
 	var t := clamp(speed * dt, 0.0, 1.0)

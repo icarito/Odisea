@@ -355,7 +355,11 @@ func _resolve_child_target(base_target: Vector3) -> Vector3:
 	if camera_local_offset.length_squared() <= 0.000001:
 		return base_target
 	var vertical_world_offset := Vector3.UP * camera_local_offset.y
-	var pivot_world_offset := global_transform.basis.z * camera_local_offset.z
+	var pivot_axis := global_transform.basis.z
+	pivot_axis.y = 0.0
+	if pivot_axis.length_squared() > 0.000001:
+		pivot_axis = pivot_axis.normalized()
+	var pivot_world_offset := pivot_axis * camera_local_offset.z
 	var lateral_world_offset := global_transform.basis.x * camera_local_offset.x
 	if vertical_world_offset.length_squared() <= 0.000001 and pivot_world_offset.length_squared() <= 0.000001 and lateral_world_offset.length_squared() <= 0.000001:
 		return base_target

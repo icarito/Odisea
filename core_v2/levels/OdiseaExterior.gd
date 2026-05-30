@@ -11,7 +11,7 @@ export(bool) var dome_lod_enabled := true
 onready var _rotator: Spatial = $WorldRotator
 onready var _physical_terrace: StaticBody = $PhysicalTerrace
 onready var _player: Spatial = $Pilot
-onready var _camera: Camera = $Pilot/CameraRig/Yaw/Pitch/SpringArm/Camera
+onready var _camera: Camera = null
 onready var _plate_content_stream: Spatial = get_node_or_null("PlateContentRoot") as Spatial
 
 var _spirals: Array = []
@@ -26,15 +26,26 @@ var _lod_hidden_spiral := -1                  # spiral cuyo plate activo tiene L
 var _lod_hidden_plate := -1
 
 func _ready() -> void:
+	_camera = _resolve_player_camera()
 	_collect_spirals()
 	_configure_test_rotator()
 	_configure_plate_content_stream()
-	if has_node("/root/GravityWorld"):
-		GravityWorld.set_ship_axis(Vector3.ZERO, Vector3.UP)
+	var gravity_world: Node = get_node_or_null("/root/GravityWorld")
+	if gravity_world:
+		gravity_world.set_ship_axis(Vector3.ZERO, Vector3.UP)
 	
 	_resolve_spawn_state()
 	call_deferred("apply_selection")
 	call_deferred("_setup_dome_facade_cursors")
+
+func _resolve_player_camera() -> Camera:
+	if _player == null or not is_instance_valid(_player):
+		return null
+	var camera := _player.get_node_or_null("CameraRig/Yaw/Pitch/OTS_Offset/SpringArm/Camera") as Camera
+	if camera:
+		return camera
+	camera = _player.get_node_or_null("CameraRig/Yaw/Pitch/SpringArm/Camera") as Camera
+	return camera
 
 func _process(_delta: float) -> void:
 	_sync_selection_from_rotator()
@@ -48,9 +59,10 @@ func _resolve_spawn_state() -> void:
 	var params = scene_manager.get("_transition_params")
 	if typeof(params) == TYPE_DICTIONARY:
 		var spawn_id = params.get("target_spawn_id", params.get("spawn_id", ""))
-		var dome_id = DomeRegistry.find_dome_id_by_interior_spawn(String(spawn_id))
+		var dome_registry: Node = _get_dome_registry()
+		var dome_id = dome_registry.find_dome_id_by_interior_spawn(String(spawn_id)) if dome_registry else ""
 		if dome_id != "":
-			var info = DomeRegistry.get_dome(dome_id)
+			var info = dome_registry.get_dome(dome_id)
 			selected_spiral = info.get("spiral_index", 0)
 			selected_plate = info.get("plate_index", 0)
 			snap_on_selection = true
@@ -151,6 +163,9 @@ func _assign_plate_content() -> void:
 	if _plate_content_stream.has_method("begin_bulk_assignments"):
 		_plate_content_stream.begin_bulk_assignments()
 	var dome_lod_assignments := []
+	var dome_registry: Node = _get_dome_registry()
+	if not dome_registry:
+		return
 
 	for spiral_index in range(_spirals.size()):
 		var spiral: Spatial = _spirals[spiral_index]
@@ -158,8 +173,8 @@ func _assign_plate_content() -> void:
 		if plate_count <= 0:
 			continue
 		for plate_index in range(plate_count):
-			var dome_id := DomeRegistry.get_dome_id_for_plate(spiral_index, plate_index)
-			var info := DomeRegistry.get_dome(dome_id)
+			var dome_id: String = dome_registry.get_dome_id_for_plate(spiral_index, plate_index)
+			var info: Dictionary = dome_registry.get_dome(dome_id)
 			# Si hay blueprint LOD, la visual la maneja el LOD MultiMesh (todas las terrazas).
 			# El cursor maneja la facade full-detail solo para domos explícitos.
 			if info.empty() or not (dome_lod_enabled and _has_dome_lod_blueprint(info)):
@@ -544,11 +559,12 @@ func _respawn_player() -> void:
 			player.set_external_velocity(Vector3.ZERO)
 
 func _configure_gravity_for_selected_plate(plate_canonical: Transform) -> void:
-	if not has_node("/root/GravityWorld"):
+	var gravity_world: Node = _get_gravity_world()
+	if not gravity_world:
 		return
-	var radius: float = GravityWorld.get_axis_radius(plate_canonical.origin)
-	GravityWorld.set_centrifugal_reference_radius(radius)
-	GravityWorld.set_ship_angular_velocity(GravityWorld.get_default_angular_velocity_for_one_g(radius))
+	var radius: float = gravity_world.get_axis_radius(plate_canonical.origin)
+	gravity_world.set_centrifugal_reference_radius(radius)
+	gravity_world.set_ship_angular_velocity(gravity_world.get_default_angular_velocity_for_one_g(radius))
 
 func _reset_camera_roll() -> void:
 	if not _camera:
@@ -561,8 +577,11 @@ func _reset_camera_roll() -> void:
 
 func _setup_dome_facade_cursors() -> void:
 	var seen_paths := {}
-	for dome_id in DomeRegistry.get_all_dome_ids():
-		var info := DomeRegistry.get_dome(dome_id)
+	var dome_registry: Node = _get_dome_registry()
+	if not dome_registry:
+		return
+	for dome_id in dome_registry.get_all_dome_ids():
+		var info: Dictionary = dome_registry.get_dome(dome_id)
 		var path := String(info.get("facade_scene", "")).strip_edges()
 		if path == "" or seen_paths.has(path):
 			continue
@@ -590,8 +609,12 @@ func _sync_dome_facade_cursor() -> void:
 		_park_all_dome_facade_cursors()
 		return
 
-	var dome_id := DomeRegistry.get_dome_id_for_plate(cur_spiral, cur_plate)
-	var info := DomeRegistry.get_dome(dome_id)
+	var dome_registry: Node = _get_dome_registry()
+	if not dome_registry:
+		_park_all_dome_facade_cursors()
+		return
+	var dome_id: String = dome_registry.get_dome_id_for_plate(cur_spiral, cur_plate)
+	var info: Dictionary = dome_registry.get_dome(dome_id)
 	# Usar facade_scene del registro (get_dome ya devuelve DomeFacade_01 por defecto para domos sintéticos)
 	var facade_path := String(info.get("facade_scene", "")).strip_edges()
 
@@ -630,6 +653,12 @@ func _sync_dome_facade_cursor() -> void:
 	for child in active_cursor.get_children():
 		if child.has_method("apply_plate_content_context"):
 			child.apply_plate_content_context(context)
+
+func _get_dome_registry() -> Node:
+	return get_node_or_null("/root/DomeRegistry")
+
+func _get_gravity_world() -> Node:
+	return get_node_or_null("/root/GravityWorld")
 
 func _tick_dome_facade_cursor() -> void:
 	# Actualiza SOLO el transform del cursor activo cada frame para seguir la rotación
