@@ -126,7 +126,6 @@ max_height_offset = -0.35
 distance_min = 0.8
 distance_max = 2.4
 jump_rise_offset = 0.45
-jump_compensation_speed = 3.5
 
 [node name="Visual" type="Spatial" parent="."]
 

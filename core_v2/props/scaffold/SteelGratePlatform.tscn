@@ -5,4 +5,5 @@
 [node name="SteelGratePlatform" type="Spatial"]
 script = ExtResource( 1 )
 is_interactable = false
-
+grate_pattern_angle_degrees = 18.0
+grate_pattern_shear = 0.12

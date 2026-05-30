@@ -1,5 +1,5 @@
 tool
-extends PropBaseV2
+extends Spatial
 class_name SteelGratePlatform
 
 export(float, 1.0, 100.0, 0.1) var platform_width := 3.0 setget set_platform_width
@@ -10,6 +10,10 @@ export(float, -20.0, 20.0, 0.1) var back_height_offset := 0.0 setget set_back_he
 export(float, 0.04, 2.0, 0.01) var tube_radius := 0.07 setget set_tube_radius
 export(float, 0.04, 2.0, 0.01) var deck_frame_thickness := 0.10 setget set_deck_frame_thickness
 export(float, 0.05, 0.95, 0.01) var grate_alpha_threshold := 0.46 setget set_grate_alpha_threshold
+export(Color) var grate_color := Color(0.42, 0.46, 0.50, 1.0) setget set_grate_color
+export(float, 0.15, 2.0, 0.01) var grate_brightness := 0.72 setget set_grate_brightness
+export(float, -45.0, 45.0, 0.5) var grate_pattern_angle_degrees := 0.0 setget set_grate_pattern_angle_degrees
+export(float, -0.35, 0.35, 0.01) var grate_pattern_shear := 0.0 setget set_grate_pattern_shear
 export(float, 1.0, 20.0, 0.1) var support_spacing := 5.0 setget set_support_spacing
 export(float, 0.0, 20.0, 0.05) var rail_height := 1.1 setget set_rail_height
 export(float, 0.0, 1.0, 0.05) var rail_mid_ratio := 0.5 setget set_rail_mid_ratio
@@ -32,7 +36,9 @@ export(float, 0.0, 1.0, 0.01) var rail_right_opening_gravity := 0.5 setget set_r
 const PROP_LAYER := 64
 const CYLINDER_SEGMENTS := 12
 const JOINT_SCALE := 1.35
-const GRATE_REPEAT_PER_METER := 1.15
+const GRATE_REPEAT_PER_METER := 1.35
+const GRATE_OVERLAP_WITH_FRAME := 0.35
+const GRATE_RECESS := 0.015
 
 var _visual_root: Spatial = null
 var _body: StaticBody = null
@@ -41,11 +47,8 @@ var _rail_material: SpatialMaterial = null
 var _grate_material: Material = null
 var _fence_material: Material = null
 
-func _init():
-	is_interactable = false
 
 func _ready():
-	._ready()
 	_ensure_structure()
 	_rebuild()
 
@@ -79,6 +82,22 @@ func set_deck_frame_thickness(value: float) -> void:
 
 func set_grate_alpha_threshold(value: float) -> void:
 	grate_alpha_threshold = value
+	_queue_rebuild()
+
+func set_grate_color(value: Color) -> void:
+	grate_color = value
+	_queue_rebuild()
+
+func set_grate_brightness(value: float) -> void:
+	grate_brightness = value
+	_queue_rebuild()
+
+func set_grate_pattern_angle_degrees(value: float) -> void:
+	grate_pattern_angle_degrees = value
+	_queue_rebuild()
+
+func set_grate_pattern_shear(value: float) -> void:
+	grate_pattern_shear = value
 	_queue_rebuild()
 
 func set_support_spacing(value: float) -> void:
@@ -185,16 +204,16 @@ func _rebuild() -> void:
 	var deck_t = max(deck_frame_thickness, tube_radius * 1.2)
 	var front_top_y = platform_height + front_height_offset
 	var back_top_y = platform_height + back_height_offset
-	var inner_w = max(platform_width - tube_radius * 4.0, tube_radius * 2.0)
-	var inner_d = max(platform_depth - tube_radius * 4.0, tube_radius * 2.0)
+	var inner_w = max(platform_width - tube_radius * 2.0, tube_radius * 2.0)
+	var inner_d = max(platform_depth - tube_radius * 2.0, tube_radius * 2.0)
 
 	_add_deck_collision(half_w, half_d, deck_t, front_top_y, back_top_y)
 	_add_grate_deck(inner_w, inner_d, front_top_y, back_top_y)
 
-	var front_left_top = Vector3(-half_w + tube_radius, front_top_y - deck_t * 0.5, -half_d + tube_radius)
-	var front_right_top = Vector3(half_w - tube_radius, front_top_y - deck_t * 0.5, -half_d + tube_radius)
-	var back_left_top = Vector3(-half_w + tube_radius, back_top_y - deck_t * 0.5, half_d - tube_radius)
-	var back_right_top = Vector3(half_w - tube_radius, back_top_y - deck_t * 0.5, half_d - tube_radius)
+	var front_left_top = Vector3(-half_w + tube_radius, front_top_y - tube_radius, -half_d + tube_radius)
+	var front_right_top = Vector3(half_w - tube_radius, front_top_y - tube_radius, -half_d + tube_radius)
+	var back_left_top = Vector3(-half_w + tube_radius, back_top_y - tube_radius, half_d - tube_radius)
+	var back_right_top = Vector3(half_w - tube_radius, back_top_y - tube_radius, half_d - tube_radius)
 
 	_add_tube_between("Leg_FL", Vector3(front_left_top.x, 0, front_left_top.z), front_left_top, _frame_material)
 	_add_tube_between("Leg_FR", Vector3(front_right_top.x, 0, front_right_top.z), front_right_top, _frame_material)
@@ -215,29 +234,43 @@ func _rebuild() -> void:
 	_add_joint_cap("FrameJoint_BL", back_left_top, _frame_material)
 	_add_joint_cap("FrameJoint_BR", back_right_top, _frame_material)
 
-	_build_side_rail("Front", rail_front, true, -half_d, rail_front_opening_width, rail_front_opening_gravity)
-	_build_side_rail("Back", rail_back, true, half_d, rail_back_opening_width, rail_back_opening_gravity)
-	_build_side_rail("Left", rail_left, false, -half_w, rail_left_opening_width, rail_left_opening_gravity)
-	_build_side_rail("Right", rail_right, false, half_w, rail_right_opening_width, rail_right_opening_gravity)
+	_build_side_rail("Front", rail_front, true, -half_d + tube_radius, rail_front_opening_width, rail_front_opening_gravity)
+	_build_side_rail("Back", rail_back, true, half_d - tube_radius, rail_back_opening_width, rail_back_opening_gravity)
+	_build_side_rail("Left", rail_left, false, -half_w + tube_radius, rail_left_opening_width, rail_left_opening_gravity)
+	_build_side_rail("Right", rail_right, false, half_w - tube_radius, rail_right_opening_width, rail_right_opening_gravity)
 
 func _build_materials() -> void:
 	_frame_material = SpatialMaterial.new()
 	_frame_material.albedo_color = frame_color
-	_frame_material.metallic = 0.45
-	_frame_material.roughness = 0.82
+	_frame_material.metallic = 0.12
+	_frame_material.roughness = 0.96
+	_frame_material.metallic_specular = 0.18
 
 	_rail_material = SpatialMaterial.new()
 	_rail_material.albedo_color = rail_color
-	_rail_material.metallic = 0.4
-	_rail_material.roughness = 0.86
+	_rail_material.metallic = 0.10
+	_rail_material.roughness = 0.97
+	_rail_material.metallic_specular = 0.16
 
 	_grate_material = load("res://textures/trenchbroom/steel_grate_platform.tres").duplicate(true)
-	_fence_material = load("res://textures/trenchbroom/metal_fence_panel.tres").duplicate(true)
-
 	if _grate_material is SpatialMaterial:
 		var grate_spatial = _grate_material as SpatialMaterial
-		grate_spatial.params_cull_mode = SpatialMaterial.CULL_DISABLED
 		grate_spatial.params_alpha_scissor_threshold = grate_alpha_threshold
+		grate_spatial.flags_transparent = false
+		grate_spatial.params_cull_mode = SpatialMaterial.CULL_DISABLED
+		grate_spatial.albedo_color = Color(
+			clamp(grate_color.r * grate_brightness, 0.0, 1.0),
+			clamp(grate_color.g * grate_brightness, 0.0, 1.0),
+			clamp(grate_color.b * grate_brightness, 0.0, 1.0),
+			grate_color.a
+		)
+		grate_spatial.metallic = min(grate_spatial.metallic, 0.04)
+		grate_spatial.roughness = max(grate_spatial.roughness, 0.98)
+		grate_spatial.metallic_specular = min(grate_spatial.metallic_specular, 0.18)
+
+	_fence_material = load("res://textures/trenchbroom/metal_fence_panel.tres").duplicate(true)
+	if not _fence_material:
+		_fence_material = _rail_material.duplicate()
 
 func _clear_children(node: Node) -> void:
 	for child in node.get_children():
@@ -306,6 +339,10 @@ func _build_side_segment(side_name: String, is_front_back: bool, fixed_axis: flo
 	_add_tube_between("%sRailPostA" % side_name, bottom_a, top_a, _rail_material)
 	_add_tube_between("%sRailPostB" % side_name, bottom_b, top_b, _rail_material)
 	_add_intermediate_rail_posts(side_name, bottom_a, bottom_b)
+	_add_joint_cap("%sCapTopA" % side_name, top_a, _rail_material)
+	_add_joint_cap("%sCapTopB" % side_name, top_b, _rail_material)
+	_add_joint_cap("%sCapMidA" % side_name, mid_a, _rail_material)
+	_add_joint_cap("%sCapMidB" % side_name, mid_b, _rail_material)
 
 	if rail_infill_enabled:
 		var center = (bottom_a + bottom_b) * 0.5 + Vector3.UP * (rail_height * 0.5)
@@ -341,19 +378,63 @@ func _add_leg_collision(node_name: String, bottom: Vector3, top: Vector3) -> voi
 func _add_grate_deck(width: float, depth: float, front_top_y: float, back_top_y: float) -> void:
 	var deck = MeshInstance.new()
 	deck.name = "DeckGrate"
-	var mesh = QuadMesh.new()
-	mesh.size = Vector2(width, depth)
+	# Slight overlap hides tiny seams between grate pixels and tubular frame/rails.
+	var mesh_size = Vector2(width + tube_radius * GRATE_OVERLAP_WITH_FRAME, depth + tube_radius * GRATE_OVERLAP_WITH_FRAME)
+	var mesh = _make_grate_mesh(mesh_size)
 	deck.mesh = mesh
-	deck.translation = Vector3(0, (front_top_y + back_top_y) * 0.5, 0)
+	deck.translation = Vector3(0, (front_top_y + back_top_y) * 0.5 - GRATE_RECESS, 0)
 	var slope_angle = -atan2(back_top_y - front_top_y, platform_depth)
 	deck.rotation = Vector3(-PI * 0.5 + slope_angle, 0, 0)
 	if _grate_material is SpatialMaterial:
 		var mat = (_grate_material as SpatialMaterial).duplicate(true)
-		mat.uv1_scale = Vector3(max(width * GRATE_REPEAT_PER_METER, 1.0), max(depth * GRATE_REPEAT_PER_METER, 1.0), 1.0)
+		mat.uv1_scale = Vector3(max(mesh_size.x * GRATE_REPEAT_PER_METER, 1.0), max(mesh_size.y * GRATE_REPEAT_PER_METER, 1.0), 1.0)
 		deck.material_override = mat
 	else:
 		deck.material_override = _grate_material
 	_visual_root.add_child(deck)
+
+func _make_grate_mesh(size: Vector2) -> ArrayMesh:
+	var half = size * 0.5
+	var vertices = PoolVector3Array([
+		Vector3(-half.x, -half.y, 0),
+		Vector3(half.x, -half.y, 0),
+		Vector3(half.x, half.y, 0),
+		Vector3(-half.x, half.y, 0)
+	])
+	var normals = PoolVector3Array([
+		Vector3(0, 0, 1),
+		Vector3(0, 0, 1),
+		Vector3(0, 0, 1),
+		Vector3(0, 0, 1)
+	])
+	var uvs = PoolVector2Array([
+		_transform_grate_uv(Vector2(0, 0)),
+		_transform_grate_uv(Vector2(1, 0)),
+		_transform_grate_uv(Vector2(1, 1)),
+		_transform_grate_uv(Vector2(0, 1))
+	])
+	var indices = PoolIntArray([0, 1, 2, 0, 2, 3])
+	var arrays = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = indices
+
+	var mesh = ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+func _transform_grate_uv(uv: Vector2) -> Vector2:
+	var centered = uv - Vector2(0.5, 0.5)
+	centered.x += centered.y * grate_pattern_shear
+	var angle = deg2rad(grate_pattern_angle_degrees)
+	var c = cos(angle)
+	var s = sin(angle)
+	return Vector2(
+		centered.x * c - centered.y * s,
+		centered.x * s + centered.y * c
+	) + Vector2(0.5, 0.5)
 
 func _add_intermediate_leg_supports(front_left_top: Vector3, front_right_top: Vector3, back_left_top: Vector3, back_right_top: Vector3) -> void:
 	var x_positions = _intermediate_positions(-platform_width * 0.5 + tube_radius, platform_width * 0.5 - tube_radius)
@@ -367,8 +448,8 @@ func _add_intermediate_leg_supports(front_left_top: Vector3, front_right_top: Ve
 
 	var z_positions = _intermediate_positions(-platform_depth * 0.5 + tube_radius, platform_depth * 0.5 - tube_radius)
 	for z in z_positions:
-		var left_top = Vector3(front_left_top.x, _deck_top_y_at(z) - deck_frame_thickness * 0.5, z)
-		var right_top = Vector3(front_right_top.x, _deck_top_y_at(z) - deck_frame_thickness * 0.5, z)
+		var left_top = Vector3(front_left_top.x, _deck_top_y_at(z) - tube_radius, z)
+		var right_top = Vector3(front_right_top.x, _deck_top_y_at(z) - tube_radius, z)
 		_add_tube_between("LegLeft_%s" % str(z), Vector3(front_left_top.x, 0, z), left_top, _frame_material)
 		_add_tube_between("LegRight_%s" % str(z), Vector3(front_right_top.x, 0, z), right_top, _frame_material)
 		_add_leg_collision("LegLeftCollision_%s" % str(z), Vector3(front_left_top.x, 0, z), left_top)

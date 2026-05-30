@@ -108,8 +108,20 @@ func _scan_node(node: Node) -> void:
 func _process_collision_object(co: CollisionObject) -> void:
 	if not is_instance_valid(co):
 		return
+	# Keep default lighting/shadow behavior for Qodot world geometry.
+	if _is_under_qodot_map(co):
+		return
 	var prop_root: Node = _get_occlusion_root_for_collision_object(co)
 	_convert_meshes_recursive(prop_root)
+
+
+func _is_under_qodot_map(node: Node) -> bool:
+	var current: Node = node
+	while current != null:
+		if current.get_class() == "QodotMap":
+			return true
+		current = current.get_parent()
+	return false
 
 
 func _get_occlusion_root_for_collision_object(co: CollisionObject) -> Node:
@@ -166,7 +178,8 @@ func _convert_mesh_instance(mesh: MeshInstance) -> void:
 
 	# Convert material_override if it's a SpatialMaterial
 	var mat_override = mesh.material_override
-	if mat_override is SpatialMaterial and not (mat_override as SpatialMaterial).flags_transparent:
+	if mat_override is SpatialMaterial and _can_apply_occlusion_dither(mat_override as SpatialMaterial):
+		mesh.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 		var new_mat = _convert_spatial_to_dither(mat_override as SpatialMaterial)
 		mesh.material_override = new_mat
 		register_material(new_mat)
@@ -179,12 +192,21 @@ func _convert_mesh_instance(mesh: MeshInstance) -> void:
 	var surface_count: int = mesh.get_surface_material_count()
 	for i in range(surface_count):
 		var active_mat = mesh.get_active_material(i)
-		if active_mat is SpatialMaterial and not (active_mat as SpatialMaterial).flags_transparent:
+		if active_mat is SpatialMaterial and _can_apply_occlusion_dither(active_mat as SpatialMaterial):
+			mesh.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 			var new_mat = _convert_spatial_to_dither(active_mat as SpatialMaterial)
 			mesh.set_surface_material(i, new_mat)
 			register_material(new_mat)
 		elif active_mat is ShaderMaterial and (active_mat as ShaderMaterial).shader == _parallax_shader:
 			register_material(active_mat as ShaderMaterial)
+
+
+func _can_apply_occlusion_dither(mat: SpatialMaterial) -> bool:
+	if mat.flags_transparent:
+		return false
+	if mat.params_use_alpha_scissor:
+		return false
+	return true
 
 
 func _convert_spatial_to_dither(source: SpatialMaterial) -> ShaderMaterial:
