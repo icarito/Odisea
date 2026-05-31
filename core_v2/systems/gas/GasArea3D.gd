@@ -114,6 +114,9 @@ func _apply_manager_tuning() -> void:
 	manager.decay_rate = decay_rate
 	manager.collide_with_world = gas_collide_with_world
 	manager.world_collision_mask = gas_world_collision_mask
+	# Pass volume radius so manager can normalize particle distances
+	var extents := _get_shape_extents()
+	manager.volume_radius = max(extents.x, max(extents.y, extents.z))
 
 func _clear_grid() -> void:
 	for i in range(_grid.size()):

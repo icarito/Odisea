@@ -2563,9 +2563,9 @@ material/0 = SubResource( 221 )
 [node name="GasArea3D" parent="." instance=ExtResource( 12 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 5 )
 gas_type = 1
-viscosity = 0.01
+viscosity = 0.05
 buoyancy = -0.01
-player_push_force = 1.0
+player_push_force = 2.0
 initial_particle_count = 256
 initial_fill_radius = 2.0
 initial_particle_scale = 4.0
@@ -2573,7 +2573,10 @@ gas_world_collision_mask = 127
 
 [node name="GasParticleManager" parent="GasArea3D" index="1"]
 default_color = Color( 0.0313726, 0.454902, 0.411765, 0.65098 )
-color_rgb_variance = 0.0
+distance_luminance_shift = -0.2
+distance_r_shift = 0.0
+distance_g_shift = 0.0
+distance_b_shift = 0.2
 collide_with_world = false
 world_collision_mask = 65
 

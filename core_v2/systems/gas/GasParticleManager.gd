@@ -9,8 +9,13 @@ export(float) var buoyancy := -1.2
 export(float) var decay_rate := 1.0
 export(Color) var default_color := Color(0.62, 0.78, 0.74, 0.82)
 export(Color) var ignition_color := Color(1.0, 0.42, 0.08, 0.82)
-export(float) var color_lightness_variance := 0.25
-export(float) var color_rgb_variance := 0.1
+export(float, -1.0, 1.0) var distance_luminance_shift := -0.4
+export(float, -1.0, 1.0) var distance_r_shift := 0.0
+export(float, -1.0, 1.0) var distance_g_shift := 0.0
+export(float, -1.0, 1.0) var distance_b_shift := 0.0
+
+# Set by GasArea3D from shape extents — used to normalize particle distance
+var volume_radius := 4.0
 export(bool) var collide_with_world := true
 export(int, LAYERS_3D_PHYSICS) var world_collision_mask := 1
 export(float) var collision_margin := 0.08
@@ -215,7 +220,8 @@ func emit_particle(local_position: Vector3, local_velocity: Vector3 = Vector3.ZE
 	p["base_scale"] = base_s * (0.5 + _get_deterministic_anim_offset(index + 777) * 1.0)
 	
 	var c = default_color if color.a < 0.0 else color
-	p["color"] = _get_varied_color(c, index)
+	var dist := local_position.length()
+	p["color"] = _get_varied_color(c, index, dist)
 	
 	p["combustion"] = false
 	p["anim_time"] = 0.0
@@ -265,7 +271,8 @@ func set_particle_combustion(index: int, active: bool) -> void:
 		return
 	p["combustion"] = active
 	var c = ignition_color if active else default_color
-	p["color"] = _get_varied_color(c, index)
+	var dist := Vector3(p["position"]).length()
+	p["color"] = _get_varied_color(c, index, dist)
 	particles[index] = p
 	_sync_instance(index)
 
@@ -380,15 +387,13 @@ func restore_snapshot(data: Dictionary) -> void:
 		particles[index] = p
 		_sync_instance(index)
 
-func _get_varied_color(base_c: Color, index: int) -> Color:
-	var shift = (_get_deterministic_anim_offset(index + 555) - 0.5) * color_lightness_variance
-	# Add a tiny bit of hue tinting (greenish/bluish) based on another offset
-	var tint_r = (_get_deterministic_anim_offset(index + 111) - 0.5) * color_rgb_variance
-	var tint_g = (_get_deterministic_anim_offset(index + 222) - 0.5) * color_rgb_variance
-	var tint_b = (_get_deterministic_anim_offset(index + 333) - 0.5) * color_rgb_variance
+func _get_varied_color(base_c: Color, index: int, distance: float = 0.0) -> Color:
+	# Normalize distance (0 = center, 1 = edge of volume)
+	var norm_dist := clamp(distance / max(volume_radius, 0.001), 0.0, 1.0)
+
 	return Color(
-		clamp(base_c.r + shift + tint_r, 0.0, 1.0),
-		clamp(base_c.g + shift + tint_g, 0.0, 1.0),
-		clamp(base_c.b + shift + tint_b, 0.0, 1.0),
+		clamp(base_c.r + norm_dist * (distance_luminance_shift + distance_r_shift), 0.0, 1.0),
+		clamp(base_c.g + norm_dist * (distance_luminance_shift + distance_g_shift), 0.0, 1.0),
+		clamp(base_c.b + norm_dist * (distance_luminance_shift + distance_b_shift), 0.0, 1.0),
 		base_c.a
 	)

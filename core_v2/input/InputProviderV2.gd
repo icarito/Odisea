@@ -122,6 +122,24 @@ func _contains_any_hint(text: String, hints: Array) -> bool:
 	return false
 
 
+func _action_strength(action_name: String) -> float:
+	if not InputMap.has_action(action_name):
+		return 0.0
+	return Input.get_action_strength(action_name)
+
+
+func _action_pressed(action_name: String) -> bool:
+	if not InputMap.has_action(action_name):
+		return false
+	return Input.is_action_pressed(action_name)
+
+
+func _action_just_pressed(action_name: String) -> bool:
+	if not InputMap.has_action(action_name):
+		return false
+	return Input.is_action_just_pressed(action_name)
+
+
 func _read_live_input() -> InputDataV2:
 	var d = InputDataV2.new()
 
@@ -129,19 +147,19 @@ func _read_live_input() -> InputDataV2:
 		_ensure_axis_profile_resolved()
 
 		var raw_move_vec = Vector2(
-			Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
-			Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward")
+			_action_strength("move_right") - _action_strength("move_left"),
+			_action_strength("move_backward") - _action_strength("move_forward")
 		)
 
-		d.jump = Input.is_action_pressed("jump")
-		d.sprint = Input.is_action_pressed("run")
-		d.crouch = Input.is_action_pressed("crouch")
-		d.interact = Input.is_action_just_pressed("interact")
-		d.focus = Input.is_action_just_pressed("focus")
-		d.rotate_left = Input.is_action_pressed("rotate_left")
-		d.rotate_right = Input.is_action_pressed("rotate_right")
-		d.roll_left = Input.is_action_pressed("zero_g_roll_left")
-		d.roll_right = Input.is_action_pressed("zero_g_roll_right")
+		d.jump = _action_pressed("jump")
+		d.sprint = _action_pressed("run")
+		d.crouch = _action_pressed("crouch")
+		d.interact = _action_just_pressed("interact")
+		d.focus = _action_just_pressed("focus")
+		d.rotate_left = _action_pressed("rotate_left")
+		d.rotate_right = _action_pressed("rotate_right")
+		d.roll_left = _action_pressed("zero_g_roll_left")
+		d.roll_right = _action_pressed("zero_g_roll_right")
 
 		# --- JOYSTICK SPRINT (Physical) ---
 		var joy_move_x = Input.get_joy_axis(0, JOY_AXIS_0)
@@ -190,7 +208,7 @@ func _read_live_input() -> InputDataV2:
 			mouse_d += joy_look * joy_look_sensitivity
 
 		# --- D-PAD CAMERA (Digital) ---
-		var digital_look_x = Input.get_action_strength("camera_right") - Input.get_action_strength("camera_left")
+		var digital_look_x = _action_strength("camera_right") - _action_strength("camera_left")
 		mouse_d.x += digital_look_x * joy_look_sensitivity
 
 		# --- TOUCH CAMERA (from TouchCameraControls) ---
@@ -201,7 +219,7 @@ func _read_live_input() -> InputDataV2:
 		d.mouse_delta = mouse_d
 
 		# --- ZOOM ---
-		var digital_zoom = (Input.get_action_strength("zoom_out") - Input.get_action_strength("zoom_in")) * DIGITAL_ZOOM_SENSITIVITY
+		var digital_zoom = (_action_strength("zoom_out") - _action_strength("zoom_in")) * DIGITAL_ZOOM_SENSITIVITY
 		
 		# Robustness: Many handhelds/controllers overlap Stick Click with D-pad indices.
 		# If the movement stick is active, we ignore digital (button-based) zoom to avoid accidents.

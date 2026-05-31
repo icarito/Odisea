@@ -1164,6 +1164,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/ui/retro/OysCalc.gd"
 }, {
+"base": "VBoxContainer",
+"class": "OysTransit",
+"language": "GDScript",
+"path": "res://core_v2/ui/retro/OysTransit.gd"
+}, {
 "base": "PropBaseV2",
 "class": "PedestalButton",
 "language": "GDScript",
@@ -1609,6 +1614,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/virtualcamera/TransformModifiers/TransformModifier.gd"
 }, {
+"base": "Spatial",
+"class": "TransitPod",
+"language": "GDScript",
+"path": "res://core_v2/props/transit/TransitPod.gd"
+}, {
+"base": "InteractableBaseV2",
+"class": "TransitStation",
+"language": "GDScript",
+"path": "res://core_v2/props/transit/TransitStation.gd"
+}, {
 "base": "Area",
 "class": "TransitionPortal",
 "language": "GDScript",
@@ -1719,10 +1734,20 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/report/XmlElement.gd"
 }, {
+"base": "Spatial",
+"class": "ZeroGCameraRig",
+"language": "GDScript",
+"path": "res://core_v2/camera/ZeroGCameraRig.gd"
+}, {
 "base": "Node",
 "class": "ZeroGravityController",
 "language": "GDScript",
 "path": "res://core_v2/player/ZeroGravityController.gd"
+}, {
+"base": "Node",
+"class": "ZeroGravitySettings",
+"language": "GDScript",
+"path": "res://core_v2/player/ZeroGravitySettings.gd"
 }, {
 "base": "Area",
 "class": "ZeroGravityZone",
@@ -1971,6 +1996,7 @@ _global_script_class_icons={
 "OrbitArm": "",
 "Orbiter": "",
 "OysCalc": "",
+"OysTransit": "",
 "PedestalButton": "",
 "PhysicsBall": "",
 "PhysicsEntity": "",
@@ -2060,6 +2086,8 @@ _global_script_class_icons={
 "TouchCameraControls": "",
 "TransferZoneV2": "",
 "TransformModifier": "res://addons/virtualcamera/TransformModifiers/TransformModifier.svg",
+"TransitPod": "",
+"TransitStation": "",
 "TransitionPortal": "",
 "TrenchBroomFaceAttrib": "",
 "TrenchBroomFaceAttribDefaults": "",
@@ -2082,7 +2110,9 @@ _global_script_class_icons={
 "WindTunnelV2": "",
 "WorldRotator": "",
 "XmlElement": "",
+"ZeroGCameraRig": "",
 "ZeroGravityController": "",
+"ZeroGravitySettings": "",
 "ZeroGravityZone": "",
 "_TestCase": "",
 "_TestSuiteScanner": ""
@@ -2162,14 +2192,9 @@ ui_cancel={
 , Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":2,"canceled":false,"pressed":false,"doubleclick":false,"script":null)
  ]
 }
-rotate_right={
+zero_g_roll_right={
 "deadzone": 0.5,
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":69,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
- ]
-}
-rotate_left={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":81,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
  ]
 }
 zero_g_roll_left={
@@ -2300,11 +2325,6 @@ trackback={
 reset={
 "deadzone": 0.5,
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":48,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
- ]
-}
-zero_g_roll_right={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":69,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
  ]
 }
 focus={

@@ -1,10 +1,13 @@
-[gd_resource type="Environment" load_steps=2 format=2]
+[gd_resource type="Environment" load_steps=3 format=2]
 
-[ext_resource path="res://scenes/common/space_environment/StarfieldProceduralSky.tres" type="ProceduralSky" id=1]
+[ext_resource path="res://assets/hdris/ringed_gas_giant_planet.hdr" type="Texture" id=1]
+
+[sub_resource type="PanoramaSky" id=1]
+panorama = ExtResource( 1 )
 
 [resource]
 background_mode = 2
-background_sky = ExtResource( 1 )
+background_sky = SubResource( 1 )
 ambient_light_color = Color( 0.04, 0.08, 0.18, 1 )
 ambient_light_energy = 1.88
 ssao_enabled = true

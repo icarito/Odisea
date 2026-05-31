@@ -98,6 +98,11 @@ func _physics_process(delta: float):
 	if not _player or not _spring_arm:
 		return
 
+	var cm = _player.get_node_or_null("ControllerManager")
+	if cm and "current_mode" in cm and "Mode" in cm and cm.current_mode == cm.Mode.ZERO_GRAVITY:
+		_reset_offset_immediate()
+		return
+
 	# Safety check: Only apply OTS in FREE control mode (standard third person)
 	var cinematic_manager = get_node_or_null("/root/CinematicManager")
 	if cinematic_manager and cinematic_manager.get_control_mode() != cinematic_manager.ControlMode.FREE:
@@ -171,6 +176,13 @@ func _reset_offset(delta: float):
 	elif _spring_arm:
 		_apply_arm_offset(Vector3.ZERO)
 		_jump_comp_weight = 0.0
+
+func _reset_offset_immediate() -> void:
+	_distance_weight = 0.0
+	_centering_weight = 0.0
+	_jump_comp_weight = 0.0
+	_current_offset = Vector3.ZERO
+	_apply_arm_offset(Vector3.ZERO)
 
 func _blend_alpha(speed: float, delta: float) -> float:
 	return 1.0 - exp(-max(speed, 0.0) * max(delta, 0.0))

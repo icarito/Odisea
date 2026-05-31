@@ -28,3 +28,5 @@ transform = Transform( 0.996195, 3.82452e-09, 0.0871557, -0.0841859, 0.258819, 0
 light_color = Color( 0.364706, 0.364706, 0.364706, 1 )
 light_energy = 0.627
 shadow_enabled = true
+
+[editable path="ZeroGravityZone"]

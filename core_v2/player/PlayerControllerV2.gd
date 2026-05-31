@@ -4,6 +4,7 @@ const InputProviderV2 = preload("../input/InputProviderV2.gd")
 const InputDataV2 = preload("../input/InputDataV2.gd")
 const PlayerJumpV2 = preload("PlayerJumpV2.gd")
 const PlayerMovementV2 = preload("PlayerMovementV2.gd")
+const ZeroGravitySettingsV2 = preload("ZeroGravitySettings.gd")
 const TraversalLogicV2 = preload("traversal/TraversalLogicV2.gd")
 
 const FIXED_DT := 1.0 / 60.0
@@ -530,6 +531,14 @@ func _ready():
 
 	if traversal_logic and traversal_logic.has_method("apply_to_controller"):
 		traversal_logic.apply_to_controller(self)
+
+	if not has_node("Logic/ZeroGravity"):
+		var zero_g_settings = ZeroGravitySettingsV2.new()
+		zero_g_settings.name = "ZeroGravity"
+		if has_node("Logic"):
+			get_node("Logic").add_child(zero_g_settings)
+		else:
+			add_child(zero_g_settings)
 
 	if not has_node("ZeroGravityController"):
 		var zgc = load("res://core_v2/player/ZeroGravityController.gd").new()

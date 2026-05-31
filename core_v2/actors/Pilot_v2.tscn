@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=2]
+[gd_scene load_steps=28 format=2]
 
 [ext_resource path="res://core_v2/player/PlayerControllerV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/actors/PilotAnimatorV2.gd" type="Script" id=3]
@@ -18,6 +18,8 @@
 [ext_resource path="res://core_v2/player/traversal/TraversalLogicV2.gd" type="Script" id=61]
 [ext_resource path="res://core_v2/player/PlayerUISettings.gd" type="Script" id=62]
 [ext_resource path="res://core_v2/player/OverTheShoulder.gd" type="Script" id=63]
+[ext_resource path="res://core_v2/camera/ZeroGCameraRig.gd" type="Script" id=64]
+[ext_resource path="res://core_v2/player/ZeroGravitySettings.gd" type="Script" id=65]
 
 [sub_resource type="SpatialMaterial" id=121]
 albedo_color = Color( 1, 0.48, 0.12, 1 )
@@ -106,6 +108,9 @@ script = ExtResource( 63 )
 lerp_speed = 2.0
 distance_blend_speed = 3.0
 distance_unblend_speed = 3.0
+
+[node name="ZeroGravity" type="Node" parent="Logic"]
+script = ExtResource( 65 )
 
 [node name="Visual" type="Spatial" parent="."]
 
@@ -235,6 +240,18 @@ gravity = Vector3( 0, -0.6, 0 )
 initial_velocity = 0.5
 initial_velocity_random = 0.6
 color = Color( 0.172549, 0.607843, 0.615686, 1 )
+
+[node name="ZeroGCameraRig" type="Spatial" parent="."]
+visible = false
+script = ExtResource( 64 )
+
+[node name="SpringArm" type="Spatial" parent="ZeroGCameraRig"]
+
+[node name="Camera" type="Camera" parent="ZeroGCameraRig/SpringArm"]
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, -4 )
+fov = 75.0
+near = 0.01
+far = 10000.0
 
 [node name="GroundRay" type="RayCast" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
