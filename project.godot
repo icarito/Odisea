@@ -319,6 +319,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/matchers/EqualsArgumentMatcher.gd"
 }, {
+"base": "Spatial",
+"class": "FauxSkydomeParallaxShell",
+"language": "GDScript",
+"path": "res://core_v2/systems/visual/FauxSkydomeParallaxShell.gd"
+}, {
 "base": "PropBaseV2",
 "class": "FluorescentLight",
 "language": "GDScript",
@@ -1564,6 +1569,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/things/TerminalUI.gd"
 }, {
+"base": "Spatial",
+"class": "TerraceSegmentManager",
+"language": "GDScript",
+"path": "res://core_v2/systems/visual/TerraceSegmentManager.gd"
+}, {
 "base": "MultiMeshInstance",
 "class": "TerraceSpiral",
 "language": "GDScript",
@@ -1792,6 +1802,7 @@ _global_script_class_icons={
 "ElevatorPlatform": "",
 "EmergencyBeaconV2": "",
 "EqualsArgumentMatcher": "",
+"FauxSkydomeParallaxShell": "",
 "FluorescentLight": "",
 "Follow": "",
 "FootstepDetector": "",
@@ -2041,6 +2052,7 @@ _global_script_class_icons={
 "TerminalCameraRig": "",
 "TerminalHUDBridge": "",
 "TerminalUIV2": "",
+"TerraceSegmentManager": "",
 "TerraceSpiral": "",
 "TimeUnit": "",
 "TouchActionButton": "",

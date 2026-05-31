@@ -1,0 +1,30 @@
+# FD-041 A/B benchmark for OdiseaExterior dome LOD.
+# Run via scripts/run_warmup_ab.sh, toggling ODISEA_DOME_LOD_MODE:
+#   CASE_A_LABEL=full_stream CASE_A_VALUE=full_stream \
+#   CASE_B_LABEL=lod CASE_B_VALUE=lod \
+#   AB_TOGGLE_ENV=ODISEA_DOME_LOD_MODE \
+#   OYS_SCRIPT=res://core_v2/tests/perf/fd041_dome_lod_ab.oys \
+#   RUNS=3 ./scripts/run_warmup_ab.sh
+
+LEVEL res://core_v2/levels/OdiseaExterior.tscn
+
+SECTION "FD041DomeLOD"
+
+WAIT 1.0
+LOOK 65 0.8
+WAIT 0.2
+CALL Odisea "print_lod_stats"
+CALL perf_capture_start "fd041_dome_lod"
+
+WAIT 1.0
+RIGHT 30
+LOOK 8 0.3
+WAIT 0.5
+LEFT 60
+LOOK -8 0.3
+WAIT 0.5
+RIGHT 30
+WAIT 1.0
+
+CALL perf_capture_stop "fd041_dome_lod"
+WAIT 0.2

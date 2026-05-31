@@ -52,6 +52,9 @@ export(int, 1, 30) var target_plate_query_interval := 3
 export(bool) var continuous_tracking := true
 export(NodePath) var scene_anchor_content_path := NodePath("") setget _set_scene_anchor_content_path
 export(NodePath) var scene_anchor_reference_path := NodePath("") setget _set_scene_anchor_reference_path
+
+export(bool) var enable_faux_skydome := false setget _set_enable_faux_skydome
+export(bool) var enable_segment_lod := false
 export(int) var scene_anchor_spiral_index := -1 setget _set_scene_anchor_spiral_index
 export(int) var scene_anchor_plate_index := -1 setget _set_scene_anchor_plate_index
 export(bool) var scene_anchor_use_selected_plate_on_ready := false
@@ -120,6 +123,7 @@ func _ready() -> void:
 	global_transform = Transform.IDENTITY
 	_cache_world_environment_sky_frames()
 	_sync_world_environment_sky_frames()
+	_sync_faux_skydome_visibility()
 	# Also reset PhysicalTerrace if configured — it may have been dirtied by the editor too.
 	var pt: Spatial = _resolve_physical_terrace_target()
 	if pt:
@@ -149,6 +153,18 @@ func _exit_tree() -> void:
 	if has_node("/root/GravityWorld"):
 		get_node("/root/GravityWorld").unregister_rotator(self)
 	_destroy_collision_pool()
+
+
+func _set_enable_faux_skydome(value: bool) -> void:
+	enable_faux_skydome = value
+	if is_inside_tree():
+		_sync_faux_skydome_visibility()
+
+
+func _sync_faux_skydome_visibility() -> void:
+	for child in get_children():
+		if child.name == "FauxSkydome" or child is FauxSkydomeParallaxShell:
+			child.visible = enable_faux_skydome
 
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:

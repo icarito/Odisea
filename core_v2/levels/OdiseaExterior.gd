@@ -5,6 +5,9 @@ export(int, 0, 10000) var selected_plate := 0
 export(bool) var snap_on_selection := true
 export(PackedScene) var plate_content_scene
 export(int, -1, 8) var dome_full_detail_plate_radius := 1
+export(int, 0, 64) var dome_full_detail_nearest_count := 9
+export(int, 0, 3) var dome_full_detail_spiral_radius := 1
+export(int, 0, 32) var dome_inter_spiral_plate_offset := 4
 export(int, 0, 8) var dome_full_detail_preload_extra_radius := 2
 export(bool) var dome_lod_enabled := true
 
@@ -13,6 +16,7 @@ onready var _physical_terrace: StaticBody = $PhysicalTerrace
 onready var _player: Spatial = $Pilot
 onready var _camera: Camera = null
 onready var _plate_content_stream: Spatial = get_node_or_null("PlateContentRoot") as Spatial
+onready var _segment_manager: Spatial = get_node_or_null("WorldRotator/TerraceSegmentManager") as Spatial
 
 var _spirals: Array = []
 var _selected_plate_canonical := Transform.IDENTITY
@@ -22,13 +26,17 @@ var _scene_bounds_cache := {}
 var _dome_facade_cursors: Dictionary = {}  # facade_scene_path -> Spatial
 var _active_dome_facade_path := ""            # camino del cursor activo (para tick por frame)
 var _active_dome_facade_spawn_offset := Vector3.ZERO
-var _lod_hidden_spiral := -1                  # spiral cuyo plate activo tiene LOD oculto
-var _lod_hidden_plate := -1
+var _lod_hidden_plate_keys := {}              # "spiral:plate" -> true, plates cubiertos por LOD2
+var _last_dome_lod_stats := {}
+var _last_full_detail_keys := {}
 
 func _ready() -> void:
+	if has_node("/root/SessionManager"):
+		get_node("/root/SessionManager").register_oys_actor("Odisea", self)
 	_camera = _resolve_player_camera()
 	_collect_spirals()
 	_configure_test_rotator()
+	_configure_segment_manager()
 	_configure_plate_content_stream()
 	var gravity_world: Node = get_node_or_null("/root/GravityWorld")
 	if gravity_world:
@@ -37,6 +45,10 @@ func _ready() -> void:
 	_resolve_spawn_state()
 	call_deferred("apply_selection")
 	call_deferred("_setup_dome_facade_cursors")
+
+func _exit_tree() -> void:
+	if has_node("/root/SessionManager"):
+		get_node("/root/SessionManager").unregister_oys_actor("Odisea")
 
 func _resolve_player_camera() -> Camera:
 	if _player == null or not is_instance_valid(_player):
@@ -153,6 +165,16 @@ func _configure_plate_content_stream() -> void:
 	if _plate_content_stream.has_method("register_rotator"):
 		_plate_content_stream.register_rotator(_rotator)
 
+func _configure_segment_manager() -> void:
+	if not _segment_manager:
+		return
+	if _segment_manager.has_method("register_rotator"):
+		_segment_manager.register_rotator(_rotator)
+	if _segment_manager.get("full_detail_plate_radius") != null:
+		_segment_manager.set("full_detail_plate_radius", int(max(0, dome_full_detail_plate_radius)))
+	if _segment_manager.get("full_detail_nearest_count") != null:
+		_segment_manager.set("full_detail_nearest_count", int(max(0, dome_full_detail_nearest_count)))
+
 func _assign_plate_content() -> void:
 	if not _plate_content_stream:
 		return
@@ -166,6 +188,9 @@ func _assign_plate_content() -> void:
 	var dome_registry: Node = _get_dome_registry()
 	if not dome_registry:
 		return
+	var lod_mode := _get_dome_lod_mode()
+	var use_lod_overlays := _uses_dome_lod_overlays()
+	var stream_full_detail_keys := _get_streamed_full_detail_plate_keys_for_selection() if use_lod_overlays else {}
 
 	for spiral_index in range(_spirals.size()):
 		var spiral: Spatial = _spirals[spiral_index]
@@ -175,13 +200,34 @@ func _assign_plate_content() -> void:
 		for plate_index in range(plate_count):
 			var dome_id: String = dome_registry.get_dome_id_for_plate(spiral_index, plate_index)
 			var info: Dictionary = dome_registry.get_dome(dome_id)
-			# Si hay blueprint LOD, la visual la maneja el LOD MultiMesh (todas las terrazas).
-			# El cursor maneja la facade full-detail solo para domos explícitos.
-			if info.empty() or not (dome_lod_enabled and _has_dome_lod_blueprint(info)):
+			if info.empty():
+				continue
+			if lod_mode == "full_stream":
+				var facade_scene := _load_packed_scene(String(info.get("facade_scene", "")).strip_edges())
+				if facade_scene != null:
+					_plate_content_stream.assign_scene(spiral_index, plate_index, facade_scene, info.get("facade_spawn_offset", Vector3.ZERO), {"dome_id": dome_id})
+					dome_lod_assignments.append({
+						"dome_id": dome_id,
+						"spiral_index": spiral_index,
+						"plate_index": plate_index,
+						"info": info
+					})
+				continue
+			# Si hay blueprint LOD, la visual lejana la maneja el LOD MultiMesh.
+			# El cursor/streaming full-detail cubre la ventana cercana.
+			if not (use_lod_overlays and _has_dome_lod_blueprint(info)):
 				if plate_content_scene != null:
 					_plate_content_stream.assign_scene(spiral_index, plate_index, plate_content_scene)
 				continue
-			_plate_content_stream.assign_scene(spiral_index, plate_index, null)
+			var plate_key := _make_plate_key(spiral_index, plate_index)
+			if stream_full_detail_keys.has(plate_key):
+				var full_scene := _load_packed_scene(String(info.get("facade_scene", "")).strip_edges())
+				if full_scene != null:
+					_plate_content_stream.assign_scene(spiral_index, plate_index, full_scene, info.get("facade_spawn_offset", Vector3.ZERO), {"dome_id": dome_id})
+				else:
+					_plate_content_stream.assign_scene(spiral_index, plate_index, null)
+			else:
+				_plate_content_stream.assign_scene(spiral_index, plate_index, null)
 			dome_lod_assignments.append({
 				"dome_id": dome_id,
 				"spiral_index": spiral_index,
@@ -191,6 +237,27 @@ func _assign_plate_content() -> void:
 	if _plate_content_stream.has_method("end_bulk_assignments"):
 		_plate_content_stream.end_bulk_assignments()
 	_update_dome_lod(dome_lod_assignments)
+	_apply_lod_hide_for_selection(selected_spiral, selected_plate)
+	_last_full_detail_keys = _get_full_detail_plate_keys_for_selection()
+
+func _get_dome_lod_mode() -> String:
+	var mode := OS.get_environment("ODISEA_DOME_LOD_MODE").strip_edges().to_lower()
+	if mode in ["lod", "full_stream", "off"]:
+		return mode
+	if OS.get_environment("ODISEA_DOME_LOD_ENABLED").strip_edges().to_lower() in ["0", "false", "no", "off"]:
+		return "off"
+	return "lod" if dome_lod_enabled else "off"
+
+func _uses_dome_lod_overlays() -> bool:
+	return _get_dome_lod_mode() == "lod"
+
+func _load_packed_scene(path: String) -> PackedScene:
+	if path == "" or not ResourceLoader.exists(path):
+		return null
+	var resource = load(path)
+	if resource is PackedScene:
+		return resource
+	return null
 
 func _should_use_dome_lod(info: Dictionary, dome_spiral_idx: int, dome_plate_idx: int) -> bool:
 	if not dome_lod_enabled:
@@ -237,6 +304,14 @@ func _get_wrapped_plate_distance(from_plate: int, to_plate: int, plate_count: in
 	return int(min(direct, plate_count - direct))
 
 func _update_dome_lod(assignments: Array) -> void:
+	var use_lod_overlays := _uses_dome_lod_overlays()
+	if not use_lod_overlays:
+		for spiral in _spirals:
+			if spiral is TerraceSpiral:
+				spiral.clear_dome_lod_overlays()
+		var full_detail_keys := _build_all_assignment_plate_keys(assignments) if _get_dome_lod_mode() == "full_stream" else {}
+		_last_dome_lod_stats = _build_dome_lod_stats(assignments, full_detail_keys, 0)
+		return
 	var groups_by_spiral := {}
 	for assignment in assignments:
 		var info: Dictionary = assignment.get("info", {})
@@ -264,6 +339,69 @@ func _update_dome_lod(assignments: Array) -> void:
 			continue
 		var spiral_groups := _build_spiral_dome_lod_groups(groups_by_spiral[spiral_index])
 		spiral.set_dome_lod_overlays(spiral_groups)
+	_last_dome_lod_stats = _build_dome_lod_stats(assignments, _get_full_detail_plate_keys_for_selection(), _count_overlay_parts(groups_by_spiral))
+
+func _build_dome_lod_stats(assignments: Array, full_detail_keys: Dictionary, overlay_part_count: int) -> Dictionary:
+	if _segment_manager and _segment_manager.has_method("build_stats"):
+		var shell_visible := false
+		var shell := _rotator.get_node_or_null("FauxSkydome") if _rotator else null
+		if shell and shell is Spatial:
+			shell_visible = (shell as Spatial).visible
+		return _segment_manager.build_stats(assignments, full_detail_keys, overlay_part_count, shell_visible)
+	return {
+		"total_assignments": assignments.size(),
+		"lod2_full_detail_plates": full_detail_keys.size(),
+		"lod1_overlay_draw_calls": overlay_part_count
+	}
+
+func _build_all_assignment_plate_keys(assignments: Array) -> Dictionary:
+	var keys := {}
+	for assignment in assignments:
+		keys[_make_plate_key(int(assignment.get("spiral_index", -1)), int(assignment.get("plate_index", -1)))] = true
+	return keys
+
+func _count_overlay_parts(groups_by_spiral: Dictionary) -> int:
+	var count := 0
+	for spiral_index in groups_by_spiral.keys():
+		var spiral_group_map: Dictionary = groups_by_spiral[spiral_index]
+		for cache_key in spiral_group_map.keys():
+			var group: Dictionary = spiral_group_map[cache_key]
+			var blueprint: Dictionary = group.get("blueprint", {})
+			count += int((blueprint.get("parts", []) as Array).size())
+	return count
+
+func get_lod_stats() -> Dictionary:
+	return _last_dome_lod_stats.duplicate(true)
+
+func print_lod_stats() -> void:
+	print("[FD041][LOD_STATS] ", JSON.print(get_lod_stats()))
+
+func get_lod_debug_snapshot() -> Dictionary:
+	var active_slots := []
+	if _plate_content_stream and _plate_content_stream.has_method("get_active_slots"):
+		for slot in _plate_content_stream.get_active_slots():
+			if not is_instance_valid(slot):
+				continue
+			var child_name := ""
+			var child_visible := false
+			if slot.get_child_count() > 0:
+				var child: Node = slot.get_child(0)
+				child_name = String(child.name)
+				child_visible = bool((child as Spatial).visible) if child is Spatial else true
+			active_slots.append({
+				"name": String(slot.name),
+				"path": String(slot.get_path()),
+				"child": child_name,
+				"child_visible": child_visible
+			})
+	return {
+		"selected_spiral": selected_spiral,
+		"selected_plate": selected_plate,
+		"full_detail_keys": _last_full_detail_keys.keys(),
+		"hidden_lod_keys": _lod_hidden_plate_keys.keys(),
+		"stats": get_lod_stats(),
+		"active_slots": active_slots
+	}
 
 func _build_spiral_dome_lod_groups(spiral_group_map: Dictionary) -> Array:
 	var groups := []
@@ -519,9 +657,9 @@ func _sync_selection_from_rotator() -> void:
 	selected_plate = rotator_plate
 	_selected_plate_canonical = _rotator.get_selected_plate_canonical_transform()
 	_configure_gravity_for_selected_plate(_selected_plate_canonical)
-	# Posicionar el cursor ANTES de ocultar el LOD para evitar el frame vacío
-	_sync_dome_facade_cursor()
-	_apply_lod_hide_for_selection(selected_spiral, selected_plate)
+	# Recalcular asignaciones full-detail por radio/proximidad. Solo la current
+	# plate oculta su LOD; las vecinas pueden superponerse al MultiMesh.
+	_assign_plate_content()
 
 func _collect_spirals() -> void:
 	_spirals.clear()
@@ -576,6 +714,10 @@ func _reset_camera_roll() -> void:
 # Evita instanciar/destruir la escena costosa en cada cambio de selección.
 
 func _setup_dome_facade_cursors() -> void:
+	# FD-041 no usa cursor full-detail separado: PlateContentStream maneja FULL
+	# alrededor del player y TerraceSpiral maneja LOD para el resto.
+	_apply_lod_hide_for_selection(selected_spiral, selected_plate)
+	return
 	var seen_paths := {}
 	var dome_registry: Node = _get_dome_registry()
 	if not dome_registry:
@@ -601,58 +743,10 @@ func _setup_dome_facade_cursors() -> void:
 	_apply_lod_hide_for_selection(selected_spiral, selected_plate)
 
 func _sync_dome_facade_cursor() -> void:
-	if not _rotator or not is_instance_valid(_rotator):
-		return
-	var cur_spiral := int(_rotator.get_selected_spiral_index()) if _rotator.has_method("get_selected_spiral_index") else -1
-	var cur_plate := int(_rotator.get_selected_plate_index()) if _rotator.has_method("get_selected_plate_index") else -1
-	if cur_spiral < 0 or cur_plate < 0:
-		_park_all_dome_facade_cursors()
-		return
-
-	var dome_registry: Node = _get_dome_registry()
-	if not dome_registry:
-		_park_all_dome_facade_cursors()
-		return
-	var dome_id: String = dome_registry.get_dome_id_for_plate(cur_spiral, cur_plate)
-	var info: Dictionary = dome_registry.get_dome(dome_id)
-	# Usar facade_scene del registro (get_dome ya devuelve DomeFacade_01 por defecto para domos sintéticos)
-	var facade_path := String(info.get("facade_scene", "")).strip_edges()
-
-	for path in _dome_facade_cursors.keys():
-		var cursor: Spatial = _dome_facade_cursors[path]
-		if not is_instance_valid(cursor):
-			continue
-		if path != facade_path:
-			cursor.global_transform = Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
-			if cursor.has_meta("dome_id"):
-				cursor.remove_meta("dome_id")
-
-	if facade_path == "" or not _dome_facade_cursors.has(facade_path):
-		_active_dome_facade_path = ""
-		return
-
-	var active_cursor: Spatial = _dome_facade_cursors[facade_path]
-	if not is_instance_valid(active_cursor):
-		_active_dome_facade_path = ""
-		return
-
-	var spawn_offset: Vector3 = info.get("facade_spawn_offset", Vector3.ZERO)
-	# Cachear para que _tick_dome_facade_cursor() pueda actualizar el transform cada frame
-	_active_dome_facade_path = facade_path
-	_active_dome_facade_spawn_offset = spawn_offset
-	# Posicionar usando transform vivo (sigue animación de la espiral)
-	_tick_dome_facade_cursor()
-
-	# Fijar dome_id como meta directamente en el cursor para que AirlockZoneV2
-	# pueda encontrarlo traversando hacia arriba en el árbol de nodos.
-	active_cursor.set_meta("dome_id", dome_id)
-	# También propagar contexto a hijos que lo acepten (solo en cambio)
-	var context := {"dome_id": dome_id}
-	if active_cursor.has_method("apply_plate_content_context"):
-		active_cursor.apply_plate_content_context(context)
-	for child in active_cursor.get_children():
-		if child.has_method("apply_plate_content_context"):
-			child.apply_plate_content_context(context)
+	# FD-041 exterior uses only two visual representations:
+	# streamed full-detail facades around the player and MultiMesh LOD elsewhere.
+	# Keep the legacy singleton cursor parked so it cannot duplicate/compete.
+	_park_all_dome_facade_cursors()
 
 func _get_dome_registry() -> Node:
 	return get_node_or_null("/root/DomeRegistry")
@@ -690,17 +784,123 @@ func _park_all_dome_facade_cursors() -> void:
 				cursor.remove_meta("dome_id")
 
 func _apply_lod_hide_for_selection(new_spiral: int, new_plate: int) -> void:
-	# Quita el LOD del plate anterior y oculta el del plate nuevo (el cursor lo cubre)
-	if _lod_hidden_spiral >= 0 and _lod_hidden_spiral < _spirals.size():
-		var old_spiral: Spatial = _spirals[_lod_hidden_spiral]
-		if old_spiral.has_method("set_dome_lod_plate_hidden"):
-			old_spiral.call("set_dome_lod_plate_hidden", _lod_hidden_plate, false)
-	_lod_hidden_spiral = -1
-	_lod_hidden_plate = -1
-	if new_spiral < 0 or new_spiral >= _spirals.size():
+	for key in _lod_hidden_plate_keys.keys():
+		var parsed := _parse_plate_key(String(key))
+		var old_spiral_idx := int(parsed.get("spiral", -1))
+		var old_plate_idx := int(parsed.get("plate", -1))
+		if old_spiral_idx >= 0 and old_spiral_idx < _spirals.size():
+			var old_spiral: Spatial = _spirals[old_spiral_idx]
+			if old_spiral.has_method("set_dome_lod_plate_hidden"):
+				old_spiral.call("set_dome_lod_plate_hidden", old_plate_idx, false)
+	_lod_hidden_plate_keys.clear()
+	if not _uses_dome_lod_overlays():
 		return
-	var spiral: Spatial = _spirals[new_spiral]
-	if spiral.has_method("set_dome_lod_plate_hidden"):
-		spiral.call("set_dome_lod_plate_hidden", new_plate, true)
-	_lod_hidden_spiral = new_spiral
-	_lod_hidden_plate = new_plate
+	var full_detail_keys := _get_full_detail_plate_keys_for_selection(new_spiral, new_plate)
+	for key in full_detail_keys.keys():
+		var parsed := _parse_plate_key(String(key))
+		var spiral_idx := int(parsed.get("spiral", -1))
+		var plate_idx := int(parsed.get("plate", -1))
+		if spiral_idx < 0 or spiral_idx >= _spirals.size():
+			continue
+		var spiral: Spatial = _spirals[spiral_idx]
+		if spiral.has_method("set_dome_lod_plate_hidden"):
+			spiral.call("set_dome_lod_plate_hidden", plate_idx, true)
+			_lod_hidden_plate_keys[key] = true
+
+func _get_full_detail_plate_keys_for_selection(spiral_idx: int = -999, plate_idx: int = -999) -> Dictionary:
+	if spiral_idx == -999:
+		spiral_idx = selected_spiral
+	if plate_idx == -999:
+		plate_idx = selected_plate
+	if dome_full_detail_nearest_count > 0 and _segment_manager and _segment_manager.has_method("get_nearest_full_detail_plate_keys"):
+		return _segment_manager.get_nearest_full_detail_plate_keys(
+			_collect_spatial_full_detail_candidates(),
+			_get_full_detail_reference_canonical_position(spiral_idx, plate_idx),
+			dome_full_detail_nearest_count
+		)
+	if spiral_idx < 0 or spiral_idx >= _spirals.size():
+		return {}
+	var result := {}
+	var plate_radius: int = max(0, dome_full_detail_plate_radius)
+	var spiral_radius: int = max(0, dome_full_detail_spiral_radius)
+	for target_spiral_idx in range(_spirals.size()):
+		if _get_wrapped_spiral_distance(spiral_idx, target_spiral_idx) > spiral_radius:
+			continue
+		var target_plate_count := _get_plate_count(_spirals[target_spiral_idx])
+		if target_plate_count <= 0:
+			continue
+		var signed_spiral_delta := _get_signed_wrapped_spiral_delta(spiral_idx, target_spiral_idx)
+		var target_center_plate := plate_idx - signed_spiral_delta * dome_inter_spiral_plate_offset
+		for offset in range(-plate_radius, plate_radius + 1):
+			result[_make_plate_key(target_spiral_idx, _wrap_index(target_center_plate + offset, target_plate_count))] = true
+	return result
+
+func _get_current_plate_key_for_selection(spiral_idx: int = -999, plate_idx: int = -999) -> Dictionary:
+	if spiral_idx == -999:
+		spiral_idx = selected_spiral
+	if plate_idx == -999:
+		plate_idx = selected_plate
+	if spiral_idx < 0 or spiral_idx >= _spirals.size():
+		return {}
+	var plate_count := _get_plate_count(_spirals[spiral_idx])
+	return {
+		_make_plate_key(spiral_idx, _wrap_index(plate_idx, plate_count)): true
+	}
+
+func _get_streamed_full_detail_plate_keys_for_selection() -> Dictionary:
+	return _get_full_detail_plate_keys_for_selection()
+
+func _collect_spatial_full_detail_candidates() -> Array:
+	var candidates := []
+	if not _rotator or not is_instance_valid(_rotator):
+		return candidates
+	for spiral_idx in range(_spirals.size()):
+		var spiral: Spatial = _spirals[spiral_idx]
+		var plate_count := _get_plate_count(spiral)
+		for plate_idx in range(plate_count):
+			var canonical_tx: Transform = _rotator.get_plate_canonical_transform(spiral, plate_idx)
+			candidates.append({
+				"spiral_index": spiral_idx,
+				"plate_index": plate_idx,
+				"origin": canonical_tx.origin,
+				"canonical_tx": canonical_tx
+			})
+	return candidates
+
+func _get_wrapped_spiral_distance(from_spiral: int, to_spiral: int) -> int:
+	var count := _spirals.size()
+	if count <= 0:
+		return 0
+	var direct := abs(to_spiral - from_spiral)
+	return int(min(direct, count - direct))
+
+func _get_signed_wrapped_spiral_delta(from_spiral: int, to_spiral: int) -> int:
+	var count := _spirals.size()
+	if count <= 0:
+		return 0
+	var delta := to_spiral - from_spiral
+	var half := count / 2.0
+	while float(delta) > half:
+		delta -= count
+	while float(delta) < -half:
+		delta += count
+	return delta
+
+func _get_full_detail_reference_canonical_position(spiral_idx: int, plate_idx: int) -> Vector3:
+	if _rotator and is_instance_valid(_rotator) and _player and is_instance_valid(_player) and _rotator.has_method("to_canonical"):
+		return _rotator.to_canonical(_player.global_transform.origin)
+	if _rotator and is_instance_valid(_rotator) and spiral_idx >= 0 and spiral_idx < _spirals.size():
+		return _rotator.get_plate_canonical_transform(_spirals[spiral_idx], plate_idx).origin
+	return Vector3.ZERO
+
+func _make_plate_key(spiral_idx: int, plate_idx: int) -> String:
+	return "%d:%d" % [spiral_idx, plate_idx]
+
+func _parse_plate_key(key: String) -> Dictionary:
+	var parts := key.split(":")
+	if parts.size() != 2:
+		return {}
+	return {
+		"spiral": int(parts[0]),
+		"plate": int(parts[1])
+	}
