@@ -994,6 +994,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/props/LeakEmitter.gd"
 }, {
+"base": "InteractableBaseV2",
+"class": "LeverV2",
+"language": "GDScript",
+"path": "res://core_v2/props/LeverV2.gd"
+}, {
 "base": "Area",
 "class": "LiquidLayer",
 "language": "GDScript",
@@ -1549,6 +1554,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/props/scaffold/SteelGratePlatform.gd"
 }, {
+"base": "PushableBoxV2",
+"class": "SteelPlate",
+"language": "GDScript",
+"path": "res://core_v2/props/SteelPlate.gd"
+}, {
 "base": "Fuzzer",
 "class": "StringFuzzer",
 "language": "GDScript",
@@ -1962,6 +1972,7 @@ _global_script_class_icons={
 "LaserTripwire": "",
 "LavaLayer": "",
 "LeakEmitter": "",
+"LeverV2": "",
 "LiquidLayer": "",
 "LocalTime": "",
 "LogicCircuitManager": "",
@@ -2073,6 +2084,7 @@ _global_script_class_icons={
 "SpawnPointV2": "",
 "SpiralPlateAttachment": "",
 "SteelGratePlatform": "",
+"SteelPlate": "",
 "StringFuzzer": "",
 "TeleportSystem": "",
 "TerminalCameraRig": "",

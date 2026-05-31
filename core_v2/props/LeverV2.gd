@@ -27,10 +27,10 @@ func _ready():
 func _update_visuals() -> void:
 	var handle = get_node_or_null("Handle")
 	if handle:
-		# Down (is_active=false, progress=0) -> 0 degrees
-		# Up (is_active=true, progress=1) -> -90 degrees
-		var rotation_x = -90.0 * anim_progress
-		handle.rotation_degrees.x = rotation_x
+		# Down (progress=0) -> 45 degrees
+		# Up (progress=1) -> -45 degrees
+		var rotation_x = lerp(45.0, -45.0, anim_progress)
+		handle.rotation_degrees = Vector3(rotation_x, 0, 0)
 
 func _on_animation_completed() -> void:
 	._on_animation_completed()
