@@ -140,6 +140,8 @@ func _read_live_input() -> InputDataV2:
 		d.focus = Input.is_action_just_pressed("focus")
 		d.rotate_left = Input.is_action_pressed("rotate_left")
 		d.rotate_right = Input.is_action_pressed("rotate_right")
+		d.roll_left = Input.is_action_pressed("zero_g_roll_left")
+		d.roll_right = Input.is_action_pressed("zero_g_roll_right")
 
 		# --- JOYSTICK SPRINT (Physical) ---
 		var joy_move_x = Input.get_joy_axis(0, JOY_AXIS_0)
