@@ -116,6 +116,7 @@ func test_idle_collision_latch_survives_flickering_misses() -> void:
 	arm.target_length = 5.0
 	arm.spring_length = 5.0
 	arm.collision_miss_grace = 0.1
+	arm.collision_stationary_release_delay = -1.0
 	arm.collision_jitter_epsilon = 0.035
 	arm._resolve_collision_hit_length(4.6, 1.0 / 60.0)
 
@@ -176,7 +177,7 @@ func test_ceiling_accommodation_preserves_zoom_when_adjusted_target_is_clear() -
 	yield(_teardown_root(root), "completed")
 
 
-func test_camera_local_offset_is_trimmed_by_secondary_collision() -> void:
+func test_camera_local_offset_is_applied_without_secondary_snap() -> void:
 	var root := _setup_root()
 	var arm := _build_arm(root)
 	arm.current_length = 3.0
@@ -205,7 +206,44 @@ func test_camera_local_offset_is_trimmed_by_secondary_collision() -> void:
 	var lateral_offset := camera.global_transform.origin.x - arm.global_transform.origin.x
 
 	assert_float(camera.global_transform.origin.z).is_equal_approx(3.0, 0.15)
-	assert_float(lateral_offset).is_less(0.8)
-	assert_float(lateral_offset).is_greater(0.0)
+	assert_float(lateral_offset).is_equal_approx(1.5, 0.01)
+
+	yield(_teardown_root(root), "completed")
+
+
+func test_motion_lookahead_detects_airlock_wall_before_current_cast_hits() -> void:
+	var root := _setup_root()
+	var arm := _build_arm(root)
+	arm.current_length = 3.2
+	arm.spring_length = 3.2
+	arm.target_length = 3.2
+	arm.collision_padding = 0.0
+	arm.collision_motion_lookahead_time = 0.28
+	arm.collision_motion_lookahead_min_speed = 0.1
+
+	var _wall := _spawn_wall(root, 4.5)
+
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "physics_frame")
+
+	arm._previous_arm_origin = Vector3.ZERO
+	arm._has_previous_arm_origin = true
+	arm.transform.origin = Vector3(0.0, 0.0, 0.2)
+	arm.force_update_transform()
+
+	var direct_hit := arm._cast_shape_hit_length(
+		arm.global_transform.origin,
+		arm.global_transform.basis.z * arm.target_length,
+		arm.target_length
+	)
+	var future_hit := arm._cast_motion_lookahead_hit_length(
+		arm.global_transform.origin,
+		arm.target_length,
+		1.0 / 60.0
+	)
+
+	assert_float(direct_hit).is_equal(-1.0)
+	assert_float(future_hit).is_greater(0.0)
+	assert_float(future_hit).is_less(arm.target_length)
 
 	yield(_teardown_root(root), "completed")

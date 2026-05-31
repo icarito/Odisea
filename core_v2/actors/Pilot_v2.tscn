@@ -53,30 +53,13 @@ size = Vector2( 0.1, 0.1 )
 collision_layer = 2
 collision_mask = 255
 script = ExtResource( 2 )
-mouse_sensitivity = null
-invert_mouse_y = null
 joy_look_sensitivity = 5.0
-joy_move_sensitivity = null
-snap_length = null
 push_force = 9.0
 min_pitch = -80.0
 max_pitch = 45.0
-interact_distance = null
-push_offset = null
-enable_auto_align = null
 auto_align_speed = 3.0
-auto_align_delay = null
-enable_cinematic_zoom = null
-cinematic_zoom_speed = null
-cinematic_zoom_lerp_speed = null
-cinematic_zoom_min_fov = null
-cinematic_zoom_max_fov = null
 enable_step_up = false
 step_grounded_grace = 0.3
-stair_ground_probe_extra = null
-debug_stair_state = null
-crouch_collider_height_ratio = null
-crouch_headroom_margin = null
 camera_rig_jump_lazy_delay = 0.3
 camera_rig_jump_lazy_deadzone = 0.5
 
@@ -120,6 +103,7 @@ script = ExtResource( 62 )
 
 [node name="OverTheShoulder" type="Node" parent="Logic"]
 script = ExtResource( 63 )
+lerp_speed = 2.0
 distance_blend_speed = 3.0
 distance_unblend_speed = 3.0
 

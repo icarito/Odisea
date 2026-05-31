@@ -224,6 +224,34 @@ func sync_camera_to_rig() -> void:
 		_cached_cam.fov = base_fov
 	_cinematic_zoom_target_fov = -1.0
 
+func snap_camera_to_current_state() -> void:
+	# Called after scene transition + teleport so every lerp-based camera system
+	# starts from the correct final position rather than drifting from defaults.
+
+	# Re-anchor camera rig Y to the player's post-teleport world position.
+	if camera_rig and _camera_rig_y_initialized:
+		_camera_rig_y_smoothed_global = global_transform.origin.y + base_rig_y
+		_camera_rig_airborne_anchor_global = _camera_rig_y_smoothed_global
+		_camera_rig_airborne_rise_time = 0.0
+		_camera_rig_was_grounded = true
+		camera_rig.transform.origin.y = _camera_rig_y_smoothed_global - global_transform.origin.y
+
+	# Snap spring arm to target length so there's no zoom lerp on first frame.
+	if _cached_spring_arm:
+		current_spring_length = base_spring_length_3d
+		_cached_spring_arm.spring_length = base_spring_length_3d
+		if "current_length" in _cached_spring_arm:
+			_cached_spring_arm.current_length = base_spring_length_3d
+
+	# Snap camera FOV.
+	if _cached_cam:
+		_cached_cam.fov = base_fov
+
+	# Snap OTS weights so the shoulder offset appears immediately, not after lerp.
+	var ots = get_node_or_null("Logic/OverTheShoulder")
+	if is_instance_valid(ots) and ots.has_method("snap_to_current_state"):
+		ots.snap_to_current_state()
+
 func ensure_input_provider():
 	if not input_provider or not is_instance_valid(input_provider):
 		input_provider = InputProviderV2.new()

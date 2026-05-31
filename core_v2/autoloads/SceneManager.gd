@@ -399,6 +399,8 @@ func _restore_transition_camera_state(player: Node, state_data: Dictionary, targ
 	if "camera_rig" in player and is_instance_valid(player.camera_rig) and "yaw" in player and "pitch" in player:
 		player.camera_rig.transform.basis = Basis(Vector3.UP, player.yaw) * Basis(Vector3.RIGHT, player.pitch)
 		player.camera_rig.force_update_transform()
+	if player.has_method("snap_camera_to_current_state"):
+		player.snap_camera_to_current_state()
 
 func _snap_transition_visual(player: Node, target_transform: Transform) -> void:
 	if not is_instance_valid(player):

@@ -38,22 +38,25 @@ export(float) var distance_blend_speed := 2.0
 # a doorway/corner stops shortening the arm for only a moment.
 export(float) var distance_unblend_speed := 1.2
 
-# When the camera arm is colliding, only the shoulder side offset compresses
-# toward center so the camera can sit behind the player while passing doors.
-export(float) var side_clearance_blend_speed := 2.2
-export(float) var side_restore_blend_speed := 1.4
+# When the camera arm is colliding, the shoulder side offset slides toward center
+# so the camera can sit behind the player while passing through narrow spaces.
+# Centering is proportional to arm compression — no binary trigger, fully smooth.
 
-# Centering only activates when the arm is compressed to this fraction of its
-# target length or less. 1.0 = any collision; 0.55 = narrow passage only.
-export(float) var centering_compression_threshold := 0.55
+# Arm-length ratio at which centering begins.
+# Must be clearly below typical open-space collision ratios (dome interior ~0.70).
+# 0.62 = centering only starts when arm is compressed to 62% or less of target.
+export(float) var centering_start_ratio := 0.62
 
-# Seconds of sustained heavy compression required before centering activates.
-# Prevents centering on brief wall/prop touches during camera orbiting.
-export(float) var centering_trigger_time := 0.20
+# Arm-length ratio at which the camera is fully centered (side offset = 0).
+# Tight doorframes typically compress the arm to ~30-40% of target.
+export(float) var centering_full_ratio := 0.28
 
-# Seconds centering remains active after heavy compression clears.
-# Avoids a pop when the player just exits a narrow doorway.
-export(float) var centering_release_hold_time := 0.40
+# Speed at which centering builds up when entering a narrow passage.
+export(float) var centering_in_speed := 3.0
+
+# Speed at which centering releases when exiting. Faster than entry so OTS
+# restores promptly after the player clears a doorway.
+export(float) var centering_out_speed := 3.5
 
 # --- EXPORTED TUNING: JUMP COMPENSATION ---
 
@@ -69,9 +72,7 @@ export(float) var jump_compensation_speed := 3.5
 var _current_offset := Vector3.ZERO
 var _jump_comp_weight := 0.0
 var _distance_weight := 0.0
-var _side_clearance_weight := 1.0
-var _centering_build_timer := 0.0   # builds up while heavy compression is sustained
-var _centering_hold_timer := 0.0    # keeps centering active briefly after compression clears
+var _centering_weight := 0.0    # 0 = full OTS side offset, 1 = fully centered
 var _player: KinematicBody = null
 var _spring_arm = null
 var _ots_offset_parent: Spatial = null
@@ -110,28 +111,17 @@ func _physics_process(delta: float):
 	var ots_weight := pow(raw_weight, curve_power)
 	var zoom_blend_speed: float = distance_blend_speed if ots_weight >= _distance_weight else distance_unblend_speed
 	_distance_weight = lerp(_distance_weight, ots_weight, _blend_alpha(zoom_blend_speed, delta))
-	# Center only for significant arm compression (narrow passage), not any minor
-	# collision touch while orbiting the camera near walls or furniture.
+	# 1b. Centering — slides camera toward center as arm compresses into a narrow passage.
+	# Proportional to compression ratio, fully smooth, no binary trigger.
+	# Starts early (centering_start_ratio) so the player sees it coming, not as a snap.
 	var target_len_ref := _get_target_arm_length()
 	var compression_ratio := effective_len / max(target_len_ref, 0.001)
-	var heavy_collision := _has_active_arm_collision() and compression_ratio <= centering_compression_threshold
-
-	if heavy_collision:
-		_centering_build_timer = min(_centering_build_timer + delta, centering_trigger_time)
-	else:
-		# Decay twice as fast so a brief touch doesn't accumulate much credit.
-		_centering_build_timer = max(_centering_build_timer - delta * 2.0, 0.0)
-
-	if _centering_build_timer >= centering_trigger_time:
-		# Refresh the hold timer each frame centering is fully active.
-		_centering_hold_timer = centering_release_hold_time
-	else:
-		_centering_hold_timer = max(_centering_hold_timer - delta, 0.0)
-
-	var centering_active := _centering_build_timer >= centering_trigger_time or _centering_hold_timer > 0.0
-	var side_target: float = 0.0 if centering_active else 1.0
-	var side_speed: float = side_restore_blend_speed if side_target > _side_clearance_weight else side_clearance_blend_speed
-	_side_clearance_weight = lerp(_side_clearance_weight, side_target, _blend_alpha(side_speed, delta))
+	var centering_target := 0.0
+	if _has_active_arm_collision():
+		var span := max(centering_start_ratio - centering_full_ratio, 0.001)
+		centering_target = 1.0 - clamp((compression_ratio - centering_full_ratio) / span, 0.0, 1.0)
+	var centering_speed := centering_in_speed if centering_target > _centering_weight else centering_out_speed
+	_centering_weight = lerp(_centering_weight, centering_target, _blend_alpha(centering_speed, delta))
 
 	# 2. Jump Compensation Calculation
 	# We look for a rising state to pull the camera back and up.
@@ -144,7 +134,7 @@ func _physics_process(delta: float):
 
 	# OTS follows zoom only. The arm decides distance; this component turns
 	# that distance into framing.
-	target_offset.x = max_side_offset * _distance_weight * _side_clearance_weight * (1.0 if right_side else -1.0)
+	target_offset.x = max_side_offset * _distance_weight * (1.0 - _centering_weight) * (1.0 if right_side else -1.0)
 	target_offset.y = max_height_offset * _distance_weight
 	target_offset.z = max_pivot_z_offset * _distance_weight
 
@@ -156,9 +146,24 @@ func _physics_process(delta: float):
 	_current_offset = _current_offset.linear_interpolate(target_offset, _blend_alpha(lerp_speed, delta))
 	_apply_arm_offset(_current_offset)
 
+func snap_to_current_state() -> void:
+	if not _player or not _spring_arm:
+		return
+	var effective_len := _get_effective_arm_length()
+	var raw_weight := _compute_ots_weight(effective_len)
+	_distance_weight = pow(raw_weight, curve_power)
+	_centering_weight = 0.0
+	_jump_comp_weight = 0.0
+	var target_offset := Vector3.ZERO
+	target_offset.x = max_side_offset * _distance_weight * (1.0 - _centering_weight) * (1.0 if right_side else -1.0)
+	target_offset.y = max_height_offset * _distance_weight
+	target_offset.z = max_pivot_z_offset * _distance_weight
+	_current_offset = target_offset
+	_apply_arm_offset(_current_offset)
+
 func _reset_offset(delta: float):
 	_distance_weight = lerp(_distance_weight, 0.0, _blend_alpha(distance_blend_speed, delta))
-	_side_clearance_weight = lerp(_side_clearance_weight, 1.0, _blend_alpha(side_restore_blend_speed, delta))
+	_centering_weight = lerp(_centering_weight, 0.0, _blend_alpha(centering_out_speed, delta))
 	if _current_offset.length_squared() > 0.00001:
 		_current_offset = _current_offset.linear_interpolate(Vector3.ZERO, _blend_alpha(lerp_speed, delta))
 		_apply_arm_offset(_current_offset)

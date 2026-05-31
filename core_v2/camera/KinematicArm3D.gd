@@ -58,6 +58,22 @@ export var collision_clear_extend_weight := 1.4
 # Speed used when retracting due to collision correction.
 export var collision_shrink_weight := 10.0
 
+# Lookahead: probe this many times further than target_length to anticipate walls.
+# When an upcoming wall is detected, the arm pre-retracts gently so the final
+# collision snap is small rather than jumping from full length to wall distance.
+# Set to 1.0 to disable lookahead (reverts to pure reactive retraction).
+export var collision_lookahead_factor := 1.5
+
+# Speed at which the arm pre-retracts toward an anticipated wall.
+# Lower = smoother anticipation. Too high approaches the reactive snap behavior.
+export var collision_lookahead_speed := 3.0
+
+# Also probe from the pivot's predicted near-future position. This catches
+# doorways/airlocks before the current arm cast is already obstructed.
+export var collision_motion_lookahead_time := 0.28
+export var collision_motion_lookahead_min_speed := 0.15
+export var collision_motion_lookahead_speed := 5.5
+
 # paths to objects which the arm won't collide with
 export(Array, NodePath) var _exclude_paths: Array
 
@@ -84,6 +100,8 @@ var _ceiling_latch_active := false
 var _ceiling_latch_hold_timer := 0.0
 var _excluded_objects: Array = []
 var _zoom_out_blocked := false
+var _previous_arm_origin := Vector3.ZERO
+var _has_previous_arm_origin := false
 
 func set_collider_shape(shape: Shape) -> void:
 	collider_shape = shape
@@ -150,6 +168,8 @@ func _ready():
 	_collision_release_timer = 0.0
 	_collision_miss_timer = 0.0
 	_zoom_out_blocked = false
+	_previous_arm_origin = _get_arm_pose_origin()
+	_has_previous_arm_origin = true
 	_excluded_objects = _excluded_objects.duplicate()
 
 func _add_excluded_object_internal(obj) -> void:
@@ -211,10 +231,13 @@ func _physics_process(delta):
 	var arm_motion := global_transform.basis.z * desired_length
 	var rendered_length := desired_length
 	var final_target := arm_origin + arm_motion
+	var anticipated_collision := false
 	# Ceiling accommodation with hysteresis to prevent oscillation.
 	# Once ceiling mode activates, hold it for a grace period even if the
 	# ceiling check flickers off, preventing jitter when looking up.
-	var ceiling_check_result := _can_accommodate_under_ceiling(arm_origin, desired_length)
+	# Skip ceiling check when the arm is already wall-latched: the two modes compute
+	# different final_target positions and alternating between them causes arm-length jitter.
+	var ceiling_check_result := false if _collision_latched_length >= 0.0 else _can_accommodate_under_ceiling(arm_origin, desired_length)
 	if ceiling_check_result:
 		_ceiling_latch_active = true
 		_ceiling_latch_hold_timer = 0.0
@@ -254,14 +277,33 @@ func _physics_process(delta):
 				rendered_length = resolved_hit_length
 		else:
 			rendered_length = _advance_clear_length(delta)
+			# Lookahead: probe beyond target_length to anticipate upcoming walls.
+			# When a wall is detected before the arm would normally reach it, pre-retract
+			# gently so the eventual collision snap is small instead of full-length.
+			if collision_lookahead_factor > 1.001 and _collision_latched_length < 0.0:
+				var la_len := target_length * collision_lookahead_factor
+				var la_hit := _cast_shape_hit_length(arm_origin, global_transform.basis.z * la_len, la_len)
+				if la_hit >= 0.0 and la_hit < rendered_length:
+					var pre_t := clamp(collision_lookahead_speed * delta, 0.0, 1.0)
+					rendered_length = lerp(rendered_length, la_hit, pre_t)
+					current_length = rendered_length
+					anticipated_collision = true
+			var motion_hit := _cast_motion_lookahead_hit_length(arm_origin, target_length, delta)
+			if motion_hit >= 0.0 and motion_hit < rendered_length:
+				var motion_pre_t := clamp(collision_motion_lookahead_speed * delta, 0.0, 1.0)
+				rendered_length = lerp(rendered_length, motion_hit, motion_pre_t)
+				current_length = rendered_length
+				anticipated_collision = true
 		final_target = arm_origin + global_transform.basis.z * rendered_length
 
-	_zoom_out_blocked = ceiling_clamped or safe_hit_length >= 0.0 or _collision_latched_length >= 0.0
+	_zoom_out_blocked = ceiling_clamped or anticipated_collision or safe_hit_length >= 0.0 or _collision_latched_length >= 0.0
 
 	if is_instance_valid(kinematic_body):
 		kinematic_body.global_transform.origin = final_target
 
 	_update_children(final_target)
+	_previous_arm_origin = arm_origin
+	_has_previous_arm_origin = true
 
 func _cast_shape_hit_length(arm_origin: Vector3, arm_motion: Vector3, desired_length: float) -> float:
 	var world = get_world()
@@ -287,11 +329,33 @@ func _cast_shape_hit_length(arm_origin: Vector3, arm_motion: Vector3, desired_le
 
 	return max((desired_length * safe_fraction) - collision_padding, min_length)
 
+func _cast_motion_lookahead_hit_length(arm_origin: Vector3, desired_length: float, delta: float) -> float:
+	if not _has_previous_arm_origin:
+		return -1.0
+	if collision_motion_lookahead_time <= 0.0 or delta <= 0.0:
+		return -1.0
+	var pivot_velocity := (arm_origin - _previous_arm_origin) / delta
+	if pivot_velocity.length() < collision_motion_lookahead_min_speed:
+		return -1.0
+
+	var future_origin := arm_origin + pivot_velocity * collision_motion_lookahead_time
+	var future_length := max(desired_length, min_length)
+	return _cast_shape_hit_length(
+		future_origin,
+		global_transform.basis.z * future_length,
+		future_length
+	)
+
 func _advance_clear_length(delta: float) -> float:
 	if _collision_latched_length >= 0.0:
 		_collision_miss_timer += delta
 		var release_delay := collision_miss_grace
-		if not _has_collision_latch_pose_changed():
+		# Use position-only check to determine the hold delay.
+		# Direction changes continuously during camera rotation (even when the player
+		# hasn't moved relative to the wall), so including direction here would cause
+		# the arm to use the shorter miss_grace delay on every camera rotation, releasing
+		# the latch too quickly and creating visible jitter as the arm sweeps clear arcs.
+		if not _has_collision_latch_position_changed():
 			if collision_stationary_release_delay < 0.0:
 				if current_length < _collision_latched_length - collision_jitter_epsilon:
 					var stationary_hold_t := clamp(extend_weight * delta, 0.0, 1.0)
@@ -341,6 +405,11 @@ func _resolve_collision_hit_length(hit_length: float, delta: float) -> float:
 	_collision_release_timer = 0.0
 	return _collision_latched_length
 
+func _has_collision_latch_position_changed() -> bool:
+	if _collision_latched_length < 0.0:
+		return true
+	return _get_arm_pose_origin().distance_squared_to(_collision_latch_origin) > LATCH_POSE_TRANSLATION_EPSILON * LATCH_POSE_TRANSLATION_EPSILON
+
 func _has_collision_latch_pose_changed() -> bool:
 	if _collision_latched_length < 0.0:
 		return true
@@ -381,14 +450,12 @@ func _resolve_child_target(base_target: Vector3) -> Vector3:
 	var lateral_world_offset := global_transform.basis.x * camera_local_offset.x
 	if vertical_world_offset.length_squared() <= 0.000001 and pivot_world_offset.length_squared() <= 0.000001 and lateral_world_offset.length_squared() <= 0.000001:
 		return base_target
-	# Skip safety casts in open space — they produce per-frame float noise with no benefit.
-	if not _zoom_out_blocked:
-		return base_target + vertical_world_offset + pivot_world_offset + lateral_world_offset
-	var vertical_target := base_target + vertical_world_offset
-	var safe_pivot_offset := _resolve_safe_motion_offset(vertical_target, pivot_world_offset)
-	var pivot_target := vertical_target + safe_pivot_offset
-	var safe_lateral_offset := _resolve_safe_motion_offset(pivot_target, lateral_world_offset)
-	return pivot_target + safe_lateral_offset
+	# Apply offset directly without physics casts.
+	# Safety casts cause abrupt 0/full toggling near curved walls: the arm endpoint
+	# is already at collision_padding (0.12 m) from the surface, so any lateral cast
+	# registers as fully blocked (safe_distance ≈ 0) → offset snaps to zero → 75 cm jump.
+	# Graceful reduction is handled by wall_proximity_scale in OverTheShoulder instead.
+	return base_target + vertical_world_offset + pivot_world_offset + lateral_world_offset
 
 func _resolve_safe_motion_offset(origin: Vector3, desired_offset: Vector3) -> Vector3:
 	var world = get_world()
