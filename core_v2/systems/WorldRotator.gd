@@ -105,6 +105,7 @@ var _scene_anchor_resolved_plate_index := -1
 var _collision_pool: Array = []        # Array[StaticBody]
 var _pool_assignments: Array = []      # Array[Dictionary]
 var _pool_update_counter: int = 0
+var _spiral_extents_cache: Dictionary = {}  # spiral_index (int) -> Vector3
 var _target_plate_query_counter: int = 0
 var _world_environment_sky_entries: Array = []
 # Retrocompatibilidad: alias del pool para tests que lean _generated_collision_bodies
@@ -1094,7 +1095,6 @@ func _assign_pool_to_nearest_plates() -> void:
 
 	for spiral_index in range(_registered_platforms.size()):
 		var spiral: Spatial = _registered_platforms[spiral_index]
-		_force_spiral_update(spiral)
 		var plate_count: int = get_plate_count(spiral)
 		if plate_count <= 0: continue
 
@@ -1239,7 +1239,18 @@ func _sync_pool_shape_extents(body: StaticBody, spiral: Spatial) -> void:
 	var box: BoxShape = shape_node.shape as BoxShape
 	if box == null:
 		return
+	# Cache extents per spiral index — plate_mesh never changes at runtime.
+	var spiral_index: int = _registered_platforms.find(spiral)
+	if spiral_index >= 0 and _spiral_extents_cache.has(spiral_index):
+		var cached_e: Vector3 = _spiral_extents_cache[spiral_index]
+		var want: Vector3 = Vector3(cached_e.x * collision_pool_xz_scale, cached_e.y, cached_e.z * collision_pool_xz_scale)
+		if box.extents.is_equal_approx(want):
+			return
+		box.extents = want
+		return
 	var e: Vector3 = _get_plate_collision_extents(spiral)
+	if spiral_index >= 0:
+		_spiral_extents_cache[spiral_index] = e
 	# Escalar XZ para cubrir el hueco entre plates adyacentes.
 	box.extents = Vector3(e.x * collision_pool_xz_scale, e.y, e.z * collision_pool_xz_scale)
 
@@ -1295,7 +1306,10 @@ func _wrap_index(value: int, size: int) -> int:
 	return wrapped
 
 func _is_pool_update_due() -> bool:
-	if continuous_tracking:
+	# continuous_tracking actualiza transforms via _sync_pool_transforms_to_world() cada frame.
+	# La reasignación costosa (_assign_pool_to_nearest_plates) solo debe correr a la tasa
+	# collision_update_interval, no a 60 Hz. Solo forzar si hay transición activa.
+	if _is_transitioning:
 		return true
 	if _has_transform_target:
 		return true

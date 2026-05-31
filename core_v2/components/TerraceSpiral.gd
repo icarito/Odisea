@@ -19,10 +19,18 @@ export var use_smoothstep: bool = true setget set_use_smoothstep
 export var animate: bool = true # true = usar animación, false = usar manual_blend
 export(float, 0.0, 1.0) var manual_blend: float = 0.0 setget set_manual_blend # 0 = Axial, 1 = Centrífugo
 export var cycle_duration: float = 10.0 setget set_cycle_duration
+# Cuántos physics frames saltar entre updates de animación (1=cada frame, 2=cada 2, etc.).
+# Aumentar en HTML5 o plataformas lentas para reducir carga de GDScript.
+export(int, 1, 8) var animation_update_interval: int = 1
 var time_accumulator: float = 0.0
 var _needs_rebuild: bool = true
 var _last_applied_blend: float = -1.0
+var _last_visual_blend: float = -2.0  # blend que ya está subido a la GPU
+var _animation_tick_counter: int = 0
 var _cached_transforms: Array = [] # Array of Transform
+# Pre-cached por _setup_multimesh; no cambian con blend:
+var _cached_thetas: Array = []   # Array of float
+var _cached_origins: Array = []  # Array of Vector3
 var _dome_lod_root: Spatial = null
 var _dome_lod_overlay_entries: Array = []
 var _dome_lod_overlay_signature := ""
@@ -53,6 +61,7 @@ func _setup_multimesh():
 	multimesh.mesh = plate_mesh
 
 	_ensure_transform_cache_size(plate_count)
+	_precache_plate_geometry(plate_count)
 	_last_applied_blend = -1.0 # Force update
 
 func _ensure_transform_cache_size(plate_count: int):
@@ -64,23 +73,52 @@ func _ensure_transform_cache_size(plate_count: int):
 	for i in range(previous_size, plate_count):
 		_cached_transforms[i] = Transform.IDENTITY
 
+# Pre-computa thetas y origins (no dependen del blend) para reusar cada frame.
+func _precache_plate_geometry(plate_count: int) -> void:
+	if plate_count <= 1:
+		_cached_thetas.resize(0)
+		_cached_origins.resize(0)
+		return
+	var safe_r_min: float = r_min if r_min != null else 0.0
+	var safe_r_max: float = r_max if r_max != null else 0.0
+	var safe_step: float = plate_step if plate_step != null else 40.0
+	var safe_turns: float = turns if turns != null else 0.0
+	var angle_per_plate: float = (360.0 * safe_turns) / float(plate_count)
+	_cached_thetas.resize(plate_count)
+	_cached_origins.resize(plate_count)
+	for i in range(plate_count):
+		var u: float = float(i) / float(plate_count - 1)
+		var r: float = lerp(safe_r_min, safe_r_max, u)
+		var z: float = float(i) * safe_step
+		var theta: float = deg2rad(float(i) * angle_per_plate)
+		_cached_thetas[i] = theta
+		_cached_origins[i] = Vector3(cos(theta) * r, z, sin(theta) * r)
+
 func _physics_process(delta: float):
 	_rebuild_multimesh_if_needed()
 	if animate:
 		time_accumulator += delta
-	_update_spiral_animation()
+	_animation_tick_counter += 1
+	if _animation_tick_counter >= animation_update_interval:
+		_animation_tick_counter = 0
+		_compute_spiral_transforms()
 
-func _update_spiral_animation():
+func _process(_delta: float):
+	if Engine.editor_hint:
+		return
+	_apply_multimesh_visual()
+
+# Actualiza _cached_transforms (estado de simulación). Se llama desde _physics_process.
+# No toca la GPU — solo GDScript puro para mantener el presupuesto de física bajo.
+func _compute_spiral_transforms() -> void:
 	if not multimesh:
 		return
-	
-	# 1. Calcular el 'blend' ($t en OpenSCAD)
+
 	var blend: float = 0.0
 	if animate:
-		# Ping-pong: 0 → 1 → 0 over cycle_duration
-		var safe_cycle = max(cycle_duration, 0.001)
-		var half_cycle = safe_cycle / 2.0
-		var t_in_cycle = fmod(time_accumulator, safe_cycle)
+		var safe_cycle: float = max(cycle_duration, 0.001)
+		var half_cycle: float = safe_cycle / 2.0
+		var t_in_cycle: float = fmod(time_accumulator, safe_cycle)
 		var raw_t: float = 0.0
 		if half_cycle > 0.0 and t_in_cycle < half_cycle:
 			raw_t = t_in_cycle / half_cycle
@@ -91,46 +129,63 @@ func _update_spiral_animation():
 		blend = manual_blend if manual_blend != null else 0.0
 
 	blend = clamp(blend, 0.0, 1.0)
-	
-	# Optimización: si el blend no ha cambiado significativamente, saltar el update de MultiMesh
 	if abs(blend - _last_applied_blend) < 0.0001:
 		return
 	_last_applied_blend = blend
 
-	var plate_count = multimesh.instance_count
+	var plate_count: int = multimesh.instance_count
 	if plate_count <= 1:
 		return
 	_ensure_transform_cache_size(plate_count)
 
-	var safe_r_min = r_min if r_min != null else 0.0
-	var safe_r_max = r_max if r_max != null else 0.0
-	var safe_step = plate_step if plate_step != null else 40.0
-	var safe_tilt = max_tilt_angle if max_tilt_angle != null else -90.0
-	var safe_interlock = interlock_angle if interlock_angle != null else 45.0
-	var safe_turns = turns if turns != null else 0.0
-	var angle_per_plate = (360.0 * safe_turns) / plate_count
-	
+	var safe_tilt: float = max_tilt_angle if max_tilt_angle != null else -90.0
+	var safe_interlock: float = interlock_angle if interlock_angle != null else 45.0
+	var y_ang: float = deg2rad(safe_tilt * blend)
+	var interlock_rad: float = deg2rad(safe_interlock * blend)
+	var use_cache: bool = _cached_origins.size() == plate_count and _cached_thetas.size() == plate_count
+
+	if use_cache:
+		for i in range(plate_count):
+			var theta: float = _cached_thetas[i]
+			_cached_transforms[i] = Transform(_build_plate_basis(theta, y_ang, interlock_rad), _cached_origins[i])
+	else:
+		var safe_r_min: float = r_min if r_min != null else 0.0
+		var safe_r_max: float = r_max if r_max != null else 0.0
+		var safe_step: float = plate_step if plate_step != null else 40.0
+		var safe_turns: float = turns if turns != null else 0.0
+		var angle_per_plate: float = (360.0 * safe_turns) / float(plate_count)
+		for i in range(plate_count):
+			var u: float = float(i) / float(plate_count - 1)
+			var r: float = lerp(safe_r_min, safe_r_max, u)
+			var z: float = float(i) * safe_step
+			var theta: float = deg2rad(float(i) * angle_per_plate)
+			_cached_transforms[i] = Transform(_build_plate_basis(theta, y_ang, interlock_rad), Vector3(cos(theta) * r, z, sin(theta) * r))
+
+# Sube _cached_transforms a la GPU (multimesh + overlays). Solo desde _process.
+func _apply_multimesh_visual() -> void:
+	if not multimesh:
+		return
+	if abs(_last_applied_blend - _last_visual_blend) < 0.0001:
+		return
+	_last_visual_blend = _last_applied_blend
+	var plate_count: int = _cached_transforms.size()
+	if plate_count == 0 or multimesh.instance_count != plate_count:
+		return
+	var hidden: Dictionary = _dome_lod_hidden_plates
+	var hidden_xform: Transform = Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
 	for i in range(plate_count):
-		var u = float(i) / (plate_count - 1)
-		var r = lerp(safe_r_min, safe_r_max, u)
-		var z = i * safe_step
-		var theta = deg2rad(i * angle_per_plate)
-		
-		# Lógica de rotación de OpenSCAD
-		var y_ang = deg2rad(safe_tilt * blend)
-		var interlock = deg2rad(safe_interlock * blend)
-		
-		# Crear la Transformación (Matriz)
-		var xform = Transform.IDENTITY
-		
-		# 1. Posicionar en la espiral (Translate Z -> Rotate Theta -> Translate R)
-		xform.origin = Vector3(cos(theta) * r, z, sin(theta) * r)
-		
-		xform.basis = _build_plate_basis(theta, y_ang, interlock)
-		
-		multimesh.set_instance_transform(i, xform)
-		_cached_transforms[i] = xform
+		multimesh.set_instance_transform(i, hidden_xform if hidden.has(i) else _cached_transforms[i])
 	_update_dome_lod_overlay_transforms()
+
+# Compatibilidad: fuerza update completo (physics + visual) de forma sincrónica.
+# Usado por editor (tool), restore_snapshot y _mark_dirty.
+func _update_spiral_animation() -> void:
+	_compute_spiral_transforms()
+	if not Engine.editor_hint:
+		# En runtime el visual se aplica en el siguiente _process; forzar para
+		# casos de uso explícito (restore_snapshot, set_dome_lod_plate_hidden).
+		_last_visual_blend = -2.0
+	_apply_multimesh_visual()
 
 func _ensure_dome_lod_root() -> void:
 	if is_instance_valid(_dome_lod_root):
@@ -200,24 +255,26 @@ func _rebuild_dome_lod_overlays(groups: Array) -> void:
 func _update_dome_lod_overlay_transforms() -> void:
 	if not is_instance_valid(_dome_lod_root):
 		return
+	var cache_size := _cached_transforms.size()
+	var hidden := _dome_lod_hidden_plates
+	var hidden_xform := Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
 	for entry in _dome_lod_overlay_entries:
 		var instance: MultiMeshInstance = entry.get("instance", null)
 		if not is_instance_valid(instance) or instance.multimesh == null:
 			continue
-		var items: Array = entry.get("items", [])
-		for item_index in range(items.size()):
+		var items: Array = entry["items"]
+		var item_count := items.size()
+		for item_index in range(item_count):
 			var item: Dictionary = items[item_index]
-			var plate_index := int(item.get("plate_index", -1))
-			if plate_index < 0 or plate_index >= _cached_transforms.size():
+			var plate_index: int = item["plate_index"]
+			if plate_index < 0 or plate_index >= cache_size:
 				instance.multimesh.set_instance_transform(item_index, Transform.IDENTITY)
 				continue
-			if _dome_lod_hidden_plates.has(plate_index):
-				instance.multimesh.set_instance_transform(item_index, Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0)))
+			if hidden.has(plate_index):
+				instance.multimesh.set_instance_transform(item_index, hidden_xform)
 				continue
-			var base_transform: Transform = _cached_transforms[plate_index]
-			var local_transform: Transform = item.get("local_transform", Transform.IDENTITY)
-			var overlay_transform := base_transform * local_transform
-			overlay_transform.origin += item.get("origin_offset", Vector3.ZERO)
+			var overlay_transform: Transform = _cached_transforms[plate_index] * item["local_transform"]
+			overlay_transform.origin += item["origin_offset"]
 			instance.multimesh.set_instance_transform(item_index, overlay_transform)
 
 func _build_dome_lod_overlay_signature(groups: Array) -> String:
