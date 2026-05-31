@@ -1,0 +1,20 @@
+[gd_scene load_steps=3 format=2]
+
+[sub_resource type="SpatialMaterial" id=1]
+albedo_color = Color( 0.2, 0.2, 0.2, 1 )
+metallic = 1.0
+roughness = 0.2
+
+[sub_resource type="CylinderMesh" id=2]
+material = SubResource( 1 )
+top_radius = 2.7
+bottom_radius = 2.7
+height = 0.15
+rings = 1
+sections = 32
+
+[node name="TubeRing" type="Spatial"]
+
+[node name="MeshInstance" type="MeshInstance" parent="."]
+mesh = SubResource( 2 )
+material/0 = null
