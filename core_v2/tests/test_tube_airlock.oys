@@ -1,0 +1,28 @@
+LEVEL res://core_v2/tests/test_tube_airlock.tscn
+
+SECTION "Tube Airlock Transition Test"
+    // The player starts at "start" (0, 0.5, 0)
+    // AirlockStart is at (0, 2, -5)
+
+    // 1. Move player to the airlock entrance
+    SET_POS "Pilot" [0, 0.5, -4]
+    WAIT 0.5
+
+    // 2. Trigger the airlock by moving inside its Area
+    // The Area CollisionShape is at (0, 0, 1) relative to its parent (0, 2, -5)
+    // So global collision is at (0, 2, -4)
+    SET_POS "Pilot" [0, 2, -4]
+    WAIT 1.0
+
+    // 3. Since the target_dome is the same scene but different spawn point,
+    // we should eventually end up at SpawnPointEnd (0, 2, -17)
+
+    SET $pilot_z GET_NODE_POS_Z "Pilot"
+
+    // Check if we reached the end spawn point
+    ASSERT $pilot_z < -16.0 "Player should have transitioned to SpawnPointEnd (Z < -16)"
+    ASSERT $pilot_z > -18.0 "Player should have transitioned to SpawnPointEnd (Z > -18)"
+
+    SCREENSHOT "transition_complete"
+
+END
