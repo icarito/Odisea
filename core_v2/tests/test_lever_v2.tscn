@@ -1,0 +1,32 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://core_v2/props/LeverV2.tscn" type="PackedScene" id=1]
+
+[node name="TestLeverV2" type="Spatial"]
+
+[node name="LeverV2" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
+
+[node name="StatusLabel" type="Label" parent="."]
+margin_right = 40.0
+margin_bottom = 14.0
+text = "OFF"
+
+[node name="Script" type="Node" parent="."]
+script = SubResource( 1 )
+
+[sub_resource type="GDScript" id=1]
+script/source = "extends Node
+
+func _ready():
+	var lever = get_parent().get_node(\"LeverV2\")
+	var label = get_parent().get_node(\"StatusLabel\")
+	lever.connect(\"lever_toggled\", self, \"_on_lever_toggled\", [label])
+
+func _on_lever_toggled(is_on, label):
+	label.text = \"ON\" if is_on else \"OFF\"
+"
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 2 )
+current = true
