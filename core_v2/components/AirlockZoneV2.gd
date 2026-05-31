@@ -134,8 +134,11 @@ func _apply_soft_stall(player: Node) -> void:
 
 	if "movement_logic" in player and is_instance_valid(player.movement_logic):
 		player.movement_logic.wish_direction *= factor
-		if "horizontal_velocity" in player.movement_logic:
-			player.movement_logic.horizontal_velocity *= factor
+		# Do NOT multiply horizontal_velocity directly — applying factor every frame
+		# causes oscillation: velocity decays, movement regenerates it from input,
+		# stall decays again. This 2-5cm oscillation exceeds the camera arm's latch
+		# epsilon (2.5cm) and invalidates the collision latch each frame → camera jitter.
+		# Scaling wish_direction is enough: the movement system decelerates naturally.
 
 func _run_transition(player: Node) -> void:
 	if not is_instance_valid(player):

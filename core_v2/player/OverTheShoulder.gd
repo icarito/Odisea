@@ -43,6 +43,18 @@ export(float) var distance_unblend_speed := 1.2
 export(float) var side_clearance_blend_speed := 2.2
 export(float) var side_restore_blend_speed := 1.4
 
+# Centering only activates when the arm is compressed to this fraction of its
+# target length or less. 1.0 = any collision; 0.55 = narrow passage only.
+export(float) var centering_compression_threshold := 0.55
+
+# Seconds of sustained heavy compression required before centering activates.
+# Prevents centering on brief wall/prop touches during camera orbiting.
+export(float) var centering_trigger_time := 0.20
+
+# Seconds centering remains active after heavy compression clears.
+# Avoids a pop when the player just exits a narrow doorway.
+export(float) var centering_release_hold_time := 0.40
+
 # --- EXPORTED TUNING: JUMP COMPENSATION ---
 
 # How much the camera pivot moves back (+Z) when the player is rising.
@@ -58,6 +70,8 @@ var _current_offset := Vector3.ZERO
 var _jump_comp_weight := 0.0
 var _distance_weight := 0.0
 var _side_clearance_weight := 1.0
+var _centering_build_timer := 0.0   # builds up while heavy compression is sustained
+var _centering_hold_timer := 0.0    # keeps centering active briefly after compression clears
 var _player: KinematicBody = null
 var _spring_arm = null
 var _ots_offset_parent: Spatial = null
@@ -96,7 +110,26 @@ func _physics_process(delta: float):
 	var ots_weight := pow(raw_weight, curve_power)
 	var zoom_blend_speed: float = distance_blend_speed if ots_weight >= _distance_weight else distance_unblend_speed
 	_distance_weight = lerp(_distance_weight, ots_weight, _blend_alpha(zoom_blend_speed, delta))
-	var side_target: float = 0.0 if _has_active_arm_collision() else 1.0
+	# Center only for significant arm compression (narrow passage), not any minor
+	# collision touch while orbiting the camera near walls or furniture.
+	var target_len_ref := _get_target_arm_length()
+	var compression_ratio := effective_len / max(target_len_ref, 0.001)
+	var heavy_collision := _has_active_arm_collision() and compression_ratio <= centering_compression_threshold
+
+	if heavy_collision:
+		_centering_build_timer = min(_centering_build_timer + delta, centering_trigger_time)
+	else:
+		# Decay twice as fast so a brief touch doesn't accumulate much credit.
+		_centering_build_timer = max(_centering_build_timer - delta * 2.0, 0.0)
+
+	if _centering_build_timer >= centering_trigger_time:
+		# Refresh the hold timer each frame centering is fully active.
+		_centering_hold_timer = centering_release_hold_time
+	else:
+		_centering_hold_timer = max(_centering_hold_timer - delta, 0.0)
+
+	var centering_active := _centering_build_timer >= centering_trigger_time or _centering_hold_timer > 0.0
+	var side_target: float = 0.0 if centering_active else 1.0
 	var side_speed: float = side_restore_blend_speed if side_target > _side_clearance_weight else side_clearance_blend_speed
 	_side_clearance_weight = lerp(_side_clearance_weight, side_target, _blend_alpha(side_speed, delta))
 

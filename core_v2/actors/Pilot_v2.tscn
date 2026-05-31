@@ -120,6 +120,8 @@ script = ExtResource( 62 )
 
 [node name="OverTheShoulder" type="Node" parent="Logic"]
 script = ExtResource( 63 )
+distance_blend_speed = 3.0
+distance_unblend_speed = 3.0
 
 [node name="Visual" type="Spatial" parent="."]
 

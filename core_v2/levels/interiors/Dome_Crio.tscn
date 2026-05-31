@@ -2567,6 +2567,7 @@ viscosity = 0.01
 buoyancy = -0.01
 player_push_force = 1.0
 initial_particle_count = 256
+initial_fill_radius = 2.0
 initial_particle_scale = 4.0
 gas_world_collision_mask = 127
 

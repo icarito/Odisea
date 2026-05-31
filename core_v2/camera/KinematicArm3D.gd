@@ -6,7 +6,7 @@ class_name KinematicArm3D
 extends Spatial
 
 const LATCH_POSE_TRANSLATION_EPSILON := 0.025
-const LATCH_POSE_DIRECTION_DOT_EPSILON := 0.00015
+const LATCH_POSE_DIRECTION_DOT_EPSILON := 0.002
 
 # The shape of the end of the arm (the "rolling ball")
 export var collider_shape: Shape setget set_collider_shape
@@ -80,6 +80,8 @@ var _collision_latch_origin := Vector3.ZERO
 var _collision_latch_direction := Vector3.BACK
 var _collision_release_timer := 0.0
 var _collision_miss_timer := 0.0
+var _ceiling_latch_active := false
+var _ceiling_latch_hold_timer := 0.0
 var _excluded_objects: Array = []
 var _zoom_out_blocked := false
 
@@ -209,10 +211,23 @@ func _physics_process(delta):
 	var arm_motion := global_transform.basis.z * desired_length
 	var rendered_length := desired_length
 	var final_target := arm_origin + arm_motion
-	var used_ceiling_accommodation := _can_accommodate_under_ceiling(arm_origin, desired_length)
+	# Ceiling accommodation with hysteresis to prevent oscillation.
+	# Once ceiling mode activates, hold it for a grace period even if the
+	# ceiling check flickers off, preventing jitter when looking up.
+	var ceiling_check_result := _can_accommodate_under_ceiling(arm_origin, desired_length)
+	if ceiling_check_result:
+		_ceiling_latch_active = true
+		_ceiling_latch_hold_timer = 0.0
+	elif _ceiling_latch_active:
+		_ceiling_latch_hold_timer += delta
+		if _ceiling_latch_hold_timer > 0.25:  # 250ms grace before releasing ceiling latch
+			_ceiling_latch_active = false
+			_ceiling_latch_hold_timer = 0.0
+
+	var ceiling_clamped := _ceiling_latch_active
 	var safe_hit_length := -1.0
 
-	if used_ceiling_accommodation:
+	if ceiling_clamped:
 		rendered_length = _advance_clear_length(delta)
 		final_target = _clamp_target_below_ceiling(arm_origin + global_transform.basis.z * rendered_length, arm_origin)
 	else:
@@ -241,7 +256,7 @@ func _physics_process(delta):
 			rendered_length = _advance_clear_length(delta)
 		final_target = arm_origin + global_transform.basis.z * rendered_length
 
-	_zoom_out_blocked = used_ceiling_accommodation or safe_hit_length >= 0.0 or _collision_latched_length >= 0.0
+	_zoom_out_blocked = ceiling_clamped or safe_hit_length >= 0.0 or _collision_latched_length >= 0.0
 
 	if is_instance_valid(kinematic_body):
 		kinematic_body.global_transform.origin = final_target
@@ -357,12 +372,18 @@ func _resolve_child_target(base_target: Vector3) -> Vector3:
 	var vertical_world_offset := Vector3.UP * camera_local_offset.y
 	var pivot_axis := global_transform.basis.z
 	pivot_axis.y = 0.0
-	if pivot_axis.length_squared() > 0.000001:
+	# Raise threshold: near-vertical pitch makes XZ component near-zero and unstable.
+	if pivot_axis.length_squared() > 0.01:
 		pivot_axis = pivot_axis.normalized()
+	else:
+		pivot_axis = Vector3.ZERO
 	var pivot_world_offset := pivot_axis * camera_local_offset.z
 	var lateral_world_offset := global_transform.basis.x * camera_local_offset.x
 	if vertical_world_offset.length_squared() <= 0.000001 and pivot_world_offset.length_squared() <= 0.000001 and lateral_world_offset.length_squared() <= 0.000001:
 		return base_target
+	# Skip safety casts in open space — they produce per-frame float noise with no benefit.
+	if not _zoom_out_blocked:
+		return base_target + vertical_world_offset + pivot_world_offset + lateral_world_offset
 	var vertical_target := base_target + vertical_world_offset
 	var safe_pivot_offset := _resolve_safe_motion_offset(vertical_target, pivot_world_offset)
 	var pivot_target := vertical_target + safe_pivot_offset
