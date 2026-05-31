@@ -48,7 +48,6 @@ rotator_path = NodePath("../WorldRotator")
 tracking_target_path = NodePath("../Pilot")
 slot_pool_size = 12
 slot_update_interval = 1
-centrifugal_current_plate_only_physics = true
 
 [node name="Pilot" parent="." instance=ExtResource( 2 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 3, 29 )
