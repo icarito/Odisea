@@ -2561,16 +2561,20 @@ mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="GasArea3D" parent="." instance=ExtResource( 12 )]
-gas_type = 2
-viscosity = 0.2
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 5 )
+gas_type = 1
+viscosity = 0.01
 buoyancy = -0.01
-initial_particle_count = 1024
-initial_fill_radius = 5.0
+player_push_force = 1.0
+initial_particle_count = 256
 initial_particle_scale = 4.0
 gas_world_collision_mask = 127
 
 [node name="GasParticleManager" parent="GasArea3D" index="1"]
 default_color = Color( 0.0313726, 0.454902, 0.411765, 0.65098 )
+color_rgb_variance = 0.0
+collide_with_world = false
+world_collision_mask = 65
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]

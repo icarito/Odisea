@@ -285,7 +285,7 @@ func _build_side_rail(side_name: String, enabled: bool, is_front_back: bool, fix
 	if not enabled or rail_height <= 0.01:
 		return
 
-	var min_axis = -platform_width * 0.5 if is_front_back else -platform_depth * 0.5
+	var min_axis = - platform_width * 0.5 if is_front_back else -platform_depth * 0.5
 	var max_axis = platform_width * 0.5 if is_front_back else platform_depth * 0.5
 	var start_margin = tube_radius
 	var end_margin = tube_radius
@@ -366,7 +366,7 @@ func _add_deck_collision(half_w: float, half_d: float, deck_t: float, front_top_
 	var shape = BoxShape.new()
 	shape.extents = Vector3(half_w, deck_t * 0.5, half_d)
 	var center_y = ((front_top_y + back_top_y) * 0.5) - deck_t * 0.5
-	var slope_angle = -atan2(back_top_y - front_top_y, platform_depth)
+	var slope_angle = - atan2(back_top_y - front_top_y, platform_depth)
 	_add_collision_shape("DeckCollision", shape, Vector3(0, center_y, 0), Basis(Vector3.RIGHT, slope_angle))
 
 func _add_leg_collision(node_name: String, bottom: Vector3, top: Vector3) -> void:
@@ -383,7 +383,7 @@ func _add_grate_deck(width: float, depth: float, front_top_y: float, back_top_y:
 	var mesh = _make_grate_mesh(mesh_size)
 	deck.mesh = mesh
 	deck.translation = Vector3(0, (front_top_y + back_top_y) * 0.5 - GRATE_RECESS, 0)
-	var slope_angle = -atan2(back_top_y - front_top_y, platform_depth)
+	var slope_angle = - atan2(back_top_y - front_top_y, platform_depth)
 	deck.rotation = Vector3(-PI * 0.5 + slope_angle, 0, 0)
 	if _grate_material is SpatialMaterial:
 		var mat = (_grate_material as SpatialMaterial).duplicate(true)

@@ -9,6 +9,8 @@ export(float) var buoyancy := -1.2
 export(float) var decay_rate := 1.0
 export(Color) var default_color := Color(0.62, 0.78, 0.74, 0.82)
 export(Color) var ignition_color := Color(1.0, 0.42, 0.08, 0.82)
+export(float) var color_lightness_variance := 0.25
+export(float) var color_rgb_variance := 0.1
 export(bool) var collide_with_world := true
 export(int, LAYERS_3D_PHYSICS) var world_collision_mask := 1
 export(float) var collision_margin := 0.08
@@ -212,7 +214,9 @@ func emit_particle(local_position: Vector3, local_velocity: Vector3 = Vector3.ZE
 	var base_s = default_base_scale if base_scale <= 0.0 else base_scale
 	p["base_scale"] = base_s * (0.5 + _get_deterministic_anim_offset(index + 777) * 1.0)
 	
-	p["color"] = default_color if color.a < 0.0 else color
+	var c = default_color if color.a < 0.0 else color
+	p["color"] = _get_varied_color(c, index)
+	
 	p["combustion"] = false
 	p["anim_time"] = 0.0
 	p["anim_offset"] = _get_deterministic_anim_offset(index)
@@ -260,7 +264,8 @@ func set_particle_combustion(index: int, active: bool) -> void:
 	if not bool(p["active"]):
 		return
 	p["combustion"] = active
-	p["color"] = ignition_color if active else default_color
+	var c = ignition_color if active else default_color
+	p["color"] = _get_varied_color(c, index)
 	particles[index] = p
 	_sync_instance(index)
 
@@ -362,10 +367,28 @@ func restore_snapshot(data: Dictionary) -> void:
 		p["lifetime"] = float(entry.get("t", 0.0))
 		p["max_lifetime"] = float(entry.get("m", default_max_lifetime))
 		p["base_scale"] = float(entry.get("s", default_base_scale))
-		p["color"] = Color(entry.get("c", default_color))
+		
+		var raw_color = Color(entry.get("c", default_color))
+		# If it's a restored snapshot, we can just use the color directly or re-apply variance.
+		# Since we save the exact color in get_snapshot(), we don't need to re-vary it here.
+		p["color"] = raw_color
+		
 		p["combustion"] = bool(entry.get("b", false))
 		p["anim_time"] = float(entry.get("a", 0.0))
 		p["anim_offset"] = float(entry.get("o", _get_deterministic_anim_offset(index)))
 		p["anim_speed_mod"] = 0.5 + _get_deterministic_anim_offset(index + 1234) * 1.5
 		particles[index] = p
 		_sync_instance(index)
+
+func _get_varied_color(base_c: Color, index: int) -> Color:
+	var shift = (_get_deterministic_anim_offset(index + 555) - 0.5) * color_lightness_variance
+	# Add a tiny bit of hue tinting (greenish/bluish) based on another offset
+	var tint_r = (_get_deterministic_anim_offset(index + 111) - 0.5) * color_rgb_variance
+	var tint_g = (_get_deterministic_anim_offset(index + 222) - 0.5) * color_rgb_variance
+	var tint_b = (_get_deterministic_anim_offset(index + 333) - 0.5) * color_rgb_variance
+	return Color(
+		clamp(base_c.r + shift + tint_r, 0.0, 1.0),
+		clamp(base_c.g + shift + tint_g, 0.0, 1.0),
+		clamp(base_c.b + shift + tint_b, 0.0, 1.0),
+		base_c.a
+	)
