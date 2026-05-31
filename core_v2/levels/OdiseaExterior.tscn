@@ -39,7 +39,6 @@ radius = 330.0
 [node name="TerraceSegmentManager" type="Spatial" parent="WorldRotator"]
 script = ExtResource( 8 )
 full_detail_plate_radius = 1
-full_detail_nearest_count = 9
 
 [node name="PhysicalTerrace" type="StaticBody" parent="."]
 

@@ -137,7 +137,11 @@ func _make_key(spiral_idx: int, plate_idx: int) -> String:
 
 
 func _sort_ranked_candidate(a: Dictionary, b: Dictionary) -> bool:
-	return float(a.get("dist_sq", INF)) < float(b.get("dist_sq", INF))
+	var dist_a := float(a.get("dist_sq", INF))
+	var dist_b := float(b.get("dist_sq", INF))
+	if not is_equal_approx(dist_a, dist_b):
+		return dist_a < dist_b
+	return String(a.get("key", "")) < String(b.get("key", ""))
 
 
 func _wrap_index(value: int, size: int) -> int:

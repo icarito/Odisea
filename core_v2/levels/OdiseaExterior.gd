@@ -29,6 +29,7 @@ var _active_dome_facade_spawn_offset := Vector3.ZERO
 var _lod_hidden_plate_keys := {}              # "spiral:plate" -> true, plates cubiertos por LOD2
 var _last_dome_lod_stats := {}
 var _last_full_detail_keys := {}
+var _last_full_detail_debug_rows := []
 
 func _ready() -> void:
 	if has_node("/root/SessionManager"):
@@ -398,6 +399,7 @@ func get_lod_debug_snapshot() -> Dictionary:
 		"selected_spiral": selected_spiral,
 		"selected_plate": selected_plate,
 		"full_detail_keys": _last_full_detail_keys.keys(),
+		"full_detail_debug_rows": _last_full_detail_debug_rows,
 		"hidden_lod_keys": _lod_hidden_plate_keys.keys(),
 		"stats": get_lod_stats(),
 		"active_slots": active_slots
@@ -794,8 +796,10 @@ func _apply_lod_hide_for_selection(new_spiral: int, new_plate: int) -> void:
 				old_spiral.call("set_dome_lod_plate_hidden", old_plate_idx, false)
 	_lod_hidden_plate_keys.clear()
 	if not _uses_dome_lod_overlays():
+		_last_full_detail_debug_rows.clear()
 		return
 	var full_detail_keys := _get_full_detail_plate_keys_for_selection(new_spiral, new_plate)
+	_refresh_full_detail_debug_rows(new_spiral, new_plate, full_detail_keys)
 	for key in full_detail_keys.keys():
 		var parsed := _parse_plate_key(String(key))
 		var spiral_idx := int(parsed.get("spiral", -1))
@@ -849,6 +853,64 @@ func _get_current_plate_key_for_selection(spiral_idx: int = -999, plate_idx: int
 
 func _get_streamed_full_detail_plate_keys_for_selection() -> Dictionary:
 	return _get_full_detail_plate_keys_for_selection()
+
+func print_full_stream_debug_positions() -> void:
+	_refresh_full_detail_debug_rows(selected_spiral, selected_plate, _last_full_detail_keys)
+	print("[FD041][FULL_STREAM_DEBUG] selected=%d:%d count=%d" % [selected_spiral, selected_plate, _last_full_detail_debug_rows.size()])
+	for row in _last_full_detail_debug_rows:
+		print("[FD041][FULL_STREAM_DEBUG] %s world=(%.2f, %.2f, %.2f) canonical=(%.2f, %.2f, %.2f) dist=%.2f" % [
+			String(row.get("key", "")),
+			float(row.get("world_x", 0.0)),
+			float(row.get("world_y", 0.0)),
+			float(row.get("world_z", 0.0)),
+			float(row.get("canonical_x", 0.0)),
+			float(row.get("canonical_y", 0.0)),
+			float(row.get("canonical_z", 0.0)),
+			float(row.get("distance", 0.0))
+		])
+
+func _refresh_full_detail_debug_rows(spiral_idx: int, plate_idx: int, full_detail_keys: Dictionary) -> void:
+	_last_full_detail_debug_rows = _build_full_detail_debug_rows(
+		full_detail_keys,
+		_get_full_detail_reference_canonical_position(spiral_idx, plate_idx)
+	)
+
+func _build_full_detail_debug_rows(full_detail_keys: Dictionary, reference: Vector3) -> Array:
+	var rows := []
+	for key in full_detail_keys.keys():
+		var parsed := _parse_plate_key(String(key))
+		var spiral_idx := int(parsed.get("spiral", -1))
+		var plate_idx := int(parsed.get("plate", -1))
+		if spiral_idx < 0 or spiral_idx >= _spirals.size():
+			continue
+		var spiral: Spatial = _spirals[spiral_idx]
+		var canonical_tx: Transform = _rotator.get_plate_canonical_transform(spiral, plate_idx)
+		var canonical_origin := canonical_tx.origin
+		var world_origin: Vector3 = canonical_origin
+		if _rotator and is_instance_valid(_rotator):
+			world_origin = _rotator.global_transform.xform(canonical_origin)
+		rows.append({
+			"key": String(key),
+			"spiral": spiral_idx,
+			"plate": plate_idx,
+			"world_x": world_origin.x,
+			"world_y": world_origin.y,
+			"world_z": world_origin.z,
+			"canonical_x": canonical_origin.x,
+			"canonical_y": canonical_origin.y,
+			"canonical_z": canonical_origin.z,
+			"distance": canonical_origin.distance_to(reference),
+			"dist_sq": canonical_origin.distance_squared_to(reference)
+		})
+	rows.sort_custom(self, "_sort_full_detail_debug_row")
+	return rows
+
+func _sort_full_detail_debug_row(a: Dictionary, b: Dictionary) -> bool:
+	var dist_a := float(a.get("dist_sq", 0.0))
+	var dist_b := float(b.get("dist_sq", 0.0))
+	if not is_equal_approx(dist_a, dist_b):
+		return dist_a < dist_b
+	return String(a.get("key", "")) < String(b.get("key", ""))
 
 func _collect_spatial_full_detail_candidates() -> Array:
 	var candidates := []
