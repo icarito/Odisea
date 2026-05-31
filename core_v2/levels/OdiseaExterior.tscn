@@ -27,6 +27,7 @@ enable_segment_lod = true
 scene_anchor_use_selected_plate_on_ready = true
 collision_pool_xz_scale = 1.0
 warn_on_physics_children = false
+centrifugal_current_plate_only_physics = false
 
 [node name="FauxSkydome" type="Spatial" parent="WorldRotator"]
 script = ExtResource( 7 )
@@ -45,9 +46,9 @@ shape = SubResource( 1 )
 [node name="PlateContentRoot" parent="." instance=ExtResource( 4 )]
 rotator_path = NodePath("../WorldRotator")
 tracking_target_path = NodePath("../Pilot")
-slot_pool_size = 8
+slot_pool_size = 12
 slot_update_interval = 1
-centrifugal_current_plate_only_physics = false
+centrifugal_current_plate_only_physics = true
 
 [node name="Pilot" parent="." instance=ExtResource( 2 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 3, 29 )

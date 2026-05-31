@@ -5,7 +5,7 @@ export(int, 0, 10000) var selected_plate := 0
 export(bool) var snap_on_selection := true
 export(PackedScene) var plate_content_scene
 export(int, -1, 8) var dome_full_detail_plate_radius := 1
-export(int, 0, 64) var dome_full_detail_nearest_count := 9
+export(int, 0, 64) var dome_full_detail_nearest_count := 4
 export(int, 0, 3) var dome_full_detail_spiral_radius := 1
 export(int, 0, 32) var dome_inter_spiral_plate_offset := 4
 export(int, 0, 8) var dome_full_detail_preload_extra_radius := 2
@@ -153,7 +153,8 @@ func _configure_test_rotator() -> void:
 	_rotator.auto_track_requires_floor_contact = true
 	_rotator.tracking_target_path = NodePath("../Pilot")
 	_rotator.physical_terrace_path = NodePath("../PhysicalTerrace")
-	_rotator.collision_pool_size = max(_rotator.collision_pool_size, 32)
+	_rotator.centrifugal_current_plate_only_physics = true
+	_rotator.collision_pool_size = max(_rotator.collision_pool_size, 64)
 	_rotator.collision_update_interval = 3
 
 func _configure_plate_content_stream() -> void:
@@ -161,8 +162,9 @@ func _configure_plate_content_stream() -> void:
 		return
 	_plate_content_stream.rotator_path = NodePath("../WorldRotator")
 	_plate_content_stream.tracking_target_path = NodePath("../Pilot")
-	_plate_content_stream.slot_pool_size = 16
+	_plate_content_stream.slot_pool_size = 24
 	_plate_content_stream.slot_update_interval = 1
+	_plate_content_stream.centrifugal_current_plate_only_physics = true
 	if _plate_content_stream.has_method("register_rotator"):
 		_plate_content_stream.register_rotator(_rotator)
 

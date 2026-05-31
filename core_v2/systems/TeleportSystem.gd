@@ -49,11 +49,15 @@ func teleport_to(transform: Transform):
 # Atajos de teclado: trackback (Backspace) y reset
 
 func _input(event):
-	if _any_control_has_focus(get_tree().root):
+	if not _event_may_trigger_shortcut(event):
 		return
+
+	var root: Node = get_tree().root
 	if event is InputEventKey and event.pressed and event.scancode == KEY_BACKSPACE:
 		if _any_line_edit_has_focus(get_tree().root):
 			return
+	if _any_control_has_focus(root):
+		return
 	if _is_ui_focus_active() or _is_terminal_ui_active():
 		return
 
@@ -124,6 +128,18 @@ func _input(event):
 							if "pitch_deg" in player_controller:
 								player_controller.pitch_deg = rad2deg(pitch)
 						get_tree().set_input_as_handled()
+
+func _event_may_trigger_shortcut(event: InputEvent) -> bool:
+	if event == null:
+		return false
+	if event.is_action_pressed("trackback") or event.is_action_pressed("reset"):
+		return true
+	if not (event is InputEventKey):
+		return false
+	var key := event as InputEventKey
+	if key.echo or not key.pressed:
+		return false
+	return key.scancode >= KEY_1 and key.scancode <= KEY_9
 
 func _is_ui_focus_active() -> bool:
 	var root = get_tree().root

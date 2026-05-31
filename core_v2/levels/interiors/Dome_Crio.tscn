@@ -1,4 +1,4 @@
-[gd_scene load_steps=237 format=2]
+[gd_scene load_steps=239 format=2]
 
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldWalkway.tscn" type="PackedScene" id=1]
 [ext_resource path="res://addons/qodot/src/nodes/qodot_map.gd" type="Script" id=2]
@@ -15,6 +15,8 @@
 [ext_resource path="res://assets/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=13]
 [ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=14]
 [ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=15]
+[ext_resource path="res://core_v2/props/LeverV2.tscn" type="PackedScene" id=16]
+[ext_resource path="res://core_v2/props/Lever.tscn" type="PackedScene" id=17]
 
 [sub_resource type="SpatialMaterial" id=1]
 
@@ -745,23 +747,6 @@ ao_texture_channel = 2
 
 [node name="Pilot_v2" parent="." instance=ExtResource( 8 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 1.08, -3 )
-mouse_sensitivity = 0.005
-invert_mouse_y = false
-joy_move_sensitivity = 1.0
-snap_length = 0.25
-interact_distance = 3.0
-push_offset = 0.71
-enable_auto_align = true
-auto_align_delay = 1.0
-enable_cinematic_zoom = true
-cinematic_zoom_speed = 1.0
-cinematic_zoom_lerp_speed = 8.0
-cinematic_zoom_min_fov = 20.0
-cinematic_zoom_max_fov = 110.0
-stair_ground_probe_extra = 0.2
-debug_stair_state = false
-crouch_collider_height_ratio = 0.55
-crouch_headroom_margin = 0.03
 
 [node name="QodotMap" type="Spatial" parent="."]
 script = ExtResource( 2 )
@@ -2574,11 +2559,15 @@ gas_world_collision_mask = 127
 [node name="GasParticleManager" parent="GasArea3D" index="1"]
 default_color = Color( 0.0313726, 0.454902, 0.411765, 0.65098 )
 distance_luminance_shift = -0.2
-distance_r_shift = 0.0
-distance_g_shift = 0.0
 distance_b_shift = 0.2
 collide_with_world = false
 world_collision_mask = 65
+
+[node name="Lever" parent="." instance=ExtResource( 17 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.43272, 0.0417356, -4.04316 )
+
+[node name="LeverV2" parent="." instance=ExtResource( 16 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.03988, 1.042, -4.66125 )
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]
