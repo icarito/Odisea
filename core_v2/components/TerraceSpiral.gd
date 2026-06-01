@@ -218,8 +218,8 @@ func set_dome_lod_overlays(groups: Array) -> void:
 	var signature := _build_dome_lod_overlay_signature(groups)
 	if signature != _dome_lod_overlay_signature:
 		_rebuild_dome_lod_overlays(groups)
+		_update_dome_lod_overlay_transforms()
 	_dome_lod_root.visible = true
-	_update_dome_lod_overlay_transforms()
 
 func _rebuild_dome_lod_overlays(groups: Array) -> void:
 	for child in _dome_lod_root.get_children():

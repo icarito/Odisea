@@ -22,21 +22,21 @@ spiral_blend = 1.0
 auto_select_first_platform = false
 physical_terrace_path = NodePath("../PhysicalTerrace")
 auto_track_target_plate = true
-enable_faux_skydome = true
-enable_segment_lod = true
 scene_anchor_use_selected_plate_on_ready = true
+collision_update_interval = 8
 collision_pool_xz_scale = 1.0
 warn_on_physics_children = false
 centrifugal_current_plate_only_physics = false
 
 [node name="FauxSkydome" type="Spatial" parent="WorldRotator"]
+visible = false
 script = ExtResource( 7 )
 radius = 330.0
 
 [node name="TerraceSegmentManager" type="Spatial" parent="WorldRotator"]
 script = ExtResource( 8 )
-full_detail_plate_radius = 1
-full_detail_nearest_count = 4
+full_detail_plate_radius = 0
+full_detail_nearest_count = 0
 
 [node name="PhysicalTerrace" type="StaticBody" parent="."]
 
@@ -46,8 +46,8 @@ shape = SubResource( 1 )
 [node name="PlateContentRoot" parent="." instance=ExtResource( 4 )]
 rotator_path = NodePath("../WorldRotator")
 tracking_target_path = NodePath("../Pilot")
-slot_pool_size = 12
-slot_update_interval = 1
+slot_pool_size = 24
+centrifugal_current_plate_only_physics = false
 
 [node name="Pilot" parent="." instance=ExtResource( 2 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 3, 29 )

@@ -31,6 +31,7 @@ var _bulk_assignment_depth := 0
 var _bulk_assignment_dirty := false
 var _last_selected_spiral_idx: int = -2  # -2 = no inicializado
 var _last_selected_plate_idx: int = -2
+var _direct_active_assignments := false
 
 func _ready() -> void:
 	_build_slot_pool()
@@ -45,6 +46,11 @@ func _physics_process(delta: float) -> void:
 	if _rotator == null or not is_instance_valid(_rotator):
 		_rotator = _resolve_rotator()
 	if _rotator == null:
+		return
+
+	if _direct_active_assignments:
+		_sync_slot_transforms(delta)
+		_sync_physics_activation_for_slots()
 		return
 
 	# Refresco inmediato si cambió la placa seleccionada (evita delay al saltar entre terrazas)
@@ -67,12 +73,23 @@ func _physics_process(delta: float) -> void:
 # Asocia una escena empaquetada a una plate específica.
 # La escena se instanciará cuando esa plate esté entre las más cercanas.
 func assign_scene(spiral_idx: int, plate_idx: int, packed: PackedScene, spawn_offset: Vector3 = Vector3.ZERO, context: Dictionary = {}) -> void:
+	_direct_active_assignments = false
 	var key: String = _make_key(spiral_idx, plate_idx)
 	if packed == null:
+		if not _assignments.has(key) and not _assignment_indices.has(key):
+			return
 		_assignments.erase(key)
 		_assignment_indices.erase(key)
 		_deactivate_slot_for_key(key)
 		_mark_assignments_dirty()
+		return
+
+	var existing_indices: Dictionary = _assignment_indices.get(key, {})
+	if _assignments.get(key, null) == packed \
+			and int(existing_indices.get("spiral_idx", -1)) == spiral_idx \
+			and int(existing_indices.get("plate_idx", -1)) == plate_idx \
+			and existing_indices.get("spawn_offset", Vector3.ZERO) == spawn_offset \
+			and existing_indices.get("context", {}) == context:
 		return
 
 	_assignments[key] = packed
@@ -96,10 +113,58 @@ func end_bulk_assignments() -> void:
 		_flush_assignment_changes_if_needed()
 
 func clear_assignments() -> void:
+	_direct_active_assignments = false
 	_assignments.clear()
 	_assignment_indices.clear()
 	for i in range(_slots.size()):
 		_deactivate_slot(i)
+
+func set_active_assignments(assignments: Dictionary) -> void:
+	_ensure_slot_pool()
+	if _rotator == null or not is_instance_valid(_rotator):
+		_rotator = _resolve_rotator()
+	_direct_active_assignments = true
+	_assignments.clear()
+	_assignment_indices.clear()
+
+	var candidates := []
+	for key in assignments.keys():
+		var row = assignments[key]
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var scene: PackedScene = row.get("scene", null)
+		if scene == null:
+			continue
+		var spiral_idx := int(row.get("spiral_idx", row.get("spiral_index", -1)))
+		var plate_idx := int(row.get("plate_idx", row.get("plate_index", -1)))
+		if spiral_idx < 0 or plate_idx < 0:
+			continue
+		var canonical_tx: Transform = row.get("canonical_tx", Transform.IDENTITY)
+		if not (row.get("canonical_tx", null) is Transform):
+			canonical_tx = _get_canonical_transform_for_indices(spiral_idx, plate_idx)
+		var spawn_offset: Vector3 = row.get("spawn_offset", Vector3.ZERO)
+		var context: Dictionary = row.get("context", {})
+		var key_string := String(key)
+		_assignments[key_string] = scene
+		_assignment_indices[key_string] = {
+			"spiral_idx": spiral_idx,
+			"plate_idx": plate_idx,
+			"spawn_offset": spawn_offset,
+			"context": context.duplicate(true)
+		}
+		candidates.append({
+			"key": key_string,
+			"spiral_idx": spiral_idx,
+			"plate_idx": plate_idx,
+			"scene": scene,
+			"spawn_offset": spawn_offset,
+			"context": context,
+			"canonical_tx": canonical_tx,
+			"dist_sq": 0.0
+		})
+	_apply_active_candidates(candidates)
+	_sync_slot_transforms(0.0)
+	_sync_physics_activation_for_slots()
 
 # Registra el WorldRotator que provee transforms canónicos.
 func register_rotator(rotator: Spatial) -> void:
@@ -260,13 +325,18 @@ func _refresh_active_slots() -> void:
 
 	var candidates: Array = _collect_candidates()
 	candidates.sort_custom(self, "_sort_by_distance")
-	var candidates_by_key := {}
 	var active_candidate_count: int = int(min(candidates.size(), _slots.size()))
 	var active_candidates: Array = candidates.slice(0, active_candidate_count - 1) if active_candidate_count > 0 else []
+	_apply_active_candidates(active_candidates)
+	_sync_physics_activation_for_slots()
+
+func _apply_active_candidates(active_candidates: Array) -> void:
+	var candidates_by_key := {}
 	for candidate in active_candidates:
 		candidates_by_key[str(candidate["key"])] = candidate
 
 	var assigned_keys := {}
+	var assigned_slots := {}
 	for i in range(_slots.size()):
 		var assignment: Dictionary = _slot_assignments[i]
 		if assignment.empty():
@@ -275,19 +345,24 @@ func _refresh_active_slots() -> void:
 		if candidates_by_key.has(key):
 			_activate_slot(i, candidates_by_key[key])
 			assigned_keys[key] = true
-		else:
-			_deactivate_slot(i)
+			assigned_slots[i] = true
 
 	for candidate in active_candidates:
 		var key: String = str(candidate["key"])
 		if assigned_keys.has(key):
 			continue
-		var free_slot: int = _find_free_slot()
+		var free_slot: int = _find_reusable_slot(candidate.get("scene", null), assigned_slots)
 		if free_slot == -1:
 			break
 		_activate_slot(free_slot, candidate)
 		assigned_keys[key] = true
-	_sync_physics_activation_for_slots()
+		assigned_slots[free_slot] = true
+
+	for i in range(_slots.size()):
+		if assigned_slots.has(i):
+			continue
+		if not _slot_assignments[i].empty():
+			_deactivate_slot(i)
 
 func _mark_assignments_dirty() -> void:
 	_bulk_assignment_dirty = true
@@ -412,24 +487,26 @@ func _activate_slot(index: int, candidate: Dictionary) -> void:
 	var current_assignment: Dictionary = _slot_assignments[index]
 	var same_key: bool = not current_assignment.empty() and current_assignment.get("key", "") == key
 	var same_scene: bool = _slot_scenes[index] == scene
+	var existing_instance := _get_slot_root_instance(slot)
+	var can_reuse_instance := same_scene and is_instance_valid(existing_instance)
 
 	if not same_key or not same_scene:
-		_clear_slot_children(slot)
+		if not can_reuse_instance:
+			_clear_slot_children(slot)
 		if _rotator and candidate.has("canonical_tx") and candidate["canonical_tx"] is Transform:
 			slot.global_transform = _rotator.global_transform * (candidate["canonical_tx"] as Transform)
-		if scene:
+		if can_reuse_instance:
+			_apply_instance_spawn_offset(existing_instance, slot, candidate.get("spawn_offset", _assignment_indices.get(key, {}).get("spawn_offset", Vector3.ZERO)))
+			_apply_instance_context(existing_instance, candidate.get("context", _assignment_indices.get(key, {}).get("context", {})))
+		elif scene:
 			var instance: Node = scene.instance()
 			if instance:
 				var spawn_offset: Vector3 = candidate.get("spawn_offset", _assignment_indices.get(key, {}).get("spawn_offset", Vector3.ZERO))
 				var context: Dictionary = candidate.get("context", _assignment_indices.get(key, {}).get("context", {}))
-				if instance is Spatial and spawn_offset != Vector3.ZERO:
-					# spawn_offset is world-space; convert to slot-local to stay world-up
-					# regardless of plate tilt angle.
-					(instance as Spatial).transform.origin = slot.global_transform.basis.xform_inv(spawn_offset)
+				_apply_instance_spawn_offset(instance, slot, spawn_offset)
 				_apply_instance_context(instance, context)
 				slot.add_child(instance)
 	else:
-		var existing_instance := _get_slot_root_instance(slot)
 		_apply_instance_context(existing_instance, candidate.get("context", _assignment_indices.get(key, {}).get("context", {})))
 
 	_slot_assignments[index] = {
@@ -444,6 +521,13 @@ func _activate_slot(index: int, candidate: Dictionary) -> void:
 		# Nuevo contenido: los nodos no tienen meta de gate, física habilitada por defecto
 		if index < _slot_physics_enabled.size():
 			_slot_physics_enabled[index] = true
+
+func _apply_instance_spawn_offset(instance: Node, slot: Spatial, spawn_offset: Vector3) -> void:
+	if not (instance is Spatial) or slot == null or not is_instance_valid(slot):
+		return
+	# spawn_offset is world-space; convert to slot-local to stay world-up
+	# regardless of plate tilt angle.
+	(instance as Spatial).transform.origin = slot.global_transform.basis.xform_inv(spawn_offset)
 
 func _apply_instance_context(instance: Node, context: Dictionary) -> void:
 	if not is_instance_valid(instance) or typeof(context) != TYPE_DICTIONARY or context.empty():
@@ -528,6 +612,35 @@ func _find_free_slot() -> int:
 		if _slot_assignments[i].empty():
 			return i
 	return -1
+
+func _find_reusable_slot(scene: PackedScene, assigned_slots: Dictionary) -> int:
+	for i in range(_slot_scenes.size()):
+		if assigned_slots.has(i):
+			continue
+		if scene != null and _slot_scenes[i] == scene and _get_slot_root_instance(_slots[i]) != null:
+			return i
+	for i in range(_slot_assignments.size()):
+		if assigned_slots.has(i):
+			continue
+		if _slot_assignments[i].empty():
+			return i
+	for i in range(_slot_assignments.size()):
+		if not assigned_slots.has(i):
+			return i
+	return -1
+
+func _get_canonical_transform_for_indices(spiral_idx: int, plate_idx: int) -> Transform:
+	if _rotator == null or not is_instance_valid(_rotator):
+		return Transform.IDENTITY
+	if not _rotator.has_method("get_platforms") or not _rotator.has_method("get_plate_canonical_transform"):
+		return Transform.IDENTITY
+	var platforms: Array = _rotator.get_platforms()
+	if spiral_idx < 0 or spiral_idx >= platforms.size():
+		return Transform.IDENTITY
+	var spiral: Spatial = platforms[spiral_idx]
+	if spiral == null:
+		return Transform.IDENTITY
+	return _rotator.get_plate_canonical_transform(spiral, plate_idx)
 
 func _clear_slot_children(slot: Spatial) -> void:
 	for child in slot.get_children():

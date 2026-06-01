@@ -63,16 +63,29 @@ func get_nearest_full_detail_plate_keys(candidates: Array, center: Vector3, near
 			origin = candidate["origin"]
 		elif candidate.has("canonical_tx") and candidate["canonical_tx"] is Transform:
 			origin = (candidate["canonical_tx"] as Transform).origin
-		ranked.append({
+		_insert_ranked_candidate(ranked, {
 			"key": _make_key(spiral_idx, plate_idx),
 			"dist_sq": origin.distance_squared_to(center)
-		})
-	ranked.sort_custom(self, "_sort_ranked_candidate")
+		}, count)
 	for i in range(min(count, ranked.size())):
 		result[String(ranked[i].get("key", ""))] = true
 	for key in _active_stream_plates.keys():
 		result[key] = true
 	return result
+
+
+func _insert_ranked_candidate(ranked: Array, candidate: Dictionary, max_count: int) -> void:
+	if max_count <= 0:
+		return
+	var dist_sq := float(candidate.get("dist_sq", 0.0))
+	var insert_at := ranked.size()
+	while insert_at > 0 and dist_sq < float(ranked[insert_at - 1].get("dist_sq", 0.0)):
+		insert_at -= 1
+	if insert_at >= max_count:
+		return
+	ranked.insert(insert_at, candidate)
+	if ranked.size() > max_count:
+		ranked.pop_back()
 
 
 func get_plate_segment(spiral: Spatial, plate_index: int) -> int:

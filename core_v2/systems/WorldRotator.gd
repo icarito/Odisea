@@ -108,6 +108,9 @@ var _pool_update_counter: int = 0
 var _spiral_extents_cache: Dictionary = {}  # spiral_index (int) -> Vector3
 var _target_plate_query_counter: int = 0
 var _world_environment_sky_entries: Array = []
+var _sky_frame_sync_counter: int = 0
+var _sky_frame_sync_interval: int = 6
+var _last_sky_basis := Basis.IDENTITY
 # Retrocompatibilidad: alias del pool para tests que lean _generated_collision_bodies
 var _generated_collision_bodies: Array setget ,_get_generated_collision_bodies
 func _get_generated_collision_bodies() -> Array:
@@ -189,17 +192,18 @@ func _physics_process(delta: float) -> void:
 	if continuous_tracking and _active_collision_body and is_instance_valid(_active_collision_body) \
 			and _selected_spiral_index >= 0 and _selected_plate_index >= 0:
 		_active_collision_body.global_transform = global_transform * _selected_plate_canonical
-		# Sincronizar el resto del pool para evitar drift visual-físico entre saltos de asignación.
-		_sync_pool_transforms_to_world()
 
-	var pool_update_due: bool = _is_pool_update_due()
+	var pool_update_due: bool = false if continuous_tracking_applied else _is_pool_update_due()
 	if not pool_update_due:
 		_pool_update_counter += 1
 		pool_update_due = _pool_update_counter >= collision_update_interval
 	if pool_update_due:
 		_pool_update_counter = 0
 		_assign_pool_to_nearest_plates()
-	_sync_world_environment_sky_frames()
+	_sky_frame_sync_counter += 1
+	if _sky_frame_sync_counter >= _sky_frame_sync_interval:
+		_sky_frame_sync_counter = 0
+		_sync_world_environment_sky_frames()
 
 # ── API pública ──────────────────────────────────────────────────────────────
 
@@ -1063,7 +1067,7 @@ func _destroy_collision_pool() -> void:
 	_collision_pool.clear()
 	_pool_assignments.clear()
 
-# Recalcula qué plates reciben un slot del pool, ordenando por distancia al jugador.
+# Recalcula qué plates reciben un slot del pool, priorizando distancia al jugador.
 # Solo reasigna transforms — cero allocs.
 func _assign_pool_to_nearest_plates() -> void:
 	if spiral_blend <= 0.001 and centrifugal_current_plate_only_physics:
@@ -1087,6 +1091,7 @@ func _assign_pool_to_nearest_plates() -> void:
 		return
 
 	# Recopilar candidates usando búsqueda espacial por altura (Y local de la espira).
+	# Mantenemos solo los N más cercanos; sort_custom con Dictionary callbacks domina el profiler.
 	var candidates: Array = []  # Array of {spiral_index, plate_index, dist_sq, canonical_tx}
 	var pool_size: int = _collision_pool.size()
 	# Buscamos un rango de plates que cubra con creces el pool_size.
@@ -1123,35 +1128,37 @@ func _assign_pool_to_nearest_plates() -> void:
 
 			var plate_tx: Transform = spiral_canonical_base * plate_local_tx
 			var dist_sq: float = plate_tx.origin.distance_squared_to(center_canonical)
-			candidates.append({
+			_insert_pool_candidate_sorted(candidates, {
 				"spiral_index": spiral_index,
 				"plate_index": plate_index,
 				"dist_sq": dist_sq,
 				"canonical_tx": plate_tx
-			})
+			}, pool_size)
 
-	# Ordenar por distancia ascendente y tomar la ventana activa.
-	candidates.sort_custom(self, "_sort_by_dist_sq")
-	var active_count: int = min(candidates.size(), pool_size)
-	var active_candidates: Array = candidates.slice(0, active_count - 1) if active_count > 0 else []
+	var active_candidates: Array = candidates
 	var candidates_by_key := {}
 	for candidate in active_candidates:
-		candidates_by_key[_make_pool_key(int(candidate["spiral_index"]), int(candidate["plate_index"]))] = candidate
+		candidates_by_key[_make_pool_key_id(int(candidate["spiral_index"]), int(candidate["plate_index"]))] = candidate
 
 	var assigned_keys := {}
 	for i in range(_collision_pool.size()):
 		var assignment: Dictionary = _pool_assignments[i]
 		if assignment.empty():
 			continue
-		var key: String = _make_pool_key(int(assignment.get("spiral_index", -1)), int(assignment.get("plate_index", -1)))
+		var key: int = _make_pool_key_id(int(assignment.get("spiral_index", -1)), int(assignment.get("plate_index", -1)))
 		if candidates_by_key.has(key):
-			_assign_collision_pool_slot(i, candidates_by_key[key])
+			var existing_candidate: Dictionary = candidates_by_key[key]
+			if continuous_tracking and _pool_assignment_matches_candidate(assignment, existing_candidate):
+				_sync_collision_pool_slot_transform(i, existing_candidate)
+				assigned_keys[key] = true
+				continue
+			_assign_collision_pool_slot(i, existing_candidate)
 			assigned_keys[key] = true
 		else:
 			_deactivate_collision_pool_slot(i)
 
 	for candidate in active_candidates:
-		var key: String = _make_pool_key(int(candidate["spiral_index"]), int(candidate["plate_index"]))
+		var key: int = _make_pool_key_id(int(candidate["spiral_index"]), int(candidate["plate_index"]))
 		if assigned_keys.has(key):
 			continue
 		var free_slot: int = _find_free_collision_pool_slot()
@@ -1212,6 +1219,26 @@ func _find_free_collision_pool_slot() -> int:
 			return i
 	return -1
 
+func _insert_pool_candidate_sorted(candidates: Array, candidate: Dictionary, max_count: int) -> void:
+	if max_count <= 0:
+		return
+	var dist_sq: float = float(candidate["dist_sq"])
+	var insert_at: int = candidates.size()
+	while insert_at > 0 and dist_sq < float(candidates[insert_at - 1]["dist_sq"]):
+		insert_at -= 1
+	if insert_at >= max_count:
+		return
+	candidates.insert(insert_at, candidate)
+	if candidates.size() > max_count:
+		candidates.pop_back()
+
+func _pool_assignment_matches_candidate(assignment: Dictionary, candidate: Dictionary) -> bool:
+	return int(assignment.get("spiral_index", -1)) == int(candidate["spiral_index"]) \
+			and int(assignment.get("plate_index", -1)) == int(candidate["plate_index"])
+
+func _make_pool_key_id(spiral_index: int, plate_index: int) -> int:
+	return spiral_index * 100000 + plate_index
+
 func _make_pool_key(spiral_index: int, plate_index: int) -> String:
 	return "%d:%d" % [spiral_index, plate_index]
 
@@ -1223,6 +1250,17 @@ func _sync_pool_transforms_to_world() -> void:
 		var canonical_tx = body.get_meta("canonical_tx")
 		if canonical_tx is Transform:
 			body.global_transform = global_transform * (canonical_tx as Transform)
+
+func _sync_collision_pool_slot_transform(index: int, candidate: Dictionary) -> void:
+	if index < 0 or index >= _collision_pool.size():
+		return
+	var body: StaticBody = _collision_pool[index]
+	if not is_instance_valid(body):
+		return
+	var canonical_tx = candidate.get("canonical_tx", null)
+	if canonical_tx is Transform:
+		var plate_global: Transform = global_transform * (canonical_tx as Transform)
+		body.global_transform = _get_neighbor_collision_transform(plate_global)
 
 func _sort_by_dist_sq(a: Dictionary, b: Dictionary) -> bool:
 	return a.dist_sq < b.dist_sq
@@ -1306,9 +1344,8 @@ func _wrap_index(value: int, size: int) -> int:
 	return wrapped
 
 func _is_pool_update_due() -> bool:
-	# continuous_tracking actualiza transforms via _sync_pool_transforms_to_world() cada frame.
-	# La reasignación costosa (_assign_pool_to_nearest_plates) solo debe correr a la tasa
-	# collision_update_interval, no a 60 Hz. Solo forzar si hay transición activa.
+	# En continuous_tracking, el caller aplica collision_update_interval para no mover
+	# decenas de StaticBodies cada tick físico. Solo forzar durante transiciones no continuas.
 	if _is_transitioning:
 		return true
 	if _has_transform_target:

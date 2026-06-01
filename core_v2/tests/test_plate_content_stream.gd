@@ -173,6 +173,46 @@ func test_reassigning_same_scene_updates_visibility_without_reinstancing() -> vo
 	assert_object(content_after).is_same(content_before)
 	assert_bool(content_after.visible).is_true()
 
+func test_set_active_assignments_reuses_same_scene_instance_across_keys() -> void:
+	var setup: Dictionary = _build_stream_setup()
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+
+	var rotator: Spatial = setup["rotator"]
+	var stream: PlateContentStream = setup["stream"]
+	stream.slot_pool_size = 1
+	var packed := _make_marker_scene("PooledContent")
+
+	stream.set_active_assignments({
+		"0:12": {
+			"scene": packed,
+			"spiral_idx": 0,
+			"plate_idx": 12,
+			"canonical_tx": rotator.get_plate_canonical_transform(rotator.get_platforms()[0], 12)
+		}
+	})
+	yield(get_tree(), "physics_frame")
+	var slot_before: Spatial = stream.get_slot(0, 12)
+	assert_object(slot_before).is_not_null()
+	var content_before: Node = slot_before.get_node_or_null("PooledContent")
+	assert_object(content_before).is_not_null()
+
+	stream.set_active_assignments({
+		"0:13": {
+			"scene": packed,
+			"spiral_idx": 0,
+			"plate_idx": 13,
+			"canonical_tx": rotator.get_plate_canonical_transform(rotator.get_platforms()[0], 13),
+			"context": {"dome_id": "dome_next"}
+		}
+	})
+	yield(get_tree(), "physics_frame")
+
+	var slot_after: Spatial = stream.get_slot(0, 13)
+	assert_object(slot_after).is_same(slot_before)
+	assert_object(slot_after.get_node_or_null("PooledContent")).is_same(content_before)
+	assert_str(String(content_before.get_meta("dome_id"))).is_equal("dome_next")
+
 func test_bulk_assignments_delay_slot_refresh_until_flush() -> void:
 	var setup: Dictionary = _build_stream_setup()
 	yield(get_tree(), "idle_frame")

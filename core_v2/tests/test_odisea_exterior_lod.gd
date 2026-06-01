@@ -41,3 +41,12 @@ func test_prewarm_full_detail_dome_covers_one_ring_beyond_visible_radius() -> vo
 	exterior.dome_full_detail_preload_extra_radius = 1
 	assert_bool(exterior._is_distance_within_full_detail_prewarm(1)).is_true()
 	assert_bool(exterior._is_distance_within_full_detail_prewarm(2)).is_false()
+
+func test_local_full_detail_window_is_capped_to_three_plates() -> void:
+	var exterior = auto_free(OdiseaExteriorScript.new())
+	var keys: Dictionary = exterior._get_local_plate_window_keys(2, 0, 10, 3)
+
+	assert_int(keys.size()).is_equal(3)
+	assert_bool(keys.has("2:0")).is_true()
+	assert_bool(keys.has("2:9")).is_true()
+	assert_bool(keys.has("2:1")).is_true()

@@ -2549,7 +2549,6 @@ material/0 = SubResource( 221 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 5 )
 gas_type = 1
 buoyancy = -0.01
-player_push_force = 2.0
 initial_particle_count = 256
 initial_fill_radius = 2.0
 initial_particle_scale = 4.0
