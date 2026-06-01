@@ -7,6 +7,7 @@
 [ext_resource path="res://core_v2/components/SpiralPlateAttachment.gd" type="Script" id=6]
 [ext_resource path="res://core_v2/systems/visual/FauxSkydomeParallaxShell.gd" type="Script" id=7]
 [ext_resource path="res://core_v2/systems/visual/TerraceSegmentManager.gd" type="Script" id=8]
+[ext_resource path="res://core_v2/systems/ScaffoldWFC3DGenerator.gd" type="Script" id=9]
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 100, 1, 100 )
@@ -47,6 +48,12 @@ rotator_path = NodePath("../WorldRotator")
 tracking_target_path = NodePath("../Pilot")
 slot_pool_size = 24
 centrifugal_current_plate_only_physics = false
+
+[node name="ScaffoldNetwork" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 50, -100 )
+script = ExtResource( 9 )
+auto_generate = true
+generation_seed = 1337
 
 [node name="Pilot" parent="." instance=ExtResource( 2 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 3, 29 )
