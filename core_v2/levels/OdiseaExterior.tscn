@@ -26,7 +26,6 @@ auto_track_target_plate = true
 scene_anchor_use_selected_plate_on_ready = true
 collision_pool_size = 4
 collision_pool_xz_scale = 1.0
-warn_on_physics_children = false
 centrifugal_current_plate_only_physics = false
 
 [node name="FauxSkydome" type="Spatial" parent="WorldRotator"]

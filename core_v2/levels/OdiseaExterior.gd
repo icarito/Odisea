@@ -5,12 +5,15 @@ export(int, 0, 10000) var selected_plate := 0
 export(bool) var snap_on_selection := true
 export(PackedScene) var plate_content_scene
 export(int, -1, 8) var dome_full_detail_plate_radius := 1
-export(int, 0, 64) var dome_full_detail_nearest_count := 3
+export(int, 0, 64) var dome_full_detail_nearest_count := 1
 export(int, 0, 3) var dome_full_detail_spiral_radius := 1
 export(int, 0, 32) var dome_inter_spiral_plate_offset := 4
 export(int, 0, 8) var dome_full_detail_preload_extra_radius := 2
 export(bool) var dome_lod_enabled := true
 export(int, 0, 1024) var dome_lod_overlay_max_instances := 64
+export(int, 0, 16) var dome_lod_adjacent_spiral_slots := 4
+export(float, 0.0, 180.0) var dome_lod_frustum_half_fov_deg := 80.0
+export(float, 1.0, 32.0) var dome_lod_backface_penalty := 8.0
 export(int, 4, 64) var exterior_collision_pool_size := 4
 export(int, 1, 30) var exterior_collision_update_interval := 8
 export(int, 1, 30) var exterior_target_plate_query_interval := 6
@@ -40,6 +43,11 @@ var _dome_assignment_cache := {}       # "spiral:plate" -> cached dome assignmen
 var _dome_lod_assignment_keys := []     # Array[String]
 var _dome_assignment_cache_ready := false
 var _packed_scene_cache := {}
+
+# Pipeline LOD: fase única por frame (snapshot + sort + flush todas las espirales).
+var _lod_update_phase := 0              # 0=idle, 1=ejecutar ciclo completo
+var _lod_pipeline_all_assignments := [] # candidatos para el ciclo actual
+var _lod_dirty := false                 # plate cambió mientras el pipeline corría; reiniciar al terminar
 
 func _ready() -> void:
 	if has_node("/root/SessionManager"):
@@ -72,6 +80,7 @@ func _resolve_player_camera() -> Camera:
 
 func _process(_delta: float) -> void:
 	_sync_selection_from_rotator()
+	_tick_lod_update_phase()
 	_tick_dome_facade_cursor()  # sigue la animación/rotación del WorldRotator cada frame
 	_reset_camera_roll()
 
@@ -173,9 +182,9 @@ func _configure_plate_content_stream() -> void:
 		return
 	_plate_content_stream.rotator_path = NodePath("../WorldRotator")
 	_plate_content_stream.tracking_target_path = NodePath("../Pilot")
-	_plate_content_stream.slot_pool_size = 3
+	_plate_content_stream.slot_pool_size = 4
 	_plate_content_stream.slot_update_interval = 3
-	_plate_content_stream.centrifugal_current_plate_only_physics = false
+	_plate_content_stream.centrifugal_current_plate_only_physics = true
 	if _plate_content_stream.has_method("register_rotator"):
 		_plate_content_stream.register_rotator(_rotator)
 
@@ -256,8 +265,10 @@ func _sync_plate_window_for_selection(force: bool = false) -> void:
 		_sync_stream_assignments_legacy(stream_assignments)
 
 	if lod_mode == "lod":
-		var lod_assignments := _build_lod_overlay_assignments_for_selection()
-		_update_dome_lod(lod_assignments)
+		if _lod_update_phase == 0:
+			_schedule_lod_overlay_update(_build_lod_overlay_assignments_for_selection())
+		else:
+			_lod_dirty = true
 	else:
 		_update_dome_lod(_build_assignments_for_keys(full_detail_keys))
 
@@ -415,6 +426,89 @@ func _get_wrapped_plate_distance(from_plate: int, to_plate: int, plate_count: in
 	var direct := abs(to_plate - from_plate)
 	return int(min(direct, plate_count - direct))
 
+# Inicia el pipeline LOD con nuevas asignaciones.
+func _schedule_lod_overlay_update(assignments: Array) -> void:
+	_lod_update_phase = 1
+	_lod_pipeline_all_assignments = assignments
+
+# Snapshot de orígenes canónicos: una inversión de WorldRotator + una base canónica por espiral.
+func _snapshot_canonical_origins(assignments: Array) -> Dictionary:
+	var snap := {}
+	if not _rotator or not is_instance_valid(_rotator):
+		return snap
+	var rotator_inv := _rotator.global_transform.affine_inverse()
+	var spiral_canonicals := {}  # spiral_index -> Transform (cacheado por espiral)
+	for assignment in assignments:
+		var spiral_index := int(assignment.get("spiral_index", -1))
+		var plate_index := int(assignment.get("plate_index", -1))
+		if spiral_index < 0 or spiral_index >= _spirals.size():
+			continue
+		if not spiral_canonicals.has(spiral_index):
+			spiral_canonicals[spiral_index] = rotator_inv * _spirals[spiral_index].global_transform
+		var spiral: Spatial = _spirals[spiral_index]
+		var local_xform: Transform
+		var cached_list = spiral.get("_cached_transforms")
+		if cached_list != null and cached_list is Array and plate_index < cached_list.size():
+			local_xform = cached_list[plate_index]
+		else:
+			var multimesh: MultiMesh = spiral.get("multimesh")
+			if multimesh == null or multimesh.instance_count <= 0:
+				continue
+			local_xform = multimesh.get_instance_transform(int(clamp(plate_index, 0, multimesh.instance_count - 1)))
+		snap[_make_plate_key(spiral_index, plate_index)] = (spiral_canonicals[spiral_index] * local_xform).origin
+	return snap
+
+# Ejecuta el pipeline LOD completo en un solo frame.
+# Fase 1 (snapshot + sort + build) es barata tras la optimización de spiral_canonicals.
+# Fase 2 (flush a espirales) usa structural signature para evitar rebuilds de MultiMesh.
+func _tick_lod_update_phase() -> void:
+	if _lod_update_phase != 1:
+		return
+	var origin_snap := _snapshot_canonical_origins(_lod_pipeline_all_assignments)
+	var sorted := _select_nearest_dome_lod_assignments(_lod_pipeline_all_assignments, origin_snap)
+	var groups_by_spiral := {}
+	for assignment in sorted:
+		var info: Dictionary = assignment.get("info", {})
+		var blueprint: Dictionary = assignment.get("blueprint", {})
+		if blueprint.empty():
+			blueprint = _resolve_dome_lod_blueprint(info)
+		if blueprint.empty():
+			continue
+		var spiral_index := int(assignment.get("spiral_index", -1))
+		if spiral_index < 0 or spiral_index >= _spirals.size():
+			continue
+		var cache_key := String(blueprint.get("cache_key", "")).strip_edges()
+		if cache_key == "":
+			cache_key = String(assignment.get("dome_id", "lod"))
+		if not groups_by_spiral.has(spiral_index):
+			groups_by_spiral[spiral_index] = {}
+		if not groups_by_spiral[spiral_index].has(cache_key):
+			groups_by_spiral[spiral_index][cache_key] = {"blueprint": blueprint, "items": []}
+		groups_by_spiral[spiral_index][cache_key]["items"].append(assignment)
+	# Flush todas las espirales en el mismo frame (structural signature evita rebuild si no cambió).
+	var covered_spirals := {}
+	for spiral_index in groups_by_spiral.keys():
+		var spiral: Spatial = _spirals[int(spiral_index)]
+		if not (spiral is TerraceSpiral):
+			continue
+		spiral.set_dome_lod_overlays(_build_spiral_dome_lod_groups(groups_by_spiral[spiral_index]))
+		covered_spirals[int(spiral_index)] = true
+	for i in range(_spirals.size()):
+		if covered_spirals.has(i):
+			continue
+		var spiral: Spatial = _spirals[i]
+		if spiral is TerraceSpiral:
+			spiral.clear_dome_lod_overlays()
+	_last_dome_lod_stats = _build_dome_lod_stats(
+		_lod_pipeline_all_assignments,
+		_get_full_detail_plate_keys_for_selection(),
+		_count_overlay_parts(groups_by_spiral))
+	_last_dome_lod_stats["lod1_visible_instances"] = sorted.size()
+	_lod_update_phase = 0
+	if _lod_dirty:
+		_lod_dirty = false
+		_schedule_lod_overlay_update(_build_lod_overlay_assignments_for_selection())
+
 func _update_dome_lod(assignments: Array) -> void:
 	var use_lod_overlays := _uses_dome_lod_overlays()
 	if not use_lod_overlays:
@@ -457,28 +551,79 @@ func _update_dome_lod(assignments: Array) -> void:
 	_last_dome_lod_stats = _build_dome_lod_stats(assignments, _get_full_detail_plate_keys_for_selection(), _count_overlay_parts(groups_by_spiral))
 	_last_dome_lod_stats["lod1_visible_instances"] = overlay_assignments.size()
 
-func _select_nearest_dome_lod_assignments(assignments: Array) -> Array:
+func _select_nearest_dome_lod_assignments(assignments: Array, origin_snap: Dictionary = {}) -> Array:
 	var max_instances := int(dome_lod_overlay_max_instances)
 	if max_instances <= 0 or assignments.size() <= max_instances:
 		return assignments
 	if _spirals.empty() or not _rotator or not is_instance_valid(_rotator):
 		return assignments.slice(0, max_instances - 1)
 	var reference_pos := _get_full_detail_reference_canonical_position(selected_spiral, selected_plate)
-	var ranked := []
+	var cam_fwd := _get_camera_forward_canonical()
+	var use_frustum := cam_fwd.length_squared() > 0.01
+	var fov_cos := cos(deg2rad(clamp(float(dome_lod_frustum_half_fov_deg), 0.0, 179.9))) if use_frustum else -1.0
+	var penalty := float(dome_lod_backface_penalty)
+
+	# --- Pass 1: slots garantizados para espirales adyacentes (≠ selected_spiral) ---
+	var adj_slots := int(clamp(dome_lod_adjacent_spiral_slots, 0, max_instances))
+	var adjacent_keys := {}  # claves ya elegidas en este paso
+	var adjacent_selected := []
+	if adj_slots > 0 and _spirals.size() > 1:
+		var adj_ranked := []
+		for assignment in assignments:
+			var spiral_index := int(assignment.get("spiral_index", -1))
+			if spiral_index < 0 or spiral_index >= _spirals.size() or spiral_index == selected_spiral:
+				continue
+			var plate_index := int(assignment.get("plate_index", -1))
+			var snap_key := _make_plate_key(spiral_index, plate_index)
+			var canonical_origin: Vector3 = origin_snap[snap_key] if origin_snap.has(snap_key) else \
+				_rotator.get_plate_canonical_transform(_spirals[spiral_index], plate_index).origin
+			var dist_sq := canonical_origin.distance_squared_to(reference_pos)
+			_insert_ranked_lod_entry(adj_ranked, {"assignment": assignment, "dist_sq": dist_sq}, adj_slots)
+		for entry in adj_ranked:
+			var asn: Dictionary = entry["assignment"]
+			adjacent_selected.append(asn)
+			adjacent_keys[_make_plate_key(int(asn.get("spiral_index", -1)), int(asn.get("plate_index", -1)))] = true
+
+	# --- Pass 2: relleno por distancia con bias de frustum (todas las espirales) ---
+	var remaining := int(max(0, max_instances - adjacent_selected.size()))
+	var main_ranked := []
 	for assignment in assignments:
 		var spiral_index := int(assignment.get("spiral_index", -1))
 		var plate_index := int(assignment.get("plate_index", -1))
+		var key := _make_plate_key(spiral_index, plate_index)
+		if adjacent_keys.has(key):
+			continue
 		if spiral_index < 0 or spiral_index >= _spirals.size():
 			continue
-		var canonical_tx: Transform = _rotator.get_plate_canonical_transform(_spirals[spiral_index], plate_index)
-		var dist_sq := canonical_tx.origin.distance_squared_to(reference_pos)
-		_insert_ranked_lod_entry(ranked, {"assignment": assignment, "dist_sq": dist_sq}, max_instances)
+		var snap_key2 := _make_plate_key(spiral_index, plate_index)
+		var canonical_origin: Vector3 = origin_snap[snap_key2] if origin_snap.has(snap_key2) else \
+			_rotator.get_plate_canonical_transform(_spirals[spiral_index], plate_index).origin
+		var to_plate := canonical_origin - reference_pos
+		var dist_sq := to_plate.length_squared()
+		var score := dist_sq
+		if use_frustum and dist_sq > 0.001:
+			var dot := to_plate.normalized().dot(cam_fwd)
+			if dot < fov_cos:
+				score = dist_sq * penalty
+		_insert_ranked_lod_entry(main_ranked, {"assignment": assignment, "dist_sq": score}, remaining)
+
 	var selected := []
-	for entry in ranked:
+	selected.append_array(adjacent_selected)
+	for entry in main_ranked:
 		selected.append(entry["assignment"])
 	if selected.empty():
 		return assignments
 	return selected
+
+func _get_camera_forward_canonical() -> Vector3:
+	if not _camera or not is_instance_valid(_camera):
+		return Vector3.ZERO
+	if not _rotator or not is_instance_valid(_rotator):
+		return Vector3.ZERO
+	# En Godot el forward de la cámara es -Z en espacio local
+	var cam_fwd_global := -_camera.global_transform.basis.z
+	# Convertir dirección a espacio canónico: solo aplicar la inversa de la base (sin traslación)
+	return _rotator.global_transform.basis.inverse().xform(cam_fwd_global).normalized()
 
 func _insert_ranked_lod_entry(ranked: Array, entry: Dictionary, max_count: int) -> void:
 	if max_count <= 0:

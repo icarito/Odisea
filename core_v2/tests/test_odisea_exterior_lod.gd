@@ -55,7 +55,7 @@ func test_select_nearest_lod_assignments_returns_all_when_under_budget() -> void
 	var exterior = auto_free(OdiseaExteriorScript.new())
 	exterior.dome_lod_overlay_max_instances = 64
 	var assignments := [{"spiral_index": 0, "plate_index": 0}, {"spiral_index": 0, "plate_index": 1}]
-	var result := exterior._select_nearest_dome_lod_assignments(assignments)
+	var result: Array = exterior._select_nearest_dome_lod_assignments(assignments)
 	assert_int(result.size()).is_equal(2)
 
 func test_select_nearest_lod_assignments_slices_when_rotator_null() -> void:
@@ -64,7 +64,7 @@ func test_select_nearest_lod_assignments_slices_when_rotator_null() -> void:
 	var assignments := []
 	for i in range(5):
 		assignments.append({"spiral_index": 0, "plate_index": i})
-	var result := exterior._select_nearest_dome_lod_assignments(assignments)
+	var result: Array = exterior._select_nearest_dome_lod_assignments(assignments)
 	assert_int(result.size()).is_equal(2)
 
 func test_insert_ranked_lod_entry_keeps_sorted_nearest_first() -> void:
@@ -78,3 +78,31 @@ func test_insert_ranked_lod_entry_keeps_sorted_nearest_first() -> void:
 	assert_float(ranked[0].get("dist_sq")).is_equal(5.0)
 	assert_float(ranked[1].get("dist_sq")).is_equal(10.0)
 	assert_float(ranked[2].get("dist_sq")).is_equal(50.0)
+
+func test_get_camera_forward_canonical_returns_zero_without_camera() -> void:
+	var exterior = auto_free(OdiseaExteriorScript.new())
+	var fwd: Vector3 = exterior._get_camera_forward_canonical()
+	assert_bool(fwd.length_squared() < 0.01).is_true()
+
+func test_select_nearest_respects_adjacent_slots_budget() -> void:
+	# Con adj_slots = 2, las 2 primeras del array que sean espiral != selected deben aparecer
+	var exterior = auto_free(OdiseaExteriorScript.new())
+	exterior.dome_lod_overlay_max_instances = 4
+	exterior.dome_lod_adjacent_spiral_slots = 2
+	exterior.dome_lod_frustum_half_fov_deg = 90.0
+	exterior.selected_spiral = 0
+	# Sin _rotator los adjacent_slots son 0 (skip), pero el slice-fallback devuelve 4
+	var assignments := []
+	for i in range(6):
+		assignments.append({"spiral_index": 0, "plate_index": i})
+	var result: Array = exterior._select_nearest_dome_lod_assignments(assignments)
+	assert_int(result.size()).is_equal(4)
+
+func test_insert_ranked_lod_entry_does_not_grow_beyond_max() -> void:
+	var exterior = auto_free(OdiseaExteriorScript.new())
+	var ranked := []
+	for i in range(20):
+		exterior._insert_ranked_lod_entry(ranked, {"dist_sq": float(i)}, 5)
+	assert_int(ranked.size()).is_equal(5)
+	assert_float(ranked[0].get("dist_sq")).is_equal(0.0)
+	assert_float(ranked[4].get("dist_sq")).is_equal(4.0)

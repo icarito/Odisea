@@ -34,6 +34,7 @@ var _cached_origins: Array = []  # Array of Vector3
 var _dome_lod_root: Spatial = null
 var _dome_lod_overlay_entries: Array = []
 var _dome_lod_overlay_signature := ""
+var _dome_lod_structural_signature := ""
 var _dome_lod_hidden_plates: Dictionary = {}  # plate_index -> bool
 
 func _init():
@@ -199,16 +200,41 @@ func clear_dome_lod_overlays() -> void:
 	for child in _dome_lod_root.get_children():
 		child.queue_free()
 	_dome_lod_overlay_entries.clear()
+	_dome_lod_structural_signature = ""
 	_dome_lod_overlay_signature = ""
 	_dome_lod_root.visible = false
 
 func set_dome_lod_plate_hidden(plate_index: int, hidden: bool) -> void:
+	var was_hidden: bool = _dome_lod_hidden_plates.has(plate_index)
+	if hidden == was_hidden:
+		return
 	if hidden:
 		_dome_lod_hidden_plates[plate_index] = true
 	else:
 		_dome_lod_hidden_plates.erase(plate_index)
-	# Aplicar inmediatamente: el loop de animación tiene early-exit si blend no cambia
-	_update_dome_lod_overlay_transforms()
+	# Solo actualiza los items de este plate — no todos los 64 del overlay.
+	_update_dome_lod_overlay_transforms_for_plate(plate_index)
+
+func _update_dome_lod_overlay_transforms_for_plate(plate_index: int) -> void:
+	if not is_instance_valid(_dome_lod_root):
+		return
+	var is_hidden: bool = _dome_lod_hidden_plates.has(plate_index)
+	var hidden_xform := Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
+	for entry in _dome_lod_overlay_entries:
+		var instance: MultiMeshInstance = entry.get("instance", null)
+		if not is_instance_valid(instance) or instance.multimesh == null:
+			continue
+		var items: Array = entry["items"]
+		for item_index in range(items.size()):
+			var item: Dictionary = items[item_index]
+			if int(item["plate_index"]) != plate_index:
+				continue
+			if is_hidden:
+				instance.multimesh.set_instance_transform(item_index, hidden_xform)
+			elif plate_index < _cached_transforms.size():
+				var overlay_transform: Transform = _cached_transforms[plate_index] * item["local_transform"]
+				overlay_transform.origin += item["origin_offset"]
+				instance.multimesh.set_instance_transform(item_index, overlay_transform)
 
 func set_dome_lod_overlays(groups: Array) -> void:
 	_ensure_dome_lod_root()
@@ -216,9 +242,22 @@ func set_dome_lod_overlays(groups: Array) -> void:
 		clear_dome_lod_overlays()
 		return
 	var signature := _build_dome_lod_overlay_signature(groups)
-	if signature != _dome_lod_overlay_signature:
-		_rebuild_dome_lod_overlays(groups)
+	if signature == _dome_lod_overlay_signature:
+		_dome_lod_root.visible = true
+		return
+	# Structural signature: solo meshes y counts, sin posiciones de plates.
+	# Si coincide, actualizamos items y transforms in-place sin destruir MultiMeshes.
+	var structural_sig := _build_dome_lod_structural_signature(groups)
+	if structural_sig == _dome_lod_structural_signature and not _dome_lod_overlay_entries.empty():
+		_update_dome_lod_overlay_items(groups)
+		_dome_lod_overlay_signature = signature
 		_update_dome_lod_overlay_transforms()
+		_dome_lod_root.visible = true
+		return
+	_rebuild_dome_lod_overlays(groups)
+	_dome_lod_structural_signature = structural_sig
+	_dome_lod_overlay_signature = signature
+	_update_dome_lod_overlay_transforms()
 	_dome_lod_root.visible = true
 
 func _rebuild_dome_lod_overlays(groups: Array) -> void:
@@ -251,6 +290,35 @@ func _rebuild_dome_lod_overlays(groups: Array) -> void:
 			})
 		group_index += 1
 	_dome_lod_overlay_signature = _build_dome_lod_overlay_signature(groups)
+
+# Actualiza items y transforms in-place sin destruir/recrear MultiMeshes.
+# Solo se llama cuando la structural signature coincide (mismos meshes, mismos counts).
+func _update_dome_lod_overlay_items(groups: Array) -> void:
+	var entry_index := 0
+	for group in groups:
+		var parts: Array = group.get("parts", [])
+		for part_index in range(parts.size()):
+			if entry_index >= _dome_lod_overlay_entries.size():
+				break
+			var part: Dictionary = parts[part_index]
+			var entry: Dictionary = _dome_lod_overlay_entries[entry_index]
+			entry["items"] = part.get("items", [])
+			entry_index += 1
+
+func _build_dome_lod_structural_signature(groups: Array) -> String:
+	# Solo incluye identidad de meshes y counts, NO posiciones de plates.
+	# Si dos grupos tienen los mismos meshes con los mismos counts, son estructuralmente iguales.
+	var parts := PoolStringArray()
+	for group in groups:
+		parts.append(String(group.get("key", "group")))
+		for part in group.get("parts", []):
+			var mesh_path := ""
+			var mesh: Mesh = part.get("mesh", null)
+			if mesh != null and mesh.resource_path != "":
+				mesh_path = mesh.resource_path
+			var count: int = (part.get("items", []) as Array).size()
+			parts.append("%s:%d" % [mesh_path, count])
+	return parts.join("|")
 
 func _update_dome_lod_overlay_transforms() -> void:
 	if not is_instance_valid(_dome_lod_root):

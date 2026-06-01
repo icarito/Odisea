@@ -26,12 +26,14 @@ var _slots: Array = []          # Array[Spatial]
 var _slot_assignments: Array = [] # Array[Dictionary]
 var _slot_scenes: Array = []    # Array[PackedScene]
 var _slot_physics_enabled: Array = [] # Array[bool] — estado cacheado por slot
+var _slot_rigid_bodies: Array = []    # Array[Array[RigidBody]] — cache por slot para evitar tree walk cada frame
 var _slot_update_counter := 0
 var _bulk_assignment_depth := 0
 var _bulk_assignment_dirty := false
 var _last_selected_spiral_idx: int = -2  # -2 = no inicializado
 var _last_selected_plate_idx: int = -2
 var _direct_active_assignments := false
+var _slot_transform_sync_counter := 0
 
 func _ready() -> void:
 	_build_slot_pool()
@@ -49,7 +51,10 @@ func _physics_process(delta: float) -> void:
 		return
 
 	if _direct_active_assignments:
-		_sync_slot_transforms(delta)
+		_slot_transform_sync_counter += 1
+		if _slot_transform_sync_counter >= slot_update_interval:
+			_slot_transform_sync_counter = 0
+			_sync_slot_transforms(delta)
 		_sync_physics_activation_for_slots()
 		return
 
@@ -193,7 +198,7 @@ func _sync_slot_transforms(delta: float = 0.0) -> void:
 			if _transforms_close(slot.global_transform, target_global):
 				continue
 			var previous_slot_transform: Transform = slot.global_transform
-			var active_rigid_states: Dictionary = _capture_active_rigid_body_states(slot, previous_slot_transform)
+			var active_rigid_states: Dictionary = _capture_rigid_body_states_cached(i, previous_slot_transform)
 			slot.global_transform = target_global
 			_restore_active_rigid_body_states(active_rigid_states, previous_slot_transform, target_global, delta)
 
@@ -212,6 +217,10 @@ func _sync_physics_activation_for_slots() -> void:
 		_set_subtree_physics_enabled(slot, active)
 
 func _should_gate_physics_to_selected_plate() -> bool:
+	# En modo direct, OdiseaExterior ya seleccionó exactamente qué domes activar.
+	# El gating por plate causaría race conditions entre _process y _physics_process.
+	if _direct_active_assignments:
+		return false
 	if not centrifugal_current_plate_only_physics:
 		return false
 	if not _is_rotator_centrifugal():
@@ -521,6 +530,7 @@ func _activate_slot(index: int, candidate: Dictionary) -> void:
 		# Nuevo contenido: los nodos no tienen meta de gate, física habilitada por defecto
 		if index < _slot_physics_enabled.size():
 			_slot_physics_enabled[index] = true
+		_rebuild_slot_rigid_body_cache(index)
 
 func _apply_instance_spawn_offset(instance: Node, slot: Spatial, spawn_offset: Vector3) -> void:
 	if not (instance is Spatial) or slot == null or not is_instance_valid(slot):
@@ -567,6 +577,8 @@ func _deactivate_slot(index: int) -> void:
 	_slot_scenes[index] = null
 	if index < _slot_physics_enabled.size():
 		_slot_physics_enabled[index] = true  # reset cache: prox. sync lo aplicará si corresponde
+	if index < _slot_rigid_bodies.size():
+		_slot_rigid_bodies[index] = []
 
 func _build_slot_pool() -> void:
 	for slot in _slots:
@@ -576,6 +588,7 @@ func _build_slot_pool() -> void:
 	_slot_assignments.clear()
 	_slot_scenes.clear()
 	_slot_physics_enabled.clear()
+	_slot_rigid_bodies.clear()
 
 	for i in range(slot_pool_size):
 		var slot := Spatial.new()
@@ -586,6 +599,7 @@ func _build_slot_pool() -> void:
 		_slot_assignments.append({})
 		_slot_scenes.append(null)
 		_slot_physics_enabled.append(true)
+		_slot_rigid_bodies.append([])
 
 func _ensure_slot_pool() -> void:
 	if _slots.size() != slot_pool_size:
@@ -662,6 +676,38 @@ func _capture_active_rigid_body_states_recursive(root: Node, captured: Dictionar
 				"angular_velocity": body.angular_velocity
 			}
 		_capture_active_rigid_body_states_recursive(child, captured, slot_global_transform)
+
+# Captura estados usando el cache de RigidBodies del slot (sin tree walk).
+func _capture_rigid_body_states_cached(slot_index: int, slot_global_transform: Transform) -> Dictionary:
+	var captured := {}
+	if slot_index < 0 or slot_index >= _slot_rigid_bodies.size():
+		return captured
+	for body in _slot_rigid_bodies[slot_index]:
+		if not is_instance_valid(body):
+			continue
+		if (body as RigidBody).mode != RigidBody.MODE_RIGID:
+			continue
+		captured[body] = {
+			"local_transform": slot_global_transform.affine_inverse() * body.global_transform,
+			"linear_velocity": body.linear_velocity,
+			"angular_velocity": body.angular_velocity
+		}
+	return captured
+
+# Construye el cache de RigidBodies de un slot tras activarlo.
+func _rebuild_slot_rigid_body_cache(slot_index: int) -> void:
+	if slot_index < 0 or slot_index >= _slots.size():
+		return
+	var bodies := []
+	_collect_rigid_bodies_recursive(_slots[slot_index], bodies)
+	if slot_index < _slot_rigid_bodies.size():
+		_slot_rigid_bodies[slot_index] = bodies
+
+func _collect_rigid_bodies_recursive(node: Node, bodies: Array) -> void:
+	for child in node.get_children():
+		if child is RigidBody:
+			bodies.append(child as RigidBody)
+		_collect_rigid_bodies_recursive(child, bodies)
 
 func _restore_active_rigid_body_states(captured: Dictionary, previous_slot_transform: Transform, new_slot_transform: Transform, _delta: float) -> void:
 	var slot_delta_basis: Basis = new_slot_transform.basis * previous_slot_transform.basis.inverse()

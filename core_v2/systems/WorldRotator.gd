@@ -107,6 +107,7 @@ var _pool_assignments: Array = []      # Array[Dictionary]
 var _pool_update_counter: int = 0
 var _spiral_extents_cache: Dictionary = {}  # spiral_index (int) -> Vector3
 var _target_plate_query_counter: int = 0
+var _cached_tracking_target: Spatial = null  # cache por frame: evita get_nodes_in_group repetido
 var _world_environment_sky_entries: Array = []
 var _sky_frame_sync_counter: int = 0
 var _sky_frame_sync_interval: int = 6
@@ -173,6 +174,8 @@ func _sync_faux_skydome_visibility() -> void:
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
+	# Resolver tracking target una sola vez por frame para evitar get_nodes_in_group repetido.
+	_cached_tracking_target = _get_tracking_target()
 	var continuous_tracking_applied: bool = false
 	if continuous_tracking:
 		continuous_tracking_applied = _update_continuous_tracking(delta)
@@ -422,6 +425,49 @@ func _get_plate_distance_for_indices(spiral_index: int, plate_index: int, global
 	var plate_tx: Transform = get_plate_canonical_transform(spiral, plate_index)
 	return sqrt(_get_plate_contact_distance_squared(spiral, plate_tx, canonical_position))
 
+func _get_plate_dist_sq_for_indices(spiral_index: int, plate_index: int, canonical_position: Vector3) -> float:
+	if spiral_index < 0 or spiral_index >= _registered_platforms.size():
+		return INF
+	var spiral: Spatial = _registered_platforms[spiral_index]
+	var plate_count: int = get_plate_count(spiral)
+	if plate_index < 0 or plate_index >= plate_count:
+		return INF
+	var plate_tx: Transform = get_plate_canonical_transform(spiral, plate_index)
+	return plate_tx.origin.distance_squared_to(canonical_position)
+
+# Busca la plate más cercana dentro de la franja _selected_plate_index ± strip_radius
+# en todas las espirales. No usa sqrt ni itera plates lejanas.
+func _find_nearest_plate_in_strip(canonical_position: Vector3, strip_radius: int) -> Dictionary:
+	if _registered_platforms.empty() or _selected_plate_index < 0:
+		return {}
+	var rotator_inv := global_transform.affine_inverse()
+	var best := {}
+	var best_dist_sq := INF
+	for spiral_index in range(_registered_platforms.size()):
+		var spiral: Spatial = _registered_platforms[spiral_index]
+		var plate_count: int = get_plate_count(spiral)
+		if plate_count <= 0:
+			continue
+		var spiral_canonical_base: Transform = rotator_inv * spiral.global_transform
+		var cached_list = spiral.get("_cached_transforms")
+		var has_cache: bool = cached_list != null and cached_list is Array
+		var multimesh: MultiMesh = null if has_cache else spiral.get("multimesh")
+		for offset in range(-strip_radius, strip_radius + 1):
+			var plate_index: int = _wrap_index(_selected_plate_index + offset, plate_count)
+			var local_xform: Transform
+			if has_cache and plate_index < cached_list.size():
+				local_xform = cached_list[plate_index]
+			elif multimesh != null and multimesh.instance_count > 0:
+				local_xform = multimesh.get_instance_transform(plate_index)
+			else:
+				continue
+			var plate_origin: Vector3 = (spiral_canonical_base * local_xform).origin
+			var dist_sq: float = plate_origin.distance_squared_to(canonical_position)
+			if dist_sq < best_dist_sq:
+				best_dist_sq = dist_sq
+				best = {"spiral_index": spiral_index, "plate_index": plate_index, "dist_sq": dist_sq}
+	return best
+
 # Fuerza la recomputación del target (útil si la plataforma cambió su orientación).
 func invalidate_target() -> void:
 	_recompute_target()
@@ -589,9 +635,10 @@ func _slerp_to_global_transform(delta: float) -> void:
 	global_transform = Transform(Basis(q_new).orthonormalized(), origin_new)
 	_is_transitioning = abs(q_new.dot(q_target)) < 0.9999 or origin_new.distance_to(_target_global_transform.origin) > 0.01
 
-func _get_effective_rotation_speed() -> float:
+func _get_effective_rotation_speed(target: Spatial = null) -> float:
 	var speed = rotation_speed
-	var target: Spatial = _get_tracking_target()
+	if target == null:
+		target = _cached_tracking_target if _cached_tracking_target != null else _get_tracking_target()
 	if target and target.has_method("is_on_floor") and not target.is_on_floor():
 		speed *= airborne_rotation_factor
 	return speed
@@ -637,10 +684,11 @@ func _update_tracked_target_plate() -> void:
 		return
 	if spiral_blend <= 0.001 and centrifugal_current_plate_only_physics:
 		return
-	var target: Spatial = _get_tracking_target()
+	var target: Spatial = _cached_tracking_target
 	if target == null:
 		return
 	var target_plate: Dictionary = _find_floor_contact_plate(target)
+	var candidate_dist_sq := INF
 	if target_plate.empty():
 		if auto_track_requires_floor_contact \
 				and target.has_method("is_on_floor") \
@@ -651,7 +699,15 @@ func _update_tracked_target_plate() -> void:
 			if _target_plate_query_counter < target_plate_query_interval:
 				return
 		_target_plate_query_counter = 0
-		target_plate = find_nearest_terrace_plate(target.global_transform.origin)
+		# Búsqueda rápida por franja cuando ya hay plate seleccionada: ±5 por espiral, sin sqrt.
+		# Fallback a búsqueda completa solo al inicio o si la franja no cubre la posición.
+		if _selected_spiral_index >= 0 and _selected_plate_index >= 0:
+			var cp: Vector3 = to_canonical(target.global_transform.origin)
+			target_plate = _find_nearest_plate_in_strip(cp, 5)
+			if not target_plate.empty():
+				candidate_dist_sq = float(target_plate.get("dist_sq", INF))
+		if target_plate.empty():
+			target_plate = find_nearest_terrace_plate(target.global_transform.origin)
 	else:
 		_target_plate_query_counter = 0
 	if target_plate.empty():
@@ -662,14 +718,14 @@ func _update_tracked_target_plate() -> void:
 		return
 	if continuous_tracking and _selected_spiral_index >= 0 and _selected_plate_index >= 0 \
 			and auto_track_min_switch_distance > 0.0:
-		var target_global_position: Vector3 = target.global_transform.origin
-		var current_distance: float = _get_plate_distance_for_indices(
-				_selected_spiral_index, _selected_plate_index, target_global_position)
-		var candidate_distance: float = _get_plate_distance_for_indices(
-				spiral_index, plate_index, target_global_position)
-		# No cambiar de plate hasta que la nueva gane por un margen claro.
-		# Esto evita flips bruscos al cruzar bordes y reduce la sensación de salto.
-		if candidate_distance + auto_track_min_switch_distance >= current_distance:
+		var cp: Vector3 = to_canonical(target.global_transform.origin)
+		var current_dist_sq: float = _get_plate_dist_sq_for_indices(
+				_selected_spiral_index, _selected_plate_index, cp)
+		if candidate_dist_sq >= INF:
+			candidate_dist_sq = _get_plate_dist_sq_for_indices(spiral_index, plate_index, cp)
+		# Comparación en dist_sq: candidate + margin² ≥ current evita sqrt y es approx equivalente.
+		var margin_sq: float = auto_track_min_switch_distance * auto_track_min_switch_distance
+		if candidate_dist_sq + margin_sq >= current_dist_sq:
 			return
 	if continuous_tracking:
 		# En modo continuous el mundo ya rota via _update_continuous_tracking.
@@ -720,7 +776,7 @@ func _update_continuous_tracking(_delta: float) -> bool:
 		return false
 	if spiral_blend <= 0.001:
 		return false
-	var target: Spatial = _get_tracking_target()
+	var target: Spatial = _cached_tracking_target
 	if target == null:
 		return false
 
@@ -749,15 +805,21 @@ func _update_continuous_tracking(_delta: float) -> bool:
 		_has_transform_target = true
 		return true
 
-	var new_basis: Basis = (Basis(q_align) * global_transform.basis).orthonormalized()
+	var new_basis: Basis = Basis(q_align) * global_transform.basis
 	# Pivotamos alrededor del jugador para que no sea desplazado bruscamente
 	var new_origin: Vector3 = p_global - new_basis.xform(p_can)
 
 	_target_global_transform = Transform(new_basis, new_origin)
 	_has_transform_target = true
-	# En continuous tracking el rotator es parte del frame de referencia del piloto.
-	# Si queda atrasado por slerp, los slots y rigid bodies reciben transforms viejos.
-	global_transform = _target_global_transform
+	# Interpolar suavemente hacia el target para evitar saltos de cámara.
+	var t: float = min(1.0, _get_effective_rotation_speed(target) * _delta * 6.0)
+	var eased_t: float = t * t * (3.0 - 2.0 * t)
+	var current: Transform = global_transform
+	var q_cur: Quat = current.basis.get_rotation_quat()
+	var q_target: Quat = _target_global_transform.basis.get_rotation_quat()
+	var q_new: Quat = q_cur.slerp(q_target, eased_t)
+	var origin_new: Vector3 = current.origin.linear_interpolate(_target_global_transform.origin, eased_t)
+	global_transform = Transform(Basis(q_new).orthonormalized(), origin_new)
 	return true
 
 func _get_tracking_target() -> Spatial:
