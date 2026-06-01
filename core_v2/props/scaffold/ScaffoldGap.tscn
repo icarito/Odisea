@@ -2,11 +2,13 @@
 
 [ext_resource path="res://core_v2/props/scaffold/SteelGratePlatform.gd" type="Script" id=1]
 
-[node name="ScaffoldWalkway" type="Spatial"]
+[node name="ScaffoldGap" type="Spatial"]
 script = ExtResource( 1 )
 platform_width = 3.0
 platform_depth = 10.0
 rail_front = false
 rail_back = false
-rail_left = false
-rail_right = false
+rail_left = true
+rail_right = true
+rail_front_opening_width = 3.0
+rail_back_opening_width = 3.0
