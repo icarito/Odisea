@@ -1,0 +1,11 @@
+# Test for ScaffoldWFC3DGenerator
+LEVEL res://core_v2/tests/test_scaffold_wfc.tscn
+
+WAIT 0.5
+
+# Assert that rooms were created via auto_generate
+# Refined density: 20 rooms + up to 24 edges (19 MST + up to 5 extra)
+ASSERT Generator.generated_node_count >= 15 "Should have at least 15 nodes in the network"
+
+WAIT 0.5
+SCREENSHOT "wfc_generated"
