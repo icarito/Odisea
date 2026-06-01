@@ -14,6 +14,8 @@ export(int, 0, 1024) var dome_lod_overlay_max_instances := 64
 export(int, 0, 16) var dome_lod_adjacent_spiral_slots := 4
 export(float, 0.0, 180.0) var dome_lod_frustum_half_fov_deg := 80.0
 export(float, 1.0, 32.0) var dome_lod_backface_penalty := 8.0
+export(bool) var dome_lod_camera_update_enabled := true
+export(float, 1.0, 90.0) var dome_lod_camera_angle_threshold := 20.0
 export(int, 4, 64) var exterior_collision_pool_size := 4
 export(int, 1, 30) var exterior_collision_update_interval := 8
 export(int, 1, 30) var exterior_target_plate_query_interval := 6
@@ -48,6 +50,7 @@ var _packed_scene_cache := {}
 var _lod_update_phase := 0              # 0=idle, 1=ejecutar ciclo completo
 var _lod_pipeline_all_assignments := [] # candidatos para el ciclo actual
 var _lod_dirty := false                 # plate cambió mientras el pipeline corría; reiniciar al terminar
+var _lod_last_camera_fwd := Vector3.ZERO  # forward canónico en el último LOD update
 
 func _ready() -> void:
 	if has_node("/root/SessionManager"):
@@ -81,6 +84,7 @@ func _resolve_player_camera() -> Camera:
 func _process(_delta: float) -> void:
 	_sync_selection_from_rotator()
 	_tick_lod_update_phase()
+	_tick_frustum_lod_update()
 	_tick_dome_facade_cursor()  # sigue la animación/rotación del WorldRotator cada frame
 	_reset_camera_roll()
 
@@ -426,10 +430,30 @@ func _get_wrapped_plate_distance(from_plate: int, to_plate: int, plate_count: in
 	var direct := abs(to_plate - from_plate)
 	return int(min(direct, plate_count - direct))
 
+# Dispara un nuevo ciclo LOD si la cámara giró más de dome_lod_camera_angle_threshold grados.
+func _tick_frustum_lod_update() -> void:
+	if not dome_lod_camera_update_enabled:
+		return
+	if _lod_update_phase != 0:
+		return
+	if not _uses_dome_lod_overlays():
+		return
+	var cam_fwd := _get_camera_forward_canonical()
+	if cam_fwd.length_squared() < 0.01:
+		return
+	if _lod_last_camera_fwd.length_squared() < 0.01:
+		_lod_last_camera_fwd = cam_fwd
+		return
+	var cos_threshold := cos(deg2rad(clamp(dome_lod_camera_angle_threshold, 1.0, 90.0)))
+	if cam_fwd.dot(_lod_last_camera_fwd) < cos_threshold:
+		_lod_last_camera_fwd = cam_fwd
+		_schedule_lod_overlay_update(_build_lod_overlay_assignments_for_selection())
+
 # Inicia el pipeline LOD con nuevas asignaciones.
 func _schedule_lod_overlay_update(assignments: Array) -> void:
 	_lod_update_phase = 1
 	_lod_pipeline_all_assignments = assignments
+	_lod_last_camera_fwd = _get_camera_forward_canonical()
 
 # Snapshot de orígenes canónicos: una inversión de WorldRotator + una base canónica por espiral.
 func _snapshot_canonical_origins(assignments: Array) -> Dictionary:
