@@ -108,6 +108,9 @@ var _pool_update_counter: int = 0
 var _spiral_extents_cache: Dictionary = {}  # spiral_index (int) -> Vector3
 var _target_plate_query_counter: int = 0
 var _world_environment_sky_entries: Array = []
+var _sky_frame_sync_counter: int = 0
+var _sky_frame_sync_interval: int = 6  # solo sincronizar cada N frames físicos
+var _last_sky_basis := Basis.IDENTITY  # cache para evitar recomputar sin cambios
 # Retrocompatibilidad: alias del pool para tests que lean _generated_collision_bodies
 var _generated_collision_bodies: Array setget ,_get_generated_collision_bodies
 func _get_generated_collision_bodies() -> Array:
@@ -199,7 +202,10 @@ func _physics_process(delta: float) -> void:
 	if pool_update_due:
 		_pool_update_counter = 0
 		_assign_pool_to_nearest_plates()
-	_sync_world_environment_sky_frames()
+	_sky_frame_sync_counter += 1
+	if _sky_frame_sync_counter >= _sky_frame_sync_interval:
+		_sky_frame_sync_counter = 0
+		_sync_world_environment_sky_frames()
 
 # ── API pública ──────────────────────────────────────────────────────────────
 
@@ -611,12 +617,17 @@ func _collect_world_environment_sky_frames(root: Node) -> void:
 		_collect_world_environment_sky_frames(child)
 
 func _sync_world_environment_sky_frames() -> void:
+	# Evitar recomputar si la orientación no cambió desde la última sincronización.
+	var current_basis: Basis = global_transform.basis
+	if current_basis.is_equal_approx(_last_sky_basis):
+		return
+	_last_sky_basis = current_basis
 	for entry in _world_environment_sky_entries:
 		var world_environment: WorldEnvironment = entry.get("world_environment", null)
 		var environment: Environment = entry.get("environment", null)
 		if not is_instance_valid(world_environment) or environment == null:
 			continue
-		environment.background_sky_orientation = global_transform.basis * entry.get("authored_orientation", Basis.IDENTITY)
+		environment.background_sky_orientation = current_basis * entry.get("authored_orientation", Basis.IDENTITY)
 
 func _sync_spirals() -> void:
 	_sync_spirals_recursive(self)
@@ -751,9 +762,15 @@ func _update_continuous_tracking(_delta: float) -> bool:
 
 	_target_global_transform = Transform(new_basis, new_origin)
 	_has_transform_target = true
-	# En continuous tracking el rotator es parte del frame de referencia del piloto.
-	# Si queda atrasado por slerp, los slots y rigid bodies reciben transforms viejos.
-	global_transform = _target_global_transform
+	# Interpolar suavemente hacia el target para evitar saltos de cámara.
+	var t: float = min(1.0, _get_effective_rotation_speed() * _delta * 6.0)
+	var eased_t: float = t * t * (3.0 - 2.0 * t)
+	var current: Transform = global_transform
+	var q_cur: Quat = current.basis.get_rotation_quat()
+	var q_target: Quat = _target_global_transform.basis.get_rotation_quat()
+	var q_new: Quat = q_cur.slerp(q_target, eased_t)
+	var origin_new: Vector3 = current.origin.linear_interpolate(_target_global_transform.origin, eased_t)
+	global_transform = Transform(Basis(q_new).orthonormalized(), origin_new)
 	return true
 
 func _get_tracking_target() -> Spatial:

@@ -62,7 +62,7 @@ func _resolve_player_camera() -> Camera:
 
 func _process(_delta: float) -> void:
 	_sync_selection_from_rotator()
-	_tick_dome_facade_cursor()  # sigue la animación/rotación del WorldRotator cada frame
+	# _tick_dome_facade_cursor ahora es no-op (FD-041 usa LOD), se mantiene por compatibilidad.
 	_reset_camera_roll()
 
 func _resolve_spawn_state() -> void:
@@ -709,7 +709,8 @@ func _configure_gravity_for_selected_plate(plate_canonical: Transform) -> void:
 func _reset_camera_roll() -> void:
 	if not _camera:
 		return
-	_camera.rotation.z = 0.0
+	if _camera.rotation.z != 0.0:
+		_camera.rotation.z = 0.0
 
 # --- DomeFacade Cursor ---
 # Pre-instancia una DomeFacade por tipo de escena y la reposiciona al plate activo.
