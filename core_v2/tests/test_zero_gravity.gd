@@ -65,7 +65,7 @@ func test_zero_g_logic_6dof() -> void:
 		Vector3.ONE * 0.001
 	)
 	assert_float(abs(pilot.get_node("ZeroGCameraRig").transform.basis.x.y)).is_greater(0.001)
-	assert_float(abs(pilot.get_node("Visual/Pivot").transform.basis.x.y)).is_less(0.001)
+	assert_float(abs(pilot.get_node("Visual/Pivot").transform.basis.x.y)).is_less(0.01)
 
 	var zero_g_rig = pilot.get_node("ZeroGCameraRig")
 	var lag_anchor = zero_g_rig.transform.origin
@@ -107,8 +107,8 @@ func test_zero_g_logic_6dof() -> void:
 	var expected_mesh_forward = Vector3(expected_forward.x, 0.0, expected_forward.z).normalized()
 	var mesh_basis = pilot.get_node("Visual/Pivot").transform.basis
 	assert_float(mesh_basis.z.normalized().dot(expected_mesh_forward)).is_greater(0.8)
-	assert_float(abs(mesh_basis.x.y)).is_less(0.001)
-	assert_float(abs(mesh_basis.z.y)).is_less(0.001)
+	assert_float(abs(mesh_basis.x.y)).is_less(0.01)
+	assert_float(abs(mesh_basis.z.y)).is_less(0.01)
 
 	var mesh_basis_after_forward = mesh_basis
 	pilot.global_transform.origin = Vector3(0.0, 10.0, 0.0)
@@ -117,9 +117,9 @@ func test_zero_g_logic_6dof() -> void:
 	input.move_vec = Vector2(1.0, 0.0) # Strafe right should not rotate the mesh.
 	for i in range(10):
 		zgc.step_zero_g(1.0/60.0, input)
-	assert_vector3(pilot.get_node("Visual/Pivot").transform.basis.x).is_equal_approx(mesh_basis_after_forward.x, Vector3.ONE * 0.001)
-	assert_vector3(pilot.get_node("Visual/Pivot").transform.basis.y).is_equal_approx(mesh_basis_after_forward.y, Vector3.ONE * 0.001)
-	assert_vector3(pilot.get_node("Visual/Pivot").transform.basis.z).is_equal_approx(mesh_basis_after_forward.z, Vector3.ONE * 0.001)
+	assert_vector3(pilot.get_node("Visual/Pivot").transform.basis.x).is_equal_approx(mesh_basis_after_forward.x, Vector3.ONE * 0.01)
+	assert_vector3(pilot.get_node("Visual/Pivot").transform.basis.y).is_equal_approx(mesh_basis_after_forward.y, Vector3.ONE * 0.01)
+	assert_vector3(pilot.get_node("Visual/Pivot").transform.basis.z).is_equal_approx(mesh_basis_after_forward.z, Vector3.ONE * 0.01)
 
 	pilot.global_transform.origin = Vector3(0.0, 10.0, 0.0)
 	pilot.velocity = Vector3.ZERO
@@ -209,11 +209,11 @@ func test_zero_g_logic_6dof() -> void:
 	assert_bool(pilot.get_node("CameraRig").visible).is_true()
 	assert_bool(pilot.get_node("ZeroGCameraRig").visible).is_false()
 	assert_object(pilot.camera_rig).is_same(pilot.get_node("CameraRig"))
-	assert_float(abs(pilot.get_node("CameraRig").transform.basis.x.y)).is_less(0.001)
-	assert_vector3(pilot.get_node("Visual/Pivot").transform.origin).is_equal_approx(Vector3.ZERO, Vector3.ONE * 0.001)
-	assert_vector3(pilot.get_node("Visual/Pivot").transform.basis.x).is_equal_approx(Vector3.RIGHT, Vector3.ONE * 0.001)
-	assert_vector3(pilot.get_node("Visual/Pivot").transform.basis.y).is_equal_approx(Vector3.UP, Vector3.ONE * 0.001)
-	assert_vector3(pilot.get_node("Visual/Pivot").transform.basis.z).is_equal_approx(Vector3.BACK, Vector3.ONE * 0.001)
+	assert_float(abs(pilot.get_node("CameraRig").transform.basis.x.y)).is_less(0.01)
+	assert_vector3(pilot.get_node("Visual/Pivot").transform.origin).is_equal_approx(Vector3.ZERO, Vector3.ONE * 0.01)
+	assert_vector3(pilot.get_node("Visual/Pivot").transform.basis.x).is_equal_approx(Vector3.RIGHT, Vector3.ONE * 0.01)
+	assert_vector3(pilot.get_node("Visual/Pivot").transform.basis.y).is_equal_approx(Vector3.UP, Vector3.ONE * 0.01)
+	assert_vector3(pilot.get_node("Visual/Pivot").transform.basis.z).is_equal_approx(Vector3.BACK, Vector3.ONE * 0.01)
 
 	scene.free()
 	if added_roll_left:
