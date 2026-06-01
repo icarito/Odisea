@@ -50,3 +50,31 @@ func test_local_full_detail_window_is_capped_to_three_plates() -> void:
 	assert_bool(keys.has("2:0")).is_true()
 	assert_bool(keys.has("2:9")).is_true()
 	assert_bool(keys.has("2:1")).is_true()
+
+func test_select_nearest_lod_assignments_returns_all_when_under_budget() -> void:
+	var exterior = auto_free(OdiseaExteriorScript.new())
+	exterior.dome_lod_overlay_max_instances = 64
+	var assignments := [{"spiral_index": 0, "plate_index": 0}, {"spiral_index": 0, "plate_index": 1}]
+	var result := exterior._select_nearest_dome_lod_assignments(assignments)
+	assert_int(result.size()).is_equal(2)
+
+func test_select_nearest_lod_assignments_slices_when_rotator_null() -> void:
+	var exterior = auto_free(OdiseaExteriorScript.new())
+	exterior.dome_lod_overlay_max_instances = 2
+	var assignments := []
+	for i in range(5):
+		assignments.append({"spiral_index": 0, "plate_index": i})
+	var result := exterior._select_nearest_dome_lod_assignments(assignments)
+	assert_int(result.size()).is_equal(2)
+
+func test_insert_ranked_lod_entry_keeps_sorted_nearest_first() -> void:
+	var exterior = auto_free(OdiseaExteriorScript.new())
+	var ranked := []
+	exterior._insert_ranked_lod_entry(ranked, {"dist_sq": 100.0}, 3)
+	exterior._insert_ranked_lod_entry(ranked, {"dist_sq": 10.0}, 3)
+	exterior._insert_ranked_lod_entry(ranked, {"dist_sq": 50.0}, 3)
+	exterior._insert_ranked_lod_entry(ranked, {"dist_sq": 5.0}, 3)
+	assert_int(ranked.size()).is_equal(3)
+	assert_float(ranked[0].get("dist_sq")).is_equal(5.0)
+	assert_float(ranked[1].get("dist_sq")).is_equal(10.0)
+	assert_float(ranked[2].get("dist_sq")).is_equal(50.0)

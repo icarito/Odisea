@@ -293,14 +293,12 @@ func _build_assignments_for_keys(keys: Dictionary) -> Array:
 	return assignments
 
 func _build_lod_overlay_assignments_for_selection() -> Array:
-	var keys := _get_lod_overlay_plate_keys_for_selection()
+	# Devuelve TODAS las plates con LOD blueprint para que _select_nearest_dome_lod_assignments
+	# pueda elegir las max_instances MÁS CERCANAS por distancia 3D real.
 	var assignments := []
-	for key in keys.keys():
-		if not _dome_assignment_cache.has(key):
-			continue
-		var cached: Dictionary = _dome_assignment_cache[key]
-		if bool(cached.get("has_lod_blueprint", false)):
-			assignments.append(cached)
+	for key in _dome_lod_assignment_keys:
+		if _dome_assignment_cache.has(key):
+			assignments.append(_dome_assignment_cache[key])
 	return assignments
 
 func _get_lod_overlay_plate_keys_for_selection() -> Dictionary:
@@ -463,29 +461,37 @@ func _select_nearest_dome_lod_assignments(assignments: Array) -> Array:
 	var max_instances := int(dome_lod_overlay_max_instances)
 	if max_instances <= 0 or assignments.size() <= max_instances:
 		return assignments
-	if _spirals.empty():
-		return assignments
-	var per_spiral_radius := int(max(1, floor(float(max_instances) / float(max(1, _spirals.size() * 2)))))
-	var allowed_keys := {}
-	for spiral_idx in range(_spirals.size()):
-		var plate_count := _get_plate_count(_spirals[spiral_idx])
-		if plate_count <= 0:
-			continue
-		var signed_spiral_delta := _get_signed_wrapped_spiral_delta(selected_spiral, spiral_idx)
-		var center_plate := selected_plate - signed_spiral_delta * dome_inter_spiral_plate_offset
-		for offset in range(-per_spiral_radius, per_spiral_radius + 1):
-			allowed_keys[_make_plate_key(spiral_idx, _wrap_index(center_plate + offset, plate_count))] = true
-	var selected := []
+	if _spirals.empty() or not _rotator or not is_instance_valid(_rotator):
+		return assignments.slice(0, max_instances - 1)
+	var reference_pos := _get_full_detail_reference_canonical_position(selected_spiral, selected_plate)
+	var ranked := []
 	for assignment in assignments:
 		var spiral_index := int(assignment.get("spiral_index", -1))
 		var plate_index := int(assignment.get("plate_index", -1))
-		if allowed_keys.has(_make_plate_key(spiral_index, plate_index)):
-			selected.append(assignment)
-			if selected.size() >= max_instances:
-				break
+		if spiral_index < 0 or spiral_index >= _spirals.size():
+			continue
+		var canonical_tx: Transform = _rotator.get_plate_canonical_transform(_spirals[spiral_index], plate_index)
+		var dist_sq := canonical_tx.origin.distance_squared_to(reference_pos)
+		_insert_ranked_lod_entry(ranked, {"assignment": assignment, "dist_sq": dist_sq}, max_instances)
+	var selected := []
+	for entry in ranked:
+		selected.append(entry["assignment"])
 	if selected.empty():
 		return assignments
 	return selected
+
+func _insert_ranked_lod_entry(ranked: Array, entry: Dictionary, max_count: int) -> void:
+	if max_count <= 0:
+		return
+	var dist_sq := float(entry.get("dist_sq", 0.0))
+	var insert_at := ranked.size()
+	while insert_at > 0 and dist_sq < float(ranked[insert_at - 1].get("dist_sq", 0.0)):
+		insert_at -= 1
+	if insert_at >= max_count:
+		return
+	ranked.insert(insert_at, entry)
+	if ranked.size() > max_count:
+		ranked.pop_back()
 
 func _build_dome_lod_stats(assignments: Array, full_detail_keys: Dictionary, overlay_part_count: int) -> Dictionary:
 	if _segment_manager and _segment_manager.has_method("build_stats"):
