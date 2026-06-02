@@ -5,10 +5,11 @@ extends Spatial
 
 export(int) var map_seed = -1
 export(bool) var trigger_generate = false setget set_trigger_generate
+export(bool) var use_mst_generator = false
 export(bool) var debug_verbose = false
-export(int, 4, 32) var grid_width = 6
-export(int, 2, 12) var grid_depth = 4
-export(float, 4.0, 30.0) var cell_size = 10.0
+export(int, 4, 32) var grid_width = 8
+export(int, 2, 12) var grid_depth = 12
+export(float, 4.0, 30.0) var cell_size = 6.0
 export(float) var weight_W = 6.0
 export(float) var weight_R = 5.0
 export(float) var weight_P = 3.0
@@ -150,6 +151,19 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 		if _grid_cache.has(cache_key):
 			print("[ScaffoldWFC] Cache hit: ", cache_key)
 			return _grid_cache[cache_key]
+
+	if use_mst_generator:
+		var mst_gen = ScaffoldMSTGenerator.new()
+		mst_gen.apply_params({
+			"grid_width": grid_width,
+			"grid_depth": grid_depth,
+			"cell_size": cell_size
+		})
+		var grid = mst_gen.generate_grid_data(seed_val)
+		if seed_val != -1:
+			_grid_cache[_make_cache_key(seed_val)] = grid.duplicate(true)
+		return grid
+
 	if seed_val == -1: randomize()
 	else: seed(seed_val)
 	var grid = _wfc_generate()
