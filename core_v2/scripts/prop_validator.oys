@@ -1,36 +1,40 @@
+# Prop Validator OYS Script — Prototyping Edition
+# Usage: godot --path . res://core_v2/scenes/PropStage.tscn --no-window
+# Env vars: OYS_PROP_PATH (required), OYS_QUICK_MODE (optional, "1" for fast check)
+
 LEVEL res://core_v2/scenes/PropStage.tscn
 WAIT 1.0
 
-# --- Validation Sequence for VentilationTurbine ---
-# In a real CI runner, $sys_env_prop_path would be used.
-# Here we default to the real prop if no env var is set.
-
 SECTION "Setup"
-    IF $sys_env_prop_path == "" GOTO LoadDefault
+    IF $sys_env_prop_path == "" GOTO NoPropPath
     LOAD_PROP $sys_env_prop_path
     GOTO StartValidation
 
-SECTION "LoadDefault"
-    PRINT "No env prop path set, loading default: VentilationTurbine"
-    LOAD_PROP "res://core_v2/props/VentilationTurbine.tscn"
+SECTION "NoPropPath"
+    PRINT "ERROR: OYS_PROP_PATH not set. Pass prop path via environment."
+    EXIT 1
 
 SECTION "StartValidation"
     WAIT 1.0
     SCREENSHOT 0_idle
-    
-    # Trigger Activation
-    # PropBaseV2 handles logic, visuals update automatically
+
+    # Check if prop has INTERACT capability
+    # Static props (WarningBarrier, BrokenFloorPanel, etc.) just need idle validation
+    IF $sys_env_quick_mode == "1" GOTO QuickMode
+
+    # Full validation: idle → interact → mid → active → off
     INTERACT target=prop
-    # Increased waits to capture slower visual transitions (was 0.25)
     WAIT 2.0
     SCREENSHOT 1_mid
-    
-    # Give longer time for active visual effects to settle (was 0.6)
+
     WAIT 3.0
     SCREENSHOT 2_active
-    
-    # Optional: Deactivate
-    INTERACT
+
+    INTERACT target=prop
     WAIT 1.0
     SCREENSHOT 3_off
-    
+    EXIT 0
+
+SECTION "QuickMode"
+    PRINT "Quick mode: idle-only validation"
+    EXIT 0
