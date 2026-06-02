@@ -1454,6 +1454,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/systems/scaffold/ScaffoldExclusionArea.gd"
 }, {
+"base": "Reference",
+"class": "ScaffoldMSTGenerator",
+"language": "GDScript",
+"path": "res://core_v2/systems/ScaffoldMSTGenerator.gd"
+}, {
 "base": "Spatial",
 "class": "ScaffoldStreamController",
 "language": "GDScript",
@@ -2079,6 +2084,7 @@ _global_script_class_icons={
 "RotatingObjectV2": "",
 "SFXComponentV2": "",
 "ScaffoldExclusionArea": "",
+"ScaffoldMSTGenerator": "",
 "ScaffoldStreamController": "",
 "ScaffoldWFCThreaded": "",
 "SciFiBoxLightV2": "",

@@ -5,11 +5,11 @@ extends Spatial
 
 export(int) var map_seed = -1
 export(bool) var trigger_generate = false setget set_trigger_generate
-export(bool) var use_mst_generator = false
+export(bool) var use_mst_generator = true
 export(bool) var debug_verbose = false
-export(int, 4, 32) var grid_width = 8
-export(int, 2, 12) var grid_depth = 12
-export(float, 4.0, 30.0) var cell_size = 6.0
+export(int, 4, 32) var grid_width = 6
+export(int, 2, 12) var grid_depth = 4
+export(float, 4.0, 30.0) var cell_size = 10.0
 export(float) var weight_W = 6.0
 export(float) var weight_R = 5.0
 export(float) var weight_P = 3.0
@@ -153,7 +153,7 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 			return _grid_cache[cache_key]
 
 	if use_mst_generator:
-		var mst_gen = ScaffoldMSTGenerator.new()
+		var mst_gen = load("res://core_v2/systems/ScaffoldMSTGenerator.gd").new()
 		mst_gen.apply_params({
 			"grid_width": grid_width,
 			"grid_depth": grid_depth,
@@ -223,7 +223,6 @@ func _wfc_attempt() -> Array:
 		ds.append(all_variants.duplicate())
 		hds.append(phs.duplicate())
 		collapsed[i] = null
-	# DEBUG: always include EMPTY in every cell domain to prevent contradictions
 	for i in range(gs):
 		var has_empty = false
 		for v in ds[i]:
@@ -252,10 +251,6 @@ func _wfc_attempt() -> Array:
 			break
 		var _cx = mi % grid_width
 		var _cy = mi / grid_width
-		# Filter variant AND height together against collapsed neighbors.
-		# Picking variant first then filtering heights (old approach) allowed a silent
-		# fallback to an incompatible height when ho_f was empty. Instead, exclude any
-		# variant that has no valid height given the current collapsed neighbors.
 		var _valid_domains = []
 		for _v in ds[mi]:
 			var _vhs = []
@@ -355,10 +350,6 @@ func _propagate(ds: Array, hds: Array, collapsed: Array, start_idx: int) -> bool
 				continue
 			var ni = _idx(nx, ny)
 			if collapsed[ni] != null:
-				# Exact height alignment check: for each variant in current domain that
-				# connects to the already-collapsed neighbor, verify that at least one
-				# height in the current domain produces the exact required neighbor height.
-				# If a connecting variant has no valid height, it is removed from the domain.
 				var next_state = collapsed[ni]
 				var opp = OPPOSITE[dir]
 				if next_state.variant.id != "EMPTY":
@@ -369,7 +360,6 @@ func _propagate(ds: Array, hds: Array, collapsed: Array, start_idx: int) -> bool
 							if not fv_ci.has(cv):
 								fv_ci.append(cv)
 							continue
-						# Connecting pair — at least one height must match exactly.
 						for ch in hds[ci]:
 							var req = ch + cv.port_heights[dir] - next_state.variant.port_heights[opp]
 							if abs(req - next_state.base_height) < 0.001:
@@ -377,7 +367,6 @@ func _propagate(ds: Array, hds: Array, collapsed: Array, start_idx: int) -> bool
 									fv_ci.append(cv)
 								if not fh_ci.has(ch):
 									fh_ci.append(ch)
-					# Preserve heights that belong to non-connecting variants.
 					for cv in ds[ci]:
 						if cv.id == "EMPTY" or not cv.connections[dir] or not next_state.variant.connections[opp]:
 							for ch in hds[ci]:
@@ -610,7 +599,6 @@ func _validate_height_alignment(collapsed: Array) -> Array:
 					continue
 				var ni = _idx(nx, ny)
 				if collapsed[ni] == null or collapsed[ni].variant.id == "EMPTY":
-					# Cell connects toward an EMPTY/null neighbor -- invalid.
 					collapsed[i] = CellState.new(ev, 0.0)
 					total_removed += 1
 					changed = true
@@ -680,13 +668,10 @@ func _instance_grid(grid: Array):
 				continue
 			var inst = modules[vid].instance()
 			add_child(inst)
-			# SteelGratePlatform builds the deck at local y = platform_height (default 1.6).
-			# Compensate so the walkable surface lands at the WFC height in world space.
 			var deck_local_y = inst.platform_height
 			var base_height = _state_base_height(state)
 			inst.translation = Vector3(x * cell_size, base_height - deck_local_y, y * cell_size)
 			inst.rotation_degrees.y = -_variant_rotation(v)
-			# Legs must reach world y=0 (ground), accounting for the adjusted translation.
 			inst.set("support_base_local_y", deck_local_y - base_height)
 			if vid == "W" or vid == "R" or vid == "G":
 				_apply_local_dims(inst, _lane_width(), cell_size)
@@ -753,17 +738,6 @@ func _weight_for_id(id: String) -> float:
 	return 1.0
 
 func _dir_from_local_side(rot: int, side: String) -> int:
-	# Map local scaffold sides to logical world ports using the variant rotation.
-	# SteelGratePlatform: front = local -Z, back = local +Z, left = local -X, right = local +X.
-	# Instance rotation: rotation_degrees.y = -rot.
-	# Y-rotation by theta=-rot transforms local direction (lx,lz) to world via:
-	#   wx = lx*cos(-rot) + lz*sin(-rot)
-	#   wz = -lx*sin(-rot) + lz*cos(-rot)
-	# Verified mappings:
-	#   rot=0:   front→NORTH, left→WEST
-	#   rot=90:  front→EAST,  left→NORTH
-	#   rot=180: front→SOUTH, left→EAST
-	#   rot=270: front→WEST,  left→SOUTH
 	var r = int(posmod(rot, 360))
 	match side:
 		"front":
