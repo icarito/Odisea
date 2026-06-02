@@ -2164,7 +2164,6 @@ StartupTrace="*res://core_v2/autoloads/StartupTrace.gd"
 PropDitherManager="*res://core_v2/autoloads/PropDitherManager.gd"
 PlayerHintManager="*res://core_v2/autoloads/PlayerHintManager.gd"
 GravityWorld="*res://core_v2/systems/GravityWorld.gd"
-FPSOverlay="*res://core_v2/autoloads/FPSOverlay.gd"
 
 [debug]
 
