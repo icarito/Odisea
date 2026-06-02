@@ -618,11 +618,12 @@ func _instance_grid(grid: Array):
 			var vid = v.id
 			if vid == "W" or vid == "R" or vid == "G":
 				_apply_local_dims(inst, _lane_width(), cell_size)
-				if vid != "W":
-					_apply_rails_from_connections(inst, v)
-					_apply_opening_widths_from_connections(inst, v)
+				_apply_rails_from_connections(inst, v)
+				_apply_opening_widths_from_connections(inst, v)
 			elif vid == "P":
 				_apply_local_dims(inst, cell_size, cell_size)
+				_apply_rails_from_connections(inst, v)
+				_apply_opening_widths_from_connections(inst, v)
 			elif vid == "S":
 				_apply_local_dims(inst, _lane_width(), cell_size)
 				_apply_port_heights_to_front_back(inst, v)
@@ -725,10 +726,10 @@ func _apply_rails_from_connections(inst, v: ModuleVariant) -> void:
 	var back_dir = _dir_from_local_side(v.rotation, "back")
 	var left_dir = _dir_from_local_side(v.rotation, "left")
 	var right_dir = _dir_from_local_side(v.rotation, "right")
-	inst.set("rail_front", not v.connections[front_dir])
-	inst.set("rail_back", not v.connections[back_dir])
-	inst.set("rail_left", not v.connections[left_dir])
-	inst.set("rail_right", not v.connections[right_dir])
+	inst.set("rail_front", true)
+	inst.set("rail_back", true)
+	inst.set("rail_left", true)
+	inst.set("rail_right", true)
 
 func _apply_local_dims(inst, w: float, d: float):
 	inst.set("platform_width", w)

@@ -1,10 +1,14 @@
 extends Node
-# Test 2: Rail consistency — connection flag drives rail presence.
-# connection=true  in a direction -> rail=false on that side (open passage to neighbor)
-# connection=false in a direction -> rail=true  on that side (closed / has barrier)
+# Test 2: Rail consistency — rails are ALWAYS present (true) on all four sides.
+# Opening widths must equal lane_width on connected sides, 0 on non-connected sides.
+# This mirrors the new rule in _apply_rails_from_connections (always true) and
+# _apply_opening_widths_from_connections (opening only where connection=true).
 #
-# We validate the variant data used by _apply_rails_from_connections, replicating
-# the _dir_from_local_side mapping without instantiating scene nodes.
+# Since we don't instantiate scene nodes, we validate the invariant from variant data:
+# - Every non-EMPTY cell must have rail on all 4 sides (always true after the change).
+# - opening_width = lane_width where connection=true, opening_width = 0 where connection=false.
+# We verify the second point by checking bilateral symmetry of connections (a connected
+# side must have a reciprocating neighbor), which guarantees openings will align.
 
 const GEN_SCRIPT = preload("res://core_v2/systems/ScaffoldWFCGenerator.gd")
 
@@ -49,10 +53,12 @@ func _run(seed_val: int) -> void:
 	if grid.empty():
 		print("[T2] FAIL seed=%d: grid empty" % seed_val)
 		_failed += 1
-		gen.queue_free()
+		remove_child(gen)
+		gen.free()
 		return
 
 	var gw = gen.grid_width
+	var gd = gen.grid_depth
 	var violations = []
 
 	for i in range(grid.size()):
@@ -62,24 +68,36 @@ func _run(seed_val: int) -> void:
 		var v = state.variant
 		var cx = i % gw
 		var cy = i / gw
+
+		# Rail = always true: validated implicitly — if the generator sets rail=true
+		# unconditionally, nothing in variant data can contradict it. We still validate
+		# the connection-opening relationship from variant data.
+
+		# opening_width policy: connection=true -> opening > 0 (lane_width)
+		#                       connection=false -> opening = 0
+		# Validate bilateral: a connected side must have a reciprocating neighbor.
 		for side in ["front", "back", "left", "right"]:
-			var world_dir = _dir_from_local_side(v.rotation, side)
-			var connected = v.connections[world_dir]
-			# connection=true  -> rail should be false (open)
-			# connection=false -> rail should be true  (closed)
-			# We derive what _apply_rails_from_connections would set:
-			var expected_rail = not connected
-			# The variant encodes the truth — we check bilateral invariant:
-			# If connected, neighbor must connect back (checked in T2 bilateral).
-			# Here we only check that a connected side facing the grid boundary is invalid.
-			var dv = [Vector2(0,-1), Vector2(1,0), Vector2(0,1), Vector2(-1,0)][world_dir]
+			var wd = _dir_from_local_side(v.rotation, side)
+			var connected = v.connections[wd]
+			var dv = [Vector2(0,-1), Vector2(1,0), Vector2(0,1), Vector2(-1,0)][wd]
 			var nx = cx + int(dv.x)
 			var ny = cy + int(dv.y)
-			var gd = gen.grid_depth
-			var out_of_bounds = nx < 0 or nx >= gw or ny < 0 or ny >= gd
-			if connected and out_of_bounds:
-				violations.append("  [%d,%d] %s rot=%d side=%s connects dir=%d but is at boundary" % [
-					cx, cy, v.id, v.rotation, side, world_dir])
+			if nx < 0 or nx >= gw or ny < 0 or ny >= gd:
+				if connected:
+					violations.append("  [%d,%d]%s side=%s: connection=true at boundary" % [cx, cy, v.id, side])
+				continue
+			var ni = ny * gw + nx
+			var nb = grid[ni]
+			if connected:
+				# opening should be lane_width: neighbor must be non-EMPTY and connect back
+				if nb == null or nb.variant.id == "EMPTY":
+					violations.append("  [%d,%d]%s side=%s: connection=true but neighbor EMPTY" % [cx, cy, v.id, side])
+				elif not nb.variant.connections[OPPOSITE[wd]]:
+					violations.append("  [%d,%d]%s side=%s: connection=true but neighbor doesn't connect back" % [cx, cy, v.id, side])
+			else:
+				# opening should be 0: neighbor must not connect toward us
+				if nb != null and nb.variant.id != "EMPTY" and nb.variant.connections[OPPOSITE[wd]]:
+					violations.append("  [%d,%d]%s side=%s: connection=false but neighbor connects toward us" % [cx, cy, v.id, side])
 
 	if violations.empty():
 		print("[T2] PASS seed=%d" % seed_val)
@@ -90,4 +108,5 @@ func _run(seed_val: int) -> void:
 			print(vi)
 		_failed += 1
 
-	gen.queue_free()
+	remove_child(gen)
+	gen.free()

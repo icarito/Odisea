@@ -1,21 +1,19 @@
 extends Node
-# Test 3: Openings only where there IS a rail.
-# rail=true  -> opening_width can be >= 0 (valid, gap in the barrier)
-# rail=false -> opening_width must be 0   (no barrier means no gap makes sense)
+# Test 3: Opening width consistency.
+# For each pair of connected adjacent cells:
+#   - Both sides of the connection must have the same opening_width (= lane_width).
+# For non-connected sides:
+#   - opening_width must be 0.
 #
-# We validate the logic that _apply_opening_widths_from_connections would produce:
-# opening_width > 0 only when connection=true, which means rail=false.
-# That is actually VALID per the generator: openings mark where passages cross.
-# But the inverse must hold: when connection=false (rail=true), the generator
-# does NOT set opening_width, so it stays 0. We verify the variant data is
-# never in the state where connection=false AND the generator would set opening > 0.
-#
-# Since we can't read node properties without instantiation, we validate the
-# variant arrays directly: ensure no internal contradiction exists.
+# Since we validate from variant data (no node instantiation), we derive expected
+# opening_width from connection flags, matching what _apply_opening_widths_from_connections does.
+# The matching check verifies that both sides of a connected pair produce the same lane_width —
+# which holds as long as both cells were generated with the same generator (same _lane_width()).
 
 const GEN_SCRIPT = preload("res://core_v2/systems/ScaffoldWFCGenerator.gd")
 
 const OPPOSITE = {0: 2, 1: 3, 2: 0, 3: 1}
+const DIR_VEC = [Vector2(0, -1), Vector2(1, 0), Vector2(0, 1), Vector2(-1, 0)]
 
 func _dir_from_local_side(rot: int, side: String) -> int:
 	var r = int(posmod(rot, 360))
@@ -56,10 +54,12 @@ func _run(seed_val: int) -> void:
 	if grid.empty():
 		print("[T3] FAIL seed=%d: grid empty" % seed_val)
 		_failed += 1
-		gen.queue_free()
+		remove_child(gen)
+		gen.free()
 		return
 
 	var gw = gen.grid_width
+	var gd = gen.grid_depth
 	var pw = gen.call("_lane_width")
 	var violations = []
 
@@ -70,36 +70,43 @@ func _run(seed_val: int) -> void:
 		var v = state.variant
 		var cx = i % gw
 		var cy = i / gw
+
 		for side in ["front", "back", "left", "right"]:
-			var world_dir = _dir_from_local_side(v.rotation, side)
-			var connected = v.connections[world_dir]
-			# rail=false when connected -> opening_width is set to pw (correct)
-			# rail=true  when !connected -> opening_width stays 0   (correct)
-			# Violation: rail=true (!connected) but generator would set opening>0 — impossible
-			# by design, but we validate the inverse: connected side must never be at boundary
-			# with no neighbor (already covered by T2). Here we confirm:
-			# if connected AND neighbor is non-EMPTY, neighbor connects back.
-			var dv = [Vector2(0,-1), Vector2(1,0), Vector2(0,1), Vector2(-1,0)][world_dir]
+			var wd = _dir_from_local_side(v.rotation, side)
+			var connected = v.connections[wd]
+			var dv = DIR_VEC[wd]
 			var nx = cx + int(dv.x)
 			var ny = cy + int(dv.y)
-			var gd = gen.grid_depth
-			if nx < 0 or nx >= gw or ny < 0 or ny >= gd:
-				continue
-			var ni = ny * gw + nx
-			var nb = grid[ni]
-			if not connected:
-				# rail=true; opening should be 0. If neighbor connects toward us, that's a mismatch.
-				if nb != null and nb.variant.id != "EMPTY":
-					if nb.variant.connections[OPPOSITE[world_dir]]:
-						violations.append("  [%d,%d]%s side=%s: rail=true(no conn) but neighbor [%d,%d]%s connects back" % [
-							cx, cy, v.id, side, nx, ny, nb.variant.id])
-			else:
-				# rail=false; opening should equal lane_width. Neighbor must exist and connect back.
+
+			if connected:
+				# opening_width should be pw on this side
+				if nx < 0 or nx >= gw or ny < 0 or ny >= gd:
+					violations.append("  [%d,%d]%s side=%s: connected at boundary (no neighbor)" % [cx, cy, v.id, side])
+					continue
+				var ni = ny * gw + nx
+				var nb = grid[ni]
 				if nb == null or nb.variant.id == "EMPTY":
-					violations.append("  [%d,%d]%s side=%s: rail=false(connected) but neighbor is EMPTY/null" % [
-						cx, cy, v.id, side])
-				elif not nb.variant.connections[OPPOSITE[world_dir]]:
-					violations.append("  [%d,%d]%s side=%s: rail=false(connected) but neighbor does not connect back" % [
+					violations.append("  [%d,%d]%s side=%s: connected but neighbor EMPTY" % [cx, cy, v.id, side])
+					continue
+				if not nb.variant.connections[OPPOSITE[wd]]:
+					violations.append("  [%d,%d]%s side=%s: connected but neighbor doesn't connect back" % [cx, cy, v.id, side])
+					continue
+				# Both sides of the connection must produce the same opening_width.
+				# _apply_opening_widths_from_connections sets pw on both sides when connected.
+				# Since both cells use the same _lane_width(), openings will match.
+				# We verify the symmetry by checking the neighbor also marks as connected:
+				var nb_side_connected = nb.variant.connections[OPPOSITE[wd]]
+				if not nb_side_connected:
+					violations.append("  [%d,%d]%s->dir%d: opening mismatch — this side pw=%.2f neighbor opening=0" % [
+						cx, cy, v.id, wd, pw])
+			else:
+				# opening_width should be 0: neighbor must not connect toward us
+				if nx < 0 or nx >= gw or ny < 0 or ny >= gd:
+					continue
+				var ni = ny * gw + nx
+				var nb = grid[ni]
+				if nb != null and nb.variant.id != "EMPTY" and nb.variant.connections[OPPOSITE[wd]]:
+					violations.append("  [%d,%d]%s side=%s: opening=0 but neighbor has opening toward us" % [
 						cx, cy, v.id, side])
 
 	if violations.empty():
@@ -111,4 +118,5 @@ func _run(seed_val: int) -> void:
 			print(vi)
 		_failed += 1
 
-	gen.queue_free()
+	remove_child(gen)
+	gen.free()

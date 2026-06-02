@@ -37,5 +37,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -37, 0, -24 )
 script = ExtResource( 4 )
 map_seed = 44
 debug_verbose = true
+grid_depth = 8
+cell_size = 6.0
 require_single_component = false
 constrain_border_heights = true
