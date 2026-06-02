@@ -14,7 +14,7 @@ metallic = 0.8
 roughness = 0.4
 
 [node name="SteelPlate" type="RigidBody"]
-mass = 20.0
+mass = 200.0
 script = ExtResource( 1 )
 size = Vector3( 2, 0.1, 1 )
 
