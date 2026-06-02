@@ -133,11 +133,25 @@ func _setup_variants():
 	all_variants.append(ModuleVariant.new("E", 270, [false, false, false, true], fpts, ew))
 	all_variants.append(ModuleVariant.new("EMPTY", 0, [false, false, false, false], fpts, max(weight_empty, 0.0)))
 
+var _grid_cache: Dictionary = {}
+
 func generate(seed_val: int = -1):
-	if seed_val == -1: randomize()
-	else: seed(seed_val)
 	for child in get_children():
 		child.queue_free()
+	var grid = generate_grid_data(seed_val)
+	if not grid.empty():
+		_instance_grid(grid)
+	else:
+		push_error("[ScaffoldWFC] generate() failed")
+
+func generate_grid_data(seed_val: int = -1) -> Array:
+	if seed_val != -1:
+		var cache_key = _make_cache_key(seed_val)
+		if _grid_cache.has(cache_key):
+			print("[ScaffoldWFC] Cache hit: ", cache_key)
+			return _grid_cache[cache_key]
+	if seed_val == -1: randomize()
+	else: seed(seed_val)
 	var grid = _wfc_generate()
 	if not grid.empty():
 		var counts = {}
@@ -146,9 +160,15 @@ func generate(seed_val: int = -1):
 				var k = s.variant.id
 				counts[k] = counts.get(k, 0) + 1
 		print("[ScaffoldWFC] Module counts: ", counts)
-		_instance_grid(grid)
-	else:
-		push_error("[ScaffoldWFC] generate() failed")
+		if seed_val != -1:
+			_grid_cache[_make_cache_key(seed_val)] = grid.duplicate(true)
+	return grid
+
+func _make_cache_key(seed_val: int) -> String:
+	return "s%d_w%d_d%d_c%.1f" % [seed_val, grid_width, grid_depth, cell_size]
+
+func clear_cache() -> void:
+	_grid_cache.clear()
 
 func _wfc_generate() -> Array:
 	var best = []
@@ -163,7 +183,8 @@ func _wfc_generate() -> Array:
 			var stairs_ok = _count_variant(res, "S") >= min_stairs_per_map
 			var heights_ok = _height_span(res) >= min_height_span and _count_elevated_cells(res) >= min_elevated_cells
 			var empties_ok = _count_variant(res, "EMPTY") >= min_empty_cells
-			if _is_single_component(res) and stairs_ok and heights_ok and empties_ok:
+			var connectivity_ok = (not require_single_component) or _is_single_component(res)
+			if connectivity_ok and stairs_ok and heights_ok and empties_ok:
 				print("[ScaffoldWFC] Success on retry ", retry)
 				return res
 	if not best.empty():
@@ -598,12 +619,10 @@ func _validate_height_alignment(collapsed: Array) -> Array:
 	return collapsed
 
 func _instance_grid(grid: Array):
-	# Final guard: eliminate any height/connectivity mismatches before instancing.
-	grid = _validate_height_alignment(grid)
 	for y in range(grid_depth):
 		for x in range(grid_width):
 			var state = grid[_idx(x, y)]
-			if state == null or state.variant.id == "EMPTY":
+			if state == null or state.variant == null or state.variant.id == "EMPTY":
 				continue
 			var v = state.variant
 			var inst = modules[v.id].instance()
@@ -715,13 +734,15 @@ func _dir_from_local_side(rot: int, side: String) -> int:
 			return OPPOSITE[_dir_from_local_side(rot, "left")]
 	return Direction.NORTH
 
-func _apply_port_heights_to_front_back(inst, v: ModuleVariant) -> void:
+func _apply_port_heights_to_front_back(inst, v) -> void:
+	if v == null: return
 	var front_dir = _dir_from_local_side(v.rotation, "front")
 	var back_dir = _dir_from_local_side(v.rotation, "back")
 	inst.set("front_height_offset", v.port_heights[front_dir])
 	inst.set("back_height_offset", v.port_heights[back_dir])
 
-func _apply_rails_from_connections(inst, v: ModuleVariant) -> void:
+func _apply_rails_from_connections(inst, v) -> void:
+	if v == null: return
 	var front_dir = _dir_from_local_side(v.rotation, "front")
 	var back_dir = _dir_from_local_side(v.rotation, "back")
 	var left_dir = _dir_from_local_side(v.rotation, "left")
@@ -735,7 +756,8 @@ func _apply_local_dims(inst, w: float, d: float):
 	inst.set("platform_width", w)
 	inst.set("platform_depth", d)
 
-func _apply_opening_widths_from_connections(inst, v: ModuleVariant) -> void:
+func _apply_opening_widths_from_connections(inst, v) -> void:
+	if v == null: return
 	var front_dir = _dir_from_local_side(v.rotation, "front")
 	var back_dir = _dir_from_local_side(v.rotation, "back")
 	var left_dir = _dir_from_local_side(v.rotation, "left")

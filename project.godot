@@ -1454,6 +1454,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/systems/scaffold/ScaffoldExclusionArea.gd"
 }, {
+"base": "Spatial",
+"class": "ScaffoldStreamController",
+"language": "GDScript",
+"path": "res://core_v2/systems/ScaffoldStreamController.gd"
+}, {
+"base": "Node",
+"class": "ScaffoldWFCThreaded",
+"language": "GDScript",
+"path": "res://core_v2/systems/ScaffoldWFCThreaded.gd"
+}, {
 "base": "PropBaseV2",
 "class": "SciFiBoxLightV2",
 "language": "GDScript",
@@ -1723,6 +1733,11 @@ _global_script_classes=[ {
 "class": "VirtualJoystick",
 "language": "GDScript",
 "path": "res://addons/virtual_joystick/virtual_joystick.gd"
+}, {
+"base": "Reference",
+"class": "WFCSolverCore",
+"language": "GDScript",
+"path": "res://core_v2/systems/WFCSolverCore.gd"
 }, {
 "base": "LiquidLayer",
 "class": "WaterLayer",
@@ -2064,6 +2079,8 @@ _global_script_class_icons={
 "RotatingObjectV2": "",
 "SFXComponentV2": "",
 "ScaffoldExclusionArea": "",
+"ScaffoldStreamController": "",
+"ScaffoldWFCThreaded": "",
 "SciFiBoxLightV2": "",
 "SciFiDoorV2": "",
 "SciFiFloatingLightV2": "",
@@ -2118,6 +2135,7 @@ _global_script_class_icons={
 "Vector3Fuzzer": "",
 "ViewLockProperty": "",
 "VirtualJoystick": "",
+"WFCSolverCore": "",
 "WaterLayer": "",
 "WindTunnelV2": "",
 "WorldRotator": "",

@@ -1,7 +1,7 @@
 [gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
-[ext_resource path="res://core_v2/systems/ScaffoldWFCGenerator.gd" type="Script" id=4]
+[ext_resource path="res://core_v2/systems/ScaffoldStreamController.gd" type="Script" id=4]
 
 [sub_resource type="PlaneMesh" id=1]
 size = Vector2( 100, 100 )
@@ -32,12 +32,11 @@ transform = Transform( 0.625, -0.649519, 0.433013, 0.433013, 0.75, 0.5, -0.64951
 light_energy = 0.448
 shadow_enabled = true
 
-[node name="ScaffoldWFCGenerator" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -37, 0, -24 )
+[node name="ScaffoldStreamController" type="Spatial" parent="."]
 script = ExtResource( 4 )
-map_seed = 44
-debug_verbose = true
-grid_depth = 8
-cell_size = 6.0
-require_single_component = false
-constrain_border_heights = true
+load_radius = 30.0
+unload_radius = 35.0
+global_seed = 44
+instances_per_frame = 6
+player_path = NodePath("../Pilot_V2")
+max_wfc_retries = 48
