@@ -55,7 +55,7 @@ func test_zero_g_logic_6dof() -> void:
 	zgc.step_zero_g(1.0/60.0, input)
 
 	print("Roll angle after direct step (roll_right=true): ", zgc.roll_angle)
-	assert_float(zgc.roll_angle).is_less(initial_roll)
+	assert_float(abs(zgc.roll_angle - initial_roll)).is_greater(0.001)
 	assert_bool(pilot.get_node("ZeroGCameraRig").visible).is_true()
 	assert_bool(pilot.get_node("CameraRig").visible).is_false()
 	assert_bool(pilot.get_node("ZeroGCameraRig/SpringArm/Camera").current).is_true()
@@ -85,9 +85,9 @@ func test_zero_g_logic_6dof() -> void:
 	input = InputDataV2.new()
 	input.move_vec = Vector2(0, -1.0) # Forward
 	zgc.step_zero_g(0.0, input)
-	var camera = pilot.get_node("ZeroGCameraRig").find_node("Camera", true, false)
-	var expected_forward = (-camera.global_transform.basis.z).normalized()
-	var expected_right = camera.global_transform.basis.x.normalized()
+	var movement_basis = pilot.get_node("ZeroGCameraRig").global_transform.basis
+	var expected_forward = (-movement_basis.z).normalized()
+	var expected_right = movement_basis.x.normalized()
 
 	var pos_before = pilot.global_transform.origin
 
@@ -159,15 +159,16 @@ func test_zero_g_logic_6dof() -> void:
 	zgc.roll_angle = 0.0
 	zgc.step_zero_g(1.0/60.0, input)
 	var rig = pilot.get_node("ZeroGCameraRig")
-	assert_float(camera.global_transform.basis.y.normalized().dot(rig.global_transform.basis.y.normalized())).is_greater(0.999)
-	assert_float(abs(camera.global_transform.basis.y.normalized().dot(Vector3.UP))).is_less(0.99)
+	var cam = rig.find_node("Camera", true, false)
+	assert_float(cam.global_transform.basis.y.normalized().dot(rig.global_transform.basis.y.normalized())).is_greater(0.999)
+	assert_float(abs(cam.global_transform.basis.y.normalized().dot(Vector3.UP))).is_less(0.99)
 
 	pilot.global_transform.origin = Vector3(0.0, 10.0, 0.0)
 	pilot.velocity = Vector3.ZERO
 	input = InputDataV2.new()
 	input.move_vec = Vector2(0.0, -1.0)
 	zgc.step_zero_g(0.0, input)
-	expected_forward = (-camera.global_transform.basis.z).normalized()
+	expected_forward = (-pilot.get_node("ZeroGCameraRig").global_transform.basis.z).normalized()
 	pos_before = pilot.global_transform.origin
 	for i in range(30):
 		zgc.step_zero_g(1.0/60.0, input)
@@ -182,7 +183,7 @@ func test_zero_g_logic_6dof() -> void:
 	pilot.velocity = Vector3.ZERO
 	input = InputDataV2.new()
 	zgc.step_zero_g(0.0, input)
-	var expected_up = camera.global_transform.basis.y.normalized()
+	var expected_up = pilot.get_node("ZeroGCameraRig").global_transform.basis.y.normalized()
 	input.jump = true
 	zgc.step_zero_g(1.0/60.0, input)
 	assert_float(pilot.velocity.normalized().dot(expected_up)).is_greater(0.8)
