@@ -232,9 +232,9 @@ func _switch_to_lod_mode(chunk_key: Vector2, mode: String) -> void:
 
 	var grid_data = _chunk_grid_cache[chunk_key]
 	if mode == "lod1":
-		_build_lod1_chunk(chunk_node, grid_data)
+		_build_lod1_chunk(chunk_node, grid_data, chunk_key)
 	elif mode == "lod2":
-		_build_lod2_chunk(chunk_node, grid_data)
+		_build_lod2_chunk(chunk_node, grid_data, chunk_key)
 
 func _clear_chunk_visuals(chunk_node: Spatial) -> void:
 	for child in chunk_node.get_children():
@@ -433,21 +433,26 @@ func _build_lod_resources() -> void:
 	_lod_rail_material = _lod_material.duplicate()
 	_lod_rail_material.albedo_color = rail_color
 
-	_lod_ramp_material = _lod_material.duplicate()
-	_lod_ramp_material.albedo_color = Color(0.55, 0.50, 0.38, 1.0)
-	_lod_ramp_material.params_cull_mode = SpatialMaterial.CULL_DISABLED
-
 	_lod_grate_material = load("res://textures/trenchbroom/steel_grate_platform.tres").duplicate(true)
 	if _lod_grate_material is SpatialMaterial:
-		var brightness = 0.72 # Match SteelGratePlatform default grate_brightness
+		var brightness = 0.9
 		_lod_grate_material.albedo_color = Color(
 			grate_color.r * brightness,
 			grate_color.g * brightness,
 			grate_color.b * brightness,
 			grate_color.a
 		)
-		_lod_grate_material.metallic = 0.04
-		_lod_grate_material.roughness = 0.98
+		_lod_grate_material.params_alpha_scissor_threshold = 0.56
+		_lod_grate_material.metallic = 0.0
+		_lod_grate_material.roughness = 1.0
+		_lod_grate_material.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	_lod_ramp_material = _lod_grate_material.duplicate(true) if _lod_grate_material != null else _lod_material.duplicate()
+	if _lod_ramp_material is SpatialMaterial:
+		_lod_ramp_material.params_use_alpha_scissor = false
+		_lod_ramp_material.params_alpha_scissor_threshold = 0.0
+		_lod_ramp_material.metallic = 0.0
+		_lod_ramp_material.roughness = 1.0
+		_lod_ramp_material.params_cull_mode = SpatialMaterial.CULL_DISABLED
 
 func _make_lod_ramp_mesh() -> ArrayMesh:
 	var mesh = ArrayMesh.new()
@@ -462,22 +467,32 @@ func _make_lod_ramp_mesh() -> ArrayMesh:
 	var base_low_r = low_r - Vector3.UP * plate_t
 	var base_high_r = high_r - Vector3.UP * plate_t
 	var base_high_l = high_l - Vector3.UP * plate_t
-	_add_lod_ramp_face(st, low_l, low_r, high_r, high_l)
-	_add_lod_ramp_face(st, base_high_l, base_high_r, base_low_r, base_low_l)
-	_add_lod_ramp_face(st, base_low_l, low_l, high_l, base_high_l)
-	_add_lod_ramp_face(st, base_high_r, high_r, low_r, base_low_r)
-	_add_lod_ramp_face(st, base_low_l, base_low_r, low_r, low_l)
-	_add_lod_ramp_face(st, base_high_l, high_l, high_r, base_high_r)
+	_add_lod_ramp_face(st, low_l, low_r, high_r, high_l, Rect2(Vector2(0.0, 0.0), Vector2(1.0, 1.0)))
+	_add_lod_ramp_face(st, base_high_l, base_high_r, base_low_r, base_low_l, Rect2(Vector2(0.0, 0.0), Vector2(1.0, 1.0)))
+	_add_lod_ramp_face(st, base_low_l, low_l, high_l, base_high_l, Rect2(Vector2(0.0, 0.0), Vector2(1.0, 1.0)))
+	_add_lod_ramp_face(st, base_high_r, high_r, low_r, base_low_r, Rect2(Vector2(0.0, 0.0), Vector2(1.0, 1.0)))
+	_add_lod_ramp_face(st, base_low_l, base_low_r, low_r, low_l, Rect2(Vector2(0.0, 0.0), Vector2(1.0, 0.4)))
+	_add_lod_ramp_face(st, base_high_l, high_l, high_r, base_high_r, Rect2(Vector2(0.0, 0.0), Vector2(1.0, 0.4)))
 	st.generate_normals()
 	st.commit(mesh)
 	return mesh
 
-func _add_lod_ramp_face(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+func _add_lod_ramp_face(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, uv_rect: Rect2) -> void:
+	var uv_a = Vector2(uv_rect.position.x, uv_rect.position.y)
+	var uv_b = Vector2(uv_rect.position.x + uv_rect.size.x, uv_rect.position.y)
+	var uv_c = Vector2(uv_rect.position.x + uv_rect.size.x, uv_rect.position.y + uv_rect.size.y)
+	var uv_d = Vector2(uv_rect.position.x, uv_rect.position.y + uv_rect.size.y)
+	st.add_uv(uv_a)
 	st.add_vertex(a)
+	st.add_uv(uv_b)
 	st.add_vertex(b)
+	st.add_uv(uv_c)
 	st.add_vertex(c)
+	st.add_uv(uv_a)
 	st.add_vertex(a)
+	st.add_uv(uv_c)
 	st.add_vertex(c)
+	st.add_uv(uv_d)
 	st.add_vertex(d)
 
 func _chunk_seed(chunk_key: Vector2) -> int:
@@ -504,7 +519,7 @@ func _on_chunk_generated(chunk_key, grid_data: Array) -> void:
 
 	if mode == "full":
 		# Build LOD1 immediately as visual placeholder while assets stream in
-		_build_lod1_chunk(chunk_node, grid_data)
+		_build_lod1_chunk(chunk_node, grid_data, chunk_key)
 		_full_lod_cleanup_pending[chunk_key] = true
 		if use_mst_generator:
 			_ensure_wfc_module_ref()
@@ -515,9 +530,9 @@ func _on_chunk_generated(chunk_key, grid_data: Array) -> void:
 			module_ref, Vector3.ZERO
 		)
 	elif mode == "lod1":
-		_build_lod1_chunk(chunk_node, grid_data)
+		_build_lod1_chunk(chunk_node, grid_data, chunk_key)
 	else:
-		_build_lod2_chunk(chunk_node, grid_data)
+		_build_lod2_chunk(chunk_node, grid_data, chunk_key)
 
 	_set_chunk_collision(chunk_node, footprint_dist <= collision_radius)
 
@@ -553,7 +568,7 @@ func _upgrade_chunk_to_full_detail(chunk_key: Vector2) -> void:
 	# Ensure a LOD1 placeholder is visible while assets stream in
 	if prev_mode != "lod1":
 		_clear_chunk_visuals(chunk_node)
-		_build_lod1_chunk(chunk_node, _chunk_grid_cache[chunk_key])
+		_build_lod1_chunk(chunk_node, _chunk_grid_cache[chunk_key], chunk_key)
 	if use_mst_generator:
 		_ensure_wfc_module_ref()
 	var module_ref = _wfc_module_ref if use_mst_generator else _generator_ref
@@ -563,12 +578,13 @@ func _upgrade_chunk_to_full_detail(chunk_key: Vector2) -> void:
 		module_ref, Vector3.ZERO
 	)
 
-func _build_lod1_chunk(chunk_node: Spatial, grid_data: Array) -> void:
+func _build_lod1_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2) -> void:
 	var deck_transforms = []
 	var ramp_transforms = []
 	var rail_transforms = []
 	var support_transforms = []
 	var collision_shapes = []
+	var used_support_keys = {}
 	for y in range(chunk_length):
 		for x in range(chunk_height):
 			var state = grid_data[y * chunk_height + x]
@@ -587,7 +603,7 @@ func _build_lod1_chunk(chunk_node: Spatial, grid_data: Array) -> void:
 				_append_lod_decks(deck_transforms, x, y, state, v, scale_xz, height_center)
 				_append_lod_rails(rail_transforms, collision_shapes if lod_collision_enabled else null, x, y, state, v)
 			if lod_supports_enabled:
-				_append_lod_supports(support_transforms, collision_shapes if lod_collision_enabled else null, x, y, state, v)
+				_append_lod_supports(support_transforms, collision_shapes if lod_collision_enabled else null, used_support_keys, chunk_key, x, y, state, v)
 			if lod_collision_enabled:
 				if vid == "S":
 					collision_shapes.append(_lod_ramp_collision_transform(x, y, state, v))
@@ -599,12 +615,13 @@ func _build_lod1_chunk(chunk_node: Spatial, grid_data: Array) -> void:
 	_add_lod_multimesh(chunk_node, "LOD1Supports", _lod1_tube_mesh, support_transforms, _lod_material)
 	_add_lod_collision(chunk_node, collision_shapes)
 
-func _build_lod2_chunk(chunk_node: Spatial, grid_data: Array) -> void:
+func _build_lod2_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2) -> void:
 	var deck_transforms = []
 	var ramp_transforms = []
 	var rail_transforms = []
 	var support_transforms = []
 	var collision_shapes = []
+	var used_support_keys = {}
 	for y in range(chunk_length):
 		for x in range(chunk_height):
 			var state = grid_data[y * chunk_height + x]
@@ -620,7 +637,7 @@ func _build_lod2_chunk(chunk_node: Spatial, grid_data: Array) -> void:
 				var height_center = _lod_height_center_offset(v)
 				_append_lod_decks(deck_transforms, x, y, state, v, scale_xz, height_center)
 			if lod_supports_enabled:
-				_append_lod_supports(support_transforms, collision_shapes if lod_collision_enabled else null, x, y, state, v)
+				_append_lod_supports(support_transforms, collision_shapes if lod_collision_enabled else null, used_support_keys, chunk_key, x, y, state, v)
 			if lod_collision_enabled:
 				if vid == "S":
 					collision_shapes.append(_lod_ramp_collision_transform(x, y, state, v))
@@ -736,9 +753,11 @@ func _append_lod_rails(out: Array, collision_out, x: int, y: int, state, v) -> v
 	var heights = _variant_port_heights(v)
 	var base = Vector3(x * cell_size, _state_base_height(state), y * cell_size)
 	var scale_xz = cell_size * lod_cell_scale
+	if _use_perimeter_lod_rails(v):
+		_append_lod_perimeter_rails(out, collision_out, base, heights, connections, scale_xz)
+		return
 	var rects = _lod_deck_rects(v, scale_xz)
 	for i in range(rects.size()):
-		var rect = rects[i]
 		_append_lod_rect_side_rail(out, collision_out, base, heights, connections, rects, i, DIR_NORTH, scale_xz)
 		_append_lod_rect_side_rail(out, collision_out, base, heights, connections, rects, i, DIR_SOUTH, scale_xz)
 		_append_lod_rect_side_rail(out, collision_out, base, heights, connections, rects, i, DIR_WEST, scale_xz)
@@ -751,16 +770,17 @@ func _append_lod_ramp_rails(out: Array, collision_out, x: int, y: int, state, v)
 	var scale_xz = cell_size * lod_cell_scale
 	var basis = _lod_ramp_orientation_basis(v)
 	var base = Vector3(x * cell_size, _state_base_height(state), y * cell_size)
+	var rail_bottom_offset = lod_deck_thickness * 0.5
 	var side_offset = _lane_width() * 0.5 - lod_rail_thickness * 0.5
-	var low = base - basis.z * (scale_xz * 0.5) + Vector3.UP * float(stair.low_h)
-	var high = base + basis.z * (scale_xz * 0.5) + Vector3.UP * float(stair.high_h)
+	var low = base - basis.z * (scale_xz * 0.5) + Vector3.UP * (float(stair.low_h) + rail_bottom_offset)
+	var high = base + basis.z * (scale_xz * 0.5) + Vector3.UP * (float(stair.high_h) + rail_bottom_offset)
 	for side in [-1.0, 1.0]:
 		var side_vec = basis.x * (side * side_offset)
 		var low_side = low + side_vec
 		var high_side = high + side_vec
 		_append_lod_rail_segment(out, collision_out, low_side, high_side)
 
-func _append_lod_supports(out: Array, collision_out, x: int, y: int, state, v) -> void:
+func _append_lod_supports(out: Array, collision_out, used_support_keys: Dictionary, chunk_key: Vector2, x: int, y: int, state, v) -> void:
 	if _variant_id(v) == "S":
 		return
 	var heights = _variant_port_heights(v)
@@ -770,7 +790,6 @@ func _append_lod_supports(out: Array, collision_out, x: int, y: int, state, v) -
 	var base = Vector3(x * cell_size, 0.0, y * cell_size)
 	var scale_xz = cell_size * lod_cell_scale
 	var thick = lod_support_thickness
-	var used = {}
 	for rect in _lod_deck_rects(v, scale_xz):
 		var corners = [
 			Vector2(rect.min_x + thick * 0.5, rect.min_z + thick * 0.5),
@@ -779,20 +798,65 @@ func _append_lod_supports(out: Array, collision_out, x: int, y: int, state, v) -
 			Vector2(rect.max_x - thick * 0.5, rect.max_z - thick * 0.5),
 		]
 		for corner in corners:
-			var key = "%d:%d" % [int(round(corner.x * 100.0)), int(round(corner.y * 100.0))]
-			if used.has(key):
+			var support_pos = base + Vector3(corner.x, 0.0, corner.y)
+			if _support_owner_chunk_for_local_position(support_pos) != chunk_key:
 				continue
-			used[key] = true
+			var key = "%d:%d" % [int(round(support_pos.x * 100.0)), int(round(support_pos.z * 100.0))]
+			if used_support_keys.has(key):
+				continue
 			var x_sign = -1.0 if corner.x < 0.0 else 1.0
 			var z_sign = -1.0 if corner.y < 0.0 else 1.0
-			var top_y = base_y + _corner_height(heights, x_sign, z_sign) - lod_deck_thickness
+			var top_y = base_y + _corner_height(heights, x_sign, z_sign) - lod_deck_thickness * 0.35
 			if top_y <= thick:
 				continue
-			var support_pos = base + Vector3(corner.x, 0.0, corner.y)
+			used_support_keys[key] = true
 			var post = _tube_between_transform(Vector3(support_pos.x, 0.0, support_pos.z), Vector3(support_pos.x, top_y, support_pos.z))
 			out.append(post)
 			if collision_out != null:
 				collision_out.append(_collision_box_from_transform(_vertical_box_transform(Vector3(support_pos.x, 0.0, support_pos.z), top_y, thick)))
+
+func _use_perimeter_lod_rails(v) -> bool:
+	return _variant_id(v) == "P"
+
+func _append_lod_perimeter_rails(out: Array, collision_out, base: Vector3, heights: Array, connections: Array, scale_xz: float) -> void:
+	var edge = scale_xz * 0.5
+	var opening = min(_lane_width(), max(scale_xz - lod_rail_thickness * 2.0, 0.0))
+	_append_lod_side_opening_rail(out, collision_out, base, heights, connections, DIR_NORTH, -edge, opening)
+	_append_lod_side_opening_rail(out, collision_out, base, heights, connections, DIR_SOUTH, edge, opening)
+	_append_lod_side_opening_rail(out, collision_out, base, heights, connections, DIR_WEST, -edge, opening)
+	_append_lod_side_opening_rail(out, collision_out, base, heights, connections, DIR_EAST, edge, opening)
+
+func _append_lod_side_opening_rail(out: Array, collision_out, base: Vector3, heights: Array, connections: Array, dir: int, side_value: float, opening_width: float) -> void:
+	var h = (float(heights[dir]) if heights.size() > dir else 0.0) + lod_deck_thickness * 0.5
+	var half_span = cell_size * lod_cell_scale * 0.5
+	var is_open = connections.size() > dir and connections[dir]
+	var open_half = opening_width * 0.5 if is_open else 0.0
+	if dir == DIR_NORTH or dir == DIR_SOUTH:
+		if not is_open:
+			_append_lod_horizontal_rail_interval(out, collision_out, base, h, side_value, -half_span, half_span)
+			return
+		_append_lod_horizontal_rail_interval(out, collision_out, base, h, side_value, -half_span, -open_half)
+		_append_lod_horizontal_rail_interval(out, collision_out, base, h, side_value, open_half, half_span)
+		return
+	if not is_open:
+		_append_lod_vertical_rail_interval(out, collision_out, base, h, side_value, -half_span, half_span)
+		return
+	_append_lod_vertical_rail_interval(out, collision_out, base, h, side_value, -half_span, -open_half)
+	_append_lod_vertical_rail_interval(out, collision_out, base, h, side_value, open_half, half_span)
+
+func _append_lod_horizontal_rail_interval(out: Array, collision_out, base: Vector3, height: float, z_value: float, x_start: float, x_end: float) -> void:
+	if x_end - x_start <= 0.05:
+		return
+	var a = base + Vector3(x_start, height, z_value)
+	var b = base + Vector3(x_end, height, z_value)
+	_append_lod_rail_segment(out, collision_out, a, b)
+
+func _append_lod_vertical_rail_interval(out: Array, collision_out, base: Vector3, height: float, x_value: float, z_start: float, z_end: float) -> void:
+	if z_end - z_start <= 0.05:
+		return
+	var a = base + Vector3(x_value, height, z_start)
+	var b = base + Vector3(x_value, height, z_end)
+	_append_lod_rail_segment(out, collision_out, a, b)
 
 func _append_lod_rail_segment(out: Array, collision_out, a: Vector3, b: Vector3) -> void:
 	var top_a = a + Vector3.UP * lod_rail_height
@@ -852,11 +916,25 @@ func _lod_deck_specs(v, scale_xz: float, thickness: float) -> Array:
 			count += 1
 	if count <= 0:
 		return [{"offset": Vector3.ZERO, "size": Vector3(scale_xz, thickness, scale_xz)}]
+	if count == 1:
+		var dead_end_specs = []
+		var lane_single = _lane_width()
+		var arm_len_single = scale_xz * 0.5 + lane_single * 0.5
+		var arm_offset_single = scale_xz * 0.25 - lane_single * 0.25
+		if connections.size() > DIR_NORTH and connections[DIR_NORTH]:
+			dead_end_specs.append({"offset": Vector3(0.0, 0.0, -arm_offset_single), "size": Vector3(lane_single, thickness, arm_len_single)})
+		if connections.size() > DIR_SOUTH and connections[DIR_SOUTH]:
+			dead_end_specs.append({"offset": Vector3(0.0, 0.0, arm_offset_single), "size": Vector3(lane_single, thickness, arm_len_single)})
+		if connections.size() > DIR_EAST and connections[DIR_EAST]:
+			dead_end_specs.append({"offset": Vector3(arm_offset_single, 0.0, 0.0), "size": Vector3(arm_len_single, thickness, lane_single)})
+		if connections.size() > DIR_WEST and connections[DIR_WEST]:
+			dead_end_specs.append({"offset": Vector3(-arm_offset_single, 0.0, 0.0), "size": Vector3(arm_len_single, thickness, lane_single)})
+		return dead_end_specs
 
 	var lane = _lane_width()
-	var arm_len = scale_xz * 0.5 + lane * 0.5
-	var arm_offset = scale_xz * 0.25 - lane * 0.25
-	var specs = []
+	var arm_len = max((scale_xz - lane) * 0.5, 0.0)
+	var arm_offset = (scale_xz + lane) * 0.25
+	var specs = [{"offset": Vector3.ZERO, "size": Vector3(lane, thickness, lane)}]
 	if connections.size() > DIR_NORTH and connections[DIR_NORTH]:
 		specs.append({"offset": Vector3(0.0, 0.0, -arm_offset), "size": Vector3(lane, thickness, arm_len)})
 	if connections.size() > DIR_SOUTH and connections[DIR_SOUTH]:
@@ -891,7 +969,7 @@ func _append_lod_rect_side_rail(out: Array, collision_out, base: Vector3, height
 	if _rect_side_is_connected_open(rect, dir, connections, scale_xz):
 		return
 	var segments = _rect_side_visible_segments(rects, rect_index, dir)
-	var h = float(heights[dir]) if heights.size() > dir else 0.0
+	var h = (float(heights[dir]) if heights.size() > dir else 0.0) + lod_deck_thickness * 0.5
 	for seg in segments:
 		if abs(seg.y - seg.x) <= 0.05:
 			continue
@@ -910,6 +988,11 @@ func _append_lod_rect_side_rail(out: Array, collision_out, base: Vector3, height
 			a = base + Vector3(rect.max_x, h, seg.x)
 			b = base + Vector3(rect.max_x, h, seg.y)
 		_append_lod_rail_segment(out, collision_out, a, b)
+
+func _support_owner_chunk_for_local_position(local_pos: Vector3) -> Vector2:
+	var owner_x = floor((local_pos.x - 0.001) / _chunk_step_x())
+	var owner_z = floor((local_pos.z - 0.001) / _chunk_step_z())
+	return Vector2(owner_x, owner_z)
 
 func _rect_side_is_connected_open(rect: Dictionary, dir: int, connections: Array, scale_xz: float) -> bool:
 	if connections.size() <= dir or not connections[dir]:

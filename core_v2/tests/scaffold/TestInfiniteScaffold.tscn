@@ -43,7 +43,9 @@ lod_full_detail_ramps = false
 lod_tube_segments = 3
 chunk_height = 4
 chunk_length = 4
+cell_size = 4.0
 player_path = NodePath("../Pilot_V2")
+require_single_component = true
 constrain_border_heights = true
 
 [node name="StarfieldEnvironment" parent="." instance=ExtResource( 3 )]
