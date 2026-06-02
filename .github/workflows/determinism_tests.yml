@@ -18,6 +18,7 @@ concurrency:
 env:
   GODOT_VERSION: 3.6.2-stable
   GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   determinism-tests:

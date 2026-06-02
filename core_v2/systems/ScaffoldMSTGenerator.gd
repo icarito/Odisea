@@ -20,8 +20,11 @@ class ModuleVariant:
 		id = p_id; rotation = p_rot; connections = p_conn; port_heights = p_heights; weight = p_weight
 
 class CellState:
-	var variant; var base_height: float
-	func _init(v, h): variant = v; base_height = h
+	var variant
+	var base_height: float
+	func _init(v, h):
+		variant = v
+		base_height = h
 
 var grid_width := 8
 var grid_depth := 12
