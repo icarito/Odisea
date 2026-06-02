@@ -28,5 +28,5 @@ func test_mst_generation():
 			for c in conn:
 				if c: c_count += 1
 			assert_int(c_count).is_greater(0)
-
+	
 	assert_int(occupied).is_greater(10)
