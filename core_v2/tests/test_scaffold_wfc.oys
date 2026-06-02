@@ -1,0 +1,10 @@
+LEVEL res://core_v2/tests/test_scaffold_wfc.tscn
+WAIT 1.0
+SET "ScaffoldWFCGenerator.trigger_generate" true
+WAIT 2.0
+SCREENSHOT "wfc_generation_3"
+SET "ScaffoldWFCGenerator.map_seed" 54321
+SET "ScaffoldWFCGenerator.trigger_generate" true
+WAIT 2.0
+SCREENSHOT "wfc_generation_4"
+TERMINATE

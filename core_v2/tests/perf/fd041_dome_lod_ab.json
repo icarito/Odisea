@@ -3,9 +3,9 @@
     {
       "snapshot": {
         "position": [
-          -0.400659,
-          0.391382,
-          0.917319
+          -0.000002,
+          -24.628653,
+          23.132471
         ],
         "velocity": [
           0,
@@ -26,13 +26,13 @@
             0,
             0
           ],
-          "camera_input_timer": 36.166666,
+          "camera_input_timer": 43.466666,
           "is_tank_turn_mode": true,
           "current_turn_time": 0,
           "_mouse_used_this_move": false
         },
         "controller_mode": 0,
-        "gravity_mode": 0,
+        "gravity_mode": 1,
         "jump_state": {
           "coyote_timer": 0,
           "jump_buffer_timer": 0,
@@ -1464,7 +1464,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1488,7 +1488,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1512,7 +1512,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1536,7 +1536,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1560,7 +1560,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1584,7 +1584,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1608,7 +1608,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1632,7 +1632,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1656,7 +1656,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1680,7 +1680,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1704,7 +1704,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1728,7 +1728,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1752,7 +1752,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1776,7 +1776,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1800,7 +1800,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1824,7 +1824,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1848,7 +1848,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1872,7 +1872,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1896,7 +1896,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1920,7 +1920,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1944,7 +1944,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1968,7 +1968,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -1992,7 +1992,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2016,7 +2016,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2040,7 +2040,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2064,7 +2064,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2088,7 +2088,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2112,7 +2112,7 @@
         ],
         "mouse_delta": [
           0,
-          0
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2135,8 +2135,32 @@
           0
         ],
         "mouse_delta": [
+          0,
+          -4.726933
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
           0,
           0
+        ],
+        "mouse_delta": [
+          0,
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2159,8 +2183,32 @@
           0
         ],
         "mouse_delta": [
+          0,
+          -4.726933
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
           0,
           0
+        ],
+        "mouse_delta": [
+          0,
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2183,8 +2231,32 @@
           0
         ],
         "mouse_delta": [
+          0,
+          -4.726933
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
           0,
           0
+        ],
+        "mouse_delta": [
+          0,
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2207,8 +2279,32 @@
           0
         ],
         "mouse_delta": [
+          0,
+          -4.726933
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
           0,
           0
+        ],
+        "mouse_delta": [
+          0,
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2231,8 +2327,32 @@
           0
         ],
         "mouse_delta": [
+          0,
+          -4.726933
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
           0,
           0
+        ],
+        "mouse_delta": [
+          0,
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2255,8 +2375,32 @@
           0
         ],
         "mouse_delta": [
+          0,
+          -4.726933
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
           0,
           0
+        ],
+        "mouse_delta": [
+          0,
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2280,7 +2424,31 @@
         ],
         "mouse_delta": [
           0,
+          -4.726933
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
           0
+        ],
+        "mouse_delta": [
+          0,
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2303,8 +2471,32 @@
           0
         ],
         "mouse_delta": [
+          0,
+          -4.726933
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
           0,
           0
+        ],
+        "mouse_delta": [
+          0,
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2327,8 +2519,32 @@
           0
         ],
         "mouse_delta": [
+          0,
+          -4.726933
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
           0,
           0
+        ],
+        "mouse_delta": [
+          0,
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -2351,8 +2567,32 @@
           0
         ],
         "mouse_delta": [
+          0,
+          -4.726933
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
           0,
           0
+        ],
+        "mouse_delta": [
+          0,
+          -4.726933
         ],
         "zoom_delta": 0,
         "fov_override": -1,
@@ -3768,6 +4008,4806 @@
         ],
         "mouse_delta": [
           0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          -1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          -6.981317,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          1.551404
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "hardware_mouse_active": false
+      }
+    },
+    {
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          3.490659,
           0
         ],
         "zoom_delta": 0,
@@ -5539,406 +10579,66 @@
   ],
   "events": {
     "0": [
-      {
-        "command": "PRINT",
-        "message": "Starting destroyer signal test"
-      }
+
     ],
     "59": [
+
+    ],
+    "107": [
+
+    ],
+    "120": [
       {
-        "command": "ASSERT",
-        "condition": "pos.y > -1.0 \"Player fell\""
+        "command": "CALL",
+        "method": "Odisea",
+        "args": [
+          "print_lod_stats"
+        ]
       },
       {
-        "command": "PRINT",
-        "message": "Waiting for entity_destroyed signal..."
-      },
-      {
-        "command": "ASSERT_SIGNAL",
-        "signal": "entity_destroyed",
-        "timeout": 3,
-        "path": "PropDestroyerArea",
-        "phase": "start"
+        "command": "CALL",
+        "method": "perf_capture_start",
+        "args": [
+          "fd041_dome_lod"
+        ]
       }
     ],
-    "199": [
-      {
-        "command": "ASSERT_SIGNAL",
-        "signal": "entity_destroyed",
-        "timeout": 3,
-        "path": "PropDestroyerArea",
-        "phase": "check"
-      },
-      {
-        "command": "PRINT",
-        "message": "SUCCESS: entity_destroyed signal was emitted!"
-      }
+    "180": [
+
     ],
-    "229": [
+    "210": [
+
+    ],
+    "228": [
+
+    ],
+    "258": [
+
+    ],
+    "288": [
+
+    ],
+    "306": [
+
+    ],
+    "336": [
+
+    ],
+    "366": [
+
+    ],
+    "426": [
       {
-        "command": "ASSERT",
-        "condition": "pos.y > -1.0 \"Player should still be on ground\""
-      },
-      {
-        "command": "ASSERT",
-        "condition": "pos.y < 3.0 \"Player position unstable\""
-      },
-      {
-        "command": "PRINT",
-        "message": "Test completed successfully"
+        "command": "CALL",
+        "method": "perf_capture_stop",
+        "args": [
+          "fd041_dome_lod"
+        ]
       }
     ]
   },
   "meta": {
     "world_start_state": {
-      "/root/@TestScene@202/Boxes/PushableBoxV2": {
-        "pos": [
-          7.71083,
-          0.998732,
-          -0.258764
-        ],
-        "rot": [
-          0.000597,
-          0.000487,
-          -0.000185
-        ],
-        "vel": [
-          -0.042974,
-          0.005594,
-          0.003034
-        ],
-        "ang": [
-          0.021777,
-          -0.000215,
-          0.046957
-        ],
-        "mode": 0,
-        "fbt": 22,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
-      "/root/@TestScene@202/Boxes/PushableBoxV3": {
-        "pos": [
-          22.421486,
-          0.992921,
-          5.156552
-        ],
-        "rot": [
-          -0.000112,
-          0.000029,
-          -0.000484
-        ],
-        "vel": [
-          0.080511,
-          0.106518,
-          -0.020398
-        ],
-        "ang": [
-          -0.004296,
-          -0.013654,
-          0.002135
-        ],
-        "mode": 0,
-        "fbt": 22,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
-      "/root/@TestScene@202/Boxes/PushableBoxV4": {
-        "pos": [
-          20.26664,
-          0.994165,
-          8.700215
-        ],
-        "rot": [
-          0.00068,
-          -0.012518,
-          0.000005
-        ],
-        "vel": [
-          -0.065436,
-          0.038445,
-          -0.00214
-        ],
-        "ang": [
-          -0.017333,
-          0.042143,
-          -0.058101
-        ],
-        "mode": 0,
-        "fbt": 8,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
-      "/root/@TestScene@202/Boxes/PushableBoxV5": {
-        "pos": [
-          17.633339,
-          0.993311,
-          25.536682
-        ],
-        "rot": [
-          0.000432,
-          -0.010493,
-          0.000047
-        ],
-        "vel": [
-          0.019638,
-          0.093658,
-          0.04971
-        ],
-        "ang": [
-          0.022669,
-          -0.082633,
-          -0.029201
-        ],
-        "mode": 0,
-        "fbt": 22,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
-      "/root/@TestScene@202/Boxes/PushableBoxV6": {
-        "pos": [
-          19.079088,
-          0.986294,
-          21.518764
-        ],
-        "rot": [
-          0.002574,
-          -0.004525,
-          -0.003729
-        ],
-        "vel": [
-          0.180453,
-          0.016192,
-          0.090543
-        ],
-        "ang": [
-          0.293946,
-          -0.064003,
-          -0.078055
-        ],
-        "mode": 0,
-        "fbt": 22,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
-      "/root/@TestScene@202/Boxes/PushableBoxV7": {
-        "pos": [
-          17.580032,
-          2.993218,
-          25.531286
-        ],
-        "rot": [
-          0.000461,
-          -0.011217,
-          0.000069
-        ],
-        "vel": [
-          0.049868,
-          0.088834,
-          0.078475
-        ],
-        "ang": [
-          0.009509,
-          -0.067194,
-          -0.012224
-        ],
-        "mode": 0,
-        "fbt": 22,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
-      "/root/@TestScene@202/Boxes/PushableBoxV8": {
-        "pos": [
-          24.008408,
-          0.999052,
-          9.251574
-        ],
-        "rot": [
-          -0.001041,
-          -0.012421,
-          -0.000102
-        ],
-        "vel": [
-          0.063532,
-          -0.027394,
-          0.027857
-        ],
-        "ang": [
-          -0.048391,
-          -0.000308,
-          0.024903
-        ],
-        "mode": 0,
-        "fbt": 22,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
-      "/root/@TestScene@202/Boxes/PushableBoxV9": {
-        "pos": [
-          23.73263,
-          2.999455,
-          9.246393
-        ],
-        "rot": [
-          -0.000742,
-          0.000141,
-          -0.000801
-        ],
-        "vel": [
-          0.072312,
-          -0.009862,
-          -0.039485
-        ],
-        "ang": [
-          -0.026677,
-          0.007827,
-          -0.019654
-        ],
-        "mode": 0,
-        "fbt": 22,
-        "size": [
-          2,
-          2,
-          2
-        ],
-        "snap_rot": true,
-        "snap_deg": 1
-      },
-      "/root/@TestScene@202/HoloTerminalV2": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0
-      },
-      "/root/@TestScene@202/HoloTerminalV2/CinematicSetup/CinematicPathRig": {
-        "is_active": false,
-        "target_offset": 0,
-        "last_deactivate_time": 0,
-        "unit_offset": 0.5,
-        "current_animation": "",
-        "playback_position": 0
-      },
-      "/root/@TestScene@202/Level/MovingPlatforms/Lever_MovingPlatform/LeverBase/RotatingLever": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0,
-        "start_rot": [
-          0,
-          0,
-          0
-        ]
-      },
-      "/root/@TestScene@202/Level/MovingPlatforms/Lever_MovingPlatform2/LeverBase/RotatingLever": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0,
-        "start_rot": [
-          0,
-          0,
-          0
-        ]
-      },
-      "/root/@TestScene@202/Lever/LeverBase/RotatingLever": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0,
-        "start_rot": [
-          0,
-          0,
-          0
-        ]
-      },
-      "/root/@TestScene@202/Lever/LeverConveyor": {
-        "pos": [
-          0.69854,
-          0.2,
-          44.991001
-        ],
-        "speed_x": 3,
-        "length": 8,
-        "width": 3,
-        "require_on_floor": false,
-        "rigid_force_multiplier": 10,
-        "occupancy_detection": true,
-        "debounce_time": 0.2,
-        "idle_speed_ratio": 0.1,
-        "stripe_dark_color": [
-          0.14,
-          0.15,
-          0.16,
-          1
-        ],
-        "stripe_light_color": [
-          0.48,
-          0.42,
-          0.16,
-          1
-        ],
-        "stripe_emission": 0.015,
-        "stripe_tiling": 4,
-        "stripe_fill": 0.42,
-        "is_active": false,
-        "internal_speed": 0,
-        "visual_speed": 0,
-        "visual_phase": 0,
-        "occupancy_hold_timer": 0,
-        "occupied": false,
-        "feedback_state": "disabled"
-      },
-      "/root/@TestScene@202/SlidingDrawer": {
-        "active": false,
-        "used": false,
-        "auto_triggered": false,
-        "progress": 0,
-        "target": 0,
-        "start_pos": [
-          -2.30146,
-          0.875,
-          39.991001
-        ]
-      },
       "CinematicManager": {
         "current_control_mode": 0,
         "latched_camera_basis": [
@@ -5957,24 +10657,24 @@
         "camera_mode_state": 0,
         "active_rig_path": "",
         "vcam_active_path": "",
-        "current_camera_path": "/root/@TestScene@202/Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm/Camera"
+        "current_camera_path": "/root/@TestOcclusionScene@474/Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm/Camera"
       }
     },
-    "scene_path": "res://core_v2/levels/TestScene_PropEmitter.tscn"
+    "scene_path": "res://core_v2/levels/OdiseaExterior.tscn"
   },
   "final_expected_state": {
     "position": [
-      -0.400659,
-      0.1415,
-      0.917319
+      -0.000002,
+      -400.217529,
+      23.132471
     ],
     "velocity": [
       0,
-      0,
+      -102.433334,
       0
     ],
     "yaw": 0,
-    "pitch": 0,
+    "pitch": 0.645772,
     "base_spring_length_3d": 3.2,
     "movement_state": {
       "horizontal_velocity": [
@@ -5987,15 +10687,15 @@
         0,
         0
       ],
-      "camera_input_timer": 39.983332,
+      "camera_input_timer": 1.216667,
       "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false
     },
     "controller_mode": 0,
-    "gravity_mode": 0,
+    "gravity_mode": 1,
     "jump_state": {
-      "coyote_timer": 0.15,
+      "coyote_timer": 0,
       "jump_buffer_timer": 0,
       "is_jumping": false
     }

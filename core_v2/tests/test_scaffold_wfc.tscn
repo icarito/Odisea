@@ -1,0 +1,14 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://core_v2/systems/ScaffoldWFCGenerator.gd" type="Script" id=1]
+
+[node name="TestScaffoldWFC" type="Spatial"]
+
+[node name="ScaffoldWFCGenerator" type="Spatial" parent="."]
+script = ExtResource( 1 )
+map_seed = 42
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 100, 150, 30 )
+current = true
+far = 2000.0
