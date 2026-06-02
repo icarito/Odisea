@@ -439,7 +439,9 @@ func _propagate_idx(ds: Array, hds: Array, collapsed: Array, start_idx: int) -> 
 			if not changed: continue
 			var any_ni = false
 			for j in range(n):
-				if ds[ni][j]: any_ni = true; break
+				if ds[ni][j]:
+					any_ni = true
+					break
 			if not any_ni:
 				ds[ni][ev_idx] = true
 				if _domain_size.size() > ni:
