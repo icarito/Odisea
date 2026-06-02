@@ -120,15 +120,7 @@ func _setup_variants():
 	all_variants.append(ModuleVariant.new("C", 90, [false, true, true, false], fpts, cw))
 	all_variants.append(ModuleVariant.new("C", 180, [false, false, true, true], fpts, cw))
 	all_variants.append(ModuleVariant.new("C", 270, [true, false, false, true], fpts, cw))
-	var cw_ramp = max(cw * 0.45, 0.15)
-	all_variants.append(ModuleVariant.new("C", 0, [true, true, false, false], [0.0, 2.0, 0.0, 0.0], cw_ramp))
-	all_variants.append(ModuleVariant.new("C", 0, [true, true, false, false], [0.0, -2.0, 0.0, 0.0], cw_ramp))
-	all_variants.append(ModuleVariant.new("C", 90, [false, true, true, false], [0.0, 0.0, 2.0, 0.0], cw_ramp))
-	all_variants.append(ModuleVariant.new("C", 90, [false, true, true, false], [0.0, 0.0, -2.0, 0.0], cw_ramp))
-	all_variants.append(ModuleVariant.new("C", 180, [false, false, true, true], [0.0, 0.0, 0.0, 2.0], cw_ramp))
-	all_variants.append(ModuleVariant.new("C", 180, [false, false, true, true], [0.0, 0.0, 0.0, -2.0], cw_ramp))
-	all_variants.append(ModuleVariant.new("C", 270, [true, false, false, true], [2.0, 0.0, 0.0, 0.0], cw_ramp))
-	all_variants.append(ModuleVariant.new("C", 270, [true, false, false, true], [-2.0, 0.0, 0.0, 0.0], cw_ramp))
+
 	var tw = _weight_for_id("T") / 4.0
 	all_variants.append(ModuleVariant.new("T", 0, [true, true, false, true], fpts, tw))
 	all_variants.append(ModuleVariant.new("T", 90, [true, true, true, false], fpts, tw))
@@ -583,7 +575,11 @@ func _validate_height_alignment(collapsed: Array) -> Array:
 					continue
 				var ni = _idx(nx, ny)
 				if collapsed[ni] == null or collapsed[ni].variant.id == "EMPTY":
-					continue
+					# Cell connects toward an EMPTY/null neighbor -- invalid.
+					collapsed[i] = CellState.new(ev, 0.0)
+					total_removed += 1
+					changed = true
+					break
 				if not collapsed[ni].variant.connections[OPPOSITE[dir]]:
 					collapsed[i] = CellState.new(ev, 0.0)
 					total_removed += 1
