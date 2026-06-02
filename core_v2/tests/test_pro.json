@@ -26,12 +26,12 @@
             0,
             0
           ],
-          "camera_input_timer": 36.049999,
+          "camera_input_timer": 0,
           "is_tank_turn_mode": true,
           "current_turn_time": 0,
           "_mouse_used_this_move": false
         },
-        "controller_mode": 0,
+        "controller_mode": -1,
         "gravity_mode": 0,
         "jump_state": {
           "coyote_timer": 0,
@@ -227,34 +227,38 @@
       {
         "command": "ASSERT",
         "condition": "$player_count == 1 \"Player count should be 1\""
+      },
+      {
+        "command": "PRINT",
+        "message": "Test completed successfully"
       }
     ]
   },
   "meta": {
     "world_start_state": {
-      "/root/@TestScene@202/Boxes/PushableBoxV2": {
+      "/root/TestScene/Boxes/PushableBoxV2": {
         "pos": [
-          7.285434,
-          0.996544,
-          -0.256636
+          6.365,
+          1,
+          -0.2596
         ],
         "rot": [
-          0.001425,
-          0.000565,
-          -0.000624
+          0,
+          0,
+          0
         ],
         "vel": [
-          0.006522,
-          -0.045854,
-          0.010034
+          0,
+          0,
+          0
         ],
         "ang": [
-          0.089808,
-          0.000447,
-          0.001191
+          0,
+          0,
+          0
         ],
         "mode": 0,
-        "fbt": 16,
+        "fbt": 0,
         "size": [
           2,
           2,
@@ -263,29 +267,29 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/@TestScene@202/Boxes/PushableBoxV3": {
+      "/root/TestScene/Boxes/PushableBoxV3": {
         "pos": [
-          21.991566,
-          0.99064,
-          5.162424
+          21.067101,
+          1,
+          5.1545
         ],
         "rot": [
-          -0.000155,
-          0.001239,
-          0.000912
+          0,
+          0,
+          0
         ],
         "vel": [
-          0.102097,
-          0.05062,
-          0.053171
+          0,
+          0,
+          0
         ],
         "ang": [
-          -0.022279,
-          -0.027527,
-          0.070536
+          0,
+          0,
+          0
         ],
         "mode": 0,
-        "fbt": 16,
+        "fbt": 0,
         "size": [
           2,
           2,
@@ -294,29 +298,29 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/@TestScene@202/Boxes/PushableBoxV4": {
+      "/root/TestScene/Boxes/PushableBoxV4": {
         "pos": [
-          19.817558,
-          0.995946,
-          8.700104
+          19.1544,
+          1,
+          8.6931
         ],
         "rot": [
-          -0.00014,
-          -0.011491,
-          -0.000749
+          0,
+          0,
+          0
         ],
         "vel": [
-          0.000805,
-          0.058223,
-          0.009832
+          0,
+          0,
+          0
         ],
         "ang": [
-          0.01211,
-          0.000094,
-          0.001042
+          0,
+          0,
+          0
         ],
         "mode": 0,
-        "fbt": 2,
+        "fbt": 0,
         "size": [
           2,
           2,
@@ -325,29 +329,29 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/@TestScene@202/Boxes/PushableBoxV5": {
+      "/root/TestScene/Boxes/PushableBoxV5": {
         "pos": [
-          17.19908,
-          0.992329,
-          25.528391
+          16.285299,
+          1,
+          25.525299
         ],
         "rot": [
-          0.001707,
-          -0.004359,
-          -0.001456
+          0,
+          0,
+          0
         ],
         "vel": [
-          -0.020067,
-          0.124983,
-          0.098569
+          0,
+          0,
+          0
         ],
         "ang": [
-          -0.012994,
-          -0.010401,
-          0.009077
+          0,
+          0,
+          0
         ],
         "mode": 0,
-        "fbt": 16,
+        "fbt": 0,
         "size": [
           2,
           2,
@@ -356,29 +360,29 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/@TestScene@202/Boxes/PushableBoxV6": {
+      "/root/TestScene/Boxes/PushableBoxV6": {
         "pos": [
-          18.641693,
-          0.988318,
-          21.508209
+          17.7199,
+          1,
+          21.508499
         ],
         "rot": [
-          -0.002301,
-          0.002708,
-          0.002351
+          0,
+          0,
+          0
         ],
         "vel": [
-          0.089783,
-          -0.038114,
-          0.021781
+          0,
+          0,
+          0
         ],
         "ang": [
-          -0.246541,
-          -0.044113,
-          -0.046727
+          0,
+          0,
+          0
         ],
         "mode": 0,
-        "fbt": 16,
+        "fbt": 0,
         "size": [
           2,
           2,
@@ -387,29 +391,29 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/@TestScene@202/Boxes/PushableBoxV7": {
+      "/root/TestScene/Boxes/PushableBoxV7": {
         "pos": [
-          17.146416,
-          2.993283,
-          25.524273
+          16.2388,
+          3,
+          25.5222
         ],
         "rot": [
-          0.001856,
-          -0.006203,
-          -0.002415
+          0,
+          0,
+          0
         ],
         "vel": [
-          0.020771,
-          0.070529,
-          0.083303
+          0,
+          0,
+          0
         ],
         "ang": [
-          0.042463,
-          -0.118814,
-          0.010153
+          0,
+          0,
+          0
         ],
         "mode": 0,
-        "fbt": 16,
+        "fbt": 0,
         "size": [
           2,
           2,
@@ -418,29 +422,29 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/@TestScene@202/Boxes/PushableBoxV8": {
+      "/root/TestScene/Boxes/PushableBoxV8": {
         "pos": [
-          23.598633,
-          0.998674,
-          9.249929
+          22.434,
+          1,
+          9.2493
         ],
         "rot": [
-          -0.000007,
-          -0.008952,
-          0.000216
+          0,
+          0,
+          0
         ],
         "vel": [
-          0.003434,
-          0.018549,
-          -0.019929
+          0,
+          0,
+          0
         ],
         "ang": [
-          -0.000008,
-          -0.006708,
-          -0.001875
+          0,
+          0,
+          0
         ],
         "mode": 0,
-        "fbt": 16,
+        "fbt": 0,
         "size": [
           2,
           2,
@@ -449,29 +453,29 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/@TestScene@202/Boxes/PushableBoxV9": {
+      "/root/TestScene/Boxes/PushableBoxV9": {
         "pos": [
-          23.301739,
-          2.998652,
-          9.250219
+          22.387501,
+          3,
+          9.2462
         ],
         "rot": [
-          0.00041,
-          0.000522,
-          -0.000348
+          0,
+          0,
+          0
         ],
         "vel": [
-          0.018755,
-          0.020255,
-          -0.00572
+          0,
+          0,
+          0
         ],
         "ang": [
-          -0.00624,
-          0.013168,
-          0.002026
+          0,
+          0,
+          0
         ],
         "mode": 0,
-        "fbt": 16,
+        "fbt": 0,
         "size": [
           2,
           2,
@@ -480,14 +484,14 @@
         "snap_rot": true,
         "snap_deg": 1
       },
-      "/root/@TestScene@202/HoloTerminalV2": {
+      "/root/TestScene/HoloTerminalV2": {
         "active": false,
         "used": false,
         "auto_triggered": false,
         "progress": 0,
         "target": 0
       },
-      "/root/@TestScene@202/HoloTerminalV2/CinematicSetup/CinematicPathRig": {
+      "/root/TestScene/HoloTerminalV2/CinematicSetup/CinematicPathRig": {
         "is_active": false,
         "target_offset": 0,
         "last_deactivate_time": 0,
@@ -495,7 +499,7 @@
         "current_animation": "",
         "playback_position": 0
       },
-      "/root/@TestScene@202/Level/MovingPlatforms/Lever_MovingPlatform/LeverBase/RotatingLever": {
+      "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform/LeverBase/RotatingLever": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -507,7 +511,7 @@
           0
         ]
       },
-      "/root/@TestScene@202/Level/MovingPlatforms/Lever_MovingPlatform2/LeverBase/RotatingLever": {
+      "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform2/LeverBase/RotatingLever": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -519,7 +523,7 @@
           0
         ]
       },
-      "/root/@TestScene@202/Lever/LeverBase/RotatingLever": {
+      "/root/TestScene/Lever/LeverBase/RotatingLever": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -531,7 +535,7 @@
           0
         ]
       },
-      "/root/@TestScene@202/Lever/LeverConveyor": {
+      "/root/TestScene/Lever/LeverConveyor": {
         "pos": [
           0.69854,
           0.2,
@@ -568,7 +572,7 @@
         "occupied": false,
         "feedback_state": "disabled"
       },
-      "/root/@TestScene@202/SlidingDrawer": {
+      "/root/TestScene/SlidingDrawer": {
         "active": false,
         "used": false,
         "auto_triggered": false,
@@ -598,16 +602,16 @@
         "camera_mode_state": 0,
         "active_rig_path": "",
         "vcam_active_path": "",
-        "current_camera_path": "/root/@TestScene@202/Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm/Camera"
+        "current_camera_path": "/root/TestScene/Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm/Camera"
       }
     },
     "scene_path": "res://core_v2/levels/TestScene_v2.tscn"
   },
   "final_expected_state": {
     "position": [
-      -0.400659,
-      0.418604,
-      0.917319
+      0,
+      0.418333,
+      0
     ],
     "velocity": [
       0,
@@ -616,7 +620,7 @@
     ],
     "yaw": 0,
     "pitch": 0,
-    "base_spring_length_3d": 3.2,
+    "base_spring_length_3d": 4,
     "movement_state": {
       "horizontal_velocity": [
         0,
@@ -628,7 +632,7 @@
         0,
         0
       ],
-      "camera_input_timer": 36.149999,
+      "camera_input_timer": 0.1,
       "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false
@@ -646,6 +650,6 @@
     "$sys_env_auto_run": "",
     "$test_var": 10,
     "$pos_y": 0.5,
-    "$player_count": 2
+    "$player_count": 1
   }
 }

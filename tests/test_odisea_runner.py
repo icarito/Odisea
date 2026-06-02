@@ -108,7 +108,9 @@ def _stream_process(
 
         if filter_visualserver and (
             "VisualServer attempted to free a NULL RID" in line
-            or "at: free (servers/visual/visual_server_raster.cpp:69)" in line
+            or "at: free (servers/visual/visual_server_raster.cpp" in line
+            or 'Condition "!track_pp" is true' in line
+            or "at: _process_graph (scene/animation/animation_tree.cpp" in line
         ):
             continue
 
@@ -148,6 +150,18 @@ def _extract_assert_failures_from_log(log_path: Path | None):
     return results
 
 
+_BENIGN_ENGINE_NOISE = (
+    "VisualServer attempted to free a NULL RID",
+    "at: free (servers/visual/visual_server_raster.cpp",
+    'Condition "!track_pp" is true',
+    "at: _process_graph (scene/animation/animation_tree.cpp",
+)
+
+
+def _is_benign_noise(line: str) -> bool:
+    return any(pattern in line for pattern in _BENIGN_ENGINE_NOISE)
+
+
 def _tail_log_excerpt(log_path: Path | None, max_lines: int = 80) -> str:
     if log_path is None or not log_path.exists():
         return ""
@@ -155,7 +169,7 @@ def _tail_log_excerpt(log_path: Path | None, max_lines: int = 80) -> str:
     if not lines:
         return ""
     excerpt = [_strip_ansi(line) for line in lines[-max_lines:]]
-    return "\n".join(line for line in excerpt if line)
+    return "\n".join(line for line in excerpt if line and not _is_benign_noise(line))
 
 
 def _has_executable(program: str) -> bool:
@@ -278,6 +292,7 @@ def _run_gdunit_suite(suite_path: Path, selected_runner: str, repo_root: Path, o
     returncode, captured_failed_asserts, log_path = _stream_process(
         cmd,
         file_hint=rel_suite,
+        filter_visualserver=True,
         env={"ODISEA_SKIP_PREFLIGHT": "1"},
         timeout_sec=_test_timeout_sec(),
     )
