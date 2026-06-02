@@ -1,11 +1,7 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
-[ext_resource path="res://core_v2/systems/scaffold/InfiniteScaffoldField.tscn" type="PackedScene" id=2]
-[ext_resource path="res://core_v2/systems/scaffold/ScaffoldExclusionArea.tscn" type="PackedScene" id=3]
-
-[sub_resource type="BoxShape" id=4]
-extents = Vector3( 8, 5, 7 )
+[ext_resource path="res://core_v2/systems/ScaffoldWFCGenerator.gd" type="Script" id=4]
 
 [sub_resource type="PlaneMesh" id=1]
 size = Vector2( 100, 100 )
@@ -19,18 +15,7 @@ extents = Vector3( 50, 1, 50 )
 [node name="TestInfiniteScaffold" type="Spatial"]
 
 [node name="Pilot_V2" parent="." instance=ExtResource( 1 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
-
-[node name="InfiniteScaffoldField" parent="." instance=ExtResource( 2 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
-player_path = NodePath("../Pilot_V2")
-cell_size = 7.0
-
-[node name="ExclusionArea" parent="." instance=ExtResource( 3 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 0 )
-
-[node name="CollisionShape" parent="ExclusionArea" index="0"]
-shape = SubResource( 4 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 2, 24 )
 
 [node name="Floor" type="StaticBody" parent="."]
 
@@ -43,8 +28,14 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
 shape = SubResource( 2 )
 
 [node name="DirectionalLight" type="DirectionalLight" parent="."]
-transform = Transform( 0.866025, -0.5, 0, 0.5, 0.866025, 0, 0, 0, 1, 0, 10, 0 )
-light_energy = 0.8
+transform = Transform( 0.625, -0.649519, 0.433013, 0.433013, 0.75, 0.5, -0.649519, -0.125, 0.75, 0, 9, 0 )
+light_energy = 0.448
 shadow_enabled = true
 
-[editable path="ExclusionArea"]
+[node name="ScaffoldWFCGenerator" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -37, 0, -24 )
+script = ExtResource( 4 )
+map_seed = 44
+debug_verbose = true
+require_single_component = false
+constrain_border_heights = true

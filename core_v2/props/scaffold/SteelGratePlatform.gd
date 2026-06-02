@@ -7,6 +7,7 @@ export(float, 1.0, 100.0, 0.1) var platform_depth := 3.0 setget set_platform_dep
 export(float, 0.2, 100.0, 0.1) var platform_height := 1.6 setget set_platform_height
 export(float, -20.0, 20.0, 0.1) var front_height_offset := 0.0 setget set_front_height_offset
 export(float, -20.0, 20.0, 0.1) var back_height_offset := 0.0 setget set_back_height_offset
+export(float, -200.0, 200.0, 0.1) var support_base_local_y := 0.0 setget set_support_base_local_y
 export(float, 0.04, 2.0, 0.01) var tube_radius := 0.07 setget set_tube_radius
 export(float, 0.04, 2.0, 0.01) var deck_frame_thickness := 0.10 setget set_deck_frame_thickness
 export(float, 0.05, 0.95, 0.01) var grate_alpha_threshold := 0.46 setget set_grate_alpha_threshold
@@ -70,6 +71,10 @@ func set_front_height_offset(value: float) -> void:
 
 func set_back_height_offset(value: float) -> void:
 	back_height_offset = value
+	_queue_rebuild()
+
+func set_support_base_local_y(value: float) -> void:
+	support_base_local_y = value
 	_queue_rebuild()
 
 func set_tube_radius(value: float) -> void:
@@ -215,14 +220,14 @@ func _rebuild() -> void:
 	var back_left_top = Vector3(-half_w + tube_radius, back_top_y - tube_radius, half_d - tube_radius)
 	var back_right_top = Vector3(half_w - tube_radius, back_top_y - tube_radius, half_d - tube_radius)
 
-	_add_tube_between("Leg_FL", Vector3(front_left_top.x, 0, front_left_top.z), front_left_top, _frame_material)
-	_add_tube_between("Leg_FR", Vector3(front_right_top.x, 0, front_right_top.z), front_right_top, _frame_material)
-	_add_tube_between("Leg_BL", Vector3(back_left_top.x, 0, back_left_top.z), back_left_top, _frame_material)
-	_add_tube_between("Leg_BR", Vector3(back_right_top.x, 0, back_right_top.z), back_right_top, _frame_material)
-	_add_leg_collision("LegCollision_FL", Vector3(front_left_top.x, 0, front_left_top.z), front_left_top)
-	_add_leg_collision("LegCollision_FR", Vector3(front_right_top.x, 0, front_right_top.z), front_right_top)
-	_add_leg_collision("LegCollision_BL", Vector3(back_left_top.x, 0, back_left_top.z), back_left_top)
-	_add_leg_collision("LegCollision_BR", Vector3(back_right_top.x, 0, back_right_top.z), back_right_top)
+	_add_tube_between("Leg_FL", Vector3(front_left_top.x, support_base_local_y, front_left_top.z), front_left_top, _frame_material)
+	_add_tube_between("Leg_FR", Vector3(front_right_top.x, support_base_local_y, front_right_top.z), front_right_top, _frame_material)
+	_add_tube_between("Leg_BL", Vector3(back_left_top.x, support_base_local_y, back_left_top.z), back_left_top, _frame_material)
+	_add_tube_between("Leg_BR", Vector3(back_right_top.x, support_base_local_y, back_right_top.z), back_right_top, _frame_material)
+	_add_leg_collision("LegCollision_FL", Vector3(front_left_top.x, support_base_local_y, front_left_top.z), front_left_top)
+	_add_leg_collision("LegCollision_FR", Vector3(front_right_top.x, support_base_local_y, front_right_top.z), front_right_top)
+	_add_leg_collision("LegCollision_BL", Vector3(back_left_top.x, support_base_local_y, back_left_top.z), back_left_top)
+	_add_leg_collision("LegCollision_BR", Vector3(back_right_top.x, support_base_local_y, back_right_top.z), back_right_top)
 
 	_add_tube_between("BeamFront", front_left_top, front_right_top, _frame_material)
 	_add_tube_between("BeamBack", back_left_top, back_right_top, _frame_material)
@@ -364,9 +369,10 @@ func _build_side_segment(side_name: String, is_front_back: bool, fixed_axis: flo
 
 func _add_deck_collision(half_w: float, half_d: float, deck_t: float, front_top_y: float, back_top_y: float) -> void:
 	var shape = BoxShape.new()
-	shape.extents = Vector3(half_w, deck_t * 0.5, half_d)
-	var center_y = ((front_top_y + back_top_y) * 0.5) - deck_t * 0.5
 	var slope_angle = - atan2(back_top_y - front_top_y, platform_depth)
+	var slope_scale = 1.0 / max(cos(slope_angle), 0.02)
+	shape.extents = Vector3(half_w, deck_t * 0.5, half_d * slope_scale)
+	var center_y = ((front_top_y + back_top_y) * 0.5) - deck_t * 0.5
 	_add_collision_shape("DeckCollision", shape, Vector3(0, center_y, 0), Basis(Vector3.RIGHT, slope_angle))
 
 func _add_leg_collision(node_name: String, bottom: Vector3, top: Vector3) -> void:
@@ -378,12 +384,15 @@ func _add_leg_collision(node_name: String, bottom: Vector3, top: Vector3) -> voi
 func _add_grate_deck(width: float, depth: float, front_top_y: float, back_top_y: float) -> void:
 	var deck = MeshInstance.new()
 	deck.name = "DeckGrate"
-	# Slight overlap hides tiny seams between grate pixels and tubular frame/rails.
-	var mesh_size = Vector2(width + tube_radius * GRATE_OVERLAP_WITH_FRAME, depth + tube_radius * GRATE_OVERLAP_WITH_FRAME)
+	var slope_angle = - atan2(back_top_y - front_top_y, platform_depth)
+	var slope_scale = 1.0 / max(cos(slope_angle), 0.02)
+	var mesh_size = Vector2(
+		width + tube_radius * GRATE_OVERLAP_WITH_FRAME,
+		(depth + tube_radius * GRATE_OVERLAP_WITH_FRAME) * slope_scale
+	)
 	var mesh = _make_grate_mesh(mesh_size)
 	deck.mesh = mesh
 	deck.translation = Vector3(0, (front_top_y + back_top_y) * 0.5 - GRATE_RECESS, 0)
-	var slope_angle = - atan2(back_top_y - front_top_y, platform_depth)
 	deck.rotation = Vector3(-PI * 0.5 + slope_angle, 0, 0)
 	if _grate_material is SpatialMaterial:
 		var mat = (_grate_material as SpatialMaterial).duplicate(true)
@@ -441,19 +450,19 @@ func _add_intermediate_leg_supports(front_left_top: Vector3, front_right_top: Ve
 	for x in x_positions:
 		var front_top = Vector3(x, front_left_top.y, front_left_top.z)
 		var back_top = Vector3(x, back_left_top.y, back_left_top.z)
-		_add_tube_between("LegFront_%s" % str(x), Vector3(x, 0, front_left_top.z), front_top, _frame_material)
-		_add_tube_between("LegBack_%s" % str(x), Vector3(x, 0, back_left_top.z), back_top, _frame_material)
-		_add_leg_collision("LegFrontCollision_%s" % str(x), Vector3(x, 0, front_left_top.z), front_top)
-		_add_leg_collision("LegBackCollision_%s" % str(x), Vector3(x, 0, back_left_top.z), back_top)
+		_add_tube_between("LegFront_%s" % str(x), Vector3(x, support_base_local_y, front_left_top.z), front_top, _frame_material)
+		_add_tube_between("LegBack_%s" % str(x), Vector3(x, support_base_local_y, back_left_top.z), back_top, _frame_material)
+		_add_leg_collision("LegFrontCollision_%s" % str(x), Vector3(x, support_base_local_y, front_left_top.z), front_top)
+		_add_leg_collision("LegBackCollision_%s" % str(x), Vector3(x, support_base_local_y, back_left_top.z), back_top)
 
 	var z_positions = _intermediate_positions(-platform_depth * 0.5 + tube_radius, platform_depth * 0.5 - tube_radius)
 	for z in z_positions:
 		var left_top = Vector3(front_left_top.x, _deck_top_y_at(z) - tube_radius, z)
 		var right_top = Vector3(front_right_top.x, _deck_top_y_at(z) - tube_radius, z)
-		_add_tube_between("LegLeft_%s" % str(z), Vector3(front_left_top.x, 0, z), left_top, _frame_material)
-		_add_tube_between("LegRight_%s" % str(z), Vector3(front_right_top.x, 0, z), right_top, _frame_material)
-		_add_leg_collision("LegLeftCollision_%s" % str(z), Vector3(front_left_top.x, 0, z), left_top)
-		_add_leg_collision("LegRightCollision_%s" % str(z), Vector3(front_right_top.x, 0, z), right_top)
+		_add_tube_between("LegLeft_%s" % str(z), Vector3(front_left_top.x, support_base_local_y, z), left_top, _frame_material)
+		_add_tube_between("LegRight_%s" % str(z), Vector3(front_right_top.x, support_base_local_y, z), right_top, _frame_material)
+		_add_leg_collision("LegLeftCollision_%s" % str(z), Vector3(front_left_top.x, support_base_local_y, z), left_top)
+		_add_leg_collision("LegRightCollision_%s" % str(z), Vector3(front_right_top.x, support_base_local_y, z), right_top)
 
 func _add_intermediate_rail_posts(side_name: String, bottom_a: Vector3, bottom_b: Vector3) -> void:
 	var distance = bottom_a.distance_to(bottom_b)
@@ -527,11 +536,6 @@ func _basis_from_y_axis(y_axis: Vector3) -> Basis:
 func _deck_top_y_at(z: float) -> float:
 	var t = clamp((z + platform_depth * 0.5) / max(platform_depth, 0.001), 0.0, 1.0)
 	return lerp(platform_height + front_height_offset, platform_height + back_height_offset, t)
-
-func _make_box_shape(extents: Vector3) -> BoxShape:
-	var shape = BoxShape.new()
-	shape.extents = extents
-	return shape
 
 func _add_collision_shape(node_name: String, shape: Shape, pos: Vector3, basis: Basis) -> void:
 	var collision = CollisionShape.new()
