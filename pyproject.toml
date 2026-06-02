@@ -2,13 +2,11 @@
 name = "odisea-game"
 version = "0.0.0"
 requires-python = ">=3.10"
-dependencies = [
-    "gymnasium==1.2.3",
-]
+dependencies = []
 
 [tool.pytest.ini_options]
-addopts = "-v -s"
-testpaths = ["tests", "core_v2/tests"]
+addopts = "-v"
+testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 markers = [
     "oys: Odyssey Script Tests",

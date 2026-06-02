@@ -17,11 +17,18 @@ class ModuleVariant:
 	var port_heights: Array
 	var weight: float
 	func _init(p_id, p_rot, p_conn, p_heights, p_weight):
-		id = p_id; rotation = p_rot; connections = p_conn; port_heights = p_heights; weight = p_weight
+		id = p_id
+		rotation = p_rot
+		connections = p_conn
+		port_heights = p_heights
+		weight = p_weight
 
 class CellState:
-	var variant; var base_height: float
-	func _init(v, h): variant = v; base_height = h
+	var variant
+	var base_height: float
+	func _init(v, h):
+		variant = v
+		base_height = h
 
 var grid_width := 8
 var grid_depth := 12
@@ -36,7 +43,7 @@ func apply_params(params: Dictionary):
 func generate_grid_data(seed_val: int = -1) -> Array:
 	if seed_val == -1: rng.randomize()
 	else: rng.seed = seed_val
-	
+
 	var rooms = []
 	var room_count = rng.randi_range(5, 8)
 	var grid = []
@@ -62,16 +69,16 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 			var dist = abs(rooms[i].pos.x - rooms[j].pos.x) + abs(rooms[i].pos.y - rooms[j].pos.y)
 			edges.append({"u": i, "v": j, "w": dist})
 	edges.sort_custom(self, "_sort_edges")
-	
+
 	var parent = []
 	for i in range(rooms.size()): parent.append(i)
-	
+
 	var mst_edges = []
 	for e in edges:
 		if _find(parent, e.u) != _find(parent, e.v):
 			_union(parent, e.u, e.v)
 			mst_edges.append(e)
-	
+
 	# 4. Cycles
 	for i in range(2):
 		var e = edges[rng.randi() % edges.size()]
@@ -83,13 +90,15 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 
 	# 5. BFS for unassigned heights & Module Selection
 	_fill_missing_heights(heights, connections)
-	
+
 	var result = []
 	for i in range(grid_width * grid_depth):
 		var conn = connections[i]
 		var h = heights[i]
-		if h < 0: result.append(null); continue
-		
+		if h < 0:
+			result.append(null)
+			continue
+
 		var variant = _select_variant(conn, i, heights)
 		result.append({
 			"variant": {
@@ -137,10 +146,13 @@ func _fill_missing_heights(heights, connections):
 	for i in range(heights.size()): if heights[i] > 0: q.append(i)
 	while not q.empty():
 		var curr = q.pop_front()
-		var cx = curr % grid_width; var cy = curr / grid_width
+		var cx = curr % grid_width
+		var cy = curr / grid_width
 		for d in range(4):
 			if not connections[curr][d]: continue
-			var nv = DIR_VEC[d]; var nx = cx + nv.x; var ny = cy + nv.y
+			var nv = DIR_VEC[d]
+			var nx = cx + nv.x
+			var ny = cy + nv.y
 			if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth: continue
 			var ni = int(ny * grid_width + nx)
 			if heights[ni] < 0:
@@ -151,18 +163,23 @@ func _select_variant(conn, idx, heights):
 	var c_count = 0
 	for c in conn: if c: c_count += 1
 	if c_count == 0: return ModuleVariant.new("EMPTY", 0, [false,false,false,false], [0,0,0,0], 0)
-	
+
 	var h = heights[idx]
 	var ph = [0.0, 0.0, 0.0, 0.0]
-	var cx = idx % grid_width; var cy = idx / grid_width
+	var cx = idx % grid_width
+	var cy = idx / grid_width
 	for d in range(4):
 		if not conn[d]: continue
-		var nv = DIR_VEC[d]; var ni = int((cy + nv.y) * grid_width + (cx + nv.x))
+		var nv = DIR_VEC[d]
+		var ni = int((cy + nv.y) * grid_width + (cx + nv.x))
 		if ni >= 0 and ni < heights.size(): ph[d] = heights[ni] - h
-	
+
 	var is_stair = false
-	for p in ph: if abs(p) > 0.001: is_stair = true; break
-	
+	for p in ph:
+		if abs(p) > 0.001:
+			is_stair = true
+			break
+
 	if is_stair:
 		if conn[Direction.NORTH] and conn[Direction.SOUTH]:
 			return ModuleVariant.new("S", 0 if ph[Direction.SOUTH] > 0 else 180, [true, false, true, false], ph, 1)
@@ -182,6 +199,7 @@ func _select_variant(conn, idx, heights):
 		for d in range(4):
 			if not conn[d]:
 				var rot = (d + 2) % 4
-				var c = [true, true, true, true]; c[d] = false
+				var c = [true, true, true, true]
+				c[d] = false
 				return ModuleVariant.new("T", rot * 90, c, ph, 1)
 	return ModuleVariant.new("X", 0, [true, true, true, true], ph, 1)

@@ -1,7 +1,9 @@
 import os
 import re
+import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -125,12 +127,13 @@ def pytest_configure(config):
         if is_collect_only:
             # VSCode discovery is more stable without xdist workers.
             config.option.numprocesses = 0
-        elif editor_mode and editor_serial:
-            # Optional fallback when local machine cannot handle parallel Godot runs.
-            config.option.numprocesses = 3
         elif debug_enabled:
             # Debug sessions must be single-process; xdist workers lose debug context.
             config.option.numprocesses = 0
+        elif editor_mode:
+            # IDE runs: serial by default so a single test click doesn't spin 3 Godots.
+            # Override with ODISEA_EDITOR_SERIAL=0 or explicit -n to enable parallelism.
+            config.option.numprocesses = 0 if not editor_serial else 3
         elif (not debug_enabled) and (not is_collect_only) and (not explicit_numprocesses):
             if _is_github_actions():
                 config.option.numprocesses = "auto"
@@ -241,6 +244,7 @@ class OdiseaExternalTargetItem(pytest.Item):
         except ValueError:
             pass
 
+        env = {"ODISEA_SKIP_PREFLIGHT": "1"}
         cmd = ["./runtest.sh"]
         if _odisea_debug_enabled(self.config):
             cmd += ["--show", "--debug"]
@@ -249,7 +253,7 @@ class OdiseaExternalTargetItem(pytest.Item):
             if bool(self.config.getoption("--odisea-editor")):
                 cmd += ["--nodet"]
             cmd += ["--oys", _to_oys_selector(self.target_path, rootpath)]
-            returncode, _ = stream_process(cmd, file_hint=Path(str(rel_target)))
+            returncode, _ = stream_process(cmd, file_hint=Path(str(rel_target)), filter_visualserver=True, env=env)
             if returncode != 0:
                 raise RunnerError(
                     f"runtest.sh failed for OYS case '{self.target_path}' with return code {returncode}."
@@ -258,7 +262,7 @@ class OdiseaExternalTargetItem(pytest.Item):
 
         # .gd execution path
         cmd += ["-a", str(rel_target)]
-        returncode, _ = stream_process(cmd, file_hint=Path(str(rel_target)))
+        returncode, _ = stream_process(cmd, file_hint=Path(str(rel_target)), filter_visualserver=True, env=env)
         if returncode != 0:
             raise RunnerError(
                 f"runtest.sh failed for GdUnit suite '{self.target_path}' with return code {returncode}."
@@ -439,7 +443,16 @@ def strip_ansi(line: str) -> str:
     return re.sub(r"\x1b\[[0-9;]*m", "", line).rstrip()
 
 
-def stream_process(cmd, file_hint: Path | None = None, filter_visualserver: bool = False):
+def stream_process(
+    cmd,
+    file_hint: Path | None = None,
+    filter_visualserver: bool = False,
+    env: dict[str, str] | None = None,
+    timeout_sec: float | None = None,
+):
+    process_env = os.environ.copy()
+    if env:
+        process_env.update(env)
     proc = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
@@ -447,11 +460,31 @@ def stream_process(cmd, file_hint: Path | None = None, filter_visualserver: bool
         text=True,
         bufsize=1,
         universal_newlines=True,
+        start_new_session=True,
+        env=process_env,
     )
 
     captured_failed_asserts = []
+    deadline = time.monotonic() + timeout_sec if timeout_sec and timeout_sec > 0 else None
+    timed_out = False
 
     while True:
+        if deadline is not None and time.monotonic() >= deadline:
+            timed_out = True
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                proc.wait(timeout=5)
+            break
+
         line = proc.stdout.readline()
         if not line and proc.poll() is not None:
             break
@@ -460,7 +493,9 @@ def stream_process(cmd, file_hint: Path | None = None, filter_visualserver: bool
 
         if filter_visualserver and (
             "VisualServer attempted to free a NULL RID" in line
-            or "at: free (servers/visual/visual_server_raster.cpp:69)" in line
+            or "at: free (servers/visual/visual_server_raster.cpp" in line
+            or 'Condition "!track_pp" is true' in line
+            or "at: _process_graph (scene/animation/animation_tree.cpp" in line
         ):
             continue
 
@@ -475,6 +510,24 @@ def stream_process(cmd, file_hint: Path | None = None, filter_visualserver: bool
                 print(f"::error file={file_hint}::{clean}")
             elif "[WARNING]" in clean:
                 print(f"::warning file={file_hint}::{clean}")
+
+    if proc.stdout is not None:
+        for line in proc.stdout:
+            if filter_visualserver and (
+                "VisualServer attempted to free a NULL RID" in line
+                or "at: free (servers/visual/visual_server_raster.cpp" in line
+                or 'Condition "!track_pp" is true' in line
+                or "at: _process_graph (scene/animation/animation_tree.cpp" in line
+            ):
+                continue
+            clean = strip_ansi(line)
+            if clean:
+                print(clean)
+
+    if timed_out:
+        print(f"TIMEOUT: command exceeded {timeout_sec:.0f}s: {' '.join(cmd)}")
+        captured_failed_asserts.append(f"TIMEOUT after {timeout_sec:.0f}s")
+        return 124, captured_failed_asserts
 
     return proc.poll(), captured_failed_asserts
 

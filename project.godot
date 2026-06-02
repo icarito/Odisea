@@ -324,6 +324,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/systems/visual/FauxSkydomeParallaxShell.gd"
 }, {
+"base": "Spatial",
+"class": "FireEmitter",
+"language": "GDScript",
+"path": "res://core_v2/props/FireEmitter.gd"
+}, {
 "base": "PropBaseV2",
 "class": "FluorescentLight",
 "language": "GDScript",
@@ -1424,6 +1429,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/core/Result.gd"
 }, {
+"base": "InteractableBaseV2",
+"class": "RetractableBridge",
+"language": "GDScript",
+"path": "res://core_v2/props/RetractableBridge.gd"
+}, {
 "base": "PanelContainer",
 "class": "RetroWindow",
 "language": "GDScript",
@@ -1858,6 +1868,7 @@ _global_script_class_icons={
 "EmergencyBeaconV2": "",
 "EqualsArgumentMatcher": "",
 "FauxSkydomeParallaxShell": "",
+"FireEmitter": "",
 "FluorescentLight": "",
 "Follow": "",
 "FootstepDetector": "",
@@ -2078,6 +2089,7 @@ _global_script_class_icons={
 "RayCastSensor3D": "",
 "RaycastSensor2D": "",
 "Result": "",
+"RetractableBridge": "",
 "RetroWindow": "",
 "RichTextEffectBackground": "",
 "RichTextLabelExt": "",

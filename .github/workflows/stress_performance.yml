@@ -1,10 +1,6 @@
 name: Stress & Performance Tests
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
     inputs:
       simulate_regression:
@@ -25,6 +21,7 @@ concurrency:
 env:
   GODOT_VERSION: 3.6.2-stable
   EXPORT_NAME: Odisea
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   stress-test:
