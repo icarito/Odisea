@@ -13,8 +13,7 @@ roughness = 0.5
 [sub_resource type="SpatialMaterial" id=4]
 albedo_color = Color( 0, 0, 0, 1 )
 
-[node name="WarningBarrier" type="RigidBody"]
-mass = 5.0
+[node name="WarningBarrier" type="StaticBody"]
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
