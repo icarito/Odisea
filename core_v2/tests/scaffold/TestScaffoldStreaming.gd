@@ -58,7 +58,7 @@ func _report() -> void:
 		return
 	var non_empty = 0
 	for s in _result_grid:
-		if s != null and s.variant.id != "EMPTY":
+		if s != null and s.get("variant", {}).get("id", "EMPTY") != "EMPTY":
 			non_empty += 1
 	print("[TestStreaming] Non-empty cells: %d" % non_empty)
 	if non_empty < 8:

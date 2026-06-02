@@ -27,16 +27,29 @@ material/0 = SubResource( 3 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
 shape = SubResource( 2 )
 
-[node name="DirectionalLight" type="DirectionalLight" parent="."]
-transform = Transform( 0.625, -0.649519, 0.433013, 0.433013, 0.75, 0.5, -0.649519, -0.125, 0.75, 0, 9, 0 )
-light_energy = 0.448
-shadow_enabled = true
-
 [node name="ScaffoldStreamController" type="Spatial" parent="."]
 script = ExtResource( 4 )
-load_radius = 30.0
-unload_radius = 35.0
-global_seed = 44
-instances_per_frame = 6
+load_radius = 35.0
+unload_radius = 75.0
+collision_radius = 18.0
+full_detail_radius = 0.0
+full_detail_prefetch_radius = 0.0
+max_full_detail_upgrades_per_frame = 0
+lod_cell_scale = 1.0
+lod_ramp_height_scale = 1.25
+lod_full_detail_ramps = false
+lod_collision_thickness = 0.3
+chunk_height = 6
+chunk_length = 6
+cell_size = 5.0
+global_seed = 24
+instances_per_frame = 3
+max_chunk_requests_per_frame = 2
+max_pending_generation_jobs = 6
 player_path = NodePath("../Pilot_V2")
-max_wfc_retries = 48
+max_wfc_retries = 64
+min_non_empty_cells = 5
+min_stairs_per_chunk = 2
+min_elevated_cells = 1
+min_height_span = 2.0
+weight_S = 24.0

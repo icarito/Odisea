@@ -5,8 +5,6 @@ class_name WFCSolverCore
 # All scaffold instancing logic lives in ScaffoldWFCGenerator/_instance_grid.
 #
 # Performance notes:
-#   - OS.delay_msec(0) is called periodically inside heavy loops to release the
-#     GDScript thread lock so the Godot main thread can run its frames.
 #   - _compat precomputes variant-pair compatibility so _propagate uses O(1) lookups.
 
 enum Direction { NORTH = 0, EAST = 1, SOUTH = 2, WEST = 3 }
@@ -52,6 +50,8 @@ var _variant_index := {}  # variant object -> index in all_variants
 
 # _compat[dir][i][j] = true if variant i can have variant j in direction dir
 var _compat := []
+# _supporters[dir][nj] = Array of cj indices that support nj in direction dir
+var _supporters := []
 
 # --- Data classes ---
 class ModuleVariant:
@@ -176,6 +176,18 @@ func _build_compat_table() -> void:
 					row[j] = ok
 			mat[i] = row
 		_compat.append(mat)
+	# Build supporters: _supporters[dir][nj] = [cj, ...] where _compat[dir][cj][nj] is true
+	_supporters = []
+	for _dir in range(4):
+		var sup_dir = []
+		sup_dir.resize(n)
+		for nj in range(n):
+			var sup = []
+			for cj in range(n):
+				if _compat[_dir][cj][nj]:
+					sup.append(cj)
+			sup_dir[nj] = sup
+		_supporters.append(sup_dir)
 
 func generate_grid_data(seed_val: int = -1) -> Array:
 	if seed_val == -1: randomize()
@@ -214,7 +226,6 @@ func _wfc_generate() -> Array:
 	var best = []
 	var best_score = -1.0
 	for _retry in range(max_wfc_retries):
-		OS.delay_msec(0)  # yield GDScript lock between retries
 		var res = _prune_disconnected_components(_validate_height_alignment(_wfc_attempt()))
 		if not res.empty():
 			var score = _connectivity_score(res)
@@ -233,53 +244,64 @@ func _wfc_generate() -> Array:
 	return []
 
 func _wfc_attempt() -> Array:
-	OS.delay_msec(1)
 	var gs = grid_width * grid_depth
 	var n = all_variants.size()
 	var ev_idx = _empty_variant_idx_cached
 
-	# ds[i] = bool array of size n (domain mask — true = variant still possible)
-	# hds[i] = Array of possible heights
+	# ds[i] = bool array of size n (domain mask)
+	# domain_size[i] = count of true entries in ds[i] — avoids re-counting every step
 	var ds = []
+	_domain_size.resize(gs)
 	var hds = []
 	var collapsed = []
 	collapsed.resize(gs)
 	var phs = []
 	for i in range(1, MAX_HEIGHT_STEPS + 1):
 		phs.append(float(i) * HEIGHT_STEP)
+	# Init buckets: _buckets[e] = {cell: true} for cells with domain_size e
+	_buckets = []
+	for _b in range(n + 1):
+		_buckets.append({})
 	for i in range(gs):
 		var d = []
 		d.resize(n)
 		for j in range(n): d[j] = true
 		ds.append(d)
+		_domain_size[i] = n
+		_buckets[n][i] = true
 		hds.append(phs.duplicate())
 		collapsed[i] = null
 
-	_apply_boundary_constraints_idx(ds, hds)
+	_apply_boundary_constraints_idx(ds, hds, _domain_size)
+	# Re-bucket after boundary constraints (sizes may have changed)
+	for _b in range(n + 1): _buckets[_b].clear()
+	for i in range(gs):
+		_buckets[_domain_size[i]][i] = true
 
 	var stp = 0
 	while stp < gs:
-		if stp % 8 == 0:
-			OS.delay_msec(0)
-		# Find minimum-entropy uncollapsed cell
-		var me = n + 1
+		# O(1) min-entropy: find lowest non-empty bucket with uncollapsed cells
 		var mi = -1
-		for i in range(gs):
-			if collapsed[i] != null: continue
-			var e = 0
-			for j in range(n):
-				if ds[i][j]: e += 1
-			if e == 0:
-				# Contradiction — collapse to EMPTY
-				for j in range(n): ds[i][j] = false
-				ds[i][ev_idx] = true
-				collapsed[i] = CellState.new(all_variants[ev_idx], 0.0)
-				continue
-			if e < me:
-				me = e
-				mi = i
+		for e in range(n + 1):
+			if _buckets[e].empty(): continue
+			# Pick any cell from this bucket
+			for cell in _buckets[e]:
+				if collapsed[cell] == null:
+					if e == 0:
+						# Contradiction — force EMPTY
+						_buckets[e].erase(cell)
+						for j in range(n): ds[cell][j] = false
+						ds[cell][ev_idx] = true
+						_domain_size[cell] = 1
+						_buckets[1][cell] = true
+						collapsed[cell] = CellState.new(all_variants[ev_idx], 0.0)
+					else:
+						mi = cell
+					break
+			if mi != -1: break
 		if mi == -1:
 			break
+		_buckets[_domain_size[mi]].erase(mi)
 
 		# Check height constraints against already-collapsed neighbors
 		var _cx = mi % grid_width
@@ -314,6 +336,7 @@ func _wfc_attempt() -> Array:
 		if valid_vi.empty():
 			for j in range(n): ds[mi][j] = false
 			ds[mi][ev_idx] = true
+			_domain_size[mi] = 1
 			hds[mi] = [0.0]
 			collapsed[mi] = CellState.new(all_variants[ev_idx], 0.0)
 			_propagate_idx(ds, hds, collapsed, mi)
@@ -334,11 +357,13 @@ func _wfc_attempt() -> Array:
 			var ch = picked_vhs[randi() % picked_vhs.size()]
 			for j in range(n): ds[mi][j] = false
 			ds[mi][picked_vi] = true
+			_domain_size[mi] = 1
 			hds[mi] = [ch]
 			collapsed[mi] = CellState.new(all_variants[picked_vi], ch)
 			if not _propagate_idx(ds, hds, collapsed, mi):
 				for j in range(n): ds[mi][j] = false
 				ds[mi][ev_idx] = true
+				_domain_size[mi] = 1
 				hds[mi] = [0.0]
 				collapsed[mi] = CellState.new(all_variants[ev_idx], 0.0)
 				_propagate_idx(ds, hds, collapsed, mi)
@@ -346,19 +371,26 @@ func _wfc_attempt() -> Array:
 	return collapsed
 
 var _empty_variant_idx_cached := 0
+var _domain_size: Array = []   # domain_size[i] = count of true in ds[i]
+var _buckets: Array = []       # _buckets[e] = Dictionary{cell_idx: true} of cells with domain_size==e
 
-func _apply_boundary_constraints_idx(ds: Array, hds: Array) -> void:
+func _apply_boundary_constraints_idx(ds: Array, hds: Array, domain_size: Array = []) -> void:
 	var n = all_variants.size()
+	var track_size = domain_size.size() == ds.size()
 	for y in range(grid_depth):
 		for x in range(grid_width):
 			var idx = _idx(x, y)
 			for j in range(n):
 				if not ds[idx][j]: continue
 				var v = all_variants[j]
-				if y == 0 and v.connections[0]: ds[idx][j] = false; continue
-				if y == grid_depth - 1 and v.connections[2]: ds[idx][j] = false; continue
-				if x == 0 and v.connections[3]: ds[idx][j] = false; continue
-				if x == grid_width - 1 and v.connections[1]: ds[idx][j] = false
+				var remove = false
+				if y == 0 and v.connections[0]: remove = true
+				elif y == grid_depth - 1 and v.connections[2]: remove = true
+				elif x == 0 and v.connections[3]: remove = true
+				elif x == grid_width - 1 and v.connections[1]: remove = true
+				if remove:
+					ds[idx][j] = false
+					if track_size: domain_size[idx] -= 1
 		if constrain_border_heights:
 			for x2 in range(grid_width):
 				if y == 0:   hds[_idx(x2, y)] = [HEIGHT_STEP]
@@ -367,17 +399,13 @@ func _apply_boundary_constraints_idx(ds: Array, hds: Array) -> void:
 func _propagate_idx(ds: Array, hds: Array, collapsed: Array, start_idx: int) -> bool:
 	# Arc-consistency propagation using precomputed _compat table.
 	# Eliminates variants from uncollapsed neighbors that have no support in ci's domain.
-	# Heights in hds are narrowed when a connection is confirmed.
+	# Heights are corrected after collapse by _validate_height_alignment.
 	var stack = [start_idx]
 	var in_stack = {}
 	in_stack[start_idx] = true
 	var n = all_variants.size()
 	var ev_idx = _empty_variant_idx_cached
-	var step = 0
 	while not stack.empty():
-		step += 1
-		if step % 32 == 0:
-			OS.delay_msec(0)
 		var ci = stack.pop_back()
 		in_stack.erase(ci)
 		var cx = ci % grid_width
@@ -389,33 +417,24 @@ func _propagate_idx(ds: Array, hds: Array, collapsed: Array, start_idx: int) -> 
 			if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth: continue
 			var ni = _idx(nx, ny)
 			if collapsed[ni] != null: continue
-			var compat_row = _compat[dir]
-			var opp = OPPOSITE[dir]
+			var sup_dir = _supporters[dir]
 			var changed = false
-			var fh = []
-			var nhd = hds[ni]
 			for nj in range(n):
 				if not ds[ni][nj]: continue
-				var nv = all_variants[nj]
+				# Check supporters list — much smaller than full n scan
 				var supported = false
-				for cj in range(n):
+				for cj in sup_dir[nj]:
 					if not ds[ci][cj]: continue
-					if not compat_row[cj][nj]: continue
 					supported = true
-					# Propagate heights for connected pairs
-					var cv = all_variants[cj]
-					if cv.connections[dir] and nv.connections[opp]:
-						for ch in hds[ci]:
-							var hn = ch + cv.port_heights[dir] - nv.port_heights[opp]
-							if hn in nhd and not hn in fh:
-								fh.append(hn)
-					else:
-						for hh in hds[ci]:
-							if hh in nhd and not hh in fh:
-								fh.append(hh)
-					break  # found a supporter, no need to check more
+					break
 				if not supported:
 					ds[ni][nj] = false
+					if _domain_size.size() > ni:
+						var old_e = _domain_size[ni]
+						_domain_size[ni] -= 1
+						if _buckets.size() > old_e: _buckets[old_e].erase(ni)
+						var new_e = _domain_size[ni]
+						if _buckets.size() > new_e and collapsed[ni] == null: _buckets[new_e][ni] = true
 					changed = true
 			if not changed: continue
 			var any_ni = false
@@ -423,8 +442,11 @@ func _propagate_idx(ds: Array, hds: Array, collapsed: Array, start_idx: int) -> 
 				if ds[ni][j]: any_ni = true; break
 			if not any_ni:
 				ds[ni][ev_idx] = true
-			if not fh.empty() and fh.size() < nhd.size():
-				hds[ni] = fh
+				if _domain_size.size() > ni:
+					var old_e2 = _domain_size[ni]
+					_domain_size[ni] = 1
+					if _buckets.size() > old_e2: _buckets[old_e2].erase(ni)
+					if _buckets.size() > 1 and collapsed[ni] == null: _buckets[1][ni] = true
 			if not in_stack.has(ni):
 				stack.append(ni)
 				in_stack[ni] = true

@@ -8,6 +8,7 @@ signal generation_failed(chunk_key)
 
 export(int, 1, 64) var instances_per_frame := 8 setget set_instances_per_frame
 export(int, 1, 32) var max_pending_jobs := 4
+export(int, 1, 16) var rebuilds_per_frame := 1
 
 var _thread: Thread = null
 var _mutex: Mutex = null
@@ -91,7 +92,8 @@ func enqueue_grid_for_instancing(parent_node: Spatial, grid: Array, grid_width: 
 	for y in range(grid_depth):
 		for x in range(grid_width):
 			var state = grid[y * grid_width + x]
-			if state == null or state.variant == null or state.variant.id == "EMPTY":
+			var v = _state_variant(state)
+			if state == null or v == null or _variant_id(v) == "EMPTY":
 				continue
 			_instance_queue.append({
 				"parent": parent_node,
@@ -106,28 +108,29 @@ func enqueue_grid_for_instancing(parent_node: Spatial, grid: Array, grid_width: 
 			})
 	set_process(true)
 
+export(float, 1.0, 14.0) var rebuild_budget_ms := 8.0
+
 func _process(_delta) -> void:
-	# If rebuilds are pending, do one and skip instancing this frame.
-	# Each _rebuild call can take 200-600ms, so we never do both in the same frame.
-	if not _rebuild_queue.empty():
+	var instance_count = 0
+	while instance_count < instances_per_frame and not _instance_queue.empty():
+		var entry = _instance_queue.pop_front()
+		_instance_one(entry)
+		instance_count += 1
+
+	var rebuild_count = 0
+	while rebuild_count < rebuilds_per_frame and not _rebuild_queue.empty():
 		var node = _rebuild_queue.pop_front()
 		if is_instance_valid(node):
 			node.call("_rebuild")
-		return
+		rebuild_count += 1
 
-	if _instance_queue.empty():
+	if _instance_queue.empty() and _rebuild_queue.empty():
 		set_process(false)
-		return
-	var count = 0
-	while count < instances_per_frame and not _instance_queue.empty():
-		var entry = _instance_queue.pop_front()
-		_instance_one(entry)
-		count += 1
 
 func _instance_one(entry: Dictionary) -> void:
 	var gen = entry.gen
 	var state = entry.state
-	var v = state.variant
+	var v = _state_variant(state)
 	var x: int = entry.x
 	var y: int = entry.y
 	var cell_size: float = entry.cell_size
@@ -139,21 +142,21 @@ func _instance_one(entry: Dictionary) -> void:
 		return
 	if not is_instance_valid(parent) or not is_instance_valid(gen):
 		return
-	if not gen.modules.has(v.id) or gen.modules[v.id] == null:
+	var vid = _variant_id(v)
+	if not gen.modules.has(vid) or gen.modules[vid] == null:
 		return
 
-	var inst = gen.modules[v.id].instance()
+	var inst = gen.modules[vid].instance()
 	parent.add_child(inst)
 	var deck_local_y = inst.platform_height
 	inst.translation = Vector3(
 		offset.x + x * cell_size,
-		offset.y + state.base_height - deck_local_y,
+		offset.y + _state_base_height(state) - deck_local_y,
 		offset.z + y * cell_size
 	)
-	inst.rotation_degrees.y = -v.rotation
-	inst.set("support_base_local_y", deck_local_y - state.base_height)
+	inst.rotation_degrees.y = -_variant_rotation(v)
+	inst.set("support_base_local_y", deck_local_y - _state_base_height(state))
 
-	var vid = v.id
 	if vid == "W" or vid == "R" or vid == "G":
 		gen._apply_local_dims(inst, gen._lane_width(), cell_size)
 		gen._apply_rails_from_connections(inst, v)
@@ -174,3 +177,27 @@ func _instance_one(entry: Dictionary) -> void:
 
 	if inst.has_method("_rebuild"):
 		_rebuild_queue.append(inst)
+
+func _state_variant(state):
+	if state == null:
+		return null
+	if typeof(state) == TYPE_DICTIONARY:
+		return state.get("variant", null)
+	return state.variant
+
+func _state_base_height(state) -> float:
+	if typeof(state) == TYPE_DICTIONARY:
+		return float(state.get("base_height", 0.0))
+	return state.base_height
+
+func _variant_id(v) -> String:
+	if v == null:
+		return ""
+	if typeof(v) == TYPE_DICTIONARY:
+		return String(v.get("id", ""))
+	return v.id
+
+func _variant_rotation(v) -> int:
+	if typeof(v) == TYPE_DICTIONARY:
+		return int(v.get("rotation", 0))
+	return v.rotation

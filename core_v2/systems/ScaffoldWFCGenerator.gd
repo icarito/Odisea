@@ -618,23 +618,62 @@ func _validate_height_alignment(collapsed: Array) -> Array:
 	print("[ScaffoldWFC] _validate_height_alignment removed %d cells" % total_removed)
 	return collapsed
 
+func _state_variant(state):
+	if state == null:
+		return null
+	if typeof(state) == TYPE_DICTIONARY:
+		return state.get("variant", null)
+	return state.variant
+
+func _state_base_height(state) -> float:
+	if typeof(state) == TYPE_DICTIONARY:
+		return float(state.get("base_height", 0.0))
+	return state.base_height
+
+func _variant_id(v) -> String:
+	if v == null:
+		return ""
+	if typeof(v) == TYPE_DICTIONARY:
+		return String(v.get("id", ""))
+	return v.id
+
+func _variant_rotation(v) -> int:
+	if typeof(v) == TYPE_DICTIONARY:
+		return int(v.get("rotation", 0))
+	return v.rotation
+
+func _variant_connections(v) -> Array:
+	if v == null:
+		return []
+	if typeof(v) == TYPE_DICTIONARY:
+		return v.get("connections", [])
+	return v.connections
+
+func _variant_port_heights(v) -> Array:
+	if v == null:
+		return []
+	if typeof(v) == TYPE_DICTIONARY:
+		return v.get("port_heights", [])
+	return v.port_heights
+
 func _instance_grid(grid: Array):
 	for y in range(grid_depth):
 		for x in range(grid_width):
 			var state = grid[_idx(x, y)]
-			if state == null or state.variant == null or state.variant.id == "EMPTY":
+			var v = _state_variant(state)
+			var vid = _variant_id(v)
+			if state == null or v == null or vid == "EMPTY":
 				continue
-			var v = state.variant
-			var inst = modules[v.id].instance()
+			var inst = modules[vid].instance()
 			add_child(inst)
 			# SteelGratePlatform builds the deck at local y = platform_height (default 1.6).
 			# Compensate so the walkable surface lands at the WFC height in world space.
 			var deck_local_y = inst.platform_height
-			inst.translation = Vector3(x * cell_size, state.base_height - deck_local_y, y * cell_size)
-			inst.rotation_degrees.y = -v.rotation
+			var base_height = _state_base_height(state)
+			inst.translation = Vector3(x * cell_size, base_height - deck_local_y, y * cell_size)
+			inst.rotation_degrees.y = -_variant_rotation(v)
 			# Legs must reach world y=0 (ground), accounting for the adjusted translation.
-			inst.set("support_base_local_y", deck_local_y - state.base_height)
-			var vid = v.id
+			inst.set("support_base_local_y", deck_local_y - base_height)
 			if vid == "W" or vid == "R" or vid == "G":
 				_apply_local_dims(inst, _lane_width(), cell_size)
 				_apply_rails_from_connections(inst, v)
@@ -664,10 +703,11 @@ func _instance_grid(grid: Array):
 				inst.call("_rebuild")
 			if debug_verbose:
 				var conn_str = ""
+				var connections = _variant_connections(v)
 				for d in Direction.values():
-					conn_str += ("1" if v.connections[d] else "0")
+					conn_str += ("1" if connections[d] else "0")
 				print("[ScaffoldWFC] [%d,%d] %s rot=%d conn=[%s] h=%.1f rail_f=%s b=%s l=%s r=%s ofw_f=%.1f ofw_b=%.1f ofw_l=%.1f ofw_r=%.1f" % [
-					x, y, v.id, v.rotation, conn_str, state.base_height,
+					x, y, vid, _variant_rotation(v), conn_str, base_height,
 					inst.get("rail_front"), inst.get("rail_back"), inst.get("rail_left"), inst.get("rail_right"),
 					inst.get("rail_front_opening_width"), inst.get("rail_back_opening_width"),
 					inst.get("rail_left_opening_width"), inst.get("rail_right_opening_width")
@@ -736,17 +776,20 @@ func _dir_from_local_side(rot: int, side: String) -> int:
 
 func _apply_port_heights_to_front_back(inst, v) -> void:
 	if v == null: return
-	var front_dir = _dir_from_local_side(v.rotation, "front")
-	var back_dir = _dir_from_local_side(v.rotation, "back")
-	inst.set("front_height_offset", v.port_heights[front_dir])
-	inst.set("back_height_offset", v.port_heights[back_dir])
+	var rotation = _variant_rotation(v)
+	var heights = _variant_port_heights(v)
+	var front_dir = _dir_from_local_side(rotation, "front")
+	var back_dir = _dir_from_local_side(rotation, "back")
+	inst.set("front_height_offset", heights[front_dir])
+	inst.set("back_height_offset", heights[back_dir])
 
 func _apply_rails_from_connections(inst, v) -> void:
 	if v == null: return
-	var front_dir = _dir_from_local_side(v.rotation, "front")
-	var back_dir = _dir_from_local_side(v.rotation, "back")
-	var left_dir = _dir_from_local_side(v.rotation, "left")
-	var right_dir = _dir_from_local_side(v.rotation, "right")
+	var rotation = _variant_rotation(v)
+	var front_dir = _dir_from_local_side(rotation, "front")
+	var back_dir = _dir_from_local_side(rotation, "back")
+	var left_dir = _dir_from_local_side(rotation, "left")
+	var right_dir = _dir_from_local_side(rotation, "right")
 	inst.set("rail_front", true)
 	inst.set("rail_back", true)
 	inst.set("rail_left", true)
@@ -758,16 +801,18 @@ func _apply_local_dims(inst, w: float, d: float):
 
 func _apply_opening_widths_from_connections(inst, v) -> void:
 	if v == null: return
-	var front_dir = _dir_from_local_side(v.rotation, "front")
-	var back_dir = _dir_from_local_side(v.rotation, "back")
-	var left_dir = _dir_from_local_side(v.rotation, "left")
-	var right_dir = _dir_from_local_side(v.rotation, "right")
+	var rotation = _variant_rotation(v)
+	var connections = _variant_connections(v)
+	var front_dir = _dir_from_local_side(rotation, "front")
+	var back_dir = _dir_from_local_side(rotation, "back")
+	var left_dir = _dir_from_local_side(rotation, "left")
+	var right_dir = _dir_from_local_side(rotation, "right")
 	var pw = _lane_width()
-	if v.connections[front_dir]:
+	if connections[front_dir]:
 		inst.set("rail_front_opening_width", pw)
-	if v.connections[back_dir]:
+	if connections[back_dir]:
 		inst.set("rail_back_opening_width", pw)
-	if v.connections[left_dir]:
+	if connections[left_dir]:
 		inst.set("rail_left_opening_width", pw)
-	if v.connections[right_dir]:
+	if connections[right_dir]:
 		inst.set("rail_right_opening_width", pw)
