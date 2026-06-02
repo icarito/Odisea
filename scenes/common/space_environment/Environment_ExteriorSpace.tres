@@ -8,9 +8,9 @@ panorama = ExtResource( 1 )
 [resource]
 background_mode = 2
 background_sky = SubResource( 1 )
+background_energy = 6.18
 ambient_light_color = Color( 0.04, 0.08, 0.18, 1 )
 ambient_light_energy = 1.88
-ssao_enabled = true
 ssao_radius = 4.0
 ssao_intensity = 2.0
 glow_enabled = true

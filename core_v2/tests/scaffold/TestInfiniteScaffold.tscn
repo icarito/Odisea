@@ -1,9 +1,13 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
+[ext_resource path="res://addons/qodot/textures/orrery/metal.tres" type="Material" id=2]
+[ext_resource path="res://scenes/common/space_environment/StarfieldEnvironment.tscn" type="PackedScene" id=3]
 [ext_resource path="res://core_v2/systems/ScaffoldStreamController.gd" type="Script" id=4]
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=5]
 
 [sub_resource type="PlaneMesh" id=1]
+material = ExtResource( 2 )
 size = Vector2( 100, 100 )
 
 [sub_resource type="SpatialMaterial" id=3]
@@ -29,27 +33,17 @@ shape = SubResource( 2 )
 
 [node name="ScaffoldStreamController" type="Spatial" parent="."]
 script = ExtResource( 4 )
-load_radius = 30.0
-unload_radius = 50.0
-collision_radius = 10.0
-full_detail_radius = 1.0
-lod1_radius = 15.0
-full_detail_prefetch_radius = 2.0
+load_radius = 60.0
+unload_radius = 90.0
+collision_radius = 30.0
+full_detail_radius = 0.0
+full_detail_prefetch_radius = 0.0
 lod_full_detail_ramps = false
 lod_tube_segments = 3
-lod_collision_enabled = false
-lod_collision_thickness = 0.3
-chunk_height = 6
-chunk_length = 6
-cell_size = 4.0
+chunk_height = 10
+chunk_length = 8
 global_seed = 24
-instances_per_frame = 6
-max_pending_generation_jobs = 3
-prewarm_chunk_radius = 2
 player_path = NodePath("../Pilot_V2")
-max_wfc_retries = 64
-min_non_empty_cells = 5
-min_stairs_per_chunk = 2
-min_elevated_cells = 1
-min_height_span = 2.0
-weight_S = 24.0
+
+[node name="StarfieldEnvironment" parent="." instance=ExtResource( 3 )]
+environment = ExtResource( 5 )

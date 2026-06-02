@@ -186,20 +186,23 @@ func _select_variant(conn, idx, heights):
 		if conn[Direction.EAST] and conn[Direction.WEST]:
 			return ModuleVariant.new("S", 90 if ph[Direction.WEST] > 0 else 270, [false, true, false, true], ph, 1)
 
+	# Non-stair variants use flat port_heights — their height is encoded in base_height.
+	# Only stairs need the relative delta to drive the slope mesh.
+	var flat = [0.0, 0.0, 0.0, 0.0]
 	if c_count == 1:
-		for d in range(4): if conn[d]: return ModuleVariant.new("E", d * 90, [d==0, d==1, d==2, d==3], ph, 1)
+		for d in range(4): if conn[d]: return ModuleVariant.new("E", d * 90, [d==0, d==1, d==2, d==3], flat, 1)
 	if c_count == 2:
-		if conn[0] and conn[2]: return ModuleVariant.new("W", 0, [true, false, true, false], ph, 1)
-		if conn[1] and conn[3]: return ModuleVariant.new("W", 90, [false, true, false, true], ph, 1)
-		if conn[0] and conn[1]: return ModuleVariant.new("C", 0, [true, true, false, false], ph, 1)
-		if conn[1] and conn[2]: return ModuleVariant.new("C", 90, [false, true, true, false], ph, 1)
-		if conn[2] and conn[3]: return ModuleVariant.new("C", 180, [false, false, true, true], ph, 1)
-		if conn[3] and conn[0]: return ModuleVariant.new("C", 270, [true, false, false, true], ph, 1)
+		if conn[0] and conn[2]: return ModuleVariant.new("W", 0, [true, false, true, false], flat, 1)
+		if conn[1] and conn[3]: return ModuleVariant.new("W", 90, [false, true, false, true], flat, 1)
+		if conn[0] and conn[1]: return ModuleVariant.new("C", 0, [true, true, false, false], flat, 1)
+		if conn[1] and conn[2]: return ModuleVariant.new("C", 90, [false, true, true, false], flat, 1)
+		if conn[2] and conn[3]: return ModuleVariant.new("C", 180, [false, false, true, true], flat, 1)
+		if conn[3] and conn[0]: return ModuleVariant.new("C", 270, [true, false, false, true], flat, 1)
 	if c_count == 3:
 		for d in range(4):
 			if not conn[d]:
 				var rot = (d + 2) % 4
 				var c = [true, true, true, true]
 				c[d] = false
-				return ModuleVariant.new("T", rot * 90, c, ph, 1)
-	return ModuleVariant.new("X", 0, [true, true, true, true], ph, 1)
+				return ModuleVariant.new("T", rot * 90, c, flat, 1)
+	return ModuleVariant.new("X", 0, [true, true, true, true], flat, 1)
