@@ -2,6 +2,9 @@ tool
 extends Spatial
 class_name SteelGratePlatform
 
+const DEFAULT_FOOTSTEP_PROFILE := preload("res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres")
+const FOOTSTEP_SURFACE_SCRIPT := preload("res://core_v2/systems/footsteps/footstep_surface.gd")
+
 export(float, 1.0, 100.0, 0.1) var platform_width := 3.0 setget set_platform_width
 export(float, 1.0, 100.0, 0.1) var platform_depth := 3.0 setget set_platform_depth
 export(float, 0.2, 100.0, 0.1) var platform_height := 1.6 setget set_platform_height
@@ -33,8 +36,10 @@ export(float, 0.0, 1.0, 0.01) var rail_front_opening_gravity := 0.5 setget set_r
 export(float, 0.0, 1.0, 0.01) var rail_back_opening_gravity := 0.5 setget set_rail_back_opening_gravity
 export(float, 0.0, 1.0, 0.01) var rail_left_opening_gravity := 0.5 setget set_rail_left_opening_gravity
 export(float, 0.0, 1.0, 0.01) var rail_right_opening_gravity := 0.5 setget set_rail_right_opening_gravity
+export(Resource) var footstep_profile: Resource = DEFAULT_FOOTSTEP_PROFILE setget set_footstep_profile
 
 const PROP_LAYER := 64
+const PROP_VISUAL_LAYER := 64
 const CYLINDER_SEGMENTS := 12
 const JOINT_SCALE := 1.35
 const GRATE_REPEAT_PER_METER := 1.35
@@ -43,6 +48,7 @@ const GRATE_RECESS := 0.015
 
 var _visual_root: Spatial = null
 var _body: StaticBody = null
+var _footstep_surface: Spatial = null
 var _frame_material: SpatialMaterial = null
 var _rail_material: SpatialMaterial = null
 var _grate_material: Material = null
@@ -177,6 +183,10 @@ func set_rail_right_opening_gravity(value: float) -> void:
 	rail_right_opening_gravity = value
 	_queue_rebuild()
 
+func set_footstep_profile(value: Resource) -> void:
+	footstep_profile = value
+	_sync_footstep_surface()
+
 func _queue_rebuild() -> void:
 	if is_inside_tree():
 		_rebuild()
@@ -196,10 +206,13 @@ func _ensure_structure() -> void:
 		_body.collision_mask = 255
 		add_child(_body)
 
+	_sync_footstep_surface()
+
 func _rebuild() -> void:
 	if not _visual_root or not _body:
 		return
 
+	_sync_footstep_surface()
 	_clear_children(_visual_root)
 	_clear_body_collisions()
 	_build_materials()
@@ -276,6 +289,19 @@ func _build_materials() -> void:
 	_fence_material = load("res://textures/trenchbroom/metal_fence_panel.tres").duplicate(true)
 	if not _fence_material:
 		_fence_material = _rail_material.duplicate()
+
+func _sync_footstep_surface() -> void:
+	if not _body:
+		return
+
+	_footstep_surface = _body.get_node_or_null("FootstepSurface")
+	if not _footstep_surface:
+		_footstep_surface = Spatial.new()
+		_footstep_surface.name = "FootstepSurface"
+		_footstep_surface.set_script(FOOTSTEP_SURFACE_SCRIPT)
+		_body.add_child(_footstep_surface)
+
+	_footstep_surface.set("footstep_profile", footstep_profile)
 
 func _clear_children(node: Node) -> void:
 	for child in node.get_children():
@@ -384,6 +410,7 @@ func _add_leg_collision(node_name: String, bottom: Vector3, top: Vector3) -> voi
 func _add_grate_deck(width: float, depth: float, front_top_y: float, back_top_y: float) -> void:
 	var deck = MeshInstance.new()
 	deck.name = "DeckGrate"
+	deck.layers = PROP_VISUAL_LAYER
 	var slope_angle = - atan2(back_top_y - front_top_y, platform_depth)
 	var slope_scale = 1.0 / max(cos(slope_angle), 0.02)
 	var mesh_size = Vector2(
@@ -487,6 +514,7 @@ func _intermediate_positions(start_axis: float, end_axis: float) -> Array:
 func _add_vertical_panel(node_name: String, size: Vector2, pos: Vector3, rot_deg: Vector3) -> void:
 	var panel = MeshInstance.new()
 	panel.name = node_name
+	panel.layers = PROP_VISUAL_LAYER
 	var mesh = QuadMesh.new()
 	mesh.size = size
 	panel.mesh = mesh
@@ -503,6 +531,7 @@ func _add_tube_between(node_name: String, start: Vector3, end: Vector3, material
 
 	var mesh_instance = MeshInstance.new()
 	mesh_instance.name = node_name
+	mesh_instance.layers = PROP_VISUAL_LAYER
 	var mesh = CylinderMesh.new()
 	mesh.top_radius = tube_radius
 	mesh.bottom_radius = tube_radius
@@ -516,6 +545,7 @@ func _add_tube_between(node_name: String, start: Vector3, end: Vector3, material
 func _add_joint_cap(node_name: String, pos: Vector3, material: Material) -> void:
 	var mesh_instance = MeshInstance.new()
 	mesh_instance.name = node_name
+	mesh_instance.layers = PROP_VISUAL_LAYER
 	var mesh = SphereMesh.new()
 	mesh.radius = tube_radius * JOINT_SCALE
 	mesh.height = tube_radius * JOINT_SCALE * 2.0

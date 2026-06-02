@@ -1,0 +1,12 @@
+[gd_resource type="Resource" load_steps=3 format=2]
+
+[ext_resource path="res://core_v2/systems/footsteps/footstep_profile.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/audio/footsteps/metal/Metal_Step_01.wav" type="AudioStream" id=2]
+
+[resource]
+script = ExtResource( 1 )
+streams = [ ExtResource( 2 ) ]
+random_pitch_min = 0.94
+random_pitch_max = 1.06
+random_volume_db_min = -4.0
+random_volume_db_max = -1.0

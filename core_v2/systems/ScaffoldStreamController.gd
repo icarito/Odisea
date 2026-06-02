@@ -10,7 +10,10 @@ const DIR_EAST := 1
 const DIR_SOUTH := 2
 const DIR_WEST := 3
 const PROP_COLLISION_LAYER := 64  # Godot layer 7
+const PROP_VISUAL_LAYER := 64
 const PROP_COLLISION_MASK := 255
+const FOOTSTEP_SURFACE_SCRIPT := preload("res://core_v2/systems/footsteps/footstep_surface.gd")
+const SCAFFOLD_FOOTSTEP_PROFILE := preload("res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres")
 
 export(bool) var streaming_enabled := true
 export(float, 20.0, 300.0) var load_radius := 120.0
@@ -80,13 +83,14 @@ var _threaded: ScaffoldWFCThreaded = null
 var _generator_ref = null
 var _wfc_module_ref = null  # WFCGenerator kept as asset library when use_mst_generator is true
 var _origin_initialized := false
-var _lod_deck_mesh: CubeMesh = null
-var _lod_ramp_mesh: ArrayMesh = null
+var _lod_deck_mesh: Mesh = null
+var _lod_ramp_mesh: Mesh = null
 var _lod_rail_mesh: CubeMesh = null
 var _lod_material: SpatialMaterial = null
 var _lod_rail_material: SpatialMaterial = null
-var _lod_ramp_material: SpatialMaterial = null
-var _lod_grate_material: SpatialMaterial = null
+var _lod_ramp_material: Material = null
+var _lod_grate_material: Material = null
+var _lod_grate_far_material: Material = null
 
 var _lod1_tube_mesh: CylinderMesh = null
 var _lod1_grate_mesh: QuadMesh = null
@@ -408,9 +412,8 @@ func _request_chunk(chunk_key: Vector2) -> void:
 	_threaded.request_grid(chunk_key, params)
 
 func _build_lod_resources() -> void:
-	_lod_deck_mesh = CubeMesh.new()
-	_lod_deck_mesh.size = Vector3.ONE
-	_lod_ramp_mesh = _make_lod_ramp_mesh()
+	_lod_deck_mesh = _make_lod_deck_surface_mesh()
+	_lod_ramp_mesh = _make_lod_ramp_surface_mesh()
 	_lod_rail_mesh = CubeMesh.new()
 	_lod_rail_mesh.size = Vector3.ONE
 
@@ -433,26 +436,9 @@ func _build_lod_resources() -> void:
 	_lod_rail_material = _lod_material.duplicate()
 	_lod_rail_material.albedo_color = rail_color
 
-	_lod_grate_material = load("res://textures/trenchbroom/steel_grate_platform.tres").duplicate(true)
-	if _lod_grate_material is SpatialMaterial:
-		var brightness = 0.9
-		_lod_grate_material.albedo_color = Color(
-			grate_color.r * brightness,
-			grate_color.g * brightness,
-			grate_color.b * brightness,
-			grate_color.a
-		)
-		_lod_grate_material.params_alpha_scissor_threshold = 0.56
-		_lod_grate_material.metallic = 0.0
-		_lod_grate_material.roughness = 1.0
-		_lod_grate_material.params_cull_mode = SpatialMaterial.CULL_DISABLED
-	_lod_ramp_material = _lod_grate_material.duplicate(true) if _lod_grate_material != null else _lod_material.duplicate()
-	if _lod_ramp_material is SpatialMaterial:
-		_lod_ramp_material.params_use_alpha_scissor = false
-		_lod_ramp_material.params_alpha_scissor_threshold = 0.0
-		_lod_ramp_material.metallic = 0.0
-		_lod_ramp_material.roughness = 1.0
-		_lod_ramp_material.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	_lod_grate_material = _make_lod_grate_material(true, 0.42, Vector2(1.55, 1.55), 0.82, true)
+	_lod_grate_far_material = _make_lod_grate_material(false, 0.0, Vector2(1.55, 1.55), 0.82, true)
+	_lod_ramp_material = _make_lod_ramp_grate_material()
 
 func _make_lod_ramp_mesh() -> ArrayMesh:
 	var mesh = ArrayMesh.new()
@@ -476,6 +462,103 @@ func _make_lod_ramp_mesh() -> ArrayMesh:
 	st.generate_normals()
 	st.commit(mesh)
 	return mesh
+
+func _make_lod_deck_surface_mesh() -> ArrayMesh:
+	var mesh = ArrayMesh.new()
+	var st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_add_lod_ramp_face(st,
+		Vector3(-0.5, 0.0, -0.5),
+		Vector3(0.5, 0.0, -0.5),
+		Vector3(0.5, 0.0, 0.5),
+		Vector3(-0.5, 0.0, 0.5),
+		Rect2(Vector2.ZERO, Vector2.ONE)
+	)
+	_add_lod_ramp_face(st,
+		Vector3(-0.5, 0.0, 0.5),
+		Vector3(0.5, 0.0, 0.5),
+		Vector3(0.5, 0.0, -0.5),
+		Vector3(-0.5, 0.0, -0.5),
+		Rect2(Vector2.ZERO, Vector2.ONE)
+	)
+	st.generate_normals()
+	st.commit(mesh)
+	return mesh
+
+func _make_lod_ramp_surface_mesh() -> ArrayMesh:
+	var mesh = ArrayMesh.new()
+	var st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_add_lod_ramp_face(st,
+		Vector3(-0.5, 0.0, -0.5),
+		Vector3(0.5, 0.0, -0.5),
+		Vector3(0.5, 1.0, 0.5),
+		Vector3(-0.5, 1.0, 0.5),
+		Rect2(Vector2.ZERO, Vector2.ONE)
+	)
+	# Cara inferior: winding invertido para normal hacia abajo, mismos vértices sin offset
+	_add_lod_ramp_face(st,
+		Vector3(-0.5, 1.0, 0.5),
+		Vector3(0.5, 1.0, 0.5),
+		Vector3(0.5, 0.0, -0.5),
+		Vector3(-0.5, 0.0, -0.5),
+		Rect2(Vector2(0.0, 1.0), Vector2(1.0, -1.0))
+	)
+	st.generate_normals()
+	st.commit(mesh)
+	return mesh
+
+func _make_lod_ramp_grate_material() -> SpatialMaterial:
+	var source = load("res://textures/trenchbroom/steel_grate_platform.tres")
+	var mat: SpatialMaterial
+	if source is SpatialMaterial:
+		mat = (source as SpatialMaterial).duplicate(true)
+	else:
+		mat = SpatialMaterial.new()
+	mat.albedo_color = Color(
+		grate_color.r * 0.82,
+		grate_color.g * 0.82,
+		grate_color.b * 0.82,
+		grate_color.a
+	)
+	mat.params_alpha_scissor_threshold = 0.42
+	mat.flags_transparent = false
+	mat.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	mat.metallic = 0.0
+	mat.roughness = 1.0
+	mat.metallic_specular = 0.08
+	# El mesh va de 0→1 en UV pero cubre lane_width × cell_size metros en world.
+	# Escalar igual que los decks (1.55 tiles/m) para que el patrón tenga el mismo tamaño visual.
+	var repeat_per_meter := 1.55
+	var ramp_u := clamp(cell_size * 0.32, 2.5, 4.5) * repeat_per_meter
+	var ramp_v := cell_size * lod_cell_scale * repeat_per_meter
+	mat.uv1_scale = Vector3(ramp_u, ramp_v, 1.0)
+	return mat
+
+func _make_lod_grate_material(use_alpha_scissor: bool, alpha_threshold: float, repeat: Vector2, brightness: float, use_world_uv: bool) -> ShaderMaterial:
+	var source = load("res://textures/trenchbroom/steel_grate_platform.tres")
+	var texture = null
+	if source is SpatialMaterial:
+		texture = (source as SpatialMaterial).albedo_texture
+	var shader = load("res://shaders/prop_dither_occlusion.gdshader")
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	mat.set_shader_param("albedo", Color(
+		grate_color.r * brightness,
+		grate_color.g * brightness,
+		grate_color.b * brightness,
+		grate_color.a
+	))
+	mat.set_shader_param("texture_albedo", texture)
+	mat.set_shader_param("metallic", 0.0)
+	mat.set_shader_param("roughness", 1.0)
+	mat.set_shader_param("specular", 0.08)
+	mat.set_shader_param("use_alpha_scissor", use_alpha_scissor)
+	mat.set_shader_param("alpha_scissor_threshold", alpha_threshold)
+	mat.set_shader_param("use_world_uv", use_world_uv)
+	mat.set_shader_param("world_uv_repeat", repeat)
+	mat.set_shader_param("is_active", 0.0)
+	return mat
 
 func _add_lod_ramp_face(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, uv_rect: Rect2) -> void:
 	var uv_a = Vector2(uv_rect.position.x, uv_rect.position.y)
@@ -553,6 +636,10 @@ func _set_chunk_collision(chunk_node: Spatial, enabled: bool) -> void:
 		if body and body is StaticBody:
 			body.collision_layer = layer
 			body.collision_mask = mask
+	if enabled:
+		var dither = get_node_or_null("/root/PropDitherManager")
+		if dither and dither.has_method("refresh_occlusion_for_node"):
+			dither.call_deferred("refresh_occlusion_for_node", chunk_node)
 
 func _upgrade_chunk_to_full_detail(chunk_key: Vector2) -> void:
 	if not _active_chunks.has(chunk_key):
@@ -609,7 +696,7 @@ func _build_lod1_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2
 					collision_shapes.append(_lod_ramp_collision_transform(x, y, state, v))
 				else:
 					_append_lod_deck_collisions(collision_shapes, x, y, state, v, scale_xz)
-	_add_lod_multimesh(chunk_node, "LOD1Decks", _lod_deck_mesh, deck_transforms, _lod_material)
+	_add_lod_multimesh(chunk_node, "LOD1Decks", _lod_deck_mesh, deck_transforms, _lod_grate_material)
 	_add_lod_multimesh(chunk_node, "LOD1Ramps", _lod_ramp_mesh, ramp_transforms, _lod_ramp_material)
 	_add_lod_multimesh(chunk_node, "LOD1Rails", _lod1_tube_mesh, rail_transforms, _lod_rail_material)
 	_add_lod_multimesh(chunk_node, "LOD1Supports", _lod1_tube_mesh, support_transforms, _lod_material)
@@ -643,7 +730,7 @@ func _build_lod2_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2
 					collision_shapes.append(_lod_ramp_collision_transform(x, y, state, v))
 				else:
 					_append_lod_deck_collisions(collision_shapes, x, y, state, v, scale_xz)
-	_add_lod_multimesh(chunk_node, "LOD2Decks", _lod_deck_mesh, deck_transforms, _lod_material)
+	_add_lod_multimesh(chunk_node, "LOD2Decks", _lod_deck_mesh, deck_transforms, _lod_grate_far_material)
 	_add_lod_multimesh(chunk_node, "LOD2Ramps", _lod_ramp_mesh, ramp_transforms, _lod_ramp_material)
 	_add_lod_multimesh(chunk_node, "LOD2Rails", _lod1_tube_mesh, rail_transforms, _lod_rail_material)
 	_add_lod_multimesh(chunk_node, "LOD2Supports", _lod1_tube_mesh, support_transforms, _lod_material)
@@ -656,8 +743,10 @@ func _lod_deck_transform(x: int, y: int, state, v, size: Vector3, y_offset: floa
 	return xf
 
 func _append_lod_decks(out: Array, x: int, y: int, state, v, scale_xz: float, y_offset: float) -> void:
-	for spec in _lod_deck_specs(v, scale_xz, lod_deck_thickness):
-		var xf = _lod_deck_transform(x, y, state, v, spec.size, y_offset)
+	# Small overlap (~2cm/side) to close seams between adjacent tiles
+	var scale_xz_visual := scale_xz + lod_support_thickness
+	for spec in _lod_deck_specs(v, scale_xz_visual, lod_deck_thickness):
+		var xf = _lod_deck_transform(x, y, state, v, spec.size, y_offset + lod_deck_thickness * 0.5)
 		xf.origin += spec.offset
 		out.append(xf)
 
@@ -756,12 +845,13 @@ func _append_lod_rails(out: Array, collision_out, x: int, y: int, state, v) -> v
 	if _use_perimeter_lod_rails(v):
 		_append_lod_perimeter_rails(out, collision_out, base, heights, connections, scale_xz)
 		return
-	var rects = _lod_deck_rects(v, scale_xz)
+	var scale_xz_visual = scale_xz + lod_support_thickness
+	var rects = _lod_deck_rects(v, scale_xz_visual)
 	for i in range(rects.size()):
-		_append_lod_rect_side_rail(out, collision_out, base, heights, connections, rects, i, DIR_NORTH, scale_xz)
-		_append_lod_rect_side_rail(out, collision_out, base, heights, connections, rects, i, DIR_SOUTH, scale_xz)
-		_append_lod_rect_side_rail(out, collision_out, base, heights, connections, rects, i, DIR_WEST, scale_xz)
-		_append_lod_rect_side_rail(out, collision_out, base, heights, connections, rects, i, DIR_EAST, scale_xz)
+		_append_lod_rect_side_rail(out, collision_out, base, heights, connections, rects, i, DIR_NORTH, scale_xz_visual)
+		_append_lod_rect_side_rail(out, collision_out, base, heights, connections, rects, i, DIR_SOUTH, scale_xz_visual)
+		_append_lod_rect_side_rail(out, collision_out, base, heights, connections, rects, i, DIR_WEST, scale_xz_visual)
+		_append_lod_rect_side_rail(out, collision_out, base, heights, connections, rects, i, DIR_EAST, scale_xz_visual)
 
 func _append_lod_ramp_rails(out: Array, collision_out, x: int, y: int, state, v) -> void:
 	if lod_rail_height <= 0.01:
@@ -790,7 +880,9 @@ func _append_lod_supports(out: Array, collision_out, used_support_keys: Dictiona
 	var base = Vector3(x * cell_size, 0.0, y * cell_size)
 	var scale_xz = cell_size * lod_cell_scale
 	var thick = lod_support_thickness
-	for rect in _lod_deck_rects(v, scale_xz):
+	var rects = _lod_deck_rects(v, scale_xz)
+	for rect_index in range(rects.size()):
+		var rect = rects[rect_index]
 		var corners = [
 			Vector2(rect.min_x + thick * 0.5, rect.min_z + thick * 0.5),
 			Vector2(rect.max_x - thick * 0.5, rect.min_z + thick * 0.5),
@@ -798,10 +890,12 @@ func _append_lod_supports(out: Array, collision_out, used_support_keys: Dictiona
 			Vector2(rect.max_x - thick * 0.5, rect.max_z - thick * 0.5),
 		]
 		for corner in corners:
-			var support_pos = base + Vector3(corner.x, 0.0, corner.y)
-			if _support_owner_chunk_for_local_position(support_pos) != chunk_key:
+			var snapped_corner = _snap_support_corner(corner, scale_xz, thick)
+			var support_pos = base + Vector3(snapped_corner.x, 0.0, snapped_corner.y)
+			var world_support_pos = _chunk_to_local_origin(chunk_key) + support_pos
+			if _support_owner_chunk_for_world_position(world_support_pos) != chunk_key:
 				continue
-			var key = "%d:%d" % [int(round(support_pos.x * 100.0)), int(round(support_pos.z * 100.0))]
+			var key = _support_world_key(world_support_pos)
 			if used_support_keys.has(key):
 				continue
 			var x_sign = -1.0 if corner.x < 0.0 else 1.0
@@ -814,6 +908,36 @@ func _append_lod_supports(out: Array, collision_out, used_support_keys: Dictiona
 			out.append(post)
 			if collision_out != null:
 				collision_out.append(_collision_box_from_transform(_vertical_box_transform(Vector3(support_pos.x, 0.0, support_pos.z), top_y, thick)))
+
+func _snap_support_corner(corner: Vector2, scale_xz: float, thick: float) -> Vector2:
+	var snapped = corner
+	var full_edge = scale_xz * 0.5
+	if abs(abs(corner.x) - (full_edge - thick * 0.5)) <= thick:
+		snapped.x = sign(corner.x) * full_edge
+	if abs(abs(corner.y) - (full_edge - thick * 0.5)) <= thick:
+		snapped.y = sign(corner.y) * full_edge
+	return snapped
+
+func _rect_corner_needs_support(rects: Array, rect_index: int, corner: Vector2) -> bool:
+	var z_dir = DIR_NORTH if corner.y < 0.0 else DIR_SOUTH
+	var x_dir = DIR_WEST if corner.x < 0.0 else DIR_EAST
+	return (
+		_rect_side_has_visible_point(rects, rect_index, z_dir, corner.x) and
+		_rect_side_has_visible_point(rects, rect_index, x_dir, corner.y)
+	)
+
+func _rect_side_has_visible_point(rects: Array, rect_index: int, dir: int, point: float, epsilon: float = 0.06) -> bool:
+	for seg in _rect_side_visible_segments(rects, rect_index, dir):
+		if point >= seg.x - epsilon and point <= seg.y + epsilon:
+			return true
+	return false
+
+func _support_world_key(world_pos: Vector3) -> String:
+	var step = max(lod_support_thickness, 0.1)
+	return "%d:%d" % [
+		int(round(world_pos.x / step)),
+		int(round(world_pos.z / step))
+	]
 
 func _use_perimeter_lod_rails(v) -> bool:
 	return _variant_id(v) == "P"
@@ -828,7 +952,7 @@ func _append_lod_perimeter_rails(out: Array, collision_out, base: Vector3, heigh
 
 func _append_lod_side_opening_rail(out: Array, collision_out, base: Vector3, heights: Array, connections: Array, dir: int, side_value: float, opening_width: float) -> void:
 	var h = (float(heights[dir]) if heights.size() > dir else 0.0) + lod_deck_thickness * 0.5
-	var half_span = cell_size * lod_cell_scale * 0.5
+	var half_span = cell_size * lod_cell_scale * 0.5 + lod_support_thickness * 0.5
 	var is_open = connections.size() > dir and connections[dir]
 	var open_half = opening_width * 0.5 if is_open else 0.0
 	if dir == DIR_NORTH or dir == DIR_SOUTH:
@@ -989,9 +1113,9 @@ func _append_lod_rect_side_rail(out: Array, collision_out, base: Vector3, height
 			b = base + Vector3(rect.max_x, h, seg.y)
 		_append_lod_rail_segment(out, collision_out, a, b)
 
-func _support_owner_chunk_for_local_position(local_pos: Vector3) -> Vector2:
-	var owner_x = floor((local_pos.x - 0.001) / _chunk_step_x())
-	var owner_z = floor((local_pos.z - 0.001) / _chunk_step_z())
+func _support_owner_chunk_for_world_position(world_pos: Vector3) -> Vector2:
+	var owner_x = floor((world_pos.x - 0.001) / _chunk_step_x())
+	var owner_z = floor((world_pos.z - 0.001) / _chunk_step_z())
 	return Vector2(owner_x, owner_z)
 
 func _rect_side_is_connected_open(rect: Dictionary, dir: int, connections: Array, scale_xz: float) -> bool:
@@ -1152,23 +1276,41 @@ func _remove_lod_children(chunk_node: Spatial) -> void:
 func _add_lod_collision(chunk_node: Spatial, transforms: Array) -> void:
 	if transforms.empty():
 		return
-	var body = StaticBody.new()
-	body.name = "LODCollision"
-	body.collision_layer = 0
-	body.collision_mask = 0
-	for i in range(transforms.size()):
-		var spec = transforms[i]
+	# Deck/ramp surfaces get their own body with FootstepSurface so the player
+	# hears metal steps on scaffold without overriding sounds from floor below.
+	var surface_body = StaticBody.new()
+	surface_body.name = "LODCollision"
+	surface_body.collision_layer = PROP_COLLISION_LAYER
+	surface_body.collision_mask = 0
+	var footstep_surface = Spatial.new()
+	footstep_surface.name = "FootstepSurface"
+	footstep_surface.set_script(FOOTSTEP_SURFACE_SCRIPT)
+	footstep_surface.set("footstep_profile", SCAFFOLD_FOOTSTEP_PROFILE)
+	surface_body.add_child(footstep_surface)
+	var other_body = StaticBody.new()
+	other_body.name = "LODCollisionOther"
+	other_body.collision_layer = PROP_COLLISION_LAYER
+	other_body.collision_mask = 0
+	var surface_count := 0
+	var other_count := 0
+	for spec in transforms:
 		var shape = BoxShape.new()
-		if typeof(spec) == TYPE_DICTIONARY:
-			shape.extents = spec.get("extents", Vector3(0.5, 0.5, 0.5))
-		else:
-			shape.extents = Vector3(0.5, 0.5, 0.5)
+		shape.extents = spec.get("extents", Vector3(0.5, 0.5, 0.5)) if typeof(spec) == TYPE_DICTIONARY else Vector3(0.5, 0.5, 0.5)
 		var col = CollisionShape.new()
-		col.name = "LODDeckCollision_%d" % i
 		col.shape = shape
 		col.transform = spec.get("transform", Transform()) if typeof(spec) == TYPE_DICTIONARY else spec
-		body.add_child(col)
-	chunk_node.add_child(body)
+		if typeof(spec) == TYPE_DICTIONARY and spec.get("surface", false):
+			col.name = "LODDeckCollision_%d" % surface_count
+			surface_body.add_child(col)
+			surface_count += 1
+		else:
+			col.name = "LODOtherCollision_%d" % other_count
+			other_body.add_child(col)
+			other_count += 1
+	if surface_count > 0:
+		chunk_node.add_child(surface_body)
+	if other_count > 0:
+		chunk_node.add_child(other_body)
 
 func _lane_width() -> float:
 	return clamp(cell_size * 0.32, 2.5, 4.5)
@@ -1244,7 +1386,9 @@ func _append_lod_deck_collisions(out: Array, x: int, y: int, state, v, scale_xz:
 	for spec in _lod_deck_specs(v, scale_xz, lod_collision_thickness):
 		var xf = _lod_deck_transform(x, y, state, v, spec.size, y_offset)
 		xf.origin += spec.offset
-		out.append(_collision_box_from_transform(xf))
+		var box = _collision_box_from_transform(xf)
+		box["surface"] = true
+		out.append(box)
 
 func _lod_ramp_collision_transform(x: int, y: int, state, v) -> Dictionary:
 	var scale_xz = cell_size * lod_cell_scale
@@ -1263,7 +1407,9 @@ func _lod_ramp_collision_transform(x: int, y: int, state, v) -> Dictionary:
 	basis.x = x_axis * _lane_width()
 	basis.y = y_axis * lod_collision_thickness
 	basis.z = z_axis * length
-	return _collision_box_from_transform(Transform(basis, (low + high) * 0.5 - y_axis * (lod_collision_thickness * 0.5)))
+	var box = _collision_box_from_transform(Transform(basis, (low + high) * 0.5 - y_axis * (lod_collision_thickness * 0.5)))
+	box["surface"] = true
+	return box
 
 func _add_lod_multimesh(chunk_node: Spatial, node_name: String, mesh: Mesh, transforms: Array, material: Material = null) -> void:
 	if transforms.empty():
@@ -1278,9 +1424,11 @@ func _add_lod_multimesh(chunk_node: Spatial, node_name: String, mesh: Mesh, tran
 		mm.set_instance_transform(i, transforms[i])
 	var inst = MultiMeshInstance.new()
 	inst.name = node_name
+	inst.layers = PROP_VISUAL_LAYER
 	inst.multimesh = mm
 	inst.material_override = _lod_material if material == null else material
 	chunk_node.add_child(inst)
+
 
 func _state_variant(state):
 	if state == null:
