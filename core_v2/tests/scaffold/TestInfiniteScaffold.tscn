@@ -33,17 +33,18 @@ shape = SubResource( 2 )
 
 [node name="ScaffoldStreamController" type="Spatial" parent="."]
 script = ExtResource( 4 )
-load_radius = 60.0
-unload_radius = 90.0
-collision_radius = 30.0
+load_radius = 25.0
+unload_radius = 80.0
+collision_radius = 10.0
 full_detail_radius = 0.0
+lod1_radius = 10.0
 full_detail_prefetch_radius = 0.0
 lod_full_detail_ramps = false
 lod_tube_segments = 3
-chunk_height = 10
-chunk_length = 8
-global_seed = 24
+chunk_height = 4
+chunk_length = 4
 player_path = NodePath("../Pilot_V2")
+constrain_border_heights = true
 
 [node name="StarfieldEnvironment" parent="." instance=ExtResource( 3 )]
 environment = ExtResource( 5 )

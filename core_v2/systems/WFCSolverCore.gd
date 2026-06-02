@@ -163,17 +163,13 @@ func _build_compat_table() -> void:
 			var vi = all_variants[i]
 			for j in range(n):
 				var vj = all_variants[j]
-				# EMPTY is compatible with everything.
-				if vi.id == "EMPTY" or vj.id == "EMPTY":
-					row[j] = true
-				else:
-					var opp = OPPOSITE[_dir]
-					var ok = (vi.connections[_dir] == vj.connections[opp])
-					if ok and vi.id == "G" and (_dir == 0 or _dir == 2):
-						ok = (vj.id in ["R", "P", "C"])
-					if ok and vj.id == "G" and (opp == 0 or opp == 2):
-						ok = (vi.id in ["R", "P", "C"])
-					row[j] = ok
+				var opp = OPPOSITE[_dir]
+				var ok = (vi.connections[_dir] == vj.connections[opp])
+				if ok and vi.id == "G" and (_dir == 0 or _dir == 2):
+					ok = (vj.id in ["R", "P", "C"])
+				if ok and vj.id == "G" and (opp == 0 or opp == 2):
+					ok = (vi.id in ["R", "P", "C"])
+				row[j] = ok
 			mat[i] = row
 		_compat.append(mat)
 	# Build supporters: _supporters[dir][nj] = [cj, ...] where _compat[dir][cj][nj] is true
@@ -503,8 +499,8 @@ func _validate_height_alignment(collapsed: Array) -> Array:
 		if not assigned[i]:
 			var h = clamp(collapsed[i].base_height, HEIGHT_STEP, MAX_HEIGHT_STEPS * HEIGHT_STEP)
 			collapsed[i] = CellState.new(collapsed[i].variant, h)
-	# Pass 2: only prune cells with height conflicts on real (bidirectional) connections.
-	# Open connections toward EMPTY are left as-is — the mesh handles them visually.
+	# Pass 2: prune any open edge that does not have a reciprocal non-empty neighbor,
+	# then prune height conflicts on real bidirectional connections.
 	var changed = true
 	while changed:
 		changed = false
@@ -521,8 +517,14 @@ func _validate_height_alignment(collapsed: Array) -> Array:
 				if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth: continue
 				var ni = _idx(nx, ny)
 				var ns = collapsed[ni]
-				if ns == null or ns.variant.id == "EMPTY": continue
-				if not ns.variant.connections[OPPOSITE[dir]]: continue
+				if ns == null or ns.variant.id == "EMPTY":
+					collapsed[i] = CellState.new(ev, 0.0)
+					changed = true
+					break
+				if not ns.variant.connections[OPPOSITE[dir]]:
+					collapsed[i] = CellState.new(ev, 0.0)
+					changed = true
+					break
 				# Both sides open — check height consistency
 				var my_port = state.base_height + state.variant.port_heights[dir]
 				var their_port = ns.base_height + ns.variant.port_heights[OPPOSITE[dir]]

@@ -436,7 +436,7 @@ func _empty_variant() -> ModuleVariant:
 func _check_pair(v_curr, h_curr, v_next, dir) -> Dictionary:
 	var opp = OPPOSITE[dir]
 	if v_curr.id == "EMPTY" or v_next.id == "EMPTY":
-		return {"valid": true}
+		return {"valid": v_curr.connections[dir] == v_next.connections[opp]}
 	if v_curr.connections[dir] != v_next.connections[opp]:
 		return {"valid": false}
 	var res = {"valid": true}

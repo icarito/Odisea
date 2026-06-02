@@ -90,6 +90,8 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 
 	# 5. BFS for unassigned heights & Module Selection
 	_fill_missing_heights(heights, connections)
+	_connect_adjacent_equal_height_cells(heights, connections)
+	_flatten_invalid_height_edges(heights, connections)
 
 	var result = []
 	for i in range(grid_width * grid_depth):
@@ -158,6 +160,66 @@ func _fill_missing_heights(heights, connections):
 			if heights[ni] < 0:
 				heights[ni] = heights[curr]
 				q.append(ni)
+
+func _connect_adjacent_equal_height_cells(heights, connections) -> void:
+	for y in range(grid_depth):
+		for x in range(grid_width):
+			var i = int(y * grid_width + x)
+			if heights[i] < 0:
+				continue
+			for d in [Direction.EAST, Direction.SOUTH]:
+				var nv = DIR_VEC[d]
+				var nx = x + int(nv.x)
+				var ny = y + int(nv.y)
+				if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+					continue
+				var ni = int(ny * grid_width + nx)
+				if heights[ni] < 0:
+					continue
+				if abs(heights[i] - heights[ni]) <= 0.001:
+					connections[i][d] = true
+					connections[ni][OPPOSITE[d]] = true
+
+func _flatten_invalid_height_edges(heights, connections) -> void:
+	var changed = true
+	var guard = 0
+	while changed and guard < 16:
+		changed = false
+		guard += 1
+		for y in range(grid_depth):
+			for x in range(grid_width):
+				var i = int(y * grid_width + x)
+				if heights[i] < 0:
+					continue
+				for d in range(4):
+					if not connections[i][d]:
+						continue
+					var nv = DIR_VEC[d]
+					var nx = x + int(nv.x)
+					var ny = y + int(nv.y)
+					if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+						continue
+					var ni = int(ny * grid_width + nx)
+					if heights[ni] < 0:
+						continue
+					if abs(heights[i] - heights[ni]) <= 0.001:
+						continue
+					if _edge_can_host_stair(connections, i, ni, d):
+						continue
+					heights[ni] = heights[i]
+					changed = true
+
+func _edge_can_host_stair(connections, i: int, ni: int, d: int) -> bool:
+	return _cell_can_host_stair_axis(connections[i], d) or _cell_can_host_stair_axis(connections[ni], OPPOSITE[d])
+
+func _cell_can_host_stair_axis(conn: Array, d: int) -> bool:
+	if not conn[d] or not conn[OPPOSITE[d]]:
+		return false
+	var count = 0
+	for c in conn:
+		if c:
+			count += 1
+	return count == 2
 
 func _select_variant(conn, idx, heights):
 	var c_count = 0
