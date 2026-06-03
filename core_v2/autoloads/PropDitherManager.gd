@@ -41,9 +41,8 @@ func _process(_delta: float) -> void:
 		return
 
 	if not is_instance_valid(_player_node):
-		var players = get_tree().get_nodes_in_group("player")
-		if players.size() > 0:
-			_player_node = players[0]
+		if is_instance_valid(SessionManager.player):
+			_player_node = SessionManager.player
 
 	_camera_node = get_viewport().get_camera()
 
