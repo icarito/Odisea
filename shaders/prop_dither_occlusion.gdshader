@@ -10,6 +10,8 @@ render_mode cull_back;
 // --- Standard PBR uniforms (copied from SpatialMaterial at runtime) ---
 uniform vec4 albedo : hint_color = vec4(1.0);
 uniform sampler2D texture_albedo : hint_albedo;
+uniform bool use_alpha_scissor = false;
+uniform float alpha_scissor_threshold : hint_range(0.0, 1.0) = 0.0;
 uniform float specular : hint_range(0,1) = 0.5;
 uniform float metallic : hint_range(0,1) = 0.0;
 uniform float roughness : hint_range(0,1) = 1.0;
@@ -20,6 +22,8 @@ uniform bool has_normal_map = false;
 uniform bool has_mrao_map = false;
 uniform vec3 uv1_scale = vec3(1.0);
 uniform vec3 uv1_offset = vec3(0.0);
+uniform bool use_world_uv = false;
+uniform vec2 world_uv_repeat = vec2(1.0, 1.0);
 
 // --- Emission uniforms (copied from SpatialMaterial at runtime) ---
 uniform bool emission_enabled = false;
@@ -40,8 +44,12 @@ uniform float floor_protect_radius : hint_range(0.5, 5.0) = 1.0;
 
 varying vec3 world_pos;
 varying vec3 world_normal;
+varying vec3 local_pos;
+varying vec2 instance_uv_extent;
 
 void vertex() {
+	local_pos = VERTEX;
+	instance_uv_extent = vec2(length(WORLD_MATRIX[0].xyz), length(WORLD_MATRIX[2].xyz));
 	UV = UV * uv1_scale.xy + uv1_offset.xy;
 	world_pos = (WORLD_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((WORLD_MATRIX * vec4(NORMAL, 0.0)).xyz);
@@ -100,7 +108,34 @@ float dither_pattern(vec2 position) {
 
 void fragment() {
 	// --- Standard PBR output ---
-	vec4 albedo_tex = texture(texture_albedo, UV);
+	vec2 sample_uv = UV;
+	if (use_world_uv) {
+		vec3 abs_normal = abs(world_normal);
+		vec2 planar_uv;
+		vec2 extent;
+		if (abs_normal.y >= abs_normal.x && abs_normal.y >= abs_normal.z) {
+			// Horizontal face: project on XZ. Flip U when normal points down so
+			// top and bottom views are consistent (no mirror artifact).
+			planar_uv = local_pos.xz + vec2(0.5);
+			extent = instance_uv_extent;
+			if (world_normal.y < 0.0) planar_uv.x = 1.0 - planar_uv.x;
+		} else if (abs_normal.x >= abs_normal.z) {
+			// X-dominant face: project on ZY
+			planar_uv = local_pos.zy + vec2(0.5);
+			extent = vec2(instance_uv_extent.y, instance_uv_extent.y);
+			if (world_normal.x > 0.0) planar_uv.x = 1.0 - planar_uv.x;
+		} else {
+			// Z-dominant face: project on XY
+			planar_uv = local_pos.xy + vec2(0.5);
+			extent = vec2(instance_uv_extent.x, instance_uv_extent.x);
+			if (world_normal.z < 0.0) planar_uv.x = 1.0 - planar_uv.x;
+		}
+		sample_uv = planar_uv * extent * world_uv_repeat + uv1_offset.xy;
+	}
+	vec4 albedo_tex = texture(texture_albedo, sample_uv);
+	if (use_alpha_scissor && albedo_tex.a < alpha_scissor_threshold) {
+		discard;
+	}
 	ALBEDO = albedo.rgb * albedo_tex.rgb;
 	METALLIC = metallic;
 	ROUGHNESS = roughness;

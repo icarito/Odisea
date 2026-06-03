@@ -115,6 +115,17 @@ func _process_collision_object(co: CollisionObject) -> void:
 	_convert_meshes_recursive(prop_root)
 
 
+func refresh_occlusion_for_node(root: Node) -> void:
+	if not is_instance_valid(root):
+		return
+	if root is CollisionObject:
+		var co := root as CollisionObject
+		if co.collision_layer & PROP_LAYER_BIT and not co.is_in_group("player"):
+			_process_collision_object(co)
+			return
+	_convert_meshes_recursive(root)
+
+
 func _is_under_qodot_map(node: Node) -> bool:
 	var current: Node = node
 	while current != null:
@@ -142,7 +153,7 @@ func _get_occlusion_root_for_collision_object(co: CollisionObject) -> Node:
 
 func _has_mesh_descendant(node: Node) -> bool:
 	for child in node.get_children():
-		if child is MeshInstance:
+		if child is MeshInstance or child is MultiMeshInstance:
 			return true
 		if _has_mesh_descendant(child):
 			return true
@@ -166,6 +177,8 @@ func _convert_meshes_recursive(node: Node) -> void:
 
 	if node is MeshInstance:
 		_convert_mesh_instance(node as MeshInstance)
+	elif node is MultiMeshInstance:
+		_convert_multimesh_instance(node as MultiMeshInstance)
 
 	for child in node.get_children():
 		_convert_meshes_recursive(child)
@@ -184,6 +197,9 @@ func _convert_mesh_instance(mesh: MeshInstance) -> void:
 		mesh.material_override = new_mat
 		register_material(new_mat)
 		return  # Override takes priority, no need to process surfaces
+	elif mat_override is ShaderMaterial and (mat_override as ShaderMaterial).shader == _dither_shader:
+		register_material(mat_override as ShaderMaterial)
+		return
 	elif mat_override is ShaderMaterial and (mat_override as ShaderMaterial).shader == _parallax_shader:
 		register_material(mat_override as ShaderMaterial)
 		return
@@ -197,14 +213,29 @@ func _convert_mesh_instance(mesh: MeshInstance) -> void:
 			var new_mat = _convert_spatial_to_dither(active_mat as SpatialMaterial)
 			mesh.set_surface_material(i, new_mat)
 			register_material(new_mat)
+		elif active_mat is ShaderMaterial and (active_mat as ShaderMaterial).shader == _dither_shader:
+			register_material(active_mat as ShaderMaterial)
 		elif active_mat is ShaderMaterial and (active_mat as ShaderMaterial).shader == _parallax_shader:
 			register_material(active_mat as ShaderMaterial)
+
+func _convert_multimesh_instance(inst: MultiMeshInstance) -> void:
+	if _processed_meshes.has(inst):
+		return
+	_processed_meshes[inst] = true
+	var mat_override = inst.material_override
+	if mat_override is SpatialMaterial and _can_apply_occlusion_dither(mat_override as SpatialMaterial):
+		inst.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+		var new_mat = _convert_spatial_to_dither(mat_override as SpatialMaterial)
+		inst.material_override = new_mat
+		register_material(new_mat)
+	elif mat_override is ShaderMaterial and (mat_override as ShaderMaterial).shader == _dither_shader:
+		register_material(mat_override as ShaderMaterial)
+	elif mat_override is ShaderMaterial and (mat_override as ShaderMaterial).shader == _parallax_shader:
+		register_material(mat_override as ShaderMaterial)
 
 
 func _can_apply_occlusion_dither(mat: SpatialMaterial) -> bool:
 	if mat.flags_transparent:
-		return false
-	if mat.params_use_alpha_scissor:
 		return false
 	return true
 
@@ -241,6 +272,8 @@ func _convert_spatial_to_dither(source: SpatialMaterial) -> ShaderMaterial:
 	# UV scale/offset
 	new_mat.set_shader_param("uv1_scale", source.uv1_scale)
 	new_mat.set_shader_param("uv1_offset", source.uv1_offset)
+	new_mat.set_shader_param("use_alpha_scissor", source.params_use_alpha_scissor)
+	new_mat.set_shader_param("alpha_scissor_threshold", source.params_alpha_scissor_threshold)
 
 	# Emission
 	if source.emission_enabled:

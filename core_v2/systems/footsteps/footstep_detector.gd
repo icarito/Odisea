@@ -55,17 +55,27 @@ func _play_interaction(_interaction_type: String):
 
 func _play_by_footstep_surface(collider) -> bool:
 	# Check if collider IS a FootstepSurface (requires class_name FootstepSurface)
-	if collider.get("footstep_profile"):
-		_play_from_profile(collider.footstep_profile)
+	var direct_profile = collider.get("footstep_profile")
+	if direct_profile:
+		_play_from_profile(direct_profile)
 		return true
 	
-	# Check children recursively for FootstepSurface node
-	var surface = _find_first_node_by_type(collider, "Node") # "FootstepSurface" might not be a class?
-	# Assuming FootstepSurface is a script with class_name
-	surface = _find_first_child_with_property(collider, "footstep_profile")
-	if surface and surface.footstep_profile:
-		_play_from_profile(surface.footstep_profile)
-		return true
+	var surface = _find_footstep_surface(collider)
+	if surface:
+		var profile = surface.get("footstep_profile")
+		if profile:
+			_play_from_profile(profile)
+			return true
+
+	# Some props keep the collider under a visual root and the footstep marker as a sibling.
+	var parent = collider.get_parent()
+	if parent:
+		surface = _find_footstep_surface(parent)
+	if surface:
+		var parent_profile = surface.get("footstep_profile")
+		if parent_profile:
+			_play_from_profile(parent_profile)
+			return true
 	
 	return false
 
@@ -132,8 +142,18 @@ func _find_first_node_by_type(root: Node, type_name: String) -> Node:
 
 func _find_first_child_with_property(root: Node, property: String) -> Node:
 	for child in root.get_children():
-		if property in child:
+		if child.get(property) != null:
 			return child
 		var res = _find_first_child_with_property(child, property)
 		if res: return res
 	return null
+
+func _find_footstep_surface(root: Node) -> Node:
+	if not root:
+		return null
+
+	var named_surface = root.get_node_or_null("FootstepSurface")
+	if named_surface:
+		return named_surface
+
+	return _find_first_child_with_property(root, "footstep_profile")

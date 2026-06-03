@@ -20,3 +20,13 @@ func test_helper_collision_without_mesh_uses_parent_prop_root() -> void:
 	prop_root.add_child(body)
 
 	assert_object(manager._get_occlusion_root_for_collision_object(body)).is_same(prop_root)
+
+
+func test_collision_object_with_multimesh_descendant_is_occlusion_root() -> void:
+	var manager: Node = auto_free(PropDitherManagerScript.new())
+	var body: StaticBody = auto_free(StaticBody.new())
+	var inst := MultiMeshInstance.new()
+	inst.multimesh = MultiMesh.new()
+	body.add_child(inst)
+
+	assert_object(manager._get_occlusion_root_for_collision_object(body)).is_same(body)

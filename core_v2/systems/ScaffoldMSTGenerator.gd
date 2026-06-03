@@ -90,6 +90,8 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 
 	# 5. BFS for unassigned heights & Module Selection
 	_fill_missing_heights(heights, connections)
+	_connect_adjacent_equal_height_cells(heights, connections)
+	_flatten_invalid_height_edges(heights, connections)
 
 	var result = []
 	for i in range(grid_width * grid_depth):
@@ -159,6 +161,66 @@ func _fill_missing_heights(heights, connections):
 				heights[ni] = heights[curr]
 				q.append(ni)
 
+func _connect_adjacent_equal_height_cells(heights, connections) -> void:
+	for y in range(grid_depth):
+		for x in range(grid_width):
+			var i = int(y * grid_width + x)
+			if heights[i] < 0:
+				continue
+			for d in [Direction.EAST, Direction.SOUTH]:
+				var nv = DIR_VEC[d]
+				var nx = x + int(nv.x)
+				var ny = y + int(nv.y)
+				if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+					continue
+				var ni = int(ny * grid_width + nx)
+				if heights[ni] < 0:
+					continue
+				if abs(heights[i] - heights[ni]) <= 0.001:
+					connections[i][d] = true
+					connections[ni][OPPOSITE[d]] = true
+
+func _flatten_invalid_height_edges(heights, connections) -> void:
+	var changed = true
+	var guard = 0
+	while changed and guard < 16:
+		changed = false
+		guard += 1
+		for y in range(grid_depth):
+			for x in range(grid_width):
+				var i = int(y * grid_width + x)
+				if heights[i] < 0:
+					continue
+				for d in range(4):
+					if not connections[i][d]:
+						continue
+					var nv = DIR_VEC[d]
+					var nx = x + int(nv.x)
+					var ny = y + int(nv.y)
+					if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+						continue
+					var ni = int(ny * grid_width + nx)
+					if heights[ni] < 0:
+						continue
+					if abs(heights[i] - heights[ni]) <= 0.001:
+						continue
+					if _edge_can_host_stair(connections, i, ni, d):
+						continue
+					heights[ni] = heights[i]
+					changed = true
+
+func _edge_can_host_stair(connections, i: int, ni: int, d: int) -> bool:
+	return _cell_can_host_stair_axis(connections[i], d) or _cell_can_host_stair_axis(connections[ni], OPPOSITE[d])
+
+func _cell_can_host_stair_axis(conn: Array, d: int) -> bool:
+	if not conn[d] or not conn[OPPOSITE[d]]:
+		return false
+	var count = 0
+	for c in conn:
+		if c:
+			count += 1
+	return count == 2
+
 func _select_variant(conn, idx, heights):
 	var c_count = 0
 	for c in conn: if c: c_count += 1
@@ -186,20 +248,23 @@ func _select_variant(conn, idx, heights):
 		if conn[Direction.EAST] and conn[Direction.WEST]:
 			return ModuleVariant.new("S", 90 if ph[Direction.WEST] > 0 else 270, [false, true, false, true], ph, 1)
 
+	# Non-stair variants use flat port_heights — their height is encoded in base_height.
+	# Only stairs need the relative delta to drive the slope mesh.
+	var flat = [0.0, 0.0, 0.0, 0.0]
 	if c_count == 1:
-		for d in range(4): if conn[d]: return ModuleVariant.new("E", d * 90, [d==0, d==1, d==2, d==3], ph, 1)
+		for d in range(4): if conn[d]: return ModuleVariant.new("E", d * 90, [d==0, d==1, d==2, d==3], flat, 1)
 	if c_count == 2:
-		if conn[0] and conn[2]: return ModuleVariant.new("W", 0, [true, false, true, false], ph, 1)
-		if conn[1] and conn[3]: return ModuleVariant.new("W", 90, [false, true, false, true], ph, 1)
-		if conn[0] and conn[1]: return ModuleVariant.new("C", 0, [true, true, false, false], ph, 1)
-		if conn[1] and conn[2]: return ModuleVariant.new("C", 90, [false, true, true, false], ph, 1)
-		if conn[2] and conn[3]: return ModuleVariant.new("C", 180, [false, false, true, true], ph, 1)
-		if conn[3] and conn[0]: return ModuleVariant.new("C", 270, [true, false, false, true], ph, 1)
+		if conn[0] and conn[2]: return ModuleVariant.new("W", 0, [true, false, true, false], flat, 1)
+		if conn[1] and conn[3]: return ModuleVariant.new("W", 90, [false, true, false, true], flat, 1)
+		if conn[0] and conn[1]: return ModuleVariant.new("C", 0, [true, true, false, false], flat, 1)
+		if conn[1] and conn[2]: return ModuleVariant.new("C", 90, [false, true, true, false], flat, 1)
+		if conn[2] and conn[3]: return ModuleVariant.new("C", 180, [false, false, true, true], flat, 1)
+		if conn[3] and conn[0]: return ModuleVariant.new("C", 270, [true, false, false, true], flat, 1)
 	if c_count == 3:
 		for d in range(4):
 			if not conn[d]:
 				var rot = (d + 2) % 4
 				var c = [true, true, true, true]
 				c[d] = false
-				return ModuleVariant.new("T", rot * 90, c, ph, 1)
-	return ModuleVariant.new("X", 0, [true, true, true, true], ph, 1)
+				return ModuleVariant.new("T", rot * 90, c, flat, 1)
+	return ModuleVariant.new("X", 0, [true, true, true, true], flat, 1)

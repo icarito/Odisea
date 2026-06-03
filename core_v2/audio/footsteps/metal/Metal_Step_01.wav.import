@@ -1,0 +1,23 @@
+[remap]
+
+importer="wav"
+type="AudioStreamSample"
+path="res://.import/Metal_Step_01.wav-4f07f1232c0b1ce404d8341200536229.sample"
+
+[deps]
+
+source_file="res://core_v2/audio/footsteps/metal/Metal_Step_01.wav"
+dest_files=[ "res://.import/Metal_Step_01.wav-4f07f1232c0b1ce404d8341200536229.sample" ]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=0

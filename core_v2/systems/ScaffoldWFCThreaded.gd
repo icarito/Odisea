@@ -5,6 +5,7 @@ class_name ScaffoldWFCThreaded
 
 signal generation_done(chunk_key, grid_data)
 signal generation_failed(chunk_key)
+signal instancing_done(parent_node)
 
 export(int, 1, 64) var instances_per_frame := 8 setget set_instances_per_frame
 export(int, 1, 32) var max_pending_jobs := 4
@@ -17,6 +18,7 @@ var _should_exit: bool = false
 
 var _instance_queue: Array = []
 var _rebuild_queue: Array = []  # nodes waiting for _rebuild(), processed 1 per frame
+var _instance_pending_count: Dictionary = {}  # parent_node -> int, items still queued
 
 func _init() -> void:
 	_mutex = Mutex.new()
@@ -86,9 +88,18 @@ func stop() -> void:
 		_thread.wait_to_finish()
 	_thread = null
 
+func cancel_instancing_for(parent_node: Spatial) -> void:
+	var i = _instance_queue.size() - 1
+	while i >= 0:
+		if _instance_queue[i].parent == parent_node:
+			_instance_queue.remove(i)
+		i -= 1
+	_instance_pending_count.erase(parent_node)
+
 # --- Progressive instancing ---
 
 func enqueue_grid_for_instancing(parent_node: Spatial, grid: Array, grid_width: int, grid_depth: int, cell_size: float, generator_ref, chunk_offset: Vector3 = Vector3.ZERO) -> void:
+	var count = 0
 	for y in range(grid_depth):
 		for x in range(grid_width):
 			var state = grid[y * grid_width + x]
@@ -106,6 +117,11 @@ func enqueue_grid_for_instancing(parent_node: Spatial, grid: Array, grid_width: 
 				"cell_size": cell_size,
 				"offset": chunk_offset
 			})
+			count += 1
+	if count > 0:
+		_instance_pending_count[parent_node] = _instance_pending_count.get(parent_node, 0) + count
+	else:
+		emit_signal("instancing_done", parent_node)
 	set_process(true)
 
 export(float, 1.0, 14.0) var rebuild_budget_ms := 8.0
@@ -114,8 +130,14 @@ func _process(_delta) -> void:
 	var instance_count = 0
 	while instance_count < instances_per_frame and not _instance_queue.empty():
 		var entry = _instance_queue.pop_front()
+		var parent = entry.parent
 		_instance_one(entry)
 		instance_count += 1
+		if _instance_pending_count.has(parent):
+			_instance_pending_count[parent] -= 1
+			if _instance_pending_count[parent] <= 0:
+				_instance_pending_count.erase(parent)
+				emit_signal("instancing_done", parent)
 
 	var rebuild_count = 0
 	while rebuild_count < rebuilds_per_frame and not _rebuild_queue.empty():

@@ -1,6 +1,8 @@
 extends Spatial
 class_name InfiniteScaffoldField
 
+const PROP_LAYER := 64
+
 # ─── Configuration ─────────────────────────────────────────────────
 export(NodePath) var player_path
 export var cell_size: float = 5.0
@@ -170,7 +172,7 @@ func _create_cell(coord: Vector3) -> Spatial:
 	var root = Spatial.new()
 
 	var body = StaticBody.new()
-	body.collision_layer = 64  # Layer 7: Props — camera occlusion / dither
+	body.collision_layer = PROP_LAYER  # Layer 7: Props — camera occlusion / dither
 	body.collision_mask = 0
 	root.add_child(body)
 
@@ -221,6 +223,7 @@ func _create_cell(coord: Vector3) -> Spatial:
 	if pipe_count >= 2:
 		var joint = MeshInstance.new()
 		joint.name = "joint"
+		joint.layers = PROP_LAYER
 		joint.mesh = _joint_mesh
 		body.add_child(joint)
 
@@ -230,6 +233,7 @@ func _create_cell(coord: Vector3) -> Spatial:
 func _add_full_pipe(body: StaticBody, axis: int, rot: Basis):
 	var mesh_inst = MeshInstance.new()
 	mesh_inst.name = "pipe_%d" % axis
+	mesh_inst.layers = PROP_LAYER
 	mesh_inst.mesh = _cyl_mesh
 	mesh_inst.transform.basis = rot
 	body.add_child(mesh_inst)
@@ -255,6 +259,7 @@ func _add_half_pipe_mesh(body: StaticBody, axis: int, rot: Basis, axis_dir: Vect
 
 	var mesh_inst = MeshInstance.new()
 	mesh_inst.name = "pipe_%d_%s" % [axis, "p" if toward_plus else "m"]
+	mesh_inst.layers = PROP_LAYER
 	mesh_inst.mesh = half_mesh
 	mesh_inst.transform.basis = rot
 	mesh_inst.transform.origin = offset
@@ -278,6 +283,7 @@ func _add_endcap(body: StaticBody, axis: int, rot: Basis, axis_dir: Vector3, on_
 
 	var cap = MeshInstance.new()
 	cap.name = "cap_%d_%s" % [axis, "p" if on_plus_side else "m"]
+	cap.layers = PROP_LAYER
 	cap.mesh = _cap_mesh
 	cap.transform.basis = rot
 	cap.transform.origin = offset
