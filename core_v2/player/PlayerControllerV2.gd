@@ -195,6 +195,8 @@ var is_acrobatic_ready := false
 var _current_interactable: Node = null
 var _current_interaction_prompt := ""
 var _nearby_interactables: Array = []
+var _cached_all_interactables: Array = []
+var _interactables_cache_frames: int = 30
 onready var interact_config = get_node_or_null("Logic/Interact")
 
 const INTERACT_ACTION_NAME := "interact"
@@ -1585,12 +1587,20 @@ func _process_interaction(input: InputDataV2):
 
 	# --- Proximity Glow Logic ---
 	# Handle objects that are nearby but not the current best_target
-	var all_interactables = get_tree().get_nodes_in_group("interactable")
-	for focusable in get_tree().get_nodes_in_group("focusable"):
-		if not focusable in all_interactables:
-			all_interactables.append(focusable)
+	_interactables_cache_frames += 1
+	if _interactables_cache_frames >= 30:
+		_interactables_cache_frames = 0
+		_cached_all_interactables = get_tree().get_nodes_in_group("interactable")
+		var dict = {}
+		for obj in _cached_all_interactables:
+			dict[obj] = true
+		for focusable in get_tree().get_nodes_in_group("focusable"):
+			if not dict.has(focusable):
+				_cached_all_interactables.append(focusable)
+				dict[focusable] = true
+
 	var new_nearby = []
-	for obj in all_interactables:
+	for obj in _cached_all_interactables:
 		if not is_instance_valid(obj) or obj == _current_interactable:
 			continue
 		
