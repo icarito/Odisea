@@ -100,7 +100,11 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 		if h < 0:
 			result.append(null)
 			continue
+<<<<<<< HEAD
 
+=======
+		
+>>>>>>> origin/maintenance/prop-validator-improvements
 		var variant = _select_variant(conn, i, heights)
 		result.append({
 			"variant": {
@@ -241,7 +245,11 @@ func _select_variant(conn, idx, heights):
 		if abs(p) > 0.001:
 			is_stair = true
 			break
+<<<<<<< HEAD
 
+=======
+	
+>>>>>>> origin/maintenance/prop-validator-improvements
 	if is_stair:
 		if conn[Direction.NORTH] and conn[Direction.SOUTH]:
 			return ModuleVariant.new("S", 0 if ph[Direction.SOUTH] > 0 else 180, [true, false, true, false], ph, 1)
@@ -266,5 +274,10 @@ func _select_variant(conn, idx, heights):
 				var rot = (d + 2) % 4
 				var c = [true, true, true, true]
 				c[d] = false
+<<<<<<< HEAD
 				return ModuleVariant.new("T", rot * 90, c, flat, 1)
 	return ModuleVariant.new("X", 0, [true, true, true, true], flat, 1)
+=======
+				return ModuleVariant.new("T", rot * 90, c, ph, 1)
+	return ModuleVariant.new("X", 0, [true, true, true, true], ph, 1)
+>>>>>>> origin/maintenance/prop-validator-improvements

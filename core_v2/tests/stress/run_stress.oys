@@ -1,0 +1,23 @@
+# Stress Test — Basic scaffold generation + performance snapshot
+# Runs headless in CI via: OYS_AUTO_RUN=res://core_v2/tests/stress/run_stress.oys
+
+SECTION "Setup"
+    PRINT "Stress test starting..."
+
+SECTION "Scaffold Generation Stress"
+    # Load a minimal level that triggers scaffold generation
+    LEVEL res://core_v2/tests/scaffold/TestInfiniteScaffold.tscn
+    WAIT 2.0
+
+    # Let streaming system generate at least one chunk
+    PRINT "Waiting for chunk generation..."
+    WAIT 8.0
+
+    SCREENSHOT stress_scaffold
+
+SECTION "Performance Snapshot"
+    PRINT "Capturing performance data..."
+    # PerformanceMonitor autoload writes to user://performance_snapshots.json
+    WAIT 1.0
+
+    PRINT "Stress test complete."
