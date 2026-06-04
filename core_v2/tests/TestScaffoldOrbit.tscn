@@ -13,15 +13,15 @@ extents = Vector3( 500, 0.5, 500 )
 
 [node name="CylinderRotator" type="Spatial" parent="."]
 script = ExtResource( 1 )
-camera_lerp_speed = 12.0
+base_radius = 30.0
 
 [node name="ScaffoldStreamController" type="Spatial" parent="CylinderRotator"]
 script = ExtResource( 2 )
-load_radius = 20.0
-unload_radius = 44.0
-collision_radius = 28.0
+load_radius = 50.0
+unload_radius = 90.0
+collision_radius = 12.0
 full_detail_radius = 0.0
-lod1_radius = 16.0
+lod1_radius = 15.0
 full_detail_prefetch_radius = 0.0
 lod_deck_thickness = 0.02
 lod_full_detail_ramps = false
@@ -35,6 +35,7 @@ max_chunk_requests_per_frame = 3
 max_pending_generation_jobs = 3
 player_path = NodePath("../../Pilot")
 require_single_component = true
+cylinder_radius = 30.0
 
 [node name="StarfieldEnvironment" parent="CylinderRotator" instance=ExtResource( 5 )]
 environment = ExtResource( 6 )
