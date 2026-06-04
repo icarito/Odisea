@@ -7,7 +7,7 @@ export(float) var gravity := -24.0 # Más pesado para mejor feeling con salto va
 export(float) var min_jump_intensity := 0.4
 
 const COYOTE_TIME := 0.15 # ~120-150 ms
-const JUMP_BUFFER_TIME := 0.1 # ~100-120 ms
+export(float, 0.0, 0.5, 0.01) var JUMP_BUFFER_TIME := 0.15 # ~150 ms — tunable from Inspector
 
 # --- ACROBATIC / BACKFLIP TUNING ---
 export(float) var acrobatic_jump_force := 14.0

@@ -1983,7 +1983,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		if is_instance_valid(jump_logic):
 			jump_logic.set_internal_velocity(0.0)
 
-	if is_on_floor():
+	if physics_grounded:
 		jump_logic.reset_on_floor()
 	else:
 		jump_logic.on_air_tick(dt)
@@ -2054,7 +2054,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	_apply_push_constraint(dt)
 
 	# --- ACROBATIC JUMP CHECK (before normal jump) ---
-	if is_acrobatic_ready and is_on_floor() and jump_logic.jump_buffer_timer > 0 and not CinematicManager.latch_active:
+	if is_acrobatic_ready and physics_grounded and jump_logic.jump_buffer_timer > 0 and not CinematicManager.latch_active:
 		var force = jump_logic.acrobatic_jump_force
 		velocity.y = force
 		
@@ -2084,7 +2084,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	else:
 		# --- JUMP ---
 		var old_vy = velocity.y
-		velocity.y = jump_logic.step(dt, input.jump, velocity.y, is_on_floor())
+		velocity.y = jump_logic.step(dt, input.jump, velocity.y, physics_grounded)
 		if velocity.y == jump_logic.jump_force and old_vy != jump_logic.jump_force:
 			emit_signal("jumped")
 
