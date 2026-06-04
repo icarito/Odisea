@@ -119,6 +119,23 @@ Expected: OYS tests print `PASSED` and exit 0. Full suite prints `✅ Todos los 
 - **OYS test replay takes ~80s** — Each `--oys` test runs two phases: record + replay. This is normal.
 - **`run/main_scene`** in `project.godot` is `res://core_v2/bootstrap/Boot.tscn`, not the Menu scene listed in some older docs.
 
+## Prop design iteration loop
+
+To collaboratively improve a prop's visual design, the standard loop is:
+
+1. Inspect screenshots — read them from `test_output/props/` with the Read tool
+2. Read the `.tscn` to understand current geometry and materials
+3. Edit the `.tscn` (materials inline as `[sub_resource]`, CSG nodes for geometry)
+4. Re-run `./test_prop.sh <PropName>` and read the new screenshots
+5. Repeat until satisfied, then commit
+
+Key geometry facts for props built with CSG:
+- Materials go inline as `[sub_resource type="SpatialMaterial"]` in the `.tscn` — no separate `.tres` needed for prototype work
+- `SlidingObjectV2` reads `size` and `slide_vector`; `slide_vector` must exceed `size.x` (or relevant axis) to fully clear the opening without clipping
+- `RotatingObjectV2` `rotation_amount = 360.0` gives a full spin (good for valves)
+- The PropStage camera angle is oblique/low — horizontal details (spokes, surface markings) may not be visible in screenshots but will be from the in-game top-down-ish perspective
+- `FloorHatchProxy.gd` exposes `hatch_size` to resize the door and hole together from the Inspector
+
 ## Troubleshooting
 
 - **`Unknown '--runner' command!` / `Abnormal exit with 100`**: You passed `--runner gdunit` to `runtest.sh --oys`. Remove `--runner`; OYS tests don't accept it.
