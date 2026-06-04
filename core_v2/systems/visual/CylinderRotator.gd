@@ -39,6 +39,9 @@ func _init() -> void:
 	if _stream == null:
 		return
 	_sync_radius()
+	# Chunks are visually curved but physics uses PhysicalTerrace only.
+	# Chunk collisions at non-zero theta cause clipping with the flat capsule.
+	_stream.lod_collision_enabled = false
 	_ensure_stream_connected()
 
 func set_base_radius(v: float) -> void:

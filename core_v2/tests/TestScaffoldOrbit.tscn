@@ -23,6 +23,7 @@ collision_radius = 12.0
 full_detail_radius = 0.0
 lod1_radius = 15.0
 full_detail_prefetch_radius = 0.0
+lod_collision_enabled = false
 lod_deck_thickness = 0.02
 lod_full_detail_ramps = false
 lod_rail_thickness = 0.02
