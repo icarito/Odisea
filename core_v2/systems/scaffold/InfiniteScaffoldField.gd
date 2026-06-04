@@ -27,10 +27,12 @@ var _exclusion_cache_frame: int = -1
 # ─── Shared resources (created once in _ready) ─────────────────────
 var _pipe_material: SpatialMaterial
 var _cap_material: SpatialMaterial
-var _cyl_mesh: CylinderMesh
+var _cyl_mesh: CylinderMesh        # full-length cylinder
+var _half_cyl_mesh: CylinderMesh   # half-length cylinder (shared across all half-pipes)
 var _joint_mesh: SphereMesh
-var _cap_mesh: CylinderMesh         # flat disc end-cap (flange)
+var _cap_mesh: CylinderMesh        # flat disc end-cap (flange)
 var _cyl_shape: CylinderShape
+var _half_cyl_shape: CylinderShape # shared half-pipe collision shape
 
 func _ready():
 	if player_path and has_node(player_path):
@@ -83,10 +85,22 @@ func _build_shared_resources():
 	_cap_mesh.radial_segments = 12
 	_cap_mesh.material = _cap_material
 
-	# --- Collision shape ---
+	# --- Half-length cylinder (shared by all half-pipe segments) ---
+	_half_cyl_mesh = CylinderMesh.new()
+	_half_cyl_mesh.top_radius = pipe_radius
+	_half_cyl_mesh.bottom_radius = pipe_radius
+	_half_cyl_mesh.height = cell_size * 0.5
+	_half_cyl_mesh.radial_segments = 12
+	_half_cyl_mesh.material = _pipe_material
+
+	# --- Collision shapes ---
 	_cyl_shape = CylinderShape.new()
 	_cyl_shape.radius = pipe_radius
 	_cyl_shape.height = cell_size
+
+	_half_cyl_shape = CylinderShape.new()
+	_half_cyl_shape.radius = pipe_radius
+	_half_cyl_shape.height = cell_size * 0.5
 
 # ═══════════════════════════════════════════════════════════════════
 #  DETERMINISTIC HASH — operates on SEGMENTS, not cells
@@ -186,40 +200,50 @@ func _create_cell(coord: Vector3) -> Spatial:
 		var plus_excluded = _is_coord_excluded(neighbor_plus)
 		var minus_excluded = _is_coord_excluded(neighbor_minus)
 
-		# Check segment existence (variability).
-		# A cell has a pipe on axis X if EITHER the segment to its +X neighbor
-		# or the segment from its -X neighbor exists.  Each segment is a full
-		# pipe connecting two junctions.  We draw the half that belongs to
-		# THIS cell for each existing segment.
 		var seg_plus_exists = (not plus_excluded) and _segment_exists(coord, neighbor_plus, axis)
 		var seg_minus_exists = (not minus_excluded) and _segment_exists(coord, neighbor_minus, axis)
 
-		# Also suppress segments that go into excluded neighbors
-		# (already handled by the check above)
-
 		if not seg_plus_exists and not seg_minus_exists:
-			# No pipe on this axis at all — clean omission, no dangling halves
 			continue
 
 		var rot = _get_axis_rotation(axis)
 		var axis_dir = _get_axis_dir(axis)
 
-		if seg_plus_exists and seg_minus_exists:
-			# Full pipe — both halves connect to neighbors
-			_add_full_pipe(body, axis, rot)
-			pipe_count += 1
-		elif seg_plus_exists:
-			# Only the +side segment exists; draw half-pipe toward + and cap at center
-			_add_half_pipe_mesh(body, axis, rot, axis_dir, true)
-			_add_endcap(body, axis, rot, axis_dir, false)
-			pipe_count += 1
+		if axis == 1:
+			# ── Vertical (Y) pillar ownership rule ──────────────────────────
+			# A Y-segment between coord and coord+(0,1,0) is OWNED by the lower
+			# cell (smaller Y). This prevents 4 cells sharing a horizontal
+			# junction from each spawning a pillar at the same corner point.
+			#
+			# seg_plus  → this cell is the lower one: draw the full pillar downward
+			#              from this cell's floor to the ceiling of coord-(0,1,0).
+			# seg_minus → this cell is the UPPER one: the lower cell already owns
+			#              the pipe. Only add a joint-count bump so the joint sphere
+			#              appears when horizontal pipes also meet here.
+			if seg_plus_exists:
+				_add_full_pipe(body, axis, rot)
+				pipe_count += 1
+			if seg_minus_exists:
+				# Upper end of a pillar owned by the cell below — no mesh here,
+				# but count it so the joint sphere appears if horizontal pipes meet.
+				pipe_count += 1
 		else:
-			# Only the -side segment exists; draw half-pipe toward - and cap at center
-			_add_half_pipe_mesh(body, axis, rot, axis_dir, false)
-			_add_endcap(body, axis, rot, axis_dir, true)
-			pipe_count += 1
+			# ── Horizontal (X / Z) half-pipe model ──────────────────────────
+			# Each cell draws only its own half of a shared segment. Avoids
+			# duplicating horizontal beams while keeping each cell independent.
+			if seg_plus_exists and seg_minus_exists:
+				_add_full_pipe(body, axis, rot)
+				pipe_count += 1
+			elif seg_plus_exists:
+				_add_half_pipe_mesh(body, axis, rot, axis_dir, true)
+				_add_endcap(body, axis, rot, axis_dir, false)
+				pipe_count += 1
+			else:
+				_add_half_pipe_mesh(body, axis, rot, axis_dir, false)
+				_add_endcap(body, axis, rot, axis_dir, true)
+				pipe_count += 1
 
-	# --- Joint sphere (only if 2+ pipes meet) ---
+	# --- Joint sphere (only if 2+ pipes meet here) ---
 	if pipe_count >= 2:
 		var joint = MeshInstance.new()
 		joint.name = "joint"
@@ -245,33 +269,20 @@ func _add_full_pipe(body: StaticBody, axis: int, rot: Basis):
 	body.add_child(col)
 
 func _add_half_pipe_mesh(body: StaticBody, axis: int, rot: Basis, axis_dir: Vector3, toward_plus: bool):
-	# Half-length pipe offset toward the + or - direction
 	var sign_val = 1.0 if toward_plus else -1.0
 	var offset = axis_dir * (cell_size * 0.25) * sign_val
-
-	# Create a half-length cylinder mesh
-	var half_mesh = CylinderMesh.new()
-	half_mesh.top_radius = pipe_radius
-	half_mesh.bottom_radius = pipe_radius
-	half_mesh.height = cell_size * 0.5
-	half_mesh.radial_segments = 12
-	half_mesh.material = _pipe_material
 
 	var mesh_inst = MeshInstance.new()
 	mesh_inst.name = "pipe_%d_%s" % [axis, "p" if toward_plus else "m"]
 	mesh_inst.layers = PROP_LAYER
-	mesh_inst.mesh = half_mesh
+	mesh_inst.mesh = _half_cyl_mesh   # shared — no allocation per pipe
 	mesh_inst.transform.basis = rot
 	mesh_inst.transform.origin = offset
 	body.add_child(mesh_inst)
 
-	var half_shape = CylinderShape.new()
-	half_shape.radius = pipe_radius
-	half_shape.height = cell_size * 0.5
-
 	var col = CollisionShape.new()
 	col.name = "col_%d_%s" % [axis, "p" if toward_plus else "m"]
-	col.shape = half_shape
+	col.shape = _half_cyl_shape       # shared
 	col.transform.basis = rot
 	col.transform.origin = offset
 	body.add_child(col)
