@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=2]
+[gd_scene load_steps=20 format=2]
 
 [ext_resource path="res://core_v2/components/RotatingObjectV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/SlidingObjectV2.gd" type="Script" id=2]
@@ -13,18 +13,30 @@ radius = 0.48
 
 [sub_resource type="SpatialMaterial" id=3]
 resource_name = "FrameMetal"
-albedo_color = Color( 0.35, 0.37, 0.40, 1 )
+albedo_color = Color( 0.28, 0.30, 0.32, 1 )
 metallic = 1.0
-roughness = 0.28
+roughness = 0.22
 rim_enabled = true
-rim = 0.8
-rim_tint = 0.4
+rim = 1.0
+rim_tint = 0.5
 
 [sub_resource type="SpatialMaterial" id=4]
-resource_name = "HatchDark"
-albedo_color = Color( 0.22, 0.20, 0.18, 1 )
-metallic = 0.4
-roughness = 0.75
+resource_name = "BrushedSteel"
+albedo_color = Color( 0.42, 0.44, 0.46, 1 )
+metallic = 1.0
+roughness = 0.18
+rim_enabled = true
+rim = 0.9
+rim_tint = 0.6
+
+[sub_resource type="SpatialMaterial" id=8]
+resource_name = "BrushedSteelDark"
+albedo_color = Color( 0.30, 0.32, 0.34, 1 )
+metallic = 1.0
+roughness = 0.30
+rim_enabled = true
+rim = 0.6
+rim_tint = 0.4
 
 [sub_resource type="SpatialMaterial" id=5]
 resource_name = "ValveHub"
@@ -39,15 +51,15 @@ emission_energy = 0.6
 resource_name = "ValveMetal"
 albedo_color = Color( 0.38, 0.40, 0.43, 1 )
 metallic = 1.0
-roughness = 0.25
+roughness = 0.20
 rim_enabled = true
-rim = 0.6
+rim = 0.8
 rim_tint = 0.3
 
 [sub_resource type="SpatialMaterial" id=7]
 resource_name = "WarnStripe"
 albedo_color = Color( 0.85, 0.68, 0.08, 1 )
-roughness = 0.7
+roughness = 0.6
 
 [node name="FloorHatch" type="Spatial"]
 script = ExtResource( 3 )
@@ -64,37 +76,39 @@ material = SubResource( 3 )
 [node name="Hole" type="CSGBox" parent="Frame/Floor"]
 operation = 2
 width = 3.0
-height = 0.3
+height = 0.30
 depth = 3.0
 
 [node name="WarnBorderFront" type="CSGBox" parent="Frame"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.075, 1.65 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.076, 1.65 )
 width = 3.0
-height = 0.005
-depth = 0.1
+height = 0.006
+depth = 0.12
 material = SubResource( 7 )
 
 [node name="WarnBorderBack" type="CSGBox" parent="Frame"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.075, -1.65 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.076, -1.65 )
 width = 3.0
-height = 0.005
-depth = 0.1
+height = 0.006
+depth = 0.12
 material = SubResource( 7 )
 
 [node name="WarnBorderLeft" type="CSGBox" parent="Frame"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.65, 0.075, 0 )
-width = 0.1
-height = 0.005
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.65, 0.076, 0 )
+width = 0.12
+height = 0.006
 depth = 3.0
 material = SubResource( 7 )
 
 [node name="WarnBorderRight" type="CSGBox" parent="Frame"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.65, 0.075, 0 )
-width = 0.1
-height = 0.005
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.65, 0.076, 0 )
+width = 0.12
+height = 0.006
 depth = 3.0
 material = SubResource( 7 )
 
+; HatchDoor uses SlidingObjectV2 which hides MeshInstance when custom visuals present.
+; All visual detail nodes are siblings of MeshInstance inside HatchDoor.
 [node name="HatchDoor" type="KinematicBody" parent="."]
 script = ExtResource( 2 )
 is_interactable = false
@@ -104,14 +118,68 @@ size = Vector3( 2.8, 0.12, 2.8 )
 [node name="CollisionShape" type="CollisionShape" parent="HatchDoor"]
 shape = SubResource( 1 )
 
+; Base plate — named MeshInstance so SlidingObjectV2 can measure it
 [node name="MeshInstance" type="CSGBox" parent="HatchDoor"]
 width = 2.8
 height = 0.12
 depth = 2.8
 material = SubResource( 4 )
 
+; Recessed center panel: slightly inset in Y (sits on top, darker steel)
+[node name="Panel" type="CSGBox" parent="HatchDoor"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.062, 0 )
+width = 2.0
+height = 0.005
+depth = 2.0
+material = SubResource( 8 )
+
+; Corner reinforcement pads
+[node name="CornerNW" type="CSGBox" parent="HatchDoor"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.05, 0.065, -1.05 )
+width = 0.5
+height = 0.01
+depth = 0.5
+material = SubResource( 8 )
+
+[node name="CornerNE" type="CSGBox" parent="HatchDoor"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.05, 0.065, -1.05 )
+width = 0.5
+height = 0.01
+depth = 0.5
+material = SubResource( 8 )
+
+[node name="CornerSW" type="CSGBox" parent="HatchDoor"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.05, 0.065, 1.05 )
+width = 0.5
+height = 0.01
+depth = 0.5
+material = SubResource( 8 )
+
+[node name="CornerSE" type="CSGBox" parent="HatchDoor"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.05, 0.065, 1.05 )
+width = 0.5
+height = 0.01
+depth = 0.5
+material = SubResource( 8 )
+
+; Cross ribs dividing the door into quadrants
+[node name="RibH" type="CSGBox" parent="HatchDoor"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.065, 0 )
+width = 2.8
+height = 0.01
+depth = 0.10
+material = SubResource( 8 )
+
+[node name="RibV" type="CSGBox" parent="HatchDoor"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.065, 0 )
+width = 0.10
+height = 0.01
+depth = 2.8
+material = SubResource( 8 )
+
+; Valve: positioned at corner opposite to slide direction (+X opens, so valve at -X,-Z corner)
 [node name="ValveWheel" type="KinematicBody" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.8, 0.14, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 0.14, -1.5 )
 script = ExtResource( 1 )
 interaction_text = "Turn Valve"
 rotation_axis = Vector3( 0, 1, 0 )

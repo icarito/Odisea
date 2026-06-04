@@ -135,6 +135,9 @@ Key geometry facts for props built with CSG:
 - `RotatingObjectV2` `rotation_amount = 360.0` gives a full spin (good for valves)
 - The PropStage camera angle is oblique/low — horizontal details (spokes, surface markings) may not be visible in screenshots but will be from the in-game top-down-ish perspective
 - `FloorHatchProxy.gd` exposes `hatch_size` to resize the door and hole together from the Inspector
+- **CSG subtract (`operation = 2`) pierces through**: if the subtracted child's height ≥ half the parent, it cuts all the way through and shows the white PropStage backdrop. Use additive geometry (pads on top) for surface detail instead
+- **`SlidingObjectV2` hides `MeshInstance` when custom siblings exist**: name the base box exactly `MeshInstance`; extra `CSGBox` siblings (which are `Spatial`, not `MeshInstance`) are safe and won't trigger the hide logic
+- **Highly metallic surfaces look black in PropStage**: `metallic=1.0, roughness<0.25` reflects almost nothing under the low PropStage ambient. Correct in-game. Don't raise roughness to compensate the test view
 
 ## Troubleshooting
 
