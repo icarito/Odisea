@@ -1486,7 +1486,11 @@ func _lod_collision_transform(x: int, y: int, state, v) -> Dictionary:
 	return _lod_slope_collision(x, y, state, v, false)
 
 func _append_lod_deck_collisions(out: Array, x: int, y: int, state, v, scale_xz: float) -> void:
-	var y_offset = _lod_height_center_offset(v) - lod_collision_thickness * 0.5
+	# Top of collision must match top of visual deck.
+	# Visual top = height_center_offset + lod_deck_thickness (half below + half above center).
+	# Collision center = visual_top - lod_collision_thickness * 0.5
+	var visual_top = _lod_height_center_offset(v) + lod_deck_thickness
+	var y_offset = visual_top - lod_collision_thickness * 0.5
 	for spec in _lod_deck_specs(v, scale_xz, lod_collision_thickness):
 		var xf = _lod_deck_transform(x, y, state, v, spec.size, y_offset)
 		xf.origin += spec.offset
