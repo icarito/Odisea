@@ -1,153 +1,92 @@
 extends Spatial
 class_name ScaffoldOrbit
 
-# FD-XXX: Cylindrical layout for scaffold chunks
-# Translates flat (x, z, y) coordinates to cylindrical (r, theta, z).
+# FD-052: Cylindrical layout for scaffold chunks.
+#
+# Scaffold uses a single canonical convention:
+# - Cylinder axis: Z
+# - Arc axis: X  (theta = flat_x / base_radius)
+# - Radial offset: Y
+#
+# Chunk name encodes its grid key: "Chunk_CX_CZ"
+# We derive flat_origin from the chunk name + stream params so we never
+# depend on translation timing (stream sets translation AFTER add_child).
 
-export(float) var base_radius := 330.0 setget set_base_radius
-export(float) var angular_scale := 0.003 setget set_angular_scale
-export(bool) var follow_player_flat := true
+export(float) var base_radius := 190.0 setget set_base_radius
 
-var _stream_controller: ScaffoldStreamController = null
-var _player_proxy: Spatial = null
-var _original_player_path: NodePath
+var _stream: ScaffoldStreamController = null
 var _initialized := false
 
 func _ready() -> void:
-	_player_proxy = Spatial.new()
-	_player_proxy.name = "FlatPlayerProxy"
-	# Temporarily add as child to avoid orphan, _set_stream_controller will move it.
-	add_child(_player_proxy)
-
-	_find_stream_controller()
-	connect("child_entered_tree", self, "_on_my_child_entered")
-	_initialized = true
-
-func _find_stream_controller() -> void:
 	for child in get_children():
 		if child is ScaffoldStreamController:
-			_set_stream_controller(child)
-			return
+			_setup_stream(child as ScaffoldStreamController)
+			break
 
-func _on_my_child_entered(child: Node) -> void:
-	if child is ScaffoldStreamController:
-		_set_stream_controller(child)
+	connect("child_entered_tree", self, "_on_child_entered")
+	_initialized = true
 
-func _set_stream_controller(controller: ScaffoldStreamController) -> void:
-	if _stream_controller == controller:
+func _on_child_entered(child: Node) -> void:
+	if child is ScaffoldStreamController and _stream == null:
+		_setup_stream(child as ScaffoldStreamController)
+
+func _setup_stream(s: ScaffoldStreamController) -> void:
+	_stream = s
+	_stream.connect("child_entered_tree", self, "_on_stream_child_entered")
+	# Reposition chunks already present
+	call_deferred("_reposition_all")
+
+func _on_stream_child_entered(child: Node) -> void:
+	if child.name.begins_with("Chunk_"):
+		call_deferred("_reposition_chunk", child)
+
+func _reposition_chunk(chunk: Spatial) -> void:
+	if not is_instance_valid(chunk):
 		return
+	var flat: Vector3 = _flat_origin_from_chunk(chunk)
+	chunk.set_meta("flat_origin", flat)
+	chunk.transform = _cylindrical_transform(flat, _chunk_local_center())
 
-	if _stream_controller:
-		if _stream_controller.is_connected("child_entered_tree", self, "_on_chunk_entered"):
-			_stream_controller.disconnect("child_entered_tree", self, "_on_chunk_entered")
+func _flat_origin_from_chunk(chunk: Spatial) -> Vector3:
+	# Parse "Chunk_CX_CZ" and call the stream's own method to get the canonical
+	# local origin — same formula the stream uses, no timing issues.
+	var parts: Array = chunk.name.split("_")
+	if parts.size() >= 3:
+		var key := Vector2(float(parts[1]), float(parts[2]))
+		return _stream._chunk_to_local_origin(key)
+	return chunk.translation
 
-	_stream_controller = controller
-	if _stream_controller:
-		if not _stream_controller.is_connected("child_entered_tree", self, "_on_chunk_entered"):
-			_stream_controller.connect("child_entered_tree", self, "_on_chunk_entered")
+func _cylindrical_transform(flat: Vector3, local_pivot: Vector3) -> Transform:
+	var flat_pivot: Vector3 = flat + local_pivot
+	var theta: float = flat_pivot.x / base_radius
+	var r: float     = base_radius - flat_pivot.y
+	var pos := Vector3(
+		r * sin(theta),
+		base_radius - r * cos(theta),
+		flat_pivot.z
+	)
+	var basis := Basis(Vector3(0.0, 0.0, 1.0), theta)
+	return Transform(basis, pos - basis.xform(local_pivot))
 
-		_original_player_path = _stream_controller.player_path
-		if follow_player_flat:
-			call_deferred("_apply_player_proxy")
+func _chunk_local_center() -> Vector3:
+	if _stream == null:
+		return Vector3.ZERO
+	return Vector3(
+		float(_stream.chunk_height - 1) * _stream.cell_size * 0.5,
+		0.0,
+		float(_stream.chunk_length - 1) * _stream.cell_size * 0.5
+	)
 
-		_reposition_all_chunks()
-
-func _apply_player_proxy() -> void:
-	if _stream_controller and _player_proxy:
-		if _player_proxy.get_parent():
-			_player_proxy.get_parent().remove_child(_player_proxy)
-		_stream_controller.add_child(_player_proxy)
-		_stream_controller.player_path = _stream_controller.get_path_to(_player_proxy)
-
-func _on_chunk_entered(node: Node) -> void:
-	if not node is Spatial or not node.name.begins_with("Chunk_"):
-		return
-	_reposition_chunk(node)
+# ── Setters ────────────────────────────────────────────────────────────────
 
 func set_base_radius(v: float) -> void:
 	base_radius = v
 	if _initialized:
-		_reposition_all_chunks()
+		_reposition_all()
 
-func set_angular_scale(v: float) -> void:
-	angular_scale = v
-	if _initialized:
-		_reposition_all_chunks()
-
-func _reposition_all_chunks() -> void:
-	if not _stream_controller:
+func _reposition_all() -> void:
+	if _stream == null:
 		return
-	for child in _stream_controller.get_children():
+	for child in _stream.get_children():
 		if child.name.begins_with("Chunk_"):
-			_reposition_chunk(child)
-
-func _reposition_chunk(chunk: Spatial) -> void:
-	var flat_pos: Vector3
-	if chunk.has_meta("original_flat_pos"):
-		flat_pos = chunk.get_meta("original_flat_pos")
-	else:
-		flat_pos = chunk.translation
-		chunk.set_meta("original_flat_pos", flat_pos)
-
-	# flat_pos is relative to _stream_controller
-	# world_flat_pos is position relative to ScaffoldOrbit
-	var world_flat_pos = _stream_controller.translation + flat_pos
-
-	var mapped_xf = _map_flat_to_cylindrical(world_flat_pos)
-
-	# chunk.transform is relative to _stream_controller
-	chunk.transform = _stream_controller.transform.affine_inverse() * mapped_xf
-
-func _map_flat_to_cylindrical(flat_pos: Vector3) -> Transform:
-	var r = base_radius - flat_pos.y
-	var theta = flat_pos.x * angular_scale
-
-	var x = r * sin(theta)
-	var y = base_radius - r * cos(theta)
-	var z = flat_pos.z
-
-	var pos = Vector3(x, y, z)
-	var basis = Basis(Vector3(0, 0, 1), theta)
-
-	return Transform(basis, pos)
-
-func _process(_delta: float) -> void:
-	if follow_player_flat:
-		_update_player_proxy()
-
-func _update_player_proxy() -> void:
-	if not _stream_controller or abs(angular_scale) < 0.00001:
-		return
-
-	var player_node = _get_real_player_node()
-	if not player_node:
-		return
-
-	var real_player_pos = player_node.global_translation
-
-	# Map real world position back to flat space relative to ScaffoldOrbit
-	var local_player_pos = global_transform.affine_inverse().xform(real_player_pos)
-
-	var dy = base_radius - local_player_pos.y
-	var theta = atan2(local_player_pos.x, dy)
-	var r = sqrt(local_player_pos.x * local_player_pos.x + dy * dy)
-
-	var z_flat = local_player_pos.z
-	var y_flat = base_radius - r
-	var x_flat = theta / angular_scale
-
-	var flat_pos_rel_orbit = Vector3(x_flat, y_flat, z_flat)
-	_player_proxy.translation = flat_pos_rel_orbit - _stream_controller.translation
-
-func _get_real_player_node() -> Spatial:
-	var players = get_tree().get_nodes_in_group("player")
-	for p in players:
-		if p is Spatial and p != _player_proxy:
-			return p
-
-	if not _original_player_path.is_empty():
-		var node = get_node_or_null(_original_player_path)
-		if node is Spatial and node != _player_proxy:
-			return node
-
-	return null
+			_reposition_chunk(child as Spatial)

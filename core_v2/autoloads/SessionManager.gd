@@ -2396,6 +2396,21 @@ func _execute_helper_func(func_name: String, args: Array):
 			var node = _find_node_recursive(node_name)
 			if node: return node.global_transform.origin.z
 			return 0.0
+		"GET_NODE_ROT_X":
+			var node_name = args[0] if args.size() > 0 else ""
+			var node = _find_node_recursive(node_name)
+			if node: return rad2deg(node.global_transform.basis.get_euler().x)
+			return 0.0
+		"GET_NODE_ROT_Y":
+			var node_name = args[0] if args.size() > 0 else ""
+			var node = _find_node_recursive(node_name)
+			if node: return rad2deg(node.global_transform.basis.get_euler().y)
+			return 0.0
+		"GET_NODE_ROT_Z":
+			var node_name = args[0] if args.size() > 0 else ""
+			var node = _find_node_recursive(node_name)
+			if node: return rad2deg(node.global_transform.basis.get_euler().z)
+			return 0.0
 		"SYSTEM":
 			var parsed = _parse_system_helper_args(args)
 			if not bool(parsed.get("ok", false)):
