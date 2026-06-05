@@ -32,3 +32,4 @@ pupeteer/.venv/
 */__pycache__/
 digest.txt
 .venv311/
+.claude/
