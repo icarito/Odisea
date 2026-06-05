@@ -854,9 +854,9 @@ func _append_lod_decks(out: Array, x: int, y: int, state, v, scale_xz: float, y_
 		xf.origin += spec.offset
 		out.append(xf)
 
-func _lod_deck_size(v, scale_xz: float) -> Vector3:
+func _lod_deck_size(v, scale_xz: float, thickness: float = lod_deck_thickness) -> Vector3:
 	var half_ext = _lod_deck_half_extents(v, scale_xz)
-	return Vector3(half_ext.x * 2.0, lod_deck_thickness, half_ext.y * 2.0)
+	return Vector3(half_ext.x * 2.0, thickness, half_ext.y * 2.0)
 
 func _lod_ramp_transform(x: int, y: int, state, v, scale_xz: float) -> Transform:
 	var stair = _lod_stair_axis_data(v)
@@ -1135,7 +1135,7 @@ func _lod_deck_specs(v, scale_xz: float, thickness: float) -> Array:
 	if vid == "P":
 		return [{"offset": Vector3.ZERO, "size": Vector3(scale_xz, thickness, scale_xz)}]
 	if vid == "W" or vid == "R" or vid == "G":
-		return [{"offset": Vector3.ZERO, "size": _lod_deck_size(v, scale_xz)}]
+		return [{"offset": Vector3.ZERO, "size": _lod_deck_size(v, scale_xz, thickness)}]
 
 	var connections = _variant_connections(v)
 	var count = 0
