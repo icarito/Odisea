@@ -18,14 +18,21 @@ export(NodePath) var chamber_zone_path
 export(float) var pressurize_time := 1.0
 export(float) var reset_time := 3.0
 
+export(NodePath) var outer_beacon_path
+export(NodePath) var inner_beacon_path
+export(NodePath) var pressurize_sfx_path
+
 # --- INTERNAL STATE ---
-var state = State.IDLE
+var state = State.IDLE setget _set_state
 var timer := 0.0
 var _is_cycling_in := true
 
 var _outer_door: Node = null
 var _inner_door: Node = null
 var _chamber_zone: Area = null
+var _outer_beacon: Node = null
+var _inner_beacon: Node = null
+var _pressurize_sfx: Node = null
 
 func _ready():
 	add_to_group("replay_sync")
@@ -46,6 +53,13 @@ func _ready():
 		elif node.get_parent() is Area:
 			_chamber_zone = node.get_parent()
 
+	if outer_beacon_path:
+		_outer_beacon = get_node_or_null(outer_beacon_path)
+	if inner_beacon_path:
+		_inner_beacon = get_node_or_null(inner_beacon_path)
+	if pressurize_sfx_path:
+		_pressurize_sfx = get_node_or_null(pressurize_sfx_path)
+
 	if _chamber_zone:
 		# Force detection of player (all layers)
 		_chamber_zone.monitoring = true
@@ -54,13 +68,65 @@ func _ready():
 		if not _chamber_zone.is_connected("body_entered", self, "_on_body_entered"):
 			_chamber_zone.connect("body_entered", self, "_on_body_entered")
 
+func _set_state(new_state):
+	if state != new_state:
+		state = new_state
+		_update_beacons()
+
+func _update_beacons():
+	if not _outer_beacon and not _inner_beacon: return
+	
+	var outer_color = Color.black
+	var inner_color = Color.black
+	var outer_active = false
+	var inner_active = false
+
+	if state == State.IDLE:
+		outer_active = false
+		inner_active = false
+	elif state == State.PRESSURIZING:
+		outer_active = true
+		inner_active = true
+		outer_color = Color.yellow
+		inner_color = Color.yellow
+		if _pressurize_sfx and _pressurize_sfx.has_method("play") and not _pressurize_sfx.playing:
+			_pressurize_sfx.play()
+	elif state == State.ENTRY_OPEN:
+		outer_active = true
+		inner_active = true
+		if _is_cycling_in:
+			outer_color = Color.green
+			inner_color = Color.red
+		else:
+			outer_color = Color.red
+			inner_color = Color.green
+	elif state == State.EXIT_OPEN:
+		outer_active = true
+		inner_active = true
+		if _is_cycling_in:
+			inner_color = Color.green
+			outer_color = Color.red
+		else:
+			inner_color = Color.red
+			outer_color = Color.green
+			
+	if state != State.PRESSURIZING and _pressurize_sfx and _pressurize_sfx.has_method("stop"):
+		_pressurize_sfx.stop()
+
+	if _outer_beacon:
+		_outer_beacon.set_active(outer_active)
+		if outer_active: _outer_beacon.set_beacon_color(outer_color)
+	if _inner_beacon:
+		_inner_beacon.set_active(inner_active)
+		if inner_active: _inner_beacon.set_beacon_color(inner_color)
+
 # --- INTERACTION API ---
 
 func interact():
 	print("[AirlockControllerV2] interact() called, _outer_door=", _outer_door)
 	# Reset state to IDLE to ensure interaction works (handles stale replay state)
 	if state != State.IDLE:
-		state = State.IDLE
+		self.state = State.IDLE
 		_set_door_active(_outer_door, false, true)
 	interact_outer()
 
@@ -71,7 +137,7 @@ func start_cycle(cycling_in: bool = true) -> bool:
 		return false
 
 	_is_cycling_in = cycling_in
-	state = State.PRESSURIZING
+	self.state = State.PRESSURIZING
 	timer = max(pressurize_time, 0.0)
 	_set_door_active(_outer_door, false)
 	_set_door_active(_inner_door, false)
@@ -88,7 +154,7 @@ func start_transition_cycle(entry_door_name: String = "outer") -> bool:
 	var entry_door = _inner_door if normalized == "inner" else _outer_door
 	_is_cycling_in = normalized != "inner"
 	_set_door_active(entry_door, false)
-	state = State.IDLE
+	self.state = State.IDLE
 	return true
 
 func is_airlock_ready() -> bool:
@@ -107,7 +173,7 @@ func open_exit_door(door_name: String = "outer", immediate: bool = false) -> boo
 		other_door = _outer_door
 		_is_cycling_in = true
 
-	state = State.EXIT_OPEN
+	self.state = State.EXIT_OPEN
 	timer = max(reset_time, 0.0)
 	_set_door_active(other_door, false, immediate)
 	var opened := _set_door_active(door, true, immediate)
@@ -128,7 +194,7 @@ func interact_inner():
 
 func _start_entry():
 	print("[AirlockControllerV2] _start_entry() called, _outer_door=", _outer_door)
-	state = State.ENTRY_OPEN
+	self.state = State.ENTRY_OPEN
 	if _is_cycling_in:
 		print("[AirlockControllerV2] Opening outer door")
 		_set_door_active(_outer_door, true)
@@ -141,7 +207,7 @@ func _on_body_entered(body):
 
 	if state == State.ENTRY_OPEN and body.is_in_group("player"):
 		# Player entered chamber
-		state = State.PRESSURIZING
+		self.state = State.PRESSURIZING
 		timer = pressurize_time
 
 		# Close entry door
@@ -163,7 +229,7 @@ func step(dt: float):
 	elif state == State.EXIT_OPEN:
 		timer -= dt
 		if timer <= 0:
-			state = State.IDLE
+			self.state = State.IDLE
 			# Close exit door (auto reset)
 			if _is_cycling_in:
 				_set_door_active(_inner_door, false)
@@ -172,7 +238,7 @@ func step(dt: float):
 			emit_signal("airlock_cycle_completed")
 
 func _finish_pressurization() -> void:
-	state = State.EXIT_OPEN
+	self.state = State.EXIT_OPEN
 	timer = max(reset_time, 0.0)
 	if _is_cycling_in:
 		_set_door_active(_inner_door, true)
@@ -180,7 +246,7 @@ func _finish_pressurization() -> void:
 		_set_door_active(_outer_door, true)
 	emit_signal("airlock_ready")
 	if timer <= 0.0:
-		state = State.IDLE
+		self.state = State.IDLE
 		_set_door_active(_outer_door, false)
 		_set_door_active(_inner_door, false)
 		emit_signal("airlock_cycle_completed")
@@ -216,6 +282,6 @@ func get_snapshot() -> Dictionary:
 	}
 
 func restore_snapshot(data: Dictionary):
-	state = data.get("state", State.IDLE)
+	self.state = data.get("state", State.IDLE)
 	timer = data.get("timer", 0.0)
 	_is_cycling_in = data.get("cycling_in", true)
