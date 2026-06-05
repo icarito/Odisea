@@ -87,7 +87,7 @@ collision_layer = 130
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
 radius = 3.5
 height = 8.0
-sides = 32
+sides = 16
 material = SubResource( 1 )
 
 [node name="InnerVoid" type="CSGCylinder" parent="CylindricalShell"]
@@ -95,28 +95,28 @@ transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0
 operation = 2
 radius = 2.8
 height = 8.2
-sides = 32
+sides = 16
 material = SubResource( 1 )
 
 [node name="Rib_Front" type="CSGTorus" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 2.5 )
 inner_radius = 2.75
 outer_radius = 2.95
-sides = 24
+sides = 12
 material = SubResource( 3 )
 
 [node name="Rib_Center" type="CSGTorus" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
 inner_radius = 2.75
 outer_radius = 2.95
-sides = 24
+sides = 12
 material = SubResource( 3 )
 
 [node name="Rib_Back" type="CSGTorus" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, -2.5 )
 inner_radius = 2.75
 outer_radius = 2.95
-sides = 24
+sides = 12
 material = SubResource( 3 )
 
 [node name="Floor" type="CSGBox" parent="."]

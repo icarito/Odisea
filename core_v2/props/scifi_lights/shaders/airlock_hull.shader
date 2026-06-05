@@ -20,17 +20,6 @@ float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
 }
 
-float noise(vec2 p) {
-	vec2 i = floor(p);
-	vec2 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
-	float a = hash(i);
-	float b = hash(i + vec2(1.0, 0.0));
-	float c = hash(i + vec2(0.0, 1.0));
-	float d = hash(i + vec2(1.0, 1.0));
-	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
-
 // Panel grid with offset rows (brick pattern)
 vec2 panel_cell(vec2 uv, float scale) {
 	vec2 scaled = uv * scale;
@@ -59,41 +48,37 @@ void fragment() {
 	               smoothstep(1.0 - seam_width, 1.0 - seam_width * 0.3, cell.y);
 	float seam = clamp(seam_x + seam_y, 0.0, 1.0);
 
-	// --- Rivet dots near panel corners ---
-	float rivets = 0.0;
-	// Place rivets at 4 corners of each panel
-	for (int ry = 0; ry < 2; ry++) {
-		for (int rx = 0; rx < 2; rx++) {
-			vec2 corner = vec2(rivet_spacing + float(rx) * (1.0 - 2.0 * rivet_spacing),
-			                   rivet_spacing + float(ry) * (1.0 - 2.0 * rivet_spacing));
-			float d = length(cell - corner);
-			rivets += smoothstep(rivet_radius, rivet_radius * 0.5, d);
-		}
-	}
-	rivets = clamp(rivets, 0.0, 1.0);
+	// --- Rivet dots: unrolled 2x2 corners to avoid GPU loop overhead ---
+	float riv_lo = rivet_spacing;
+	float riv_hi = 1.0 - rivet_spacing;
+	float rr = rivet_radius;
+	float d0 = length(cell - vec2(riv_lo, riv_lo));
+	float d1 = length(cell - vec2(riv_hi, riv_lo));
+	float d2 = length(cell - vec2(riv_lo, riv_hi));
+	float d3 = length(cell - vec2(riv_hi, riv_hi));
+	float rivets = clamp(
+		smoothstep(rr, rr * 0.5, d0) +
+		smoothstep(rr, rr * 0.5, d1) +
+		smoothstep(rr, rr * 0.5, d2) +
+		smoothstep(rr, rr * 0.5, d3),
+		0.0, 1.0);
 
 	// --- Per-panel color variation (subtle) ---
 	float panel_var = hash(id) * 0.12 - 0.06; // +/-6% brightness
 
-	// --- Wear / scratches ---
-	float wear = noise(uv * 40.0) * noise(uv * 17.0 + vec2(3.7, 1.2));
-	wear = smoothstep(0.3, 0.7, wear) * wear_amount;
+	// --- Wear: single-octave cheap approximation instead of two noise calls ---
+	float wear = hash(floor(uv * 20.0)) * wear_amount;
 
 	// --- Depth illusion via albedo shading (GLES2 friendly, no dFdx/dFdy) ---
-	// Darken panel edges to simulate recessed seams
 	float edge_x = smoothstep(0.0, 0.1, cell.x) * smoothstep(1.0, 0.9, cell.x);
 	float edge_y = smoothstep(0.0, 0.1, cell.y) * smoothstep(1.0, 0.9, cell.y);
-	float edge_shadow = edge_x * edge_y; // 1 at center, 0 at edges
+	float edge_shadow = edge_x * edge_y;
 
 	// --- Final color ---
 	vec3 base = panel_color.rgb + panel_var;
-	// Edge depth darkening (simulates beveled panels)
 	base *= mix(0.65, 1.0, edge_shadow);
-	// Seam groove darkening
 	base = mix(base, base * 0.4, seam * 0.6);
-	// Rivet highlights (slightly raised = brighter)
 	base = mix(base, base * 1.4, rivets * 0.5);
-	// Wear darkening
 	base = mix(base, base * 0.7, wear);
 
 	ALBEDO = base;
