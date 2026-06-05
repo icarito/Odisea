@@ -82,6 +82,15 @@ export(float) var weight_T := 2.0
 export(float) var weight_E := 1.8
 export(float) var weight_empty := 0.18
 
+# Frustum culling cap: LOD2 chunks beyond this count that are outside the camera
+# frustum are skipped/evicted first. 0 = disabled.
+export(int, 0, 512) var max_lod2_chunks := 80
+# Half-FOV in degrees used for the frustum test (wider = more chunks kept active).
+export(float, 30.0, 180.0) var lod2_frustum_half_fov_deg := 100.0
+# Chunks behind the frustum get their distance score multiplied by this factor,
+# making them lower priority than same-distance in-frustum chunks.
+export(float, 1.0, 20.0) var lod2_backface_penalty := 4.0
+
 var _active_chunks: Dictionary = {}
 var _pending_chunks: Dictionary = {}
 var _chunk_modes: Dictionary = {}
@@ -89,7 +98,10 @@ var _chunk_grid_cache: Dictionary = {}
 var _chunk_expected_full_count: Dictionary = {}  # unused, kept for compatibility
 var _full_lod_cleanup_pending: Dictionary = {}
 var _mst_build_queue: Array = []  # [{key, grid_data}] waiting to be built, one per frame
+var _wfc_build_queue: Array = []  # same shape, for non-MST path — drains with frame budget
 var _chunk_collision_state: Dictionary = {}  # chunk_key -> bool, avoids per-frame child iteration
+var _last_player_chunk: Vector2 = Vector2(INF, INF)  # skip scan when player hasn't moved chunks
+var _chunk_node_pool: Array = []  # pre-allocated Spatial nodes, reused on load/unload
 var _threaded: ScaffoldWFCThreaded = null
 var _generator_ref = null
 var _wfc_module_ref = null  # WFCGenerator kept as asset library when use_mst_generator is true
@@ -102,6 +114,11 @@ var _lod_rail_material: SpatialMaterial = null
 var _lod_ramp_material: Material = null
 var _lod_grate_material: Material = null
 var _lod_grate_far_material: Material = null
+# LOD2-specific: unshaded flat materials — no PBR, no shader, minimal GPU cost
+var _lod2_material: SpatialMaterial = null
+var _lod2_rail_material: SpatialMaterial = null
+var _lod2_grate_material: SpatialMaterial = null
+var _lod2_ramp_material: SpatialMaterial = null
 
 var _lod1_tube_mesh: CylinderMesh = null
 var _lod1_grate_mesh: QuadMesh = null
@@ -151,6 +168,25 @@ func _process(_delta) -> void:
 	var player_chunk = _world_to_chunk(player_pos)
 
 	var scan_radius = _chunk_scan_radius()
+
+	# Drain WFC build queue with an 8ms budget — prevents multiple chunk arrivals
+	# in the same frame from stacking into a long spike.
+	if not _wfc_build_queue.empty():
+		var frame_start = OS.get_ticks_usec()
+		while not _wfc_build_queue.empty():
+			var job = _wfc_build_queue.pop_front()
+			_do_build_chunk(job.key, job.grid)
+			if (OS.get_ticks_usec() - frame_start) / 1000.0 >= 8.0:
+				break
+
+	# Only scan for missing chunks when the player moves to a new chunk cell or
+	# there are already pending generation jobs (streaming is in progress). With a
+	# large load_radius the scan iterates thousands of grid cells per frame, so
+	# skipping it when nothing can have changed is the single biggest win.
+	var chunk_moved = (player_chunk != _last_player_chunk)
+	if chunk_moved:
+		_last_player_chunk = player_chunk
+	var need_scan = chunk_moved or not _pending_chunks.empty()
 	if use_mst_generator:
 		# Drain build queue first, then only enqueue new grids if queue is empty
 		# This prevents unbounded queue growth and keeps frame time predictable
@@ -158,19 +194,42 @@ func _process(_delta) -> void:
 			var frame_start = OS.get_ticks_usec()
 			while not _mst_build_queue.empty():
 				var job = _mst_build_queue.pop_front()
-				_on_chunk_generated(job.key, job.grid)
+				_do_build_chunk(job.key, job.grid)
 				if (OS.get_ticks_usec() - frame_start) / 1000.0 >= 8.0:
 					break
-		else:
+		elif need_scan:
 			_request_needed_chunks(player_pos, player_chunk, scan_radius, max_chunk_requests_per_frame)
 			if prewarm_chunk_radius > 0:
 				_request_needed_chunks(player_pos, player_chunk, prewarm_chunk_radius, max_pending_generation_jobs, false)
-	else:
+	elif need_scan:
 		_request_needed_chunks(player_pos, player_chunk, scan_radius, max_chunk_requests_per_frame)
 		if prewarm_chunk_radius > 0:
 			_request_needed_chunks(player_pos, player_chunk, prewarm_chunk_radius, max_pending_generation_jobs, false)
 
 	var local_player_pos = global_transform.affine_inverse().xform(player_pos)
+
+	# Frustum eviction: when LOD2 count exceeds the cap, unload the backface chunks
+	# first (furthest from camera forward) to make room for incoming frustum chunks.
+	if max_lod2_chunks > 0:
+		var cam_fwd_evict := _get_camera_forward()
+		var fov_cos_evict := cos(deg2rad(lod2_frustum_half_fov_deg))
+		var lod2_keys := []
+		for key in _active_chunks.keys():
+			if _chunk_modes.get(key, "") == "lod2":
+				lod2_keys.append(key)
+		if lod2_keys.size() > max_lod2_chunks:
+			# Score each LOD2 chunk: backface ones get penalty, sorted worst-first
+			var scored := []
+			for key in lod2_keys:
+				var wc = _chunk_to_world_center(key)
+				var dist = player_pos.distance_to(wc)
+				var score = dist * _frustum_score(wc, player_pos, cam_fwd_evict, fov_cos_evict)
+				scored.append({"key": key, "score": score})
+			scored.sort_custom(self, "_sort_chunk_evict")
+			var to_evict = lod2_keys.size() - max_lod2_chunks
+			for i in range(min(to_evict, scored.size())):
+				_unload_chunk(scored[i].key)
+
 	var upgrades_left = max_full_detail_upgrades_per_frame
 	for key in _active_chunks.keys():
 		var world_center = _chunk_to_world_center(key)
@@ -292,6 +351,17 @@ func _request_needed_chunks(player_pos: Vector3, player_chunk: Vector2, scan_rad
 	var cz_min = int(player_chunk.y) - scan_radius
 	var cz_max = int(player_chunk.y) + scan_radius
 
+	# Frustum data — computed once per call, used to score candidates
+	var use_frustum_cap = max_lod2_chunks > 0
+	var cam_fwd := _get_camera_forward() if use_frustum_cap else Vector3.ZERO
+	var fov_cos := cos(deg2rad(lod2_frustum_half_fov_deg)) if use_frustum_cap else -1.0
+	# Count how many LOD2 chunks are already active (LOD1/full are always kept)
+	var active_lod2 := 0
+	if use_frustum_cap:
+		for mode in _chunk_modes.values():
+			if mode == "lod2":
+				active_lod2 += 1
+
 	for cx in range(cx_min, cx_max + 1):
 		for cz in range(cz_min, cz_max + 1):
 			var key = Vector2(cx, cz)
@@ -301,7 +371,10 @@ func _request_needed_chunks(player_pos: Vector3, player_chunk: Vector2, scan_rad
 			var center_dist = player_pos.distance_to(world_center)
 			var footprint_dist = _distance_to_chunk_footprint_local(local_player_pos, key)
 			if (not respect_load_radius) or footprint_dist <= load_radius:
-				candidates.append({"key": key, "dist": center_dist})
+				var score = center_dist
+				if use_frustum_cap:
+					score *= _frustum_score(world_center, player_pos, cam_fwd, fov_cos)
+				candidates.append({"key": key, "dist": score})
 	candidates.sort_custom(self, "_sort_chunk_candidates")
 	var requested = 0
 	for item in candidates:
@@ -309,12 +382,21 @@ func _request_needed_chunks(player_pos: Vector3, player_chunk: Vector2, scan_rad
 			break
 		if _pending_chunks.size() >= max_pending_generation_jobs:
 			break
+		# Skip LOD2 candidates when the cap is full and this chunk is out of frustum
+		if use_frustum_cap and active_lod2 >= max_lod2_chunks:
+			var wc = _chunk_to_world_center(item.key)
+			var score = _frustum_score(wc, player_pos, cam_fwd, fov_cos)
+			if score >= lod2_backface_penalty:
+				continue
 		_request_chunk(item.key)
 		requested += 1
 	return requested
 
 func _sort_chunk_candidates(a: Dictionary, b: Dictionary) -> bool:
 	return a.dist < b.dist
+
+func _sort_chunk_evict(a: Dictionary, b: Dictionary) -> bool:
+	return a.score > b.score  # highest score (backface + far) evicted first
 
 func set_chunk_height(value: int) -> void:
 	chunk_height = int(max(1, value))
@@ -333,6 +415,33 @@ func _get_player_position() -> Vector3:
 		return players[0].global_translation
 	return Vector3.ZERO
 
+func _get_camera_forward() -> Vector3:
+	var player_node = get_node_or_null(player_path) if (player_path and not player_path.is_empty()) else null
+	if not player_node:
+		var players = get_tree().get_nodes_in_group("player")
+		if not players.empty():
+			player_node = players[0]
+	if not player_node:
+		return Vector3.ZERO
+	# Try OTS camera path first, then ZeroG camera
+	for cam_path in ["CameraRig/Yaw/Pitch/OTS_Offset/SpringArm/Camera",
+	                  "ZeroGCameraRig/SpringArm/Camera",
+	                  "CameraRig/Yaw/Pitch/SpringArm/Camera"]:
+		var cam = player_node.get_node_or_null(cam_path) as Camera
+		if cam and is_instance_valid(cam):
+			return -cam.global_transform.basis.z
+	return Vector3.ZERO
+
+func _frustum_score(world_center: Vector3, player_pos: Vector3, cam_fwd: Vector3, fov_cos: float) -> float:
+	if fov_cos <= -1.0 or cam_fwd.length_squared() < 0.01:
+		return 1.0  # no camera available — treat all chunks as in-frustum
+	var to_chunk = (world_center - player_pos)
+	if to_chunk.length_squared() < 0.001:
+		return 0.0
+	var dot = to_chunk.normalized().dot(cam_fwd)
+	if dot < fov_cos:
+		return lod2_backface_penalty
+	return 1.0
 
 func _world_to_chunk(world_pos: Vector3) -> Vector2:
 	var local_pos = global_transform.affine_inverse().xform(world_pos)
@@ -515,6 +624,22 @@ func _build_lod_resources() -> void:
 	_lod_grate_far_material = _make_lod_grate_material(false, 0.0, Vector2(1.55, 1.55), 0.82, true)
 	_lod_ramp_material = _make_lod_ramp_grate_material()
 
+	_lod2_material = SpatialMaterial.new()
+	_lod2_material.flags_unshaded = true
+	_lod2_material.albedo_color = frame_color
+
+	_lod2_rail_material = SpatialMaterial.new()
+	_lod2_rail_material.flags_unshaded = true
+	_lod2_rail_material.albedo_color = rail_color
+
+	_lod2_grate_material = SpatialMaterial.new()
+	_lod2_grate_material.flags_unshaded = true
+	_lod2_grate_material.albedo_color = grate_color
+
+	_lod2_ramp_material = SpatialMaterial.new()
+	_lod2_ramp_material.flags_unshaded = true
+	_lod2_ramp_material.albedo_color = frame_color
+
 func _make_lod_ramp_mesh() -> ArrayMesh:
 	var mesh = ArrayMesh.new()
 	var st = SurfaceTool.new()
@@ -660,9 +785,19 @@ func _chunk_seed(chunk_key: Vector2) -> int:
 func _on_chunk_generated(chunk_key, grid_data: Array) -> void:
 	if not _pending_chunks.has(chunk_key):
 		return
+	# Queue for budgeted build rather than building inline — prevents multi-chunk
+	# arrivals from stacking into a single long frame.
+	if not use_mst_generator:
+		_wfc_build_queue.push_back({"key": chunk_key, "grid": grid_data})
+	else:
+		_do_build_chunk(chunk_key, grid_data)
+
+func _do_build_chunk(chunk_key, grid_data: Array) -> void:
+	if not _pending_chunks.has(chunk_key):
+		return
 	_pending_chunks.erase(chunk_key)
 
-	var chunk_node = Spatial.new()
+	var chunk_node: Spatial = Spatial.new()
 	chunk_node.name = "Chunk_%d_%d" % [int(chunk_key.x), int(chunk_key.y)]
 	add_child(chunk_node)
 	_active_chunks[chunk_key] = chunk_node
@@ -690,7 +825,8 @@ func _on_chunk_generated(chunk_key, grid_data: Array) -> void:
 	elif mode == "lod1":
 		_build_lod1_chunk(chunk_node, grid_data, chunk_key)
 	else:
-		_build_lod2_chunk(chunk_node, grid_data, chunk_key)
+		var need_col = lod_collision_enabled and footprint_dist <= collision_radius
+		_build_lod2_chunk(chunk_node, grid_data, chunk_key, need_col)
 
 	_set_chunk_collision(chunk_node, footprint_dist <= collision_radius)
 
@@ -806,7 +942,7 @@ func _build_lod1_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2
 	_add_lod_multimesh(chunk_node, "LOD1Supports", _lod1_tube_mesh, support_transforms, _lod_material)
 	_add_lod_collision(chunk_node, collision_shapes)
 
-func _build_lod2_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2) -> void:
+func _build_lod2_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2, build_collision: bool = true) -> void:
 	var deck_transforms = []
 	var ramp_transforms = []
 	var rail_transforms = []
@@ -823,22 +959,23 @@ func _build_lod2_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2
 			var vid = _variant_id(v)
 			if vid == "S":
 				ramp_transforms.append(_lod_ramp_transform(x, y, state, v, scale_xz))
-				_append_lod_ramp_rails(rail_transforms, collision_shapes if lod_collision_enabled else null, x, y, state, v)
+				_append_lod_ramp_rails(rail_transforms, collision_shapes if build_collision else null, x, y, state, v)
 			else:
 				var height_center = _lod_height_center_offset(v)
 				_append_lod_decks(deck_transforms, x, y, state, v, scale_xz, height_center)
 			if lod_supports_enabled:
-				_append_lod_supports(support_transforms, collision_shapes if lod_collision_enabled else null, used_support_keys, chunk_key, x, y, state, v)
-			if lod_collision_enabled:
+				_append_lod_supports(support_transforms, collision_shapes if build_collision else null, used_support_keys, chunk_key, x, y, state, v)
+			if build_collision:
 				if vid == "S":
 					collision_shapes.append(_lod_ramp_collision_transform(x, y, state, v))
 				else:
 					_append_lod_deck_collisions(collision_shapes, x, y, state, v, scale_xz)
-	_add_lod_multimesh(chunk_node, "LOD2Decks", _lod_deck_mesh, deck_transforms, _lod_grate_far_material)
-	_add_lod_multimesh(chunk_node, "LOD2Ramps", _lod_ramp_mesh, ramp_transforms, _lod_ramp_material)
-	_add_lod_multimesh(chunk_node, "LOD2Rails", _lod1_tube_mesh, rail_transforms, _lod_rail_material)
-	_add_lod_multimesh(chunk_node, "LOD2Supports", _lod1_tube_mesh, support_transforms, _lod_material)
-	_add_lod_collision(chunk_node, collision_shapes)
+	_add_lod_multimesh(chunk_node, "LOD2Decks", _lod_deck_mesh, deck_transforms, _lod2_grate_material)
+	_add_lod_multimesh(chunk_node, "LOD2Ramps", _lod_ramp_mesh, ramp_transforms, _lod2_ramp_material)
+	_add_lod_multimesh(chunk_node, "LOD2Rails", _lod1_tube_mesh, rail_transforms, _lod2_rail_material)
+	_add_lod_multimesh(chunk_node, "LOD2Supports", _lod1_tube_mesh, support_transforms, _lod2_material)
+	if build_collision:
+		_add_lod_collision(chunk_node, collision_shapes)
 
 func _lod_deck_transform(x: int, y: int, state, v, size: Vector3, y_offset: float) -> Transform:
 	var xf = Transform()
@@ -1528,8 +1665,17 @@ func _add_lod_multimesh(chunk_node: Spatial, node_name: String, mesh: Mesh, tran
 	mm.custom_data_format = MultiMesh.CUSTOM_DATA_NONE
 	mm.mesh = mesh
 	mm.instance_count = transforms.size()
-	for i in range(transforms.size()):
-		mm.set_instance_transform(i, transforms[i])
+	# Bulk-write all transforms in one native call instead of one GDScript call per
+	# instance — avoids the marshal overhead of set_instance_transform() in a loop.
+	var buf := PoolRealArray()
+	buf.resize(transforms.size() * 12)
+	var idx := 0
+	for xf in transforms:
+		buf[idx]     = xf.basis.x.x; buf[idx+1]  = xf.basis.y.x; buf[idx+2]  = xf.basis.z.x; buf[idx+3]  = xf.origin.x
+		buf[idx+4]   = xf.basis.x.y; buf[idx+5]  = xf.basis.y.y; buf[idx+6]  = xf.basis.z.y; buf[idx+7]  = xf.origin.y
+		buf[idx+8]   = xf.basis.x.z; buf[idx+9]  = xf.basis.y.z; buf[idx+10] = xf.basis.z.z; buf[idx+11] = xf.origin.z
+		idx += 12
+	mm.set_as_bulk_array(buf)
 	var inst = MultiMeshInstance.new()
 	inst.name = node_name
 	inst.layers = PROP_VISUAL_LAYER

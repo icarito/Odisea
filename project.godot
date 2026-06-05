@@ -1472,12 +1472,7 @@ _global_script_classes=[ {
 "base": "Spatial",
 "class": "SGCPlatformBridge",
 "language": "GDScript",
-"path": "res://core_v2/systems/visual/SGCPlatformBridge.gd"
-}, {
-"base": "Spatial",
-"class": "SGCVisualController",
-"language": "GDScript",
-"path": "res://core_v2/systems/visual/SGCVisualController.gd"
+"path": "res://docs/features/archive/SGCPlatformBridge.gd"
 }, {
 "base": "Area",
 "class": "ScaffoldExclusionArea",
@@ -2123,7 +2118,6 @@ _global_script_class_icons={
 "SFXComponentV2": "",
 "SGCCameraWarp": "",
 "SGCPlatformBridge": "",
-"SGCVisualController": "",
 "ScaffoldExclusionArea": "",
 "ScaffoldMSTGenerator": "",
 "ScaffoldOrbit": "",
