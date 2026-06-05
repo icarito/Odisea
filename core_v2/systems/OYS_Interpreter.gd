@@ -2252,6 +2252,24 @@ func _call_func(func_name: String, args: Array):
 			if node and node is Spatial:
 				return node.global_transform.origin.z
 			return 0.0
+		"GET_NODE_ROT_X":
+			var path = args[0].replace("\"", "")
+			var node = _resolve_node(path)
+			if node and node is Spatial:
+				return rad2deg(node.global_transform.basis.get_euler().x)
+			return 0.0
+		"GET_NODE_ROT_Y":
+			var path = args[0].replace("\"", "")
+			var node = _resolve_node(path)
+			if node and node is Spatial:
+				return rad2deg(node.global_transform.basis.get_euler().y)
+			return 0.0
+		"GET_NODE_ROT_Z":
+			var path = args[0].replace("\"", "")
+			var node = _resolve_node(path)
+			if node and node is Spatial:
+				return rad2deg(node.global_transform.basis.get_euler().z)
+			return 0.0
 		"SYSTEM":
 			var parsed = _parse_system_args(args)
 			if not bool(parsed.get("ok", false)):

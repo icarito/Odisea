@@ -54,6 +54,11 @@ var _rail_material: SpatialMaterial = null
 var _grate_material: Material = null
 var _fence_material: Material = null
 
+# Shared meshes — reused across all tubes of the same type to reduce draw calls.
+# Keyed by (radius, length) for cylinders and radius for spheres/caps.
+var _cylinder_mesh_cache: Dictionary = {}
+var _sphere_mesh_cache: Dictionary = {}
+
 
 func _ready():
 	_ensure_structure()
@@ -215,6 +220,8 @@ func _rebuild() -> void:
 	_sync_footstep_surface()
 	_clear_children(_visual_root)
 	_clear_body_collisions()
+	_cylinder_mesh_cache.clear()
+	_sphere_mesh_cache.clear()
 	_build_materials()
 
 	var half_w = platform_width * 0.5
@@ -258,33 +265,45 @@ func _rebuild() -> void:
 	_build_side_rail("Right", rail_right, false, half_w - tube_radius, rail_right_opening_width, rail_right_opening_gravity)
 
 func _build_materials() -> void:
+	# Frame tubes: match LOD InfiniteScaffoldField look — metallic pipe feel.
 	_frame_material = SpatialMaterial.new()
 	_frame_material.albedo_color = frame_color
-	_frame_material.metallic = 0.12
-	_frame_material.roughness = 0.96
-	_frame_material.metallic_specular = 0.18
+	_frame_material.metallic = 0.80
+	_frame_material.roughness = 0.55
+	_frame_material.metallic_specular = 0.5
+	_frame_material.rim_enabled = true
+	_frame_material.rim = 0.4
+	_frame_material.rim_tint = 0.3
 
 	_rail_material = SpatialMaterial.new()
 	_rail_material.albedo_color = rail_color
-	_rail_material.metallic = 0.10
-	_rail_material.roughness = 0.97
-	_rail_material.metallic_specular = 0.16
+	_rail_material.metallic = 0.78
+	_rail_material.roughness = 0.58
+	_rail_material.metallic_specular = 0.5
+	_rail_material.rim_enabled = true
+	_rail_material.rim = 0.4
+	_rail_material.rim_tint = 0.3
 
+	# Grate: alpha scissor requires flags_transparent = true in Godot 3.
+	# Keep metallic/roughness from the base material (steel-looking), only
+	# override color tint and the scissor threshold.
 	_grate_material = load("res://textures/trenchbroom/steel_grate_platform.tres").duplicate(true)
 	if _grate_material is SpatialMaterial:
-		var grate_spatial = _grate_material as SpatialMaterial
-		grate_spatial.params_alpha_scissor_threshold = grate_alpha_threshold
-		grate_spatial.flags_transparent = false
-		grate_spatial.params_cull_mode = SpatialMaterial.CULL_DISABLED
-		grate_spatial.albedo_color = Color(
+		var g := _grate_material as SpatialMaterial
+		g.flags_transparent = true
+		g.params_use_alpha_scissor = true
+		g.params_alpha_scissor_threshold = grate_alpha_threshold
+		g.params_cull_mode = SpatialMaterial.CULL_DISABLED
+		g.albedo_color = Color(
 			clamp(grate_color.r * grate_brightness, 0.0, 1.0),
 			clamp(grate_color.g * grate_brightness, 0.0, 1.0),
 			clamp(grate_color.b * grate_brightness, 0.0, 1.0),
 			grate_color.a
 		)
-		grate_spatial.metallic = min(grate_spatial.metallic, 0.04)
-		grate_spatial.roughness = max(grate_spatial.roughness, 0.98)
-		grate_spatial.metallic_specular = min(grate_spatial.metallic_specular, 0.18)
+		# Let the base .tres metallic/roughness values through — they give the
+		# steel look. Only clamp to avoid going fully mirror-like.
+		g.metallic = clamp(g.metallic, 0.3, 0.9)
+		g.roughness = clamp(g.roughness, 0.35, 0.75)
 
 	_fence_material = load("res://textures/trenchbroom/metal_fence_panel.tres").duplicate(true)
 	if not _fence_material:
@@ -523,6 +542,29 @@ func _add_vertical_panel(node_name: String, size: Vector2, pos: Vector3, rot_deg
 	panel.material_override = _fence_material
 	_visual_root.add_child(panel)
 
+func _get_cylinder_mesh(length: float) -> CylinderMesh:
+	var key = stepify(length, 0.001)
+	if _cylinder_mesh_cache.has(key):
+		return _cylinder_mesh_cache[key]
+	var mesh = CylinderMesh.new()
+	mesh.top_radius = tube_radius
+	mesh.bottom_radius = tube_radius
+	mesh.height = key
+	mesh.radial_segments = CYLINDER_SEGMENTS
+	_cylinder_mesh_cache[key] = mesh
+	return mesh
+
+func _get_sphere_mesh() -> SphereMesh:
+	if _sphere_mesh_cache.has(tube_radius):
+		return _sphere_mesh_cache[tube_radius]
+	var mesh = SphereMesh.new()
+	mesh.radius = tube_radius * JOINT_SCALE
+	mesh.height = tube_radius * JOINT_SCALE * 2.0
+	mesh.radial_segments = CYLINDER_SEGMENTS
+	mesh.rings = 6
+	_sphere_mesh_cache[tube_radius] = mesh
+	return mesh
+
 func _add_tube_between(node_name: String, start: Vector3, end: Vector3, material: Material) -> void:
 	var dir = end - start
 	var length = dir.length()
@@ -532,12 +574,7 @@ func _add_tube_between(node_name: String, start: Vector3, end: Vector3, material
 	var mesh_instance = MeshInstance.new()
 	mesh_instance.name = node_name
 	mesh_instance.layers = PROP_VISUAL_LAYER
-	var mesh = CylinderMesh.new()
-	mesh.top_radius = tube_radius
-	mesh.bottom_radius = tube_radius
-	mesh.height = length
-	mesh.radial_segments = CYLINDER_SEGMENTS
-	mesh_instance.mesh = mesh
+	mesh_instance.mesh = _get_cylinder_mesh(length)
 	mesh_instance.transform = Transform(_basis_from_y_axis(dir.normalized()), (start + end) * 0.5)
 	mesh_instance.material_override = material
 	_visual_root.add_child(mesh_instance)
@@ -546,12 +583,7 @@ func _add_joint_cap(node_name: String, pos: Vector3, material: Material) -> void
 	var mesh_instance = MeshInstance.new()
 	mesh_instance.name = node_name
 	mesh_instance.layers = PROP_VISUAL_LAYER
-	var mesh = SphereMesh.new()
-	mesh.radius = tube_radius * JOINT_SCALE
-	mesh.height = tube_radius * JOINT_SCALE * 2.0
-	mesh.radial_segments = CYLINDER_SEGMENTS
-	mesh.rings = 6
-	mesh_instance.mesh = mesh
+	mesh_instance.mesh = _get_sphere_mesh()
 	mesh_instance.translation = pos
 	mesh_instance.material_override = material
 	_visual_root.add_child(mesh_instance)

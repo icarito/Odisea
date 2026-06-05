@@ -1,0 +1,40 @@
+// FD-052: Scaffold cylindrical orbit integration tests.
+// Visual chunks are curved by ScaffoldOrbit while player physics stays flat.
+
+LEVEL res://core_v2/tests/TestScaffoldOrbit.tscn
+
+WAIT 2.0
+
+SECTION "spawn_player_stable_on_terrace"
+    SET $py GET_NODE_POS_Y "Pilot"
+    ASSERT $py > 0.0  "Player should be above ground at spawn"
+    ASSERT $py < 3.0  "Player should not be floating high at spawn"
+
+SECTION "walk_z_player_moves"
+    SET $pz_before GET_NODE_POS_Z "Pilot"
+    WALK FW 2.0
+    WAIT 0.5
+    SET $pz_after GET_NODE_POS_Z "Pilot"
+    ASSERT $pz_after > $pz_before "Player should move forward in Z"
+
+SECTION "walk_x_player_moves"
+    SET $px_before GET_NODE_POS_X "Pilot"
+    WALK RIGHT 2.0
+    WAIT 0.5
+    SET $px_after GET_NODE_POS_X "Pilot"
+    SET $px_delta $px_after
+    MATH $px_delta -= $px_before
+    ASSERT $px_delta > -1.0 "Player should not move significantly backwards in X when strafing right"
+    WALK LEFT 2.0
+    WAIT 0.5
+    SET $px_return GET_NODE_POS_X "Pilot"
+    MATH $px_return -= $px_before
+    ASSERT $px_return < 0.5 "Player should return close to the original X after counter-strafe"
+    ASSERT $px_return > -0.5 "Player should return close to the original X after counter-strafe"
+
+SECTION "player_stays_on_terrace"
+    WALK FW 3.0
+    WAIT 0.5
+    SET $py GET_NODE_POS_Y "Pilot"
+    ASSERT $py > -1.0 "Player should not fall through the floor"
+    ASSERT $py < 5.0  "Player should not be flying"

@@ -323,7 +323,7 @@ func restore_snapshot(data: Dictionary) -> void:
 		jump_logic._is_jumping = js.get("is_jumping", false)
 
 	if camera_rig:
-		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.transform.basis = camera_basis_prefix * Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		camera_rig.transform.origin.y = base_rig_y
 		camera_rig.force_update_transform()
 		_camera_rig_y_smoothed_global = global_transform.origin.y + base_rig_y
@@ -360,7 +360,7 @@ func full_reset() -> void:
 	_cinematic_zone_exit_grace_left = 0.0
 	_cinematic_zone_switch_grace_left = 0.0
 	if camera_rig:
-		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.transform.basis = camera_basis_prefix * Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		camera_rig.transform.origin.y = base_rig_y
 		camera_rig.force_update_transform()
 		_camera_rig_y_smoothed_global = global_transform.origin.y + base_rig_y
@@ -427,6 +427,7 @@ func _clear_cinematic_zone_request() -> void:
 	_current_zone_request_id = -1
 
 onready var camera_rig = $CameraRig
+var camera_basis_prefix: Basis = Basis.IDENTITY
 onready var animator = $Visual/Pivot
 onready var _audio_listener = get_node_or_null("AudioListener")
 
@@ -785,7 +786,7 @@ func snap_rig_to_camera_orbit(target_cam_pos: Vector3, target_fov: float = 70.0)
 	
 	# 6. Apply immediately to prevent ANY discrepancy in Frame 1
 	if camera_rig:
-		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.transform.basis = camera_basis_prefix * Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		var arm = _find_spring_arm(camera_rig)
 		if arm:
 			arm.spring_length = clamp(dist, 1.0, 50.0)
@@ -828,7 +829,7 @@ func align_exit_from_cinematic(target_cam: Camera) -> void:
 	# Keep cinematic-aligned yaw, but restore player's vertical look.
 	pitch = preserved_pitch
 	if camera_rig:
-		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.transform.basis = camera_basis_prefix * Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		camera_rig.force_update_transform()
 	if _cached_spring_arm:
 		current_spring_length = base_spring_length_3d
@@ -973,7 +974,7 @@ func _update_camera_orbit_state(dt: float, input: InputDataV2, allow_auto_align:
 			base_fov = input.fov_override
 
 	if camera_rig:
-		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.transform.basis = camera_basis_prefix * Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		camera_rig.force_update_transform()
 
 	yaw_deg = rad2deg(yaw)
@@ -1983,7 +1984,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		if is_instance_valid(jump_logic):
 			jump_logic.set_internal_velocity(0.0)
 
-	if is_on_floor():
+	if physics_grounded:
 		jump_logic.reset_on_floor()
 	else:
 		jump_logic.on_air_tick(dt)
@@ -2054,7 +2055,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	_apply_push_constraint(dt)
 
 	# --- ACROBATIC JUMP CHECK (before normal jump) ---
-	if is_acrobatic_ready and is_on_floor() and jump_logic.jump_buffer_timer > 0 and not CinematicManager.latch_active:
+	if is_acrobatic_ready and physics_grounded and jump_logic.jump_buffer_timer > 0 and not CinematicManager.latch_active:
 		var force = jump_logic.acrobatic_jump_force
 		velocity.y = force
 		
@@ -2084,7 +2085,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	else:
 		# --- JUMP ---
 		var old_vy = velocity.y
-		velocity.y = jump_logic.step(dt, input.jump, velocity.y, is_on_floor())
+		velocity.y = jump_logic.step(dt, input.jump, velocity.y, physics_grounded)
 		if velocity.y == jump_logic.jump_force and old_vy != jump_logic.jump_force:
 			emit_signal("jumped")
 
@@ -2546,7 +2547,7 @@ func teleport_to(target_transform: Transform) -> void:
 	# print("[PlayerController] teleport_to finished. Yaw: ", yaw, " Pitch: ", pitch)
 	
 	if camera_rig:
-		camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.transform.basis = camera_basis_prefix * Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		camera_rig.transform.origin.y = base_rig_y
 		camera_rig.force_update_transform()
 		_camera_rig_y_smoothed_global = target_transform.origin.y + base_rig_y

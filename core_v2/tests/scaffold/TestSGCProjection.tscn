@@ -1,0 +1,48 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
+[ext_resource path="res://scenes/common/space_environment/StarfieldEnvironment.tscn" type="PackedScene" id=2]
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=3]
+[ext_resource path="res://core_v2/systems/ScaffoldStreamController.gd" type="Script" id=4]
+[ext_resource path="res://core_v2/systems/visual/SGCVisualController.gd" type="Script" id=5]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 50, 1, 50 )
+
+[node name="TestSGCProjection" type="Spatial"]
+
+[node name="Pilot_V2" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
+
+[node name="Floor" type="StaticBody" parent="."]
+
+[node name="CollisionShape" type="CollisionShape" parent="Floor"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
+shape = SubResource( 1 )
+
+[node name="SGCVisualController" type="Spatial" parent="."]
+script = ExtResource( 5 )
+scaffold_stream_roots = [ NodePath("../ScaffoldStreamController") ]
+base_radius = 200.0
+
+[node name="StarfieldEnvironment" parent="." instance=ExtResource( 2 )]
+environment = ExtResource( 3 )
+
+[node name="ScaffoldStreamController" type="Spatial" parent="."]
+script = ExtResource( 4 )
+load_radius = 25.0
+unload_radius = 80.0
+collision_radius = 10.0
+full_detail_radius = 0.0
+lod1_radius = 10.0
+full_detail_prefetch_radius = 0.0
+lod_deck_thickness = 0.02
+lod_full_detail_ramps = false
+lod_rail_thickness = 0.02
+lod_tube_segments = 3
+chunk_height = 6
+chunk_length = 4
+cell_size = 4.0
+player_path = NodePath("../Pilot_V2")
+max_wfc_retries = 40
+require_single_component = true

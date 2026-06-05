@@ -50,6 +50,9 @@ export(int, 1, 8) var max_chunk_requests_per_frame := 1
 export(int, 1, 32) var max_pending_generation_jobs := 4
 export(int, 0, 4) var prewarm_chunk_radius := 1
 export(NodePath) var player_path: NodePath
+export(bool) var debug_chunk_collision_overlay := false
+export(float, 0.01, 1.0) var debug_chunk_collision_height := 0.08
+export(Color) var debug_chunk_collision_color := Color(1.0, 1.0, 1.0, 0.45)
 
 export(int, 1, 2000) var max_wfc_retries := 24
 export(bool) var require_single_component := false
@@ -59,6 +62,14 @@ export(int, 0, 32) var min_elevated_cells := 0
 export(int, 0, 32) var min_empty_cells := 0
 export(float, 0.0, 20.0) var min_height_span := 0.0
 export(bool) var constrain_border_heights := false
+
+# Cylinder mode: positions chunks on the inner surface of a cylinder.
+# Axis = X, ring closes in Z. theta = flat_z / cylinder_radius.
+# At theta=0 chunks sit at Y=0 (same as flat). Adjacent chunks curve upward.
+export(bool) var cylinder_mode := false
+export(float) var cylinder_radius := 190.0
+# Optional: a StaticBody that will be kept flat under the player in cylinder_mode.
+export(NodePath) var cylinder_physical_terrace_path := NodePath("")
 
 export(float) var weight_W := 6.0
 export(float) var weight_R := 5.0
@@ -95,6 +106,7 @@ var _lod_grate_far_material: Material = null
 var _lod1_tube_mesh: CylinderMesh = null
 var _lod1_grate_mesh: QuadMesh = null
 var _lod2_deck_mesh: CubeMesh = null
+var _debug_chunk_collision_material: SpatialMaterial = null
 
 func _ready() -> void:
 	_build_lod_resources()
@@ -185,6 +197,16 @@ func _process(_delta) -> void:
 					_switch_to_lod_mode(key, target_mode)
 
 	_cleanup_finished_full_detail_lods()
+	if cylinder_mode and not cylinder_physical_terrace_path.is_empty():
+		_sync_cylinder_terrace(player_pos)
+
+func _sync_cylinder_terrace(player_pos: Vector3) -> void:
+	var terrace: StaticBody = get_node_or_null(cylinder_physical_terrace_path) as StaticBody
+	if terrace == null:
+		return
+	# Keep the terrace flat under the player. Only X/Z follow player; Y stays at 0.
+	terrace.global_transform = Transform(Basis.IDENTITY,
+		Vector3(player_pos.x, 0.0, player_pos.z))
 
 func _target_lod_mode(footprint_dist: float, current_mode: String = "") -> String:
 	if not use_multimesh_lod:
@@ -252,11 +274,12 @@ func _initialize_origin(player_pos: Vector3) -> void:
 	# player's spawn. Later chunks use canonical global chunk coordinates.
 	var chunk_w = float(chunk_height - 1) * cell_size
 	var chunk_d = float(chunk_length - 1) * cell_size
-	global_translation = Vector3(
+	var flat_pos := Vector3(
 		player_pos.x - chunk_w * 0.5,
 		0.0,
 		player_pos.z - chunk_d * 0.5
 	)
+	global_translation = flat_pos
 	_origin_initialized = true
 
 func _request_needed_chunks(player_pos: Vector3, player_chunk: Vector2, scan_radius: int, request_budget: int, respect_load_radius: bool = true) -> int:
@@ -310,13 +333,21 @@ func _get_player_position() -> Vector3:
 		return players[0].global_translation
 	return Vector3.ZERO
 
+
 func _world_to_chunk(world_pos: Vector3) -> Vector2:
 	var local_pos = global_transform.affine_inverse().xform(world_pos)
 	var chunk_world_w = _chunk_step_x()
 	var chunk_world_d = _chunk_step_z()
+	var flat_z: float
+	if cylinder_mode:
+		# Invert cylinder: world_z = R*sin(theta), flat_z = R*theta
+		var clamped: float = clamp(local_pos.z / cylinder_radius, -1.0, 1.0)
+		flat_z = cylinder_radius * asin(clamped)
+	else:
+		flat_z = local_pos.z
 	return Vector2(
 		floor(local_pos.x / chunk_world_w),
-		floor(local_pos.z / chunk_world_d)
+		floor(flat_z / chunk_world_d)
 	)
 
 func _chunk_to_world_center(chunk_key: Vector2) -> Vector3:
@@ -324,11 +355,18 @@ func _chunk_to_world_center(chunk_key: Vector2) -> Vector3:
 	var chunk_world_d = _chunk_step_z()
 	var cell_center_w = float(chunk_height - 1) * cell_size * 0.5
 	var cell_center_d = float(chunk_length - 1) * cell_size * 0.5
-	var local_center = Vector3(
-		chunk_key.x * chunk_world_w + cell_center_w,
-		0.0,
-		chunk_key.y * chunk_world_d + cell_center_d
-	)
+	var flat_x: float = chunk_key.x * chunk_world_w + cell_center_w
+	var flat_z: float = chunk_key.y * chunk_world_d + cell_center_d
+	var local_center: Vector3
+	if cylinder_mode:
+		var theta: float = flat_z / cylinder_radius
+		local_center = Vector3(
+			flat_x,
+			cylinder_radius * (1.0 - cos(theta)),
+			cylinder_radius * sin(theta)
+		)
+	else:
+		local_center = Vector3(flat_x, 0.0, flat_z)
 	return global_transform.xform(local_center)
 
 func _chunk_to_local_origin(chunk_key: Vector2) -> Vector3:
@@ -338,17 +376,48 @@ func _chunk_to_local_origin(chunk_key: Vector2) -> Vector3:
 		chunk_key.y * _chunk_step_z()
 	)
 
+func _chunk_to_local_transform(chunk_key: Vector2) -> Transform:
+	var flat_x: float = chunk_key.x * _chunk_step_x()
+	var flat_z: float = chunk_key.y * _chunk_step_z()
+	if not cylinder_mode:
+		return Transform(Basis.IDENTITY, Vector3(flat_x, 0.0, flat_z))
+	var theta: float  = flat_z / cylinder_radius
+	var up_col: Vector3 = Vector3(0.0, cos(theta), -sin(theta))
+	var x_col: Vector3  = Vector3(1.0, 0.0, 0.0)
+	var z_col: Vector3  = x_col.cross(up_col).normalized()
+	# At theta=0: pos=(flat_x,0,0). Chunks curve up/forward following the arc.
+	var pos: Vector3 = Vector3(
+		flat_x,
+		cylinder_radius * (1.0 - cos(theta)),
+		cylinder_radius * sin(theta)
+	)
+	return Transform(Basis(x_col, up_col, z_col), pos)
+
 func _distance_to_chunk_footprint(world_pos: Vector3, chunk_key: Vector2) -> float:
 	return _distance_to_chunk_footprint_local(global_transform.affine_inverse().xform(world_pos), chunk_key)
 
 func _distance_to_chunk_footprint_local(local_pos: Vector3, chunk_key: Vector2) -> float:
 	var origin = _chunk_to_local_origin(chunk_key)
 	var min_x = origin.x - cell_size * 0.5
-	var min_z = origin.z - cell_size * 0.5
 	var max_x = origin.x + (float(chunk_height) - 0.5) * cell_size
-	var max_z = origin.z + (float(chunk_length) - 0.5) * cell_size
 	var closest_x = clamp(local_pos.x, min_x, max_x)
-	var closest_z = clamp(local_pos.z, min_z, max_z)
+	var closest_z: float
+	var pos_z: float
+	if cylinder_mode:
+		# In cylinder mode, compare arc positions (flat_z space) directly.
+		# The player's world Z maps back to flat_z via atan2 on the cylinder.
+		# For small angles, world_z ≈ flat_z, so use the cylinder arc center.
+		var chunk_center_z: float = origin.z + float(chunk_length - 1) * cell_size * 0.5
+		var chunk_arc_z: float = cylinder_radius * sin(chunk_center_z / cylinder_radius)
+		var half_arc: float = float(chunk_length) * cell_size * 0.5
+		# Player position in world Z (stream-local) — use raw local_pos.z as arc approx
+		pos_z = local_pos.z
+		closest_z = clamp(pos_z, chunk_arc_z - half_arc, chunk_arc_z + half_arc)
+	else:
+		var min_z = origin.z - cell_size * 0.5
+		var max_z = origin.z + (float(chunk_length) - 0.5) * cell_size
+		pos_z = local_pos.z
+		closest_z = clamp(pos_z, min_z, max_z)
 	return Vector2(local_pos.x - closest_x, local_pos.z - closest_z).length()
 
 func _chunk_step_x() -> float:
@@ -427,6 +496,12 @@ func _build_lod_resources() -> void:
 
 	_lod2_deck_mesh = CubeMesh.new()
 	_lod2_deck_mesh.size = Vector3.ONE
+
+	_debug_chunk_collision_material = SpatialMaterial.new()
+	_debug_chunk_collision_material.flags_unshaded = true
+	_debug_chunk_collision_material.flags_transparent = true
+	_debug_chunk_collision_material.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	_debug_chunk_collision_material.albedo_color = debug_chunk_collision_color
 
 	_lod_material = SpatialMaterial.new()
 	_lod_material.albedo_color = frame_color
@@ -593,7 +668,7 @@ func _on_chunk_generated(chunk_key, grid_data: Array) -> void:
 	_active_chunks[chunk_key] = chunk_node
 	_chunk_grid_cache[chunk_key] = grid_data
 
-	chunk_node.translation = _chunk_to_local_origin(chunk_key)
+	chunk_node.transform = _chunk_to_local_transform(chunk_key)
 	var player_pos = _get_player_position()
 	var footprint_dist = _distance_to_chunk_footprint(player_pos, chunk_key)
 
@@ -640,6 +715,35 @@ func _set_chunk_collision(chunk_node: Spatial, enabled: bool) -> void:
 		var dither = get_node_or_null("/root/PropDitherManager")
 		if dither and dither.has_method("refresh_occlusion_for_node"):
 			dither.call_deferred("refresh_occlusion_for_node", chunk_node)
+	_sync_chunk_collision_debug_overlay(chunk_node, enabled)
+
+func _sync_chunk_collision_debug_overlay(chunk_node: Spatial, enabled: bool) -> void:
+	if chunk_node == null or not is_instance_valid(chunk_node):
+		return
+	var overlay: MeshInstance = chunk_node.get_node_or_null("ChunkCollisionDebug") as MeshInstance
+	if not debug_chunk_collision_overlay:
+		if overlay:
+			overlay.visible = false
+		return
+	if overlay == null:
+		overlay = MeshInstance.new()
+		overlay.name = "ChunkCollisionDebug"
+		var mesh := CubeMesh.new()
+		mesh.size = Vector3(
+			float(chunk_height) * cell_size,
+			debug_chunk_collision_height,
+			float(chunk_length) * cell_size
+		)
+		overlay.mesh = mesh
+		overlay.material_override = _debug_chunk_collision_material
+		overlay.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+		overlay.translation = Vector3(
+			float(chunk_height - 1) * cell_size * 0.5,
+			debug_chunk_collision_height * 0.5 + 0.03,
+			float(chunk_length - 1) * cell_size * 0.5
+		)
+		chunk_node.add_child(overlay)
+	overlay.visible = enabled
 
 func _upgrade_chunk_to_full_detail(chunk_key: Vector2) -> void:
 	if not _active_chunks.has(chunk_key):
@@ -750,9 +854,9 @@ func _append_lod_decks(out: Array, x: int, y: int, state, v, scale_xz: float, y_
 		xf.origin += spec.offset
 		out.append(xf)
 
-func _lod_deck_size(v, scale_xz: float) -> Vector3:
+func _lod_deck_size(v, scale_xz: float, thickness: float = lod_deck_thickness) -> Vector3:
 	var half_ext = _lod_deck_half_extents(v, scale_xz)
-	return Vector3(half_ext.x * 2.0, lod_deck_thickness, half_ext.y * 2.0)
+	return Vector3(half_ext.x * 2.0, thickness, half_ext.y * 2.0)
 
 func _lod_ramp_transform(x: int, y: int, state, v, scale_xz: float) -> Transform:
 	var stair = _lod_stair_axis_data(v)
@@ -1031,7 +1135,7 @@ func _lod_deck_specs(v, scale_xz: float, thickness: float) -> Array:
 	if vid == "P":
 		return [{"offset": Vector3.ZERO, "size": Vector3(scale_xz, thickness, scale_xz)}]
 	if vid == "W" or vid == "R" or vid == "G":
-		return [{"offset": Vector3.ZERO, "size": _lod_deck_size(v, scale_xz)}]
+		return [{"offset": Vector3.ZERO, "size": _lod_deck_size(v, scale_xz, thickness)}]
 
 	var connections = _variant_connections(v)
 	var count = 0
@@ -1382,7 +1486,11 @@ func _lod_collision_transform(x: int, y: int, state, v) -> Dictionary:
 	return _lod_slope_collision(x, y, state, v, false)
 
 func _append_lod_deck_collisions(out: Array, x: int, y: int, state, v, scale_xz: float) -> void:
-	var y_offset = _lod_height_center_offset(v) - lod_collision_thickness * 0.5
+	# Top of collision must match top of visual deck.
+	# Visual top = height_center_offset + lod_deck_thickness (half below + half above center).
+	# Collision center = visual_top - lod_collision_thickness * 0.5
+	var visual_top = _lod_height_center_offset(v) + lod_deck_thickness
+	var y_offset = visual_top - lod_collision_thickness * 0.5
 	for spec in _lod_deck_specs(v, scale_xz, lod_collision_thickness):
 		var xf = _lod_deck_transform(x, y, state, v, spec.size, y_offset)
 		xf.origin += spec.offset

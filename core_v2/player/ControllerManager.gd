@@ -324,7 +324,10 @@ func _activate_camera_rig(root: KinematicBody, mode: int, make_current: bool = t
 	if not use_zero_g and active_rig:
 		if "base_rig_y" in root:
 			active_rig.transform.origin.y = root.base_rig_y
-		active_rig.transform.basis = Basis(Vector3.UP, root.yaw) * Basis(Vector3.RIGHT, root.pitch)
+		if "camera_basis_prefix" in root:
+			active_rig.transform.basis = root.camera_basis_prefix * Basis(Vector3.UP, root.yaw) * Basis(Vector3.RIGHT, root.pitch)
+		else:
+			active_rig.transform.basis = Basis(Vector3.UP, root.yaw) * Basis(Vector3.RIGHT, root.pitch)
 		active_rig.force_update_transform()
 
 func _find_camera(node: Node) -> Camera:

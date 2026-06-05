@@ -50,6 +50,15 @@ export(float) var auto_track_min_switch_distance := 20.0
 export(bool) var auto_track_requires_floor_contact := true
 export(int, 1, 30) var target_plate_query_interval := 3
 export(bool) var continuous_tracking := true
+# Eje del cilindro para el fallback radial (cuando no hay GravityWorld).
+# 0 = Y (por defecto, OdiseaExterior: ring cierra en XZ)
+# 1 = X (SGC: ring cierra en YZ)
+# 2 = Z (ring cierra en XY)
+export(int, "Y_AXIS", "X_AXIS", "Z_AXIS") var cylinder_axis := 0
+# Origen canónico del cilindro usado por el fallback radial.
+# Permite cilindros cuyo centro no está en (0,0,0), como ScaffoldOrbit
+# donde el anillo queda centrado en Y = base_radius.
+export(Vector3) var cylinder_radial_origin := Vector3.ZERO
 export(NodePath) var scene_anchor_content_path := NodePath("") setget _set_scene_anchor_content_path
 export(NodePath) var scene_anchor_reference_path := NodePath("") setget _set_scene_anchor_reference_path
 
@@ -212,7 +221,7 @@ func _physics_process(delta: float) -> void:
 
 # Cambia la plataforma activa. WorldRotator comenzará a rotar hacia el gravity frame del nodo.
 # 'node' puede ser cualquier Spatial — su eje local +Y define la dirección "arriba".
-func set_active_platform(node: Spatial) -> void:
+func set_active_platform(node: Spatial, snap_immediately: bool = false) -> void:
 	_has_transform_target = false
 	if node == null:
 		_platform_node = null
@@ -224,6 +233,10 @@ func set_active_platform(node: Spatial) -> void:
 	current_platform = _path_to(node)
 	if not Engine.editor_hint:
 		_recompute_target()
+		if snap_immediately:
+			transform.basis = Basis(_target_quat).orthonormalized()
+			_is_transitioning = false
+			_sync_world_environment_sky_frames()
 	emit_signal("platform_changed", node)
 
 # Alias conveniente de set_active_platform.
@@ -254,6 +267,14 @@ func register_platform(node: Spatial) -> void:
 # Devuelve la lista de plataformas registradas (solo lectura).
 func get_platforms() -> Array:
 	return _registered_platforms
+
+# Registra el canonical transform de la plataforma activa desde un sistema externo
+# (p.ej. SGCPlatformBridge). Permite que continuous_tracking mueva el collision body
+# sin necesitar un TerraceSpiral registrado.
+func set_active_canonical(canonical: Transform) -> void:
+	_selected_plate_canonical = canonical
+	_selected_spiral_index = 0   # dummy value ≥ 0 to enable collision body sync
+	_selected_plate_index  = 0
 
 # Convierte una posición global al espacio canónico estable del WorldRotator.
 func to_canonical(global_position: Vector3) -> Vector3:
@@ -791,8 +812,15 @@ func _update_continuous_tracking(_delta: float) -> bool:
 	if has_node("/root/GravityWorld"):
 		up_can = get_node("/root/GravityWorld").get_canonical_up_direction(p_can)
 	else:
-		# Fallback radial
-		up_can = Vector3(p_can.x, 0.0, p_can.z).normalized()
+		# Fallback radial — plane depends on cylinder_axis and may use a shifted
+		# cylinder center when visuals are authored away from the origin.
+		var radial_to_center: Vector3 = cylinder_radial_origin - p_can
+		if cylinder_axis == 1:  # X_AXIS: ring closes in YZ
+			up_can = Vector3(0.0, radial_to_center.y, radial_to_center.z).normalized()
+		elif cylinder_axis == 2:  # Z_AXIS: ring closes in XY
+			up_can = Vector3(radial_to_center.x, radial_to_center.y, 0.0).normalized()
+		else:  # Y_AXIS (default): ring closes in XZ
+			up_can = Vector3(radial_to_center.x, 0.0, radial_to_center.z).normalized()
 		if up_can.length_squared() < 0.001:
 			up_can = Vector3.UP
 
