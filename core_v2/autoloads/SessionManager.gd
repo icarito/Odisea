@@ -3250,11 +3250,25 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 			if controller_manager and controller_manager.has_method("switch_to"):
 				controller_manager.switch_to(int(state_data["controller_mode"]))
 
-	# AirlockManager already placed the player at the correct position via reparenting.
-	# Skip teleport but still restore camera orientation and open the exit door.
+	# AirlockManager already placed the player via reparenting — use destination airlock
+	# for position/orientation just like the normal path, then open the exit door.
 	if _am_placed:
 		var target_airlock = _find_transition_airlock(state_data)
-		if is_instance_valid(target_airlock):
+		if is_instance_valid(target_airlock) and typeof(state_data.get("airlock_relative_transform", null)) == TYPE_TRANSFORM:
+			var relative_transform: Transform = state_data["airlock_relative_transform"]
+			var target_transform: Transform = target_airlock.global_transform * relative_transform
+			var exit_transform: Transform = _face_airlock_exit(target_airlock, state_data, target_transform)
+			var body_transform := target_transform
+			body_transform.basis = Basis.IDENTITY
+			if player.has_method("teleport_to"):
+				player.teleport_to(body_transform)
+			else:
+				player.global_transform = body_transform
+			_restore_transition_camera_state(state_data, exit_transform, target_airlock)
+			_snap_transition_visual(exit_transform)
+			_apply_airlock_relative_velocity(target_airlock, state_data)
+			_open_transition_airlock_exit(target_airlock, state_data)
+		elif is_instance_valid(target_airlock):
 			var exit_transform := _face_airlock_exit(target_airlock, state_data, player.global_transform)
 			_restore_transition_camera_state(state_data, exit_transform, target_airlock)
 			_snap_transition_visual(exit_transform)

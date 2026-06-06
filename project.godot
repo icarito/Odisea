@@ -2231,6 +2231,7 @@ PropDitherManager="*res://core_v2/autoloads/PropDitherManager.gd"
 PlayerHintManager="*res://core_v2/autoloads/PlayerHintManager.gd"
 GravityWorld="*res://core_v2/systems/GravityWorld.gd"
 SceneLighting="*res://core_v2/autoloads/SceneLighting.gd"
+AirlockManager="*res://core_v2/autoloads/AirlockManager.gd"
 
 [debug]
 
@@ -2483,7 +2484,6 @@ common/enable_pause_aware_picking=true
 
 [rendering]
 
-quality/driver/driver_name="GLES2"
 quality/driver/fallback_to_gles2=true
 quality/intended_usage/framebuffer_allocation.mobile=2
 threads/thread_model=2

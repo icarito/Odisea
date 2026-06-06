@@ -1630,7 +1630,7 @@ func _process_interaction(input: InputDataV2):
 	_nearby_interactables = new_nearby
 
 func _clear_interactable():
-	if _current_interactable != null:
+	if _current_interactable != null and is_instance_valid(_current_interactable):
 		if "_auto_triggered" in _current_interactable and not _current_interactable.get("one_off"):
 			_current_interactable._auto_triggered = false
 		
@@ -2552,7 +2552,9 @@ func teleport_to(target_transform: Transform) -> void:
 	# Pequeña velocidad negativa para que snap_vec se active en el primer physics frame
 	# y move_and_slide_with_snap adhiera al suelo sin el micro-salto de velocity.y=0.
 	velocity.y = -0.001
-	_post_teleport_snap_frames = 2
+	_post_teleport_snap_frames = 8
+	if is_instance_valid(animator) and animator.has_method("freeze"):
+		animator.call("freeze", 8)
 	
 	# Reset yaw/pitch to match target orientation to avoid state bleeding
 	var euler = target_transform.basis.get_euler()

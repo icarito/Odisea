@@ -13,7 +13,7 @@ signal transition_moment()
 signal fx_complete()
 
 export(float, 0.2, 8.0) var pulse_speed := 0.8           # Hz
-export(int, 1, 8)        var pre_transition_cycles := 2  # full cycles before jump
+export(int, 1, 8)        var pre_transition_cycles := 1  # full cycles before jump
 export(int, 0, 8)        var post_transition_cycles := 1 # cycles to continue after jump
 export(float, 0.0, 1.0)  var player_hide_threshold := 0.25  # hide player when brightness below this
 

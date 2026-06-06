@@ -116,6 +116,10 @@ func _physics_process(_delta: float) -> void:
 
 	if can_transition and not _has_triggered:
 		_has_triggered = true
+		# Freeze animator immediately — before the deferred call and scene load spikes.
+		var animator = player.get("animator") if "animator" in player else null
+		if is_instance_valid(animator) and animator.has_method("freeze"):
+			animator.call("freeze", 120)
 		call_deferred("_run_transition", player)
 
 func _arm_player_already_inside_zone() -> void:
@@ -218,6 +222,11 @@ func _run_transition(player: Node) -> void:
 	if not _is_player(player):
 		_has_triggered = false
 		return
+
+	# Freeze animator so fall/not-grounded pose doesn't flash during scene load
+	var animator = player.get("animator") if "animator" in player else null
+	if is_instance_valid(animator) and animator.has_method("freeze"):
+		animator.call("freeze", 60)
 
 	_trigger_transition(player)
 

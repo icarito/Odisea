@@ -1236,7 +1236,9 @@ func _configure_gravity_for_selected_plate(plate_canonical: Transform) -> void:
 	gravity_world.set_ship_angular_velocity(gravity_world.get_default_angular_velocity_for_one_g(radius))
 
 func _reset_camera_roll() -> void:
-	if not _camera:
+	if not is_instance_valid(_camera):
+		_camera = _resolve_player_camera()
+	if not is_instance_valid(_camera):
 		return
 	_camera.rotation.z = 0.0
 
