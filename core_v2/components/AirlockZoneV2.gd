@@ -34,6 +34,7 @@ var _open_exit_return_arm_progress := -1.0
 var _open_exit_return_last_progress := -1.0
 
 const AIRLOCK_OTS_SPRING_LENGTH := 1.5
+const SEAMLESS_TRANSITION_ANIM_FREEZE_FRAMES := 4
 
 func _ready() -> void:
 	._ready()
@@ -135,7 +136,7 @@ func _physics_process(_delta: float) -> void:
 		# Freeze animator immediately — before the deferred call and scene load spikes.
 		var animator = player.get("animator") if "animator" in player else null
 		if is_instance_valid(animator) and animator.has_method("freeze"):
-			animator.call("freeze", 120)
+			animator.call("freeze", _get_transition_anim_freeze_frames(120))
 		call_deferred("_run_transition", player)
 
 func _arm_player_already_inside_zone() -> void:
@@ -255,9 +256,17 @@ func _run_transition(player: Node) -> void:
 	# Freeze animator so fall/not-grounded pose doesn't flash during scene load
 	var animator = player.get("animator") if "animator" in player else null
 	if is_instance_valid(animator) and animator.has_method("freeze"):
-		animator.call("freeze", 60)
+		animator.call("freeze", _get_transition_anim_freeze_frames(60))
 
 	_trigger_transition(player)
+
+func _get_transition_anim_freeze_frames(default_frames: int) -> int:
+	var airlock_manager = get_node_or_null("/root/AirlockManager")
+	if airlock_manager != null and airlock_manager.has_method("notify_transition"):
+		if default_frames < SEAMLESS_TRANSITION_ANIM_FREEZE_FRAMES:
+			return default_frames
+		return SEAMLESS_TRANSITION_ANIM_FREEZE_FRAMES
+	return default_frames
 
 func _trigger_transition(player: Node) -> bool:
 	if target_scene.strip_edges() == "":

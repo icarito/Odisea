@@ -103,7 +103,8 @@ func _set_state(new_state):
 		_update_physics_processing()
 
 func _update_beacons():
-	if not _beacon:
+	if not is_instance_valid(_beacon):
+		_beacon = null
 		_update_airlock_affordances()
 		return
 
@@ -173,7 +174,7 @@ func request_transition_pressurization(entry_door_name: String = "") -> bool:
 	timer = max(pressurize_time, 0.0)
 	if is_instance_valid(_transition_button) and _transition_button.has_method("set_active") and "is_active" in _transition_button and not bool(_transition_button.get("is_active")):
 		_transition_button.set_active(true, true)
-	_update_airlock_affordances()
+	_update_beacons()
 	if timer <= 0.0:
 		_finish_transition_pressurization()
 	_update_physics_processing()
@@ -189,7 +190,7 @@ func start_cycle(cycling_in: bool = true) -> bool:
 	_waiting_entry_door_name = "outer" if _is_cycling_in else "inner"
 	_pressurize_active = true
 	_transition_ready = false
-	self.state = State.PRESSURIZING
+	self.state = State.PRESSURIZING  # calls _update_beacons() with _pressurize_active already true
 	timer = max(pressurize_time, 0.0)
 	_set_door_active(_outer_door, false)
 	_set_door_active(_inner_door, false)

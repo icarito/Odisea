@@ -27,7 +27,7 @@ var _dome_mesh: MeshInstance = null
 var _base_mesh: MeshInstance = null
 var _lens_mesh: MeshInstance = null
 var _omni_light: OmniLight = null
-var _sfx_alarm: SFXComponentV2 = null
+var _sfx_alarm: Node = null
 var _time_accumulator := 0.0
 var _visual_tick_countdown := 0
 var _visual_tick_accumulator := 0.0
@@ -37,12 +37,21 @@ func _ready():
 	_base_mesh = get_node_or_null("BaseMesh")
 	_lens_mesh = get_node_or_null("DomeMesh/Lens")
 	_omni_light = get_node_or_null("OmniLight")
-	_sfx_alarm = get_node_or_null("SFX Alarm")
+	# Use the permanent global SFX proxy from AirlockManager if available.
+	# This avoids audio interruptions on scene transitions.
+	var mgr := get_node_or_null("/root/AirlockManager")
+	if is_instance_valid(mgr) and is_instance_valid(mgr.get("_beacon_sfx_proxy")):
+		_sfx_alarm = mgr._beacon_sfx_proxy
+		var own_sfx := get_node_or_null("SFX Alarm")
+		if is_instance_valid(own_sfx):
+			own_sfx.queue_free()
+	else:
+		_sfx_alarm = get_node_or_null("SFX Alarm")
 	._ready()
 	_apply_settings()
 	
 	# Initial sound state check (skip in editor)
-	if not Engine.editor_hint and is_active and sound_enabled and _sfx_alarm:
+	if not Engine.editor_hint and is_active and sound_enabled and is_instance_valid(_sfx_alarm):
 		_sfx_alarm.play_sfx()
 
 func set__color(v: Color) -> void:
@@ -88,19 +97,19 @@ func set_enable_shadows(v: bool) -> void:
 
 func set_sound_enabled(v: bool) -> void:
 	sound_enabled = v
-	if _sfx_alarm and not sound_enabled:
+	if is_instance_valid(_sfx_alarm) and not sound_enabled:
 		_sfx_alarm.stop_sfx()
 
 func set_sound_unit_db(v: float) -> void:
 	sound_unit_db = v
-	if _sfx_alarm:
+	if is_instance_valid(_sfx_alarm):
 		_sfx_alarm.unit_db = v
 		if "_base_unit_db" in _sfx_alarm:
 			_sfx_alarm._base_unit_db = v
 
 func set_sound_max_distance(v: float) -> void:
 	sound_max_distance = v
-	if _sfx_alarm:
+	if is_instance_valid(_sfx_alarm):
 		_sfx_alarm.max_distance = v
 
 func set_active(value: bool, immediate: bool = false) -> void:
@@ -110,8 +119,12 @@ func set_active(value: bool, immediate: bool = false) -> void:
 	if Engine.editor_hint:
 		return
 	
-	if _sfx_alarm:
+	if is_instance_valid(_sfx_alarm):
 		if value and not was_active and sound_enabled:
+			# Snap proxy to this beacon's world position before playing so
+			# 3-D attenuation is computed from the correct location.
+			if _sfx_alarm is Spatial and is_inside_tree():
+				(_sfx_alarm as Spatial).global_transform = global_transform
 			_sfx_alarm.play_sfx()
 		elif not value and was_active:
 			_sfx_alarm.stop_sfx()

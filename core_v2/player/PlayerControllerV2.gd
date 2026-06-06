@@ -159,6 +159,9 @@ var _terminal_ui_active := false
 var _restore_spring_length: float = -1.0
 var _post_teleport_snap_frames := 0
 var _transition_airlock_placed := false
+var _transition_snap_suppressed_until := 0  # physics frame counter
+var _ots_snap_on_arrival := false
+var _ots_snap_on_arrival_deferred := false
 var _restore_fov: float = -1.0
 var _exit_log_frames := 0
 var _perf_disable_interaction_scan := false
@@ -230,11 +233,16 @@ func sync_camera_to_rig() -> void:
 	_cinematic_zoom_target_fov = -1.0
 
 func snap_camera_to_current_state() -> void:
-	# If AirlockManager already placed the player and restored the full camera
-	# state, skip every snap to avoid overwriting yaw/pitch/spring/OTS values.
+	# If AirlockManager already placed the player, suppress full camera snaps
+	# until SessionManager has restored yaw/pitch/spring from transition state.
+	# Use a frame counter so ALL calls within the same physics frame are suppressed
+	# (SessionManager may call snap multiple times per transition).
 	if _transition_airlock_placed:
+		if _ots_snap_on_arrival:
+			_schedule_ots_snap_on_arrival()
+		if Engine.get_physics_frames() <= _transition_snap_suppressed_until:
+			return
 		_transition_airlock_placed = false
-		return
 	# Called after scene transition + teleport so every lerp-based camera system
 	# starts from the correct final position rather than drifting from defaults.
 
@@ -269,6 +277,21 @@ func snap_camera_to_current_state() -> void:
 	# framing (short arm, small offsets); stamping the exterior OTS values
 	# instantly produces a visible framing yank. The OTS _process lerps
 	# _current_offset to the new target naturally over the next few frames.
+
+func _schedule_ots_snap_on_arrival() -> void:
+	if _ots_snap_on_arrival_deferred:
+		return
+	_ots_snap_on_arrival_deferred = true
+	call_deferred("_snap_ots_on_arrival_deferred")
+
+func _snap_ots_on_arrival_deferred() -> void:
+	_ots_snap_on_arrival_deferred = false
+	if not _ots_snap_on_arrival:
+		return
+	var ots = get_node_or_null("Logic/OverTheShoulder")
+	if is_instance_valid(ots) and ots.has_method("snap_to_current_state"):
+		ots.snap_to_current_state()
+	_ots_snap_on_arrival = false
 
 func ensure_input_provider():
 	if not input_provider or not is_instance_valid(input_provider):
