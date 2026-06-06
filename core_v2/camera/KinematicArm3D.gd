@@ -201,6 +201,25 @@ func clear_excluded_objects():
 func get_hit_length() -> float:
 	return current_length
 
+# Forzar un cast inmediato para que current_length arranque ya colisionado
+# después de un teleport/transición de escena.  Evita el yank del primer frame
+# donde el arm arranca en spring_length y la colisión lo retrae bruscamente.
+func snap_collision_to_scene() -> void:
+	var arm_origin := global_transform.origin
+	var desired := max(spring_length, min_length)
+	var arm_motion := global_transform.basis.z * desired
+	var hit := _cast_shape_hit_length(arm_origin, arm_motion, desired)
+	if hit >= 0.0:
+		current_length = hit
+		_collision_latched_length = hit
+		_collision_latch_origin = arm_origin
+		_collision_latch_direction = global_transform.basis.z
+		_collision_miss_timer = 0.0
+		_collision_release_timer = 0.0
+	else:
+		current_length = desired
+		_collision_latched_length = -1.0
+
 func set_camera_local_offset(offset: Vector3) -> void:
 	camera_local_offset = offset
 

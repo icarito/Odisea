@@ -18,8 +18,7 @@ export(NodePath) var chamber_zone_path
 export(float) var pressurize_time := 1.0
 export(float) var reset_time := 3.0
 
-export(NodePath) var outer_beacon_path
-export(NodePath) var inner_beacon_path
+export(NodePath) var beacon_path
 export(NodePath) var pressurize_sfx_path
 
 # --- INTERNAL STATE ---
@@ -30,8 +29,7 @@ var _is_cycling_in := true
 var _outer_door: Node = null
 var _inner_door: Node = null
 var _chamber_zone: Area = null
-var _outer_beacon: Node = null
-var _inner_beacon: Node = null
+var _beacon: Node = null
 var _pressurize_sfx: Node = null
 
 func _ready():
@@ -53,10 +51,8 @@ func _ready():
 		elif node.get_parent() is Area:
 			_chamber_zone = node.get_parent()
 
-	if outer_beacon_path:
-		_outer_beacon = get_node_or_null(outer_beacon_path)
-	if inner_beacon_path:
-		_inner_beacon = get_node_or_null(inner_beacon_path)
+	if beacon_path:
+		_beacon = get_node_or_null(beacon_path)
 	if pressurize_sfx_path:
 		_pressurize_sfx = get_node_or_null(pressurize_sfx_path)
 
@@ -74,51 +70,28 @@ func _set_state(new_state):
 		_update_beacons()
 
 func _update_beacons():
-	if not _outer_beacon and not _inner_beacon: return
-	
-	var outer_color = Color.black
-	var inner_color = Color.black
-	var outer_active = false
-	var inner_active = false
+	if not _beacon:
+		return
 
+	# IDLE: puertas cerradas -> apagado
+	# ENTRY_OPEN: puerta abierta, nadie adentro -> rojo
+	# PRESSURIZING / EXIT_OPEN: alguien adentro -> verde
 	if state == State.IDLE:
-		outer_active = false
-		inner_active = false
-	elif state == State.PRESSURIZING:
-		outer_active = true
-		inner_active = true
-		outer_color = Color.yellow
-		inner_color = Color.yellow
+		_beacon.set_active(false)
+	elif state == State.ENTRY_OPEN:
+		_beacon.set_active(true)
+		_beacon.set_beacon_color(Color.red)
+	else:
+		# PRESSURIZING o EXIT_OPEN
+		_beacon.set_active(true)
+		_beacon.set_beacon_color(Color.green)
+
+	if state == State.PRESSURIZING:
 		if _pressurize_sfx and _pressurize_sfx.has_method("play") and not _pressurize_sfx.playing:
 			_pressurize_sfx.play()
-	elif state == State.ENTRY_OPEN:
-		outer_active = true
-		inner_active = true
-		if _is_cycling_in:
-			outer_color = Color.green
-			inner_color = Color.red
-		else:
-			outer_color = Color.red
-			inner_color = Color.green
-	elif state == State.EXIT_OPEN:
-		outer_active = true
-		inner_active = true
-		if _is_cycling_in:
-			inner_color = Color.green
-			outer_color = Color.red
-		else:
-			inner_color = Color.red
-			outer_color = Color.green
-			
-	if state != State.PRESSURIZING and _pressurize_sfx and _pressurize_sfx.has_method("stop"):
-		_pressurize_sfx.stop()
-
-	if _outer_beacon:
-		_outer_beacon.set_active(outer_active)
-		if outer_active: _outer_beacon.set_beacon_color(outer_color)
-	if _inner_beacon:
-		_inner_beacon.set_active(inner_active)
-		if inner_active: _inner_beacon.set_beacon_color(inner_color)
+	else:
+		if _pressurize_sfx and _pressurize_sfx.has_method("stop"):
+			_pressurize_sfx.stop()
 
 # --- INTERACTION API ---
 

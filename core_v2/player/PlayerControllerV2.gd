@@ -157,6 +157,7 @@ const PushableBoxV2Script = preload("res://core_v2/components/PushableBoxV2.gd")
 
 var _terminal_ui_active := false
 var _restore_spring_length: float = -1.0
+var _post_teleport_snap_frames := 0
 var _restore_fov: float = -1.0
 var _exit_log_frames := 0
 var _perf_disable_interaction_scan := false
@@ -239,11 +240,15 @@ func snap_camera_to_current_state() -> void:
 		_camera_rig_was_grounded = true
 		camera_rig.transform.origin.y = _camera_rig_y_smoothed_global - global_transform.origin.y
 
-	# Snap spring arm to target length so there's no zoom lerp on first frame.
+	# Snap spring arm: set target length then immediately cast to find the real
+	# collision distance in the new scene.  Without this the arm starts at full
+	# length and retracts violently on the first frame (visible yank).
 	if _cached_spring_arm:
 		current_spring_length = base_spring_length_3d
 		_cached_spring_arm.spring_length = base_spring_length_3d
-		if "current_length" in _cached_spring_arm:
+		if _cached_spring_arm.has_method("snap_collision_to_scene"):
+			_cached_spring_arm.snap_collision_to_scene()
+		elif "current_length" in _cached_spring_arm:
 			_cached_spring_arm.current_length = base_spring_length_3d
 
 	# Snap camera FOV.
@@ -2099,7 +2104,11 @@ func step(dt: float, input: InputDataV2) -> void:
 		_step_grounded_timer -= dt
 	_just_stepped = false
 
-	var snap_vec = Vector3.DOWN * snap_length if (velocity.y <= 0 and not input.jump) else Vector3.ZERO
+	var _effective_snap := snap_length
+	if _post_teleport_snap_frames > 0:
+		_post_teleport_snap_frames -= 1
+		_effective_snap = max(snap_length, 1.0)
+	var snap_vec = Vector3.DOWN * _effective_snap if (velocity.y <= 0 and not input.jump) else Vector3.ZERO
 	
 	if enable_step_up and (not _rl_fast_controller) and is_on_floor() and velocity.y <= 0:
 		var step_motion = movement_logic.wish_direction if movement_logic.wish_direction.length() > 0.1 else velocity
@@ -2537,6 +2546,10 @@ func teleport_to(target_transform: Transform) -> void:
 	# print("[PlayerController] teleport_to called. Target: ", target_transform.origin, " Rot: ", target_transform.basis.get_euler())
 	global_transform = target_transform
 	velocity = Vector3.ZERO
+	# Pequeña velocidad negativa para que snap_vec se active en el primer physics frame
+	# y move_and_slide_with_snap adhiera al suelo sin el micro-salto de velocity.y=0.
+	velocity.y = -0.001
+	_post_teleport_snap_frames = 2
 	
 	# Reset yaw/pitch to match target orientation to avoid state bleeding
 	var euler = target_transform.basis.get_euler()

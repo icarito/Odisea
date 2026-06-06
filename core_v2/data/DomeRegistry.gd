@@ -7,7 +7,7 @@ const DEFAULT_FACADE_LOD_SCENE := "res://models/lod/DomeFacade_01_LOD.glb"
 const DEFAULT_FACADE_LOD_MESH_NODE := "DomeLOD"
 const DEFAULT_FACADE_SPAWN_OFFSET := Vector3(0, 0.3, 0)
 const DEFAULT_FACADE_LOD_SPAWN_OFFSET := Vector3(0, 0.3, 0)
-const DEFAULT_FACADE_LOD_SCALE := Vector3(1.16, 1.16, 1.16)
+const DEFAULT_FACADE_LOD_SCALE := Vector3(1.18, 1.18, 1.18)
 
 # Registro declarativo: dome_id -> config
 # Claves opcionales para LOD de fachadas:

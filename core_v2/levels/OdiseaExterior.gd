@@ -773,10 +773,10 @@ func _select_nearest_dome_lod_assignments(assignments: Array, origin_snap: Dicti
 
 	# --- Pass 1: slots garantizados para espirales adyacentes (≠ selected_spiral) ---
 	var adj_slots := int(clamp(dome_lod_adjacent_spiral_slots, 0, max_instances))
-	var adjacent_keys := {}  # claves ya elegidas en este paso
+	var adjacent_keys := {}
 	var adjacent_selected := []
 	if adj_slots > 0 and _spirals.size() > 1:
-		var adj_ranked := []
+		var adj_scored := []
 		for assignment in assignments:
 			var spiral_index := int(assignment.get("spiral_index", -1))
 			if spiral_index < 0 or spiral_index >= _spirals.size() or spiral_index == selected_spiral:
@@ -785,16 +785,16 @@ func _select_nearest_dome_lod_assignments(assignments: Array, origin_snap: Dicti
 			var snap_key := _make_plate_key(spiral_index, plate_index)
 			var canonical_origin: Vector3 = origin_snap[snap_key] if origin_snap.has(snap_key) else \
 				_rotator.get_plate_canonical_transform(_spirals[spiral_index], plate_index).origin
-			var dist_sq := canonical_origin.distance_squared_to(reference_pos)
-			_insert_ranked_lod_entry(adj_ranked, {"assignment": assignment, "dist_sq": dist_sq}, adj_slots)
-		for entry in adj_ranked:
-			var asn: Dictionary = entry["assignment"]
+			adj_scored.append({"assignment": assignment, "dist_sq": canonical_origin.distance_squared_to(reference_pos)})
+		adj_scored.sort_custom(self, "_sort_lod_entry_by_dist")
+		for i in range(min(adj_slots, adj_scored.size())):
+			var asn: Dictionary = adj_scored[i]["assignment"]
 			adjacent_selected.append(asn)
 			adjacent_keys[_make_plate_key(int(asn.get("spiral_index", -1)), int(asn.get("plate_index", -1)))] = true
 
 	# --- Pass 2: relleno por distancia con bias de frustum (todas las espirales) ---
 	var remaining := int(max(0, max_instances - adjacent_selected.size()))
-	var main_ranked := []
+	var main_scored := []
 	for assignment in assignments:
 		var spiral_index := int(assignment.get("spiral_index", -1))
 		var plate_index := int(assignment.get("plate_index", -1))
@@ -803,8 +803,7 @@ func _select_nearest_dome_lod_assignments(assignments: Array, origin_snap: Dicti
 			continue
 		if spiral_index < 0 or spiral_index >= _spirals.size():
 			continue
-		var snap_key2 := _make_plate_key(spiral_index, plate_index)
-		var canonical_origin: Vector3 = origin_snap[snap_key2] if origin_snap.has(snap_key2) else \
+		var canonical_origin: Vector3 = origin_snap[key] if origin_snap.has(key) else \
 			_rotator.get_plate_canonical_transform(_spirals[spiral_index], plate_index).origin
 		var to_plate := canonical_origin - reference_pos
 		var dist_sq := to_plate.length_squared()
@@ -813,12 +812,13 @@ func _select_nearest_dome_lod_assignments(assignments: Array, origin_snap: Dicti
 			var dot := to_plate.normalized().dot(cam_fwd)
 			if dot < fov_cos:
 				score = dist_sq * penalty
-		_insert_ranked_lod_entry(main_ranked, {"assignment": assignment, "dist_sq": score}, remaining)
+		main_scored.append({"assignment": assignment, "dist_sq": score})
+	main_scored.sort_custom(self, "_sort_lod_entry_by_dist")
 
 	var selected := []
 	selected.append_array(adjacent_selected)
-	for entry in main_ranked:
-		selected.append(entry["assignment"])
+	for i in range(min(remaining, main_scored.size())):
+		selected.append(main_scored[i]["assignment"])
 	if selected.empty():
 		return assignments
 	return selected
@@ -833,18 +833,8 @@ func _get_camera_forward_canonical() -> Vector3:
 	# Convertir dirección a espacio canónico: solo aplicar la inversa de la base (sin traslación)
 	return _rotator.global_transform.basis.inverse().xform(cam_fwd_global).normalized()
 
-func _insert_ranked_lod_entry(ranked: Array, entry: Dictionary, max_count: int) -> void:
-	if max_count <= 0:
-		return
-	var dist_sq := float(entry.get("dist_sq", 0.0))
-	var insert_at := ranked.size()
-	while insert_at > 0 and dist_sq < float(ranked[insert_at - 1].get("dist_sq", 0.0)):
-		insert_at -= 1
-	if insert_at >= max_count:
-		return
-	ranked.insert(insert_at, entry)
-	if ranked.size() > max_count:
-		ranked.pop_back()
+func _sort_lod_entry_by_dist(a: Dictionary, b: Dictionary) -> bool:
+	return float(a.get("dist_sq", 0.0)) < float(b.get("dist_sq", 0.0))
 
 func _build_dome_lod_stats(assignments: Array, full_detail_keys: Dictionary, overlay_part_count: int) -> Dictionary:
 	if _segment_manager and _segment_manager.has_method("build_stats"):
@@ -918,20 +908,21 @@ func _build_spiral_dome_lod_groups(spiral_group_map: Dictionary) -> Array:
 		var parts: Array = blueprint.get("parts", [])
 		if parts.empty() or items.empty():
 			continue
+		# lod_scale es igual para todos los items del mismo cache_key — calcular una sola vez
+		var shared_lod_scale: Vector3 = _resolve_effective_dome_lod_scale(
+			(items[0] as Dictionary).get("info", {}), blueprint)
 		var group_parts := []
 		for part_index in range(parts.size()):
 			var part: Dictionary = parts[part_index]
 			var mesh: Mesh = _build_mesh_for_multimesh_part(part)
 			if mesh == null:
 				continue
+			var scaled_local := _scale_transform(part.get("local_transform", Transform.IDENTITY), shared_lod_scale)
 			var overlay_items := []
 			var signature_parts := PoolStringArray()
 			for item in items:
-				var info: Dictionary = item.get("info", {})
 				var plate_index := int(item.get("plate_index", -1))
-				var lod_scale: Vector3 = _resolve_effective_dome_lod_scale(info, blueprint)
-				var scaled_local := _scale_transform(part.get("local_transform", Transform.IDENTITY), lod_scale)
-				var origin_offset: Vector3 = info.get("facade_spawn_offset", Vector3.ZERO)
+				var origin_offset: Vector3 = item.get("info", {}).get("facade_spawn_offset", Vector3.ZERO)
 				overlay_items.append({
 					"plate_index": plate_index,
 					"local_transform": scaled_local,

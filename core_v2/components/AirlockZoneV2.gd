@@ -2,8 +2,8 @@ extends BaseZoneV2
 class_name AirlockZoneV2
 
 const PRELOAD_POLL_BUDGET_MS := 4
-const DEFAULT_FADE_OUT_S := 0.14
-const DEFAULT_FADE_IN_S := 0.16
+const DEFAULT_FADE_OUT_S := 0.017
+const DEFAULT_FADE_IN_S := 0.08
 const STALL_START_PROGRESS := 0.5
 const TRIGGER_PROGRESS := 0.6
 
