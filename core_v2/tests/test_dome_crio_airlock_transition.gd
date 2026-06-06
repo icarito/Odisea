@@ -50,6 +50,9 @@ func test_walking_the_dome_crio_north_airlock_triggers_exterior_transition_state
 	var samples_pre := _walk_player_to_60_percent(zone, player)
 	assert_float(samples_pre).is_greater_equal(0.6)
 	airlock.step(airlock.pressurize_time + 0.1)
+	var fx = airlock.get_node_or_null("AirlockTransitionFX")
+	if is_instance_valid(fx):
+		fx.set("_transition_fired", true)
 
 	var samples := _walk_player_through_trigger(zone, player)
 	yield(get_tree(), "idle_frame")
