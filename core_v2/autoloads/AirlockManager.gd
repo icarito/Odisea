@@ -87,6 +87,12 @@ func _on_pre_scene_swap(old_scene: Node, _new_scene: Node, _params: Dictionary) 
 		if is_instance_valid(animator):
 			animator.set_physics_process(false)
 		_seamless_swap = false
+		# Freeze the source scene's WorldRotator so it stops following the player
+		# (now lifted into the airlock chamber) and does not accumulate rotation
+		# that would snap in at scene swap (the [YANK]).
+		var source_rotator := _find_world_rotator_in(old_scene)
+		if is_instance_valid(source_rotator) and source_rotator.has_method("pause_tracking"):
+			source_rotator.pause_tracking()
 		# Re-assert camera immediately and deferred (covers both the current frame and
 		# the next, since Godot clears camera.current during _notification(ENTER_TREE)).
 		if player.has_method("force_camera_current"):
@@ -128,6 +134,10 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 		_pre_position_at_destination(player, scene_root, _params)
 		remove_child(player)
 		scene_root.add_child(player)
+		# NOTE: tracking is NOT resumed here. The WorldRotator stays paused until the
+		# player physically exits the destination airlock chamber — OdiseaExterior
+		# drives resume_tracking() from the chamber zone exit. Resuming at scene swap
+		# would apply the rotation accumulated during the pause as a yank on arrival.
 		# Freeze AFTER add_child so _ready() doesn't stomp the value.
 		var animator := _find_animator_in(player)
 		if is_instance_valid(animator) and animator.has_method("freeze"):
@@ -216,6 +226,15 @@ func _pre_position_at_destination(player: Node, scene_root: Node, params: Dictio
 		player.camera_rig.force_update_transform()
 	if "_camera_rig_y_initialized" in player:
 		player._camera_rig_y_initialized = true
+	# TEMP [DOMEYANK] diagnosis
+	var _prefix_id := true
+	if "camera_basis_prefix" in player:
+		_prefix_id = player.camera_basis_prefix.is_equal_approx(Basis.IDENTITY)
+	print("[DOMEYANK][prePos] frame=%d scene_root=%s yaw=%.4f pitch=%.4f body_yaw=%.4f rig_euler=%s prefix_is_identity=%s player_basis_euler=%s" % [
+		Engine.get_physics_frames(), scene_root.name, yaw, pitch,
+		body_transform.basis.get_euler().y,
+		str(player.camera_rig.transform.basis.get_euler()) if ("camera_rig" in player and is_instance_valid(player.camera_rig)) else "<none>",
+		str(_prefix_id), str(player.global_transform.basis.get_euler())])
 
 func _find_animator_in(player: Node) -> Node:
 	if not is_instance_valid(player):
@@ -235,6 +254,15 @@ func _find_player_in(scene_root: Node) -> Node:
 		if is_instance_valid(p) and scene_root.is_a_parent_of(p):
 			return p
 	return scene_root.find_node("Pilot", true, false)
+
+func _find_world_rotator_in(scene_root: Node) -> Node:
+	if not is_instance_valid(scene_root):
+		return null
+	var rotator := scene_root.get_node_or_null("WorldRotator")
+	if is_instance_valid(rotator):
+		return rotator
+	return scene_root.find_node("WorldRotator", true, false)
+
 
 func _find_active_airlock_in(scene_root: Node) -> Node:
 	if not is_instance_valid(scene_root):

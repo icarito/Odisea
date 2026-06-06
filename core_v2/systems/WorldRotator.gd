@@ -122,6 +122,13 @@ var _sky_frame_sync_counter: int = 0
 var _sky_frame_sync_interval: int = 6
 var _last_sky_basis := Basis.IDENTITY
 var _startup_snap_done := false  # snap to target on first physics frame, then slerp
+# Airlock transitions: while the player sits in the airlock chamber the world
+# tracking is paused so it does not accumulate rotation that would snap in. When
+# the player finally exits the destination airlock chamber, tracking resumes and
+# eases the accumulated rotation over RESUME_TRACKING_DURATION seconds.
+const RESUME_TRACKING_DURATION := 0.3
+var _tracking_paused := false
+var _resume_ramp_left := 0.0  # >0 while easing back into tracking after a resume
 # Retrocompatibilidad: alias del pool para tests que lean _generated_collision_bodies
 var _generated_collision_bodies: Array setget ,_get_generated_collision_bodies
 func _get_generated_collision_bodies() -> Array:
@@ -183,6 +190,14 @@ func _sync_faux_skydome_visibility() -> void:
 
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
+		return
+	# While the player is inside the airlock chamber, stop following the player and
+	# lock the world flat relative to the active terrace (the selected plate's up
+	# aligned with +Y) over RESUME_TRACKING_DURATION. This keeps the centrifugal
+	# alignment intact but stops chasing the player's radial position, so there is
+	# no accumulated rotation to snap in when transitioning or walking back out.
+	if _tracking_paused:
+		_slerp_to_flat_while_paused(delta)
 		return
 	# Resolver tracking target una sola vez por frame para evitar get_nodes_in_group repetido.
 	_cached_tracking_target = _get_tracking_target()
@@ -380,6 +395,30 @@ func get_target_basis() -> Basis:
 
 func set_rotation_frozen(frozen: bool) -> void:
 	rotation_frozen = frozen
+
+# Airlock support: stop following the player and lock the world flat relative to
+# the active terrace. Called when the player enters an airlock chamber from the
+# exterior (and while held across the scene swap). The world eases to the active
+# plate's gravity frame over RESUME_TRACKING_DURATION and then holds, so no
+# accumulated radial rotation snaps in later.
+func pause_tracking() -> void:
+	if _tracking_paused:
+		return
+	_tracking_paused = true
+	_resume_ramp_left = RESUME_TRACKING_DURATION
+	_is_transitioning = false
+
+# Airlock support: resume tracking once the player exits the airlock chamber.
+# Eases the rotation accumulated during the pause over RESUME_TRACKING_DURATION
+# seconds (slerp, not snap) so there is no visible yank on the first frame.
+func resume_tracking() -> void:
+	if not _tracking_paused and _resume_ramp_left <= 0.0:
+		return
+	_tracking_paused = false
+	_resume_ramp_left = RESUME_TRACKING_DURATION
+
+func is_tracking_paused() -> bool:
+	return _tracking_paused
 
 func get_plate_count(spiral: Spatial) -> int:
 	if spiral == null:
@@ -667,6 +706,57 @@ func _slerp_to_global_transform(delta: float) -> void:
 	global_transform = Transform(Basis(q_new).orthonormalized(), origin_new)
 	_is_transitioning = abs(q_new.dot(q_target)) < 0.9999 or origin_new.distance_to(_target_global_transform.origin) > 0.01
 
+# While the player is in the airlock chamber, stop following the player and ease
+# the world to "flat relative to the active terrace": the orientation where the
+# selected plate's up axis is aligned with +Y. This is NOT global identity — in
+# the centrifugal exterior that would flatten the whole scene out of alignment.
+# It simply locks the world to the current plate's gravity frame and stops
+# chasing the player's radial position while they move inside the chamber.
+# Pivots around the player so they are not displaced as the rotation settles.
+func _slerp_to_flat_while_paused(delta: float) -> void:
+	_is_transitioning = false
+	if Engine.editor_hint or rotation_frozen:
+		return
+	var target_basis: Basis = _compute_active_plate_flat_basis()
+	var current: Transform = global_transform
+	var q_cur: Quat = current.basis.get_rotation_quat()
+	var q_target: Quat = target_basis.get_rotation_quat()
+	if abs(q_cur.dot(q_target)) >= 0.99999:
+		return  # already aligned to the active plate's gravity frame
+	var slerp_rate: float = 1.0 / RESUME_TRACKING_DURATION
+	if _resume_ramp_left > 0.0:
+		_resume_ramp_left = max(0.0, _resume_ramp_left - delta)
+	var t: float = min(1.0, slerp_rate * delta)
+	var eased_t: float = t * t * (3.0 - 2.0 * t)
+	var q_new: Quat = q_cur.slerp(q_target, eased_t)
+	var new_basis := Basis(q_new).orthonormalized()
+	# Pivot around the player (if resolvable) so the settle doesn't displace them.
+	var player: Spatial = _get_tracking_target_ignoring_suspension()
+	var new_origin: Vector3
+	if player and is_instance_valid(player):
+		var pivot_global: Vector3 = player.global_transform.origin
+		var pivot_can: Vector3 = current.affine_inverse().xform(pivot_global)
+		new_origin = pivot_global - new_basis.xform(pivot_can)
+	else:
+		new_origin = current.origin
+	global_transform = Transform(new_basis, new_origin)
+	_sync_world_environment_sky_frames()
+
+# Returns the global basis that aligns the active plate's canonical up with +Y,
+# leaving the world "flat" relative to the terrace the player is standing on.
+# Falls back to the current basis when there is no selected plate.
+func _compute_active_plate_flat_basis() -> Basis:
+	if _selected_spiral_index < 0 or _selected_plate_index < 0:
+		return global_transform.basis
+	# Canonical up of the active plate, expressed in global space at the current
+	# rotation, then realigned so it points straight up.
+	var up_can: Vector3 = _selected_plate_canonical.basis.y.normalized()
+	if up_can.length_squared() < 0.0001:
+		return global_transform.basis
+	var up_global: Vector3 = global_transform.basis.xform(up_can).normalized()
+	var q_align: Quat = _quat_align(up_global, Vector3.UP)
+	return (Basis(q_align) * global_transform.basis).orthonormalized()
+
 func _get_effective_rotation_speed(target: Spatial = null) -> float:
 	var speed = rotation_speed
 	if target == null:
@@ -856,8 +946,14 @@ func _update_continuous_tracking(_delta: float) -> bool:
 		_startup_snap_done = true
 		global_transform = _target_global_transform
 		return true
+	# While easing back in after an airlock resume, slerp the accumulated rotation
+	# over RESUME_TRACKING_DURATION seconds instead of the snappy default rate.
+	var slerp_rate: float = _get_effective_rotation_speed(target) * 6.0
+	if _resume_ramp_left > 0.0:
+		_resume_ramp_left = max(0.0, _resume_ramp_left - _delta)
+		slerp_rate = 1.0 / RESUME_TRACKING_DURATION
 	# Interpolar suavemente hacia el target para evitar saltos de cámara.
-	var t: float = min(1.0, _get_effective_rotation_speed(target) * _delta * 6.0)
+	var t: float = min(1.0, slerp_rate * _delta)
 	var eased_t: float = t * t * (3.0 - 2.0 * t)
 	var current: Transform = global_transform
 	var q_cur: Quat = current.basis.get_rotation_quat()
@@ -878,6 +974,22 @@ func _get_tracking_target() -> Spatial:
 	for player in players:
 		if player.has_meta("airlock_tracking_suspended") and bool(player.get_meta("airlock_tracking_suspended")):
 			continue
+		if player is Spatial and is_instance_valid(player):
+			return player as Spatial
+	return null
+
+# Like _get_tracking_target() but ignores the airlock suspension meta. Used while
+# easing to flat in the chamber, where we still want to pivot around the player
+# even though normal tracking is suspended.
+func _get_tracking_target_ignoring_suspension() -> Spatial:
+	if not tracking_target_path.is_empty():
+		var node: Node = get_node_or_null(tracking_target_path)
+		if node == null and get_parent():
+			node = get_parent().get_node_or_null(tracking_target_path)
+		if node is Spatial:
+			return node as Spatial
+	var players: Array = get_tree().get_nodes_in_group("player") if is_inside_tree() else []
+	for player in players:
 		if player is Spatial and is_instance_valid(player):
 			return player as Spatial
 	return null
