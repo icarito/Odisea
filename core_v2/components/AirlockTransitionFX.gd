@@ -16,6 +16,7 @@ export(float, 0.2, 8.0) var pulse_speed := 0.8           # Hz
 export(int, 1, 8)        var pre_transition_cycles := 1  # full cycles before jump
 export(int, 0, 8)        var post_transition_cycles := 1 # cycles to continue after jump
 export(float, 0.0, 1.0)  var player_hide_threshold := 0.25  # hide player when brightness below this
+export(float, 0.0, 1.0)  var post_transition_min_brightness := 0.65
 
 var _controller: Node = null
 var _active := false
@@ -24,6 +25,7 @@ var _cycle_count := 0
 var _transition_fired := false
 var _complete := false
 var _skip_next_airlock_ready := false
+var _post_only := false
 var _managed_lights: Array = []  # [{ node, property, base_value }]
 
 func _ready() -> void:
@@ -33,7 +35,7 @@ func _ready() -> void:
 		return
 	if _controller.has_signal("airlock_ready") and not _controller.is_connected("airlock_ready", self, "_on_airlock_ready"):
 		_controller.connect("airlock_ready", self, "_on_airlock_ready")
-	set_physics_process(false)
+	set_process(false)
 	call_deferred("_check_already_exit_open")
 
 func _on_airlock_ready() -> void:
@@ -47,20 +49,25 @@ func _check_already_exit_open() -> void:
 		return
 	var s = _controller.get("state")
 	if s != null and int(s) == int(AirlockControllerV2.State.EXIT_OPEN):
-		_start_fx()
+		if not _active and not _complete:
+			_start_post_transition_fx(false)
 
 # Called by SessionManager on scene arrival to replay post-transition flicker.
 # Sets a one-shot flag so the next airlock_ready signal (from open_exit_door)
 # is skipped — keeps the signal connected for future use of the same airlock.
 func start_post_transition_fx() -> void:
-	_skip_next_airlock_ready = true
+	_start_post_transition_fx(true)
+
+func _start_post_transition_fx(skip_next_ready: bool) -> void:
+	_skip_next_airlock_ready = skip_next_ready
 	_active = true
 	_time = 0.0
 	_cycle_count = 0
 	_transition_fired = true  # skip the jump, just do post cycles
 	_complete = false
+	_post_only = true
 	_collect_managed_lights()
-	set_physics_process(true)
+	set_process(true)
 
 func is_transition_moment_reached() -> bool:
 	return _transition_fired
@@ -74,10 +81,11 @@ func _start_fx() -> void:
 	_cycle_count = 0
 	_transition_fired = false
 	_complete = false
+	_post_only = false
 	_collect_managed_lights()
-	set_physics_process(true)
+	set_process(true)
 
-func _physics_process(delta: float) -> void:
+func _process(delta: float) -> void:
 	if not _active:
 		return
 
@@ -93,7 +101,7 @@ func _physics_process(delta: float) -> void:
 
 	# At nadir (phase ~0.5, i.e. sin=-1) of the transition cycle, fire the jump.
 	# We detect crossing phase 0.5 between frames.
-	var total_cycles_needed := pre_transition_cycles + post_transition_cycles
+	var total_cycles_needed := post_transition_cycles if _post_only else pre_transition_cycles + post_transition_cycles
 	if not _transition_fired and curr_cycle >= pre_transition_cycles:
 		# Fire at the nadir crossing of the pre_transition_cycles-th cycle.
 		var nadir_time := pre_transition_cycles * period + period * 0.5
@@ -103,6 +111,8 @@ func _physics_process(delta: float) -> void:
 
 	# Apply flicker to managed lights.
 	var brightness := _flicker_brightness(phase)
+	if _post_only:
+		brightness = lerp(clamp(post_transition_min_brightness, 0.0, 1.0), 1.0, brightness)
 	_apply_brightness(brightness)
 
 	# End after total cycles.
@@ -114,10 +124,12 @@ func _flicker_brightness(phase: float) -> float:
 	return (sin(phase * TAU - PI * 0.5) + 1.0) * 0.5
 
 func _finish_fx() -> void:
+	var was_post_only := _post_only
 	_active = false
 	_complete = true
-	set_physics_process(false)
-	_restore_lights()
+	_post_only = false
+	set_process(false)
+	_restore_lights(was_post_only)
 	emit_signal("fx_complete")
 
 func _collect_managed_lights() -> void:
@@ -150,7 +162,7 @@ func _collect_managed_lights_recursive(node: Node) -> void:
 func _apply_brightness(t: float) -> void:
 	# Scene-level lights and environments via SceneLighting autoload
 	var sl := get_node_or_null("/root/SceneLighting")
-	if sl:
+	if sl and not _post_only:
 		sl.set_brightness(t)
 	# Chamber-local lights
 	for entry in _managed_lights:
@@ -176,9 +188,9 @@ func _apply_brightness(t: float) -> void:
 				if node.has_method("set_active"):
 					node.call("set_active", t > 0.5, true)
 
-func _restore_lights() -> void:
+func _restore_lights(skip_scene_lighting: bool = false) -> void:
 	var sl := get_node_or_null("/root/SceneLighting")
-	if sl:
+	if sl and not skip_scene_lighting:
 		sl.restore_brightness()
 	for entry in _managed_lights:
 		var node: Node = entry["node"]

@@ -13,7 +13,7 @@ base_classes = [  ]
 class_properties = {
 "angle": 0.0,
 "angles": Vector3( 0, 0, 0 ),
-"enable_shadows": 1,
+"enable_shadows": 0,
 "is_interactable": 0,
 "light_color": Color( 1, 0.95, 0.8, 1 ),
 "light_energy_max": 12.0,

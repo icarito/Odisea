@@ -12,7 +12,7 @@ export(float, 0.0, 10.0) var light_energy_max := 4.0
 export(float, 1.0, 100.0) var light_range := 15.0 setget set_light_range
 export(float, 1.0, 90.0) var spot_angle := 45.0 setget set_spot_angle
 export(float, -90.0, 90.0) var head_tilt := 0.0 setget set_head_tilt
-export(bool) var enable_shadows := true setget set_enable_shadows
+export(bool) var enable_shadows := false setget set_enable_shadows
 export(float, 0.0, 16.0) var bulb_emission_energy := 4.0
 
 export(Color) var albedo_color_on := Color(1.0, 1.0, 1.0)

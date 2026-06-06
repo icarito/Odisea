@@ -2150,3 +2150,15 @@
 "classname" "prop_door_floor_hatch"
 "origin" "0 0 -2"
 }
+// entity 2
+{
+"classname" "light_work_tripod"
+"origin" "-87 -83 -140"
+"enable_shadows" "0"
+}
+// entity 3
+{
+"classname" "light_work_tripod"
+"origin" "-31 125 -140"
+"enable_shadows" "0"
+}

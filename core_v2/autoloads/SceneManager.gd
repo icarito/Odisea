@@ -351,7 +351,7 @@ func _open_transition_airlock_exit(target_airlock: Spatial, state_data: Dictiona
 	if exit_door == "" or exit_door == "none":
 		return
 	if target_airlock.has_method("open_exit_door"):
-		target_airlock.open_exit_door(exit_door, true)
+		target_airlock.open_exit_door(exit_door, true, true)
 
 func _face_airlock_exit(target_airlock: Spatial, state_data: Dictionary, target_transform: Transform) -> Transform:
 	if not is_instance_valid(target_airlock):
@@ -445,7 +445,7 @@ func _snap_transition_visual(player: Node, target_transform: Transform) -> void:
 		return
 	var animator = player.get("animator") if "animator" in player else null
 	if is_instance_valid(animator) and animator.has_method("snap_visual_to_direction"):
-		animator.snap_visual_to_direction(target_transform.basis.z)
+		animator.snap_visual_to_direction(-target_transform.basis.z)
 
 func _capture_player_state_for_transition() -> void:
 	_captured_player_state.clear()

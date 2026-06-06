@@ -91,14 +91,16 @@ func _ready():
 		# Force detection of player (all layers)
 		_chamber_zone.monitoring = true
 		_chamber_zone.collision_mask = 2147483647
-		
+
 		if not _chamber_zone.is_connected("body_entered", self, "_on_body_entered"):
 			_chamber_zone.connect("body_entered", self, "_on_body_entered")
+	_update_physics_processing()
 
 func _set_state(new_state):
 	if state != new_state:
 		state = new_state
 		_update_beacons()
+		_update_physics_processing()
 
 func _update_beacons():
 	if not _beacon:
@@ -174,6 +176,7 @@ func request_transition_pressurization(entry_door_name: String = "") -> bool:
 	_update_airlock_affordances()
 	if timer <= 0.0:
 		_finish_transition_pressurization()
+	_update_physics_processing()
 	return true
 
 func start_cycle(cycling_in: bool = true) -> bool:
@@ -194,6 +197,7 @@ func start_cycle(cycling_in: bool = true) -> bool:
 
 	if timer <= 0.0:
 		_finish_pressurization()
+	_update_physics_processing()
 	return true
 
 func start_transition_cycle(entry_door_name: String = "outer", immediate_close: bool = false) -> bool:
@@ -214,6 +218,7 @@ func start_transition_cycle(entry_door_name: String = "outer", immediate_close: 
 	self.state = State.PRESSURIZING
 	timer = 0.0
 	emit_signal("airlock_cycle_started")
+	_update_physics_processing()
 	return true
 
 func _can_start_transition_cycle() -> bool:
@@ -228,12 +233,20 @@ func _can_start_transition_cycle() -> bool:
 func abort_transition_cycle(entry_door_name: String = "outer") -> bool:
 	if Engine.editor_hint:
 		return false
+
+	var normalized := entry_door_name.strip_edges().to_lower()
+	if normalized != "inner":
+		normalized = "outer"
+	var entry_door = _inner_door if normalized == "inner" else _outer_door
+	var exit_door = _outer_door if normalized == "inner" else _inner_door
+
+	if state == State.EXIT_OPEN or state == State.ENTRY_OPEN:
+		_reset_to_idle_with_entry_open(normalized, entry_door, exit_door)
+		return true
+
 	if state != State.PRESSURIZING:
 		return false
 
-	var normalized := entry_door_name.strip_edges().to_lower()
-	var entry_door = _inner_door if normalized == "inner" else _outer_door
-	var exit_door = _outer_door if normalized == "inner" else _inner_door
 	_is_cycling_in = normalized != "inner"
 	_waiting_entry_door_name = normalized
 	_current_exit_door_name = ""
@@ -243,7 +256,23 @@ func abort_transition_cycle(entry_door_name: String = "outer") -> bool:
 	_set_door_active(entry_door, true)
 	timer = max(reset_time, 0.0)
 	self.state = State.ENTRY_OPEN
+	_update_physics_processing()
 	return true
+
+func _reset_to_idle_with_entry_open(entry_door_name: String, entry_door: Node, exit_door: Node) -> void:
+	_is_cycling_in = entry_door_name != "inner"
+	_current_exit_door_name = ""
+	_waiting_entry_door_name = ""
+	_pressurize_active = false
+	_transition_ready = false
+	_label_linger_timer = 0.0
+	timer = 0.0
+	_reset_transition_button()
+	_set_door_active(exit_door, false, true)
+	_set_door_active(entry_door, true, true)
+	self.state = State.IDLE
+	emit_signal("airlock_cycle_completed")
+	_update_physics_processing()
 
 func is_airlock_ready() -> bool:
 	return state == State.EXIT_OPEN
@@ -262,11 +291,10 @@ func is_transition_entry_sealed(entry_door_name: String = "outer") -> bool:
 	var entry_door = _inner_door if normalized == "inner" else _outer_door
 	return _is_door_closed(entry_door)
 
-func open_exit_door(door_name: String = "outer", immediate: bool = false) -> bool:
+func open_exit_door(door_name: String = "outer", immediate: bool = false, hold_open: bool = false) -> bool:
 	var normalized := door_name.strip_edges().to_lower()
 	if normalized == "none":
 		return false
-	print("[AirlockController] open_exit_door(", normalized, ") outer=", _outer_door, " inner=", _inner_door)
 
 	var door = _outer_door
 	var other_door = _inner_door
@@ -288,11 +316,17 @@ func open_exit_door(door_name: String = "outer", immediate: bool = false) -> boo
 	# Show "PRESURIZANDO" briefly on arrival for continuity from the previous scene.
 	_label_linger_text = "PRESURIZANDO"
 	_label_linger_timer = LABEL_LINGER_SECONDS
-	timer = max(reset_time, 0.0)
+	timer = -1.0 if hold_open else max(reset_time, 0.0)
 	if opened:
 		_prepare_zones_for_open_exit(normalized)
 		emit_signal("airlock_ready")
+	_update_physics_processing()
 	return opened
+
+func resume_exit_open_auto_reset() -> void:
+	if state == State.EXIT_OPEN and timer < 0.0:
+		timer = max(reset_time, 0.0)
+		_update_physics_processing()
 
 func interact_outer():
 	if state == State.IDLE:
@@ -317,6 +351,7 @@ func _start_entry():
 	else:
 		_set_door_active(_outer_door, false)
 		_set_door_active(_inner_door, true)
+	_update_physics_processing()
 
 func _on_body_entered(body):
 	if Engine.editor_hint: return
@@ -331,6 +366,7 @@ func _on_body_entered(body):
 			_set_door_active(_outer_door, false)
 		else:
 			_set_door_active(_inner_door, false)
+		_update_physics_processing()
 
 # --- DETERMINISTIC STEP ---
 
@@ -342,6 +378,7 @@ func step(dt: float):
 		if _label_linger_timer <= 0.0:
 			_label_linger_timer = 0.0
 			_update_airlock_affordances()
+			_update_physics_processing()
 
 	if state == State.ENTRY_OPEN:
 		timer -= dt
@@ -358,6 +395,7 @@ func step(dt: float):
 			else:
 				_set_door_active(_inner_door, false)
 			emit_signal("airlock_cycle_completed")
+			_update_physics_processing()
 
 	elif state == State.PRESSURIZING:
 		if _pressurize_active:
@@ -366,6 +404,8 @@ func step(dt: float):
 				_finish_transition_pressurization()
 
 	elif state == State.EXIT_OPEN:
+		if timer < 0.0:
+			return
 		timer -= dt
 		if timer <= 0:
 			self.state = State.PRESSURIZING
@@ -380,6 +420,7 @@ func step(dt: float):
 			else:
 				_set_door_active(_outer_door, false)
 			emit_signal("airlock_cycle_completed")
+			_update_physics_processing()
 
 func _finish_transition_pressurization() -> void:
 	_pressurize_active = false
@@ -389,6 +430,7 @@ func _finish_transition_pressurization() -> void:
 	timer = 0.0
 	_update_beacons()
 	emit_signal("airlock_ready")
+	_update_physics_processing()
 
 func _finish_pressurization() -> void:
 	self.state = State.EXIT_OPEN
@@ -414,12 +456,24 @@ func _finish_pressurization() -> void:
 		_set_door_active(_outer_door, false)
 		_set_door_active(_inner_door, false)
 		emit_signal("airlock_cycle_completed")
+	_update_physics_processing()
+
+func _update_physics_processing() -> void:
+	if Engine.editor_hint:
+		return
+	var should_process := _label_linger_timer > 0.0
+	if state == State.ENTRY_OPEN:
+		should_process = should_process or timer > 0.0
+	elif state == State.PRESSURIZING:
+		should_process = should_process or (_pressurize_active and timer > 0.0)
+	elif state == State.EXIT_OPEN:
+		should_process = should_process or timer > 0.0
+	set_physics_process(should_process)
 
 func _set_door_active(door: Node, value: bool, immediate: bool = false) -> bool:
 	if not is_instance_valid(door):
 		return false
 	if door.has_method("set_active"):
-		print("[AirlockController] _set_door_active ", door.name, " val=", value, " (direct)")
 		door.call("set_active", value, immediate)
 		return true
 	var pending: Array = [door]
@@ -428,12 +482,10 @@ func _set_door_active(door: Node, value: bool, immediate: bool = false) -> bool:
 		if not is_instance_valid(node):
 			continue
 		if node != door and node.has_method("set_active"):
-			print("[AirlockController] _set_door_active ", door.name, "/", node.name, " val=", value)
 			node.call("set_active", value, immediate)
 			return true
 		for child in node.get_children():
 			pending.push_back(child)
-	print("[AirlockController] _set_door_active ", door.name, " val=", value, " — NO set_active found!")
 	return false
 
 func _configure_managed_doors() -> void:

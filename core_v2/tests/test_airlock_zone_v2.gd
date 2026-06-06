@@ -199,8 +199,9 @@ func test_airlock_camera_push_uses_arrival_restore_meta_and_stamps_arm_length() 
 
 	assert_bool(player.has_meta("airlock_restore_spring_length")).is_false()
 	assert_float(player.base_spring_length_3d).is_equal_approx(3.2, 0.001)
-	assert_float(player.current_spring_length).is_equal_approx(3.2, 0.001)
-	assert_float(spring.current_length).is_equal_approx(3.2, 0.001)
+	assert_float(player.current_spring_length).is_equal_approx(1.5, 0.001)
+	assert_float(spring.spring_length).is_equal_approx(3.2, 0.001)
+	assert_float(spring.current_length).is_equal_approx(1.5, 0.001)
 
 func test_transition_state_opens_outer_exit_when_entering_from_inner() -> void:
 	var airlock = auto_free(AirlockControllerScript.new())
@@ -309,6 +310,66 @@ func test_abort_transition_reopens_entry_red_state_then_auto_closes() -> void:
 
 	assert_int(airlock.state).is_equal(AirlockControllerV2.State.IDLE)
 	assert_bool(outer.is_active).is_false()
+
+func test_abort_from_exit_open_reopens_entry_and_allows_restart() -> void:
+	var airlock = auto_free(_make_airlock_with_doors())
+	add_child(airlock)
+	yield(get_tree(), "idle_frame")
+
+	var outer = airlock.get_node("OuterDoor")
+	var inner = airlock.get_node("InnerDoor")
+
+	assert_bool(airlock.open_exit_door("inner", true)).is_true()
+	assert_bool(airlock.abort_transition_cycle("outer")).is_true()
+
+	assert_int(airlock.state).is_equal(AirlockControllerV2.State.IDLE)
+	assert_bool(outer.is_active).is_true()
+	assert_bool(inner.is_active).is_false()
+	assert_bool(airlock.start_transition_cycle("outer", true)).is_true()
+	assert_int(airlock.state).is_equal(AirlockControllerV2.State.PRESSURIZING)
+
+func test_abort_from_entry_open_reopens_entry_and_returns_idle() -> void:
+	var airlock = auto_free(_make_airlock_with_doors())
+	add_child(airlock)
+	yield(get_tree(), "idle_frame")
+
+	var outer = airlock.get_node("OuterDoor")
+	var inner = airlock.get_node("InnerDoor")
+
+	airlock.interact_outer()
+	assert_int(airlock.state).is_equal(AirlockControllerV2.State.ENTRY_OPEN)
+
+	assert_bool(airlock.abort_transition_cycle("outer")).is_true()
+
+	assert_int(airlock.state).is_equal(AirlockControllerV2.State.IDLE)
+	assert_bool(outer.is_active).is_true()
+	assert_bool(inner.is_active).is_false()
+
+func test_zone_exit_after_exit_open_aborts_to_idle_and_reopens_entry() -> void:
+	var airlock = auto_free(_make_airlock_with_doors())
+	add_child(airlock)
+	var zone = _make_zone()
+	airlock.add_child(zone)
+	zone.airlock_controller_path = NodePath("..")
+	yield(get_tree(), "idle_frame")
+
+	var outer = airlock.get_node("OuterDoor")
+	var inner = airlock.get_node("InnerDoor")
+	var player = auto_free(FakePlayer.new())
+	add_child(player)
+
+	assert_bool(airlock.open_exit_door("inner", true)).is_true()
+	zone._entry_door_name = "outer"
+	zone._cycle_started = true
+	zone._has_triggered = false
+	zone._player_in_zone = true
+
+	zone._on_host_body_exited(player)
+
+	assert_int(airlock.state).is_equal(AirlockControllerV2.State.IDLE)
+	assert_bool(outer.is_active).is_true()
+	assert_bool(inner.is_active).is_false()
+	assert_bool(airlock.start_transition_cycle("outer", true)).is_true()
 
 func test_zone_triggers_transition_when_player_crosses_60_percent() -> void:
 	var airlock = auto_free(_make_airlock_with_doors())
@@ -451,6 +512,75 @@ func test_zone_auto_arms_when_player_is_already_inside_after_scene_load() -> voi
 	assert_int(airlock.state).is_equal(AirlockControllerV2.State.PRESSURIZING)
 	assert_bool(airlock._pressurize_active).is_false()
 
+func test_prepared_open_exit_auto_arms_return_before_reaching_door() -> void:
+	var airlock = auto_free(_make_airlock_with_doors())
+	add_child(airlock)
+	var zone = _make_zone()
+	airlock.add_child(zone)
+	zone._scene_ready = true
+	zone._background_load = null
+	zone.zone_dir = Vector3.FORWARD
+
+	var outer = airlock.get_node("OuterDoor")
+	var inner = airlock.get_node("InnerDoor")
+	outer.transform.origin = Vector3(0, 0, 4)
+	inner.transform.origin = Vector3(0, 0, -4)
+
+	var player = auto_free(FakePlayer.new())
+	add_child(player)
+	player.global_transform.origin = airlock.global_transform.xform(Vector3(0, 1, 0))
+
+	assert_bool(airlock.open_exit_door("inner", true)).is_true()
+	assert_bool(zone._passive_exit_open).is_true()
+	assert_bool(zone._player_in_zone).is_false()
+
+	zone._physics_process(1.0 / 60.0)
+
+	assert_bool(zone._player_in_zone).is_true()
+	assert_bool(zone._passive_exit_open).is_true()
+	assert_int(airlock.state).is_equal(AirlockControllerV2.State.EXIT_OPEN)
+	assert_bool(inner.is_active).is_true()
+
+	zone._physics_process(1.0 / 60.0)
+
+	assert_bool(zone._passive_exit_open).is_true()
+	assert_int(airlock.state).is_equal(AirlockControllerV2.State.EXIT_OPEN)
+	assert_bool(inner.is_active).is_true()
+
+	player.global_transform.origin = airlock.global_transform.xform(Vector3(0, 1, 1.2))
+	zone._physics_process(1.0 / 60.0)
+
+	assert_bool(zone._passive_exit_open).is_false()
+	assert_int(airlock.state).is_equal(AirlockControllerV2.State.PRESSURIZING)
+	assert_bool(airlock._pressurize_active).is_true()
+
+func test_zone_enter_during_open_exit_arms_passive_without_closing_door() -> void:
+	var airlock = auto_free(_make_airlock_with_doors())
+	add_child(airlock)
+	var zone = _make_zone()
+	airlock.add_child(zone)
+	zone._scene_ready = true
+	zone._background_load = null
+	zone.zone_dir = Vector3.FORWARD
+
+	var outer = airlock.get_node("OuterDoor")
+	var inner = airlock.get_node("InnerDoor")
+	outer.transform.origin = Vector3(0, 0, 4)
+	inner.transform.origin = Vector3(0, 0, -4)
+
+	var player = auto_free(FakePlayer.new())
+	add_child(player)
+	player.global_transform.origin = airlock.global_transform.xform(Vector3(0, 1, 1.2))
+
+	assert_bool(airlock.open_exit_door("inner", true, true)).is_true()
+	zone._on_zone_entered(player)
+	zone._physics_process(1.0 / 60.0)
+
+	assert_bool(zone._player_in_zone).is_true()
+	assert_bool(zone._passive_exit_open).is_true()
+	assert_int(airlock.state).is_equal(AirlockControllerV2.State.EXIT_OPEN)
+	assert_bool(inner.is_active).is_true()
+
 func test_airlock_manager_carries_player_without_reparenting_airlock() -> void:
 	var manager = auto_free(AirlockManagerScript.new())
 	add_child(manager)
@@ -512,6 +642,18 @@ func test_session_opens_outer_exit_immediately_on_real_airlock() -> void:
 	var outer_state = airlock.get_node("OuterDoor/IrisMechanism")
 	assert_bool(outer_state.is_active).is_true()
 	assert_float(outer_state.anim_progress).is_equal_approx(1.0, 0.001)
+	assert_float(airlock.timer).is_less(0.0)
+
+	airlock.step(airlock.reset_time + 0.1)
+
+	assert_int(airlock.state).is_equal(AirlockControllerV2.State.EXIT_OPEN)
+	assert_bool(outer_state.is_active).is_true()
+
+	airlock.resume_exit_open_auto_reset()
+	airlock.step(airlock.reset_time + 0.1)
+
+	assert_int(airlock.state).is_equal(AirlockControllerV2.State.PRESSURIZING)
+	assert_bool(outer_state.is_active).is_false()
 
 func test_session_visual_snap_uses_animator_expected_direction_sign() -> void:
 	var session = auto_free(load("res://core_v2/autoloads/SessionManager.gd").new())
@@ -524,7 +666,7 @@ func test_session_visual_snap_uses_animator_expected_direction_sign() -> void:
 	session.set("player", player)
 	session._snap_transition_visual(Transform.IDENTITY)
 
-	assert_vector3(animator.last_direction).is_equal(Vector3.BACK)
+	assert_vector3(animator.last_direction).is_equal(Vector3.FORWARD)
 
 func test_zone_exit_before_transition_aborts_to_entry_open() -> void:
 	var airlock = auto_free(_make_airlock_with_doors())

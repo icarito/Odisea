@@ -36,6 +36,7 @@ extents = Vector3( 0.25, 0.45, 0.25 )
 script = ExtResource( 1 )
 interaction_text = "Toggle Sconce"
 starts_active = true
+enable_shadows = false
 light_color = Color( 0.2, 0.6, 1, 1 )
 light_energy_max = 3.0
 light_range = 8.0
@@ -43,7 +44,7 @@ spot_angle = 60.0
 
 [node name="Mount" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.05 )
-use_collision = true
+use_collision = false
 width = 0.4
 height = 0.8
 depth = 0.1
@@ -67,7 +68,7 @@ material = SubResource( 1 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.1 )
 light_color = Color( 0.2, 0.6, 1, 1 )
 light_energy = 3.0
-shadow_enabled = true
+shadow_enabled = false
 spot_range = 8.0
 spot_angle = 60.0
 

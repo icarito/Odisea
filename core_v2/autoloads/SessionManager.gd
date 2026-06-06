@@ -3398,7 +3398,7 @@ func _snap_transition_visual(target_transform: Transform) -> void:
 		return
 	var animator = player.get("animator") if "animator" in player else null
 	if is_instance_valid(animator) and animator.has_method("snap_visual_to_direction"):
-		animator.snap_visual_to_direction(target_transform.basis.z)
+		animator.snap_visual_to_direction(-target_transform.basis.z)
 
 func _face_airlock_exit(target_airlock: Spatial, state_data: Dictionary, target_transform: Transform) -> Transform:
 	if not is_instance_valid(target_airlock):
@@ -3468,7 +3468,7 @@ func _open_transition_airlock_exit(target_airlock: Spatial, state_data: Dictiona
 			child.call("start_post_transition_fx")
 			break
 	if target_airlock.has_method("open_exit_door"):
-		target_airlock.open_exit_door(exit_door, true)
+		target_airlock.open_exit_door(exit_door, true, true)
 
 func _find_scene_spawn_point(spawn_id: String = "") -> Position3D:
 	var scene = get_tree().current_scene
