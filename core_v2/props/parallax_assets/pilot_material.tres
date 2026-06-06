@@ -26,7 +26,6 @@ shader_param/player_pos = null
 shader_param/camera_pos = null
 shader_param/hole_radius = 0.5
 shader_param/is_active = 0.0
-shader_param/blur_softness = 0.5
 shader_param/edge_fade = 1.0
 shader_param/transparency_min = 0.3
 shader_param/transparency_max = 0.95

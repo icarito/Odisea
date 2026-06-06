@@ -22,7 +22,6 @@ var _camera_node: Camera = null
 # Shader effect parameters (can be tuned via set_occlusion_params)
 var _hole_radius: float = 0.5
 var _shader_params: Dictionary = {
-	"blur_softness": 0.5,
 	"edge_fade": 1.0,
 	"transparency_min": 0.3,
 	"transparency_max": 0.95,
@@ -30,9 +29,7 @@ var _shader_params: Dictionary = {
 }
 
 func _ready() -> void:
-	# Defer scan to let the scene tree finish loading
 	call_deferred("_scan_scene_tree")
-	# Watch for new nodes added later (streaming, instancing, etc.)
 	get_tree().connect("node_added", self, "_on_node_added")
 
 
@@ -247,6 +244,7 @@ func _convert_spatial_to_dither(source: SpatialMaterial) -> ShaderMaterial:
 	new_mat.set_shader_param("albedo", source.albedo_color)
 	if source.albedo_texture:
 		new_mat.set_shader_param("texture_albedo", source.albedo_texture)
+	new_mat.set_shader_param("use_vertex_color", source.vertex_color_use_as_albedo)
 
 	# PBR
 	new_mat.set_shader_param("metallic", source.metallic)

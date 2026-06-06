@@ -46,6 +46,19 @@ var _dome_lod_assignment_keys := []     # Array[String]
 var _dome_assignment_cache_ready := false
 var _packed_scene_cache := {}
 
+# Incremental cache build state — populated lazily across frames to avoid startup stall
+var _cache_build_pending := false      # build has been requested but not finished
+var _cache_build_spiral := 0
+var _cache_build_plate := 0
+var _cache_build_apply_selection_deferred := false  # apply_selection waiting for cache
+
+# Background resource preload: unique .glb/.tscn loaded via ResourceInteractiveLoader
+# to avoid blocking the main thread on the first blueprint resolution.
+# path -> ResourceInteractiveLoader (null once finished)
+var _preload_loaders: Dictionary = {}
+# path -> loaded Resource (PackedScene/Mesh), populated as loaders finish
+var _preload_resources: Dictionary = {}
+
 # Pipeline LOD: fase única por frame (snapshot + sort + flush todas las espirales).
 var _lod_update_phase := 0              # 0=idle, 1=ejecutar ciclo completo
 var _lod_pipeline_all_assignments := [] # candidatos para el ciclo actual
@@ -63,7 +76,10 @@ func _ready() -> void:
 	var gravity_world: Node = get_node_or_null("/root/GravityWorld")
 	if gravity_world:
 		gravity_world.set_ship_axis(Vector3.ZERO, Vector3.UP)
-	
+
+	# Kick off background loads for unique dome resources so the first frame is free
+	_begin_dome_resource_preloads()
+
 	_resolve_spawn_state()
 	call_deferred("apply_selection")
 	call_deferred("_setup_dome_facade_cursors")
@@ -71,6 +87,54 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if has_node("/root/SessionManager"):
 		get_node("/root/SessionManager").unregister_oys_actor("Odisea")
+	_preload_loaders.clear()
+
+# --- Background resource preloading ---
+
+func _begin_dome_resource_preloads() -> void:
+	var dome_registry: Node = _get_dome_registry()
+	if not dome_registry:
+		return
+	var seen := {}
+	for dome_id in dome_registry.get_all_dome_ids():
+		var info: Dictionary = dome_registry.get_dome(dome_id)
+		for key in ["facade_scene", "facade_lod_scene"]:
+			var path := String(info.get(key, "")).strip_edges()
+			if path == "" or seen.has(path):
+				continue
+			seen[path] = true
+			if _preload_resources.has(path):
+				continue
+			if not ResourceLoader.exists(path):
+				continue
+			var loader = ResourceLoader.load_interactive(path)
+			if loader:
+				_preload_loaders[path] = loader
+
+func _tick_preload_loaders() -> void:
+	if _preload_loaders.empty():
+		return
+	var budget_usec := 3000
+	var start := OS.get_ticks_usec()
+	var finished := []
+	for path in _preload_loaders.keys():
+		var loader = _preload_loaders[path]
+		if loader == null:
+			finished.append(path)
+			continue
+		while OS.get_ticks_usec() - start < budget_usec:
+			var err = loader.poll()
+			if err == ERR_FILE_EOF:
+				_preload_resources[path] = loader.get_resource()
+				finished.append(path)
+				break
+			elif err != OK:
+				finished.append(path)
+				break
+		if OS.get_ticks_usec() - start >= budget_usec:
+			break
+	for path in finished:
+		_preload_loaders.erase(path)
 
 func _resolve_player_camera() -> Camera:
 	if _player == null or not is_instance_valid(_player):
@@ -82,6 +146,8 @@ func _resolve_player_camera() -> Camera:
 	return camera
 
 func _process(_delta: float) -> void:
+	_tick_preload_loaders()
+	_tick_dome_assignment_cache_build()
 	_sync_selection_from_rotator()
 	_tick_lod_update_phase()
 	_tick_frustum_lod_update()
@@ -128,8 +194,16 @@ func apply_selection() -> void:
 	var plate_canonical: Transform = _rotator.get_selected_plate_canonical_transform()
 	_selected_plate_canonical = plate_canonical
 	_configure_gravity_for_selected_plate(plate_canonical)
-	_assign_plate_content()
 	_rotator.auto_track_target_plate = true
+
+	# LOD/content assignment requires the dome cache.
+	# _ensure_dome_assignment_cache() eagerly seeds the selected plate's keys so we
+	# can call _assign_plate_content() immediately for the full-detail dome, and then
+	# let the background build finish the rest (LOD overlay will refresh when done).
+	if not _dome_assignment_cache_ready:
+		_ensure_dome_assignment_cache()
+		_cache_build_apply_selection_deferred = true
+	_assign_plate_content()
 
 func get_selected_plate_global_transform() -> Transform:
 	return _rotator.get_selected_plate_global_transform()
@@ -209,49 +283,119 @@ func _assign_plate_content() -> void:
 func _ensure_dome_assignment_cache() -> void:
 	if _dome_assignment_cache_ready:
 		return
+	if _cache_build_pending:
+		return
+	# Start incremental build — actual work runs in _tick_dome_assignment_cache_build()
 	_dome_assignment_cache.clear()
 	_dome_lod_assignment_keys.clear()
-	if not _plate_content_stream:
+	_cache_build_spiral = 0
+	_cache_build_plate = 0
+	_cache_build_pending = true
+	# Eagerly populate the selected plate and its full-detail neighbours so that
+	# _assign_plate_content() can run immediately on the first apply_selection() call,
+	# avoiding the blank-dome flash while the background build finishes.
+	_seed_cache_for_selection(selected_spiral, selected_plate)
+
+func _seed_cache_for_selection(spiral_idx: int, plate_idx: int) -> void:
+	var dome_registry: Node = _get_dome_registry()
+	if not dome_registry or _spirals.empty():
+		return
+	if spiral_idx < 0 or spiral_idx >= _spirals.size():
+		return
+	var plate_count := _get_plate_count(_spirals[spiral_idx])
+	if plate_count <= 0:
+		return
+	var keys := _get_full_detail_plate_keys_for_selection(spiral_idx, plate_idx)
+	for key in keys.keys():
+		if _dome_assignment_cache.has(key):
+			continue
+		var parsed := _parse_plate_key(String(key))
+		var s := int(parsed.get("spiral", -1))
+		var p := int(parsed.get("plate", -1))
+		if s < 0 or p < 0:
+			continue
+		var dome_id: String = dome_registry.get_dome_id_for_plate(s, p)
+		var info: Dictionary = dome_registry.get_dome(dome_id)
+		if info.empty():
+			continue
+		var facade_scene_path := String(info.get("facade_scene", "")).strip_edges()
+		var facade_scene := _load_packed_scene_cached(facade_scene_path)
+		# LOD blueprint is expensive (instances a scene to extract mesh data) — skip
+		# during the eager seed pass.  The background build will fill it in later.
+		var assignment := {
+			"key": key,
+			"dome_id": dome_id,
+			"spiral_index": s,
+			"plate_index": p,
+			"info": info.duplicate(true),
+			"facade_scene": facade_scene,
+			"facade_spawn_offset": info.get("facade_spawn_offset", Vector3.ZERO),
+			"blueprint": {},
+			"has_lod_blueprint": false
+		}
+		_dome_assignment_cache[key] = assignment
+
+func _tick_dome_assignment_cache_build() -> void:
+	if not _cache_build_pending:
 		return
 	if _spirals.empty():
 		return
+	# Wait for background preloaders to finish before building the cache.
+	# This avoids blocking load() calls inside _resolve_dome_lod_blueprint().
+	if not _preload_loaders.empty():
+		return
 	var dome_registry: Node = _get_dome_registry()
 	if not dome_registry:
+		_cache_build_pending = false
 		return
-	for spiral_index in range(_spirals.size()):
-		var spiral: Spatial = _spirals[spiral_index]
+
+	var budget_usec := 4000  # 4ms per frame
+	var start := OS.get_ticks_usec()
+
+	while _cache_build_spiral < _spirals.size():
+		var spiral: Spatial = _spirals[_cache_build_spiral]
 		var plate_count: int = _get_plate_count(spiral)
-		if plate_count <= 0:
-			continue
-		for plate_index in range(plate_count):
-			var dome_id: String = dome_registry.get_dome_id_for_plate(spiral_index, plate_index)
+		while _cache_build_plate < plate_count:
+			var dome_id: String = dome_registry.get_dome_id_for_plate(_cache_build_spiral, _cache_build_plate)
 			var info: Dictionary = dome_registry.get_dome(dome_id)
-			if info.empty():
-				continue
-			var plate_key := _make_plate_key(spiral_index, plate_index)
-			var facade_scene_path := String(info.get("facade_scene", "")).strip_edges()
-			var facade_scene := _load_packed_scene_cached(facade_scene_path)
-			var blueprint := _resolve_dome_lod_blueprint(info)
-			var assignment := {
-				"key": plate_key,
-				"dome_id": dome_id,
-				"spiral_index": spiral_index,
-				"plate_index": plate_index,
-				"info": info.duplicate(true),
-				"facade_scene": facade_scene,
-				"facade_spawn_offset": info.get("facade_spawn_offset", Vector3.ZERO),
-				"blueprint": blueprint,
-				"has_lod_blueprint": not blueprint.empty()
-			}
-			_dome_assignment_cache[plate_key] = assignment
-			if bool(assignment["has_lod_blueprint"]):
-				_dome_lod_assignment_keys.append(plate_key)
+			if not info.empty():
+				var plate_key := _make_plate_key(_cache_build_spiral, _cache_build_plate)
+				if not _dome_assignment_cache.has(plate_key):
+					var facade_scene_path := String(info.get("facade_scene", "")).strip_edges()
+					var facade_scene := _load_packed_scene_cached(facade_scene_path)
+					var blueprint := _resolve_dome_lod_blueprint(info)
+					var assignment := {
+						"key": plate_key,
+						"dome_id": dome_id,
+						"spiral_index": _cache_build_spiral,
+						"plate_index": _cache_build_plate,
+						"info": info.duplicate(true),
+						"facade_scene": facade_scene,
+						"facade_spawn_offset": info.get("facade_spawn_offset", Vector3.ZERO),
+						"blueprint": blueprint,
+						"has_lod_blueprint": not blueprint.empty()
+					}
+					_dome_assignment_cache[plate_key] = assignment
+					if bool(assignment["has_lod_blueprint"]) and not _dome_lod_assignment_keys.has(plate_key):
+						_dome_lod_assignment_keys.append(plate_key)
+			_cache_build_plate += 1
+			if OS.get_ticks_usec() - start >= budget_usec:
+				return  # yield until next frame
+		_cache_build_spiral += 1
+		_cache_build_plate = 0
+
+	# All spirals processed
+	_cache_build_pending = false
 	_dome_assignment_cache_ready = true
+	if _cache_build_apply_selection_deferred:
+		_cache_build_apply_selection_deferred = false
+		_assign_plate_content()
 
 func _sync_plate_window_for_selection(force: bool = false) -> void:
 	if not _plate_content_stream:
 		return
-	_ensure_dome_assignment_cache()
+	if not _dome_assignment_cache_ready and _dome_assignment_cache.empty():
+		return  # nothing seeded yet; wait for first _seed_cache_for_selection pass
 	var lod_mode := _get_dome_lod_mode()
 	if lod_mode == "off":
 		if _plate_content_stream.has_method("set_active_assignments"):
@@ -370,7 +514,34 @@ func _uses_dome_lod_overlays() -> bool:
 	return _get_dome_lod_mode() == "lod"
 
 func _load_packed_scene(path: String) -> PackedScene:
-	if path == "" or not ResourceLoader.exists(path):
+	if path == "":
+		return null
+	if _preload_resources.has(path):
+		var cached = _preload_resources[path]
+		if cached is PackedScene:
+			return cached
+		return null
+	# If a background loader is still in flight for this path, finish it now
+	# (blocking) rather than starting a second load() call.
+	if _preload_loaders.has(path):
+		var loader = _preload_loaders[path]
+		if loader != null:
+			while true:
+				var err = loader.poll()
+				if err == ERR_FILE_EOF:
+					var res = loader.get_resource()
+					_preload_resources[path] = res
+					_preload_loaders.erase(path)
+					if res is PackedScene:
+						return res
+					return null
+				elif err != OK:
+					_preload_loaders.erase(path)
+					break
+		else:
+			_preload_loaders.erase(path)
+		return null
+	if not ResourceLoader.exists(path):
 		return null
 	var resource = load(path)
 	if resource is PackedScene:
@@ -770,29 +941,30 @@ func _build_spiral_dome_lod_groups(spiral_group_map: Dictionary) -> Array:
 func _has_dome_lod_blueprint(info: Dictionary) -> bool:
 	return not _resolve_dome_lod_blueprint(info).empty()
 
-func _resolve_dome_lod_blueprint(info: Dictionary) -> Dictionary:
+func _resolve_dome_lod_blueprint(info: Dictionary, preload_only: bool = false) -> Dictionary:
 	var mesh_path := String(info.get("facade_lod_mesh", "")).strip_edges()
 	if mesh_path != "":
 		var mesh_key := "mesh|%s" % mesh_path
 		if _dome_lod_blueprint_cache.has(mesh_key):
 			return _dome_lod_blueprint_cache[mesh_key]
-		if ResourceLoader.exists(mesh_path):
-			var mesh_resource = load(mesh_path)
-			if mesh_resource is Mesh:
-				var blueprint := {
-					"parts": [{
-						"mesh": mesh_resource,
-						"local_transform": Transform.IDENTITY,
-						"material_override": null,
-						"surface_materials": [],
-						"aabb": mesh_resource.get_aabb()
-					}],
-					"aabb": mesh_resource.get_aabb(),
-					"aabb_size": mesh_resource.get_aabb().size,
-					"cache_key": mesh_key
-				}
-				_dome_lod_blueprint_cache[mesh_key] = blueprint
-				return blueprint
+		var mesh_resource = _preload_resources.get(mesh_path, null)
+		if mesh_resource == null and not preload_only and ResourceLoader.exists(mesh_path):
+			mesh_resource = load(mesh_path)
+		if mesh_resource is Mesh:
+			var blueprint := {
+				"parts": [{
+					"mesh": mesh_resource,
+					"local_transform": Transform.IDENTITY,
+					"material_override": null,
+					"surface_materials": [],
+					"aabb": mesh_resource.get_aabb()
+				}],
+				"aabb": mesh_resource.get_aabb(),
+				"aabb_size": mesh_resource.get_aabb().size,
+				"cache_key": mesh_key
+			}
+			_dome_lod_blueprint_cache[mesh_key] = blueprint
+			return blueprint
 
 	var scene_path := String(info.get("facade_lod_scene", "")).strip_edges()
 	if scene_path == "":
@@ -801,9 +973,11 @@ func _resolve_dome_lod_blueprint(info: Dictionary) -> Dictionary:
 	var scene_key := "scene|%s|%s" % [scene_path, mesh_node_path]
 	if _dome_lod_blueprint_cache.has(scene_key):
 		return _dome_lod_blueprint_cache[scene_key]
-	if not ResourceLoader.exists(scene_path):
-		return {}
-	var scene_resource = load(scene_path)
+	var scene_resource = _preload_resources.get(scene_path, null)
+	if scene_resource == null:
+		if preload_only or not ResourceLoader.exists(scene_path):
+			return {}
+		scene_resource = load(scene_path)
 	if not (scene_resource is PackedScene):
 		return {}
 	var scene_root = scene_resource.instance()
@@ -893,9 +1067,11 @@ func _resolve_facade_reference_size(info: Dictionary) -> Vector3:
 		return Vector3.ONE
 	if _scene_bounds_cache.has(facade_scene_path):
 		return _scene_bounds_cache[facade_scene_path]
-	if not ResourceLoader.exists(facade_scene_path):
-		return Vector3.ONE
-	var facade_scene = load(facade_scene_path)
+	var facade_scene = _preload_resources.get(facade_scene_path, null)
+	if facade_scene == null:
+		if not ResourceLoader.exists(facade_scene_path):
+			return Vector3.ONE
+		facade_scene = load(facade_scene_path)
 	if not (facade_scene is PackedScene):
 		return Vector3.ONE
 	var facade_root = facade_scene.instance()

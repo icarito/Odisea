@@ -109,7 +109,7 @@ material/0 = SubResource( 36 )
 [node name="CollisionShape" type="CollisionShape" parent="RotatingObjectV2"]
 shape = SubResource( 41 )
 
-[node name="PersonCard2" type="MeshInstance" parent="."]
+[node name="PersonCard2" type="MeshInstance" parent="." groups=["no_occlusion"]]
 transform = Transform( 1, -1.50996e-07, -1.05697e-07, -1.50996e-07, -1, -7.32463e-08, -1.50996e-07, 1.04638e-07, -0.7, 0, 1.40804, -0.114267 )
 mesh = SubResource( 39 )
 material/0 = ExtResource( 8 )
