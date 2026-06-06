@@ -1,0 +1,26 @@
+LEVEL res://core_v2/levels/interiors/Dome_Crio.tscn
+
+SECTION "Dome Crio Airlock Round Trip"
+    WAIT 1.5
+
+    SET_POS "Pilot" [-0.4, 4.4, -29.8]
+    WAIT 0.3
+    WALK FW 3.5
+    WAIT 2.2
+
+    SET $scene1 current_scene_basename
+    SET $anim1 animator_physics_active
+    PRINT "After outbound scene=$scene1 animator=$anim1"
+    SCREENSHOT "00_exterior_arrival"
+    ASSERT pos.y > -5.0 "Player should remain valid after outbound airlock sequence"
+
+    WALK BW 4.0
+    WAIT 2.4
+
+    SET $scene2 current_scene_basename
+    SET $anim2 animator_physics_active
+    SET $ots2 ots_spring_length
+    PRINT "After return scene=$scene2 animator=$anim2 ots=$ots2"
+    SCREENSHOT "01_return_arrival"
+    ASSERT pos.y > -5.0 "Player should remain valid after return airlock sequence"
+END

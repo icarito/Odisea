@@ -88,49 +88,49 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.01, 0 )
 use_collision = true
 
 [node name="Floor" type="CSGBox" parent="Frame"]
+cast_shadow = 0
 width = 4.4
 height = 0.15
 depth = 4.4
-cast_shadow = 0
 material = SubResource( 3 )
 
 [node name="Hole" type="CSGBox" parent="Frame/Floor"]
+cast_shadow = 0
 operation = 2
 width = 2.8
 height = 0.3
 depth = 2.8
-cast_shadow = 0
 
 [node name="WarnBorderFront" type="CSGBox" parent="Frame"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.076, 1.65 )
+cast_shadow = 0
 width = 3.0
 height = 0.006
 depth = 0.12
-cast_shadow = 0
 material = SubResource( 7 )
 
 [node name="WarnBorderBack" type="CSGBox" parent="Frame"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.076, -1.65 )
+cast_shadow = 0
 width = 3.0
 height = 0.006
 depth = 0.12
-cast_shadow = 0
 material = SubResource( 7 )
 
 [node name="WarnBorderLeft" type="CSGBox" parent="Frame"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.65, 0.076, 0 )
+cast_shadow = 0
 width = 0.12
 height = 0.006
 depth = 3.0
-cast_shadow = 0
 material = SubResource( 7 )
 
 [node name="WarnBorderRight" type="CSGBox" parent="Frame"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.65, 0.076, 0 )
+cast_shadow = 0
 width = 0.12
 height = 0.006
 depth = 3.0
-cast_shadow = 0
 material = SubResource( 7 )
 
 [node name="HatchDoor" type="KinematicBody" parent="."]
@@ -143,64 +143,64 @@ size = Vector3( 2.8, 0.12, 2.8 )
 shape = SubResource( 9 )
 
 [node name="MeshInstance" type="CSGBox" parent="HatchDoor"]
+cast_shadow = 0
 width = 2.8
 height = 0.12
 depth = 2.8
-cast_shadow = 0
 material = SubResource( 4 )
 
 [node name="Panel" type="CSGBox" parent="HatchDoor"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.062, 0 )
-height = 0.005
 cast_shadow = 0
+height = 0.005
 material = SubResource( 8 )
 
 [node name="CornerNW" type="CSGBox" parent="HatchDoor"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.05, 0.065, -1.05 )
+cast_shadow = 0
 width = 0.5
 height = 0.01
 depth = 0.5
-cast_shadow = 0
 material = SubResource( 8 )
 
 [node name="CornerNE" type="CSGBox" parent="HatchDoor"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.05, 0.065, -1.05 )
+cast_shadow = 0
 width = 0.5
 height = 0.01
 depth = 0.5
-cast_shadow = 0
 material = SubResource( 8 )
 
 [node name="CornerSW" type="CSGBox" parent="HatchDoor"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.05, 0.065, 1.05 )
+cast_shadow = 0
 width = 0.5
 height = 0.01
 depth = 0.5
-cast_shadow = 0
 material = SubResource( 8 )
 
 [node name="CornerSE" type="CSGBox" parent="HatchDoor"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.05, 0.065, 1.05 )
+cast_shadow = 0
 width = 0.5
 height = 0.01
 depth = 0.5
-cast_shadow = 0
 material = SubResource( 8 )
 
 [node name="RibH" type="CSGBox" parent="HatchDoor"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.065, 0 )
+cast_shadow = 0
 width = 2.8
 height = 0.01
 depth = 0.1
-cast_shadow = 0
 material = SubResource( 8 )
 
 [node name="RibV" type="CSGBox" parent="HatchDoor"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.065, 0 )
+cast_shadow = 0
 width = 0.1
 height = 0.01
 depth = 2.8
-cast_shadow = 0
 material = SubResource( 8 )
 
 [node name="ValveWheel" type="KinematicBody" parent="."]

@@ -1,0 +1,24 @@
+LEVEL res://core_v2/levels/interiors/Dome_Crio.tscn
+
+SECTION "Dome Crio Airlock Regret Before Commit"
+    WAIT 1.5
+
+    SET_POS "Pilot" [-0.4, 4.4, -29.8]
+    WAIT 0.3
+    SET $scene0 current_scene_basename
+    PRINT "Start scene=$scene0"
+    SCREENSHOT "00_pre60_entry"
+
+    WALK FW 1.0
+    WAIT 0.2
+    WALK BW 1.6
+    WAIT 1.2
+
+    SET $scene current_scene_basename
+    SET $py pos.y
+    SET $anim animator_physics_active
+    PRINT "After pre-60 regret scene=$scene y=$py animator=$anim"
+    SCREENSHOT "01_pre60_regret"
+
+    ASSERT $py > -5.0 "Player should remain valid after pre-60 regret"
+END
