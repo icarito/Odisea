@@ -23,6 +23,7 @@ signal exterior_resumed()
 var _pending_transition := false
 var _seamless_swap := false  # true while SceneManager should use add-before-free order
 var _player_held: Node = null
+var _airlock_held: Node = null
 
 var _exterior_scene: Node = null
 var _exterior_paused := false
@@ -64,6 +65,14 @@ func _on_pre_scene_swap(old_scene: Node, _new_scene: Node, _params: Dictionary) 
 		return
 	_pending_transition = false
 
+	var active_airlock := _find_active_airlock_in(old_scene)
+	if is_instance_valid(active_airlock):
+		var airlock_parent := active_airlock.get_parent()
+		if is_instance_valid(airlock_parent):
+			airlock_parent.remove_child(active_airlock)
+		add_child(active_airlock)
+		_airlock_held = active_airlock
+
 	# Lift player out of old scene so queue_free() doesn't destroy it
 	var player := _find_player_in(old_scene)
 	if is_instance_valid(player):
@@ -94,6 +103,16 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 		if _exterior_paused:
 			_resume_exterior()
 
+	if is_instance_valid(_airlock_held):
+		var airlock := _airlock_held
+		_airlock_held = null
+		if airlock.get_parent() == self:
+			remove_child(airlock)
+		_rename_held_airlock_for_target(airlock, _params)
+		scene_root.add_child(airlock)
+		if _params is Dictionary:
+			_params["_airlock_manager_placed"] = true
+
 	# Place player back into the new scene BEFORE apply_spawn_and_state runs,
 	# so SessionManager can find it and apply spawn/camera correctly.
 	if is_instance_valid(_player_held):
@@ -117,6 +136,16 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 		var animator := _find_animator_in(player)
 		if is_instance_valid(animator) and "_transition_freeze_frames" in animator:
 			animator._transition_freeze_frames = 8
+		# Snap camera arm to the actual collision geometry in the new scene so it
+		# doesn't violently retract from spring_length on the first frame.
+		# Grant a brief collision grace so jitter from the freeze frames doesn't
+		# cause the arm to bounce between wall and open air.
+		if player.has_method("snap_camera_to_current_state"):
+			player.call_deferred("snap_camera_to_current_state")
+		if "_camera_collision_grace_left" in player:
+			player._camera_collision_grace_left = max(player._camera_collision_grace_left, 0.35)
+		if _params is Dictionary:
+			_params["_airlock_manager_placed"] = true
 
 func _find_animator_in(player: Node) -> Node:
 	if not is_instance_valid(player):
@@ -136,6 +165,39 @@ func _find_player_in(scene_root: Node) -> Node:
 		if is_instance_valid(p) and scene_root.is_a_parent_of(p):
 			return p
 	return scene_root.find_node("Pilot", true, false)
+
+func _find_active_airlock_in(scene_root: Node) -> Node:
+	if not is_instance_valid(scene_root):
+		return null
+	var pending: Array = [scene_root]
+	while not pending.empty():
+		var node: Node = pending.pop_front()
+		if is_instance_valid(node) and node is AirlockControllerV2:
+			if node.has_method("is_transition_requested") and bool(node.is_transition_requested()):
+				return node
+			var state = node.get("state")
+			if state != null and int(state) == int(AirlockControllerV2.State.PRESSURIZING):
+				return node
+		for child in node.get_children():
+			pending.push_back(child)
+	return null
+
+func _rename_held_airlock_for_target(airlock: Node, params: Dictionary) -> void:
+	if not is_instance_valid(airlock) or typeof(params) != TYPE_DICTIONARY:
+		return
+	var state_data = params.get("state_data", {})
+	if typeof(state_data) != TYPE_DICTIONARY:
+		return
+	var target_path := String(state_data.get("target_airlock_path", "")).strip_edges()
+	if target_path == "":
+		return
+	var path := NodePath(target_path)
+	var name_count := path.get_name_count()
+	if name_count <= 0:
+		return
+	var target_name := path.get_name(name_count - 1)
+	if target_name != "":
+		airlock.name = target_name
 
 
 # --- Exterior streaming pause/resume ---

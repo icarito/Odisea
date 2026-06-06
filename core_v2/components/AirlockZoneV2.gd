@@ -4,10 +4,8 @@ class_name AirlockZoneV2
 const PRELOAD_POLL_BUDGET_MS := 4
 const DEFAULT_FADE_OUT_S := 0.017
 const DEFAULT_FADE_IN_S := 0.08
-const STALL_START_PROGRESS := 0.5
-const TRIGGER_PROGRESS := 0.6
-const PRESSURIZING_BLOCK_PROGRESS := 0.54
-const EXIT_SIDE_EPSILON := 0.15
+const TRANSITION_TRIGGER_PROGRESS := 0.6
+const OPEN_EXIT_RETURN_TRIGGER_PROGRESS := 0.35
 
 export(String, FILE, "*.tscn") var target_scene := ""
 export(String) var target_spawn_id := ""
@@ -28,6 +26,8 @@ var _load_error := ""
 var _has_safe_relative_y := false
 var _last_safe_relative_y := 0.0
 var _entry_door_name := "outer"
+var _cycle_started := false
+var _passive_exit_open := false
 
 func _ready() -> void:
 	._ready()
@@ -45,8 +45,11 @@ func _on_zone_entered(body: Node) -> void:
 	_tracked_player = body
 	_player_in_zone = true
 	_has_safe_relative_y = false
+	_has_triggered = false
+	_cycle_started = true
+	_passive_exit_open = false
 	_set_airlock_tracking_suspended(body, true)
-	_start_airlock_cycle()
+	_start_airlock_cycle_from_body(body)
 	_begin_background_load()
 
 func _on_zone_exited(body: Node) -> void:
@@ -56,8 +59,10 @@ func _on_zone_exited(body: Node) -> void:
 		return
 	_player_in_zone = false
 	_stalling = false
-	if not _has_triggered:
+	if _cycle_started and not _has_triggered:
 		_abort_airlock_cycle()
+	_cycle_started = false
+	_passive_exit_open = false
 	_set_airlock_tracking_suspended(body, false)
 	_update_indicator_lights()
 
@@ -69,37 +74,87 @@ func _physics_process(_delta: float) -> void:
 	_update_indicator_lights()
 
 	if not _player_in_zone:
+		_arm_player_already_inside_zone()
+	if not _player_in_zone:
 		return
 
 	var player := _get_player()
 	if not (is_instance_valid(player) and player is Spatial):
 		return
-	if not is_body_in_zone(player):
+	if not is_body_in_zone(player) and not _is_spatial_geometrically_in_zone(player as Spatial):
 		_player_in_zone = false
 		_stalling = false
-		if not _has_triggered:
+		if _cycle_started and not _has_triggered:
 			_abort_airlock_cycle()
+		_cycle_started = false
+		_passive_exit_open = false
 		_update_indicator_lights()
 		return
 
 	_update_progress(player as Spatial)
-	_clamp_to_open_exit_side(player as Spatial)
-	_update_progress(player as Spatial)
+
+	if not _has_triggered and _should_force_return_from_open_exit():
+		_commit_return_from_open_exit(player)
+
+	if _passive_exit_open and not _has_triggered and _past_return_trigger_threshold():
+		_commit_return_from_open_exit(player)
+
+	if not _has_triggered and _past_trigger_threshold():
+		var airlock = _find_airlock_controller()
+		if is_instance_valid(airlock):
+			_ensure_transition_cycle_started(airlock, true)
+		if is_instance_valid(airlock) and airlock.has_method("request_transition_pressurization"):
+			airlock.request_transition_pressurization(_entry_door_name)
 
 	var can_transition := _can_transition_now()
-	if _is_airlock_pressurizing() and _progress >= PRESSURIZING_BLOCK_PROGRESS and not can_transition:
-		_clamp_player_progress(player as Spatial, PRESSURIZING_BLOCK_PROGRESS)
-		_update_progress(player as Spatial)
-
-	if _progress >= STALL_START_PROGRESS and not can_transition:
-		_stalling = true
-		_apply_soft_stall(player)
-	else:
-		_stalling = false
+	_stalling = false
 
 	if can_transition and not _has_triggered:
 		_has_triggered = true
 		call_deferred("_run_transition", player)
+
+func _arm_player_already_inside_zone() -> void:
+	var player := _get_player()
+	if not (is_instance_valid(player) and player is Spatial):
+		return
+	if not is_body_in_zone(player) and not _is_spatial_geometrically_in_zone(player as Spatial):
+		return
+	var airlock = _find_airlock_controller()
+	if is_instance_valid(airlock):
+		var state = airlock.get("state")
+		if state != null and int(state) == int(AirlockControllerV2.State.EXIT_OPEN):
+			_tracked_player = player
+			_player_in_zone = true
+			_has_triggered = false
+			_cycle_started = false
+			_passive_exit_open = true
+			if airlock.has_method("get_open_exit_door_name"):
+				var open_exit := String(airlock.get_open_exit_door_name()).strip_edges().to_lower()
+				if open_exit == "inner" or open_exit == "outer":
+					_entry_door_name = open_exit
+			_begin_background_load()
+			return
+	_on_zone_entered(player)
+
+func _is_spatial_geometrically_in_zone(body: Spatial) -> bool:
+	var local_pos: Vector3 = global_transform.affine_inverse().xform(body.global_transform.origin)
+	var extents := zone_extents
+	var shape_node := _find_collision_shape_direct()
+	if shape_node and shape_node.shape is BoxShape:
+		extents = shape_node.shape.extents
+	return abs(local_pos.x) <= extents.x and abs(local_pos.y) <= extents.y and abs(local_pos.z) <= extents.z
+
+func prepare_for_open_exit(open_exit_door_name: String) -> void:
+	var normalized := String(open_exit_door_name).strip_edges().to_lower()
+	if normalized != "inner":
+		normalized = "outer"
+	_entry_door_name = normalized
+	_has_triggered = false
+	_cycle_started = false
+	_passive_exit_open = true
+	_stalling = false
+	_player_in_zone = false
+	_tracked_player = null
 
 func _begin_background_load() -> bool:
 	if _scene_ready or _background_load != null:
@@ -151,19 +206,6 @@ func _update_progress(player: Spatial) -> void:
 	_progress = clamp((projected + half_length) / length, 0.0, 1.0)
 	_relative_position = local_pos
 	_update_safe_relative_y(player, local_pos)
-
-func _apply_soft_stall(player: Node) -> void:
-	var progress_span := max(TRIGGER_PROGRESS - STALL_START_PROGRESS, 0.001)
-	var t := clamp((_progress - STALL_START_PROGRESS) / progress_span, 0.0, 1.0)
-	var factor: float = lerp(0.65, 0.35, t)
-
-	if "movement_logic" in player and is_instance_valid(player.movement_logic):
-		player.movement_logic.wish_direction *= factor
-		# Do NOT multiply horizontal_velocity directly — applying factor every frame
-		# causes oscillation: velocity decays, movement regenerates it from input,
-		# stall decays again. This 2-5cm oscillation exceeds the camera arm's latch
-		# epsilon (2.5cm) and invalidates the collision latch each frame → camera jitter.
-		# Scaling wish_direction is enough: the movement system decelerates naturally.
 
 func _run_transition(player: Node) -> void:
 	if not is_instance_valid(player):
@@ -313,11 +355,18 @@ func _sanitize_relative_transform(relative_transform: Transform, player: Node) -
 		out.origin.y = _last_safe_relative_y
 	return out
 
-func _start_airlock_cycle() -> void:
+func _start_airlock_cycle_from_body(body: Node) -> void:
 	var airlock = _find_airlock_controller()
 	if not is_instance_valid(airlock):
 		return
-	if airlock.has_method("is_airlock_ready") and airlock.is_airlock_ready():
+	if body is Spatial:
+		_entry_door_name = _get_nearest_door_name(body as Spatial)
+	if airlock.has_method("start_transition_cycle"):
+		airlock.start_transition_cycle(_entry_door_name)
+
+func _start_airlock_cycle() -> void:
+	var airlock = _find_airlock_controller()
+	if not is_instance_valid(airlock):
 		return
 	_entry_door_name = "outer" if _is_moving_outer_to_inner() else "inner"
 	if airlock.has_method("start_transition_cycle"):
@@ -338,11 +387,101 @@ func _set_airlock_tracking_suspended(body: Node, suspended: bool) -> void:
 	elif body.has_meta("airlock_tracking_suspended"):
 		body.remove_meta("airlock_tracking_suspended")
 
+func _past_trigger_threshold() -> bool:
+	return _past_progress_between_doors(TRANSITION_TRIGGER_PROGRESS)
+
+func _past_return_trigger_threshold() -> bool:
+	return _past_progress_between_doors(OPEN_EXIT_RETURN_TRIGGER_PROGRESS)
+
+func _should_force_return_from_open_exit() -> bool:
+	var airlock = _find_airlock_controller()
+	if not is_instance_valid(airlock):
+		return false
+	var state = airlock.get("state")
+	if state == null or int(state) != int(AirlockControllerV2.State.EXIT_OPEN):
+		return false
+	if not airlock.has_method("get_open_exit_door_name"):
+		return false
+	var open_exit := String(airlock.get_open_exit_door_name()).strip_edges().to_lower()
+	if open_exit != "inner" and open_exit != "outer":
+		return false
+	_entry_door_name = open_exit
+	return _past_return_trigger_threshold()
+
+func _commit_return_from_open_exit(player: Node) -> void:
+	var airlock = _find_airlock_controller()
+	if not is_instance_valid(airlock):
+		return
+	var started := _ensure_transition_cycle_started(airlock, true)
+	if not started:
+		return
+	_cycle_started = true
+	_passive_exit_open = false
+	if _cycle_started:
+		_set_airlock_tracking_suspended(player, true)
+		if airlock.has_method("request_transition_pressurization"):
+			airlock.request_transition_pressurization(_entry_door_name)
+
+func _ensure_transition_cycle_started(airlock: Node, immediate_close: bool) -> bool:
+	if not is_instance_valid(airlock):
+		return false
+	var state = airlock.get("state")
+	if state != null and int(state) == int(AirlockControllerV2.State.PRESSURIZING):
+		return true
+	if airlock.has_method("start_transition_cycle"):
+		return bool(airlock.start_transition_cycle(_entry_door_name, immediate_close))
+	return true
+
+func _past_progress_between_doors(fraction: float) -> bool:
+	var entry_progress := _get_door_progress(_entry_door_name)
+	var exit_progress := _get_door_progress(_get_exit_door_for_direction())
+	var trigger_progress: float = lerp(entry_progress, exit_progress, clamp(fraction, 0.0, 1.0))
+	if entry_progress <= exit_progress:
+		return _progress >= trigger_progress
+	return _progress <= trigger_progress
+
+func _progress_between_doors() -> float:
+	var entry_progress := _get_door_progress(_entry_door_name)
+	var exit_progress := _get_door_progress(_get_exit_door_for_direction())
+	var span := exit_progress - entry_progress
+	if abs(span) <= 0.001:
+		return 0.0
+	return clamp((_progress - entry_progress) / span, 0.0, 1.0)
+
 func _is_moving_outer_to_inner() -> bool:
 	return _get_local_zone_direction().dot(Vector3.FORWARD) >= 0.0
 
 func _get_exit_door_for_direction() -> String:
-	return "inner" if _is_moving_outer_to_inner() else "outer"
+	if _entry_door_name == "inner":
+		return "outer"
+	return "inner"
+
+func _get_nearest_door_name(player: Spatial) -> String:
+	var local_pos: Vector3 = global_transform.affine_inverse().xform(player.global_transform.origin)
+	var dir := _get_local_zone_direction()
+	var player_projected := local_pos.dot(dir)
+	var inner_projected := _get_door_projected_position("inner", dir)
+	var outer_projected := _get_door_projected_position("outer", dir)
+	return "inner" if abs(player_projected - inner_projected) <= abs(player_projected - outer_projected) else "outer"
+
+func _get_door_progress(door_name: String) -> float:
+	var dir := _get_local_zone_direction()
+	var half_length := _get_zone_half_length(dir)
+	var length := max(half_length * 2.0, 0.001)
+	var projected := _get_door_projected_position(door_name, dir)
+	return clamp((projected + half_length) / length, 0.0, 1.0)
+
+func _get_door_projected_position(door_name: String, dir: Vector3) -> float:
+	var airlock = _find_airlock_controller()
+	if is_instance_valid(airlock) and airlock is Spatial:
+		var door_path = airlock.get("inner_door_path") if door_name == "inner" else airlock.get("outer_door_path")
+		if typeof(door_path) == TYPE_NODE_PATH and not door_path.is_empty():
+			var door = airlock.get_node_or_null(door_path)
+			if is_instance_valid(door) and door is Spatial:
+				var local_pos: Vector3 = global_transform.affine_inverse().xform((door as Spatial).global_transform.origin)
+				return local_pos.dot(dir)
+	var fallback := -1.0 if door_name == "inner" else 1.0
+	return fallback * _get_zone_half_length(dir)
 
 func _get_local_zone_direction() -> Vector3:
 	if zone_dir.length_squared() <= 0.0001:
@@ -378,47 +517,15 @@ func _is_airlock_pressurizing() -> bool:
 	return s != null and int(s) == int(AirlockControllerV2.State.PRESSURIZING)
 
 func _can_transition_now() -> bool:
-	return _scene_ready and _is_airlock_pressurizing() and _is_airlock_entry_sealed()
+	return _scene_ready and _is_airlock_pressurizing() and _is_airlock_entry_sealed() and _is_airlock_transition_requested()
 
-func _clamp_to_open_exit_side(player: Spatial) -> void:
+func _is_airlock_transition_requested() -> bool:
 	var airlock := _find_airlock_controller()
 	if not is_instance_valid(airlock):
-		return
-	if not airlock.has_method("get_open_exit_door_name"):
-		return
-	var open_exit := String(airlock.get_open_exit_door_name()).strip_edges().to_lower()
-	if open_exit == "":
-		return
-
-	var dir := _get_local_zone_direction()
-	var high_progress_door := _get_exit_door_for_direction()
-	var local_pos: Vector3 = global_transform.affine_inverse().xform(player.global_transform.origin)
-	var projected := local_pos.dot(dir)
-	var lateral := local_pos - dir * projected
-	if open_exit == high_progress_door and projected < EXIT_SIDE_EPSILON:
-		local_pos = lateral + dir * EXIT_SIDE_EPSILON
-	elif open_exit != high_progress_door and projected > -EXIT_SIDE_EPSILON:
-		local_pos = lateral - dir * EXIT_SIDE_EPSILON
-	else:
-		return
-
-	var tx := player.global_transform
-	tx.origin = global_transform.xform(local_pos)
-	player.global_transform = tx
-
-func _clamp_player_progress(player: Spatial, max_progress: float) -> void:
-	var dir := _get_local_zone_direction()
-	var half_length := _get_zone_half_length(dir)
-	var projected_limit: float = lerp(-half_length, half_length, clamp(max_progress, 0.0, 1.0))
-	var local_pos: Vector3 = global_transform.affine_inverse().xform(player.global_transform.origin)
-	if local_pos.dot(dir) <= projected_limit:
-		return
-	var lateral := local_pos - dir * local_pos.dot(dir)
-	local_pos = lateral + dir * projected_limit
-	var tx := player.global_transform
-	tx.origin = global_transform.xform(local_pos)
-	player.global_transform = tx
-
+		return true
+	if airlock.has_method("is_transition_requested"):
+		return bool(airlock.is_transition_requested())
+	return true
 
 func _find_airlock_controller() -> Node:
 	if not airlock_controller_path.is_empty():

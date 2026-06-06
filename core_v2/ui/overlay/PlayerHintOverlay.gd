@@ -9,6 +9,7 @@ export(int, 10, 36) var font_size := 18
 export(Color) var font_color := Color(0.85, 1.0, 0.95)
 
 var _cached_font: DynamicFont = null
+var _hint_mode := "hint"
 
 onready var _label: Label = $HintLabel
 
@@ -37,6 +38,11 @@ func set_hint_text(text: String) -> void:
 func clear_hint_text() -> void:
 	set_hint_text("")
 
+func set_hint_mode(mode: String) -> void:
+	var normalized := mode.strip_edges().to_lower()
+	_hint_mode = "status" if normalized == "status" else "hint"
+	_reflow()
+
 func _reflow() -> void:
 	if not _label:
 		return
@@ -44,10 +50,19 @@ func _reflow() -> void:
 	if viewport_size.x <= 0.0:
 		viewport_size = Vector2(1024, 600)
 	var safe_margins := _get_safe_margins()
+	var max_width := max(180.0, viewport_size.x * max_width_ratio)
 	var left := float(safe_margins.get("left", 0.0)) + hint_margin_left
 	var top := float(safe_margins.get("top", 0.0)) + hint_margin_top
-	var usable_width := viewport_size.x - left - float(safe_margins.get("right", 0.0)) - hint_margin_left
-	var max_width := max(180.0, min(usable_width, viewport_size.x * max_width_ratio))
+	if _hint_mode == "status":
+		var usable_width := viewport_size.x - float(safe_margins.get("left", 0.0)) - float(safe_margins.get("right", 0.0))
+		max_width = max(220.0, min(usable_width, viewport_size.x * 0.5))
+		left = (viewport_size.x - max_width) * 0.5
+		top = viewport_size.y * 0.38
+		_label.align = Label.ALIGN_CENTER
+	else:
+		var usable_width := viewport_size.x - left - float(safe_margins.get("right", 0.0)) - hint_margin_left
+		max_width = max(180.0, min(usable_width, viewport_size.x * max_width_ratio))
+		_label.align = Label.ALIGN_LEFT
 	_label.rect_position = Vector2(left, top)
 	_label.rect_min_size = Vector2(max_width, 0.0)
 	_label.rect_size = Vector2(max_width, max(_label.rect_size.y, 32.0))

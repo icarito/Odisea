@@ -1,8 +1,9 @@
-[gd_scene load_steps=16 format=2]
+[gd_scene load_steps=21 format=2]
 
 [ext_resource path="res://core_v2/components/AirlockControllerV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/IrisDoorV2.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/components/AirlockZoneV2.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/props/scifi_lights/SciFiWallSconceV2.tscn" type="PackedScene" id=4]
 [ext_resource path="res://core_v2/props/scifi_lights/shaders/airlock_hull.shader" type="Shader" id=5]
 [ext_resource path="res://core_v2/props/scifi_lights/shaders/airlock_floor.shader" type="Shader" id=6]
 [ext_resource path="res://core_v2/props/EmergencyBeaconV2.tscn" type="PackedScene" id=7]
@@ -70,22 +71,25 @@ extents = Vector3( 2.85, 2.5, 4 )
 extents = Vector3( 2.85, 0.08, 4 )
 
 [sub_resource type="BoxShape" id=11]
-extents = Vector3( 0.12, 2.5, 4.0 )
+extents = Vector3( 0.12, 2.5, 4 )
 
 [sub_resource type="BoxShape" id=12]
-extents = Vector3( 0.12, 2.5, 4.0 )
+extents = Vector3( 0.12, 2.5, 4 )
 
 [sub_resource type="BoxShape" id=13]
-extents = Vector3( 2.85, 0.12, 4.0 )
+extents = Vector3( 2.85, 0.12, 4 )
 
 [node name="AirlockChamber" type="Spatial"]
 script = ExtResource( 1 )
 outer_door_path = NodePath("OuterDoor")
 inner_door_path = NodePath("InnerDoor")
 chamber_zone_path = NodePath("ChamberZone")
-reset_time = 1.5
 beacon_path = NodePath("EmergencyBeacon")
 pressurize_sfx_path = NodePath("PressurizeSFX")
+outer_status_light_path = NodePath("SciFiWallSconceV3")
+inner_status_light_path = NodePath("SciFiWallSconceV2")
+status_label_path = NodePath("StatusLabel")
+reset_time = 10.0
 
 [node name="CylindricalShell" type="CSGCombiner" parent="."]
 use_collision = true
@@ -110,24 +114,18 @@ material = SubResource( 1 )
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 2.5 )
 inner_radius = 2.75
 outer_radius = 2.95
-sides = 8
-ring_sides = 6
 material = SubResource( 3 )
 
 [node name="Rib_Center" type="CSGTorus" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
 inner_radius = 2.75
 outer_radius = 2.95
-sides = 8
-ring_sides = 6
 material = SubResource( 3 )
 
 [node name="Rib_Back" type="CSGTorus" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, -2.5 )
 inner_radius = 2.75
 outer_radius = 2.95
-sides = 8
-ring_sides = 6
 material = SubResource( 3 )
 
 [node name="Floor" type="CSGBox" parent="."]
@@ -175,9 +173,51 @@ material = SubResource( 9 )
 
 [node name="OuterDoor" parent="." instance=ExtResource( 2 )]
 transform = Transform( 0.78, 0, 0, 0, 0.78, 0, 0, 0, 0.78, 0, 0, 4.1 )
+__meta__ = {
+"airlock_controller_owned": true,
+"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/AirlockChamber"),
+"airlock_door_name": "outer"
+}
 
 [node name="InnerDoor" parent="." instance=ExtResource( 2 )]
 transform = Transform( -0.78, -6.81898e-08, 0, 6.81898e-08, -0.78, 0, 0, 0, 0.78, 0, 0, -4.1 )
+__meta__ = {
+"airlock_controller_owned": true,
+"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/AirlockChamber"),
+"airlock_door_name": "inner"
+}
+
+[node name="SciFiWallSconceV3" parent="." instance=ExtResource( 4 )]
+transform = Transform( -0.72, 0, -6.29444e-08, 0, 0.72, 0, 6.29444e-08, 0, -0.72, 2.98023e-08, 1.65, 3.6 )
+__meta__ = {
+"_editor_description_": ""
+}
+interaction_text = "Toggle Beacon"
+starts_active = true
+is_interactable = false
+light_color = Color( 0, 1, 0.18, 1 )
+light_range = 6.0
+indicator_follows_light = null
+
+[node name="SciFiWallSconceV2" parent="." instance=ExtResource( 4 )]
+transform = Transform( 0.72, 0, 0, 0, 0.72, 0, 0, 0, 0.72, -2.23517e-08, 1.65, -3.6 )
+__meta__ = {
+"_editor_description_": ""
+}
+interaction_text = "Toggle Beacon"
+starts_active = true
+is_interactable = false
+light_color = Color( 0, 1, 0.18, 1 )
+light_range = 6.0
+indicator_follows_light = null
+
+[node name="StatusLabel" type="Label3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.707107, -0.707107, 0, 0.707107, 0.707107, 0, 1.75, 0 )
+visible = false
+pixel_size = 0.012
+modulate = Color( 0.35, 1, 0.55, 1 )
+outline_modulate = Color( 0, 0.05, 0.02, 1 )
+text = "PRESURIZANDO"
 
 [node name="ChamberZone" type="Area" parent="."]
 visible = false
@@ -207,7 +247,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.31, 0 )
 shape = SubResource( 7 )
 
 [node name="CameraWalls" type="StaticBody" parent="."]
-collision_layer = 1
 collision_mask = 0
 
 [node name="WallLeft" type="CollisionShape" parent="CameraWalls"]

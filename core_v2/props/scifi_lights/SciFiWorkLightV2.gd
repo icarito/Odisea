@@ -20,6 +20,9 @@ export(Color) var albedo_color_off := Color(0.3, 0.3, 0.3)
 export(Color) var indicator_color_on := Color(0.0, 1.0, 0.0) # Green when ON
 export(Color) var indicator_color_off := Color(1.0, 0.4, 0.0) # Orange when OFF
 
+# When true, indicator_color_on tracks light_color automatically (status mode)
+export(bool) var indicator_follows_light := false
+
 var _spot_light: SpotLight = null
 var _omni_light: OmniLight = null
 var _bulb_mesh: GeometryInstance = null
@@ -45,8 +48,17 @@ func _ready():
 
 func set_light_color(v: Color) -> void:
 	light_color = v
+	if indicator_follows_light:
+		indicator_color_on = v
 	if is_inside_tree():
 		_apply_settings()
+
+## Sets light, bulb, and indicator to a single status color.
+## Designed for airlock / system status indicators.
+func set_status_color(color: Color) -> void:
+	indicator_follows_light = true
+	indicator_color_on = color
+	set_light_color(color)
 
 func set_light_range(v: float) -> void:
 	light_range = v
@@ -93,21 +105,9 @@ func _apply_settings():
 		_head_node.rotation_degrees = rot
 	
 	if _bulb_mesh:
-		var mat = _bulb_mesh.material_override
-		if mat == null and _bulb_mesh.get_surface_material_count() > 0:
-			mat = _bulb_mesh.get_surface_material(0)
-		
+		var mat = _get_spatial_material(_bulb_mesh)
 		if mat:
-			if not mat.resource_local_to_scene:
-				mat = mat.duplicate()
-				mat.resource_local_to_scene = true
-				if _bulb_mesh.material_override:
-					_bulb_mesh.material_override = mat
-				else:
-					_bulb_mesh.set_surface_material(0, mat)
-			
-			if mat is SpatialMaterial:
-				mat.emission = light_color
+			mat.emission = light_color
 	
 	_update_visuals()
 
@@ -144,8 +144,12 @@ func _update_visuals() -> void:
 func _get_spatial_material(node: GeometryInstance) -> SpatialMaterial:
 	if not node: return null
 	var mat = node.material_override
+	# Check per-instance surface override
 	if not mat and node is MeshInstance and node.get_surface_material_count() > 0:
 		mat = node.get_surface_material(0)
+	# Fallback: material baked into the Mesh resource (e.g. CubeMesh.material)
+	if not mat and node is MeshInstance and node.mesh and node.mesh.get_surface_count() > 0:
+		mat = node.mesh.surface_get_material(0)
 	
 	if mat and mat is SpatialMaterial:
 		if not mat.resource_local_to_scene:

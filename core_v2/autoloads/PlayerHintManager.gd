@@ -9,7 +9,9 @@ var _overlay: Node = null
 var _warned_unavailable := false
 var _interaction_text := ""
 var _manual_text := ""
+var _status_text := ""
 var _manual_expires_at := 0.0
+var _status_expires_at := 0.0
 var _explicit_interactive := true
 var _refresh_timer: Timer = null
 
@@ -46,6 +48,24 @@ func clear_manual_hint() -> void:
 	_manual_expires_at = 0.0
 	_refresh_visible_hint()
 
+func show_status_hint(text: String, duration: float = 2.0) -> void:
+	var clean_text := text.strip_edges()
+	if clean_text == "":
+		clear_status_hint()
+		return
+	if not _is_runtime_interactive():
+		return
+	_status_text = clean_text
+	_status_expires_at = _now_sec() + clamp(duration, 0.05, MAX_HINT_DURATION)
+	_refresh_visible_hint()
+
+func clear_status_hint() -> void:
+	if _status_text == "":
+		return
+	_status_text = ""
+	_status_expires_at = 0.0
+	_refresh_visible_hint()
+
 func set_interactive(enabled: bool) -> void:
 	_explicit_interactive = enabled
 	_refresh_visible_hint()
@@ -65,12 +85,16 @@ func get_visible_text() -> String:
 	if not _is_runtime_interactive():
 		return ""
 	_prune_expired_manual()
+	_prune_expired_status()
+	if _status_text != "":
+		return _status_text
 	if _manual_text != "":
 		return _manual_text
 	return _interaction_text
 
 func _refresh_visible_hint() -> void:
 	_prune_expired_manual()
+	_prune_expired_status()
 	var text := get_visible_text()
 	if text == "":
 		if is_instance_valid(_overlay) and _overlay.has_method("clear_hint_text"):
@@ -80,6 +104,9 @@ func _refresh_visible_hint() -> void:
 		_warn_unavailable_once("show_hint")
 		return
 	if _overlay and _overlay.has_method("set_hint_text"):
+		var mode := "status" if _status_text != "" else "hint"
+		if _overlay.has_method("set_hint_mode"):
+			_overlay.set_hint_mode(mode)
 		_overlay.set_hint_text(text)
 
 func _prune_expired_manual() -> void:
@@ -88,6 +115,13 @@ func _prune_expired_manual() -> void:
 	if _now_sec() >= _manual_expires_at:
 		_manual_text = ""
 		_manual_expires_at = 0.0
+
+func _prune_expired_status() -> void:
+	if _status_text == "":
+		return
+	if _now_sec() >= _status_expires_at:
+		_status_text = ""
+		_status_expires_at = 0.0
 
 func _ensure_overlay() -> bool:
 	if not is_enabled():

@@ -45,6 +45,11 @@ func test_walking_the_dome_crio_north_airlock_triggers_exterior_transition_state
 	var player = auto_free(FakePlayer.new())
 	dome.add_child(player)
 	zone._on_host_body_entered(player)
+	var airlock = dome.get_node("Airlock_North")
+	# Simulate player walking past 60% threshold to trigger auto-pressurization
+	var samples_pre := _walk_player_to_60_percent(zone, player)
+	assert_float(samples_pre).is_greater_equal(0.6)
+	airlock.step(airlock.pressurize_time + 0.1)
 
 	var samples := _walk_player_through_trigger(zone, player)
 	yield(get_tree(), "idle_frame")
@@ -75,6 +80,25 @@ func test_walking_the_dome_crio_north_airlock_triggers_exterior_transition_state
 	assert_float(relative_velocity.y).is_equal_approx(0.0, 0.001)
 	assert_float(relative_velocity.z).is_equal_approx(2.0, 0.001)
 
+
+func _walk_player_to_60_percent(zone: Area, player: KinematicBody) -> float:
+	var local_points := [
+		Vector3(0, 1, -3.8),
+		Vector3(0, 1, -2.0),
+		Vector3(0, 1, -0.2),
+		Vector3(0, 1, 1.2),
+	]
+	player.velocity = zone.global_transform.basis.xform(Vector3(0, 0, 2.0))
+	var last_progress := 0.0
+	for local_point in local_points:
+		var tx := player.global_transform
+		tx.origin = zone.global_transform.xform(local_point)
+		player.global_transform = tx
+		zone._physics_process(1.0 / 60.0)
+		last_progress = zone._progress
+		if last_progress >= 0.6:
+			break
+	return last_progress
 
 func _walk_player_through_trigger(zone: Area, player: KinematicBody) -> Array:
 	var local_points := [
