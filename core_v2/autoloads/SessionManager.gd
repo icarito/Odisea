@@ -3272,7 +3272,7 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 			if player.has_method("snap_camera_to_current_state"):
 				player.snap_camera_to_current_state()
 			_restore_transition_camera_state(state_data, exit_transform, target_airlock)
-			_snap_transition_visual(exit_transform)
+			_snap_transition_visual(exit_transform, state_data, target_airlock)
 			_apply_airlock_relative_velocity(target_airlock, state_data)
 			_open_transition_airlock_exit(target_airlock, state_data)
 		elif is_instance_valid(target_airlock):
@@ -3280,7 +3280,7 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 			if player.has_method("snap_camera_to_current_state"):
 				player.snap_camera_to_current_state()
 			_restore_transition_camera_state(state_data, exit_transform, target_airlock)
-			_snap_transition_visual(exit_transform)
+			_snap_transition_visual(exit_transform, state_data, target_airlock)
 			_apply_airlock_relative_velocity(target_airlock, state_data)
 			_open_transition_airlock_exit(target_airlock, state_data)
 		else:
@@ -3306,7 +3306,7 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 		else:
 			player.global_transform = body_transform
 		_restore_transition_camera_state(state_data, exit_transform, target_airlock)
-		_snap_transition_visual(exit_transform)
+		_snap_transition_visual(exit_transform, state_data, target_airlock)
 		_apply_airlock_relative_velocity(target_airlock, state_data)
 		used_airlock_frame = true
 
@@ -3317,7 +3317,7 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 		else:
 			player.global_transform = spawn.global_transform
 		_restore_transition_camera_state(state_data, spawn.global_transform, null)
-		_snap_transition_visual(spawn.global_transform)
+		_snap_transition_visual(spawn.global_transform, state_data, null)
 
 	if used_airlock_frame:
 		_open_transition_airlock_exit(target_airlock, state_data)
@@ -3395,12 +3395,17 @@ func _restore_transition_camera_state(state_data: Dictionary, target_transform: 
 	elif player.has_method("snap_camera_to_current_state"):
 		player.snap_camera_to_current_state()
 
-func _snap_transition_visual(target_transform: Transform) -> void:
+func _snap_transition_visual(target_transform: Transform, state_data: Dictionary = {}, target_airlock: Spatial = null) -> void:
 	if not is_instance_valid(player):
 		return
 	var animator = player.get("animator") if "animator" in player else null
 	if is_instance_valid(animator) and animator.has_method("snap_visual_to_direction"):
-		animator.snap_visual_to_direction(-target_transform.basis.z)
+		var visual_forward := -target_transform.basis.z
+		if is_instance_valid(target_airlock) and typeof(state_data.get("visual_relative_forward", null)) == TYPE_VECTOR3:
+			visual_forward = target_airlock.global_transform.basis.xform(state_data["visual_relative_forward"])
+		visual_forward.y = 0.0
+		if visual_forward.length_squared() > 0.0001:
+			animator.snap_visual_to_direction(visual_forward.normalized())
 
 func _face_airlock_exit(target_airlock: Spatial, state_data: Dictionary, target_transform: Transform) -> Transform:
 	if not is_instance_valid(target_airlock):

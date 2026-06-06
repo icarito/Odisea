@@ -374,6 +374,12 @@ func _build_state_data(player: Node) -> Dictionary:
 			state_data["camera_body_yaw_offset"] = float(player.yaw) - player_transform.basis.get_euler().y
 			var camera_forward: Vector3 = Basis(Vector3.UP, float(player.yaw)).xform(Vector3.FORWARD)
 			state_data["camera_relative_forward"] = frame.basis.xform_inv(camera_forward).normalized()
+		var animator = player.get("animator") if "animator" in player else null
+		if is_instance_valid(animator) and animator is Spatial:
+			var visual_forward: Vector3 = (animator as Spatial).global_transform.basis.z
+			visual_forward.y = 0.0
+			if visual_forward.length_squared() > 0.0001:
+				state_data["visual_relative_forward"] = frame.basis.xform_inv(visual_forward.normalized()).normalized()
 		state_data["target_airlock_exit_door"] = _get_exit_door_for_direction()
 		if not target_airlock_path.is_empty():
 			state_data["target_airlock_path"] = String(target_airlock_path)
