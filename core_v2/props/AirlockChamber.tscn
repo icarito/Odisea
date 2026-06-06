@@ -47,11 +47,6 @@ emission_energy = 2.5
 emission_operator = 0
 emission_on_uv2 = false
 
-[sub_resource type="SpatialMaterial" id=9]
-albedo_color = Color( 0.12, 0.13, 0.15, 1 )
-metallic = 0.9
-roughness = 0.2
-
 [sub_resource type="SpatialMaterial" id=10]
 albedo_color = Color( 0.1, 0.1, 0.1, 1 )
 emission_enabled = true
@@ -59,6 +54,11 @@ emission = Color( 0.95, 0.88, 0.75, 1 )
 emission_energy = 1.5
 emission_operator = 0
 emission_on_uv2 = false
+
+[sub_resource type="SpatialMaterial" id=9]
+albedo_color = Color( 0.12, 0.13, 0.15, 1 )
+metallic = 0.9
+roughness = 0.2
 
 [sub_resource type="BoxShape" id=5]
 extents = Vector3( 2.5, 2.5, 4 )
@@ -210,4 +210,3 @@ max_distance = 25.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0 )
 light_color = Color( 0.9, 0.85, 0.75, 1 )
 light_energy = 0.15
-omni_range = 5.0

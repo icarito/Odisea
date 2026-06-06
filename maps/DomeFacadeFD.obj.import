@@ -1,0 +1,21 @@
+[remap]
+
+importer="wavefront_obj"
+type="Mesh"
+path="res://.import/DomeFacadeFD.obj-4c09ae6b5e21eb44bfc5fac601a86d43.mesh"
+
+[deps]
+
+files=[ "res://.import/DomeFacadeFD.obj-4c09ae6b5e21eb44bfc5fac601a86d43.mesh" ]
+
+source_file="res://maps/DomeFacadeFD.obj"
+dest_files=[ "res://.import/DomeFacadeFD.obj-4c09ae6b5e21eb44bfc5fac601a86d43.mesh", "res://.import/DomeFacadeFD.obj-4c09ae6b5e21eb44bfc5fac601a86d43.mesh" ]
+
+[params]
+
+scale_mesh=Vector3( 1, 1, 1 )
+offset_mesh=Vector3( 0, 0, 0 )
+optimize_mesh_flags=4286
+generate_tangents=true
+vertex_cache_optimization=true
+octahedral_compression=true

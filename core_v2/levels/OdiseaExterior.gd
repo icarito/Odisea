@@ -360,7 +360,16 @@ func _tick_dome_assignment_cache_build() -> void:
 			var info: Dictionary = dome_registry.get_dome(dome_id)
 			if not info.empty():
 				var plate_key := _make_plate_key(_cache_build_spiral, _cache_build_plate)
-				if not _dome_assignment_cache.has(plate_key):
+				var needs_refresh := not _dome_assignment_cache.has(plate_key)
+				if not needs_refresh:
+					var existing: Dictionary = _dome_assignment_cache[plate_key]
+					var existing_scene = existing.get("facade_scene", null)
+					var existing_has_lod := bool(existing.get("has_lod_blueprint", false))
+					# The eager seed pass can leave the selected spawn plate half-populated.
+					# Rebuild any incomplete entry so the initial terrace gets the same
+					# full-detail/LOD data as plates discovered later in the background pass.
+					needs_refresh = existing_scene == null or not existing_has_lod
+				if needs_refresh:
 					var facade_scene_path := String(info.get("facade_scene", "")).strip_edges()
 					var facade_scene := _load_packed_scene_cached(facade_scene_path)
 					var blueprint := _resolve_dome_lod_blueprint(info)
@@ -520,7 +529,7 @@ func _load_packed_scene(path: String) -> PackedScene:
 		var cached = _preload_resources[path]
 		if cached is PackedScene:
 			return cached
-		return null
+		# Resource preloaded to a non-PackedScene type or stale entry; retry via normal load.
 	# If a background loader is still in flight for this path, finish it now
 	# (blocking) rather than starting a second load() call.
 	if _preload_loaders.has(path):
@@ -534,13 +543,12 @@ func _load_packed_scene(path: String) -> PackedScene:
 					_preload_loaders.erase(path)
 					if res is PackedScene:
 						return res
-					return null
+					break
 				elif err != OK:
 					_preload_loaders.erase(path)
 					break
 		else:
 			_preload_loaders.erase(path)
-		return null
 	if not ResourceLoader.exists(path):
 		return null
 	var resource = load(path)
@@ -552,9 +560,14 @@ func _load_packed_scene_cached(path: String) -> PackedScene:
 	if path == "":
 		return null
 	if _packed_scene_cache.has(path):
-		return _packed_scene_cache[path]
+		var cached = _packed_scene_cache[path]
+		if cached is PackedScene:
+			return cached
+		# Retry failed loads on subsequent frames instead of pinning the scene to null forever.
+		_packed_scene_cache.erase(path)
 	var packed := _load_packed_scene(path)
-	_packed_scene_cache[path] = packed
+	if packed != null:
+		_packed_scene_cache[path] = packed
 	return packed
 
 func _should_use_dome_lod(info: Dictionary, dome_spiral_idx: int, dome_plate_idx: int) -> bool:
@@ -1077,9 +1090,22 @@ func _resolve_facade_reference_size(info: Dictionary) -> Vector3:
 	var facade_root = facade_scene.instance()
 	if not is_instance_valid(facade_root):
 		return Vector3.ONE
-	var blueprint := _extract_dome_lod_blueprint(facade_root, "")
+	var size: Vector3 = Vector3.ONE
+	var dome_mesh: Node = facade_root.get_node_or_null("DomeMesh")
+	if dome_mesh is Spatial:
+		var dome_mesh_spatial: Spatial = dome_mesh as Spatial
+		var blueprint: Dictionary = _extract_dome_lod_blueprint(dome_mesh_spatial, "")
+		size = blueprint.get("aabb_size", Vector3.ONE)
+		var wrapper_scale: Vector3 = dome_mesh_spatial.transform.basis.get_scale()
+		size = Vector3(
+			size.x / max(abs(wrapper_scale.x), 0.001),
+			size.y / max(abs(wrapper_scale.y), 0.001),
+			size.z / max(abs(wrapper_scale.z), 0.001)
+		)
+	else:
+		var blueprint: Dictionary = _extract_dome_lod_blueprint(facade_root, "")
+		size = blueprint.get("aabb_size", Vector3.ONE)
 	facade_root.free()
-	var size: Vector3 = blueprint.get("aabb_size", Vector3.ONE)
 	_scene_bounds_cache[facade_scene_path] = size
 	return size
 
