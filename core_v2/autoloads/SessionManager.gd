@@ -3458,11 +3458,7 @@ func _open_transition_airlock_exit(target_airlock: Spatial, state_data: Dictiona
 	var exit_door := String(state_data.get("target_airlock_exit_door", "outer")).strip_edges().to_lower()
 	if exit_door == "" or exit_door == "none":
 		return
-	# Freeze animator to prevent fall/jump pose flicker during scene arrival gap
-	if is_instance_valid(player):
-		var animator = player.get("animator") if "animator" in player else null
-		if is_instance_valid(animator) and animator.has_method("freeze"):
-			animator.call("freeze", 20)
+
 	var fx_node: Node = null
 	for child in target_airlock.get_children():
 		if child.has_method("start_post_transition_fx"):

@@ -138,13 +138,8 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 		# player physically exits the destination airlock chamber — OdiseaExterior
 		# drives resume_tracking() from the chamber zone exit. Resuming at scene swap
 		# would apply the rotation accumulated during the pause as a yank on arrival.
-		# Freeze AFTER add_child so _ready() doesn't stomp the value.
-		var animator := _find_animator_in(player)
-		if is_instance_valid(animator) and animator.has_method("freeze"):
-			animator.call("freeze", 60)
-		elif is_instance_valid(animator) and "_transition_freeze_frames" in animator:
-			animator._transition_freeze_frames = max(animator._transition_freeze_frames, 60)
 		# Re-enable physics now that the player is in the new scene.
+		var animator := _find_animator_in(player)
 		player.set_physics_process(true)
 		if is_instance_valid(animator):
 			animator.set_physics_process(true)
