@@ -54,6 +54,7 @@ const LABEL_LINGER_SECONDS := 1.5
 
 func _ready():
 	add_to_group("replay_sync")
+	add_to_group("airlock_chamber")
 
 	if outer_door_path:
 		_outer_door = get_node_or_null(outer_door_path)
@@ -265,6 +266,7 @@ func open_exit_door(door_name: String = "outer", immediate: bool = false) -> boo
 	var normalized := door_name.strip_edges().to_lower()
 	if normalized == "none":
 		return false
+	print("[AirlockController] open_exit_door(", normalized, ") outer=", _outer_door, " inner=", _inner_door)
 
 	var door = _outer_door
 	var other_door = _inner_door
@@ -386,6 +388,7 @@ func _finish_transition_pressurization() -> void:
 	_label_linger_timer = LABEL_LINGER_SECONDS
 	timer = 0.0
 	_update_beacons()
+	emit_signal("airlock_ready")
 
 func _finish_pressurization() -> void:
 	self.state = State.EXIT_OPEN
@@ -416,6 +419,7 @@ func _set_door_active(door: Node, value: bool, immediate: bool = false) -> bool:
 	if not is_instance_valid(door):
 		return false
 	if door.has_method("set_active"):
+		print("[AirlockController] _set_door_active ", door.name, " val=", value, " (direct)")
 		door.call("set_active", value, immediate)
 		return true
 	var pending: Array = [door]
@@ -424,10 +428,12 @@ func _set_door_active(door: Node, value: bool, immediate: bool = false) -> bool:
 		if not is_instance_valid(node):
 			continue
 		if node != door and node.has_method("set_active"):
+			print("[AirlockController] _set_door_active ", door.name, "/", node.name, " val=", value)
 			node.call("set_active", value, immediate)
 			return true
 		for child in node.get_children():
 			pending.push_back(child)
+	print("[AirlockController] _set_door_active ", door.name, " val=", value, " — NO set_active found!")
 	return false
 
 func _configure_managed_doors() -> void:

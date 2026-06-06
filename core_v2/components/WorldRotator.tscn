@@ -76,11 +76,3 @@ interlock_angle = 12.5
 transform = Transform( 2500, 0, 0, 0, -0.000109278, 2500, 0, -2500, -0.000109278, 0, 1686, 52.9999 )
 mesh = ExtResource( 3 )
 material/0 = SubResource( 3 )
-
-[node name="DirectionalLight" type="DirectionalLight" parent="."]
-transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0 )
-layers = 1023
-light_energy = 0.162
-directional_shadow_mode = 2
-directional_shadow_blend_splits = true
-directional_shadow_max_distance = 4000.0

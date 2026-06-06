@@ -5,7 +5,7 @@ const PRELOAD_POLL_BUDGET_MS := 4
 const DEFAULT_FADE_OUT_S := 0.017
 const DEFAULT_FADE_IN_S := 0.08
 const TRANSITION_TRIGGER_PROGRESS := 0.6
-const OPEN_EXIT_RETURN_TRIGGER_PROGRESS := 0.35
+const OPEN_EXIT_RETURN_TRIGGER_PROGRESS := 0.4
 
 export(String, FILE, "*.tscn") var target_scene := ""
 export(String) var target_spawn_id := ""
@@ -28,6 +28,9 @@ var _last_safe_relative_y := 0.0
 var _entry_door_name := "outer"
 var _cycle_started := false
 var _passive_exit_open := false
+var _saved_spring_length := -1.0
+
+const AIRLOCK_OTS_SPRING_LENGTH := 1.5
 
 func _ready() -> void:
 	._ready()
@@ -49,6 +52,7 @@ func _on_zone_entered(body: Node) -> void:
 	_cycle_started = true
 	_passive_exit_open = false
 	_set_airlock_tracking_suspended(body, true)
+	_push_airlock_camera(body)
 	_start_airlock_cycle_from_body(body)
 	_begin_background_load()
 
@@ -64,6 +68,7 @@ func _on_zone_exited(body: Node) -> void:
 	_cycle_started = false
 	_passive_exit_open = false
 	_set_airlock_tracking_suspended(body, false)
+	_pop_airlock_camera(body)
 	_update_indicator_lights()
 
 func _physics_process(_delta: float) -> void:
@@ -73,7 +78,7 @@ func _physics_process(_delta: float) -> void:
 	_poll_background_load()
 	_update_indicator_lights()
 
-	if not _player_in_zone:
+	if not _player_in_zone and not _passive_exit_open:
 		_arm_player_already_inside_zone()
 	if not _player_in_zone:
 		return
@@ -517,7 +522,21 @@ func _is_airlock_pressurizing() -> bool:
 	return s != null and int(s) == int(AirlockControllerV2.State.PRESSURIZING)
 
 func _can_transition_now() -> bool:
-	return _scene_ready and _is_airlock_pressurizing() and _is_airlock_entry_sealed() and _is_airlock_transition_requested()
+	if not (_scene_ready and _is_airlock_pressurizing() and _is_airlock_entry_sealed() and _is_airlock_transition_requested()):
+		return false
+	var fx := _find_transition_fx()
+	if fx != null:
+		return fx.is_transition_moment_reached()
+	return true
+
+func _find_transition_fx() -> Node:
+	var airlock := _find_airlock_controller()
+	if not is_instance_valid(airlock):
+		return null
+	for child in airlock.get_children():
+		if child.has_method("is_transition_moment_reached"):
+			return child
+	return null
 
 func _is_airlock_transition_requested() -> bool:
 	var airlock := _find_airlock_controller()
@@ -581,6 +600,36 @@ func _resolve_active_dome_id() -> String:
 				return String(state_data.get("active_dome_id", "")).strip_edges()
 
 	return ""
+
+func _push_airlock_camera(body: Node) -> void:
+	if not is_instance_valid(body):
+		return
+	var current = body.get("base_spring_length_3d")
+	if current == null:
+		return
+	_saved_spring_length = float(current)
+	_set_player_spring_length(body, AIRLOCK_OTS_SPRING_LENGTH)
+
+func _pop_airlock_camera(body: Node) -> void:
+	if not is_instance_valid(body) or _saved_spring_length < 0.0:
+		return
+	_set_player_spring_length(body, _saved_spring_length)
+	_saved_spring_length = -1.0
+
+func _set_player_spring_length(body: Node, length: float) -> void:
+	if "base_spring_length_3d" in body:
+		body.set("base_spring_length_3d", length)
+	if "current_spring_length" in body:
+		body.set("current_spring_length", length)
+	var arm = _find_spring_arm(body)
+	if is_instance_valid(arm) and "spring_length" in arm:
+		arm.set("spring_length", length)
+
+func _find_spring_arm(body: Node) -> Node:
+	var rig = body.get_node_or_null("CameraRig/Yaw/Pitch/OTS_Offset/SpringArm")
+	if is_instance_valid(rig):
+		return rig
+	return body.get_node_or_null("CameraRig/Yaw/Pitch/SpringArm")
 
 func _is_player(node: Node) -> bool:
 	return is_instance_valid(node) and node.is_in_group("player")

@@ -279,9 +279,9 @@ func test_transition_request_requires_pressurizing_sealed_entry() -> void:
 	add_child(airlock)
 	yield(get_tree(), "idle_frame")
 
-	assert_bool(airlock.request_transition_pressurization()).is_false()
-	assert_bool(airlock.start_transition_cycle("outer")).is_true()
+	# request_transition_pressurization auto-starts the cycle from IDLE and pressurizes.
 	assert_bool(airlock.request_transition_pressurization()).is_true()
+	assert_int(airlock.state).is_equal(AirlockControllerV2.State.PRESSURIZING)
 	assert_bool(airlock.is_transition_requested()).is_false()
 	airlock.step(airlock.pressurize_time + 0.1)
 	assert_bool(airlock.is_transition_requested()).is_true()
