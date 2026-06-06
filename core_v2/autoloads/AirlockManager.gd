@@ -23,7 +23,6 @@ signal exterior_resumed()
 var _pending_transition := false
 var _seamless_swap := false  # true while SceneManager should use add-before-free order
 var _player_held: Node = null
-var _player_held_transform: Transform = Transform.IDENTITY
 
 var _exterior_scene: Node = null
 var _exterior_paused := false
@@ -68,7 +67,6 @@ func _on_pre_scene_swap(old_scene: Node, _new_scene: Node, _params: Dictionary) 
 	# Lift player out of old scene so queue_free() doesn't destroy it
 	var player := _find_player_in(old_scene)
 	if is_instance_valid(player):
-		_player_held_transform = (player as Spatial).global_transform if player is Spatial else Transform.IDENTITY
 		# Reparent: add to self FIRST so the camera is never momentarily out of the tree.
 		# Godot allows a node to have only one parent — remove_child must come first,
 		# but we assert camera current immediately after to cover the one-frame gap.
@@ -107,10 +105,6 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 		if player.has_method("force_camera_current"):
 			player.force_camera_current()
 			player.call_deferred("force_camera_current")
-		# Restore position so the player appears in the same physical spot.
-		# Set global_transform directly — SessionManager will handle camera orientation.
-		if player is Spatial:
-			(player as Spatial).global_transform = _player_held_transform
 		# Zero out velocity so physics doesn't continue with pre-transition momentum.
 		if "velocity" in player:
 			player.velocity = Vector3.ZERO
@@ -118,12 +112,17 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 		# and so is_effectively_grounded() returns true to suppress animator state flicker.
 		if "_post_teleport_snap_frames" in player:
 			player._post_teleport_snap_frames = 8
-		# Tell SceneManager params so SessionManager skips the teleport
-		var sm := get_node_or_null("/root/SceneManager")
-		if sm:
-			var params = sm.get("_transition_params")
-			if typeof(params) == TYPE_DICTIONARY:
-				params["_airlock_manager_placed"] = true
+		# Freeze animator state updates so scene-transition physics noise doesn't
+		# trigger a mid-air animation while the player settles into the new scene.
+		var animator := _find_animator_in(player)
+		if is_instance_valid(animator) and "_transition_freeze_frames" in animator:
+			animator._transition_freeze_frames = 8
+
+func _find_animator_in(player: Node) -> Node:
+	if not is_instance_valid(player):
+		return null
+	return player.find_node("PilotAnimatorV2", true, false)
+
 
 func _find_player_in(scene_root: Node) -> Node:
 	if not is_instance_valid(scene_root):

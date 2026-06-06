@@ -100,6 +100,9 @@ func _ready():
 
 func interact() -> void:
 	"""Toggle the active state. Called by player interaction system."""
+	if has_meta("airlock_controller_owned") and bool(get_meta("airlock_controller_owned")):
+		_forward_airlock_owned_interaction()
+		return
 	if not is_interactable:
 		return
 
@@ -115,6 +118,19 @@ func interact() -> void:
 	
 	if one_off:
 		is_used = true
+
+func _forward_airlock_owned_interaction() -> void:
+	if not has_meta("airlock_controller_owner_path"):
+		return
+	var owner_path = get_meta("airlock_controller_owner_path")
+	var owner: Node = null
+	if owner_path is NodePath:
+		owner = get_node_or_null(owner_path)
+	if not is_instance_valid(owner):
+		return
+	var door_name := String(get_meta("airlock_door_name") if has_meta("airlock_door_name") else "")
+	if owner.has_method("request_door_interaction"):
+		owner.request_door_interaction(door_name)
 
 func set_active(value: bool, immediate: bool = false) -> void:
 	"""Set the logical state and start/snap animation."""

@@ -21,6 +21,9 @@ var _is_syncing := false
 
 func interact() -> void:
 	"""Manual interaction trigger (for testing/validation)."""
+	if has_meta("airlock_controller_owned") and bool(get_meta("airlock_controller_owned")):
+		_forward_airlock_owned_interaction()
+		return
 	print("[%s] interact() called - DEBUG ENABLED." % name)
 	if debug:
 		print("[%s] Manual interact() called." % name)
@@ -44,6 +47,19 @@ func interact() -> void:
 		print("[%s] Bridge interact: Toggling targets to %s" % [name, new_state])
 	_sync_sources(new_state)
 	_call_target(new_state)
+
+func _forward_airlock_owned_interaction() -> void:
+	if not has_meta("airlock_controller_owner_path"):
+		return
+	var owner_path = get_meta("airlock_controller_owner_path")
+	var owner: Node = null
+	if owner_path is NodePath:
+		owner = get_node_or_null(owner_path)
+	if not is_instance_valid(owner):
+		return
+	var door_name := String(get_meta("airlock_door_name") if has_meta("airlock_door_name") else "")
+	if owner.has_method("request_door_interaction"):
+		owner.request_door_interaction(door_name)
 
 
 func _ready():
