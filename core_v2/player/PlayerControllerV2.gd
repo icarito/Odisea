@@ -158,6 +158,7 @@ const PushableBoxV2Script = preload("res://core_v2/components/PushableBoxV2.gd")
 var _terminal_ui_active := false
 var _restore_spring_length: float = -1.0
 var _post_teleport_snap_frames := 0
+var _transition_airlock_placed := false
 var _restore_fov: float = -1.0
 var _exit_log_frames := 0
 var _perf_disable_interaction_scan := false
@@ -229,6 +230,11 @@ func sync_camera_to_rig() -> void:
 	_cinematic_zoom_target_fov = -1.0
 
 func snap_camera_to_current_state() -> void:
+	# If AirlockManager already placed the player and restored the full camera
+	# state, skip every snap to avoid overwriting yaw/pitch/spring/OTS values.
+	if _transition_airlock_placed:
+		_transition_airlock_placed = false
+		return
 	# Called after scene transition + teleport so every lerp-based camera system
 	# starts from the correct final position rather than drifting from defaults.
 
@@ -247,19 +253,22 @@ func snap_camera_to_current_state() -> void:
 	if _cached_spring_arm:
 		current_spring_length = base_spring_length_3d
 		_cached_spring_arm.spring_length = base_spring_length_3d
-		if _cached_spring_arm.has_method("snap_collision_to_scene"):
-			_cached_spring_arm.snap_collision_to_scene()
-		elif "current_length" in _cached_spring_arm:
+		# Stamp current_length directly — never call snap_collision_to_scene here.
+		# On scene entry the scene geometry may not be stable yet, so a collision
+		# cast returns hit=-1 (open horizon) or hits a stale occluder, both of
+		# which would yank the arm to an incorrect length in a single frame.
+		# physics_process lerp handles gradual retraction once the scene settles.
+		if "current_length" in _cached_spring_arm:
 			_cached_spring_arm.current_length = base_spring_length_3d
 
 	# Snap camera FOV.
 	if _cached_cam:
 		_cached_cam.fov = base_fov
 
-	# Snap OTS weights so the shoulder offset appears immediately, not after lerp.
-	var ots = get_node_or_null("Logic/OverTheShoulder")
-	if is_instance_valid(ots) and ots.has_method("snap_to_current_state"):
-		ots.snap_to_current_state()
+	# Do NOT snap OTS here. On airlock transitions the chamber forces a tight
+	# framing (short arm, small offsets); stamping the exterior OTS values
+	# instantly produces a visible framing yank. The OTS _process lerps
+	# _current_offset to the new target naturally over the next few frames.
 
 func ensure_input_provider():
 	if not input_provider or not is_instance_valid(input_provider):

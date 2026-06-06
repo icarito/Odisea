@@ -311,6 +311,10 @@ func _build_state_data(player: Node) -> Dictionary:
 			state_data["camera_yaw"] = float(player.yaw)
 		if "pitch" in player:
 			state_data["camera_pitch"] = float(player.pitch)
+		# Capture pre-airlock spring length so the destination scene can restore
+		# the arm directly without triggering snap_collision_to_scene yank.
+		if _saved_spring_length > 0.0:
+			state_data["camera_arm_spring_length"] = _saved_spring_length
 
 	var active_dome_id := _resolve_active_dome_id()
 	if active_dome_id != "":

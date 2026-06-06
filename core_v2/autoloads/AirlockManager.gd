@@ -152,6 +152,10 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 		# destination and call snap_camera_to_current_state after positioning.
 		if "_camera_collision_grace_left" in player:
 			player._camera_collision_grace_left = max(player._camera_collision_grace_left, 0.35)
+		# Signal to snap_camera_to_current_state that the camera state is
+		# already correct — skip any snap that would overwrite it.
+		if "_transition_airlock_placed" in player:
+			player._transition_airlock_placed = true
 		if _params is Dictionary:
 			_params["_airlock_manager_placed"] = true
 
@@ -178,13 +182,20 @@ func _pre_position_at_destination(player: Node, scene_root: Node, params: Dictio
 	if not is_instance_valid(target_airlock):
 		return
 	var body_transform: Transform = target_airlock.global_transform * relative_transform
-	body_transform.basis = Basis.IDENTITY
+	# Preserve the rotation from relative_transform so the SpringArm points
+	# in the correct direction from frame zero.
 	player.global_transform = body_transform
 	if "velocity" in player:
 		player.velocity = Vector3.ZERO
+	# Keep the base_spring_length_3d and current_spring_length from the source
+	# chamber (AirlockZoneV2 set them to AIRLOCK_OTS_SPRING_LENGTH ~1m).
+	# Resetting them to 7 would cause _update_camera_view to lerp from 7 toward
+	# 7 (no movement), but the visual framing still changes from chamber-ish (1m)
+	# to exterior (7m) instantly on scene swap. By preserving the OTS value, the
+	# camera stays at ~1m on arrival and _update_camera_view expands it to
+	# exterior defaults gradually over ~0.5s (lerp from 1 to 3.2 with weight 4).
 	# Also orient the camera rig to match the destination yaw so the SpringArm
-	# points in the correct direction from frame zero — prevents a one-frame yank
-	# where the arm casts in the wrong direction before SessionManager fixes yaw.
+	# points in the correct direction from frame zero.
 	var yaw := 0.0
 	if typeof(state_data.get("camera_relative_forward", null)) == TYPE_VECTOR3:
 		var fwd: Vector3 = target_airlock.global_transform.basis.xform(state_data["camera_relative_forward"])

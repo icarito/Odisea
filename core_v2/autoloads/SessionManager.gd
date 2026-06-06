@@ -3372,7 +3372,21 @@ func _restore_transition_camera_state(state_data: Dictionary, target_transform: 
 	if "camera_rig" in player and is_instance_valid(player.camera_rig) and "yaw" in player and "pitch" in player:
 		player.camera_rig.transform.basis = Basis(Vector3.UP, player.yaw) * Basis(Vector3.RIGHT, player.pitch)
 		player.camera_rig.force_update_transform()
-	if player.has_method("snap_camera_to_current_state"):
+	if state_data.has("camera_arm_spring_length"):
+		# Restore arm lengths directly — avoids snap_collision_to_scene yank when
+		# the exterior scene has no geometry behind the camera on arrival.
+		var arm_len := float(state_data["camera_arm_spring_length"])
+		var arm = player.get("_cached_spring_arm")
+		if is_instance_valid(arm):
+			if "spring_length" in arm:
+				arm.spring_length = arm_len
+			if "current_length" in arm:
+				arm.current_length = arm_len
+		if "current_spring_length" in player:
+			player.current_spring_length = arm_len
+		if "base_spring_length_3d" in player:
+			player.base_spring_length_3d = arm_len
+	elif player.has_method("snap_camera_to_current_state"):
 		player.snap_camera_to_current_state()
 
 func _snap_transition_visual(target_transform: Transform) -> void:

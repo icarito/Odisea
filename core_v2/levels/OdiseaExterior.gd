@@ -176,6 +176,11 @@ func _resolve_spawn_state() -> void:
 	var scene_manager = get_node("/root/SceneManager")
 	var params = scene_manager.get("_transition_params")
 	if typeof(params) == TYPE_DICTIONARY:
+		# AirlockManager already placed the player at the correct airlock position.
+		# Do not change selected_spiral/selected_plate — the WorldRotator is already
+		# in the right state and repositioning it would yank the player away.
+		if bool(params.get("_airlock_manager_placed", false)):
+			return
 		var spawn_id = params.get("target_spawn_id", params.get("spawn_id", ""))
 		var dome_registry: Node = _get_dome_registry()
 		var dome_id = dome_registry.find_dome_id_by_interior_spawn(String(spawn_id)) if dome_registry else ""

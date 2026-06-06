@@ -225,8 +225,10 @@ func snap_collision_to_scene() -> void:
 		_collision_miss_timer = 0.0
 		_collision_release_timer = 0.0
 	else:
-		current_length = desired
+		# No collision found — leave current_length untouched. The regular
+		# physics_process lerp will bring it to desired over time without yanking.
 		_collision_latched_length = -1.0
+		return
 	print("[KinematicArm3D] snap final=", current_length)
 
 func set_camera_local_offset(offset: Vector3) -> void:
