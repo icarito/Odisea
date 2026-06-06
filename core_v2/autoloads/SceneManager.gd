@@ -2,6 +2,8 @@ extends Node
 
 signal transition_started(path, params)
 signal transition_progress(path, progress)
+signal pre_scene_swap(old_scene, new_scene, params)
+signal pre_spawn_state(path, scene_root, params)
 signal scene_ready(path, scene_root, params)
 signal transition_completed(path, scene_root, params)
 signal transition_failed(path, reason)
@@ -197,17 +199,36 @@ func _set_new_scene(resource: PackedScene):
 
 	var tree := get_tree()
 	var old_scene := tree.current_scene
+	var airlock_manager = get_node_or_null("/root/AirlockManager")
+	# Capture _seamless_swap BEFORE emitting pre_scene_swap, because the signal handler
+	# (_on_pre_scene_swap in AirlockManager) clears the flag after lifting the player.
+	var seamless: bool = is_instance_valid(airlock_manager) and bool(airlock_manager.get("_seamless_swap"))
+
 	if is_instance_valid(old_scene) and old_scene != new_scene:
-		tree.current_scene = null
-		old_scene.queue_free()
-		# Avoid scene overlap spikes (memory/VRAM) before adding the replacement.
+		emit_signal("pre_scene_swap", old_scene, new_scene, _transition_params)
+		if seamless:
+			# Seamless path: add new scene first so there is never a black frame,
+			# then free the old one. The player is held by AirlockManager (in /root)
+			# so it survives and the camera keeps rendering throughout.
+			tree.root.add_child(new_scene)
+			tree.current_scene = new_scene
+			old_scene.queue_free()
+		else:
+			tree.current_scene = null
+			old_scene.queue_free()
+			# Avoid scene overlap spikes (memory/VRAM) before adding the replacement.
+			yield(tree, "idle_frame")
+			tree.root.add_child(new_scene)
+			tree.current_scene = new_scene
+	else:
+		tree.root.add_child(new_scene)
+		tree.current_scene = new_scene
+
+	yield(tree, "idle_frame")
+	if not seamless:
 		yield(tree, "idle_frame")
 
-	tree.root.add_child(new_scene)
-	tree.current_scene = new_scene
-
-	yield(tree, "idle_frame")
-	yield(tree, "idle_frame")
+	emit_signal("pre_spawn_state", _next_scene_path, new_scene, _transition_params)
 
 	var prep_state = _apply_spawn_and_state(new_scene)
 	if prep_state is GDScriptFunctionState:

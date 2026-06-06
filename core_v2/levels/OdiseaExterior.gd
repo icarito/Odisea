@@ -89,6 +89,22 @@ func _exit_tree() -> void:
 		get_node("/root/SessionManager").unregister_oys_actor("Odisea")
 	_preload_loaders.clear()
 
+var _streaming_paused := false
+
+func pause_streaming() -> void:
+	if _streaming_paused:
+		return
+	_streaming_paused = true
+	set_process(false)
+	set_physics_process(false)
+
+func resume_streaming() -> void:
+	if not _streaming_paused:
+		return
+	_streaming_paused = false
+	set_process(true)
+	set_physics_process(true)
+
 # --- Background resource preloading ---
 
 func _begin_dome_resource_preloads() -> void:

@@ -1695,7 +1695,7 @@ func _on_oys_instruction_executed(inst: Dictionary, _vars: Dictionary):
 	
 	var cmd = inst.get("command", "")
 	match cmd:
-		"ASSERT", "SET", "MATH", "PRINT", "CLS", "HINT", "HINT_CLEAR", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "ANNA_ENABLE", "ANNA_DISABLE", "ANNA_SET_TARGET", "PLAY_ANIM", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP", "OPEN", "CHANGE_SCENE":
+		"ASSERT", "SET", "MATH", "PRINT", "CLS", "HINT", "HINT_CLEAR", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "ANNA_ENABLE", "ANNA_DISABLE", "ANNA_SET_TARGET", "PLAY_ANIM", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP", "OPEN", "CHANGE_SCENE", "TELEPORT":
 			_current_replay_data["events"][frame].append(OYS_Parser.serialize_instruction(inst))
 		"ASSERT_SIGNAL":
 			var start_evt = OYS_Parser.serialize_instruction(inst)
@@ -3220,6 +3220,14 @@ func capture_scene_transition_state() -> Dictionary:
 			out["player_snapshot"] = snapshot.duplicate(true)
 	return out
 
+func _get_transition_param(key: String, fallback):
+	var sm = get_node_or_null("/root/SceneManager")
+	if sm:
+		var params = sm.get("_transition_params")
+		if typeof(params) == TYPE_DICTIONARY:
+			return params.get(key, fallback)
+	return fallback
+
 func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dictionary = {}):
 	_find_player()
 	if not is_instance_valid(player):
@@ -3231,14 +3239,34 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 		active_dome_id = String(state_data.get("active_dome_id", "")).strip_edges()
 	_apply_active_dome_context(active_dome_id)
 
-	if typeof(state_data) == TYPE_DICTIONARY and state_data.has("player_snapshot"):
-		var snapshot = state_data["player_snapshot"]
-		if typeof(snapshot) == TYPE_DICTIONARY and player.has_method("restore_snapshot"):
-			player.restore_snapshot(snapshot)
-	elif typeof(state_data) == TYPE_DICTIONARY and state_data.has("controller_mode"):
-		var controller_manager = player.get_node_or_null("ControllerManager")
-		if controller_manager and controller_manager.has_method("switch_to"):
-			controller_manager.switch_to(int(state_data["controller_mode"]))
+	var _am_placed := bool(_get_transition_param("_airlock_manager_placed", false))
+	if not _am_placed:
+		if typeof(state_data) == TYPE_DICTIONARY and state_data.has("player_snapshot"):
+			var snapshot = state_data["player_snapshot"]
+			if typeof(snapshot) == TYPE_DICTIONARY and player.has_method("restore_snapshot"):
+				player.restore_snapshot(snapshot)
+		elif typeof(state_data) == TYPE_DICTIONARY and state_data.has("controller_mode"):
+			var controller_manager = player.get_node_or_null("ControllerManager")
+			if controller_manager and controller_manager.has_method("switch_to"):
+				controller_manager.switch_to(int(state_data["controller_mode"]))
+
+	# AirlockManager already placed the player at the correct position via reparenting.
+	# Skip teleport but still restore camera orientation and open the exit door.
+	if _am_placed:
+		var target_airlock = _find_transition_airlock(state_data)
+		if is_instance_valid(target_airlock):
+			var exit_transform := _face_airlock_exit(target_airlock, state_data, player.global_transform)
+			_restore_transition_camera_state(state_data, exit_transform, target_airlock)
+			_snap_transition_visual(exit_transform)
+			_apply_airlock_relative_velocity(target_airlock, state_data)
+			_open_transition_airlock_exit(target_airlock, state_data)
+		else:
+			_restore_transition_camera_state(state_data, player.global_transform, null)
+		var teleport_system = get_node_or_null("TeleportSystem")
+		if teleport_system and teleport_system.has_method("force_initial_spawn"):
+			teleport_system.force_initial_spawn(player.global_transform, player.get("yaw") if "yaw" in player else 0.0, player.get("pitch") if "pitch" in player else 0.0)
+		yield(get_tree(), "physics_frame")
+		return player
 
 	var target_airlock = _find_transition_airlock(state_data)
 	var used_airlock_frame := false

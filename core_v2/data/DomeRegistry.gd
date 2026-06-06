@@ -127,6 +127,48 @@ func find_dome_id_by_exterior_spawn(spawn_id: String) -> String:
 func get_all_dome_ids() -> Array:
 	return _registry.keys()
 
+func get_spawn_transform(spawn_id: String) -> Transform:
+	var dome_id := find_dome_id_by_exterior_spawn(spawn_id)
+	if dome_id == "":
+		dome_id = find_dome_id_by_interior_spawn(spawn_id)
+	if dome_id == "":
+		return Transform.IDENTITY
+	var info: Dictionary = get_dome(dome_id)
+	var spiral_index := int(info.get("spiral_index", 0))
+	var plate_index := int(info.get("plate_index", 0))
+	var exterior = _get_exterior_scene()
+	if exterior and exterior.has_method("get_selected_plate_global_transform"):
+		# Ask the exterior to select that plate's transform
+		var rotator = exterior.get_node_or_null("WorldRotator")
+		if rotator and rotator.has_method("get_plate_canonical_transform"):
+			var spirals := []
+			for spiral_name in ["TerraceSpiral", "TerraceSpiral2", "TerraceSpiral3", "TerraceSpiral4"]:
+				var s = rotator.get_node_or_null(spiral_name)
+				if s:
+					spirals.append(s)
+			if spiral_index < spirals.size():
+				var canonical: Transform = rotator.get_plate_canonical_transform(spirals[spiral_index], plate_index)
+				var world_tx: Transform = rotator.global_transform * canonical
+				var spawn_offset: Vector3 = info.get("facade_spawn_offset", Vector3.ZERO)
+				return Transform(world_tx.basis, world_tx.origin + spawn_offset)
+	return Transform.IDENTITY
+
+func _get_exterior_scene() -> Node:
+	var tree := Engine.get_main_loop()
+	if not tree:
+		return null
+	var current = tree.current_scene if tree.has_method("get") else null
+	# tree is SceneTree
+	if tree is SceneTree:
+		current = (tree as SceneTree).current_scene
+	if is_instance_valid(current) and "OdiseaExterior" in current.filename:
+		return current
+	# Also check if AirlockManager has a cached exterior
+	var airlock_manager = Engine.get_main_loop().root.get_node_or_null("AirlockManager")
+	if airlock_manager and is_instance_valid(airlock_manager.get("_exterior_scene")):
+		return airlock_manager._exterior_scene
+	return null
+
 func _merge_with_default_config(dome_id: String, config: Dictionary) -> Dictionary:
 	var merged := _build_default_dome_config(dome_id, int(config.get("spiral_index", 0)), int(config.get("plate_index", 0)))
 	for key in config.keys():

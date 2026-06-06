@@ -48,6 +48,7 @@ const SYNONYMS = {
 	"SHAKE": "CAMERA_SHAKE",
 	"STOP_SHAKE": "CAMERA_SHAKE_STOP",
 	"CAM_SHAKE": "CAMERA_SHAKE",
+	"SET_POS": "TELEPORT",
 	"UI_OPEN": "OPEN",
 	"UI_CLICK": "CLICK",
 	"UI_FILL": "FILL",
@@ -589,6 +590,19 @@ static func parse_instruction(line: String) -> Dictionary:
 					for i in range(1, parts.size()):
 						val += parts[i]
 					data["pos"] = val.strip_edges()
+		"SET_POS":
+			# SET_POS "Pilot" [x, y, z]
+			# Keep compatibility with older OYS scripts; the target node is ignored and
+			# the active player is teleported, matching TELEPORT semantics in runtime.
+			data["command"] = "TELEPORT"
+			if parts.size() > 2:
+				var val = ""
+				for i in range(2, parts.size()):
+					val += parts[i]
+				val = val.strip_edges()
+				if val.begins_with("[") and val.ends_with("]"):
+					val = "(" + val.substr(1, val.length() - 2) + ")"
+				data["pos"] = val
 
 		"CAMERA_SHAKE":
 			# CAMERA_SHAKE [duration] [amplitude] [frequency] [roll]

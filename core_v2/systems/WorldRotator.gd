@@ -121,6 +121,7 @@ var _world_environment_sky_entries: Array = []
 var _sky_frame_sync_counter: int = 0
 var _sky_frame_sync_interval: int = 6
 var _last_sky_basis := Basis.IDENTITY
+var _startup_snap_done := false  # snap to target on first physics frame, then slerp
 # Retrocompatibilidad: alias del pool para tests que lean _generated_collision_bodies
 var _generated_collision_bodies: Array setget ,_get_generated_collision_bodies
 func _get_generated_collision_bodies() -> Array:
@@ -631,6 +632,11 @@ func _slerp_to_target(delta: float) -> void:
 	if rotation_frozen:
 		_is_transitioning = false
 		return
+	if not _startup_snap_done:
+		_startup_snap_done = true
+		transform.basis = Basis(_target_quat).orthonormalized()
+		_is_transitioning = false
+		return
 	var q_cur: Quat = transform.basis.get_rotation_quat()
 	var t: float = min(1.0, _get_effective_rotation_speed() * delta)
 	# Aplicar smoothstep para una aceleración/deceleración más natural en micro-movimientos.
@@ -644,6 +650,11 @@ func _slerp_to_global_transform(delta: float) -> void:
 		_is_transitioning = false
 		return
 	if rotation_frozen:
+		_is_transitioning = false
+		return
+	if not _startup_snap_done:
+		_startup_snap_done = true
+		global_transform = _target_global_transform
 		_is_transitioning = false
 		return
 	var t: float = min(1.0, _get_effective_rotation_speed() * delta)

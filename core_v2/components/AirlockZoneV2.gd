@@ -177,19 +177,26 @@ func _trigger_transition(player: Node) -> bool:
 				if interior_spawn != "":
 					resolved_target_spawn_id = interior_spawn
 
+	# If AirlockManager is active it will reparent the player — no black flash needed.
+	var airlock_manager = get_node_or_null("/root/AirlockManager")
+	var use_airlock_manager: bool = airlock_manager != null and airlock_manager.has_method("notify_transition")
+
 	var params := {
 		"spawn_id": resolved_target_spawn_id,
 		"target_spawn_id": resolved_target_spawn_id,
 		"dome_id": active_dome_id,
-		"transition": "fade",
+		"transition": "none" if use_airlock_manager else "fade",
 		"transition_style": "airlock",
 		"preserve_player_state": true,
-		"fade_out": DEFAULT_FADE_OUT_S,
-		"fade_in": DEFAULT_FADE_IN_S,
+		"fade_out": 0.0 if use_airlock_manager else DEFAULT_FADE_OUT_S,
+		"fade_in": 0.0 if use_airlock_manager else DEFAULT_FADE_IN_S,
 		"show_loading": false,
-		"wait_for_fade_out": true,
+		"wait_for_fade_out": false,
 		"state_data": _build_state_data(player)
 	}
+
+	if use_airlock_manager:
+		airlock_manager.notify_transition(resolved_target_scene)
 
 	if _preloaded_scene != null and resolved_target_scene == target_scene:
 		params["_preloaded_scene"] = _preloaded_scene

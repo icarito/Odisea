@@ -2363,6 +2363,9 @@ func _update_floor_info() -> void:
 	movement_logic.set_floor_normal(Vector3.UP)
 
 func is_effectively_grounded() -> bool:
+	# During post-teleport snap frames, force grounded to prevent animation state flicker.
+	if _post_teleport_snap_frames > 0:
+		return true
 	# Stair stepping can lose floor contact for one frame; keep grounded briefly to avoid air-state flicker.
 	var jump_in_progress := false
 	if is_instance_valid(jump_logic):

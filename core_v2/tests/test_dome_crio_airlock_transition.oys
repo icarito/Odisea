@@ -1,0 +1,24 @@
+LEVEL res://core_v2/levels/interiors/Dome_Crio.tscn
+
+SECTION "Dome Crio Airlock To Exterior"
+    WAIT 1.0
+
+    // Move the player directly to the north airlock approach, then walk the last
+    // stretch so the transition is triggered by real locomotion.
+    SET_POS "Pilot" [-0.4, 4.4, -29.8]
+    WAIT 0.3
+    SCREENSHOT "00_north_airlock_entry"
+
+    WALK FW 1.2
+    WAIT 2.0
+
+    SET $pilot_x pos.x
+    SET $pilot_y pos.y
+    SET $pilot_z pos.z
+
+    PRINT "After transition x=$pilot_x y=$pilot_y z=$pilot_z"
+    SCREENSHOT "01_after_transition"
+
+    ASSERT $pilot_y > -5.0 "Player should remain valid after Dome_Crio -> exterior transition"
+
+END
