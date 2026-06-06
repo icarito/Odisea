@@ -114,9 +114,11 @@ func _physics_process(_delta: float) -> void:
 		_stream = _resolve_path(stream_path) as ScaffoldStreamController
 	if _stream != null:
 		_ensure_stream_connected()
-	if _player == null:
+	# Re-resolve if the cached player was freed (e.g. the baked-in Pilot is
+	# replaced by the reparented player after a seamless airlock transition).
+	if not is_instance_valid(_player):
 		_player = _get_player()
-	if _player == null:
+	if not is_instance_valid(_player):
 		return
 	if _physical_terrace == null:
 		_physical_terrace = _resolve_path(physical_terrace_path) as StaticBody
