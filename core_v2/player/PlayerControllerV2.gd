@@ -240,14 +240,13 @@ func snap_camera_to_current_state() -> void:
 		_camera_rig_was_grounded = true
 		camera_rig.transform.origin.y = _camera_rig_y_smoothed_global - global_transform.origin.y
 
-	# Snap spring arm: set target length then immediately cast to find the real
-	# collision distance in the new scene.  Without this the arm starts at full
-	# length and retracts violently on the first frame (visible yank).
-	print("[snap_camera] arm=", _cached_spring_arm, " valid=", is_instance_valid(_cached_spring_arm) if _cached_spring_arm else "null")
+	# Snap spring arm to target length. If collision grace is active (airlock
+	# transition), skip the collision cast — the arm starts at full length and
+	# physics_process handles retraction with collision mask zeroed for the grace
+	# period, avoiding a snap-to-wall yank when the player is inside the airlock.
 	if _cached_spring_arm:
 		current_spring_length = base_spring_length_3d
 		_cached_spring_arm.spring_length = base_spring_length_3d
-		print("[snap_camera] calling snap_collision has_method=", _cached_spring_arm.has_method("snap_collision_to_scene"), " current_len=", _cached_spring_arm.get("current_length") if "current_length" in _cached_spring_arm else "N/A")
 		if _cached_spring_arm.has_method("snap_collision_to_scene"):
 			_cached_spring_arm.snap_collision_to_scene()
 		elif "current_length" in _cached_spring_arm:

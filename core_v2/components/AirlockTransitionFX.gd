@@ -23,6 +23,7 @@ var _time := 0.0
 var _cycle_count := 0
 var _transition_fired := false
 var _complete := false
+var _skip_next_airlock_ready := false
 var _managed_lights: Array = []  # [{ node, property, base_value }]
 
 func _ready() -> void:
@@ -36,6 +37,9 @@ func _ready() -> void:
 	call_deferred("_check_already_exit_open")
 
 func _on_airlock_ready() -> void:
+	if _skip_next_airlock_ready:
+		_skip_next_airlock_ready = false
+		return
 	_start_fx()
 
 func _check_already_exit_open() -> void:
@@ -46,11 +50,10 @@ func _check_already_exit_open() -> void:
 		_start_fx()
 
 # Called by SessionManager on scene arrival to replay post-transition flicker.
-# Disconnects airlock_ready so open_exit_door doesn't restart the full pre-transition cycle.
+# Sets a one-shot flag so the next airlock_ready signal (from open_exit_door)
+# is skipped — keeps the signal connected for future use of the same airlock.
 func start_post_transition_fx() -> void:
-	if is_instance_valid(_controller) and _controller.has_signal("airlock_ready"):
-		if _controller.is_connected("airlock_ready", self, "_on_airlock_ready"):
-			_controller.disconnect("airlock_ready", self, "_on_airlock_ready")
+	_skip_next_airlock_ready = true
 	_active = true
 	_time = 0.0
 	_cycle_count = 0

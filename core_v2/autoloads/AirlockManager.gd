@@ -122,6 +122,10 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 			if is_instance_valid(existing_parent):
 				existing_parent.remove_child(existing)
 			existing.free()
+		# Pre-position the player at the destination airlock BEFORE add_child so
+		# the first rendered frame already shows the correct position — avoids a
+		# one-frame yank where the player appears at the wrong location.
+		_pre_position_at_destination(player, scene_root, _params)
 		remove_child(player)
 		scene_root.add_child(player)
 		# Freeze AFTER add_child so _ready() doesn't stomp the value.
@@ -150,6 +154,57 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 			player._camera_collision_grace_left = max(player._camera_collision_grace_left, 0.35)
 		if _params is Dictionary:
 			_params["_airlock_manager_placed"] = true
+
+func _pre_position_at_destination(player: Node, scene_root: Node, params: Dictionary) -> void:
+	if not is_instance_valid(player) or not is_instance_valid(scene_root):
+		return
+	if typeof(params) != TYPE_DICTIONARY:
+		return
+	var state_data = params.get("state_data", {})
+	if typeof(state_data) != TYPE_DICTIONARY:
+		return
+	var relative_transform = state_data.get("airlock_relative_transform", null)
+	if typeof(relative_transform) != TYPE_TRANSFORM:
+		return
+	var target_airlock_path := String(state_data.get("target_airlock_path", "")).strip_edges()
+	if target_airlock_path == "":
+		return
+	var target_airlock := scene_root.get_node_or_null(NodePath(target_airlock_path))
+	if not is_instance_valid(target_airlock):
+		var path := NodePath(target_airlock_path)
+		var name_count := path.get_name_count()
+		if name_count > 0:
+			target_airlock = scene_root.find_node(path.get_name(name_count - 1), true, false)
+	if not is_instance_valid(target_airlock):
+		return
+	var body_transform: Transform = target_airlock.global_transform * relative_transform
+	body_transform.basis = Basis.IDENTITY
+	player.global_transform = body_transform
+	if "velocity" in player:
+		player.velocity = Vector3.ZERO
+	# Also orient the camera rig to match the destination yaw so the SpringArm
+	# points in the correct direction from frame zero — prevents a one-frame yank
+	# where the arm casts in the wrong direction before SessionManager fixes yaw.
+	var yaw := 0.0
+	if typeof(state_data.get("camera_relative_forward", null)) == TYPE_VECTOR3:
+		var fwd: Vector3 = target_airlock.global_transform.basis.xform(state_data["camera_relative_forward"])
+		fwd.y = 0.0
+		if fwd.length_squared() > 0.0001:
+			yaw = atan2(-fwd.normalized().x, -fwd.normalized().z)
+	elif state_data.has("camera_body_yaw_offset"):
+		yaw = body_transform.basis.get_euler().y + float(state_data["camera_body_yaw_offset"])
+	elif state_data.has("camera_yaw"):
+		yaw = float(state_data["camera_yaw"])
+	var pitch := float(state_data.get("camera_pitch", 0.0))
+	if "yaw" in player:
+		player.yaw = yaw
+	if "pitch" in player:
+		player.pitch = pitch
+	if "camera_rig" in player and is_instance_valid(player.camera_rig):
+		player.camera_rig.transform.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		player.camera_rig.force_update_transform()
+	if "_camera_rig_y_initialized" in player:
+		player._camera_rig_y_initialized = true
 
 func _find_animator_in(player: Node) -> Node:
 	if not is_instance_valid(player):
