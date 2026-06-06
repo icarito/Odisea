@@ -901,7 +901,19 @@ func _get_camera_forward_canonical() -> Vector3:
 	return _rotator.global_transform.basis.inverse().xform(cam_fwd_global).normalized()
 
 func _sort_lod_entry_by_dist(a: Dictionary, b: Dictionary) -> bool:
-	return float(a.get("dist_sq", 0.0)) < float(b.get("dist_sq", 0.0))
+	# Deterministic tie-break: sort_custom is unstable, so equal distances could
+	# swap rank between recomputes. Fall back to a stable key (spiral, then plate).
+	var da := float(a.get("dist_sq", 0.0))
+	var db := float(b.get("dist_sq", 0.0))
+	if da != db:
+		return da < db
+	var aa: Dictionary = a.get("assignment", {})
+	var ab: Dictionary = b.get("assignment", {})
+	var asp := int(aa.get("spiral_index", -1))
+	var bsp := int(ab.get("spiral_index", -1))
+	if asp != bsp:
+		return asp < bsp
+	return int(aa.get("plate_index", -1)) < int(ab.get("plate_index", -1))
 
 func _build_dome_lod_stats(assignments: Array, full_detail_keys: Dictionary, overlay_part_count: int) -> Dictionary:
 	if _segment_manager and _segment_manager.has_method("build_stats"):

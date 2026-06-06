@@ -159,7 +159,6 @@ var _terminal_ui_active := false
 var _restore_spring_length: float = -1.0
 var _post_teleport_snap_frames := 0
 var _transition_airlock_placed := false
-var _domeyank_log_frames := 0  # TEMP [DOMEYANK] diagnosis
 var _restore_fov: float = -1.0
 var _exit_log_frames := 0
 var _perf_disable_interaction_scan := false
@@ -231,12 +230,6 @@ func sync_camera_to_rig() -> void:
 	_cinematic_zoom_target_fov = -1.0
 
 func snap_camera_to_current_state() -> void:
-	# TEMP [DOMEYANK] diagnosis
-	_domeyank_log_frames = 6
-	print("[DOMEYANK][snapCam] frame=%d airlock_placed=%s yaw=%.4f pitch=%.4f rig_euler=%s prefix_id=%s" % [
-		Engine.get_physics_frames(), str(_transition_airlock_placed), yaw, pitch,
-		str(camera_rig.transform.basis.get_euler()) if camera_rig else "<none>",
-		str(camera_basis_prefix.is_equal_approx(Basis.IDENTITY))])
 	# If AirlockManager already placed the player and restored the full camera
 	# state, skip every snap to avoid overwriting yaw/pitch/spring/OTS values.
 	if _transition_airlock_placed:
@@ -995,13 +988,6 @@ func _update_camera_orbit_state(dt: float, input: InputDataV2, allow_auto_align:
 		if input.fov_override > 0.0:
 			base_fov = input.fov_override
 
-	# TEMP [DOMEYANK] diagnosis — log the first few frames after arrival
-	if _domeyank_log_frames > 0:
-		_domeyank_log_frames -= 1
-		print("[DOMEYANK][frame] f=%d yaw=%.4f pitch=%.4f prefix_id=%s rig_euler_before=%s" % [
-			Engine.get_physics_frames(), yaw, pitch,
-			str(camera_basis_prefix.is_equal_approx(Basis.IDENTITY)),
-			str(camera_rig.transform.basis.get_euler()) if camera_rig else "<none>"])
 	if camera_rig:
 		camera_rig.transform.basis = camera_basis_prefix * Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		camera_rig.force_update_transform()

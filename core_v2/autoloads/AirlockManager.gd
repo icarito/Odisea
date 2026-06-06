@@ -226,15 +226,6 @@ func _pre_position_at_destination(player: Node, scene_root: Node, params: Dictio
 		player.camera_rig.force_update_transform()
 	if "_camera_rig_y_initialized" in player:
 		player._camera_rig_y_initialized = true
-	# TEMP [DOMEYANK] diagnosis
-	var _prefix_id := true
-	if "camera_basis_prefix" in player:
-		_prefix_id = player.camera_basis_prefix.is_equal_approx(Basis.IDENTITY)
-	print("[DOMEYANK][prePos] frame=%d scene_root=%s yaw=%.4f pitch=%.4f body_yaw=%.4f rig_euler=%s prefix_is_identity=%s player_basis_euler=%s" % [
-		Engine.get_physics_frames(), scene_root.name, yaw, pitch,
-		body_transform.basis.get_euler().y,
-		str(player.camera_rig.transform.basis.get_euler()) if ("camera_rig" in player and is_instance_valid(player.camera_rig)) else "<none>",
-		str(_prefix_id), str(player.global_transform.basis.get_euler())])
 
 func _find_animator_in(player: Node) -> Node:
 	if not is_instance_valid(player):

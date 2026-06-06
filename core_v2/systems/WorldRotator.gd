@@ -49,6 +49,12 @@ export(NodePath) var tracking_target_path := NodePath("")
 export(float) var auto_track_min_switch_distance := 20.0
 export(bool) var auto_track_requires_floor_contact := true
 export(int, 1, 30) var target_plate_query_interval := 3
+# Cooldown (physics frames) after an active-plate switch during which no further
+# switch is allowed. Breaks the feedback loop where, standing on the overlap of
+# two plates from different spirals, each switch reorients the world and makes
+# the other plate look closer next frame — plates flip every few frames and the
+# full-detail dome flickers (Full-Detail↔LOD snap loop) on the grounded player.
+export(int, 0, 120) var auto_track_switch_cooldown_frames := 20
 export(bool) var continuous_tracking := true
 # Eje del cilindro para el fallback radial (cuando no hay GravityWorld).
 # 0 = Y (por defecto, OdiseaExterior: ring cierra en XZ)
@@ -116,6 +122,7 @@ var _pool_assignments: Array = []      # Array[Dictionary]
 var _pool_update_counter: int = 0
 var _spiral_extents_cache: Dictionary = {}  # spiral_index (int) -> Vector3
 var _target_plate_query_counter: int = 0
+var _switch_cooldown_left: int = 0  # frames remaining before another plate switch is allowed
 var _cached_tracking_target: Spatial = null  # cache por frame: evita get_nodes_in_group repetido
 var _world_environment_sky_entries: Array = []
 var _sky_frame_sync_counter: int = 0
@@ -809,6 +816,13 @@ func _update_tracked_target_plate() -> void:
 	var target: Spatial = _cached_tracking_target
 	if target == null:
 		return
+	# Cooldown: after a switch, hold the current plate for a few frames so the
+	# world has time to settle before reconsidering — breaks the flip-flop between
+	# two equidistant plates from different spirals.
+	if _switch_cooldown_left > 0:
+		_switch_cooldown_left -= 1
+		if _selected_spiral_index >= 0 and _selected_plate_index >= 0:
+			return
 	var target_plate: Dictionary = _find_floor_contact_plate(target)
 	var candidate_dist_sq := INF
 	if target_plate.empty():
@@ -861,6 +875,9 @@ func _update_tracked_target_plate() -> void:
 		if _selected_spiral_index < 0 or _selected_plate_index < 0 or _active_collision_body == null:
 			return
 		_activate_nearest_plate_at_current_global_transform(spiral_index, plate_index)
+	# A switch just happened — start the cooldown so the world can settle before
+	# the next switch is allowed, breaking the inter-spiral plate flip-flop.
+	_switch_cooldown_left = auto_track_switch_cooldown_frames
 	_target_plate_query_counter = 0
 	_pool_update_counter = collision_update_interval
 
