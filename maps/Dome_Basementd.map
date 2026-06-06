@@ -1,0 +1,26 @@
+// Game: Odisea
+// Format: Standard
+// entity 0
+{
+"_tb_textures" ""
+"classname" "worldspawn"
+// brush 0
+{
+( -164 -48 -144 ) ( -164 -47 -144 ) ( -164 -48 -143 ) kenney_prototype_textures/dark/texture_01 384 -96 0 0.125 0.125
+( -76 -112 -144 ) ( -76 -112 -143 ) ( -75 -112 -144 ) kenney_prototype_textures/dark/texture_01 -256 -96 0 0.125 0.125
+( -76 -48 -144 ) ( -75 -48 -144 ) ( -76 -47 -144 ) kenney_prototype_textures/dark/texture_01 -256 -384 0 0.125 0.125
+( 52 112 -140 ) ( 52 113 -140 ) ( 53 112 -140 ) kenney_prototype_textures/dark/texture_01 -256 -384 0 0.125 0.125
+( 52 152 -140 ) ( 53 152 -140 ) ( 52 152 -139 ) kenney_prototype_textures/dark/texture_01 -256 -96 0 0.125 0.125
+( 88 112 -140 ) ( 88 112 -139 ) ( 88 113 -140 ) kenney_prototype_textures/dark/texture_01 384 -96 0 0.125 0.125
+}
+}
+// entity 1
+{
+"classname" "light_work_tripod"
+"origin" "-59 -51 -140"
+}
+// entity 2
+{
+"classname" "light_work_tripod"
+"origin" "9 81 -140"
+}

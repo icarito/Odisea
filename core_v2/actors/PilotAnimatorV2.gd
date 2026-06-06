@@ -270,10 +270,19 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	Actualiza todos los aspectos visuales del personaje.
 	Debe ser llamado manualmente por el controlador después de cada 'step' de física.
 	"""
-	if _transition_freeze_frames > 0:
-		_transition_freeze_frames -= 1
-		if _transition_freeze_frames == 0:
-			_transition_freeze_until_grounded = false
+	if _transition_freeze_frames > 0 or _transition_freeze_until_grounded:
+		if _transition_freeze_frames > 0:
+			_transition_freeze_frames -= 1
+		# When freezing "until grounded", the grace-frame countdown only ends the
+		# freeze once the player is actually back on the floor. While the player is
+		# still flying between scenes we keep holding the pose; the instant it lands
+		# (or if it was already grounded) the freeze releases, so there is no
+		# moonwalk from a fixed multi-frame hold while walking on the ground.
+		if _transition_freeze_until_grounded:
+			var grounded: bool = controller.is_effectively_grounded() if controller.has_method("is_effectively_grounded") else controller.is_on_floor()
+			if _transition_freeze_frames == 0 and grounded:
+				_transition_freeze_until_grounded = false
+		if _transition_freeze_frames == 0 and not _transition_freeze_until_grounded:
 			airborne_time = 0.0 as float
 			was_on_floor_last_frame = true
 		return
@@ -1191,11 +1200,12 @@ func _stop_footstep_audio_if_playing() -> void:
 
 # Suppress animation updates for N physics frames — use on scene transitions
 # to prevent fall/jump poses from flickering during the loading gap.
-func freeze(frames: int = 12) -> void:
+func freeze(frames: int = 4) -> void:
 	_transition_freeze_frames = max(_transition_freeze_frames, frames)
 	_transition_freeze_until_grounded = true
 	airborne_time = float(0)
 
 func _on_scene_ready_freeze(_path, _scene_root, _params) -> void:
 	print("[PilotAnim] _on_scene_ready_freeze path=", _path)
-	freeze(30)
+	_transition_freeze_until_grounded = true
+	airborne_time = float(0)

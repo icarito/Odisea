@@ -24,6 +24,10 @@ var _pending_transition := false
 var _seamless_swap := false  # true while SceneManager should use add-before-free order
 var _player_held: Node = null
 var _airlock_held: Node = null
+# Permanent SFX proxy — created once on first beacon encounter, never freed.
+# Every scene's own beacon SFX child is discarded; all play/stop calls go here.
+var _beacon_sfx_proxy: Node = null
+var _beacon_time_accumulator := 0.0
 
 var _exterior_scene: Node = null
 var _exterior_paused := false
@@ -35,6 +39,25 @@ func _ready() -> void:
 		scene_manager.connect("pre_scene_swap", self, "_on_pre_scene_swap")
 		scene_manager.connect("pre_spawn_state", self, "_on_pre_spawn_state")
 	set_process(false)
+	# Create permanent beacon alarm proxy — lives here for the lifetime of the
+	# game, never reparented. Every EmergencyBeaconV2 in every scene wires its
+	# _sfx_alarm to this node from its own _ready().
+	var sfx_script = load("res://core_v2/components/SFXComponentV2.gd")
+	var sfx_stream = load("res://assets/sfx/Alarm_Loop_01.wav")
+	if sfx_script and sfx_stream:
+		var proxy := AudioStreamPlayer3D.new()
+		# set_script FIRST — it resets the object, so all properties must come after.
+		proxy.set_script(sfx_script)
+		proxy.name = "BeaconSFXProxy"
+		proxy.stream = sfx_stream
+		proxy.attenuation_model = 2  # ATTENUATION_INVERSE_DISTANCE
+		proxy.unit_db = 4.0
+		proxy.unit_size = 6.0
+		proxy.pitch_scale = 1.3
+		proxy.max_distance = 80.0
+		proxy.set("loop_sample", true)
+		add_child(proxy)
+		_beacon_sfx_proxy = proxy
 
 
 func _process(_delta: float) -> void:
@@ -87,12 +110,24 @@ func _on_pre_scene_swap(old_scene: Node, _new_scene: Node, _params: Dictionary) 
 		if is_instance_valid(animator):
 			animator.set_physics_process(false)
 		_seamless_swap = false
+		# Freeze the source scene's WorldRotator so it stops following the player
+		# (now lifted into the airlock chamber) and does not accumulate rotation
+		# that would snap in at scene swap (the [YANK]).
+		var source_rotator := _find_world_rotator_in(old_scene)
+		if is_instance_valid(source_rotator) and source_rotator.has_method("pause_tracking"):
+			source_rotator.pause_tracking()
 		# Re-assert camera immediately and deferred (covers both the current frame and
 		# the next, since Godot clears camera.current during _notification(ENTER_TREE)).
 		if player.has_method("force_camera_current"):
 			player.force_camera_current()
 			player.call_deferred("force_camera_current")
 		set_process(true)
+
+	# Save rotation accumulator for visual continuity at the destination.
+	_beacon_time_accumulator = 0.0
+	var source_beacon := _find_airlock_beacon_in(old_scene)
+	if is_instance_valid(source_beacon) and "_time_accumulator" in source_beacon:
+		_beacon_time_accumulator = float(source_beacon._time_accumulator)
 
 
 func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) -> void:
@@ -128,13 +163,12 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 		_pre_position_at_destination(player, scene_root, _params)
 		remove_child(player)
 		scene_root.add_child(player)
-		# Freeze AFTER add_child so _ready() doesn't stomp the value.
-		var animator := _find_animator_in(player)
-		if is_instance_valid(animator) and animator.has_method("freeze"):
-			animator.call("freeze", 60)
-		elif is_instance_valid(animator) and "_transition_freeze_frames" in animator:
-			animator._transition_freeze_frames = max(animator._transition_freeze_frames, 60)
+		# NOTE: tracking is NOT resumed here. The WorldRotator stays paused until the
+		# player physically exits the destination airlock chamber — OdiseaExterior
+		# drives resume_tracking() from the chamber zone exit. Resuming at scene swap
+		# would apply the rotation accumulated during the pause as a yank on arrival.
 		# Re-enable physics now that the player is in the new scene.
+		var animator := _find_animator_in(player)
 		player.set_physics_process(true)
 		if is_instance_valid(animator):
 			animator.set_physics_process(true)
@@ -156,8 +190,46 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 		# already correct — skip any snap that would overwrite it.
 		if "_transition_airlock_placed" in player:
 			player._transition_airlock_placed = true
+			if "_ots_snap_on_arrival" in player:
+				player._ots_snap_on_arrival = _is_interior_scene(path)
+			# Suppress snap calls for 2 physics frames to cover all SessionManager
+			# calls that may happen in the same or next frame.
+			if "_transition_snap_suppressed_until" in player:
+				player._transition_snap_suppressed_until = Engine.get_physics_frames() + 2
 		if _params is Dictionary:
 			_params["_airlock_manager_placed"] = true
+
+	# Wire the permanent SFX proxy to the destination beacon.
+	# EmergencyBeaconV2._ready() already wired itself to the proxy when the
+	# scene loaded, so here we only need to restore visual continuity and
+	# update the proxy's world position for correct 3-D spatialization.
+	var target_airlock: Node = _resolve_target_airlock(scene_root, _params)
+	var dest_beacon: Node = target_airlock.get_node_or_null("EmergencyBeacon") if is_instance_valid(target_airlock) else null
+	if is_instance_valid(dest_beacon):
+		if "_time_accumulator" in dest_beacon:
+			dest_beacon._time_accumulator = _beacon_time_accumulator
+		if is_instance_valid(_beacon_sfx_proxy) and dest_beacon is Spatial:
+			(_beacon_sfx_proxy as Spatial).global_transform = (dest_beacon as Spatial).global_transform
+	_beacon_time_accumulator = 0.0
+
+func _resolve_target_airlock(scene_root: Node, params: Dictionary) -> Node:
+	if not is_instance_valid(scene_root):
+		return null
+	if typeof(params) != TYPE_DICTIONARY:
+		return null
+	var sd = params.get("state_data", {})
+	if typeof(sd) != TYPE_DICTIONARY:
+		return null
+	var ap := String(sd.get("target_airlock_path", "")).strip_edges()
+	if ap == "":
+		return null
+	var node := scene_root.get_node_or_null(NodePath(ap))
+	if is_instance_valid(node):
+		return node
+	var np := NodePath(ap)
+	if np.get_name_count() > 0:
+		return scene_root.find_node(np.get_name(np.get_name_count() - 1), true, false)
+	return null
 
 func _pre_position_at_destination(player: Node, scene_root: Node, params: Dictionary) -> void:
 	if not is_instance_valid(player) or not is_instance_valid(scene_root):
@@ -236,6 +308,33 @@ func _find_player_in(scene_root: Node) -> Node:
 			return p
 	return scene_root.find_node("Pilot", true, false)
 
+func _find_airlock_beacon_in(scene_root: Node) -> Node:
+	var fallback: Node = null
+	for chamber in get_tree().get_nodes_in_group("airlock_chamber"):
+		if not is_instance_valid(chamber):
+			continue
+		if not scene_root.is_a_parent_of(chamber):
+			continue
+		var beacon: Node = chamber.get_node_or_null("EmergencyBeacon")
+		if not is_instance_valid(beacon):
+			continue
+		# Prefer the chamber that was actively cycling (non-IDLE state)
+		var state = chamber.get("state") if "state" in chamber else null
+		if state != null and int(state) != 0:  # 0 = AirlockControllerV2.State.IDLE
+			return beacon
+		if fallback == null:
+			fallback = beacon
+	return fallback
+
+func _find_world_rotator_in(scene_root: Node) -> Node:
+	if not is_instance_valid(scene_root):
+		return null
+	var rotator := scene_root.get_node_or_null("WorldRotator")
+	if is_instance_valid(rotator):
+		return rotator
+	return scene_root.find_node("WorldRotator", true, false)
+
+
 func _find_active_airlock_in(scene_root: Node) -> Node:
 	if not is_instance_valid(scene_root):
 		return null
@@ -299,3 +398,6 @@ func _resume_exterior() -> void:
 
 func _is_exterior_scene(scene_path: String) -> bool:
 	return "OdiseaExterior" in scene_path
+
+func _is_interior_scene(scene_path: String) -> bool:
+	return "interiors/" in scene_path

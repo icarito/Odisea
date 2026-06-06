@@ -195,6 +195,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )
 light_energy = 0.25
 light_specular = 0.3
 omni_range = 8.0
+omni_attenuation = 1.62451
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.96, 0 )

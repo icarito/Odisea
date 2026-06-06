@@ -59,6 +59,19 @@ var _preload_loaders: Dictionary = {}
 # path -> loaded Resource (PackedScene/Mesh), populated as loaders finish
 var _preload_resources: Dictionary = {}
 
+# Airlock chamber gate for WorldRotator tracking. While the player is inside an
+# airlock chamber (entering it from the exterior, or appearing there after a
+# scene swap) continuous tracking is disabled and the world is left flat relative
+# to the active terrace. This kills the per-frame radial tracking cost and, more
+# importantly, removes the rotation snap on transition: there is no accumulated
+# rotation to apply when the player walks back out. Tracking resumes (easing over
+# WorldRotator.RESUME_TRACKING_DURATION) only when the player exits the chamber.
+# AirlockZoneV2 toggles the player's "airlock_tracking_suspended" meta on chamber
+# enter/exit, so we mirror it. Initialized to false so that a player appearing
+# inside the destination chamber is detected as a false->true transition on the
+# first tick and pauses tracking.
+var _airlock_chamber_suspended := false
+
 # Pipeline LOD: fase única por frame (snapshot + sort + flush todas las espirales).
 var _lod_update_phase := 0              # 0=idle, 1=ejecutar ciclo completo
 var _lod_pipeline_all_assignments := [] # candidatos para el ciclo actual
@@ -162,6 +175,7 @@ func _resolve_player_camera() -> Camera:
 	return camera
 
 func _process(_delta: float) -> void:
+	_tick_airlock_chamber_gate()
 	_tick_preload_loaders()
 	_tick_dome_assignment_cache_build()
 	_sync_selection_from_rotator()
@@ -169,6 +183,38 @@ func _process(_delta: float) -> void:
 	_tick_frustum_lod_update()
 	_tick_dome_facade_cursor()  # sigue la animación/rotación del WorldRotator cada frame
 	_reset_camera_roll()
+
+# Mirrors the player's airlock chamber state onto WorldRotator tracking: pause
+# while inside a chamber, resume (with a 0.3s ease) when the player exits it.
+func _tick_airlock_chamber_gate() -> void:
+	if not _rotator or not is_instance_valid(_rotator):
+		return
+	if not _rotator.has_method("pause_tracking"):
+		return
+	var suspended := _is_player_airlock_suspended()
+	if suspended == _airlock_chamber_suspended:
+		return
+	_airlock_chamber_suspended = suspended
+	if suspended:
+		_rotator.pause_tracking()
+	else:
+		_rotator.resume_tracking()
+
+func _is_player_airlock_suspended() -> bool:
+	var player := _resolve_tracking_player()
+	if player == null:
+		# No player resolvable yet (e.g. mid scene-load) — keep the current state.
+		return _airlock_chamber_suspended
+	return player.has_meta("airlock_tracking_suspended") \
+		and bool(player.get_meta("airlock_tracking_suspended"))
+
+func _resolve_tracking_player() -> Node:
+	if _player != null and is_instance_valid(_player):
+		return _player
+	for p in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(p):
+			return p
+	return null
 
 func _resolve_spawn_state() -> void:
 	if not has_node("/root/SceneManager"):
@@ -855,7 +901,19 @@ func _get_camera_forward_canonical() -> Vector3:
 	return _rotator.global_transform.basis.inverse().xform(cam_fwd_global).normalized()
 
 func _sort_lod_entry_by_dist(a: Dictionary, b: Dictionary) -> bool:
-	return float(a.get("dist_sq", 0.0)) < float(b.get("dist_sq", 0.0))
+	# Deterministic tie-break: sort_custom is unstable, so equal distances could
+	# swap rank between recomputes. Fall back to a stable key (spiral, then plate).
+	var da := float(a.get("dist_sq", 0.0))
+	var db := float(b.get("dist_sq", 0.0))
+	if da != db:
+		return da < db
+	var aa: Dictionary = a.get("assignment", {})
+	var ab: Dictionary = b.get("assignment", {})
+	var asp := int(aa.get("spiral_index", -1))
+	var bsp := int(ab.get("spiral_index", -1))
+	if asp != bsp:
+		return asp < bsp
+	return int(aa.get("plate_index", -1)) < int(ab.get("plate_index", -1))
 
 func _build_dome_lod_stats(assignments: Array, full_detail_keys: Dictionary, overlay_part_count: int) -> Dictionary:
 	if _segment_manager and _segment_manager.has_method("build_stats"):
