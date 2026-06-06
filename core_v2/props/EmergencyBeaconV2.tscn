@@ -88,7 +88,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.495, 0 )
 layers = 65
 light_color = Color( 1, 0.0705882, 0, 1 )
 light_energy = 2.85935
-shadow_enabled = true
 omni_range = 6.0
 omni_attenuation = 1.5
 

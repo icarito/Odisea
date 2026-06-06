@@ -157,6 +157,8 @@ const PushableBoxV2Script = preload("res://core_v2/components/PushableBoxV2.gd")
 
 var _terminal_ui_active := false
 var _restore_spring_length: float = -1.0
+var _post_teleport_snap_frames := 0
+var _transition_airlock_placed := false
 var _restore_fov: float = -1.0
 var _exit_log_frames := 0
 var _perf_disable_interaction_scan := false
@@ -228,6 +230,11 @@ func sync_camera_to_rig() -> void:
 	_cinematic_zoom_target_fov = -1.0
 
 func snap_camera_to_current_state() -> void:
+	# If AirlockManager already placed the player and restored the full camera
+	# state, skip every snap to avoid overwriting yaw/pitch/spring/OTS values.
+	if _transition_airlock_placed:
+		_transition_airlock_placed = false
+		return
 	# Called after scene transition + teleport so every lerp-based camera system
 	# starts from the correct final position rather than drifting from defaults.
 
@@ -239,10 +246,18 @@ func snap_camera_to_current_state() -> void:
 		_camera_rig_was_grounded = true
 		camera_rig.transform.origin.y = _camera_rig_y_smoothed_global - global_transform.origin.y
 
-	# Snap spring arm to target length so there's no zoom lerp on first frame.
+	# Snap spring arm to target length. If collision grace is active (airlock
+	# transition), skip the collision cast — the arm starts at full length and
+	# physics_process handles retraction with collision mask zeroed for the grace
+	# period, avoiding a snap-to-wall yank when the player is inside the airlock.
 	if _cached_spring_arm:
 		current_spring_length = base_spring_length_3d
 		_cached_spring_arm.spring_length = base_spring_length_3d
+		# Stamp current_length directly — never call snap_collision_to_scene here.
+		# On scene entry the scene geometry may not be stable yet, so a collision
+		# cast returns hit=-1 (open horizon) or hits a stale occluder, both of
+		# which would yank the arm to an incorrect length in a single frame.
+		# physics_process lerp handles gradual retraction once the scene settles.
 		if "current_length" in _cached_spring_arm:
 			_cached_spring_arm.current_length = base_spring_length_3d
 
@@ -250,10 +265,10 @@ func snap_camera_to_current_state() -> void:
 	if _cached_cam:
 		_cached_cam.fov = base_fov
 
-	# Snap OTS weights so the shoulder offset appears immediately, not after lerp.
-	var ots = get_node_or_null("Logic/OverTheShoulder")
-	if is_instance_valid(ots) and ots.has_method("snap_to_current_state"):
-		ots.snap_to_current_state()
+	# Do NOT snap OTS here. On airlock transitions the chamber forces a tight
+	# framing (short arm, small offsets); stamping the exterior OTS values
+	# instantly produces a visible framing yank. The OTS _process lerps
+	# _current_offset to the new target naturally over the next few frames.
 
 func ensure_input_provider():
 	if not input_provider or not is_instance_valid(input_provider):
@@ -1625,7 +1640,7 @@ func _process_interaction(input: InputDataV2):
 	_nearby_interactables = new_nearby
 
 func _clear_interactable():
-	if _current_interactable != null:
+	if _current_interactable != null and is_instance_valid(_current_interactable):
 		if "_auto_triggered" in _current_interactable and not _current_interactable.get("one_off"):
 			_current_interactable._auto_triggered = false
 		
@@ -2099,7 +2114,11 @@ func step(dt: float, input: InputDataV2) -> void:
 		_step_grounded_timer -= dt
 	_just_stepped = false
 
-	var snap_vec = Vector3.DOWN * snap_length if (velocity.y <= 0 and not input.jump) else Vector3.ZERO
+	var _effective_snap := snap_length
+	if _post_teleport_snap_frames > 0:
+		_post_teleport_snap_frames -= 1
+		_effective_snap = max(snap_length, 1.0)
+	var snap_vec = Vector3.DOWN * _effective_snap if (velocity.y <= 0 and not input.jump) else Vector3.ZERO
 	
 	if enable_step_up and (not _rl_fast_controller) and is_on_floor() and velocity.y <= 0:
 		var step_motion = movement_logic.wish_direction if movement_logic.wish_direction.length() > 0.1 else velocity
@@ -2354,6 +2373,9 @@ func _update_floor_info() -> void:
 	movement_logic.set_floor_normal(Vector3.UP)
 
 func is_effectively_grounded() -> bool:
+	# During post-teleport snap frames, force grounded to prevent animation state flicker.
+	if _post_teleport_snap_frames > 0:
+		return true
 	# Stair stepping can lose floor contact for one frame; keep grounded briefly to avoid air-state flicker.
 	var jump_in_progress := false
 	if is_instance_valid(jump_logic):
@@ -2537,6 +2559,12 @@ func teleport_to(target_transform: Transform) -> void:
 	# print("[PlayerController] teleport_to called. Target: ", target_transform.origin, " Rot: ", target_transform.basis.get_euler())
 	global_transform = target_transform
 	velocity = Vector3.ZERO
+	# Pequeña velocidad negativa para que snap_vec se active en el primer physics frame
+	# y move_and_slide_with_snap adhiera al suelo sin el micro-salto de velocity.y=0.
+	velocity.y = -0.001
+	_post_teleport_snap_frames = 8
+	if is_instance_valid(animator) and animator.has_method("freeze"):
+		animator.call("freeze", 8)
 	
 	# Reset yaw/pitch to match target orientation to avoid state bleeding
 	var euler = target_transform.basis.get_euler()

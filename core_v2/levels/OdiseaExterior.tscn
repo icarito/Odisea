@@ -16,6 +16,7 @@ script = ExtResource( 3 )
 selected_spiral = 2
 selected_plate = 50
 dome_lod_overlay_max_instances = 256
+dome_lod_camera_angle_threshold = 40.0
 
 [node name="WorldRotator" parent="." instance=ExtResource( 1 )]
 rotation_frozen = false
@@ -23,6 +24,7 @@ spiral_blend = 1.0
 auto_select_first_platform = false
 physical_terrace_path = NodePath("../PhysicalTerrace")
 auto_track_target_plate = true
+continuous_tracking = false
 scene_anchor_use_selected_plate_on_ready = true
 collision_pool_size = 4
 collision_pool_xz_scale = 1.0
@@ -45,7 +47,6 @@ shape = SubResource( 1 )
 [node name="PlateContentRoot" parent="." instance=ExtResource( 4 )]
 rotator_path = NodePath("../WorldRotator")
 tracking_target_path = NodePath("../Pilot")
-slot_pool_size = 24
 centrifugal_current_plate_only_physics = false
 
 [node name="Pilot" parent="." instance=ExtResource( 2 )]

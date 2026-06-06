@@ -1,0 +1,13 @@
+[remap]
+
+importer="qodot.map"
+type="Resource"
+path="res://.import/Dome_Crio.map-b44a1fe72e1267103d81347f8f56ed40.tres"
+
+[deps]
+
+source_file="res://maps/Dome_Crio.map"
+dest_files=[ "res://.import/Dome_Crio.map-b44a1fe72e1267103d81347f8f56ed40.tres" ]
+
+[params]
+

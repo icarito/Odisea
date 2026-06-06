@@ -102,6 +102,7 @@ var _excluded_objects: Array = []
 var _zoom_out_blocked := false
 var _previous_arm_origin := Vector3.ZERO
 var _has_previous_arm_origin := false
+var _transition_grace_frames := 0  # suppresses all collision after scene entry
 
 func set_collider_shape(shape: Shape) -> void:
 	collider_shape = shape
@@ -118,6 +119,11 @@ func set_collision_mask(mask: int) -> void:
 		kinematic_body.collision_mask = mask
 
 func _enter_tree():
+	# Reset arm length on every scene entry so stale collision values from the
+	# previous scene don't cause a visible jump when snap_collision_to_scene runs.
+	current_length = spring_length
+	_collision_latched_length = -1.0
+	_transition_grace_frames = 6
 	kinematic_body = KinematicBody.new()
 	kinematic_body.collision_layer = 0
 	kinematic_body.collision_mask = collision_mask
@@ -162,6 +168,7 @@ func _exit_tree():
 func _ready():
 	set_physics_process(false)
 	target_length = spring_length
+	current_length = spring_length
 	_collision_latched_length = -1.0
 	_collision_latch_origin = _get_arm_pose_origin()
 	_collision_latch_direction = _get_arm_pose_direction()
@@ -201,6 +208,29 @@ func clear_excluded_objects():
 func get_hit_length() -> float:
 	return current_length
 
+# Forzar un cast inmediato para que current_length arranque ya colisionado
+# después de un teleport/transición de escena.  Evita el yank del primer frame
+# donde el arm arranca en spring_length y la colisión lo retrae bruscamente.
+func snap_collision_to_scene() -> void:
+	var arm_origin := global_transform.origin
+	var desired := max(spring_length, min_length)
+	var arm_motion := global_transform.basis.z * desired
+	var hit := _cast_shape_hit_length(arm_origin, arm_motion, desired)
+	print("[KinematicArm3D] snap hit=", hit, " desired=", desired, " prev_current=", current_length)
+	if hit >= 0.0:
+		current_length = hit
+		_collision_latched_length = hit
+		_collision_latch_origin = arm_origin
+		_collision_latch_direction = global_transform.basis.z
+		_collision_miss_timer = 0.0
+		_collision_release_timer = 0.0
+	else:
+		# No collision found — leave current_length untouched. The regular
+		# physics_process lerp will bring it to desired over time without yanking.
+		_collision_latched_length = -1.0
+		return
+	print("[KinematicArm3D] snap final=", current_length)
+
 func set_camera_local_offset(offset: Vector3) -> void:
 	camera_local_offset = offset
 
@@ -219,6 +249,16 @@ func is_zoom_out_blocked() -> bool:
 func _physics_process(delta):
 	# Sync target_length with spring_length just in case someone modifies spring_length directly.
 	target_length = spring_length
+
+	if _transition_grace_frames > 0:
+		_transition_grace_frames -= 1
+		# During grace, skip all collision detection — arm stays at spring_length
+		# so the camera doesn't snap toward airlock walls on arrival.
+		if get_child_count() > 0:
+			var child := get_child(0)
+			if is_instance_valid(child) and child is Spatial:
+				child.global_transform.origin = global_transform.origin + global_transform.basis.z * current_length + camera_local_offset
+		return
 
 	# Use separate smoothing speeds: snappier retract, softer extension.
 	var moving_outward := target_length > current_length
@@ -278,9 +318,10 @@ func _physics_process(delta):
 		else:
 			rendered_length = _advance_clear_length(delta)
 			# Lookahead: probe beyond target_length to anticipate upcoming walls.
-			# When a wall is detected before the arm would normally reach it, pre-retract
-			# gently so the eventual collision snap is small instead of full-length.
-			if collision_lookahead_factor > 1.001 and _collision_latched_length < 0.0:
+			# Suppressed for a few frames after scene entry (_transition_grace_frames > 0)
+			# so the arm doesn't pre-retract toward the destination airlock walls before
+			# the player has moved out — that causes a visible lerp-yank on arrival.
+			if _transition_grace_frames <= 0 and collision_lookahead_factor > 1.001 and _collision_latched_length < 0.0:
 				var la_len := target_length * collision_lookahead_factor
 				var la_hit := _cast_shape_hit_length(arm_origin, global_transform.basis.z * la_len, la_len)
 				if la_hit >= 0.0 and la_hit < rendered_length:
@@ -288,7 +329,7 @@ func _physics_process(delta):
 					rendered_length = lerp(rendered_length, la_hit, pre_t)
 					current_length = rendered_length
 					anticipated_collision = true
-			var motion_hit := _cast_motion_lookahead_hit_length(arm_origin, target_length, delta)
+			var motion_hit := _cast_motion_lookahead_hit_length(arm_origin, target_length, delta) if _transition_grace_frames <= 0 else -1.0
 			if motion_hit >= 0.0 and motion_hit < rendered_length:
 				var motion_pre_t := clamp(collision_motion_lookahead_speed * delta, 0.0, 1.0)
 				rendered_length = lerp(rendered_length, motion_hit, motion_pre_t)

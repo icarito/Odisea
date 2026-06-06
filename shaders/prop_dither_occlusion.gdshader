@@ -24,6 +24,7 @@ uniform vec3 uv1_scale = vec3(1.0);
 uniform vec3 uv1_offset = vec3(0.0);
 uniform bool use_world_uv = false;
 uniform vec2 world_uv_repeat = vec2(1.0, 1.0);
+uniform bool use_vertex_color = false;
 
 // --- Emission uniforms (copied from SpatialMaterial at runtime) ---
 uniform bool emission_enabled = false;
@@ -36,7 +37,6 @@ uniform vec3 player_pos;
 uniform vec3 camera_pos;
 uniform float hole_radius = 0.5;
 uniform float is_active = 0.0;
-uniform float blur_softness : hint_range(0.0, 2.0) = 0.5;
 uniform float edge_fade : hint_range(0.1, 3.0) = 1.0;
 uniform float transparency_min : hint_range(0.0, 1.0) = 0.3;
 uniform float transparency_max : hint_range(0.0, 1.0) = 0.95;
@@ -55,58 +55,44 @@ void vertex() {
 	world_normal = normalize((WORLD_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
 
-// --- Hash / noise for organic dither edges ---
-float hash(vec2 p) {
-	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-}
-
-float smooth_noise(vec2 p) {
-	vec2 i = floor(p);
-	vec2 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
-	float a = hash(i);
-	float b = hash(i + vec2(1.0, 0.0));
-	float c = hash(i + vec2(0.0, 1.0));
-	float d = hash(i + vec2(1.0, 1.0));
-	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
-
-float dreamy_noise(vec2 uv, float time_offset) {
-	float n = 0.0;
-	n += smooth_noise(uv * 1.0 + time_offset) * 0.5;
-	n += smooth_noise(uv * 2.0 - time_offset * 0.7) * 0.25;
-	n += smooth_noise(uv * 4.0 + time_offset * 0.3) * 0.125;
-	return n;
-}
-
-// --- Bayer 4x4 ordered dither ---
-float dither_pattern(vec2 position) {
-	int x = int(mod(position.x, 4.0));
-	int y = int(mod(position.y, 4.0));
-	int index = x + y * 4;
-
-	float limit = 0.0;
-	if (index == 0) limit = 0.0625;
-	if (index == 1) limit = 0.5625;
-	if (index == 2) limit = 0.1875;
-	if (index == 3) limit = 0.6875;
-	if (index == 4) limit = 0.8125;
-	if (index == 5) limit = 0.3125;
-	if (index == 6) limit = 0.9375;
-	if (index == 7) limit = 0.4375;
-	if (index == 8) limit = 0.25;
-	if (index == 9) limit = 0.75;
-	if (index == 10) limit = 0.125;
-	if (index == 11) limit = 0.625;
-	if (index == 12) limit = 1.0;
-	if (index == 13) limit = 0.5;
-	if (index == 14) limit = 0.875;
-	if (index == 15) limit = 0.375;
-
-	return limit;
+// Interleaved gradient noise — smooth, no tiling, cheap (no sin/hash)
+float ign(vec2 p) {
+	return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715))));
 }
 
 void fragment() {
+	// --- Cone occlusion discard FIRST — skip all PBR work on hidden fragments ---
+	if (is_active > 0.5) {
+		vec3 cam_to_player = player_pos - camera_pos;
+		float dist_cam_player = length(cam_to_player);
+		vec3 dir_cam_player = cam_to_player / dist_cam_player;
+		vec3 cam_to_frag = world_pos - camera_pos;
+		float t = dot(cam_to_frag, dir_cam_player);
+
+		if (t > 0.1 && t < dist_cam_player) {
+			vec3 projection = camera_pos + dir_cam_player * t;
+			float dist_radial = distance(world_pos, projection);
+			float taper = 1.0 - smoothstep(dist_cam_player - 1.5, dist_cam_player, t);
+			float cylinder_radius = hole_radius * edge_fade * taper;
+
+			if (dist_radial < cylinder_radius && cylinder_radius > 0.01) {
+				float horizontal_dist = length(world_pos.xz - player_pos.xz);
+				bool near_h = horizontal_dist < floor_protect_radius;
+				bool floor_under   = world_normal.y >  0.5 && camera_pos.y > world_pos.y && near_h && world_pos.y < (player_pos.y - 0.5);
+				bool ceiling_above = world_normal.y < -0.5 && camera_pos.y < world_pos.y && near_h && world_pos.y > (player_pos.y + 2.0);
+
+				if (!floor_under && !ceiling_above) {
+					float depth_in_cone = 1.0 - (dist_radial / cylinder_radius);
+					float transparency = mix(transparency_min, transparency_max, depth_in_cone);
+					// IGN: smooth gradient noise, no tiling, no sin(), cheaper than Bayer+hash
+					if (ign(FRAGCOORD.xy) < transparency) {
+						discard;
+					}
+				}
+			}
+		}
+	}
+
 	// --- Standard PBR output ---
 	vec2 sample_uv = UV;
 	if (use_world_uv) {
@@ -136,7 +122,10 @@ void fragment() {
 	if (use_alpha_scissor && albedo_tex.a < alpha_scissor_threshold) {
 		discard;
 	}
-	ALBEDO = albedo.rgb * albedo_tex.rgb;
+	// When vertex_color_use_as_albedo: multiply COLOR * albedo so white COLOR
+	// (mesh has no vertex color data) degrades gracefully to albedo_color.
+	vec3 base_albedo = use_vertex_color ? (COLOR.rgb * albedo.rgb) : albedo.rgb;
+	ALBEDO = base_albedo * albedo_tex.rgb;
 	METALLIC = metallic;
 	ROUGHNESS = roughness;
 	SPECULAR = specular;
@@ -163,60 +152,4 @@ void fragment() {
 		}
 	}
 
-	// --- Cone-based dither occlusion ---
-	if (is_active > 0.5) {
-		vec3 cam_to_player = player_pos - camera_pos;
-		float dist_cam_player = length(cam_to_player);
-		vec3 dir_cam_player = normalize(cam_to_player);
-
-		vec3 cam_to_frag = world_pos - camera_pos;
-
-		// Projection of fragment onto the camera→player line of sight
-		float t = dot(cam_to_frag, dir_cam_player);
-
-		// Fragment is between camera and player
-		if (t > 0.1 && t < dist_cam_player) {
-
-			// Radial distance from line of sight
-			vec3 projection = camera_pos + dir_cam_player * t;
-			float dist_radial = distance(world_pos, projection);
-
-			// Taper the cylinder near the player so objects beside them aren't hidden
-			float taper = 1.0 - smoothstep(dist_cam_player - 1.5, dist_cam_player, t);
-			float cylinder_radius = hole_radius * edge_fade * taper;
-
-			if (dist_radial < cylinder_radius && cylinder_radius > 0.01) {
-				// --- Floor/ceiling protection ---
-				float horizontal_dist = length(world_pos.xz - player_pos.xz);
-				bool near_player_h = horizontal_dist < floor_protect_radius;
-
-				bool is_floor = world_normal.y > 0.5;
-				bool camera_above = camera_pos.y > world_pos.y;
-				bool below_feet = world_pos.y < (player_pos.y - 0.5);
-				bool floor_under = is_floor && camera_above && near_player_h && below_feet;
-
-				bool is_ceiling = world_normal.y < -0.5;
-				bool camera_below = camera_pos.y < world_pos.y;
-				bool above_head = world_pos.y > (player_pos.y + 2.0);
-				bool ceiling_above = is_ceiling && camera_below && near_player_h && above_head;
-
-				if (!floor_under && !ceiling_above) {
-					float depth_in_cone = 1.0 - (dist_radial / cylinder_radius);
-
-					// Dreamy noise at edge
-					vec2 noise_uv = FRAGCOORD.xy * 0.08 * blur_softness;
-					float noise = dreamy_noise(noise_uv, world_pos.x * 0.1 + world_pos.z * 0.1);
-					float noisy_depth = depth_in_cone + (noise - 0.5) * blur_softness * 0.3;
-
-					// Dither: center = high transparency, edge = low
-					float dither = dither_pattern(FRAGCOORD.xy);
-					float transparency = mix(transparency_min, transparency_max, noisy_depth);
-
-					if (dither < transparency) {
-						discard;
-					}
-				}
-			}
-		}
-	}
 }

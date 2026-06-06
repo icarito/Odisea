@@ -32,6 +32,7 @@ export(float, 0.02, 0.5) var lod_rail_thickness := 0.08
 export(float, 0.0, 3.0) var lod_rail_height := 1.1
 export(bool) var lod_supports_enabled := true
 export(float, 0.04, 0.6) var lod_support_thickness := 0.16
+export(float, 0.0, 20.0) var min_support_spacing := 5.0
 export(int, 3, 12) var lod_tube_segments := 6
 export(Color) var frame_color := Color(0.18, 0.19, 0.21, 1.0)
 export(Color) var rail_color := Color(0.18, 0.19, 0.21, 1.0)
@@ -425,8 +426,8 @@ func _get_camera_forward() -> Vector3:
 		return Vector3.ZERO
 	# Try OTS camera path first, then ZeroG camera
 	for cam_path in ["CameraRig/Yaw/Pitch/OTS_Offset/SpringArm/Camera",
-	                  "ZeroGCameraRig/SpringArm/Camera",
-	                  "CameraRig/Yaw/Pitch/SpringArm/Camera"]:
+					  "ZeroGCameraRig/SpringArm/Camera",
+					  "CameraRig/Yaw/Pitch/SpringArm/Camera"]:
 		var cam = player_node.get_node_or_null(cam_path) as Camera
 		if cam and is_instance_valid(cam):
 			return -cam.global_transform.basis.z
@@ -551,6 +552,202 @@ func _ensure_wfc_module_ref() -> void:
 	_apply_generator_tweaks(_wfc_module_ref)
 	_wfc_module_ref._setup_variants()
 
+func _stable_hash(a: int, b: int, c: int = 0) -> int:
+	return int((a * 73856093) ^ (b * 19349663) ^ (c * 83492791) ^ global_seed) & 0x7fffffff
+
+func _border_port_x(border_key_x: int, border_key_y: int) -> int:
+	var min_x := 1
+	var max_x := max(min_x, chunk_height - 2)
+	if max_x <= min_x:
+		return int(chunk_height / 2)
+	var span := int(max_x - min_x + 1)
+	return min_x + (_stable_hash(border_key_x, border_key_y, 11) % span)
+
+func _border_port_y(border_key_x: int, border_key_y: int) -> int:
+	var min_y := 1
+	var max_y := max(min_y, chunk_length - 2)
+	if max_y <= min_y:
+		return int(chunk_length / 2)
+	var span := int(max_y - min_y + 1)
+	return min_y + (_stable_hash(border_key_x, border_key_y, 23) % span)
+
+func _chunk_hub_cell(chunk_key: Vector2) -> Vector2:
+	var min_x := 1
+	var max_x := max(min_x, chunk_height - 2)
+	var min_y := 1
+	var max_y := max(min_y, chunk_length - 2)
+	var span_x := int(max_x - min_x + 1)
+	var span_y := int(max_y - min_y + 1)
+	var hx := min_x + (_stable_hash(int(chunk_key.x), int(chunk_key.y), 31) % span_x)
+	var hy := min_y + (_stable_hash(int(chunk_key.x), int(chunk_key.y), 37) % span_y)
+	return Vector2(hx, hy)
+
+func _border_height_ns(border_key_x: int, border_key_y: int) -> float:
+	var step := WFCSolverCore.HEIGHT_STEP
+	var level := _stable_hash(border_key_x, border_key_y, 41) % 3
+	return step * float(level + 1)  # 2, 4, 6
+
+func _border_height_ew(border_key_x: int, border_key_y: int) -> float:
+	# Angular seams distort the most on the ring, so keep E/W ports at the
+	# lowest deck level to minimize visible clipping between adjacent chunks.
+	return WFCSolverCore.HEIGHT_STEP
+
+func _hub_height_from_ports(port_heights: Array) -> float:
+	if port_heights.empty():
+		return WFCSolverCore.HEIGHT_STEP
+	var max_h := WFCSolverCore.HEIGHT_STEP
+	for h in port_heights:
+		max_h = max(max_h, float(h))
+	# Keep the hub only one stair-step below the highest port so the safe axis
+	# can climb, while the low E/W seams still join via a single stair.
+	return clamp(max_h - WFCSolverCore.HEIGHT_STEP, WFCSolverCore.HEIGHT_STEP, max_h)
+
+func _cell_key(cell: Vector2) -> String:
+	return "%d,%d" % [int(cell.x), int(cell.y)]
+
+func _ensure_edge_cell(edges: Dictionary, cell: Vector2) -> void:
+	var key := _cell_key(cell)
+	if not edges.has(key):
+		edges[key] = [false, false, false, false]
+
+func _connect_edge(edges: Dictionary, a: Vector2, b: Vector2) -> void:
+	var delta := b - a
+	var dir := DIR_NORTH
+	if delta == Vector2(0, -1):
+		dir = DIR_NORTH
+	elif delta == Vector2(1, 0):
+		dir = DIR_EAST
+	elif delta == Vector2(0, 1):
+		dir = DIR_SOUTH
+	else:
+		dir = DIR_WEST
+	_ensure_edge_cell(edges, a)
+	_ensure_edge_cell(edges, b)
+	edges[_cell_key(a)][dir] = true
+	edges[_cell_key(b)][_opposite_dir(dir)] = true
+
+func _open_cell_side(edges: Dictionary, cell: Vector2, dir: int) -> void:
+	_ensure_edge_cell(edges, cell)
+	edges[_cell_key(cell)][dir] = true
+
+func _trace_backbone_path(edges: Dictionary, start: Vector2, goal: Vector2, prefer_horizontal: bool) -> void:
+	var current := start
+	_ensure_edge_cell(edges, current)
+	while current != goal:
+		var step := Vector2.ZERO
+		var dx := int(goal.x - current.x)
+		var dy := int(goal.y - current.y)
+		if prefer_horizontal and dx != 0:
+			step.x = 1 if dx > 0 else -1
+		elif dy != 0:
+			step.y = 1 if dy > 0 else -1
+		elif dx != 0:
+			step.x = 1 if dx > 0 else -1
+		var next := current + step
+		_connect_edge(edges, current, next)
+		current = next
+
+func _variant_spec_from_connections(connections: Array) -> Dictionary:
+	var degree := 0
+	for open in connections:
+		if open:
+			degree += 1
+	if degree <= 0:
+		return {"id": "EMPTY", "rotation": 0}
+	if degree == 1:
+		if connections[DIR_NORTH]: return {"id": "E", "rotation": 0}
+		if connections[DIR_EAST]: return {"id": "E", "rotation": 90}
+		if connections[DIR_SOUTH]: return {"id": "E", "rotation": 180}
+		return {"id": "E", "rotation": 270}
+	if degree == 2:
+		if connections[DIR_NORTH] and connections[DIR_SOUTH]:
+			return {"id": "W", "rotation": 0}
+		if connections[DIR_EAST] and connections[DIR_WEST]:
+			return {"id": "W", "rotation": 90}
+		if connections[DIR_NORTH] and connections[DIR_EAST]:
+			return {"id": "C", "rotation": 0}
+		if connections[DIR_EAST] and connections[DIR_SOUTH]:
+			return {"id": "C", "rotation": 90}
+		if connections[DIR_SOUTH] and connections[DIR_WEST]:
+			return {"id": "C", "rotation": 180}
+		return {"id": "C", "rotation": 270}
+	if degree == 3:
+		if not connections[DIR_SOUTH]: return {"id": "T", "rotation": 0}
+		if not connections[DIR_WEST]: return {"id": "T", "rotation": 90}
+		if not connections[DIR_NORTH]: return {"id": "T", "rotation": 180}
+		return {"id": "T", "rotation": 270}
+	return {"id": "X", "rotation": 0}
+
+func _border_cell_spec(out_dir: int, border_height: float, inner_height: float) -> Dictionary:
+	if abs(border_height - inner_height) < 0.01:
+		if out_dir == DIR_NORTH or out_dir == DIR_SOUTH:
+			return {"id": "W", "rotation": 0, "height": inner_height}
+		return {"id": "W", "rotation": 90, "height": inner_height}
+
+	# Vertical change is carried by the border cell itself using a stair variant.
+	if out_dir == DIR_NORTH:
+		if border_height < inner_height:
+			return {"id": "S", "rotation": 0, "height": border_height}
+		return {"id": "S", "rotation": 180, "height": inner_height}
+	if out_dir == DIR_SOUTH:
+		if border_height < inner_height:
+			return {"id": "S", "rotation": 180, "height": border_height}
+		return {"id": "S", "rotation": 0, "height": inner_height}
+	if out_dir == DIR_WEST:
+		if border_height < inner_height:
+			return {"id": "S", "rotation": 270, "height": border_height}
+		return {"id": "S", "rotation": 90, "height": inner_height}
+	if border_height < inner_height:
+		return {"id": "S", "rotation": 90, "height": border_height}
+	return {"id": "S", "rotation": 270, "height": inner_height}
+
+func _collect_border_data(chunk_key: Vector2) -> Dictionary:
+	# Build a thinner but still guaranteed backbone:
+	# - one shared port per border, derived from the border hash so both chunks agree
+	# - one interior hub per chunk
+	# - deterministic L-paths from each port to the hub
+	# This preserves inter-chunk continuity but leaves most of the chunk free for WFC.
+	var fixed := {}
+	var edges := {}
+	var hub := _chunk_hub_cell(chunk_key)
+	var north_x := _border_port_x(int(chunk_key.x), int(chunk_key.y) - 1)
+	var south_x := _border_port_x(int(chunk_key.x), int(chunk_key.y))
+	var west_y := _border_port_y(int(chunk_key.x) - 1, int(chunk_key.y))
+	var east_y := _border_port_y(int(chunk_key.x), int(chunk_key.y))
+	var north_h := _border_height_ns(int(chunk_key.x), int(chunk_key.y) - 1)
+	var south_h := _border_height_ns(int(chunk_key.x), int(chunk_key.y))
+	var west_h := _border_height_ew(int(chunk_key.x) - 1, int(chunk_key.y))
+	var east_h := _border_height_ew(int(chunk_key.x), int(chunk_key.y))
+	var hub_h := _hub_height_from_ports([north_h, south_h, west_h, east_h])
+	var ports := [
+		{"cell": Vector2(north_x, 0), "inner": Vector2(north_x, min(1, chunk_length - 1)), "prefer_horizontal": true, "out_dir": DIR_NORTH, "height": north_h},
+		{"cell": Vector2(south_x, chunk_length - 1), "inner": Vector2(south_x, max(chunk_length - 2, 0)), "prefer_horizontal": true, "out_dir": DIR_SOUTH, "height": south_h},
+		{"cell": Vector2(0, west_y), "inner": Vector2(min(1, chunk_height - 1), west_y), "prefer_horizontal": false, "out_dir": DIR_WEST, "height": west_h},
+		{"cell": Vector2(chunk_height - 1, east_y), "inner": Vector2(max(chunk_height - 2, 0), east_y), "prefer_horizontal": false, "out_dir": DIR_EAST, "height": east_h},
+	]
+	var border_specs := {}
+	for port in ports:
+		var border_cell: Vector2 = port.cell
+		var inner_cell: Vector2 = port.inner
+		_connect_edge(edges, border_cell, inner_cell)
+		_open_cell_side(edges, border_cell, int(port.out_dir))
+		_trace_backbone_path(edges, inner_cell, hub, bool(port.prefer_horizontal))
+		border_specs[_cell_key(border_cell)] = _border_cell_spec(int(port.out_dir), float(port.height), hub_h)
+	_ensure_edge_cell(edges, hub)
+
+	for key in edges.keys():
+		var connections: Array = edges[key]
+		var spec: Dictionary = border_specs.get(key, _variant_spec_from_connections(connections))
+		if String(spec.get("id", "")) == "EMPTY":
+			continue
+		fixed[key] = {
+			"id": String(spec.get("id", "")),
+			"rotation": int(spec.get("rotation", 0)),
+			"height": float(spec.get("height", hub_h)),
+		}
+
+	return {"fixed_border_tiles": fixed, "border_presets": {}}
+
 func _request_chunk(chunk_key: Vector2) -> void:
 	var chunk_seed = _chunk_seed(chunk_key)
 	if use_mst_generator:
@@ -563,6 +760,7 @@ func _request_chunk(chunk_key: Vector2) -> void:
 	if _pending_chunks.size() >= max_pending_generation_jobs:
 		return
 	_pending_chunks[chunk_key] = true
+	var border_data := _collect_border_data(chunk_key)
 	var params = {
 		"grid_width": chunk_height,
 		"grid_depth": chunk_length,
@@ -576,6 +774,8 @@ func _request_chunk(chunk_key: Vector2) -> void:
 		"min_empty_cells": min_empty_cells,
 		"min_height_span": min_height_span,
 		"constrain_border_heights": constrain_border_heights,
+		"border_presets": border_data.border_presets,
+		"fixed_border_tiles": border_data.fixed_border_tiles,
 		"weight_W": weight_W,
 		"weight_R": weight_R,
 		"weight_P": weight_P,
@@ -912,6 +1112,7 @@ func _build_lod1_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2
 	var support_transforms = []
 	var collision_shapes = []
 	var used_support_keys = {}
+	var used_support_points = []
 	for y in range(chunk_length):
 		for x in range(chunk_height):
 			var state = grid_data[y * chunk_height + x]
@@ -930,7 +1131,7 @@ func _build_lod1_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2
 				_append_lod_decks(deck_transforms, x, y, state, v, scale_xz, height_center)
 				_append_lod_rails(rail_transforms, collision_shapes if lod_collision_enabled else null, x, y, state, v)
 			if lod_supports_enabled:
-				_append_lod_supports(support_transforms, collision_shapes if lod_collision_enabled else null, used_support_keys, chunk_key, x, y, state, v)
+				_append_lod_supports(support_transforms, collision_shapes if lod_collision_enabled else null, used_support_keys, used_support_points, chunk_key, x, y, state, v)
 			if lod_collision_enabled:
 				if vid == "S":
 					collision_shapes.append(_lod_ramp_collision_transform(x, y, state, v))
@@ -949,6 +1150,7 @@ func _build_lod2_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2
 	var support_transforms = []
 	var collision_shapes = []
 	var used_support_keys = {}
+	var used_support_points = []
 	for y in range(chunk_length):
 		for x in range(chunk_height):
 			var state = grid_data[y * chunk_height + x]
@@ -964,7 +1166,7 @@ func _build_lod2_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2
 				var height_center = _lod_height_center_offset(v)
 				_append_lod_decks(deck_transforms, x, y, state, v, scale_xz, height_center)
 			if lod_supports_enabled:
-				_append_lod_supports(support_transforms, collision_shapes if build_collision else null, used_support_keys, chunk_key, x, y, state, v)
+				_append_lod_supports(support_transforms, collision_shapes if build_collision else null, used_support_keys, used_support_points, chunk_key, x, y, state, v)
 			if build_collision:
 				if vid == "S":
 					collision_shapes.append(_lod_ramp_collision_transform(x, y, state, v))
@@ -1111,7 +1313,7 @@ func _append_lod_ramp_rails(out: Array, collision_out, x: int, y: int, state, v)
 		var high_side = high + side_vec
 		_append_lod_rail_segment(out, collision_out, low_side, high_side)
 
-func _append_lod_supports(out: Array, collision_out, used_support_keys: Dictionary, chunk_key: Vector2, x: int, y: int, state, v) -> void:
+func _append_lod_supports(out: Array, collision_out, used_support_keys: Dictionary, used_support_points: Array, chunk_key: Vector2, x: int, y: int, state, v) -> void:
 	if _variant_id(v) == "S":
 		return
 	var heights = _variant_port_heights(v)
@@ -1124,6 +1326,7 @@ func _append_lod_supports(out: Array, collision_out, used_support_keys: Dictiona
 	var rects = _lod_deck_rects(v, scale_xz)
 	for rect_index in range(rects.size()):
 		var rect = rects[rect_index]
+		var candidates = []
 		var corners = [
 			Vector2(rect.min_x + thick * 0.5, rect.min_z + thick * 0.5),
 			Vector2(rect.max_x - thick * 0.5, rect.min_z + thick * 0.5),
@@ -1131,6 +1334,8 @@ func _append_lod_supports(out: Array, collision_out, used_support_keys: Dictiona
 			Vector2(rect.max_x - thick * 0.5, rect.max_z - thick * 0.5),
 		]
 		for corner in corners:
+			if not _rect_corner_needs_support(rects, rect_index, corner):
+				continue
 			var snapped_corner = _snap_support_corner(corner, scale_xz, thick)
 			var support_pos = base + Vector3(snapped_corner.x, 0.0, snapped_corner.y)
 			var world_support_pos = _chunk_to_local_origin(chunk_key) + support_pos
@@ -1144,11 +1349,24 @@ func _append_lod_supports(out: Array, collision_out, used_support_keys: Dictiona
 			var top_y = base_y + _corner_height(heights, x_sign, z_sign) - lod_deck_thickness * 0.35
 			if top_y <= thick:
 				continue
-			used_support_keys[key] = true
-			var post = _tube_between_transform(Vector3(support_pos.x, 0.0, support_pos.z), Vector3(support_pos.x, top_y, support_pos.z))
-			out.append(post)
-			if collision_out != null:
-				collision_out.append(_collision_box_from_transform(_vertical_box_transform(Vector3(support_pos.x, 0.0, support_pos.z), top_y, thick)))
+			candidates.append({
+				"key": key,
+				"local": Vector3(support_pos.x, 0.0, support_pos.z),
+				"world": world_support_pos,
+				"top_y": top_y,
+			})
+		if candidates.empty():
+			continue
+		var added_any := false
+		for candidate in candidates:
+			if _add_support_candidate(out, collision_out, used_support_keys, used_support_points, candidate, thick, false):
+				added_any = true
+		if added_any:
+			continue
+		if _rect_has_nearby_support(used_support_points, base, rect):
+			continue
+		var fallback = _best_support_fallback(candidates, used_support_points)
+		_add_support_candidate(out, collision_out, used_support_keys, used_support_points, fallback, thick, true)
 
 func _snap_support_corner(corner: Vector2, scale_xz: float, thick: float) -> Vector2:
 	var snapped = corner
@@ -1179,6 +1397,64 @@ func _support_world_key(world_pos: Vector3) -> String:
 		int(round(world_pos.x / step)),
 		int(round(world_pos.z / step))
 	]
+
+func _add_support_candidate(out: Array, collision_out, used_support_keys: Dictionary, used_support_points: Array, candidate: Dictionary, thick: float, ignore_spacing: bool) -> bool:
+	var key := String(candidate.get("key", ""))
+	if used_support_keys.has(key):
+		return false
+	var world_pos: Vector3 = candidate.get("world", Vector3.ZERO)
+	if not ignore_spacing and _has_support_within_spacing(used_support_points, world_pos):
+		return false
+	used_support_keys[key] = true
+	used_support_points.append(world_pos)
+	var local_pos: Vector3 = candidate.get("local", Vector3.ZERO)
+	var top_y: float = float(candidate.get("top_y", 0.0))
+	var post = _tube_between_transform(local_pos, Vector3(local_pos.x, top_y, local_pos.z))
+	out.append(post)
+	if collision_out != null:
+		collision_out.append(_collision_box_from_transform(_vertical_box_transform(local_pos, top_y, thick)))
+	return true
+
+func _has_support_within_spacing(used_support_points: Array, world_pos: Vector3) -> bool:
+	if min_support_spacing <= 0.01:
+		return false
+	var limit_sq := min_support_spacing * min_support_spacing
+	for existing in used_support_points:
+		var dx := float(existing.x) - world_pos.x
+		var dz := float(existing.z) - world_pos.z
+		if dx * dx + dz * dz < limit_sq:
+			return true
+	return false
+
+func _rect_has_nearby_support(used_support_points: Array, base: Vector3, rect: Dictionary) -> bool:
+	if used_support_points.empty():
+		return false
+	var slack := max(min_support_spacing * 0.5, lod_support_thickness)
+	var min_x: float = base.x + float(rect.min_x) - slack
+	var max_x: float = base.x + float(rect.max_x) + slack
+	var min_z: float = base.z + float(rect.min_z) - slack
+	var max_z: float = base.z + float(rect.max_z) + slack
+	for existing in used_support_points:
+		if existing.x >= min_x and existing.x <= max_x and existing.z >= min_z and existing.z <= max_z:
+			return true
+	return false
+
+func _best_support_fallback(candidates: Array, used_support_points: Array) -> Dictionary:
+	var best = candidates[0]
+	var best_dist_sq := -1.0
+	for candidate in candidates:
+		var world_pos: Vector3 = candidate.get("world", Vector3.ZERO)
+		var nearest_sq := INF
+		for existing in used_support_points:
+			var dx := float(existing.x) - world_pos.x
+			var dz := float(existing.z) - world_pos.z
+			nearest_sq = min(nearest_sq, dx * dx + dz * dz)
+		if used_support_points.empty():
+			nearest_sq = INF
+		if nearest_sq > best_dist_sq:
+			best_dist_sq = nearest_sq
+			best = candidate
+	return best
 
 func _use_perimeter_lod_rails(v) -> bool:
 	return _variant_id(v) == "P"
@@ -1355,8 +1631,12 @@ func _append_lod_rect_side_rail(out: Array, collision_out, base: Vector3, height
 		_append_lod_rail_segment(out, collision_out, a, b)
 
 func _support_owner_chunk_for_world_position(world_pos: Vector3) -> Vector2:
-	var owner_x = floor((world_pos.x - 0.001) / _chunk_step_x())
-	var owner_z = floor((world_pos.z - 0.001) / _chunk_step_z())
+	# Offset by half a cell so that supports at the outer corners of border cells
+	# (which extend half a cell beyond the chunk origin) still belong to their chunk.
+	# Both neighbours compute the same owner because the offset is symmetric.
+	var half = cell_size * 0.5
+	var owner_x = floor((world_pos.x + half) / _chunk_step_x())
+	var owner_z = floor((world_pos.z + half) / _chunk_step_z())
 	return Vector2(owner_x, owner_z)
 
 func _rect_side_is_connected_open(rect: Dictionary, dir: int, connections: Array, scale_xz: float) -> bool:

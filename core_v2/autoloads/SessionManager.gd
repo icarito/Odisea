@@ -1695,7 +1695,7 @@ func _on_oys_instruction_executed(inst: Dictionary, _vars: Dictionary):
 	
 	var cmd = inst.get("command", "")
 	match cmd:
-		"ASSERT", "SET", "MATH", "PRINT", "CLS", "HINT", "HINT_CLEAR", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "ANNA_ENABLE", "ANNA_DISABLE", "ANNA_SET_TARGET", "PLAY_ANIM", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP", "OPEN", "CHANGE_SCENE":
+		"ASSERT", "SET", "MATH", "PRINT", "CLS", "HINT", "HINT_CLEAR", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "ANNA_ENABLE", "ANNA_DISABLE", "ANNA_SET_TARGET", "PLAY_ANIM", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP", "OPEN", "CHANGE_SCENE", "TELEPORT":
 			_current_replay_data["events"][frame].append(OYS_Parser.serialize_instruction(inst))
 		"ASSERT_SIGNAL":
 			var start_evt = OYS_Parser.serialize_instruction(inst)
@@ -3220,6 +3220,14 @@ func capture_scene_transition_state() -> Dictionary:
 			out["player_snapshot"] = snapshot.duplicate(true)
 	return out
 
+func _get_transition_param(key: String, fallback):
+	var sm = get_node_or_null("/root/SceneManager")
+	if sm:
+		var params = sm.get("_transition_params")
+		if typeof(params) == TYPE_DICTIONARY:
+			return params.get(key, fallback)
+	return fallback
+
 func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dictionary = {}):
 	_find_player()
 	if not is_instance_valid(player):
@@ -3231,14 +3239,57 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 		active_dome_id = String(state_data.get("active_dome_id", "")).strip_edges()
 	_apply_active_dome_context(active_dome_id)
 
-	if typeof(state_data) == TYPE_DICTIONARY and state_data.has("player_snapshot"):
-		var snapshot = state_data["player_snapshot"]
-		if typeof(snapshot) == TYPE_DICTIONARY and player.has_method("restore_snapshot"):
-			player.restore_snapshot(snapshot)
-	elif typeof(state_data) == TYPE_DICTIONARY and state_data.has("controller_mode"):
-		var controller_manager = player.get_node_or_null("ControllerManager")
-		if controller_manager and controller_manager.has_method("switch_to"):
-			controller_manager.switch_to(int(state_data["controller_mode"]))
+	var _am_placed := bool(_get_transition_param("_airlock_manager_placed", false))
+	if not _am_placed:
+		if typeof(state_data) == TYPE_DICTIONARY and state_data.has("player_snapshot"):
+			var snapshot = state_data["player_snapshot"]
+			if typeof(snapshot) == TYPE_DICTIONARY and player.has_method("restore_snapshot"):
+				player.restore_snapshot(snapshot)
+		elif typeof(state_data) == TYPE_DICTIONARY and state_data.has("controller_mode"):
+			var controller_manager = player.get_node_or_null("ControllerManager")
+			if controller_manager and controller_manager.has_method("switch_to"):
+				controller_manager.switch_to(int(state_data["controller_mode"]))
+
+	# AirlockManager already placed the player via reparenting — use destination airlock
+	# for position/orientation just like the normal path, then open the exit door.
+	if _am_placed:
+		var target_airlock = _find_transition_airlock(state_data)
+		if is_instance_valid(target_airlock) and typeof(state_data.get("airlock_relative_transform", null)) == TYPE_TRANSFORM:
+			var relative_transform: Transform = state_data["airlock_relative_transform"]
+			var target_transform: Transform = target_airlock.global_transform * relative_transform
+			var exit_transform: Transform = _face_airlock_exit(target_airlock, state_data, target_transform)
+			var body_transform := target_transform
+			body_transform.basis = Basis.IDENTITY
+			# Move player directly (no teleport_to to avoid triggering extra freeze/yaw reset).
+			player.global_transform = body_transform
+			if "velocity" in player:
+				player.velocity = Vector3.ZERO
+			if "_post_teleport_snap_frames" in player:
+				player._post_teleport_snap_frames = 8
+			# Force camera rig Y initialized so snap works even on first frame.
+			if "_camera_rig_y_initialized" in player:
+				player._camera_rig_y_initialized = true
+			if player.has_method("snap_camera_to_current_state"):
+				player.snap_camera_to_current_state()
+			_restore_transition_camera_state(state_data, exit_transform, target_airlock)
+			_snap_transition_visual(exit_transform)
+			_apply_airlock_relative_velocity(target_airlock, state_data)
+			_open_transition_airlock_exit(target_airlock, state_data)
+		elif is_instance_valid(target_airlock):
+			var exit_transform := _face_airlock_exit(target_airlock, state_data, player.global_transform)
+			if player.has_method("snap_camera_to_current_state"):
+				player.snap_camera_to_current_state()
+			_restore_transition_camera_state(state_data, exit_transform, target_airlock)
+			_snap_transition_visual(exit_transform)
+			_apply_airlock_relative_velocity(target_airlock, state_data)
+			_open_transition_airlock_exit(target_airlock, state_data)
+		else:
+			_restore_transition_camera_state(state_data, player.global_transform, null)
+		var teleport_system = get_node_or_null("TeleportSystem")
+		if teleport_system and teleport_system.has_method("force_initial_spawn"):
+			teleport_system.force_initial_spawn(player.global_transform, player.get("yaw") if "yaw" in player else 0.0, player.get("pitch") if "pitch" in player else 0.0)
+		yield(get_tree(), "physics_frame")
+		return player
 
 	var target_airlock = _find_transition_airlock(state_data)
 	var used_airlock_frame := false
@@ -3321,7 +3372,25 @@ func _restore_transition_camera_state(state_data: Dictionary, target_transform: 
 	if "camera_rig" in player and is_instance_valid(player.camera_rig) and "yaw" in player and "pitch" in player:
 		player.camera_rig.transform.basis = Basis(Vector3.UP, player.yaw) * Basis(Vector3.RIGHT, player.pitch)
 		player.camera_rig.force_update_transform()
-	if player.has_method("snap_camera_to_current_state"):
+	if state_data.has("camera_restore_spring_length"):
+		var restore_len := float(state_data["camera_restore_spring_length"])
+		if restore_len > 0.0:
+			player.set_meta("airlock_restore_spring_length", restore_len)
+	if state_data.has("camera_arm_spring_length"):
+		# Restore arm lengths directly — avoids snap_collision_to_scene yank when
+		# the exterior scene has no geometry behind the camera on arrival.
+		var arm_len := float(state_data["camera_arm_spring_length"])
+		var arm = player.get("_cached_spring_arm")
+		if is_instance_valid(arm):
+			if "spring_length" in arm:
+				arm.spring_length = arm_len
+			if "current_length" in arm:
+				arm.current_length = arm_len
+		if "current_spring_length" in player:
+			player.current_spring_length = arm_len
+		if "base_spring_length_3d" in player:
+			player.base_spring_length_3d = arm_len
+	elif player.has_method("snap_camera_to_current_state"):
 		player.snap_camera_to_current_state()
 
 func _snap_transition_visual(target_transform: Transform) -> void:
@@ -3389,8 +3458,26 @@ func _open_transition_airlock_exit(target_airlock: Spatial, state_data: Dictiona
 	var exit_door := String(state_data.get("target_airlock_exit_door", "outer")).strip_edges().to_lower()
 	if exit_door == "" or exit_door == "none":
 		return
-	if target_airlock.has_method("open_exit_door"):
-		target_airlock.open_exit_door(exit_door, false)
+	# Freeze animator to prevent fall/jump pose flicker during scene arrival gap
+	if is_instance_valid(player):
+		var animator = player.get("animator") if "animator" in player else null
+		if is_instance_valid(animator) and animator.has_method("freeze"):
+			animator.call("freeze", 20)
+	var fx_node: Node = null
+	for child in target_airlock.get_children():
+		if child.has_method("start_post_transition_fx"):
+			fx_node = child
+			break
+	if is_instance_valid(fx_node):
+		fx_node.call("start_post_transition_fx")
+		# Delay door open until the post-transition flicker completes (~1.25 s at 0.8 Hz).
+		# This gives the destination scene time to stabilise (domes, WorldRotator, lighting)
+		# before the door opens, ensuring a smooth transition.
+		# CONNECT_ONESHOT ensures the connection is cleaned up automatically after firing.
+		fx_node.connect("fx_complete", target_airlock, "open_exit_door", [exit_door, false, true], CONNECT_ONESHOT)
+	elif target_airlock.has_method("open_exit_door"):
+		# No FX node present — open immediately as before.
+		target_airlock.open_exit_door(exit_door, true, true)
 
 func _find_scene_spawn_point(spawn_id: String = "") -> Position3D:
 	var scene = get_tree().current_scene

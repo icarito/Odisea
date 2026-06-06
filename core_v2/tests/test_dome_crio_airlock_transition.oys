@@ -1,0 +1,52 @@
+LEVEL res://core_v2/levels/interiors/Dome_Crio.tscn
+
+SECTION "Dome Crio Airlock To Exterior"
+    WAIT 1.5
+
+    // Position player at north airlock entry.
+    SET_POS "Pilot" [-0.4, 4.4, -29.8]
+    WAIT 0.5
+    SET $yaw yaw_deg
+    SET $pitch pitch_deg
+    PRINT "Start yaw=$yaw pitch=$pitch"
+    SCREENSHOT "00_north_airlock_entry"
+
+    // Walk further to ensure trigger fires (airlock zone extends ~3m forward)
+    WALK FW 3.5
+    WAIT 0.3
+    SET $px pos.x
+    SET $py pos.y
+    SET $pz pos.z
+    PRINT "Immediately post-walk: x=$px y=$py z=$pz"
+    SCREENSHOT "01_post_walk"
+
+    WAIT 0.4
+    SET $px pos.x
+    SET $py pos.y
+    SET $pz pos.z
+    SET $yaw yaw_deg
+    SET $pitch pitch_deg
+    PRINT "T+0.4s: x=$px y=$py z=$pz yaw=$yaw pitch=$pitch"
+    SCREENSHOT "02_transition_moment"
+
+    WAIT 0.5
+    SET $px pos.x
+    SET $py pos.y
+    SET $pz pos.z
+    SET $yaw yaw_deg
+    SET $pitch pitch_deg
+    PRINT "T+0.9s: x=$px y=$py z=$pz yaw=$yaw pitch=$pitch"
+    SCREENSHOT "03_post_transition"
+
+    WAIT 0.8
+    SET $px pos.x
+    SET $py pos.y
+    SET $pz pos.z
+    SET $yaw yaw_deg
+    SET $pitch pitch_deg
+    PRINT "T+1.7s settled: x=$px y=$py z=$pz yaw=$yaw pitch=$pitch"
+    SCREENSHOT "04_settled"
+
+    ASSERT $py > -5.0 "Player should remain valid after Dome_Crio -> exterior transition"
+
+END

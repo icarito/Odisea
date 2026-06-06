@@ -774,14 +774,16 @@ func _apply_port_heights_to_front_back(inst, v) -> void:
 func _apply_rails_from_connections(inst, v) -> void:
 	if v == null: return
 	var rotation = _variant_rotation(v)
+	var connections = _variant_connections(v)
 	var front_dir = _dir_from_local_side(rotation, "front")
 	var back_dir = _dir_from_local_side(rotation, "back")
 	var left_dir = _dir_from_local_side(rotation, "left")
 	var right_dir = _dir_from_local_side(rotation, "right")
-	inst.set("rail_front", true)
-	inst.set("rail_back", true)
-	inst.set("rail_left", true)
-	inst.set("rail_right", true)
+	# Rail is present on closed sides, absent on open connections (passage goes through)
+	inst.set("rail_front", not (connections.size() > front_dir and connections[front_dir]))
+	inst.set("rail_back",  not (connections.size() > back_dir  and connections[back_dir]))
+	inst.set("rail_left",  not (connections.size() > left_dir  and connections[left_dir]))
+	inst.set("rail_right", not (connections.size() > right_dir and connections[right_dir]))
 
 func _apply_local_dims(inst, w: float, d: float):
 	inst.set("platform_width", w)

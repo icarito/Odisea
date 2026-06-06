@@ -3,8 +3,10 @@
 [ext_resource path="res://scenes/common/space_environment/StarfieldProceduralSky.tres" type="ProceduralSky" id=1]
 
 [resource]
+background_mode = 1
 background_sky = ExtResource( 1 )
-background_color = Color( 1, 1, 1, 1 )
+background_color = Color( 0.0588235, 0.0470588, 0.0705882, 1 )
+background_energy = 1.46
 fog_color = Color( 0.01, 0.006, 0.024, 0.976471 )
 fog_depth_curve = 0.901251
 fog_height_enabled = true

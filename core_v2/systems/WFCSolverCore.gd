@@ -33,6 +33,11 @@ var min_elevated_cells := 3
 var min_empty_cells := 2
 var min_height_span := 2.0
 var constrain_border_heights := false
+# Dict "x,y" -> {id, rotation, height}: hard-collapsed cells set before the WFC loop.
+# The solver treats these as already-collapsed and propagates from them.
+var fixed_border_tiles: Dictionary = {}
+# Dict "x,y" -> float|"EMPTY": softer height hints applied after fixed_border_tiles.
+var border_presets: Dictionary = {}
 
 var weight_W := 6.0
 var weight_R := 5.0
@@ -88,6 +93,8 @@ func apply_params(params: Dictionary) -> void:
 	min_empty_cells = params.get("min_empty_cells", 2)
 	min_height_span = params.get("min_height_span", 2.0)
 	constrain_border_heights = params.get("constrain_border_heights", false)
+	border_presets = params.get("border_presets", {})
+	fixed_border_tiles = params.get("fixed_border_tiles", {})
 	weight_W = params.get("weight_W", 6.0)
 	weight_R = params.get("weight_R", 5.0)
 	weight_P = params.get("weight_P", 3.0)
@@ -248,6 +255,7 @@ func _wfc_attempt() -> Array:
 	# domain_size[i] = count of true entries in ds[i] — avoids re-counting every step
 	var ds = []
 	_domain_size.resize(gs)
+	_fixed_cells = {}
 	var hds = []
 	var collapsed = []
 	collapsed.resize(gs)
@@ -269,7 +277,12 @@ func _wfc_attempt() -> Array:
 		collapsed[i] = null
 
 	_apply_boundary_constraints_idx(ds, hds, _domain_size)
-	# Re-bucket after boundary constraints (sizes may have changed)
+	# Bucket after boundary constraints so _propagate_idx inside presets can use them.
+	for _b in range(n + 1): _buckets[_b].clear()
+	for i in range(gs):
+		_buckets[_domain_size[i]][i] = true
+	_apply_cell_presets_idx(ds, hds, _domain_size, collapsed)
+	# Re-bucket after presets (propagation from fixed tiles may have narrowed domains).
 	for _b in range(n + 1): _buckets[_b].clear()
 	for i in range(gs):
 		_buckets[_domain_size[i]][i] = true
@@ -368,7 +381,69 @@ func _wfc_attempt() -> Array:
 
 var _empty_variant_idx_cached := 0
 var _domain_size: Array = []   # domain_size[i] = count of true in ds[i]
+var _fixed_cells: Dictionary = {}  # cell_idx -> true: protected from _validate_height_alignment pruning
 var _buckets: Array = []       # _buckets[e] = Dictionary{cell_idx: true} of cells with domain_size==e
+
+func _apply_cell_presets_idx(ds: Array, hds: Array, domain_size: Array, collapsed: Array) -> void:
+	var n = all_variants.size()
+	var ev_idx = _empty_variant_idx_cached
+	var track_size = domain_size.size() == ds.size()
+
+	# fixed_border_tiles: hard-collapse a specific variant+height before the WFC loop.
+	for key in fixed_border_tiles.keys():
+		var parts = key.split(",")
+		if parts.size() != 2: continue
+		var x = int(parts[0]); var y = int(parts[1])
+		if x < 0 or x >= grid_width or y < 0 or y >= grid_depth: continue
+		var cell = _idx(x, y)
+		var spec = fixed_border_tiles[key]  # {id, rotation, height}
+		var target_id: String = spec.get("id", "W")
+		var target_rot: int = spec.get("rotation", 0)
+		var h: float = float(spec.get("height", HEIGHT_STEP))
+		# Find the matching variant index
+		var vi = -1
+		for j in range(n):
+			var v = all_variants[j]
+			if v.id == target_id and v.rotation == target_rot:
+				vi = j; break
+		if vi == -1: continue
+		for j in range(n): ds[cell][j] = false
+		ds[cell][vi] = true
+		if track_size: domain_size[cell] = 1
+		hds[cell] = [h]
+		collapsed[cell] = CellState.new(all_variants[vi], h)
+		_fixed_cells[cell] = true
+		_propagate_idx(ds, hds, collapsed, cell)
+
+	# border_presets: height-only or EMPTY hints (softer, for neighbour matching).
+	for key in border_presets.keys():
+		var parts = key.split(",")
+		if parts.size() != 2: continue
+		var x = int(parts[0]); var y = int(parts[1])
+		if x < 0 or x >= grid_width or y < 0 or y >= grid_depth: continue
+		var cell = _idx(x, y)
+		if collapsed[cell] != null: continue  # already fixed by fixed_border_tiles
+		var preset = border_presets[key]
+		if typeof(preset) == TYPE_STRING and preset == "EMPTY":
+			for j in range(n): ds[cell][j] = false
+			ds[cell][ev_idx] = true
+			if track_size: domain_size[cell] = 1
+			hds[cell] = [0.0]
+			collapsed[cell] = CellState.new(all_variants[ev_idx], 0.0)
+		else:
+			var h = float(preset)
+			hds[cell] = [h]
+			var any_kept = false
+			for j in range(n):
+				if not ds[cell][j]: continue
+				if all_variants[j].id == "EMPTY":
+					ds[cell][j] = false
+					if track_size: domain_size[cell] -= 1
+				else:
+					any_kept = true
+			if not any_kept:
+				ds[cell][ev_idx] = true
+				if track_size: domain_size[cell] = 1
 
 func _apply_boundary_constraints_idx(ds: Array, hds: Array, domain_size: Array = []) -> void:
 	var n = all_variants.size()
@@ -456,11 +531,39 @@ func _variant_idx(v) -> int:
 func _validate_height_alignment(collapsed: Array) -> Array:
 	var ev = _empty_variant()
 	# Pass 1: BFS-correct heights component by component.
-	# Each connected component gets a random seed height; heights propagate
-	# outward along open connections, correcting mismatches instead of pruning.
+	# Fixed cells seed their component at their pre-set height; random otherwise.
 	var assigned = []
 	assigned.resize(collapsed.size())
 	for i in range(collapsed.size()): assigned[i] = false
+
+	# Seed fixed cells first so their heights propagate outward before random seeds.
+	for root in _fixed_cells.keys():
+		if assigned[root]: continue
+		if collapsed[root] == null or collapsed[root].variant.id == "EMPTY": continue
+		assigned[root] = true
+		var queue = [root]
+		while not queue.empty():
+			var ci = queue.pop_front()
+			var state = collapsed[ci]
+			if state == null or state.variant.id == "EMPTY": continue
+			var cx = ci % grid_width
+			var cy = ci / grid_width
+			for dir in [0, 1, 2, 3]:
+				if not state.variant.connections[dir]: continue
+				var dv = DIR_VEC[dir]
+				var nx = cx + int(dv.x)
+				var ny = cy + int(dv.y)
+				if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth: continue
+				var ni = _idx(nx, ny)
+				var ns = collapsed[ni]
+				if ns == null or ns.variant.id == "EMPTY": continue
+				if not ns.variant.connections[OPPOSITE[dir]]: continue
+				var expected = state.base_height + state.variant.port_heights[dir] - ns.variant.port_heights[OPPOSITE[dir]]
+				expected = clamp(expected, HEIGHT_STEP, MAX_HEIGHT_STEPS * HEIGHT_STEP)
+				if not assigned[ni]:
+					collapsed[ni] = CellState.new(ns.variant, expected)
+					assigned[ni] = true
+					queue.push_back(ni)
 
 	for root in range(collapsed.size()):
 		if assigned[root]: continue
@@ -499,8 +602,9 @@ func _validate_height_alignment(collapsed: Array) -> Array:
 		if not assigned[i]:
 			var h = clamp(collapsed[i].base_height, HEIGHT_STEP, MAX_HEIGHT_STEPS * HEIGHT_STEP)
 			collapsed[i] = CellState.new(collapsed[i].variant, h)
-	# Pass 2: prune any open edge that does not have a reciprocal non-empty neighbor,
-	# then prune height conflicts on real bidirectional connections.
+	# Pass 2: prune open edges without reciprocal non-empty neighbor and height mismatches.
+	# Fixed cells are fully exempt — they are intentional chunk-border crossings and must
+	# not be pruned regardless of whether their internal neighbours end up as EMPTY.
 	var changed = true
 	while changed:
 		changed = false
@@ -509,12 +613,18 @@ func _validate_height_alignment(collapsed: Array) -> Array:
 			var cx = i % grid_width
 			var cy = i / grid_width
 			var state = collapsed[i]
+			var is_fixed = _fixed_cells.has(i)
+			if is_fixed: continue  # fixed border tiles are never pruned
 			for dir in [0, 1, 2, 3]:
 				if not state.variant.connections[dir]: continue
 				var dv = DIR_VEC[dir]
 				var nx = cx + int(dv.x)
 				var ny = cy + int(dv.y)
-				if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth: continue
+				# Connection points outside the grid — prune non-fixed cells only.
+				if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+					collapsed[i] = CellState.new(ev, 0.0)
+					changed = true
+					break
 				var ni = _idx(nx, ny)
 				var ns = collapsed[ni]
 				if ns == null or ns.variant.id == "EMPTY":

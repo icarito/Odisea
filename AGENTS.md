@@ -6,6 +6,12 @@
 > Consequently, spawning an object "in front" of the player often involves placing it at **positive Z** (e.g. `(0, 1, 3)`) as seen in `test_push_integration.oys`.
 > **ALWAYS verify direction visually** or via small test steps. Do not assume standard conventions apply universally without checking.
 
+## 🚀 ANNA/MCP — Cuándo usar qué herramienta
+
+- **`inspect_node`** → ubicar nodos, medir posiciones/distancias, leer propiedades numéricas, contar hijos. Fuente de verdad cuantitativa.
+- **`capture_vision`** → evaluar gaps visuales, aspecto de props. No usar sin preguntar / coordinar con el usuario la captura deseada.
+- **Regla**: `inspect_node` primero para datos duros; `capture_vision` solo si la pregunta no se puede responder con números.
+
 ## 🚀 ANNA/MCP Quick Start (VS Code)
 
 - **Default VS Code behavior:** all Godot launch configurations in `.vscode/launch.json` now set:

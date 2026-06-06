@@ -121,6 +121,7 @@ var _world_environment_sky_entries: Array = []
 var _sky_frame_sync_counter: int = 0
 var _sky_frame_sync_interval: int = 6
 var _last_sky_basis := Basis.IDENTITY
+var _startup_snap_done := false  # snap to target on first physics frame, then slerp
 # Retrocompatibilidad: alias del pool para tests que lean _generated_collision_bodies
 var _generated_collision_bodies: Array setget ,_get_generated_collision_bodies
 func _get_generated_collision_bodies() -> Array:
@@ -631,6 +632,11 @@ func _slerp_to_target(delta: float) -> void:
 	if rotation_frozen:
 		_is_transitioning = false
 		return
+	if not _startup_snap_done:
+		_startup_snap_done = true
+		transform.basis = Basis(_target_quat).orthonormalized()
+		_is_transitioning = false
+		return
 	var q_cur: Quat = transform.basis.get_rotation_quat()
 	var t: float = min(1.0, _get_effective_rotation_speed() * delta)
 	# Aplicar smoothstep para una aceleración/deceleración más natural en micro-movimientos.
@@ -644,6 +650,11 @@ func _slerp_to_global_transform(delta: float) -> void:
 		_is_transitioning = false
 		return
 	if rotation_frozen:
+		_is_transitioning = false
+		return
+	if not _startup_snap_done:
+		_startup_snap_done = true
+		global_transform = _target_global_transform
 		_is_transitioning = false
 		return
 	var t: float = min(1.0, _get_effective_rotation_speed() * delta)
@@ -839,6 +850,12 @@ func _update_continuous_tracking(_delta: float) -> bool:
 
 	_target_global_transform = Transform(new_basis, new_origin)
 	_has_transform_target = true
+	# On the very first physics frame snap directly to target so there is no
+	# visible rotation jump when entering a scene with continuous_tracking active.
+	if not _startup_snap_done:
+		_startup_snap_done = true
+		global_transform = _target_global_transform
+		return true
 	# Interpolar suavemente hacia el target para evitar saltos de cámara.
 	var t: float = min(1.0, _get_effective_rotation_speed(target) * _delta * 6.0)
 	var eased_t: float = t * t * (3.0 - 2.0 * t)
@@ -859,6 +876,8 @@ func _get_tracking_target() -> Spatial:
 			return node as Spatial
 	var players: Array = get_tree().get_nodes_in_group("player") if is_inside_tree() else []
 	for player in players:
+		if player.has_meta("airlock_tracking_suspended") and bool(player.get_meta("airlock_tracking_suspended")):
+			continue
 		if player is Spatial and is_instance_valid(player):
 			return player as Spatial
 	return null

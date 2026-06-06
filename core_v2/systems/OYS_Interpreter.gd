@@ -1958,7 +1958,8 @@ func _record_live_instruction_event(inst: Dictionary) -> void:
 		"CINEMATIC_START", "CINEMATIC_STOP",
 		"VCAMERA", "VCAMERA_BLEND", "VCAMERA_RETURN",
 		"VCAMERA_SHAKE", "CAMERA_SHAKE", "CAMERA_SHAKE_STOP",
-		"PLAY_SOUND", "SET_TIME_SCALE", "PRINT", "PLAY_ANIM", "HINT", "HINT_CLEAR"
+		"PLAY_SOUND", "SET_TIME_SCALE", "PRINT", "PLAY_ANIM", "HINT", "HINT_CLEAR",
+		"TELEPORT"
 	]:
 		session.record_event(OYS_Parser.serialize_instruction(inst))
 

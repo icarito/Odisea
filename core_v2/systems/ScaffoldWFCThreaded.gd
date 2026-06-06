@@ -69,7 +69,7 @@ func _worker_loop(_userdata) -> void:
 		_mutex.unlock()
 
 		if job == null:
-			OS.delay_msec(16)
+			OS.delay_msec(4)
 			continue
 
 		var params = job.params

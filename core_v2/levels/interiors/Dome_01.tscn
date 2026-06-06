@@ -1382,7 +1382,7 @@ shape = SubResource( 219 )
 [node name="Airlock_North" parent="." instance=ExtResource( 3 )]
 transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -0.4, 3.4, -32 )
 
-[node name="AirlockZoneV2" parent="Airlock_North" index="5"]
+[node name="AirlockZoneV2" parent="Airlock_North" index="13"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_exterior_dome_01"
 target_airlock_path = NodePath("Airlock_North")
@@ -1391,7 +1391,7 @@ zone_dir = Vector3( 0, 0, 1 )
 [node name="Airlock_South" parent="." instance=ExtResource( 3 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 3.4, 32.3809 )
 
-[node name="AirlockZoneV2" parent="Airlock_South" index="5"]
+[node name="AirlockZoneV2" parent="Airlock_South" index="13"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_exterior_dome_01"
 target_airlock_path = NodePath("Airlock_South")
@@ -1400,7 +1400,7 @@ zone_dir = Vector3( 0, 0, 1 )
 [node name="Airlock_East" parent="." instance=ExtResource( 3 )]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 32, 3.4, 0 )
 
-[node name="AirlockZoneV2" parent="Airlock_East" index="5"]
+[node name="AirlockZoneV2" parent="Airlock_East" index="13"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_exterior_dome_01"
 target_airlock_path = NodePath("Airlock_East")
@@ -1409,7 +1409,7 @@ zone_dir = Vector3( 0, 0, 1 )
 [node name="Airlock_West" parent="." instance=ExtResource( 3 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -32, 3.4, 0 )
 
-[node name="AirlockZoneV2" parent="Airlock_West" index="5"]
+[node name="AirlockZoneV2" parent="Airlock_West" index="13"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_exterior_dome_01"
 target_airlock_path = NodePath("Airlock_West")

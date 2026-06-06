@@ -117,6 +117,8 @@ var is_rotation_locked: bool = false # Impide que el personaje rote durante mani
 var hit_head_active: bool = false
 var current_push_time: float = 0.0
 var _override_sequence_id: int = 0
+var _transition_freeze_frames: int = 0  # inhibit all animation updates during scene transitions
+var _transition_freeze_until_grounded: bool = false
 
 # --- FOOTSTEPS ---
 var _distance_accumulator: float = 0.0
@@ -160,6 +162,12 @@ func _ready() -> void:
 	controller.connect("hit_ceiling", self , "_on_controller_hit_ceiling")
 	if controller.has_signal("acrobatic_jumped"):
 		controller.connect("acrobatic_jumped", self , "_on_controller_acrobatic_jumped")
+
+	# Freeze on scene arrival to prevent not-grounded flicker during transitions
+	var scene_mgr := get_node_or_null("/root/SceneManager")
+	if scene_mgr and scene_mgr.has_signal("scene_ready"):
+		if not scene_mgr.is_connected("scene_ready", self, "_on_scene_ready_freeze"):
+			scene_mgr.connect("scene_ready", self, "_on_scene_ready_freeze")
 
 	# Intentar obtener AnimationPlayer si existe (puede estar dentro de Skeleton)
 	anim_player = get_node_or_null("AnimationPlayer")
@@ -262,6 +270,13 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	Actualiza todos los aspectos visuales del personaje.
 	Debe ser llamado manualmente por el controlador después de cada 'step' de física.
 	"""
+	if _transition_freeze_frames > 0:
+		_transition_freeze_frames -= 1
+		if _transition_freeze_frames == 0:
+			_transition_freeze_until_grounded = false
+			airborne_time = 0.0 as float
+			was_on_floor_last_frame = true
+		return
 	# Use is_effectively_grounded() to include stair-stepping grace period
 	# This prevents animation flickering when climbing stairs
 	var is_on_floor: bool = controller.is_effectively_grounded() if controller.has_method("is_effectively_grounded") else controller.is_on_floor()
@@ -1173,3 +1188,14 @@ func _stop_footstep_audio_if_playing() -> void:
 		if player and is_instance_valid(player):
 			if player.playing:
 				player.stop()
+
+# Suppress animation updates for N physics frames — use on scene transitions
+# to prevent fall/jump poses from flickering during the loading gap.
+func freeze(frames: int = 12) -> void:
+	_transition_freeze_frames = max(_transition_freeze_frames, frames)
+	_transition_freeze_until_grounded = true
+	airborne_time = float(0)
+
+func _on_scene_ready_freeze(_path, _scene_root, _params) -> void:
+	print("[PilotAnim] _on_scene_ready_freeze path=", _path)
+	freeze(30)

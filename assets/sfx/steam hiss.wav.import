@@ -13,10 +13,10 @@ dest_files=[ "res://.import/steam hiss.wav-a4c6a8da0a7b76808112184a34a105a8.samp
 
 force/8_bit=false
 force/mono=false
-force/max_rate=false
+force/max_rate=true
 force/max_rate_hz=44100
 edit/trim=false
-edit/normalize=false
+edit/normalize=true
 edit/loop_mode=0
 edit/loop_begin=0
 edit/loop_end=-1

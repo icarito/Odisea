@@ -58,8 +58,8 @@ var _perf_monitor = null
 # --- HIGHLIGHT SYSTEM ---
 var _highlight_meshes: Array = []
 var _proximity_meshes: Array = []
-const HIGHLIGHT_SHADER_PATH = "res://shaders/scanlines.shader"
 const PROXIMITY_SHADER_PATH = "res://shaders/proximity_glow.shader"
+const _HIGHLIGHT_SHADER: Shader = preload("res://core_v2/visual/interact_highlight.shader")
 
 # --- SIGNALS ---
 signal activated()
@@ -100,6 +100,9 @@ func _ready():
 
 func interact() -> void:
 	"""Toggle the active state. Called by player interaction system."""
+	if has_meta("airlock_controller_owned") and bool(get_meta("airlock_controller_owned")):
+		_forward_airlock_owned_interaction()
+		return
 	if not is_interactable:
 		return
 
@@ -115,6 +118,19 @@ func interact() -> void:
 	
 	if one_off:
 		is_used = true
+
+func _forward_airlock_owned_interaction() -> void:
+	if not has_meta("airlock_controller_owner_path"):
+		return
+	var owner_path = get_meta("airlock_controller_owner_path")
+	var owner: Node = null
+	if owner_path is NodePath:
+		owner = get_node_or_null(owner_path)
+	if not is_instance_valid(owner):
+		return
+	var door_name := String(get_meta("airlock_door_name") if has_meta("airlock_door_name") else "")
+	if owner.has_method("request_door_interaction"):
+		owner.request_door_interaction(door_name)
 
 func set_active(value: bool, immediate: bool = false) -> void:
 	"""Set the logical state and start/snap animation."""
@@ -200,18 +216,13 @@ func set_proximity_highlight(enabled: bool, color: Color = Color(0.0, 1.0, 1.0, 
 		_clear_proximity()
 
 func _apply_highlight(color: Color) -> void:
-	"""Create and apply highlight overlays for all meshes."""
 	if _highlight_meshes.size() > 0:
-		# Update color if already exists
 		for overlay in _highlight_meshes:
 			if is_instance_valid(overlay) and overlay.material_override:
 				overlay.material_override.set_shader_param("highlight_color", color)
 		return
 
-	var shader = load(HIGHLIGHT_SHADER_PATH)
-	if shader == null: return
-
-	for child in _get_all_meshes(self ):
+	for child in _get_all_meshes(self):
 		if not (child is MeshInstance): continue
 		var base_mesh := child as MeshInstance
 		if base_mesh.mesh == null: continue
@@ -220,10 +231,10 @@ func _apply_highlight(color: Color) -> void:
 		overlay.name = "_highlight_overlay"
 		overlay.mesh = base_mesh.mesh
 		overlay.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-		overlay.scale = Vector3(1.02, 1.02, 1.02)
+		# outline shader expands via normals — no scale needed
 
 		var mat := ShaderMaterial.new()
-		mat.shader = shader
+		mat.shader = _HIGHLIGHT_SHADER
 		mat.set_shader_param("highlight_color", color)
 		overlay.material_override = mat
 
@@ -323,5 +334,4 @@ func restore_snapshot(data: Dictionary) -> void:
 # --- PHYSICS PROCESS ---
 
 func _physics_process(delta: float) -> void:
-	# print("DEBUG: _physics_process called on ", name)
 	step(delta)
