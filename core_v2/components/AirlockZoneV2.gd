@@ -1,7 +1,7 @@
 extends BaseZoneV2
 class_name AirlockZoneV2
 
-const PRELOAD_POLL_BUDGET_MS := 4
+const PRELOAD_POLL_BUDGET_MS := 2
 const DEFAULT_FADE_OUT_S := 0.017
 const DEFAULT_FADE_IN_S := 0.08
 const TRANSITION_TRIGGER_PROGRESS := 0.6
@@ -32,6 +32,10 @@ var _passive_exit_open := false
 var _saved_spring_length := -1.0
 var _open_exit_return_arm_progress := -1.0
 var _open_exit_return_last_progress := -1.0
+var _player_physics_suspended := false
+var _saved_player_physics_process := true
+var _animator_physics_suspended := false
+var _saved_animator_physics_process := true
 
 const AIRLOCK_OTS_SPRING_LENGTH := 1.5
 const SEAMLESS_TRANSITION_ANIM_FREEZE_FRAMES := 4
@@ -67,6 +71,7 @@ func _on_zone_entered(body: Node) -> void:
 	_has_triggered = false
 	_cycle_started = true
 	_passive_exit_open = false
+	_restore_chamber_wait_physics(body)
 	_reset_open_exit_return_tracking()
 	set_physics_process(true)
 	_set_airlock_tracking_suspended(body, true)
@@ -81,6 +86,7 @@ func _on_zone_exited(body: Node) -> void:
 		return
 	_player_in_zone = false
 	_stalling = false
+	_restore_chamber_wait_physics(body)
 	if _cycle_started and not _has_triggered:
 		_abort_airlock_cycle()
 	elif _passive_exit_open and not _has_triggered:
@@ -110,6 +116,7 @@ func _physics_process(_delta: float) -> void:
 		_stalling = false
 		if _cycle_started and not _has_triggered:
 			_abort_airlock_cycle()
+		_restore_chamber_wait_physics(player)
 		_cycle_started = false
 		_passive_exit_open = false
 		_reset_open_exit_return_tracking()
@@ -127,12 +134,14 @@ func _physics_process(_delta: float) -> void:
 			_ensure_transition_cycle_started(airlock, true)
 		if is_instance_valid(airlock) and airlock.has_method("request_transition_pressurization"):
 			airlock.request_transition_pressurization(_entry_door_name)
+			_suspend_chamber_wait_physics(player)
 
 	var can_transition := _can_transition_now()
 	_stalling = false
 
 	if can_transition and not _has_triggered:
 		_has_triggered = true
+		_restore_chamber_wait_physics(player)
 		# Freeze animator immediately — before the deferred call and scene load spikes.
 		var animator = player.get("animator") if "animator" in player else null
 		if is_instance_valid(animator) and animator.has_method("freeze"):
@@ -163,6 +172,7 @@ func _try_arm_passive_open_exit(body: Node, airlock: Node) -> bool:
 	_has_triggered = false
 	_cycle_started = false
 	_passive_exit_open = true
+	_restore_chamber_wait_physics(body)
 	if airlock.has_method("get_open_exit_door_name"):
 		var open_exit := String(airlock.get_open_exit_door_name()).strip_edges().to_lower()
 		if open_exit == "inner" or open_exit == "outer":
@@ -436,6 +446,7 @@ func _start_airlock_cycle() -> void:
 		airlock.start_transition_cycle(_entry_door_name)
 
 func _abort_airlock_cycle() -> void:
+	_restore_chamber_wait_physics(_get_player())
 	var airlock = _find_airlock_controller()
 	if not is_instance_valid(airlock):
 		return
@@ -492,6 +503,7 @@ func _commit_return_from_open_exit(player: Node) -> void:
 		_set_airlock_tracking_suspended(player, true)
 		if airlock.has_method("request_transition_pressurization"):
 			airlock.request_transition_pressurization(_entry_door_name)
+			_suspend_chamber_wait_physics(player)
 
 func _ensure_transition_cycle_started(airlock: Node, immediate_close: bool) -> bool:
 	if not is_instance_valid(airlock):
@@ -502,6 +514,31 @@ func _ensure_transition_cycle_started(airlock: Node, immediate_close: bool) -> b
 	if airlock.has_method("start_transition_cycle"):
 		return bool(airlock.start_transition_cycle(_entry_door_name, immediate_close))
 	return true
+
+func _suspend_chamber_wait_physics(player: Node) -> void:
+	if not is_instance_valid(player) or _player_physics_suspended:
+		return
+	_saved_player_physics_process = player.is_physics_processing()
+	player.set_physics_process(false)
+	_player_physics_suspended = true
+	var animator = player.get("animator") if "animator" in player else null
+	if is_instance_valid(animator):
+		_saved_animator_physics_process = animator.is_physics_processing()
+		animator.set_physics_process(false)
+		_animator_physics_suspended = true
+
+func _restore_chamber_wait_physics(player: Node) -> void:
+	if not _player_physics_suspended and not _animator_physics_suspended:
+		return
+	if is_instance_valid(player) and _player_physics_suspended:
+		player.set_physics_process(_saved_player_physics_process)
+	var animator = player.get("animator") if is_instance_valid(player) and "animator" in player else null
+	if is_instance_valid(animator) and _animator_physics_suspended:
+		animator.set_physics_process(_saved_animator_physics_process)
+	_player_physics_suspended = false
+	_animator_physics_suspended = false
+	_saved_player_physics_process = true
+	_saved_animator_physics_process = true
 
 func _past_progress_between_doors(fraction: float) -> bool:
 	var entry_progress := _get_door_progress(_entry_door_name)

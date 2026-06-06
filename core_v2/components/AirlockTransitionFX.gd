@@ -15,6 +15,7 @@ signal fx_complete()
 export(float, 0.2, 8.0) var pulse_speed := 0.8           # Hz
 export(int, 1, 8)        var pre_transition_cycles := 1  # full cycles before jump
 export(int, 0, 8)        var post_transition_cycles := 1 # cycles to continue after jump
+export(float, 0.1, 2.0)  var post_transition_duration_s := 0.6
 export(float, 0.0, 1.0)  var player_hide_threshold := 0.25  # hide player when brightness below this
 export(float, 0.0, 1.0)  var post_transition_min_brightness := 0.65
 
@@ -27,6 +28,7 @@ var _complete := false
 var _skip_next_airlock_ready := false
 var _post_only := false
 var _managed_lights: Array = []  # [{ node, property, base_value }]
+var _managed_lights_cache_valid := false
 
 func _ready() -> void:
 	_controller = _find_controller()
@@ -35,6 +37,7 @@ func _ready() -> void:
 		return
 	if _controller.has_signal("airlock_ready") and not _controller.is_connected("airlock_ready", self, "_on_airlock_ready"):
 		_controller.connect("airlock_ready", self, "_on_airlock_ready")
+	_collect_managed_lights(true)
 	set_process(false)
 	call_deferred("_check_already_exit_open")
 
@@ -101,7 +104,7 @@ func _process(delta: float) -> void:
 
 	# At nadir (phase ~0.5, i.e. sin=-1) of the transition cycle, fire the jump.
 	# We detect crossing phase 0.5 between frames.
-	var total_cycles_needed := post_transition_cycles if _post_only else pre_transition_cycles + post_transition_cycles
+	var total_duration := _get_total_fx_duration(period)
 	if not _transition_fired and curr_cycle >= pre_transition_cycles:
 		# Fire at the nadir crossing of the pre_transition_cycles-th cycle.
 		var nadir_time := pre_transition_cycles * period + period * 0.5
@@ -116,7 +119,7 @@ func _process(delta: float) -> void:
 	_apply_brightness(brightness)
 
 	# End after total cycles.
-	if curr_cycle > prev_cycle and curr_cycle >= total_cycles_needed:
+	if _time >= total_duration:
 		_finish_fx()
 
 func _flicker_brightness(phase: float) -> float:
@@ -132,7 +135,14 @@ func _finish_fx() -> void:
 	_restore_lights(was_post_only)
 	emit_signal("fx_complete")
 
-func _collect_managed_lights() -> void:
+func _get_total_fx_duration(period: float) -> float:
+	if _post_only:
+		return max(post_transition_duration_s, 0.1)
+	return float(pre_transition_cycles + post_transition_cycles) * period
+
+func _collect_managed_lights(force_refresh: bool = false) -> void:
+	if _managed_lights_cache_valid and not force_refresh:
+		return
 	_managed_lights.clear()
 	if not is_instance_valid(_controller):
 		return
@@ -140,6 +150,7 @@ func _collect_managed_lights() -> void:
 	var beacon = _controller.get("_beacon")
 	if is_instance_valid(beacon) and beacon.has_method("set_active"):
 		_managed_lights.append({"node": beacon, "type": "beacon", "base_value": true})
+	_managed_lights_cache_valid = true
 
 func _collect_managed_lights_recursive(node: Node) -> void:
 	for child in node.get_children():

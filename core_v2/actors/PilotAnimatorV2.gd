@@ -1206,6 +1206,5 @@ func freeze(frames: int = 4) -> void:
 	airborne_time = float(0)
 
 func _on_scene_ready_freeze(_path, _scene_root, _params) -> void:
-	print("[PilotAnim] _on_scene_ready_freeze path=", _path)
 	_transition_freeze_until_grounded = true
 	airborne_time = float(0)

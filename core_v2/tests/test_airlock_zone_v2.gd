@@ -4,6 +4,7 @@ const AirlockZoneScript = preload("res://core_v2/components/AirlockZoneV2.gd")
 const AirlockControllerScript = preload("res://core_v2/components/AirlockControllerV2.gd")
 const AirlockManagerScript = preload("res://core_v2/autoloads/AirlockManager.gd")
 const WorldRotatorScript = preload("res://core_v2/systems/WorldRotator.gd")
+const AirlockTransitionFXScript = preload("res://core_v2/components/AirlockTransitionFX.gd")
 const AirlockChamberScene = preload("res://core_v2/props/AirlockChamber.tscn")
 
 class FakePlayer:
@@ -11,6 +12,7 @@ class FakePlayer:
 	var velocity := Vector3.ZERO
 	var base_spring_length_3d := 7.0
 	var current_spring_length := 7.0
+	var animator: Node = null
 
 	func _init() -> void:
 		add_to_group("player")
@@ -617,6 +619,24 @@ func test_airlock_manager_carries_player_without_reparenting_airlock() -> void:
 	assert_bool(old_scene.has_node("Airlock_North")).is_true()
 	assert_bool(new_scene.has_node("Pilot")).is_true()
 
+func test_airlock_manager_reenables_player_and_animator_on_arrival() -> void:
+	var manager = auto_free(AirlockManagerScript.new())
+	add_child(manager)
+
+	var player = auto_free(FakePlayer.new())
+	var animator = FakeAnimator.new()
+	animator.name = "PilotAnimatorV2"
+	player.animator = animator
+	player.add_child(animator)
+	add_child(player)
+	player.set_physics_process(false)
+	animator.set_physics_process(false)
+
+	manager._restore_player_runtime(player)
+
+	assert_bool(player.is_physics_processing()).is_true()
+	assert_bool(animator.is_physics_processing()).is_true()
+
 func test_session_airlock_exit_outer_faces_project_forward_negative_z() -> void:
 	var session = auto_free(load("res://core_v2/autoloads/SessionManager.gd").new())
 	add_child(session)
@@ -638,6 +658,9 @@ func test_session_opens_outer_exit_immediately_on_real_airlock() -> void:
 	yield(get_tree(), "idle_frame")
 
 	session._open_transition_airlock_exit(airlock, {"target_airlock_exit_door": "outer"})
+	var fx = airlock.get_node_or_null("AirlockTransitionFX")
+	if is_instance_valid(fx):
+		fx._process(0.61)
 
 	var outer_state = airlock.get_node("OuterDoor/IrisMechanism")
 	assert_bool(outer_state.is_active).is_true()
@@ -703,6 +726,66 @@ func test_zone_suspends_tracking_until_player_exits_airlock() -> void:
 	zone._on_host_body_exited(player)
 	assert_bool(player.has_meta("airlock_tracking_suspended")).is_false()
 
+func test_zone_suspends_player_physics_only_after_transition_commit_and_restores_on_abort() -> void:
+	var airlock = auto_free(_make_airlock_with_doors())
+	add_child(airlock)
+	var zone = _make_zone()
+	airlock.add_child(zone)
+	zone._scene_ready = false
+	zone._background_load = null
+	zone.zone_dir = Vector3.FORWARD
+
+	var player = auto_free(FakePlayer.new())
+	var animator = FakeAnimator.new()
+	player.animator = animator
+	player.add_child(animator)
+	add_child(player)
+	player.set_physics_process(true)
+	animator.set_physics_process(true)
+	player.global_transform.origin = airlock.global_transform.xform(Vector3(0, 1, 3.8))
+
+	zone._on_host_body_entered(player)
+	zone._physics_process(1.0 / 60.0)
+
+	assert_bool(player.is_physics_processing()).is_true()
+	assert_bool(animator.is_physics_processing()).is_true()
+
+	player.global_transform.origin = airlock.global_transform.xform(Vector3(0, 1, -1.0))
+	zone._physics_process(1.0 / 60.0)
+
+	assert_bool(player.is_physics_processing()).is_false()
+	assert_bool(animator.is_physics_processing()).is_false()
+
+	zone._on_host_body_exited(player)
+
+	assert_bool(player.is_physics_processing()).is_true()
+	assert_bool(animator.is_physics_processing()).is_true()
+
+func test_zone_restores_player_physics_when_transition_moment_is_reached() -> void:
+	var airlock = auto_free(_make_airlock_with_doors())
+	add_child(airlock)
+	var zone = _make_zone()
+	airlock.add_child(zone)
+	zone._scene_ready = true
+	zone._background_load = null
+	zone.zone_dir = Vector3.FORWARD
+
+	var player = auto_free(FakePlayer.new())
+	add_child(player)
+	player.set_physics_process(true)
+	player.global_transform.origin = airlock.global_transform.xform(Vector3(0, 1, 3.8))
+
+	zone._on_host_body_entered(player)
+	player.global_transform.origin = airlock.global_transform.xform(Vector3(0, 1, -1.0))
+	zone._physics_process(1.0 / 60.0)
+	assert_bool(player.is_physics_processing()).is_false()
+
+	airlock.step(airlock.pressurize_time + 0.1)
+	zone._physics_process(1.0 / 60.0)
+
+	assert_bool(zone._has_triggered).is_true()
+	assert_bool(player.is_physics_processing()).is_true()
+
 func test_waiting_airlock_does_not_geometrically_block_player() -> void:
 	var airlock = auto_free(_make_airlock_with_doors())
 	add_child(airlock)
@@ -737,3 +820,38 @@ func test_world_rotator_ignores_airlock_suspended_player_for_continuous_tracking
 	player.set_meta("airlock_tracking_suspended", true)
 
 	assert_object(rotator._get_tracking_target()).is_null()
+
+func test_airlock_transition_fx_caches_managed_lights_between_starts() -> void:
+	var airlock = auto_free(AirlockControllerScript.new())
+	add_child(airlock)
+	var light := OmniLight.new()
+	light.name = "ManagedLight"
+	light.light_energy = 2.0
+	airlock.add_child(light)
+	var fx = AirlockTransitionFXScript.new()
+	airlock.add_child(fx)
+	yield(get_tree(), "idle_frame")
+
+	fx._start_fx()
+	var first_ref: Array = fx._managed_lights
+	var first_size := first_ref.size()
+	fx._start_fx()
+
+	assert_int(first_size).is_greater(0)
+	assert_int(fx._managed_lights.size()).is_equal(first_size)
+	assert_bool(fx._managed_lights_cache_valid).is_true()
+
+func test_airlock_transition_fx_post_only_finishes_on_short_duration() -> void:
+	var airlock = auto_free(AirlockControllerScript.new())
+	add_child(airlock)
+	var fx = AirlockTransitionFXScript.new()
+	airlock.add_child(fx)
+	yield(get_tree(), "idle_frame")
+
+	fx.post_transition_duration_s = 0.6
+	fx.start_post_transition_fx()
+	fx._process(0.59)
+	assert_bool(fx.is_complete()).is_false()
+
+	fx._process(0.02)
+	assert_bool(fx.is_complete()).is_true()

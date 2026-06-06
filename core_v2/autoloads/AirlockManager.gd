@@ -168,10 +168,7 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 		# drives resume_tracking() from the chamber zone exit. Resuming at scene swap
 		# would apply the rotation accumulated during the pause as a yank on arrival.
 		# Re-enable physics now that the player is in the new scene.
-		var animator := _find_animator_in(player)
-		player.set_physics_process(true)
-		if is_instance_valid(animator):
-			animator.set_physics_process(true)
+		_restore_player_runtime(player)
 		if player.has_method("force_camera_current"):
 			player.force_camera_current()
 			player.call_deferred("force_camera_current")
@@ -293,6 +290,14 @@ func _find_animator_in(player: Node) -> Node:
 	if not is_instance_valid(player):
 		return null
 	return player.find_node("PilotAnimatorV2", true, false)
+
+func _restore_player_runtime(player: Node) -> void:
+	if not is_instance_valid(player):
+		return
+	player.set_physics_process(true)
+	var animator := _find_animator_in(player)
+	if is_instance_valid(animator):
+		animator.set_physics_process(true)
 
 
 func _find_player_in(scene_root: Node) -> Node:

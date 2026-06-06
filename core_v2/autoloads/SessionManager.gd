@@ -2607,7 +2607,21 @@ func _resolve_value(key_or_val):
 			return key_or_val.to_float()
 		if key_or_val == "true": return true
 		if key_or_val == "false": return false
-		
+		if key_or_val == "current_scene_basename":
+			var scene := get_tree().current_scene if get_tree() else null
+			if not is_instance_valid(scene):
+				return ""
+			var filename := String(scene.filename)
+			return scene.name if filename == "" else filename.get_file().get_basename()
+		if key_or_val == "animator_physics_active":
+			if player and "animator" in player and is_instance_valid(player.animator):
+				return player.animator.is_physics_processing()
+			return false
+		if key_or_val == "ots_spring_length":
+			if player and player.has_method("get_ots_spring_length"):
+				return player.get_ots_spring_length()
+			return 0.0
+
 		# Could be a player property?
 		# Try to fetch from player if it looks like a property path
 		if player and not key_or_val.begins_with("\""):
@@ -2673,6 +2687,10 @@ func _get_nested_prop(obj, prop_path):
 		if typeof(current) == TYPE_OBJECT:
 			if part in current:
 				current = current.get(part)
+			elif current.has_method("get_" + part):
+				current = current.call("get_" + part)
+			elif current.has_method("is_" + part):
+				current = current.call("is_" + part)
 			else:
 				return null
 		elif typeof(current) == TYPE_VECTOR3:
@@ -2691,7 +2709,7 @@ func _get_nested_prop(obj, prop_path):
 			else: return null
 		else:
 			return null
-			
+
 	return current
 
 func run_playback():
@@ -3473,13 +3491,13 @@ func _open_transition_airlock_exit(target_airlock: Spatial, state_data: Dictiona
 			break
 	if is_instance_valid(fx_node):
 		fx_node.call("start_post_transition_fx")
-		# Delay door open until the post-transition flicker completes (~1.25 s at 0.8 Hz).
+		# Delay door open until the post-transition flicker completes.
 		# This gives the destination scene time to stabilise (domes, WorldRotator, lighting)
 		# before the door opens, ensuring a smooth transition.
 		# CONNECT_ONESHOT ensures the connection is cleaned up automatically after firing.
 		fx_node.connect("fx_complete", target_airlock, "open_exit_door", [exit_door, false, true], CONNECT_ONESHOT)
 	elif target_airlock.has_method("open_exit_door"):
-		# No FX node present — open immediately as before.
+		# No FX node present - open immediately as before.
 		target_airlock.open_exit_door(exit_door, true, true)
 
 func _find_scene_spawn_point(spawn_id: String = "") -> Position3D:

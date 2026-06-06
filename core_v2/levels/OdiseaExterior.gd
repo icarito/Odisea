@@ -91,11 +91,11 @@ func _ready() -> void:
 		gravity_world.set_ship_axis(Vector3.ZERO, Vector3.UP)
 
 	# Kick off background loads for unique dome resources so the first frame is free
-	_begin_dome_resource_preloads()
+	call_deferred("_begin_dome_resource_preloads")
 
 	_resolve_spawn_state()
 	call_deferred("apply_selection")
-	call_deferred("_setup_dome_facade_cursors")
+	call_deferred("_deferred_setup_dome_facade_cursors")
 
 func _exit_tree() -> void:
 	if has_node("/root/SessionManager"):
@@ -136,6 +136,9 @@ func _begin_dome_resource_preloads() -> void:
 				continue
 			if not ResourceLoader.exists(path):
 				continue
+			if ResourceLoader.has_cached(path):
+				_preload_resources[path] = load(path)
+				continue
 			var loader = ResourceLoader.load_interactive(path)
 			if loader:
 				_preload_loaders[path] = loader
@@ -143,7 +146,7 @@ func _begin_dome_resource_preloads() -> void:
 func _tick_preload_loaders() -> void:
 	if _preload_loaders.empty():
 		return
-	var budget_usec := 3000
+	var budget_usec := 2000
 	var start := OS.get_ticks_usec()
 	var finished := []
 	for path in _preload_loaders.keys():
@@ -416,7 +419,7 @@ func _tick_dome_assignment_cache_build() -> void:
 		_cache_build_pending = false
 		return
 
-	var budget_usec := 4000  # 4ms per frame
+	var budget_usec := 2000  # 2ms per frame
 	var start := OS.get_ticks_usec()
 
 	while _cache_build_spiral < _spirals.size():
@@ -900,6 +903,15 @@ func _get_camera_forward_canonical() -> Vector3:
 	# Convertir dirección a espacio canónico: solo aplicar la inversa de la base (sin traslación)
 	return _rotator.global_transform.basis.inverse().xform(cam_fwd_global).normalized()
 
+func _insert_ranked_lod_entry(ranked: Array, entry: Dictionary, max_entries: int) -> void:
+	var limit := int(max_entries)
+	if limit <= 0:
+		return
+	ranked.append(entry)
+	ranked.sort_custom(self, "_sort_lod_entry_by_dist")
+	while ranked.size() > limit:
+		ranked.pop_back()
+
 func _sort_lod_entry_by_dist(a: Dictionary, b: Dictionary) -> bool:
 	# Deterministic tie-break: sort_custom is unstable, so equal distances could
 	# swap rank between recomputes. Fall back to a stable key (spiral, then plate).
@@ -1336,6 +1348,10 @@ func _setup_dome_facade_cursors() -> void:
 		_dome_facade_cursors[path] = cursor
 		seen_paths[path] = true
 	_sync_dome_facade_cursor()
+
+func _deferred_setup_dome_facade_cursors() -> void:
+	yield(get_tree(), "idle_frame")
+	_setup_dome_facade_cursors()
 	_apply_lod_hide_for_selection(selected_spiral, selected_plate)
 
 func _sync_dome_facade_cursor() -> void:

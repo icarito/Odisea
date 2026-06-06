@@ -283,6 +283,23 @@ func snap_ots_on_arrival_if_pending() -> void:
 		ots.snap_to_current_state()
 	_ots_snap_on_arrival = false
 
+func get_current_scene_basename() -> String:
+	var scene := get_tree().current_scene if get_tree() else null
+	if not is_instance_valid(scene):
+		return ""
+	var filename := String(scene.filename)
+	if filename == "":
+		return scene.name
+	return filename.get_file().get_basename()
+
+func is_animator_physics_active() -> bool:
+	return is_instance_valid(animator) and animator.is_physics_processing()
+
+func get_ots_spring_length() -> float:
+	if is_instance_valid(_cached_spring_arm) and "spring_length" in _cached_spring_arm:
+		return float(_cached_spring_arm.spring_length)
+	return current_spring_length
+
 func ensure_input_provider():
 	if not input_provider or not is_instance_valid(input_provider):
 		input_provider = InputProviderV2.new()
