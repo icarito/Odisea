@@ -1040,6 +1040,11 @@ _global_script_classes=[ {
 "path": "res://addons/virtualcamera/TransformModifiers/LookAtGroup.gd"
 }, {
 "base": "Spatial",
+"class": "MaintenanceElevator",
+"language": "GDScript",
+"path": "res://core_v2/props/elevator/MaintenanceElevator.gd"
+}, {
+"base": "Spatial",
 "class": "Manometer",
 "language": "GDScript",
 "path": "res://core_v2/props/Manometer.gd"
@@ -2041,6 +2046,7 @@ _global_script_class_icons={
 "LogicCircuitManager": "",
 "LookAt": "",
 "LookAtGroup": "",
+"MaintenanceElevator": "",
 "Manometer": "",
 "MeshBuilder": "",
 "MeshBuilderBox": "",

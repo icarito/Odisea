@@ -1,0 +1,21 @@
+# Validation for MaintenanceElevator
+# Two-stop industrial elevator. INTERACT toggles SUBIR/BAJAR on the root,
+# which calls call_elevator(). Travel is 8m at 2 m/s (~4s per trip), so waits
+# are sized to capture: bottom idle, mid-rise, top, and mid-descent.
+LOAD_PROP res://core_v2/props/elevator/MaintenanceElevator.tscn
+WAIT 1.0
+SCREENSHOT 0_idle
+
+# Call elevator up from PB.
+INTERACT
+WAIT 2.0
+SCREENSHOT 1_mid
+
+# Let it reach the top (1°). Hatch opens just before arrival.
+WAIT 2.5
+SCREENSHOT 2_active
+
+# Call it back down to PB.
+INTERACT
+WAIT 4.5
+SCREENSHOT 3_off
