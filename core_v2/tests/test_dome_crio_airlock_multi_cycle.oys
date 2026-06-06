@@ -1,0 +1,29 @@
+LEVEL res://core_v2/levels/interiors/Dome_Crio.tscn
+
+SECTION "Dome Crio Airlock Multi Cycle"
+    WAIT 1.5
+
+    SET_POS "Pilot" [-0.4, 4.4, -29.8]
+    WAIT 0.3
+
+    WALK FW 3.5
+    WAIT 2.2
+    SET $scene1 current_scene_basename
+    PRINT "Cycle 1 scene=$scene1"
+    ASSERT pos.y > -5.0 "Player should remain valid after cycle 1"
+
+    WALK BW 4.0
+    WAIT 2.4
+    SET $scene2 current_scene_basename
+    PRINT "Cycle 2 scene=$scene2"
+    ASSERT pos.y > -5.0 "Player should remain valid after cycle 2"
+
+    WALK FW 3.5
+    WAIT 2.2
+    SET $scene3 current_scene_basename
+    SET $anim3 animator_physics_active
+    SET $ots3 ots_spring_length
+    PRINT "Cycle 3 scene=$scene3 animator=$anim3 ots=$ots3"
+    SCREENSHOT "00_multi_cycle_final"
+    ASSERT pos.y > -5.0 "Player should remain valid after repeated transitions"
+END

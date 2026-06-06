@@ -1,0 +1,153 @@
+[gd_scene load_steps=16 format=2]
+
+[ext_resource path="res://core_v2/systems/ScaffoldStreamController.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/systems/visual/CylinderRotator.gd" type="Script" id=3]
+[ext_resource path="res://scenes/common/space_environment/StarfieldEnvironment.tscn" type="PackedScene" id=4]
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=5]
+[ext_resource path="res://addons/qodot/src/nodes/qodot_map.gd" type="Script" id=6]
+[ext_resource path="res://core_v2/props/AirlockChamber.tscn" type="PackedScene" id=7]
+[ext_resource path="res://core_v2/props/scifi_lights/SciFiWorkLightTripodV2.tscn" type="PackedScene" id=8]
+[ext_resource path="res://addons/qodot/game_definitions/fgd/qodot_fgd.tres" type="Resource" id=9]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_01.png" type="Texture" id=10]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 500, 0.5, 500 )
+
+[sub_resource type="SpatialMaterial" id=439]
+
+[sub_resource type="SpatialMaterial" id=438]
+albedo_texture = ExtResource( 10 )
+
+[sub_resource type="ArrayMesh" id=440]
+surfaces/0 = {
+"aabb": AABB( -7, -25, -10.25, 16.5, 0.25001, 15.75 ),
+"array_data": PoolByteArray( 0, 0, 224, 192, 0, 0, 198, 193, 0, 0, 36, 193, 127, 127, 127, 193, 0, 184, 0, 66, 0, 0, 224, 192, 0, 0, 200, 193, 0, 0, 36, 193, 127, 127, 127, 193, 0, 184, 16, 66, 0, 0, 24, 65, 0, 0, 200, 193, 0, 0, 36, 193, 127, 127, 127, 193, 64, 62, 16, 66, 0, 0, 24, 65, 0, 0, 198, 193, 0, 0, 36, 193, 127, 127, 127, 193, 64, 62, 0, 66, 0, 0, 224, 192, 0, 0, 198, 193, 0, 0, 36, 193, 129, 0, 0, 63, 32, 190, 0, 66, 0, 0, 224, 192, 0, 0, 198, 193, 0, 0, 176, 64, 129, 0, 0, 63, 0, 55, 0, 66, 0, 0, 224, 192, 0, 0, 200, 193, 0, 0, 176, 64, 129, 0, 0, 63, 0, 55, 16, 66, 0, 0, 224, 192, 0, 0, 200, 193, 0, 0, 36, 193, 129, 0, 0, 63, 32, 190, 16, 66, 0, 0, 24, 65, 0, 0, 200, 193, 0, 0, 36, 193, 0, 129, 0, 193, 32, 190, 64, 190, 0, 0, 224, 192, 0, 0, 200, 193, 0, 0, 36, 193, 0, 129, 0, 193, 32, 190, 0, 56, 0, 0, 224, 192, 0, 0, 200, 193, 0, 0, 176, 64, 0, 129, 0, 193, 0, 55, 0, 56, 0, 0, 24, 65, 0, 0, 200, 193, 0, 0, 176, 64, 0, 129, 0, 193, 0, 55, 64, 190, 0, 0, 24, 65, 0, 0, 198, 193, 0, 0, 36, 193, 0, 127, 0, 63, 32, 190, 64, 190, 0, 0, 24, 65, 0, 0, 198, 193, 0, 0, 176, 64, 0, 127, 0, 63, 0, 55, 64, 190, 0, 0, 224, 192, 0, 0, 198, 193, 0, 0, 176, 64, 0, 127, 0, 63, 0, 55, 0, 56, 0, 0, 224, 192, 0, 0, 198, 193, 0, 0, 36, 193, 0, 127, 0, 63, 32, 190, 0, 56, 0, 0, 24, 65, 0, 0, 198, 193, 0, 0, 36, 193, 127, 0, 0, 193, 32, 190, 0, 66, 0, 0, 24, 65, 0, 0, 200, 193, 0, 0, 36, 193, 127, 0, 0, 193, 32, 190, 16, 66, 0, 0, 24, 65, 0, 0, 200, 193, 0, 0, 176, 64, 127, 0, 0, 193, 0, 55, 16, 66, 0, 0, 24, 65, 0, 0, 198, 193, 0, 0, 176, 64, 127, 0, 0, 193, 0, 55, 0, 66, 0, 0, 224, 192, 0, 0, 198, 193, 0, 0, 176, 64, 0, 0, 127, 63, 0, 184, 0, 66, 0, 0, 24, 65, 0, 0, 198, 193, 0, 0, 176, 64, 0, 0, 127, 63, 64, 62, 0, 66, 0, 0, 24, 65, 0, 0, 200, 193, 0, 0, 176, 64, 0, 0, 127, 63, 64, 62, 16, 66, 0, 0, 224, 192, 0, 0, 200, 193, 0, 0, 176, 64, 0, 0, 127, 63, 0, 184, 16, 66 ),
+"array_index_data": PoolByteArray( 0, 0, 1, 0, 2, 0, 0, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 4, 0, 6, 0, 7, 0, 8, 0, 9, 0, 10, 0, 8, 0, 10, 0, 11, 0, 12, 0, 13, 0, 14, 0, 12, 0, 14, 0, 15, 0, 16, 0, 17, 0, 18, 0, 16, 0, 18, 0, 19, 0, 20, 0, 21, 0, 22, 0, 20, 0, 22, 0, 23, 0 ),
+"blend_shape_data": [  ],
+"format": 2194711,
+"index_count": 36,
+"material": SubResource( 438 ),
+"primitive": 4,
+"skeleton_aabb": [  ],
+"vertex_count": 24
+}
+
+[sub_resource type="ConvexPolygonShape" id=441]
+points = PoolVector3Array( -7, -24.75, -10.25, -7, -25, -10.25, 9.5, -25, -10.25, 9.5, -24.75, -10.25, -7, -24.75, 5.5, -7, -25, 5.5, 9.5, -25, 5.5, 9.5, -24.75, 5.5 )
+
+[node name="TestScaffoldOrbit" type="Spatial"]
+
+[node name="CylinderRotator" type="Spatial" parent="."]
+script = ExtResource( 3 )
+player_path = NodePath("")
+
+[node name="ScaffoldStreamController" type="Spatial" parent="CylinderRotator"]
+script = ExtResource( 1 )
+load_radius = 96.0
+collision_radius = 56.0
+full_detail_radius = 0.0
+lod1_radius = 56.0
+full_detail_prefetch_radius = 0.0
+lod_deck_thickness = 0.02
+lod_full_detail_ramps = false
+lod_rail_thickness = 0.02
+lod_tube_segments = 3
+chunk_height = 4
+chunk_length = 8
+cell_size = 4.0
+instances_per_frame = 6
+max_chunk_requests_per_frame = 2
+max_pending_generation_jobs = 2
+prewarm_chunk_radius = 2
+min_stairs_per_chunk = 1
+min_elevated_cells = 4
+min_empty_cells = 2
+min_height_span = 4.0
+cylinder_mode = true
+cylinder_physical_terrace_path = NodePath("../../PhysicalTerrace")
+weight_W = 4.0
+weight_R = 3.0
+weight_C = 4.5
+weight_G = 0.7
+weight_X = 2.0
+weight_T = 3.5
+weight_E = 2.0
+weight_empty = 0.22
+
+[node name="StarfieldEnvironment" parent="CylinderRotator" instance=ExtResource( 4 )]
+environment = ExtResource( 5 )
+
+[node name="PhysicalTerrace" type="StaticBody" parent="."]
+
+[node name="CollisionShape" type="CollisionShape" parent="PhysicalTerrace"]
+shape = SubResource( 1 )
+
+[node name="Basement" type="Spatial" parent="."]
+script = ExtResource( 6 )
+map_file = "res://maps/Dome_Basementd.map"
+inverse_scale_factor = 16.0
+entity_fgd = ExtResource( 9 )
+base_texture_dir = "res://textures"
+texture_file_extensions = PoolStringArray( "png", "jpg", "jpeg", "tres", "material" )
+worldspawn_layers = [  ]
+brush_clip_texture = "special/clip"
+face_skip_texture = "special/skip"
+texture_wads = [  ]
+material_file_extension = "tres"
+default_material_albedo_uniform = ""
+default_material = SubResource( 439 )
+uv_unwrap_texel_size = 1.0
+print_profiling_data = false
+use_trenchbroom_group_hierarchy = false
+tree_attach_batch_size = 16
+set_owner_batch_size = 16
+auto_build = true
+
+[node name="entity_0_worldspawn" type="StaticBody" parent="Basement"]
+
+[node name="entity_0_mesh_instance" type="MeshInstance" parent="Basement/entity_0_worldspawn"]
+use_in_baked_light = true
+mesh = SubResource( 440 )
+
+[node name="entity_0_brush_0_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 441 )
+
+[node name="entity_1_light_work_tripod" parent="Basement" instance=ExtResource( 8 )]
+transform = Transform( 0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, 0.707107, 6.8125, -24.75, -7.6875 )
+
+[node name="entity_2_light_work_tripod" parent="Basement" instance=ExtResource( 8 )]
+transform = Transform( -0.642788, 0, -0.766045, 0, 1, 0, 0.766045, 0, -0.642788, 7.0625, -24.75, 3.5625 )
+
+[node name="Airlock_Basement" parent="." instance=ExtResource( 7 )]
+transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -3, -22.2097, 0 )
+
+[node name="OuterDoor" parent="Airlock_Basement" index="10"]
+__meta__ = {
+"airlock_controller_owned": true,
+"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/TestScaffoldOrbit/Airlock_Basement"),
+"airlock_door_name": "outer"
+}
+
+[node name="InnerDoor" parent="Airlock_Basement" index="11"]
+__meta__ = {
+"airlock_controller_owned": true,
+"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/TestScaffoldOrbit/Airlock_Basement"),
+"airlock_door_name": "inner"
+}
+
+[node name="SciFiWallSconceV3" parent="Airlock_Basement" index="12"]
+enable_shadows = true
+
+[node name="SciFiWallSconceV2" parent="Airlock_Basement" index="13"]
+enable_shadows = true
+
+[node name="AirlockZoneV2" parent="Airlock_Basement" index="16"]
+target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
+target_spawn_id = "from_exterior_dome_01"
+target_airlock_path = NodePath("Airlock_West")
+zone_dir = Vector3( 0, 0, 1 )
+
+[node name="Pilot" parent="." groups=["player"] instance=ExtResource( 2 )]
+
+[editable path="Airlock_Basement"]
