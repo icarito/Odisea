@@ -141,6 +141,7 @@ func _arm_player_already_inside_zone() -> void:
 				var open_exit := String(airlock.get_open_exit_door_name()).strip_edges().to_lower()
 				if open_exit == "inner" or open_exit == "outer":
 					_entry_door_name = open_exit
+			_push_airlock_camera(player)
 			_begin_background_load()
 			return
 	_on_zone_entered(player)
@@ -311,10 +312,11 @@ func _build_state_data(player: Node) -> Dictionary:
 			state_data["camera_yaw"] = float(player.yaw)
 		if "pitch" in player:
 			state_data["camera_pitch"] = float(player.pitch)
-		# Capture pre-airlock spring length so the destination scene can restore
-		# the arm directly without triggering snap_collision_to_scene yank.
+		# Arrive in the same tight airlock framing instead of lerping from the
+		# normal exterior distance back into OTS on the destination scene.
+		state_data["camera_arm_spring_length"] = AIRLOCK_OTS_SPRING_LENGTH
 		if _saved_spring_length > 0.0:
-			state_data["camera_arm_spring_length"] = _saved_spring_length
+			state_data["camera_restore_spring_length"] = _saved_spring_length
 
 	var active_dome_id := _resolve_active_dome_id()
 	if active_dome_id != "":
@@ -620,13 +622,18 @@ func _push_airlock_camera(body: Node) -> void:
 	var current = body.get("base_spring_length_3d")
 	if current == null:
 		return
-	_saved_spring_length = float(current)
+	var restore_length := -1.0
+	if body.has_meta("airlock_restore_spring_length"):
+		restore_length = float(body.get_meta("airlock_restore_spring_length"))
+	_saved_spring_length = restore_length if restore_length > 0.0 else float(current)
 	_set_player_spring_length(body, AIRLOCK_OTS_SPRING_LENGTH)
 
 func _pop_airlock_camera(body: Node) -> void:
 	if not is_instance_valid(body) or _saved_spring_length < 0.0:
 		return
 	_set_player_spring_length(body, _saved_spring_length)
+	if body.has_meta("airlock_restore_spring_length"):
+		body.remove_meta("airlock_restore_spring_length")
 	_saved_spring_length = -1.0
 
 func _set_player_spring_length(body: Node, length: float) -> void:
@@ -637,6 +644,8 @@ func _set_player_spring_length(body: Node, length: float) -> void:
 	var arm = _find_spring_arm(body)
 	if is_instance_valid(arm) and "spring_length" in arm:
 		arm.set("spring_length", length)
+		if "current_length" in arm:
+			arm.set("current_length", length)
 
 func _find_spring_arm(body: Node) -> Node:
 	var rig = body.get_node_or_null("CameraRig/Yaw/Pitch/OTS_Offset/SpringArm")

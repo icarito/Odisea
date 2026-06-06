@@ -3372,6 +3372,10 @@ func _restore_transition_camera_state(state_data: Dictionary, target_transform: 
 	if "camera_rig" in player and is_instance_valid(player.camera_rig) and "yaw" in player and "pitch" in player:
 		player.camera_rig.transform.basis = Basis(Vector3.UP, player.yaw) * Basis(Vector3.RIGHT, player.pitch)
 		player.camera_rig.force_update_transform()
+	if state_data.has("camera_restore_spring_length"):
+		var restore_len := float(state_data["camera_restore_spring_length"])
+		if restore_len > 0.0:
+			player.set_meta("airlock_restore_spring_length", restore_len)
 	if state_data.has("camera_arm_spring_length"):
 		# Restore arm lengths directly — avoids snap_collision_to_scene yank when
 		# the exterior scene has no geometry behind the camera on arrival.
@@ -3394,7 +3398,7 @@ func _snap_transition_visual(target_transform: Transform) -> void:
 		return
 	var animator = player.get("animator") if "animator" in player else null
 	if is_instance_valid(animator) and animator.has_method("snap_visual_to_direction"):
-		animator.snap_visual_to_direction(-target_transform.basis.z)
+		animator.snap_visual_to_direction(target_transform.basis.z)
 
 func _face_airlock_exit(target_airlock: Spatial, state_data: Dictionary, target_transform: Transform) -> Transform:
 	if not is_instance_valid(target_airlock):
@@ -3464,7 +3468,7 @@ func _open_transition_airlock_exit(target_airlock: Spatial, state_data: Dictiona
 			child.call("start_post_transition_fx")
 			break
 	if target_airlock.has_method("open_exit_door"):
-		target_airlock.open_exit_door(exit_door, false)
+		target_airlock.open_exit_door(exit_door, true)
 
 func _find_scene_spawn_point(spawn_id: String = "") -> Position3D:
 	var scene = get_tree().current_scene

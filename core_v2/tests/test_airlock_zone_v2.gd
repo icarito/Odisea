@@ -9,6 +9,8 @@ const AirlockChamberScene = preload("res://core_v2/props/AirlockChamber.tscn")
 class FakePlayer:
 	extends KinematicBody
 	var velocity := Vector3.ZERO
+	var base_spring_length_3d := 7.0
+	var current_spring_length := 7.0
 
 	func _init() -> void:
 		add_to_group("player")
@@ -55,6 +57,11 @@ class FakeVisualPlayer:
 	extends KinematicBody
 	var animator: Node = null
 
+class FakeSpringArm:
+	extends Spatial
+	var spring_length := 7.0
+	var current_length := 7.0
+
 func _make_zone() -> Area:
 	var zone = AirlockZoneScript.new()
 	var shape_node := CollisionShape.new()
@@ -76,6 +83,26 @@ func _make_airlock_with_doors() -> AirlockControllerV2:
 	airlock.outer_door_path = NodePath("OuterDoor")
 	airlock.inner_door_path = NodePath("InnerDoor")
 	return airlock
+
+func _add_fake_camera_rig(player: Node, length: float) -> FakeSpringArm:
+	var camera_rig := Spatial.new()
+	camera_rig.name = "CameraRig"
+	var yaw := Spatial.new()
+	yaw.name = "Yaw"
+	var pitch := Spatial.new()
+	pitch.name = "Pitch"
+	var ots_offset := Spatial.new()
+	ots_offset.name = "OTS_Offset"
+	var spring := FakeSpringArm.new()
+	spring.name = "SpringArm"
+	spring.spring_length = length
+	spring.current_length = length
+	player.add_child(camera_rig)
+	camera_rig.add_child(yaw)
+	yaw.add_child(pitch)
+	pitch.add_child(ots_offset)
+	ots_offset.add_child(spring)
+	return spring
 
 func test_forward_zone_progress_uses_centered_airlock_length() -> void:
 	var zone = auto_free(_make_zone())
@@ -132,6 +159,48 @@ func test_transition_state_includes_player_snapshot_airlock_frame_and_exit_door(
 	assert_str(state_data["target_airlock_path"]).is_equal("TerraceAirlock")
 	assert_str(state_data["target_airlock_exit_door"]).is_equal("inner")
 	assert_vector3(state_data["airlock_relative_velocity"]).is_equal(Vector3(0, 0, -2))
+
+func test_transition_state_arrives_with_ots_camera_and_carries_restore_length() -> void:
+	var airlock = auto_free(AirlockControllerScript.new())
+	add_child(airlock)
+
+	var zone = _make_zone()
+	airlock.add_child(zone)
+	zone._saved_spring_length = 3.2
+
+	var player = auto_free(FakePlayer.new())
+	add_child(player)
+
+	var state_data: Dictionary = zone._build_state_data(player)
+
+	assert_float(float(state_data["camera_arm_spring_length"])).is_equal_approx(1.5, 0.001)
+	assert_float(float(state_data["camera_restore_spring_length"])).is_equal_approx(3.2, 0.001)
+
+func test_airlock_camera_push_uses_arrival_restore_meta_and_stamps_arm_length() -> void:
+	var zone = auto_free(_make_zone())
+	add_child(zone)
+
+	var player = auto_free(FakePlayer.new())
+	player.base_spring_length_3d = 1.5
+	player.current_spring_length = 1.5
+	player.set_meta("airlock_restore_spring_length", 3.2)
+	add_child(player)
+	var spring := _add_fake_camera_rig(player, 3.2)
+
+	zone._push_airlock_camera(player)
+
+	assert_float(zone._saved_spring_length).is_equal_approx(3.2, 0.001)
+	assert_float(player.base_spring_length_3d).is_equal_approx(1.5, 0.001)
+	assert_float(player.current_spring_length).is_equal_approx(1.5, 0.001)
+	assert_float(spring.spring_length).is_equal_approx(1.5, 0.001)
+	assert_float(spring.current_length).is_equal_approx(1.5, 0.001)
+
+	zone._pop_airlock_camera(player)
+
+	assert_bool(player.has_meta("airlock_restore_spring_length")).is_false()
+	assert_float(player.base_spring_length_3d).is_equal_approx(3.2, 0.001)
+	assert_float(player.current_spring_length).is_equal_approx(3.2, 0.001)
+	assert_float(spring.current_length).is_equal_approx(3.2, 0.001)
 
 func test_transition_state_opens_outer_exit_when_entering_from_inner() -> void:
 	var airlock = auto_free(AirlockControllerScript.new())
@@ -382,7 +451,7 @@ func test_zone_auto_arms_when_player_is_already_inside_after_scene_load() -> voi
 	assert_int(airlock.state).is_equal(AirlockControllerV2.State.PRESSURIZING)
 	assert_bool(airlock._pressurize_active).is_false()
 
-func test_airlock_manager_carries_active_chamber_into_scene_without_static_airlock() -> void:
+func test_airlock_manager_carries_player_without_reparenting_airlock() -> void:
 	var manager = auto_free(AirlockManagerScript.new())
 	add_child(manager)
 
@@ -414,7 +483,8 @@ func test_airlock_manager_carries_active_chamber_into_scene_without_static_airlo
 	manager._on_pre_spawn_state("res://core_v2/levels/OdiseaExterior.tscn", new_scene, params)
 
 	assert_bool(params.get("_airlock_manager_placed", false)).is_true()
-	assert_bool(new_scene.has_node("Airlock_North")).is_true()
+	assert_bool(new_scene.has_node("Airlock_North")).is_false()
+	assert_bool(old_scene.has_node("Airlock_North")).is_true()
 	assert_bool(new_scene.has_node("Pilot")).is_true()
 
 func test_session_airlock_exit_outer_faces_project_forward_negative_z() -> void:
@@ -471,10 +541,10 @@ func test_zone_exit_before_transition_aborts_to_entry_open() -> void:
 	zone._on_host_body_entered(player)
 	zone._on_host_body_exited(player)
 
-	var outer = airlock.get_node("OuterDoor")
+	var inner = airlock.get_node("InnerDoor")
 	assert_bool(zone._has_triggered).is_false()
 	assert_int(airlock.state).is_equal(AirlockControllerV2.State.ENTRY_OPEN)
-	assert_bool(outer.is_active).is_true()
+	assert_bool(inner.is_active).is_true()
 
 func test_zone_suspends_tracking_until_player_exits_airlock() -> void:
 	var airlock = auto_free(_make_airlock_with_doors())
