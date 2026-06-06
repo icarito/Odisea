@@ -204,7 +204,6 @@ func _set_new_scene(resource: PackedScene):
 	# (_on_pre_scene_swap in AirlockManager) clears the flag after lifting the player.
 	var seamless: bool = is_instance_valid(airlock_manager) and bool(airlock_manager.get("_seamless_swap"))
 
-	print("[SceneManager] pre_scene_swap old=", old_scene.name if is_instance_valid(old_scene) else "null", " new=", new_scene.name if is_instance_valid(new_scene) else "null", " seamless=", seamless)
 	if is_instance_valid(old_scene) and old_scene != new_scene:
 		emit_signal("pre_scene_swap", old_scene, new_scene, _transition_params)
 		if seamless:

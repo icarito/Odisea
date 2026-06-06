@@ -118,6 +118,10 @@ func set_collision_mask(mask: int) -> void:
 		kinematic_body.collision_mask = mask
 
 func _enter_tree():
+	# Reset arm length on every scene entry so stale collision values from the
+	# previous scene don't cause a visible jump when snap_collision_to_scene runs.
+	current_length = spring_length
+	_collision_latched_length = -1.0
 	kinematic_body = KinematicBody.new()
 	kinematic_body.collision_layer = 0
 	kinematic_body.collision_mask = collision_mask
@@ -162,6 +166,7 @@ func _exit_tree():
 func _ready():
 	set_physics_process(false)
 	target_length = spring_length
+	current_length = spring_length
 	_collision_latched_length = -1.0
 	_collision_latch_origin = _get_arm_pose_origin()
 	_collision_latch_direction = _get_arm_pose_direction()
@@ -209,6 +214,7 @@ func snap_collision_to_scene() -> void:
 	var desired := max(spring_length, min_length)
 	var arm_motion := global_transform.basis.z * desired
 	var hit := _cast_shape_hit_length(arm_origin, arm_motion, desired)
+	print("[KinematicArm3D] snap hit=", hit, " desired=", desired, " prev_current=", current_length)
 	if hit >= 0.0:
 		current_length = hit
 		_collision_latched_length = hit
@@ -219,6 +225,7 @@ func snap_collision_to_scene() -> void:
 	else:
 		current_length = desired
 		_collision_latched_length = -1.0
+	print("[KinematicArm3D] snap final=", current_length)
 
 func set_camera_local_offset(offset: Vector3) -> void:
 	camera_local_offset = offset

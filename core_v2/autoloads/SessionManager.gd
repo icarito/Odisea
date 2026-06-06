@@ -3260,16 +3260,25 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 			var exit_transform: Transform = _face_airlock_exit(target_airlock, state_data, target_transform)
 			var body_transform := target_transform
 			body_transform.basis = Basis.IDENTITY
-			if player.has_method("teleport_to"):
-				player.teleport_to(body_transform)
-			else:
-				player.global_transform = body_transform
+			# Move player directly (no teleport_to to avoid triggering extra freeze/yaw reset).
+			player.global_transform = body_transform
+			if "velocity" in player:
+				player.velocity = Vector3.ZERO
+			if "_post_teleport_snap_frames" in player:
+				player._post_teleport_snap_frames = 8
+			# Force camera rig Y initialized so snap works even on first frame.
+			if "_camera_rig_y_initialized" in player:
+				player._camera_rig_y_initialized = true
+			if player.has_method("snap_camera_to_current_state"):
+				player.snap_camera_to_current_state()
 			_restore_transition_camera_state(state_data, exit_transform, target_airlock)
 			_snap_transition_visual(exit_transform)
 			_apply_airlock_relative_velocity(target_airlock, state_data)
 			_open_transition_airlock_exit(target_airlock, state_data)
 		elif is_instance_valid(target_airlock):
 			var exit_transform := _face_airlock_exit(target_airlock, state_data, player.global_transform)
+			if player.has_method("snap_camera_to_current_state"):
+				player.snap_camera_to_current_state()
 			_restore_transition_camera_state(state_data, exit_transform, target_airlock)
 			_snap_transition_visual(exit_transform)
 			_apply_airlock_relative_velocity(target_airlock, state_data)

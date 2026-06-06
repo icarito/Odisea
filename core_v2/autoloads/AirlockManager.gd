@@ -61,7 +61,6 @@ func notify_transition(target_scene: String) -> void:
 
 
 func _on_pre_scene_swap(old_scene: Node, _new_scene: Node, _params: Dictionary) -> void:
-	print("[AirlockManager] _on_pre_scene_swap pending=", _pending_transition, " old=", old_scene.name if is_instance_valid(old_scene) else "null")
 	if not _pending_transition:
 		return
 	_pending_transition = false
@@ -73,7 +72,6 @@ func _on_pre_scene_swap(old_scene: Node, _new_scene: Node, _params: Dictionary) 
 
 	# Lift player out of old scene so queue_free() doesn't destroy it
 	var player := _find_player_in(old_scene)
-	print("[AirlockManager] player found=", player, " valid=", is_instance_valid(player))
 	if is_instance_valid(player):
 		# Reparent: add to self FIRST so the camera is never momentarily out of the tree.
 		# Godot allows a node to have only one parent — remove_child must come first,
@@ -111,7 +109,6 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 
 	# Place player back into the new scene BEFORE apply_spawn_and_state runs,
 	# so SessionManager can find it and apply spawn/camera correctly.
-	print("[AirlockManager] _on_pre_spawn_state player_held=", _player_held, " valid=", is_instance_valid(_player_held))
 	if is_instance_valid(_player_held):
 		set_process(false)
 		var player := _player_held
@@ -126,9 +123,6 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 				existing_parent.remove_child(existing)
 			existing.free()
 		remove_child(player)
-		# Pre-position player at destination airlock before add_child so the first
-		# rendered frame already shows the correct position — no visible teleport yank.
-		_pre_position_at_destination(player, scene_root, _params)
 		scene_root.add_child(player)
 		# Freeze AFTER add_child so _ready() doesn't stomp the value.
 		var animator := _find_animator_in(player)
@@ -146,44 +140,16 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 		# Zero out velocity so physics doesn't continue with pre-transition momentum.
 		if "velocity" in player:
 			player.velocity = Vector3.ZERO
-		# Activate snap frames so KinematicBody adheres to the floor without micro-bounce,
-		# and so is_effectively_grounded() returns true to suppress animator state flicker.
+		# Activate snap frames so KinematicBody adheres to the floor without micro-bounce.
 		if "_post_teleport_snap_frames" in player:
 			player._post_teleport_snap_frames = 8
-		# Snap camera arm to the actual collision geometry in the new scene so it
-		# doesn't violently retract from spring_length on the first frame.
-		# Grant a brief collision grace so jitter from the freeze frames doesn't
-		# cause the arm to bounce between wall and open air.
-		if player.has_method("snap_camera_to_current_state"):
-			player.call_deferred("snap_camera_to_current_state")
+		# NOTE: Do NOT call snap_camera_to_current_state here — the player is still at
+		# the source airlock position. SessionManager will move the player to the
+		# destination and call snap_camera_to_current_state after positioning.
 		if "_camera_collision_grace_left" in player:
 			player._camera_collision_grace_left = max(player._camera_collision_grace_left, 0.35)
 		if _params is Dictionary:
 			_params["_airlock_manager_placed"] = true
-
-func _pre_position_at_destination(player: Node, scene_root: Node, params: Dictionary) -> void:
-	if typeof(params) != TYPE_DICTIONARY:
-		return
-	var state_data = params.get("state_data", {})
-	if typeof(state_data) != TYPE_DICTIONARY:
-		return
-	var relative_transform = state_data.get("airlock_relative_transform", null)
-	if typeof(relative_transform) != TYPE_TRANSFORM:
-		return
-	var target_path := String(state_data.get("target_airlock_path", "")).strip_edges()
-	var target_airlock: Node = null
-	if target_path != "":
-		target_airlock = scene_root.get_node_or_null(NodePath(target_path))
-		if not is_instance_valid(target_airlock):
-			target_airlock = scene_root.find_node(target_path, true, false)
-	if not is_instance_valid(target_airlock):
-		target_airlock = scene_root.find_node("*Airlock*", true, false)
-	if not is_instance_valid(target_airlock):
-		return
-	var target_transform: Transform = target_airlock.global_transform * relative_transform
-	target_transform.basis = Basis.IDENTITY
-	player.global_transform = target_transform
-
 
 func _find_animator_in(player: Node) -> Node:
 	if not is_instance_valid(player):

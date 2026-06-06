@@ -243,9 +243,11 @@ func snap_camera_to_current_state() -> void:
 	# Snap spring arm: set target length then immediately cast to find the real
 	# collision distance in the new scene.  Without this the arm starts at full
 	# length and retracts violently on the first frame (visible yank).
+	print("[snap_camera] arm=", _cached_spring_arm, " valid=", is_instance_valid(_cached_spring_arm) if _cached_spring_arm else "null")
 	if _cached_spring_arm:
 		current_spring_length = base_spring_length_3d
 		_cached_spring_arm.spring_length = base_spring_length_3d
+		print("[snap_camera] calling snap_collision has_method=", _cached_spring_arm.has_method("snap_collision_to_scene"), " current_len=", _cached_spring_arm.get("current_length") if "current_length" in _cached_spring_arm else "N/A")
 		if _cached_spring_arm.has_method("snap_collision_to_scene"):
 			_cached_spring_arm.snap_collision_to_scene()
 		elif "current_length" in _cached_spring_arm:
