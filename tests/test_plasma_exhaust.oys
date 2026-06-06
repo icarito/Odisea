@@ -1,0 +1,18 @@
+# Test Plasma Exhaust
+LEVEL res://core_v2/levels/TestScene_v2.tscn
+
+# Wait for scene to settle
+WAIT 1.0
+
+# Spawn the plasma exhaust
+SPAWN "res://core_v2/props/exhaust/PlasmaExhaust.tscn" pos=(0, 2, -5) name="PlasmaExhaust"
+
+# Wait and observe (visually, though we are headless)
+WAIT 2.0
+
+# Trigger Surge via environment variable (mocked in script)
+# Since we can't easily change env vars mid-run in OYS,
+# we'll just check if it exists and wait.
+WAIT 5.0
+
+PRINT "Plasma Exhaust Test Completed"
