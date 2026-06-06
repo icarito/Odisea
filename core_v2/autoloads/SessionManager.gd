@@ -3463,11 +3463,20 @@ func _open_transition_airlock_exit(target_airlock: Spatial, state_data: Dictiona
 		var animator = player.get("animator") if "animator" in player else null
 		if is_instance_valid(animator) and animator.has_method("freeze"):
 			animator.call("freeze", 20)
+	var fx_node: Node = null
 	for child in target_airlock.get_children():
 		if child.has_method("start_post_transition_fx"):
-			child.call("start_post_transition_fx")
+			fx_node = child
 			break
-	if target_airlock.has_method("open_exit_door"):
+	if is_instance_valid(fx_node):
+		fx_node.call("start_post_transition_fx")
+		# Delay door open until the post-transition flicker completes (~1.25 s at 0.8 Hz).
+		# This gives the destination scene time to stabilise (domes, WorldRotator, lighting)
+		# before the door opens, ensuring a smooth transition.
+		# CONNECT_ONESHOT ensures the connection is cleaned up automatically after firing.
+		fx_node.connect("fx_complete", target_airlock, "open_exit_door", [exit_door, false, true], CONNECT_ONESHOT)
+	elif target_airlock.has_method("open_exit_door"):
+		# No FX node present — open immediately as before.
 		target_airlock.open_exit_door(exit_door, true, true)
 
 func _find_scene_spawn_point(spawn_id: String = "") -> Position3D:

@@ -334,5 +334,4 @@ func restore_snapshot(data: Dictionary) -> void:
 # --- PHYSICS PROCESS ---
 
 func _physics_process(delta: float) -> void:
-	# print("DEBUG: _physics_process called on ", name)
 	step(delta)
