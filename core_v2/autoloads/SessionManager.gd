@@ -3390,6 +3390,8 @@ func _restore_transition_camera_state(state_data: Dictionary, target_transform: 
 			player.current_spring_length = arm_len
 		if "base_spring_length_3d" in player:
 			player.base_spring_length_3d = arm_len
+		if player.has_method("snap_ots_on_arrival_if_pending"):
+			player.snap_ots_on_arrival_if_pending()
 	elif player.has_method("snap_camera_to_current_state"):
 		player.snap_camera_to_current_state()
 

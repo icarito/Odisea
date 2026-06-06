@@ -161,7 +161,6 @@ var _post_teleport_snap_frames := 0
 var _transition_airlock_placed := false
 var _transition_snap_suppressed_until := 0  # physics frame counter
 var _ots_snap_on_arrival := false
-var _ots_snap_on_arrival_deferred := false
 var _restore_fov: float = -1.0
 var _exit_log_frames := 0
 var _perf_disable_interaction_scan := false
@@ -238,10 +237,9 @@ func snap_camera_to_current_state() -> void:
 	# Use a frame counter so ALL calls within the same physics frame are suppressed
 	# (SessionManager may call snap multiple times per transition).
 	if _transition_airlock_placed:
-		if _ots_snap_on_arrival:
-			_schedule_ots_snap_on_arrival()
 		if Engine.get_physics_frames() <= _transition_snap_suppressed_until:
 			return
+		snap_ots_on_arrival_if_pending()
 		_transition_airlock_placed = false
 	# Called after scene transition + teleport so every lerp-based camera system
 	# starts from the correct final position rather than drifting from defaults.
@@ -273,19 +271,11 @@ func snap_camera_to_current_state() -> void:
 	if _cached_cam:
 		_cached_cam.fov = base_fov
 
-	# Do NOT snap OTS here. On airlock transitions the chamber forces a tight
-	# framing (short arm, small offsets); stamping the exterior OTS values
-	# instantly produces a visible framing yank. The OTS _process lerps
-	# _current_offset to the new target naturally over the next few frames.
+	# OTS arrival snap is handled by SessionManager after it restores the
+	# transition spring arm length. This function keeps a fallback for later calls
+	# after the suppression window has lifted.
 
-func _schedule_ots_snap_on_arrival() -> void:
-	if _ots_snap_on_arrival_deferred:
-		return
-	_ots_snap_on_arrival_deferred = true
-	call_deferred("_snap_ots_on_arrival_deferred")
-
-func _snap_ots_on_arrival_deferred() -> void:
-	_ots_snap_on_arrival_deferred = false
+func snap_ots_on_arrival_if_pending() -> void:
 	if not _ots_snap_on_arrival:
 		return
 	var ots = get_node_or_null("Logic/OverTheShoulder")
