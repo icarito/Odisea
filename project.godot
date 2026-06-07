@@ -1190,6 +1190,11 @@ _global_script_classes=[ {
 "path": "res://core_v2/ui/retro/OysCalc.gd"
 }, {
 "base": "VBoxContainer",
+"class": "OysCameras",
+"language": "GDScript",
+"path": "res://core_v2/ui/retro/OysCameras.gd"
+}, {
+"base": "VBoxContainer",
 "class": "OysTransit",
 "language": "GDScript",
 "path": "res://core_v2/ui/retro/OysTransit.gd"
@@ -1569,6 +1574,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/props/scifi_lights/SciFiWorkLightV2.gd"
 }, {
+"base": "PropBaseV2",
+"class": "SearchLightV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/SearchLightV2.gd"
+}, {
+"base": "PropBaseV2",
+"class": "SecurityCameraV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/SecurityCameraV2.gd"
+}, {
 "base": "Spatial",
 "class": "Shake",
 "language": "GDScript",
@@ -1673,6 +1688,11 @@ _global_script_classes=[ {
 "class": "TouchCameraControls",
 "language": "GDScript",
 "path": "res://core_v2/ui/TouchCameraControls.gd"
+}, {
+"base": "PropBaseV2",
+"class": "TrackerBase",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/TrackerBase.gd"
 }, {
 "base": "BaseZoneV2",
 "class": "TransferZoneV2",
@@ -2076,6 +2096,7 @@ _global_script_class_icons={
 "OrbitArm": "",
 "Orbiter": "",
 "OysCalc": "",
+"OysCameras": "",
 "OysTransit": "",
 "PedestalButton": "",
 "PhysicsBall": "",
@@ -2152,6 +2173,8 @@ _global_script_class_icons={
 "SciFiSphereLightV2": "",
 "SciFiStaticLightV2": "",
 "SciFiWorkLightV2": "",
+"SearchLightV2": "",
+"SecurityCameraV2": "",
 "Shake": "",
 "ShapeCreationButton": "",
 "SignalHandler": "",
@@ -2173,6 +2196,7 @@ _global_script_class_icons={
 "TouchActionButton": "",
 "TouchButton": "",
 "TouchCameraControls": "",
+"TrackerBase": "",
 "TransferZoneV2": "",
 "TransformModifier": "res://addons/virtualcamera/TransformModifiers/TransformModifier.svg",
 "TransitPod": "",
