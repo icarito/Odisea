@@ -1,25 +1,140 @@
-# AGENTS.md — Guía de Desarrollo (Odisea)
+# AGENTS.md — Guía de Desarrollo Asistido (Odisea)
 
+Este documento define las reglas, convenciones y procesos para cualquier agente que asista en el desarrollo de *Odisea: El Arca Silenciosa* (Godot 3, GDScript 1.x).
 
-> [!WARNING] INVERTED COORDINATE SYSTEM
-> This project uses an unorthodox coordinate system where **+Z is BACK** (Camera Direction) and **-Z is FORWARD**.
-> Consequently, spawning an object "in front" of the player often involves placing it at **positive Z** (e.g. `(0, 1, 3)`) as seen in `test_push_integration.oys`.
-> **ALWAYS verify direction visually** or via small test steps. Do not assume standard conventions apply universally without checking.
+---
 
-## 🚀 ANNA/MCP — Cuándo usar qué herramienta
+## 1. REGLAS FUNDAMENTALES
 
-- **`inspect_node`** → ubicar nodos, medir posiciones/distancias, leer propiedades numéricas, contar hijos. Fuente de verdad cuantitativa.
-- **`capture_vision`** → evaluar gaps visuales, aspecto de props. No usar sin preguntar / coordinar con el usuario la captura deseada.
-- **Regla**: `inspect_node` primero para datos duros; `capture_vision` solo si la pregunta no se puede responder con números.
+### 1.1 Inmersión ante todo
 
-## 🚀 ANNA/MCP Quick Start (VS Code)
+Al desarrollador le obsesiona la inmersión. Esto significa:
 
-- **Default VS Code behavior:** all Godot launch configurations in `.vscode/launch.json` now set:
-  - `ANNA_ENABLED=1`
-  - `ANNA_PORT=5000`
-- This means launching scenes/tests from VS Code should expose the AnnaBridge TCP endpoint without extra manual exports.
+- **No hay transiciones bruscas.** La cámara nunca debe saltar, rotar 180°, ni teletransportarse. El punto de vista del jugador permanece constante al cambiar de modo o escena.
+- **No hay glitches visuales.** Si algo parpadea, se ve fuera de lugar, o rompe la ilusión, debe corregirse antes de seguir.
+- **El movimiento del jugador nunca se interrumpe.** Velocidad, momentum y dirección se preservan a través de transiciones. No hay reseteo de velocidad ni zeroing.
+- **Consistencia sensorial.** Si en modo normal la cámara está detrás del personaje, en cualquier otro modo debe verse igual. No cambia la relación cámara-personaje, solo cambia el esquema de controles.
 
-### Verificación rápida (cuando el juego ya está corriendo)
+### 1.2 Principios de implementación
+
+**Un archivo a la vez.** Resolvé bugs cambiando un solo archivo a menos que sea explícitamente necesario tocar más de uno. Si el síntoma está en un controlador, no modifiques escenas, otros controladores, o sistemas no relacionados.
+
+**Cambios pequeños, no reescrituras.** No reescribas archivos completos. Cambios de 5-10 líneas por bug. Cada cambio debe tener una hipótesis clara antes de implementarse.
+
+**Después de cada cambio:** corré los tests. El proyecto tiene una suite de tests que debe pasar antes de considerar un cambio completo.
+
+**No duplicar sistemas existentes.** Si el juego ya tiene un sistema de cámara, zoom, spring arm o input, úsalo en lugar de crear uno nuevo. Extendelo antes de reemplazarlo.
+
+**Preservar el determinismo.** El juego usa un Core determinista con replay. No introducir aleatoriedad (`randf()`, `randomize()`) en lógica de gameplay. No usar `Engine.get_frames_drawn()` ni valores no reproducibles en lógica de estado.
+
+### 1.3 Proceso de debugging
+
+1. **Observá** — describí el comportamiento actual sin inferir causas
+2. **Referencia** — describí el comportamiento deseado (basado en cómo funciona otro modo o estado correcto conocido)
+3. **Hipótesis** — una causa posible, basada en leer el código
+4. **Cambio mínimo** — modificá solo lo necesario para probar la hipótesis
+5. **Test** — corré la suite de tests + verificación visual
+6. **Reportá** — qué cambió, qué mejoró, qué sigue roto
+7. **Repetí** — volvé al paso 3
+
+No intentes resolver todos los síntomas a la vez. Uno por uno.
+
+---
+
+## 2. CONVENCIONES DEL PROYECTO
+
+### 2.1 Sistema de coordenadas
+
+> [!WARNING] SISTEMA DE COORDENADAS NO ESTÁNDAR
+> Este proyecto usa **+Z como BACK** (dirección de la cámara) y **-Z como FORWARD**.
+> Esto es contrario a lo que Godot asume por defecto. El rig de cámara tiene una rotación base de 180° en Y.
+> **Siempre verificar direcciones visualmente o con `inspect_node`.** No asumir que las convenciones estándar aplican.
+
+Consecuencias prácticas:
+- El forward del movimiento en cualquier controlador es `-movement_basis.z`, no `movement_basis.z`.
+- La yaw almacenada en `body.yaw` es la fuente de verdad para la orientación horizontal. No recalcularla desde la basis del rig.
+- Spawnear objetos frente al jugador usa coordenadas Z positivas.
+
+### 2.2 Código (GDScript 1.x)
+
+- **Godot 3.x**, GDScript 1.x. No usar `await`, `@onready`, `is`, `match`. Usar `yield()`, `connect()` con strings.
+- Static typing en todo código de producción: `var x: int`, `func f(v: float) -> void:`.
+- Composición sobre herencia. Señales para comunicación entre escenas. Evitar `get_parent()`.
+- Cada componente < 200 líneas haciendo exactamente una cosa.
+- Usar `_setting("key", default_value)` para valores configurables desde el editor.
+
+### 2.3 Cámara y controles
+
+- Todos los modos de juego usan el mismo `CameraRig` con su `SpringArm`. No existe un rig separado por modo.
+- El zoom, el seguimiento (spring arm), y el sistema over-the-shoulder (OTS) son responsabilidad del controlador principal. Los modos especiales no deben reemplazar ni duplicar estos sistemas.
+- Si un modo necesita rotación adicional (ej: roll en zero-g), se aplica como transformación adicional sobre el basis existente del `CameraRig`, sin reemplazar el rig ni el spring arm.
+- La cámara nunca se debe mover ni cambiar de orientación al entrar o salir de un modo especial. El punto de vista del jugador es inviolable a través de transiciones.
+
+### 2.4 Estructura de directorios
+
+```
+core_v2/           → Código principal
+core_v2/player/    → Controladores y managers
+core_v2/camera/    → Rigs de cámara
+core_v2/props/     → Props interactivos y decorativos
+core_v2/ui/retro/  → UI OdiseaOS
+core_v2/input/     → InputDataV2 y sistemas de input
+core_v2/tests/     → Tests (GdUnit y OYS)
+```
+
+---
+
+## 3. CÓMO DAR INSTRUCCIONES EFECTIVAS
+
+Un buen prompt tiene esta estructura:
+
+```
+SÍNTOMA: [qué pasa exactamente]
+REFERENCIA: [cómo se ve cuando funciona bien; ej: "en modo normal la cámara está detrás del personaje"]
+ARCHIVOS PERMITIDOS: [lista de archivos que puede modificar]
+ARCHIVOS PROHIBIDOS: [lista de archivos que no debe tocar bajo ningún concepto]
+REGLAS: [2-3 reglas clave, ej: "la cámara no debe moverse al entrar/salir"]
+PROCEDIMIENTO:
+1. Leer los archivos relevantes
+2. Formar hipótesis de una posible causa
+3. Hacer UN cambio pequeño
+4. Correr tests
+5. Reportar resultado
+```
+
+**Lo que NO funciona:**
+- Describir bugs en excesivo detalle técnico asumiendo la solución — el agente se confía, implementa mal, y hay que rehacerlo.
+- Pedir cambios arquitectónicos grandes ("reescribí este controlador", "creá un nuevo sistema de cámara") — introduce bugs nuevos y pierde fixes anteriores.
+- No especificar archivos prohibidos — el agente modifica archivos no relacionados y rompe sistemas que funcionaban.
+
+---
+
+## 4. ARCHIVOS DE ESPECIFICACIONES (PARA GENERACIÓN AUTOMÁTICA)
+
+El proyecto recibe código generado automáticamente a partir de specs. Las specs deben ser explícitas sobre:
+
+- Clase base de la que hereda (ej: `PropBaseV2`)
+- Nombres esperados de nodos hijos (ej: `Head`, `Bulb`, `SpotLight`)
+- API exacta de métodos públicos que debe implementar
+- Paths de recursos existentes que debe reusar
+- Variables exportadas con tipos y rangos (Godot 3 exports)
+- Escena de test mínima para verificar el comportamiento
+
+---
+
+## 5. ANNA / MCP — DEBUGGING EN RUNTIME
+
+El proyecto usa un bridge MCP para inspeccionar y modificar el runtime de Godot.
+
+### Herramientas disponibles
+
+| Herramienta | Uso |
+|-------------|-----|
+| `inspect_node` | Ubicar nodos, medir posiciones/distancias, leer propiedades, contar hijos |
+| `capture_vision` | Capturar imagen del viewport (solo con autorización) |
+| `set_property` | Mover objetos, cambiar valores en runtime para debugging |
+
+### Verificar conexión
 
 ```shell
 python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
@@ -27,275 +142,44 @@ python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
   --args-json '{"host":"127.0.0.1","port":5000,"timeout_s":3.0}'
 ```
 
-Si responde `"connected": true`, MCP está unido al runtime.
-
-### Si ejecutas Godot fuera de VS Code
+### Ejemplos de debugging
 
 ```shell
-export ANNA_ENABLED=1
-export ANNA_PORT=5000
-godot3-bin --path .
+# Inspeccionar un nodo
+python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
+  --tool inspect_node \
+  --args-json '{"node_path":"/root/Pilot"}'
+
+# Mover un objeto en runtime
+python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
+  --tool set_property \
+  --args-json '{"node_path":"/root/ZeroGravityZone","property":"global_transform","value":"Transform(1,0,0,0,1,0,0,0,1,0,1,0)"}'
 ```
 
-## ⚠️ ANTES DE HACER MERGE
-
-**Ejecutar los tests para verificar que no se rompió nada:**
-
-```shell
-# Recomendado (debería correr en paralelo)
-./runtest.sh
-
-# Equivalente explícito para core_v2
-./runtest.sh -a ./core_v2/tests//
-```
-
-Si algún test falla, corregirlo antes de considerar el trabajo terminado.
-
-###  Optimización: Correr Tests Selectivamente
-
-**Si sabes qué test es relevante para tu cambio, córrelo primero para agilizar:**
-
-```shell
-# Correr un archivo de test específico
-./runtest.sh -a ./core_v2/tests/test_mi_feature.gd
-
-# Correr solo los tests de un archivo
-./runtest.sh -a ./core_v2/tests/test_player_controller_v2.gd
-```
-
-**Solo corre TODOS los tests al final**, justo antes de hacer merge:
-
-```shell
-./runtest.sh
-# o
-./runtest.sh -a ./core_v2/tests//
-```
-
-### 📋 Leer el Output de los Tests
-
-**El output siempre se guarda en `./reports/gdunit_runner.log`**
-
-Si el terminal no muestra el output (problema común con agentes IA), leer el archivo:
-
-```shell
-# Ver las últimas 100 líneas del log
-cat ./reports/gdunit_runner.log | tail -100
-
-# O buscar solo el resumen (PASSED/FAILED/errores)
-grep -E "(PASSED|FAILED|ERROR|Total|Exit code|SCRIPT ERROR)" ./reports/gdunit_runner.log
-```
-
-### Ejecutar un Test OYS Específico
-
-```shell
-./runtest.sh --oys test_salto_vertical
-```
-
-## Performance Monitoring & Regression Testing
-
-The project includes a telemetry system (`PerformanceMonitor`) and a stress testing harness to prevent performance regressions.
-
-### PerformanceMonitor (Autoload)
-- **Singleton:** `core_v2/autoloads/PerformanceMonitor.gd`
-- **Metrics:** Tracks FPS, Process/Physics Time, Draw Calls, Node Count.
-- **Lag Detection:** Logs a report (`user://performance_log.json`) if FPS drops > 20 instantly or CPU usage exceeds 70% budget.
-- **Snapshots:** Can save manual snapshots to `user://performance_snapshots.json` for regression comparison.
-
-### Stress Test Suite
-Located in `core_v2/tests/stress/`.
-- **Runner:** `StressTestRunner.gd` (OYS Actor).
-- **Script:** `run_stress.oys` executes 5 scenarios:
-  1.  **Saturation:** Spawns 100-1000 entities.
-  2.  **Spawning:** High-frequency create/destroy loop.
-  3.  **Pathfinding:** Blocking test with unreachable goals.
-  4.  **Hierarchy:** Deep node nesting test.
-  5.  **Physics:** RigidBody interaction with `PushableBoxV2`.
-
-### Regression Testing Workflow
-A GitHub Actions workflow (`stress_performance.yml`) runs on PRs to `main`.
-1.  Downloads baseline performance data (`performance_snapshots.json`) from cache.
-2.  Runs `run_stress.oys` in headless mode.
-3.  Compares current results against baseline using `scripts/check_regression.py`.
-4.  Fails the build if FPS drops > 10% or CPU usage increases > 20% compared to baseline.
-
-### Running Stress Tests Locally
-To execute the stress test suite and generate a report:
-
-```bash
-# Ensure you have a valid Godot binary (godot3-bin)
-./runtest.sh --oys stress/run_stress --show
-```
-
-Results will be saved to `~/.local/share/godot/app_userdata/Odisea/performance_snapshots.json` (Linux).
-
-## Setup Testing Environment
-
-To execute tests, you need to have Godot 3 installed (binary named `godot3` or set `GODOT_BIN` env var).
-
-Example installation (Ubuntu):
-```bash
-sudo apt-get update && sudo apt-get install -y godot3
-```
-
-## Notas sobre Godot
-- **IMPORTANTE:** Usar siempre el alias `godot3-bin` para ejecutar Godot 3.6. El comando `godot` puede apuntar a Godot 4, lo que causará errores de sintaxis (ej. `yield` vs `await`).
-- "Index 1 is out of bounds (count = 1)" aparece _siempre_ al arrancar, pero no es un problema con nuestro código.
-- Ternario: `a if cond else b`.
-- Declarar con type hints: `var x: int = 0`.
-- No usar `nil` donde se esperan tipos concretos (bool, Vector2); usar valores por defecto.
-- Usar `_nombre` para miembros de uso interno (no hay private/protected).
-
-## Objetivo (MVP Acto I)
-- Juego 3D en Godot 3.6 (GLES2): 3ª persona, plataformas móviles/conveyors
-
-## Contratos Críticos
-
-### Gravity / WorldRotator / Plate Physics
-
-Antes de tocar gravedad, terrazas centrífugas, `WorldRotator`,
-`PlateContentStream`, zero-G, scaffold infinito o `BaseTerrace`, leer:
-
-- `docs/engineering/Gravity_Physics_Contracts.md`
-- `docs/features/FD-036_gravity_manager.md`
-- `docs/features/FD-039_gravity_physics_strategy.md`
-- `docs/features/FD-040_plate_content_stream_stability.md`
-
-Resumen operativo:
-- `PlayerControllerV2` conserva `Vector3.UP`; no introducir `up` dinámico.
-- En modo centrífugo caminable, `WorldRotator` cambia el marco visual y la
-  cámara sigue al personaje; la física del jugador sigue siendo estándar.
-- Gameplay con física debe vivir fuera de `WorldRotator` vía
-  `PlateContentStream`, salvo escenas legacy documentadas.
-- `BaseTerrace` funciona en modo centrífugo, pero sigue siendo híbrida/legacy y
-  debe mantener `WorldRotator.centrifugal_current_plate_only_physics = false`
-  hasta migrar su física a slots.
-- `WorldRotator` es `tool`: no debe mutar transforms, seleccionar plates ni
-  aplicar anclas en `Engine.editor_hint`.
-
-### PlayerController — Movimiento y Plataformas
-
-El `PlayerControllerV2` usa **Transform-Delta Tracking** para seguir plataformas móviles (inspirado en [Terrestrial Characters](https://github.com/Trokara)):
-
-1. **Tracking de Plataformas**: Almacena `_platform_collider` y `_platform_last_transform`. Cada frame calcula dónde *estaría* el jugador si siguiera perfectamente la plataforma:
-   ```gdscript
-   var old_local = platform_last_transform.affine_inverse().xform(player_pos)
-   var new_global = platform.global_transform.xform(old_local)
-   var delta = new_global - player_pos
-   player.global_transform.origin += delta
-   ```
-2. **Herencia de Velocidad**: Al saltar o salir de una plataforma, hereda `_platform_velocity` para conservar momentum.
-3. **Alineación a Pendientes**: `PlayerMovementV2.align_to_floor()` rota el vector de movimiento para que siga el plano del suelo, evitando drift lateral en rampas.
-4. **Resistencia en Pendientes**: Ralentiza el movimiento cuesta arriba según el ángulo (configurable via `slope_resistance_factor`).
-5. **Stair-Stepping**: `_try_step_up()` permite subir escalones automáticamente hasta `step_height` (default 0.4m).
-
-#### API Legacy: `set_external_velocity()`
-
-Se conserva `set_external_velocity(v: Vector3)` para:
-- **Conveyors**: Aplican fuerza continua sobre el jugador (necesitan `external_source_is_static = false`).
-- **Efectos especiales**: Knockback, viento, explosiones, etc.
-- **Objetos legacy**: Compatibilidad con sistemas antiguos.
-
-> **Nota**: Las plataformas móviles (`MovingPlatformV2`) ya NO necesitan llamar `set_external_velocity()` para el jugador. El tracking por transform lo hace automáticamente. Sin embargo, deben seguir llamándolo para otros cuerpos (cajas, NPCs) que no tengan tracking propio.
-
-- **Conveyor**: Aplicar velocidad a cuerpos en su área, usando `set_external_velocity()` para el jugador con `external_source_is_static = false`.
-- **Signals**: Las señales no deben usarse para lógica que afecte el estado físico (posición, velocidad). Su uso debe limitarse a efectos no deterministas (sonido, animaciones, UI). Por ejemplo, `PilotAnimatorV2` puede escuchar señales para disparar animaciones, pero no debe alterar el `state` del `PlayerController`.
-
-## Normas de Trabajo
-- Commits pequeños y enfocados. Validar cambios en `TestScene_v2.tscn`.
-- Documentar `export var` en el Inspector.
-- Usar GdUnit3 para tests.
-- **Todo el código nuevo o refactorizado debe ir en `src/core_v2`**.
-
-## Contrato de Replay Determinístico
-
-Para garantizar replays determinísticos, todo agente sincronizado debe:
-
-1.  Pertenecer al grupo `replay_sync`.
-2.  Implementar `restore_snapshot(data: Dictionary)`.
-3.  Ejecutar toda la lógica de movimiento/simulación en `_physics_process(delta)`. **Nunca en `_process(delta)`**.
-4.  Consumir input a través de `InputProviderV2` (jugador) o basarse solo en estado interno (NPCs).
-
-### Ejecución de Tests de Determinismo
-
-```shell
-# Ejecutar el test de determinismo para core_v2
-./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd
-```
-
-Este comando utiliza el script `runtest.sh` para lanzar Godot en modo headless y ejecutar la suite de tests especificada. Si el `drift` (desviación) entre la posición final del replay y la esperada supera un umbral mínimo, el test fallará, indicando una ruptura en el determinismo.
-
-## Nota para Agentes: Verificación de Assets
-
-Al trabajar con Props o Elementos Interactuables, sigue este procedimiento recurrente:
-1.  **Ejecución**: Usa `./test_prop.sh --target="NombreDelProp" --base64` para capturar los estados visuales.
-    Si existe `NombreDelProp.oys` junto al `.tscn` (o en `core_v2/scripts/` / `core_v2/tests/`), se ejecuta automáticamente.
-2.  **Reporte**: Muestra los resultados (imágenes/base64) al usuario inmediatamente después de cualquier cambio en el asset.
-3.  **Iteración**: No consideres un asset terminado hasta que el usuario confirme que las capturas de pantalla son correctas.
-
-## Política de Assets e Imports (CI + Local)
-
-Reglas operativas:
-- Los archivos trackeados dentro de `.import/` se consideran artefactos versionados del proyecto. No son caché descartable.
-- Solo versionamos artifacts críticos de imports de escena (`.glb -> .scn/.md5`) para assets de gameplay que deban cargar en frío en CI. No versionar `.stex` masivos por defecto.
-- Los pipelines normales de tests no deben ejecutar un clean rebuild destructivo de `.import/`. Ese camino queda reservado al workflow dedicado `Asset Integrity`.
-- La lista de imports críticos vive en `ci/critical_imports.json`; la estrategia completa está documentada en `docs/engineering/CI_Asset_Strategy.md`.
-- Todo cambio que toque `assets/`, `textures/`, `models/`, `core_v2/audio/`, `core_v2/actors/`, `core_v2/components/`, `core_v2/props/`, `core_v2/levels/`, `project.godot`, `*.import` o `.import/` debe pasar validación de manifests antes de empujar.
-- Si un `source_file` o un `dest_files` de un `.import` trackeado no existe, eso es un error de integración y debe corregirse antes de CI.
-- Si un import crítico apunta a un `.scn` generado no trackeado, el hook/CI debe fallar de inmediato. No esperar a que un test tarde 20 minutos en tocar ese recurso.
-
-Comandos de validación:
-
-```shell
-# Validación rápida de todos los manifests trackeados
-python3 scripts/check_tracked_imports.py
-
-# Valida imports críticos que deben existir y estar versionados
-python3 scripts/check_critical_import_artifacts.py
-
-# Smoke corto sin limpiar imports trackeados
-scripts/godot_import_smoke.sh \
-  --godot-bin godot3-bin \
-  --project-path . \
-  --clean-cache 0 \
-  --import-mode quick
-```
-
-Workflow esperado:
-- Workflows normales (`tests`, `pytest`, `stress`, `determinism`): `clean-cache=0`, validación rápida primero.
-- Workflows normales deben saltar preflight redundante dentro de `runtest.sh` una vez que `Import + Smoke` ya pasó.
-- Workflow `Asset Integrity`: usa `clean-cache=1` pero con smoke dedicado a la política de imports críticos. No debe reutilizar la smoke grande de `BaseTerrace` si eso obliga a reimportar assets fuera de la política.
-
-Hooks recomendados:
-
-```shell
-# Instala hooks repo-managed en este clon
-scripts/install_git_hooks.sh
-```
-
-Comportamiento de hooks:
-- `pre-commit`: valida manifests relacionados a archivos staged y también imports críticos stageados.
-- `pre-push`: valida todos los manifests trackeados, valida imports críticos completos y, si detecta cambios de assets/imports y existe `godot3-bin` local, corre smoke rápido.
-
-Variables de escape para casos excepcionales:
-- `ODISEA_SKIP_IMPORT_HOOKS=1`: desactiva hooks repo-managed.
-- `ODISEA_SKIP_PREPUSH_SMOKE=1`: deja la validación de manifests activa, pero salta el smoke Godot del `pre-push`.
-
-## Nota para Agentes: Pipeline de UI (DebugOverlay / Workbench)
-
-Al iterar UI retro (Workbench, ventanas, terminal), usar pipeline dedicado de capturas:
-1. **Ejecución base**: `./test_ui.sh --scene=DebugOverlay`
-2. **Con salida para revisión en chat**: `./test_ui.sh --scene=DebugOverlay --base64`
-3. **Escena explícita**: `./test_ui.sh --scene="res://core_v2/ui/retro/DebugOverlay.tscn"`
-
-Detalles del pipeline:
-- El runner usa `OYS_AUTO_RUN` sobre la escena UI objetivo (sin escena intermedia).
-- Si existe un `.oys` con el mismo basename que el `.tscn` (ej: `DebugOverlay.tscn` + `DebugOverlay.oys`), se usa automáticamente.
-- Si no existe script por nombre, fallback a `core_v2/scripts/ui_validator.oys`.
-- La secuencia de validación captura al menos:
-  - `*_0_boot.png` (boot inicial)
-  - `*_1_desktop.png` (desktop con taskbar)
-  - `*_2_terminal.png` (terminal tras comandos de prueba)
-- Los artefactos quedan en `test_output/ui/`.
-
-Regla de trabajo:
-- Después de cambios de UI, correr `test_ui.sh` y compartir capturas antes de dar por cerrada la iteración visual.
+---
+
+## 6. TESTS
+
+- Los tests se corren con `./runtest.sh -a <ruta_al_test>`.
+- Después de cada cambio, correr los tests relevantes al sistema modificado.
+- Siempre verificar visualmente en el editor después de que los tests pasen.
+- Si la verificación visual revela bugs nuevos, escribir un test OYS o GdUnit que los capture antes de continuar.
+- Tests principales:
+  - `./runtest.sh -a ./core_v2/tests/test_gravity_modes.gd` — modos de gravedad y zero-g
+  - `./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd` — determinismo del Core
+
+---
+
+## 7. ALCANCE DEL MVP
+
+**Dentro del alcance (Acto I):**
+- Módulo Criogenia (entorno y narrativa)
+- Elías (personaje jugable)
+- Cargol (drón compañero)
+- DDC (drone enemigo, sigilo)
+- IA Odisea (diálogos, manipulación)
+- Multi-tool (herramienta de mantenimiento)
+- Mecánicas: movimiento, interacción, puzzle reparación, sigilo
+
+**Fuera del alcance (backlog):**
+- Todo lo que no esté listado arriba. Si un agente propone algo nuevo, debe preguntar antes de implementar. Las ideas creativas son válidas pero van al backlog.
