@@ -1,9 +1,13 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
 [ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=3]
 [ext_resource path="res://core_v2/props/ZeroGravityZone.tscn" type="PackedScene" id=4]
+[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_B.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_A.tscn" type="PackedScene" id=6]
+[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_D.tscn" type="PackedScene" id=7]
+[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_C.tscn" type="PackedScene" id=8]
 
 [node name="TestZeroGravity" type="Spatial"]
 
@@ -28,5 +32,23 @@ transform = Transform( 0.996195, 3.82452e-09, 0.0871557, -0.0841859, 0.258819, 0
 light_color = Color( 0.364706, 0.364706, 0.364706, 1 )
 light_energy = 0.627
 shadow_enabled = true
+
+[node name="PlasmaExhaustProposals" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 2, 23.809 )
+
+[node name="Option_A" parent="PlasmaExhaustProposals" instance=ExtResource( 6 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 27.1057, 0, 0 )
+color_phase = 0.488
+
+[node name="Option_B" parent="PlasmaExhaustProposals" instance=ExtResource( 5 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 16.7683, 0, 0 )
+color_phase = 0.488
+
+[node name="Option_C" parent="PlasmaExhaustProposals" instance=ExtResource( 8 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5031, 0, 0 )
+color_phase = 0.488
+
+[node name="Option_D" parent="PlasmaExhaustProposals" instance=ExtResource( 7 )]
+color_phase = 0.488
 
 [editable path="ZeroGravityZone"]
