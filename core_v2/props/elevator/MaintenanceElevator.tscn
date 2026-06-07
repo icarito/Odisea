@@ -1,0 +1,172 @@
+[gd_scene load_steps=13 format=2]
+
+[ext_resource path="res://core_v2/props/elevator/MaintenanceElevator.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/PedestalButton.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=3]
+[ext_resource path="res://assets/sfx/sfx100v2_loop_machine_02.ogg" type="AudioStream" id=5]
+[ext_resource path="res://assets/sfx/chime.wav" type="AudioStream" id=6]
+
+[sub_resource type="SpatialMaterial" id=1]
+resource_name = "GratePlate"
+albedo_color = Color( 0.3, 0.32, 0.34, 1 )
+metallic = 1.0
+roughness = 0.35
+
+[sub_resource type="SpatialMaterial" id=2]
+resource_name = "RailMetal"
+albedo_color = Color( 0.85, 0.68, 0.08, 1 )
+metallic = 0.8
+roughness = 0.45
+
+[sub_resource type="SpatialMaterial" id=3]
+resource_name = "RailGuide"
+albedo_color = Color( 0.42, 0.44, 0.46, 1 )
+metallic = 1.0
+roughness = 0.22
+
+[sub_resource type="BoxShape" id=4]
+extents = Vector3( 1.4, 0.1, 1.4 )
+
+[sub_resource type="BoxShape" id=5]
+extents = Vector3( 1.4, 1.1, 1.4 )
+
+[sub_resource type="BoxShape" id=6]
+extents = Vector3( 1.4, 0.5, 1.4 )
+
+[sub_resource type="BoxShape" id=8]
+extents = Vector3( 1.45, 0.55, 0.06 )
+
+[sub_resource type="BoxShape" id=9]
+extents = Vector3( 0.06, 0.55, 1.45 )
+
+[node name="MaintenanceElevator" type="Spatial"]
+script = ExtResource( 1 )
+travel_height = 8.0
+speed = 6.0
+hatch_path = NodePath("")
+
+[node name="GuideRail" type="Spatial" parent="."]
+
+[node name="RailLeft" type="CSGBox" parent="GuideRail"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.55, 4.0, -1.55 )
+use_collision = true
+width = 0.12
+height = 8.6
+depth = 0.12
+material = SubResource( 3 )
+
+[node name="RailRight" type="CSGBox" parent="GuideRail"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.55, 4.0, -1.55 )
+use_collision = true
+width = 0.12
+height = 8.6
+depth = 0.12
+material = SubResource( 3 )
+
+[node name="Platform" type="KinematicBody" parent="."]
+
+[node name="Deck" type="CSGBox" parent="Platform"]
+width = 2.8
+height = 0.2
+depth = 2.8
+material = SubResource( 1 )
+
+[node name="CollisionShape" type="CollisionShape" parent="Platform"]
+shape = SubResource( 4 )
+
+[node name="RailColFront" type="CollisionShape" parent="Platform"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 1.4 )
+shape = SubResource( 8 )
+
+[node name="RailColBack" type="CollisionShape" parent="Platform"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, -1.4 )
+shape = SubResource( 8 )
+
+[node name="RailColLeft" type="CollisionShape" parent="Platform"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.4, 0.55, 0 )
+shape = SubResource( 9 )
+
+[node name="RailFront" type="CSGBox" parent="Platform"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 1.4 )
+width = 2.8
+height = 0.08
+depth = 0.08
+material = SubResource( 2 )
+
+[node name="RailBack" type="CSGBox" parent="Platform"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, -1.4 )
+width = 2.8
+height = 0.08
+depth = 0.08
+material = SubResource( 2 )
+
+[node name="RailLeft" type="CSGBox" parent="Platform"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.4, 1.0, 0 )
+width = 0.08
+height = 0.08
+depth = 2.8
+material = SubResource( 2 )
+
+[node name="PostFL" type="CSGBox" parent="Platform"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.4, 0.55, 1.4 )
+width = 0.1
+height = 1.1
+depth = 0.1
+material = SubResource( 2 )
+
+[node name="PostFR" type="CSGBox" parent="Platform"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.4, 0.55, 1.4 )
+width = 0.1
+height = 1.1
+depth = 0.1
+material = SubResource( 2 )
+
+[node name="PostBL" type="CSGBox" parent="Platform"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.4, 0.55, -1.4 )
+width = 0.1
+height = 1.1
+depth = 0.1
+material = SubResource( 2 )
+
+[node name="PostBR" type="CSGBox" parent="Platform"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.4, 0.55, -1.4 )
+width = 0.1
+height = 1.1
+depth = 0.1
+material = SubResource( 2 )
+
+[node name="PassengerArea" type="Area" parent="Platform"]
+collision_layer = 0
+
+[node name="PassengerCollision" type="CollisionShape" parent="Platform/PassengerArea"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
+shape = SubResource( 5 )
+
+[node name="BlockArea" type="Area" parent="Platform"]
+collision_layer = 0
+collision_mask = 64
+
+[node name="BlockCollision" type="CollisionShape" parent="Platform/BlockArea"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
+shape = SubResource( 6 )
+
+[node name="CallButton" parent="Platform" instance=ExtResource( 2 )]
+transform = Transform( 0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, 1.15, 0.1, -1.15 )
+interaction_text = "SUBIR"
+manual_toggle = false
+momentary = true
+
+[node name="SFXMotor" type="AudioStreamPlayer3D" parent="Platform"]
+stream = ExtResource( 5 )
+unit_db = -6.0
+max_distance = 35.0
+script = ExtResource( 3 )
+loop_sample = true
+trigger_mode = "Active"
+
+[node name="SFXDing" type="AudioStreamPlayer3D" parent="Platform"]
+stream = ExtResource( 6 )
+unit_db = -3.0
+max_distance = 35.0
+script = ExtResource( 3 )
+trigger_mode = "Active"

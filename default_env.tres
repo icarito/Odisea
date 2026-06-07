@@ -5,8 +5,9 @@
 [resource]
 background_mode = 1
 background_sky = ExtResource( 1 )
-background_color = Color( 0.0588235, 0.0470588, 0.0705882, 1 )
+background_color = Color( 0.113725, 0.0941176, 0.137255, 1 )
 background_energy = 1.46
+ambient_light_color = Color( 0.235294, 0.235294, 0.235294, 1 )
 fog_color = Color( 0.01, 0.006, 0.024, 0.976471 )
 fog_depth_curve = 1.7411
 fog_transmit_curve = 1.27456
