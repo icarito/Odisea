@@ -1,0 +1,45 @@
+[gd_scene load_steps=6 format=2]
+
+[ext_resource path="res://core_v2/props/scifi_lights/SearchLightV2.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/props/scifi_lights/SecurityCameraV2.tscn" type="PackedScene" id=2]
+
+[sub_resource type="CubeMesh" id=1]
+size = Vector3( 20, 1, 20 )
+
+[sub_resource type="SpatialMaterial" id=2]
+albedo_color = Color( 0.2, 0.2, 0.2, 1 )
+
+[sub_resource type="CapsuleMesh" id=3]
+radius = 0.5
+mid_height = 1.0
+
+[node name="TestFD160" type="Spatial"]
+
+[node name="Floor" type="MeshInstance" parent="."]
+mesh = SubResource( 1 )
+material/0 = SubResource( 2 )
+
+[node name="SearchLightV2" parent="." instance=ExtResource( 1 ) ]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
+starts_active = true
+pan_angle = 120.0
+tilt_angle = 20.0
+volumetric = true
+
+[node name="SecurityCameraV2" parent="." instance=ExtResource( 2 ) ]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0 )
+starts_active = true
+track_player = true
+
+[node name="PlayerProxy" type="KinematicBody" parent="." groups=["player"]]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 5 )
+collision_layer = 2
+
+[node name="MeshInstance" type="MeshInstance" parent="PlayerProxy"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
+mesh = SubResource( 3 )
+material/0 = null
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( 0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 10, 0 )
+light_energy = 0.2
