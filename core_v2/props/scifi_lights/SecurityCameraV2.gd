@@ -13,6 +13,7 @@ var _record_led_mesh: MeshInstance = null
 var _blink_timer := 0.0
 
 func _ready():
+	add_to_group("security_camera")
 	_record_led_mesh = find_node("RecordLED", true, false)
 	._ready()
 
