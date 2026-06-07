@@ -1,0 +1,36 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://core_v2/props/exhaust/PlasmaExhaust.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/exhaust/plasma.shader" type="Shader" id=2]
+[ext_resource path="res://core_v2/props/exhaust/plasma_flipbook_8x8.png" type="Texture" id=3]
+[ext_resource path="res://core_v2/props/exhaust/plasma_particles.tscn" type="PackedScene" id=4]
+
+[sub_resource type="ShaderMaterial" id=1]
+shader = ExtResource( 2 )
+shader_param/columns = 8
+shader_param/rows = 8
+shader_param/animation_speed = 12.0
+shader_param/plasma_color = Color( 0, 0.5, 1, 1 )
+shader_param/emission_intensity = 2.0
+shader_param/distortion_strength = 0.05
+shader_param/pulse_factor = 1.0
+shader_param/flipbook_tex = ExtResource( 3 )
+
+[sub_resource type="CylinderMesh" id=2]
+top_radius = 2.0
+bottom_radius = 0.5
+height = 3.0
+radial_segments = 32
+rings = 8
+
+[node name="PlasmaExhaust" type="Spatial"]
+script = ExtResource( 1 )
+
+[node name="PlasmaMesh" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0 )
+material_override = SubResource( 1 )
+mesh = SubResource( 2 )
+software_skinning_transform_normals = false
+
+[node name="PlasmaParticles" parent="." instance=ExtResource( 4 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.5 )

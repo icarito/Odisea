@@ -3,8 +3,39 @@ extends "res://core_v2/visual/plasma_exhaust/PlasmaExhaustBase.gd"
 # Performance Cost: High (Option A + Option C)
 # LOD Support: Yes
 
+# A single shared palette so the volumetric shell (A) and the particles (C)
+# blend instead of clashing. core_color is the cool base, hot_color the bright
+# core; both children are driven from these.
+export(Color) var core_color := Color(0.1, 0.4, 1.0, 1.0) setget set_core_color
+export(Color) var hot_color := Color(0.6, 0.85, 1.0, 1.0) setget set_hot_color
+
 onready var option_a = $PlasmaExhaust_A
 onready var option_c = $PlasmaExhaust_C
+
+func _ready():
+	_apply_palette()
+
+func set_core_color(val: Color):
+	core_color = val
+	_apply_palette()
+
+func set_hot_color(val: Color):
+	hot_color = val
+	_apply_palette()
+
+func _apply_palette():
+	if option_a:
+		option_a.set_base_color(core_color)
+		option_a.set_hot_color(hot_color)
+		# Softer, more diffuse shell so it melds with the particles instead of
+		# reading as a separate crisp cone.
+		option_a.set_flame_sharpness(0.2)
+	if option_c:
+		# C tints its (additive) flipbook by a single color; use the hot core so
+		# the particles read as the bright heart of the same plume as A.
+		option_c.set_core_color(hot_color)
+		# Lower additive punch so particles blend into A's shell.
+		option_c.set_softness(0.45)
 
 func _update_active_state():
 	if option_a: option_a.set_active(is_active)

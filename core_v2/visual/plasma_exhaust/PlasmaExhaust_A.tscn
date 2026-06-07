@@ -14,13 +14,14 @@ rings = 8
 shader = ExtResource( 2 )
 shader_param/base_color = Color( 0, 0.501961, 1, 1 )
 shader_param/hot_color = Color( 0.501961, 0.8, 1, 1 )
-shader_param/noise_scale = 2.0
-shader_param/distortion_amount = 0.5
+shader_param/noise_scale = 3.0
+shader_param/distortion_amount = 1.2
 shader_param/speed = 1.0
 shader_param/intensity = 1.0
 shader_param/color_phase = 0.0
 shader_param/brightness = 2.0
 shader_param/pulse_frequency = 1.0
+shader_param/flame_sharpness = 0.5
 
 [node name="PlasmaExhaust_A" type="Spatial"]
 script = ExtResource( 1 )

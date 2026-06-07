@@ -7,10 +7,6 @@
 [ext_resource path="res://core_v2/components/SpiralPlateAttachment.gd" type="Script" id=6]
 [ext_resource path="res://core_v2/systems/visual/FauxSkydomeParallaxShell.gd" type="Script" id=7]
 [ext_resource path="res://core_v2/systems/visual/TerraceSegmentManager.gd" type="Script" id=8]
-[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_A.tscn" type="PackedScene" id=9]
-[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_B.tscn" type="PackedScene" id=10]
-[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_C.tscn" type="PackedScene" id=11]
-[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_D.tscn" type="PackedScene" id=12]
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 100, 1, 100 )
@@ -28,7 +24,6 @@ spiral_blend = 1.0
 auto_select_first_platform = false
 physical_terrace_path = NodePath("../PhysicalTerrace")
 auto_track_target_plate = true
-continuous_tracking = true
 scene_anchor_use_selected_plate_on_ready = true
 collision_pool_size = 4
 collision_pool_xz_scale = 1.0
@@ -67,21 +62,6 @@ omni_shadow_mode = 0
 script = ExtResource( 6 )
 rotator_path = NodePath("../WorldRotator")
 plate_index = 90
-
-[node name="PlasmaExhaustProposals" type="Spatial" parent="WorldRotator"]
-transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 1686, 52.9999 )
-
-[node name="Option_A" parent="WorldRotator/PlasmaExhaustProposals" instance=ExtResource( 9 )]
-visible = false
-
-[node name="Option_B" parent="WorldRotator/PlasmaExhaustProposals" instance=ExtResource( 10 )]
-visible = false
-
-[node name="Option_C" parent="WorldRotator/PlasmaExhaustProposals" instance=ExtResource( 11 )]
-visible = false
-
-[node name="Option_D" parent="WorldRotator/PlasmaExhaustProposals" instance=ExtResource( 12 )]
-visible = false
 
 [node name="OmniLight4" type="OmniLight" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1148.64, 0 )
