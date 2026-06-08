@@ -247,7 +247,16 @@ func _load_or_create_player_id() -> String:
 
 func _generate_uuid() -> String:
 	# Simplistic UUID-like string
-	return str(OS.get_unix_time()) + "-" + str(str(OS.get_unique_id()).hash())
+	var unique_id = OS.get_unique_id()
+	if unique_id == "" or unique_id == "unknown":
+		# Fallback for platforms where unique_id is not reliable
+		unique_id = str(OS.get_unix_time()) + str(randi())
+
+	var h = str(unique_id).hash()
+	if h == 0:
+		h = OS.get_unix_time() + randi()
+
+	return str(OS.get_unix_time()) + "-" + str(h)
 
 func _get_url_param(param_name: String) -> String:
 	if not OS.has_feature("web"): return ""

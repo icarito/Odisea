@@ -113,22 +113,38 @@ func _discover_peer() -> String:
 	if _check_port("127.0.0.1", PEER_PORT):
 		return "ws://127.0.0.1:4999/ws"
 
-	# 4. Scan local subnets
+	# 4. Try own local IP addresses (faster than subnet scan)
 	var addresses = IP.get_local_addresses()
 	for addr in addresses:
 		if addr.find(":") != -1: continue # Skip IPv6
 		if addr.begins_with("127."): continue
 		if addr.begins_with("169.254"): continue # Skip link-local
 
-		var parts = addr.split(".")
-		if parts.size() != 4: continue
+		if _check_port(addr, PEER_PORT):
+			return "ws://" + addr + ":4999/ws"
 
-		var base = parts[0] + "." + parts[1] + "." + parts[2] + "."
-		for i in range(1, 255):
-			var target = base + str(i)
-			if target == addr: continue
-			if _check_port(target, PEER_PORT):
-				return "ws://" + target + ":4999/ws"
+	# 5. Optional full subnet scan (slow, enabled by env)
+	var allow_full_scan = OS.get_environment("ANNA_V2_FULL_SCAN") in ["1", "true", "yes", "on"]
+	if allow_full_scan:
+		for addr in addresses:
+			if addr.find(":") != -1: continue
+			if addr.begins_with("127."): continue
+			if addr.begins_with("169.254"): continue
+
+			var parts = addr.split(".")
+			if parts.size() != 4: continue
+
+			var base = parts[0] + "." + parts[1] + "." + parts[2] + "."
+			for i in range(1, 255):
+				_mutex.lock()
+				var should_stop = _stop_thread
+				_mutex.unlock()
+				if should_stop: return ""
+
+				var target = base + str(i)
+				if target == addr: continue # already checked
+				if _check_port(target, PEER_PORT):
+					return "ws://" + target + ":4999/ws"
 
 	return ""
 
