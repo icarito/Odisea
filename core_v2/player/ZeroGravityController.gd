@@ -124,51 +124,42 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 		var sens = 0.005
 		if "mouse_sensitivity" in _body:
 			sens = _body.mouse_sensitivity
-			
+		var invert_y: bool = _body.invert_mouse_y if "invert_mouse_y" in _body else false
+		var mouse_y: float = -mouse_d.y if invert_y else mouse_d.y
+		
 		var roll_input := 0.0
 		if input.roll_left:
 			roll_input -= 1.0
 		if input.roll_right:
 			roll_input += 1.0
-			
+		
 		var roll_speed = deg2rad(_setting("roll_speed_deg", DEFAULT_ROLL_SPEED_DEG))
 		var roll_rate = roll_input * roll_speed
-		
-		if _camera_rig.has_method("update_orientation_local"):
-			_camera_rig.update_orientation_local(mouse_d, sens, roll_rate, dt)
-			
-		_apply_zero_g_zoom_delta(input.zoom_delta)
 
-	# 2. Synchronize variables back from the camera rig
-	if _camera_rig:
-		var eulers := Vector3.ZERO
-		if _camera_rig.has_method("get_orientation_euler"):
-			eulers = _camera_rig.get_orientation_euler()
-		else:
-			var basis = _camera_rig.transform.basis
-			var forward = -basis.z
-			var yaw_val = 0.0
-			var forward_h = Vector3(forward.x, 0.0, forward.z)
-			if forward_h.length_squared() > 0.0001:
-				forward_h = forward_h.normalized()
-				yaw_val = atan2(-forward_h.x, -forward_h.z)
-			var pitch_val = asin(clamp(forward.y, -1.0, 1.0))
-			var yp_basis = Basis(Vector3.UP, yaw_val) * Basis(Vector3.RIGHT, pitch_val)
-			var roll_basis = yp_basis.inverse() * basis
-			var roll_val = atan2(-roll_basis.x.y, roll_basis.x.x)
-			eulers = Vector3(yaw_val, pitch_val, roll_val)
-			
-		yaw = eulers.x
-		pitch = eulers.y
-		roll_angle = eulers.z
-		
+		# Yaw, pitch, roll accumulation
+		yaw   -= input.mouse_delta.x * sens
+		pitch -= mouse_y * sens
+		var min_p: float = deg2rad(_body.min_pitch) if "min_pitch" in _body else deg2rad(-89.0)
+		var max_p: float = deg2rad(_body.max_pitch) if "max_pitch" in _body else deg2rad(89.0)
+		pitch = clamp(pitch, min_p, max_p)
+		roll_angle += roll_rate * dt
+
+		# Write to CameraRig root: yaw + pitch + roll (same as normal mode + roll)
+		var yp_basis := Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		var forward_axis := -yp_basis.z
+		_camera_rig.transform.basis = Basis(forward_axis, roll_angle) * yp_basis
+		_camera_rig.force_update_transform()
+
 		if _body:
 			_body.yaw = yaw
 			_body.pitch = pitch
-			
 		_last_sync_yaw = yaw
 		_last_sync_pitch = pitch
 		_last_sync_roll = roll_angle
+
+		# Zoom via standard orbit system.
+		if _body.has_method("_update_camera_orbit_state"):
+			_body._update_camera_orbit_state(dt, input, false, false)
 
 	# 4. Movement WASD in the rendered camera's direction.
 	var move_dir := Vector3.ZERO
@@ -216,9 +207,9 @@ func _refresh_runtime_refs() -> void:
 	if not is_instance_valid(_body):
 		return
 	_settings = _body.get_node_or_null("Logic/ZeroGravity")
-	_camera_rig = _body.get_node_or_null("ZeroGCameraRig") as Spatial
+	_camera_rig = _body.get_node_or_null("CameraRig") as Spatial
 	if _camera_rig == null:
-		_camera_rig = _body.get_node_or_null("CameraRig") as Spatial
+		_camera_rig = _body.get_node_or_null("ZeroGCameraRig") as Spatial
 	_camera = _find_camera(_camera_rig)
 	_pilot_mesh = _body.get_node_or_null("Visual/Pivot")
 	if _settings and _settings.has_method("configure_camera_rig"):
