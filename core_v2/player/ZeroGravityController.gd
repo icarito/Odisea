@@ -326,7 +326,9 @@ func _update_visual_mesh(dt: float, preserved_basis: Basis, has_movement: bool, 
 	var smooth: float = float(_setting("mesh_rotation_smooth", DEFAULT_MESH_ROTATION_SMOOTH))
 	# Mesh follows movement direction only when moving (no roll), while camera orbits freely
 	var target_basis := yp_basis if has_movement else preserved_basis
-	_pilot_mesh.transform.basis = preserved_basis.slerp(target_basis, clamp(smooth * dt, 0.0, 1.0))
+	var new_basis := preserved_basis.slerp(target_basis, clamp(smooth * dt, 0.0, 1.0))
+	# Normalize basis after slerp to prevent denormalization errors
+	_pilot_mesh.transform.basis = new_basis.orthonormalized()
 	_apply_mesh_center_offset()
 
 func _restore_standard_visual_mesh() -> void:
@@ -337,7 +339,8 @@ func _restore_standard_visual_mesh() -> void:
 	if forward.length_squared() <= 0.0001:
 		forward = Vector3(sin(yaw), 0.0, cos(yaw))
 	forward = forward.normalized()
-	_pilot_mesh.transform.basis = Basis(Vector3.UP, atan2(forward.x, forward.z))
+	var new_basis := Basis(Vector3.UP, atan2(forward.x, forward.z))
+	_pilot_mesh.transform.basis = new_basis.orthonormalized()
 	_pilot_mesh.transform.origin = Vector3.ZERO
 
 func _apply_mesh_center_offset() -> void:
