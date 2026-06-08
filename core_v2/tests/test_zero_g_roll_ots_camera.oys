@@ -34,10 +34,7 @@ SECTION "Zero-g roll keeps OTS camera framing"
 	ASSERT $up_after > 0.25 "After 180 roll, camera should remain relatively above the player"
 	ASSERT $back_after < -0.5 "After 180 roll, camera should remain behind the player"
 
-	MATH $right_min = $right_before - 0.35
-	MATH $up_min = $up_before - 0.5
-	MATH $back_max = $back_before + 1.75
-	ASSERT $right_after > $right_min "Right offset should not collapse or cross sides after roll"
-	ASSERT $up_after > $up_min "Up offset should not collapse or invert after roll"
-	ASSERT $back_after < $back_max "Back offset should remain stable after roll"
+	ASSERT $right_after > $right_before - 0.35 "Right offset should not collapse or cross sides after roll"
+	ASSERT $up_after > $up_before - 0.35 "Up offset should not collapse or invert after roll"
+	ASSERT $back_after < $back_before + 0.35 "Back offset should remain stable after roll"
 END
