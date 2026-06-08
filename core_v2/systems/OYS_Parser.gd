@@ -31,7 +31,9 @@ enum Command {
 	PLAY_SOUND,
 	VCAMERA, VCAMERA_BLEND, VCAMERA_RETURN, VCAMERA_SHAKE,
 	ANNA_ENABLE, ANNA_DISABLE, ANNA_SET_TARGET,
-	HINT, HINT_CLEAR
+	HINT, HINT_CLEAR,
+	ROLL_RIGHT, ROLL_LEFT,
+	CAMERA_REL_RIGHT, CAMERA_REL_UP, CAMERA_REL_BACK, CAMERA_REL_DISTANCE
 }
 
 # Command synonyms mapping
@@ -55,7 +57,14 @@ const SYNONYMS = {
 	"UI_TYPE": "TYPE",
 	"UI_PRESS": "PRESS",
 	"UI_WAIT": "WAIT",
-	"UI_ASSERT_TEXT": "ASSERT_TEXT"
+	"UI_ASSERT_TEXT": "ASSERT_TEXT",
+	"CAMERA_REL_RIGHT": "CAMERA_REL_RIGHT",
+	"CAMERA_REL_UP": "CAMERA_REL_UP",
+	"CAMERA_REL_BACK": "CAMERA_REL_BACK",
+	"CAMERA_REL_DISTANCE": "CAMERA_REL_DISTANCE",
+	"ROLL_RIGHT": "ROLL_RIGHT",
+	"ROLL_LEFT": "ROLL_LEFT"
+
 }
 
 # Preprocess script: remove comments and empty lines
@@ -807,6 +816,23 @@ static func parse_instruction(line: String) -> Dictionary:
 								data["pos"] = line.substr(val_start, val_end - val_start + 1)
 						else:
 							data["pos"] = p.split("=")[1]
+		
+		# Roll commands — passthrough to interpreter
+		"ROLL_RIGHT", "ROLL_LEFT":
+			data["direction"] = 1.0 if cmd == "ROLL_RIGHT" else -1.0
+			if parts.size() > 1:
+				data["degrees"] = parts[1].to_float()
+			if parts.size() > 2:
+				data["duration"] = parts[2].to_float()
+			if not data.has("degrees"):
+				data["degrees"] = 180.0
+			if not data.has("duration"):
+				data["duration"] = 2.0
+		
+		# Camera relative commands — passthrough to interpreter
+		"CAMERA_REL_RIGHT", "CAMERA_REL_UP", "CAMERA_REL_BACK", "CAMERA_REL_DISTANCE":
+			data["target"] = _extract_quoted(parts, 1) if parts.size() > 1 else "Pilot"
+			data["axis"] = cmd.trim_prefix("CAMERA_REL_").to_lower()
 		
 		_:
 			data["error"] = "Unknown command: " + cmd

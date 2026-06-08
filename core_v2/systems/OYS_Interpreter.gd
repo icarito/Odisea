@@ -1052,6 +1052,18 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			else:
 				printerr("[OYS TELEPORT] Failed: Invalid position or no player found. Pos: ", pos_vec)
 		
+		# Camera relative queries — return directional offset of player to camera
+		"CAMERA_REL_RIGHT", "CAMERA_REL_UP", "CAMERA_REL_BACK", "CAMERA_REL_DISTANCE":
+			var __state_cam_rel = _execute_camera_rel(inst, my_id)
+			if __state_cam_rel is GDScriptFunctionState:
+				yield (__state_cam_rel, "completed")
+		
+		# Roll commands — inject roll input to the player
+		"ROLL_RIGHT", "ROLL_LEFT":
+			var __state_roll = _execute_roll(inst, my_id)
+			if __state_roll is GDScriptFunctionState:
+				yield (__state_roll, "completed")
+		
 		# Markers - no action needed
 		"LEVEL", "END":
 			pass
@@ -2285,6 +2297,26 @@ func _call_func(func_name: String, args: Array):
 				printerr("[OYS SYSTEM] Command failed: ", result.get("error", "unknown"))
 				return -1
 			return int(result.get("value", -1))
+		# Camera relative functions
+		"CAMERA_REL_RIGHT", "CAMERA_REL_UP", "CAMERA_REL_BACK", "CAMERA_REL_DISTANCE":
+			var target_name = "Pilot"
+			if args.size() > 0:
+				target_name = str(args[0])
+			var axis = func_name.trim_prefix("CAMERA_REL_").to_lower()
+			return _compute_camera_rel(target_name, axis)
+		
+		# Roll functions
+		"ROLL_RIGHT", "ROLL_LEFT":
+			var direction = 1.0 if func_name == "ROLL_RIGHT" else -1.0
+			var degrees = 180.0
+			var duration = 2.0
+			if args.size() > 0:
+				degrees = float(args[0])
+			if args.size() > 1:
+				duration = float(args[1])
+			_run_roll_async(direction, degrees, duration)
+			return true
+		
 		_:
 			printerr("[OYS] Unknown function called: ", func_name)
 			test_failed = true
@@ -2620,3 +2652,139 @@ func _substitute_variables(message: String) -> String:
 			var value = str(variables[var_name])
 			result = result.replace(var_name, value)
 	return result
+
+# Camera relative query — compute the camera-to-target offset in target's local space
+func _compute_camera_rel(target_name: String, axis: String) -> float:
+	var player = _find_player()
+	var target = null
+	
+	if target_name == "Pilot" or target_name == "player":
+		target = player
+	else:
+		target = _resolve_node(target_name)
+	
+	var camera = null
+	if host_node and is_instance_valid(host_node) and host_node.is_inside_tree():
+		camera = host_node.get_viewport().get_camera()
+	
+	if not is_instance_valid(target):
+		printerr("[OYS] CAMERA_REL_* failed: no target (", target_name, ") found")
+		return 0.0
+	if not is_instance_valid(camera):
+		printerr("[OYS] CAMERA_REL_* failed: no active camera")
+		return 0.0
+	
+	var cam_pos = camera.global_transform.origin
+	var target_pos = target.global_transform.origin if target is Spatial else Vector3.ZERO
+	var offset = cam_pos - target_pos
+	
+	var target_basis = target.global_transform.basis if target is Spatial else Basis.IDENTITY
+	var local_offset = target_basis.xform_inv(offset)
+	
+	var result = 0.0
+	match axis:
+		"right":
+			result = local_offset.x
+		"up":
+			result = local_offset.y
+		"back":
+			result = local_offset.z
+		"distance":
+			result = offset.length()
+	
+	print("[OYS] CAMERA_REL_", axis.to_upper(), " (", target_name, ") = ", result)
+	return result
+
+func _run_roll_async(direction: float, degrees: float, duration: float) -> void:
+	var num_frames = OYS_Parser.duration_to_frames(duration)
+	print("[OYS] ROLL ", "RIGHT" if direction > 0 else "LEFT", " ", degrees, "deg over ", duration, "s")
+	for _i in range(num_frames):
+		if stop_requested:
+			break
+		_post_oys_input({
+			"roll_left": direction < 0,
+			"roll_right": direction > 0
+		})
+		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+			break
+		yield (host_node.get_tree(), "physics_frame")
+	_post_oys_input({
+		"roll_left": false,
+		"roll_right": false
+	})
+
+func _execute_camera_rel(inst: Dictionary, my_id: int) -> void:
+	var target_name = inst.get("target", "Pilot")
+	var axis = inst.get("axis", "right")
+	var player = _find_player()
+	var target = null
+	
+	if target_name == "Pilot" or target_name == "player":
+		target = player
+	else:
+		target = _resolve_node(target_name)
+	
+	# Find active camera from the viewport
+	var camera = null
+	if host_node and is_instance_valid(host_node) and host_node.is_inside_tree():
+		camera = host_node.get_viewport().get_camera()
+	
+	if not is_instance_valid(target):
+		printerr("[OYS] CAMERA_REL_* failed: no target (", target_name, ") found")
+		return
+	if not is_instance_valid(camera):
+		printerr("[OYS] CAMERA_REL_* failed: no active camera")
+		return
+	
+	var cam_pos = camera.global_transform.origin
+	var target_pos = target.global_transform.origin if target is Spatial else Vector3.ZERO
+	var offset = cam_pos - target_pos
+	
+	# Express offset in target's local space
+	var target_basis = target.global_transform.basis if target is Spatial else Basis.IDENTITY
+	var local_offset = target_basis.xform_inv(offset)
+	
+	var result = 0.0
+	match axis:
+		"right":
+			result = local_offset.x
+		"up":
+			result = local_offset.y
+		"back":
+			result = local_offset.z
+		"distance":
+			result = offset.length()
+	
+	print("[OYS] CAMERA_REL_", axis.to_upper(), " (", target_name, ") = ", result)
+	variables["$" + axis + "_rel"] = result
+	_post_oys_input({})
+
+# Roll command — inject roll input over duration
+func _execute_roll(inst: Dictionary, my_id: int) -> void:
+	var direction = inst.get("direction", 1.0)
+	var degrees = inst.get("degrees", 180.0)
+	var duration_sec = inst.get("duration", 2.0)
+	
+	# Scale by TimeScale
+	var time_scale = Engine.time_scale
+	if time_scale <= 0.001: time_scale = 1.0
+	var real_duration = duration_sec / time_scale
+	
+	var num_frames = OYS_Parser.duration_to_frames(real_duration)
+	print("[OYS] ROLL ", "RIGHT" if direction > 0 else "LEFT", " ", degrees, "deg over ", duration_sec, "s")
+	
+	for _i in range(num_frames):
+		if stop_requested or my_id != execution_id:
+			break
+		_post_oys_input({
+			"roll_left": direction < 0,
+			"roll_right": direction > 0
+		})
+		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+			break
+		yield (host_node.get_tree(), "physics_frame")
+	
+	_post_oys_input({
+		"roll_left": false,
+		"roll_right": false
+	})
