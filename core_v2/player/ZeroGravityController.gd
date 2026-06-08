@@ -28,6 +28,8 @@ var _last_sync_roll  := 0.0
 
 var _camera: Camera = null
 var _last_rolled_basis := Basis.IDENTITY
+var _camera_child_basis := Basis.IDENTITY
+var _snap_visual_next_frame := false
 
 func _ready() -> void:
 	_body = get_parent() as KinematicBody
@@ -49,8 +51,9 @@ func set_camera_rig(rig: Spatial) -> void:
 	_last_sync_yaw   = yaw
 	_last_sync_pitch = pitch
 	_last_sync_roll  = roll_angle
-	if is_instance_valid(_camera):
-		_last_rolled_basis = _camera.global_transform.basis
+	_camera_child_basis = _get_camera_child_basis()
+	_last_rolled_basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+	_snap_visual_next_frame = true
 
 func reset_visual_state() -> void:
 	roll_angle = 0.0
@@ -59,15 +62,9 @@ func reset_visual_state() -> void:
 		_pilot_mesh.transform = Transform()
 
 func get_standard_exit_orientation() -> Dictionary:
-	var forward := -_last_rolled_basis.z
-	var exit_yaw := yaw
-	var fwd_h := Vector3(forward.x, 0.0, forward.z)
-	if fwd_h.length_squared() > 0.0001:
-		exit_yaw = atan2(-fwd_h.normalized().x, -fwd_h.normalized().z)
 	var min_p: float = deg2rad(_body.min_pitch) if _body and "min_pitch" in _body else deg2rad(-85.0)
 	var max_p: float = deg2rad(_body.max_pitch) if _body and "max_pitch" in _body else deg2rad(85.0)
-	var exit_pitch := clamp(asin(clamp(forward.normalized().y, -1.0, 1.0)), min_p, max_p)
-	return {"yaw": wrapf(exit_yaw, -PI, PI), "pitch": exit_pitch}
+	return {"yaw": wrapf(yaw, -PI, PI), "pitch": clamp(pitch, min_p, max_p)}
 
 func step_zero_g(dt: float, input: InputDataV2) -> void:
 	if not is_instance_valid(_body):
@@ -80,6 +77,10 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 	var sens: float    = _body.mouse_sensitivity if "mouse_sensitivity" in _body else 0.005
 	var invert_y: bool = _body.invert_mouse_y    if "invert_mouse_y"    in _body else false
 
+	if _last_sync_yaw == 0.0 and _last_sync_pitch == 0.0:
+		yaw = _body.yaw if "yaw" in _body else yaw
+		pitch = _body.pitch if "pitch" in _body else pitch
+
 	# 1. Accumulate yaw / pitch / roll.
 	if input:
 		var mouse_y := -input.mouse_delta.y if invert_y else input.mouse_delta.y
@@ -87,16 +88,28 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 		pitch -= mouse_y * sens
 		pitch = clamp(pitch, deg2rad(-89.0), deg2rad(89.0))
 		var roll_input := 0.0
-		if input.roll_left:  roll_input -= 1.0
-		if input.roll_right: roll_input += 1.0
+		if input.roll_left:  roll_input += 1.0
+		if input.roll_right: roll_input -= 1.0
 		roll_angle += roll_input * deg2rad(_setting("roll_speed_deg", DEFAULT_ROLL_SPEED_DEG)) * dt
+
+	if "yaw"   in _body: _body.yaw   = yaw
+	if "pitch" in _body: _body.pitch = pitch
+	if _body.has_method("_update_camera_orbit_state"):
+		var orbit_input := InputDataV2.new()
+		if input:
+			orbit_input.zoom_delta = input.zoom_delta
+			orbit_input.fov_override = input.fov_override
+		_body._update_camera_orbit_state(dt, orbit_input, false, false)
+		yaw = _body.yaw if "yaw" in _body else yaw
+		pitch = _body.pitch if "pitch" in _body else pitch
 
 	# 2. Write to rig root. Same as PlayerControllerV2 normal mode plus roll.
 	#    Subnodes (Yaw, Pitch, OTS, SpringArm) are NOT touched.
 	var yp_basis     := Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 	var forward_axis := -yp_basis.z
 	var rolled_basis := Basis(forward_axis, roll_angle) * yp_basis
-	_camera_rig.transform.basis = rolled_basis
+	var prefix: Basis = _body.get("camera_basis_prefix") if "camera_basis_prefix" in _body else Basis.IDENTITY
+	_camera_rig.transform.basis = prefix * rolled_basis
 	_camera_rig.force_update_transform()
 
 	if "yaw"   in _body: _body.yaw   = yaw
@@ -105,14 +118,15 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 	_last_sync_pitch = pitch
 	_last_sync_roll  = roll_angle
 
-	# 3. Movement uses camera global basis (includes SpringArm 180° bake).
-	var cam_basis := _camera.global_transform.basis if is_instance_valid(_camera) else rolled_basis
-	_last_rolled_basis = cam_basis
+	# 3. Movement uses the effective camera orientation, but exit/visual state keeps
+	#    the zero-g rig basis so SpringArm bakes do not leak into controller state.
+	var movement_basis := (rolled_basis * _camera_child_basis).orthonormalized()
+	_last_rolled_basis = rolled_basis
 	var move_dir := Vector3.ZERO
 	if input:
-		var fwd   := -cam_basis.z
-		var right :=  cam_basis.x
-		var up    :=  cam_basis.y
+		var fwd   := -movement_basis.z
+		var right :=  movement_basis.x
+		var up    :=  movement_basis.y
 		move_dir = right * input.move_vec.x + fwd * (-input.move_vec.y)
 		if input.jump:   move_dir += up
 		if input.crouch: move_dir -= up
@@ -134,9 +148,7 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 	_body.velocity = _body.move_and_slide(_body.velocity, Vector3.UP)
 	velocity = _body.velocity
 
-	# 6. Zoom + Y-lag camera follow.
-	if input and abs(input.zoom_delta) > 0.01 and _body.has_method("_apply_orbit_zoom_delta"):
-		_body._apply_orbit_zoom_delta(input.zoom_delta)
+	# 6. Y-lag camera follow. Zoom is handled by _update_camera_orbit_state above.
 	if _body.has_method("_update_camera_view"):
 		_body._update_camera_view(dt)
 
@@ -169,6 +181,16 @@ func _find_camera(node: Node) -> Camera:
 		if cam: return cam
 	return null
 
+func _get_camera_child_basis() -> Basis:
+	if not is_instance_valid(_camera_rig) or not is_instance_valid(_camera):
+		return Basis.IDENTITY
+	var basis := Basis.IDENTITY
+	var curr: Node = _camera
+	while curr and curr != _camera_rig and curr is Spatial:
+		basis = (curr as Spatial).transform.basis * basis
+		curr = curr.get_parent()
+	return basis.orthonormalized()
+
 func _get_movement_basis() -> Basis:
 	return _last_rolled_basis
 
@@ -180,8 +202,12 @@ func _update_visual_mesh(dt: float, preserved_basis: Basis) -> void:
 	if not is_instance_valid(_pilot_mesh):
 		return
 	var smooth: float = float(_setting("mesh_rotation_smooth", DEFAULT_MESH_ROTATION_SMOOTH))
-	var target_basis := _last_rolled_basis * Basis(Vector3.UP, PI)
-	_pilot_mesh.transform.basis = preserved_basis.slerp(target_basis, clamp(smooth * dt, 0.0, 1.0))
+	var target_basis := _last_rolled_basis
+	if _snap_visual_next_frame:
+		_pilot_mesh.transform.basis = target_basis
+		_snap_visual_next_frame = false
+	else:
+		_pilot_mesh.transform.basis = preserved_basis.slerp(target_basis, clamp(smooth * dt, 0.0, 1.0))
 	_apply_mesh_center_offset()
 
 func _apply_mesh_center_offset() -> void:
