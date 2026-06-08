@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=2]
+
+[node name="ANNAV2_Test" type="Spatial"]
+
+[node name="Label" type="Label" parent="."]
+margin_right = 40.0
+margin_bottom = 14.0
+text = "ANNA V2 Test Scene
+Telemetry should be active.
+Check console for connectivity logs."

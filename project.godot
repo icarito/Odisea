@@ -2230,6 +2230,7 @@ StartupTrace="*res://core_v2/autoloads/StartupTrace.gd"
 PropDitherManager="*res://core_v2/autoloads/PropDitherManager.gd"
 PlayerHintManager="*res://core_v2/autoloads/PlayerHintManager.gd"
 GravityWorld="*res://core_v2/systems/GravityWorld.gd"
+ANNAV2="*res://core_v2/anna/v2/ANNAV2.gd"
 
 [debug]
 
