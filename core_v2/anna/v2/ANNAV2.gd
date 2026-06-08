@@ -2,6 +2,7 @@ extends Node
 
 const PLAYER_ID_FILE := "user://odisea_player_id.txt"
 const GAME_VERSION := "0.1.0"
+const CAPTURE_DEFAULT_MAX := 36000 # ~10 min at 60 fps; ring buffer caps memory use
 
 var _command_queue_script = preload("res://core_v2/anna/v2/ANNAV2_CommandQueue.gd")
 var _thread_script = preload("res://core_v2/anna/v2/ANNAV2_Thread.gd")
@@ -10,6 +11,14 @@ var _command_queue
 var _net_thread
 var _player_id := ""
 var _session_id := ""
+
+# --- Local telemetry capture (bridge-independent; off by default) ---
+var _capture_enabled := false
+var _capture_buffer := []
+var _capture_max := CAPTURE_DEFAULT_MAX
+var _capture_dump_path := ""
+# Custom data points registered by controllers; merged into every captured frame
+var _custom_points := {}
 
 func _ready():
 	_player_id = _load_or_create_player_id()
@@ -23,9 +32,25 @@ func _ready():
 		_net_thread._peer_url = "ws://" + bridge_override + "/ws"
 
 	_net_thread.start(_command_queue, _player_id, _session_id, GAME_VERSION)
+	_init_capture_from_env()
 	print("[ANNAV2] Initialized. PlayerID: ", _player_id, " SessionID: ", _session_id)
 
+func _init_capture_from_env():
+	# Opt-in local capture for headless telemetry analysis. Never required for the
+	# game to run; defaults keep capture off so normal sessions are unaffected.
+	if OS.get_environment("ANNA_V2_CAPTURE") in ["1", "true", "yes", "on"]:
+		_capture_enabled = true
+	var dump_env = OS.get_environment("ANNA_V2_CAPTURE_DUMP")
+	if dump_env != "":
+		_capture_dump_path = dump_env
+	var max_env = OS.get_environment("ANNA_V2_CAPTURE_MAX")
+	if max_env.is_valid_integer():
+		_capture_max = int(max(1, int(max_env)))
+
 func _exit_tree():
+	# Auto-dump on shutdown so headless runs always leave a JSON artifact behind.
+	if _capture_enabled and _capture_dump_path != "" and not _capture_buffer.empty():
+		dump_telemetry_json(_capture_dump_path)
 	if _net_thread:
 		_net_thread.stop()
 
@@ -69,7 +94,18 @@ func _update_telemetry():
 
 	player_data["tick"] = Engine.get_idle_frames() # Or physics frames if preferred
 
+	# Merge controller-registered custom data points (e.g. jump_count, state flags)
+	for k in _custom_points:
+		player_data[k] = _custom_points[k]
+
 	_net_thread.update_telemetry({"player": player_data})
+
+	if _capture_enabled:
+		var frame = player_data.duplicate(true)
+		frame["t_msec"] = OS.get_ticks_msec()
+		_capture_buffer.append(frame)
+		if _capture_buffer.size() > _capture_max:
+			_capture_buffer.pop_front()
 
 func _execute_command(cmd: Dictionary):
 	var action = cmd.get("action")
@@ -228,6 +264,58 @@ func _cmd_teleport_player(id, args):
 		player.yaw = yaw
 
 	_send_response(id, true, {})
+
+# --- Telemetry capture API (local, bridge-independent) ---
+# Safe to call from OYS (ANNA_ENABLE/ANNA_DISABLE/ANNA_DUMP) or directly from
+# controllers via the ANNAV2 autoload singleton.
+
+func set_capture_enabled(enabled: bool) -> void:
+	_capture_enabled = enabled
+	print("[ANNAV2] Telemetry capture ", "ENABLED" if enabled else "DISABLED")
+
+func is_capture_enabled() -> bool:
+	return _capture_enabled
+
+func clear_capture() -> void:
+	_capture_buffer.clear()
+
+# Register/override a custom telemetry data point merged into every captured frame.
+# e.g. ANNAV2.register_telemetry_point("jump_count", 3)
+func register_telemetry_point(key: String, value) -> void:
+	_custom_points[key] = value
+
+func clear_telemetry_point(key: String) -> void:
+	_custom_points.erase(key)
+
+func get_capture_log() -> Array:
+	return _capture_buffer.duplicate(true)
+
+# Write the captured frames to a JSON file. Returns the resolved path, or "" on failure.
+func dump_telemetry_json(path := "") -> String:
+	if path == "":
+		path = _capture_dump_path
+	if path == "":
+		path = "user://anna_v2_telemetry_%d.json" % OS.get_unix_time()
+
+	var payload = {
+		"player_id": _player_id,
+		"session_id": _session_id,
+		"game_version": GAME_VERSION,
+		"godot_version": Engine.get_version_info().string,
+		"captured_at": OS.get_unix_time(),
+		"frame_count": _capture_buffer.size(),
+		"frames": _capture_buffer
+	}
+
+	var f = File.new()
+	var err = f.open(path, File.WRITE)
+	if err != OK:
+		printerr("[ANNAV2] Failed to open telemetry dump path: ", path, " err: ", err)
+		return ""
+	f.store_string(JSON.print(payload, "  "))
+	f.close()
+	print("[ANNAV2] Telemetry dumped to ", path, " (", _capture_buffer.size(), " frames)")
+	return path
 
 # --- Helpers ---
 

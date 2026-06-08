@@ -248,26 +248,42 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		"ANNA_ENABLE":
 			var target = inst.get("target", "")
 			var node = _find_actor_node(target) if target != "" else _find_player()
+			# V1 RL agent (optional child node on the actor)
 			if is_instance_valid(node) and node.has_node("AnnaInterface"):
 				var anna = node.get_node("AnnaInterface")
 				if anna.has_method("set_rl_active"):
 					anna.set_rl_active(true)
 				else:
-					printerr("[OYS_Interpreter] ANNA_ENABLE failed: AnnaInterface lacks set_rl_active method")
+					printerr("[OYS_Interpreter] ANNA_ENABLE: AnnaInterface lacks set_rl_active method")
 			else:
-				printerr("[OYS_Interpreter] ANNA_ENABLE failed: Node not found or lacks AnnaInterface")
+				print("[OYS_Interpreter] ANNA_ENABLE: no V1 AnnaInterface on actor (telemetry-only mode)")
+			# V2 telemetry capture (global ANNAV2 autoload; safe no-op if unavailable)
+			_annav2_set_capture(true)
 
 		"ANNA_DISABLE":
 			var target = inst.get("target", "")
 			var node = _find_actor_node(target) if target != "" else _find_player()
+			# V1 RL agent (optional child node on the actor)
 			if is_instance_valid(node) and node.has_node("AnnaInterface"):
 				var anna = node.get_node("AnnaInterface")
 				if anna.has_method("set_rl_active"):
 					anna.set_rl_active(false)
 				else:
-					printerr("[OYS_Interpreter] ANNA_DISABLE failed: AnnaInterface lacks set_rl_active method")
+					printerr("[OYS_Interpreter] ANNA_DISABLE: AnnaInterface lacks set_rl_active method")
 			else:
-				printerr("[OYS_Interpreter] ANNA_DISABLE failed: Node not found or lacks AnnaInterface")
+				print("[OYS_Interpreter] ANNA_DISABLE: no V1 AnnaInterface on actor (telemetry-only mode)")
+			# V2 telemetry capture (global ANNAV2 autoload; safe no-op if unavailable)
+			_annav2_set_capture(false)
+
+		"ANNA_DUMP":
+			var dump_path = inst.get("path", "")
+			var annav2 = _get_annav2()
+			if annav2 and annav2.has_method("dump_telemetry_json"):
+				var out = annav2.dump_telemetry_json(dump_path)
+				if out != "":
+					print("[OYS_Interpreter] ANNA_DUMP wrote ", out)
+			else:
+				printerr("[OYS_Interpreter] ANNA_DUMP failed: ANNAV2 autoload unavailable")
 
 		"ANNA_SET_TARGET":
 			var target = inst.get("target", "")
@@ -1589,6 +1605,16 @@ func _parse_vector3_flexible(s: String) -> Vector3:
 	if parts.size() >= 3:
 		return Vector3(parts[0].to_float(), parts[1].to_float(), parts[2].to_float())
 	return Vector3.ZERO
+
+func _get_annav2() -> Node:
+	if not host_node or not is_instance_valid(host_node):
+		return null
+	return host_node.get_node_or_null("/root/ANNAV2")
+
+func _annav2_set_capture(enabled: bool) -> void:
+	var annav2 = _get_annav2()
+	if annav2 and annav2.has_method("set_capture_enabled"):
+		annav2.set_capture_enabled(enabled)
 
 func _find_player() -> Node:
 	if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():

@@ -163,6 +163,8 @@ func _check_port(ip: String, port: int) -> bool:
 
 func _on_connected(_protocol = ""):
 	_is_connected = true
+	# Send JSON as TEXT frames (WS convention); avoids peers that only handle text.
+	_client.get_peer(1).set_write_mode(WebSocketPeer.WRITE_MODE_TEXT)
 	print("[ANNAV2] Connected to peer")
 	_send_handshake()
 

@@ -1,0 +1,4 @@
+# Odisea Bridge peer/central (FD-162) — Python deps for odisea_peer.py / odisea_central.py
+# Install:  python3 -m pip install -r requirements-bridge.txt
+aiohttp>=3.9,<4
+zeroconf>=0.131

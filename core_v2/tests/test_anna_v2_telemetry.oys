@@ -1,0 +1,25 @@
+// OYS_NODET=1
+// Test: ANNA V2 telemetry capture + JSON export
+//
+// NODET: this test validates the telemetry capture path, not movement
+// determinism, so the JSON replay (PASS 2) is skipped. WALK has a known
+// ~0.0125m drift that exceeds the 0.01 determinism threshold.
+//
+// Verifies the local (bridge-independent) telemetry path:
+//   1. ANNA_ENABLE   -> starts V2 capture on the ANNAV2 autoload
+//   2. movement       -> ANNAV2 records position/velocity/yaw/state each frame
+//   3. ANNA_DUMP      -> writes captured frames to a JSON file
+//   4. ANNA_DISABLE   -> stops capture
+//
+// Runs fully headless; ANNAV2 no-ops gracefully if the Python bridge is absent.
+// Inspect the dump afterwards at: user://anna_v2_test_telemetry.json
+//   (~/.local/share/godot/app_userdata/<project>/anna_v2_test_telemetry.json)
+
+SECTION "Captura de telemetría ANNA V2"
+    ANNA_ENABLE
+    WALK FW 1.0
+    WALK FW 0.5
+    ASSERT pos.z > 1.0 "ERROR: Elías no avanzó; la captura no tendría datos de movimiento"
+    ANNA_DUMP path=user://anna_v2_test_telemetry.json
+    ANNA_DISABLE
+END

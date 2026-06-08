@@ -101,10 +101,19 @@ class OdiseaPeer:
 
         logger.info("New Godot client connected via WebSocket.")
 
+        logged_type = False
         async for msg in ws:
-            if msg.type == web.WSMsgType.TEXT:
+            # Godot 3's WebSocketClient defaults to BINARY write mode, so heartbeats
+            # may arrive as BINARY frames carrying UTF-8 JSON. Accept both.
+            if msg.type in (web.WSMsgType.TEXT, web.WSMsgType.BINARY):
+                if not logged_type:
+                    logger.info(f"First WS frame type from client: {msg.type.name}")
+                    logged_type = True
                 try:
-                    data = json.loads(msg.data)
+                    raw = msg.data
+                    if isinstance(raw, (bytes, bytearray)):
+                        raw = raw.decode("utf-8")
+                    data = json.loads(raw)
                     if data.get("type") == "heartbeat":
                         player_id = data.get("player_id")
                         if player_id:
@@ -115,7 +124,7 @@ class OdiseaPeer:
                             if self.central_ws and not self.central_ws.closed:
                                 await self.central_ws.send_json(data)
                 except Exception as e:
-                    logger.error(f"Error handling heartbeat: {e}")
+                    logger.error(f"Error handling message: {e}")
             elif msg.type == web.WSMsgType.ERROR:
                 logger.error(f"WebSocket connection closed with exception {ws.exception()}")
 
