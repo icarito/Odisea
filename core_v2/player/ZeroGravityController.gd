@@ -101,6 +101,7 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 
 	if "yaw"   in _body: _body.yaw   = yaw
 	if "pitch" in _body: _body.pitch = pitch
+	if "roll_angle" in _body: _body.roll_angle = roll_angle
 	if _body.has_method("_update_camera_orbit_state"):
 		var zero_g_pitch := pitch
 		var orbit_input := InputDataV2.new()
@@ -112,15 +113,18 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 		pitch = zero_g_pitch
 		if "pitch" in _body: _body.pitch = pitch
 
-	# 2. Write to rig root. Same as PlayerControllerV2 normal mode plus roll.
-	#    Subnodes (Yaw, Pitch, OTS, SpringArm) are NOT touched.
+	# 2. Write to rig root with yaw + pitch + roll.
 	var yp_basis     := Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
-	var forward_axis := -yp_basis.z
-	var rolled_basis := Basis(forward_axis, roll_angle) * yp_basis
+	var roll_basis   := Basis(Vector3.FORWARD, roll_angle)
+	var rolled_basis := roll_basis * yp_basis
+	rolled_basis = rolled_basis.orthonormalized()
 	var prefix: Basis = _body.get("camera_basis_prefix") if "camera_basis_prefix" in _body else Basis.IDENTITY
 	_last_rolled_basis = rolled_basis
+
+	# Apply full rotation to rig (roll first, then yaw + pitch)
 	_camera_rig.transform.basis = prefix * rolled_basis
-	_snap_camera_rig_y()
+	if "base_rig_y" in _body:
+		_camera_rig.transform.origin.y = _body.base_rig_y * 0.5
 	_camera_rig.force_update_transform()
 
 	if "yaw"   in _body: _body.yaw   = yaw
@@ -129,21 +133,26 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 	_last_sync_pitch = pitch
 	_last_sync_roll  = roll_angle
 
-	# 3. Movement uses the effective camera orientation, but exit/visual state keeps
-	#    the zero-g rig basis so SpringArm bakes do not leak into controller state.
-	var movement_basis := (rolled_basis * _camera_child_basis).orthonormalized()
+	# 3. Movement direction based on full camera view (yaw/pitch/roll).
 	var move_dir := Vector3.ZERO
+	var has_movement := false
 	if input:
-		var fwd   := -movement_basis.z
-		var right :=  movement_basis.x
-		var up    :=  movement_basis.y
+		var fwd   := rolled_basis.z
+		var right := -rolled_basis.x
+		var up    := rolled_basis.y
 		move_dir = right * input.move_vec.x + fwd * (-input.move_vec.y)
 		if input.jump:   move_dir += up
 		if input.crouch: move_dir -= up
 		if move_dir.length_squared() > 1.0:
 			move_dir = move_dir.normalized()
+		has_movement = move_dir.length_squared() > 0.01
 
-	_update_wish_direction(move_dir)
+	# Mesh follows the desired movement direction only when moving
+	if has_movement:
+		_update_wish_direction(move_dir)
+	else:
+		# When idle, don't update wish direction (mesh stays in place)
+		_update_wish_direction(Vector3.ZERO)
 
 	# 4. Velocity.
 	if move_dir.length_squared() < 0.001:
@@ -167,7 +176,7 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 	var mesh_basis_before := _pilot_mesh.transform.basis if is_instance_valid(_pilot_mesh) else Basis()
 	if "animator" in _body and is_instance_valid(_body.animator) and _body.animator.has_method("step_animator"):
 		_body.animator.step_animator(dt, _body.velocity)
-	_update_visual_mesh(dt, mesh_basis_before)
+	_update_visual_mesh(dt, mesh_basis_before, has_movement, rolled_basis)
 
 func _refresh_runtime_refs() -> void:
 	if not is_instance_valid(_body):
@@ -233,21 +242,34 @@ func _apply_zero_g_ots() -> void:
 	var curve_power := float(_ots_logic.get("curve_power")) if _ots_logic and "curve_power" in _ots_logic else 1.5
 	weight = pow(weight, curve_power)
 	var side := float(_ots_logic.get("max_side_offset")) if _ots_logic and "max_side_offset" in _ots_logic else 0.75
+	var height := float(_ots_logic.get("max_height_offset")) if _ots_logic and "max_height_offset" in _ots_logic else -0.65
 	var pivot_z := float(_ots_logic.get("max_pivot_z_offset")) if _ots_logic and "max_pivot_z_offset" in _ots_logic else 0.2
 	var right_side := bool(_ots_logic.get("right_side")) if _ots_logic and "right_side" in _ots_logic else true
-	var local_offset := Vector3(
+	var parent := _ots_offset_parent.get_parent() as Spatial
+	if not is_instance_valid(parent):
+		return
+	# X (side) and Z (pivot_z) rotate with the body (player), not the rig.
+	# In zero-g, the rig rotates independently (roll), so we need to compensate.
+	# Calculate offset in body-space, then de-rotate it by the roll angle.
+	var body_local_xz := Vector3(
 		side * weight * (1.0 if right_side else -1.0),
 		0.0,
 		pivot_z * weight
 	)
-	var parent := _ots_offset_parent.get_parent() as Spatial
-	if not is_instance_valid(parent):
-		return
-	var world_offset := _camera_rig.global_transform.basis.xform(local_offset)
-	var player_up := _body.global_transform.basis.y.normalized()
-	var roll_inversion := max(0.0, -_last_rolled_basis.y.normalized().dot(player_up))
-	if roll_inversion > 0.001:
-		world_offset += player_up * current_len * 0.6 * roll_inversion
+	var world_offset := _body.global_transform.basis.xform(body_local_xz)
+	# Compensate: remove the rig's roll rotation from the entire offset vector.
+	# The rig rolls around the forward axis: -yp_basis.z
+	# So we de-rotate the offset by +roll_angle around that same axis (opposite of rig's rotation).
+	var forward_axis := -_last_rolled_basis.z
+	var de_roll_basis := Basis(forward_axis, roll_angle)
+	world_offset = de_roll_basis.xform(world_offset)
+	# Y (height) stays anchored to player-body world UP — does NOT rotate with roll.
+	# The world_up projection of the OTS contribution is invariant to roll angle θ
+	# because xform_inv(world_up * h) contributes exactly h in world Y regardless of θ.
+	var world_up := _body.global_transform.basis.y.normalized()
+	world_offset += world_up * height * weight
+	# NOTE: Removed hierarchy compensation. In zero-g with roll, the camera should follow
+	# the natural hierarchy rotation so it finds the shoulder/neck even when the mesh is inverted.
 	_ots_offset_parent.translation = parent.global_transform.basis.xform_inv(world_offset)
 
 func _get_effective_zero_g_arm_length() -> float:
@@ -275,8 +297,10 @@ func _update_zero_g_camera_view(dt: float) -> void:
 func _snap_camera_rig_y() -> void:
 	if not is_instance_valid(_body) or not is_instance_valid(_camera_rig):
 		return
-	var base_y: float = _body.base_rig_y if "base_rig_y" in _body else _camera_rig.transform.origin.y
-	_camera_rig.transform.origin = Vector3(0.0, base_y, 0.0)
+	# In zero-g, don't reset origin.x/z — let the OTS offset subnodes handle it.
+	# Only snap Y to base_rig_y to keep camera at correct height.
+	if "base_rig_y" in _body:
+		_camera_rig.transform.origin.y = _body.base_rig_y
 	if "_camera_rig_y_smoothed_global" in _body:
 		_body._camera_rig_y_smoothed_global = _camera_rig.global_transform.origin.y
 	if "_camera_rig_airborne_anchor_global" in _body:
@@ -296,11 +320,12 @@ func _update_wish_direction(move_dir: Vector3) -> void:
 	if "movement_logic" in _body and is_instance_valid(_body.movement_logic):
 		_body.movement_logic.wish_direction = move_dir
 
-func _update_visual_mesh(dt: float, preserved_basis: Basis) -> void:
+func _update_visual_mesh(dt: float, preserved_basis: Basis, has_movement: bool, yp_basis: Basis) -> void:
 	if not is_instance_valid(_pilot_mesh):
 		return
 	var smooth: float = float(_setting("mesh_rotation_smooth", DEFAULT_MESH_ROTATION_SMOOTH))
-	var target_basis := _last_rolled_basis
+	# Mesh follows movement direction only when moving (no roll), while camera orbits freely
+	var target_basis := yp_basis if has_movement else preserved_basis
 	_pilot_mesh.transform.basis = preserved_basis.slerp(target_basis, clamp(smooth * dt, 0.0, 1.0))
 	_apply_mesh_center_offset()
 

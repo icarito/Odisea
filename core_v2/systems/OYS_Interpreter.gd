@@ -2060,14 +2060,45 @@ func _wait_signal(target: Node, signal_name: String, timeout: float, my_id: int)
 	observer.free()
 	return success
 
+# Evaluates a simple left-to-right arithmetic expression from a token list.
+# Tokens can be variable references ($var), numeric literals, or operators (+, -, *, /).
+func _evaluate_expr_tokens(tokens: Array):
+	if tokens.size() == 0:
+		return 0.0
+	var result := float(_resolve_value(tokens[0]))
+	var i := 1
+	while i + 1 < tokens.size():
+		var arith_op: String = str(tokens[i])
+		var next_val := float(_resolve_value(tokens[i + 1]))
+		match arith_op:
+			"+": result += next_val
+			"-": result -= next_val
+			"*": result *= next_val
+			"/":
+				if next_val != 0.0:
+					result /= next_val
+		i += 2
+	return result
+
 func _execute_assert(condition: String) -> Dictionary:
 	var parts = condition.split(" ", false)
 	if parts.size() < 3:
 		return {"evaluated": false, "passed": true, "message": "Malformed assertion"}
 
-	var left = _resolve_value(parts[0])
-	var op = parts[1]
-	var right = _resolve_value(parts[2])
+	# Collect left-side tokens (before the comparison operator)
+	var left_tokens := [parts[0]]
+	var op_idx := 1
+	var left = _evaluate_expr_tokens(left_tokens)
+	var op = parts[op_idx]
+
+	# Collect right-side tokens: everything after op until a quoted message starts
+	var right_tokens := []
+	for i in range(op_idx + 1, parts.size()):
+		if parts[i].begins_with("\""):
+			break
+		right_tokens.append(parts[i])
+	var right = _evaluate_expr_tokens(right_tokens)
+
 	var msg = "Assertion failed"
 	if condition.find("\"") != -1:
 		msg = condition.substr(condition.find("\"")).replace("\"", "")

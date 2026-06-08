@@ -2379,8 +2379,57 @@ func _handle_set_command(cmd: Dictionary):
 		# Player property (Legacy/Standard property set)
 		_set_player_prop(target_var, value)
 
+func _get_camera_relative_axis_sm(axis: String) -> float:
+	if not is_instance_valid(player) or not (player is Spatial):
+		return 0.0
+	var rig := player.get_node_or_null("CameraRig") as Spatial
+	if not is_instance_valid(rig):
+		return 0.0
+	# Find camera via preferred paths
+	var cam: Camera = null
+	for path in ["CameraRig/Yaw/Pitch/OTS_Offset/SpringArm/Camera", "CameraRig/Yaw/Pitch/SpringArm/Camera", "CameraRig/SpringArm/Camera", "CameraRig/Camera"]:
+		var c = player.get_node_or_null(path)
+		if c and c is Camera:
+			cam = c as Camera
+			break
+	if not is_instance_valid(cam):
+		return 0.0
+	var rel: Vector3 = cam.global_transform.origin - player.global_transform.origin
+	match axis:
+		"right": return rel.dot(rig.global_transform.basis.x.normalized())
+		"up": return rel.dot(player.global_transform.basis.y.normalized())
+		"back": return rel.dot(rig.global_transform.basis.z.normalized())
+		"distance": return rel.length()
+	return 0.0
+
+func _evaluate_expr_tokens_sm(tokens: Array):
+	if tokens.size() == 0:
+		return 0.0
+	var result := float(_resolve_value(tokens[0]))
+	var i := 1
+	while i + 1 < tokens.size():
+		var arith_op: String = str(tokens[i])
+		var next_val := float(_resolve_value(tokens[i + 1]))
+		match arith_op:
+			"+": result += next_val
+			"-": result -= next_val
+			"*": result *= next_val
+			"/":
+				if next_val != 0.0:
+					result /= next_val
+		i += 2
+	return result
+
 func _execute_helper_func(func_name: String, args: Array):
 	match func_name:
+		"CAMERA_REL_RIGHT":
+			return _get_camera_relative_axis_sm("right")
+		"CAMERA_REL_UP":
+			return _get_camera_relative_axis_sm("up")
+		"CAMERA_REL_BACK":
+			return _get_camera_relative_axis_sm("back")
+		"CAMERA_REL_DISTANCE":
+			return _get_camera_relative_axis_sm("distance")
 		"GET_NODE_POS_X":
 			var node_name = args[0] if args.size() > 0 else ""
 			var node = _find_node_recursive(node_name)
@@ -2544,7 +2593,7 @@ func _handle_assert_command(cmd: Dictionary):
 	# print("[SessionManager] Evaluating ASSERT: ", condition, " at frame ", _replay_frame)
 	if condition == "": return
 	
-	# Basic parse: "$var OP value" OR "prop OP value"
+	# Basic parse: "$var OP value" OR "prop OP value" with optional arithmetic on right side
 	# condition string example: "$delta_x < 0.05 \"Message\""
 	
 	var parts = condition.split("\"", 2)
@@ -2562,10 +2611,13 @@ func _handle_assert_command(cmd: Dictionary):
 		
 	var left_key = expr_parts[0]
 	var op = expr_parts[1]
-	var right_val_str = expr_parts[2]
+	# Collect all tokens after op as the right-side expression (supports arithmetic like $var - 0.35)
+	var right_tokens := []
+	for _ri in range(2, expr_parts.size()):
+		right_tokens.append(expr_parts[_ri])
 	
 	var left_val = _resolve_value(left_key)
-	var right_val = _resolve_value(right_val_str)
+	var right_val = _evaluate_expr_tokens_sm(right_tokens)
 	
 	# Compare
 	var passed = false

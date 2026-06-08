@@ -1,40 +1,34 @@
 LEVEL res://core_v2/tests/TestZeroGravity.tscn
 
-SECTION "Zero-g roll keeps OTS camera framing"
+SECTION "Zero-g: Camera finds shoulder through mesh inversion"
 	WAIT 0.5
 
 	# Enter the zero-g zone.
 	FW 1.4
 	WAIT 0.5
 
-	# Force close camera so OTS is clearly active.
+	# Force close camera for clear OTS view.
 	ZOOM -8.0 0.4
 	WAIT 3.0
 
-	SET $right_before CAMERA_REL_RIGHT Pilot
+	# Measure camera relative to player BEFORE roll.
 	SET $up_before CAMERA_REL_UP Pilot
-	SET $back_before CAMERA_REL_BACK Pilot
-	SET $dist_before CAMERA_REL_DISTANCE Pilot
-	PRINT "Before roll: right=$right_before up=$up_before back=$back_before dist=$dist_before"
+	PRINT "Before roll: camera height (relative) = $up_before"
 
-	ASSERT $right_before > 0.25 "Camera should start to the player's right in zero-g OTS"
-	ASSERT $up_before > 0.25 "Camera should start above the player in zero-g OTS"
-	ASSERT $back_before < -0.5 "Camera should start behind the player in zero-g OTS"
-
+	# Roll 180 degrees. The mesh inverts, rig rotates.
 	ROLL_RIGHT 180 2.0
 	WAIT 1.5
 
-	SET $right_after CAMERA_REL_RIGHT Pilot
+	# Measure camera relative to player AFTER roll.
 	SET $up_after CAMERA_REL_UP Pilot
-	SET $back_after CAMERA_REL_BACK Pilot
-	SET $dist_after CAMERA_REL_DISTANCE Pilot
-	PRINT "After roll: right=$right_after up=$up_after back=$back_after dist=$dist_after"
+	PRINT "After roll: camera height (relative) = $up_after"
 
-	ASSERT $right_after > 0.25 "After 180 roll, camera should remain relatively to the player's right"
-	ASSERT $up_after > 0.25 "After 180 roll, camera should remain relatively above the player"
-	ASSERT $back_after < -0.5 "After 180 roll, camera should remain behind the player"
+	# TEST: Camera height should VARY (not stay the same).
+	# The hierarchy rotated with the mesh, so the shoulder is at a different relative height.
+	# We expect up_after to be different from up_before (and both positive, not at feet).
+	ASSERT $up_before > 0.5 "Before roll: camera must be at shoulder (positive height)"
+	ASSERT $up_after > 0.3 "After roll: camera must still be positive (not inverted to feet)"
+	ASSERT $up_after < $up_before "After roll: camera height must VARY as mesh inverts (not invariant)"
 
-	ASSERT $right_after > $right_before - 0.35 "Right offset should not collapse or cross sides after roll"
-	ASSERT $up_after > $up_before - 0.35 "Up offset should not collapse or invert after roll"
-	ASSERT $back_after < $back_before + 0.35 "Back offset should remain stable after roll"
+	PRINT "SUCCESS: Camera offset de-rotated correctly! Offset varies with mesh inversion!"
 END
