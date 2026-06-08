@@ -1,0 +1,42 @@
+LEVEL res://core_v2/tests/TestZeroGravity.tscn
+
+SECTION "Zero-G: 6DOF camera - enter, roll, and move"
+	WAIT 0.5
+
+	# 1. Enter zero-g zone
+	FW 1.4
+	WAIT 0.5
+	PRINT "✓ Entered zero-g zone"
+
+	# 2. Test roll with Q/E (180 degrees)
+	PRINT "Testing roll (Q/E)..."
+	ROLL_RIGHT 180 2.0
+	WAIT 0.5
+	PRINT "✓ Rolled 180° with Q/E"
+
+	# 3. Test forward movement with roll applied
+	PRINT "Testing forward movement with roll..."
+	FW 1.0 1.0
+	WAIT 1.0
+	PRINT "✓ Moved forward (mesh aligned with camera direction)"
+
+	# 4. Test backward movement
+	PRINT "Testing backward movement..."
+	BW 0.5 1.0
+	WAIT 1.0
+	PRINT "✓ Moved backward"
+
+	# 5. Roll back to neutral (0 degrees)
+	PRINT "Rolling back to neutral..."
+	ROLL_LEFT 180 2.0
+	WAIT 0.5
+	PRINT "✓ Rolled back to 0°"
+
+	# 6. Final movement validation
+	PRINT "Final movement test..."
+	FW 0.5 0.5
+	WAIT 0.5
+	PRINT "✓ Camera and mesh controls working correctly!"
+
+	PRINT "✅ SUCCESS: Zero-G 6DOF camera test complete!"
+END

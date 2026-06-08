@@ -10,7 +10,7 @@ const FPS = 60.0
 enum Command {
 	UNKNOWN,
 	SECTION, END, LEVEL, CHANGE_SCENE,
-	FW, BW, LEFT, RIGHT, JUMP, INTERACT,
+	FW, BW, LEFT, RIGHT, ROLL_LEFT, ROLL_RIGHT, JUMP, INTERACT,
 	WAIT, WAIT_FRAMES, LOOK, CALL, ZOOM, FOV,
 	SET, ASSERT, ASSERT_SIGNAL, PRINT, CLS,
 	GOTO, IF,
@@ -130,6 +130,11 @@ static func parse_instruction(line: String) -> Dictionary:
 		"LEFT", "RIGHT":
 			var parsed = _parse_strafe_or_turn(parts, cmd)
 			data.merge(parsed, true)
+
+		"ROLL_LEFT", "ROLL_RIGHT":
+			data["direction"] = cmd
+			data["value"] = parts[1].to_float() if parts.size() > 1 else 90.0
+			data["duration"] = parts[2].to_float() if parts.size() > 2 else 0.5
 		
 		"JUMP":
 			data["duration"] = 0.1
