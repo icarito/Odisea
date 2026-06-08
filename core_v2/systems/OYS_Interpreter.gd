@@ -1008,6 +1008,11 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			var __state = _execute_movement(inst, my_id)
 			if __state is GDScriptFunctionState:
 				yield (__state, "completed")
+
+		"ROLL_LEFT", "ROLL_RIGHT":
+			var __state_roll = _execute_roll(inst, my_id)
+			if __state_roll is GDScriptFunctionState:
+				yield (__state_roll, "completed")
 		
 		"LOOK":
 			var __state_look = _execute_look(inst, my_id)
@@ -1450,6 +1455,39 @@ func _execute_zoom(inst: Dictionary, my_id: int):
 		yield (host_node.get_tree(), "physics_frame")
 
 	_post_oys_input({"zoom_delta": 0.0})
+
+func _execute_roll(inst: Dictionary, my_id: int):
+	var value = abs(float(inst.get("value", 90.0)))
+	var direction = inst.get("direction", "ROLL_RIGHT")
+	var duration_sec = inst.get("duration", 0.5)
+	var time_scale = Engine.time_scale
+	if time_scale <= 0.001: time_scale = 1.0
+	var real_duration = duration_sec / time_scale
+	var num_frames = OYS_Parser.duration_to_frames(real_duration)
+	if num_frames <= 0:
+		num_frames = 1
+	var player = _find_player()
+	if not player:
+		return
+	var roll_speed_deg = 90.0
+	var zg = player.get_node_or_null("Logic/ZeroGravity")
+	if zg and "roll_speed_deg" in zg:
+		roll_speed_deg = max(1.0, float(zg.roll_speed_deg))
+	var frames_needed := int(ceil((value / roll_speed_deg) * 60.0))
+	num_frames = max(num_frames, frames_needed)
+	for _i in range(num_frames):
+		if stop_requested or my_id != execution_id:
+			break
+		if not is_instance_valid(player):
+			break
+		_post_oys_input({
+			"roll_left": direction == "ROLL_LEFT",
+			"roll_right": direction == "ROLL_RIGHT"
+		})
+		if not host_node or not is_instance_valid(host_node) or not host_node.is_inside_tree():
+			break
+		yield (host_node.get_tree(), "physics_frame")
+	_post_oys_input({"roll_left": false, "roll_right": false})
 
 func _execute_fov(inst: Dictionary, my_id: int):
 	var target_fov = inst.get("fov", 75.0)
@@ -2271,6 +2309,14 @@ func _call_func(func_name: String, args: Array):
 			if node and node is Spatial:
 				return rad2deg(node.global_transform.basis.get_euler().z)
 			return 0.0
+		"CAMERA_REL_RIGHT":
+			return _get_camera_relative_axis("right")
+		"CAMERA_REL_UP":
+			return _get_camera_relative_axis("up")
+		"CAMERA_REL_BACK":
+			return _get_camera_relative_axis("back")
+		"CAMERA_REL_DISTANCE":
+			return _get_camera_relative_axis("distance")
 		"SYSTEM":
 			var parsed = _parse_system_args(args)
 			if not bool(parsed.get("ok", false)):
@@ -2290,6 +2336,50 @@ func _call_func(func_name: String, args: Array):
 			test_failed = true
 			stop_requested = true
 			return null
+
+func _get_camera_relative_axis(axis: String) -> float:
+	var player = _find_player()
+	if not is_instance_valid(player) or not (player is Spatial):
+		return 0.0
+	var cam := _find_player_camera(player)
+	var rig := player.get_node_or_null("CameraRig") as Spatial
+	if not is_instance_valid(cam) or not is_instance_valid(rig):
+		return 0.0
+	var rel: Vector3 = cam.global_transform.origin - player.global_transform.origin
+	match axis:
+		"right":
+			return rel.dot(rig.global_transform.basis.x.normalized())
+		"up":
+			return rel.dot((player as Spatial).global_transform.basis.y.normalized())
+		"back":
+			return rel.dot(rig.global_transform.basis.z.normalized())
+		"distance":
+			return rel.length()
+	return 0.0
+
+func _find_player_camera(player: Node) -> Camera:
+	if player == null:
+		return null
+	var preferred = [
+		"CameraRig/Yaw/Pitch/OTS_Offset/SpringArm/Camera",
+		"CameraRig/Yaw/Pitch/SpringArm/Camera",
+		"CameraRig/SpringArm/Camera",
+		"CameraRig/Camera"
+	]
+	for path in preferred:
+		var cam = player.get_node_or_null(path)
+		if cam and cam is Camera:
+			return cam as Camera
+	return _find_camera_recursive(player)
+
+func _find_camera_recursive(node: Node) -> Camera:
+	if node is Camera:
+		return node as Camera
+	for i in range(node.get_child_count()):
+		var cam := _find_camera_recursive(node.get_child(i))
+		if cam:
+			return cam
+	return null
 
 func _parse_system_args(args: Array) -> Dictionary:
 	var tokens := []

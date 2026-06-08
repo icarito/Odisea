@@ -29,7 +29,10 @@ var _last_sync_roll  := 0.0
 var _camera: Camera = null
 var _last_rolled_basis := Basis.IDENTITY
 var _camera_child_basis := Basis.IDENTITY
-var _snap_visual_next_frame := false
+var _ots_logic: Node = null
+var _ots_offset_parent: Spatial = null
+var _spring_arm = null
+var _ots_logic_was_processing := true
 
 func _ready() -> void:
 	_body = get_parent() as KinematicBody
@@ -53,13 +56,17 @@ func set_camera_rig(rig: Spatial) -> void:
 	_last_sync_roll  = roll_angle
 	_camera_child_basis = _get_camera_child_basis()
 	_last_rolled_basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
-	_snap_visual_next_frame = true
+	_snap_camera_rig_y()
+	_clear_spring_arm_camera_offset()
+	_begin_zero_g_ots()
 
 func reset_visual_state() -> void:
 	roll_angle = 0.0
 	_refresh_runtime_refs()
+	_end_zero_g_ots()
+	_snap_camera_rig_y()
 	if is_instance_valid(_pilot_mesh):
-		_pilot_mesh.transform = Transform()
+		_restore_standard_visual_mesh()
 
 func get_standard_exit_orientation() -> Dictionary:
 	var min_p: float = deg2rad(_body.min_pitch) if _body and "min_pitch" in _body else deg2rad(-85.0)
@@ -86,7 +93,7 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 		var mouse_y := -input.mouse_delta.y if invert_y else input.mouse_delta.y
 		yaw   -= input.mouse_delta.x * sens
 		pitch -= mouse_y * sens
-		pitch = clamp(pitch, deg2rad(-89.0), deg2rad(89.0))
+		pitch = wrapf(pitch, -PI, PI)
 		var roll_input := 0.0
 		if input.roll_left:  roll_input += 1.0
 		if input.roll_right: roll_input -= 1.0
@@ -95,13 +102,15 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 	if "yaw"   in _body: _body.yaw   = yaw
 	if "pitch" in _body: _body.pitch = pitch
 	if _body.has_method("_update_camera_orbit_state"):
+		var zero_g_pitch := pitch
 		var orbit_input := InputDataV2.new()
 		if input:
 			orbit_input.zoom_delta = input.zoom_delta
 			orbit_input.fov_override = input.fov_override
 		_body._update_camera_orbit_state(dt, orbit_input, false, false)
 		yaw = _body.yaw if "yaw" in _body else yaw
-		pitch = _body.pitch if "pitch" in _body else pitch
+		pitch = zero_g_pitch
+		if "pitch" in _body: _body.pitch = pitch
 
 	# 2. Write to rig root. Same as PlayerControllerV2 normal mode plus roll.
 	#    Subnodes (Yaw, Pitch, OTS, SpringArm) are NOT touched.
@@ -109,7 +118,9 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 	var forward_axis := -yp_basis.z
 	var rolled_basis := Basis(forward_axis, roll_angle) * yp_basis
 	var prefix: Basis = _body.get("camera_basis_prefix") if "camera_basis_prefix" in _body else Basis.IDENTITY
+	_last_rolled_basis = rolled_basis
 	_camera_rig.transform.basis = prefix * rolled_basis
+	_snap_camera_rig_y()
 	_camera_rig.force_update_transform()
 
 	if "yaw"   in _body: _body.yaw   = yaw
@@ -121,7 +132,6 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 	# 3. Movement uses the effective camera orientation, but exit/visual state keeps
 	#    the zero-g rig basis so SpringArm bakes do not leak into controller state.
 	var movement_basis := (rolled_basis * _camera_child_basis).orthonormalized()
-	_last_rolled_basis = rolled_basis
 	var move_dir := Vector3.ZERO
 	if input:
 		var fwd   := -movement_basis.z
@@ -148,9 +158,10 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 	_body.velocity = _body.move_and_slide(_body.velocity, Vector3.UP)
 	velocity = _body.velocity
 
-	# 6. Y-lag camera follow. Zoom is handled by _update_camera_orbit_state above.
-	if _body.has_method("_update_camera_view"):
-		_body._update_camera_view(dt)
+	# 6. Camera zoom/FOV follow. Zero-g keeps the rig Y snapped; the standard
+	#    Y-lag lerp makes the camera dip during mode transitions.
+	_update_zero_g_camera_view(dt)
+	_apply_zero_g_ots()
 
 	# 7. Visuals.
 	var mesh_basis_before := _pilot_mesh.transform.basis if is_instance_valid(_pilot_mesh) else Basis()
@@ -165,6 +176,9 @@ func _refresh_runtime_refs() -> void:
 	_camera_rig = _body.get_node_or_null("CameraRig") as Spatial
 	_camera     = _find_camera(_camera_rig)
 	_pilot_mesh = _body.get_node_or_null("Visual/Pivot")
+	_ots_logic = _body.get_node_or_null("Logic/OverTheShoulder")
+	_spring_arm = _body._find_spring_arm(_camera_rig) if _body.has_method("_find_spring_arm") and _camera_rig else null
+	_ots_offset_parent = _spring_arm.get_parent() as Spatial if _spring_arm and _spring_arm.get_parent() is Spatial else null
 	if _settings and _settings.has_method("configure_camera_rig"):
 		_settings.configure_camera_rig(_camera_rig)
 
@@ -194,6 +208,90 @@ func _get_camera_child_basis() -> Basis:
 func _get_movement_basis() -> Basis:
 	return _last_rolled_basis
 
+func _begin_zero_g_ots() -> void:
+	if _ots_logic:
+		_ots_logic_was_processing = _ots_logic.is_physics_processing()
+		_ots_logic.set_physics_process(false)
+	_apply_zero_g_ots()
+
+func _end_zero_g_ots() -> void:
+	if is_instance_valid(_ots_offset_parent):
+		_ots_offset_parent.translation = Vector3.ZERO
+	_clear_spring_arm_camera_offset()
+	if _ots_logic:
+		_ots_logic.set_physics_process(_ots_logic_was_processing)
+
+func _apply_zero_g_ots() -> void:
+	if not is_instance_valid(_ots_offset_parent):
+		return
+	_clear_spring_arm_camera_offset()
+	var current_len := _get_effective_zero_g_arm_length()
+	var distance_min := float(_ots_logic.get("distance_min")) if _ots_logic and "distance_min" in _ots_logic else 1.5
+	var distance_max := float(_ots_logic.get("distance_max")) if _ots_logic and "distance_max" in _ots_logic else 4.5
+	var span := max(distance_max - distance_min, 0.001)
+	var weight := 1.0 - clamp((current_len - distance_min) / span, 0.0, 1.0)
+	var curve_power := float(_ots_logic.get("curve_power")) if _ots_logic and "curve_power" in _ots_logic else 1.5
+	weight = pow(weight, curve_power)
+	var side := float(_ots_logic.get("max_side_offset")) if _ots_logic and "max_side_offset" in _ots_logic else 0.75
+	var pivot_z := float(_ots_logic.get("max_pivot_z_offset")) if _ots_logic and "max_pivot_z_offset" in _ots_logic else 0.2
+	var right_side := bool(_ots_logic.get("right_side")) if _ots_logic and "right_side" in _ots_logic else true
+	var local_offset := Vector3(
+		side * weight * (1.0 if right_side else -1.0),
+		0.0,
+		pivot_z * weight
+	)
+	var parent := _ots_offset_parent.get_parent() as Spatial
+	if not is_instance_valid(parent):
+		return
+	var world_offset := _camera_rig.global_transform.basis.xform(local_offset)
+	var player_up := _body.global_transform.basis.y.normalized()
+	var roll_inversion := max(0.0, -_last_rolled_basis.y.normalized().dot(player_up))
+	if roll_inversion > 0.001:
+		world_offset += player_up * current_len * 0.6 * roll_inversion
+	_ots_offset_parent.translation = parent.global_transform.basis.xform_inv(world_offset)
+
+func _get_effective_zero_g_arm_length() -> float:
+	if _spring_arm and is_instance_valid(_spring_arm):
+		var current_len = _spring_arm.get("current_length")
+		if current_len != null:
+			return float(current_len)
+		var spring_len = _spring_arm.get("spring_length")
+		if spring_len != null:
+			return float(spring_len)
+	if "current_spring_length" in _body:
+		return float(_body.current_spring_length)
+	return 5.0
+
+func _update_zero_g_camera_view(dt: float) -> void:
+	if "current_spring_length" in _body and "base_spring_length_3d" in _body:
+		_body.current_spring_length = lerp(_body.current_spring_length, _body.base_spring_length_3d, 4.0 * dt)
+	if "_cached_spring_arm" in _body and _body._cached_spring_arm and is_instance_valid(_body._cached_spring_arm):
+		_body._cached_spring_arm.spring_length = _body.current_spring_length
+	if "_cached_cam" in _body and _body._cached_cam and is_instance_valid(_body._cached_cam) and "base_fov" in _body:
+		if abs(_body._cached_cam.fov - _body.base_fov) > 0.01:
+			_body._cached_cam.fov = lerp(_body._cached_cam.fov, _body.base_fov, 4.0 * dt)
+	_snap_camera_rig_y()
+
+func _snap_camera_rig_y() -> void:
+	if not is_instance_valid(_body) or not is_instance_valid(_camera_rig):
+		return
+	var base_y: float = _body.base_rig_y if "base_rig_y" in _body else _camera_rig.transform.origin.y
+	_camera_rig.transform.origin = Vector3(0.0, base_y, 0.0)
+	if "_camera_rig_y_smoothed_global" in _body:
+		_body._camera_rig_y_smoothed_global = _camera_rig.global_transform.origin.y
+	if "_camera_rig_airborne_anchor_global" in _body:
+		_body._camera_rig_airborne_anchor_global = _camera_rig.global_transform.origin.y
+	if "_camera_rig_airborne_rise_time" in _body:
+		_body._camera_rig_airborne_rise_time = 0.0
+	if "_camera_rig_was_grounded" in _body:
+		_body._camera_rig_was_grounded = true
+	if "_camera_rig_y_initialized" in _body:
+		_body._camera_rig_y_initialized = true
+
+func _clear_spring_arm_camera_offset() -> void:
+	if _spring_arm and is_instance_valid(_spring_arm) and _spring_arm.has_method("set_camera_local_offset"):
+		_spring_arm.set_camera_local_offset(Vector3.ZERO)
+
 func _update_wish_direction(move_dir: Vector3) -> void:
 	if "movement_logic" in _body and is_instance_valid(_body.movement_logic):
 		_body.movement_logic.wish_direction = move_dir
@@ -203,12 +301,19 @@ func _update_visual_mesh(dt: float, preserved_basis: Basis) -> void:
 		return
 	var smooth: float = float(_setting("mesh_rotation_smooth", DEFAULT_MESH_ROTATION_SMOOTH))
 	var target_basis := _last_rolled_basis
-	if _snap_visual_next_frame:
-		_pilot_mesh.transform.basis = target_basis
-		_snap_visual_next_frame = false
-	else:
-		_pilot_mesh.transform.basis = preserved_basis.slerp(target_basis, clamp(smooth * dt, 0.0, 1.0))
+	_pilot_mesh.transform.basis = preserved_basis.slerp(target_basis, clamp(smooth * dt, 0.0, 1.0))
 	_apply_mesh_center_offset()
+
+func _restore_standard_visual_mesh() -> void:
+	if not is_instance_valid(_pilot_mesh):
+		return
+	var forward := _pilot_mesh.transform.basis.z
+	forward.y = 0.0
+	if forward.length_squared() <= 0.0001:
+		forward = Vector3(sin(yaw), 0.0, cos(yaw))
+	forward = forward.normalized()
+	_pilot_mesh.transform.basis = Basis(Vector3.UP, atan2(forward.x, forward.z))
+	_pilot_mesh.transform.origin = Vector3.ZERO
 
 func _apply_mesh_center_offset() -> void:
 	var offset: Vector3 = _setting("mesh_center_offset", DEFAULT_MESH_CENTER_OFFSET)
