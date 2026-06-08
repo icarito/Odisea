@@ -4,19 +4,18 @@
 flags_transparent = true
 params_cull_mode = 2
 albedo_color = Color( 0.7, 0.8, 1, 0.3 )
-metallic = 0.1
+metallic = 0.37
+metallic_specular = 0.65
 roughness = 0.05
 
 [sub_resource type="CylinderMesh" id=2]
 material = SubResource( 1 )
 top_radius = 2.5
 bottom_radius = 2.5
-height = 10.0
+height = 9.0
 rings = 1
-sections = 32
 
 [node name="TubeSection" type="Spatial"]
 
 [node name="MeshInstance" type="MeshInstance" parent="."]
 mesh = SubResource( 2 )
-material/0 = null

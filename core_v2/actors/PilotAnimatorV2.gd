@@ -447,8 +447,13 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	var is_climbing = controller.traversal_logic.is_climbing if controller and controller.get("traversal_logic") else false
 	var is_hanging = controller.traversal_logic.is_hanging if controller and controller.get("traversal_logic") else false
 	var traversal_locked: bool = is_climbing or is_hanging
-	var anim_on_floor: bool = is_on_floor and not traversal_locked
-	var climb_exit_air: bool = _was_climbing_anim_last_frame and not is_climbing and not is_on_floor
+	var is_zero_g := false
+	if controller:
+		var cm = controller.get_node_or_null("ControllerManager")
+		if cm and cm.get("current_mode") == cm.Mode.ZERO_GRAVITY:
+			is_zero_g = true
+	var anim_on_floor: bool = is_on_floor and not traversal_locked and not is_zero_g
+	var climb_exit_air: bool = _was_climbing_anim_last_frame and not is_climbing and not is_on_floor and not is_zero_g
 
 	_set_anim_tree_param(PARAM_CONDITIONS_IS_CLIMBING, is_climbing)
 	_set_anim_tree_param(PARAM_CONDITIONS_NOT_CLIMBING, not is_climbing)
@@ -476,12 +481,6 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	# Estados de salto/caída usando la velocidad registrada en el último frame en aire.
 	# IMPORTANTE: Forzamos false si estamos en el suelo (evita flickering en escaleras).
 	var effective_airborne: bool = (not anim_on_floor) and (not traversal_locked) and airborne_time >= stair_air_time_threshold
-	
-	var is_zero_g := false
-	if controller:
-		var cm = controller.get_node_or_null("ControllerManager")
-		if cm and cm.get("current_mode") == cm.Mode.ZERO_GRAVITY:
-			is_zero_g = true
 
 	if is_zero_g:
 		effective_airborne = true
@@ -553,6 +552,8 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	# Selección entre JumpLoop y FloatLoop: usar JumpLoop si saltamos recientemente
 	# o si hay entrada de movimiento significativa.
 	var use_jump_loop: bool = (time_since_jump < 0.25) or (move_vec_length > 0.3)
+	if is_zero_g:
+		use_jump_loop = velocity.length() > 0.35
 	_set_anim_tree_param(PARAM_CONDITIONS_USE_JUMP_LOOP, use_jump_loop)
 
 	# Lógica de transición de Salto (Start vs Land)

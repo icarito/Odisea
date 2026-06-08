@@ -27,6 +27,7 @@ var _last_sync_pitch := 0.0
 var _last_sync_roll := 0.0
 
 var _camera: Camera = null
+var _last_rolled_basis := Basis.IDENTITY
 
 func _ready() -> void:
 	_body = get_parent() as KinematicBody
@@ -37,63 +38,65 @@ func _ready() -> void:
 		var cm = _body.get_node_or_null("ControllerManager")
 		if cm and "zero_gravity_controller" in cm:
 			cm.zero_gravity_controller = self
-	
+
 	# Start disabled. We rely entirely on PlayerControllerV2 step delegation.
 	set_physics_process(false)
 	set_process(false)
 
+# Called by ControllerManager on zero-g entry with the standard CameraRig.
 func set_camera_rig(rig: Spatial) -> void:
 	_camera_rig = rig
 	_camera = _find_camera(_camera_rig)
-	if _settings and _settings.has_method("configure_camera_rig"):
-		_settings.configure_camera_rig(_camera_rig)
-	if _camera_rig and _camera_rig.has_method("reset_follow_state"):
-		_camera_rig.reset_follow_state(_body)
+	_refresh_runtime_refs()
+	yaw        = _body.yaw   if "yaw"   in _body else yaw
+	pitch      = _body.pitch if "pitch" in _body else pitch
+	roll_angle = 0.0
+	_last_sync_yaw   = yaw
+	_last_sync_pitch = pitch
+	_last_sync_roll  = roll_angle
 
 func reset_visual_state() -> void:
 	roll_angle = 0.0
-	velocity = Vector3.ZERO
+	# Do NOT zero velocity — ControllerManager already captured it for transfer.
 	_refresh_runtime_refs()
 	if is_instance_valid(_pilot_mesh):
 		_pilot_mesh.transform = Transform()
 
 func sync_state_from_rig() -> void:
-	if _camera_rig and _camera_rig.has_method("get_orientation_euler"):
-		var eulers = _camera_rig.get_orientation_euler()
-		yaw = eulers.x
-		pitch = eulers.y
-		roll_angle = eulers.z
-		
-		if _body:
-			_body.yaw = yaw
-			_body.pitch = pitch
-			
-		_last_sync_yaw = yaw
-		_last_sync_pitch = pitch
-		_last_sync_roll = roll_angle
+	if is_instance_valid(_camera_rig):
+		_sync_state_from_rig_basis(_camera_rig.transform.basis)
+
+func _sync_state_from_rig_basis(basis: Basis) -> void:
+	# Extract yaw/pitch/roll from the rig's current basis.
+	var forward := -basis.z
+	var forward_h := Vector3(forward.x, 0.0, forward.z)
+	var yaw_val := yaw
+	if forward_h.length_squared() > 0.0001:
+		yaw_val = atan2(-forward_h.normalized().x, -forward_h.normalized().z)
+	var pitch_val := asin(clamp(forward.normalized().y, -1.0, 1.0))
+	var yp_basis := Basis(Vector3.UP, yaw_val) * Basis(Vector3.RIGHT, pitch_val)
+	var roll_basis := yp_basis.inverse() * basis
+	var roll_val := atan2(-roll_basis.x.y, roll_basis.x.x)
+	yaw = yaw_val
+	pitch = pitch_val
+	roll_angle = roll_val
+	if _body:
+		_body.yaw = yaw
+		_body.pitch = pitch
+	_last_sync_yaw = yaw
+	_last_sync_pitch = pitch
+	_last_sync_roll = roll_angle
 
 func get_standard_exit_orientation() -> Dictionary:
-	_refresh_runtime_refs()
-	var basis: Basis = _get_movement_basis()
-	var forward: Vector3 = -basis.z
-	
-	var exit_yaw := 0.0
-	var exit_pitch := 0.0
-	
-	# Project forward vector onto the horizontal plane
+	# Use camera global forward (includes SpringArm 180°) — same as movement basis.
+	var forward := -_last_rolled_basis.z
+	var exit_yaw := yaw
 	var forward_h := Vector3(forward.x, 0.0, forward.z)
 	if forward_h.length_squared() > 0.0001:
-		forward_h = forward_h.normalized()
-		exit_yaw = atan2(-forward_h.x, -forward_h.z)
-	else:
-		exit_yaw = _body.yaw if _body else yaw
-		
+		exit_yaw = atan2(-forward_h.normalized().x, -forward_h.normalized().z)
 	var min_p: float = deg2rad(_body.min_pitch) if _body and "min_pitch" in _body else deg2rad(-85.0)
 	var max_p: float = deg2rad(_body.max_pitch) if _body and "max_pitch" in _body else deg2rad(85.0)
-	
-	var forward_norm = forward.normalized()
-	exit_pitch = clamp(asin(forward_norm.y), min_p, max_p)
-	
+	var exit_pitch := clamp(asin(clamp(forward.normalized().y, -1.0, 1.0)), min_p, max_p)
 	return {
 		"yaw": wrapf(exit_yaw, -PI, PI),
 		"pitch": exit_pitch
@@ -106,107 +109,94 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 		_refresh_runtime_refs()
 	if not is_instance_valid(_camera_rig):
 		return
+	var active_rig := _camera_rig
 
-	# Detect external changes (e.g. from tests or transition) and push to the rig
-	var current_ext_yaw = _body.yaw if _body else yaw
-	var current_ext_pitch = _body.pitch if _body else pitch
-	if current_ext_yaw != _last_sync_yaw or current_ext_pitch != _last_sync_pitch or roll_angle != _last_sync_roll:
-		if _camera_rig:
-			if _camera_rig.has_method("set_orientation_euler"):
-				_camera_rig.set_orientation_euler(current_ext_yaw, current_ext_pitch, roll_angle)
-			else:
-				_camera_rig.transform.basis = Basis(Vector3.UP, current_ext_yaw) * Basis(Vector3.RIGHT, current_ext_pitch) * Basis(Vector3.FORWARD, roll_angle)
-				_camera_rig.force_update_transform()
+	var sens: float = _body.mouse_sensitivity if "mouse_sensitivity" in _body else 0.005
+	var invert_y: bool = _body.invert_mouse_y if "invert_mouse_y" in _body else false
 
-	# 1. Update camera orientation from mouse delta & roll
+	# 1. Apply incremental rotations in local player space.
+	#    Yaw rotates around the rig's local Y (world-Y projected out of roll).
+	#    Pitch rotates around the rig's local X (right axis).
+	#    Roll (Q/E) rotates around the rig's local -Z (forward).
+	#    SpringArm has 180° Y baked in, so the rig's local -Z points opposite to
+	#    camera view. We negate roll so Q/E match what the player sees.
+	var cur_basis := active_rig.transform.basis.orthonormalized()
 	if input:
-		var mouse_d = input.mouse_delta
-		var sens = 0.005
-		if "mouse_sensitivity" in _body:
-			sens = _body.mouse_sensitivity
-			
+		var mouse_y := -input.mouse_delta.y if invert_y else input.mouse_delta.y
 		var roll_input := 0.0
-		if input.roll_left:
-			roll_input -= 1.0
-		if input.roll_right:
-			roll_input += 1.0
-			
-		var roll_speed = deg2rad(_setting("roll_speed_deg", DEFAULT_ROLL_SPEED_DEG))
-		var roll_rate = roll_input * roll_speed
-		
-		if _camera_rig.has_method("update_orientation_local"):
-			_camera_rig.update_orientation_local(mouse_d, sens, roll_rate, dt)
-			
-		_apply_zero_g_zoom_delta(input.zoom_delta)
+		if input.roll_left:  roll_input -= 1.0
+		if input.roll_right: roll_input += 1.0
+		var droll := roll_input * deg2rad(_setting("roll_speed_deg", DEFAULT_ROLL_SPEED_DEG)) * dt
+		roll_angle += droll
 
-	# 2. Synchronize variables back from the camera rig
-	if _camera_rig:
-		var eulers := Vector3.ZERO
-		if _camera_rig.has_method("get_orientation_euler"):
-			eulers = _camera_rig.get_orientation_euler()
-		else:
-			var basis = _camera_rig.transform.basis
-			var forward = -basis.z
-			var yaw_val = 0.0
-			var forward_h = Vector3(forward.x, 0.0, forward.z)
-			if forward_h.length_squared() > 0.0001:
-				forward_h = forward_h.normalized()
-				yaw_val = atan2(-forward_h.x, -forward_h.z)
-			var pitch_val = asin(clamp(forward.y, -1.0, 1.0))
-			var yp_basis = Basis(Vector3.UP, yaw_val) * Basis(Vector3.RIGHT, pitch_val)
-			var roll_basis = yp_basis.inverse() * basis
-			var roll_val = atan2(-roll_basis.x.y, roll_basis.x.x)
-			eulers = Vector3(yaw_val, pitch_val, roll_val)
-			
-		yaw = eulers.x
-		pitch = eulers.y
-		roll_angle = eulers.z
-		
-		if _body:
-			_body.yaw = yaw
-			_body.pitch = pitch
-			
-		_last_sync_yaw = yaw
-		_last_sync_pitch = pitch
-		_last_sync_roll = roll_angle
+		# Use the rig's own local axes for incremental rotation.
+		var local_right :=  cur_basis.x
+		var local_up    :=  cur_basis.y
+		var local_fwd   := -cur_basis.z  # rig -Z = camera forward (after SpringArm flip)
+		var dyaw   := -input.mouse_delta.x * sens
+		var dpitch := -mouse_y * sens
+		# Clamp pitch: extract current pitch from basis to enforce limits.
+		var cur_pitch := asin(clamp(cur_basis.z.y, -1.0, 1.0))
+		var min_p: float = deg2rad(_body.min_pitch) if "min_pitch" in _body else deg2rad(-85.0)
+		var max_p: float = deg2rad(_body.max_pitch) if "max_pitch" in _body else deg2rad(85.0)
+		var new_pitch := clamp(cur_pitch + dpitch, min_p, max_p)
+		dpitch = new_pitch - cur_pitch
+		cur_basis = Basis(local_up, dyaw) * cur_basis
+		cur_basis = Basis(local_right, dpitch) * cur_basis
+		# Roll the rig around its forward axis. Negate because SpringArm's 180°Y
+		# mirrors the visual roll — negative droll = roll right as seen through camera.
+		cur_basis = Basis(local_fwd, -droll) * cur_basis
+		cur_basis = cur_basis.orthonormalized()
+		# Sync scalar accumulators for exit orientation and body.
+		var fwd_h := Vector3(cur_basis.z.x, 0.0, cur_basis.z.z)
+		if fwd_h.length_squared() > 0.0001:
+			yaw = atan2(fwd_h.normalized().x, fwd_h.normalized().z)
+		pitch = -asin(clamp(cur_basis.z.y, -1.0, 1.0))
 
-	# 4. Movement WASD in the rendered camera's direction.
+	active_rig.transform.basis = cur_basis
+	active_rig.force_update_transform()
+
+	if "yaw"   in _body: _body.yaw   = yaw
+	if "pitch" in _body: _body.pitch = pitch
+	_last_sync_yaw   = yaw
+	_last_sync_pitch = pitch
+	_last_sync_roll  = roll_angle
+
+	# 3. Movement: use the active camera's global basis (includes SpringArm 180° bake),
+	#    same source CinematicManager uses in normal mode.
+	var cam_basis := _camera.global_transform.basis if is_instance_valid(_camera) else cur_basis
+	_last_rolled_basis = cam_basis
 	var move_dir := Vector3.ZERO
 	if input:
-		var movement_basis = _get_movement_basis()
-
-		var forward = -movement_basis.z
-		var right = movement_basis.x
-		var up = movement_basis.y
-
-		move_dir = right * input.move_vec.x + forward * (-input.move_vec.y)
-
-		if input.jump:
-			move_dir += up
-		if input.crouch:
-			move_dir -= up
+		var fwd   := -cam_basis.z
+		var right :=  cam_basis.x
+		var up    :=  cam_basis.y
+		move_dir = right * input.move_vec.x + fwd * (-input.move_vec.y)
+		if input.jump:   move_dir += up
+		if input.crouch: move_dir -= up
 		if move_dir.length_squared() > 1.0:
 			move_dir = move_dir.normalized()
 
 	_update_wish_direction(move_dir)
 
-	# 5. Approach target drift velocity, or damp when no thrust is active.
+	# 4. Velocity.
 	if move_dir.length_squared() < 0.001:
 		_body.velocity *= pow(float(_setting("idle_damping", DEFAULT_IDLE_DAMPING)), dt * 60.0)
 	else:
 		var speed_mult: float = float(_setting("sprint_multiplier", DEFAULT_SPRINT_MULTIPLIER)) if input and input.sprint else 1.0
-		var target_velocity: Vector3 = move_dir * float(_setting("max_speed", DEFAULT_MAX_SPEED)) * speed_mult
+		var target_velocity := move_dir * float(_setting("max_speed", DEFAULT_MAX_SPEED)) * speed_mult
 		var accel_t: float = clamp(float(_setting("acceleration", DEFAULT_ACCELERATION)) * dt, 0.0, 1.0)
 		_body.velocity = _body.velocity.linear_interpolate(target_velocity, accel_t)
 
-	# 6. Move the body
+	# 5. Move the body.
 	_body.velocity = _body.move_and_slide(_body.velocity, Vector3.UP)
-	velocity = _body.velocity # Sync local copy
+	velocity = _body.velocity
 
-	if _camera_rig and _camera_rig.has_method("update_follow"):
-		_camera_rig.update_follow(_body, dt)
+	# 6. Camera follow (Y-lag, etc.) — call the body's own updater if available.
+	if _body.has_method("_update_camera_view"):
+		_body._update_camera_view(dt)
 
-	# 7. Visuals update
+	# 7. Visuals.
 	var mesh_basis_before_anim := _pilot_mesh.transform.basis if is_instance_valid(_pilot_mesh) else Basis()
 	if "animator" in _body and is_instance_valid(_body.animator) and _body.animator.has_method("step_animator"):
 		_body.animator.step_animator(dt, _body.velocity)
@@ -216,9 +206,8 @@ func _refresh_runtime_refs() -> void:
 	if not is_instance_valid(_body):
 		return
 	_settings = _body.get_node_or_null("Logic/ZeroGravity")
-	_camera_rig = _body.get_node_or_null("ZeroGCameraRig") as Spatial
-	if _camera_rig == null:
-		_camera_rig = _body.get_node_or_null("CameraRig") as Spatial
+	# Always use the standard CameraRig — OTS, SpringArm, zoom stay intact.
+	_camera_rig = _body.get_node_or_null("CameraRig") as Spatial
 	_camera = _find_camera(_camera_rig)
 	_pilot_mesh = _body.get_node_or_null("Visual/Pivot")
 	if _settings and _settings.has_method("configure_camera_rig"):
@@ -229,37 +218,19 @@ func _setting(name: String, fallback):
 		return _settings.get(name)
 	return fallback
 
-func _apply_zero_g_zoom_delta(zoom_delta: float) -> void:
-	if abs(zoom_delta) <= 0.01 or not _camera_rig:
-		return
-	var min_len := 0.75
-	var max_len := 50.0
-	if _body:
-		if "orbit_zoom_min_length" in _body:
-			min_len = max(float(_body.orbit_zoom_min_length), 0.1)
-		if "orbit_zoom_max_length" in _body:
-			max_len = max(float(_body.orbit_zoom_max_length), min_len)
-	if _camera_rig.has_method("set_camera_distance"):
-		var current_distance := float(_camera_rig.camera_distance) if "camera_distance" in _camera_rig else float(_setting("camera_distance", 4.0))
-		_camera_rig.set_camera_distance(clamp(current_distance + zoom_delta, min_len, max_len))
-
 func _find_camera(node: Node) -> Camera:
 	if node == null:
 		return null
 	if node is Camera:
 		return node as Camera
 	for i in range(node.get_child_count()):
-		var cam = _find_camera(node.get_child(i))
+		var cam := _find_camera(node.get_child(i))
 		if cam:
 			return cam
 	return null
 
 func _get_movement_basis() -> Basis:
-	if _camera_rig and _camera_rig.has_method("get_movement_basis"):
-		return _camera_rig.get_movement_basis()
-	if is_instance_valid(_camera):
-		return _camera.global_transform.basis
-	return _camera_rig.global_transform.basis if is_instance_valid(_camera_rig) else Basis.IDENTITY
+	return _last_rolled_basis
 
 func _update_wish_direction(move_dir: Vector3) -> void:
 	if "movement_logic" in _body and is_instance_valid(_body.movement_logic):
@@ -268,28 +239,26 @@ func _update_wish_direction(move_dir: Vector3) -> void:
 func _update_visual_mesh(dt: float, input: InputDataV2, preserved_basis: Basis) -> void:
 	if not is_instance_valid(_pilot_mesh):
 		return
-	var align_deadzone: float = float(_setting("mesh_align_input_deadzone", DEFAULT_MESH_ALIGN_INPUT_DEADZONE))
-	var is_moving_forward: bool = input != null and input.move_vec.y < -align_deadzone
-	
-	var current_euler = preserved_basis.get_euler()
-	var flat_basis = Basis(Vector3.UP, current_euler.y)
 
-	if not is_moving_forward:
-		_pilot_mesh.transform.basis = flat_basis
-		return
-
-	var movement_basis := _get_movement_basis()
-	var forward := -movement_basis.z
-	var forward_h := Vector3(forward.x, 0.0, forward.z)
-	if forward_h.length_squared() <= 0.0001:
-		_pilot_mesh.transform.basis = flat_basis
-		return
-		
-	forward_h = forward_h.normalized()
-	var target_yaw := atan2(-forward_h.x, -forward_h.z)
-	var target_basis := Basis(Vector3.UP, target_yaw)
 	var smooth: float = float(_setting("mesh_rotation_smooth", DEFAULT_MESH_ROTATION_SMOOTH))
-	_pilot_mesh.transform.basis = flat_basis.slerp(target_basis, clamp(smooth * dt, 0.0, 1.0))
+	var deadzone: float = float(_setting("mesh_align_input_deadzone", DEFAULT_MESH_ALIGN_INPUT_DEADZONE))
+	var has_input: bool = input != null and (
+		abs(input.move_vec.x) > deadzone or
+		abs(input.move_vec.y) > deadzone or
+		input.jump or input.crouch
+	)
+
+	# Target mesh orientation = camera orientation rotated 180° around Y
+	# (mesh faces away from camera, sharing the same roll and pitch).
+	var target_basis := _last_rolled_basis * Basis(Vector3.UP, PI)
+
+	if has_input:
+		_pilot_mesh.transform.basis = preserved_basis.slerp(target_basis, clamp(smooth * dt, 0.0, 1.0))
+	else:
+		# Idle: still slerp toward camera-facing so mesh settles correctly on entry.
+		_pilot_mesh.transform.basis = preserved_basis.slerp(target_basis, clamp(smooth * dt, 0.0, 1.0))
+
+	_apply_mesh_center_offset()
 
 func _apply_mesh_center_offset() -> void:
 	var offset: Vector3 = _setting("mesh_center_offset", DEFAULT_MESH_CENTER_OFFSET)
