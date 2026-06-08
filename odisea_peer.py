@@ -8,13 +8,13 @@ import uuid
 from typing import Dict, Optional
 
 from aiohttp import web, WSCloseCode, ClientSession, ClientWebSocketResponse
-from zeroconf import IPVersion, ServiceInfo, Zeroconf
+from zeroconf import IPVersion, ServiceInfo
+from zeroconf.asyncio import AsyncZeroconf
 
 # Configuration from environment variables
 PEER_PORT = int(os.environ.get("PEER_PORT", 4999))
 CENTRAL_WS_URL = os.environ.get("CENTRAL_WS_URL", "ws://35.182.238.36:5003/ws")
 BRIDGE_TOKEN = os.environ.get("ODISEA_BRIDGE_TOKEN", "")
-PLAYER_ID_FILE = "./odisea_player_id.txt"
 
 # Logging setup
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
@@ -22,15 +22,14 @@ logger = logging.getLogger("odisea_peer")
 
 class OdiseaPeer:
     def __init__(self):
-        self.player_id = self._load_or_create_player_id()
-        self.session_id = str(uuid.uuid4())
+        self.peer_id = str(uuid.uuid4()) # Ephemeral peer_id for this run
         self.hostname = socket.gethostname()
         self.ip_address = self._get_ip()
         self.heartbeats: Dict[str, dict] = {}
         self.central_ws: Optional[ClientWebSocketResponse] = None
-        self.zeroconf: Optional[Zeroconf] = None
+        self.zeroconf: Optional[AsyncZeroconf] = None
 
-        logger.info(f"Initialized Peer: player_id={self.player_id}, session_id={self.session_id}, hostname={self.hostname}, ip={self.ip_address}")
+        logger.info(f"Initialized Peer: peer_id={self.peer_id}, hostname={self.hostname}, ip={self.ip_address}")
 
     def _get_ip(self) -> str:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -44,20 +43,10 @@ class OdiseaPeer:
             s.close()
         return ip
 
-    def _load_or_create_player_id(self) -> str:
-        if os.path.exists(PLAYER_ID_FILE):
-            with open(PLAYER_ID_FILE, "r") as f:
-                return f.read().strip()
-        else:
-            new_id = str(uuid.uuid4())
-            with open(PLAYER_ID_FILE, "w") as f:
-                f.write(new_id)
-            return new_id
-
     async def start_mdns(self):
         try:
-            self.zeroconf = Zeroconf(ip_version=IPVersion.V4Only)
-            desc = {'version': '0.1.0', 'player_id': self.player_id}
+            self.zeroconf = AsyncZeroconf(ip_version=IPVersion.V4Only)
+            desc = {'version': '0.1.0'}
             info = ServiceInfo(
                 "_odisea._tcp.local.",
                 f"Odisea-Peer-{self.hostname}._odisea._tcp.local.",
@@ -73,8 +62,8 @@ class OdiseaPeer:
 
     async def stop_mdns(self):
         if self.zeroconf:
-            self.zeroconf.unregister_all_services()
-            self.zeroconf.close()
+            await self.zeroconf.async_unregister_all_services()
+            await self.zeroconf.async_close()
 
     async def connect_to_central(self):
         while True:
@@ -87,7 +76,7 @@ class OdiseaPeer:
                         await ws.send_json({
                             "type": "handshake",
                             "token": BRIDGE_TOKEN,
-                            "peer_id": self.player_id
+                            "peer_id": self.peer_id
                         })
 
                         # Wait for handshake ack or messages
@@ -119,14 +108,12 @@ class OdiseaPeer:
                     if data.get("type") == "heartbeat":
                         player_id = data.get("player_id")
                         if player_id:
+                            # Inject peer_id into heartbeat
+                            data["peer_id"] = self.peer_id
                             self.heartbeats[player_id] = data
-                            # Relay to central
+                            # Relay flat heartbeat to central
                             if self.central_ws and not self.central_ws.closed:
-                                await self.central_ws.send_json({
-                                    "type": "heartbeat",
-                                    "peer_id": self.player_id,
-                                    "heartbeat": data
-                                })
+                                await self.central_ws.send_json(data)
                 except Exception as e:
                     logger.error(f"Error handling heartbeat: {e}")
             elif msg.type == web.WSMsgType.ERROR:

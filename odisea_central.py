@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import time
-from collections import defaultdict
 from typing import Dict, Any
 
 from aiohttp import web, WSCloseCode
@@ -90,12 +89,8 @@ class OdiseaCentral:
                                 break
 
                         elif msg_type == "heartbeat":
-                            inner_hb = data.get("heartbeat")
-                            if not inner_hb:
-                                continue
-
-                            player_id = inner_hb.get("player_id")
-                            session_id = inner_hb.get("session_id")
+                            player_id = data.get("player_id")
+                            session_id = data.get("session_id")
 
                             if not player_id or not session_id:
                                 continue
@@ -110,12 +105,12 @@ class OdiseaCentral:
                             self.session_rate_limit[session_id] = now
 
                             # Update cache
-                            self.heartbeats[player_id] = inner_hb
+                            self.heartbeats[player_id] = data
                             self.last_update[player_id] = now
 
                             # Store ghosts
                             if STORE_GHOSTS:
-                                self._store_ghost(player_id, session_id, inner_hb)
+                                self._store_ghost(player_id, session_id, data)
 
                     except Exception as e:
                         logger.error(f"Error processing peer message: {e}")
