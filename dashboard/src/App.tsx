@@ -102,14 +102,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           <div className="flex-1 relative p-4">
             {activeHb ? (
               <Viewport3D
-                position={activeHb.player.position}
-                yaw={activeHb.player.yaw}
-                pitch={activeHb.player.pitch}
-                roll={activeHb.player.roll}
+                position={activeHb.player?.position || [0, 0, 0]}
+                yaw={activeHb.player?.yaw || 0}
+                pitch={activeHb.player?.pitch || 0}
+                roll={activeHb.player?.roll || 0}
                 trail={activeHistory?.trail || []}
                 follow={followPlayer}
                 wireframe={wireframe}
-                sceneName={manualScene || activeHb.player.scene}
+                sceneName={manualScene || activeHb.player?.scene || "Unknown"}
               />
             ) : (
               <div className="w-full h-full bg-black rounded-lg border border-border-custom flex items-center justify-center text-text-muted">
@@ -122,11 +122,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               <div className="absolute top-6 right-6 flex flex-col gap-2 bg-bg-card/90 p-3 rounded border border-border-custom text-[10px]">
                 <div className="flex justify-between gap-4">
                   <span className="text-text-muted">POS</span>
-                  <span>{activeHb.player.position.map(n => n.toFixed(2)).join(", ")}</span>
+                  <span>{(activeHb.player?.position || [0, 0, 0]).map(n => typeof n === 'number' ? n.toFixed(2) : '0.00').join(", ")}</span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-text-muted">ROT</span>
-                  <span>Y:{activeHb.player.yaw.toFixed(2)} P:{activeHb.player.pitch.toFixed(2)}</span>
+                  <span>Y:{(activeHb.player?.yaw || 0).toFixed(2)} P:{(activeHb.player?.pitch || 0).toFixed(2)}</span>
                 </div>
               </div>
             )}
