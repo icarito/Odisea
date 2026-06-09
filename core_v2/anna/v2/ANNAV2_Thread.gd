@@ -140,10 +140,12 @@ func _discover_peer() -> String:
 		return "ws://" + env_bridge + "/ws"
 
 	# 2. HTML5 check: URL params (?bridge=) are handled by Autoload and passed to _peer_url.
-	# If _peer_url is still empty, we intentionally return "" here to fall through
-	# to the central node fallback at the end of this function.
+	# If no bridge is specified, fall back to the central node if enabled.
 	if OS.has_feature("web"):
-		return ""
+		if not _central_enabled:
+			return ""
+		print("[ANNAV2] HTML5 build: falling back to central: ", _central_url)
+		return _central_url
 
 	# 3. Try localhost
 	if _check_port("127.0.0.1", PEER_PORT):
