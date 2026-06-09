@@ -14,6 +14,14 @@ CACHE_TTL = int(os.environ.get("CENTRAL_CACHE_TTL", 60))
 STORE_GHOSTS = os.environ.get("CENTRAL_STORE_GHOSTS", "false").lower() == "true"
 GHOSTS_DIR = os.environ.get("CENTRAL_GHOSTS_DIR", "./data/ghosts")
 
+# HTTP auth brute-force protection: after AUTH_MAX_FAILS bad tokens from one IP within
+# AUTH_FAIL_WINDOW seconds, that IP is locked out for AUTH_LOCKOUT seconds (HTTP 429).
+# Only failed auth counts toward the limit; valid-token requests (e.g. the dashboard
+# polling) are never throttled.
+AUTH_MAX_FAILS = int(os.environ.get("CENTRAL_AUTH_MAX_FAILS", 8))
+AUTH_FAIL_WINDOW = int(os.environ.get("CENTRAL_AUTH_FAIL_WINDOW", 60))
+AUTH_LOCKOUT = int(os.environ.get("CENTRAL_AUTH_LOCKOUT", 300))
+
 # Logging setup
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger("odisea_central")
@@ -196,6 +204,7 @@ class OdiseaCentral:
         self.last_update: Dict[str, float] = {} # player_id -> timestamp
         self.session_rate_limit: Dict[str, float] = {} # session_id -> last_heartbeat_time
         self.active_peers = set() # set of active WebSocket objects
+        self.auth_fails: Dict[str, dict] = {} # ip -> {"ts": [failure timestamps], "locked_until": float}
 
         if STORE_GHOSTS and not os.path.exists(GHOSTS_DIR):
             os.makedirs(GHOSTS_DIR, exist_ok=True)
@@ -207,6 +216,43 @@ class OdiseaCentral:
             return False
         token = auth_header[7:]
         return token == BRIDGE_TOKEN
+
+    def _client_ip(self, request) -> str:
+        # Behind a proxy/LB, prefer the first hop in X-Forwarded-For.
+        fwd = request.headers.get("X-Forwarded-For", "")
+        if fwd:
+            return fwd.split(",")[0].strip()
+        return request.remote or "unknown"
+
+    def _is_locked(self, ip: str, now: float) -> bool:
+        entry = self.auth_fails.get(ip)
+        return bool(entry and entry.get("locked_until", 0) > now)
+
+    def _record_auth_fail(self, ip: str, now: float) -> None:
+        entry = self.auth_fails.setdefault(ip, {"ts": [], "locked_until": 0})
+        entry["ts"] = [t for t in entry["ts"] if now - t < AUTH_FAIL_WINDOW]
+        entry["ts"].append(now)
+        if len(entry["ts"]) >= AUTH_MAX_FAILS:
+            entry["locked_until"] = now + AUTH_LOCKOUT
+            entry["ts"] = []
+            logger.warning(f"Auth brute-force lockout for IP {ip} ({AUTH_LOCKOUT}s)")
+
+    def _auth_guard(self, request):
+        """Return None if the request may proceed, else a web.Response (429/401)."""
+        ip = self._client_ip(request)
+        now = time.time()
+        if self._is_locked(ip, now):
+            retry = int(self.auth_fails[ip]["locked_until"] - now)
+            return web.json_response(
+                {"error": "rate_limited", "retry_after": retry},
+                status=429, headers={"Retry-After": str(max(1, retry))},
+            )
+        if not self._is_authorized(request):
+            self._record_auth_fail(ip, now)
+            return web.json_response({"error": "unauthorized"}, status=401)
+        # Successful auth clears any accumulated failures for this IP.
+        self.auth_fails.pop(ip, None)
+        return None
 
     async def _clean_cache(self):
         while True:
@@ -222,6 +268,17 @@ class OdiseaCentral:
             to_delete_sessions = [sid for sid, last in self.session_rate_limit.items() if now - last > CACHE_TTL * 2]
             for sid in to_delete_sessions:
                 self.session_rate_limit.pop(sid, None)
+
+            # Clean expired auth brute-force entries (not locked and no recent failures)
+            to_delete_auth = []
+            for ip, entry in self.auth_fails.items():
+                if entry.get("locked_until", 0) > now:
+                    continue
+                if any(now - t < AUTH_FAIL_WINDOW for t in entry.get("ts", [])):
+                    continue
+                to_delete_auth.append(ip)
+            for ip in to_delete_auth:
+                self.auth_fails.pop(ip, None)
 
             await asyncio.sleep(10)
 
@@ -306,8 +363,9 @@ class OdiseaCentral:
             logger.error(f"Failed to store ghost: {e}")
 
     async def handle_status(self, request):
-        if not self._is_authorized(request):
-            return web.json_response({"error": "unauthorized"}, status=401)
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
 
         player_id = request.query.get("player_id")
         if player_id:
@@ -319,8 +377,9 @@ class OdiseaCentral:
         return web.json_response(self.heartbeats)
 
     async def handle_sessions(self, request):
-        if not self._is_authorized(request):
-            return web.json_response({"error": "unauthorized"}, status=401)
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
 
         sessions = list(set(hb.get("session_id") for hb in self.heartbeats.values() if hb.get("session_id")))
         return web.json_response(sessions)
