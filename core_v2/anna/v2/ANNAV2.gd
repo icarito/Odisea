@@ -293,6 +293,11 @@ func clear_capture() -> void:
 func register_telemetry_point(key: String, value) -> void:
 	_custom_points[key] = value
 
+# Alias of register_telemetry_point for grouped/structured data (e.g. a sub-dict).
+# NOTE: values must be JSON-serializable (no raw Vector3/Basis) — convert to arrays/floats.
+func add_telemetry_data(key: String, value) -> void:
+	register_telemetry_point(key, value)
+
 func clear_telemetry_point(key: String) -> void:
 	_custom_points.erase(key)
 
