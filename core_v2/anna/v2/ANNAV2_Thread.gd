@@ -4,6 +4,9 @@ const PEER_PORT := 4999
 const SERVER_PORT := 5001
 const HEARTBEAT_INTERVAL_MS := 100
 const RECONNECT_INTERVAL_MS := 2000
+# Dev-only fallback secret; PRODUCTION must set ODISEA_BRIDGE_TOKEN in the environment.
+const DEV_DEFAULT_TOKEN := "odisea-dev-insecure"
+const DEFAULT_CENTRAL := "35.182.238.36:5003"
 
 var _thread: Thread
 var _stop_thread := false
@@ -16,6 +19,9 @@ var _server_enabled := false
 var _command_queue # Reference to ANNAV2_CommandQueue
 var _is_connected := false
 var _peer_url := ""
+var _central_url := ""
+var _bridge_token := ""
+var _central_enabled := true
 
 var player_id := ""
 var session_id := ""
@@ -32,6 +38,16 @@ func _init():
 
 	_server = WebSocketServer.new()
 	_server_enabled = OS.get_environment("ANNA_V2_SERVER_ENABLED") in ["1", "true", "yes", "on"]
+
+	_bridge_token = OS.get_environment("ODISEA_BRIDGE_TOKEN")
+	if _bridge_token == "":
+		_bridge_token = DEV_DEFAULT_TOKEN
+	var central_env = OS.get_environment("ANNA_V2_CENTRAL")
+	if central_env == "":
+		central_env = DEFAULT_CENTRAL
+	_central_url = "ws://" + central_env + "/ws"
+	# Privacy/production: set ANNA_V2_NO_CENTRAL=1 to never phone home to the central.
+	_central_enabled = not (OS.get_environment("ANNA_V2_NO_CENTRAL") in ["1", "true", "yes", "on"])
 
 func start(command_queue, p_id, s_id, g_ver):
 	_command_queue = command_queue
@@ -146,7 +162,13 @@ func _discover_peer() -> String:
 				if _check_port(target, PEER_PORT):
 					return "ws://" + target + ":4999/ws"
 
-	return ""
+	# No local peer found: fall back to the central node so telemetry still flows for
+	# observability. Auth uses ODISEA_BRIDGE_TOKEN (dev default if unset) — see docs for
+	# production hardening (ANNA_V2_CENTRAL to override the host, ANNA_V2_NO_CENTRAL to opt out).
+	if not _central_enabled:
+		return ""
+	print("[ANNAV2] No local peer found; falling back to central: ", _central_url)
+	return _central_url
 
 func _check_port(ip: String, port: int) -> bool:
 	var tcp = StreamPeerTCP.new()
@@ -196,6 +218,11 @@ func _send_handshake():
 		"player_id": player_id,
 		"session_id": session_id
 	}
+	# Token is required by the central node; the local peer ignores it. peer_id lets the
+	# central attribute the connection.
+	if _bridge_token != "":
+		msg["token"] = _bridge_token
+		msg["peer_id"] = player_id
 	_send_json(msg)
 
 func _send_heartbeat():

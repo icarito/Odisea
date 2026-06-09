@@ -14,7 +14,9 @@ from zeroconf.asyncio import AsyncZeroconf
 # Configuration from environment variables
 PEER_PORT = int(os.environ.get("PEER_PORT", 4999))
 CENTRAL_WS_URL = os.environ.get("CENTRAL_WS_URL", "ws://35.182.238.36:5003/ws")
-BRIDGE_TOKEN = os.environ.get("ODISEA_BRIDGE_TOKEN", "")
+# Dev-only default; PRODUCTION must set ODISEA_BRIDGE_TOKEN to a real secret. See FD-162.
+DEV_DEFAULT_TOKEN = "odisea-dev-insecure"
+BRIDGE_TOKEN = os.environ.get("ODISEA_BRIDGE_TOKEN", DEV_DEFAULT_TOKEN)
 
 # Logging setup
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')

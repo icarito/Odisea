@@ -9,7 +9,11 @@ from aiohttp import web, WSCloseCode
 
 # Configuration from environment variables
 CENTRAL_HTTP_PORT = int(os.environ.get("CENTRAL_HTTP_PORT", 5003))
-BRIDGE_TOKEN = os.environ.get("ODISEA_BRIDGE_TOKEN", "")
+# Shared default used ONLY for local development so the bridge works out-of-the-box.
+# PRODUCTION: set ODISEA_BRIDGE_TOKEN to a real secret on the central, the peers, and any
+# trusted client; never rely on this default in a public/deployed environment.
+DEV_DEFAULT_TOKEN = "odisea-dev-insecure"
+BRIDGE_TOKEN = os.environ.get("ODISEA_BRIDGE_TOKEN", DEV_DEFAULT_TOKEN)
 CACHE_TTL = int(os.environ.get("CENTRAL_CACHE_TTL", 60))
 STORE_GHOSTS = os.environ.get("CENTRAL_STORE_GHOSTS", "false").lower() == "true"
 GHOSTS_DIR = os.environ.get("CENTRAL_GHOSTS_DIR", "./data/ghosts")
@@ -424,9 +428,8 @@ class OdiseaCentral:
             await runner.cleanup()
 
 if __name__ == "__main__":
-    if not BRIDGE_TOKEN:
-        logger.error("ODISEA_BRIDGE_TOKEN environment variable is required.")
-        exit(1)
+    if BRIDGE_TOKEN == DEV_DEFAULT_TOKEN:
+        logger.warning("Using INSECURE dev default token. Set ODISEA_BRIDGE_TOKEN for production.")
 
     central = OdiseaCentral()
     try:

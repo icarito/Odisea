@@ -1,7 +1,7 @@
 extends Spatial
 class_name GasParticleManager
 
-export(int) var pool_size := 512
+export(int) var pool_size := 128
 export(float) var default_max_lifetime := 6.0
 export(float) var default_base_scale := 2.2
 export(float) var viscosity := 0.8
@@ -17,6 +17,9 @@ export(float, -1.0, 1.0) var distance_b_shift := 0.0
 # Set by GasArea3D from shape extents — used to normalize particle distance
 var volume_radius := 4.0
 export(bool) var collide_with_world := true
+# Skip the per-particle world raycast when a particle is moving slower than this (settled
+# gas can't collide with anything new). Set to 0.0 to restore exact per-frame raycasting.
+export(float) var raycast_min_speed := 0.05
 export(int, LAYERS_3D_PHYSICS) var world_collision_mask := 1
 export(float) var collision_margin := 0.08
 export(float) var collision_damping := 0.28
@@ -170,6 +173,12 @@ func _get_local_gravity_y() -> float:
 func _move_particle_with_collision(local_position: Vector3, local_velocity: Vector3, delta: float) -> Dictionary:
 	var target_position: Vector3 = local_position + local_velocity * delta
 	if not collide_with_world:
+		return {
+			"position": target_position,
+			"velocity": local_velocity
+		}
+	# Settled gas (very low speed) can't hit anything new — skip the raycast.
+	if raycast_min_speed > 0.0 and local_velocity.length_squared() < raycast_min_speed * raycast_min_speed:
 		return {
 			"position": target_position,
 			"velocity": local_velocity

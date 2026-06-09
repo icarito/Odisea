@@ -20,6 +20,12 @@ var _capture_dump_path := ""
 # Custom data points registered by controllers; merged into every captured frame
 var _custom_points := {}
 
+# Telemetry is gathered at most every TELEMETRY_INTERVAL_MS (decoupled from frame rate).
+# The network thread only sends at 10Hz anyway, so gathering at 60Hz was wasted main-thread
+# work. Lower the interval for finer local capture; raise it to reduce ANNA's per-frame cost.
+const TELEMETRY_INTERVAL_MS := 50 # ~20Hz
+var _last_telemetry_ms := 0
+
 func _ready():
 	_player_id = _load_or_create_player_id()
 	_session_id = _generate_uuid()
@@ -55,7 +61,10 @@ func _exit_tree():
 		_net_thread.stop()
 
 func _process(_delta):
-	_update_telemetry()
+	var now = OS.get_ticks_msec()
+	if now - _last_telemetry_ms >= TELEMETRY_INTERVAL_MS:
+		_last_telemetry_ms = now
+		_update_telemetry()
 
 	var commands = _command_queue.pop_all()
 	for cmd in commands:
