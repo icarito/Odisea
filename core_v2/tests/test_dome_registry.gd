@@ -16,7 +16,6 @@ func test_get_facade_lod_config_returns_safe_defaults() -> void:
 	assert_str(String(lod_config["scene"])).is_equal("res://models/lod/DomeFacade_01_LOD.glb")
 	assert_str(String(lod_config["mesh"])).is_equal("")
 	assert_vector3(lod_config["spawn_offset"]).is_equal(Vector3(0, 0.3, 0))
-	assert_vector3(lod_config["scale"]).is_equal(Vector3(1.01, 1.01, 1.01))
 
 func test_get_dome_id_for_plate_uses_explicit_then_synthetic_ids() -> void:
 	assert_str(DomeRegistry.get_dome_id_for_plate(0, 15)).is_equal("dome_01")

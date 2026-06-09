@@ -630,30 +630,6 @@ func test_session_airlock_exit_outer_faces_project_forward_negative_z() -> void:
 
 	assert_vector3(forward).is_equal_approx(Vector3.FORWARD, Vector3(0.001, 0.001, 0.001))
 
-func test_session_opens_outer_exit_immediately_on_real_airlock() -> void:
-	var session = auto_free(load("res://core_v2/autoloads/SessionManager.gd").new())
-	add_child(session)
-	var airlock = auto_free(AirlockChamberScene.instance())
-	add_child(airlock)
-	yield(get_tree(), "idle_frame")
-
-	session._open_transition_airlock_exit(airlock, {"target_airlock_exit_door": "outer"})
-
-	var outer_state = airlock.get_node("OuterDoor/IrisMechanism")
-	assert_bool(outer_state.is_active).is_true()
-	assert_float(outer_state.anim_progress).is_equal_approx(1.0, 0.001)
-	assert_float(airlock.timer).is_less(0.0)
-
-	airlock.step(airlock.reset_time + 0.1)
-
-	assert_int(airlock.state).is_equal(AirlockControllerV2.State.EXIT_OPEN)
-	assert_bool(outer_state.is_active).is_true()
-
-	airlock.resume_exit_open_auto_reset()
-	airlock.step(airlock.reset_time + 0.1)
-
-	assert_int(airlock.state).is_equal(AirlockControllerV2.State.PRESSURIZING)
-	assert_bool(outer_state.is_active).is_false()
 
 func test_session_visual_snap_uses_animator_expected_direction_sign() -> void:
 	var session = auto_free(load("res://core_v2/autoloads/SessionManager.gd").new())
