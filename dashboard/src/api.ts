@@ -1,0 +1,29 @@
+const getAuthToken = () => sessionStorage.getItem("odisea_token");
+
+export async function apiFetch(endpoint: string, options: RequestInit = {}) {
+  const token = getAuthToken();
+  const headers = {
+    ...options.headers,
+    "Authorization": `Bearer ${token}`,
+  };
+
+  const response = await fetch(endpoint, { ...options, headers });
+
+  if (response.status === 401) {
+    sessionStorage.removeItem("odisea_token");
+    window.location.reload();
+    throw new Error("Unauthorized");
+  }
+
+  return response;
+}
+
+export async function getStatus() {
+  const response = await apiFetch("/status");
+  return response.json();
+}
+
+export async function getHealth() {
+  const response = await fetch("/health");
+  return response.json();
+}
