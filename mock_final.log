@@ -1,0 +1,2 @@
+Handshake ack: {"type": "error", "error": "invalid_token"}
+Mock peer error: received 1008 (policy violation); then sent 1008 (policy violation)

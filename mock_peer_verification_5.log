@@ -1,0 +1,2 @@
+Handshake ack: {"type": "handshake_ack", "status": "ok"}
+Mock peer error: no close frame received or sent

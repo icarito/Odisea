@@ -1,0 +1,3 @@
+2026-06-09 13:18:22,973 [WARNING] Using INSECURE dev default token. Set ODISEA_BRIDGE_TOKEN for production.
+2026-06-09 13:18:22,975 [INFO] Serving static assets from ./dashboard/dist/assets
+2026-06-09 13:18:22,975 [INFO] Central server started on port 5003

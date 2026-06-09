@@ -17,6 +17,7 @@ BRIDGE_TOKEN = os.environ.get("ODISEA_BRIDGE_TOKEN", DEV_DEFAULT_TOKEN)
 CACHE_TTL = int(os.environ.get("CENTRAL_CACHE_TTL", 60))
 STORE_GHOSTS = os.environ.get("CENTRAL_STORE_GHOSTS", "false").lower() == "true"
 GHOSTS_DIR = os.environ.get("CENTRAL_GHOSTS_DIR", "./data/ghosts")
+STATIC_DIR = os.environ.get("CENTRAL_STATIC_DIR", "./dashboard/dist")
 
 # HTTP auth brute-force protection: after AUTH_MAX_FAILS bad tokens from one IP within
 # AUTH_FAIL_WINDOW seconds, that IP is locked out for AUTH_LOCKOUT seconds (HTTP 429).
@@ -388,6 +389,46 @@ class OdiseaCentral:
         sessions = list(set(hb.get("session_id") for hb in self.heartbeats.values() if hb.get("session_id")))
         return web.json_response(sessions)
 
+    async def handle_history(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        history = []
+        if os.path.exists(GHOSTS_DIR):
+            for pid in os.listdir(GHOSTS_DIR):
+                pid_path = os.path.join(GHOSTS_DIR, pid)
+                if os.path.isdir(pid_path):
+                    for sid_file in os.listdir(pid_path):
+                        if sid_file.endswith(".jsonl"):
+                            sid = sid_file[:-6]
+                            fpath = os.path.join(pid_path, sid_file)
+                            mtime = os.path.getmtime(fpath)
+                            history.append({
+                                "player_id": pid,
+                                "session_id": sid,
+                                "timestamp": mtime,
+                                "size_kb": os.path.getsize(fpath) // 1024
+                            })
+
+        history.sort(key=lambda x: x["timestamp"], reverse=True)
+        return web.json_response(history)
+
+    async def handle_download_session(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        pid = request.match_info.get('player_id')
+        sid = request.match_info.get('session_id')
+        fpath = os.path.join(GHOSTS_DIR, pid, f"{sid}.jsonl")
+
+        if os.path.exists(fpath):
+            return web.FileResponse(fpath, headers={
+                "Content-Disposition": f'attachment; filename="{sid}.jsonl"'
+            })
+        return web.Response(status=404, text="Session not found")
+
     async def handle_health(self, request):
         # Public endpoint
         return web.json_response({
@@ -398,6 +439,9 @@ class OdiseaCentral:
 
     async def handle_index(self, request):
         # Public observability dashboard; data fetches still require the Bearer token.
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return web.FileResponse(index_path)
         return web.Response(text=DASHBOARD_HTML, content_type="text/html")
 
     async def run(self):
@@ -407,8 +451,14 @@ class OdiseaCentral:
             web.get('/ws', self.handle_ws),
             web.get('/status', self.handle_status),
             web.get('/sessions', self.handle_sessions),
+            web.get('/sessions/history', self.handle_history),
+            web.get('/sessions/{player_id}/{session_id}', self.handle_download_session),
             web.get('/health', self.handle_health),
         ])
+
+        if os.path.exists(STATIC_DIR):
+            app.router.add_static('/assets/', path=os.path.join(STATIC_DIR, "assets"), name='assets')
+            logger.info(f"Serving static assets from {STATIC_DIR}/assets")
 
         runner = web.AppRunner(app)
         await runner.setup()

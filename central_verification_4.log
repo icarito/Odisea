@@ -1,0 +1,22 @@
+2026-06-09 13:13:50,534 [WARNING] Using INSECURE dev default token. Set ODISEA_BRIDGE_TOKEN for production.
+2026-06-09 13:13:50,536 [INFO] Serving static assets from ./dashboard/dist/assets
+Traceback (most recent call last):
+  File "/app/odisea_central.py", line 486, in <module>
+    asyncio.run(central.run())
+  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/app/odisea_central.py", line 466, in run
+    await site.start()
+  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/aiohttp/web_runner.py", line 138, in start
+    self._server = await loop.create_server(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/asyncio/base_events.py", line 1584, in create_server
+    raise OSError(err.errno, msg) from None
+OSError: [Errno 98] error while attempting to bind on address ('0.0.0.0', 5003): [errno 98] address already in use
