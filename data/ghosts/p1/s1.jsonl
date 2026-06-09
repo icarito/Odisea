@@ -1,0 +1,6 @@
+{"type": "heartbeat", "player_id": "p1", "session_id": "s1", "player": {"position": [0, 0, 0]}}
+{"type": "heartbeat", "player_id": "p1", "session_id": "s1", "player": {"position": [1, 0, 0]}}
+{"type": "heartbeat", "player_id": "p1", "session_id": "s1", "player": {"position": [2, 0, 0]}}
+{"type": "heartbeat", "player_id": "p1", "session_id": "s1", "player": {"position": [3, 0, 0]}}
+{"type": "heartbeat", "player_id": "p1", "session_id": "s1", "player": {"position": [4, 0, 0]}}
+{"type": "heartbeat", "player_id": "p1", "session_id": "s1", "player": {"position": [99, 0, 0]}}
