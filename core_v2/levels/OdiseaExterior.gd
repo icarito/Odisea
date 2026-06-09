@@ -915,6 +915,19 @@ func _sort_lod_entry_by_dist(a: Dictionary, b: Dictionary) -> bool:
 		return asp < bsp
 	return int(aa.get("plate_index", -1)) < int(ab.get("plate_index", -1))
 
+func _insert_ranked_lod_entry(ranked: Array, entry: Dictionary, max_count: int) -> void:
+	if max_count <= 0:
+		return
+	var dist_sq := float(entry.get("dist_sq", 0.0))
+	var insert_at := ranked.size()
+	while insert_at > 0 and dist_sq < float(ranked[insert_at - 1].get("dist_sq", 0.0)):
+		insert_at -= 1
+	if insert_at >= max_count:
+		return
+	ranked.insert(insert_at, entry)
+	if ranked.size() > max_count:
+		ranked.pop_back()
+
 func _build_dome_lod_stats(assignments: Array, full_detail_keys: Dictionary, overlay_part_count: int) -> Dictionary:
 	if _segment_manager and _segment_manager.has_method("build_stats"):
 		var shell_visible := false
