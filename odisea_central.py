@@ -18,6 +18,178 @@ GHOSTS_DIR = os.environ.get("CENTRAL_GHOSTS_DIR", "./data/ghosts")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger("odisea_central")
 
+# Self-contained observability dashboard (no external deps). The page itself is public;
+# the live data still requires the Bearer token, which the user types as a password and
+# the browser sends on each /status fetch.
+DASHBOARD_HTML = r"""<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Odisea — Observabilidad (Central)</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+         background:#0c0e12; color:#d7dbe0; }
+  header { display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+           padding:10px 16px; background:#13161c; border-bottom:1px solid #232833; position:sticky; top:0; }
+  header h1 { font-size:15px; margin:0; color:#7fd1ff; font-weight:600; }
+  .stat { color:#9aa3af; } .stat b { color:#e8edf2; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+  .ok { background:#3fb950; } .bad { background:#f85149; } .warn { background:#d29922; }
+  main { padding:12px 16px; }
+  table { border-collapse:collapse; width:100%; }
+  th,td { text-align:left; padding:6px 9px; border-bottom:1px solid #1c2129; white-space:nowrap; }
+  th { color:#8b95a3; font-weight:600; position:sticky; top:48px; background:#0c0e12; cursor:default; }
+  tr:hover td { background:#141821; }
+  .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .muted { color:#6b7280; } .scene { color:#7fd1ff; } .stale td { opacity:.45; }
+  .pill { background:#1c2230; border:1px solid #2a3140; border-radius:10px; padding:1px 7px; color:#aab3c0; }
+  /* Login gate */
+  #gate { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+          background:#0c0e12; z-index:10; }
+  #gate .box { background:#13161c; border:1px solid #232833; border-radius:10px; padding:26px 28px; width:340px; }
+  #gate h2 { margin:0 0 4px; font-size:16px; color:#7fd1ff; }
+  #gate p { margin:0 0 16px; color:#8b95a3; font-size:12px; }
+  #gate input { width:100%; padding:9px 11px; background:#0c0e12; border:1px solid #2a3140;
+                border-radius:6px; color:#e8edf2; font:inherit; }
+  #gate button { margin-top:12px; width:100%; padding:9px; background:#1f6feb; border:0;
+                 border-radius:6px; color:#fff; font:inherit; font-weight:600; cursor:pointer; }
+  #gate button:hover { background:#388bfd; }
+  #err { color:#f85149; font-size:12px; min-height:16px; margin-top:8px; }
+  .empty { color:#6b7280; padding:40px; text-align:center; }
+  .raw { white-space:pre; color:#8b95a3; font-size:11px; background:#0a0c10; padding:8px; }
+</style>
+</head>
+<body>
+<div id="gate">
+  <div class="box">
+    <h2>Odisea · Central</h2>
+    <p>Observabilidad de telemetría en tiempo real. Ingresá el token de acceso.</p>
+    <form id="loginForm">
+      <input id="token" type="password" placeholder="ODISEA_BRIDGE_TOKEN" autocomplete="current-password" autofocus>
+      <button type="submit">Conectar</button>
+      <div id="err"></div>
+    </form>
+  </div>
+</div>
+
+<header style="display:none" id="bar">
+  <h1>Odisea · Central</h1>
+  <span class="stat"><span id="connDot" class="dot warn"></span><span id="connTxt">conectando…</span></span>
+  <span class="stat">players <b id="nPlayers">0</b></span>
+  <span class="stat">peers <b id="nPeers">?</b></span>
+  <span class="stat">refresco <b id="rate">1s</b></span>
+  <span class="stat muted" id="lastUpd"></span>
+  <span style="flex:1"></span>
+  <button id="logout" class="pill" style="cursor:pointer">salir</button>
+</header>
+
+<main style="display:none" id="view">
+  <table>
+    <thead><tr>
+      <th>player</th><th>host</th><th>plat</th><th>scene / zone</th><th>mode</th>
+      <th class="num">pos (x,y,z)</th><th class="num">vel</th><th class="num">yaw/pitch</th>
+      <th class="num">fps</th><th class="num">mem</th><th class="num">tick</th><th class="num">edad</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div id="empty" class="empty">Sin players reportando todavía.</div>
+</main>
+
+<script>
+let TOKEN = sessionStorage.getItem("odisea_token") || "";
+let timer = null;
+const REFRESH_MS = 1000;
+
+const $ = id => document.getElementById(id);
+const fmt3 = a => Array.isArray(a) ? a.map(v => (+v).toFixed(2)).join(", ") : "—";
+const f2 = a => Array.isArray(a) ? a.map(v => (+v).toFixed(2)).join(",") : "—";
+
+function showApp(on) {
+  $("gate").style.display = on ? "none" : "flex";
+  $("bar").style.display = on ? "flex" : "none";
+  $("view").style.display = on ? "block" : "none";
+}
+
+async function poll() {
+  try {
+    const r = await fetch("status", { headers: { "Authorization": "Bearer " + TOKEN } });
+    if (r.status === 401) { fail("Token inválido."); return; }
+    if (!r.ok) { setConn(false, "HTTP " + r.status); return; }
+    const data = await r.json();
+    render(data);
+    setConn(true, "conectado");
+    fetch("health").then(x => x.json()).then(h => $("nPeers").textContent = h.peers_connected ?? "?").catch(()=>{});
+  } catch (e) {
+    setConn(false, "sin conexión");
+  }
+}
+
+function setConn(ok, txt) {
+  $("connDot").className = "dot " + (ok ? "ok" : "bad");
+  $("connTxt").textContent = txt;
+  $("lastUpd").textContent = "actualizado " + new Date().toLocaleTimeString();
+}
+
+function render(map) {
+  const ids = Object.keys(map);
+  $("nPlayers").textContent = ids.length;
+  $("empty").style.display = ids.length ? "none" : "block";
+  const now = Date.now() / 1000;
+  const rows = ids.sort().map(pid => {
+    const hb = map[pid] || {}, p = hb.player || {};
+    const age = hb.timestamp ? (now - hb.timestamp) : null;
+    const stale = age != null && age > 10;
+    const ageTxt = age == null ? "—" : (age < 60 ? age.toFixed(0)+"s" : (age/60).toFixed(1)+"m");
+    return `<tr class="${stale ? 'stale' : ''}" title="${esc(pid)}">
+      <td>${esc(pid.slice(0,16))}</td>
+      <td>${esc(hb.host||'—')}</td>
+      <td>${esc(hb.platform||'—')}</td>
+      <td><span class="scene">${esc(p.scene||'—')}</span> <span class="muted">${esc(p.zone||'')}</span></td>
+      <td>${esc(p.mode||'—')}</td>
+      <td class="num">${fmt3(p.position)}</td>
+      <td class="num">${f2(p.velocity)}</td>
+      <td class="num">${p.yaw!=null?(+p.yaw).toFixed(2):'—'}/${p.pitch!=null?(+p.pitch).toFixed(2):'—'}</td>
+      <td class="num">${p.fps!=null?Math.round(p.fps):'—'}</td>
+      <td class="num">${p.memory_mb!=null?(+p.memory_mb).toFixed(0):'—'}</td>
+      <td class="num">${p.tick??'—'}</td>
+      <td class="num ${stale?'':'muted'}">${ageTxt}</td>
+    </tr>`;
+  }).join("");
+  $("rows").innerHTML = rows;
+}
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function start() {
+  showApp(true);
+  poll();
+  timer = setInterval(poll, REFRESH_MS);
+}
+function fail(msg) {
+  clearInterval(timer); timer = null;
+  TOKEN = ""; sessionStorage.removeItem("odisea_token");
+  showApp(false); $("err").textContent = msg; $("token").focus();
+}
+
+$("loginForm").addEventListener("submit", e => {
+  e.preventDefault();
+  TOKEN = $("token").value.trim();
+  if (!TOKEN) { $("err").textContent = "Ingresá el token."; return; }
+  sessionStorage.setItem("odisea_token", TOKEN);
+  $("err").textContent = "";
+  start();
+});
+$("logout").addEventListener("click", () => fail(""));
+
+if (TOKEN) start();
+</script>
+</body>
+</html>
+"""
+
 class OdiseaCentral:
     def __init__(self):
         self.heartbeats: Dict[str, dict] = {} # player_id -> heartbeat
@@ -161,9 +333,14 @@ class OdiseaCentral:
             "peers_connected": len(self.active_peers)
         })
 
+    async def handle_index(self, request):
+        # Public observability dashboard; data fetches still require the Bearer token.
+        return web.Response(text=DASHBOARD_HTML, content_type="text/html")
+
     async def run(self):
         app = web.Application()
         app.add_routes([
+            web.get('/', self.handle_index),
             web.get('/ws', self.handle_ws),
             web.get('/status', self.handle_status),
             web.get('/sessions', self.handle_sessions),
