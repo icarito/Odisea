@@ -155,7 +155,7 @@ static func _instruction_to_frames(inst: Dictionary, start_frame: int) -> Dictio
 				frames[start_frame + i] = {}
 			next_frame = start_frame + num_frames
 
-		"ASSERT", "SET", "MATH", "PRINT", "CLS", "HINT", "HINT_CLEAR", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "PLAY_ANIM", "PLAY_SOUND", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP", "CAMERA_SHAKE", "CAMERA_SHAKE_STOP", "OPEN", "CHANGE_SCENE", "ANNA_ENABLE", "ANNA_DISABLE", "ANNA_SET_TARGET":
+		"ASSERT", "SET", "MATH", "PRINT", "CLS", "HINT", "HINT_CLEAR", "GET_NODES_IN_GROUP", "CALL", "LOAD_PROP", "SPAWN", "PLAY_ANIM", "PLAY_SOUND", "SET_TIME_SCALE", "CINEMATIC_START", "CINEMATIC_STOP", "CAMERA_SHAKE", "CAMERA_SHAKE_STOP", "OPEN", "CHANGE_SCENE", "ANNA_ENABLE", "ANNA_DISABLE", "ANNA_SET_TARGET", "ANNA_DUMP":
 			# Logic commands: executed at the START of the frame, do not consume time
 			if not events.has(start_frame):
 				events[start_frame] = []

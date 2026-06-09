@@ -148,6 +148,45 @@
             "type": "shell",
             "command": "godot3-bin .",
             "inAgents": true
+        },
+        {
+            "label": "Run Odisea Bridge Peer",
+            "type": "shell",
+            "command": "python3 odisea_peer.py",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "odisea-peer",
+                "pattern": {
+                    "regexp": "^$"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*Initialized Peer.*",
+                    "endsPattern": ".*HTTP/WS server started on port.*"
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "detail": "FD-162 telemetry peer (mDNS + WS + HTTP en :4999). Consultá la telemetría V2 en http://localhost:4999/status"
+        },
+        {
+            "label": "Install Bridge Peer deps",
+            "type": "shell",
+            "command": "python3 -m pip install -r requirements-bridge.txt",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "detail": "Instala aiohttp + zeroconf para odisea_peer.py / odisea_central.py"
         }
     ]
 }

@@ -15,6 +15,9 @@ export(bool) var is_flammable := false
 export(float) var player_push_force := 15.0
 export(float) var damage_per_second := 20.0
 export(int) var grid_resolution := 32 setget set_grid_resolution
+# Rebuild the density grid every N physics frames instead of every frame. Damage/combustion
+# don't need 60Hz; 3 ≈ 20Hz. Set to 1 to restore exact per-frame behavior.
+export(int) var density_update_interval := 3
 export(float) var dense_damage_threshold := 1.0
 export(float) var min_combustion_density := 0.6
 export(float) var combustion_radius := 1.6
@@ -35,6 +38,7 @@ var _cell_particles: Array = []
 var _burning_cells: Dictionary = {}
 var _bodies_inside: Dictionary = {}
 var _collision_shape: CollisionShape = null
+var _density_tick := 0
 
 func _ready():
 	_resolve_collision_shape()
@@ -100,7 +104,10 @@ func _physics_process(delta: float) -> void:
 
 	_apply_manager_tuning()
 	_update_body_velocities(delta)
-	_rebuild_density_grid()
+	# Throttle the full grid rebuild; reuses the last grid on skipped frames.
+	if _density_tick % int(max(1, density_update_interval)) == 0:
+		_rebuild_density_grid()
+	_density_tick += 1
 	_apply_body_push(delta)
 	_apply_player_damage(delta)
 	if is_flammable:

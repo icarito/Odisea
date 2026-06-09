@@ -30,7 +30,7 @@ enum Command {
 	CAMERA_SHAKE, CAMERA_SHAKE_STOP,
 	PLAY_SOUND,
 	VCAMERA, VCAMERA_BLEND, VCAMERA_RETURN, VCAMERA_SHAKE,
-	ANNA_ENABLE, ANNA_DISABLE, ANNA_SET_TARGET,
+	ANNA_ENABLE, ANNA_DISABLE, ANNA_SET_TARGET, ANNA_DUMP,
 	HINT, HINT_CLEAR
 }
 
@@ -792,6 +792,10 @@ static func parse_instruction(line: String) -> Dictionary:
 
 		"ANNA_ENABLE", "ANNA_DISABLE":
 			data["target"] = _extract_quoted(parts, 1) if parts.size() > 1 else ""
+
+		"ANNA_DUMP":
+			# Optional path=... ; empty -> ANNAV2 picks its configured/default path
+			data["path"] = _extract_named_value(line, "path")
 
 		"ANNA_SET_TARGET":
 			data["target"] = _extract_quoted(parts, 1) if parts.size() > 1 else ""
