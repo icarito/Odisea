@@ -39,6 +39,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const activeHb = heartbeats[activeId];
   const activeHistory = history[activeId];
 
+  // Helper para garantizar que la posición sea un array de 3 números
+  const safePos = (p: any): [number, number, number] => {
+    if (Array.isArray(p) && p.length >= 3) {
+      return [Number(p[0]), Number(p[1]), Number(p[2])];
+    }
+    return [0, 0, 0];
+  };
+
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary font-mono flex flex-col">
       <Toaster position="bottom-right" />
@@ -62,8 +70,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       </header>
 
       <main className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - Player List & History */}
-        <div className="w-64 border-r border-border-custom flex flex-col bg-bg-primary">
+        {/* Left Sidebar - Player List & History (Hidden on small screens) */}
+        <div className="hidden lg:flex w-64 border-r border-border-custom flex-col bg-bg-primary">
           <div className="flex border-b border-border-custom">
             <button
               onClick={() => setShowHistory(false)}
@@ -99,62 +107,62 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
         {/* Center - 3D Viewport & Charts */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 relative p-4">
-            {activeHb ? (
-              <Viewport3D
-                position={activeHb.player?.position || [0, 0, 0]}
-                yaw={activeHb.player?.yaw || 0}
-                pitch={activeHb.player?.pitch || 0}
-                roll={activeHb.player?.roll || 0}
-                trail={activeHistory?.trail || []}
-                follow={followPlayer}
-                wireframe={wireframe}
-                sceneName={manualScene || activeHb.player?.scene || "Unknown"}
-              />
+          <div className="flex-1 relative p-4 flex flex-col">
+            {activeHb?.player ? (
+              <div className="flex-1 relative">
+                <Viewport3D
+                  position={safePos(activeHb.player.position)}
+                  yaw={Number(activeHb.player.yaw) || 0}
+                  pitch={Number(activeHb.player.pitch) || 0}
+                  roll={Number(activeHb.player.roll) || 0}
+                  trail={activeHistory?.trail || []}
+                  follow={followPlayer}
+                  wireframe={wireframe}
+                  sceneName={manualScene || activeHb.player.scene || "Unknown"}
+                />
+                
+                {/* Viewport Overlays */}
+                <div className="absolute top-6 right-6 flex flex-col gap-2 bg-bg-card/90 p-3 rounded border border-border-custom text-[10px] pointer-events-none">
+                  <div className="flex justify-between gap-4">
+                    <span className="text-text-muted">POS</span>
+                    <span>{safePos(activeHb.player.position).map(n => n.toFixed(2)).join(", ")}</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-text-muted">ROT</span>
+                    <span>Y:{(Number(activeHb.player.yaw) || 0).toFixed(2)} P:{(Number(activeHb.player.pitch) || 0).toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="absolute bottom-6 left-6 flex items-center gap-2 pointer-events-auto">
+                  <select
+                    value={manualScene || activeHb.player.scene || ""}
+                    onChange={(e) => setManualScene(e.target.value)}
+                    className="bg-bg-card/80 border border-border-custom text-[10px] px-2 py-1.5 rounded outline-none"
+                  >
+                    <option value="">Auto Scene</option>
+                    <option value="Dome_Crio">Dome_Crio</option>
+                    <option value="Exterior">Exterior</option>
+                    <option value="ZeroG">ZeroG</option>
+                  </select>
+                  <button
+                    onClick={() => setFollowPlayer(!followPlayer)}
+                    className={`px-3 py-1.5 rounded text-xs border ${followPlayer ? 'bg-accent text-bg-primary border-accent' : 'bg-bg-card/80 border-border-custom'}`}
+                  >
+                    Seguir Player
+                  </button>
+                  <button
+                    onClick={() => setWireframe(!wireframe)}
+                    className={`px-3 py-1.5 rounded text-xs border ${wireframe ? 'bg-accent text-bg-primary border-accent' : 'bg-bg-card/80 border-border-custom'}`}
+                  >
+                    Wireframe
+                  </button>
+                </div>
+              </div>
             ) : (
-              <div className="w-full h-full bg-black rounded-lg border border-border-custom flex items-center justify-center text-text-muted">
-                Seleccioná un player para ver telemetría 3D
+              <div className="flex-1 bg-black rounded-lg border border-border-custom flex items-center justify-center text-text-muted">
+                {activeHb ? "Esperando datos del jugador..." : "Seleccioná un player para ver telemetría 3D"}
               </div>
             )}
-
-            {/* Viewport Overlays */}
-            {activeHb && (
-              <div className="absolute top-6 right-6 flex flex-col gap-2 bg-bg-card/90 p-3 rounded border border-border-custom text-[10px]">
-                <div className="flex justify-between gap-4">
-                  <span className="text-text-muted">POS</span>
-                  <span>{(activeHb.player?.position || [0, 0, 0]).map(n => typeof n === 'number' ? n.toFixed(2) : '0.00').join(", ")}</span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-text-muted">ROT</span>
-                  <span>Y:{(activeHb.player?.yaw || 0).toFixed(2)} P:{(activeHb.player?.pitch || 0).toFixed(2)}</span>
-                </div>
-              </div>
-            )}
-
-            <div className="absolute bottom-6 left-6 flex items-center gap-2">
-              <select
-                value={manualScene || activeHb?.player.scene || ""}
-                onChange={(e) => setManualScene(e.target.value)}
-                className="bg-bg-card/80 border border-border-custom text-[10px] px-2 py-1.5 rounded outline-none"
-              >
-                <option value="">Auto Scene</option>
-                <option value="Dome_Crio">Dome_Crio</option>
-                <option value="Exterior">Exterior</option>
-                <option value="ZeroG">ZeroG</option>
-              </select>
-              <button
-                onClick={() => setFollowPlayer(!followPlayer)}
-                className={`px-3 py-1.5 rounded text-xs border ${followPlayer ? 'bg-accent text-bg-primary border-accent' : 'bg-bg-card/80 border-border-custom'}`}
-              >
-                Seguir Player
-              </button>
-              <button
-                onClick={() => setWireframe(!wireframe)}
-                className={`px-3 py-1.5 rounded text-xs border ${wireframe ? 'bg-accent text-bg-primary border-accent' : 'bg-bg-card/80 border-border-custom'}`}
-              >
-                Wireframe
-              </button>
-            </div>
           </div>
 
           <div className="h-60 border-t border-border-custom flex flex-col bg-bg-card p-4 gap-4">
@@ -182,8 +190,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           </div>
         </div>
 
-        {/* Right Sidebar - Alerts */}
-        <div className="w-72 border-l border-border-custom flex flex-col bg-bg-primary">
+        {/* Right Sidebar - Alerts (Hidden on small/medium screens) */}
+        <div className="hidden xl:flex w-72 border-l border-border-custom flex-col bg-bg-primary">
           <div className="p-3 text-[10px] uppercase text-text-muted font-bold border-b border-border-custom">
             Alertas / Log
           </div>

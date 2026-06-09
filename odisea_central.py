@@ -363,7 +363,18 @@ class OdiseaCentral:
 
                         self.session_rate_limit[session_id] = now
 
-                        self.heartbeats[player_id] = data
+                        # Fusionar datos para manejar actualizaciones parciales (tiers) del cliente Godot
+                        if player_id in self.heartbeats:
+                            existing = self.heartbeats[player_id]
+                            existing.update(data)
+                            if "player" in data and isinstance(data["player"], dict):
+                                if "player" not in existing or not isinstance(existing["player"], dict):
+                                    existing["player"] = {}
+                                existing["player"].update(data["player"])
+                            self.heartbeats[player_id] = existing
+                        else:
+                            self.heartbeats[player_id] = data.copy()
+
                         self.last_update[player_id] = now
                         self.metrics.record_heartbeat(session_id)
 

@@ -115,7 +115,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
 
         {trail.length > 1 && (
           <Line
-            points={trail.map(p => new THREE.Vector3(...p))}
+            points={trail.map(p => new THREE.Vector3(Number(p[0]), Number(p[1]), Number(p[2])))}
             color="#7fd1ff"
             lineWidth={2}
             transparent

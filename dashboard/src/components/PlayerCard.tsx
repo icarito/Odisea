@@ -30,19 +30,19 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ hb, isActive, onClick })
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         <div className="text-text-muted">Scene</div>
-        <div className="text-right truncate">{p.scene}</div>
+        <div className="text-right truncate">{p.scene ?? "N/A"}</div>
 
         <div className="text-text-muted">Mode</div>
-        <div className="text-right">{p.mode}</div>
+        <div className="text-right">{p.mode ?? "N/A"}</div>
 
         <div className="text-text-muted">FPS</div>
-        <div className="text-right">{Math.round(p.fps)}</div>
+        <div className="text-right">{Math.round(p.fps ?? 0)}</div>
 
         <div className="text-text-muted">Mem</div>
         <div className="text-right">{(p.memory_mb ?? 0).toFixed(1)} MB</div>
 
         <div className="text-text-muted">Tick</div>
-        <div className="text-right">{p.tick}</div>
+        <div className="text-right">{p.tick ?? "N/A"}</div>
       </div>
     </div>
   );

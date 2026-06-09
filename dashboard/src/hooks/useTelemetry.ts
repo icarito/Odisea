@@ -67,15 +67,19 @@ export const useTelemetry = () => {
             }];
           }
 
-          // Trail
-          const pos = hb.player?.position;
-          if (pos && (!hist.lastPos ||
-              Math.abs(pos[0] - hist.lastPos[0]) > 0.1 ||
-              Math.abs(pos[1] - hist.lastPos[1]) > 0.1 ||
-              Math.abs(pos[2] - hist.lastPos[2]) > 0.1)) {
-            hist.trail = [...hist.trail, pos].slice(-120);
-            hist.lastPos = pos;
-            hist.lastMoveTime = now;
+          // Trail (conversión estricta a números para evitar corrupción en Three.js)
+          const rawPos = hb.player?.position;
+          if (Array.isArray(rawPos) && rawPos.length >= 3) {
+            const pos: [number, number, number] = [Number(rawPos[0]), Number(rawPos[1]), Number(rawPos[2])];
+            
+            if (!hist.lastPos ||
+                Math.abs(pos[0] - hist.lastPos[0]) > 0.1 ||
+                Math.abs(pos[1] - hist.lastPos[1]) > 0.1 ||
+                Math.abs(pos[2] - hist.lastPos[2]) > 0.1) {
+              hist.trail = [...hist.trail, pos].slice(-120);
+              hist.lastPos = pos;
+              hist.lastMoveTime = now;
+            }
           }
 
           // Alerts
@@ -110,27 +114,8 @@ export const useTelemetry = () => {
             hist.initialMemory = currentMem; // Reset baseline
           }
 
-          const age = now / 1000 - hb.timestamp;
-          if (age > 15) {
-            newAlerts.push({
-              id: `${pid}-stale-${now}`,
-              type: 'stale',
-              message: `Player ${pid.slice(0,8)} is stale`,
-              timestamp: now,
-              playerId: pid
-            });
-          }
-
-          // Softlock check
-          if (mode !== 'menu' && (now - hist.lastMoveTime) > 30000) {
-             newAlerts.push({
-              id: `${pid}-softlock-${now}`,
-              type: 'softlock',
-              message: `Player ${pid.slice(0,8)} might be softlocked`,
-              timestamp: now,
-              playerId: pid
-            });
-          }
+          // Nota: Alertas de 'stale' y 'softlock' eliminadas para reducir ruido visual.
+          // Solo se notifican desconexiones y problemas críticos de rendimiento.
         });
 
         // Disconnect check
