@@ -6,9 +6,11 @@ const CAPTURE_DEFAULT_MAX := 36000 # ~10 min at 60 fps; ring buffer caps memory 
 
 var _command_queue_script = preload("res://core_v2/anna/v2/ANNAV2_CommandQueue.gd")
 var _thread_script = preload("res://core_v2/anna/v2/ANNAV2_Thread.gd")
+var _thread_web_script = preload("res://core_v2/anna/v2/ANNAV2_Thread_Web.gd")
 
 var _command_queue
 var _net_thread
+var _is_web_thread := false  # true when using ANNAV2_Thread_Web (worker-backed)
 var _player_id := ""
 var _session_id := ""
 
@@ -31,7 +33,15 @@ func _ready():
 	_session_id = _generate_uuid()
 
 	_command_queue = _command_queue_script.new()
-	_net_thread = _thread_script.new()
+
+	# On HTML5, use the worker-backed thread class that bridges to a Web Worker
+	# via JavaScript.eval(). WebSocket traffic stays off the main thread.
+	if OS.has_feature("web") and Engine.has_singleton("JavaScript"):
+		_net_thread = _thread_web_script.new()
+		_is_web_thread = true
+		print("[ANNAV2] HTML5: using worker-backed WebSocket bridge")
+	else:
+		_net_thread = _thread_script.new()
 
 	# URL query params (HTML5 only; no-op on native, where env vars are used instead).
 	# e.g. index.html?token=XXXX&central=host:port&bridge=host:port&nocentral=1
@@ -44,8 +54,17 @@ func _ready():
 	var central_override = _get_url_param("central")
 	if central_override != "":
 		_net_thread._central_url = "ws://" + central_override + "/ws"
+	var scheme_override = _get_url_param("scheme")
+	if scheme_override != "":
+		_net_thread.set_scheme(scheme_override)
 	if _get_url_param("nocentral") in ["1", "true", "yes", "on"]:
 		_net_thread._central_enabled = false
+	# HTML5 desde HTTPS: el navegador bloquea ws://, usar wss:// automaticamente
+	if OS.has_feature("web") and Engine.has_singleton("JavaScript"):
+		var js = Engine.get_singleton("JavaScript")
+		var proto = js.eval("window.location.protocol")
+		if proto == "https:":
+			_net_thread.set_scheme("wss")
 
 	_net_thread.start(_command_queue, _player_id, _session_id, GAME_VERSION)
 	_init_capture_from_env()
@@ -71,6 +90,9 @@ func _exit_tree():
 		_net_thread.stop()
 
 func _process(_delta):
+	if _is_web_thread:
+		_net_thread._main_thread_tick()
+
 	var now = OS.get_ticks_msec()
 	if now - _last_telemetry_ms >= TELEMETRY_INTERVAL_MS:
 		_last_telemetry_ms = now
@@ -83,23 +105,13 @@ func _process(_delta):
 func _update_telemetry():
 	var fps = Performance.get_monitor(Performance.TIME_FPS)
 	
+	# Forzamos tier 3 siempre para garantizar que el dashboard de observabilidad 
+	# reciba todos los datos (posicion, escena, modo, etc.) sin importar los FPS.
+	# El throttling por FPS causaba que se dejaran de enviar datos criticos cuando el juego bajaba de 30 FPS.
 	var interval_ms = 100
 	var tier = 3
-	
-	if fps < 10:
-		interval_ms = 0
-		tier = 0
-	elif fps < 20:
-		interval_ms = 2000
-		tier = 1
-	elif fps < 30:
-		interval_ms = 500
-		tier = 2
 		
 	_net_thread.update_heartbeat_params(interval_ms, tier)
-	
-	if tier == 0:
-		return
 
 	var player = SessionManager.player
 	var player_data = {
@@ -127,7 +139,11 @@ func _update_telemetry():
 		if "roll" in player: player_data["roll"] = player.get("roll") if "roll" in player else 0.0
 
 	if get_tree().current_scene:
-		player_data["scene"] = get_tree().current_scene.filename.get_file().get_basename()
+		var scene_name = get_tree().current_scene.filename.get_file().get_basename()
+		if scene_name == "":
+			scene_name = get_tree().current_scene.name # Fallback para escenas no guardadas o dinamicas
+		player_data["scene"] = scene_name
+		
 		if get_tree().current_scene.has_meta("zone"):
 			player_data["zone"] = get_tree().current_scene.get_meta("zone")
 

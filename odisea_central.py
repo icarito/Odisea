@@ -329,18 +329,21 @@ class OdiseaCentral:
                     if not authenticated:
                         if msg_type == "handshake":
                             token = data.get("token")
-                            if token == BRIDGE_TOKEN:
-                                authenticated = True
-                                peer_id = data.get("peer_id", "unknown")
-                                self.active_peers[ws] = peer_id
-                                self.peer_ws[peer_id] = ws
-                                logger.info(f"Peer authenticated: {peer_id}")
-                                await ws.send_json({"type": "handshake_ack", "status": "ok"})
-                            else:
-                                logger.warning(f"Peer authentication failed. Invalid token.")
-                                await ws.send_json({"type": "error", "error": "invalid_token"})
-                                await ws.close(code=WSCloseCode.POLICY_VIOLATION)
-                                break
+                            # Aceptamos conexiones anónimas para telemetría (HTML5 por defecto).
+                            # El token válido solo se exige para ejecutar comandos (ya protegido en HTTP).
+                            is_admin = (token == BRIDGE_TOKEN)
+                            
+                            authenticated = True
+                            peer_id = data.get("peer_id")
+                            if not peer_id or peer_id == "unknown":
+                                peer_id = "anon_" + str(uuid.uuid4())[:8]
+                            
+                            self.active_peers[ws] = peer_id
+                            self.peer_ws[peer_id] = ws
+                            
+                            mode = "admin" if is_admin else "telemetry"
+                            logger.info(f"Peer conectado ({mode}): {peer_id}")
+                            await ws.send_json({"type": "handshake_ack", "status": "ok", "mode": mode})
                         else:
                             logger.warning("Peer sent message before handshake.")
                             await ws.close(code=WSCloseCode.POLICY_VIOLATION)
@@ -360,7 +363,25 @@ class OdiseaCentral:
 
                         self.session_rate_limit[session_id] = now
 
-                        self.heartbeats[player_id] = data
+                        # Fusionar datos para manejar actualizaciones parciales (tiers) del cliente Godot
+                        if player_id in self.heartbeats:
+                            existing = self.heartbeats[player_id]
+                            existing.update(data)
+                            if "player" in data and isinstance(data["player"], dict):
+                                if "player" not in existing or not isinstance(existing["player"], dict):
+                                    existing["player"] = {}
+                                
+                                # Fusión inteligente: NO sobrescribir con valores vacíos o nulos
+                                curr_player = existing["player"]
+                                for key, value in data["player"].items():
+                                    if value is not None and value != "":
+                                        curr_player[key] = value
+                                        
+                                existing["player"] = curr_player
+                            self.heartbeats[player_id] = existing
+                        else:
+                            self.heartbeats[player_id] = data.copy()
+
                         self.last_update[player_id] = now
                         self.metrics.record_heartbeat(session_id)
 

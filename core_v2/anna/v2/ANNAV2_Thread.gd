@@ -19,8 +19,10 @@ var _server_enabled := false
 var _command_queue # Reference to ANNAV2_CommandQueue
 var _is_connected := false
 var _peer_url := ""
-var _central_url := ""
-var _bridge_token := ""
+# Por defecto, apuntar al nodo central para que HTML5 funcione sin parámetros URL
+var _central_url := "ws://" + DEFAULT_CENTRAL + "/ws"
+# Token de desarrollo por defecto para autenticación automática
+var _bridge_token := DEV_DEFAULT_TOKEN
 var _central_enabled := true
 
 var player_id := ""
@@ -31,6 +33,14 @@ var _last_telemetry := {}
 var _heartbeat_counter := 0
 var _heartbeat_interval_ms := 100
 var _throttle_tier := 3
+
+func set_scheme(scheme: String):
+	_mutex.lock()
+	if _central_url.begins_with("ws://") and scheme == "wss":
+		_central_url = "wss://" + _central_url.substr(5)
+	elif _central_url.begins_with("wss://") and scheme == "ws":
+		_central_url = "ws://" + _central_url.substr(6)
+	_mutex.unlock()
 
 func update_heartbeat_params(interval_ms: int, tier: int):
 	_mutex.lock()
@@ -273,24 +283,21 @@ func _send_heartbeat(tier: int):
 		"timestamp": OS.get_unix_time()
 	}
 	
+	# Envío completo en cada latido para garantizar telemetría continua en el dashboard
 	var player_msg = {
-		"fps": player_data.get("fps", 0)
+		"fps": player_data.get("fps", 0),
+		"position": player_data.get("position", [0, 0, 0]),
+		"yaw": player_data.get("yaw", 0.0),
+		"pitch": player_data.get("pitch", 0.0),
+		"roll": player_data.get("roll", 0.0),
+		"scene": player_data.get("scene", "Desconocida"),
+		"zone": player_data.get("zone", "Desconocida"),
+		"mode": player_data.get("mode", "standard"),
+		"tick": player_data.get("tick", 0),
+		"memory_mb": player_data.get("memory_mb", 0.0),
+		"velocity": player_data.get("velocity", [0, 0, 0])
 	}
 	
-	if tier >= 2 and _heartbeat_counter % 10 == 0:
-		player_msg["position"] = player_data.get("position", [0, 0, 0])
-		player_msg["yaw"] = player_data.get("yaw", 0.0)
-		player_msg["scene"] = player_data.get("scene", "")
-		player_msg["zone"] = player_data.get("zone", "")
-		
-	if tier >= 3 and _heartbeat_counter % 100 == 0:
-		player_msg["velocity"] = player_data.get("velocity", [0, 0, 0])
-		player_msg["pitch"] = player_data.get("pitch", 0.0)
-		player_msg["roll"] = player_data.get("roll", 0.0)
-		player_msg["mode"] = player_data.get("mode", "standard")
-		player_msg["tick"] = player_data.get("tick", 0)
-		player_msg["memory_mb"] = player_data.get("memory_mb", 0.0)
-		
 	msg["player"] = player_msg
 	_send_json(msg)
 

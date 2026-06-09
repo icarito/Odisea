@@ -1,3 +1,5 @@
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+
 const getAuthToken = () => sessionStorage.getItem("odisea_token");
 
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
@@ -7,7 +9,8 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
     "Authorization": `Bearer ${token}`,
   };
 
-  const response = await fetch(endpoint, { ...options, headers });
+  const url = `${API_BASE_URL}${endpoint}`;
+  const response = await fetch(url, { ...options, headers });
 
   if (response.status === 401) {
     sessionStorage.removeItem("odisea_token");
