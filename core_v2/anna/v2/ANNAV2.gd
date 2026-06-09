@@ -83,23 +83,13 @@ func _process(_delta):
 func _update_telemetry():
 	var fps = Performance.get_monitor(Performance.TIME_FPS)
 	
+	# Forzamos tier 3 siempre para garantizar que el dashboard de observabilidad 
+	# reciba todos los datos (posición, escena, modo, etc.) sin importar los FPS.
+	# El throttling por FPS causaba que se dejaran de enviar datos críticos cuando el juego bajaba de 30 FPS.
 	var interval_ms = 100
 	var tier = 3
-	
-	if fps < 10:
-		interval_ms = 0
-		tier = 0
-	elif fps < 20:
-		interval_ms = 2000
-		tier = 1
-	elif fps < 30:
-		interval_ms = 500
-		tier = 2
 		
 	_net_thread.update_heartbeat_params(interval_ms, tier)
-	
-	if tier == 0:
-		return
 
 	var player = SessionManager.player
 	var player_data = {
@@ -127,7 +117,11 @@ func _update_telemetry():
 		if "roll" in player: player_data["roll"] = player.get("roll") if "roll" in player else 0.0
 
 	if get_tree().current_scene:
-		player_data["scene"] = get_tree().current_scene.filename.get_file().get_basename()
+		var scene_name = get_tree().current_scene.filename.get_file().get_basename()
+		if scene_name == "":
+			scene_name = get_tree().current_scene.name # Fallback para escenas no guardadas o dinámicas
+		player_data["scene"] = scene_name
+		
 		if get_tree().current_scene.has_meta("zone"):
 			player_data["zone"] = get_tree().current_scene.get_meta("zone")
 

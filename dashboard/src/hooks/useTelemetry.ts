@@ -7,6 +7,7 @@ export const useTelemetry = () => {
   const [peersConnected, setPeersConnected] = useState<number | string>('?');
   const [isConnected, setIsConnected] = useState(true);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const disconnectedPids = useRef<Set<string>>(new Set());
   const historyRef = useRef<Record<string, {
     fps: number[],
     memory: number[],
@@ -118,17 +119,18 @@ export const useTelemetry = () => {
           // Solo se notifican desconexiones y problemas críticos de rendimiento.
         });
 
-        // Disconnect check
+        // Disconnect check (evitar bucle infinito marcando los ya procesados)
         Object.keys(historyRef.current).forEach(pid => {
-          if (!data[pid]) {
-             newAlerts.push({
+          if (!data[pid] && !disconnectedPids.current.has(pid)) {
+            disconnectedPids.current.add(pid);
+            newAlerts.push({
               id: `${pid}-disconnect-${now}`,
               type: 'disconnect',
               message: `Player ${pid.slice(0,8)} disconnected`,
               timestamp: now,
               playerId: pid
             });
-            // We don't delete from historyRef to keep charts frozen
+            // No borramos de historyRef para mantener los gráficos congelados
           }
         });
 
