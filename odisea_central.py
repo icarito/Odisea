@@ -370,7 +370,14 @@ class OdiseaCentral:
                             if "player" in data and isinstance(data["player"], dict):
                                 if "player" not in existing or not isinstance(existing["player"], dict):
                                     existing["player"] = {}
-                                existing["player"].update(data["player"])
+                                
+                                # Fusión inteligente: NO sobrescribir con valores vacíos o nulos
+                                curr_player = existing["player"]
+                                for key, value in data["player"].items():
+                                    if value is not None and value != "":
+                                        curr_player[key] = value
+                                        
+                                existing["player"] = curr_player
                             self.heartbeats[player_id] = existing
                         else:
                             self.heartbeats[player_id] = data.copy()
