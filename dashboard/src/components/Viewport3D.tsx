@@ -16,9 +16,19 @@ interface Viewport3DProps {
 
 const SceneModel: React.FC<{ sceneName: string; wireframe: boolean }> = ({ sceneName, wireframe }) => {
   const url = `/game-assets/${sceneName}.glb`;
-  const { scene } = useGLTF(url);
+
+  // Resilient GLTF loading
+  let scene;
+  try {
+    const gltf = useGLTF(url);
+    scene = gltf.scene;
+  } catch (e) {
+    console.warn(`Failed to load level model: ${url}. Fallback to grid only.`);
+    return null;
+  }
 
   useEffect(() => {
+    if (!scene) return;
     scene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
@@ -41,6 +51,20 @@ const SceneModel: React.FC<{ sceneName: string; wireframe: boolean }> = ({ scene
 
   return <primitive object={scene} />;
 };
+
+// Error Boundary for R3F
+class SceneErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+    constructor(props: any) {
+        super(props);
+        this.state = { hasError: false };
+    }
+    static getDerivedStateFromError() { return { hasError: true }; }
+    componentDidCatch(error: any) { console.warn("R3F Error:", error); }
+    render() {
+        if (this.state.hasError) return null;
+        return this.props.children;
+    }
+}
 
 const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, pitch: number, roll: number }> = ({ position, yaw, pitch, roll }) => {
   const meshRef = useRef<THREE.Group>(null);
@@ -79,9 +103,11 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
         <directionalLight position={[10, 10, 5]} intensity={1} />
         <pointLight position={[-10, 5, -10]} intensity={0.5} />
 
-        <Suspense fallback={null}>
-            {sceneName && <SceneModel sceneName={sceneName} wireframe={wireframe} />}
-        </Suspense>
+        <SceneErrorBoundary>
+            <Suspense fallback={null}>
+                {sceneName && <SceneModel sceneName={sceneName} wireframe={wireframe} />}
+            </Suspense>
+        </SceneErrorBoundary>
 
         <PlayerMarker position={position} yaw={yaw} pitch={pitch} roll={roll} />
 
@@ -96,6 +122,13 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
         )}
 
         <Grid infiniteGrid fadeDistance={100} cellColor="#232833" sectionColor="#2a3140" />
+
+        {/* Ground plane for depth when GLB is missing */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
+          <planeGeometry args={[1000, 1000]} />
+          <meshStandardMaterial color="#0c0e12" transparent opacity={0.4} />
+        </mesh>
+
         <OrbitControls
             ref={controlsRef}
             enablePan={true}
