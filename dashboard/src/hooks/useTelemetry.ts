@@ -39,7 +39,7 @@ export const useTelemetry = () => {
                 lastTick: 0,
                 lastMoveTime: now,
                 lowFpsStartTime: null,
-                initialMemory: hb.player.memory_mb,
+                initialMemory: hb.player?.memory_mb ?? 0,
                 events: []
             };
           }

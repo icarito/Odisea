@@ -39,7 +39,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ hb, isActive, onClick })
         <div className="text-right">{Math.round(p.fps)}</div>
 
         <div className="text-text-muted">Mem</div>
-        <div className="text-right">{p.memory_mb.toFixed(1)} MB</div>
+        <div className="text-right">{(p.memory_mb ?? 0).toFixed(1)} MB</div>
 
         <div className="text-text-muted">Tick</div>
         <div className="text-right">{p.tick}</div>

@@ -76,7 +76,7 @@ export const SessionHistory: React.FC = () => {
                     });
                 }
                 totalFps += hb.player.fps;
-                if (hb.player.memory_mb > peakMem) peakMem = hb.player.memory_mb;
+                if ((hb.player?.memory_mb ?? 0) > peakMem) peakMem = hb.player?.memory_mb ?? 0;
             });
 
             const duration = data[data.length-1].timestamp - data[0].timestamp;
