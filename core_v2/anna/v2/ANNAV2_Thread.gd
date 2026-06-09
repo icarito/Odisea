@@ -209,7 +209,14 @@ func _on_data():
 		if type == "handshake_ack":
 			print("[ANNAV2] Handshake ACK received")
 		elif type == "command":
-			_command_queue.push(msg)
+			var action = msg.get("action")
+			var args = msg.get("args", {})
+			var cmd_id = msg.get("id", "unknown")
+			_command_queue.push({
+				"action": action,
+				"args": args,
+				"id": cmd_id
+			})
 
 func _send_handshake():
 	var platform = "desktop"

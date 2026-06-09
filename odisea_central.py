@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import time
+import uuid
 from typing import Dict, Any
 
 from aiohttp import web, WSCloseCode
@@ -207,8 +208,10 @@ class OdiseaCentral:
         self.heartbeats: Dict[str, dict] = {} # player_id -> heartbeat
         self.last_update: Dict[str, float] = {} # player_id -> timestamp
         self.session_rate_limit: Dict[str, float] = {} # session_id -> last_heartbeat_time
-        self.active_peers = set() # set of active WebSocket objects
+        self.active_peers: Dict[web.WebSocketResponse, str] = {} # ws -> peer_id
+        self.peer_ws: Dict[str, web.WebSocketResponse] = {} # peer_id -> ws
         self.auth_fails: Dict[str, dict] = {} # ip -> {"ts": [failure timestamps], "locked_until": float}
+        self.pending_commands: Dict[str, asyncio.Future] = {} # command_id -> Future
 
         if STORE_GHOSTS and not os.path.exists(GHOSTS_DIR):
             os.makedirs(GHOSTS_DIR, exist_ok=True)
@@ -292,7 +295,6 @@ class OdiseaCentral:
 
         peer_id = None
         authenticated = False
-        self.active_peers.add(ws)
 
         logger.info("New peer connection attempt.")
 
@@ -310,6 +312,8 @@ class OdiseaCentral:
                                     authenticated = True
                                     peer_id = data.get("peer_id", "unknown")
                                     logger.info(f"Peer authenticated: {peer_id}")
+                                    self.active_peers[ws] = peer_id
+                                    self.peer_ws[peer_id] = ws
                                     await ws.send_json({"type": "handshake_ack", "status": "ok"})
                                 else:
                                     logger.warning(f"Peer authentication failed. Invalid token.")
@@ -345,13 +349,23 @@ class OdiseaCentral:
                             if STORE_GHOSTS:
                                 self._store_ghost(player_id, session_id, data)
 
+                        elif msg_type == "command_response":
+                            cmd_id = data.get("id")
+                            if cmd_id in self.pending_commands:
+                                fut = self.pending_commands.pop(cmd_id)
+                                if not fut.done():
+                                    fut.set_result(data)
+
                     except Exception as e:
                         logger.error(f"Error processing peer message: {e}")
                 elif msg.type == web.WSMsgType.ERROR:
                     logger.error(f"Peer connection closed with exception {ws.exception()}")
 
         finally:
-            self.active_peers.discard(ws)
+            if ws in self.active_peers:
+                pid = self.active_peers.pop(ws)
+                if self.peer_ws.get(pid) == ws:
+                    self.peer_ws.pop(pid, None)
             logger.info(f"Peer disconnected: {peer_id}")
 
         return ws
@@ -388,6 +402,64 @@ class OdiseaCentral:
         sessions = list(set(hb.get("session_id") for hb in self.heartbeats.values() if hb.get("session_id")))
         return web.json_response(sessions)
 
+    async def handle_command(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        try:
+            body = await request.json()
+            action = body.get("action")
+            args = body.get("args", {})
+        except Exception:
+            return web.json_response({"error": "invalid_json"}, status=400)
+
+        if not action:
+            return web.json_response({"error": "missing_action"}, status=400)
+
+        # Forward to all connected peers (or find the one matching player_id if provided)
+        if not self.active_peers:
+            return web.json_response({"error": "no_peers_connected"}, status=503)
+
+        cmd_id = str(uuid.uuid4())[:8]
+        cmd = {
+            "type": "command",
+            "action": action,
+            "args": args,
+            "id": cmd_id
+        }
+
+        # Find target peer
+        target_ws = None
+        player_id = body.get("player_id") or args.get("player_id")
+        if player_id:
+            hb = self.heartbeats.get(player_id)
+            if hb:
+                target_peer_id = hb.get("peer_id")
+                if target_peer_id:
+                    target_ws = self.peer_ws.get(target_peer_id)
+
+        if not target_ws:
+            # Fallback: using first connected peer as per prompt instruction
+            target_ws = next(iter(self.active_peers.keys()))
+
+        # Create future for response
+        fut = asyncio.get_running_loop().create_future()
+        self.pending_commands[cmd_id] = fut
+
+        try:
+            await target_ws.send_json(cmd)
+            # Wait for response with 5s timeout
+            response = await asyncio.wait_for(fut, timeout=5.5)
+            return web.json_response(response)
+        except asyncio.TimeoutError:
+            self.pending_commands.pop(cmd_id, None)
+            return web.json_response({"error": "timeout", "message": "Peer/Godot took too long to respond"}, status=504)
+        except Exception as e:
+            self.pending_commands.pop(cmd_id, None)
+            logger.error(f"Command relay failed: {e}")
+            return web.json_response({"error": "relay_failed", "message": str(e)}, status=502)
+
     async def handle_health(self, request):
         # Public endpoint
         return web.json_response({
@@ -407,6 +479,7 @@ class OdiseaCentral:
             web.get('/ws', self.handle_ws),
             web.get('/status', self.handle_status),
             web.get('/sessions', self.handle_sessions),
+            web.post('/command', self.handle_command),
             web.get('/health', self.handle_health),
         ])
 
