@@ -17,6 +17,7 @@ jobs:
     env:
       GODOT_VERSION: 3.6.2-stable
       GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
+      ANNA_V2_NO_CENTRAL: "1"
     permissions:
       contents: read
       checks: write

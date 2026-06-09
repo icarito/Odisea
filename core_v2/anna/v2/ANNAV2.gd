@@ -12,8 +12,8 @@ var _net_thread
 var _player_id := ""
 var _session_id := ""
 
-# --- Local telemetry capture (bridge-independent; off by default) ---
-var _capture_enabled := false
+# --- Local telemetry capture (bridge-independent; ON by default) ---
+var _capture_enabled := true
 var _capture_buffer := []
 var _capture_max := CAPTURE_DEFAULT_MAX
 var _capture_dump_path := ""
@@ -81,6 +81,26 @@ func _process(_delta):
 		call_deferred("_execute_command", cmd)
 
 func _update_telemetry():
+	var fps = Performance.get_monitor(Performance.TIME_FPS)
+	
+	var interval_ms = 100
+	var tier = 3
+	
+	if fps < 10:
+		interval_ms = 0
+		tier = 0
+	elif fps < 20:
+		interval_ms = 2000
+		tier = 1
+	elif fps < 30:
+		interval_ms = 500
+		tier = 2
+		
+	_net_thread.update_heartbeat_params(interval_ms, tier)
+	
+	if tier == 0:
+		return
+
 	var player = SessionManager.player
 	var player_data = {
 		"position": [0, 0, 0],
@@ -92,7 +112,7 @@ func _update_telemetry():
 		"scene": "",
 		"zone": "",
 		"tick": 0,
-		"fps": Performance.get_monitor(Performance.TIME_FPS),
+		"fps": fps,
 		"memory_mb": Performance.get_monitor(Performance.MEMORY_STATIC) / 1024 / 1024
 	}
 

@@ -30,6 +30,7 @@ jobs:
     env:
       SIMULATE_REGRESSION: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_regression || 'false' }}
       FPS_TOLERANCE: ${{ github.event_name == 'workflow_dispatch' && inputs.fps_tolerance || '0.97' }}
+      ANNA_V2_NO_CENTRAL: "1"
 
     steps:
       - name: Checkout
