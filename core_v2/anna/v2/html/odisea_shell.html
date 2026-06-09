@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>$GODOT_PROJECT_NAME</title>
+	<meta charset="UTF-8">
+	<style>
+		* { margin: 0; padding: 0; }
+		body { background: #000; overflow: hidden; }
+		canvas { display: block; }
+	</style>
+$GODOT_HEAD_INCLUDE
+</head>
+<body>
+	<canvas id="canvas"></canvas>
+	<script src="$GODOT_URL"></script>
+	<script>
+(function() {
+	// ================================================================
+	// ANNAV2 WebSocket Bridge — uses a Web Worker to keep WebSocket
+	// traffic off the main thread. Godot calls methods on
+	// window.ANNAV2_WS_Bridge via JavaScript.eval().
+	// ================================================================
+
+	var workerCode = [
+		"var ws = null;",
+		"var pendingIncoming = [];",
+		"self.onmessage = function(e) {",
+		"  var msg = e.data;",
+		"  switch (msg.cmd) {",
+		"    case 'connect':",
+		"      if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) { ws.close(); }",
+		"      pendingIncoming.length = 0;",
+		"      try { ws = new WebSocket(msg.url); } catch(err) { self.postMessage({cmd:'error',text:err.message}); self.postMessage({cmd:'state',state:3}); return; }",
+		"      ws.binaryType = 'arraybuffer';",
+		"      ws.onopen = function() { self.postMessage({cmd:'state',state:1}); };",
+		"      ws.onclose = function(ev) { self.postMessage({cmd:'state',state:3}); ws = null; };",
+		"      ws.onerror = function()  { self.postMessage({cmd:'state',state:3}); };",
+		"      ws.onmessage = function(ev) {",
+		"        var text = typeof ev.data === 'string' ? ev.data : new TextDecoder('utf-8').decode(new Uint8Array(ev.data));",
+		"        pendingIncoming.push(text);",
+		"      };",
+		"      break;",
+		"    case 'disconnect':",
+		"      if (ws) { ws.close(); ws = null; }",
+		"      pendingIncoming.length = 0;",
+		"      self.postMessage({cmd:'state',state:3});",
+		"      break;",
+		"    case 'send':",
+		"      if (ws && ws.readyState === WebSocket.OPEN) { ws.send(msg.text); }",
+		"      break;",
+		"    case 'poll':",
+		"      var n = msg.max || 16;",
+		"      self.postMessage({cmd:'pollResult', messages: pendingIncoming.splice(0, n)});",
+		"      break;",
+		"    case 'getState':",
+		"      self.postMessage({cmd:'state', state: ws ? ws.readyState : 3});",
+		"      break;",
+		"  }",
+		"};"
+	].join("\n");
+
+	var blob = new Blob([workerCode], { type: "application/javascript" });
+	var workerUrl = URL.createObjectURL(blob);
+	var worker = new Worker(workerUrl);
+
+	// Queue for messages the bridge consumer (Godot) hasn't collected yet.
+	var incomingQueue = [];
+	var currentState = 3; // WebSocket.CLOSED
+
+	worker.onmessage = function(e) {
+		var msg = e.data;
+		switch (msg.cmd) {
+			case "pollResult":
+				if (msg.messages && msg.messages.length) {
+					incomingQueue.push.apply(incomingQueue, msg.messages);
+				}
+				break;
+			case "state":
+				currentState = msg.state;
+				break;
+			case "error":
+				console.warn("[ANNAV2-Bridge] Worker error:", msg.text);
+				break;
+		}
+	};
+
+	window.ANNAV2_WS_Bridge = {
+		/**
+		 * Open a WebSocket connection (or reconnect).
+		 * @param {string} url  e.g. "wss://35.182.238.36:5003/ws"
+		 */
+		connect: function(url) {
+			incomingQueue.length = 0;
+			currentState = 0; // CONNECTING
+			worker.postMessage({ cmd: "connect", url: url });
+		},
+
+		/**
+		 * Close the current WebSocket connection.
+		 */
+		disconnect: function() {
+			worker.postMessage({ cmd: "disconnect" });
+			incomingQueue.length = 0;
+		},
+
+		/**
+		 * Send a text message over the WebSocket.
+		 * @param {string} text  JSON string
+		 */
+		send: function(text) {
+			worker.postMessage({ cmd: "send", text: text });
+		},
+
+		/**
+		 * Tell the worker to flush its internal buffer into the bridge
+		 * queue, then return all collected messages.
+		 * @returns {string[]}  array of JSON strings from the server
+		 */
+		poll: function() {
+			worker.postMessage({ cmd: "poll" });
+			var out = incomingQueue.slice();
+			incomingQueue.length = 0;
+			return out || [];
+		},
+
+		/**
+		 * Return the current readyState:
+		 *   0 = CONNECTING, 1 = OPEN, 2 = CLOSING, 3 = CLOSED
+		 */
+		getState: function() {
+			worker.postMessage({ cmd: "getState" });
+			return currentState;
+		}
+	};
+
+	console.log("[ANNAV2-Bridge] Worker installed. Use window.ANNAV2_WS_Bridge.{connect,disconnect,send,poll,getState}");
+})();
+	</script>
+	<script>
+		var engine = new Engine($GODOT_CONFIG);
+		engine.startGame();
+	</script>
+</body>
+</html>

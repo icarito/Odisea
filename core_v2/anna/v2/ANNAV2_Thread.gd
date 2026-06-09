@@ -12,10 +12,6 @@ var _thread: Thread
 var _stop_thread := false
 var _mutex := Mutex.new()
 
-# HTML5 bypass: Thread is not available in Godot 3.x WebAssembly exports.
-# When true, the main thread polls _tick() directly instead of spawning a Thread.
-var _is_web_bypass := false
-
 var _client: WebSocketClient
 var _server: WebSocketServer
 var _server_enabled := false
@@ -37,11 +33,6 @@ var _last_telemetry := {}
 var _heartbeat_counter := 0
 var _heartbeat_interval_ms := 100
 var _throttle_tier := 3
-
-# Tick state (shared between _thread_func and _web_process)
-var _last_heartbeat := 0
-var _last_reconnect := 0
-var _server_listen_done := false
 
 func set_scheme(scheme: String):
 	_mutex.lock()
@@ -88,16 +79,8 @@ func start(command_queue, p_id, s_id, g_ver):
 	session_id = s_id
 	game_version = g_ver
 
-	if OS.has_feature("web"):
-		_is_web_bypass = true
-		print("[ANNAV2] HTML5 detected: running connection loop on main thread (Thread not available)")
-		return
-
 	_thread = Thread.new()
-	var err = _thread.start(self, "_thread_func")
-	if err != OK:
-		printerr("[ANNAV2] Thread.start() failed with error: ", err, ". Falling back to main-thread bypass.")
-		_is_web_bypass = true
+	_thread.start(self, "_thread_func")
 
 func stop():
 	_mutex.lock()
@@ -112,6 +95,9 @@ func update_telemetry(data: Dictionary):
 	_mutex.unlock()
 
 func _thread_func(_userdata):
+	var last_heartbeat = 0
+	var last_reconnect = 0
+
 	if _server_enabled:
 		_server.listen(SERVER_PORT)
 		print("[ANNAV2] WebSocket server listening on port ", SERVER_PORT)
@@ -123,46 +109,31 @@ func _thread_func(_userdata):
 		if should_stop:
 			break
 
-		_tick()
+		var now = OS.get_ticks_msec()
+
+		if not _is_connected:
+			if now - last_reconnect > RECONNECT_INTERVAL_MS:
+				_attempt_connection()
+				last_reconnect = now
+		else:
+			_mutex.lock()
+			var interval = _heartbeat_interval_ms
+			var tier = _throttle_tier
+			_mutex.unlock()
+			
+			if interval > 0 and now - last_heartbeat > interval:
+				_send_heartbeat(tier)
+				last_heartbeat = now
+
+		_client.poll()
+		if _server_enabled:
+			_server.poll()
 
 		OS.delay_msec(10)
 
 	_client.disconnect_from_host()
 	if _server_enabled:
 		_server.stop()
-
-# Called every frame from the main thread when _is_web_bypass is true.
-# On HTML5, Thread is not available so the main thread drives the connection loop.
-func _web_process(_delta):
-	_tick()
-
-# Tick drives one iteration of the connection + heartbeat loop.
-# Safe to call from either a background Thread or the main thread (HTML5 bypass).
-func _tick():
-	if _server_enabled and not _server_listen_done:
-		_server.listen(SERVER_PORT)
-		print("[ANNAV2] WebSocket server listening on port ", SERVER_PORT)
-		_server_listen_done = true
-
-	var now = OS.get_ticks_msec()
-
-	if not _is_connected:
-		if now - _last_reconnect > RECONNECT_INTERVAL_MS:
-			_attempt_connection()
-			_last_reconnect = now
-	else:
-		_mutex.lock()
-		var interval = _heartbeat_interval_ms
-		var tier = _throttle_tier
-		_mutex.unlock()
-
-		if interval > 0 and now - _last_heartbeat > interval:
-			_send_heartbeat(tier)
-			_last_heartbeat = now
-
-	_client.poll()
-	if _server_enabled:
-		_server.poll()
 
 func _attempt_connection():
 	if _peer_url == "":

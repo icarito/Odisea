@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
+      allowedHosts: ['.ngrok-free.app', '.ngrok-free.app:5003'],
       proxy: {
         '/status': apiTarget,
         '/health': apiTarget,

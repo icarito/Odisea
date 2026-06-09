@@ -6,9 +6,11 @@ const CAPTURE_DEFAULT_MAX := 36000 # ~10 min at 60 fps; ring buffer caps memory 
 
 var _command_queue_script = preload("res://core_v2/anna/v2/ANNAV2_CommandQueue.gd")
 var _thread_script = preload("res://core_v2/anna/v2/ANNAV2_Thread.gd")
+var _thread_web_script = preload("res://core_v2/anna/v2/ANNAV2_Thread_Web.gd")
 
 var _command_queue
 var _net_thread
+var _is_web_thread := false  # true when using ANNAV2_Thread_Web (worker-backed)
 var _player_id := ""
 var _session_id := ""
 
@@ -31,7 +33,15 @@ func _ready():
 	_session_id = _generate_uuid()
 
 	_command_queue = _command_queue_script.new()
-	_net_thread = _thread_script.new()
+
+	# On HTML5, use the worker-backed thread class that bridges to a Web Worker
+	# via JavaScript.eval(). WebSocket traffic stays off the main thread.
+	if OS.has_feature("web") and Engine.has_singleton("JavaScript"):
+		_net_thread = _thread_web_script.new()
+		_is_web_thread = true
+		print("[ANNAV2] HTML5: using worker-backed WebSocket bridge")
+	else:
+		_net_thread = _thread_script.new()
 
 	# URL query params (HTML5 only; no-op on native, where env vars are used instead).
 	# e.g. index.html?token=XXXX&central=host:port&bridge=host:port&nocentral=1
@@ -80,9 +90,8 @@ func _exit_tree():
 		_net_thread.stop()
 
 func _process(_delta):
-	# HTML5 bypass: Thread not available, drive the connection loop from the main thread.
-	if _net_thread._is_web_bypass:
-		_net_thread._web_process(_delta)
+	if _is_web_thread:
+		_net_thread._main_thread_tick()
 
 	var now = OS.get_ticks_msec()
 	if now - _last_telemetry_ms >= TELEMETRY_INTERVAL_MS:
