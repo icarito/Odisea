@@ -139,10 +139,11 @@ func _discover_peer() -> String:
 	if env_bridge != "":
 		return "ws://" + env_bridge + "/ws"
 
-	# 2. HTML5 check (URL params handled by Autoload and passed here)
+	# 2. HTML5 check: URL params (?bridge=) are handled by Autoload and passed to _peer_url.
+	# If _peer_url is still empty, we intentionally return "" here to fall through
+	# to the central node fallback at the end of this function.
 	if OS.has_feature("web"):
-		# Default for web if not specified
-		return "ws://localhost:4999/ws"
+		return ""
 
 	# 3. Try localhost
 	if _check_port("127.0.0.1", PEER_PORT):
