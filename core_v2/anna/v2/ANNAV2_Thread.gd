@@ -28,6 +28,15 @@ var session_id := ""
 var game_version := "0.1.0"
 
 var _last_telemetry := {}
+var _heartbeat_counter := 0
+var _heartbeat_interval_ms := 100
+var _throttle_tier := 3
+
+func update_heartbeat_params(interval_ms: int, tier: int):
+	_mutex.lock()
+	_heartbeat_interval_ms = interval_ms
+	_throttle_tier = tier
+	_mutex.unlock()
 
 func _init():
 	_client = WebSocketClient.new()
@@ -97,8 +106,13 @@ func _thread_func(_userdata):
 				_attempt_connection()
 				last_reconnect = now
 		else:
-			if now - last_heartbeat > HEARTBEAT_INTERVAL_MS:
-				_send_heartbeat()
+			_mutex.lock()
+			var interval = _heartbeat_interval_ms
+			var tier = _throttle_tier
+			_mutex.unlock()
+			
+			if interval > 0 and now - last_heartbeat > interval:
+				_send_heartbeat(tier)
 				last_heartbeat = now
 
 		_client.poll()
@@ -237,10 +251,12 @@ func _send_handshake():
 		msg["peer_id"] = player_id
 	_send_json(msg)
 
-func _send_heartbeat():
+func _send_heartbeat(tier: int):
 	_mutex.lock()
 	var player_data = _last_telemetry.get("player", {})
 	_mutex.unlock()
+
+	_heartbeat_counter += 1
 
 	var msg = {
 		"schema_version": 1,
@@ -251,9 +267,28 @@ func _send_heartbeat():
 		"godot_version": Engine.get_version_info().string,
 		"game_version": game_version,
 		"platform": OS.get_name(),
-		"player": player_data,
 		"timestamp": OS.get_unix_time()
 	}
+	
+	var player_msg = {
+		"fps": player_data.get("fps", 0)
+	}
+	
+	if tier >= 2 and _heartbeat_counter % 10 == 0:
+		player_msg["position"] = player_data.get("position", [0, 0, 0])
+		player_msg["yaw"] = player_data.get("yaw", 0.0)
+		player_msg["scene"] = player_data.get("scene", "")
+		player_msg["zone"] = player_data.get("zone", "")
+		
+	if tier >= 3 and _heartbeat_counter % 100 == 0:
+		player_msg["velocity"] = player_data.get("velocity", [0, 0, 0])
+		player_msg["pitch"] = player_data.get("pitch", 0.0)
+		player_msg["roll"] = player_data.get("roll", 0.0)
+		player_msg["mode"] = player_data.get("mode", "standard")
+		player_msg["tick"] = player_data.get("tick", 0)
+		player_msg["memory_mb"] = player_data.get("memory_mb", 0.0)
+		
+	msg["player"] = player_msg
 	_send_json(msg)
 
 func _send_json(msg: Dictionary):

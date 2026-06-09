@@ -45,30 +45,34 @@ export const useTelemetry = () => {
           }
           const hist = historyRef.current[pid];
 
-          // FPS & Memory History
-          hist.fps = [...hist.fps, hb.player.fps].slice(-300);
-          hist.memory = [...hist.memory, hb.player.memory_mb].slice(-300);
+          // FPS & Memory History (handle incomplete heartbeats)
+          hist.fps = [...hist.fps, hb.player?.fps ?? 0].slice(-300);
+          hist.memory = [...hist.memory, hb.player?.memory_mb ?? 0].slice(-300);
 
           // Events (Scene/Zone/Mode change)
           const lastEvent = hist.events[hist.events.length - 1];
+          const scene = hb.player?.scene ?? '';
+          const zone = hb.player?.zone ?? '';
+          const mode = hb.player?.mode ?? '';
+          
           if (!lastEvent ||
-              lastEvent.scene !== hb.player.scene ||
-              lastEvent.zone !== hb.player.zone ||
-              lastEvent.mode !== hb.player.mode) {
+              lastEvent.scene !== scene ||
+              lastEvent.zone !== zone ||
+              lastEvent.mode !== mode) {
             hist.events = [...hist.events, {
-                scene: hb.player.scene,
-                zone: hb.player.zone,
-                mode: hb.player.mode,
+                scene: scene,
+                zone: zone,
+                mode: mode,
                 timestamp: now / 1000
             }];
           }
 
           // Trail
-          const pos = hb.player.position;
-          if (!hist.lastPos ||
+          const pos = hb.player?.position;
+          if (pos && (!hist.lastPos ||
               Math.abs(pos[0] - hist.lastPos[0]) > 0.1 ||
               Math.abs(pos[1] - hist.lastPos[1]) > 0.1 ||
-              Math.abs(pos[2] - hist.lastPos[2]) > 0.1) {
+              Math.abs(pos[2] - hist.lastPos[2]) > 0.1)) {
             hist.trail = [...hist.trail, pos].slice(-120);
             hist.lastPos = pos;
             hist.lastMoveTime = now;
@@ -76,7 +80,8 @@ export const useTelemetry = () => {
 
           // Alerts
           // FPS Bajo: < 30 por > 5s
-          if (hb.player.fps < 30) {
+          const currentFps = hb.player?.fps ?? 60;
+          if (currentFps < 30) {
             if (!hist.lowFpsStartTime) hist.lowFpsStartTime = now;
             if (now - hist.lowFpsStartTime > 5000) {
               newAlerts.push({
@@ -93,7 +98,8 @@ export const useTelemetry = () => {
           }
 
           // Memory Leak: > 20% spike (simplified check vs initial or sliding window)
-          if (hist.initialMemory && hb.player.memory_mb > hist.initialMemory * 1.2) {
+          const currentMem = hb.player?.memory_mb ?? 0;
+          if (hist.initialMemory && currentMem > hist.initialMemory * 1.2) {
             newAlerts.push({
                 id: `${pid}-memleak-${now}`,
                 type: 'memory_leak',
@@ -101,7 +107,7 @@ export const useTelemetry = () => {
                 timestamp: now,
                 playerId: pid
             });
-            hist.initialMemory = hb.player.memory_mb; // Reset baseline
+            hist.initialMemory = currentMem; // Reset baseline
           }
 
           const age = now / 1000 - hb.timestamp;
@@ -116,7 +122,7 @@ export const useTelemetry = () => {
           }
 
           // Softlock check
-          if (hb.player.mode !== 'menu' && (now - hist.lastMoveTime) > 30000) {
+          if (mode !== 'menu' && (now - hist.lastMoveTime) > 30000) {
              newAlerts.push({
               id: `${pid}-softlock-${now}`,
               type: 'softlock',

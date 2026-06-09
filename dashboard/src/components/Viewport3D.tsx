@@ -3,6 +3,8 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Line, PerspectiveCamera, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
+// TODO: support centrifuge/bent-space rooms with custom axis helpers when room type metadata is available from telemetry.
+
 interface Viewport3DProps {
   position: [number, number, number];
   yaw: number;
