@@ -36,8 +36,13 @@ func _init():
 	_client.connect("connection_error", self, "_on_disconnected")
 	_client.connect("data_received", self, "_on_data")
 
-	_server = WebSocketServer.new()
+	# WebSocketServer is not instantiable on HTML5 (a browser can't be a server) and is only
+	# used when explicitly enabled, so create it lazily and never on web.
 	_server_enabled = OS.get_environment("ANNA_V2_SERVER_ENABLED") in ["1", "true", "yes", "on"]
+	if _server_enabled and not OS.has_feature("web"):
+		_server = WebSocketServer.new()
+	else:
+		_server_enabled = false
 
 	_bridge_token = OS.get_environment("ODISEA_BRIDGE_TOKEN")
 	if _bridge_token == "":

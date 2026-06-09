@@ -33,9 +33,19 @@ func _ready():
 	_command_queue = _command_queue_script.new()
 	_net_thread = _thread_script.new()
 
+	# URL query params (HTML5 only; no-op on native, where env vars are used instead).
+	# e.g. index.html?token=XXXX&central=host:port&bridge=host:port&nocentral=1
 	var bridge_override = _get_url_param("bridge")
 	if bridge_override != "":
 		_net_thread._peer_url = "ws://" + bridge_override + "/ws"
+	var token_override = _get_url_param("token")
+	if token_override != "":
+		_net_thread._bridge_token = token_override
+	var central_override = _get_url_param("central")
+	if central_override != "":
+		_net_thread._central_url = "ws://" + central_override + "/ws"
+	if _get_url_param("nocentral") in ["1", "true", "yes", "on"]:
+		_net_thread._central_enabled = false
 
 	_net_thread.start(_command_queue, _player_id, _session_id, GAME_VERSION)
 	_init_capture_from_env()
@@ -348,8 +358,11 @@ func _load_or_create_player_id() -> String:
 	return id
 
 func _generate_uuid() -> String:
-	# Simplistic UUID-like string
-	var unique_id = OS.get_unique_id()
+	# Simplistic UUID-like string. OS.get_unique_id() is unavailable on HTML5, so skip it
+	# there and use the time/random fallback below.
+	var unique_id = ""
+	if not OS.has_feature("web"):
+		unique_id = OS.get_unique_id()
 	if unique_id == "" or unique_id == "unknown":
 		# Fallback for platforms where unique_id is not reliable
 		unique_id = str(OS.get_unix_time()) + str(randi())

@@ -1,10 +1,14 @@
 # FD-163: Transporte de telemetría ANNA V2 en HTML5 (WSS)
 
-**Status:** Design
+**Status:** Partial (URL-param plumbing implemented; central-over-wss pending TLS)
 **Priority:** Medium
 **Effort:** Small
 **Created:** 2026-06-08
 **Completed:** -
+
+> **Implementado (2026-06-08):** `ANNAV2.gd` lee en web los URL params `?token=`, `?central=`,
+> `?bridge=`, `?nocentral=1` y los pasa al thread. Falta: auto-`wss://` por protocolo de la
+> página y, sobre todo, **TLS en el central** para que HTML5 desde https alcance el central.
 
 > Sub-feature de [FD-162 (Odisea Bridge)](FD-162-odisea-bridge.md). Define cómo un build
 > **HTML5 (WebGL)** entrega telemetría ANNA V2 al peer/central, dado que el browser impone
