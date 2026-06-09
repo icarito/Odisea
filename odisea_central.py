@@ -329,18 +329,21 @@ class OdiseaCentral:
                     if not authenticated:
                         if msg_type == "handshake":
                             token = data.get("token")
-                            if token == BRIDGE_TOKEN:
-                                authenticated = True
-                                peer_id = data.get("peer_id", "unknown")
-                                self.active_peers[ws] = peer_id
-                                self.peer_ws[peer_id] = ws
-                                logger.info(f"Peer authenticated: {peer_id}")
-                                await ws.send_json({"type": "handshake_ack", "status": "ok"})
-                            else:
-                                logger.warning(f"Peer authentication failed. Invalid token.")
-                                await ws.send_json({"type": "error", "error": "invalid_token"})
-                                await ws.close(code=WSCloseCode.POLICY_VIOLATION)
-                                break
+                            # Aceptamos conexiones anónimas para telemetría (HTML5 por defecto).
+                            # El token válido solo se exige para ejecutar comandos (ya protegido en HTTP).
+                            is_admin = (token == BRIDGE_TOKEN)
+                            
+                            authenticated = True
+                            peer_id = data.get("peer_id")
+                            if not peer_id or peer_id == "unknown":
+                                peer_id = "anon_" + str(uuid.uuid4())[:8]
+                            
+                            self.active_peers[ws] = peer_id
+                            self.peer_ws[peer_id] = ws
+                            
+                            mode = "admin" if is_admin else "telemetry"
+                            logger.info(f"Peer conectado ({mode}): {peer_id}")
+                            await ws.send_json({"type": "handshake_ack", "status": "ok", "mode": mode})
                         else:
                             logger.warning("Peer sent message before handshake.")
                             await ws.close(code=WSCloseCode.POLICY_VIOLATION)
