@@ -44,8 +44,17 @@ func _ready():
 	var central_override = _get_url_param("central")
 	if central_override != "":
 		_net_thread._central_url = "ws://" + central_override + "/ws"
+	var scheme_override = _get_url_param("scheme")
+	if scheme_override != "":
+		_net_thread.set_scheme(scheme_override)
 	if _get_url_param("nocentral") in ["1", "true", "yes", "on"]:
 		_net_thread._central_enabled = false
+	# HTML5 desde HTTPS: el navegador bloquea ws://, usar wss:// automaticamente
+	if OS.has_feature("web") and Engine.has_singleton("JavaScript"):
+		var js = Engine.get_singleton("JavaScript")
+		var proto = js.eval("window.location.protocol")
+		if proto == "https:":
+			_net_thread.set_scheme("wss")
 
 	_net_thread.start(_command_queue, _player_id, _session_id, GAME_VERSION)
 	_init_capture_from_env()
@@ -71,6 +80,10 @@ func _exit_tree():
 		_net_thread.stop()
 
 func _process(_delta):
+	# HTML5 bypass: Thread not available, drive the connection loop from the main thread.
+	if _net_thread._is_web_bypass:
+		_net_thread._web_process(_delta)
+
 	var now = OS.get_ticks_msec()
 	if now - _last_telemetry_ms >= TELEMETRY_INTERVAL_MS:
 		_last_telemetry_ms = now
@@ -84,8 +97,8 @@ func _update_telemetry():
 	var fps = Performance.get_monitor(Performance.TIME_FPS)
 	
 	# Forzamos tier 3 siempre para garantizar que el dashboard de observabilidad 
-	# reciba todos los datos (posición, escena, modo, etc.) sin importar los FPS.
-	# El throttling por FPS causaba que se dejaran de enviar datos críticos cuando el juego bajaba de 30 FPS.
+	# reciba todos los datos (posicion, escena, modo, etc.) sin importar los FPS.
+	# El throttling por FPS causaba que se dejaran de enviar datos criticos cuando el juego bajaba de 30 FPS.
 	var interval_ms = 100
 	var tier = 3
 		
@@ -119,7 +132,7 @@ func _update_telemetry():
 	if get_tree().current_scene:
 		var scene_name = get_tree().current_scene.filename.get_file().get_basename()
 		if scene_name == "":
-			scene_name = get_tree().current_scene.name # Fallback para escenas no guardadas o dinámicas
+			scene_name = get_tree().current_scene.name # Fallback para escenas no guardadas o dinamicas
 		player_data["scene"] = scene_name
 		
 		if get_tree().current_scene.has_meta("zone"):
