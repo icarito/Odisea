@@ -39,7 +39,7 @@ func _ready():
 		print("[ANNAV2] HTML5: Throttling telemetry to 5Hz")
 
 	_player_id = _load_or_create_player_id()
-	_session_id = _generate_uuid()
+	_session_id = _generate_session_id()
 
 	_command_queue = _command_queue_script.new()
 
@@ -444,6 +444,18 @@ func _generate_uuid() -> String:
 		h = OS.get_unix_time() + randi()
 
 	return str(OS.get_unix_time()) + "-" + str(h)
+
+func _generate_session_id() -> String:
+	# Unique per game session (one per process launch), and stable across bridge
+	# reconnections because it's generated once in _ready() and never regenerated.
+	# Must NOT collide between two instances on the same machine: OS.get_unique_id()
+	# is identical per machine and unix_time is identical within a second, so we mix
+	# the microsecond counter (differs per process) with randomize()+randi() entropy.
+	randomize()
+	var rnd = ""
+	for i in range(4):
+		rnd += "%08x" % randi()
+	return "%d-%d-%s" % [OS.get_unix_time(), OS.get_ticks_usec(), rnd]
 
 func _get_url_param(param_name: String) -> String:
 	if not OS.has_feature("web"): return ""

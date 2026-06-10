@@ -521,7 +521,7 @@ func _is_startup_gate_ready_now() -> bool:
 	# Bypass for tests to avoid breaking determinism logic that relies on immediate start.
 	var is_testing = Engine.has_singleton("GdUnit3") and Engine.get_singleton("GdUnit3").is_test_suite()
 	if not OS.has_feature("Server") and not is_testing:
-		var objects_drawn = VisualServer.get_render_info(VisualServer.INFO_2D_OBJECTS_IN_FRAME) + VisualServer.get_render_info(VisualServer.INFO_3D_OBJECTS_IN_FRAME)
+		var objects_drawn = VisualServer.get_render_info(VisualServer.INFO_OBJECTS_IN_FRAME)
 		if objects_drawn <= 0:
 			return false
 
