@@ -5,9 +5,12 @@ import type { HeartbeatMap, Alert } from '../types';
 export const useTelemetry = () => {
   const [heartbeats, setHeartbeats] = useState<HeartbeatMap>({});
   const [peersConnected, setPeersConnected] = useState<number | string>('?');
+  const [heartbeatRate, setHeartbeatRate] = useState<number | string>('?');
   const [isConnected, setIsConnected] = useState(true);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const disconnectedPids = useRef<Set<string>>(new Set());
+  const pollCount = useRef(0);
+  const GHOST_STORE_INTERVAL = 10; // Only write to history every N polls
   const historyRef = useRef<Record<string, {
     fps: number[],
     memory: number[],
@@ -29,6 +32,8 @@ export const useTelemetry = () => {
 
         const now = Date.now();
         const newAlerts: Alert[] = [];
+        pollCount.current++;
+        const shouldWriteGhost = pollCount.current % GHOST_STORE_INTERVAL === 0;
 
         Object.entries(data).forEach(([pid, hb]) => {
           if (!historyRef.current[pid]) {
@@ -46,9 +51,11 @@ export const useTelemetry = () => {
           }
           const hist = historyRef.current[pid];
 
-          // FPS & Memory History (handle incomplete heartbeats)
-          hist.fps = [...hist.fps, hb.player?.fps ?? 0].slice(-300);
-          hist.memory = [...hist.memory, hb.player?.memory_mb ?? 0].slice(-300);
+          // FPS & Memory History (handle incomplete heartbeats) — throttle to ghost store interval
+          if (shouldWriteGhost) {
+            hist.fps = [...hist.fps, hb.player?.fps ?? 0].slice(-300);
+            hist.memory = [...hist.memory, hb.player?.memory_mb ?? 0].slice(-300);
+          }
 
           // Events (Scene/Zone/Mode change)
           const lastEvent = hist.events[hist.events.length - 1];
@@ -70,7 +77,7 @@ export const useTelemetry = () => {
 
           // Trail (conversión estricta a números para evitar corrupción en Three.js)
           const rawPos = hb.player?.position;
-          if (Array.isArray(rawPos) && rawPos.length >= 3) {
+          if (Array.isArray(rawPos) && rawPos.length >= 3 && shouldWriteGhost) {
             const pos: [number, number, number] = [Number(rawPos[0]), Number(rawPos[1]), Number(rawPos[2])];
             
             if (!hist.lastPos ||
@@ -140,6 +147,7 @@ export const useTelemetry = () => {
 
         const health = await getHealth();
         setPeersConnected(health.peers_connected ?? '?');
+        setHeartbeatRate(health.heartbeats_rate ?? '?');
       } catch (e) {
         setIsConnected(false);
         console.error("Telemetry poll failed", e);
@@ -151,5 +159,5 @@ export const useTelemetry = () => {
     return () => clearInterval(interval);
   }, []);
 
-  return { heartbeats, peersConnected, isConnected, alerts, history: historyRef.current };
+  return { heartbeats, peersConnected, heartbeatRate, isConnected, alerts, history: historyRef.current };
 };

@@ -60,31 +60,43 @@ export const SessionHistory: React.FC = () => {
         if (data.length > 0) {
             const events: any[] = [];
             let totalFps = 0;
+            let fpsCount = 0;
             let peakMem = 0;
 
             data.forEach((hb: any) => {
+                const p = hb.player || {};
+                const scene = p.scene ?? '';
+                const zone = p.zone ?? '';
+                const mode = p.mode ?? '';
                 const lastEvent = events[events.length - 1];
                 if (!lastEvent ||
-                    lastEvent.scene !== hb.player.scene ||
-                    lastEvent.zone !== hb.player.zone ||
-                    lastEvent.mode !== hb.player.mode) {
+                    lastEvent.scene !== scene ||
+                    lastEvent.zone !== zone ||
+                    lastEvent.mode !== mode) {
                     events.push({
-                        scene: hb.player.scene,
-                        zone: hb.player.zone,
-                        mode: hb.player.mode,
-                        timestamp: hb.timestamp
+                        scene,
+                        zone,
+                        mode,
+                        timestamp: hb.timestamp ?? 0
                     });
                 }
-                totalFps += hb.player.fps;
-                if ((hb.player?.memory_mb ?? 0) > peakMem) peakMem = hb.player?.memory_mb ?? 0;
+                if (typeof p.fps === 'number') {
+                    totalFps += p.fps;
+                    fpsCount++;
+                }
+                if (typeof p.memory_mb === 'number' && p.memory_mb > peakMem) {
+                    peakMem = p.memory_mb;
+                }
             });
 
-            const duration = data[data.length-1].timestamp - data[0].timestamp;
+            const firstTs = data[0]?.timestamp ?? 0;
+            const lastTs = data[data.length - 1]?.timestamp ?? 0;
+            const duration = Math.max(0, lastTs - firstTs);
 
             setDetail({
                 events,
                 stats: {
-                    avgFps: Math.round(totalFps / data.length),
+                    avgFps: fpsCount > 0 ? Math.round(totalFps / fpsCount) : 0,
                     peakMem: Math.round(peakMem),
                     duration: Math.round(duration)
                 }
