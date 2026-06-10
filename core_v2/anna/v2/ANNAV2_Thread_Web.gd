@@ -275,7 +275,9 @@ func _send_heartbeat(tier: int):
 	if typeof(mem_mb) != TYPE_REAL and typeof(mem_mb) != TYPE_INT:
 		mem_mb = 0.0
 	if mem_mb <= 0.0:
-		var browser_mem = _eval_float("ANNAV2_WS_Bridge.getBrowserMemMB()")
+		# Guard against older HTML shells whose bridge predates getBrowserMemMB:
+		# calling a missing method throws and would spam every heartbeat.
+		var browser_mem = _eval_float("(window.ANNAV2_WS_Bridge && typeof ANNAV2_WS_Bridge.getBrowserMemMB === 'function') ? ANNAV2_WS_Bridge.getBrowserMemMB() : -1")
 		if browser_mem > 0:
 			mem_mb = browser_mem
 
