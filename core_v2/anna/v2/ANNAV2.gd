@@ -95,6 +95,9 @@ func _exit_tree():
 		_net_thread.stop()
 
 func _process(_delta):
+	var pm = get_node_or_null("/root/PerformanceMonitor")
+	if pm and pm.has_method("profiling_start"): pm.profiling_start("ANNAV2")
+
 	if _is_web_thread:
 		_net_thread._main_thread_tick()
 
@@ -106,6 +109,8 @@ func _process(_delta):
 	var commands = _command_queue.pop_all()
 	for cmd in commands:
 		call_deferred("_execute_command", cmd)
+
+	if pm and pm.has_method("profiling_end"): pm.profiling_end("ANNAV2")
 
 func _update_telemetry():
 	var fps = Performance.get_monitor(Performance.TIME_FPS)

@@ -25,6 +25,8 @@ var _heartbeat_interval_ms := 100
 var _throttle_tier := 3
 var _last_heartbeat := 0
 var _last_reconnect := 0
+var _reconnect_attempts := 0
+const MAX_RECONNECT_INTERVAL_MS := 5000
 
 func set_scheme(scheme: String):
 	if _central_url.begins_with("ws://") and scheme == "wss":
@@ -75,10 +77,14 @@ func _main_thread_tick():
 	var now = raw if typeof(raw) == TYPE_INT or typeof(raw) == TYPE_REAL else 0
 
 	if not _is_connected:
-		if now - _last_reconnect > RECONNECT_INTERVAL_MS:
+		var backoff = min(MAX_RECONNECT_INTERVAL_MS, RECONNECT_INTERVAL_MS * pow(1.5, _reconnect_attempts))
+		var jitter = rand_range(0, 500)
+		if now - _last_reconnect > (backoff + jitter):
 			_attempt_connection()
 			_last_reconnect = now
+			_reconnect_attempts += 1
 	else:
+		_reconnect_attempts = 0
 		var interval = _heartbeat_interval_ms
 		var tier = _throttle_tier
 		if interval > 0 and now - _last_heartbeat > interval:

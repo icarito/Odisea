@@ -16,6 +16,7 @@ const REPORT_WRITE_INTERVAL_SEC := 8.0
 const REPORT_WRITE_INTERVAL_HYPER_LOW_SEC := 20.0
 const REPORT_DROP_BYPASS_DELTA := 12.0
 const DETAILED_NODE_PROFILING_ENV := "ODISEA_DETAILED_NODE_PROFILING"
+const PROFILING_LOG_INTERVAL_FRAMES := 60
 
 # --- Debug Flags ---
 var debug_freeze_logic := false setget set_debug_freeze_logic
@@ -48,6 +49,8 @@ var _last_report_write_time_msec := 0
 var _last_saved_drop := 0.0
 var _suppressed_report_count := 0
 var _detailed_node_profiling_enabled := false
+var _profiling_enabled := false
+var _profiling_stats := {} # { name: { sum_usec, count } }
 
 # --- Signals ---
 signal lag_spike_detected(fps, drop)
@@ -56,6 +59,7 @@ func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS # Always run, even when tree is paused
 	_suppress_runtime_logs = _is_test_environment()
 	_detailed_node_profiling_enabled = OS.get_environment(DETAILED_NODE_PROFILING_ENV).to_lower() in ["1", "true", "yes", "on"]
+	_profiling_enabled = OS.get_environment("PROFILE").to_lower() in ["1", "true", "yes", "on"]
 	_disabled = _is_disabled_for_current_run()
 	if _disabled:
 		set_process(false)
@@ -83,9 +87,13 @@ func _is_disabled_for_current_run() -> bool:
 	return in_rl and disable_rl
 
 func _process(_delta):
+	if _profiling_enabled:
+		profiling_start("PerformanceMonitor")
+
 	# Optimization for HTML5/Mobile: throttle metric gathering to 10Hz
 	if OS.get_name() == "HTML5" or OS.has_touchscreen_ui_hint():
 		if Engine.get_idle_frames() % 6 != 0:
+			if _profiling_enabled: profiling_end("PerformanceMonitor")
 			return
 
 	var now_usec := OS.get_ticks_usec()
@@ -143,7 +151,35 @@ func _process(_delta):
 		_cleanup_monitored_nodes()
 		_cleanup_measurement_cache()
 
+	if _profiling_enabled:
+		profiling_end("PerformanceMonitor")
+		if Engine.get_idle_frames() % PROFILING_LOG_INTERVAL_FRAMES == 0:
+			_log_profiling_stats()
+
 # --- Instrumentation API ---
+
+func profiling_start(name: String):
+	if not _profiling_enabled: return
+	_profiling_stats[name] = _profiling_stats.get(name, {"sum": 0, "count": 0, "start": 0})
+	_profiling_stats[name]["start"] = OS.get_ticks_usec()
+
+func profiling_end(name: String):
+	if not _profiling_enabled: return
+	if not _profiling_stats.has(name): return
+	var duration = OS.get_ticks_usec() - _profiling_stats[name]["start"]
+	_profiling_stats[name]["sum"] += duration
+	_profiling_stats[name]["count"] += 1
+
+func _log_profiling_stats():
+	print("--- PROFILING STATS (avg ms) ---")
+	for name in _profiling_stats:
+		var stat = _profiling_stats[name]
+		if stat["count"] > 0:
+			var avg_ms = (float(stat["sum"]) / float(stat["count"])) / 1000.0
+			print("%s: %.3f ms" % [name, avg_ms])
+		# Reset for next interval
+		stat["sum"] = 0
+		stat["count"] = 0
 
 func register_monitored_node(node: Node):
 	if not is_instance_valid(node): return
