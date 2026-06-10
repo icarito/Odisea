@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/app/odisea_central.py", line 10, in <module>
+    from aiohttp import web, WSCloseCode
+ModuleNotFoundError: No module named 'aiohttp'
