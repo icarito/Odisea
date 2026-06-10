@@ -91,7 +91,7 @@ func _main_thread_tick():
 # The bridge JS is injected at runtime via JavaScript.eval() so it works in
 # both editor-run and exported builds (no custom HTML shell dependency).
 
-const BRIDGE_BOOT_JS := """
+	const BRIDGE_BOOT_JS := """
 (function(){
 if (window.ANNAV2_WS_Bridge) return;
 var w = new Worker(URL.createObjectURL(new Blob([
@@ -122,7 +122,14 @@ connect:function(url){iq.length=0;cs=0;w.postMessage({cmd:'connect',url:url});},
 disconnect:function(){w.postMessage({cmd:'disconnect'});iq.length=0;},
 send:function(t){w.postMessage({cmd:'send',text:t});},
 poll:function(){w.postMessage({cmd:'poll'});var o=iq.slice();iq.length=0;return o||[];},
-getState:function(){w.postMessage({cmd:'getState'});return cs;}
+getState:function(){w.postMessage({cmd:'getState'});return cs;},
+/** Returns browser memory estimate (MB), or -1 if unavailable. */
+getBrowserMemMB:function(){
+  if(typeof performance!=='undefined'&&performance.memory&&typeof performance.memory.usedJSHeapSize==='number'){
+    return performance.memory.usedJSHeapSize/(1024*1024);
+  }
+  return -1;
+}
 };
 console.log('[ANNAV2-Bridge] Worker injected via GDScript');
 })();
@@ -250,6 +257,17 @@ func _send_heartbeat(tier: int):
 		"timestamp": OS.get_unix_time()
 	}
 
+	# En HTML5, Performance.MEMORY_STATIC puede devolver 0 o valores invalidos.
+	# Usamos la API del navegador (performance.memory.usedJSHeapSize en Chrome,
+	# o -1 si no esta disponible). El bridge JS expone getBrowserMemMB().
+	var mem_mb = player_data.get("memory_mb", 0.0)
+	if typeof(mem_mb) != TYPE_REAL and typeof(mem_mb) != TYPE_INT:
+		mem_mb = 0.0
+	if mem_mb <= 0.0:
+		var browser_mem = _eval_float("ANNAV2_WS_Bridge.getBrowserMemMB()")
+		if browser_mem > 0:
+			mem_mb = browser_mem
+
 	var player_msg = {
 		"fps": player_data.get("fps", 0),
 		"position": player_data.get("position", [0, 0, 0]),
@@ -260,7 +278,7 @@ func _send_heartbeat(tier: int):
 		"zone": player_data.get("zone", "Desconocida"),
 		"mode": player_data.get("mode", "standard"),
 		"tick": player_data.get("tick", 0),
-		"memory_mb": player_data.get("memory_mb", 0.0),
+		"memory_mb": mem_mb,
 		"velocity": player_data.get("velocity", [0, 0, 0])
 	}
 

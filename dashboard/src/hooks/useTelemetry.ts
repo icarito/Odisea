@@ -18,6 +18,7 @@ export const useTelemetry = () => {
     lastPos: [number, number, number] | null,
     lastTick: number,
     lastMoveTime: number,
+    lastScene: string,
     events: { scene: string, zone: string, mode: string, timestamp: number }[]
   }>>({});
 
@@ -42,6 +43,7 @@ export const useTelemetry = () => {
                 lastPos: null,
                 lastTick: 0,
                 lastMoveTime: now,
+                lastScene: '',
                 events: []
             };
           }
@@ -71,7 +73,15 @@ export const useTelemetry = () => {
             }];
           }
 
-          // Trail — every heartbeat, no throttle, no distance threshold
+          // Trail — every heartbeat, no throttle, no distance threshold.
+          // Clear trail when scene changes (new session / teleport) to avoid
+          // a long line crossing the entire level geometry.
+          const currentScene = hb.player?.scene ?? '';
+          if (currentScene !== hist.lastScene) {
+            hist.trail = [];
+            hist.lastScene = currentScene;
+          }
+
           const rawPos = hb.player?.position;
           if (Array.isArray(rawPos) && rawPos.length >= 3) {
             const pos: [number, number, number] = [Number(rawPos[0]), Number(rawPos[1]), Number(rawPos[2])];
