@@ -9,12 +9,7 @@
             "debug_collisions": false,
             "debug_paths": false,
             "debug_navigation": false,
-            "additional_options": "-s -d ./addons/gdUnit3/bin/GdUnitCmdTool.gd -a ./tests/test_player_determinism_spec.gd",
-            "env": {
-                "ANNA_ENABLED": "1",
-                "ANNA_PORT": "5000",
-                "ODISEA_ALLOW_ANNA_REMOTE_DEBUG": "1"
-            }
+            "additional_options": "-s -d ./addons/gdUnit3/bin/GdUnitCmdTool.gd -a ./tests/test_player_determinism_spec.gd"
         },
         {
             "name": "GDScript: Launch Current File",
@@ -22,12 +17,7 @@
             "request": "launch",
             "scene": "current",
             "project": "",
-            "additional_options": "",
-            "env": {
-                "ANNA_ENABLED": "1",
-                "ANNA_PORT": "5000",
-                "ODISEA_ALLOW_ANNA_REMOTE_DEBUG": "1"
-            }
+            "additional_options": ""
         },
         {
             "name": "GDScript: Launch Pinned File",
@@ -35,12 +25,7 @@
             "request": "launch",
             "scene": "pinned",
             "project": "",
-            "additional_options": "",
-            "env": {
-                "ANNA_ENABLED": "1",
-                "ANNA_PORT": "5000",
-                "ODISEA_ALLOW_ANNA_REMOTE_DEBUG": "1"
-            }
+            "additional_options": ""
         },
         {
             "name": "GDScript: Launch Project",
@@ -50,12 +35,7 @@
             "debug_collisions": false,
             "debug_paths": false,
             "debug_navigation": false,
-            "additional_options": "",
-            "env": {
-                "ANNA_ENABLED": "1",
-                "ANNA_PORT": "5000",
-                "ODISEA_ALLOW_ANNA_REMOTE_DEBUG": "1"
-            }
+            "additional_options": ""
         },
         {
             "name": "OYS: Run Current Test (headless)",
@@ -67,10 +47,7 @@
             "debug_navigation": false,
             "additional_options": "--headless --no-window -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd -a ./core_v2/tests/test_determinism_v2.gd",
             "env": {
-                "OYS_FILTER": "${fileBasenameNoExtension}",
-                "ANNA_ENABLED": "1",
-                "ANNA_PORT": "5000",
-                "ODISEA_ALLOW_ANNA_REMOTE_DEBUG": "1"
+                "OYS_FILTER": "${fileBasenameNoExtension}"
             },
             "preLaunchTask": "echo-oys-filter"
         },
@@ -84,10 +61,7 @@
             "debug_navigation": false,
             "additional_options": "-s ./addons/gdUnit3/bin/GdUnitCmdTool.gd -a ./core_v2/tests/test_determinism_v2.gd",
             "env": {
-                "OYS_FILTER": "${fileBasenameNoExtension}",
-                "ANNA_ENABLED": "1",
-                "ANNA_PORT": "5000",
-                "ODISEA_ALLOW_ANNA_REMOTE_DEBUG": "1"
+                "OYS_FILTER": "${fileBasenameNoExtension}"
             },
             "preLaunchTask": "echo-oys-filter"
         }

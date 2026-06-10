@@ -87,7 +87,8 @@ core_v2/camera/    → Rigs de cámara
 core_v2/props/     → Props interactivos y decorativos
 core_v2/ui/retro/  → UI OdiseaOS
 core_v2/input/     → InputDataV2 y sistemas de input
-core_v2/anna/      → ANNA V1 (bridge MCP) y V2 (telemetría)
+core_v2/anna/      → ANNA V1 (bridge MCP) — **DEPRECATED**, reemplazado por V2
+core_v2/telemetry/ → Telemetría y debugging remoto
 core_v2/tests/     → Tests (GdUnit y OYS)
 ```
 
@@ -247,7 +248,7 @@ Después de cada cambio, correr los tests relevantes al sistema modificado y ver
 
 El proyecto incluye un sistema de telemetría de performance y un harness de stress para prevenir regresiones.
 
-- **`PerformanceMonitor` (autoload)** — `core_v2/autoloads/PerformanceMonitor.gd`. Trackea FPS, Process/Physics Time, draw calls, objects/vertices in frame, node count, y memoria. Registra métricas en ANNA V2 (`register_telemetry_dict`) para que aparezcan en el dashboard del bridge central en tiempo real. Loguea un reporte (`user://performance_log.json`) si el FPS cae > 20 instantáneo o el CPU excede 70% del budget. Guarda snapshots manuales en `user://performance_snapshots.json` para comparación de regresión.
+- **`PerformanceMonitor` (autoload)** — `core_v2/autoloads/PerformanceMonitor.gd`. Trackea FPS, Process/Physics Time, draw calls, objects/vertices in frame, node count, y memoria. Registra métricas en `ANNAV2` (`register_telemetry_dict`) para que aparezcan en el dashboard del bridge central en tiempo real. Loguea un reporte (`user://performance_log.json`) si el FPS cae > 20 instantáneo o el CPU excede 70% del budget. Guarda snapshots manuales en `user://performance_snapshots.json` para comparación de regresión.
 - **`performance_log.json`** (`user://`) — archivo que PerformanceMonitor escribe cuando detecta un lag spike. Contiene: `schema_version`, `timestamp`, `fps`, `drop`, tiempos CPU, `draw_calls`, `objects_in_frame`, `vertices_in_frame`, `node_count`, `memory_mb`, `scene` (path .tscn activa), `player_position` [x,y,z], y `heavy_nodes`. Los agentes deben consultar este archivo primero al investigar problemas de rendimiento (ver §9.2 para usarlo vía API). `scripts/analyze_ghosts.py` lo soporta como fuente alternativa cuando no hay ghosts del central.
 - **Stress Test Suite** — en `core_v2/tests/stress/`. Runner `StressTestRunner.gd` (OYS Actor); `run_stress.oys` ejecuta 5 escenarios: saturación (100-1000 entidades), spawning, pathfinding, jerarquía profunda, física (RigidBody con `PushableBoxV2`).
 - **Workflow de regresión** — `stress_performance.yml` corre en PRs a `main`: descarga baseline desde cache, corre `run_stress.oys` headless, compara con `scripts/check_regression.py`, y falla si FPS cae > 10% o CPU sube > 20% vs baseline.
@@ -302,175 +303,47 @@ scripts/install_git_hooks.sh                        # instala hooks repo-managed
 
 ---
 
-## 8. ANNA V1 / MCP — DEBUGGING EN RUNTIME
+## 8. DEVTools — DEBUGGING EN RUNTIME (sucesor de ANNA V1)
 
-> [!NOTE] V1 ≠ V2 — y cuál preferir
-> **ANNA V1** (este apartado): bridge **TCP :5000** que expone el runtime a un cliente MCP **stdio**
-> (`inspect_node`, `set_property`, `capture_vision`). Es el camino de bajo nivel/directo.
-> **ANNA V2** (§9): el **peer HTTP :4999** es ahora el surface natural para agentes — sirve telemetría
-> *y* relaya comandos al juego vivo (`POST /command`, `/eval`). **Preferí el peer HTTP** para leer estado
-> y manejar el runtime; usá el MCP stdio V1 solo si necesitás el cliente directo desde VS Code.
+> [!WARNING] ANNA V1 DEPRECATED
+> **ANNA V1** (`AnnaBridge` TCP :5000, MCP stdio) está **deprecado**. Todo el debugging remoto se hace
+> vía **Telemetry** (§9): HTTP al peer `:4999` o al central `:5003`. El autoload `ANNAV2` expone comandos
+> equivalentes (`inspect_node`, `screenshot`, `teleport_player`, `set_property`) a través del peer HTTP.
+>
+> El código legacy de ANNA V1 en `core_v2/anna/` (AnnaBridge.gd, AnnaInterface.gd, client/) se preserva
+> únicamente para compatibilidad con scripts RL y OYS (`# REQUIRE_ANNA=1`). **No escribir nuevo código que
+> dependa de V1.** Todo lo nuevo va a `core_v2/telemetry/`.
 
-El bridge V1 (`core_v2/anna/AnnaBridge.gd`, puerto 5000) expone el runtime a un cliente MCP stdio. En VS Code, las launch configs ya setean `ANNA_ENABLED=1` y `ANNA_PORT=5000`, así que lanzar escenas/tests desde VS Code expone el endpoint sin exports manuales. Fuera de VS Code:
-
-```shell
-export ANNA_ENABLED=1
-export ANNA_PORT=5000
-godot3-bin --path .
-```
-
-### Herramientas
-
-| Herramienta | Uso |
-|-------------|-----|
-| `inspect_node` | Ubicar nodos, medir posiciones/distancias, leer propiedades, contar hijos. Fuente de verdad cuantitativa. |
-| `capture_vision` | Capturar imagen del viewport. Solo con autorización/coordinación del usuario. |
-| `set_property` | Mover objetos / cambiar valores en runtime para debugging. |
-
-**Regla:** `inspect_node` primero para datos duros; `capture_vision` solo si la pregunta no se puede responder con números.
-
-```shell
-# Verificar conexión (con el juego corriendo)
-python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
-  --tool bridge_connect \
-  --args-json '{"host":"127.0.0.1","port":5000,"timeout_s":3.0}'
-
-# Inspeccionar un nodo
-python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
-  --tool inspect_node \
-  --args-json '{"node_path":"/root/Pilot"}'
-
-# Mover un objeto en runtime
-python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
-  --tool set_property \
-  --args-json '{"node_path":"/root/ZeroGravityZone","property":"global_transform","value":"Transform(1,0,0,0,1,0,0,0,1,0,1,0)"}'
-```
-
----
-
-## 9. ANNA V2 — TELEMETRÍA EN VIVO (FD-162)
-
-El peer FD-162 es el **surface de lectura y manejo del runtime** para agentes: por HTTP se lee el estado en vivo (posición, velocidad, escena, FPS, sesiones) **y** se relayan comandos al juego (`POST /command`). El bridge MCP V1 (:5000) está **deprecado para telemetría**.
-
-> Referencia completa de endpoints, comandos y atajos: skill **`odisea-telemetry`** + `docs/features/FD-162-odisea-bridge.md`. Este apartado es el resumen para tener el modelo en la cabeza.
-
-### 9.1 Arquitectura de 3 capas
-
-```
-Godot A ─┐                                          (agrega todo, requiere token)
-Godot B ─┼─WS─▶ Peer Python :4999 ──WS + token──▶ Central :5003
-Godot C ─┘      (LAN, sin auth)                       GET /status /sessions + dashboard /
-   ▲ │            HTTP: leer  GET /status /sessions /peers /events
-   │ │            HTTP: manejar  POST /command /command/batch · GET /eval
-   │ └──── command_response ◀── el peer relaya y devuelve la respuesta sincrónica
- autoload ANNAV2 (heartbeat cada 100ms)
-```
-
-- **Peer Godot (autoload `ANNAV2`)** — corre solo al dar *play* (F5), no con el editor abierto. Descubre el peer Python local por **mDNS** (`_odisea._tcp`, reintenta cada 2s) y le envía un **heartbeat cada 100ms** vía WebSocket (`ws://<peer>:4999/ws`). Si no encuentra peer local, hace fallback al **central** (`wss://odisea.educa.juegos/ws`) con token, para que la telemetría siga fluyendo.
-- **Peer Python (`odisea_peer.py`, :4999)** — proceso local, en la **misma LAN**, **sin auth**. Agrega los Godot de la LAN, los sirve por HTTP y los reenvía al central con token. Lo levanta el dev con la task de VS Code "Run Odisea Bridge Peer" (o `python3 odisea_peer.py`).
-- **Central (`odisea_central.py`, :5003)** — agrega **todos** los peers (histórico, multi-LAN). **Requiere** `Authorization: Bearer <token>`. Tiene dashboard web en `/`. Default AWS: `http://35.182.238.36:5003`.
-
-### 9.2 Endpoints HTTP (leer y manejar)
-
-| Ruta | Peer :4999 | Central :5003 | Devuelve |
-|------|:----------:|:-------------:|----------|
-| `GET /health` | ✅ pública | ✅ pública | `{ok, players_known/peers_connected, ...}` |
-| `GET /status` | ✅ | 🔑 token | heartbeats de todos: `{player_id: {...}}` |
-| `GET /status?player_id=<id>` | ✅ | 🔑 token | un player (404 si no está) |
-| `GET /sessions` | ✅ | 🔑 token | session_ids activas |
-| `GET /peers` | ✅ | — | peer_id, hostname, ip y player_ids conectados |
-| `GET /events` | ✅ sin auth | 🔑 token | stream SSE de heartbeats (en vez de polling) |
-| `GET /eval?expr=` | ✅ sin auth | — | evalúa una expresión GDScript en el runtime |
-| `POST /command` | ✅ sin auth | 🔑 token | ejecuta una acción y devuelve la respuesta sincrónica |
-| `POST /command/batch` | ✅ sin auth | — | lista ordenada de comandos en una sola llamada |
-| `GET /` | — | ✅ | dashboard de observabilidad (refresco 1s) |
+### Uso
 
 ```bash
-# Leer — peer local (sin auth)
+# Leer estado en vivo (sin necesidad de V1)
 curl -s http://localhost:4999/status | python3 -m json.tool
-curl -sN http://localhost:4999/events           # mirar heartbeats en vivo (SSE)
 
-# Central (token desde el env; NUNCA hardcodear ni imprimir el token)
-curl -s -H "Authorization: Bearer $ODISEA_BRIDGE_TOKEN" http://35.182.238.36:5003/status | python3 -m json.tool
-curl -s http://35.182.238.36:5003/health        # pública
-```
-
-### 9.3 Manejar el runtime (POST /command)
-
-El peer relaya comandos al juego vivo por WebSocket y devuelve la respuesta de ANNAV2 **sincrónicamente** (un solo `curl`). Loop natural de debug: `GET /status` para ver quién está vivo → `POST /command` para inspeccionar/actuar.
-
-Acciones de ANNAV2 (`core_v2/anna/v2/ANNAV2.gd`): `inspect_node`, `screenshot` (siempre); `set_property`, `execute_script`, `spawn_scene`, `reload_resource`, `teleport_player` (solo en build debug/editor).
-
-```bash
-# inspeccionar el árbol vivo (apuntá a un juego con player_id si hay varios; sale de /status)
+# Inspeccionar el árbol de escena
 curl -s -XPOST localhost:4999/command -d '{"action":"inspect_node","args":{"path":"/root"}}'
 
-# atajo: evaluar una expresión GDScript sin escapar un bloque
+# Evaluar una expresión GDScript
 curl -s "localhost:4999/eval?expr=get_tree().get_node_count()"
 
-# repro ordenado en una sola llamada (corta al primer ok:false con stop_on_error)
-curl -s -XPOST localhost:4999/command/batch -d '{"player_id":"<id>","stop_on_error":true,
-  "commands":[{"action":"teleport_player","args":{"position":[10,1,-3]}},{"action":"screenshot"}]}'
+# Teletransportar al jugador
+curl -s -XPOST localhost:4999/command -d '{"action":"teleport_player","args":{"position":[10,1,-3]}}'
+
+# Capturar screenshot
+curl -s -XPOST localhost:4999/command -d '{"action":"screenshot"}'
 ```
 
-Errores: `503 no_game_connected`, `404 player_not_found`, `504 timeout` (`PEER_COMMAND_TIMEOUT`, def 8s), `429 rate_limited` (>10 cmd/s). En el central el mismo `POST` requiere `player_id` + token.
+**Regla:** `GET /status` primero para ver quién está vivo; `POST /command` para actuar. Consultar §9 para la referencia completa de endpoints.
 
-### 9.4 Esquema del heartbeat
+### Herencia V1 (solo para compatibilidad legacy)
 
-```json
-{
-  "schema_version": 1, "type": "heartbeat",
-  "player_id": "uuid-persistente", "session_id": "uuid-por-sesion",
-  "host": "hostname", "godot_version": "3.6.2", "game_version": "0.1.0", "platform": "desktop",
-  "peer_id": "<inyectado por el peer>", "timestamp": 1717800000.123,
-  "player": {
-    "position": [x,y,z], "velocity": [x,y,z], "yaw": 0.0, "pitch": 0.0, "roll": 0.0,
-    "mode": "standard", "scene": "Dome_Crio", "zone": "criogenia",
-    "tick": 1423, "fps": 59.94, "memory_mb": 142.5
-  }
-}
-```
-
-Los controllers registran data points custom con `ANNAV2.register_telemetry_point(key, value)` (aparecen dentro de `player.{...}`).
-
-### 9.5 Archivos clave
-
-| Archivo | Función |
-|---------|---------|
-| `core_v2/anna/v2/ANNAV2.gd` | Autoload. Recolecta telemetría, ejecuta comandos remotos, expone `register_telemetry_point`. |
-| `core_v2/anna/v2/ANNAV2_Thread.gd` | Conexión desktop (thread nativo). Descubrimiento mDNS + heartbeat. `PEER_PORT=4999`. |
-| `core_v2/anna/v2/ANNAV2_Thread_Web.gd` | Conexión HTML5 (WebSocket nativo del browser, sin thread real). |
-| `core_v2/autoloads/SessionManager.gd` | Gestiona sesiones y decide si habilita ANNA. |
-| `core_v2/autoloads/PerformanceMonitor.gd` | Provee FPS/CPU/draw calls al heartbeat (ver §6.5). |
-| `odisea_peer.py` | Peer Python LAN (:4999). |
-| `odisea_central.py` | Nodo central (:5003). |
-
-### 9.6 Variables de entorno
-
-**Godot (autoload ANNAV2):**
-| Variable | Default | Descripción |
-|----------|---------|-------------|
-| `ANNA_V2_CENTRAL` | `odisea.educa.juegos` | Host del central (fallback / HTML5) |
-| `ANNA_V2_NO_CENTRAL` | (vacío) | `1` → privacidad: nunca reportar al central |
-| `ODISEA_BRIDGE_TOKEN` | dev default | Token Bearer del central (el peer local lo ignora) |
-
-**Peer Python (`odisea_peer.py`):** `PEER_PORT` (4999), `CENTRAL_WS_URL` (`wss://odisea.educa.juegos/ws`), `ODISEA_BRIDGE_TOKEN`, `ANNA_HOST`/`ANNA_PORT` (bridge V1, 5000).
-
-**Central (`odisea_central.py`):** `CENTRAL_HTTP_PORT` (5003), `ODISEA_BRIDGE_TOKEN`, `CENTRAL_CACHE_TTL` (120s, expira heartbeats viejos), `CENTRAL_STORE_GHOSTS`, anti-bruteforce (`CENTRAL_AUTH_MAX_FAILS` 8 / `CENTRAL_AUTH_FAIL_WINDOW` 60s / `CENTRAL_AUTH_LOCKOUT` 300s).
-
-> **Seguridad:** nunca hardcodees ni imprimas `ODISEA_BRIDGE_TOKEN` en logs/transcripts. Tomalo de `$ODISEA_BRIDGE_TOKEN` o pediselo al usuario en el momento.
-
-### 9.7 Gotchas
-
-- **`/status` vacío (`{}`)**: no hay juego *reproduciéndose*. ANNAV2 corre solo al dar play (F5).
-- **El peer no tiene datos** pero el juego corre: ANNA V2 descubre el peer por mDNS y reintenta cada 2s; verificá que el peer esté arriba en :4999.
-- **El central no tiene datos** pero el peer sí: el peer debe apuntar a *ese* central con `CENTRAL_WS_URL=ws://<central>:5003/ws` y el **mismo** `ODISEA_BRIDGE_TOKEN` (si no coincide → `invalid_token` en el handshake).
-- **401 en el central**: token ausente o incorrecto en el header. **429**: demasiados tokens inválidos desde tu IP (lockout por fuerza bruta) — respetá `Retry-After`.
-- **Heartbeat viejo**: el central expira entradas tras `CENTRAL_CACHE_TTL`; un `timestamp` viejo = player desconectado.
+El MCP stdio server (`core_v2/anna/client/odisea_mcp_stdio_server.py`) conectaba a `AnnaBridge` TCP :5000.
+Permanece en el repositorio para scripts RL legacy pero **no debe usarse para nuevo código**. El equivalente
+moderno es `POST /command` vía HTTP al peer :4999 (ver §9.3).
 
 ---
 
-## 10. ALCANCE DEL MVP
+## 9. TELEMETRY — TELEMETRÍA EN VIVO (FD-162)
 
 **Dentro del alcance (Acto I):**
 - Módulo Criogenia (entorno y narrativa)
