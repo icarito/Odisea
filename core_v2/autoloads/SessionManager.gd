@@ -98,6 +98,8 @@ const MOBILE_WEB_RENDER_SCALE_MAX := 1.0
 const MOBILE_WEB_GRAPHICS_PROFILE_DEFAULT := "medium"
 const MOBILE_WEB_TARGET_FPS_DEFAULT := "30"
 const MOBILE_WEB_TRANSPARENCY_ENV := "ODISEA_DIAG_DISABLE_TRANSPARENCIES"
+const DISABLE_GLOW_ENV := "ODISEA_DISABLE_GLOW"
+const DISABLE_FXAA_ENV := "ODISEA_DISABLE_FXAA"
 const MOBILE_WEB_MIN_RENDER_SIZE := Vector2(320, 180)
 var _early_weak_hardware := false
 var _mobile_web_safety_enabled := false
@@ -105,6 +107,7 @@ var _startup_gate_open := false
 var _startup_gate_started := false
 var _startup_gate_waited_frames := 0
 var _startup_gate_reason := ""
+var _performance_mitigation_active := false
 
 func _enter_tree() -> void:
 	_mobile_web_safety_enabled = _should_enable_mobile_web_safety(
@@ -512,6 +515,16 @@ func _is_startup_gate_ready_now() -> bool:
 	var scene = tree.current_scene
 	if not is_instance_valid(scene):
 		return false
+
+	# Verify that VisualServer has actually rendered something
+	# This ensures we don't start logic before the first frame is visible.
+	# Bypass for tests to avoid breaking determinism logic that relies on immediate start.
+	var is_testing = Engine.has_singleton("GdUnit3") and Engine.get_singleton("GdUnit3").is_test_suite()
+	if not OS.has_feature("Server") and not is_testing:
+		var objects_drawn = VisualServer.get_render_info(VisualServer.INFO_OBJECTS_IN_FRAME)
+		if objects_drawn <= 0:
+			return false
+
 	if _is_scene_transition_busy():
 		return false
 	if _startup_gate_requires_player(scene):
@@ -773,7 +786,27 @@ func _apply_mobile_web_safety_hints() -> void:
 	_set_env_default("ODISEA_DISABLE_SHADER_WARMUP", "1")
 	_set_env_default("ODISEA_TARGET_FPS", MOBILE_WEB_TARGET_FPS_DEFAULT)
 	_set_env_default(MOBILE_WEB_TRANSPARENCY_ENV, "1")
+	_set_env_default(DISABLE_GLOW_ENV, "1")
+	_set_env_default(DISABLE_FXAA_ENV, "1")
 	print("[SessionManager] Mobile web safety mode enabled.")
+	_apply_rendering_optimizations()
+
+func _apply_rendering_optimizations() -> void:
+	var disable_glow = OS.get_environment(DISABLE_GLOW_ENV) in ["1", "true", "yes", "on"]
+	var disable_fxaa = OS.get_environment(DISABLE_FXAA_ENV) in ["1", "true", "yes", "on"]
+
+	if disable_glow:
+		var default_env_path = ProjectSettings.get_setting("rendering/environment/default_environment")
+		if default_env_path != "":
+			var env = load(default_env_path)
+			if env is Environment:
+				env.glow_enabled = false
+				print("[SessionManager] Rendering: Glow DISABLED (forced)")
+
+	if disable_fxaa:
+		ProjectSettings.set_setting("rendering/quality/filters/use_fxaa", false)
+		# Note: FXAA change might require restart to take full effect in some Godot versions,
+		# but setting it early in _enter_tree/ready helps.
 
 func _apply_mobile_web_render_scale() -> void:
 	if not _mobile_web_safety_enabled:
@@ -1041,9 +1074,13 @@ var _replay_frame := 0
 var _total_replay_frames := 0
 
 func _physics_process(_dt):
+	var pm = get_node_or_null("/root/PerformanceMonitor")
+	if pm and pm.has_method("profiling_start"): pm.profiling_start("SessionManager")
+
 	# In RL lock-step runs, AnnaBridge drives the simulation and SessionManager
 	# bookkeeping becomes pure overhead.
 	if _rl_mode and _rl_bypass_session_manager and not is_recording and not is_replaying and not is_cli_mode:
+		if pm and pm.has_method("profiling_end"): pm.profiling_end("SessionManager")
 		return
 
 	if is_recording or is_replaying:
@@ -1254,6 +1291,43 @@ func _physics_process(_dt):
 	if __ext_exporter != null and __ext_exporter.is_exporting:
 		__ext_exporter.capture_frame(get_viewport())
 
+	if _mobile_web_safety_enabled and Engine.get_idle_frames() % 60 == 0:
+		_check_performance_mitigation()
+
+	if pm and pm.has_method("profiling_end"): pm.profiling_end("SessionManager")
+
+func _check_performance_mitigation() -> void:
+	var fps = Performance.get_monitor(Performance.TIME_FPS)
+	if fps < 30.0 and not _performance_mitigation_active:
+		_apply_dynamic_performance_mitigation()
+	elif fps > 45.0 and _performance_mitigation_active:
+		# Optionally restore settings if performance improves significantly?
+		# For stability, maybe better to stay in mitigation mode.
+		pass
+
+func _apply_dynamic_performance_mitigation() -> void:
+	_performance_mitigation_active = true
+	print("[SessionManager] LOW FPS DETECTED (%.1f). Applying dynamic mitigation." % Performance.get_monitor(Performance.TIME_FPS))
+
+	# 1. Reduce render scale further
+	var current_scale = _read_clamped_mobile_web_scale(OS.get_environment(MOBILE_WEB_RENDER_SCALE_ENV))
+	var mitigated_scale = current_scale * 0.8
+	OS.set_environment(MOBILE_WEB_RENDER_SCALE_ENV, str(mitigated_scale))
+	_apply_mobile_web_render_scale()
+
+	# 2. Force Viewport Clear Mode to stabilize framebuffers
+	# VisualServer.viewport_set_clear_mode(get_tree().root.get_viewport_rid(), VisualServer.CLEAR_MODE_ALWAYS)
+	# In Godot 3.x, accessing root viewport directly:
+	get_tree().root.render_target_clear_mode = Viewport.CLEAR_MODE_ALWAYS
+
+	# 3. Disable high-cost effects if not already
+	var env_path = ProjectSettings.get_setting("rendering/environment/default_environment")
+	if env_path != "":
+		var env = load(env_path)
+		if env is Environment:
+			env.glow_enabled = false
+			env.adjustment_enabled = false
+
 func start_recording():
 	if not is_instance_valid(player):
 		printerr("SessionManager: No se puede iniciar la grabación, no se encontró al jugador.")
@@ -1285,6 +1359,11 @@ func start_recording():
 	if player:
 		player.is_replay_mode = true # Usamos esta bandera para indicar control externo
 		player.set_physics_process(false)
+
+		# Supresor de inercia inicial para garantizar limpieza en el snapshot de grabación
+		if "velocity" in player:
+			player.velocity = Vector3.ZERO
+
 		# Conectar señal de drift correction
 		if player.has_signal("rigid_contact_ended") and not player.is_connected("rigid_contact_ended", self , "_on_rigid_contact_ended"):
 			player.connect("rigid_contact_ended", self , "_on_rigid_contact_ended")

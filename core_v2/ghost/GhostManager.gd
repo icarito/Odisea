@@ -21,6 +21,8 @@ var diff_threshold := 0.5
 var last_diff_distance := 0.0
 var last_checksum_match := true
 var diverging_vars := []
+var _ghost_batch := []
+const GHOST_BATCH_SIZE := 10
 
 func _ready():
 	name = "GhostManager"
@@ -164,7 +166,7 @@ func capture_frame(player: Node) -> Dictionary:
 
 	var checksum = _generate_checksum(snapshot)
 
-	return {
+	var frame_data = {
 		"pos": var2str(player.global_transform.origin),
 		"rot": var2str(player.rotation), # Euler or Quat? Using rotation property for simplicity
 		"checksum": checksum,
@@ -175,6 +177,21 @@ func capture_frame(player: Node) -> Dictionary:
 			"pos": player.global_transform.origin
 		}
 	}
+
+	# Telemetry Batching for ANNA V2
+	_ghost_batch.append(frame_data)
+	if _ghost_batch.size() >= GHOST_BATCH_SIZE:
+		_flush_ghost_batch()
+
+	return frame_data
+
+func _flush_ghost_batch():
+	if _ghost_batch.empty():
+		return
+	var annav2 = get_node_or_null("/root/ANNAV2")
+	if annav2 and annav2.has_method("add_telemetry_data"):
+		annav2.add_telemetry_data("ghost_batch", _ghost_batch.duplicate(true))
+	_ghost_batch.clear()
 
 func step(_dt: float):
 	if not is_playing_ghost:

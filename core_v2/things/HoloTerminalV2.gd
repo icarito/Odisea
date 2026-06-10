@@ -388,7 +388,21 @@ func _update_visuals() -> void:
 	if viewport:
 		# Only render the viewport if the screen is at least partially visible
 		var mode = Viewport.UPDATE_WHEN_VISIBLE if anim_progress > 0 else Viewport.UPDATE_DISABLED
-		viewport.render_target_update_mode = mode
+
+		# Lazy Viewport Optimization: Check distance if enabled
+		if mode == Viewport.UPDATE_WHEN_VISIBLE:
+			var player = _find_player()
+			if player and player is Spatial:
+				var dist = global_transform.origin.distance_to(player.global_transform.origin)
+				if dist > 15.0: # Hardcoded threshold for non-focused terminal
+					mode = Viewport.UPDATE_DISABLED
+
+		# If focused, always update
+		if _is_focused:
+			mode = Viewport.UPDATE_ALWAYS
+
+		if viewport.render_target_update_mode != mode:
+			viewport.render_target_update_mode = mode
 
 
 func _ease_out_cubic(t: float) -> float:

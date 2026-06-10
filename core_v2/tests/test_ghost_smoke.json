@@ -2852,8 +2852,8 @@
   "final_expected_state": {
     "position": [
       -0.000002,
-      -3.936467,
-      15.453457
+      -3.934865,
+      15.455638
     ],
     "velocity": [
       -0.000001,
@@ -2874,10 +2874,13 @@
         0,
         0
       ],
-      "camera_input_timer": 0,
+      "camera_input_timer": 2.533333,
       "is_tank_turn_mode": true,
-      "current_turn_time": 0
+      "current_turn_time": 0,
+      "_mouse_used_this_move": false
     },
+    "controller_mode": 0,
+    "gravity_mode": 1,
     "jump_state": {
       "coyote_timer": 0,
       "jump_buffer_timer": 0,
@@ -2886,6 +2889,8 @@
   },
   "oys_variables": {
     "$sys_env_prop_path": "",
-    "$sys_env_auto_run": ""
+    "$sys_env_auto_run": "",
+    "$yaw": 0,
+    "$pitch": 0
   }
 }

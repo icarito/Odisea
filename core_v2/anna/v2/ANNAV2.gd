@@ -16,7 +16,11 @@ var _session_id := ""
 
 # --- Local telemetry capture (bridge-independent; ON by default) ---
 var _capture_enabled := true
+# Ring buffer: fixed-size array written via a circular head index. Writes are O(1)
+# (no O(n) pop_front shift), so capture cost stays flat regardless of session length.
 var _capture_buffer := []
+var _capture_head := 0   # next write slot
+var _capture_count := 0  # number of valid frames (<= _capture_max)
 var _capture_max := CAPTURE_DEFAULT_MAX
 var _capture_dump_path := ""
 # Custom data points registered by controllers; merged into every captured frame
@@ -25,12 +29,17 @@ var _custom_points := {}
 # Telemetry is gathered at most every TELEMETRY_INTERVAL_MS (decoupled from frame rate).
 # The network thread only sends at 10Hz anyway, so gathering at 60Hz was wasted main-thread
 # work. Lower the interval for finer local capture; raise it to reduce ANNA's per-frame cost.
-const TELEMETRY_INTERVAL_MS := 50 # ~20Hz
+var TELEMETRY_INTERVAL_MS := 50 # ~20Hz
 var _last_telemetry_ms := 0
 
 func _ready():
+	# Optimization for HTML5/Weak hardware
+	if OS.get_name() == "HTML5" or OS.has_touchscreen_ui_hint():
+		TELEMETRY_INTERVAL_MS = 200 # 5Hz for web
+		print("[ANNAV2] HTML5: Throttling telemetry to 5Hz")
+
 	_player_id = _load_or_create_player_id()
-	_session_id = _generate_uuid()
+	_session_id = _generate_session_id()
 
 	_command_queue = _command_queue_script.new()
 
@@ -84,12 +93,15 @@ func _init_capture_from_env():
 
 func _exit_tree():
 	# Auto-dump on shutdown so headless runs always leave a JSON artifact behind.
-	if _capture_enabled and _capture_dump_path != "" and not _capture_buffer.empty():
+	if _capture_enabled and _capture_dump_path != "" and _capture_count > 0:
 		dump_telemetry_json(_capture_dump_path)
 	if _net_thread:
 		_net_thread.stop()
 
 func _process(_delta):
+	var pm = get_node_or_null("/root/PerformanceMonitor")
+	if pm and pm.has_method("profiling_start"): pm.profiling_start("ANNAV2")
+
 	if _is_web_thread:
 		_net_thread._main_thread_tick()
 
@@ -101,6 +113,8 @@ func _process(_delta):
 	var commands = _command_queue.pop_all()
 	for cmd in commands:
 		call_deferred("_execute_command", cmd)
+
+	if pm and pm.has_method("profiling_end"): pm.profiling_end("ANNAV2")
 
 func _update_telemetry():
 	var fps = Performance.get_monitor(Performance.TIME_FPS)
@@ -165,9 +179,11 @@ func _update_telemetry():
 	if _capture_enabled:
 		var frame = player_data.duplicate(true)
 		frame["t_msec"] = OS.get_ticks_msec()
-		_capture_buffer.append(frame)
-		if _capture_buffer.size() > _capture_max:
-			_capture_buffer.pop_front()
+		if _capture_buffer.size() != _capture_max:
+			_capture_buffer.resize(_capture_max)
+		_capture_buffer[_capture_head] = frame
+		_capture_head = (_capture_head + 1) % _capture_max
+		_capture_count = min(_capture_count + 1, _capture_max)
 
 func _execute_command(cmd: Dictionary):
 	var action = cmd.get("action")
@@ -339,7 +355,8 @@ func is_capture_enabled() -> bool:
 	return _capture_enabled
 
 func clear_capture() -> void:
-	_capture_buffer.clear()
+	_capture_head = 0
+	_capture_count = 0
 
 # Register/override a custom telemetry data point merged into every captured frame.
 # e.g. ANNAV2.register_telemetry_point("jump_count", 3)
@@ -355,7 +372,19 @@ func clear_telemetry_point(key: String) -> void:
 	_custom_points.erase(key)
 
 func get_capture_log() -> Array:
-	return _capture_buffer.duplicate(true)
+	return _capture_frames_in_order(true)
+
+# Returns captured frames oldest-first. The buffer is circular, so we walk from the
+# oldest valid slot. Pass deep=true to deep-copy each frame for safe external mutation.
+func _capture_frames_in_order(deep := false) -> Array:
+	var out = []
+	if _capture_count == 0:
+		return out
+	var start = (_capture_head - _capture_count + _capture_max) % _capture_max
+	for i in range(_capture_count):
+		var frame = _capture_buffer[(start + i) % _capture_max]
+		out.append(frame.duplicate(true) if deep else frame)
+	return out
 
 # Write the captured frames to a JSON file. Returns the resolved path, or "" on failure.
 func dump_telemetry_json(path := "") -> String:
@@ -370,8 +399,8 @@ func dump_telemetry_json(path := "") -> String:
 		"game_version": GAME_VERSION,
 		"godot_version": Engine.get_version_info().string,
 		"captured_at": OS.get_unix_time(),
-		"frame_count": _capture_buffer.size(),
-		"frames": _capture_buffer
+		"frame_count": _capture_count,
+		"frames": _capture_frames_in_order()
 	}
 
 	var f = File.new()
@@ -381,7 +410,7 @@ func dump_telemetry_json(path := "") -> String:
 		return ""
 	f.store_string(JSON.print(payload, "  "))
 	f.close()
-	print("[ANNAV2] Telemetry dumped to ", path, " (", _capture_buffer.size(), " frames)")
+	print("[ANNAV2] Telemetry dumped to ", path, " (", _capture_count, " frames)")
 	return path
 
 # --- Helpers ---
@@ -415,6 +444,18 @@ func _generate_uuid() -> String:
 		h = OS.get_unix_time() + randi()
 
 	return str(OS.get_unix_time()) + "-" + str(h)
+
+func _generate_session_id() -> String:
+	# Unique per game session (one per process launch), and stable across bridge
+	# reconnections because it's generated once in _ready() and never regenerated.
+	# Must NOT collide between two instances on the same machine: OS.get_unique_id()
+	# is identical per machine and unix_time is identical within a second, so we mix
+	# the microsecond counter (differs per process) with randomize()+randi() entropy.
+	randomize()
+	var rnd = ""
+	for i in range(4):
+		rnd += "%08x" % randi()
+	return "%d-%d-%s" % [OS.get_unix_time(), OS.get_ticks_usec(), rnd]
 
 func _get_url_param(param_name: String) -> String:
 	if not OS.has_feature("web"): return ""
