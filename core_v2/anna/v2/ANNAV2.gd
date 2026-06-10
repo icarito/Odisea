@@ -210,12 +210,14 @@ func _execute_command(cmd: Dictionary):
 		_cmd_screenshot(id, args)
 	elif action == "teleport_player":
 		_cmd_teleport_player(id, args)
+	elif action == "reload_pck":
+		_cmd_reload_pck(id, args)
 	else:
 		_send_response(id, false, {"error": "unknown action: " + str(action)})
 
 func _can_execute_remote_command(action: String) -> bool:
 	# Telemetry and harmless info commands are always allowed
-	if action in ["inspect_node", "screenshot"]:
+	if action in ["inspect_node", "screenshot", "reload_pck"]:
 		return true
 	return OS.is_debug_build() or OS.has_feature("editor")
 
@@ -342,6 +344,72 @@ func _cmd_teleport_player(id, args):
 		player.yaw = yaw
 
 	_send_response(id, true, {})
+
+func _cmd_reload_pck(id, args):
+	var url = args.get("url")
+	if not url or url == "":
+		_send_response(id, false, {"error": "missing pck url"})
+		return
+
+	var target_scene = args.get("scene")
+
+	print("[ANNAV2] Starting PCK download from: ", url)
+
+	var http = HTTPRequest.new()
+	add_child(http)
+
+	# En HTML5 use_threads debe ser false. En Godot 3 standard esto es por defecto.
+	if OS.has_feature("web"):
+		http.use_threads = false
+
+	var temp_path = "user://temp_injection.pck"
+	http.download_file = temp_path
+
+	var err = http.request(url)
+	if err != OK:
+		_send_response(id, false, {"error": "failed to start http request: " + str(err)})
+		http.queue_free()
+		return
+
+	# Esperar descarga (Godot 3 yield style)
+	var result = yield(http, "request_completed")
+	var response_code = result[1]
+
+	if response_code != 200:
+		_send_response(id, false, {"error": "pck download failed with code: " + str(response_code)})
+		http.queue_free()
+		return
+
+	http.queue_free()
+
+	print("[ANNAV2] PCK downloaded, loading: ", temp_path)
+
+	# ProjectSettings.load_resource_pack es global y persiste durante la ejecución
+	var success = ProjectSettings.load_resource_pack(temp_path)
+	if not success:
+		_send_response(id, false, {"error": "failed to load resource pack"})
+		return
+
+	# Recargar escena
+	if target_scene and target_scene != "":
+		print("[ANNAV2] Changing scene to: ", target_scene)
+		var change_err = get_tree().change_scene(target_scene)
+		if change_err != OK:
+			_send_response(id, false, {"error": "failed to change scene: " + str(change_err)})
+			return
+	else:
+		var current = get_tree().current_scene.filename
+		if current == "":
+			# Fallback if current scene has no filename (e.g. dynamically created)
+			current = "res://scenes/Main.tscn"
+
+		print("[ANNAV2] Reloading current scene: ", current)
+		var reload_err = get_tree().change_scene(current)
+		if reload_err != OK:
+			_send_response(id, false, {"error": "failed to reload scene: " + str(reload_err)})
+			return
+
+	_send_response(id, true, {"message": "pck loaded and scene reloaded"})
 
 # --- Telemetry capture API (local, bridge-independent) ---
 # Safe to call from OYS (ANNA_ENABLE/ANNA_DISABLE/ANNA_DUMP) or directly from

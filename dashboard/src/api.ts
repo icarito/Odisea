@@ -30,3 +30,18 @@ export async function getHealth() {
   const response = await fetch("/health");
   return response.json();
 }
+
+export async function sendCommand(playerId: string, action: string, args: any = {}) {
+  const response = await apiFetch("/command", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      player_id: playerId,
+      action,
+      args,
+    }),
+  });
+  return response.json();
+}
