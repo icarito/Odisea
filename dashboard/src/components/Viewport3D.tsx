@@ -74,7 +74,7 @@ class SceneErrorBoundary extends React.Component<{ children: React.ReactNode }, 
 
 const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, pitch: number, roll: number, staleAge: number }> = ({ position, yaw, pitch, roll, staleAge }) => {
   const meshRef = useRef<THREE.Group>(null);
-  const alpha = staleAge > 30 ? 0.3 : staleAge > 10 ? 0.55 : 1.0;
+  const alpha = staleAge > 2 ? 0.3 : 1.0;
 
   return (
     <group position={new THREE.Vector3(...position)} rotation={[pitch, -yaw, roll, 'YXZ']} ref={meshRef}>

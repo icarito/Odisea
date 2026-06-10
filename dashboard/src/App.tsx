@@ -41,7 +41,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const activeId = selectedPlayerId || pids[0];
   const activeHb = heartbeats[activeId];
   const activeHistory = history[activeId];
-  const staleAge = activeHb ? (Date.now() / 1000 - activeHb.timestamp) : 0;
+  const staleAge = activeHb ? (activeHb.timestamp ? (Date.now() - activeHb.timestamp * 1000) / 1000 : 0) : 0;
 
   // Helper para garantizar que la posición sea un array de 3 números
   const safePos = (p: any): [number, number, number] => {
@@ -103,14 +103,20 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             {!showHistory ? (
               <>
                 {pids.length === 0 && <div className="text-center text-text-muted py-10 text-sm">Sin players</div>}
-                {pids.map(pid => (
+                {pids.map(pid => {
+                  const hb = heartbeats[pid];
+                  const ts = typeof hb.timestamp === 'number' ? hb.timestamp : 0;
+                  const age_s = (Date.now() - ts * 1000) / 1000;
+                  return (
                   <PlayerCard
                     key={pid}
-                    hb={heartbeats[pid]}
+                    hb={hb}
                     isActive={activeId === pid}
                     onClick={() => setSelectedPlayerId(pid)}
+                    staleAge={age_s}
                   />
-                ))}
+                  );
+                })}
               </>
             ) : (
               <SessionHistory />

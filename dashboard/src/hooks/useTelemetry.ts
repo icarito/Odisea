@@ -18,8 +18,6 @@ export const useTelemetry = () => {
     lastPos: [number, number, number] | null,
     lastTick: number,
     lastMoveTime: number,
-    lowFpsStartTime: number | null,
-    initialMemory: number | null,
     events: { scene: string, zone: string, mode: string, timestamp: number }[]
   }>>({});
 
@@ -44,8 +42,6 @@ export const useTelemetry = () => {
                 lastPos: null,
                 lastTick: 0,
                 lastMoveTime: now,
-                lowFpsStartTime: null,
-                initialMemory: hb.player?.memory_mb ?? 0,
                 events: []
             };
           }
@@ -84,40 +80,8 @@ export const useTelemetry = () => {
             hist.lastMoveTime = now;
           }
 
-          // Alerts
-          // FPS Bajo: < 30 por > 5s
-          const currentFps = hb.player?.fps ?? 60;
-          if (currentFps < 30) {
-            if (!hist.lowFpsStartTime) hist.lowFpsStartTime = now;
-            if (now - hist.lowFpsStartTime > 5000) {
-              newAlerts.push({
-                id: `${pid}-lowfps-${now}`,
-                type: 'low_fps',
-                message: `FPS bajo detectado en ${pid.slice(0,8)} (< 30)`,
-                timestamp: now,
-                playerId: pid
-              });
-              hist.lowFpsStartTime = now; // Reset to avoid spamming every second
-            }
-          } else {
-            hist.lowFpsStartTime = null;
-          }
-
-          // Memory Leak: > 20% spike (simplified check vs initial or sliding window)
-          const currentMem = hb.player?.memory_mb ?? 0;
-          if (hist.initialMemory && currentMem > hist.initialMemory * 1.2) {
-            newAlerts.push({
-                id: `${pid}-memleak-${now}`,
-                type: 'memory_leak',
-                message: `Posible memory leak en ${pid.slice(0,8)} (+20%)`,
-                timestamp: now,
-                playerId: pid
-            });
-            hist.initialMemory = currentMem; // Reset baseline
-          }
-
-          // Nota: Alertas de 'stale' y 'softlock' eliminadas para reducir ruido visual.
-          // Solo se notifican desconexiones y problemas críticos de rendimiento.
+          // Alerts: solo desconexiones y errores del backend.
+          // Alertas de low FPS, memory spike y softlock eliminadas para reducir ruido.
         });
 
         // Disconnect check (evitar bucle infinito marcando los ya procesados)
