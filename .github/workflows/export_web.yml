@@ -20,10 +20,10 @@ concurrency:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
     if: |
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       github.event_name == 'push'
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,8 +53,6 @@ jobs:
 
       - name: Move Web export to root
         run: |
-          # El action crea un subdirectorio con el nombre del preset (p.ej. HTML5).
-          # Mover todo al nivel superior para que Pages sirva index.html en la raíz.
           BUILD_DIR="${{ steps.export.outputs.build_directory }}"
           SRC_DIR=""
 
