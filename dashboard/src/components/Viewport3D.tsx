@@ -3,7 +3,10 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Line, PerspectiveCamera, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
-// TODO: support centrifuge/bent-space rooms with custom axis helpers when room type metadata is available from telemetry.
+// Godot and Three.js both use Y-up, -Z=forward coordinate systems.
+// Position data passes through directly — no axis conversion needed.
+// Yaw is negated to match Godot's Basis(Vector3.UP, angle) to Three.js Euler Y rotation.
+// Euler order is set to YXZ on the marker group to match camera orbit convention.
 
 interface Viewport3DProps {
   position: [number, number, number];
@@ -14,6 +17,7 @@ interface Viewport3DProps {
   follow: boolean;
   wireframe: boolean;
   sceneName: string;
+  staleAge: number;
 }
 
 const SceneModel: React.FC<{ sceneName: string; wireframe: boolean }> = ({ sceneName, wireframe }) => {
@@ -68,24 +72,25 @@ class SceneErrorBoundary extends React.Component<{ children: React.ReactNode }, 
     }
 }
 
-const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, pitch: number, roll: number }> = ({ position, yaw, pitch, roll }) => {
+const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, pitch: number, roll: number, staleAge: number }> = ({ position, yaw, pitch, roll, staleAge }) => {
   const meshRef = useRef<THREE.Group>(null);
+  const alpha = staleAge > 30 ? 0.3 : staleAge > 10 ? 0.55 : 1.0;
 
   return (
-    <group position={new THREE.Vector3(...position)} rotation={[pitch, -yaw, roll]} ref={meshRef}>
+    <group position={new THREE.Vector3(...position)} rotation={[pitch, -yaw, roll, 'YXZ']} ref={meshRef}>
       <mesh>
         <sphereGeometry args={[0.5, 16, 16]} />
-        <meshStandardMaterial color="#7fd1ff" />
+        <meshStandardMaterial color="#7fd1ff" transparent opacity={alpha} />
       </mesh>
       <mesh position={[0, 0, -0.7]} rotation={[Math.PI / 2, 0, 0]}>
         <coneGeometry args={[0.2, 0.5, 8]} />
-        <meshStandardMaterial color="#7fd1ff" />
+        <meshStandardMaterial color="#7fd1ff" transparent opacity={alpha} />
       </mesh>
     </group>
   );
 };
 
-export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName }) => {
+export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const controlsRef = useRef<any>(null);
 
@@ -96,6 +101,14 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
       controlsRef.current.update();
     }
   };
+
+  // Force OrbitControls to track the new target when follow/position changes
+  useEffect(() => {
+    if (controlsRef.current && follow) {
+      controlsRef.current.target.lerp(new THREE.Vector3(...position), 0.3);
+      controlsRef.current.update();
+    }
+  }, [position, follow]);
 
   return (
     <div className="w-full h-full relative bg-black rounded-lg overflow-hidden border border-border-custom">
@@ -111,7 +124,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
             </Suspense>
         </SceneErrorBoundary>
 
-        <PlayerMarker position={position} yaw={yaw} pitch={pitch} roll={roll} />
+        <PlayerMarker position={position} yaw={yaw} pitch={pitch} roll={roll} staleAge={staleAge} />
 
         {trail.length > 1 && (
           <Line

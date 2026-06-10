@@ -12,13 +12,20 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ hb, isActive, onClick })
   const age = Date.now() / 1000 - hb.timestamp;
 
   let statusColor = 'bg-success';
-  if (age > 30) statusColor = 'bg-danger';
-  else if (age > 10) statusColor = 'bg-warning';
+  let opacityStyle: React.CSSProperties = {};
+  if (age > 30) {
+    statusColor = 'bg-danger';
+    opacityStyle = { opacity: 0.45 };
+  } else if (age > 10) {
+    statusColor = 'bg-warning';
+    opacityStyle = { opacity: 0.65 };
+  }
 
   return (
     <div
       className={`p-3 bg-bg-card border ${isActive ? 'border-accent' : 'border-border-custom'} rounded cursor-pointer hover:bg-[#1c2129] transition-colors`}
       onClick={onClick}
+      style={opacityStyle}
     >
       <div className="flex justify-between items-center mb-2">
         <div className="flex items-center gap-2">

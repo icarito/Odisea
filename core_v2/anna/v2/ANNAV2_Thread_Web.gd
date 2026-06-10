@@ -3,7 +3,7 @@ extends Reference
 const PEER_PORT := 4999
 const RECONNECT_INTERVAL_MS := 2000
 const DEV_DEFAULT_TOKEN := "odisea-dev-insecure"
-const DEFAULT_CENTRAL := "35.182.238.36:5003"
+const DEFAULT_CENTRAL := "odisea.educa.juegos"
 
 var _stop_thread := false
 
@@ -11,7 +11,7 @@ var _command_queue
 var _is_connected := false
 var _was_connected := false  # detect state transitions
 var _peer_url := ""
-var _central_url := "ws://" + DEFAULT_CENTRAL + "/ws"
+var _central_url := "wss://" + DEFAULT_CENTRAL + "/ws"
 var _bridge_token := DEV_DEFAULT_TOKEN
 var _central_enabled := true
 
@@ -43,7 +43,7 @@ func _init():
 	var central_env = OS.get_environment("ANNA_V2_CENTRAL")
 	if central_env == "":
 		central_env = DEFAULT_CENTRAL
-	_central_url = "ws://" + central_env + "/ws"
+	_central_url = "wss://" + central_env + "/ws"
 	_central_enabled = not (OS.get_environment("ANNA_V2_NO_CENTRAL") in ["1", "true", "yes", "on"])
 
 func start(command_queue, p_id, s_id, g_ver):

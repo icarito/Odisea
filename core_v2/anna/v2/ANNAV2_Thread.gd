@@ -6,7 +6,7 @@ const HEARTBEAT_INTERVAL_MS := 100
 const RECONNECT_INTERVAL_MS := 2000
 # Dev-only fallback secret; PRODUCTION must set ODISEA_BRIDGE_TOKEN in the environment.
 const DEV_DEFAULT_TOKEN := "odisea-dev-insecure"
-const DEFAULT_CENTRAL := "35.182.238.36:5003"
+const DEFAULT_CENTRAL := "odisea.educa.juegos"
 
 var _thread: Thread
 var _stop_thread := false
@@ -20,7 +20,7 @@ var _command_queue # Reference to ANNAV2_CommandQueue
 var _is_connected := false
 var _peer_url := ""
 # Por defecto, apuntar al nodo central para que HTML5 funcione sin parámetros URL
-var _central_url := "ws://" + DEFAULT_CENTRAL + "/ws"
+var _central_url := "wss://" + DEFAULT_CENTRAL + "/ws"
 # Token de desarrollo por defecto para autenticación automática
 var _bridge_token := DEV_DEFAULT_TOKEN
 var _central_enabled := true
@@ -69,7 +69,7 @@ func _init():
 	var central_env = OS.get_environment("ANNA_V2_CENTRAL")
 	if central_env == "":
 		central_env = DEFAULT_CENTRAL
-	_central_url = "ws://" + central_env + "/ws"
+	_central_url = "wss://" + central_env + "/ws"
 	# Privacy/production: set ANNA_V2_NO_CENTRAL=1 to never phone home to the central.
 	_central_enabled = not (OS.get_environment("ANNA_V2_NO_CENTRAL") in ["1", "true", "yes", "on"])
 

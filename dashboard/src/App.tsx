@@ -10,7 +10,7 @@ import { SessionHistory } from './components/SessionHistory';
 import { useTelemetry } from './hooks/useTelemetry';
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
-  const { heartbeats, peersConnected, isConnected, alerts, history } = useTelemetry();
+  const { heartbeats, peersConnected, heartbeatRate, isConnected, alerts, history } = useTelemetry();
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,11 +33,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [followPlayer, setFollowPlayer] = useState(true);
   const [wireframe, setWireframe] = useState(false);
   const [manualScene, setManualScene] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ players: false, timeline: false, alerts: false });
+
+  const toggleCollapse = (section: string) => setCollapsed(prev => ({ ...prev, [section]: !prev[section] }));
 
   const pids = Object.keys(heartbeats);
   const activeId = selectedPlayerId || pids[0];
   const activeHb = heartbeats[activeId];
   const activeHistory = history[activeId];
+  const staleAge = activeHb ? (Date.now() / 1000 - activeHb.timestamp) : 0;
 
   // Helper para garantizar que la posición sea un array de 3 números
   const safePos = (p: any): [number, number, number] => {
@@ -58,6 +62,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             {isConnected ? 'online' : 'offline'}
           </span>
           <span className="text-text-muted">peers <b className="text-text-primary">{peersConnected}</b></span>
+          <span className="text-text-muted">hb/s <b className="text-text-primary">{typeof heartbeatRate === 'number' ? heartbeatRate.toFixed(1) : heartbeatRate}</b></span>
           <span className="text-text-muted">refresco <b className="text-text-primary">1s</b></span>
         </div>
         <div className="flex-1" />
@@ -71,7 +76,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
       <main className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Player List & History (Hidden on small screens) */}
-        <div className="hidden lg:flex w-64 border-r border-border-custom flex-col bg-bg-primary">
+        <div className="hidden lg:flex lg:w-64 lg:shrink-0 flex-col bg-bg-primary border-r border-border-custom">
           <div className="flex border-b border-border-custom">
             <button
               onClick={() => setShowHistory(false)}
@@ -86,7 +91,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               Sesiones
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
+          <div
+            className="p-2 text-[10px] uppercase text-text-muted font-bold border-b border-border-custom cursor-pointer hover:text-text-primary select-none flex justify-between items-center"
+            onClick={() => toggleCollapse('players')}
+          >
+            <span>{!showHistory ? 'Players online' : 'Sesiones'}</span>
+            <span className="text-xs">{collapsed.players ? '▸' : '▾'}</span>
+          </div>
+          {!collapsed.players ? (
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 flex flex-col gap-2">
             {!showHistory ? (
               <>
                 {pids.length === 0 && <div className="text-center text-text-muted py-10 text-sm">Sin players</div>}
@@ -103,13 +116,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               <SessionHistory />
             )}
           </div>
+          ) : null}
         </div>
 
         {/* Center - 3D Viewport & Charts */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 relative p-4 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          <div className={`${collapsed.timeline ? 'flex-1' : 'shrink-0'} p-4`}>
+            <div className={`${collapsed.timeline ? '' : 'h-[400px]'} w-full relative`}>
             {activeHb?.player ? (
-              <div className="flex-1 relative">
+              <>
                 <Viewport3D
                   position={safePos(activeHb.player.position)}
                   yaw={Number(activeHb.player.yaw) || 0}
@@ -119,6 +134,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   follow={followPlayer}
                   wireframe={wireframe}
                   sceneName={manualScene || activeHb.player.scene || "Unknown"}
+                  staleAge={staleAge}
                 />
                 
                 {/* Viewport Overlays */}
@@ -157,16 +173,26 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     Wireframe
                   </button>
                 </div>
-              </div>
+              </>
             ) : (
-              <div className="flex-1 bg-black rounded-lg border border-border-custom flex items-center justify-center text-text-muted">
+              <div className="w-full h-full bg-black rounded-lg border border-border-custom flex items-center justify-center text-text-muted">
                 {activeHb ? "Esperando datos del jugador..." : "Seleccioná un player para ver telemetría 3D"}
               </div>
             )}
+            </div>
           </div>
 
-          <div className="h-60 border-t border-border-custom flex flex-col bg-bg-card p-4 gap-4">
-            <div className="flex-1 flex gap-4 overflow-hidden">
+          <div className={`border-t border-border-custom flex flex-col bg-bg-card ${collapsed.timeline ? '' : 'flex-1'}`}>
+            <div
+              className="p-2 text-[10px] uppercase text-text-muted font-bold cursor-pointer hover:text-text-primary select-none flex justify-between items-center"
+              onClick={() => toggleCollapse('timeline')}
+            >
+              <span>Charts & Timeline</span>
+              <span className="text-xs">{collapsed.timeline ? '▸' : '▾'}</span>
+            </div>
+            {!collapsed.timeline && (
+            <div className="p-4 gap-4 flex flex-col">
+            <div className="flex gap-4 overflow-hidden" style={{ height: 200 }}>
                 <div className="flex-1 flex flex-col gap-1 min-w-0">
                 <span className="text-[10px] uppercase text-text-muted font-bold">FPS Timeline</span>
                 <FpsTimeline data={activeHistory?.fps || []} />
@@ -187,14 +213,21 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 </div>
                 <SessionTimeline events={activeHistory?.events || []} />
             </div>
+            </div>
+            )}
           </div>
         </div>
 
         {/* Right Sidebar - Alerts (Hidden on small/medium screens) */}
-        <div className="hidden xl:flex w-72 border-l border-border-custom flex-col bg-bg-primary">
-          <div className="p-3 text-[10px] uppercase text-text-muted font-bold border-b border-border-custom">
-            Alertas / Log
+        <div className={`hidden xl:flex flex-col bg-bg-primary border-l border-border-custom ${collapsed.alerts ? 'w-auto xl:w-auto' : 'w-72 xl:w-72 xl:shrink-0'}`}>
+          <div
+            className="p-3 text-[10px] uppercase text-text-muted font-bold border-b border-border-custom cursor-pointer hover:text-text-primary select-none flex justify-between items-center"
+            onClick={() => toggleCollapse('alerts')}
+          >
+            <span>Alertas / Log</span>
+            <span className="text-xs">{collapsed.alerts ? '▸' : '▾'}</span>
           </div>
+          {!collapsed.alerts && (
           <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
             {alerts.length === 0 && <div className="text-center text-text-muted py-10 text-sm">Sin alertas</div>}
             {alerts.map(alert => (
@@ -205,8 +238,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                  </div>
                  <div>{alert.message}</div>
               </div>
-            ))}
+              ))}
           </div>
+          )}
         </div>
       </main>
     </div>
