@@ -25,7 +25,7 @@ El central envía un comando al peer a través del WebSocket con el siguiente fo
 
 ## 2. Código del Peer (GDScript 1.x)
 
-Implementado en `core_v2/anna/v2/ANNAV2.gd`. El flujo es:
+Implementado en `core_v2/telemetry/ANNAV2.gd`. El flujo es:
 1. Recibir comando.
 2. Descargar PCK a `user://temp_injection.pck` usando `HTTPRequest` (modo síncrono para HTML5).
 3. Cargar PCK usando `ProjectSettings.load_resource_pack()`.

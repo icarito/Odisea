@@ -4,9 +4,9 @@ const PLAYER_ID_FILE := "user://odisea_player_id.txt"
 const GAME_VERSION := "0.1.0"
 const CAPTURE_DEFAULT_MAX := 36000 # ~10 min at 60 fps; ring buffer caps memory use
 
-var _command_queue_script = preload("res://core_v2/anna/v2/ANNAV2_CommandQueue.gd")
-var _thread_script = preload("res://core_v2/anna/v2/ANNAV2_Thread.gd")
-var _thread_web_script = preload("res://core_v2/anna/v2/ANNAV2_Thread_Web.gd")
+var _command_queue_script = preload("res://core_v2/telemetry/ANNAV2_CommandQueue.gd")
+var _thread_script = preload("res://core_v2/telemetry/ANNAV2_Thread.gd")
+var _thread_web_script = preload("res://core_v2/telemetry/ANNAV2_Thread_Web.gd")
 
 var _command_queue
 var _net_thread

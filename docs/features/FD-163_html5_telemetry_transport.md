@@ -16,7 +16,7 @@
 
 ## Problem
 
-ANNA V2 ([core_v2/anna/v2/ANNAV2_Thread.gd](../../core_v2/anna/v2/ANNAV2_Thread.gd)) ya
+ANNA V2 ([core_v2/telemetry/ANNAV2_Thread.gd](../../core_v2/telemetry/ANNAV2_Thread.gd)) ya
 reporta telemetría a un peer local (`:4999`) y, en desktop/Android, cae al nodo central
 (`:5003`) cuando no hay peer, autenticando con `ODISEA_BRIDGE_TOKEN`. **HTML5 no encaja en ese
 modelo** y hoy ni siquiera intenta el central: la rama `web` de `_discover_peer` retorna
@@ -39,7 +39,7 @@ build HTML5 servido por https **no puede** alcanzar el central hasta resolver es
 
 Definir una interfaz de configuración y transporte específica para web, equivalente a la de
 env vars en nativo, pero por **parámetros de URL** (parseables con `JavaScript.eval`, patrón ya
-usado en [ANNAV2.gd](../../core_v2/anna/v2/ANNAV2.gd) `_get_url_param`).
+usado en [ANNAV2.gd](../../core_v2/telemetry/ANNAV2.gd) `_get_url_param`).
 
 ### Configuración por URL query params (reemplazo de env en web)
 
@@ -72,7 +72,7 @@ Sin TCP scan ni mDNS: el browser solo puede abrir las URLs WS que se le indiquen
 ### Handshake / heartbeat (sin cambios)
 
 El protocolo es idéntico al de nativo. ANNA V2 ya envía `token` + `peer_id` en el handshake
-([ANNAV2_Thread.gd](../../core_v2/anna/v2/ANNAV2_Thread.gd) `_send_handshake`); el central valida
+([ANNAV2_Thread.gd](../../core_v2/telemetry/ANNAV2_Thread.gd) `_send_handshake`); el central valida
 el token y el peer local lo ignora. Los frames se mandan como **TEXT** (`WRITE_MODE_TEXT`), que
 es lo que el peer y el central parsean.
 
@@ -114,9 +114,9 @@ bridge nunca debe afectar el juego (igual que en nativo).
 
 ## Files to Modify (implementación futura)
 
-- `core_v2/anna/v2/ANNAV2.gd` — extender el parseo de URL params (`bridge`, `central`, `token`,
+- `core_v2/telemetry/ANNAV2.gd` — extender el parseo de URL params (`bridge`, `central`, `token`,
   `nocentral`, `scheme`) reusando `_get_url_param`, y pasarlos al thread.
-- `core_v2/anna/v2/ANNAV2_Thread.gd` — rama `web` de `_discover_peer`: aplicar precedencia y la
+- `core_v2/telemetry/ANNAV2_Thread.gd` — rama `web` de `_discover_peer`: aplicar precedencia y la
   regla de esquema; ya existen `_central_url` / `_bridge_token` / `_central_enabled`.
 - Infra (fuera del repo): TLS en el central (Caddy o Cloudflare Tunnel).
 - `.claude/skills/odisea-telemetry/SKILL.md` — agregar sección HTML5 al implementarse.

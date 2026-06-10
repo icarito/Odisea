@@ -24,11 +24,12 @@ Las siguientes features están implementadas y documentadas en `docs/canon/`:
 - Transición 2.5D sidescroller
 - Test battery y runner de regresión determinista
 
-## Integración de Agentes (ANNA)
+## Integración de Agentes (ANNA V1 — DEPRECATED)
 
-La integración de agente externo A.N.N.A (bridge TCP + interfaz de observación/acción) está documentada en:
+La integración de agente externo A.N.N.A (bridge TCP + interfaz de observación/acción) está **deprecada** y preservada solo para compatibilidad con scripts RL legacy. Para telemetría y debugging moderno, consultar **AGENTS.md §9** (Telemetry).
 
-- `docs/feature_anna_agent.md`
+Documentación legacy:
+- `docs/features/archive/FD-008_anna_agent.md`
 - `core_v2/anna/README.md`
 
 ## Descarga e Instalación
