@@ -28,58 +28,97 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Cache Godot dependencies
+      - name: Cache Godot binary and templates
         uses: actions/cache@v3
         with:
           path: |
             ~/.cache/godot
             ~/.config/godot
             ~/.local/share/godot
-          key: ${{ runner.os }}-godot-${{ hashFiles('**/project.godot') }}
+          key: ${{ runner.os }}-godot-netlify-${{ hashFiles('**/project.godot') }}
           restore-keys: |
-            ${{ runner.os }}-godot-
+            ${{ runner.os }}-godot-netlify-
+
+      - name: Install Godot 3.6.2
+        run: |
+          GODOT_DIR="$HOME/.local/bin"
+          mkdir -p "$GODOT_DIR"
+          echo "$GODOT_DIR" >> "$GITHUB_PATH"
+
+          if [ ! -f "$GODOT_DIR/godot3-server" ]; then
+            curl -fSL -o /tmp/godot.zip \
+              "https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_linux_headless.64.zip"
+            unzip -o /tmp/godot.zip -d "$GODOT_DIR/"
+            chmod +x "$GODOT_DIR/Godot_v3.6.2-stable_linux_headless.64"
+            ln -sf "$GODOT_DIR/Godot_v3.6.2-stable_linux_headless.64" "$GODOT_DIR/godot3-server"
+          else
+            echo "Godot binary already cached"
+          fi
+
+      - name: Install export templates (standard)
+        run: |
+          TEMPLATE_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
+          if [ ! -f "$TEMPLATE_DIR/webassembly_release.wasm" ]; then
+            mkdir -p "$TEMPLATE_DIR"
+            curl -fSL -o /tmp/godot_templates.tpz \
+              "https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_export_templates.tpz"
+            unzip -o /tmp/godot_templates.tpz -d "$TEMPLATE_DIR/"
+            # The .tpz contains templates/ subdir, move up if needed
+            if [ -d "$TEMPLATE_DIR/templates" ]; then
+              mv "$TEMPLATE_DIR/templates/"* "$TEMPLATE_DIR/"
+              rmdir "$TEMPLATE_DIR/templates"
+            fi
+            echo "Standard templates installed:"
+            ls -la "$TEMPLATE_DIR/"
+          else
+            echo "Standard templates already cached"
+          fi
+
+      - name: Swap in threads-enabled WASM template
+        run: |
+          THREADS_URL="https://github.com/godotengine/godot/releases/download/3.6.2-stable/webassembly_release_threads.zip"
+          TEMPLATE_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
+
+          echo "Downloading threads WASM template..."
+          curl -fSL -o /tmp/threads.zip "$THREADS_URL"
+          unzip -o /tmp/threads.zip -d /tmp/threads_wasm/
+
+          echo "Contents of threads zip:"
+          ls -laR /tmp/threads_wasm/
+
+          # The threads zip contains godot.webassembly.release.threads.wasm
+          THREADS_WASM=$(find /tmp/threads_wasm -name '*.threads.wasm' -o -name '*threads*.wasm' | head -n1)
+          if [ -z "$THREADS_WASM" ]; then
+            echo "::error::Could not find threads WASM in downloaded zip"
+            exit 1
+          fi
+
+          # Backup standard, replace with threads
+          if [ -f "$TEMPLATE_DIR/webassembly_release.wasm" ] && [ ! -f "$TEMPLATE_DIR/webassembly_release.standard.bak" ]; then
+            cp "$TEMPLATE_DIR/webassembly_release.wasm" "$TEMPLATE_DIR/webassembly_release.standard.bak"
+          fi
+          cp "$THREADS_WASM" "$TEMPLATE_DIR/webassembly_release.wasm"
+          echo "Replaced webassembly_release.wasm with threads variant: $(basename "$THREADS_WASM")"
+          echo "Threads WASM size: $(stat -c%s "$TEMPLATE_DIR/webassembly_release.wasm")"
+
+      - name: Run Godot import
+        run: |
+          godot3-server --editor --quit --headless 2>&1 || true
 
       - name: Export HTML5 Threads
-        id: export
-        uses: firebelley/godot-export@v7.0.0
-        with:
-          godot_executable_download_url: https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_linux_headless.64.zip
-          godot_export_templates_download_url: https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_export_templates.tpz
-          relative_project_path: ./
-          use_godot_3: true
-          use_preset_export_path: true
-          export_debug: false
-          presets_to_export: 'HTML5 Threads'
-
-      - name: Collect export
         run: |
-          BUILD_DIR="${{ steps.export.outputs.build_directory }}"
-          mkdir -p netlify_build/
-          SRC_DIR=""
-          for candidate in "HTML5 Threads" Web; do
-            if [ -d "$BUILD_DIR/$candidate" ]; then
-              SRC_DIR="$BUILD_DIR/$candidate"
-              break
-            fi
-          done
-          if [ -z "$SRC_DIR" ]; then
-            CANDIDATE="$(find "$BUILD_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1 || true)"
-            if [ -n "$CANDIDATE" ] && [ -f "$CANDIDATE/index.html" ]; then
-              SRC_DIR="$CANDIDATE"
-            fi
-          fi
-          if [ -n "$SRC_DIR" ]; then
-            shopt -s dotglob
-            mv "$SRC_DIR"/* netlify_build/
-            rmdir "$SRC_DIR"
-            echo "Moved export from $SRC_DIR to netlify_build/"
-          else
-            echo "No nested dir found; copying build dir contents"
-            shopt -s dotglob
-            cp -a "$BUILD_DIR"/* netlify_build/
-          fi
+          mkdir -p build
+          godot3-server --no-window --export "HTML5 Threads" build/index.html --quiet 2>&1
+          echo "Export complete:"
+          ls -la build/
 
-          # Patch the loader for gzip support (PCK + WASM from same host)
+      - name: Collect and prepare deploy dir
+        run: |
+          mkdir -p netlify_build/
+          shopt -s dotglob
+          cp -a build/* netlify_build/
+
+          # Patch the loader for gzip support
           python3 scripts/minimize_html_export.py netlify_build/
 
           # Copy _headers for COOP/COEP (required for SharedArrayBuffer)
@@ -97,13 +136,18 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
 
-      - name: Verify COOP/COEP headers
+      - name: Verify COOP/COEP and threads WASM
         run: |
-          if [ -f "netlify_build/_headers" ]; then
-            echo "::group::_headers"
-            cat netlify_build/_headers
-            echo "::endgroup::"
-          else
-            echo "::error::_headers file not found in deploy directory!"
-            exit 1
+          echo "::group::_headers"
+          cat netlify_build/_headers
+          echo "::endgroup::"
+          echo ""
+          echo "::group::WASM file check"
+          ls -la netlify_build/*.wasm
+          echo ""
+          # Check if threads symbols are present in the WASM
+          if command -v strings &>/dev/null; then
+            THREADS_SYM=$(strings netlify_build/*.wasm 2>/dev/null | grep -c -i 'pthread\|SharedArrayBuffer\|Atomics' || true)
+            echo "Threads-related symbols found in WASM: $THREADS_SYM"
           fi
+          echo "::endgroup::"
