@@ -72,6 +72,7 @@ export(bool) var enable_faux_skydome := false setget _set_enable_faux_skydome
 export(bool) var enable_segment_lod := false
 export(bool) var enable_terrace_distance_culling := OS.has_feature("HTML5")
 export(float) var terrace_culling_max_distance := 800.0
+export(float) var terrace_culling_safe_radius := 60.0
 export(int) var terrace_culling_update_interval := 50
 export(int) var scene_anchor_spiral_index := -1 setget _set_scene_anchor_spiral_index
 export(int) var scene_anchor_plate_index := -1 setget _set_scene_anchor_plate_index
@@ -137,10 +138,13 @@ var _startup_snap_done := false  # snap to target on first physics frame, then s
 # the player finally exits the destination airlock chamber, tracking resumes and
 # eases the accumulated rotation over RESUME_TRACKING_DURATION seconds.
 const RESUME_TRACKING_DURATION := 0.3
+# Verified via telemetry 2026-06-10:
+# S0(TerraceSpiral, 15deg) -> S1(195deg) offset=9, S2(105deg) offset=4, S3(285deg) offset=13
+const INTERLOCK_OFFSETS := [0, 9, 4, 13]
 var _tracking_paused := false
 var _resume_ramp_left := 0.0  # >0 while easing back into tracking after a resume
 var _terrace_culling_counter: int = 0
-var _culling_target: Spatial = null  # cached tracking target for culling (avoids get_nodes_in_group)
+var _culling_target: Spatial = null
 # Retrocompatibilidad: alias del pool para tests que lean _generated_collision_bodies
 var _generated_collision_bodies: Array setget ,_get_generated_collision_bodies
 func _get_generated_collision_bodies() -> Array:
@@ -1339,43 +1343,32 @@ func _assign_pool_to_nearest_plates() -> void:
 	else:
 		return
 
-	# Recopilar candidates usando búsqueda espacial por altura (Y local de la espira).
-	# Mantenemos solo los N más cercanos; sort_custom con Dictionary callbacks domina el profiler.
-	var candidates: Array = []  # Array of {spiral_index, plate_index, dist_sq, canonical_tx}
+	# Buscar las N placas más cercanas usando offsets verificados por telemetría.
+	# Encontramos la placa más cercana en espiral 0, luego muestreamos ±search_radius
+	# placas alrededor del offset correspondiente en cada espiral.
+	var base_idx: int = _find_nearest_plate_in_spiral(0, center_canonical)
+	var search_radius: int = 4
+	var candidates: Array = []
 	var pool_size: int = _collision_pool.size()
-	# Buscamos un rango de plates que cubra con creces el pool_size.
-	# 48 plates por espira es lo común, un radio de 12 plates suele bastar.
-	var search_range_idx: int = int(ceil(float(pool_size) / float(max(1, _registered_platforms.size())))) + 4
 
 	for spiral_index in range(_registered_platforms.size()):
 		var spiral: Spatial = _registered_platforms[spiral_index]
 		var plate_count: int = get_plate_count(spiral)
 		if plate_count <= 0: continue
 
-		var plate_step: float = spiral.get("plate_step") if spiral.get("plate_step") != null else 40.0
-		var spiral_inv_xform: Transform = spiral.global_transform.affine_inverse()
 		var spiral_canonical_base: Transform = global_transform.affine_inverse() * spiral.global_transform
-		var local_pos: Vector3 = spiral_inv_xform.xform(target_global_pos)
-
-		var center_idx: int = int(round(local_pos.y / max(0.001, plate_step)))
-		var start_idx: int = max(0, center_idx - search_range_idx)
-		var end_idx: int = min(plate_count - 1, center_idx + search_range_idx)
-
 		var cached_list = spiral.get("_cached_transforms")
-		var has_cache: bool = cached_list != null and cached_list is Array and end_idx < cached_list.size()
+		if cached_list == null or not (cached_list is Array):
+			continue
 
-		for plate_index in range(start_idx, end_idx + 1):
-			if spiral_index == _selected_spiral_index and plate_index == _selected_plate_index:
+		var offset: int = INTERLOCK_OFFSETS[spiral_index] if spiral_index < INTERLOCK_OFFSETS.size() else 0
+		var center_idx: int = posmod(base_idx + offset, plate_count)
+
+		for d in range(-search_radius, search_radius + 1):
+			var plate_index := posmod(center_idx + d, plate_count)
+			if plate_index < 0 or plate_index >= cached_list.size():
 				continue
-
-			var plate_local_tx: Transform
-			if has_cache:
-				plate_local_tx = cached_list[plate_index]
-			else:
-				var multimesh: MultiMesh = spiral.get("multimesh")
-				plate_local_tx = multimesh.get_instance_transform(plate_index)
-
-			var plate_tx: Transform = spiral_canonical_base * plate_local_tx
+			var plate_tx: Transform = spiral_canonical_base * (cached_list[plate_index] as Transform)
 			var dist_sq: float = plate_tx.origin.distance_squared_to(center_canonical)
 			_insert_pool_candidate_sorted(candidates, {
 				"spiral_index": spiral_index,
@@ -1641,17 +1634,21 @@ func _configure_terrace_culling_for_platform() -> void:
 	if not enable_terrace_distance_culling:
 		return
 	if OS.has_feature("HTML5"):
-		terrace_culling_max_distance = 600.0
-		terrace_culling_update_interval = 60
+		terrace_culling_max_distance = 280.0
+		terrace_culling_safe_radius = 45.0
+		terrace_culling_update_interval = 45
 	elif OS.has_touchscreen_ui_hint():
-		terrace_culling_max_distance = 700.0
+		terrace_culling_max_distance = 500.0
+		terrace_culling_safe_radius = 35.0
 		terrace_culling_update_interval = 45
 	else:
 		terrace_culling_max_distance = 900.0
+		terrace_culling_safe_radius = 0.0
 		terrace_culling_update_interval = 30
 
 func _apply_terrace_distance_culling() -> void:
 	var max_dist_sq: float = terrace_culling_max_distance * terrace_culling_max_distance
+	var safe_sq: float = terrace_culling_safe_radius * terrace_culling_safe_radius
 	if _culling_target == null or not is_instance_valid(_culling_target):
 		_culling_target = _get_tracking_target()
 	if _culling_target == null:
@@ -1672,6 +1669,29 @@ func _apply_terrace_distance_culling() -> void:
 		for i in range(plate_count):
 			var plate_transform: Transform = multimesh.get_instance_transform(i)
 			var plate_world: Vector3 = spiral_global.xform(plate_transform.origin)
-			if plate_world.distance_squared_to(player_pos) > max_dist_sq:
+			var dist_sq: float = plate_world.distance_squared_to(player_pos)
+			if dist_sq <= safe_sq:
+				continue
+			if dist_sq > max_dist_sq:
 				culled.append(i)
 		spiral.set_distance_culled_plates(culled)
+
+func _find_nearest_plate_in_spiral(spiral_index: int, canonical_center: Vector3) -> int:
+	if spiral_index < 0 or spiral_index >= _registered_platforms.size():
+		return 0
+	var spiral: Spatial = _registered_platforms[spiral_index]
+	var plate_count: int = get_plate_count(spiral)
+	if plate_count <= 0:
+		return 0
+	var cached = spiral.get("_cached_transforms")
+	if cached == null or not (cached is Array) or cached.size() == 0:
+		return 0
+	var canon_base: Transform = global_transform.affine_inverse() * spiral.global_transform
+	var best_idx := 0
+	var best_d := INF
+	for i in range(min(cached.size(), plate_count)):
+		var d: float = (canon_base * (cached[i] as Transform)).origin.distance_squared_to(canonical_center)
+		if d < best_d:
+			best_d = d
+			best_idx = i
+	return best_idx
