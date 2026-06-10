@@ -33,3 +33,6 @@ pupeteer/.venv/
 digest.txt
 .venv311/
 .claude/
+
+# Environment secrets
+.env
