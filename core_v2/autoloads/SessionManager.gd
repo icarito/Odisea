@@ -521,8 +521,11 @@ func _is_startup_gate_ready_now() -> bool:
 	# Bypass for tests to avoid breaking determinism logic that relies on immediate start.
 	var is_testing = Engine.has_singleton("GdUnit3") and Engine.get_singleton("GdUnit3").is_test_suite()
 	if not OS.has_feature("Server") and not is_testing:
-		var objects_drawn = VisualServer.get_render_info(VisualServer.INFO_OBJECTS_IN_FRAME)
-		if objects_drawn <= 0:
+		# Gate opens once *either* pipeline has drawn. INFO_OBJECTS_IN_FRAME alone
+		# misses 2D-only scenes (e.g. menus), which would stall the gate until timeout.
+		var objects_3d = VisualServer.get_render_info(VisualServer.INFO_OBJECTS_IN_FRAME)
+		var items_2d = VisualServer.get_render_info(VisualServer.INFO_2D_ITEMS_IN_FRAME)
+		if objects_3d <= 0 and items_2d <= 0:
 			return false
 
 	if _is_scene_transition_busy():
