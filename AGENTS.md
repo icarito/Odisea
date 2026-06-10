@@ -183,3 +183,60 @@ python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
 
 **Fuera del alcance (backlog):**
 - Todo lo que no esté listado arriba. Si un agente propone algo nuevo, debe preguntar antes de implementar. Las ideas creativas son válidas pero van al backlog.
+
+---
+
+## 8. LECCIONES APRENDIDAS — 2026
+
+### 8.1 Coordinate System (confirmado en práctica)
+
+- **+Z = BACK**, -Z = FORWARD. Esto NO cambia.
+- `camera_basis_prefix = Basis(Vector3.UP, PI)` es la rotación base del rig.
+- Forward del movimiento en cualquier controlador: `-movement_basis.z`.
+- Spawnear objetos frente al jugador: coordenadas Z **positivas**.
+- No asumir que Godot defaults aplican — verificar con `inspect_node`.
+
+### 8.2 CameraRig único
+
+- Todos los modos de juego usan el mismo CameraRig con SpringArm.
+- No existe un rig de cámara separado por modo.
+- Si un modo necesita rotación adicional, se aplica como transformación sobre el basis existente, sin reemplazar el rig ni el spring arm.
+- La cámara nunca se mueve ni cambia orientación al entrar/salir de un modo.
+
+### 8.3 AirLockTransitionFX
+
+- Usar flag `_skip_next_airlock_ready` en vez de desconectar/conectar señales para evitar race conditions.
+
+### 8.4 Elías no es un héroe
+
+- Elías es un oficial de mantenimiento, no un soldado ni un elegido.
+- No tiene habilidades especiales — usa herramientas (multi-tool, Cargol).
+- La tensión viene del entorno, no de combate directo.
+- La IA Odisea es fría, dismissiva, burocrática — no abiertamente hostil.
+
+### 8.5 Cargol como extensión, no reemplazo
+
+- Cargol es una extensión del alcance de Elías, no un segundo personaje.
+- No tiene HP, no es atacado directamente. Es una herramienta con limitaciones (batería, alcance).
+- Su uso principal: acceder a espacios que Elías no alcanza, activar interruptores remotos.
+
+### 8.6 Website y telemetría
+
+- El website odisea-neon-dreams está deployado en odisea.educa.juegos/website/
+- Incluye: MEGA-warning de pre-pre-alfa, banner consentimiento telemetría, sección educativa pipeline Godot → WebGL
+- El dashboard central (bridge) está en la raíz de odisea.educa.juegos/ con login incluido
+- El peer (juego) reporta heartbeats/ghosts vía WebSocket al central
+
+### 8.7 Export HTML5
+
+- Firefox en Linux: "Could not create framebuffer" spamea y crashea
+- Glow desactivado para HTML5
+- Thread model: Single-Safe para compatibilidad sin COOP/COEP headers
+- FXAA: desactivar en HTML5
+- PCK injection en HTML5: guardar en user:// (IndexedDB), cargar con load_resource_pack()
+
+### 8.8 Anti-feature creep
+
+- Todo lo nuevo se pregunta: ¿Está en el Acto I? ¿Es necesario para el Vertical Slice? Si no, va al backlog.
+- El historial de commits muestra un patrón claro: cada vez que el MVP se acerca, aparece algo nuevo.
+- Defender el scope con datos, no con opinión.
