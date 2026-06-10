@@ -91,7 +91,10 @@ func _main_thread_tick():
 # The bridge JS is injected at runtime via JavaScript.eval() so it works in
 # both editor-run and exported builds (no custom HTML shell dependency).
 
-	const BRIDGE_BOOT_JS := """
+func _inject_bridge():
+	if not Engine.has_singleton("JavaScript"):
+		return
+	Engine.get_singleton("JavaScript").eval("""
 (function(){
 if (window.ANNAV2_WS_Bridge) return;
 var w = new Worker(URL.createObjectURL(new Blob([
@@ -133,12 +136,7 @@ getBrowserMemMB:function(){
 };
 console.log('[ANNAV2-Bridge] Worker injected via GDScript');
 })();
-"""
-
-func _inject_bridge():
-	if not Engine.has_singleton("JavaScript"):
-		return
-	Engine.get_singleton("JavaScript").eval(BRIDGE_BOOT_JS)
+""")
 
 func _eval(js_code: String):
 	if not Engine.has_singleton("JavaScript"):
@@ -220,6 +218,13 @@ func _eval_array(js_code: String) -> Array:
 		if parse_result.error == OK and typeof(parse_result.result) == TYPE_ARRAY:
 			return parse_result.result
 	return []
+
+func _eval_float(js_code: String) -> float:
+	if not Engine.has_singleton("JavaScript"): return -1.0
+	var res = Engine.get_singleton("JavaScript").eval(js_code)
+	if typeof(res) == TYPE_REAL or typeof(res) == TYPE_INT:
+		return float(res)
+	return -1.0
 
 func _send_json(msg: Dictionary):
 	if _is_connected:
