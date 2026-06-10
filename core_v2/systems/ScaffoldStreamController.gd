@@ -102,6 +102,7 @@ var _mst_build_queue: Array = []  # [{key, grid_data}] waiting to be built, one 
 var _wfc_build_queue: Array = []  # same shape, for non-MST path — drains with frame budget
 var _chunk_collision_state: Dictionary = {}  # chunk_key -> bool, avoids per-frame child iteration
 var _last_player_chunk: Vector2 = Vector2(INF, INF)  # skip scan when player hasn't moved chunks
+var _last_chunk_mode_cache: Dictionary = {}  # key -> mode string, skip redundant _target_lod_mode
 var _chunk_node_pool: Array = []  # pre-allocated Spatial nodes, reused on load/unload
 var _threaded: ScaffoldWFCThreaded = null
 var _generator_ref = null
@@ -238,6 +239,7 @@ func _process(_delta) -> void:
 		var footprint_dist = _distance_to_chunk_footprint_local(local_player_pos, key)
 		if center_dist > unload_radius:
 			_unload_chunk(key)
+			_last_chunk_mode_cache.erase(key)
 		else:
 			var chunk_node = _active_chunks[key]
 			var want_collision = footprint_dist <= collision_radius
@@ -246,7 +248,11 @@ func _process(_delta) -> void:
 				_chunk_collision_state[key] = want_collision
 
 			var current_mode = _chunk_modes.get(key, "")
+			if not chunk_moved and _last_chunk_mode_cache.get(key, "") == current_mode:
+				continue
+
 			var target_mode = _target_lod_mode(footprint_dist, current_mode)
+			_last_chunk_mode_cache[key] = target_mode
 
 			if current_mode != target_mode:
 				if target_mode == "full":
@@ -2019,6 +2025,7 @@ func _unload_chunk(chunk_key: Vector2) -> void:
 	_chunk_expected_full_count.erase(chunk_key)
 	_full_lod_cleanup_pending.erase(chunk_key)
 	_chunk_collision_state.erase(chunk_key)
+	_last_chunk_mode_cache.erase(chunk_key)
 	_threaded.cancel_instancing_for(node)
 	node.queue_free()
 

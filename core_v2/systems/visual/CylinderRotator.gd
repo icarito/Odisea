@@ -23,6 +23,7 @@ var _stream: ScaffoldStreamController = null
 var _physical_terrace: StaticBody = null
 var _player: Spatial = null
 var _stream_connected := false
+var _last_player_local_x := NAN
 
 
 func _ready() -> void:
@@ -128,12 +129,16 @@ func _physics_process(_delta: float) -> void:
 			Vector3(_player.global_translation.x, 0.0, _player.global_translation.z)
 		)
 
-	# Reposition all chunks every frame so the arc under the player stays flat.
+	# Reposition chunks so the arc under the player stays flat.
+	# Skip when player hasn't moved (majority of frames) — the chunk arc only
+	# depends on player_local_x.
 	var player_local_x: float = _get_player_local_x()
-	if _stream != null and is_instance_valid(_stream):
-		for child in _stream.get_children():
-			if child.name.begins_with("Chunk_") and child is Spatial:
-				_apply_chunk_transform(child as Spatial, player_local_x)
+	if is_nan(_last_player_local_x) or abs(player_local_x - _last_player_local_x) >= 0.1:
+		_last_player_local_x = player_local_x
+		if _stream != null and is_instance_valid(_stream):
+			for child in _stream.get_children():
+				if child.name.begins_with("Chunk_") and child is Spatial:
+					_apply_chunk_transform(child as Spatial, player_local_x)
 
 	if "camera_basis_prefix" in _player:
 		_player.camera_basis_prefix = Basis.IDENTITY

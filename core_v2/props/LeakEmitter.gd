@@ -46,6 +46,8 @@ func _ready():
 	if _startup_gate_pending:
 		set_process(false)
 		call_deferred("_resume_after_startup_gate")
+	elif _is_constant_mode() and timeout <= 0.0:
+		set_process(false)
 	else:
 		set_process(true)
 
@@ -70,6 +72,8 @@ func _resume_after_startup_gate() -> void:
 		_set_visuals_active(is_active)
 		if is_active and _audio and not _audio.playing:
 			_audio.play()
+		if timeout <= 0.0:
+			return
 	set_process(true)
 
 func _process(delta):
@@ -181,6 +185,8 @@ func set_active(value: bool, immediate: bool = false):
 			_burst_timer = max(0.01, interval + rand_range(-interval_random, interval_random))
 
 	if not Engine.editor_hint and _is_constant_mode() and not _timeout_fade_active:
+		if timeout > 0.0 and not is_processing():
+			set_process(true)
 		_set_visuals_active(is_active and not _startup_gate_pending)
 	if Engine.editor_hint:
 		if _anim:
