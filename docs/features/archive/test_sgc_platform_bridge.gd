@@ -4,7 +4,7 @@ extends GdUnitTestSuite
 # Verifies: marker orientation, axis selection, platform switching logic.
 # These are pure math tests — no scene tree timing, no yield.
 
-const BridgeScript = preload("res://core_v2/systems/visual/SGCPlatformBridge.gd")
+const BridgeScript = preload("res://docs/features/archive/SGCPlatformBridge.gd")
 
 # ── Marker orientation ─────────────────────────────────────────────────────
 
