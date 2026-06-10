@@ -53,15 +53,18 @@ func _ready():
 		_net_thread._bridge_token = token_override
 	var central_override = _get_url_param("central")
 	if central_override != "":
-		_net_thread._central_url = "ws://" + central_override + "/ws"
+		_net_thread._central_url = "wss://" + central_override + "/ws"
 	var scheme_override = _get_url_param("scheme")
 	if scheme_override != "":
 		_net_thread.set_scheme(scheme_override)
 	if _get_url_param("nocentral") in ["1", "true", "yes", "on"]:
 		_net_thread._central_enabled = false
-	# HTML5 desde HTTPS: forzar ws:// sin TLS porque el central no tiene certificado
+	# HTML5 desde HTTPS: usar wss:// automáticamente (el central ya tiene TLS)
 	if OS.has_feature("web") and Engine.has_singleton("JavaScript"):
-		_net_thread.set_scheme("ws")
+		var js = Engine.get_singleton("JavaScript")
+		var proto = js.eval("window.location.protocol")
+		if proto == "https:":
+			_net_thread.set_scheme("wss")
 
 	_net_thread.start(_command_queue, _player_id, _session_id, GAME_VERSION)
 	_init_capture_from_env()

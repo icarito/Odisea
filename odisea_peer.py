@@ -13,7 +13,7 @@ from zeroconf.asyncio import AsyncZeroconf
 PEER_PORT = int(os.environ.get("PEER_PORT", 4999))
 ANNA_HOST = os.environ.get("ANNA_HOST", "127.0.0.1")
 ANNA_PORT = int(os.environ.get("ANNA_PORT", 5000))
-CENTRAL_WS_URL = os.environ.get("CENTRAL_WS_URL", "ws://35.182.238.36:5003/ws")
+CENTRAL_WS_URL = os.environ.get("CENTRAL_WS_URL", "wss://odisea.educa.juegos/ws")
 # Dev-only default; PRODUCTION must set ODISEA_BRIDGE_TOKEN to a real secret. See FD-162.
 DEV_DEFAULT_TOKEN = "odisea-dev-insecure"
 BRIDGE_TOKEN = os.environ.get("ODISEA_BRIDGE_TOKEN", DEV_DEFAULT_TOKEN)
