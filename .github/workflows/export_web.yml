@@ -14,7 +14,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-tests:
+    name: Check tests passed
+    runs-on: ubuntu-latest
+    outputs:
+      tests-passed: ${{ steps.check.outputs.passed }}
+    steps:
+      - name: Check latest test run
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LAST_RUN=$(gh run list --workflow "GDUnit3 Tests" --branch ${{ github.ref_name }} --limit 1 --json conclusion,status --jq '.[0] // empty')
+          CONCLUSION=$(echo "$LAST_RUN" | jq -r '.conclusion // ""')
+          STATUS=$(echo "$LAST_RUN" | jq -r '.status // ""')
+          if [ "$CONCLUSION" = "success" ] || [ "$STATUS" = "completed" -a "$CONCLUSION" = "success" ]; then
+            echo "passed=true" >> $GITHUB_OUTPUT
+            echo "Tests passed!"
+          else
+            echo "passed=false" >> $GITHUB_OUTPUT
+            echo "Latest tests: conclusion=$CONCLUSION status=$STATUS - skipping web export"
+          fi
+
   build-and-deploy:
+    needs: [check-tests]
+    if: needs.check-tests.outputs.tests-passed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
