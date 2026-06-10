@@ -1,11 +1,13 @@
 name: Exportar a Web y Desplegar en GitHub Pages
 
 on:
+  push:
+    branches: [ "main" ]
   workflow_run:
-    workflows: ["GDUnit3 Tests"]
+    workflows: ["Odyssey Pytest Runner"]
     types:
       - completed
-    branches: [ main ]
+    branches: [ "main" ]
 
 permissions:
   contents: read
@@ -18,7 +20,9 @@ concurrency:
 
 jobs:
   build-and-deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
