@@ -240,3 +240,125 @@ python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
 - Todo lo nuevo se pregunta: ¿Está en el Acto I? ¿Es necesario para el Vertical Slice? Si no, va al backlog.
 - El historial de commits muestra un patrón claro: cada vez que el MVP se acerca, aparece algo nuevo.
 - Defender el scope con datos, no con opinión.
+
+---
+
+## 9. ANNA V2 — SISTEMA DE TELEMETRÍA Y CONTROL REMOTO
+
+### 9.1 Arquitectura General
+
+```
+┌─────────────┐     WebSocket      ┌──────────────┐
+│   Peer      │ ◄──────────────►   │   Central    │
+│  (Godot 3)  │     wss://.../ws   │  (Python)    │
+│             │                    │  :5003       │
+│ ANNAV2_Thread│                    │ Dashboard    │
+│ ANNAV2_Thread_Web│                │ React SPA   │
+└─────────────┘                    └──────────────┘
+```
+
+- **Peer**: El juego Godot ejecutándose. Corre ANNAV2 en un thread separado (o variante Web en HTML5).
+- **Central** (`odisea_central.py`): Servidor Python aiohttp que recibe heartbeats, ghosts, y retransmite comandos.
+- **Dashboard**: Frontend React que consume la API REST del Central y muestra peers conectados.
+
+### 9.2 Peer — ANNAV2 (Godot 3, GDScript 1.x)
+
+#### Archivos clave
+| Archivo | Función |
+|---------|---------|
+| `core_v2/anna/v2/ANNAV2.gd` | Punto de entrada. Crea el thread y maneja conexión. |
+| `core_v2/anna/v2/ANNAV2_Thread.gd` | Lógica de conexión para desktop (thread nativo). |
+| `core_v2/anna/v2/ANNAV2_Thread_Web.gd` | Lógica de conexión para HTML5 (sin thread real, WebSocket nativo del browser). |
+| `core_v2/autoloads/PerformanceMonitor.gd` | Recolecta FPS, CPU, draw calls para enviar como telemetría. |
+| `core_v2/autoloads/SessionManager.gd` | Gestiona sesiones de juego y activa/desactiva ANNA. |
+
+#### Flujo de conexión
+1. `SessionManager` arranca y decide si habilita ANNA (por env var `ANNA_ENABLED=1` o config de Switch).
+2. `ANNAV2` crea su thread con `_central_url = "wss://odisea.educa.juegos/ws"`.
+3. El thread conecta al Central vía WebSocket.
+4. Handshake: envía `{action: "auth", token: "..."}`.
+5. Si auth ok, el peer comienza a enviar heartbeats periódicos y ghosts de sesión.
+6. El Central puede enviar comandos de vuelta (reload_pck, commands).
+
+#### Variables de entorno
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `ANNA_ENABLED` | (vacio) | `1` para habilitar ANNA |
+| `ANNA_PORT` | `5000` | Puerto del bridge local |
+| `ODISEA_ALLOW_ANNA_REMOTE_DEBUG` | (vacio) | `1` para forzar ANNA en remote debug |
+| `CENTRAL_WS_URL` | `wss://odisea.educa.juegos/ws` | URL del central |
+
+#### Heartbeats
+El peer envía periódicamente:
+```json
+{
+  "type": "heartbeat",
+  "peer_id": "uuid",
+  "session_id": "uuid",
+  "timestamp": 1234567890.123,
+  "metrics": {
+    "fps": 60,
+    "cpu_budget_ms": 14.2,
+    "draw_calls": 150,
+    "nodes": 420
+  }
+}
+```
+
+#### Ghosts (grabación de sesión)
+El peer graba inputs y estados como "ghosts" para reproducción:
+```json
+{
+  "type": "command_response",
+  "action": "ghost_upload",
+  "peer_id": "uuid",
+  "session_id": "uuid",
+  "data": { "frames": [...] }
+}
+```
+
+### 9.3 Central — odisea_central.py
+
+| Endpoint | Método | Descripción |
+|----------|--------|-------------|
+| `/` | GET | Sirve el dashboard SPA |
+| `/health` | GET | Health check + métricas |
+| `/status` | GET | Estado de peers conectados |
+| `/sessions` | GET | Lista de sesiones históricas |
+| `/sessions/<player>/<session>` | GET | Descarga de sesión específica |
+| `/ws` | WS | WebSocket para peers |
+| `/events` | WS | WebSocket para dashboard (eventos en vivo) |
+| `/command` | POST | Enviar comando a un peer |
+| `/ghosts` | GET | Lista de ghosts disponibles |
+
+#### Payload de comandos
+```json
+{
+  "action": "reload_pck",
+  "target": "peer_uuid",       // peer específico o "broadcast"
+  "args": {
+    "pck_url": "https://...",
+    "scene": "res://scenes/Main.tscn"
+  }
+}
+```
+
+### 9.4 MCP — Debugging en Runtime
+
+El proyecto incluye un bridge MCP para inspeccionar el runtime desde VS Code:
+
+```shell
+python3 core_v2/anna/client/odisea_mcp_stdio_server.py \
+  --tool bridge_connect \
+  --args-json '{"host":"127.0.0.1","port":5000,"timeout_s":3.0}'
+```
+
+Herramientas: `inspect_node`, `capture_vision`, `set_property`, `bridge_connect`.
+
+### 9.5 Dashboard React (odisea.educa.juegos)
+
+- **URL**: `odisea.educa.juegos/dashboard` o `odisea.educa.juegos/` (según deploy)
+- **Autenticación**: Login con token (bearer token en sessionStorage)
+- **Vistas**: PlayerCard por peer, timeline de sesiones, health metrics, ghost viewer 3D
+- **Variables de entorno del build**: `VITE_API_URL` (base path para llamadas API)
+
