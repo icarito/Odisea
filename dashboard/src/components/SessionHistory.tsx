@@ -97,7 +97,7 @@ export const SessionHistory: React.FC = () => {
                 events,
                 stats: {
                     avgFps: fpsCount > 0 ? Math.round(totalFps / fpsCount) : 0,
-                    peakMem: Math.round(peakMem),
+                    peakMem: Math.round(peakMem * 10) / 10,
                     duration: Math.round(duration)
                 }
             });
@@ -184,7 +184,7 @@ export const SessionHistory: React.FC = () => {
         >
           <div className="flex justify-between items-center mb-1">
             <span className="text-accent font-bold">{s.player_id.slice(0, 8)}</span>
-            <span className="text-text-muted">{new Date(s.timestamp * 1000).toLocaleDateString()}</span>
+            <span className="text-text-muted">{s.timestamp ? new Date(s.timestamp * 1000).toLocaleDateString() : "?"}</span>
           </div>
           <div className="text-text-muted truncate mb-2">{s.session_id}</div>
           <div className="flex justify-between items-center">
