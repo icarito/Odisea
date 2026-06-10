@@ -70,6 +70,9 @@ export(NodePath) var scene_anchor_reference_path := NodePath("") setget _set_sce
 
 export(bool) var enable_faux_skydome := false setget _set_enable_faux_skydome
 export(bool) var enable_segment_lod := false
+export(bool) var enable_terrace_distance_culling := OS.has_feature("HTML5")
+export(float) var terrace_culling_max_distance := 800.0
+export(int) var terrace_culling_update_interval := 50
 export(int) var scene_anchor_spiral_index := -1 setget _set_scene_anchor_spiral_index
 export(int) var scene_anchor_plate_index := -1 setget _set_scene_anchor_plate_index
 export(bool) var scene_anchor_use_selected_plate_on_ready := false
@@ -136,6 +139,8 @@ var _startup_snap_done := false  # snap to target on first physics frame, then s
 const RESUME_TRACKING_DURATION := 0.3
 var _tracking_paused := false
 var _resume_ramp_left := 0.0  # >0 while easing back into tracking after a resume
+var _terrace_culling_counter: int = 0
+var _culling_target: Spatial = null  # cached tracking target for culling (avoids get_nodes_in_group)
 # Retrocompatibilidad: alias del pool para tests que lean _generated_collision_bodies
 var _generated_collision_bodies: Array setget ,_get_generated_collision_bodies
 func _get_generated_collision_bodies() -> Array:
@@ -153,6 +158,7 @@ func _ready() -> void:
 	_cache_world_environment_sky_frames()
 	_sync_world_environment_sky_frames()
 	_sync_faux_skydome_visibility()
+	_configure_terrace_culling_for_platform()
 	# Also reset PhysicalTerrace if configured — it may have been dirtied by the editor too.
 	var pt: Spatial = _resolve_physical_terrace_target()
 	if pt:
@@ -239,6 +245,11 @@ func _physics_process(delta: float) -> void:
 	if _sky_frame_sync_counter >= _sky_frame_sync_interval:
 		_sky_frame_sync_counter = 0
 		_sync_world_environment_sky_frames()
+	if enable_terrace_distance_culling and not _registered_platforms.empty():
+		_terrace_culling_counter += 1
+		if _terrace_culling_counter >= terrace_culling_update_interval:
+			_terrace_culling_counter = 0
+			_apply_terrace_distance_culling()
 
 # ── API pública ──────────────────────────────────────────────────────────────
 
@@ -1625,3 +1636,42 @@ func _path_to(node: Node) -> NodePath:
 	if node.is_inside_tree() and is_inside_tree():
 		return get_path_to(node)
 	return NodePath("")
+
+func _configure_terrace_culling_for_platform() -> void:
+	if not enable_terrace_distance_culling:
+		return
+	if OS.has_feature("HTML5"):
+		terrace_culling_max_distance = 600.0
+		terrace_culling_update_interval = 60
+	elif OS.has_touchscreen_ui_hint():
+		terrace_culling_max_distance = 700.0
+		terrace_culling_update_interval = 45
+	else:
+		terrace_culling_max_distance = 900.0
+		terrace_culling_update_interval = 30
+
+func _apply_terrace_distance_culling() -> void:
+	var max_dist_sq: float = terrace_culling_max_distance * terrace_culling_max_distance
+	if _culling_target == null or not is_instance_valid(_culling_target):
+		_culling_target = _get_tracking_target()
+	if _culling_target == null:
+		return
+	var player_pos: Vector3 = _culling_target.global_translation
+	for spiral_index in range(_registered_platforms.size()):
+		var spiral: Spatial = _registered_platforms[spiral_index]
+		if spiral == null or not is_instance_valid(spiral):
+			continue
+		if not (spiral is TerraceSpiral):
+			continue
+		var multimesh: MultiMesh = spiral.get("multimesh")
+		if multimesh == null:
+			continue
+		var plate_count: int = multimesh.instance_count
+		var spiral_global: Transform = spiral.global_transform
+		var culled: Array = []
+		for i in range(plate_count):
+			var plate_transform: Transform = multimesh.get_instance_transform(i)
+			var plate_world: Vector3 = spiral_global.xform(plate_transform.origin)
+			if plate_world.distance_squared_to(player_pos) > max_dist_sq:
+				culled.append(i)
+		spiral.set_distance_culled_plates(culled)

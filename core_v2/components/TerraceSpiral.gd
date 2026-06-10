@@ -36,6 +36,7 @@ var _dome_lod_overlay_entries: Array = []
 var _dome_lod_overlay_signature := ""
 var _dome_lod_structural_signature := ""
 var _dome_lod_hidden_plates: Dictionary = {}  # plate_index -> bool
+var _distance_culled_plates: Dictionary = {}  # plate_index -> bool, managed by WorldRotator
 
 func _init():
 	add_to_group("replay_sync")
@@ -172,7 +173,9 @@ func _apply_multimesh_visual() -> void:
 	var plate_count: int = _cached_transforms.size()
 	if plate_count == 0 or multimesh.instance_count != plate_count:
 		return
-	var hidden: Dictionary = _dome_lod_hidden_plates
+	var hidden: Dictionary = _dome_lod_hidden_plates.duplicate()
+	for k in _distance_culled_plates:
+		hidden[k] = true
 	var hidden_xform: Transform = Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
 	for i in range(plate_count):
 		multimesh.set_instance_transform(i, hidden_xform if hidden.has(i) else _cached_transforms[i])
@@ -214,6 +217,12 @@ func set_dome_lod_plate_hidden(plate_index: int, hidden: bool) -> void:
 		_dome_lod_hidden_plates.erase(plate_index)
 	# Solo actualiza los items de este plate — no todos los 64 del overlay.
 	_update_dome_lod_overlay_transforms_for_plate(plate_index)
+
+func set_distance_culled_plates(culled_indices: Array) -> void:
+	_distance_culled_plates.clear()
+	for ci in culled_indices:
+		_distance_culled_plates[int(ci)] = true
+	_last_visual_blend = -2.0
 
 func _update_dome_lod_overlay_transforms_for_plate(plate_index: int) -> void:
 	if not is_instance_valid(_dome_lod_root):
