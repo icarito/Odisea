@@ -44,6 +44,9 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ hb, isActive, onClick, s
         <div className="text-text-muted">FPS</div>
         <div className="text-right">{typeof p.fps === 'number' ? Math.round(p.fps) : "N/A"}</div>
 
+        <div className="text-text-muted">DC</div>
+        <div className="text-right">{p.perf?.dc ?? "N/A"}</div>
+
         <div className="text-text-muted">Mem</div>
         <div className="text-right">{typeof p.memory_mb === 'number' ? p.memory_mb.toFixed(1) + " MB" : "N/A"}</div>
 

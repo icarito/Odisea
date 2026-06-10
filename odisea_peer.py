@@ -6,7 +6,7 @@ import time
 import uuid
 from typing import Dict, Any, Optional
 
-from aiohttp import web, ClientWebSocketResponse
+from aiohttp import web, ClientWebSocketResponse, ClientSession
 from zeroconf.asyncio import AsyncZeroconf
 
 # Configuration from environment variables
@@ -36,7 +36,7 @@ class OdiseaPeer:
         logger.info(f"Initialized Peer: peer_id={self.peer_id}, hostname={self.hostname}, ip={self.ip_address}")
 
     async def connect_to_central(self):
-        ws = await web.ClientSession().ws_connect(CENTRAL_WS_URL)
+        ws = await ClientSession().ws_connect(CENTRAL_WS_URL)
         self.central_ws = ws
 
         await ws.send_json({

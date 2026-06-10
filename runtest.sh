@@ -484,6 +484,9 @@ else
 fi
 echo "---"
 
+# Desactivar ANNAV2 telemetry en tests para no enviar datos al dashboard
+export ANNA_V2_NO_CENTRAL=1
+
 if ! should_skip_preflight; then
     run_import_preflight || exit $?
 fi
