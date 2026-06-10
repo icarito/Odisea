@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-analyze_ghosts.py — Analiza ghosts grabados por el bridge central.
+analyze_ghosts.py — Analiza ghosts grabados por el bridge central y performance_log.json.
 
 Extrae:
 - Zonas más visitadas por escena (agrupación por escena)
@@ -10,9 +10,11 @@ Extrae:
 
 Uso:
     python3 scripts/analyze_ghosts.py <ghosts_dir>
+    python3 scripts/analyze_ghosts.py --perflog <performance_log.json>
 
 Ejemplo:
     python3 scripts/analyze_ghosts.py /home/ubuntu/anna-central/data/ghosts/
+    python3 scripts/analyze_ghosts.py --perflog ~/.local/share/godot/app_userdata/Odisea/performance_log.json
 """
 
 import sys
@@ -54,16 +56,66 @@ def load_ghosts(ghosts_dir: str):
     return records, players, sessions
 
 
+def load_performance_log(filepath: str):
+    """Carga un performance_log.json (un solo reporte de lag spike)."""
+    records = []
+    if not os.path.isfile(filepath):
+        print(f"  ⚠ Archivo no encontrado: {filepath}")
+        return records, set(), 0
+
+    with open(filepath, "r") as f:
+        try:
+            report = json.load(f)
+        except json.JSONDecodeError:
+            print(f"  ⚠ JSON inválido en: {filepath}")
+            return records, set(), 0
+
+    schema = report.get("schema_version", 0)
+    ts = report.get("timestamp", 0)
+    fps = report.get("fps", 0)
+    drop = report.get("drop", 0)
+    scene = report.get("scene", "unknown")
+    pos = report.get("player_position", [0, 0, 0])
+    node_count = report.get("node_count", 0)
+    draw_calls = report.get("draw_calls", 0)
+    objects_in_frame = report.get("objects_in_frame", 0)
+    vertices_in_frame = report.get("vertices_in_frame", 0)
+    memory_mb = report.get("memory_mb", 0)
+    process_ms = report.get("process_time_ms", 0)
+
+    hb = {
+        "type": "heartbeat",
+        "player_id": "local",
+        "timestamp": ts,
+        "player": {
+            "fps": fps,
+            "scene": scene,
+            "position": pos,
+            "memory_mb": memory_mb,
+        },
+        "performance_log": {
+            "drop": drop,
+            "draw_calls": draw_calls,
+            "objects_in_frame": objects_in_frame,
+            "vertices_in_frame": vertices_in_frame,
+            "node_count": node_count,
+            "process_time_ms": process_ms,
+            "schema_version": schema,
+        }
+    }
+    records.append(hb)
+    return records, {"local"}, 1
+
+
 def analyze(records, players, sessions):
     print(f"\n{'='*60}")
-    print(f"  ANÁLISIS DE GHOSTS — ODISEA BRIDGE CENTRAL")
+    print(f"  ANALISIS DE GHOSTS — ODISEA BRIDGE CENTRAL")
     print(f"{'='*60}")
-    print(f"\n  Jugadores únicos:  {len(players)}")
+    print(f"\n  Jugadores unicos:  {len(players)}")
     print(f"  Sesiones totales:  {sessions}")
     print(f"  Frames grabados:   {len(records)}")
     print()
 
-    # Filtrar solo heartbeats con datos de player
     hbs = [r for r in records if r.get("type") == "heartbeat" and "player" in r]
     if not hbs:
         print("  ⚠ No se encontraron heartbeats con datos de player.")
@@ -72,9 +124,9 @@ def analyze(records, players, sessions):
     print(f"  Heartbeats con datos: {len(hbs)}")
     print()
 
-    # --- 1. Escenas más visitadas ---
+    # --- 1. Escenas mas visitadas ---
     print(f"{'─'*60}")
-    print("  1. ZONAS MÁS VISITADAS")
+    print("  1. ZONAS MAS VISITADAS")
     print(f"{'─'*60}")
 
     scene_counter = Counter()
@@ -93,7 +145,6 @@ def analyze(records, players, sessions):
         if mem > 0:
             scene_memory[scene].append(mem)
 
-    # Estimar tiempo por escena (asumiendo ~1 heartbeat cada 100ms)
     HEARTBEAT_INTERVAL_S = 0.1
     for hb in hbs:
         p = hb.get("player", {})
@@ -110,9 +161,9 @@ def analyze(records, players, sessions):
         time_str = f"{int(time_s//60)}m{int(time_s%60):02d}s"
         print(f"  {scene:<25} {count:>8} {time_str:>10} {fps_avg:>8.1f} {fps_min:>8} {mem_avg:>8.1f}")
 
-    # --- 2. Correlación FPS bajo + escena ---
+    # --- 2. Correlacion FPS bajo + escena ---
     print(f"\n{'─'*60}")
-    print("  2. CORRELACIÓN FPS BAJO + ESCENA")
+    print("  2. CORRELACION FPS BAJO + ESCENA")
     print(f"{'─'*60}")
 
     LOW_FPS_THRESHOLD = 20
@@ -133,22 +184,36 @@ def analyze(records, players, sessions):
     else:
         print(f"\n  ✅ Sin frames con FPS < {LOW_FPS_THRESHOLD}.")
 
-    # --- 3. Análisis de posición en FPS bajo ---
+    # --- Perflog extra info ---
+    for hb in hbs:
+        plog = hb.get("performance_log")
+        if plog:
+            print(f"\n{'─'*60}")
+            print("  PERF LOG DETAILS")
+            print(f"{'─'*60}")
+            print(f"\n  Schema version:  {plog.get('schema_version')}")
+            print(f"  FPS drop:        {plog.get('drop')}")
+            print(f"  Draw calls:      {plog.get('draw_calls')}")
+            print(f"  Objects in frame:{plog.get('objects_in_frame')}")
+            print(f"  Vertices in frame:{plog.get('vertices_in_frame')}")
+            print(f"  Node count:      {plog.get('node_count')}")
+            print(f"  Process time ms: {plog.get('process_time_ms'):.2f}")
+            break  # solo primer perflog
+
+    # --- 3. Analisis de posicion en FPS bajo ---
     print(f"\n{'─'*60}")
     print("  3. POSICIONES EN FPS BAJO")
     print(f"{'─'*60}")
 
     if low_fps_events:
-        # Agrupar posiciones por cercanía (grid 5x5m)
         position_grid = Counter()
         for hb in low_fps_events:
             pos = hb.get("player", {}).get("position", [0, 0, 0])
-            # Redondear a grid de 2m
             grid_key = (round(pos[0] / 2) * 2, round(pos[1] / 2) * 2, round(pos[2] / 2) * 2)
             position_grid[grid_key] += 1
 
         print(f"\n  Top 10 hotspots de bajo rendimiento (grid 2m):")
-        print(f"  {'Posición (x, y, z)':<30} {'Eventos':>10}")
+        print(f"  {'Posicion (x, y, z)':<30} {'Eventos':>10}")
         print(f"  {'─'*30} {'─'*10}")
         for pos, count in position_grid.most_common(10):
             x, y, z = pos
@@ -156,7 +221,7 @@ def analyze(records, players, sessions):
 
     # --- 4. Jugadores por escena ---
     print(f"\n{'─'*60}")
-    print("  4. JUGADORES ÚNICOS POR ESCENA")
+    print("  4. JUGADORES UNICOS POR ESCENA")
     print(f"{'─'*60}")
 
     scene_players = defaultdict(set)
@@ -186,7 +251,6 @@ def analyze(records, players, sessions):
     print(f"{'─'*60}")
     print()
 
-    # Identificar escenas con FPS bajo
     problem_scenes = []
     for scene, fps_list in scene_fps.items():
         avg = mean(fps_list)
@@ -195,22 +259,23 @@ def analyze(records, players, sessions):
             problem_scenes.append((scene, avg, mini))
 
     if problem_scenes:
-        print("  🚨 Escenas que necesitan optimización:")
+        print("  🚨 Escenas que necesitan optimizacion:")
         for scene, avg, mini in sorted(problem_scenes, key=lambda x: x[1]):
             print(f"     • {scene}: FPS avg {avg:.1f}, min {mini}")
     else:
-        print("  ✅ Sin escenas problemáticas (FPS avg > 30 en todas).")
+        print("  ✅ Sin escenas problematicas (FPS avg > 30 en todas).")
 
-    # Recomendaciones generales
     print()
     fpps = [hb.get("player", {}).get("fps", 60) for hb in hbs if hb.get("player", {}).get("fps", 0) > 0]
     if fpps:
         print(f"  📊 FPS global: avg {mean(fpps):.1f}, min {min(fpps)}, max {max(fpps)}")
-        print(f"  📊 Memoria global: avg {mean([hb.get('player',{}).get('memory_mb',0) for hb in hbs if hb.get('player',{}).get('memory_mb',0)>0]):.1f} MB")
+        mem_readings = [hb.get("player", {}).get("memory_mb", 0) for hb in hbs if hb.get("player", {}).get("memory_mb", 0) > 0]
+        if mem_readings:
+            print(f"  📊 Memoria global: avg {mean(mem_readings):.1f} MB")
     print()
 
     print(f"{'='*60}")
-    print(f"  Fin del análisis.")
+    print(f"  Fin del analisis.")
     print(f"{'='*60}\n")
 
 
@@ -219,7 +284,17 @@ def main():
         ghosts_dir = "/home/ubuntu/anna-central/data/ghosts/"
         print(f"  Usando directorio por defecto: {ghosts_dir}")
         print(f"  Uso alternativo: python3 {sys.argv[0]} <ghosts_dir>")
+        print(f"  O con performance_log: python3 {sys.argv[0]} --perflog <path>")
         print()
+    elif sys.argv[1] == "--perflog":
+        perf_log_path = sys.argv[2] if len(sys.argv) > 2 else None
+        if not perf_log_path:
+            print("  Uso: python3 analyze_ghosts.py --perflog <performance_log.json>")
+            sys.exit(1)
+        print(f"  Cargando performance log desde: {perf_log_path}")
+        records, players, sessions = load_performance_log(perf_log_path)
+        analyze(records, players, sessions)
+        return
     else:
         ghosts_dir = sys.argv[1]
 

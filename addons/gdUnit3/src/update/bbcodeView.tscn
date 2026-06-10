@@ -1,6 +1,5 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=6 format=2]
 
-[ext_resource path="res://addons/gdUnit3/test/update/bbcodeView.gd" type="Script" id=1]
 [ext_resource path="res://addons/gdUnit3/src/update/assets/fonts/RobotoMono-14.tres" type="DynamicFont" id=2]
 [ext_resource path="res://addons/gdUnit3/src/update/assets/fonts/RobotoMono-14-bold.tres" type="DynamicFont" id=3]
 [ext_resource path="res://addons/gdUnit3/src/update/assets/fonts/RobotoMono-14-italics.tres" type="DynamicFont" id=4]
@@ -10,7 +9,6 @@
 [node name="Control" type="Control"]
 anchor_right = 1.0
 anchor_bottom = 1.0
-script = ExtResource( 1 )
 __meta__ = {
 "_edit_use_anchors_": false
 }
@@ -51,8 +49,3 @@ __meta__ = {
 
 [node name="GdUnitUpdateClient" type="Node" parent="."]
 script = ExtResource( 6 )
-
-[connection signal="text_changed" from="HSplitContainer/TextEdit" to="." method="_on_TextEdit_text_changed"]
-[connection signal="meta_clicked" from="HSplitContainer/RichTextLabel" to="." method="_on_RichTextLabel_meta_clicked"]
-[connection signal="meta_hover_ended" from="HSplitContainer/RichTextLabel" to="." method="_on_RichTextLabel_meta_hover_ended"]
-[connection signal="meta_hover_started" from="HSplitContainer/RichTextLabel" to="." method="_on_RichTextLabel_meta_hover_started"]
