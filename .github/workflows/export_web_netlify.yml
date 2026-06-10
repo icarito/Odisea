@@ -76,20 +76,24 @@ jobs:
 
       - name: Swap in threads-enabled WASM template
         run: |
-          THREADS_URL="https://github.com/godotengine/godot/releases/download/3.6.2-stable/webassembly_release_threads.zip"
           TEMPLATE_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
+          THREADS_ZIP="$TEMPLATE_DIR/webassembly_threads_release.zip"
 
-          echo "Downloading threads WASM template..."
-          curl -fSL -o /tmp/threads.zip "$THREADS_URL"
-          unzip -o /tmp/threads.zip -d /tmp/threads_wasm/
+          if [ ! -f "$THREADS_ZIP" ]; then
+            echo "::error::webassembly_threads_release.zip not found in templates dir"
+            echo "Available zips:"
+            ls -la "$TEMPLATE_DIR/"*.zip
+            exit 1
+          fi
 
-          echo "Contents of threads zip:"
-          ls -laR /tmp/threads_wasm/
+          echo "Extracting threads WASM from $THREADS_ZIP..."
+          mkdir -p /tmp/threads_wasm
+          unzip -o "$THREADS_ZIP" -d /tmp/threads_wasm/
 
-          # The threads zip contains godot.webassembly.release.threads.wasm
-          THREADS_WASM=$(find /tmp/threads_wasm -name '*.threads.wasm' -o -name '*threads*.wasm' | head -n1)
+          THREADS_WASM=$(find /tmp/threads_wasm -name '*.wasm' | head -n1)
           if [ -z "$THREADS_WASM" ]; then
-            echo "::error::Could not find threads WASM in downloaded zip"
+            echo "::error::No .wasm found in $THREADS_ZIP"
+            ls -laR /tmp/threads_wasm/
             exit 1
           fi
 
@@ -98,8 +102,9 @@ jobs:
             cp "$TEMPLATE_DIR/webassembly_release.wasm" "$TEMPLATE_DIR/webassembly_release.standard.bak"
           fi
           cp "$THREADS_WASM" "$TEMPLATE_DIR/webassembly_release.wasm"
-          echo "Replaced webassembly_release.wasm with threads variant: $(basename "$THREADS_WASM")"
-          echo "Threads WASM size: $(stat -c%s "$TEMPLATE_DIR/webassembly_release.wasm")"
+          echo "Replaced webassembly_release.wasm with $(basename "$THREADS_WASM")"
+          echo "Standard size: $(stat -c%s "$TEMPLATE_DIR/webassembly_release.standard.bak" 2>/dev/null || echo 0)"
+          echo "Threads size:  $(stat -c%s "$TEMPLATE_DIR/webassembly_release.wasm")"
 
       - name: Run Godot import
         run: |
