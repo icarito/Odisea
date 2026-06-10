@@ -25,15 +25,17 @@ var _assignment_indices := {}   # key -> {spiral_idx, plate_idx}
 var _slots: Array = []          # Array[Spatial]
 var _slot_assignments: Array = [] # Array[Dictionary]
 var _slot_scenes: Array = []    # Array[PackedScene]
-var _slot_physics_enabled: Array = [] # Array[bool] — estado cacheado por slot
-var _slot_rigid_bodies: Array = []    # Array[Array[RigidBody]] — cache por slot para evitar tree walk cada frame
+var _slot_physics_enabled: Array = [] # Array[bool]
+var _slot_rigid_bodies: Array = []    # Array[Array[RigidBody]]
 var _slot_update_counter := 0
 var _bulk_assignment_depth := 0
 var _bulk_assignment_dirty := false
-var _last_selected_spiral_idx: int = -2  # -2 = no inicializado
+var _last_selected_spiral_idx: int = -2
 var _last_selected_plate_idx: int = -2
 var _direct_active_assignments := false
 var _slot_transform_sync_counter := 0
+# Verified via telemetry: S0(15deg) -> S1(195deg)=+9, S2(105deg)=+4, S3(285deg)=+13
+const INTERLOCK_OFFSETS := [0, 9, 4, 13]
 
 func _ready() -> void:
 	_build_slot_pool()
@@ -440,7 +442,11 @@ func _collect_auto_candidates(platforms: Array, center: Vector3, keys_seen: Dict
 		return candidates
 
 	# Incluir candidatos de TODAS las terrazas (spirals), no solo la actual.
-	# Por cada terraza encontramos la placa más cercana al jugador y cargamos la ventana alrededor.
+	# Usamos offsets verificados por telemetría para evitar buscar en todas las placas.
+	var selected_spiral: int = int(_rotator.get_selected_spiral_index()) if _rotator.has_method("get_selected_spiral_index") else 0
+	var selected_plate: int = int(_rotator.get_selected_plate_index()) if _rotator.has_method("get_selected_plate_index") else 0
+	var ref_plate: int = selected_plate if selected_spiral == 0 else _find_nearest_plate_in_spiral(platforms[0], _rotator.get_plate_count(platforms[0]), center)
+
 	for spiral_idx in range(platforms.size()):
 		var spiral: Spatial = platforms[spiral_idx]
 		if spiral == null:
@@ -449,13 +455,14 @@ func _collect_auto_candidates(platforms: Array, center: Vector3, keys_seen: Dict
 		if plate_count <= 0:
 			continue
 
-		# Para la terraza seleccionada usamos el índice autoritativo; para las demás, nearest por distancia
-		var base_plate_idx: int = -1
-		if _rotator.has_method("get_selected_spiral_index") and _rotator.has_method("get_selected_plate_index") \
-				and int(_rotator.get_selected_spiral_index()) == spiral_idx:
-			base_plate_idx = int(_rotator.get_selected_plate_index())
-		if base_plate_idx < 0:
-			base_plate_idx = _find_nearest_plate_in_spiral(spiral, plate_count, center)
+		var base_plate_idx: int
+		if spiral_idx == selected_spiral:
+			base_plate_idx = selected_plate
+		else:
+			var offset: int = INTERLOCK_OFFSETS[spiral_idx] if spiral_idx < INTERLOCK_OFFSETS.size() else 0
+			var target: int = posmod(ref_plate + offset, plate_count)
+			# Refinar con ±2 placas alrededor del offset
+			base_plate_idx = _refine_nearest_in_window(spiral, plate_count, target, 2, center)
 		if base_plate_idx < 0:
 			continue
 
@@ -479,6 +486,19 @@ func _collect_auto_candidates(platforms: Array, center: Vector3, keys_seen: Dict
 	return candidates
 
 func _find_nearest_plate_in_spiral(spiral: Spatial, plate_count: int, center: Vector3) -> int:
+	# Usar cached_transforms del spiral si existen (evita queries a MultiMesh)
+	var cached_list = spiral.get("_cached_transforms")
+	if cached_list != null and cached_list is Array and cached_list.size() > 0:
+		var spiral_canonical_base: Transform = _rotator.global_transform.affine_inverse() * spiral.global_transform
+		var best_idx := 0
+		var best_d := INF
+		for i in range(min(cached_list.size(), plate_count)):
+			var d: float = (spiral_canonical_base * (cached_list[i] as Transform)).origin.distance_squared_to(center)
+			if d < best_d:
+				best_d = d
+				best_idx = i
+		return best_idx
+
 	var best_idx: int = 0
 	var best_dist_sq: float = INF
 	for plate_idx in range(plate_count):
@@ -487,6 +507,18 @@ func _find_nearest_plate_in_spiral(spiral: Spatial, plate_count: int, center: Ve
 		if dist_sq < best_dist_sq:
 			best_dist_sq = dist_sq
 			best_idx = plate_idx
+	return best_idx
+
+func _refine_nearest_in_window(spiral: Spatial, plate_count: int, center_idx: int, radius: int, center: Vector3) -> int:
+	var best_idx := center_idx
+	var best_d := INF
+	for d in range(-radius, radius + 1):
+		var idx := posmod(center_idx + d, plate_count)
+		var tx: Transform = _rotator.get_plate_canonical_transform(spiral, idx)
+		var dist_sq: float = tx.origin.distance_squared_to(center)
+		if dist_sq < best_d:
+			best_d = dist_sq
+			best_idx = idx
 	return best_idx
 
 func _activate_slot(index: int, candidate: Dictionary) -> void:

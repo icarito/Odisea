@@ -8,16 +8,16 @@ export(int, -1, 8) var dome_full_detail_plate_radius := 1
 export(int, 0, 64) var dome_full_detail_nearest_count := 1
 export(int, 0, 3) var dome_full_detail_spiral_radius := 1
 export(int, 0, 32) var dome_inter_spiral_plate_offset := 4
-export(int, 0, 8) var dome_full_detail_preload_extra_radius := 2
+export(int, 0, 8) var dome_full_detail_preload_extra_radius := 0 if OS.has_feature("HTML5") else 2
 export(bool) var dome_lod_enabled := true
 export(int, 0, 1024) var dome_lod_overlay_max_instances := 64
 export(int, 0, 16) var dome_lod_adjacent_spiral_slots := 4
-export(float, 0.0, 180.0) var dome_lod_frustum_half_fov_deg := 80.0
+export(float, 0.0, 180.0) var dome_lod_frustum_half_fov_deg := 180.0 if OS.has_feature("HTML5") else 80.0
 export(float, 1.0, 32.0) var dome_lod_backface_penalty := 8.0
-export(bool) var dome_lod_camera_update_enabled := true
+export(bool) var dome_lod_camera_update_enabled := not OS.has_feature("HTML5")
 export(float, 1.0, 90.0) var dome_lod_camera_angle_threshold := 20.0
 export(int, 4, 64) var exterior_collision_pool_size := 4
-export(int, 1, 30) var exterior_collision_update_interval := 8
+export(int, 1, 30) var exterior_collision_update_interval := 20
 export(int, 1, 30) var exterior_target_plate_query_interval := 6
 
 onready var _rotator: Spatial = $WorldRotator
@@ -328,7 +328,7 @@ func _configure_plate_content_stream() -> void:
 	_plate_content_stream.rotator_path = NodePath("../WorldRotator")
 	_plate_content_stream.tracking_target_path = NodePath("../Pilot")
 	_plate_content_stream.slot_pool_size = 4
-	_plate_content_stream.slot_update_interval = 3
+	_plate_content_stream.slot_update_interval = 12
 	_plate_content_stream.centrifugal_current_plate_only_physics = true
 	if _plate_content_stream.has_method("register_rotator"):
 		_plate_content_stream.register_rotator(_rotator)
