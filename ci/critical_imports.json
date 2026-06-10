@@ -41,6 +41,20 @@
         ".md5"
       ],
       "reason": "VerticalDoor audio is part of the asset-integrity smoke path."
+    },
+    {
+      "path": "core_v2/audio/footsteps/metal/Metal_Step_01.wav.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "Scaffold footstep profile preloaded by ScaffoldStreamController and SteelGratePlatform; missing sample breaks dome_crio tests."
+    },
+    {
+      "path": "textures/kenney_prototype_textures/dark/texture_04.png.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "Dome_Crio level references this texture; stale stex causes image size mismatch error in CI."
     }
   ]
 }
