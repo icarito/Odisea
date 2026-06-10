@@ -1,8 +1,11 @@
 name: Exportar a Web y Desplegar en GitHub Pages
 
 on:
-  push:
-    branches: [ "main" ]
+  workflow_run:
+    workflows: ["GDUnit3 Tests"]
+    types:
+      - completed
+    branches: [ main ]
 
 permissions:
   contents: read
@@ -15,6 +18,7 @@ concurrency:
 
 jobs:
   build-and-deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -45,8 +49,6 @@ jobs:
 
       - name: Move Web export to root
         run: |
-          # El action crea un subdirectorio con el nombre del preset (p.ej. HTML5).
-          # Mover todo al nivel superior para que Pages sirva index.html en la raíz.
           BUILD_DIR="${{ steps.export.outputs.build_directory }}"
           SRC_DIR=""
 
