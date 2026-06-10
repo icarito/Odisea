@@ -51,6 +51,7 @@ var _suppressed_report_count := 0
 var _detailed_node_profiling_enabled := false
 var _profiling_enabled := false
 var _profiling_stats := {} # { name: { sum_usec, count } }
+var _anna_v2: Node = null
 
 # --- Signals ---
 signal lag_spike_detected(fps, drop)
@@ -67,6 +68,10 @@ func _ready():
 			print("[PerformanceMonitor] Disabled for this run")
 		return
 	print("[PerformanceMonitor] Initialized")
+
+func _cache_anna_reference() -> void:
+	if Engine.has_singleton("ANNAV2"):
+		_anna_v2 = Engine.get_singleton("ANNAV2")
 
 func _is_test_environment() -> bool:
 	if OS.get_environment("ODISEA_QUIET_PERFMON").to_lower() in ["1", "true", "yes", "on"]:
@@ -108,12 +113,10 @@ func _process(_delta):
 	var fps = Performance.get_monitor(Performance.TIME_FPS)
 	var process_time = Performance.get_monitor(Performance.TIME_PROCESS)
 	var physics_time = Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
-	var draw_calls = 0
-	if Performance.get("RENDER_DRAW_CALLS") != null:
-		draw_calls = Performance.get_monitor(Performance.RENDER_DRAW_CALLS)
-	var node_count = 0
-	if Performance.get("OBJECT_NODE_COUNT") != null:
-		node_count = Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
+	var draw_calls = Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME)
+	var objects_in_frame = Performance.get_monitor(Performance.RENDER_OBJECTS_IN_FRAME)
+	var vertices_in_frame = Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME)
+	var node_count = Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
 
 	if _capture_active:
 		_capture_samples.append({
@@ -122,13 +125,27 @@ func _process(_delta):
 			"physics_ms": physics_time * 1000.0,
 			"frame_gap_ms": frame_gap_ms,
 			"draw_calls": draw_calls,
+			"objects_in_frame": objects_in_frame,
+			"vertices_in_frame": vertices_in_frame,
 			"node_count": node_count
 		})
 
 	# 2. Lag Spike Detection
 	if _last_fps - fps > LAG_SPIKE_THRESHOLD_FPS:
-		_report_lag_spike(fps, _last_fps, process_time, physics_time, draw_calls, node_count, frame_gap_ms)
+		_report_lag_spike(fps, _last_fps, process_time, physics_time, draw_calls, objects_in_frame, vertices_in_frame, node_count, frame_gap_ms)
 	_last_fps = fps
+
+	# 2.5. Register metrics with ANNAV2 telemetry (appear in central dashboard heartbeats)
+	if _anna_v2 == null and Engine.has_singleton("ANNAV2"):
+		_anna_v2 = Engine.get_singleton("ANNAV2")
+	if _anna_v2:
+		_anna_v2.register_telemetry_dict({
+			"draw_calls": draw_calls,
+			"objects_in_frame": objects_in_frame,
+			"vertices_in_frame": vertices_in_frame,
+			"node_count": node_count,
+			"memory_mb": Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0
+		})
 
 	# 3. CPU Budget Check (throttled)
 	if process_time > (CPU_BUDGET_MS * LOG_TRIGGER_PERCENT * 0.001):
@@ -190,16 +207,13 @@ func register_monitored_node(node: Node):
 			node.add_to_group("ai_agents")
 
 func save_performance_snapshot(tag: String):
-	# Save current average metrics to a list
 	var fps = Performance.get_monitor(Performance.TIME_FPS)
 	var process_t = Performance.get_monitor(Performance.TIME_PROCESS)
 	var physics_t = Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
-	var draw_c = 0
-	if Performance.get("RENDER_DRAW_CALLS") != null:
-		draw_c = Performance.get_monitor(Performance.RENDER_DRAW_CALLS)
-	var node_c = 0
-	if Performance.get("OBJECT_NODE_COUNT") != null:
-		node_c = Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
+	var draw_c = Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME)
+	var objects_in_frame = Performance.get_monitor(Performance.RENDER_OBJECTS_IN_FRAME)
+	var vertices_in_frame = Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME)
+	var node_c = Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
 
 	var entry = {
 		"tag": tag,
@@ -208,6 +222,8 @@ func save_performance_snapshot(tag: String):
 		"process_time_ms": process_t * 1000.0,
 		"physics_time_ms": physics_t * 1000.0,
 		"draw_calls": draw_c,
+		"objects_in_frame": objects_in_frame,
+		"vertices_in_frame": vertices_in_frame,
 		"node_count": node_c
 	}
 
@@ -359,7 +375,7 @@ func _restore_visibility():
 			if node.has_method("set_process"): node.set_process(true)
 			if node.has_method("set_physics_process"): node.set_physics_process(true)
 
-func _report_lag_spike(fps, prev_fps, process_t, physics_t, draw_c, node_c, frame_gap_ms: float):
+func _report_lag_spike(fps, prev_fps, process_t, physics_t, draw_c, objects_in_frame, vertices_in_frame, node_c, frame_gap_ms: float):
 	var now_msec := OS.get_ticks_msec()
 	var drop: float = float(prev_fps) - float(fps)
 	if not _suppress_runtime_logs and _should_log_lag_spike(now_msec, drop):
@@ -368,6 +384,7 @@ func _report_lag_spike(fps, prev_fps, process_t, physics_t, draw_c, node_c, fram
 	emit_signal("lag_spike_detected", fps, drop)
 
 	var report = {
+		"schema_version": 1,
 		"timestamp": OS.get_unix_time(),
 		"fps": fps,
 		"drop": drop,
@@ -375,11 +392,32 @@ func _report_lag_spike(fps, prev_fps, process_t, physics_t, draw_c, node_c, fram
 		"physics_time_ms": physics_t * 1000.0,
 		"frame_gap_ms": frame_gap_ms,
 		"draw_calls": draw_c,
+		"objects_in_frame": objects_in_frame,
+		"vertices_in_frame": vertices_in_frame,
 		"node_count": node_c,
+		"scene": _get_current_scene_path(),
+		"player_position": _get_player_position(),
+		"memory_mb": Performance.get_monitor(Performance.MEMORY_STATIC) * 0.000001,
 		"heavy_nodes": _get_top_heavy_nodes()
 	}
 
 	_save_report_throttled(report, now_msec)
+
+	if _anna_v2:
+		_anna_v2.register_telemetry_dict({
+			"last_lag_spike": {
+				"fps": fps,
+				"drop": drop,
+				"process_time_ms": report["process_time_ms"],
+				"physics_time_ms": report["physics_time_ms"],
+				"draw_calls": report["draw_calls"],
+				"objects_in_frame": report["objects_in_frame"],
+				"vertices_in_frame": report["vertices_in_frame"],
+				"node_count": report["node_count"],
+				"scene": report["scene"],
+				"timestamp": report["timestamp"]
+			}
+		})
 
 func _should_log_lag_spike(now_msec: int, drop: float) -> bool:
 	if _last_lag_log_time_msec <= 0:
@@ -409,6 +447,19 @@ func _get_top_heavy_nodes() -> Array:
 
 func _sort_by_time_desc(a, b):
 	return a["time_usec"] > b["time_usec"]
+
+func _get_current_scene_path() -> String:
+	var root = get_tree().current_scene
+	if is_instance_valid(root):
+		return root.filename
+	return ""
+
+func _get_player_position() -> Array:
+	var players = get_tree().get_nodes_in_group("player")
+	if players.size() > 0 and is_instance_valid(players[0]):
+		var pos = (players[0] as Spatial).global_transform.origin
+		return [pos.x, pos.y, pos.z]
+	return [0.0, 0.0, 0.0]
 
 func _save_report(data: Dictionary):
 	var file = File.new()
