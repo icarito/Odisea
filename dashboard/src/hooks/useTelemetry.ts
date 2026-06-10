@@ -75,19 +75,13 @@ export const useTelemetry = () => {
             }];
           }
 
-          // Trail (conversión estricta a números para evitar corrupción en Three.js)
+          // Trail — every heartbeat, no throttle, no distance threshold
           const rawPos = hb.player?.position;
-          if (Array.isArray(rawPos) && rawPos.length >= 3 && shouldWriteGhost) {
+          if (Array.isArray(rawPos) && rawPos.length >= 3) {
             const pos: [number, number, number] = [Number(rawPos[0]), Number(rawPos[1]), Number(rawPos[2])];
-            
-            if (!hist.lastPos ||
-                Math.abs(pos[0] - hist.lastPos[0]) > 0.1 ||
-                Math.abs(pos[1] - hist.lastPos[1]) > 0.1 ||
-                Math.abs(pos[2] - hist.lastPos[2]) > 0.1) {
-              hist.trail = [...hist.trail, pos].slice(-120);
-              hist.lastPos = pos;
-              hist.lastMoveTime = now;
-            }
+            hist.trail = [...hist.trail, pos].slice(-600);
+            hist.lastPos = pos;
+            hist.lastMoveTime = now;
           }
 
           // Alerts

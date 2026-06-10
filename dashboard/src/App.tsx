@@ -98,7 +98,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <span>{!showHistory ? 'Players online' : 'Sesiones'}</span>
             <span className="text-xs">{collapsed.players ? '▸' : '▾'}</span>
           </div>
-          {!collapsed.players && (
+          {!collapsed.players ? (
           <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 flex flex-col gap-2">
             {!showHistory ? (
               <>
@@ -116,13 +116,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               <SessionHistory />
             )}
           </div>
-          )}
+          ) : null}
         </div>
 
         {/* Center - 3D Viewport & Charts */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <div className="shrink-0 p-4">
-            <div className="h-[400px] w-full relative">
+          <div className={`${collapsed.timeline ? 'flex-1' : 'shrink-0'} p-4`}>
+            <div className={`${collapsed.timeline ? '' : 'h-[400px]'} w-full relative`}>
             {activeHb?.player ? (
               <>
                 <Viewport3D
@@ -182,7 +182,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-border-custom flex flex-col bg-bg-card">
+          <div className={`border-t border-border-custom flex flex-col bg-bg-card ${collapsed.timeline ? '' : 'flex-1'}`}>
             <div
               className="p-2 text-[10px] uppercase text-text-muted font-bold cursor-pointer hover:text-text-primary select-none flex justify-between items-center"
               onClick={() => toggleCollapse('timeline')}
@@ -219,7 +219,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         </div>
 
         {/* Right Sidebar - Alerts (Hidden on small/medium screens) */}
-        <div className="hidden xl:flex xl:w-72 xl:shrink-0 flex-col bg-bg-primary border-l border-border-custom">
+        <div className={`hidden xl:flex flex-col bg-bg-primary border-l border-border-custom ${collapsed.alerts ? 'w-auto xl:w-auto' : 'w-72 xl:w-72 xl:shrink-0'}`}>
           <div
             className="p-3 text-[10px] uppercase text-text-muted font-bold border-b border-border-custom cursor-pointer hover:text-text-primary select-none flex justify-between items-center"
             onClick={() => toggleCollapse('alerts')}
