@@ -130,10 +130,22 @@ $GODOT_HEAD_INCLUDE
 		getState: function() {
 			worker.postMessage({ cmd: "getState" });
 			return currentState;
+		},
+
+		/**
+		 * Return browser memory estimate (MB), or -1 if unavailable.
+		 * Only Chromium exposes performance.memory.
+		 */
+		getBrowserMemMB: function() {
+			if (typeof performance !== "undefined" && performance.memory &&
+				typeof performance.memory.usedJSHeapSize === "number") {
+				return performance.memory.usedJSHeapSize / (1024 * 1024);
+			}
+			return -1;
 		}
 	};
 
-	console.log("[ANNAV2-Bridge] Worker installed. Use window.ANNAV2_WS_Bridge.{connect,disconnect,send,poll,getState}");
+	console.log("[ANNAV2-Bridge] Worker installed. Use window.ANNAV2_WS_Bridge.{connect,disconnect,send,poll,getState,getBrowserMemMB}");
 })();
 	</script>
 	<script>
