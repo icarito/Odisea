@@ -10,6 +10,12 @@ export interface PlayerState {
   tick: number;
   fps: number;
   memory_mb: number;
+  perf?: {
+    dc: number;
+    obj: number;
+    vtx: number;
+    nodes: number;
+  };
 }
 
 export interface Heartbeat {

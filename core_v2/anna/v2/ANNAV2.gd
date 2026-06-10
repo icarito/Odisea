@@ -149,6 +149,13 @@ func _update_telemetry():
 
 	player_data["tick"] = Engine.get_idle_frames() # Or physics frames if preferred
 
+	player_data["perf"] = {
+		"dc": Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME),
+		"obj": Performance.get_monitor(Performance.RENDER_OBJECTS_IN_FRAME),
+		"vtx": Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME),
+		"nodes": Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
+	}
+
 	# Merge controller-registered custom data points (e.g. jump_count, state flags)
 	for k in _custom_points:
 		player_data[k] = _custom_points[k]
