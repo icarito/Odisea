@@ -1,0 +1,109 @@
+name: Exportar a Web y Desplegar en Netlify (Threads)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_run:
+    workflows: ["Odyssey Pytest Runner"]
+    types:
+      - completed
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "netlify-deploy"
+  cancel-in-progress: true
+
+jobs:
+  export-and-deploy:
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Godot dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/godot
+            ~/.config/godot
+            ~/.local/share/godot
+          key: ${{ runner.os }}-godot-${{ hashFiles('**/project.godot') }}
+          restore-keys: |
+            ${{ runner.os }}-godot-
+
+      - name: Export HTML5 Threads
+        id: export
+        uses: firebelley/godot-export@v7.0.0
+        with:
+          godot_executable_download_url: https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_linux_headless.64.zip
+          godot_export_templates_download_url: https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_export_templates.tpz
+          relative_project_path: ./
+          use_godot_3: true
+          use_preset_export_path: true
+          export_debug: false
+          presets_to_export: 'HTML5 Threads'
+
+      - name: Collect export
+        run: |
+          BUILD_DIR="${{ steps.export.outputs.build_directory }}"
+          mkdir -p netlify_build/
+          SRC_DIR=""
+          for candidate in "HTML5 Threads" Web; do
+            if [ -d "$BUILD_DIR/$candidate" ]; then
+              SRC_DIR="$BUILD_DIR/$candidate"
+              break
+            fi
+          done
+          if [ -z "$SRC_DIR" ]; then
+            CANDIDATE="$(find "$BUILD_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1 || true)"
+            if [ -n "$CANDIDATE" ] && [ -f "$CANDIDATE/index.html" ]; then
+              SRC_DIR="$CANDIDATE"
+            fi
+          fi
+          if [ -n "$SRC_DIR" ]; then
+            shopt -s dotglob
+            mv "$SRC_DIR"/* netlify_build/
+            rmdir "$SRC_DIR"
+            echo "Moved export from $SRC_DIR to netlify_build/"
+          else
+            echo "No nested dir found; copying build dir contents"
+            shopt -s dotglob
+            cp -a "$BUILD_DIR"/* netlify_build/
+          fi
+
+          # Patch the loader for gzip support (PCK + WASM from same host)
+          python3 scripts/minimize_html_export.py netlify_build/
+
+          # Copy _headers for COOP/COEP (required for SharedArrayBuffer)
+          cp build/_headers netlify_build/_headers
+
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: netlify_build/
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy from ${{ github.sha }}"
+          netlify-config-path: ./
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+      - name: Verify COOP/COEP headers
+        run: |
+          if [ -f "netlify_build/_headers" ]; then
+            echo "::group::_headers"
+            cat netlify_build/_headers
+            echo "::endgroup::"
+          else
+            echo "::error::_headers file not found in deploy directory!"
+            exit 1
+          fi
