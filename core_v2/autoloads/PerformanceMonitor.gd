@@ -11,9 +11,9 @@ const LAG_SPIKE_THRESHOLD_FPS := 20.0
 const CPU_BUDGET_MS := 16.6
 const LOG_TRIGGER_PERCENT := 0.70 # 70% of CPU Budget
 const CPU_WARNING_INTERVAL_SEC := 5.0
-const LAG_LOG_INTERVAL_SEC := 2.0
-const REPORT_WRITE_INTERVAL_SEC := 4.0
-const REPORT_WRITE_INTERVAL_HYPER_LOW_SEC := 10.0
+const LAG_LOG_INTERVAL_SEC := 5.0
+const REPORT_WRITE_INTERVAL_SEC := 8.0
+const REPORT_WRITE_INTERVAL_HYPER_LOW_SEC := 20.0
 const REPORT_DROP_BYPASS_DELTA := 12.0
 const DETAILED_NODE_PROFILING_ENV := "ODISEA_DETAILED_NODE_PROFILING"
 
@@ -83,6 +83,11 @@ func _is_disabled_for_current_run() -> bool:
 	return in_rl and disable_rl
 
 func _process(_delta):
+	# Optimization for HTML5/Mobile: throttle metric gathering to 10Hz
+	if OS.get_name() == "HTML5" or OS.has_touchscreen_ui_hint():
+		if Engine.get_idle_frames() % 6 != 0:
+			return
+
 	var now_usec := OS.get_ticks_usec()
 	_frame_start_time = now_usec
 	var frame_gap_ms := 0.0

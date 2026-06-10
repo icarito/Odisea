@@ -25,10 +25,15 @@ var _custom_points := {}
 # Telemetry is gathered at most every TELEMETRY_INTERVAL_MS (decoupled from frame rate).
 # The network thread only sends at 10Hz anyway, so gathering at 60Hz was wasted main-thread
 # work. Lower the interval for finer local capture; raise it to reduce ANNA's per-frame cost.
-const TELEMETRY_INTERVAL_MS := 50 # ~20Hz
+var TELEMETRY_INTERVAL_MS := 50 # ~20Hz
 var _last_telemetry_ms := 0
 
 func _ready():
+	# Optimization for HTML5/Weak hardware
+	if OS.get_name() == "HTML5" or OS.has_touchscreen_ui_hint():
+		TELEMETRY_INTERVAL_MS = 200 # 5Hz for web
+		print("[ANNAV2] HTML5: Throttling telemetry to 5Hz")
+
 	_player_id = _load_or_create_player_id()
 	_session_id = _generate_uuid()
 

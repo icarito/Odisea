@@ -98,6 +98,8 @@ const MOBILE_WEB_RENDER_SCALE_MAX := 1.0
 const MOBILE_WEB_GRAPHICS_PROFILE_DEFAULT := "medium"
 const MOBILE_WEB_TARGET_FPS_DEFAULT := "30"
 const MOBILE_WEB_TRANSPARENCY_ENV := "ODISEA_DIAG_DISABLE_TRANSPARENCIES"
+const DISABLE_GLOW_ENV := "ODISEA_DISABLE_GLOW"
+const DISABLE_FXAA_ENV := "ODISEA_DISABLE_FXAA"
 const MOBILE_WEB_MIN_RENDER_SIZE := Vector2(320, 180)
 var _early_weak_hardware := false
 var _mobile_web_safety_enabled := false
@@ -773,7 +775,27 @@ func _apply_mobile_web_safety_hints() -> void:
 	_set_env_default("ODISEA_DISABLE_SHADER_WARMUP", "1")
 	_set_env_default("ODISEA_TARGET_FPS", MOBILE_WEB_TARGET_FPS_DEFAULT)
 	_set_env_default(MOBILE_WEB_TRANSPARENCY_ENV, "1")
+	_set_env_default(DISABLE_GLOW_ENV, "1")
+	_set_env_default(DISABLE_FXAA_ENV, "1")
 	print("[SessionManager] Mobile web safety mode enabled.")
+	_apply_rendering_optimizations()
+
+func _apply_rendering_optimizations() -> void:
+	var disable_glow = OS.get_environment(DISABLE_GLOW_ENV) in ["1", "true", "yes", "on"]
+	var disable_fxaa = OS.get_environment(DISABLE_FXAA_ENV) in ["1", "true", "yes", "on"]
+
+	if disable_glow:
+		var default_env_path = ProjectSettings.get_setting("rendering/environment/default_environment")
+		if default_env_path != "":
+			var env = load(default_env_path)
+			if env is Environment:
+				env.glow_enabled = false
+				print("[SessionManager] Rendering: Glow DISABLED (forced)")
+
+	if disable_fxaa:
+		ProjectSettings.set_setting("rendering/quality/filters/use_fxaa", false)
+		# Note: FXAA change might require restart to take full effect in some Godot versions,
+		# but setting it early in _enter_tree/ready helps.
 
 func _apply_mobile_web_render_scale() -> void:
 	if not _mobile_web_safety_enabled:
