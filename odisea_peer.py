@@ -29,9 +29,29 @@ import os
 import socket
 import time
 import uuid
+import zlib
 from typing import Dict, Any, Optional, List
 
 from aiohttp import web, ClientSession, ClientWebSocketResponse, WSMsgType
+
+# Cap for inflating compressed WS frames (zlib bomb guard)
+WS_MAX_INFLATED = 1024 * 1024
+
+
+def inflate_ws_frame(data: bytes) -> Optional[bytes]:
+    """Inflate a zlib-compressed WS frame (Godot's COMPRESSION_DEFLATE).
+
+    Returns the raw bytes if `data` is not zlib — older clients send plain
+    UTF-8 JSON in binary frames. Returns None for oversized payloads.
+    """
+    try:
+        d = zlib.decompressobj()
+        out = d.decompress(data, WS_MAX_INFLATED)
+        if d.unconsumed_tail:
+            return None
+        return out
+    except zlib.error:
+        return data
 
 # --- Configuration (env-overridable) ---
 PEER_PORT = int(os.environ.get("PEER_PORT", 4999))
@@ -217,6 +237,10 @@ class OdiseaPeer:
     async def _on_game_message(self, raw, ws):
         try:
             if isinstance(raw, (bytes, bytearray)):
+                raw = inflate_ws_frame(bytes(raw))
+                if raw is None:
+                    logger.warning("Dropping oversized binary frame from game")
+                    return
                 raw = raw.decode("utf-8")
             data = json.loads(raw)
         except Exception as e:
@@ -224,7 +248,14 @@ class OdiseaPeer:
             return
 
         mtype = data.get("type")
-        if mtype == "heartbeat":
+        if mtype == "handshake":
+            # Ack so the game knows it can switch to compressed binary frames.
+            try:
+                await ws.send_json({"type": "handshake_ack", "status": "ok",
+                                    "mode": "peer", "compression": "deflate"})
+            except Exception:
+                pass
+        elif mtype == "heartbeat":
             player_id = data.get("player_id")
             if not player_id:
                 return

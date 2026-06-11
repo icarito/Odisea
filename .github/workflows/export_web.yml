@@ -30,6 +30,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Disable editor plugins (avoid qodot deps download hang)
+        run: |
+          cp project.godot project.godot.bak
+          python3 -c "
+import re
+with open('project.godot.bak') as f: text = f.read()
+text = re.sub(r'enabled=PoolStringArray\([^)]+\)', 'enabled=PoolStringArray()', text)
+with open('project.godot', 'w') as f: f.write(text)
+"
+          echo "Editor plugins disabled for headless build."
+
       - name: Cache Godot
         uses: actions/cache@v3
         with:
@@ -37,8 +48,11 @@ jobs:
             ~/.cache/godot
             ~/.config/godot
             ~/.local/share/godot
-          key: ${{ runner.os }}-godot-web-${{ hashFiles('**/project.godot') }}
+            .godot/
+            .import/
+          key: ${{ runner.os }}-godot-web-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import') }}
           restore-keys: |
+            ${{ runner.os }}-godot-web-${{ hashFiles('**/project.godot') }}-
             ${{ runner.os }}-godot-web-
 
       # ── Export 1: HTML5 Regular (via firebelley) ──
@@ -134,8 +148,9 @@ jobs:
           echo "Threads export:"
           ls -la build_threads/
 
-          # Restore standard zip for subsequent steps (if needed)
+          # Restore standard zip and editor plugins
           cp "$TPL_DIR/webassembly_release.standard.bak" "$TPL_DIR/webassembly_release.zip"
+          mv project.godot.bak project.godot 2>/dev/null || true
 
       # ── Stage threads WASM into Pages artifact (/threads/) ──
       - name: Stage threads WASM for Pages fallback

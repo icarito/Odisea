@@ -18,6 +18,9 @@ var _server_enabled := false
 
 var _command_queue # Reference to ANNAV2_CommandQueue
 var _is_connected := false
+# Deflate JSON frames before sending; enabled only after the server confirms
+# support in handshake_ack ("compression": "deflate"), so old peers keep working.
+var _use_compression := false
 var _peer_url := ""
 # Por defecto, apuntar al nodo central para que HTML5 funcione sin parámetros URL
 var _central_url := "wss://" + DEFAULT_CENTRAL + "/ws"
@@ -217,6 +220,7 @@ func _check_port(ip: String, port: int) -> bool:
 
 func _on_connected(_protocol = ""):
 	_is_connected = true
+	_use_compression = false
 	# Send JSON as TEXT frames (WS convention); avoids peers that only handle text.
 	_client.get_peer(1).set_write_mode(WebSocketPeer.WRITE_MODE_TEXT)
 	print("[ANNAV2] Connected to peer")
@@ -224,6 +228,7 @@ func _on_connected(_protocol = ""):
 
 func _on_disconnected(_was_clean = false):
 	_is_connected = false
+	_use_compression = false
 	print("[ANNAV2] Disconnected from peer")
 
 func _on_data():
@@ -234,7 +239,11 @@ func _on_data():
 		var msg = result.result
 		var type = msg.get("type")
 		if type == "handshake_ack":
-			print("[ANNAV2] Handshake ACK received")
+			if msg.get("compression", "") == "deflate":
+				_use_compression = true
+				print("[ANNAV2] Handshake ACK received (deflate enabled)")
+			else:
+				print("[ANNAV2] Handshake ACK received")
 		elif type == "command":
 			var action = msg.get("action")
 			var args = msg.get("args", {})
@@ -255,7 +264,8 @@ func _send_handshake():
 		"type": "handshake",
 		"platform": platform,
 		"player_id": player_id,
-		"session_id": session_id
+		"session_id": session_id,
+		"compression": "deflate"
 	}
 	# Token is required by the central node; the local peer ignores it. peer_id lets the
 	# central attribute the connection.
@@ -302,8 +312,16 @@ func _send_heartbeat(tier: int):
 	_send_json(msg)
 
 func _send_json(msg: Dictionary):
-	if _is_connected:
-		_client.get_peer(1).put_packet(JSON.print(msg).to_utf8())
+	if not _is_connected:
+		return
+	var bytes: PoolByteArray = JSON.print(msg).to_utf8()
+	var peer = _client.get_peer(1)
+	if _use_compression:
+		peer.set_write_mode(WebSocketPeer.WRITE_MODE_BINARY)
+		peer.put_packet(bytes.compress(File.COMPRESSION_DEFLATE))
+	else:
+		peer.set_write_mode(WebSocketPeer.WRITE_MODE_TEXT)
+		peer.put_packet(bytes)
 
 func send_command_response(response: Dictionary):
 	_send_json(response)

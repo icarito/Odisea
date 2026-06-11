@@ -5,9 +5,29 @@ import logging
 import os
 import time
 import uuid
+import zlib
 from typing import Dict, Any, List, Set, Optional
 
 from aiohttp import web, WSCloseCode
+
+# Cap for inflating compressed WS frames (zlib bomb guard)
+WS_MAX_INFLATED = 1024 * 1024
+
+
+def inflate_ws_frame(data: bytes) -> Optional[bytes]:
+    """Inflate a zlib-compressed WS frame (Godot's COMPRESSION_DEFLATE).
+
+    Returns the raw bytes if `data` is not zlib — older clients send plain
+    UTF-8 JSON in binary frames. Returns None for oversized payloads.
+    """
+    try:
+        d = zlib.decompressobj()
+        out = d.decompress(data, WS_MAX_INFLATED)
+        if d.unconsumed_tail:
+            return None
+        return out
+    except zlib.error:
+        return data
 
 # --- Configuration ---
 CENTRAL_HTTP_PORT = int(os.environ.get("CENTRAL_HTTP_PORT", 5003))
@@ -426,10 +446,16 @@ class OdiseaCentral:
 
         try:
             async for msg in ws:
-                if msg.type == web.WSMsgType.TEXT:
+                if msg.type in (web.WSMsgType.TEXT, web.WSMsgType.BINARY):
+                    payload = msg.data
+                    if msg.type == web.WSMsgType.BINARY:
+                        payload = inflate_ws_frame(bytes(payload))
+                        if payload is None:
+                            logger.warning("Dropping oversized binary frame from peer")
+                            continue
                     try:
-                        data = json.loads(msg.data)
-                    except json.JSONDecodeError:
+                        data = json.loads(payload)
+                    except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
                         logger.warning("Received malformed JSON from peer")
                         continue
 
@@ -452,7 +478,8 @@ class OdiseaCentral:
                             
                             mode = "admin" if is_admin else "telemetry"
                             logger.info(f"Peer conectado ({mode}): {peer_id}")
-                            await ws.send_json({"type": "handshake_ack", "status": "ok", "mode": mode})
+                            await ws.send_json({"type": "handshake_ack", "status": "ok", "mode": mode,
+                                                "compression": "deflate"})
                         else:
                             logger.warning("Peer sent message before handshake.")
                             await ws.close(code=WSCloseCode.POLICY_VIOLATION)
