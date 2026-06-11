@@ -13,6 +13,9 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: 'autoUpdate',
+        // We register the SW ourselves in main.tsx so we can auto-reload the
+        // page when a new version activates.
+        injectRegister: null,
         includeAssets: ['favicon.svg', 'icons.svg'],
         manifest: {
           name: 'Odisea Central',
