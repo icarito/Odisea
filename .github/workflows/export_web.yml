@@ -20,7 +20,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  setup:
+  # ---------------------------------------------------------------------------
+  # Single HTML5 (threads) export. The .pck is identical between the threads
+  # and non-threads presets, and the canonical site (Netlify) is cross-origin
+  # isolated, so one threads build covers everything.
+  #
+  # The build is then split:
+  #   - Netlify  ← "core" (html/js/workers/icons), NO heavy files.
+  #   - Pages    ← heavy files only: index.pck(.gz) at root, index.wasm(.gz)
+  #                under /threads/  (matching the loader paths in the shell).
+  # ---------------------------------------------------------------------------
+  export:
     if: |
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       github.event_name == 'push' ||
@@ -74,119 +84,68 @@ jobs:
           godot3-server --editor --quit --headless 2>&1 || true
           echo "Setup complete."
 
-  export-regular:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Disable editor plugins
-        run: python3 scripts/disable_plugins.py
-
-      - name: Cache Godot
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/godot
-            ~/.config/godot
-            ~/.local/share/godot
-            .godot/
-            .import/
-          key: ${{ runner.os }}-godot-web-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import') }}
-          restore-keys: |
-            ${{ runner.os }}-godot-web-${{ hashFiles('**/project.godot') }}-
-            ${{ runner.os }}-godot-web-
-
-      - name: Export HTML5 Regular
-        id: export-regular
-        uses: firebelley/godot-export@v7.0.0
-        with:
-          godot_executable_download_url: https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_linux_headless.64.zip
-          godot_export_templates_download_url: https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_export_templates.tpz
-          relative_project_path: ./
-          use_godot_3: true
-          use_preset_export_path: true
-          export_debug: false
-          presets_to_export: 'HTML5'
-
-      - name: Collect regular export
-        run: |
-          BUILD_DIR="${{ steps.export-regular.outputs.build_directory }}"
-          mkdir -p pages_build/
-          SRC_DIR=""
-          for candidate in HTML5 Web; do
-            if [ -d "$BUILD_DIR/$candidate" ]; then SRC_DIR="$BUILD_DIR/$candidate"; break; fi
-          done
-          if [ -z "$SRC_DIR" ]; then
-            CANDIDATE="$(find "$BUILD_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1 || true)"
-            if [ -n "$CANDIDATE" ] && [ -f "$CANDIDATE/index.html" ]; then SRC_DIR="$CANDIDATE"; fi
-          fi
-          if [ -n "$SRC_DIR" ]; then
-            shopt -s dotglob; mv "$SRC_DIR"/* pages_build/; rmdir "$SRC_DIR"
-          else
-            shopt -s dotglob; cp -a "$BUILD_DIR"/* pages_build/
-          fi
-          python3 scripts/minimize_html_export.py pages_build/
-          echo "Regular export collected."
-          ls -la pages_build/
-
-      - name: Upload regular artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pages-build
-          path: pages_build/
-          retention-days: 1
-
-  export-threads:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Disable editor plugins
-        run: python3 scripts/disable_plugins.py
-
-      - name: Cache Godot
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/godot
-            ~/.config/godot
-            ~/.local/share/godot
-            .godot/
-            .import/
-          key: ${{ runner.os }}-godot-web-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import') }}
-          restore-keys: |
-            ${{ runner.os }}-godot-web-${{ hashFiles('**/project.godot') }}-
-            ${{ runner.os }}-godot-web-
-
-      - name: Export HTML5 Threads
+      - name: Export HTML5 (threads)
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           TPL_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
-          echo "Templates dir: $TPL_DIR"
-          ls -la "$TPL_DIR/"webassembly*.zip 2>/dev/null || true
 
+          # The "HTML5 Threads" preset (variant/export_type=1) still reads the
+          # webassembly_release.zip slot, so swap in the threads template.
           cp "$TPL_DIR/webassembly_release.zip" "$TPL_DIR/webassembly_release.standard.bak"
           cp "$TPL_DIR/webassembly_threads_release.zip" "$TPL_DIR/webassembly_release.zip"
-          echo "Swapped webassembly_release.zip with threads variant"
 
-          mkdir -p build_threads
-          godot3-server --no-window --export "HTML5 Threads" build_threads/index.html --quiet 2>&1
-          echo "Threads export:"
-          ls -la build_threads/
+          mkdir -p build_export
+          godot3-server --no-window --export "HTML5 Threads" build_export/index.html --quiet 2>&1
 
+          # Restore the standard template slot.
           cp "$TPL_DIR/webassembly_release.standard.bak" "$TPL_DIR/webassembly_release.zip"
 
-      - name: Prepare Netlify deploy
+          echo "Export:"
+          ls -la build_export/
+
+      - name: Post-process (gzip heavy files + patch loader)
         run: |
-          mkdir -p netlify_build/
+          # Patches index.js to fetch .gz and decompress client-side, and
+          # produces index.pck.gz / index.wasm.gz alongside the originals.
+          python3 scripts/minimize_html_export.py build_export/
+
+      - name: Stage Netlify core (no heavy files)
+        run: |
+          mkdir -p netlify_build
           shopt -s dotglob
-          cp -a build_threads/* netlify_build/
-          python3 scripts/minimize_html_export.py netlify_build/
+          cp -a build_export/* netlify_build/
+
+          # Heavy assets live on GitHub Pages; keep them out of Netlify.
+          rm -f netlify_build/index.pck netlify_build/index.pck.gz \
+                netlify_build/index.wasm netlify_build/index.wasm.gz
+
+          # Cross-origin isolation headers (needed for SharedArrayBuffer/threads).
           cp build/_headers netlify_build/_headers
-          echo "Netlify build:"
+
+          # Inject the real download size (raw pck + wasm) so the loading bar is
+          # accurate even though the engine's own fileSizes total drifts once we
+          # serve client-decompressed .gz copies from Pages.
+          PCK_BYTES=$(stat -c%s build_export/index.pck)
+          WASM_BYTES=$(stat -c%s build_export/index.wasm)
+          TOTAL=$((PCK_BYTES + WASM_BYTES))
+          sed -i "s/\$ODISEA_TOTAL_BYTES/${TOTAL}/g" netlify_build/index.html
+          echo "Injected EXPECTED_TOTAL_BYTES=${TOTAL}"
+
+          echo "Netlify core:"
           ls -la netlify_build/
+
+      - name: Stage Pages assets (heavy files only)
+        run: |
+          mkdir -p pages_build/threads
+          # .pck at the root, .wasm under /threads/  (see the fetch override in
+          # core_v2/telemetry/html/odisea_shell.html).
+          cp build_export/index.pck    pages_build/
+          cp build_export/index.pck.gz pages_build/
+          cp build_export/index.wasm    pages_build/threads/
+          cp build_export/index.wasm.gz pages_build/threads/
+
+          echo "Pages assets:"
+          ls -la pages_build/ pages_build/threads/
 
       - name: Upload Netlify artifact
         uses: actions/upload-artifact@v4
@@ -195,42 +154,22 @@ jobs:
           path: netlify_build/
           retention-days: 1
 
-      - name: Upload threads WASM for Pages
-        uses: actions/upload-artifact@v4
-        with:
-          name: threads-wasm
-          path: build_threads/index.wasm
-          retention-days: 1
-
-  deploy:
-    needs: [export-regular, export-threads]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-
-      - name: Merge into Pages artifact
-        run: |
-          mkdir -p pages_build
-          if [ -d pages-build ]; then
-            shopt -s dotglob
-            cp -a pages-build/* pages_build/
-          fi
-          mkdir -p pages_build/threads
-          if [ -f threads-wasm/index.wasm ]; then
-            cp threads-wasm/index.wasm pages_build/threads/
-            gzip -9 -n -c pages_build/threads/index.wasm > pages_build/threads/index.wasm.gz
-            echo "Pages threads/ fallback staged"
-          fi
-          ls -la pages_build/
-          ls -la pages_build/threads/ 2>/dev/null || true
-
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: pages_build
+
+  deploy-netlify:
+    needs: export
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Netlify artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: netlify-build
+          path: netlify-build
 
       - name: Deploy to Netlify
         uses: nwtgck/actions-netlify@v3
@@ -244,21 +183,12 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
 
-      - name: Verify
-        run: |
-          echo "::group::Pages build"
-          ls -la pages_build/
-          echo "::endgroup::"
-          echo "::group::Netlify build"
-          ls -la netlify-build/
-          echo "::endgroup::"
-
   deploy-pages:
+    needs: export
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: deploy
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
