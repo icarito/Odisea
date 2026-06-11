@@ -95,6 +95,12 @@ export(float, 30.0, 180.0) var lod2_frustum_half_fov_deg := 100.0
 # Chunks behind the frustum get their distance score multiplied by this factor,
 # making them lower priority than same-distance in-frustum chunks.
 export(float, 1.0, 20.0) var lod2_backface_penalty := 4.0
+# Additive bias applied to a chunk's request score when it is OUTSIDE the camera
+# frustum. Far larger than any in-radius distance, so every in-view chunk is
+# requested before any out-of-view one (in-frustum-first ordering). Generation
+# budget is small (max_chunk_requests_per_frame), so spending it on what the player
+# is looking at is what makes new scaffold appear "in front of you" not behind.
+const FRUSTUM_OUT_OF_VIEW_BIAS := 100000.0
 
 var _active_chunks: Dictionary = {}
 var _pending_chunks: Dictionary = {}
@@ -393,9 +399,15 @@ func _request_needed_chunks(player_pos: Vector3, player_chunk: Vector2, scan_rad
 			var center_dist = player_pos.distance_to(world_center)
 			var footprint_dist = _distance_to_chunk_footprint_local(local_player_pos, key)
 			if (not respect_load_radius) or footprint_dist <= load_radius:
+				# Chunks inside the camera frustum are requested before any out-of-frustum
+				# chunk (so what you're looking at fills in first), nearest-first within each
+				# group. The large out-of-view bias makes the sort effectively lexicographic
+				# (in-frustum, then distance) instead of distance x penalty — the latter let a
+				# far in-front chunk lose to a near behind-you one.
 				var score = center_dist
-				if use_frustum_cap:
-					score *= _frustum_score(world_center, player_pos, cam_fwd, fov_cos)
+				if cam_fwd.length_squared() > 0.01:
+					if _frustum_score(world_center, player_pos, cam_fwd, fov_cos) > 1.0:
+						score += FRUSTUM_OUT_OF_VIEW_BIAS
 				candidates.append({"key": key, "dist": score})
 	candidates.sort_custom(self, "_sort_chunk_candidates")
 	var requested = 0

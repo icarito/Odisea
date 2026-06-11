@@ -97,8 +97,21 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 			continue
 		var spec = fixed_border_tiles[key]
 		var bh := float(spec.get("height", HEIGHT_STEP)) if typeof(spec) == TYPE_DICTIONARY else HEIGHT_STEP
-		heights[cy * grid_width + cx] = bh
+		var bi := cy * grid_width + cx
+		heights[bi] = bh
 		rooms.append({"pos": Vector2(cx, cy), "h": bh})
+		# Open the seam tile's OUTWARD side toward the neighbouring chunk so the two
+		# chunks actually bridge. Without this the seam heights match but no walkable
+		# connection crosses the boundary — chunks look connectable but aren't. (The
+		# stream's hash makes this chunk's outward port and the neighbour's coincide.)
+		if cx == 0:
+			connections[bi][Direction.WEST] = true
+		elif cx == grid_width - 1:
+			connections[bi][Direction.EAST] = true
+		if cy == 0:
+			connections[bi][Direction.NORTH] = true
+		elif cy == grid_depth - 1:
+			connections[bi][Direction.SOUTH] = true
 
 	# 1. Room Placement
 	for i in range(room_count):
@@ -411,7 +424,11 @@ func _finalize_edges(heights, connections) -> void:
 				var nx := x + int(DIR_VEC[d].x)
 				var ny := y + int(DIR_VEC[d].y)
 				if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
-					connections[i][d] = false
+					# Keep an out-of-grid connection only if it's a pinned seam tile's outward
+					# port (the bridge to the neighbouring chunk). Otherwise it's a railing
+					# onto the void.
+					if not _pinned_indices.has(i):
+						connections[i][d] = false
 					continue
 				var ni := int(ny * grid_width + nx)
 				# Neighbour empty, or height gap too large to host a stair → close side.
