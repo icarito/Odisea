@@ -1,6 +1,20 @@
 name: Exportar APK (Android)
 
 on:
+  push:
+    branches: [ "main" ]
+    # Only rebuild the APK when game content/config changes — not on
+    # dashboard/docs/CI-only edits.
+    paths:
+      - 'core_v2/**'
+      - 'models/**'
+      - 'assets/**'
+      - 'scenes/**'
+      - 'shaders/**'
+      - 'textures/**'
+      - 'project.godot'
+      - 'export_presets.cfg'
+      - '.github/workflows/export_android.yml'
   workflow_dispatch:
     inputs:
       version:
@@ -28,17 +42,36 @@ jobs:
 
       - name: Setup Android Export Templates
         run: |
-          mkdir -p ~/.local/share/godot/templates
-          # Templates estan en export_templates/ (no en templates/) en esta version del container
-          if [ -d /root/.local/share/godot/export_templates ]; then
-            ln -sf /root/.local/share/godot/export_templates/* ~/.local/share/godot/templates/
+          set -e
+          # The container ships templates under export_templates/, but the
+          # editor (running as $HOME, which may not be /root under Actions)
+          # looks in $HOME/.local/share/godot/{export_,}templates. Copy them
+          # into the current HOME under both names so whichever one Godot uses
+          # is populated, then verify the Android templates are actually there.
+          DEST_NEW="$HOME/.local/share/godot/export_templates/3.6.2.stable"
+          DEST_OLD="$HOME/.local/share/godot/templates/3.6.2.stable"
+          mkdir -p "$DEST_NEW" "$DEST_OLD"
+
+          SRC=""
+          for c in /root/.local/share/godot/export_templates/3.6.2.stable \
+                   /root/.local/share/godot/templates/3.6.2.stable; do
+            [ -d "$c" ] && SRC="$c" && break
+          done
+          if [ -z "$SRC" ]; then
+            echo "::error::No export templates found in the container"; exit 1
           fi
-          ls -la ~/.local/share/godot/templates/3.6.2.stable/ 2>/dev/null || echo "WARNING: templates not found"
+          echo "Copying templates from $SRC"
+          cp -a "$SRC"/. "$DEST_NEW"/
+          cp -a "$SRC"/. "$DEST_OLD"/
+
+          echo "Android templates present:"
+          ls -la "$DEST_NEW" | grep -i android || { echo "::error::Android templates missing"; exit 1; }
 
       - name: Configure Godot Editor Settings
         run: |
-          mkdir -p ~/.config/godot
-          cat > ~/.config/godot/editor_settings-3.tres << 'EOF'
+          # Write editor settings into the HOME the export will actually use.
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-3.tres" << 'EOF'
           [android]
           adb = "/usr/lib/android-sdk/platform-tools/adb"
           javac = "/usr/bin/javac"
@@ -47,10 +80,23 @@ jobs:
 
       - name: Export to Android
         run: |
+          set -e
           mkdir -p ports
-          godot --no-window --editor --quit || true
-          godot --no-window --export-debug "Android" ports/Odisea.apk
-            
+          # Populate the .import/ cache first; an incomplete cache makes the
+          # export throw "Cannot open file res://.import/...".
+          godot --no-window --editor --quit --path . || true
+
+          # Debug export uses keystore/debug from export_presets.cfg
+          # (res://android/debug.keystore, generated above). The release
+          # keystore isn't configured, so a release export would fail signing.
+          godot --no-window --export-debug "Android" ports/Odisea.apk || true
+
+          if [ ! -s ports/Odisea.apk ]; then
+            echo "::error::Android export produced no APK"
+            exit 1
+          fi
+          echo "APK OK: $(du -h ports/Odisea.apk | cut -f1)"
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:

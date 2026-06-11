@@ -34,8 +34,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos temporarily disabled (export failing — to debug). Re-add 'macos' here to restore.
-        platform: [linux_x64, linux_arm64, windows, android, ios, html5, html5_threads]
+        # Web is handled by export_web.yml (gzip + Netlify + Pages) and Android
+        # by export_android.yml (godot-ci container) — don't duplicate them here.
+        # macos temporarily disabled (export failing — to debug); re-add it to restore.
+        platform: [linux_x64, linux_arm64, windows, ios]
         include:
           - platform: linux_x64
             os: ubuntu-latest
@@ -49,26 +51,15 @@ jobs:
             os: ubuntu-latest
             preset: "Windows Desktop"
             artifact_name: windows
-          - platform: macos
-            os: macos-latest
-            preset: "macOS Universal"
-            artifact_name: macos
-          - platform: android
-            os: ubuntu-latest
-            preset: "Android"
-            artifact_name: android
           - platform: ios
             os: macos-latest
             preset: "iOS"
             artifact_name: ios
-          - platform: html5
-            os: ubuntu-latest
-            preset: "HTML5"
-            artifact_name: html5
-          - platform: html5_threads
-            os: ubuntu-latest
-            preset: "HTML5 Threads"
-            artifact_name: html5-threads
+          # macos: re-add to the platform list above and uncomment to restore.
+          # - platform: macos
+          #   os: macos-latest
+          #   preset: "macOS Universal"
+          #   artifact_name: macos
 
     runs-on: ${{ matrix.os }}
 
@@ -155,17 +146,6 @@ jobs:
             fi
           fi
 
-      - name: Android Keystore Setup
-        if: matrix.platform == 'android'
-        run: |
-          mkdir -p android
-          if [ -n "${{ secrets.ANDROID_KEYSTORE_B64 }}" ]; then
-            echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 --decode > android/debug.keystore
-          else
-            # Fallback for debug builds if secret is missing
-            keytool -genkey -v -keystore android/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          fi
-
       - name: iOS Certificates Setup
         if: matrix.platform == 'ios' && steps.ios_gate.outputs.skip_ios != 'true'
         uses: apple-actions/import-codesign-certs@v1
@@ -187,41 +167,20 @@ jobs:
           # Import step
           $GODOT_BIN --editor --quit --headless || true
 
-          TPL_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
-          [ "$RUNNER_OS" == "macOS" ] && TPL_DIR="$HOME/Library/Application Support/Godot/templates/3.6.2.stable"
-
           case "${{ matrix.platform }}" in
             linux_x64) OUT="build/linux_x86_64/odisea.x86_64" ;;
             linux_arm64) OUT="build/linux_arm64/odisea.arm64" ;;
             windows) OUT="build/windows/odisea.exe" ;;
             macos) OUT="build/macos/odisea.zip" ;;
-            android) OUT="build/android/odisea.apk" ;;
             ios) OUT="build/ios/odisea.ipa" ;;
-            html5) OUT="build/web/index.html" ;;
-            html5_threads)
-              OUT="build/web_threads/index.html"
-              # Template swap for threads if needed
-              cp "$TPL_DIR/webassembly_release.zip" "$TPL_DIR/webassembly_release.standard.bak"
-              cp "$TPL_DIR/webassembly_threads_release.zip" "$TPL_DIR/webassembly_release.zip"
-              ;;
           esac
 
           mkdir -p $(dirname "$OUT")
 
-          # Android signs the APK. The release keystore isn't configured
-          # (keystore/release is empty in export_presets.cfg), so a release
-          # export fails at the signing step. In CI we produce a debug build,
-          # which uses keystore/debug (generated in the keystore step above).
-          # Other platforms don't sign, so they use a normal release export.
-          EXPORT_FLAG="--export"
-          [ "${{ matrix.platform }}" == "android" ] && EXPORT_FLAG="--export-debug"
-
-          $GODOT_BIN --no-window $EXPORT_FLAG "${{ matrix.preset }}" "$OUT" --headless || true
-
-          # Restore template swap
-          if [ "${{ matrix.platform }}" == "html5_threads" ]; then
-            cp "$TPL_DIR/webassembly_release.standard.bak" "$TPL_DIR/webassembly_release.zip"
-          fi
+          # Godot 3.6 headless --export returns a non-zero exit even on benign
+          # import warnings, so don't let it abort the step; verify success by
+          # checking the artifact was actually written instead.
+          $GODOT_BIN --no-window --export "${{ matrix.preset }}" "$OUT" --headless || true
 
           if [ ! -s "$OUT" ]; then
             echo "::error::Export failed — no artifact produced at $OUT"
