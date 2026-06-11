@@ -195,6 +195,12 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 	# instead of a floor. Insert a flat landing by levelling one cell of each such pair
 	# to its lower neighbour, so the climb becomes deck → ramp → deck → ramp → deck.
 	_break_stair_chains(heights, connections)
+	# A seam tile must be FLAT across the chunk boundary: the height change has to
+	# happen one cell inward, never on the border cell itself. Otherwise the border
+	# stair ramps toward the neighbouring chunk / the void and reads as a misplaced
+	# ramp. Pull the inner neighbour of each seam tile to the seam height so the ramp
+	# sits at least one cell in, then re-finalize.
+	_flatten_seam_tiles(heights, connections)
 	# Levelling may have reopened over-steep or void edges; re-finalize once.
 	_finalize_edges(heights, connections)
 
@@ -333,6 +339,41 @@ func _compute_reachable_set(connections, heights) -> Dictionary:
 				seen[ni] = true
 				q.append(ni)
 	return seen
+
+# Forces the inner neighbour of each pinned seam tile to the seam height, so the
+# border cell is flat across the boundary and any ramp sits at least one cell inward.
+func _flatten_seam_tiles(heights, connections) -> void:
+	for key in fixed_border_tiles.keys():
+		var parts: Array = String(key).split(",")
+		if parts.size() < 2:
+			continue
+		var bx := int(parts[0])
+		var by := int(parts[1])
+		if bx < 0 or bx >= grid_width or by < 0 or by >= grid_depth:
+			continue
+		var bi := by * grid_width + bx
+		if heights[bi] < 0:
+			continue
+		# The inward direction is opposite the chunk edge this tile sits on.
+		var ix := bx
+		var iy := by
+		if bx == 0:
+			ix = 1
+		elif bx == grid_width - 1:
+			ix = grid_width - 2
+		if by == 0:
+			iy = 1
+		elif by == grid_depth - 1:
+			iy = grid_depth - 2
+		if ix == bx and iy == by:
+			continue  # not actually on an edge
+		var ii := iy * grid_width + ix
+		if ii < 0 or ii >= heights.size() or heights[ii] < 0:
+			continue
+		# Only flatten if a small (one-step) seam-to-inner delta would otherwise put
+		# the ramp on the border cell; leave larger interior terrain alone.
+		if abs(heights[ii] - heights[bi]) <= HEIGHT_STEP + 0.001 and not _pinned_indices.has(ii):
+			heights[ii] = heights[bi]
 
 # A cell "is a stair" if any connected neighbour sits at a different height.
 func _cell_is_stair(heights, connections, i: int) -> bool:
@@ -568,8 +609,14 @@ func _select_variant(conn, idx, heights):
 	for d in range(4):
 		if not conn[d]: continue
 		var nv = DIR_VEC[d]
-		var ni = int((cy + nv.y) * grid_width + (cx + nv.x))
-		if ni >= 0 and ni < heights.size(): ph[d] = heights[ni] - h
+		var nx = cx + int(nv.x)
+		var ny = cy + int(nv.y)
+		# Bounds-check x AND y, not the linear index: a left/right port on a border
+		# cell wraps to a valid index on another row, which would read a wrong height
+		# and put a phantom ramp on the outward (seam) port. Out-of-grid ports stay 0.
+		if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+			continue
+		ph[d] = heights[ny * grid_width + nx] - h
 
 	var is_stair = false
 	for p in ph:

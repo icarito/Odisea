@@ -48,6 +48,9 @@ export(bool) var use_mst_generator := false
 # full MST range (5 steps = 10m) climbs higher than the level around it, especially
 # the home chunk. 3 steps (~6m) keeps MST platforms close to the WFC band.
 export(int, 1, 5) var mst_max_height_steps := 3
+# Global flat seam height for MST chunks (one HEIGHT_STEP = the base deck level). All
+# chunk perimeters sit at this height so every shared seam agrees and stays walkable.
+const MST_FLAT_SEAM_HEIGHT := 2.0
 export(int) var global_seed := 42
 export(int, 1, 64) var instances_per_frame := 8
 export(int, 1, 16) var rebuilds_per_frame := 1
@@ -95,12 +98,6 @@ export(float, 30.0, 180.0) var lod2_frustum_half_fov_deg := 100.0
 # Chunks behind the frustum get their distance score multiplied by this factor,
 # making them lower priority than same-distance in-frustum chunks.
 export(float, 1.0, 20.0) var lod2_backface_penalty := 4.0
-# Additive bias applied to a chunk's request score when it is OUTSIDE the camera
-# frustum. Far larger than any in-radius distance, so every in-view chunk is
-# requested before any out-of-view one (in-frustum-first ordering). Generation
-# budget is small (max_chunk_requests_per_frame), so spending it on what the player
-# is looking at is what makes new scaffold appear "in front of you" not behind.
-const FRUSTUM_OUT_OF_VIEW_BIAS := 100000.0
 
 var _active_chunks: Dictionary = {}
 var _pending_chunks: Dictionary = {}
@@ -399,15 +396,14 @@ func _request_needed_chunks(player_pos: Vector3, player_chunk: Vector2, scan_rad
 			var center_dist = player_pos.distance_to(world_center)
 			var footprint_dist = _distance_to_chunk_footprint_local(local_player_pos, key)
 			if (not respect_load_radius) or footprint_dist <= load_radius:
-				# Chunks inside the camera frustum are requested before any out-of-frustum
-				# chunk (so what you're looking at fills in first), nearest-first within each
-				# group. The large out-of-view bias makes the sort effectively lexicographic
-				# (in-frustum, then distance) instead of distance x penalty — the latter let a
-				# far in-front chunk lose to a near behind-you one.
-				var score = center_dist
+				# Prioritize by DISTANCE TO THE PLAYER, not the camera frustum: the player
+				# moves faster than chunks stream in, so the ring around the player (where
+				# they'll actually be) must fill first. Use the chunk's nearest-edge distance
+				# (footprint), not its center. The frustum is only a gentle tie-break (slight
+				# penalty for chunks behind you) — it must NOT override distance.
+				var score = footprint_dist
 				if cam_fwd.length_squared() > 0.01:
-					if _frustum_score(world_center, player_pos, cam_fwd, fov_cos) > 1.0:
-						score += FRUSTUM_OUT_OF_VIEW_BIAS
+					score *= _frustum_score(world_center, player_pos, cam_fwd, fov_cos)
 				candidates.append({"key": key, "dist": score})
 	candidates.sort_custom(self, "_sort_chunk_candidates")
 	var requested = 0
@@ -789,11 +785,21 @@ func _request_chunk(chunk_key: Vector2) -> void:
 		# share identical seam heights — without this the MST chunks don't align on the
 		# centrifugal axis and the scaffold clips through itself / the level.
 		var mst_border := _collect_border_data(chunk_key)
+		# MST keeps the WHOLE perimeter of EVERY chunk at one global flat seam height,
+		# so every seam — shared by two chunks — trivially agrees and the height change
+		# happens only in the interior. WFC can vary seam heights per side because it
+		# validates port alignment; the MST's heuristic passes can't keep varied seam
+		# heights walkable near the border, producing ramps that point at the seam.
+		var seam_h := MST_FLAT_SEAM_HEIGHT
+		var flat_border := {}
+		for bkey in mst_border.fixed_border_tiles.keys():
+			var bspec: Dictionary = mst_border.fixed_border_tiles[bkey]
+			flat_border[bkey] = {"id": bspec.get("id", "S"), "rotation": bspec.get("rotation", 0), "height": seam_h}
 		_generator_ref.apply_params({
 			"grid_width": chunk_height,
 			"grid_depth": chunk_length,
 			"cell_size": cell_size,
-			"fixed_border_tiles": mst_border.fixed_border_tiles,
+			"fixed_border_tiles": flat_border,
 			"constrain_border_heights": constrain_border_heights,
 			"mst_max_height_steps": mst_max_height_steps,
 		})
