@@ -133,14 +133,18 @@ var _debug_chunk_collision_material: SpatialMaterial = null
 
 func _ready() -> void:
 	_build_lod_resources()
-	# WFC is too expensive to run on the main thread: on builds exported without the
-	# "threads" feature (non-threads HTML5) the worker Thread can't run, so WFC would
-	# either never produce chunks or, solved inline, freeze the frame (observed ~390ms
-	# spikes, FPS to single digits). MST generation runs inline cheaply and needs no
-	# thread, so force it when threads are unavailable.
-	if not OS.has_feature("threads") and not use_mst_generator:
+
+	# Create the threaded worker first — it probes (actually spawns a thread, not just
+	# OS.has_feature) whether real threads work here. WFC is too expensive to solve on
+	# the main thread (observed ~390ms spikes, FPS to single digits) and its worker never
+	# runs on non-threads HTML5, so: try WFC when threads genuinely work; otherwise fall
+	# back to MST, which generates inline cheaply and needs no thread.
+	_threaded = ScaffoldWFCThreaded.new()
+	if not use_mst_generator and _threaded.has_method("has_working_threads") \
+			and not _threaded.has_working_threads():
 		use_mst_generator = true
-		print("[ScaffoldStream] No thread support — forcing MST generator (WFC needs threads).")
+		print("[ScaffoldStream] Worker threads unavailable — falling back to MST generator (WFC needs threads).")
+
 	if use_mst_generator:
 		_generator_ref = MST_GENERATOR_SCRIPT.new()
 		_generator_ref.grid_width = chunk_height
@@ -155,7 +159,6 @@ func _ready() -> void:
 		_apply_generator_tweaks(_generator_ref)
 		_generator_ref._setup_variants()
 
-	_threaded = ScaffoldWFCThreaded.new()
 	_threaded.instances_per_frame = instances_per_frame
 	_threaded.rebuilds_per_frame = rebuilds_per_frame
 	_threaded.max_pending_jobs = max_pending_generation_jobs

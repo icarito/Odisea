@@ -48,6 +48,7 @@ var min_height_steps := 1
 # heights and clip through each other / the level.
 var fixed_border_tiles := {}
 var _pinned_indices := {}  # cell index -> true, never moved by smoothing
+var _last_stair_base_shift := 0.0  # set by _select_variant; applied to base_height for stairs
 
 func apply_params(params: Dictionary):
 	grid_width = params.get("grid_width", 8)
@@ -175,6 +176,15 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 	#    railing there instead.
 	_finalize_edges(heights, connections)
 
+	# Break chained ramps: every stair must rise toward a FLAT deck, never toward
+	# another stair. Two adjacent cells that both change height along the same axis
+	# render as ramp-into-ramp where the upper ramp's foot meets the lower ramp's rail
+	# instead of a floor. Insert a flat landing by levelling one cell of each such pair
+	# to its lower neighbour, so the climb becomes deck → ramp → deck → ramp → deck.
+	_break_stair_chains(heights, connections)
+	# Levelling may have reopened over-steep or void edges; re-finalize once.
+	_finalize_edges(heights, connections)
+
 	var result = []
 	for i in range(grid_width * grid_depth):
 		var conn = connections[i]
@@ -183,13 +193,16 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 			result.append(null)
 			continue
 
+		_last_stair_base_shift = 0.0
 		var variant = _select_variant(conn, i, heights)
+		# For a stair whose ports were normalized to non-negative, lower base_height by
+		# the same amount so the ramp's low end stays on the lower deck's floor.
 		result.append({
 			"variant": {
 				"id": variant.id, "rotation": variant.rotation, "connections": variant.connections,
 				"port_heights": variant.port_heights, "weight": 1.0
 			},
-			"base_height": h
+			"base_height": h + _last_stair_base_shift
 		})
 	return result
 
@@ -307,6 +320,62 @@ func _compute_reachable_set(connections, heights) -> Dictionary:
 				seen[ni] = true
 				q.append(ni)
 	return seen
+
+# A cell "is a stair" if any connected neighbour sits at a different height.
+func _cell_is_stair(heights, connections, i: int) -> bool:
+	if heights[i] < 0:
+		return false
+	var cx := i % grid_width
+	var cy := i / grid_width
+	for d in range(4):
+		if not connections[i][d]:
+			continue
+		var nx := cx + int(DIR_VEC[d].x)
+		var ny := cy + int(DIR_VEC[d].y)
+		if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+			continue
+		var ni := ny * grid_width + nx
+		if heights[ni] >= 0 and abs(heights[i] - heights[ni]) > 0.001:
+			return true
+	return false
+
+# Levels cells so no two adjacent stairs sit in a row: when a stair connects to a
+# neighbour that is also a stair at a different height, drop the higher of the pair
+# to the lower's height (creating a flat landing). Pinned seam cells are never moved.
+# Iterates until stable.
+func _break_stair_chains(heights, connections) -> void:
+	var guard := 0
+	var changed := true
+	while changed and guard < 32:
+		changed = false
+		guard += 1
+		for y in range(grid_depth):
+			for x in range(grid_width):
+				var i := int(y * grid_width + x)
+				if heights[i] < 0 or not _cell_is_stair(heights, connections, i):
+					continue
+				for d in range(4):
+					if not connections[i][d]:
+						continue
+					var nx := x + int(DIR_VEC[d].x)
+					var ny := y + int(DIR_VEC[d].y)
+					if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+						continue
+					var ni := int(ny * grid_width + nx)
+					if heights[ni] < 0:
+						continue
+					if abs(heights[i] - heights[ni]) <= 0.001:
+						continue
+					if not _cell_is_stair(heights, connections, ni):
+						continue
+					# Both i and ni are stairs at different heights → level the higher
+					# to the lower to form a landing (never move a pinned seam).
+					if heights[i] > heights[ni] and not _pinned_indices.has(i):
+						heights[i] = heights[ni]
+						changed = true
+					elif heights[ni] > heights[i] and not _pinned_indices.has(ni):
+						heights[ni] = heights[i]
+						changed = true
 
 # Final edge cleanup so railings close on the void and adjacent platforms join.
 func _finalize_edges(heights, connections) -> void:
@@ -492,10 +561,30 @@ func _select_variant(conn, idx, heights):
 			break
 
 	if is_stair:
+		# Normalize stair ports to the WFC convention: NON-NEGATIVE deltas with the low
+		# side at 0. The ramp mesh is built from base_height + low_h .. base_height +
+		# high_h; if a port were negative (a neighbour lower than this cell) the ramp
+		# would start below this cell's floor and visually meet the railing height of
+		# the lower deck instead of its floor — the "stairs point at the railing, don't
+		# connect to the floor" bug. base_height is shifted down by the same min so the
+		# low end still sits on the lower deck's floor.
+		var min_delta := 0.0
+		for d in range(4):
+			if conn[d] and ph[d] < min_delta:
+				min_delta = ph[d]
+		if min_delta < 0.0:
+			for d in range(4):
+				if conn[d]:
+					ph[d] -= min_delta
+			# Record the base shift so the result loop can lower base_height to match.
+			_last_stair_base_shift = min_delta
+		else:
+			_last_stair_base_shift = 0.0
 		if conn[Direction.NORTH] and conn[Direction.SOUTH]:
-			return ModuleVariant.new("S", 0 if ph[Direction.SOUTH] > 0 else 180, [true, false, true, false], ph, 1)
+			return ModuleVariant.new("S", 0 if ph[Direction.SOUTH] > ph[Direction.NORTH] else 180, [true, false, true, false], ph, 1)
 		if conn[Direction.EAST] and conn[Direction.WEST]:
-			return ModuleVariant.new("S", 90 if ph[Direction.WEST] > 0 else 270, [false, true, false, true], ph, 1)
+			return ModuleVariant.new("S", 90 if ph[Direction.WEST] > ph[Direction.EAST] else 270, [false, true, false, true], ph, 1)
+	_last_stair_base_shift = 0.0
 
 	# Non-stair variants use flat port_heights — their height is encoded in base_height.
 	# Only stairs need the relative delta to drive the slope mesh.

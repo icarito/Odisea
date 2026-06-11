@@ -15,13 +15,16 @@ var _thread: Thread = null
 var _mutex: Mutex = null
 var _pending: Array = []
 var _should_exit: bool = false
-# HTML5 builds exported without the "threads" feature (the non-threads preset) cannot
-# run a real worker Thread — Thread.start() does nothing and the worker loop never
-# emits generation_done, so the scaffold never builds (the symptom: "rotator doesn't
-# work in the no-threads HTML5 version"). When threads are unavailable we fall back to
-# generating grids synchronously on the main thread, a few per frame in _process so the
-# frame doesn't stall. WFCSolverCore is a plain RefCounted, safe to run inline.
-var _threads_supported: bool = OS.has_feature("threads")
+# Whether a real worker Thread actually runs here. Some HTML5 builds (the non-threads
+# export) let Thread.start() return without ever running the worker — OS.has_feature
+# ("threads") doesn't always distinguish them reliably across engine/browser combos.
+# So instead of trusting the flag we PROBE: spin up a throwaway thread that sets a
+# value, join it with a short budget, and check the value landed. If it didn't, threads
+# are effectively unavailable and we fall back to solving grids synchronously on the
+# main thread (a few per frame in _process so the frame doesn't stall). WFCSolverCore is
+# a plain RefCounted, safe to run inline. Set by _probe_thread_support() in _init.
+var _threads_supported: bool = false
+var _probe_value: int = 0
 # Synchronous-mode budget: how many grids to solve per frame when no worker thread.
 const SYNC_GRIDS_PER_FRAME := 1
 
@@ -32,6 +35,29 @@ var _instance_pending_count: Dictionary = {}  # parent_node -> int, items still 
 func _init() -> void:
 	_mutex = Mutex.new()
 	set_process(false)
+	_threads_supported = _probe_thread_support()
+
+# Actually try to run a thread, rather than trusting OS.has_feature("threads").
+# Returns true only if a spawned thread executed and set the probe value.
+func _probe_thread_support() -> bool:
+	if not OS.has_feature("threads"):
+		return false  # fast path: engine reports none — believe the negative
+	_probe_value = 0
+	var probe := Thread.new()
+	var err = probe.start(self, "_thread_probe_body", null)
+	if err != OK:
+		return false
+	# Join (blocks until the thread returns). On a working build this is instant; on a
+	# broken no-threads build start() would have failed above or the body never ran.
+	probe.wait_to_finish()
+	return _probe_value == 1
+
+func _thread_probe_body(_userdata) -> void:
+	_probe_value = 1
+
+# True if a real worker thread runs here (probed, not just feature-flagged).
+func has_working_threads() -> bool:
+	return _threads_supported
 
 func _ready():
 	if _threads_supported:
