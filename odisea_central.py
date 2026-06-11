@@ -620,7 +620,10 @@ class OdiseaCentral:
                         # Alerts and Real-time Broadcast
                         p_data = data.get("player", {})
                         fps = p_data.get("fps", 60)
-                        if fps < 15:
+                        platform = (p_data.get("platform") or data.get("platform") or "").lower()
+                        if platform == "server":
+                            self.low_fps_timers.pop(player_id, None)
+                        elif fps < 15:
                             if player_id not in self.low_fps_timers:
                                 self.low_fps_timers[player_id] = now
                             elif now - self.low_fps_timers[player_id] > 5:
@@ -629,7 +632,10 @@ class OdiseaCentral:
                                     self.last_alert_time[player_id] = now
                                     alert = {
                                         "type": "alert",
+                                        "alertType": "low_fps",
+                                        "playerId": player_id,
                                         "player_id": player_id,
+                                        "platform": platform,
                                         "message": f"Low FPS detected: {fps} FPS",
                                         "fps": fps,
                                         "timestamp": now
@@ -672,15 +678,22 @@ class OdiseaCentral:
 
                         # Low FPS alerts (Prompt 9)
                         player_data_fps = data.get("player", {}).get("fps", 60)
-                        if player_data_fps < 15:
+                        player_data = data.get("player", {})
+                        platform = (player_data.get("platform") or data.get("platform") or "").lower()
+                        if platform == "server":
+                            self.low_fps_sessions.pop(session_id, None)
+                        elif player_data_fps < 15:
                             if session_id not in self.low_fps_sessions:
                                 self.low_fps_sessions[session_id] = now
                             elif now - self.low_fps_sessions[session_id] > 5:
                                 # Persistent low FPS alert
                                 alert = {
                                     "type": "alert",
+                                    "alertType": "low_fps",
+                                    "playerId": player_id,
                                     "player_id": player_id,
                                     "session_id": session_id,
+                                    "platform": platform,
                                     "message": "Low FPS detected (>5s)",
                                     "fps": player_data_fps,
                                     "timestamp": now

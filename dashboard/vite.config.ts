@@ -7,6 +7,10 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const apiTarget = env.VITE_API_TARGET || 'http://localhost:5003'
   const wsTarget = apiTarget.replace('http', 'ws')
+  const apiProxy = {
+    target: apiTarget,
+    changeOrigin: true,
+  }
 
   return {
     plugins: [
@@ -58,18 +62,20 @@ export default defineConfig(({ mode }) => {
     server: {
       allowedHosts: ['.ngrok-free.app', '.ngrok-free.app:5003'],
       proxy: {
-        '/status': apiTarget,
-        '/health': apiTarget,
-        '/sessions': apiTarget,
-        '/telemetry': apiTarget,
-        '/command': apiTarget,
-        '/api': apiTarget,
+        '/status': apiProxy,
+        '/health': apiProxy,
+        '/sessions': apiProxy,
+        '/telemetry': apiProxy,
+        '/command': apiProxy,
+        '/api': apiProxy,
         '/ws': {
           target: wsTarget,
+          changeOrigin: true,
           ws: true,
         },
         '/events': {
           target: wsTarget,
+          changeOrigin: true,
           ws: true,
         }
       }

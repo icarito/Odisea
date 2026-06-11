@@ -50,7 +50,18 @@ interface Viewport3DProps {
   liveGhosts?: any[];
   // Optional compact HUD overlaid in the corner (fps + position), used in the
   // full-space mobile/fullscreen view so the data doesn't steal canvas space.
-  hud?: { fps?: number; scene?: string } | null;
+  hud?: {
+    fps?: number;
+    scene?: string;
+    playerId?: string;
+    sessionId?: string;
+    platform?: string;
+    memoryMb?: number;
+    mode?: string;
+    tick?: number;
+    peers?: number;
+    staleAge?: number;
+  } | null;
 }
 
 const SceneModel: React.FC<{ sceneName: string; wireframe: boolean }> = ({ sceneName, wireframe }) => {
@@ -221,14 +232,33 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
 
       {/* Compact data HUD (doesn't steal canvas space). */}
       {hud && (
-        <div className="absolute bottom-3 right-3 pointer-events-none bg-black/55 px-2 py-1.5 rounded text-[10px] font-mono leading-tight text-white">
-          <div>
-            FPS <span className={(hud.fps ?? 0) < 30 ? 'text-danger' : (hud.fps ?? 0) < 45 ? 'text-warning' : 'text-success'}>
-              {Math.round(hud.fps ?? 0)}
+        <div className="absolute bottom-3 right-3 pointer-events-none w-56 bg-black/65 px-3 py-2 rounded text-[10px] font-mono leading-tight text-white">
+          <div className="mb-1 flex items-center justify-between gap-2 border-b border-white/15 pb-1">
+            <span className="truncate text-accent font-bold">{hud.playerId?.slice(0, 8) || 'PLAYER'}</span>
+            <span className={(hud.fps ?? 0) < 30 ? 'text-danger' : (hud.fps ?? 0) < 45 ? 'text-warning' : 'text-success'}>
+              {Math.round(hud.fps ?? 0)} FPS
             </span>
           </div>
-          <div className="text-accent truncate max-w-[120px]">{hud.scene || sceneName || '—'}</div>
-          <div className="text-text-muted">{position.map(n => n.toFixed(1)).join(', ')}</div>
+          <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-2 gap-y-0.5">
+            <span className="text-text-muted">Scene</span>
+            <span className="truncate text-accent">{hud.scene || sceneName || '-'}</span>
+            <span className="text-text-muted">Session</span>
+            <span className="truncate">{hud.sessionId?.slice(0, 10) || '-'}</span>
+            <span className="text-text-muted">Platform</span>
+            <span className="uppercase">{hud.platform || '-'}</span>
+            <span className="text-text-muted">Mode</span>
+            <span className="truncate">{hud.mode || '-'}</span>
+            <span className="text-text-muted">Memory</span>
+            <span>{hud.memoryMb != null ? `${hud.memoryMb.toFixed(0)} MB` : '-'}</span>
+            <span className="text-text-muted">Peers</span>
+            <span>{hud.peers ?? 0}</span>
+            <span className="text-text-muted">Tick</span>
+            <span>{hud.tick ?? '-'}</span>
+            <span className="text-text-muted">Stale</span>
+            <span>{hud.staleAge != null ? `${hud.staleAge.toFixed(1)}s` : '-'}</span>
+            <span className="text-text-muted">Position</span>
+            <span className="truncate">{position.map(n => n.toFixed(1)).join(', ')}</span>
+          </div>
         </div>
       )}
     </div>

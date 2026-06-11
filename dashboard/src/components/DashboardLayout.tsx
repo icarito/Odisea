@@ -9,6 +9,7 @@ interface DashboardLayoutProps {
   activeTab: string;
   setActiveTab: (tab: any) => void;
   playerCount: number;
+  playerCountLabel?: string;
   onPlayersClick: () => void;
   isSessionSelected: boolean;
   headerControls?: React.ReactNode;
@@ -23,6 +24,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   activeTab,
   setActiveTab,
   playerCount,
+  playerCountLabel,
   onPlayersClick,
   isSessionSelected,
   headerControls,
@@ -37,14 +39,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   return (
     <div className="flex flex-col h-screen bg-bg-primary overflow-hidden font-mono crt-effect">
       {/* Fixed header */}
-      <header className="shrink-0 flex items-center justify-between px-3 sm:px-4 py-2 border-b-4 border-black bg-bg-card z-30">
-        <h1 className="text-accent font-black text-xs sm:text-base italic tracking-tighter">
+      <header className="shrink-0 flex flex-col gap-2 px-3 py-2 border-b-4 border-black bg-bg-card z-30 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <h1 className="text-accent font-black text-sm italic leading-none tracking-tighter sm:text-base">
           <button type="button" onClick={() => setActiveTab('live')} className="hover:text-text-primary">
-            ODISEA<span className="hidden sm:inline"> CENTRAL</span><span className="sm:hidden">·V2</span>
+            <span className="block sm:inline">ODISEA</span>
+            <span className="block sm:inline"> CENTRAL</span>
+            <span className="hidden sm:inline"> · V2</span>
           </button>
         </h1>
 
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-end sm:gap-4">
           {headerControls}
 
           <span className="flex items-center gap-1.5 text-[0.625rem] uppercase font-bold">
@@ -58,7 +62,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             className="flex items-center gap-1.5 px-2 py-1 border-2 border-black bg-bg-primary text-[0.625rem] font-bold uppercase hover:bg-accent hover:text-black transition-colors"
           >
             <Users size={14} />
-            {playerCount} {playerCount === 1 ? 'player' : 'players'}
+            {playerCountLabel || `${playerCount} ${playerCount === 1 ? 'player' : 'players'}`}
           </button>
 
           <button

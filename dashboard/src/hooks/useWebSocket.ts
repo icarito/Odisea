@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 
-const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/events`;
+const wsBaseFromApiTarget = () => {
+  const apiTarget = import.meta.env.VITE_API_TARGET;
+  if (apiTarget) return apiTarget.replace(/^http/, 'ws').replace(/\/$/, '');
+  return `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+};
+
+const WS_URL = `${wsBaseFromApiTarget()}/events`;
 
 export function useWebSocket() {
   const [lastMessage, setLastMessage] = useState<any>(null);
@@ -20,9 +26,10 @@ export function useWebSocket() {
       const token = sessionStorage.getItem("odisea_token");
       if (!token) return;
 
-      // In dev, vite proxies /events to the central server (ws:true), so use a
-      // same-origin URL in both dev and prod. The token goes in the query param
-      // because the browser WebSocket API can't send Authorization headers.
+      // In central-dev mode, connect directly to the remote WSS endpoint instead
+      // of tunneling through Vite's WS proxy, which is prone to EPIPE when the
+      // upstream closes/reconnects. The token goes in the query param because
+      // the browser WebSocket API can't send Authorization headers.
       const socket = new WebSocket(`${WS_URL}?token=${token}`);
       ws.current = socket;
 

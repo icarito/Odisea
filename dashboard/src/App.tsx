@@ -40,7 +40,12 @@ type GitCommit = {
 
 const normalizePlatform = (value: any): string | null => {
   if (typeof value !== 'string' || value.trim() === '') return null;
-  return value.trim().toLowerCase();
+  const normalized = value.trim().toLowerCase();
+  if (['html5', 'webgl', 'browser'].includes(normalized)) return 'web';
+  if (['darwin', 'osx', 'mac'].includes(normalized)) return 'macos';
+  if (['win', 'win32', 'win64'].includes(normalized)) return 'windows';
+  if (['x11', 'linuxbsd', 'linux_x11'].includes(normalized)) return 'linux';
+  return normalized;
 };
 
 const getPlatform = (item: any): string | null => (
@@ -74,6 +79,12 @@ const fpsColor = (fps: number) => {
   return '#f85149';
 };
 
+const isDashboardSession = (session: any) => {
+  const platform = getPlatform(session);
+  const avgFps = Number(session?.avg_fps) || 0;
+  return platform !== 'server' && avgFps <= 65;
+};
+
 const sessionScenes = (session: any): string[] => {
   if (Array.isArray(session?.scenes_visited)) return session.scenes_visited.filter(Boolean);
   if (typeof session?.scenes_visited === 'string') {
@@ -90,7 +101,7 @@ const isUsefulSceneName = (scene: any): scene is string => {
 
 const HomeStats = ({ sessions, commits }: { sessions: any[]; commits: GitCommit[] }) => {
   const cleanSessions = useMemo(() => (
-    sessions.filter((session) => getPlatform(session) !== 'server')
+    sessions.filter(isDashboardSession)
   ), [sessions]);
 
   const stats = useMemo(() => {
@@ -159,13 +170,26 @@ const HomeStats = ({ sessions, commits }: { sessions: any[]; commits: GitCommit[
     ],
   ];
 
-  const commitTooltip = ({ active, payload }: any) => {
+  const fpsTimelineTooltip = ({ active, payload }: any) => {
     if (!active || !payload?.length) return null;
     const d = payload[0].payload;
     return (
       <div className="border-2 border-black bg-bg-primary px-3 py-2 text-[0.625rem] font-mono shadow-[2px_2px_0px_0px_black]">
         <div className="font-black text-accent">{d.label}</div>
+        <div className="text-text-muted">Range: session start time</div>
         <div>Avg FPS: {d.avg_fps.toFixed(1)}</div>
+      </div>
+    );
+  };
+
+  const sessionsPerDayTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    return (
+      <div className="border-2 border-black bg-bg-primary px-3 py-2 text-[0.625rem] font-mono shadow-[2px_2px_0px_0px_black]">
+        <div className="font-black text-accent">{d.date}</div>
+        <div className="text-text-muted">Range: calendar day</div>
+        <div>Sessions: {d.count}</div>
       </div>
     );
   };
@@ -218,7 +242,7 @@ const HomeStats = ({ sessions, commits }: { sessions: any[]; commits: GitCommit[
                 <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
                 <XAxis dataKey="timestamp" stroke="#666" fontSize={10} type="number" domain={['dataMin', 'dataMax']} tickFormatter={(v) => new Date(Number(v) * 1000).toISOString().slice(5, 10)} />
                 <YAxis stroke="#666" fontSize={10} domain={[0, 'auto']} />
-                <Tooltip content={commitTooltip} />
+                <Tooltip content={fpsTimelineTooltip} />
                 {commitLines.map((commit) => (
                   <ReferenceLine
                     key={commit.sha}
@@ -241,7 +265,7 @@ const HomeStats = ({ sessions, commits }: { sessions: any[]; commits: GitCommit[
                 <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
                 <XAxis dataKey="date" stroke="#666" fontSize={10} tickFormatter={(v) => String(v).slice(5)} />
                 <YAxis stroke="#666" fontSize={10} allowDecimals={false} />
-                <Tooltip />
+                <Tooltip content={sessionsPerDayTooltip} />
                 <Bar dataKey="count" fill="#7fd1ff" isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
@@ -264,8 +288,9 @@ const SceneIndex = ({
   onSelectScene: (scene: string) => void;
 }) => {
   const sceneStats = useMemo(() => {
+    const cleanSessions = sessions.filter(isDashboardSession);
     return scenes.map((scene) => {
-      const sceneSessions = sessions
+      const sceneSessions = cleanSessions
         .filter((session) => sessionScenes(session).length === 0 || sessionScenes(session).includes(scene))
         .sort((a, b) => (Number(a.start_time) || 0) - (Number(b.start_time) || 0));
       const fpsValues = sceneSessions.map((session) => Number(session.avg_fps)).filter(Number.isFinite);
@@ -280,11 +305,24 @@ const SceneIndex = ({
         lowPct,
         trend: sceneSessions.map((session) => ({
           timestamp: Number(session.start_time) || 0,
+          label: formatDateTime(Number(session.start_time) || 0),
           avg_fps: Number(session.avg_fps) || 0,
         })),
       };
-    }).filter((stat) => stat.sessions > 0 || scenes.includes(stat.scene));
+    }).filter((stat) => stat.sessions > 0);
   }, [sessions, scenes]);
+
+  const sceneTrendTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    return (
+      <div className="border-2 border-black bg-bg-primary px-2 py-1 text-[0.5625rem] font-mono shadow-[2px_2px_0px_0px_black]">
+        <div className="font-black text-accent">{d.label}</div>
+        <div className="text-text-muted">Range: sessions over time</div>
+        <div>Avg FPS: {d.avg_fps.toFixed(1)}</div>
+      </div>
+    );
+  };
 
   return (
     <div className="grid max-h-full grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-1">
@@ -314,6 +352,7 @@ const SceneIndex = ({
             <div className="mt-3 h-12">
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <LineChart data={stat.trend}>
+                  <Tooltip content={sceneTrendTooltip} />
                   <Line type="monotone" dataKey="avg_fps" stroke="#7fd1ff" dot={false} strokeWidth={2} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
@@ -338,8 +377,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [showLiveGhosts, setShowLiveGhosts] = useState(true);
 
-  // Live tab view toggle: 2D birdseye map vs 3D perspective.
-  const [liveView, setLiveView] = useState<'birdseye' | '3d'>('3d');
+  // Live tab view toggle: dashboard, 2D birdseye map, or 3D perspective.
+  const [liveView, setLiveView] = useState<'dashboard' | 'birdseye' | '3d'>('birdseye');
   // CSS overlay fullscreen for the 3D canvas (NOT the browser Fullscreen API,
   // which is unreliable on mobile).
   const [fs3d, setFs3d] = useState(false);
@@ -362,6 +401,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     () => new Set(KNOWN_PLATFORMS.filter((platform) => platform !== 'server'))
   );
   const [selectedSceneFilter, setSelectedSceneFilter] = useState('all');
+  const [lastLivePlayerCount, setLastLivePlayerCount] = useState(0);
   const alertToastTimes = useRef<Map<string, number>>(new Map());
 
   // Live State
@@ -390,14 +430,50 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     if (lastMessage?.type === 'alert') {
       const playerId = lastMessage.playerId || lastMessage.player_id || 'unknown';
       const alertType = lastMessage.alertType || lastMessage.alert_type || 'alert';
+      const alertPlatform = getPlatform(lastMessage);
+      if (alertPlatform === 'server') return;
       const key = `${playerId}|${alertType}`;
       const now = Date.now();
       const lastToast = alertToastTimes.current.get(key) || 0;
       if (now - lastToast < 60000) return;
       alertToastTimes.current.set(key, now);
-      toast(lastMessage.message, { icon: '🔥', duration: 4000 });
+      toast.custom((t) => (
+        <div className={`${t.visible ? 'opacity-100' : 'opacity-0'} border-4 border-black bg-bg-card p-3 font-mono text-xs text-text-primary shadow-[4px_4px_0px_0px_black] transition-opacity`}>
+          <div className="flex items-start gap-3">
+            <span className="text-base">🔥</span>
+            <div className="min-w-0 flex-1">
+              <div className="font-black uppercase text-accent">Performance alert</div>
+              <div className="mt-1 text-text-muted">{lastMessage.message}</div>
+              <div className="mt-3 flex gap-2">
+                {playerId !== 'unknown' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPlayerId(playerId);
+                      setActiveTab('live');
+                      setLiveView('3d');
+                      setFollowPlayer(true);
+                      toast.dismiss(t.id);
+                    }}
+                    className="border-2 border-black bg-accent px-2 py-1 text-[0.625rem] font-black uppercase text-black"
+                  >
+                    View live
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => toast.dismiss(t.id)}
+                  className="border-2 border-black bg-bg-primary px-2 py-1 text-[0.625rem] font-black uppercase"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ), { duration: 8000 });
     }
-  }, [lastMessage]);
+  }, [lastMessage, setActiveTab]);
 
   useEffect(() => {
     const active = Object.entries(heartbeats).filter(([, hb]: [string, any]) => {
@@ -418,6 +494,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         pos_y: pos[1],
         pos_z: pos[2],
         fps: p.fps,
+        memory_mb: p.memory_mb,
+        mode: p.mode,
         last_seen: hb.timestamp
       };
     });
@@ -500,7 +578,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const [followPlayer, setFollowPlayer] = useState(true);
   const [wireframe, setWireframe] = useState(false);
-  const [manualScene, setManualScene] = useState<string | null>(null);
 
   const availablePlatforms = useMemo(() => {
     return KNOWN_PLATFORMS;
@@ -524,7 +601,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   }, [scenes, heartbeats, historicalSessions]);
 
   const heatmapTargetScene = selectedSceneFilter === 'all'
-    ? (availableSceneFilters[0] || 'Dome_Crio')
+    ? ''
     : selectedSceneFilter;
 
   const platformAllowed = (item: any) => {
@@ -548,15 +625,21 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     historicalSessions.filter((session) => platformAllowed(session) && sceneAllowed(session))
   ), [historicalSessions, selectedPlatforms, selectedSceneFilter]);
 
+  const filteredDashboardSessions = useMemo(() => (
+    filteredHistoricalSessions.filter(isDashboardSession)
+  ), [filteredHistoricalSessions]);
+
   const filteredHeatmapData = useMemo(() => (
     (heatmapData ?? []).filter((item) => platformAllowed(item) && sceneAllowed(item))
   ), [heatmapData, selectedPlatforms, selectedSceneFilter]);
 
   useEffect(() => {
-    if (activeTab === 'heatmap') {
+    if (activeTab === 'heatmap' && heatmapTargetScene) {
       getHeatmap(heatmapTargetScene, heatmapRes)
         .then((d) => setHeatmapData(Array.isArray(d) ? d : []))
         .catch(() => setHeatmapData([]));
+    } else if (activeTab === 'heatmap') {
+      setHeatmapData([]);
     }
   }, [activeTab, heatmapTargetScene, heatmapRes]);
 
@@ -570,21 +653,34 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   };
 
   const pids = Object.keys(filteredHeartbeats);
+  const unfilteredLiveCount = Object.keys(heartbeats).length;
 
   useEffect(() => {
-    if (showHeatmap && manualScene) {
-      getHeatmap(manualScene).then(setHeatmapData).catch(console.error);
-    } else if (showHeatmap && selectedSceneFilter !== 'all') {
-      getHeatmap(selectedSceneFilter).then(setHeatmapData).catch(console.error);
-    } else {
-      setHeatmapData(undefined);
-    }
-  }, [showHeatmap, manualScene, selectedSceneFilter]);
+    if (pids.length > 0) setLastLivePlayerCount(pids.length);
+  }, [pids.length]);
+
+  const playerCountLabel = pids.length > 0
+    ? `${pids.length} ${pids.length === 1 ? 'player' : 'players'}`
+    : lastLivePlayerCount > 0
+      ? `${lastLivePlayerCount} last live`
+      : `${filteredDashboardSessions.length} sessions`;
 
   const activeId = selectedPlayerId && filteredHeartbeats[selectedPlayerId] ? selectedPlayerId : pids[0];
   const activeHb = filteredHeartbeats[activeId];
   const activeHistory = history[activeId];
   const staleAge = activeHb ? (activeHb.timestamp ? (Date.now() - activeHb.timestamp * 1000) / 1000 : 0) : 0;
+  const liveSceneName = selectedSceneFilter === 'all'
+    ? (activeHb?.player?.scene || '')
+    : selectedSceneFilter;
+  const birdseyeSceneName = selectedSceneFilter === 'all' ? '' : selectedSceneFilter;
+
+  useEffect(() => {
+    if (showHeatmap && liveSceneName) {
+      getHeatmap(liveSceneName).then(setHeatmapData).catch(console.error);
+    } else {
+      setHeatmapData(undefined);
+    }
+  }, [showHeatmap, liveSceneName]);
 
   const safePos = (p: any): [number, number, number] => {
     if (Array.isArray(p) && p.length >= 3) {
@@ -607,11 +703,22 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       trail={activeHistory?.trail || []}
       follow={followPlayer}
       wireframe={wireframe}
-      sceneName={manualScene || activeHb?.player.scene || ""}
+      sceneName={liveSceneName}
       staleAge={staleAge}
       heatmapData={showHeatmap ? heatmapData : undefined}
       liveGhosts={liveGhostMarkers}
-      hud={activeHb ? { fps: activeHb.player?.fps, scene: activeHb.player?.scene } : null}
+      hud={activeHb ? {
+        fps: activeHb.player?.fps,
+        scene: activeHb.player?.scene,
+        playerId: activeId,
+        sessionId: activeHb.session_id,
+        platform: getPlatform(activeHb) || undefined,
+        memoryMb: activeHb.player?.memory_mb,
+        mode: activeHb.player?.mode,
+        tick: activeHb.player?.tick,
+        peers: pids.length,
+        staleAge,
+      } : null}
     />
   );
 
@@ -622,6 +729,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       activeTab={activeTab}
       setActiveTab={setActiveTab}
       playerCount={pids.length}
+      playerCountLabel={playerCountLabel}
       onPlayersClick={() => setShowPlayerSheet(true)}
       isSessionSelected={!!selectedSession}
       headerControls={
@@ -652,7 +760,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         onClose={() => setShowPlayerSheet(false)}
         players={Object.values(filteredHeartbeats)}
         activeId={activeId}
-        onSelect={(pid) => setSelectedPlayerId(pid)}
+        onSelect={(pid) => {
+          setSelectedPlayerId(pid);
+          setActiveTab('live');
+          setLiveView('3d');
+          setFollowPlayer(true);
+          setShowPlayerSheet(false);
+        }}
       />
 
       {/* CSS fullscreen overlay for the 3D canvas (works on mobile). */}
@@ -670,16 +784,19 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       )}
       
       {activeTab === 'live' && (
-        pids.length === 0 ? (
-          <HomeStats sessions={filteredHistoricalSessions} commits={commits} />
-        ) : (
         <div className="flex flex-col h-full min-h-0">
-          {/* Toolbar: view toggle (Birdseye / 3D) + view-specific controls */}
+          {/* Toolbar: dashboard / Birdseye / 3D + view-specific controls */}
           <div className="shrink-0 flex flex-wrap items-center gap-2 p-2 border-b-2 border-black bg-bg-card/60">
             <div className="flex border-2 border-black">
               <button
+                onClick={() => setLiveView('dashboard')}
+                className={`px-3 py-1 text-[0.625rem] font-black uppercase ${liveView === 'dashboard' ? 'bg-accent text-black' : 'bg-bg-primary text-text-muted'}`}
+              >
+                Dashboard
+              </button>
+              <button
                 onClick={() => setLiveView('birdseye')}
-                className={`px-3 py-1 text-[0.625rem] font-black uppercase ${liveView === 'birdseye' ? 'bg-accent text-black' : 'bg-bg-primary text-text-muted'}`}
+                className={`border-l-2 border-black px-3 py-1 text-[0.625rem] font-black uppercase ${liveView === 'birdseye' ? 'bg-accent text-black' : 'bg-bg-primary text-text-muted'}`}
               >
                 Birdseye
               </button>
@@ -690,15 +807,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 3D
               </button>
             </div>
-
-            <RetroSelect
-              value={manualScene || (selectedSceneFilter === 'all' ? activeHb?.player.scene : selectedSceneFilter) || ""}
-              onChange={(e) => setManualScene(e.target.value)}
-              className="py-1 px-2 text-[0.625rem] w-32"
-            >
-              <option value="">AUTO SCENE</option>
-              {scenes.map(s => <option key={s} value={s}>{s}</option>)}
-            </RetroSelect>
 
             {liveView === '3d' && (
               <div className="flex gap-1 flex-wrap">
@@ -713,18 +821,48 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
           {/* View area fills all remaining space (no fixed heights). */}
           <div className="flex-1 min-h-0 relative">
-            {!activeHb ? (
-              <div className="h-full flex items-center justify-center p-6 text-center text-text-muted italic text-sm">
-                No active player. Tap the player counter above to pick one.
+            {liveView === 'dashboard' || pids.length === 0 && unfilteredLiveCount === 0 ? (
+              <HomeStats sessions={filteredDashboardSessions} commits={commits} />
+            ) : pids.length === 0 && unfilteredLiveCount > 0 ? (
+              <div className="flex h-full items-center justify-center p-6">
+                <RetroCard>
+                  <div className="max-w-sm text-center">
+                    <div className="text-sm font-black uppercase text-accent">Live session hidden by filters</div>
+                    <div className="mt-2 text-xs text-text-muted">
+                      {unfilteredLiveCount} active heartbeat{unfilteredLiveCount === 1 ? '' : 's'} detected, but none match the current scene/platform filters.
+                    </div>
+                    <RetroButton
+                      variant="primary"
+                      onClick={() => {
+                        setSelectedSceneFilter('all');
+                        setSelectedPlatforms(new Set(KNOWN_PLATFORMS));
+                      }}
+                      className="mt-4 px-3 py-2 text-xs"
+                    >
+                      SHOW ALL LIVE
+                    </RetroButton>
+                  </div>
+                </RetroCard>
+              </div>
+            ) : !activeHb ? (
+              <div className="flex h-full items-center justify-center p-6 text-center text-sm italic text-text-muted">
+                No active player. Open Dashboard or adjust filters.
               </div>
             ) : liveView === '3d' ? (
               <div className="absolute inset-0">{viewport3D}</div>
             ) : (
-              <LiveMap ghosts={liveGhosts} sceneName={manualScene || activeHb?.player.scene || ""} />
+              <LiveMap
+                ghosts={liveGhosts}
+                sceneName={birdseyeSceneName}
+                onSelectGhost={(pid) => {
+                  setSelectedPlayerId(pid);
+                  setLiveView('3d');
+                  setFollowPlayer(true);
+                }}
+              />
             )}
           </div>
         </div>
-        )
       )}
 
       {activeTab === 'heatmap' && (
@@ -740,7 +878,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <button
               type="button"
               onClick={() => setHeatmapMobileView('map')}
-              className={`flex-1 border-l-2 border-black px-3 py-2 text-[0.625rem] font-black uppercase ${heatmapMobileView === 'map' ? 'bg-accent text-black' : 'bg-bg-card text-text-muted'}`}
+              disabled={!heatmapTargetScene}
+              className={`flex-1 border-l-2 border-black px-3 py-2 text-[0.625rem] font-black uppercase disabled:cursor-not-allowed disabled:opacity-40 ${heatmapMobileView === 'map' ? 'bg-accent text-black' : 'bg-bg-card text-text-muted'}`}
             >
               Mapa
             </button>
@@ -749,9 +888,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[360px_minmax(0,1fr)]">
           <RetroCard title="Scenes" className={`min-h-0 overflow-hidden ${heatmapMobileView === 'map' ? 'hidden xl:block' : ''}`}>
             <SceneIndex
-              sessions={filteredHistoricalSessions}
+              sessions={filteredDashboardSessions}
               scenes={availableSceneFilters}
-              selectedScene={heatmapTargetScene}
+              selectedScene={selectedSceneFilter}
               onSelectScene={(scene) => {
                 setSelectedSceneFilter(scene);
                 setHeatmapMobileView('map');
@@ -760,6 +899,19 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           </RetroCard>
 
           <div className={`min-h-0 relative border-4 border-black shadow-retro overflow-hidden ${heatmapMobileView === 'scenes' ? 'hidden xl:block' : ''}`}>
+            {!heatmapTargetScene ? (
+              <div className="flex h-full items-center justify-center bg-bg-primary p-6 text-center">
+                <RetroCard>
+                  <div className="max-w-sm">
+                    <div className="text-sm font-black uppercase text-accent">Select a scene</div>
+                    <div className="mt-2 text-xs text-text-muted">
+                      Heatmap needs one concrete scene. Pick a SceneCard or use the global scene filter.
+                    </div>
+                  </div>
+                </RetroCard>
+              </div>
+            ) : (
+            <>
             <div className="absolute left-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-end gap-3 border-2 border-black bg-bg-card/95 p-3 shadow-[2px_2px_0px_0px_black]">
               <div className="min-w-0">
                 <div className="text-[0.625rem] font-black uppercase text-text-muted">Scene</div>
@@ -788,7 +940,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               <div className="flex gap-2">
                 <RetroButton
                   variant="secondary"
-                  onClick={() => setSelectedSceneFilter('all')}
+                  onClick={() => {
+                    setSelectedSceneFilter('all');
+                    setHeatmapMobileView('scenes');
+                  }}
                   className="px-2 py-1 text-[0.625rem]"
                 >
                   Todas las escenas
@@ -809,6 +964,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               </div>
             </div>
             <Heatmap3D data={filteredHeatmapData} resolution={heatmapRes} />
+            </>
+            )}
           </div>
           </div>
         </div>
