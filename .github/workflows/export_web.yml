@@ -35,13 +35,7 @@ jobs:
 
       - name: Disable editor plugins
         run: |
-          python3 -c "
-import re
-with open('project.godot') as f: text = f.read()
-text = re.sub(r'enabled=PoolStringArray\([^)]+\)', 'enabled=PoolStringArray()', text)
-with open('project.godot', 'w') as f: f.write(text)
-"
-          echo "Editor plugins disabled."
+          python3 scripts/disable_plugins.py
 
       - name: Cache Godot
         uses: actions/cache@v3
@@ -171,13 +165,7 @@ with open('project.godot', 'w') as f: f.write(text)
       - uses: actions/checkout@v4
 
       - name: Disable editor plugins
-        run: |
-          python3 -c "
-import re
-with open('project.godot') as f: text = f.read()
-text = re.sub(r'enabled=PoolStringArray\([^)]+\)', 'enabled=PoolStringArray()', text)
-with open('project.godot', 'w') as f: f.write(text)
-"
+        run: python3 scripts/disable_plugins.py
 
       - name: Cache Godot
         uses: actions/cache@v3
@@ -193,7 +181,7 @@ with open('project.godot', 'w') as f: f.write(text)
             ${{ runner.os }}-godot-web-${{ hashFiles('**/project.godot') }}-
             ${{ runner.os }}-godot-web-
 
-      - name: Export HTML5 Threads
+      - name: Install Godot binary + templates
         run: |
           TPL_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
           echo "Templates dir: $TPL_DIR"
