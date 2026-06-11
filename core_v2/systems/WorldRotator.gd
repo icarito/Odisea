@@ -143,6 +143,11 @@ const RESUME_TRACKING_DURATION := 0.3
 const INTERLOCK_OFFSETS := [0, 9, 4, 13]
 var _tracking_paused := false
 var _resume_ramp_left := 0.0  # >0 while easing back into tracking after a resume
+# Mirrors the player's airlock suspension meta, reconciled each physics tick by
+# _sync_tracking_pause_from_suspension(). Separate from _tracking_paused so an
+# explicit pause_tracking() (source-scene freeze) and the meta-driven pause don't
+# stomp each other's edge detection.
+var _suspension_pause_active := false
 var _terrace_culling_counter: int = 0
 # Retrocompatibilidad: alias del pool para tests que lean _generated_collision_bodies
 var _generated_collision_bodies: Array setget ,_get_generated_collision_bodies
@@ -186,6 +191,15 @@ func _ready() -> void:
 	call_deferred("_apply_scene_anchor_after_ready")
 	if has_node("/root/GravityWorld"):
 		get_node("/root/GravityWorld").register_rotator(self)
+	# Start frozen when this scene was entered through an airlock. The rotator must
+	# not chase the player (still being placed inside the destination chamber) until
+	# the player physically walks out — _sync_tracking_pause_from_suspension() lifts
+	# the pause once the "airlock_tracking_suspended" meta clears on chamber exit.
+	# This is the authoritative fix for the arrival yank: there is no first-frame
+	# snap against the airlock position because tracking never runs until exit.
+	if _scene_entered_via_airlock():
+		_suspension_pause_active = true
+		pause_tracking()
 
 func _exit_tree() -> void:
 	if has_node("/root/GravityWorld"):
@@ -207,6 +221,15 @@ func _sync_faux_skydome_visibility() -> void:
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
+	# Self-pause on the physics tick itself. The external gate that calls
+	# pause_tracking() lives in OdiseaExterior._process, which runs once per
+	# rendered frame — on a scene-load hitch several physics ticks can fire before
+	# the first _process, and during those ticks the continuous tracking below
+	# would snap global_transform to a target computed from the just-placed
+	# (airlock) player position: the [YANK] on arrival into the exterior. Reading
+	# the suspension meta here, before any snap, closes that race regardless of
+	# _process ordering.
+	_sync_tracking_pause_from_suspension()
 	# While the player is inside the airlock chamber, stop following the player and
 	# lock the world flat relative to the active terrace (the selected plate's up
 	# aligned with +Y) over RESUME_TRACKING_DURATION. This keeps the centrifugal
@@ -237,6 +260,11 @@ func _physics_process(delta: float) -> void:
 			and _selected_spiral_index >= 0 and _selected_plate_index >= 0:
 		_active_collision_body.global_transform = global_transform * _selected_plate_canonical
 
+	# In continuous_tracking mode, the WorldRotator rotates every frame but pool
+	# bodies are parented outside it. We must re-sync their global transforms each
+	# physics tick so they stay aligned with the visual terrazas.
+	if continuous_tracking_applied:
+		_sync_pool_transforms_to_world()
 	var pool_update_due: bool = false if continuous_tracking_applied else _is_pool_update_due()
 	if not pool_update_due:
 		_pool_update_counter += 1
@@ -440,6 +468,46 @@ func resume_tracking() -> void:
 
 func is_tracking_paused() -> bool:
 	return _tracking_paused
+
+# Mirror the player's "airlock_tracking_suspended" meta onto the pause state, on
+# the physics tick. This is the authoritative gate for the arrival-into-exterior
+# yank: it pauses before the first continuous-tracking snap can run, without
+# depending on OdiseaExterior._process having ticked yet. The explicit
+# pause_tracking()/resume_tracking() calls remain valid (e.g. freezing the source
+# scene's rotator at swap) — this only adds a per-tick reconciliation so a player
+# that appears already-suspended in the destination chamber never gets chased.
+func _sync_tracking_pause_from_suspension() -> void:
+	var suspended := _is_tracking_target_airlock_suspended()
+	if suspended == _suspension_pause_active:
+		return
+	_suspension_pause_active = suspended
+	if suspended:
+		pause_tracking()
+	else:
+		resume_tracking()
+
+# True when the current scene was entered via an airlock transition, so the
+# rotator should start frozen and only begin tracking once the player exits the
+# destination chamber. Reads SceneManager's transition params (set just before the
+# swap by AirlockZoneV2 / AirlockManager).
+func _scene_entered_via_airlock() -> bool:
+	if not has_node("/root/SceneManager"):
+		return false
+	var params = get_node("/root/SceneManager").get("_transition_params")
+	if typeof(params) != TYPE_DICTIONARY:
+		return false
+	if bool(params.get("_airlock_manager_placed", false)):
+		return true
+	return String(params.get("transition_style", "")).strip_edges().to_lower() == "airlock"
+
+func _is_tracking_target_airlock_suspended() -> bool:
+	# Look at any player in the group (ignoring the suspension filter that
+	# _get_tracking_target() applies) so we can detect the suspended state itself.
+	var target: Spatial = _get_tracking_target_ignoring_suspension()
+	if target == null or not is_instance_valid(target):
+		return _suspension_pause_active  # no target resolvable yet — hold current state
+	return target.has_meta("airlock_tracking_suspended") \
+		and bool(target.get_meta("airlock_tracking_suspended"))
 
 func get_plate_count(spiral: Spatial) -> int:
 	if spiral == null:

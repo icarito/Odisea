@@ -24,6 +24,18 @@ var _physical_terrace: StaticBody = null
 var _player: Spatial = null
 var _stream_connected := false
 var _last_player_local_x := NAN
+# While the player is inside an airlock chamber (entering it, or appearing there
+# after a seamless scene swap) the cylinder must NOT chase the player's radial
+# position: the player is still being repositioned by AirlockManager, so a frame
+# computed against a stale/baked-in position would snap the whole scaffold and
+# the camera. We mirror the player's "airlock_tracking_suspended" meta — the same
+# flag AirlockZoneV2 toggles and WorldRotator honours in the exterior. Tracking
+# stays frozen until the player physically leaves the destination chamber.
+var _airlock_suspended := false
+# Set true once a valid (non-suspended) player position has been applied. While
+# false, the first valid frame snaps directly instead of being treated as motion,
+# so there is no visible chunk/terrace jump on scene arrival.
+var _settled := false
 
 
 func _ready() -> void:
@@ -117,10 +129,31 @@ func _physics_process(_delta: float) -> void:
 		_ensure_stream_connected()
 	# Re-resolve if the cached player was freed (e.g. the baked-in Pilot is
 	# replaced by the reparented player after a seamless airlock transition).
-	if not is_instance_valid(_player):
+	if not is_instance_valid(_player) or _is_baked_player_replaced():
 		_player = _get_player()
 	if not is_instance_valid(_player):
 		return
+
+	# Airlock gate: while the player is inside a chamber, AirlockManager is still
+	# repositioning it. Repositioning chunks/terrace now would chase a stale
+	# position and snap the world. Freeze until the chamber is exited. On the
+	# transition back to non-suspended, force the next frame to snap (not lerp)
+	# by clearing _settled so the first valid frame is treated as a teleport.
+	var suspended := _is_player_airlock_suspended()
+	if suspended != _airlock_suspended:
+		_airlock_suspended = suspended
+		if not suspended:
+			# Player just left the chamber — drop the settled flag so the first
+			# real position applies as a snap and _reposition_all_chunks() runs
+			# unconditionally below.
+			_settled = false
+	if suspended:
+		# Keep the scaffold camera upright even while frozen so the arrival frame
+		# never inherits a tilted prefix from the source scene's rotator.
+		if "camera_basis_prefix" in _player:
+			_player.camera_basis_prefix = Basis.IDENTITY
+		return
+
 	if _physical_terrace == null:
 		_physical_terrace = _resolve_path(physical_terrace_path) as StaticBody
 	if _physical_terrace != null and is_instance_valid(_physical_terrace):
@@ -131,10 +164,12 @@ func _physics_process(_delta: float) -> void:
 
 	# Reposition chunks so the arc under the player stays flat.
 	# Skip when player hasn't moved (majority of frames) — the chunk arc only
-	# depends on player_local_x.
+	# depends on player_local_x. The first settled frame always applies so the
+	# scaffold snaps into place once around the just-arrived player.
 	var player_local_x: float = _get_player_local_x()
-	if is_nan(_last_player_local_x) or abs(player_local_x - _last_player_local_x) >= 0.1:
+	if not _settled or is_nan(_last_player_local_x) or abs(player_local_x - _last_player_local_x) >= 0.1:
 		_last_player_local_x = player_local_x
+		_settled = true
 		if _stream != null and is_instance_valid(_stream):
 			for child in _stream.get_children():
 				if child.name.begins_with("Chunk_") and child is Spatial:
@@ -142,6 +177,32 @@ func _physics_process(_delta: float) -> void:
 
 	if "camera_basis_prefix" in _player:
 		_player.camera_basis_prefix = Basis.IDENTITY
+
+# True while the player node is flagged as inside an airlock chamber. Mirrors the
+# meta AirlockZoneV2 sets and WorldRotator honours, so the scaffold cylinder and
+# the exterior dome pause tracking on the same condition.
+func _is_player_airlock_suspended() -> bool:
+	if not is_instance_valid(_player):
+		return false
+	return _player.has_meta("airlock_tracking_suspended") \
+		and bool(_player.get_meta("airlock_tracking_suspended"))
+
+# After a seamless airlock swap the baked-in Pilot is freed and the held player
+# is reparented in. If our cached _player is the (now stale) baked-in node while a
+# different live player exists in the group, force a re-resolve so we don't track
+# a corpse for a frame.
+func _is_baked_player_replaced() -> bool:
+	if _player == null or not is_instance_valid(_player):
+		return false
+	if _player.is_in_group("player"):
+		return false
+	var tree = get_tree()
+	if tree == null:
+		return false
+	for p in tree.get_nodes_in_group("player"):
+		if is_instance_valid(p) and p != _player:
+			return true
+	return false
 
 func get_expected_up_at_global(global_pos: Vector3) -> Vector3:
 	var theta: float = global_pos.x / max(0.001, base_radius)
