@@ -148,6 +148,17 @@ var _resume_ramp_left := 0.0  # >0 while easing back into tracking after a resum
 # explicit pause_tracking() (source-scene freeze) and the meta-driven pause don't
 # stomp each other's edge detection.
 var _suspension_pause_active := false
+# True from _ready() when this scene was entered via an airlock, until the arriving
+# player's suspension meta has been observed at least once. Guards against the
+# first physics frame — where the player exists but AirlockZoneV2 hasn't armed its
+# meta yet — momentarily resuming tracking and applying a 1-frame rotation (the
+# residual micro-yank). While armed, tracking stays paused regardless of the
+# not-yet-set meta; the first observed suspended frame disarms it.
+var _arrival_pause_armed := false
+# Frames the arrival pause may stay armed without ever observing the suspension
+# meta, before disarming as a safety net (player spawned outside the chamber Area).
+const ARRIVAL_PAUSE_GRACE_FRAMES := 30
+var _arrival_pause_grace := 0
 var _terrace_culling_counter: int = 0
 # Retrocompatibilidad: alias del pool para tests que lean _generated_collision_bodies
 var _generated_collision_bodies: Array setget ,_get_generated_collision_bodies
@@ -199,7 +210,14 @@ func _ready() -> void:
 	# snap against the airlock position because tracking never runs until exit.
 	if _scene_entered_via_airlock():
 		_suspension_pause_active = true
+		_arrival_pause_armed = true
 		pause_tracking()
+	# Yank telemetry: on by default while hunting; ODISEA_YANK_DEBUG=0 disables.
+	_yank_debug_enabled = OS.get_environment("ODISEA_YANK_DEBUG").strip_edges() != "0"
+	# Build-version marker: if you see this in the browser console, the loaded .pck
+	# DOES contain the airlock yank fix + telemetry. If absent, you're running a
+	# stale export — reload the editor / hard-refresh the browser.
+	print("[WorldRotator] AIRLOCK-YANK-BUILD v3 ready (yank telemetry + suspension fix active)")
 
 func _exit_tree() -> void:
 	if has_node("/root/GravityWorld"):
@@ -230,6 +248,7 @@ func _physics_process(delta: float) -> void:
 	# the suspension meta here, before any snap, closes that race regardless of
 	# _process ordering.
 	_sync_tracking_pause_from_suspension()
+	_yank_debug_capture_pre(delta)
 	# While the player is inside the airlock chamber, stop following the player and
 	# lock the world flat relative to the active terrace (the selected plate's up
 	# aligned with +Y) over RESUME_TRACKING_DURATION. This keeps the centrifugal
@@ -281,6 +300,62 @@ func _physics_process(delta: float) -> void:
 		if _terrace_culling_counter >= terrace_culling_update_interval:
 			_terrace_culling_counter = 0
 			_apply_terrace_distance_culling()
+
+# ── Yank debug telemetry (FD-airlock) ────────────────────────────────────────
+# Measures how much this WorldRotator's global_transform jumps per physics frame.
+# A clean arrival shows ~0 deg/frame; the [YANK] shows a spike of several degrees
+# (or a large origin delta) on the frames right after a scene swap. Captured into
+# ANNAV2 so it rides the heartbeat to the bridge — readable from the peer without
+# any in-runtime command. Enabled via env ODISEA_YANK_DEBUG=1 (default on for now
+# while we hunt this; cheap — one quat dot + one length per frame).
+var _yank_prev_basis_quat := Quat()
+var _yank_prev_origin := Vector3.ZERO
+var _yank_have_prev := false
+var _yank_max_deg := 0.0          # worst basis jump seen this session
+var _yank_max_origin := 0.0       # worst origin jump seen this session
+var _yank_frames_since_unpause := -1   # counts physics frames after tracking resumed
+var _yank_debug_enabled := true
+
+func _yank_debug_capture_pre(_delta: float) -> void:
+	if not _yank_debug_enabled:
+		return
+	var cur := global_transform
+	var cur_q := cur.basis.get_rotation_quat()
+	var deg := 0.0
+	var dorigin := 0.0
+	if _yank_have_prev:
+		var d: float = abs(cur_q.dot(_yank_prev_basis_quat))
+		d = clamp(d, -1.0, 1.0)
+		deg = rad2deg(2.0 * acos(d))   # angle between consecutive basis quats
+		dorigin = cur.origin.distance_to(_yank_prev_origin)
+	_yank_prev_basis_quat = cur_q
+	_yank_prev_origin = cur.origin
+	_yank_have_prev = true
+	if deg > _yank_max_deg:
+		_yank_max_deg = deg
+	if dorigin > _yank_max_origin:
+		_yank_max_origin = dorigin
+	# Track frames since the last resume so we can correlate a spike with arrival.
+	if _tracking_paused:
+		_yank_frames_since_unpause = 0
+	elif _yank_frames_since_unpause >= 0 and _yank_frames_since_unpause < 600:
+		_yank_frames_since_unpause += 1
+	var anna = get_node_or_null("/root/ANNAV2")
+	if anna == null or not anna.has_method("add_telemetry_data"):
+		return
+	anna.add_telemetry_data("world_rotator_yank", {
+		"deg_per_frame": stepify(deg, 0.001),
+		"origin_per_frame": stepify(dorigin, 0.001),
+		"max_deg": stepify(_yank_max_deg, 0.001),
+		"max_origin": stepify(_yank_max_origin, 0.001),
+		"paused": _tracking_paused,
+		"suspended": _suspension_pause_active,
+		"frames_since_unpause": _yank_frames_since_unpause,
+		"has_tx_target": _has_transform_target,
+		"sel_spiral": _selected_spiral_index,
+		"sel_plate": _selected_plate_index,
+		"origin_y": stepify(cur.origin.y, 0.01)
+	})
 
 # ── API pública ──────────────────────────────────────────────────────────────
 
@@ -478,6 +553,20 @@ func is_tracking_paused() -> bool:
 # that appears already-suspended in the destination chamber never gets chased.
 func _sync_tracking_pause_from_suspension() -> void:
 	var suspended := _is_tracking_target_airlock_suspended()
+	# While the arrival pause is armed, hold the pause until we actually observe the
+	# player suspended once (AirlockZoneV2 arms its meta a frame after spawn). This
+	# prevents a 1-frame resume on arrival that would apply a residual rotation.
+	if _arrival_pause_armed:
+		if suspended:
+			_arrival_pause_armed = false  # meta confirmed; normal reconciliation resumes
+		else:
+			# Safety timeout: if the destination zone never arms the meta (e.g. the
+			# player spawned just outside the chamber Area), disarm after a short
+			# grace so tracking can still begin instead of staying frozen forever.
+			_arrival_pause_grace += 1
+			if _arrival_pause_grace < ARRIVAL_PAUSE_GRACE_FRAMES:
+				return
+			_arrival_pause_armed = false
 	if suspended == _suspension_pause_active:
 		return
 	_suspension_pause_active = suspended
@@ -805,6 +894,17 @@ func _slerp_to_global_transform(delta: float) -> void:
 func _slerp_to_flat_while_paused(delta: float) -> void:
 	_is_transitioning = false
 	if Engine.editor_hint or rotation_frozen:
+		return
+	# Freeze completely while paused for an airlock ARRIVAL: select_terrace_plate()
+	# already aligned the world so the active plate sits exactly on the stable
+	# PhysicalTerrace. Easing toward the "flat relative to plate" basis here would
+	# rotate the whole world away from that spawn frame (observed: rot_deg drifting
+	# to ~123°, origin.y to ~287) while the player pivots and looks fine locally —
+	# then the airlock_relative_transform captured on the way back out is taken
+	# against that skewed frame and the player clips through the next scene. While
+	# the freshly-arrived player is still suspended, hold the spawn transform.
+	if _suspension_pause_active:
+		_sync_world_environment_sky_frames()
 		return
 	var target_basis: Basis = _compute_active_plate_flat_basis()
 	var current: Transform = global_transform

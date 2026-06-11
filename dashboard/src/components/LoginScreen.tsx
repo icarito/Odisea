@@ -17,7 +17,7 @@ export function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
           
           <div className="mb-8 text-center">
             <h1 className="text-2xl font-black text-accent italic tracking-tighter mb-2">ODISEA CENTRAL</h1>
-            <div className="text-[0.625rem] text-text-muted uppercase tracking-[0.3em]">Access Point v2.0.4</div>
+            <div className="text-[0.625rem] text-text-muted uppercase tracking-[0.3em]">Access Point</div>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">

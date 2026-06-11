@@ -82,23 +82,10 @@ jobs:
         run: |
           set -e
           mkdir -p ports
-          # Populate the .import/ cache first. Use --editor with a generous
-          # timeout-equivalent: run a dummy scene import loop to make sure
-          # Qodot .map plugins and Scatter finish before quit.
-          # The container ships the godot3 editor binary; run it for a
-          # fixed number of frames to flush all import queues.
-          timeout 300 godot --no-window --editor --quit --path . 2>&1 || true
-          # Explicitly verify the .map import files that have been missing:
-          for TRES in \
-            .import/Dome_Basementd.map-0227e7997b1c53fa00871ef9e5b31a3f.tres \
-            .import/Dome_Crio.map-b44a1fe72e1267103d81347f8f56ed40.tres; do
-            if [ ! -f "$TRES" ]; then
-              echo "::warning::Missing import artifact $TRES — forcing reimport of map"
-              # Trigger a second import pass to ensure the file exists
-              timeout 120 godot --no-window --editor --quit --path . 2>&1 || true
-              break
-            fi
-          done
+          # All Qodot .map import artifacts are tracked in git, so the
+          # .import/ cache is ready on checkout. Run a quick editor pass
+          # to flush any remaining import queues before exporting.
+          timeout 120 godot --no-window --editor --quit --path . 2>&1 || true
 
           # Debug export uses keystore/debug from export_presets.cfg
           # (res://android/debug.keystore, generated above). The release

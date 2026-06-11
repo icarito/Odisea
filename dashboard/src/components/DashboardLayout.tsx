@@ -43,8 +43,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <h1 className="text-accent font-black text-sm italic leading-none tracking-tighter sm:text-base">
           <button type="button" onClick={() => setActiveTab('live')} className="hover:text-text-primary">
             <span className="block sm:inline">ODISEA</span>
-            <span className="block sm:inline"> CENTRAL</span>
-            <span className="hidden sm:inline"> · V2</span>
           </button>
         </h1>
 

@@ -96,6 +96,9 @@ func _ready() -> void:
 	_resolve_spawn_state()
 	call_deferred("apply_selection")
 	call_deferred("_setup_dome_facade_cursors")
+	# High-res arrival trace: log the first frames after entering the exterior so we
+	# can see the exact frame the player yanks/clips. Browser console only.
+	_arrival_trace_frames = 45
 
 func _exit_tree() -> void:
 	if has_node("/root/SessionManager"):
@@ -183,6 +186,68 @@ func _process(_delta: float) -> void:
 	_tick_frustum_lod_update()
 	_tick_dome_facade_cursor()  # sigue la animación/rotación del WorldRotator cada frame
 	_reset_camera_roll()
+	_tick_camera_yank_debug()
+	_tick_arrival_trace()
+
+# High-res arrival trace. Logs the player + WorldRotator state for the first frames
+# after entering the exterior, so the exact frame of the yank/clip is visible in
+# the browser console. Self-disables after _arrival_trace_frames.
+var _arrival_trace_frames := 0
+
+func _tick_arrival_trace() -> void:
+	if _arrival_trace_frames <= 0:
+		return
+	_arrival_trace_frames -= 1
+	var pl := _resolve_tracking_player()
+	if pl == null or not is_instance_valid(pl):
+		return
+	var pos: Vector3 = pl.global_transform.origin
+	var on_floor := pl.has_method("is_on_floor") and bool(pl.is_on_floor())
+	var vy := 0.0
+	if "velocity" in pl:
+		vy = float(pl.velocity.y)
+	var rot_oy := 0.0
+	var rot_deg := 0.0
+	var rpaused := false
+	if _rotator and is_instance_valid(_rotator):
+		rot_oy = _rotator.global_transform.origin.y
+		rot_deg = rad2deg(_rotator.global_transform.basis.get_euler().length())
+		if _rotator.has_method("is_tracking_paused"):
+			rpaused = bool(_rotator.is_tracking_paused())
+	var susp := pl.has_meta("airlock_tracking_suspended") and bool(pl.get_meta("airlock_tracking_suspended"))
+	print("[ARRIVAL] f=%d pos=(%.2f,%.2f,%.2f) floor=%s vy=%.2f susp=%s rpaused=%s rot_oy=%.2f rot_deg=%.1f" % [
+		45 - _arrival_trace_frames, pos.x, pos.y, pos.z, str(on_floor), vy, str(susp), str(rpaused), rot_oy, rot_deg])
+
+# Yank telemetry: measures how much the camera's world-forward jumps per frame.
+# A clean arrival is ~0 deg/frame; a camera yank spikes several degrees. Pushed to
+# ANNAV2 so it rides the heartbeat — readable from the bridge peer without any
+# in-runtime command. Pairs with WorldRotator's "world_rotator_yank" point.
+var _cam_yank_prev_fwd := Vector3.ZERO
+var _cam_yank_have_prev := false
+var _cam_yank_max_deg := 0.0
+
+func _tick_camera_yank_debug() -> void:
+	if OS.get_environment("ODISEA_YANK_DEBUG").strip_edges() == "0":
+		return
+	if _camera == null or not is_instance_valid(_camera):
+		_camera = _resolve_player_camera()
+		if _camera == null:
+			return
+	var fwd: Vector3 = -_camera.global_transform.basis.z
+	var deg := 0.0
+	if _cam_yank_have_prev and fwd.length_squared() > 0.0001 and _cam_yank_prev_fwd.length_squared() > 0.0001:
+		var d: float = clamp(fwd.normalized().dot(_cam_yank_prev_fwd.normalized()), -1.0, 1.0)
+		deg = rad2deg(acos(d))
+	_cam_yank_prev_fwd = fwd
+	_cam_yank_have_prev = true
+	if deg > _cam_yank_max_deg:
+		_cam_yank_max_deg = deg
+	var anna = get_node_or_null("/root/ANNAV2")
+	if anna != null and anna.has_method("add_telemetry_data"):
+		anna.add_telemetry_data("camera_yank", {
+			"deg_per_frame": stepify(deg, 0.001),
+			"max_deg": stepify(_cam_yank_max_deg, 0.001)
+		})
 
 # Mirrors the player's airlock chamber state onto WorldRotator tracking: pause
 # while inside a chamber, resume (with a 0.3s ease) when the player exits it.

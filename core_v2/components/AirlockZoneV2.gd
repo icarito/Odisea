@@ -169,6 +169,13 @@ func _try_arm_passive_open_exit(body: Node, airlock: Node) -> bool:
 			_entry_door_name = open_exit
 	_reset_open_exit_return_tracking()
 	set_physics_process(true)
+	# Re-assert tracking suspension while the player sits in the just-arrived
+	# destination chamber (EXIT_OPEN). Without this the rotator resumes prematurely
+	# — before the player walks out of the airlock — because the inherited
+	# "suspended" meta has no owner in the passive-open-exit path and the world
+	# starts chasing the still-settling spawn position (the arrival yank). It is
+	# cleared in _on_zone_exited() when the player actually crosses the threshold.
+	_set_airlock_tracking_suspended(body, true)
 	_push_airlock_camera(body)
 	_begin_background_load()
 	return true

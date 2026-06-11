@@ -190,6 +190,8 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 		# already correct — skip any snap that would overwrite it.
 		if "_transition_airlock_placed" in player:
 			player._transition_airlock_placed = true
+			if player.has_method("arm_arrival_cam_trace"):
+				player.arm_arrival_cam_trace()
 			if "_ots_snap_on_arrival" in player:
 				player._ots_snap_on_arrival = _is_interior_scene(path)
 			# Suppress snap calls for 2 physics frames to cover all SessionManager
