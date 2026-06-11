@@ -58,6 +58,16 @@ DEPLOY_WEBHOOK_SECRET = os.environ.get("DEPLOY_WEBHOOK_SECRET", BRIDGE_TOKEN)
 DEPLOY_SCRIPT = os.environ.get("DEPLOY_SCRIPT", os.path.expanduser("~/odisea-deploy/deploy.sh"))
 # Branch whose pushes trigger a deploy.
 DEPLOY_BRANCH = os.environ.get("DEPLOY_BRANCH", "main")
+# Only redeploy when a push touches central's own dependencies (the server
+# script, the dashboard, or the deploy tooling). A push that only changes game
+# content shouldn't restart the bridge. Comma-separated path prefixes; set to ""
+# to deploy on every push regardless of paths.
+DEPLOY_PATHS = [
+    p.strip() for p in os.environ.get(
+        "DEPLOY_PATHS",
+        "odisea_central.py,dashboard/,scripts/deploy-webhook/,scripts/import_ghosts_to_sqlite.py",
+    ).split(",") if p.strip()
+]
 
 AUTH_MAX_FAILS = int(os.environ.get("CENTRAL_AUTH_MAX_FAILS", 8))
 AUTH_FAIL_WINDOW = int(os.environ.get("CENTRAL_AUTH_FAIL_WINDOW", 60))
@@ -788,6 +798,23 @@ class OdiseaCentral:
         ref = payload.get("ref", "")
         if ref != f"refs/heads/{DEPLOY_BRANCH}":
             return web.json_response({"ok": True, "ignored": f"ref={ref}"})
+
+        # Skip the redeploy unless the push touched central's dependencies.
+        if DEPLOY_PATHS:
+            changed = set()
+            for commit in payload.get("commits", []):
+                changed.update(commit.get("added", []))
+                changed.update(commit.get("modified", []))
+                changed.update(commit.get("removed", []))
+            relevant = any(
+                f.startswith(prefix) for f in changed for prefix in DEPLOY_PATHS
+            )
+            # If the payload carried commits but none are relevant, skip. (When
+            # commits is empty — e.g. a forced/edge case — fall through and deploy
+            # to stay safe.)
+            if changed and not relevant:
+                logger.info("deploy webhook: no relevant paths in push, skipping (%d files)", len(changed))
+                return web.json_response({"ok": True, "skipped": "no relevant paths"})
 
         if not os.path.exists(DEPLOY_SCRIPT):
             logger.error("deploy webhook: script not found at %s", DEPLOY_SCRIPT)
