@@ -18,7 +18,7 @@ BASE_SCENES = [
 ]
 
 BASE_INCLUDE = "*.ttf, *.oys, *.shader, *.gdshader, *.anim, assets/themes/*.tres, core_v2/ghost/*.tscn, core_v2/levels/shader_cache/*.tscn, textures/kenney_prototype_textures/*"
-BASE_EXCLUDE = "agents/*, dashboard/*, android/*, .venv/*, .mono/*, ports/*, reports/*, test_output/*, docs/*, core_v2/tests/*, tests/*, addons/*, models/backflip.glb, models/sde_1.glb, models/boy_Rigging_Fwd_lambert4.material, assets/flipbook_particles/*, assets/FX/particle_system_effects_Godot3/*, assets/DisplayCase_2/*, assets/music/*, assets/hdris/*"
+BASE_EXCLUDE = "agents/*, dashboard/*, android/*, .venv/*, .mono/*, ports/*, reports/*, test_output/*, docs/*, core_v2/tests/*, tests/*, addons/*, models/backflip.glb, models/sde_1.glb, models/boy_Rigging_Fwd_lambert4.material, assets/FX/particle_system_effects_Godot3/*, assets/music/*, assets/hdris/*"
 
 def update_preset(missing_files):
     with open(PRESETS_FILE, "r") as f:

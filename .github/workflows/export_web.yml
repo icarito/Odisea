@@ -72,6 +72,13 @@ jobs:
             shopt -s dotglob; cp -a "$BUILD_DIR"/* pages_build/
           fi
           python3 scripts/minimize_html_export.py pages_build/
+
+          # Inject real download size for the shell's progress bar fallback
+          if [ -f pages_build/index.pck ] && [ -f pages_build/index.wasm ]; then
+            TOTAL_BYTES=$(( $(stat -c%s pages_build/index.pck) + $(stat -c%s pages_build/index.wasm) ))
+            sed -i "s/\$ODISEA_TOTAL_BYTES/$TOTAL_BYTES/g" pages_build/index.html
+            echo "Injected ODISEA_TOTAL_BYTES=$TOTAL_BYTES (pages)"
+          fi
           echo "Regular export collected:"
           ls -la pages_build/
 
@@ -142,6 +149,12 @@ jobs:
           shopt -s dotglob
           cp -a build_threads/* netlify_build/
           python3 scripts/minimize_html_export.py netlify_build/
+
+          # Inject real download size for the shell's progress bar fallback
+          TOTAL_BYTES=$(( $(stat -c%s build_threads/index.pck) + $(stat -c%s build_threads/index.wasm) ))
+          sed -i "s/\$ODISEA_TOTAL_BYTES/$TOTAL_BYTES/g" netlify_build/index.html
+          echo "Injected ODISEA_TOTAL_BYTES=$TOTAL_BYTES (netlify)"
+
           cp build/_headers netlify_build/_headers
 
       # ── Upload Pages artifact ──
@@ -192,4 +205,5 @@ jobs:
     needs: deploy-pages
     if: always()
     steps:
-      - run: echo "Pages deploy: ${{ needs.deploy-pages.result }}"
+      - run: |
+          echo "Pages deploy: ${{ needs.deploy-pages.result }}"
