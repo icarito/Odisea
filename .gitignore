@@ -1,5 +1,6 @@
 experimental/
 ports/
+build/
 maps/autosave/
 
 # Godot-specific ignores

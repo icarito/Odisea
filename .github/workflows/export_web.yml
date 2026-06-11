@@ -83,21 +83,58 @@ jobs:
         run: python3 scripts/minimize_html_export.py "${{ steps.export.outputs.build_directory }}"
 
       # ── Threads WASM for Netlify fallback ──
+      - name: Install Godot server binary (for threads export)
+        run: |
+          GODOT_BIN="$HOME/.local/bin/godot3-server"
+          if [ ! -f "$GODOT_BIN" ]; then
+            mkdir -p "$HOME/.local/bin"
+            curl -fSL -o /tmp/godot.zip \
+              "https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_linux_headless.64.zip"
+            unzip -o /tmp/godot.zip -d "$HOME/.local/bin/"
+            chmod +x "$HOME/.local/bin/Godot_v3.6.2-stable_linux_headless.64"
+            ln -sf "$HOME/.local/bin/Godot_v3.6.2-stable_linux_headless.64" "$GODOT_BIN"
+          fi
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       - name: Export HTML5 Threads (WASM staged in /threads/)
         run: |
-          TEMPLATE_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
-          THREADS_ZIP="$TEMPLATE_DIR/webassembly_threads_release.zip"
+          # Find templates dir (firebelley/godot-export may install to different paths)
+          TPL_DIR=$(find "$HOME/.local/share/godot/templates" -maxdepth 2 -name "webassembly_release.wasm" 2>/dev/null | head -n1 | xargs dirname 2>/dev/null || true)
+          if [ -z "$TPL_DIR" ]; then
+            TPL_DIR=$(find "$HOME/.cache/godot" -name "webassembly_release.wasm" 2>/dev/null | head -n1 | xargs dirname 2>/dev/null || true)
+          fi
+          if [ -z "$TPL_DIR" ]; then
+            TPL_DIR=$(find /tmp -name "webassembly_release.wasm" 2>/dev/null | head -n1 | xargs dirname 2>/dev/null || true)
+          fi
+          echo "Templates directory: $TPL_DIR"
+
+          THREADS_ZIP=$(find "$TPL_DIR" /tmp /home/runner -name "webassembly_threads_release.zip" 2>/dev/null | head -n1 || true)
+          if [ -z "$THREADS_ZIP" ]; then
+            echo "webassembly_threads_release.zip not found, downloading and extracting from .tpz..."
+            curl -fSL -o /tmp/godot_tpz.zip \
+              "https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_export_templates.tpz"
+            mkdir -p /tmp/tpz_extract
+            unzip -o /tmp/godot_tpz.zip -d /tmp/tpz_extract/
+            THREADS_ZIP=$(find /tmp/tpz_extract -name "webassembly_threads_release.zip" 2>/dev/null | head -n1 || true)
+            # Also copy templates into the right place if we had to download them
+            if [ -n "$TPL_DIR" ] && [ -d /tmp/tpz_extract/templates ]; then
+              cp -a /tmp/tpz_extract/templates/* "$TPL_DIR/" 2>/dev/null || true
+            fi
+          fi
+          echo "Threads zip: $THREADS_ZIP"
+
           mkdir -p /tmp/threads_wasm
           unzip -o "$THREADS_ZIP" -d /tmp/threads_wasm/
           THREADS_WASM=$(find /tmp/threads_wasm -name '*.wasm' | head -n1)
-          cp "$TEMPLATE_DIR/webassembly_release.wasm" "$TEMPLATE_DIR/webassembly_release.standard.bak"
-          cp "$THREADS_WASM" "$TEMPLATE_DIR/webassembly_release.wasm"
+          echo "Threads WASM: $THREADS_WASM"
+
+          cp "$TPL_DIR/webassembly_release.wasm" "$TPL_DIR/webassembly_release.standard.bak"
+          cp "$THREADS_WASM" "$TPL_DIR/webassembly_release.wasm"
 
           BUILD_DIR="${{ steps.export.outputs.build_directory }}"
           mkdir -p /tmp/threads_export
           godot3-server --no-window --export "HTML5 Threads" /tmp/threads_export/index.html --quiet 2>&1
 
-          # Stage threads .wasm and .js in /threads/ subfolder (separate from regular build)
           mkdir -p "$BUILD_DIR/threads"
           cp /tmp/threads_export/index.wasm "$BUILD_DIR/threads/"
           gzip -9 -n -c "$BUILD_DIR/threads/index.wasm" > "$BUILD_DIR/threads/index.wasm.gz"
