@@ -188,12 +188,20 @@ jobs:
           fi
           echo "Export OK: $OUT ($(du -h "$OUT" | cut -f1))"
 
+      - name: Package Artifact
+        if: steps.ios_gate.outputs.skip_ios != 'true'
+        run: |
+          PACKAGE="dist/${{ matrix.artifact_name }}-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}.zip"
+          mkdir -p dist
+          cd build
+          zip -r "../$PACKAGE" .
+
       - name: Upload Artifact
         if: steps.ios_gate.outputs.skip_ios != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}
-          path: build/
+          path: dist/*.zip
 
       - name: Build Failure Notification
         if: failure()

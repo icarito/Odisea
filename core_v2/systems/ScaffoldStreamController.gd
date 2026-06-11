@@ -44,6 +44,10 @@ export(int, 4, 24) var chunk_height := 8 setget set_chunk_height
 export(int, 4, 32) var chunk_length := 12 setget set_chunk_length
 export(float, 4.0, 30.0) var cell_size := 6.0
 export(bool) var use_mst_generator := false
+# Max height steps (×2m) for the MST generator. WFC scaffolds top out lower and the
+# full MST range (5 steps = 10m) climbs higher than the level around it, especially
+# the home chunk. 3 steps (~6m) keeps MST platforms close to the WFC band.
+export(int, 1, 5) var mst_max_height_steps := 3
 export(int) var global_seed := 42
 export(int, 1, 64) var instances_per_frame := 8
 export(int, 1, 16) var rebuilds_per_frame := 1
@@ -129,6 +133,14 @@ var _debug_chunk_collision_material: SpatialMaterial = null
 
 func _ready() -> void:
 	_build_lod_resources()
+	# WFC is too expensive to run on the main thread: on builds exported without the
+	# "threads" feature (non-threads HTML5) the worker Thread can't run, so WFC would
+	# either never produce chunks or, solved inline, freeze the frame (observed ~390ms
+	# spikes, FPS to single digits). MST generation runs inline cheaply and needs no
+	# thread, so force it when threads are unavailable.
+	if not OS.has_feature("threads") and not use_mst_generator:
+		use_mst_generator = true
+		print("[ScaffoldStream] No thread support — forcing MST generator (WFC needs threads).")
 	if use_mst_generator:
 		_generator_ref = MST_GENERATOR_SCRIPT.new()
 		_generator_ref.grid_width = chunk_height
@@ -757,8 +769,19 @@ func _collect_border_data(chunk_key: Vector2) -> Dictionary:
 func _request_chunk(chunk_key: Vector2) -> void:
 	var chunk_seed = _chunk_seed(chunk_key)
 	if use_mst_generator:
-		# MST generates in <1ms synchronously, but visual build is deferred one-per-frame
-		_generator_ref.apply_params({"grid_width": chunk_height, "grid_depth": chunk_length, "cell_size": cell_size})
+		# MST generates in <1ms synchronously, but visual build is deferred one-per-frame.
+		# Pass the same deterministic border data the WFC path uses so adjacent chunks
+		# share identical seam heights — without this the MST chunks don't align on the
+		# centrifugal axis and the scaffold clips through itself / the level.
+		var mst_border := _collect_border_data(chunk_key)
+		_generator_ref.apply_params({
+			"grid_width": chunk_height,
+			"grid_depth": chunk_length,
+			"cell_size": cell_size,
+			"fixed_border_tiles": mst_border.fixed_border_tiles,
+			"constrain_border_heights": constrain_border_heights,
+			"mst_max_height_steps": mst_max_height_steps,
+		})
 		var grid = _generator_ref.generate_grid_data(chunk_seed)
 		_pending_chunks[chunk_key] = true
 		_mst_build_queue.append({"key": chunk_key, "grid": grid})

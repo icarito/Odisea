@@ -212,12 +212,9 @@ func _ready() -> void:
 		_suspension_pause_active = true
 		_arrival_pause_armed = true
 		pause_tracking()
-	# Yank telemetry: on by default while hunting; ODISEA_YANK_DEBUG=0 disables.
+	# Yank telemetry: on by default; ODISEA_YANK_DEBUG=0 disables. Rides the heartbeat
+	# to the bridge (world_rotator_yank point) — useful for spotting regressions.
 	_yank_debug_enabled = OS.get_environment("ODISEA_YANK_DEBUG").strip_edges() != "0"
-	# Build-version marker: if you see this in the browser console, the loaded .pck
-	# DOES contain the airlock yank fix + telemetry. If absent, you're running a
-	# stale export — reload the editor / hard-refresh the browser.
-	print("[WorldRotator] AIRLOCK-YANK-BUILD v3 ready (yank telemetry + suspension fix active)")
 
 func _exit_tree() -> void:
 	if has_node("/root/GravityWorld"):

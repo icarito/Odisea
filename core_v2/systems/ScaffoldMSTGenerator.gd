@@ -34,11 +34,39 @@ var grid_width := 8
 var grid_depth := 12
 var cell_size := 6.0
 var rng = RandomNumberGenerator.new()
+# Height range, configurable so the MST scaffold can be constrained to fit the
+# surrounding level geometry. WFC and MST are different algorithms; with the full
+# MAX_HEIGHT_STEPS range the MST scaffold climbs higher than the WFC layout the
+# level was built around and intersects the static geometry (the Basement). Clamping
+# the number of height steps keeps the generated scaffold inside the playable band.
+var max_height_steps := MAX_HEIGHT_STEPS
+var min_height_steps := 1
+# Deterministic seam tiles shared with neighbouring chunks. Keyed "x,y" -> {id,
+# rotation, height}. When present, these cells are pinned to the given height so the
+# scaffold joins continuously across chunk borders on the centrifugal axis (the same
+# constraint the WFC path applies). Without it MST chunks generate independent border
+# heights and clip through each other / the level.
+var fixed_border_tiles := {}
+var _pinned_indices := {}  # cell index -> true, never moved by smoothing
 
 func apply_params(params: Dictionary):
 	grid_width = params.get("grid_width", 8)
 	grid_depth = params.get("grid_depth", 12)
 	cell_size = params.get("cell_size", 6.0)
+	max_height_steps = int(clamp(params.get("mst_max_height_steps", MAX_HEIGHT_STEPS), 1, MAX_HEIGHT_STEPS))
+	min_height_steps = int(clamp(params.get("mst_min_height_steps", 1), 1, max_height_steps))
+	var fb = params.get("fixed_border_tiles", {})
+	fixed_border_tiles = fb if typeof(fb) == TYPE_DICTIONARY else {}
+	# Cache pinned cell indices (border seams) so the smoothing passes never move them,
+	# preserving cross-chunk continuity.
+	_pinned_indices = {}
+	for key in fixed_border_tiles.keys():
+		var parts: Array = String(key).split(",")
+		if parts.size() >= 2:
+			var px := int(parts[0])
+			var py := int(parts[1])
+			if px >= 0 and px < grid_width and py >= 0 and py < grid_depth:
+				_pinned_indices[py * grid_width + px] = true
 
 func generate_grid_data(seed_val: int = -1) -> Array:
 	if seed_val == -1: rng.randomize()
@@ -54,11 +82,31 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 		connections.append([false, false, false, false])
 		heights.append(-1.0)
 
+	# 0. Pin shared border seam tiles first so adjacent chunks join continuously.
+	# These come from the stream's deterministic per-border hash, so this chunk and
+	# its neighbour agree on the seam height. They act as fixed rooms the MST must
+	# connect to, keeping the generated scaffold aligned across the centrifugal axis.
+	for key in fixed_border_tiles.keys():
+		var parts: Array = String(key).split(",")
+		if parts.size() < 2:
+			continue
+		var cx := int(parts[0])
+		var cy := int(parts[1])
+		if cx < 0 or cx >= grid_width or cy < 0 or cy >= grid_depth:
+			continue
+		var spec = fixed_border_tiles[key]
+		var bh := float(spec.get("height", HEIGHT_STEP)) if typeof(spec) == TYPE_DICTIONARY else HEIGHT_STEP
+		heights[cy * grid_width + cx] = bh
+		rooms.append({"pos": Vector2(cx, cy), "h": bh})
+
 	# 1. Room Placement
 	for i in range(room_count):
 		var rx = rng.randi() % grid_width
 		var ry = rng.randi() % grid_depth
-		var rh = float(rng.randi_range(1, MAX_HEIGHT_STEPS)) * HEIGHT_STEP
+		# Don't overwrite a pinned border seam tile.
+		if heights[ry * grid_width + rx] >= 0.0:
+			continue
+		var rh = float(rng.randi_range(min_height_steps, max_height_steps)) * HEIGHT_STEP
 		rooms.append({"pos": Vector2(rx, ry), "h": rh})
 		heights[ry * grid_width + rx] = rh
 
@@ -91,7 +139,41 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 	# 5. BFS for unassigned heights & Module Selection
 	_fill_missing_heights(heights, connections)
 	_connect_adjacent_equal_height_cells(heights, connections)
-	_flatten_invalid_height_edges(heights, connections)
+	# Limit slope FIRST: WFC stairs only span one HEIGHT_STEP (2m) per cell, so its ramps
+	# are gentle. The MST connects rooms of arbitrary height, producing multi-step drops
+	# across a single edge — very steep ramps. Clamp every connected edge to at most one
+	# step. Then flatten any residual height differences that land on cells which can't
+	# host a stair (corners/junctions): a stair tile is only emitted for a straight
+	# through-cell (two opposite connections), so a delta on a corner would otherwise
+	# leave a visual gap where the ramp doesn't reach the neighbour's height. Iterate the
+	# two passes until stable so lowering a cell never reintroduces an un-hostable delta.
+	var pass_guard := 0
+	while pass_guard < 8:
+		pass_guard += 1
+		_limit_slope_to_one_step(heights, connections)
+		if not _flatten_invalid_height_edges(heights, connections):
+			break
+
+	# Guarantee every border seam port is reachable from the rest of the chunk, so the
+	# scaffold connects across chunk boundaries — like the WFC backbone does. A seam tile
+	# that ended up isolated (its MST path pinched off by flattening) gets a cheap direct
+	# L-path traced to the nearest connected cell. Re-running slope/flatten can re-pinch
+	# the new path, so iterate reconnect→smooth until every port is connected (or we hit
+	# the guard).
+	var connect_guard := 0
+	while connect_guard < 6 and _ensure_border_ports_connected(heights, connections):
+		connect_guard += 1
+		_limit_slope_to_one_step(heights, connections)
+		_flatten_invalid_height_edges(heights, connections)
+
+	# Finalize railings/edges:
+	#  - Merge half-open edges: if a populated cell connects to a populated neighbour at
+	#    the same height but the neighbour doesn't connect back, make it mutual so the
+	#    two platforms join instead of showing two adjacent railing gaps.
+	#  - Prune connections that point at an empty cell or a neighbour more than one step
+	#    away: those render as a railing opening onto the void. Closing the side draws a
+	#    railing there instead.
+	_finalize_edges(heights, connections)
 
 	var result = []
 	for i in range(grid_width * grid_depth):
@@ -110,6 +192,162 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 			"base_height": h
 		})
 	return result
+
+# Pulls connected cells together so no edge spans more than one HEIGHT_STEP. The
+# higher side of an over-steep edge is lowered toward the lower side, in steps,
+# until every connected pair differs by at most HEIGHT_STEP. Pinned border seam
+# cells are never moved so chunks stay aligned across the centrifugal axis.
+func _limit_slope_to_one_step(heights, connections) -> void:
+	var pinned := {}
+	for key in fixed_border_tiles.keys():
+		var parts: Array = String(key).split(",")
+		if parts.size() >= 2:
+			pinned[int(parts[1]) * grid_width + int(parts[0])] = true
+	var changed := true
+	var guard := 0
+	while changed and guard < 64:
+		changed = false
+		guard += 1
+		for y in range(grid_depth):
+			for x in range(grid_width):
+				var i := int(y * grid_width + x)
+				if heights[i] < 0:
+					continue
+				for d in range(4):
+					if not connections[i][d]:
+						continue
+					var nv = DIR_VEC[d]
+					var nx := x + int(nv.x)
+					var ny := y + int(nv.y)
+					if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+						continue
+					var ni := int(ny * grid_width + nx)
+					if heights[ni] < 0:
+						continue
+					var diff: float = heights[i] - heights[ni]
+					if abs(diff) <= HEIGHT_STEP + 0.001:
+						continue
+					# Lower the higher of the two by one step (skip pinned cells).
+					if diff > 0.0 and not pinned.has(i):
+						heights[i] -= HEIGHT_STEP
+						changed = true
+					elif diff < 0.0 and not pinned.has(ni):
+						heights[ni] -= HEIGHT_STEP
+						changed = true
+
+# Ensures each pinned border seam tile is mutually connected to the main component.
+# Returns true if it added any path. Cheap reconnect: BFS the largest connected
+# component, then for each unreachable border tile trace a straight L-path to the
+# nearest reachable cell.
+func _ensure_border_ports_connected(heights, connections) -> bool:
+	if fixed_border_tiles.empty():
+		return false
+	var reachable := _compute_reachable_set(connections, heights)
+	if reachable.empty():
+		return false
+	var added := false
+	for key in fixed_border_tiles.keys():
+		var parts: Array = String(key).split(",")
+		if parts.size() < 2:
+			continue
+		var bx := int(parts[0])
+		var by := int(parts[1])
+		if bx < 0 or bx >= grid_width or by < 0 or by >= grid_depth:
+			continue
+		var bi := by * grid_width + bx
+		if heights[bi] < 0 or reachable.has(bi):
+			continue
+		# Find nearest reachable cell (Manhattan) and trace an L-path to it.
+		var best := -1
+		var best_dist := 1 << 30
+		for ri in reachable.keys():
+			var rxi := int(ri)
+			var rx := rxi % grid_width
+			var ry := rxi / grid_width
+			var dist: int = abs(rx - bx) + abs(ry - by)
+			if dist < best_dist:
+				best_dist = dist
+				best = ri
+		if best < 0:
+			continue
+		var src := {"pos": Vector2(bx, by), "h": heights[bi]}
+		var dst := {"pos": Vector2(best % grid_width, best / grid_width), "h": heights[best]}
+		_trace_path(src, dst, connections, heights)
+		added = true
+	return added
+
+# BFS over mutually-connected cells, returning the set (Dictionary as set) of the
+# component reachable from the first non-empty cell.
+func _compute_reachable_set(connections, heights) -> Dictionary:
+	var start := -1
+	for i in range(grid_width * grid_depth):
+		if heights[i] >= 0:
+			start = i
+			break
+	var seen := {}
+	if start < 0:
+		return seen
+	seen[start] = true
+	var q := [start]
+	while not q.empty():
+		var c: int = q.pop_front()
+		var cx := c % grid_width
+		var cy := c / grid_width
+		for d in range(4):
+			if not connections[c][d]:
+				continue
+			var nx := cx + int(DIR_VEC[d].x)
+			var ny := cy + int(DIR_VEC[d].y)
+			if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+				continue
+			var ni := ny * grid_width + nx
+			if heights[ni] < 0 or seen.has(ni):
+				continue
+			if connections[ni][OPPOSITE[d]]:
+				seen[ni] = true
+				q.append(ni)
+	return seen
+
+# Final edge cleanup so railings close on the void and adjacent platforms join.
+func _finalize_edges(heights, connections) -> void:
+	# Pass A: make same-height adjacencies mutual (join touching platforms).
+	for y in range(grid_depth):
+		for x in range(grid_width):
+			var i := int(y * grid_width + x)
+			if heights[i] < 0:
+				continue
+			for d in range(4):
+				var nx := x + int(DIR_VEC[d].x)
+				var ny := y + int(DIR_VEC[d].y)
+				if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+					continue
+				var ni := int(ny * grid_width + nx)
+				if heights[ni] < 0:
+					continue
+				# Either side already open at the same height → make it mutual.
+				if (connections[i][d] or connections[ni][OPPOSITE[d]]) \
+						and abs(heights[i] - heights[ni]) <= 0.001:
+					connections[i][d] = true
+					connections[ni][OPPOSITE[d]] = true
+	# Pass B: prune connections that open onto emptiness or an unreachable step gap,
+	# so a railing is drawn there instead of a hole.
+	for y in range(grid_depth):
+		for x in range(grid_width):
+			var i := int(y * grid_width + x)
+			if heights[i] < 0:
+				continue
+			for d in range(4):
+				if not connections[i][d]:
+					continue
+				var nx := x + int(DIR_VEC[d].x)
+				var ny := y + int(DIR_VEC[d].y)
+				if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+					connections[i][d] = false
+					continue
+				var ni := int(ny * grid_width + nx)
+				# Neighbour empty, or height gap too large to host a stair → close side.
+				if heights[ni] < 0 or abs(heights[i] - heights[ni]) > HEIGHT_STEP + 0.001:
+					connections[i][d] = false
 
 func _sort_edges(a, b): return a.w < b.w
 func _find(parent, i):
@@ -180,9 +418,10 @@ func _connect_adjacent_equal_height_cells(heights, connections) -> void:
 					connections[i][d] = true
 					connections[ni][OPPOSITE[d]] = true
 
-func _flatten_invalid_height_edges(heights, connections) -> void:
+func _flatten_invalid_height_edges(heights, connections) -> bool:
 	var changed = true
 	var guard = 0
+	var any_change := false
 	while changed and guard < 16:
 		changed = false
 		guard += 1
@@ -206,8 +445,18 @@ func _flatten_invalid_height_edges(heights, connections) -> void:
 						continue
 					if _edge_can_host_stair(connections, i, ni, d):
 						continue
-					heights[ni] = heights[i]
-					changed = true
+					# Flatten by matching one cell to the other, but never move a pinned
+					# seam cell (that would break cross-chunk continuity). Prefer moving
+					# the non-pinned side; if both are pinned, leave it (can't flatten).
+					if not _pinned_indices.has(ni):
+						heights[ni] = heights[i]
+						changed = true
+						any_change = true
+					elif not _pinned_indices.has(i):
+						heights[i] = heights[ni]
+						changed = true
+						any_change = true
+	return any_change
 
 func _edge_can_host_stair(connections, i: int, ni: int, d: int) -> bool:
 	return _cell_can_host_stair_axis(connections[i], d) or _cell_can_host_stair_axis(connections[ni], OPPOSITE[d])

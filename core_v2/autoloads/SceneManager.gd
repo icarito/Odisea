@@ -236,6 +236,40 @@ func _set_new_scene(resource: PackedScene):
 
 	emit_signal("scene_ready", _next_scene_path, new_scene, _transition_params)
 
+	# Spread heavy deferred-build nodes (e.g. RadialScatter with dozens of items)
+	# across frames so they don't instance everything in the arrival frame — that
+	# bulk instancing is the load spike felt as a freeze on scene transition.
+	call_deferred("_drive_deferred_builds")
+
+# Generic incremental driver: any node in the "deferred_build" group that exposes
+# begin_deferred_build()/deferred_build_step()/has_pending_deferred_items() gets
+# its build spread over multiple frames. Decouples scenes from this logic — a node
+# just joins the group and the costly instancing is amortized automatically.
+func _drive_deferred_builds() -> void:
+	var tree := get_tree()
+	if tree == null:
+		return
+	var nodes := tree.get_nodes_in_group("deferred_build")
+	var pending := []
+	for node in nodes:
+		if not is_instance_valid(node):
+			continue
+		if node.has_method("begin_deferred_build") and node.has_method("deferred_build_step") \
+				and node.has_method("has_pending_deferred_items"):
+			node.begin_deferred_build()
+			pending.append(node)
+	# Drive one step per node per frame until all are done.
+	while not pending.empty():
+		yield(tree, "idle_frame")
+		var still_pending := []
+		for node in pending:
+			if not is_instance_valid(node):
+				continue
+			node.deferred_build_step()
+			if node.has_pending_deferred_items():
+				still_pending.append(node)
+		pending = still_pending
+
 func _apply_spawn_and_state(scene_root: Node):
 	if not is_instance_valid(scene_root):
 		return

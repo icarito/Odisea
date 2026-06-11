@@ -70,12 +70,20 @@ jobs:
       - name: Configure Godot Editor Settings
         run: |
           # Write editor settings into the HOME the export will actually use.
+          JDK_PATH="/usr/lib/jvm/java-11-openjdk-amd64"
+          if [ ! -d "$JDK_PATH" ]; then
+            JDK_PATH="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
+          fi
+          [ -d "$ANDROID_HOME" ] || { echo "::error::ANDROID_HOME is invalid: $ANDROID_HOME"; exit 1; }
+          [ -d "$JDK_PATH" ] || { echo "::error::JDK path is invalid: $JDK_PATH"; exit 1; }
+
           mkdir -p "$HOME/.config/godot"
-          cat > "$HOME/.config/godot/editor_settings-3.tres" << 'EOF'
-          [android]
-          adb = "/usr/lib/android-sdk/platform-tools/adb"
-          javac = "/usr/bin/javac"
-          jdk_path = "/usr/lib/jvm/java-11-openjdk-amd64"
+          cat > "$HOME/.config/godot/editor_settings-3.tres" << EOF
+          [gd_resource type="EditorSettings" format=2]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JDK_PATH"
           EOF
 
       - name: Export to Android

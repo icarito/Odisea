@@ -17,12 +17,45 @@ export(float, 0.0, 180.0, 0.1) var rand_rotation_amount := 15.0 setget set_rand_
 export(bool) var auto_build := true setget set_auto_build
 
 var _build_queued := false
+# Deferred incremental build state. In game (not editor) the scatter registers in
+# the "deferred_build" group so SceneManager spreads its instancing across frames
+# after the scene loads — instancing dozens of items in the spawn frame is the
+# load spike on scene arrival. Items are placed a few per call instead of all at
+# once. Set deferred_build=false to build synchronously in _ready (old behavior).
+export(bool) var deferred_build := true
+export(int, 1, 32) var items_per_step := 4
+var _defer_index := 0
+var _defer_active := false
+var _defer_scene_owner: Node = null
+var _defer_center_global := Vector3.ZERO
+var _defer_rng: RandomNumberGenerator = null
 
 func _ready() -> void:
 	if Engine.editor_hint:
 		_queue_build()
-	elif get_child_count() == 0:
+		return
+	if get_child_count() != 0:
+		return  # items already baked into the scene; nothing to build
+	if deferred_build:
+		add_to_group("deferred_build")
+		# Begin in a "pending" state; SceneManager drives steps. As a safety net,
+		# if nothing drives it (e.g. scene opened directly), build on next frame.
+		call_deferred("_deferred_build_safety_net")
+	else:
 		build()
+
+func _deferred_build_safety_net() -> void:
+	# If no external driver (SceneManager) started the build within a couple of
+	# frames — e.g. the scene was opened directly, not via goto_scene — drive it
+	# here, still incrementally (one step per idle frame) so a direct load doesn't
+	# spike either.
+	if _defer_active or get_child_count() != 0 or target_scene == null:
+		return
+	begin_deferred_build()
+	while has_pending_deferred_items() and is_inside_tree():
+		deferred_build_step()
+		if has_pending_deferred_items():
+			yield(get_tree(), "idle_frame")
 
 func set_target_scene(value: PackedScene) -> void:
 	target_scene = value
@@ -97,6 +130,44 @@ func build() -> void:
 		_build_from_fixed_slots(scene_owner, center_global, rng)
 
 	# Phase 2: batch generated instances into a MultiMeshInstance to reduce draw calls.
+
+# --- Deferred incremental build API (driven by SceneManager) ---
+
+# Prepare the incremental build. Cheap: just caches what build() would compute up
+# front. No items are instanced here.
+func begin_deferred_build() -> void:
+	if _defer_active:
+		return
+	_clear_children()
+	if not target_scene:
+		return
+	_defer_scene_owner = _get_scene_owner()
+	_defer_center_global = to_global(Vector3(0.0, height_offset, 0.0))
+	_defer_rng = RandomNumberGenerator.new()
+	if randomize_rotation:
+		_defer_rng.randomize()
+	_defer_index = 0
+	_defer_active = true
+
+func has_pending_deferred_items() -> bool:
+	return _defer_active and _defer_index < item_count
+
+# Instance up to items_per_step items. Call once per frame from a driver until
+# has_pending_deferred_items() returns false.
+func deferred_build_step() -> void:
+	if not _defer_active:
+		return
+	var placed := 0
+	while _defer_index < item_count and placed < items_per_step:
+		var i := _defer_index
+		_defer_index += 1
+		var angle := (float(i) / float(item_count)) * TAU
+		if _is_angle_blocked(rad2deg(angle)):
+			continue
+		_add_item(i, angle, _defer_scene_owner, _defer_center_global, _defer_rng)
+		placed += 1
+	if _defer_index >= item_count:
+		_defer_active = false
 
 func _build_from_fixed_slots(scene_owner: Node, center_global: Vector3, rng: RandomNumberGenerator) -> void:
 	for i in range(item_count):

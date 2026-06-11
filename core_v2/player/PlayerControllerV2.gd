@@ -231,31 +231,38 @@ func sync_camera_to_rig() -> void:
 		_cached_cam.fov = base_fov
 	_cinematic_zoom_target_fov = -1.0
 
-# Arrival camera-yank trace. Logs yaw/pitch and the real camera world-forward for
-# the first frames after the player is placed in a scene via airlock, so a camera
-# yank on EITHER side of the transition (exterior or interior) is visible in the
-# browser console. Lives on the persistent player so it works in Dome_Crio too,
-# which has no scene script. Disabled via ODISEA_YANK_DEBUG=0.
+# Arrival camera telemetry. For the first frames after the player is placed in a
+# scene via airlock, publishes yaw/pitch and the spring-arm lengths to ANNAV2 (the
+# "arrival_camera" point) so a camera-distance or orientation yank on either side of
+# a transition is observable from the bridge without console spam. Lives on the
+# persistent player so it covers interiors too. Disabled via ODISEA_YANK_DEBUG=0.
 var _arrival_cam_trace_frames := 0
 
 func arm_arrival_cam_trace() -> void:
+	if OS.get_environment("ODISEA_YANK_DEBUG").strip_edges() == "0":
+		return
 	_arrival_cam_trace_frames = 30
 
 func _tick_arrival_cam_trace() -> void:
 	if _arrival_cam_trace_frames <= 0:
 		return
 	_arrival_cam_trace_frames -= 1
-	var cam := get_viewport().get_camera() if is_inside_tree() else null
-	var fwd := Vector3.ZERO
-	if cam and is_instance_valid(cam):
-		fwd = -cam.global_transform.basis.z
-	var scene_name := ""
-	if is_inside_tree() and get_tree() and is_instance_valid(get_tree().current_scene):
-		scene_name = get_tree().current_scene.name
-	print("[CAMTRACE] f=%d scene=%s pos=(%.2f,%.2f,%.2f) yaw=%.3f pitch=%.3f camfwd=(%.2f,%.2f,%.2f)" % [
-		30 - _arrival_cam_trace_frames, scene_name,
-		global_transform.origin.x, global_transform.origin.y, global_transform.origin.z,
-		yaw, pitch, fwd.x, fwd.y, fwd.z])
+	var arm_cur := -1.0
+	if _cached_spring_arm and is_instance_valid(_cached_spring_arm):
+		if "current_length" in _cached_spring_arm:
+			arm_cur = float(_cached_spring_arm.current_length)
+		elif "spring_length" in _cached_spring_arm:
+			arm_cur = float(_cached_spring_arm.spring_length)
+	var anna = get_node_or_null("/root/ANNAV2")
+	if anna != null and anna.has_method("add_telemetry_data"):
+		anna.add_telemetry_data("arrival_camera", {
+			"frame": 30 - _arrival_cam_trace_frames,
+			"yaw": stepify(yaw, 0.001),
+			"pitch": stepify(pitch, 0.001),
+			"spring_base": stepify(base_spring_length_3d, 0.01),
+			"spring_cur": stepify(current_spring_length, 0.01),
+			"spring_arm": stepify(arm_cur, 0.01)
+		})
 
 func snap_camera_to_current_state() -> void:
 	# If AirlockManager already placed the player, suppress full camera snaps

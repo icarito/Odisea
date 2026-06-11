@@ -15,6 +15,15 @@ var _thread: Thread = null
 var _mutex: Mutex = null
 var _pending: Array = []
 var _should_exit: bool = false
+# HTML5 builds exported without the "threads" feature (the non-threads preset) cannot
+# run a real worker Thread — Thread.start() does nothing and the worker loop never
+# emits generation_done, so the scaffold never builds (the symptom: "rotator doesn't
+# work in the no-threads HTML5 version"). When threads are unavailable we fall back to
+# generating grids synchronously on the main thread, a few per frame in _process so the
+# frame doesn't stall. WFCSolverCore is a plain RefCounted, safe to run inline.
+var _threads_supported: bool = OS.has_feature("threads")
+# Synchronous-mode budget: how many grids to solve per frame when no worker thread.
+const SYNC_GRIDS_PER_FRAME := 1
 
 var _instance_queue: Array = []
 var _rebuild_queue: Array = []  # nodes waiting for _rebuild(), processed 1 per frame
@@ -25,13 +34,18 @@ func _init() -> void:
 	set_process(false)
 
 func _ready():
-	_start_worker()
+	if _threads_supported:
+		_start_worker()
+	else:
+		# No worker thread; grids are solved inline in _process. Keep processing on
+		# so queued generation jobs get drained.
+		set_process(true)
 
 func _exit_tree():
 	stop()
 
 func request_grid(chunk_key, params: Dictionary) -> void:
-	if _thread == null or not _thread.is_active():
+	if _threads_supported and (_thread == null or not _thread.is_active()):
 		_start_worker()
 	_mutex.lock()
 	if _pending.size() >= max_pending_jobs:
@@ -40,6 +54,8 @@ func request_grid(chunk_key, params: Dictionary) -> void:
 		return
 	_pending.append({"chunk_key": chunk_key, "params": params})
 	_mutex.unlock()
+	if not _threads_supported:
+		set_process(true)  # ensure the inline solver drains the queue
 
 func set_instances_per_frame(value: int) -> void:
 	instances_per_frame = max(1, value)
@@ -126,7 +142,33 @@ func enqueue_grid_for_instancing(parent_node: Spatial, grid: Array, grid_width: 
 
 export(float, 1.0, 14.0) var rebuild_budget_ms := 8.0
 
+func _solve_one_grid(job) -> void:
+	var params = job.params
+	var chunk_key = job.chunk_key
+	var solver = WFCSolverCore.new()
+	solver.apply_params(params)
+	var grid = solver.generate_grid_data(params.get("seed", -1))
+	if grid == null or grid.empty():
+		emit_signal("generation_failed", chunk_key)
+	else:
+		emit_signal("generation_done", chunk_key, grid)
+
 func _process(_delta) -> void:
+	# Synchronous grid generation when no worker thread (non-threads HTML5). Solve a
+	# small budget per frame so the queue drains without stalling.
+	if not _threads_supported:
+		var solved := 0
+		while solved < SYNC_GRIDS_PER_FRAME:
+			_mutex.lock()
+			var job = null
+			if not _pending.empty():
+				job = _pending.pop_front()
+			_mutex.unlock()
+			if job == null:
+				break
+			_solve_one_grid(job)
+			solved += 1
+
 	var instance_count = 0
 	while instance_count < instances_per_frame and not _instance_queue.empty():
 		var entry = _instance_queue.pop_front()
@@ -146,7 +188,14 @@ func _process(_delta) -> void:
 			node.call("_rebuild")
 		rebuild_count += 1
 
-	if _instance_queue.empty() and _rebuild_queue.empty():
+	# In synchronous mode keep processing while grids are still queued; otherwise stop
+	# once the instancing/rebuild queues are drained.
+	var sync_pending := false
+	if not _threads_supported:
+		_mutex.lock()
+		sync_pending = not _pending.empty()
+		_mutex.unlock()
+	if _instance_queue.empty() and _rebuild_queue.empty() and not sync_pending:
 		set_process(false)
 
 func _instance_one(entry: Dictionary) -> void:
