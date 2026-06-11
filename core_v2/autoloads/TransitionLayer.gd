@@ -10,6 +10,7 @@ var _overlay: ColorRect = null
 var _loading_root: Control = null
 var _loading_label: Label = null
 var _loading_progress: ProgressBar = null
+var _loading_footer: Label = null
 var _fade_tween: Tween = null
 var _is_animating := false
 
@@ -60,6 +61,18 @@ func _ready() -> void:
 	_loading_progress.value = 0.0
 	_loading_progress.percent_visible = true
 	_loading_root.add_child(_loading_progress)
+
+	_loading_footer = Label.new()
+	_loading_footer.name = "LoadingFooter"
+	_loading_footer.align = Label.ALIGN_CENTER
+	_loading_footer.valign = Label.VALIGN_BOTTOM
+	_loading_footer.anchor_left = 0.0
+	_loading_footer.anchor_top = 0.90
+	_loading_footer.anchor_right = 1.0
+	_loading_footer.anchor_bottom = 0.97
+	_loading_footer.add_color_override("font_color", Color("#445566"))
+	_loading_footer.text = "discord.gg/odisea\nodisea.educa.juegos"
+	_loading_root.add_child(_loading_footer)
 
 	_fade_tween = Tween.new()
 	_fade_tween.name = "FadeTween"
