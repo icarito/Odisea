@@ -1,27 +1,24 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { LoginScreen } from './components/LoginScreen';
-import { PlayerCard } from './components/PlayerCard';
 import { Viewport3D } from './components/Viewport3D';
-import { FpsTimeline } from './components/FpsTimeline';
-import { MemTimeline } from './components/MemTimeline';
 import { Heatmap3D } from './components/Heatmap3D';
 import { LiveMap } from './components/LiveMap';
 import { HistoricalTable } from './components/HistoricalTable';
 import { SessionPlayback } from './components/SessionPlayback';
 import { DashboardLayout } from './components/DashboardLayout';
-import { RetroCard, RetroButton, RetroBadge, RetroSelect, RetroInput } from './components/retro';
+import { PlayerBottomSheet } from './components/PlayerBottomSheet';
+import { RetroCard, RetroButton, RetroSelect, RetroInput } from './components/retro';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
 import { getHeatmap, getHistoricalSessions, getGhostData, getScenes } from './api';
-import { Maximize2, Map as MapIcon, Info, Play } from 'lucide-react';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import { Maximize2, Play, X } from 'lucide-react';
 
 type Tab = 'live' | 'heatmap' | 'history' | 'playback';
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
-  const { heartbeats, peersConnected, isConnected, alerts, history } = useTelemetry();
+  const { heartbeats, isConnected, alerts, history } = useTelemetry();
   const { lastMessage } = useWebSocket();
   const { layout, updateLayout } = useLayoutPersistence();
   
@@ -32,21 +29,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [heatmapData, setHeatmapData] = useState<any[] | undefined>();
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [showLiveGhosts, setShowLiveGhosts] = useState(true);
-  const accelerometerEnabled = layout.accelerometerEnabled;
-  const setAccelerometerEnabled = (v: boolean) => updateLayout({ accelerometerEnabled: v });
 
-  // Responsive state
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
-  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 640);
-      setIsDesktop(window.innerWidth >= 1024);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  // Live tab view toggle: 2D birdseye map vs 3D perspective.
+  const [liveView, setLiveView] = useState<'birdseye' | '3d'>('3d');
+  // CSS overlay fullscreen for the 3D canvas (NOT the browser Fullscreen API,
+  // which is unreliable on mobile).
+  const [fs3d, setFs3d] = useState(false);
+  // Player list bottom sheet (opened from the header counter).
+  const [showPlayerSheet, setShowPlayerSheet] = useState(false);
 
   // Heatmap State
   const [heatmapScene, setHeatmapScene] = useState('Dome_Crio');
@@ -63,27 +53,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // Live State
   const [liveGhosts, setLiveGhosts] = useState<any[]>([]);
 
-  const viewportRef = useRef<HTMLDivElement>(null);
-
-  const toggleFullscreen = async () => {
-    if (!viewportRef.current) return;
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else {
-        await viewportRef.current.requestFullscreen();
-        try {
-          if ('orientation' in screen && (screen.orientation as any).lock) {
-            await (screen.orientation as any).lock('landscape');
-          }
-        } catch (e) {
-          console.warn("Could not lock orientation", e);
-        }
-      }
-    } catch (e) {
-      toast.error("Fullscreen not supported");
-    }
-  };
 
   useEffect(() => {
     if (alerts.length > 0) {
@@ -212,245 +181,113 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     return [0, 0, 0];
   };
 
-  const renderPlayerList = () => (
-    <div className="flex flex-col gap-2">
-      {pids.length === 0 && <div className="text-center text-text-muted py-10 text-sm">Sin players</div>}
-      {pids.map(pid => (
-        <PlayerCard
-          key={pid}
-          hb={heartbeats[pid]}
-          isActive={activeId === pid}
-          onClick={() => setSelectedPlayerId(pid)}
-          staleAge={(Date.now() - heartbeats[pid].timestamp * 1000) / 1000}
-        />
-      ))}
-    </div>
+  const liveGhostMarkers = showLiveGhosts
+    ? Object.values(heartbeats).filter((h: any) => h.player_id !== activeId)
+    : [];
+
+  // The 3D viewport element, reused inline and inside the fullscreen overlay.
+  const viewport3D = (
+    <Viewport3D
+      position={activeHb ? safePos(activeHb.player.position) : [0, 0, 0]}
+      yaw={activeHb ? Number(activeHb.player.yaw) || 0 : 0}
+      pitch={activeHb ? Number(activeHb.player.pitch) || 0 : 0}
+      roll={activeHb ? Number(activeHb.player.roll) || 0 : 0}
+      trail={activeHistory?.trail || []}
+      follow={followPlayer}
+      wireframe={wireframe}
+      sceneName={manualScene || activeHb?.player.scene || ""}
+      staleAge={staleAge}
+      heatmapData={showHeatmap ? heatmapData : undefined}
+      liveGhosts={liveGhostMarkers}
+      hud={activeHb ? { fps: activeHb.player?.fps, scene: activeHb.player?.scene } : null}
+    />
   );
 
   return (
     <DashboardLayout
       onLogout={onLogout}
-      peersConnected={Number(peersConnected) || 0}
       isConnected={isConnected}
       activeTab={activeTab}
       setActiveTab={setActiveTab}
-      playerList={renderPlayerList()}
+      playerCount={pids.length}
+      onPlayersClick={() => setShowPlayerSheet(true)}
       isSessionSelected={!!selectedSession}
     >
       <Toaster position="bottom-right" />
+
+      <PlayerBottomSheet
+        open={showPlayerSheet}
+        onClose={() => setShowPlayerSheet(false)}
+        players={Object.values(heartbeats)}
+        activeId={activeId}
+        onSelect={(pid) => setSelectedPlayerId(pid)}
+      />
+
+      {/* CSS fullscreen overlay for the 3D canvas (works on mobile). */}
+      {fs3d && (
+        <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
+          <button
+            onClick={() => setFs3d(false)}
+            className="absolute top-3 right-3 z-10 p-2 border-2 border-white/40 bg-black/60 text-white"
+            aria-label="Close fullscreen"
+          >
+            <X size={24} />
+          </button>
+          <div className="flex-1 min-h-0">{viewport3D}</div>
+        </div>
+      )}
       
       {activeTab === 'live' && (
-        <div className="flex flex-col h-full overflow-hidden">
-          {isDesktop ? (
-            <PanelGroup direction="vertical">
-              <Panel defaultSize={70} minSize={30}>
-                <PanelGroup direction="horizontal">
-                  <Panel className="relative">
-                    <div ref={viewportRef} className="h-full w-full">
-                        <Viewport3D
-                            position={activeHb ? safePos(activeHb.player.position) : [0,0,0]}
-                            yaw={activeHb ? Number(activeHb.player.yaw) || 0 : 0}
-                            pitch={activeHb ? Number(activeHb.player.pitch) || 0 : 0}
-                            roll={activeHb ? Number(activeHb.player.roll) || 0 : 0}
-                            trail={activeHistory?.trail || []}
-                            follow={followPlayer}
-                            wireframe={wireframe}
-                            sceneName={manualScene || activeHb?.player.scene || ""}
-                            staleAge={staleAge}
-                            heatmapData={showHeatmap ? heatmapData : undefined}
-                            liveGhosts={showLiveGhosts ? Object.values(heartbeats).filter(h => h.player_id !== activeId) : []}
-                        />
-                        {/* Overlays */}
-                        <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-none">
-                            {activeHb?.player && (
-                                <RetroCard className="py-2 px-3 text-[0.625rem] bg-bg-card/80">
-                                    <div className="flex justify-between gap-4 mb-1 border-b border-black/20 pb-1">
-                                        <span className="text-text-muted">POS</span>
-                                        <span className="font-bold">{safePos(activeHb.player.position).map(n => n.toFixed(1)).join(", ")}</span>
-                                    </div>
-                                    <div className="flex justify-between gap-4">
-                                        <span className="text-text-muted">SCN</span>
-                                        <span className="text-accent truncate max-w-[80px]">{activeHb.player.scene}</span>
-                                    </div>
-                                </RetroCard>
-                            )}
-                        </div>
-
-                        <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between gap-2 pointer-events-auto">
-                            <div className="flex gap-2">
-                                <RetroSelect
-                                    value={manualScene || activeHb?.player.scene || ""}
-                                    onChange={(e) => setManualScene(e.target.value)}
-                                    className="py-1 px-2 text-[0.625rem] w-32"
-                                >
-                                    <option value="">AUTO SCENE</option>
-                                    {scenes.map(s => <option key={s} value={s}>{s}</option>)}
-                                </RetroSelect>
-                                <RetroButton 
-                                    variant={followPlayer ? 'primary' : 'secondary'} 
-                                    onClick={() => setFollowPlayer(!followPlayer)}
-                                    className="py-1 px-3 text-[0.625rem]"
-                                >
-                                    FOLLOW
-                                </RetroButton>
-                                <RetroButton 
-                                    variant={wireframe ? 'primary' : 'secondary'} 
-                                    onClick={() => setWireframe(!wireframe)}
-                                    className="py-1 px-3 text-[0.625rem]"
-                                >
-                                    MESH
-                                </RetroButton>
-                                <RetroButton 
-                                    variant={showHeatmap ? 'primary' : 'secondary'} 
-                                    onClick={() => setShowHeatmap(!showHeatmap)}
-                                    className="py-1 px-3 text-[0.625rem]"
-                                >
-                                    HEAT
-                                </RetroButton>
-                                <RetroButton 
-                                    variant={showLiveGhosts ? 'primary' : 'secondary'} 
-                                    onClick={() => setShowLiveGhosts(!showLiveGhosts)}
-                                    className="py-1 px-3 text-[0.625rem]"
-                                >
-                                    PEERS
-                                </RetroButton>
-                            </div>
-                            <div className="flex gap-2">
-                                <RetroButton 
-                                    variant={accelerometerEnabled ? 'primary' : 'secondary'} 
-                                    onClick={() => setAccelerometerEnabled(!accelerometerEnabled)}
-                                    className="py-1 px-3 text-[0.625rem]"
-                                >
-                                    ACCEL
-                                </RetroButton>
-                                <RetroButton variant="secondary" onClick={toggleFullscreen} className="py-1 px-2">
-                                    <Maximize2 size={14} />
-                                </RetroButton>
-                            </div>
-                        </div>
-                    </div>
-                  </Panel>
-                  <PanelResizeHandle className="w-1.5 bg-black hover:bg-accent transition-colors cursor-col-resize" />
-                  <Panel defaultSize={30}>
-                    <LiveMap ghosts={liveGhosts} sceneName={manualScene || activeHb?.player.scene || ""} />
-                  </Panel>
-                </PanelGroup>
-              </Panel>
-              <PanelResizeHandle className="h-1.5 bg-black hover:bg-accent transition-colors cursor-row-resize" />
-              <Panel defaultSize={30} minSize={20}>
-                <div className="h-full grid grid-cols-2 gap-4 p-4 overflow-hidden">
-                    <RetroCard title="FPS TELEMETRY" className="flex flex-col min-h-0 h-full">
-                        <FpsTimeline data={activeHistory?.fps || []} />
-                    </RetroCard>
-                    <RetroCard title="MEMORY USAGE (MB)" className="flex flex-col min-h-0 h-full">
-                        <MemTimeline data={activeHistory?.memory || []} />
-                    </RetroCard>
-                </div>
-              </Panel>
-            </PanelGroup>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {!isMobile ? (
-                  <div className="grid grid-cols-2 gap-4 h-[400px]">
-                      <div className="relative border-4 border-black shadow-retro">
-                        <Viewport3D
-                             position={activeHb ? safePos(activeHb.player.position) : [0,0,0]}
-                             yaw={activeHb ? Number(activeHb.player.yaw) || 0 : 0}
-                             pitch={activeHb ? Number(activeHb.player.pitch) || 0 : 0}
-                             roll={activeHb ? Number(activeHb.player.roll) || 0 : 0}
-                             trail={activeHistory?.trail || []}
-                             follow={followPlayer}
-                             wireframe={wireframe}
-                             sceneName={manualScene || activeHb?.player.scene || ""}
-                             staleAge={staleAge}
-                             heatmapData={showHeatmap ? heatmapData : undefined}
-                             liveGhosts={showLiveGhosts ? Object.values(heartbeats).filter(h => h.player_id !== activeId) : []}
-                        />
-                         <div className="absolute top-2 right-2">
-                            <RetroButton variant="secondary" onClick={toggleFullscreen} className="p-1">
-                                <Maximize2 size={14} />
-                            </RetroButton>
-                         </div>
-                      </div>
-                      <div className="border-4 border-black shadow-retro">
-                        <LiveMap ghosts={liveGhosts} sceneName={manualScene || activeHb?.player.scene || ""} />
-                      </div>
-                  </div>
-              ) : (
-                  <>
-                    <RetroCard className="relative overflow-hidden">
-                        {activeHb ? (
-                            <div className="flex flex-col gap-3">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <div className="text-[0.625rem] text-text-muted uppercase font-black mb-1">Active Subject</div>
-                                        <div className="text-sm font-black text-accent truncate max-w-[200px]">{activeHb.player_id}</div>
-                                    </div>
-                                    <RetroBadge color={activeHb.player?.fps > 45 ? 'success' : activeHb.player?.fps > 30 ? 'warning' : 'danger'}>
-                                        {activeHb.player?.fps || 0} FPS
-                                    </RetroBadge>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2 text-[0.625rem]">
-                                    <div className="bg-black/20 p-2 border border-black/40">
-                                        <div className="text-text-muted mb-1">POSITION</div>
-                                        <div className="font-bold">{safePos(activeHb.player.position).map(n => n.toFixed(1)).join(", ")}</div>
-                                    </div>
-                                    <div className="bg-black/20 p-2 border border-black/40">
-                                        <div className="text-text-muted mb-1">SCENE</div>
-                                        <div className="font-bold text-accent truncate">{activeHb.player.scene}</div>
-                                    </div>
-                                </div>
-                                <div className="flex gap-2 mt-2">
-                                    <RetroButton onClick={toggleFullscreen} className="flex-1 py-3 flex items-center justify-center gap-2">
-                                        <Maximize2 size={16} />
-                                        <span>3D FULLSCREEN</span>
-                                    </RetroButton>
-                                    <RetroButton variant="secondary" onClick={() => setActiveTab('history')} className="px-4">
-                                        <Info size={16} />
-                                    </RetroButton>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="py-10 text-center text-text-muted italic">No active session selected</div>
-                        )}
-                        <div ref={viewportRef} className="hidden h-0 w-0">
-                           <Viewport3D
-                                position={activeHb ? safePos(activeHb.player.position) : [0,0,0]}
-                                yaw={activeHb ? Number(activeHb.player.yaw) || 0 : 0}
-                                pitch={activeHb ? Number(activeHb.player.pitch) || 0 : 0}
-                                roll={activeHb ? Number(activeHb.player.roll) || 0 : 0}
-                                trail={activeHistory?.trail || []}
-                                follow={followPlayer}
-                                wireframe={wireframe}
-                                sceneName={manualScene || activeHb?.player.scene || ""}
-                                staleAge={staleAge}
-                                heatmapData={showHeatmap ? heatmapData : undefined}
-                                liveGhosts={showLiveGhosts ? Object.values(heartbeats).filter(h => h.player_id !== activeId) : []}
-                            />
-                        </div>
-                    </RetroCard>
-                    
-                    <RetroCard title="SESSION STATS" className="min-h-[200px]">
-                        <FpsTimeline data={activeHistory?.fps || []} />
-                    </RetroCard>
-                  </>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <RetroCard title="LIVE PEERS">
-                     <div className="flex flex-wrap gap-2">
-                        {liveGhosts.map(g => (
-                            <div key={g.player_id} className="text-[0.625rem] bg-black/40 border border-black p-1 px-2 flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-success" />
-                                <span>{g.player_id.substring(0, 8)}</span>
-                            </div>
-                        ))}
-                        {liveGhosts.length === 0 && <span className="text-[0.625rem] italic text-text-muted">No other peers</span>}
-                     </div>
-                  </RetroCard>
-              </div>
+        <div className="flex flex-col h-full min-h-0">
+          {/* Toolbar: view toggle (Birdseye / 3D) + view-specific controls */}
+          <div className="shrink-0 flex flex-wrap items-center gap-2 p-2 border-b-2 border-black bg-bg-card/60">
+            <div className="flex border-2 border-black">
+              <button
+                onClick={() => setLiveView('birdseye')}
+                className={`px-3 py-1 text-[0.625rem] font-black uppercase ${liveView === 'birdseye' ? 'bg-accent text-black' : 'bg-bg-primary text-text-muted'}`}
+              >
+                Birdseye
+              </button>
+              <button
+                onClick={() => setLiveView('3d')}
+                className={`px-3 py-1 text-[0.625rem] font-black uppercase border-l-2 border-black ${liveView === '3d' ? 'bg-accent text-black' : 'bg-bg-primary text-text-muted'}`}
+              >
+                3D
+              </button>
             </div>
-          )}
+
+            <RetroSelect
+              value={manualScene || activeHb?.player.scene || ""}
+              onChange={(e) => setManualScene(e.target.value)}
+              className="py-1 px-2 text-[0.625rem] w-32"
+            >
+              <option value="">AUTO SCENE</option>
+              {scenes.map(s => <option key={s} value={s}>{s}</option>)}
+            </RetroSelect>
+
+            {liveView === '3d' && (
+              <div className="flex gap-1 flex-wrap">
+                <RetroButton variant={followPlayer ? 'primary' : 'secondary'} onClick={() => setFollowPlayer(!followPlayer)} className="py-1 px-2 text-[0.625rem]">FOLLOW</RetroButton>
+                <RetroButton variant={wireframe ? 'primary' : 'secondary'} onClick={() => setWireframe(!wireframe)} className="py-1 px-2 text-[0.625rem]">MESH</RetroButton>
+                <RetroButton variant={showHeatmap ? 'primary' : 'secondary'} onClick={() => setShowHeatmap(!showHeatmap)} className="py-1 px-2 text-[0.625rem]">HEAT</RetroButton>
+                <RetroButton variant={showLiveGhosts ? 'primary' : 'secondary'} onClick={() => setShowLiveGhosts(!showLiveGhosts)} className="py-1 px-2 text-[0.625rem]">PEERS</RetroButton>
+                <RetroButton variant="secondary" onClick={() => setFs3d(true)} className="py-1 px-2" title="Fullscreen 3D"><Maximize2 size={14} /></RetroButton>
+              </div>
+            )}
+          </div>
+
+          {/* View area fills all remaining space (no fixed heights). */}
+          <div className="flex-1 min-h-0 relative">
+            {!activeHb ? (
+              <div className="h-full flex items-center justify-center p-6 text-center text-text-muted italic text-sm">
+                No active player. Tap the player counter above to pick one.
+              </div>
+            ) : liveView === '3d' ? (
+              <div className="absolute inset-0">{viewport3D}</div>
+            ) : (
+              <LiveMap ghosts={liveGhosts} sceneName={manualScene || activeHb?.player.scene || ""} />
+            )}
+          </div>
         </div>
       )}
 
@@ -486,64 +323,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             </div>
           </RetroCard>
 
-          <div className="flex-1 relative border-4 border-black shadow-retro overflow-hidden">
-            {isMobile ? (
-                <div className="h-full flex flex-col p-4 overflow-y-auto">
-                    <div className="flex flex-col items-center justify-center py-6 text-center gap-4">
-                        <MapIcon size={48} className="text-accent opacity-50" />
-                        <div>
-                            <div className="font-black text-sm uppercase mb-1">Heatmap Analysis</div>
-                            <p className="text-[0.625rem] text-text-muted leading-relaxed">
-                                Full 3D visualization is resource intensive. <br/>
-                                Summary: {heatmapData?.length || 0} active nodes detected.
-                            </p>
-                        </div>
-                        <RetroButton onClick={toggleFullscreen} className="w-full flex items-center justify-center gap-2 py-3">
-                            <Maximize2 size={16} />
-                            <span>VIEW MAP (3D)</span>
-                        </RetroButton>
-                    </div>
-
-                    <div className="mt-4 flex-1">
-                        <div className="text-[0.625rem] font-black uppercase text-accent mb-3 tracking-widest flex items-center gap-2">
-                            <Info size={12} /> Hot Cells Report
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            {(heatmapData || [])
-                                .sort((a, b) => b.count - a.count)
-                                .slice(0, 10)
-                                .map((cell, idx) => (
-                                <div key={idx} className="bg-black/20 border border-black/40 p-2 flex justify-between items-center">
-                                    <div className="flex flex-col">
-                                        <span className="text-[0.5rem] text-text-muted uppercase">Coordinates</span>
-                                        <span className="text-[0.625rem] font-mono">X:{cell.x} Z:{cell.z}</span>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-[0.5rem] text-text-muted uppercase">Intensity</div>
-                                        <RetroBadge 
-                                            color={cell.count > 50 ? 'danger' : cell.count > 20 ? 'warning' : 'success'}
-                                            className="scale-75 origin-right"
-                                        >
-                                            {cell.count} PTS
-                                        </RetroBadge>
-                                    </div>
-                                </div>
-                            ))}
-                            {(!heatmapData || heatmapData.length === 0) && (
-                                <div className="text-[0.625rem] italic text-text-muted py-4 text-center">
-                                    No heatmap data available for this scene.
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div ref={viewportRef} className="hidden h-0 w-0">
-                        <Heatmap3D data={heatmapData ?? []} resolution={heatmapRes} />
-                    </div>
-                </div>
-            ) : (
-                <Heatmap3D data={heatmapData ?? []} resolution={heatmapRes} />
-            )}
+          <div className="flex-1 min-h-0 relative border-4 border-black shadow-retro overflow-hidden">
+            <Heatmap3D data={heatmapData ?? []} resolution={heatmapRes} />
           </div>
         </div>
       )}

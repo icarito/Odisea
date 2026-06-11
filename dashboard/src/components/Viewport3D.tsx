@@ -48,6 +48,9 @@ interface Viewport3DProps {
   staleAge: number;
   heatmapData?: any[];
   liveGhosts?: any[];
+  // Optional compact HUD overlaid in the corner (fps + position), used in the
+  // full-space mobile/fullscreen view so the data doesn't steal canvas space.
+  hud?: { fps?: number; scene?: string } | null;
 }
 
 const SceneModel: React.FC<{ sceneName: string; wireframe: boolean }> = ({ sceneName, wireframe }) => {
@@ -127,7 +130,7 @@ const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, 
   );
 };
 
-export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge, heatmapData, liveGhosts }) => {
+export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge, heatmapData, liveGhosts, hud }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const controlsRef = useRef<any>(null);
 
@@ -215,6 +218,19 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
             RESET VIEW (CENITAL)
         </button>
       </div>
+
+      {/* Compact data HUD (doesn't steal canvas space). */}
+      {hud && (
+        <div className="absolute bottom-3 right-3 pointer-events-none bg-black/55 px-2 py-1.5 rounded text-[10px] font-mono leading-tight text-white">
+          <div>
+            FPS <span className={(hud.fps ?? 0) < 30 ? 'text-danger' : (hud.fps ?? 0) < 45 ? 'text-warning' : 'text-success'}>
+              {Math.round(hud.fps ?? 0)}
+            </span>
+          </div>
+          <div className="text-accent truncate max-w-[120px]">{hud.scene || sceneName || '—'}</div>
+          <div className="text-text-muted">{position.map(n => n.toFixed(1)).join(', ')}</div>
+        </div>
+      )}
     </div>
   );
 };

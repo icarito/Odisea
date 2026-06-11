@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 interface ActiveGhost {
   player_id: string;
@@ -16,137 +16,187 @@ interface LiveMapProps {
   sceneName: string;
 }
 
+const fpsColor = (fps: number) => (fps < 30 ? '#ef4444' : fps < 45 ? '#eab308' : '#22c55e');
+
+// Birdseye map with wheel/pinch zoom and drag pan. Renders on a rAF loop so it
+// tracks incoming heartbeats in real time. World units -> pixels via `scale`,
+// recentred by `offset` (pan).
 export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [hoveredGhost, setHoveredGhost] = useState<ActiveGhost | null>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const wrapRef = useRef<HTMLDivElement>(null);
 
+  // Camera: world->screen = center + offset + worldPos * (baseScale * zoom)
+  const camRef = useRef({ zoom: 1, offsetX: 0, offsetY: 0 });
+  const [, forceTick] = useState(0); // re-render for the live counter
+
+  // Keep latest props in refs so the rAF loop reads fresh values without
+  // re-subscribing.
+  const ghostsRef = useRef(ghosts);
+  const sceneRef = useRef(sceneName);
+  ghostsRef.current = ghosts;
+  sceneRef.current = sceneName;
+
+  const visible = ghosts.filter(g => sceneName === '' || g.scene === sceneName);
+
+  // --- rAF render loop ---
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    let raf = 0;
+    const draw = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (canvas && ctx) {
+        // Match the backing store to the displayed size (crisp on HiDPI).
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const w = Math.max(1, Math.round(rect.width));
+        const h = Math.max(1, Math.round(rect.height));
+        if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+          canvas.width = w * dpr;
+          canvas.height = h * dpr;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
 
-    const render = () => {
-      const { width, height } = canvas;
-      ctx.clearRect(0, 0, width, height);
+        const cam = camRef.current;
+        const baseScale = 2; // 1 world unit = 2px at zoom 1
+        const scale = baseScale * cam.zoom;
+        const cx = w / 2 + cam.offsetX;
+        const cy = h / 2 + cam.offsetY;
+        const toX = (x: number) => cx + x * scale;
+        const toZ = (z: number) => cy + z * scale;
 
-      // Draw Grid Background
-      ctx.strokeStyle = '#232833';
-      ctx.lineWidth = 1;
-      const gridSize = 40;
-      for (let x = 0; x < width; x += gridSize) {
+        // Grid (in world space, so it pans/zooms with the map).
+        const gridWorld = 10; // 10 units between lines
+        const gridPx = gridWorld * scale;
+        if (gridPx > 6) {
+          ctx.strokeStyle = '#1c2230';
+          ctx.lineWidth = 1;
+          const startX = cx % gridPx;
+          const startY = cy % gridPx;
+          for (let x = startX; x < w; x += gridPx) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+          }
+          for (let y = startY; y < h; y += gridPx) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+          }
+        }
+
+        // Origin crosshair.
+        ctx.strokeStyle = '#2a3140';
+        ctx.setLineDash([4, 4]);
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
+        ctx.moveTo(toX(0), 0); ctx.lineTo(toX(0), h);
+        ctx.moveTo(0, toZ(0)); ctx.lineTo(w, toZ(0));
         ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Player points.
+        const list = ghostsRef.current.filter(
+          g => sceneRef.current === '' || g.scene === sceneRef.current
+        );
+        list.forEach(g => {
+          const sx = toX(g.pos_x);
+          const sz = toZ(g.pos_z);
+          const color = fpsColor(g.fps);
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = color;
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(sx, sz, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#d7dbe0';
+          ctx.font = '10px monospace';
+          ctx.fillText(g.player_id.substring(0, 8), sx + 9, sz + 3);
+        });
       }
-      for (let y = 0; y < height; y += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
-
-      // Draw Scene Center
-      ctx.strokeStyle = '#2a3140';
-      ctx.setLineDash([5, 5]);
-      ctx.beginPath();
-      ctx.moveTo(width / 2, 0); ctx.lineTo(width / 2, height);
-      ctx.moveTo(0, height / 2); ctx.lineTo(width, height / 2);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Draw Ghosts
-      const scale = 2; // 1 unit = 2 pixels
-      ghosts.forEach(ghost => {
-        if (ghost.scene !== sceneName && sceneName !== "") return;
-
-        const screenX = width / 2 + ghost.pos_x * scale;
-        const screenZ = height / 2 + ghost.pos_z * scale;
-
-        let color = '#22c55e'; // Green > 45
-        if (ghost.fps < 30) color = '#ef4444'; // Red < 30
-        else if (ghost.fps < 45) color = '#eab308'; // Yellow 30-45
-
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(screenX, screenZ, 6, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Glow effect
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = color;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-
-        // Label
-        ctx.fillStyle = 'white';
-        ctx.font = '10px Inter, sans-serif';
-        ctx.fillText(ghost.player_id.substring(0, 8), screenX + 8, screenZ + 4);
-      });
+      raf = requestAnimationFrame(draw);
     };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
-    render();
-  }, [ghosts, sceneName]);
+  // --- wheel zoom ---
+  const onWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const cam = camRef.current;
+    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    cam.zoom = Math.min(8, Math.max(0.25, cam.zoom * factor));
+    forceTick(t => t + 1);
+  }, []);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setMousePos({ x: e.clientX, y: e.clientY });
+  // --- drag pan (mouse + single touch) + pinch zoom (two touches) ---
+  const drag = useRef<{ x: number; y: number } | null>(null);
+  const pinch = useRef<{ dist: number; zoom: number } | null>(null);
 
-    const scale = 2;
-    const found = ghosts.find(g => {
-      if (g.scene !== sceneName && sceneName !== "") return false;
-      const gx = canvas.width / 2 + g.pos_x * scale;
-      const gz = canvas.height / 2 + g.pos_z * scale;
-      return Math.sqrt((x - gx) ** 2 + (y - gz) ** 2) < 10;
-    });
-    setHoveredGhost(found || null);
+  const onPointerDown = (e: React.PointerEvent) => {
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    drag.current = { x: e.clientX, y: e.clientY };
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!drag.current) return;
+    const cam = camRef.current;
+    cam.offsetX += e.clientX - drag.current.x;
+    cam.offsetY += e.clientY - drag.current.y;
+    drag.current = { x: e.clientX, y: e.clientY };
+  };
+  const onPointerUp = () => { drag.current = null; };
+
+  const touchDist = (t: React.TouchList) =>
+    Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      drag.current = null;
+      pinch.current = { dist: touchDist(e.touches), zoom: camRef.current.zoom };
+    }
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinch.current) {
+      e.preventDefault();
+      const ratio = touchDist(e.touches) / pinch.current.dist;
+      camRef.current.zoom = Math.min(8, Math.max(0.25, pinch.current.zoom * ratio));
+      forceTick(t => t + 1);
+    }
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length < 2) pinch.current = null;
+  };
+
+  const resetView = () => {
+    camRef.current = { zoom: 1, offsetX: 0, offsetY: 0 };
+    forceTick(t => t + 1);
   };
 
   return (
-    <div className="w-full h-full relative bg-[#0c0e12] rounded-lg overflow-hidden border border-[#232833]">
+    <div ref={wrapRef} className="w-full h-full relative bg-[#0c0e12] overflow-hidden">
       <canvas
         ref={canvasRef}
-        width={800}
-        height={600}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={() => setHoveredGhost(null)}
-        className="w-full h-full cursor-crosshair"
+        onWheel={onWheel}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        className="w-full h-full touch-none cursor-grab active:cursor-grabbing"
       />
 
-      <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
-        <div className="bg-[#161a22]/90 px-3 py-1.5 rounded text-[0.625rem] border border-[#232833] text-white">
-          LIVE GHOSTS: <span className="text-[#7fd1ff] font-bold">{ghosts.filter(g => g.scene === sceneName || sceneName === "").length}</span>
-        </div>
+      <div className="absolute top-3 left-3 pointer-events-none bg-bg-card/90 px-2 py-1 border-2 border-black text-[0.625rem] font-mono">
+        LIVE: <span className="text-accent font-bold">{visible.length}</span>
       </div>
 
-      {hoveredGhost && (
-        <div
-          className="fixed bg-[#161a22]/95 border border-[#232833] p-3 rounded shadow-2xl z-50 pointer-events-none text-white text-xs"
-          style={{ left: mousePos.x + 15, top: mousePos.y + 15 }}
-        >
-          <div className="font-bold text-[#7fd1ff] border-b border-[#232833] pb-1 mb-2">
-            {hoveredGhost.player_id}
-          </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-            <span className="text-gray-400">FPS:</span>
-            <span className={hoveredGhost.fps < 30 ? "text-red-400 font-bold" : "text-white"}>
-              {hoveredGhost.fps.toFixed(1)}
-            </span>
-            <span className="text-gray-400">Scene:</span>
-            <span>{hoveredGhost.scene}</span>
-            <span className="text-gray-400">Position:</span>
-            <span>{hoveredGhost.pos_x.toFixed(1)}, {hoveredGhost.pos_z.toFixed(1)}</span>
-            <span className="text-gray-400">Last Seen:</span>
-            <span>{new Date(hoveredGhost.last_seen * 1000).toLocaleTimeString()}</span>
-          </div>
-        </div>
-      )}
+      <button
+        onClick={resetView}
+        className="absolute top-3 right-3 bg-bg-card/90 px-2 py-1 border-2 border-black text-[0.625rem] font-mono uppercase font-bold hover:bg-accent hover:text-black"
+      >
+        Reset
+      </button>
+
+      <div className="absolute bottom-3 left-3 pointer-events-none text-[0.5rem] font-mono text-text-muted uppercase">
+        Scroll/pinch = zoom · drag = pan
+      </div>
     </div>
   );
 };

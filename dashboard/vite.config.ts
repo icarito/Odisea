@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
           description: 'Panel de telemetría en vivo de Odisea',
           theme_color: '#863bff',
           background_color: '#0c0e12',
-          display: 'standalone',
+          display: 'fullscreen',
           orientation: 'any',
           start_url: '/',
           icons: [
