@@ -70,12 +70,26 @@ jobs:
             artifact_name: html5-threads
 
     runs-on: ${{ matrix.os }}
-    # Skip iOS if certs are missing
-    if: matrix.platform != 'ios' || (secrets.IOS_CERT_P12_B64 != '' && secrets.IOS_PROVISION_B64 != '')
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # `secrets` and `matrix` can't be used in a job-level `if`, so gate iOS at
+      # the step level instead: detect missing certs here and skip the iOS-only
+      # steps below when they're absent.
+      - name: Check iOS signing availability
+        id: ios_gate
+        env:
+          IOS_CERT_P12_B64: ${{ secrets.IOS_CERT_P12_B64 }}
+          IOS_PROVISION_B64: ${{ secrets.IOS_PROVISION_B64 }}
+        run: |
+          if [ "${{ matrix.platform }}" = "ios" ] && { [ -z "$IOS_CERT_P12_B64" ] || [ -z "$IOS_PROVISION_B64" ]; }; then
+            echo "iOS signing secrets missing — skipping iOS export."
+            echo "skip_ios=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip_ios=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Disable editor plugins
         run: python3 scripts/disable_plugins.py
@@ -152,14 +166,14 @@ jobs:
           fi
 
       - name: iOS Certificates Setup
-        if: matrix.platform == 'ios'
+        if: matrix.platform == 'ios' && steps.ios_gate.outputs.skip_ios != 'true'
         uses: apple-actions/import-codesign-certs@v1
         with:
           p12-file-base64: ${{ secrets.IOS_CERT_P12_B64 }}
           p12-password: ${{ secrets.IOS_CERT_PASSWORD }}
 
       - name: iOS Provisioning Setup
-        if: matrix.platform == 'ios'
+        if: matrix.platform == 'ios' && steps.ios_gate.outputs.skip_ios != 'true'
         uses: apple-actions/download-provisioning-profiles@v1
         with:
           bundle-id: '*'
@@ -167,6 +181,7 @@ jobs:
           provisioning-profiles-base64: ${{ secrets.IOS_PROVISION_B64 }}
 
       - name: Export
+        if: steps.ios_gate.outputs.skip_ios != 'true'
         run: |
           # Import step
           $GODOT_BIN --editor --quit --headless || true
@@ -199,6 +214,7 @@ jobs:
           fi
 
       - name: Upload Artifact
+        if: steps.ios_gate.outputs.skip_ios != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}
