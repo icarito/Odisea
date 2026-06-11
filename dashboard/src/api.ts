@@ -31,6 +31,11 @@ export async function getHealth() {
   return response.json();
 }
 
+export async function getWebTelemetry() {
+  const response = await apiFetch("/telemetry/web?limit=300");
+  return response.json();
+}
+
 export async function sendCommand(playerId: string, action: string, args: any = {}) {
   const response = await apiFetch("/command", {
     method: "POST",

@@ -35,6 +35,11 @@ HELPER = f"""
 \t\t\t}} else {{
 \t\t\t\theaders.set('content-type', 'application/octet-stream');
 \t\t\t}}
+\t\t\t// The body below is the DECOMPRESSED stream; the .gz content-length
+\t\t\t// would make the loader's progress total smaller than the bytes it
+\t\t\t// counts. Drop it so the loader falls back to the real size from
+\t\t\t// the engine config (fileSizes).
+\t\t\theaders.delete('content-length');
 \t\t\treturn new Response(response.body.pipeThrough(new DecompressionStream('gzip')), {{
 \t\t\t\theaders: headers,
 \t\t\t\tstatus: response.status,

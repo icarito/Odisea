@@ -56,6 +56,40 @@
 			color: #445566;
 			text-decoration: none;
 		}
+
+		#odisea-popup {
+			position: fixed;
+			inset: 0;
+			background: rgba(0, 0, 0, 0.85);
+			display: none;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			font-family: system-ui, sans-serif;
+			z-index: 20;
+		}
+		#odisea-popup.visible { display: flex; }
+		#odisea-popup-msg {
+			color: #cccccc;
+			font-size: 14px;
+			line-height: 1.6;
+			text-align: center;
+			white-space: pre-line;
+		}
+		#odisea-popup a {
+			color: #aabbcc;
+			text-decoration: none;
+		}
+		#odisea-popup-close {
+			margin-top: 24px;
+			padding: 6px 20px;
+			background: none;
+			border: 1px solid #445566;
+			color: #aabbcc;
+			font: inherit;
+			font-size: 13px;
+			cursor: pointer;
+		}
 	</style>
 $GODOT_HEAD_INCLUDE
 </head>
@@ -66,9 +100,14 @@ $GODOT_HEAD_INCLUDE
 		<div id="odisea-bar"><div id="odisea-bar-fill"></div></div>
 		<div id="odisea-lore"></div>
 		<div id="odisea-links">
-			<a href="https://discord.gg/odisea" target="_blank" rel="noopener">discord.gg/odisea</a><br>
+			<a href="#" rel="noopener">icarito</a><br>
 			<a href="https://odisea.educa.juegos" target="_blank" rel="noopener">odisea.educa.juegos</a>
 		</div>
+	</div>
+	<div id="odisea-popup">
+		<div id="odisea-popup-msg"></div>
+		<a href="https://github.com/icarito/Odisea/issues" target="_blank" rel="noopener">github.com/icarito/Odisea/issues</a>
+		<button id="odisea-popup-close" type="button">Cerrar</button>
 	</div>
 	<script src="$GODOT_URL"></script>
 	<script>
@@ -250,11 +289,97 @@ $GODOT_HEAD_INCLUDE
 
 		// ================================================================
 		// Loading screen: raw progress + rotating lore lines, then a
-		// 0.5s fade-out once the engine takes over.
+		// 0.5s fade-out once the engine takes over. Reports loader_start /
+		// engine_start to the bridge (fire and forget) and shows a popup
+		// on load errors or after a 90s watchdog.
 		// ================================================================
 		var loadingEl = document.getElementById("odisea-loading");
 		var barFillEl = document.getElementById("odisea-bar-fill");
 		var loreEl = document.getElementById("odisea-lore");
+		var popupEl = document.getElementById("odisea-popup");
+		var popupMsgEl = document.getElementById("odisea-popup-msg");
+
+		// --- Telemetry (fire and forget, must never block the load) ---
+		var TELEMETRY_ENDPOINTS = [
+			"https://odisea.educa.juegos:5003/telemetry",
+			"https://odisea.educa.juegos/telemetry"
+		];
+		var sessionId = (function() {
+			try {
+				var buf = new Uint32Array(2);
+				crypto.getRandomValues(buf);
+				return Date.now().toString(36) + "-" + buf[0].toString(36) + buf[1].toString(36);
+			} catch (e) {
+				return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
+			}
+		})();
+		var loaderStartMs = Date.now();
+		var engineStarted = false;
+
+		function sendMetric(payload, endpointIndex) {
+			endpointIndex = endpointIndex || 0;
+			if (endpointIndex >= TELEMETRY_ENDPOINTS.length) return;
+			try {
+				fetch(TELEMETRY_ENDPOINTS[endpointIndex], {
+					method: "POST",
+					mode: "no-cors",
+					keepalive: true,
+					body: JSON.stringify(payload)
+				}).catch(function() {
+					sendMetric(payload, endpointIndex + 1);
+				});
+			} catch (e) { /* never block the load */ }
+		}
+
+		sendMetric({
+			event: "loader_start",
+			ts: loaderStartMs,
+			ua: navigator.userAgent,
+			session_id: sessionId
+		});
+
+		// Called by Godot (JavaScript.eval) when the boot transition finishes
+		// and the player gains control in the first scene.
+		var playerReleasedSent = false;
+		window.OdiseaShell = {
+			playerReleased: function() {
+				if (playerReleasedSent) return;
+				playerReleasedSent = true;
+				sendMetric({
+					event: "player_released",
+					ts: Date.now(),
+					session_id: sessionId,
+					total_ms: Date.now() - loaderStartMs
+				});
+			}
+		};
+
+		// --- Popup (error / slow-load watchdog) ---
+		var POPUP_ERROR_MSG = "Algo salió mal.\nReportalo en:";
+		var POPUP_TIMEOUT_MSG = "La carga está tomando más de lo esperado.\nSi no se completa, reportalo en:";
+		var popupShown = false;
+
+		function showPopup(message) {
+			if (engineStarted || popupShown) return;
+			popupShown = true;
+			popupMsgEl.textContent = message;
+			popupEl.classList.add("visible");
+		}
+
+		document.getElementById("odisea-popup-close").addEventListener("click", function() {
+			popupEl.classList.remove("visible");
+		});
+
+		window.addEventListener("error", function() {
+			showPopup(POPUP_ERROR_MSG);
+		});
+		window.addEventListener("unhandledrejection", function() {
+			showPopup(POPUP_ERROR_MSG);
+		});
+
+		var watchdogTimer = setTimeout(function() {
+			showPopup(POPUP_TIMEOUT_MSG);
+		}, 90000);
 
 		var lorePhrases = [
 			"La nave tiene 8 kilómetros de eslora.",
@@ -272,14 +397,23 @@ $GODOT_HEAD_INCLUDE
 			loreEl.textContent = lorePhrases[loreIndex];
 		}, 3000);
 
-		var engine = new Engine($GODOT_CONFIG);
-		engine.startGame({
-			onProgress: function(current, total) {
-				if (total > 0) {
-					barFillEl.style.width = (current / total * 100).toFixed(1) + "%";
-				}
-			}
-		}).then(function() {
+		// Real download size (pck + wasm), injected by the deploy workflow.
+		// The engine's own total comes from fileSizes at export time, which can
+		// drift from what we actually serve (e.g. the GitHub Pages copy).
+		// If the token is not replaced, this resolves to 0 and is ignored.
+		var EXPECTED_TOTAL_BYTES = Number("$ODISEA_TOTAL_BYTES".replace(/[^0-9]/g, "")) || 0;
+
+		function onEngineStarted() {
+			if (engineStarted) return;
+			engineStarted = true;
+			clearTimeout(watchdogTimer);
+			popupEl.classList.remove("visible");
+			sendMetric({
+				event: "engine_start",
+				ts: Date.now(),
+				session_id: sessionId,
+				load_ms: Date.now() - loaderStartMs
+			});
 			barFillEl.style.width = "100%";
 			clearInterval(loreTimer);
 			loadingEl.classList.add("done");
@@ -288,10 +422,22 @@ $GODOT_HEAD_INCLUDE
 					loadingEl.parentNode.removeChild(loadingEl);
 				}
 			}, 600);
-		}).catch(function(err) {
+		}
+
+		var engine = new Engine($GODOT_CONFIG);
+		engine.startGame({
+			onProgress: function(current, total) {
+				var t = (total > 0 && total >= current) ? total : EXPECTED_TOTAL_BYTES;
+				if (t > 0) {
+					barFillEl.style.width = Math.min(100, current / t * 100).toFixed(1) + "%";
+				}
+			},
+			onComplete: onEngineStarted
+		}).then(onEngineStarted).catch(function(err) {
 			clearInterval(loreTimer);
 			loreEl.textContent = "Error al cargar. Recarga la página.";
 			console.error("[ODiSEA] Engine start failed:", err);
+			showPopup(POPUP_ERROR_MSG);
 		});
 	</script>
 </body>

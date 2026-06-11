@@ -1,4 +1,4 @@
-name: Exportar a Web y Desplegar en GitHub Pages
+name: Exportar a Web y Desplegar (Pages + Netlify)
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
     types:
       - completed
     branches: [ "main" ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,32 +16,34 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: "web-deploy"
   cancel-in-progress: true
 
 jobs:
   build-and-deploy:
     if: |
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-      github.event_name == 'push'
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Cache Godot dependencies
+      - name: Cache Godot
         uses: actions/cache@v3
         with:
           path: |
             ~/.cache/godot
             ~/.config/godot
             ~/.local/share/godot
-          key: ${{ runner.os }}-godot-${{ hashFiles('**/project.godot') }}
+          key: ${{ runner.os }}-godot-web-${{ hashFiles('**/project.godot') }}
           restore-keys: |
-            ${{ runner.os }}-godot-
+            ${{ runner.os }}-godot-web-
 
-      - name: Export to Web (regular)
-        id: export
+      # ── Export 1: HTML5 Regular (via firebelley) ──
+      - name: Export HTML5 Regular
+        id: export-regular
         uses: firebelley/godot-export@v7.0.0
         with:
           godot_executable_download_url: https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_linux_headless.64.zip
@@ -51,102 +54,128 @@ jobs:
           export_debug: false
           presets_to_export: 'HTML5'
 
-      - name: Move Web export to root
+      - name: Collect regular export
         run: |
-          BUILD_DIR="${{ steps.export.outputs.build_directory }}"
+          BUILD_DIR="${{ steps.export-regular.outputs.build_directory }}"
+          mkdir -p pages_build/
           SRC_DIR=""
-
           for candidate in HTML5 Web; do
-            if [ -d "$BUILD_DIR/$candidate" ]; then
-              SRC_DIR="$BUILD_DIR/$candidate"
-              break
-            fi
+            if [ -d "$BUILD_DIR/$candidate" ]; then SRC_DIR="$BUILD_DIR/$candidate"; break; fi
           done
-
           if [ -z "$SRC_DIR" ]; then
             CANDIDATE="$(find "$BUILD_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1 || true)"
-            if [ -n "$CANDIDATE" ] && [ -f "$CANDIDATE/index.html" ]; then
-              SRC_DIR="$CANDIDATE"
-            fi
+            if [ -n "$CANDIDATE" ] && [ -f "$CANDIDATE/index.html" ]; then SRC_DIR="$CANDIDATE"; fi
           fi
-
           if [ -n "$SRC_DIR" ]; then
-            shopt -s dotglob
-            mv "$SRC_DIR"/* "$BUILD_DIR"/
-            rmdir "$SRC_DIR"
-            echo "Moved export contents from $SRC_DIR to $BUILD_DIR"
+            shopt -s dotglob; mv "$SRC_DIR"/* pages_build/; rmdir "$SRC_DIR"
           else
-            echo "No nested export dir found; leaving build directory as-is."
+            shopt -s dotglob; cp -a "$BUILD_DIR"/* pages_build/
           fi
+          python3 scripts/minimize_html_export.py pages_build/
+          echo "Regular export collected:"
+          ls -la pages_build/
 
-      - name: Minimize Web export for GitHub Pages
-        run: python3 scripts/minimize_html_export.py "${{ steps.export.outputs.build_directory }}"
-
-      # ── Threads WASM for Netlify fallback ──
-      - name: Install Godot server binary (for threads export)
+      # ── Export 2: HTML5 Threads (for Netlify + WASM fallback on Pages) ──
+      - name: Install Godot binary
         run: |
-          GODOT_BIN="$HOME/.local/bin/godot3-server"
-          if [ ! -f "$GODOT_BIN" ]; then
-            mkdir -p "$HOME/.local/bin"
+          GODOT_DIR="$HOME/.local/bin"
+          mkdir -p "$GODOT_DIR"
+          echo "$GODOT_DIR" >> "$GITHUB_PATH"
+          if [ ! -f "$GODOT_DIR/godot3-server" ]; then
             curl -fSL -o /tmp/godot.zip \
               "https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_linux_headless.64.zip"
-            unzip -o /tmp/godot.zip -d "$HOME/.local/bin/"
-            chmod +x "$HOME/.local/bin/Godot_v3.6.2-stable_linux_headless.64"
-            ln -sf "$HOME/.local/bin/Godot_v3.6.2-stable_linux_headless.64" "$GODOT_BIN"
+            unzip -o /tmp/godot.zip -d "$GODOT_DIR/"
+            chmod +x "$GODOT_DIR/Godot_v3.6.2-stable_linux_headless.64"
+            ln -sf "$GODOT_DIR/Godot_v3.6.2-stable_linux_headless.64" "$GODOT_DIR/godot3-server"
           fi
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      - name: Export HTML5 Threads (WASM staged in /threads/)
+      - name: Swap threads WASM template and export
         run: |
-          # Find templates dir (firebelley/godot-export may install to different paths)
-          TPL_DIR=$(find "$HOME/.local/share/godot/templates" -maxdepth 2 -name "webassembly_release.wasm" 2>/dev/null | head -n1 | xargs dirname 2>/dev/null || true)
+          # The firebelley action already extracted templates - find where
+          TPL_DIR=$(find "$HOME/.local/share/godot/templates" -maxdepth 2 -name "webassembly*.zip" 2>/dev/null | head -n1 | xargs dirname 2>/dev/null || true)
           if [ -z "$TPL_DIR" ]; then
-            TPL_DIR=$(find "$HOME/.cache/godot" -name "webassembly_release.wasm" 2>/dev/null | head -n1 | xargs dirname 2>/dev/null || true)
+            TPL_DIR=$(find "$HOME/.cache" /tmp -name "webassembly_release.wasm" 2>/dev/null | head -n1 | xargs dirname 2>/dev/null || true)
           fi
-          if [ -z "$TPL_DIR" ]; then
-            TPL_DIR=$(find /tmp -name "webassembly_release.wasm" 2>/dev/null | head -n1 | xargs dirname 2>/dev/null || true)
-          fi
-          echo "Templates directory: $TPL_DIR"
-
-          THREADS_ZIP=$(find "$TPL_DIR" /tmp /home/runner -name "webassembly_threads_release.zip" 2>/dev/null | head -n1 || true)
-          if [ -z "$THREADS_ZIP" ]; then
-            echo "webassembly_threads_release.zip not found, downloading and extracting from .tpz..."
-            curl -fSL -o /tmp/godot_tpz.zip \
+          # Fallback: download and extract ourselves
+          if [ -z "$TPL_DIR" ] || [ ! -f "$TPL_DIR/webassembly_threads_release.zip" ]; then
+            echo "Templates not found in expected location, downloading..."
+            TPL_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
+            mkdir -p "$TPL_DIR"
+            curl -fSL -o /tmp/tpz.zip \
               "https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_export_templates.tpz"
-            mkdir -p /tmp/tpz_extract
-            unzip -o /tmp/godot_tpz.zip -d /tmp/tpz_extract/
-            THREADS_ZIP=$(find /tmp/tpz_extract -name "webassembly_threads_release.zip" 2>/dev/null | head -n1 || true)
-            # Also copy templates into the right place if we had to download them
-            if [ -n "$TPL_DIR" ] && [ -d /tmp/tpz_extract/templates ]; then
-              cp -a /tmp/tpz_extract/templates/* "$TPL_DIR/" 2>/dev/null || true
+            unzip -o /tmp/tpz.zip -d /tmp/tpz_extract/
+            if [ -d /tmp/tpz_extract/templates ]; then
+              cp -a /tmp/tpz_extract/templates/* "$TPL_DIR/"
             fi
           fi
-          echo "Threads zip: $THREADS_ZIP"
+          echo "Templates dir: $TPL_DIR"
 
+          # Extract threads WASM
+          THREADS_ZIP="$TPL_DIR/webassembly_threads_release.zip"
           mkdir -p /tmp/threads_wasm
           unzip -o "$THREADS_ZIP" -d /tmp/threads_wasm/
           THREADS_WASM=$(find /tmp/threads_wasm -name '*.wasm' | head -n1)
-          echo "Threads WASM: $THREADS_WASM"
 
+          # Swap template
           cp "$TPL_DIR/webassembly_release.wasm" "$TPL_DIR/webassembly_release.standard.bak"
           cp "$THREADS_WASM" "$TPL_DIR/webassembly_release.wasm"
 
-          BUILD_DIR="${{ steps.export.outputs.build_directory }}"
-          mkdir -p /tmp/threads_export
-          godot3-server --no-window --export "HTML5 Threads" /tmp/threads_export/index.html --quiet 2>&1
+          # Import + export threads
+          godot3-server --editor --quit --headless 2>&1 || true
+          mkdir -p build_threads netlify_build/
+          godot3-server --no-window --export "HTML5 Threads" build_threads/index.html --quiet 2>&1
+          echo "Threads export:"
+          ls -la build_threads/
 
-          mkdir -p "$BUILD_DIR/threads"
-          cp /tmp/threads_export/index.wasm "$BUILD_DIR/threads/"
-          gzip -9 -n -c "$BUILD_DIR/threads/index.wasm" > "$BUILD_DIR/threads/index.wasm.gz"
-          echo "Threads WASM staged in $BUILD_DIR/threads/:"
-          ls -la "$BUILD_DIR/threads/"
+      # ── Stage threads WASM into Pages artifact (/threads/) ──
+      - name: Stage threads WASM for Pages fallback
+        run: |
+          mkdir -p pages_build/threads
+          cp build_threads/index.wasm pages_build/threads/
+          gzip -9 -n -c pages_build/threads/index.wasm > pages_build/threads/index.wasm.gz
+          echo "Pages threads/ fallback:"
+          ls -la pages_build/threads/
 
-      - name: Upload artifact
+      # ── Prepare Netlify deploy dir ──
+      - name: Prepare Netlify deploy
+        run: |
+          shopt -s dotglob
+          cp -a build_threads/* netlify_build/
+          python3 scripts/minimize_html_export.py netlify_build/
+          cp build/_headers netlify_build/_headers
+
+      # ── Upload Pages artifact ──
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ${{ steps.export.outputs.build_directory }}
+          path: pages_build
 
-  deploy:
+      # ── Deploy to Netlify ──
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: netlify_build/
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy from ${{ github.sha }}"
+          netlify-config-path: ./
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+      - name: Verify
+        run: |
+          echo "::group::Pages build"
+          ls -la pages_build/
+          echo "::endgroup::"
+          echo "::group::Netlify build"
+          ls -la netlify_build/
+          echo "::endgroup::"
+          echo "::group::_headers"
+          cat netlify_build/_headers
+          echo "::endgroup::"
+
+  deploy-pages:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -156,3 +185,11 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  deploy-pages-result:
+    name: Deploy Pages Status
+    runs-on: ubuntu-latest
+    needs: deploy-pages
+    if: always()
+    steps:
+      - run: echo "Pages deploy: ${{ needs.deploy-pages.result }}"

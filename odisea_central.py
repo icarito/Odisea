@@ -24,6 +24,11 @@ AUTH_MAX_FAILS = int(os.environ.get("CENTRAL_AUTH_MAX_FAILS", 8))
 AUTH_FAIL_WINDOW = int(os.environ.get("CENTRAL_AUTH_FAIL_WINDOW", 60))
 AUTH_LOCKOUT = int(os.environ.get("CENTRAL_AUTH_LOCKOUT", 300))
 
+WEB_TELEMETRY_FILE = os.environ.get("CENTRAL_WEB_TELEMETRY_FILE", "./data/web_telemetry.jsonl")
+WEB_TELEMETRY_MAX_BYTES = int(os.environ.get("CENTRAL_WEB_TELEMETRY_MAX_BYTES", 4096))
+WEB_TELEMETRY_RATE_MAX = int(os.environ.get("CENTRAL_WEB_TELEMETRY_RATE_MAX", 20))
+WEB_TELEMETRY_RATE_WINDOW = int(os.environ.get("CENTRAL_WEB_TELEMETRY_RATE_WINDOW", 60))
+
 # --- Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger("odisea_central")
@@ -101,6 +106,7 @@ class OdiseaCentral:
         self.metrics = MetricsCollector()
         self.ghost_rotation_counter: Dict[str, int] = {}  # pid -> count
         self.pending_commands: Dict[str, asyncio.Future] = {}  # command_id -> Future
+        self.web_telemetry_rate: Dict[str, List[float]] = {}  # ip -> [request timestamps]
 
         if STORE_GHOSTS and not os.path.exists(GHOSTS_DIR):
             os.makedirs(GHOSTS_DIR, exist_ok=True)
@@ -161,6 +167,11 @@ class OdiseaCentral:
                                  if entry.get("locked_until", 0) <= now and not any(now - t < AUTH_FAIL_WINDOW for t in entry.get("ts", []))]
                 for ip in to_delete_auth:
                     self.auth_fails.pop(ip, None)
+
+                to_delete_rate = [ip for ip, ts in self.web_telemetry_rate.items()
+                                  if not any(now - t < WEB_TELEMETRY_RATE_WINDOW for t in ts)]
+                for ip in to_delete_rate:
+                    self.web_telemetry_rate.pop(ip, None)
             except Exception as e:
                 logger.error(f"Error in cleanup loop: {e}")
             await asyncio.sleep(60)
@@ -168,6 +179,103 @@ class OdiseaCentral:
     # --- Request Handlers ---
     async def handle_health(self, request):
         return web.json_response(self.metrics.get_metrics(self))
+
+    async def handle_web_telemetry(self, request):
+        """Unauthenticated loader metrics from the HTML shell (fire and forget).
+
+        Browsers post with mode no-cors (text/plain body), so there is no
+        bearer token here; mitigate abuse with a body-size cap and a per-IP
+        rate limit instead.
+        """
+        ip = request.remote or "unknown"
+        now = time.time()
+        bucket = self.web_telemetry_rate.setdefault(ip, [])
+        bucket[:] = [t for t in bucket if now - t < WEB_TELEMETRY_RATE_WINDOW]
+        if len(bucket) >= WEB_TELEMETRY_RATE_MAX:
+            return web.json_response({"error": "rate_limited"}, status=429,
+                                     headers={"Access-Control-Allow-Origin": "*"})
+        bucket.append(now)
+
+        try:
+            raw = await request.content.read(WEB_TELEMETRY_MAX_BYTES + 1)
+            if len(raw) > WEB_TELEMETRY_MAX_BYTES:
+                raise ValueError("body too large")
+            data = json.loads(raw.decode("utf-8"))
+            event = str(data.get("event", ""))
+            if event not in ("loader_start", "engine_start", "player_released"):
+                raise ValueError("unknown event")
+            record = {
+                "event": event,
+                "ts": data.get("ts"),
+                "session_id": str(data.get("session_id", ""))[:64],
+                "received_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "ip": ip,
+            }
+            if event == "loader_start":
+                record["ua"] = str(data.get("ua", ""))[:256]
+            elif event == "engine_start":
+                record["load_ms"] = data.get("load_ms")
+            else:
+                record["total_ms"] = data.get("total_ms")
+        except Exception as e:
+            logger.warning(f"Rejected web telemetry from {ip}: {e}")
+            return web.json_response({"error": "bad_request"}, status=400,
+                                     headers={"Access-Control-Allow-Origin": "*"})
+
+        try:
+            os.makedirs(os.path.dirname(WEB_TELEMETRY_FILE) or ".", exist_ok=True)
+            with open(WEB_TELEMETRY_FILE, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except Exception as e:
+            logger.error(f"Failed to persist web telemetry: {e}")
+
+        extra = ""
+        if event == "engine_start":
+            extra = f" load_ms={record.get('load_ms')}"
+        elif event == "player_released":
+            extra = f" total_ms={record.get('total_ms')}"
+        logger.info(f"Web telemetry: {event} session={record['session_id']}{extra}")
+        return web.json_response({"ok": True}, headers={"Access-Control-Allow-Origin": "*"})
+
+    async def handle_web_telemetry_list(self, request):
+        """Recent web loader metrics for the dashboard (auth required)."""
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        try:
+            limit = min(max(int(request.query.get("limit", 200)), 1), 1000)
+        except ValueError:
+            limit = 200
+
+        records = []
+        try:
+            if os.path.exists(WEB_TELEMETRY_FILE):
+                tail_bytes = 262144
+                with open(WEB_TELEMETRY_FILE, "rb") as f:
+                    f.seek(0, os.SEEK_END)
+                    size = f.tell()
+                    f.seek(max(0, size - tail_bytes))
+                    lines = f.read().decode("utf-8", "replace").splitlines()
+                if size > tail_bytes and lines:
+                    lines = lines[1:]  # drop possibly truncated first line
+                for line in lines[-limit:]:
+                    try:
+                        rec = json.loads(line)
+                        rec.pop("ip", None)  # not the dashboard's business
+                        records.append(rec)
+                    except Exception:
+                        pass
+        except Exception as e:
+            logger.error(f"Failed reading web telemetry log: {e}")
+        return web.json_response(records)
+
+    async def handle_web_telemetry_options(self, request):
+        return web.Response(status=204, headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+        })
 
     async def handle_status(self, request):
         guard = self._auth_guard(request)
@@ -500,6 +608,11 @@ class OdiseaCentral:
             web.get('/ghosts', self.handle_ghosts),
             web.post('/command', self.handle_command),
             web.get('/health', self.handle_health),
+            web.post('/telemetry', self.handle_web_telemetry),
+            web.post('/api/telemetry', self.handle_web_telemetry),
+            web.get('/telemetry/web', self.handle_web_telemetry_list),
+            web.options('/telemetry', self.handle_web_telemetry_options),
+            web.options('/api/telemetry', self.handle_web_telemetry_options),
         ])
 
         if os.path.exists(STATIC_DIR):

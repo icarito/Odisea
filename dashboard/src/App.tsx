@@ -7,6 +7,7 @@ import { FpsTimeline } from './components/FpsTimeline';
 import { MemTimeline } from './components/MemTimeline';
 import { SessionTimeline } from './components/SessionTimeline';
 import { SessionHistory } from './components/SessionHistory';
+import { WebLoads } from './components/WebLoads';
 import { useTelemetry } from './hooks/useTelemetry';
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
@@ -33,7 +34,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [followPlayer, setFollowPlayer] = useState(true);
   const [wireframe, setWireframe] = useState(false);
   const [manualScene, setManualScene] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ players: false, timeline: false, alerts: false });
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ players: false, timeline: false, alerts: false, webloads: false });
 
   const toggleCollapse = (section: string) => setCollapsed(prev => ({ ...prev, [section]: !prev[section] }));
 
@@ -224,8 +225,20 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           </div>
         </div>
 
-        {/* Right Sidebar - Alerts (Hidden on small/medium screens) */}
+        {/* Right Sidebar - Web Loads & Alerts (Hidden on small/medium screens) */}
         <div className={`hidden xl:flex flex-col bg-bg-primary border-l border-border-custom ${collapsed.alerts ? 'w-auto xl:w-auto' : 'w-72 xl:w-72 xl:shrink-0'}`}>
+          <div
+            className="p-3 text-[10px] uppercase text-text-muted font-bold border-b border-border-custom cursor-pointer hover:text-text-primary select-none flex justify-between items-center"
+            onClick={() => toggleCollapse('webloads')}
+          >
+            <span>Cargas Web</span>
+            <span className="text-xs">{collapsed.webloads ? '▸' : '▾'}</span>
+          </div>
+          {!collapsed.webloads && (
+          <div className="max-h-72 overflow-y-auto p-2 border-b border-border-custom">
+            <WebLoads />
+          </div>
+          )}
           <div
             className="p-3 text-[10px] uppercase text-text-muted font-bold border-b border-border-custom cursor-pointer hover:text-text-primary select-none flex justify-between items-center"
             onClick={() => toggleCollapse('alerts')}

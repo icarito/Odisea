@@ -49,6 +49,7 @@ func _start_boot_transition() -> void:
 		})
 		if state is GDScriptFunctionState:
 			yield(state, "completed")
+		_notify_player_released()
 		return
 
 	_mark_trace("boot_loader_scene_request_fallback", {"path": startup_scene_path})
@@ -77,6 +78,15 @@ func _start_direct_scene_fallback(reason: String = "") -> void:
 	var err := get_tree().change_scene(startup_scene_path)
 	if err != OK:
 		printerr("[BootLoader] change_scene failed for %s (err=%d)" % [startup_scene_path, err])
+	else:
+		_notify_player_released()
+
+# Tell the HTML shell (web exports) that the boot transition finished and
+# the player is in control, so it can report total load time to the bridge.
+func _notify_player_released() -> void:
+	if not OS.has_feature("JavaScript"):
+		return
+	JavaScript.eval("window.OdiseaShell && window.OdiseaShell.playerReleased && window.OdiseaShell.playerReleased();", true)
 
 func _get_skip_reason() -> String:
 	if _is_test_suite():
