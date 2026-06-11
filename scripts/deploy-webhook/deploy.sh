@@ -54,15 +54,22 @@ log "now at $NEW_SHA"
 
 log "building dashboard (pnpm)"
 cd "$REPO_DIR/dashboard"
-# The dashboard uses pnpm (pnpm-lock.yaml). Prefer an installed pnpm; otherwise
-# enable it via corepack (bundled with Node). npm is intentionally NOT used —
-# it diverges from the pnpm lockfile.
-if ! command -v pnpm >/dev/null 2>&1; then
-  corepack enable >/dev/null 2>&1 || true
-  corepack prepare pnpm@latest --activate >/dev/null 2>&1 || true
+# The dashboard uses pnpm (pnpm-lock.yaml). npm is intentionally NOT used — it
+# diverges from the pnpm lockfile. Resolve a pnpm command that works without
+# root: a real pnpm on PATH, else corepack's shim (`corepack pnpm ...`).
+# `corepack enable` needs write access to /usr/bin, which we don't have, so we
+# invoke pnpm through corepack directly instead.
+if command -v pnpm >/dev/null 2>&1; then
+  PNPM="pnpm"
+elif command -v corepack >/dev/null 2>&1; then
+  corepack prepare "pnpm@${PNPM_VERSION:-9.15.0}" --activate >/dev/null 2>&1 || true
+  PNPM="corepack pnpm"
+else
+  echo "::error::Neither pnpm nor corepack is available"; exit 1
 fi
-pnpm install --frozen-lockfile
-pnpm run build
+log "using: $PNPM ($($PNPM --version 2>/dev/null || echo '?'))"
+$PNPM install --frozen-lockfile
+$PNPM run build
 
 log "deploying to $DEPLOY_DIR"
 mkdir -p "$DEPLOY_DIR/static"
