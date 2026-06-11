@@ -37,18 +37,18 @@ func _init() -> void:
 	set_process(false)
 	_threads_supported = _probe_thread_support()
 
-# Actually try to run a thread, rather than trusting OS.has_feature("threads").
-# Returns true only if a spawned thread executed and set the probe value.
+# Actually try to run a thread. OS.has_feature("threads") is NOT reliable here — it
+# returns false on Godot 3.6 native/headless Linux builds where threads work fine, so
+# trusting it forced MST on desktop. The only trustworthy signal is to spawn a thread
+# and see if its body executed. Returns true only if it did.
 func _probe_thread_support() -> bool:
-	if not OS.has_feature("threads"):
-		return false  # fast path: engine reports none — believe the negative
 	_probe_value = 0
 	var probe := Thread.new()
 	var err = probe.start(self, "_thread_probe_body", null)
 	if err != OK:
-		return false
-	# Join (blocks until the thread returns). On a working build this is instant; on a
-	# broken no-threads build start() would have failed above or the body never ran.
+		return false  # engine refused to start a thread → none available
+	# Join (blocks until the body returns). Instant on a working build; on a real
+	# no-threads build start() above would have errored.
 	probe.wait_to_finish()
 	return _probe_value == 1
 
