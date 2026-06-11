@@ -948,6 +948,30 @@ class OdiseaCentral:
             return web.FileResponse(index_path)
         return web.Response(text="<h1>Odisea Central</h1><p>Dashboard not built. Check /health for metrics.</p>", content_type="text/html")
 
+    async def handle_pwa_root_file(self, request):
+        """Serve PWA files that live at the dashboard root (sw.js, manifest,
+        icons, ...). These aren't under /assets/, so they need their own route.
+        Only an allowlist of filenames is served, to avoid path traversal."""
+        name = request.match_info.get("name", "")
+        allowed = {
+            "sw.js", "registerSW.js", "manifest.webmanifest",
+            "favicon.svg", "icons.svg",
+            "pwa-192x192.png", "pwa-512x512.png", "apple-touch-icon.png",
+        }
+        # Workbox emits a hashed runtime file (workbox-<hash>.js).
+        is_workbox = name.startswith("workbox-") and name.endswith(".js")
+        if name not in allowed and not is_workbox:
+            return web.Response(status=404)
+        fpath = os.path.join(STATIC_DIR, name)
+        if not os.path.isfile(fpath):
+            return web.Response(status=404)
+        # The service worker must not be cached, or clients get stuck on an old
+        # SW that never updates.
+        headers = {}
+        if name == "sw.js" or name == "registerSW.js":
+            headers["Cache-Control"] = "no-cache"
+        return web.FileResponse(fpath, headers=headers)
+
     # --- SQLite Helpers ---
     def _get_db(self):
         return sqlite3.connect(SQLITE_DB)
@@ -1167,6 +1191,11 @@ class OdiseaCentral:
 
             # CI/CD: GitHub push webhook -> pull + redeploy
             web.post('/webhook/deploy', self.handle_deploy_webhook),
+
+            # PWA root files (sw.js, manifest, icons, workbox-*.js). Registered
+            # last so the single-segment match doesn't shadow the routes above;
+            # the handler allowlists filenames and 404s anything else.
+            web.get('/{name}', self.handle_pwa_root_file),
         ])
 
         if os.path.exists(STATIC_DIR):
