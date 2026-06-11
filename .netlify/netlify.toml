@@ -1,0 +1,51 @@
+plugins = []
+redirects = []
+
+[functions]
+
+[functions."*"]
+
+[build]
+publish = "/run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src"
+publishOrigin = "default"
+
+[build.environment]
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]
+
+[[headers]]
+for = "/*"
+
+[headers.values]
+Cross-Origin-Opener-Policy = "same-origin"
+Cross-Origin-Embedder-Policy = "credentialless"
+
+[[headers]]
+for = "/*.wasm"
+
+[headers.values]
+Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+for = "/*.wasm.gz"
+
+[headers.values]
+Cache-Control = "public, max-age=31536000, immutable"
+Content-Encoding = "gzip"
+
+[[headers]]
+for = "/*.pck.gz"
+
+[headers.values]
+Cache-Control = "public, max-age=31536000, immutable"
+Content-Encoding = "gzip"

@@ -208,31 +208,40 @@ $GODOT_HEAD_INCLUDE
 	</script>
 	<script>
 		// ================================================================
-		// PCK Remote Load with Local Fallback
-		// Attempts to load the .pck from GitHub Pages to save Netlify bandwidth.
-		// Falls back to local Netlify files if GitHub Pages is unreachable.
+		// Remote Asset Loader with Local Fallback
+		// Loads .pck and .wasm from GitHub Pages to save Netlify bandwidth.
+		// Falls back to local files if GitHub Pages is unreachable.
 		// ================================================================
 		(function() {
 			var originalFetch = window.fetch;
-			var remotePck = "https://icarito.github.io/Odisea/Odisea.pck.gz";
-			
+			var PAGES_BASE = "https://icarito.github.io/Odisea";
+
 			window.fetch = function(resource, init) {
-				var isPck = typeof resource === 'string' && resource.indexOf('.pck') !== -1;
-				
-				// Only intercept relative/local .pck requests
-				if (isPck && !resource.startsWith('http')) {
-					console.log("[PCK] Attempting to load from GitHub Pages:", remotePck);
-					return originalFetch(remotePck, init).then(function(response) {
+				if (typeof resource !== 'string' || resource.startsWith('http') || resource.startsWith('blob:')) {
+					return originalFetch(resource, init);
+				}
+
+				var isPck = resource.indexOf('.pck') !== -1;
+				var isWasm = resource.indexOf('.wasm') !== -1;
+
+				if (isPck || isWasm) {
+					var filename = resource.split('/').pop();
+					var remoteUrl = PAGES_BASE + "/" + filename;
+					var assetType = isPck ? "PCK" : "WASM";
+
+					console.log("[" + assetType + "] Attempting GitHub Pages:", remoteUrl);
+					return originalFetch(remoteUrl, init).then(function(response) {
 						if (response.ok) {
-							console.log("[PCK] Successfully loaded from GitHub Pages.");
+							console.log("[" + assetType + "] Loaded from GitHub Pages.");
 							return response;
 						}
 						throw new Error("GitHub Pages returned " + response.status);
 					}).catch(function(err) {
-						console.warn("[PCK] GitHub Pages failed, falling back to local:", resource, err);
+						console.warn("[" + assetType + "] GitHub Pages failed, falling back to local:", resource, err);
 						return originalFetch(resource, init);
 					});
 				}
+
 				return originalFetch(resource, init);
 			};
 		})();
