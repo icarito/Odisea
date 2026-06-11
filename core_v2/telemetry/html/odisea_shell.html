@@ -149,6 +149,36 @@ $GODOT_HEAD_INCLUDE
 })();
 	</script>
 	<script>
+		// ================================================================
+		// PCK Remote Load with Local Fallback
+		// Attempts to load the .pck from GitHub Pages to save Netlify bandwidth.
+		// Falls back to local Netlify files if GitHub Pages is unreachable.
+		// ================================================================
+		(function() {
+			var originalFetch = window.fetch;
+			var remotePck = "https://icarito.github.io/Odisea/Odisea.pck";
+			
+			window.fetch = function(resource, init) {
+				var isPck = typeof resource === 'string' && resource.indexOf('.pck') !== -1;
+				
+				// Only intercept relative/local .pck requests
+				if (isPck && !resource.startsWith('http')) {
+					console.log("[PCK] Attempting to load from GitHub Pages:", remotePck);
+					return originalFetch(remotePck, init).then(function(response) {
+						if (response.ok) {
+							console.log("[PCK] Successfully loaded from GitHub Pages.");
+							return response;
+						}
+						throw new Error("GitHub Pages returned " + response.status);
+					}).catch(function(err) {
+						console.warn("[PCK] GitHub Pages failed, falling back to local:", resource, err);
+						return originalFetch(resource, init);
+					});
+				}
+				return originalFetch(resource, init);
+			};
+		})();
+
 		var engine = new Engine($GODOT_CONFIG);
 		engine.startGame();
 	</script>
