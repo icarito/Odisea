@@ -162,6 +162,7 @@ jobs:
 
       - name: Export HTML5 Threads
         run: |
+          export PATH="$HOME/.local/bin:$PATH"
           TPL_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
           echo "Templates dir: $TPL_DIR"
           ls -la "$TPL_DIR/"webassembly*.zip 2>/dev/null || true
