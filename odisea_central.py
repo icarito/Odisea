@@ -1,9 +1,12 @@
 import asyncio
 import datetime
+import hashlib
+import hmac
 import json
 import logging
 import os
 import sqlite3
+import subprocess
 import time
 import uuid
 import zlib
@@ -45,6 +48,16 @@ STATIC_DIR = os.environ.get("CENTRAL_STATIC_DIR", "./dashboard/dist")
 
 # Scenes always offered in dashboard dropdowns, even before any telemetry exists.
 DEFAULT_SCENES = [s for s in os.environ.get("CENTRAL_DEFAULT_SCENES", "Dome_Crio,Exterior,ZeroG").split(",") if s]
+
+# Deploy webhook (GitHub push -> auto pull + redeploy).
+# Secret defaults to BRIDGE_TOKEN so there's nothing extra to configure, but can
+# be overridden. Set DEPLOY_WEBHOOK_SECRET to "" to disable the endpoint.
+DEPLOY_WEBHOOK_SECRET = os.environ.get("DEPLOY_WEBHOOK_SECRET", BRIDGE_TOKEN)
+# Path to the deploy script that does the pull + redeploy. Run detached so it
+# survives the restart of this very process.
+DEPLOY_SCRIPT = os.environ.get("DEPLOY_SCRIPT", os.path.expanduser("~/odisea-deploy/deploy.sh"))
+# Branch whose pushes trigger a deploy.
+DEPLOY_BRANCH = os.environ.get("DEPLOY_BRANCH", "main")
 
 AUTH_MAX_FAILS = int(os.environ.get("CENTRAL_AUTH_MAX_FAILS", 8))
 AUTH_FAIL_WINDOW = int(os.environ.get("CENTRAL_AUTH_FAIL_WINDOW", 60))
@@ -740,11 +753,99 @@ class OdiseaCentral:
             self.event_subscribers.discard(ws)
         return ws
 
+    async def handle_deploy_webhook(self, request):
+        """GitHub push webhook: validate HMAC, then run the deploy script detached.
+
+        Configure on GitHub: Settings -> Webhooks -> Payload URL
+        https://odisea.educa.juegos/webhook/deploy, Content type application/json,
+        Secret = the bridge token (or DEPLOY_WEBHOOK_SECRET), events = "Just the push event".
+        """
+        if not DEPLOY_WEBHOOK_SECRET:
+            return web.json_response({"error": "deploy webhook disabled"}, status=503)
+
+        body = await request.read()
+
+        # Validate GitHub's HMAC-SHA256 signature over the raw body.
+        sig_header = request.headers.get("X-Hub-Signature-256", "")
+        expected = "sha256=" + hmac.new(
+            DEPLOY_WEBHOOK_SECRET.encode(), body, hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(sig_header, expected):
+            logger.warning("deploy webhook: bad signature from %s", self._client_ip(request))
+            return web.json_response({"error": "invalid signature"}, status=401)
+
+        # Only redeploy on a push to the configured branch.
+        event = request.headers.get("X-GitHub-Event", "")
+        if event == "ping":
+            return web.json_response({"ok": True, "pong": True})
+        if event != "push":
+            return web.json_response({"ok": True, "ignored": f"event={event}"})
+
+        try:
+            payload = json.loads(body or b"{}")
+        except json.JSONDecodeError:
+            payload = {}
+        ref = payload.get("ref", "")
+        if ref != f"refs/heads/{DEPLOY_BRANCH}":
+            return web.json_response({"ok": True, "ignored": f"ref={ref}"})
+
+        if not os.path.exists(DEPLOY_SCRIPT):
+            logger.error("deploy webhook: script not found at %s", DEPLOY_SCRIPT)
+            return web.json_response({"error": "deploy script not found"}, status=500)
+
+        # Run detached so the deploy can restart this process without killing
+        # the script mid-flight. Logs go to a file next to the script.
+        log_path = os.path.join(os.path.dirname(DEPLOY_SCRIPT), "deploy.log")
+        logger.info("deploy webhook: triggering %s (ref=%s)", DEPLOY_SCRIPT, ref)
+        try:
+            with open(log_path, "ab") as logf:
+                subprocess.Popen(
+                    ["/bin/bash", DEPLOY_SCRIPT],
+                    stdout=logf,
+                    stderr=subprocess.STDOUT,
+                    stdin=subprocess.DEVNULL,
+                    cwd=os.path.dirname(DEPLOY_SCRIPT),
+                    start_new_session=True,  # detach from this process group
+                )
+        except Exception as e:
+            logger.error("deploy webhook: failed to spawn deploy (%s)", e)
+            return web.json_response({"error": str(e)}, status=500)
+
+        return web.json_response({"ok": True, "deploying": True, "ref": ref})
+
     async def _db_worker(self):
         """Background worker for SQLite writes (performance fix)."""
         import sqlite3
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
+
+        # Ensure the schema exists before any INSERT/SELECT. Without this, a
+        # fresh deploy (DB with no heartbeats table) makes every /api/ghosts*
+        # query return {"error": "no such table"}, which the dashboard then
+        # tries to .map() over and crashes.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS heartbeats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_id TEXT,
+                session_id TEXT,
+                timestamp REAL,
+                scene TEXT,
+                platform TEXT,
+                fps REAL,
+                memory_mb REAL,
+                pos_x REAL,
+                pos_y REAL,
+                pos_z REAL,
+                engine_version TEXT,
+                peer_id TEXT,
+                UNIQUE(player_id, session_id, timestamp)
+            );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_scene ON heartbeats(scene);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_timestamp ON heartbeats(timestamp);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_platform ON heartbeats(platform);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_session ON heartbeats(session_id);")
+        conn.commit()
 
         while True:
             try:
@@ -866,7 +967,11 @@ class OdiseaCentral:
             conn.close()
             return web.json_response(rows)
         except Exception as e:
-            return web.json_response({"error": str(e)}, status=500)
+            # Return an empty array (not an error object) so the dashboard,
+            # which maps over the response, degrades gracefully instead of
+            # crashing with "e.map is not a function".
+            logger.warning(f"{request.path}: query failed, returning [] ({e})")
+            return web.json_response([])
 
     async def handle_api_ghosts_heatmap(self, request):
         guard = self._auth_guard(request)
@@ -905,7 +1010,11 @@ class OdiseaCentral:
             conn.close()
             return web.json_response(rows)
         except Exception as e:
-            return web.json_response({"error": str(e)}, status=500)
+            # Return an empty array (not an error object) so the dashboard,
+            # which maps over the response, degrades gracefully instead of
+            # crashing with "e.map is not a function".
+            logger.warning(f"{request.path}: query failed, returning [] ({e})")
+            return web.json_response([])
 
     async def handle_api_ghosts_sessions(self, request):
         guard = self._auth_guard(request)
@@ -938,7 +1047,11 @@ class OdiseaCentral:
             conn.close()
             return web.json_response(rows)
         except Exception as e:
-            return web.json_response({"error": str(e)}, status=500)
+            # Return an empty array (not an error object) so the dashboard,
+            # which maps over the response, degrades gracefully instead of
+            # crashing with "e.map is not a function".
+            logger.warning(f"{request.path}: query failed, returning [] ({e})")
+            return web.json_response([])
 
     async def handle_api_ghosts_active(self, request):
         guard = self._auth_guard(request)
@@ -1024,6 +1137,9 @@ class OdiseaCentral:
             web.get('/api/ghosts/sessions', self.handle_api_ghosts_sessions),
             web.get('/api/ghosts/active', self.handle_api_ghosts_active),
             web.get('/api/scenes', self.handle_api_scenes),
+
+            # CI/CD: GitHub push webhook -> pull + redeploy
+            web.post('/webhook/deploy', self.handle_deploy_webhook),
         ])
 
         if os.path.exists(STATIC_DIR):
